@@ -30,11 +30,15 @@ export default function Mail(props: {
     previousPageData: ThreadsResponse | null,
   ) => {
     if (previousPageData && !previousPageData.nextPageToken) return null;
-    const queryParams = new URLSearchParams(query as Record<string, string>);
+
     // Append nextPageToken for subsequent pages
     if (pageIndex > 0 && previousPageData?.nextPageToken) {
-      queryParams.set("nextPageToken", previousPageData.nextPageToken);
+      query.nextPageToken = previousPageData.nextPageToken;
     }
+
+    // biome-ignore lint/suspicious/noExplicitAny: params
+    const queryParams = new URLSearchParams(query as any);
+
     return `/api/threads?${queryParams.toString()}`;
   };
 

@@ -121,6 +121,16 @@ export interface EmailProvider {
     messages: ParsedMessage[];
     nextPageToken?: string;
   }>;
+  getMessagesFromSender(options: {
+    senderEmail: string;
+    maxResults?: number;
+    pageToken?: string;
+    before?: Date;
+    after?: Date;
+  }): Promise<{
+    messages: ParsedMessage[];
+    nextPageToken?: string;
+  }>;
   getMessagesBatch(messageIds: string[]): Promise<ParsedMessage[]>;
   getAccessToken(): string;
   checkIfReplySent(senderEmail: string): Promise<boolean>;

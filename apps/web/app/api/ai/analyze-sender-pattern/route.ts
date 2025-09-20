@@ -1,24 +1,22 @@
 import { NextResponse, after } from "next/server";
 import { headers } from "next/headers";
-import type { gmail_v1 } from "@googleapis/gmail";
 import { z } from "zod";
-import { getGmailClientWithRefresh } from "@/utils/gmail/client";
 import { withError } from "@/utils/middleware";
 import prisma from "@/utils/prisma";
-import { createScopedLogger } from "@/utils/logger";
+import { createScopedLogger, type Logger } from "@/utils/logger";
 import { aiDetectRecurringPattern } from "@/utils/ai/choose-rule/ai-detect-recurring-pattern";
 import { isValidInternalApiKey } from "@/utils/internal-api";
-import { getThreadMessages, getThreads } from "@/utils/gmail/thread";
 import { extractEmailAddress } from "@/utils/email";
 import { getEmailForLLM } from "@/utils/get-email-from-message";
 import { saveLearnedPattern } from "@/utils/rule/learned-patterns";
+import { checkSenderRuleHistory } from "@/utils/rule/check-sender-rule-history";
+import { createEmailProvider } from "@/utils/email/provider";
+import type { EmailProvider } from "@/utils/email/types";
 
 export const maxDuration = 60;
 
-const THRESHOLD_EMAILS = 3;
+const THRESHOLD_THREADS = 3;
 const MAX_RESULTS = 10;
-
-const logger = createScopedLogger("api/ai/pattern-match");
 
 const schema = z.object({
   emailAccountId: z.string(),
@@ -29,6 +27,8 @@ export type AnalyzeSenderPatternBody = z.infer<typeof schema>;
 export const POST = withError(async (request) => {
   const json = await request.json();
 
+  let logger = createScopedLogger("api/ai/pattern-match");
+
   if (!isValidInternalApiKey(await headers(), logger)) {
     logger.error("Invalid API key for sender pattern analysis", json);
     return NextResponse.json({ error: "Invalid API key" });
@@ -38,10 +38,12 @@ export const POST = withError(async (request) => {
   const { emailAccountId } = data;
   const from = extractEmailAddress(data.from);
 
-  logger.trace("Analyzing sender pattern", { emailAccountId, from });
+  logger = logger.with({ emailAccountId, from });
+
+  logger.trace("Analyzing sender pattern");
 
   // return immediately and process in background
-  after(() => process({ emailAccountId, from }));
+  after(() => process({ emailAccountId, from, logger }));
   return NextResponse.json({ processing: true });
 });
 
@@ -56,20 +58,17 @@ export const POST = withError(async (request) => {
 async function process({
   emailAccountId,
   from,
+  logger,
 }: {
   emailAccountId: string;
   from: string;
+  logger: Logger;
 }) {
   try {
     const emailAccount = await getEmailAccountWithRules({ emailAccountId });
 
-    if (emailAccount?.account?.provider !== "google") {
-      logger.warn("Unsupported provider", { emailAccountId });
-      return NextResponse.json({ success: false }, { status: 400 });
-    }
-
     if (!emailAccount) {
-      logger.error("Email account not found", { emailAccountId });
+      logger.error("Email account not found");
       return NextResponse.json({ success: false }, { status: 404 });
     }
 
@@ -83,38 +82,42 @@ async function process({
     });
 
     if (existingCheck?.patternAnalyzed) {
-      logger.info("Sender has already been analyzed", { from, emailAccountId });
+      logger.info("Sender has already been analyzed");
       return NextResponse.json({ success: true });
     }
 
     const account = emailAccount.account;
 
-    if (!account?.access_token || !account?.refresh_token) {
-      logger.error("No Gmail account found", { emailAccountId });
+    if (!account?.provider) {
+      logger.error("No email provider found");
       return NextResponse.json({ success: false }, { status: 404 });
     }
 
-    const gmail = await getGmailClientWithRefresh({
-      accessToken: account.access_token,
-      refreshToken: account.refresh_token,
-      expiresAt: account.expires_at?.getTime() || null,
+    const provider = await createEmailProvider({
       emailAccountId,
+      provider: account.provider,
     });
 
     const threadsWithMessages = await getThreadsFromSender(
-      gmail,
+      provider,
       from,
       MAX_RESULTS,
+      logger,
     );
 
     // If no threads found or we've detected a conversation, return early
     if (threadsWithMessages.length === 0) {
-      logger.info("No threads found from this sender", {
-        from,
-        emailAccountId,
-      });
+      logger.info("No threads found from this sender");
 
       // Don't record a check since we didn't run the AI analysis
+      return NextResponse.json({ success: true });
+    }
+
+    if (threadsWithMessages.length < THRESHOLD_THREADS) {
+      logger.info("Not enough emails found from this sender", {
+        threadsWithMessagesCount: threadsWithMessages.length,
+      });
+
       return NextResponse.json({ success: true });
     }
 
@@ -122,15 +125,29 @@ async function process({
       (thread) => thread.messages,
     );
 
-    if (allMessages.length < THRESHOLD_EMAILS) {
-      logger.info("Not enough emails found from this sender", {
-        from,
-        emailAccountId,
-        count: allMessages.length,
+    const senderHistory = await checkSenderRuleHistory({
+      emailAccountId,
+      from,
+      provider,
+    });
+
+    if (!senderHistory.hasConsistentRule) {
+      logger.info("Sender does not have consistent rule history", {
+        totalEmails: senderHistory.totalEmails,
+        uniqueRulesMatched: senderHistory.ruleMatches.size,
       });
+
+      if (senderHistory.totalEmails > 0) {
+        await savePatternCheck({ emailAccountId, from });
+      }
 
       return NextResponse.json({ success: true });
     }
+
+    logger.info("Sender has consistent rule history", {
+      consistentRule: senderHistory.consistentRuleName,
+      totalEmails: senderHistory.totalEmails,
+    });
 
     const emails = allMessages.map((message) => getEmailForLLM(message));
 
@@ -141,25 +158,30 @@ async function process({
         name: rule.name,
         instructions: rule.instructions || "",
       })),
+      consistentRuleName: senderHistory.consistentRuleName,
     });
 
     if (patternResult?.matchedRule) {
-      await saveLearnedPattern({
-        emailAccountId,
-        from,
-        ruleName: patternResult.matchedRule,
-      });
+      // Verify the AI matched the same rule as the historical data
+      if (patternResult.matchedRule === senderHistory.consistentRuleName) {
+        await saveLearnedPattern({
+          emailAccountId,
+          from,
+          ruleName: patternResult.matchedRule,
+        });
+      } else {
+        logger.warn("AI suggested different rule than historical data", {
+          aiRule: patternResult.matchedRule,
+          historicalRule: senderHistory.consistentRuleName,
+        });
+      }
     }
 
     await savePatternCheck({ emailAccountId, from });
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    logger.error("Error in pattern match API", {
-      from,
-      emailAccountId,
-      error,
-    });
+    logger.error("Error in pattern match API", { error });
 
     return NextResponse.json(
       { error: "Failed to detect pattern" },
@@ -205,23 +227,23 @@ async function savePatternCheck({
  * by excluding threads where users have replied or others have participated.
  */
 async function getThreadsFromSender(
-  gmail: gmail_v1.Gmail,
+  provider: EmailProvider,
   sender: string,
   maxResults: number,
+  logger: Logger,
 ) {
   const from = extractEmailAddress(sender);
-  const threads = await getThreads(
-    `from:${from} -label:sent -label:draft`,
-    [],
-    gmail,
+
+  const { threads } = await provider.getThreadsWithQuery({
+    query: { fromEmail: from, type: "all" },
     maxResults,
-  );
+  });
 
   const threadsWithMessages = [];
 
   // Check for conversation threads
-  for (const thread of threads.threads) {
-    const messages = await getThreadMessages(thread.id, gmail);
+  for (const thread of threads) {
+    const messages = await provider.getThreadMessages(thread.id);
 
     // Check if this is a conversation (multiple senders)
     const senders = messages.map((msg) =>
@@ -231,9 +253,7 @@ async function getThreadsFromSender(
 
     // If we found a conversation thread, skip this sender entirely
     if (hasOtherSenders) {
-      logger.info("Skipping sender pattern detection - conversation detected", {
-        from,
-      });
+      logger.info("Skipping sender pattern detection - conversation detected");
       return [];
     }
 

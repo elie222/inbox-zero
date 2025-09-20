@@ -1,12 +1,7 @@
 "use server";
 
-import type { gmail_v1 } from "@googleapis/gmail";
 import prisma from "@/utils/prisma";
 import { ColdEmailStatus } from "@prisma/client";
-import { getLabel, labelThread } from "@/utils/gmail/label";
-import { GmailLabel } from "@/utils/gmail/label";
-import { getThreads } from "@/utils/gmail/thread";
-import { inboxZeroLabels } from "@/utils/label";
 import { emailToContent } from "@/utils/mail";
 import { isColdEmail } from "@/utils/cold-email/is-cold-email";
 import {
@@ -16,9 +11,9 @@ import {
   updateColdEmailSettingsBody,
 } from "@/utils/actions/cold-email.validation";
 import { actionClient } from "@/utils/actions/safe-action";
-import { getGmailClientForEmail } from "@/utils/account";
 import { SafeError } from "@/utils/error";
 import { createEmailProvider } from "@/utils/email/provider";
+import type { EmailProvider } from "@/utils/email/types";
 
 export const updateColdEmailSettingsAction = actionClient
   .metadata({ name: "updateColdEmailSettings" })
@@ -53,49 +48,65 @@ export const updateColdEmailPromptAction = actionClient
 export const markNotColdEmailAction = actionClient
   .metadata({ name: "markNotColdEmail" })
   .schema(markNotColdEmailBody)
-  .action(async ({ ctx: { emailAccountId }, parsedInput: { sender } }) => {
-    const gmail = await getGmailClientForEmail({ emailAccountId });
+  .action(
+    async ({ ctx: { emailAccountId, provider }, parsedInput: { sender } }) => {
+      const emailProvider = await createEmailProvider({
+        emailAccountId,
+        provider,
+      });
 
-    await Promise.all([
-      prisma.coldEmail.update({
-        where: {
-          emailAccountId_fromEmail: {
-            emailAccountId,
-            fromEmail: sender,
+      await Promise.all([
+        prisma.coldEmail.update({
+          where: {
+            emailAccountId_fromEmail: {
+              emailAccountId,
+              fromEmail: sender,
+            },
           },
-        },
-        data: {
-          status: ColdEmailStatus.USER_REJECTED_COLD,
-        },
-      }),
-      removeColdEmailLabelFromSender(gmail, sender),
-    ]);
+          data: {
+            status: ColdEmailStatus.USER_REJECTED_COLD,
+          },
+        }),
+        removeColdEmailLabelFromSender(emailProvider, sender),
+      ]);
+    },
+  );
+
+/**
+ * Helper function to get threads from a specific sender using the email provider
+ */
+async function getThreadsFromSender(
+  emailProvider: EmailProvider,
+  sender: string,
+  labelId?: string,
+): Promise<{ id: string }[]> {
+  const { threads } = await emailProvider.getThreadsWithQuery({
+    query: {
+      fromEmail: sender,
+      labelId,
+    },
+    maxResults: 100,
   });
 
+  return threads.map((thread) => ({ id: thread.id }));
+}
+
 async function removeColdEmailLabelFromSender(
-  gmail: gmail_v1.Gmail,
+  emailProvider: EmailProvider,
   sender: string,
 ) {
   // 1. find cold email label
   // 2. find emails from sender
   // 3. remove cold email label from emails
 
-  const label = await getLabel({
-    gmail,
-    name: inboxZeroLabels.cold_email.name,
-  });
+  const label = await emailProvider.getOrCreateInboxZeroLabel("cold_email");
   if (!label?.id) return;
 
-  const threads = await getThreads(`from:${sender}`, [label.id], gmail);
+  const threads = await getThreadsFromSender(emailProvider, sender, label.id);
 
-  for (const thread of threads.threads || []) {
+  for (const thread of threads) {
     if (!thread.id) continue;
-    await labelThread({
-      gmail,
-      threadId: thread.id,
-      addLabelIds: [GmailLabel.INBOX],
-      removeLabelIds: [label.id],
-    });
+    await emailProvider.removeThreadLabel(thread.id, label.id);
   }
 }
 

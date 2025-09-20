@@ -608,7 +608,7 @@ export function RuleForm({
                               }
                             )?.instructions
                           }
-                          placeholder='e.g. Apply this rule to all "receipts"'
+                          placeholder="e.g. Newsletters, regular content from publications, blogs, or services I've subscribed to"
                           tooltipText="The instructions that will be passed to the AI."
                         />
                       )}
@@ -1221,8 +1221,8 @@ function ActionCard({
                     !setManually ? (
                     <div className="mt-2 flex h-full flex-col items-center justify-center gap-2 p-4 border rounded">
                       <div className="max-w-sm text-center text-sm text-muted-foreground">
-                        Our AI will generate a reply using your knowledge base
-                        and previous conversations with the sender
+                        Our AI will generate a reply based on your email history
+                        and knowledge base
                       </div>
 
                       <Button

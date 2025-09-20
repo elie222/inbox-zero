@@ -1,6 +1,20 @@
 import { capitalCase } from "capital-case";
 import { ActionType } from "@prisma/client";
 import { getEmailTerminology } from "@/utils/terminology";
+import {
+  ArchiveIcon,
+  FolderInputIcon,
+  ForwardIcon,
+  ReplyIcon,
+  ShieldCheckIcon,
+  SendIcon,
+  TagIcon,
+  WebhookIcon,
+  FileTextIcon,
+  EyeIcon,
+  MailIcon,
+  NewspaperIcon,
+} from "lucide-react";
 
 export function getActionDisplay(
   action: {
@@ -21,7 +35,7 @@ export function getActionDisplay(
       return "Draft Reply";
     case ActionType.LABEL:
       return action.label
-        ? `${terminology.label.action}: ${action.label}`
+        ? `${terminology.label.action} as '${action.label}'`
         : terminology.label.action;
     case ActionType.ARCHIVE:
       return "Skip Inbox";
@@ -37,10 +51,43 @@ export function getActionDisplay(
       return `Auto-update reply ${terminology.label.singular}`;
     case ActionType.MOVE_FOLDER:
       return action.folderName
-        ? `Folder: ${action.folderName}`
+        ? `Move to '${action.folderName}' folder`
         : "Move to folder";
     default:
       // Default to capital case for other action types
       return capitalCase(action.type);
+  }
+}
+
+export function getActionIcon(actionType: ActionType) {
+  switch (actionType) {
+    case ActionType.LABEL:
+      return TagIcon;
+    case ActionType.ARCHIVE:
+      return ArchiveIcon;
+    case ActionType.MOVE_FOLDER:
+      return FolderInputIcon;
+    case ActionType.DRAFT_EMAIL:
+      return FileTextIcon;
+    case ActionType.REPLY:
+      return ReplyIcon;
+    case ActionType.SEND_EMAIL:
+      return SendIcon;
+    case ActionType.FORWARD:
+      return ForwardIcon;
+    case ActionType.MARK_SPAM:
+      return ShieldCheckIcon;
+    case ActionType.MARK_READ:
+      return MailIcon;
+    case ActionType.CALL_WEBHOOK:
+      return WebhookIcon;
+    case ActionType.TRACK_THREAD:
+      return EyeIcon;
+    case ActionType.DIGEST:
+      return NewspaperIcon;
+    default: {
+      const exhaustiveCheck: never = actionType;
+      return exhaustiveCheck;
+    }
   }
 }
