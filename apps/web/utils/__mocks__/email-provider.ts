@@ -37,13 +37,11 @@ export const createMockEmailProvider = (
 ): EmailProvider => ({
   name: "google",
   getThreads: vi.fn().mockResolvedValue([]),
-  getThread: vi
-    .fn()
-    .mockResolvedValue({
-      id: "thread1",
-      messages: [],
-      snippet: "Test thread snippet",
-    }),
+  getThread: vi.fn().mockResolvedValue({
+    id: "thread1",
+    messages: [],
+    snippet: "Test thread snippet",
+  }),
   getLabels: vi.fn().mockResolvedValue([]),
   getLabelById: vi.fn().mockResolvedValue(null),
   getMessage: vi.fn().mockResolvedValue({
