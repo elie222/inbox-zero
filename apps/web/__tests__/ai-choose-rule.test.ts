@@ -1,8 +1,8 @@
 import { describe, expect, test, vi } from "vitest";
 import { aiChooseRule } from "@/utils/ai/choose-rule/ai-choose-rule";
-import { type Action, ActionType, LogicalOperator } from "@prisma/client";
+import { ActionType } from "@prisma/client";
 import { defaultReplyTrackerInstructions } from "@/utils/reply-tracker/consts";
-import { getEmail, getEmailAccount } from "@/__tests__/helpers";
+import { getEmail, getEmailAccount, getRule } from "@/__tests__/helpers";
 
 // pnpm test-ai ai-choose-rule
 
@@ -78,6 +78,7 @@ describe.runIf(isAiTest)("aiChooseRule", () => {
         url: null,
         folderName: null,
         delayInMinutes: null,
+        folderId: null,
       },
     ]);
 
@@ -327,26 +328,3 @@ describe.runIf(isAiTest)("aiChooseRule", () => {
     });
   });
 });
-
-// helpers
-function getRule(instructions: string, actions: Action[] = []) {
-  return {
-    instructions,
-    name: "Joke requests",
-    actions,
-    id: "id",
-    userId: "userId",
-    createdAt: new Date(),
-    updatedAt: new Date(),
-    automate: false,
-    runOnThreads: false,
-    groupId: null,
-    from: null,
-    subject: null,
-    body: null,
-    to: null,
-    enabled: true,
-    categoryFilterType: null,
-    conditionalOperator: LogicalOperator.AND,
-  };
-}
