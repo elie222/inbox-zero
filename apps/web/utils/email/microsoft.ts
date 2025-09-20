@@ -685,12 +685,19 @@ export class OutlookProvider implements EmailProvider {
       filters.push(`from/emailAddress/address eq '${escapedEmail}'`);
     }
 
-    if (query?.q) {
-      // Escape single quotes in search query
-      const escapedQuery = query.q.replace(/'/g, "''");
-      filters.push(
-        `(contains(subject,'${escapedQuery}') or contains(bodyPreview,'${escapedQuery}'))`,
-      );
+    // Handle structured date options
+    if (query?.after) {
+      const afterISO = query.after.toISOString();
+      filters.push(`receivedDateTime gt ${afterISO}`);
+    }
+
+    if (query?.before) {
+      const beforeISO = query.before.toISOString();
+      filters.push(`receivedDateTime lt ${beforeISO}`);
+    }
+
+    if (query?.isUnread) {
+      filters.push("isRead eq false");
     }
 
     const filter = filters.length > 0 ? filters.join(" and ") : undefined;

@@ -26,6 +26,9 @@ export const GET = withEmailProvider(async (request) => {
   const nextPageToken = searchParams.get("nextPageToken");
   const q = searchParams.get("q");
   const labelId = searchParams.get("labelId");
+  const after = searchParams.get("after");
+  const before = searchParams.get("before");
+  const isUnread = searchParams.get("isUnread");
 
   const query = threadsQuery.parse({
     limit,
@@ -34,6 +37,9 @@ export const GET = withEmailProvider(async (request) => {
     nextPageToken,
     q,
     labelId,
+    after,
+    before,
+    isUnread,
   });
 
   try {
