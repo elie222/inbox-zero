@@ -232,7 +232,7 @@ async function getThreadsFromSender(
   const from = extractEmailAddress(sender);
 
   const { threads } = await provider.getThreadsWithQuery({
-    query: { fromEmail: from },
+    query: { fromEmail: from, type: "all" },
     maxResults,
   });
 
