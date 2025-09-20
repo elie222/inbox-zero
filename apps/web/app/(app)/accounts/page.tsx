@@ -90,11 +90,9 @@ function AccountItem({
         </div>
       </CardHeader>
       <CardContent className="flex justify-end gap-2">
-        <Link href={prefixPath(emailAccount.id, "/setup")}>
-          <Button variant="outline" size="sm" Icon={ArrowRight}>
-            View
-          </Button>
-        </Link>
+        <Button variant="outline" size="sm" Icon={ArrowRight} asChild>
+          <Link href={prefixPath(emailAccount.id, "/setup")}>View</Link>
+        </Button>
         {!emailAccount.isPrimary && (
           <ConfirmDialog
             trigger={
