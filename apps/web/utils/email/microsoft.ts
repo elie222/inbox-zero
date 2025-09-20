@@ -57,6 +57,7 @@ import type {
   EmailFilter,
 } from "@/utils/email/types";
 import { unwatchOutlook, watchOutlook } from "@/utils/outlook/watch";
+import { escapeODataString } from "@/utils/outlook/odata-escape";
 
 const logger = createScopedLogger("outlook-provider");
 
@@ -174,7 +175,7 @@ export class OutlookProvider implements EmailProvider {
 
     // Add exclusion filters for TO emails
     for (const email of excludeToEmails) {
-      const escapedEmail = email.replace(/'/g, "''");
+      const escapedEmail = escapeODataString(email);
       filters.push(
         `not (toRecipients/any(r: r/emailAddress/address eq '${escapedEmail}'))`,
       );
@@ -182,7 +183,7 @@ export class OutlookProvider implements EmailProvider {
 
     // Add exclusion filters for FROM emails
     for (const email of excludeFromEmails) {
-      const escapedEmail = email.replace(/'/g, "''");
+      const escapedEmail = escapeODataString(email);
       filters.push(`not (from/emailAddress/address eq '${escapedEmail}')`);
     }
 
@@ -544,7 +545,7 @@ export class OutlookProvider implements EmailProvider {
     messages: ParsedMessage[];
     nextPageToken?: string;
   }> {
-    const senderFilter = `from/emailAddress/address eq '${options.senderEmail}'`;
+    const senderFilter = `from/emailAddress/address eq '${escapeODataString(options.senderEmail)}'`;
     return this.getMessagesWithPagination({
       query: senderFilter,
       maxResults: options.maxResults,
@@ -680,7 +681,7 @@ export class OutlookProvider implements EmailProvider {
     // Add other filters
     if (query?.fromEmail) {
       // Escape single quotes in email address
-      const escapedEmail = query.fromEmail.replace(/'/g, "''");
+      const escapedEmail = escapeODataString(query.fromEmail);
       filters.push(`from/emailAddress/address eq '${escapedEmail}'`);
     }
 
@@ -831,7 +832,7 @@ export class OutlookProvider implements EmailProvider {
         .getClient()
         .api("/me/messages")
         .filter(
-          `from/emailAddress/address eq '${options.from}' and receivedDateTime lt ${options.date.toISOString()}`,
+          `from/emailAddress/address eq '${escapeODataString(options.from)}' and receivedDateTime lt ${options.date.toISOString()}`,
         )
         .top(2)
         .select("id")

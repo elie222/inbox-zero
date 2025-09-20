@@ -115,7 +115,7 @@ async function process({
 
     if (threadsWithMessages.length < THRESHOLD_THREADS) {
       logger.info("Not enough emails found from this sender", {
-        count: threadsWithMessages.length,
+        threadsWithMessagesCount: threadsWithMessages.length,
       });
 
       return NextResponse.json({ success: true });

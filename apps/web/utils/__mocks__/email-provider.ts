@@ -37,7 +37,13 @@ export const createMockEmailProvider = (
 ): EmailProvider => ({
   name: "google",
   getThreads: vi.fn().mockResolvedValue([]),
-  getThread: vi.fn().mockResolvedValue({ id: "thread1", messages: [] }),
+  getThread: vi
+    .fn()
+    .mockResolvedValue({
+      id: "thread1",
+      messages: [],
+      snippet: "Test thread snippet",
+    }),
   getLabels: vi.fn().mockResolvedValue([]),
   getLabelById: vi.fn().mockResolvedValue(null),
   getMessage: vi.fn().mockResolvedValue({
@@ -50,6 +56,9 @@ export const createMockEmailProvider = (
       date: new Date().toISOString(),
     },
     snippet: "Test message",
+    historyId: "12345",
+    subject: "Test",
+    date: new Date().toISOString(),
     textPlain: "Test content",
     textHtml: "<p>Test content</p>",
     attachments: [],
@@ -82,10 +91,12 @@ export const createMockEmailProvider = (
   markReadThread: vi.fn().mockResolvedValue(undefined),
   getDraft: vi.fn().mockResolvedValue(null),
   deleteDraft: vi.fn().mockResolvedValue(undefined),
-  createLabel: vi.fn().mockResolvedValue({ id: "label1", name: "Test Label" }),
+  createLabel: vi
+    .fn()
+    .mockResolvedValue({ id: "label1", name: "Test Label", type: "user" }),
   getOrCreateInboxZeroLabel: vi
     .fn()
-    .mockResolvedValue({ id: "label1", name: "Test Label" }),
+    .mockResolvedValue({ id: "label1", name: "Test Label", type: "user" }),
   getOriginalMessage: vi.fn().mockResolvedValue(null),
   getFiltersList: vi.fn().mockResolvedValue([]),
   createFilter: vi.fn().mockResolvedValue({}),
