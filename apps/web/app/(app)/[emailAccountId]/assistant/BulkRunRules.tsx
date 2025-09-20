@@ -12,7 +12,6 @@ import { runAiRules } from "@/utils/queue/email-actions";
 import { sleep } from "@/utils/sleep";
 import { PremiumAlertWithData, usePremium } from "@/components/PremiumAlert";
 import { SetDateDropdown } from "@/app/(app)/[emailAccountId]/assistant/SetDateDropdown";
-import { dateToSeconds } from "@/utils/date";
 import { useThreads } from "@/hooks/useThreads";
 import { useAiQueueState } from "@/store/ai-queue";
 import {
@@ -155,12 +154,6 @@ async function onRun(
   let nextPageToken = "";
   const LIMIT = 25;
 
-  const startDateInSeconds = dateToSeconds(startDate);
-  const endDateInSeconds = endDate ? dateToSeconds(endDate) : "";
-  const q = `after:${startDateInSeconds} ${
-    endDate ? `before:${endDateInSeconds}` : ""
-  } is:unread`;
-
   let aborted = false;
 
   function abort() {
@@ -173,7 +166,9 @@ async function onRun(
         type: "inbox",
         nextPageToken,
         limit: LIMIT,
-        q,
+        after: startDate,
+        before: endDate || undefined,
+        isUnread: true,
       };
       const res = await fetchWithAccount({
         url: `/api/threads?${

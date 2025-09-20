@@ -613,16 +613,31 @@ export class GmailProvider implements EmailProvider {
     const query = options.query;
 
     function getQuery() {
-      if (query?.q) {
-        return query.q;
-      }
+      const queryParts: string[] = [];
+
       if (query?.fromEmail) {
-        return `from:${query.fromEmail}`;
+        queryParts.push(`from:${query.fromEmail}`);
       }
+
+      if (query?.after) {
+        const afterSeconds = Math.floor(query.after.getTime() / 1000);
+        queryParts.push(`after:${afterSeconds}`);
+      }
+
+      if (query?.before) {
+        const beforeSeconds = Math.floor(query.before.getTime() / 1000);
+        queryParts.push(`before:${beforeSeconds}`);
+      }
+
+      if (query?.isUnread) {
+        queryParts.push("is:unread");
+      }
+
       if (query?.type === "archive") {
-        return `-label:${GmailLabel.INBOX}`;
+        queryParts.push(`-label:${GmailLabel.INBOX}`);
       }
-      return undefined;
+
+      return queryParts.length > 0 ? queryParts.join(" ") : undefined;
     }
 
     function getLabelIds(type?: string | null) {
