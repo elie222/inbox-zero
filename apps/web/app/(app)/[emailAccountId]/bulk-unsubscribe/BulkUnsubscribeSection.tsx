@@ -230,7 +230,7 @@ export function BulkUnsubscribe() {
               .
             </>
           ),
-          videoId: "T1rnooV4OYc",
+          youtubeVideoId: "T1rnooV4OYc",
         }}
       />
 
