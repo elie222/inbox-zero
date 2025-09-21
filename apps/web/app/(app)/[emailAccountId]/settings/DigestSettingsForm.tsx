@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useState } from "react";
 import { useForm, type SubmitHandler } from "react-hook-form";
+import { useAction } from "next-safe-action/hooks";
 import { zodResolver } from "@hookform/resolvers/zod";
 import useSWR from "swr";
 import { z } from "zod";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import { TimePicker } from "@/components/TimePicker";
 import { toastError, toastSuccess } from "@/components/Toast";
 import { LoadingContent } from "@/components/LoadingContent";
 import { useRules } from "@/hooks/useRules";
@@ -31,19 +33,13 @@ import {
   dayOfWeekToBitmask,
   bitmaskToDayOfWeek,
 } from "@/utils/schedule";
-import { useAction } from "next-safe-action/hooks";
-import DigestEmail, {
-  type DigestEmailProps,
-} from "@inboxzero/resend/emails/digest";
 
 const digestSettingsSchema = z.object({
   selectedItems: z.set(z.string()),
   // Schedule
   schedule: z.string().min(1, "Please select a frequency"),
   dayOfWeek: z.string().min(1, "Please select a day"),
-  hour: z.string().min(1, "Please select an hour"),
-  minute: z.string().min(1, "Please select minutes"),
-  ampm: z.enum(["AM", "PM"], { required_error: "Please select AM or PM" }),
+  time: z.string().min(1, "Please select a time"),
 });
 
 type DigestSettingsFormValues = z.infer<typeof digestSettingsSchema>;
@@ -61,21 +57,6 @@ const daysOfWeek = [
   { value: "4", label: "Thursday" },
   { value: "5", label: "Friday" },
   { value: "6", label: "Saturday" },
-];
-
-const hours = Array.from({ length: 12 }, (_, i) => ({
-  value: (i + 1).toString().padStart(2, "0"),
-  label: (i + 1).toString(),
-}));
-
-const minutes = ["00", "15", "30", "45"].map((m) => ({
-  value: m,
-  label: m,
-}));
-
-const ampmOptions = [
-  { value: "AM", label: "AM" },
-  { value: "PM", label: "PM" },
 ];
 
 export function DigestSettingsForm() {
@@ -121,9 +102,7 @@ export function DigestSettingsForm() {
       selectedItems: new Set(),
       schedule: "daily",
       dayOfWeek: "1",
-      hour: "09",
-      minute: "00",
-      ampm: "AM",
+      time: "09:00",
     },
   });
 
@@ -217,7 +196,7 @@ export function DigestSettingsForm() {
       };
 
       // Handle schedule update
-      const { schedule, dayOfWeek, hour, minute, ampm } = data;
+      const { schedule, dayOfWeek, time } = data;
 
       let intervalDays: number;
       switch (schedule) {
@@ -231,14 +210,11 @@ export function DigestSettingsForm() {
           intervalDays = 1;
       }
 
-      let hour24 = Number.parseInt(hour, 10);
-      if (ampm === "AM" && hour24 === 12) hour24 = 0;
-      else if (ampm === "PM" && hour24 !== 12) hour24 += 12;
+      const [hourStr, minuteStr] = time.split(":");
+      const hour24 = Number.parseInt(hourStr, 10);
+      const minute = Number.parseInt(minuteStr, 10);
 
-      const timeOfDay = createCanonicalTimeOfDay(
-        hour24,
-        Number.parseInt(minute, 10),
-      );
+      const timeOfDay = createCanonicalTimeOfDay(hour24, minute);
 
       const scheduleUpdateData = {
         intervalDays,
@@ -277,6 +253,11 @@ export function DigestSettingsForm() {
       value: "cold-emails",
     },
   ];
+
+  const selectedDigestNames = Array.from(selectedDigestItems).map((itemId) => {
+    if (itemId === "cold-emails") return "Cold Emails";
+    return rules?.find((rule) => rule.id === itemId)?.name || itemId;
+  });
 
   return (
     <div className="grid lg:grid-cols-2 gap-8 h-full">
@@ -352,100 +333,55 @@ export function DigestSettingsForm() {
                   </FormItem>
                 )}
 
-                <div className="space-y-2">
-                  <Label>at</Label>
-                  <div className="flex items-end gap-2">
-                    <FormItem>
-                      <Select
-                        value={watchedValues.hour}
-                        onValueChange={(val) => setValue("hour", val)}
-                      >
-                        <SelectTrigger id="hour-select">
-                          {watchedValues.hour}
-                        </SelectTrigger>
-                        <SelectContent>
-                          {hours.map((h) => (
-                            <SelectItem key={h.value} value={h.value}>
-                              {h.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </FormItem>
-                    <span className="pb-2">:</span>
-                    <FormItem>
-                      <Select
-                        value={watchedValues.minute}
-                        onValueChange={(val) => setValue("minute", val)}
-                      >
-                        <SelectTrigger id="minute-select">
-                          {watchedValues.minute}
-                        </SelectTrigger>
-                        <SelectContent>
-                          {minutes.map((m) => (
-                            <SelectItem key={m.value} value={m.value}>
-                              {m.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </FormItem>
-                    <FormItem>
-                      <Select
-                        value={watchedValues.ampm}
-                        onValueChange={(val) =>
-                          setValue("ampm", val as "AM" | "PM")
-                        }
-                      >
-                        <SelectTrigger id="ampm-select">
-                          {watchedValues.ampm}
-                        </SelectTrigger>
-                        <SelectContent>
-                          {ampmOptions.map((a) => (
-                            <SelectItem key={a.value} value={a.value}>
-                              {a.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </FormItem>
-                  </div>
-                </div>
+                <TimePicker
+                  id="time-picker"
+                  label="at"
+                  value={watchedValues.time}
+                  onChange={(value) => setValue("time", value)}
+                />
               </div>
             </div>
 
             <Button type="submit" loading={isSubmitting} className="mt-4">
-              Save Settings
+              Save
             </Button>
           </form>
         </LoadingContent>
       </div>
 
-      <EmailPreview
-        selectedDigestItems={selectedDigestItems}
-        rules={rules || []}
-      />
+      <EmailPreview selectedDigestNames={selectedDigestNames} />
     </div>
   );
 }
 
 function EmailPreview({
-  selectedDigestItems,
-  rules,
+  selectedDigestNames,
 }: {
-  selectedDigestItems: Set<string>;
-  rules: { id: string; name: string }[];
+  selectedDigestNames: string[];
 }) {
+  const { data: htmlContent } = useSWR<string>(
+    selectedDigestNames.length > 0
+      ? `/api/digest-preview?categories=${encodeURIComponent(JSON.stringify(selectedDigestNames))}`
+      : null,
+    async (url: string) => {
+      const response = await fetch(url);
+      if (!response.ok) throw new Error("Failed to fetch preview");
+      return response.text();
+    },
+    { keepPreviousData: true },
+  );
+
   return (
     <div>
       <Label>Preview</Label>
-      <div className="mt-3 border rounded-lg p-4 bg-slate-50 overflow-auto max-h-[700px]">
-        {selectedDigestItems.size > 0 ? (
-          <div className="bg-white rounded shadow-sm p-4">
-            <DigestEmail
-              {...createMockDigestData(selectedDigestItems, rules || [])}
-            />
-          </div>
+      <div className="mt-3 border rounded-lg overflow-hidden bg-slate-50">
+        {selectedDigestNames.length > 0 && htmlContent ? (
+          <iframe
+            title="Digest preview"
+            sandbox=""
+            className="w-full min-h-[700px] max-h-[700px] bg-white"
+            srcDoc={htmlContent}
+          />
         ) : (
           <div className="text-center text-slate-500 py-8">
             <p>Select digest items to see a preview</p>
@@ -481,7 +417,7 @@ function getInitialScheduleProps(
     return dayOfWeek !== null ? dayOfWeek.toString() : "1";
   })();
 
-  const initialTimeOfDay = digestSchedule?.timeOfDay
+  const initialTime = digestSchedule?.timeOfDay
     ? (() => {
         const hours = new Date(digestSchedule.timeOfDay)
           .getHours()
@@ -495,130 +431,9 @@ function getInitialScheduleProps(
       })()
     : "09:00";
 
-  const [initHour24, initMinute] = initialTimeOfDay.split(":");
-  const hour12 = (Number.parseInt(initHour24, 10) % 12 || 12)
-    .toString()
-    .padStart(2, "0");
-  const ampm = (Number.parseInt(initHour24, 10) < 12 ? "AM" : "PM") as
-    | "AM"
-    | "PM";
-
   return {
     schedule: initialSchedule,
     dayOfWeek: initialDayOfWeek,
-    hour: hour12,
-    minute: initMinute || "00",
-    ampm,
+    time: initialTime,
   };
 }
-
-const createMockDigestData = (
-  selectedItems: Set<string>,
-  rules: { id: string; name: string }[],
-): DigestEmailProps => {
-  const mockData: DigestEmailProps = {
-    baseUrl: "https://www.getinboxzero.com",
-    unsubscribeToken: "mock-token",
-    emailAccountId: "mock-account",
-    date: new Date(),
-    ruleNames: {},
-  };
-
-  rules?.forEach((rule) => {
-    mockData.ruleNames![rule.id] = rule.name;
-  });
-  mockData.ruleNames!["cold-emails"] = "Cold Emails";
-
-  const mockDataTemplates = {
-    newsletter: [
-      {
-        from: "Morning Brew",
-        subject: "🔥 Today's top business stories",
-        content:
-          "Apple unveils Vision Pro 2 with 40% lighter design and $2,499 price tag",
-      },
-      {
-        from: "The New York Times",
-        subject: "Breaking News: Latest developments",
-        content:
-          "Fed signals potential rate cuts as inflation shows signs of cooling to 3.2%",
-      },
-    ],
-    receipt: [
-      {
-        from: "Amazon",
-        subject: "Order #123-4567890-1234567",
-        content: "Your order has been delivered to your doorstep.",
-      },
-      {
-        from: "Uber Eats",
-        subject: "Your food is on the way!",
-        content: "Estimated delivery: 15-20 minutes",
-      },
-    ],
-    marketing: [
-      {
-        from: "Spotify",
-        subject: "Limited offer: 3 months premium for $0.99",
-        content: "Upgrade your music experience with this exclusive deal",
-      },
-      {
-        from: "Nike",
-        subject: "JUST IN: New Summer Collection 🔥",
-        content: "Be the first to shop our latest styles before they sell out",
-      },
-    ],
-    calendar: [
-      {
-        from: "Sarah Johnson",
-        subject: "Team Weekly Sync",
-        content:
-          "Title: Team Weekly Sync\nDate: Tomorrow, 10:00 AM - 11:00 AM • Meeting Room 3 / Zoom",
-      },
-    ],
-    coldEmail: [
-      {
-        from: "David Williams",
-        subject: "Partnership opportunity for your business",
-        content: "Growth Solutions Inc.",
-      },
-      {
-        from: "Jennifer Lee",
-        subject: "Request for a quick call this week",
-        content: "Venture Capital Partners",
-      },
-    ],
-  };
-
-  selectedItems.forEach((itemId) => {
-    if (itemId === "cold-emails") {
-      mockData.coldEmail = mockDataTemplates.coldEmail;
-    } else {
-      // For rules, use the rule name to determine mock data type
-      const rule = rules?.find((r) => r.id === itemId);
-      if (rule) {
-        const ruleName = rule.name.toLowerCase();
-        if (ruleName.includes("newsletter")) {
-          mockData.newsletter = mockDataTemplates.newsletter;
-        } else if (ruleName.includes("receipt") || ruleName.includes("order")) {
-          mockData.receipt = mockDataTemplates.receipt;
-        } else if (
-          ruleName.includes("marketing") ||
-          ruleName.includes("promo")
-        ) {
-          mockData.marketing = mockDataTemplates.marketing;
-        } else if (
-          ruleName.includes("calendar") ||
-          ruleName.includes("meeting")
-        ) {
-          mockData.calendar = mockDataTemplates.calendar;
-        } else {
-          // Default to newsletter for unknown rule types
-          mockData[itemId] = mockDataTemplates.newsletter;
-        }
-      }
-    }
-  });
-
-  return mockData;
-};

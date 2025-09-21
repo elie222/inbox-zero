@@ -64,6 +64,7 @@
     "@radix-ui/react-toggle": "1.1.10",
     "@radix-ui/react-tooltip": "1.2.8",
     "@radix-ui/react-use-controllable-state": "1.2.2",
+    "@react-email/render": "1.2.1",
     "@sentry/nextjs": "10.8.0",
     "@serwist/next": "9.2.0",
     "@stripe/stripe-js": "7.9.0",
