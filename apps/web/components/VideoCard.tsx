@@ -119,7 +119,7 @@ const VideoCard = React.forwardRef<
                         src={
                           muxPlaybackId
                             ? `https://image.mux.com/${muxPlaybackId}/thumbnail.jpg`
-                            : thumbnailSrc || ""
+                            : thumbnailSrc || "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR4nGNgYAAAAAMAAWgmWQ0AAAAASUVORK5CYII="
                         }
                         alt={title}
                         fill

@@ -108,7 +108,7 @@ export function OnboardingDialogContent({
           />
         </div>
       ) : youtubeVideoId ? (
-        <div className="bg-white rounded-lg p-6">
+        <div className="bg-background rounded-lg p-6">
           <div className="mb-4">
             <h2 className="text-xl font-semibold">{title}</h2>
             <p className="text-muted-foreground">{description}</p>
