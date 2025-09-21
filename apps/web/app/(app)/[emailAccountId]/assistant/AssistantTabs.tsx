@@ -37,31 +37,6 @@ export function AssistantTabs() {
               )}
             </TabsList>
           </div>
-
-          {/* <div className="flex items-center gap-2">
-                <Button asChild variant="outline">
-                  <Link
-                    href={prefixPath(
-                      emailAccountId,
-                      "/assistant/onboarding",
-                    )}
-                  >
-                    Set Up
-                  </Link>
-                </Button>
-
-                <OnboardingModal
-                  title="Getting started with AI Personal Assistant"
-                  description={
-                    <>
-                      Learn how to use the AI Personal Assistant to
-                      automatically label, archive, and more.
-                    </>
-                  }
-                  videoId="SoeNDVr7ve4"
-                />
-              </div> */}
-
           <CloseArtifactButton />
         </TabsToolbar>
 
