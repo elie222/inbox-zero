@@ -5,14 +5,23 @@ import DigestEmail, {
 } from "@inboxzero/resend/emails/digest";
 import { digestPreviewBody } from "@/app/api/digest-preview/validation";
 
-// http://localhost:3000/api/digest-preview?categories=newsletter,receipt,marketing
+// http://localhost:3000/api/digest-preview?categories=["newsletter","receipt","marketing","cold-emails"]
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const categoriesParam = searchParams.get("categories");
 
+    let categories: string[];
+    try {
+      categories = categoriesParam
+        ? JSON.parse(decodeURIComponent(categoriesParam))
+        : [];
+    } catch {
+      return new Response("Invalid categories parameter", { status: 400 });
+    }
+
     const { success, data } = digestPreviewBody.safeParse({
-      categories: categoriesParam?.split(","),
+      categories,
     });
 
     if (!success)

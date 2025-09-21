@@ -85,7 +85,6 @@ export function DigestSettingsForm() {
   const isLoading = rulesLoading || digestLoading || scheduleLoading;
   const error = rulesError || digestError || scheduleError;
 
-  // Use local state for MultiSelectFilter
   const [selectedDigestItems, setSelectedDigestItems] = useState<Set<string>>(
     new Set(),
   );
@@ -254,11 +253,6 @@ export function DigestSettingsForm() {
     },
   ];
 
-  const selectedDigestNames = Array.from(selectedDigestItems).map((itemId) => {
-    if (itemId === "cold-emails") return "Cold Emails";
-    return rules?.find((rule) => rule.id === itemId)?.name || itemId;
-  });
-
   return (
     <div className="grid lg:grid-cols-2 gap-8 h-full">
       <div className="space-y-6">
@@ -349,16 +343,23 @@ export function DigestSettingsForm() {
         </LoadingContent>
       </div>
 
-      <EmailPreview selectedDigestNames={selectedDigestNames} />
+      <EmailPreview selectedDigestItems={selectedDigestItems} />
     </div>
   );
 }
 
 function EmailPreview({
-  selectedDigestNames,
+  selectedDigestItems,
 }: {
-  selectedDigestNames: string[];
+  selectedDigestItems: Set<string>;
 }) {
+  const { data: rules } = useRules();
+
+  const selectedDigestNames = Array.from(selectedDigestItems).map((itemId) => {
+    if (itemId === "cold-emails") return "Cold Emails";
+    return rules?.find((rule) => rule.id === itemId)?.name || itemId;
+  });
+
   const { data: htmlContent } = useSWR<string>(
     selectedDigestNames.length > 0
       ? `/api/digest-preview?categories=${encodeURIComponent(JSON.stringify(selectedDigestNames))}`
