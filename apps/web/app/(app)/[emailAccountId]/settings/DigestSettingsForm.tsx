@@ -6,6 +6,7 @@ import useSWR from "swr";
 import { z } from "zod";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import { TimePicker } from "@/components/TimePicker";
 import { toastError, toastSuccess } from "@/components/Toast";
 import { LoadingContent } from "@/components/LoadingContent";
 import { useRules } from "@/hooks/useRules";
@@ -38,9 +39,7 @@ const digestSettingsSchema = z.object({
   // Schedule
   schedule: z.string().min(1, "Please select a frequency"),
   dayOfWeek: z.string().min(1, "Please select a day"),
-  hour: z.string().min(1, "Please select an hour"),
-  minute: z.string().min(1, "Please select minutes"),
-  ampm: z.enum(["AM", "PM"], { required_error: "Please select AM or PM" }),
+  time: z.string().min(1, "Please select a time"),
 });
 
 type DigestSettingsFormValues = z.infer<typeof digestSettingsSchema>;
@@ -58,21 +57,6 @@ const daysOfWeek = [
   { value: "4", label: "Thursday" },
   { value: "5", label: "Friday" },
   { value: "6", label: "Saturday" },
-];
-
-const hours = Array.from({ length: 12 }, (_, i) => ({
-  value: (i + 1).toString().padStart(2, "0"),
-  label: (i + 1).toString(),
-}));
-
-const minutes = ["00", "15", "30", "45"].map((m) => ({
-  value: m,
-  label: m,
-}));
-
-const ampmOptions = [
-  { value: "AM", label: "AM" },
-  { value: "PM", label: "PM" },
 ];
 
 export function DigestSettingsForm() {
@@ -118,9 +102,7 @@ export function DigestSettingsForm() {
       selectedItems: new Set(),
       schedule: "daily",
       dayOfWeek: "1",
-      hour: "09",
-      minute: "00",
-      ampm: "AM",
+      time: "09:00",
     },
   });
 
@@ -214,7 +196,7 @@ export function DigestSettingsForm() {
       };
 
       // Handle schedule update
-      const { schedule, dayOfWeek, hour, minute, ampm } = data;
+      const { schedule, dayOfWeek, time } = data;
 
       let intervalDays: number;
       switch (schedule) {
@@ -228,14 +210,11 @@ export function DigestSettingsForm() {
           intervalDays = 1;
       }
 
-      let hour24 = Number.parseInt(hour, 10);
-      if (ampm === "AM" && hour24 === 12) hour24 = 0;
-      else if (ampm === "PM" && hour24 !== 12) hour24 += 12;
+      const [hourStr, minuteStr] = time.split(":");
+      const hour24 = Number.parseInt(hourStr, 10);
+      const minute = Number.parseInt(minuteStr, 10);
 
-      const timeOfDay = createCanonicalTimeOfDay(
-        hour24,
-        Number.parseInt(minute, 10),
-      );
+      const timeOfDay = createCanonicalTimeOfDay(hour24, minute);
 
       const scheduleUpdateData = {
         intervalDays,
@@ -354,70 +333,17 @@ export function DigestSettingsForm() {
                   </FormItem>
                 )}
 
-                <div className="space-y-2">
-                  <Label>at</Label>
-                  <div className="flex items-end gap-2">
-                    <FormItem>
-                      <Select
-                        value={watchedValues.hour}
-                        onValueChange={(val) => setValue("hour", val)}
-                      >
-                        <SelectTrigger id="hour-select">
-                          {watchedValues.hour}
-                        </SelectTrigger>
-                        <SelectContent>
-                          {hours.map((h) => (
-                            <SelectItem key={h.value} value={h.value}>
-                              {h.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </FormItem>
-                    <span className="pb-2">:</span>
-                    <FormItem>
-                      <Select
-                        value={watchedValues.minute}
-                        onValueChange={(val) => setValue("minute", val)}
-                      >
-                        <SelectTrigger id="minute-select">
-                          {watchedValues.minute}
-                        </SelectTrigger>
-                        <SelectContent>
-                          {minutes.map((m) => (
-                            <SelectItem key={m.value} value={m.value}>
-                              {m.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </FormItem>
-                    <FormItem>
-                      <Select
-                        value={watchedValues.ampm}
-                        onValueChange={(val) =>
-                          setValue("ampm", val as "AM" | "PM")
-                        }
-                      >
-                        <SelectTrigger id="ampm-select">
-                          {watchedValues.ampm}
-                        </SelectTrigger>
-                        <SelectContent>
-                          {ampmOptions.map((a) => (
-                            <SelectItem key={a.value} value={a.value}>
-                              {a.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </FormItem>
-                  </div>
-                </div>
+                <TimePicker
+                  id="time-picker"
+                  label="at"
+                  value={watchedValues.time}
+                  onChange={(value) => setValue("time", value)}
+                />
               </div>
             </div>
 
             <Button type="submit" loading={isSubmitting} className="mt-4">
-              Save Settings
+              Save
             </Button>
           </form>
         </LoadingContent>
@@ -491,7 +417,7 @@ function getInitialScheduleProps(
     return dayOfWeek !== null ? dayOfWeek.toString() : "1";
   })();
 
-  const initialTimeOfDay = digestSchedule?.timeOfDay
+  const initialTime = digestSchedule?.timeOfDay
     ? (() => {
         const hours = new Date(digestSchedule.timeOfDay)
           .getHours()
@@ -505,19 +431,9 @@ function getInitialScheduleProps(
       })()
     : "09:00";
 
-  const [initHour24, initMinute] = initialTimeOfDay.split(":");
-  const hour12 = (Number.parseInt(initHour24, 10) % 12 || 12)
-    .toString()
-    .padStart(2, "0");
-  const ampm = (Number.parseInt(initHour24, 10) < 12 ? "AM" : "PM") as
-    | "AM"
-    | "PM";
-
   return {
     schedule: initialSchedule,
     dayOfWeek: initialDayOfWeek,
-    hour: hour12,
-    minute: initMinute || "00",
-    ampm,
+    time: initialTime,
   };
 }
