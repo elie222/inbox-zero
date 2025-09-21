@@ -5,14 +5,23 @@ import DigestEmail, {
 } from "@inboxzero/resend/emails/digest";
 import { digestPreviewBody } from "@/app/api/digest-preview/validation";
 
-// http://localhost:3000/api/digest-preview?categories=newsletter,receipt,marketing
+// http://localhost:3000/api/digest-preview?categories=["Newsletter","Receipt","Marketing","Cold Emails"]
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const categoriesParam = searchParams.get("categories");
 
+    let categories: string[];
+    try {
+      categories = categoriesParam
+        ? JSON.parse(decodeURIComponent(categoriesParam))
+        : [];
+    } catch {
+      return new Response("Invalid categories parameter", { status: 400 });
+    }
+
     const { success, data } = digestPreviewBody.safeParse({
-      categories: categoriesParam?.split(","),
+      categories,
     });
 
     if (!success)
@@ -116,39 +125,53 @@ function createMockDigestData(categories: string[]): DigestEmailProps {
   };
 
   for (const category of categories) {
-    if (category === "cold-emails") {
+    // Handle special case for Cold Emails
+    if (category === "Cold Emails") {
       digestData.coldEmail = mockDataTemplates.coldEmail;
-    } else if (mockDataTemplates[category as keyof typeof mockDataTemplates]) {
-      digestData[category] =
-        mockDataTemplates[category as keyof typeof mockDataTemplates];
     } else {
-      // Fallback for rule names - map to a category type for proper coloring
-      const categoryType = getCategoryTypeFromRuleName(category);
-      digestData[categoryType] = mockDataTemplates[
-        categoryType as keyof typeof mockDataTemplates
-      ] || [
-        {
-          from: "John Smith",
-          subject: "Project update - Q4 planning",
-          content:
-            "Hi team, here's the latest update on our Q4 planning initiatives...",
-        },
-        {
-          from: "Sarah Johnson",
-          subject: "Meeting follow-up",
-          content:
-            "Thanks for the productive discussion today. Here are the action items...",
-        },
-      ];
+      // Try to map rule name to a mock data category
+      const mappedCategory = mapRuleNameToCategory(category);
+
+      if (mockDataTemplates[mappedCategory as keyof typeof mockDataTemplates]) {
+        digestData[mappedCategory] =
+          mockDataTemplates[mappedCategory as keyof typeof mockDataTemplates];
+      } else {
+        // For custom rules, show generic rule-matched content
+        digestData[category] = [
+          {
+            from: "Example Sender",
+            subject: `Email matched by "${category}" rule`,
+            content:
+              "This is an example of content that would be captured by this rule.",
+          },
+          {
+            from: "Another Sender",
+            subject: `Another email for "${category}"`,
+            content:
+              "This shows what a second email matching this rule might look like.",
+          },
+        ];
+      }
     }
   }
 
   return digestData;
 }
 
-function getCategoryTypeFromRuleName(ruleName: string): string {
+function mapRuleNameToCategory(ruleName: string): string {
   const lowerName = ruleName.toLowerCase();
 
+  // Direct matches for common rule names
+  if (lowerName === "newsletter" || lowerName === "newsletters")
+    return "newsletter";
+  if (lowerName === "receipt" || lowerName === "receipts") return "receipt";
+  if (lowerName === "marketing") return "marketing";
+  if (lowerName === "calendar" || lowerName === "meetings") return "calendar";
+  if (lowerName === "notification" || lowerName === "notifications")
+    return "notification";
+  if (lowerName === "to reply" || lowerName === "toreply") return "toReply";
+
+  // Partial matches for rule names containing keywords
   if (lowerName.includes("newsletter") || lowerName.includes("news"))
     return "newsletter";
   if (
@@ -174,15 +197,7 @@ function getCategoryTypeFromRuleName(ruleName: string): string {
   if (lowerName.includes("reply") || lowerName.includes("response"))
     return "toReply";
 
-  // Default fallback - cycle through colors based on rule name hash
-  const categories = [
-    "newsletter",
-    "receipt",
-    "marketing",
-    "calendar",
-    "notification",
-    "toReply",
-  ] as const;
-  const hash = ruleName.split("").reduce((a, b) => a + b.charCodeAt(0), 0);
-  return categories[hash % categories.length];
+  // Return the original name if no mapping found (will trigger custom rule display)
+
+  return ruleName;
 }
