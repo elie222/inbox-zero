@@ -143,22 +143,67 @@ function createMockDigestData(categories: string[]): DigestEmailProps {
       digestData[category] =
         mockDataTemplates[category as keyof typeof mockDataTemplates];
     } else {
-      // Fallback for rule IDs (which come from the form) - show generic rule-based emails
-      const ruleName = `Rule ${category.slice(-4)}`; // Use last 4 chars for display
-      digestData[category] = [
+      // Fallback for rule names - map to a category type for proper coloring
+      const categoryType = getCategoryTypeFromRuleName(category);
+      digestData[categoryType] = mockDataTemplates[
+        categoryType as keyof typeof mockDataTemplates
+      ] || [
         {
           from: "John Smith",
           subject: "Project update - Q4 planning",
-          content: `Email matched by ${ruleName}: Hi team, here's the latest update on our Q4 planning initiatives...`,
+          content:
+            "Hi team, here's the latest update on our Q4 planning initiatives...",
         },
         {
           from: "Sarah Johnson",
           subject: "Meeting follow-up",
-          content: `Email matched by ${ruleName}: Thanks for the productive discussion today. Here are the action items...`,
+          content:
+            "Thanks for the productive discussion today. Here are the action items...",
         },
       ];
     }
   }
 
   return digestData;
+}
+
+function getCategoryTypeFromRuleName(ruleName: string): string {
+  const lowerName = ruleName.toLowerCase();
+
+  if (lowerName.includes("newsletter") || lowerName.includes("news"))
+    return "newsletter";
+  if (
+    lowerName.includes("receipt") ||
+    lowerName.includes("order") ||
+    lowerName.includes("purchase")
+  )
+    return "receipt";
+  if (
+    lowerName.includes("marketing") ||
+    lowerName.includes("promo") ||
+    lowerName.includes("deal")
+  )
+    return "marketing";
+  if (
+    lowerName.includes("calendar") ||
+    lowerName.includes("meeting") ||
+    lowerName.includes("event")
+  )
+    return "calendar";
+  if (lowerName.includes("notification") || lowerName.includes("alert"))
+    return "notification";
+  if (lowerName.includes("reply") || lowerName.includes("response"))
+    return "toReply";
+
+  // Default fallback - cycle through colors based on rule name hash
+  const categories = [
+    "newsletter",
+    "receipt",
+    "marketing",
+    "calendar",
+    "notification",
+    "toReply",
+  ] as const;
+  const hash = ruleName.split("").reduce((a, b) => a + b.charCodeAt(0), 0);
+  return categories[hash % categories.length];
 }
