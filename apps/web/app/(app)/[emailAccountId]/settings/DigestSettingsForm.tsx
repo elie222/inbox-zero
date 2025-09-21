@@ -435,7 +435,7 @@ function EmailPreview({
 }) {
   const { data: htmlContent } = useSWR<string>(
     selectedDigestNames.length > 0
-      ? `/api/digest-preview?categories=${selectedDigestNames.join(",")}`
+      ? `/api/digest-preview?categories=${encodeURIComponent(JSON.stringify(selectedDigestNames))}`
       : null,
     async (url: string) => {
       const response = await fetch(url);
@@ -450,13 +450,11 @@ function EmailPreview({
       <Label>Preview</Label>
       <div className="mt-3 border rounded-lg overflow-hidden bg-slate-50">
         {selectedDigestNames.length > 0 && htmlContent ? (
-          <div
-            className="w-full min-h-[700px] max-h-[700px] bg-white overflow-auto p-6"
-            style={{
-              contain: "layout",
-            }}
-            // biome-ignore lint/security/noDangerouslySetInnerHtml: we control the html content
-            dangerouslySetInnerHTML={{ __html: htmlContent }}
+          <iframe
+            title="Digest preview"
+            sandbox=""
+            className="w-full min-h-[700px] max-h-[700px] bg-white"
+            srcDoc={htmlContent}
           />
         ) : (
           <div className="text-center text-slate-500 py-8">

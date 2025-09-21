@@ -12,7 +12,7 @@ export async function GET(request: NextRequest) {
     const categoriesParam = searchParams.get("categories");
 
     const { success, data } = digestPreviewBody.safeParse({
-      categories: categoriesParam,
+      categories: categoriesParam?.split(","),
     });
 
     if (!success)
