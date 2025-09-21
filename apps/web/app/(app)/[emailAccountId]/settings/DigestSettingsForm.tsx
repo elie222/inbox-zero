@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { useForm, type SubmitHandler } from "react-hook-form";
+import { useAction } from "next-safe-action/hooks";
 import { zodResolver } from "@hookform/resolvers/zod";
 import useSWR from "swr";
 import { z } from "zod";
@@ -31,10 +32,6 @@ import {
   dayOfWeekToBitmask,
   bitmaskToDayOfWeek,
 } from "@/utils/schedule";
-import { useAction } from "next-safe-action/hooks";
-import DigestEmail, {
-  type DigestEmailProps,
-} from "@inboxzero/resend/emails/digest";
 
 const digestSettingsSchema = z.object({
   selectedItems: z.set(z.string()),
@@ -278,6 +275,11 @@ export function DigestSettingsForm() {
     },
   ];
 
+  const selectedDigestNames = Array.from(selectedDigestItems).map((itemId) => {
+    if (itemId === "cold-emails") return "Cold Emails";
+    return rules?.find((rule) => rule.id === itemId)?.name || itemId;
+  });
+
   return (
     <div className="grid lg:grid-cols-2 gap-8 h-full">
       <div className="space-y-6">
@@ -421,31 +423,41 @@ export function DigestSettingsForm() {
         </LoadingContent>
       </div>
 
-      <EmailPreview
-        selectedDigestItems={selectedDigestItems}
-        rules={rules || []}
-      />
+      <EmailPreview selectedDigestNames={selectedDigestNames} />
     </div>
   );
 }
 
 function EmailPreview({
-  selectedDigestItems,
-  rules,
+  selectedDigestNames,
 }: {
-  selectedDigestItems: Set<string>;
-  rules: { id: string; name: string }[];
+  selectedDigestNames: string[];
 }) {
+  const { data: htmlContent } = useSWR<string>(
+    selectedDigestNames.length > 0
+      ? `/api/digest-preview?categories=${selectedDigestNames.join(",")}`
+      : null,
+    async (url: string) => {
+      const response = await fetch(url);
+      if (!response.ok) throw new Error("Failed to fetch preview");
+      return response.text();
+    },
+    { keepPreviousData: true },
+  );
+
   return (
     <div>
       <Label>Preview</Label>
-      <div className="mt-3 border rounded-lg p-4 bg-slate-50 overflow-auto max-h-[700px]">
-        {selectedDigestItems.size > 0 ? (
-          <div className="bg-white rounded shadow-sm p-4">
-            <DigestEmail
-              {...createMockDigestData(selectedDigestItems, rules || [])}
-            />
-          </div>
+      <div className="mt-3 border rounded-lg overflow-hidden bg-slate-50">
+        {selectedDigestNames.length > 0 && htmlContent ? (
+          <div
+            className="w-full min-h-[700px] max-h-[700px] bg-white overflow-auto"
+            style={{
+              contain: "layout",
+            }}
+            // biome-ignore lint/security/noDangerouslySetInnerHtml: we control the html content
+            dangerouslySetInnerHTML={{ __html: htmlContent }}
+          />
         ) : (
           <div className="text-center text-slate-500 py-8">
             <p>Select digest items to see a preview</p>
@@ -511,114 +523,3 @@ function getInitialScheduleProps(
     ampm,
   };
 }
-
-const createMockDigestData = (
-  selectedItems: Set<string>,
-  rules: { id: string; name: string }[],
-): DigestEmailProps => {
-  const mockData: DigestEmailProps = {
-    baseUrl: "https://www.getinboxzero.com",
-    unsubscribeToken: "mock-token",
-    emailAccountId: "mock-account",
-    date: new Date(),
-    ruleNames: {},
-  };
-
-  rules?.forEach((rule) => {
-    mockData.ruleNames![rule.id] = rule.name;
-  });
-  mockData.ruleNames!["cold-emails"] = "Cold Emails";
-
-  const mockDataTemplates = {
-    newsletter: [
-      {
-        from: "Morning Brew",
-        subject: "🔥 Today's top business stories",
-        content:
-          "Apple unveils Vision Pro 2 with 40% lighter design and $2,499 price tag",
-      },
-      {
-        from: "The New York Times",
-        subject: "Breaking News: Latest developments",
-        content:
-          "Fed signals potential rate cuts as inflation shows signs of cooling to 3.2%",
-      },
-    ],
-    receipt: [
-      {
-        from: "Amazon",
-        subject: "Order #123-4567890-1234567",
-        content: "Your order has been delivered to your doorstep.",
-      },
-      {
-        from: "Uber Eats",
-        subject: "Your food is on the way!",
-        content: "Estimated delivery: 15-20 minutes",
-      },
-    ],
-    marketing: [
-      {
-        from: "Spotify",
-        subject: "Limited offer: 3 months premium for $0.99",
-        content: "Upgrade your music experience with this exclusive deal",
-      },
-      {
-        from: "Nike",
-        subject: "JUST IN: New Summer Collection 🔥",
-        content: "Be the first to shop our latest styles before they sell out",
-      },
-    ],
-    calendar: [
-      {
-        from: "Sarah Johnson",
-        subject: "Team Weekly Sync",
-        content:
-          "Title: Team Weekly Sync\nDate: Tomorrow, 10:00 AM - 11:00 AM • Meeting Room 3 / Zoom",
-      },
-    ],
-    coldEmail: [
-      {
-        from: "David Williams",
-        subject: "Partnership opportunity for your business",
-        content: "Growth Solutions Inc.",
-      },
-      {
-        from: "Jennifer Lee",
-        subject: "Request for a quick call this week",
-        content: "Venture Capital Partners",
-      },
-    ],
-  };
-
-  selectedItems.forEach((itemId) => {
-    if (itemId === "cold-emails") {
-      mockData.coldEmail = mockDataTemplates.coldEmail;
-    } else {
-      // For rules, use the rule name to determine mock data type
-      const rule = rules?.find((r) => r.id === itemId);
-      if (rule) {
-        const ruleName = rule.name.toLowerCase();
-        if (ruleName.includes("newsletter")) {
-          mockData.newsletter = mockDataTemplates.newsletter;
-        } else if (ruleName.includes("receipt") || ruleName.includes("order")) {
-          mockData.receipt = mockDataTemplates.receipt;
-        } else if (
-          ruleName.includes("marketing") ||
-          ruleName.includes("promo")
-        ) {
-          mockData.marketing = mockDataTemplates.marketing;
-        } else if (
-          ruleName.includes("calendar") ||
-          ruleName.includes("meeting")
-        ) {
-          mockData.calendar = mockDataTemplates.calendar;
-        } else {
-          // Default to newsletter for unknown rule types
-          mockData[itemId] = mockDataTemplates.newsletter;
-        }
-      }
-    }
-  });
-
-  return mockData;
-};
