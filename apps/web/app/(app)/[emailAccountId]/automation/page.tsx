@@ -97,7 +97,7 @@ export default async function AutomationPage({
                   title: "Getting started with AI Personal Assistant",
                   description:
                     "Learn how to use the AI Personal Assistant to automatically label, archive, and more.",
-                  videoId: "SoeNDVr7ve4",
+                  muxPlaybackId: "VwIP7UAw4MXDjkvmLjJzGsY00ee9jxIZVI952DoBBfp8",
                 }}
               />
             </div>
@@ -131,8 +131,7 @@ export default async function AutomationPage({
             description={
               "Learn how to use the AI Assistant to automatically label, archive, and more."
             }
-            videoSrc="https://www.youtube.com/embed/SoeNDVr7ve4"
-            thumbnailSrc="https://img.youtube.com/vi/SoeNDVr7ve4/0.jpg"
+            muxPlaybackId="VwIP7UAw4MXDjkvmLjJzGsY00ee9jxIZVI952DoBBfp8"
             storageKey="ai-assistant-onboarding-video"
           />
 

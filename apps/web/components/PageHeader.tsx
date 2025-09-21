@@ -7,7 +7,8 @@ import { PlayIcon } from "lucide-react";
 type Video = {
   title: string;
   description: React.ReactNode;
-  videoId: string;
+  youtubeVideoId?: string;
+  muxPlaybackId?: string;
 };
 
 export function PageHeader({
@@ -42,7 +43,8 @@ function WatchVideo({ video }: { video: Video }) {
       <OnboardingDialogContent
         title={video.title}
         description={video.description}
-        videoId={video.videoId}
+        youtubeVideoId={video.youtubeVideoId}
+        muxPlaybackId={video.muxPlaybackId}
       />
     </Dialog>
   );
