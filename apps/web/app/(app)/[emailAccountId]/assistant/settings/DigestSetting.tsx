@@ -12,12 +12,11 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { DigestScheduleForm } from "@/app/(app)/[emailAccountId]/settings/DigestScheduleForm";
 import {
   ExampleDialog,
   SeeExampleDialogButton,
 } from "@/app/(app)/[emailAccountId]/assistant/onboarding/ExampleDialog";
-import { DigestItemsForm } from "@/app/(app)/[emailAccountId]/settings/DigestItemsForm";
+import { DigestSettingsForm } from "@/app/(app)/[emailAccountId]/settings/DigestSettingsForm";
 
 export function DigestSetting() {
   const [showExampleDialog, setShowExampleDialog] = useState(false);
@@ -34,20 +33,16 @@ export function DigestSetting() {
                 Edit
               </Button>
             </DialogTrigger>
-            <DialogContent className="max-w-4xl">
+            <DialogContent className="max-w-7xl max-h-[90vh] overflow-hidden">
               <DialogHeader>
                 <DialogTitle>Digest Settings</DialogTitle>
                 <DialogDescription>
                   Configure when your digest emails are sent and which rules are
-                  included.{" "}
-                  <SeeExampleDialogButton
-                    onClick={() => setShowExampleDialog(true)}
-                  />
+                  included.
                 </DialogDescription>
               </DialogHeader>
 
-              <DigestItemsForm showSaveButton />
-              <DigestScheduleForm showSaveButton />
+              <DigestSettingsForm />
             </DialogContent>
           </Dialog>
         }
