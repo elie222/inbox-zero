@@ -25,7 +25,9 @@ export function PageHeader({
       <PageHeading>{title}</PageHeading>
       <div className="flex items-center mt-1">
         <PageSubHeading>{description}</PageSubHeading>
-        {video && <WatchVideo video={video} />}
+        {video && (video.youtubeVideoId || video.muxPlaybackId) && (
+          <WatchVideo video={video} />
+        )}
       </div>
     </div>
   );
