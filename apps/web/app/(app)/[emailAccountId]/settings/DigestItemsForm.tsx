@@ -1,4 +1,4 @@
-import { useCallback, useEffect } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useForm, type SubmitHandler } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import useSWR from "swr";
@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { toastError, toastSuccess } from "@/components/Toast";
 import { LoadingContent } from "@/components/LoadingContent";
 import { useRules } from "@/hooks/useRules";
-import { Toggle } from "@/components/Toggle";
+import { MultiSelectFilter } from "@/components/MultiSelectFilter";
 import { updateDigestItemsAction } from "@/utils/actions/settings";
 import {
   updateDigestItemsBody,
@@ -40,55 +40,62 @@ export function DigestItemsForm({
   const isLoading = rulesLoading || digestLoading;
   const error = rulesError || digestError;
 
+  // Use local state for MultiSelectFilter
+  const [selectedDigestItems, setSelectedDigestItems] = useState<Set<string>>(
+    new Set(),
+  );
+
   const {
     handleSubmit,
     formState: { isSubmitting },
-    reset,
-    watch,
-    setValue,
   } = useForm<UpdateDigestItemsBody>({
     resolver: zodResolver(updateDigestItemsBody),
-    defaultValues: {
-      ruleDigestPreferences: {},
-      coldEmailDigest: false,
-    },
   });
 
-  const ruleDigestPreferences = watch("ruleDigestPreferences");
-  const coldEmailDigest = watch("coldEmailDigest");
-
-  // Initialize preferences from rules and digest settings data
+  // Initialize selected items from rules and digest settings data
   useEffect(() => {
     if (rules && digestSettings) {
-      const preferences: Record<string, boolean> = {};
+      const selectedItems = new Set<string>();
+
+      // Add rules that have digest actions
       rules.forEach((rule) => {
-        preferences[rule.id] = rule.actions.some(
-          (action) => action.type === ActionType.DIGEST,
-        );
+        if (rule.actions.some((action) => action.type === ActionType.DIGEST)) {
+          selectedItems.add(rule.id);
+        }
       });
-      reset({
-        ruleDigestPreferences: preferences,
-        coldEmailDigest: digestSettings.coldEmail || false,
-      });
+
+      // Add cold email if enabled
+      if (digestSettings.coldEmail) {
+        selectedItems.add("cold-emails");
+      }
+
+      setSelectedDigestItems(selectedItems);
     }
-  }, [rules, digestSettings, reset]);
+  }, [rules, digestSettings]);
 
-  const handleRuleDigestToggle = useCallback(
-    (ruleId: string, enabled: boolean) => {
-      setValue(`ruleDigestPreferences.${ruleId}`, enabled);
-    },
-    [setValue],
-  );
+  const onSubmit: SubmitHandler<UpdateDigestItemsBody> =
+    useCallback(async () => {
+      // Convert selected items back to the expected format
+      const ruleDigestPreferences: Record<string, boolean> = {};
+      const coldEmailDigest = selectedDigestItems.has("cold-emails");
 
-  const handleColdEmailDigestToggle = useCallback(
-    (enabled: boolean) => {
-      setValue("coldEmailDigest", enabled);
-    },
-    [setValue],
-  );
+      // Set all rules to false first
+      rules?.forEach((rule) => {
+        ruleDigestPreferences[rule.id] = false;
+      });
 
-  const onSubmit: SubmitHandler<UpdateDigestItemsBody> = useCallback(
-    async (data) => {
+      // Then set selected rules to true
+      selectedDigestItems.forEach((itemId) => {
+        if (itemId !== "cold-emails") {
+          ruleDigestPreferences[itemId] = true;
+        }
+      });
+
+      const data: UpdateDigestItemsBody = {
+        ruleDigestPreferences,
+        coldEmailDigest,
+      };
+
       const result = await updateDigestItemsAction(emailAccountId, data);
 
       if (result?.serverError) {
@@ -101,9 +108,25 @@ export function DigestItemsForm({
         mutateRules();
         mutateDigestSettings();
       }
+    }, [
+      selectedDigestItems,
+      rules,
+      mutateRules,
+      mutateDigestSettings,
+      emailAccountId,
+    ]);
+
+  // Create options for MultiSelectFilter
+  const digestOptions = [
+    ...(rules?.map((rule) => ({
+      label: rule.name,
+      value: rule.id,
+    })) || []),
+    {
+      label: "Cold Emails",
+      value: "cold-emails",
     },
-    [mutateRules, mutateDigestSettings, emailAccountId],
-  );
+  ];
 
   return (
     <LoadingContent
@@ -114,20 +137,13 @@ export function DigestItemsForm({
       <form onSubmit={handleSubmit(onSubmit)}>
         <Label>What to include in the digest email</Label>
 
-        <div className="mt-2 space-y-2">
-          {rules?.map((rule) => (
-            <DigestItem
-              key={rule.id}
-              label={rule.name}
-              enabled={ruleDigestPreferences[rule.id] ?? false}
-              onChange={(enabled) => handleRuleDigestToggle(rule.id, enabled)}
-            />
-          ))}
-
-          <DigestItem
-            label="Cold Emails"
-            enabled={coldEmailDigest ?? false}
-            onChange={handleColdEmailDigestToggle}
+        <div className="mt-4">
+          <MultiSelectFilter
+            title="Digest Items"
+            options={digestOptions}
+            selectedValues={selectedDigestItems}
+            setSelectedValues={setSelectedDigestItems}
+            maxDisplayedValues={3}
           />
         </div>
 
@@ -138,24 +154,5 @@ export function DigestItemsForm({
         )}
       </form>
     </LoadingContent>
-  );
-}
-
-function DigestItem({
-  label,
-  enabled,
-  onChange,
-}: {
-  label: string;
-  enabled: boolean;
-  onChange: (enabled: boolean) => void;
-}) {
-  return (
-    <div className="flex items-center gap-4 rounded-lg border p-4 bg-background">
-      <div className="flex flex-1 items-center gap-2">
-        <span className="font-medium">{label}</span>
-      </div>
-      <Toggle name={label} enabled={enabled} onChange={onChange} />
-    </div>
   );
 }
