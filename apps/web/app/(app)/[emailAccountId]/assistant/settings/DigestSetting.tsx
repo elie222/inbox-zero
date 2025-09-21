@@ -33,7 +33,7 @@ export function DigestSetting() {
                 Edit
               </Button>
             </DialogTrigger>
-            <DialogContent className="max-w-7xl max-h-[90vh] overflow-hidden">
+            <DialogContent className="max-w-7xl max-h-[90vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle>Digest Settings</DialogTitle>
                 <DialogDescription>
