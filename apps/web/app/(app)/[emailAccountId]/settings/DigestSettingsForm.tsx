@@ -451,7 +451,7 @@ function EmailPreview({
       <div className="mt-3 border rounded-lg overflow-hidden bg-slate-50">
         {selectedDigestNames.length > 0 && htmlContent ? (
           <div
-            className="w-full min-h-[700px] max-h-[700px] bg-white overflow-auto"
+            className="w-full min-h-[700px] max-h-[700px] bg-white overflow-auto p-6"
             style={{
               contain: "layout",
             }}
