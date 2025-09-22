@@ -1,5 +1,5 @@
 import prisma from "@/utils/prisma";
-import type { RuleWithRelations } from "@/utils/ai/rule/create-prompt-from-rule";
+import type { RuleWithRelations } from "@/utils/rule/types";
 
 export type RuleHistoryTrigger =
   | "ai_update" // AI updates existing rule from prompt changes

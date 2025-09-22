@@ -1,6 +1,5 @@
 import { stepCountIs, tool } from "ai";
 import { z } from "zod";
-import { after } from "next/server";
 import { createGenerateText } from "@/utils/llms";
 import { createScopedLogger } from "@/utils/logger";
 import {
@@ -10,7 +9,7 @@ import {
   type Rule,
 } from "@prisma/client";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
-import type { RuleWithRelations } from "@/utils/ai/rule/create-prompt-from-rule";
+import type { RuleWithRelations } from "@/utils/rule/types";
 import { isDefined, type ParsedMessage } from "@/utils/types";
 import {
   createRuleSchema,
@@ -28,10 +27,6 @@ import { updateCategoryForSender } from "@/utils/categorize/senders/categorize";
 import { findSenderByEmail } from "@/utils/sender";
 import { getEmailForLLM } from "@/utils/get-email-from-message";
 import { stringifyEmailSimple } from "@/utils/stringify-email";
-import {
-  updatePromptFileOnRuleCreated,
-  updatePromptFileOnRuleUpdated,
-} from "@/utils/rule/prompt-file";
 import { env } from "@/env";
 import { posthogCaptureEvent } from "@/utils/posthog";
 import { getUserCategoriesForNames } from "@/utils/category.server";
@@ -634,44 +629,6 @@ ${senderCategory || "No category"}
       }),
     },
   });
-
-  // Upon completion, check what changes were made and make sure the prompt file is updated
-
-  // Update prompt file for newly created rules
-  after(async () => {
-    for (const rule of createdRules.values()) {
-      await updatePromptFileOnRuleCreated({
-        emailAccountId: emailAccount.id,
-        provider: emailAccount.account.provider,
-        rule,
-      });
-    }
-  });
-
-  // Update prompt file for modified rules
-  for (const updatedRule of updatedRules.values()) {
-    // Find the original rule state from the initial rules array
-    const originalRule = rules.find((r) => r.id === updatedRule.id);
-
-    if (!originalRule) {
-      logger.error(
-        "Original rule not found when updating prompt file for modified rule",
-        {
-          ...loggerOptions,
-          updatedRuleId: updatedRule.id,
-        },
-      );
-      continue; // Skip if original rule not found (should not happen ideally)
-    }
-
-    after(async () => {
-      await updatePromptFileOnRuleUpdated({
-        emailAccountId: emailAccount.id,
-        currentRule: originalRule,
-        updatedRule: updatedRule,
-      });
-    });
-  }
 
   posthogCaptureEvent(emailAccount.email, "AI Assistant Process Completed", {
     toolCallCount: result.steps.length,

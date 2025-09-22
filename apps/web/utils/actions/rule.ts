@@ -26,12 +26,6 @@ import {
   SystemType,
   type Prisma,
 } from "@prisma/client";
-import {
-  updatePromptFileOnRuleUpdated,
-  updateRuleInstructionsAndPromptFile,
-  updatePromptFileOnRuleCreated,
-} from "@/utils/rule/prompt-file";
-import { generatePromptOnDeleteRule } from "@/utils/ai/rule/generate-prompt-on-delete-rule";
 import { sanitizeActionFields } from "@/utils/action-item";
 import { deleteRule } from "@/utils/rule/rule";
 import { SafeError } from "@/utils/error";
@@ -204,14 +198,6 @@ export const createRuleAction = actionClient
           createRuleHistory({ rule, triggerType: "manual_creation" }),
         );
 
-        after(() =>
-          updatePromptFileOnRuleCreated({
-            emailAccountId,
-            provider,
-            rule,
-          }),
-        );
-
         return { rule };
       } catch (error) {
         if (isDuplicateError(error, "name")) {
@@ -349,15 +335,6 @@ export const updateRuleAction = actionClient
           }),
         );
 
-        // update prompt file
-        after(() =>
-          updatePromptFileOnRuleUpdated({
-            emailAccountId,
-            currentRule,
-            updatedRule,
-          }),
-        );
-
         revalidatePath(prefixPath(emailAccountId, `/assistant/rule/${id}`));
         revalidatePath(prefixPath(emailAccountId, "/assistant"));
         revalidatePath(prefixPath(emailAccountId, "/automation"));
@@ -389,15 +366,6 @@ export const updateRuleInstructionsAction = actionClient
         include: { actions: true, categoryFilters: true, group: true },
       });
       if (!currentRule) throw new SafeError("Rule not found");
-
-      after(() =>
-        updateRuleInstructionsAndPromptFile({
-          emailAccountId,
-          ruleId: id,
-          instructions,
-          currentRule,
-        }),
-      );
 
       revalidatePath(prefixPath(emailAccountId, `/assistant/rule/${id}`));
       revalidatePath(prefixPath(emailAccountId, "/assistant"));
@@ -494,40 +462,6 @@ export const deleteRuleAction = actionClient
         });
 
         revalidatePath(prefixPath(emailAccountId, `/assistant/rule/${id}`));
-
-        after(async () => {
-          const emailAccount = await prisma.emailAccount.findUnique({
-            where: { id: emailAccountId },
-            select: {
-              id: true,
-              userId: true,
-              email: true,
-              about: true,
-              rulesPrompt: true,
-              user: {
-                select: {
-                  aiModel: true,
-                  aiProvider: true,
-                  aiApiKey: true,
-                },
-              },
-            },
-          });
-          if (!emailAccount) throw new SafeError("User not found");
-
-          if (!emailAccount.rulesPrompt) return;
-
-          const updatedPrompt = await generatePromptOnDeleteRule({
-            emailAccount: { ...emailAccount, account: { provider } },
-            existingPrompt: emailAccount.rulesPrompt,
-            deletedRule: rule,
-          });
-
-          await prisma.emailAccount.update({
-            where: { id: emailAccountId },
-            data: { rulesPrompt: updatedPrompt },
-          });
-        });
       } catch (error) {
         if (isNotFoundError(error)) return;
         throw error;
