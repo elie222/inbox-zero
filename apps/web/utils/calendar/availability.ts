@@ -1,5 +1,5 @@
 import type { calendar_v3 } from "@googleapis/calendar";
-import { fromZonedTime } from "date-fns-tz";
+import { TZDate } from "@date-fns/tz";
 import { getCalendarClientWithRefresh } from "./client";
 import { createScopedLogger } from "@/utils/logger";
 import { startOfDay, endOfDay } from "date-fns";
@@ -85,13 +85,12 @@ export async function getCalendarAvailability({
     emailAccountId,
   });
 
-  // Convert dates to the user's timezone first, then to UTC for the API
-  const startOfDayInTimezone = startOfDay(startDate);
-  const endOfDayInTimezone = endOfDay(endDate);
+  // Compute day boundaries directly in the user's timezone using TZDate
+  const startDateInTZ = new TZDate(startDate, timezone);
+  const endDateInTZ = new TZDate(endDate, timezone);
 
-  // Convert timezone-aware dates to UTC for Google Calendar API
-  const timeMin = fromZonedTime(startOfDayInTimezone, timezone).toISOString();
-  const timeMax = fromZonedTime(endOfDayInTimezone, timezone).toISOString();
+  const timeMin = startOfDay(startDateInTZ).toISOString();
+  const timeMax = endOfDay(endDateInTZ).toISOString();
 
   logger.trace("Calendar availability request with timezone", {
     timezone,

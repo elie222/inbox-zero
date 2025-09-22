@@ -53,11 +53,15 @@ export function createScopedLogger(scope: string) {
         console.error(formatMessage("error", message, args)),
       warn: (message: string, ...args: unknown[]) =>
         console.warn(formatMessage("warn", message, args)),
-      trace: (message: string, ...args: unknown[] | (() => unknown[])[]) => {
-        if (env.ENABLE_DEBUG_LOGS) {
-          const finalArgs = typeof args?.[0] === "function" ? args[0]() : args;
-          console.log(formatMessage("trace", message, finalArgs));
-        }
+      trace: (
+        message: string,
+        ...args: Array<unknown> | [() => unknown] | [() => unknown[]]
+      ) => {
+        if (!env.ENABLE_DEBUG_LOGS) return;
+        const first = args[0];
+        const resolved = typeof first === "function" ? first() : args;
+        const finalArgs = Array.isArray(resolved) ? resolved : [resolved];
+        console.log(formatMessage("trace", message, finalArgs));
       },
       with: (newFields: Record<string, unknown>) =>
         createLogger({ ...fields, ...newFields }),
@@ -79,9 +83,9 @@ function createAxiomLogger(scope: string) {
       message: string,
       args?: Record<string, unknown> | (() => Record<string, unknown>),
     ) => {
-      if (env.ENABLE_DEBUG_LOGS) {
-        log.debug(message, { scope, ...fields, ...args });
-      }
+      if (!env.ENABLE_DEBUG_LOGS) return;
+      const resolved = typeof args === "function" ? args() : args;
+      log.debug(message, { scope, ...fields, ...resolved });
     },
     with: (newFields: Record<string, unknown>) =>
       createLogger({ ...fields, ...newFields }),
