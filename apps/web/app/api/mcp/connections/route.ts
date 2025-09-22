@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server";
 import prisma from "@/utils/prisma";
-import { withAuth } from "@/utils/middleware";
+import { withEmailAccount } from "@/utils/middleware";
 
-export const GET = withAuth(async (req) => {
-  const userId = req.auth.userId;
+export const GET = withEmailAccount(async (req) => {
+  const emailAccountId = req.auth.emailAccountId;
   const connections = await prisma.mcpConnection.findMany({
-    where: { userId },
+    where: { emailAccountId },
     select: {
       id: true,
       name: true,

@@ -1,9 +1,9 @@
 import prisma from "@/utils/prisma";
 import { McpOrchestrator } from "@inboxzero/mcp";
 
-export async function getOrchestratorForUser(userId: string) {
+export async function getOrchestratorForEmailAccount(emailAccountId: string) {
   const connections = await prisma.mcpConnection.findMany({
-    where: { userId, isActive: true },
+    where: { emailAccountId, isActive: true },
     include: { integration: true },
   });
 
@@ -25,17 +25,17 @@ export async function getOrchestratorForUser(userId: string) {
   );
 }
 
-export async function listMcpToolsForUser(userId: string) {
-  const orchestrator = await getOrchestratorForUser(userId);
+export async function listMcpToolsForEmailAccount(emailAccountId: string) {
+  const orchestrator = await getOrchestratorForEmailAccount(emailAccountId);
   return await orchestrator.listTools();
 }
 
-export async function callMcpToolForUser(
-  userId: string,
+export async function callMcpToolForEmailAccount(
+  emailAccountId: string,
   qualifiedName: string,
   args?: Record<string, unknown>,
 ) {
-  const orchestrator = await getOrchestratorForUser(userId);
+  const orchestrator = await getOrchestratorForEmailAccount(emailAccountId);
   return await orchestrator.callTool(qualifiedName, args);
 }
 

@@ -1,4 +1,4 @@
-import { getOrchestratorForUser } from "@/utils/mcp/orchestrator";
+import { getOrchestratorForEmailAccount } from "@/utils/mcp/orchestrator";
 import prisma from "@/utils/prisma";
 import { experimental_createMCPClient } from "ai";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp";
@@ -6,17 +6,17 @@ import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/
 // Collect MCP context for a given email by calling a small set of approved tools.
 // For v1, we try a few common tools if present (e.g., hubspot:get_contact, notion:search_pages)
 export async function collectMcpContext({
-  userId,
+  emailAccountId,
   senderEmail,
   subject,
 }: {
-  userId: string;
+  emailAccountId: string;
   senderEmail: string | null | undefined;
   subject: string | null | undefined;
 }): Promise<string | null> {
-  const orchestrator = await getOrchestratorForUser(userId);
+  const orchestrator = await getOrchestratorForEmailAccount(emailAccountId);
   const connections = await prisma.mcpConnection.findMany({
-    where: { userId, isActive: true },
+    where: { emailAccountId, isActive: true },
     include: { integration: true },
   });
 

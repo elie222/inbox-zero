@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
 import prisma from "@/utils/prisma";
-import { withAuth } from "@/utils/middleware";
+import { withEmailAccount } from "@/utils/middleware";
 import { MCP_INTEGRATIONS } from "@inboxzero/mcp";
 
-export const POST = withAuth(async (req) => {
-  const userId = req.auth.userId;
+export const POST = withEmailAccount(async (req) => {
+  const emailAccountId = req.auth.emailAccountId;
   const body = await req.json();
   const { integrationName, name, apiKey } = body ?? {};
   if (!integrationName || !name) {
@@ -30,14 +30,14 @@ export const POST = withAuth(async (req) => {
 
   // For api-token type, allow creating with apiKey
   const connection = await prisma.mcpConnection.upsert({
-    where: { userId_integrationId: { userId, integrationId: integration.id } },
+    where: { emailAccountId_integrationId: { emailAccountId, integrationId: integration.id } },
     update: {
       name,
       apiKey: apiKey ?? undefined,
       isActive: true,
     },
     create: {
-      userId,
+      emailAccountId,
       integrationId: integration.id,
       name,
       apiKey: apiKey ?? undefined,

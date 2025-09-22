@@ -933,9 +933,9 @@ model McpConnection {
   integrationId  String
   integration    McpIntegration  @relation(fields: [integrationId], references: [id], onDelete: Cascade)
 
-  // Owner (user-level or org-level)
-  userId         String?
-  user           User?           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  // Owner (emailAccount-level or org-level)
+  emailAccountId String?
+  emailAccount   EmailAccount?   @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
   organizationId String?
   organization   Organization?   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
@@ -955,10 +955,10 @@ model McpConnection {
 
   tools          McpTool[]
 
-  @@unique([userId, integrationId])
+  @@unique([emailAccountId, integrationId])
   @@unique([organizationId, integrationId])
   @@index([integrationId])
-  @@index([userId, isActive])
+  @@index([emailAccountId, isActive])
   @@index([organizationId, isActive])
 }
 

@@ -188,7 +188,7 @@ async function generateDraftContent(
       emailAccountId: emailAccount.id,
     }),
     collectMcpContext({
-      userId: emailAccount.userId,
+      emailAccountId: emailAccount.id,
       senderEmail: lastMessage.headers.from,
       subject: messages[messages.length - 1]?.subject,
     }),

@@ -1,15 +1,15 @@
 import { NextResponse } from "next/server";
 import prisma from "@/utils/prisma";
-import { withAuth } from "@/utils/middleware";
+import { withEmailAccount } from "@/utils/middleware";
 import { McpOrchestrator } from "@inboxzero/mcp";
 
-export const POST = withAuth(async (req) => {
-  const userId = req.auth.userId;
+export const POST = withEmailAccount(async (req) => {
+  const emailAccountId = req.auth.emailAccountId;
   const { connectionId } = await req.json().catch(() => ({} as any));
   if (!connectionId) return NextResponse.json({ error: "connectionId required" }, { status: 400 });
 
   const connection = await prisma.mcpConnection.findFirst({
-    where: { id: connectionId, userId },
+    where: { id: connectionId, emailAccountId },
     include: { integration: true },
   });
   if (!connection) return NextResponse.json({ error: "Not found" }, { status: 404 });
