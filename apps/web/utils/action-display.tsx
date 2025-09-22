@@ -22,6 +22,7 @@ export function getActionDisplay(
     label?: string | null;
     folderName?: string | null;
     content?: string | null;
+    to?: string | null;
   },
   provider: string,
 ): string {
@@ -43,19 +44,28 @@ export function getActionDisplay(
       return "Mark Read";
     case ActionType.MARK_SPAM:
       return "Mark Spam";
+    case ActionType.REPLY:
+      return "Reply";
     case ActionType.SEND_EMAIL:
-      return "Send Email";
-    case ActionType.CALL_WEBHOOK:
-      return "Call Webhook";
-    case ActionType.TRACK_THREAD:
-      return `Auto-update reply ${terminology.label.singular}`;
+      return action.to
+        ? `Send Email to ${action.to.slice(0, 8)}...`
+        : "Send Email";
+    case ActionType.FORWARD:
+      return action.to ? `Forward to ${action.to.slice(0, 8)}...` : "Forward";
     case ActionType.MOVE_FOLDER:
       return action.folderName
         ? `Move to '${action.folderName}' folder`
         : "Move to folder";
-    default:
-      // Default to capital case for other action types
-      return capitalCase(action.type);
+    case ActionType.DIGEST:
+      return "Digest";
+    case ActionType.CALL_WEBHOOK:
+      return "Call Webhook";
+    case ActionType.TRACK_THREAD:
+      return `Auto-update reply ${terminology.label.singular}`;
+    default: {
+      const exhaustiveCheck: never = action.type;
+      return exhaustiveCheck;
+    }
   }
 }
 

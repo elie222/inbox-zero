@@ -84,82 +84,6 @@ export type DigestEmailProps = {
     | Record<string, string>
     | undefined;
 };
-
-export const generateDigestSubject = (props: DigestEmailProps): string => {
-  const { ruleNames, ...digestData } = props;
-
-  const categoriesWithCounts: Array<{ name: string; count: number }> = [];
-
-  Object.keys(digestData).forEach((key) => {
-    const categoryData = normalizeCategoryData(key, digestData[key]);
-    if (categoryData && categoryData.count > 0) {
-      const displayName = ruleNames?.[key] || key;
-      categoriesWithCounts.push({
-        name: displayName,
-        count: categoryData.count,
-      });
-    }
-  });
-
-  const topCategories = categoriesWithCounts
-    .sort((a, b) => b.count - a.count)
-    .slice(0, 3);
-
-  if (topCategories.length === 0) {
-    return "Your email digest";
-  }
-
-  if (topCategories.length === 1) {
-    const { name, count } = topCategories[0];
-    return `Summary of ${count} ${name.toLowerCase()} email${count === 1 ? "" : "s"}`;
-  }
-
-  if (topCategories.length === 2) {
-    const [first, second] = topCategories;
-    return `Summary of ${first.count} ${first.name.toLowerCase()} and ${second.count} ${second.name.toLowerCase()} emails`;
-  }
-
-  const [first, second, third] = topCategories;
-  return `Summary of ${first.count} ${first.name.toLowerCase()}, ${second.count} ${second.name.toLowerCase()} and ${third.count} ${third.name.toLowerCase()} emails`;
-};
-
-const normalizeCategoryData = (
-  _key: string,
-  data:
-    | DigestItem[]
-    | NormalizedCategoryData
-    | string
-    | Date
-    | Record<string, string>
-    | undefined,
-): NormalizedCategoryData | null => {
-  if (Array.isArray(data)) {
-    const items = data;
-    const senders = Array.from(new Set(items.map((item) => item.from))).slice(
-      0,
-      5,
-    );
-    return {
-      count: items.length,
-      senders,
-      items,
-    };
-  } else if (
-    data &&
-    typeof data === "object" &&
-    !Array.isArray(data) &&
-    "count" in data &&
-    "senders" in data &&
-    "items" in data &&
-    typeof data.count === "number" &&
-    Array.isArray(data.senders) &&
-    Array.isArray(data.items)
-  ) {
-    return data as NormalizedCategoryData;
-  }
-  return null;
-};
-
 export default function DigestEmail(props: DigestEmailProps) {
   const {
     baseUrl = "https://www.getinboxzero.com",
@@ -675,3 +599,78 @@ function Footer({
     </Section>
   );
 }
+
+export const generateDigestSubject = (props: DigestEmailProps): string => {
+  const { ruleNames, ...digestData } = props;
+
+  const categoriesWithCounts: Array<{ name: string; count: number }> = [];
+
+  Object.keys(digestData).forEach((key) => {
+    const categoryData = normalizeCategoryData(key, digestData[key]);
+    if (categoryData && categoryData.count > 0) {
+      const displayName = ruleNames?.[key] || key;
+      categoriesWithCounts.push({
+        name: displayName,
+        count: categoryData.count,
+      });
+    }
+  });
+
+  const topCategories = categoriesWithCounts
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 3);
+
+  if (topCategories.length === 0) {
+    return "Your email digest";
+  }
+
+  if (topCategories.length === 1) {
+    const { name, count } = topCategories[0];
+    return `Summary of ${count} ${name.toLowerCase()} email${count === 1 ? "" : "s"}`;
+  }
+
+  if (topCategories.length === 2) {
+    const [first, second] = topCategories;
+    return `Summary of ${first.count} ${first.name.toLowerCase()} and ${second.count} ${second.name.toLowerCase()} emails`;
+  }
+
+  const [first, second, third] = topCategories;
+  return `Summary of ${first.count} ${first.name.toLowerCase()}, ${second.count} ${second.name.toLowerCase()} and ${third.count} ${third.name.toLowerCase()} emails`;
+};
+
+const normalizeCategoryData = (
+  _key: string,
+  data:
+    | DigestItem[]
+    | NormalizedCategoryData
+    | string
+    | Date
+    | Record<string, string>
+    | undefined,
+): NormalizedCategoryData | null => {
+  if (Array.isArray(data)) {
+    const items = data;
+    const senders = Array.from(new Set(items.map((item) => item.from))).slice(
+      0,
+      5,
+    );
+    return {
+      count: items.length,
+      senders,
+      items,
+    };
+  } else if (
+    data &&
+    typeof data === "object" &&
+    !Array.isArray(data) &&
+    "count" in data &&
+    "senders" in data &&
+    "items" in data &&
+    typeof data.count === "number" &&
+    Array.isArray(data.senders) &&
+    Array.isArray(data.items)
+  ) {
+    return data as NormalizedCategoryData;
+  }
+  return null;
+};

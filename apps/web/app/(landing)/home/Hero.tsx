@@ -63,7 +63,7 @@ export function Hero(props: {
             </div>
           )}
 
-          <div className="mx-auto max-w-xl text-center">
+          <div className="mx-auto max-w-3xl text-center">
             <HeroText>
               {props.title ||
                 "Meet Your AI Email Assistant That Actually Works"}

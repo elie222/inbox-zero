@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from "react";
 import type { ComponentProps } from "react";
 import Image from "next/image";
+import MuxPlayer from "@mux/mux-player-react";
 import { PlayIcon, X } from "lucide-react";
 import { CardGreen } from "@/components/ui/card";
 import {
@@ -12,6 +13,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { ClientOnly } from "@/components/ClientOnly";
 
 type VideoCardProps = ComponentProps<typeof VideoCard> & {
   storageKey: string;
@@ -45,8 +47,9 @@ const VideoCard = React.forwardRef<
     icon?: React.ReactNode;
     title: string;
     description: string;
-    videoSrc: string;
-    thumbnailSrc: string;
+    videoSrc?: string;
+    thumbnailSrc?: string;
+    muxPlaybackId?: string;
     onClose?: () => void;
   }
 >(
@@ -58,6 +61,7 @@ const VideoCard = React.forwardRef<
       description,
       videoSrc,
       thumbnailSrc,
+      muxPlaybackId,
       onClose,
       ...props
     },
@@ -112,7 +116,12 @@ const VideoCard = React.forwardRef<
                   >
                     <div className="relative w-32 h-20 rounded-lg overflow-hidden bg-gray-100 dark:bg-gray-800">
                       <Image
-                        src={thumbnailSrc}
+                        src={
+                          muxPlaybackId
+                            ? `https://image.mux.com/${muxPlaybackId}/thumbnail.jpg`
+                            : thumbnailSrc ||
+                              "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR4nGNgYAAAAAMAAWgmWQ0AAAAASUVORK5CYII="
+                        }
                         alt={title}
                         fill
                         className="object-cover transition-all duration-200 group-hover:scale-105"
@@ -126,16 +135,29 @@ const VideoCard = React.forwardRef<
                     </div>
                   </button>
                 </DialogTrigger>
-                <DialogContent className="max-w-4xl border-0 bg-transparent p-0">
+                <DialogContent className="max-w-6xl border-0 bg-transparent p-0 overflow-hidden">
                   <DialogTitle className="sr-only">Video: {title}</DialogTitle>
-                  <div className="relative aspect-video w-full">
-                    <iframe
-                      src={`${videoSrc}${videoSrc.includes("?") ? "&" : "?"}autoplay=1&rel=0`}
-                      className="size-full rounded-lg"
-                      title={`Video: ${title}`}
-                      allowFullScreen
-                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                    />
+                  <div className="relative aspect-video w-full overflow-hidden rounded-lg">
+                    {muxPlaybackId ? (
+                      <ClientOnly>
+                        <MuxPlayer
+                          playbackId={muxPlaybackId}
+                          metadata={{ video_title: title }}
+                          accentColor="#3b82f6"
+                          className="size-full rounded-lg"
+                          style={{ overflow: "hidden" }}
+                          autoPlay
+                        />
+                      </ClientOnly>
+                    ) : (
+                      <iframe
+                        src={`${videoSrc}${videoSrc?.includes("?") ? "&" : "?"}autoplay=1&rel=0`}
+                        className="size-full rounded-lg"
+                        title={`Video: ${title}`}
+                        allowFullScreen
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                      />
+                    )}
                   </div>
                 </DialogContent>
               </Dialog>

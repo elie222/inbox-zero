@@ -39,8 +39,6 @@ type DigestScheduleFormValues = z.infer<typeof digestScheduleFormSchema>;
 const frequencies = [
   { value: "daily", label: "Day" },
   { value: "weekly", label: "Week" },
-  { value: "biweekly", label: "Two weeks" },
-  { value: "monthly", label: "Month" },
 ];
 
 const daysOfWeek = [

@@ -1,21 +1,6 @@
-"use client";
-
 import { ABTestimonial } from "@/components/PersonWithLogo";
-import { useWelcomeTestimonialVariant } from "@/hooks/useFeatureFlags";
 
-export function WelcomeUpgradeTestimonial() {
-  const testimonialVariant = useWelcomeTestimonialVariant();
-
-  if (testimonialVariant !== "control") return null;
-
-  return (
-    <div className="mt-20">
-      <Testimonial />
-    </div>
-  );
-}
-
-function Testimonial() {
+export function Testimonial() {
   return (
     <div className="bg-gradient-to-r from-blue-50 to-indigo-50">
       <div className="mx-auto max-w-7xl px-6 py-20 sm:py-24 lg:px-8">

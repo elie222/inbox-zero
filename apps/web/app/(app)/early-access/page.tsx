@@ -21,37 +21,20 @@ export default function RequestAccessPage() {
       <div className="mx-auto max-w-2xl space-y-4 sm:space-y-8">
         <EarlyAccessFeatures />
         {isGoogleProvider(provider) && (
-          <>
-            <Card>
-              <CardHeader>
-                <CardTitle>Sender Categories</CardTitle>
-                <CardDescription>
-                  Sender Categories is a feature that allows you to categorize
-                  emails by sender, and take bulk actions or apply rules to
-                  them.
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <Button asChild>
-                  <Link href="/smart-categories">Sender Categories</Link>
-                </Button>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Mail (Beta)</CardTitle>
-                <CardDescription>
-                  Manage your inbox with the Inbox Zero email client.
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <Button asChild>
-                  <Link href="/mail">Mail</Link>
-                </Button>
-              </CardContent>
-            </Card>
-          </>
+          <Card>
+            <CardHeader>
+              <CardTitle>Sender Categories</CardTitle>
+              <CardDescription>
+                Sender Categories is a feature that allows you to categorize
+                emails by sender, and take bulk actions or apply rules to them.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Button asChild>
+                <Link href="/smart-categories">Sender Categories</Link>
+              </Button>
+            </CardContent>
+          </Card>
         )}
         <Card>
           <CardHeader>

@@ -288,9 +288,21 @@ export default function Components() {
                   id: "send",
                 },
                 {
+                  type: ActionType.SEND_EMAIL,
+                  label: "Send",
+                  id: "send-with-to",
+                  to: "test@example.com",
+                },
+                {
                   type: ActionType.FORWARD,
                   label: "Forward",
                   id: "forward",
+                },
+                {
+                  type: ActionType.FORWARD,
+                  label: "Forward",
+                  id: "forward-with-to",
+                  to: "test@example.com",
                 },
                 {
                   type: ActionType.MARK_SPAM,
