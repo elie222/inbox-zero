@@ -20,6 +20,7 @@ import { createScopedLogger } from "@/utils/logger";
 import type { MatchReason } from "@/utils/ai/choose-rule/types";
 import { sanitizeActionFields } from "@/utils/action-item";
 import { extractEmailAddress } from "@/utils/email";
+import { filterNullProperties } from "@/utils";
 import { analyzeSenderPattern } from "@/app/api/ai/analyze-sender-pattern/call-analyze-pattern-api";
 import {
   scheduleDelayedActions,
@@ -69,7 +70,9 @@ export async function runRules({
     emailAccountId: emailAccount.id,
   });
 
-  logger.trace("Matching rule", { result });
+  logger.trace("Matching rule", () => ({
+    result: filterNullProperties(result),
+  }));
 
   if (result.rule) {
     return await executeMatchedRule(

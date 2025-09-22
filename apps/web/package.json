@@ -23,6 +23,7 @@
     "@ai-sdk/react": "2.0.28",
     "@asteasolutions/zod-to-openapi": "8.1.0",
     "@better-auth/sso": "1.3.7",
+    "@date-fns/tz": "1.4.1",
     "@dub/analytics": "0.0.30",
     "@formkit/auto-animate": "0.8.4",
     "@googleapis/calendar": "^11.0.1",

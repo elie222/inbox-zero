@@ -46,10 +46,19 @@ export async function aiGetCalendarAvailability({
     include: {
       calendars: {
         where: { isEnabled: true },
-        select: { calendarId: true },
+        select: {
+          calendarId: true,
+          timezone: true,
+          primary: true,
+        },
       },
     },
   });
+
+  // Determine user's primary timezone from calendars
+  const userTimezone = getUserTimezone(calendarConnections);
+
+  logger.trace("Determined user timezone", { userTimezone });
 
   const system = `You are an AI assistant that analyzes email threads to determine if they contain meeting or scheduling requests, and if yes, returns the suggested times for the meeting.
 
@@ -63,7 +72,9 @@ If the email thread is not about scheduling, return isRelevant: false.
 
 You can only call "returnSuggestedTimes" once.
 Your suggested times should be in the format of "YYYY-MM-DD HH:MM".
-IMPORTANT: Another agent is responsible for drafting the final email reply. You just need to reply with the suggested times.`;
+IMPORTANT: Another agent is responsible for drafting the final email reply. You just need to reply with the suggested times.
+
+TIMEZONE CONTEXT: The user's primary timezone is ${userTimezone}. When interpreting times mentioned in emails (like "6pm"), assume they refer to this timezone unless explicitly stated otherwise.`;
 
   const prompt = `
 ${
@@ -137,6 +148,11 @@ ${threadContent}
                   calendarIds,
                   startDate,
                   endDate,
+                  timezone: userTimezone,
+                });
+
+                logger.trace("Calendar availability data", {
+                  availabilityData,
                 });
 
                 return availabilityData;
@@ -162,4 +178,34 @@ ${threadContent}
   });
 
   return result ? { suggestedTimes: result } : null;
+}
+
+function getUserTimezone(
+  calendarConnections: Array<{
+    calendars: Array<{
+      calendarId: string;
+      timezone: string | null;
+      primary: boolean;
+    }>;
+  }>,
+): string {
+  // First, try to find the primary calendar's timezone
+  for (const connection of calendarConnections) {
+    const primaryCalendar = connection.calendars.find((cal) => cal.primary);
+    if (primaryCalendar?.timezone) {
+      return primaryCalendar.timezone;
+    }
+  }
+
+  // If no primary calendar found, find any calendar with a timezone
+  for (const connection of calendarConnections) {
+    for (const calendar of connection.calendars) {
+      if (calendar.timezone) {
+        return calendar.timezone;
+      }
+    }
+  }
+
+  // Fallback to UTC if no timezone information is available
+  return "UTC";
 }

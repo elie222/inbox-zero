@@ -1,4 +1,5 @@
 import type { calendar_v3 } from "@googleapis/calendar";
+import { TZDate } from "@date-fns/tz";
 import { getCalendarClientWithRefresh } from "./client";
 import { createScopedLogger } from "@/utils/logger";
 import { startOfDay, endOfDay } from "date-fns";
@@ -49,6 +50,8 @@ async function fetchCalendarBusyPeriods({
       }
     }
 
+    logger.trace("Calendar busy periods", { busyPeriods, timeMin, timeMax });
+
     return busyPeriods;
   } catch (error) {
     logger.error("Error fetching calendar busy periods", { error });
@@ -64,6 +67,7 @@ export async function getCalendarAvailability({
   calendarIds,
   startDate,
   endDate,
+  timezone = "UTC",
 }: {
   accessToken?: string | null;
   refreshToken: string | null;
@@ -72,6 +76,7 @@ export async function getCalendarAvailability({
   calendarIds: string[];
   startDate: Date;
   endDate: Date;
+  timezone?: string;
 }): Promise<BusyPeriod[]> {
   const calendarClient = await getCalendarClientWithRefresh({
     accessToken,
@@ -80,8 +85,20 @@ export async function getCalendarAvailability({
     emailAccountId,
   });
 
-  const timeMin = startOfDay(startDate).toISOString();
-  const timeMax = endOfDay(endDate).toISOString();
+  // Compute day boundaries directly in the user's timezone using TZDate
+  const startDateInTZ = new TZDate(startDate, timezone);
+  const endDateInTZ = new TZDate(endDate, timezone);
+
+  const timeMin = startOfDay(startDateInTZ).toISOString();
+  const timeMax = endOfDay(endDateInTZ).toISOString();
+
+  logger.trace("Calendar availability request with timezone", {
+    timezone,
+    startDate: startDate.toISOString(),
+    endDate: endDate.toISOString(),
+    timeMin,
+    timeMax,
+  });
 
   return await fetchCalendarBusyPeriods({
     calendarClient,
