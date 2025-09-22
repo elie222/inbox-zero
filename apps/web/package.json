@@ -34,6 +34,7 @@
     "@inboxzero/resend": "workspace:*",
     "@inboxzero/tinybird": "workspace:*",
     "@inboxzero/tinybird-ai-analytics": "workspace:*",
+    "@inboxzero/mcp": "workspace:*",
     "@lemonsqueezy/lemonsqueezy.js": "4.0.0",
     "@mdx-js/loader": "3.1.1",
     "@mdx-js/react": "3.1.1",

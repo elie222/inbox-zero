@@ -900,6 +900,87 @@ model Referral {
   @@index([status])
 }
 
+// MCP integration models
+model McpIntegration {
+  id            String          @id @default(cuid())
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+
+  name          String          @unique
+  displayName   String
+  description   String?
+
+  // Connection details
+  serverUrl     String?
+  npmPackage    String?
+  authType      String
+
+  // Configuration
+  defaultScopes String[]
+  isActive      Boolean         @default(true)
+
+  connections   McpConnection[]
+
+  @@index([isActive])
+}
+
+model McpConnection {
+  id             String          @id @default(cuid())
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  // Relationships
+  integrationId  String
+  integration    McpIntegration  @relation(fields: [integrationId], references: [id], onDelete: Cascade)
+
+  // Owner (user-level or org-level)
+  userId         String?
+  user           User?           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organizationId String?
+  organization   Organization?   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  // Connection details
+  name           String
+  isActive       Boolean         @default(true)
+
+  // Encrypted credentials
+  accessToken    String?
+  refreshToken   String?
+  apiKey         String?
+  expiresAt      DateTime?
+
+  // Approved scopes/tools
+  approvedScopes String[]
+  approvedTools  String[]
+
+  tools          McpTool[]
+
+  @@unique([userId, integrationId])
+  @@unique([organizationId, integrationId])
+  @@index([integrationId])
+  @@index([userId, isActive])
+  @@index([organizationId, isActive])
+}
+
+model McpTool {
+  id            String         @id @default(cuid())
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  connectionId  String
+  connection    McpConnection  @relation(fields: [connectionId], references: [id], onDelete: Cascade)
+
+  name          String
+  title         String?
+  description   String?
+  schema        Json?
+
+  isEnabled     Boolean        @default(true)
+
+  @@unique([connectionId, name])
+  @@index([connectionId])
+}
+
 enum ActionType {
   ARCHIVE
   LABEL
