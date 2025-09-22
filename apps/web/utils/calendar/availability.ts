@@ -1,4 +1,5 @@
 import type { calendar_v3 } from "@googleapis/calendar";
+import { fromZonedTime } from "date-fns-tz";
 import { getCalendarClientWithRefresh } from "./client";
 import { createScopedLogger } from "@/utils/logger";
 import { startOfDay, endOfDay } from "date-fns";
@@ -66,6 +67,7 @@ export async function getCalendarAvailability({
   calendarIds,
   startDate,
   endDate,
+  timezone = "UTC",
 }: {
   accessToken?: string | null;
   refreshToken: string | null;
@@ -74,6 +76,7 @@ export async function getCalendarAvailability({
   calendarIds: string[];
   startDate: Date;
   endDate: Date;
+  timezone?: string;
 }): Promise<BusyPeriod[]> {
   const calendarClient = await getCalendarClientWithRefresh({
     accessToken,
@@ -82,8 +85,21 @@ export async function getCalendarAvailability({
     emailAccountId,
   });
 
-  const timeMin = startOfDay(startDate).toISOString();
-  const timeMax = endOfDay(endDate).toISOString();
+  // Convert dates to the user's timezone first, then to UTC for the API
+  const startOfDayInTimezone = startOfDay(startDate);
+  const endOfDayInTimezone = endOfDay(endDate);
+
+  // Convert timezone-aware dates to UTC for Google Calendar API
+  const timeMin = fromZonedTime(startOfDayInTimezone, timezone).toISOString();
+  const timeMax = fromZonedTime(endOfDayInTimezone, timezone).toISOString();
+
+  logger.trace("Calendar availability request with timezone", {
+    timezone,
+    startDate: startDate.toISOString(),
+    endDate: endDate.toISOString(),
+    timeMin,
+    timeMax,
+  });
 
   return await fetchCalendarBusyPeriods({
     calendarClient,
