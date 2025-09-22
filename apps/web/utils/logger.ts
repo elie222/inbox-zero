@@ -53,9 +53,10 @@ export function createScopedLogger(scope: string) {
         console.error(formatMessage("error", message, args)),
       warn: (message: string, ...args: unknown[]) =>
         console.warn(formatMessage("warn", message, args)),
-      trace: (message: string, ...args: unknown[]) => {
+      trace: (message: string, ...args: unknown[] | (() => unknown[])[]) => {
         if (env.ENABLE_DEBUG_LOGS) {
-          console.log(formatMessage("trace", message, args));
+          const finalArgs = typeof args?.[0] === "function" ? args[0]() : args;
+          console.log(formatMessage("trace", message, finalArgs));
         }
       },
       with: (newFields: Record<string, unknown>) =>
@@ -74,7 +75,10 @@ function createAxiomLogger(scope: string) {
       log.error(message, { scope, ...fields, ...formatError(args) }),
     warn: (message: string, args?: Record<string, unknown>) =>
       log.warn(message, { scope, ...fields, ...args }),
-    trace: (message: string, args?: Record<string, unknown>) => {
+    trace: (
+      message: string,
+      args?: Record<string, unknown> | (() => Record<string, unknown>),
+    ) => {
       if (env.ENABLE_DEBUG_LOGS) {
         log.debug(message, { scope, ...fields, ...args });
       }

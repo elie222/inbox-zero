@@ -49,6 +49,8 @@ async function fetchCalendarBusyPeriods({
       }
     }
 
+    logger.trace("Calendar busy periods", { busyPeriods, timeMin, timeMax });
+
     return busyPeriods;
   } catch (error) {
     logger.error("Error fetching calendar busy periods", { error });

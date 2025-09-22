@@ -3,7 +3,7 @@ import { internalDateToDate } from "@/utils/date";
 import { getEmailForLLM } from "@/utils/get-email-from-message";
 import { aiDraftWithKnowledge } from "@/utils/ai/reply/draft-with-knowledge";
 import { getReply, saveReply } from "@/utils/redis/reply";
-import { getEmailAccountWithAi, getWritingStyle } from "@/utils/user/get";
+import { getWritingStyle } from "@/utils/user/get";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import { createScopedLogger } from "@/utils/logger";
 import prisma from "@/utils/prisma";
@@ -18,45 +18,6 @@ import { aiGetCalendarAvailability } from "@/utils/ai/calendar/availability";
 import { env } from "@/env";
 
 const logger = createScopedLogger("generate-reply");
-
-export async function generateDraft({
-  emailAccountId,
-  client,
-  message,
-}: {
-  emailAccountId: string;
-  client: EmailProvider;
-  message: ParsedMessage;
-}) {
-  const logger = createScopedLogger("generate-reply").with({
-    emailAccountId,
-    messageId: message.id,
-    threadId: message.threadId,
-  });
-
-  logger.info("Generating draft");
-
-  const emailAccount = await getEmailAccountWithAi({ emailAccountId });
-  if (!emailAccount) throw new Error("User not found");
-
-  // 1. Draft with AI
-  const result = await fetchMessagesAndGenerateDraft(
-    emailAccount,
-    message.threadId,
-    client,
-  );
-
-  logger.info("Draft generated", { result });
-
-  if (typeof result !== "string") {
-    throw new Error("Draft result is not a string");
-  }
-
-  // 2. Create draft
-  await client.draftEmail(message, { content: result }, emailAccount.email);
-
-  logger.info("Draft created");
-}
 
 /**
  * Fetches thread messages and generates draft content in one step

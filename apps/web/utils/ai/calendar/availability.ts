@@ -139,6 +139,10 @@ ${threadContent}
                   endDate,
                 });
 
+                logger.trace("Calendar availability data", {
+                  availabilityData,
+                });
+
                 return availabilityData;
               } catch (error) {
                 logger.error("Error checking calendar availability", { error });
