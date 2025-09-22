@@ -28,6 +28,8 @@ describe.runIf(isAiTest)("aiDraftWithKnowledge", () => {
         emailHistorySummary,
         writingStyle: null,
         emailHistoryContext: null,
+        calendarAvailability: null,
+        mcpContext: null,
       });
 
       // Check that the result is a non-empty string
@@ -53,6 +55,8 @@ describe.runIf(isAiTest)("aiDraftWithKnowledge", () => {
         emailHistorySummary: null,
         writingStyle: null,
         emailHistoryContext: null,
+        calendarAvailability: null,
+        mcpContext: null,
       });
 
       // Check that the result is a non-empty string

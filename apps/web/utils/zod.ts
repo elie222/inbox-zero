@@ -1,4 +1,5 @@
 import { z } from "zod";
+export { z };
 
 // to avoid "false" being parsed as `true`
 // https://github.com/colinhacks/zod/issues/1630
