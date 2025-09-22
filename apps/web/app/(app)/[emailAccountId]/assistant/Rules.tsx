@@ -491,6 +491,7 @@ export function ActionBadges({
     label?: string | null;
     folderName?: string | null;
     content?: string | null;
+    to?: string | null;
   }[];
   provider: string;
 }) {
