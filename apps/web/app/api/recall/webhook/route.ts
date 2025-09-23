@@ -288,10 +288,12 @@ async function handleCalendarSyncEvents(payload: CalendarSyncEventsEvent) {
 
   const connection = await prisma.calendarConnection.findUnique({
     where: { recallCalendarId: calendarId },
-    include: {
-      emailAccount: true,
+    select: {
+      id: true,
+      emailAccountId: true,
       calendars: {
         where: { isEnabled: true },
+        select: { id: true },
       },
     },
   });
@@ -409,10 +411,12 @@ async function handleCalendarUpdate(payload: CalendarUpdateEvent) {
 
   const connection = await prisma.calendarConnection.findUnique({
     where: { recallCalendarId: calendarId },
-    include: {
-      emailAccount: true,
+    select: {
+      id: true,
+      emailAccountId: true,
       calendars: {
         where: { isEnabled: true },
+        select: { id: true },
       },
     },
   });
