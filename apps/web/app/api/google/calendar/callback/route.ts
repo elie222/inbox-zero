@@ -12,6 +12,7 @@ import { CALENDAR_STATE_COOKIE_NAME } from "@/utils/calendar/constants";
 import { parseOAuthState } from "@/utils/oauth/state";
 import { auth } from "@/utils/auth";
 import { prefixPath } from "@/utils/path";
+import { createRecallCalendar } from "@/utils/recall/calendar";
 
 const logger = createScopedLogger("google/calendar/callback");
 
@@ -134,7 +135,36 @@ export const GET = withError(async (request: NextRequest) => {
       logger.info("Calendar connection already exists", {
         emailAccountId,
         googleEmail,
+        connectionId: existingConnection.id,
+        hasRecallCalendarId: !!existingConnection.recallCalendarId,
+        recallCalendarId: existingConnection.recallCalendarId,
       });
+
+      if (!existingConnection.recallCalendarId) {
+        try {
+          const recallCalendar = await createRecallCalendar({
+            oauth_client_id: env.GOOGLE_CLIENT_ID,
+            oauth_client_secret: env.GOOGLE_CLIENT_SECRET,
+            oauth_refresh_token: refresh_token,
+            platform: "google_calendar",
+          });
+
+          await prisma.calendarConnection.update({
+            where: { id: existingConnection.id },
+            data: { recallCalendarId: recallCalendar.id },
+          });
+        } catch (error) {
+          logger.error(
+            "Failed to create Recall calendar for existing connection",
+            {
+              error: error instanceof Error ? error.message : error,
+              connectionId: existingConnection.id,
+              emailAccountId,
+            },
+          );
+        }
+      }
+
       redirectUrl.searchParams.set("message", "calendar_already_connected");
       return NextResponse.redirect(redirectUrl, { headers: response.headers });
     }
@@ -150,6 +180,28 @@ export const GET = withError(async (request: NextRequest) => {
         isConnected: true,
       },
     });
+
+    try {
+      // Create this calendar at Recall to we can start listening to events
+      // We'll start listening by default, but can skip this step with a custom setting
+      const recallCalendar = await createRecallCalendar({
+        oauth_client_id: env.GOOGLE_CLIENT_ID,
+        oauth_client_secret: env.GOOGLE_CLIENT_SECRET,
+        oauth_refresh_token: refresh_token,
+        platform: "google_calendar",
+      });
+
+      await prisma.calendarConnection.update({
+        where: { id: connection.id },
+        data: { recallCalendarId: recallCalendar.id },
+      });
+    } catch (error) {
+      logger.error("Failed to create Recall calendar for connection", {
+        error: error instanceof Error ? error.message : error,
+        connectionId: connection.id,
+        emailAccountId,
+      });
+    }
 
     await syncGoogleCalendars(
       connection.id,

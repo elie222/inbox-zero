@@ -1,0 +1,134 @@
+import { createScopedLogger } from "@/utils/logger";
+import { recallRequest } from "@/utils/recall/request";
+import type { RecallCalendarEventsListResponse } from "@/app/api/recall/webhook/types";
+
+const logger = createScopedLogger("recall/calendar");
+
+export interface RecallCalendar {
+  id: string;
+  platform: "google_calendar" | "microsoft_outlook";
+  status: "connected" | "disconnected" | "error";
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CreateRecallCalendarRequest {
+  oauth_client_id: string;
+  oauth_client_secret: string;
+  oauth_refresh_token: string;
+  platform: "google_calendar" | "microsoft_outlook";
+}
+
+export interface CreateRecallCalendarResponse {
+  id: string;
+  platform: string;
+  status: string;
+  created_at: string;
+  updated_at: string;
+}
+
+/**
+ * Create a calendar in Recall.ai
+ */
+export async function createRecallCalendar(
+  request: CreateRecallCalendarRequest,
+): Promise<RecallCalendar> {
+  try {
+    const data = await recallRequest<CreateRecallCalendarResponse>(
+      "api/v2/calendars",
+      {
+        method: "POST",
+        body: JSON.stringify(request),
+      },
+    );
+
+    logger.info("Created calendar in Recall", {
+      recallCalendarId: data.id,
+      platform: data.platform,
+      status: data.status,
+    });
+
+    return {
+      id: data.id,
+      platform: data.platform as "google_calendar" | "microsoft_outlook",
+      status: data.status as "connected" | "disconnected" | "error",
+      created_at: data.created_at,
+      updated_at: data.updated_at,
+    };
+  } catch (error) {
+    logger.error("Failed to create calendar in Recall", {
+      error,
+      platform: request.platform,
+    });
+    throw error;
+  }
+}
+
+/**
+ * Get calendar details from Recall.ai
+ */
+export async function getRecallCalendar(
+  recallCalendarId: string,
+): Promise<RecallCalendar | null> {
+  try {
+    const data = await recallRequest<CreateRecallCalendarResponse>(
+      `api/v2/calendars/${recallCalendarId}`,
+    );
+
+    return {
+      id: data.id,
+      platform: data.platform as "google_calendar" | "microsoft_outlook",
+      status: data.status as "connected" | "disconnected" | "error",
+      created_at: data.created_at,
+      updated_at: data.updated_at,
+    };
+  } catch (error) {
+    // Handle 404 as null (calendar doesn't exist)
+    if (error instanceof Error && error.message.includes("404")) {
+      return null;
+    }
+    logger.error("Failed to get calendar from Recall", {
+      error,
+      recallCalendarId,
+    });
+    throw error;
+  }
+}
+
+/**
+ * Delete a calendar from Recall.ai
+ */
+export async function deleteRecallCalendar(
+  recallCalendarId: string,
+): Promise<void> {
+  try {
+    await recallRequest(`api/v2/calendars/${recallCalendarId}`, {
+      method: "DELETE",
+    });
+
+    logger.info("Deleted calendar from Recall", {
+      recallCalendarId,
+    });
+  } catch (error) {
+    logger.error("Failed to delete calendar from Recall", {
+      error,
+      recallCalendarId,
+    });
+    throw error;
+  }
+}
+
+export async function fetchCalendarEvents(
+  recallCalendarId: string,
+  lastUpdatedTs?: string,
+): Promise<RecallCalendarEventsListResponse> {
+  return recallRequest<RecallCalendarEventsListResponse>(
+    "api/v2/calendar-events",
+    {
+      params: {
+        calendar_id: recallCalendarId,
+        ...(lastUpdatedTs ? { updated_at_gte: lastUpdatedTs } : {}),
+      },
+    },
+  );
+}

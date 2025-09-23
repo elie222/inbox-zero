@@ -101,6 +101,7 @@ model User {
   members      Member[]
   invitations  Invitation[]
   ssoproviders SsoProvider[]
+  
 }
 
 // Migrating over to the new settings model. Currently most settings are in the User model, but will be moved to this model in the future.
@@ -159,6 +160,7 @@ model EmailAccount {
   scheduledActions ScheduledAction[]
 
   calendarConnections CalendarConnection[]
+  recallMeetings      RecallMeeting[]
 
   @@index([lastSummaryEmailAt])
 }
@@ -846,12 +848,15 @@ model CalendarConnection {
   expiresAt    DateTime?
   isConnected  Boolean   @default(true)
 
+  recallCalendarId String?
+
   emailAccountId String
   emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
 
   calendars Calendar[]
 
   @@unique([emailAccountId, provider, email]) // Allow multiple Google accounts per user
+  @@unique([recallCalendarId]) // Ensure each Recall calendar ID is unique
 }
 
 model Calendar {
@@ -899,6 +904,27 @@ model Referral {
   @@index([referrerUserId])
   @@index([status])
 }
+
+model RecallMeeting {
+  id             String   @id @default(cuid())
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt  
+  botId          String   @unique
+  eventId        String
+  emailAccountId String
+  meetingUrl     String
+  botWillJoinAt  DateTime
+  transcript     String?
+  status         RecallBotStatus @default(SCHEDULED)   // Bot status (active, completed, failed, etc.)
+
+  
+  emailAccount  EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
+  
+  @@index([emailAccountId])
+  @@index([eventId])
+  @@index([status])
+}
+
 
 enum ActionType {
   ARCHIVE
@@ -1032,5 +1058,13 @@ enum ScheduledActionStatus {
 enum SchedulingStatus {
   PENDING
   SCHEDULED
+  FAILED
+}
+
+enum RecallBotStatus {
+  SCHEDULED
+  ACTIVE
+  COMPLETED
+  CANCELLED
   FAILED
 }
