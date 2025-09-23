@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { env } from "@/env";
 import prisma from "@/utils/prisma";
 import {
   createRecallCalendar,
@@ -83,12 +84,12 @@ async function createRecallCalendarForConnection({
 
   const oauthClientId =
     connection.provider === "google"
-      ? process.env.GOOGLE_CLIENT_ID
-      : process.env.MICROSOFT_CLIENT_ID;
+      ? env.GOOGLE_CLIENT_ID
+      : env.MICROSOFT_CLIENT_ID;
   const oauthClientSecret =
     connection.provider === "google"
-      ? process.env.GOOGLE_CLIENT_SECRET
-      : process.env.MICROSOFT_CLIENT_SECRET;
+      ? env.GOOGLE_CLIENT_SECRET
+      : env.MICROSOFT_CLIENT_SECRET;
 
   if (!oauthClientId || !oauthClientSecret) {
     throw new Error(`Missing OAuth credentials for ${connection.provider}`);

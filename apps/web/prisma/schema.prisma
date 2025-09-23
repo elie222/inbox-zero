@@ -906,23 +906,22 @@ model Referral {
 }
 
 model RecallMeeting {
-  id             String   @id @default(cuid())
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt  
-  botId          String   @unique
-  eventId        String
-  emailAccountId String
-  meetingUrl     String
-  botWillJoinAt  DateTime
-  transcript     String?
-  status         RecallBotStatus @default(SCHEDULED)   // Bot status (active, completed, failed, etc.)
+  id               String   @id @default(cuid())
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt  
+  botId            String   @unique
+  eventId          String
+  emailAccountId   String
+  meetingUrl       String
+  botWillJoinAt    DateTime
+  transcript       String?
+  status           RecallBotStatus @default(SCHEDULED)   // Bot status (active, completed, failed, etc.)
+  deduplicationKey String?
 
-  
   emailAccount  EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
   
-  @@index([emailAccountId])
-  @@index([eventId])
-  @@index([status])
+  @@index([emailAccountId, eventId, status])
+  @@index([deduplicationKey])
 }
 
 

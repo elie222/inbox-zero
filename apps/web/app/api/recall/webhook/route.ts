@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { z } from "zod";
 import { withError } from "@/utils/middleware";
 import { env } from "@/env";
 import { createScopedLogger } from "@/utils/logger";
@@ -24,6 +25,72 @@ import type {
   TranscriptDoneEvent,
 } from "./types";
 
+const CalendarUpdateEventSchema = z.object({
+  event: z.literal("calendar.update"),
+  data: z.object({
+    calendar_id: z.string(),
+  }),
+});
+
+const CalendarSyncEventsEventSchema = z.object({
+  event: z.literal("calendar.sync_events"),
+  data: z.object({
+    calendar_id: z.string(),
+    last_updated_ts: z.string(),
+  }),
+});
+
+const RecordingDoneEventSchema = z.object({
+  event: z.literal("recording.done"),
+  data: z.object({
+    data: z.object({
+      code: z.string(),
+      sub_code: z.string().nullable(),
+      updated_at: z.string(),
+    }),
+    recording: z.object({
+      id: z.string(),
+      metadata: z.object({}).passthrough(),
+    }),
+    bot: z
+      .object({
+        id: z.string(),
+        metadata: z.object({}).passthrough(),
+      })
+      .nullable(),
+  }),
+});
+
+const TranscriptDoneEventSchema = z.object({
+  event: z.literal("transcript.done"),
+  data: z.object({
+    data: z.object({
+      code: z.string(),
+      sub_code: z.string().nullable(),
+      updated_at: z.string(),
+    }),
+    bot: z.object({
+      id: z.string(),
+      metadata: z.object({}).passthrough(),
+    }),
+    transcript: z.object({
+      id: z.string(),
+      metadata: z.object({}).passthrough(),
+    }),
+    recording: z.object({
+      id: z.string(),
+      metadata: z.object({}).passthrough(),
+    }),
+  }),
+});
+
+const RecallWebhookPayloadSchema = z.union([
+  CalendarUpdateEventSchema,
+  CalendarSyncEventsEventSchema,
+  RecordingDoneEventSchema,
+  TranscriptDoneEventSchema,
+]);
+
 const logger = createScopedLogger("recall/webhook");
 
 export const POST = withError(async (request) => {
@@ -46,8 +113,6 @@ export const POST = withError(async (request) => {
   }
 
   if (env.RECALL_WEBHOOK_SECRET) {
-    // Parse multiple signatures from svix-signature header
-    // Format: "v1,signature1 v1,signature2" - split on spaces only, not commas
     const signatures = svixSignature
       .split(/\s+/)
       .map((sig) => sig.trim())
@@ -91,15 +156,37 @@ export const POST = withError(async (request) => {
     );
   }
 
-  const body = JSON.parse(rawBody) as RecallWebhookPayload;
+  let parsedBody: unknown;
+  try {
+    parsedBody = JSON.parse(rawBody);
+  } catch (error) {
+    logger.error("Invalid JSON in webhook payload", { error });
+    return NextResponse.json(
+      { message: "Invalid JSON payload" },
+      { status: 400 },
+    );
+  }
+
+  const validationResult = RecallWebhookPayloadSchema.safeParse(parsedBody);
+  if (!validationResult.success) {
+    logger.error("Invalid webhook payload structure", {
+      error: validationResult.error.errors,
+      payload: parsedBody,
+    });
+    return NextResponse.json(
+      {
+        message: "Invalid payload structure",
+        errors: validationResult.error.errors,
+      },
+      { status: 400 },
+    );
+  }
+
+  const body = validationResult.data;
   const eventType = body.event;
 
   try {
-    await processRecallWebhook(body);
-
-    return NextResponse.json({
-      message: "Webhook processed successfully",
-    });
+    return await processRecallWebhook(body);
   } catch (error) {
     logger.error("Error processing Recall webhook", {
       error,
@@ -117,22 +204,32 @@ export const POST = withError(async (request) => {
   }
 });
 
-async function processRecallWebhook(payload: RecallWebhookPayload) {
+async function processRecallWebhook(
+  payload: RecallWebhookPayload,
+): Promise<NextResponse> {
   const eventType = payload.event;
 
   switch (eventType) {
     case "calendar.sync_events":
       await handleCalendarSyncEvents(payload as CalendarSyncEventsEvent);
-      break;
+      return NextResponse.json({
+        message: "Calendar sync events processed successfully",
+      });
     case "calendar.update":
       await handleCalendarUpdate(payload as CalendarUpdateEvent);
-      break;
+      return NextResponse.json({
+        message: "Calendar update processed successfully",
+      });
     case "recording.done":
       await handleRecordingDone(payload as RecordingDoneEvent);
-      break;
+      return NextResponse.json({
+        message: "Recording done processed successfully",
+      });
     case "transcript.done":
       await handleTranscriptDone(payload as TranscriptDoneEvent);
-      break;
+      return NextResponse.json({
+        message: "Transcript done processed successfully",
+      });
     default:
       logger.warn("Unsupported event type", { eventType });
       return NextResponse.json(
@@ -200,7 +297,6 @@ async function handleCalendarSyncEvents(payload: CalendarSyncEventsEvent) {
   });
 
   if (!connection) {
-    // Check if this is our current calendar ID
     const currentConnection = await prisma.calendarConnection.findFirst({
       where: { isConnected: true },
       select: { id: true, recallCalendarId: true, email: true },
@@ -394,7 +490,6 @@ async function handleTranscriptDone(payload: TranscriptDoneEvent) {
   try {
     const transcriptMetadata = await getTranscriptMetadata(transcriptId);
 
-    // Get the download URL from the transcript metadata
     const downloadUrl = transcriptMetadata.data?.download_url;
     if (!downloadUrl) {
       logger.error("No download URL found in transcript metadata", {

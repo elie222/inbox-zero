@@ -17,7 +17,7 @@ export async function createAsyncTranscript(
   const { language = "en", useDiarization = true } = options;
 
   return recallRequest<{ id: string }>(
-    `api/v1/recording/${recordingId}/create_transcript/`,
+    `/api/v1/recording/${recordingId}/create_transcript/`,
     {
       method: "POST",
       body: JSON.stringify({
@@ -41,7 +41,7 @@ export async function getTranscriptMetadata(
 ): Promise<TranscriptMetadataResponse> {
   try {
     return await recallRequest<TranscriptMetadataResponse>(
-      `api/v1/transcript/${transcriptId}`,
+      `/api/v1/transcript/${transcriptId}`,
     );
   } catch (error) {
     logger.error("Failed to get transcript metadata", {
@@ -68,8 +68,7 @@ export async function fetchTranscriptContent(
   const contentType = response.headers.get("content-type") || "";
   if (contentType.includes("application/json")) {
     try {
-      const json = await response.json();
-      return json;
+      return await response.clone().json();
     } catch (_e) {
       const text = await response.text();
       logger.warn("Transcript JSON parse failed, falling back to text", {

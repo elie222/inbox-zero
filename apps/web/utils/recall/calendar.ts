@@ -1,6 +1,9 @@
 import { createScopedLogger } from "@/utils/logger";
 import { recallRequest } from "@/utils/recall/request";
-import type { RecallCalendarEventsListResponse } from "@/app/api/recall/webhook/types";
+import type {
+  RecallCalendarEventsListResponse,
+  RecallCalendarEvent,
+} from "@/app/api/recall/webhook/types";
 
 const logger = createScopedLogger("recall/calendar");
 
@@ -35,7 +38,7 @@ export async function createRecallCalendar(
 ): Promise<RecallCalendar> {
   try {
     const data = await recallRequest<CreateRecallCalendarResponse>(
-      "api/v2/calendars",
+      "/api/v2/calendars",
       {
         method: "POST",
         body: JSON.stringify(request),
@@ -72,7 +75,7 @@ export async function getRecallCalendar(
 ): Promise<RecallCalendar | null> {
   try {
     const data = await recallRequest<CreateRecallCalendarResponse>(
-      `api/v2/calendars/${recallCalendarId}`,
+      `/api/v2/calendars/${recallCalendarId}`,
     );
 
     return {
@@ -102,7 +105,7 @@ export async function deleteRecallCalendar(
   recallCalendarId: string,
 ): Promise<void> {
   try {
-    await recallRequest(`api/v2/calendars/${recallCalendarId}`, {
+    await recallRequest(`/api/v2/calendars/${recallCalendarId}`, {
       method: "DELETE",
     });
 
@@ -122,8 +125,12 @@ export async function fetchCalendarEvents(
   recallCalendarId: string,
   lastUpdatedTs?: string,
 ): Promise<RecallCalendarEventsListResponse> {
-  return recallRequest<RecallCalendarEventsListResponse>(
-    "api/v2/calendar-events",
+  const allResults: RecallCalendarEvent[] = [];
+  let nextUrl: string | null = null;
+  let currentResponse: RecallCalendarEventsListResponse;
+
+  currentResponse = await recallRequest<RecallCalendarEventsListResponse>(
+    "/api/v2/calendar-events",
     {
       params: {
         calendar_id: recallCalendarId,
@@ -131,4 +138,28 @@ export async function fetchCalendarEvents(
       },
     },
   );
+
+  allResults.push(...currentResponse.results);
+  nextUrl = currentResponse.next;
+
+  while (nextUrl) {
+    const nextUrlObj = new URL(nextUrl);
+    const endpoint = nextUrlObj.pathname + nextUrlObj.search;
+
+    currentResponse = await recallRequest<RecallCalendarEventsListResponse>(
+      endpoint,
+      {
+        method: "GET",
+      },
+    );
+
+    allResults.push(...currentResponse.results);
+    nextUrl = currentResponse.next;
+  }
+
+  return {
+    results: allResults,
+    next: null,
+    previous: currentResponse.previous,
+  };
 }

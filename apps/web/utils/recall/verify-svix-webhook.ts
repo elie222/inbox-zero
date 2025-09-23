@@ -42,8 +42,12 @@ export function verifySvixWebhook(
     hmac.update(signedContent);
     const computedSignature = hmac.digest("base64");
 
+    const actualSignature = svixSignature.includes("=")
+      ? svixSignature.split("=")[1]
+      : svixSignature;
+
     const computedBuffer = Buffer.from(computedSignature, "base64");
-    const receivedBuffer = Buffer.from(svixSignature, "base64");
+    const receivedBuffer = Buffer.from(actualSignature, "base64");
 
     if (computedBuffer.length !== receivedBuffer.length) {
       logger.warn("Signature length mismatch", {

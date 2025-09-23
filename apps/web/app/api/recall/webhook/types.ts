@@ -86,6 +86,8 @@ export interface RecallCalendarEvent {
 
 export interface RecallCalendarEventsListResponse {
   results: RecallCalendarEvent[];
+  next: string | null;
+  previous: string | null;
 }
 
 export interface TranscriptMetadataResponse {

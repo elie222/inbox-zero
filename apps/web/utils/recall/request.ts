@@ -48,5 +48,10 @@ export async function recallRequest<T>(
     );
   }
 
+  const contentLength = response.headers.get("content-length");
+  if (contentLength === "0" || response.status === 204) {
+    return undefined as T;
+  }
+
   return response.json();
 }

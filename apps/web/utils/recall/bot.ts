@@ -18,7 +18,7 @@ export async function addBotToCalendarEvent(
   botConfig?: { bot_name?: string; language?: string },
 ): Promise<RecallCalendarEventResponse> {
   return recallRequest<RecallCalendarEventResponse>(
-    `api/v2/calendar-events/${eventId}/bot/`,
+    `/api/v2/calendar-events/${eventId}/bot/`,
     {
       method: "POST",
       body: JSON.stringify({
@@ -32,7 +32,7 @@ export async function addBotToCalendarEvent(
 export async function removeBotFromCalendarEvent(
   eventId: string,
 ): Promise<void> {
-  await recallRequest(`api/v2/calendar-events/${eventId}/bot/`, {
+  await recallRequest(`/api/v2/calendar-events/${eventId}/bot/`, {
     method: "DELETE",
   });
 }
@@ -73,21 +73,31 @@ export async function scheduleBotForEvent(
     if (response.bots && response.bots.length > 0) {
       const bot = response.bots[0];
 
-      await prisma.recallMeeting.create({
-        data: {
+      await prisma.recallMeeting.upsert({
+        where: { botId: bot.bot_id },
+        update: {
+          botWillJoinAt: new Date(event.start_time),
+          meetingUrl: event.meeting_url || "",
+          status: "SCHEDULED",
+          deduplicationKey,
+        },
+        create: {
           botId: bot.bot_id,
           eventId: event.id,
           emailAccountId: emailAccountId,
           meetingUrl: event.meeting_url || "",
           botWillJoinAt: new Date(event.start_time),
           status: "SCHEDULED",
+          deduplicationKey,
         },
       });
 
       logger.info("Bot scheduled and stored in database", {
         bot_id: bot.bot_id,
+        event_id: event.id,
         email_account_id: emailAccountId,
         recall_calendar_id: recallCalendarId,
+        deduplication_key: deduplicationKey,
       });
     }
 
