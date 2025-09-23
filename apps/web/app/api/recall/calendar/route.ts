@@ -33,7 +33,6 @@ async function createRecallCalendarForConnection({
 }: {
   emailAccountId: string;
 }) {
-  // Get the primary calendar connection for this email account
   const connection = await prisma.calendarConnection.findFirst({
     where: {
       emailAccountId,
@@ -48,7 +47,7 @@ async function createRecallCalendarForConnection({
       },
     },
     orderBy: {
-      createdAt: "desc", // Get the most recent connection
+      createdAt: "desc",
     },
   });
 
@@ -60,9 +59,7 @@ async function createRecallCalendarForConnection({
     throw new Error("No enabled primary calendar found");
   }
 
-  // Check if we already have a Recall calendar for this connection
   if (connection.recallCalendarId) {
-    // Verify the calendar still exists in Recall
     const recallCalendar = await getRecallCalendar(connection.recallCalendarId);
     if (recallCalendar) {
       logger.info("Recall calendar already exists", {
@@ -74,7 +71,6 @@ async function createRecallCalendarForConnection({
         status: recallCalendar.status,
       };
     } else {
-      // Calendar was deleted from Recall, remove the reference
       await prisma.calendarConnection.update({
         where: { id: connection.id },
         data: { recallCalendarId: null },
@@ -82,11 +78,9 @@ async function createRecallCalendarForConnection({
     }
   }
 
-  // Map provider to Recall platform
   const platform =
     connection.provider === "google" ? "google_calendar" : "microsoft_outlook";
 
-  // Get OAuth client credentials based on provider
   const oauthClientId =
     connection.provider === "google"
       ? process.env.GOOGLE_CLIENT_ID
@@ -104,7 +98,6 @@ async function createRecallCalendarForConnection({
     throw new Error("No refresh token available for calendar connection");
   }
 
-  // Create calendar in Recall
   const recallCalendar = await createRecallCalendar({
     oauth_client_id: oauthClientId,
     oauth_client_secret: oauthClientSecret,
@@ -112,7 +105,6 @@ async function createRecallCalendarForConnection({
     platform,
   });
 
-  // Update the connection with the Recall calendar ID
   await prisma.calendarConnection.update({
     where: { id: connection.id },
     data: { recallCalendarId: recallCalendar.id },
@@ -137,7 +129,6 @@ async function deleteRecallCalendarForConnection({
 }: {
   emailAccountId: string;
 }) {
-  // Find calendar connections with Recall calendar IDs for this email account
   const connections = await prisma.calendarConnection.findMany({
     where: {
       emailAccountId,
@@ -153,7 +144,6 @@ async function deleteRecallCalendarForConnection({
     try {
       await deleteRecallCalendar(connection.recallCalendarId);
 
-      // Remove the Recall calendar ID from our database
       await prisma.calendarConnection.update({
         where: { id: connection.id },
         data: { recallCalendarId: null },

@@ -182,8 +182,8 @@ export const GET = withError(async (request: NextRequest) => {
     });
 
     try {
-      // Create this calendar at Recall to we can start listening to events
-      // We'll start listening by default, but can skip this step with a custom setting
+      // Create a calendar at Recall so we can start listening to events
+      // Can skip this step with a custom setting to not listen to events
       const recallCalendar = await createRecallCalendar({
         oauth_client_id: env.GOOGLE_CLIENT_ID,
         oauth_client_secret: env.GOOGLE_CLIENT_SECRET,
