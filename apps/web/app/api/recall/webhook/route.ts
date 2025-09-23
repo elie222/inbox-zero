@@ -438,7 +438,7 @@ async function handleTranscriptDone(payload: TranscriptDoneEvent) {
     }
 
     const meeting = await prisma.recallMeeting.findUnique({
-      where: { botId: botId as string },
+      where: { botId },
     });
 
     if (!meeting) {
