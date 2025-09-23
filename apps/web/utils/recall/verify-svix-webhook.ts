@@ -42,9 +42,7 @@ export function verifySvixWebhook(
     hmac.update(signedContent);
     const computedSignature = hmac.digest("base64");
 
-    const actualSignature = svixSignature.includes("=")
-      ? svixSignature.split("=")[1]
-      : svixSignature;
+    const actualSignature = svixSignature;
 
     const computedBuffer = Buffer.from(computedSignature, "base64");
     const receivedBuffer = Buffer.from(actualSignature, "base64");
