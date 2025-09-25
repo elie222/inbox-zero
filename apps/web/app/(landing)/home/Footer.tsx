@@ -24,7 +24,13 @@ const navigation = {
     { name: "Customer Support", href: "/support" },
     { name: "E-commerce", href: "/ecommerce" },
   ],
-  compare: [{ name: "vs Fyxer.ai", href: "/best-fyxer-alternative" }],
+  compare: [
+    { name: "vs Fyxer.ai", href: "/best-fyxer-alternative" },
+    {
+      name: "vs Perplexity Email Assistant",
+      href: "/best-perplexity-email-assistant-alternative",
+    },
+  ],
   support: [
     { name: "Pricing", href: "/#pricing" },
     { name: "Contact", href: "mailto:elie@getinboxzero.com", target: "_blank" },

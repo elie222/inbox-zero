@@ -289,7 +289,7 @@ function Checklist({
           icon={<ChromeIcon size={20} />}
           iconBg="bg-orange-100 dark:bg-orange-900/50"
           iconColor="text-orange-500 dark:text-orange-400"
-          title="Install the Inbox Zero Tabs extension"
+          title="Optional: Install the Inbox Zero Tabs extension"
           timeEstimate="1 minute"
           completed={isExtensionInstalled}
           actionText="Install"

@@ -57,6 +57,7 @@ import { prefixPath } from "@/utils/path";
 import { ReferralDialog } from "@/components/ReferralDialog";
 import { isGoogleProvider } from "@/utils/email/provider-types";
 import { NavUser } from "@/components/NavUser";
+import { PremiumExpiredCard } from "@/components/PremiumExpiredCard";
 
 type NavItem = {
   name: string;
@@ -225,6 +226,8 @@ export function SideNav({ ...props }: React.ComponentProps<typeof Sidebar>) {
           )}
         </SidebarGroupContent>
       </SidebarContent>
+
+      <PremiumExpiredCard />
 
       <SidebarFooter className="pb-4">
         <ClientOnly>
