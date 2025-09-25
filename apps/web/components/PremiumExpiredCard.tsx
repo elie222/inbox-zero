@@ -153,10 +153,7 @@ export function PremiumExpiredCard() {
   return (
     <div className="px-3 pt-4">
       <PremiumExpiredCardContent
-        // premium={user.premium}
-        premium={{
-          stripeSubscriptionStatus: "past_due",
-        }}
+        premium={user.premium}
         onDismiss={() => setDismissed(true)}
       />
     </div>
