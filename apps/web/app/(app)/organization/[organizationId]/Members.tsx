@@ -90,7 +90,7 @@ export function Members({ organizationId }: { organizationId: string }) {
           <h2 className="text-xl font-semibold">
             Members ({data?.members.length || 0})
           </h2>
-          <InviteMemberModal />
+          <InviteMemberModal organizationId={organizationId} />
         </div>
 
         <div className="space-y-4">
@@ -169,7 +169,8 @@ function MemberCard({ member, onRemove, executedRulesCount }: MemberCardProps) {
               <>
                 <span className="text-xs text-muted-foreground">∣</span>
                 <span className="text-xs text-muted-foreground">
-                  {executedRulesCount} executed rules
+                  {executedRulesCount.toLocaleString()} assistant processed
+                  emails
                 </span>
               </>
             )}
