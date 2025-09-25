@@ -11,7 +11,6 @@ import { PermissionsCheck } from "@/app/(app)/[emailAccountId]/PermissionsCheck"
 import { EmailProvider } from "@/providers/EmailProvider";
 import { ASSISTANT_ONBOARDING_COOKIE } from "@/utils/cookies";
 import { prefixPath } from "@/utils/path";
-import { PremiumAlertWithData } from "@/components/PremiumAlert";
 import { checkUserOwnsEmailAccount } from "@/utils/email-account";
 import { SettingsTab } from "@/app/(app)/[emailAccountId]/assistant/settings/SettingsTab";
 import { TabSelect } from "@/components/TabSelect";
@@ -86,8 +85,6 @@ export default async function AutomationPage({
         <PermissionsCheck />
 
         <PageWrapper>
-          <PremiumAlertWithData className="mb-8" />
-
           <div className="flex items-center justify-between">
             <div>
               <PageHeader
