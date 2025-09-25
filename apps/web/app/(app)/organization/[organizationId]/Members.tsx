@@ -29,7 +29,7 @@ import {
 import { InviteMemberModal } from "@/components/InviteMemberModal";
 import { removeMemberAction } from "@/utils/actions/remove-member";
 import { toastSuccess, toastError } from "@/components/Toast";
-import type { OrganizationMembersResponse } from "@/app/api/organizations/members/route";
+import type { OrganizationMembersResponse } from "@/app/api/organizations/[organizationId]/members/route";
 import { useExecutedRulesCount } from "@/hooks/useExecutedRulesCount";
 
 type Member = OrganizationMembersResponse["members"][0];
@@ -38,6 +38,76 @@ interface MemberCardProps {
   member: Member;
   onRemove: (memberId: string) => void;
   executedRulesCount?: number;
+}
+
+export function Members({ organizationId }: { organizationId: string }) {
+  const { emailAccountId } = useAccount();
+  const { data, isLoading, error, mutate } =
+    useOrganizationMembers(organizationId);
+  const { data: executedRulesData } = useExecutedRulesCount(organizationId);
+
+  const handleRemoveMember = useCallback(
+    async (memberId: string) => {
+      try {
+        const result = await removeMemberAction(emailAccountId, { memberId });
+
+        if (result?.serverError) {
+          toastError({
+            title: "Error removing member",
+            description: result.serverError,
+          });
+        } else {
+          toastSuccess({ description: "Member removed successfully" });
+          mutate();
+        }
+      } catch (err) {
+        toastError({
+          title: "Error removing member",
+          description:
+            err instanceof Error ? err.message : "Failed to remove member",
+        });
+      }
+    },
+    [mutate, emailAccountId],
+  );
+
+  return (
+    <LoadingContent loading={isLoading} error={error}>
+      <div className="space-y-6">
+        <div className="flex justify-between items-center">
+          <h2 className="text-xl font-semibold">
+            Members ({data?.members.length || 0})
+          </h2>
+          <InviteMemberModal />
+        </div>
+
+        <div className="space-y-4">
+          {data?.members.map((member) => {
+            const executedRulesCount = executedRulesData?.memberCounts.find(
+              (item) => item.emailAccountId === member.emailAccount.id,
+            )?.executedRulesCount;
+
+            return (
+              <MemberCard
+                key={member.id}
+                member={member}
+                onRemove={handleRemoveMember}
+                executedRulesCount={executedRulesCount}
+              />
+            );
+          })}
+        </div>
+
+        {data?.members.length === 0 && (
+          <div className="text-center py-12">
+            <p className="text-muted-foreground">
+              No members found in your organization.
+            </p>
+          </div>
+        )}
+      </div>
+    </LoadingContent>
+  );
 }
 
 function MemberCard({ member, onRemove, executedRulesCount }: MemberCardProps) {
@@ -121,86 +191,6 @@ function MemberCard({ member, onRemove, executedRulesCount }: MemberCardProps) {
           </DropdownMenuContent>
         </DropdownMenu>
       )}
-    </div>
-  );
-}
-
-export default function MembersPage() {
-  const { emailAccountId } = useAccount();
-  const { data, isLoading, error, mutate } = useOrganizationMembers();
-  const { data: executedRulesData } = useExecutedRulesCount();
-
-  const handleRemoveMember = useCallback(
-    async (memberId: string) => {
-      try {
-        const result = await removeMemberAction(emailAccountId, { memberId });
-
-        if (result?.serverError) {
-          toastError({
-            title: "Error removing member",
-            description: result.serverError,
-          });
-        } else {
-          toastSuccess({ description: "Member removed successfully" });
-          mutate();
-        }
-      } catch (err) {
-        toastError({
-          title: "Error removing member",
-          description:
-            err instanceof Error ? err.message : "Failed to remove member",
-        });
-      }
-    },
-    [mutate, emailAccountId],
-  );
-
-  return (
-    <div className="container mx-auto py-8">
-      <div className="max-w-4xl mx-auto">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold mb-2">Organization Members</h1>
-          <p className="text-muted-foreground">
-            Manage your organization members and invite new team members.
-          </p>
-        </div>
-
-        <LoadingContent loading={isLoading} error={error}>
-          <div className="space-y-6">
-            <div className="flex justify-between items-center">
-              <h2 className="text-xl font-semibold">
-                Members ({data?.members.length || 0})
-              </h2>
-              <InviteMemberModal />
-            </div>
-
-            <div className="space-y-4">
-              {data?.members.map((member) => {
-                const executedRulesCount = executedRulesData?.memberCounts.find(
-                  (item) => item.emailAccountId === member.emailAccount.id,
-                )?.executedRulesCount;
-
-                return (
-                  <MemberCard
-                    key={member.id}
-                    member={member}
-                    onRemove={handleRemoveMember}
-                    executedRulesCount={executedRulesCount}
-                  />
-                );
-              })}
-            </div>
-
-            {data?.members.length === 0 && (
-              <div className="text-center py-12">
-                <p className="text-muted-foreground">
-                  No members found in your organization.
-                </p>
-              </div>
-            )}
-          </div>
-        </LoadingContent>
-      </div>
     </div>
   );
 }

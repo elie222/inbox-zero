@@ -60,10 +60,12 @@ async function acceptInvitation({
 }): Promise<{ organizationId: string; memberId: string }> {
   const invitation = await getInvitation({ emailAccountId, invitationId });
 
-  const existingMembership = await prisma.member.findFirst({
+  const existingMembership = await prisma.member.findUnique({
     where: {
-      emailAccountId,
-      organizationId: invitation.organizationId,
+      organizationId_emailAccountId: {
+        emailAccountId,
+        organizationId: invitation.organizationId,
+      },
     },
     select: { id: true },
   });

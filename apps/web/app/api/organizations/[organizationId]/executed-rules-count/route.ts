@@ -1,11 +1,22 @@
 import { NextResponse } from "next/server";
 import prisma from "@/utils/prisma";
-import { withEmailAccount } from "@/utils/middleware";
-import { SafeError } from "@/utils/error";
+import { withAuth } from "@/utils/middleware";
+import { fetchAndCheckIsAdmin } from "@/utils/organizations/access";
 
 export type GetExecutedRulesCountResponse = Awaited<
   ReturnType<typeof getExecutedRulesCount>
 >;
+
+export const GET = withAuth(async (request, { params }) => {
+  const { userId } = request.auth;
+  const { organizationId } = await params;
+
+  await fetchAndCheckIsAdmin({ organizationId, userId });
+
+  const result = await getExecutedRulesCount({ organizationId });
+
+  return NextResponse.json(result);
+});
 
 async function getExecutedRulesCount({
   organizationId,
@@ -35,22 +46,3 @@ async function getExecutedRulesCount({
 
   return { memberCounts: result };
 }
-
-export const GET = withEmailAccount(async (request) => {
-  const { emailAccountId } = request.auth;
-
-  const userMembership = await prisma.member.findFirst({
-    where: { emailAccountId },
-    select: { organizationId: true },
-  });
-
-  if (!userMembership) {
-    throw new SafeError("You are not a member of any organization.");
-  }
-
-  const result = await getExecutedRulesCount({
-    organizationId: userMembership.organizationId,
-  });
-
-  return NextResponse.json(result);
-});

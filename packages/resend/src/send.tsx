@@ -98,7 +98,7 @@ export const sendSummaryEmail = async ({
   test?: boolean;
   emailProps: SummaryEmailProps;
 }) => {
-  sendEmail({
+  return sendEmail({
     from,
     to,
     subject: "Your weekly email summary",
@@ -125,7 +125,7 @@ export const sendDigestEmail = async ({
   test?: boolean;
   emailProps: DigestEmailProps;
 }) => {
-  sendEmail({
+  return sendEmail({
     from,
     to,
     subject: generateDigestSubject(emailProps),
@@ -152,7 +152,7 @@ export const sendInvitationEmail = async ({
   test?: boolean;
   emailProps: InvitationEmailProps;
 }) => {
-  sendEmail({
+  return sendEmail({
     from,
     to,
     subject: `You're invited to join ${emailProps.organizationName} on Inbox Zero`,

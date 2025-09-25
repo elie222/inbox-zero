@@ -19,14 +19,13 @@ import { useAccount } from "@/providers/EmailAccountProvider";
 
 export default function CreateOrganizationPage() {
   const router = useRouter();
-  const { isLoading, mutate } = useUser();
+  const { isLoading, mutate, error } = useUser();
   const { emailAccountId } = useAccount();
 
   const {
     register,
     handleSubmit,
     formState: { errors, isSubmitting, dirtyFields },
-    reset,
     watch,
     setValue,
   } = useForm<CreateOrganizationBody>({
@@ -54,16 +53,15 @@ export default function CreateOrganizationPage() {
         });
       } else {
         toastSuccess({ description: "Organization created successfully!" });
-        reset();
-        await mutate();
-        router.push(`/${emailAccountId}/organizations/members`);
+        mutate();
+        router.push(`/organization/${result?.data?.id}`);
       }
     },
-    [mutate, reset, router, emailAccountId],
+    [mutate, router, emailAccountId],
   );
 
   return (
-    <LoadingContent loading={isLoading}>
+    <LoadingContent loading={isLoading} error={error}>
       <div className="container mx-auto py-8">
         <div className="max-w-2xl mx-auto">
           <div className="mb-8">

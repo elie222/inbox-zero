@@ -109,7 +109,9 @@ export function NavUser() {
         <DropdownMenuGroup>
           {!hasOrganization && (
             <DropdownMenuItem asChild>
-              <Link href={prefixPath(currentEmailAccountId, "/organizations")}>
+              <Link
+                href={prefixPath(currentEmailAccountId, "/organization/create")}
+              >
                 <Building2Icon className="mr-2 size-4" />
                 Create organization
               </Link>
@@ -117,12 +119,7 @@ export function NavUser() {
           )}
           {hasOrganization && isOrgAdmin && (
             <DropdownMenuItem asChild>
-              <Link
-                href={prefixPath(
-                  currentEmailAccountId,
-                  "/organizations/members",
-                )}
-              >
+              <Link href={prefixPath(currentEmailAccountId, "/organization")}>
                 <Building2Icon className="mr-2 size-4" />
                 My Organization
               </Link>
