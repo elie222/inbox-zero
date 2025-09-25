@@ -26,7 +26,7 @@ export const inviteMemberAction = actionClientUser
       });
 
       if (!inviterMember) {
-        throw new SafeError("You are not a member of any organization.");
+        throw new SafeError("You are not a member of this organization.");
       }
 
       if (!hasOrganizationAdminRole(inviterMember.role)) {
@@ -44,7 +44,7 @@ export const inviteMemberAction = actionClientUser
       const existing = await prisma.invitation.findFirst({
         where: {
           organizationId: inviterMember.organizationId,
-          email: email.trim(),
+          email,
           status: "pending",
         },
         select: { id: true },
@@ -56,7 +56,7 @@ export const inviteMemberAction = actionClientUser
       const invitation = await prisma.invitation.create({
         data: {
           organizationId: inviterMember.organizationId,
-          email: email.trim(),
+          email,
           role,
           status: "pending",
           expiresAt: new Date(Date.now() + 1000 * 60 * 60 * 24 * 14), // 14 days
