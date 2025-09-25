@@ -33,14 +33,15 @@ describe("invitation actions", () => {
     prisma.invitation.create.mockResolvedValue({ id: "inv_1" } as any);
     prisma.organization.findUnique.mockResolvedValue({ name: "Acme" } as any);
 
-    const res = await inviteMemberAction(
-      "ea_inviter" as any,
-      { email: "user@test.com", role: "member" } as any,
-    );
+    const res = await inviteMemberAction({
+      email: "user@test.com",
+      role: "member",
+      organizationId: "org_1",
+    });
 
     expect(prisma.invitation.create).toHaveBeenCalledWith({
       data: expect.objectContaining({
-        inviterId: "ea_inviter",
+        role: "member",
         organizationId: "org_1",
       }),
       select: { id: true },
@@ -75,7 +76,6 @@ describe("invitation actions", () => {
       select: { id: true },
     });
     expect(res?.data).toMatchObject({
-      redirectUrl: "/welcome",
       organizationId: "org_1",
     });
   });

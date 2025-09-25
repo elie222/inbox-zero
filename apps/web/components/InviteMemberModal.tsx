@@ -3,7 +3,6 @@
 import { useForm, type SubmitHandler } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useCallback } from "react";
-import { useAccount } from "@/providers/EmailAccountProvider";
 import {
   Dialog,
   DialogClose,
@@ -32,8 +31,11 @@ import {
 } from "@/utils/actions/invite-member.validation";
 import { useDialogState } from "@/hooks/useDialogState";
 
-export function InviteMemberModal() {
-  const { emailAccountId } = useAccount();
+export function InviteMemberModal({
+  organizationId,
+}: {
+  organizationId: string;
+}) {
   const {
     register,
     handleSubmit,
@@ -44,6 +46,7 @@ export function InviteMemberModal() {
   } = useForm<InviteMemberBody>({
     resolver: zodResolver(inviteMemberBody),
     defaultValues: {
+      organizationId,
       role: "member",
     },
   });
@@ -54,7 +57,7 @@ export function InviteMemberModal() {
 
   const onSubmit: SubmitHandler<InviteMemberBody> = useCallback(
     async (data) => {
-      const result = await inviteMemberAction(emailAccountId, data);
+      const result = await inviteMemberAction(data);
 
       if (result?.serverError) {
         toastError({
@@ -69,7 +72,7 @@ export function InviteMemberModal() {
         onClose();
       }
     },
-    [reset, onClose, emailAccountId],
+    [reset, onClose],
   );
 
   return (
