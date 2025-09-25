@@ -20,10 +20,10 @@ async function getRuleStats({
   toDate?: number;
 }) {
   const dateFilter: { gte?: Date; lte?: Date } = {};
-  if (fromDate) {
+  if (typeof fromDate === "number" && Number.isFinite(fromDate)) {
     dateFilter.gte = new Date(fromDate);
   }
-  if (toDate) {
+  if (typeof toDate === "number" && Number.isFinite(toDate)) {
     dateFilter.lte = new Date(toDate);
   }
 

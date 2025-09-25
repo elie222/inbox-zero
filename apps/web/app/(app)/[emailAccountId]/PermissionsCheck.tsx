@@ -15,7 +15,7 @@ export function PermissionsCheck() {
   const { isAccountOwner } = useOrgAccess();
 
   useEffect(() => {
-    // Skip permissions check if it is an org admin viewing someone else's account
+    // Skip permissions check when viewing another user's account (non-owner)
     if (!isAccountOwner) return;
 
     if (permissionsChecked[emailAccountId]) return;

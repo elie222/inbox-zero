@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback } from "react";
+import { useCallback, useMemo } from "react";
 import Link from "next/link";
 import { useOrganizationMembers } from "@/hooks/useOrganizationMembers";
 import { LoadingContent } from "@/components/LoadingContent";
@@ -46,6 +46,18 @@ export function Members({ organizationId }: { organizationId: string }) {
     useOrganizationMembers(organizationId);
   const { data: executedRulesData } = useExecutedRulesCount(organizationId);
 
+  // Create a Map for O(1) lookups instead of O(n) Array.find for each member
+  const executedRulesCountMap = useMemo(() => {
+    if (!executedRulesData?.memberCounts) return new Map();
+
+    return new Map(
+      executedRulesData.memberCounts.map((item) => [
+        item.emailAccountId,
+        item.executedRulesCount,
+      ]),
+    );
+  }, [executedRulesData?.memberCounts]);
+
   const handleRemoveMember = useCallback(
     async (memberId: string) => {
       try {
@@ -83,9 +95,9 @@ export function Members({ organizationId }: { organizationId: string }) {
 
         <div className="space-y-4">
           {data?.members.map((member) => {
-            const executedRulesCount = executedRulesData?.memberCounts.find(
-              (item) => item.emailAccountId === member.emailAccount.id,
-            )?.executedRulesCount;
+            const executedRulesCount = executedRulesCountMap.get(
+              member.emailAccount.id,
+            );
 
             return (
               <MemberCard

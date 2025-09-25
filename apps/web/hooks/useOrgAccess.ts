@@ -34,15 +34,14 @@ export function useOrgAccess() {
 
   const isAccountOwner = emailAccount.user.id === session.user.id;
 
-  let accountInfo = null;
-  if (!isAccountOwner) {
-    accountInfo = {
-      email: emailAccount.email,
-      name: emailAccount.name,
-      image: emailAccount.image,
-      provider: undefined,
-    };
-  }
+  const accountInfo = isAccountOwner
+    ? null
+    : {
+        email: emailAccount.email,
+        name: emailAccount.name,
+        image: emailAccount.image,
+        provider: undefined,
+      };
 
   return {
     isLoading: false,

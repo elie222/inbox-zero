@@ -74,7 +74,7 @@ export const registerSSOProviderAction = adminActionClient
         entryPoint: ssoConfig.entryPoint,
         cert: ssoConfig.cert,
         callbackUrl,
-        wantAssertionsSigned: false,
+        wantAssertionsSigned: ssoConfig.wantAssertionsSigned ?? true,
         signatureAlgorithm: "sha256",
         digestAlgorithm: "sha256",
         identifierFormat:

@@ -1,6 +1,6 @@
 "use server";
 
-import { actionClient, actionClientUser } from "@/utils/actions/safe-action";
+import { actionClientUser } from "@/utils/actions/safe-action";
 import { handleInvitationBody } from "@/utils/actions/invitation.validation";
 import { SafeError } from "@/utils/error";
 import prisma from "@/utils/prisma";
@@ -129,8 +129,5 @@ export const handleInvitationAction = actionClientUser
 
     await acceptInvitation({ emailAccountId, invitationId });
 
-    return {
-      redirectUrl: "/welcome",
-      organizationId: invitation.organizationId,
-    };
+    return { organizationId: invitation.organizationId };
   });

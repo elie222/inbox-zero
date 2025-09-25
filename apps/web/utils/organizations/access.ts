@@ -1,4 +1,8 @@
 import { SafeError } from "@/utils/error";
+import {
+  ADMIN_ROLES,
+  hasOrganizationAdminRole,
+} from "@/utils/organizations/roles";
 import prisma from "@/utils/prisma";
 
 export async function getMemberEmailAccount(
@@ -14,7 +18,7 @@ export async function getMemberEmailAccount(
             members: {
               some: {
                 emailAccountId: callerEmailAccountId,
-                role: { in: ["admin", "owner"] },
+                role: { in: ADMIN_ROLES },
               },
             },
           },
@@ -36,7 +40,7 @@ export async function getCallerEmailAccount(
       userId,
       members: {
         some: {
-          role: { in: ["admin", "owner"] },
+          role: { in: ADMIN_ROLES },
           organization: {
             members: {
               some: {
@@ -72,7 +76,7 @@ export async function fetchAndCheckIsAdmin({
     throw new SafeError("You are not a member of this organization");
   }
 
-  if (member.role !== "admin" && member.role !== "owner") {
+  if (!hasOrganizationAdminRole(member.role)) {
     throw new SafeError("You are not an organization admin");
   }
 }

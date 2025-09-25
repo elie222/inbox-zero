@@ -1,6 +1,7 @@
 import useSWR, { type SWRConfiguration, type SWRResponse } from "swr";
 import { useParams } from "next/navigation";
 import { useAccount } from "@/providers/EmailAccountProvider";
+import { EMAIL_ACCOUNT_HEADER } from "@/utils/config";
 
 // Attempts to build a drop-in replacement for useSWR that handles org permissions
 // Simple implementation that handles the two patterns we use:
@@ -29,7 +30,7 @@ export function useOrgSWR<Data = any, Error = any>(
   const orgFetcher = (url: string) =>
     fetch(url, {
       headers: {
-        "X-Email-Account-ID": emailAccountId,
+        [EMAIL_ACCOUNT_HEADER]: emailAccountId,
       },
     }).then((res) => res.json());
 

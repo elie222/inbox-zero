@@ -11,7 +11,7 @@ export default async function OrganizationPage({
 
   const session = await auth();
   const userId = session?.user.id;
-  if (!userId) throw new Error("Not authenticated");
+  if (!userId) redirect("/login");
 
   const member = await prisma.member.findFirst({
     where: { emailAccountId, emailAccount: { userId } },

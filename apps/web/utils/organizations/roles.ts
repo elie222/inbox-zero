@@ -1,5 +1,7 @@
+export const ADMIN_ROLES = ["admin", "owner"];
+
 export function hasOrganizationAdminRole(role: string): boolean {
-  return ["admin", "owner"].includes(role);
+  return ADMIN_ROLES.includes(role);
 }
 
 export function isOrganizationAdmin(

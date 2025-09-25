@@ -124,7 +124,11 @@ export function Stats() {
 
         <RuleStatsChart
           dateRange={dateRange}
-          title="Your email workload breakdown"
+          title={
+            isAccountOwner
+              ? "Your email workload breakdown"
+              : "Email workload breakdown"
+          }
         />
       </div>
 
