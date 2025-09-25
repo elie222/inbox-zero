@@ -6,8 +6,18 @@ export interface SSOProviderConfig {
   entryPoint: string;
   cert: string;
   spMetadata: string;
+  // Security configuration options
+  wantAssertionsSigned?: boolean; // Defaults to true for security; set false only if IdP doesn't support signed assertions
 }
 
+/**
+ * Extracts SAML SSO configuration from IdP metadata XML.
+ *
+ * Security note: The resulting configuration will default to requiring signed assertions
+ * (wantAssertionsSigned: true) for security. Only set wantAssertionsSigned to false
+ * if your Identity Provider doesn't support assertion signing and you understand
+ * the security implications of accepting unsigned assertions.
+ */
 export function extractSSOProviderConfigFromXML(
   idpMetadata: string,
   providerId: string,

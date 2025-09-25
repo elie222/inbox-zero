@@ -8,7 +8,6 @@ import type { Account, AuthContext, User } from "better-auth";
 import { betterAuth } from "better-auth";
 import { prismaAdapter } from "better-auth/adapters/prisma";
 import { nextCookies } from "better-auth/next-js";
-import { organization } from "better-auth/plugins";
 import { cookies, headers } from "next/headers";
 import { env } from "@/env";
 import { trackDubSignUp } from "@/utils/dub";
@@ -25,7 +24,6 @@ import { getContactsClient as getOutlookContactsClient } from "@/utils/outlook/c
 import { SCOPES as OUTLOOK_SCOPES } from "@/utils/outlook/scopes";
 import { updateAccountSeats } from "@/utils/premium/server";
 import prisma from "@/utils/prisma";
-import { isAdmin } from "@/utils/admin";
 
 const logger = createScopedLogger("auth");
 
@@ -61,15 +59,7 @@ export const betterAuthConfig = betterAuth({
     nextCookies(),
     sso({
       disableImplicitSignUp: false,
-      organizationProvisioning: {
-        disabled: false,
-        defaultRole: "member",
-      },
-    }),
-    organization({
-      allowUserToCreateOrganization: async (user: User) => {
-        return isAdmin({ email: user.email }) || false;
-      },
+      organizationProvisioning: { disabled: true },
     }),
   ],
   session: {

@@ -1,7 +1,7 @@
 "use client";
 
 import type { DateRange } from "react-day-picker";
-import useSWR from "swr";
+import { useOrgSWR } from "@/hooks/useOrgSWR";
 import { LoadingContent } from "@/components/LoadingContent";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -29,7 +29,7 @@ export function StatsSummary(props: {
     ...getDateRangeParams(dateRange),
   };
 
-  const { data, isLoading, error } = useSWR<
+  const { data, isLoading, error } = useOrgSWR<
     StatsByWeekResponse,
     { error: string }
   >(`/api/user/stats/by-period?${new URLSearchParams(params as any)}`, {

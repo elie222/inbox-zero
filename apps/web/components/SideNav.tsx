@@ -71,37 +71,38 @@ type NavItem = {
 export const useNavigation = () => {
   // When we have features in early access, we can filter the navigation items
   const showCleaner = useCleanerEnabled();
-  const { emailAccountId, provider } = useAccount();
+  const { emailAccountId, emailAccount, provider } = useAccount();
+  const currentEmailAccountId = emailAccount?.id || emailAccountId;
 
   // Assistant category items
   const navItems: NavItem[] = useMemo(
     () => [
       {
         name: "Assistant",
-        href: prefixPath(emailAccountId, "/automation"),
+        href: prefixPath(currentEmailAccountId, "/automation"),
         icon: SparklesIcon,
       },
       {
         name: "Bulk Unsubscribe",
-        href: prefixPath(emailAccountId, "/bulk-unsubscribe"),
+        href: prefixPath(currentEmailAccountId, "/bulk-unsubscribe"),
         icon: MailsIcon,
       },
       ...(isGoogleProvider(provider)
         ? [
             {
               name: "Deep Clean",
-              href: prefixPath(emailAccountId, "/clean"),
+              href: prefixPath(currentEmailAccountId, "/clean"),
               icon: BrushIcon,
             },
             {
               name: "Analytics",
-              href: prefixPath(emailAccountId, "/stats"),
+              href: prefixPath(currentEmailAccountId, "/stats"),
               icon: BarChartBigIcon,
             },
           ]
         : []),
     ],
-    [emailAccountId, provider],
+    [currentEmailAccountId, provider],
   );
 
   const navItemsFiltered = useMemo(
@@ -172,7 +173,8 @@ const bottomMailLinks: NavItem[] = [
 
 export function SideNav({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const navigation = useNavigation();
-  const { emailAccountId } = useAccount();
+  const { emailAccountId, emailAccount } = useAccount();
+  const currentEmailAccountId = emailAccount?.id || emailAccountId;
   const path = usePathname();
   const showMailNav = path.includes("/mail") || path.includes("/compose");
 
@@ -247,7 +249,7 @@ export function SideNav({ ...props }: React.ComponentProps<typeof Sidebar>) {
         </SidebarMenuButton>
 
         <SidebarMenuButton asChild>
-          <Link href={prefixPath(emailAccountId, "/settings")}>
+          <Link href={prefixPath(currentEmailAccountId, "/settings")}>
             <SettingsIcon className="size-4" />
             <span className="font-semibold">Settings</span>
           </Link>
