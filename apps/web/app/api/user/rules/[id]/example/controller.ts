@@ -60,10 +60,16 @@ async function fetchStaticExampleMessages(
   };
 
   if (rule.from) {
-    options.froms = [rule.from];
+    options.froms = rule.from
+      .split("|")
+      .map((s) => s.trim())
+      .filter(Boolean);
   }
   if (rule.to) {
-    options.tos = [rule.to];
+    options.tos = rule.to
+      .split("|")
+      .map((s) => s.trim())
+      .filter(Boolean);
   }
   if (rule.subject) {
     options.subjects = [rule.subject];

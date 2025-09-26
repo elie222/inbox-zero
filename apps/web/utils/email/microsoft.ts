@@ -61,6 +61,7 @@ import { unwatchOutlook, watchOutlook } from "@/utils/outlook/watch";
 import { escapeODataString } from "@/utils/outlook/odata-escape";
 import { extractEmailAddress } from "@/utils/email";
 import { getOrCreateOutlookFolderIdByName } from "@/utils/outlook/folders";
+import { hasUnquotedParentFolderId } from "@/utils/outlook/message";
 
 const logger = createScopedLogger("outlook-provider");
 
@@ -592,20 +593,29 @@ export class OutlookProvider implements EmailProvider {
       hasDateFilters: dateFilters.length > 0,
     });
 
+    // Check if the query already contains parentFolderId as an unquoted identifier
+    // If it does, skip applying the default folder filter to avoid conflicts
+    const queryHasParentFolderId =
+      originalQuery && hasUnquotedParentFolderId(originalQuery);
+
     // Get folder IDs to get the inbox folder ID
     const folderIds = await getFolderIds(this.client);
     const inboxFolderId = folderIds.inbox;
 
-    if (!inboxFolderId) {
+    if (!queryHasParentFolderId && !inboxFolderId) {
       throw new Error("Could not find inbox folder ID");
     }
+
+    // Only apply folder filtering if the query doesn't already specify parentFolderId
+    const folderId = queryHasParentFolderId ? undefined : inboxFolderId;
 
     logger.info("Calling queryBatchMessages with separated parameters", {
       searchQuery: originalQuery.trim() || undefined,
       dateFilters,
       maxResults: options.maxResults || 20,
       pageToken: options.pageToken,
-      folderId: inboxFolderId,
+      folderId,
+      queryHasParentFolderId,
     });
 
     const response = await queryBatchMessages(this.client, {
@@ -613,7 +623,7 @@ export class OutlookProvider implements EmailProvider {
       dateFilters,
       maxResults: options.maxResults || 20,
       pageToken: options.pageToken,
-      folderId: inboxFolderId,
+      folderId,
     });
 
     return {
