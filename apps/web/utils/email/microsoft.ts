@@ -655,7 +655,19 @@ export class OutlookProvider implements EmailProvider {
     threads: EmailThread[];
     nextPageToken?: string;
   }> {
-    const query = options.query;
+    const {
+      fromEmail,
+      after,
+      before,
+      isUnread,
+      type,
+      labelId,
+      // biome-ignore lint/correctness/noUnusedVariables: to do
+      labelIds,
+      // biome-ignore lint/correctness/noUnusedVariables: to do
+      excludeLabelNames,
+    } = options.query || {};
+
     const client = this.client.getClient();
 
     // Determine endpoint and build filters based on query type
@@ -663,40 +675,40 @@ export class OutlookProvider implements EmailProvider {
     const filters: string[] = [];
 
     // Route to appropriate endpoint based on type
-    if (query?.type === "sent") {
+    if (type === "sent") {
       endpoint = "/me/mailFolders('sentitems')/messages";
-    } else if (query?.type === "all") {
+    } else if (type === "all") {
       // For "all" type, use default messages endpoint with folder filter
       filters.push(
         "(parentFolderId eq 'inbox' or parentFolderId eq 'archive')",
       );
-    } else if (query?.labelId) {
+    } else if (labelId) {
       // Use labelId as parentFolderId (should be lowercase for Outlook)
-      filters.push(`parentFolderId eq '${query.labelId.toLowerCase()}'`);
+      filters.push(`parentFolderId eq '${labelId.toLowerCase()}'`);
     } else {
       // Default to inbox only
       filters.push("parentFolderId eq 'inbox'");
     }
 
     // Add other filters
-    if (query?.fromEmail) {
+    if (fromEmail) {
       // Escape single quotes in email address
-      const escapedEmail = escapeODataString(query.fromEmail);
+      const escapedEmail = escapeODataString(fromEmail);
       filters.push(`from/emailAddress/address eq '${escapedEmail}'`);
     }
 
     // Handle structured date options
-    if (query?.after) {
-      const afterISO = query.after.toISOString();
+    if (after) {
+      const afterISO = after.toISOString();
       filters.push(`receivedDateTime gt ${afterISO}`);
     }
 
-    if (query?.before) {
-      const beforeISO = query.before.toISOString();
+    if (before) {
+      const beforeISO = before.toISOString();
       filters.push(`receivedDateTime lt ${beforeISO}`);
     }
 
-    if (query?.isUnread) {
+    if (isUnread) {
       filters.push("isRead eq false");
     }
 
@@ -716,7 +728,7 @@ export class OutlookProvider implements EmailProvider {
     }
 
     // Only add ordering if we don't have a fromEmail filter to avoid complexity
-    if (!query?.fromEmail) {
+    if (!fromEmail) {
       request = request.orderby("receivedDateTime DESC");
     }
 
@@ -729,7 +741,7 @@ export class OutlookProvider implements EmailProvider {
 
     // Sort messages by receivedDateTime if we filtered by fromEmail (since we couldn't use orderby)
     let sortedMessages = response.value;
-    if (query?.fromEmail) {
+    if (fromEmail) {
       sortedMessages = response.value.sort(
         (a: { receivedDateTime: string }, b: { receivedDateTime: string }) =>
           new Date(b.receivedDateTime).getTime() -

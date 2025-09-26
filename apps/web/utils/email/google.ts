@@ -610,37 +610,54 @@ export class GmailProvider implements EmailProvider {
     threads: EmailThread[];
     nextPageToken?: string;
   }> {
-    const query = options.query;
+    const {
+      fromEmail,
+      after,
+      before,
+      isUnread,
+      type,
+      excludeLabelNames,
+      labelIds,
+      labelId,
+    } = options.query || {};
 
     function getQuery() {
       const queryParts: string[] = [];
 
-      if (query?.fromEmail) {
-        queryParts.push(`from:${query.fromEmail}`);
+      if (fromEmail) {
+        queryParts.push(`from:${fromEmail}`);
       }
 
-      if (query?.after) {
-        const afterSeconds = Math.floor(query.after.getTime() / 1000);
+      if (after) {
+        const afterSeconds = Math.floor(after.getTime() / 1000);
         queryParts.push(`after:${afterSeconds}`);
       }
 
-      if (query?.before) {
-        const beforeSeconds = Math.floor(query.before.getTime() / 1000);
+      if (before) {
+        const beforeSeconds = Math.floor(before.getTime() / 1000);
         queryParts.push(`before:${beforeSeconds}`);
       }
 
-      if (query?.isUnread) {
+      if (isUnread) {
         queryParts.push("is:unread");
       }
 
-      if (query?.type === "archive") {
+      if (type === "archive") {
         queryParts.push(`-label:${GmailLabel.INBOX}`);
+      }
+
+      if (excludeLabelNames) {
+        queryParts.push(`-in:"${excludeLabelNames.join(" ")}"`);
       }
 
       return queryParts.length > 0 ? queryParts.join(" ") : undefined;
     }
 
     function getLabelIds(type?: string | null) {
+      if (labelIds) {
+        return labelIds;
+      }
+
       switch (type) {
         case "inbox":
           return [GmailLabel.INBOX];
@@ -673,9 +690,7 @@ export class GmailProvider implements EmailProvider {
       await getThreadsWithNextPageToken({
         gmail: this.client,
         q: getQuery(),
-        labelIds: query?.labelId
-          ? [query.labelId]
-          : getLabelIds(query?.type) || [],
+        labelIds: labelId ? [labelId] : getLabelIds(type) || [],
         maxResults: options.maxResults || 50,
         pageToken: options.pageToken || undefined,
       });

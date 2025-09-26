@@ -29,6 +29,7 @@ import { createEmailProvider } from "@/utils/email/provider";
 import { isGoogleProvider } from "@/utils/email/provider-types";
 import { getUserPremium } from "@/utils/user/get";
 import { isActivePremium } from "@/utils/premium";
+import { ONE_DAY_MS } from "@/utils/date";
 
 export const cleanInboxAction = actionClient
   .metadata({ name: "cleanInbox" })
@@ -48,7 +49,6 @@ export const cleanInboxAction = actionClient
       if (!premium) throw new SafeError("User not premium");
       if (!isActivePremium(premium)) throw new SafeError("Premium not active");
 
-      const gmail = await getGmailClientForEmail({ emailAccountId });
       const emailProvider = await createEmailProvider({
         emailAccountId,
         provider,
@@ -113,18 +113,18 @@ export const cleanInboxAction = actionClient
 
         let totalEmailsProcessed = 0;
 
-        const query = `${daysOld ? `older_than:${daysOld}d ` : ""}-in:"${inboxZeroLabels.processed.name}"`;
-
         do {
           // fetch all emails from the user's inbox
           const { threads, nextPageToken: pageToken } =
-            await getThreadsWithNextPageToken({
-              gmail,
-              q: query,
-              labelIds:
-                type === "inbox"
-                  ? [GmailLabel.INBOX]
-                  : [GmailLabel.INBOX, GmailLabel.UNREAD],
+            await emailProvider.getThreadsWithQuery({
+              query: {
+                before: new Date(Date.now() - daysOld * ONE_DAY_MS),
+                labelIds:
+                  type === "inbox"
+                    ? [GmailLabel.INBOX]
+                    : [GmailLabel.INBOX, GmailLabel.UNREAD],
+                excludeLabelNames: [inboxZeroLabels.processed.name],
+              },
               maxResults: Math.min(maxEmails || 100, 100),
             });
 
