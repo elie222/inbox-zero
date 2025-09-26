@@ -150,24 +150,6 @@ export class GmailProvider implements EmailProvider {
     return parseMessage(message);
   }
 
-  async getMessages({
-    searchQuery,
-    maxResults,
-  }: {
-    searchQuery?: string;
-    folderId?: string;
-    maxResults?: number;
-  }): Promise<ParsedMessage[]> {
-    const response = await getMessages(this.client, {
-      query: searchQuery,
-      maxResults: maxResults ?? 50,
-    });
-    const messages = response.messages || [];
-    return messages
-      .filter((message) => isDefined(message.payload))
-      .map((message) => parseMessage(message as MessageWithPayload));
-  }
-
   async getSentMessages(maxResults = 20): Promise<ParsedMessage[]> {
     return getSentMessages(this.client, maxResults);
   }

@@ -139,7 +139,7 @@ export class OutlookProvider implements EmailProvider {
     }
   }
 
-  async getMessages({
+  private async getMessages({
     searchQuery,
     maxResults = 50,
     folderId,

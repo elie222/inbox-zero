@@ -63,7 +63,6 @@ export const createMockEmailProvider = (
     inline: [],
     labelIds: [],
   }),
-  getMessages: vi.fn().mockResolvedValue([]),
   getSentMessages: vi.fn().mockResolvedValue([]),
   getSentThreadsExcluding: vi.fn().mockResolvedValue([]),
   getThreadMessages: vi.fn().mockResolvedValue([]),
