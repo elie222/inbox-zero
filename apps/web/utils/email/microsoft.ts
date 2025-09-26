@@ -92,9 +92,7 @@ export class OutlookProvider implements EmailProvider {
   }
 
   async getThread(threadId: string): Promise<EmailThread> {
-    const messages = await this.getMessages({
-      searchQuery: `conversationId:${threadId}`,
-    });
+    const messages = await this.getThreadMessages(threadId);
     return {
       id: threadId,
       messages,
