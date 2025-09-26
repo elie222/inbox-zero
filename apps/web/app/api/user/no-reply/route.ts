@@ -12,7 +12,7 @@ async function getNoReply({
 }: {
   emailAccountId: string;
   userEmail: string;
-  provider: string | null;
+  provider: string;
 }) {
   const emailProvider = await createEmailProvider({
     emailAccountId,

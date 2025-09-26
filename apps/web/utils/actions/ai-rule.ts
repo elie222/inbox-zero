@@ -40,9 +40,11 @@ export const runRulesAction = actionClient
   .schema(runRulesBody)
   .action(
     async ({
-      ctx: { emailAccountId, provider, logger },
+      ctx: { emailAccountId, provider, logger: ctxLogger },
       parsedInput: { messageId, threadId, rerun, isTest },
     }): Promise<RunRulesResult> => {
+      const logger = ctxLogger.with({ messageId, threadId });
+
       const emailAccount = await getEmailAccountWithAi({ emailAccountId });
 
       if (!emailAccount) throw new Error("Email account not found");
@@ -75,10 +77,7 @@ export const runRulesAction = actionClient
         : null;
 
       if (executedRule) {
-        logger.info("Skipping. Rule already exists.", {
-          messageId,
-          threadId,
-        });
+        logger.info("Skipping. Rule already exists.");
 
         return {
           rule: executedRule.rule,

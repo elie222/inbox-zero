@@ -3,11 +3,8 @@
 import { z } from "zod";
 import prisma from "@/utils/prisma";
 import { saveUserLabels } from "@/utils/redis/label";
-import { markImportantMessage } from "@/utils/gmail/label";
-import { markSpam } from "@/utils/gmail/spam";
-import { sendEmailWithHtml, sendEmailBody } from "@/utils/gmail/mail";
+import { sendEmailBody } from "@/utils/gmail/mail";
 import { actionClient } from "@/utils/actions/safe-action";
-import { getGmailClientForEmail } from "@/utils/account";
 import { SafeError } from "@/utils/error";
 import { createEmailProvider } from "@/utils/email/provider";
 
@@ -52,17 +49,6 @@ export const trashThreadAction = actionClient
     },
   );
 
-// export const trashMessageAction = actionClient
-//   .metadata({ name: "trashMessage" })
-//   .schema(z.object({ messageId: z.string() }))
-//   .action(async ({ ctx: { emailAccountId }, parsedInput: { messageId } }) => {
-//     const gmail = await getGmailClientForEmail({ emailAccountId });
-
-//     const res = await trashMessage({ gmail, messageId });
-
-//     if (!isStatusOk(res.status)) throw new SafeError("Failed to delete message");
-//   });
-
 export const markReadThreadAction = actionClient
   .metadata({ name: "markReadThread" })
   .schema(z.object({ threadId: z.string(), read: z.boolean() }))
@@ -79,35 +65,6 @@ export const markReadThreadAction = actionClient
       await emailProvider.markReadThread(threadId, read);
     },
   );
-
-export const markImportantMessageAction = actionClient
-  .metadata({ name: "markImportantMessage" })
-  .schema(z.object({ messageId: z.string(), important: z.boolean() }))
-  .action(
-    async ({
-      ctx: { emailAccountId },
-      parsedInput: { messageId, important },
-    }) => {
-      const gmail = await getGmailClientForEmail({ emailAccountId });
-
-      const res = await markImportantMessage({ gmail, messageId, important });
-
-      if (!isStatusOk(res.status))
-        throw new SafeError("Failed to mark message as important");
-    },
-  );
-
-export const markSpamThreadAction = actionClient
-  .metadata({ name: "markSpamThread" })
-  .schema(z.object({ threadId: z.string() }))
-  .action(async ({ ctx: { emailAccountId }, parsedInput: { threadId } }) => {
-    const gmail = await getGmailClientForEmail({ emailAccountId });
-
-    const res = await markSpam({ gmail, threadId });
-
-    if (!isStatusOk(res.status))
-      throw new SafeError("Failed to mark thread as spam");
-  });
 
 export const createAutoArchiveFilterAction = actionClient
   .metadata({ name: "createAutoArchiveFilter" })
@@ -253,14 +210,17 @@ export const updateLabelsAction = actionClient
 export const sendEmailAction = actionClient
   .metadata({ name: "sendEmail" })
   .schema(sendEmailBody)
-  .action(async ({ ctx: { emailAccountId }, parsedInput }) => {
-    const gmail = await getGmailClientForEmail({ emailAccountId });
+  .action(async ({ ctx: { emailAccountId, provider }, parsedInput }) => {
+    const emailProvider = await createEmailProvider({
+      emailAccountId,
+      provider,
+    });
 
-    const result = await sendEmailWithHtml(gmail, parsedInput);
+    const result = await emailProvider.sendEmailWithHtml(parsedInput);
 
     return {
       success: true,
-      messageId: result.data.id,
-      threadId: result.data.threadId,
+      messageId: result.messageId,
+      threadId: result.threadId,
     };
   });

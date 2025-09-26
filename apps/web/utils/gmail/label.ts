@@ -168,26 +168,6 @@ export async function markReadThread(options: {
   });
 }
 
-export async function markImportantMessage(options: {
-  gmail: gmail_v1.Gmail;
-  messageId: string;
-  important: boolean;
-}) {
-  const { gmail, messageId, important } = options;
-
-  return gmail.users.messages.modify({
-    userId: "me",
-    id: messageId,
-    requestBody: important
-      ? {
-          addLabelIds: [GmailLabel.IMPORTANT],
-        }
-      : {
-          removeLabelIds: [GmailLabel.IMPORTANT],
-        },
-  });
-}
-
 export async function createLabel({
   gmail,
   name,

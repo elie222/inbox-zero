@@ -5,12 +5,12 @@ import {
   type GroupEmailsResult,
 } from "@/app/api/v1/group/[groupId]/emails/validation";
 import { withError } from "@/utils/middleware";
-import { validateApiKeyAndGetGmailClient } from "@/utils/api-auth";
+import { validateApiKeyAndGetEmailProvider } from "@/utils/api-auth";
 import { getEmailAccountId } from "@/app/api/v1/helpers";
 
 export const GET = withError(async (request, { params }) => {
-  const { gmail, userId, accountId } =
-    await validateApiKeyAndGetGmailClient(request);
+  const { emailProvider, userId, accountId } =
+    await validateApiKeyAndGetEmailProvider(request);
 
   const { groupId } = await params;
   if (!groupId)
@@ -44,9 +44,9 @@ export const GET = withError(async (request, { params }) => {
   }
 
   const { messages, nextPageToken } = await getGroupEmails({
+    provider: emailProvider.name,
     groupId,
     emailAccountId,
-    gmail,
     from: from ? new Date(from) : undefined,
     to: to ? new Date(to) : undefined,
     pageToken,

@@ -2,24 +2,43 @@ import type { OutlookClient } from "@/utils/outlook/client";
 import type { Message } from "@microsoft/microsoft-graph-types";
 import type { ParsedMessage } from "@/utils/types";
 import { escapeODataString } from "@/utils/outlook/odata-escape";
+import { createScopedLogger } from "@/utils/logger";
+
+const logger = createScopedLogger("outlook/thread");
 
 export async function getThread(
   threadId: string,
   client: OutlookClient,
 ): Promise<Message[]> {
-  const messages: { value: Message[] } = await client
-    .getClient()
-    .api("/me/messages")
-    .filter(`conversationId eq '${threadId}'`)
-    .top(100) // Get up to 100 messages instead of default 10
-    .get();
+  const escapedThreadId = escapeODataString(threadId);
+  const filter = `conversationId eq '${escapedThreadId}'`;
 
-  // Sort in memory to avoid "restriction or sort order is too complex" error
-  return messages.value.sort((a, b) => {
-    const dateA = new Date(a.receivedDateTime || 0).getTime();
-    const dateB = new Date(b.receivedDateTime || 0).getTime();
-    return dateB - dateA; // desc order (newest first)
-  });
+  try {
+    const messages: { value: Message[] } = await client
+      .getClient()
+      .api("/me/messages")
+      .filter(filter)
+      .top(100) // Get up to 100 messages instead of default 10
+      .get();
+
+    // Sort in memory to avoid "restriction or sort order is too complex" error
+    return messages.value.sort((a, b) => {
+      const dateA = new Date(a.receivedDateTime || 0).getTime();
+      const dateB = new Date(b.receivedDateTime || 0).getTime();
+      return dateB - dateA; // desc order (newest first)
+    });
+  } catch (error) {
+    const err = error as any;
+
+    logger.error("getThread failed", {
+      threadId,
+      filter,
+      error: error instanceof Error ? error.message : err,
+      errorCode: err?.code,
+      errorStatusCode: err?.statusCode,
+    });
+    throw error;
+  }
 }
 
 export async function getThreads(

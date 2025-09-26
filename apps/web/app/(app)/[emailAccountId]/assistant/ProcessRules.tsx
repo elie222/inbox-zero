@@ -24,7 +24,6 @@ import { Table, TableBody, TableRow, TableCell } from "@/components/ui/table";
 import { Card } from "@/components/ui/card";
 import type { RunRulesResult } from "@/utils/ai/choose-rule/run-rules";
 import { SearchForm } from "@/components/SearchForm";
-import { Badge } from "@/components/Badge";
 import type { BatchExecutedRulesResponse } from "@/app/api/user/executed-rules/batch/route";
 import {
   isAIRule,
@@ -370,9 +369,6 @@ function ProcessRulesRow({
             {result ? (
               <>
                 <div className="flex max-w-xs flex-col justify-center gap-0.5 whitespace-nowrap">
-                  {result.existing && (
-                    <Badge color="yellow">Already processed</Badge>
-                  )}
                   <ProcessResultDisplay
                     result={result}
                     emailAccountId={emailAccountId}

@@ -7,6 +7,64 @@ import { escapeODataString } from "@/utils/outlook/odata-escape";
 
 const logger = createScopedLogger("outlook/message");
 
+/**
+ * Removes quoted string literals from a query string to avoid false positives
+ * when checking for identifiers that might appear inside quotes.
+ * Handles both single and double quotes, including escaped quotes.
+ */
+function stripQuotedLiterals(query: string): string {
+  let result = "";
+  let i = 0;
+
+  while (i < query.length) {
+    const char = query[i];
+
+    if (char === "'" || char === '"') {
+      const quote = char;
+      i++; // Skip opening quote
+
+      // Skip until we find the matching closing quote (or end of string)
+      while (i < query.length) {
+        const current = query[i];
+        if (current === quote) {
+          // Found closing quote, check if it's escaped
+          let backslashCount = 0;
+          let j = i - 1;
+          while (j >= 0 && query[j] === "\\") {
+            backslashCount++;
+            j--;
+          }
+
+          // If even number of backslashes (including 0), quote is not escaped
+          if (backslashCount % 2 === 0) {
+            i++; // Skip closing quote
+            break;
+          }
+        }
+        i++;
+      }
+
+      // Replace the entire quoted section with spaces to maintain positions
+      // This prevents issues with adjacent identifiers
+      result += " ";
+    } else {
+      result += char;
+      i++;
+    }
+  }
+
+  return result;
+}
+
+/**
+ * Checks if parentFolderId appears as an unquoted identifier in the query.
+ * This avoids false positives when parentFolderId appears inside string literals.
+ */
+export function hasUnquotedParentFolderId(query: string): boolean {
+  const cleanedQuery = stripQuotedLiterals(query);
+  return /\bparentFolderId\b/.test(cleanedQuery);
+}
+
 // Cache for folder IDs
 let folderIdCache: Record<string, string> | null = null;
 
@@ -107,13 +165,14 @@ function getOutlookLabels(
 export async function queryBatchMessages(
   client: OutlookClient,
   options: {
-    query?: string;
+    searchQuery?: string; // Pure search query
+    dateFilters?: string[]; // Array of OData date filters
     maxResults?: number;
     pageToken?: string;
     folderId?: string;
   },
 ) {
-  const { query, pageToken, folderId } = options;
+  const { searchQuery, dateFilters, pageToken, folderId } = options;
 
   const MAX_RESULTS = 20;
 
@@ -133,7 +192,8 @@ export async function queryBatchMessages(
 
   logger.info("Building Outlook request", {
     maxResults,
-    hasQuery: !!query,
+    hasSearchQuery: !!searchQuery,
+    hasDateFilters: !!(dateFilters && dateFilters.length > 0),
     pageToken,
     folderId,
   });
@@ -149,16 +209,9 @@ export async function queryBatchMessages(
 
   let nextPageToken: string | undefined;
 
-  // Check if query is an OData filter (contains operators like eq, gt, lt, etc.)
-  const isODataFilter =
-    query?.includes(" eq ") ||
-    query?.includes(" gt ") ||
-    query?.includes(" lt ") ||
-    query?.includes(" ge ") ||
-    query?.includes(" le ") ||
-    query?.includes(" ne ") ||
-    query?.includes(" and ") ||
-    query?.includes(" or ");
+  // Determine if we have a search query vs pure filters
+  const hasSearchQuery = !!searchQuery?.trim();
+  const hasDateFilters = !!(dateFilters && dateFilters.length > 0);
 
   // Always filter to only include inbox and archive folders
   const inboxFolderId = folderIds.inbox;
@@ -171,100 +224,92 @@ export async function queryBatchMessages(
     });
   }
 
-  if (query?.trim()) {
-    if (isODataFilter) {
-      // Filter path - use filter and skipToken
-      // Combine the existing filter with folder restrictions
-      const folderFilter = `(parentFolderId eq '${inboxFolderId}' or parentFolderId eq '${archiveFolderId}')`;
-      const combinedFilter = query.trim()
-        ? `${query.trim()} and ${folderFilter}`
-        : folderFilter;
-      request = request.filter(combinedFilter);
+  // Build folder filter for all cases
+  const folderFilter = folderId
+    ? `parentFolderId eq '${escapeODataString(folderId)}'`
+    : `(parentFolderId eq '${escapeODataString(inboxFolderId)}' or parentFolderId eq '${escapeODataString(archiveFolderId)}')`;
 
-      if (pageToken) {
-        request = request.skipToken(pageToken);
+  if (hasSearchQuery) {
+    // Search path - use $search parameter
+    logger.info("Using search path", {
+      searchQuery,
+      folderFilter,
+    });
+
+    request = request.search(searchQuery!.trim());
+
+    // Apply folder filtering via post-processing since $search can't be combined with $filter
+    if (pageToken) {
+      request = request.skipToken(pageToken);
+    }
+
+    const response: { value: Message[]; "@odata.nextLink"?: string } =
+      await request.get();
+
+    // Filter messages to only include inbox and archive folders
+    const filteredMessages = response.value.filter((message) => {
+      if (folderId) {
+        return message.parentFolderId === folderId;
       }
-
-      const response: { value: Message[]; "@odata.nextLink"?: string } =
-        await request.get();
-      const messages = await convertMessages(response.value, folderIds);
-
-      // For filter, get next page token from @odata.nextLink
-      nextPageToken = response["@odata.nextLink"]
-        ? new URL(response["@odata.nextLink"]).searchParams.get("$skiptoken") ||
-          undefined
-        : undefined;
-
-      logger.info("Filter results", {
-        messageCount: messages.length,
-        hasNextPageToken: !!nextPageToken,
-      });
-
-      return { messages, nextPageToken };
-    } else {
-      // Search path - use search and skipToken
-      request = request.search(query.trim());
-
-      if (pageToken) {
-        request = request.skipToken(pageToken);
-      }
-
-      const response: { value: Message[]; "@odata.nextLink"?: string } =
-        await request.get();
-      // Filter messages to only include inbox and archive folders
-      const filteredMessages = response.value.filter(
-        (message) =>
-          message.parentFolderId === inboxFolderId ||
-          message.parentFolderId === archiveFolderId,
+      return (
+        message.parentFolderId === inboxFolderId ||
+        message.parentFolderId === archiveFolderId
       );
-      const messages = await convertMessages(filteredMessages, folderIds);
+    });
+    const messages = await convertMessages(filteredMessages, folderIds);
 
-      // For search, get next page token from @odata.nextLink
-      nextPageToken = response["@odata.nextLink"]
-        ? new URL(response["@odata.nextLink"]).searchParams.get("$skiptoken") ||
-          undefined
-        : undefined;
-
-      logger.info("Search results", {
-        messageCount: messages.length,
-        hasNextPageToken: !!nextPageToken,
-      });
-
-      return { messages, nextPageToken };
-    }
-  } else {
-    // Non-search path - use filter, skip and orderBy
-    // Always filter to only include inbox and archive folders
-    const folderFilter = `(parentFolderId eq '${inboxFolderId}' or parentFolderId eq '${archiveFolderId}')`;
-
-    // If a specific folder is requested, override the default filter
-    if (folderId) {
-      request = request.filter(`parentFolderId eq '${folderId}'`);
-    } else {
-      request = request.filter(folderFilter);
-    }
-
-    request = request
-      .skip(pageToken ? Number.parseInt(pageToken, 10) : 0)
-      .orderby("receivedDateTime DESC");
-
-    const response: { value: Message[] } = await request.get();
-    const messages = await convertMessages(response.value, folderIds);
-
-    // For non-search, calculate next page token based on message count
-    const hasMore = messages.length === maxResults;
-    nextPageToken = hasMore
-      ? (pageToken
-          ? Number.parseInt(pageToken, 10) + maxResults
-          : maxResults
-        ).toString()
+    nextPageToken = response["@odata.nextLink"]
+      ? new URL(response["@odata.nextLink"]).searchParams.get("$skiptoken") ||
+        undefined
       : undefined;
 
-    logger.info("Non-search results", {
+    logger.info("Search results", {
+      totalFound: response.value.length,
+      afterFolderFiltering: filteredMessages.length,
       messageCount: messages.length,
-      skip: pageToken ? Number.parseInt(pageToken, 10) : 0,
-      hasMore,
-      nextPageToken,
+      hasNextPageToken: !!nextPageToken,
+    });
+
+    return { messages, nextPageToken };
+  } else {
+    // Filter path - use $filter parameter for date filters or folder-only queries
+    const filters = [folderFilter];
+
+    // Add date filters if provided
+    if (hasDateFilters) {
+      filters.push(...dateFilters!);
+    }
+
+    const combinedFilter = filters.join(" and ");
+
+    logger.info("Using filter path", {
+      folderFilter,
+      dateFilters: dateFilters || [],
+      combinedFilter,
+    });
+
+    request = request.filter(combinedFilter);
+
+    if (pageToken) {
+      request = request.skipToken(pageToken);
+    } else {
+      // Only add orderby for non-paginated requests to avoid sorting complexity errors
+      request = request.orderby("receivedDateTime DESC");
+    }
+
+    const response: { value: Message[]; "@odata.nextLink"?: string } =
+      await request.get();
+    const messages = await convertMessages(response.value, folderIds);
+
+    nextPageToken = response["@odata.nextLink"]
+      ? new URL(response["@odata.nextLink"]).searchParams.get("$skiptoken") ||
+        undefined
+      : undefined;
+
+    logger.info("Filter results", {
+      messageCount: messages.length,
+      hasNextPageToken: !!nextPageToken,
+      combinedFilter,
     });
 
     return { messages, nextPageToken };

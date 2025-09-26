@@ -137,7 +137,7 @@ function Row({
   mutate: () => void;
   selected: Map<string, boolean>;
   onToggleSelect: (id: string) => void;
-  markNotColdEmail: (input: { sender: string }) => Promise<any>;
+  markNotColdEmail: (input: { sender: string }) => Promise<unknown>;
   isExecuting: boolean;
 }) {
   return (
