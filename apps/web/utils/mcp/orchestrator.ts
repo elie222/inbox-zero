@@ -38,4 +38,3 @@ export async function callMcpToolForEmailAccount(
   const orchestrator = await getOrchestratorForEmailAccount(emailAccountId);
   return await orchestrator.callTool(qualifiedName, args);
 }
-

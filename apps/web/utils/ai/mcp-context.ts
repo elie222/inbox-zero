@@ -1,7 +1,7 @@
 import { getOrchestratorForEmailAccount } from "@/utils/mcp/orchestrator";
 import prisma from "@/utils/prisma";
 import { experimental_createMCPClient } from "ai";
-import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp";
+import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 
 // Collect MCP context for a given email by calling a small set of approved tools.
 // For v1, we try a few common tools if present (e.g., hubspot:get_contact, notion:search_pages)
@@ -26,12 +26,17 @@ export async function collectMcpContext({
   for (const c of connections) {
     if (!c.integration.serverUrl) continue;
     try {
-      const transport = new StreamableHTTPClientTransport(new URL(c.integration.serverUrl), {
-        headers: {
-          ...(c.accessToken ? { Authorization: `Bearer ${c.accessToken}` } : {}),
-          ...(c.apiKey ? { "x-api-key": c.apiKey } : {}),
+      const transport = new StreamableHTTPClientTransport(
+        new URL(c.integration.serverUrl),
+        {
+          headers: {
+            ...(c.accessToken
+              ? { Authorization: `Bearer ${c.accessToken}` }
+              : {}),
+            ...(c.apiKey ? { "x-api-key": c.apiKey } : {}),
+          },
         },
-      } as any);
+      );
 
       const client = await experimental_createMCPClient({ transport });
       const tools = await client.tools();
@@ -42,7 +47,9 @@ export async function collectMcpContext({
         if (contactToolName) {
           try {
             const res = await tools[contactToolName]({ email: senderEmail });
-            aggregated.push(`${c.integration.name} ${contactToolName}: ${JSON.stringify(res).slice(0, 2000)}`);
+            aggregated.push(
+              `${c.integration.name} ${contactToolName}: ${JSON.stringify(res).slice(0, 2000)}`,
+            );
           } catch {}
         }
       }
@@ -52,7 +59,9 @@ export async function collectMcpContext({
         if (searchToolName) {
           try {
             const res = await tools[searchToolName]({ query: subject });
-            aggregated.push(`${c.integration.name} ${searchToolName}: ${JSON.stringify(res).slice(0, 2000)}`);
+            aggregated.push(
+              `${c.integration.name} ${searchToolName}: ${JSON.stringify(res).slice(0, 2000)}`,
+            );
           } catch {}
         }
       }
@@ -70,25 +79,37 @@ export async function collectMcpContext({
 
     if (senderEmail) {
       const hubspotGetContact = tools.find(
-        (t) => t.name === "hubspot:get_contact" || t.name === "hubspot:get_contact_details",
+        (t) =>
+          t.name === "hubspot:get_contact" ||
+          t.name === "hubspot:get_contact_details",
       );
       if (hubspotGetContact) {
         calls.push(
           orchestrator
             .callTool(hubspotGetContact.name, { email: senderEmail })
-            .then((r) => (r.ok && r.result ? `HubSpot Contact: ${JSON.stringify(r.result).slice(0, 2000)}` : null))
+            .then((r) =>
+              r.ok && r.result
+                ? `HubSpot Contact: ${JSON.stringify(r.result).slice(0, 2000)}`
+                : null,
+            )
             .catch(() => null),
         );
       }
     }
 
     if (subject) {
-      const notionSearch = tools.find((t) => t.name === "notion:search" || t.name === "notion:search_pages");
+      const notionSearch = tools.find(
+        (t) => t.name === "notion:search" || t.name === "notion:search_pages",
+      );
       if (notionSearch) {
         calls.push(
           orchestrator
             .callTool(notionSearch.name, { query: subject })
-            .then((r) => (r.ok && r.result ? `Notion Search: ${JSON.stringify(r.result).slice(0, 2000)}` : null))
+            .then((r) =>
+              r.ok && r.result
+                ? `Notion Search: ${JSON.stringify(r.result).slice(0, 2000)}`
+                : null,
+            )
             .catch(() => null),
         );
       }
@@ -102,4 +123,3 @@ export async function collectMcpContext({
 
   return aggregated.length ? aggregated.join("\n\n") : null;
 }
-

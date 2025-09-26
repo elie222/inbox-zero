@@ -41,7 +41,10 @@ export type ToolCallResult = {
 
 export interface McpClient {
   listTools(): Promise<McpToolInfo[]>;
-  callTool(name: string, args?: Record<string, unknown>): Promise<ToolCallResult>;
+  callTool(
+    name: string,
+    args?: Record<string, unknown>,
+  ): Promise<ToolCallResult>;
 }
 
 export type CredentialBundle = {
@@ -50,4 +53,3 @@ export type CredentialBundle = {
   apiKey?: string | null;
   expiresAt?: Date | null;
 };
-

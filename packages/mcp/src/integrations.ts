@@ -37,4 +37,3 @@ export const MCP_INTEGRATIONS: Record<string, McpIntegrationConfig> = {
 };
 
 export type IntegrationKey = keyof typeof MCP_INTEGRATIONS;
-

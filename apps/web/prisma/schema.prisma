@@ -96,7 +96,6 @@ model User {
   // Referral relationships
   referralsMade    Referral[] @relation("ReferrerUser")
   referralReceived Referral?  @relation("ReferredUser")
-
 }
 
 // Migrating over to the new settings model. Currently most settings are in the User model, but will be moved to this model in the future.
@@ -154,26 +153,28 @@ model EmailAccount {
   digests          Digest[]
   scheduledActions ScheduledAction[]
 
-  members      Member[]
-  invitations  Invitation[]
-  ssoproviders SsoProvider[]
+  members             Member[]
+  invitations         Invitation[]
+  ssoproviders        SsoProvider[]
   calendarConnections CalendarConnection[]
+  mcpConnections      McpConnection[]
 
   @@index([lastSummaryEmailAt])
 }
 
 model Organization {
-  id          String        @id @default(cuid())
-  name        String
-  slug        String        @unique
-  logo        String?
-  metadata    Json?
-  createdAt   DateTime      @default(now())
-  updatedAt   DateTime      @updatedAt
-  members     Member[]
-  SsoProvider SsoProvider[]
-  sessions    Session[]
-  invitations Invitation[]
+  id             String          @id @default(cuid())
+  name           String
+  slug           String          @unique
+  logo           String?
+  metadata       Json?
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  members        Member[]
+  SsoProvider    SsoProvider[]
+  sessions       Session[]
+  invitations    Invitation[]
+  mcpConnections McpConnection[]
 }
 
 model Member {
@@ -222,7 +223,7 @@ model SsoProvider {
   samlConfig     String?
   emailAccountId String?
   emailAccount   EmailAccount? @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
-  providerId     String  @unique
+  providerId     String        @unique
   organizationId String?
   organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   domain         String
@@ -902,58 +903,58 @@ model Referral {
 
 // MCP integration models
 model McpIntegration {
-  id            String          @id @default(cuid())
-  createdAt     DateTime        @default(now())
-  updatedAt     DateTime        @updatedAt
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  name          String          @unique
-  displayName   String
-  description   String?
+  name        String  @unique
+  displayName String
+  description String?
 
   // Connection details
-  serverUrl     String?
-  npmPackage    String?
-  authType      String
+  serverUrl  String?
+  npmPackage String?
+  authType   String
 
   // Configuration
   defaultScopes String[]
-  isActive      Boolean         @default(true)
+  isActive      Boolean  @default(true)
 
-  connections   McpConnection[]
+  connections McpConnection[]
 
   @@index([isActive])
 }
 
 model McpConnection {
-  id             String          @id @default(cuid())
-  createdAt      DateTime        @default(now())
-  updatedAt      DateTime        @updatedAt
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   // Relationships
-  integrationId  String
-  integration    McpIntegration  @relation(fields: [integrationId], references: [id], onDelete: Cascade)
+  integrationId String
+  integration   McpIntegration @relation(fields: [integrationId], references: [id], onDelete: Cascade)
 
   // Owner (emailAccount-level or org-level)
   emailAccountId String?
-  emailAccount   EmailAccount?   @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
+  emailAccount   EmailAccount? @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
   organizationId String?
-  organization   Organization?   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   // Connection details
-  name           String
-  isActive       Boolean         @default(true)
+  name     String
+  isActive Boolean @default(true)
 
   // Encrypted credentials
-  accessToken    String?
-  refreshToken   String?
-  apiKey         String?
-  expiresAt      DateTime?
+  accessToken  String?
+  refreshToken String?
+  apiKey       String?
+  expiresAt    DateTime?
 
   // Approved scopes/tools
   approvedScopes String[]
   approvedTools  String[]
 
-  tools          McpTool[]
+  tools McpTool[]
 
   @@unique([emailAccountId, integrationId])
   @@unique([organizationId, integrationId])
@@ -963,19 +964,19 @@ model McpConnection {
 }
 
 model McpTool {
-  id            String         @id @default(cuid())
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  connectionId  String
-  connection    McpConnection  @relation(fields: [connectionId], references: [id], onDelete: Cascade)
+  connectionId String
+  connection   McpConnection @relation(fields: [connectionId], references: [id], onDelete: Cascade)
 
-  name          String
-  title         String?
-  description   String?
-  schema        Json?
+  name        String
+  title       String?
+  description String?
+  schema      Json?
 
-  isEnabled     Boolean        @default(true)
+  isEnabled Boolean @default(true)
 
   @@unique([connectionId, name])
   @@index([connectionId])

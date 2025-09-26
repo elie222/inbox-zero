@@ -43,4 +43,3 @@ export const GET = withEmailAccount(async (req) => {
 
   return NextResponse.json({ connections });
 });
-

@@ -1,5 +1,4 @@
 import { type NextRequest, NextResponse } from "next/server";
-import prisma from "@/utils/prisma";
 import { createScopedLogger } from "@/utils/logger";
 
 const logger = createScopedLogger("mcp/oauth/callback");
@@ -11,4 +10,3 @@ export const GET = async (request: NextRequest) => {
   });
   return NextResponse.json({ error: "Not implemented" }, { status: 501 });
 };
-

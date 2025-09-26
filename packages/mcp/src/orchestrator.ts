@@ -1,11 +1,22 @@
 import pRetry from "p-retry";
-import { MCP_INTEGRATIONS } from "./integrations";
 import { HttpMcpClient } from "./client";
 import type { CredentialBundle, McpToolInfo, ToolCallResult } from "./types";
 
 export class McpOrchestrator {
+  private readonly listConnections: () => Promise<
+    Array<{
+      id: string;
+      integrationName: string;
+      serverUrl?: string | null;
+      npmPackage?: string | null;
+      approvedTools: string[];
+      credentials: CredentialBundle;
+      isActive: boolean;
+    }>
+  >;
+
   constructor(
-    private readonly listConnections: () => Promise<
+    listConnections: () => Promise<
       Array<{
         id: string;
         integrationName: string;
@@ -16,7 +27,9 @@ export class McpOrchestrator {
         isActive: boolean;
       }>
     >,
-  ) {}
+  ) {
+    this.listConnections = listConnections;
+  }
 
   private clientFor(connection: {
     serverUrl?: string | null;
@@ -50,18 +63,32 @@ export class McpOrchestrator {
     return tools;
   }
 
-  async callTool(qualifiedName: string, args?: Record<string, unknown>): Promise<ToolCallResult> {
+  async callTool(
+    qualifiedName: string,
+    args?: Record<string, unknown>,
+  ): Promise<ToolCallResult> {
     const [integrationKey, toolName] = qualifiedName.split(":", 2);
     if (!integrationKey || !toolName) {
-      return { ok: false, error: { message: "Invalid tool name; expected 'integration:tool'" } };
+      return {
+        ok: false,
+        error: { message: "Invalid tool name; expected 'integration:tool'" },
+      };
     }
 
     const connections = await this.listConnections();
     const candidates = connections.filter(
-      (c) => c.isActive && c.integrationName === integrationKey && (c.approvedTools.length === 0 || c.approvedTools.includes(toolName)),
+      (c) =>
+        c.isActive &&
+        c.integrationName === integrationKey &&
+        (c.approvedTools.length === 0 || c.approvedTools.includes(toolName)),
     );
     if (candidates.length === 0) {
-      return { ok: false, error: { message: "No active connection with permission for this tool" } };
+      return {
+        ok: false,
+        error: {
+          message: "No active connection with permission for this tool",
+        },
+      };
     }
 
     const connection = candidates[0];
@@ -69,4 +96,3 @@ export class McpOrchestrator {
     return await pRetry(() => client.callTool(toolName, args), { retries: 2 });
   }
 }
-
