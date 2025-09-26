@@ -139,20 +139,23 @@ export class OutlookProvider implements EmailProvider {
     }
   }
 
-  async getMessages(options?: {
+  async getMessages({
+    searchQuery,
+    maxResults = 50,
+    folderId,
+  }: {
     searchQuery?: string;
     folderId?: string;
     maxResults?: number;
   }): Promise<ParsedMessage[]> {
-    const maxResults = options?.maxResults ?? 50;
     const allMessages: ParsedMessage[] = [];
     let pageToken: string | undefined;
     const pageSize = 20; // Outlook API limit
 
     while (allMessages.length < maxResults) {
       const response = await queryBatchMessages(this.client, {
-        searchQuery: options?.searchQuery,
-        folderId: options?.folderId,
+        searchQuery,
+        folderId,
         maxResults: Math.min(pageSize, maxResults - allMessages.length),
         pageToken,
       });

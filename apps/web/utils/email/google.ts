@@ -150,14 +150,17 @@ export class GmailProvider implements EmailProvider {
     return parseMessage(message);
   }
 
-  async getMessages(options?: {
+  async getMessages({
+    searchQuery,
+    maxResults,
+  }: {
     searchQuery?: string;
     folderId?: string;
     maxResults?: number;
   }): Promise<ParsedMessage[]> {
     const response = await getMessages(this.client, {
-      query: options?.searchQuery,
-      maxResults: options?.maxResults ?? 50,
+      query: searchQuery,
+      maxResults: maxResults ?? 50,
     });
     const messages = response.messages || [];
     return messages

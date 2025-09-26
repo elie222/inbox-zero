@@ -40,7 +40,7 @@ export interface EmailProvider {
   getLabels(): Promise<EmailLabel[]>;
   getLabelById(labelId: string): Promise<EmailLabel | null>;
   getMessage(messageId: string): Promise<ParsedMessage>;
-  getMessages(options?: {
+  getMessages(options: {
     searchQuery?: string;
     folderId?: string;
     maxResults?: number;

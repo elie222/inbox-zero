@@ -128,6 +128,7 @@ export const createMockEmailProvider = (
     .mockResolvedValue({ messages: [], nextPageToken: undefined }),
   getOrCreateOutlookFolderIdByName: vi.fn().mockResolvedValue("folder1"),
   sendEmailWithHtml: vi.fn().mockResolvedValue(undefined),
+  getDrafts: vi.fn().mockResolvedValue([]),
   ...overrides,
 });
 
