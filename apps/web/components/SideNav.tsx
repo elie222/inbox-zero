@@ -94,13 +94,13 @@ export const useNavigation = () => {
               href: prefixPath(currentEmailAccountId, "/clean"),
               icon: BrushIcon,
             },
-            {
-              name: "Analytics",
-              href: prefixPath(currentEmailAccountId, "/stats"),
-              icon: BarChartBigIcon,
-            },
           ]
         : []),
+      {
+        name: "Analytics",
+        href: prefixPath(currentEmailAccountId, "/stats"),
+        icon: BarChartBigIcon,
+      },
     ],
     [currentEmailAccountId, provider],
   );
