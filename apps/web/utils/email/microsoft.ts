@@ -573,13 +573,13 @@ export class OutlookProvider implements EmailProvider {
     // Microsoft Graph API handles these differently
     const originalQuery = options.query || "";
 
-    // Build date filter for Outlook (always quoted for OData)
+    // Build date filter for Outlook (no quotes for DateTimeOffset comparison)
     const dateFilters: string[] = [];
     if (options.before) {
-      dateFilters.push(`receivedDateTime lt '${options.before.toISOString()}'`);
+      dateFilters.push(`receivedDateTime lt ${options.before.toISOString()}`);
     }
     if (options.after) {
-      dateFilters.push(`receivedDateTime gt '${options.after.toISOString()}'`);
+      dateFilters.push(`receivedDateTime gt ${options.after.toISOString()}`);
     }
 
     logger.info("Query parameters separated", {
@@ -873,12 +873,12 @@ export class OutlookProvider implements EmailProvider {
     // Handle structured date options
     if (after) {
       const afterISO = after.toISOString();
-      filters.push(`receivedDateTime gt '${afterISO}'`);
+      filters.push(`receivedDateTime gt ${afterISO}`);
     }
 
     if (before) {
       const beforeISO = before.toISOString();
-      filters.push(`receivedDateTime lt '${beforeISO}'`);
+      filters.push(`receivedDateTime lt ${beforeISO}`);
     }
 
     if (isUnread) {
