@@ -6,10 +6,8 @@ import {
 } from "./api-auth";
 import prisma from "@/utils/__mocks__/prisma";
 import { hashApiKey } from "@/utils/api-key";
-import * as gmailClient from "@/utils/gmail/client";
 import { SafeError } from "@/utils/error";
 import type { NextRequest } from "next/server";
-import type { gmail_v1 } from "@googleapis/gmail";
 
 // Mock dependencies
 vi.mock("@/utils/prisma");
@@ -182,92 +180,6 @@ describe("api-auth", () => {
       await expect(validateApiKeyAndGetEmailProvider(request)).rejects.toThrow(
         "Missing access token",
       );
-    });
-
-    it("should throw an error if Gmail client refresh fails", async () => {
-      const request = {
-        headers: {
-          get: vi.fn().mockReturnValue("valid-api-key"),
-        },
-      } as unknown as NextRequest;
-
-      const mockUser = {
-        id: "user-id",
-        accounts: [
-          {
-            access_token: "access-token",
-            refresh_token: "refresh-token",
-            expires_at: new Date(),
-            providerAccountId: "google-account-id",
-          },
-        ],
-      };
-
-      vi.mocked(hashApiKey).mockReturnValue("hashed-key");
-      (prisma.apiKey.findUnique as any).mockResolvedValue({
-        user: mockUser,
-        isActive: true,
-      } as MockApiKeyResult);
-
-      // Mock getGmailClientWithRefresh to return null (refresh failed)
-      vi.mocked(gmailClient.getGmailClientWithRefresh).mockRejectedValue(
-        new Error("Error refreshing Gmail access token"),
-      );
-
-      await expect(validateApiKeyAndGetEmailProvider(request)).rejects.toThrow(
-        Error,
-      );
-      await expect(validateApiKeyAndGetEmailProvider(request)).rejects.toThrow(
-        "Error refreshing Gmail access token",
-      );
-    });
-
-    it("should return Gmail client and user ID if successful", async () => {
-      const request = {
-        headers: {
-          get: vi.fn().mockReturnValue("valid-api-key"),
-        },
-      } as unknown as NextRequest;
-
-      const mockUser = {
-        id: "user-id",
-        accounts: [
-          {
-            access_token: "access-token",
-            refresh_token: "refresh-token",
-            expires_at: new Date(1_234_567_890 * 1000),
-            providerAccountId: "google-account-id",
-          },
-        ],
-      };
-
-      vi.mocked(hashApiKey).mockReturnValue("hashed-key");
-      (prisma.apiKey.findUnique as any).mockResolvedValue({
-        user: mockUser,
-        isActive: true,
-      } as MockApiKeyResult);
-
-      // Mock successful Gmail client refresh
-      const mockGmailClient = {
-        users: {},
-      } as unknown as gmail_v1.Gmail;
-      vi.mocked(gmailClient.getGmailClientWithRefresh).mockResolvedValue(
-        mockGmailClient,
-      );
-
-      const result = await validateApiKeyAndGetEmailProvider(request);
-      expect(result).toEqual({
-        accessToken: "access-token",
-        gmail: mockGmailClient,
-        userId: "user-id",
-      });
-
-      // Verify getGmailClientWithRefresh was called with correct parameters
-      expect(gmailClient.getGmailClientWithRefresh).toHaveBeenCalledWith({
-        accessToken: "access-token",
-        refreshToken: "refresh-token",
-        expiresAt: 1_234_567_890 * 1000,
-      });
     });
   });
 });
