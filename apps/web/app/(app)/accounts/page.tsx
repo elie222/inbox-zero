@@ -2,7 +2,7 @@
 
 import { useAction } from "next-safe-action/hooks";
 import Link from "next/link";
-import { Trash2, ArrowRight } from "lucide-react";
+import { Trash2, ArrowRight, BotIcon } from "lucide-react";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { LoadingContent } from "@/components/LoadingContent";
 import { Button } from "@/components/ui/button";
@@ -90,8 +90,13 @@ function AccountItem({
         </div>
       </CardHeader>
       <CardContent className="flex justify-end gap-2">
+        <Button variant="outline" size="sm" Icon={BotIcon}>
+          <Link href={prefixPath(emailAccount.id, "/automation")}>
+            Assistant
+          </Link>
+        </Button>
         <Button variant="outline" size="sm" Icon={ArrowRight}>
-          <Link href={prefixPath(emailAccount.id, "/setup")}>View</Link>
+          <Link href={prefixPath(emailAccount.id, "/setup")}>Setup</Link>
         </Button>
         {!emailAccount.isPrimary && (
           <ConfirmDialog
