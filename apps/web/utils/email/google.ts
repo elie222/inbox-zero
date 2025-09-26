@@ -881,4 +881,9 @@ export class GmailProvider implements EmailProvider {
   ): Promise<void> {
     logger.warn("Moving thread to folder is not supported for Gmail");
   }
+
+  async getOrCreateOutlookFolderIdByName(_folderName: string): Promise<string> {
+    logger.warn("Moving thread to folder is not supported for Gmail");
+    return "";
+  }
 }

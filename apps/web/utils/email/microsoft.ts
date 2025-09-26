@@ -60,6 +60,7 @@ import type {
 import { unwatchOutlook, watchOutlook } from "@/utils/outlook/watch";
 import { escapeODataString } from "@/utils/outlook/odata-escape";
 import { extractEmailAddress } from "@/utils/email";
+import { getOrCreateOutlookFolderIdByName } from "@/utils/outlook/folders";
 
 const logger = createScopedLogger("outlook-provider");
 
@@ -1094,5 +1095,9 @@ export class OutlookProvider implements EmailProvider {
       });
       throw error;
     }
+  }
+
+  async getOrCreateOutlookFolderIdByName(folderName: string): Promise<string> {
+    return await getOrCreateOutlookFolderIdByName(this.client, folderName);
   }
 }

@@ -5,8 +5,6 @@ import { after } from "next/server";
 import {
   createRuleBody,
   updateRuleBody,
-  updateRuleInstructionsBody,
-  rulesExamplesBody,
   updateRuleSettingsBody,
   enableDraftRepliesBody,
   deleteRuleBody,
@@ -16,7 +14,6 @@ import {
 } from "@/utils/actions/rule.validation";
 import prisma from "@/utils/prisma";
 import { isDuplicateError, isNotFoundError } from "@/utils/prisma-helpers";
-import { aiFindExampleMatches } from "@/utils/ai/example-matches/find-example-matches";
 import { flattenConditions } from "@/utils/condition";
 import {
   ActionType,
@@ -39,15 +36,11 @@ import { INTERNAL_API_KEY_HEADER } from "@/utils/internal-api";
 import type { ProcessPreviousBody } from "@/app/api/reply-tracker/process-previous/route";
 import { RuleName, SystemRule } from "@/utils/rule/consts";
 import { actionClient } from "@/utils/actions/safe-action";
-import {
-  getGmailClientForEmail,
-  getOutlookClientForEmail,
-} from "@/utils/account";
-import { getEmailAccountWithAi } from "@/utils/user/get";
 import { prefixPath } from "@/utils/path";
 import { createRuleHistory } from "@/utils/rule/rule-history";
 import { ONE_WEEK_MINUTES } from "@/utils/date";
 import { getOrCreateOutlookFolderIdByName } from "@/utils/outlook/folders";
+import { createEmailProvider } from "@/utils/email/provider";
 
 function getCategoryActionDescription(categoryAction: CategoryAction): string {
   switch (categoryAction) {
@@ -89,9 +82,11 @@ async function getActionsFromCategoryAction(
     }
     case "move_folder":
     case "move_folder_delayed": {
-      const outlook = await getOutlookClientForEmail({ emailAccountId });
-      const folderId = await getOrCreateOutlookFolderIdByName(
-        outlook,
+      const emailProvider = await createEmailProvider({
+        emailAccountId,
+        provider: "outlook",
+      });
+      const folderId = await emailProvider.getOrCreateOutlookFolderIdByName(
         rule.name,
       );
       actions = [
@@ -121,7 +116,7 @@ export const createRuleAction = actionClient
   .schema(createRuleBody)
   .action(
     async ({
-      ctx: { emailAccountId, provider, logger },
+      ctx: { emailAccountId, logger },
       parsedInput: {
         name,
         automate,
@@ -356,23 +351,6 @@ export const updateRuleAction = actionClient
     },
   );
 
-export const updateRuleInstructionsAction = actionClient
-  .metadata({ name: "updateRuleInstructions" })
-  .schema(updateRuleInstructionsBody)
-  .action(
-    async ({ ctx: { emailAccountId }, parsedInput: { id, instructions } }) => {
-      const currentRule = await prisma.rule.findUnique({
-        where: { id, emailAccountId },
-        include: { actions: true, categoryFilters: true, group: true },
-      });
-      if (!currentRule) throw new SafeError("Rule not found");
-
-      revalidatePath(prefixPath(emailAccountId, `/assistant/rule/${id}`));
-      revalidatePath(prefixPath(emailAccountId, "/assistant"));
-      revalidatePath(prefixPath(emailAccountId, "/automation"));
-    },
-  );
-
 export const updateRuleSettingsAction = actionClient
   .metadata({ name: "updateRuleSettings" })
   .schema(updateRuleSettingsBody)
@@ -444,47 +422,27 @@ export const enableDraftRepliesAction = actionClient
 export const deleteRuleAction = actionClient
   .metadata({ name: "deleteRule" })
   .schema(deleteRuleBody)
-  .action(
-    async ({ ctx: { emailAccountId, provider }, parsedInput: { id } }) => {
-      const rule = await prisma.rule.findUnique({
-        where: { id, emailAccountId },
-        include: { actions: true, categoryFilters: true, group: true },
+  .action(async ({ ctx: { emailAccountId }, parsedInput: { id } }) => {
+    const rule = await prisma.rule.findUnique({
+      where: { id, emailAccountId },
+      include: { actions: true, categoryFilters: true, group: true },
+    });
+    if (!rule) return; // already deleted
+    if (rule.emailAccountId !== emailAccountId)
+      throw new SafeError("You don't have permission to delete this rule");
+
+    try {
+      await deleteRule({
+        ruleId: id,
+        emailAccountId,
+        groupId: rule.groupId,
       });
-      if (!rule) return; // already deleted
-      if (rule.emailAccountId !== emailAccountId)
-        throw new SafeError("You don't have permission to delete this rule");
 
-      try {
-        await deleteRule({
-          ruleId: id,
-          emailAccountId,
-          groupId: rule.groupId,
-        });
-
-        revalidatePath(prefixPath(emailAccountId, `/assistant/rule/${id}`));
-      } catch (error) {
-        if (isNotFoundError(error)) return;
-        throw error;
-      }
-    },
-  );
-
-export const getRuleExamplesAction = actionClient
-  .metadata({ name: "getRuleExamples" })
-  .schema(rulesExamplesBody)
-  .action(async ({ ctx: { emailAccountId }, parsedInput: { rulesPrompt } }) => {
-    const emailAccount = await getEmailAccountWithAi({ emailAccountId });
-    if (!emailAccount) throw new SafeError("Email account not found");
-
-    const gmail = await getGmailClientForEmail({ emailAccountId });
-
-    const { matches } = await aiFindExampleMatches(
-      emailAccount,
-      gmail,
-      rulesPrompt,
-    );
-
-    return { matches };
+      revalidatePath(prefixPath(emailAccountId, `/assistant/rule/${id}`));
+    } catch (error) {
+      if (isNotFoundError(error)) return;
+      throw error;
+    }
   });
 
 export const createRulesOnboardingAction = actionClient
@@ -517,7 +475,7 @@ export const createRulesOnboardingAction = actionClient
       });
       if (!emailAccount) throw new SafeError("User not found");
 
-      const promises: Promise<any>[] = [];
+      const promises: Promise<unknown>[] = [];
 
       const isSet = (
         value: string | undefined | null,
@@ -629,8 +587,6 @@ export const createRulesOnboardingAction = actionClient
             );
           })();
           promises.push(promise);
-
-          // TODO: prompt file update
         } else {
           const promise = (async () => {
             const actions = await getActionsFromCategoryAction(

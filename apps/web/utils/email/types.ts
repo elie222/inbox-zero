@@ -135,13 +135,13 @@ export interface EmailProvider {
     from: string;
     addLabelIds?: string[];
     removeLabelIds?: string[];
-  }): Promise<any>;
-  deleteFilter(id: string): Promise<any>;
+  }): Promise<unknown>;
+  deleteFilter(id: string): Promise<unknown>;
   createAutoArchiveFilter(options: {
     from: string;
     gmailLabelId?: string;
     labelName?: string;
-  }): Promise<any>;
+  }): Promise<unknown>;
   getMessagesWithPagination(options: {
     query?: string;
     maxResults?: number;
@@ -211,4 +211,5 @@ export interface EmailProvider {
     ownerEmail: string,
     folderName: string,
   ): Promise<void>;
+  getOrCreateOutlookFolderIdByName(folderName: string): Promise<string>;
 }
