@@ -550,6 +550,7 @@ export class GmailProvider implements EmailProvider {
 
   async getMessagesByFields(options: {
     froms?: string[];
+    tos?: string[];
     subjects?: string[];
     before?: Date;
     after?: Date;
@@ -569,6 +570,14 @@ export class GmailProvider implements EmailProvider {
     if (froms.length > 0) {
       const fromGroup = froms.map((f) => `"${f}"`).join(" OR ");
       parts.push(`from:(${fromGroup})`);
+    }
+
+    const tos = (options.tos || [])
+      .map((t) => extractEmailAddress(t) || t)
+      .filter((t) => !!t);
+    if (tos.length > 0) {
+      const toGroup = tos.map((t) => `"${t}"`).join(" OR ");
+      parts.push(`to:(${toGroup})`);
     }
 
     const subjects = (options.subjects || []).filter((s) => !!s);

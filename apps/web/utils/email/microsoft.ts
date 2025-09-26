@@ -365,7 +365,7 @@ export class OutlookProvider implements EmailProvider {
       content: string;
       contentType: string;
     }>;
-  }): Promise<any> {
+  }) {
     return await sendEmailWithHtml(this.client, body);
   }
 
@@ -637,6 +637,7 @@ export class OutlookProvider implements EmailProvider {
 
   async getMessagesByFields(options: {
     froms?: string[];
+    tos?: string[];
     subjects?: string[];
     before?: Date;
     after?: Date;
@@ -675,6 +676,19 @@ export class OutlookProvider implements EmailProvider {
         .map((f) => `from/emailAddress/address eq '${escapeODataString(f)}'`)
         .join(" or ");
       filters.push(`(${fromFilter})`);
+    }
+
+    const tos = (options.tos || [])
+      .map((t) => extractEmailAddress(t) || t)
+      .filter((t) => !!t);
+    if (tos.length > 0) {
+      const toFilter = tos
+        .map(
+          (t) =>
+            `toRecipients/any(r: r/emailAddress/address eq '${escapeODataString(t)}')`,
+        )
+        .join(" or ");
+      filters.push(`(${toFilter})`);
     }
 
     const subjects = (options.subjects || []).filter((s) => !!s);

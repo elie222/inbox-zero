@@ -47,6 +47,7 @@ export interface EmailProvider {
   }): Promise<ParsedMessage[]>;
   getMessagesByFields(options: {
     froms?: string[];
+    tos?: string[];
     subjects?: string[];
     before?: Date;
     after?: Date;
@@ -119,7 +120,7 @@ export interface EmailProvider {
       content: string;
       contentType: string;
     }>;
-  }): Promise<any>;
+  }): Promise<unknown>;
   forwardEmail(
     email: ParsedMessage,
     args: { to: string; cc?: string; bcc?: string; content?: string },

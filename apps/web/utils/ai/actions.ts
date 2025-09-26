@@ -10,16 +10,15 @@ import { filterNullProperties } from "@/utils";
 
 const logger = createScopedLogger("ai-actions");
 
-type ActionFunction<T extends Partial<Omit<ActionItem, "type" | "id">>> =
-  (options: {
-    client: EmailProvider;
-    email: EmailForAction;
-    args: T;
-    userEmail: string;
-    userId: string;
-    emailAccountId: string;
-    executedRule: ExecutedRule;
-  }) => Promise<any>;
+type ActionFunction<T extends Partial<Omit<ActionItem, "type">>> = (options: {
+  client: EmailProvider;
+  email: EmailForAction;
+  args: T;
+  userEmail: string;
+  userId: string;
+  emailAccountId: string;
+  executedRule: ExecutedRule;
+}) => Promise<any>;
 
 export const runActionFunction = async (options: {
   client: EmailProvider;
@@ -267,16 +266,22 @@ const track_thread: ActionFunction<Record<string, unknown>> = async ({
   });
 };
 
-const digest: ActionFunction<any> = async ({ email, emailAccountId, args }) => {
+const digest: ActionFunction<{ id?: string }> = async ({
+  email,
+  emailAccountId,
+  args,
+}) => {
+  if (!args.id) return;
   const actionId = args.id;
   await enqueueDigestItem({ email, emailAccountId, actionId });
 };
 
-const move_folder: ActionFunction<any> = async ({
+const move_folder: ActionFunction<{ folderId?: string | null }> = async ({
   client,
   email,
   userEmail,
   args,
 }) => {
+  if (!args.folderId) return;
   await client.moveThreadToFolder(email.threadId, userEmail, args.folderId);
 };

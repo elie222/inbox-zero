@@ -168,8 +168,8 @@ export async function queryBatchMessages(
 
   // Build folder filter for all cases
   const folderFilter = folderId
-    ? `parentFolderId eq '${folderId}'`
-    : `(parentFolderId eq '${inboxFolderId}' or parentFolderId eq '${archiveFolderId}')`;
+    ? `parentFolderId eq '${escapeODataString(folderId)}'`
+    : `(parentFolderId eq '${escapeODataString(inboxFolderId)}' or parentFolderId eq '${escapeODataString(archiveFolderId)}')`;
 
   if (hasSearchQuery) {
     // Search path - use $search parameter

@@ -62,6 +62,7 @@ async function getActionsFromCategoryAction(
   categoryAction: CategoryAction,
   label: string,
   hasDigest: boolean,
+  provider: string,
 ): Promise<Prisma.ActionCreateManyRuleInput[]> {
   let actions: Prisma.ActionCreateManyRuleInput[] = [
     { type: ActionType.LABEL, label },
@@ -83,7 +84,7 @@ async function getActionsFromCategoryAction(
     case "move_folder_delayed": {
       const emailProvider = await createEmailProvider({
         emailAccountId,
-        provider: "microsoft",
+        provider,
       });
       const folderId = await emailProvider.getOrCreateOutlookFolderIdByName(
         rule.name,
@@ -563,6 +564,7 @@ export const createRulesOnboardingAction = actionClient
               categoryAction,
               label,
               hasDigest,
+              provider,
             );
 
             return (
@@ -594,6 +596,7 @@ export const createRulesOnboardingAction = actionClient
               categoryAction,
               label,
               hasDigest,
+              provider,
             );
 
             return prisma.rule
