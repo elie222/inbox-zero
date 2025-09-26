@@ -6,7 +6,6 @@ import {
   undoCleanInboxSchema,
   changeKeepToDoneSchema,
 } from "@/utils/actions/clean.validation";
-import { getThreadsWithNextPageToken } from "@/utils/gmail/thread";
 import { bulkPublishToQstash } from "@/utils/upstash";
 import { env } from "@/env";
 import {

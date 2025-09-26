@@ -250,30 +250,6 @@ export class GmailProvider implements EmailProvider {
     }
   }
 
-  // async unarchiveMessage(messageId: string): Promise<void> {
-  //   await labelMessage({
-  //     gmail: this.client,
-  //     messageId,
-  //     addLabelIds: [GmailLabel.INBOX],
-  //   });
-  // }
-
-  // async markMessageAsRead(messageId: string): Promise<void> {
-  //   await labelMessage({
-  //     gmail: this.client,
-  //     messageId,
-  //     removeLabelIds: [GmailLabel.UNREAD],
-  //   });
-  // }
-
-  // async markMessageAsUnread(messageId: string): Promise<void> {
-  //   await labelMessage({
-  //     gmail: this.client,
-  //     messageId,
-  //     addLabelIds: [GmailLabel.UNREAD],
-  //   });
-  // }
-
   async trashThread(
     threadId: string,
     ownerEmail: string,
@@ -364,7 +340,11 @@ export class GmailProvider implements EmailProvider {
       contentType: string;
     }>;
   }) {
-    return await sendEmailWithHtml(this.client, body);
+    const result = await sendEmailWithHtml(this.client, body);
+    return {
+      messageId: result.data.id || "",
+      threadId: result.data.threadId || "",
+    };
   }
 
   async forwardEmail(

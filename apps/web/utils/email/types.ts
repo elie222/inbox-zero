@@ -79,9 +79,6 @@ export interface EmailProvider {
     labelId?: string,
   ): Promise<void>;
   archiveMessage(messageId: string): Promise<void>;
-  // unarchiveMessage(messageId: string): Promise<void>;
-  // markMessageAsRead(messageId: string): Promise<void>;
-  // markMessageAsUnread(messageId: string): Promise<void>;
   trashThread(
     threadId: string,
     ownerEmail: string,
@@ -126,7 +123,10 @@ export interface EmailProvider {
       content: string;
       contentType: string;
     }>;
-  }): Promise<unknown>;
+  }): Promise<{
+    messageId: string;
+    threadId: string;
+  }>;
   forwardEmail(
     email: ParsedMessage,
     args: { to: string; cc?: string; bcc?: string; content?: string },
@@ -146,13 +146,13 @@ export interface EmailProvider {
     from: string;
     addLabelIds?: string[];
     removeLabelIds?: string[];
-  }): Promise<unknown>;
-  deleteFilter(id: string): Promise<unknown>;
+  }): Promise<{ status: number }>;
+  deleteFilter(id: string): Promise<{ status: number }>;
   createAutoArchiveFilter(options: {
     from: string;
     gmailLabelId?: string;
     labelName?: string;
-  }): Promise<unknown>;
+  }): Promise<{ status: number }>;
   getMessagesWithPagination(options: {
     query?: string;
     maxResults?: number;

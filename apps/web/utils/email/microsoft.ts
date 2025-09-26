@@ -366,7 +366,11 @@ export class OutlookProvider implements EmailProvider {
       contentType: string;
     }>;
   }) {
-    return await sendEmailWithHtml(this.client, body);
+    const result = await sendEmailWithHtml(this.client, body);
+    return {
+      messageId: result.id || "",
+      threadId: result.conversationId || "",
+    };
   }
 
   async forwardEmail(
@@ -1177,27 +1181,6 @@ export class OutlookProvider implements EmailProvider {
       throw error;
     }
   }
-
-  // async unarchiveMessage(messageId: string): Promise<void> {
-  //   await this.client
-  //     .getClient()
-  //     .api(`/me/messages/${messageId}/move`)
-  //     .post({ destinationId: "inbox" });
-  // }
-
-  // async markMessageAsRead(messageId: string): Promise<void> {
-  //   await this.client
-  //     .getClient()
-  //     .api(`/me/messages/${messageId}`)
-  //     .patch({ isRead: true });
-  // }
-
-  // async markMessageAsUnread(messageId: string): Promise<void> {
-  //   await this.client
-  //     .getClient()
-  //     .api(`/me/messages/${messageId}`)
-  //     .patch({ isRead: false });
-  // }
 
   async getOrCreateOutlookFolderIdByName(folderName: string): Promise<string> {
     return await getOrCreateOutlookFolderIdByName(this.client, folderName);

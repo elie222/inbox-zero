@@ -220,7 +220,7 @@ export const sendEmailAction = actionClient
 
     return {
       success: true,
-      messageId: result.data.id,
-      threadId: result.data.threadId,
+      messageId: result.messageId,
+      threadId: result.threadId,
     };
   });
