@@ -1,7 +1,8 @@
 "use client";
 
-import type { GetMcpConnectionsResponse } from "@/app/api/mcp/connections/route";
+import type { GetMcpRegistryResponse } from "@/app/api/mcp/registry/route";
 import { LoadingContent } from "@/components/LoadingContent";
+import { Toggle } from "@/components/Toggle";
 import { TypographyP } from "@/components/Typography";
 import {
   Table,
@@ -11,10 +12,10 @@ import {
   TableHeader,
   TableHead,
 } from "@/components/ui/table";
-import { useMcpConnections } from "@/hooks/useMcpConnections";
+import { useIntegrations } from "@/hooks/useIntegrations";
 
 export function Integrations() {
-  const { data, isLoading, error } = useMcpConnections();
+  const { data, isLoading, error } = useIntegrations();
 
   return (
     <LoadingContent loading={isLoading} error={error}>
@@ -24,26 +25,49 @@ export function Integrations() {
             <TableHead>Name</TableHead>
             <TableHead>Integration</TableHead>
             <TableHead>Actions</TableHead>
+            <TableHead>Enable</TableHead>
           </TableRow>
         </TableHeader>
-        <TableBody>
-          {data?.connections.length ? (
-            data.connections.map((connection) => (
-              <TableRow key={connection.id}>
-                <TableCell>{connection.name}</TableCell>
-                <TableCell>{connection.integration.name}</TableCell>
-                <TableCell>{connection.approvedTools.join(", ")}</TableCell>
-              </TableRow>
-            ))
-          ) : (
-            <TableRow>
-              <TableCell colSpan={3}>
-                <TypographyP>No connections found</TypographyP>
-              </TableCell>
-            </TableRow>
-          )}
-        </TableBody>
+        <Rows integrations={data?.integrations || {}} />
       </Table>
     </LoadingContent>
+  );
+}
+
+function Rows({
+  integrations,
+}: {
+  integrations: GetMcpRegistryResponse["integrations"];
+}) {
+  const integrationsList = Object.entries(integrations);
+
+  return (
+    <TableBody>
+      {integrationsList.length ? (
+        integrationsList.map(([name, integration]) => (
+          <TableRow key={integration.name}>
+            <TableCell>{integration.name}</TableCell>
+            <TableCell>{integration.displayName}</TableCell>
+            <TableCell>{integration.description}</TableCell>
+            <TableCell>
+              <Toggle
+                name={`integrations.${integration.name}.enabled`}
+                enabled
+                // enabled={integration.isActive}
+                onChange={(enabled) => {
+                  // handleToggle(integration.name, enabled);
+                }}
+              />
+            </TableCell>
+          </TableRow>
+        ))
+      ) : (
+        <TableRow>
+          <TableCell colSpan={4}>
+            <TypographyP>No integrations found</TypographyP>
+          </TableCell>
+        </TableRow>
+      )}
+    </TableBody>
   );
 }
