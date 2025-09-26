@@ -724,11 +724,13 @@ export class GmailProvider implements EmailProvider {
       }
 
       if (type === "archive") {
-        queryParts.push(`-label:${GmailLabel.INBOX}`);
+        queryParts.push(`-in:${GmailLabel.INBOX}`);
       }
 
       if (excludeLabelNames) {
-        queryParts.push(`-in:"${excludeLabelNames.join(" ")}"`);
+        for (const labelName of excludeLabelNames) {
+          queryParts.push(`-label:"${labelName}"`);
+        }
       }
 
       return queryParts.length > 0 ? queryParts.join(" ") : undefined;
