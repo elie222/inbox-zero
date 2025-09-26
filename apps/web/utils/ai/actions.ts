@@ -6,6 +6,7 @@ import { coordinateReplyProcess } from "@/utils/reply-tracker/inbound";
 import { internalDateToDate } from "@/utils/date";
 import type { EmailProvider } from "@/utils/email/types";
 import { enqueueDigestItem } from "@/utils/digest/index";
+import { filterNullProperties } from "@/utils";
 
 const logger = createScopedLogger("ai-actions");
 
@@ -35,7 +36,7 @@ export const runActionFunction = async (options: {
     userEmail,
     id: action.id,
   });
-  logger.trace("Running action:", action);
+  logger.trace("Running action", () => filterNullProperties(action));
 
   const { type, ...args } = action;
   const opts = {
