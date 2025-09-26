@@ -117,7 +117,9 @@ export const cleanInboxAction = actionClient
           const { threads, nextPageToken: pageToken } =
             await emailProvider.getThreadsWithQuery({
               query: {
-                before: new Date(Date.now() - daysOld * ONE_DAY_MS),
+                ...(daysOld > 0 && {
+                  before: new Date(Date.now() - daysOld * ONE_DAY_MS),
+                }),
                 labelIds:
                   type === "inbox"
                     ? [GmailLabel.INBOX]
