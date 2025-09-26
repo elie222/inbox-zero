@@ -16,6 +16,7 @@ import { getOrCreateReferralCode } from "@/utils/referral/referral-code";
 import { generateReferralLink } from "@/utils/referral/referral-link";
 import { aiGetCalendarAvailability } from "@/utils/ai/calendar/availability";
 import { env } from "@/env";
+import { collectMcpContext } from "@/utils/ai/mcp-context";
 
 const logger = createScopedLogger("generate-reply");
 
@@ -89,7 +90,7 @@ async function generateDraftContent(
   previousConversationMessages: ParsedMessage[] | null,
   emailProvider: EmailProvider,
 ) {
-  const lastMessage = threadMessages.at(-1);
+  const lastMessage = threadMessages[threadMessages.length - 1];
 
   if (!lastMessage) throw new Error("No message provided");
 
@@ -128,6 +129,7 @@ async function generateDraftContent(
     emailHistoryContext,
     calendarAvailability,
     writingStyle,
+    mcpContext,
   ] = await Promise.all([
     aiExtractRelevantKnowledge({
       knowledgeBase,
@@ -145,6 +147,11 @@ async function generateDraftContent(
     }),
     getWritingStyle({
       emailAccountId: emailAccount.id,
+    }),
+    collectMcpContext({
+      emailAccountId: emailAccount.id,
+      senderEmail: lastMessage.headers.from,
+      subject: messages[messages.length - 1]?.subject,
     }),
   ]);
 
@@ -181,6 +188,7 @@ async function generateDraftContent(
     emailHistoryContext,
     calendarAvailability,
     writingStyle,
+    mcpContext: mcpContext || null,
   });
 
   if (typeof text === "string") {

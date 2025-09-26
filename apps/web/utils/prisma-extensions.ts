@@ -32,6 +32,26 @@ export const encryptedTokens = Prisma.defineExtension((client) => {
           },
         },
       },
+      mcpConnection: {
+        accessToken: {
+          needs: { accessToken: true },
+          compute(connection) {
+            return decryptToken(connection.accessToken);
+          },
+        },
+        refreshToken: {
+          needs: { refreshToken: true },
+          compute(connection) {
+            return decryptToken(connection.refreshToken);
+          },
+        },
+        apiKey: {
+          needs: { apiKey: true },
+          compute(connection) {
+            return decryptToken(connection.apiKey);
+          },
+        },
+      },
     },
     query: {
       account: {
@@ -191,6 +211,113 @@ export const encryptedTokens = Prisma.defineExtension((client) => {
               args.update.refreshToken.set = encryptToken(
                 args.update.refreshToken.set,
               );
+            }
+          }
+          return query(args);
+        },
+      },
+      mcpConnection: {
+        async create({ args, query }) {
+          if (args.data.accessToken) {
+            args.data.accessToken = encryptToken(args.data.accessToken);
+          }
+          if (args.data.refreshToken) {
+            args.data.refreshToken = encryptToken(args.data.refreshToken);
+          }
+          if (args.data.apiKey) {
+            args.data.apiKey = encryptToken(args.data.apiKey);
+          }
+          return query(args);
+        },
+        async update({ args, query }) {
+          if (args.data.accessToken) {
+            if (typeof args.data.accessToken === "string") {
+              args.data.accessToken = encryptToken(args.data.accessToken);
+            } else if (args.data.accessToken.set) {
+              args.data.accessToken.set = encryptToken(
+                args.data.accessToken.set,
+              );
+            }
+          }
+          if (args.data.refreshToken) {
+            if (typeof args.data.refreshToken === "string") {
+              args.data.refreshToken = encryptToken(args.data.refreshToken);
+            } else if (args.data.refreshToken.set) {
+              args.data.refreshToken.set = encryptToken(
+                args.data.refreshToken.set,
+              );
+            }
+          }
+          if (args.data.apiKey) {
+            if (typeof args.data.apiKey === "string") {
+              args.data.apiKey = encryptToken(args.data.apiKey);
+            } else if (args.data.apiKey.set) {
+              args.data.apiKey.set = encryptToken(args.data.apiKey.set);
+            }
+          }
+          return query(args);
+        },
+        async updateMany({ args, query }) {
+          if (args.data.accessToken) {
+            if (typeof args.data.accessToken === "string") {
+              args.data.accessToken = encryptToken(args.data.accessToken);
+            } else if (args.data.accessToken.set) {
+              args.data.accessToken.set = encryptToken(
+                args.data.accessToken.set,
+              );
+            }
+          }
+          if (args.data.refreshToken) {
+            if (typeof args.data.refreshToken === "string") {
+              args.data.refreshToken = encryptToken(args.data.refreshToken);
+            } else if (args.data.refreshToken.set) {
+              args.data.refreshToken.set = encryptToken(
+                args.data.refreshToken.set,
+              );
+            }
+          }
+          if (args.data.apiKey) {
+            if (typeof args.data.apiKey === "string") {
+              args.data.apiKey = encryptToken(args.data.apiKey);
+            } else if (args.data.apiKey.set) {
+              args.data.apiKey.set = encryptToken(args.data.apiKey.set);
+            }
+          }
+          return query(args);
+        },
+        async upsert({ args, query }) {
+          if (args.create.accessToken) {
+            args.create.accessToken = encryptToken(args.create.accessToken);
+          }
+          if (args.create.refreshToken) {
+            args.create.refreshToken = encryptToken(args.create.refreshToken);
+          }
+          if (args.create.apiKey) {
+            args.create.apiKey = encryptToken(args.create.apiKey);
+          }
+          if (args.update.accessToken) {
+            if (typeof args.update.accessToken === "string") {
+              args.update.accessToken = encryptToken(args.update.accessToken);
+            } else if (args.update.accessToken.set) {
+              args.update.accessToken.set = encryptToken(
+                args.update.accessToken.set,
+              );
+            }
+          }
+          if (args.update.refreshToken) {
+            if (typeof args.update.refreshToken === "string") {
+              args.update.refreshToken = encryptToken(args.update.refreshToken);
+            } else if (args.update.refreshToken.set) {
+              args.update.refreshToken.set = encryptToken(
+                args.update.refreshToken.set,
+              );
+            }
+          }
+          if (args.update.apiKey) {
+            if (typeof args.update.apiKey === "string") {
+              args.update.apiKey = encryptToken(args.update.apiKey);
+            } else if (args.update.apiKey.set) {
+              args.update.apiKey.set = encryptToken(args.update.apiKey.set);
             }
           }
           return query(args);

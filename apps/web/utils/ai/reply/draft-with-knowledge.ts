@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { createScopedLogger } from "@/utils/logger";
-import { createGenerateObject } from "@/utils/llms";
+import { createGenerateObject } from "@/utils/llms/index";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import type { EmailForLLM } from "@/utils/types";
 import { stringifyEmail } from "@/utils/stringify-email";
@@ -38,6 +38,7 @@ const getUserPrompt = ({
   emailHistoryContext,
   calendarAvailability,
   writingStyle,
+  mcpContext,
 }: {
   messages: (EmailForLLM & { to: string })[];
   emailAccount: EmailAccountWithAI;
@@ -46,6 +47,7 @@ const getUserPrompt = ({
   emailHistoryContext: ReplyContextCollectorResult | null;
   calendarAvailability: CalendarAvailabilityContext | null;
   writingStyle: string | null;
+  mcpContext: string | null;
 }) => {
   const userAbout = emailAccount.about
     ? `Context about the user:
@@ -113,12 +115,22 @@ IMPORTANT: Use this calendar information to suggest specific available times whe
 `
     : "";
 
+  const mcpToolsContext = mcpContext
+    ? `External tool results (MCP):
+    
+<mcp_context>
+${mcpContext}
+</mcp_context>
+`
+    : "";
+
   return `${userAbout}
 ${relevantKnowledge}
 ${historicalContext}
 ${precedentHistoryContext}
 ${writingStylePrompt}
 ${calendarContext}
+${mcpToolsContext}
 
 Here is the context of the email thread (from oldest to newest):
 ${messages
@@ -150,6 +162,7 @@ export async function aiDraftWithKnowledge({
   emailHistoryContext,
   calendarAvailability,
   writingStyle,
+  mcpContext,
 }: {
   messages: (EmailForLLM & { to: string })[];
   emailAccount: EmailAccountWithAI;
@@ -158,6 +171,7 @@ export async function aiDraftWithKnowledge({
   emailHistoryContext: ReplyContextCollectorResult | null;
   calendarAvailability: CalendarAvailabilityContext | null;
   writingStyle: string | null;
+  mcpContext: string | null;
 }) {
   try {
     logger.info("Drafting email with knowledge base", {
@@ -174,6 +188,7 @@ export async function aiDraftWithKnowledge({
       emailHistoryContext,
       calendarAvailability,
       writingStyle,
+      mcpContext,
     });
 
     const modelOptions = getModel(emailAccount.user);
