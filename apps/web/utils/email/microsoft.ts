@@ -92,12 +92,22 @@ export class OutlookProvider implements EmailProvider {
   }
 
   async getThread(threadId: string): Promise<EmailThread> {
-    const messages = await this.getThreadMessages(threadId);
-    return {
-      id: threadId,
-      messages,
-      snippet: messages[0]?.snippet || "",
-    };
+    try {
+      const messages = await this.getThreadMessages(threadId);
+
+      return {
+        id: threadId,
+        messages,
+        snippet: messages[0]?.snippet || "",
+      };
+    } catch (error) {
+      logger.error("getThread failed", {
+        threadId,
+        error: error instanceof Error ? error.message : error,
+        errorCode: (error as any)?.code,
+      });
+      throw error;
+    }
   }
 
   async getLabels(): Promise<EmailLabel[]> {
@@ -115,7 +125,18 @@ export class OutlookProvider implements EmailProvider {
   }
 
   async getMessage(messageId: string): Promise<ParsedMessage> {
-    return getMessage(messageId, this.client);
+    try {
+      const message = await getMessage(messageId, this.client);
+      return message;
+    } catch (error) {
+      const err = error as any;
+      logger.error("getMessage failed", {
+        messageId,
+        error: error instanceof Error ? error.message : error,
+        errorCode: err?.code,
+      });
+      throw error;
+    }
   }
 
   async getMessages(options?: {
@@ -368,7 +389,18 @@ export class OutlookProvider implements EmailProvider {
   }
 
   async getThreadMessages(threadId: string): Promise<ParsedMessage[]> {
-    return getThreadMessages(threadId, this.client);
+    try {
+      const messages = await getThreadMessages(threadId, this.client);
+      return messages;
+    } catch (error) {
+      const err = error as any;
+      logger.error("getThreadMessages failed", {
+        threadId,
+        error: error instanceof Error ? error.message : error,
+        errorCode: err?.code,
+      });
+      throw error;
+    }
   }
 
   async getThreadMessagesInInbox(threadId: string): Promise<ParsedMessage[]> {
