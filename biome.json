@@ -120,7 +120,6 @@
         "**/*.test.*",
         "**/*.spec.*",
         "apps/unsubscriber/**",
-        "apps/mcp-server/**",
         "packages/**",
         "**/*.tsx",
         "**/scripts/**"
