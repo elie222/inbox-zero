@@ -2,8 +2,15 @@ import { NextResponse } from "next/server";
 import prisma from "@/utils/prisma";
 import { withEmailAccount } from "@/utils/middleware";
 
+export type GetMcpConnectionsResponse = Awaited<ReturnType<typeof getData>>;
+
 export const GET = withEmailAccount(async (req) => {
   const emailAccountId = req.auth.emailAccountId;
+  const result = await getData({ emailAccountId });
+  return NextResponse.json(result);
+});
+
+async function getData({ emailAccountId }: { emailAccountId: string }) {
   const connections = await prisma.mcpConnection.findMany({
     where: { emailAccountId },
     select: {
@@ -41,5 +48,5 @@ export const GET = withEmailAccount(async (req) => {
     orderBy: { createdAt: "desc" },
   });
 
-  return NextResponse.json({ connections });
-});
+  return { connections };
+}
