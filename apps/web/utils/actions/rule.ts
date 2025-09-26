@@ -39,7 +39,6 @@ import { actionClient } from "@/utils/actions/safe-action";
 import { prefixPath } from "@/utils/path";
 import { createRuleHistory } from "@/utils/rule/rule-history";
 import { ONE_WEEK_MINUTES } from "@/utils/date";
-import { getOrCreateOutlookFolderIdByName } from "@/utils/outlook/folders";
 import { createEmailProvider } from "@/utils/email/provider";
 
 function getCategoryActionDescription(categoryAction: CategoryAction): string {
@@ -84,7 +83,7 @@ async function getActionsFromCategoryAction(
     case "move_folder_delayed": {
       const emailProvider = await createEmailProvider({
         emailAccountId,
-        provider: "outlook",
+        provider: "microsoft",
       });
       const folderId = await emailProvider.getOrCreateOutlookFolderIdByName(
         rule.name,

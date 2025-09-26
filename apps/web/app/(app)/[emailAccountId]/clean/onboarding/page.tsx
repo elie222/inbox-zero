@@ -37,7 +37,7 @@ export default async function CleanPage(props: {
 
   const emailProvider = await createEmailProvider({
     emailAccountId,
-    provider: emailAccount?.account.provider ?? null,
+    provider: emailAccount?.account.provider ?? "google",
   });
   const { unhandledCount } = await getUnhandledCount(emailProvider);
 
