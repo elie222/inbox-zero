@@ -33,6 +33,7 @@ import { SettingCard } from "@/components/SettingCard";
 import { IconCircle } from "@/app/(app)/[emailAccountId]/onboarding/IconCircle";
 import { ActionBadges } from "@/app/(app)/[emailAccountId]/assistant/Rules";
 import { DismissibleVideoCard } from "@/components/VideoCard";
+import { PremiumExpiredCardContent } from "@/components/PremiumExpiredCard";
 
 export const maxDuration = 3;
 
@@ -378,6 +379,82 @@ export default function Components() {
               description="How often to check for new emails"
               right={<Badge color="green">Every 5 minutes</Badge>}
             />
+          </div>
+        </div>
+
+        <div>
+          <div className="underline">Premium Expired Banners</div>
+          <div className="mt-4 space-y-4">
+            <div>
+              <p className="mb-2 text-sm text-muted-foreground">
+                Stripe Past Due:
+              </p>
+              <PremiumExpiredCardContent
+                premium={{
+                  lemonSqueezyRenewsAt: null,
+                  stripeSubscriptionId: "sub_test123",
+                  stripeSubscriptionStatus: "past_due",
+                  lemonSqueezySubscriptionId: null,
+                  tier: "PRO_MONTHLY",
+                }}
+              />
+            </div>
+            <div>
+              <p className="mb-2 text-sm text-muted-foreground">
+                Stripe Canceled:
+              </p>
+              <PremiumExpiredCardContent
+                premium={{
+                  lemonSqueezyRenewsAt: null,
+                  stripeSubscriptionId: "sub_test456",
+                  stripeSubscriptionStatus: "canceled",
+                  lemonSqueezySubscriptionId: null,
+                  tier: "BUSINESS_MONTHLY",
+                }}
+              />
+            </div>
+            <div>
+              <p className="mb-2 text-sm text-muted-foreground">
+                LemonSqueezy Expired:
+              </p>
+              <PremiumExpiredCardContent
+                premium={{
+                  lemonSqueezyRenewsAt: new Date(
+                    Date.now() - 24 * 60 * 60 * 1000,
+                  ), // Yesterday
+                  stripeSubscriptionId: null,
+                  stripeSubscriptionStatus: null,
+                  lemonSqueezySubscriptionId: 456,
+                  tier: "PRO_ANNUALLY",
+                }}
+              />
+            </div>
+            <div>
+              <p className="mb-2 text-sm text-muted-foreground">
+                No Banner (Active Premium):
+              </p>
+              <div className="min-h-[20px] text-xs text-muted-foreground">
+                <PremiumExpiredCardContent
+                  premium={{
+                    lemonSqueezyRenewsAt: null,
+                    stripeSubscriptionId: "sub_active123",
+                    stripeSubscriptionStatus: "active",
+                    lemonSqueezySubscriptionId: null,
+                    tier: "BUSINESS_MONTHLY",
+                  }}
+                />
+                Banner should not appear for active users
+              </div>
+            </div>
+            <div>
+              <p className="mb-2 text-sm text-muted-foreground">
+                No Banner (Never Had Premium):
+              </p>
+              <div className="min-h-[20px] text-xs text-muted-foreground">
+                <PremiumExpiredCardContent premium={null} />
+                Banner should not appear for users who never had premium
+              </div>
+            </div>
           </div>
         </div>
 

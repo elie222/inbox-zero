@@ -7,6 +7,9 @@ import DigestEmail, {
   type DigestEmailProps,
   generateDigestSubject,
 } from "../emails/digest";
+import InvitationEmail, {
+  type InvitationEmailProps,
+} from "../emails/invitation";
 
 const sendEmail = async ({
   from,
@@ -95,7 +98,7 @@ export const sendSummaryEmail = async ({
   test?: boolean;
   emailProps: SummaryEmailProps;
 }) => {
-  sendEmail({
+  return sendEmail({
     from,
     to,
     subject: "Your weekly email summary",
@@ -122,7 +125,7 @@ export const sendDigestEmail = async ({
   test?: boolean;
   emailProps: DigestEmailProps;
 }) => {
-  sendEmail({
+  return sendEmail({
     from,
     to,
     subject: generateDigestSubject(emailProps),
@@ -133,6 +136,33 @@ export const sendDigestEmail = async ({
       {
         name: "category",
         value: "digest",
+      },
+    ],
+  });
+};
+
+export const sendInvitationEmail = async ({
+  from,
+  to,
+  test,
+  emailProps,
+}: {
+  from: string;
+  to: string;
+  test?: boolean;
+  emailProps: InvitationEmailProps;
+}) => {
+  return sendEmail({
+    from,
+    to,
+    subject: `You're invited to join ${emailProps.organizationName} on Inbox Zero`,
+    react: <InvitationEmail {...emailProps} />,
+    test,
+    unsubscribeToken: emailProps.unsubscribeToken,
+    tags: [
+      {
+        name: "category",
+        value: "invitation",
       },
     ],
   });

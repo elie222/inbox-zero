@@ -1,5 +1,9 @@
 import type { gmail_v1 } from "@googleapis/gmail";
-import type { ParsedMessage } from "@/utils/types";
+import {
+  isDefined,
+  type MessageWithPayload,
+  type ParsedMessage,
+} from "@/utils/types";
 import { parseMessage } from "@/utils/gmail/message";
 import {
   getMessage,
@@ -25,6 +29,7 @@ import {
   forwardEmail,
   replyToEmail,
   sendEmailWithPlainText,
+  sendEmailWithHtml,
 } from "@/utils/gmail/mail";
 import {
   archiveThread,
@@ -64,6 +69,7 @@ import type {
   EmailFilter,
 } from "@/utils/email/types";
 import { createScopedLogger } from "@/utils/logger";
+import { extractEmailAddress } from "@/utils/email";
 
 const logger = createScopedLogger("gmail-provider");
 
@@ -142,17 +148,6 @@ export class GmailProvider implements EmailProvider {
   async getMessage(messageId: string): Promise<ParsedMessage> {
     const message = await getMessage(messageId, this.client, "full");
     return parseMessage(message);
-  }
-
-  async getMessages(query?: string, maxResults = 50): Promise<ParsedMessage[]> {
-    const response = await getMessages(this.client, {
-      query,
-      maxResults,
-    });
-    const messages = response.messages || [];
-    return messages
-      .filter((message) => message.payload)
-      .map((message) => parseMessage(message as any));
   }
 
   async getSentMessages(maxResults = 20): Promise<ParsedMessage[]> {
@@ -312,6 +307,31 @@ export class GmailProvider implements EmailProvider {
     await sendEmailWithPlainText(this.client, args);
   }
 
+  async sendEmailWithHtml(body: {
+    replyToEmail?: {
+      threadId: string;
+      headerMessageId: string;
+      references?: string;
+    };
+    to: string;
+    cc?: string;
+    bcc?: string;
+    replyTo?: string;
+    subject: string;
+    messageHtml: string;
+    attachments?: Array<{
+      filename: string;
+      content: string;
+      contentType: string;
+    }>;
+  }) {
+    const result = await sendEmailWithHtml(this.client, body);
+    return {
+      messageId: result.data.id || "",
+      threadId: result.data.threadId || "",
+    };
+  }
+
   async forwardEmail(
     email: ParsedMessage,
     args: { to: string; cc?: string; bcc?: string; content?: string },
@@ -439,14 +459,14 @@ export class GmailProvider implements EmailProvider {
     from: string;
     addLabelIds?: string[];
     removeLabelIds?: string[];
-  }): Promise<any> {
+  }) {
     return createFilter({ gmail: this.client, ...options });
   }
 
   async createAutoArchiveFilter(options: {
     from: string;
     gmailLabelId?: string;
-  }): Promise<any> {
+  }) {
     return createAutoArchiveFilter({
       gmail: this.client,
       from: options.from,
@@ -454,7 +474,7 @@ export class GmailProvider implements EmailProvider {
     });
   }
 
-  async deleteFilter(id: string): Promise<any> {
+  async deleteFilter(id: string) {
     return deleteFilter({ gmail: this.client, id });
   }
 
@@ -515,6 +535,78 @@ export class GmailProvider implements EmailProvider {
       before: options.before,
       after: options.after,
     });
+  }
+
+  async getMessagesByFields(options: {
+    froms?: string[];
+    tos?: string[];
+    subjects?: string[];
+    before?: Date;
+    after?: Date;
+    type?: "inbox" | "sent" | "all";
+    excludeSent?: boolean;
+    excludeInbox?: boolean;
+    maxResults?: number;
+    pageToken?: string;
+  }): Promise<{
+    messages: ParsedMessage[];
+    nextPageToken?: string;
+  }> {
+    const parts: string[] = [];
+
+    const froms = (options.froms || [])
+      .map((f) => extractEmailAddress(f) || f)
+      .filter((f) => !!f);
+    if (froms.length > 0) {
+      const fromGroup = froms.map((f) => `"${f}"`).join(" OR ");
+      parts.push(`from:(${fromGroup})`);
+    }
+
+    const tos = (options.tos || [])
+      .map((t) => extractEmailAddress(t) || t)
+      .filter((t) => !!t);
+    if (tos.length > 0) {
+      const toGroup = tos.map((t) => `"${t}"`).join(" OR ");
+      parts.push(`to:(${toGroup})`);
+    }
+
+    const subjects = (options.subjects || []).filter((s) => !!s);
+    if (subjects.length > 0) {
+      const subjectGroup = subjects.map((s) => `"${s}"`).join(" OR ");
+      parts.push(`subject:(${subjectGroup})`);
+    }
+
+    // Scope by type/exclusion
+    if (options.type === "inbox") {
+      parts.push(`in:${GmailLabel.INBOX}`);
+    } else if (options.type === "sent") {
+      parts.push(`in:${GmailLabel.SENT}`);
+    }
+    if (options.excludeSent) {
+      parts.push(`-in:${GmailLabel.SENT}`);
+    }
+    if (options.excludeInbox) {
+      parts.push(`-in:${GmailLabel.INBOX}`);
+    }
+
+    const query = parts.join(" ") || undefined;
+
+    return this.getMessagesWithPagination({
+      query,
+      maxResults: options.maxResults,
+      pageToken: options.pageToken,
+      before: options.before,
+      after: options.after,
+    });
+  }
+
+  async getDrafts(options?: { maxResults?: number }): Promise<ParsedMessage[]> {
+    const response = await this.getMessagesWithPagination({
+      query: "in:draft",
+      maxResults: options?.maxResults || 50,
+    });
+
+    return response.messages;
   }
 
   async getMessagesBatch(messageIds: string[]): Promise<ParsedMessage[]> {
@@ -610,37 +702,56 @@ export class GmailProvider implements EmailProvider {
     threads: EmailThread[];
     nextPageToken?: string;
   }> {
-    const query = options.query;
+    const {
+      fromEmail,
+      after,
+      before,
+      isUnread,
+      type,
+      excludeLabelNames,
+      labelIds,
+      labelId,
+    } = options.query || {};
 
     function getQuery() {
       const queryParts: string[] = [];
 
-      if (query?.fromEmail) {
-        queryParts.push(`from:${query.fromEmail}`);
+      if (fromEmail) {
+        queryParts.push(`from:${fromEmail}`);
       }
 
-      if (query?.after) {
-        const afterSeconds = Math.floor(query.after.getTime() / 1000);
+      if (after) {
+        const afterSeconds = Math.floor(after.getTime() / 1000);
         queryParts.push(`after:${afterSeconds}`);
       }
 
-      if (query?.before) {
-        const beforeSeconds = Math.floor(query.before.getTime() / 1000);
+      if (before) {
+        const beforeSeconds = Math.floor(before.getTime() / 1000);
         queryParts.push(`before:${beforeSeconds}`);
       }
 
-      if (query?.isUnread) {
+      if (isUnread) {
         queryParts.push("is:unread");
       }
 
-      if (query?.type === "archive") {
-        queryParts.push(`-label:${GmailLabel.INBOX}`);
+      if (type === "archive") {
+        queryParts.push(`-in:${GmailLabel.INBOX}`);
+      }
+
+      if (excludeLabelNames) {
+        for (const labelName of excludeLabelNames) {
+          queryParts.push(`-label:"${labelName}"`);
+        }
       }
 
       return queryParts.length > 0 ? queryParts.join(" ") : undefined;
     }
 
     function getLabelIds(type?: string | null) {
+      if (labelIds) {
+        return labelIds;
+      }
+
       switch (type) {
         case "inbox":
           return [GmailLabel.INBOX];
@@ -673,9 +784,7 @@ export class GmailProvider implements EmailProvider {
       await getThreadsWithNextPageToken({
         gmail: this.client,
         q: getQuery(),
-        labelIds: query?.labelId
-          ? [query.labelId]
-          : getLabelIds(query?.type) || [],
+        labelIds: labelId ? [labelId] : getLabelIds(type) || [],
         maxResults: options.maxResults || 50,
         pageToken: options.pageToken || undefined,
       });
@@ -695,8 +804,9 @@ export class GmailProvider implements EmailProvider {
         const emailThread: EmailThread = {
           id,
           messages:
-            thread.messages?.map((message) => parseMessage(message as any)) ||
-            [],
+            thread.messages?.map((message) =>
+              parseMessage(message as MessageWithPayload),
+            ) || [],
           snippet: decodeSnippet(thread.snippet),
           historyId: thread.historyId || undefined,
         };
@@ -792,5 +902,10 @@ export class GmailProvider implements EmailProvider {
     _folderName: string,
   ): Promise<void> {
     logger.warn("Moving thread to folder is not supported for Gmail");
+  }
+
+  async getOrCreateOutlookFolderIdByName(_folderName: string): Promise<string> {
+    logger.warn("Moving thread to folder is not supported for Gmail");
+    return "";
   }
 }

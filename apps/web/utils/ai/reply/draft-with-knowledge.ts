@@ -25,6 +25,7 @@ Don't reply with a Subject. Only reply with the body of the email.
 IMPORTANT: Use placeholders sparingly! Only use them where you have limited information.
 Never use placeholders for the user's name. You do not need to sign off with the user's name. Do not add a signature.
 Do not invent information.
+Don't suggest meeting times or mention availability unless specific calendar information is provided.
 
 Return your response in JSON format.
 `;

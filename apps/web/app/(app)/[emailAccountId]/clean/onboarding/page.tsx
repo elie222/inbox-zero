@@ -1,4 +1,4 @@
-import { Card } from "@/components/ui/card";
+import { Card, CardTitle } from "@/components/ui/card";
 import { IntroStep } from "@/app/(app)/[emailAccountId]/clean/IntroStep";
 import { ActionSelectionStep } from "@/app/(app)/[emailAccountId]/clean/ActionSelectionStep";
 import { CleanInstructionsStep } from "@/app/(app)/[emailAccountId]/clean/CleanInstructionsStep";
@@ -35,9 +35,13 @@ export default async function CleanPage(props: {
     },
   });
 
+  if (!emailAccount) {
+    return <CardTitle>Email account not found</CardTitle>;
+  }
+
   const emailProvider = await createEmailProvider({
     emailAccountId,
-    provider: emailAccount?.account.provider ?? null,
+    provider: emailAccount.account.provider,
   });
   const { unhandledCount } = await getUnhandledCount(emailProvider);
 

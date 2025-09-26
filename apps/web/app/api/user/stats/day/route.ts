@@ -1,10 +1,8 @@
 import { z } from "zod";
 import { NextResponse } from "next/server";
-import type { gmail_v1 } from "@googleapis/gmail";
-import { withEmailAccount } from "@/utils/middleware";
-import { dateToSeconds } from "@/utils/date";
-import { getMessages } from "@/utils/gmail/message";
-import { getGmailClientForEmail } from "@/utils/account";
+import { withEmailProvider } from "@/utils/middleware";
+import { createEmailProvider } from "@/utils/email/provider";
+import type { EmailProvider } from "@/utils/email/types";
 
 const statsByDayQuery = z.object({
   type: z.enum(["inbox", "sent", "archived"]),
@@ -16,12 +14,39 @@ export type StatsByDayResponse = Awaited<
 
 const DAYS = 7;
 
-async function getPastSevenDayStats(
-  options: {
-    emailAccountId: string;
-    gmail: gmail_v1.Gmail;
-  } & StatsByDayQuery,
+async function getMessagesByType(
+  emailProvider: EmailProvider,
+  type: StatsByDayQuery["type"],
+  startOfDay: Date,
+  endOfDay: Date,
 ) {
+  if (type === "archived") {
+    // For archived messages, get all messages excluding inbox and sent
+    return emailProvider.getMessagesByFields({
+      after: startOfDay,
+      before: endOfDay,
+      type: "all",
+      excludeSent: true,
+      excludeInbox: true,
+      maxResults: 500,
+    });
+  } else {
+    // For inbox and sent, use the provider's built-in type filtering
+    return emailProvider.getMessagesByFields({
+      after: startOfDay,
+      before: endOfDay,
+      type,
+      maxResults: 500,
+    });
+  }
+}
+
+async function getPastSevenDayStats({
+  emailProvider,
+  type,
+}: {
+  emailProvider: EmailProvider;
+} & StatsByDayQuery) {
   const today = new Date();
   const sevenDaysAgo = new Date(
     today.getFullYear(),
@@ -42,14 +67,20 @@ async function getPastSevenDayStats(
       let count: number | undefined;
 
       if (typeof count !== "number") {
-        const query = getQuery(options.type, date);
+        const startOfDay = new Date(date);
+        startOfDay.setHours(0, 0, 0, 0);
 
-        const messages = await getMessages(options.gmail, {
-          query,
-          maxResults: 500,
-        });
+        const endOfDay = new Date(date);
+        endOfDay.setHours(23, 59, 59, 999);
 
-        count = messages.messages?.length || 0;
+        const { messages } = await getMessagesByType(
+          emailProvider,
+          type,
+          startOfDay,
+          endOfDay,
+        );
+
+        count = messages.length;
       }
 
       return {
@@ -62,35 +93,19 @@ async function getPastSevenDayStats(
   return lastSevenDaysCountsArray;
 }
 
-function getQuery(type: StatsByDayQuery["type"], date: Date) {
-  const startOfDayInSeconds = dateToSeconds(date);
-  const endOfDayInSeconds = startOfDayInSeconds + 86_400;
-
-  const dateRange = `after:${startOfDayInSeconds} before:${endOfDayInSeconds}`;
-
-  switch (type) {
-    case "inbox":
-      return `in:inbox ${dateRange}`;
-    case "sent":
-      return `in:sent ${dateRange}`;
-    case "archived":
-      return `-in:inbox -in:sent ${dateRange}`;
-  }
-}
-
-export const GET = withEmailAccount(async (request) => {
+export const GET = withEmailProvider(async (request) => {
   const emailAccountId = request.auth.emailAccountId;
+  const provider = request.emailProvider.name;
 
   const { searchParams } = new URL(request.url);
   const type = searchParams.get("type");
   const query = statsByDayQuery.parse({ type });
 
-  const gmail = await getGmailClientForEmail({ emailAccountId });
+  const emailProvider = await createEmailProvider({ emailAccountId, provider });
 
   const result = await getPastSevenDayStats({
     ...query,
-    gmail,
-    emailAccountId,
+    emailProvider,
   });
 
   return NextResponse.json(result);
