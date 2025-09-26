@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import {
   validateApiKey,
   getUserFromApiKey,
-  validateApiKeyAndGetGmailClient,
+  validateApiKeyAndGetEmailProvider,
 } from "./api-auth";
 import prisma from "@/utils/__mocks__/prisma";
 import { hashApiKey } from "@/utils/api-key";
@@ -119,10 +119,10 @@ describe("api-auth", () => {
         },
       } as unknown as NextRequest;
 
-      await expect(validateApiKeyAndGetGmailClient(request)).rejects.toThrow(
+      await expect(validateApiKeyAndGetEmailProvider(request)).rejects.toThrow(
         SafeError,
       );
-      await expect(validateApiKeyAndGetGmailClient(request)).rejects.toThrow(
+      await expect(validateApiKeyAndGetEmailProvider(request)).rejects.toThrow(
         "Missing API key",
       );
     });
@@ -145,10 +145,10 @@ describe("api-auth", () => {
         isActive: true,
       } as MockApiKeyResult);
 
-      await expect(validateApiKeyAndGetGmailClient(request)).rejects.toThrow(
+      await expect(validateApiKeyAndGetEmailProvider(request)).rejects.toThrow(
         SafeError,
       );
-      await expect(validateApiKeyAndGetGmailClient(request)).rejects.toThrow(
+      await expect(validateApiKeyAndGetEmailProvider(request)).rejects.toThrow(
         "Missing account",
       );
     });
@@ -176,10 +176,10 @@ describe("api-auth", () => {
         isActive: true,
       } as MockApiKeyResult);
 
-      await expect(validateApiKeyAndGetGmailClient(request)).rejects.toThrow(
+      await expect(validateApiKeyAndGetEmailProvider(request)).rejects.toThrow(
         SafeError,
       );
-      await expect(validateApiKeyAndGetGmailClient(request)).rejects.toThrow(
+      await expect(validateApiKeyAndGetEmailProvider(request)).rejects.toThrow(
         "Missing access token",
       );
     });
@@ -214,10 +214,10 @@ describe("api-auth", () => {
         new Error("Error refreshing Gmail access token"),
       );
 
-      await expect(validateApiKeyAndGetGmailClient(request)).rejects.toThrow(
+      await expect(validateApiKeyAndGetEmailProvider(request)).rejects.toThrow(
         Error,
       );
-      await expect(validateApiKeyAndGetGmailClient(request)).rejects.toThrow(
+      await expect(validateApiKeyAndGetEmailProvider(request)).rejects.toThrow(
         "Error refreshing Gmail access token",
       );
     });
@@ -255,7 +255,7 @@ describe("api-auth", () => {
         mockGmailClient,
       );
 
-      const result = await validateApiKeyAndGetGmailClient(request);
+      const result = await validateApiKeyAndGetEmailProvider(request);
       expect(result).toEqual({
         accessToken: "access-token",
         gmail: mockGmailClient,

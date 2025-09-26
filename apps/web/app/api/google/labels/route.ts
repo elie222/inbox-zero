@@ -1,8 +1,8 @@
 import type { gmail_v1 } from "@googleapis/gmail";
 import { NextResponse } from "next/server";
-import { getLabels as getGmailLabels } from "@/utils/gmail/label";
-import { withEmailAccount } from "@/utils/middleware";
-import { getGmailClientForEmail } from "@/utils/account";
+import { withEmailProvider } from "@/utils/middleware";
+import { createEmailProvider } from "@/utils/email/provider";
+import type { EmailProvider } from "@/utils/email/types";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 30;
@@ -27,28 +27,25 @@ function isUserLabel(label: gmail_v1.Schema$Label): boolean {
   return label.type === "user";
 }
 
-async function getLabels(gmail: gmail_v1.Gmail): Promise<LabelsResponse> {
-  const gmailLabels = await getGmailLabels(gmail);
+async function getLabels(
+  emailProvider: EmailProvider,
+): Promise<LabelsResponse> {
+  const labels = await emailProvider.getLabels();
 
-  const unifiedLabels: UnifiedLabel[] = (gmailLabels || [])
-    .filter((label) => isUserLabel(label))
-    .map((label) => ({
-      id: label.id || "",
-      name: label.name || "",
-      type: label.type || null,
-      color: label.color || undefined,
-      labelListVisibility: label.labelListVisibility || undefined,
-      messageListVisibility: label.messageListVisibility || undefined,
-    }));
+  const unifiedLabels: UnifiedLabel[] = (labels || []).filter((label) =>
+    isUserLabel(label),
+  );
 
   return { labels: unifiedLabels };
 }
 
-export const GET = withEmailAccount(async (request) => {
+export const GET = withEmailProvider(async (request) => {
   const emailAccountId = request.auth.emailAccountId;
+  const provider = request.emailProvider.name;
 
-  const gmail = await getGmailClientForEmail({ emailAccountId });
-  const labels = await getLabels(gmail);
+  const emailProvider = await createEmailProvider({ emailAccountId, provider });
+
+  const labels = await getLabels(emailProvider);
 
   return NextResponse.json(labels);
 });

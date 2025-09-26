@@ -53,6 +53,7 @@ export interface EmailProvider {
     after?: Date;
     type?: "inbox" | "sent" | "all";
     excludeSent?: boolean;
+    excludeInbox?: boolean;
     maxResults?: number;
     pageToken?: string;
   }): Promise<{
@@ -65,6 +66,7 @@ export interface EmailProvider {
     excludeFromEmails?: string[];
     maxResults?: number;
   }): Promise<EmailThread[]>;
+  getDrafts(options?: { maxResults?: number }): Promise<ParsedMessage[]>;
   getThreadMessages(threadId: string): Promise<ParsedMessage[]>;
   getThreadMessagesInInbox(threadId: string): Promise<ParsedMessage[]>;
   getPreviousConversationMessages(
@@ -77,12 +79,16 @@ export interface EmailProvider {
     labelId?: string,
   ): Promise<void>;
   archiveMessage(messageId: string): Promise<void>;
+  // unarchiveMessage(messageId: string): Promise<void>;
+  // markMessageAsRead(messageId: string): Promise<void>;
+  // markMessageAsUnread(messageId: string): Promise<void>;
   trashThread(
     threadId: string,
     ownerEmail: string,
     actionSource: "user" | "automation",
   ): Promise<void>;
   labelMessage(messageId: string, labelName: string): Promise<void>;
+
   removeThreadLabel(threadId: string, labelId: string): Promise<void>;
   getNeedsReplyLabel(): Promise<string | null>;
   getAwaitingReplyLabel(): Promise<string | null>;

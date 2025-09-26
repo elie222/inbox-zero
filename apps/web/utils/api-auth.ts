@@ -1,8 +1,8 @@
 import type { NextRequest } from "next/server";
 import prisma from "@/utils/prisma";
 import { hashApiKey } from "@/utils/api-key";
-import { getGmailClientWithRefresh } from "@/utils/gmail/client";
 import { SafeError } from "@/utils/error";
+import { createEmailProvider } from "@/utils/email/provider";
 
 export const API_KEY_HEADER = "API-Key";
 
@@ -44,6 +44,7 @@ export async function getUserFromApiKey(secretKey: string) {
               access_token: true,
               refresh_token: true,
               expires_at: true,
+              provider: true,
             },
             take: 1,
           },
@@ -62,7 +63,7 @@ export async function getUserFromApiKey(secretKey: string) {
  * @returns The Gmail client and user ID
  * @throws SafeError if authentication fails
  */
-export async function validateApiKeyAndGetGmailClient(request: NextRequest) {
+export async function validateApiKeyAndGetEmailProvider(request: NextRequest) {
   const { user } = await validateApiKey(request);
 
   // TODO: support API For multiple accounts
@@ -73,16 +74,13 @@ export async function validateApiKeyAndGetGmailClient(request: NextRequest) {
   if (!account.access_token || !account.refresh_token || !account.expires_at)
     throw new SafeError("Missing access token", 401);
 
-  const gmail = await getGmailClientWithRefresh({
-    accessToken: account.access_token,
-    refreshToken: account.refresh_token,
-    expiresAt: account.expires_at?.getTime() || null,
+  const emailProvider = await createEmailProvider({
     emailAccountId: account.id,
+    provider: account.provider,
   });
 
   return {
-    gmail,
-    accessToken: account.access_token,
+    emailProvider,
     userId: user.id,
     accountId: account.id,
   };

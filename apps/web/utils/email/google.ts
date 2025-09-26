@@ -250,6 +250,30 @@ export class GmailProvider implements EmailProvider {
     }
   }
 
+  // async unarchiveMessage(messageId: string): Promise<void> {
+  //   await labelMessage({
+  //     gmail: this.client,
+  //     messageId,
+  //     addLabelIds: [GmailLabel.INBOX],
+  //   });
+  // }
+
+  // async markMessageAsRead(messageId: string): Promise<void> {
+  //   await labelMessage({
+  //     gmail: this.client,
+  //     messageId,
+  //     removeLabelIds: [GmailLabel.UNREAD],
+  //   });
+  // }
+
+  // async markMessageAsUnread(messageId: string): Promise<void> {
+  //   await labelMessage({
+  //     gmail: this.client,
+  //     messageId,
+  //     addLabelIds: [GmailLabel.UNREAD],
+  //   });
+  // }
+
   async trashThread(
     threadId: string,
     ownerEmail: string,
@@ -556,6 +580,7 @@ export class GmailProvider implements EmailProvider {
     after?: Date;
     type?: "inbox" | "sent" | "all";
     excludeSent?: boolean;
+    excludeInbox?: boolean;
     maxResults?: number;
     pageToken?: string;
   }): Promise<{
@@ -595,6 +620,9 @@ export class GmailProvider implements EmailProvider {
     if (options.excludeSent) {
       parts.push(`-in:${GmailLabel.SENT}`);
     }
+    if (options.excludeInbox) {
+      parts.push(`-in:${GmailLabel.INBOX}`);
+    }
 
     const query = parts.join(" ") || undefined;
 
@@ -605,6 +633,15 @@ export class GmailProvider implements EmailProvider {
       before: options.before,
       after: options.after,
     });
+  }
+
+  async getDrafts(options?: { maxResults?: number }): Promise<ParsedMessage[]> {
+    const response = await this.getMessagesWithPagination({
+      query: "in:draft",
+      maxResults: options?.maxResults || 50,
+    });
+
+    return response.messages;
   }
 
   async getMessagesBatch(messageIds: string[]): Promise<ParsedMessage[]> {

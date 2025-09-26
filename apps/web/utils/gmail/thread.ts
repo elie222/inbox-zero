@@ -5,7 +5,7 @@ import {
   type ThreadWithPayloadMessages,
   type MessageWithPayload,
 } from "@/utils/types";
-import { parseMessage, parseMessages } from "@/utils/gmail/message";
+import { parseMessage } from "@/utils/gmail/message";
 import { GmailLabel } from "@/utils/gmail/label";
 
 export async function getThread(
@@ -83,30 +83,6 @@ export async function getThreadsBatch(
   );
 
   return batch;
-}
-
-export async function getThreadsBatchAndParse(
-  threadIds: string[],
-  accessToken: string,
-  includeDrafts: boolean,
-) {
-  const threads = await getThreadsBatch(threadIds, accessToken);
-
-  const threadsWithMessages = threads.map((thread) => {
-    const id = thread.id;
-    if (!id) return;
-
-    const messages = parseMessages(thread, {
-      withoutIgnoredSenders: true,
-      withoutDrafts: !includeDrafts,
-    });
-
-    return { id, messages };
-  });
-
-  return {
-    threads: threadsWithMessages.filter(isDefined),
-  };
 }
 
 async function getThreadsFromSender(

@@ -643,6 +643,7 @@ export class OutlookProvider implements EmailProvider {
     after?: Date;
     type?: "inbox" | "sent" | "all";
     excludeSent?: boolean;
+    excludeInbox?: boolean;
     maxResults?: number;
     pageToken?: string;
   }): Promise<{
@@ -666,6 +667,10 @@ export class OutlookProvider implements EmailProvider {
 
     if (options.excludeSent) {
       filters.push("parentFolderId ne 'sentitems'");
+    }
+
+    if (options.excludeInbox) {
+      filters.push("parentFolderId ne 'inbox'");
     }
 
     const froms = (options.froms || [])
@@ -709,6 +714,14 @@ export class OutlookProvider implements EmailProvider {
       before: options.before,
       after: options.after,
     });
+  }
+
+  async getDrafts(options?: { maxResults?: number }): Promise<ParsedMessage[]> {
+    const response = await this.getMessagesWithPagination({
+      query: "isDraft eq true",
+      maxResults: options?.maxResults || 50,
+    });
+    return response.messages;
   }
 
   async getMessagesBatch(messageIds: string[]): Promise<ParsedMessage[]> {
@@ -856,12 +869,12 @@ export class OutlookProvider implements EmailProvider {
     // Handle structured date options
     if (after) {
       const afterISO = after.toISOString();
-      filters.push(`receivedDateTime gt ${afterISO}`);
+      filters.push(`receivedDateTime gt '${afterISO}'`);
     }
 
     if (before) {
       const beforeISO = before.toISOString();
-      filters.push(`receivedDateTime lt ${beforeISO}`);
+      filters.push(`receivedDateTime lt '${beforeISO}'`);
     }
 
     if (isUnread) {
@@ -878,7 +891,6 @@ export class OutlookProvider implements EmailProvider {
       )
       .top(options.maxResults || 50);
 
-    // Add filter if present
     if (filter) {
       request = request.filter(filter);
     }
@@ -888,7 +900,6 @@ export class OutlookProvider implements EmailProvider {
       request = request.orderby("receivedDateTime DESC");
     }
 
-    // Handle pagination
     if (options.pageToken) {
       request = request.skipToken(options.pageToken);
     }
@@ -1166,6 +1177,27 @@ export class OutlookProvider implements EmailProvider {
       throw error;
     }
   }
+
+  // async unarchiveMessage(messageId: string): Promise<void> {
+  //   await this.client
+  //     .getClient()
+  //     .api(`/me/messages/${messageId}/move`)
+  //     .post({ destinationId: "inbox" });
+  // }
+
+  // async markMessageAsRead(messageId: string): Promise<void> {
+  //   await this.client
+  //     .getClient()
+  //     .api(`/me/messages/${messageId}`)
+  //     .patch({ isRead: true });
+  // }
+
+  // async markMessageAsUnread(messageId: string): Promise<void> {
+  //   await this.client
+  //     .getClient()
+  //     .api(`/me/messages/${messageId}`)
+  //     .patch({ isRead: false });
+  // }
 
   async getOrCreateOutlookFolderIdByName(folderName: string): Promise<string> {
     return await getOrCreateOutlookFolderIdByName(this.client, folderName);
