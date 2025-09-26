@@ -73,7 +73,7 @@ export class OutlookProvider implements EmailProvider {
   }
 
   async getThreads(folderId?: string): Promise<EmailThread[]> {
-    const messages = await this.getMessages(folderId);
+    const messages = await this.getMessages({ folderId });
     const threadMap = new Map<string, ParsedMessage[]>();
 
     messages.forEach((message) => {
@@ -92,7 +92,9 @@ export class OutlookProvider implements EmailProvider {
   }
 
   async getThread(threadId: string): Promise<EmailThread> {
-    const messages = await this.getMessages(`conversationId:${threadId}`);
+    const messages = await this.getMessages({
+      searchQuery: `conversationId:${threadId}`,
+    });
     return {
       id: threadId,
       messages,
@@ -118,14 +120,20 @@ export class OutlookProvider implements EmailProvider {
     return getMessage(messageId, this.client);
   }
 
-  async getMessages(query?: string, maxResults = 50): Promise<ParsedMessage[]> {
+  async getMessages(options?: {
+    searchQuery?: string;
+    folderId?: string;
+    maxResults?: number;
+  }): Promise<ParsedMessage[]> {
+    const maxResults = options?.maxResults ?? 50;
     const allMessages: ParsedMessage[] = [];
     let pageToken: string | undefined;
     const pageSize = 20; // Outlook API limit
 
     while (allMessages.length < maxResults) {
       const response = await queryBatchMessages(this.client, {
-        query,
+        searchQuery: options?.searchQuery,
+        folderId: options?.folderId,
         maxResults: Math.min(pageSize, maxResults - allMessages.length),
         pageToken,
       });
@@ -410,7 +418,7 @@ export class OutlookProvider implements EmailProvider {
   async getPreviousConversationMessages(
     messageIds: string[],
   ): Promise<ParsedMessage[]> {
-    return this.getThreadMessages(messageIds[0]);
+    return this.getMessagesBatch(messageIds);
   }
 
   async removeThreadLabel(threadId: string, labelId: string): Promise<void> {
@@ -519,24 +527,33 @@ export class OutlookProvider implements EmailProvider {
     messages: ParsedMessage[];
     nextPageToken?: string;
   }> {
-    // For Outlook, we need to handle date filtering differently
-    // Microsoft Graph API uses different date filtering syntax
-    let query = options.query || "";
+    logger.info("getMessagesWithPagination called", {
+      query: options.query,
+      maxResults: options.maxResults,
+      pageToken: options.pageToken,
+      before: options.before?.toISOString(),
+      after: options.after?.toISOString(),
+    });
 
-    // Build date filter for Outlook
+    // For Outlook, separate search queries from date filters
+    // Microsoft Graph API handles these differently
+    const originalQuery = options.query || "";
+
+    // Build date filter for Outlook (always quoted for OData)
     const dateFilters: string[] = [];
     if (options.before) {
-      dateFilters.push(`receivedDateTime lt ${options.before.toISOString()}`);
+      dateFilters.push(`receivedDateTime lt '${options.before.toISOString()}'`);
     }
     if (options.after) {
-      dateFilters.push(`receivedDateTime gt ${options.after.toISOString()}`);
+      dateFilters.push(`receivedDateTime gt '${options.after.toISOString()}'`);
     }
 
-    // Combine date filters with existing query
-    if (dateFilters.length > 0) {
-      const dateFilter = dateFilters.join(" and ");
-      query = query ? `${query} and ${dateFilter}` : dateFilter;
-    }
+    logger.info("Query parameters separated", {
+      originalQuery,
+      dateFilters,
+      hasSearchQuery: !!originalQuery.trim(),
+      hasDateFilters: dateFilters.length > 0,
+    });
 
     // Get folder IDs to get the inbox folder ID
     const folderIds = await getFolderIds(this.client);
@@ -546,11 +563,20 @@ export class OutlookProvider implements EmailProvider {
       throw new Error("Could not find inbox folder ID");
     }
 
-    const response = await queryBatchMessages(this.client, {
-      query: query.trim() || undefined,
+    logger.info("Calling queryBatchMessages with separated parameters", {
+      searchQuery: originalQuery.trim() || undefined,
+      dateFilters,
       maxResults: options.maxResults || 20,
       pageToken: options.pageToken,
-      folderId: inboxFolderId, // Pass the inbox folder ID to match original behavior
+      folderId: inboxFolderId,
+    });
+
+    const response = await queryBatchMessages(this.client, {
+      searchQuery: originalQuery.trim() || undefined,
+      dateFilters,
+      maxResults: options.maxResults || 20,
+      pageToken: options.pageToken,
+      folderId: inboxFolderId,
     });
 
     return {

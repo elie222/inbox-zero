@@ -1,5 +1,9 @@
 import type { gmail_v1 } from "@googleapis/gmail";
-import type { ParsedMessage } from "@/utils/types";
+import {
+  isDefined,
+  type MessageWithPayload,
+  type ParsedMessage,
+} from "@/utils/types";
 import { parseMessage } from "@/utils/gmail/message";
 import {
   getMessage,
@@ -146,15 +150,19 @@ export class GmailProvider implements EmailProvider {
     return parseMessage(message);
   }
 
-  async getMessages(query?: string, maxResults = 50): Promise<ParsedMessage[]> {
+  async getMessages(options?: {
+    searchQuery?: string;
+    folderId?: string;
+    maxResults?: number;
+  }): Promise<ParsedMessage[]> {
     const response = await getMessages(this.client, {
-      query,
-      maxResults,
+      query: options?.searchQuery,
+      maxResults: options?.maxResults ?? 50,
     });
     const messages = response.messages || [];
     return messages
-      .filter((message) => message.payload)
-      .map((message) => parseMessage(message as any));
+      .filter((message) => isDefined(message.payload))
+      .map((message) => parseMessage(message as MessageWithPayload));
   }
 
   async getSentMessages(maxResults = 20): Promise<ParsedMessage[]> {
@@ -331,7 +339,7 @@ export class GmailProvider implements EmailProvider {
       content: string;
       contentType: string;
     }>;
-  }): Promise<any> {
+  }) {
     return await sendEmailWithHtml(this.client, body);
   }
 
@@ -462,14 +470,14 @@ export class GmailProvider implements EmailProvider {
     from: string;
     addLabelIds?: string[];
     removeLabelIds?: string[];
-  }): Promise<any> {
+  }) {
     return createFilter({ gmail: this.client, ...options });
   }
 
   async createAutoArchiveFilter(options: {
     from: string;
     gmailLabelId?: string;
-  }): Promise<any> {
+  }) {
     return createAutoArchiveFilter({
       gmail: this.client,
       from: options.from,
@@ -477,7 +485,7 @@ export class GmailProvider implements EmailProvider {
     });
   }
 
-  async deleteFilter(id: string): Promise<any> {
+  async deleteFilter(id: string) {
     return deleteFilter({ gmail: this.client, id });
   }
 
@@ -783,8 +791,9 @@ export class GmailProvider implements EmailProvider {
         const emailThread: EmailThread = {
           id,
           messages:
-            thread.messages?.map((message) => parseMessage(message as any)) ||
-            [],
+            thread.messages?.map((message) =>
+              parseMessage(message as MessageWithPayload),
+            ) || [],
           snippet: decodeSnippet(thread.snippet),
           historyId: thread.historyId || undefined,
         };

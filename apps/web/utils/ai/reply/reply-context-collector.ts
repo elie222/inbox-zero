@@ -140,6 +140,8 @@ ${getTodayForLLM()}`;
                 error,
                 errorMessage,
                 query,
+                emailProvider: emailProvider.name,
+                afterDate: sixMonthsAgo.toISOString(),
               });
               return {
                 success: false,
