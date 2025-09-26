@@ -20,6 +20,7 @@ import {
   forwardEmail,
   replyToEmail,
   sendEmailWithPlainText,
+  sendEmailWithHtml,
 } from "@/utils/outlook/mail";
 import {
   archiveThread,
@@ -58,6 +59,7 @@ import type {
 } from "@/utils/email/types";
 import { unwatchOutlook, watchOutlook } from "@/utils/outlook/watch";
 import { escapeODataString } from "@/utils/outlook/odata-escape";
+import { extractEmailAddress } from "@/utils/email";
 
 const logger = createScopedLogger("outlook-provider");
 
@@ -318,6 +320,27 @@ export class OutlookProvider implements EmailProvider {
     await sendEmailWithPlainText(this.client, args);
   }
 
+  async sendEmailWithHtml(body: {
+    replyToEmail?: {
+      threadId: string;
+      headerMessageId: string;
+      references?: string;
+    };
+    to: string;
+    cc?: string;
+    bcc?: string;
+    replyTo?: string;
+    subject: string;
+    messageHtml: string;
+    attachments?: Array<{
+      filename: string;
+      content: string;
+      contentType: string;
+    }>;
+  }): Promise<any> {
+    return await sendEmailWithHtml(this.client, body);
+  }
+
   async forwardEmail(
     email: ParsedMessage,
     args: { to: string; cc?: string; bcc?: string; content?: string },
@@ -548,6 +571,68 @@ export class OutlookProvider implements EmailProvider {
     const senderFilter = `from/emailAddress/address eq '${escapeODataString(options.senderEmail)}'`;
     return this.getMessagesWithPagination({
       query: senderFilter,
+      maxResults: options.maxResults,
+      pageToken: options.pageToken,
+      before: options.before,
+      after: options.after,
+    });
+  }
+
+  async getMessagesByFields(options: {
+    froms?: string[];
+    subjects?: string[];
+    before?: Date;
+    after?: Date;
+    type?: "inbox" | "sent" | "all";
+    excludeSent?: boolean;
+    maxResults?: number;
+    pageToken?: string;
+  }): Promise<{
+    messages: ParsedMessage[];
+    nextPageToken?: string;
+  }> {
+    const filters: string[] = [];
+
+    // Scope by folder(s)
+    if (options.type === "sent") {
+      // Limit to sent folder
+      filters.push("parentFolderId eq 'sentitems'");
+    } else if (options.type === "inbox") {
+      filters.push("parentFolderId eq 'inbox'");
+    } else {
+      // Default/all -> include inbox and archive
+      filters.push(
+        "(parentFolderId eq 'inbox' or parentFolderId eq 'archive')",
+      );
+    }
+
+    if (options.excludeSent) {
+      filters.push("parentFolderId ne 'sentitems'");
+    }
+
+    const froms = (options.froms || [])
+      .map((f) => extractEmailAddress(f) || f)
+      .filter((f) => !!f);
+    if (froms.length > 0) {
+      const fromFilter = froms
+        .map((f) => `from/emailAddress/address eq '${escapeODataString(f)}'`)
+        .join(" or ");
+      filters.push(`(${fromFilter})`);
+    }
+
+    const subjects = (options.subjects || []).filter((s) => !!s);
+    if (subjects.length > 0) {
+      // Use contains to match subject substrings; exact eq would be too strict
+      const subjectFilter = subjects
+        .map((s) => `contains(subject,'${escapeODataString(s)}')`)
+        .join(" or ");
+      filters.push(`(${subjectFilter})`);
+    }
+
+    const query = filters.join(" and ") || undefined;
+
+    return this.getMessagesWithPagination({
+      query,
       maxResults: options.maxResults,
       pageToken: options.pageToken,
       before: options.before,

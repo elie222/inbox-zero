@@ -42,28 +42,6 @@ export async function getGmailAndAccessTokenForEmail({
   return { gmail, accessToken, tokens };
 }
 
-export async function getGmailClientForEmailId({
-  emailAccountId,
-}: {
-  emailAccountId: string;
-}) {
-  const account = await prisma.emailAccount.findUnique({
-    where: { id: emailAccountId },
-    select: {
-      account: {
-        select: { access_token: true, refresh_token: true, expires_at: true },
-      },
-    },
-  });
-  const gmail = getGmailClientWithRefresh({
-    accessToken: account?.account.access_token,
-    refreshToken: account?.account.refresh_token || "",
-    expiresAt: account?.account.expires_at?.getTime() ?? null,
-    emailAccountId,
-  });
-  return gmail;
-}
-
 export async function getOutlookClientForEmail({
   emailAccountId,
 }: {

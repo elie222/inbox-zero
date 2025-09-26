@@ -174,11 +174,14 @@ export async function queryBatchMessages(
   if (query?.trim()) {
     if (isODataFilter) {
       // Filter path - use filter and skipToken
-      // Combine the existing filter with folder restrictions
+      // Combine the existing filter with folder restrictions unless the query already constrains parentFolderId
+      const hasFolderConstraint = query.includes("parentFolderId");
       const folderFilter = `(parentFolderId eq '${inboxFolderId}' or parentFolderId eq '${archiveFolderId}')`;
-      const combinedFilter = query.trim()
-        ? `${query.trim()} and ${folderFilter}`
-        : folderFilter;
+      const combinedFilter = hasFolderConstraint
+        ? query.trim()
+        : query.trim()
+          ? `${query.trim()} and ${folderFilter}`
+          : folderFilter;
       request = request.filter(combinedFilter);
 
       if (pageToken) {

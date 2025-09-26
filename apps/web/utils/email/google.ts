@@ -25,6 +25,7 @@ import {
   forwardEmail,
   replyToEmail,
   sendEmailWithPlainText,
+  sendEmailWithHtml,
 } from "@/utils/gmail/mail";
 import {
   archiveThread,
@@ -64,6 +65,7 @@ import type {
   EmailFilter,
 } from "@/utils/email/types";
 import { createScopedLogger } from "@/utils/logger";
+import { extractEmailAddress } from "@/utils/email";
 
 const logger = createScopedLogger("gmail-provider");
 
@@ -312,6 +314,27 @@ export class GmailProvider implements EmailProvider {
     await sendEmailWithPlainText(this.client, args);
   }
 
+  async sendEmailWithHtml(body: {
+    replyToEmail?: {
+      threadId: string;
+      headerMessageId: string;
+      references?: string;
+    };
+    to: string;
+    cc?: string;
+    bcc?: string;
+    replyTo?: string;
+    subject: string;
+    messageHtml: string;
+    attachments?: Array<{
+      filename: string;
+      content: string;
+      contentType: string;
+    }>;
+  }): Promise<any> {
+    return await sendEmailWithHtml(this.client, body);
+  }
+
   async forwardEmail(
     email: ParsedMessage,
     args: { to: string; cc?: string; bcc?: string; content?: string },
@@ -510,6 +533,56 @@ export class GmailProvider implements EmailProvider {
   }> {
     return this.getMessagesWithPagination({
       query: `from:${options.senderEmail}`,
+      maxResults: options.maxResults,
+      pageToken: options.pageToken,
+      before: options.before,
+      after: options.after,
+    });
+  }
+
+  async getMessagesByFields(options: {
+    froms?: string[];
+    subjects?: string[];
+    before?: Date;
+    after?: Date;
+    type?: "inbox" | "sent" | "all";
+    excludeSent?: boolean;
+    maxResults?: number;
+    pageToken?: string;
+  }): Promise<{
+    messages: ParsedMessage[];
+    nextPageToken?: string;
+  }> {
+    const parts: string[] = [];
+
+    const froms = (options.froms || [])
+      .map((f) => extractEmailAddress(f) || f)
+      .filter((f) => !!f);
+    if (froms.length > 0) {
+      const fromGroup = froms.map((f) => `"${f}"`).join(" OR ");
+      parts.push(`from:(${fromGroup})`);
+    }
+
+    const subjects = (options.subjects || []).filter((s) => !!s);
+    if (subjects.length > 0) {
+      const subjectGroup = subjects.map((s) => `"${s}"`).join(" OR ");
+      parts.push(`subject:(${subjectGroup})`);
+    }
+
+    // Scope by type/exclusion
+    if (options.type === "inbox") {
+      parts.push(`in:${GmailLabel.INBOX}`);
+    } else if (options.type === "sent") {
+      parts.push(`in:${GmailLabel.SENT}`);
+    }
+    if (options.excludeSent) {
+      parts.push(`-in:${GmailLabel.SENT}`);
+    }
+
+    const query = parts.join(" ") || undefined;
+
+    return this.getMessagesWithPagination({
+      query,
       maxResults: options.maxResults,
       pageToken: options.pageToken,
       before: options.before,

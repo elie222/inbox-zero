@@ -41,6 +41,19 @@ export interface EmailProvider {
   getLabelById(labelId: string): Promise<EmailLabel | null>;
   getMessage(messageId: string): Promise<ParsedMessage>;
   getMessages(query?: string, maxResults?: number): Promise<ParsedMessage[]>;
+  getMessagesByFields(options: {
+    froms?: string[];
+    subjects?: string[];
+    before?: Date;
+    after?: Date;
+    type?: "inbox" | "sent" | "all";
+    excludeSent?: boolean;
+    maxResults?: number;
+    pageToken?: string;
+  }): Promise<{
+    messages: ParsedMessage[];
+    nextPageToken?: string;
+  }>;
   getSentMessages(maxResults?: number): Promise<ParsedMessage[]>;
   getSentThreadsExcluding(options: {
     excludeToEmails?: string[];
@@ -85,6 +98,24 @@ export interface EmailProvider {
     subject: string;
     messageText: string;
   }): Promise<void>;
+  sendEmailWithHtml(body: {
+    replyToEmail?: {
+      threadId: string;
+      headerMessageId: string;
+      references?: string;
+    };
+    to: string;
+    cc?: string;
+    bcc?: string;
+    replyTo?: string;
+    subject: string;
+    messageHtml: string;
+    attachments?: Array<{
+      filename: string;
+      content: string;
+      contentType: string;
+    }>;
+  }): Promise<any>;
   forwardEmail(
     email: ParsedMessage,
     args: { to: string; cc?: string; bcc?: string; content?: string },
