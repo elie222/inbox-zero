@@ -90,7 +90,7 @@ function AccountItem({
         </div>
       </CardHeader>
       <CardContent className="flex justify-end gap-2">
-        <Button variant="outline" size="sm" Icon={ArrowRight} asChild>
+        <Button variant="outline" size="sm" Icon={ArrowRight}>
           <Link href={prefixPath(emailAccount.id, "/setup")}>View</Link>
         </Button>
         {!emailAccount.isPrimary && (
