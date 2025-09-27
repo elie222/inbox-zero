@@ -44,7 +44,7 @@ export async function createMcpToolsForAgent(emailAccountId: string) {
       ),
     });
 
-    const allTools = {};
+    const allTools: Record<string, unknown> = {};
 
     // Create MCP client for each connection and get tools
     for (const connection of connections) {

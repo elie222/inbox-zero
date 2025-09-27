@@ -39,7 +39,6 @@ export function Integrations() {
         <TableHeader>
           <TableRow>
             <TableHead>Name</TableHead>
-            <TableHead>Integration</TableHead>
             <TableHead>Description</TableHead>
             <TableHead>Connection</TableHead>
             <TableHead>Tools</TableHead>
@@ -146,7 +145,6 @@ function Rows({
 
           return (
             <TableRow key={integration.name}>
-              <TableCell>{integration.name}</TableCell>
               <TableCell>{integration.displayName}</TableCell>
               <TableCell>{integration.description}</TableCell>
               <TableCell>

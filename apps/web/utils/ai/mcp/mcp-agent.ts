@@ -1,7 +1,10 @@
 import { createScopedLogger } from "@/utils/logger";
 import { createGenerateText } from "@/utils/llms";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
-import { createMcpToolsForAgent, cleanupMcpClients } from "./mcp-tools";
+import {
+  createMcpToolsForAgent,
+  cleanupMcpClients,
+} from "@/utils/ai/mcp/mcp-tools";
 import { getModel } from "@/utils/llms/model";
 import { stepCountIs } from "ai";
 
