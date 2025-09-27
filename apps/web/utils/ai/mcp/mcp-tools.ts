@@ -1,6 +1,6 @@
 import { experimental_createMCPClient } from "ai";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
-import type { IntegrationKey } from "@inboxzero/mcp";
+import type { IntegrationKey } from "@/utils/mcp/integrations";
 import prisma from "@/utils/prisma";
 import { createScopedLogger, type Logger } from "@/utils/logger";
 import { refreshMcpAccessToken } from "@/utils/mcp/oauth-utils";

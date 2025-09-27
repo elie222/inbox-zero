@@ -16,7 +16,7 @@ import { getOrCreateReferralCode } from "@/utils/referral/referral-code";
 import { generateReferralLink } from "@/utils/referral/referral-link";
 import { aiGetCalendarAvailability } from "@/utils/ai/calendar/availability";
 import { env } from "@/env";
-import { mcpAgent } from "@/utils/ai/mcp-agent";
+import { mcpAgent } from "@/utils/ai/mcp/mcp-agent";
 
 const logger = createScopedLogger("generate-reply");
 

@@ -1,4 +1,4 @@
-import type { McpIntegrationConfig } from "./types";
+import type { McpIntegrationConfig } from "@/utils/mcp/types";
 
 export const MCP_INTEGRATIONS: Record<string, McpIntegrationConfig> = {
   hubspot: {

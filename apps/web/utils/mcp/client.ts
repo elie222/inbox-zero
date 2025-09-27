@@ -1,6 +1,9 @@
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
-import { MCP_INTEGRATIONS, type IntegrationKey } from "@inboxzero/mcp";
+import {
+  MCP_INTEGRATIONS,
+  type IntegrationKey,
+} from "@/utils/mcp/integrations";
 import prisma from "@/utils/prisma";
 import { createScopedLogger } from "@/utils/logger";
 import { refreshMcpAccessToken } from "./oauth-utils";

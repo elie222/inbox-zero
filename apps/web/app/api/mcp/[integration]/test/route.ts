@@ -3,7 +3,10 @@ import { withEmailAccount } from "@/utils/middleware";
 import { createScopedLogger } from "@/utils/logger";
 import { SafeError } from "@/utils/error";
 import { testMcpConnection } from "@/utils/mcp/client";
-import { MCP_INTEGRATIONS, type IntegrationKey } from "@inboxzero/mcp";
+import {
+  MCP_INTEGRATIONS,
+  type IntegrationKey,
+} from "@/utils/mcp/integrations";
 
 const logger = createScopedLogger("mcp/test");
 

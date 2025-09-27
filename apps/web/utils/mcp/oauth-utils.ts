@@ -1,5 +1,8 @@
 import { env } from "@/env";
-import { MCP_INTEGRATIONS, type IntegrationKey } from "@inboxzero/mcp";
+import {
+  MCP_INTEGRATIONS,
+  type IntegrationKey,
+} from "@/utils/mcp/integrations";
 import { generateOAuthState } from "@/utils/oauth/state";
 import { generatePKCEPair } from "@/utils/oauth/pkce";
 

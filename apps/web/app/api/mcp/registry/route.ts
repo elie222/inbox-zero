@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { withAuth } from "@/utils/middleware";
-import { MCP_INTEGRATIONS } from "@inboxzero/mcp";
+import { MCP_INTEGRATIONS } from "@/utils/mcp/integrations";
 
 export type GetMcpRegistryResponse = Awaited<ReturnType<typeof getData>>;
 

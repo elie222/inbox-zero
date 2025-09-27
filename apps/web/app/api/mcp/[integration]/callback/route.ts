@@ -10,7 +10,10 @@ import {
   exchangeMcpCodeForTokens,
   getMcpOAuthCookieNames,
 } from "@/utils/mcp/oauth-utils";
-import { MCP_INTEGRATIONS, type IntegrationKey } from "@inboxzero/mcp";
+import {
+  MCP_INTEGRATIONS,
+  type IntegrationKey,
+} from "@/utils/mcp/integrations";
 
 const logger = createScopedLogger("mcp/callback");
 

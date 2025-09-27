@@ -3,7 +3,10 @@
 import { z } from "zod";
 import { actionClient } from "@/utils/actions/safe-action";
 import { createMcpClient } from "@/utils/mcp/client";
-import { MCP_INTEGRATIONS, type IntegrationKey } from "@inboxzero/mcp";
+import {
+  MCP_INTEGRATIONS,
+  type IntegrationKey,
+} from "@/utils/mcp/integrations";
 import prisma from "@/utils/prisma";
 import { createScopedLogger } from "@/utils/logger";
 
