@@ -5,14 +5,10 @@ import prisma from "@/utils/prisma";
 import { createScopedLogger, type Logger } from "@/utils/logger";
 import { refreshMcpAccessToken } from "@/utils/mcp/oauth-utils";
 
-/**
- * Create MCP tools for AI SDK agent
- */
 export async function createMcpToolsForAgent(emailAccountId: string) {
   const logger = createScopedLogger("ai-mcp-tools").with({ emailAccountId });
 
   try {
-    // Get all active MCP connections with enabled tools
     const connections = await prisma.mcpConnection.findMany({
       where: {
         emailAccountId,
@@ -31,18 +27,7 @@ export async function createMcpToolsForAgent(emailAccountId: string) {
       },
     });
 
-    if (connections.length === 0) {
-      logger.info("No active MCP connections with tools found");
-      return {};
-    }
-
-    logger.info("Creating MCP clients for AI agent", {
-      connectionsCount: connections.length,
-      totalEnabledTools: connections.reduce(
-        (sum, conn) => sum + conn.tools.length,
-        0,
-      ),
-    });
+    if (connections.length === 0) return {};
 
     const allTools: Record<string, unknown> = {};
 
@@ -58,21 +43,8 @@ export async function createMcpToolsForAgent(emailAccountId: string) {
       }
 
       try {
-        logger.info("Getting access token for integration", {
-          integration: integration.name,
-          connectionId: connection.id,
-        });
+        const accessToken = await getValidAccessToken(connection);
 
-        // Get valid access token (with refresh if needed)
-        const accessToken = await getValidAccessToken(connection, logger);
-
-        logger.info("Creating MCP transport", {
-          integration: integration.name,
-          serverUrl: integration.serverUrl,
-          hasAccessToken: !!accessToken,
-        });
-
-        // Create HTTP transport with OAuth token
         const transport = new StreamableHTTPClientTransport(
           new URL(integration.serverUrl),
           {
@@ -85,26 +57,9 @@ export async function createMcpToolsForAgent(emailAccountId: string) {
           },
         );
 
-        logger.info("Creating experimental MCP client", {
-          integration: integration.name,
-        });
+        const mcpClient = await experimental_createMCPClient({ transport });
 
-        // Create MCP client for AI SDK
-        const mcpClient = await experimental_createMCPClient({
-          transport,
-        });
-
-        logger.info("Fetching tools from MCP client", {
-          integration: integration.name,
-        });
-
-        // Get tools from this connection
         const mcpTools = await mcpClient.tools();
-
-        logger.info("Successfully got MCP tools", {
-          integration: integration.name,
-          toolsFromMcp: Object.keys(mcpTools).length,
-        });
 
         // Filter to only enabled tools
         const enabledToolNames = connection.tools.map((tool) => tool.name);
@@ -119,17 +74,10 @@ export async function createMcpToolsForAgent(emailAccountId: string) {
           allTools[toolName] = toolDef;
         });
 
-        logger.info("Added MCP tools for integration", {
-          integration: integration.name,
-          toolsAdded: Object.keys(filteredTools).length,
-          enabledTools: enabledToolNames,
-        });
-
         // Store client for cleanup (we'll handle this in the calling function)
         (allTools as Record<string, unknown>)[`_client_${integration.name}`] =
           mcpClient;
       } catch (error) {
-        console.error(error);
         logger.error("Failed to create MCP client for integration", {
           error: error instanceof Error ? error.message : String(error),
           integration: integration.name,
@@ -140,9 +88,7 @@ export async function createMcpToolsForAgent(emailAccountId: string) {
 
     return allTools;
   } catch (error) {
-    logger.error("Failed to create MCP tools for agent", {
-      error,
-    });
+    logger.error("Failed to create MCP tools for agent", { error });
     return {};
   }
 }
@@ -162,22 +108,13 @@ type McpConnectionWithIntegration = {
  */
 async function getValidAccessToken(
   connection: McpConnectionWithIntegration,
-  logger: Logger,
 ): Promise<string> {
-  if (!connection.accessToken) {
-    throw new Error("No access token found");
-  }
+  if (!connection.accessToken) throw new Error("No access token found");
 
-  // Check if token is expired
   const now = new Date();
   const isExpired = connection.expiresAt && connection.expiresAt < now;
 
   if (isExpired && connection.refreshToken) {
-    logger.info("Refreshing expired MCP token for AI agent", {
-      connectionId: connection.id,
-      integration: connection.integration.name,
-    });
-
     const refreshedToken = await refreshMcpAccessToken(
       connection.integration.name as IntegrationKey,
       connection.refreshToken,
@@ -199,16 +136,12 @@ async function getValidAccessToken(
     return refreshedToken.access_token;
   }
 
-  if (isExpired) {
+  if (isExpired)
     throw new Error("Access token has expired and no refresh token available");
-  }
 
   return connection.accessToken;
 }
 
-/**
- * Clean up MCP clients after use
- */
 export async function cleanupMcpClients(
   tools: Record<string, unknown>,
   logger: Logger,

@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { withEmailAccount } from "@/utils/middleware";
 import { createScopedLogger } from "@/utils/logger";
 import { SafeError } from "@/utils/error";
-import { testMcpConnection } from "@/utils/mcp/client";
+import { testMcpConnection } from "@/utils/mcp/test-mcp";
 import {
   MCP_INTEGRATIONS,
   type IntegrationKey,

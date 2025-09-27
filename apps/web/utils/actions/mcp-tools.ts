@@ -77,9 +77,9 @@ export const syncMcpToolsAction = actionClient
       });
 
       // Store tools in database
-      await prisma.$transaction(async (tx) => {
+      const transactionOperations = [
         // Update integration config to latest values
-        await tx.mcpIntegration.update({
+        prisma.mcpIntegration.update({
           where: { id: mcpConnection.integrationId },
           data: {
             displayName: integrationConfig.displayName,
@@ -88,16 +88,26 @@ export const syncMcpToolsAction = actionClient
             authType: integrationConfig.authType,
             defaultScopes: integrationConfig.defaultScopes,
           },
-        });
+        }),
 
         // Delete existing tools for this connection
-        await tx.mcpTool.deleteMany({
+        prisma.mcpTool.deleteMany({
           where: { connectionId: mcpConnection.id },
-        });
+        }),
 
-        // Insert new tools
-        if (tools.length > 0) {
-          await tx.mcpTool.createMany({
+        // Update the connection to mark tools as synced
+        prisma.mcpConnection.update({
+          where: { id: mcpConnection.id },
+          data: { updatedAt: new Date() },
+        }),
+      ];
+
+      // Insert new tools if any exist
+      if (tools.length > 0) {
+        transactionOperations.splice(
+          2,
+          0, // Insert at index 2, before the connection update
+          prisma.mcpTool.createMany({
             data: tools.map((tool) => ({
               connectionId: mcpConnection.id,
               name: tool.name,
@@ -106,15 +116,11 @@ export const syncMcpToolsAction = actionClient
               schema: tool.inputSchema as any, // Store the JSON schema
               isEnabled: true, // Enable all tools by default
             })),
-          });
-        }
+          }),
+        );
+      }
 
-        // Update the connection to mark tools as synced
-        await tx.mcpConnection.update({
-          where: { id: mcpConnection.id },
-          data: { updatedAt: new Date() },
-        });
-      });
+      await prisma.$transaction(transactionOperations);
 
       logger.info("Successfully synced MCP tools", {
         integration,

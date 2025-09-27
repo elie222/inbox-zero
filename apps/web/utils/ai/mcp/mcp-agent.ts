@@ -1,15 +1,10 @@
-import { createScopedLogger } from "@/utils/logger";
+import { stepCountIs, type ToolSet } from "ai";
 import { createGenerateText } from "@/utils/llms";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
-import {
-  createMcpToolsForAgent,
-  cleanupMcpClients,
-} from "@/utils/ai/mcp/mcp-tools";
+import { createMcpToolsForAgent } from "@/utils/ai/mcp/mcp-tools";
 import { getModel } from "@/utils/llms/model";
-import { stepCountIs } from "ai";
 
 export type McpAgentOptions = {
-  query: string;
   emailAccount: EmailAccountWithAI;
   context?: {
     emailContent?: string;
@@ -28,60 +23,13 @@ export type McpAgentResponse = {
   }>;
 };
 
-/**
- * AI agent that uses MCP tools to search and fetch relevant context
- */
-export async function mcpAgent(
+export async function runMcpAgent(
   options: McpAgentOptions,
+  mcpTools: ToolSet,
 ): Promise<McpAgentResponse> {
-  const { query, emailAccount, context } = options;
-  const logger = createScopedLogger("mcp-agent").with({
-    emailAccountId: emailAccount.id,
-    query: query.slice(0, 100) + (query.length > 100 ? "..." : ""),
-  });
+  const { emailAccount, context } = options;
 
-  if (!query.trim()) {
-    logger.warn("Empty query provided to MCP agent");
-    return {
-      response: "Please provide a question or query for me to help with.",
-    };
-  }
-
-  logger.info("Starting MCP agent query");
-
-  let mcpTools = {};
-
-  try {
-    // Get MCP tools for this email account
-    mcpTools = await createMcpToolsForAgent(emailAccount.id);
-
-    if (Object.keys(mcpTools).length === 0) {
-      logger.info("No MCP tools available, providing basic response");
-      return {
-        response:
-          "I don't have access to any external tools right now. Please connect your integrations (like Notion) to help me provide better assistance.",
-      };
-    }
-
-    const toolNames = Object.keys(mcpTools).filter(
-      (key) => !key.startsWith("_client_"),
-    );
-
-    logger.info("MCP tools loaded for agent", {
-      toolsCount: toolNames.length,
-      availableTools: toolNames,
-      toolsDetails: toolNames.map((name) => ({
-        name,
-        description: (
-          (mcpTools as Record<string, any>)[name]?.description ||
-          "No description"
-        )
-          ?.toString()
-          .slice(0, 100),
-      })),
-    });
-
-    const system = `You are an autonomous AI research assistant with access to the user's connected workspaces through MCP (Model Context Protocol) tools.
+  const system = `You are an autonomous AI research assistant with access to the user's connected workspaces through MCP (Model Context Protocol) tools.
 
 Your role:
 - Conduct thorough research by searching and fetching detailed information from connected sources
@@ -111,7 +59,7 @@ Guidelines:
 - If you find partial information, continue searching for more details
 - Organize findings clearly with bullet points and specific details`;
 
-    const prompt = `User query: ${query}
+  const prompt = `User query: TODO
 
 ${
   context?.emailContent
@@ -127,76 +75,44 @@ ${emailAccount.about ? `<user_info>${emailAccount.about}</user_info>` : ""}
 
 Please help answer this query using the available tools to search for relevant information.`;
 
-    const modelOptions = getModel(emailAccount.user, "chat");
+  const modelOptions = getModel(emailAccount.user, "economy");
 
-    const generateText = createGenerateText({
-      userEmail: emailAccount.email,
-      label: "MCP Agent",
-      modelOptions,
-    });
+  const generateText = createGenerateText({
+    userEmail: emailAccount.email,
+    label: "MCP Agent",
+    modelOptions,
+  });
 
-    const result = await generateText({
-      ...modelOptions,
-      tools: mcpTools,
-      system,
-      prompt,
-      stopWhen: stepCountIs(15),
-    });
+  const result = await generateText({
+    ...modelOptions,
+    tools: mcpTools,
+    system,
+    prompt,
+    stopWhen: stepCountIs(10),
+  });
 
-    // Log detailed steps and tool calls
-    if (result.steps) {
-      result.steps.forEach((step, index) => {
-        logger.info(`Step ${index + 1}`, {
-          stepType: (step as Record<string, unknown>).stepType || "unknown",
-          text: step.text?.slice(0, 200),
-          toolCalls: step.toolCalls?.map((call) => ({
-            toolName: call.toolName,
-            arguments: call.input,
-          })),
-        });
-      });
-    }
+  return {
+    response: result.text,
+    toolCalls: result.toolCalls?.map((call) => ({
+      toolName: call.toolName,
+      arguments: call.input as Record<string, unknown>,
+      result: `${JSON.stringify((call as Record<string, unknown>).result).slice(0, 200)}...`,
+    })),
+  };
+}
 
-    if (result.toolCalls && result.toolCalls.length > 0) {
-      logger.info("Tool calls made", {
-        toolCalls: result.toolCalls.map((call) => ({
-          toolName: call.toolName,
-          arguments: call.input,
-        })),
-      });
-    } else {
-      logger.info("No tool calls made - AI responded without using tools");
-    }
+/**
+ * AI agent that uses MCP tools to search and fetch relevant context
+ */
+export async function mcpAgent(
+  options: McpAgentOptions,
+): Promise<McpAgentResponse | null> {
+  const { emailAccount } = options;
 
-    logger.info("MCP agent completed", {
-      stepsCount: result.steps?.length || 0,
-      toolCallsCount: result.toolCalls?.length || 0,
-      responseLength: result.text.length,
-      finalResponse: result.text.slice(0, 200),
-    });
+  const mcpTools = await createMcpToolsForAgent(emailAccount.id);
+  const hasTools = Object.keys(mcpTools).length > 0;
 
-    return {
-      response: result.text,
-      toolCalls: result.toolCalls?.map((call) => ({
-        toolName: call.toolName,
-        arguments: call.input as Record<string, unknown>,
-        result: `${JSON.stringify((call as Record<string, unknown>).result).slice(0, 200)}...`,
-      })),
-    };
-  } catch (error) {
-    logger.error("MCP agent failed", { error });
-    return {
-      response:
-        "I encountered an error while trying to help you. Please try again or contact support if the issue persists.",
-    };
-  } finally {
-    // Clean up MCP client connections
-    try {
-      await cleanupMcpClients(mcpTools, logger);
-    } catch (cleanupError) {
-      logger.warn("Error cleaning up MCP clients", {
-        cleanupError,
-      });
-    }
-  }
+  if (!hasTools) return null;
+
+  return await runMcpAgent(options, mcpTools as ToolSet);
 }
