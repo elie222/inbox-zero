@@ -175,7 +175,7 @@ importers:
         specifier: 3.0.7
         version: 3.0.7
       '@modelcontextprotocol/sdk':
-        specifier: ^1.4.0
+        specifier: ^1.18.2
         version: 1.18.2
       '@mux/mux-player-react':
         specifier: 3.5.3

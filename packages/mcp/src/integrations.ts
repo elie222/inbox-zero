@@ -21,10 +21,16 @@ export const MCP_INTEGRATIONS: Record<string, McpIntegrationConfig> = {
   notion: {
     name: "notion",
     displayName: "Notion",
-    description: "Read and write to your Notion workspace via MCP",
-    serverUrl: "https://mcp.notion.com/",
+    description: "Read and search your Notion workspace via MCP",
+    serverUrl: "https://mcp.notion.com/mcp",
     authType: "oauth",
-    defaultScopes: [],
+    defaultScopes: ["read"],
+    allowedTools: ["notion-search", "notion-fetch"],
+    oauthConfig: {
+      authUrl: "https://mcp.notion.com/authorize",
+      tokenUrl: "https://mcp.notion.com/token",
+      userLevel: true,
+    },
   },
   monday: {
     name: "monday",

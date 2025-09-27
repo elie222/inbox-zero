@@ -16,7 +16,7 @@ import { getOrCreateReferralCode } from "@/utils/referral/referral-code";
 import { generateReferralLink } from "@/utils/referral/referral-link";
 import { aiGetCalendarAvailability } from "@/utils/ai/calendar/availability";
 import { env } from "@/env";
-import { collectMcpContext } from "@/utils/ai/mcp-context";
+import { mcpAgent } from "@/utils/ai/mcp-agent";
 
 const logger = createScopedLogger("generate-reply");
 
@@ -129,7 +129,7 @@ async function generateDraftContent(
     emailHistoryContext,
     calendarAvailability,
     writingStyle,
-    mcpContext,
+    mcpResult,
   ] = await Promise.all([
     aiExtractRelevantKnowledge({
       knowledgeBase,
@@ -148,10 +148,15 @@ async function generateDraftContent(
     getWritingStyle({
       emailAccountId: emailAccount.id,
     }),
-    collectMcpContext({
-      emailAccountId: emailAccount.id,
-      senderEmail: lastMessage.headers.from,
-      subject: messages[messages.length - 1]?.subject,
+    mcpAgent({
+      query: `Search for relevant information about: ${lastMessage.headers.from} ${messages[messages.length - 1]?.subject || ""}`,
+      emailAccount,
+      context: {
+        emailContent: lastMessageContent,
+        senderName: lastMessage.headers.from,
+        senderEmail: lastMessage.headers.from,
+        subject: messages[messages.length - 1]?.subject,
+      },
     }),
   ]);
 
@@ -188,7 +193,7 @@ async function generateDraftContent(
     emailHistoryContext,
     calendarAvailability,
     writingStyle,
-    mcpContext: mcpContext || null,
+    mcpContext: mcpResult?.response || null,
   });
 
   if (typeof text === "string") {

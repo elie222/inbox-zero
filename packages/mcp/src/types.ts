@@ -15,6 +15,7 @@ export type McpIntegrationConfig = {
   authType: AuthType;
   defaultScopes: string[];
   oauthConfig?: OAuthConfig;
+  allowedTools?: string[];
 };
 
 export type McpToolInfo = {
