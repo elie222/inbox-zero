@@ -90,7 +90,7 @@ async function generateDraftContent(
   previousConversationMessages: ParsedMessage[] | null,
   emailProvider: EmailProvider,
 ) {
-  const lastMessage = threadMessages[threadMessages.length - 1];
+  const lastMessage = threadMessages.at(-1);
 
   if (!lastMessage) throw new Error("No message provided");
 

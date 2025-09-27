@@ -1,6 +1,6 @@
-export type AuthType = "oauth" | "api-token" | "basic";
+type AuthType = "oauth" | "api-token" | "basic";
 
-export type OAuthConfig = {
+type OAuthConfig = {
   authUrl: string;
   tokenUrl: string;
   userLevel?: boolean;
@@ -18,39 +18,9 @@ export type McpIntegrationConfig = {
   allowedTools?: string[];
 };
 
-export type McpToolInfo = {
-  name: string;
-  title?: string;
-  description?: string;
-  schema?: unknown;
-};
-
-export type ToolListResponse = {
-  tools: McpToolInfo[];
-};
-
-export type ToolCallParams = {
-  name: string;
-  arguments?: Record<string, unknown>;
-};
-
-export type ToolCallResult = {
-  ok: boolean;
-  result?: unknown;
-  error?: { code?: string; message: string };
-};
-
-export interface McpClient {
-  listTools(): Promise<McpToolInfo[]>;
-  callTool(
-    name: string,
-    args?: Record<string, unknown>,
-  ): Promise<ToolCallResult>;
-}
-
-export type CredentialBundle = {
-  accessToken?: string | null;
-  refreshToken?: string | null;
-  apiKey?: string | null;
-  expiresAt?: Date | null;
-};
+// export type CredentialBundle = {
+//   accessToken?: string | null;
+//   refreshToken?: string | null;
+//   apiKey?: string | null;
+//   expiresAt?: Date | null;
+// };

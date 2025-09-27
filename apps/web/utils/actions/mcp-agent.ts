@@ -2,7 +2,7 @@
 
 import { actionClient } from "@/utils/actions/safe-action";
 import { z } from "zod";
-import { mcpAgent } from "@/utils/ai/mcp-agent";
+import { mcpAgent } from "@/utils/ai/mcp/mcp-agent";
 import { getEmailAccountWithAi } from "@/utils/user/get";
 import { SafeError } from "@/utils/error";
 

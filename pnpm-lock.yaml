@@ -150,9 +150,6 @@ importers:
       '@inboxzero/loops':
         specifier: workspace:*
         version: link:../../packages/loops
-      '@inboxzero/mcp':
-        specifier: workspace:*
-        version: link:../../packages/mcp
       '@inboxzero/resend':
         specifier: workspace:*
         version: link:../../packages/resend
