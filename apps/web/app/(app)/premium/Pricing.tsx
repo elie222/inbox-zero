@@ -19,7 +19,7 @@ import {
   generateCheckoutSessionAction,
   getBillingPortalUrlAction,
 } from "@/utils/actions/premium";
-import { PremiumTier } from "@prisma/client";
+import type { PremiumTier } from "@prisma/client";
 import { LoadingMiniSpinner } from "@/components/Loading";
 import { cn } from "@/utils";
 import { ManageSubscription } from "@/app/(app)/premium/ManageSubscription";
@@ -95,23 +95,7 @@ export default function Pricing(props: PricingProps) {
                   </Link>
                 </Button>
                 <div className="mx-auto mt-4 max-w-md">
-                  {userPremiumTier === PremiumTier.BUSINESS_MONTHLY ||
-                  userPremiumTier === PremiumTier.BUSINESS_ANNUALLY ? (
-                    <AlertWithButton
-                      className="bg-background"
-                      variant="blue"
-                      title="Need multiple accounts?"
-                      description="Individual plans are designed for single users. Contact our support team for custom pricing on multiple accounts."
-                      icon={null}
-                      button={
-                        <div className="ml-4 whitespace-nowrap">
-                          <Button asChild>
-                            <Link href="/support">Contact Support</Link>
-                          </Button>
-                        </div>
-                      }
-                    />
-                  ) : null}
+                  {/* SELF-HOSTED: Premium tier check removed - all features unlocked */}
                 </div>
               </>
             )}
