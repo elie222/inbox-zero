@@ -28,6 +28,7 @@ import { toastError, toastSuccess } from "@/components/Toast";
 import { syncMcpToolsAction } from "@/utils/actions/mcp-tools";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { McpAgentTest } from "./McpAgentTest";
+import { fetchWithAccount } from "@/utils/fetch";
 
 export function Integrations() {
   const { data, isLoading, error } = useIntegrations();
@@ -85,9 +86,9 @@ function Rows({
 
   const handleConnect = async (integrationName: string) => {
     try {
-      const response = await fetch(`/api/mcp/${integrationName}/auth-url`, {
-        method: "GET",
-        headers: { "Content-Type": "application/json" },
+      const response = await fetchWithAccount({
+        url: `/api/mcp/${integrationName}/auth-url`,
+        emailAccountId,
       });
 
       if (!response.ok) {

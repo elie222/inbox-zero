@@ -6,10 +6,7 @@ import {
 import { generateOAuthState } from "@/utils/oauth/state";
 import { generatePKCEPair } from "@/utils/oauth/pkce";
 
-/**
- * Get OAuth configuration for an MCP integration
- */
-export function getMcpOAuthConfig(integration: IntegrationKey) {
+function getMcpOAuthConfig(integration: IntegrationKey) {
   const integrationConfig = MCP_INTEGRATIONS[integration];
 
   if (!integrationConfig || integrationConfig.authType !== "oauth") {
@@ -23,36 +20,38 @@ export function getMcpOAuthConfig(integration: IntegrationKey) {
   return integrationConfig.oauthConfig;
 }
 
-/**
- * Get environment variable names for an MCP integration
- */
-export function getMcpEnvVars(integration: IntegrationKey) {
-  const upperName = integration.toUpperCase();
-  return {
-    clientId: `${upperName}_MCP_CLIENT_ID` as keyof typeof env,
-    clientSecret: `${upperName}_MCP_CLIENT_SECRET` as keyof typeof env,
-  };
+function getMcpEnvVars(integration: IntegrationKey) {
+  switch (integration) {
+    case "notion":
+      return {
+        clientId: env.NOTION_MCP_CLIENT_ID,
+        clientSecret: env.NOTION_MCP_CLIENT_SECRET,
+      };
+    case "stripe":
+      return {
+        clientId: env.STRIPE_MCP_CLIENT_ID,
+        clientSecret: env.STRIPE_MCP_CLIENT_SECRET,
+      };
+    default:
+      throw new Error(`Integration ${integration} does not support OAuth`);
+  }
 }
 
-/**
- * Get OAuth client credentials for an MCP integration
- */
-export function getMcpClientCredentials(integration: IntegrationKey) {
-  const envVars = getMcpEnvVars(integration);
+function getMcpClientCredentials(integration: IntegrationKey) {
+  const { clientId, clientSecret } = getMcpEnvVars(integration);
 
-  const clientId = env[envVars.clientId] as string | undefined;
-  const clientSecret = env[envVars.clientSecret] as string | undefined;
-
-  if (!clientId) {
-    throw new Error(`${envVars.clientId} environment variable not configured`);
-  }
+  if (!clientId)
+    throw new Error(
+      `${integration} clientId environment variable not configured`,
+    );
+  if (!clientSecret)
+    throw new Error(
+      `${integration} clientSecret environment variable not configured`,
+    );
 
   return { clientId, clientSecret };
 }
 
-/**
- * Get cookie names for OAuth state management
- */
 export function getMcpOAuthCookieNames(integration: IntegrationKey) {
   return {
     state: `${integration}_mcp_oauth_state`,
@@ -77,10 +76,8 @@ export async function generateMcpAuthUrl(
   const oauthConfig = getMcpOAuthConfig(integration);
   const { clientId } = getMcpClientCredentials(integration);
 
-  // Generate PKCE values
   const { codeVerifier, codeChallenge } = await generatePKCEPair();
 
-  // Generate OAuth state with context
   const state = generateOAuthState({
     userId,
     emailAccountId,
@@ -115,9 +112,6 @@ export async function generateMcpAuthUrl(
   };
 }
 
-/**
- * Exchange OAuth code for tokens
- */
 export async function exchangeMcpCodeForTokens(
   integration: IntegrationKey,
   code: string,
@@ -173,9 +167,6 @@ export async function exchangeMcpCodeForTokens(
   return tokens;
 }
 
-/**
- * Refresh OAuth access token for an MCP integration
- */
 export async function refreshMcpAccessToken(
   integration: IntegrationKey,
   refreshToken: string,

@@ -21,18 +21,12 @@ export const GET = withEmailAccount(async (request, { params }) => {
 
   const logger_with_context = logger.with({ userId, integration });
 
-  // Validate integration exists and supports OAuth
-  if (!MCP_INTEGRATIONS[integration]) {
-    throw new SafeError(`Unknown integration: ${integration}`);
-  }
-
   const integrationConfig = MCP_INTEGRATIONS[integration];
   if (integrationConfig.authType !== "oauth") {
     throw new SafeError(`Integration ${integration} does not support OAuth`);
   }
 
   try {
-    // Generate OAuth authorization URL
     const { url, state, codeVerifier } = await generateMcpAuthUrl(
       integration,
       emailAccountId,

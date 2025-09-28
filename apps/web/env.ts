@@ -30,6 +30,8 @@ export const env = createEnv({
     // MCP OAuth integrations
     NOTION_MCP_CLIENT_ID: z.string().optional(),
     NOTION_MCP_CLIENT_SECRET: z.string().optional(),
+    STRIPE_MCP_CLIENT_ID: z.string().optional(),
+    STRIPE_MCP_CLIENT_SECRET: z.string().optional(),
 
     DEFAULT_LLM_PROVIDER: z
       // custom is deprecated
