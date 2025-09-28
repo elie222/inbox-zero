@@ -3,18 +3,15 @@ import { createGenerateText } from "@/utils/llms";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import { createMcpToolsForAgent } from "@/utils/ai/mcp/mcp-tools";
 import { getModel } from "@/utils/llms/model";
+import type { EmailForLLM } from "@/utils/types";
+import { stringifyEmail } from "@/utils/stringify-email";
 
-export type McpAgentOptions = {
+type McpAgentOptions = {
   emailAccount: EmailAccountWithAI;
-  context?: {
-    emailContent?: string;
-    senderName?: string;
-    senderEmail?: string;
-    subject?: string;
-  };
+  messages: EmailForLLM[];
 };
 
-export type McpAgentResponse = {
+type McpAgentResponse = {
   response: string;
   toolCalls?: Array<{
     toolName: string;
@@ -23,57 +20,66 @@ export type McpAgentResponse = {
   }>;
 };
 
-export async function runMcpAgent(
+async function runMcpAgent(
   options: McpAgentOptions,
   mcpTools: ToolSet,
 ): Promise<McpAgentResponse> {
-  const { emailAccount, context } = options;
+  const { emailAccount, messages } = options;
 
-  const system = `You are an autonomous AI research assistant with access to the user's connected workspaces through MCP (Model Context Protocol) tools.
+  const threadSummary = messages
+    .map((email) => `<email>${stringifyEmail(email, 1000)}</email>`)
+    .join("\n");
 
-Your role:
-- Conduct thorough research by searching and fetching detailed information from connected sources
-- Use multiple search strategies and follow up on interesting findings
-- Fetch full content from relevant pages/documents to provide comprehensive answers
-- Be proactive in gathering all relevant information before providing a final response
+  const system = `You are an intelligent research assistant with access to the user's connected systems through MCP (Model Context Protocol) tools.
 
-Available tools and research strategy:
-- notion-search: Use to search across the user's Notion workspace and connected sources (Slack, Google Drive, etc.)
-  * Try multiple search approaches: search for people ("query_type": "user"), then search for documents ("query_type": "internal")
-  * Use different keywords and phrases to find comprehensive results
-  * Follow up on interesting results by fetching detailed content
-- notion-fetch: Use to get full content of specific pages/databases when you find relevant URLs or IDs from search results
+Your role is to gather relevant context about the email sender and situation to help draft a personalized reply.
+You do not draft the reply yourself, just gather the context to help a downstream drafting agent.
 
-Research methodology:
-1. Start with broad searches using different keywords and query types
-2. Identify the most relevant results from initial searches
-3. Fetch detailed content from promising pages/documents using notion-fetch
-4. Synthesize findings from multiple sources to provide comprehensive answers
-5. Continue researching if initial results seem incomplete or if new leads emerge
+Your research strategy:
+1. **Customer/Contact Research**: Look up information about the sender in CRMs, customer databases
+   - Search for sender name, email, company
+   - Find account status, previous interactions, purchase history
+   - Look for support tickets, refund history, subscription status
+
+2. **Context-Specific Research**: Based on the email content, search for relevant information
+   - If it's a support question, search documentation/knowledge base
+   - If it's about billing/payments, check payment systems (Stripe, etc.)
+   - If it's about orders/products, check order management systems
+   - If it's about account issues, check user account status
+
+3. **Company Information**: If sender represents a company, research the company
+   - Company details, relationships, contracts
+   - Previous business interactions
+
+Search methodology:
+- Start with the sender's name and email address
+- Use company name if mentioned in the email
+- Search for specific topics mentioned in the email (products, services, issues)
+- Try different variations of names and terms
+- Be thorough but efficient - gather enough context to inform a helpful reply
 
 Guidelines:
-- Be thorough and autonomous - don't ask for permission to search more
-- Always try multiple search approaches (user search + document search)
-- Fetch full content from relevant pages to get complete information
-- Provide detailed, well-researched responses with specific names, roles, and context
-- If you find partial information, continue searching for more details
-- Organize findings clearly with bullet points and specific details`;
+- Focus on information that would help craft a personalized, informed reply
+- Look for previous interaction history, preferences, account status
+- Don't waste time on irrelevant details
+- If no relevant information is found, that's okay - just report what you searched for
+- Organize findings clearly with specific details about the person/company
 
-  const prompt = `User query: TODO
+Your task:
+1. Analyze the current email thread to understand who the sender is and what they're asking about
+2. Research the sender and any mentioned companies in connected systems
+3. Look up relevant context based on the email content and subject
+4. Find information that would help craft a personalized, informed reply
 
-${
-  context?.emailContent
-    ? `<email_context>
-Subject: ${context.subject || "No subject"}
-From: ${context.senderName || "Unknown"} <${context.senderEmail || "unknown@email.com"}>
-Content: ${context.emailContent.slice(0, 1000)}${context.emailContent.length > 1000 ? "..." : ""}
-</email_context>`
-    : ""
-}
+Be thorough but focused on information that helps with replying to this specific email.`;
 
-${emailAccount.about ? `<user_info>${emailAccount.about}</user_info>` : ""}
+  const prompt = `You need to research context about the sender and situation from this email thread to help draft a personalized reply.
 
-Please help answer this query using the available tools to search for relevant information.`;
+<current_thread>
+${threadSummary}
+</current_thread>
+
+${emailAccount.about ? `<user_context>${emailAccount.about}</user_context>` : ""}`;
 
   const modelOptions = getModel(emailAccount.user, "economy");
 
@@ -107,7 +113,9 @@ Please help answer this query using the available tools to search for relevant i
 export async function mcpAgent(
   options: McpAgentOptions,
 ): Promise<McpAgentResponse | null> {
-  const { emailAccount } = options;
+  const { emailAccount, messages } = options;
+
+  if (!messages || messages.length === 0) return null;
 
   const mcpTools = await createMcpToolsForAgent(emailAccount.id);
   const hasTools = Object.keys(mcpTools).length > 0;

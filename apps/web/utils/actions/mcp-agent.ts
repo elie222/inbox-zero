@@ -5,15 +5,17 @@ import { z } from "zod";
 import { mcpAgent } from "@/utils/ai/mcp/mcp-agent";
 import { getEmailAccountWithAi } from "@/utils/user/get";
 import { SafeError } from "@/utils/error";
+import type { EmailForLLM } from "@/utils/types";
 
+// Schema for testing with mock email data
 const mcpAgentSchema = z.object({
   query: z.string().min(1, "Query is required"),
-  context: z
+  // For testing, we'll accept mock message data
+  mockMessage: z
     .object({
-      emailContent: z.string().optional(),
-      senderName: z.string().optional(),
-      senderEmail: z.string().optional(),
+      from: z.string().optional(),
       subject: z.string().optional(),
+      content: z.string().optional(),
     })
     .optional(),
 });
@@ -24,18 +26,31 @@ export const mcpAgentAction = actionClient
   .metadata({ name: "mcpAgent" })
   .schema(mcpAgentSchema)
   .action(
-    async ({ ctx: { emailAccountId }, parsedInput: { query, context } }) => {
+    async ({
+      ctx: { emailAccountId },
+      parsedInput: { query, mockMessage },
+    }) => {
       // Get email account with AI configuration
       const emailAccount = await getEmailAccountWithAi({ emailAccountId });
       if (!emailAccount) {
         throw new SafeError("Email account not found");
       }
 
-      // Call the MCP agent
+      // Create mock message for testing
+      const testMessage: EmailForLLM = {
+        id: "test-message-id",
+        from: mockMessage?.from || "john.smith@example.com",
+        to: emailAccount.email,
+        subject: mockMessage?.subject || "Question about our services",
+        content:
+          mockMessage?.content ||
+          `Hi there,\n\nI'm ${mockMessage?.from ? mockMessage.from.split("@")[0] : "John Smith"} and I have a question about ${query}.\n\nCould you please help me with this?\n\nThanks!`,
+      };
+
+      // Call the MCP agent with mock message
       const result = await mcpAgent({
-        query,
         emailAccount,
-        context,
+        messages: [testMessage],
       });
 
       return result;

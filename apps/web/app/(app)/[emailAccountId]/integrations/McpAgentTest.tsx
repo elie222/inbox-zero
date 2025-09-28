@@ -21,6 +21,7 @@ type McpAgentResponse = {
 
 export function McpAgentTest() {
   const [query, setQuery] = useState("");
+  const [senderEmail, setSenderEmail] = useState("john.smith@example.com");
   const [loading, setLoading] = useState(false);
   const [response, setResponse] = useState<McpAgentResponse | null>(null);
   const { emailAccountId } = useAccount();
@@ -50,6 +51,11 @@ export function McpAgentTest() {
     try {
       const requestData: McpAgentActionInput = {
         query: query.trim(),
+        mockMessage: {
+          from: senderEmail,
+          subject: `Question about ${query}`,
+          content: `Hi, I'm writing to ask about ${query}. Could you please help me with this?`,
+        },
       };
 
       const result = await mcpAgentAction(emailAccountId, requestData);
@@ -77,21 +83,47 @@ export function McpAgentTest() {
   return (
     <Card className="mt-8">
       <CardHeader>
-        <CardTitle>Test MCP Agent</CardTitle>
+        <CardTitle>Test MCP Context Research</CardTitle>
+        <p className="text-sm text-gray-600 mt-2">
+          This tests the MCP agent's ability to research customer context from
+          connected systems like CRMs, payment platforms, and documentation to
+          help draft personalized email replies.
+        </p>
       </CardHeader>
       <CardContent className="space-y-4">
         <form onSubmit={handleSubmit} className="space-y-4">
-          <input
-            type="text"
-            placeholder="Ask about your Notion workspace... (e.g., 'search for pricing information' or 'find documents about Jane Smith')"
-            value={query}
-            onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-              setQuery(e.target.value)
-            }
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
+          <div className="space-y-2">
+            <label htmlFor="senderEmail" className="block text-sm font-medium">
+              Mock Sender Email:
+            </label>
+            <input
+              id="senderEmail"
+              type="email"
+              placeholder="john.smith@example.com"
+              value={senderEmail}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                setSenderEmail(e.target.value)
+              }
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+          <div className="space-y-2">
+            <label htmlFor="query" className="block text-sm font-medium">
+              Email Topic/Question:
+            </label>
+            <input
+              id="query"
+              type="text"
+              placeholder="e.g., 'billing issue', 'product inquiry', 'support request'"
+              value={query}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                setQuery(e.target.value)
+              }
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
           <Button type="submit" disabled={loading || !query.trim()}>
-            {loading ? "Thinking..." : "Ask Agent"}
+            {loading ? "Researching Context..." : "Test MCP Context Research"}
           </Button>
         </form>
 

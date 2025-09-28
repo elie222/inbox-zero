@@ -5,6 +5,7 @@ import { stringifyEmail } from "@/utils/stringify-email";
 import { getModel } from "@/utils/llms/model";
 import { createGenerateObject } from "@/utils/llms";
 import { createScopedLogger } from "@/utils/logger";
+import { getUserInfoPrompt, getUserRulesPrompt } from "@/utils/ai/helpers";
 
 const logger = createScopedLogger("ai-detect-recurring-pattern");
 
@@ -69,22 +70,9 @@ Pay close attention to:
 Be conservative in your matching. If there's any doubt, return null for "matchedRule".
 </instructions>
 
-<user_rules>
-${rules
-  .map(
-    (rule) => `<rule>
-  <name>${rule.name}</name>
-  <criteria>${rule.instructions}</criteria>
-</rule>`,
-  )
-  .join("\n")}
-</user_rules>
+${getUserRulesPrompt({ rules })}
 
-${
-  emailAccount.about
-    ? `<user_info>\n<about>${emailAccount.about}</about>\n<email>${emailAccount.email}</email>\n</user_info>`
-    : `<user_info>\n<email>${emailAccount.email}</email>\n</user_info>`
-}
+${getUserInfoPrompt({ emailAccount })}
 
 <outputFormat>
 Respond with a JSON object with the following fields:

@@ -4,6 +4,7 @@ import type { Knowledge } from "@prisma/client";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import { getModel } from "@/utils/llms/model";
 import { createGenerateObject } from "@/utils/llms";
+import { getUserInfoPrompt } from "@/utils/ai/helpers";
 
 const logger = createScopedLogger("ai/knowledge/extract");
 
@@ -58,16 +59,7 @@ ${emailContent}
 ${knowledgeBaseText}
 </knowledge_base>
 
-${
-  emailAccount.about
-    ? `<user_info>
-<about>${emailAccount.about}</about>
-<email>${emailAccount.email}</email>
-</user_info>`
-    : `<user_info>
-<email>${emailAccount.email}</email>
-</user_info>`
-}
+${getUserInfoPrompt({ emailAccount })}
 
 Extract the most relevant information FROM THE KNOWLEDGE BASE for drafting a response to this email.`;
 };

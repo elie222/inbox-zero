@@ -141,23 +141,9 @@ async function generateDraftContent(
       emailAccount,
       emailProvider,
     }),
-    aiGetCalendarAvailability({
-      emailAccount,
-      messages,
-    }),
-    getWritingStyle({
-      emailAccountId: emailAccount.id,
-    }),
-    mcpAgent({
-      query: `Search for relevant information about: ${lastMessage.headers.from} ${messages[messages.length - 1]?.subject || ""}`,
-      emailAccount,
-      context: {
-        emailContent: lastMessageContent,
-        senderName: lastMessage.headers.from,
-        senderEmail: lastMessage.headers.from,
-        subject: messages[messages.length - 1]?.subject,
-      },
-    }),
+    aiGetCalendarAvailability({ emailAccount, messages }),
+    getWritingStyle({ emailAccountId: emailAccount.id }),
+    mcpAgent({ emailAccount, messages }),
   ]);
 
   // 2b. Extract email history context

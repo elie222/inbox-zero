@@ -7,6 +7,7 @@ import { getTodayForLLM } from "@/utils/llms/helpers";
 import { preprocessBooleanLike } from "@/utils/zod";
 import { getModel } from "@/utils/llms/model";
 import { createGenerateObject } from "@/utils/llms";
+import { getUserInfoPrompt } from "@/utils/ai/helpers";
 
 const logger = createScopedLogger("EmailHistoryExtractor");
 
@@ -47,16 +48,7 @@ ${historicalMessages.map((m) => stringifyEmail(m, 10_000)).join("\n---\n")}
     : "No historical email threads available."
 }
 
-${
-  emailAccount.about
-    ? `<user_info>
-<about>${emailAccount.about}</about>
-<email>${emailAccount.email}</email>
-</user_info>`
-    : `<user_info>
-<email>${emailAccount.email}</email>
-</user_info>`
-}
+${getUserInfoPrompt({ emailAccount })}
 
 ${getTodayForLLM()}
 Analyze the historical email threads and extract any relevant information that would be helpful for drafting a response to the current email thread. Provide a concise summary of the key historical context.`;
