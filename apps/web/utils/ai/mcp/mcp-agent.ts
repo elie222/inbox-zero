@@ -5,6 +5,9 @@ import { createMcpToolsForAgent } from "@/utils/ai/mcp/mcp-tools";
 import { getModel } from "@/utils/llms/model";
 import type { EmailForLLM } from "@/utils/types";
 import { getEmailListPrompt, getUserInfoPrompt } from "@/utils/ai/helpers";
+import { createScopedLogger } from "@/utils/logger";
+
+const logger = createScopedLogger("mcp-agent");
 
 type McpAgentOptions = {
   emailAccount: EmailAccountWithAI;
@@ -12,13 +15,15 @@ type McpAgentOptions = {
 };
 
 type McpAgentResponse = {
-  response: string;
-  toolCalls?: Array<{
+  response: string | null;
+  getToolCalls: () => Array<{
     toolName: string;
     arguments: Record<string, unknown>;
     result: string;
   }>;
 };
+
+const NO_RELEVANT_INFO_FOUND = "NO_RELEVANT_INFO_FOUND";
 
 async function runMcpAgent(
   options: McpAgentOptions,
@@ -26,48 +31,21 @@ async function runMcpAgent(
 ): Promise<McpAgentResponse> {
   const { emailAccount, messages } = options;
 
-  const system = `You are an intelligent research assistant with access to the user's connected systems through MCP (Model Context Protocol) tools.
+  const system = `You are a research assistant. Use your tools to search for relevant information about the email sender and topic.
 
-Your role is to gather relevant context about the email sender and situation to help draft a personalized reply.
-You do not draft the reply yourself, just gather the context to help a downstream drafting agent.
+SEARCH FOR:
+- Sender's name, email, company in CRM/customer databases  
+- Technical documentation if it's a technical question
+- Billing information if it's about payments/subscriptions
+- Product information if about features/services
 
-Your research strategy:
-1. **Customer/Contact Research**: Look up information about the sender in CRMs, customer databases
-   - Search for sender name, email, company
-   - Find account status, previous interactions, purchase history
-   - Look for support tickets, refund history, subscription status
+OUTPUT RULES:
+- If you find useful information: Summarize the key findings concisely
+- If you find no useful information: You may briefly explain what you searched for, then end with exactly "${NO_RELEVANT_INFO_FOUND}"
+- Do not ask for more tools or capabilities
+- Be concise and factual
 
-2. **Context-Specific Research**: Based on the email content, search for relevant information
-   - If it's a support question, search documentation/knowledge base
-   - If it's about billing/payments, check payment systems (Stripe, etc.)
-   - If it's about orders/products, check order management systems
-   - If it's about account issues, check user account status
-
-3. **Company Information**: If sender represents a company, research the company
-   - Company details, relationships, contracts
-   - Previous business interactions
-
-Search methodology:
-- Start with the sender's name and email address
-- Use company name if mentioned in the email
-- Search for specific topics mentioned in the email (products, services, issues)
-- Try different variations of names and terms
-- Be thorough but efficient - gather enough context to inform a helpful reply
-
-Guidelines:
-- Focus on information that would help craft a personalized, informed reply
-- Look for previous interaction history, preferences, account status
-- Don't waste time on irrelevant details
-- If no relevant information is found, that's okay - just report what you searched for
-- Organize findings clearly with specific details about the person/company
-
-Your task:
-1. Analyze the current email thread to understand who the sender is and what they're asking about
-2. Research the sender and any mentioned companies in connected systems
-3. Look up relevant context based on the email content and subject
-4. Find information that would help craft a personalized, informed reply
-
-Be thorough but focused on information that helps with replying to this specific email.`;
+Start searching immediately.`;
 
   const prompt = `${getUserInfoPrompt({ emailAccount })}
 
@@ -91,15 +69,39 @@ ${getEmailListPrompt({ messages, messageMaxLength: 1000, maxMessages: 5 })}
     system,
     prompt,
     stopWhen: stepCountIs(10),
+    onStepFinish: async ({ text, toolCalls }) => {
+      logger.trace("Step finished", { text, toolCalls });
+    },
   });
 
+  const hasNoRelevantInfo = result.text.includes(NO_RELEVANT_INFO_FOUND);
+
+  if (hasNoRelevantInfo) {
+    logger.trace("No relevant information found", {
+      explanation: result.text.replace(NO_RELEVANT_INFO_FOUND, "").trim(),
+    });
+  }
+
   return {
-    response: result.text,
-    toolCalls: result.toolCalls?.map((call) => ({
-      toolName: call.toolName,
-      arguments: call.input as Record<string, unknown>,
-      result: `${JSON.stringify((call as Record<string, unknown>).result).slice(0, 200)}...`,
-    })),
+    response: hasNoRelevantInfo ? null : result.text,
+    getToolCalls: () => {
+      // Extract tool calls and results from all steps
+      const allToolCallsWithResults = result.steps.flatMap((step) =>
+        step.toolCalls.map((call) => {
+          const toolResult = step.toolResults?.find(
+            (result) => result.toolCallId === call.toolCallId,
+          );
+          return {
+            toolName: call.toolName,
+            arguments: call.input as Record<string, unknown>,
+            result: toolResult?.output
+              ? `${JSON.stringify(toolResult.output).slice(0, 200)}...`
+              : "No result",
+          };
+        }),
+      );
+      return allToolCallsWithResults;
+    },
   };
 }
 
