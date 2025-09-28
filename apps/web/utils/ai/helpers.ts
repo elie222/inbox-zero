@@ -51,11 +51,15 @@ ${rules
 export const getEmailListPrompt = ({
   messages,
   messageMaxLength,
+  maxMessages,
 }: {
   messages: EmailForLLM[];
   messageMaxLength: number;
+  maxMessages?: number;
 }) => {
-  return messages
+  const messagesToUse = maxMessages ? messages.slice(-maxMessages) : messages;
+
+  return messagesToUse
     .map((email) => `<email>${stringifyEmail(email, messageMaxLength)}</email>`)
     .join("\n");
 };

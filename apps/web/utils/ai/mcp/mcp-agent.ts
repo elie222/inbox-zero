@@ -69,13 +69,13 @@ Your task:
 
 Be thorough but focused on information that helps with replying to this specific email.`;
 
-  const prompt = `You need to research context about the sender and situation from this email thread to help draft a personalized reply.
+  const prompt = `${getUserInfoPrompt({ emailAccount })}
+
+The last emails in the thread are:
 
 <thread>
-${getEmailListPrompt({ messages, messageMaxLength: 1000 })}
-</thread>
-
-${getUserInfoPrompt({ emailAccount })}`;
+${getEmailListPrompt({ messages, messageMaxLength: 1000, maxMessages: 5 })}
+</thread>`;
 
   const modelOptions = getModel(emailAccount.user, "economy");
 

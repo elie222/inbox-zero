@@ -218,4 +218,115 @@ describe("getEmailListPrompt", () => {
 
     expect(mockStringifyEmail).toHaveBeenCalledWith(messages[0], 250);
   });
+
+  it("should return all messages when maxMessages is not provided", () => {
+    const messages = [getEmail(), getEmail(), getEmail()];
+    const messageMaxLength = 1000;
+
+    mockStringifyEmail
+      .mockReturnValueOnce("Email 1")
+      .mockReturnValueOnce("Email 2")
+      .mockReturnValueOnce("Email 3");
+
+    const result = getEmailListPrompt({ messages, messageMaxLength });
+
+    expect(result).toBe(
+      "<email>Email 1</email>\n<email>Email 2</email>\n<email>Email 3</email>",
+    );
+    expect(mockStringifyEmail).toHaveBeenCalledTimes(3);
+  });
+
+  it("should return the last maxMessages when maxMessages is provided", () => {
+    const messages = [
+      getEmail(),
+      getEmail(),
+      getEmail(),
+      getEmail(),
+      getEmail(),
+    ];
+    const messageMaxLength = 1000;
+    const maxMessages = 3;
+
+    mockStringifyEmail
+      .mockReturnValueOnce("Email 3")
+      .mockReturnValueOnce("Email 4")
+      .mockReturnValueOnce("Email 5");
+
+    const result = getEmailListPrompt({
+      messages,
+      messageMaxLength,
+      maxMessages,
+    });
+
+    expect(result).toBe(
+      "<email>Email 3</email>\n<email>Email 4</email>\n<email>Email 5</email>",
+    );
+    expect(mockStringifyEmail).toHaveBeenCalledTimes(3);
+    // Verify it called with the last 3 messages (indices 2, 3, 4)
+    expect(mockStringifyEmail).toHaveBeenNthCalledWith(
+      1,
+      messages[2],
+      messageMaxLength,
+    );
+    expect(mockStringifyEmail).toHaveBeenNthCalledWith(
+      2,
+      messages[3],
+      messageMaxLength,
+    );
+    expect(mockStringifyEmail).toHaveBeenNthCalledWith(
+      3,
+      messages[4],
+      messageMaxLength,
+    );
+  });
+
+  it("should return all messages when maxMessages is greater than array length", () => {
+    const messages = [getEmail(), getEmail()];
+    const messageMaxLength = 1000;
+    const maxMessages = 5;
+
+    mockStringifyEmail
+      .mockReturnValueOnce("Email 1")
+      .mockReturnValueOnce("Email 2");
+
+    const result = getEmailListPrompt({
+      messages,
+      messageMaxLength,
+      maxMessages,
+    });
+
+    expect(result).toBe("<email>Email 1</email>\n<email>Email 2</email>");
+    expect(mockStringifyEmail).toHaveBeenCalledTimes(2);
+    expect(mockStringifyEmail).toHaveBeenNthCalledWith(
+      1,
+      messages[0],
+      messageMaxLength,
+    );
+    expect(mockStringifyEmail).toHaveBeenNthCalledWith(
+      2,
+      messages[1],
+      messageMaxLength,
+    );
+  });
+
+  it("should return single last message when maxMessages is 1", () => {
+    const messages = [getEmail(), getEmail(), getEmail()];
+    const messageMaxLength = 1000;
+    const maxMessages = 1;
+
+    mockStringifyEmail.mockReturnValue("Last email");
+
+    const result = getEmailListPrompt({
+      messages,
+      messageMaxLength,
+      maxMessages,
+    });
+
+    expect(result).toBe("<email>Last email</email>");
+    expect(mockStringifyEmail).toHaveBeenCalledTimes(1);
+    expect(mockStringifyEmail).toHaveBeenCalledWith(
+      messages[2],
+      messageMaxLength,
+    );
+  });
 });
