@@ -4,7 +4,6 @@ import type { EmailAccountWithAI } from "@/utils/llms/types";
 import { createMcpToolsForAgent } from "@/utils/ai/mcp/mcp-tools";
 import { getModel } from "@/utils/llms/model";
 import type { EmailForLLM } from "@/utils/types";
-import { stringifyEmail } from "@/utils/stringify-email";
 import { getEmailListPrompt, getUserInfoPrompt } from "@/utils/ai/helpers";
 
 type McpAgentOptions = {
@@ -104,9 +103,6 @@ ${getUserInfoPrompt({ emailAccount })}`;
   };
 }
 
-/**
- * AI agent that uses MCP tools to search and fetch relevant context
- */
 export async function mcpAgent(
   options: McpAgentOptions,
 ): Promise<McpAgentResponse | null> {

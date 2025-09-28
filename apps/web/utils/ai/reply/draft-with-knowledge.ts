@@ -3,8 +3,7 @@ import { createScopedLogger } from "@/utils/logger";
 import { createGenerateObject } from "@/utils/llms/index";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import type { EmailForLLM } from "@/utils/types";
-import { stringifyEmail } from "@/utils/stringify-email";
-import { getTodayForLLM } from "@/utils/ai/helpers";
+import { getEmailListPrompt, getTodayForLLM } from "@/utils/ai/helpers";
 import { getModel } from "@/utils/llms/model";
 import type { ReplyContextCollectorResult } from "@/utils/ai/reply/reply-context-collector";
 import type { CalendarAvailabilityContext } from "@/utils/ai/calendar/availability";
@@ -133,13 +132,7 @@ ${calendarContext}
 ${mcpToolsContext}
 
 Here is the context of the email thread (from oldest to newest):
-${messages
-  .map(
-    (msg) => `<email>
-${stringifyEmail(msg, 3000)}
-</email>`,
-  )
-  .join("\n")}
+${getEmailListPrompt({ messages, messageMaxLength: 3000 })}
      
 Please write a reply to the email.
 ${getTodayForLLM()}

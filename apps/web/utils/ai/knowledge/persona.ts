@@ -5,7 +5,7 @@ import type { EmailForLLM } from "@/utils/types";
 import { getModel } from "@/utils/llms/model";
 import { createGenerateObject } from "@/utils/llms";
 import { USER_ROLES } from "@/utils/constants/user-roles";
-import { stringifyEmail } from "@/utils/stringify-email";
+import { getEmailListPrompt } from "@/utils/ai/helpers";
 
 const logger = createScopedLogger("persona-analyzer");
 
@@ -90,7 +90,7 @@ This is important: You are analyzing the persona of ${emailAccount.email}. Look 
 
 Here are the emails they've sent:
 <emails>
-${emails.map((e) => `<email>\n${stringifyEmail(e, 1000)}\n</email>`).join("\n")}
+${getEmailListPrompt({ messages: emails, messageMaxLength: 1000 })}
 </emails>`;
 
   const modelOptions = getModel(emailAccount.user, "economy");

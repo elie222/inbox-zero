@@ -1,11 +1,14 @@
 import { z } from "zod";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import type { EmailForLLM } from "@/utils/types";
-import { stringifyEmail } from "@/utils/stringify-email";
 import { getModel } from "@/utils/llms/model";
 import { createGenerateObject } from "@/utils/llms";
 import { createScopedLogger } from "@/utils/logger";
-import { getUserInfoPrompt, getUserRulesPrompt } from "@/utils/ai/helpers";
+import {
+  getEmailListPrompt,
+  getUserInfoPrompt,
+  getUserRulesPrompt,
+} from "@/utils/ai/helpers";
 
 const logger = createScopedLogger("ai-detect-recurring-pattern");
 
@@ -87,13 +90,7 @@ If you're not confident (at least 90% certain) that a single rule should handle 
 <sender>${senderEmail}</sender>
 
 <sample_emails>
-${emails
-  .map((email) => {
-    return `<email>
-${stringifyEmail(email, 500)}
-</email>`;
-  })
-  .join("\n")}
+${getEmailListPrompt({ messages: emails, messageMaxLength: 500 })}
 </sample_emails>`;
 
   try {
