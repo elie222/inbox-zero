@@ -5,6 +5,7 @@ import { createMcpToolsForAgent } from "@/utils/ai/mcp/mcp-tools";
 import { getModel } from "@/utils/llms/model";
 import type { EmailForLLM } from "@/utils/types";
 import { stringifyEmail } from "@/utils/stringify-email";
+import { getEmailListPrompt, getUserInfoPrompt } from "@/utils/ai/helpers";
 
 type McpAgentOptions = {
   emailAccount: EmailAccountWithAI;
@@ -25,10 +26,6 @@ async function runMcpAgent(
   mcpTools: ToolSet,
 ): Promise<McpAgentResponse> {
   const { emailAccount, messages } = options;
-
-  const threadSummary = messages
-    .map((email) => `<email>${stringifyEmail(email, 1000)}</email>`)
-    .join("\n");
 
   const system = `You are an intelligent research assistant with access to the user's connected systems through MCP (Model Context Protocol) tools.
 
@@ -75,11 +72,11 @@ Be thorough but focused on information that helps with replying to this specific
 
   const prompt = `You need to research context about the sender and situation from this email thread to help draft a personalized reply.
 
-<current_thread>
-${threadSummary}
-</current_thread>
+<thread>
+${getEmailListPrompt({ messages, messageMaxLength: 1000 })}
+</thread>
 
-${emailAccount.about ? `<user_context>${emailAccount.about}</user_context>` : ""}`;
+${getUserInfoPrompt({ emailAccount })}`;
 
   const modelOptions = getModel(emailAccount.user, "economy");
 

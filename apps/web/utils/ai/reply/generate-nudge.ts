@@ -2,7 +2,7 @@ import { createGenerateText } from "@/utils/llms";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import { stringifyEmail } from "@/utils/stringify-email";
 import type { EmailForLLM } from "@/utils/types";
-import { getTodayForLLM } from "@/utils/llms/helpers";
+import { getTodayForLLM } from "@/utils/ai/helpers";
 import { getModel } from "@/utils/llms/model";
 
 export async function aiGenerateNudge({

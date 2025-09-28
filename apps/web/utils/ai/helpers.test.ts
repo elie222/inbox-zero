@@ -1,6 +1,15 @@
-import { describe, it, expect } from "vitest";
-import { getUserInfoPrompt, getUserRulesPrompt } from "./helpers";
-import { getEmailAccount } from "@/__tests__/helpers";
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import {
+  getUserInfoPrompt,
+  getUserRulesPrompt,
+  getEmailListPrompt,
+} from "./helpers";
+import { getEmailAccount, getEmail } from "@/__tests__/helpers";
+import { stringifyEmail } from "@/utils/stringify-email";
+
+vi.mock("@/utils/stringify-email", () => ({
+  stringifyEmail: vi.fn(),
+}));
 
 describe("getUserInfoPrompt", () => {
   it("should format user info with all fields", () => {
@@ -138,5 +147,75 @@ describe("getUserRulesPrompt", () => {
   <criteria>Instructions with <special> characters</criteria>
 </rule>
 </user_rules>`);
+  });
+});
+
+describe("getEmailListPrompt", () => {
+  const mockStringifyEmail = vi.mocked(stringifyEmail);
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("should format single email", () => {
+    const messages = [getEmail()];
+    const messageMaxLength = 1000;
+
+    mockStringifyEmail.mockReturnValue("Stringified email content");
+
+    const result = getEmailListPrompt({ messages, messageMaxLength });
+
+    expect(result).toBe("<email>Stringified email content</email>");
+    expect(mockStringifyEmail).toHaveBeenCalledWith(
+      messages[0],
+      messageMaxLength,
+    );
+  });
+
+  it("should format multiple emails", () => {
+    const messages = [getEmail(), getEmail()];
+    const messageMaxLength = 500;
+
+    mockStringifyEmail
+      .mockReturnValueOnce("First email content")
+      .mockReturnValueOnce("Second email content");
+
+    const result = getEmailListPrompt({ messages, messageMaxLength });
+
+    expect(result).toBe(
+      "<email>First email content</email>\n<email>Second email content</email>",
+    );
+    expect(mockStringifyEmail).toHaveBeenCalledTimes(2);
+    expect(mockStringifyEmail).toHaveBeenNthCalledWith(
+      1,
+      messages[0],
+      messageMaxLength,
+    );
+    expect(mockStringifyEmail).toHaveBeenNthCalledWith(
+      2,
+      messages[1],
+      messageMaxLength,
+    );
+  });
+
+  it("should handle empty messages array", () => {
+    const messages: any[] = [];
+    const messageMaxLength = 1000;
+
+    const result = getEmailListPrompt({ messages, messageMaxLength });
+
+    expect(result).toBe("");
+    expect(mockStringifyEmail).not.toHaveBeenCalled();
+  });
+
+  it("should pass messageMaxLength parameter correctly", () => {
+    const messages = [getEmail()];
+    const messageMaxLength = 250;
+
+    mockStringifyEmail.mockReturnValue("Short email");
+
+    getEmailListPrompt({ messages, messageMaxLength });
+
+    expect(mockStringifyEmail).toHaveBeenCalledWith(messages[0], 250);
   });
 });

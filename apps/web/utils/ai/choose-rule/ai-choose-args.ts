@@ -7,6 +7,7 @@ import type { EmailAccountWithAI } from "@/utils/llms/types";
 import type { EmailForLLM, RuleWithActions } from "@/utils/types";
 import { LogicalOperator, type ActionType } from "@prisma/client";
 import { getModel, type ModelType } from "@/utils/llms/model";
+import { getUserInfoPrompt } from "@/utils/ai/helpers";
 
 /**
  * AI Argument Generator for Email Actions
@@ -141,7 +142,7 @@ function getSystemPrompt({
   - Use proper capitalization and punctuation (start sentences with capital letters)
   - Ensure the generated text flows naturally with surrounding template content
 </key_instructions>
-${emailAccount.about ? `\n<user_background_information>${emailAccount.about}</user_background_information>` : ""}`;
+${getUserInfoPrompt({ emailAccount })}`;
 }
 
 function getPrompt({

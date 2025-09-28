@@ -1,4 +1,10 @@
 import type { EmailAccountWithAI } from "@/utils/llms/types";
+import { stringifyEmail } from "@/utils/stringify-email";
+import type { EmailForLLM } from "@/utils/types";
+
+export function getTodayForLLM(date: Date = new Date()) {
+  return `Today's date and time is: ${date.toISOString()}.`;
+}
 
 export const getUserInfoPrompt = ({
   emailAccount,
@@ -40,4 +46,16 @@ ${rules
   )
   .join("\n")}
 </user_rules>`;
+};
+
+export const getEmailListPrompt = ({
+  messages,
+  messageMaxLength,
+}: {
+  messages: EmailForLLM[];
+  messageMaxLength: number;
+}) => {
+  return messages
+    .map((email) => `<email>${stringifyEmail(email, messageMaxLength)}</email>`)
+    .join("\n");
 };

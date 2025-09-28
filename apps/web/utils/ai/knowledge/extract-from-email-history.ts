@@ -3,7 +3,7 @@ import { createScopedLogger } from "@/utils/logger";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import type { EmailForLLM } from "@/utils/types";
 import { stringifyEmail } from "@/utils/stringify-email";
-import { getTodayForLLM } from "@/utils/llms/helpers";
+import { getTodayForLLM } from "@/utils/ai/helpers";
 import { preprocessBooleanLike } from "@/utils/zod";
 import { getModel } from "@/utils/llms/model";
 import { createGenerateObject } from "@/utils/llms";
