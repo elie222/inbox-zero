@@ -173,13 +173,7 @@ describe.runIf(isAiTest)(
               .optional()
               .describe("URL of a Data source to search"),
           }),
-          execute: async ({
-            query,
-            query_type = "internal",
-          }: {
-            query: string;
-            query_type?: string;
-          }) => {
+          execute: async ({ query }: { query: string }) => {
             return `# API Documentation Search Results
 
 Found relevant information for "${query}":

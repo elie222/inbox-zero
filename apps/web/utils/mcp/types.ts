@@ -3,7 +3,6 @@ type AuthType = "oauth" | "api-token" | "basic";
 type OAuthConfig = {
   authUrl: string;
   tokenUrl: string;
-  userLevel?: boolean;
 };
 
 export type McpIntegrationConfig = {

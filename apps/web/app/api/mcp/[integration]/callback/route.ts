@@ -10,10 +10,7 @@ import {
   exchangeMcpCodeForTokens,
   getMcpOAuthCookieNames,
 } from "@/utils/mcp/oauth-utils";
-import {
-  MCP_INTEGRATIONS,
-  type IntegrationKey,
-} from "@/utils/mcp/integrations";
+import { MCP_INTEGRATIONS } from "@/utils/mcp/integrations";
 
 const logger = createScopedLogger("mcp/callback");
 
@@ -21,11 +18,11 @@ export const GET = withError(async (request: NextRequest, { params }) => {
   const { integration } = await params;
 
   // Validate integration
-  if (!MCP_INTEGRATIONS[integration as IntegrationKey]) {
+  if (!MCP_INTEGRATIONS[integration]) {
     throw new SafeError(`Unknown integration: ${integration}`);
   }
 
-  const integrationConfig = MCP_INTEGRATIONS[integration as IntegrationKey];
+  const integrationConfig = MCP_INTEGRATIONS[integration];
   if (integrationConfig.authType !== "oauth") {
     throw new SafeError(`Integration ${integration} does not support OAuth`);
   }
@@ -36,7 +33,7 @@ export const GET = withError(async (request: NextRequest, { params }) => {
   const error = searchParams.get("error");
   const errorDescription = searchParams.get("error_description");
 
-  const cookieNames = getMcpOAuthCookieNames(integration as IntegrationKey);
+  const cookieNames = getMcpOAuthCookieNames(integration);
   const storedState = request.cookies.get(cookieNames.state)?.value;
   const storedCodeVerifier = request.cookies.get(cookieNames.pkce)?.value;
 
@@ -139,7 +136,7 @@ export const GET = withError(async (request: NextRequest, { params }) => {
   try {
     // Exchange authorization code for tokens
     const tokens = await exchangeMcpCodeForTokens(
-      integration as IntegrationKey,
+      integration,
       code,
       storedCodeVerifier,
       env.NEXT_PUBLIC_BASE_URL,

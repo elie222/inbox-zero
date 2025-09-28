@@ -3,10 +3,7 @@
 import { z } from "zod";
 import { actionClient } from "@/utils/actions/safe-action";
 import { createMcpClient } from "@/utils/mcp/client";
-import {
-  MCP_INTEGRATIONS,
-  type IntegrationKey,
-} from "@/utils/mcp/integrations";
+import { MCP_INTEGRATIONS } from "@/utils/mcp/integrations";
 import prisma from "@/utils/prisma";
 import { createScopedLogger } from "@/utils/logger";
 
@@ -21,11 +18,11 @@ export const syncMcpToolsAction = actionClient
   .schema(syncToolsSchema)
   .action(async ({ ctx: { emailAccountId }, parsedInput: { integration } }) => {
     // Validate integration
-    if (!MCP_INTEGRATIONS[integration as IntegrationKey]) {
+    if (!MCP_INTEGRATIONS[integration]) {
       throw new Error(`Unknown integration: ${integration}`);
     }
 
-    const integrationConfig = MCP_INTEGRATIONS[integration as IntegrationKey];
+    const integrationConfig = MCP_INTEGRATIONS[integration];
     if (integrationConfig.authType !== "oauth") {
       throw new Error(`Integration ${integration} does not support OAuth`);
     }
@@ -52,10 +49,7 @@ export const syncMcpToolsAction = actionClient
       }
 
       // Connect to MCP server and fetch tools
-      const client = createMcpClient(
-        integration as IntegrationKey,
-        emailAccountId,
-      );
+      const client = createMcpClient(integration, emailAccountId);
       await client.connect();
 
       const allTools = await client.listTools();

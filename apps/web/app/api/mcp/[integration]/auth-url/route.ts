@@ -8,10 +8,7 @@ import {
   generateMcpAuthUrl,
   getMcpOAuthCookieNames,
 } from "@/utils/mcp/oauth-utils";
-import {
-  MCP_INTEGRATIONS,
-  type IntegrationKey,
-} from "@/utils/mcp/integrations";
+import { MCP_INTEGRATIONS } from "@/utils/mcp/integrations";
 
 const logger = createScopedLogger("mcp/auth-url");
 
@@ -25,11 +22,11 @@ export const GET = withEmailAccount(async (request, { params }) => {
   const logger_with_context = logger.with({ userId, integration });
 
   // Validate integration exists and supports OAuth
-  if (!MCP_INTEGRATIONS[integration as IntegrationKey]) {
+  if (!MCP_INTEGRATIONS[integration]) {
     throw new SafeError(`Unknown integration: ${integration}`);
   }
 
-  const integrationConfig = MCP_INTEGRATIONS[integration as IntegrationKey];
+  const integrationConfig = MCP_INTEGRATIONS[integration];
   if (integrationConfig.authType !== "oauth") {
     throw new SafeError(`Integration ${integration} does not support OAuth`);
   }
@@ -37,13 +34,13 @@ export const GET = withEmailAccount(async (request, { params }) => {
   try {
     // Generate OAuth authorization URL
     const { url, state, codeVerifier } = await generateMcpAuthUrl(
-      integration as IntegrationKey,
+      integration,
       emailAccountId,
       userId,
       env.NEXT_PUBLIC_BASE_URL,
     );
 
-    const cookieNames = getMcpOAuthCookieNames(integration as IntegrationKey);
+    const cookieNames = getMcpOAuthCookieNames(integration);
 
     // Set secure cookies for state and PKCE verifier
     const response = NextResponse.json<GetMcpAuthUrlResponse>({ url });

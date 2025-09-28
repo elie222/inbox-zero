@@ -3,10 +3,7 @@ import { withEmailAccount } from "@/utils/middleware";
 import { createScopedLogger } from "@/utils/logger";
 import { SafeError } from "@/utils/error";
 import { testMcpConnection } from "@/utils/mcp/test-mcp";
-import {
-  MCP_INTEGRATIONS,
-  type IntegrationKey,
-} from "@/utils/mcp/integrations";
+import { MCP_INTEGRATIONS } from "@/utils/mcp/integrations";
 
 const logger = createScopedLogger("mcp/test");
 
@@ -24,15 +21,12 @@ export const GET = withEmailAccount(async (request, { params }) => {
   const { integration } = await params;
   const { emailAccountId } = request.auth;
 
-  if (!MCP_INTEGRATIONS[integration as IntegrationKey]) {
+  if (!MCP_INTEGRATIONS[integration]) {
     throw new SafeError(`Unknown integration: ${integration}`);
   }
 
   try {
-    const result = await testMcpConnection(
-      integration as IntegrationKey,
-      emailAccountId,
-    );
+    const result = await testMcpConnection(integration, emailAccountId);
 
     logger.info("MCP connection test completed", {
       integration,
