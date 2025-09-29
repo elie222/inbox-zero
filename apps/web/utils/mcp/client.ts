@@ -7,6 +7,7 @@ import {
 import prisma from "@/utils/prisma";
 import { createScopedLogger, type Logger } from "@/utils/logger";
 import { refreshMcpAccessToken } from "./oauth-utils";
+import type { McpConnection } from "@prisma/client";
 
 export type McpClientOptions = {
   integration: IntegrationKey;
@@ -15,7 +16,7 @@ export type McpClientOptions = {
 };
 
 /**
- * Generic client for connecting to any OAuth-based MCP server
+ * Generic client for connecting to any MCP server (OAuth or API token based)
  */
 export class McpClient {
   private readonly integration: IntegrationKey;
@@ -36,7 +37,7 @@ export class McpClient {
   }
 
   /**
-   * Connect to the MCP server using OAuth tokens
+   * Connect to the MCP server using stored credentials (OAuth token or API key)
    */
   async connect(): Promise<void> {
     if (this.client) {
@@ -50,29 +51,24 @@ export class McpClient {
       throw new Error(`Server URL not configured for ${this.integration}`);
     }
 
-    const accessToken = await this.getAccessToken();
+    const bearerToken = await this.getBearerToken();
 
     this.transport = new StreamableHTTPClientTransport(
       new URL(integrationConfig.serverUrl),
       {
         requestInit: {
           headers: {
-            Authorization: `Bearer ${accessToken}`,
+            Authorization: `Bearer ${bearerToken}`,
             "Content-Type": "application/json",
           },
         },
       },
     );
 
-    this.client = new Client(
-      {
-        name: `inbox-zero-${this.integration}-client`,
-        version: "1.0.0",
-      },
-      {
-        capabilities: {},
-      },
-    );
+    this.client = new Client({
+      name: `inbox-zero-${this.integration}-client`,
+      version: "1.0.0",
+    });
 
     await this.client.connect(this.transport);
 
@@ -91,9 +87,9 @@ export class McpClient {
   }
 
   /**
-   * Get valid access token, refreshing if necessary
+   * Get bearer token for authorization - either OAuth access token or API key
    */
-  private async getAccessToken(): Promise<string> {
+  private async getBearerToken(): Promise<string> {
     const connection = await prisma.mcpConnection.findFirst({
       where: {
         emailAccountId: this.emailAccountId,
@@ -113,18 +109,50 @@ export class McpClient {
       );
     }
 
+    const integrationConfig = MCP_INTEGRATIONS[this.integration];
+
+    switch (integrationConfig.authType) {
+      case "api-token":
+        return this.getBearerTokenFromApiToken(connection);
+      case "oauth":
+        return this.getBearerTokenFromOAuth(connection);
+      default:
+        throw new Error(
+          `Unsupported auth type '${integrationConfig.authType}' for ${this.integration}`,
+        );
+    }
+  }
+
+  /**
+   * Get bearer token for API-token based connections
+   */
+  private getBearerTokenFromApiToken(connection: McpConnection): string {
+    if (!connection.apiKey) {
+      throw new Error(
+        `No API key found for ${this.integration} MCP connection.`,
+      );
+    }
+    return connection.apiKey;
+  }
+
+  /**
+   * Get bearer token for OAuth-based connections, refreshing as needed
+   */
+  private async getBearerTokenFromOAuth(
+    connection: McpConnection,
+  ): Promise<string> {
     if (!connection.accessToken) {
       throw new Error(
         `No access token found for ${this.integration} MCP connection.`,
       );
     }
 
-    // Check if token is expired and refresh if needed
+    // Check if OAuth token is expired and refresh if needed
     const now = new Date();
     const isExpired = connection.expiresAt && connection.expiresAt < now;
 
     if (isExpired && connection.refreshToken && this.refreshTokens) {
-      this.logger.info("Refreshing expired MCP token", {
+      this.logger.info("Refreshing expired OAuth token", {
         connectionId: connection.id,
       });
 
@@ -151,7 +179,7 @@ export class McpClient {
 
     if (isExpired) {
       throw new Error(
-        `${this.integration} MCP access token has expired. Please reconnect your ${this.integration} workspace.`,
+        `${this.integration} OAuth token has expired. Please reconnect your ${this.integration} workspace.`,
       );
     }
 

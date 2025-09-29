@@ -27,18 +27,32 @@ function getMcpEnvVars(integration: IntegrationKey) {
         clientId: env.NOTION_MCP_CLIENT_ID,
         clientSecret: env.NOTION_MCP_CLIENT_SECRET,
       };
-    case "stripe":
+    case "hubspot":
       return {
-        clientId: env.STRIPE_MCP_CLIENT_ID,
-        clientSecret: env.STRIPE_MCP_CLIENT_SECRET,
+        clientId: env.HUBSPOT_MCP_CLIENT_ID,
+        clientSecret: env.HUBSPOT_MCP_CLIENT_SECRET,
+      };
+    case "monday":
+      return {
+        clientId: env.MONDAY_MCP_CLIENT_ID,
+        clientSecret: env.MONDAY_MCP_CLIENT_SECRET,
       };
     default:
-      throw new Error(`Integration ${integration} does not support OAuth`);
+      throw new Error(`Integration ${integration} credentials not configured`);
   }
 }
 
 function getMcpClientCredentials(integration: IntegrationKey) {
-  const { clientId, clientSecret } = getMcpEnvVars(integration);
+  const integrationConfig = MCP_INTEGRATIONS[integration];
+
+  if (integrationConfig.authType !== "oauth") {
+    throw new Error(`Integration ${integration} does not support OAuth`);
+  }
+
+  const { clientId, clientSecret } = getMcpEnvVars(integration) as {
+    clientId: string;
+    clientSecret: string;
+  };
 
   if (!clientId)
     throw new Error(
@@ -59,9 +73,6 @@ export function getMcpOAuthCookieNames(integration: IntegrationKey) {
   };
 }
 
-/**
- * Generate OAuth authorization URL for an MCP integration
- */
 export async function generateMcpAuthUrl(
   integration: IntegrationKey,
   emailAccountId: string,

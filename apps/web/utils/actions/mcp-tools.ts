@@ -23,9 +23,6 @@ export const syncMcpToolsAction = actionClient
     }
 
     const integrationConfig = MCP_INTEGRATIONS[integration];
-    if (integrationConfig.authType !== "oauth") {
-      throw new Error(`Integration ${integration} does not support OAuth`);
-    }
 
     logger.info("Syncing MCP tools", { integration, emailAccountId });
 
@@ -47,13 +44,9 @@ export const syncMcpToolsAction = actionClient
       if (!mcpConnection) {
         throw new Error(`No active connection found for ${integration}`);
       }
-
-      // Connect to MCP server and fetch tools
       const client = createMcpClient(integration, emailAccountId);
       await client.connect();
-
       const allTools = await client.listTools();
-
       await client.disconnect();
 
       // Filter to only allowed tools if specified in config

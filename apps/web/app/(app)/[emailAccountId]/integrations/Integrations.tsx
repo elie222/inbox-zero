@@ -28,6 +28,7 @@ import { toastError, toastSuccess } from "@/components/Toast";
 import { syncMcpToolsAction } from "@/utils/actions/mcp-tools";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { McpAgentTest } from "./McpAgentTest";
+import { ConnectApiTokenModal } from "./ConnectApiTokenModal";
 import { fetchWithAccount } from "@/utils/fetch";
 
 export function Integrations() {
@@ -67,6 +68,10 @@ function Rows({
   const integrationsList = Object.entries(integrations);
   const [syncingTools, setSyncingTools] = useState<string | null>(null);
   const [expandedTools, setExpandedTools] = useState<string | null>(null);
+  const [apiTokenModalOpen, setApiTokenModalOpen] = useState(false);
+  const [selectedIntegration, setSelectedIntegration] = useState<
+    GetMcpRegistryResponse["integrations"][string] | null
+  >(null);
   const { emailAccountId } = useAccount();
 
   const getConnectionStatus = (integrationName: string) => {
@@ -85,6 +90,14 @@ function Rows({
   };
 
   const handleConnect = async (integrationName: string) => {
+    const integration = integrations[integrationName];
+
+    if (integration.authType === "api-token") {
+      setSelectedIntegration(integration);
+      setApiTokenModalOpen(true);
+      return;
+    }
+
     try {
       const response = await fetchWithAccount({
         url: `/api/mcp/${integrationName}/auth-url`,
@@ -107,6 +120,12 @@ function Rows({
           "Please try again or contact support if the issue persists.",
       });
     }
+  };
+
+  const handleApiTokenConnectionSuccess = () => {
+    // This will be called by the modal when connection is successful
+    // The useMcpConnections hook should automatically refetch the data
+    window.location.reload(); // Simple refresh for now
   };
 
   const handleSyncTools = async (integrationName: string) => {
@@ -181,11 +200,41 @@ function Rows({
                       </Button>
                     )}
                   </div>
+                ) : integration.authType === "api-token" ? (
+                  <div className="flex items-center gap-2">
+                    {connectionStatus.connected ? (
+                      <div className="flex items-center gap-2">
+                        <span className="text-green-600 text-sm">
+                          ✓ Connected
+                        </span>
+                        <span className="text-xs text-gray-500">
+                          ({connectionStatus.toolsCount}/
+                          {connectionStatus.totalTools} tools)
+                        </span>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => handleSyncTools(integration.name)}
+                          disabled={syncingTools === integration.name}
+                        >
+                          {syncingTools === integration.name
+                            ? "Syncing..."
+                            : "Sync Tools"}
+                        </Button>
+                      </div>
+                    ) : (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleConnect(integration.name)}
+                      >
+                        Connect with API Key
+                      </Button>
+                    )}
+                  </div>
                 ) : (
                   <TypographyP className="text-sm text-gray-500">
-                    {integration.authType === "api-token"
-                      ? "API Token Required"
-                      : "No Auth Required"}
+                    No Auth Required
                   </TypographyP>
                 )}
               </TableCell>
@@ -198,6 +247,13 @@ function Rows({
                         variant="ghost"
                         size="sm"
                         className="flex items-center gap-1"
+                        onClick={() =>
+                          setExpandedTools(
+                            expandedTools === integration.name
+                              ? null
+                              : integration.name,
+                          )
+                        }
                       >
                         {expandedTools === integration.name ? (
                           <ChevronDown className="h-4 w-4" />
@@ -258,6 +314,15 @@ function Rows({
             <TypographyP>No integrations found</TypographyP>
           </TableCell>
         </TableRow>
+      )}
+
+      {selectedIntegration && (
+        <ConnectApiTokenModal
+          open={apiTokenModalOpen}
+          onOpenChange={setApiTokenModalOpen}
+          integration={selectedIntegration}
+          onSuccess={handleApiTokenConnectionSuccess}
+        />
       )}
     </TableBody>
   );
