@@ -22,6 +22,7 @@ import {
 } from "@/utils/reply-tracker/draft-tracking";
 import { formatError } from "@/utils/error";
 import type { EmailProvider } from "@/utils/email/types";
+import { isIgnoredSender } from "@/utils/filter-ignored-senders";
 
 export async function processHistoryItem(
   resourceData: OutlookResourceData,
@@ -80,6 +81,11 @@ export async function processHistoryItem(
           .filter(Boolean)
       : [];
     const subject = parsedMessage.headers.subject || "";
+
+    if (isIgnoredSender(from)) {
+      logger.info("Skipping. Ignored sender.", loggerOptions);
+      return;
+    }
 
     if (!from) {
       logger.error("Message has no sender", loggerOptions);
