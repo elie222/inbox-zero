@@ -1,4 +1,4 @@
-import { type NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { env } from "@/env";
 import prisma from "@/utils/prisma";
 import { createScopedLogger } from "@/utils/logger";
@@ -10,7 +10,7 @@ import { parseOAuthState } from "@/utils/oauth/state";
 
 const logger = createScopedLogger("outlook/linking/callback");
 
-export const GET = withError(async (request: NextRequest) => {
+export const GET = withError(async (request) => {
   if (!env.MICROSOFT_CLIENT_ID || !env.MICROSOFT_CLIENT_SECRET)
     throw new SafeError("Microsoft login not enabled");
 
