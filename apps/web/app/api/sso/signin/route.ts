@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { type NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { betterAuthConfig } from "@/utils/auth";
 import { SafeError } from "@/utils/error";
 import { createScopedLogger } from "@/utils/logger";
@@ -18,7 +18,7 @@ export type GetSsoSignInResponse = {
 
 const logger = createScopedLogger("api/sso/signin");
 
-export const GET = withError(async (request: NextRequest) => {
+export const GET = withError(async (request) => {
   const { searchParams } = new URL(request.url);
   const { email, organizationSlug } = getSsoSignInSchema.parse({
     email: searchParams.get("email"),

@@ -1,4 +1,4 @@
-import { type NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { env } from "@/env";
 import prisma from "@/utils/prisma";
 import { createScopedLogger } from "@/utils/logger";
@@ -10,7 +10,7 @@ import { parseOAuthState } from "@/utils/oauth/state";
 
 const logger = createScopedLogger("google/linking/callback");
 
-export const GET = withError(async (request: NextRequest) => {
+export const GET = withError(async (request) => {
   const searchParams = request.nextUrl.searchParams;
   const code = searchParams.get("code");
   const receivedState = searchParams.get("state");
