@@ -24,10 +24,13 @@ async function getNewsletterSummary({
   return { result: resultObject };
 }
 
-export const GET = withEmailAccount(async (request) => {
-  const emailAccountId = request.auth.emailAccountId;
+export const GET = withEmailAccount(
+  async (request) => {
+    const emailAccountId = request.auth.emailAccountId;
 
-  const result = await getNewsletterSummary({ emailAccountId });
+    const result = await getNewsletterSummary({ emailAccountId });
 
-  return NextResponse.json(result);
-});
+    return NextResponse.json(result);
+  },
+  { allowOrgAdmins: true },
+);

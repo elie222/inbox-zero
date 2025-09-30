@@ -30,12 +30,38 @@ async function getUser({ userId }: { userId: string }) {
           pendingInvites: true,
         },
       },
+      emailAccounts: {
+        select: {
+          id: true,
+          members: {
+            select: {
+              organizationId: true,
+              role: true,
+              organization: {
+                select: {
+                  name: true,
+                },
+              },
+            },
+          },
+        },
+      },
     },
   });
 
   if (!user) throw new SafeError("User not found");
 
-  return user;
+  const members = user.emailAccounts.flatMap((account) =>
+    account.members.map((member) => ({
+      ...member,
+      emailAccountId: account.id,
+    })),
+  );
+
+  return {
+    ...user,
+    members,
+  };
 }
 
 // Intentionally not using withAuth because we want to return null if the user is not authenticated

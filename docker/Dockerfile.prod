@@ -13,7 +13,6 @@ COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc* ./
 # Create directory structure and copy package.json files
 COPY apps/web/package.json apps/web/package.json
 COPY apps/unsubscriber/package.json apps/unsubscriber/package.json
-COPY apps/mcp-server/package.json apps/mcp-server/package.json
 COPY packages/loops/package.json packages/loops/package.json
 COPY packages/resend/package.json packages/resend/package.json
 COPY packages/tinybird/package.json packages/tinybird/package.json

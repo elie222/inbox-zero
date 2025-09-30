@@ -2,10 +2,7 @@ import { z } from "zod";
 import { createGenerateObject } from "@/utils/llms";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import type { EmailSummary } from "@/utils/ai/report/summarize-emails";
-import { createScopedLogger } from "@/utils/logger";
 import { getModel } from "@/utils/llms/model";
-
-const logger = createScopedLogger("email-report-user-persona");
 
 const userPersonaSchema = z.object({
   professionalIdentity: z.object({

@@ -8,9 +8,11 @@ import {
   assessAction,
 } from "@/utils/actions/assess";
 import { useAccount } from "@/providers/EmailAccountProvider";
+import { useOrgAccess } from "@/hooks/useOrgAccess";
 
 export function AssessUser() {
   const { emailAccountId, provider } = useAccount();
+  const { isAccountOwner } = useOrgAccess();
   const { executeAsync: executeAssessAsync } = useAction(
     assessAction.bind(null, emailAccountId),
   );
@@ -23,7 +25,8 @@ export function AssessUser() {
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: only run once
   useEffect(() => {
-    if (!emailAccountId) return;
+    // Skip assessment when an admin is viewing someone else's account
+    if (!emailAccountId || !isAccountOwner) return;
 
     async function assess() {
       const result = await executeAssessAsync();
@@ -35,7 +38,7 @@ export function AssessUser() {
 
     assess();
     executeAnalyzeWritingStyle();
-  }, [emailAccountId]);
+  }, [emailAccountId, isAccountOwner]);
 
   return null;
 }

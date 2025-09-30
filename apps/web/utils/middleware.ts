@@ -6,6 +6,7 @@ import { logErrorToPosthog } from "@/utils/error.server";
 import { createScopedLogger } from "@/utils/logger";
 import { auth } from "@/utils/auth";
 import { getEmailAccount } from "@/utils/redis/account-validation";
+import { getCallerEmailAccount } from "@/utils/organizations/access";
 import {
   EMAIL_ACCOUNT_HEADER,
   NO_REFRESH_TOKEN_ERROR_CODE,
@@ -39,17 +40,25 @@ export interface RequestWithEmailProvider extends RequestWithEmailAccount {
   emailProvider: EmailProvider;
 }
 
+export interface MiddlewareOptions {
+  allowOrgAdmins?: boolean;
+}
+
 // Higher-order middleware factory that handles common error logic
 function withMiddleware<T extends NextRequest>(
   handler: NextHandler<T>,
-  middleware?: (req: NextRequest) => Promise<T | Response>,
+  middleware?: (
+    req: NextRequest,
+    options?: MiddlewareOptions,
+  ) => Promise<T | Response>,
+  options?: MiddlewareOptions,
 ): NextHandler {
   return async (req, context) => {
     try {
       // Apply middleware if provided
       let enhancedReq = req;
       if (middleware) {
-        const middlewareResult = await middleware(req);
+        const middlewareResult = await middleware(req, options);
 
         // If middleware returned a Response, return it directly
         if (middlewareResult instanceof Response) {
@@ -152,6 +161,7 @@ async function authMiddleware(
 
 async function emailAccountMiddleware(
   req: NextRequest,
+  options?: MiddlewareOptions,
 ): Promise<RequestWithEmailAccount | Response> {
   const authReq = await authMiddleware(req);
   if (authReq instanceof Response) return authReq;
@@ -170,6 +180,36 @@ async function emailAccountMiddleware(
 
   // If account ID is provided, validate and get the email account ID
   const email = await getEmailAccount({ userId, emailAccountId });
+
+  if (!email && options?.allowOrgAdmins) {
+    // Check if user is admin or owner and is in the same org as the target email account
+    const callerEmailAccount = await getCallerEmailAccount(
+      userId,
+      emailAccountId,
+    );
+
+    if (!callerEmailAccount) {
+      return NextResponse.json(
+        { error: "Insufficient permissions", isKnownError: true },
+        { status: 403 },
+      );
+    }
+
+    const targetEmailAccount = await prisma.emailAccount.findUnique({
+      where: { id: emailAccountId },
+      select: { email: true },
+    });
+
+    if (targetEmailAccount) {
+      const emailAccountReq = req.clone() as RequestWithEmailAccount;
+      emailAccountReq.auth = {
+        userId,
+        emailAccountId,
+        email: targetEmailAccount.email,
+      };
+      return emailAccountReq;
+    }
+  }
 
   if (!email) {
     return NextResponse.json(
@@ -240,8 +280,11 @@ async function emailProviderMiddleware(
 }
 
 // Public middlewares that build on the common infrastructure
-export function withError(handler: NextHandler): NextHandler {
-  return withMiddleware(handler);
+export function withError(
+  handler: NextHandler,
+  options?: MiddlewareOptions,
+): NextHandler {
+  return withMiddleware(handler, undefined, options);
 }
 
 export function withAuth(handler: NextHandler<RequestWithAuth>): NextHandler {
@@ -250,8 +293,9 @@ export function withAuth(handler: NextHandler<RequestWithAuth>): NextHandler {
 
 export function withEmailAccount(
   handler: NextHandler<RequestWithEmailAccount>,
+  options?: MiddlewareOptions,
 ): NextHandler {
-  return withMiddleware(handler, emailAccountMiddleware);
+  return withMiddleware(handler, emailAccountMiddleware, options);
 }
 
 export function withEmailProvider(

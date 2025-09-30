@@ -2,10 +2,7 @@
 
 import type { gmail_v1 } from "@googleapis/gmail";
 import { z } from "zod";
-import {
-  fetchEmailsForReport,
-  fetchGmailTemplates,
-} from "@/utils/ai/report/fetch";
+import { fetchEmailsForReport } from "@/utils/ai/report/fetch";
 import { aiSummarizeEmails } from "@/utils/ai/report/summarize-emails";
 import { aiGenerateExecutiveSummary } from "@/utils/ai/report/generate-executive-summary";
 import { aiBuildUserPersona } from "@/utils/ai/report/build-user-persona";
@@ -72,7 +69,6 @@ async function getEmailReportData({
 
   const gmailLabels = await fetchGmailLabels(gmail, logger);
   const gmailSignature = await fetchGmailSignature(gmail, logger);
-  const gmailTemplates = await fetchGmailTemplates(gmail);
 
   const [
     executiveSummary,
@@ -94,7 +90,6 @@ async function getEmailReportData({
       emailAccount,
       sentSummaries,
       gmailSignature,
-      gmailTemplates,
     ).catch((error) => {
       logger.error("Error generating user persona", { error });
     }),

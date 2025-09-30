@@ -22,7 +22,6 @@ import { useAccounts } from "@/hooks/useAccounts";
 import type { GetEmailAccountsResponse } from "@/app/api/user/email-accounts/route";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { ProfileImage } from "@/components/ProfileImage";
-
 export function AccountSwitcher() {
   const { data: accountsData } = useAccounts();
 

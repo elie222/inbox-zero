@@ -114,7 +114,7 @@ async function sendEmail({
 
   const emailProvider = await createEmailProvider({
     emailAccountId,
-    provider: emailAccount?.account.provider ?? null,
+    provider: emailAccount.account.provider,
   });
 
   const digestScheduleData = await getDigestSchedule({ emailAccountId });

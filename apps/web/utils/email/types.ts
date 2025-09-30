@@ -40,13 +40,28 @@ export interface EmailProvider {
   getLabels(): Promise<EmailLabel[]>;
   getLabelById(labelId: string): Promise<EmailLabel | null>;
   getMessage(messageId: string): Promise<ParsedMessage>;
-  getMessages(query?: string, maxResults?: number): Promise<ParsedMessage[]>;
+  getMessagesByFields(options: {
+    froms?: string[];
+    tos?: string[];
+    subjects?: string[];
+    before?: Date;
+    after?: Date;
+    type?: "inbox" | "sent" | "all";
+    excludeSent?: boolean;
+    excludeInbox?: boolean;
+    maxResults?: number;
+    pageToken?: string;
+  }): Promise<{
+    messages: ParsedMessage[];
+    nextPageToken?: string;
+  }>;
   getSentMessages(maxResults?: number): Promise<ParsedMessage[]>;
   getSentThreadsExcluding(options: {
     excludeToEmails?: string[];
     excludeFromEmails?: string[];
     maxResults?: number;
   }): Promise<EmailThread[]>;
+  getDrafts(options?: { maxResults?: number }): Promise<ParsedMessage[]>;
   getThreadMessages(threadId: string): Promise<ParsedMessage[]>;
   getThreadMessagesInInbox(threadId: string): Promise<ParsedMessage[]>;
   getPreviousConversationMessages(
@@ -65,6 +80,7 @@ export interface EmailProvider {
     actionSource: "user" | "automation",
   ): Promise<void>;
   labelMessage(messageId: string, labelName: string): Promise<void>;
+
   removeThreadLabel(threadId: string, labelId: string): Promise<void>;
   getNeedsReplyLabel(): Promise<string | null>;
   getAwaitingReplyLabel(): Promise<string | null>;
@@ -85,6 +101,27 @@ export interface EmailProvider {
     subject: string;
     messageText: string;
   }): Promise<void>;
+  sendEmailWithHtml(body: {
+    replyToEmail?: {
+      threadId: string;
+      headerMessageId: string;
+      references?: string;
+    };
+    to: string;
+    cc?: string;
+    bcc?: string;
+    replyTo?: string;
+    subject: string;
+    messageHtml: string;
+    attachments?: Array<{
+      filename: string;
+      content: string;
+      contentType: string;
+    }>;
+  }): Promise<{
+    messageId: string;
+    threadId: string;
+  }>;
   forwardEmail(
     email: ParsedMessage,
     args: { to: string; cc?: string; bcc?: string; content?: string },
@@ -104,13 +141,13 @@ export interface EmailProvider {
     from: string;
     addLabelIds?: string[];
     removeLabelIds?: string[];
-  }): Promise<any>;
-  deleteFilter(id: string): Promise<any>;
+  }): Promise<{ status: number }>;
+  deleteFilter(id: string): Promise<{ status: number }>;
   createAutoArchiveFilter(options: {
     from: string;
     gmailLabelId?: string;
     labelName?: string;
-  }): Promise<any>;
+  }): Promise<{ status: number }>;
   getMessagesWithPagination(options: {
     query?: string;
     maxResults?: number;
@@ -180,4 +217,5 @@ export interface EmailProvider {
     ownerEmail: string,
     folderName: string,
   ): Promise<void>;
+  getOrCreateOutlookFolderIdByName(folderName: string): Promise<string>;
 }

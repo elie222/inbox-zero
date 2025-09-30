@@ -1,6 +1,15 @@
 export const ASSISTANT_ONBOARDING_COOKIE = "viewed_assistant_onboarding";
 export const REPLY_ZERO_ONBOARDING_COOKIE = "viewed_reply_zero_onboarding";
+export const INVITATION_COOKIE = "invitation_id";
 
 export function markOnboardingAsCompleted(cookie: string) {
-  document.cookie = `${cookie}=true; path=/; max-age=${Number.MAX_SAFE_INTEGER}`;
+  document.cookie = `${cookie}=true; path=/; max-age=${Number.MAX_SAFE_INTEGER}; SameSite=Lax`;
+}
+
+export function setInvitationCookie(invitationId: string) {
+  document.cookie = `${INVITATION_COOKIE}=${invitationId}; path=/; max-age=${7 * 24 * 60 * 60}; SameSite=Lax`;
+}
+
+export function clearInvitationCookie() {
+  document.cookie = `${INVITATION_COOKIE}=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax`;
 }

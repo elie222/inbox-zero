@@ -41,6 +41,7 @@ export const saveSignatureAction = actionClient
     });
   });
 
+// TODO: Use Gmail API to fetch signatures instead
 export const loadSignatureFromGmailAction = actionClient
   .metadata({ name: "loadSignatureFromGmail" })
   .action(async ({ ctx: { emailAccountId } }) => {
