@@ -14,7 +14,7 @@ type McpAgentOptions = {
   messages: EmailForLLM[];
 };
 
-export type McpAgentResponse = {
+type McpAgentResponse = {
   response: string | null;
   getToolCalls: () => Array<{
     toolName: string;

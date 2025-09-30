@@ -1,23 +1,38 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback } from "react";
 import { useForm, type SubmitHandler } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/Input";
-import { toastError } from "@/components/Toast";
+import { toastError, toastSuccess } from "@/components/Toast";
 import { mcpAgentAction } from "@/utils/actions/mcp-agent";
 import {
   mcpAgentSchema,
   type McpAgentActionInput,
 } from "@/utils/actions/mcp-agent.validation";
 import { useAccount } from "@/providers/EmailAccountProvider";
-import type { McpAgentResponse } from "@/utils/ai/mcp/mcp-agent";
+import { useAction } from "next-safe-action/hooks";
 
 export function McpAgentTest() {
-  const [response, setResponse] = useState<McpAgentResponse | null>(null);
   const { emailAccountId } = useAccount();
+
+  const { executeAsync, result } = useAction(
+    mcpAgentAction.bind(null, emailAccountId),
+    {
+      onSuccess: () => {
+        toastSuccess({
+          description: "MCP agent test successful",
+        });
+      },
+      onError: (error) => {
+        toastError({
+          description: error.error.serverError || "Unknown error",
+        });
+      },
+    },
+  );
 
   const {
     register,
@@ -35,32 +50,13 @@ export function McpAgentTest() {
 
   const onSubmit: SubmitHandler<McpAgentActionInput> = useCallback(
     async (data) => {
-      if (!emailAccountId) {
-        toastError({
-          title: "Error",
-          description: "Email account not found. Please refresh and try again.",
-        });
-        return;
-      }
-
-      setResponse(null);
-
-      const result = await mcpAgentAction(emailAccountId, data);
-
-      if (result?.serverError) {
-        toastError({
-          title: "Error",
-          description: result.serverError,
-        });
-      } else if (result?.data) {
-        setResponse(result.data);
-      }
+      await executeAsync(data);
     },
-    [emailAccountId],
+    [executeAsync],
   );
 
   return (
-    <Card className="mt-8">
+    <Card>
       <CardHeader>
         <CardTitle>Test MCP Context Research</CardTitle>
         <p className="text-sm text-gray-600 mt-2">
@@ -92,12 +88,12 @@ export function McpAgentTest() {
           </Button>
         </form>
 
-        {response && (
+        {result?.data && (
           <div className="space-y-4">
-            {response.response ? (
+            {result.data.response ? (
               <div className="border rounded-lg p-4 bg-gray-50">
                 <h4 className="font-semibold mb-2">Response:</h4>
-                <p className="whitespace-pre-wrap">{response.response}</p>
+                <p className="whitespace-pre-wrap">{result.data.response}</p>
               </div>
             ) : (
               <div className="border rounded-lg p-4 bg-yellow-50">
@@ -111,11 +107,11 @@ export function McpAgentTest() {
               </div>
             )}
 
-            {response.getToolCalls().length > 0 && (
+            {result?.data?.toolCalls && result.data.toolCalls.length > 0 && (
               <div className="border rounded-lg p-4">
                 <h4 className="font-semibold mb-2">Tool Calls Made:</h4>
                 <div className="space-y-2">
-                  {response.getToolCalls().map((call, index) => (
+                  {result.data.toolCalls.map((call, index) => (
                     <div
                       key={index}
                       className="text-sm bg-gray-100 p-2 rounded"

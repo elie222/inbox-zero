@@ -38,6 +38,9 @@ export const mcpAgentAction = actionClient
         messages: [testMessage],
       });
 
-      return result;
+      return {
+        response: result?.response,
+        toolCalls: result?.getToolCalls(),
+      };
     },
   );
