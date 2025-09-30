@@ -7,11 +7,11 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/Input";
 import { toastError, toastSuccess } from "@/components/Toast";
-import { mcpAgentAction } from "@/utils/actions/mcp-agent";
+import { testMcpAction } from "@/utils/actions/mcp";
 import {
-  mcpAgentSchema,
+  testMcpSchema,
   type McpAgentActionInput,
-} from "@/utils/actions/mcp-agent.validation";
+} from "@/utils/actions/mcp.validation";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { useAction } from "next-safe-action/hooks";
 
@@ -19,7 +19,7 @@ export function McpAgentTest() {
   const { emailAccountId } = useAccount();
 
   const { executeAsync, result } = useAction(
-    mcpAgentAction.bind(null, emailAccountId),
+    testMcpAction.bind(null, emailAccountId),
     {
       onSuccess: () => {
         toastSuccess({
@@ -39,7 +39,7 @@ export function McpAgentTest() {
     handleSubmit,
     formState: { errors, isSubmitting },
   } = useForm<McpAgentActionInput>({
-    resolver: zodResolver(mcpAgentSchema),
+    resolver: zodResolver(testMcpSchema),
     defaultValues: {
       from: "john.smith@example.com",
       subject: "Question about your services",

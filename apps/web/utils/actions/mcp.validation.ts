@@ -29,3 +29,11 @@ export const toggleMcpToolBody = z.object({
 });
 
 export type ToggleMcpToolBody = z.infer<typeof toggleMcpToolBody>;
+
+export const testMcpSchema = z.object({
+  from: z.string(),
+  subject: z.string(),
+  content: z.string(),
+});
+
+export type McpAgentActionInput = z.infer<typeof testMcpSchema>;

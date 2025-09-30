@@ -15,6 +15,7 @@ export type McpIntegrationConfig = {
   defaultScopes: string[];
   oauthConfig?: OAuthConfig;
   allowedTools?: string[];
+  comingSoon?: boolean;
 };
 
 // export type CredentialBundle = {

@@ -15,8 +15,8 @@ import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { ExternalLink, Eye, EyeOff } from "lucide-react";
 import { toastError, toastSuccess } from "@/components/Toast";
-import { connectMcpApiTokenAction } from "@/utils/actions/mcp-connect";
-import type { ConnectMcpApiTokenBody } from "@/utils/actions/mcp-connect.validation";
+import { connectMcpApiTokenAction } from "@/utils/actions/mcp";
+import type { ConnectMcpApiTokenBody } from "@/utils/actions/mcp.validation";
 import { useAccount } from "@/providers/EmailAccountProvider";
 
 interface ConnectApiTokenModalProps {

@@ -21,9 +21,10 @@ import {
   disconnectMcpConnectionAction,
   toggleMcpConnectionAction,
   toggleMcpToolAction,
-} from "@/utils/actions/mcp-connect";
+} from "@/utils/actions/mcp";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { fetchWithAccount } from "@/utils/fetch";
+import { RequestAccessDialog } from "./RequestAccessDialog";
 
 interface IntegrationRowProps {
   integration: GetMcpRegistryResponse["integrations"][string];
@@ -190,8 +191,10 @@ export function IntegrationRow({
       <TableRow>
         <TableCell>{integration.displayName}</TableCell>
         <TableCell>
-          {integration.authType === "oauth" ||
-          integration.authType === "api-token" ? (
+          {integration.comingSoon ? (
+            <RequestAccessDialog integrationName={integration.displayName} />
+          ) : integration.authType === "oauth" ||
+            integration.authType === "api-token" ? (
             <div className="flex items-center gap-2">
               {connectionStatus.connected ? (
                 <div className="flex items-center gap-2">
@@ -222,7 +225,10 @@ export function IntegrationRow({
           )}
         </TableCell>
         <TableCell>
-          {connectionStatus.connected && connectionStatus.tools.length > 0 ? (
+          {integration.comingSoon ? (
+            <span className="text-gray-400 text-sm">Coming Soon</span>
+          ) : connectionStatus.connected &&
+            connectionStatus.tools.length > 0 ? (
             <Button
               variant="ghost"
               size="sm"
@@ -241,14 +247,16 @@ export function IntegrationRow({
           )}
         </TableCell>
         <TableCell>
-          <Toggle
-            name={`integrations.${integration.name}.enabled`}
-            enabled={connectionStatus.isActive}
-            onChange={handleToggle}
-          />
+          {!integration.comingSoon && (
+            <Toggle
+              name={`integrations.${integration.name}.enabled`}
+              enabled={connectionStatus.isActive}
+              onChange={handleToggle}
+            />
+          )}
         </TableCell>
         <TableCell>
-          {connectionStatus.connected && (
+          {connectionStatus.connected && !integration.comingSoon && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
@@ -269,7 +277,6 @@ export function IntegrationRow({
         </TableCell>
       </TableRow>
 
-      {/* Expanded tools section - full width row */}
       {expandedTools && connectionStatus.tools.length > 0 && (
         <ToolsList
           tools={connectionStatus.tools}

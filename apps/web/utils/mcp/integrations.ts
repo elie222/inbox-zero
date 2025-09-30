@@ -81,10 +81,11 @@ export const MCP_INTEGRATIONS: Record<string, McpIntegrationConfig> = {
       token_endpoint: "https://mcp.monday.com/token",
       registration_endpoint: "https://mcp.monday.com/register",
     },
+    comingSoon: true,
   },
   hubspot: {
     name: "hubspot",
-    displayName: "HubSpot CRM",
+    displayName: "HubSpot",
     serverUrl: "https://mcp.hubspot.com/",
     authType: "oauth",
     defaultScopes: [
@@ -114,6 +115,59 @@ export const MCP_INTEGRATIONS: Record<string, McpIntegrationConfig> = {
       authorization_endpoint: "https://mcp.hubspot.com/oauth/authorize/user",
       token_endpoint: "https://mcp.hubspot.com/oauth/v1/token",
     },
+    comingSoon: true,
+  },
+  clickup: {
+    name: "clickup",
+    displayName: "ClickUp",
+    serverUrl: "",
+    authType: "oauth",
+    defaultScopes: [],
+    allowedTools: [],
+    oauthConfig: {
+      authorization_endpoint: "",
+      token_endpoint: "",
+    },
+    comingSoon: true,
+  },
+  airtable: {
+    name: "airtable",
+    displayName: "Airtable",
+    serverUrl: "",
+    authType: "oauth",
+    defaultScopes: [],
+    allowedTools: [],
+    oauthConfig: {
+      authorization_endpoint: "",
+      token_endpoint: "",
+    },
+    comingSoon: true,
+  },
+  salesforce: {
+    name: "salesforce",
+    displayName: "Salesforce",
+    serverUrl: "",
+    authType: "oauth",
+    defaultScopes: [],
+    allowedTools: [],
+    oauthConfig: {
+      authorization_endpoint: "",
+      token_endpoint: "",
+    },
+    comingSoon: true,
+  },
+  todoist: {
+    name: "todoist",
+    displayName: "Todoist",
+    serverUrl: "",
+    authType: "oauth",
+    defaultScopes: [],
+    allowedTools: [],
+    oauthConfig: {
+      authorization_endpoint: "",
+      token_endpoint: "",
+    },
+    comingSoon: true,
   },
 };
 
