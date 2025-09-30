@@ -97,6 +97,10 @@ model User {
   referralsMade    Referral[] @relation("ReferrerUser")
   referralReceived Referral?  @relation("ReferredUser")
 
+  // Organization relationships
+  members      Member[]
+  invitations  Invitation[]
+  ssoproviders SsoProvider[]
 }
 
 // Migrating over to the new settings model. Currently most settings are in the User model, but will be moved to this model in the future.
@@ -154,11 +158,8 @@ model EmailAccount {
   digests          Digest[]
   scheduledActions ScheduledAction[]
 
-  members             Member[]
-  invitations         Invitation[]
-  ssoproviders        SsoProvider[]
   calendarConnections CalendarConnection[]
-  meetings            Meeting[]
+  meetings           Meeting[]
 
   @@index([lastSummaryEmailAt])
 }
@@ -180,15 +181,14 @@ model Organization {
 model Member {
   id             String       @id @default(cuid())
   organizationId String
-  emailAccountId String
+  userId         String
   role           String       @default("member") // "admin" | "member"
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  @@unique([organizationId, emailAccountId])
-  @@index([emailAccountId])
+  @@unique([organizationId, userId])
 }
 
 model Invitation {
@@ -200,7 +200,7 @@ model Invitation {
   status         String
   expiresAt      DateTime
   inviterId      String
-  inviter        EmailAccount @relation(fields: [inviterId], references: [id], onDelete: Cascade)
+  user           User         @relation(fields: [inviterId], references: [id], onDelete: Cascade)
 
   @@map("invitation")
 }
@@ -221,9 +221,9 @@ model SsoProvider {
   issuer         String
   oidcConfig     String?
   samlConfig     String?
-  emailAccountId String?
-  emailAccount   EmailAccount? @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
-  providerId     String  @unique
+  userId         String?
+  user           User?         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  providerId     String        @unique
   organizationId String?
   organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   domain         String
@@ -846,8 +846,7 @@ model CalendarConnection {
   refreshToken String?
   expiresAt    DateTime?
   isConnected  Boolean   @default(true)
-
-  recallCalendarId String?
+  recallCalendarId String? @unique
 
   emailAccountId String
   emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
@@ -855,7 +854,6 @@ model CalendarConnection {
   calendars Calendar[]
 
   @@unique([emailAccountId, provider, email]) // Allow multiple Google accounts per user
-  @@unique([recallCalendarId]) // Ensure each Recall calendar ID is unique
 }
 
 model Calendar {
@@ -903,26 +901,6 @@ model Referral {
   @@index([referrerUserId])
   @@index([status])
 }
-
-model Meeting {
-  id               String   @id @default(cuid())
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt  
-  botId            String   @unique
-  eventId          String
-  emailAccountId   String
-  meetingUrl       String
-  botWillJoinAt    DateTime
-  transcript       String?
-  status           RecallBotStatus @default(SCHEDULED)   // Bot status (active, completed, failed, etc.)
-  deduplicationKey String
-
-  emailAccount  EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
-  
-  @@index([emailAccountId, eventId, status])
-  @@unique([deduplicationKey])
-}
-
 
 enum ActionType {
   ARCHIVE
@@ -1065,4 +1043,23 @@ enum RecallBotStatus {
   COMPLETED
   CANCELLED
   FAILED
+}
+
+model Meeting {
+  id               String   @id @default(cuid())
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt  
+  botId            String   @unique
+  eventId          String
+  emailAccountId   String
+  meetingUrl       String
+  botWillJoinAt    DateTime
+  transcript       String?
+  status           RecallBotStatus @default(SCHEDULED)   // Bot status (active, completed, failed, etc.)
+  deduplicationKey String
+
+  emailAccount  EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
+  
+  @@index([emailAccountId, eventId, status])
+  @@unique([deduplicationKey])
 }
