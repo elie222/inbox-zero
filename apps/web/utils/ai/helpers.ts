@@ -8,8 +8,10 @@ export function getTodayForLLM(date: Date = new Date()) {
 
 export const getUserInfoPrompt = ({
   emailAccount,
+  prefix = "The user you are acting on behalf of is:",
 }: {
   emailAccount: EmailAccountWithAI & { name?: string | null };
+  prefix?: string;
 }) => {
   const info = [
     {
@@ -26,9 +28,10 @@ export const getUserInfoPrompt = ({
     },
   ].filter((i) => i.value);
 
-  return `<user_info>
+  return `${prefix || ""}
+<user_info>
 ${info.map((i) => `<${i.label}>${i.value}</${i.label}>`).join("\n")}
-</user_info>`;
+</user_info>`.trim();
 };
 
 export const getUserRulesPrompt = ({
