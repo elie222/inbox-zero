@@ -41,10 +41,10 @@ export function McpAgentTest() {
   } = useForm<McpAgentActionInput>({
     resolver: zodResolver(mcpAgentSchema),
     defaultValues: {
-      query: "",
-      mockMessage: {
-        from: "john.smith@example.com",
-      },
+      from: "john.smith@example.com",
+      subject: "Question about your services",
+      content:
+        "Hi there,\n\nI'm John Smith and I have a question about your services.\n\nCould you please help me with this?\n\nThanks!",
     },
   });
 
@@ -58,7 +58,7 @@ export function McpAgentTest() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Test MCP Context Research</CardTitle>
+        <CardTitle>Test MCP Integrations</CardTitle>
         <p className="text-sm text-gray-600 mt-2">
           This tests the MCP agent's ability to research customer context from
           connected systems like CRMs, payment platforms, and documentation to
@@ -68,23 +68,33 @@ export function McpAgentTest() {
       <CardContent className="space-y-4">
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
           <Input
-            type="email"
-            name="mockMessage.from"
-            label="Mock Sender Email"
+            type="text"
+            name="from"
+            label="From"
             placeholder="john.smith@example.com"
-            registerProps={register("mockMessage.from")}
-            error={errors.mockMessage?.from}
+            registerProps={register("from")}
+            error={errors.from}
           />
           <Input
             type="text"
-            name="query"
-            label="Email Topic/Question"
+            name="subject"
+            label="Subject"
+            placeholder="john.smith@example.com"
+            registerProps={register("subject")}
+            error={errors.subject}
+          />
+          <Input
+            type="text"
+            name="content"
+            autosizeTextarea
+            rows={3}
+            label="Content"
             placeholder="e.g., 'billing issue', 'product inquiry', 'support request'"
-            registerProps={register("query")}
-            error={errors.query}
+            registerProps={register("content")}
+            error={errors.content}
           />
           <Button type="submit" loading={isSubmitting}>
-            Test MCP Context Research
+            Test
           </Button>
         </form>
 
