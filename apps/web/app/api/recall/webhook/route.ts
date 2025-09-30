@@ -279,7 +279,7 @@ async function handleCalendarUpdate(payload: CalendarUpdateEvent) {
           data: { isConnected: false, recallCalendarId: null },
         });
 
-        await prisma.recallMeeting.updateMany({
+        await prisma.meeting.updateMany({
           where: {
             emailAccountId: connection.emailAccountId,
             status: { in: ["SCHEDULED", "ACTIVE"] },
@@ -411,7 +411,7 @@ async function handleTranscriptDone(payload: TranscriptDoneEvent) {
       transcriptContent = JSON.stringify(transcriptData);
     }
 
-    const meeting = await prisma.recallMeeting.findUnique({
+    const meeting = await prisma.meeting.findUnique({
       where: { botId },
     });
 
@@ -423,7 +423,7 @@ async function handleTranscriptDone(payload: TranscriptDoneEvent) {
       return;
     }
 
-    await prisma.recallMeeting.update({
+    await prisma.meeting.update({
       where: { id: meeting.id },
       data: {
         transcript: transcriptContent,

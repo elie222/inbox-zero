@@ -87,7 +87,7 @@ export async function scheduleBotForEvent(
     if (response.bots && response.bots.length > 0) {
       const bot = response.bots[0];
 
-      await prisma.recallMeeting.upsert({
+      await prisma.meeting.upsert({
         where: { botId: bot.bot_id },
         update: {
           botWillJoinAt: new Date(event.start_time),
@@ -133,7 +133,7 @@ export async function rescheduleBotsForUpdatedEvents(
 ): Promise<void> {
   for (const event of updatedEvents) {
     try {
-      const existingMeeting = await prisma.recallMeeting.findFirst({
+      const existingMeeting = await prisma.meeting.findFirst({
         where: {
           eventId: event.id,
           emailAccountId: emailAccountId,
@@ -152,7 +152,7 @@ export async function rescheduleBotsForUpdatedEvents(
           });
         }
 
-        await prisma.recallMeeting.update({
+        await prisma.meeting.update({
           where: { id: existingMeeting.id },
           data: { status: "CANCELLED" },
         });

@@ -12,6 +12,8 @@ CREATE TABLE "Meeting" (
     "transcript" TEXT,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
+    "botWillJoinAt" TIMESTAMP(3) NOT NULL,
+    "meetingUrl" TEXT NOT NULL,
 
     CONSTRAINT "Meeting_pkey" PRIMARY KEY ("id")
 );
@@ -23,7 +25,7 @@ ALTER TABLE "CalendarConnection" ADD COLUMN "recallCalendarId" TEXT;
 CREATE UNIQUE INDEX "Meeting_botId_key" ON "Meeting"("botId");
 
 -- CreateIndex
-CREATE INDEX "Meeting_deduplicationKey_idx" ON "Meeting"("deduplicationKey");
+CREATE UNIQUE INDEX "Meeting_deduplicationKey_key" ON "Meeting"("deduplicationKey");
 
 -- CreateIndex
 CREATE INDEX "Meeting_emailAccountId_eventId_status_idx" ON "Meeting"("emailAccountId", "eventId", "status");

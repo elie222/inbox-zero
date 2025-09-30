@@ -8,6 +8,7 @@ import {
 } from "@/utils/recall/calendar";
 import { createScopedLogger } from "@/utils/logger";
 import { revalidatePath } from "next/cache";
+import { SafeError } from "@/utils/error";
 
 const logger = createScopedLogger("actions/recall-calendar");
 
@@ -25,7 +26,7 @@ export const createRecallCalendarAction = actionClient
     });
 
     if (!connection) {
-      throw new Error("No connected calendar found");
+      throw new SafeError("No connected calendar found");
     }
 
     if (connection.recallCalendarId) {
@@ -42,7 +43,7 @@ export const createRecallCalendarAction = actionClient
     }
 
     if (!connection.refreshToken) {
-      throw new Error("No refresh token available for calendar connection");
+      throw new SafeError("No refresh token available for calendar connection");
     }
 
     const recallCalendar = await createRecallCalendar({
