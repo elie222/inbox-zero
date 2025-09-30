@@ -8,15 +8,15 @@ import {
 import prisma from "@/utils/prisma";
 import { SafeError } from "@/utils/error";
 import { deleteRecallCalendar } from "@/utils/recall/calendar";
-import { createScopedLogger } from "@/utils/logger";
-
-const logger = createScopedLogger("calendar/actions");
 
 export const disconnectCalendarAction = actionClient
   .metadata({ name: "disconnectCalendar" })
   .schema(disconnectCalendarBody)
   .action(
-    async ({ ctx: { emailAccountId }, parsedInput: { connectionId } }) => {
+    async ({
+      ctx: { emailAccountId, logger },
+      parsedInput: { connectionId },
+    }) => {
       const connection = await prisma.calendarConnection.findFirst({
         where: {
           id: connectionId,
@@ -44,7 +44,6 @@ export const disconnectCalendarAction = actionClient
         }
       }
 
-      // Delete from database
       await prisma.calendarConnection.delete({
         where: { id: connectionId },
       });

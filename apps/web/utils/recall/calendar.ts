@@ -1,5 +1,6 @@
 import { createScopedLogger } from "@/utils/logger";
 import { recallRequest } from "@/utils/recall/request";
+import { env } from "@/env";
 import type {
   RecallCalendarEventsListResponse,
   RecallCalendarEvent,
@@ -16,10 +17,7 @@ export interface RecallCalendar {
 }
 
 export interface CreateRecallCalendarRequest {
-  oauth_client_id: string;
-  oauth_client_secret: string;
   oauth_refresh_token: string;
-  platform: "google_calendar" | "microsoft_outlook";
 }
 
 export interface CreateRecallCalendarResponse {
@@ -37,23 +35,30 @@ export async function createRecallCalendar(
   request: CreateRecallCalendarRequest,
 ): Promise<RecallCalendar> {
   try {
+    const requestBody = {
+      oauth_client_id: env.GOOGLE_CLIENT_ID,
+      oauth_client_secret: env.GOOGLE_CLIENT_SECRET,
+      oauth_refresh_token: request.oauth_refresh_token,
+      platform: "google_calendar",
+    };
+
     const data = await recallRequest<CreateRecallCalendarResponse>(
       "/api/v2/calendars",
       {
         method: "POST",
-        body: JSON.stringify(request),
+        body: JSON.stringify(requestBody),
       },
     );
 
     logger.info("Created calendar in Recall", {
       recallCalendarId: data.id,
-      platform: data.platform,
+      platform: "google_calendar",
       status: data.status,
     });
 
     return {
       id: data.id,
-      platform: data.platform as "google_calendar" | "microsoft_outlook",
+      platform: "google_calendar",
       status: data.status as "connected" | "disconnected" | "error",
       created_at: data.created_at,
       updated_at: data.updated_at,
@@ -61,7 +66,7 @@ export async function createRecallCalendar(
   } catch (error) {
     logger.error("Failed to create calendar in Recall", {
       error,
-      platform: request.platform,
+      platform: "google_calendar",
     });
     throw error;
   }

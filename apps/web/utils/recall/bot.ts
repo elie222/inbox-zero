@@ -15,7 +15,12 @@ export function generateDeduplicationKey(event: CalendarEvent): string {
 export async function addBotToCalendarEvent(
   eventId: string,
   deduplicationKey: string,
-  botConfig?: { bot_name?: string; language?: string },
+  botConfig?: {
+    bot_name?: string;
+    language?: string;
+    avatar_url?: string;
+    background_color?: string;
+  },
 ): Promise<RecallCalendarEventResponse> {
   return recallRequest<RecallCalendarEventResponse>(
     `/api/v2/calendar-events/${eventId}/bot/`,
@@ -68,6 +73,8 @@ export async function scheduleBotForEvent(
     const response = await addBotToCalendarEvent(event.id, deduplicationKey, {
       bot_name: "Inbox Zero Note Taker",
       language: "en",
+      avatar_url: "https://getinboxzero.com/icons/icon-512x512.png",
+      background_color: "#3B82F6",
     });
 
     if (response.bots && response.bots.length > 0) {
