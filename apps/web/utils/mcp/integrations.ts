@@ -4,40 +4,44 @@ export const MCP_INTEGRATIONS: Record<string, McpIntegrationConfig> = {
   notion: {
     name: "notion",
     displayName: "Notion",
-    description: "Read and search your Notion workspace via MCP",
     serverUrl: "https://mcp.notion.com/mcp",
     authType: "oauth",
     defaultScopes: ["read"],
     allowedTools: ["notion-search", "notion-fetch"],
     oauthConfig: {
-      authUrl: "https://mcp.notion.com/authorize",
-      tokenUrl: "https://mcp.notion.com/token",
-      registrationUrl: "https://mcp.notion.com/register",
+      authorization_endpoint: "https://mcp.notion.com/authorize",
+      token_endpoint: "https://mcp.notion.com/token",
+      registration_endpoint: "https://mcp.notion.com/register",
     },
   },
   stripe: {
     name: "stripe",
     displayName: "Stripe",
-    description: "Read and search your Stripe data via MCP",
     serverUrl: "https://mcp.stripe.com",
     authType: "oauth", // must request whitelisting of /api/mcp/stripe/callback from Stripe. localhost is whitelisted already.
     // authType: "api-token", // alternatively, use an API token.
     defaultScopes: [],
     allowedTools: [
-      // "list_customers",
-      // "list_disputes",
-      // "list_invoices",
-      // "list_payment_intents",
-      // "list_prices",
-      // "list_products",
-      // "list_subscriptions",
-      "search_stripe_resources",
+      "list_customers",
+      "list_disputes",
+      "list_invoices",
+      "list_payment_intents",
+      "list_prices",
+      "list_products",
+      "list_subscriptions",
+      // "search_stripe_resources",
     ],
+    oauthConfig: {
+      authorization_endpoint:
+        "https://marketplace.stripe.com/oauth/v2/authorize",
+      token_endpoint: "https://marketplace.stripe.com/oauth/v2/token",
+      registration_endpoint:
+        "https://marketplace.stripe.com/oauth/v2/register/tailorapp%2AAZfBZ6Q69QAAADJI%23EhcKFWFjY3RfMVJlaTA0QUo4QktoWGxzQw",
+    },
   },
   monday: {
     name: "monday",
     displayName: "Monday.com",
-    description: "Create and manage Monday.com boards and items",
     serverUrl: "https://mcp.monday.com",
     authType: "oauth",
     defaultScopes: ["read", "write"],
@@ -73,14 +77,14 @@ export const MCP_INTEGRATIONS: Record<string, McpIntegrationConfig> = {
       // "create_widget",
     ],
     oauthConfig: {
-      authUrl: "https://mcp.monday.com/authorize",
-      tokenUrl: "https://mcp.monday.com/token",
+      authorization_endpoint: "https://mcp.monday.com/authorize",
+      token_endpoint: "https://mcp.monday.com/token",
+      registration_endpoint: "https://mcp.monday.com/register",
     },
   },
   hubspot: {
     name: "hubspot",
     displayName: "HubSpot CRM",
-    description: "Access HubSpot CRM data for contacts, deals, and companies",
     serverUrl: "https://mcp.hubspot.com/",
     authType: "oauth",
     defaultScopes: [
@@ -107,8 +111,8 @@ export const MCP_INTEGRATIONS: Record<string, McpIntegrationConfig> = {
       "timeline",
     ],
     oauthConfig: {
-      authUrl: "https://app.hubspot.com/oauth/authorize",
-      tokenUrl: "https://api.hubapi.com/oauth/v1/token",
+      authorization_endpoint: "https://mcp.hubspot.com/oauth/authorize/user",
+      token_endpoint: "https://mcp.hubspot.com/oauth/v1/token",
     },
   },
 };

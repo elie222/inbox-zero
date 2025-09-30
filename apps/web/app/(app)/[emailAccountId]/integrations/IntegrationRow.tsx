@@ -9,14 +9,19 @@ import { TypographyP } from "@/components/Typography";
 import { Button } from "@/components/ui/button";
 import { TableRow, TableCell } from "@/components/ui/table";
 import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@/components/ui/collapsible";
-import { ChevronDown, ChevronRight } from "lucide-react";
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { ChevronDown, ChevronRight, MoreVertical } from "lucide-react";
+import clsx from "clsx";
 import { toastError, toastSuccess } from "@/components/Toast";
-import { syncMcpToolsAction } from "@/utils/actions/mcp-tools";
-import { disconnectMcpConnectionAction } from "@/utils/actions/mcp-connect";
+import {
+  disconnectMcpConnectionAction,
+  toggleMcpConnectionAction,
+  toggleMcpToolAction,
+} from "@/utils/actions/mcp-connect";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { fetchWithAccount } from "@/utils/fetch";
 
@@ -34,16 +39,17 @@ export function IntegrationRow({
   onConnectionChange,
 }: IntegrationRowProps) {
   const { emailAccountId } = useAccount();
-  const [syncingTools, setSyncingTools] = useState(false);
   const [disconnecting, setDisconnecting] = useState(false);
   const [expandedTools, setExpandedTools] = useState(false);
 
+  // Find connection regardless of isActive status
   const connection = connections.find(
-    (c) => c.integration.name === integration.name && c.isActive,
+    (c) => c.integration.name === integration.name,
   );
 
   const connectionStatus = {
     connected: !!connection,
+    isActive: connection?.isActive || false,
     toolsCount: connection?.tools?.filter((t) => t.isEnabled).length || 0,
     totalTools: connection?.tools?.length || 0,
     connectionId: connection?.id,
@@ -81,33 +87,59 @@ export function IntegrationRow({
     }
   };
 
-  const handleSyncTools = async () => {
-    setSyncingTools(true);
+  const handleToggle = async (enabled: boolean) => {
+    if (!connectionStatus.connectionId) return;
 
     try {
-      const result = await syncMcpToolsAction(emailAccountId, {
-        integration: integration.name,
+      const result = await toggleMcpConnectionAction(emailAccountId, {
+        connectionId: connectionStatus.connectionId,
+        isActive: enabled,
       });
 
       if (result?.serverError) {
         toastError({
-          title: "Error syncing tools",
+          title: "Error toggling connection",
           description: result.serverError,
         });
       } else {
         toastSuccess({
-          title: "Tools synced successfully",
-          description: `Synced ${result?.data?.toolsCount || 0} tools from ${integration.displayName}`,
+          description:
+            result?.data?.message ||
+            `${integration.displayName} ${enabled ? "enabled" : "disabled"}`,
         });
         onConnectionChange();
       }
     } catch (error) {
       toastError({
-        title: "Error syncing tools",
+        title: "Error toggling connection",
         description: error instanceof Error ? error.message : "Unknown error",
       });
-    } finally {
-      setSyncingTools(false);
+    }
+  };
+
+  const handleToggleTool = async (toolId: string, isEnabled: boolean) => {
+    try {
+      const result = await toggleMcpToolAction(emailAccountId, {
+        toolId,
+        isEnabled,
+      });
+
+      if (result?.serverError) {
+        toastError({
+          title: "Error toggling tool",
+          description: result.serverError,
+        });
+      } else {
+        toastSuccess({
+          description: result?.data?.message || "Tool updated",
+        });
+        onConnectionChange();
+      }
+    } catch (error) {
+      toastError({
+        title: "Error toggling tool",
+        description: error instanceof Error ? error.message : "Unknown error",
+      });
     }
   };
 
@@ -154,102 +186,151 @@ export function IntegrationRow({
   };
 
   return (
-    <TableRow>
-      <TableCell>{integration.displayName}</TableCell>
-      <TableCell>{integration.description}</TableCell>
-      <TableCell>
-        {integration.authType === "oauth" ||
-        integration.authType === "api-token" ? (
-          <div className="flex items-center gap-2">
-            {connectionStatus.connected ? (
-              <div className="flex items-center gap-2">
-                <span className="text-green-600 text-sm">✓ Connected</span>
-                <span className="text-xs text-gray-500">
-                  ({connectionStatus.toolsCount}/{connectionStatus.totalTools}{" "}
-                  tools)
-                </span>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  onClick={handleSyncTools}
-                  loading={syncingTools}
-                >
-                  Sync Tools
+    <>
+      <TableRow>
+        <TableCell>{integration.displayName}</TableCell>
+        <TableCell>
+          {integration.authType === "oauth" ||
+          integration.authType === "api-token" ? (
+            <div className="flex items-center gap-2">
+              {connectionStatus.connected ? (
+                <div className="flex items-center gap-2">
+                  <span
+                    className={
+                      connectionStatus.isActive
+                        ? "text-green-600 text-sm"
+                        : "text-gray-500 text-sm"
+                    }
+                  >
+                    {connectionStatus.isActive
+                      ? "✓ Connected"
+                      : "○ Connected (Disabled)"}
+                  </span>
+                </div>
+              ) : (
+                <Button size="sm" variant="outline" onClick={handleConnect}>
+                  {integration.authType === "api-token"
+                    ? "Connect with API Key"
+                    : "Connect"}
                 </Button>
-                <Button
-                  size="sm"
-                  variant="destructiveSoft"
+              )}
+            </div>
+          ) : (
+            <TypographyP className="text-sm text-gray-500">
+              No Auth Required
+            </TypographyP>
+          )}
+        </TableCell>
+        <TableCell>
+          {connectionStatus.connected && connectionStatus.tools.length > 0 ? (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="flex items-center gap-1"
+              onClick={() => setExpandedTools(!expandedTools)}
+            >
+              {expandedTools ? (
+                <ChevronDown className="h-4 w-4" />
+              ) : (
+                <ChevronRight className="h-4 w-4" />
+              )}
+              {connectionStatus.toolsCount}/{connectionStatus.totalTools} tools
+            </Button>
+          ) : (
+            <span className="text-gray-400 text-sm">No tools</span>
+          )}
+        </TableCell>
+        <TableCell>
+          <Toggle
+            name={`integrations.${integration.name}.enabled`}
+            enabled={connectionStatus.isActive}
+            onChange={handleToggle}
+          />
+        </TableCell>
+        <TableCell>
+          {connectionStatus.connected && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                  <MoreVertical className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem
                   onClick={handleDisconnect}
-                  loading={disconnecting}
+                  disabled={disconnecting}
+                  className="text-red-600"
                 >
-                  Disconnect
-                </Button>
-              </div>
-            ) : (
-              <Button size="sm" variant="outline" onClick={handleConnect}>
-                {integration.authType === "api-token"
-                  ? "Connect with API Key"
-                  : "Connect"}
-              </Button>
-            )}
-          </div>
-        ) : (
-          <TypographyP className="text-sm text-gray-500">
-            No Auth Required
-          </TypographyP>
-        )}
-      </TableCell>
-      <TableCell>
-        {connectionStatus.connected && connectionStatus.tools.length > 0 ? (
-          <Collapsible open={expandedTools} onOpenChange={setExpandedTools}>
-            <CollapsibleTrigger asChild>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="flex items-center gap-1"
-              >
-                {expandedTools ? (
-                  <ChevronDown className="h-4 w-4" />
-                ) : (
-                  <ChevronRight className="h-4 w-4" />
-                )}
-                {connectionStatus.toolsCount} tools
-              </Button>
-            </CollapsibleTrigger>
-            <CollapsibleContent className="mt-2">
-              <div className="space-y-1 text-sm">
-                {connectionStatus.tools.map((tool) => (
-                  <div key={tool.name} className="flex items-center gap-2">
-                    <span
-                      className={
-                        tool.isEnabled ? "text-green-600" : "text-gray-400"
-                      }
-                    >
-                      {tool.isEnabled ? "✓" : "○"}
-                    </span>
-                    <span className="font-mono text-xs">{tool.name}</span>
-                    {tool.description && (
-                      <span className="text-gray-500 truncate max-w-xs">
-                        {tool.description.slice(0, 50)}...
-                      </span>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </CollapsibleContent>
-          </Collapsible>
-        ) : (
-          <span className="text-gray-400 text-sm">No tools</span>
-        )}
-      </TableCell>
-      <TableCell>
-        <Toggle
-          name={`integrations.${integration.name}.enabled`}
-          enabled={connectionStatus.connected}
-          onChange={(_enabled) => {
-            // handleToggle(integration.name, enabled);
-          }}
+                  {disconnecting ? "Disconnecting..." : "Disconnect"}
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
+        </TableCell>
+      </TableRow>
+
+      {/* Expanded tools section - full width row */}
+      {expandedTools && connectionStatus.tools.length > 0 && (
+        <ToolsList
+          tools={connectionStatus.tools}
+          onToggleTool={handleToggleTool}
         />
+      )}
+    </>
+  );
+}
+
+interface ToolsListProps {
+  tools: GetMcpConnectionsResponse["connections"][number]["tools"];
+  onToggleTool: (toolId: string, isEnabled: boolean) => void;
+}
+
+function ToolsList({ tools, onToggleTool }: ToolsListProps) {
+  const sortedTools = [...tools].sort((a, b) => a.name.localeCompare(b.name));
+
+  return (
+    <TableRow>
+      <TableCell colSpan={5} className="bg-muted/50">
+        <div className="space-y-3">
+          {sortedTools.map((tool) => (
+            <div
+              key={tool.id}
+              className={clsx(
+                "flex items-start gap-4 p-3 rounded-lg border",
+                tool.isEnabled
+                  ? "bg-card border-border"
+                  : "bg-muted border-muted",
+              )}
+            >
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 mb-1">
+                  <span
+                    className={clsx(
+                      "font-mono text-sm font-medium",
+                      tool.isEnabled
+                        ? "text-foreground"
+                        : "text-muted-foreground",
+                    )}
+                  >
+                    {tool.name}
+                  </span>
+                </div>
+                {/* {tool.description && (
+                  <p className="text-sm text-muted-foreground whitespace-pre-wrap">
+                    {tool.description}
+                  </p>
+                )} */}
+              </div>
+              <div className="flex-shrink-0">
+                <Toggle
+                  name={`tool.${tool.id}.enabled`}
+                  enabled={tool.isEnabled}
+                  onChange={(enabled) => onToggleTool(tool.id, enabled)}
+                />
+              </div>
+            </div>
+          ))}
+        </div>
       </TableCell>
     </TableRow>
   );

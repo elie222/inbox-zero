@@ -1,15 +1,14 @@
 type AuthType = "oauth" | "api-token" | "basic";
 
 type OAuthConfig = {
-  authUrl: string;
-  tokenUrl: string;
-  registrationUrl?: string; // For dynamic client registration (RFC7591)
+  authorization_endpoint: string;
+  token_endpoint: string;
+  registration_endpoint?: string; // For dynamic client registration (RFC7591)
 };
 
 export type McpIntegrationConfig = {
   name: string;
   displayName: string;
-  description?: string;
   serverUrl?: string;
   npmPackage?: string;
   authType: AuthType;

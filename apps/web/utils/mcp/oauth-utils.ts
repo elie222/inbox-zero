@@ -112,7 +112,7 @@ async function performDynamicClientRegistration(
   const integrationConfig = MCP_INTEGRATIONS[integration];
   const oauthConfig = getMcpOAuthConfig(integration);
 
-  if (!oauthConfig.registrationUrl) {
+  if (!oauthConfig.registration_endpoint) {
     throw new Error(
       `Dynamic client registration not supported for ${integration} - no registration URL configured`,
     );
@@ -120,7 +120,7 @@ async function performDynamicClientRegistration(
 
   logger.info("Performing dynamic client registration", {
     integration,
-    registrationUrl: oauthConfig.registrationUrl,
+    registrationUrl: oauthConfig.registration_endpoint,
   });
 
   // Prepare registration request according to RFC7591
@@ -134,7 +134,7 @@ async function performDynamicClientRegistration(
     scope: integrationConfig.defaultScopes.join(" "),
   };
 
-  const response = await fetch(oauthConfig.registrationUrl, {
+  const response = await fetch(oauthConfig.registration_endpoint, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -172,7 +172,6 @@ async function performDynamicClientRegistration(
     create: {
       name: integrationConfig.name,
       displayName: integrationConfig.displayName,
-      description: integrationConfig.description,
       serverUrl: integrationConfig.serverUrl,
       npmPackage: integrationConfig.npmPackage,
       authType: integrationConfig.authType,
@@ -242,7 +241,7 @@ export async function generateMcpAuthUrl(
   });
 
   // Build authorization URL
-  const authUrl = new URL(oauthConfig.authUrl);
+  const authUrl = new URL(oauthConfig.authorization_endpoint);
   authUrl.searchParams.set("response_type", "code");
   authUrl.searchParams.set("client_id", credentials.clientId);
   authUrl.searchParams.set("redirect_uri", redirectUri);
@@ -308,7 +307,7 @@ export async function exchangeMcpCodeForTokens(
     tokenRequestBody.set("resource", resourceUrl.toString());
   }
 
-  const response = await fetch(oauthConfig.tokenUrl, {
+  const response = await fetch(oauthConfig.token_endpoint, {
     method: "POST",
     headers: {
       "Content-Type": "application/x-www-form-urlencoded",
@@ -363,7 +362,7 @@ export async function refreshMcpAccessToken(
     tokenRequestBody.set("resource", resourceUrl.toString());
   }
 
-  const response = await fetch(oauthConfig.tokenUrl, {
+  const response = await fetch(oauthConfig.token_endpoint, {
     method: "POST",
     headers: {
       "Content-Type": "application/x-www-form-urlencoded",

@@ -30,10 +30,10 @@ export function Integrations() {
           <TableHeader>
             <TableRow>
               <TableHead>Name</TableHead>
-              <TableHead>Description</TableHead>
               <TableHead>Connection</TableHead>
               <TableHead>Tools</TableHead>
               <TableHead>Enable</TableHead>
+              <TableHead />
             </TableRow>
           </TableHeader>
           <Rows
@@ -69,11 +69,6 @@ function Rows({
     setApiTokenModalOpen(true);
   };
 
-  const handleApiTokenConnectionSuccess = () => {
-    onConnectionChange();
-    window.location.reload();
-  };
-
   return (
     <TableBody>
       {integrationsList.length ? (
@@ -99,7 +94,7 @@ function Rows({
           open={apiTokenModalOpen}
           onOpenChange={setApiTokenModalOpen}
           integration={selectedIntegration}
-          onSuccess={handleApiTokenConnectionSuccess}
+          onSuccess={onConnectionChange}
         />
       )}
     </TableBody>

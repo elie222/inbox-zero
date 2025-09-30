@@ -11,6 +11,7 @@ import {
   getMcpOAuthCookieNames,
 } from "@/utils/mcp/oauth-utils";
 import { MCP_INTEGRATIONS } from "@/utils/mcp/integrations";
+import { syncMcpTools } from "@/utils/mcp/sync-tools";
 
 const logger = createScopedLogger("mcp/callback");
 
@@ -154,7 +155,6 @@ export const GET = withError(async (request: NextRequest, { params }) => {
       create: {
         name: integration,
         displayName: integrationConfig.displayName,
-        description: integrationConfig.description || "",
         serverUrl: integrationConfig.serverUrl || "",
         authType: integrationConfig.authType,
         defaultScopes: integrationConfig.defaultScopes,
@@ -197,6 +197,23 @@ export const GET = withError(async (request: NextRequest, { params }) => {
       hasRefreshToken: !!tokens.refresh_token,
       expiresAt,
     });
+
+    // Automatically sync tools after successful connection
+    try {
+      const syncResult = await syncMcpTools(integration, emailAccountId);
+      logger.info("Auto-synced tools after connection", {
+        integration,
+        emailAccountId,
+        toolsCount: syncResult.toolsCount,
+      });
+    } catch (error) {
+      logger.error("Failed to auto-sync tools after connection", {
+        error,
+        integration,
+        emailAccountId,
+      });
+      // Don't fail the connection if sync fails - user can retry manually
+    }
 
     redirectUrl.searchParams.set("connected", integration);
     return NextResponse.redirect(redirectUrl, { headers: response.headers });

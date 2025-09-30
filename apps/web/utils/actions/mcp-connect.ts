@@ -4,12 +4,15 @@ import { actionClient } from "@/utils/actions/safe-action";
 import {
   connectMcpApiTokenBody,
   disconnectMcpConnectionBody,
+  toggleMcpConnectionBody,
+  toggleMcpToolBody,
 } from "@/utils/actions/mcp-connect.validation";
 import prisma from "@/utils/prisma";
 import { createScopedLogger } from "@/utils/logger";
 import { MCP_INTEGRATIONS } from "@/utils/mcp/integrations";
 import { SafeError } from "@/utils/error";
 import type { McpConnection } from "@prisma/client";
+import { syncMcpTools } from "@/utils/mcp/sync-tools";
 
 const logger = createScopedLogger("mcp-connect");
 
@@ -50,7 +53,6 @@ export const connectMcpApiTokenAction = actionClient
           data: {
             name: integrationConfig.name,
             displayName: integrationConfig.displayName,
-            description: integrationConfig.description,
             serverUrl: integrationConfig.serverUrl,
             npmPackage: integrationConfig.npmPackage,
             authType: integrationConfig.authType,
@@ -105,6 +107,27 @@ export const connectMcpApiTokenAction = actionClient
         });
       }
 
+      // Automatically sync tools after successful connection
+      try {
+        const syncResult = await syncMcpTools(integration, emailAccountId);
+        logger_with_context.info(
+          "Auto-synced tools after API token connection",
+          {
+            integration,
+            toolsCount: syncResult.toolsCount,
+          },
+        );
+      } catch (error) {
+        logger_with_context.error(
+          "Failed to auto-sync tools after API token connection",
+          {
+            error,
+            integration,
+          },
+        );
+        // Don't fail the connection if sync fails - user can retry manually
+      }
+
       return {
         connectionId: connection.id,
         message: `Successfully connected to ${integrationConfig.displayName}`,
@@ -154,6 +177,112 @@ export const disconnectMcpConnectionAction = actionClient
       return {
         success: true,
         message: `Successfully disconnected from ${connection.integration.displayName}`,
+      };
+    },
+  );
+
+export const toggleMcpConnectionAction = actionClient
+  .metadata({ name: "toggleMcpConnection" })
+  .schema(toggleMcpConnectionBody)
+  .action(
+    async ({
+      ctx: { emailAccountId, userId },
+      parsedInput: { connectionId, isActive },
+    }) => {
+      const logger_with_context = logger.with({ userId, emailAccountId });
+
+      logger_with_context.info("Toggling MCP connection", {
+        connectionId,
+        isActive,
+      });
+
+      // Verify the connection exists and belongs to this email account
+      const connection = await prisma.mcpConnection.findFirst({
+        where: {
+          id: connectionId,
+          emailAccountId,
+        },
+        include: {
+          integration: true,
+        },
+      });
+
+      if (!connection) {
+        throw new SafeError("Connection not found");
+      }
+
+      // Update the connection status
+      const updatedConnection = await prisma.mcpConnection.update({
+        where: { id: connectionId },
+        data: { isActive },
+      });
+
+      logger_with_context.info("Successfully toggled MCP connection", {
+        connectionId,
+        integration: connection.integration.name,
+        isActive,
+      });
+
+      return {
+        success: true,
+        isActive: updatedConnection.isActive,
+        message: `${connection.integration.displayName} ${isActive ? "enabled" : "disabled"}`,
+      };
+    },
+  );
+
+export const toggleMcpToolAction = actionClient
+  .metadata({ name: "toggleMcpTool" })
+  .schema(toggleMcpToolBody)
+  .action(
+    async ({
+      ctx: { emailAccountId, userId },
+      parsedInput: { toolId, isEnabled },
+    }) => {
+      const logger_with_context = logger.with({ userId, emailAccountId });
+
+      logger_with_context.info("Toggling MCP tool", {
+        toolId,
+        isEnabled,
+      });
+
+      // Verify the tool exists and belongs to a connection owned by this email account
+      const tool = await prisma.mcpTool.findFirst({
+        where: {
+          id: toolId,
+          connection: {
+            emailAccountId,
+          },
+        },
+        include: {
+          connection: {
+            include: {
+              integration: true,
+            },
+          },
+        },
+      });
+
+      if (!tool) {
+        throw new SafeError("Tool not found");
+      }
+
+      // Update the tool status
+      const updatedTool = await prisma.mcpTool.update({
+        where: { id: toolId },
+        data: { isEnabled },
+      });
+
+      logger_with_context.info("Successfully toggled MCP tool", {
+        toolId,
+        toolName: tool.name,
+        isEnabled,
+      });
+
+      return {
+        success: true,
+        isEnabled: updatedTool.isEnabled,
+        message: `${tool.name} ${isEnabled ? "enabled" : "disabled"}`,
       };
     },
   );
