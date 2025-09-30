@@ -22,6 +22,11 @@ export const GET = withEmailAccount(async (request, { params }) => {
   const logger_with_context = logger.with({ userId, integration });
 
   const integrationConfig = MCP_INTEGRATIONS[integration];
+
+  if (!integrationConfig) {
+    throw new SafeError(`Integration ${integration} not found`);
+  }
+
   if (integrationConfig.authType !== "oauth") {
     throw new SafeError(`Integration ${integration} does not support OAuth`);
   }

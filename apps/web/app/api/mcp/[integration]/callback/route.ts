@@ -18,12 +18,12 @@ const logger = createScopedLogger("mcp/callback");
 export const GET = withError(async (request: NextRequest, { params }) => {
   const { integration } = await params;
 
-  // Validate integration
-  if (!MCP_INTEGRATIONS[integration]) {
-    throw new SafeError(`Unknown integration: ${integration}`);
+  const integrationConfig = MCP_INTEGRATIONS[integration];
+
+  if (!integrationConfig) {
+    throw new SafeError(`Integration ${integration} not found`);
   }
 
-  const integrationConfig = MCP_INTEGRATIONS[integration];
   if (integrationConfig.authType !== "oauth") {
     throw new SafeError(`Integration ${integration} does not support OAuth`);
   }
