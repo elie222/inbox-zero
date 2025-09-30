@@ -1,7 +1,7 @@
 import crypto from "node:crypto";
 
 /**
- * Generates a cryptographically secure code verifier for PKCE
+ * Generates a cryptographically secure code verifier for PKCE (RFC7636)
  * @returns Base64URL encoded code verifier (43-128 characters)
  */
 export function generateCodeVerifier(): string {

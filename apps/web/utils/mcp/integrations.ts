@@ -1,4 +1,4 @@
-import type { McpIntegrationConfig } from "@/utils/mcp/types";
+import type { McpIntegrationConfig } from "@inboxzero/mcp";
 
 export const MCP_INTEGRATIONS: Record<string, McpIntegrationConfig> = {
   notion: {

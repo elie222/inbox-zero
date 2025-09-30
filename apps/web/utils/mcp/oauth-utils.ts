@@ -1,30 +1,30 @@
+/**
+ * Updated MCP OAuth utilities using the @inboxzero/mcp package
+ * This file replaces oauth-utils.ts with cleaner code using the reusable package
+ */
+
 import { env } from "@/env";
+import {
+  generateAuthorizationUrl as generateAuthUrl,
+  exchangeCodeForTokens as exchangeCode,
+  refreshAccessToken as refreshToken,
+  type TokenResponse,
+} from "@inboxzero/mcp";
 import {
   MCP_INTEGRATIONS,
   type IntegrationKey,
 } from "@/utils/mcp/integrations";
 import { generateOAuthState } from "@/utils/oauth/state";
-import { generatePKCEPair } from "@/utils/oauth/pkce";
-import prisma from "@/utils/prisma";
+import { credentialStorage } from "@/utils/mcp/storage-adapter";
 import { createScopedLogger } from "@/utils/logger";
+import prisma from "@/utils/prisma";
 
 const logger = createScopedLogger("mcp-oauth");
 
-function getMcpOAuthConfig(integration: IntegrationKey) {
-  const integrationConfig = MCP_INTEGRATIONS[integration];
-
-  if (!integrationConfig || integrationConfig.authType !== "oauth") {
-    throw new Error(`Integration ${integration} does not support OAuth`);
-  }
-
-  if (!integrationConfig.oauthConfig) {
-    throw new Error(`OAuth configuration missing for ${integration}`);
-  }
-
-  return integrationConfig.oauthConfig;
-}
-
-function getMcpEnvVars(integration: IntegrationKey) {
+/**
+ * Get static OAuth client credentials from environment variables (if available)
+ */
+function getStaticCredentials(integration: IntegrationKey) {
   switch (integration) {
     case "notion":
       return {
@@ -42,132 +42,23 @@ function getMcpEnvVars(integration: IntegrationKey) {
         clientSecret: env.MONDAY_MCP_CLIENT_SECRET,
       };
     default:
-      // Return undefined for integrations without env vars (will use dynamic registration)
-      return {
-        clientId: undefined,
-        clientSecret: undefined,
-      };
+      return undefined;
   }
-}
-
-async function getMcpClientCredentials(integration: IntegrationKey): Promise<{
-  clientId: string | undefined;
-  clientSecret: string | undefined;
-  isDynamic: boolean;
-}> {
-  const integrationConfig = MCP_INTEGRATIONS[integration];
-
-  if (integrationConfig.authType !== "oauth") {
-    throw new Error(`Integration ${integration} does not support OAuth`);
-  }
-
-  // First, try to get credentials from environment variables
-  const envVars = getMcpEnvVars(integration);
-
-  if (envVars.clientId && envVars.clientSecret) {
-    // Static credentials from environment
-    return {
-      clientId: envVars.clientId,
-      clientSecret: envVars.clientSecret,
-      isDynamic: false,
-    };
-  }
-
-  // No static credentials, check for dynamically registered credentials at integration level
-  const mcpIntegration = await prisma.mcpIntegration.findUnique({
-    where: {
-      name: integration,
-    },
-  });
-
-  if (mcpIntegration?.oauthClientId) {
-    // Found dynamically registered credentials
-    return {
-      clientId: mcpIntegration.oauthClientId,
-      clientSecret: mcpIntegration.oauthClientSecret || undefined,
-      isDynamic: true,
-    };
-  }
-
-  // No credentials available yet - will need dynamic registration
-  return {
-    clientId: undefined,
-    clientSecret: undefined,
-    isDynamic: true,
-  };
 }
 
 /**
- * Performs dynamic client registration according to RFC7591
- * https://datatracker.ietf.org/doc/html/rfc7591
+ * Ensure the integration exists in the database
  */
-async function performDynamicClientRegistration(
-  integration: IntegrationKey,
-  redirectUri: string,
-): Promise<{
-  clientId: string;
-  clientSecret: string | undefined;
-  isDynamic: boolean;
-}> {
+async function ensureIntegrationExists(integration: IntegrationKey) {
   const integrationConfig = MCP_INTEGRATIONS[integration];
-  const oauthConfig = getMcpOAuthConfig(integration);
 
-  if (!oauthConfig.registration_endpoint) {
-    throw new Error(
-      `Dynamic client registration not supported for ${integration} - no registration URL configured`,
-    );
-  }
-
-  logger.info("Performing dynamic client registration", {
-    integration,
-    registrationUrl: oauthConfig.registration_endpoint,
-  });
-
-  // Prepare registration request according to RFC7591
-  const registrationRequest = {
-    client_name: `Inbox Zero - ${integrationConfig.displayName}`,
-    redirect_uris: [redirectUri],
-    grant_types: ["authorization_code", "refresh_token"],
-    response_types: ["code"],
-    token_endpoint_auth_method: "none", // Public client (PKCE provides security)
-    application_type: "web",
-    scope: integrationConfig.defaultScopes.join(" "),
-  };
-
-  const response = await fetch(oauthConfig.registration_endpoint, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(registrationRequest),
-  });
-
-  if (!response.ok) {
-    const error = await response.text();
-    logger.error("Dynamic client registration failed", {
-      integration,
-      status: response.status,
-      error,
-    });
-    throw new Error(
-      `Dynamic client registration failed: ${response.status} ${error}`,
-    );
-  }
-
-  const registrationResponse = await response.json();
-
-  logger.info("Dynamic client registration successful", {
-    integration,
-    clientId: registrationResponse.client_id,
-  });
-
-  // Store the dynamically registered credentials at the integration level
-  // Find or create the integration
   await prisma.mcpIntegration.upsert({
     where: { name: integration },
     update: {
-      oauthClientId: registrationResponse.client_id,
-      oauthClientSecret: registrationResponse.client_secret,
+      displayName: integrationConfig.displayName,
+      serverUrl: integrationConfig.serverUrl,
+      authType: integrationConfig.authType,
+      defaultScopes: integrationConfig.defaultScopes,
     },
     create: {
       name: integrationConfig.name,
@@ -176,22 +67,13 @@ async function performDynamicClientRegistration(
       npmPackage: integrationConfig.npmPackage,
       authType: integrationConfig.authType,
       defaultScopes: integrationConfig.defaultScopes,
-      oauthClientId: registrationResponse.client_id,
-      oauthClientSecret: registrationResponse.client_secret,
     },
   });
-
-  logger.info("Stored dynamic client credentials at integration level", {
-    integration,
-  });
-
-  return {
-    clientId: registrationResponse.client_id,
-    clientSecret: registrationResponse.client_secret || undefined,
-    isDynamic: true,
-  };
 }
 
+/**
+ * Cookie names for storing OAuth state and PKCE verifier
+ */
 export function getMcpOAuthCookieNames(integration: IntegrationKey) {
   return {
     state: `${integration}_mcp_oauth_state`,
@@ -199,6 +81,9 @@ export function getMcpOAuthCookieNames(integration: IntegrationKey) {
   };
 }
 
+/**
+ * Generate MCP OAuth authorization URL
+ */
 export async function generateMcpAuthUrl(
   integration: IntegrationKey,
   emailAccountId: string,
@@ -210,173 +95,72 @@ export async function generateMcpAuthUrl(
   codeVerifier: string;
 }> {
   const integrationConfig = MCP_INTEGRATIONS[integration];
-  const oauthConfig = getMcpOAuthConfig(integration);
-
   const redirectUri = `${baseUrl}/api/mcp/${integration}/callback`;
 
-  // Get client credentials (static or dynamic) - these are shared across all users
-  let credentials = await getMcpClientCredentials(integration);
+  // Ensure integration exists in database
+  await ensureIntegrationExists(integration);
 
-  // If no client ID available, perform dynamic registration (once per integration)
-  if (!credentials.clientId) {
-    credentials = await performDynamicClientRegistration(
-      integration,
-      redirectUri,
-    );
-  }
-
-  // At this point, credentials.clientId must exist
-  if (!credentials.clientId) {
-    throw new Error(
-      `Failed to obtain client credentials for ${integration}. Neither static credentials nor dynamic registration succeeded.`,
-    );
-  }
-
-  const { codeVerifier, codeChallenge } = await generatePKCEPair();
-
+  // Generate OAuth state
   const state = generateOAuthState({
     userId,
     emailAccountId,
     type: `${integration}-mcp`,
   });
 
-  // Build authorization URL
-  const authUrl = new URL(oauthConfig.authorization_endpoint);
-  authUrl.searchParams.set("response_type", "code");
-  authUrl.searchParams.set("client_id", credentials.clientId);
-  authUrl.searchParams.set("redirect_uri", redirectUri);
-  authUrl.searchParams.set("scope", integrationConfig.defaultScopes.join(" "));
-  authUrl.searchParams.set("code_challenge", codeChallenge);
-  authUrl.searchParams.set("code_challenge_method", "S256");
-
-  // Add resource parameter if server URL is available (MCP requirement)
-  if (integrationConfig.serverUrl) {
-    const resourceUrl = new URL(integrationConfig.serverUrl);
-    resourceUrl.pathname = ""; // Remove path, keep only origin
-    authUrl.searchParams.set("resource", resourceUrl.toString());
-  }
-
-  authUrl.searchParams.set("state", state);
+  // Generate authorization URL using the package
+  const { url, codeVerifier } = await generateAuthUrl(
+    integrationConfig,
+    redirectUri,
+    state,
+    credentialStorage,
+    logger,
+    getStaticCredentials(integration),
+  );
 
   return {
-    url: authUrl.toString(),
+    url,
     state,
     codeVerifier,
   };
 }
 
+/**
+ * Exchange authorization code for tokens
+ */
 export async function exchangeMcpCodeForTokens(
   integration: IntegrationKey,
   code: string,
   codeVerifier: string,
   baseUrl: string,
-): Promise<{
-  access_token: string;
-  refresh_token?: string;
-  expires_in?: number;
-  token_type?: string;
-  scope?: string;
-}> {
+): Promise<TokenResponse> {
   const integrationConfig = MCP_INTEGRATIONS[integration];
-  const oauthConfig = getMcpOAuthConfig(integration);
-  const credentials = await getMcpClientCredentials(integration);
+  const redirectUri = `${baseUrl}/api/mcp/${integration}/callback`;
 
-  if (!credentials.clientId) {
-    throw new Error(
-      `No client credentials available for ${integration}. This should not happen after auth flow.`,
-    );
-  }
-
-  const tokenRequestBody = new URLSearchParams({
-    grant_type: "authorization_code",
+  return await exchangeCode(
+    integrationConfig,
     code,
-    redirect_uri: `${baseUrl}/api/mcp/${integration}/callback`,
-    client_id: credentials.clientId,
-    code_verifier: codeVerifier,
-  });
-
-  // Add client secret if available (for confidential clients)
-  if (credentials.clientSecret) {
-    tokenRequestBody.set("client_secret", credentials.clientSecret);
-  }
-
-  // Add resource parameter if server URL is available (MCP requirement)
-  if (integrationConfig.serverUrl) {
-    const resourceUrl = new URL(integrationConfig.serverUrl);
-    resourceUrl.pathname = "";
-    tokenRequestBody.set("resource", resourceUrl.toString());
-  }
-
-  const response = await fetch(oauthConfig.token_endpoint, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/x-www-form-urlencoded",
-    },
-    body: tokenRequestBody,
-  });
-
-  const tokens = await response.json();
-
-  if (!response.ok) {
-    throw new Error(
-      `Token exchange failed: ${tokens.error_description || tokens.error}`,
-    );
-  }
-
-  return tokens;
+    codeVerifier,
+    redirectUri,
+    credentialStorage,
+    logger,
+    getStaticCredentials(integration),
+  );
 }
 
+/**
+ * Refresh an expired access token
+ */
 export async function refreshMcpAccessToken(
   integration: IntegrationKey,
-  refreshToken: string,
-): Promise<{
-  access_token: string;
-  refresh_token?: string;
-  expires_in?: number;
-  token_type?: string;
-}> {
+  refreshTokenValue: string,
+): Promise<TokenResponse> {
   const integrationConfig = MCP_INTEGRATIONS[integration];
-  const oauthConfig = getMcpOAuthConfig(integration);
-  const credentials = await getMcpClientCredentials(integration);
 
-  if (!credentials.clientId) {
-    throw new Error(
-      `No client credentials available for ${integration}. Cannot refresh token.`,
-    );
-  }
-
-  const tokenRequestBody = new URLSearchParams({
-    grant_type: "refresh_token",
-    refresh_token: refreshToken,
-    client_id: credentials.clientId,
-  });
-
-  if (credentials.clientSecret) {
-    tokenRequestBody.set("client_secret", credentials.clientSecret);
-  }
-
-  // Add resource parameter if server URL is available (MCP requirement)
-  if (integrationConfig.serverUrl) {
-    const resourceUrl = new URL(integrationConfig.serverUrl);
-    resourceUrl.pathname = "";
-    tokenRequestBody.set("resource", resourceUrl.toString());
-  }
-
-  const response = await fetch(oauthConfig.token_endpoint, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/x-www-form-urlencoded",
-    },
-    body: tokenRequestBody,
-  });
-
-  const tokens = await response.json();
-
-  if (!response.ok) {
-    throw new Error(
-      `Token refresh failed: ${tokens.error_description || tokens.error}`,
-    );
-  }
-
-  return tokens;
+  return await refreshToken(
+    integrationConfig,
+    refreshTokenValue,
+    credentialStorage,
+    logger,
+    getStaticCredentials(integration),
+  );
 }

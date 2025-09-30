@@ -934,17 +934,6 @@ model McpConnection {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  // Relationships
-  integrationId String
-  integration   McpIntegration @relation(fields: [integrationId], references: [id], onDelete: Cascade)
-
-  // Owner (emailAccount-level or org-level)
-  emailAccountId String?
-  emailAccount   EmailAccount? @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
-  organizationId String?
-  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-
-  // Connection details
   name     String
   isActive Boolean @default(true)
 
@@ -958,7 +947,13 @@ model McpConnection {
   approvedScopes String[]
   approvedTools  String[]
 
-  tools McpTool[]
+  integrationId  String
+  integration    McpIntegration @relation(fields: [integrationId], references: [id], onDelete: Cascade)
+  emailAccountId String?
+  emailAccount   EmailAccount?  @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
+  organizationId String?
+  organization   Organization?  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  tools          McpTool[]
 
   @@unique([emailAccountId, integrationId])
   @@unique([organizationId, integrationId])

@@ -1,13 +1,43 @@
+/**
+ * MCP Client wrapper for the web app
+ * Uses the official MCP SDK with @inboxzero/mcp helpers for authentication
+ */
+
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
+import { createMcpHeaders } from "@inboxzero/mcp";
 import {
   MCP_INTEGRATIONS,
   type IntegrationKey,
 } from "@/utils/mcp/integrations";
-import prisma from "@/utils/prisma";
+import { credentialStorage } from "@/utils/mcp/storage-adapter";
+import { env } from "@/env";
 import { createScopedLogger, type Logger } from "@/utils/logger";
-import { refreshMcpAccessToken } from "./oauth-utils";
-import type { McpConnection } from "@prisma/client";
+
+/**
+ * Get static OAuth client credentials from environment variables (if available)
+ */
+function getStaticCredentials(integration: IntegrationKey) {
+  switch (integration) {
+    case "notion":
+      return {
+        clientId: env.NOTION_MCP_CLIENT_ID,
+        clientSecret: env.NOTION_MCP_CLIENT_SECRET,
+      };
+    case "hubspot":
+      return {
+        clientId: env.HUBSPOT_MCP_CLIENT_ID,
+        clientSecret: env.HUBSPOT_MCP_CLIENT_SECRET,
+      };
+    case "monday":
+      return {
+        clientId: env.MONDAY_MCP_CLIENT_ID,
+        clientSecret: env.MONDAY_MCP_CLIENT_SECRET,
+      };
+    default:
+      return undefined;
+  }
+}
 
 export type McpClientOptions = {
   integration: IntegrationKey;
@@ -16,7 +46,8 @@ export type McpClientOptions = {
 };
 
 /**
- * Generic client for connecting to any MCP server (OAuth or API token based)
+ * MCP Client wrapper for the web app
+ * Combines official MCP SDK with our auth helpers
  */
 export class McpClient {
   private readonly integration: IntegrationKey;
@@ -30,51 +61,56 @@ export class McpClient {
     this.integration = options.integration;
     this.emailAccountId = options.emailAccountId;
     this.refreshTokens = options.refreshTokens ?? true;
-    this.logger = createScopedLogger("mcp-client").with({
-      integration: this.integration,
-      emailAccountId: this.emailAccountId,
-    });
+    this.logger = createScopedLogger("mcp-client");
   }
 
   /**
-   * Connect to the MCP server using stored credentials (OAuth token or API key)
+   * Connect to the MCP server
    */
   async connect(): Promise<void> {
     if (this.client) {
       return; // Already connected
     }
 
-    this.logger.info("Connecting to MCP server");
-
     const integrationConfig = MCP_INTEGRATIONS[this.integration];
+
     if (!integrationConfig.serverUrl) {
-      throw new Error(`Server URL not configured for ${this.integration}`);
+      throw new Error(`No server URL for integration: ${this.integration}`);
     }
 
-    const bearerToken = await this.getBearerToken();
-
-    this.transport = new StreamableHTTPClientTransport(
-      new URL(integrationConfig.serverUrl),
+    // Get authenticated headers using our package helper
+    const headers = await createMcpHeaders(
+      integrationConfig,
+      this.emailAccountId,
+      credentialStorage,
+      this.logger,
       {
-        requestInit: {
-          headers: {
-            Authorization: `Bearer ${bearerToken}`,
-            "Content-Type": "application/json",
-          },
-        },
+        autoRefresh: this.refreshTokens,
+        staticCredentials: getStaticCredentials(this.integration),
       },
     );
 
+    // Use official MCP SDK
+    this.transport = new StreamableHTTPClientTransport(
+      new URL(integrationConfig.serverUrl),
+      { requestInit: { headers } },
+    );
+
     this.client = new Client({
-      name: `inbox-zero-${this.integration}-client`,
+      name: `inbox-zero-${this.integration}`,
       version: "1.0.0",
     });
 
     await this.client.connect(this.transport);
 
-    this.logger.info("Connected to MCP server");
+    this.logger.info("Connected to MCP server", {
+      integration: this.integration,
+    });
   }
 
+  /**
+   * Disconnect from the MCP server
+   */
   async disconnect(): Promise<void> {
     if (this.client) {
       await this.client.close();
@@ -84,106 +120,10 @@ export class McpClient {
       await this.transport.close();
       this.transport = null;
     }
-  }
 
-  /**
-   * Get bearer token for authorization - either OAuth access token or API key
-   */
-  private async getBearerToken(): Promise<string> {
-    const connection = await prisma.mcpConnection.findFirst({
-      where: {
-        emailAccountId: this.emailAccountId,
-        integration: {
-          name: this.integration,
-        },
-        isActive: true,
-      },
-      include: {
-        integration: true,
-      },
+    this.logger.trace("Disconnected from MCP server", {
+      integration: this.integration,
     });
-
-    if (!connection) {
-      throw new Error(
-        `${this.integration} MCP connection not found. Please connect your ${this.integration} workspace first.`,
-      );
-    }
-
-    const integrationConfig = MCP_INTEGRATIONS[this.integration];
-
-    switch (integrationConfig.authType) {
-      case "api-token":
-        return this.getBearerTokenFromApiToken(connection);
-      case "oauth":
-        return this.getBearerTokenFromOAuth(connection);
-      default:
-        throw new Error(
-          `Unsupported auth type '${integrationConfig.authType}' for ${this.integration}`,
-        );
-    }
-  }
-
-  /**
-   * Get bearer token for API-token based connections
-   */
-  private getBearerTokenFromApiToken(connection: McpConnection): string {
-    if (!connection.apiKey) {
-      throw new Error(
-        `No API key found for ${this.integration} MCP connection.`,
-      );
-    }
-    return connection.apiKey;
-  }
-
-  /**
-   * Get bearer token for OAuth-based connections, refreshing as needed
-   */
-  private async getBearerTokenFromOAuth(
-    connection: McpConnection,
-  ): Promise<string> {
-    if (!connection.accessToken) {
-      throw new Error(
-        `No access token found for ${this.integration} MCP connection.`,
-      );
-    }
-
-    // Check if OAuth token is expired and refresh if needed
-    const now = new Date();
-    const isExpired = connection.expiresAt && connection.expiresAt < now;
-
-    if (isExpired && connection.refreshToken && this.refreshTokens) {
-      this.logger.info("Refreshing expired OAuth token", {
-        connectionId: connection.id,
-      });
-
-      const refreshedToken = await refreshMcpAccessToken(
-        this.integration,
-        connection.refreshToken,
-      );
-
-      // Update the connection with new tokens
-      await prisma.mcpConnection.update({
-        where: { id: connection.id },
-        data: {
-          accessToken: refreshedToken.access_token,
-          refreshToken: refreshedToken.refresh_token || connection.refreshToken,
-          expiresAt: refreshedToken.expires_in
-            ? new Date(Date.now() + refreshedToken.expires_in * 1000)
-            : connection.expiresAt,
-          updatedAt: new Date(),
-        },
-      });
-
-      return refreshedToken.access_token;
-    }
-
-    if (isExpired) {
-      throw new Error(
-        `${this.integration} OAuth token has expired. Please reconnect your ${this.integration} workspace.`,
-      );
-    }
-
-    return connection.accessToken;
   }
 
   /**
@@ -249,6 +189,9 @@ export class McpClient {
   }
 }
 
+/**
+ * Factory function to create an MCP client
+ */
 export function createMcpClient(
   integration: IntegrationKey,
   emailAccountId: string,

@@ -150,6 +150,9 @@ importers:
       '@inboxzero/loops':
         specifier: workspace:*
         version: link:../../packages/loops
+      '@inboxzero/mcp':
+        specifier: workspace:*
+        version: link:../../packages/mcp
       '@inboxzero/resend':
         specifier: workspace:*
         version: link:../../packages/resend
@@ -660,22 +663,25 @@ importers:
 
   packages/mcp:
     dependencies:
-      p-retry:
-        specifier: ^7.0.0
-        version: 7.0.0
-      zod:
-        specifier: 3.25.46
-        version: 3.25.46
+      '@modelcontextprotocol/sdk':
+        specifier: ^1.18.2
+        version: 1.18.2
     devDependencies:
       '@types/node':
         specifier: 24.3.0
         version: 24.3.0
+      '@vitest/ui':
+        specifier: 3.2.4
+        version: 3.2.4(vitest@3.2.4)
       tsconfig:
         specifier: workspace:*
         version: link:../tsconfig
       typescript:
         specifier: 5.9.2
         version: 5.9.2
+      vitest:
+        specifier: 3.2.4
+        version: 3.2.4(@types/debug@4.1.12)(@types/node@24.3.0)(@vitest/ui@3.2.4)(jiti@2.5.1)(jsdom@26.1.0)(terser@5.43.1)(tsx@4.20.5)(yaml@2.8.1)
 
   packages/resend:
     dependencies:
