@@ -308,9 +308,19 @@ We've successfully used this with:
 
 All using dynamic client registration!
 
-## Example Integrations
+## Framework Examples
 
-See the [integrations example](./examples/integrations.ts) for complete configuration examples.
+### Next.js (App Router)
+See [examples/nextjs/](./examples/nextjs/) for complete Next.js integration including:
+- OAuth authorization route
+- OAuth callback handler
+- Prisma storage implementation
+- Using MCP client in server actions
+
+Just copy, customize, and use!
+
+### Integration Configs
+See [examples/integrations.ts](./examples/integrations.ts) for tested integration configurations (Notion, Stripe, etc.).
 
 ## Why Not Wrap the MCP Client?
 
