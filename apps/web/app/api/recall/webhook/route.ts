@@ -12,7 +12,6 @@ import {
   fetchCalendarEvents,
 } from "@/utils/recall/calendar";
 import {
-  createAsyncTranscript,
   getTranscriptMetadata,
   fetchTranscriptContent,
 } from "@/utils/recall/transcript";
@@ -20,7 +19,6 @@ import type {
   RecallWebhookPayload,
   CalendarUpdateEvent,
   CalendarSyncEventsEvent,
-  RecordingDoneEvent,
   TranscriptDoneEvent,
 } from "./types";
 
@@ -126,9 +124,6 @@ async function processRecallWebhook(payload: RecallWebhookPayload) {
       break;
     case "calendar.update":
       await handleCalendarUpdate(payload as CalendarUpdateEvent);
-      break;
-    case "recording.done":
-      await handleRecordingDone(payload as RecordingDoneEvent);
       break;
     case "transcript.done":
       await handleTranscriptDone(payload as TranscriptDoneEvent);
@@ -350,35 +345,6 @@ async function handleCalendarUpdate(payload: CalendarUpdateEvent) {
   }
 }
 
-async function handleRecordingDone(payload: RecordingDoneEvent) {
-  const recordingId = payload.data.recording.id;
-  const botId = payload.data.bot?.id;
-
-  logger.info("Recording completed, creating async transcript", {
-    recordingId,
-    botId,
-  });
-
-  try {
-    const transcriptData = await createAsyncTranscript(recordingId, {
-      language: "en",
-      useDiarization: true,
-    });
-
-    logger.info("Async transcript job created", {
-      recordingId,
-      botId,
-      transcriptId: transcriptData.id,
-    });
-  } catch (error) {
-    logger.error("Error creating async transcript", {
-      error,
-      recordingId,
-      botId,
-    });
-  }
-}
-
 async function handleTranscriptDone(payload: TranscriptDoneEvent) {
   const botId = payload.data.bot.id;
   const transcriptId = payload.data.transcript.id;
@@ -394,7 +360,6 @@ async function handleTranscriptDone(payload: TranscriptDoneEvent) {
   try {
     const transcriptMetadata = await getTranscriptMetadata(transcriptId);
 
-    // Get the download URL from the transcript metadata
     const downloadUrl = transcriptMetadata.data?.download_url;
     if (!downloadUrl) {
       logger.error("No download URL found in transcript metadata", {
@@ -413,8 +378,17 @@ async function handleTranscriptDone(payload: TranscriptDoneEvent) {
       transcriptContent = transcriptData
         .map(
           (segment: {
-            participant?: { name?: string };
-            words?: Array<{ text: string }>;
+            participant?: {
+              name?: string;
+              id?: number;
+              is_host?: boolean;
+              platform?: string;
+            };
+            words?: Array<{
+              text: string;
+              start_timestamp?: { relative?: number; absolute?: string };
+              end_timestamp?: { relative?: number; absolute?: string };
+            }>;
           }) => {
             const participantName = segment?.participant?.name || "Unknown";
             const words = segment?.words || [];

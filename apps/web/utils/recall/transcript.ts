@@ -7,35 +7,6 @@ import type {
 
 const logger = createScopedLogger("recall/transcript");
 
-export async function createAsyncTranscript(
-  recordingId: string,
-  options: {
-    language?: string;
-    useDiarization?: boolean;
-  } = {},
-): Promise<{ id: string }> {
-  const { language = "en", useDiarization = true } = options;
-
-  return recallRequest<{ id: string }>(
-    `/api/v1/recording/${recordingId}/create_transcript/`,
-    {
-      method: "POST",
-      body: JSON.stringify({
-        provider: {
-          recallai_async: {
-            language_code: language,
-          },
-        },
-        ...(useDiarization && {
-          diarization: {
-            use_separate_streams_when_available: true,
-          },
-        }),
-      }),
-    },
-  );
-}
-
 export async function getTranscriptMetadata(
   transcriptId: string,
 ): Promise<TranscriptMetadataResponse> {

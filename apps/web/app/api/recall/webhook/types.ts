@@ -13,25 +13,6 @@ export interface CalendarSyncEventsEvent {
   };
 }
 
-export interface RecordingDoneEvent {
-  event: "recording.done";
-  data: {
-    data: {
-      code: string;
-      sub_code: string | null;
-      updated_at: string;
-    };
-    recording: {
-      id: string;
-      metadata: object;
-    };
-    bot: {
-      id: string;
-      metadata: object;
-    } | null;
-  };
-}
-
 export interface TranscriptDoneEvent {
   event: "transcript.done";
   data: {
@@ -58,7 +39,6 @@ export interface TranscriptDoneEvent {
 export type RecallWebhookPayload =
   | CalendarUpdateEvent
   | CalendarSyncEventsEvent
-  | RecordingDoneEvent
   | TranscriptDoneEvent;
 
 export interface RecallBotInfo {

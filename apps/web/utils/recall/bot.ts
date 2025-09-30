@@ -29,6 +29,13 @@ export async function addBotToCalendarEvent(
       body: JSON.stringify({
         deduplication_key: deduplicationKey,
         bot_config: botConfig,
+        recording_config: {
+          transcript: {
+            provider: {
+              meeting_captions: {},
+            },
+          },
+        },
       }),
     },
   );
