@@ -920,6 +920,10 @@ model McpIntegration {
   defaultScopes String[]
   isActive      Boolean  @default(true)
 
+  // OAuth client credentials (for dynamic registration - shared across all users)
+  oauthClientId     String?
+  oauthClientSecret String?
+
   connections McpConnection[]
 
   @@index([isActive])

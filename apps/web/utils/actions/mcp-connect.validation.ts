@@ -7,3 +7,11 @@ export const connectMcpApiTokenBody = z.object({
 });
 
 export type ConnectMcpApiTokenBody = z.infer<typeof connectMcpApiTokenBody>;
+
+export const disconnectMcpConnectionBody = z.object({
+  connectionId: z.string(),
+});
+
+export type DisconnectMcpConnectionBody = z.infer<
+  typeof disconnectMcpConnectionBody
+>;

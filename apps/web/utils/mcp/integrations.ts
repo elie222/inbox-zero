@@ -12,6 +12,7 @@ export const MCP_INTEGRATIONS: Record<string, McpIntegrationConfig> = {
     oauthConfig: {
       authUrl: "https://mcp.notion.com/authorize",
       tokenUrl: "https://mcp.notion.com/token",
+      registrationUrl: "https://mcp.notion.com/register",
     },
   },
   stripe: {
@@ -19,7 +20,8 @@ export const MCP_INTEGRATIONS: Record<string, McpIntegrationConfig> = {
     displayName: "Stripe",
     description: "Read and search your Stripe data via MCP",
     serverUrl: "https://mcp.stripe.com",
-    authType: "api-token",
+    authType: "oauth", // must request whitelisting of /api/mcp/stripe/callback from Stripe. localhost is whitelisted already.
+    // authType: "api-token", // alternatively, use an API token.
     defaultScopes: [],
     allowedTools: [
       // "list_customers",

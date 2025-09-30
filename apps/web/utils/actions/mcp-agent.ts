@@ -1,26 +1,11 @@
 "use server";
 
 import { actionClient } from "@/utils/actions/safe-action";
-import { z } from "zod";
 import { mcpAgent } from "@/utils/ai/mcp/mcp-agent";
 import { getEmailAccountWithAi } from "@/utils/user/get";
 import { SafeError } from "@/utils/error";
 import type { EmailForLLM } from "@/utils/types";
-
-// Schema for testing with mock email data
-const mcpAgentSchema = z.object({
-  query: z.string().min(1, "Query is required"),
-  // For testing, we'll accept mock message data
-  mockMessage: z
-    .object({
-      from: z.string().optional(),
-      subject: z.string().optional(),
-      content: z.string().optional(),
-    })
-    .optional(),
-});
-
-export type McpAgentActionInput = z.infer<typeof mcpAgentSchema>;
+import { mcpAgentSchema } from "@/utils/actions/mcp-agent.validation";
 
 export const mcpAgentAction = actionClient
   .metadata({ name: "mcpAgent" })

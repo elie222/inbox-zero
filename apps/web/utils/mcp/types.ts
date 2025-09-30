@@ -3,6 +3,7 @@ type AuthType = "oauth" | "api-token" | "basic";
 type OAuthConfig = {
   authUrl: string;
   tokenUrl: string;
+  registrationUrl?: string; // For dynamic client registration (RFC7591)
 };
 
 export type McpIntegrationConfig = {
