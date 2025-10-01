@@ -11,15 +11,23 @@ import { noopLogger } from "./logger";
 /**
  * Generate OAuth authorization URL with PKCE
  */
-export async function generateAuthorizationUrl(
-  integration: McpIntegrationConfig,
-  redirectUri: string,
-  state: string,
-  storage: CredentialStorage,
-  logger: Logger = noopLogger,
-  staticCredentials?: { clientId?: string; clientSecret?: string },
-  clientName?: string,
-): Promise<{
+export async function generateAuthorizationUrl({
+  integration,
+  redirectUri,
+  state,
+  storage,
+  logger = noopLogger,
+  staticCredentials,
+  clientName,
+}: {
+  integration: McpIntegrationConfig;
+  redirectUri: string;
+  state: string;
+  storage: CredentialStorage;
+  logger?: Logger;
+  staticCredentials?: { clientId?: string; clientSecret?: string };
+  clientName?: string;
+}): Promise<{
   url: string;
   codeVerifier: string;
 }> {

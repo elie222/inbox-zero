@@ -1,3 +1,4 @@
+import type { IntegrationKey } from "@/utils/mcp/integrations";
 import crypto from "node:crypto";
 
 /**
@@ -36,3 +37,12 @@ export const oauthStateCookieOptions = {
   path: "/",
   sameSite: "lax",
 } as const;
+
+export const getMcpStateCookieName = (integration: IntegrationKey) =>
+  `${integration}_mcp_oauth_state`;
+
+export const getMcpPkceCookieName = (integration: IntegrationKey) =>
+  `${integration}_mcp_pkce_verifier`;
+
+export const getMcpOAuthStateType = (integration: IntegrationKey) =>
+  `${integration}-mcp`;

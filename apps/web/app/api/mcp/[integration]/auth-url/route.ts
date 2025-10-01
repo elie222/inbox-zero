@@ -3,19 +3,17 @@ import { env } from "@/env";
 import { withEmailAccount } from "@/utils/middleware";
 import { createScopedLogger } from "@/utils/logger";
 import { SafeError } from "@/utils/error";
-import { oauthStateCookieOptions } from "@/utils/oauth/state";
-import { getMcpOAuthCookieNames } from "@/utils/mcp/oauth-utils";
+import {
+  oauthStateCookieOptions,
+  getMcpPkceCookieName,
+  getMcpStateCookieName,
+  getMcpOAuthStateType,
+} from "@/utils/oauth/state";
 import { getIntegration } from "@/utils/mcp/integrations";
 import { generateAuthorizationUrl } from "@inboxzero/mcp";
-import {
-  type IntegrationKey,
-  getStaticCredentials,
-} from "@/utils/mcp/integrations";
+import { getStaticCredentials } from "@/utils/mcp/integrations";
 import { generateOAuthState } from "@/utils/oauth/state";
 import { credentialStorage } from "@/utils/mcp/storage-adapter";
-import prisma from "@/utils/prisma";
-
-const logger = createScopedLogger("mcp/auth-url");
 
 export type GetMcpAuthUrlResponse = { url: string };
 
@@ -24,7 +22,10 @@ export const GET = withEmailAccount(async (request, { params }) => {
   const { emailAccountId } = request.auth;
   const userId = request.auth.userId;
 
-  const logger_with_context = logger.with({ userId, integration });
+  const logger = createScopedLogger("mcp/auth-url").with({
+    userId,
+    integration,
+  });
 
   const integrationConfig = getIntegration(integration);
 
@@ -37,87 +38,41 @@ export const GET = withEmailAccount(async (request, { params }) => {
   }
 
   try {
-    const { url, state, codeVerifier } = await generateMcpAuthUrl(
-      integration,
-      emailAccountId,
-      userId,
-      env.NEXT_PUBLIC_BASE_URL,
-    );
+    const redirectUri = `${env.NEXT_PUBLIC_BASE_URL}/api/mcp/${integration}/callback`;
 
-    const cookieNames = getMcpOAuthCookieNames(integration);
+    const state = generateOAuthState({
+      userId,
+      emailAccountId,
+      type: getMcpOAuthStateType(integration),
+    });
+
+    const { url, codeVerifier } = await generateAuthorizationUrl({
+      integration: integrationConfig,
+      redirectUri,
+      state,
+      storage: credentialStorage,
+      staticCredentials: getStaticCredentials(integration),
+      clientName: "Inbox Zero",
+    });
 
     // Set secure cookies for state and PKCE verifier
     const response = NextResponse.json<GetMcpAuthUrlResponse>({ url });
 
-    response.cookies.set(cookieNames.state, state, {
+    const maxAge = 60 * 10; // 10 minutes
+
+    response.cookies.set(getMcpStateCookieName(integration), state, {
       ...oauthStateCookieOptions,
-      maxAge: 60 * 10, // 10 minutes
+      maxAge,
     });
 
-    response.cookies.set(cookieNames.pkce, codeVerifier, {
+    response.cookies.set(getMcpPkceCookieName(integration), codeVerifier, {
       ...oauthStateCookieOptions,
-      maxAge: 60 * 10, // 10 minutes
-    });
-
-    logger_with_context.info("Generated MCP auth URL", {
-      emailAccountId,
-      hasState: !!state,
-      hasPKCE: !!codeVerifier,
+      maxAge,
     });
 
     return response;
   } catch (error) {
-    logger_with_context.error("Failed to generate MCP auth URL", { error });
+    logger.error("Failed to generate MCP auth URL", { error });
     throw new SafeError("Failed to generate authorization URL");
   }
 });
-
-async function generateMcpAuthUrl(
-  integration: IntegrationKey,
-  emailAccountId: string,
-  userId: string,
-  baseUrl: string,
-): Promise<{
-  url: string;
-  state: string;
-  codeVerifier: string;
-}> {
-  const integrationConfig = getIntegration(integration);
-  const redirectUri = `${baseUrl}/api/mcp/${integration}/callback`;
-
-  await ensureIntegrationExists(integration);
-
-  const state = generateOAuthState({
-    userId,
-    emailAccountId,
-    type: `${integration}-mcp`,
-  });
-
-  const { url, codeVerifier } = await generateAuthorizationUrl(
-    integrationConfig,
-    redirectUri,
-    state,
-    credentialStorage,
-    logger,
-    getStaticCredentials(integration),
-    "Inbox Zero",
-  );
-
-  return {
-    url,
-    state,
-    codeVerifier,
-  };
-}
-
-async function ensureIntegrationExists(integration: IntegrationKey) {
-  const integrationConfig = getIntegration(integration);
-
-  await prisma.mcpIntegration.upsert({
-    where: { name: integration },
-    update: {}, // No static fields to update - they're in code
-    create: {
-      name: integrationConfig.name,
-    },
-  });
-}

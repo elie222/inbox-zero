@@ -4,9 +4,13 @@ import prisma from "@/utils/prisma";
 import { createScopedLogger } from "@/utils/logger";
 import { withError } from "@/utils/middleware";
 import { SafeError } from "@/utils/error";
-import { parseOAuthState } from "@/utils/oauth/state";
+import {
+  getMcpPkceCookieName,
+  getMcpStateCookieName,
+  parseOAuthState,
+  getMcpOAuthStateType,
+} from "@/utils/oauth/state";
 import { prefixPath } from "@/utils/path";
-import { getMcpOAuthCookieNames } from "@/utils/mcp/oauth-utils";
 import {
   getIntegration,
   getStaticCredentials,
@@ -37,17 +41,19 @@ export const GET = withError(async (request: NextRequest, { params }) => {
   const error = searchParams.get("error");
   const errorDescription = searchParams.get("error_description");
 
-  const cookieNames = getMcpOAuthCookieNames(integration);
-  const storedState = request.cookies.get(cookieNames.state)?.value;
-  const storedCodeVerifier = request.cookies.get(cookieNames.pkce)?.value;
+  const mcpStateCookieName = getMcpStateCookieName(integration);
+  const mcpPkceCookieName = getMcpPkceCookieName(integration);
+
+  const storedState = request.cookies.get(mcpStateCookieName)?.value;
+  const storedCodeVerifier = request.cookies.get(mcpPkceCookieName)?.value;
 
   // Default redirect - will be updated once we decode state
   let redirectUrl = new URL("/integrations", request.nextUrl.origin);
   const response = NextResponse.redirect(redirectUrl);
 
   // Clean up cookies
-  response.cookies.delete(cookieNames.state);
-  response.cookies.delete(cookieNames.pkce);
+  response.cookies.delete(mcpStateCookieName);
+  response.cookies.delete(mcpPkceCookieName);
 
   // Handle OAuth errors
   if (error) {
@@ -100,10 +106,11 @@ export const GET = withError(async (request: NextRequest, { params }) => {
     return NextResponse.redirect(redirectUrl, { headers: response.headers });
   }
 
-  if (decodedState.type !== `${integration}-mcp`) {
+  const expectedStateType = getMcpOAuthStateType(integration);
+  if (decodedState.type !== expectedStateType) {
     logger.error("Invalid state type for MCP callback", {
       integration,
-      expectedType: `${integration}-mcp`,
+      expectedType: expectedStateType,
       actualType: decodedState.type,
     });
     redirectUrl.searchParams.set("error", "invalid_state_type");
@@ -146,26 +153,16 @@ export const GET = withError(async (request: NextRequest, { params }) => {
       env.NEXT_PUBLIC_BASE_URL,
     );
 
-    // Store tokens in database
     const expiresAt = tokens.expires_in
       ? new Date(Date.now() + tokens.expires_in * 1000)
       : undefined;
 
-    // Ensure the integration exists in the registry
     const dbIntegration = await prisma.mcpIntegration.upsert({
       where: { name: integration },
       update: {},
-      create: {
-        name: integration,
-        displayName: integrationConfig.displayName,
-        serverUrl: integrationConfig.serverUrl || "",
-        authType: integrationConfig.authType,
-        defaultScopes: integrationConfig.scopes,
-        isActive: true,
-      },
+      create: { name: integration },
     });
 
-    // Create or update the connection
     await prisma.mcpConnection.upsert({
       where: {
         emailAccountId_integrationId: {

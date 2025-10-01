@@ -20,7 +20,6 @@ async function getData(emailAccountId: string) {
       integration: { select: { id: true, name: true } },
       tools: { select: { id: true, name: true, isEnabled: true } },
     },
-    orderBy: { createdAt: "desc" },
   });
 
   const integrations = Object.values(MCP_INTEGRATIONS).map((integration) => ({
