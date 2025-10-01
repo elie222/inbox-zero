@@ -24,6 +24,7 @@ import {
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { fetchWithAccount } from "@/utils/fetch";
 import { RequestAccessDialog } from "./RequestAccessDialog";
+import { truncate } from "@/utils/string";
 
 interface IntegrationRowProps {
   integration: GetIntegrationsResponse["integrations"][number];
@@ -311,11 +312,11 @@ function ToolsList({ tools, onToggleTool }: ToolsListProps) {
                     {tool.name}
                   </span>
                 </div>
-                {/* {tool.description && (
+                {tool.description && (
                   <p className="text-sm text-muted-foreground whitespace-pre-wrap">
-                    {tool.description}
+                    {truncate(tool.description, 100)}
                   </p>
-                )} */}
+                )}
               </div>
               <div className="flex-shrink-0">
                 <Toggle

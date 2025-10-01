@@ -1,4 +1,9 @@
-import type { McpIntegrationConfig } from "@inboxzero/mcp";
+type McpIntegrationConfig = {
+  name: string;
+  serverUrl?: string;
+  authType: "oauth" | "api-token";
+  scopes: string[];
+};
 
 export const MCP_INTEGRATIONS: Record<
   string,
@@ -6,6 +11,11 @@ export const MCP_INTEGRATIONS: Record<
     displayName: string;
     allowedTools?: string[];
     comingSoon?: boolean;
+    oauthConfig?: {
+      authorization_endpoint: string;
+      token_endpoint: string;
+      registration_endpoint?: string;
+    };
   }
 > = {
   notion: {
@@ -15,11 +25,7 @@ export const MCP_INTEGRATIONS: Record<
     authType: "oauth",
     scopes: ["read"],
     allowedTools: ["notion-search", "notion-fetch"],
-    oauthConfig: {
-      authorization_endpoint: "https://mcp.notion.com/authorize",
-      token_endpoint: "https://mcp.notion.com/token",
-      registration_endpoint: "https://mcp.notion.com/register",
-    },
+    // OAuth endpoints auto-discovered via RFC 8414/9728
   },
   stripe: {
     name: "stripe",
@@ -38,18 +44,12 @@ export const MCP_INTEGRATIONS: Record<
       "list_subscriptions",
       // "search_stripe_resources",
     ],
-    oauthConfig: {
-      authorization_endpoint:
-        "https://marketplace.stripe.com/oauth/v2/authorize",
-      token_endpoint: "https://marketplace.stripe.com/oauth/v2/token",
-      registration_endpoint:
-        "https://marketplace.stripe.com/oauth/v2/register/tailorapp%2AAZfBZ6Q69QAAADJI%23EhcKFWFjY3RfMVJlaTA0QUo4QktoWGxzQw",
-    },
+    // OAuth endpoints auto-discovered via RFC 8414/9728
   },
   monday: {
     name: "monday",
     displayName: "Monday.com",
-    serverUrl: "https://mcp.monday.com",
+    serverUrl: "https://mcp.monday.com/mcp",
     authType: "oauth",
     scopes: ["read", "write"],
     allowedTools: [
@@ -58,7 +58,7 @@ export const MCP_INTEGRATIONS: Record<
       // "create_update",
       // "get_board_activity",
       "get_board_info",
-      "list_users_and_teams",
+      // "list_users_and_teams",
       // "create_board",
       // "create_form",
       // "update_form",
@@ -83,12 +83,8 @@ export const MCP_INTEGRATIONS: Record<
       // "all_widgets_schema",
       // "create_widget",
     ],
-    oauthConfig: {
-      authorization_endpoint: "https://mcp.monday.com/authorize",
-      token_endpoint: "https://mcp.monday.com/token",
-      registration_endpoint: "https://mcp.monday.com/register",
-    },
-    comingSoon: true,
+    // OAuth endpoints auto-discovered via RFC 8414
+    comingSoon: false,
   },
   hubspot: {
     name: "hubspot",
@@ -180,15 +176,23 @@ export const MCP_INTEGRATIONS: Record<
 
 export type IntegrationKey = keyof typeof MCP_INTEGRATIONS;
 
-export function getIntegration(name: string) {
-  return MCP_INTEGRATIONS[name];
+export function getIntegration(
+  name: string,
+): (typeof MCP_INTEGRATIONS)[IntegrationKey] {
+  const integration = MCP_INTEGRATIONS[name];
+  if (!integration) {
+    throw new Error(`Unknown MCP integration: ${name}`);
+  }
+  return integration;
 }
 
 /**
  * Get static OAuth client credentials from environment variables (if available)
  * This is used for integrations that have app-level OAuth credentials
  */
-export function getStaticCredentials(integration: IntegrationKey) {
+export function getStaticCredentials(
+  integration: IntegrationKey,
+): { clientId?: string; clientSecret?: string } | undefined {
   switch (integration) {
     // case "hubspot":
     //   return {

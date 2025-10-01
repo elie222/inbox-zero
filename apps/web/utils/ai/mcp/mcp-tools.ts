@@ -1,10 +1,9 @@
 import { experimental_createMCPClient } from "ai";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
-import { getIntegration, getStaticCredentials } from "@/utils/mcp/integrations";
+import { getIntegration } from "@/utils/mcp/integrations";
 import prisma from "@/utils/prisma";
 import { createScopedLogger, type Logger } from "@/utils/logger";
-import { credentialStorage } from "@/utils/mcp/storage-adapter";
-import { refreshAccessToken } from "@inboxzero/mcp";
+import { getValidAccessToken } from "@/utils/mcp/oauth";
 
 export async function createMcpToolsForAgent(emailAccountId: string) {
   const logger = createScopedLogger("ai-mcp-tools").with({ emailAccountId });
@@ -20,10 +19,24 @@ export async function createMcpToolsForAgent(emailAccountId: string) {
           },
         },
       },
-      include: {
-        integration: true,
+      select: {
+        id: true,
+        emailAccountId: true,
+        accessToken: true,
+        refreshToken: true,
+        expiresAt: true,
+        integration: {
+          select: {
+            id: true,
+            name: true,
+            registeredServerUrl: true,
+          },
+        },
         tools: {
           where: { isEnabled: true },
+          select: {
+            name: true,
+          },
         },
       },
     });
@@ -55,7 +68,10 @@ export async function createMcpToolsForAgent(emailAccountId: string) {
       }
 
       try {
-        const accessToken = await getValidAccessToken(connection);
+        const accessToken = await getValidAccessToken({
+          integration: integration.name,
+          emailAccountId,
+        });
 
         // Use registered server URL if available, otherwise fall back to config
         const serverUrl =
@@ -115,58 +131,6 @@ export async function createMcpToolsForAgent(emailAccountId: string) {
   }
 }
 
-type McpConnectionWithIntegration = {
-  id: string;
-  accessToken: string | null;
-  refreshToken: string | null;
-  expiresAt: Date | null;
-  integration: {
-    name: string;
-  };
-};
-
-/**
- * Get valid access token, refreshing if needed
- */
-async function getValidAccessToken(
-  connection: McpConnectionWithIntegration,
-): Promise<string> {
-  if (!connection.accessToken) throw new Error("No access token found");
-
-  const now = new Date();
-  const isExpired = connection.expiresAt && connection.expiresAt < now;
-
-  if (isExpired && connection.refreshToken) {
-    const integrationConfig = getIntegration(connection.integration.name);
-
-    const refreshedToken = await refreshAccessToken(
-      integrationConfig,
-      connection.refreshToken,
-      credentialStorage,
-      getStaticCredentials(connection.integration.name),
-    );
-
-    await prisma.mcpConnection.update({
-      where: { id: connection.id },
-      data: {
-        accessToken: refreshedToken.access_token,
-        refreshToken: refreshedToken.refresh_token || connection.refreshToken,
-        expiresAt: refreshedToken.expires_in
-          ? new Date(Date.now() + refreshedToken.expires_in * 1000)
-          : connection.expiresAt,
-        updatedAt: new Date(),
-      },
-    });
-
-    return refreshedToken.access_token;
-  }
-
-  if (isExpired)
-    throw new Error("Access token has expired and no refresh token available");
-
-  return connection.accessToken;
-}
-
 export async function cleanupMcpClients(
   tools: Record<string, unknown>,
   logger: Logger,
@@ -178,6 +142,7 @@ export async function cleanupMcpClients(
   await Promise.all(
     clientEntries.map(async ([, client]) => {
       try {
+        // biome-ignore lint/suspicious/noExplicitAny: MCP client type is complex
         await (client as any).close();
       } catch (error) {
         logger.warn("Error closing MCP client", { error });

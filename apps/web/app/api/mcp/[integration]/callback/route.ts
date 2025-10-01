@@ -1,6 +1,4 @@
 import { type NextRequest, NextResponse } from "next/server";
-import { env } from "@/env";
-import prisma from "@/utils/prisma";
 import { createScopedLogger } from "@/utils/logger";
 import { withError } from "@/utils/middleware";
 import { SafeError } from "@/utils/error";
@@ -11,14 +9,10 @@ import {
   getMcpOAuthStateType,
 } from "@/utils/oauth/state";
 import { prefixPath } from "@/utils/path";
-import {
-  getIntegration,
-  getStaticCredentials,
-  type IntegrationKey,
-} from "@/utils/mcp/integrations";
+import prisma from "@/utils/prisma";
+import { getIntegration } from "@/utils/mcp/integrations";
 import { syncMcpTools } from "@/utils/mcp/sync-tools";
-import { exchangeCodeForTokens, type TokenResponse } from "@inboxzero/mcp";
-import { credentialStorage } from "@/utils/mcp/storage-adapter";
+import { handleOAuthCallback } from "@/utils/mcp/oauth";
 
 const logger = createScopedLogger("mcp/callback");
 
@@ -145,57 +139,21 @@ export const GET = withError(async (request: NextRequest, { params }) => {
   }
 
   try {
-    // Exchange authorization code for tokens
-    const tokens = await exchangeMcpCodeForTokens(
+    // Exchange authorization code for tokens and save to DB
+    const redirectUri = `${process.env.NEXT_PUBLIC_BASE_URL}/api/mcp/${integration}/callback`;
+
+    await handleOAuthCallback({
       integration,
       code,
-      storedCodeVerifier,
-      env.NEXT_PUBLIC_BASE_URL,
-    );
-
-    const expiresAt = tokens.expires_in
-      ? new Date(Date.now() + tokens.expires_in * 1000)
-      : undefined;
-
-    const dbIntegration = await prisma.mcpIntegration.upsert({
-      where: { name: integration },
-      update: {},
-      create: { name: integration },
-    });
-
-    await prisma.mcpConnection.upsert({
-      where: {
-        emailAccountId_integrationId: {
-          emailAccountId,
-          integrationId: dbIntegration.id,
-        },
-      },
-      update: {
-        accessToken: tokens.access_token,
-        refreshToken: tokens.refresh_token,
-        expiresAt,
-        isActive: true,
-        updatedAt: new Date(),
-      },
-      create: {
-        emailAccountId,
-        integrationId: dbIntegration.id,
-        name: `${integrationConfig.displayName} Connection`,
-        accessToken: tokens.access_token,
-        refreshToken: tokens.refresh_token,
-        expiresAt,
-        approvedScopes: integrationConfig.scopes,
-        approvedTools: [],
-        isActive: true,
-      },
+      codeVerifier: storedCodeVerifier,
+      redirectUri,
+      emailAccountId,
     });
 
     logger.info("Successfully connected MCP integration", {
       integration,
       userId,
       emailAccountId,
-      hasRefreshToken: !!tokens.refresh_token,
-      expiresAt,
     });
 
     // Automatically sync tools after successful connection
@@ -228,24 +186,3 @@ export const GET = withError(async (request: NextRequest, { params }) => {
     return NextResponse.redirect(redirectUrl, { headers: response.headers });
   }
 });
-
-async function exchangeMcpCodeForTokens(
-  integration: IntegrationKey,
-  code: string,
-  codeVerifier: string,
-  baseUrl: string,
-): Promise<TokenResponse> {
-  const integrationConfig = getIntegration(integration);
-  const redirectUri = `${baseUrl}/api/mcp/${integration}/callback`;
-
-  return await exchangeCodeForTokens(
-    integrationConfig,
-    code,
-    codeVerifier,
-    redirectUri,
-    credentialStorage,
-    logger,
-    getStaticCredentials(integration),
-    "Inbox Zero",
-  );
-}

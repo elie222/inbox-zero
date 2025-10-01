@@ -10,10 +10,8 @@ import {
   getMcpOAuthStateType,
 } from "@/utils/oauth/state";
 import { getIntegration } from "@/utils/mcp/integrations";
-import { generateAuthorizationUrl } from "@inboxzero/mcp";
-import { getStaticCredentials } from "@/utils/mcp/integrations";
 import { generateOAuthState } from "@/utils/oauth/state";
-import { credentialStorage } from "@/utils/mcp/storage-adapter";
+import { generateOAuthUrl } from "@/utils/mcp/oauth";
 
 export type GetMcpAuthUrlResponse = { url: string };
 
@@ -46,13 +44,10 @@ export const GET = withEmailAccount(async (request, { params }) => {
       type: getMcpOAuthStateType(integration),
     });
 
-    const { url, codeVerifier } = await generateAuthorizationUrl({
-      integration: integrationConfig,
+    const { url, codeVerifier } = await generateOAuthUrl({
+      integration,
       redirectUri,
       state,
-      storage: credentialStorage,
-      staticCredentials: getStaticCredentials(integration),
-      clientName: "Inbox Zero",
     });
 
     // Set secure cookies for state and PKCE verifier

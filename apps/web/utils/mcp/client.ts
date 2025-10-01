@@ -5,13 +5,8 @@
 
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
-import { createMcpHeaders } from "@inboxzero/mcp";
-import {
-  type IntegrationKey,
-  getStaticCredentials,
-  getIntegration,
-} from "@/utils/mcp/integrations";
-import { credentialStorage } from "@/utils/mcp/storage-adapter";
+import { getValidAccessToken } from "@/utils/mcp/oauth";
+import { type IntegrationKey, getIntegration } from "@/utils/mcp/integrations";
 import { createScopedLogger, type Logger } from "@/utils/logger";
 
 export type McpClientOptions = {
@@ -53,22 +48,21 @@ export class McpClient {
       throw new Error(`No server URL for integration: ${this.integration}`);
     }
 
-    // Get authenticated headers using our package helper
-    const headers = await createMcpHeaders(
-      integrationConfig,
-      this.emailAccountId,
-      credentialStorage,
-      this.logger,
-      {
-        autoRefresh: this.refreshTokens,
-        staticCredentials: getStaticCredentials(this.integration),
-      },
-    );
+    const accessToken = await getValidAccessToken({
+      integration: this.integration,
+      emailAccountId: this.emailAccountId,
+    });
 
-    // Use official MCP SDK
     this.transport = new StreamableHTTPClientTransport(
       new URL(integrationConfig.serverUrl),
-      { requestInit: { headers } },
+      {
+        requestInit: {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            "Content-Type": "application/json",
+          },
+        },
+      },
     );
 
     this.client = new Client({

@@ -18,7 +18,9 @@ async function getData(emailAccountId: string) {
       name: true,
       isActive: true,
       integration: { select: { id: true, name: true } },
-      tools: { select: { id: true, name: true, isEnabled: true } },
+      tools: {
+        select: { id: true, name: true, description: true, isEnabled: true },
+      },
     },
   });
 

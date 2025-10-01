@@ -61,16 +61,8 @@ export async function syncMcpTools(
       allowedTools: allowedToolNames,
     });
 
+    // Delete existing tools and create new ones
     await prisma.$transaction([
-      prisma.mcpIntegration.update({
-        where: { id: mcpConnection.integrationId },
-        data: {
-          displayName: integrationConfig.displayName,
-          serverUrl: integrationConfig.serverUrl || "",
-          authType: integrationConfig.authType,
-          defaultScopes: integrationConfig.scopes,
-        },
-      }),
       prisma.mcpTool.deleteMany({
         where: { connectionId: mcpConnection.id },
       }),
