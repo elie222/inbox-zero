@@ -115,11 +115,11 @@ IMPORTANT: Use this calendar information to suggest specific available times whe
     : "";
 
   const mcpToolsContext = mcpContext
-    ? `External tool results (MCP):
+    ? `Additional context fetched from external tools (such as CRM systems, task managers, or other integrations) that may help draft a response:
     
-<mcp_context>
+<external_tools_context>
 ${mcpContext}
-</mcp_context>
+</external_tools_context>
 `
     : "";
 

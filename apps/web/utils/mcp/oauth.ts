@@ -46,7 +46,7 @@ async function discoverMetadata(
     stored?.registeredTokenUrl &&
     stored.registeredServerUrl === serverUrl
   ) {
-    logger.trace("Using cached OAuth metadata", { integration });
+    logger.info("Using cached OAuth metadata", { integration });
 
     return {
       issuer: serverUrl,
@@ -60,7 +60,7 @@ async function discoverMetadata(
   }
 
   // Discover via RFC 8414/9728
-  logger.trace("Discovering OAuth metadata from server", {
+  logger.info("Discovering OAuth metadata from server", {
     integration,
     serverUrl,
   });
@@ -74,14 +74,14 @@ async function discoverMetadata(
         await discoverOAuthProtectedResourceMetadata(serverUrl);
       if (resourceMetadata?.authorization_servers?.[0]) {
         authServerUrl = resourceMetadata.authorization_servers[0];
-        logger.trace("Found auth server via protected resource metadata", {
+        logger.info("Found auth server via protected resource metadata", {
           integration,
           authServerUrl,
         });
       }
     } catch {
       // Protected resource metadata is optional - many servers don't implement it
-      logger.trace(
+      logger.info(
         "Protected resource metadata not available, using server URL directly",
         { integration, serverUrl },
       );
@@ -110,7 +110,7 @@ async function discoverMetadata(
       },
     });
 
-    logger.trace("OAuth metadata discovered and cached", {
+    logger.info("OAuth metadata discovered and cached", {
       integration,
       authEndpoint: metadata.authorization_endpoint,
       tokenEndpoint: metadata.token_endpoint,
@@ -144,7 +144,6 @@ async function discoverMetadata(
         code_challenge_methods_supported: ["S256", "plain"],
       };
 
-      // Cache the fallback endpoints
       await prisma.mcpIntegration.upsert({
         where: { name: integration },
         update: {
@@ -163,7 +162,6 @@ async function discoverMetadata(
       return metadata;
     }
 
-    // No fallback available
     logger.error("No fallback OAuth config available", { error, integration });
     throw new Error(
       `Could not discover OAuth endpoints for ${integration}. Server may not support OAuth discovery and no fallback config is available.`,
@@ -184,7 +182,7 @@ async function getOAuthClient(
 
   // Use static credentials if available
   if (staticCreds?.clientId) {
-    logger.trace("Using static OAuth credentials", { integration });
+    logger.info("Using static OAuth credentials", { integration });
     return {
       client_id: staticCreds.clientId,
       client_secret: staticCreds.clientSecret,
@@ -201,21 +199,19 @@ async function getOAuthClient(
   });
 
   if (stored?.oauthClientId) {
-    logger.trace("Using stored OAuth credentials", { integration });
+    logger.info("Using stored OAuth credentials", { integration });
     return {
       client_id: stored.oauthClientId,
       client_secret: stored.oauthClientSecret || undefined,
     };
   }
 
-  // Need to dynamically register
   if (!integrationConfig.serverUrl) {
     throw new Error(`No server URL configured for ${integration}`);
   }
 
   logger.info("Performing dynamic client registration", { integration });
 
-  // Get OAuth server URL (handles /mcp suffix automatically)
   const oauthServerUrl = getOAuthServerUrl(integrationConfig);
   const metadata = await discoverMetadata(oauthServerUrl, integration);
 
@@ -239,7 +235,6 @@ async function getOAuthClient(
     clientMetadata,
   });
 
-  // Save registered credentials to DB
   await prisma.mcpIntegration.upsert({
     where: { name: integration },
     update: {
@@ -286,10 +281,7 @@ export async function generateOAuthUrl({
     throw new Error(`No server URL configured for ${integration}`);
   }
 
-  // Get or register OAuth client
   const clientInfo = await getOAuthClient(integration, redirectUri);
-
-  // Discover OAuth metadata (automatically handles /mcp suffix)
   const oauthServerUrl = getOAuthServerUrl(integrationConfig);
   const metadata = await discoverMetadata(oauthServerUrl, integration);
 
@@ -299,7 +291,6 @@ export async function generateOAuthUrl({
     );
   }
 
-  // Start authorization with SDK
   const result = await startAuthorization(metadata.authorization_endpoint, {
     metadata,
     clientInformation: clientInfo,
@@ -309,10 +300,7 @@ export async function generateOAuthUrl({
     resource: new URL(integrationConfig.serverUrl),
   });
 
-  logger.trace("OAuth flow started", {
-    integration,
-    authUrl: result.authorizationUrl.toString(),
-  });
+  logger.info("OAuth flow started", { integration });
 
   return {
     url: result.authorizationUrl.toString(),
@@ -344,8 +332,6 @@ export async function handleOAuthCallback({
   }
 
   const clientInfo = await getOAuthClient(integration, redirectUri);
-
-  // Get OAuth server URL (handles /mcp suffix automatically)
   const oauthServerUrl = getOAuthServerUrl(integrationConfig);
   const metadata = await discoverMetadata(oauthServerUrl, integration);
 
@@ -419,7 +405,6 @@ export async function refreshOAuthTokens({
     throw new Error(`No server URL configured for ${integration}`);
   }
 
-  // Get current connection
   const connection = await prisma.mcpConnection.findFirst({
     where: {
       emailAccountId,
@@ -437,17 +422,14 @@ export async function refreshOAuthTokens({
     );
   }
 
-  // Get OAuth client credentials
   const clientInfo = await getOAuthClient(
     integration,
     "", // redirectUri not needed for refresh
   );
 
-  // Get OAuth server URL (handles /mcp suffix automatically)
   const oauthServerUrl = getOAuthServerUrl(integrationConfig);
   const metadata = await discoverMetadata(oauthServerUrl, integration);
 
-  // Refresh tokens using SDK
   const tokens = await refreshAuthorization(metadata.token_endpoint, {
     metadata,
     clientInformation: clientInfo,
@@ -455,7 +437,6 @@ export async function refreshOAuthTokens({
     resource: new URL(integrationConfig.serverUrl),
   });
 
-  // Update tokens in database
   const expiresAt = tokens.expires_in
     ? new Date(Date.now() + tokens.expires_in * 1000)
     : connection.expiresAt;
@@ -503,12 +484,11 @@ export async function getValidAccessToken({
     );
   }
 
-  // Check if token is expired
   const now = new Date();
   const isExpired = connection.expiresAt && connection.expiresAt < now;
 
   if (isExpired && connection.refreshToken) {
-    logger.trace("Access token expired, refreshing", {
+    logger.info("Access token expired, refreshing", {
       integration,
       emailAccountId,
     });
