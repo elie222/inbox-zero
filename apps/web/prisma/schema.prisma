@@ -163,18 +163,17 @@ model EmailAccount {
 }
 
 model Organization {
-  id             String          @id @default(cuid())
-  name           String
-  slug           String          @unique
-  logo           String?
-  metadata       Json?
-  createdAt      DateTime        @default(now())
-  updatedAt      DateTime        @updatedAt
-  members        Member[]
-  SsoProvider    SsoProvider[]
-  sessions       Session[]
-  invitations    Invitation[]
-  mcpConnections McpConnection[]
+  id          String        @id @default(cuid())
+  name        String
+  slug        String        @unique
+  logo        String?
+  metadata    Json?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  members     Member[]
+  SsoProvider SsoProvider[]
+  sessions    Session[]
+  invitations Invitation[]
 }
 
 model Member {
@@ -910,9 +909,9 @@ model McpIntegration {
 
   // OAuth registration metadata (captured during dynamic registration)
   // These represent what the credentials below were registered for
-  registeredServerUrl           String? // Server URL credentials are registered with
-  registeredAuthorizationUrl    String? // OAuth authorization endpoint used
-  registeredTokenUrl            String? // OAuth token endpoint used
+  registeredServerUrl        String? // Server URL credentials are registered with
+  registeredAuthorizationUrl String? // OAuth authorization endpoint used
+  registeredTokenUrl         String? // OAuth token endpoint used
 
   // OAuth client credentials (from dynamic registration - shared across all users)
   oauthClientId     String?
@@ -935,23 +934,13 @@ model McpConnection {
   apiKey       String?
   expiresAt    DateTime?
 
-  // Approved scopes/tools
-  approvedScopes String[]
-  approvedTools  String[]
-
   integrationId  String
   integration    McpIntegration @relation(fields: [integrationId], references: [id], onDelete: Cascade)
   emailAccountId String?
   emailAccount   EmailAccount?  @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
-  organizationId String?
-  organization   Organization?  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   tools          McpTool[]
 
   @@unique([emailAccountId, integrationId])
-  @@unique([organizationId, integrationId])
-  @@index([integrationId])
-  @@index([emailAccountId, isActive])
-  @@index([organizationId, isActive])
 }
 
 model McpTool {

@@ -1,8 +1,3 @@
-/**
- * Simple OAuth helpers for MCP integrations
- * Uses the official MCP SDK directly without unnecessary abstractions
- */
-
 import {
   startAuthorization,
   exchangeAuthorization,

@@ -98,9 +98,7 @@ export function IntegrationRow({
         });
       } else {
         toastSuccess({
-          description:
-            result?.data?.message ||
-            `${integration.displayName} ${enabled ? "enabled" : "disabled"}`,
+          description: `${integration.displayName} ${enabled ? "enabled" : "disabled"}`,
         });
         onConnectionChange();
       }
@@ -125,9 +123,7 @@ export function IntegrationRow({
           description: result.serverError,
         });
       } else {
-        toastSuccess({
-          description: result?.data?.message || "Tool updated",
-        });
+        toastSuccess({ description: "Tool updated" });
         onConnectionChange();
       }
     } catch (error) {
@@ -164,9 +160,7 @@ export function IntegrationRow({
       } else {
         toastSuccess({
           title: "Disconnected successfully",
-          description:
-            result?.data?.message ||
-            `Disconnected from ${integration.displayName}`,
+          description: `Disconnected from ${integration.displayName}`,
         });
         onConnectionChange();
       }
