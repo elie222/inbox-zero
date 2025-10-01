@@ -1,9 +1,9 @@
 import { experimental_createMCPClient } from "ai";
-import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import { getIntegration } from "@/utils/mcp/integrations";
 import prisma from "@/utils/prisma";
 import { createScopedLogger } from "@/utils/logger";
 import { getValidAccessToken } from "@/utils/mcp/oauth";
+import { createMcpTransport } from "@/utils/mcp/transport";
 
 type MCPClient = Awaited<ReturnType<typeof experimental_createMCPClient>>;
 
@@ -98,17 +98,7 @@ export async function createMcpToolsForAgent(
           continue;
         }
 
-        const transport = new StreamableHTTPClientTransport(
-          new URL(serverUrl),
-          {
-            requestInit: {
-              headers: {
-                Authorization: `Bearer ${accessToken}`,
-                "Content-Type": "application/json",
-              },
-            },
-          },
-        );
+        const transport = createMcpTransport(serverUrl, accessToken);
 
         const mcpClient = await experimental_createMCPClient({ transport });
         clients.push(mcpClient);

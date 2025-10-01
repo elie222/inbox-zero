@@ -1,4 +1,4 @@
-import { createMcpClient } from "@/utils/mcp/client";
+import { listMcpTools } from "@/utils/mcp/list-tools";
 import { getIntegration } from "@/utils/mcp/integrations";
 import prisma from "@/utils/prisma";
 import { createScopedLogger } from "@/utils/logger";
@@ -44,10 +44,7 @@ export async function syncMcpTools(
       throw new Error(`No active connection found for ${integration}`);
     }
 
-    const client = createMcpClient(integration, emailAccountId);
-    await client.connect();
-    const allTools = await client.listTools();
-    await client.disconnect();
+    const allTools = await listMcpTools(integration, emailAccountId);
 
     // Filter to only allowed tools if specified in config
     const allowedToolNames = integrationConfig.allowedTools;
