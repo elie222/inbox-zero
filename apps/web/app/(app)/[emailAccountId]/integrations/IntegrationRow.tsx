@@ -38,16 +38,14 @@ export function IntegrationRow({
   const [disconnecting, setDisconnecting] = useState(false);
   const [expandedTools, setExpandedTools] = useState(false);
 
-  const connection = integration.connection;
+  const conn = integration.connection;
 
-  const connectionStatus = {
-    connected: !!connection,
-    isActive: connection?.isActive || false,
-    toolsCount: connection?.tools?.filter((t) => t.isEnabled).length || 0,
-    totalTools: connection?.tools?.length || 0,
-    connectionId: connection?.id,
-    tools: connection?.tools || [],
-  };
+  const connected = !!conn;
+  const isActive = conn?.isActive || false;
+  const toolsCount = conn?.tools?.filter((t) => t.isEnabled).length || 0;
+  const totalTools = conn?.tools?.length || 0;
+  const connectionId = conn?.id;
+  const tools = conn?.tools || [];
 
   const handleConnect = async () => {
     if (integration.authType === "api-token") {
@@ -84,11 +82,11 @@ export function IntegrationRow({
   };
 
   const handleToggle = async (enabled: boolean) => {
-    if (!connectionStatus.connectionId) return;
+    if (!connectionId) return;
 
     try {
       const result = await toggleMcpConnectionAction(emailAccountId, {
-        connectionId: connectionStatus.connectionId,
+        connectionId,
         isActive: enabled,
       });
 
@@ -148,13 +146,13 @@ export function IntegrationRow({
       return;
     }
 
-    if (!connectionStatus.connectionId) return;
+    if (!connectionId) return;
 
     setDisconnecting(true);
 
     try {
       const result = await disconnectMcpConnectionAction(emailAccountId, {
-        connectionId: connectionStatus.connectionId,
+        connectionId,
       });
 
       if (result?.serverError) {
@@ -191,18 +189,16 @@ export function IntegrationRow({
           ) : integration.authType === "oauth" ||
             integration.authType === "api-token" ? (
             <div className="flex items-center gap-2">
-              {connectionStatus.connected ? (
+              {connected ? (
                 <div className="flex items-center gap-2">
                   <span
                     className={
-                      connectionStatus.isActive
+                      isActive
                         ? "text-green-600 text-sm"
                         : "text-gray-500 text-sm"
                     }
                   >
-                    {connectionStatus.isActive
-                      ? "✓ Connected"
-                      : "○ Connected (Disabled)"}
+                    {isActive ? "✓ Connected" : "○ Connected (Disabled)"}
                   </span>
                 </div>
               ) : (
@@ -222,8 +218,7 @@ export function IntegrationRow({
         <TableCell>
           {integration.comingSoon ? (
             <span className="text-gray-400 text-sm">Coming Soon</span>
-          ) : connectionStatus.connected &&
-            connectionStatus.tools.length > 0 ? (
+          ) : connected && tools.length > 0 ? (
             <Button
               variant="ghost"
               size="sm"
@@ -235,7 +230,7 @@ export function IntegrationRow({
               ) : (
                 <ChevronRight className="h-4 w-4" />
               )}
-              {connectionStatus.toolsCount}/{connectionStatus.totalTools} tools
+              {toolsCount}/{totalTools} tools
             </Button>
           ) : (
             <span className="text-gray-400 text-sm">No tools</span>
@@ -245,13 +240,13 @@ export function IntegrationRow({
           {!integration.comingSoon && (
             <Toggle
               name={`integrations.${integration.name}.enabled`}
-              enabled={connectionStatus.isActive}
+              enabled={isActive}
               onChange={handleToggle}
             />
           )}
         </TableCell>
         <TableCell>
-          {connectionStatus.connected && !integration.comingSoon && (
+          {connected && !integration.comingSoon && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
@@ -272,24 +267,22 @@ export function IntegrationRow({
         </TableCell>
       </TableRow>
 
-      {expandedTools &&
-        connection?.tools?.length &&
-        connection.tools.length > 0 && (
-          <ToolsList connection={connection} onToggleTool={handleToggleTool} />
-        )}
+      {expandedTools && tools.length > 0 && (
+        <ToolsList tools={tools} onToggleTool={handleToggleTool} />
+      )}
     </>
   );
 }
 
 interface ToolsListProps {
-  connection: GetIntegrationsResponse["integrations"][number]["connection"];
+  tools: NonNullable<
+    GetIntegrationsResponse["integrations"][number]["connection"]
+  >["tools"];
   onToggleTool: (toolId: string, isEnabled: boolean) => void;
 }
 
-function ToolsList({ connection, onToggleTool }: ToolsListProps) {
-  const sortedTools = [...(connection?.tools || [])].sort((a, b) =>
-    a.name.localeCompare(b.name),
-  );
+function ToolsList({ tools, onToggleTool }: ToolsListProps) {
+  const sortedTools = [...tools].sort((a, b) => a.name.localeCompare(b.name));
 
   return (
     <TableRow>

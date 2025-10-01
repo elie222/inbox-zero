@@ -1,9 +1,9 @@
+import { tool } from "ai";
+import { z } from "zod";
 import { describe, expect, test, vi, beforeEach } from "vitest";
 import { mcpAgent } from "@/utils/ai/mcp/mcp-agent";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import { getEmailAccount, getEmail } from "@/__tests__/helpers";
-import { tool } from "ai";
-import { z } from "zod";
 
 // Run with: pnpm test-ai ai-mcp-agent
 
@@ -56,32 +56,28 @@ describe.runIf(isAiTest)(
             },
             required: ["query"],
           },
-          execute: vi
-            .fn()
-            .mockImplementation(
-              async ({ query, email }: { query: string; email?: string }) => {
-                return JSON.stringify({
-                  contacts: [
-                    {
-                      id: "12345",
-                      email: "customer@acmecorp.com",
-                      firstName: "John",
-                      lastName: "Smith",
-                      company: "ACME Corp",
-                      jobTitle: "CEO",
-                      phone: "+1-555-0123",
-                      dealStage: "customer",
-                      lifeCycleStage: "customer",
-                      lastContactDate: "2024-01-10",
-                      notes:
-                        "Enterprise customer, subscribed to Pro plan. Previous billing issues resolved in December 2023.",
-                      tags: ["VIP", "Enterprise", "Pro Plan"],
-                    },
-                  ],
-                  totalResults: 1,
-                });
-              },
-            ),
+          execute: vi.fn().mockImplementation(async () => {
+            return JSON.stringify({
+              contacts: [
+                {
+                  id: "12345",
+                  email: "customer@acmecorp.com",
+                  firstName: "John",
+                  lastName: "Smith",
+                  company: "ACME Corp",
+                  jobTitle: "CEO",
+                  phone: "+1-555-0123",
+                  dealStage: "customer",
+                  lifeCycleStage: "customer",
+                  lastContactDate: "2024-01-10",
+                  notes:
+                    "Enterprise customer, subscribed to Pro plan. Previous billing issues resolved in December 2023.",
+                  tags: ["VIP", "Enterprise", "Pro Plan"],
+                },
+              ],
+              totalResults: 1,
+            });
+          }),
         },
         "hubspot-search-deals": {
           description: "Search for deals in HubSpot CRM",
@@ -98,34 +94,24 @@ describe.runIf(isAiTest)(
               },
             },
           },
-          execute: vi
-            .fn()
-            .mockImplementation(
-              async ({
-                contactEmail,
-                companyName,
-              }: {
-                contactEmail?: string;
-                companyName?: string;
-              }) => {
-                return JSON.stringify({
-                  deals: [
-                    {
-                      id: "deal-456",
-                      dealName: "ACME Corp - Enterprise Upgrade",
-                      amount: 50_000,
-                      stage: "proposal",
-                      closeDate: "2024-02-15",
-                      probability: 75,
-                      contactId: "12345",
-                      notes:
-                        "Interested in upgrading from Pro to Enterprise plan. Discussed advanced features and dedicated support.",
-                    },
-                  ],
-                  totalResults: 1,
-                });
-              },
-            ),
+          execute: vi.fn().mockImplementation(async () => {
+            return JSON.stringify({
+              deals: [
+                {
+                  id: "deal-456",
+                  dealName: "ACME Corp - Enterprise Upgrade",
+                  amount: 50_000,
+                  stage: "proposal",
+                  closeDate: "2024-02-15",
+                  probability: 75,
+                  contactId: "12345",
+                  notes:
+                    "Interested in upgrading from Pro to Enterprise plan. Discussed advanced features and dedicated support.",
+                },
+              ],
+              totalResults: 1,
+            });
+          }),
         },
       };
     }
