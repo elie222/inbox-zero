@@ -971,7 +971,6 @@ model McpTool {
   connection   McpConnection @relation(fields: [connectionId], references: [id], onDelete: Cascade)
 
   name        String
-  title       String?
   description String?
   schema      Json?
 

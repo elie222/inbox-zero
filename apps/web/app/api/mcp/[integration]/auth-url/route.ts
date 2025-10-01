@@ -4,11 +4,16 @@ import { withEmailAccount } from "@/utils/middleware";
 import { createScopedLogger } from "@/utils/logger";
 import { SafeError } from "@/utils/error";
 import { oauthStateCookieOptions } from "@/utils/oauth/state";
-import {
-  generateMcpAuthUrl,
-  getMcpOAuthCookieNames,
-} from "@/utils/mcp/oauth-utils";
+import { getMcpOAuthCookieNames } from "@/utils/mcp/oauth-utils";
 import { MCP_INTEGRATIONS } from "@/utils/mcp/integrations";
+import { generateAuthorizationUrl } from "@inboxzero/mcp";
+import {
+  type IntegrationKey,
+  getStaticCredentials,
+} from "@/utils/mcp/integrations";
+import { generateOAuthState } from "@/utils/oauth/state";
+import { credentialStorage } from "@/utils/mcp/storage-adapter";
+import prisma from "@/utils/prisma";
 
 const logger = createScopedLogger("mcp/auth-url");
 
@@ -66,3 +71,63 @@ export const GET = withEmailAccount(async (request, { params }) => {
     throw new SafeError("Failed to generate authorization URL");
   }
 });
+
+async function generateMcpAuthUrl(
+  integration: IntegrationKey,
+  emailAccountId: string,
+  userId: string,
+  baseUrl: string,
+): Promise<{
+  url: string;
+  state: string;
+  codeVerifier: string;
+}> {
+  const integrationConfig = MCP_INTEGRATIONS[integration];
+  const redirectUri = `${baseUrl}/api/mcp/${integration}/callback`;
+
+  await ensureIntegrationExists(integration);
+
+  const state = generateOAuthState({
+    userId,
+    emailAccountId,
+    type: `${integration}-mcp`,
+  });
+
+  const { url, codeVerifier } = await generateAuthorizationUrl(
+    integrationConfig,
+    redirectUri,
+    state,
+    credentialStorage,
+    logger,
+    getStaticCredentials(integration),
+    "Inbox Zero",
+  );
+
+  return {
+    url,
+    state,
+    codeVerifier,
+  };
+}
+
+async function ensureIntegrationExists(integration: IntegrationKey) {
+  const integrationConfig = MCP_INTEGRATIONS[integration];
+
+  await prisma.mcpIntegration.upsert({
+    where: { name: integration },
+    update: {
+      displayName: integrationConfig.displayName,
+      serverUrl: integrationConfig.serverUrl,
+      authType: integrationConfig.authType,
+      defaultScopes: integrationConfig.scopes,
+    },
+    create: {
+      name: integrationConfig.name,
+      displayName: integrationConfig.displayName,
+      serverUrl: integrationConfig.serverUrl,
+      npmPackage: integrationConfig.npmPackage,
+      authType: integrationConfig.authType,
+      defaultScopes: integrationConfig.scopes,
+    },
+  });
+}

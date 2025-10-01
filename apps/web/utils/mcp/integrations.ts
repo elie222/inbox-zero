@@ -117,58 +117,79 @@ export const MCP_INTEGRATIONS: Record<string, McpIntegrationConfig> = {
     },
     comingSoon: true,
   },
-  clickup: {
-    name: "clickup",
-    displayName: "ClickUp",
-    serverUrl: "",
-    authType: "oauth",
-    scopes: [],
-    allowedTools: [],
-    oauthConfig: {
-      authorization_endpoint: "",
-      token_endpoint: "",
-    },
-    comingSoon: true,
-  },
-  airtable: {
-    name: "airtable",
-    displayName: "Airtable",
-    serverUrl: "",
-    authType: "oauth",
-    scopes: [],
-    allowedTools: [],
-    oauthConfig: {
-      authorization_endpoint: "",
-      token_endpoint: "",
-    },
-    comingSoon: true,
-  },
-  salesforce: {
-    name: "salesforce",
-    displayName: "Salesforce",
-    serverUrl: "",
-    authType: "oauth",
-    scopes: [],
-    allowedTools: [],
-    oauthConfig: {
-      authorization_endpoint: "",
-      token_endpoint: "",
-    },
-    comingSoon: true,
-  },
-  todoist: {
-    name: "todoist",
-    displayName: "Todoist",
-    serverUrl: "",
-    authType: "oauth",
-    scopes: [],
-    allowedTools: [],
-    oauthConfig: {
-      authorization_endpoint: "",
-      token_endpoint: "",
-    },
-    comingSoon: true,
-  },
+  // clickup: {
+  //   name: "clickup",
+  //   displayName: "ClickUp",
+  //   serverUrl: "",
+  //   authType: "oauth",
+  //   scopes: [],
+  //   allowedTools: [],
+  //   oauthConfig: {
+  //     authorization_endpoint: "",
+  //     token_endpoint: "",
+  //   },
+  //   comingSoon: true,
+  // },
+  // airtable: {
+  //   name: "airtable",
+  //   displayName: "Airtable",
+  //   serverUrl: "",
+  //   authType: "oauth",
+  //   scopes: [],
+  //   allowedTools: [],
+  //   oauthConfig: {
+  //     authorization_endpoint: "",
+  //     token_endpoint: "",
+  //   },
+  //   comingSoon: true,
+  // },
+  // salesforce: {
+  //   name: "salesforce",
+  //   displayName: "Salesforce",
+  //   serverUrl: "",
+  //   authType: "oauth",
+  //   scopes: [],
+  //   allowedTools: [],
+  //   oauthConfig: {
+  //     authorization_endpoint: "",
+  //     token_endpoint: "",
+  //   },
+  //   comingSoon: true,
+  // },
+  // todoist: {
+  //   name: "todoist",
+  //   displayName: "Todoist",
+  //   serverUrl: "",
+  //   authType: "oauth",
+  //   scopes: [],
+  //   allowedTools: [],
+  //   oauthConfig: {
+  //     authorization_endpoint: "",
+  //     token_endpoint: "",
+  //   },
+  //   comingSoon: true,
+  // },
 };
 
 export type IntegrationKey = keyof typeof MCP_INTEGRATIONS;
+
+/**
+ * Get static OAuth client credentials from environment variables (if available)
+ * This is used for integrations that have app-level OAuth credentials
+ */
+export function getStaticCredentials(integration: IntegrationKey) {
+  switch (integration) {
+    // case "hubspot":
+    //   return {
+    //     clientId: env.HUBSPOT_MCP_CLIENT_ID,
+    //     clientSecret: env.HUBSPOT_MCP_CLIENT_SECRET,
+    //   };
+    // case "monday":
+    //   return {
+    //     clientId: env.MONDAY_MCP_CLIENT_ID,
+    //     clientSecret: env.MONDAY_MCP_CLIENT_SECRET,
+    //   };
+    default:
+      return undefined;
+  }
+}

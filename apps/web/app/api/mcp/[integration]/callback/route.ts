@@ -6,12 +6,15 @@ import { withError } from "@/utils/middleware";
 import { SafeError } from "@/utils/error";
 import { parseOAuthState } from "@/utils/oauth/state";
 import { prefixPath } from "@/utils/path";
+import { getMcpOAuthCookieNames } from "@/utils/mcp/oauth-utils";
 import {
-  exchangeMcpCodeForTokens,
-  getMcpOAuthCookieNames,
-} from "@/utils/mcp/oauth-utils";
-import { MCP_INTEGRATIONS } from "@/utils/mcp/integrations";
+  getStaticCredentials,
+  type IntegrationKey,
+  MCP_INTEGRATIONS,
+} from "@/utils/mcp/integrations";
 import { syncMcpTools } from "@/utils/mcp/sync-tools";
+import { exchangeCodeForTokens, type TokenResponse } from "@inboxzero/mcp";
+import { credentialStorage } from "@/utils/mcp/storage-adapter";
 
 const logger = createScopedLogger("mcp/callback");
 
@@ -228,3 +231,24 @@ export const GET = withError(async (request: NextRequest, { params }) => {
     return NextResponse.redirect(redirectUrl, { headers: response.headers });
   }
 });
+
+async function exchangeMcpCodeForTokens(
+  integration: IntegrationKey,
+  code: string,
+  codeVerifier: string,
+  baseUrl: string,
+): Promise<TokenResponse> {
+  const integrationConfig = MCP_INTEGRATIONS[integration];
+  const redirectUri = `${baseUrl}/api/mcp/${integration}/callback`;
+
+  return await exchangeCodeForTokens(
+    integrationConfig,
+    code,
+    codeVerifier,
+    redirectUri,
+    credentialStorage,
+    logger,
+    getStaticCredentials(integration),
+    "Inbox Zero",
+  );
+}

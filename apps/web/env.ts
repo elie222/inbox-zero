@@ -27,14 +27,6 @@ export const env = createEnv({
     EMAIL_ENCRYPT_SECRET: z.string(),
     EMAIL_ENCRYPT_SALT: z.string(),
 
-    // MCP OAuth integrations
-    NOTION_MCP_CLIENT_ID: z.string().optional(),
-    NOTION_MCP_CLIENT_SECRET: z.string().optional(),
-    MONDAY_MCP_CLIENT_ID: z.string().optional(),
-    MONDAY_MCP_CLIENT_SECRET: z.string().optional(),
-    HUBSPOT_MCP_CLIENT_ID: z.string().optional(),
-    HUBSPOT_MCP_CLIENT_SECRET: z.string().optional(),
-
     DEFAULT_LLM_PROVIDER: z
       // custom is deprecated
       .enum([...llmProviderEnum.options, "custom"])

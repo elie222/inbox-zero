@@ -9,35 +9,10 @@ import { createMcpHeaders } from "@inboxzero/mcp";
 import {
   MCP_INTEGRATIONS,
   type IntegrationKey,
+  getStaticCredentials,
 } from "@/utils/mcp/integrations";
 import { credentialStorage } from "@/utils/mcp/storage-adapter";
-import { env } from "@/env";
 import { createScopedLogger, type Logger } from "@/utils/logger";
-
-/**
- * Get static OAuth client credentials from environment variables (if available)
- */
-function getStaticCredentials(integration: IntegrationKey) {
-  switch (integration) {
-    case "notion":
-      return {
-        clientId: env.NOTION_MCP_CLIENT_ID,
-        clientSecret: env.NOTION_MCP_CLIENT_SECRET,
-      };
-    case "hubspot":
-      return {
-        clientId: env.HUBSPOT_MCP_CLIENT_ID,
-        clientSecret: env.HUBSPOT_MCP_CLIENT_SECRET,
-      };
-    case "monday":
-      return {
-        clientId: env.MONDAY_MCP_CLIENT_ID,
-        clientSecret: env.MONDAY_MCP_CLIENT_SECRET,
-      };
-    default:
-      return undefined;
-  }
-}
 
 export type McpClientOptions = {
   integration: IntegrationKey;

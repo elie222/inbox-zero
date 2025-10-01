@@ -40,13 +40,6 @@ Create these routes in your Next.js app:
 8. User redirected back to your app (connected!)
 ```
 
-## Files
-
-- **auth-url-route.ts** - Generate OAuth authorization URL
-- **callback-route.ts** - Handle OAuth callback and token exchange
-- **storage.example.ts** - Prisma storage implementation
-- **integrations.ts** - Integration configurations
-
 ## Environment Variables
 
 ```env
@@ -73,11 +66,3 @@ async function handleConnect() {
   window.location.href = url;
 }
 ```
-
-## Security Notes
-
-1. **State parameter** - Prevents CSRF attacks
-2. **PKCE** - Secures public clients (no client secret needed)
-3. **HttpOnly cookies** - State and verifier not accessible via JavaScript
-4. **Short expiry** - Cookies expire in 10 minutes
-5. **User validation** - Verify the user owns the email account before storing tokens

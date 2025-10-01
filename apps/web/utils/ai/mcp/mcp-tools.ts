@@ -1,9 +1,13 @@
 import { experimental_createMCPClient } from "ai";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
-import type { IntegrationKey } from "@/utils/mcp/integrations";
+import {
+  getStaticCredentials,
+  MCP_INTEGRATIONS,
+} from "@/utils/mcp/integrations";
 import prisma from "@/utils/prisma";
 import { createScopedLogger, type Logger } from "@/utils/logger";
-import { refreshMcpAccessToken } from "@/utils/mcp/oauth-utils";
+import { credentialStorage } from "@/utils/mcp/storage-adapter";
+import { refreshAccessToken } from "@inboxzero/mcp";
 
 export async function createMcpToolsForAgent(emailAccountId: string) {
   const logger = createScopedLogger("ai-mcp-tools").with({ emailAccountId });
@@ -115,12 +119,15 @@ async function getValidAccessToken(
   const isExpired = connection.expiresAt && connection.expiresAt < now;
 
   if (isExpired && connection.refreshToken) {
-    const refreshedToken = await refreshMcpAccessToken(
-      connection.integration.name as IntegrationKey,
+    const integrationConfig = MCP_INTEGRATIONS[connection.integration.name];
+
+    const refreshedToken = await refreshAccessToken(
+      integrationConfig,
       connection.refreshToken,
+      credentialStorage,
+      getStaticCredentials(connection.integration.name),
     );
 
-    // Update the connection with new tokens
     await prisma.mcpConnection.update({
       where: { id: connection.id },
       data: {

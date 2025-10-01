@@ -79,7 +79,7 @@ export function McpAgentTest() {
             type="text"
             name="subject"
             label="Subject"
-            placeholder="john.smith@example.com"
+            placeholder="Question about your services"
             registerProps={register("subject")}
             error={errors.subject}
           />

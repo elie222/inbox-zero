@@ -2,8 +2,7 @@ import { createMcpClient } from "@/utils/mcp/client";
 import { MCP_INTEGRATIONS } from "@/utils/mcp/integrations";
 import prisma from "@/utils/prisma";
 import { createScopedLogger } from "@/utils/logger";
-
-const logger = createScopedLogger("mcp-tools-sync");
+import type { Prisma } from "@prisma/client";
 
 /**
  * Syncs tools from an MCP integration server to the database
@@ -15,17 +14,20 @@ export async function syncMcpTools(
   integration: string,
   emailAccountId: string,
 ) {
-  // Validate integration
   if (!MCP_INTEGRATIONS[integration]) {
     throw new Error(`Unknown integration: ${integration}`);
   }
 
+  const logger = createScopedLogger("mcp-tools-sync").with({
+    integration,
+    emailAccountId,
+  });
+
   const integrationConfig = MCP_INTEGRATIONS[integration];
 
-  logger.info("Syncing MCP tools", { integration, emailAccountId });
+  logger.info("Syncing MCP tools");
 
   try {
-    // Get the MCP connection
     const mcpConnection = await prisma.mcpConnection.findFirst({
       where: {
         emailAccountId,
@@ -55,16 +57,12 @@ export async function syncMcpTools(
       : allTools;
 
     logger.info("Fetched and filtered tools from MCP server", {
-      integration,
-      emailAccountId,
       totalToolsAvailable: allTools.length,
       allowedToolsCount: tools.length,
       allowedTools: allowedToolNames,
     });
 
-    // Store tools in database
-    const transactionOperations = [
-      // Update integration config to latest values
+    await prisma.$transaction([
       prisma.mcpIntegration.update({
         where: { id: mcpConnection.integrationId },
         data: {
@@ -74,42 +72,29 @@ export async function syncMcpTools(
           defaultScopes: integrationConfig.scopes,
         },
       }),
-
-      // Delete existing tools for this connection
       prisma.mcpTool.deleteMany({
         where: { connectionId: mcpConnection.id },
       }),
-
-      // Update the connection to mark tools as synced
+      ...(tools.length > 0
+        ? [
+            prisma.mcpTool.createMany({
+              data: tools.map((tool) => ({
+                connectionId: mcpConnection.id,
+                name: tool.name,
+                description: tool.description,
+                schema: tool.inputSchema as Prisma.InputJsonValue,
+                isEnabled: true,
+              })),
+            }),
+          ]
+        : []),
       prisma.mcpConnection.update({
         where: { id: mcpConnection.id },
         data: { updatedAt: new Date() },
       }),
-    ];
-
-    // Insert new tools if any exist
-    if (tools.length > 0) {
-      transactionOperations.splice(
-        2,
-        0, // Insert at index 2, before the connection update
-        prisma.mcpTool.createMany({
-          data: tools.map((tool) => ({
-            connectionId: mcpConnection.id,
-            name: tool.name,
-            title: tool.name, // Use name as title if not provided
-            description: tool.description,
-            schema: tool.inputSchema, // Store the JSON schema
-            isEnabled: true, // Enable all tools by default
-          })),
-        }),
-      );
-    }
-
-    await prisma.$transaction(transactionOperations);
+    ]);
 
     logger.info("Successfully synced MCP tools", {
-      integration,
-      emailAccountId,
       connectionId: mcpConnection.id,
       toolsStored: tools.length,
     });
@@ -123,11 +108,7 @@ export async function syncMcpTools(
       })),
     };
   } catch (error) {
-    logger.error("Failed to sync MCP tools", {
-      error,
-      integration,
-      emailAccountId,
-    });
+    logger.error("Failed to sync MCP tools", { error });
 
     throw new Error(
       `Failed to sync tools: ${error instanceof Error ? error.message : "Unknown error"}`,

@@ -9,6 +9,174 @@ import { generatePKCEPair } from "./pkce";
 import { noopLogger } from "./logger";
 
 /**
+ * Generate OAuth authorization URL with PKCE
+ */
+export async function generateAuthorizationUrl(
+  integration: McpIntegrationConfig,
+  redirectUri: string,
+  state: string,
+  storage: CredentialStorage,
+  logger: Logger = noopLogger,
+  staticCredentials?: { clientId?: string; clientSecret?: string },
+  clientName?: string,
+): Promise<{
+  url: string;
+  codeVerifier: string;
+}> {
+  if (!integration.oauthConfig) {
+    throw new Error(`OAuth not configured for integration ${integration.name}`);
+  }
+
+  const credentials = await getOrCreateClientCredentials(
+    integration,
+    redirectUri,
+    storage,
+    logger,
+    staticCredentials,
+    clientName,
+  );
+
+  const { codeVerifier, codeChallenge } = await generatePKCEPair();
+
+  const authUrl = new URL(integration.oauthConfig.authorization_endpoint);
+  authUrl.searchParams.set("response_type", "code");
+  authUrl.searchParams.set("client_id", credentials.clientId);
+  authUrl.searchParams.set("redirect_uri", redirectUri);
+  authUrl.searchParams.set("scope", integration.scopes.join(" "));
+  authUrl.searchParams.set("code_challenge", codeChallenge);
+  authUrl.searchParams.set("code_challenge_method", "S256");
+  authUrl.searchParams.set("state", state);
+
+  if (integration.serverUrl) {
+    authUrl.searchParams.set(
+      "resource",
+      getResourceOrigin(integration.serverUrl),
+    );
+  }
+
+  logger.debug?.("Generated authorization URL", {
+    integration: integration.name,
+    hasCodeVerifier: !!codeVerifier,
+  });
+
+  return {
+    url: authUrl.toString(),
+    codeVerifier,
+  };
+}
+
+/**
+ * Refresh an access token using a refresh token
+ */
+export async function refreshAccessToken(
+  integration: McpIntegrationConfig,
+  refreshToken: string,
+  storage: CredentialStorage,
+  logger: Logger = noopLogger,
+  staticCredentials?: { clientId?: string; clientSecret?: string },
+): Promise<TokenResponse> {
+  if (!integration.oauthConfig) {
+    throw new Error(`OAuth not configured for integration ${integration.name}`);
+  }
+
+  const storedCredentials = await storage.getClientCredentials(
+    integration.name,
+  );
+  const credentials = staticCredentials?.clientId
+    ? {
+        clientId: staticCredentials.clientId,
+        clientSecret: staticCredentials.clientSecret,
+        isDynamic: false,
+      }
+    : storedCredentials;
+
+  if (!credentials?.clientId) {
+    throw new Error(
+      `No client credentials available for ${integration.name}. Cannot refresh token.`,
+    );
+  }
+
+  const tokenRequestBody = new URLSearchParams({
+    grant_type: "refresh_token",
+    refresh_token: refreshToken,
+    client_id: credentials.clientId,
+  });
+
+  addOptionalTokenParams(tokenRequestBody, credentials, integration.serverUrl);
+
+  logger.debug?.("Refreshing access token", {
+    integration: integration.name,
+  });
+
+  const tokens = await fetchTokens(
+    integration.oauthConfig.token_endpoint,
+    tokenRequestBody,
+    integration.name,
+    logger,
+    "Token refresh failed",
+  );
+
+  logger.debug?.("Successfully refreshed access token", {
+    integration: integration.name,
+  });
+
+  return tokens;
+}
+
+/**
+ * Get or create client credentials for an integration
+ * Tries static credentials first, then checks storage, then performs dynamic registration
+ */
+export async function getOrCreateClientCredentials(
+  integration: McpIntegrationConfig,
+  redirectUri: string,
+  storage: CredentialStorage,
+  logger: Logger = noopLogger,
+  staticCredentials?: { clientId?: string; clientSecret?: string },
+  clientName?: string,
+): Promise<ClientCredentials> {
+  if (staticCredentials?.clientId) {
+    logger.debug?.("Using static client credentials", {
+      integration: integration.name,
+    });
+    return {
+      clientId: staticCredentials.clientId,
+      clientSecret: staticCredentials.clientSecret,
+      isDynamic: false,
+    };
+  }
+
+  const storedCredentials = await storage.getClientCredentials(
+    integration.name,
+  );
+  if (storedCredentials) {
+    logger.debug?.("Using stored client credentials", {
+      integration: integration.name,
+      isDynamic: storedCredentials.isDynamic,
+    });
+    return storedCredentials;
+  }
+
+  logger.debug?.(
+    "No client credentials found, performing dynamic registration",
+    {
+      integration: integration.name,
+    },
+  );
+
+  const credentials = await performDynamicClientRegistration(
+    integration,
+    redirectUri,
+    logger,
+    clientName,
+  );
+
+  await storage.storeClientCredentials(integration.name, credentials);
+
+  return credentials;
+}
+
+/**
  * Performs dynamic client registration according to RFC7591
  * https://datatracker.ietf.org/doc/html/rfc7591
  *
@@ -32,7 +200,6 @@ export async function performDynamicClientRegistration(
     registrationUrl: integration.oauthConfig.registration_endpoint,
   });
 
-  // Prepare registration request according to RFC7591
   const registrationRequest = {
     client_name: clientName || `MCP Client - ${integration.displayName}`,
     redirect_uris: [redirectUri],
@@ -78,123 +245,6 @@ export async function performDynamicClientRegistration(
 }
 
 /**
- * Get or create client credentials for an integration
- * Tries static credentials first, then checks storage, then performs dynamic registration
- */
-export async function getOrCreateClientCredentials(
-  integration: McpIntegrationConfig,
-  redirectUri: string,
-  storage: CredentialStorage,
-  logger: Logger = noopLogger,
-  staticCredentials?: { clientId?: string; clientSecret?: string },
-  clientName?: string,
-): Promise<ClientCredentials> {
-  // First, try static credentials from environment/config
-  if (staticCredentials?.clientId) {
-    logger.debug?.("Using static client credentials", {
-      integration: integration.name,
-    });
-    return {
-      clientId: staticCredentials.clientId,
-      clientSecret: staticCredentials.clientSecret,
-      isDynamic: false,
-    };
-  }
-
-  // Next, check if we have stored credentials (from previous dynamic registration)
-  const storedCredentials = await storage.getClientCredentials(
-    integration.name,
-  );
-  if (storedCredentials) {
-    logger.debug?.("Using stored client credentials", {
-      integration: integration.name,
-      isDynamic: storedCredentials.isDynamic,
-    });
-    return storedCredentials;
-  }
-
-  // No credentials available - perform dynamic registration
-  logger.debug?.(
-    "No client credentials found, performing dynamic registration",
-    {
-      integration: integration.name,
-    },
-  );
-
-  const credentials = await performDynamicClientRegistration(
-    integration,
-    redirectUri,
-    logger,
-    clientName,
-  );
-
-  // Store the dynamically registered credentials for future use
-  await storage.storeClientCredentials(integration.name, credentials);
-
-  return credentials;
-}
-
-/**
- * Generate OAuth authorization URL with PKCE
- */
-export async function generateAuthorizationUrl(
-  integration: McpIntegrationConfig,
-  redirectUri: string,
-  state: string,
-  storage: CredentialStorage,
-  logger: Logger = noopLogger,
-  staticCredentials?: { clientId?: string; clientSecret?: string },
-  clientName?: string,
-): Promise<{
-  url: string;
-  codeVerifier: string;
-}> {
-  if (!integration.oauthConfig) {
-    throw new Error(`OAuth not configured for integration ${integration.name}`);
-  }
-
-  // Get or create client credentials
-  const credentials = await getOrCreateClientCredentials(
-    integration,
-    redirectUri,
-    storage,
-    logger,
-    staticCredentials,
-    clientName,
-  );
-
-  // Generate PKCE pair
-  const { codeVerifier, codeChallenge } = await generatePKCEPair();
-
-  // Build authorization URL
-  const authUrl = new URL(integration.oauthConfig.authorization_endpoint);
-  authUrl.searchParams.set("response_type", "code");
-  authUrl.searchParams.set("client_id", credentials.clientId);
-  authUrl.searchParams.set("redirect_uri", redirectUri);
-  authUrl.searchParams.set("scope", integration.scopes.join(" "));
-  authUrl.searchParams.set("code_challenge", codeChallenge);
-  authUrl.searchParams.set("code_challenge_method", "S256");
-  authUrl.searchParams.set("state", state);
-
-  // Add resource parameter if server URL is available (MCP requirement)
-  if (integration.serverUrl) {
-    const resourceUrl = new URL(integration.serverUrl);
-    resourceUrl.pathname = ""; // Remove path, keep only origin
-    authUrl.searchParams.set("resource", resourceUrl.toString());
-  }
-
-  logger.debug?.("Generated authorization URL", {
-    integration: integration.name,
-    hasCodeVerifier: !!codeVerifier,
-  });
-
-  return {
-    url: authUrl.toString(),
-    codeVerifier,
-  };
-}
-
-/**
  * Exchange authorization code for access token
  */
 export async function exchangeCodeForTokens(
@@ -211,7 +261,6 @@ export async function exchangeCodeForTokens(
     throw new Error(`OAuth not configured for integration ${integration.name}`);
   }
 
-  // Get client credentials (should exist at this point)
   const credentials = await getOrCreateClientCredentials(
     integration,
     redirectUri,
@@ -229,41 +278,19 @@ export async function exchangeCodeForTokens(
     code_verifier: codeVerifier,
   });
 
-  // Add client secret if available (for confidential clients)
-  if (credentials.clientSecret) {
-    tokenRequestBody.set("client_secret", credentials.clientSecret);
-  }
-
-  // Add resource parameter if server URL is available (MCP requirement)
-  if (integration.serverUrl) {
-    const resourceUrl = new URL(integration.serverUrl);
-    resourceUrl.pathname = "";
-    tokenRequestBody.set("resource", resourceUrl.toString());
-  }
+  addOptionalTokenParams(tokenRequestBody, credentials, integration.serverUrl);
 
   logger.debug?.("Exchanging authorization code for tokens", {
     integration: integration.name,
   });
 
-  const response = await fetch(integration.oauthConfig.token_endpoint, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/x-www-form-urlencoded",
-    },
-    body: tokenRequestBody,
-  });
-
-  const tokens = await response.json();
-
-  if (!response.ok) {
-    logger.error?.("Token exchange failed", {
-      integration: integration.name,
-      error: tokens.error_description || tokens.error,
-    });
-    throw new Error(
-      `Token exchange failed: ${tokens.error_description || tokens.error}`,
-    );
-  }
+  const tokens = await fetchTokens(
+    integration.oauthConfig.token_endpoint,
+    tokenRequestBody,
+    integration.name,
+    logger,
+    "Token exchange failed",
+  );
 
   logger.debug?.("Successfully exchanged code for tokens", {
     integration: integration.name,
@@ -274,81 +301,61 @@ export async function exchangeCodeForTokens(
 }
 
 /**
- * Refresh an access token using a refresh token
+ * Get resource origin from server URL (MCP requirement)
+ * Removes the path, keeping only the origin
  */
-export async function refreshAccessToken(
-  integration: McpIntegrationConfig,
-  refreshToken: string,
-  storage: CredentialStorage,
-  logger: Logger = noopLogger,
-  staticCredentials?: { clientId?: string; clientSecret?: string },
-): Promise<TokenResponse> {
-  if (!integration.oauthConfig) {
-    throw new Error(`OAuth not configured for integration ${integration.name}`);
-  }
+function getResourceOrigin(serverUrl: string): string {
+  const resourceUrl = new URL(serverUrl);
+  resourceUrl.pathname = "";
+  return resourceUrl.toString();
+}
 
-  // Get client credentials
-  const storedCredentials = await storage.getClientCredentials(
-    integration.name,
-  );
-  const credentials = staticCredentials?.clientId
-    ? {
-        clientId: staticCredentials.clientId,
-        clientSecret: staticCredentials.clientSecret,
-        isDynamic: false,
-      }
-    : storedCredentials;
-
-  if (!credentials?.clientId) {
-    throw new Error(
-      `No client credentials available for ${integration.name}. Cannot refresh token.`,
-    );
-  }
-
-  const tokenRequestBody = new URLSearchParams({
-    grant_type: "refresh_token",
-    refresh_token: refreshToken,
-    client_id: credentials.clientId,
-  });
-
+/**
+ * Add optional parameters to token request body
+ */
+function addOptionalTokenParams(
+  body: URLSearchParams,
+  credentials: ClientCredentials,
+  serverUrl?: string,
+): void {
   if (credentials.clientSecret) {
-    tokenRequestBody.set("client_secret", credentials.clientSecret);
+    body.set("client_secret", credentials.clientSecret);
   }
 
-  // Add resource parameter if server URL is available (MCP requirement)
-  if (integration.serverUrl) {
-    const resourceUrl = new URL(integration.serverUrl);
-    resourceUrl.pathname = "";
-    tokenRequestBody.set("resource", resourceUrl.toString());
+  if (serverUrl) {
+    body.set("resource", getResourceOrigin(serverUrl));
   }
+}
 
-  logger.debug?.("Refreshing access token", {
-    integration: integration.name,
-  });
-
-  const response = await fetch(integration.oauthConfig.token_endpoint, {
+/**
+ * Fetch tokens from OAuth endpoint with error handling
+ */
+async function fetchTokens(
+  endpoint: string,
+  body: URLSearchParams,
+  integrationName: string,
+  logger: Logger,
+  errorMessage: string,
+): Promise<TokenResponse> {
+  const response = await fetch(endpoint, {
     method: "POST",
     headers: {
       "Content-Type": "application/x-www-form-urlencoded",
     },
-    body: tokenRequestBody,
+    body,
   });
 
   const tokens = await response.json();
 
   if (!response.ok) {
-    logger.error?.("Token refresh failed", {
-      integration: integration.name,
+    logger.error?.(errorMessage, {
+      integration: integrationName,
       error: tokens.error_description || tokens.error,
     });
     throw new Error(
-      `Token refresh failed: ${tokens.error_description || tokens.error}`,
+      `${errorMessage}: ${tokens.error_description || tokens.error}`,
     );
   }
-
-  logger.debug?.("Successfully refreshed access token", {
-    integration: integration.name,
-  });
 
   return tokens;
 }
