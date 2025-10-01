@@ -112,10 +112,14 @@ export async function mcpAgent(
 
   if (!messages || messages.length === 0) return null;
 
-  const mcpTools = await createMcpToolsForAgent(emailAccount.id);
-  const hasTools = Object.keys(mcpTools).length > 0;
+  const { tools, cleanup } = await createMcpToolsForAgent(emailAccount.id);
+  const hasTools = Object.keys(tools).length > 0;
 
   if (!hasTools) return null;
 
-  return await runMcpAgent(options, mcpTools as ToolSet);
+  try {
+    return await runMcpAgent(options, tools as ToolSet);
+  } finally {
+    await cleanup();
+  }
 }

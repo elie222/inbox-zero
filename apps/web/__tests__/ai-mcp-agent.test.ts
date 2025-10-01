@@ -282,9 +282,10 @@ The requested page "${id}" could not be found or you don't have access to it.`;
         const { createMcpToolsForAgent } = await import(
           "@/utils/ai/mcp/mcp-tools"
         );
-        vi.mocked(createMcpToolsForAgent).mockResolvedValue(
-          getMockHubSpotTools(),
-        );
+        vi.mocked(createMcpToolsForAgent).mockResolvedValue({
+          tools: getMockHubSpotTools(),
+          cleanup: async () => {},
+        });
 
         const result = await mcpAgent({
           emailAccount,
@@ -321,9 +322,10 @@ The requested page "${id}" could not be found or you don't have access to it.`;
         const { createMcpToolsForAgent } = await import(
           "@/utils/ai/mcp/mcp-tools"
         );
-        vi.mocked(createMcpToolsForAgent).mockResolvedValue(
-          getMockNotionTools(),
-        );
+        vi.mocked(createMcpToolsForAgent).mockResolvedValue({
+          tools: getMockNotionTools(),
+          cleanup: async () => {},
+        });
 
         const result = await mcpAgent({
           emailAccount,
@@ -364,8 +366,11 @@ The requested page "${id}" could not be found or you don't have access to it.`;
           "@/utils/ai/mcp/mcp-tools"
         );
         vi.mocked(createMcpToolsForAgent).mockResolvedValue({
-          ...getMockHubSpotTools(),
-          ...getMockNotionTools(),
+          tools: {
+            ...getMockHubSpotTools(),
+            ...getMockNotionTools(),
+          },
+          cleanup: async () => {},
         });
 
         const result = await mcpAgent({
@@ -404,7 +409,10 @@ The requested page "${id}" could not be found or you don't have access to it.`;
         const { createMcpToolsForAgent } = await import(
           "@/utils/ai/mcp/mcp-tools"
         );
-        vi.mocked(createMcpToolsForAgent).mockResolvedValue({});
+        vi.mocked(createMcpToolsForAgent).mockResolvedValue({
+          tools: {},
+          cleanup: async () => {},
+        });
 
         const result = await mcpAgent({
           emailAccount,

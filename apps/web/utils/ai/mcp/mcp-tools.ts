@@ -2,10 +2,19 @@ import { experimental_createMCPClient } from "ai";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import { getIntegration } from "@/utils/mcp/integrations";
 import prisma from "@/utils/prisma";
-import { createScopedLogger, type Logger } from "@/utils/logger";
+import { createScopedLogger } from "@/utils/logger";
 import { getValidAccessToken } from "@/utils/mcp/oauth";
 
-export async function createMcpToolsForAgent(emailAccountId: string) {
+type MCPClient = Awaited<ReturnType<typeof experimental_createMCPClient>>;
+
+export type MCPToolsResult = {
+  tools: Record<string, unknown>;
+  cleanup: () => Promise<void>;
+};
+
+export async function createMcpToolsForAgent(
+  emailAccountId: string,
+): Promise<MCPToolsResult> {
   const logger = createScopedLogger("ai-mcp-tools").with({ emailAccountId });
 
   try {
@@ -41,9 +50,15 @@ export async function createMcpToolsForAgent(emailAccountId: string) {
       },
     });
 
-    if (connections.length === 0) return {};
+    if (connections.length === 0) {
+      return {
+        tools: {},
+        cleanup: async () => {},
+      };
+    }
 
     const allTools: Record<string, unknown> = {};
+    const clients: MCPClient[] = [];
 
     // Create MCP client for each connection and get tools
     for (const connection of connections) {
@@ -96,6 +111,7 @@ export async function createMcpToolsForAgent(emailAccountId: string) {
         );
 
         const mcpClient = await experimental_createMCPClient({ transport });
+        clients.push(mcpClient);
 
         const mcpTools = await mcpClient.tools();
 
@@ -107,14 +123,10 @@ export async function createMcpToolsForAgent(emailAccountId: string) {
           ),
         );
 
-        // Merge tools with prefix to avoid conflicts
+        // Merge tools
         Object.entries(filteredTools).forEach(([toolName, toolDef]) => {
           allTools[toolName] = toolDef;
         });
-
-        // Store client for cleanup (we'll handle this in the calling function)
-        (allTools as Record<string, unknown>)[`_client_${integration.name}`] =
-          mcpClient;
       } catch (error) {
         logger.error("Failed to create MCP client for integration", {
           error: error instanceof Error ? error.message : String(error),
@@ -124,29 +136,25 @@ export async function createMcpToolsForAgent(emailAccountId: string) {
       }
     }
 
-    return allTools;
+    return {
+      tools: allTools,
+      cleanup: async () => {
+        await Promise.all(
+          clients.map(async (client) => {
+            try {
+              await client.close();
+            } catch (error) {
+              logger.warn("Error closing MCP client", { error });
+            }
+          }),
+        );
+      },
+    };
   } catch (error) {
     logger.error("Failed to create MCP tools for agent", { error });
-    return {};
+    return {
+      tools: {},
+      cleanup: async () => {},
+    };
   }
-}
-
-export async function cleanupMcpClients(
-  tools: Record<string, unknown>,
-  logger: Logger,
-) {
-  const clientEntries = Object.entries(tools).filter(([key]) =>
-    key.startsWith("_client_"),
-  );
-
-  await Promise.all(
-    clientEntries.map(async ([, client]) => {
-      try {
-        // biome-ignore lint/suspicious/noExplicitAny: MCP client type is complex
-        await (client as any).close();
-      } catch (error) {
-        logger.warn("Error closing MCP client", { error });
-      }
-    }),
-  );
 }
