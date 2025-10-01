@@ -13,6 +13,7 @@ import prisma from "@/utils/prisma";
 import { getIntegration } from "@/utils/mcp/integrations";
 import { syncMcpTools } from "@/utils/mcp/sync-tools";
 import { handleOAuthCallback } from "@/utils/mcp/oauth";
+import { env } from "@/env";
 
 const logger = createScopedLogger("mcp/callback");
 
@@ -41,15 +42,16 @@ export const GET = withError(async (request: NextRequest, { params }) => {
   const storedState = request.cookies.get(mcpStateCookieName)?.value;
   const storedCodeVerifier = request.cookies.get(mcpPkceCookieName)?.value;
 
+  const buildRedirectResponse = (target: URL) => {
+    const nextResponse = NextResponse.redirect(target);
+    nextResponse.cookies.delete(mcpStateCookieName);
+    nextResponse.cookies.delete(mcpPkceCookieName);
+    return nextResponse;
+  };
+
   // Default redirect - will be updated once we decode state
   let redirectUrl = new URL("/integrations", request.nextUrl.origin);
-  const response = NextResponse.redirect(redirectUrl);
 
-  // Clean up cookies
-  response.cookies.delete(mcpStateCookieName);
-  response.cookies.delete(mcpPkceCookieName);
-
-  // Handle OAuth errors
   if (error) {
     logger.warn("OAuth error in MCP callback", {
       integration,
@@ -60,13 +62,13 @@ export const GET = withError(async (request: NextRequest, { params }) => {
       "error",
       error === "access_denied" ? "cancelled" : "oauth_error",
     );
-    return NextResponse.redirect(redirectUrl, { headers: response.headers });
+    return buildRedirectResponse(redirectUrl);
   }
 
   if (!code) {
     logger.warn("Missing code in MCP callback", { integration });
     redirectUrl.searchParams.set("error", "missing_code");
-    return NextResponse.redirect(redirectUrl, { headers: response.headers });
+    return buildRedirectResponse(redirectUrl);
   }
 
   if (!storedState || !receivedState || storedState !== receivedState) {
@@ -76,16 +78,15 @@ export const GET = withError(async (request: NextRequest, { params }) => {
       hasStoredState: !!storedState,
     });
     redirectUrl.searchParams.set("error", "invalid_state");
-    return NextResponse.redirect(redirectUrl, { headers: response.headers });
+    return buildRedirectResponse(redirectUrl);
   }
 
   if (!storedCodeVerifier) {
     logger.warn("Missing PKCE verifier during MCP callback", { integration });
     redirectUrl.searchParams.set("error", "missing_pkce");
-    return NextResponse.redirect(redirectUrl, { headers: response.headers });
+    return buildRedirectResponse(redirectUrl);
   }
 
-  // Decode and validate state
   let decodedState: {
     userId: string;
     emailAccountId: string;
@@ -97,7 +98,7 @@ export const GET = withError(async (request: NextRequest, { params }) => {
   } catch (error) {
     logger.error("Failed to decode state", { error, integration });
     redirectUrl.searchParams.set("error", "invalid_state_format");
-    return NextResponse.redirect(redirectUrl, { headers: response.headers });
+    return buildRedirectResponse(redirectUrl);
   }
 
   const expectedStateType = getMcpOAuthStateType(integration);
@@ -108,7 +109,7 @@ export const GET = withError(async (request: NextRequest, { params }) => {
       actualType: decodedState.type,
     });
     redirectUrl.searchParams.set("error", "invalid_state_type");
-    return NextResponse.redirect(redirectUrl, { headers: response.headers });
+    return buildRedirectResponse(redirectUrl);
   }
 
   const { userId, emailAccountId } = decodedState;
@@ -119,7 +120,6 @@ export const GET = withError(async (request: NextRequest, { params }) => {
     request.nextUrl.origin,
   );
 
-  // Verify user owns this email account
   const emailAccount = await prisma.emailAccount.findFirst({
     where: {
       id: emailAccountId,
@@ -135,12 +135,12 @@ export const GET = withError(async (request: NextRequest, { params }) => {
       userId,
     });
     redirectUrl.searchParams.set("error", "forbidden");
-    return NextResponse.redirect(redirectUrl, { headers: response.headers });
+    return buildRedirectResponse(redirectUrl);
   }
 
   try {
     // Exchange authorization code for tokens and save to DB
-    const redirectUri = `${process.env.NEXT_PUBLIC_BASE_URL}/api/mcp/${integration}/callback`;
+    const redirectUri = `${env.NEXT_PUBLIC_BASE_URL}/api/mcp/${integration}/callback`;
 
     await handleOAuthCallback({
       integration,
@@ -156,7 +156,6 @@ export const GET = withError(async (request: NextRequest, { params }) => {
       emailAccountId,
     });
 
-    // Automatically sync tools after successful connection
     try {
       const syncResult = await syncMcpTools(integration, emailAccountId);
       logger.info("Auto-synced tools after connection", {
@@ -170,11 +169,10 @@ export const GET = withError(async (request: NextRequest, { params }) => {
         integration,
         emailAccountId,
       });
-      // Don't fail the connection if sync fails - user can retry manually
     }
 
     redirectUrl.searchParams.set("connected", integration);
-    return NextResponse.redirect(redirectUrl, { headers: response.headers });
+    return buildRedirectResponse(redirectUrl);
   } catch (error) {
     logger.error("Error during MCP token exchange", {
       error,
@@ -183,6 +181,6 @@ export const GET = withError(async (request: NextRequest, { params }) => {
       emailAccountId,
     });
     redirectUrl.searchParams.set("error", "connection_failed");
-    return NextResponse.redirect(redirectUrl, { headers: response.headers });
+    return buildRedirectResponse(redirectUrl);
   }
 });

@@ -46,7 +46,7 @@ export function createScopedLogger(scope: string) {
 
       const msg = `[${scope}]: ${message} ${formattedArgs}`;
 
-      if (process.env.NODE_ENV === "development") {
+      if (env.NODE_ENV === "development") {
         // Replace literal \n with actual newlines for development logs
         const formattedMsg = msg.replace(/\\n/g, "\n");
         return `${colors[level]}${formattedMsg}${colors.reset}`;
