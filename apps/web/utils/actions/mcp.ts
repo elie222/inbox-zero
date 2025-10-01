@@ -9,7 +9,7 @@ import {
 } from "@/utils/actions/mcp.validation";
 import prisma from "@/utils/prisma";
 import { createScopedLogger } from "@/utils/logger";
-import { MCP_INTEGRATIONS } from "@/utils/mcp/integrations";
+import { getIntegration } from "@/utils/mcp/integrations";
 import { SafeError } from "@/utils/error";
 import type { McpConnection } from "@prisma/client";
 import { syncMcpTools } from "@/utils/mcp/sync-tools";
@@ -36,7 +36,7 @@ export const connectMcpApiTokenAction = actionClient
       });
 
       // Validate integration exists and supports API tokens
-      const integrationConfig = MCP_INTEGRATIONS[integration];
+      const integrationConfig = getIntegration(integration);
       if (!integrationConfig) {
         throw new Error(`Integration '${integration}' not found`);
       }
@@ -56,11 +56,6 @@ export const connectMcpApiTokenAction = actionClient
         mcpIntegration = await prisma.mcpIntegration.create({
           data: {
             name: integrationConfig.name,
-            displayName: integrationConfig.displayName,
-            serverUrl: integrationConfig.serverUrl,
-            npmPackage: integrationConfig.npmPackage,
-            authType: integrationConfig.authType,
-            defaultScopes: integrationConfig.scopes,
           },
         });
       }
@@ -168,6 +163,8 @@ export const disconnectMcpConnectionAction = actionClient
         throw new SafeError("Connection not found");
       }
 
+      const integrationConfig = getIntegration(connection.integration.name);
+
       // Delete the connection (this will cascade delete associated tools)
       await prisma.mcpConnection.delete({
         where: { id: connectionId },
@@ -180,7 +177,7 @@ export const disconnectMcpConnectionAction = actionClient
 
       return {
         success: true,
-        message: `Successfully disconnected from ${connection.integration.displayName}`,
+        message: `Successfully disconnected from ${integrationConfig?.displayName || connection.integration.name}`,
       };
     },
   );
@@ -215,6 +212,8 @@ export const toggleMcpConnectionAction = actionClient
         throw new SafeError("Connection not found");
       }
 
+      const integrationConfig = getIntegration(connection.integration.name);
+
       // Update the connection status
       const updatedConnection = await prisma.mcpConnection.update({
         where: { id: connectionId },
@@ -230,7 +229,7 @@ export const toggleMcpConnectionAction = actionClient
       return {
         success: true,
         isActive: updatedConnection.isActive,
-        message: `${connection.integration.displayName} ${isActive ? "enabled" : "disabled"}`,
+        message: `${integrationConfig?.displayName || connection.integration.name} ${isActive ? "enabled" : "disabled"}`,
       };
     },
   );

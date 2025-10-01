@@ -1,5 +1,5 @@
 import { createMcpClient } from "@/utils/mcp/client";
-import { MCP_INTEGRATIONS } from "@/utils/mcp/integrations";
+import { getIntegration } from "@/utils/mcp/integrations";
 import prisma from "@/utils/prisma";
 import { createScopedLogger } from "@/utils/logger";
 import type { Prisma } from "@prisma/client";
@@ -14,7 +14,8 @@ export async function syncMcpTools(
   integration: string,
   emailAccountId: string,
 ) {
-  if (!MCP_INTEGRATIONS[integration]) {
+  const integrationConfig = getIntegration(integration);
+  if (!integrationConfig) {
     throw new Error(`Unknown integration: ${integration}`);
   }
 
@@ -22,8 +23,6 @@ export async function syncMcpTools(
     integration,
     emailAccountId,
   });
-
-  const integrationConfig = MCP_INTEGRATIONS[integration];
 
   logger.info("Syncing MCP tools");
 

@@ -201,7 +201,7 @@ export async function performDynamicClientRegistration(
   });
 
   const registrationRequest = {
-    client_name: clientName || `MCP Client - ${integration.displayName}`,
+    client_name: clientName || `MCP Client - ${integration.name}`,
     redirect_uris: [redirectUri],
     grant_types: ["authorization_code", "refresh_token"],
     response_types: ["code"],

@@ -21,20 +21,14 @@ export type OAuthConfig = {
 export type McpIntegrationConfig = {
   /** Unique identifier for the integration */
   name: string;
-  /** Human-readable display name */
-  displayName: string;
   /** MCP server URL */
   serverUrl?: string;
-  /** Optional: NPM package name for local MCP servers */
-  npmPackage?: string;
   /** Authentication type */
   authType: AuthType;
   /** OAuth scopes */
   scopes: string[];
   /** OAuth configuration (required if authType is 'oauth') */
   oauthConfig?: OAuthConfig;
-  /** Optional: List of allowed tool names */
-  allowedTools?: string[];
   /** Optional: Mark integration as coming soon */
   comingSoon?: boolean;
 };

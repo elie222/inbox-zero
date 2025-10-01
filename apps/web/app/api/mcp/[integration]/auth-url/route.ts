@@ -5,7 +5,7 @@ import { createScopedLogger } from "@/utils/logger";
 import { SafeError } from "@/utils/error";
 import { oauthStateCookieOptions } from "@/utils/oauth/state";
 import { getMcpOAuthCookieNames } from "@/utils/mcp/oauth-utils";
-import { MCP_INTEGRATIONS } from "@/utils/mcp/integrations";
+import { getIntegration } from "@/utils/mcp/integrations";
 import { generateAuthorizationUrl } from "@inboxzero/mcp";
 import {
   type IntegrationKey,
@@ -26,7 +26,7 @@ export const GET = withEmailAccount(async (request, { params }) => {
 
   const logger_with_context = logger.with({ userId, integration });
 
-  const integrationConfig = MCP_INTEGRATIONS[integration];
+  const integrationConfig = getIntegration(integration);
 
   if (!integrationConfig) {
     throw new SafeError(`Integration ${integration} not found`);
@@ -82,7 +82,7 @@ async function generateMcpAuthUrl(
   state: string;
   codeVerifier: string;
 }> {
-  const integrationConfig = MCP_INTEGRATIONS[integration];
+  const integrationConfig = getIntegration(integration);
   const redirectUri = `${baseUrl}/api/mcp/${integration}/callback`;
 
   await ensureIntegrationExists(integration);
@@ -111,23 +111,13 @@ async function generateMcpAuthUrl(
 }
 
 async function ensureIntegrationExists(integration: IntegrationKey) {
-  const integrationConfig = MCP_INTEGRATIONS[integration];
+  const integrationConfig = getIntegration(integration);
 
   await prisma.mcpIntegration.upsert({
     where: { name: integration },
-    update: {
-      displayName: integrationConfig.displayName,
-      serverUrl: integrationConfig.serverUrl,
-      authType: integrationConfig.authType,
-      defaultScopes: integrationConfig.scopes,
-    },
+    update: {}, // No static fields to update - they're in code
     create: {
       name: integrationConfig.name,
-      displayName: integrationConfig.displayName,
-      serverUrl: integrationConfig.serverUrl,
-      npmPackage: integrationConfig.npmPackage,
-      authType: integrationConfig.authType,
-      defaultScopes: integrationConfig.scopes,
     },
   });
 }

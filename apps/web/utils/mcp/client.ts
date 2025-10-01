@@ -7,9 +7,9 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import { createMcpHeaders } from "@inboxzero/mcp";
 import {
-  MCP_INTEGRATIONS,
   type IntegrationKey,
   getStaticCredentials,
+  getIntegration,
 } from "@/utils/mcp/integrations";
 import { credentialStorage } from "@/utils/mcp/storage-adapter";
 import { createScopedLogger, type Logger } from "@/utils/logger";
@@ -47,7 +47,7 @@ export class McpClient {
       return; // Already connected
     }
 
-    const integrationConfig = MCP_INTEGRATIONS[this.integration];
+    const integrationConfig = getIntegration(this.integration);
 
     if (!integrationConfig.serverUrl) {
       throw new Error(`No server URL for integration: ${this.integration}`);

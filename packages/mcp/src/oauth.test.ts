@@ -14,7 +14,6 @@ import type {
 
 const mockIntegration: McpIntegrationConfig = {
   name: "test",
-  displayName: "Test Integration",
   serverUrl: "https://mcp.test.com",
   authType: "oauth",
   scopes: ["read", "write"],

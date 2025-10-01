@@ -11,15 +11,13 @@ import {
   TableHead,
 } from "@/components/ui/table";
 import { useIntegrations } from "@/hooks/useIntegrations";
-import { useMcpConnections } from "@/hooks/useMcpConnections";
 import { IntegrationRow } from "@/app/(app)/[emailAccountId]/integrations/IntegrationRow";
 import { Card } from "@/components/ui/card";
 
 export function Integrations() {
-  const { data, isLoading, error } = useIntegrations();
-  const { data: connectionsData, mutate } = useMcpConnections();
+  const { data, isLoading, error, mutate } = useIntegrations();
 
-  const integrationsList = Object.entries(data?.integrations || {});
+  const integrations = data?.integrations || [];
 
   return (
     <Card>
@@ -35,12 +33,11 @@ export function Integrations() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {integrationsList.length ? (
-              integrationsList.map(([, integration]) => (
+            {integrations.length ? (
+              integrations.map((integration) => (
                 <IntegrationRow
                   key={integration.name}
                   integration={integration}
-                  connections={connectionsData?.connections || []}
                   onConnectionChange={mutate}
                 />
               ))

@@ -1,9 +1,6 @@
 import { experimental_createMCPClient } from "ai";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
-import {
-  getStaticCredentials,
-  MCP_INTEGRATIONS,
-} from "@/utils/mcp/integrations";
+import { getIntegration, getStaticCredentials } from "@/utils/mcp/integrations";
 import prisma from "@/utils/prisma";
 import { createScopedLogger, type Logger } from "@/utils/logger";
 import { credentialStorage } from "@/utils/mcp/storage-adapter";
@@ -38,8 +35,19 @@ export async function createMcpToolsForAgent(emailAccountId: string) {
     // Create MCP client for each connection and get tools
     for (const connection of connections) {
       const integration = connection.integration;
+      const integrationConfig = getIntegration(integration.name);
 
-      if (integration.authType !== "oauth" || !integration.serverUrl) {
+      if (!integrationConfig) {
+        logger.warn("Integration config not found", {
+          integration: integration.name,
+        });
+        continue;
+      }
+
+      if (
+        integrationConfig.authType !== "oauth" ||
+        !integrationConfig.serverUrl
+      ) {
         logger.warn("Skipping non-OAuth or missing serverUrl integration", {
           integration: integration.name,
         });
@@ -49,8 +57,18 @@ export async function createMcpToolsForAgent(emailAccountId: string) {
       try {
         const accessToken = await getValidAccessToken(connection);
 
+        // Use registered server URL if available, otherwise fall back to config
+        const serverUrl =
+          integration.registeredServerUrl ?? integrationConfig.serverUrl;
+        if (!serverUrl) {
+          logger.warn("No server URL available", {
+            integration: integration.name,
+          });
+          continue;
+        }
+
         const transport = new StreamableHTTPClientTransport(
-          new URL(integration.serverUrl),
+          new URL(serverUrl),
           {
             requestInit: {
               headers: {
@@ -119,7 +137,7 @@ async function getValidAccessToken(
   const isExpired = connection.expiresAt && connection.expiresAt < now;
 
   if (isExpired && connection.refreshToken) {
-    const integrationConfig = MCP_INTEGRATIONS[connection.integration.name];
+    const integrationConfig = getIntegration(connection.integration.name);
 
     const refreshedToken = await refreshAccessToken(
       integrationConfig,

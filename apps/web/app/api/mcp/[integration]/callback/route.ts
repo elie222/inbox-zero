@@ -8,9 +8,9 @@ import { parseOAuthState } from "@/utils/oauth/state";
 import { prefixPath } from "@/utils/path";
 import { getMcpOAuthCookieNames } from "@/utils/mcp/oauth-utils";
 import {
+  getIntegration,
   getStaticCredentials,
   type IntegrationKey,
-  MCP_INTEGRATIONS,
 } from "@/utils/mcp/integrations";
 import { syncMcpTools } from "@/utils/mcp/sync-tools";
 import { exchangeCodeForTokens, type TokenResponse } from "@inboxzero/mcp";
@@ -21,7 +21,7 @@ const logger = createScopedLogger("mcp/callback");
 export const GET = withError(async (request: NextRequest, { params }) => {
   const { integration } = await params;
 
-  const integrationConfig = MCP_INTEGRATIONS[integration];
+  const integrationConfig = getIntegration(integration);
 
   if (!integrationConfig) {
     throw new SafeError(`Integration ${integration} not found`);
@@ -238,7 +238,7 @@ async function exchangeMcpCodeForTokens(
   codeVerifier: string,
   baseUrl: string,
 ): Promise<TokenResponse> {
-  const integrationConfig = MCP_INTEGRATIONS[integration];
+  const integrationConfig = getIntegration(integration);
   const redirectUri = `${baseUrl}/api/mcp/${integration}/callback`;
 
   return await exchangeCodeForTokens(

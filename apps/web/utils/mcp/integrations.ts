@@ -1,6 +1,13 @@
 import type { McpIntegrationConfig } from "@inboxzero/mcp";
 
-export const MCP_INTEGRATIONS: Record<string, McpIntegrationConfig> = {
+export const MCP_INTEGRATIONS: Record<
+  string,
+  McpIntegrationConfig & {
+    displayName: string;
+    allowedTools?: string[];
+    comingSoon?: boolean;
+  }
+> = {
   notion: {
     name: "notion",
     displayName: "Notion",
@@ -172,6 +179,10 @@ export const MCP_INTEGRATIONS: Record<string, McpIntegrationConfig> = {
 };
 
 export type IntegrationKey = keyof typeof MCP_INTEGRATIONS;
+
+export function getIntegration(name: string) {
+  return MCP_INTEGRATIONS[name];
+}
 
 /**
  * Get static OAuth client credentials from environment variables (if available)

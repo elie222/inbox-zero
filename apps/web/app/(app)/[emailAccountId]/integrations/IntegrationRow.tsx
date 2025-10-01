@@ -1,9 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import type { GetMcpRegistryResponse } from "@/app/api/mcp/registry/route";
+import type { GetIntegrationsResponse } from "@/app/api/mcp/integrations/route";
 import type { GetMcpAuthUrlResponse } from "@/app/api/mcp/[integration]/auth-url/route";
-import type { GetMcpConnectionsResponse } from "@/app/api/mcp/connections/route";
 import { Toggle } from "@/components/Toggle";
 import { TypographyP } from "@/components/Typography";
 import { Button } from "@/components/ui/button";
@@ -27,24 +26,19 @@ import { fetchWithAccount } from "@/utils/fetch";
 import { RequestAccessDialog } from "./RequestAccessDialog";
 
 interface IntegrationRowProps {
-  integration: GetMcpRegistryResponse["integrations"][string];
-  connections: GetMcpConnectionsResponse["connections"];
+  integration: GetIntegrationsResponse["integrations"][number];
   onConnectionChange: () => void;
 }
 
 export function IntegrationRow({
   integration,
-  connections,
   onConnectionChange,
 }: IntegrationRowProps) {
   const { emailAccountId } = useAccount();
   const [disconnecting, setDisconnecting] = useState(false);
   const [expandedTools, setExpandedTools] = useState(false);
 
-  // Find connection regardless of isActive status
-  const connection = connections.find(
-    (c) => c.integration.name === integration.name,
-  );
+  const connection = integration.connection;
 
   const connectionStatus = {
     connected: !!connection,
@@ -278,23 +272,24 @@ export function IntegrationRow({
         </TableCell>
       </TableRow>
 
-      {expandedTools && connectionStatus.tools.length > 0 && (
-        <ToolsList
-          tools={connectionStatus.tools}
-          onToggleTool={handleToggleTool}
-        />
-      )}
+      {expandedTools &&
+        connection?.tools?.length &&
+        connection.tools.length > 0 && (
+          <ToolsList connection={connection} onToggleTool={handleToggleTool} />
+        )}
     </>
   );
 }
 
 interface ToolsListProps {
-  tools: GetMcpConnectionsResponse["connections"][number]["tools"];
+  connection: GetIntegrationsResponse["integrations"][number]["connection"];
   onToggleTool: (toolId: string, isEnabled: boolean) => void;
 }
 
-function ToolsList({ tools, onToggleTool }: ToolsListProps) {
-  const sortedTools = [...tools].sort((a, b) => a.name.localeCompare(b.name));
+function ToolsList({ connection, onToggleTool }: ToolsListProps) {
+  const sortedTools = [...(connection?.tools || [])].sort((a, b) =>
+    a.name.localeCompare(b.name),
+  );
 
   return (
     <TableRow>

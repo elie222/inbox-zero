@@ -1,6 +1,6 @@
 import useSWR from "swr";
-import type { GetMcpRegistryResponse } from "@/app/api/mcp/registry/route";
+import type { GetIntegrationsResponse } from "@/app/api/mcp/integrations/route";
 
 export function useIntegrations() {
-  return useSWR<GetMcpRegistryResponse>("/api/mcp/registry");
+  return useSWR<GetIntegrationsResponse>("/api/mcp/integrations");
 }

@@ -7,7 +7,6 @@ import type { McpIntegrationConfig } from "../src/types";
 export const EXAMPLE_INTEGRATIONS: Record<string, McpIntegrationConfig> = {
   notion: {
     name: "notion",
-    displayName: "Notion",
     serverUrl: "https://mcp.notion.com/mcp",
     authType: "oauth",
     scopes: ["read"],
@@ -20,7 +19,6 @@ export const EXAMPLE_INTEGRATIONS: Record<string, McpIntegrationConfig> = {
 
   stripe: {
     name: "stripe",
-    displayName: "Stripe",
     serverUrl: "https://mcp.stripe.com",
     authType: "oauth",
     scopes: [],
@@ -35,7 +33,6 @@ export const EXAMPLE_INTEGRATIONS: Record<string, McpIntegrationConfig> = {
 
   monday: {
     name: "monday",
-    displayName: "Monday.com",
     serverUrl: "https://mcp.monday.com",
     authType: "oauth",
     scopes: ["read", "write"],
@@ -48,7 +45,6 @@ export const EXAMPLE_INTEGRATIONS: Record<string, McpIntegrationConfig> = {
 
   hubspot: {
     name: "hubspot",
-    displayName: "HubSpot",
     serverUrl: "https://mcp.hubspot.com/",
     authType: "oauth",
     scopes: ["crm.objects.contacts.read", "crm.objects.companies.read"],
