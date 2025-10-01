@@ -71,7 +71,7 @@ export async function syncMcpTools(
           displayName: integrationConfig.displayName,
           serverUrl: integrationConfig.serverUrl || "",
           authType: integrationConfig.authType,
-          defaultScopes: integrationConfig.defaultScopes,
+          defaultScopes: integrationConfig.scopes,
         },
       }),
 

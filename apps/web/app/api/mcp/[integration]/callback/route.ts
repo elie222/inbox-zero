@@ -157,7 +157,7 @@ export const GET = withError(async (request: NextRequest, { params }) => {
         displayName: integrationConfig.displayName,
         serverUrl: integrationConfig.serverUrl || "",
         authType: integrationConfig.authType,
-        defaultScopes: integrationConfig.defaultScopes,
+        defaultScopes: integrationConfig.scopes,
         isActive: true,
       },
     });
@@ -184,7 +184,7 @@ export const GET = withError(async (request: NextRequest, { params }) => {
         accessToken: tokens.access_token,
         refreshToken: tokens.refresh_token,
         expiresAt,
-        approvedScopes: integrationConfig.defaultScopes,
+        approvedScopes: integrationConfig.scopes,
         approvedTools: [],
         isActive: true,
       },

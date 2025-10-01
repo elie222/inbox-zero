@@ -60,7 +60,7 @@ export const connectMcpApiTokenAction = actionClient
             serverUrl: integrationConfig.serverUrl,
             npmPackage: integrationConfig.npmPackage,
             authType: integrationConfig.authType,
-            defaultScopes: integrationConfig.defaultScopes,
+            defaultScopes: integrationConfig.scopes,
           },
         });
       }
@@ -84,7 +84,7 @@ export const connectMcpApiTokenAction = actionClient
             name,
             apiKey, // This will be encrypted by Prisma extension
             isActive: true,
-            approvedScopes: integrationConfig.defaultScopes,
+            approvedScopes: integrationConfig.scopes,
             approvedTools: integrationConfig.allowedTools || [],
           },
         });
@@ -101,7 +101,7 @@ export const connectMcpApiTokenAction = actionClient
             emailAccountId,
             apiKey, // This will be encrypted by Prisma extension
             isActive: true,
-            approvedScopes: integrationConfig.defaultScopes,
+            approvedScopes: integrationConfig.scopes,
             approvedTools: integrationConfig.allowedTools || [],
           },
         });

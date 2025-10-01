@@ -17,7 +17,7 @@ const mockIntegration: McpIntegrationConfig = {
   displayName: "Test Integration",
   serverUrl: "https://mcp.test.com",
   authType: "oauth",
-  defaultScopes: ["read", "write"],
+  scopes: ["read", "write"],
   oauthConfig: {
     authorization_endpoint: "https://auth.test.com/authorize",
     token_endpoint: "https://auth.test.com/token",

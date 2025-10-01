@@ -6,7 +6,7 @@ export const MCP_INTEGRATIONS: Record<string, McpIntegrationConfig> = {
     displayName: "Notion",
     serverUrl: "https://mcp.notion.com/mcp",
     authType: "oauth",
-    defaultScopes: ["read"],
+    scopes: ["read"],
     allowedTools: ["notion-search", "notion-fetch"],
     oauthConfig: {
       authorization_endpoint: "https://mcp.notion.com/authorize",
@@ -20,7 +20,7 @@ export const MCP_INTEGRATIONS: Record<string, McpIntegrationConfig> = {
     serverUrl: "https://mcp.stripe.com",
     authType: "oauth", // must request whitelisting of /api/mcp/stripe/callback from Stripe. localhost is whitelisted already.
     // authType: "api-token", // alternatively, use an API token.
-    defaultScopes: [],
+    scopes: [],
     allowedTools: [
       "list_customers",
       "list_disputes",
@@ -44,7 +44,7 @@ export const MCP_INTEGRATIONS: Record<string, McpIntegrationConfig> = {
     displayName: "Monday.com",
     serverUrl: "https://mcp.monday.com",
     authType: "oauth",
-    defaultScopes: ["read", "write"],
+    scopes: ["read", "write"],
     allowedTools: [
       "get_board_items_by_name",
       // "create_item",
@@ -88,7 +88,7 @@ export const MCP_INTEGRATIONS: Record<string, McpIntegrationConfig> = {
     displayName: "HubSpot",
     serverUrl: "https://mcp.hubspot.com/",
     authType: "oauth",
-    defaultScopes: [
+    scopes: [
       // "crm.objects.contacts.read",
       // "crm.objects.companies.read",
       // "crm.objects.deals.read",
@@ -122,7 +122,7 @@ export const MCP_INTEGRATIONS: Record<string, McpIntegrationConfig> = {
     displayName: "ClickUp",
     serverUrl: "",
     authType: "oauth",
-    defaultScopes: [],
+    scopes: [],
     allowedTools: [],
     oauthConfig: {
       authorization_endpoint: "",
@@ -135,7 +135,7 @@ export const MCP_INTEGRATIONS: Record<string, McpIntegrationConfig> = {
     displayName: "Airtable",
     serverUrl: "",
     authType: "oauth",
-    defaultScopes: [],
+    scopes: [],
     allowedTools: [],
     oauthConfig: {
       authorization_endpoint: "",
@@ -148,7 +148,7 @@ export const MCP_INTEGRATIONS: Record<string, McpIntegrationConfig> = {
     displayName: "Salesforce",
     serverUrl: "",
     authType: "oauth",
-    defaultScopes: [],
+    scopes: [],
     allowedTools: [],
     oauthConfig: {
       authorization_endpoint: "",
@@ -161,7 +161,7 @@ export const MCP_INTEGRATIONS: Record<string, McpIntegrationConfig> = {
     displayName: "Todoist",
     serverUrl: "",
     authType: "oauth",
-    defaultScopes: [],
+    scopes: [],
     allowedTools: [],
     oauthConfig: {
       authorization_endpoint: "",

@@ -10,7 +10,7 @@ export const EXAMPLE_INTEGRATIONS: Record<string, McpIntegrationConfig> = {
     displayName: "Notion",
     serverUrl: "https://mcp.notion.com/mcp",
     authType: "oauth",
-    defaultScopes: ["read"],
+    scopes: ["read"],
     oauthConfig: {
       authorization_endpoint: "https://mcp.notion.com/authorize",
       token_endpoint: "https://mcp.notion.com/token",
@@ -23,7 +23,7 @@ export const EXAMPLE_INTEGRATIONS: Record<string, McpIntegrationConfig> = {
     displayName: "Stripe",
     serverUrl: "https://mcp.stripe.com",
     authType: "oauth",
-    defaultScopes: [],
+    scopes: [],
     oauthConfig: {
       authorization_endpoint:
         "https://marketplace.stripe.com/oauth/v2/authorize",
@@ -38,7 +38,7 @@ export const EXAMPLE_INTEGRATIONS: Record<string, McpIntegrationConfig> = {
     displayName: "Monday.com",
     serverUrl: "https://mcp.monday.com",
     authType: "oauth",
-    defaultScopes: ["read", "write"],
+    scopes: ["read", "write"],
     oauthConfig: {
       authorization_endpoint: "https://mcp.monday.com/authorize",
       token_endpoint: "https://mcp.monday.com/token",
@@ -51,7 +51,7 @@ export const EXAMPLE_INTEGRATIONS: Record<string, McpIntegrationConfig> = {
     displayName: "HubSpot",
     serverUrl: "https://mcp.hubspot.com/",
     authType: "oauth",
-    defaultScopes: ["crm.objects.contacts.read", "crm.objects.companies.read"],
+    scopes: ["crm.objects.contacts.read", "crm.objects.companies.read"],
     oauthConfig: {
       authorization_endpoint: "https://mcp.hubspot.com/oauth/authorize/user",
       token_endpoint: "https://mcp.hubspot.com/oauth/v1/token",

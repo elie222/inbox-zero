@@ -397,7 +397,7 @@ The requested page "${id}" could not be found or you don't have access to it.`;
         // Should use multiple types of tools for comprehensive research
         const hasHubSpot = toolNames.some((name) => name.includes("hubspot"));
         const hasNotion = toolNames.some((name) => name.includes("notion"));
-        expect(hasHubSpot || hasNotion).toBe(true);
+        expect(hasHubSpot && hasNotion).toBe(true);
       },
       TIMEOUT,
     );

@@ -29,8 +29,8 @@ export type McpIntegrationConfig = {
   npmPackage?: string;
   /** Authentication type */
   authType: AuthType;
-  /** Default OAuth scopes */
-  defaultScopes: string[];
+  /** OAuth scopes */
+  scopes: string[];
   /** OAuth configuration (required if authType is 'oauth') */
   oauthConfig?: OAuthConfig;
   /** Optional: List of allowed tool names */

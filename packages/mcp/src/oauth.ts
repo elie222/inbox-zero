@@ -19,6 +19,7 @@ export async function performDynamicClientRegistration(
   integration: McpIntegrationConfig,
   redirectUri: string,
   logger: Logger = noopLogger,
+  clientName?: string,
 ): Promise<ClientCredentials> {
   if (!integration.oauthConfig?.registration_endpoint) {
     throw new Error(
@@ -26,20 +27,20 @@ export async function performDynamicClientRegistration(
     );
   }
 
-  logger.info?.("Performing dynamic client registration", {
+  logger.debug?.("Performing dynamic client registration", {
     integration: integration.name,
     registrationUrl: integration.oauthConfig.registration_endpoint,
   });
 
   // Prepare registration request according to RFC7591
   const registrationRequest = {
-    client_name: `MCP Client - ${integration.displayName}`,
+    client_name: clientName || `MCP Client - ${integration.displayName}`,
     redirect_uris: [redirectUri],
     grant_types: ["authorization_code", "refresh_token"],
     response_types: ["code"],
     token_endpoint_auth_method: "none", // Public client (PKCE provides security)
     application_type: "web",
-    scope: integration.defaultScopes.join(" "),
+    scope: integration.scopes.join(" "),
   };
 
   const response = await fetch(integration.oauthConfig.registration_endpoint, {
@@ -64,7 +65,7 @@ export async function performDynamicClientRegistration(
 
   const registrationResponse = await response.json();
 
-  logger.info?.("Dynamic client registration successful", {
+  logger.debug?.("Dynamic client registration successful", {
     integration: integration.name,
     clientId: registrationResponse.client_id,
   });
@@ -86,6 +87,7 @@ export async function getOrCreateClientCredentials(
   storage: CredentialStorage,
   logger: Logger = noopLogger,
   staticCredentials?: { clientId?: string; clientSecret?: string },
+  clientName?: string,
 ): Promise<ClientCredentials> {
   // First, try static credentials from environment/config
   if (staticCredentials?.clientId) {
@@ -112,7 +114,7 @@ export async function getOrCreateClientCredentials(
   }
 
   // No credentials available - perform dynamic registration
-  logger.info?.(
+  logger.debug?.(
     "No client credentials found, performing dynamic registration",
     {
       integration: integration.name,
@@ -123,6 +125,7 @@ export async function getOrCreateClientCredentials(
     integration,
     redirectUri,
     logger,
+    clientName,
   );
 
   // Store the dynamically registered credentials for future use
@@ -141,6 +144,7 @@ export async function generateAuthorizationUrl(
   storage: CredentialStorage,
   logger: Logger = noopLogger,
   staticCredentials?: { clientId?: string; clientSecret?: string },
+  clientName?: string,
 ): Promise<{
   url: string;
   codeVerifier: string;
@@ -156,6 +160,7 @@ export async function generateAuthorizationUrl(
     storage,
     logger,
     staticCredentials,
+    clientName,
   );
 
   // Generate PKCE pair
@@ -166,7 +171,7 @@ export async function generateAuthorizationUrl(
   authUrl.searchParams.set("response_type", "code");
   authUrl.searchParams.set("client_id", credentials.clientId);
   authUrl.searchParams.set("redirect_uri", redirectUri);
-  authUrl.searchParams.set("scope", integration.defaultScopes.join(" "));
+  authUrl.searchParams.set("scope", integration.scopes.join(" "));
   authUrl.searchParams.set("code_challenge", codeChallenge);
   authUrl.searchParams.set("code_challenge_method", "S256");
   authUrl.searchParams.set("state", state);
@@ -200,6 +205,7 @@ export async function exchangeCodeForTokens(
   storage: CredentialStorage,
   logger: Logger = noopLogger,
   staticCredentials?: { clientId?: string; clientSecret?: string },
+  clientName?: string,
 ): Promise<TokenResponse> {
   if (!integration.oauthConfig) {
     throw new Error(`OAuth not configured for integration ${integration.name}`);
@@ -212,6 +218,7 @@ export async function exchangeCodeForTokens(
     storage,
     logger,
     staticCredentials,
+    clientName,
   );
 
   const tokenRequestBody = new URLSearchParams({
@@ -258,7 +265,7 @@ export async function exchangeCodeForTokens(
     );
   }
 
-  logger.info?.("Successfully exchanged code for tokens", {
+  logger.debug?.("Successfully exchanged code for tokens", {
     integration: integration.name,
     hasRefreshToken: !!tokens.refresh_token,
   });
@@ -339,7 +346,7 @@ export async function refreshAccessToken(
     );
   }
 
-  logger.info?.("Successfully refreshed access token", {
+  logger.debug?.("Successfully refreshed access token", {
     integration: integration.name,
   });
 

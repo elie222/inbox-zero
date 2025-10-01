@@ -26,7 +26,7 @@ const MCP_INTEGRATIONS: Record<string, McpIntegrationConfig> = {
     displayName: "Notion",
     serverUrl: "https://mcp.notion.com/mcp",
     authType: "oauth",
-    defaultScopes: ["read"],
+    scopes: ["read"],
     oauthConfig: {
       authorization_endpoint: "https://mcp.notion.com/authorize",
       token_endpoint: "https://mcp.notion.com/token",

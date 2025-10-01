@@ -46,7 +46,7 @@ const notion: McpIntegrationConfig = {
   displayName: 'Notion',
   serverUrl: 'https://mcp.notion.com/mcp',
   authType: 'oauth',
-  defaultScopes: ['read'],
+  scopes: ['read'],
   oauthConfig: {
     authorization_endpoint: 'https://mcp.notion.com/authorize',
     token_endpoint: 'https://mcp.notion.com/token',
@@ -246,7 +246,7 @@ type McpIntegrationConfig = {
   displayName: string;
   serverUrl?: string;
   authType: 'oauth' | 'api-token';
-  defaultScopes: string[];
+  scopes: string[];
   oauthConfig?: {
     authorization_endpoint: string;
     token_endpoint: string;

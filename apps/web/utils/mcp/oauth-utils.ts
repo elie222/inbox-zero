@@ -58,7 +58,7 @@ async function ensureIntegrationExists(integration: IntegrationKey) {
       displayName: integrationConfig.displayName,
       serverUrl: integrationConfig.serverUrl,
       authType: integrationConfig.authType,
-      defaultScopes: integrationConfig.defaultScopes,
+      defaultScopes: integrationConfig.scopes,
     },
     create: {
       name: integrationConfig.name,
@@ -66,7 +66,7 @@ async function ensureIntegrationExists(integration: IntegrationKey) {
       serverUrl: integrationConfig.serverUrl,
       npmPackage: integrationConfig.npmPackage,
       authType: integrationConfig.authType,
-      defaultScopes: integrationConfig.defaultScopes,
+      defaultScopes: integrationConfig.scopes,
     },
   });
 }
