@@ -20,7 +20,7 @@ describe("getUserInfoPrompt", () => {
       about: "Test description",
     };
 
-    const result = getUserInfoPrompt({ emailAccount });
+    const result = getUserInfoPrompt({ emailAccount, prefix: "" });
 
     expect(result).toBe(`<user_info>
 <email>test@example.com</email>
@@ -37,7 +37,7 @@ describe("getUserInfoPrompt", () => {
       about: null,
     };
 
-    const result = getUserInfoPrompt({ emailAccount });
+    const result = getUserInfoPrompt({ emailAccount, prefix: "" });
 
     expect(result).toBe(`<user_info>
 <email>test@example.com</email>
@@ -52,7 +52,7 @@ describe("getUserInfoPrompt", () => {
       about: null,
     };
 
-    const result = getUserInfoPrompt({ emailAccount });
+    const result = getUserInfoPrompt({ emailAccount, prefix: "" });
 
     expect(result).toBe(`<user_info>
 <email>test@example.com</email>
@@ -68,7 +68,7 @@ describe("getUserInfoPrompt", () => {
       about: "",
     };
 
-    const result = getUserInfoPrompt({ emailAccount });
+    const result = getUserInfoPrompt({ emailAccount, prefix: "" });
 
     expect(result).toBe(`<user_info>
 <email>test@example.com</email>
