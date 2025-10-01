@@ -29,14 +29,12 @@ import { RequestAccessDialog } from "./RequestAccessDialog";
 interface IntegrationRowProps {
   integration: GetMcpRegistryResponse["integrations"][string];
   connections: GetMcpConnectionsResponse["connections"];
-  onApiTokenConnect: () => void;
   onConnectionChange: () => void;
 }
 
 export function IntegrationRow({
   integration,
   connections,
-  onApiTokenConnect,
   onConnectionChange,
 }: IntegrationRowProps) {
   const { emailAccountId } = useAccount();
@@ -59,7 +57,10 @@ export function IntegrationRow({
 
   const handleConnect = async () => {
     if (integration.authType === "api-token") {
-      onApiTokenConnect();
+      toastError({
+        title: "Error connecting to integration",
+        description: "API token connections are not supported yet",
+      });
       return;
     }
 
