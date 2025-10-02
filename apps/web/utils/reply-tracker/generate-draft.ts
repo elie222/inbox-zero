@@ -16,6 +16,7 @@ import { getOrCreateReferralCode } from "@/utils/referral/referral-code";
 import { generateReferralLink } from "@/utils/referral/referral-link";
 import { aiGetCalendarAvailability } from "@/utils/ai/calendar/availability";
 import { env } from "@/env";
+import { mcpAgent } from "@/utils/ai/mcp/mcp-agent";
 
 const logger = createScopedLogger("generate-reply");
 
@@ -128,6 +129,7 @@ async function generateDraftContent(
     emailHistoryContext,
     calendarAvailability,
     writingStyle,
+    mcpResult,
   ] = await Promise.all([
     aiExtractRelevantKnowledge({
       knowledgeBase,
@@ -139,13 +141,9 @@ async function generateDraftContent(
       emailAccount,
       emailProvider,
     }),
-    aiGetCalendarAvailability({
-      emailAccount,
-      messages,
-    }),
-    getWritingStyle({
-      emailAccountId: emailAccount.id,
-    }),
+    aiGetCalendarAvailability({ emailAccount, messages }),
+    getWritingStyle({ emailAccountId: emailAccount.id }),
+    mcpAgent({ emailAccount, messages }),
   ]);
 
   // 2b. Extract email history context
@@ -181,6 +179,7 @@ async function generateDraftContent(
     emailHistoryContext,
     calendarAvailability,
     writingStyle,
+    mcpContext: mcpResult?.response || null,
   });
 
   if (typeof text === "string") {

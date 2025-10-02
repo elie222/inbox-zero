@@ -5,12 +5,12 @@ import { createScopedLogger } from "@/utils/logger";
 import { createGenerateText } from "@/utils/llms";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import type { EmailForLLM } from "@/utils/types";
-import { stringifyEmail } from "@/utils/stringify-email";
-import { getTodayForLLM } from "@/utils/llms/helpers";
+import { getTodayForLLM } from "@/utils/ai/helpers";
 import { getModel } from "@/utils/llms/model";
 import type { EmailProvider } from "@/utils/email/types";
 import { getEmailForLLM } from "@/utils/get-email-from-message";
 import { captureException } from "@/utils/error";
+import { getEmailListPrompt, getUserInfoPrompt } from "@/utils/ai/helpers";
 
 const logger = createScopedLogger("reply-context-collector");
 
@@ -74,17 +74,13 @@ export async function aiCollectReplyContext({
   try {
     const sixMonthsAgo = subMonths(new Date(), 6);
 
-    const threadSummary = currentThread
-      .map((email) => `<email>${stringifyEmail(email, 1000)}</email>`)
-      .join("\n");
-
     const prompt = `Current email thread to analyze:
-<current_thread>
-${threadSummary}
-</current_thread>
 
-User email: ${emailAccount.email}
-${emailAccount.about ? `User context: ${emailAccount.about}` : ""}
+<thread>
+${getEmailListPrompt({ messages: currentThread, messageMaxLength: 1000 })}
+</thread>
+
+${getUserInfoPrompt({ emailAccount })}
 
 ${getTodayForLLM()}`;
 

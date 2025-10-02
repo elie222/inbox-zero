@@ -128,10 +128,7 @@ async function fetchSenderThreads({
   emailAccountId: string;
 }) {
   const url = `/api/threads/basic?fromEmail=${encodeURIComponent(sender)}&labelId=INBOX`;
-  const res = await fetchWithAccount({
-    url,
-    emailAccountId,
-  });
+  const res = await fetchWithAccount({ url, emailAccountId });
 
   if (!res.ok) throw new Error("Failed to fetch threads");
 

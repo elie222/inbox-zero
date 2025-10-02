@@ -7,6 +7,7 @@ import { getCalendarAvailability } from "@/utils/calendar/availability";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import type { EmailForLLM } from "@/utils/types";
 import prisma from "@/utils/prisma";
+import { getUserInfoPrompt } from "@/utils/ai/helpers";
 
 const logger = createScopedLogger("calendar-availability");
 
@@ -76,17 +77,7 @@ IMPORTANT: Another agent is responsible for drafting the final email reply. You 
 
 TIMEZONE CONTEXT: The user's primary timezone is ${userTimezone}. When interpreting times mentioned in emails (like "6pm"), assume they refer to this timezone unless explicitly stated otherwise.`;
 
-  const prompt = `
-${
-  emailAccount.about
-    ? `<user_info>
-<about>${emailAccount.about}</about>
-<email>${emailAccount.email}</email>
-</user_info>`
-    : `<user_info>
-<email>${emailAccount.email}</email>
-</user_info>`
-}
+  const prompt = `${getUserInfoPrompt({ emailAccount })}
   
 <current_time>
 ${new Date().toISOString()}

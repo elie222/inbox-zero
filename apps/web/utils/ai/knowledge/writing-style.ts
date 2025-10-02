@@ -6,6 +6,7 @@ import { truncate } from "@/utils/string";
 import { removeExcessiveWhitespace } from "@/utils/string";
 import { getModel } from "@/utils/llms/model";
 import { createGenerateObject } from "@/utils/llms";
+import { getUserInfoPrompt } from "@/utils/ai/helpers";
 
 const logger = createScopedLogger("writing-style-analyzer");
 
@@ -62,12 +63,7 @@ ${emails
   .join("\n")}
 </emails>
 
-${
-  emailAccount.about
-    ? `Some additional information about the user:
-<user_info>${emailAccount.about}</user_info>`
-    : ""
-}`;
+${getUserInfoPrompt({ emailAccount })}`;
 
   const modelOptions = getModel(emailAccount.user);
 

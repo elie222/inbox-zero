@@ -5,6 +5,7 @@ import type { EmailForLLM } from "@/utils/types";
 import { stringifyEmailSimple } from "@/utils/stringify-email";
 import { getModel } from "@/utils/llms/model";
 import { createGenerateObject } from "@/utils/llms";
+import { getUserInfoPrompt } from "@/utils/ai/helpers";
 
 const logger = createScopedLogger("summarize-digest-email");
 
@@ -61,10 +62,7 @@ Guidelines for summarizing the email:
   <category>${ruleName}</category>
 </email>
 
-<user>
-  <about>${emailAccount.about}</about>
-  <name>${emailAccount.name}</name>
-</user>`;
+${getUserInfoPrompt({ emailAccount })}`;
 
   logger.info("Summarizing email for digest");
 
