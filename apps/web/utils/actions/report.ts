@@ -15,6 +15,7 @@ import { getEmailAccountWithAi } from "@/utils/user/get";
 import { getGmailClientForEmail } from "@/utils/account";
 import { getEmailForLLM } from "@/utils/get-email-from-message";
 import type { Logger } from "@/utils/logger";
+import { getGmailSignatures } from "@/utils/gmail/signature-settings";
 
 export type EmailReportData = Awaited<ReturnType<typeof getEmailReportData>>;
 
@@ -222,39 +223,16 @@ async function fetchGmailLabels(
   }
 }
 
-// TODO: should be able to import this functionality from elsewhere
 async function fetchGmailSignature(
   gmail: gmail_v1.Gmail,
   logger: Logger,
 ): Promise<string> {
   try {
-    const sendAsList = await gmail.users.settings.sendAs.list({
-      userId: "me",
-    });
+    const signatures = await getGmailSignatures(gmail);
+    const defaultSignature =
+      signatures.find((sig) => sig.isDefault) || signatures[0];
 
-    if (!sendAsList.data.sendAs || sendAsList.data.sendAs.length === 0) {
-      logger.warn("No sendAs settings found");
-      return "";
-    }
-
-    const primarySendAs = sendAsList.data.sendAs[0];
-    if (!primarySendAs.sendAsEmail) {
-      logger.warn("No primary sendAs email found");
-      return "";
-    }
-
-    const signatureResponse = await gmail.users.settings.sendAs.get({
-      userId: "me",
-      sendAsEmail: primarySendAs.sendAsEmail,
-    });
-
-    const signature = signatureResponse.data.signature;
-    logger.info("Gmail signature fetched successfully", {
-      hasSignature: !!signature,
-      sendAsEmail: primarySendAs.sendAsEmail,
-    });
-
-    return signature || "";
+    return defaultSignature?.signature || "";
   } catch (error) {
     logger.warn("Failed to fetch Gmail signature", {
       error: error instanceof Error ? error.message : String(error),
