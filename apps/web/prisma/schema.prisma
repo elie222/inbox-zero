@@ -110,7 +110,7 @@ model EmailAccount {
 
   about                     String?
   writingStyle              String?
-  signature                 String?
+  signature                 String? // User's email signature from provider or manually set
   includeReferralSignature  Boolean   @default(true)
   watchEmailsExpirationDate DateTime?
   watchEmailsSubscriptionId String? // For Outlook subscription ID
