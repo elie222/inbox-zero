@@ -34,6 +34,7 @@ export async function createMcpToolsForAgent(
         accessToken: true,
         refreshToken: true,
         expiresAt: true,
+        apiKey: true,
         integration: {
           select: {
             id: true,
@@ -72,33 +73,43 @@ export async function createMcpToolsForAgent(
         continue;
       }
 
-      if (
-        integrationConfig.authType !== "oauth" ||
-        !integrationConfig.serverUrl
-      ) {
-        logger.warn("Skipping non-OAuth or missing serverUrl integration", {
+      // Use registered server URL if available, otherwise fall back to config
+      const serverUrl =
+        integration.registeredServerUrl ?? integrationConfig.serverUrl;
+      if (!serverUrl) {
+        logger.warn("No server URL available", {
           integration: integration.name,
         });
         continue;
       }
 
       try {
-        const accessToken = await getValidAccessToken({
-          integration: integration.name,
-          emailAccountId,
-        });
+        // Get authentication token based on auth type
+        let authToken: string;
 
-        // Use registered server URL if available, otherwise fall back to config
-        const serverUrl =
-          integration.registeredServerUrl ?? integrationConfig.serverUrl;
-        if (!serverUrl) {
-          logger.warn("No server URL available", {
+        if (integrationConfig.authType === "oauth") {
+          authToken = await getValidAccessToken({
             integration: integration.name,
+            emailAccountId,
+          });
+        } else if (integrationConfig.authType === "api-token") {
+          // For API token auth, use the apiKey from the connection
+          if (!connection.apiKey) {
+            logger.warn("API token not found for api-token integration", {
+              integration: integration.name,
+            });
+            continue;
+          }
+          authToken = connection.apiKey;
+        } else {
+          logger.error("Unknown auth type", {
+            integration: integration.name,
+            authType: integrationConfig.authType,
           });
           continue;
         }
 
-        const transport = createMcpTransport(serverUrl, accessToken);
+        const transport = createMcpTransport(serverUrl, authToken);
 
         const mcpClient = await experimental_createMCPClient({ transport });
         clients.push(mcpClient);

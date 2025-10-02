@@ -222,7 +222,7 @@ async function getOAuthClient(
   }
 
   const clientMetadata: OAuthClientMetadata = {
-    client_name: `Inbox Zero - ${integration}`,
+    client_name: "Inbox Zero",
     redirect_uris: [redirectUri],
     grant_types: ["authorization_code", "refresh_token"],
     response_types: ["code"],
