@@ -186,10 +186,6 @@ export function getIntegration(
   return integration;
 }
 
-/**
- * Get static OAuth client credentials from environment variables (if available)
- * This is used for integrations that have app-level OAuth credentials
- */
 export function getStaticCredentials(
   integration: IntegrationKey,
 ): { clientId?: string; clientSecret?: string } | undefined {
@@ -198,11 +194,6 @@ export function getStaticCredentials(
     //   return {
     //     clientId: env.HUBSPOT_MCP_CLIENT_ID,
     //     clientSecret: env.HUBSPOT_MCP_CLIENT_SECRET,
-    //   };
-    // case "monday":
-    //   return {
-    //     clientId: env.MONDAY_MCP_CLIENT_ID,
-    //     clientSecret: env.MONDAY_MCP_CLIENT_SECRET,
     //   };
     default:
       return undefined;

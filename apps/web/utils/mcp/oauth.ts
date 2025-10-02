@@ -19,6 +19,10 @@ import type { IntegrationKey } from "./integrations";
 
 const logger = createScopedLogger("mcp-oauth");
 
+// Conservative default expiration window when OAuth provider doesn't return expires_in
+// Set to 1 hour to ensure tokens are refreshed proactively
+const DEFAULT_TOKEN_EXPIRY_MS = 60 * 60 * 1000; // 1 hour
+
 /**
  * Start OAuth flow - generate authorization URL with PKCE
  * Returns the URL to redirect to and the code verifier to save in cookies
@@ -114,7 +118,10 @@ export async function handleOAuthCallback({
     create: { name: integration },
   });
 
-  const expiresAt = calculateTokenExpiration(tokens.expires_in);
+  const expiresAt = calculateTokenExpiration(tokens.expires_in, {
+    integration,
+    isRefresh: false,
+  });
 
   await prisma.mcpConnection.upsert({
     where: {
@@ -244,10 +251,10 @@ async function refreshOAuthTokens({
     resource: new URL(integrationConfig.serverUrl),
   });
 
-  const expiresAt = calculateTokenExpiration(
-    tokens.expires_in,
-    connection.expiresAt,
-  );
+  const expiresAt = calculateTokenExpiration(tokens.expires_in, {
+    integration,
+    isRefresh: true,
+  });
 
   await prisma.mcpConnection.update({
     where: { id: connection.id },
@@ -516,11 +523,23 @@ function createAuthServerMetadata(
 
 function calculateTokenExpiration(
   expiresIn: number | undefined,
-  fallback?: Date | null,
-): Date | null {
-  return expiresIn
-    ? new Date(Date.now() + expiresIn * 1000)
-    : (fallback ?? null);
+  context?: { integration: string; isRefresh?: boolean },
+): Date {
+  if (expiresIn) {
+    return new Date(Date.now() + expiresIn * 1000);
+  }
+
+  // OAuth provider didn't return expires_in - use conservative default
+  logger.warn(
+    "OAuth provider did not return expires_in, using default expiry",
+    {
+      integration: context?.integration,
+      isRefresh: context?.isRefresh ?? false,
+      defaultExpiryMs: DEFAULT_TOKEN_EXPIRY_MS,
+    },
+  );
+
+  return new Date(Date.now() + DEFAULT_TOKEN_EXPIRY_MS);
 }
 
 async function getMetadataForIntegration(
