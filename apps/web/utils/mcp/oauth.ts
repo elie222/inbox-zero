@@ -19,6 +19,10 @@ import type { IntegrationKey } from "./integrations";
 
 const logger = createScopedLogger("mcp-oauth");
 
+// Conservative default expiration window when OAuth provider doesn't return expires_in
+// Set to 1 hour to ensure tokens are refreshed proactively
+const DEFAULT_TOKEN_EXPIRY_MS = 60 * 60 * 1000; // 1 hour
+
 /**
  * Start OAuth flow - generate authorization URL with PKCE
  * Returns the URL to redirect to and the code verifier to save in cookies
@@ -114,7 +118,10 @@ export async function handleOAuthCallback({
     create: { name: integration },
   });
 
-  const expiresAt = calculateTokenExpiration(tokens.expires_in);
+  const expiresAt = calculateTokenExpiration(tokens.expires_in, {
+    integration,
+    isRefresh: false,
+  });
 
   await prisma.mcpConnection.upsert({
     where: {
@@ -125,10 +132,9 @@ export async function handleOAuthCallback({
     },
     update: {
       accessToken: tokens.access_token,
-      refreshToken: tokens.refresh_token || null,
+      refreshToken: tokens.refresh_token || undefined,
       expiresAt,
       isActive: true,
-      updatedAt: new Date(),
     },
     create: {
       name: integration,
@@ -151,10 +157,48 @@ export async function handleOAuthCallback({
 }
 
 /**
+ * Get authentication token for an integration
+ * Handles both OAuth (with auto-refresh) and API token authentication
+ */
+export async function getAuthToken({
+  integration,
+  emailAccountId,
+}: {
+  integration: IntegrationKey;
+  emailAccountId: string;
+}): Promise<string> {
+  const integrationConfig = getIntegration(integration);
+
+  if (integrationConfig.authType === "api-token") {
+    const connection = await prisma.mcpConnection.findFirst({
+      where: {
+        emailAccountId,
+        integration: { name: integration },
+        isActive: true,
+      },
+      select: {
+        apiKey: true,
+      },
+    });
+
+    if (!connection?.apiKey) {
+      throw new Error(
+        `No API key found for ${integration}. Please configure the integration first.`,
+      );
+    }
+
+    return connection.apiKey;
+  }
+
+  // OAuth flow
+  return getValidAccessToken({ integration, emailAccountId });
+}
+
+/**
  * Get valid access token for an integration
  * Automatically refreshes if expired
  */
-export async function getValidAccessToken({
+async function getValidAccessToken({
   integration,
   emailAccountId,
 }: {
@@ -244,18 +288,17 @@ async function refreshOAuthTokens({
     resource: new URL(integrationConfig.serverUrl),
   });
 
-  const expiresAt = calculateTokenExpiration(
-    tokens.expires_in,
-    connection.expiresAt,
-  );
+  const expiresAt = calculateTokenExpiration(tokens.expires_in, {
+    integration,
+    isRefresh: true,
+  });
 
   await prisma.mcpConnection.update({
-    where: { id: connection.id },
+    where: { id: connection.id, emailAccountId },
     data: {
       accessToken: tokens.access_token,
       refreshToken: tokens.refresh_token || connection.refreshToken,
       expiresAt,
-      updatedAt: new Date(),
     },
   });
 
@@ -516,11 +559,23 @@ function createAuthServerMetadata(
 
 function calculateTokenExpiration(
   expiresIn: number | undefined,
-  fallback?: Date | null,
-): Date | null {
-  return expiresIn
-    ? new Date(Date.now() + expiresIn * 1000)
-    : (fallback ?? null);
+  context?: { integration: string; isRefresh?: boolean },
+): Date {
+  if (expiresIn) {
+    return new Date(Date.now() + expiresIn * 1000);
+  }
+
+  // OAuth provider didn't return expires_in - use conservative default
+  logger.warn(
+    "OAuth provider did not return expires_in, using default expiry",
+    {
+      integration: context?.integration,
+      isRefresh: context?.isRefresh ?? false,
+      defaultExpiryMs: DEFAULT_TOKEN_EXPIRY_MS,
+    },
+  );
+
+  return new Date(Date.now() + DEFAULT_TOKEN_EXPIRY_MS);
 }
 
 async function getMetadataForIntegration(

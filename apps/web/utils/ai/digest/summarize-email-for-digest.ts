@@ -38,11 +38,22 @@ I will provide you with:
 
 Guidelines for summarizing the email:
 - If the email is spam, promotional, or irrelevant, return "null".
-- If the email contains extractable fields such as order details, totals, dates, IDs, payment info, or similar, summarize the content using a list with the format: "Key: Value" separated by newlines.
+- Do NOT mention the sender's name or start with phrases like "This is a message from X" or "This email from Y" - the sender information is already displayed separately.
+- Jump directly into the content of the email.
+- Use bullet points to structure information when there are multiple items or pieces of information.
+- For structured data (orders, confirmations, receipts):
+  • Use bullet points with "Key: Value" format
+  • Example: "• Order Total: $99.99\\n• Delivery Date: March 15"
+- For newsletters and announcements:
+  • List the key topics or news items as bullet points
+  • Focus on the actual content, not who sent it
+  • Example: "• New feature launches next week\\n• 20% discount on all plans\\n• Webinar scheduled for Friday"
+- For direct messages:
+  • Summarize in the second person (as if talking directly to the user)
+  • Use phrasing like: "You have received…", "You are invited…", "Your request has been…"
+  • Use bullet points if there are multiple action items or pieces of information
 - Only include human-relevant and human-readable information.
 - Exclude opaque technical identifiers like account IDs, payment IDs, tracking tokens, or long alphanumeric strings that aren't meaningful to users.
-- If the email is a direct message to the user, summarize it in the second person (as if talking directly to the user) using phrasing such as: "You have received…", "X wants you to review…", "You are invited…", etc.
-- If second person phrasing is not possible or natural (e.g., for announcements, newsletters, or general updates), summarize in a clear neutral third-person style.
 `;
 
   const prompt = `
