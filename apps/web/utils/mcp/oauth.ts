@@ -48,15 +48,11 @@ async function discoverMetadata(
   ) {
     logger.info("Using cached OAuth metadata", { integration });
 
-    return {
-      issuer: serverUrl,
-      authorization_endpoint: stored.registeredAuthorizationUrl,
-      token_endpoint: stored.registeredTokenUrl,
-      grant_types_supported: ["authorization_code", "refresh_token"],
-      response_types_supported: ["code"],
-      token_endpoint_auth_methods_supported: ["none"],
-      code_challenge_methods_supported: ["S256", "plain"],
-    } as AuthorizationServerMetadata;
+    return createAuthServerMetadata(
+      serverUrl,
+      stored.registeredAuthorizationUrl,
+      stored.registeredTokenUrl,
+    );
   }
 
   // Discover via RFC 8414/9728
@@ -95,19 +91,10 @@ async function discoverMetadata(
     }
 
     // Cache the discovered endpoints for next time
-    await prisma.mcpIntegration.upsert({
-      where: { name: integration },
-      update: {
-        registeredAuthorizationUrl: metadata.authorization_endpoint,
-        registeredTokenUrl: metadata.token_endpoint,
-        registeredServerUrl: serverUrl,
-      },
-      create: {
-        name: integration,
-        registeredAuthorizationUrl: metadata.authorization_endpoint,
-        registeredTokenUrl: metadata.token_endpoint,
-        registeredServerUrl: serverUrl,
-      },
+    await upsertMcpIntegration(integration, {
+      registeredAuthorizationUrl: metadata.authorization_endpoint,
+      registeredTokenUrl: metadata.token_endpoint,
+      registeredServerUrl: serverUrl,
     });
 
     logger.info("OAuth metadata discovered and cached", {
@@ -131,32 +118,17 @@ async function discoverMetadata(
         authEndpoint: integrationConfig.oauthConfig.authorization_endpoint,
       });
 
-      const metadata: AuthorizationServerMetadata = {
-        issuer: serverUrl,
-        authorization_endpoint:
-          integrationConfig.oauthConfig.authorization_endpoint,
-        token_endpoint: integrationConfig.oauthConfig.token_endpoint,
-        registration_endpoint:
-          integrationConfig.oauthConfig.registration_endpoint,
-        grant_types_supported: ["authorization_code", "refresh_token"],
-        response_types_supported: ["code"],
-        token_endpoint_auth_methods_supported: ["none"],
-        code_challenge_methods_supported: ["S256", "plain"],
-      };
+      const metadata = createAuthServerMetadata(
+        serverUrl,
+        integrationConfig.oauthConfig.authorization_endpoint,
+        integrationConfig.oauthConfig.token_endpoint,
+        integrationConfig.oauthConfig.registration_endpoint,
+      );
 
-      await prisma.mcpIntegration.upsert({
-        where: { name: integration },
-        update: {
-          registeredAuthorizationUrl: metadata.authorization_endpoint,
-          registeredTokenUrl: metadata.token_endpoint,
-          registeredServerUrl: serverUrl,
-        },
-        create: {
-          name: integration,
-          registeredAuthorizationUrl: metadata.authorization_endpoint,
-          registeredTokenUrl: metadata.token_endpoint,
-          registeredServerUrl: serverUrl,
-        },
+      await upsertMcpIntegration(integration, {
+        registeredAuthorizationUrl: metadata.authorization_endpoint,
+        registeredTokenUrl: metadata.token_endpoint,
+        registeredServerUrl: serverUrl,
       });
 
       return metadata;
@@ -175,7 +147,7 @@ async function discoverMetadata(
  */
 async function getOAuthClient(
   integration: IntegrationKey,
-  redirectUri: string,
+  redirectUri?: string,
 ): Promise<OAuthClientInformation> {
   const integrationConfig = getIntegration(integration);
   const staticCreds = getStaticCredentials(integration);
@@ -210,6 +182,12 @@ async function getOAuthClient(
     throw new Error(`No server URL configured for ${integration}`);
   }
 
+  if (!redirectUri) {
+    throw new Error(
+      `redirectUri is required for dynamic client registration for ${integration}`,
+    );
+  }
+
   logger.info("Performing dynamic client registration", { integration });
 
   const oauthServerUrl = getOAuthServerUrl(integrationConfig);
@@ -235,17 +213,9 @@ async function getOAuthClient(
     clientMetadata,
   });
 
-  await prisma.mcpIntegration.upsert({
-    where: { name: integration },
-    update: {
-      oauthClientId: registered.client_id,
-      oauthClientSecret: registered.client_secret,
-    },
-    create: {
-      name: integration,
-      oauthClientId: registered.client_id,
-      oauthClientSecret: registered.client_secret,
-    },
+  await upsertMcpIntegration(integration, {
+    oauthClientId: registered.client_id,
+    oauthClientSecret: registered.client_secret,
   });
 
   logger.info("Dynamic client registration successful", {
@@ -282,8 +252,10 @@ export async function generateOAuthUrl({
   }
 
   const clientInfo = await getOAuthClient(integration, redirectUri);
-  const oauthServerUrl = getOAuthServerUrl(integrationConfig);
-  const metadata = await discoverMetadata(oauthServerUrl, integration);
+  const metadata = await getMetadataForIntegration(
+    integrationConfig,
+    integration,
+  );
 
   if (!metadata.authorization_endpoint) {
     throw new Error(
@@ -332,8 +304,10 @@ export async function handleOAuthCallback({
   }
 
   const clientInfo = await getOAuthClient(integration, redirectUri);
-  const oauthServerUrl = getOAuthServerUrl(integrationConfig);
-  const metadata = await discoverMetadata(oauthServerUrl, integration);
+  const metadata = await getMetadataForIntegration(
+    integrationConfig,
+    integration,
+  );
 
   const tokens = await exchangeAuthorization(metadata.token_endpoint, {
     metadata,
@@ -350,9 +324,7 @@ export async function handleOAuthCallback({
     create: { name: integration },
   });
 
-  const expiresAt = tokens.expires_in
-    ? new Date(Date.now() + tokens.expires_in * 1000)
-    : null;
+  const expiresAt = calculateTokenExpiration(tokens.expires_in);
 
   await prisma.mcpConnection.upsert({
     where: {
@@ -422,13 +394,11 @@ export async function refreshOAuthTokens({
     );
   }
 
-  const clientInfo = await getOAuthClient(
+  const clientInfo = await getOAuthClient(integration);
+  const metadata = await getMetadataForIntegration(
+    integrationConfig,
     integration,
-    "", // redirectUri not needed for refresh
   );
-
-  const oauthServerUrl = getOAuthServerUrl(integrationConfig);
-  const metadata = await discoverMetadata(oauthServerUrl, integration);
 
   const tokens = await refreshAuthorization(metadata.token_endpoint, {
     metadata,
@@ -437,9 +407,10 @@ export async function refreshOAuthTokens({
     resource: new URL(integrationConfig.serverUrl),
   });
 
-  const expiresAt = tokens.expires_in
-    ? new Date(Date.now() + tokens.expires_in * 1000)
-    : connection.expiresAt;
+  const expiresAt = calculateTokenExpiration(
+    tokens.expires_in,
+    connection.expiresAt,
+  );
 
   await prisma.mcpConnection.update({
     where: { id: connection.id },
@@ -504,6 +475,63 @@ export async function getValidAccessToken({
   }
 
   return connection.accessToken;
+}
+
+/**
+ * Helper: Upsert MCP integration metadata in database
+ */
+async function upsertMcpIntegration(
+  integration: string,
+  data: {
+    registeredAuthorizationUrl?: string;
+    registeredTokenUrl?: string;
+    registeredServerUrl?: string;
+    oauthClientId?: string;
+    oauthClientSecret?: string | null;
+  },
+) {
+  return prisma.mcpIntegration.upsert({
+    where: { name: integration },
+    update: data,
+    create: { name: integration, ...data },
+  });
+}
+
+function createAuthServerMetadata(
+  issuer: string,
+  authorizationEndpoint: string,
+  tokenEndpoint: string,
+  registrationEndpoint?: string,
+): AuthorizationServerMetadata {
+  return {
+    issuer,
+    authorization_endpoint: authorizationEndpoint,
+    token_endpoint: tokenEndpoint,
+    ...(registrationEndpoint && {
+      registration_endpoint: registrationEndpoint,
+    }),
+    grant_types_supported: ["authorization_code", "refresh_token"],
+    response_types_supported: ["code"],
+    token_endpoint_auth_methods_supported: ["none"],
+    code_challenge_methods_supported: ["S256", "plain"],
+  };
+}
+
+function calculateTokenExpiration(
+  expiresIn: number | undefined,
+  fallback?: Date | null,
+): Date | null {
+  return expiresIn
+    ? new Date(Date.now() + expiresIn * 1000)
+    : (fallback ?? null);
+}
+
+async function getMetadataForIntegration(
+  integrationConfig: ReturnType<typeof getIntegration>,
+  integration: string,
+) {
+  const oauthServerUrl = getOAuthServerUrl(integrationConfig);
+  return await discoverMetadata(oauthServerUrl, integration);
 }
 
 /**
