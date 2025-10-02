@@ -20,6 +20,254 @@ import type { IntegrationKey } from "./integrations";
 const logger = createScopedLogger("mcp-oauth");
 
 /**
+ * Start OAuth flow - generate authorization URL with PKCE
+ * Returns the URL to redirect to and the code verifier to save in cookies
+ */
+export async function generateOAuthUrl({
+  integration,
+  redirectUri,
+  state,
+}: {
+  integration: IntegrationKey;
+  redirectUri: string;
+  state: string;
+}): Promise<{
+  url: string;
+  codeVerifier: string;
+}> {
+  const integrationConfig = getIntegration(integration);
+
+  if (!integrationConfig.serverUrl) {
+    throw new Error(`No server URL configured for ${integration}`);
+  }
+
+  const clientInfo = await getOAuthClient(integration, redirectUri);
+  const metadata = await getMetadataForIntegration(
+    integrationConfig,
+    integration,
+  );
+
+  if (!metadata.authorization_endpoint) {
+    throw new Error(
+      `No authorization endpoint found for ${integration}. OAuth discovery may have failed.`,
+    );
+  }
+
+  const result = await startAuthorization(metadata.authorization_endpoint, {
+    metadata,
+    clientInformation: clientInfo,
+    redirectUrl: redirectUri,
+    scope: integrationConfig.scopes.join(" "),
+    state,
+    resource: new URL(integrationConfig.serverUrl),
+  });
+
+  logger.info("OAuth flow started", { integration });
+
+  return {
+    url: result.authorizationUrl.toString(),
+    codeVerifier: result.codeVerifier,
+  };
+}
+
+/**
+ * Complete OAuth flow - exchange authorization code for tokens
+ * Saves tokens to database and returns them
+ */
+export async function handleOAuthCallback({
+  integration,
+  code,
+  codeVerifier,
+  redirectUri,
+  emailAccountId,
+}: {
+  integration: IntegrationKey;
+  code: string;
+  codeVerifier: string;
+  redirectUri: string;
+  emailAccountId: string;
+}): Promise<OAuthTokens> {
+  const integrationConfig = getIntegration(integration);
+
+  if (!integrationConfig.serverUrl) {
+    throw new Error(`No server URL configured for ${integration}`);
+  }
+
+  const clientInfo = await getOAuthClient(integration, redirectUri);
+  const metadata = await getMetadataForIntegration(
+    integrationConfig,
+    integration,
+  );
+
+  const tokens = await exchangeAuthorization(metadata.token_endpoint, {
+    metadata,
+    clientInformation: clientInfo,
+    authorizationCode: code,
+    codeVerifier,
+    redirectUri,
+    resource: new URL(integrationConfig.serverUrl),
+  });
+
+  const dbIntegration = await prisma.mcpIntegration.upsert({
+    where: { name: integration },
+    update: {},
+    create: { name: integration },
+  });
+
+  const expiresAt = calculateTokenExpiration(tokens.expires_in);
+
+  await prisma.mcpConnection.upsert({
+    where: {
+      emailAccountId_integrationId: {
+        emailAccountId,
+        integrationId: dbIntegration.id,
+      },
+    },
+    update: {
+      accessToken: tokens.access_token,
+      refreshToken: tokens.refresh_token || null,
+      expiresAt,
+      isActive: true,
+      updatedAt: new Date(),
+    },
+    create: {
+      name: integration,
+      emailAccountId,
+      integrationId: dbIntegration.id,
+      accessToken: tokens.access_token,
+      refreshToken: tokens.refresh_token || null,
+      expiresAt,
+      isActive: true,
+    },
+  });
+
+  logger.info("OAuth callback completed", {
+    integration,
+    emailAccountId,
+    hasRefreshToken: !!tokens.refresh_token,
+  });
+
+  return tokens;
+}
+
+/**
+ * Get valid access token for an integration
+ * Automatically refreshes if expired
+ */
+export async function getValidAccessToken({
+  integration,
+  emailAccountId,
+}: {
+  integration: IntegrationKey;
+  emailAccountId: string;
+}): Promise<string> {
+  const connection = await prisma.mcpConnection.findFirst({
+    where: {
+      emailAccountId,
+      integration: { name: integration },
+      isActive: true,
+    },
+  });
+
+  if (!connection?.accessToken) {
+    throw new Error(
+      `No access token found for ${integration}. Please connect the integration first.`,
+    );
+  }
+
+  const now = new Date();
+  const isExpired = connection.expiresAt && connection.expiresAt < now;
+
+  if (isExpired && connection.refreshToken) {
+    logger.info("Access token expired, refreshing", {
+      integration,
+      emailAccountId,
+    });
+
+    const tokens = await refreshOAuthTokens({ integration, emailAccountId });
+    return tokens.access_token;
+  }
+
+  if (isExpired) {
+    throw new Error(
+      `Access token for ${integration} has expired and no refresh token is available. Please reconnect.`,
+    );
+  }
+
+  return connection.accessToken;
+}
+
+/**
+ * Refresh OAuth tokens for an integration
+ * Updates tokens in database and returns new tokens
+ */
+async function refreshOAuthTokens({
+  integration,
+  emailAccountId,
+}: {
+  integration: IntegrationKey;
+  emailAccountId: string;
+}): Promise<OAuthTokens> {
+  const integrationConfig = getIntegration(integration);
+
+  if (!integrationConfig.serverUrl) {
+    throw new Error(`No server URL configured for ${integration}`);
+  }
+
+  const connection = await prisma.mcpConnection.findFirst({
+    where: {
+      emailAccountId,
+      integration: { name: integration },
+      isActive: true,
+    },
+    include: {
+      integration: true,
+    },
+  });
+
+  if (!connection?.refreshToken) {
+    throw new Error(
+      `No refresh token found for ${integration} connection ${emailAccountId}`,
+    );
+  }
+
+  const clientInfo = await getOAuthClient(integration);
+  const metadata = await getMetadataForIntegration(
+    integrationConfig,
+    integration,
+  );
+
+  const tokens = await refreshAuthorization(metadata.token_endpoint, {
+    metadata,
+    clientInformation: clientInfo,
+    refreshToken: connection.refreshToken,
+    resource: new URL(integrationConfig.serverUrl),
+  });
+
+  const expiresAt = calculateTokenExpiration(
+    tokens.expires_in,
+    connection.expiresAt,
+  );
+
+  await prisma.mcpConnection.update({
+    where: { id: connection.id },
+    data: {
+      accessToken: tokens.access_token,
+      refreshToken: tokens.refresh_token || connection.refreshToken,
+      expiresAt,
+      updatedAt: new Date(),
+    },
+  });
+
+  logger.info("OAuth tokens refreshed", {
+    integration,
+    emailAccountId,
+  });
+
+  return tokens;
+}
+
+/**
  * Discover OAuth metadata for an integration
  * Caches discovered metadata in the database for performance
  * Falls back to static oauthConfig if auto-discovery fails
@@ -229,257 +477,6 @@ async function getOAuthClient(
   };
 }
 
-/**
- * Start OAuth flow - generate authorization URL with PKCE
- * Returns the URL to redirect to and the code verifier to save in cookies
- */
-export async function generateOAuthUrl({
-  integration,
-  redirectUri,
-  state,
-}: {
-  integration: IntegrationKey;
-  redirectUri: string;
-  state: string;
-}): Promise<{
-  url: string;
-  codeVerifier: string;
-}> {
-  const integrationConfig = getIntegration(integration);
-
-  if (!integrationConfig.serverUrl) {
-    throw new Error(`No server URL configured for ${integration}`);
-  }
-
-  const clientInfo = await getOAuthClient(integration, redirectUri);
-  const metadata = await getMetadataForIntegration(
-    integrationConfig,
-    integration,
-  );
-
-  if (!metadata.authorization_endpoint) {
-    throw new Error(
-      `No authorization endpoint found for ${integration}. OAuth discovery may have failed.`,
-    );
-  }
-
-  const result = await startAuthorization(metadata.authorization_endpoint, {
-    metadata,
-    clientInformation: clientInfo,
-    redirectUrl: redirectUri,
-    scope: integrationConfig.scopes.join(" "),
-    state,
-    resource: new URL(integrationConfig.serverUrl),
-  });
-
-  logger.info("OAuth flow started", { integration });
-
-  return {
-    url: result.authorizationUrl.toString(),
-    codeVerifier: result.codeVerifier,
-  };
-}
-
-/**
- * Complete OAuth flow - exchange authorization code for tokens
- * Saves tokens to database and returns them
- */
-export async function handleOAuthCallback({
-  integration,
-  code,
-  codeVerifier,
-  redirectUri,
-  emailAccountId,
-}: {
-  integration: IntegrationKey;
-  code: string;
-  codeVerifier: string;
-  redirectUri: string;
-  emailAccountId: string;
-}): Promise<OAuthTokens> {
-  const integrationConfig = getIntegration(integration);
-
-  if (!integrationConfig.serverUrl) {
-    throw new Error(`No server URL configured for ${integration}`);
-  }
-
-  const clientInfo = await getOAuthClient(integration, redirectUri);
-  const metadata = await getMetadataForIntegration(
-    integrationConfig,
-    integration,
-  );
-
-  const tokens = await exchangeAuthorization(metadata.token_endpoint, {
-    metadata,
-    clientInformation: clientInfo,
-    authorizationCode: code,
-    codeVerifier,
-    redirectUri,
-    resource: new URL(integrationConfig.serverUrl),
-  });
-
-  const dbIntegration = await prisma.mcpIntegration.upsert({
-    where: { name: integration },
-    update: {},
-    create: { name: integration },
-  });
-
-  const expiresAt = calculateTokenExpiration(tokens.expires_in);
-
-  await prisma.mcpConnection.upsert({
-    where: {
-      emailAccountId_integrationId: {
-        emailAccountId,
-        integrationId: dbIntegration.id,
-      },
-    },
-    update: {
-      accessToken: tokens.access_token,
-      refreshToken: tokens.refresh_token || null,
-      expiresAt,
-      isActive: true,
-      updatedAt: new Date(),
-    },
-    create: {
-      name: integration,
-      emailAccountId,
-      integrationId: dbIntegration.id,
-      accessToken: tokens.access_token,
-      refreshToken: tokens.refresh_token || null,
-      expiresAt,
-      isActive: true,
-    },
-  });
-
-  logger.info("OAuth callback completed", {
-    integration,
-    emailAccountId,
-    hasRefreshToken: !!tokens.refresh_token,
-  });
-
-  return tokens;
-}
-
-/**
- * Refresh OAuth tokens for an integration
- * Updates tokens in database and returns new tokens
- */
-export async function refreshOAuthTokens({
-  integration,
-  emailAccountId,
-}: {
-  integration: IntegrationKey;
-  emailAccountId: string;
-}): Promise<OAuthTokens> {
-  const integrationConfig = getIntegration(integration);
-
-  if (!integrationConfig.serverUrl) {
-    throw new Error(`No server URL configured for ${integration}`);
-  }
-
-  const connection = await prisma.mcpConnection.findFirst({
-    where: {
-      emailAccountId,
-      integration: { name: integration },
-      isActive: true,
-    },
-    include: {
-      integration: true,
-    },
-  });
-
-  if (!connection?.refreshToken) {
-    throw new Error(
-      `No refresh token found for ${integration} connection ${emailAccountId}`,
-    );
-  }
-
-  const clientInfo = await getOAuthClient(integration);
-  const metadata = await getMetadataForIntegration(
-    integrationConfig,
-    integration,
-  );
-
-  const tokens = await refreshAuthorization(metadata.token_endpoint, {
-    metadata,
-    clientInformation: clientInfo,
-    refreshToken: connection.refreshToken,
-    resource: new URL(integrationConfig.serverUrl),
-  });
-
-  const expiresAt = calculateTokenExpiration(
-    tokens.expires_in,
-    connection.expiresAt,
-  );
-
-  await prisma.mcpConnection.update({
-    where: { id: connection.id },
-    data: {
-      accessToken: tokens.access_token,
-      refreshToken: tokens.refresh_token || connection.refreshToken,
-      expiresAt,
-      updatedAt: new Date(),
-    },
-  });
-
-  logger.info("OAuth tokens refreshed", {
-    integration,
-    emailAccountId,
-  });
-
-  return tokens;
-}
-
-/**
- * Get valid access token for an integration
- * Automatically refreshes if expired
- */
-export async function getValidAccessToken({
-  integration,
-  emailAccountId,
-}: {
-  integration: IntegrationKey;
-  emailAccountId: string;
-}): Promise<string> {
-  const connection = await prisma.mcpConnection.findFirst({
-    where: {
-      emailAccountId,
-      integration: { name: integration },
-      isActive: true,
-    },
-  });
-
-  if (!connection?.accessToken) {
-    throw new Error(
-      `No access token found for ${integration}. Please connect the integration first.`,
-    );
-  }
-
-  const now = new Date();
-  const isExpired = connection.expiresAt && connection.expiresAt < now;
-
-  if (isExpired && connection.refreshToken) {
-    logger.info("Access token expired, refreshing", {
-      integration,
-      emailAccountId,
-    });
-
-    const tokens = await refreshOAuthTokens({ integration, emailAccountId });
-    return tokens.access_token;
-  }
-
-  if (isExpired) {
-    throw new Error(
-      `Access token for ${integration} has expired and no refresh token is available. Please reconnect.`,
-    );
-  }
-
-  return connection.accessToken;
-}
-
-/**
- * Helper: Upsert MCP integration metadata in database
- */
 async function upsertMcpIntegration(
   integration: string,
   data: {
@@ -534,11 +531,6 @@ async function getMetadataForIntegration(
   return await discoverMetadata(oauthServerUrl, integration);
 }
 
-/**
- * Get the OAuth server URL for discovery
- * If serverUrl ends with /mcp, strip it for OAuth discovery (standard MCP pattern)
- * Otherwise use serverUrl as-is
- */
 function getOAuthServerUrl(
   integrationConfig: ReturnType<typeof getIntegration>,
 ): string {
