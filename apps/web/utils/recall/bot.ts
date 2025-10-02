@@ -1,8 +1,10 @@
 import { createScopedLogger } from "@/utils/logger";
 import prisma from "@/utils/prisma";
 import { recallRequest } from "@/utils/recall/request";
+import { parseISO, subMinutes, isAfter } from "date-fns";
 import type {
   CalendarEvent,
+  RecallBot,
   RecallCalendarEventResponse,
 } from "@/app/api/recall/webhook/types";
 
@@ -12,33 +14,22 @@ export function generateDeduplicationKey(event: CalendarEvent): string {
   return `${event.start_time}-${event.meeting_url}`;
 }
 
-export async function addBotToCalendarEvent(
-  eventId: string,
-  deduplicationKey: string,
-  botConfig?: {
-    bot_name?: string;
-    language?: string;
-    avatar_url?: string;
-    background_color?: string;
-  },
-): Promise<RecallCalendarEventResponse> {
-  return recallRequest<RecallCalendarEventResponse>(
-    `/api/v2/calendar-events/${eventId}/bot/`,
-    {
-      method: "POST",
-      body: JSON.stringify({
-        deduplication_key: deduplicationKey,
-        bot_config: botConfig,
-        recording_config: {
-          transcript: {
-            provider: {
-              meeting_captions: {},
-            },
+export async function createBot(meetingUrl: string): Promise<RecallBot> {
+  return recallRequest<RecallBot>("/api/v1/bot/", {
+    method: "POST",
+    body: JSON.stringify({
+      meeting_url: meetingUrl,
+      bot_name: "Inbox Zero Note Taker",
+      output_image: "https://getinboxzero.com/icons/icon-512x512.png",
+      recording_config: {
+        transcript: {
+          provider: {
+            meeting_captions: {},
           },
         },
-      }),
-    },
-  );
+      },
+    }),
+  });
 }
 
 export async function removeBotFromCalendarEvent(
@@ -62,14 +53,14 @@ export async function scheduleBotForEvent(
     return null;
   }
 
-  const eventStart = new Date(event.start_time);
+  const eventStart = parseISO(event.start_time);
   const now = new Date();
+  const fiveMinutesAgo = subMinutes(now, 5);
 
-  if (eventStart <= now) {
-    logger.warn("Event is in the past or starting now", {
+  if (!isAfter(eventStart, fiveMinutesAgo)) {
+    logger.warn("Event is too far in the past", {
       event_id: event.id,
       start_time: event.start_time,
-      now: now.toISOString(),
     });
     return null;
   }
@@ -77,45 +68,63 @@ export async function scheduleBotForEvent(
   try {
     const deduplicationKey = generateDeduplicationKey(event);
 
-    const response = await addBotToCalendarEvent(event.id, deduplicationKey, {
-      bot_name: "Inbox Zero Note Taker",
-      language: "en",
-      avatar_url: "https://getinboxzero.com/icons/icon-512x512.png",
-      background_color: "#3B82F6",
+    const botResponse = await createBot(event.meeting_url || "");
+    const botId = botResponse.id;
+
+    await prisma.meeting.upsert({
+      where: { botId: botId },
+      update: {
+        botWillJoinAt: new Date(event.start_time),
+        meetingUrl: event.meeting_url || "",
+        status: "SCHEDULED",
+        deduplicationKey,
+      },
+      create: {
+        botId: botId,
+        eventId: event.id,
+        emailAccountId: emailAccountId,
+        meetingUrl: event.meeting_url || "",
+        botWillJoinAt: new Date(event.start_time),
+        status: "SCHEDULED",
+        deduplicationKey,
+      },
     });
 
-    if (response.bots && response.bots.length > 0) {
-      const bot = response.bots[0];
+    logger.info("Bot created and stored in database", {
+      bot_id: botId,
+      event_id: event.id,
+      email_account_id: emailAccountId,
+      recall_calendar_id: recallCalendarId,
+      deduplication_key: deduplicationKey,
+    });
 
-      await prisma.meeting.upsert({
-        where: { botId: bot.bot_id },
-        update: {
-          botWillJoinAt: new Date(event.start_time),
-          meetingUrl: event.meeting_url || "",
-          status: "SCHEDULED",
-          deduplicationKey,
+    return {
+      event: {
+        id: event.id,
+        start_time: event.start_time,
+        end_time: event.end_time,
+        calendar_id: recallCalendarId,
+        meeting_url: event.meeting_url,
+        title: event.title,
+        is_deleted: false,
+        bots: [
+          {
+            bot_id: botId,
+            start_time: event.start_time,
+            deduplication_key: deduplicationKey,
+            meeting_url: event.meeting_url || "",
+          },
+        ],
+      },
+      bots: [
+        {
+          bot_id: botId,
+          start_time: event.start_time,
+          deduplication_key: deduplicationKey,
+          meeting_url: event.meeting_url || "",
         },
-        create: {
-          botId: bot.bot_id,
-          eventId: event.id,
-          emailAccountId: emailAccountId,
-          meetingUrl: event.meeting_url || "",
-          botWillJoinAt: new Date(event.start_time),
-          status: "SCHEDULED",
-          deduplicationKey,
-        },
-      });
-
-      logger.info("Bot scheduled and stored in database", {
-        bot_id: bot.bot_id,
-        event_id: event.id,
-        email_account_id: emailAccountId,
-        recall_calendar_id: recallCalendarId,
-        deduplication_key: deduplicationKey,
-      });
-    }
-
-    return response;
+      ],
+    };
   } catch (error) {
     logger.error("Failed to schedule bot for event", {
       error,

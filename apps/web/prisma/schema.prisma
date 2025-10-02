@@ -903,7 +903,6 @@ model Referral {
   @@index([status])
 }
 
-// Meeting-related models for recall integration
 model Meeting {
   id        String   @id @default(cuid())
   createdAt DateTime @default(now())
@@ -914,7 +913,7 @@ model Meeting {
   botId          String
   deduplicationKey String
   status         RecallBotStatus @default(SCHEDULED)
-  transcript     String?
+  transcript     Json?
   botWillJoinAt  DateTime
   meetingUrl     String
 

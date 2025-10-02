@@ -371,44 +371,20 @@ async function handleTranscriptDone(payload: TranscriptDoneEvent) {
 
     const transcriptData = await fetchTranscriptContent(downloadUrl);
 
-    let transcriptContent: string;
-    if (typeof transcriptData === "string") {
-      transcriptContent = transcriptData;
-    } else if (Array.isArray(transcriptData)) {
-      transcriptContent = transcriptData
-        .map(
-          (segment: {
-            participant?: {
-              name?: string;
-              id?: number;
-              is_host?: boolean;
-              platform?: string;
-            };
-            words?: Array<{
-              text: string;
-              start_timestamp?: { relative?: number; absolute?: string };
-              end_timestamp?: { relative?: number; absolute?: string };
-            }>;
-          }) => {
-            const participantName = segment?.participant?.name || "Unknown";
-            const words = segment?.words || [];
-            const text = words.map((word) => word.text).join(" ");
-            return text ? `${participantName}: ${text}` : null;
-          },
-        )
-        .filter(Boolean)
-        .join("\n");
-    } else if (transcriptData.transcript) {
-      transcriptContent = transcriptData.transcript;
-    } else if (transcriptData.content) {
-      transcriptContent = transcriptData.content;
-    } else {
-      logger.warn("Unexpected transcript format", {
-        transcriptId,
-        hasArray: Array.isArray(transcriptData),
-        keys: Object.keys(transcriptData),
-      });
-      transcriptContent = JSON.stringify(transcriptData);
+    let parsedTranscriptData = transcriptData;
+    if (
+      typeof transcriptData === "string" &&
+      transcriptData.trim().startsWith("[")
+    ) {
+      try {
+        parsedTranscriptData = JSON.parse(transcriptData);
+      } catch (error) {
+        logger.warn("Failed to parse stringified JSON transcript", {
+          botId,
+          transcriptId,
+          error: error instanceof Error ? error.message : error,
+        });
+      }
     }
 
     const meeting = await prisma.meeting.findUnique({
@@ -426,9 +402,16 @@ async function handleTranscriptDone(payload: TranscriptDoneEvent) {
     await prisma.meeting.update({
       where: { id: meeting.id },
       data: {
-        transcript: transcriptContent,
+        transcript: parsedTranscriptData,
         status: "COMPLETED",
       },
+    });
+
+    logger.info("Transcript processing completed successfully", {
+      meetingId: meeting.id,
+      eventId: meeting.eventId,
+      botId,
+      transcriptId,
     });
   } catch (error) {
     logger.error("Error processing transcript", {

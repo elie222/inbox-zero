@@ -40,13 +40,14 @@ export async function fetchTranscriptContent(
   if (contentType.includes("application/json")) {
     try {
       return await response.clone().json();
-    } catch (_e) {
+    } catch (error) {
       const text = await response.text();
       logger.warn("Transcript JSON parse failed, falling back to text", {
-        body: text,
+        error: error instanceof Error ? error.message : error,
       });
       return text;
     }
   }
+
   return response.text();
 }

@@ -9,7 +9,7 @@ CREATE TABLE "Meeting" (
     "botId" TEXT NOT NULL,
     "deduplicationKey" TEXT NOT NULL,
     "status" "RecallBotStatus" NOT NULL DEFAULT 'SCHEDULED',
-    "transcript" TEXT,
+    "transcript" JSONB,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
     "botWillJoinAt" TIMESTAMP(3) NOT NULL,

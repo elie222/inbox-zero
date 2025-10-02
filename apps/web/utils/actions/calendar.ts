@@ -8,6 +8,7 @@ import {
 import prisma from "@/utils/prisma";
 import { SafeError } from "@/utils/error";
 import { deleteRecallCalendar } from "@/utils/recall/calendar";
+import { revalidatePath } from "next/cache";
 
 export const disconnectCalendarAction = actionClient
   .metadata({ name: "disconnectCalendar" })

@@ -48,8 +48,25 @@ export function CalendarConnectionCard({
         "Are you sure you want to disconnect this calendar? This will remove all associated calendars.",
       )
     ) {
-      executeDisconnect({ connectionId: connection.id });
-      mutate();
+      if (data) {
+        mutate(
+          {
+            ...data,
+            connections: data.connections.filter(
+              (conn) => conn.id !== connection.id,
+            ),
+          },
+          false,
+        );
+      }
+
+      try {
+        await executeDisconnect({ connectionId: connection.id });
+      } catch (error) {
+        console.error("Failed to disconnect calendar:", error);
+      } finally {
+        mutate();
+      }
     }
   };
 
