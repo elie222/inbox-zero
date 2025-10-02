@@ -76,10 +76,6 @@ export async function syncMcpTools(
             }),
           ]
         : []),
-      prisma.mcpConnection.update({
-        where: { id: mcpConnection.id },
-        data: { updatedAt: new Date() },
-      }),
     ]);
 
     logger.info("Successfully synced MCP tools", {

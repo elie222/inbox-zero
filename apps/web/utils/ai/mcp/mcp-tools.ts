@@ -2,7 +2,7 @@ import { experimental_createMCPClient } from "ai";
 import { getIntegration } from "@/utils/mcp/integrations";
 import prisma from "@/utils/prisma";
 import { createScopedLogger } from "@/utils/logger";
-import { getValidAccessToken } from "@/utils/mcp/oauth";
+import { getAuthToken } from "@/utils/mcp/oauth";
 import { createMcpTransport } from "@/utils/mcp/transport";
 
 type MCPClient = Awaited<ReturnType<typeof experimental_createMCPClient>>;
@@ -30,11 +30,6 @@ export async function createMcpToolsForAgent(
       },
       select: {
         id: true,
-        emailAccountId: true,
-        accessToken: true,
-        refreshToken: true,
-        expiresAt: true,
-        apiKey: true,
         integration: {
           select: {
             id: true,
@@ -87,28 +82,10 @@ export async function createMcpToolsForAgent(
       }
 
       try {
-        let authToken: string;
-
-        if (integrationConfig.authType === "oauth") {
-          authToken = await getValidAccessToken({
-            integration: integration.name,
-            emailAccountId,
-          });
-        } else if (integrationConfig.authType === "api-token") {
-          if (!connection.apiKey) {
-            logger.warn("API token not found for api-token integration", {
-              integration: integration.name,
-            });
-            continue;
-          }
-          authToken = connection.apiKey;
-        } else {
-          logger.error("Unknown auth type", {
-            integration: integration.name,
-            authType: integrationConfig.authType,
-          });
-          continue;
-        }
+        const authToken = await getAuthToken({
+          integration: integration.name,
+          emailAccountId,
+        });
 
         const transport = createMcpTransport(serverUrl, authToken);
 

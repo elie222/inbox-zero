@@ -157,10 +157,48 @@ export async function handleOAuthCallback({
 }
 
 /**
+ * Get authentication token for an integration
+ * Handles both OAuth (with auto-refresh) and API token authentication
+ */
+export async function getAuthToken({
+  integration,
+  emailAccountId,
+}: {
+  integration: IntegrationKey;
+  emailAccountId: string;
+}): Promise<string> {
+  const integrationConfig = getIntegration(integration);
+
+  if (integrationConfig.authType === "api-token") {
+    const connection = await prisma.mcpConnection.findFirst({
+      where: {
+        emailAccountId,
+        integration: { name: integration },
+        isActive: true,
+      },
+      select: {
+        apiKey: true,
+      },
+    });
+
+    if (!connection?.apiKey) {
+      throw new Error(
+        `No API key found for ${integration}. Please configure the integration first.`,
+      );
+    }
+
+    return connection.apiKey;
+  }
+
+  // OAuth flow
+  return getValidAccessToken({ integration, emailAccountId });
+}
+
+/**
  * Get valid access token for an integration
  * Automatically refreshes if expired
  */
-export async function getValidAccessToken({
+async function getValidAccessToken({
   integration,
   emailAccountId,
 }: {

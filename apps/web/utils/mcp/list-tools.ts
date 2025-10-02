@@ -1,21 +1,11 @@
-/**
- * Simple utility to list MCP tools from an integration
- */
-
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
-import { getValidAccessToken } from "@/utils/mcp/oauth";
+import { getAuthToken } from "@/utils/mcp/oauth";
 import { getIntegration, type IntegrationKey } from "@/utils/mcp/integrations";
 import { createMcpTransport } from "@/utils/mcp/transport";
 import { createScopedLogger } from "@/utils/logger";
 
 const logger = createScopedLogger("mcp-list-tools");
 
-/**
- * Lists available tools from an MCP integration server
- * @param integration The integration name
- * @param emailAccountId The email account ID
- * @returns Array of available tools with their schemas
- */
 export async function listMcpTools(
   integration: IntegrationKey,
   emailAccountId: string,
@@ -28,15 +18,9 @@ export async function listMcpTools(
     throw new Error(`No server URL for integration: ${integration}`);
   }
 
-  const accessToken = await getValidAccessToken({
-    integration,
-    emailAccountId,
-  });
+  const authToken = await getAuthToken({ integration, emailAccountId });
 
-  const transport = createMcpTransport(
-    integrationConfig.serverUrl,
-    accessToken,
-  );
+  const transport = createMcpTransport(integrationConfig.serverUrl, authToken);
 
   const client = new Client({
     name: `inbox-zero-${integration}`,
