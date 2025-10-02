@@ -58,10 +58,13 @@ export async function createMcpToolsForAgent(
       };
     }
 
-    const allTools: Record<string, unknown> = {};
     const clients: MCPClient[] = [];
 
-    // Create MCP client for each connection and get tools
+    const toolsByIntegration: Map<
+      string,
+      { integrationName: string; tools: Record<string, unknown> }
+    > = new Map();
+
     for (const connection of connections) {
       const integration = connection.integration;
       const integrationConfig = getIntegration(integration.name);
@@ -84,7 +87,6 @@ export async function createMcpToolsForAgent(
       }
 
       try {
-        // Get authentication token based on auth type
         let authToken: string;
 
         if (integrationConfig.authType === "oauth") {
@@ -93,7 +95,6 @@ export async function createMcpToolsForAgent(
             emailAccountId,
           });
         } else if (integrationConfig.authType === "api-token") {
-          // For API token auth, use the apiKey from the connection
           if (!connection.apiKey) {
             logger.warn("API token not found for api-token integration", {
               integration: integration.name,
@@ -124,9 +125,9 @@ export async function createMcpToolsForAgent(
           ),
         );
 
-        // Merge tools
-        Object.entries(filteredTools).forEach(([toolName, toolDef]) => {
-          allTools[toolName] = toolDef;
+        toolsByIntegration.set(integration.id, {
+          integrationName: integration.name,
+          tools: filteredTools,
         });
       } catch (error) {
         logger.error("Failed to create MCP client for integration", {
@@ -136,6 +137,8 @@ export async function createMcpToolsForAgent(
         // Continue with other integrations
       }
     }
+
+    const allTools = mergeToolsWithConflictResolution(toolsByIntegration);
 
     return {
       tools: allTools,
@@ -158,4 +161,47 @@ export async function createMcpToolsForAgent(
       cleanup: async () => {},
     };
   }
+}
+
+/**
+ * Merges tools from multiple integrations, adding integration prefix only when there are naming conflicts.
+ *
+ * @param toolsByIntegration - Map of integration tools grouped by integration
+ * @returns Merged tools with prefixes added only for conflicting names
+ */
+function mergeToolsWithConflictResolution(
+  toolsByIntegration: Map<
+    string,
+    { integrationName: string; tools: Record<string, unknown> }
+  >,
+): Record<string, unknown> {
+  const allTools: Record<string, unknown> = {};
+  const toolNameToIntegrations = new Map<string, string[]>();
+
+  // Build a map of tool names to their integrations
+  for (const [_, { integrationName, tools }] of toolsByIntegration) {
+    for (const toolName of Object.keys(tools)) {
+      if (!toolNameToIntegrations.has(toolName)) {
+        toolNameToIntegrations.set(toolName, []);
+      }
+      toolNameToIntegrations.get(toolName)!.push(integrationName);
+    }
+  }
+
+  // Merge tools, prefixing only when there's a conflict
+  for (const [__, { integrationName, tools }] of toolsByIntegration) {
+    for (const [toolName, toolDef] of Object.entries(tools)) {
+      const integrationsWithThisTool = toolNameToIntegrations.get(toolName)!;
+
+      // Only prefix if this tool name appears in multiple integrations
+      const finalToolName =
+        integrationsWithThisTool.length > 1
+          ? `${integrationName}-${toolName}`
+          : toolName;
+
+      allTools[finalToolName] = toolDef;
+    }
+  }
+
+  return allTools;
 }
