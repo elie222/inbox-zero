@@ -135,7 +135,6 @@ export async function handleOAuthCallback({
       refreshToken: tokens.refresh_token || null,
       expiresAt,
       isActive: true,
-      updatedAt: new Date(),
     },
     create: {
       name: integration,
@@ -257,12 +256,11 @@ async function refreshOAuthTokens({
   });
 
   await prisma.mcpConnection.update({
-    where: { id: connection.id },
+    where: { id: connection.id, emailAccountId },
     data: {
       accessToken: tokens.access_token,
       refreshToken: tokens.refresh_token || connection.refreshToken,
       expiresAt,
-      updatedAt: new Date(),
     },
   });
 
