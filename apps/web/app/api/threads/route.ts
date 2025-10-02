@@ -76,15 +76,11 @@ async function getThreads({
     pageToken: query.nextPageToken || undefined,
   });
 
-  // Get executed rules for these threads
   const threadIds = threads.map((t) => t.id);
   const plans = await prisma.executedRule.findMany({
     where: {
       emailAccountId,
       threadId: { in: threadIds },
-      status: {
-        in: [ExecutedRuleStatus.PENDING, ExecutedRuleStatus.SKIPPED],
-      },
     },
     select: {
       id: true,

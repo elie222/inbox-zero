@@ -11,7 +11,6 @@ import { ActionButtonsBulk } from "@/components/ActionButtonsBulk";
 import { Celebration } from "@/components/Celebration";
 import { EmailPanel } from "@/components/email-list/EmailPanel";
 import type { Thread } from "@/components/email-list/types";
-import { useExecutePlan } from "@/components/email-list/PlanActions";
 import { Tabs } from "@/components/Tabs";
 import { GroupHeading } from "@/components/GroupHeading";
 import { Checkbox } from "@/components/Checkbox";
@@ -296,28 +295,6 @@ export function EmailList({
     setOpenThreadId(prevOrNextRowId);
   }
 
-  const { executingPlan, rejectingPlan, executePlan, rejectPlan } =
-    useExecutePlan(refetch);
-
-  const onApplyAction = useCallback(
-    async (action: (thread: Thread) => void) => {
-      for (const [threadId, selected] of Object.entries(selectedRows)) {
-        if (!selected) continue;
-        const thread = threads.find((t) => t.id === threadId);
-        if (thread) action(thread);
-      }
-      refetch();
-    },
-    [threads, selectedRows, refetch],
-  );
-
-  const onAiApproveBulk = useCallback(async () => {
-    onApplyAction(executePlan);
-  }, [onApplyAction, executePlan]);
-  const onAiRejectBulk = useCallback(async () => {
-    onApplyAction(rejectPlan);
-  }, [onApplyAction, rejectPlan]);
-
   const onArchiveBulk = useCallback(async () => {
     toast.promise(
       async () => {
@@ -403,13 +380,9 @@ export function EmailList({
               isPlanning={false}
               isArchiving={false}
               isDeleting={false}
-              isApproving={false}
-              isRejecting={false}
               onPlanAiAction={onPlanAiBulk}
               onArchive={onArchiveBulk}
               onDelete={onTrashBulk}
-              onApprove={onAiApproveBulk}
-              onReject={onAiRejectBulk}
             />
           </div>
           {/* <div className="ml-auto gap-1 flex items-center">
@@ -487,10 +460,6 @@ export function EmailList({
                     onClick={onOpen}
                     onPlanAiAction={onPlanAiAction}
                     onArchive={onArchive}
-                    executePlan={executePlan}
-                    rejectPlan={rejectPlan}
-                    executingPlan={executingPlan[thread.id]}
-                    rejectingPlan={rejectingPlan[thread.id]}
                     refetch={refetch}
                   />
                 );
@@ -525,10 +494,6 @@ export function EmailList({
                 onArchive={onArchive}
                 advanceToAdjacentThread={advanceToAdjacentThread}
                 close={closePanel}
-                executePlan={executePlan}
-                rejectPlan={rejectPlan}
-                executingPlan={executingPlan[openThreadId]}
-                rejectingPlan={rejectingPlan[openThreadId]}
                 refetch={refetch}
               />
             )

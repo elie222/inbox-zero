@@ -898,23 +898,6 @@ export function RuleForm({
 
           <div className="flex items-center space-x-2">
             <Toggle
-              name="automate"
-              labelRight="Automate"
-              enabled={watch("automate") || false}
-              onChange={(enabled) => {
-                setValue("automate", enabled);
-              }}
-            />
-
-            <TooltipExplanation
-              size="md"
-              side="right"
-              text="When enabled our AI will perform actions automatically. If disabled, you will have to confirm actions first."
-            />
-          </div>
-
-          <div className="flex items-center space-x-2">
-            <Toggle
               name="runOnThreads"
               labelRight="Apply to threads"
               enabled={watch("runOnThreads") || false}

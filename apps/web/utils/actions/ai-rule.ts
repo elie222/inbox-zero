@@ -3,14 +3,12 @@
 import { z } from "zod";
 import prisma from "@/utils/prisma";
 import { isNotFoundError } from "@/utils/prisma-helpers";
-import { ExecutedRuleStatus } from "@prisma/client";
 import { aiCreateRule } from "@/utils/ai/rule/create-rule";
 import {
   runRules,
   type RunRulesResult,
 } from "@/utils/ai/choose-rule/run-rules";
 import { emailToContent } from "@/utils/mail";
-import { executeAct } from "@/utils/ai/choose-rule/execute";
 import {
   createAutomationBody,
   runRulesBody,
@@ -201,48 +199,6 @@ export const setRuleRunOnThreadsAction = actionClient
       await prisma.rule.update({
         where: { id: ruleId, emailAccountId },
         data: { runOnThreads },
-      });
-    },
-  );
-
-export const approvePlanAction = actionClient
-  .metadata({ name: "approvePlan" })
-  .schema(z.object({ executedRuleId: z.string(), message: z.any() }))
-  .action(
-    async ({
-      ctx: { emailAccountId, emailAccount, provider, userId },
-      parsedInput: { executedRuleId, message },
-    }) => {
-      const emailProvider = await createEmailProvider({
-        emailAccountId,
-        provider,
-      });
-
-      const executedRule = await prisma.executedRule.findUnique({
-        where: { id: executedRuleId },
-        include: { actionItems: true },
-      });
-      if (!executedRule) throw new SafeError("Plan not found");
-
-      await executeAct({
-        client: emailProvider,
-        message,
-        executedRule,
-        userEmail: emailAccount.email,
-        userId,
-        emailAccountId,
-      });
-    },
-  );
-
-export const rejectPlanAction = actionClient
-  .metadata({ name: "rejectPlan" })
-  .schema(z.object({ executedRuleId: z.string() }))
-  .action(
-    async ({ ctx: { emailAccountId }, parsedInput: { executedRuleId } }) => {
-      await prisma.executedRule.updateMany({
-        where: { id: executedRuleId, emailAccountId },
-        data: { status: ExecutedRuleStatus.REJECTED },
       });
     },
   );

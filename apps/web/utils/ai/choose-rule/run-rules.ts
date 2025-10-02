@@ -157,10 +157,8 @@ async function executeMatchedRule(
     });
   }
 
-  const shouldExecute =
-    executedRule && rule.automate && immediateActions?.length > 0;
-
-  if (shouldExecute) {
+  // Execute immediate actions if any
+  if (executedRule && immediateActions?.length > 0) {
     await executeAct({
       client,
       userEmail: emailAccount.email,
@@ -169,7 +167,15 @@ async function executeMatchedRule(
       executedRule,
       message,
     });
+  } else if (executedRule && !delayedActions?.length) {
+    // No actions at all (neither immediate nor delayed), mark as applied
+    await prisma.executedRule.update({
+      where: { id: executedRule.id },
+      data: { status: ExecutedRuleStatus.APPLIED },
+    });
   }
+  // Note: If there are ONLY delayed actions (no immediate), status stays APPLYING
+  // and will be updated to APPLIED by checkAndCompleteExecutedRule() when scheduled actions finish
 
   return {
     rule,
@@ -241,8 +247,8 @@ async function saveExecutedRule(
     },
     messageId,
     threadId,
-    automated: !!rule?.automate,
-    status: ExecutedRuleStatus.PENDING,
+    automated: true,
+    status: ExecutedRuleStatus.APPLYING, // Changed from PENDING - rules are now always automated
     reason,
     rule: rule?.id ? { connect: { id: rule.id } } : undefined,
     emailAccount: { connect: { id: emailAccountId } },

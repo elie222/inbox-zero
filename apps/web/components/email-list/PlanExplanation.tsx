@@ -1,18 +1,10 @@
 import { capitalCase } from "capital-case";
 import { Badge } from "@/components/Badge";
 import type { Thread } from "@/components/email-list/types";
-import { PlanActions } from "@/components/email-list/PlanActions";
 import { PlanBadge, getActionColor } from "@/components/PlanBadge";
 import { getActionFields } from "@/utils/action-item";
 
-export function PlanExplanation(props: {
-  provider: string;
-  thread: Thread;
-  executingPlan: boolean;
-  rejectingPlan: boolean;
-  executePlan: (thread: Thread) => Promise<void>;
-  rejectPlan: (thread: Thread) => Promise<void>;
-}) {
+export function PlanExplanation(props: { provider: string; thread: Thread }) {
   const { provider, thread } = props;
   if (!thread) return null;
   const { plan } = thread;
@@ -49,16 +41,6 @@ export function PlanExplanation(props: {
             </div>
           );
         })}
-      </div>
-
-      <div className="mt-2">
-        <PlanActions
-          thread={thread}
-          executePlan={props.executePlan}
-          rejectPlan={props.rejectPlan}
-          executingPlan={props.executingPlan}
-          rejectingPlan={props.rejectingPlan}
-        />
       </div>
     </div>
   );

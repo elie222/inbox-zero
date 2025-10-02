@@ -14,10 +14,6 @@ export function EmailPanel({
   onArchive,
   advanceToAdjacentThread,
   close,
-  executingPlan,
-  rejectingPlan,
-  executePlan,
-  rejectPlan,
   refetch,
 }: {
   row: Thread;
@@ -25,10 +21,6 @@ export function EmailPanel({
   onArchive: (thread: Thread) => void;
   advanceToAdjacentThread: () => void;
   close: () => void;
-  executingPlan: boolean;
-  rejectingPlan: boolean;
-  executePlan: (thread: Thread) => Promise<void>;
-  rejectPlan: (thread: Thread) => Promise<void>;
   refetch: () => void;
 }) {
   const { provider } = useAccount();
@@ -73,16 +65,7 @@ export function EmailPanel({
         </div>
       </div>
       <div className="flex flex-1 flex-col overflow-y-auto">
-        {plan?.rule && (
-          <PlanExplanation
-            thread={row}
-            provider={provider}
-            executePlan={executePlan}
-            rejectPlan={rejectPlan}
-            executingPlan={executingPlan}
-            rejectingPlan={rejectingPlan}
-          />
-        )}
+        {plan?.rule && <PlanExplanation thread={row} provider={provider} />}
         <EmailThread
           key={row.id}
           messages={row.messages}

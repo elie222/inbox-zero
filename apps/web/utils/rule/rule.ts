@@ -317,10 +317,9 @@ function shouldAutomate(
     return false;
 
   const riskLevels = actions.map(
-    (action) => getActionRiskLevel(action, false, {}).level,
+    (action) => getActionRiskLevel(action, {}).level,
   );
-  // Only automate if all actions are low risk
-  // User can manually enable in other cases
+  // Only enable if all actions are low risk
   return riskLevels.every((level) => level === "low");
 }
 
