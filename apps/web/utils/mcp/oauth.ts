@@ -132,7 +132,7 @@ export async function handleOAuthCallback({
     },
     update: {
       accessToken: tokens.access_token,
-      refreshToken: tokens.refresh_token || null,
+      refreshToken: tokens.refresh_token || undefined,
       expiresAt,
       isActive: true,
     },
