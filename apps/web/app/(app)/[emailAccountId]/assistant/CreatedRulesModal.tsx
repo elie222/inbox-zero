@@ -18,7 +18,6 @@ import { useDialogState } from "@/hooks/useDialogState";
 import { CheckCircle2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { prefixPath } from "@/utils/path";
-import { Badge } from "@/components/Badge";
 import type { CreateRuleResult } from "@/utils/rule/types";
 
 export function CreatedRulesModal({

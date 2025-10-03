@@ -50,7 +50,6 @@ export function getRule(instructions: string, actions: Action[] = []) {
     userId: "userId",
     createdAt: new Date(),
     updatedAt: new Date(),
-    automate: false,
     runOnThreads: false,
     groupId: null,
     from: null,

@@ -1,5 +1,5 @@
 import { listMcpTools } from "@/utils/mcp/list-tools";
-import { getIntegration } from "@/utils/mcp/integrations";
+import { getIntegration, type IntegrationKey } from "@/utils/mcp/integrations";
 import prisma from "@/utils/prisma";
 import { createScopedLogger } from "@/utils/logger";
 import type { Prisma } from "@prisma/client";
@@ -11,7 +11,7 @@ import type { Prisma } from "@prisma/client";
  * @returns The number of tools synced and their details
  */
 export async function syncMcpTools(
-  integration: string,
+  integration: IntegrationKey,
   emailAccountId: string,
 ) {
   const integrationConfig = getIntegration(integration);
@@ -76,10 +76,6 @@ export async function syncMcpTools(
             }),
           ]
         : []),
-      prisma.mcpConnection.update({
-        where: { id: mcpConnection.id },
-        data: { updatedAt: new Date() },
-      }),
     ]);
 
     logger.info("Successfully synced MCP tools", {

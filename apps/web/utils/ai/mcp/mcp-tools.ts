@@ -2,7 +2,7 @@ import { experimental_createMCPClient } from "ai";
 import { getIntegration } from "@/utils/mcp/integrations";
 import prisma from "@/utils/prisma";
 import { createScopedLogger } from "@/utils/logger";
-import { getValidAccessToken } from "@/utils/mcp/oauth";
+import { getAuthToken } from "@/utils/mcp/oauth";
 import { createMcpTransport } from "@/utils/mcp/transport";
 
 type MCPClient = Awaited<ReturnType<typeof experimental_createMCPClient>>;
@@ -30,10 +30,6 @@ export async function createMcpToolsForAgent(
       },
       select: {
         id: true,
-        emailAccountId: true,
-        accessToken: true,
-        refreshToken: true,
-        expiresAt: true,
         integration: {
           select: {
             id: true,
@@ -57,10 +53,13 @@ export async function createMcpToolsForAgent(
       };
     }
 
-    const allTools: Record<string, unknown> = {};
     const clients: MCPClient[] = [];
 
-    // Create MCP client for each connection and get tools
+    const toolsByIntegration: Map<
+      string,
+      { integrationName: string; tools: Record<string, unknown> }
+    > = new Map();
+
     for (const connection of connections) {
       const integration = connection.integration;
       const integrationConfig = getIntegration(integration.name);
@@ -72,33 +71,23 @@ export async function createMcpToolsForAgent(
         continue;
       }
 
-      if (
-        integrationConfig.authType !== "oauth" ||
-        !integrationConfig.serverUrl
-      ) {
-        logger.warn("Skipping non-OAuth or missing serverUrl integration", {
+      // Use registered server URL if available, otherwise fall back to config
+      const serverUrl =
+        integration.registeredServerUrl ?? integrationConfig.serverUrl;
+      if (!serverUrl) {
+        logger.warn("No server URL available", {
           integration: integration.name,
         });
         continue;
       }
 
       try {
-        const accessToken = await getValidAccessToken({
+        const authToken = await getAuthToken({
           integration: integration.name,
           emailAccountId,
         });
 
-        // Use registered server URL if available, otherwise fall back to config
-        const serverUrl =
-          integration.registeredServerUrl ?? integrationConfig.serverUrl;
-        if (!serverUrl) {
-          logger.warn("No server URL available", {
-            integration: integration.name,
-          });
-          continue;
-        }
-
-        const transport = createMcpTransport(serverUrl, accessToken);
+        const transport = createMcpTransport(serverUrl, authToken);
 
         const mcpClient = await experimental_createMCPClient({ transport });
         clients.push(mcpClient);
@@ -113,9 +102,9 @@ export async function createMcpToolsForAgent(
           ),
         );
 
-        // Merge tools
-        Object.entries(filteredTools).forEach(([toolName, toolDef]) => {
-          allTools[toolName] = toolDef;
+        toolsByIntegration.set(integration.id, {
+          integrationName: integration.name,
+          tools: filteredTools,
         });
       } catch (error) {
         logger.error("Failed to create MCP client for integration", {
@@ -125,6 +114,8 @@ export async function createMcpToolsForAgent(
         // Continue with other integrations
       }
     }
+
+    const allTools = mergeToolsWithConflictResolution(toolsByIntegration);
 
     return {
       tools: allTools,
@@ -147,4 +138,47 @@ export async function createMcpToolsForAgent(
       cleanup: async () => {},
     };
   }
+}
+
+/**
+ * Merges tools from multiple integrations, adding integration prefix only when there are naming conflicts.
+ *
+ * @param toolsByIntegration - Map of integration tools grouped by integration
+ * @returns Merged tools with prefixes added only for conflicting names
+ */
+function mergeToolsWithConflictResolution(
+  toolsByIntegration: Map<
+    string,
+    { integrationName: string; tools: Record<string, unknown> }
+  >,
+): Record<string, unknown> {
+  const allTools: Record<string, unknown> = {};
+  const toolNameToIntegrations = new Map<string, string[]>();
+
+  // Build a map of tool names to their integrations
+  for (const [_, { integrationName, tools }] of toolsByIntegration) {
+    for (const toolName of Object.keys(tools)) {
+      if (!toolNameToIntegrations.has(toolName)) {
+        toolNameToIntegrations.set(toolName, []);
+      }
+      toolNameToIntegrations.get(toolName)!.push(integrationName);
+    }
+  }
+
+  // Merge tools, prefixing only when there's a conflict
+  for (const [__, { integrationName, tools }] of toolsByIntegration) {
+    for (const [toolName, toolDef] of Object.entries(tools)) {
+      const integrationsWithThisTool = toolNameToIntegrations.get(toolName)!;
+
+      // Only prefix if this tool name appears in multiple integrations
+      const finalToolName =
+        integrationsWithThisTool.length > 1
+          ? `${integrationName}-${toolName}`
+          : toolName;
+
+      allTools[finalToolName] = toolDef;
+    }
+  }
+
+  return allTools;
 }

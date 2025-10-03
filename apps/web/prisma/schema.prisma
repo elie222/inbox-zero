@@ -375,7 +375,7 @@ model Rule {
   name         String
   actions      Action[]
   enabled      Boolean  @default(true)
-  automate     Boolean  @default(false) // @deprecated - No longer used. All rules are now automated. Kept for historical data only.
+  automate     Boolean  @default(true) // @deprecated - No longer used. All rules are now automated. Kept for historical data only.
   runOnThreads Boolean  @default(false) // if disabled, only runs on individual emails
 
   emailAccountId String
