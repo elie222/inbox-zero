@@ -172,7 +172,7 @@ export async function createRule({
       emailAccountId,
       systemType,
       actions: { createMany: { data: mappedActions } },
-      automate: shouldAutomate(
+      enabled: shouldAutomate(
         result,
         mappedActions.map((a) => ({
           type: a.type,
@@ -294,7 +294,6 @@ export async function deleteRule({
   ]);
 }
 
-// TODO: in cases that we don't automate we should really let the user know in the UI so that they can turn it on themselves
 function shouldAutomate(
   rule: CreateOrUpdateRuleSchemaWithCategories,
   actions: RiskAction[],
