@@ -276,8 +276,9 @@ export function matchesStaticRule(
     allowPipeAsOr = false,
   ) => {
     try {
-      // Split by pipe to handle OR conditions only for email fields (from/to)
-      const patterns = allowPipeAsOr ? pattern.split("|") : [pattern];
+      // Split by pipe, comma, or " OR " to handle OR conditions only for email fields (from/to)
+      // Supports: "@a.com|@b.com", "@a.com, @b.com", "@a.com OR @b.com"
+      const patterns = allowPipeAsOr ? splitEmailPatterns(pattern) : [pattern];
 
       // Test each pattern individually
       for (const individualPattern of patterns) {
@@ -314,6 +315,18 @@ export function matchesStaticRule(
     : true;
 
   return fromMatch && toMatch && subjectMatch && bodyMatch;
+}
+
+/**
+ * Split email patterns by pipe, comma, or " OR " separator.
+ * Used for from/to fields to support multiple email addresses.
+ * Examples: "@a.com|@b.com", "@a.com, @b.com", "@a.com OR @b.com"
+ */
+export function splitEmailPatterns(pattern: string): string[] {
+  return pattern
+    .split(/\s*\bor\b\s*|[|,]/i)
+    .map((p) => p.trim())
+    .filter(Boolean);
 }
 
 async function matchesGroupRule(

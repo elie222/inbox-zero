@@ -2,7 +2,10 @@ import type {
   MessageWithGroupItem,
   RuleWithGroup,
 } from "@/app/(app)/[emailAccountId]/assistant/rule/[ruleId]/examples/types";
-import { matchesStaticRule } from "@/utils/ai/choose-rule/match-rules";
+import {
+  matchesStaticRule,
+  splitEmailPatterns,
+} from "@/utils/ai/choose-rule/match-rules";
 import { fetchPaginatedMessages } from "@/app/api/user/group/[groupId]/messages/controller";
 import {
   isGroupRule,
@@ -60,16 +63,10 @@ async function fetchStaticExampleMessages(
   };
 
   if (rule.from) {
-    options.froms = rule.from
-      .split("|")
-      .map((s) => s.trim())
-      .filter(Boolean);
+    options.froms = splitEmailPatterns(rule.from);
   }
   if (rule.to) {
-    options.tos = rule.to
-      .split("|")
-      .map((s) => s.trim())
-      .filter(Boolean);
+    options.tos = splitEmailPatterns(rule.to);
   }
   if (rule.subject) {
     options.subjects = [rule.subject];
