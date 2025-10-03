@@ -3,9 +3,7 @@
 import { XIcon } from "lucide-react";
 import { useCallback } from "react";
 import { useQueryState } from "nuqs";
-import useSWR from "swr";
 import { History } from "@/app/(app)/[emailAccountId]/assistant/History";
-import { Pending } from "@/app/(app)/[emailAccountId]/assistant/Pending";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Rules } from "@/app/(app)/[emailAccountId]/assistant/Rules";
 import { Process } from "@/app/(app)/[emailAccountId]/assistant/Process";
@@ -13,15 +11,9 @@ import { RulesPrompt } from "@/app/(app)/[emailAccountId]/assistant/RulesPrompt"
 import { TabsToolbar } from "@/components/TabsToolbar";
 import { TypographyP } from "@/components/Typography";
 import { RuleTab } from "@/app/(app)/[emailAccountId]/assistant/RuleTab";
-import type { GetPendingRulesResponse } from "@/app/api/rules/pending/route";
 import { Button } from "@/components/ui/button";
 
 export function AssistantTabs() {
-  const { data: pendingData } =
-    useSWR<GetPendingRulesResponse>("/api/rules/pending");
-
-  const hasPendingRule = pendingData?.hasPending ?? false;
-
   return (
     <div className="flex h-full flex-col overflow-hidden">
       <Tabs defaultValue="empty" className="flex h-full flex-col">
@@ -32,9 +24,6 @@ export function AssistantTabs() {
               <TabsTrigger value="rules">Rules</TabsTrigger>
               <TabsTrigger value="test">Test</TabsTrigger>
               <TabsTrigger value="history">History</TabsTrigger>
-              {hasPendingRule && (
-                <TabsTrigger value="pending">Pending</TabsTrigger>
-              )}
             </TabsList>
           </div>
           <CloseArtifactButton />
@@ -61,11 +50,6 @@ export function AssistantTabs() {
           <TabsContent value="history" className="content-container pb-4">
             <History />
           </TabsContent>
-          {hasPendingRule && (
-            <TabsContent value="pending" className="content-container pb-4">
-              <Pending />
-            </TabsContent>
-          )}
           {/* Set via search params. Not a visible tab. */}
           <TabsContent value="rule" className="content-container pb-4">
             <RuleTab />

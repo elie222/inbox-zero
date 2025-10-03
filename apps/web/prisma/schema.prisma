@@ -110,7 +110,7 @@ model EmailAccount {
 
   about                     String?
   writingStyle              String?
-  signature                 String?
+  signature                 String? // User's email signature from provider or manually set
   includeReferralSignature  Boolean   @default(true)
   watchEmailsExpirationDate DateTime?
   watchEmailsSubscriptionId String? // For Outlook subscription ID
@@ -375,7 +375,7 @@ model Rule {
   name         String
   actions      Action[]
   enabled      Boolean  @default(true)
-  automate     Boolean  @default(false) // if disabled, user must approve to execute
+  automate     Boolean  @default(true) // @deprecated - No longer used. All rules are now automated. Kept for historical data only.
   runOnThreads Boolean  @default(false) // if disabled, only runs on individual emails
 
   emailAccountId String
@@ -1021,8 +1021,8 @@ enum PremiumTier {
 enum ExecutedRuleStatus {
   APPLIED
   APPLYING
-  REJECTED
-  PENDING
+  REJECTED // @deprecated - No longer created. Kept for historical data only.
+  PENDING // @deprecated - No longer created. Kept for historical data only.
   SKIPPED
   ERROR
 }

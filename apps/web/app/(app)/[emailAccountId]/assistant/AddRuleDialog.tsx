@@ -11,7 +11,7 @@ export function AddRuleDialog() {
           Add Rule
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-w-4xl">
+      <DialogContent className="max-w-5xl">
         <RulesPrompt />
       </DialogContent>
     </Dialog>
