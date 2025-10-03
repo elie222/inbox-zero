@@ -172,7 +172,7 @@ export async function createRule({
       emailAccountId,
       systemType,
       actions: { createMany: { data: mappedActions } },
-      enabled: shouldAutomate(
+      enabled: shouldEnable(
         result,
         mappedActions.map((a) => ({
           type: a.type,
@@ -294,7 +294,7 @@ export async function deleteRule({
   ]);
 }
 
-function shouldAutomate(
+function shouldEnable(
   rule: CreateOrUpdateRuleSchemaWithCategories,
   actions: RiskAction[],
 ) {
