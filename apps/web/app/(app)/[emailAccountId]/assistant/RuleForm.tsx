@@ -394,8 +394,6 @@ export function RuleForm({
     }
   }, [alwaysEditMode]);
 
-  const emailFilterToolipText = `Only apply this rule to emails from this address. Supports multiple addresses separated by comma, pipe, or OR. e.g. "@company.com", "hello@example.com OR support@test.com"`;
-
   return (
     <Form {...form}>
       <form onSubmit={handleSubmit(onSubmit)}>
@@ -628,7 +626,7 @@ export function RuleForm({
                                 }
                               )?.from
                             }
-                            tooltipText={emailFilterToolipText}
+                            tooltipText={getFilterTooltipText("from")}
                           />
                           <Input
                             type="text"
@@ -642,7 +640,7 @@ export function RuleForm({
                                 }
                               )?.to
                             }
-                            tooltipText={emailFilterToolipText}
+                            tooltipText={getFilterTooltipText("to")}
                           />
                           <Input
                             type="text"
@@ -1676,3 +1674,6 @@ function RemoveButton({
     </Button>
   );
 }
+
+const getFilterTooltipText = (filterType: "from" | "to") =>
+  `Only apply this rule ${filterType} emails from this address. Supports multiple addresses separated by comma, pipe, or OR. e.g. "@company.com", "hello@example.com OR support@test.com"`;
