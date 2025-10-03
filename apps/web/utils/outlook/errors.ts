@@ -6,7 +6,7 @@
  */
 export function isAlreadyExistsError(error: unknown): boolean {
   // biome-ignore lint/suspicious/noExplicitAny: simplest
-  const errorMessage = (error as any)?.message || "";
+  const errorMessage = (error as any)?.message.toLowerCase() || "";
   return (
     errorMessage.includes("already exists") ||
     errorMessage.includes("duplicate") ||
