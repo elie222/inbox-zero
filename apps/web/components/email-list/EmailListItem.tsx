@@ -10,7 +10,6 @@ import clsx from "clsx";
 import { ActionButtons } from "@/components/ActionButtons";
 import { PlanBadge } from "@/components/PlanBadge";
 import type { Thread } from "@/components/email-list/types";
-import { PlanActions } from "@/components/email-list/PlanActions";
 import { extractNameFromEmail, participant } from "@/utils/email";
 import { CategoryBadge } from "@/components/CategoryBadge";
 import { Checkbox } from "@/components/Checkbox";
@@ -36,11 +35,6 @@ export const EmailListItem = forwardRef(
       onSelected: (id: string) => void;
       onPlanAiAction: (thread: Thread) => void;
       onArchive: (thread: Thread) => void;
-      executingPlan: boolean;
-      rejectingPlan: boolean;
-      executePlan: (thread: Thread) => Promise<void>;
-      rejectPlan: (thread: Thread) => Promise<void>;
-
       refetch: () => void;
     },
     ref: ForwardedRef<HTMLLIElement>,
@@ -179,14 +173,6 @@ export const EmailListItem = forwardRef(
                       <CategoryBadge category={thread.category.category} />
                     ) : null}
                     <PlanBadge plan={thread.plan} provider={provider} />
-
-                    <PlanActions
-                      thread={thread}
-                      executePlan={props.executePlan}
-                      rejectPlan={props.rejectPlan}
-                      executingPlan={props.executingPlan}
-                      rejectingPlan={props.rejectingPlan}
-                    />
                   </div>
                 )}
               </div>

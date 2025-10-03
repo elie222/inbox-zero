@@ -119,7 +119,6 @@ export const createRuleAction = actionClient
       ctx: { emailAccountId, logger },
       parsedInput: {
         name,
-        automate,
         runOnThreads,
         actions,
         conditions: conditionsInput,
@@ -133,7 +132,6 @@ export const createRuleAction = actionClient
         const rule = await prisma.rule.create({
           data: {
             name,
-            automate: automate ?? undefined,
             runOnThreads: runOnThreads ?? undefined,
             actions: actions
               ? {
@@ -219,7 +217,6 @@ export const updateRuleAction = actionClient
       parsedInput: {
         id,
         name,
-        automate,
         runOnThreads,
         actions,
         conditions: conditionsInput,
@@ -249,7 +246,6 @@ export const updateRuleAction = actionClient
           prisma.rule.update({
             where: { id, emailAccountId },
             data: {
-              automate: automate ?? undefined,
               runOnThreads: runOnThreads ?? undefined,
               name: name || undefined,
               conditionalOperator: conditionalOperator || LogicalOperator.AND,
@@ -606,7 +602,6 @@ export const createRulesOnboardingAction = actionClient
                   name,
                   instructions,
                   systemType: systemType ?? undefined,
-                  automate: true,
                   runOnThreads,
                   actions: {
                     createMany: { data: actions },

@@ -1,37 +1,23 @@
 import { useMemo } from "react";
 import { ButtonGroup } from "@/components/ButtonGroup";
 import { LoadingMiniSpinner } from "@/components/Loading";
-import {
-  ArchiveIcon,
-  CheckCircleIcon,
-  SparklesIcon,
-  Trash2Icon,
-  XCircleIcon,
-} from "lucide-react";
+import { ArchiveIcon, SparklesIcon, Trash2Icon } from "lucide-react";
 
 export function ActionButtonsBulk(props: {
   isPlanning: boolean;
   isArchiving: boolean;
   isDeleting: boolean;
-  isApproving: boolean;
-  isRejecting: boolean;
   onPlanAiAction: () => void;
   onArchive: () => void;
   onDelete: () => void;
-  onApprove: () => void;
-  onReject: () => void;
 }) {
   const {
     isPlanning,
     isArchiving,
     isDeleting,
-    isApproving,
-    isRejecting,
     onPlanAiAction,
     onArchive,
     onDelete,
-    onApprove,
-    onReject,
   } = props;
 
   const buttons = useMemo(
@@ -43,27 +29,6 @@ export function ActionButtonsBulk(props: {
           <LoadingMiniSpinner />
         ) : (
           <SparklesIcon className="size-4 text-foreground" aria-hidden="true" />
-        ),
-      },
-      {
-        tooltip: "Approve AI Action",
-        onClick: onApprove,
-        icon: isApproving ? (
-          <LoadingMiniSpinner />
-        ) : (
-          <CheckCircleIcon
-            className="size-4 text-foreground"
-            aria-hidden="true"
-          />
-        ),
-      },
-      {
-        tooltip: "Reject AI Action",
-        onClick: onReject,
-        icon: isRejecting ? (
-          <LoadingMiniSpinner />
-        ) : (
-          <XCircleIcon className="size-4 text-foreground" aria-hidden="true" />
         ),
       },
       {
@@ -85,18 +50,7 @@ export function ActionButtonsBulk(props: {
         ),
       },
     ],
-    [
-      isArchiving,
-      isPlanning,
-      isDeleting,
-      isApproving,
-      isRejecting,
-      onArchive,
-      onPlanAiAction,
-      onDelete,
-      onApprove,
-      onReject,
-    ],
+    [isArchiving, isPlanning, isDeleting, onArchive, onPlanAiAction, onDelete],
   );
 
   return <ButtonGroup buttons={buttons} />;
