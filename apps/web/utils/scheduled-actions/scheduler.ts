@@ -1,4 +1,4 @@
-import { ScheduledActionStatus } from "@prisma/client";
+import { ScheduledActionStatus, SchedulingStatus } from "@prisma/client";
 import prisma from "@/utils/prisma";
 import type { ActionItem } from "@/utils/ai/types";
 import { createScopedLogger } from "@/utils/logger";
@@ -86,7 +86,7 @@ export async function createScheduledAction({
         where: { id: scheduledAction.id },
         data: {
           scheduledId,
-          schedulingStatus: "SCHEDULED" as const,
+          schedulingStatus: SchedulingStatus.SCHEDULED,
         },
       });
     }
