@@ -123,7 +123,6 @@ export function Rules({
       id: COLD_EMAIL_BLOCKER_RULE_ID,
       name: "Cold Email",
       instructions: emailAccountData?.coldEmailPrompt || null,
-      automate: true,
       enabled: true,
       runOnThreads: false,
       actions: [

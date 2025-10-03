@@ -268,7 +268,6 @@ export function RuleForm({
           posthog.capture("User updated AI rule", {
             conditions: data.conditions.map((condition) => condition.type),
             actions: actionsToSubmit.map((action) => action.type),
-            automate: data.automate,
             runOnThreads: data.runOnThreads,
             digest: data.digest,
           });
@@ -296,7 +295,6 @@ export function RuleForm({
           posthog.capture("User created AI rule", {
             conditions: data.conditions.map((condition) => condition.type),
             actions: actionsToSubmit.map((action) => action.type),
-            automate: data.automate,
             runOnThreads: data.runOnThreads,
             digest: data.digest,
           });
