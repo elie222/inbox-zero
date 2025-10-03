@@ -342,9 +342,7 @@ export const ComposeEmailForm = ({
         <Button type="submit" disabled={isSubmitting}>
           {isSubmitting && <ButtonLoader />}
           Send
-          <div className="dark ml-2">
-            <CommandShortcut>{symbol}+Enter</CommandShortcut>
-          </div>
+          <CommandShortcut className="ml-2">{symbol}+Enter</CommandShortcut>
         </Button>
 
         {onDiscard && (

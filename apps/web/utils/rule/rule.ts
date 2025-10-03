@@ -172,7 +172,7 @@ export async function createRule({
       emailAccountId,
       systemType,
       actions: { createMany: { data: mappedActions } },
-      automate: shouldAutomate(
+      enabled: shouldEnable(
         result,
         mappedActions.map((a) => ({
           type: a.type,
@@ -294,8 +294,7 @@ export async function deleteRule({
   ]);
 }
 
-// TODO: in cases that we don't automate we should really let the user know in the UI so that they can turn it on themselves
-function shouldAutomate(
+function shouldEnable(
   rule: CreateOrUpdateRuleSchemaWithCategories,
   actions: RiskAction[],
 ) {
@@ -317,10 +316,9 @@ function shouldAutomate(
     return false;
 
   const riskLevels = actions.map(
-    (action) => getActionRiskLevel(action, false, {}).level,
+    (action) => getActionRiskLevel(action, {}).level,
   );
-  // Only automate if all actions are low risk
-  // User can manually enable in other cases
+  // Only enable if all actions are low risk
   return riskLevels.every((level) => level === "low");
 }
 

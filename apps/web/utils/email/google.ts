@@ -67,9 +67,11 @@ import type {
   EmailThread,
   EmailLabel,
   EmailFilter,
+  EmailSignature,
 } from "@/utils/email/types";
 import { createScopedLogger } from "@/utils/logger";
 import { extractEmailAddress } from "@/utils/email";
+import { getGmailSignatures } from "@/utils/gmail/signature-settings";
 
 const logger = createScopedLogger("gmail-provider");
 
@@ -907,5 +909,15 @@ export class GmailProvider implements EmailProvider {
   async getOrCreateOutlookFolderIdByName(_folderName: string): Promise<string> {
     logger.warn("Moving thread to folder is not supported for Gmail");
     return "";
+  }
+
+  async getSignatures(): Promise<EmailSignature[]> {
+    const gmailSignatures = await getGmailSignatures(this.client);
+    return gmailSignatures.map((sig) => ({
+      email: sig.email,
+      signature: sig.signature,
+      isDefault: sig.isDefault,
+      displayName: sig.displayName,
+    }));
   }
 }

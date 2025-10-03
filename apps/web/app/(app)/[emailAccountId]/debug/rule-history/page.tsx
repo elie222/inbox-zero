@@ -62,9 +62,6 @@ export default function RuleHistorySelectPage() {
                       <Badge variant="secondary">{rule.systemType}</Badge>
                     )}
                     {!rule.enabled && <Badge variant="outline">Disabled</Badge>}
-                    {rule.automate && (
-                      <Badge variant="default">Automated</Badge>
-                    )}
                   </div>
                 </div>
                 {rule.instructions && (

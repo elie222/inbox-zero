@@ -33,6 +33,13 @@ export interface EmailFilter {
   };
 }
 
+export interface EmailSignature {
+  email: string;
+  signature: string;
+  isDefault: boolean;
+  displayName?: string;
+}
+
 export interface EmailProvider {
   readonly name: "google" | "microsoft";
   getThreads(folderId?: string): Promise<EmailThread[]>;
@@ -218,4 +225,5 @@ export interface EmailProvider {
     folderName: string,
   ): Promise<void>;
   getOrCreateOutlookFolderIdByName(folderName: string): Promise<string>;
+  getSignatures(): Promise<EmailSignature[]>;
 }

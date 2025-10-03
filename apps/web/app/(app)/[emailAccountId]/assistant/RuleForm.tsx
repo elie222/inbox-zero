@@ -268,7 +268,6 @@ export function RuleForm({
           posthog.capture("User updated AI rule", {
             conditions: data.conditions.map((condition) => condition.type),
             actions: actionsToSubmit.map((action) => action.type),
-            automate: data.automate,
             runOnThreads: data.runOnThreads,
             digest: data.digest,
           });
@@ -296,7 +295,6 @@ export function RuleForm({
           posthog.capture("User created AI rule", {
             conditions: data.conditions.map((condition) => condition.type),
             actions: actionsToSubmit.map((action) => action.type),
-            automate: data.automate,
             runOnThreads: data.runOnThreads,
             digest: data.digest,
           });
@@ -895,23 +893,6 @@ export function RuleForm({
 
         <div className="space-y-4 mt-8">
           <TypographyH3 className="text-xl">Settings</TypographyH3>
-
-          <div className="flex items-center space-x-2">
-            <Toggle
-              name="automate"
-              labelRight="Automate"
-              enabled={watch("automate") || false}
-              onChange={(enabled) => {
-                setValue("automate", enabled);
-              }}
-            />
-
-            <TooltipExplanation
-              size="md"
-              side="right"
-              text="When enabled our AI will perform actions automatically. If disabled, you will have to confirm actions first."
-            />
-          </div>
 
           <div className="flex items-center space-x-2">
             <Toggle

@@ -93,11 +93,26 @@ const updateReferralSignatureSchema = z.object({ enabled: z.boolean() });
 export const updateReferralSignatureAction = actionClient
   .metadata({ name: "updateReferralSignature" })
   .schema(updateReferralSignatureSchema)
-  .action(async ({ ctx, parsedInput }) => {
-    await prisma.emailAccount.update({
-      where: { id: ctx.emailAccountId },
-      data: { includeReferralSignature: parsedInput.enabled },
+  .action(
+    async ({ ctx: { emailAccountId, logger }, parsedInput: { enabled } }) => {
+      logger.info("Updating referral signature", { enabled });
+
+      await prisma.emailAccount.update({
+        where: { id: emailAccountId },
+        data: { includeReferralSignature: enabled },
+      });
+    },
+  );
+
+export const fetchSignaturesFromProviderAction = actionClient
+  .metadata({ name: "fetchSignaturesFromProvider" })
+  .action(async ({ ctx: { emailAccountId, provider } }) => {
+    const emailProvider = await createEmailProvider({
+      emailAccountId,
+      provider,
     });
 
-    return { success: true };
+    const signatures = await emailProvider.getSignatures();
+
+    return { signatures };
   });

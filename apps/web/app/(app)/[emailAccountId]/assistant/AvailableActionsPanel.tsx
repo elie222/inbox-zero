@@ -7,6 +7,7 @@ import {
   getAvailableActions,
   getExtraActions,
 } from "@/utils/ai/rule/create-rule-schema";
+import { TooltipExplanation } from "@/components/TooltipExplanation";
 
 const actionNames: Record<ActionType, string> = {
   [ActionType.LABEL]: "Label",
@@ -23,6 +24,13 @@ const actionNames: Record<ActionType, string> = {
   [ActionType.TRACK_THREAD]: "Track thread",
 };
 
+const actionTooltips: Partial<Record<ActionType, string>> = {
+  [ActionType.CALL_WEBHOOK]:
+    "For developers: trigger external integrations by sending email data to a custom URL",
+  [ActionType.DIGEST]:
+    "Group emails together and receive them as a daily summary",
+};
+
 export function AvailableActionsPanel() {
   const { provider } = useAccount();
   return (
@@ -30,10 +38,9 @@ export function AvailableActionsPanel() {
       <CardContent className="pt-4">
         <div className="grid gap-2">
           <ActionSection
-            actions={getAvailableActions(provider)}
+            actions={[...getAvailableActions(provider), ...getExtraActions()]}
             title="Available Actions"
           />
-          <ActionSection actions={getExtraActions()} title="Extra" />
         </div>
       </CardContent>
     </Card>
@@ -53,10 +60,12 @@ function ActionSection({
       <div className="grid gap-2 mt-1">
         {actions.map((actionType) => {
           const Icon = getActionIcon(actionType);
+          const tooltip = actionTooltips[actionType];
           return (
             <div key={actionType} className="flex items-center gap-2">
               <Icon className="size-3.5 text-muted-foreground" />
               <span className="text-sm">{actionNames[actionType]}</span>
+              {tooltip && <TooltipExplanation text={tooltip} size="sm" />}
             </div>
           );
         })}
