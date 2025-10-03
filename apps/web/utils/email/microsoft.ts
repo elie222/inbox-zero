@@ -56,12 +56,14 @@ import type {
   EmailThread,
   EmailLabel,
   EmailFilter,
+  EmailSignature,
 } from "@/utils/email/types";
 import { unwatchOutlook, watchOutlook } from "@/utils/outlook/watch";
 import { escapeODataString } from "@/utils/outlook/odata-escape";
 import { extractEmailAddress } from "@/utils/email";
 import { getOrCreateOutlookFolderIdByName } from "@/utils/outlook/folders";
 import { hasUnquotedParentFolderId } from "@/utils/outlook/message";
+import { extractSignatureFromHtml } from "@/utils/email/signature-extraction";
 
 const logger = createScopedLogger("outlook-provider");
 
@@ -1197,5 +1199,40 @@ export class OutlookProvider implements EmailProvider {
 
   async getOrCreateOutlookFolderIdByName(folderName: string): Promise<string> {
     return await getOrCreateOutlookFolderIdByName(this.client, folderName);
+  }
+
+  async getSignatures(): Promise<EmailSignature[]> {
+    // Microsoft Graph API does not currently support fetching signatures via API
+    // https://learn.microsoft.com/en-my/answers/questions/1093518/user-email-signature-management-via-graph-api
+    // So we extract from recent sent emails instead
+
+    try {
+      const sentMessages = await this.getSentMessages(5);
+
+      for (const message of sentMessages) {
+        if (!message.textHtml) continue;
+
+        const signature = extractSignatureFromHtml(message.textHtml);
+        if (signature) {
+          // Return the first signature we find
+          return [
+            {
+              email: message.headers.from,
+              signature,
+              isDefault: true,
+              displayName: message.headers.from,
+            },
+          ];
+        }
+      }
+
+      logger.info("No signature found in recent sent emails");
+      return [];
+    } catch (error) {
+      logger.error("Failed to extract signature from sent emails", {
+        error: error instanceof Error ? error.message : String(error),
+      });
+      return [];
+    }
   }
 }

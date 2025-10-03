@@ -42,24 +42,33 @@ export async function fetchMessagesAndGenerateDraft(
     throw new Error("Draft result is not a string");
   }
 
-  const emailAccountWithIncludeReferralSignature =
-    env.NEXT_PUBLIC_DISABLE_REFERRAL_SIGNATURE
-      ? null
-      : await prisma.emailAccount.findUnique({
-          where: { id: emailAccount.id },
-          select: { includeReferralSignature: true },
-        });
+  const emailAccountWithSignatures = await prisma.emailAccount.findUnique({
+    where: { id: emailAccount.id },
+    select: {
+      includeReferralSignature: true,
+      signature: true,
+    },
+  });
 
-  if (emailAccountWithIncludeReferralSignature?.includeReferralSignature) {
+  let finalResult = result;
+
+  if (
+    !env.NEXT_PUBLIC_DISABLE_REFERRAL_SIGNATURE &&
+    emailAccountWithSignatures?.includeReferralSignature
+  ) {
     const referralSignature = await getOrCreateReferralCode(
       emailAccount.userId,
     );
     const referralLink = generateReferralLink(referralSignature.code);
     const htmlSignature = `Drafted by <a href="${referralLink}">Inbox Zero</a>.`;
-    return `${result}\n\n${htmlSignature}`;
+    finalResult = `${finalResult}\n\n${htmlSignature}`;
   }
 
-  return result;
+  if (emailAccountWithSignatures?.signature) {
+    finalResult = `${finalResult}\n\n${emailAccountWithSignatures.signature}`;
+  }
+
+  return finalResult;
 }
 
 /**

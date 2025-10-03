@@ -7,8 +7,8 @@ import { Button } from "@/components/Button";
 import {
   saveSignatureAction,
   type SaveSignatureBody,
-  loadSignatureFromGmailAction,
 } from "@/utils/actions/user";
+import { fetchSignaturesFromProviderAction } from "@/utils/actions/email-account";
 import {
   FormSection,
   FormSectionLeft,
@@ -33,7 +33,9 @@ export const SignatureSectionForm = ({
 
   const editorRef = useRef<TiptapHandle>(null);
 
-  const { emailAccountId } = useAccount();
+  const { emailAccountId, provider } = useAccount();
+  const isGmail = provider === "google";
+
   const { execute, isExecuting } = useAction(
     saveSignatureAction.bind(null, emailAccountId),
     {
@@ -47,8 +49,8 @@ export const SignatureSectionForm = ({
       },
     },
   );
-  const { executeAsync: executeLoadSignatureFromGmail } = useAction(
-    loadSignatureFromGmailAction.bind(null, emailAccountId),
+  const { executeAsync: executeFetchSignatures } = useAction(
+    fetchSignaturesFromProviderAction.bind(null, emailAccountId),
   );
 
   const handleEditorChange = useCallback(
@@ -88,25 +90,39 @@ export const SignatureSectionForm = ({
                 size="lg"
                 color="white"
                 onClick={async () => {
-                  const result = await executeLoadSignatureFromGmail();
+                  const result = await executeFetchSignatures();
 
                   if (result?.serverError) {
                     toastError({
-                      title: "Error loading signature from Gmail",
+                      title: `Error loading signature from ${isGmail ? "Gmail" : "Outlook"}`,
                       description: result.serverError,
                     });
                     return;
-                  } else if (result?.data?.signature) {
-                    editorRef.current?.appendContent(result.data.signature);
+                  }
+
+                  const signatures = result?.data?.signatures || [];
+                  const defaultSig =
+                    signatures.find((sig) => sig.isDefault) || signatures[0];
+
+                  if (defaultSig?.signature) {
+                    editorRef.current?.appendContent(defaultSig.signature);
+                    toastSuccess({
+                      title: "Signature loaded",
+                      description: isGmail
+                        ? "Loaded from Gmail"
+                        : "Extracted from recent sent emails",
+                    });
                   } else {
                     toastInfo({
-                      title: "Load completed",
-                      description: "No signature found in Gmail",
+                      title: "No signature found",
+                      description: isGmail
+                        ? "No signature found in your Gmail account"
+                        : "No signature found in recent sent emails",
                     });
                   }
                 }}
               >
-                Load from Gmail
+                Load from {isGmail ? "Gmail" : "Outlook"}
               </Button>
             </div>
           </SubmitButtonWrapper>
