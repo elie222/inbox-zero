@@ -16,7 +16,7 @@ vi.mock("server-only", () => ({}));
 describe("getActionRiskLevel", () => {
   const testCases = [
     {
-      name: "returns very-high risk for fully dynamic content and recipient with automation",
+      name: "returns very-high risk for fully dynamic content and recipient with AI rule",
       action: {
         subject: "{{dynamic}}",
         content: "{{dynamic}}",
@@ -25,13 +25,14 @@ describe("getActionRiskLevel", () => {
         bcc: "",
         type: ActionType.REPLY,
       },
-      hasAutomation: true,
-      instructions: "String",
+      rule: {
+        instructions: "AI generated response",
+      },
       expectedLevel: "very-high",
       expectedMessageContains: "Very High Risk",
     },
     {
-      name: "returns high risk for fully dynamic recipient with automation",
+      name: "returns high risk for fully dynamic recipient with non-AI rule",
       action: {
         subject: "",
         content: "",
@@ -40,13 +41,12 @@ describe("getActionRiskLevel", () => {
         bcc: "",
         type: ActionType.REPLY,
       },
-      hasAutomation: true,
-      instructions: "String",
+      rule: {},
       expectedLevel: "high",
       expectedMessageContains: "High Risk",
     },
     {
-      name: "returns medium risk for partially dynamic content with automation",
+      name: "returns medium risk for partially dynamic content",
       action: {
         subject: "Hello {{name}}",
         content: "How are you {{name}}?",
@@ -55,8 +55,7 @@ describe("getActionRiskLevel", () => {
         bcc: "",
         type: ActionType.REPLY,
       },
-      hasAutomation: true,
-      instructions: "String",
+      rule: {},
       expectedLevel: "medium",
       expectedMessageContains: "Medium Risk",
     },
@@ -70,13 +69,12 @@ describe("getActionRiskLevel", () => {
         bcc: "",
         type: ActionType.REPLY,
       },
-      hasAutomation: false,
-      instructions: "String",
+      rule: {},
       expectedLevel: "low",
       expectedMessageContains: "Low Risk",
     },
     {
-      name: "returns medium risk for dynamic recipient without automation",
+      name: "returns high risk for dynamic recipient (all actions are automated)",
       action: {
         subject: "Static Subject",
         content: "Static Content",
@@ -85,13 +83,12 @@ describe("getActionRiskLevel", () => {
         bcc: "",
         type: ActionType.REPLY,
       },
-      hasAutomation: false,
-      instructions: "String",
-      expectedLevel: "low",
-      expectedMessageContains: "Low Risk",
+      rule: {},
+      expectedLevel: "high",
+      expectedMessageContains: "High Risk",
     },
     {
-      name: "returns medium risk for dynamic cc/bcc without automation",
+      name: "returns high risk for fully dynamic cc/bcc",
       action: {
         subject: "Static Subject",
         content: "Static Content",
@@ -100,26 +97,30 @@ describe("getActionRiskLevel", () => {
         bcc: "",
         type: ActionType.REPLY,
       },
-      hasAutomation: false,
-      instructions: "String",
-      expectedLevel: "low",
-      expectedMessageContains: "Low Risk",
+      rule: {},
+      expectedLevel: "high",
+      expectedMessageContains: "High Risk",
+    },
+    {
+      name: "returns medium risk for partially dynamic cc/bcc",
+      action: {
+        subject: "Static Subject",
+        content: "Static Content",
+        to: "static@example.com",
+        cc: "team-{{name}}@example.com",
+        bcc: "",
+        type: ActionType.REPLY,
+      },
+      rule: {},
+      expectedLevel: "medium",
+      expectedMessageContains: "Medium Risk",
     },
   ];
 
   testCases.forEach(
-    ({
-      name,
-      action,
-      hasAutomation,
-      instructions,
-      expectedLevel,
-      expectedMessageContains,
-    }) => {
+    ({ name, action, rule, expectedLevel, expectedMessageContains }) => {
       it(name, () => {
-        const result = getActionRiskLevel(action, hasAutomation, {
-          instructions,
-        });
+        const result = getActionRiskLevel(action, rule);
         expect(result.level).toBe(expectedLevel);
         expect(result.message).toContain(expectedMessageContains);
       });
@@ -150,7 +151,6 @@ describe("getRiskLevel", () => {
             type: ActionType.REPLY,
           },
         ],
-        automate: true,
         instructions: "String",
       } as RulesResponse[number],
       expectedLevel: "high",
@@ -177,7 +177,6 @@ describe("getRiskLevel", () => {
             type: ActionType.REPLY,
           },
         ],
-        automate: true,
         instructions: "String",
       } as RulesResponse[number],
       expectedLevel: "high",
@@ -204,8 +203,6 @@ describe("getRiskLevel", () => {
             type: ActionType.REPLY,
           },
         ],
-        automate: false,
-        instructions: "String",
       } as RulesResponse[number],
       expectedLevel: "low",
       expectedMessageContains: "Low Risk",

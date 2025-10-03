@@ -18,7 +18,6 @@ import { useDialogState } from "@/hooks/useDialogState";
 import { CheckCircle2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { prefixPath } from "@/utils/path";
-import { Badge } from "@/components/Badge";
 import type { CreateRuleResult } from "@/utils/rule/types";
 
 export function CreatedRulesModal({
@@ -82,9 +81,6 @@ export function CreatedRulesContent({
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <h4 className="font-medium text-base">{rule.name}</h4>
-                  {!rule.automate && (
-                    <Badge color="yellow">Requires Approval</Badge>
-                  )}
                 </div>
 
                 <div className="text-sm">

@@ -35,7 +35,6 @@ export default async function CreateRulePage(props: {
             conditions: searchParams.type
               ? [getEmptyCondition(searchParams.type, searchParams.categoryId)]
               : [],
-            automate: true,
             runOnThreads: true,
           }
         }

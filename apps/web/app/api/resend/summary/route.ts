@@ -7,7 +7,6 @@ import { env } from "@/env";
 import { hasCronSecret } from "@/utils/cron";
 import { captureException } from "@/utils/error";
 import prisma from "@/utils/prisma";
-import { ExecutedRuleStatus } from "@prisma/client";
 import { ThreadTrackerType } from "@prisma/client";
 import { createScopedLogger } from "@/utils/logger";
 import { getMessagesBatch } from "@/utils/gmail/message";
@@ -63,16 +62,6 @@ async function sendEmail({
     select: {
       email: true,
       coldEmails: { where: { createdAt: { gt: cutOffDate } } },
-      _count: {
-        select: {
-          executedRules: {
-            where: {
-              status: ExecutedRuleStatus.PENDING,
-              createdAt: { gt: cutOffDate },
-            },
-          },
-        },
-      },
       account: {
         select: {
           access_token: true,
@@ -159,7 +148,6 @@ async function sendEmail({
     subject: "",
     sentAt: e.createdAt,
   }));
-  const pendingCount = emailAccount._count.executedRules;
 
   // get messages
   const messageIds = [
@@ -213,7 +201,6 @@ async function sendEmail({
 
   const shouldSendEmail = !!(
     coldEmailers.length ||
-    pendingCount ||
     typeCounts[ThreadTrackerType.NEEDS_REPLY] ||
     typeCounts[ThreadTrackerType.AWAITING] ||
     typeCounts[ThreadTrackerType.NEEDS_ACTION]
@@ -223,7 +210,6 @@ async function sendEmail({
     ...loggerOptions,
     shouldSendEmail,
     coldEmailers: coldEmailers.length,
-    pendingCount,
     needsReplyCount: typeCounts[ThreadTrackerType.NEEDS_REPLY],
     awaitingReplyCount: typeCounts[ThreadTrackerType.AWAITING],
     needsActionCount: typeCounts[ThreadTrackerType.NEEDS_ACTION],
@@ -244,7 +230,6 @@ async function sendEmail({
       emailProps: {
         baseUrl: env.NEXT_PUBLIC_BASE_URL,
         coldEmailers,
-        pendingCount,
         needsReplyCount: typeCounts[ThreadTrackerType.NEEDS_REPLY],
         awaitingReplyCount: typeCounts[ThreadTrackerType.AWAITING],
         needsActionCount: typeCounts[ThreadTrackerType.NEEDS_ACTION],

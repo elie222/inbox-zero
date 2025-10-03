@@ -10,9 +10,7 @@ import {
   Trash2Icon,
   ToggleRightIcon,
   ToggleLeftIcon,
-  InfoIcon,
   SparklesIcon,
-  EyeIcon,
 } from "lucide-react";
 import { useMemo } from "react";
 import { LoadingContent } from "@/components/LoadingContent";
@@ -38,7 +36,6 @@ import { conditionsToString } from "@/utils/condition";
 import { Badge } from "@/components/Badge";
 import { getActionColor } from "@/components/PlanBadge";
 import { toastError, toastSuccess } from "@/components/Toast";
-import { Tooltip } from "@/components/Tooltip";
 import { useRules } from "@/hooks/useRules";
 import { ActionType, ColdEmailSetting, LogicalOperator } from "@prisma/client";
 import { useAction } from "next-safe-action/hooks";
@@ -126,7 +123,6 @@ export function Rules({
       id: COLD_EMAIL_BLOCKER_RULE_ID,
       name: "Cold Email",
       instructions: emailAccountData?.coldEmailPrompt || null,
-      automate: true,
       enabled: true,
       runOnThreads: false,
       actions: [
@@ -277,17 +273,6 @@ export function Rules({
                             </Badge>
                           )}
                           {rule.name}
-                          {!rule.automate && (
-                            <Tooltip content="Actions for matched emails will require manual approval in the 'Pending' tab. You can change this in the rule settings by clicking this badge.">
-                              <Badge
-                                color="yellow"
-                                className="ml-auto text-nowrap"
-                              >
-                                Requires Approval
-                                <InfoIcon className="ml-1.5 size-3" />
-                              </Badge>
-                            </Tooltip>
-                          )}
                         </button>
                       </TableCell>
                       {size === "md" && (

@@ -1,20 +1,20 @@
 import { JSDOM } from "jsdom";
 
-// TODO: we can get the signature via the API instead:
-// https://developers.google.com/gmail/api/reference/rest/v1/users.settings.sendAs
-
 /**
- * Extracts Gmail signature from email content
+ * Extracts email signature from HTML content for Outlook emails
+ * Used to extract signatures from sent emails since Outlook API doesn't support fetching signatures
  * @param htmlContent The HTML content of the email
  * @returns The extracted signature or null if no signature is found
  */
-export function extractGmailSignature(htmlContent: string): string | null {
+export function extractSignatureFromHtml(htmlContent: string): string | null {
   if (!htmlContent) return null;
 
   try {
     const dom = new JSDOM(htmlContent);
     const document = dom.window.document;
-    const signatureElement = document.querySelector(".gmail_signature");
+
+    // Look for Outlook signature divs
+    const signatureElement = document.querySelector('[id^="Signature"]');
 
     if (signatureElement) {
       const tempDiv = document.createElement("div");

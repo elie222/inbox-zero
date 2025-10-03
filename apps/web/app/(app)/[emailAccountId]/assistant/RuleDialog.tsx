@@ -90,7 +90,6 @@ export function RuleDialog({
                     type: ActionType.LABEL,
                   },
                 ],
-                automate: true,
                 runOnThreads: true,
                 conditionalOperator: LogicalOperator.AND,
                 ...initialRule,
