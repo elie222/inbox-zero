@@ -125,6 +125,7 @@ export function Rules({
       instructions: emailAccountData?.coldEmailPrompt || null,
       enabled: true,
       runOnThreads: false,
+      automate: true,
       actions: [
         isGoogleProvider(provider)
           ? {
