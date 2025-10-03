@@ -7,6 +7,7 @@ import type {
   RecallBot,
   RecallCalendarEventResponse,
 } from "@/app/api/recall/webhook/types";
+import { MeetingStatus } from "@prisma/client";
 
 const logger = createScopedLogger("recall/bot");
 
@@ -76,7 +77,7 @@ export async function scheduleBotForEvent(
       update: {
         botWillJoinAt: new Date(event.start_time),
         meetingUrl: event.meeting_url || "",
-        status: "SCHEDULED",
+        status: MeetingStatus.SCHEDULED,
         deduplicationKey,
       },
       create: {
@@ -85,7 +86,7 @@ export async function scheduleBotForEvent(
         emailAccountId: emailAccountId,
         meetingUrl: event.meeting_url || "",
         botWillJoinAt: new Date(event.start_time),
-        status: "SCHEDULED",
+        status: MeetingStatus.SCHEDULED,
         deduplicationKey,
       },
     });
@@ -146,7 +147,7 @@ export async function rescheduleBotsForUpdatedEvents(
         where: {
           eventId: event.id,
           emailAccountId: emailAccountId,
-          status: { in: ["SCHEDULED", "ACTIVE"] },
+          status: { in: [MeetingStatus.SCHEDULED, MeetingStatus.ACTIVE] },
         },
       });
 

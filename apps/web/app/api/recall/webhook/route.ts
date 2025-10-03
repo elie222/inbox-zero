@@ -21,6 +21,7 @@ import type {
   CalendarSyncEventsEvent,
   TranscriptDoneEvent,
 } from "./types";
+import { MeetingStatus } from "@prisma/client";
 
 const logger = createScopedLogger("recall/webhook");
 
@@ -282,9 +283,9 @@ async function handleCalendarUpdate(payload: CalendarUpdateEvent) {
         await prisma.meeting.updateMany({
           where: {
             emailAccountId: connection.emailAccountId,
-            status: { in: ["SCHEDULED", "ACTIVE"] },
+            status: { in: [MeetingStatus.SCHEDULED, MeetingStatus.ACTIVE] },
           },
-          data: { status: "CANCELLED" },
+          data: { status: MeetingStatus.CANCELLED },
         });
 
         logger.info(
@@ -402,8 +403,9 @@ async function handleTranscriptDone(payload: TranscriptDoneEvent) {
     await prisma.meeting.update({
       where: { id: meeting.id },
       data: {
-        transcript: parsedTranscriptData,
-        status: "COMPLETED",
+        // biome-ignore lint/suspicious/noExplicitAny: json
+        transcript: parsedTranscriptData as any,
+        status: MeetingStatus.COMPLETED,
       },
     });
 

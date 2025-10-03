@@ -912,7 +912,7 @@ model Meeting {
   eventId          String
   botId            String
   deduplicationKey String
-  status           RecallBotStatus @default(SCHEDULED)
+  status           MeetingStatus @default(SCHEDULED)
   transcript       Json?
   botWillJoinAt    DateTime
   meetingUrl       String
@@ -1118,7 +1118,7 @@ enum SchedulingStatus {
   FAILED
 }
 
-enum RecallBotStatus {
+enum MeetingStatus {
   SCHEDULED
   ACTIVE
   COMPLETED
