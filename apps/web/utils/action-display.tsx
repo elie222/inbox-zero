@@ -1,4 +1,3 @@
-import { capitalCase } from "capital-case";
 import { ActionType } from "@prisma/client";
 import { getEmailTerminology } from "@/utils/terminology";
 import {
@@ -15,6 +14,7 @@ import {
   MailIcon,
   NewspaperIcon,
 } from "lucide-react";
+import { truncate } from "@/utils/string";
 
 export function getActionDisplay(
   action: {
@@ -30,13 +30,12 @@ export function getActionDisplay(
   switch (action.type) {
     case ActionType.DRAFT_EMAIL:
       if (action.content) {
-        const preview = action.content.substring(0, 10);
-        return `Draft Reply: ${preview}${action.content.length > 10 ? "..." : ""}`;
+        return `Draft Reply: ${truncate(action.content, 10)}`;
       }
       return "Draft Reply";
     case ActionType.LABEL:
       return action.label
-        ? `${terminology.label.action} as '${action.label}'`
+        ? `${terminology.label.action} as '${truncate(action.label, 15)}'`
         : terminology.label.action;
     case ActionType.ARCHIVE:
       return "Skip Inbox";
@@ -48,10 +47,10 @@ export function getActionDisplay(
       return "Reply";
     case ActionType.SEND_EMAIL:
       return action.to
-        ? `Send Email to ${action.to.slice(0, 8)}...`
+        ? `Send Email to ${truncate(action.to, 8)}`
         : "Send Email";
     case ActionType.FORWARD:
-      return action.to ? `Forward to ${action.to.slice(0, 8)}...` : "Forward";
+      return action.to ? `Forward to ${truncate(action.to, 8)}` : "Forward";
     case ActionType.MOVE_FOLDER:
       return action.folderName
         ? `Move to '${action.folderName}' folder`
