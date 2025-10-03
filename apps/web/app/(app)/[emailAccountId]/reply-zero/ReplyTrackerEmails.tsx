@@ -18,7 +18,7 @@ import {
 } from "lucide-react";
 import { useThreadsByIds } from "@/hooks/useThreadsByIds";
 import { resolveThreadTrackerAction } from "@/utils/actions/reply-tracking";
-import { toastError, toastSuccess } from "@/components/Toast";
+import { toastError, toastSuccess, toastInfo } from "@/components/Toast";
 import { Loading } from "@/components/Loading";
 import { TablePagination } from "@/components/TablePagination";
 import {
@@ -32,6 +32,8 @@ import { cn } from "@/utils";
 import { CommandShortcut } from "@/components/ui/command";
 import { useTableKeyboardNavigation } from "@/hooks/useTableKeyboardNavigation";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { useAccount } from "@/providers/EmailAccountProvider";
+import { isGoogleProvider } from "@/utils/email/provider-types";
 
 export function ReplyTrackerEmails({
   trackers,
@@ -50,6 +52,9 @@ export function ReplyTrackerEmails({
   totalPages: number;
   isAnalyzing: boolean;
 }) {
+  const { provider } = useAccount();
+  const isGmail = isGoogleProvider(provider);
+
   const [selectedEmail, setSelectedEmail] = useState<{
     threadId: string;
     messageId: string;
@@ -123,6 +128,10 @@ export function ReplyTrackerEmails({
       const message = thread.messages.at(-1)!;
 
       if (action === "reply") {
+        if (!isGmail) {
+          showReplyNotSupportedToast();
+          return;
+        }
         setSelectedEmail({ threadId: thread.id, messageId: message.id });
       } else if (action === "resolve") {
         await handleResolve(thread.id, true);
@@ -130,7 +139,7 @@ export function ReplyTrackerEmails({
         await handleResolve(thread.id, false);
       }
     },
-    [sortedThreads, handleResolve],
+    [sortedThreads, handleResolve, isGmail],
   );
 
   const { selectedIndex, setSelectedIndex, getRefCallback } =
@@ -371,17 +380,25 @@ function NudgeButton({
   onClick: () => void;
 }) {
   const showNudge = type === ThreadTrackerType.AWAITING;
+  const { provider } = useAccount();
+  const isGmail = isGoogleProvider(provider);
+
+  const handleClick = () => {
+    if (!isGmail) {
+      showReplyNotSupportedToast();
+      return;
+    }
+    onClick();
+  };
 
   return (
     <Button
       className="w-full"
       Icon={showNudge ? HandIcon : ReplyIcon}
-      onClick={onClick}
+      onClick={handleClick}
     >
       {showNudge ? "Nudge" : "Reply"}
-      <div className="dark ml-2">
-        <CommandShortcut>R</CommandShortcut>
-      </div>
+      <CommandShortcut className="ml-2">R</CommandShortcut>
     </Button>
   );
 }
@@ -500,4 +517,13 @@ function useReplyTrackerKeyboardNav(
     });
 
   return { selectedIndex, setSelectedIndex, getRefCallback };
+}
+
+function showReplyNotSupportedToast() {
+  toastInfo({
+    title: "Reply in your email client",
+    description:
+      "Please use your email client to reply. Replying from within Inbox Zero not yet supported for Microsoft accounts.",
+    duration: 5000,
+  });
 }
