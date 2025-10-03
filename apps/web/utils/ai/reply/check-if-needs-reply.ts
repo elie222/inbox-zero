@@ -8,6 +8,7 @@ import {
 } from "@/utils/stringify-email";
 import { preprocessBooleanLike } from "@/utils/zod";
 import { getModel } from "@/utils/llms/model";
+import { getUserInfoPrompt } from "@/utils/ai/helpers";
 
 export async function aiCheckIfNeedsReply({
   emailAccount,
@@ -26,8 +27,7 @@ export async function aiCheckIfNeedsReply({
 
   const system = "You are an AI assistant that checks if a reply is needed.";
 
-  const prompt =
-    `${emailAccount.about ? `<user_background_information>${emailAccount.about}</user_background_information>` : ""}
+  const prompt = `${getUserInfoPrompt({ emailAccount })}
 
 We are sending the following message:
 

@@ -2,6 +2,7 @@ import { z } from "zod";
 import { createGenerateObject } from "@/utils/llms";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import { getModel } from "@/utils/llms/model";
+import { getUserInfoPrompt } from "@/utils/ai/helpers";
 
 const parameters = z.object({
   rules: z
@@ -50,10 +51,8 @@ export async function aiGenerateRulesPrompt({
 
   const prompt = `Analyze the user's email behavior and suggest general rules for managing their inbox effectively. Here's the context:
 
-<user_email>
-${emailAccount.email}
-</user_email>
-${emailAccount.about ? `\n<about_user>\n${emailAccount.about}\n</about_user>\n` : ""}
+${getUserInfoPrompt({ emailAccount })}
+
 <last_sent_emails>
 ${lastSentEmails
   .slice(0, lastSentEmailsCount)

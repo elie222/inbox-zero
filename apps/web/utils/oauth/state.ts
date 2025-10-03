@@ -1,3 +1,5 @@
+import { env } from "@/env";
+import type { IntegrationKey } from "@/utils/mcp/integrations";
 import crypto from "node:crypto";
 
 /**
@@ -31,8 +33,17 @@ export function parseOAuthState<T extends Record<string, unknown>>(
  */
 export const oauthStateCookieOptions = {
   httpOnly: true,
-  secure: process.env.NODE_ENV !== "development",
+  secure: env.NODE_ENV !== "development",
   maxAge: 60 * 10, // 10 minutes
   path: "/",
   sameSite: "lax",
 } as const;
+
+export const getMcpStateCookieName = (integration: IntegrationKey) =>
+  `${integration}_mcp_oauth_state`;
+
+export const getMcpPkceCookieName = (integration: IntegrationKey) =>
+  `${integration}_mcp_pkce_verifier`;
+
+export const getMcpOAuthStateType = (integration: IntegrationKey) =>
+  `${integration}-mcp`;

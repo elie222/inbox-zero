@@ -6,7 +6,7 @@ import { Calendar } from "lucide-react";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { toastError } from "@/components/Toast";
 import type { GetCalendarAuthUrlResponse } from "@/app/api/google/calendar/auth-url/route";
-import { EMAIL_ACCOUNT_HEADER } from "@/utils/config";
+import { fetchWithAccount } from "@/utils/fetch";
 
 export function ConnectCalendarButton() {
   const { emailAccountId } = useAccount();
@@ -15,12 +15,10 @@ export function ConnectCalendarButton() {
   const handleConnect = async () => {
     setIsConnecting(true);
     try {
-      const response = await fetch("/api/google/calendar/auth-url", {
-        method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-          [EMAIL_ACCOUNT_HEADER]: emailAccountId,
-        },
+      const response = await fetchWithAccount({
+        url: "/api/google/calendar/auth-url",
+        emailAccountId,
+        init: { headers: { "Content-Type": "application/json" } },
       });
 
       if (!response.ok) {

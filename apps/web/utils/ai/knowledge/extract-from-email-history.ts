@@ -2,11 +2,11 @@ import { z } from "zod";
 import { createScopedLogger } from "@/utils/logger";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import type { EmailForLLM } from "@/utils/types";
-import { stringifyEmail } from "@/utils/stringify-email";
-import { getTodayForLLM } from "@/utils/llms/helpers";
+import { getEmailListPrompt, getTodayForLLM } from "@/utils/ai/helpers";
 import { preprocessBooleanLike } from "@/utils/zod";
 import { getModel } from "@/utils/llms/model";
 import { createGenerateObject } from "@/utils/llms";
+import { getUserInfoPrompt } from "@/utils/ai/helpers";
 
 const logger = createScopedLogger("EmailHistoryExtractor");
 
@@ -36,27 +36,18 @@ const getUserPrompt = ({
   emailAccount: EmailAccountWithAI;
 }) => {
   return `<current_email_thread>
-${currentThreadMessages.map((m) => stringifyEmail(m, 10_000)).join("\n---\n")}
+${getEmailListPrompt({ messages: currentThreadMessages, messageMaxLength: 10_000 })}
 </current_email_thread>
 
 ${
   historicalMessages.length > 0
     ? `<historical_email_threads>
-${historicalMessages.map((m) => stringifyEmail(m, 10_000)).join("\n---\n")}
+${getEmailListPrompt({ messages: historicalMessages, messageMaxLength: 10_000 })}
 </historical_email_threads>`
     : "No historical email threads available."
 }
 
-${
-  emailAccount.about
-    ? `<user_info>
-<about>${emailAccount.about}</about>
-<email>${emailAccount.email}</email>
-</user_info>`
-    : `<user_info>
-<email>${emailAccount.email}</email>
-</user_info>`
-}
+${getUserInfoPrompt({ emailAccount })}
 
 ${getTodayForLLM()}
 Analyze the historical email threads and extract any relevant information that would be helpful for drafting a response to the current email thread. Provide a concise summary of the key historical context.`;

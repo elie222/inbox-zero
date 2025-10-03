@@ -31,6 +31,7 @@ import { env } from "@/env";
 import { posthogCaptureEvent } from "@/utils/posthog";
 import { getUserCategoriesForNames } from "@/utils/category.server";
 import { getModel } from "@/utils/llms/model";
+import { getUserInfoPrompt } from "@/utils/ai/helpers";
 
 const logger = createScopedLogger("ai-fix-rules");
 
@@ -114,13 +115,7 @@ ${matchedRule ? ruleToXML(matchedRule) : "No rule matched"}
 
 ${!matchedRule ? userRules : ""}
 
-${
-  emailAccount.about
-    ? `<user_about>
-  ${emailAccount.about}
-</user_about>`
-    : ""
-}
+${getUserInfoPrompt({ emailAccount })}
 
 ${
   originalEmail

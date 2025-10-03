@@ -9,7 +9,9 @@ export default function WelcomeUpgradePage() {
     <>
       <WelcomeUpgradeNav />
       <PricingLazy showSkipUpgrade header={<WelcomeUpgradeHeader />} />
-      <Testimonial />
+      <div className="mt-8">
+        <Testimonial />
+      </div>
       <Footer />
     </>
   );

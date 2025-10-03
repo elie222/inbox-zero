@@ -4,8 +4,8 @@ import { createGenerateObject } from "@/utils/llms";
 import type { EmailForLLM } from "@/utils/types";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import { sleep } from "@/utils/sleep";
-import { stringifyEmail } from "@/utils/stringify-email";
 import { getModel } from "@/utils/llms/model";
+import { getEmailListPrompt } from "@/utils/ai/helpers";
 
 const logger = createScopedLogger("email-report-summarize-emails");
 
@@ -76,7 +76,7 @@ For each email, write a **factual summary of 3–5 sentences** that clearly desc
   const prompt = `
 **Input Emails (Batch ${batchNumber} of ${totalBatches}):**
 
-${emails.map((email) => `<email>${stringifyEmail(email, 2000)}</email>`).join("\n")}
+${getEmailListPrompt({ messages: emails, messageMaxLength: 2000 })}
 
 Return the analysis as a JSON array of objects.`;
 
