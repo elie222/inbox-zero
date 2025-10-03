@@ -124,7 +124,7 @@ export default function DigestEmail(props: DigestEmailProps) {
           <ul className="m-0 pl-[20px]">
             {lines.map((line: string, index: number) => {
               // Remove leading bullet point characters (•, -, *, etc.) if present
-              const cleanedLine = line.trim().replace(/^[•\-*]\s*/, "");
+              const cleanedLine = line.trim().replace(/^[•\-*]\s+/, "");
               return (
                 <li key={index} className="text-[14px] text-gray-800 mb-[1px]">
                   {cleanedLine}
