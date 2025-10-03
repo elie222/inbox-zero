@@ -13,12 +13,18 @@ import {
 } from "@/utils/actions/cold-email.validation";
 import { updateColdEmailSettingsAction } from "@/utils/actions/cold-email";
 import { ColdEmailPromptForm } from "@/app/(app)/[emailAccountId]/cold-email-blocker/ColdEmailPromptForm";
-import { RadioGroup } from "@/components/RadioGroup";
 import { useEmailAccountFull } from "@/hooks/useEmailAccountFull";
 import { useAccount } from "@/providers/EmailAccountProvider";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { isMicrosoftProvider } from "@/utils/email/provider-types";
+import { Toggle } from "@/components/Toggle";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 export function ColdEmailSettings() {
   const { data, isLoading, error, mutate } = useEmailAccountFull();
@@ -135,46 +141,58 @@ export function ColdEmailForm({
 
   return (
     <form onSubmit={onSubmitForm} className="max-w-lg space-y-6">
+      <div className="space-y-2">
+        <Label htmlFor="cold-email-select">
+          How should we handle cold emails?
+        </Label>
+        <Controller
+          name="coldEmailBlocker"
+          control={control}
+          render={({ field }) => (
+            <Select
+              value={field.value || undefined}
+              onValueChange={field.onChange}
+            >
+              <SelectTrigger id="cold-email-select">
+                <SelectValue placeholder="Select an option">
+                  {options.find((opt) => opt.value === field.value)?.label}
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                {options.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    <div className="flex flex-col">
+                      <span className="font-medium">{option.label}</span>
+                      <span className="text-sm text-muted-foreground">
+                        {option.description}
+                      </span>
+                    </div>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+        />
+        {errors.coldEmailBlocker && (
+          <p className="text-sm text-destructive">
+            {errors.coldEmailBlocker.message}
+          </p>
+        )}
+      </div>
+
       <Controller
-        name="coldEmailBlocker"
+        name="coldEmailDigest"
         control={control}
         render={({ field }) => (
-          <RadioGroup
-            label="How should we handle cold emails?"
-            options={options}
-            {...field}
-            error={errors.coldEmailBlocker}
+          <Toggle
+            name="coldEmailDigest"
+            labelRight="Include cold emails in digest"
+            enabled={field.value ?? false}
+            onChange={field.onChange}
+            error={errors.coldEmailDigest}
           />
         )}
       />
-
-      <div className="rounded-lg border border-border bg-card p-4">
-        <Controller
-          name="coldEmailDigest"
-          control={control}
-          render={({ field }) => (
-            <div className="flex items-center space-x-3">
-              <Checkbox
-                id="coldEmailDigest"
-                checked={field.value ?? false}
-                onCheckedChange={field.onChange}
-              />
-              <div className="space-y-1">
-                <Label
-                  htmlFor="coldEmailDigest"
-                  className="text-sm font-medium"
-                >
-                  Include cold emails in digest
-                </Label>
-                <p className="text-sm text-muted-foreground">
-                  Cold emails will be included in your digest instead of being
-                  processed immediately
-                </p>
-              </div>
-            </div>
-          )}
-        />
-      </div>
 
       <div className="mt-2">
         <Button type="submit" loading={isSubmitting}>
