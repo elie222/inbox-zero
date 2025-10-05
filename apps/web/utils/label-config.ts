@@ -53,7 +53,7 @@ export async function getOrCreateSystemLabelId(options: {
   }
 }
 
-export async function getSystemLabelId(options: {
+async function getSystemLabelId(options: {
   emailAccountId: string;
   type: SystemLabelType;
 }): Promise<string | null> {
@@ -70,16 +70,21 @@ export async function getSystemLabelId(options: {
 
   if (!emailAccount) return null;
 
-  const fieldMap = {
-    needsReply: emailAccount.needsReplyLabelId,
-    awaitingReply: emailAccount.awaitingReplyLabelId,
-    coldEmail: emailAccount.coldEmailLabelId,
-  } as const;
-
-  return fieldMap[type] ?? null;
+  switch (type) {
+    case "needsReply":
+      return emailAccount.needsReplyLabelId;
+    case "awaitingReply":
+      return emailAccount.awaitingReplyLabelId;
+    case "coldEmail":
+      return emailAccount.coldEmailLabelId;
+    default: {
+      const exhaustiveCheck: never = type;
+      return exhaustiveCheck;
+    }
+  }
 }
 
-export async function updateSystemLabelId(options: {
+async function updateSystemLabelId(options: {
   emailAccountId: string;
   type: SystemLabelType;
   labelId: string;
@@ -131,20 +136,5 @@ async function updateAffectedRules(options: {
         data: { labelId },
       });
     }
-  }
-}
-
-export async function getLabelDisplayName(options: {
-  labelId: string;
-  provider: EmailProvider;
-}): Promise<string | null> {
-  const { labelId, provider } = options;
-
-  try {
-    const label = await provider.getLabelById(labelId);
-    return label?.name ?? null;
-  } catch (error) {
-    logger.error("Failed to get label display name", { labelId, error });
-    return null;
   }
 }
