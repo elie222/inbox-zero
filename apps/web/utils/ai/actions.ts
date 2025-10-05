@@ -95,8 +95,14 @@ const label: ActionFunction<{
       // Note: We don't update the Action here to avoid race conditions
       // The Action will be migrated when the rule is next updated
     } else {
-      logger.warn("Label not found", { labelName: args.label });
-      return;
+      logger.info("Label not found, creating it", { labelName: args.label });
+      const createdLabel = await client.createLabel(args.label);
+      labelIdToUse = createdLabel.id;
+
+      if (!labelIdToUse) {
+        logger.error("Failed to create label", { labelName: args.label });
+        return;
+      }
     }
   }
 
