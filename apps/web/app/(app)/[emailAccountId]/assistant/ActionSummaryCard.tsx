@@ -37,8 +37,8 @@ export function ActionSummaryCard({
 
   switch (action.type) {
     case ActionType.LABEL: {
-      const labelValue = action.label?.value || "";
-      if (action.label?.ai) {
+      const labelValue = action.labelId?.value || "";
+      if (action.labelId?.ai) {
         summaryContent = labelValue
           ? `AI ${terminology.label.action}: ${labelValue}`
           : `AI ${terminology.label.action}`;
