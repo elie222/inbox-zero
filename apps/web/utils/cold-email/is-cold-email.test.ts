@@ -93,10 +93,10 @@ describe("blockColdEmail", () => {
       type: "coldEmail",
       provider: mockProvider,
     });
-    expect(mockProvider.labelMessage).toHaveBeenCalledWith(
-      mockEmail.id,
-      "label123",
-    );
+    expect(mockProvider.labelMessage).toHaveBeenCalledWith({
+      messageId: mockEmail.id,
+      labelId: "label123",
+    });
   });
 
   it("should archive email when coldEmailBlocker is ARCHIVE_AND_LABEL", async () => {
@@ -112,10 +112,10 @@ describe("blockColdEmail", () => {
       aiReason: mockAiReason,
     });
 
-    expect(mockProvider.labelMessage).toHaveBeenCalledWith(
-      mockEmail.id,
-      "label123",
-    );
+    expect(mockProvider.labelMessage).toHaveBeenCalledWith({
+      messageId: mockEmail.id,
+      labelId: "label123",
+    });
     expect(mockProvider.archiveThread).toHaveBeenCalledWith(
       mockEmail.threadId,
       userWithArchive.email,
@@ -135,10 +135,10 @@ describe("blockColdEmail", () => {
       aiReason: mockAiReason,
     });
 
-    expect(mockProvider.labelMessage).toHaveBeenCalledWith(
-      mockEmail.id,
-      "label123",
-    );
+    expect(mockProvider.labelMessage).toHaveBeenCalledWith({
+      messageId: mockEmail.id,
+      labelId: "label123",
+    });
     expect(mockProvider.archiveThread).toHaveBeenCalledWith(
       mockEmail.threadId,
       userWithArchiveAndRead.email,
