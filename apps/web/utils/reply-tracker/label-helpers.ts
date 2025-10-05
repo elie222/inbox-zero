@@ -22,7 +22,7 @@ export async function labelMessageAsAwaitingReply(options: {
     return;
   }
 
-  await provider.labelMessage(messageId, labelId);
+  await provider.labelMessage({ messageId, labelId });
 }
 
 export async function removeAwaitingReplyLabelFromThread(options: {

@@ -222,7 +222,6 @@ export async function blockColdEmail(options: {
   ) {
     if (!emailAccount.email) throw new Error("User email is required");
 
-    // Get or create the configured cold email label
     const coldEmailLabelId = await getOrCreateSystemLabelId({
       emailAccountId: emailAccount.id,
       type: "coldEmail",
@@ -238,9 +237,11 @@ export async function blockColdEmail(options: {
       emailAccount.coldEmailBlocker ===
       ColdEmailSetting.ARCHIVE_AND_READ_AND_LABEL;
 
-    // Apply the cold email label using stable ID
     if (coldEmailLabelId) {
-      await provider.labelMessage(email.id, coldEmailLabelId);
+      await provider.labelMessage({
+        messageId: email.id,
+        labelId: coldEmailLabelId,
+      });
     }
 
     // For archiving and marking as read, we'll need to implement these in the provider
