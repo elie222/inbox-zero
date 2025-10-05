@@ -15,7 +15,10 @@ export function LabelCombobox({
   mutate,
   emailAccountId,
 }: {
-  value: string;
+  value: {
+    id: string | null;
+    name: string | null;
+  };
   onChangeValue: (value: string) => void;
   userLabels: EmailLabel[];
   isLoading: boolean;
@@ -24,7 +27,9 @@ export function LabelCombobox({
 }) {
   const [search, setSearch] = useState("");
 
-  const selectedLabel = userLabels.find((label) => label.id === value);
+  const selectedLabel = userLabels.find(
+    (label) => label.id === value.id || label.name === value.name,
+  );
 
   return (
     <Combobox
@@ -32,7 +37,7 @@ export function LabelCombobox({
         value: label.id || "",
         label: label.name || "",
       }))}
-      value={value}
+      value={value.id || ""}
       onChangeValue={onChangeValue}
       search={search}
       onSearch={setSearch}

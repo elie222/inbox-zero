@@ -159,7 +159,10 @@ function SystemLabelsForm({
         <Label name="needsReplyLabelId" label="Needs Reply Label" />
         <div className="mt-1">
           <LabelCombobox
-            value={watch("needsReplyLabelId") || ""}
+            value={{
+              id: watch("needsReplyLabelId") || null,
+              name: NEEDS_REPLY_LABEL_NAME,
+            }}
             onChangeValue={(value) =>
               setValue("needsReplyLabelId", value || undefined, {
                 shouldDirty: true,
@@ -177,7 +180,10 @@ function SystemLabelsForm({
         <Label name="awaitingReplyLabelId" label="Awaiting Reply Label" />
         <div className="mt-1">
           <LabelCombobox
-            value={watch("awaitingReplyLabelId") || ""}
+            value={{
+              id: watch("awaitingReplyLabelId") || null,
+              name: AWAITING_REPLY_LABEL_NAME,
+            }}
             onChangeValue={(value) =>
               setValue("awaitingReplyLabelId", value || undefined, {
                 shouldDirty: true,
@@ -195,7 +201,10 @@ function SystemLabelsForm({
         <Label name="coldEmailLabelId" label="Cold Email Label" />
         <div className="mt-1">
           <LabelCombobox
-            value={watch("coldEmailLabelId") || ""}
+            value={{
+              id: watch("coldEmailLabelId") || null,
+              name: inboxZeroLabels.cold_email.name,
+            }}
             onChangeValue={(value) =>
               setValue("coldEmailLabelId", value || undefined, {
                 shouldDirty: true,

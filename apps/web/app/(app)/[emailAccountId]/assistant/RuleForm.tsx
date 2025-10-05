@@ -842,6 +842,7 @@ export function RuleForm({
                 action={action}
                 typeOptions={typeOptions}
                 provider={provider}
+                labels={userLabels}
               />
             ),
           )}
@@ -1123,7 +1124,10 @@ function ActionCard({
                         userLabels={userLabels || []}
                         isLoading={isLoading}
                         mutate={mutate}
-                        value={value}
+                        value={{
+                          id: value,
+                          name: action.labelId?.name || null,
+                        }}
                         onChangeValue={(newValue: string) => {
                           setValue(
                             `actions.${index}.${field.name}.value`,
