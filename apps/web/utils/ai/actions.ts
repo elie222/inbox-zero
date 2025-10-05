@@ -102,7 +102,7 @@ const label: ActionFunction<{
 
   if (!labelIdToUse) return;
 
-  await client.labelMessage(email.id, labelIdToUse);
+  await client.labelMessage({ messageId: email.id, labelId: labelIdToUse });
 };
 
 const draft: ActionFunction<{
