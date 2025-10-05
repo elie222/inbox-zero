@@ -19,6 +19,7 @@ import { CheckCircle2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { prefixPath } from "@/utils/path";
 import type { CreateRuleResult } from "@/utils/rule/types";
+import { useLabels } from "@/hooks/useLabels";
 
 export function CreatedRulesModal({
   open,
@@ -53,6 +54,8 @@ export function CreatedRulesContent({
     onOpenChange(false);
     router.push(prefixPath(emailAccountId, "/automation?tab=test"));
   };
+
+  const { userLabels } = useLabels();
 
   return (
     <>
@@ -90,7 +93,11 @@ export function CreatedRulesContent({
 
                 <div className="flex items-center gap-2">
                   <span className="text-sm font-medium">Actions:</span>
-                  <ActionBadges actions={rule.actions} provider={provider} />
+                  <ActionBadges
+                    actions={rule.actions}
+                    provider={provider}
+                    labels={userLabels}
+                  />
                 </div>
               </div>
             </Card>

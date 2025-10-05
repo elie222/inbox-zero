@@ -299,7 +299,6 @@ export function ProcessRulesContent({ testMode }: { testMode: boolean }) {
                     result={allResults[message.id]}
                     onRun={(rerun) => onRun(message, rerun)}
                     testMode={testMode}
-                    emailAccountId={emailAccountId}
                     setInput={setInput}
                   />
                 ))}
@@ -336,7 +335,6 @@ function ProcessRulesRow({
   result,
   onRun,
   testMode,
-  emailAccountId,
   setInput,
 }: {
   message: Message;
@@ -345,7 +343,6 @@ function ProcessRulesRow({
   result: RunRulesResult;
   onRun: (rerun?: boolean) => void;
   testMode: boolean;
-  emailAccountId: string;
   setInput: (input: string) => void;
 }) {
   return (
@@ -369,10 +366,7 @@ function ProcessRulesRow({
             {result ? (
               <>
                 <div className="flex max-w-xs flex-col justify-center gap-0.5 whitespace-nowrap">
-                  <ProcessResultDisplay
-                    result={result}
-                    emailAccountId={emailAccountId}
-                  />
+                  <ProcessResultDisplay result={result} />
                 </div>
                 <FixWithChat
                   setInput={setInput}

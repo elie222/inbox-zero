@@ -13,7 +13,6 @@ import {
 } from "@/components/ui/dialog";
 import { LoadingContent } from "@/components/LoadingContent";
 import { useRules } from "@/hooks/useRules";
-import { useAccount } from "@/providers/EmailAccountProvider";
 import { useModal } from "@/hooks/useModal";
 import { NEW_RULE_ID } from "@/app/(app)/[emailAccountId]/assistant/consts";
 import { Label } from "@/components/Input";
@@ -35,7 +34,6 @@ export function FixWithChat({
   result: RunRulesResult | null;
 }) {
   const { data, isLoading, error } = useRules();
-  const { emailAccountId } = useAccount();
   const { isModalOpen, setIsModalOpen } = useModal();
   const [selectedRuleId, setSelectedRuleId] = useState<string | null>(null);
   const [explanation, setExplanation] = useState("");
@@ -107,7 +105,6 @@ export function FixWithChat({
         <LoadingContent loading={isLoading} error={error}>
           {data && !showExplanation ? (
             <RuleMismatch
-              emailAccountId={emailAccountId}
               result={result}
               rules={data}
               onSelectExpectedRuleId={handleRuleSelect}
@@ -211,12 +208,10 @@ ${
 function RuleMismatch({
   result,
   rules,
-  emailAccountId,
   onSelectExpectedRuleId,
 }: {
   result: RunRulesResult | null;
   rules: RulesResponse;
-  emailAccountId: string;
   onSelectExpectedRuleId: (ruleId: string | null) => void;
 }) {
   return (
@@ -224,10 +219,7 @@ function RuleMismatch({
       <Label name="matchedRule" label="Matched:" />
       <div className="mt-1">
         {result ? (
-          <ProcessResultDisplay
-            result={result}
-            emailAccountId={emailAccountId}
-          />
+          <ProcessResultDisplay result={result} />
         ) : (
           <p>No rule matched</p>
         )}

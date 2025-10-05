@@ -57,6 +57,7 @@ import {
   isGoogleProvider,
   isMicrosoftProvider,
 } from "@/utils/email/provider-types";
+import { useLabels } from "@/hooks/useLabels";
 
 const COLD_EMAIL_BLOCKER_RULE_ID = "cold-email-blocker-rule";
 
@@ -71,6 +72,7 @@ export function Rules({
   const { setOpen } = useSidebar();
   const { setInput } = useChat();
   const { data: emailAccountData } = useEmailAccountFull();
+  const { userLabels } = useLabels();
   const ruleDialog = useDialogState<{ ruleId: string; editMode?: boolean }>();
   const coldEmailDialog = useDialogState();
 
@@ -132,6 +134,7 @@ export function Rules({
               id: "cold-email-blocker-label",
               type: ActionType.LABEL,
               label: inboxZeroLabels.cold_email.name,
+              labelId: null,
               createdAt: new Date(),
               updatedAt: new Date(),
               ruleId: COLD_EMAIL_BLOCKER_RULE_ID,
@@ -153,6 +156,7 @@ export function Rules({
                 ? ActionType.MOVE_FOLDER
                 : ActionType.ARCHIVE,
               label: null,
+              labelId: null,
               createdAt: new Date(),
               updatedAt: new Date(),
               ruleId: COLD_EMAIL_BLOCKER_RULE_ID,
@@ -172,6 +176,7 @@ export function Rules({
               id: "cold-email-blocker-digest",
               type: ActionType.DIGEST,
               label: null,
+              labelId: null,
               createdAt: new Date(),
               updatedAt: new Date(),
               ruleId: COLD_EMAIL_BLOCKER_RULE_ID,
@@ -288,6 +293,7 @@ export function Rules({
                         <ActionBadges
                           actions={rule.actions}
                           provider={provider}
+                          labels={userLabels}
                         />
                       </TableCell>
                       <TableCell className="text-center">
@@ -470,16 +476,19 @@ export function Rules({
 export function ActionBadges({
   actions,
   provider,
+  labels,
 }: {
   actions: {
     id: string;
     type: ActionType;
     label?: string | null;
+    labelId?: string | null;
     folderName?: string | null;
     content?: string | null;
     to?: string | null;
   }[];
   provider: string;
+  labels: Array<{ id: string; name: string }>;
 }) {
   return (
     <div className="flex gap-2 flex-wrap">
@@ -496,7 +505,7 @@ export function ActionBadges({
             className="w-fit text-nowrap"
           >
             <Icon className="size-3 mr-1.5" />
-            {getActionDisplay(action, provider)}
+            {getActionDisplay(action, provider, labels)}
           </Badge>
         );
       })}

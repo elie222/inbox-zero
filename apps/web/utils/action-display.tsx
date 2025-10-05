@@ -20,11 +20,13 @@ export function getActionDisplay(
   action: {
     type: ActionType;
     label?: string | null;
+    labelId?: string | null;
     folderName?: string | null;
     content?: string | null;
     to?: string | null;
   },
   provider: string,
+  labels: Array<{ id: string; name: string }>,
 ): string {
   const terminology = getEmailTerminology(provider);
   switch (action.type) {
@@ -33,10 +35,26 @@ export function getActionDisplay(
         return `Draft Reply: ${truncate(action.content, 10)}`;
       }
       return "Draft Reply";
-    case ActionType.LABEL:
-      return action.label
-        ? `${terminology.label.action} as '${truncate(action.label, 15)}'`
+    case ActionType.LABEL: {
+      let labelName: string | null | undefined = null;
+
+      // Priority 1: Use labelId to look up current name from labels
+      if (action.labelId && labels) {
+        const foundLabel = labels.find((l) => l.id === action.labelId);
+        if (foundLabel) {
+          labelName = foundLabel.name;
+        }
+      }
+
+      // Priority 2: Fallback to stored label name (may be outdated but better than nothing)
+      if (!labelName && action.label) {
+        labelName = action.label;
+      }
+
+      return labelName
+        ? `${terminology.label.action} as '${truncate(labelName, 15)}'`
         : terminology.label.action;
+    }
     case ActionType.ARCHIVE:
       return "Skip Inbox";
     case ActionType.MARK_READ:

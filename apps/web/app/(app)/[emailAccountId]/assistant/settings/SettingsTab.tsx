@@ -6,6 +6,7 @@ import { AwaitingReplySetting } from "@/app/(app)/[emailAccountId]/assistant/set
 import { ReferralSignatureSetting } from "@/app/(app)/[emailAccountId]/assistant/settings/ReferralSignatureSetting";
 import { LearnedPatternsSetting } from "@/app/(app)/[emailAccountId]/assistant/settings/LearnedPatternsSetting";
 import { PersonalSignatureSetting } from "@/app/(app)/[emailAccountId]/assistant/settings/PersonalSignatureSetting";
+import { SystemLabelsSetting } from "@/app/(app)/[emailAccountId]/assistant/settings/SystemLabelsSetting";
 
 export function SettingsTab() {
   return (
@@ -17,6 +18,7 @@ export function SettingsTab() {
       <DigestSetting />
       <PersonalSignatureSetting />
       <ReferralSignatureSetting />
+      <SystemLabelsSetting />
       <LearnedPatternsSetting />
     </div>
   );

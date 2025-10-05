@@ -40,6 +40,7 @@ import { prefixPath } from "@/utils/path";
 import { createRuleHistory } from "@/utils/rule/rule-history";
 import { ONE_WEEK_MINUTES } from "@/utils/date";
 import { createEmailProvider } from "@/utils/email/provider";
+import { resolveLabelNameAndId } from "@/utils/label/resolve-label";
 
 function getCategoryActionDescription(categoryAction: CategoryAction): string {
   switch (categoryAction) {
@@ -64,8 +65,19 @@ async function getActionsFromCategoryAction(
   hasDigest: boolean,
   provider: string,
 ): Promise<Prisma.ActionCreateManyRuleInput[]> {
+  const emailProvider = await createEmailProvider({
+    emailAccountId,
+    provider,
+  });
+
+  const { label: labelName, labelId } = await resolveLabelNameAndId({
+    emailProvider,
+    label,
+    labelId: null,
+  });
+
   let actions: Prisma.ActionCreateManyRuleInput[] = [
-    { type: ActionType.LABEL, label },
+    { type: ActionType.LABEL, label: labelName, labelId },
   ];
 
   switch (categoryAction) {
@@ -116,7 +128,7 @@ export const createRuleAction = actionClient
   .schema(createRuleBody)
   .action(
     async ({
-      ctx: { emailAccountId, logger },
+      ctx: { emailAccountId, logger, provider },
       parsedInput: {
         name,
         runOnThreads,
@@ -128,18 +140,24 @@ export const createRuleAction = actionClient
     }) => {
       const conditions = flattenConditions(conditionsInput);
 
+      const resolvedActions = await resolveActionLabels(
+        actions || [],
+        emailAccountId,
+        provider,
+      );
+
       try {
         const rule = await prisma.rule.create({
           data: {
             name,
             runOnThreads: runOnThreads ?? undefined,
-            actions: actions
+            actions: resolvedActions.length
               ? {
                   createMany: {
-                    data: actions.map(
+                    data: resolvedActions.map(
                       ({
                         type,
-                        label,
+                        labelId,
                         subject,
                         content,
                         to,
@@ -151,7 +169,8 @@ export const createRuleAction = actionClient
                       }) => {
                         return sanitizeActionFields({
                           type,
-                          label: label?.value,
+                          label: labelId?.name,
+                          labelId: labelId?.value,
                           subject: subject?.value,
                           content: content?.value,
                           to: to?.value,
@@ -213,7 +232,7 @@ export const updateRuleAction = actionClient
   .schema(updateRuleBody)
   .action(
     async ({
-      ctx: { emailAccountId, logger },
+      ctx: { emailAccountId, logger, provider },
       parsedInput: {
         id,
         name,
@@ -226,6 +245,12 @@ export const updateRuleAction = actionClient
     }) => {
       const conditions = flattenConditions(conditionsInput);
 
+      const resolvedActions = await resolveActionLabels(
+        actions,
+        emailAccountId,
+        provider,
+      );
+
       try {
         const currentRule = await prisma.rule.findUnique({
           where: { id, emailAccountId },
@@ -236,10 +261,11 @@ export const updateRuleAction = actionClient
         const currentActions = currentRule.actions;
 
         const actionsToDelete = currentActions.filter(
-          (currentAction) => !actions.find((a) => a.id === currentAction.id),
+          (currentAction) =>
+            !resolvedActions.find((a) => a.id === currentAction.id),
         );
-        const actionsToUpdate = actions.filter((a) => a.id);
-        const actionsToCreate = actions.filter((a) => !a.id);
+        const actionsToUpdate = resolvedActions.filter((a) => a.id);
+        const actionsToCreate = resolvedActions.filter((a) => !a.id);
 
         const [updatedRule] = await prisma.$transaction([
           // update rule
@@ -280,7 +306,8 @@ export const updateRuleAction = actionClient
               where: { id: a.id },
               data: sanitizeActionFields({
                 type: a.type,
-                label: a.label?.value,
+                label: a.labelId?.name,
+                labelId: a.labelId?.value,
                 subject: a.subject?.value,
                 content: a.content?.value,
                 to: a.to?.value,
@@ -300,7 +327,8 @@ export const updateRuleAction = actionClient
                     return {
                       ...sanitizeActionFields({
                         type: a.type,
-                        label: a.label?.value,
+                        label: a.labelId?.name,
+                        labelId: a.labelId?.value,
                         subject: a.subject?.value,
                         content: a.content?.value,
                         to: a.to?.value,
@@ -778,4 +806,42 @@ export async function getRuleNameByExecutedAction(
   }
 
   return executedAction.executedRule?.rule?.name;
+}
+
+async function resolveActionLabels<
+  T extends {
+    type: ActionType;
+    labelId?: {
+      name?: string | null;
+      value?: string | null;
+      ai?: boolean | null;
+    } | null;
+  },
+>(actions: T[], emailAccountId: string, provider: string) {
+  const emailProvider = await createEmailProvider({
+    emailAccountId,
+    provider,
+  });
+
+  return Promise.all(
+    actions.map(async (action) => {
+      if (action.type === ActionType.LABEL) {
+        const { label: resolvedLabel, labelId: resolvedLabelId } =
+          await resolveLabelNameAndId({
+            emailProvider,
+            label: action.labelId?.name || null,
+            labelId: action.labelId?.value || null,
+          });
+        return {
+          ...action,
+          labelId: {
+            value: resolvedLabelId,
+            name: resolvedLabel,
+            ai: action.labelId?.ai,
+          },
+        };
+      }
+      return action;
+    }),
+  );
 }

@@ -1,6 +1,6 @@
 import prisma from "@/utils/prisma";
-import { safeCreateRule } from "@/utils/rule/rule";
 import { ActionType, SystemType, type Prisma } from "@prisma/client";
+import { safeCreateRule } from "@/utils/rule/rule";
 import {
   defaultReplyTrackerInstructions,
   NEEDS_REPLY_LABEL_NAME,
@@ -8,6 +8,8 @@ import {
 import { createScopedLogger } from "@/utils/logger";
 import { RuleName } from "@/utils/rule/consts";
 import { SafeError } from "@/utils/error";
+import { createEmailProvider } from "@/utils/email/provider";
+import { resolveLabelNameAndId } from "@/utils/label/resolve-label";
 
 export async function enableReplyTracker({
   emailAccountId,
@@ -31,6 +33,7 @@ export async function enableReplyTracker({
       email: true,
       about: true,
       rulesPrompt: true,
+      needsReplyLabelId: true,
       user: {
         select: {
           aiProvider: true,
@@ -70,6 +73,19 @@ export async function enableReplyTracker({
 
   let ruleId: string | null = rule?.id || null;
 
+  const emailProvider = await createEmailProvider({
+    emailAccountId,
+    provider,
+  });
+
+  // Use the user's configured system label, or fall back to default label name
+  const { label: needsReplyLabel, labelId: needsReplyLabelId } =
+    await resolveLabelNameAndId({
+      emailProvider,
+      label: emailAccount.needsReplyLabelId ? null : NEEDS_REPLY_LABEL_NAME,
+      labelId: emailAccount.needsReplyLabelId,
+    });
+
   // If rule found, update/create the label action to NEEDS_REPLY_LABEL
   if (rule) {
     const labelAction = rule.actions.find((a) => a.type === ActionType.LABEL);
@@ -77,13 +93,17 @@ export async function enableReplyTracker({
     if (labelAction) {
       await prisma.action.update({
         where: { id: labelAction.id },
-        data: { label: NEEDS_REPLY_LABEL_NAME },
+        data: {
+          label: needsReplyLabel,
+          labelId: needsReplyLabelId,
+        },
       });
     } else {
       await prisma.action.create({
         data: {
           type: ActionType.LABEL,
-          label: NEEDS_REPLY_LABEL_NAME,
+          label: needsReplyLabel,
+          labelId: needsReplyLabelId,
           rule: { connect: { id: rule.id } },
         },
       });
@@ -144,6 +164,22 @@ export async function createToReplyRule(
   addDigest: boolean,
   provider: string,
 ) {
+  const emailProvider = await createEmailProvider({
+    emailAccountId,
+    provider,
+  });
+
+  const emailAccount = await prisma.emailAccount.findUnique({
+    where: { id: emailAccountId },
+    select: { needsReplyLabelId: true },
+  });
+
+  const labelInfo = await resolveLabelNameAndId({
+    emailProvider,
+    label: emailAccount?.needsReplyLabelId ? null : NEEDS_REPLY_LABEL_NAME,
+    labelId: emailAccount?.needsReplyLabelId,
+  });
+
   return await safeCreateRule({
     result: {
       name: RuleName.ToReply,
@@ -155,8 +191,9 @@ export async function createToReplyRule(
       actions: [
         {
           type: ActionType.LABEL,
+          labelId: labelInfo.labelId,
           fields: {
-            label: NEEDS_REPLY_LABEL_NAME,
+            label: labelInfo.label,
             to: null,
             subject: null,
             content: null,
