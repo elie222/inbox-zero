@@ -223,6 +223,16 @@ export const updateSystemLabelsAction = actionClient
         coldEmailLabelId,
       },
     }) => {
+      // Get the old label IDs before updating
+      const oldConfig = await prisma.emailAccount.findUnique({
+        where: { id: emailAccountId },
+        select: {
+          needsReplyLabelId: true,
+          awaitingReplyLabelId: true,
+          coldEmailLabelId: true,
+        },
+      });
+
       await prisma.emailAccount.update({
         where: { id: emailAccountId },
         data: {
@@ -231,6 +241,24 @@ export const updateSystemLabelsAction = actionClient
           coldEmailLabelId: coldEmailLabelId ?? null,
         },
       });
+
+      // Update all LABEL actions that match the old needs reply label
+      if (needsReplyLabelId) {
+        await prisma.action.updateMany({
+          where: {
+            rule: { emailAccountId },
+            type: ActionType.LABEL,
+            OR: [
+              { labelId: oldConfig?.needsReplyLabelId ?? undefined },
+              { label: NEEDS_REPLY_LABEL_NAME },
+            ],
+          },
+          data: {
+            labelId: needsReplyLabelId,
+            label: null, // Clear the label name since we're using labelId now
+          },
+        });
+      }
 
       return { success: true };
     },
