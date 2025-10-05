@@ -16,6 +16,7 @@ import { createRuleHistory } from "@/utils/rule/rule-history";
 import { isMicrosoftProvider } from "@/utils/email/provider-types";
 import { createEmailProvider } from "@/utils/email/provider";
 import type { EmailProvider } from "@/utils/email/types";
+import { resolveLabelNameAndId } from "@/utils/label/resolve-label";
 
 const logger = createScopedLogger("rule");
 
@@ -33,6 +34,16 @@ export function partialUpdateRule({
   });
 }
 
+// Extended type for system rules that can include labelId
+type CreateRuleWithLabelId = Omit<
+  CreateOrUpdateRuleSchemaWithCategories,
+  "actions"
+> & {
+  actions: (CreateOrUpdateRuleSchemaWithCategories["actions"][number] & {
+    labelId?: string | null;
+  })[];
+};
+
 export async function safeCreateRule({
   result,
   emailAccountId,
@@ -42,7 +53,7 @@ export async function safeCreateRule({
   triggerType = "ai_creation",
   shouldCreateIfDuplicate,
 }: {
-  result: CreateOrUpdateRuleSchemaWithCategories;
+  result: CreateRuleWithLabelId;
   emailAccountId: string;
   provider: string;
   categoryNames?: string[] | null;
@@ -377,30 +388,30 @@ export async function removeRuleCategories(
 }
 
 async function mapActionFields(
-  actions: CreateOrUpdateRuleSchemaWithCategories["actions"],
+  actions: (CreateOrUpdateRuleSchemaWithCategories["actions"][number] & {
+    labelId?: string | null;
+  })[],
   provider: string,
   emailProvider: EmailProvider,
 ) {
   const actionPromises = actions.map(
     async (a): Promise<Prisma.ActionCreateManyRuleInput> => {
+      let label = a.fields?.label;
       let labelId: string | null = null;
 
-      if (a.type === ActionType.LABEL && a.fields?.label) {
-        try {
-          const matchingLabel = await emailProvider.getLabelByName(
-            a.fields.label,
-          );
-          if (matchingLabel) {
-            labelId = matchingLabel.id;
-          }
-        } catch (error) {
-          logger.warn("Failed to lookup labelId", { error });
-        }
+      if (a.type === ActionType.LABEL) {
+        const resolved = await resolveLabelNameAndId({
+          emailProvider,
+          label: a.fields?.label || null,
+          labelId: a.labelId || null,
+        });
+        label = resolved.label;
+        labelId = resolved.labelId;
       }
 
       return {
         type: a.type,
-        label: a.fields?.label,
+        label,
         labelId,
         to: a.fields?.to,
         cc: a.fields?.cc,

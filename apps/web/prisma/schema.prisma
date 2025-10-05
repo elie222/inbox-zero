@@ -428,7 +428,7 @@ model Action {
   ruleId    String
   rule      Rule       @relation(fields: [ruleId], references: [id], onDelete: Cascade)
 
-  label          String?
+  label          String? // labelName - labelId is the source of truth, and we use it when set
   labelId        String? // Stable ID: Label ID (Gmail) or Category ID (Outlook)
   subject        String?
   content        String?

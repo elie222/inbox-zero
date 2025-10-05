@@ -48,7 +48,6 @@ import { Toggle } from "@/components/Toggle";
 import { LoadingContent } from "@/components/LoadingContent";
 import { TooltipExplanation } from "@/components/TooltipExplanation";
 import { useLabels } from "@/hooks/useLabels";
-import { createLabelAction } from "@/utils/actions/mail";
 import { MultiSelectFilter } from "@/components/MultiSelectFilter";
 import { useCategories } from "@/hooks/useCategories";
 import { hasVariables, TEMPLATE_VARIABLE_PATTERN } from "@/utils/template";
@@ -200,20 +199,6 @@ export function RuleForm({
 
   const onSubmit: SubmitHandler<CreateRuleBody> = useCallback(
     async (data) => {
-      // create labels that don't exist
-      for (const action of data.actions) {
-        if (action.type === ActionType.LABEL) {
-          const hasLabel = userLabels?.some(
-            (label) => label.name === action.label,
-          );
-          if (!hasLabel && action.label?.value && !action.label?.ai) {
-            await createLabelAction(emailAccountId, {
-              name: action.label.value,
-            });
-          }
-        }
-      }
-
       // set content to empty string if it's not set manually
       for (const action of data.actions) {
         if (action.type === ActionType.DRAFT_EMAIL) {
@@ -311,16 +296,7 @@ export function RuleForm({
         }
       }
     },
-    [
-      userLabels,
-      router,
-      posthog,
-      emailAccountId,
-      isDialog,
-      onSuccess,
-      mutate,
-      rule,
-    ],
+    [router, posthog, emailAccountId, isDialog, onSuccess, mutate, rule],
   );
 
   const conditions = watch("conditions");
@@ -341,7 +317,7 @@ export function RuleForm({
     watch("actions")?.forEach((_, index) => {
       const actionError =
         errors?.actions?.[index]?.url?.root?.message ||
-        errors?.actions?.[index]?.label?.root?.message ||
+        errors?.actions?.[index]?.labelId?.root?.message ||
         errors?.actions?.[index]?.to?.root?.message;
       if (actionError) actionErrors.push(actionError);
     });
@@ -1051,8 +1027,8 @@ function ActionCard({
   ) => {
     // Check if the field is visible - this is handled before calling the function
 
-    // For label field, only allow variables if AI generated is toggled on
-    if (field.name === "label") {
+    // For labelId field, only allow variables if AI generated is toggled on
+    if (field.name === "labelId") {
       return isFieldAiGenerated;
     }
 
@@ -1081,8 +1057,8 @@ function ActionCard({
 
     if (!isFieldVisible) return false;
 
-    // For label field, only show variables if AI generated is toggled on
-    if (field.name === "label") {
+    // For labelId field, only show variables if AI generated is toggled on
+    if (field.name === "labelId") {
       return !!action[field.name]?.ai;
     }
 
@@ -1144,7 +1120,7 @@ function ActionCard({
                 <div>
                   <Label name={field.name} label={field.label} />
 
-                  {field.name === "label" && !isAiGenerated ? (
+                  {field.name === "labelId" && !isAiGenerated ? (
                     <div className="mt-2">
                       <LabelCombobox
                         userLabels={userLabels || []}
@@ -1160,7 +1136,7 @@ function ActionCard({
                         emailAccountId={emailAccountId}
                       />
                     </div>
-                  ) : field.name === "label" && isAiGenerated ? (
+                  ) : field.name === "labelId" && isAiGenerated ? (
                     <div className="mt-2">
                       <Input
                         type="text"
@@ -1263,7 +1239,7 @@ function ActionCard({
                     </div>
                   )}
 
-                  {field.name === "label" && (
+                  {field.name === "labelId" && (
                     <div className="flex items-center space-x-2 mt-4">
                       <Toggle
                         name={`actions.${index}.${field.name}.ai`}

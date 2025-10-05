@@ -332,6 +332,7 @@ export default function Components() {
                 },
               ]}
               provider="gmail"
+              labels={[{ id: "label", name: "Label" }]}
             />
           </div>
         </div>

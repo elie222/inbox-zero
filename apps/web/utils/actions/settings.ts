@@ -87,20 +87,28 @@ export const updateReplyTrackingAction = actionClient
   .metadata({ name: "updateReplyTracking" })
   .schema(z.object({ enabled: z.boolean() }))
   .action(async ({ ctx: { emailAccountId }, parsedInput: { enabled } }) => {
-    // Find all rules with "To Reply" label first
+    const emailAccount = await prisma.emailAccount.findUnique({
+      where: { id: emailAccountId },
+      select: { needsReplyLabelId: true },
+    });
+
+    // Find all rules with "To Reply" label (by labelId or legacy label name)
     const toReplyRules = await prisma.rule.findMany({
       where: {
         emailAccountId,
         actions: {
           some: {
             type: ActionType.LABEL,
-            label: NEEDS_REPLY_LABEL_NAME,
+            OR: [
+              ...(emailAccount?.needsReplyLabelId
+                ? [{ labelId: emailAccount.needsReplyLabelId }]
+                : []),
+              { label: NEEDS_REPLY_LABEL_NAME },
+            ],
           },
         },
       },
-      include: {
-        actions: true,
-      },
+      include: { actions: true },
     });
 
     // Prepare the operations
@@ -249,7 +257,9 @@ export const updateSystemLabelsAction = actionClient
             rule: { emailAccountId },
             type: ActionType.LABEL,
             OR: [
-              { labelId: oldConfig?.needsReplyLabelId ?? undefined },
+              ...(oldConfig?.needsReplyLabelId
+                ? [{ labelId: oldConfig.needsReplyLabelId }]
+                : []),
               { label: NEEDS_REPLY_LABEL_NAME },
             ],
           },
