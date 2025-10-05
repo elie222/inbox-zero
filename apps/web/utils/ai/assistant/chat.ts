@@ -463,6 +463,7 @@ const updateRuleActionsTool = ({
           delayInMinutes: action.delayInMinutes ?? null,
         })),
         provider,
+        emailAccountId,
       });
 
       return {

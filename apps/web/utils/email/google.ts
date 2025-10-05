@@ -147,6 +147,11 @@ export class GmailProvider implements EmailProvider {
     }
   }
 
+  async getLabelByName(name: string): Promise<EmailLabel | null> {
+    const labels = await this.getLabels();
+    return labels.find((label) => label.name === name) || null;
+  }
+
   async getMessage(messageId: string): Promise<ParsedMessage> {
     const message = await getMessage(messageId, this.client, "full");
     return parseMessage(message);
@@ -250,17 +255,11 @@ export class GmailProvider implements EmailProvider {
     });
   }
 
-  async labelMessage(messageId: string, labelName: string): Promise<void> {
-    const label = await getOrCreateLabel({
-      gmail: this.client,
-      name: labelName,
-    });
-    if (!label.id)
-      throw new Error("Label not found and unable to create label");
+  async labelMessage(messageId: string, labelId: string): Promise<void> {
     await labelMessage({
       gmail: this.client,
       messageId,
-      addLabelIds: [label.id],
+      addLabelIds: [labelId],
     });
   }
 

@@ -80,13 +80,29 @@ const archive: ActionFunction<Record<string, unknown>> = async ({
   await client.archiveThread(email.threadId, userEmail);
 };
 
-const label: ActionFunction<{ label?: string | null }> = async ({
-  client,
-  email,
-  args,
-}) => {
-  if (!args.label) return;
-  await client.labelMessage(email.id, args.label);
+const label: ActionFunction<{
+  label?: string | null;
+  labelId?: string | null;
+}> = async ({ client, email, args }) => {
+  let labelIdToUse = args.labelId;
+
+  // Lazy migration: If no labelId but label name exists, look it up
+  if (!labelIdToUse && args.label) {
+    const matchingLabel = await client.getLabelByName(args.label);
+
+    if (matchingLabel) {
+      labelIdToUse = matchingLabel.id;
+      // Note: We don't update the Action here to avoid race conditions
+      // The Action will be migrated when the rule is next updated
+    } else {
+      logger.warn("Label not found", { labelName: args.label });
+      return;
+    }
+  }
+
+  if (!labelIdToUse) return;
+
+  await client.labelMessage(email.id, labelIdToUse);
 };
 
 const draft: ActionFunction<{

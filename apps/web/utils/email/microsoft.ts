@@ -127,6 +127,11 @@ export class OutlookProvider implements EmailProvider {
     return labels.find((label) => label.id === labelId) || null;
   }
 
+  async getLabelByName(name: string): Promise<EmailLabel | null> {
+    const labels = await this.getLabels();
+    return labels.find((label) => label.name === name) || null;
+  }
+
   async getMessage(messageId: string): Promise<ParsedMessage> {
     try {
       const message = await getMessage(messageId, this.client);
@@ -297,15 +302,15 @@ export class OutlookProvider implements EmailProvider {
     });
   }
 
-  async labelMessage(messageId: string, labelName: string): Promise<void> {
-    const label = await getOrCreateLabel({
-      client: this.client,
-      name: labelName,
-    });
+  async labelMessage(messageId: string, labelId: string): Promise<void> {
+    const category = await this.getLabelById(labelId);
+    if (!category) {
+      throw new Error(`Category with ID ${labelId} not found`);
+    }
     await labelMessage({
       client: this.client,
       messageId,
-      categories: [label.displayName || ""],
+      categories: [category.name],
     });
   }
 

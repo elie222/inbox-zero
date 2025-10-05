@@ -129,6 +129,11 @@ model EmailAccount {
   outboundReplyTracking Boolean           @default(false) // When true: manages "To Reply" and "Awaiting Reply" labels automatically
   autoCategorizeSenders Boolean           @default(false)
 
+  // Configurable system labels (store stable IDs)
+  needsReplyLabelId     String? // Gmail: Label ID, Outlook: Category ID
+  awaitingReplyLabelId  String? // Gmail: Label ID, Outlook: Category ID
+  coldEmailLabelId      String? // Gmail: Label ID, Outlook: Category ID
+
   digestSchedule Schedule?
 
   userId    String
@@ -424,6 +429,7 @@ model Action {
   rule      Rule       @relation(fields: [ruleId], references: [id], onDelete: Cascade)
 
   label          String?
+  labelId        String? // Stable ID: Label ID (Gmail) or Category ID (Outlook)
   subject        String?
   content        String?
   to             String?
@@ -501,6 +507,7 @@ model ExecutedAction {
 
   // optional extra fields to be used with the action
   label      String?
+  labelId    String? // Stable ID: Label ID (Gmail) or Category ID (Outlook)
   subject    String?
   content    String?
   to         String?
@@ -532,6 +539,7 @@ model ScheduledAction {
   schedulingStatus SchedulingStatus      @default(PENDING)
 
   label       String?
+  labelId     String? // Stable ID: Label ID (Gmail) or Category ID (Outlook)
   subject     String?
   content     String?
   to          String?

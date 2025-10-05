@@ -14,6 +14,8 @@ import { hasExampleParams } from "@/app/(app)/[emailAccountId]/assistant/example
 import { SafeError } from "@/utils/error";
 import { createRuleHistory } from "@/utils/rule/rule-history";
 import { isMicrosoftProvider } from "@/utils/email/provider-types";
+import { createEmailProvider } from "@/utils/email/provider";
+import type { EmailProvider } from "@/utils/email/types";
 
 const logger = createScopedLogger("rule");
 
@@ -164,7 +166,12 @@ export async function createRule({
   triggerType?: "ai_creation" | "manual_creation" | "system_creation";
   provider: string;
 }) {
-  const mappedActions = mapActionFields(result.actions, provider);
+  const emailProvider = await createEmailProvider({ emailAccountId, provider });
+  const mappedActions = await mapActionFields(
+    result.actions,
+    provider,
+    emailProvider,
+  );
 
   const rule = await prisma.rule.create({
     data: {
@@ -222,6 +229,7 @@ async function updateRule({
   triggerType?: "ai_update" | "manual_update" | "system_update";
   provider: string;
 }) {
+  const emailProvider = await createEmailProvider({ emailAccountId, provider });
   const rule = await prisma.rule.update({
     where: { id: ruleId },
     data: {
@@ -231,7 +239,9 @@ async function updateRule({
       // but if we add relations to `Action`, we would need to `update` here instead of `deleteMany` and `createMany` to avoid cascading deletes
       actions: {
         deleteMany: {},
-        createMany: { data: mapActionFields(result.actions, provider) },
+        createMany: {
+          data: await mapActionFields(result.actions, provider, emailProvider),
+        },
       },
       conditionalOperator: result.condition.conditionalOperator ?? undefined,
       instructions: result.condition.aiInstructions,
@@ -260,17 +270,22 @@ export async function updateRuleActions({
   ruleId,
   actions,
   provider,
+  emailAccountId,
 }: {
   ruleId: string;
   actions: CreateOrUpdateRuleSchemaWithCategories["actions"];
   provider: string;
+  emailAccountId: string;
 }) {
+  const emailProvider = await createEmailProvider({ emailAccountId, provider });
   return prisma.rule.update({
     where: { id: ruleId },
     data: {
       actions: {
         deleteMany: {},
-        createMany: { data: mapActionFields(actions, provider) },
+        createMany: {
+          data: await mapActionFields(actions, provider, emailProvider),
+        },
       },
     },
   });
@@ -361,24 +376,45 @@ export async function removeRuleCategories(
   });
 }
 
-function mapActionFields(
+async function mapActionFields(
   actions: CreateOrUpdateRuleSchemaWithCategories["actions"],
   provider: string,
+  emailProvider: EmailProvider,
 ) {
-  return actions.map(
-    (a): Prisma.ActionCreateManyRuleInput => ({
-      type: a.type,
-      label: a.fields?.label,
-      to: a.fields?.to,
-      cc: a.fields?.cc,
-      bcc: a.fields?.bcc,
-      subject: a.fields?.subject,
-      content: a.fields?.content,
-      url: a.fields?.webhookUrl,
-      ...(isMicrosoftProvider(provider) && {
-        folderName: a.fields?.folderName as string | null,
-      }),
-      delayInMinutes: a.delayInMinutes,
-    }),
+  const actionPromises = actions.map(
+    async (a): Promise<Prisma.ActionCreateManyRuleInput> => {
+      let labelId: string | null = null;
+
+      if (a.type === ActionType.LABEL && a.fields?.label) {
+        try {
+          const matchingLabel = await emailProvider.getLabelByName(
+            a.fields.label,
+          );
+          if (matchingLabel) {
+            labelId = matchingLabel.id;
+          }
+        } catch (error) {
+          logger.warn("Failed to lookup labelId", { error });
+        }
+      }
+
+      return {
+        type: a.type,
+        label: a.fields?.label,
+        labelId,
+        to: a.fields?.to,
+        cc: a.fields?.cc,
+        bcc: a.fields?.bcc,
+        subject: a.fields?.subject,
+        content: a.fields?.content,
+        url: a.fields?.webhookUrl,
+        ...(isMicrosoftProvider(provider) && {
+          folderName: a.fields?.folderName as string | null,
+        }),
+        delayInMinutes: a.delayInMinutes,
+      };
+    },
   );
+
+  return Promise.all(actionPromises);
 }

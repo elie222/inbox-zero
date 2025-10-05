@@ -4,6 +4,7 @@ import { ColdEmailSetting, ColdEmailStatus } from "@prisma/client";
 import { blockColdEmail } from "./is-cold-email";
 import { getEmailAccount } from "@/__tests__/helpers";
 import type { EmailProvider } from "@/utils/email/types";
+import { getOrCreateSystemLabelId } from "@/utils/label-config";
 
 // Mock dependencies
 vi.mock("server-only", () => ({}));
@@ -13,15 +14,25 @@ vi.mock("@/utils/prisma", () => ({
     coldEmail: {
       upsert: vi.fn(),
     },
+    emailAccount: {
+      findUnique: vi.fn(),
+      update: vi.fn(),
+    },
   },
+}));
+
+vi.mock("@/utils/label-config", () => ({
+  getOrCreateSystemLabelId: vi.fn(),
 }));
 
 describe("blockColdEmail", () => {
   const mockProvider = {
-    getOrCreateInboxZeroLabel: vi.fn(),
     labelMessage: vi.fn(),
     archiveThread: vi.fn(),
     markReadThread: vi.fn(),
+    moveThreadToFolder: vi.fn(),
+    getOrCreateOutlookFolderIdByName: vi.fn(),
+    name: "google",
   } as unknown as EmailProvider;
 
   const mockEmail = {
@@ -37,15 +48,12 @@ describe("blockColdEmail", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+
+    // Mock getOrCreateSystemLabelId to return a label ID
+    vi.mocked(getOrCreateSystemLabelId).mockResolvedValue("label123");
   });
 
   it("should upsert cold email record in database", async () => {
-    vi.mocked(mockProvider.getOrCreateInboxZeroLabel).mockResolvedValue({
-      id: "label123",
-      name: "Cold Email",
-      type: "user",
-    });
-
     await blockColdEmail({
       provider: mockProvider,
       email: mockEmail,
@@ -73,12 +81,6 @@ describe("blockColdEmail", () => {
   });
 
   it("should add cold email label when coldEmailBlocker is LABEL", async () => {
-    vi.mocked(mockProvider.getOrCreateInboxZeroLabel).mockResolvedValue({
-      id: "label123",
-      name: "Cold Email",
-      type: "user",
-    });
-
     await blockColdEmail({
       provider: mockProvider,
       email: mockEmail,
@@ -86,12 +88,14 @@ describe("blockColdEmail", () => {
       aiReason: mockAiReason,
     });
 
-    expect(mockProvider.getOrCreateInboxZeroLabel).toHaveBeenCalledWith(
-      "cold_email",
-    );
+    expect(getOrCreateSystemLabelId).toHaveBeenCalledWith({
+      emailAccountId: mockEmailAccount.id,
+      type: "coldEmail",
+      provider: mockProvider,
+    });
     expect(mockProvider.labelMessage).toHaveBeenCalledWith(
       mockEmail.id,
-      "Cold Email",
+      "label123",
     );
   });
 
@@ -100,11 +104,6 @@ describe("blockColdEmail", () => {
       ...mockEmailAccount,
       coldEmailBlocker: ColdEmailSetting.ARCHIVE_AND_LABEL,
     };
-    vi.mocked(mockProvider.getOrCreateInboxZeroLabel).mockResolvedValue({
-      id: "label123",
-      name: "Cold Email",
-      type: "user",
-    });
 
     await blockColdEmail({
       provider: mockProvider,
@@ -115,7 +114,7 @@ describe("blockColdEmail", () => {
 
     expect(mockProvider.labelMessage).toHaveBeenCalledWith(
       mockEmail.id,
-      "Cold Email",
+      "label123",
     );
     expect(mockProvider.archiveThread).toHaveBeenCalledWith(
       mockEmail.threadId,
@@ -128,11 +127,6 @@ describe("blockColdEmail", () => {
       ...mockEmailAccount,
       coldEmailBlocker: ColdEmailSetting.ARCHIVE_AND_READ_AND_LABEL,
     };
-    vi.mocked(mockProvider.getOrCreateInboxZeroLabel).mockResolvedValue({
-      id: "label123",
-      name: "Cold Email",
-      type: "user",
-    });
 
     await blockColdEmail({
       provider: mockProvider,
@@ -143,7 +137,7 @@ describe("blockColdEmail", () => {
 
     expect(mockProvider.labelMessage).toHaveBeenCalledWith(
       mockEmail.id,
-      "Cold Email",
+      "label123",
     );
     expect(mockProvider.archiveThread).toHaveBeenCalledWith(
       mockEmail.threadId,
@@ -169,11 +163,7 @@ describe("blockColdEmail", () => {
   });
 
   it("should handle missing label id", async () => {
-    vi.mocked(mockProvider.getOrCreateInboxZeroLabel).mockResolvedValue({
-      id: "",
-      name: "Cold Email",
-      type: "user",
-    });
+    vi.mocked(getOrCreateSystemLabelId).mockResolvedValue(null);
 
     await blockColdEmail({
       provider: mockProvider,
@@ -182,10 +172,8 @@ describe("blockColdEmail", () => {
       aiReason: mockAiReason,
     });
 
-    expect(mockProvider.labelMessage).toHaveBeenCalledWith(
-      mockEmail.id,
-      "Cold Email",
-    );
+    expect(getOrCreateSystemLabelId).toHaveBeenCalled();
+    expect(mockProvider.labelMessage).not.toHaveBeenCalled();
   });
 
   it("should not modify labels when coldEmailBlocker is DISABLED", async () => {
@@ -201,7 +189,7 @@ describe("blockColdEmail", () => {
       aiReason: mockAiReason,
     });
 
-    expect(mockProvider.getOrCreateInboxZeroLabel).not.toHaveBeenCalled();
+    expect(getOrCreateSystemLabelId).not.toHaveBeenCalled();
     expect(mockProvider.labelMessage).not.toHaveBeenCalled();
   });
 });

@@ -209,3 +209,35 @@ export const updateDigestItemsAction = actionClient
       return { success: true };
     },
   );
+
+export const updateSystemLabelsAction = actionClient
+  .metadata({ name: "updateSystemLabels" })
+  .schema(
+    z.object({
+      needsReplyLabelId: z.string().optional(),
+      awaitingReplyLabelId: z.string().optional(),
+      coldEmailLabelId: z.string().optional(),
+      doneLabelId: z.string().optional(),
+    }),
+  )
+  .action(
+    async ({
+      ctx: { emailAccountId },
+      parsedInput: {
+        needsReplyLabelId,
+        awaitingReplyLabelId,
+        coldEmailLabelId,
+      },
+    }) => {
+      await prisma.emailAccount.update({
+        where: { id: emailAccountId },
+        data: {
+          needsReplyLabelId: needsReplyLabelId ?? null,
+          awaitingReplyLabelId: awaitingReplyLabelId ?? null,
+          coldEmailLabelId: coldEmailLabelId ?? null,
+        },
+      });
+
+      return { success: true };
+    },
+  );

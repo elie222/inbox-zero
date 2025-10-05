@@ -14,6 +14,7 @@ import type { EmailForLLM } from "@/utils/types";
 import type { EmailProvider } from "@/utils/email/types";
 import { getModel, type ModelType } from "@/utils/llms/model";
 import { createGenerateObject } from "@/utils/llms";
+import { getOrCreateSystemLabelId } from "@/utils/label-config";
 
 export const COLD_EMAIL_FOLDER_NAME = "Cold Emails";
 
@@ -221,9 +222,12 @@ export async function blockColdEmail(options: {
   ) {
     if (!emailAccount.email) throw new Error("User email is required");
 
-    // For Outlook, we'll use categories instead of labels
-    const coldEmailLabel =
-      await provider.getOrCreateInboxZeroLabel("cold_email");
+    // Get or create the configured cold email label
+    const coldEmailLabelId = await getOrCreateSystemLabelId({
+      emailAccountId: emailAccount.id,
+      type: "coldEmail",
+      provider,
+    });
 
     const shouldArchive =
       emailAccount.coldEmailBlocker === ColdEmailSetting.ARCHIVE_AND_LABEL ||
@@ -234,10 +238,9 @@ export async function blockColdEmail(options: {
       emailAccount.coldEmailBlocker ===
       ColdEmailSetting.ARCHIVE_AND_READ_AND_LABEL;
 
-    // For Outlook, we'll use the provider's labelMessage method
-    // The provider will handle the differences between Gmail labels and Outlook categories
-    if (coldEmailLabel?.name) {
-      await provider.labelMessage(email.id, coldEmailLabel.name);
+    // Apply the cold email label using stable ID
+    if (coldEmailLabelId) {
+      await provider.labelMessage(email.id, coldEmailLabelId);
     }
 
     // For archiving and marking as read, we'll need to implement these in the provider

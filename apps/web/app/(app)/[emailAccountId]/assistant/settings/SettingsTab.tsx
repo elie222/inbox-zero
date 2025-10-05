@@ -6,12 +6,14 @@ import { AwaitingReplySetting } from "@/app/(app)/[emailAccountId]/assistant/set
 import { ReferralSignatureSetting } from "@/app/(app)/[emailAccountId]/assistant/settings/ReferralSignatureSetting";
 import { LearnedPatternsSetting } from "@/app/(app)/[emailAccountId]/assistant/settings/LearnedPatternsSetting";
 import { PersonalSignatureSetting } from "@/app/(app)/[emailAccountId]/assistant/settings/PersonalSignatureSetting";
+import { SystemLabelsSetting } from "@/app/(app)/[emailAccountId]/assistant/settings/SystemLabelsSetting";
 
 export function SettingsTab() {
   return (
     <div className="space-y-2">
       <DraftReplies />
       <AwaitingReplySetting />
+      <SystemLabelsSetting />
       <DraftKnowledgeSetting />
       <AboutSetting />
       <DigestSetting />
