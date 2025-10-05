@@ -217,7 +217,6 @@ export const updateSystemLabelsAction = actionClient
       needsReplyLabelId: z.string().optional(),
       awaitingReplyLabelId: z.string().optional(),
       coldEmailLabelId: z.string().optional(),
-      doneLabelId: z.string().optional(),
     }),
   )
   .action(

@@ -4,14 +4,13 @@ import { createScopedLogger } from "@/utils/logger";
 import {
   NEEDS_REPLY_LABEL_NAME,
   AWAITING_REPLY_LABEL_NAME,
-  NEEDS_REPLY_LABEL_NAME_LEGACY,
-  AWAITING_REPLY_LABEL_NAME_LEGACY,
 } from "@/utils/reply-tracker/consts";
 import { inboxZeroLabels } from "@/utils/label";
+import { ActionType, SystemType } from "@prisma/client";
 
 const logger = createScopedLogger("label-config");
 
-type SystemLabelType = "needsReply" | "awaitingReply" | "coldEmail" | "done";
+type SystemLabelType = "needsReply" | "awaitingReply" | "coldEmail";
 
 export async function getOrCreateSystemLabelId(options: {
   emailAccountId: string;
@@ -25,62 +24,21 @@ export async function getOrCreateSystemLabelId(options: {
     return existingId;
   }
 
-  // Define new numbered names and legacy names for backward compatibility
   const labelNames = {
-    needsReply: {
-      name: NEEDS_REPLY_LABEL_NAME,
-      legacy: NEEDS_REPLY_LABEL_NAME_LEGACY,
-    },
-    awaitingReply: {
-      name: AWAITING_REPLY_LABEL_NAME,
-      legacy: AWAITING_REPLY_LABEL_NAME_LEGACY,
-    },
-    coldEmail: {
-      name: inboxZeroLabels.cold_email.name,
-      legacy: inboxZeroLabels.cold_email.nameLegacy,
-    },
-    done: {
-      name: "9. Done",
-      legacy: "Done",
-    },
+    needsReply: NEEDS_REPLY_LABEL_NAME,
+    awaitingReply: AWAITING_REPLY_LABEL_NAME,
+    coldEmail: inboxZeroLabels.cold_email.name,
   };
 
-  const { name: newName, legacy: legacyName } = labelNames[type];
+  const labelName = labelNames[type];
 
   try {
-    // 1. Check if new numbered version exists
-    let label = await provider.getLabelByName(newName);
-    if (label) {
-      logger.info("Found new numbered label", { type, name: newName });
-      await updateSystemLabelId({
-        emailAccountId,
-        type,
-        labelId: label.id,
-      });
-      return label.id;
-    }
+    let label = await provider.getLabelByName(labelName);
 
-    // 2. Check if legacy version exists (for existing users)
-    label = await provider.getLabelByName(legacyName);
-    if (label) {
-      logger.info("Found legacy label, using it for existing user", {
-        type,
-        name: legacyName,
-      });
-      await updateSystemLabelId({
-        emailAccountId,
-        type,
-        labelId: label.id,
-      });
-      return label.id;
+    if (!label) {
+      logger.info("Creating system label", { type, name: labelName });
+      label = await provider.createLabel(labelName);
     }
-
-    // 3. Create new numbered version (new users only)
-    logger.info("Creating new numbered label for new user", {
-      type,
-      name: newName,
-    });
-    label = await provider.createLabel(newName);
 
     await updateSystemLabelId({
       emailAccountId,
@@ -107,7 +65,6 @@ export async function getSystemLabelId(options: {
       needsReplyLabelId: true,
       awaitingReplyLabelId: true,
       coldEmailLabelId: true,
-      doneLabelId: true,
     },
   });
 
@@ -117,7 +74,6 @@ export async function getSystemLabelId(options: {
     needsReply: emailAccount.needsReplyLabelId,
     awaitingReply: emailAccount.awaitingReplyLabelId,
     coldEmail: emailAccount.coldEmailLabelId,
-    done: emailAccount.doneLabelId,
   } as const;
 
   return fieldMap[type] ?? null;
@@ -134,7 +90,6 @@ export async function updateSystemLabelId(options: {
     needsReply: "needsReplyLabelId",
     awaitingReply: "awaitingReplyLabelId",
     coldEmail: "coldEmailLabelId",
-    done: "doneLabelId",
   } as const;
 
   const field = fieldMap[type];
@@ -160,11 +115,11 @@ async function updateAffectedRules(options: {
   const rules = await prisma.rule.findMany({
     where: {
       emailAccountId,
-      systemType: "TO_REPLY",
+      systemType: SystemType.TO_REPLY,
     },
     include: {
       actions: {
-        where: { type: "LABEL" },
+        where: { type: ActionType.LABEL },
       },
     },
   });
