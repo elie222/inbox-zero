@@ -44,7 +44,7 @@ export default function RuleExamplesPage(props: {
               <Link
                 href={prefixPath(
                   emailAccountId,
-                  `/assistant?tab=rule&ruleId=${params.ruleId}`,
+                  `/assistant/rule/${params.ruleId}`,
                 )}
               >
                 View Rule

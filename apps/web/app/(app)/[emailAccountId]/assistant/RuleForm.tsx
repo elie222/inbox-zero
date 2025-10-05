@@ -286,10 +286,7 @@ export function RuleForm({
             onSuccess();
           } else {
             router.replace(
-              prefixPath(
-                emailAccountId,
-                `/assistant?tab=rule&ruleId=${res.data.rule.id}`,
-              ),
+              prefixPath(emailAccountId, `/assistant/rule/${res.data.rule.id}`),
             );
             router.push(prefixPath(emailAccountId, "/assistant?tab=rules"));
           }
