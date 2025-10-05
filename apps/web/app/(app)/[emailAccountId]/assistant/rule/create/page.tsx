@@ -28,7 +28,7 @@ export default async function CreateRulePage(props: {
               ? [
                   {
                     type: ActionType.LABEL,
-                    label: { value: searchParams.label },
+                    labelId: { name: searchParams.label },
                   },
                 ]
               : [],

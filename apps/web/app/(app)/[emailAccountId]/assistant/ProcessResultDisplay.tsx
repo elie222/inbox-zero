@@ -17,6 +17,8 @@ export function ProcessResultDisplay({
   result: RunRulesResult;
   prefix?: string;
 }) {
+  const { ruleDialog, RuleDialogComponent } = useRuleDialog();
+
   if (!result) return null;
 
   if (!result.rule) {
@@ -45,22 +47,36 @@ export function ProcessResultDisplay({
     );
   }
 
+  const handleViewRule = (ruleId: string) => {
+    ruleDialog.onOpen({ ruleId });
+  };
+
   return (
-    <HoverCard
-      className="w-auto max-w-5xl"
-      content={<ActionSummaryCard result={result} />}
-    >
-      <Badge color="green">
-        {prefix ? prefix : ""}
-        {result.rule.name}
-        <EyeIcon className="ml-1.5 size-3.5 opacity-70" />
-      </Badge>
-    </HoverCard>
+    <>
+      <HoverCard
+        className="w-auto max-w-5xl"
+        content={
+          <ActionSummaryCard result={result} onViewRule={handleViewRule} />
+        }
+      >
+        <Badge color="green">
+          {prefix ? prefix : ""}
+          {result.rule.name}
+          <EyeIcon className="ml-1.5 size-3.5 opacity-70" />
+        </Badge>
+      </HoverCard>
+      <RuleDialogComponent />
+    </>
   );
 }
 
-function ActionSummaryCard({ result }: { result: RunRulesResult }) {
-  const { ruleDialog, RuleDialogComponent } = useRuleDialog();
+function ActionSummaryCard({
+  result,
+  onViewRule,
+}: {
+  result: RunRulesResult;
+  onViewRule: (ruleId: string) => void;
+}) {
   const MAX_LENGTH = 280;
 
   const aiGeneratedContent = result.actionItems
@@ -107,40 +123,37 @@ function ActionSummaryCard({ result }: { result: RunRulesResult }) {
   if (!result.rule) return null;
 
   return (
-    <>
-      <Alert variant="blue" className="max-w-prose bg-background">
-        <CheckCircle2Icon className="h-4 w-4" />
-        <AlertTitle className="flex items-center justify-between">
-          Matched rule "{result.rule.name}"
-          <button
-            onClick={() => ruleDialog.onOpen({ ruleId: result.rule!.id })}
-            className="ml-1.5"
-            type="button"
-          >
-            <span className="sr-only">View rule</span>
-            <ExternalLinkIcon className="size-3.5 opacity-70" />
-          </button>
-        </AlertTitle>
-        <AlertDescription className="mt-2 space-y-4">
-          {isAIRule(result.rule) && (
-            <div className="text-sm">
-              <span className="font-medium">AI Instructions: </span>
-              {result.rule.instructions.substring(0, MAX_LENGTH)}
-              {result.rule.instructions.length >= MAX_LENGTH && "..."}
-            </div>
-          )}
-          {!!aiGeneratedContent?.length && (
-            <div className="space-y-3">{aiGeneratedContent}</div>
-          )}
-          {!!result.reason && (
-            <div className="border-l-2 border-blue-200 pl-3 text-sm">
-              <span className="font-medium">Reason: </span>
-              {result.reason}
-            </div>
-          )}
-        </AlertDescription>
-      </Alert>
-      <RuleDialogComponent />
-    </>
+    <Alert variant="blue" className="max-w-prose bg-background">
+      <CheckCircle2Icon className="h-4 w-4" />
+      <AlertTitle className="flex items-center justify-between">
+        Matched rule "{result.rule.name}"
+        <button
+          onClick={() => onViewRule(result.rule!.id)}
+          className="ml-1.5"
+          type="button"
+        >
+          <span className="sr-only">View rule</span>
+          <ExternalLinkIcon className="size-3.5 opacity-70" />
+        </button>
+      </AlertTitle>
+      <AlertDescription className="mt-2 space-y-4">
+        {isAIRule(result.rule) && (
+          <div className="text-sm">
+            <span className="font-medium">AI Instructions: </span>
+            {result.rule.instructions.substring(0, MAX_LENGTH)}
+            {result.rule.instructions.length >= MAX_LENGTH && "..."}
+          </div>
+        )}
+        {!!aiGeneratedContent?.length && (
+          <div className="space-y-3">{aiGeneratedContent}</div>
+        )}
+        {!!result.reason && (
+          <div className="border-l-2 border-blue-200 pl-3 text-sm">
+            <span className="font-medium">Reason: </span>
+            {result.reason}
+          </div>
+        )}
+      </AlertDescription>
+    </Alert>
   );
 }

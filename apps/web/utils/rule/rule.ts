@@ -177,11 +177,10 @@ export async function createRule({
   triggerType?: "ai_creation" | "manual_creation" | "system_creation";
   provider: string;
 }) {
-  const emailProvider = await createEmailProvider({ emailAccountId, provider });
   const mappedActions = await mapActionFields(
     result.actions,
     provider,
-    emailProvider,
+    emailAccountId,
   );
 
   const rule = await prisma.rule.create({
@@ -240,7 +239,6 @@ async function updateRule({
   triggerType?: "ai_update" | "manual_update" | "system_update";
   provider: string;
 }) {
-  const emailProvider = await createEmailProvider({ emailAccountId, provider });
   const rule = await prisma.rule.update({
     where: { id: ruleId },
     data: {
@@ -251,7 +249,7 @@ async function updateRule({
       actions: {
         deleteMany: {},
         createMany: {
-          data: await mapActionFields(result.actions, provider, emailProvider),
+          data: await mapActionFields(result.actions, provider, emailAccountId),
         },
       },
       conditionalOperator: result.condition.conditionalOperator ?? undefined,
@@ -288,14 +286,13 @@ export async function updateRuleActions({
   provider: string;
   emailAccountId: string;
 }) {
-  const emailProvider = await createEmailProvider({ emailAccountId, provider });
   return prisma.rule.update({
     where: { id: ruleId },
     data: {
       actions: {
         deleteMany: {},
         createMany: {
-          data: await mapActionFields(actions, provider, emailProvider),
+          data: await mapActionFields(actions, provider, emailAccountId),
         },
       },
     },
@@ -392,7 +389,7 @@ async function mapActionFields(
     labelId?: string | null;
   })[],
   provider: string,
-  emailProvider: EmailProvider,
+  emailAccountId: string,
 ) {
   const actionPromises = actions.map(
     async (a): Promise<Prisma.ActionCreateManyRuleInput> => {
@@ -400,6 +397,11 @@ async function mapActionFields(
       let labelId: string | null = null;
 
       if (a.type === ActionType.LABEL) {
+        const emailProvider = await createEmailProvider({
+          emailAccountId,
+          provider,
+        });
+
         const resolved = await resolveLabelNameAndId({
           emailProvider,
           label: a.fields?.label || null,
