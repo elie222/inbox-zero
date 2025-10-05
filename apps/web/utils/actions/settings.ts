@@ -8,6 +8,7 @@ import {
   saveEmailUpdateSettingsBody,
   saveDigestScheduleBody,
   updateDigestItemsBody,
+  updateSystemLabelsBody,
 } from "@/utils/actions/settings.validation";
 import { DEFAULT_PROVIDER } from "@/utils/llms/config";
 import prisma from "@/utils/prisma";
@@ -212,13 +213,7 @@ export const updateDigestItemsAction = actionClient
 
 export const updateSystemLabelsAction = actionClient
   .metadata({ name: "updateSystemLabels" })
-  .schema(
-    z.object({
-      needsReplyLabelId: z.string().optional(),
-      awaitingReplyLabelId: z.string().optional(),
-      coldEmailLabelId: z.string().optional(),
-    }),
-  )
+  .schema(updateSystemLabelsBody)
   .action(
     async ({
       ctx: { emailAccountId },

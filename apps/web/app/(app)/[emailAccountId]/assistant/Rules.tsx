@@ -132,6 +132,7 @@ export function Rules({
               id: "cold-email-blocker-label",
               type: ActionType.LABEL,
               label: inboxZeroLabels.cold_email.name,
+              labelId: null,
               createdAt: new Date(),
               updatedAt: new Date(),
               ruleId: COLD_EMAIL_BLOCKER_RULE_ID,
@@ -153,6 +154,7 @@ export function Rules({
                 ? ActionType.MOVE_FOLDER
                 : ActionType.ARCHIVE,
               label: null,
+              labelId: null,
               createdAt: new Date(),
               updatedAt: new Date(),
               ruleId: COLD_EMAIL_BLOCKER_RULE_ID,
@@ -172,6 +174,7 @@ export function Rules({
               id: "cold-email-blocker-digest",
               type: ActionType.DIGEST,
               label: null,
+              labelId: null,
               createdAt: new Date(),
               updatedAt: new Date(),
               ruleId: COLD_EMAIL_BLOCKER_RULE_ID,

@@ -13,12 +13,12 @@ export function SettingsTab() {
     <div className="space-y-2">
       <DraftReplies />
       <AwaitingReplySetting />
-      <SystemLabelsSetting />
       <DraftKnowledgeSetting />
       <AboutSetting />
       <DigestSetting />
       <PersonalSignatureSetting />
       <ReferralSignatureSetting />
+      <SystemLabelsSetting />
       <LearnedPatternsSetting />
     </div>
   );

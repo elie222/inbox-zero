@@ -11,7 +11,6 @@ import {
   useForm,
 } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { toast } from "sonner";
 import TextareaAutosize from "react-textarea-autosize";
 import { capitalCase } from "capital-case";
 import { usePostHog } from "posthog-js/react";
@@ -48,7 +47,6 @@ import { actionInputs } from "@/utils/action-item";
 import { Toggle } from "@/components/Toggle";
 import { LoadingContent } from "@/components/LoadingContent";
 import { TooltipExplanation } from "@/components/TooltipExplanation";
-import { Combobox } from "@/components/Combobox";
 import { useLabels } from "@/hooks/useLabels";
 import { createLabelAction } from "@/utils/actions/mail";
 import { MultiSelectFilter } from "@/components/MultiSelectFilter";
@@ -97,6 +95,7 @@ import { useFolders } from "@/hooks/useFolders";
 import type { OutlookFolder } from "@/utils/outlook/folders";
 import { cn } from "@/utils";
 import { WebhookDocumentationLink } from "@/components/WebhookDocumentation";
+import { LabelCombobox } from "@/components/LabelCombobox";
 
 export function Rule({
   ruleId,
@@ -1148,7 +1147,7 @@ function ActionCard({
                   {field.name === "label" && !isAiGenerated ? (
                     <div className="mt-2">
                       <LabelCombobox
-                        userLabels={userLabels}
+                        userLabels={userLabels || []}
                         isLoading={isLoading}
                         mutate={mutate}
                         value={value}
@@ -1415,69 +1414,6 @@ function CardLayoutRight({
     <div className={cn("space-y-4 mx-auto w-full max-w-md", className)}>
       {children}
     </div>
-  );
-}
-
-function LabelCombobox({
-  value,
-  onChangeValue,
-  userLabels,
-  isLoading,
-  mutate,
-  emailAccountId,
-}: {
-  value: string;
-  onChangeValue: (value: string) => void;
-  userLabels: EmailLabel[];
-  isLoading: boolean;
-  mutate: () => void;
-  emailAccountId: string;
-}) {
-  const [search, setSearch] = useState("");
-
-  return (
-    <Combobox
-      options={userLabels.map((label) => ({
-        value: label.name || "",
-        label: label.name || "",
-      }))}
-      value={value}
-      onChangeValue={onChangeValue}
-      search={search}
-      onSearch={setSearch}
-      placeholder="Select a label"
-      emptyText={
-        <div>
-          <div>No labels</div>
-          {search && (
-            <Button
-              className="mt-2"
-              variant="outline"
-              onClick={() => {
-                toast.promise(
-                  async () => {
-                    const res = await createLabelAction(emailAccountId, {
-                      name: search,
-                    });
-                    mutate();
-                    if (res?.serverError) throw new Error(res.serverError);
-                  },
-                  {
-                    loading: `Creating label "${search}"...`,
-                    success: `Created label "${search}"`,
-                    error: (errorMessage) =>
-                      `Error creating label "${search}": ${errorMessage}`,
-                  },
-                );
-              }}
-            >
-              {`Create "${search}" label`}
-            </Button>
-          )}
-        </div>
-      }
-      loading={isLoading}
-    />
   );
 }
 
