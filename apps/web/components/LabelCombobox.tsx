@@ -19,7 +19,7 @@ export function LabelCombobox({
   onChangeValue: (value: string) => void;
   userLabels: EmailLabel[];
   isLoading: boolean;
-  mutate: () => void;
+  mutate: () => Promise<unknown>;
   emailAccountId: string;
 }) {
   const [search, setSearch] = useState("");
@@ -45,19 +45,31 @@ export function LabelCombobox({
               className="mt-2"
               variant="outline"
               onClick={() => {
+                const searchValue = search;
+
                 toast.promise(
                   async () => {
                     const res = await createLabelAction(emailAccountId, {
-                      name: search,
+                      name: searchValue,
                     });
-                    mutate();
                     if (res?.serverError) throw new Error(res.serverError);
+
+                    await mutate();
+
+                    setSearch("");
+
+                    // Auto-select the newly created label
+                    if (res?.data?.id) {
+                      onChangeValue(res.data.id);
+                    }
+
+                    return res;
                   },
                   {
-                    loading: `Creating label "${search}"...`,
-                    success: `Created label "${search}"`,
+                    loading: `Creating label "${searchValue}"...`,
+                    success: `Created label "${searchValue}"`,
                     error: (errorMessage) =>
-                      `Error creating label "${search}": ${errorMessage}`,
+                      `Error creating label "${searchValue}": ${errorMessage}`,
                   },
                 );
               }}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState, useMemo } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { SettingCard } from "@/components/SettingCard";
@@ -67,45 +67,76 @@ function SystemLabelsDialogContent({ onClose }: { onClose: () => void }) {
     mutate: mutateLabels,
   } = useLabels();
 
+  return (
+    <DialogContent className="max-w-md">
+      <DialogHeader>
+        <DialogTitle>Configure System Labels</DialogTitle>
+      </DialogHeader>
+      <LoadingContent
+        loading={isLoadingAccount || isLoadingLabels}
+        error={accountError}
+      >
+        {emailAccountData && userLabels && (
+          <SystemLabelsForm
+            emailAccountData={emailAccountData}
+            userLabels={userLabels}
+            isLoadingLabels={isLoadingLabels}
+            mutate={mutate}
+            mutateLabels={mutateLabels}
+            onClose={onClose}
+          />
+        )}
+      </LoadingContent>
+    </DialogContent>
+  );
+}
+
+function SystemLabelsForm({
+  emailAccountData,
+  userLabels,
+  isLoadingLabels,
+  mutate,
+  mutateLabels,
+  onClose,
+}: {
+  emailAccountData: NonNullable<ReturnType<typeof useEmailAccountFull>["data"]>;
+  userLabels: NonNullable<ReturnType<typeof useLabels>["userLabels"]>;
+  isLoadingLabels: boolean;
+  mutate: () => Promise<unknown>;
+  mutateLabels: () => Promise<unknown>;
+  onClose: () => void;
+}) {
+  // Find default labels by name if not already set
+  const defaultValues = useMemo(() => {
+    const defaultNeedsReplyLabel = userLabels.find(
+      (l) => l.name === NEEDS_REPLY_LABEL_NAME,
+    );
+    const defaultAwaitingReplyLabel = userLabels.find(
+      (l) => l.name === AWAITING_REPLY_LABEL_NAME,
+    );
+    const defaultColdEmailLabel = userLabels.find(
+      (l) => l.name === inboxZeroLabels.cold_email.name,
+    );
+
+    return {
+      needsReplyLabelId:
+        emailAccountData.needsReplyLabelId ?? defaultNeedsReplyLabel?.id,
+      awaitingReplyLabelId:
+        emailAccountData.awaitingReplyLabelId ?? defaultAwaitingReplyLabel?.id,
+      coldEmailLabelId:
+        emailAccountData.coldEmailLabelId ?? defaultColdEmailLabel?.id,
+    };
+  }, [emailAccountData, userLabels]);
+
   const {
     watch,
     setValue,
     handleSubmit,
-    reset,
     formState: { isSubmitting, isDirty },
   } = useForm<UpdateSystemLabelsBody>({
     resolver: zodResolver(updateSystemLabelsBody),
-    defaultValues: {
-      needsReplyLabelId: undefined,
-      awaitingReplyLabelId: undefined,
-      coldEmailLabelId: undefined,
-    },
+    defaultValues,
   });
-
-  useEffect(() => {
-    if (emailAccountData && userLabels) {
-      // Find default labels by name if not already set
-      const defaultNeedsReplyLabel = userLabels.find(
-        (l) => l.name === NEEDS_REPLY_LABEL_NAME,
-      );
-      const defaultAwaitingReplyLabel = userLabels.find(
-        (l) => l.name === AWAITING_REPLY_LABEL_NAME,
-      );
-      const defaultColdEmailLabel = userLabels.find(
-        (l) => l.name === inboxZeroLabels.cold_email.name,
-      );
-
-      reset({
-        needsReplyLabelId:
-          emailAccountData.needsReplyLabelId ?? defaultNeedsReplyLabel?.id,
-        awaitingReplyLabelId:
-          emailAccountData.awaitingReplyLabelId ??
-          defaultAwaitingReplyLabel?.id,
-        coldEmailLabelId:
-          emailAccountData.coldEmailLabelId ?? defaultColdEmailLabel?.id,
-      });
-    }
-  }, [emailAccountData, userLabels, reset]);
 
   const onSubmit = async (data: UpdateSystemLabelsBody) => {
     if (!emailAccountData?.id) return;
@@ -123,79 +154,69 @@ function SystemLabelsDialogContent({ onClose }: { onClose: () => void }) {
   };
 
   return (
-    <DialogContent className="max-w-md">
-      <DialogHeader>
-        <DialogTitle>Configure System Labels</DialogTitle>
-      </DialogHeader>
-      <LoadingContent
-        loading={isLoadingAccount || isLoadingLabels}
-        error={accountError}
+    <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 mt-4">
+      <div>
+        <Label name="needsReplyLabelId" label="Needs Reply Label" />
+        <div className="mt-1">
+          <LabelCombobox
+            value={watch("needsReplyLabelId") || ""}
+            onChangeValue={(value) =>
+              setValue("needsReplyLabelId", value || undefined, {
+                shouldDirty: true,
+              })
+            }
+            userLabels={userLabels ?? []}
+            isLoading={isLoadingLabels}
+            mutate={mutateLabels}
+            emailAccountId={emailAccountData?.id ?? ""}
+          />
+        </div>
+      </div>
+
+      <div>
+        <Label name="awaitingReplyLabelId" label="Awaiting Reply Label" />
+        <div className="mt-1">
+          <LabelCombobox
+            value={watch("awaitingReplyLabelId") || ""}
+            onChangeValue={(value) =>
+              setValue("awaitingReplyLabelId", value || undefined, {
+                shouldDirty: true,
+              })
+            }
+            userLabels={userLabels ?? []}
+            isLoading={isLoadingLabels}
+            mutate={mutateLabels}
+            emailAccountId={emailAccountData?.id ?? ""}
+          />
+        </div>
+      </div>
+
+      <div>
+        <Label name="coldEmailLabelId" label="Cold Email Label" />
+        <div className="mt-1">
+          <LabelCombobox
+            value={watch("coldEmailLabelId") || ""}
+            onChangeValue={(value) =>
+              setValue("coldEmailLabelId", value || undefined, {
+                shouldDirty: true,
+              })
+            }
+            userLabels={userLabels ?? []}
+            isLoading={isLoadingLabels}
+            mutate={mutateLabels}
+            emailAccountId={emailAccountData?.id ?? ""}
+          />
+        </div>
+      </div>
+
+      <Button
+        type="submit"
+        disabled={!isDirty || isSubmitting}
+        loading={isSubmitting}
+        className="w-full"
       >
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 mt-4">
-          <div>
-            <Label name="needsReplyLabelId" label="Needs Reply Label" />
-            <div className="mt-1">
-              <LabelCombobox
-                value={watch("needsReplyLabelId") || ""}
-                onChangeValue={(value) =>
-                  setValue("needsReplyLabelId", value || undefined, {
-                    shouldDirty: true,
-                  })
-                }
-                userLabels={userLabels ?? []}
-                isLoading={isLoadingLabels}
-                mutate={mutateLabels}
-                emailAccountId={emailAccountData?.id ?? ""}
-              />
-            </div>
-          </div>
-
-          <div>
-            <Label name="awaitingReplyLabelId" label="Awaiting Reply Label" />
-            <div className="mt-1">
-              <LabelCombobox
-                value={watch("awaitingReplyLabelId") || ""}
-                onChangeValue={(value) =>
-                  setValue("awaitingReplyLabelId", value || undefined, {
-                    shouldDirty: true,
-                  })
-                }
-                userLabels={userLabels ?? []}
-                isLoading={isLoadingLabels}
-                mutate={mutateLabels}
-                emailAccountId={emailAccountData?.id ?? ""}
-              />
-            </div>
-          </div>
-
-          <div>
-            <Label name="coldEmailLabelId" label="Cold Email Label" />
-            <div className="mt-1">
-              <LabelCombobox
-                value={watch("coldEmailLabelId") || ""}
-                onChangeValue={(value) =>
-                  setValue("coldEmailLabelId", value || undefined, {
-                    shouldDirty: true,
-                  })
-                }
-                userLabels={userLabels ?? []}
-                isLoading={isLoadingLabels}
-                mutate={mutateLabels}
-                emailAccountId={emailAccountData?.id ?? ""}
-              />
-            </div>
-          </div>
-
-          <Button
-            type="submit"
-            disabled={!isDirty || isSubmitting}
-            loading={isSubmitting}
-            className="w-full"
-          >
-            Save Changes
-          </Button>
-        </form>
-      </LoadingContent>
-    </DialogContent>
+        Save Changes
+      </Button>
+    </form>
   );
 }

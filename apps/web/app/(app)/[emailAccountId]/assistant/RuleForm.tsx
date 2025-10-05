@@ -1017,7 +1017,7 @@ function ActionCard({
   errors: FieldErrors<CreateRuleBody>;
   userLabels: EmailLabel[];
   isLoading: boolean;
-  mutate: () => void;
+  mutate: () => Promise<unknown>;
   emailAccountId: string;
   remove: (index: number) => void;
   typeOptions: { label: string; value: ActionType }[];
