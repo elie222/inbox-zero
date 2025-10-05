@@ -9,6 +9,7 @@ import {
 } from "@/utils/gmail/message";
 import {
   getLabels,
+  getLabel,
   getLabelById,
   createLabel,
   getOrCreateInboxZeroLabel,
@@ -141,8 +142,16 @@ export class GmailProvider implements EmailProvider {
   }
 
   async getLabelByName(name: string): Promise<EmailLabel | null> {
-    const labels = await this.getLabels();
-    return labels.find((label) => label.name === name) || null;
+    const label = await getLabel({ gmail: this.client, name });
+    if (!label) return null;
+    return {
+      id: label.id!,
+      name: label.name!,
+      type: label.type!,
+      threadsTotal: label.threadsTotal || undefined,
+      labelListVisibility: label.labelListVisibility || undefined,
+      messageListVisibility: label.messageListVisibility || undefined,
+    };
   }
 
   async getMessage(messageId: string): Promise<ParsedMessage> {

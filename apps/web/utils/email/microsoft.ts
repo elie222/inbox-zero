@@ -9,6 +9,7 @@ import {
 } from "@/utils/outlook/message";
 import {
   getLabels,
+  getLabel,
   createLabel,
   getOrCreateInboxZeroLabel,
   getLabelById,
@@ -122,8 +123,13 @@ export class OutlookProvider implements EmailProvider {
   }
 
   async getLabelByName(name: string): Promise<EmailLabel | null> {
-    const labels = await this.getLabels();
-    return labels.find((label) => label.name === name) || null;
+    const category = await getLabel({ client: this.client, name });
+    if (!category) return null;
+    return {
+      id: category.id || "",
+      name: category.displayName || "",
+      type: "user",
+    };
   }
 
   async getMessage(messageId: string): Promise<ParsedMessage> {
