@@ -103,7 +103,10 @@ export async function createLabel({
   } catch (error) {
     const errorMessage =
       error instanceof Error ? error.message : "Unknown error";
-    if (errorMessage.includes("already exists")) {
+    if (
+      errorMessage.includes("already exists") ||
+      errorMessage.includes("conflict with the current state")
+    ) {
       logger.warn("Label already exists", { name });
       const label = await getLabel({ client, name });
       if (label) return label;
