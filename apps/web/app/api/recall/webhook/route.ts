@@ -3,6 +3,7 @@ import { withError } from "@/utils/middleware";
 import { env } from "@/env";
 import { createScopedLogger } from "@/utils/logger";
 import prisma from "@/utils/prisma";
+import type { Prisma } from "@prisma/client";
 import { verifySvixWebhook } from "@/utils/recall/verify-svix-webhook";
 import { rescheduleBotsForUpdatedEvents } from "@/utils/recall/bot";
 import type { CalendarEvent } from "./types";
@@ -12,6 +13,7 @@ import {
   fetchCalendarEvents,
 } from "@/utils/recall/calendar";
 import {
+  createAsyncTranscript,
   getTranscriptMetadata,
   fetchTranscriptContent,
 } from "@/utils/recall/transcript";
@@ -19,6 +21,7 @@ import type {
   RecallWebhookPayload,
   CalendarUpdateEvent,
   CalendarSyncEventsEvent,
+  RecordingDoneEvent,
   TranscriptDoneEvent,
 } from "./types";
 
@@ -124,6 +127,9 @@ async function processRecallWebhook(payload: RecallWebhookPayload) {
       break;
     case "calendar.update":
       await handleCalendarUpdate(payload as CalendarUpdateEvent);
+      break;
+    case "recording.done":
+      await handleRecordingDone(payload as RecordingDoneEvent);
       break;
     case "transcript.done":
       await handleTranscriptDone(payload as TranscriptDoneEvent);
@@ -345,6 +351,64 @@ async function handleCalendarUpdate(payload: CalendarUpdateEvent) {
   }
 }
 
+async function handleRecordingDone(payload: RecordingDoneEvent) {
+  const recordingId = payload.data.recording.id;
+  const botId = payload.data.bot?.id;
+
+  logger.info("Recording completed", {
+    recordingId,
+    botId,
+  });
+
+  if (!botId) {
+    logger.warn("Missing bot ID in recording.done payload", {
+      recordingId,
+    });
+    return;
+  }
+
+  try {
+    const meeting = await prisma.meeting.findUnique({
+      where: { botId },
+    });
+
+    if (!meeting) {
+      logger.warn("Meeting not found for recording", {
+        botId,
+        recordingId,
+      });
+      return;
+    }
+
+    await prisma.meeting.update({
+      where: { id: meeting.id },
+      data: { status: "ACTIVE" },
+    });
+
+    const transcript = await createAsyncTranscript(recordingId, {
+      language: "en",
+      provider: {
+        recallai_async: {
+          model: "whisper-1",
+        },
+      },
+    });
+
+    logger.info("Async transcript created successfully", {
+      meetingId: meeting.id,
+      botId,
+      recordingId,
+      transcriptId: transcript.id,
+    });
+  } catch (error) {
+    logger.error("Error processing recording.done webhook", {
+      error,
+      botId,
+      recordingId,
+    });
+  }
+}
+
 async function handleTranscriptDone(payload: TranscriptDoneEvent) {
   const botId = payload.data.bot.id;
   const transcriptId = payload.data.transcript.id;
@@ -402,7 +466,7 @@ async function handleTranscriptDone(payload: TranscriptDoneEvent) {
     await prisma.meeting.update({
       where: { id: meeting.id },
       data: {
-        transcript: parsedTranscriptData,
+        transcript: parsedTranscriptData as Prisma.InputJsonValue,
         status: "COMPLETED",
       },
     });

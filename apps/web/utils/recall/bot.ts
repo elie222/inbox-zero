@@ -4,7 +4,6 @@ import { recallRequest } from "@/utils/recall/request";
 import { parseISO, subMinutes, isAfter } from "date-fns";
 import type {
   CalendarEvent,
-  RecallBot,
   RecallCalendarEventResponse,
 } from "@/app/api/recall/webhook/types";
 
@@ -14,22 +13,42 @@ export function generateDeduplicationKey(event: CalendarEvent): string {
   return `${event.start_time}-${event.meeting_url}`;
 }
 
-export async function createBot(meetingUrl: string): Promise<RecallBot> {
-  return recallRequest<RecallBot>("/api/v1/bot/", {
-    method: "POST",
-    body: JSON.stringify({
-      meeting_url: meetingUrl,
-      bot_name: "Inbox Zero Note Taker",
-      output_image: "https://getinboxzero.com/icons/icon-512x512.png",
-      recording_config: {
-        transcript: {
-          provider: {
-            meeting_captions: {},
+export async function addBotToCalendarEvent(
+  eventId: string,
+  deduplicationKey: string,
+  botConfig?: {
+    bot_name?: string;
+    language?: string;
+    avatar_url?: string;
+    background_color?: string;
+  },
+): Promise<RecallCalendarEventResponse> {
+  return recallRequest<RecallCalendarEventResponse>(
+    `/api/v2/calendar-events/${eventId}/bot/`,
+    {
+      method: "POST",
+      body: JSON.stringify({
+        deduplication_key: deduplicationKey,
+        bot_config: {
+          bot_name: botConfig?.bot_name || "Inbox Zero Note Taker",
+          language: botConfig?.language || "en",
+          avatar_url:
+            botConfig?.avatar_url ||
+            "https://inboxzero.com/icons/icon-512x512.png",
+          background_color: botConfig?.background_color || "#3B82F6",
+        },
+        recording_config: {
+          transcript: {
+            provider: {
+              recallai: {
+                model: "whisper-1",
+              },
+            },
           },
         },
-      },
-    }),
-  });
+      }),
+    },
+  );
 }
 
 export async function removeBotFromCalendarEvent(
@@ -68,8 +87,20 @@ export async function scheduleBotForEvent(
   try {
     const deduplicationKey = generateDeduplicationKey(event);
 
-    const botResponse = await createBot(event.meeting_url || "");
-    const botId = botResponse.id;
+    const response = await addBotToCalendarEvent(event.id, deduplicationKey, {
+      bot_name: "Inbox Zero Note Taker",
+      avatar_url: "https://inboxzero.com/icons/icon-512x512.png",
+      background_color: "#3B82F6",
+    });
+
+    const botId = response.bots[0]?.bot_id;
+    if (!botId) {
+      logger.error("No bot ID returned from calendar event", {
+        event_id: event.id,
+        response,
+      });
+      return null;
+    }
 
     await prisma.meeting.upsert({
       where: { botId: botId },
@@ -90,7 +121,7 @@ export async function scheduleBotForEvent(
       },
     });
 
-    logger.info("Bot created and stored in database", {
+    logger.info("Bot added to calendar event", {
       bot_id: botId,
       event_id: event.id,
       email_account_id: emailAccountId,
@@ -98,33 +129,7 @@ export async function scheduleBotForEvent(
       deduplication_key: deduplicationKey,
     });
 
-    return {
-      event: {
-        id: event.id,
-        start_time: event.start_time,
-        end_time: event.end_time,
-        calendar_id: recallCalendarId,
-        meeting_url: event.meeting_url,
-        title: event.title,
-        is_deleted: false,
-        bots: [
-          {
-            bot_id: botId,
-            start_time: event.start_time,
-            deduplication_key: deduplicationKey,
-            meeting_url: event.meeting_url || "",
-          },
-        ],
-      },
-      bots: [
-        {
-          bot_id: botId,
-          start_time: event.start_time,
-          deduplication_key: deduplicationKey,
-          meeting_url: event.meeting_url || "",
-        },
-      ],
-    };
+    return response;
   } catch (error) {
     logger.error("Failed to schedule bot for event", {
       error,

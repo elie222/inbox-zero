@@ -160,14 +160,6 @@ export const GET = withError(async (request) => {
         recallCalendarId: existingConnection.recallCalendarId,
       });
 
-      if (!existingConnection.recallCalendarId) {
-        await createAndLinkRecallCalendar(
-          existingConnection.id,
-          refresh_token,
-          emailAccountId,
-        );
-      }
-
       redirectUrl.searchParams.set("message", "calendar_already_connected");
       return NextResponse.redirect(redirectUrl, { headers: response.headers });
     }
@@ -183,12 +175,6 @@ export const GET = withError(async (request) => {
         isConnected: true,
       },
     });
-
-    await createAndLinkRecallCalendar(
-      connection.id,
-      refresh_token,
-      emailAccountId,
-    );
 
     await syncGoogleCalendars(
       connection.id,

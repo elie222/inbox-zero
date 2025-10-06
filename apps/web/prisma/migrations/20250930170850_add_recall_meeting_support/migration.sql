@@ -21,6 +21,9 @@ CREATE TABLE "Meeting" (
 -- AlterTable
 ALTER TABLE "CalendarConnection" ADD COLUMN "recallCalendarId" TEXT;
 
+-- AlterTable
+ALTER TABLE "Calendar" ADD COLUMN "transcriptEnabled" BOOLEAN NOT NULL DEFAULT false;
+
 -- CreateIndex
 CREATE UNIQUE INDEX "Meeting_botId_key" ON "Meeting"("botId");
 

@@ -7,6 +7,43 @@ import type {
 
 const logger = createScopedLogger("recall/transcript");
 
+export interface CreateAsyncTranscriptRequest {
+  language?: string;
+  provider: {
+    recallai_async?: {
+      model?: string;
+    };
+  };
+}
+
+export interface CreateAsyncTranscriptResponse {
+  id: string;
+  status: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export async function createAsyncTranscript(
+  recordingId: string,
+  request: CreateAsyncTranscriptRequest,
+): Promise<CreateAsyncTranscriptResponse> {
+  try {
+    return await recallRequest<CreateAsyncTranscriptResponse>(
+      `/api/v1/recording/${recordingId}/create_transcript/`,
+      {
+        method: "POST",
+        body: JSON.stringify(request),
+      },
+    );
+  } catch (error) {
+    logger.error("Failed to create async transcript", {
+      recordingId,
+      error,
+    });
+    throw error;
+  }
+}
+
 export async function getTranscriptMetadata(
   transcriptId: string,
 ): Promise<TranscriptMetadataResponse> {

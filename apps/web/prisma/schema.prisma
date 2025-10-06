@@ -868,6 +868,7 @@ model Calendar {
   primary     Boolean @default(false)
   isEnabled   Boolean @default(true)
   timezone    String?
+  transcriptEnabled Boolean @default(false)
 
   connectionId String
   connection   CalendarConnection @relation(fields: [connectionId], references: [id], onDelete: Cascade)
