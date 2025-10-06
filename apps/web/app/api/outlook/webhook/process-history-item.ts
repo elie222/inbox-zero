@@ -53,19 +53,20 @@ export async function processHistoryItem(
   logger.info("Getting message", loggerOptions);
 
   try {
-    const [parsedMessage, hasExistingRule] = await Promise.all([
-      provider.getMessage(messageId),
-      prisma.executedRule.findUnique({
-        where: {
-          unique_emailAccount_thread_message: {
-            emailAccountId,
-            threadId: resourceData.conversationId || messageId,
-            messageId,
-          },
+    const parsedMessage = await provider.getMessage(messageId);
+
+    const threadId = parsedMessage.threadId;
+
+    const hasExistingRule = await prisma.executedRule.findUnique({
+      where: {
+        unique_emailAccount_thread_message: {
+          emailAccountId,
+          threadId,
+          messageId,
         },
-        select: { id: true },
-      }),
-    ]);
+      },
+      select: { id: true },
+    });
 
     // if the rule has already been executed, skip
     if (hasExistingRule) {
@@ -116,7 +117,7 @@ export async function processHistoryItem(
       return processAssistantEmail({
         message: {
           id: messageId,
-          threadId: resourceData.conversationId || messageId,
+          threadId,
           headers: {
             from,
             to: to.join(","),
@@ -156,7 +157,7 @@ export async function processHistoryItem(
         parsedMessage,
         provider,
         messageId,
-        resourceData.conversationId || undefined,
+        threadId,
       );
       return;
     }
@@ -188,7 +189,7 @@ export async function processHistoryItem(
       const response = await runColdEmailBlocker({
         email: {
           ...emailForLLM,
-          threadId: resourceData.conversationId || messageId,
+          threadId,
           date: parsedMessage.date ? new Date(parsedMessage.date) : new Date(),
         },
         provider,
@@ -224,7 +225,7 @@ export async function processHistoryItem(
         provider,
         message: {
           id: messageId,
-          threadId: resourceData.conversationId || messageId,
+          threadId,
           headers: {
             from,
             to: to.join(","),
