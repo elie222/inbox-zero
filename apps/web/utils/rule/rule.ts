@@ -15,7 +15,6 @@ import { SafeError } from "@/utils/error";
 import { createRuleHistory } from "@/utils/rule/rule-history";
 import { isMicrosoftProvider } from "@/utils/email/provider-types";
 import { createEmailProvider } from "@/utils/email/provider";
-import type { EmailProvider } from "@/utils/email/types";
 import { resolveLabelNameAndId } from "@/utils/label/resolve-label";
 
 const logger = createScopedLogger("rule");

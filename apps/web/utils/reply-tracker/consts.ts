@@ -5,8 +5,10 @@ export const defaultReplyTrackerInstructions = `Apply this to emails needing my 
 - All automated notifications (LinkedIn, Facebook, GitHub, social media, marketing)
 - System emails (order confirmations, calendar invites)
 
-Only flag when someone:
+Match only when someone:
 - Asks me a direct question
 - Requests information or action
 - Needs my specific input
-- Follows up on a conversation`;
+- Follows up on a conversation
+
+When an email matches both this rule and others, prioritize this one.`;
