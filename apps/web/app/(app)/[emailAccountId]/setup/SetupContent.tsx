@@ -9,6 +9,7 @@ import {
   BotIcon,
   type LucideIcon,
   ChromeIcon,
+  CalendarIcon,
 } from "lucide-react";
 import { useLocalStorage } from "usehooks-ts";
 import { PageHeading, SectionDescription } from "@/components/Typography";
@@ -211,6 +212,7 @@ function Checklist({
   isReplyTrackerConfigured,
   isBulkUnsubscribeConfigured,
   isAiAssistantConfigured,
+  isCalendarConnected,
 }: {
   emailAccountId: string;
   provider: string;
@@ -220,6 +222,7 @@ function Checklist({
   isReplyTrackerConfigured: boolean;
   isBulkUnsubscribeConfigured: boolean;
   isAiAssistantConfigured: boolean;
+  isCalendarConnected: boolean;
 }) {
   const [isExtensionInstalled, setIsExtensionInstalled] = useLocalStorage(
     "inbox-zero-extension-installed",
@@ -282,6 +285,17 @@ function Checklist({
         actionText="View"
       />
 
+      <StepItem
+        href={prefixPath(emailAccountId, "/calendars")}
+        icon={<CalendarIcon size={20} />}
+        iconBg="bg-yellow-100 dark:bg-yellow-900/50"
+        iconColor="text-yellow-600 dark:text-yellow-400"
+        title="Connect your calendar"
+        timeEstimate="2 minutes"
+        completed={isCalendarConnected}
+        actionText="Connect"
+      />
+
       {isGoogleProvider(provider) && (
         <StepItem
           href={EXTENSION_URL}
@@ -314,6 +328,7 @@ export function SetupContent() {
           isReplyTrackerConfigured={data.steps.replyTracker}
           isAiAssistantConfigured={data.steps.aiAssistant}
           isBulkUnsubscribeConfigured={data.steps.bulkUnsubscribe}
+          isCalendarConnected={data.steps.calendarConnected}
           completedCount={data.completed}
           totalSteps={data.total}
           isSetupComplete={data.isComplete}
@@ -329,6 +344,7 @@ function SetupPageContent({
   isReplyTrackerConfigured,
   isBulkUnsubscribeConfigured,
   isAiAssistantConfigured,
+  isCalendarConnected,
   completedCount,
   totalSteps,
   isSetupComplete,
@@ -338,6 +354,7 @@ function SetupPageContent({
   isReplyTrackerConfigured: boolean;
   isBulkUnsubscribeConfigured: boolean;
   isAiAssistantConfigured: boolean;
+  isCalendarConnected: boolean;
   completedCount: number;
   totalSteps: number;
   isSetupComplete: boolean;
@@ -364,6 +381,7 @@ function SetupPageContent({
           isReplyTrackerConfigured={isReplyTrackerConfigured}
           isBulkUnsubscribeConfigured={isBulkUnsubscribeConfigured}
           isAiAssistantConfigured={isAiAssistantConfigured}
+          isCalendarConnected={isCalendarConnected}
           completedCount={completedCount}
           totalSteps={totalSteps}
           progressPercentage={progressPercentage}
