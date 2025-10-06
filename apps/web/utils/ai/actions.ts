@@ -80,13 +80,35 @@ const archive: ActionFunction<Record<string, unknown>> = async ({
   await client.archiveThread(email.threadId, userEmail);
 };
 
-const label: ActionFunction<{ label?: string | null }> = async ({
-  client,
-  email,
-  args,
-}) => {
-  if (!args.label) return;
-  await client.labelMessage(email.id, args.label);
+const label: ActionFunction<{
+  label?: string | null;
+  labelId?: string | null;
+}> = async ({ client, email, args }) => {
+  let labelIdToUse = args.labelId;
+
+  // Lazy migration: If no labelId but label name exists, look it up
+  if (!labelIdToUse && args.label) {
+    const matchingLabel = await client.getLabelByName(args.label);
+
+    if (matchingLabel) {
+      labelIdToUse = matchingLabel.id;
+      // Note: We don't update the Action here to avoid race conditions
+      // The Action will be migrated when the rule is next updated
+    } else {
+      logger.info("Label not found, creating it", { labelName: args.label });
+      const createdLabel = await client.createLabel(args.label);
+      labelIdToUse = createdLabel.id;
+
+      if (!labelIdToUse) {
+        logger.error("Failed to create label", { labelName: args.label });
+        return;
+      }
+    }
+  }
+
+  if (!labelIdToUse) return;
+
+  await client.labelMessage({ messageId: email.id, labelId: labelIdToUse });
 };
 
 const draft: ActionFunction<{

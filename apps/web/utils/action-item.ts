@@ -10,7 +10,7 @@ export const actionInputs: Record<
   {
     fields: {
       name:
-        | "label"
+        | "labelId"
         | "subject"
         | "content"
         | "to"
@@ -30,7 +30,7 @@ export const actionInputs: Record<
   [ActionType.LABEL]: {
     fields: [
       {
-        name: "label",
+        name: "labelId",
         label: "Label",
       },
     ],
@@ -187,6 +187,7 @@ type ActionFieldsSelection = Pick<
   Prisma.ActionCreateInput,
   | "type"
   | "label"
+  | "labelId"
   | "subject"
   | "content"
   | "to"
@@ -204,6 +205,7 @@ export function sanitizeActionFields(
   const base: ActionFieldsSelection = {
     type: action.type,
     label: null,
+    labelId: null,
     subject: null,
     content: null,
     to: null,
@@ -233,6 +235,7 @@ export function sanitizeActionFields(
       return {
         ...base,
         label: action.label ?? null,
+        labelId: action.labelId ?? null,
       };
     }
     case ActionType.REPLY: {

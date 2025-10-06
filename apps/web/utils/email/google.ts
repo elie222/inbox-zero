@@ -1,9 +1,5 @@
 import type { gmail_v1 } from "@googleapis/gmail";
-import {
-  isDefined,
-  type MessageWithPayload,
-  type ParsedMessage,
-} from "@/utils/types";
+import type { MessageWithPayload, ParsedMessage } from "@/utils/types";
 import { parseMessage } from "@/utils/gmail/message";
 import {
   getMessage,
@@ -13,12 +9,11 @@ import {
 } from "@/utils/gmail/message";
 import {
   getLabels,
+  getLabel,
   getLabelById,
   createLabel,
   getOrCreateInboxZeroLabel,
   GmailLabel,
-  getNeedsReplyLabel,
-  getAwaitingReplyLabel,
 } from "@/utils/gmail/label";
 import { labelVisibility, messageVisibility } from "@/utils/gmail/constants";
 import type { InboxZeroLabel } from "@/utils/label";
@@ -33,7 +28,6 @@ import {
 } from "@/utils/gmail/mail";
 import {
   archiveThread,
-  getOrCreateLabel,
   labelMessage,
   markReadThread,
   removeThreadLabel,
@@ -147,6 +141,19 @@ export class GmailProvider implements EmailProvider {
     }
   }
 
+  async getLabelByName(name: string): Promise<EmailLabel | null> {
+    const label = await getLabel({ gmail: this.client, name });
+    if (!label) return null;
+    return {
+      id: label.id!,
+      name: label.name!,
+      type: label.type!,
+      threadsTotal: label.threadsTotal || undefined,
+      labelListVisibility: label.labelListVisibility || undefined,
+      messageListVisibility: label.messageListVisibility || undefined,
+    };
+  }
+
   async getMessage(messageId: string): Promise<ParsedMessage> {
     const message = await getMessage(messageId, this.client, "full");
     return parseMessage(message);
@@ -241,7 +248,7 @@ export class GmailProvider implements EmailProvider {
     threadId: string,
     ownerEmail: string,
     actionSource: "user" | "automation",
-  ): Promise<void> {
+  ) {
     await trashThread({
       gmail: this.client,
       threadId,
@@ -250,17 +257,17 @@ export class GmailProvider implements EmailProvider {
     });
   }
 
-  async labelMessage(messageId: string, labelName: string): Promise<void> {
-    const label = await getOrCreateLabel({
-      gmail: this.client,
-      name: labelName,
-    });
-    if (!label.id)
-      throw new Error("Label not found and unable to create label");
+  async labelMessage({
+    messageId,
+    labelId,
+  }: {
+    messageId: string;
+    labelId: string;
+  }) {
     await labelMessage({
       gmail: this.client,
       messageId,
-      addLabelIds: [label.id],
+      addLabelIds: [labelId],
     });
   }
 
@@ -375,32 +382,6 @@ export class GmailProvider implements EmailProvider {
 
   async removeThreadLabel(threadId: string, labelId: string): Promise<void> {
     await removeThreadLabel(this.client, threadId, labelId);
-  }
-
-  async getAwaitingReplyLabel(): Promise<string | null> {
-    return getAwaitingReplyLabel(this.client);
-  }
-
-  async getNeedsReplyLabel(): Promise<string | null> {
-    return getNeedsReplyLabel(this.client);
-  }
-
-  async removeAwaitingReplyLabel(threadId: string): Promise<void> {
-    const awaitingReplyLabelId = await this.getAwaitingReplyLabel();
-    if (!awaitingReplyLabelId) {
-      logger.warn("No awaiting reply label found");
-      return;
-    }
-    await removeThreadLabel(this.client, threadId, awaitingReplyLabelId);
-  }
-
-  async removeNeedsReplyLabel(threadId: string): Promise<void> {
-    const needsReplyLabelId = await this.getNeedsReplyLabel();
-    if (!needsReplyLabelId) {
-      logger.warn("No needs reply label found");
-      return;
-    }
-    await removeThreadLabel(this.client, threadId, needsReplyLabelId);
   }
 
   async createLabel(name: string): Promise<EmailLabel> {
@@ -840,19 +821,6 @@ export class GmailProvider implements EmailProvider {
       sender,
       limit,
     );
-  }
-
-  async labelAwaitingReply(messageId: string): Promise<void> {
-    const awaitingReplyLabelId = await this.getAwaitingReplyLabel();
-    if (!awaitingReplyLabelId) {
-      logger.warn("No awaiting reply label found");
-      return;
-    }
-    await labelMessage({
-      gmail: this.client,
-      messageId,
-      addLabelIds: [awaitingReplyLabelId],
-    });
   }
 
   async processHistory(options: {

@@ -1,6 +1,7 @@
 import type { MailFolder } from "@microsoft/microsoft-graph-types";
 import type { OutlookClient } from "./client";
 import { createScopedLogger } from "@/utils/logger";
+import { isAlreadyExistsError } from "./errors";
 
 const logger = createScopedLogger("outlook/folders");
 
@@ -56,6 +57,14 @@ export async function getOutlookChildFolders(
   return response.value.map(convertMailFolderToOutlookFolder);
 }
 
+async function findOutlookFolderByName(
+  client: OutlookClient,
+  folderName: string,
+): Promise<OutlookFolder | undefined> {
+  const folders = await getOutlookRootFolders(client);
+  return folders.find((folder) => folder.displayName === folderName);
+}
+
 export async function getOutlookFolderTree(
   client: OutlookClient,
   expandLevels = 6,
@@ -97,18 +106,30 @@ export async function getOrCreateOutlookFolderIdByName(
   client: OutlookClient,
   folderName: string,
 ): Promise<string> {
-  const folders = await getOutlookRootFolders(client);
-  const existingFolder = folders.find(
-    (folder) => folder.displayName === folderName,
-  );
+  const existingFolder = await findOutlookFolderByName(client, folderName);
 
   if (existingFolder) {
     return existingFolder.id;
   }
 
-  const response = await client.getClient().api("/me/mailFolders").post({
-    displayName: folderName,
-  });
+  try {
+    const response = await client.getClient().api("/me/mailFolders").post({
+      displayName: folderName,
+    });
 
-  return response.id;
+    return response.id;
+  } catch (error) {
+    // If folder already exists (race condition or created between check and create),
+    // fetch folders again and return the existing folder ID
+    if (isAlreadyExistsError(error)) {
+      logger.info("Folder already exists, fetching existing folder", {
+        folderName,
+      });
+      const folder = await findOutlookFolderByName(client, folderName);
+      if (folder) {
+        return folder.id;
+      }
+    }
+    throw error;
+  }
 }

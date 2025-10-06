@@ -274,7 +274,7 @@ async function withProcessingLabels<T>(
 
   if (labels.length) {
     // Fire and forget the initial labeling
-    provider.labelMessage(messageId, labels[0]).catch((error) => {
+    provider.labelMessage({ messageId, labelId: labels[0] }).catch((error) => {
       logger.error("Error labeling message", { error });
     });
   }

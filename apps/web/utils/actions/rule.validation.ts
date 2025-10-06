@@ -68,6 +68,8 @@ const zodField = z
     ai: z.boolean().nullish(),
     // only needed for frontend
     setManually: z.boolean().nullish(),
+    // label name for backup if no labelId exists (only for label field)
+    name: z.string().nullish(),
   })
   .nullish();
 
@@ -75,7 +77,7 @@ const zodAction = z
   .object({
     id: z.string().optional(),
     type: zodActionType,
-    label: zodField,
+    labelId: zodField,
     subject: zodField,
     content: zodField,
     to: zodField,
@@ -87,11 +89,11 @@ const zodAction = z
     delayInMinutes: delayInMinutesSchema,
   })
   .superRefine((data, ctx) => {
-    if (data.type === ActionType.LABEL && !data.label?.value?.trim()) {
+    if (data.type === ActionType.LABEL && !data.labelId?.value?.trim()) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         message: "Please enter a label name for the Label action",
-        path: ["label"],
+        path: ["labelId"],
       });
     }
     if (data.type === ActionType.FORWARD && !data.to?.value?.trim()) {

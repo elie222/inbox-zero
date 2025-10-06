@@ -28,8 +28,9 @@ async function getRule({
     ...rule,
     actions: rule.actions.map((action) => ({
       ...action,
-      label: {
-        value: action.label,
+      labelId: {
+        value: action.labelId, // Use labelId as value, fall back to name for old rules
+        name: action.label, // Fallback
         ai: hasVariables(action.label),
       },
       subject: { value: action.subject },
