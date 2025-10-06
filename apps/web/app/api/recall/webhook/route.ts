@@ -469,7 +469,7 @@ async function handleRecordingDone(payload: RecordingDoneEvent) {
 
     await prisma.meeting.update({
       where: { id: meeting.id },
-      data: { status: "ACTIVE" },
+      data: { status: MeetingStatus.ACTIVE },
     });
 
     const transcript = await createAsyncTranscript(recordingId, {

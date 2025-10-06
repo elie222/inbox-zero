@@ -296,7 +296,7 @@ async function scheduleMessage({
       await prisma.scheduledAction.update({
         where: { id: payload.scheduledActionId },
         data: {
-          schedulingStatus: "FAILED" as const,
+          schedulingStatus: SchedulingStatus.FAILED,
         },
       });
 
@@ -314,7 +314,7 @@ async function scheduleMessage({
     await prisma.scheduledAction.update({
       where: { id: payload.scheduledActionId },
       data: {
-        schedulingStatus: "FAILED" as const,
+        schedulingStatus: SchedulingStatus.FAILED,
       },
     });
 

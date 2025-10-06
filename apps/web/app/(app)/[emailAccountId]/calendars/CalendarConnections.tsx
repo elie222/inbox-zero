@@ -5,7 +5,6 @@ import { useCalendars } from "@/hooks/useCalendars";
 import { CalendarConnectionCard } from "./CalendarConnectionCard";
 import { EnableFeatureCard } from "@/components/EnableFeatureCard";
 import { useAccount } from "@/providers/EmailAccountProvider";
-import { FormSection, FormWrapper } from "@/components/Form";
 import { ConnectCalendarButton } from "./ConnectCalendarButton";
 import { useState } from "react";
 import { toastError } from "@/components/Toast";
@@ -34,7 +33,6 @@ export function CalendarConnections() {
       const data: GetCalendarAuthUrlResponse = await response.json();
       window.location.href = data.url;
     } catch (error) {
-      console.error("Error initiating calendar connection:", error);
       toastError({
         title: "Error initiating calendar connection",
         description: "Please try again or contact support",

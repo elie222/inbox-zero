@@ -71,9 +71,8 @@ export function TranscriptSettingsManager() {
         } else {
           if (recallConnection) {
             await executeDeleteRecall();
-          } else {
-            await executeUpdate({ transcriptEnabled: false });
           }
+          await executeUpdate({ transcriptEnabled: false });
           toastSuccess({
             description: "Transcripts disabled successfully",
           });
