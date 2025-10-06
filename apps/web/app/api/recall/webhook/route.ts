@@ -24,8 +24,73 @@ import type {
   RecordingDoneEvent,
   TranscriptDoneEvent,
 } from "./types";
+import { z } from "zod";
 
 const logger = createScopedLogger("recall/webhook");
+
+const calendarUpdateSchema = z.object({
+  event: z.literal("calendar.update"),
+  data: z.object({
+    calendar_id: z.string(),
+  }),
+});
+
+const calendarSyncEventsSchema = z.object({
+  event: z.literal("calendar.sync_events"),
+  data: z.object({
+    calendar_id: z.string(),
+    last_updated_ts: z.string(),
+  }),
+});
+
+const recordingDoneSchema = z.object({
+  event: z.literal("recording.done"),
+  data: z.object({
+    data: z.object({
+      code: z.string(),
+      sub_code: z.string().nullable(),
+      updated_at: z.string(),
+    }),
+    bot: z.object({
+      id: z.string(),
+      metadata: z.unknown(),
+    }),
+    recording: z.object({
+      id: z.string(),
+      metadata: z.unknown(),
+    }),
+  }),
+});
+
+const transcriptDoneSchema = z.object({
+  event: z.literal("transcript.done"),
+  data: z.object({
+    data: z.object({
+      code: z.string(),
+      sub_code: z.string().nullable(),
+      updated_at: z.string(),
+    }),
+    bot: z.object({
+      id: z.string(),
+      metadata: z.unknown(),
+    }),
+    transcript: z.object({
+      id: z.string(),
+      metadata: z.unknown(),
+    }),
+    recording: z.object({
+      id: z.string(),
+      metadata: z.unknown(),
+    }),
+  }),
+});
+
+const recallWebhookSchema = z.union([
+  calendarUpdateSchema,
+  calendarSyncEventsSchema,
+  recordingDoneSchema,
+  transcriptDoneSchema,
+]);
 
 export const POST = withError(async (request) => {
   const rawBody = await request.text();
@@ -92,15 +157,26 @@ export const POST = withError(async (request) => {
     );
   }
 
-  const body = JSON.parse(rawBody) as RecallWebhookPayload;
+  let json: unknown;
+  try {
+    json = JSON.parse(rawBody);
+  } catch {
+    return NextResponse.json({ message: "Invalid JSON" }, { status: 400 });
+  }
+
+  const parsed = recallWebhookSchema.safeParse(json);
+  if (!parsed.success) {
+    return NextResponse.json(
+      { message: "Invalid payload", errors: parsed.error.flatten() },
+      { status: 400 },
+    );
+  }
+
+  const body = parsed.data as RecallWebhookPayload;
   const eventType = body.event;
 
   try {
-    await processRecallWebhook(body);
-
-    return NextResponse.json({
-      message: "Webhook processed successfully",
-    });
+    return await processRecallWebhook(body);
   } catch (error) {
     logger.error("Error processing Recall webhook", {
       error,
@@ -118,22 +194,32 @@ export const POST = withError(async (request) => {
   }
 });
 
-async function processRecallWebhook(payload: RecallWebhookPayload) {
+async function processRecallWebhook(
+  payload: RecallWebhookPayload,
+): Promise<NextResponse> {
   const eventType = payload.event;
 
   switch (eventType) {
     case "calendar.sync_events":
       await handleCalendarSyncEvents(payload as CalendarSyncEventsEvent);
-      break;
+      return NextResponse.json({
+        message: "Calendar sync events processed successfully",
+      });
     case "calendar.update":
       await handleCalendarUpdate(payload as CalendarUpdateEvent);
-      break;
+      return NextResponse.json({
+        message: "Calendar update processed successfully",
+      });
     case "recording.done":
       await handleRecordingDone(payload as RecordingDoneEvent);
-      break;
+      return NextResponse.json({
+        message: "Recording done processed successfully",
+      });
     case "transcript.done":
       await handleTranscriptDone(payload as TranscriptDoneEvent);
-      break;
+      return NextResponse.json({
+        message: "Transcript done processed successfully",
+      });
     default:
       logger.warn("Unsupported event type", { eventType });
       return NextResponse.json(
