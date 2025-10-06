@@ -13,9 +13,11 @@
  */
 
 import { describe, test, expect, beforeAll, vi } from "vitest";
+import { NextRequest } from "next/server";
 import prisma from "@/utils/prisma";
 import { createEmailProvider } from "@/utils/email/provider";
 import type { OutlookProvider } from "@/utils/email/microsoft";
+import { webhookBodySchema } from "@/app/api/outlook/webhook/types";
 
 // ============================================
 // TEST DATA - SET VIA ENVIRONMENT VARIABLES
@@ -24,9 +26,16 @@ const TEST_OUTLOOK_EMAIL = process.env.TEST_OUTLOOK_EMAIL;
 const TEST_CONVERSATION_ID =
   process.env.TEST_CONVERSATION_ID ||
   "AQQkADAwATNiZmYAZS05YWEAYy1iNWY0LTAwAi0wMAoAEABuo-fmt9KvQ4u55KlWB32H"; // Real conversation ID from demoinboxzero@outlook.com
+const TEST_MESSAGE_ID =
+  process.env.TEST_MESSAGE_ID ||
+  "AQMkADAwATNiZmYAZS05YWEAYy1iNWY0LTAwAi0wMAoARgAAA-ybH4V64nRKkgXhv9H-GEkHAP38WoVoPXRMilGF27prOB8AAAIBDAAAAP38WoVoPXRMilGF27prOB8AAABGAqbwAAAA"; // Real message ID from demoinboxzero@outlook.com
 const TEST_CATEGORY_NAME = process.env.TEST_CATEGORY_NAME || "To Reply";
 
 vi.mock("server-only", () => ({}));
+
+vi.mock("@/utils/redis/message-processing", () => ({
+  markMessageAsProcessing: vi.fn().mockResolvedValue(true),
+}));
 
 describe.skipIf(!TEST_OUTLOOK_EMAIL)(
   "Outlook Operations Integration Tests",
@@ -275,3 +284,163 @@ describe.skipIf(!TEST_OUTLOOK_EMAIL)(
     });
   },
 );
+
+// ============================================
+// WEBHOOK PAYLOAD TESTS
+// ============================================
+describe.skipIf(!TEST_OUTLOOK_EMAIL)("Outlook Webhook Payload", () => {
+  test("should validate real webhook payload structure", () => {
+    const realWebhookPayload = {
+      value: [
+        {
+          subscriptionId: "d2d593e1-9600-4f72-8cd3-dfa04c707f9e",
+          subscriptionExpirationDateTime: "2025-10-09T15:32:19.8+00:00",
+          changeType: "updated",
+          resource:
+            "Users/faa95128258c6335/Messages/AQMkADAwATNiZmYAZS05YWEAYy1iNWY0LTAwAi0wMAoARgAAA-ybH4V64nRKkgXhv9H-GEkHAP38WoVoPXRMilGF27prOB8AAAIBDAAAAP38WoVoPXRMilGF27prOB8AAABGAqbwAAAA",
+          resourceData: {
+            "@odata.type": "#Microsoft.Graph.Message",
+            "@odata.id":
+              "Users/faa95128258c6335/Messages/AQMkADAwATNiZmYAZS05YWEAYy1iNWY0LTAwAi0wMAoARgAAA-ybH4V64nRKkgXhv9H-GEkHAP38WoVoPXRMilGF27prOB8AAAIBDAAAAP38WoVoPXRMilGF27prOB8AAABGAqbwAAAA",
+            "@odata.etag": 'W/"CQAAABYAAAD9/FqFaD10TIpRhdu6azgfAABF+9hk"',
+            id: "AQMkADAwATNiZmYAZS05YWEAYy1iNWY0LTAwAi0wMAoARgAAA-ybH4V64nRKkgXhv9H-GEkHAP38WoVoPXRMilGF27prOB8AAAIBDAAAAP38WoVoPXRMilGF27prOB8AAABGAqbwAAAA",
+          },
+          clientState: "05338492cb69f2facfe870450308f802",
+          tenantId: "",
+        },
+      ],
+    };
+
+    // Validate against our schema
+    const result = webhookBodySchema.safeParse(realWebhookPayload);
+
+    expect(result.success).toBe(true);
+  });
+
+  test("should process webhook and fetch conversationId from message", async () => {
+    // Clean slate: delete any existing executedRules for this message
+    const emailAccount = await prisma.emailAccount.findUniqueOrThrow({
+      where: { email: TEST_OUTLOOK_EMAIL },
+    });
+
+    await prisma.executedRule.deleteMany({
+      where: {
+        emailAccountId: emailAccount.id,
+        messageId: TEST_MESSAGE_ID,
+      },
+    });
+
+    // This test requires a real Outlook account
+    const { POST } = await import("@/app/api/outlook/webhook/route");
+
+    const realWebhookPayload = {
+      value: [
+        {
+          subscriptionId: "d2d593e1-9600-4f72-8cd3-dfa04c707f9e",
+          subscriptionExpirationDateTime: "2025-10-09T15:32:19.8+00:00",
+          changeType: "updated",
+          resource: `Users/faa95128258c6335/Messages/${TEST_MESSAGE_ID}`,
+          resourceData: {
+            "@odata.type": "#Microsoft.Graph.Message",
+            "@odata.id": `Users/faa95128258c6335/Messages/${TEST_MESSAGE_ID}`,
+            "@odata.etag": 'W/"CQAAABYAAAD9/FqFaD10TIpRhdu6azgfAABF+9hk"',
+            id: TEST_MESSAGE_ID,
+          },
+          clientState: process.env.MICROSOFT_WEBHOOK_CLIENT_STATE,
+          tenantId: "",
+        },
+      ],
+    };
+
+    // Create a mock Request object
+    const mockRequest = new NextRequest(
+      "http://localhost:3000/api/outlook/webhook",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(realWebhookPayload),
+      },
+    );
+
+    // Call the webhook handler
+    const response = await POST(mockRequest, {
+      params: new Promise(() => ({})),
+    });
+
+    // Verify webhook processed successfully
+    expect(response.status).toBe(200);
+
+    const responseData = await response.json();
+    expect(responseData).toEqual({ ok: true });
+
+    console.log("   ✅ Webhook processed successfully");
+
+    // Verify an executedRule was created for this message
+    const thirtySecondsAgo = new Date(Date.now() - 30_000);
+
+    const executedRule = await prisma.executedRule.findFirst({
+      where: {
+        messageId: TEST_MESSAGE_ID,
+        createdAt: {
+          gte: thirtySecondsAgo,
+        },
+      },
+      include: {
+        rule: {
+          select: {
+            name: true,
+          },
+        },
+        actionItems: {
+          where: {
+            draftId: {
+              not: null,
+            },
+          },
+        },
+      },
+    });
+
+    expect(executedRule).not.toBeNull();
+    expect(executedRule).toBeDefined();
+
+    if (!executedRule) {
+      throw new Error("ExecutedRule is null");
+    }
+
+    console.log("   ✅ ExecutedRule created successfully");
+    console.log(`      Rule: ${executedRule.rule?.name || "(no rule)"}`);
+    console.log(`      Rule ID: ${executedRule.ruleId || "(no rule id)"}`);
+
+    // Check if a draft was created
+    const draftAction = executedRule.actionItems.find((a) => a.draftId);
+    if (draftAction?.draftId) {
+      const emailAccount = await prisma.emailAccount.findUniqueOrThrow({
+        where: { email: TEST_OUTLOOK_EMAIL },
+      });
+
+      const provider = (await createEmailProvider({
+        emailAccountId: emailAccount.id,
+        provider: "microsoft",
+      })) as OutlookProvider;
+
+      const draft = await provider.getDraft(draftAction.draftId);
+
+      expect(draft).toBeDefined();
+      console.log("   ✅ Draft created successfully");
+      console.log(`      Draft ID: ${draftAction.draftId}`);
+      console.log(`      Subject: ${draft?.subject || "(no subject)"}`);
+      console.log("      Content:");
+      console.log(
+        `        ${draft?.textPlain?.substring(0, 200).replace(/\n/g, "\n        ") || "(empty)"}`,
+      );
+      if (draft?.textPlain && draft.textPlain.length > 200) {
+        console.log(`        ... (${draft.textPlain.length} total characters)`);
+      }
+    } else {
+      console.log("   ℹ️  No draft action found");
+    }
+  }, 30_000);
+});

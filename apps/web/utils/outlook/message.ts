@@ -108,7 +108,6 @@ export async function getFolderIds(client: OutlookClient) {
     {} as Record<string, string>,
   );
 
-  logger.info("Fetched Outlook folder IDs", { folders: folderIdCache });
   return folderIdCache;
 }
 
