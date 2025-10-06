@@ -429,8 +429,14 @@ describe.skipIf(!TEST_OUTLOOK_EMAIL)("Outlook Webhook Payload", () => {
       const draft = await provider.getDraft(draftAction.draftId);
 
       expect(draft).toBeDefined();
+
+      // Verify draft is actually a reply, not a fresh draft
+      expect(draft?.threadId).toBeTruthy();
+      expect(draft?.threadId).not.toBe("");
+
       console.log("   ✅ Draft created successfully");
       console.log(`      Draft ID: ${draftAction.draftId}`);
+      console.log(`      Thread ID: ${draft?.threadId}`);
       console.log(`      Subject: ${draft?.subject || "(no subject)"}`);
       console.log("      Content:");
       console.log(
