@@ -55,7 +55,6 @@ const getUserRulesAndSettingsTool = ({
               subject: true,
               conditionalOperator: true,
               enabled: true,
-              automate: true,
               runOnThreads: true,
               actions: {
                 select: {
@@ -113,7 +112,6 @@ const getUserRulesAndSettingsTool = ({
               }),
             })),
             enabled: rule.enabled,
-            automate: rule.automate,
             runOnThreads: rule.runOnThreads,
           };
         }),

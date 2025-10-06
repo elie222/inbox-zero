@@ -5,6 +5,7 @@ import { DraftKnowledgeSetting } from "@/app/(app)/[emailAccountId]/assistant/se
 import { AwaitingReplySetting } from "@/app/(app)/[emailAccountId]/assistant/settings/AwaitingReplySetting";
 import { ReferralSignatureSetting } from "@/app/(app)/[emailAccountId]/assistant/settings/ReferralSignatureSetting";
 import { LearnedPatternsSetting } from "@/app/(app)/[emailAccountId]/assistant/settings/LearnedPatternsSetting";
+import { PersonalSignatureSetting } from "@/app/(app)/[emailAccountId]/assistant/settings/PersonalSignatureSetting";
 
 export function SettingsTab() {
   return (
@@ -14,6 +15,7 @@ export function SettingsTab() {
       <DraftKnowledgeSetting />
       <AboutSetting />
       <DigestSetting />
+      <PersonalSignatureSetting />
       <ReferralSignatureSetting />
       <LearnedPatternsSetting />
     </div>

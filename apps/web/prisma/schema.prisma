@@ -110,7 +110,7 @@ model EmailAccount {
 
   about                     String?
   writingStyle              String?
-  signature                 String?
+  signature                 String? // User's email signature from provider or manually set
   includeReferralSignature  Boolean   @default(true)
   watchEmailsExpirationDate DateTime?
   watchEmailsSubscriptionId String? // For Outlook subscription ID
@@ -158,7 +158,7 @@ model EmailAccount {
   ssoproviders        SsoProvider[]
   calendarConnections CalendarConnection[]
   mcpConnections      McpConnection[]
-  meetings     Meeting[]
+  meetings            Meeting[]
 
   @@index([lastSummaryEmailAt])
 }
@@ -247,7 +247,7 @@ model Digest {
 model DigestItem {
   id          String          @id @default(cuid())
   createdAt   DateTime        @default(now())
-  updatedAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
   messageId   String
   threadId    String
   content     String          @db.Text
@@ -376,7 +376,7 @@ model Rule {
   name         String
   actions      Action[]
   enabled      Boolean  @default(true)
-  automate     Boolean  @default(false) // if disabled, user must approve to execute
+  automate     Boolean  @default(true) // @deprecated - No longer used. All rules are now automated. Kept for historical data only.
   runOnThreads Boolean  @default(false) // if disabled, only runs on individual emails
 
   emailAccountId String
@@ -909,14 +909,14 @@ model Meeting {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  emailAccountId String
-  eventId        String
-  botId          String
+  emailAccountId   String
+  eventId          String
+  botId            String
   deduplicationKey String
-  status         RecallBotStatus @default(SCHEDULED)
-  transcript     Json?
-  botWillJoinAt  DateTime
-  meetingUrl     String
+  status           MeetingStatus @default(SCHEDULED)
+  transcript       Json?
+  botWillJoinAt    DateTime
+  meetingUrl       String
 
   emailAccount EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
 
@@ -1046,8 +1046,8 @@ enum PremiumTier {
 enum ExecutedRuleStatus {
   APPLIED
   APPLYING
-  REJECTED
-  PENDING
+  REJECTED // @deprecated - No longer created. Kept for historical data only.
+  PENDING // @deprecated - No longer created. Kept for historical data only.
   SKIPPED
   ERROR
 }
@@ -1119,7 +1119,7 @@ enum SchedulingStatus {
   FAILED
 }
 
-enum RecallBotStatus {
+enum MeetingStatus {
   SCHEDULED
   ACTIVE
   COMPLETED
