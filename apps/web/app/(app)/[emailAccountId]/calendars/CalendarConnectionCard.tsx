@@ -8,8 +8,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Calendar, Trash2, CheckCircle, XCircle } from "lucide-react";
+import { Trash2, CheckCircle, XCircle } from "lucide-react";
 import { CalendarList } from "./CalendarList";
 import { useAction } from "next-safe-action/hooks";
 import {
@@ -20,6 +19,8 @@ import { useAccount } from "@/providers/EmailAccountProvider";
 import { useCalendars } from "@/hooks/useCalendars";
 import { useState } from "react";
 import type { GetCalendarsResponse } from "@/app/api/user/calendars/route";
+import Image from "next/image";
+import { TypographyP } from "@/components/Typography";
 
 type CalendarConnection = GetCalendarsResponse["connections"][0];
 
@@ -96,30 +97,23 @@ export function CalendarConnectionCard({
     }
   };
 
-  const enabledCalendars =
-    connection.calendars?.filter((cal) => cal.isEnabled)?.length ?? 0;
-  const totalCalendars = connection.calendars?.length ?? 0;
-
   return (
     <Card>
       <CardHeader>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="p-2 bg-blue-100 rounded-lg">
-              <Calendar className="h-5 w-5 text-blue-600" />
-            </div>
+            <Image
+              src="/images/product/google-calendar.svg"
+              alt="Google Calendar"
+              width={32}
+              height={32}
+              unoptimized
+            />
             <div>
-              <CardTitle className="text-lg">{connection.email}</CardTitle>
+              <CardTitle className="text-lg">Google Calendar</CardTitle>
               <CardDescription className="flex items-center gap-2">
-                <Badge variant="secondary" className="capitalize">
-                  {connection.provider}
-                </Badge>
-                {connection.isConnected ? (
-                  <div className="flex items-center gap-1 text-green-600">
-                    <CheckCircle className="h-3 w-3" />
-                    <span className="text-xs">Connected</span>
-                  </div>
-                ) : (
+                {connection.email}
+                {!connection.isConnected && (
                   <div className="flex items-center gap-1 text-red-600">
                     <XCircle className="h-3 w-3" />
                     <span className="text-xs">Disconnected</span>
@@ -144,14 +138,10 @@ export function CalendarConnectionCard({
       </CardHeader>
       <CardContent>
         <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium">Calendars</p>
-              <p className="text-xs text-muted-foreground">
-                {enabledCalendars} of {totalCalendars} calendars enabled
-              </p>
-            </div>
-          </div>
+          <TypographyP className="text-sm">
+            Toggle the calendars you want to check for conflicts to prevent
+            double bookings.
+          </TypographyP>
 
           {connection.calendars && connection.calendars.length > 0 ? (
             <CalendarList
