@@ -63,7 +63,15 @@ export async function handleLabelRemovedEvent(
     });
   }
 
-  const removedLabelIds = message.labelIds || [];
+  // Filter out system labels early as we don't learn from them
+  const removedLabelIds = (message.labelIds || []).filter(
+    (labelId) => !SYSTEM_LABELS.includes(labelId),
+  );
+
+  if (removedLabelIds.length === 0) {
+    logger.trace("No non-system labels to process", loggerOptions);
+    return;
+  }
 
   const labels = await provider.getLabels();
 
@@ -74,14 +82,6 @@ export async function handleLabelRemovedEvent(
     if (!labelName) {
       logger.info("Skipping label removal - missing label name", {
         labelId,
-        ...loggerOptions,
-      });
-      continue;
-    }
-
-    if (SYSTEM_LABELS.includes(labelName)) {
-      logger.info("Skipping system label removal", {
-        labelName,
         ...loggerOptions,
       });
       continue;
