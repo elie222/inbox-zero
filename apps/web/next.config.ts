@@ -154,6 +154,13 @@ const nextConfig: NextConfig = {
         source: "/sales",
         destination: "https://go.getinboxzero.com/sales",
         permanent: false,
+        has: [
+          {
+            type: "header",
+            key: "accept",
+            value: "text/html",
+          },
+        ],
       },
     ];
   },
@@ -229,11 +236,20 @@ const nextConfig: NextConfig = {
           },
           {
             key: "Access-Control-Allow-Origin",
-            value: env.NEXT_PUBLIC_BASE_URL,
+            value: "*",
           },
           {
             key: "Access-Control-Allow-Methods",
             value: "GET, POST, PUT, DELETE, OPTIONS",
+          },
+          {
+            key: "Access-Control-Allow-Headers",
+            value:
+              "Content-Type, Authorization, X-Email-Account-ID, X-Health-Api-Key",
+          },
+          {
+            key: "Access-Control-Allow-Credentials",
+            value: "true",
           },
         ],
       },

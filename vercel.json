@@ -1,5 +1,8 @@
 {
   "buildCommand": "cd ../.. && turbo run build --filter={apps/web}...",
   "installCommand": "cd ../.. && corepack enable && pnpm install --no-frozen-lockfile",
-  "ignoreCommand": ""
+  "ignoreCommand": "",
+  "analytics": {
+    "enabled": true
+  }
 }

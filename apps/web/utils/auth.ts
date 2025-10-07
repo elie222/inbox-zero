@@ -47,7 +47,13 @@ export const betterAuthConfig = betterAuth({
     },
   },
   baseURL: env.NEXT_PUBLIC_BASE_URL,
-  trustedOrigins: [env.NEXT_PUBLIC_BASE_URL],
+  trustedOrigins: [
+    env.NEXT_PUBLIC_BASE_URL,
+    "https://inbox-zero-osjizn2xe-nehil-jains-projects.vercel.app",
+    "https://inbox-zero-web-nehil-jains-projects.vercel.app",
+    "https://inbox-zero-web-blush.vercel.app",
+    "https://getinboxzero.com",
+  ],
   secret: env.AUTH_SECRET || env.NEXTAUTH_SECRET,
   emailAndPassword: {
     enabled: false,

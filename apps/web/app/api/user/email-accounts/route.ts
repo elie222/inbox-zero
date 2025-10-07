@@ -55,3 +55,16 @@ export const GET = withAuth(async (request) => {
   const result = await getEmailAccounts({ userId });
   return NextResponse.json(result);
 });
+
+export const OPTIONS = async () => {
+  return new NextResponse(null, {
+    status: 200,
+    headers: {
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+      "Access-Control-Allow-Headers":
+        "Content-Type, Authorization, X-Email-Account-ID",
+      "Access-Control-Allow-Credentials": "true",
+    },
+  });
+};
