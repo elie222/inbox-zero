@@ -5,7 +5,7 @@ import type { EmailAccountWithAI } from "@/utils/llms/types";
 import { createScopedLogger } from "@/utils/logger";
 import { getModel } from "@/utils/llms/model";
 
-const logger = createScopedLogger("email-report-response-patterns");
+const _logger = createScopedLogger("email-report-response-patterns");
 
 const responsePatternsSchema = z.object({
   commonResponses: z.array(

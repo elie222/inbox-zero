@@ -6,9 +6,9 @@
  */
 
 const { google } = require('googleapis');
-const readline = require('readline');
-const fs = require('fs');
-const path = require('path');
+const readline = require('node:readline');
+const fs = require('node:fs');
+const path = require('node:path');
 
 // Load Google client secret JSON file
 const GOOGLE_CLIENT_SECRET_PATH = path.join(__dirname, '../.env.google_client_secret.json');
@@ -22,7 +22,7 @@ try {
   
   // Load environment variables for base URL
   require('dotenv').config({ path: path.join(__dirname, '../apps/web/.env') });
-  REDIRECT_URI = process.env.NEXT_PUBLIC_BASE_URL + '/api/auth/callback/google';
+  REDIRECT_URI = `${process.env.NEXT_PUBLIC_BASE_URL}/api/auth/callback/google`;
 } catch (error) {
   console.error('❌ Failed to load Google client secret JSON file:', error.message);
   console.error('Make sure .env.google_client_secret.json exists in the root directory');

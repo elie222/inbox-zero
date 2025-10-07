@@ -27,16 +27,15 @@ vi.mock("@/utils/prisma", () => ({
   },
 }));
 
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 import { betterAuthConfig } from "@/utils/auth";
-import { SafeError } from "@/utils/error";
 import { createScopedLogger } from "@/utils/logger";
 import prisma from "@/utils/prisma";
 import { GET } from "./route";
 
 const mockBetterAuthConfig = vi.mocked(betterAuthConfig);
-const mockLogger = vi.mocked(createScopedLogger);
+const _mockLogger = vi.mocked(createScopedLogger);
 
 describe("SSO Signin Route", () => {
   const mockContext = { params: Promise.resolve({}) };

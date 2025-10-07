@@ -5,7 +5,7 @@ import type { EmailSummary } from "@/utils/ai/report/summarize-emails";
 import { createScopedLogger } from "@/utils/logger";
 import { getModel } from "@/utils/llms/model";
 
-const logger = createScopedLogger("email-report-email-behavior");
+const _logger = createScopedLogger("email-report-email-behavior");
 
 const emailBehaviorSchema = z.object({
   timingPatterns: z.object({
