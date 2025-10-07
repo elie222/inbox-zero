@@ -4,7 +4,8 @@
   "private": true,
   "scripts": {
     "dev": "cross-env NODE_OPTIONS=--max_old_space_size=16384 next dev --turbopack",
-    "build": "cross-env NODE_OPTIONS=--max_old_space_size=16384 prisma migrate deploy && next build",
+    "build": "cross-env NODE_OPTIONS=--max_old_space_size=16384 next build",
+    "build:with-migrations": "cross-env NODE_OPTIONS=--max_old_space_size=16384 prisma migrate deploy && next build",
     "start": "next start",
     "lint": "next lint",
     "test": "cross-env RUN_AI_TESTS=false vitest",
