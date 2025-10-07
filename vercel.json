@@ -1,10 +1,10 @@
 {
-  "buildCommand": "turbo run build --filter=inbox-zero-ai --force",
-  "installCommand": "cd ../.. && corepack enable && pnpm install --no-frozen-lockfile",
-  "outputDirectory": "apps/web/.next",
+  "buildCommand": "cd apps/web && pnpm run build",
+  "installCommand": "corepack enable && pnpm install --no-frozen-lockfile",
+  "outputDirectory": ".next",
   "framework": "nextjs",
   "functions": {
-    "apps/web/app/api/**/*.ts": {
+    "app/api/**/*.ts": {
       "maxDuration": 30
     }
   },
