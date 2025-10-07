@@ -1,11 +1,12 @@
 "use client";
 
+import type React from "react";
 import { useState } from "react";
+import { IconBrandGoogle, IconBrandMicrosoft } from "@tabler/icons-react";
 import { signIn } from "@/utils/auth-client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { toastError } from "@/components/Toast";
-import Image from "next/image";
 import { DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { DialogTitle } from "@/components/ui/dialog";
 import { DialogHeader } from "@/components/ui/dialog";
@@ -67,13 +68,13 @@ export function AddAccount() {
       <CardContent className="flex flex-col items-center gap-4 p-6">
         <AddEmailAccount
           name="Google"
-          image="/images/google.svg"
+          icon={<IconBrandGoogle size={24} />}
           handleConnect={handleConnectGoogle}
           handleMerge={handleMergeGoogle}
         />
         <AddEmailAccount
           name="Microsoft"
-          image="/images/microsoft.svg"
+          icon={<IconBrandMicrosoft size={24} />}
           handleConnect={handleCreateMicrosoft}
           handleMerge={handleMergeMicrosoft}
         />
@@ -88,12 +89,12 @@ export function AddAccount() {
 
 function AddEmailAccount({
   name,
-  image,
+  icon,
   handleConnect,
   handleMerge,
 }: {
   name: "Google" | "Microsoft";
-  image: string;
+  icon: React.ReactNode;
   handleConnect: () => Promise<void>;
   handleMerge: () => Promise<void>;
 }) {
@@ -138,7 +139,7 @@ function AddEmailAccount({
           variant="outline"
           className="mt-auto w-full"
         >
-          <Image src={image} alt="" width={24} height={24} unoptimized />
+          {icon}
           <span className="ml-2">
             {isConnecting ? "Connecting..." : `Add ${name} Account`}
           </span>

@@ -33,6 +33,9 @@ export function EmailAccountProvider({
         if (response.ok) {
           const emailAccounts: GetEmailAccountsResponse = await response.json();
           setData(emailAccounts);
+        } else if (response.status === 401) {
+          // User is not authenticated, don't make the API call
+          setData(null);
         }
       } catch (error) {
         console.error("Error fetching accounts:", error);

@@ -1,9 +1,9 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useState } from "react";
+import { IconBrandGoogle, IconBrandMicrosoft } from "@tabler/icons-react";
 import { Button } from "@/components/Button";
 import { Button as UIButton } from "@/components/ui/button";
 import { SectionDescription } from "@/components/Typography";
@@ -53,13 +53,7 @@ export function LoginForm() {
         <DialogTrigger asChild>
           <Button size="2xl">
             <span className="flex items-center justify-center">
-              <Image
-                src="/images/google.svg"
-                alt=""
-                width={24}
-                height={24}
-                unoptimized
-              />
+              <IconBrandGoogle size={24} />
               <span className="ml-2">Sign in with Google</span>
             </span>
           </Button>
@@ -93,13 +87,7 @@ export function LoginForm() {
         onClick={handleMicrosoftSignIn}
       >
         <span className="flex items-center justify-center">
-          <Image
-            src="/images/microsoft.svg"
-            alt=""
-            width={24}
-            height={24}
-            unoptimized
-          />
+          <IconBrandMicrosoft size={24} />
           <span className="ml-2">Sign in with Microsoft</span>
         </span>
       </Button>

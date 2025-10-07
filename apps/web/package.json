@@ -73,6 +73,7 @@
     "@serwist/next": "9.2.0",
     "@stripe/stripe-js": "7.9.0",
     "@t3-oss/env-nextjs": "0.13.8",
+    "@tabler/icons-react": "^3.35.0",
     "@tailwindcss/forms": "0.5.10",
     "@tailwindcss/typography": "0.5.16",
     "@tanstack/react-query": "5.85.6",
