@@ -24,7 +24,6 @@ import { getContactsClient as getOutlookContactsClient } from "@/utils/outlook/c
 import { SCOPES as OUTLOOK_SCOPES } from "@/utils/outlook/scopes";
 import { updateAccountSeats } from "@/utils/premium/server";
 import prisma from "@/utils/prisma";
-import { authSecurityConfig } from "@/utils/auth-security";
 
 const logger = createScopedLogger("auth");
 
@@ -33,13 +32,6 @@ export const betterAuthConfig = betterAuth({
     database: {
       generateId: false,
     },
-    useSecureCookies: env.NODE_ENV === "production",
-    disableCSRFCheck: false,
-    ipAddress: {
-      ipAddressHeaders: ["x-client-ip", "x-forwarded-for", "cf-connecting-ip"],
-      disableIpTracking: false,
-    },
-    defaultCookieAttributes: authSecurityConfig.cookies,
   },
   logger: {
     level: "info",
@@ -68,17 +60,7 @@ export const betterAuthConfig = betterAuth({
       signOut: "/login",
     },
   },
-  secret:
-    env.AUTH_SECRET ||
-    env.NEXTAUTH_SECRET ||
-    (() => {
-      if (env.NODE_ENV === "production") {
-        throw new Error(
-          "AUTH_SECRET or NEXTAUTH_SECRET must be set in production",
-        );
-      }
-      return "development-secret-key-not-for-production";
-    })(),
+  secret: env.AUTH_SECRET || env.NEXTAUTH_SECRET,
   emailAndPassword: {
     enabled: false,
   },
@@ -115,7 +97,6 @@ export const betterAuthConfig = betterAuth({
       accessTokenExpiresAt: "expires_at",
       idToken: "id_token",
     },
-    encryptOAuthTokens: true,
   },
   verification: {
     modelName: "VerificationToken",
@@ -142,7 +123,6 @@ export const betterAuthConfig = betterAuth({
       disableIdTokenSignIn: true,
     },
   },
-  rateLimit: authSecurityConfig.rateLimit,
   events: {
     signIn: handleSignIn,
   },
@@ -218,7 +198,7 @@ async function handleSignIn({
   }
 
   if (isNewUser && user.email && user.id) {
-    await Promise.allSettled([
+    await Promise.all([
       handlePendingPremiumInvite({ email: user.email }),
       handleReferralOnSignUp({
         userId: user.id,
@@ -305,60 +285,50 @@ export async function handleReferralOnSignUp({
 
 // TODO: move into email provider instead of checking the provider type
 async function getProfileData(providerId: string, accessToken: string) {
-  try {
-    if (isGoogleProvider(providerId)) {
-      const contactsClient = getGoogleContactsClient({ accessToken });
-      const profileResponse = await contactsClient.people.get({
-        resourceName: "people/me",
-        personFields: "emailAddresses,names,photos",
-      });
+  if (isGoogleProvider(providerId)) {
+    const contactsClient = getGoogleContactsClient({ accessToken });
+    const profileResponse = await contactsClient.people.get({
+      resourceName: "people/me",
+      personFields: "emailAddresses,names,photos",
+    });
+
+    return {
+      email: profileResponse.data.emailAddresses
+        ?.find((e) => e.metadata?.primary)
+        ?.value?.toLowerCase(),
+      name: profileResponse.data.names?.find((n) => n.metadata?.primary)
+        ?.displayName,
+      image: profileResponse.data.photos?.find((p) => p.metadata?.primary)?.url,
+    };
+  }
+
+  if (isMicrosoftProvider(providerId)) {
+    const client = getOutlookContactsClient({ accessToken });
+    try {
+      const profileResponse = await client.getUserProfile();
+
+      // Get photo separately as it requires a different endpoint
+      let photoUrl = null;
+      try {
+        const photo = await client.getUserPhoto();
+        if (photo) {
+          photoUrl = photo;
+        }
+      } catch (error) {
+        logger.info("User has no profile photo", { error });
+      }
 
       return {
-        email: profileResponse.data.emailAddresses
-          ?.find((e) => e.metadata?.primary)
-          ?.value?.toLowerCase(),
-        name: profileResponse.data.names?.find((n) => n.metadata?.primary)
-          ?.displayName,
-        image: profileResponse.data.photos?.find((p) => p.metadata?.primary)
-          ?.url,
+        email:
+          profileResponse.mail?.toLowerCase() ||
+          profileResponse.userPrincipalName?.toLowerCase(),
+        name: profileResponse.displayName,
+        image: photoUrl,
       };
+    } catch (error) {
+      logger.error("Error fetching Microsoft profile data", { error });
+      throw error;
     }
-
-    if (isMicrosoftProvider(providerId)) {
-      const client = getOutlookContactsClient({ accessToken });
-      try {
-        const profileResponse = await client.getUserProfile();
-
-        // Get photo separately as it requires a different endpoint
-        let photoUrl = null;
-        try {
-          const photo = await client.getUserPhoto();
-          if (photo) {
-            photoUrl = photo;
-          }
-        } catch (error) {
-          logger.info("User has no profile photo", { error });
-        }
-
-        return {
-          email:
-            profileResponse.mail?.toLowerCase() ||
-            profileResponse.userPrincipalName?.toLowerCase(),
-          name: profileResponse.displayName,
-          image: photoUrl,
-        };
-      } catch (error) {
-        logger.error("Error fetching Microsoft profile data", { error });
-        throw error;
-      }
-    }
-  } catch (error) {
-    logger.error("Error fetching profile data", {
-      providerId,
-      error: error instanceof Error ? error.message : error,
-    });
-    // Return null instead of throwing - let the calling function handle it
-    return null;
   }
 }
 
@@ -380,17 +350,19 @@ async function handleLinkAccount(account: Account) {
     );
 
     if (!profileData?.email) {
-      logger.error("[handleLinkAccount] No email found in profile data", {
-        providerId: account.providerId,
-        userId: account.userId,
-      });
-      // Don't throw error - just return early
-      return;
+      logger.error("[handleLinkAccount] No email found in profile data");
     }
 
-    primaryEmail = profileData.email;
-    primaryName = profileData.name;
-    primaryPhotoUrl = profileData.image;
+    primaryEmail = profileData?.email;
+    primaryName = profileData?.name;
+    primaryPhotoUrl = profileData?.image;
+
+    if (!primaryEmail) {
+      logger.error(
+        "[linkAccount] Primary email could not be determined from profile.",
+      );
+      throw new Error("Primary email not found for linked account.");
+    }
 
     const user = await prisma.user.findUnique({
       where: { id: account.userId },
@@ -445,8 +417,7 @@ async function handleLinkAccount(account: Account) {
     captureException(error, {
       extra: { userId: account.userId, location: "linkAccount" },
     });
-    // Don't throw error - account linking failure shouldn't prevent OAuth sign-in
-    // The user can still sign in, they just won't have their email account linked
+    throw error;
   }
 }
 

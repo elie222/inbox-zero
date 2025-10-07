@@ -18,8 +18,8 @@ export const env = createEnv({
     NODE_ENV: z.enum(["development", "production", "test"]),
     DATABASE_URL: z.string().url(),
 
-    AUTH_SECRET: z.string().optional(),
-    NEXTAUTH_SECRET: z.string().optional(),
+    AUTH_SECRET: z.string().min(32).optional(),
+    NEXTAUTH_SECRET: z.string().min(32).optional(),
     GOOGLE_CLIENT_ID: z.string().min(1),
     GOOGLE_CLIENT_SECRET: z.string().min(1),
     MICROSOFT_CLIENT_ID: z.string().optional(),
