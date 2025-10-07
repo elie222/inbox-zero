@@ -1,8 +1,9 @@
 {
-  "buildCommand": "cd ../.. && corepack enable && bash clone-marketing.sh && turbo run build --filter=./apps/web --force",
-  "installCommand": "cd ../.. && corepack enable && pnpm install --frozen-lockfile",
+  "buildCommand": "corepack enable && bash clone-marketing.sh && turbo run build --filter=./apps/web --force",
+  "installCommand": "corepack enable && pnpm install --frozen-lockfile",
   "outputDirectory": "apps/web/.next",
   "framework": "nextjs",
+  "rootDirectory": ".",
   "functions": {
     "apps/web/app/api/**/*.ts": {
       "maxDuration": 30

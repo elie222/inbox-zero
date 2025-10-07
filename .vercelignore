@@ -126,11 +126,9 @@ docker-compose*
 .travis.yml
 .circleci/
 
-# Package manager
-pnpm-lock.yaml
-package-lock.json
-yarn.lock
+# Keep the lockfile for pnpm
+# pnpm-lock.yaml
 
 # Workspace files
-turbo.json
-pnpm-workspace.yaml
+# turbo.json
+# pnpm-workspace.yaml
