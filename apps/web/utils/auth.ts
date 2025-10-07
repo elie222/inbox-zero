@@ -113,6 +113,14 @@ export const betterAuthConfig = betterAuth({
       accessType: "offline",
       prompt: "consent",
       disableIdTokenSignIn: false,
+      // Add better error handling
+      onError: (error: any) => {
+        logger.error("Google OAuth error", {
+          error: error?.message || error,
+          errorCode: error?.code,
+          errorDescription: error?.error_description,
+        });
+      },
     },
     microsoft: {
       clientId: env.MICROSOFT_CLIENT_ID || "",
@@ -146,6 +154,8 @@ export const betterAuthConfig = betterAuth({
       logger.error("Auth API encountered an error", {
         error: error instanceof Error ? error.message : error,
         ctx: ctx,
+        errorType: typeof error,
+        errorString: String(error),
       });
     },
     errorURL: "/login/error",
