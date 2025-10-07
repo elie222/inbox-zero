@@ -11,7 +11,7 @@
  *   pnpm test gmail-operations -t "webhook"  # Run specific test
  */
 
-import { describe, test, expect, vi } from "vitest";
+import { describe, test, expect, vi, beforeEach, afterEach } from "vitest";
 import { NextRequest } from "next/server";
 import prisma from "@/utils/prisma";
 import { createEmailProvider } from "@/utils/email/provider";
@@ -49,6 +49,26 @@ vi.mock("next/server", async () => {
 // WEBHOOK PAYLOAD TESTS
 // ============================================
 describe.skipIf(!TEST_GMAIL_EMAIL)("Gmail Webhook Payload", () => {
+  let emailAccountId: string;
+  let originalLastSyncedHistoryId: string | null;
+
+  beforeEach(async () => {
+    // Capture the original lastSyncedHistoryId before the test modifies it
+    const emailAccount = await prisma.emailAccount.findUniqueOrThrow({
+      where: { email: TEST_GMAIL_EMAIL },
+    });
+    emailAccountId = emailAccount.id;
+    originalLastSyncedHistoryId = emailAccount.lastSyncedHistoryId;
+  });
+
+  afterEach(async () => {
+    // Restore the original lastSyncedHistoryId to return database to prior state
+    await prisma.emailAccount.update({
+      where: { id: emailAccountId },
+      data: { lastSyncedHistoryId: originalLastSyncedHistoryId },
+    });
+  });
+
   test("should process webhook and create executedRule with draft", async () => {
     // Clean slate: delete any existing executedRules for this message
     const emailAccount = await prisma.emailAccount.findUniqueOrThrow({
