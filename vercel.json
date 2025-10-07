@@ -3,7 +3,6 @@
   "installCommand": "corepack enable && pnpm install --frozen-lockfile",
   "outputDirectory": "apps/web/.next",
   "framework": "nextjs",
-  "rootDirectory": ".",
   "functions": {
     "apps/web/app/api/**/*.ts": {
       "maxDuration": 30
