@@ -27,7 +27,7 @@ interface OnboardingContentProps {
 }
 
 export function OnboardingContent({ step }: OnboardingContentProps) {
-  const { emailAccountId, provider } = useAccount();
+  const { emailAccountId, provider, isLoading } = useAccount();
 
   useSignUpEvent();
 
@@ -100,6 +100,11 @@ export function OnboardingContent({ step }: OnboardingContentProps) {
   }, [clampedStep, emailAccountId, data?.personaAnalysis, mutate]);
 
   const renderStep = steps[clampedStep - 1] || steps[0];
+
+  // Show loading if provider is needed but not loaded yet
+  if (isLoading && !provider) {
+    return null;
+  }
 
   return renderStep ? renderStep() : null;
 }
