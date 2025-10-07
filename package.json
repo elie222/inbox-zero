@@ -11,7 +11,10 @@
     "format-and-lint": "biome check .",
     "format-and-lint:fix": "biome check . --write",
     "env:check": "bash scripts/validate-env.sh",
-    "env:check:ci": "bash scripts/validate-env.sh"
+    "env:check:ci": "bash scripts/validate-env.sh",
+    "oauth:test": "bash scripts/test-oauth.sh",
+    "oauth:test:node": "node scripts/test-oauth.js",
+    "oauth:debug:vercel": "bash scripts/debug-vercel-oauth.sh"
   },
   "devDependencies": {
     "@biomejs/biome": "2.2.2",

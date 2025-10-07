@@ -1,3 +1,6 @@
+# Google OAuth client secret
+.env.google_client_secret.json
+
 # See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
 
 # dependencies
@@ -78,3 +81,5 @@ docker-compose.override.yml
 logs
 
 coverage
+
+.env.google_client_secret.json
