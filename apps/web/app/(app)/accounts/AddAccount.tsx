@@ -2,7 +2,7 @@
 
 import type React from "react";
 import { useState } from "react";
-import { IconBrandGoogle, IconBrandMicrosoft } from "@tabler/icons-react";
+import { IconBrandGoogle, IconBrandWindows } from "@tabler/icons-react";
 import { signIn } from "@/utils/auth-client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -74,7 +74,7 @@ export function AddAccount() {
         />
         <AddEmailAccount
           name="Microsoft"
-          icon={<IconBrandMicrosoft size={24} />}
+          icon={<IconBrandWindows size={24} />}
           handleConnect={handleCreateMicrosoft}
           handleMerge={handleMergeMicrosoft}
         />

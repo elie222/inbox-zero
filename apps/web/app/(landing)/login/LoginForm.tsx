@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useState } from "react";
-import { IconBrandGoogle, IconBrandMicrosoft } from "@tabler/icons-react";
+import { IconBrandGoogle, IconBrandWindows } from "@tabler/icons-react";
 import { Button } from "@/components/Button";
 import { Button as UIButton } from "@/components/ui/button";
 import { SectionDescription } from "@/components/Typography";
@@ -87,7 +87,7 @@ export function LoginForm() {
         onClick={handleMicrosoftSignIn}
       >
         <span className="flex items-center justify-center">
-          <IconBrandMicrosoft size={24} />
+          <IconBrandWindows size={24} />
           <span className="ml-2">Sign in with Microsoft</span>
         </span>
       </Button>

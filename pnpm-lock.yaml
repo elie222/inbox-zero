@@ -267,6 +267,9 @@ importers:
       '@t3-oss/env-nextjs':
         specifier: 0.13.8
         version: 0.13.8(typescript@5.9.2)(valibot@1.1.0(typescript@5.9.2))(zod@3.25.46)
+      '@tabler/icons-react':
+        specifier: ^3.35.0
+        version: 3.35.0(react@19.1.1)
       '@tailwindcss/forms':
         specifier: 0.5.10
         version: 0.5.10(tailwindcss@3.4.17(ts-node@10.9.2(@types/node@24.3.0)(typescript@5.9.2)))
@@ -3800,6 +3803,7 @@ packages:
   '@sanity/next-loader@2.1.0':
     resolution: {integrity: sha512-ta9HPqGpVQNv5NYTV5X9HNa2m7AJi1ixUVHVbOwGLfdm2D5FWALuCYlQ8GvtaCIxCakOtLLmUSVt9d8wFM83xQ==}
     engines: {node: '>=18.18'}
+    deprecated: This package is deprecated. Please use 'next-sanity/live' instead.
     peerDependencies:
       next: ^14.1 || ^15.0.0-0
       react: ^18.3 || ^19.0.0-0
@@ -4257,6 +4261,14 @@ packages:
         optional: true
       zod:
         optional: true
+
+  '@tabler/icons-react@3.35.0':
+    resolution: {integrity: sha512-XG7t2DYf3DyHT5jxFNp5xyLVbL4hMJYJhiSdHADzAjLRYfL7AnjlRfiHDHeXxkb2N103rEIvTsBRazxXtAUz2g==}
+    peerDependencies:
+      react: '>= 16'
+
+  '@tabler/icons@3.35.0':
+    resolution: {integrity: sha512-yYXe+gJ56xlZFiXwV9zVoe3FWCGuZ/D7/G4ZIlDtGxSx5CGQK110wrnT29gUj52kEZoxqF7oURTk97GQxELOFQ==}
 
   '@tailwindcss/forms@0.5.10':
     resolution: {integrity: sha512-utI1ONF6uf/pPNO68kmN1b8rEwNXv3czukalo8VtJH8ksIkZXr3Q3VYudZLkCsDd4Wku120uF02hYK25XGPorw==}
@@ -15512,6 +15524,13 @@ snapshots:
       typescript: 5.9.2
       valibot: 1.1.0(typescript@5.9.2)
       zod: 3.25.46
+
+  '@tabler/icons-react@3.35.0(react@19.1.1)':
+    dependencies:
+      '@tabler/icons': 3.35.0
+      react: 19.1.1
+
+  '@tabler/icons@3.35.0': {}
 
   '@tailwindcss/forms@0.5.10(tailwindcss@3.4.17(ts-node@10.9.2(@types/node@24.3.0)(typescript@5.9.2)))':
     dependencies:
