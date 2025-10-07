@@ -37,7 +37,7 @@ export const categoryConfig = (
     tooltipText: "Newsletters, blogs, and publications",
     Icon: NewspaperIcon,
     iconColor: "purple",
-    action: "label",
+    action: isMicrosoftProvider(provider) ? "move_folder" : "label",
   },
   {
     key: SystemRule.Marketing,
@@ -61,7 +61,7 @@ export const categoryConfig = (
     tooltipText: "Invoices, receipts, and payments",
     Icon: ReceiptIcon,
     iconColor: "orange",
-    action: "label",
+    action: isMicrosoftProvider(provider) ? "move_folder" : "label",
   },
   {
     key: SystemRule.Notification,
@@ -69,7 +69,7 @@ export const categoryConfig = (
     tooltipText: "Alerts, status updates, and system messages",
     Icon: BellIcon,
     iconColor: "red",
-    action: "label",
+    action: isMicrosoftProvider(provider) ? "move_folder" : "label",
   },
   {
     key: SystemRule.ColdEmail,
