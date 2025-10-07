@@ -1,6 +1,6 @@
 {
-  "buildCommand": "turbo run build --filter=web --force",
-  "installCommand": "corepack enable && pnpm install --frozen-lockfile",
+  "buildCommand": "cd ../.. && turbo run build --filter=inbox-zero-ai --force",
+  "installCommand": "cd ../.. && corepack enable && pnpm install --no-frozen-lockfile",
   "outputDirectory": "apps/web/.next",
   "framework": "nextjs",
   "functions": {
