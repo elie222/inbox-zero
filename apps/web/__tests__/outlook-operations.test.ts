@@ -3,12 +3,13 @@
  *
  * Setup:
  * 1. Set TEST_OUTLOOK_EMAIL env var to your Outlook email
- * 2. Set TEST_CONVERSATION_ID with a real conversationId from your logs (optional)
- * 3. Set TEST_CATEGORY_NAME for category/label testing (optional, defaults to "To Reply")
+ * 2. Set TEST_OUTLOOK_MESSAGE_ID with a real messageId from your logs (optional)
+ * 3. Set TEST_CONVERSATION_ID with a real conversationId from your logs (optional)
+ * 4. Set TEST_CATEGORY_NAME for category/label testing (optional, defaults to "To Reply")
  *
  * Usage:
  *   TEST_OUTLOOK_EMAIL=your@email.com pnpm test outlook-operations
- *   TEST_OUTLOOK_EMAIL=your@email.com TEST_CONVERSATION_ID=AAMk... pnpm test outlook-operations
+ *   TEST_OUTLOOK_EMAIL=your@email.com TEST_OUTLOOK_MESSAGE_ID=xxx pnpm test outlook-operations
  *   pnpm test outlook-operations -t "getThread"  # Run specific test
  */
 
@@ -26,8 +27,8 @@ const TEST_OUTLOOK_EMAIL = process.env.TEST_OUTLOOK_EMAIL;
 const TEST_CONVERSATION_ID =
   process.env.TEST_CONVERSATION_ID ||
   "AQQkADAwATNiZmYAZS05YWEAYy1iNWY0LTAwAi0wMAoAEABuo-fmt9KvQ4u55KlWB32H"; // Real conversation ID from demoinboxzero@outlook.com
-const TEST_MESSAGE_ID =
-  process.env.TEST_MESSAGE_ID ||
+const TEST_OUTLOOK_MESSAGE_ID =
+  process.env.TEST_OUTLOOK_MESSAGE_ID ||
   "AQMkADAwATNiZmYAZS05YWEAYy1iNWY0LTAwAi0wMAoARgAAA-ybH4V64nRKkgXhv9H-GEkHAP38WoVoPXRMilGF27prOB8AAAIBDAAAAP38WoVoPXRMilGF27prOB8AAABGAqbwAAAA"; // Real message ID from demoinboxzero@outlook.com
 const TEST_CATEGORY_NAME = process.env.TEST_CATEGORY_NAME || "To Reply";
 
@@ -326,7 +327,7 @@ describe.skipIf(!TEST_OUTLOOK_EMAIL)("Outlook Webhook Payload", () => {
     await prisma.executedRule.deleteMany({
       where: {
         emailAccountId: emailAccount.id,
-        messageId: TEST_MESSAGE_ID,
+        messageId: TEST_OUTLOOK_MESSAGE_ID,
       },
     });
 
@@ -339,12 +340,12 @@ describe.skipIf(!TEST_OUTLOOK_EMAIL)("Outlook Webhook Payload", () => {
           subscriptionId: "d2d593e1-9600-4f72-8cd3-dfa04c707f9e",
           subscriptionExpirationDateTime: "2025-10-09T15:32:19.8+00:00",
           changeType: "updated",
-          resource: `Users/faa95128258c6335/Messages/${TEST_MESSAGE_ID}`,
+          resource: `Users/faa95128258c6335/Messages/${TEST_OUTLOOK_MESSAGE_ID}`,
           resourceData: {
             "@odata.type": "#Microsoft.Graph.Message",
-            "@odata.id": `Users/faa95128258c6335/Messages/${TEST_MESSAGE_ID}`,
+            "@odata.id": `Users/faa95128258c6335/Messages/${TEST_OUTLOOK_MESSAGE_ID}`,
             "@odata.etag": 'W/"CQAAABYAAAD9/FqFaD10TIpRhdu6azgfAABF+9hk"',
-            id: TEST_MESSAGE_ID,
+            id: TEST_OUTLOOK_MESSAGE_ID,
           },
           clientState: process.env.MICROSOFT_WEBHOOK_CLIENT_STATE,
           tenantId: "",
@@ -382,7 +383,7 @@ describe.skipIf(!TEST_OUTLOOK_EMAIL)("Outlook Webhook Payload", () => {
 
     const executedRule = await prisma.executedRule.findFirst({
       where: {
-        messageId: TEST_MESSAGE_ID,
+        messageId: TEST_OUTLOOK_MESSAGE_ID,
         createdAt: {
           gte: thirtySecondsAgo,
         },
