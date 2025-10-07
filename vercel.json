@@ -1,5 +1,5 @@
 {
-  "buildCommand": "turbo run build --filter=./apps/web --force",
+  "buildCommand": "turbo run build --filter=web --force",
   "installCommand": "corepack enable && pnpm install --frozen-lockfile",
   "outputDirectory": "apps/web/.next",
   "framework": "nextjs",
