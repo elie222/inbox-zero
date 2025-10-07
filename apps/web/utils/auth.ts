@@ -54,6 +54,12 @@ export const betterAuthConfig = betterAuth({
     "https://inbox-zero-web-blush.vercel.app",
     "https://getinboxzero.com",
   ],
+  callbacks: {
+    redirect: {
+      signIn: "/",
+      signOut: "/login",
+    },
+  },
   secret: env.AUTH_SECRET || env.NEXTAUTH_SECRET,
   emailAndPassword: {
     enabled: false,
@@ -105,8 +111,8 @@ export const betterAuthConfig = betterAuth({
       clientSecret: env.GOOGLE_CLIENT_SECRET,
       scope: [...GMAIL_SCOPES],
       accessType: "offline",
-      prompt: "select_account consent",
-      disableIdTokenSignIn: true,
+      prompt: "consent",
+      disableIdTokenSignIn: false,
     },
     microsoft: {
       clientId: env.MICROSOFT_CLIENT_ID || "",
@@ -135,9 +141,16 @@ export const betterAuthConfig = betterAuth({
     },
   },
   onAPIError: {
-    throw: true,
+    throw: false,
     onError: (error: unknown, ctx: AuthContext) => {
-      logger.error("Auth API encountered an error", { error, ctx });
+      logger.error("Auth API encountered an error", {
+        error: error instanceof Error ? error.message : error,
+        ctx: {
+          url: ctx.url,
+          method: ctx.method,
+          headers: ctx.headers,
+        },
+      });
     },
     errorURL: "/login/error",
   },
@@ -488,5 +501,20 @@ export async function saveTokens({
   }
 }
 
-export const auth = async () =>
-  betterAuthConfig.api.getSession({ headers: await headers() });
+export const auth = async () => {
+  try {
+    const session = await betterAuthConfig.api.getSession({
+      headers: await headers(),
+    });
+
+    logger.info("Auth session check", {
+      hasSession: !!session,
+      userId: session?.user?.id,
+    });
+
+    return session;
+  } catch (error) {
+    logger.error("Auth session error", { error });
+    return null;
+  }
+};
