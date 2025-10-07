@@ -2,8 +2,9 @@
 node_modules
 .pnpm-store
 
-# Build outputs
+# Build outputs (but allow apps/web/.next for deployment)
 .next
+!apps/web/.next
 dist
 build
 
@@ -63,7 +64,7 @@ jspm_packages/
 .parcel-cache
 
 # Next.js build output
-.next
+# .next (already handled above)
 
 # Nuxt.js build / generate output
 .nuxt
