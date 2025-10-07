@@ -74,10 +74,10 @@ export default function OAuthDebugPage() {
                 <div className="mt-4">
                   <h3 className="text-lg font-semibold mb-2">Test Auth URL:</h3>
                   <div className="bg-blue-50 p-4 rounded-lg">
-                    <p className="text-sm break-all">{debugInfo.testAuthUrl}</p>
+                    <p className="text-sm break-all">{String(debugInfo.testAuthUrl)}</p>
                     <Button 
                       className="mt-2" 
-                      onClick={() => window.open(debugInfo.testAuthUrl, '_blank')}
+                      onClick={() => window.open(String(debugInfo.testAuthUrl), '_blank')}
                     >
                       Open Auth URL
                     </Button>
