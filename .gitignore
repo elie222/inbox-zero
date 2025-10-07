@@ -25,10 +25,10 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
-# local env files
-.env*.local
-.env
-.env.test
+# local env files (ignore all .env files everywhere, even in subfolders)
+**/.env*
+# Optionally, if you want to be even more explicit:
+!.env-example
 
 # vercel
 .vercel

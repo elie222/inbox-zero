@@ -274,10 +274,10 @@ If this is the case you must also set the `ECONOMY_LLM_PROVIDER` environment var
 We use Postgres for the database.
 For Redis, you can use [Upstash Redis](https://upstash.com/) or set up your own Redis instance.
 
-You can run Postgres & Redis locally using `docker-compose`
+You can run Postgres and Redis locally using Docker Compose:
 
 ```bash
-docker-compose up -d # -d will run the services in the background
+docker compose up -d db redis # -d runs services in the background
 ```
 
 ### Running the app

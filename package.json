@@ -9,7 +9,9 @@
     "prepare": "husky install",
     "ncu": "ncu -u -ws",
     "format-and-lint": "biome check .",
-    "format-and-lint:fix": "biome check . --write"
+    "format-and-lint:fix": "biome check . --write",
+    "env:check": "bash scripts/validate-env.sh",
+    "env:check:ci": "bash scripts/validate-env.sh"
   },
   "devDependencies": {
     "@biomejs/biome": "2.2.2",
