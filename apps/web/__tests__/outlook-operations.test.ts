@@ -47,7 +47,7 @@ describe.skipIf(!RUN_E2E_TESTS)("Outlook Operations Integration Tests", () => {
     if (!testEmail) {
       console.warn("\n⚠️  Set TEST_OUTLOOK_EMAIL env var to run these tests");
       console.warn(
-        "   Example: TEST_OUTLOOK_EMAIL=your@email.com pnpm test outlook-operations\n",
+        "   Example: TEST_OUTLOOK_EMAIL=your@email.com pnpm test-e2e outlook-operations\n",
       );
       return;
     }

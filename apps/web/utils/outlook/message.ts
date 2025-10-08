@@ -329,6 +329,14 @@ export async function queryMessagesWithFilters(
 
   const MAX_RESULTS = 20;
   const maxResults = Math.min(options.maxResults || MAX_RESULTS, MAX_RESULTS);
+  if (options.maxResults && options.maxResults > MAX_RESULTS) {
+    logger.warn(
+      "Max results is greater than 20, which will cause rate limiting",
+      {
+        maxResults: options.maxResults,
+      },
+    );
+  }
 
   const folderIds = await getFolderIds(client);
   const inboxFolderId = folderIds.inbox;
@@ -343,14 +351,36 @@ export async function queryMessagesWithFilters(
     )
     .top(maxResults);
 
-  // Build folder filter
-  const folderFilter = folderId
-    ? `parentFolderId eq '${escapeODataString(folderId)}'`
-    : `(parentFolderId eq '${escapeODataString(inboxFolderId)}' or parentFolderId eq '${escapeODataString(archiveFolderId)}')`;
+  // Build folder filter safely (avoid empty IDs)
+  let folderFilter: string | undefined;
+  if (folderId) {
+    folderFilter = `parentFolderId eq '${escapeODataString(folderId)}'`;
+  } else {
+    const folderClauses: string[] = [];
+    if (inboxFolderId) {
+      folderClauses.push(
+        `parentFolderId eq '${escapeODataString(inboxFolderId)}'`,
+      );
+    }
+    if (archiveFolderId) {
+      folderClauses.push(
+        `parentFolderId eq '${escapeODataString(archiveFolderId)}'`,
+      );
+    }
+    if (folderClauses.length === 1) {
+      folderFilter = folderClauses[0];
+    } else if (folderClauses.length > 1) {
+      folderFilter = `(${folderClauses.join(" or ")})`;
+    } else {
+      folderFilter = undefined; // omit folder clause entirely if none present
+    }
+  }
 
-  const combinedFilters = [folderFilter, ...dateFilters, ...filters].filter(
-    Boolean,
-  );
+  const combinedFilters = [
+    ...(folderFilter ? [folderFilter] : []),
+    ...dateFilters,
+    ...filters,
+  ].filter(Boolean);
   const combinedFilter = combinedFilters.join(" and ");
 
   request = request.filter(combinedFilter);
