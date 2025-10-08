@@ -315,6 +315,92 @@ export async function queryBatchMessages(
   }
 }
 
+export async function queryMessagesWithFilters(
+  client: OutlookClient,
+  options: {
+    filters?: string[]; // OData filter expressions to AND together
+    dateFilters?: string[]; // additional date filters like receivedDateTime gt/lt
+    maxResults?: number;
+    pageToken?: string;
+    folderId?: string; // if omitted, defaults to inbox OR archive
+  },
+) {
+  const { filters = [], dateFilters = [], pageToken, folderId } = options;
+
+  const MAX_RESULTS = 20;
+  const maxResults = Math.min(options.maxResults || MAX_RESULTS, MAX_RESULTS);
+  if (options.maxResults && options.maxResults > MAX_RESULTS) {
+    logger.warn(
+      "Max results is greater than 20, which will cause rate limiting",
+      {
+        maxResults: options.maxResults,
+      },
+    );
+  }
+
+  const folderIds = await getFolderIds(client);
+  const inboxFolderId = folderIds.inbox;
+  const archiveFolderId = folderIds.archive;
+
+  // Build base request
+  let request = client
+    .getClient()
+    .api("/me/messages")
+    .select(
+      "id,conversationId,conversationIndex,subject,bodyPreview,from,sender,toRecipients,receivedDateTime,isDraft,isRead,body,categories,parentFolderId",
+    )
+    .top(maxResults);
+
+  // Build folder filter safely (avoid empty IDs)
+  let folderFilter: string | undefined;
+  if (folderId) {
+    folderFilter = `parentFolderId eq '${escapeODataString(folderId)}'`;
+  } else {
+    const folderClauses: string[] = [];
+    if (inboxFolderId) {
+      folderClauses.push(
+        `parentFolderId eq '${escapeODataString(inboxFolderId)}'`,
+      );
+    }
+    if (archiveFolderId) {
+      folderClauses.push(
+        `parentFolderId eq '${escapeODataString(archiveFolderId)}'`,
+      );
+    }
+    if (folderClauses.length === 1) {
+      folderFilter = folderClauses[0];
+    } else if (folderClauses.length > 1) {
+      folderFilter = `(${folderClauses.join(" or ")})`;
+    } else {
+      folderFilter = undefined; // omit folder clause entirely if none present
+    }
+  }
+
+  const combinedFilters = [
+    ...(folderFilter ? [folderFilter] : []),
+    ...dateFilters,
+    ...filters,
+  ].filter(Boolean);
+  const combinedFilter = combinedFilters.join(" and ");
+
+  request = request.filter(combinedFilter);
+
+  if (pageToken) {
+    request = request.skipToken(pageToken);
+  }
+
+  const response: { value: Message[]; "@odata.nextLink"?: string } =
+    await request.get();
+
+  const messages = await convertMessages(response.value, folderIds);
+  const nextPageToken = response["@odata.nextLink"]
+    ? new URL(response["@odata.nextLink"]).searchParams.get("$skiptoken") ||
+      undefined
+    : undefined;
+
+  return { messages, nextPageToken };
+}
+
 // Helper function to convert messages
 async function convertMessages(
   messages: Message[],
