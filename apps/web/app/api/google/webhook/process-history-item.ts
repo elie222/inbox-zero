@@ -14,14 +14,9 @@ export async function processHistoryItem(
       | gmail_v1.Schema$HistoryLabelAdded
       | gmail_v1.Schema$HistoryLabelRemoved;
   },
-  {
-    gmail,
-    emailAccount,
-    hasAutomationRules,
-    hasAiAccess,
-    rules,
-  }: ProcessHistoryOptions,
+  options: ProcessHistoryOptions,
 ) {
+  const { emailAccount, hasAutomationRules, hasAiAccess, rules } = options;
   const { type, item } = historyItem;
   const messageId = item.message?.id;
   const threadId = item.message?.threadId;
@@ -62,7 +57,6 @@ export async function processHistoryItem(
       hasAutomationRules,
       hasAiAccess,
       rules,
-      gmail,
       logger,
     },
   );

@@ -1,18 +1,13 @@
-import type { gmail_v1 } from "@googleapis/gmail";
 import prisma from "@/utils/prisma";
-import { emailToContent } from "@/utils/mail";
 import { getEmailForLLM } from "@/utils/get-email-from-message";
 import { runColdEmailBlocker } from "@/utils/cold-email/is-cold-email";
 import { runRules } from "@/utils/ai/choose-rule/run-rules";
-import { blockUnsubscribedEmails as blockUnsubscribedEmailsGoogle } from "@/app/api/google/webhook/block-unsubscribed-emails";
-import { blockUnsubscribedEmails as blockUnsubscribedEmailsOutlook } from "@/app/api/outlook/webhook/block-unsubscribed-emails";
 import { categorizeSender } from "@/utils/categorize/senders/categorize";
 import { markMessageAsProcessing } from "@/utils/redis/message-processing";
 import { isAssistantEmail } from "@/utils/assistant/is-assistant-email";
 import { processAssistantEmail } from "@/utils/assistant/process-assistant-email";
 import { handleOutboundMessage } from "@/utils/reply-tracker/handle-outbound";
-import { ColdEmailSetting } from "@prisma/client";
-import { internalDateToDate } from "@/utils/date";
+import { ColdEmailSetting, NewsletterStatus } from "@prisma/client";
 import { extractEmailAddress } from "@/utils/email";
 import { isIgnoredSender } from "@/utils/filter-ignored-senders";
 import { enqueueDigestItem } from "@/utils/digest/index";
@@ -34,9 +29,6 @@ export type SharedProcessHistoryOptions = {
     EmailAccountWithAI & {
       coldEmailDigest?: boolean | null;
     };
-  // Google-specific options
-  gmail?: gmail_v1.Gmail;
-  // Logger with context
   logger: Logger;
 };
 
@@ -56,13 +48,11 @@ export async function processHistoryItem(
     hasAutomationRules,
     hasAiAccess,
     rules,
-    gmail,
     logger,
   } = options;
 
   const emailAccountId = emailAccount.id;
   const userEmail = emailAccount.email;
-  const isGoogle = provider.name === "google";
 
   const isFree = await markMessageAsProcessing({ userEmail, messageId });
 
@@ -121,15 +111,14 @@ export async function processHistoryItem(
       return;
     }
 
-    // Outlook-specific: Skip messages that are not in inbox or sent items folders
-    if (!isGoogle) {
-      const isInInbox = parsedMessage.labelIds?.includes("INBOX") || false;
-      const isInSentItems = parsedMessage.labelIds?.includes("SENT") || false;
+    // Skip messages that are not in inbox or sent items folders
+    // We want to process inbox messages (for rules/automation) and sent messages (for reply tracking)
+    const isInInbox = parsedMessage.labelIds?.includes("INBOX") || false;
+    const isInSentItems = parsedMessage.labelIds?.includes("SENT") || false;
 
-      if (!isInInbox && !isInSentItems) {
-        logger.info("Skipping message not in inbox or sent items");
-        return;
-      }
+    if (!isInInbox && !isInSentItems) {
+      logger.info("Skipping message not in inbox or sent items");
+      return;
     }
 
     const isForAssistant = isAssistantEmail({
@@ -169,24 +158,18 @@ export async function processHistoryItem(
     }
 
     // check if unsubscribed
-    const blocked =
-      isGoogle && gmail
-        ? await blockUnsubscribedEmailsGoogle({
-            from: parsedMessage.headers.from,
-            emailAccountId,
-            gmail,
-            messageId,
-          })
-        : await blockUnsubscribedEmailsOutlook({
-            from: parsedMessage.headers.from,
-            emailAccountId,
-            messageId,
-            provider,
-            ownerEmail: userEmail,
-          });
+    const email = extractEmailAddress(parsedMessage.headers.from);
+    const sender = await prisma.newsletter.findFirst({
+      where: {
+        emailAccountId,
+        email,
+        status: NewsletterStatus.UNSUBSCRIBED,
+      },
+    });
 
-    if (blocked) {
-      logger.info("Skipping. Blocked unsubscribed email.");
+    if (sender) {
+      await provider.blockUnsubscribedEmail(messageId);
+      logger.info("Skipping. Blocked unsubscribed email.", { from: email });
       return;
     }
 
@@ -198,34 +181,18 @@ export async function processHistoryItem(
     if (shouldRunBlocker) {
       logger.info("Running cold email blocker...");
 
-      const emailForBlocker = isGoogle
-        ? {
-            from: parsedMessage.headers.from,
-            to: "",
-            subject: parsedMessage.headers.subject,
-            content: emailToContent(parsedMessage),
-            id: messageId,
-            threadId: actualThreadId,
-            date: internalDateToDate(parsedMessage.internalDate),
-          }
-        : {
-            ...getEmailForLLM(parsedMessage),
-            threadId: actualThreadId,
-            date: parsedMessage.date
-              ? new Date(parsedMessage.date)
-              : new Date(),
-          };
-
       const response = await runColdEmailBlocker({
-        email: emailForBlocker,
+        email: {
+          ...getEmailForLLM(parsedMessage),
+          threadId: actualThreadId,
+        },
         provider,
         emailAccount,
         modelType: "default",
       });
 
       if (response.isColdEmail) {
-        // Google-specific: enqueue cold email for digest
-        if (isGoogle && emailAccount.coldEmailDigest && response.coldEmailId) {
+        if (emailAccount.coldEmailDigest && response.coldEmailId) {
           logger.info("Enqueuing a cold email digest item", {
             coldEmailId: response.coldEmailId,
           });
@@ -235,6 +202,7 @@ export async function processHistoryItem(
             coldEmailId: response.coldEmailId,
           });
         }
+
         logger.info("Skipping. Cold email detected.");
         return;
       }

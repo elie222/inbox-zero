@@ -360,6 +360,18 @@ export class GmailProvider implements EmailProvider {
     });
   }
 
+  async blockUnsubscribedEmail(messageId: string): Promise<void> {
+    const unsubscribeLabel =
+      await this.getOrCreateInboxZeroLabel("unsubscribed");
+
+    await labelMessage({
+      gmail: this.client,
+      messageId,
+      addLabelIds: unsubscribeLabel?.id ? [unsubscribeLabel.id] : undefined,
+      removeLabelIds: [GmailLabel.INBOX],
+    });
+  }
+
   async getThreadMessages(threadId: string): Promise<ParsedMessage[]> {
     return getThreadMessages(threadId, this.client);
   }
