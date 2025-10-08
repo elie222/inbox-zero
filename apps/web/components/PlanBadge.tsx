@@ -7,6 +7,7 @@ import {
   type ExecutedRule,
   type ExecutedAction,
   type Rule,
+  ExecutedRuleStatus,
 } from "@prisma/client";
 import { truncate } from "@/utils/string";
 import { getEmailTerminology } from "@/utils/terminology";
@@ -70,8 +71,10 @@ export function PlanBadge(props: { plan?: Plan; provider: string }) {
         </div>
       }
     >
-      <Badge color={getPlanColor(plan, plan.status === "APPLIED")}>
-        {plan.status === "APPLIED" && (
+      <Badge
+        color={getPlanColor(plan, plan.status === ExecutedRuleStatus.APPLIED)}
+      >
+        {plan.status === ExecutedRuleStatus.APPLIED && (
           <CheckCircleIcon className="mr-2 h-3 w-3" />
         )}
         {plan.rule.name}

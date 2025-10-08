@@ -5,7 +5,6 @@ import { DigestStatus } from "@prisma/client";
 import { createScopedLogger } from "@/utils/logger";
 import prisma from "@/utils/prisma";
 import { RuleName } from "@/utils/rule/consts";
-import { getRuleNameByExecutedAction } from "@/utils/actions/rule";
 import { aiSummarizeEmailForDigest } from "@/utils/ai/digest/summarize-email-for-digest";
 import { getEmailAccountWithAi } from "@/utils/user/get";
 import type { StoredDigestContent } from "@/app/api/resend/digest/validation";
@@ -222,4 +221,29 @@ async function upsertDigest({
     logger.error("Failed to upsert digest", { error });
     throw error;
   }
+}
+
+async function getRuleNameByExecutedAction(
+  actionId: string,
+): Promise<string | undefined> {
+  const executedAction = await prisma.executedAction.findUnique({
+    where: { id: actionId },
+    select: {
+      executedRule: {
+        select: {
+          rule: {
+            select: {
+              name: true,
+            },
+          },
+        },
+      },
+    },
+  });
+
+  if (!executedAction) {
+    throw new Error("Executed action not found");
+  }
+
+  return executedAction.executedRule?.rule?.name;
 }

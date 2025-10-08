@@ -783,31 +783,6 @@ export const createRulesOnboardingAction = actionClient
     },
   );
 
-export async function getRuleNameByExecutedAction(
-  actionId: string,
-): Promise<string | undefined> {
-  const executedAction = await prisma.executedAction.findUnique({
-    where: { id: actionId },
-    select: {
-      executedRule: {
-        select: {
-          rule: {
-            select: {
-              name: true,
-            },
-          },
-        },
-      },
-    },
-  });
-
-  if (!executedAction) {
-    throw new Error("Executed action not found");
-  }
-
-  return executedAction.executedRule?.rule?.name;
-}
-
 async function resolveActionLabels<
   T extends {
     type: ActionType;
