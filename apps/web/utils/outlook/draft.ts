@@ -14,8 +14,19 @@ export async function getDraft(draftId: string, client: OutlookClient) {
     const message = convertMessage(response);
     return message;
   } catch (error) {
-    if (error instanceof Error && "code" in error && error.code === 404)
+    // Handle 404 errors
+    if (error instanceof Error && "code" in error && error.code === 404) {
       return null;
+    }
+
+    // Handle Outlook's "object not found in store" error
+    if (
+      error instanceof Error &&
+      error.message.includes("not found in the store")
+    ) {
+      return null;
+    }
+
     throw error;
   }
 }
