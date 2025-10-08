@@ -45,6 +45,7 @@ import {
   deleteFilter,
   createAutoArchiveFilter,
 } from "@/utils/outlook/filter";
+import { queryMessagesWithFilters } from "@/utils/outlook/message";
 import { processHistoryForUser } from "@/app/api/outlook/webhook/process-history";
 import type {
   EmailProvider,
@@ -674,13 +675,23 @@ export class OutlookProvider implements EmailProvider {
     messages: ParsedMessage[];
     nextPageToken?: string;
   }> {
-    const senderFilter = `from/emailAddress/address eq '${escapeODataString(options.senderEmail)}'`;
-    return this.getMessagesWithPagination({
-      query: senderFilter,
+    const filters: string[] = [
+      `from/emailAddress/address eq '${escapeODataString(options.senderEmail)}'`,
+    ];
+
+    const dateFilters: string[] = [];
+    if (options.before) {
+      dateFilters.push(`receivedDateTime lt ${options.before.toISOString()}`);
+    }
+    if (options.after) {
+      dateFilters.push(`receivedDateTime gt ${options.after.toISOString()}`);
+    }
+
+    return queryMessagesWithFilters(this.client, {
+      filters,
+      dateFilters,
       maxResults: options.maxResults,
       pageToken: options.pageToken,
-      before: options.before,
-      after: options.after,
     });
   }
 

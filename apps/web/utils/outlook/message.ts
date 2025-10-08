@@ -315,6 +315,62 @@ export async function queryBatchMessages(
   }
 }
 
+export async function queryMessagesWithFilters(
+  client: OutlookClient,
+  options: {
+    filters?: string[]; // OData filter expressions to AND together
+    dateFilters?: string[]; // additional date filters like receivedDateTime gt/lt
+    maxResults?: number;
+    pageToken?: string;
+    folderId?: string; // if omitted, defaults to inbox OR archive
+  },
+) {
+  const { filters = [], dateFilters = [], pageToken, folderId } = options;
+
+  const MAX_RESULTS = 20;
+  const maxResults = Math.min(options.maxResults || MAX_RESULTS, MAX_RESULTS);
+
+  const folderIds = await getFolderIds(client);
+  const inboxFolderId = folderIds.inbox;
+  const archiveFolderId = folderIds.archive;
+
+  // Build base request
+  let request = client
+    .getClient()
+    .api("/me/messages")
+    .select(
+      "id,conversationId,conversationIndex,subject,bodyPreview,from,sender,toRecipients,receivedDateTime,isDraft,isRead,body,categories,parentFolderId",
+    )
+    .top(maxResults);
+
+  // Build folder filter
+  const folderFilter = folderId
+    ? `parentFolderId eq '${escapeODataString(folderId)}'`
+    : `(parentFolderId eq '${escapeODataString(inboxFolderId)}' or parentFolderId eq '${escapeODataString(archiveFolderId)}')`;
+
+  const combinedFilters = [folderFilter, ...dateFilters, ...filters].filter(
+    Boolean,
+  );
+  const combinedFilter = combinedFilters.join(" and ");
+
+  request = request.filter(combinedFilter);
+
+  if (pageToken) {
+    request = request.skipToken(pageToken);
+  }
+
+  const response: { value: Message[]; "@odata.nextLink"?: string } =
+    await request.get();
+
+  const messages = await convertMessages(response.value, folderIds);
+  const nextPageToken = response["@odata.nextLink"]
+    ? new URL(response["@odata.nextLink"]).searchParams.get("$skiptoken") ||
+      undefined
+    : undefined;
+
+  return { messages, nextPageToken };
+}
+
 // Helper function to convert messages
 async function convertMessages(
   messages: Message[],

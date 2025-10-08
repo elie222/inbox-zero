@@ -6,9 +6,8 @@
  * 2. Set TEST_GMAIL_MESSAGE_ID with a real messageId from your logs
  *
  * Usage:
- *   TEST_GMAIL_EMAIL=your@gmail.com pnpm test gmail-operations
- *   TEST_GMAIL_EMAIL=your@gmail.com TEST_GMAIL_MESSAGE_ID=xxx pnpm test gmail-operations
- *   pnpm test gmail-operations -t "webhook"  # Run specific test
+ *   pnpm test-e2e gmail-operations
+ *   pnpm test-e2e gmail-operations -t "webhook"  # Run specific test
  */
 
 import { describe, test, expect, vi, beforeEach, afterEach } from "vitest";
@@ -20,6 +19,7 @@ import type { GmailProvider } from "@/utils/email/google";
 // ============================================
 // TEST DATA - SET VIA ENVIRONMENT VARIABLES
 // ============================================
+const RUN_E2E_TESTS = process.env.RUN_E2E_TESTS;
 const TEST_GMAIL_EMAIL = process.env.TEST_GMAIL_EMAIL;
 const TEST_GMAIL_MESSAGE_ID =
   process.env.TEST_GMAIL_MESSAGE_ID || "199c055aa113c499";
@@ -48,7 +48,7 @@ vi.mock("next/server", async () => {
 // ============================================
 // WEBHOOK PAYLOAD TESTS
 // ============================================
-describe.skipIf(!TEST_GMAIL_EMAIL)("Gmail Webhook Payload", () => {
+describe.skipIf(!RUN_E2E_TESTS)("Gmail Webhook Payload", () => {
   let emailAccountId: string;
   let originalLastSyncedHistoryId: string | null;
 

@@ -9,7 +9,7 @@
     "lint": "next lint",
     "test": "cross-env RUN_AI_TESTS=false vitest",
     "test-ai": "cross-env RUN_AI_TESTS=true vitest --run",
-    "test-outlook": "vitest outlook-operations",
+    "test-e2e": "cross-env RUN_E2E_TESTS=true vitest --run",
     "preinstall": "npx only-allow pnpm",
     "postinstall": "prisma generate"
   },
