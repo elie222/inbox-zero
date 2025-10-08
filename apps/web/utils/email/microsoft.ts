@@ -429,9 +429,12 @@ export class OutlookProvider implements EmailProvider {
     const client = this.client.getClient();
 
     try {
+      const escapedThreadId = escapeODataString(threadId);
       const response = await client
         .api("/me/messages")
-        .filter(`conversationId eq '${threadId}' and parentFolderId eq 'inbox'`)
+        .filter(
+          `conversationId eq '${escapedThreadId}' and parentFolderId eq 'inbox'`,
+        )
         .select(
           "id,conversationId,subject,bodyPreview,receivedDateTime,from,toRecipients,body,isDraft,categories,parentFolderId",
         )
@@ -473,16 +476,32 @@ export class OutlookProvider implements EmailProvider {
   }
 
   async removeThreadLabel(threadId: string, labelId: string): Promise<void> {
-    // TODO: this can be more efficient by using the label name directly
     // Get the label to convert ID to name (Outlook uses names)
-    const label = await getLabelById({ client: this.client, id: labelId });
-    const categoryName = label.displayName || "";
+    // NOTE: if we have name already, we can skip this step. But because we let users use custom ids and we're not storing the custom category name, we need to first fetch the name.
+    try {
+      const label = await getLabelById({ client: this.client, id: labelId });
+      const categoryName = label.displayName || "";
 
-    await removeThreadLabel({
-      client: this.client,
-      threadId,
-      categoryName,
-    });
+      await removeThreadLabel({
+        client: this.client,
+        threadId,
+        categoryName,
+      });
+    } catch (error) {
+      // If label doesn't exist (404), that's okay - nothing to remove
+      if (
+        (error as { statusCode?: number; code?: string }).statusCode === 404 ||
+        (error as { statusCode?: number; code?: string }).code ===
+          "CategoryNotFound"
+      ) {
+        logger.info("Label not found, skipping removal", {
+          threadId,
+          labelId,
+        });
+        return;
+      }
+      throw error;
+    }
   }
 
   async createLabel(name: string): Promise<EmailLabel> {

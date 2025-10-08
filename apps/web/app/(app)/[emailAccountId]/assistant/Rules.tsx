@@ -514,9 +514,20 @@ export function ActionBadges({
 }
 
 function NoRules() {
+  const { emailAccountId } = useAccount();
+
   return (
     <CardHeader>
-      <CardDescription>You don't have any rules yet.</CardDescription>
+      <CardDescription className="flex flex-col items-center gap-4 py-20">
+        You don't have any rules yet.
+        <div>
+          <Button asChild size="sm">
+            <Link href={prefixPath(emailAccountId, "/assistant/onboarding")}>
+              Set up default rules
+            </Link>
+          </Button>
+        </div>
+      </CardDescription>
     </CardHeader>
   );
 }

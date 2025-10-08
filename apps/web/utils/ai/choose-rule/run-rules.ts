@@ -283,7 +283,12 @@ async function upsertExecutedRule({
         },
       },
       create: data,
-      update: data,
+      update: data.rule
+        ? data
+        : {
+            ...data,
+            rule: { disconnect: true },
+          },
       include: { actionItems: true },
     });
   } catch (error) {

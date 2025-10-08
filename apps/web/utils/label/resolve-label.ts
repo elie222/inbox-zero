@@ -1,8 +1,11 @@
 import type { EmailProvider } from "@/utils/email/types";
+import { createScopedLogger } from "@/utils/logger";
+
+const logger = createScopedLogger("resolve-label");
 
 /**
  * Resolves label name and ID pairing for a label action.
- * - If only label name is provided, looks up the labelId
+ * - If only label name is provided, looks up the labelId (creates if not found)
  * - If only labelId is provided, looks up the label name
  * - If both are provided, returns both
  * - Returns null for both if lookup fails
@@ -21,15 +24,25 @@ export async function resolveLabelNameAndId({
     return { label, labelId };
   }
 
-  // If we have label name, look up the ID
+  // If we have label name, look up the ID (or create if not found)
   if (label) {
     try {
       const foundLabel = await emailProvider.getLabelByName(label);
-      return {
-        label,
-        labelId: foundLabel?.id ?? null,
-      };
-    } catch {
+
+      if (foundLabel) {
+        return {
+          label,
+          labelId: foundLabel.id,
+        };
+      }
+
+      logger.info("Label not found during rule creation, creating it", {
+        labelName: label,
+      });
+      const createdLabel = await emailProvider.createLabel(label);
+      return { label, labelId: createdLabel.id };
+    } catch (error) {
+      logger.error("Error resolving label", { labelName: label, error });
       return { label, labelId: null };
     }
   }
