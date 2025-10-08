@@ -1,18 +1,23 @@
 "use client";
 
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Calendar, Trash2, CheckCircle, XCircle } from "lucide-react";
 import { CalendarList } from "./CalendarList";
+import { useAction } from "next-safe-action/hooks";
 import {
   disconnectCalendarAction,
   toggleCalendarAction,
 } from "@/utils/actions/calendar";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { useCalendars } from "@/hooks/useCalendars";
-import { toastSuccess, toastError } from "@/components/Toast";
-import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { useState } from "react";
 import type { GetCalendarsResponse } from "@/app/api/user/calendars/route";
 
@@ -31,28 +36,20 @@ export function CalendarConnectionCard({
     Record<string, boolean>
   >({});
 
-  const executeDisconnect = disconnectCalendarAction.bind(null, emailAccountId);
-  const [isDisconnecting, setIsDisconnecting] = useState(false);
-
-  const executeToggle = toggleCalendarAction.bind(null, emailAccountId);
+  const { execute: executeDisconnect, isExecuting: isDisconnecting } =
+    useAction(disconnectCalendarAction.bind(null, emailAccountId));
+  const { execute: executeToggle } = useAction(
+    toggleCalendarAction.bind(null, emailAccountId),
+  );
 
   const handleDisconnect = async () => {
-    setIsDisconnecting(true);
-    try {
-      await executeDisconnect({ connectionId: connection.id });
-      toastSuccess({
-        title: "Disconnected successfully",
-        description: "Calendar has been disconnected",
-      });
+    if (
+      confirm(
+        "Are you sure you want to disconnect this calendar? This will remove all associated calendars.",
+      )
+    ) {
+      executeDisconnect({ connectionId: connection.id });
       mutate();
-    } catch (error) {
-      mutate();
-      toastError({
-        title: "Error disconnecting",
-        description: error instanceof Error ? error.message : "Unknown error",
-      });
-    } finally {
-      setIsDisconnecting(false);
     }
   };
 
@@ -83,28 +80,19 @@ export function CalendarConnectionCard({
     }
 
     try {
-      await executeToggle({ calendarId, isEnabled });
-      toastSuccess({
-        description: `Calendar ${isEnabled ? "enabled" : "disabled"} successfully`,
-      });
+      executeToggle({ calendarId, isEnabled });
 
       setOptimisticUpdates((prev) => {
         const { [calendarId]: _, ...rest } = prev;
         return rest;
       });
-
-      mutate();
-    } catch (error) {
-      mutate();
-      toastError({
-        title: "Error updating calendar",
-        description: error instanceof Error ? error.message : "Unknown error",
-      });
-
+    } catch {
       setOptimisticUpdates((prev) => {
         const { [calendarId]: _, ...rest } = prev;
         return rest;
       });
+    } finally {
+      mutate();
     }
   };
 
@@ -113,63 +101,52 @@ export function CalendarConnectionCard({
   const totalCalendars = connection.calendars?.length ?? 0;
 
   return (
-    <Card className="border-l-4 border-l-blue-500">
-      <CardHeader className="pb-4">
-        <div className="flex items-start justify-between">
-          <div className="flex items-start gap-3">
-            <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-blue-50 dark:bg-blue-950">
-              <Calendar className="h-6 w-6 text-blue-600 dark:text-blue-400" />
+    <Card>
+      <CardHeader>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-blue-100 rounded-lg">
+              <Calendar className="h-5 w-5 text-blue-600" />
             </div>
-            <div className="space-y-1">
-              <CardTitle className="text-lg font-semibold">
-                {connection.email}
-              </CardTitle>
-              <div className="flex items-center gap-2">
-                <Badge variant="secondary" className="capitalize text-xs">
+            <div>
+              <CardTitle className="text-lg">{connection.email}</CardTitle>
+              <CardDescription className="flex items-center gap-2">
+                <Badge variant="secondary" className="capitalize">
                   {connection.provider}
                 </Badge>
                 {connection.isConnected ? (
-                  <div className="flex items-center gap-1 text-green-600 dark:text-green-400">
+                  <div className="flex items-center gap-1 text-green-600">
                     <CheckCircle className="h-3 w-3" />
-                    <span className="text-xs font-medium">Connected</span>
+                    <span className="text-xs">Connected</span>
                   </div>
                 ) : (
-                  <div className="flex items-center gap-1 text-red-600 dark:text-red-400">
+                  <div className="flex items-center gap-1 text-red-600">
                     <XCircle className="h-3 w-3" />
-                    <span className="text-xs font-medium">Disconnected</span>
+                    <span className="text-xs">Disconnected</span>
                   </div>
                 )}
-              </div>
+              </CardDescription>
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <ConfirmDialog
-              trigger={
-                <Button
-                  variant="destructiveSoft"
-                  size="sm"
-                  disabled={isDisconnecting}
-                  Icon={Trash2}
-                  loading={isDisconnecting}
-                >
-                  Disconnect
-                </Button>
-              }
-              title="Disconnect Calendar"
-              description="Are you sure you want to disconnect this calendar? This will remove all associated calendars and any meeting transcript generation will stop."
-              confirmText="Disconnect"
-              onConfirm={handleDisconnect}
-            />
+            <Button
+              variant="destructiveSoft"
+              size="sm"
+              onClick={handleDisconnect}
+              disabled={isDisconnecting}
+              Icon={Trash2}
+              loading={isDisconnecting}
+            >
+              Disconnect
+            </Button>
           </div>
         </div>
       </CardHeader>
-      <CardContent className="pt-0">
+      <CardContent>
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <div>
-              <h4 className="text-sm font-semibold text-foreground">
-                Calendars
-              </h4>
+              <p className="text-sm font-medium">Calendars</p>
               <p className="text-xs text-muted-foreground">
                 {enabledCalendars} of {totalCalendars} calendars enabled
               </p>
@@ -177,25 +154,21 @@ export function CalendarConnectionCard({
           </div>
 
           {connection.calendars && connection.calendars.length > 0 ? (
-            <div className="rounded-lg border bg-muted/30 p-3">
-              <CalendarList
-                calendars={connection.calendars.map((cal) => ({
-                  ...cal,
-                  isEnabled:
-                    optimisticUpdates[cal.id] !== undefined
-                      ? optimisticUpdates[cal.id]
-                      : cal.isEnabled,
-                }))}
-                onToggleCalendar={handleToggleCalendar}
-              />
-            </div>
+            <CalendarList
+              calendars={connection.calendars.map((cal) => ({
+                ...cal,
+                isEnabled:
+                  optimisticUpdates[cal.id] !== undefined
+                    ? optimisticUpdates[cal.id]
+                    : cal.isEnabled,
+              }))}
+              onToggleCalendar={handleToggleCalendar}
+            />
           ) : (
-            <div className="rounded-lg border border-dashed bg-muted/20 p-4 text-center">
-              <p className="text-sm text-muted-foreground">
-                No calendars available. Calendar details will be synced
-                automatically.
-              </p>
-            </div>
+            <p className="text-sm text-muted-foreground">
+              No calendars available. Calendar details will be synced
+              automatically.
+            </p>
           )}
         </div>
       </CardContent>
