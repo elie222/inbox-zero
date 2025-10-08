@@ -11,6 +11,7 @@ import {
   createRulesOnboardingBody,
   type CategoryConfig,
   type CategoryAction,
+  toggleConversationStatusBody,
 } from "@/utils/actions/rule.validation";
 import prisma from "@/utils/prisma";
 import { isDuplicateError, isNotFoundError } from "@/utils/prisma-helpers";
@@ -24,7 +25,7 @@ import {
   type Prisma,
 } from "@prisma/client";
 import { sanitizeActionFields } from "@/utils/action-item";
-import { deleteRule } from "@/utils/rule/rule";
+import { deleteRule, safeCreateRule } from "@/utils/rule/rule";
 import { SafeError } from "@/utils/error";
 import {
   createToReplyRule,
@@ -41,6 +42,7 @@ import { createRuleHistory } from "@/utils/rule/rule-history";
 import { ONE_WEEK_MINUTES } from "@/utils/date";
 import { createEmailProvider } from "@/utils/email/provider";
 import { resolveLabelNameAndId } from "@/utils/label/resolve-label";
+import { CONVERSATION_STATUSES } from "@/utils/reply-tracker/conversation-status-config";
 
 function getCategoryActionDescription(categoryAction: CategoryAction): string {
   switch (categoryAction) {
@@ -780,6 +782,97 @@ export const createRulesOnboardingAction = actionClient
             .join("\n")}`.trim(),
         },
       });
+    },
+  );
+
+export const toggleConversationStatusAction = actionClient
+  .metadata({ name: "toggleConversationStatus" })
+  .schema(toggleConversationStatusBody)
+  .action(
+    async ({
+      ctx: { emailAccountId, provider },
+      parsedInput: { systemType, enabled },
+    }) => {
+      const statusConfig = CONVERSATION_STATUSES.find(
+        (s) => s.systemType === systemType,
+      );
+
+      if (!statusConfig) {
+        throw new Error(`Invalid system type: ${systemType}`);
+      }
+
+      // Find existing rule
+      const existingRule = await prisma.rule.findUnique({
+        where: {
+          emailAccountId_systemType: {
+            emailAccountId,
+            systemType,
+          },
+        },
+      });
+
+      if (enabled) {
+        if (existingRule) {
+          // Rule exists, just enable it
+          await prisma.rule.update({
+            where: { id: existingRule.id },
+            data: { enabled: true },
+          });
+        } else {
+          // Create new rule
+          const emailProvider = await createEmailProvider({
+            emailAccountId,
+            provider,
+          });
+
+          const labelInfo = await resolveLabelNameAndId({
+            emailProvider,
+            label: statusConfig.labelName,
+            labelId: null, // Will create if doesn't exist
+          });
+
+          await safeCreateRule({
+            result: {
+              name: statusConfig.name,
+              condition: {
+                aiInstructions:
+                  "Personal conversations with real people. Excludes: automated notifications and bulk emails.",
+                conditionalOperator: null,
+                static: null,
+              },
+              actions: [
+                {
+                  type: ActionType.LABEL,
+                  labelId: labelInfo.labelId,
+                  fields: {
+                    label: labelInfo.label,
+                    to: null,
+                    subject: null,
+                    content: null,
+                    cc: null,
+                    bcc: null,
+                    webhookUrl: null,
+                    folderName: null,
+                  },
+                },
+              ],
+            },
+            emailAccountId,
+            systemType,
+            triggerType: "manual_creation",
+            shouldCreateIfDuplicate: false,
+            provider,
+          });
+        }
+      } else {
+        // Disable the rule
+        if (existingRule) {
+          await prisma.rule.update({
+            where: { id: existingRule.id },
+            data: { enabled: false },
+          });
+        }
+      }
     },
   );
 

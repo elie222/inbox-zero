@@ -5,6 +5,7 @@ import type { EmailForLLM } from "@/utils/types";
 import { getModel } from "@/utils/llms/model";
 import { getUserInfoPrompt, getEmailListPrompt } from "@/utils/ai/helpers";
 import type { ThreadStatus } from "@/utils/reply-tracker/conversation-status-config";
+import { SystemType } from "@prisma/client";
 
 export async function aiDetermineThreadStatus({
   emailAccount,
@@ -77,7 +78,12 @@ Based on the full thread context above, determine the current status of this thr
   });
 
   const schema = z.object({
-    status: z.enum(["TO_REPLY", "FYI", "AWAITING_REPLY", "ACTIONED"]),
+    status: z.enum([
+      SystemType.TO_REPLY,
+      SystemType.FYI,
+      SystemType.AWAITING_REPLY,
+      SystemType.ACTIONED,
+    ]),
     rationale: z.string(),
   });
 

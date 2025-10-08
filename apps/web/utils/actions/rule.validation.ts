@@ -206,3 +206,13 @@ export const createRulesOnboardingBody = z.array(categoryConfig);
 export type CreateRulesOnboardingBody = z.infer<
   typeof createRulesOnboardingBody
 >;
+
+export const toggleConversationStatusBody = z.object({
+  systemType: z.enum([
+    SystemType.TO_REPLY,
+    SystemType.FYI,
+    SystemType.AWAITING_REPLY,
+    SystemType.ACTIONED,
+  ]),
+  enabled: z.boolean(),
+});

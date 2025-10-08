@@ -866,6 +866,10 @@ export class GmailProvider implements EmailProvider {
     return !!(message.id && message.id !== message.threadId);
   }
 
+  isSentMessage(message: ParsedMessage): boolean {
+    return message.labelIds?.includes(GmailLabel.SENT) || false;
+  }
+
   async moveThreadToFolder(
     _threadId: string,
     _ownerEmail: string,

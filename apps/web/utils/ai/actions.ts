@@ -151,7 +151,7 @@ const reply: ActionFunction<{
   content?: string | null;
   cc?: string | null;
   bcc?: string | null;
-}> = async ({ client, email, args, emailAccountId }) => {
+}> = async ({ client, email, args }) => {
   if (!args.content) return;
 
   await client.replyToEmail(
@@ -168,14 +168,6 @@ const reply: ActionFunction<{
     },
     args.content,
   );
-
-  await coordinateReplyProcess({
-    threadId: email.threadId,
-    messageId: email.id,
-    emailAccountId,
-    sentAt: internalDateToDate(email.internalDate),
-    client,
-  });
 };
 
 const send_email: ActionFunction<{
