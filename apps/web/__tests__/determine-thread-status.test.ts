@@ -371,4 +371,97 @@ describe.runIf(isAiTest)("aiDetermineThreadStatus", () => {
     },
     TIMEOUT,
   );
+
+  // Helper for lunch scheduling thread tests
+  const getLunchSchedulingThread = (
+    person1Email: string,
+    person2Email: string,
+  ) => [
+    getEmail({
+      from: person1Email,
+      to: person2Email,
+      subject: "Re: free for lunch tomorrow?",
+      content: "I'll get back to you soon!",
+    }),
+    getEmail({
+      from: person2Email,
+      to: person1Email,
+      subject: "Re: free for lunch tomorrow?",
+      content: "Ok. 5pm work tomorrow?",
+    }),
+    getEmail({
+      from: person1Email,
+      to: person2Email,
+      subject: "Re: free for lunch tomorrow?",
+      content: "Sounds good, let me know.",
+    }),
+    getEmail({
+      from: person2Email,
+      to: person1Email,
+      subject: "Re: free for lunch tomorrow?",
+      content: "Let me get back to you about that soon!",
+    }),
+    getEmail({
+      from: person1Email,
+      to: person2Email,
+      subject: "Re: free for lunch tomorrow?",
+      content:
+        "Great, does 12pm work for you? Let me know and I can book a table somewhere.",
+    }),
+    getEmail({
+      from: person2Email,
+      to: person1Email,
+      subject: "Re: free for lunch tomorrow?",
+      content:
+        "Yes, I'd love to. I'm free from 11 am to 1 pm tomorrow, would any time then work for you?",
+    }),
+    getEmail({
+      from: person1Email,
+      to: person2Email,
+      subject: "free for lunch tomorrow?",
+      content: "Lmk if you're free",
+    }),
+  ];
+
+  test(
+    "identifies AWAITING_REPLY when other person says they'll get back to you (lunch scheduling)",
+    async () => {
+      const alice = getEmailAccount({ email: "alice@gmail.com" });
+
+      const result = await aiDetermineThreadStatus({
+        emailAccount: alice,
+        threadMessages: getLunchSchedulingThread(
+          "oliver@example.com",
+          alice.email,
+        ),
+      });
+
+      console.debug("Result:", result);
+      // Oliver said "I'll get back to you soon!" so Alice should be awaiting his reply
+      expect(result.status).toBe("AWAITING_REPLY");
+      expect(result.rationale).toBeDefined();
+    },
+    TIMEOUT,
+  );
+
+  test(
+    "identifies TO_REPLY when user says they'll get back to someone (lunch scheduling - Oliver's perspective)",
+    async () => {
+      const oliver = getEmailAccount({ email: "oliver@example.com" });
+
+      const result = await aiDetermineThreadStatus({
+        emailAccount: oliver,
+        threadMessages: getLunchSchedulingThread(
+          oliver.email,
+          "alice@gmail.com",
+        ),
+      });
+
+      console.debug("Result:", result);
+      // Oliver committed to getting back to Alice about the 5pm time, so he needs to reply
+      expect(result.status).toBe("TO_REPLY");
+      expect(result.rationale).toBeDefined();
+    },
+    TIMEOUT,
+  );
 });
