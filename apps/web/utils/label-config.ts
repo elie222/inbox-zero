@@ -4,13 +4,20 @@ import { createScopedLogger } from "@/utils/logger";
 import {
   NEEDS_REPLY_LABEL_NAME,
   AWAITING_REPLY_LABEL_NAME,
+  FYI_LABEL_NAME,
+  ACTIONED_LABEL_NAME,
 } from "@/utils/reply-tracker/consts";
 import { inboxZeroLabels } from "@/utils/label";
 import { ActionType, SystemType } from "@prisma/client";
 
 const logger = createScopedLogger("label-config");
 
-type SystemLabelType = "needsReply" | "awaitingReply" | "coldEmail";
+type SystemLabelType =
+  | "needsReply"
+  | "awaitingReply"
+  | "fyi"
+  | "actioned"
+  | "coldEmail";
 
 export async function getOrCreateSystemLabelId(options: {
   emailAccountId: string;
@@ -27,6 +34,8 @@ export async function getOrCreateSystemLabelId(options: {
   const labelNames = {
     needsReply: NEEDS_REPLY_LABEL_NAME,
     awaitingReply: AWAITING_REPLY_LABEL_NAME,
+    fyi: FYI_LABEL_NAME,
+    actioned: ACTIONED_LABEL_NAME,
     coldEmail: inboxZeroLabels.cold_email.name,
   };
 
@@ -64,6 +73,8 @@ async function getSystemLabelId(options: {
     select: {
       needsReplyLabelId: true,
       awaitingReplyLabelId: true,
+      fyiLabelId: true,
+      actionedLabelId: true,
       coldEmailLabelId: true,
     },
   });
@@ -75,6 +86,10 @@ async function getSystemLabelId(options: {
       return emailAccount.needsReplyLabelId;
     case "awaitingReply":
       return emailAccount.awaitingReplyLabelId;
+    case "fyi":
+      return emailAccount.fyiLabelId;
+    case "actioned":
+      return emailAccount.actionedLabelId;
     case "coldEmail":
       return emailAccount.coldEmailLabelId;
     default: {
@@ -94,6 +109,8 @@ async function updateSystemLabelId(options: {
   const fieldMap = {
     needsReply: "needsReplyLabelId",
     awaitingReply: "awaitingReplyLabelId",
+    fyi: "fyiLabelId",
+    actioned: "actionedLabelId",
     coldEmail: "coldEmailLabelId",
   } as const;
 

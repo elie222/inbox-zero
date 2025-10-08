@@ -132,6 +132,8 @@ model EmailAccount {
   // Configurable system labels (store stable IDs)
   needsReplyLabelId     String? // Gmail: Label ID, Outlook: Category ID
   awaitingReplyLabelId  String? // Gmail: Label ID, Outlook: Category ID
+  fyiLabelId            String? // Gmail: Label ID, Outlook: Category ID
+  actionedLabelId       String? // Gmail: Label ID, Outlook: Category ID
   coldEmailLabelId      String? // Gmail: Label ID, Outlook: Category ID
 
   digestSchedule Schedule?
@@ -1067,8 +1069,15 @@ enum CleanAction {
   MARK_READ
 }
 
+// Thread status labels are mutually exclusive
+// TO_REPLY, FYI, AWAITING_REPLY, ACTIONED form a special subset
+// where only one can be active on a thread at a time
+
 enum SystemType {
   TO_REPLY
+  FYI
+  AWAITING_REPLY
+  ACTIONED
   NEWSLETTER
   MARKETING
   CALENDAR
