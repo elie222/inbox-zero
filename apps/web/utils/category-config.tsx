@@ -1,7 +1,6 @@
 import type { IconCircleColor } from "@/app/(app)/[emailAccountId]/onboarding/IconCircle";
 import type { CategoryAction } from "@/utils/actions/rule.validation";
-import { isMicrosoftProvider } from "@/utils/email/provider-types";
-import { ruleConfig } from "@/utils/rule/consts";
+import { getCategoryAction, ruleConfig } from "@/utils/rule/consts";
 import { SystemType } from "@prisma/client";
 import {
   MailIcon,
@@ -29,7 +28,7 @@ export const categoryConfig = (
     tooltipText: ruleConfig[SystemType.TO_REPLY].tooltipText,
     Icon: MailIcon,
     iconColor: "blue",
-    action: ruleConfig[SystemType.TO_REPLY].categoryAction,
+    action: getCategoryAction(SystemType.TO_REPLY, provider),
   },
   {
     key: SystemType.NEWSLETTER,
@@ -37,7 +36,7 @@ export const categoryConfig = (
     tooltipText: ruleConfig[SystemType.NEWSLETTER].tooltipText,
     Icon: NewspaperIcon,
     iconColor: "purple",
-    action: isMicrosoftProvider(provider) ? "move_folder" : "label",
+    action: getCategoryAction(SystemType.NEWSLETTER, provider),
   },
   {
     key: SystemType.MARKETING,
@@ -45,7 +44,7 @@ export const categoryConfig = (
     tooltipText: ruleConfig[SystemType.MARKETING].tooltipText,
     Icon: MegaphoneIcon,
     iconColor: "green",
-    action: isMicrosoftProvider(provider) ? "move_folder" : "label_archive",
+    action: getCategoryAction(SystemType.MARKETING, provider),
   },
   {
     key: SystemType.CALENDAR,
@@ -53,7 +52,7 @@ export const categoryConfig = (
     tooltipText: ruleConfig[SystemType.CALENDAR].tooltipText,
     Icon: CalendarIcon,
     iconColor: "yellow",
-    action: "label",
+    action: getCategoryAction(SystemType.CALENDAR, provider),
   },
   {
     key: SystemType.RECEIPT,
@@ -61,7 +60,7 @@ export const categoryConfig = (
     tooltipText: ruleConfig[SystemType.RECEIPT].tooltipText,
     Icon: ReceiptIcon,
     iconColor: "orange",
-    action: isMicrosoftProvider(provider) ? "move_folder" : "label",
+    action: getCategoryAction(SystemType.RECEIPT, provider),
   },
   {
     key: SystemType.NOTIFICATION,
@@ -69,7 +68,7 @@ export const categoryConfig = (
     tooltipText: ruleConfig[SystemType.NOTIFICATION].tooltipText,
     Icon: BellIcon,
     iconColor: "red",
-    action: isMicrosoftProvider(provider) ? "move_folder" : "label",
+    action: getCategoryAction(SystemType.NOTIFICATION, provider),
   },
   {
     key: SystemType.COLD_EMAIL,
@@ -77,6 +76,6 @@ export const categoryConfig = (
     tooltipText: ruleConfig[SystemType.COLD_EMAIL].tooltipText,
     Icon: UsersIcon,
     iconColor: "indigo",
-    action: isMicrosoftProvider(provider) ? "move_folder" : "label_archive",
+    action: getCategoryAction(SystemType.COLD_EMAIL, provider),
   },
 ];
