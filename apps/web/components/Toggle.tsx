@@ -12,10 +12,11 @@ export interface ToggleProps {
   explainText?: string;
   error?: FieldError;
   onChange: (enabled: boolean) => void;
+  disabled?: boolean;
 }
 
 export const Toggle = (props: ToggleProps) => {
-  const { label, labelRight, tooltipText, enabled, onChange } = props;
+  const { label, labelRight, tooltipText, enabled, onChange, disabled } = props;
 
   return (
     <div>
@@ -26,7 +27,11 @@ export const Toggle = (props: ToggleProps) => {
             {tooltipText && <TooltipExplanation text={tooltipText} />}
           </span>
         )}
-        <Switch checked={enabled} onCheckedChange={onChange} />
+        <Switch
+          checked={enabled}
+          onCheckedChange={onChange}
+          disabled={disabled}
+        />
         {labelRight && (
           <span className="ml-3 flex items-center gap-1 text-nowrap">
             <Label name={props.name} label={labelRight} />

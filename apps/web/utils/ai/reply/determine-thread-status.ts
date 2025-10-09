@@ -25,11 +25,10 @@ Your task is to determine the current status of an email thread from the user's 
 - Someone follows up on a conversation requiring the user's response
 - There are ANY unanswered questions/requests in the thread that the user hasn't addressed yet
 
-**FYI**: The user received informational email(s) that don't need any response or action. Use this when:
-- Purely informational updates or announcements with no requests
-- CC'd for awareness only
-- Status updates that don't need acknowledgment
-- Newsletters or automated updates meant for information only
+**FYI**: The user received important email(s) that don't require a response. Use this when:
+- Important updates, announcements, or information the user should be aware of
+- CC'd on important matters for awareness only
+- Status updates that are valuable to know but don't need acknowledgment
 - NO questions or requests exist anywhere in the thread
 
 **AWAITING_REPLY**: Waiting for the other person to take action or respond. Use this when:

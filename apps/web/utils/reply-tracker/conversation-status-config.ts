@@ -1,10 +1,5 @@
+import { ruleConfig } from "@/utils/rule/consts";
 import { SystemType } from "@prisma/client";
-import {
-  NEEDS_REPLY_LABEL_NAME,
-  FYI_LABEL_NAME,
-  AWAITING_REPLY_LABEL_NAME,
-  ACTIONED_LABEL_NAME,
-} from "./consts";
 
 export type ConversationStatus =
   | "TO_REPLY"
@@ -12,32 +7,33 @@ export type ConversationStatus =
   | "AWAITING_REPLY"
   | "ACTIONED";
 
+// TODO: replace this config
 export const CONVERSATION_STATUSES = [
   {
     systemType: SystemType.TO_REPLY,
     name: "To Reply",
-    labelName: NEEDS_REPLY_LABEL_NAME,
+    labelName: ruleConfig.ToReply.label,
     labelType: SystemType.TO_REPLY,
     description: "Emails you need to respond to",
   },
   {
     systemType: SystemType.FYI,
     name: "FYI",
-    labelName: FYI_LABEL_NAME,
+    labelName: ruleConfig.Fyi.label,
     labelType: SystemType.FYI,
     description: "Emails that don't require your response, but are important",
   },
   {
     systemType: SystemType.AWAITING_REPLY,
     name: "Awaiting Reply",
-    labelName: AWAITING_REPLY_LABEL_NAME,
+    labelName: ruleConfig.AwaitingReply.label,
     labelType: SystemType.AWAITING_REPLY,
     description: "Emails you're expecting a reply to",
   },
   {
     systemType: SystemType.ACTIONED,
     name: "Actioned",
-    labelName: ACTIONED_LABEL_NAME,
+    labelName: ruleConfig.Actioned.label,
     labelType: SystemType.ACTIONED,
     description: "Email threads that have been resolved",
   },

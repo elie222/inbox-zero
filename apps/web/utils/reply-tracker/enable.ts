@@ -1,15 +1,8 @@
 import prisma from "@/utils/prisma";
 import { ActionType, SystemType, type Prisma } from "@prisma/client";
 import { safeCreateRule } from "@/utils/rule/rule";
-import {
-  defaultReplyTrackerInstructions,
-  NEEDS_REPLY_LABEL_NAME,
-  AWAITING_REPLY_LABEL_NAME,
-  FYI_LABEL_NAME,
-  ACTIONED_LABEL_NAME,
-} from "@/utils/reply-tracker/consts";
 import { createScopedLogger } from "@/utils/logger";
-import { RuleName } from "@/utils/rule/consts";
+import { ruleConfig, RuleName } from "@/utils/rule/consts";
 import { SafeError } from "@/utils/error";
 import { createEmailProvider } from "@/utils/email/provider";
 import { resolveLabelNameAndId } from "@/utils/label/resolve-label";
@@ -88,7 +81,7 @@ export async function enableReplyTracker({
   const { label: needsReplyLabel, labelId: needsReplyLabelId } =
     await resolveLabelNameAndId({
       emailProvider,
-      label: existingLabelAction?.labelId ? null : NEEDS_REPLY_LABEL_NAME,
+      label: existingLabelAction?.labelId ? null : ruleConfig.ToReply.label,
       labelId: existingLabelAction?.labelId ?? null,
     });
 
@@ -190,15 +183,15 @@ export async function createToReplyRule(
 
   const labelInfo = await resolveLabelNameAndId({
     emailProvider,
-    label: existingLabelAction?.labelId ? null : NEEDS_REPLY_LABEL_NAME,
+    label: existingLabelAction?.labelId ? null : ruleConfig.ToReply.label,
     labelId: existingLabelAction?.labelId ?? null,
   });
 
   return await safeCreateRule({
     result: {
-      name: RuleName.ToReply,
+      name: ruleConfig.ToReply.name,
       condition: {
-        aiInstructions: defaultReplyTrackerInstructions,
+        aiInstructions: ruleConfig.ToReply.instructions,
         conditionalOperator: null,
         static: null,
       },
@@ -273,17 +266,17 @@ async function enableRelatedConversationStatuses({
   const statusesToEnable = [
     {
       systemType: SystemType.FYI,
-      labelName: FYI_LABEL_NAME,
+      labelName: ruleConfig.Fyi.label,
       name: RuleName.Fyi,
     },
     {
       systemType: SystemType.AWAITING_REPLY,
-      labelName: AWAITING_REPLY_LABEL_NAME,
+      labelName: ruleConfig.AwaitingReply.label,
       name: RuleName.AwaitingReply,
     },
     {
       systemType: SystemType.ACTIONED,
-      labelName: ACTIONED_LABEL_NAME,
+      labelName: ruleConfig.Actioned.label,
       name: RuleName.Actioned,
     },
   ];

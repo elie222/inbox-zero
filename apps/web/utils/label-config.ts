@@ -1,14 +1,8 @@
 import prisma from "@/utils/prisma";
 import type { EmailProvider } from "@/utils/email/types";
 import { createScopedLogger } from "@/utils/logger";
-import {
-  NEEDS_REPLY_LABEL_NAME,
-  AWAITING_REPLY_LABEL_NAME,
-  FYI_LABEL_NAME,
-  ACTIONED_LABEL_NAME,
-} from "@/utils/reply-tracker/consts";
-import { inboxZeroLabels } from "@/utils/label";
 import { ActionType } from "@prisma/client";
+import { ruleConfig } from "@/utils/rule/consts";
 
 const logger = createScopedLogger("label-config");
 
@@ -31,15 +25,7 @@ export async function getOrCreateSystemLabelId(options: {
     return existingId;
   }
 
-  const labelNames = {
-    TO_REPLY: NEEDS_REPLY_LABEL_NAME,
-    AWAITING_REPLY: AWAITING_REPLY_LABEL_NAME,
-    FYI: FYI_LABEL_NAME,
-    ACTIONED: ACTIONED_LABEL_NAME,
-    COLD_EMAIL: inboxZeroLabels.cold_email.name,
-  };
-
-  const labelName = labelNames[type];
+  const labelName = ruleConfig[type].label;
 
   try {
     let label = await provider.getLabelByName(labelName);
@@ -114,15 +100,7 @@ async function updateSystemLabelId(options: {
 
   const labelAction = rule.actions.find((a) => a.type === ActionType.LABEL);
 
-  // Get the label name for this type
-  const labelNames = {
-    TO_REPLY: NEEDS_REPLY_LABEL_NAME,
-    AWAITING_REPLY: AWAITING_REPLY_LABEL_NAME,
-    FYI: FYI_LABEL_NAME,
-    ACTIONED: ACTIONED_LABEL_NAME,
-    COLD_EMAIL: inboxZeroLabels.cold_email.name,
-  };
-  const labelName = labelNames[type];
+  const labelName = ruleConfig[type].label;
 
   if (labelAction) {
     await prisma.action.update({

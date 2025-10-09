@@ -14,11 +14,8 @@ import { useEmail } from "@/providers/EmailProvider";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { useMemo } from "react";
 import { isDefined } from "@/utils/types";
-import {
-  NEEDS_REPLY_LABEL_NAME,
-  AWAITING_REPLY_LABEL_NAME,
-} from "@/utils/reply-tracker/consts";
 import { isGoogleProvider } from "@/utils/email/provider-types";
+import { ruleConfig } from "@/utils/rule/consts";
 
 export function EmailMessageCell({
   sender,
@@ -67,8 +64,8 @@ export function EmailMessageCell({
       .filter((label) => {
         if (filterReplyTrackerLabels) {
           if (
-            label.name === NEEDS_REPLY_LABEL_NAME ||
-            label.name === AWAITING_REPLY_LABEL_NAME
+            label.name === ruleConfig.ToReply.label ||
+            label.name === ruleConfig.AwaitingReply.label
           ) {
             return false;
           }

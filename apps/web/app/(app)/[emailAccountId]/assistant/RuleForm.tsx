@@ -32,6 +32,7 @@ import {
   ActionType,
   CategoryFilterType,
   LogicalOperator,
+  SystemType,
 } from "@prisma/client";
 import { ConditionType, type CoreConditionType } from "@/utils/config";
 import {
@@ -62,7 +63,6 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { LearnedPatternsDialog } from "@/app/(app)/[emailAccountId]/assistant/group/LearnedPatterns";
-import { NEEDS_REPLY_LABEL_NAME } from "@/utils/reply-tracker/consts";
 import { Badge } from "@/components/Badge";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { prefixPath } from "@/utils/path";
@@ -95,6 +95,9 @@ import type { OutlookFolder } from "@/utils/outlook/folders";
 import { cn } from "@/utils";
 import { WebhookDocumentationLink } from "@/components/WebhookDocumentation";
 import { LabelCombobox } from "@/components/LabelCombobox";
+import { isConversationStatusType } from "@/utils/reply-tracker/conversation-status-config";
+import { Tooltip } from "@/components/Tooltip";
+import { ruleConfig } from "@/utils/rule/consts";
 
 export function Rule({
   ruleId,
@@ -772,17 +775,25 @@ export function RuleForm({
 
         {isConditionsEditMode && unusedCondition && (
           <div className="mt-4">
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={() => {
-                appendCondition(getEmptyCondition(unusedCondition));
-                setIsConditionsEditMode(true);
-              }}
+            <Tooltip
+              hide={allowMultipleConditions(rule.systemType)}
+              content="You can only set one condition for this rule."
             >
-              <PlusIcon className="mr-2 h-4 w-4" />
-              Add Condition
-            </Button>
+              <span>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => {
+                    appendCondition(getEmptyCondition(unusedCondition));
+                    setIsConditionsEditMode(true);
+                  }}
+                  disabled={!allowMultipleConditions(rule.systemType)}
+                  Icon={PlusIcon}
+                >
+                  Add Condition
+                </Button>
+              </span>
+            </Tooltip>
           </div>
         )}
 
@@ -875,6 +886,7 @@ export function RuleForm({
               onChange={(enabled) => {
                 setValue("runOnThreads", enabled);
               }}
+              disabled={!allowMultipleConditions(rule.systemType)}
             />
 
             <ThreadsExplanation size="md" />
@@ -1399,7 +1411,7 @@ function ReplyTrackerAction() {
     <div className="flex h-full items-center justify-center">
       <div className="max-w-sm text-center text-sm text-muted-foreground">
         This action tracks emails this rule is applied to and removes the{" "}
-        <Badge color="green">{NEEDS_REPLY_LABEL_NAME}</Badge> label after you
+        <Badge color="green">{ruleConfig.ToReply.label}</Badge> label after you
         reply to the email.
       </div>
     </div>
@@ -1590,3 +1602,10 @@ function RemoveButton({
 
 const getFilterTooltipText = (filterType: "from" | "to") =>
   `Only apply this rule ${filterType} emails from this address. Supports multiple addresses separated by comma, pipe, or OR. e.g. "@company.com", "hello@example.com OR support@test.com"`;
+
+function allowMultipleConditions(systemType: SystemType | null | undefined) {
+  return (
+    systemType !== SystemType.COLD_EMAIL &&
+    !isConversationStatusType(systemType)
+  );
+}
