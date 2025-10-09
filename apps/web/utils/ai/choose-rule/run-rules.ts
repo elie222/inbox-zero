@@ -69,12 +69,14 @@ export async function runRules({
     modelType,
   });
 
-  analyzeSenderPatternIfAiMatch({
-    isTest,
-    result,
-    message,
-    emailAccountId: emailAccount.id,
-  });
+  if (result.rule && result.rule.id !== CONVERSATION_TRACKING_META_RULE_ID) {
+    analyzeSenderPatternIfAiMatch({
+      isTest,
+      result,
+      message,
+      emailAccountId: emailAccount.id,
+    });
+  }
 
   logger.trace("Matching rule", () => ({
     result: filterNullProperties(result),
