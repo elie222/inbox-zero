@@ -14,6 +14,7 @@ export async function getColdEmailRule(emailAccountId: string) {
       },
     },
     select: {
+      id: true,
       enabled: true,
       instructions: true,
       actions: {

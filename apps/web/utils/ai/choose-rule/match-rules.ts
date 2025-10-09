@@ -233,8 +233,13 @@ export async function findMatchingRule({
     });
 
     if (coldEmailResult.isColdEmail) {
+      const coldEmailRuleWithCategories = await prisma.rule.findUniqueOrThrow({
+        where: { id: coldEmailRule.id },
+        include: { actions: true, categoryFilters: true },
+      });
+
       return {
-        rule: coldEmailRule,
+        rule: coldEmailRuleWithCategories,
         reason: coldEmailResult.reason,
       };
     }
