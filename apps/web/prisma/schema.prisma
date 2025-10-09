@@ -126,14 +126,9 @@ model EmailAccount {
   coldEmailDigest       Boolean           @default(false)
   coldEmailPrompt       String?
   rulesPrompt           String?
-  outboundReplyTracking Boolean           @default(false) // When true: manages "To Reply" and "Awaiting Reply" labels automatically
   autoCategorizeSenders Boolean           @default(false)
 
   // Configurable system labels (store stable IDs)
-  needsReplyLabelId     String? // Gmail: Label ID, Outlook: Category ID
-  awaitingReplyLabelId  String? // Gmail: Label ID, Outlook: Category ID
-  fyiLabelId            String? // Gmail: Label ID, Outlook: Category ID
-  actionedLabelId       String? // Gmail: Label ID, Outlook: Category ID
   coldEmailLabelId      String? // Gmail: Label ID, Outlook: Category ID
 
   digestSchedule Schedule?

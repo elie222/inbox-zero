@@ -8,6 +8,7 @@ import { internalDateToDate } from "@/utils/date";
 import type { EmailProvider } from "@/utils/email/types";
 import { applyThreadStatusLabel } from "./label-helpers";
 import { updateThreadTrackers } from "@/utils/reply-tracker/handle-conversation-status";
+import { CONVERSATION_STATUS_TYPES } from "@/utils/reply-tracker/conversation-status-config";
 
 export async function handleOutboundReply({
   emailAccount,
@@ -25,7 +26,7 @@ export async function handleOutboundReply({
   });
 
   const isEnabled = await isOutboundTrackingEnabled({
-    email: emailAccount.email,
+    emailAccountId: emailAccount.id,
   });
   if (!isEnabled) {
     logger.info("Outbound reply tracking disabled, skipping.");
@@ -91,15 +92,18 @@ export async function handleOutboundReply({
 }
 
 async function isOutboundTrackingEnabled({
-  email,
+  emailAccountId,
 }: {
-  email: string;
+  emailAccountId: string;
 }): Promise<boolean> {
-  const userSettings = await prisma.emailAccount.findUnique({
-    where: { email },
-    select: { outboundReplyTracking: true },
+  const enabledRule = await prisma.rule.findFirst({
+    where: {
+      emailAccountId,
+      systemType: { in: CONVERSATION_STATUS_TYPES },
+      enabled: true,
+    },
   });
-  return !!userSettings?.outboundReplyTracking;
+  return !!enabledRule;
 }
 
 function isMessageLatestInThread(

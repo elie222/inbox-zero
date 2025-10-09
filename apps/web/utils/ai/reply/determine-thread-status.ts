@@ -4,7 +4,7 @@ import type { EmailAccountWithAI } from "@/utils/llms/types";
 import type { EmailForLLM } from "@/utils/types";
 import { getModel } from "@/utils/llms/model";
 import { getUserInfoPrompt, getEmailListPrompt } from "@/utils/ai/helpers";
-import type { ThreadStatus } from "@/utils/reply-tracker/conversation-status-config";
+import type { ConversationStatus } from "@/utils/reply-tracker/conversation-status-config";
 import { SystemType } from "@prisma/client";
 
 export async function aiDetermineThreadStatus({
@@ -13,7 +13,7 @@ export async function aiDetermineThreadStatus({
 }: {
   emailAccount: EmailAccountWithAI;
   threadMessages: EmailForLLM[];
-}): Promise<{ status: ThreadStatus; rationale: string }> {
+}): Promise<{ status: ConversationStatus; rationale: string }> {
   const system = `You are an AI assistant that analyzes email threads to determine their current status.
 
 Your task is to determine the current status of an email thread from the user's perspective. The thread can be in ONE of these mutually exclusive states:

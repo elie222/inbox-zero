@@ -67,7 +67,7 @@ import { useLabels } from "@/hooks/useLabels";
 import {
   CONVERSATION_STATUSES,
   isConversationStatusType,
-  type ThreadStatus,
+  type ConversationStatus,
 } from "@/utils/reply-tracker/conversation-status-config";
 import { toggleConversationStatusAction } from "@/utils/actions/rule";
 
@@ -413,7 +413,8 @@ export function Rules({
 
                             const result = isConversationStatus
                               ? await toggleConversationStatus({
-                                  systemType: rule.systemType as ThreadStatus,
+                                  systemType:
+                                    rule.systemType as ConversationStatus,
                                   enabled,
                                 })
                               : await setRuleEnabled({

@@ -8,15 +8,15 @@ import {
   ACTIONED_LABEL_NAME,
 } from "@/utils/reply-tracker/consts";
 import { inboxZeroLabels } from "@/utils/label";
-import { ActionType, SystemType } from "@prisma/client";
+import { ActionType } from "@prisma/client";
 
 const logger = createScopedLogger("label-config");
 
 type SystemLabelType =
-  | "needsReply"
-  | "awaitingReply"
-  | "fyi"
-  | "actioned"
+  | "TO_REPLY"
+  | "AWAITING_REPLY"
+  | "FYI"
+  | "ACTIONED"
   | "coldEmail";
 
 export async function getOrCreateSystemLabelId(options: {
@@ -32,10 +32,10 @@ export async function getOrCreateSystemLabelId(options: {
   }
 
   const labelNames = {
-    needsReply: NEEDS_REPLY_LABEL_NAME,
-    awaitingReply: AWAITING_REPLY_LABEL_NAME,
-    fyi: FYI_LABEL_NAME,
-    actioned: ACTIONED_LABEL_NAME,
+    TO_REPLY: NEEDS_REPLY_LABEL_NAME,
+    AWAITING_REPLY: AWAITING_REPLY_LABEL_NAME,
+    FYI: FYI_LABEL_NAME,
+    ACTIONED: ACTIONED_LABEL_NAME,
     coldEmail: inboxZeroLabels.cold_email.name,
   };
 
@@ -68,35 +68,30 @@ async function getSystemLabelId(options: {
 }): Promise<string | null> {
   const { emailAccountId, type } = options;
 
-  const emailAccount = await prisma.emailAccount.findUnique({
-    where: { id: emailAccountId },
-    select: {
-      needsReplyLabelId: true,
-      awaitingReplyLabelId: true,
-      fyiLabelId: true,
-      actionedLabelId: true,
-      coldEmailLabelId: true,
+  // For coldEmail, still use emailAccount field
+  if (type === "coldEmail") {
+    const emailAccount = await prisma.emailAccount.findUnique({
+      where: { id: emailAccountId },
+      select: { coldEmailLabelId: true },
+    });
+    return emailAccount?.coldEmailLabelId ?? null;
+  }
+
+  // For conversation tracking labels, look up from rules
+  const rule = await prisma.rule.findFirst({
+    where: {
+      emailAccountId,
+      systemType: type,
+    },
+    include: {
+      actions: {
+        where: { type: ActionType.LABEL },
+      },
     },
   });
 
-  if (!emailAccount) return null;
-
-  switch (type) {
-    case "needsReply":
-      return emailAccount.needsReplyLabelId;
-    case "awaitingReply":
-      return emailAccount.awaitingReplyLabelId;
-    case "fyi":
-      return emailAccount.fyiLabelId;
-    case "actioned":
-      return emailAccount.actionedLabelId;
-    case "coldEmail":
-      return emailAccount.coldEmailLabelId;
-    default: {
-      const exhaustiveCheck: never = type;
-      return exhaustiveCheck;
-    }
-  }
+  const labelAction = rule?.actions.find((a) => a.labelId);
+  return labelAction?.labelId ?? null;
 }
 
 async function updateSystemLabelId(options: {
@@ -106,38 +101,20 @@ async function updateSystemLabelId(options: {
 }): Promise<void> {
   const { emailAccountId, type, labelId } = options;
 
-  const fieldMap = {
-    needsReply: "needsReplyLabelId",
-    awaitingReply: "awaitingReplyLabelId",
-    fyi: "fyiLabelId",
-    actioned: "actionedLabelId",
-    coldEmail: "coldEmailLabelId",
-  } as const;
+  // For coldEmail, still use emailAccount field
+  if (type === "coldEmail") {
+    await prisma.emailAccount.update({
+      where: { id: emailAccountId },
+      data: { coldEmailLabelId: labelId },
+    });
+    return;
+  }
 
-  const field = fieldMap[type];
-
-  await prisma.emailAccount.update({
-    where: { id: emailAccountId },
-    data: { [field]: labelId },
-  });
-
-  await updateAffectedRules({ emailAccountId, type, labelId });
-}
-
-async function updateAffectedRules(options: {
-  emailAccountId: string;
-  type: SystemLabelType;
-  labelId: string;
-}): Promise<void> {
-  const { emailAccountId, type, labelId } = options;
-
-  // Only update rules for needsReply type (TO_REPLY system type)
-  if (type !== "needsReply") return;
-
-  const rules = await prisma.rule.findMany({
+  // For conversation tracking labels, update the rule's label action
+  const rule = await prisma.rule.findFirst({
     where: {
       emailAccountId,
-      systemType: SystemType.TO_REPLY,
+      systemType: type,
     },
     include: {
       actions: {
@@ -146,12 +123,42 @@ async function updateAffectedRules(options: {
     },
   });
 
-  for (const rule of rules) {
-    for (const action of rule.actions) {
-      await prisma.action.update({
-        where: { id: action.id },
-        data: { labelId },
-      });
-    }
+  if (!rule) {
+    logger.warn("No rule found for system type, cannot update label", {
+      emailAccountId,
+      type,
+      systemType: type,
+    });
+    return;
+  }
+
+  const labelAction = rule.actions.find((a) => a.type === ActionType.LABEL);
+
+  // Get the label name for this type
+  const labelNames = {
+    TO_REPLY: NEEDS_REPLY_LABEL_NAME,
+    AWAITING_REPLY: AWAITING_REPLY_LABEL_NAME,
+    FYI: FYI_LABEL_NAME,
+    ACTIONED: ACTIONED_LABEL_NAME,
+  };
+  const labelName = labelNames[type];
+
+  if (labelAction) {
+    await prisma.action.update({
+      where: { id: labelAction.id },
+      data: {
+        labelId,
+        label: labelName,
+      },
+    });
+  } else {
+    await prisma.action.create({
+      data: {
+        type: ActionType.LABEL,
+        labelId,
+        label: labelName,
+        ruleId: rule.id,
+      },
+    });
   }
 }

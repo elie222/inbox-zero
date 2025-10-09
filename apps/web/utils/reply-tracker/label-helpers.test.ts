@@ -40,16 +40,36 @@ describe("applyThreadStatusLabel", () => {
       })),
     } as unknown as EmailProvider;
 
-    // Mock prisma to return all label IDs
-    vi.mocked(prisma.emailAccount.findUnique).mockResolvedValue({
-      id: emailAccountId,
-      needsReplyLabelId: "label-needs-reply",
-      awaitingReplyLabelId: "label-awaiting-reply",
-      fyiLabelId: "label-fyi",
-      actionedLabelId: "label-actioned",
-    } as any);
+    // Mock prisma to return rules with label IDs
+    vi.mocked(prisma.rule.findMany).mockResolvedValue([
+      {
+        id: "rule-1",
+        systemType: "TO_REPLY",
+        actions: [
+          { id: "action-1", type: "LABEL", labelId: "label-needs-reply" },
+        ],
+      },
+      {
+        id: "rule-2",
+        systemType: "AWAITING_REPLY",
+        actions: [
+          { id: "action-2", type: "LABEL", labelId: "label-awaiting-reply" },
+        ],
+      },
+      {
+        id: "rule-3",
+        systemType: "FYI",
+        actions: [{ id: "action-3", type: "LABEL", labelId: "label-fyi" }],
+      },
+      {
+        id: "rule-4",
+        systemType: "ACTIONED",
+        actions: [{ id: "action-4", type: "LABEL", labelId: "label-actioned" }],
+      },
+    ] as any);
 
-    vi.mocked(prisma.emailAccount.update).mockResolvedValue({} as any);
+    vi.mocked(prisma.action.update).mockResolvedValue({} as any);
+    vi.mocked(prisma.action.create).mockResolvedValue({} as any);
   });
 
   test("applies TO_REPLY label and removes other thread status labels", async () => {
@@ -237,14 +257,33 @@ describe("removeAllThreadStatusLabels", () => {
       ]),
     } as unknown as EmailProvider;
 
-    // Mock prisma to return all label IDs
-    vi.mocked(prisma.emailAccount.findUnique).mockResolvedValue({
-      id: emailAccountId,
-      needsReplyLabelId: "label-needs-reply",
-      awaitingReplyLabelId: "label-awaiting-reply",
-      fyiLabelId: "label-fyi",
-      actionedLabelId: "label-actioned",
-    } as any);
+    // Mock prisma to return rules with label IDs
+    vi.mocked(prisma.rule.findMany).mockResolvedValue([
+      {
+        id: "rule-1",
+        systemType: "TO_REPLY",
+        actions: [
+          { id: "action-1", type: "LABEL", labelId: "label-needs-reply" },
+        ],
+      },
+      {
+        id: "rule-2",
+        systemType: "AWAITING_REPLY",
+        actions: [
+          { id: "action-2", type: "LABEL", labelId: "label-awaiting-reply" },
+        ],
+      },
+      {
+        id: "rule-3",
+        systemType: "FYI",
+        actions: [{ id: "action-3", type: "LABEL", labelId: "label-fyi" }],
+      },
+      {
+        id: "rule-4",
+        systemType: "ACTIONED",
+        actions: [{ id: "action-4", type: "LABEL", labelId: "label-actioned" }],
+      },
+    ] as any);
   });
 
   test("removes all thread status labels", async () => {

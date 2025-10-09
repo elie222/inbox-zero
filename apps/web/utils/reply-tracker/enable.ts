@@ -33,7 +33,6 @@ export async function enableReplyTracker({
       email: true,
       about: true,
       rulesPrompt: true,
-      needsReplyLabelId: true,
       user: {
         select: {
           aiProvider: true,
@@ -53,6 +52,7 @@ export async function enableReplyTracker({
               id: true,
               type: true,
               label: true,
+              labelId: true,
             },
           },
         },
@@ -78,12 +78,15 @@ export async function enableReplyTracker({
     provider,
   });
 
-  // Use the user's configured system label, or fall back to default label name
+  // Get the label from the rule's label action, or create default
+  const existingLabelAction = rule?.actions.find(
+    (a) => a.type === ActionType.LABEL,
+  );
   const { label: needsReplyLabel, labelId: needsReplyLabelId } =
     await resolveLabelNameAndId({
       emailProvider,
-      label: emailAccount.needsReplyLabelId ? null : NEEDS_REPLY_LABEL_NAME,
-      labelId: emailAccount.needsReplyLabelId,
+      label: existingLabelAction?.labelId ? null : NEEDS_REPLY_LABEL_NAME,
+      labelId: existingLabelAction?.labelId ?? null,
     });
 
   // If rule found, update/create the label action to NEEDS_REPLY_LABEL
@@ -155,7 +158,6 @@ export async function enableReplyTracker({
   await Promise.allSettled([
     enableReplyTracking(updatedRule),
     enableDraftReplies(updatedRule),
-    enableOutboundReplyTracking({ emailAccountId }),
   ]);
 }
 
@@ -169,15 +171,18 @@ export async function createToReplyRule(
     provider,
   });
 
-  const emailAccount = await prisma.emailAccount.findUnique({
-    where: { id: emailAccountId },
-    select: { needsReplyLabelId: true },
+  // Check if there's an existing TO_REPLY rule with a label
+  const existingRule = await prisma.rule.findFirst({
+    where: { emailAccountId, systemType: SystemType.TO_REPLY },
+    include: { actions: { where: { type: ActionType.LABEL } } },
   });
+
+  const existingLabelAction = existingRule?.actions[0];
 
   const labelInfo = await resolveLabelNameAndId({
     emailProvider,
-    label: emailAccount?.needsReplyLabelId ? null : NEEDS_REPLY_LABEL_NAME,
-    labelId: emailAccount?.needsReplyLabelId,
+    label: existingLabelAction?.labelId ? null : NEEDS_REPLY_LABEL_NAME,
+    labelId: existingLabelAction?.labelId ?? null,
   });
 
   return await safeCreateRule({
@@ -240,16 +245,5 @@ export async function enableDraftReplies(
       ruleId: rule.id,
       type: ActionType.DRAFT_EMAIL,
     },
-  });
-}
-
-async function enableOutboundReplyTracking({
-  emailAccountId,
-}: {
-  emailAccountId: string;
-}) {
-  await prisma.emailAccount.update({
-    where: { id: emailAccountId },
-    data: { outboundReplyTracking: true },
   });
 }
