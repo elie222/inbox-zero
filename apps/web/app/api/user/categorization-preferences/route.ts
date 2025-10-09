@@ -6,7 +6,7 @@ import type {
   CategoryAction,
   CreateRulesOnboardingBody,
 } from "@/utils/actions/rule.validation";
-import { getRuleName, SystemRule } from "@/utils/rule/consts";
+import { getRuleName } from "@/utils/rule/consts";
 
 type CategoryConfig = {
   action: CategoryAction | undefined;
@@ -60,44 +60,44 @@ async function getUserPreferences({
 
   return [
     {
-      name: getRuleName(SystemRule.ToReply),
-      key: SystemRule.ToReply,
+      name: getRuleName(SystemType.TO_REPLY),
+      key: SystemType.TO_REPLY,
       description: "",
       ...getRuleSetting(SystemType.TO_REPLY, emailAccount.rules),
     },
     {
-      name: getRuleName(SystemRule.ColdEmail),
-      key: SystemRule.ColdEmail,
+      name: getRuleName(SystemType.COLD_EMAIL),
+      key: SystemType.COLD_EMAIL,
       description: "",
       ...getRuleSetting(SystemType.COLD_EMAIL, emailAccount.rules),
     },
     {
-      name: getRuleName(SystemRule.Newsletter),
-      key: SystemRule.Newsletter,
+      name: getRuleName(SystemType.NEWSLETTER),
+      key: SystemType.NEWSLETTER,
       description: "",
       ...getRuleSetting(SystemType.NEWSLETTER, emailAccount.rules),
     },
     {
-      name: getRuleName(SystemRule.Marketing),
-      key: SystemRule.Marketing,
+      name: getRuleName(SystemType.MARKETING),
+      key: SystemType.MARKETING,
       description: "",
       ...getRuleSetting(SystemType.MARKETING, emailAccount.rules),
     },
     {
-      name: getRuleName(SystemRule.Calendar),
-      key: SystemRule.Calendar,
+      name: getRuleName(SystemType.CALENDAR),
+      key: SystemType.CALENDAR,
       description: "",
       ...getRuleSetting(SystemType.CALENDAR, emailAccount.rules),
     },
     {
-      name: getRuleName(SystemRule.Receipt),
-      key: SystemRule.Receipt,
+      name: getRuleName(SystemType.RECEIPT),
+      key: SystemType.RECEIPT,
       description: "",
       ...getRuleSetting(SystemType.RECEIPT, emailAccount.rules),
     },
     {
-      name: getRuleName(SystemRule.Notification),
-      key: SystemRule.Notification,
+      name: getRuleName(SystemType.NOTIFICATION),
+      key: SystemType.NOTIFICATION,
       description: "",
       ...getRuleSetting(SystemType.NOTIFICATION, emailAccount.rules),
     },

@@ -34,7 +34,11 @@ import {
 import { env } from "@/env";
 import { INTERNAL_API_KEY_HEADER } from "@/utils/internal-api";
 import type { ProcessPreviousBody } from "@/app/api/reply-tracker/process-previous/route";
-import { getRuleName, ruleConfig, SystemRule } from "@/utils/rule/consts";
+import {
+  getCategoryAction,
+  getRuleName,
+  ruleConfig,
+} from "@/utils/rule/consts";
 import { actionClient } from "@/utils/actions/safe-action";
 import { prefixPath } from "@/utils/path";
 import { createRuleHistory } from "@/utils/rule/rule-history";
@@ -42,7 +46,6 @@ import { ONE_WEEK_MINUTES } from "@/utils/date";
 import { createEmailProvider } from "@/utils/email/provider";
 import { resolveLabelNameAndId } from "@/utils/label/resolve-label";
 import { isConversationStatusType } from "@/utils/reply-tracker/conversation-status-config";
-import { isMicrosoftProvider } from "@/utils/email/provider-types";
 
 export const createRuleAction = actionClient
   .metadata({ name: "createRule" })
@@ -395,7 +398,7 @@ export const createRulesOnboardingAction = actionClient
   .schema(createRulesOnboardingBody)
   .action(
     async ({ ctx: { emailAccountId, provider, logger }, parsedInput }) => {
-      const systemCategoryMap: Record<SystemRule, CategoryConfig> = {};
+      const systemCategoryMap: Record<SystemType, CategoryConfig> = {};
       const customCategories: CategoryConfig[] = [];
 
       for (const category of parsedInput) {
@@ -406,13 +409,13 @@ export const createRulesOnboardingAction = actionClient
         }
       }
 
-      const newsletter = systemCategoryMap[SystemRule.Newsletter];
-      const coldEmail = systemCategoryMap[SystemRule.ColdEmail];
-      const toReply = systemCategoryMap[SystemRule.ToReply];
-      const marketing = systemCategoryMap[SystemRule.Marketing];
-      const calendar = systemCategoryMap[SystemRule.Calendar];
-      const receipt = systemCategoryMap[SystemRule.Receipt];
-      const notification = systemCategoryMap[SystemRule.Notification];
+      const newsletter = systemCategoryMap[SystemType.Newsletter];
+      const coldEmail = systemCategoryMap[SystemType.ColdEmail];
+      const toReply = systemCategoryMap[SystemType.ToReply];
+      const marketing = systemCategoryMap[SystemType.Marketing];
+      const calendar = systemCategoryMap[SystemType.Calendar];
+      const receipt = systemCategoryMap[SystemType.Receipt];
+      const notification = systemCategoryMap[SystemType.Notification];
 
       const emailAccount = await prisma.emailAccount.findUnique({
         where: { id: emailAccountId },
@@ -468,10 +471,7 @@ export const createRulesOnboardingAction = actionClient
         const instructions = ruleConfiguration.instructions;
         const label = ruleConfiguration.label;
         const runOnThreads = ruleConfiguration.runOnThreads;
-        const categoryAction = isMicrosoftProvider(provider)
-          ? ruleConfiguration.categoryActionMicrosoft ||
-            ruleConfiguration.categoryAction
-          : ruleConfiguration.categoryAction;
+        const categoryAction = getCategoryAction(systemType, provider);
 
         const existingRule = systemType
           ? await prisma.rule.findUnique({

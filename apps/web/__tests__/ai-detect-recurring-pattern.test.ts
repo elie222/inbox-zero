@@ -2,7 +2,8 @@
 import { describe, expect, test, vi, beforeEach } from "vitest";
 import { aiDetectRecurringPattern } from "@/utils/ai/choose-rule/ai-detect-recurring-pattern";
 import type { EmailForLLM } from "@/utils/types";
-import { getRuleName, ruleConfig, SystemRule } from "@/utils/rule/consts";
+import { getRuleName, ruleConfig } from "@/utils/rule/consts";
+import { SystemType } from "@prisma/client";
 import { getEmailAccount } from "@/__tests__/helpers";
 
 // Run with: pnpm test-ai ai-detect-recurring-pattern
@@ -203,7 +204,7 @@ describe.runIf(isAiTest)(
 
       console.debug("Newsletter pattern detection result:", result);
 
-      expect(result?.matchedRule).toBe(getRuleName(SystemRule.Newsletter));
+      expect(result?.matchedRule).toBe(getRuleName(SystemType.NEWSLETTER));
       expect(result?.explanation).toBeDefined();
     });
 
@@ -216,7 +217,7 @@ describe.runIf(isAiTest)(
 
       console.debug("Receipt pattern detection result:", result);
 
-      expect(result?.matchedRule).toBe(getRuleName(SystemRule.Receipt));
+      expect(result?.matchedRule).toBe(getRuleName(SystemType.RECEIPT));
       expect(result?.explanation).toBeDefined();
     });
 
@@ -229,7 +230,7 @@ describe.runIf(isAiTest)(
 
       console.debug("Calendar pattern detection result:", result);
 
-      expect(result?.matchedRule).toBe(getRuleName(SystemRule.Calendar));
+      expect(result?.matchedRule).toBe(getRuleName(SystemType.CALENDAR));
       expect(result?.explanation).toBeDefined();
     });
 
@@ -269,7 +270,7 @@ describe.runIf(isAiTest)(
 
       expect(
         result === null ||
-          result?.matchedRule === getRuleName(SystemRule.Notification),
+          result?.matchedRule === getRuleName(SystemType.NOTIFICATION),
       ).toBeTruthy();
     });
   },

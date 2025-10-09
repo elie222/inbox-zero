@@ -1,7 +1,8 @@
 import type { IconCircleColor } from "@/app/(app)/[emailAccountId]/onboarding/IconCircle";
 import type { CategoryAction } from "@/utils/actions/rule.validation";
 import { isMicrosoftProvider } from "@/utils/email/provider-types";
-import { SystemRule } from "@/utils/rule/consts";
+import { ruleConfig } from "@/utils/rule/consts";
+import { SystemType } from "@prisma/client";
 import {
   MailIcon,
   NewspaperIcon,
@@ -15,7 +16,7 @@ import {
 export const categoryConfig = (
   provider: string,
 ): {
-  key: SystemRule;
+  key: SystemType;
   label: string;
   tooltipText: string;
   Icon: React.ElementType;
@@ -23,59 +24,57 @@ export const categoryConfig = (
   action: CategoryAction;
 }[] => [
   {
-    key: SystemRule.ToReply,
-    label: "To Reply",
-    tooltipText:
-      "Emails you need to reply to and those where you're awaiting a reply. The label will update automatically as the conversation progresses",
+    key: SystemType.TO_REPLY,
+    label: ruleConfig[SystemType.TO_REPLY].label,
+    tooltipText: ruleConfig[SystemType.TO_REPLY].tooltipText,
     Icon: MailIcon,
     iconColor: "blue",
-    action: "label",
+    action: ruleConfig[SystemType.TO_REPLY].categoryAction,
   },
   {
-    key: SystemRule.Newsletter,
-    label: "Newsletter",
-    tooltipText: "Newsletters, blogs, and publications",
+    key: SystemType.NEWSLETTER,
+    label: ruleConfig[SystemType.NEWSLETTER].label,
+    tooltipText: ruleConfig[SystemType.NEWSLETTER].tooltipText,
     Icon: NewspaperIcon,
     iconColor: "purple",
     action: isMicrosoftProvider(provider) ? "move_folder" : "label",
   },
   {
-    key: SystemRule.Marketing,
-    label: "Marketing",
-    tooltipText: "Promotional emails about sales and offers",
+    key: SystemType.MARKETING,
+    label: ruleConfig[SystemType.MARKETING].label,
+    tooltipText: ruleConfig[SystemType.MARKETING].tooltipText,
     Icon: MegaphoneIcon,
     iconColor: "green",
     action: isMicrosoftProvider(provider) ? "move_folder" : "label_archive",
   },
   {
-    key: SystemRule.Calendar,
-    label: "Calendar",
-    tooltipText: "Events, appointments, and reminders",
+    key: SystemType.CALENDAR,
+    label: ruleConfig[SystemType.CALENDAR].label,
+    tooltipText: ruleConfig[SystemType.CALENDAR].tooltipText,
     Icon: CalendarIcon,
     iconColor: "yellow",
     action: "label",
   },
   {
-    key: SystemRule.Receipt,
-    label: "Receipt",
-    tooltipText: "Invoices, receipts, and payments",
+    key: SystemType.RECEIPT,
+    label: ruleConfig[SystemType.RECEIPT].label,
+    tooltipText: ruleConfig[SystemType.RECEIPT].tooltipText,
     Icon: ReceiptIcon,
     iconColor: "orange",
     action: isMicrosoftProvider(provider) ? "move_folder" : "label",
   },
   {
-    key: SystemRule.Notification,
-    label: "Notification",
-    tooltipText: "Alerts, status updates, and system messages",
+    key: SystemType.NOTIFICATION,
+    label: ruleConfig[SystemType.NOTIFICATION].label,
+    tooltipText: ruleConfig[SystemType.NOTIFICATION].tooltipText,
     Icon: BellIcon,
     iconColor: "red",
     action: isMicrosoftProvider(provider) ? "move_folder" : "label",
   },
   {
-    key: SystemRule.ColdEmail,
-    label: "Cold Email",
-    tooltipText:
-      "Unsolicited sales pitches and cold emails. We'll never block someone that's emailed you before",
+    key: SystemType.COLD_EMAIL,
+    label: ruleConfig[SystemType.COLD_EMAIL].label,
+    tooltipText: ruleConfig[SystemType.COLD_EMAIL].tooltipText,
     Icon: UsersIcon,
     iconColor: "indigo",
     action: isMicrosoftProvider(provider) ? "move_folder" : "label_archive",

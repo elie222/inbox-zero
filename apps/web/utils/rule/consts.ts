@@ -1,21 +1,9 @@
 import { DEFAULT_COLD_EMAIL_PROMPT } from "@/utils/cold-email/prompt";
-
-export const SystemRule = {
-  ToReply: "To Reply",
-  AwaitingReply: "Awaiting Reply",
-  Fyi: "FYI",
-  Actioned: "Actioned",
-  Newsletter: "Newsletter",
-  Marketing: "Marketing",
-  Calendar: "Calendar",
-  Receipt: "Receipt",
-  Notification: "Notification",
-  ColdEmail: "Cold Email",
-};
-export type SystemRule = (typeof SystemRule)[keyof typeof SystemRule];
+import { isMicrosoftProvider } from "@/utils/email/provider-types";
+import { SystemType } from "@prisma/client";
 
 export const ruleConfig: Record<
-  SystemRule,
+  SystemType,
   {
     name: string;
     instructions: string;
@@ -24,38 +12,44 @@ export const ruleConfig: Record<
     runOnThreads: boolean;
     categoryAction: "label" | "label_archive" | "move_folder";
     categoryActionMicrosoft?: "move_folder";
+    tooltipText: string;
   }
 > = {
-  [SystemRule.ToReply]: {
+  [SystemType.TO_REPLY]: {
     name: "To Reply",
     instructions: "Emails you need to respond to",
     label: "To Reply",
     draftReply: true,
     runOnThreads: true,
     categoryAction: "label",
+    tooltipText:
+      "Emails you need to reply to and those where you're awaiting a reply. The label will update automatically as the conversation progresses",
   },
-  [SystemRule.AwaitingReply]: {
+  [SystemType.AWAITING_REPLY]: {
     name: "Awaiting Reply",
     instructions: "Emails you're expecting a reply to",
     label: "Awaiting Reply",
     runOnThreads: true,
     categoryAction: "label",
+    tooltipText: "",
   },
-  [SystemRule.Fyi]: {
+  [SystemType.FYI]: {
     name: "FYI",
     instructions: "Emails that don't require your response, but are important",
     label: "FYI",
     runOnThreads: true,
     categoryAction: "label",
+    tooltipText: "",
   },
-  [SystemRule.Actioned]: {
+  [SystemType.ACTIONED]: {
     name: "Actioned",
     instructions: "Email threads that have been resolved",
     label: "Actioned",
     runOnThreads: true,
     categoryAction: "label",
+    tooltipText: "",
   },
-  [SystemRule.Newsletter]: {
+  [SystemType.NEWSLETTER]: {
     name: "Newsletter",
     instructions:
       "Newsletters: Regular content from publications, blogs, or services I've subscribed to",
@@ -63,8 +57,9 @@ export const ruleConfig: Record<
     runOnThreads: false,
     categoryAction: "label",
     categoryActionMicrosoft: "move_folder",
+    tooltipText: "Newsletters, blogs, and publications",
   },
-  [SystemRule.Marketing]: {
+  [SystemType.MARKETING]: {
     name: "Marketing",
     instructions:
       "Marketing: Promotional emails about products, services, sales, or offers",
@@ -72,16 +67,18 @@ export const ruleConfig: Record<
     runOnThreads: false,
     categoryAction: "label_archive",
     categoryActionMicrosoft: "move_folder",
+    tooltipText: "Promotional emails about sales and offers",
   },
-  [SystemRule.Calendar]: {
+  [SystemType.CALENDAR]: {
     name: "Calendar",
     instructions:
       "Calendar: Any email related to scheduling, meeting invites, or calendar notifications",
     label: "Calendar",
     runOnThreads: false,
     categoryAction: "label",
+    tooltipText: "Events, appointments, and reminders",
   },
-  [SystemRule.Receipt]: {
+  [SystemType.RECEIPT]: {
     name: "Receipt",
     instructions:
       "Receipts: Purchase confirmations, payment receipts, transaction records or invoices",
@@ -89,29 +86,44 @@ export const ruleConfig: Record<
     runOnThreads: false,
     categoryAction: "label",
     categoryActionMicrosoft: "move_folder",
+    tooltipText: "Invoices, receipts, and payments",
   },
-  [SystemRule.Notification]: {
+  [SystemType.NOTIFICATION]: {
     name: "Notification",
     instructions: "Notifications: Alerts, status updates, or system messages",
     label: "Notification",
     runOnThreads: false,
     categoryAction: "label",
     categoryActionMicrosoft: "move_folder",
+    tooltipText: "Alerts, status updates, and system messages",
   },
-  [SystemRule.ColdEmail]: {
+  [SystemType.COLD_EMAIL]: {
     name: "Cold Email",
     instructions: DEFAULT_COLD_EMAIL_PROMPT,
     label: "Cold Email",
     runOnThreads: false,
     categoryAction: "label_archive",
     categoryActionMicrosoft: "move_folder",
+    tooltipText:
+      "Unsolicited sales pitches and cold emails. We'll never block someone that's emailed you before",
   },
 };
 
-export function getRuleName(systemRule: SystemRule) {
+export function getRuleName(systemRule: SystemType) {
   return ruleConfig[systemRule].name;
 }
 
-export function getRuleLabel(systemRule: SystemRule) {
+export function getRuleLabel(systemRule: SystemType) {
   return ruleConfig[systemRule].label;
+}
+
+export function getCategoryAction(systemRule: SystemType, provider: string) {
+  if (isMicrosoftProvider(provider)) {
+    return (
+      ruleConfig[systemRule].categoryActionMicrosoft ||
+      ruleConfig[systemRule].categoryAction
+    );
+  }
+
+  return ruleConfig[systemRule].categoryAction;
 }

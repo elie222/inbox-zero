@@ -4,7 +4,8 @@ import { digestBody } from "./validation";
 import { DigestStatus } from "@prisma/client";
 import { createScopedLogger } from "@/utils/logger";
 import prisma from "@/utils/prisma";
-import { getRuleName, SystemRule } from "@/utils/rule/consts";
+import { getRuleName } from "@/utils/rule/consts";
+import { SystemType } from "@prisma/client";
 import { aiSummarizeEmailForDigest } from "@/utils/ai/digest/summarize-email-for-digest";
 import { getEmailAccountWithAi } from "@/utils/user/get";
 import type { StoredDigestContent } from "@/app/api/resend/digest/validation";
@@ -78,10 +79,10 @@ export const POST = withError(
 );
 
 async function resolveRuleName(actionId?: string): Promise<string> {
-  if (!actionId) return getRuleName(SystemRule.ColdEmail);
+  if (!actionId) return getRuleName(SystemType.COLD_EMAIL);
 
   const ruleName = await getRuleNameByExecutedAction(actionId);
-  return ruleName || getRuleName(SystemRule.ColdEmail);
+  return ruleName || getRuleName(SystemType.COLD_EMAIL);
 }
 
 async function findOrCreateDigest(

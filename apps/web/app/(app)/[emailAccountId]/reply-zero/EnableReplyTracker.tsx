@@ -18,6 +18,7 @@ import {
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { prefixPath } from "@/utils/path";
 import { ruleConfig } from "@/utils/rule/consts";
+import { SystemType } from "@prisma/client";
 
 export function EnableReplyTracker({ enabled }: { enabled: boolean }) {
   const router = useRouter();
@@ -38,12 +39,14 @@ export function EnableReplyTracker({ enabled }: { enabled: boolean }) {
           <SectionDescription>We label your emails with:</SectionDescription>
 
           <SectionDescription>
-            <Badge color="green">{ruleConfig.ToReply.label}</Badge> - emails you
-            need to reply to.
+            <Badge color="green">{ruleConfig[SystemType.TO_REPLY].label}</Badge>{" "}
+            - emails you need to reply to.
           </SectionDescription>
           <SectionDescription>
-            <Badge color="blue">{ruleConfig.AwaitingReply.label}</Badge> -
-            emails where you're waiting for a response.
+            <Badge color="blue">
+              {ruleConfig[SystemType.AWAITING_REPLY].label}
+            </Badge>{" "}
+            - emails where you're waiting for a response.
           </SectionDescription>
 
           <SectionDescription className="mt-4">

@@ -1411,8 +1411,8 @@ function ReplyTrackerAction() {
     <div className="flex h-full items-center justify-center">
       <div className="max-w-sm text-center text-sm text-muted-foreground">
         This action tracks emails this rule is applied to and removes the{" "}
-        <Badge color="green">{ruleConfig.ToReply.label}</Badge> label after you
-        reply to the email.
+        <Badge color="green">{ruleConfig[SystemType.TO_REPLY].label}</Badge>{" "}
+        label after you reply to the email.
       </div>
     </div>
   );

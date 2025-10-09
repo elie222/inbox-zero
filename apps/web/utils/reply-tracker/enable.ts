@@ -81,7 +81,9 @@ export async function enableReplyTracker({
   const { label: needsReplyLabel, labelId: needsReplyLabelId } =
     await resolveLabelNameAndId({
       emailProvider,
-      label: existingLabelAction?.labelId ? null : ruleConfig.ToReply.label,
+      label: existingLabelAction?.labelId
+        ? null
+        : ruleConfig[SystemType.TO_REPLY].label,
       labelId: existingLabelAction?.labelId ?? null,
     });
 
@@ -183,15 +185,17 @@ export async function createToReplyRule(
 
   const labelInfo = await resolveLabelNameAndId({
     emailProvider,
-    label: existingLabelAction?.labelId ? null : ruleConfig.ToReply.label,
+    label: existingLabelAction?.labelId
+      ? null
+      : ruleConfig[SystemType.TO_REPLY].label,
     labelId: existingLabelAction?.labelId ?? null,
   });
 
   return await safeCreateRule({
     result: {
-      name: ruleConfig.ToReply.name,
+      name: ruleConfig[SystemType.TO_REPLY].name,
       condition: {
-        aiInstructions: ruleConfig.ToReply.instructions,
+        aiInstructions: ruleConfig[SystemType.TO_REPLY].instructions,
         conditionalOperator: null,
         static: null,
       },
@@ -266,17 +270,17 @@ async function enableRelatedConversationStatuses({
   const statusesToEnable = [
     {
       systemType: SystemType.FYI,
-      labelName: ruleConfig.Fyi.label,
+      labelName: ruleConfig[SystemType.FYI].label,
       name: getRuleName(SystemType.FYI),
     },
     {
       systemType: SystemType.AWAITING_REPLY,
-      labelName: ruleConfig.AwaitingReply.label,
+      labelName: ruleConfig[SystemType.AWAITING_REPLY].label,
       name: getRuleName(SystemType.AWAITING_REPLY),
     },
     {
       systemType: SystemType.ACTIONED,
-      labelName: ruleConfig.Actioned.label,
+      labelName: ruleConfig[SystemType.ACTIONED].label,
       name: getRuleName(SystemType.ACTIONED),
     },
   ];

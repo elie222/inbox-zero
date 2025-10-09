@@ -15,7 +15,8 @@ import {
 } from "./validation";
 import { DigestStatus } from "@prisma/client";
 import { extractNameFromEmail } from "../../../../utils/email";
-import { getRuleName, SystemRule } from "@/utils/rule/consts";
+import { getRuleName } from "@/utils/rule/consts";
+import { SystemType } from "@prisma/client";
 import { verifySignatureAppRouter } from "@upstash/qstash/nextjs";
 import { camelCase } from "lodash";
 import { createEmailProvider } from "@/utils/email/provider";
@@ -220,7 +221,7 @@ async function sendEmail({
 
         const ruleName =
           item.action?.executedRule?.rule?.name ||
-          getRuleName(SystemRule.ColdEmail);
+          getRuleName(SystemType.COLD_EMAIL);
 
         const ruleNameKey = camelCase(ruleName);
         if (!ruleNameMap.has(ruleNameKey)) {
