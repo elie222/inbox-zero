@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { processHistoryItem } from "./process-history-item";
 import { HistoryEventType } from "./types";
-import { ColdEmailSetting, NewsletterStatus } from "@prisma/client";
+import { NewsletterStatus } from "@prisma/client";
 import type { gmail_v1 } from "@googleapis/gmail";
 import { isAssistantEmail } from "@/utils/assistant/is-assistant-email";
 import { runColdEmailBlocker } from "@/utils/cold-email/is-cold-email";
@@ -14,7 +14,6 @@ import { getEmailAccount } from "@/__tests__/helpers";
 import { enqueueDigestItem } from "@/utils/digest/index";
 import { createEmailProvider } from "@/utils/email/provider";
 import { inboxZeroLabels } from "@/utils/label";
-import { shouldRunColdEmailBlocker } from "@/utils/webhook/process-history-item";
 
 vi.mock("server-only", () => ({}));
 vi.mock("next/server", () => ({
@@ -155,9 +154,6 @@ describe("processHistoryItem", () => {
   function getDefaultEmailAccount() {
     return {
       ...getEmailAccount(),
-      coldEmailPrompt: null,
-      coldEmailBlocker: ColdEmailSetting.DISABLED,
-      coldEmailDigest: false,
       autoCategorizeSenders: false,
     };
   }
@@ -281,10 +277,7 @@ describe("processHistoryItem", () => {
   it("should run cold email blocker when enabled", async () => {
     const options = {
       ...defaultOptions,
-      emailAccount: {
-        ...getDefaultEmailAccount(),
-        coldEmailBlocker: ColdEmailSetting.ARCHIVE_AND_LABEL,
-      },
+      emailAccount: getDefaultEmailAccount(),
       hasAiAccess: true,
     };
 
@@ -317,7 +310,6 @@ describe("processHistoryItem", () => {
       ...defaultOptions,
       emailAccount: {
         ...getDefaultEmailAccount(),
-        coldEmailBlocker: ColdEmailSetting.ARCHIVE_AND_LABEL,
         autoCategorizeSenders: true,
       },
       hasAutomationRules: true,
@@ -346,8 +338,6 @@ describe("processHistoryItem", () => {
       ...defaultOptions,
       emailAccount: {
         ...getDefaultEmailAccount(),
-        coldEmailBlocker: ColdEmailSetting.ARCHIVE_AND_LABEL,
-        coldEmailDigest: true,
         autoCategorizeSenders: true,
       },
       hasAutomationRules: true,
@@ -395,8 +385,6 @@ describe("processHistoryItem", () => {
       ...defaultOptions,
       emailAccount: {
         ...getDefaultEmailAccount(),
-        coldEmailBlocker: ColdEmailSetting.DISABLED,
-        coldEmailDigest: true,
         autoCategorizeSenders: true,
       },
       hasAutomationRules: true,
@@ -420,8 +408,6 @@ describe("processHistoryItem", () => {
       ...defaultOptions,
       emailAccount: {
         ...getDefaultEmailAccount(),
-        coldEmailBlocker: ColdEmailSetting.ARCHIVE_AND_LABEL,
-        coldEmailDigest: true,
         autoCategorizeSenders: true,
       },
       hasAutomationRules: true,
@@ -447,8 +433,6 @@ describe("processHistoryItem", () => {
       ...defaultOptions,
       emailAccount: {
         ...getDefaultEmailAccount(),
-        coldEmailBlocker: ColdEmailSetting.ARCHIVE_AND_LABEL,
-        coldEmailDigest: true,
         autoCategorizeSenders: true,
       },
       hasAutomationRules: true,
@@ -490,41 +474,5 @@ describe("processHistoryItem", () => {
     // Verify that further processing is still skipped for cold emails
     expect(categorizeSender).not.toHaveBeenCalled();
     expect(runRules).not.toHaveBeenCalled();
-  });
-});
-
-describe("shouldRunColdEmailBlocker", () => {
-  it("should return true when coldEmailBlocker is ARCHIVE_AND_READ_AND_LABEL and hasColdEmailAccess is true", () => {
-    const result = shouldRunColdEmailBlocker(
-      ColdEmailSetting.ARCHIVE_AND_READ_AND_LABEL,
-      true,
-    );
-    expect(result).toBe(true);
-  });
-
-  it("should return true when coldEmailBlocker is ARCHIVE_AND_LABEL and hasColdEmailAccess is true", () => {
-    const result = shouldRunColdEmailBlocker(
-      ColdEmailSetting.ARCHIVE_AND_LABEL,
-      true,
-    );
-    expect(result).toBe(true);
-  });
-
-  it("should return true when coldEmailBlocker is LABEL and hasColdEmailAccess is true", () => {
-    const result = shouldRunColdEmailBlocker(ColdEmailSetting.LABEL, true);
-    expect(result).toBe(true);
-  });
-
-  it("should return false when coldEmailBlocker is DISABLED and hasColdEmailAccess is true", () => {
-    const result = shouldRunColdEmailBlocker(ColdEmailSetting.DISABLED, true);
-    expect(result).toBe(false);
-  });
-
-  it("should return false when hasColdEmailAccess is false", () => {
-    const result = shouldRunColdEmailBlocker(
-      ColdEmailSetting.ARCHIVE_AND_LABEL,
-      false,
-    );
-    expect(result).toBe(false);
   });
 });

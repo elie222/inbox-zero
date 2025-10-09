@@ -11,14 +11,13 @@ import {
   createRulesOnboardingBody,
   type CategoryConfig,
   type CategoryAction,
-  toggleConversationStatusBody,
+  toggleRuleBody,
 } from "@/utils/actions/rule.validation";
 import prisma from "@/utils/prisma";
 import { isDuplicateError, isNotFoundError } from "@/utils/prisma-helpers";
 import { flattenConditions } from "@/utils/condition";
 import {
   ActionType,
-  ColdEmailSetting,
   LogicalOperator,
   type Rule,
   SystemType,
@@ -42,7 +41,8 @@ import { createRuleHistory } from "@/utils/rule/rule-history";
 import { ONE_WEEK_MINUTES } from "@/utils/date";
 import { createEmailProvider } from "@/utils/email/provider";
 import { resolveLabelNameAndId } from "@/utils/label/resolve-label";
-import { CONVERSATION_STATUSES } from "@/utils/reply-tracker/conversation-status-config";
+import { DEFAULT_COLD_EMAIL_PROMPT } from "@/utils/cold-email/prompt";
+import { isConversationStatusType } from "@/utils/reply-tracker/conversation-status-config";
 
 function getCategoryActionDescription(categoryAction: CategoryAction): string {
   switch (categoryAction) {
@@ -512,21 +512,6 @@ export const createRulesOnboardingAction = actionClient
         | "move_folder"
         | "move_folder_delayed" => value !== "none" && value !== undefined;
 
-      // cold email blocker
-      if (coldEmail && isSet(coldEmail.action)) {
-        const promise = prisma.emailAccount.update({
-          where: { id: emailAccountId },
-          data: {
-            coldEmailBlocker:
-              coldEmail.action === "label"
-                ? ColdEmailSetting.LABEL
-                : ColdEmailSetting.ARCHIVE_AND_LABEL,
-            coldEmailDigest: coldEmail.hasDigest ?? false,
-          },
-        });
-        promises.push(promise);
-      }
-
       const rules: string[] = [];
 
       // reply tracker
@@ -754,6 +739,23 @@ export const createRulesOnboardingAction = actionClient
         deleteRule(SystemType.NOTIFICATION, emailAccountId);
       }
 
+      // cold email blocker
+      if (coldEmail && isSet(coldEmail.action)) {
+        createRule(
+          RuleName.ColdEmail,
+          DEFAULT_COLD_EMAIL_PROMPT,
+          "Block cold emails",
+          false,
+          coldEmail.action,
+          "Cold Email",
+          SystemType.COLD_EMAIL,
+          emailAccountId,
+          !!coldEmail.hasDigest,
+        );
+      } else {
+        deleteRule(SystemType.COLD_EMAIL, emailAccountId);
+      }
+
       // Create rules for custom categories
       for (const customCategory of customCategories) {
         if (customCategory.action && isSet(customCategory.action)) {
@@ -785,23 +787,26 @@ export const createRulesOnboardingAction = actionClient
     },
   );
 
-export const toggleConversationStatusAction = actionClient
-  .metadata({ name: "toggleConversationStatus" })
-  .schema(toggleConversationStatusBody)
+export const toggleRuleAction = actionClient
+  .metadata({ name: "toggleRule" })
+  .schema(toggleRuleBody)
   .action(
     async ({
       ctx: { emailAccountId, provider },
-      parsedInput: { systemType, enabled },
+      parsedInput: { ruleId, systemType, enabled },
     }) => {
-      const statusConfig = CONVERSATION_STATUSES.find(
-        (s) => s.systemType === systemType,
-      );
-
-      if (!statusConfig) {
-        throw new SafeError(`Invalid system type: ${systemType}`);
+      if (ruleId) {
+        await prisma.rule.update({
+          where: { id: ruleId, emailAccountId },
+          data: { enabled },
+        });
+        return;
       }
 
-      // Find existing rule
+      if (!systemType) {
+        throw new SafeError("System type is required");
+      }
+
       const existingRule = await prisma.rule.findUnique({
         where: {
           emailAccountId_systemType: {
@@ -811,84 +816,79 @@ export const toggleConversationStatusAction = actionClient
         },
       });
 
-      if (enabled) {
-        if (existingRule) {
-          // Rule exists, just enable it
-          await prisma.rule.update({
-            where: { id: existingRule.id },
-            data: { enabled: true },
-          });
-        } else {
-          // Create new rule
-          const emailProvider = await createEmailProvider({
-            emailAccountId,
-            provider,
-          });
+      if (existingRule) {
+        await prisma.rule.update({
+          where: { id: existingRule.id },
+          data: { enabled },
+        });
+        return;
+      }
 
-          const labelInfo = await resolveLabelNameAndId({
-            emailProvider,
-            label: statusConfig.labelName,
-            labelId: null, // Will create if doesn't exist
-          });
+      // Create new rule
+      const emailProvider = await createEmailProvider({
+        emailAccountId,
+        provider,
+      });
 
-          const createdRule = await safeCreateRule({
-            result: {
-              name: statusConfig.name,
-              condition: {
-                aiInstructions:
-                  "Personal conversations with real people. Excludes: automated notifications and bulk emails.",
-                conditionalOperator: null,
-                static: null,
+      const labelInfo = await resolveLabelNameAndId({
+        emailProvider,
+        label: RuleName[systemType],
+        labelId: null, // Will create if doesn't exist
+      });
+
+      const createdRule = await safeCreateRule({
+        result: {
+          name: RuleName[systemType],
+          condition: {
+            aiInstructions:
+              "Personal conversations with real people. Excludes: automated notifications and bulk emails.",
+            conditionalOperator: null,
+            static: null,
+          },
+          actions: [
+            {
+              type: ActionType.LABEL,
+              labelId: labelInfo.labelId,
+              fields: {
+                label: labelInfo.label,
+                to: null,
+                subject: null,
+                content: null,
+                cc: null,
+                bcc: null,
+                webhookUrl: null,
+                folderName: null,
               },
-              actions: [
-                {
-                  type: ActionType.LABEL,
-                  labelId: labelInfo.labelId,
-                  fields: {
-                    label: labelInfo.label,
-                    to: null,
-                    subject: null,
-                    content: null,
-                    cc: null,
-                    bcc: null,
-                    webhookUrl: null,
-                    folderName: null,
-                  },
-                },
-                {
-                  type: ActionType.TRACK_THREAD,
-                  fields: {
-                    label: null,
-                    to: null,
-                    subject: null,
-                    content: null,
-                    cc: null,
-                    bcc: null,
-                    webhookUrl: null,
-                    folderName: null,
-                  },
-                },
-              ],
             },
-            emailAccountId,
-            systemType,
-            triggerType: "manual_creation",
-            shouldCreateIfDuplicate: false,
-            provider,
-          });
+            // only enable tracking if conversation status rule
+            ...(isConversationStatusType(systemType)
+              ? [
+                  {
+                    type: ActionType.TRACK_THREAD,
+                    fields: {
+                      label: null,
+                      to: null,
+                      subject: null,
+                      content: null,
+                      cc: null,
+                      bcc: null,
+                      webhookUrl: null,
+                      folderName: null,
+                    },
+                  },
+                ]
+              : []),
+          ],
+        },
+        emailAccountId,
+        systemType,
+        triggerType: "manual_creation",
+        shouldCreateIfDuplicate: true,
+        provider,
+      });
 
-          if (!createdRule) {
-            throw new SafeError("Failed to create rule");
-          }
-        }
-      } else {
-        // Disable the rule
-        if (existingRule) {
-          await prisma.rule.update({
-            where: { id: existingRule.id },
-            data: { enabled: false },
-          });
-        }
+      if (!createdRule) {
+        throw new SafeError("Failed to create rule");
       }
     },
   );

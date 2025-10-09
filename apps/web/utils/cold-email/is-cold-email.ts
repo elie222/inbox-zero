@@ -1,11 +1,7 @@
 import { z } from "zod";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
-import type { ColdEmail } from "@prisma/client";
-import {
-  ColdEmailSetting,
-  ColdEmailStatus,
-  type EmailAccount,
-} from "@prisma/client";
+import type { ColdEmail, Rule } from "@prisma/client";
+import { ActionType, ColdEmailStatus } from "@prisma/client";
 import prisma from "@/utils/prisma";
 import { DEFAULT_COLD_EMAIL_PROMPT } from "@/utils/cold-email/prompt";
 import { stringifyEmail } from "@/utils/stringify-email";
@@ -15,6 +11,7 @@ import type { EmailProvider } from "@/utils/email/types";
 import { getModel, type ModelType } from "@/utils/llms/model";
 import { createGenerateObject } from "@/utils/llms";
 import { getOrCreateSystemLabelId } from "@/utils/label-config";
+import type { ColdEmailRule } from "@/utils/cold-email/cold-email-rule";
 
 export const COLD_EMAIL_FOLDER_NAME = "Cold Emails";
 
@@ -27,11 +24,13 @@ export async function isColdEmail({
   emailAccount,
   provider,
   modelType,
+  coldEmailRule,
 }: {
   email: EmailForLLM & { threadId?: string };
-  emailAccount: Pick<EmailAccount, "coldEmailPrompt"> & EmailAccountWithAI;
+  emailAccount: EmailAccountWithAI;
   provider: EmailProvider;
   modelType?: ModelType;
+  coldEmailRule: Pick<Rule, "instructions"> | null;
 }): Promise<{
   isColdEmail: boolean;
   reason: ColdEmailBlockerReason;
@@ -73,8 +72,13 @@ export async function isColdEmail({
     return { isColdEmail: false, reason: "hasPreviousEmail" };
   }
 
-  // otherwise run through ai to see if it's a cold email
-  const res = await aiIsColdEmail(email, emailAccount, modelType);
+  // run through ai to see if it's a cold email
+  const res = await aiIsColdEmail(
+    email,
+    emailAccount,
+    coldEmailRule?.instructions || DEFAULT_COLD_EMAIL_PROMPT,
+    modelType,
+  );
 
   logger.info("AI is cold email?", {
     ...loggerOptions,
@@ -110,13 +114,14 @@ async function isKnownColdEmailSender({
 
 async function aiIsColdEmail(
   email: EmailForLLM,
-  emailAccount: Pick<EmailAccount, "coldEmailPrompt"> & EmailAccountWithAI,
+  emailAccount: EmailAccountWithAI,
+  coldEmailPrompt: string,
   modelType?: ModelType,
 ) {
   const system = `You are an assistant that decides if an email is a cold email or not.
 
 <instructions>
-${emailAccount.coldEmailPrompt || DEFAULT_COLD_EMAIL_PROMPT}
+${coldEmailPrompt || DEFAULT_COLD_EMAIL_PROMPT}
 </instructions>
 
 <output_format>
@@ -159,12 +164,18 @@ ${stringifyEmail(email, 500)}
   return response.object;
 }
 
-export async function runColdEmailBlocker(options: {
+export async function runColdEmailBlocker({
+  email,
+  provider,
+  emailAccount,
+  modelType,
+  coldEmailRule,
+}: {
   email: EmailForLLM & { threadId: string };
   provider: EmailProvider;
-  emailAccount: Pick<EmailAccount, "coldEmailPrompt" | "coldEmailBlocker"> &
-    EmailAccountWithAI;
+  emailAccount: EmailAccountWithAI;
   modelType: ModelType;
+  coldEmailRule: ColdEmailRule;
 }): Promise<{
   isColdEmail: boolean;
   reason: ColdEmailBlockerReason;
@@ -172,29 +183,33 @@ export async function runColdEmailBlocker(options: {
   coldEmailId?: string | null;
 }> {
   const response = await isColdEmail({
-    email: options.email,
-    emailAccount: options.emailAccount,
-    provider: options.provider,
-    modelType: options.modelType,
+    email,
+    emailAccount,
+    provider,
+    modelType,
+    coldEmailRule,
   });
 
   if (!response.isColdEmail) return { ...response, coldEmailId: null };
 
   const coldEmail = await blockColdEmail({
-    ...options,
+    email,
+    emailAccount,
+    provider,
     aiReason: response.aiReason ?? null,
+    coldEmailRule,
   });
   return { ...response, coldEmailId: coldEmail.id };
 }
 
-// New function that works with EmailProvider
 export async function blockColdEmail(options: {
   provider: EmailProvider;
   email: { from: string; id: string; threadId: string };
-  emailAccount: Pick<EmailAccount, "coldEmailBlocker"> & EmailAccountWithAI;
+  emailAccount: EmailAccountWithAI;
   aiReason: string | null;
+  coldEmailRule: ColdEmailRule;
 }): Promise<ColdEmail> {
-  const { provider, email, emailAccount, aiReason } = options;
+  const { provider, email, emailAccount, aiReason, coldEmailRule } = options;
 
   const coldEmail = await prisma.coldEmail.upsert({
     where: {
@@ -214,28 +229,22 @@ export async function blockColdEmail(options: {
     },
   });
 
-  if (
-    emailAccount.coldEmailBlocker === ColdEmailSetting.LABEL ||
-    emailAccount.coldEmailBlocker === ColdEmailSetting.ARCHIVE_AND_LABEL ||
-    emailAccount.coldEmailBlocker ===
-      ColdEmailSetting.ARCHIVE_AND_READ_AND_LABEL
-  ) {
-    if (!emailAccount.email) throw new Error("User email is required");
+  if (!emailAccount.email) throw new Error("User email is required");
 
+  if (coldEmailRule.actions.length > 0) {
     const coldEmailLabelId = await getOrCreateSystemLabelId({
       emailAccountId: emailAccount.id,
-      type: "coldEmail",
+      type: "COLD_EMAIL",
       provider,
     });
 
-    const shouldArchive =
-      emailAccount.coldEmailBlocker === ColdEmailSetting.ARCHIVE_AND_LABEL ||
-      emailAccount.coldEmailBlocker ===
-        ColdEmailSetting.ARCHIVE_AND_READ_AND_LABEL;
+    const shouldArchive = coldEmailRule.actions.some(
+      (action) => action.type === ActionType.ARCHIVE,
+    );
 
-    const shouldMarkRead =
-      emailAccount.coldEmailBlocker ===
-      ColdEmailSetting.ARCHIVE_AND_READ_AND_LABEL;
+    const shouldMarkRead = coldEmailRule.actions.some(
+      (action) => action.type === ActionType.MARK_READ,
+    );
 
     if (coldEmailLabelId) {
       await provider.labelMessage({

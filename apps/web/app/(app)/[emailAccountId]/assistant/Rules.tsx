@@ -35,85 +35,31 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { setRuleEnabledAction } from "@/utils/actions/ai-rule";
-import { deleteRuleAction } from "@/utils/actions/rule";
-import { updateColdEmailSettingsAction } from "@/utils/actions/cold-email";
+import { deleteRuleAction, toggleRuleAction } from "@/utils/actions/rule";
 import { conditionsToString } from "@/utils/condition";
 import { Badge } from "@/components/Badge";
 import { getActionColor } from "@/components/PlanBadge";
 import { toastError } from "@/components/Toast";
 import { useRules } from "@/hooks/useRules";
-import { ActionType, ColdEmailSetting, LogicalOperator } from "@prisma/client";
+import { ActionType, LogicalOperator, SystemType } from "@prisma/client";
 import { useAction } from "next-safe-action/hooks";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { prefixPath } from "@/utils/path";
 import { ExpandableText } from "@/components/ExpandableText";
-import { useEmailAccountFull } from "@/hooks/useEmailAccountFull";
 import type { RulesResponse } from "@/app/api/user/rules/route";
 import { sortActionsByPriority } from "@/utils/action-sort";
-import { inboxZeroLabels } from "@/utils/label";
-import { isDefined } from "@/utils/types";
 import { getActionDisplay, getActionIcon } from "@/utils/action-display";
 import { RuleDialog } from "./RuleDialog";
 import { useDialogState } from "@/hooks/useDialogState";
 import { ColdEmailDialog } from "@/app/(app)/[emailAccountId]/cold-email-blocker/ColdEmailDialog";
 import { useChat } from "@/providers/ChatProvider";
 import { useSidebar } from "@/components/ui/sidebar";
-import {
-  isGoogleProvider,
-  isMicrosoftProvider,
-} from "@/utils/email/provider-types";
 import { useLabels } from "@/hooks/useLabels";
 import {
   CONVERSATION_STATUSES,
   isConversationStatusType,
   type ConversationStatus,
 } from "@/utils/reply-tracker/conversation-status-config";
-import { toggleConversationStatusAction } from "@/utils/actions/rule";
-
-const COLD_EMAIL_BLOCKER_RULE_ID = "cold-email-blocker-rule";
-
-function getSystemRuleDescription(
-  systemType: string | null,
-  isColdEmailBlocker: boolean,
-) {
-  if (isColdEmailBlocker) {
-    return {
-      condition: "Block cold emails",
-      tooltip:
-        "Uses AI to detect and automatically handle unsolicited outreach emails",
-    };
-  }
-
-  switch (systemType) {
-    case "TO_REPLY":
-      return {
-        condition: "Emails needing your direct response",
-        tooltip:
-          "Tracks emails where someone is waiting for your reply. Excludes automated notifications, bulk emails, and newsletters.",
-      };
-    case "FYI":
-      return {
-        condition: "Important emails that don't need a response",
-        tooltip:
-          "Tracks emails that need your attention but don't require you or the other person to reply. Useful for keeping informed without action items.",
-      };
-    case "AWAITING_REPLY":
-      return {
-        condition: "Emails you're expecting a reply to",
-        tooltip:
-          "Tracks emails where you've replied and are waiting for the other person to respond back.",
-      };
-    case "ACTIONED":
-      return {
-        condition: "Resolved email threads",
-        tooltip:
-          "Marks email threads as complete with nothing left to do. Useful for keeping track of finished conversations.",
-      };
-    default:
-      return null;
-  }
-}
 
 export function Rules({
   size = "md",
@@ -125,8 +71,7 @@ export function Rules({
   const { data, isLoading, error, mutate } = useRules();
   const { setOpen } = useSidebar();
   const { setInput } = useChat();
-  const { data: emailAccountData, mutate: mutateEmailAccount } =
-    useEmailAccountFull();
+
   const { userLabels } = useLabels();
   const ruleDialog = useDialogState<{ ruleId: string; editMode?: boolean }>();
   const coldEmailDialog = useDialogState();
@@ -134,11 +79,8 @@ export function Rules({
   const onCreateRule = () => ruleDialog.onOpen();
 
   const { emailAccountId, provider } = useAccount();
-  const { executeAsync: setRuleEnabled } = useAction(
-    setRuleEnabledAction.bind(null, emailAccountId),
-    {
-      onSettled: () => mutate(),
-    },
+  const { executeAsync: toggleRule } = useAction(
+    toggleRuleAction.bind(null, emailAccountId),
   );
   const { executeAsync: deleteRule } = useAction(
     deleteRuleAction.bind(null, emailAccountId),
@@ -146,11 +88,8 @@ export function Rules({
       onSettled: () => mutate(),
     },
   );
-  const { executeAsync: updateColdEmailSettings } = useAction(
-    updateColdEmailSettingsAction.bind(null, emailAccountId),
-  );
 
-  const baseRules: RulesResponse = useMemo(() => {
+  const rules: RulesResponse = useMemo(() => {
     const existingRules = data || [];
 
     // Create placeholder entries for conversation status rules that don't exist
@@ -199,123 +138,7 @@ export function Rules({
     );
   }, [data, emailAccountId]);
 
-  const rules: RulesResponse = useMemo(() => {
-    const enabledSettings: ColdEmailSetting[] = [
-      ColdEmailSetting.LABEL,
-      ColdEmailSetting.ARCHIVE_AND_LABEL,
-      ColdEmailSetting.ARCHIVE_AND_READ_AND_LABEL,
-    ];
-
-    const shouldArchived: ColdEmailSetting[] = [
-      ColdEmailSetting.ARCHIVE_AND_LABEL,
-      ColdEmailSetting.ARCHIVE_AND_READ_AND_LABEL,
-    ];
-
-    const coldEmailBlockerEnabled =
-      emailAccountData?.coldEmailBlocker &&
-      enabledSettings.includes(emailAccountData?.coldEmailBlocker);
-
-    const showArchiveAction =
-      emailAccountData?.coldEmailBlocker &&
-      shouldArchived.includes(emailAccountData?.coldEmailBlocker);
-
-    // Always show cold email blocker rule, works differently to rules but we want to show it in the list for user simplicity
-    const coldEmailBlockerRule: RulesResponse[number] = {
-      id: COLD_EMAIL_BLOCKER_RULE_ID,
-      name: "Cold Email",
-      instructions: emailAccountData?.coldEmailPrompt || null,
-      enabled: !!coldEmailBlockerEnabled,
-      runOnThreads: false,
-      automate: true,
-      actions: coldEmailBlockerEnabled
-        ? [
-            isGoogleProvider(provider)
-              ? {
-                  id: "cold-email-blocker-label",
-                  type: ActionType.LABEL,
-                  label: inboxZeroLabels.cold_email.name,
-                  labelId: null,
-                  createdAt: new Date(),
-                  updatedAt: new Date(),
-                  ruleId: COLD_EMAIL_BLOCKER_RULE_ID,
-                  to: null,
-                  subject: null,
-                  content: null,
-                  cc: null,
-                  bcc: null,
-                  url: null,
-                  folderName: null,
-                  folderId: null,
-                  delayInMinutes: null,
-                }
-              : null,
-            showArchiveAction
-              ? {
-                  id: "cold-email-blocker-archive",
-                  type: isMicrosoftProvider(provider)
-                    ? ActionType.MOVE_FOLDER
-                    : ActionType.ARCHIVE,
-                  label: null,
-                  labelId: null,
-                  createdAt: new Date(),
-                  updatedAt: new Date(),
-                  ruleId: COLD_EMAIL_BLOCKER_RULE_ID,
-                  to: null,
-                  subject: null,
-                  content: null,
-                  cc: null,
-                  bcc: null,
-                  url: null,
-                  folderName: null,
-                  folderId: null,
-                  delayInMinutes: null,
-                }
-              : null,
-            emailAccountData?.coldEmailDigest
-              ? {
-                  id: "cold-email-blocker-digest",
-                  type: ActionType.DIGEST,
-                  label: null,
-                  labelId: null,
-                  createdAt: new Date(),
-                  updatedAt: new Date(),
-                  ruleId: COLD_EMAIL_BLOCKER_RULE_ID,
-                  to: null,
-                  subject: null,
-                  content: null,
-                  cc: null,
-                  bcc: null,
-                  url: null,
-                  folderName: null,
-                  folderId: null,
-                  delayInMinutes: null,
-                }
-              : null,
-          ].filter(isDefined)
-        : [],
-      categoryFilters: [],
-      group: null,
-      emailAccountId: emailAccountId,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-      categoryFilterType: null,
-      conditionalOperator: LogicalOperator.OR,
-      groupId: null,
-      systemType: null,
-      to: null,
-      from: null,
-      subject: null,
-      body: null,
-      promptText: null,
-    };
-    return [...(baseRules || []), coldEmailBlockerRule];
-  }, [baseRules, emailAccountData, emailAccountId, provider]);
-
   const hasRules = !!rules?.length;
-
-  const { executeAsync: toggleConversationStatus } = useAction(
-    toggleConversationStatusAction.bind(null, emailAccountId),
-  );
 
   return (
     <div className="space-y-6">
@@ -345,11 +168,11 @@ export function Rules({
               </TableHeader>
               <TableBody>
                 {rules.map((rule) => {
-                  const isColdEmailBlocker =
-                    rule.id === COLD_EMAIL_BLOCKER_RULE_ID;
                   const isConversationStatus = isConversationStatusType(
                     rule.systemType,
                   );
+                  const isColdEmailBlocker =
+                    rule.systemType === SystemType.COLD_EMAIL;
                   const isPlaceholder = rule.id.startsWith("placeholder-");
 
                   return (
@@ -357,14 +180,10 @@ export function Rules({
                       key={rule.id}
                       className={!rule.enabled ? "bg-muted opacity-60" : ""}
                       onClick={() => {
-                        if (isColdEmailBlocker) {
-                          coldEmailDialog.onOpen();
-                        } else if (!isPlaceholder) {
-                          ruleDialog.onOpen({
-                            ruleId: rule.id,
-                            editMode: false,
-                          });
-                        }
+                        ruleDialog.onOpen({
+                          ruleId: rule.id,
+                          editMode: false,
+                        });
                       }}
                     >
                       <TableCell
@@ -375,28 +194,6 @@ export function Rules({
                           size="sm"
                           checked={rule.enabled}
                           onCheckedChange={async (enabled) => {
-                            // Handle cold email blocker separately
-                            if (isColdEmailBlocker) {
-                              const result = await updateColdEmailSettings({
-                                coldEmailBlocker: enabled
-                                  ? ColdEmailSetting.ARCHIVE_AND_LABEL
-                                  : ColdEmailSetting.DISABLED,
-                              });
-
-                              if (result?.serverError) {
-                                toastError({
-                                  description: `There was an error ${
-                                    enabled ? "enabling" : "disabling"
-                                  } cold email blocker. ${result.serverError || ""}`,
-                                });
-                              }
-
-                              // Revalidate to sync with server
-                              mutate();
-                              mutateEmailAccount();
-                              return;
-                            }
-
                             // Optimistic update
                             mutate(
                               data?.map((r) =>
@@ -411,16 +208,15 @@ export function Rules({
                               { revalidate: false },
                             );
 
-                            const result = isConversationStatus
-                              ? await toggleConversationStatus({
-                                  systemType:
-                                    rule.systemType as ConversationStatus,
-                                  enabled,
-                                })
-                              : await setRuleEnabled({
-                                  ruleId: rule.id,
-                                  enabled,
-                                });
+                            const result = await toggleRule({
+                              ruleId: isConversationStatus
+                                ? undefined
+                                : rule.id,
+                              systemType: isConversationStatus
+                                ? (rule.systemType as ConversationStatus)
+                                : undefined,
+                              enabled,
+                            });
 
                             if (result?.serverError) {
                               toastError({
@@ -440,14 +236,10 @@ export function Rules({
                           type="button"
                           onClick={(e) => {
                             e.stopPropagation();
-                            if (isColdEmailBlocker) {
-                              coldEmailDialog.onOpen();
-                            } else if (!isPlaceholder) {
-                              ruleDialog.onOpen({
-                                ruleId: rule.id,
-                                editMode: false,
-                              });
-                            }
+                            ruleDialog.onOpen({
+                              ruleId: rule.id,
+                              editMode: false,
+                            });
                           }}
                           className="text-left"
                         >
@@ -459,7 +251,6 @@ export function Rules({
                           {(() => {
                             const systemRuleDesc = getSystemRuleDescription(
                               rule.systemType,
-                              isColdEmailBlocker,
                             );
                             if (systemRuleDesc) {
                               return (
@@ -698,4 +489,41 @@ function NoRules() {
       </CardDescription>
     </CardHeader>
   );
+}
+
+function getSystemRuleDescription(systemType: SystemType | null) {
+  switch (systemType) {
+    case SystemType.TO_REPLY:
+      return {
+        condition: "Emails needing your direct response",
+        tooltip:
+          "Tracks emails where someone is waiting for your reply. Excludes automated notifications, bulk emails, and newsletters.",
+      };
+    case SystemType.FYI:
+      return {
+        condition: "Important emails that don't need a response",
+        tooltip:
+          "Tracks emails that need your attention but don't require you or the other person to reply. Useful for keeping informed without action items.",
+      };
+    case SystemType.AWAITING_REPLY:
+      return {
+        condition: "Emails you're expecting a reply to",
+        tooltip:
+          "Tracks emails where you've replied and are waiting for the other person to respond back.",
+      };
+    case SystemType.ACTIONED:
+      return {
+        condition: "Resolved email threads",
+        tooltip:
+          "Marks email threads as complete with nothing left to do. Useful for keeping track of finished conversations.",
+      };
+    case SystemType.COLD_EMAIL:
+      return {
+        condition: "Block cold emails",
+        tooltip:
+          "Uses AI to detect and automatically handle unsolicited outreach emails",
+      };
+    default:
+      return null;
+  }
 }

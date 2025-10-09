@@ -7,28 +7,27 @@ import { markMessageAsProcessing } from "@/utils/redis/message-processing";
 import { isAssistantEmail } from "@/utils/assistant/is-assistant-email";
 import { processAssistantEmail } from "@/utils/assistant/process-assistant-email";
 import { handleOutboundMessage } from "@/utils/reply-tracker/handle-outbound";
-import { ColdEmailSetting, NewsletterStatus } from "@prisma/client";
+import { type EmailAccount, NewsletterStatus } from "@prisma/client";
 import { extractEmailAddress } from "@/utils/email";
 import { isIgnoredSender } from "@/utils/filter-ignored-senders";
 import { enqueueDigestItem } from "@/utils/digest/index";
 import type { EmailProvider } from "@/utils/email/types";
 import type { RuleWithActionsAndCategories } from "@/utils/types";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
-import type { EmailAccount } from "@prisma/client";
 import type { Logger } from "@/utils/logger";
+import {
+  getColdEmailRule,
+  isColdEmailRuleEnabled,
+} from "@/utils/cold-email/cold-email-rule";
+import { isDigestEnabled } from "@/utils/digest/digest-enabled";
 
 export type SharedProcessHistoryOptions = {
   provider: EmailProvider;
   rules: RuleWithActionsAndCategories[];
   hasAutomationRules: boolean;
   hasAiAccess: boolean;
-  emailAccount: Pick<
-    EmailAccount,
-    "coldEmailPrompt" | "coldEmailBlocker" | "autoCategorizeSenders"
-  > &
-    EmailAccountWithAI & {
-      coldEmailDigest?: boolean | null;
-    };
+  emailAccount: EmailAccountWithAI &
+    Pick<EmailAccount, "autoCategorizeSenders">;
   logger: Logger;
 };
 
@@ -173,12 +172,14 @@ export async function processHistoryItem(
       return;
     }
 
-    const shouldRunBlocker = shouldRunColdEmailBlocker(
-      emailAccount.coldEmailBlocker,
-      hasAiAccess,
-    );
+    if (!hasAiAccess) {
+      logger.info("Skipping. No AI access.");
+      return;
+    }
 
-    if (shouldRunBlocker) {
+    const coldEmailRule = await getColdEmailRule(emailAccountId);
+
+    if (coldEmailRule && isColdEmailRuleEnabled(coldEmailRule)) {
       logger.info("Running cold email blocker...");
 
       const response = await runColdEmailBlocker({
@@ -189,10 +190,14 @@ export async function processHistoryItem(
         provider,
         emailAccount,
         modelType: "default",
+        coldEmailRule,
       });
 
       if (response.isColdEmail) {
-        if (emailAccount.coldEmailDigest && response.coldEmailId) {
+        if (
+          isDigestEnabled(coldEmailRule?.actions || []) &&
+          response.coldEmailId
+        ) {
           logger.info("Enqueuing a cold email digest item", {
             coldEmailId: response.coldEmailId,
           });
@@ -252,16 +257,4 @@ export async function processHistoryItem(
 
     throw error;
   }
-}
-
-export function shouldRunColdEmailBlocker(
-  coldEmailBlocker: ColdEmailSetting | null,
-  hasAiAccess: boolean,
-) {
-  return (
-    (coldEmailBlocker === ColdEmailSetting.ARCHIVE_AND_READ_AND_LABEL ||
-      coldEmailBlocker === ColdEmailSetting.ARCHIVE_AND_LABEL ||
-      coldEmailBlocker === ColdEmailSetting.LABEL) &&
-    hasAiAccess
-  );
 }

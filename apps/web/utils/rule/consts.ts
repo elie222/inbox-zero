@@ -1,6 +1,9 @@
 // The default names we give to rules in our database. The user can edit these
-export const RuleName = {
+export const RuleName: Record<SystemRule, string> = {
   ToReply: "To Reply",
+  AwaitingReply: "Awaiting Reply",
+  Fyi: "FYI",
+  Actioned: "Actioned",
   Newsletter: "Newsletter",
   Marketing: "Marketing",
   Calendar: "Calendar",
@@ -11,6 +14,9 @@ export const RuleName = {
 
 export const SystemRule = {
   ToReply: "To Reply",
+  AwaitingReply: "Awaiting Reply",
+  Fyi: "FYI",
+  Actioned: "Actioned",
   Newsletter: "Newsletter",
   Marketing: "Marketing",
   Calendar: "Calendar",

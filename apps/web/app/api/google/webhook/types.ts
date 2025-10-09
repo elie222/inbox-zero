@@ -19,12 +19,6 @@ export type ProcessHistoryOptions = {
   rules: RuleWithActionsAndCategories[];
   hasAutomationRules: boolean;
   hasAiAccess: boolean;
-  emailAccount: Pick<
-    EmailAccount,
-    | "coldEmailPrompt"
-    | "coldEmailBlocker"
-    | "autoCategorizeSenders"
-    | "coldEmailDigest"
-  > &
+  emailAccount: Pick<EmailAccount, "autoCategorizeSenders"> &
     EmailAccountWithAI;
 };

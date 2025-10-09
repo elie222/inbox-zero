@@ -4,6 +4,9 @@ import { safeCreateRule } from "@/utils/rule/rule";
 import {
   defaultReplyTrackerInstructions,
   NEEDS_REPLY_LABEL_NAME,
+  AWAITING_REPLY_LABEL_NAME,
+  FYI_LABEL_NAME,
+  ACTIONED_LABEL_NAME,
 } from "@/utils/reply-tracker/consts";
 import { createScopedLogger } from "@/utils/logger";
 import { RuleName } from "@/utils/rule/consts";
@@ -159,6 +162,12 @@ export async function enableReplyTracker({
     enableReplyTracking(updatedRule),
     enableDraftReplies(updatedRule),
   ]);
+
+  // Enable related conversation status types (FYI, Awaiting Reply, Actioned)
+  await enableRelatedConversationStatuses({
+    emailAccountId,
+    provider,
+  });
 }
 
 export async function createToReplyRule(
@@ -246,4 +255,113 @@ export async function enableDraftReplies(
       type: ActionType.DRAFT_EMAIL,
     },
   });
+}
+
+async function enableRelatedConversationStatuses({
+  emailAccountId,
+  provider,
+}: {
+  emailAccountId: string;
+  provider: string;
+}) {
+  const emailProvider = await createEmailProvider({
+    emailAccountId,
+    provider,
+  });
+
+  // Enable FYI, Awaiting Reply, and Actioned system types
+  const statusesToEnable = [
+    {
+      systemType: SystemType.FYI,
+      labelName: FYI_LABEL_NAME,
+      name: RuleName.Fyi,
+    },
+    {
+      systemType: SystemType.AWAITING_REPLY,
+      labelName: AWAITING_REPLY_LABEL_NAME,
+      name: RuleName.AwaitingReply,
+    },
+    {
+      systemType: SystemType.ACTIONED,
+      labelName: ACTIONED_LABEL_NAME,
+      name: RuleName.Actioned,
+    },
+  ];
+
+  const promises = statusesToEnable.map(
+    async ({ systemType, labelName, name }) => {
+      // Check if rule already exists
+      const existingRule = await prisma.rule.findUnique({
+        where: {
+          emailAccountId_systemType: {
+            emailAccountId,
+            systemType,
+          },
+        },
+      });
+
+      if (existingRule) {
+        // Rule exists, just enable it
+        return prisma.rule.update({
+          where: { id: existingRule.id },
+          data: { enabled: true },
+        });
+      }
+
+      // Create new rule with label
+      const labelInfo = await resolveLabelNameAndId({
+        emailProvider,
+        label: labelName,
+        labelId: null, // Will create if doesn't exist
+      });
+
+      return safeCreateRule({
+        result: {
+          name,
+          condition: {
+            aiInstructions:
+              "Personal conversations with real people. Excludes: automated notifications and bulk emails.",
+            conditionalOperator: null,
+            static: null,
+          },
+          actions: [
+            {
+              type: ActionType.LABEL,
+              labelId: labelInfo.labelId,
+              fields: {
+                label: labelInfo.label,
+                to: null,
+                subject: null,
+                content: null,
+                cc: null,
+                bcc: null,
+                webhookUrl: null,
+                folderName: null,
+              },
+            },
+            {
+              type: ActionType.TRACK_THREAD,
+              fields: {
+                label: null,
+                to: null,
+                subject: null,
+                content: null,
+                cc: null,
+                bcc: null,
+                webhookUrl: null,
+                folderName: null,
+              },
+            },
+          ],
+        },
+        emailAccountId,
+        systemType,
+        triggerType: "system_creation",
+        shouldCreateIfDuplicate: false,
+        provider,
+      });
+    },
+  );
+
+  await Promise.allSettled(promises);
 }

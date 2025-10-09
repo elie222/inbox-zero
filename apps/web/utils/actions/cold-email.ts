@@ -7,43 +7,12 @@ import { isColdEmail } from "@/utils/cold-email/is-cold-email";
 import {
   coldEmailBlockerBody,
   markNotColdEmailBody,
-  updateColdEmailPromptBody,
-  updateColdEmailSettingsBody,
 } from "@/utils/actions/cold-email.validation";
 import { actionClient } from "@/utils/actions/safe-action";
 import { SafeError } from "@/utils/error";
 import { createEmailProvider } from "@/utils/email/provider";
 import type { EmailProvider } from "@/utils/email/types";
-
-export const updateColdEmailSettingsAction = actionClient
-  .metadata({ name: "updateColdEmailSettings" })
-  .schema(updateColdEmailSettingsBody)
-  .action(
-    async ({
-      ctx: { emailAccountId },
-      parsedInput: { coldEmailBlocker, coldEmailDigest },
-    }) => {
-      await prisma.emailAccount.update({
-        where: { id: emailAccountId },
-        data: {
-          coldEmailBlocker,
-          coldEmailDigest: coldEmailDigest ?? undefined,
-        },
-      });
-    },
-  );
-
-export const updateColdEmailPromptAction = actionClient
-  .metadata({ name: "updateColdEmailPrompt" })
-  .schema(updateColdEmailPromptBody)
-  .action(
-    async ({ ctx: { emailAccountId }, parsedInput: { coldEmailPrompt } }) => {
-      await prisma.emailAccount.update({
-        where: { id: emailAccountId },
-        data: { coldEmailPrompt },
-      });
-    },
-  );
+import { getColdEmailRule } from "@/utils/cold-email/cold-email-rule";
 
 export const markNotColdEmailAction = actionClient
   .metadata({ name: "markNotColdEmail" })
@@ -137,6 +106,10 @@ export const testColdEmailAction = actionClient
 
       if (!emailAccount) throw new SafeError("Email account not found");
 
+      const coldEmailRule = await getColdEmailRule(emailAccountId);
+
+      if (!coldEmailRule) throw new SafeError("Cold email rule not found");
+
       const emailProvider = await createEmailProvider({
         emailAccountId,
         provider,
@@ -161,6 +134,7 @@ export const testColdEmailAction = actionClient
         emailAccount,
         provider: emailProvider,
         modelType: "chat",
+        coldEmailRule,
       });
 
       return response;

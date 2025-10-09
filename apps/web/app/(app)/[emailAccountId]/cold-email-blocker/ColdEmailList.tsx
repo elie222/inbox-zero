@@ -22,13 +22,14 @@ import { useSearchParams } from "next/navigation";
 import { markNotColdEmailAction } from "@/utils/actions/cold-email";
 import { Checkbox } from "@/components/Checkbox";
 import { useToggleSelect } from "@/hooks/useToggleSelect";
-import { useEmailAccountFull } from "@/hooks/useEmailAccountFull";
 import { ViewEmailButton } from "@/components/ViewEmailButton";
 import { EmailMessageCellWithData } from "@/components/EmailMessageCell";
 import { EnableFeatureCard } from "@/components/EnableFeatureCard";
 import { toastError, toastSuccess } from "@/components/Toast";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { prefixPath } from "@/utils/path";
+import { useRules } from "@/hooks/useRules";
+import { isColdEmailBlockerEnabled } from "@/utils/cold-email/cold-email-blocker-enabled";
 
 export function ColdEmailList() {
   const searchParams = useSearchParams();
@@ -185,10 +186,10 @@ function Row({
 }
 
 function NoColdEmails() {
-  const { data } = useEmailAccountFull();
   const { emailAccountId } = useAccount();
+  const { data: rules } = useRules();
 
-  if (!data?.coldEmailBlocker || data?.coldEmailBlocker === "DISABLED") {
+  if (!isColdEmailBlockerEnabled(rules || [])) {
     return (
       <div className="mb-10">
         <EnableFeatureCard

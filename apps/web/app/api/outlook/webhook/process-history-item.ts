@@ -1,9 +1,19 @@
-import type {
-  ProcessHistoryOptions,
-  OutlookResourceData,
-} from "@/app/api/outlook/webhook/types";
+import type { OutlookResourceData } from "@/app/api/outlook/webhook/types";
 import { logger as globalLogger } from "@/app/api/outlook/webhook/logger";
 import { processHistoryItem as processHistoryItemShared } from "@/utils/webhook/process-history-item";
+import type { RuleWithActionsAndCategories } from "@/utils/types";
+import type { EmailAccountWithAI } from "@/utils/llms/types";
+import type { EmailAccount } from "@prisma/client";
+import type { EmailProvider } from "@/utils/email/types";
+
+type ProcessHistoryOptions = {
+  provider: EmailProvider;
+  rules: RuleWithActionsAndCategories[];
+  hasAutomationRules: boolean;
+  hasAiAccess: boolean;
+  emailAccount: Pick<EmailAccount, "autoCategorizeSenders"> &
+    EmailAccountWithAI;
+};
 
 export async function processHistoryItem(
   resourceData: OutlookResourceData,

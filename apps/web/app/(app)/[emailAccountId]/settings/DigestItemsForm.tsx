@@ -77,7 +77,6 @@ export function DigestItemsForm({
     useCallback(async () => {
       // Convert selected items back to the expected format
       const ruleDigestPreferences: Record<string, boolean> = {};
-      const coldEmailDigest = selectedDigestItems.has("cold-emails");
 
       // Set all rules to false first
       rules?.forEach((rule) => {
@@ -91,12 +90,9 @@ export function DigestItemsForm({
         }
       });
 
-      const data: UpdateDigestItemsBody = {
+      const result = await updateDigestItemsAction(emailAccountId, {
         ruleDigestPreferences,
-        coldEmailDigest,
-      };
-
-      const result = await updateDigestItemsAction(emailAccountId, data);
+      });
 
       if (result?.serverError) {
         toastError({
@@ -116,17 +112,11 @@ export function DigestItemsForm({
       emailAccountId,
     ]);
 
-  // Create options for MultiSelectFilter
-  const digestOptions = [
-    ...(rules?.map((rule) => ({
+  const digestOptions =
+    rules?.map((rule) => ({
       label: rule.name,
       value: rule.id,
-    })) || []),
-    {
-      label: "Cold Emails",
-      value: "cold-emails",
-    },
-  ];
+    })) || [];
 
   return (
     <LoadingContent

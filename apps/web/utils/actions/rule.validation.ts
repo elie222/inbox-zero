@@ -36,6 +36,19 @@ const zodConditionType = z.enum([
   ConditionType.CATEGORY,
 ]);
 
+const zodSystemRule = z.enum([
+  SystemType.TO_REPLY,
+  SystemType.FYI,
+  SystemType.AWAITING_REPLY,
+  SystemType.ACTIONED,
+  SystemType.COLD_EMAIL,
+  SystemType.NEWSLETTER,
+  SystemType.MARKETING,
+  SystemType.CALENDAR,
+  SystemType.RECEIPT,
+  SystemType.NOTIFICATION,
+]);
+
 const zodAiCondition = z.object({
   instructions: z.string().nullish(),
 });
@@ -146,16 +159,7 @@ export const createRuleBody = z.object({
     .enum([LogicalOperator.AND, LogicalOperator.OR])
     .default(LogicalOperator.AND)
     .optional(),
-  systemType: z
-    .enum([
-      SystemType.TO_REPLY,
-      SystemType.NEWSLETTER,
-      SystemType.MARKETING,
-      SystemType.CALENDAR,
-      SystemType.RECEIPT,
-      SystemType.NOTIFICATION,
-    ])
-    .nullish(),
+  systemType: zodSystemRule.nullish(),
 });
 export type CreateRuleBody = z.infer<typeof createRuleBody>;
 
@@ -207,12 +211,12 @@ export type CreateRulesOnboardingBody = z.infer<
   typeof createRulesOnboardingBody
 >;
 
-export const toggleConversationStatusBody = z.object({
-  systemType: z.enum([
-    SystemType.TO_REPLY,
-    SystemType.FYI,
-    SystemType.AWAITING_REPLY,
-    SystemType.ACTIONED,
-  ]),
-  enabled: z.boolean(),
-});
+export const toggleRuleBody = z
+  .object({
+    ruleId: z.string().optional(),
+    systemType: zodSystemRule.optional(),
+    enabled: z.boolean(),
+  })
+  .refine((data) => data.ruleId || data.systemType, {
+    message: "Either ruleId or systemType must be provided",
+  });

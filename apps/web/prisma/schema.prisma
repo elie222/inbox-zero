@@ -119,17 +119,17 @@ model EmailAccount {
   personaAnalysis           Json? // ai analysis of the user's persona
   role                      String? // the role confirmed by the user - previously `User.surveyRole`
 
-  statsEmailFrequency   Frequency         @default(WEEKLY)
-  summaryEmailFrequency Frequency         @default(WEEKLY)
+  statsEmailFrequency   Frequency @default(WEEKLY)
+  summaryEmailFrequency Frequency @default(WEEKLY)
   lastSummaryEmailAt    DateTime?
-  coldEmailBlocker      ColdEmailSetting?
-  coldEmailDigest       Boolean           @default(false)
-  coldEmailPrompt       String?
+  // coldEmailBlocker      ColdEmailSetting?
+  // coldEmailDigest       Boolean           @default(false)
+  // coldEmailPrompt       String?
   rulesPrompt           String?
-  autoCategorizeSenders Boolean           @default(false)
+  autoCategorizeSenders Boolean   @default(false)
 
   // Configurable system labels (store stable IDs)
-  coldEmailLabelId      String? // Gmail: Label ID, Outlook: Category ID
+  // coldEmailLabelId      String? // Gmail: Label ID, Outlook: Category ID
 
   digestSchedule Schedule?
 
@@ -1002,13 +1002,13 @@ enum ColdEmailStatus {
   USER_REJECTED_COLD
 }
 
-enum ColdEmailSetting {
-  DISABLED
-  LIST
-  LABEL
-  ARCHIVE_AND_LABEL
-  ARCHIVE_AND_READ_AND_LABEL
-}
+// enum ColdEmailSetting {
+//   DISABLED
+//   LIST
+//   LABEL
+//   ARCHIVE_AND_LABEL
+//   ARCHIVE_AND_READ_AND_LABEL
+// }
 
 enum PremiumTier {
   BASIC_MONTHLY
@@ -1064,15 +1064,15 @@ enum CleanAction {
   MARK_READ
 }
 
-// Thread status labels are mutually exclusive
-// TO_REPLY, FYI, AWAITING_REPLY, ACTIONED form a special subset
-// where only one can be active on a thread at a time
-
 enum SystemType {
+  // conversation trackers
   TO_REPLY
   FYI
   AWAITING_REPLY
   ACTIONED
+  // cold email blocker
+  COLD_EMAIL
+  // other labels
   NEWSLETTER
   MARKETING
   CALENDAR
