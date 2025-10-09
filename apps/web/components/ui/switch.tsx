@@ -7,7 +7,7 @@ import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@/utils/index";
 
 const switchVariants = cva(
-  "peer inline-flex shrink-0 cursor-pointer items-center rounded-full border-transparent transition-colors disabled:cursor-not-allowed disabled:opacity-50 data-[state=checked]:bg-primary data-[state=unchecked]:bg-input",
+  "peer inline-flex shrink-0 cursor-pointer items-center rounded-full border border-transparent shadow-xs transition-all outline-none focus-visible:ring-[3px] focus-visible:border-ring focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 data-[state=checked]:bg-primary data-[state=unchecked]:bg-input dark:data-[state=unchecked]:bg-input/80",
   {
     variants: {
       size: {
@@ -46,11 +46,15 @@ const Switch = React.forwardRef<
   SwitchProps
 >(({ className, size, ...props }, ref) => (
   <SwitchPrimitives.Root
+    data-slot="switch"
     className={cn(switchVariants({ size, className }))}
     {...props}
     ref={ref}
   >
-    <SwitchPrimitives.Thumb className={cn(switchThumbVariants({ size }))} />
+    <SwitchPrimitives.Thumb
+      data-slot="switch-thumb"
+      className={cn(switchThumbVariants({ size }))}
+    />
   </SwitchPrimitives.Root>
 ));
 Switch.displayName = SwitchPrimitives.Root.displayName;
