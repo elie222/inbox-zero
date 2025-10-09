@@ -2,7 +2,7 @@ import prisma from "@/utils/prisma";
 import { ActionType, SystemType, type Prisma } from "@prisma/client";
 import { safeCreateRule } from "@/utils/rule/rule";
 import { createScopedLogger } from "@/utils/logger";
-import { ruleConfig, RuleName } from "@/utils/rule/consts";
+import { getRuleName, ruleConfig } from "@/utils/rule/consts";
 import { SafeError } from "@/utils/error";
 import { createEmailProvider } from "@/utils/email/provider";
 import { resolveLabelNameAndId } from "@/utils/label/resolve-label";
@@ -267,17 +267,17 @@ async function enableRelatedConversationStatuses({
     {
       systemType: SystemType.FYI,
       labelName: ruleConfig.Fyi.label,
-      name: RuleName.Fyi,
+      name: getRuleName(SystemType.FYI),
     },
     {
       systemType: SystemType.AWAITING_REPLY,
       labelName: ruleConfig.AwaitingReply.label,
-      name: RuleName.AwaitingReply,
+      name: getRuleName(SystemType.AWAITING_REPLY),
     },
     {
       systemType: SystemType.ACTIONED,
       labelName: ruleConfig.Actioned.label,
-      name: RuleName.Actioned,
+      name: getRuleName(SystemType.ACTIONED),
     },
   ];
 

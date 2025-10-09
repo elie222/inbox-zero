@@ -6,7 +6,7 @@ import type {
   CategoryAction,
   CreateRulesOnboardingBody,
 } from "@/utils/actions/rule.validation";
-import { RuleName, SystemRule } from "@/utils/rule/consts";
+import { getRuleName, SystemRule } from "@/utils/rule/consts";
 
 type CategoryConfig = {
   action: CategoryAction | undefined;
@@ -60,43 +60,43 @@ async function getUserPreferences({
 
   return [
     {
-      name: RuleName.ToReply,
+      name: getRuleName(SystemRule.ToReply),
       key: SystemRule.ToReply,
       description: "",
       ...getRuleSetting(SystemType.TO_REPLY, emailAccount.rules),
     },
     {
-      name: RuleName.ColdEmail,
+      name: getRuleName(SystemRule.ColdEmail),
       key: SystemRule.ColdEmail,
       description: "",
       ...getRuleSetting(SystemType.COLD_EMAIL, emailAccount.rules),
     },
     {
-      name: RuleName.Newsletter,
+      name: getRuleName(SystemRule.Newsletter),
       key: SystemRule.Newsletter,
       description: "",
       ...getRuleSetting(SystemType.NEWSLETTER, emailAccount.rules),
     },
     {
-      name: RuleName.Marketing,
+      name: getRuleName(SystemRule.Marketing),
       key: SystemRule.Marketing,
       description: "",
       ...getRuleSetting(SystemType.MARKETING, emailAccount.rules),
     },
     {
-      name: RuleName.Calendar,
+      name: getRuleName(SystemRule.Calendar),
       key: SystemRule.Calendar,
       description: "",
       ...getRuleSetting(SystemType.CALENDAR, emailAccount.rules),
     },
     {
-      name: RuleName.Receipt,
+      name: getRuleName(SystemRule.Receipt),
       key: SystemRule.Receipt,
       description: "",
       ...getRuleSetting(SystemType.RECEIPT, emailAccount.rules),
     },
     {
-      name: RuleName.Notification,
+      name: getRuleName(SystemRule.Notification),
       key: SystemRule.Notification,
       description: "",
       ...getRuleSetting(SystemType.NOTIFICATION, emailAccount.rules),

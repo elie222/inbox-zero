@@ -1,16 +1,4 @@
-// The default names we give to rules in our database. The user can edit these
-export const RuleName: Record<SystemRule, string> = {
-  ToReply: "To Reply",
-  AwaitingReply: "Awaiting Reply",
-  Fyi: "FYI",
-  Actioned: "Actioned",
-  Newsletter: "Newsletter",
-  Marketing: "Marketing",
-  Calendar: "Calendar",
-  Receipt: "Receipt",
-  Notification: "Notification",
-  ColdEmail: "Cold Email",
-};
+import { DEFAULT_COLD_EMAIL_PROMPT } from "@/utils/cold-email/prompt";
 
 export const SystemRule = {
   ToReply: "To Reply",
@@ -112,10 +100,18 @@ export const ruleConfig: Record<
   },
   [SystemRule.ColdEmail]: {
     name: "Cold Email",
-    instructions: "",
+    instructions: DEFAULT_COLD_EMAIL_PROMPT,
     label: "Cold Email",
     runOnThreads: false,
     categoryAction: "label_archive",
     categoryActionMicrosoft: "move_folder",
   },
 };
+
+export function getRuleName(systemRule: SystemRule) {
+  return ruleConfig[systemRule].name;
+}
+
+export function getRuleLabel(systemRule: SystemRule) {
+  return ruleConfig[systemRule].label;
+}

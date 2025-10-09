@@ -34,7 +34,7 @@ import {
 import { env } from "@/env";
 import { INTERNAL_API_KEY_HEADER } from "@/utils/internal-api";
 import type { ProcessPreviousBody } from "@/app/api/reply-tracker/process-previous/route";
-import { ruleConfig, RuleName, SystemRule } from "@/utils/rule/consts";
+import { getRuleName, ruleConfig, SystemRule } from "@/utils/rule/consts";
 import { actionClient } from "@/utils/actions/safe-action";
 import { prefixPath } from "@/utils/path";
 import { createRuleHistory } from "@/utils/rule/rule-history";
@@ -691,13 +691,13 @@ export const toggleRuleAction = actionClient
 
       const labelInfo = await resolveLabelNameAndId({
         emailProvider,
-        label: RuleName[systemType],
+        label: getRuleName(systemType),
         labelId: null,
       });
 
       const createdRule = await safeCreateRule({
         result: {
-          name: RuleName[systemType],
+          name: getRuleName(systemType),
           condition: {
             aiInstructions:
               "Personal conversations with real people. Excludes: automated notifications and bulk emails.",
