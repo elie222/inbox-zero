@@ -798,7 +798,7 @@ export const toggleConversationStatusAction = actionClient
       );
 
       if (!statusConfig) {
-        throw new Error(`Invalid system type: ${systemType}`);
+        throw new SafeError(`Invalid system type: ${systemType}`);
       }
 
       // Find existing rule
@@ -831,7 +831,7 @@ export const toggleConversationStatusAction = actionClient
             labelId: null, // Will create if doesn't exist
           });
 
-          await safeCreateRule({
+          const createdRule = await safeCreateRule({
             result: {
               name: statusConfig.name,
               condition: {
@@ -876,6 +876,10 @@ export const toggleConversationStatusAction = actionClient
             shouldCreateIfDuplicate: false,
             provider,
           });
+
+          if (!createdRule) {
+            throw new SafeError("Failed to create rule");
+          }
         }
       } else {
         // Disable the rule

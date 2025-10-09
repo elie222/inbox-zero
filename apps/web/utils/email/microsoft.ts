@@ -410,9 +410,15 @@ export class OutlookProvider implements EmailProvider {
     });
   }
 
+  async markReadMessage(messageId: string): Promise<void> {
+    await this.client.getClient().api(`/me/messages/${messageId}`).patch({
+      isRead: true,
+    });
+  }
+
   async blockUnsubscribedEmail(messageId: string): Promise<void> {
     await this.archiveMessage(messageId);
-    await this.markRead(messageId);
+    await this.markReadMessage(messageId);
   }
 
   async getThreadMessages(threadId: string): Promise<ParsedMessage[]> {
