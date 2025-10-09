@@ -49,20 +49,19 @@ export const CONVERSATION_STATUSES = [
   },
 ] as const;
 
-export const CONVERSATION_STATUS_TYPES = [
-  SystemType.TO_REPLY,
-  SystemType.FYI,
-  SystemType.AWAITING_REPLY,
-  SystemType.ACTIONED,
-] as const;
-
 export function isConversationStatusType(
   systemType: SystemType | null | undefined,
 ): boolean {
   if (!systemType) return false;
-  return (CONVERSATION_STATUS_TYPES as readonly SystemType[]).includes(
-    systemType,
-  );
+
+  const CONVERSATION_STATUS_TYPES: string[] = [
+    SystemType.TO_REPLY,
+    SystemType.FYI,
+    SystemType.AWAITING_REPLY,
+    SystemType.ACTIONED,
+  ];
+
+  return CONVERSATION_STATUS_TYPES.includes(systemType);
 }
 
 export function systemTypeToString(

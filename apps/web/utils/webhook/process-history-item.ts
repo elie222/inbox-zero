@@ -254,7 +254,7 @@ export async function processHistoryItem(
   }
 }
 
-function shouldRunColdEmailBlocker(
+export function shouldRunColdEmailBlocker(
   coldEmailBlocker: ColdEmailSetting | null,
   hasAiAccess: boolean,
 ) {

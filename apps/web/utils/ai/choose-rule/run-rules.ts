@@ -29,6 +29,8 @@ import {
 import groupBy from "lodash/groupBy";
 import type { EmailProvider } from "@/utils/email/types";
 import type { ModelType } from "@/utils/llms/model";
+import { isConversationStatusType } from "@/utils/reply-tracker/conversation-status-config";
+import { determineConversationStatus } from "@/utils/reply-tracker/handle-conversation-status";
 
 const logger = createScopedLogger("ai-run-rules");
 
@@ -39,6 +41,8 @@ export type RunRulesResult = {
   matchReasons?: MatchReason[];
   existing?: boolean;
 };
+
+const CONVERSATION_TRACKING_META_RULE_ID = "conversation-tracking-meta";
 
 export async function runRules({
   provider,
@@ -55,8 +59,10 @@ export async function runRules({
   isTest: boolean;
   modelType: ModelType;
 }): Promise<RunRulesResult> {
+  const { regularRules, conversationRules } = prepareRulesWithMetaRule(rules);
+
   const result = await findMatchingRule({
-    rules,
+    rules: regularRules,
     message,
     emailAccount,
     provider,
@@ -75,12 +81,38 @@ export async function runRules({
   }));
 
   if (result.rule) {
+    let ruleToExecute = result.rule;
+    let reasonToUse = result.reason;
+
+    // Check if this is the conversation tracking meta-rule
+    if (result.rule.id === CONVERSATION_TRACKING_META_RULE_ID) {
+      // Determine which specific sub-rule applies
+      const { specificRule, reason: statusReason } =
+        await determineConversationStatus({
+          conversationRules,
+          message,
+          emailAccount,
+          provider,
+          modelType,
+        });
+
+      if (!specificRule) {
+        return {
+          rule: null,
+          reason: statusReason || "No enabled conversation status rule found",
+        };
+      }
+
+      ruleToExecute = specificRule;
+      reasonToUse = statusReason;
+    }
+
     return await executeMatchedRule(
-      result.rule,
+      ruleToExecute,
       message,
       emailAccount,
       provider,
-      result.reason,
+      reasonToUse,
       result.matchReasons,
       isTest,
       modelType,
@@ -94,6 +126,39 @@ export async function runRules({
     });
   }
   return result;
+}
+
+function prepareRulesWithMetaRule(rules: RuleWithActionsAndCategories[]): {
+  regularRules: RuleWithActionsAndCategories[];
+  conversationRules: RuleWithActionsAndCategories[];
+} {
+  // Separate conversation status rules from regular rules
+  const conversationRules = rules.filter((r) =>
+    isConversationStatusType(r.systemType),
+  );
+  const regularRules = rules.filter(
+    (r) => !isConversationStatusType(r.systemType),
+  );
+
+  // If any conversation status rules are enabled, create a meta-rule
+  if (conversationRules.some((r) => r.enabled)) {
+    const template = conversationRules[0];
+    const metaRule = {
+      ...template,
+      id: CONVERSATION_TRACKING_META_RULE_ID,
+      name: "Conversation Tracking",
+      instructions:
+        "Personal conversations with real people. Excludes automated notifications, newsletters, marketing, receipts, and calendar invites. Apply when the email is part of an actual conversation.",
+      enabled: true,
+      runOnThreads: true,
+      actions: [],
+      categoryFilters: [],
+    };
+
+    regularRules.push(metaRule);
+  }
+
+  return { regularRules, conversationRules };
 }
 
 async function executeMatchedRule(

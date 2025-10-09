@@ -2,12 +2,8 @@ import type { CreateOrUpdateRuleSchemaWithCategories } from "@/utils/ai/rule/cre
 import prisma from "@/utils/prisma";
 import { isDuplicateError } from "@/utils/prisma-helpers";
 import { createScopedLogger } from "@/utils/logger";
-import {
-  ActionType,
-  type SystemType,
-  type Prisma,
-  type Rule,
-} from "@prisma/client";
+import { ActionType } from "@prisma/client";
+import type { Prisma, Rule, SystemType } from "@prisma/client";
 import { getUserCategoriesForNames } from "@/utils/category.server";
 import { getActionRiskLevel, type RiskAction } from "@/utils/risk";
 import { hasExampleParams } from "@/app/(app)/[emailAccountId]/assistant/examples";
@@ -16,6 +12,7 @@ import { createRuleHistory } from "@/utils/rule/rule-history";
 import { isMicrosoftProvider } from "@/utils/email/provider-types";
 import { createEmailProvider } from "@/utils/email/provider";
 import { resolveLabelNameAndId } from "@/utils/label/resolve-label";
+import { isConversationStatusType } from "@/utils/reply-tracker/conversation-status-config";
 
 const logger = createScopedLogger("rule");
 
@@ -176,11 +173,33 @@ export async function createRule({
   triggerType?: "ai_creation" | "manual_creation" | "system_creation";
   provider: string;
 }) {
-  const mappedActions = await mapActionFields(
+  let mappedActions = await mapActionFields(
     result.actions,
     provider,
     emailAccountId,
   );
+
+  // Ensure TRACK_THREAD action for conversation status system rules
+  if (
+    isConversationStatusType(systemType) &&
+    !mappedActions.some((a) => a.type === ActionType.TRACK_THREAD)
+  )
+    mappedActions = [
+      ...mappedActions,
+      {
+        type: ActionType.TRACK_THREAD,
+        label: null,
+        labelId: null,
+        to: null,
+        cc: null,
+        bcc: null,
+        subject: null,
+        content: null,
+        url: null,
+        ...(isMicrosoftProvider(provider) && { folderName: null }),
+        delayInMinutes: null,
+      },
+    ];
 
   const rule = await prisma.rule.create({
     data: {

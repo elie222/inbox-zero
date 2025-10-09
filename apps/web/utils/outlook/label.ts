@@ -362,32 +362,27 @@ export async function archiveThread({
       timestamp: Date.now(),
     });
 
-    const [archiveResult, publishResult] = await Promise.allSettled([
-      archivePromise,
-      publishPromise,
+    await Promise.all([
+      archivePromise.catch((error) => {
+        if (error.message?.includes("Requested entity was not found")) {
+          logger.warn("Thread not found", { threadId, userEmail: ownerEmail });
+          return { status: 404, message: "Thread not found" };
+        }
+        logger.error("Failed to move thread to folder", {
+          folderId,
+          threadId,
+          error,
+        });
+        throw error;
+      }),
+      publishPromise.catch((error) => {
+        logger.error("Failed to publish action to move thread to folder", {
+          folderId,
+          threadId,
+          error,
+        });
+      }),
     ]);
-
-    if (archiveResult.status === "rejected") {
-      const error = archiveResult.reason as Error;
-      if (error.message?.includes("Requested entity was not found")) {
-        logger.warn("Thread not found", { threadId, userEmail: ownerEmail });
-        return { status: 404, message: "Thread not found" };
-      }
-      logger.error("Failed to move thread to folder", {
-        folderId,
-        threadId,
-        error,
-      });
-      throw error;
-    }
-
-    if (publishResult.status === "rejected") {
-      logger.error("Failed to publish action to move thread to folder", {
-        folderId,
-        threadId,
-        error: publishResult.reason,
-      });
-    }
 
     return { status: 200 };
   } catch (error) {

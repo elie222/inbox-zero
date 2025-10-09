@@ -145,41 +145,38 @@ async function handleSignIn({
   isNewUser: boolean;
 }) {
   if (isNewUser && user.email) {
-    const [loopsResult, resendResult, dubResult] = await Promise.allSettled([
-      createLoopsContact(user.email, user.name?.split(" ")?.[0]),
-      createResendContact({ email: user.email }),
-      trackDubSignUp(user),
-    ]);
-
-    if (loopsResult.status === "rejected") {
+    const loops = createLoopsContact(
+      user.email,
+      user.name?.split(" ")?.[0],
+    ).catch((error) => {
       const alreadyExists =
-        loopsResult.reason instanceof Error &&
-        loopsResult.reason.message.includes("409");
-
+        error instanceof Error && error.message.includes("409");
       if (!alreadyExists) {
         logger.error("Error creating Loops contact", {
           email: user.email,
-          error: loopsResult.reason,
+          error,
         });
-        captureException(loopsResult.reason, undefined, user.email);
+        captureException(error, undefined, user.email);
       }
-    }
+    });
 
-    if (resendResult.status === "rejected") {
+    const resend = createResendContact({ email: user.email }).catch((error) => {
       logger.error("Error creating Resend contact", {
         email: user.email,
-        error: resendResult.reason,
+        error,
       });
-      captureException(resendResult.reason, undefined, user.email);
-    }
+      captureException(error, undefined, user.email);
+    });
 
-    if (dubResult.status === "rejected") {
+    const dub = trackDubSignUp(user).catch((error) => {
       logger.error("Error tracking Dub sign up", {
         email: user.email,
-        error: dubResult.reason,
+        error,
       });
-      captureException(dubResult.reason, undefined, user.email);
-    }
+      captureException(error, undefined, user.email);
+    });
+
+    await Promise.all([loops, resend, dub]);
   }
 
   if (isNewUser && user.email && user.id) {

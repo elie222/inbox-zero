@@ -1,5 +1,5 @@
 import prisma from "@/utils/prisma";
-import { ActionType, ThreadTrackerType } from "@prisma/client";
+import { ActionType } from "@prisma/client";
 import { createScopedLogger } from "@/utils/logger";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import type { ParsedMessage } from "@/utils/types";
@@ -8,13 +8,17 @@ import { getEmailForLLM } from "@/utils/get-email-from-message";
 import { aiChooseRule } from "@/utils/ai/choose-rule/ai-choose-rule";
 import { filterToReplyPreset } from "@/utils/ai/choose-rule/match-rules";
 import type { EmailProvider } from "@/utils/email/types";
-import { removeAwaitingReplyLabelFromThread } from "./label-helpers";
+import { aiDetermineThreadStatus } from "@/utils/ai/reply/determine-thread-status";
+import { applyThreadStatusLabel } from "./label-helpers";
+import { updateThreadTrackers } from "@/utils/reply-tracker/handle-conversation-status";
 
 /**
- * Marks an email thread as needing a reply.
- * This function coordinates the process of:
- * 1. Updating thread trackers in the database
- * 2. Managing Gmail/Outlook labels
+ * Analyzes an inbound email thread and applies the appropriate status label.
+ * This function:
+ * 1. Fetches full thread context
+ * 2. Uses AI to determine thread status
+ * 3. Applies the appropriate label with mutual exclusivity
+ * 4. Updates thread trackers in the database
  */
 export async function coordinateReplyProcess({
   emailAccountId,
@@ -22,12 +26,14 @@ export async function coordinateReplyProcess({
   messageId,
   sentAt,
   client,
+  emailAccount,
 }: {
   emailAccountId: string;
   threadId: string;
   messageId: string;
   sentAt: Date;
   client: EmailProvider;
+  emailAccount?: EmailAccountWithAI;
 }) {
   const logger = createScopedLogger("reply-tracker/inbound").with({
     emailAccountId,
@@ -35,83 +41,81 @@ export async function coordinateReplyProcess({
     messageId,
   });
 
-  logger.info("Marking thread as needs reply");
+  logger.info("Determining thread status for inbound message");
 
-  // Process in parallel for better performance
-  const dbPromise = updateThreadTrackers({
+  // If emailAccount not provided, fetch it
+  const account =
+    emailAccount ||
+    (await prisma.emailAccount.findUnique({
+      where: { id: emailAccountId },
+      include: { user: true },
+    }));
+
+  if (!account) {
+    logger.error("Email account not found");
+    return;
+  }
+
+  // Fetch thread messages for context
+  const threadMessages = await client.getThreadMessages(threadId);
+  if (!threadMessages?.length) {
+    logger.error("No thread messages found");
+    return;
+  }
+
+  // Find the actual message in the thread
+  const message = threadMessages.find((m) => m.id === messageId);
+  if (!message) {
+    logger.error("Message not found in thread");
+    return;
+  }
+
+  // Sort messages by date (most recent first)
+  const sortedMessages = [...threadMessages].sort(
+    (a, b) => (Number(b.internalDate) || 0) - (Number(a.internalDate) || 0),
+  );
+
+  // Prepare thread messages for AI analysis
+  const threadMessagesForLLM = sortedMessages.map((m, index) =>
+    getEmailForLLM(m, {
+      maxLength: index === 0 ? 2000 : 500,
+      extractReply: true,
+      removeForwarded: false,
+    }),
+  );
+
+  const latestMessageForLLM = threadMessagesForLLM[0];
+  if (!latestMessageForLLM) {
+    logger.error("No latest message for AI analysis");
+    return;
+  }
+
+  // AI determines thread status based on full context
+  const aiResult = await aiDetermineThreadStatus({
+    emailAccount: account as EmailAccountWithAI,
+    threadMessages: threadMessagesForLLM,
+  });
+
+  logger.info("AI determined thread status", {
+    status: aiResult.status,
+    rationale: aiResult.rationale,
+  });
+
+  await applyThreadStatusLabel({
+    emailAccountId,
+    threadId,
+    messageId,
+    status: aiResult.status,
+    provider: client,
+  });
+
+  await updateThreadTrackers({
     emailAccountId,
     threadId,
     messageId,
     sentAt,
+    status: aiResult.status,
   });
-
-  const labelsPromise = removeAwaitingReplyLabelFromThread({
-    emailAccountId,
-    threadId,
-    provider: client,
-  });
-
-  const [dbResult, labelsResult] = await Promise.allSettled([
-    dbPromise,
-    labelsPromise,
-  ]);
-
-  if (dbResult.status === "rejected") {
-    logger.error("Failed to mark needs reply", { error: dbResult.reason });
-  }
-
-  if (labelsResult.status === "rejected") {
-    logger.error("Failed to update labels", {
-      error: labelsResult.reason,
-    });
-  }
-}
-
-/**
- * Updates thread trackers in the database - resolves AWAITING trackers and creates a NEEDS_REPLY tracker
- */
-async function updateThreadTrackers({
-  emailAccountId,
-  threadId,
-  messageId,
-  sentAt,
-}: {
-  emailAccountId: string;
-  threadId: string;
-  messageId: string;
-  sentAt: Date;
-}) {
-  return prisma.$transaction([
-    // Resolve existing AWAITING trackers
-    prisma.threadTracker.updateMany({
-      where: {
-        emailAccountId,
-        threadId,
-        type: ThreadTrackerType.AWAITING,
-      },
-      data: {
-        resolved: true,
-      },
-    }),
-    // Create new NEEDS_REPLY tracker
-    prisma.threadTracker.upsert({
-      where: {
-        emailAccountId_threadId_messageId: {
-          emailAccountId,
-          threadId,
-          messageId,
-        },
-      },
-      update: {},
-      create: {
-        emailAccountId,
-        threadId,
-        messageId,
-        type: ThreadTrackerType.NEEDS_REPLY,
-        sentAt,
-      },
-    }),
-  ]);
 }
 
 // Currently this is used when enabling reply tracking. Otherwise we use regular AI rule processing to handle inbound replies
@@ -167,6 +171,7 @@ export async function handleInboundReply({
       messageId: message.id,
       sentAt: internalDateToDate(message.internalDate),
       client,
+      emailAccount,
     });
   }
 }

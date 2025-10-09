@@ -58,6 +58,13 @@ import {
   isMicrosoftProvider,
 } from "@/utils/email/provider-types";
 import { useLabels } from "@/hooks/useLabels";
+import { Toggle } from "@/components/Toggle";
+import {
+  CONVERSATION_STATUSES,
+  isConversationStatusType,
+  type ThreadStatus,
+} from "@/utils/reply-tracker/conversation-status-config";
+import { toggleConversationStatusAction } from "@/utils/actions/rule";
 
 const COLD_EMAIL_BLOCKER_RULE_ID = "cold-email-blocker-rule";
 
@@ -94,7 +101,12 @@ export function Rules({
 
   const baseRules: RulesResponse = useMemo(() => {
     return (
-      data?.sort((a, b) => (b.enabled ? 1 : 0) - (a.enabled ? 1 : 0)) || []
+      data
+        ?.filter((rule) => {
+          // Filter out conversation tracking rules (shown in section above)
+          return !isConversationStatusType(rule.systemType);
+        })
+        .sort((a, b) => (b.enabled ? 1 : 0) - (a.enabled ? 1 : 0)) || []
     );
   }, [data]);
 
@@ -212,8 +224,72 @@ export function Rules({
 
   const hasRules = !!rules?.length;
 
+  // Check which conversation status rules exist and are enabled
+  const conversationStatuses = CONVERSATION_STATUSES.map((status) => {
+    const rule = data?.find((r) => r.systemType === status.systemType);
+    return {
+      ...status,
+      enabled: rule?.enabled ?? false,
+      ruleId: rule?.id,
+    };
+  });
+
+  const { executeAsync: toggleConversationStatus } = useAction(
+    toggleConversationStatusAction.bind(null, emailAccountId),
+    {
+      onSuccess: () => {
+        mutate();
+        toastSuccess({ description: "Conversation status updated" });
+      },
+      onError: (error) => {
+        toastError({
+          description: `Failed to update: ${error.error.serverError || "Unknown error"}`,
+        });
+      },
+    },
+  );
+
   return (
-    <div>
+    <div className="space-y-6">
+      {/* Conversation Tracking Section */}
+      <Card>
+        <CardHeader>
+          <h3 className="font-semibold">💬 Conversation Tracking</h3>
+          <CardDescription>
+            Automatically tracks conversation state. Runs alongside rules.
+          </CardDescription>
+        </CardHeader>
+        <div className="divide-y">
+          {conversationStatuses.map((status) => (
+            <div
+              key={status.name}
+              className="flex items-center gap-4 px-6 py-4"
+            >
+              <div className="flex-1">
+                <div className="flex items-center gap-2">
+                  <span>{status.icon}</span>
+                  <h4 className="font-medium">{status.name}</h4>
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  {status.description}
+                </p>
+              </div>
+              <Toggle
+                name={`conversation-status-${status.name.toLowerCase().replace(" ", "-")}`}
+                enabled={status.enabled}
+                onChange={(enabled) =>
+                  toggleConversationStatus({
+                    systemType: status.systemType as ThreadStatus,
+                    enabled,
+                  })
+                }
+              />
+            </div>
+          ))}
+        </div>
+      </Card>
+
+      {/* Rules Table */}
       <Card>
         <LoadingContent loading={isLoading} error={error}>
           {hasRules ? (
