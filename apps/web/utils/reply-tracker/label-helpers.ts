@@ -173,6 +173,7 @@ export async function applyThreadStatusLabel(options: {
 /**
  * Removes all thread status labels from a thread.
  * Useful when you want to clear the status without setting a new one.
+ * Only removes labels that already exist - does not create new labels.
  */
 export async function removeAllThreadStatusLabels(options: {
   emailAccountId: string;
@@ -181,11 +182,8 @@ export async function removeAllThreadStatusLabels(options: {
 }): Promise<void> {
   const { emailAccountId, threadId, provider } = options;
 
-  // Fetch or create all thread status labels
-  const labelIds = await getOrCreateAllThreadStatusLabels(
-    emailAccountId,
-    provider,
-  );
+  // Fetch only existing thread status labels (do not create new ones)
+  const labelIds = await getAllThreadStatusLabels(emailAccountId, provider);
 
   // Remove all labels that exist
   const removePromises = Object.values(labelIds)
@@ -200,4 +198,79 @@ export async function removeAllThreadStatusLabels(options: {
     );
 
   await Promise.all(removePromises);
+}
+
+/**
+ * Fetches all thread status labels without creating any new ones.
+ * Looks up labels by name from the provider if not in DB, but does not create them.
+ */
+async function getAllThreadStatusLabels(
+  emailAccountId: string,
+  provider: EmailProvider,
+): Promise<Record<ConversationStatusLabelType, string | null>> {
+  // First, check DB for existing label IDs
+  const emailAccount = await prisma.emailAccount.findUnique({
+    where: { id: emailAccountId },
+    select: {
+      needsReplyLabelId: true,
+      awaitingReplyLabelId: true,
+      fyiLabelId: true,
+      actionedLabelId: true,
+    },
+  });
+
+  if (!emailAccount)
+    return {
+      needsReply: null,
+      awaitingReply: null,
+      fyi: null,
+      actioned: null,
+    };
+
+  const dbLabelIds = {
+    needsReply: emailAccount.needsReplyLabelId,
+    awaitingReply: emailAccount.awaitingReplyLabelId,
+    fyi: emailAccount.fyiLabelId,
+    actioned: emailAccount.actionedLabelId,
+  };
+
+  // If all labels exist in DB, return them
+  if (Object.values(dbLabelIds).every((id) => id)) {
+    return dbLabelIds;
+  }
+
+  // Fetch ALL labels from provider in one API call to find missing ones by name
+  try {
+    const allLabels = await provider.getLabels();
+    const labelsByName = new Map(allLabels.map((l) => [l.name, l.id]));
+
+    const updates: Record<string, string> = {};
+
+    // Find each thread status label by name (but don't create if missing)
+    for (const type of THREAD_STATUS_LABEL_TYPES) {
+      if (dbLabelIds[type]) continue; // Already have it
+
+      const labelName = LABEL_TYPE_TO_NAME[type];
+      const labelId = labelsByName.get(labelName);
+
+      // Only update if the label exists in the provider
+      if (labelId) {
+        dbLabelIds[type] = labelId;
+        updates[`${type}LabelId`] = labelId;
+      }
+    }
+
+    // Update DB with any found label IDs
+    if (Object.keys(updates).length > 0) {
+      await prisma.emailAccount.update({
+        where: { id: emailAccountId },
+        data: updates,
+      });
+    }
+
+    return dbLabelIds;
+  } catch (error) {
+    logger.error("Failed to fetch thread status labels", { error });
+    return dbLabelIds;
+  }
 }

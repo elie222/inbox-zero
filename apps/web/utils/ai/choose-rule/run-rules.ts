@@ -151,6 +151,7 @@ function prepareRulesWithMetaRule(rules: RuleWithActionsAndCategories[]): {
         "Personal conversations with real people. Excludes automated notifications, newsletters, marketing, receipts, and calendar invites. Apply when the email is part of an actual conversation.",
       enabled: true,
       runOnThreads: true,
+      systemType: null,
       actions: [],
       categoryFilters: [],
     };
