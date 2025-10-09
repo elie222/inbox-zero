@@ -31,6 +31,7 @@ import type { EmailProvider } from "@/utils/email/types";
 import type { ModelType } from "@/utils/llms/model";
 import { isConversationStatusType } from "@/utils/reply-tracker/conversation-status-config";
 import { determineConversationStatus } from "@/utils/reply-tracker/handle-conversation-status";
+import { saveColdEmail } from "@/utils/cold-email/is-cold-email";
 
 const logger = createScopedLogger("ai-run-rules");
 
@@ -183,9 +184,6 @@ async function executeMatchedRule(
     modelType,
   });
 
-  if (!isTest) {
-  }
-
   const { immediateActions, delayedActions } = groupBy(actionItems, (item) =>
     item.delayInMinutes != null && item.delayInMinutes > 0
       ? "delayedActions"
@@ -193,55 +191,73 @@ async function executeMatchedRule(
   );
 
   // handle action
-  const executedRule = isTest
-    ? undefined
-    : await saveExecutedRule(
-        {
-          emailAccountId: emailAccount.id,
+
+  let executedRule: Awaited<ReturnType<typeof saveExecutedRule>> | null = null;
+
+  if (!isTest) {
+    executedRule = await saveExecutedRule(
+      {
+        emailAccountId: emailAccount.id,
+        threadId: message.threadId,
+        messageId: message.id,
+      },
+      {
+        rule,
+        actionItems: immediateActions, // Only save immediate actions as ExecutedActions
+        reason,
+      },
+    );
+
+    if (rule.systemType === SystemType.COLD_EMAIL) {
+      await saveColdEmail({
+        email: {
+          id: message.id,
           threadId: message.threadId,
+          from: message.headers.from,
+        },
+        emailAccount,
+        aiReason: reason ?? null,
+      });
+    }
+
+    if (executedRule) {
+      if (delayedActions?.length > 0) {
+        // Attempts to cancel any existing scheduled actions to avoid duplicates
+        await cancelScheduledActions({
+          emailAccountId: emailAccount.id,
           messageId: message.id,
-        },
-        {
-          rule,
-          actionItems: immediateActions, // Only save immediate actions as ExecutedActions
-          reason,
-        },
-      );
+          threadId: message.threadId,
+          reason: "Superseded by new rule execution",
+        });
+        await scheduleDelayedActions({
+          executedRuleId: executedRule.id,
+          actionItems: delayedActions,
+          messageId: message.id,
+          threadId: message.threadId,
+          emailAccountId: emailAccount.id,
+        });
+      }
 
-  if (executedRule && delayedActions?.length > 0 && !isTest) {
-    // Attempts to cancel any existing scheduled actions to avoid duplicates
-    await cancelScheduledActions({
-      emailAccountId: emailAccount.id,
-      messageId: message.id,
-      threadId: message.threadId,
-      reason: "Superseded by new rule execution",
-    });
-    await scheduleDelayedActions({
-      executedRuleId: executedRule.id,
-      actionItems: delayedActions,
-      messageId: message.id,
-      threadId: message.threadId,
-      emailAccountId: emailAccount.id,
-    });
+      // Execute immediate actions if any
+      if (immediateActions?.length > 0) {
+        await executeAct({
+          client,
+          userEmail: emailAccount.email,
+          userId: emailAccount.userId,
+          emailAccountId: emailAccount.id,
+          executedRule,
+          message,
+        });
+      } else if (!delayedActions?.length) {
+        // No actions at all (neither immediate nor delayed), mark as applied
+        await prisma.executedRule.update({
+          where: { id: executedRule.id },
+          data: { status: ExecutedRuleStatus.APPLIED },
+        });
+      }
+    }
   }
 
-  // Execute immediate actions if any
-  if (executedRule && immediateActions?.length > 0) {
-    await executeAct({
-      client,
-      userEmail: emailAccount.email,
-      userId: emailAccount.userId,
-      emailAccountId: emailAccount.id,
-      executedRule,
-      message,
-    });
-  } else if (executedRule && !delayedActions?.length) {
-    // No actions at all (neither immediate nor delayed), mark as applied
-    await prisma.executedRule.update({
-      where: { id: executedRule.id },
-      data: { status: ExecutedRuleStatus.APPLIED },
-    });
-  }
   // Note: If there are ONLY delayed actions (no immediate), status stays APPLYING
   // and will be updated to APPLIED by checkAndCompleteExecutedRule() when scheduled actions finish
 

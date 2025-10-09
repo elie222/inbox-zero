@@ -1,7 +1,7 @@
 import { z } from "zod";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import type { ColdEmail, Rule } from "@prisma/client";
-import { ActionType, ColdEmailStatus } from "@prisma/client";
+import { ColdEmailStatus } from "@prisma/client";
 import prisma from "@/utils/prisma";
 import { DEFAULT_COLD_EMAIL_PROMPT } from "@/utils/cold-email/prompt";
 import { stringifyEmail } from "@/utils/stringify-email";
@@ -10,8 +10,6 @@ import type { EmailForLLM } from "@/utils/types";
 import type { EmailProvider } from "@/utils/email/types";
 import { getModel, type ModelType } from "@/utils/llms/model";
 import { createGenerateObject } from "@/utils/llms";
-import { getOrCreateSystemLabelId } from "@/utils/label-config";
-import type { ColdEmailRule } from "@/utils/cold-email/cold-email-rule";
 
 export const COLD_EMAIL_FOLDER_NAME = "Cold Emails";
 
@@ -164,54 +162,16 @@ ${stringifyEmail(email, 500)}
   return response.object;
 }
 
-export async function runColdEmailBlocker({
+export async function saveColdEmail({
   email,
-  provider,
   emailAccount,
-  modelType,
-  coldEmailRule,
+  aiReason,
 }: {
-  email: EmailForLLM & { threadId: string };
-  provider: EmailProvider;
-  emailAccount: EmailAccountWithAI;
-  modelType: ModelType;
-  coldEmailRule: ColdEmailRule;
-}): Promise<{
-  isColdEmail: boolean;
-  reason: ColdEmailBlockerReason;
-  aiReason?: string | null;
-  coldEmailId?: string | null;
-}> {
-  const response = await isColdEmail({
-    email,
-    emailAccount,
-    provider,
-    modelType,
-    coldEmailRule,
-  });
-
-  if (!response.isColdEmail) return { ...response, coldEmailId: null };
-
-  const coldEmail = await blockColdEmail({
-    email,
-    emailAccount,
-    provider,
-    aiReason: response.aiReason ?? null,
-    coldEmailRule,
-  });
-  return { ...response, coldEmailId: coldEmail.id };
-}
-
-export async function blockColdEmail(options: {
-  provider: EmailProvider;
   email: { from: string; id: string; threadId: string };
   emailAccount: EmailAccountWithAI;
   aiReason: string | null;
-  coldEmailRule: ColdEmailRule;
 }): Promise<ColdEmail> {
-  const { provider, email, emailAccount, aiReason, coldEmailRule } = options;
-
-  const coldEmail = await prisma.coldEmail.upsert({
+  return await prisma.coldEmail.upsert({
     where: {
       emailAccountId_fromEmail: {
         emailAccountId: emailAccount.id,
@@ -228,51 +188,4 @@ export async function blockColdEmail(options: {
       threadId: email.threadId,
     },
   });
-
-  if (!emailAccount.email) throw new Error("User email is required");
-
-  if (coldEmailRule.actions.length > 0) {
-    const coldEmailLabelId = await getOrCreateSystemLabelId({
-      emailAccountId: emailAccount.id,
-      type: "COLD_EMAIL",
-      provider,
-    });
-
-    const shouldArchive = coldEmailRule.actions.some(
-      (action) => action.type === ActionType.ARCHIVE,
-    );
-
-    const shouldMarkRead = coldEmailRule.actions.some(
-      (action) => action.type === ActionType.MARK_READ,
-    );
-
-    if (coldEmailLabelId) {
-      await provider.labelMessage({
-        messageId: email.id,
-        labelId: coldEmailLabelId,
-      });
-    }
-
-    // For archiving and marking as read, we'll need to implement these in the provider
-    if (shouldArchive) {
-      if (provider.name === "microsoft") {
-        const folderId = await provider.getOrCreateOutlookFolderIdByName(
-          COLD_EMAIL_FOLDER_NAME,
-        );
-        await provider.moveThreadToFolder(
-          email.threadId,
-          emailAccount.email,
-          folderId,
-        );
-      } else {
-        await provider.archiveThread(email.threadId, emailAccount.email);
-      }
-    }
-
-    if (shouldMarkRead) {
-      await provider.markReadThread(email.threadId, true);
-    }
-  }
-
-  return coldEmail;
 }

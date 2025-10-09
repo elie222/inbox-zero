@@ -1,6 +1,4 @@
 import prisma from "@/utils/prisma";
-import { getEmailForLLM } from "@/utils/get-email-from-message";
-import { runColdEmailBlocker } from "@/utils/cold-email/is-cold-email";
 import { runRules } from "@/utils/ai/choose-rule/run-rules";
 import { categorizeSender } from "@/utils/categorize/senders/categorize";
 import { markMessageAsProcessing } from "@/utils/redis/message-processing";
@@ -10,16 +8,10 @@ import { handleOutboundMessage } from "@/utils/reply-tracker/handle-outbound";
 import { type EmailAccount, NewsletterStatus } from "@prisma/client";
 import { extractEmailAddress } from "@/utils/email";
 import { isIgnoredSender } from "@/utils/filter-ignored-senders";
-import { enqueueDigestItem } from "@/utils/digest/index";
 import type { EmailProvider } from "@/utils/email/types";
 import type { RuleWithActionsAndCategories } from "@/utils/types";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import type { Logger } from "@/utils/logger";
-import {
-  getColdEmailRule,
-  isColdEmailRuleEnabled,
-} from "@/utils/cold-email/cold-email-rule";
-import { isDigestEnabled } from "@/utils/digest/digest-enabled";
 
 export type SharedProcessHistoryOptions = {
   provider: EmailProvider;
@@ -175,42 +167,6 @@ export async function processHistoryItem(
     if (!hasAiAccess) {
       logger.info("Skipping. No AI access.");
       return;
-    }
-
-    const coldEmailRule = await getColdEmailRule(emailAccountId);
-
-    if (coldEmailRule && isColdEmailRuleEnabled(coldEmailRule)) {
-      logger.info("Running cold email blocker...");
-
-      const response = await runColdEmailBlocker({
-        email: {
-          ...getEmailForLLM(parsedMessage),
-          threadId: actualThreadId,
-        },
-        provider,
-        emailAccount,
-        modelType: "default",
-        coldEmailRule,
-      });
-
-      if (response.isColdEmail) {
-        if (
-          isDigestEnabled(coldEmailRule?.actions || []) &&
-          response.coldEmailId
-        ) {
-          logger.info("Enqueuing a cold email digest item", {
-            coldEmailId: response.coldEmailId,
-          });
-          await enqueueDigestItem({
-            email: parsedMessage,
-            emailAccountId,
-            coldEmailId: response.coldEmailId,
-          });
-        }
-
-        logger.info("Skipping. Cold email detected.");
-        return;
-      }
     }
 
     // categorize a sender if we haven't already
