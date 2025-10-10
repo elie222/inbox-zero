@@ -1,43 +1,4 @@
-import { ruleConfig } from "@/utils/rule/consts";
 import { SystemType } from "@prisma/client";
-
-export type ConversationStatus =
-  | "TO_REPLY"
-  | "FYI"
-  | "AWAITING_REPLY"
-  | "ACTIONED";
-
-// TODO: replace this config
-export const CONVERSATION_STATUSES = [
-  {
-    systemType: SystemType.TO_REPLY,
-    name: "To Reply",
-    labelName: ruleConfig[SystemType.TO_REPLY].label,
-    labelType: SystemType.TO_REPLY,
-    description: "Emails you need to respond to",
-  },
-  {
-    systemType: SystemType.FYI,
-    name: "FYI",
-    labelName: ruleConfig[SystemType.FYI].label,
-    labelType: SystemType.FYI,
-    description: "Emails that don't require your response, but are important",
-  },
-  {
-    systemType: SystemType.AWAITING_REPLY,
-    name: "Awaiting Reply",
-    labelName: ruleConfig[SystemType.AWAITING_REPLY].label,
-    labelType: SystemType.AWAITING_REPLY,
-    description: "Emails you're expecting a reply to",
-  },
-  {
-    systemType: SystemType.ACTIONED,
-    name: "Actioned",
-    labelName: ruleConfig[SystemType.ACTIONED].label,
-    labelType: SystemType.ACTIONED,
-    description: "Email threads that have been resolved",
-  },
-] as const;
 
 export const CONVERSATION_STATUS_TYPES: SystemType[] = [
   SystemType.TO_REPLY,
@@ -46,9 +7,15 @@ export const CONVERSATION_STATUS_TYPES: SystemType[] = [
   SystemType.ACTIONED,
 ];
 
+export type ConversationStatus =
+  | "TO_REPLY"
+  | "FYI"
+  | "AWAITING_REPLY"
+  | "ACTIONED";
+
 export function isConversationStatusType(
   systemType: SystemType | null | undefined,
-): boolean {
+): systemType is ConversationStatus {
   if (!systemType) return false;
 
   return CONVERSATION_STATUS_TYPES.includes(systemType);

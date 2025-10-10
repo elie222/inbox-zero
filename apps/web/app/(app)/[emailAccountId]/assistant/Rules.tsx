@@ -56,10 +56,11 @@ import { useChat } from "@/providers/ChatProvider";
 import { useSidebar } from "@/components/ui/sidebar";
 import { useLabels } from "@/hooks/useLabels";
 import {
-  CONVERSATION_STATUSES,
+  CONVERSATION_STATUS_TYPES,
   isConversationStatusType,
   type ConversationStatus,
 } from "@/utils/reply-tracker/conversation-status-config";
+import { ruleConfig } from "@/utils/rule/consts";
 
 export function Rules({
   size = "md",
@@ -93,18 +94,20 @@ export function Rules({
     const existingRules = data || [];
 
     // Create placeholder entries for conversation status rules that don't exist
-    const conversationStatusPlaceholders = CONVERSATION_STATUSES.map(
-      (status) => {
+    const conversationStatusPlaceholders = CONVERSATION_STATUS_TYPES.map(
+      (systemType) => {
         const existingRule = existingRules.find(
-          (r) => r.systemType === status.systemType,
+          (r) => r.systemType === systemType,
         );
         if (existingRule) return existingRule;
 
+        const ruleConfiguration = ruleConfig[systemType];
+
         // Create placeholder for missing conversation status rule
         return {
-          id: `placeholder-${status.systemType}`,
-          name: status.name,
-          instructions: status.description,
+          id: `placeholder-${systemType}`,
+          name: ruleConfiguration.name,
+          instructions: ruleConfiguration.instructions,
           enabled: false,
           runOnThreads: false,
           automate: true,
@@ -117,7 +120,7 @@ export function Rules({
           categoryFilterType: null,
           conditionalOperator: LogicalOperator.OR,
           groupId: null,
-          systemType: status.systemType,
+          systemType,
           to: null,
           from: null,
           subject: null,
