@@ -41,7 +41,7 @@ import { Badge } from "@/components/Badge";
 import { getActionColor } from "@/components/PlanBadge";
 import { toastError } from "@/components/Toast";
 import { useRules } from "@/hooks/useRules";
-import { ActionType, LogicalOperator, SystemType } from "@prisma/client";
+import { type ActionType, LogicalOperator, SystemType } from "@prisma/client";
 import { useAction } from "next-safe-action/hooks";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { prefixPath } from "@/utils/path";
@@ -455,9 +455,6 @@ export function ActionBadges({
   return (
     <div className="flex gap-2 flex-wrap">
       {sortActionsByPriority(actions).map((action) => {
-        // Hidden for simplicity
-        if (action.type === ActionType.TRACK_THREAD) return null;
-
         const Icon = getActionIcon(action.type);
 
         return (

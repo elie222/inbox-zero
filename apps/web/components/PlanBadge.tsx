@@ -222,7 +222,6 @@ export function getActionColor(actionType: ActionType): Color {
     case ActionType.MARK_SPAM:
       return "red";
     case ActionType.CALL_WEBHOOK:
-    case ActionType.TRACK_THREAD:
     case ActionType.DIGEST:
       return "purple";
     default: {

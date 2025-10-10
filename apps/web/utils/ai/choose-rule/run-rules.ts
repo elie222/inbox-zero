@@ -30,8 +30,12 @@ import groupBy from "lodash/groupBy";
 import type { EmailProvider } from "@/utils/email/types";
 import type { ModelType } from "@/utils/llms/model";
 import { isConversationStatusType } from "@/utils/reply-tracker/conversation-status-config";
-import { determineConversationStatus } from "@/utils/reply-tracker/handle-conversation-status";
+import {
+  determineConversationStatus,
+  updateThreadTrackers,
+} from "@/utils/reply-tracker/handle-conversation-status";
 import { saveColdEmail } from "@/utils/cold-email/is-cold-email";
+import { internalDateToDate } from "@/utils/date";
 
 const logger = createScopedLogger("ai-run-rules");
 
@@ -217,6 +221,16 @@ async function executeMatchedRule(
         },
         emailAccount,
         aiReason: reason ?? null,
+      });
+    }
+
+    if (isConversationStatusType(rule.systemType)) {
+      await updateThreadTrackers({
+        emailAccountId: emailAccount.id,
+        threadId: message.threadId,
+        messageId: message.id,
+        sentAt: internalDateToDate(message.internalDate),
+        status: rule.systemType,
       });
     }
 

@@ -149,11 +149,7 @@ export function RuleForm({
           ),
           actions: [
             ...rule.actions
-              .filter(
-                (action) =>
-                  action.type !== ActionType.DIGEST &&
-                  action.type !== ActionType.TRACK_THREAD,
-              )
+              .filter((action) => action.type !== ActionType.DIGEST)
               .map((action) => ({
                 ...action,
                 delayInMinutes: action.delayInMinutes,
@@ -1312,7 +1308,6 @@ function ActionCard({
             );
           })}
 
-          {action.type === ActionType.TRACK_THREAD && <ReplyTrackerAction />}
           {shouldShowProTip && <VariableProTip />}
           {actionCanBeDelayed && (
             <div className="">
@@ -1403,18 +1398,6 @@ function CardLayoutRight({
   return (
     <div className={cn("space-y-4 mx-auto w-full max-w-md", className)}>
       {children}
-    </div>
-  );
-}
-
-function ReplyTrackerAction() {
-  return (
-    <div className="flex h-full items-center justify-center">
-      <div className="max-w-sm text-center text-sm text-muted-foreground">
-        This action tracks emails this rule is applied to and removes the{" "}
-        <Badge color="green">{getRuleLabel(SystemType.TO_REPLY)}</Badge> label
-        after you reply to the email.
-      </div>
     </div>
   );
 }

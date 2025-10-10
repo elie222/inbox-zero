@@ -63,10 +63,6 @@ export async function enableReplyTracker({
     (r) => r.systemType === SystemType.TO_REPLY,
   );
 
-  if (rule?.actions.find((a) => a.type === ActionType.TRACK_THREAD)) {
-    return { success: true, alreadyEnabled: true };
-  }
-
   let ruleId: string | null = rule?.id || null;
 
   const emailProvider = await createEmailProvider({
@@ -153,10 +149,7 @@ export async function enableReplyTracker({
     select: { id: true, actions: true },
   });
 
-  await Promise.allSettled([
-    enableReplyTracking(updatedRule),
-    enableDraftReplies(updatedRule),
-  ]);
+  await Promise.allSettled([enableDraftReplies(updatedRule)]);
 
   // Enable related conversation status types (FYI, Awaiting Reply, Actioned)
   await enableRelatedConversationStatuses({
@@ -222,19 +215,6 @@ export async function createToReplyRule(
     triggerType: "system_creation",
     shouldCreateIfDuplicate: false,
     provider,
-  });
-}
-
-async function enableReplyTracking(
-  rule: Prisma.RuleGetPayload<{
-    select: { id: true; actions: true };
-  }>,
-) {
-  // already tracking replies
-  if (rule.actions?.find((a) => a.type === ActionType.TRACK_THREAD)) return;
-
-  await prisma.action.create({
-    data: { ruleId: rule.id, type: ActionType.TRACK_THREAD },
   });
 }
 
@@ -327,19 +307,6 @@ async function enableRelatedConversationStatuses({
               labelId: labelInfo.labelId,
               fields: {
                 label: labelInfo.label,
-                to: null,
-                subject: null,
-                content: null,
-                cc: null,
-                bcc: null,
-                webhookUrl: null,
-                folderName: null,
-              },
-            },
-            {
-              type: ActionType.TRACK_THREAD,
-              fields: {
-                label: null,
                 to: null,
                 subject: null,
                 content: null,

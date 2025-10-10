@@ -1,16 +1,12 @@
 "use client";
 
-import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { Badge } from "@/components/Badge";
 import { EnableFeatureCard } from "@/components/EnableFeatureCard";
 import { toastSuccess } from "@/components/Toast";
 import { toastError } from "@/components/Toast";
 import { SectionDescription } from "@/components/Typography";
-import {
-  enableReplyTrackerAction,
-  processPreviousSentEmailsAction,
-} from "@/utils/actions/reply-tracking";
+import { enableReplyTrackerAction } from "@/utils/actions/reply-tracking";
 import {
   markOnboardingAsCompleted,
   REPLY_ZERO_ONBOARDING_COOKIE,
@@ -80,19 +76,7 @@ export function EnableReplyTracker({ enabled }: { enabled: boolean }) {
           });
         }
 
-        toast.promise(
-          async () => {
-            await processPreviousSentEmailsAction(emailAccountId);
-
-            router.push(prefixPath(emailAccountId, "/reply-zero?enabled=true"));
-          },
-          {
-            loading:
-              "Processing previously sent emails... This will take a few minutes. Refresh the page to view updated progress.",
-            success: "Previously sent emails processed",
-            error: "Error processing previously sent emails",
-          },
-        );
+        router.push(prefixPath(emailAccountId, "/reply-zero?enabled=true"));
       }}
     />
   );

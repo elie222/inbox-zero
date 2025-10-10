@@ -2,8 +2,6 @@ import { ActionType, type ExecutedRule } from "@prisma/client";
 import { createScopedLogger } from "@/utils/logger";
 import { callWebhook } from "@/utils/webhook";
 import type { ActionItem, EmailForAction } from "@/utils/ai/types";
-import { coordinateReplyProcess } from "@/utils/reply-tracker/inbound";
-import { internalDateToDate } from "@/utils/date";
 import type { EmailProvider } from "@/utils/email/types";
 import { enqueueDigestItem } from "@/utils/digest/index";
 import { filterNullProperties } from "@/utils";
@@ -61,8 +59,6 @@ export const runActionFunction = async (options: {
       return call_webhook(opts);
     case ActionType.MARK_READ:
       return mark_read(opts);
-    case ActionType.TRACK_THREAD:
-      return track_thread(opts);
     case ActionType.DIGEST:
       return digest(opts);
     case ActionType.MOVE_FOLDER:
@@ -264,20 +260,6 @@ const mark_read: ActionFunction<Record<string, unknown>> = async ({
   email,
 }) => {
   await client.markRead(email.threadId);
-};
-
-const track_thread: ActionFunction<Record<string, unknown>> = async ({
-  client,
-  email,
-  emailAccountId,
-}) => {
-  await coordinateReplyProcess({
-    threadId: email.threadId,
-    messageId: email.id,
-    emailAccountId,
-    sentAt: internalDateToDate(email.internalDate),
-    client,
-  });
 };
 
 const digest: ActionFunction<{ id?: string }> = async ({

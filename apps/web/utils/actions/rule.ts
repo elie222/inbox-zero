@@ -33,7 +33,6 @@ import {
 } from "@/utils/reply-tracker/enable";
 import { env } from "@/env";
 import { INTERNAL_API_KEY_HEADER } from "@/utils/internal-api";
-import type { ProcessPreviousBody } from "@/app/api/reply-tracker/process-previous/route";
 import {
   getCategoryAction,
   getRuleConfig,
@@ -45,7 +44,6 @@ import { createRuleHistory } from "@/utils/rule/rule-history";
 import { ONE_WEEK_MINUTES } from "@/utils/date";
 import { createEmailProvider } from "@/utils/email/provider";
 import { resolveLabelNameAndId } from "@/utils/label/resolve-label";
-import { isConversationStatusType } from "@/utils/reply-tracker/conversation-status-config";
 
 export const createRuleAction = actionClient
   .metadata({ name: "createRule" })
@@ -719,24 +717,6 @@ export const toggleRuleAction = actionClient
                 folderName: null,
               },
             },
-            // only enable tracking if conversation status rule
-            ...(isConversationStatusType(systemType)
-              ? [
-                  {
-                    type: ActionType.TRACK_THREAD,
-                    fields: {
-                      label: null,
-                      to: null,
-                      subject: null,
-                      content: null,
-                      cc: null,
-                      bcc: null,
-                      webhookUrl: null,
-                      folderName: null,
-                    },
-                  },
-                ]
-              : []),
           ],
         },
         emailAccountId,
