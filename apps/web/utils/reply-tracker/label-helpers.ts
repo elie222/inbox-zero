@@ -32,29 +32,35 @@ export async function applyThreadStatusLabel({
     provider.getLabels(),
   ]);
 
-  const removePromises = CONVERSATION_STATUS_TYPES.filter(
-    (type) => type !== systemType,
-  ).map(async (type) => {
-    let labelId = dbLabelIds[type as ConversationStatus];
-    if (!labelId) {
-      const label = providerLabels.find((l) => l.name === getRuleLabel(type));
-      if (!label?.id) {
-        logger.error("Failed to get label ID", { type });
-        return;
+  const removeLabels = async () => {
+    const removeLabelIds: string[] = [];
+
+    for (const type of CONVERSATION_STATUS_TYPES) {
+      if (type === systemType) continue;
+
+      let labelId = dbLabelIds[type as ConversationStatus];
+      if (!labelId) {
+        const label = providerLabels.find((l) => l.name === getRuleLabel(type));
+        if (!label?.id) {
+          logger.error("Failed to get label ID", { type });
+          continue;
+        }
+        labelId = label.id;
       }
-      labelId = label.id;
+      removeLabelIds.push(labelId);
     }
 
-    // TODO: optimize to remove multiple labels at once
-    // Especially for Outlook this is highly inefficient
     return provider
-      .removeThreadLabel(threadId, labelId)
+      .removeThreadLabels(threadId, removeLabelIds)
       .catch((error) =>
-        logger.error("Failed to remove thread label", { labelId, error }),
+        logger.error("Failed to remove thread label", {
+          removeLabelIds,
+          error,
+        }),
       );
-  });
+  };
 
-  const applyPromise = async () => {
+  const addLabel = async () => {
     let targetLabelId = dbLabelIds[systemType];
 
     if (!targetLabelId) {
@@ -79,7 +85,7 @@ export async function applyThreadStatusLabel({
       );
   };
 
-  await Promise.all([...removePromises, applyPromise()]);
+  await Promise.all([removeLabels(), addLabel()]);
 
   logger.info("Thread status label applied successfully", {
     threadId,

@@ -516,6 +516,47 @@ export class OutlookProvider implements EmailProvider {
     }
   }
 
+  async removeThreadLabels(
+    threadId: string,
+    labelIds: string[],
+  ): Promise<void> {
+    if (!labelIds.length) return;
+
+    const [allLabels, messages] = await Promise.all([
+      this.getLabels(),
+      this.client
+        .getClient()
+        .api("/me/messages")
+        .filter(`conversationId eq '${escapeODataString(threadId)}'`)
+        .select("id,categories")
+        .get() as Promise<{
+        value: Array<{ id: string; categories?: string[] }>;
+      }>,
+    ]);
+
+    const labelIdsSet = new Set(labelIds);
+    const removeCategoryNames = allLabels
+      .filter((label) => labelIdsSet.has(label.id))
+      .map((label) => label.name);
+
+    if (!removeCategoryNames.length) return;
+
+    for (const message of messages.value) {
+      const currentCategories = message.categories || [];
+
+      // Remove specified categories
+      const newCategories = currentCategories.filter(
+        (cat) => !removeCategoryNames.includes(cat),
+      );
+
+      await labelMessage({
+        client: this.client,
+        messageId: message.id,
+        categories: newCategories,
+      });
+    }
+  }
+
   async createLabel(name: string): Promise<EmailLabel> {
     const label = await createLabel({
       client: this.client,

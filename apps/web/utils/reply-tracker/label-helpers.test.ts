@@ -1,8 +1,5 @@
 import { describe, expect, test, vi, beforeEach } from "vitest";
-import {
-  applyThreadStatusLabel,
-  removeAllThreadStatusLabels,
-} from "./label-helpers";
+import { applyThreadStatusLabel } from "./label-helpers";
 import type { EmailProvider } from "@/utils/email/types";
 import prisma from "@/utils/__mocks__/prisma";
 
@@ -26,17 +23,18 @@ describe("applyThreadStatusLabel", () => {
 
     // Mock email provider methods
     mockProvider = {
+      removeThreadLabels: vi.fn().mockResolvedValue(undefined),
       labelMessage: vi.fn().mockResolvedValue(undefined),
-      removeThreadLabel: vi.fn().mockResolvedValue(undefined),
       getLabels: vi.fn().mockResolvedValue([
-        { id: "label-needs-reply", name: "To Reply" },
-        { id: "label-awaiting-reply", name: "Awaiting Reply" },
-        { id: "label-fyi", name: "FYI" },
-        { id: "label-actioned", name: "Actioned" },
+        { id: "label-to-reply", name: "To Reply", type: "user" },
+        { id: "label-awaiting-reply", name: "Awaiting Reply", type: "user" },
+        { id: "label-fyi", name: "FYI", type: "user" },
+        { id: "label-actioned", name: "Actioned", type: "user" },
       ]),
       createLabel: vi.fn().mockImplementation(async (name: string) => ({
-        id: `label-${name.toLowerCase().replace(" ", "-")}`,
+        id: `label-${name.toLowerCase().replace(/ /g, "-")}`,
         name,
+        type: "user",
       })),
     } as unknown as EmailProvider;
 
@@ -45,9 +43,7 @@ describe("applyThreadStatusLabel", () => {
       {
         id: "rule-1",
         systemType: "TO_REPLY",
-        actions: [
-          { id: "action-1", type: "LABEL", labelId: "label-needs-reply" },
-        ],
+        actions: [{ id: "action-1", type: "LABEL", labelId: "label-to-reply" }],
       },
       {
         id: "rule-2",
@@ -67,137 +63,111 @@ describe("applyThreadStatusLabel", () => {
         actions: [{ id: "action-4", type: "LABEL", labelId: "label-actioned" }],
       },
     ] as any);
-
-    vi.mocked(prisma.action.update).mockResolvedValue({} as any);
-    vi.mocked(prisma.action.create).mockResolvedValue({} as any);
   });
 
-  test("applies TO_REPLY label and removes other thread status labels", async () => {
+  test("removes other labels from thread and adds target label to message for TO_REPLY", async () => {
     await applyThreadStatusLabel({
       emailAccountId,
       threadId,
       messageId,
-      status: "TO_REPLY",
+      systemType: "TO_REPLY",
       provider: mockProvider,
     });
 
-    // Should apply TO_REPLY label to message
+    // Should remove other conversation status labels from thread
+    expect(mockProvider.removeThreadLabels).toHaveBeenCalledTimes(1);
+    expect(mockProvider.removeThreadLabels).toHaveBeenCalledWith(
+      threadId,
+      expect.arrayContaining([
+        "label-awaiting-reply",
+        "label-fyi",
+        "label-actioned",
+      ]),
+    );
+
+    // Verify it doesn't remove the target label
+    const removeCall = vi.mocked(mockProvider.removeThreadLabels).mock.calls[0];
+    expect(removeCall[1]).not.toContain("label-to-reply");
+
+    // Should add TO_REPLY label to the specific message
+    expect(mockProvider.labelMessage).toHaveBeenCalledTimes(1);
     expect(mockProvider.labelMessage).toHaveBeenCalledWith({
       messageId,
-      labelId: "label-needs-reply",
+      labelId: "label-to-reply",
     });
-
-    // Should remove other thread status labels from thread
-    expect(mockProvider.removeThreadLabel).toHaveBeenCalledWith(
-      threadId,
-      "label-awaiting-reply",
-    );
-    expect(mockProvider.removeThreadLabel).toHaveBeenCalledWith(
-      threadId,
-      "label-fyi",
-    );
-    expect(mockProvider.removeThreadLabel).toHaveBeenCalledWith(
-      threadId,
-      "label-actioned",
-    );
-
-    // Should not remove the label we're applying
-    expect(mockProvider.removeThreadLabel).not.toHaveBeenCalledWith(
-      threadId,
-      "label-needs-reply",
-    );
   });
 
-  test("applies AWAITING_REPLY label and removes other thread status labels", async () => {
+  test("removes other labels from thread and adds target label to message for AWAITING_REPLY", async () => {
     await applyThreadStatusLabel({
       emailAccountId,
       threadId,
       messageId,
-      status: "AWAITING_REPLY",
+      systemType: "AWAITING_REPLY",
       provider: mockProvider,
     });
 
-    // Should apply AWAITING_REPLY label to message
+    expect(mockProvider.removeThreadLabels).toHaveBeenCalledWith(
+      threadId,
+      expect.arrayContaining(["label-to-reply", "label-fyi", "label-actioned"]),
+    );
+
     expect(mockProvider.labelMessage).toHaveBeenCalledWith({
       messageId,
       labelId: "label-awaiting-reply",
     });
-
-    // Should remove other thread status labels
-    expect(mockProvider.removeThreadLabel).toHaveBeenCalledWith(
-      threadId,
-      "label-needs-reply",
-    );
-    expect(mockProvider.removeThreadLabel).toHaveBeenCalledWith(
-      threadId,
-      "label-fyi",
-    );
-    expect(mockProvider.removeThreadLabel).toHaveBeenCalledWith(
-      threadId,
-      "label-actioned",
-    );
   });
 
-  test("applies FYI label and removes other thread status labels", async () => {
+  test("removes other labels from thread and adds target label to message for FYI", async () => {
     await applyThreadStatusLabel({
       emailAccountId,
       threadId,
       messageId,
-      status: "FYI",
+      systemType: "FYI",
       provider: mockProvider,
     });
+
+    expect(mockProvider.removeThreadLabels).toHaveBeenCalledWith(
+      threadId,
+      expect.arrayContaining([
+        "label-to-reply",
+        "label-awaiting-reply",
+        "label-actioned",
+      ]),
+    );
 
     expect(mockProvider.labelMessage).toHaveBeenCalledWith({
       messageId,
       labelId: "label-fyi",
     });
-
-    expect(mockProvider.removeThreadLabel).toHaveBeenCalledWith(
-      threadId,
-      "label-needs-reply",
-    );
-    expect(mockProvider.removeThreadLabel).toHaveBeenCalledWith(
-      threadId,
-      "label-awaiting-reply",
-    );
-    expect(mockProvider.removeThreadLabel).toHaveBeenCalledWith(
-      threadId,
-      "label-actioned",
-    );
   });
 
-  test("applies ACTIONED label and removes other thread status labels", async () => {
+  test("removes other labels from thread and adds target label to message for ACTIONED", async () => {
     await applyThreadStatusLabel({
       emailAccountId,
       threadId,
       messageId,
-      status: "ACTIONED",
+      systemType: "ACTIONED",
       provider: mockProvider,
     });
+
+    expect(mockProvider.removeThreadLabels).toHaveBeenCalledWith(
+      threadId,
+      expect.arrayContaining([
+        "label-to-reply",
+        "label-awaiting-reply",
+        "label-fyi",
+      ]),
+    );
 
     expect(mockProvider.labelMessage).toHaveBeenCalledWith({
       messageId,
       labelId: "label-actioned",
     });
-
-    expect(mockProvider.removeThreadLabel).toHaveBeenCalledWith(
-      threadId,
-      "label-needs-reply",
-    );
-    expect(mockProvider.removeThreadLabel).toHaveBeenCalledWith(
-      threadId,
-      "label-awaiting-reply",
-    );
-    expect(mockProvider.removeThreadLabel).toHaveBeenCalledWith(
-      threadId,
-      "label-fyi",
-    );
   });
 
-  test("handles errors gracefully when removing labels fails", async () => {
-    // Make removeThreadLabel fail for one label
-    vi.mocked(mockProvider.removeThreadLabel).mockRejectedValueOnce(
-      new Error("Failed to remove label"),
+  test("handles errors gracefully", async () => {
+    vi.mocked(mockProvider.removeThreadLabels).mockRejectedValueOnce(
+      new Error("Failed to remove labels"),
     );
 
     // Should not throw
@@ -206,66 +176,57 @@ describe("applyThreadStatusLabel", () => {
         emailAccountId,
         threadId,
         messageId,
-        status: "TO_REPLY",
+        systemType: "TO_REPLY",
         provider: mockProvider,
       }),
     ).resolves.not.toThrow();
-
-    // Should still apply the target label
-    expect(mockProvider.labelMessage).toHaveBeenCalledWith({
-      messageId,
-      labelId: "label-needs-reply",
-    });
   });
 
-  test("handles errors gracefully when applying label fails", async () => {
-    vi.mocked(mockProvider.labelMessage).mockRejectedValueOnce(
-      new Error("Failed to apply label"),
-    );
-
-    // Should not throw
-    await expect(
-      applyThreadStatusLabel({
-        emailAccountId,
-        threadId,
-        messageId,
-        status: "FYI",
-        provider: mockProvider,
-      }),
-    ).resolves.not.toThrow();
-
-    // Should still attempt to remove other labels
-    expect(mockProvider.removeThreadLabel).toHaveBeenCalled();
-  });
-});
-
-describe("removeAllThreadStatusLabels", () => {
-  let mockProvider: EmailProvider;
-  const emailAccountId = "test-account-id";
-  const threadId = "test-thread-id";
-
-  beforeEach(() => {
-    vi.clearAllMocks();
-
-    mockProvider = {
-      removeThreadLabel: vi.fn().mockResolvedValue(undefined),
-      getLabels: vi.fn().mockResolvedValue([
-        { id: "label-needs-reply", name: "To Reply" },
-        { id: "label-awaiting-reply", name: "Awaiting Reply" },
-        { id: "label-fyi", name: "FYI" },
-        { id: "label-actioned", name: "Actioned" },
-      ]),
-    } as unknown as EmailProvider;
-
-    // Mock prisma to return rules with label IDs
+  test("uses provider label when label ID not in database", async () => {
+    // Mock prisma to return rules without one label
     vi.mocked(prisma.rule.findMany).mockResolvedValue([
       {
         id: "rule-1",
         systemType: "TO_REPLY",
+        actions: [{ id: "action-1", type: "LABEL", labelId: "label-to-reply" }],
+      },
+      {
+        id: "rule-2",
+        systemType: "AWAITING_REPLY",
         actions: [
-          { id: "action-1", type: "LABEL", labelId: "label-needs-reply" },
+          { id: "action-2", type: "LABEL", labelId: "label-awaiting-reply" },
         ],
       },
+      // FYI is missing from DB
+      {
+        id: "rule-4",
+        systemType: "ACTIONED",
+        actions: [{ id: "action-4", type: "LABEL", labelId: "label-actioned" }],
+      },
+    ] as any);
+
+    await applyThreadStatusLabel({
+      emailAccountId,
+      threadId,
+      messageId,
+      systemType: "TO_REPLY",
+      provider: mockProvider,
+    });
+
+    // Should still include FYI label from provider labels
+    expect(mockProvider.removeThreadLabels).toHaveBeenCalledWith(
+      threadId,
+      expect.arrayContaining([
+        "label-awaiting-reply",
+        "label-fyi", // From provider labels, not DB
+        "label-actioned",
+      ]),
+    );
+  });
+
+  test("creates label when not found in DB or provider labels", async () => {
+    // Mock prisma to return empty rules for target label
+    vi.mocked(prisma.rule.findMany).mockResolvedValue([
       {
         id: "rule-2",
         systemType: "AWAITING_REPLY",
@@ -284,45 +245,91 @@ describe("removeAllThreadStatusLabels", () => {
         actions: [{ id: "action-4", type: "LABEL", labelId: "label-actioned" }],
       },
     ] as any);
-  });
 
-  test("removes all thread status labels", async () => {
-    await removeAllThreadStatusLabels({
+    // Mock provider labels without TO_REPLY
+    vi.mocked(mockProvider.getLabels).mockResolvedValue([
+      { id: "label-awaiting-reply", name: "Awaiting Reply", type: "user" },
+      { id: "label-fyi", name: "FYI", type: "user" },
+      { id: "label-actioned", name: "Actioned", type: "user" },
+    ]);
+
+    await applyThreadStatusLabel({
       emailAccountId,
       threadId,
+      messageId,
+      systemType: "TO_REPLY",
       provider: mockProvider,
     });
 
-    expect(mockProvider.removeThreadLabel).toHaveBeenCalledWith(
-      threadId,
-      "label-needs-reply",
-    );
-    expect(mockProvider.removeThreadLabel).toHaveBeenCalledWith(
-      threadId,
-      "label-awaiting-reply",
-    );
-    expect(mockProvider.removeThreadLabel).toHaveBeenCalledWith(
-      threadId,
-      "label-fyi",
-    );
-    expect(mockProvider.removeThreadLabel).toHaveBeenCalledWith(
-      threadId,
-      "label-actioned",
-    );
+    // Should have created the label
+    expect(mockProvider.createLabel).toHaveBeenCalledWith("To Reply");
+
+    // Should use the newly created label ID
+    expect(mockProvider.labelMessage).toHaveBeenCalledWith({
+      messageId,
+      labelId: "label-to-reply", // From createLabel mock
+    });
   });
 
-  test("handles errors gracefully", async () => {
-    vi.mocked(mockProvider.removeThreadLabel).mockRejectedValue(
-      new Error("Failed to remove"),
-    );
+  test("handles label creation failure gracefully", async () => {
+    // Mock prisma to return empty rules for target label
+    vi.mocked(prisma.rule.findMany).mockResolvedValue([] as any);
 
-    // Should not throw
-    await expect(
-      removeAllThreadStatusLabels({
-        emailAccountId,
-        threadId,
-        provider: mockProvider,
-      }),
-    ).resolves.not.toThrow();
+    // Mock provider labels to be empty
+    vi.mocked(mockProvider.getLabels).mockResolvedValue([]);
+
+    // Mock createLabel to return null
+    vi.mocked(mockProvider.createLabel).mockResolvedValue(null as any);
+
+    await applyThreadStatusLabel({
+      emailAccountId,
+      threadId,
+      messageId,
+      systemType: "TO_REPLY",
+      provider: mockProvider,
+    });
+
+    // Should still call removeThreadLabels
+    expect(mockProvider.removeThreadLabels).toHaveBeenCalled();
+
+    // Should not call labelMessage since label creation failed
+    expect(mockProvider.labelMessage).not.toHaveBeenCalled();
+  });
+
+  test("executes remove and add operations in parallel", async () => {
+    const removePromise = vi.fn().mockResolvedValue(undefined);
+    const labelPromise = vi.fn().mockResolvedValue(undefined);
+
+    vi.mocked(mockProvider.removeThreadLabels).mockImplementation(
+      removePromise,
+    );
+    vi.mocked(mockProvider.labelMessage).mockImplementation(labelPromise);
+
+    await applyThreadStatusLabel({
+      emailAccountId,
+      threadId,
+      messageId,
+      systemType: "FYI",
+      provider: mockProvider,
+    });
+
+    // Both operations should have been called
+    expect(removePromise).toHaveBeenCalled();
+    expect(labelPromise).toHaveBeenCalled();
+  });
+
+  test("removes exactly 3 labels (all except target)", async () => {
+    await applyThreadStatusLabel({
+      emailAccountId,
+      threadId,
+      messageId,
+      systemType: "FYI",
+      provider: mockProvider,
+    });
+
+    const removeCall = vi.mocked(mockProvider.removeThreadLabels).mock.calls[0];
+
+    // Should remove exactly 3 labels (all 4 conversation statuses minus the target)
+    expect(removeCall[1]).toHaveLength(3);
   });
 });

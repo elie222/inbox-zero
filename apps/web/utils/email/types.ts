@@ -89,6 +89,7 @@ export interface EmailProvider {
   ): Promise<void>;
   labelMessage(options: { messageId: string; labelId: string }): Promise<void>;
   removeThreadLabel(threadId: string, labelId: string): Promise<void>;
+  removeThreadLabels(threadId: string, labelIds: string[]): Promise<void>;
   draftEmail(
     email: ParsedMessage,
     args: { to?: string; subject?: string; content: string },

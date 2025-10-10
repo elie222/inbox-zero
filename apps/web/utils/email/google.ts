@@ -29,6 +29,7 @@ import {
 import {
   archiveThread,
   labelMessage,
+  labelThread,
   markReadThread,
   removeThreadLabel,
 } from "@/utils/gmail/label";
@@ -394,6 +395,19 @@ export class GmailProvider implements EmailProvider {
 
   async removeThreadLabel(threadId: string, labelId: string): Promise<void> {
     await removeThreadLabel(this.client, threadId, labelId);
+  }
+
+  async removeThreadLabels(
+    threadId: string,
+    labelIds: string[],
+  ): Promise<void> {
+    if (!labelIds.length) return;
+
+    await labelThread({
+      gmail: this.client,
+      threadId,
+      removeLabelIds: labelIds,
+    });
   }
 
   async createLabel(name: string): Promise<EmailLabel> {
