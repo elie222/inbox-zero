@@ -78,7 +78,7 @@ export async function handleOutboundReply({
     emailAccountId: emailAccount.id,
     threadId: message.threadId,
     messageId: message.id,
-    status: aiResult.status,
+    systemType: aiResult.status,
     provider,
   });
 

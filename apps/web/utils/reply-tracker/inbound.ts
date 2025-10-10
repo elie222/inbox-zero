@@ -105,7 +105,7 @@ export async function coordinateReplyProcess({
     emailAccountId,
     threadId,
     messageId,
-    status: aiResult.status,
+    systemType: aiResult.status,
     provider: client,
   });
 
