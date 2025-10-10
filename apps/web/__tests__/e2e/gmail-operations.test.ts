@@ -1,13 +1,13 @@
 /**
- * Manual integration tests for Gmail operations
+ * E2E tests for Gmail operations (webhooks and general operations)
+ *
+ * Usage:
+ * pnpm test-e2e gmail-operations
+ * pnpm test-e2e gmail-operations -t "webhook"  # Run specific test
  *
  * Setup:
  * 1. Set TEST_GMAIL_EMAIL env var to your Gmail email
  * 2. Set TEST_GMAIL_MESSAGE_ID with a real messageId from your logs
- *
- * Usage:
- *   pnpm test-e2e gmail-operations
- *   pnpm test-e2e gmail-operations -t "webhook"  # Run specific test
  */
 
 import { describe, test, expect, vi, beforeEach, afterEach } from "vitest";

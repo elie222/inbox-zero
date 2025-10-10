@@ -6,10 +6,12 @@ End-to-end integration tests for Inbox Zero AI that test against real email prov
 
 ```
 e2e/
-├── labeling/              # Email labeling/category operations
-│   ├── microsoft-labeling.test.ts
-│   └── google-labeling.test.ts
-└── README.md             # This file
+├── labeling/                      # Email labeling/category operations
+│   ├── microsoft-labeling.test.ts # Outlook category CRUD, apply/remove, lifecycle
+│   └── google-labeling.test.ts    # Gmail label CRUD, apply/remove, lifecycle
+├── gmail-operations.test.ts       # Gmail webhooks, history processing
+├── outlook-operations.test.ts     # Outlook webhooks, threads, search, senders
+└── README.md                      # This file
 ```
 
 ## Running E2E Tests
@@ -23,6 +25,8 @@ pnpm test-e2e
 # Run specific test suite
 pnpm test-e2e microsoft-labeling
 pnpm test-e2e google-labeling
+pnpm test-e2e gmail-operations
+pnpm test-e2e outlook-operations
 
 # Run specific test within a suite
 pnpm test-e2e microsoft-labeling -t "should apply and remove label"
@@ -82,4 +86,5 @@ This ensures:
 - These tests use real API calls and count against your quota
 - Tests may take 30+ seconds due to API rate limits
 - Make sure your test account has proper permissions
+- **Microsoft Graph**: All API requests use immutable IDs (`Prefer: IdType="ImmutableId"` header) to ensure message IDs remain stable across operations
 

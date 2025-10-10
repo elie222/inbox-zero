@@ -1,5 +1,5 @@
 /**
- * Manual integration tests for Outlook operations
+ * E2E tests for Outlook operations (webhooks, threads, search queries)
  *
  * Usage:
  * pnpm test-e2e outlook-operations
@@ -10,7 +10,6 @@
  * 2. Set TEST_OUTLOOK_MESSAGE_ID with a real messageId from your logs (optional)
  * 3. Set TEST_CONVERSATION_ID with a real conversationId from your logs (optional)
  * 4. Set TEST_CATEGORY_NAME for category/label testing (optional, defaults to "To Reply")
- *
  */
 
 import { describe, test, expect, beforeAll, vi } from "vitest";
