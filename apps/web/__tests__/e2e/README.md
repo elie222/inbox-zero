@@ -8,7 +8,7 @@ End-to-end integration tests for Inbox Zero AI that test against real email prov
 e2e/
 ├── labeling/              # Email labeling/category operations
 │   ├── microsoft-labeling.test.ts
-│   └── google-labeling.test.ts (coming soon)
+│   └── google-labeling.test.ts
 └── README.md             # This file
 ```
 
