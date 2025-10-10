@@ -31,8 +31,6 @@ import {
   enableDraftReplies,
   enableReplyTracker,
 } from "@/utils/reply-tracker/enable";
-import { env } from "@/env";
-import { INTERNAL_API_KEY_HEADER } from "@/utils/internal-api";
 import {
   getCategoryAction,
   getRuleConfig,
@@ -440,24 +438,6 @@ export const createRulesOnboardingAction = actionClient
           emailAccountId,
           addDigest: toReply.hasDigest ?? false,
           provider,
-        }).then((res) => {
-          if (res?.alreadyEnabled) return;
-
-          // Load previous emails needing replies in background
-          // This can take a while
-          fetch(
-            `${env.NEXT_PUBLIC_BASE_URL}/api/reply-tracker/process-previous`,
-            {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                [INTERNAL_API_KEY_HEADER]: env.INTERNAL_API_KEY,
-              },
-              body: JSON.stringify({
-                emailAccountId,
-              } satisfies ProcessPreviousBody),
-            },
-          );
         });
         promises.push(promise);
       }
