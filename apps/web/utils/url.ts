@@ -1,5 +1,15 @@
-function getGmailBaseUrl(emailAddress?: string | null) {
-  return `https://mail.google.com/mail/u/${emailAddress || 0}`;
+function getGmailBaseUrl(emailAddress?: string) {
+  if (emailAddress) {
+    return `https://mail.google.com/mail/u/?email=${encodeURIComponent(emailAddress)}`;
+  }
+  return "https://mail.google.com/mail/u/0";
+}
+
+function getGmailMessageUrl(messageId: string, emailAddress?: string) {
+  if (emailAddress) {
+    return `https://mail.google.com/mail/?authuser=${encodeURIComponent(emailAddress)}#all/${messageId}`;
+  }
+  return `https://mail.google.com/mail/u/0/#all/${messageId}`;
 }
 
 function getOutlookBaseUrl() {
@@ -11,45 +21,65 @@ const PROVIDER_CONFIG: Record<
   {
     buildUrl: (
       messageOrThreadId: string,
-      emailAddress?: string | null,
+      emailAddress?: string,
+      folderName?: string,
     ) => string;
     selectId: (messageId: string, threadId: string) => string;
   }
 > = {
   microsoft: {
-    buildUrl: (messageOrThreadId: string, _emailAddress?: string | null) => {
-      // Outlook URL format: https://outlook.live.com/mail/0/inbox/id/ENCODED_MESSAGE_ID
-      // The message ID needs to be URL-encoded for Outlook
-      const encodedMessageId = encodeURIComponent(messageOrThreadId);
-      return `${getOutlookBaseUrl()}/inbox/id/${encodedMessageId}`;
+    buildUrl: (
+      messageOrThreadId: string,
+      _emailAddress?: string,
+      folderName?: string,
+    ) => {
+      // Working Outlook URL format discovered from real URLs:
+      // https://outlook.live.com/mail/0/{FOLDER}/id/{MESSAGE_ID}
+      // Examples:
+      // - https://outlook.live.com/mail/0/inbox/id/...
+      // - https://outlook.live.com/mail/0/archive/id/...
+      // - https://outlook.live.com/mail/0/junkemail/id/...
+      // NOTE: Don't encode the messageId - it's already URL-encoded from Outlook
+      const folder = folderName || "inbox"; // Default to inbox if no folder specified
+      return `${getOutlookBaseUrl()}/${folder}/id/${messageOrThreadId}`;
     },
     selectId: (_messageId: string, threadId: string) => threadId,
   },
   google: {
-    buildUrl: (messageOrThreadId: string, emailAddress?: string | null) =>
-      `${getGmailBaseUrl(emailAddress)}/#all/${messageOrThreadId}`,
+    buildUrl: (
+      messageOrThreadId: string,
+      emailAddress?: string,
+      _folderName?: string,
+    ) => getGmailMessageUrl(messageOrThreadId, emailAddress),
     selectId: (messageId: string, _threadId: string) => messageId,
   },
   default: {
-    buildUrl: (messageOrThreadId: string, emailAddress?: string | null) =>
-      `${getGmailBaseUrl(emailAddress)}/#all/${messageOrThreadId}`,
-    selectId: (_messageId: string, threadId: string) => threadId,
+    buildUrl: (
+      messageOrThreadId: string,
+      emailAddress?: string,
+      _folderName?: string,
+    ) => getGmailMessageUrl(messageOrThreadId, emailAddress),
+    selectId: (messageId: string, _threadId: string) => messageId,
   },
 } as const;
 
 function getProviderConfig(
   provider?: string,
 ): (typeof PROVIDER_CONFIG)[keyof typeof PROVIDER_CONFIG] {
-  return PROVIDER_CONFIG[provider ?? "default"];
+  return (
+    PROVIDER_CONFIG[provider as keyof typeof PROVIDER_CONFIG] ??
+    PROVIDER_CONFIG.default
+  );
 }
 
 export function getEmailUrl(
   messageOrThreadId: string,
-  emailAddress?: string | null,
   provider?: string,
+  emailAddress?: string,
+  folderName?: string,
 ): string {
   const config = getProviderConfig(provider);
-  return config.buildUrl(messageOrThreadId, emailAddress);
+  return config.buildUrl(messageOrThreadId, emailAddress, folderName);
 }
 
 /**
@@ -60,33 +90,29 @@ export function getEmailUrl(
 export function getEmailUrlForMessage(
   messageId: string,
   threadId: string,
-  emailAddress?: string | null,
   provider?: string,
+  emailAddress?: string,
+  folderName?: string,
 ) {
   const config = getProviderConfig(provider);
   const idToUse = config?.selectId(messageId, threadId);
 
-  return getEmailUrl(idToUse, emailAddress, provider);
+  return getEmailUrl(idToUse, provider, emailAddress, folderName);
 }
 
 // Keep the old function name for backward compatibility
-export function getGmailUrl(
-  messageOrThreadId: string,
-  emailAddress?: string | null,
-) {
-  return getEmailUrl(messageOrThreadId, emailAddress, "google");
+export function getGmailUrl(messageOrThreadId: string, emailAddress?: string) {
+  return getEmailUrl(messageOrThreadId, "google", emailAddress);
 }
 
-export function getGmailSearchUrl(from: string, emailAddress?: string | null) {
+export function getGmailSearchUrl(from: string, emailAddress?: string) {
   return `${getGmailBaseUrl(
     emailAddress,
   )}/#advanced-search/from=${encodeURIComponent(from)}`;
 }
 
 export function getGmailBasicSearchUrl(emailAddress: string, query: string) {
-  return `${getGmailBaseUrl(emailAddress)}/#search/${encodeURIComponent(
-    query,
-  )}`;
+  return `${getGmailBaseUrl(emailAddress)}/#search/${encodeURIComponent(query)}`;
 }
 
 // export function getGmailCreateFilterUrl(
@@ -99,6 +125,6 @@ export function getGmailBasicSearchUrl(emailAddress: string, query: string) {
 //   )}/#create-filter/from=${encodeURIComponent(search)}`;
 // }
 
-export function getGmailFilterSettingsUrl(emailAddress?: string | null) {
+export function getGmailFilterSettingsUrl(emailAddress?: string) {
   return `${getGmailBaseUrl(emailAddress)}/#settings/filters`;
 }

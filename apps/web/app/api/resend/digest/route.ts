@@ -18,6 +18,7 @@ import { extractNameFromEmail } from "../../../../utils/email";
 import { RuleName } from "@/utils/rule/consts";
 import { verifySignatureAppRouter } from "@upstash/qstash/nextjs";
 import { camelCase } from "lodash";
+import { getEmailUrlForMessage } from "@/utils/url";
 import { createEmailProvider } from "@/utils/email/provider";
 import { sleep } from "@/utils/sleep";
 
@@ -129,9 +130,12 @@ async function sendEmail({
       items: {
         select: {
           messageId: true,
+          threadId: true,
           content: true,
           action: {
             select: {
+              folderName: true,
+              folderId: true,
               executedRule: {
                 select: {
                   rule: {
@@ -246,10 +250,29 @@ async function sendEmail({
           storedDigestContentSchema.safeParse(parsedContent);
 
         if (contentResult.success) {
+          // For Microsoft messages, use the weblink from Graph API if available
+          // Otherwise fall back to constructed URL
+          let emailUrl: string;
+          if (
+            emailAccount.account.provider === "microsoft" &&
+            message?.weblink
+          ) {
+            emailUrl = message.weblink;
+          } else {
+            emailUrl = getEmailUrlForMessage(
+              item.messageId,
+              item.threadId,
+              emailAccount.account.provider,
+              emailAccount.email,
+              item.action?.folderName,
+            );
+          }
+
           acc[ruleNameKey].push({
             content: contentResult.data.content,
             from: extractNameFromEmail(message?.headers?.from || ""),
             subject: message?.headers?.subject || "",
+            emailUrl,
           });
         } else {
           logger.warn("Failed to validate digest content structure", {

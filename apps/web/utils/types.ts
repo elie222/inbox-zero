@@ -67,6 +67,7 @@ export interface ParsedMessage {
   date: string;
   conversationIndex?: string | null;
   internalDate?: string | null;
+  weblink?: string;
 }
 
 export interface Attachment {
