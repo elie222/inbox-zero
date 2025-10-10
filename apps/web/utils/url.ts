@@ -19,20 +19,12 @@ function getOutlookBaseUrl() {
 const PROVIDER_CONFIG: Record<
   string,
   {
-    buildUrl: (
-      messageOrThreadId: string,
-      emailAddress?: string,
-      folderName?: string,
-    ) => string;
+    buildUrl: (messageOrThreadId: string, emailAddress?: string) => string;
     selectId: (messageId: string, threadId: string) => string;
   }
 > = {
   microsoft: {
-    buildUrl: (
-      messageOrThreadId: string,
-      _emailAddress?: string,
-      folderName?: string,
-    ) => {
+    buildUrl: (messageOrThreadId: string, _emailAddress?: string) => {
       // Working Outlook URL format discovered from real URLs:
       // https://outlook.live.com/mail/0/{FOLDER}/id/{MESSAGE_ID}
       // Examples:
@@ -40,25 +32,19 @@ const PROVIDER_CONFIG: Record<
       // - https://outlook.live.com/mail/0/archive/id/...
       // - https://outlook.live.com/mail/0/junkemail/id/...
       // NOTE: Don't encode the messageId - it's already URL-encoded from Outlook
-      const folder = folderName || "inbox"; // Default to inbox if no folder specified
-      return `${getOutlookBaseUrl()}/${folder}/id/${messageOrThreadId}`;
+      // We do not rely on folder names; default to inbox for fallback links
+      return `${getOutlookBaseUrl()}/inbox/id/${messageOrThreadId}`;
     },
     selectId: (_messageId: string, threadId: string) => threadId,
   },
   google: {
-    buildUrl: (
-      messageOrThreadId: string,
-      emailAddress?: string,
-      _folderName?: string,
-    ) => getGmailMessageUrl(messageOrThreadId, emailAddress),
+    buildUrl: (messageOrThreadId: string, emailAddress?: string) =>
+      getGmailMessageUrl(messageOrThreadId, emailAddress),
     selectId: (messageId: string, _threadId: string) => messageId,
   },
   default: {
-    buildUrl: (
-      messageOrThreadId: string,
-      emailAddress?: string,
-      _folderName?: string,
-    ) => getGmailMessageUrl(messageOrThreadId, emailAddress),
+    buildUrl: (messageOrThreadId: string, emailAddress?: string) =>
+      getGmailMessageUrl(messageOrThreadId, emailAddress),
     selectId: (messageId: string, _threadId: string) => messageId,
   },
 } as const;
@@ -76,10 +62,9 @@ export function getEmailUrl(
   messageOrThreadId: string,
   provider?: string,
   emailAddress?: string,
-  folderName?: string,
 ): string {
   const config = getProviderConfig(provider);
-  return config.buildUrl(messageOrThreadId, emailAddress, folderName);
+  return config.buildUrl(messageOrThreadId, emailAddress);
 }
 
 /**
@@ -92,12 +77,11 @@ export function getEmailUrlForMessage(
   threadId: string,
   provider?: string,
   emailAddress?: string,
-  folderName?: string,
 ) {
   const config = getProviderConfig(provider);
   const idToUse = config?.selectId(messageId, threadId);
 
-  return getEmailUrl(idToUse, provider, emailAddress, folderName);
+  return getEmailUrl(idToUse, provider, emailAddress);
 }
 
 // Keep the old function name for backward compatibility

@@ -33,33 +33,20 @@ describe("URL Generation", () => {
     );
   });
 
-  it("should generate Outlook URL with folder information", () => {
+  it("should generate Outlook URL defaulting to inbox folder", () => {
     const url = getEmailUrlForMessage(
       testMessageId,
       testThreadId,
       "microsoft",
       testEmail,
-      "archive",
     );
 
     expect(url).toBe(
-      `https://outlook.live.com/mail/0/archive/id/${testThreadId}`,
+      `https://outlook.live.com/mail/0/inbox/id/${testThreadId}`,
     );
   });
 
-  it("should generate Outlook URL with junk folder", () => {
-    const url = getEmailUrlForMessage(
-      testMessageId,
-      testThreadId,
-      "microsoft",
-      testEmail,
-      "junkemail",
-    );
-
-    expect(url).toBe(
-      `https://outlook.live.com/mail/0/junkemail/id/${testThreadId}`,
-    );
-  });
+  // No folder argument supported for Outlook anymore; always defaults to inbox
 
   it("should fallback to Gmail URL for unknown provider", () => {
     const url = getEmailUrlForMessage(
@@ -116,13 +103,12 @@ describe("URL Generation", () => {
     expect(url).toContain("test%2Btag%40example.com");
   });
 
-  it("should default to inbox folder when folder name is undefined", () => {
+  it("should default to inbox for Outlook when no folder is provided", () => {
     const url = getEmailUrlForMessage(
       testMessageId,
       testThreadId,
       "microsoft",
       testEmail,
-      undefined,
     );
 
     expect(url).toContain("/inbox/id/");

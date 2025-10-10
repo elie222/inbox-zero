@@ -134,8 +134,6 @@ async function sendEmail({
           content: true,
           action: {
             select: {
-              folderName: true,
-              folderId: true,
               executedRule: {
                 select: {
                   rule: {
@@ -264,7 +262,6 @@ async function sendEmail({
               item.threadId,
               emailAccount.account.provider,
               emailAccount.email,
-              item.action?.folderName,
             );
           }
 

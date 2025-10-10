@@ -100,8 +100,8 @@ export function EmailMessageCell({
               href={getEmailUrlForMessage(
                 messageId,
                 threadId,
-                userEmail,
                 provider,
+                userEmail,
               )}
               target="_blank"
             >

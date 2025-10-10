@@ -186,7 +186,7 @@ function OpenInGmailButton({
 
   return (
     <Link
-      href={getEmailUrlForMessage(messageId, threadId, userEmail, provider)}
+      href={getEmailUrlForMessage(messageId, threadId, provider, userEmail)}
       target="_blank"
       className="ml-2 text-muted-foreground hover:text-foreground"
     >
