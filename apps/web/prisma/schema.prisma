@@ -119,14 +119,14 @@ model EmailAccount {
   personaAnalysis           Json? // ai analysis of the user's persona
   role                      String? // the role confirmed by the user - previously `User.surveyRole`
 
-  statsEmailFrequency   Frequency @default(WEEKLY)
-  summaryEmailFrequency Frequency @default(WEEKLY)
+  statsEmailFrequency   Frequency         @default(WEEKLY)
+  summaryEmailFrequency Frequency         @default(WEEKLY)
   lastSummaryEmailAt    DateTime?
-  // coldEmailBlocker      ColdEmailSetting?
-  // coldEmailDigest       Boolean           @default(false)
-  // coldEmailPrompt       String?
-  rulesPrompt           String?
-  autoCategorizeSenders Boolean   @default(false)
+  coldEmailBlocker      ColdEmailSetting? // @deprecated
+  coldEmailDigest       Boolean           @default(false) // @deprecated
+  coldEmailPrompt       String? // @deprecated
+  rulesPrompt           String? // @deprecated
+  autoCategorizeSenders Boolean           @default(false)
 
   // Configurable system labels (store stable IDs)
   // coldEmailLabelId      String? // Gmail: Label ID, Outlook: Category ID
@@ -1002,13 +1002,14 @@ enum ColdEmailStatus {
   USER_REJECTED_COLD
 }
 
-// enum ColdEmailSetting {
-//   DISABLED
-//   LIST
-//   LABEL
-//   ARCHIVE_AND_LABEL
-//   ARCHIVE_AND_READ_AND_LABEL
-// }
+// @deprecated - No longer used
+enum ColdEmailSetting {
+  DISABLED
+  LIST
+  LABEL
+  ARCHIVE_AND_LABEL
+  ARCHIVE_AND_READ_AND_LABEL
+}
 
 enum PremiumTier {
   BASIC_MONTHLY
