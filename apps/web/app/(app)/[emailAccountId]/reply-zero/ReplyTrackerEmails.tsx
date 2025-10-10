@@ -320,18 +320,9 @@ function Row({
       <TableCell onClick={openSplitView} className="py-8 pl-8 pr-6">
         <div className="flex items-center justify-between">
           <EmailMessageCell
-            sender={
-              message.labelIds?.includes("SENT")
-                ? message.headers.to
-                : message.headers.from
-            }
-            subject={message.headers.subject}
-            snippet={message.snippet}
+            message={message}
             userEmail={userEmail}
-            threadId={message.threadId}
-            messageId={message.id}
             hideViewEmailButton
-            labelIds={message.labelIds}
             filterReplyTrackerLabels
           />
 

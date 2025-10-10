@@ -248,22 +248,11 @@ async function sendEmail({
           storedDigestContentSchema.safeParse(parsedContent);
 
         if (contentResult.success) {
-          // For Microsoft messages, use the weblink from Graph API if available
-          // Otherwise fall back to constructed URL
-          let emailUrl: string;
-          if (
-            emailAccount.account.provider === "microsoft" &&
-            message?.weblink
-          ) {
-            emailUrl = message.weblink;
-          } else {
-            emailUrl = getEmailUrlForMessage(
-              item.messageId,
-              item.threadId,
-              emailAccount.account.provider,
-              emailAccount.email,
-            );
-          }
+          const emailUrl = getEmailUrlForMessage(
+            message,
+            emailAccount.account.provider,
+            emailAccount.email,
+          );
 
           acc[ruleNameKey].push({
             content: contentResult.data.content,

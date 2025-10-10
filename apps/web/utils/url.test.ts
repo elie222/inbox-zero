@@ -9,8 +9,12 @@ describe("URL Generation", () => {
 
   it("should generate Gmail URL for Google provider", () => {
     const url = getEmailUrlForMessage(
-      testMessageId,
-      testThreadId,
+      {
+        id: testMessageId,
+        threadId: testThreadId,
+        headers: {},
+        snippet: "",
+      } as any,
       "google",
       testEmail,
     );
@@ -20,38 +24,47 @@ describe("URL Generation", () => {
     );
   });
 
-  it("should generate Outlook URL for Microsoft provider", () => {
+  it("should use message.weblink for Microsoft provider when available", () => {
     const url = getEmailUrlForMessage(
-      testMessageId,
-      testThreadId,
+      {
+        id: testMessageId,
+        threadId: testThreadId,
+        headers: {},
+        snippet: "",
+        weblink: "https://graph/link",
+      } as any,
       "microsoft",
       testEmail,
     );
 
-    expect(url).toBe(
-      `https://outlook.live.com/mail/0/inbox/id/${testThreadId}`,
-    );
+    expect(url).toBe("https://graph/link");
   });
 
-  it("should generate Outlook URL defaulting to inbox folder", () => {
+  it("should return empty string for Microsoft when no weblink is present", () => {
     const url = getEmailUrlForMessage(
-      testMessageId,
-      testThreadId,
+      {
+        id: testMessageId,
+        threadId: testThreadId,
+        headers: {},
+        snippet: "",
+      } as any,
       "microsoft",
       testEmail,
     );
 
-    expect(url).toBe(
-      `https://outlook.live.com/mail/0/inbox/id/${testThreadId}`,
-    );
+    expect(url).toBe("");
   });
 
   // No folder argument supported for Outlook anymore; always defaults to inbox
 
   it("should fallback to Gmail URL for unknown provider", () => {
     const url = getEmailUrlForMessage(
-      testMessageId,
-      testThreadId,
+      {
+        id: testMessageId,
+        threadId: testThreadId,
+        headers: {},
+        snippet: "",
+      } as any,
       "unknown",
       testEmail,
     );
@@ -63,27 +76,39 @@ describe("URL Generation", () => {
 
   it("should generate different URLs for different providers", () => {
     const gmailUrl = getEmailUrlForMessage(
-      testMessageId,
-      testThreadId,
+      {
+        id: testMessageId,
+        threadId: testThreadId,
+        headers: {},
+        snippet: "",
+      } as any,
       "google",
       testEmail,
     );
     const outlookUrl = getEmailUrlForMessage(
-      testMessageId,
-      testThreadId,
+      {
+        id: testMessageId,
+        threadId: testThreadId,
+        headers: {},
+        snippet: "",
+      } as any,
       "microsoft",
       testEmail,
     );
 
     expect(gmailUrl).not.toBe(outlookUrl);
     expect(gmailUrl).toContain("mail.google.com");
-    expect(outlookUrl).toContain("outlook.live.com");
+    expect(outlookUrl).toBe("");
   });
 
   it("should handle empty email address", () => {
     const url = getEmailUrlForMessage(
-      testMessageId,
-      testThreadId,
+      {
+        id: testMessageId,
+        threadId: testThreadId,
+        headers: {},
+        snippet: "",
+      } as any,
       "google",
       "",
     );
@@ -94,8 +119,12 @@ describe("URL Generation", () => {
 
   it("should encode special characters in email address", () => {
     const url = getEmailUrlForMessage(
-      testMessageId,
-      testThreadId,
+      {
+        id: testMessageId,
+        threadId: testThreadId,
+        headers: {},
+        snippet: "",
+      } as any,
       "google",
       "test+tag@example.com",
     );
@@ -103,14 +132,18 @@ describe("URL Generation", () => {
     expect(url).toContain("test%2Btag%40example.com");
   });
 
-  it("should default to inbox for Outlook when no folder is provided", () => {
+  it("should return empty string for Outlook when no weblink is provided", () => {
     const url = getEmailUrlForMessage(
-      testMessageId,
-      testThreadId,
+      {
+        id: testMessageId,
+        threadId: testThreadId,
+        headers: {},
+        snippet: "",
+      } as any,
       "microsoft",
       testEmail,
     );
 
-    expect(url).toContain("/inbox/id/");
+    expect(url).toBe("");
   });
 });

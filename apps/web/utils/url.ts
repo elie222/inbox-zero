@@ -1,3 +1,4 @@
+import type { ParsedMessage } from "@/utils/types";
 function getGmailBaseUrl(emailAddress?: string) {
   if (emailAddress) {
     return `https://mail.google.com/mail/u/?email=${encodeURIComponent(emailAddress)}`;
@@ -25,14 +26,6 @@ const PROVIDER_CONFIG: Record<
 > = {
   microsoft: {
     buildUrl: (messageOrThreadId: string, _emailAddress?: string) => {
-      // Working Outlook URL format discovered from real URLs:
-      // https://outlook.live.com/mail/0/{FOLDER}/id/{MESSAGE_ID}
-      // Examples:
-      // - https://outlook.live.com/mail/0/inbox/id/...
-      // - https://outlook.live.com/mail/0/archive/id/...
-      // - https://outlook.live.com/mail/0/junkemail/id/...
-      // NOTE: Don't encode the messageId - it's already URL-encoded from Outlook
-      // We do not rely on folder names; default to inbox for fallback links
       return `${getOutlookBaseUrl()}/inbox/id/${messageOrThreadId}`;
     },
     selectId: (_messageId: string, threadId: string) => threadId,
@@ -73,13 +66,17 @@ export function getEmailUrl(
  * For other providers, uses threadId.
  */
 export function getEmailUrlForMessage(
-  messageId: string,
-  threadId: string,
+  message: ParsedMessage,
   provider?: string,
   emailAddress?: string,
 ) {
+  // For Microsoft, prefer the Graph-provided weblink and avoid folder-based URLs
+  if (provider === "microsoft") {
+    return message.weblink ?? "";
+  }
+
   const config = getProviderConfig(provider);
-  const idToUse = config?.selectId(messageId, threadId);
+  const idToUse = config?.selectId(message.id, message.threadId);
 
   return getEmailUrl(idToUse, provider, emailAddress);
 }

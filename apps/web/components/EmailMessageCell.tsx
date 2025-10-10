@@ -19,28 +19,22 @@ import {
   AWAITING_REPLY_LABEL_NAME,
 } from "@/utils/reply-tracker/consts";
 import { isGoogleProvider } from "@/utils/email/provider-types";
+import type { ParsedMessage } from "@/utils/types";
 
 export function EmailMessageCell({
-  sender,
+  message,
   userEmail,
-  subject,
-  snippet,
-  threadId,
-  messageId,
   hideViewEmailButton,
-  labelIds,
   filterReplyTrackerLabels,
 }: {
-  sender: string;
+  message: ParsedMessage;
   userEmail: string;
-  subject: string;
-  snippet: string;
-  threadId: string;
-  messageId: string;
   hideViewEmailButton?: boolean;
-  labelIds?: string[];
   filterReplyTrackerLabels?: boolean;
 }) {
+  const { id: messageId, threadId, headers, snippet, labelIds } = message;
+  const sender = headers?.from || "";
+  const subject = headers?.subject || "";
   const { userLabels } = useEmail();
   const { provider } = useAccount();
 
@@ -97,12 +91,7 @@ export function EmailMessageCell({
           <>
             <Link
               className="ml-2 hover:text-foreground"
-              href={getEmailUrlForMessage(
-                messageId,
-                threadId,
-                provider,
-                userEmail,
-              )}
+              href={getEmailUrlForMessage(message, provider, userEmail)}
               target="_blank"
             >
               <ExternalLinkIcon className="h-4 w-4" />
@@ -148,21 +137,32 @@ export function EmailMessageCellWithData({
 
   const firstMessage = data?.thread.messages?.[0];
 
-  return (
-    <EmailMessageCell
-      sender={sender}
-      userEmail={userEmail}
-      subject={
-        error
-          ? "Error loading email"
-          : isLoading
-            ? "Loading email..."
-            : firstMessage?.headers.subject || ""
-      }
-      snippet={error ? "" : isLoading ? "" : firstMessage?.snippet || ""}
-      threadId={threadId}
-      messageId={messageId}
-      labelIds={firstMessage?.labelIds}
-    />
-  );
+  // Construct a message object for the component
+  const message: ParsedMessage = {
+    id: messageId,
+    threadId,
+    historyId: firstMessage?.historyId || "",
+    inline: firstMessage?.inline || [],
+    subject: error
+      ? "Error loading email"
+      : isLoading
+        ? "Loading email..."
+        : firstMessage?.headers.subject || "",
+    date: firstMessage?.headers.date || "",
+    headers: {
+      from: sender,
+      to: firstMessage?.headers.to || "",
+      subject: error
+        ? "Error loading email"
+        : isLoading
+          ? "Loading email..."
+          : firstMessage?.headers.subject || "",
+      date: firstMessage?.headers.date || "",
+    },
+    snippet: error ? "" : isLoading ? "" : firstMessage?.snippet || "",
+    labelIds: firstMessage?.labelIds,
+    weblink: firstMessage?.weblink,
+  };
+
+  return <EmailMessageCell message={message} userEmail={userEmail} />;
 }
