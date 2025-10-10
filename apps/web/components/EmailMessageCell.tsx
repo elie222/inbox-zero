@@ -137,7 +137,6 @@ export function EmailMessageCellWithData({
 
   const firstMessage = data?.thread.messages?.[0];
 
-  // Construct a message object for the component
   const message: ParsedMessage = {
     id: messageId,
     threadId,
