@@ -14,10 +14,10 @@
  * - Create test labels
  * - Apply labels and verify
  * - Remove labels and verify
- * - Clean up test labels after each test
+ * - Clean up all test labels at the end
  */
 
-import { describe, test, expect, beforeAll, afterEach, vi } from "vitest";
+import { describe, test, expect, beforeAll, afterAll, vi } from "vitest";
 import prisma from "@/utils/prisma";
 import { createEmailProvider } from "@/utils/email/provider";
 import type { OutlookProvider } from "@/utils/email/microsoft";
@@ -79,18 +79,32 @@ describe.skipIf(!RUN_E2E_TESTS)("Microsoft Outlook Labeling E2E Tests", () => {
     console.log(`   Test message ID: ${TEST_OUTLOOK_MESSAGE_ID}\n`);
   });
 
-  afterEach(async () => {
-    // Clean up any test labels created during the test
-    // Note: Outlook API doesn't support deleting categories, so we just track them
-    // In a real scenario, you'd need to manually clean these up or use a test account
+  afterAll(async () => {
+    // Clean up all test labels created during the test suite
     if (createdTestLabels.length > 0) {
       console.log(
-        `   ℹ️  Test created ${createdTestLabels.length} labels that should be cleaned up manually:`,
+        `\n   🧹 Cleaning up ${createdTestLabels.length} test labels...`,
       );
-      createdTestLabels.forEach((labelName) => {
-        console.log(`      - ${labelName}`);
-      });
-      createdTestLabels.length = 0; // Clear the array
+
+      let deletedCount = 0;
+      let failedCount = 0;
+
+      for (const labelName of createdTestLabels) {
+        try {
+          const label = await provider.getLabelByName(labelName);
+          if (label) {
+            await provider.deleteLabel(label.id);
+            deletedCount++;
+          }
+        } catch {
+          failedCount++;
+          console.log(`      ⚠️  Failed to delete: ${labelName}`);
+        }
+      }
+
+      console.log(
+        `   ✅ Deleted ${deletedCount} labels, ${failedCount} failed\n`,
+      );
     }
   });
 
