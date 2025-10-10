@@ -70,7 +70,6 @@ export function getEmailUrlForMessage(
   provider?: string,
   emailAddress?: string,
 ) {
-  // For Microsoft, prefer the Graph-provided weblink and avoid folder-based URLs
   if (provider === "microsoft") {
     return message.weblink ?? "";
   }

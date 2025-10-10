@@ -55,8 +55,6 @@ describe("URL Generation", () => {
     expect(url).toBe("");
   });
 
-  // No folder argument supported for Outlook anymore; always defaults to inbox
-
   it("should fallback to Gmail URL for unknown provider", () => {
     const url = getEmailUrlForMessage(
       {
