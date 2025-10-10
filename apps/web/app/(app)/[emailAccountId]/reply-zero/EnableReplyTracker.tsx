@@ -17,7 +17,7 @@ import {
 } from "@/utils/cookies";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { prefixPath } from "@/utils/path";
-import { ruleConfig } from "@/utils/rule/consts";
+import { getRuleLabel } from "@/utils/rule/consts";
 import { SystemType } from "@prisma/client";
 
 export function EnableReplyTracker({ enabled }: { enabled: boolean }) {
@@ -39,12 +39,12 @@ export function EnableReplyTracker({ enabled }: { enabled: boolean }) {
           <SectionDescription>We label your emails with:</SectionDescription>
 
           <SectionDescription>
-            <Badge color="green">{ruleConfig[SystemType.TO_REPLY].label}</Badge>{" "}
-            - emails you need to reply to.
+            <Badge color="green">{getRuleLabel(SystemType.TO_REPLY)}</Badge> -
+            emails you need to reply to.
           </SectionDescription>
           <SectionDescription>
             <Badge color="blue">
-              {ruleConfig[SystemType.AWAITING_REPLY].label}
+              {getRuleLabel(SystemType.AWAITING_REPLY)}
             </Badge>{" "}
             - emails where you're waiting for a response.
           </SectionDescription>

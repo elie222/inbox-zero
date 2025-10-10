@@ -2,7 +2,7 @@ import prisma from "@/utils/prisma";
 import type { EmailProvider } from "@/utils/email/types";
 import { createScopedLogger } from "@/utils/logger";
 import { ActionType } from "@prisma/client";
-import { ruleConfig } from "@/utils/rule/consts";
+import { getRuleLabel } from "@/utils/rule/consts";
 
 const logger = createScopedLogger("label-config");
 
@@ -25,7 +25,7 @@ export async function getOrCreateSystemLabelId(options: {
     return existingId;
   }
 
-  const labelName = ruleConfig[type].label;
+  const labelName = getRuleLabel(type);
 
   try {
     let label = await provider.getLabelByName(labelName);
@@ -100,7 +100,7 @@ async function updateSystemLabelId(options: {
 
   const labelAction = rule.actions.find((a) => a.type === ActionType.LABEL);
 
-  const labelName = ruleConfig[type].label;
+  const labelName = getRuleLabel(type);
 
   if (labelAction) {
     await prisma.action.update({

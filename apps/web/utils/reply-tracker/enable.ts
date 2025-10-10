@@ -2,7 +2,7 @@ import prisma from "@/utils/prisma";
 import { ActionType, SystemType, type Prisma } from "@prisma/client";
 import { safeCreateRule } from "@/utils/rule/rule";
 import { createScopedLogger } from "@/utils/logger";
-import { getRuleName, ruleConfig } from "@/utils/rule/consts";
+import { getRuleConfig, getRuleLabel, getRuleName } from "@/utils/rule/consts";
 import { SafeError } from "@/utils/error";
 import { createEmailProvider } from "@/utils/email/provider";
 import { resolveLabelNameAndId } from "@/utils/label/resolve-label";
@@ -83,7 +83,7 @@ export async function enableReplyTracker({
       emailProvider,
       label: existingLabelAction?.labelId
         ? null
-        : ruleConfig[SystemType.TO_REPLY].label,
+        : getRuleLabel(SystemType.TO_REPLY),
       labelId: existingLabelAction?.labelId ?? null,
     });
 
@@ -187,15 +187,15 @@ export async function createToReplyRule(
     emailProvider,
     label: existingLabelAction?.labelId
       ? null
-      : ruleConfig[SystemType.TO_REPLY].label,
+      : getRuleLabel(SystemType.TO_REPLY),
     labelId: existingLabelAction?.labelId ?? null,
   });
 
   return await safeCreateRule({
     result: {
-      name: ruleConfig[SystemType.TO_REPLY].name,
+      name: getRuleName(SystemType.TO_REPLY),
       condition: {
-        aiInstructions: ruleConfig[SystemType.TO_REPLY].instructions,
+        aiInstructions: getRuleConfig(SystemType.TO_REPLY).instructions,
         conditionalOperator: null,
         static: null,
       },
@@ -270,17 +270,17 @@ async function enableRelatedConversationStatuses({
   const statusesToEnable = [
     {
       systemType: SystemType.FYI,
-      labelName: ruleConfig[SystemType.FYI].label,
+      labelName: getRuleLabel(SystemType.FYI),
       name: getRuleName(SystemType.FYI),
     },
     {
       systemType: SystemType.AWAITING_REPLY,
-      labelName: ruleConfig[SystemType.AWAITING_REPLY].label,
+      labelName: getRuleLabel(SystemType.AWAITING_REPLY),
       name: getRuleName(SystemType.AWAITING_REPLY),
     },
     {
       systemType: SystemType.ACTIONED,
-      labelName: ruleConfig[SystemType.ACTIONED].label,
+      labelName: getRuleLabel(SystemType.ACTIONED),
       name: getRuleName(SystemType.ACTIONED),
     },
   ];

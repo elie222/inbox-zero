@@ -97,7 +97,7 @@ import { WebhookDocumentationLink } from "@/components/WebhookDocumentation";
 import { LabelCombobox } from "@/components/LabelCombobox";
 import { isConversationStatusType } from "@/utils/reply-tracker/conversation-status-config";
 import { Tooltip } from "@/components/Tooltip";
-import { ruleConfig } from "@/utils/rule/consts";
+import { getRuleLabel } from "@/utils/rule/consts";
 
 export function Rule({
   ruleId,
@@ -1412,8 +1412,8 @@ function ReplyTrackerAction() {
     <div className="flex h-full items-center justify-center">
       <div className="max-w-sm text-center text-sm text-muted-foreground">
         This action tracks emails this rule is applied to and removes the{" "}
-        <Badge color="green">{ruleConfig[SystemType.TO_REPLY].label}</Badge>{" "}
-        label after you reply to the email.
+        <Badge color="green">{getRuleLabel(SystemType.TO_REPLY)}</Badge> label
+        after you reply to the email.
       </div>
     </div>
   );

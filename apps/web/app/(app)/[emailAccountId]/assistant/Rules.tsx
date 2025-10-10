@@ -60,7 +60,7 @@ import {
   isConversationStatusType,
   type ConversationStatus,
 } from "@/utils/reply-tracker/conversation-status-config";
-import { ruleConfig } from "@/utils/rule/consts";
+import { getRuleConfig } from "@/utils/rule/consts";
 
 export function Rules({
   size = "md",
@@ -101,7 +101,7 @@ export function Rules({
         );
         if (existingRule) return existingRule;
 
-        const ruleConfiguration = ruleConfig[systemType];
+        const ruleConfiguration = getRuleConfig(systemType);
 
         // Create placeholder for missing conversation status rule
         return {

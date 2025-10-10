@@ -36,8 +36,8 @@ import { INTERNAL_API_KEY_HEADER } from "@/utils/internal-api";
 import type { ProcessPreviousBody } from "@/app/api/reply-tracker/process-previous/route";
 import {
   getCategoryAction,
+  getRuleConfig,
   getRuleName,
-  ruleConfig,
 } from "@/utils/rule/consts";
 import { actionClient } from "@/utils/actions/safe-action";
 import { prefixPath } from "@/utils/path";
@@ -398,24 +398,24 @@ export const createRulesOnboardingAction = actionClient
   .schema(createRulesOnboardingBody)
   .action(
     async ({ ctx: { emailAccountId, provider, logger }, parsedInput }) => {
-      const systemCategoryMap: Record<SystemType, CategoryConfig> = {};
+      const systemCategoryMap: Map<SystemType, CategoryConfig> = new Map();
       const customCategories: CategoryConfig[] = [];
 
       for (const category of parsedInput) {
         if (category.key) {
-          systemCategoryMap[category.key] = category;
+          systemCategoryMap.set(category.key, category);
         } else {
           customCategories.push(category);
         }
       }
 
-      const newsletter = systemCategoryMap[SystemType.Newsletter];
-      const coldEmail = systemCategoryMap[SystemType.ColdEmail];
-      const toReply = systemCategoryMap[SystemType.ToReply];
-      const marketing = systemCategoryMap[SystemType.Marketing];
-      const calendar = systemCategoryMap[SystemType.Calendar];
-      const receipt = systemCategoryMap[SystemType.Receipt];
-      const notification = systemCategoryMap[SystemType.Notification];
+      const toReply = systemCategoryMap.get(SystemType.TO_REPLY);
+      const newsletter = systemCategoryMap.get(SystemType.NEWSLETTER);
+      const marketing = systemCategoryMap.get(SystemType.MARKETING);
+      const calendar = systemCategoryMap.get(SystemType.CALENDAR);
+      const receipt = systemCategoryMap.get(SystemType.RECEIPT);
+      const notification = systemCategoryMap.get(SystemType.NOTIFICATION);
+      const coldEmail = systemCategoryMap.get(SystemType.COLD_EMAIL);
 
       const emailAccount = await prisma.emailAccount.findUnique({
         where: { id: emailAccountId },
@@ -465,7 +465,7 @@ export const createRulesOnboardingAction = actionClient
       }
 
       async function createRule(systemType: SystemType) {
-        const ruleConfiguration = ruleConfig[systemType];
+        const ruleConfiguration = getRuleConfig(systemType);
 
         const name = ruleConfiguration.name;
         const instructions = ruleConfiguration.instructions;

@@ -15,7 +15,7 @@ import { useAccount } from "@/providers/EmailAccountProvider";
 import { useMemo } from "react";
 import { isDefined } from "@/utils/types";
 import { isGoogleProvider } from "@/utils/email/provider-types";
-import { ruleConfig } from "@/utils/rule/consts";
+import { getRuleLabel } from "@/utils/rule/consts";
 import { SystemType } from "@prisma/client";
 
 export function EmailMessageCell({
@@ -65,8 +65,8 @@ export function EmailMessageCell({
       .filter((label) => {
         if (filterReplyTrackerLabels) {
           if (
-            label.name === ruleConfig[SystemType.TO_REPLY].label ||
-            label.name === ruleConfig[SystemType.AWAITING_REPLY].label
+            label.name === getRuleLabel(SystemType.TO_REPLY) ||
+            label.name === getRuleLabel(SystemType.AWAITING_REPLY)
           ) {
             return false;
           }

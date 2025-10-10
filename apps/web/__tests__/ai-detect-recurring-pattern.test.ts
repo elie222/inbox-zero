@@ -2,7 +2,7 @@
 import { describe, expect, test, vi, beforeEach } from "vitest";
 import { aiDetectRecurringPattern } from "@/utils/ai/choose-rule/ai-detect-recurring-pattern";
 import type { EmailForLLM } from "@/utils/types";
-import { getRuleName, ruleConfig } from "@/utils/rule/consts";
+import { getRuleName, getRuleConfig } from "@/utils/rule/consts";
 import { SystemType } from "@prisma/client";
 import { getEmailAccount } from "@/__tests__/helpers";
 
@@ -34,7 +34,18 @@ describe.runIf(isAiTest)(
     });
 
     function getRealisticRules() {
-      return Object.values(ruleConfig);
+      return Object.values([
+        getRuleConfig(SystemType.TO_REPLY),
+        getRuleConfig(SystemType.AWAITING_REPLY),
+        getRuleConfig(SystemType.FYI),
+        getRuleConfig(SystemType.ACTIONED),
+        getRuleConfig(SystemType.MARKETING),
+        getRuleConfig(SystemType.NEWSLETTER),
+        getRuleConfig(SystemType.RECEIPT),
+        getRuleConfig(SystemType.CALENDAR),
+        getRuleConfig(SystemType.NOTIFICATION),
+        getRuleConfig(SystemType.COLD_EMAIL),
+      ]);
     }
 
     function getNewsletterEmails(): EmailForLLM[] {

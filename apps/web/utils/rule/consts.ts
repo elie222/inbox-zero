@@ -2,7 +2,7 @@ import { DEFAULT_COLD_EMAIL_PROMPT } from "@/utils/cold-email/prompt";
 import { isMicrosoftProvider } from "@/utils/email/provider-types";
 import { SystemType } from "@prisma/client";
 
-export const ruleConfig: Record<
+const ruleConfig: Record<
   SystemType,
   {
     name: string;
@@ -109,21 +109,26 @@ export const ruleConfig: Record<
   },
 };
 
-export function getRuleName(systemRule: SystemType) {
-  return ruleConfig[systemRule].name;
+export function getRuleConfig(systemType: SystemType) {
+  if (!ruleConfig[systemType])
+    throw new Error(`Invalid system type: ${systemType}`);
+  return ruleConfig[systemType];
 }
 
-export function getRuleLabel(systemRule: SystemType) {
-  return ruleConfig[systemRule].label;
+export function getRuleName(systemType: SystemType) {
+  return getRuleConfig(systemType).name;
 }
 
-export function getCategoryAction(systemRule: SystemType, provider: string) {
+export function getRuleLabel(systemType: SystemType) {
+  return getRuleConfig(systemType).label;
+}
+
+export function getCategoryAction(systemType: SystemType, provider: string) {
+  const config = getRuleConfig(systemType);
+
   if (isMicrosoftProvider(provider)) {
-    return (
-      ruleConfig[systemRule].categoryActionMicrosoft ||
-      ruleConfig[systemRule].categoryAction
-    );
+    return config.categoryActionMicrosoft || config.categoryAction;
   }
 
-  return ruleConfig[systemRule].categoryAction;
+  return config.categoryAction;
 }

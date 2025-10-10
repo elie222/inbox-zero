@@ -1,5 +1,6 @@
 import { messageVisibility } from "@/utils/gmail/constants";
-import { ruleConfig } from "@/utils/rule/consts";
+import { getRuleLabel } from "@/utils/rule/consts";
+import { SystemType } from "@prisma/client";
 
 export const PARENT_LABEL = "Inbox Zero";
 
@@ -63,25 +64,25 @@ export type InboxZeroLabel = keyof typeof inboxZeroLabels;
 
 export function getLabelColor(name: string) {
   switch (name) {
-    case ruleConfig.ToReply.label:
+    case getRuleLabel(SystemType.TO_REPLY):
       return blue;
-    case ruleConfig.AwaitingReply.label:
+    case getRuleLabel(SystemType.AWAITING_REPLY):
       return green;
-    case ruleConfig.Fyi.label:
+    case getRuleLabel(SystemType.FYI):
       return pink;
-    case ruleConfig.Actioned.label:
+    case getRuleLabel(SystemType.ACTIONED):
       return coral;
-    case ruleConfig.Newsletter.label:
+    case getRuleLabel(SystemType.NEWSLETTER):
       return cyan;
-    case ruleConfig.Marketing.label:
+    case getRuleLabel(SystemType.MARKETING):
       return purple;
-    case ruleConfig.Calendar.label:
+    case getRuleLabel(SystemType.CALENDAR):
       return pink;
-    case ruleConfig.Receipt.label:
+    case getRuleLabel(SystemType.RECEIPT):
       return red;
-    case ruleConfig.Notification.label:
+    case getRuleLabel(SystemType.NOTIFICATION):
       return coral;
-    case ruleConfig.ColdEmail.label:
+    case getRuleLabel(SystemType.COLD_EMAIL):
       return orange;
     default:
       return getRandomLabelColor();
