@@ -20,22 +20,17 @@ import { isGoogleProvider } from "@/utils/email/provider-types";
 import { useRuleDialog } from "@/app/(app)/[emailAccountId]/assistant/RuleDialog";
 
 export function EmailCell({
-  from,
-  subject,
-  snippet,
-  threadId,
-  messageId,
+  message,
   userEmail,
   createdAt,
 }: {
-  from: string;
-  subject: string;
-  snippet: string;
-  threadId: string;
-  messageId: string;
+  message: ParsedMessage;
   userEmail: string;
   createdAt: Date;
 }) {
+  const { id: messageId, threadId, headers, snippet } = message;
+  const from = headers?.from || "";
+  const subject = message.subject || headers?.subject || "";
   return (
     <div className="flex flex-1 flex-col justify-center">
       <div className="flex items-center justify-between">
@@ -44,11 +39,7 @@ export function EmailCell({
       </div>
       <div className="mt-1 flex items-center font-medium">
         <span>{subject}</span>
-        <OpenInGmailButton
-          messageId={messageId}
-          threadId={threadId}
-          userEmail={userEmail}
-        />
+        <OpenInGmailButton message={message} userEmail={userEmail} />
         <ViewEmailButton
           threadId={threadId}
           messageId={messageId}
@@ -170,12 +161,10 @@ export function DateCell({ createdAt }: { createdAt: Date }) {
 }
 
 function OpenInGmailButton({
-  messageId,
-  threadId,
+  message,
   userEmail,
 }: {
-  messageId: string;
-  threadId: string;
+  message: ParsedMessage;
   userEmail: string;
 }) {
   const { provider } = useAccount();
@@ -186,7 +175,7 @@ function OpenInGmailButton({
 
   return (
     <Link
-      href={getEmailUrlForMessage(messageId, threadId, userEmail, provider)}
+      href={getEmailUrlForMessage(message, provider, userEmail)}
       target="_blank"
       className="ml-2 text-muted-foreground hover:text-foreground"
     >

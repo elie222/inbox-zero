@@ -353,15 +353,7 @@ function ProcessRulesRow({
     >
       <TableCell>
         <div className="flex items-center justify-between">
-          <EmailMessageCell
-            sender={message.headers.from}
-            subject={message.headers.subject}
-            snippet={message.snippet}
-            userEmail={userEmail}
-            threadId={message.threadId}
-            messageId={message.id}
-            labelIds={message.labelIds}
-          />
+          <EmailMessageCell message={message} userEmail={userEmail} />
           <div className="ml-4 flex items-center gap-1">
             {result ? (
               <>

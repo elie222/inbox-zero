@@ -7,6 +7,7 @@ const digestItemSchema = z.object({
   from: z.string(),
   subject: z.string(),
   content: z.string(),
+  emailUrl: z.string().optional(),
 });
 
 const digestSchema = z.record(z.string(), z.array(digestItemSchema).optional());
