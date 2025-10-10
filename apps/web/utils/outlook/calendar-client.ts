@@ -55,8 +55,8 @@ export const getCalendarClientWithRefresh = async ({
   if (!refreshToken) throw new SafeError("No refresh token");
 
   // Check if token is still valid
-  if (expiresAt && expiresAt > Date.now()) {
-    const authProvider = new CalendarAuthProvider(accessToken || "");
+  if (expiresAt && expiresAt > Date.now() && accessToken) {
+    const authProvider = new CalendarAuthProvider(accessToken);
     return Client.initWithMiddleware({ authProvider });
   }
 
