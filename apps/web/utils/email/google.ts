@@ -425,6 +425,13 @@ export class GmailProvider implements EmailProvider {
     };
   }
 
+  async deleteLabel(labelId: string): Promise<void> {
+    await this.client.users.labels.delete({
+      userId: "me",
+      id: labelId,
+    });
+  }
+
   async getOrCreateInboxZeroLabel(key: InboxZeroLabel): Promise<EmailLabel> {
     const label = await getOrCreateInboxZeroLabel({
       gmail: this.client,

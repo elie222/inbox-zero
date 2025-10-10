@@ -135,6 +135,7 @@ export interface EmailProvider {
   getDraft(draftId: string): Promise<ParsedMessage | null>;
   deleteDraft(draftId: string): Promise<void>;
   createLabel(name: string, description?: string): Promise<EmailLabel>;
+  deleteLabel(labelId: string): Promise<void>;
   getOrCreateInboxZeroLabel(key: InboxZeroLabel): Promise<EmailLabel>;
   blockUnsubscribedEmail(messageId: string): Promise<void>;
   getOriginalMessage(

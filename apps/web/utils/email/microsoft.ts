@@ -584,6 +584,13 @@ export class OutlookProvider implements EmailProvider {
     };
   }
 
+  async deleteLabel(labelId: string): Promise<void> {
+    await this.client
+      .getClient()
+      .api(`/me/outlook/masterCategories/${labelId}`)
+      .delete();
+  }
+
   async getOrCreateInboxZeroLabel(key: InboxZeroLabel): Promise<EmailLabel> {
     const label = await getOrCreateInboxZeroLabel({
       client: this.client,
