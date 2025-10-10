@@ -36,13 +36,13 @@ export async function applyThreadStatusLabel({
     (type) => type !== systemType,
   ).map(async (type) => {
     let labelId = dbLabelIds[type as ConversationStatus];
-    if (!labelId) return;
-    const label = providerLabels.find((l) => l.name === getRuleLabel(type));
-    if (!label) return;
-    labelId = label.id;
     if (!labelId) {
-      logger.error("Failed to get label ID", { type });
-      return;
+      const label = providerLabels.find((l) => l.name === getRuleLabel(type));
+      if (!label?.id) {
+        logger.error("Failed to get label ID", { type });
+        return;
+      }
+      labelId = label.id;
     }
 
     // TODO: optimize to remove multiple labels at once
@@ -72,11 +72,14 @@ export async function applyThreadStatusLabel({
     return provider
       .labelMessage({ messageId, labelId: targetLabelId })
       .catch((error) =>
-        logger.error("Failed to apply thread status label", { status, error }),
+        logger.error("Failed to apply thread status label", {
+          systemType,
+          error,
+        }),
       );
   };
 
-  await Promise.all([...removePromises, applyPromise]);
+  await Promise.all([...removePromises, applyPromise()]);
 
   logger.info("Thread status label applied successfully", {
     threadId,
