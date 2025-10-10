@@ -1,7 +1,7 @@
 import type { ParsedMessage } from "@/utils/types";
 function getGmailBaseUrl(emailAddress?: string) {
   if (emailAddress) {
-    return `https://mail.google.com/mail/u/?email=${encodeURIComponent(emailAddress)}`;
+    return `https://mail.google.com/mail/u/?authuser=${encodeURIComponent(emailAddress)}`;
   }
   return "https://mail.google.com/mail/u/0";
 }

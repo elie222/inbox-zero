@@ -30,7 +30,7 @@ export function EmailCell({
 }) {
   const { id: messageId, threadId, headers, snippet } = message;
   const from = headers?.from || "";
-  const subject = headers?.subject || "";
+  const subject = message.subject || headers?.subject || "";
   return (
     <div className="flex flex-1 flex-col justify-center">
       <div className="flex items-center justify-between">
