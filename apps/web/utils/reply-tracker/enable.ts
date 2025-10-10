@@ -1,12 +1,8 @@
 import prisma from "@/utils/prisma";
 import { ActionType, SystemType, type Prisma } from "@prisma/client";
 import { safeCreateRule } from "@/utils/rule/rule";
-import {
-  defaultReplyTrackerInstructions,
-  NEEDS_REPLY_LABEL_NAME,
-} from "@/utils/reply-tracker/consts";
 import { createScopedLogger } from "@/utils/logger";
-import { RuleName } from "@/utils/rule/consts";
+import { getRuleConfig, getRuleLabel, getRuleName } from "@/utils/rule/consts";
 import { SafeError } from "@/utils/error";
 import { createEmailProvider } from "@/utils/email/provider";
 import { resolveLabelNameAndId } from "@/utils/label/resolve-label";
@@ -33,7 +29,6 @@ export async function enableReplyTracker({
       email: true,
       about: true,
       rulesPrompt: true,
-      needsReplyLabelId: true,
       user: {
         select: {
           aiProvider: true,
@@ -53,6 +48,7 @@ export async function enableReplyTracker({
               id: true,
               type: true,
               label: true,
+              labelId: true,
             },
           },
         },
@@ -67,10 +63,6 @@ export async function enableReplyTracker({
     (r) => r.systemType === SystemType.TO_REPLY,
   );
 
-  if (rule?.actions.find((a) => a.type === ActionType.TRACK_THREAD)) {
-    return { success: true, alreadyEnabled: true };
-  }
-
   let ruleId: string | null = rule?.id || null;
 
   const emailProvider = await createEmailProvider({
@@ -78,12 +70,17 @@ export async function enableReplyTracker({
     provider,
   });
 
-  // Use the user's configured system label, or fall back to default label name
+  // Get the label from the rule's label action, or create default
+  const existingLabelAction = rule?.actions.find(
+    (a) => a.type === ActionType.LABEL,
+  );
   const { label: needsReplyLabel, labelId: needsReplyLabelId } =
     await resolveLabelNameAndId({
       emailProvider,
-      label: emailAccount.needsReplyLabelId ? null : NEEDS_REPLY_LABEL_NAME,
-      labelId: emailAccount.needsReplyLabelId,
+      label: existingLabelAction?.labelId
+        ? null
+        : getRuleLabel(SystemType.TO_REPLY),
+      labelId: existingLabelAction?.labelId ?? null,
     });
 
   // If rule found, update/create the label action to NEEDS_REPLY_LABEL
@@ -152,11 +149,13 @@ export async function enableReplyTracker({
     select: { id: true, actions: true },
   });
 
-  await Promise.allSettled([
-    enableReplyTracking(updatedRule),
-    enableDraftReplies(updatedRule),
-    enableOutboundReplyTracking({ emailAccountId }),
-  ]);
+  await Promise.allSettled([enableDraftReplies(updatedRule)]);
+
+  // Enable related conversation status types (FYI, Awaiting Reply, Actioned)
+  await enableRelatedConversationStatuses({
+    emailAccountId,
+    provider,
+  });
 }
 
 export async function createToReplyRule(
@@ -169,22 +168,27 @@ export async function createToReplyRule(
     provider,
   });
 
-  const emailAccount = await prisma.emailAccount.findUnique({
-    where: { id: emailAccountId },
-    select: { needsReplyLabelId: true },
+  // Check if there's an existing TO_REPLY rule with a label
+  const existingRule = await prisma.rule.findFirst({
+    where: { emailAccountId, systemType: SystemType.TO_REPLY },
+    include: { actions: { where: { type: ActionType.LABEL } } },
   });
+
+  const existingLabelAction = existingRule?.actions[0];
 
   const labelInfo = await resolveLabelNameAndId({
     emailProvider,
-    label: emailAccount?.needsReplyLabelId ? null : NEEDS_REPLY_LABEL_NAME,
-    labelId: emailAccount?.needsReplyLabelId,
+    label: existingLabelAction?.labelId
+      ? null
+      : getRuleLabel(SystemType.TO_REPLY),
+    labelId: existingLabelAction?.labelId ?? null,
   });
 
   return await safeCreateRule({
     result: {
-      name: RuleName.ToReply,
+      name: getRuleName(SystemType.TO_REPLY),
       condition: {
-        aiInstructions: defaultReplyTrackerInstructions,
+        aiInstructions: getRuleConfig(SystemType.TO_REPLY).instructions,
         conditionalOperator: null,
         static: null,
       },
@@ -214,19 +218,6 @@ export async function createToReplyRule(
   });
 }
 
-async function enableReplyTracking(
-  rule: Prisma.RuleGetPayload<{
-    select: { id: true; actions: true };
-  }>,
-) {
-  // already tracking replies
-  if (rule.actions?.find((a) => a.type === ActionType.TRACK_THREAD)) return;
-
-  await prisma.action.create({
-    data: { ruleId: rule.id, type: ActionType.TRACK_THREAD },
-  });
-}
-
 export async function enableDraftReplies(
   rule: Prisma.RuleGetPayload<{
     select: { id: true; actions: true };
@@ -243,13 +234,98 @@ export async function enableDraftReplies(
   });
 }
 
-async function enableOutboundReplyTracking({
+async function enableRelatedConversationStatuses({
   emailAccountId,
+  provider,
 }: {
   emailAccountId: string;
+  provider: string;
 }) {
-  await prisma.emailAccount.update({
-    where: { id: emailAccountId },
-    data: { outboundReplyTracking: true },
+  const emailProvider = await createEmailProvider({
+    emailAccountId,
+    provider,
   });
+
+  // Enable FYI, Awaiting Reply, and Actioned system types
+  const statusesToEnable = [
+    {
+      systemType: SystemType.FYI,
+      labelName: getRuleLabel(SystemType.FYI),
+      name: getRuleName(SystemType.FYI),
+    },
+    {
+      systemType: SystemType.AWAITING_REPLY,
+      labelName: getRuleLabel(SystemType.AWAITING_REPLY),
+      name: getRuleName(SystemType.AWAITING_REPLY),
+    },
+    {
+      systemType: SystemType.ACTIONED,
+      labelName: getRuleLabel(SystemType.ACTIONED),
+      name: getRuleName(SystemType.ACTIONED),
+    },
+  ];
+
+  const promises = statusesToEnable.map(
+    async ({ systemType, labelName, name }) => {
+      // Check if rule already exists
+      const existingRule = await prisma.rule.findUnique({
+        where: {
+          emailAccountId_systemType: {
+            emailAccountId,
+            systemType,
+          },
+        },
+      });
+
+      if (existingRule) {
+        // Rule exists, just enable it
+        return prisma.rule.update({
+          where: { id: existingRule.id },
+          data: { enabled: true },
+        });
+      }
+
+      // Create new rule with label
+      const labelInfo = await resolveLabelNameAndId({
+        emailProvider,
+        label: labelName,
+        labelId: null, // Will create if doesn't exist
+      });
+
+      return safeCreateRule({
+        result: {
+          name,
+          condition: {
+            aiInstructions:
+              "Personal conversations with real people. Excludes: automated notifications and bulk emails.",
+            conditionalOperator: null,
+            static: null,
+          },
+          actions: [
+            {
+              type: ActionType.LABEL,
+              labelId: labelInfo.labelId,
+              fields: {
+                label: labelInfo.label,
+                to: null,
+                subject: null,
+                content: null,
+                cc: null,
+                bcc: null,
+                webhookUrl: null,
+                folderName: null,
+              },
+            },
+          ],
+        },
+        emailAccountId,
+        systemType,
+        triggerType: "system_creation",
+        shouldCreateIfDuplicate: false,
+        provider,
+      });
+    },
+  );
+
+  await Promise.allSettled(promises);
 }

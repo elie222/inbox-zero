@@ -1,7 +1,7 @@
 import { EnableReplyTracker } from "@/app/(app)/[emailAccountId]/reply-zero/EnableReplyTracker";
 import { checkUserOwnsEmailAccount } from "@/utils/email-account";
 import prisma from "@/utils/prisma";
-import { ActionType } from "@prisma/client";
+import { CONVERSATION_STATUS_TYPES } from "@/utils/reply-tracker/conversation-status-config";
 
 export default async function OnboardingReplyTracker(props: {
   params: Promise<{ emailAccountId: string }>;
@@ -12,10 +12,10 @@ export default async function OnboardingReplyTracker(props: {
   const trackerRule = await prisma.rule.findFirst({
     where: {
       emailAccountId,
-      actions: { some: { type: ActionType.TRACK_THREAD } },
+      systemType: { in: CONVERSATION_STATUS_TYPES },
     },
     select: { id: true },
   });
 
-  return <EnableReplyTracker enabled={!!trackerRule?.id} />;
+  return <EnableReplyTracker enabled={!!trackerRule} />;
 }

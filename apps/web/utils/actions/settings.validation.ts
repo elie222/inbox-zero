@@ -50,13 +50,5 @@ export type SaveAiSettingsBody = z.infer<typeof saveAiSettingsBody>;
 
 export const updateDigestItemsBody = z.object({
   ruleDigestPreferences: z.record(z.string(), z.boolean()),
-  coldEmailDigest: z.boolean().optional(),
 });
 export type UpdateDigestItemsBody = z.infer<typeof updateDigestItemsBody>;
-
-export const updateSystemLabelsBody = z.object({
-  needsReplyLabelId: z.string().optional(),
-  awaitingReplyLabelId: z.string().optional(),
-  coldEmailLabelId: z.string().optional(),
-});
-export type UpdateSystemLabelsBody = z.infer<typeof updateSystemLabelsBody>;

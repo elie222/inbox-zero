@@ -2,12 +2,8 @@ import type { CreateOrUpdateRuleSchemaWithCategories } from "@/utils/ai/rule/cre
 import prisma from "@/utils/prisma";
 import { isDuplicateError } from "@/utils/prisma-helpers";
 import { createScopedLogger } from "@/utils/logger";
-import {
-  ActionType,
-  type SystemType,
-  type Prisma,
-  type Rule,
-} from "@prisma/client";
+import { ActionType } from "@prisma/client";
+import type { Prisma, Rule, SystemType } from "@prisma/client";
 import { getUserCategoriesForNames } from "@/utils/category.server";
 import { getActionRiskLevel, type RiskAction } from "@/utils/risk";
 import { hasExampleParams } from "@/app/(app)/[emailAccountId]/assistant/examples";
@@ -88,7 +84,8 @@ export async function safeCreateRule({
         });
         return rule;
       } else {
-        return prisma.rule.findUnique({
+        // Check if there's an existing rule with this name
+        const existingRule = await prisma.rule.findUnique({
           where: {
             name_emailAccountId: {
               emailAccountId,
@@ -97,6 +94,28 @@ export async function safeCreateRule({
           },
           include: { actions: true, categoryFilters: true, group: true },
         });
+
+        // If we're creating a system rule and the existing rule doesn't have
+        // the same systemType, create the system rule with a unique name
+        // to avoid breaking system functionality
+        if (systemType && existingRule?.systemType !== systemType) {
+          logger.info("Creating system rule with unique name due to conflict", {
+            systemType,
+            existingRuleName: result.name,
+            existingRuleSystemType: existingRule?.systemType,
+          });
+          const rule = await createRule({
+            result: { ...result, name: `${result.name} - ${Date.now()}` },
+            emailAccountId,
+            categoryIds,
+            systemType,
+            triggerType,
+            provider,
+          });
+          return rule;
+        }
+
+        return existingRule;
       }
     }
 

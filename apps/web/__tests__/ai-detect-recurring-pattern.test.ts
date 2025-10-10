@@ -2,7 +2,8 @@
 import { describe, expect, test, vi, beforeEach } from "vitest";
 import { aiDetectRecurringPattern } from "@/utils/ai/choose-rule/ai-detect-recurring-pattern";
 import type { EmailForLLM } from "@/utils/types";
-import { RuleName } from "@/utils/rule/consts";
+import { getRuleName, getRuleConfig } from "@/utils/rule/consts";
+import { SystemType } from "@prisma/client";
 import { getEmailAccount } from "@/__tests__/helpers";
 
 // Run with: pnpm test-ai ai-detect-recurring-pattern
@@ -33,45 +34,18 @@ describe.runIf(isAiTest)(
     });
 
     function getRealisticRules() {
-      return [
-        {
-          name: "To Reply",
-          instructions: `Apply this to emails needing my direct response. Exclude:
-- All automated notifications (LinkedIn, Facebook, GitHub, social media, marketing)
-- System emails (order confirmations, calendar invites)
-
-Only flag when someone:
-- Asks me a direct question
-- Requests information or action
-- Needs my specific input
-- Follows up on a conversation`,
-        },
-        {
-          name: RuleName.Newsletter,
-          instructions:
-            "Newsletters: Regular content from publications, blogs, or services I've subscribed to",
-        },
-        {
-          name: RuleName.Marketing,
-          instructions:
-            "Marketing: Promotional emails about products, services, sales, or offers",
-        },
-        {
-          name: RuleName.Calendar,
-          instructions:
-            "Calendar: Any email related to scheduling, meeting invites, or calendar notifications",
-        },
-        {
-          name: RuleName.Receipt,
-          instructions:
-            "Receipts: Purchase confirmations, payment receipts, transaction records or invoices",
-        },
-        {
-          name: RuleName.Notification,
-          instructions:
-            "Notifications: Alerts, status updates, or system messages",
-        },
-      ];
+      return Object.values([
+        getRuleConfig(SystemType.TO_REPLY),
+        getRuleConfig(SystemType.AWAITING_REPLY),
+        getRuleConfig(SystemType.FYI),
+        getRuleConfig(SystemType.ACTIONED),
+        getRuleConfig(SystemType.MARKETING),
+        getRuleConfig(SystemType.NEWSLETTER),
+        getRuleConfig(SystemType.RECEIPT),
+        getRuleConfig(SystemType.CALENDAR),
+        getRuleConfig(SystemType.NOTIFICATION),
+        getRuleConfig(SystemType.COLD_EMAIL),
+      ]);
     }
 
     function getNewsletterEmails(): EmailForLLM[] {
@@ -241,7 +215,7 @@ Only flag when someone:
 
       console.debug("Newsletter pattern detection result:", result);
 
-      expect(result?.matchedRule).toBe(RuleName.Newsletter);
+      expect(result?.matchedRule).toBe(getRuleName(SystemType.NEWSLETTER));
       expect(result?.explanation).toBeDefined();
     });
 
@@ -254,7 +228,7 @@ Only flag when someone:
 
       console.debug("Receipt pattern detection result:", result);
 
-      expect(result?.matchedRule).toBe(RuleName.Receipt);
+      expect(result?.matchedRule).toBe(getRuleName(SystemType.RECEIPT));
       expect(result?.explanation).toBeDefined();
     });
 
@@ -267,7 +241,7 @@ Only flag when someone:
 
       console.debug("Calendar pattern detection result:", result);
 
-      expect(result?.matchedRule).toBe(RuleName.Calendar);
+      expect(result?.matchedRule).toBe(getRuleName(SystemType.CALENDAR));
       expect(result?.explanation).toBeDefined();
     });
 
@@ -306,7 +280,8 @@ Only flag when someone:
       console.debug("Same sender different content result:", result);
 
       expect(
-        result === null || result?.matchedRule === RuleName.Notification,
+        result === null ||
+          result?.matchedRule === getRuleName(SystemType.NOTIFICATION),
       ).toBeTruthy();
     });
   },

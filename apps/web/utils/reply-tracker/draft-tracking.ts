@@ -1,12 +1,10 @@
 import { ActionType } from "@prisma/client";
 import type { ParsedMessage } from "@/utils/types";
 import prisma from "@/utils/prisma";
-import { createScopedLogger } from "@/utils/logger";
 import { calculateSimilarity } from "@/utils/similarity-score";
 import { formatError } from "@/utils/error";
 import type { EmailProvider } from "@/utils/email/types";
-
-const logger = createScopedLogger("draft-tracking");
+import type { Logger } from "@/utils/logger";
 
 /**
  * Checks if a sent message originated from an AI draft and logs its similarity.
@@ -15,24 +13,19 @@ export async function trackSentDraftStatus({
   emailAccountId,
   message,
   provider,
+  logger,
 }: {
   emailAccountId: string;
   message: ParsedMessage;
   provider: EmailProvider;
+  logger: Logger;
 }) {
   const { threadId, id: sentMessageId, textPlain: sentTextPlain } = message;
 
-  const loggerOptions = { threadId, sentMessageId };
-
-  logger.info(
-    "Checking if sent message corresponds to an AI draft",
-    loggerOptions,
-  );
+  logger.info("Checking if sent message corresponds to an AI draft");
 
   if (!sentMessageId) {
-    logger.warn("Sent message missing ID, cannot track draft status", {
-      threadId,
-    });
+    logger.warn("Sent message missing ID, cannot track draft status");
     return;
   }
 
@@ -58,10 +51,7 @@ export async function trackSentDraftStatus({
   });
 
   if (!executedAction?.draftId) {
-    logger.info(
-      "No corresponding AI draft action with draftId found",
-      loggerOptions,
-    );
+    logger.info("No corresponding AI draft action with draftId found");
     return;
   }
 
@@ -69,7 +59,6 @@ export async function trackSentDraftStatus({
 
   if (draftExists) {
     logger.info("Original AI draft still exists, sent message was different.", {
-      ...loggerOptions,
       executedActionId: executedAction.id,
       draftId: executedAction.draftId,
     });
@@ -84,14 +73,12 @@ export async function trackSentDraftStatus({
   logger.info(
     "Original AI draft not found (likely sent or deleted), proceeding to log similarity.",
     {
-      ...loggerOptions,
       executedActionId: executedAction.id,
       draftId: executedAction.draftId,
     },
   );
 
   const executedActionId = executedAction.id;
-  const loggerOptionsWithAction = { ...loggerOptions, executedActionId };
 
   const similarityScore = calculateSimilarity(
     executedAction.content,
@@ -99,7 +86,7 @@ export async function trackSentDraftStatus({
   );
 
   logger.info("Calculated similarity score", {
-    ...loggerOptionsWithAction,
+    executedActionId,
     similarityScore,
   });
 
@@ -120,7 +107,7 @@ export async function trackSentDraftStatus({
 
   logger.info(
     "Successfully created draft send log and updated action status via transaction",
-    loggerOptionsWithAction,
+    { executedActionId },
   );
 }
 
@@ -133,13 +120,14 @@ export async function cleanupThreadAIDrafts({
   threadId,
   emailAccountId,
   provider,
+  logger,
 }: {
   threadId: string;
   emailAccountId: string;
   provider: EmailProvider;
+  logger: Logger;
 }) {
-  const loggerOptions = { emailAccountId, threadId };
-  logger.info("Starting cleanup of old AI drafts for thread", loggerOptions);
+  logger.info("Starting cleanup of old AI drafts for thread");
 
   try {
     // Find all draft actions for this thread that haven't resulted in a sent log
@@ -161,20 +149,18 @@ export async function cleanupThreadAIDrafts({
     });
 
     if (potentialDraftsToClean.length === 0) {
-      logger.info("No relevant old AI drafts found to cleanup", loggerOptions);
+      logger.info("No relevant old AI drafts found to cleanup");
       return;
     }
 
     logger.info(
       `Found ${potentialDraftsToClean.length} potential AI drafts to check for cleanup`,
-      loggerOptions,
     );
 
     for (const action of potentialDraftsToClean) {
       if (!action.draftId) continue; // Not expected to happen, but to fix TS error
 
       const actionLoggerOptions = {
-        ...loggerOptions,
         executedActionId: action.id,
         draftId: action.draftId,
       };
@@ -238,10 +224,9 @@ export async function cleanupThreadAIDrafts({
       }
     }
 
-    logger.info("Completed cleanup of old AI drafts for thread", loggerOptions);
+    logger.info("Completed cleanup of old AI drafts for thread");
   } catch (error) {
     logger.error("Error during thread draft cleanup", {
-      ...loggerOptions,
       error: formatError(error),
     });
   }

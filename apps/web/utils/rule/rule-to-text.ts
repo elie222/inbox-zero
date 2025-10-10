@@ -97,9 +97,6 @@ export function ruleToText(rule: RuleWithActions): string {
           actions.push(`Move to folder "${action.folderName}"`);
         }
         break;
-      case ActionType.TRACK_THREAD:
-        // Skip this action as it's typically internal
-        break;
     }
   });
 

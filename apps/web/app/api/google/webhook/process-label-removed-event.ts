@@ -1,13 +1,13 @@
 import type { gmail_v1 } from "@googleapis/gmail";
 import prisma from "@/utils/prisma";
 
-import { ColdEmailStatus } from "@prisma/client";
+import { ColdEmailStatus, SystemType } from "@prisma/client";
 import { logger } from "@/app/api/google/webhook/logger";
 import { extractEmailAddress } from "@/utils/email";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import type { EmailProvider } from "@/utils/email/types";
-import { inboxZeroLabels } from "@/utils/label";
 import { GmailLabel } from "@/utils/gmail/label";
+import { getRuleLabel } from "@/utils/rule/consts";
 
 const SYSTEM_LABELS = [
   GmailLabel.INBOX,
@@ -133,7 +133,7 @@ async function learnFromRemovedLabel({
     return;
   }
 
-  if (labelName === inboxZeroLabels.cold_email.name) {
+  if (labelName === getRuleLabel(SystemType.COLD_EMAIL)) {
     logger.info("Processing Cold Email label removal", loggerOptions);
 
     await prisma.coldEmail.upsert({

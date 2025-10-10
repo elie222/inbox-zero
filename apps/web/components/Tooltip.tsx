@@ -12,15 +12,19 @@ interface TooltipProps {
   children: React.ReactElement<any>;
   content?: string;
   contentComponent?: React.ReactNode;
+  hide?: boolean;
 }
 
 export const Tooltip = ({
   children,
   content,
   contentComponent,
+  hide,
 }: TooltipProps) => {
   // Make tooltip work on mobile with a click
   const [isOpen, setIsOpen] = useState(false);
+
+  if (hide) return children;
 
   return (
     <TooltipProvider delayDuration={200}>

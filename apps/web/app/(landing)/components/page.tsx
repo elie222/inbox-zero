@@ -321,11 +321,6 @@ export default function Components() {
                   id: "call_webhook",
                 },
                 {
-                  type: ActionType.TRACK_THREAD,
-                  label: "Track thread",
-                  id: "track_thread",
-                },
-                {
                   type: ActionType.DIGEST,
                   label: "Digest",
                   id: "digest",

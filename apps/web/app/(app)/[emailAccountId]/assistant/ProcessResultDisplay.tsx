@@ -80,11 +80,7 @@ function ActionSummaryCard({
   const MAX_LENGTH = 280;
 
   const aiGeneratedContent = result.actionItems
-    ?.filter(
-      (action) =>
-        action.type !== ActionType.TRACK_THREAD &&
-        action.type !== ActionType.DIGEST,
-    )
+    ?.filter((action) => action.type !== ActionType.DIGEST)
     .map((action, i) => (
       <div
         key={i}

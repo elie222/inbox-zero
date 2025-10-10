@@ -1,16 +1,17 @@
 import prisma from "@/utils/prisma";
 import type { EmailProvider } from "@/utils/email/types";
 import { createScopedLogger } from "@/utils/logger";
-import {
-  NEEDS_REPLY_LABEL_NAME,
-  AWAITING_REPLY_LABEL_NAME,
-} from "@/utils/reply-tracker/consts";
-import { inboxZeroLabels } from "@/utils/label";
-import { ActionType, SystemType } from "@prisma/client";
+import { ActionType } from "@prisma/client";
+import { getRuleLabel } from "@/utils/rule/consts";
 
 const logger = createScopedLogger("label-config");
 
-type SystemLabelType = "needsReply" | "awaitingReply" | "coldEmail";
+type SystemLabelType =
+  | "TO_REPLY"
+  | "AWAITING_REPLY"
+  | "FYI"
+  | "ACTIONED"
+  | "COLD_EMAIL";
 
 export async function getOrCreateSystemLabelId(options: {
   emailAccountId: string;
@@ -24,13 +25,7 @@ export async function getOrCreateSystemLabelId(options: {
     return existingId;
   }
 
-  const labelNames = {
-    needsReply: NEEDS_REPLY_LABEL_NAME,
-    awaitingReply: AWAITING_REPLY_LABEL_NAME,
-    coldEmail: inboxZeroLabels.cold_email.name,
-  };
-
-  const labelName = labelNames[type];
+  const labelName = getRuleLabel(type);
 
   try {
     let label = await provider.getLabelByName(labelName);
@@ -59,29 +54,20 @@ async function getSystemLabelId(options: {
 }): Promise<string | null> {
   const { emailAccountId, type } = options;
 
-  const emailAccount = await prisma.emailAccount.findUnique({
-    where: { id: emailAccountId },
-    select: {
-      needsReplyLabelId: true,
-      awaitingReplyLabelId: true,
-      coldEmailLabelId: true,
+  const rule = await prisma.rule.findFirst({
+    where: {
+      emailAccountId,
+      systemType: type,
+    },
+    include: {
+      actions: {
+        where: { type: ActionType.LABEL },
+      },
     },
   });
 
-  if (!emailAccount) return null;
-
-  switch (type) {
-    case "needsReply":
-      return emailAccount.needsReplyLabelId;
-    case "awaitingReply":
-      return emailAccount.awaitingReplyLabelId;
-    case "coldEmail":
-      return emailAccount.coldEmailLabelId;
-    default: {
-      const exhaustiveCheck: never = type;
-      return exhaustiveCheck;
-    }
-  }
+  const labelAction = rule?.actions.find((a) => a.labelId);
+  return labelAction?.labelId ?? null;
 }
 
 async function updateSystemLabelId(options: {
@@ -91,36 +77,10 @@ async function updateSystemLabelId(options: {
 }): Promise<void> {
   const { emailAccountId, type, labelId } = options;
 
-  const fieldMap = {
-    needsReply: "needsReplyLabelId",
-    awaitingReply: "awaitingReplyLabelId",
-    coldEmail: "coldEmailLabelId",
-  } as const;
-
-  const field = fieldMap[type];
-
-  await prisma.emailAccount.update({
-    where: { id: emailAccountId },
-    data: { [field]: labelId },
-  });
-
-  await updateAffectedRules({ emailAccountId, type, labelId });
-}
-
-async function updateAffectedRules(options: {
-  emailAccountId: string;
-  type: SystemLabelType;
-  labelId: string;
-}): Promise<void> {
-  const { emailAccountId, type, labelId } = options;
-
-  // Only update rules for needsReply type (TO_REPLY system type)
-  if (type !== "needsReply") return;
-
-  const rules = await prisma.rule.findMany({
+  const rule = await prisma.rule.findFirst({
     where: {
       emailAccountId,
-      systemType: SystemType.TO_REPLY,
+      systemType: type,
     },
     include: {
       actions: {
@@ -129,12 +89,35 @@ async function updateAffectedRules(options: {
     },
   });
 
-  for (const rule of rules) {
-    for (const action of rule.actions) {
-      await prisma.action.update({
-        where: { id: action.id },
-        data: { labelId },
-      });
-    }
+  if (!rule) {
+    logger.warn("No rule found for system type, cannot update label", {
+      emailAccountId,
+      type,
+      systemType: type,
+    });
+    return;
+  }
+
+  const labelAction = rule.actions.find((a) => a.type === ActionType.LABEL);
+
+  const labelName = getRuleLabel(type);
+
+  if (labelAction) {
+    await prisma.action.update({
+      where: { id: labelAction.id },
+      data: {
+        labelId,
+        label: labelName,
+      },
+    });
+  } else {
+    await prisma.action.create({
+      data: {
+        type: ActionType.LABEL,
+        labelId,
+        label: labelName,
+        ruleId: rule.id,
+      },
+    });
   }
 }

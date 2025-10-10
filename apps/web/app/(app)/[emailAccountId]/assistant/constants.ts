@@ -24,7 +24,6 @@ const ACTION_TYPE_COLORS = {
   [ActionType.MARK_READ]: "bg-orange-500",
   [ActionType.MARK_SPAM]: "bg-red-500",
   [ActionType.CALL_WEBHOOK]: "bg-gray-500",
-  [ActionType.TRACK_THREAD]: "bg-indigo-500",
   [ActionType.DIGEST]: "bg-teal-500",
   [ActionType.MOVE_FOLDER]: "bg-emerald-500",
 } as const;
@@ -39,7 +38,6 @@ export const ACTION_TYPE_TEXT_COLORS = {
   [ActionType.MARK_READ]: "text-orange-500",
   [ActionType.MARK_SPAM]: "text-red-500",
   [ActionType.CALL_WEBHOOK]: "text-gray-500",
-  [ActionType.TRACK_THREAD]: "text-indigo-500",
   [ActionType.DIGEST]: "text-teal-500",
   [ActionType.MOVE_FOLDER]: "text-emerald-500",
 } as const;
@@ -54,7 +52,6 @@ export const ACTION_TYPE_ICONS = {
   [ActionType.MARK_READ]: MailOpenIcon,
   [ActionType.MARK_SPAM]: ShieldCheckIcon,
   [ActionType.CALL_WEBHOOK]: WebhookIcon,
-  [ActionType.TRACK_THREAD]: EyeIcon,
   [ActionType.DIGEST]: FileTextIcon,
   [ActionType.MOVE_FOLDER]: FolderInputIcon,
 } as const;

@@ -71,7 +71,7 @@ export function StepFeatures({ onNext }: { onNext: () => void }) {
           Select as many as you want.
         </TypographyP>
 
-        <div className="grid sm:grid-cols-2 gap-4 mt-4 max-w-3xl mx-auto">
+        <div className="grid gap-4 mt-4 max-w-3xl mx-auto">
           {choices.map((choice) => (
             <button
               type="button"

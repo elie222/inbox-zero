@@ -22,10 +22,7 @@ export function ActionSummaryCard({
   labels: EmailLabel[];
 }) {
   // don't display
-  if (
-    action.type === ActionType.TRACK_THREAD ||
-    action.type === ActionType.DIGEST
-  ) {
+  if (action.type === ActionType.DIGEST) {
     return null;
   }
 

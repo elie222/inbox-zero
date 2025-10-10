@@ -26,6 +26,14 @@ export class OutlookClient {
       authProvider: (done) => {
         done(null, this.accessToken);
       },
+      defaultVersion: "v1.0",
+      // Use immutable IDs to ensure message IDs remain stable
+      // https://learn.microsoft.com/en-us/graph/outlook-immutable-id
+      fetchOptions: {
+        headers: {
+          Prefer: 'IdType="ImmutableId"',
+        },
+      },
     });
   }
 

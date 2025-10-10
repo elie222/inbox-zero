@@ -21,9 +21,11 @@ import { Skeleton } from "@/components/ui/skeleton";
 export function LearnedPatternsDialog({
   ruleId,
   groupId,
+  disabled,
 }: {
   ruleId: string;
   groupId: string | null;
+  disabled?: boolean;
 }) {
   const { emailAccountId } = useAccount();
 
@@ -58,6 +60,7 @@ export function LearnedPatternsDialog({
           variant="outline"
           size="sm"
           Icon={BrainIcon}
+          disabled={disabled}
           onClick={async () => {
             if (!ruleId) return;
             if (groupId) return;

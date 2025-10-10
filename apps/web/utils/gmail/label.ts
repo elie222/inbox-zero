@@ -14,10 +14,6 @@ import {
 } from "@/utils/gmail/constants";
 import { createScopedLogger } from "@/utils/logger";
 import { withGmailRetry } from "@/utils/gmail/retry";
-import {
-  AWAITING_REPLY_LABEL_NAME,
-  NEEDS_REPLY_LABEL_NAME,
-} from "@/utils/reply-tracker/consts";
 
 const logger = createScopedLogger("gmail/label");
 

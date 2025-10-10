@@ -7,7 +7,6 @@ import {
 } from "@prisma/client";
 import { ConditionType } from "@/utils/config";
 import { NINETY_DAYS_MINUTES } from "@/utils/date";
-import { SystemRule } from "@/utils/rule/consts";
 
 export const delayInMinutesSchema = z
   .number()
@@ -25,7 +24,6 @@ const zodActionType = z.enum([
   ActionType.SEND_EMAIL,
   ActionType.CALL_WEBHOOK,
   ActionType.MARK_READ,
-  ActionType.TRACK_THREAD,
   ActionType.DIGEST,
   ActionType.MOVE_FOLDER,
 ]);
@@ -34,6 +32,19 @@ const zodConditionType = z.enum([
   ConditionType.AI,
   ConditionType.STATIC,
   ConditionType.CATEGORY,
+]);
+
+const zodSystemRule = z.enum([
+  SystemType.TO_REPLY,
+  SystemType.FYI,
+  SystemType.AWAITING_REPLY,
+  SystemType.ACTIONED,
+  SystemType.COLD_EMAIL,
+  SystemType.NEWSLETTER,
+  SystemType.MARKETING,
+  SystemType.CALENDAR,
+  SystemType.RECEIPT,
+  SystemType.NOTIFICATION,
 ]);
 
 const zodAiCondition = z.object({
@@ -146,16 +157,7 @@ export const createRuleBody = z.object({
     .enum([LogicalOperator.AND, LogicalOperator.OR])
     .default(LogicalOperator.AND)
     .optional(),
-  systemType: z
-    .enum([
-      SystemType.TO_REPLY,
-      SystemType.NEWSLETTER,
-      SystemType.MARKETING,
-      SystemType.CALENDAR,
-      SystemType.RECEIPT,
-      SystemType.NOTIFICATION,
-    ])
-    .nullish(),
+  systemType: zodSystemRule.nullish(),
 });
 export type CreateRuleBody = z.infer<typeof createRuleBody>;
 
@@ -198,7 +200,7 @@ const categoryConfig = z.object({
     .min(1, "Please enter a name")
     .max(40, "Please keep names under 40 characters"),
   description: z.string(),
-  key: z.nativeEnum(SystemRule).nullable(),
+  key: zodSystemRule.nullable(),
 });
 export type CategoryConfig = z.infer<typeof categoryConfig>;
 
@@ -206,3 +208,13 @@ export const createRulesOnboardingBody = z.array(categoryConfig);
 export type CreateRulesOnboardingBody = z.infer<
   typeof createRulesOnboardingBody
 >;
+
+export const toggleRuleBody = z
+  .object({
+    ruleId: z.string().optional(),
+    systemType: zodSystemRule.optional(),
+    enabled: z.boolean(),
+  })
+  .refine((data) => data.ruleId || data.systemType, {
+    message: "Either ruleId or systemType must be provided",
+  });

@@ -4,7 +4,6 @@ import { getGmailClientWithRefresh } from "@/utils/gmail/client";
 import prisma from "@/utils/prisma";
 import { GmailLabel } from "@/utils/gmail/label";
 import { hasAiAccess, isPremium } from "@/utils/premium";
-import { ColdEmailSetting } from "@prisma/client";
 import { captureException } from "@/utils/error";
 import { unwatchEmails } from "@/app/api/watch/controller";
 import { createEmailProvider } from "@/utils/email/provider";
@@ -15,6 +14,7 @@ import {
 import { processHistoryItem } from "@/app/api/google/webhook/process-history-item";
 import { logger } from "@/app/api/google/webhook/logger";
 import { getHistory } from "@/utils/gmail/history";
+import { isColdEmailBlockerEnabled } from "@/utils/cold-email/cold-email-blocker-enabled";
 
 export async function processHistoryForUser(
   decodedData: {
@@ -37,9 +37,6 @@ export async function processHistoryForUser(
       userId: true,
       about: true,
       lastSyncedHistoryId: true,
-      coldEmailBlocker: true,
-      coldEmailPrompt: true,
-      coldEmailDigest: true,
       autoCategorizeSenders: true,
       watchEmailsSubscriptionId: true,
       account: {
@@ -123,9 +120,7 @@ export async function processHistoryForUser(
   }
 
   const hasAutomationRules = emailAccount.rules.length > 0;
-  const shouldBlockColdEmails =
-    emailAccount.coldEmailBlocker &&
-    emailAccount.coldEmailBlocker !== ColdEmailSetting.DISABLED;
+  const shouldBlockColdEmails = isColdEmailBlockerEnabled(emailAccount.rules);
   if (!hasAutomationRules && !shouldBlockColdEmails) {
     logger.trace("Has no rules set and cold email blocker disabled", { email });
     return NextResponse.json({ ok: true });

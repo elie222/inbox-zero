@@ -2,7 +2,6 @@
 
 import { z } from "zod";
 import prisma from "@/utils/prisma";
-import { saveUserLabels } from "@/utils/redis/label";
 import { sendEmailBody } from "@/utils/gmail/mail";
 import { actionClient } from "@/utils/actions/safe-action";
 import { SafeError } from "@/utils/error";
@@ -197,14 +196,6 @@ export const updateLabelsAction = actionClient
         },
       }),
     ]);
-
-    await saveUserLabels({
-      emailAccountId,
-      labels: enabledLabels.map((l) => ({
-        ...l,
-        id: l.gmailLabelId,
-      })),
-    });
   });
 
 export const sendEmailAction = actionClient

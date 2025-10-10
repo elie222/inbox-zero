@@ -1,20 +1,4 @@
 import { z } from "zod";
-import type { RuleWithActionsAndCategories } from "@/utils/types";
-import type { EmailAccountWithAI } from "@/utils/llms/types";
-import type { EmailAccount } from "@prisma/client";
-import type { EmailProvider } from "@/utils/email/types";
-
-export type ProcessHistoryOptions = {
-  provider: EmailProvider;
-  rules: RuleWithActionsAndCategories[];
-  hasAutomationRules: boolean;
-  hasAiAccess: boolean;
-  emailAccount: Pick<
-    EmailAccount,
-    "coldEmailPrompt" | "coldEmailBlocker" | "autoCategorizeSenders"
-  > &
-    EmailAccountWithAI;
-};
 
 // https://learn.microsoft.com/en-us/graph/api/resources/resourcedata?view=graph-rest-1.0
 const resourceDataSchema = z

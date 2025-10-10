@@ -21,7 +21,6 @@ const ACTION_TYPE_PRIORITY_ORDER: ActionType[] = [
 
   ActionType.MARK_SPAM,
   ActionType.CALL_WEBHOOK,
-  ActionType.TRACK_THREAD,
 ];
 
 /**

@@ -213,7 +213,9 @@ export async function draftEmail(
       ...(ccRecipients.length > 0 ? { ccRecipients } : {}),
     });
 
-  return updatedDraft;
+  // Use the original replyDraft.id since that's the stable ID
+  // The PATCH response might not always include the full object?
+  return { ...updatedDraft, id: replyDraft.id };
 }
 
 function convertTextToHtmlParagraphs(text?: string | null): string {

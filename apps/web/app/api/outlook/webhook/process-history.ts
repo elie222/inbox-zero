@@ -1,13 +1,13 @@
 import { NextResponse } from "next/server";
 import prisma from "@/utils/prisma";
 import { hasAiAccess, isPremium } from "@/utils/premium";
-import { ColdEmailSetting } from "@prisma/client";
 import { captureException } from "@/utils/error";
 import { unwatchEmails } from "@/app/api/watch/controller";
 import { createEmailProvider } from "@/utils/email/provider";
 import type { OutlookResourceData } from "@/app/api/outlook/webhook/types";
 import { processHistoryItem } from "@/app/api/outlook/webhook/process-history-item";
 import { logger } from "@/app/api/outlook/webhook/logger";
+import { isColdEmailBlockerEnabled } from "@/utils/cold-email/cold-email-blocker-enabled";
 
 export async function processHistoryForUser({
   subscriptionId,
@@ -23,8 +23,6 @@ export async function processHistoryForUser({
       email: true,
       userId: true,
       about: true,
-      coldEmailBlocker: true,
-      coldEmailPrompt: true,
       autoCategorizeSenders: true,
       account: {
         select: {
@@ -100,9 +98,7 @@ export async function processHistoryForUser({
   }
 
   const hasAutomationRules = emailAccount.rules.length > 0;
-  const shouldBlockColdEmails =
-    emailAccount.coldEmailBlocker &&
-    emailAccount.coldEmailBlocker !== ColdEmailSetting.DISABLED;
+  const shouldBlockColdEmails = isColdEmailBlockerEnabled(emailAccount.rules);
 
   if (!hasAutomationRules && !shouldBlockColdEmails) {
     logger.trace("Has no rules set and cold email blocker disabled", {
