@@ -314,11 +314,25 @@ export class OutlookProvider implements EmailProvider {
     if (!category) {
       throw new Error(`Category with ID ${labelId} not found`);
     }
-    await labelMessage({
-      client: this.client,
-      messageId,
-      categories: [category.name],
-    });
+
+    // Get current message categories to avoid replacing them
+    const message = await this.client
+      .getClient()
+      .api(`/me/messages/${messageId}`)
+      .select("categories")
+      .get();
+
+    const currentCategories = message.categories || [];
+
+    // Add the new category if it's not already present
+    if (!currentCategories.includes(category.name)) {
+      const updatedCategories = [...currentCategories, category.name];
+      await labelMessage({
+        client: this.client,
+        messageId,
+        categories: updatedCategories,
+      });
+    }
   }
 
   async getDraft(draftId: string): Promise<ParsedMessage | null> {
