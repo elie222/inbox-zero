@@ -128,9 +128,6 @@ model EmailAccount {
   rulesPrompt           String? // @deprecated
   autoCategorizeSenders Boolean           @default(false)
 
-  // Configurable system labels (store stable IDs)
-  // coldEmailLabelId      String? // Gmail: Label ID, Outlook: Category ID
-
   digestSchedule Schedule?
 
   userId    String

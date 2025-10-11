@@ -1,6 +1,6 @@
 import { DEFAULT_COLD_EMAIL_PROMPT } from "@/utils/cold-email/prompt";
 import { isMicrosoftProvider } from "@/utils/email/provider-types";
-import { SystemType } from "@prisma/client";
+import { ActionType, SystemType } from "@prisma/client";
 
 const ruleConfig: Record<
   SystemType,
@@ -25,18 +25,18 @@ const ruleConfig: Record<
     tooltipText:
       "Emails you need to reply to and those where you're awaiting a reply. The label will update automatically as the conversation progresses",
   },
-  [SystemType.AWAITING_REPLY]: {
-    name: "Awaiting Reply",
-    instructions: "Emails you're expecting a reply to",
-    label: "Awaiting Reply",
-    runOnThreads: true,
-    categoryAction: "label",
-    tooltipText: "",
-  },
   [SystemType.FYI]: {
     name: "FYI",
     instructions: "Emails that don't require your response, but are important",
     label: "FYI",
+    runOnThreads: true,
+    categoryAction: "label",
+    tooltipText: "",
+  },
+  [SystemType.AWAITING_REPLY]: {
+    name: "Awaiting Reply",
+    instructions: "Emails you're expecting a reply to",
+    label: "Awaiting Reply",
     runOnThreads: true,
     categoryAction: "label",
     tooltipText: "",
@@ -131,4 +131,145 @@ export function getCategoryAction(systemType: SystemType, provider: string) {
   }
 
   return config.categoryAction;
+}
+
+export const SYSTEM_RULE_ORDER: SystemType[] = [
+  SystemType.TO_REPLY,
+  SystemType.FYI,
+  SystemType.AWAITING_REPLY,
+  SystemType.ACTIONED,
+  SystemType.NEWSLETTER,
+  SystemType.MARKETING,
+  SystemType.CALENDAR,
+  SystemType.RECEIPT,
+  SystemType.NOTIFICATION,
+  SystemType.COLD_EMAIL,
+];
+
+export function getDefaultActions(
+  systemType: SystemType,
+  provider: string,
+): Array<{
+  id: string;
+  type: ActionType;
+  label: string | null;
+  labelId: string | null;
+  to: string | null;
+  subject: string | null;
+  content: string | null;
+  ruleId: string;
+  folderId: string | null;
+  folderName: string | null;
+  url: string | null;
+  cc: string | null;
+  bcc: string | null;
+  delayInMinutes: number | null;
+  createdAt: Date;
+  updatedAt: Date;
+}> {
+  const config = getRuleConfig(systemType);
+  const categoryAction = getCategoryAction(systemType, provider);
+  const now = new Date();
+  const actions: Array<{
+    id: string;
+    type: ActionType;
+    label: string | null;
+    labelId: string | null;
+    to: string | null;
+    subject: string | null;
+    content: string | null;
+    ruleId: string;
+    folderId: string | null;
+    folderName: string | null;
+    url: string | null;
+    cc: string | null;
+    bcc: string | null;
+    delayInMinutes: number | null;
+    createdAt: Date;
+    updatedAt: Date;
+  }> = [];
+
+  if (categoryAction === "move_folder") {
+    actions.push({
+      id: `placeholder-action-folder-${systemType}`,
+      type: ActionType.MOVE_FOLDER,
+      folderName: config.label,
+      label: null,
+      labelId: null,
+      to: null,
+      subject: null,
+      content: null,
+      ruleId: `placeholder-${systemType}`,
+      folderId: null,
+      url: null,
+      cc: null,
+      bcc: null,
+      delayInMinutes: null,
+      createdAt: now,
+      updatedAt: now,
+    });
+  } else {
+    actions.push({
+      id: `placeholder-action-label-${systemType}`,
+      type: ActionType.LABEL,
+      label: config.label,
+      labelId: null,
+      to: null,
+      subject: null,
+      content: null,
+      ruleId: `placeholder-${systemType}`,
+      folderId: null,
+      folderName: null,
+      url: null,
+      cc: null,
+      bcc: null,
+      delayInMinutes: null,
+      createdAt: now,
+      updatedAt: now,
+    });
+  }
+
+  if (categoryAction === "label_archive") {
+    actions.push({
+      id: `placeholder-action-archive-${systemType}`,
+      type: ActionType.ARCHIVE,
+      label: null,
+      labelId: null,
+      to: null,
+      subject: null,
+      content: null,
+      ruleId: `placeholder-${systemType}`,
+      folderId: null,
+      folderName: null,
+      url: null,
+      cc: null,
+      bcc: null,
+      delayInMinutes: null,
+      createdAt: now,
+      updatedAt: now,
+    });
+  }
+
+  if (config.draftReply) {
+    actions.push({
+      id: `placeholder-action-draft-${systemType}`,
+      type: ActionType.DRAFT_EMAIL,
+      label: null,
+      labelId: null,
+      to: null,
+      subject: null,
+      content: null,
+      ruleId: `placeholder-${systemType}`,
+      folderId: null,
+      folderName: null,
+      url: null,
+      cc: null,
+      bcc: null,
+      delayInMinutes: null,
+      createdAt: now,
+      updatedAt: now,
+    });
+  }
+
+  return actions;
 }
