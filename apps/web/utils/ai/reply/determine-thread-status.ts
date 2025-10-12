@@ -14,7 +14,7 @@ export async function aiDetermineThreadStatus({
 }: {
   emailAccount: EmailAccountWithAI;
   threadMessages: EmailForLLM[];
-  modelType: ModelType;
+  modelType?: ModelType;
 }): Promise<{ status: ConversationStatus; rationale: string }> {
   const system = `You are an AI assistant that analyzes email threads to determine their current status.
 
