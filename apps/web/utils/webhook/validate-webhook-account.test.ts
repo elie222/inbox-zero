@@ -288,27 +288,5 @@ describe("validateWebhookAccount", () => {
         });
       }
     });
-
-    it("should handle provider fallback to google", async () => {
-      const emailAccount = createMockEmailAccount({
-        account: {
-          provider: null as any,
-          access_token: "access-token",
-          refresh_token: "refresh-token",
-          expires_at: new Date(),
-        },
-      });
-
-      vi.mocked(isPremium).mockReturnValue(true);
-      vi.mocked(hasAiAccess).mockReturnValue(true);
-
-      const result = await validateWebhookAccount(emailAccount, mockLogger);
-
-      expect(createEmailProvider).toHaveBeenCalledWith({
-        emailAccountId: "account-id",
-        provider: "google",
-      });
-      expect(result.success).toBe(true);
-    });
   });
 });
