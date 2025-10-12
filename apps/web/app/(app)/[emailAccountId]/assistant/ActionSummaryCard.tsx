@@ -8,15 +8,18 @@ import {
 } from "@/app/(app)/[emailAccountId]/assistant/constants";
 import { TooltipExplanation } from "@/components/TooltipExplanation";
 import { getEmailTerminology } from "@/utils/terminology";
+import type { EmailLabel } from "@/providers/EmailProvider";
 
 export function ActionSummaryCard({
   action,
   typeOptions,
   provider,
+  labels,
 }: {
   action: CreateRuleBody["actions"][number];
   typeOptions: { label: string; value: ActionType }[];
   provider: string;
+  labels: EmailLabel[];
 }) {
   // don't display
   if (
@@ -37,13 +40,17 @@ export function ActionSummaryCard({
 
   switch (action.type) {
     case ActionType.LABEL: {
-      const labelValue = action.label?.value || "";
-      if (action.label?.ai) {
-        summaryContent = labelValue
-          ? `AI ${terminology.label.action}: ${labelValue}`
+      const labelId = action.labelId?.value || "";
+      const labelName = labelId
+        ? labels.find((label) => label.id === labelId)?.name
+        : action.labelId?.name || "";
+
+      if (action.labelId?.ai) {
+        summaryContent = labelName
+          ? `AI ${terminology.label.action}: ${labelName}`
           : `AI ${terminology.label.action}`;
       } else {
-        summaryContent = `${terminology.label.action} as "${labelValue || "unset"}"`;
+        summaryContent = `${terminology.label.action} as "${labelName || "unset"}"`;
       }
       break;
     }

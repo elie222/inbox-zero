@@ -18,8 +18,8 @@ import { useDialogState } from "@/hooks/useDialogState";
 import { CheckCircle2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { prefixPath } from "@/utils/path";
-import { Badge } from "@/components/Badge";
 import type { CreateRuleResult } from "@/utils/rule/types";
+import { useLabels } from "@/hooks/useLabels";
 
 export function CreatedRulesModal({
   open,
@@ -55,6 +55,8 @@ export function CreatedRulesContent({
     router.push(prefixPath(emailAccountId, "/automation?tab=test"));
   };
 
+  const { userLabels } = useLabels();
+
   return (
     <>
       <DialogHeader>
@@ -82,9 +84,6 @@ export function CreatedRulesContent({
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <h4 className="font-medium text-base">{rule.name}</h4>
-                  {!rule.automate && (
-                    <Badge color="yellow">Requires Approval</Badge>
-                  )}
                 </div>
 
                 <div className="text-sm">
@@ -94,7 +93,11 @@ export function CreatedRulesContent({
 
                 <div className="flex items-center gap-2">
                   <span className="text-sm font-medium">Actions:</span>
-                  <ActionBadges actions={rule.actions} provider={provider} />
+                  <ActionBadges
+                    actions={rule.actions}
+                    provider={provider}
+                    labels={userLabels}
+                  />
                 </div>
               </div>
             </Card>

@@ -8,13 +8,13 @@ import {
   saveEmailUpdateSettingsBody,
   saveDigestScheduleBody,
   updateDigestItemsBody,
+  updateSystemLabelsBody,
 } from "@/utils/actions/settings.validation";
 import { DEFAULT_PROVIDER } from "@/utils/llms/config";
 import prisma from "@/utils/prisma";
 import { calculateNextScheduleDate } from "@/utils/schedule";
 import { actionClientUser } from "@/utils/actions/safe-action";
 import { ActionType, type Prisma } from "@prisma/client";
-import { createScopedLogger } from "@/utils/logger";
 
 export const updateEmailSettingsAction = actionClient
   .metadata({ name: "updateEmailSettings" })
@@ -87,20 +87,28 @@ export const updateReplyTrackingAction = actionClient
   .metadata({ name: "updateReplyTracking" })
   .schema(z.object({ enabled: z.boolean() }))
   .action(async ({ ctx: { emailAccountId }, parsedInput: { enabled } }) => {
-    // Find all rules with "To Reply" label first
+    const emailAccount = await prisma.emailAccount.findUnique({
+      where: { id: emailAccountId },
+      select: { needsReplyLabelId: true },
+    });
+
+    // Find all rules with "To Reply" label (by labelId or legacy label name)
     const toReplyRules = await prisma.rule.findMany({
       where: {
         emailAccountId,
         actions: {
           some: {
             type: ActionType.LABEL,
-            label: NEEDS_REPLY_LABEL_NAME,
+            OR: [
+              ...(emailAccount?.needsReplyLabelId
+                ? [{ labelId: emailAccount.needsReplyLabelId }]
+                : []),
+              { label: NEEDS_REPLY_LABEL_NAME },
+            ],
           },
         },
       },
-      include: {
-        actions: true,
-      },
+      include: { actions: true },
     });
 
     // Prepare the operations
@@ -151,13 +159,9 @@ export const updateDigestItemsAction = actionClient
   .schema(updateDigestItemsBody)
   .action(
     async ({
-      ctx: { emailAccountId },
+      ctx: { emailAccountId, logger },
       parsedInput: { ruleDigestPreferences, coldEmailDigest },
     }) => {
-      const logger = createScopedLogger("updateDigestItems").with({
-        emailAccountId,
-      });
-
       const promises = Object.entries(ruleDigestPreferences).map(
         async ([ruleId, enabled]) => {
           // Verify the rule belongs to this email account
@@ -211,6 +215,61 @@ export const updateDigestItemsAction = actionClient
       }
 
       await Promise.all(promises);
+      return { success: true };
+    },
+  );
+
+export const updateSystemLabelsAction = actionClient
+  .metadata({ name: "updateSystemLabels" })
+  .schema(updateSystemLabelsBody)
+  .action(
+    async ({
+      ctx: { emailAccountId },
+      parsedInput: {
+        needsReplyLabelId,
+        awaitingReplyLabelId,
+        coldEmailLabelId,
+      },
+    }) => {
+      // Get the old label IDs before updating
+      const oldConfig = await prisma.emailAccount.findUnique({
+        where: { id: emailAccountId },
+        select: {
+          needsReplyLabelId: true,
+          awaitingReplyLabelId: true,
+          coldEmailLabelId: true,
+        },
+      });
+
+      await prisma.emailAccount.update({
+        where: { id: emailAccountId },
+        data: {
+          needsReplyLabelId: needsReplyLabelId ?? null,
+          awaitingReplyLabelId: awaitingReplyLabelId ?? null,
+          coldEmailLabelId: coldEmailLabelId ?? null,
+        },
+      });
+
+      // Update all LABEL actions that match the old needs reply label
+      if (needsReplyLabelId) {
+        await prisma.action.updateMany({
+          where: {
+            rule: { emailAccountId },
+            type: ActionType.LABEL,
+            OR: [
+              ...(oldConfig?.needsReplyLabelId
+                ? [{ labelId: oldConfig.needsReplyLabelId }]
+                : []),
+              { label: NEEDS_REPLY_LABEL_NAME },
+            ],
+          },
+          data: {
+            labelId: needsReplyLabelId,
+            label: null, // Clear the label name since we're using labelId now
+          },
+        });
+      }
+
       return { success: true };
     },
   );

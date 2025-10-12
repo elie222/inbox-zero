@@ -20,6 +20,7 @@ import { createScopedLogger } from "@/utils/logger";
 import type { MatchReason } from "@/utils/ai/choose-rule/types";
 import { sanitizeActionFields } from "@/utils/action-item";
 import { extractEmailAddress } from "@/utils/email";
+import { filterNullProperties } from "@/utils";
 import { analyzeSenderPattern } from "@/app/api/ai/analyze-sender-pattern/call-analyze-pattern-api";
 import {
   scheduleDelayedActions,
@@ -69,7 +70,9 @@ export async function runRules({
     emailAccountId: emailAccount.id,
   });
 
-  logger.trace("Matching rule", { result });
+  logger.trace("Matching rule", () => ({
+    result: filterNullProperties(result),
+  }));
 
   if (result.rule) {
     return await executeMatchedRule(
@@ -154,10 +157,8 @@ async function executeMatchedRule(
     });
   }
 
-  const shouldExecute =
-    executedRule && rule.automate && immediateActions?.length > 0;
-
-  if (shouldExecute) {
+  // Execute immediate actions if any
+  if (executedRule && immediateActions?.length > 0) {
     await executeAct({
       client,
       userEmail: emailAccount.email,
@@ -166,7 +167,15 @@ async function executeMatchedRule(
       executedRule,
       message,
     });
+  } else if (executedRule && !delayedActions?.length) {
+    // No actions at all (neither immediate nor delayed), mark as applied
+    await prisma.executedRule.update({
+      where: { id: executedRule.id },
+      data: { status: ExecutedRuleStatus.APPLIED },
+    });
   }
+  // Note: If there are ONLY delayed actions (no immediate), status stays APPLYING
+  // and will be updated to APPLIED by checkAndCompleteExecutedRule() when scheduled actions finish
 
   return {
     rule,
@@ -238,8 +247,8 @@ async function saveExecutedRule(
     },
     messageId,
     threadId,
-    automated: !!rule?.automate,
-    status: ExecutedRuleStatus.PENDING,
+    automated: true,
+    status: ExecutedRuleStatus.APPLYING, // Changed from PENDING - rules are now always automated
     reason,
     rule: rule?.id ? { connect: { id: rule.id } } : undefined,
     emailAccount: { connect: { id: emailAccountId } },
@@ -274,7 +283,12 @@ async function upsertExecutedRule({
         },
       },
       create: data,
-      update: data,
+      update: data.rule
+        ? data
+        : {
+            ...data,
+            rule: { disconnect: true },
+          },
       include: { actionItems: true },
     });
   } catch (error) {
@@ -313,20 +327,7 @@ async function analyzeSenderPatternIfAiMatch({
   message: ParsedMessage;
   emailAccountId: string;
 }) {
-  if (
-    !isTest &&
-    result.rule &&
-    // skip if we already matched for static reasons
-    // learnings only needed for rules that would run through an ai
-    !result.matchReasons?.some(
-      (reason) =>
-        reason.type === "STATIC" ||
-        reason.type === "GROUP" ||
-        reason.type === "CATEGORY",
-    ) &&
-    // skip if the match was "to reply" system rule
-    result?.rule?.systemType !== SystemType.TO_REPLY
-  ) {
+  if (shouldAnalyzeSenderPattern({ isTest, result })) {
     const fromAddress = extractEmailAddress(message.headers.from);
     if (fromAddress) {
       after(() =>
@@ -337,4 +338,29 @@ async function analyzeSenderPatternIfAiMatch({
       );
     }
   }
+}
+
+function shouldAnalyzeSenderPattern({
+  isTest,
+  result,
+}: {
+  isTest: boolean;
+  result: { rule?: Rule | null; matchReasons?: MatchReason[] };
+}) {
+  if (isTest) return false;
+  if (!result.rule) return false;
+  if (result.rule.systemType === SystemType.TO_REPLY) return false;
+
+  // skip if we already matched for static reasons
+  // learnings only needed for rules that would run through an ai
+  if (
+    result.matchReasons?.some(
+      (reason) =>
+        reason.type === "STATIC" ||
+        reason.type === "GROUP" ||
+        reason.type === "CATEGORY",
+    )
+  )
+    return false;
+  return true;
 }

@@ -14,8 +14,9 @@ import type { EmailForLLM } from "@/utils/types";
 import type { EmailProvider } from "@/utils/email/types";
 import { getModel, type ModelType } from "@/utils/llms/model";
 import { createGenerateObject } from "@/utils/llms";
-import { getOrCreateOutlookFolderIdByName } from "@/utils/outlook/folders";
-import { getOutlookClientForEmail } from "@/utils/account";
+import { getOrCreateSystemLabelId } from "@/utils/label-config";
+
+export const COLD_EMAIL_FOLDER_NAME = "Cold Emails";
 
 const logger = createScopedLogger("ai-cold-email");
 
@@ -221,9 +222,11 @@ export async function blockColdEmail(options: {
   ) {
     if (!emailAccount.email) throw new Error("User email is required");
 
-    // For Outlook, we'll use categories instead of labels
-    const coldEmailLabel =
-      await provider.getOrCreateInboxZeroLabel("cold_email");
+    const coldEmailLabelId = await getOrCreateSystemLabelId({
+      emailAccountId: emailAccount.id,
+      type: "coldEmail",
+      provider,
+    });
 
     const shouldArchive =
       emailAccount.coldEmailBlocker === ColdEmailSetting.ARCHIVE_AND_LABEL ||
@@ -234,22 +237,18 @@ export async function blockColdEmail(options: {
       emailAccount.coldEmailBlocker ===
       ColdEmailSetting.ARCHIVE_AND_READ_AND_LABEL;
 
-    // For Outlook, we'll use the provider's labelMessage method
-    // The provider will handle the differences between Gmail labels and Outlook categories
-    if (coldEmailLabel?.name) {
-      await provider.labelMessage(email.id, coldEmailLabel.name);
+    if (coldEmailLabelId) {
+      await provider.labelMessage({
+        messageId: email.id,
+        labelId: coldEmailLabelId,
+      });
     }
 
     // For archiving and marking as read, we'll need to implement these in the provider
     if (shouldArchive) {
       if (provider.name === "microsoft") {
-        const outlook = await getOutlookClientForEmail({
-          emailAccountId: emailAccount.id,
-        });
-        // TODO: move "Cold Emails"toa const or allow the user to set the folder
-        const folderId = await getOrCreateOutlookFolderIdByName(
-          outlook,
-          "Cold Emails",
+        const folderId = await provider.getOrCreateOutlookFolderIdByName(
+          COLD_EMAIL_FOLDER_NAME,
         );
         await provider.moveThreadToFolder(
           email.threadId,

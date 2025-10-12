@@ -28,6 +28,7 @@ async function getSetupProgress({
         where: { status: { not: null } },
         take: 1,
       },
+      calendarConnections: { select: { id: true }, take: 1 },
     },
   });
 
@@ -43,6 +44,7 @@ async function getSetupProgress({
     aiAssistant: emailAccount.rules.length > 0,
     bulkUnsubscribe: emailAccount.newsletters.length > 0,
     replyTracker: isReplyTrackerConfigured,
+    calendarConnected: emailAccount.calendarConnections.length > 0,
   };
 
   const completed = Object.values(steps).filter(Boolean).length;

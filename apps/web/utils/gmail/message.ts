@@ -257,7 +257,13 @@ export async function getMessages(
     pageToken?: string;
     labelIds?: string[];
   },
-) {
+): Promise<{
+  messages: {
+    id: string;
+    threadId: string;
+  }[];
+  nextPageToken?: string;
+}> {
   const messages = await gmail.users.messages.list({
     userId: "me",
     maxResults: options.maxResults,
@@ -266,7 +272,16 @@ export async function getMessages(
     labelIds: options.labelIds,
   });
 
-  return messages.data;
+  return {
+    messages: messages.data.messages?.filter(isMessage) || [],
+    nextPageToken: messages.data.nextPageToken || undefined,
+  };
+}
+
+function isMessage(
+  message: gmail_v1.Schema$Message,
+): message is { id: string; threadId: string } {
+  return !!message.id && !!message.threadId;
 }
 
 export async function queryBatchMessages(

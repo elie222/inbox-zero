@@ -492,6 +492,263 @@ describe("matchesStaticRule", () => {
     });
     expect(matchesStaticRule(rule, message4)).toBe(false);
   });
+
+  it("should support comma as separator in from field", () => {
+    const rule = getStaticRule({
+      from: "@company-a.com, @company-b.org, @startup-x.io",
+    });
+
+    // Should match first domain
+    const message1 = getMessage({
+      headers: getHeaders({ from: "user@company-a.com" }),
+    });
+    expect(matchesStaticRule(rule, message1)).toBe(true);
+
+    // Should match second domain
+    const message2 = getMessage({
+      headers: getHeaders({ from: "contact@company-b.org" }),
+    });
+    expect(matchesStaticRule(rule, message2)).toBe(true);
+
+    // Should match third domain
+    const message3 = getMessage({
+      headers: getHeaders({ from: "info@startup-x.io" }),
+    });
+    expect(matchesStaticRule(rule, message3)).toBe(true);
+
+    // Should not match unlisted domain
+    const message4 = getMessage({
+      headers: getHeaders({ from: "test@other.com" }),
+    });
+    expect(matchesStaticRule(rule, message4)).toBe(false);
+  });
+
+  it("should support comma as separator in to field", () => {
+    const rule = getStaticRule({
+      to: "support@company.com, help@company.com, contact@company.com",
+    });
+
+    // Should match each email
+    expect(
+      matchesStaticRule(
+        rule,
+        getMessage({
+          headers: getHeaders({ to: "support@company.com" }),
+        }),
+      ),
+    ).toBe(true);
+
+    expect(
+      matchesStaticRule(
+        rule,
+        getMessage({
+          headers: getHeaders({ to: "help@company.com" }),
+        }),
+      ),
+    ).toBe(true);
+
+    expect(
+      matchesStaticRule(
+        rule,
+        getMessage({
+          headers: getHeaders({ to: "contact@company.com" }),
+        }),
+      ),
+    ).toBe(true);
+  });
+
+  it("should support OR as separator (case insensitive)", () => {
+    const rule = getStaticRule({
+      from: "@company1.com OR @company2.com or @company3.com",
+    });
+
+    // Should match first domain
+    const message1 = getMessage({
+      headers: getHeaders({ from: "admin@company1.com" }),
+    });
+    expect(matchesStaticRule(rule, message1)).toBe(true);
+
+    // Should match second domain
+    const message2 = getMessage({
+      headers: getHeaders({ from: "admin@company2.com" }),
+    });
+    expect(matchesStaticRule(rule, message2)).toBe(true);
+
+    // Should match third domain
+    const message3 = getMessage({
+      headers: getHeaders({ from: "admin@company3.com" }),
+    });
+    expect(matchesStaticRule(rule, message3)).toBe(true);
+
+    // Should not match unlisted domain
+    const message4 = getMessage({
+      headers: getHeaders({ from: "admin@company4.com" }),
+    });
+    expect(matchesStaticRule(rule, message4)).toBe(false);
+  });
+
+  it("should support mixed separators (pipe, comma, OR)", () => {
+    const rule = getStaticRule({
+      from: "@company1.com | @company2.com, @company3.com OR @company4.com",
+    });
+
+    // Should match all domains regardless of separator used
+    expect(
+      matchesStaticRule(
+        rule,
+        getMessage({
+          headers: getHeaders({ from: "user@company1.com" }),
+        }),
+      ),
+    ).toBe(true);
+
+    expect(
+      matchesStaticRule(
+        rule,
+        getMessage({
+          headers: getHeaders({ from: "user@company2.com" }),
+        }),
+      ),
+    ).toBe(true);
+
+    expect(
+      matchesStaticRule(
+        rule,
+        getMessage({
+          headers: getHeaders({ from: "user@company3.com" }),
+        }),
+      ),
+    ).toBe(true);
+
+    expect(
+      matchesStaticRule(
+        rule,
+        getMessage({
+          headers: getHeaders({ from: "user@company4.com" }),
+        }),
+      ),
+    ).toBe(true);
+  });
+
+  it("should handle OR with various spacing", () => {
+    const rule = getStaticRule({
+      from: "@company1.com  OR  @company2.com OR@company3.com",
+    });
+
+    // Should match despite irregular spacing
+    expect(
+      matchesStaticRule(
+        rule,
+        getMessage({
+          headers: getHeaders({ from: "user@company1.com" }),
+        }),
+      ),
+    ).toBe(true);
+
+    expect(
+      matchesStaticRule(
+        rule,
+        getMessage({
+          headers: getHeaders({ from: "user@company2.com" }),
+        }),
+      ),
+    ).toBe(true);
+  });
+
+  it("should combine wildcards with comma separator", () => {
+    const rule = getStaticRule({
+      from: "*@newsletter.com, *@marketing.org, notifications@*",
+    });
+
+    // Should match wildcard patterns
+    expect(
+      matchesStaticRule(
+        rule,
+        getMessage({
+          headers: getHeaders({ from: "weekly@newsletter.com" }),
+        }),
+      ),
+    ).toBe(true);
+
+    expect(
+      matchesStaticRule(
+        rule,
+        getMessage({
+          headers: getHeaders({ from: "campaign@marketing.org" }),
+        }),
+      ),
+    ).toBe(true);
+
+    expect(
+      matchesStaticRule(
+        rule,
+        getMessage({
+          headers: getHeaders({ from: "notifications@example.com" }),
+        }),
+      ),
+    ).toBe(true);
+  });
+
+  it("should trim whitespace from patterns with comma separator", () => {
+    const rule = getStaticRule({
+      from: "  @company1.com  ,   @company2.com  ,  @company3.com  ",
+    });
+
+    // Should match despite extra whitespace
+    expect(
+      matchesStaticRule(
+        rule,
+        getMessage({
+          headers: getHeaders({ from: "user@company1.com" }),
+        }),
+      ),
+    ).toBe(true);
+
+    expect(
+      matchesStaticRule(
+        rule,
+        getMessage({
+          headers: getHeaders({ from: "user@company2.com" }),
+        }),
+      ),
+    ).toBe(true);
+  });
+
+  it("should not treat comma as separator in subject field", () => {
+    const rule = getStaticRule({
+      subject: "Option A, Option B, Option C",
+    });
+
+    // Should require exact match including commas
+    const message1 = getMessage({
+      headers: getHeaders({ subject: "Option A, Option B, Option C" }),
+    });
+    expect(matchesStaticRule(rule, message1)).toBe(true);
+
+    // Should not match partial
+    const message2 = getMessage({
+      headers: getHeaders({ subject: "Option A" }),
+    });
+    expect(matchesStaticRule(rule, message2)).toBe(false);
+  });
+
+  it("should not treat OR as separator in subject field", () => {
+    const rule = getStaticRule({
+      subject: "Status: Active OR Pending",
+    });
+
+    // Should require exact match including OR
+    const message1 = getMessage({
+      headers: getHeaders({ subject: "Status: Active OR Pending" }),
+    });
+    expect(matchesStaticRule(rule, message1)).toBe(true);
+
+    // Should not match partial
+    const message2 = getMessage({
+      headers: getHeaders({ subject: "Status: Active" }),
+    });
+    expect(matchesStaticRule(rule, message2)).toBe(false);
+  });
 });
 
 describe("findMatchingRule", () => {

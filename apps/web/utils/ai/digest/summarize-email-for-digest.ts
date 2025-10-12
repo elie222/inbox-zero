@@ -5,6 +5,7 @@ import type { EmailForLLM } from "@/utils/types";
 import { stringifyEmailSimple } from "@/utils/stringify-email";
 import { getModel } from "@/utils/llms/model";
 import { createGenerateObject } from "@/utils/llms";
+import { getUserInfoPrompt } from "@/utils/ai/helpers";
 
 const logger = createScopedLogger("summarize-digest-email");
 
@@ -37,11 +38,33 @@ I will provide you with:
 
 Guidelines for summarizing the email:
 - If the email is spam, promotional, or irrelevant, return "null".
-- If the email contains extractable fields such as order details, totals, dates, IDs, payment info, or similar, summarize the content using a list with the format: "Key: Value" separated by newlines.
+- Do NOT mention the sender's name or start with phrases like "This is a message from X" or "This email from Y" - the sender information is already displayed separately.
+- DO NOT use meta-commentary like "highlights", "discusses", "reflects on", "mentions", or "talks about" - just state the content directly.
+- Lead with the most interesting or important point - the hook, main insight, or key takeaway.
+- Be engaging and direct - write like you're telling someone the key points, not describing what the email contains.
+- When there are multiple items or pieces of information, use newlines to separate them (they will be rendered as bullet points automatically).
+- DO NOT include bullet point characters (•, -, *, etc.) - just separate items with newlines.
+- For newsletters and content emails:
+  • Keep it concise - aim for 1-5 key points maximum, not a comprehensive summary
+  • Lead with the main story, insight, or most interesting point
+  • Include specific details that make it concrete (numbers, names, context)
+  • Skip background details, tangential points, and filler content
+  • Minimize or skip promotional content unless it's the primary purpose
+  • Example: "Simple habit tracker app makes $30K/month despite thousands of competitors. Key lesson: stop overthinking and just build. AI tools now let anyone create apps without coding."
+- For structured data (orders, confirmations, receipts):
+  • Use a single paragraph or newlines to separate key information in "Key: Value" format
+  • Include only the most relevant details (totals, dates, tracking)
+  • Example: "Order Total: $99.99\\nDelivery Date: March 15\\nTracking: 1Z999AA"
+- For announcements with multiple items:
+  • List the key topics or news items, one per line
+  • Be direct and specific
+  • Example: "New feature launches next week\\n20% discount on all plans\\nWebinar scheduled for Friday"
+- For direct messages:
+  • Summarize in the second person (as if talking directly to the user)
+  • Use phrasing like: "You have received…", "You are invited…", "Your request has been…"
+  • Use newlines if there are multiple action items or pieces of information
 - Only include human-relevant and human-readable information.
 - Exclude opaque technical identifiers like account IDs, payment IDs, tracking tokens, or long alphanumeric strings that aren't meaningful to users.
-- If the email is a direct message to the user, summarize it in the second person (as if talking directly to the user) using phrasing such as: "You have received…", "X wants you to review…", "You are invited…", etc.
-- If second person phrasing is not possible or natural (e.g., for announcements, newsletters, or general updates), summarize in a clear neutral third-person style.
 `;
 
   const prompt = `
@@ -50,10 +73,7 @@ Guidelines for summarizing the email:
   <category>${ruleName}</category>
 </email>
 
-<user>
-  <about>${emailAccount.about}</about>
-  <name>${emailAccount.name}</name>
-</user>`;
+${getUserInfoPrompt({ emailAccount })}`;
 
   logger.info("Summarizing email for digest");
 

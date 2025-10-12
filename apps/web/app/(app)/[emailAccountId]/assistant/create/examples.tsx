@@ -49,7 +49,7 @@ export const examples: {
       ],
       actions: [
         { type: ActionType.ARCHIVE },
-        { type: ActionType.LABEL, label: { value: "Newsletter" } },
+        { type: ActionType.LABEL, labelId: { name: "Newsletter" } },
       ],
     },
   },
@@ -68,7 +68,7 @@ export const examples: {
 * Customer complaint`,
         },
       ],
-      actions: [{ type: ActionType.LABEL, label: { value: "High Priority" } }],
+      actions: [{ type: ActionType.LABEL, labelId: { name: "High Priority" } }],
     },
   },
   {
@@ -115,7 +115,6 @@ export const examples: {
           },
         },
       ],
-      automate: true,
       runOnThreads: true,
     },
   },
@@ -137,7 +136,6 @@ export const examples: {
           content: { value: "Pitch" },
         },
       ],
-      automate: true,
       runOnThreads: true,
     },
   },

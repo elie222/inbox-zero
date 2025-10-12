@@ -51,10 +51,6 @@ export async function featureFunction(options: {
 
 ${emailAccount.about ? `<user_info>${emailAccount.about}</user_info>` : ""}`;
 
-  // 7. Log inputs
-  logger.trace("Input", { system, prompt });
-
-  // 8. Set up and call LLM
   const modelOptions = getModel(emailAccount.user);
 
   const generateObject = createGenerateObject({
@@ -78,10 +74,6 @@ ${emailAccount.about ? `<user_info>${emailAccount.about}</user_info>` : ""}`;
     }),
   });
 
-  // 9. Log outputs
-  logger.trace("Output", result.object);
-
-  // 10. Return validated result
   return result.object;
 }
 ```

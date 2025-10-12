@@ -81,6 +81,7 @@ export function useDraftReplies() {
                       type: ActionType.DRAFT_EMAIL,
                       ruleId: rule.id,
                       label: null,
+                      labelId: null,
                       subject: null,
                       content: null,
                       to: null,

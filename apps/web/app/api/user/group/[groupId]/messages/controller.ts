@@ -1,14 +1,13 @@
 import prisma from "@/utils/prisma";
-import type { gmail_v1 } from "@googleapis/gmail";
 import { createHash } from "node:crypto";
 import groupBy from "lodash/groupBy";
-import { getMessage, getMessages } from "@/utils/gmail/message";
 import { findMatchingGroupItem } from "@/utils/group/find-matching-group";
-import { parseMessage } from "@/utils/gmail/message";
 import { extractEmailAddress } from "@/utils/email";
 import { type GroupItem, GroupItemType } from "@prisma/client";
 import type { MessageWithGroupItem } from "@/app/(app)/[emailAccountId]/assistant/rule/[ruleId]/examples/types";
 import { SafeError } from "@/utils/error";
+import { createEmailProvider } from "@/utils/email/provider";
+import type { EmailProvider } from "@/utils/email/types";
 
 const PAGE_SIZE = 20;
 
@@ -22,16 +21,16 @@ interface InternalPaginationState {
 export type GroupEmailsResponse = Awaited<ReturnType<typeof getGroupEmails>>;
 
 export async function getGroupEmails({
+  provider,
   groupId,
   emailAccountId,
-  gmail,
   from,
   to,
   pageToken,
 }: {
+  provider: string;
   groupId: string;
   emailAccountId: string;
-  gmail: gmail_v1.Gmail;
   from?: Date;
   to?: Date;
   pageToken?: string;
@@ -43,9 +42,14 @@ export async function getGroupEmails({
 
   if (!group) throw new SafeError("Group not found");
 
+  const emailProvider = await createEmailProvider({
+    emailAccountId,
+    provider,
+  });
+
   const { messages, nextPageToken } = await fetchPaginatedMessages({
+    emailProvider,
     groupItems: group.items,
-    gmail,
     from,
     to,
     pageToken,
@@ -55,14 +59,14 @@ export async function getGroupEmails({
 }
 
 export async function fetchPaginatedMessages({
+  emailProvider,
   groupItems,
-  gmail,
   from,
   to,
   pageToken,
 }: {
+  emailProvider: EmailProvider;
   groupItems: GroupItem[];
-  gmail: gmail_v1.Gmail;
   from?: Date;
   to?: Date;
   pageToken?: string;
@@ -97,7 +101,7 @@ export async function fetchPaginatedMessages({
 
   const { messages, nextPaginationState } = await fetchPaginatedGroupMessages(
     groupItems,
-    gmail,
+    emailProvider,
     from,
     to,
     paginationState,
@@ -126,7 +130,7 @@ function createGroupItemsHash(
 // and for each type, through multiple chunks
 async function fetchPaginatedGroupMessages(
   groupItems: GroupItem[],
-  gmail: gmail_v1.Gmail,
+  emailProvider: EmailProvider,
   from: Date | undefined,
   to: Date | undefined,
   paginationState: InternalPaginationState,
@@ -157,7 +161,7 @@ async function fetchPaginatedGroupMessages(
       const result = await fetchGroupMessages(
         type,
         chunk,
-        gmail,
+        emailProvider,
         PAGE_SIZE - messages.length,
         from,
         to,
@@ -206,7 +210,7 @@ async function fetchPaginatedGroupMessages(
 async function fetchGroupMessages(
   groupItemType: GroupItemType,
   groupItems: GroupItem[],
-  gmail: gmail_v1.Gmail,
+  emailProvider: EmailProvider,
   maxResults: number,
   from?: Date,
   to?: Date,
@@ -214,22 +218,20 @@ async function fetchGroupMessages(
 ): Promise<{ messages: MessageWithGroupItem[]; nextPageToken?: string }> {
   const query = buildQuery(groupItemType, groupItems, from, to);
 
-  const response = await getMessages(gmail, {
+  const response = await emailProvider.getMessagesWithPagination({
     query,
     maxResults,
     pageToken,
   });
 
   const messages = await Promise.all(
-    (response.messages || []).map(async (message) => {
-      // TODO: Use email provider to get the message which will parse it internally
-      const m = await getMessage(message.id!, gmail);
-      const parsedMessage = parseMessage(m);
+    (response.messages || []).map(async (m) => {
+      const message = await emailProvider.getMessage(m.id);
       const matchingGroupItem = findMatchingGroupItem(
-        parsedMessage.headers,
+        message.headers,
         groupItems,
       );
-      return { ...parsedMessage, matchingGroupItem };
+      return { ...message, matchingGroupItem };
     }),
   );
 

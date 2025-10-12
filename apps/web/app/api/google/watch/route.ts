@@ -2,8 +2,8 @@ import { NextResponse } from "next/server";
 import { watchEmails } from "./controller";
 import { withAuth } from "@/utils/middleware";
 import { createScopedLogger } from "@/utils/logger";
-import { getGmailClientForEmailId } from "@/utils/account";
 import prisma from "@/utils/prisma";
+import { createEmailProvider } from "@/utils/email/provider";
 
 export const dynamic = "force-dynamic";
 
@@ -27,8 +27,14 @@ export const GET = withAuth(async (request) => {
 
   for (const { id: emailAccountId } of emailAccounts) {
     try {
-      const gmail = await getGmailClientForEmailId({ emailAccountId });
-      const expirationDate = await watchEmails({ emailAccountId, gmail });
+      const emailProvider = await createEmailProvider({
+        emailAccountId,
+        provider: "google",
+      });
+      const expirationDate = await watchEmails({
+        emailAccountId,
+        emailProvider,
+      });
 
       if (expirationDate) {
         results.push({

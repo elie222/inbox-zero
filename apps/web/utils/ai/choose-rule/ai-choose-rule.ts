@@ -5,6 +5,7 @@ import type { EmailForLLM } from "@/utils/types";
 import { getModel, type ModelType } from "@/utils/llms/model";
 import { createGenerateObject } from "@/utils/llms";
 import { createScopedLogger } from "@/utils/logger";
+import { getUserInfoPrompt, getUserRulesPrompt } from "@/utils/ai/helpers";
 // import { Braintrust } from "@/utils/braintrust";
 // const braintrust = new Braintrust("choose-rule-2");
 
@@ -42,27 +43,9 @@ async function getAiResponse(options: GetAiResponseOptions) {
   </guidelines>
 </instructions>
 
-<user_rules>
-${rules
-  .map(
-    (rule) => `<rule>
-  <name>${rule.name}</name>
-  <criteria>${rule.instructions}</criteria>
-</rule>`,
-  )
-  .join("\n")}
-</user_rules>
+${getUserRulesPrompt({ rules })}
 
-${
-  emailAccount.about
-    ? `<user_info>
-<about>${emailAccount.about}</about>
-<email>${emailAccount.email}</email>
-</user_info>`
-    : `<user_info>
-<email>${emailAccount.email}</email>
-</user_info>`
-}
+${getUserInfoPrompt({ emailAccount })}
 
 Respond with a valid JSON object:
 

@@ -1,8 +1,7 @@
 import { createGenerateText } from "@/utils/llms";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
-import { stringifyEmail } from "@/utils/stringify-email";
 import type { EmailForLLM } from "@/utils/types";
-import { getTodayForLLM } from "@/utils/llms/helpers";
+import { getEmailListPrompt, getTodayForLLM } from "@/utils/ai/helpers";
 import { getModel } from "@/utils/llms/model";
 
 export async function aiGenerateNudge({
@@ -22,13 +21,7 @@ Don't reply with a Subject. Only reply with the body of the email.
 Keep it short.`;
 
   const prompt = `Here is the context of the email thread (from oldest to newest):
-${messages
-  .map(
-    (msg) => `<email>
-${stringifyEmail(msg, 3000)}
-</email>`,
-  )
-  .join("\n")}
+${getEmailListPrompt({ messages, messageMaxLength: 3000 })}
      
 Write a brief follow-up email to politely nudge for a response.
 

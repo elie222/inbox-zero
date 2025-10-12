@@ -1,11 +1,13 @@
 "use server";
 
+import { after } from "next/server";
 import {
   saveOnboardingAnswersBody,
   saveOnboardingFeaturesSchema,
 } from "@/utils/actions/onboarding.validation";
 import { actionClientUser } from "@/utils/actions/safe-action";
 import prisma from "@/utils/prisma";
+import { updateContactCompanySize, updateContactRole } from "@inboxzero/loops";
 
 export const completedOnboardingAction = actionClientUser
   .metadata({ name: "completedOnboarding" })
@@ -22,9 +24,8 @@ export const saveOnboardingAnswersAction = actionClientUser
   .action(
     async ({
       parsedInput: { surveyId, questions, answers },
-      ctx: { userId },
+      ctx: { userId, userEmail, logger },
     }) => {
-      // Helper function to extract survey answers from the response format
       function extractSurveyAnswers(questions: any[], answers: any) {
         const result: {
           surveyFeatures?: string[];
@@ -105,8 +106,27 @@ export const saveOnboardingAnswersAction = actionClientUser
         return result;
       }
 
-      // Extract individual survey answers for easier querying
       const extractedAnswers = extractSurveyAnswers(questions, answers);
+
+      after(async () => {
+        if (extractedAnswers.surveyRole) {
+          await updateContactRole({
+            email: userEmail,
+            role: extractedAnswers.surveyRole,
+          }).catch((error) => {
+            logger.error("Loops: Error updating role", { error });
+          });
+        }
+
+        if (extractedAnswers.surveyCompanySize) {
+          await updateContactCompanySize({
+            email: userEmail,
+            companySize: extractedAnswers.surveyCompanySize,
+          }).catch((error) => {
+            logger.error("Loops: Error updating company size", { error });
+          });
+        }
+      });
 
       await prisma.user.update({
         where: { id: userId },

@@ -8,6 +8,7 @@ import { getEmailForLLM } from "@/utils/get-email-from-message";
 import { aiChooseRule } from "@/utils/ai/choose-rule/ai-choose-rule";
 import { filterToReplyPreset } from "@/utils/ai/choose-rule/match-rules";
 import type { EmailProvider } from "@/utils/email/types";
+import { removeAwaitingReplyLabelFromThread } from "./label-helpers";
 
 /**
  * Marks an email thread as needing a reply.
@@ -44,7 +45,11 @@ export async function coordinateReplyProcess({
     sentAt,
   });
 
-  const labelsPromise = client.removeAwaitingReplyLabel(threadId);
+  const labelsPromise = removeAwaitingReplyLabelFromThread({
+    emailAccountId,
+    threadId,
+    provider: client,
+  });
 
   const [dbResult, labelsResult] = await Promise.allSettled([
     dbPromise,

@@ -7,6 +7,7 @@ import type { EmailAccountWithAI } from "@/utils/llms/types";
 import type { EmailForLLM, RuleWithActions } from "@/utils/types";
 import { LogicalOperator, type ActionType } from "@prisma/client";
 import { getModel, type ModelType } from "@/utils/llms/model";
+import { getUserInfoPrompt } from "@/utils/ai/helpers";
 
 /**
  * AI Argument Generator for Email Actions
@@ -75,8 +76,8 @@ export async function aiGenerateArgs({
     return;
   }
 
-  const system = getSystemPrompt({ emailAccount });
-  const prompt = getPrompt({ email, selectedRule });
+  const system = getSystemPrompt();
+  const prompt = getPrompt({ email, selectedRule, emailAccount });
 
   logger.info("Calling chat completion tools", loggerOptions);
   // logger.trace("Parameters:", zodToJsonSchema(parameters));
@@ -122,11 +123,7 @@ export async function aiGenerateArgs({
   return result;
 }
 
-function getSystemPrompt({
-  emailAccount,
-}: {
-  emailAccount: EmailAccountWithAI;
-}) {
+function getSystemPrompt() {
   return `You are an AI assistant that helps people manage their emails.
 
 <key_instructions>
@@ -140,18 +137,21 @@ function getSystemPrompt({
 - IMPORTANT: For content and subject fields:
   - Use proper capitalization and punctuation (start sentences with capital letters)
   - Ensure the generated text flows naturally with surrounding template content
-</key_instructions>
-${emailAccount.about ? `\n<user_background_information>${emailAccount.about}</user_background_information>` : ""}`;
+</key_instructions>`;
 }
 
 function getPrompt({
   email,
   selectedRule,
+  emailAccount,
 }: {
   email: EmailForLLM;
   selectedRule: RuleWithActions;
+  emailAccount: EmailAccountWithAI;
 }) {
-  return `Process this email according to the selected rule:
+  return `${getUserInfoPrompt({ emailAccount })}
+
+Process this email according to the selected rule:
 
 <selected_rule>
 ${printConditions(selectedRule)}

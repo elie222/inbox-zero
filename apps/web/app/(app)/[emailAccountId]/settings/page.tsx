@@ -8,6 +8,7 @@ import { MultiAccountSection } from "@/app/(app)/[emailAccountId]/settings/Multi
 import { ResetAnalyticsSection } from "@/app/(app)/[emailAccountId]/settings/ResetAnalyticsSection";
 import { WebhookSection } from "@/app/(app)/[emailAccountId]/settings/WebhookSection";
 import { FormSection, FormWrapper } from "@/components/Form";
+import { PageHeader } from "@/components/PageHeader";
 import { TabsToolbar } from "@/components/TabsToolbar";
 import { SectionDescription } from "@/components/Typography";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -17,47 +18,53 @@ export default function SettingsPage() {
   const { emailAccount } = useAccount();
 
   return (
-    <Tabs defaultValue="user">
-      <TabsToolbar>
-        <div className="w-full overflow-x-auto">
-          <TabsList>
-            <TabsTrigger value="user">User</TabsTrigger>
-            <TabsTrigger value="email">Email Account</TabsTrigger>
-          </TabsList>
-        </div>
-      </TabsToolbar>
+    <div>
+      <div className="content-container mb-4">
+        <PageHeader title="Settings" description="Manage your settings." />
+      </div>
 
-      <TabsContent value="user">
-        <FormWrapper>
-          <MultiAccountSection />
-          <BillingSection />
-          <ModelSection />
-          <WebhookSection />
-          <ApiKeysSection />
-          <DeleteSection />
-        </FormWrapper>
-      </TabsContent>
+      <Tabs defaultValue="user">
+        <TabsToolbar>
+          <div className="w-full overflow-x-auto">
+            <TabsList>
+              <TabsTrigger value="user">User</TabsTrigger>
+              <TabsTrigger value="email">Email Account</TabsTrigger>
+            </TabsList>
+          </div>
+        </TabsToolbar>
 
-      <TabsContent value="email" className="content-container mb-10">
-        {emailAccount && (
+        <TabsContent value="user">
           <FormWrapper>
-            <FormSection className="py-4">
-              <SectionDescription>
-                Settings for {emailAccount?.email}
-              </SectionDescription>
-            </FormSection>
+            <MultiAccountSection />
+            <BillingSection />
+            <ModelSection />
+            <WebhookSection />
+            <ApiKeysSection />
+            <DeleteSection />
+          </FormWrapper>
+        </TabsContent>
 
-            <ResetAnalyticsSection />
+        <TabsContent value="email" className="content-container mb-10">
+          {emailAccount && (
+            <FormWrapper>
+              <FormSection className="py-4">
+                <SectionDescription>
+                  Settings for {emailAccount?.email}
+                </SectionDescription>
+              </FormSection>
 
-            {/* this is only used in Gmail when sending a new message. disabling for now. */}
-            {/* <SignatureSectionForm signature={user.signature} /> */}
-            {/* <EmailUpdatesSection
+              <ResetAnalyticsSection />
+
+              {/* this is only used in Gmail when sending a new message. disabling for now. */}
+              {/* <SignatureSectionForm signature={user.signature} /> */}
+              {/* <EmailUpdatesSection
                 summaryEmailFrequency={data?.summaryEmailFrequency}
                 mutate={mutate}
               /> */}
-          </FormWrapper>
-        )}
-      </TabsContent>
-    </Tabs>
+            </FormWrapper>
+          )}
+        </TabsContent>
+      </Tabs>
+    </div>
   );
 }

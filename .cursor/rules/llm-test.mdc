@@ -125,6 +125,15 @@ Tests for LLM-related functionality should follow these guidelines to ensure con
    });
    ```
 
+5. Use existing helpers from `@/__tests__/helpers.ts`:
+  - `getEmailAccount(overrides?)` - Creates EmailAccountWithAI objects
+  - `getEmail(overrides?)` - Creates EmailForLLM objects  
+  - `getRule(instructions, actions?)` - Creates rule objects
+  - `getMockMessage(options?)` - Creates mock message objects
+  - `getMockExecutedRule(options?)` - Creates executed rule objects
+
+  Always prefer using existing helpers over creating custom ones.
+
 ## Running Tests
 
 Run AI tests with:

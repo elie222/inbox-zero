@@ -4,15 +4,14 @@ import Link from "next/link";
 import {
   ChevronsUpDownIcon,
   BarChartIcon,
-  InboxIcon,
   MessageCircleReplyIcon,
   ShieldCheckIcon,
   RibbonIcon,
   LogOutIcon,
   PaletteIcon,
   SettingsIcon,
-  CrownIcon,
   ChromeIcon,
+  Building2Icon,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -32,10 +31,22 @@ import { ProfileImage } from "@/components/ProfileImage";
 import { SidebarMenuButton } from "@/components/ui/sidebar";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { EXTENSION_URL } from "@/utils/config";
+import { useUser } from "@/hooks/useUser";
+import { isOrganizationAdmin } from "@/utils/organizations/roles";
 
 export function NavUser() {
   const { emailAccountId, emailAccount, provider } = useAccount();
   const { theme, setTheme } = useTheme();
+  const { data: user } = useUser();
+
+  const currentEmailAccountId = emailAccount?.id || emailAccountId;
+  const currentEmailAccountMembers =
+    user?.members?.filter(
+      (member) => member.emailAccountId === currentEmailAccountId,
+    ) || [];
+  const hasOrganization = currentEmailAccountMembers.length > 0;
+  const isOrgAdmin = isOrganizationAdmin(currentEmailAccountMembers);
+  const organizationName = currentEmailAccountMembers[0]?.organization?.name;
 
   return (
     <DropdownMenu>
@@ -59,7 +70,9 @@ export function NavUser() {
                 <span className="truncate font-medium">
                   {emailAccount.name || emailAccount.email}
                 </span>
-                <span className="truncate text-xs">{emailAccount.email}</span>
+                <span className="truncate text-xs text-muted-foreground">
+                  {organizationName || emailAccount.email}
+                </span>
               </div>
               <ChevronsUpDownIcon className="ml-auto size-4" />
             </>
@@ -83,15 +96,35 @@ export function NavUser() {
               <span className="truncate font-medium">
                 {emailAccount?.name || emailAccount?.email || "Account"}
               </span>
-              <span className="truncate text-xs">
-                {emailAccount?.email || "Account"}
-              </span>
+              {(organizationName || emailAccount?.email) && (
+                <span className="truncate text-xs text-muted-foreground">
+                  {organizationName || emailAccount?.email}
+                </span>
+              )}
             </div>
           </div>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
 
         <DropdownMenuGroup>
+          {!hasOrganization && (
+            <DropdownMenuItem asChild>
+              <Link
+                href={prefixPath(currentEmailAccountId, "/organization/create")}
+              >
+                <Building2Icon className="mr-2 size-4" />
+                Create organization
+              </Link>
+            </DropdownMenuItem>
+          )}
+          {hasOrganization && isOrgAdmin && (
+            <DropdownMenuItem asChild>
+              <Link href={prefixPath(currentEmailAccountId, "/organization")}>
+                <Building2Icon className="mr-2 size-4" />
+                My Organization
+              </Link>
+            </DropdownMenuItem>
+          )}
           {isGoogleProvider(provider) && (
             <DropdownMenuItem asChild>
               <Link
@@ -112,13 +145,18 @@ export function NavUser() {
           {isGoogleProvider(provider) && (
             <>
               <DropdownMenuItem asChild>
-                <Link href={prefixPath(emailAccountId, "/reply-zero")}>
+                <Link href={prefixPath(currentEmailAccountId, "/reply-zero")}>
                   <MessageCircleReplyIcon className="mr-2 size-4" />
                   Reply Zero
                 </Link>
               </DropdownMenuItem>
               <DropdownMenuItem asChild>
-                <Link href={prefixPath(emailAccountId, "/cold-email-blocker")}>
+                <Link
+                  href={prefixPath(
+                    currentEmailAccountId,
+                    "/cold-email-blocker",
+                  )}
+                >
                   <ShieldCheckIcon className="mr-2 size-4" />
                   Cold Email Blocker
                 </Link>
@@ -132,7 +170,7 @@ export function NavUser() {
             </>
           )}
           <DropdownMenuItem asChild>
-            <Link href={prefixPath(emailAccountId, "/usage")}>
+            <Link href={prefixPath(currentEmailAccountId, "/usage")}>
               <BarChartIcon className="mr-2 size-4" />
               Usage
             </Link>

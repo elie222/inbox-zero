@@ -3,7 +3,7 @@ import { internalDateToDate } from "@/utils/date";
 import { getEmailForLLM } from "@/utils/get-email-from-message";
 import { aiDraftWithKnowledge } from "@/utils/ai/reply/draft-with-knowledge";
 import { getReply, saveReply } from "@/utils/redis/reply";
-import { getEmailAccountWithAi, getWritingStyle } from "@/utils/user/get";
+import { getWritingStyle } from "@/utils/user/get";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import { createScopedLogger } from "@/utils/logger";
 import prisma from "@/utils/prisma";
@@ -14,48 +14,11 @@ import type { EmailProvider } from "@/utils/email/types";
 import { aiCollectReplyContext } from "@/utils/ai/reply/reply-context-collector";
 import { getOrCreateReferralCode } from "@/utils/referral/referral-code";
 import { generateReferralLink } from "@/utils/referral/referral-link";
+import { aiGetCalendarAvailability } from "@/utils/ai/calendar/availability";
 import { env } from "@/env";
+import { mcpAgent } from "@/utils/ai/mcp/mcp-agent";
 
 const logger = createScopedLogger("generate-reply");
-
-export async function generateDraft({
-  emailAccountId,
-  client,
-  message,
-}: {
-  emailAccountId: string;
-  client: EmailProvider;
-  message: ParsedMessage;
-}) {
-  const logger = createScopedLogger("generate-reply").with({
-    emailAccountId,
-    messageId: message.id,
-    threadId: message.threadId,
-  });
-
-  logger.info("Generating draft");
-
-  const emailAccount = await getEmailAccountWithAi({ emailAccountId });
-  if (!emailAccount) throw new Error("User not found");
-
-  // 1. Draft with AI
-  const result = await fetchMessagesAndGenerateDraft(
-    emailAccount,
-    message.threadId,
-    client,
-  );
-
-  logger.info("Draft generated", { result });
-
-  if (typeof result !== "string") {
-    throw new Error("Draft result is not a string");
-  }
-
-  // 2. Create draft
-  await client.draftEmail(message, { content: result }, emailAccount.email);
-
-  logger.info("Draft created");
-}
 
 /**
  * Fetches thread messages and generates draft content in one step
@@ -79,24 +42,33 @@ export async function fetchMessagesAndGenerateDraft(
     throw new Error("Draft result is not a string");
   }
 
-  const emailAccountWithIncludeReferralSignature =
-    env.NEXT_PUBLIC_DISABLE_REFERRAL_SIGNATURE
-      ? null
-      : await prisma.emailAccount.findUnique({
-          where: { id: emailAccount.id },
-          select: { includeReferralSignature: true },
-        });
+  const emailAccountWithSignatures = await prisma.emailAccount.findUnique({
+    where: { id: emailAccount.id },
+    select: {
+      includeReferralSignature: true,
+      signature: true,
+    },
+  });
 
-  if (emailAccountWithIncludeReferralSignature?.includeReferralSignature) {
+  let finalResult = result;
+
+  if (
+    !env.NEXT_PUBLIC_DISABLE_REFERRAL_SIGNATURE &&
+    emailAccountWithSignatures?.includeReferralSignature
+  ) {
     const referralSignature = await getOrCreateReferralCode(
       emailAccount.userId,
     );
     const referralLink = generateReferralLink(referralSignature.code);
     const htmlSignature = `Drafted by <a href="${referralLink}">Inbox Zero</a>.`;
-    return `${result}\n\n${htmlSignature}`;
+    finalResult = `${finalResult}\n\n${htmlSignature}`;
   }
 
-  return result;
+  if (emailAccountWithSignatures?.signature) {
+    finalResult = `${finalResult}\n\n${emailAccountWithSignatures.signature}`;
+  }
+
+  return finalResult;
 }
 
 /**
@@ -161,7 +133,13 @@ async function generateDraftContent(
     messages[messages.length - 1],
     10_000,
   );
-  const [knowledgeResult, emailHistoryContext] = await Promise.all([
+  const [
+    knowledgeResult,
+    emailHistoryContext,
+    calendarAvailability,
+    writingStyle,
+    mcpResult,
+  ] = await Promise.all([
     aiExtractRelevantKnowledge({
       knowledgeBase,
       emailContent: lastMessageContent,
@@ -172,6 +150,9 @@ async function generateDraftContent(
       emailAccount,
       emailProvider,
     }),
+    aiGetCalendarAvailability({ emailAccount, messages }),
+    getWritingStyle({ emailAccountId: emailAccount.id }),
+    mcpAgent({ emailAccount, messages }),
   ]);
 
   // 2b. Extract email history context
@@ -198,10 +179,6 @@ async function generateDraftContent(
       })
     : null;
 
-  const writingStyle = await getWritingStyle({
-    emailAccountId: emailAccount.id,
-  });
-
   // 3. Draft with extracted knowledge
   const text = await aiDraftWithKnowledge({
     messages,
@@ -209,7 +186,9 @@ async function generateDraftContent(
     knowledgeBaseContent: knowledgeResult?.relevantContent || null,
     emailHistorySummary,
     emailHistoryContext,
+    calendarAvailability,
     writingStyle,
+    mcpContext: mcpResult?.response || null,
   });
 
   if (typeof text === "string") {

@@ -3,7 +3,6 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import prisma from "@/utils/prisma";
-import { createScopedLogger } from "@/utils/logger";
 import { processPreviousSentEmails } from "@/utils/reply-tracker/check-previous-emails";
 import {
   startAnalyzingReplyTracker,
@@ -15,8 +14,6 @@ import { SafeError } from "@/utils/error";
 import { prefixPath } from "@/utils/path";
 import { isGoogleProvider } from "@/utils/email/provider-types";
 import { getEmailAccountWithAi } from "@/utils/user/get";
-
-const logger = createScopedLogger("enableReplyTracker");
 
 export const enableReplyTrackerAction = actionClient
   .metadata({ name: "enableReplyTracker" })
@@ -30,14 +27,14 @@ export const enableReplyTrackerAction = actionClient
 
 export const processPreviousSentEmailsAction = actionClient
   .metadata({ name: "processPreviousSentEmails" })
-  .action(async ({ ctx: { emailAccountId, provider } }) => {
+  .action(async ({ ctx: { emailAccountId, provider, logger } }) => {
     // Not enabled for non-google providers yet
     if (!isGoogleProvider(provider)) return;
 
     const emailAccountWithAi = await getEmailAccountWithAi({ emailAccountId });
 
     if (!emailAccountWithAi) {
-      logger.error("Email account not found", { emailAccountId });
+      logger.error("Email account not found");
       throw new SafeError("Email account not found");
     }
 
@@ -56,7 +53,7 @@ export const resolveThreadTrackerAction = actionClient
   .schema(resolveThreadTrackerSchema)
   .action(
     async ({
-      ctx: { emailAccountId },
+      ctx: { emailAccountId, logger },
       parsedInput: { threadId, resolved },
     }) => {
       await startAnalyzingReplyTracker({ emailAccountId }).catch((error) => {

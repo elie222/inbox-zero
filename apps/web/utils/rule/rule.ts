@@ -14,6 +14,8 @@ import { hasExampleParams } from "@/app/(app)/[emailAccountId]/assistant/example
 import { SafeError } from "@/utils/error";
 import { createRuleHistory } from "@/utils/rule/rule-history";
 import { isMicrosoftProvider } from "@/utils/email/provider-types";
+import { createEmailProvider } from "@/utils/email/provider";
+import { resolveLabelNameAndId } from "@/utils/label/resolve-label";
 
 const logger = createScopedLogger("rule");
 
@@ -31,6 +33,16 @@ export function partialUpdateRule({
   });
 }
 
+// Extended type for system rules that can include labelId
+type CreateRuleWithLabelId = Omit<
+  CreateOrUpdateRuleSchemaWithCategories,
+  "actions"
+> & {
+  actions: (CreateOrUpdateRuleSchemaWithCategories["actions"][number] & {
+    labelId?: string | null;
+  })[];
+};
+
 export async function safeCreateRule({
   result,
   emailAccountId,
@@ -40,7 +52,7 @@ export async function safeCreateRule({
   triggerType = "ai_creation",
   shouldCreateIfDuplicate,
 }: {
-  result: CreateOrUpdateRuleSchemaWithCategories;
+  result: CreateRuleWithLabelId;
   emailAccountId: string;
   provider: string;
   categoryNames?: string[] | null;
@@ -164,7 +176,11 @@ export async function createRule({
   triggerType?: "ai_creation" | "manual_creation" | "system_creation";
   provider: string;
 }) {
-  const mappedActions = mapActionFields(result.actions, provider);
+  const mappedActions = await mapActionFields(
+    result.actions,
+    provider,
+    emailAccountId,
+  );
 
   const rule = await prisma.rule.create({
     data: {
@@ -172,7 +188,7 @@ export async function createRule({
       emailAccountId,
       systemType,
       actions: { createMany: { data: mappedActions } },
-      automate: shouldAutomate(
+      enabled: shouldEnable(
         result,
         mappedActions.map((a) => ({
           type: a.type,
@@ -231,7 +247,9 @@ async function updateRule({
       // but if we add relations to `Action`, we would need to `update` here instead of `deleteMany` and `createMany` to avoid cascading deletes
       actions: {
         deleteMany: {},
-        createMany: { data: mapActionFields(result.actions, provider) },
+        createMany: {
+          data: await mapActionFields(result.actions, provider, emailAccountId),
+        },
       },
       conditionalOperator: result.condition.conditionalOperator ?? undefined,
       instructions: result.condition.aiInstructions,
@@ -260,17 +278,21 @@ export async function updateRuleActions({
   ruleId,
   actions,
   provider,
+  emailAccountId,
 }: {
   ruleId: string;
   actions: CreateOrUpdateRuleSchemaWithCategories["actions"];
   provider: string;
+  emailAccountId: string;
 }) {
   return prisma.rule.update({
     where: { id: ruleId },
     data: {
       actions: {
         deleteMany: {},
-        createMany: { data: mapActionFields(actions, provider) },
+        createMany: {
+          data: await mapActionFields(actions, provider, emailAccountId),
+        },
       },
     },
   });
@@ -294,8 +316,7 @@ export async function deleteRule({
   ]);
 }
 
-// TODO: in cases that we don't automate we should really let the user know in the UI so that they can turn it on themselves
-function shouldAutomate(
+function shouldEnable(
   rule: CreateOrUpdateRuleSchemaWithCategories,
   actions: RiskAction[],
 ) {
@@ -317,10 +338,9 @@ function shouldAutomate(
     return false;
 
   const riskLevels = actions.map(
-    (action) => getActionRiskLevel(action, false, {}).level,
+    (action) => getActionRiskLevel(action, {}).level,
   );
-  // Only automate if all actions are low risk
-  // User can manually enable in other cases
+  // Only enable if all actions are low risk
   return riskLevels.every((level) => level === "low");
 }
 
@@ -363,24 +383,50 @@ export async function removeRuleCategories(
   });
 }
 
-function mapActionFields(
-  actions: CreateOrUpdateRuleSchemaWithCategories["actions"],
+async function mapActionFields(
+  actions: (CreateOrUpdateRuleSchemaWithCategories["actions"][number] & {
+    labelId?: string | null;
+  })[],
   provider: string,
+  emailAccountId: string,
 ) {
-  return actions.map(
-    (a): Prisma.ActionCreateManyRuleInput => ({
-      type: a.type,
-      label: a.fields?.label,
-      to: a.fields?.to,
-      cc: a.fields?.cc,
-      bcc: a.fields?.bcc,
-      subject: a.fields?.subject,
-      content: a.fields?.content,
-      url: a.fields?.webhookUrl,
-      ...(isMicrosoftProvider(provider) && {
-        folderName: a.fields?.folderName as string | null,
-      }),
-      delayInMinutes: a.delayInMinutes,
-    }),
+  const actionPromises = actions.map(
+    async (a): Promise<Prisma.ActionCreateManyRuleInput> => {
+      let label = a.fields?.label;
+      let labelId: string | null = null;
+
+      if (a.type === ActionType.LABEL) {
+        const emailProvider = await createEmailProvider({
+          emailAccountId,
+          provider,
+        });
+
+        const resolved = await resolveLabelNameAndId({
+          emailProvider,
+          label: a.fields?.label || null,
+          labelId: a.labelId || null,
+        });
+        label = resolved.label;
+        labelId = resolved.labelId;
+      }
+
+      return {
+        type: a.type,
+        label,
+        labelId,
+        to: a.fields?.to,
+        cc: a.fields?.cc,
+        bcc: a.fields?.bcc,
+        subject: a.fields?.subject,
+        content: a.fields?.content,
+        url: a.fields?.webhookUrl,
+        ...(isMicrosoftProvider(provider) && {
+          folderName: a.fields?.folderName as string | null,
+        }),
+        delayInMinutes: a.delayInMinutes,
+      };
+    },
   );
+
+  return Promise.all(actionPromises);
 }

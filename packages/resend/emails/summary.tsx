@@ -23,7 +23,6 @@ type EmailItem = {
 
 export interface SummaryEmailProps {
   baseUrl: string;
-  pendingCount: number;
   coldEmailers: EmailItem[];
   // Reply tracker stats
   needsReplyCount?: number;
@@ -39,7 +38,6 @@ export default function SummaryEmail(props: SummaryEmailProps) {
   const {
     baseUrl = "https://www.getinboxzero.com",
     coldEmailers,
-    pendingCount,
     needsReplyCount,
     awaitingReplyCount,
     needsActionCount,
@@ -95,8 +93,6 @@ export default function SummaryEmail(props: SummaryEmailProps) {
 
             <ColdEmails coldEmailers={coldEmailers} baseUrl={baseUrl} />
 
-            <PendingEmails pendingCount={pendingCount} baseUrl={baseUrl} />
-
             <Footer baseUrl={baseUrl} unsubscribeToken={unsubscribeToken} />
           </Container>
         </Body>
@@ -107,7 +103,6 @@ export default function SummaryEmail(props: SummaryEmailProps) {
 
 SummaryEmail.PreviewProps = {
   baseUrl: "https://www.getinboxzero.com",
-  pendingCount: 23,
   coldEmailers: [
     {
       from: "James <james@example.com>",
@@ -161,10 +156,6 @@ SummaryEmail.PreviewProps = {
   // ],
   unsubscribeToken: "123",
 } satisfies SummaryEmailProps;
-
-function pluralize(count: number, word: string) {
-  return count === 1 ? word : `${word}s`;
-}
 
 function ReplyTracker({
   needsReplyCount,
@@ -295,42 +286,6 @@ function ColdEmails({
           </Button>
         </Section>
       )}
-    </Section>
-  );
-}
-
-function PendingEmails({
-  pendingCount,
-  baseUrl,
-}: {
-  pendingCount: number;
-  baseUrl: string;
-}) {
-  if (!pendingCount) return null;
-
-  return (
-    <Section className="my-6 rounded-2xl bg-[#22c55e]/5 bg-[radial-gradient(circle_at_bottom_right,#22c55e_0%,transparent_60%)] p-8 text-center">
-      <Heading className="m-0 text-3xl font-medium text-[#166534]">
-        Pending Emails
-      </Heading>
-      <Text className="my-4 text-lg leading-5 text-gray-900">
-        You have {pendingCount} {pluralize(pendingCount, "email")} from your AI
-        assistant pending approval.
-      </Text>
-
-      <Section className="text-center mt-[32px] mb-[32px]">
-        <Button
-          href={`${baseUrl}/automation?tab=pending`}
-          style={{
-            background: "#000",
-            color: "#fff",
-            padding: "12px 20px",
-            borderRadius: "5px",
-          }}
-        >
-          View Pending
-        </Button>
-      </Section>
     </Section>
   );
 }

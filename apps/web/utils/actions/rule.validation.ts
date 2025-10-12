@@ -68,6 +68,8 @@ const zodField = z
     ai: z.boolean().nullish(),
     // only needed for frontend
     setManually: z.boolean().nullish(),
+    // label name for backup if no labelId exists (only for label field)
+    name: z.string().nullish(),
   })
   .nullish();
 
@@ -75,7 +77,7 @@ const zodAction = z
   .object({
     id: z.string().optional(),
     type: zodActionType,
-    label: zodField,
+    labelId: zodField,
     subject: zodField,
     content: zodField,
     to: zodField,
@@ -87,11 +89,11 @@ const zodAction = z
     delayInMinutes: delayInMinutesSchema,
   })
   .superRefine((data, ctx) => {
-    if (data.type === ActionType.LABEL && !data.label?.value?.trim()) {
+    if (data.type === ActionType.LABEL && !data.labelId?.value?.trim()) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         message: "Please enter a label name for the Label action",
-        path: ["label"],
+        path: ["labelId"],
       });
     }
     if (data.type === ActionType.FORWARD && !data.to?.value?.trim()) {
@@ -125,7 +127,6 @@ export const createRuleBody = z.object({
   name: z.string().min(1, "Please enter a name"),
   instructions: z.string().nullish(),
   groupId: z.string().nullish(),
-  automate: z.boolean().nullish(),
   runOnThreads: z.boolean().nullish(),
   digest: z.boolean().nullish(),
   actions: z.array(zodAction).min(1, "You must have at least one action"),
@@ -163,22 +164,11 @@ export type UpdateRuleBody = z.infer<typeof updateRuleBody>;
 
 export const deleteRuleBody = z.object({ id: z.string() });
 
-export const updateRuleInstructionsBody = z.object({
-  id: z.string(),
-  instructions: z.string(),
-});
-export type UpdateRuleInstructionsBody = z.infer<
-  typeof updateRuleInstructionsBody
->;
-
 export const saveRulesPromptBody = z.object({ rulesPrompt: z.string().trim() });
 export type SaveRulesPromptBody = z.infer<typeof saveRulesPromptBody>;
 
 export const createRulesBody = z.object({ prompt: z.string().trim() });
 export type CreateRulesBody = z.infer<typeof createRulesBody>;
-
-export const rulesExamplesBody = z.object({ rulesPrompt: z.string() });
-export type RulesExamplesBody = z.infer<typeof rulesExamplesBody>;
 
 export const updateRuleSettingsBody = z.object({
   id: z.string(),

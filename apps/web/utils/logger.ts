@@ -31,14 +31,22 @@ export function createScopedLogger(scope: string) {
       }
 
       const formattedArgs = allArgs
-        .map((arg) =>
-          typeof arg === "object" ? JSON.stringify(arg, null, 2) : String(arg),
-        )
+        .map((arg) => {
+          if (arg instanceof Error) {
+            return arg.message;
+          }
+          if (typeof arg === "object" && arg !== null) {
+            // Handle objects that may contain Error instances
+            const processedArg = processErrorsInObject(arg);
+            return JSON.stringify(processedArg, null, 2);
+          }
+          return String(arg);
+        })
         .join(" ");
 
       const msg = `[${scope}]: ${message} ${formattedArgs}`;
 
-      if (process.env.NODE_ENV === "development") {
+      if (env.NODE_ENV === "development") {
         // Replace literal \n with actual newlines for development logs
         const formattedMsg = msg.replace(/\\n/g, "\n");
         return `${colors[level]}${formattedMsg}${colors.reset}`;
@@ -53,10 +61,15 @@ export function createScopedLogger(scope: string) {
         console.error(formatMessage("error", message, args)),
       warn: (message: string, ...args: unknown[]) =>
         console.warn(formatMessage("warn", message, args)),
-      trace: (message: string, ...args: unknown[]) => {
-        if (env.ENABLE_DEBUG_LOGS) {
-          console.log(formatMessage("trace", message, args));
-        }
+      trace: (
+        message: string,
+        ...args: Array<unknown> | [() => unknown] | [() => unknown[]]
+      ) => {
+        if (!env.ENABLE_DEBUG_LOGS) return;
+        const first = args[0];
+        const resolved = typeof first === "function" ? first() : args;
+        const finalArgs = Array.isArray(resolved) ? resolved : [resolved];
+        console.log(formatMessage("trace", message, finalArgs));
       },
       with: (newFields: Record<string, unknown>) =>
         createLogger({ ...fields, ...newFields }),
@@ -74,10 +87,13 @@ function createAxiomLogger(scope: string) {
       log.error(message, { scope, ...fields, ...formatError(args) }),
     warn: (message: string, args?: Record<string, unknown>) =>
       log.warn(message, { scope, ...fields, ...args }),
-    trace: (message: string, args?: Record<string, unknown>) => {
-      if (env.ENABLE_DEBUG_LOGS) {
-        log.debug(message, { scope, ...fields, ...args });
-      }
+    trace: (
+      message: string,
+      args?: Record<string, unknown> | (() => Record<string, unknown>),
+    ) => {
+      if (!env.ENABLE_DEBUG_LOGS) return;
+      const resolved = typeof args === "function" ? args() : args;
+      log.debug(message, { scope, ...fields, ...resolved });
     },
     with: (newFields: Record<string, unknown>) =>
       createLogger({ ...fields, ...newFields }),
@@ -106,4 +122,24 @@ function formatError(args?: Record<string, unknown>) {
 function cleanError(error: unknown) {
   if (error instanceof Error) return error.message;
   return error;
+}
+
+function processErrorsInObject(obj: unknown): unknown {
+  if (obj instanceof Error) {
+    return obj.message;
+  }
+
+  if (Array.isArray(obj)) {
+    return obj.map(processErrorsInObject);
+  }
+
+  if (typeof obj === "object" && obj !== null) {
+    const processed: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(obj)) {
+      processed[key] = processErrorsInObject(value);
+    }
+    return processed;
+  }
+
+  return obj;
 }

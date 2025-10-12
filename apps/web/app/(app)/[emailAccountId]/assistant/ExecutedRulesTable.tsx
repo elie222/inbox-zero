@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { ExternalLinkIcon, EyeIcon } from "lucide-react";
-import type { PendingExecutedRules } from "@/app/api/user/planned/route";
+import type { PlanHistoryResponse } from "@/app/api/user/planned/history/route";
 import { decodeSnippet } from "@/utils/gmail/decode";
 import { ActionBadgeExpanded } from "@/components/PlanBadge";
 import { Tooltip } from "@/components/Tooltip";
@@ -68,7 +68,7 @@ export function RuleCell({
   message,
   setInput,
 }: {
-  rule: PendingExecutedRules["executedRules"][number]["rule"];
+  rule: PlanHistoryResponse["executedRules"][number]["rule"];
   status: ExecutedRuleStatus;
   reason?: string | null;
   message: ParsedMessage;
@@ -147,7 +147,7 @@ export function ActionItemsCell({
   actionItems,
   provider,
 }: {
-  actionItems: PendingExecutedRules["executedRules"][number]["actionItems"];
+  actionItems: PlanHistoryResponse["executedRules"][number]["actionItems"];
   provider: string;
 }) {
   return (

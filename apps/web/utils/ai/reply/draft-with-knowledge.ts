@@ -1,12 +1,12 @@
 import { z } from "zod";
 import { createScopedLogger } from "@/utils/logger";
-import { createGenerateObject } from "@/utils/llms";
+import { createGenerateObject } from "@/utils/llms/index";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import type { EmailForLLM } from "@/utils/types";
-import { stringifyEmail } from "@/utils/stringify-email";
-import { getTodayForLLM } from "@/utils/llms/helpers";
+import { getEmailListPrompt, getTodayForLLM } from "@/utils/ai/helpers";
 import { getModel } from "@/utils/llms/model";
 import type { ReplyContextCollectorResult } from "@/utils/ai/reply/reply-context-collector";
+import type { CalendarAvailabilityContext } from "@/utils/ai/calendar/availability";
 
 const logger = createScopedLogger("DraftWithKnowledge");
 
@@ -23,7 +23,8 @@ Don't reply with a Subject. Only reply with the body of the email.
 
 IMPORTANT: Use placeholders sparingly! Only use them where you have limited information.
 Never use placeholders for the user's name. You do not need to sign off with the user's name. Do not add a signature.
-Do not invent information. For example, DO NOT offer to meet someone at a specific time as you don't know what time the user is available.
+Do not invent information.
+Don't suggest meeting times or mention availability unless specific calendar information is provided.
 
 Return your response in JSON format.
 `;
@@ -34,14 +35,18 @@ const getUserPrompt = ({
   knowledgeBaseContent,
   emailHistorySummary,
   emailHistoryContext,
+  calendarAvailability,
   writingStyle,
+  mcpContext,
 }: {
   messages: (EmailForLLM & { to: string })[];
   emailAccount: EmailAccountWithAI;
   knowledgeBaseContent: string | null;
   emailHistorySummary: string | null;
   emailHistoryContext: ReplyContextCollectorResult | null;
+  calendarAvailability: CalendarAvailabilityContext | null;
   writingStyle: string | null;
+  mcpContext: string | null;
 }) => {
   const userAbout = emailAccount.about
     ? `Context about the user:
@@ -98,20 +103,36 @@ ${writingStyle}
 `
     : "";
 
+  const calendarContext = calendarAvailability?.suggestedTimes.length
+    ? `Calendar availability information:
+    
+<calendar_availability>
+Suggested times: ${calendarAvailability.suggestedTimes.join(", ")}
+</calendar_availability>
+
+IMPORTANT: Use this calendar information to suggest specific available times when responding to meeting requests. You can now offer specific times when the user is available.
+`
+    : "";
+
+  const mcpToolsContext = mcpContext
+    ? `Additional context fetched from external tools (such as CRM systems, task managers, or other integrations) that may help draft a response:
+    
+<external_tools_context>
+${mcpContext}
+</external_tools_context>
+`
+    : "";
+
   return `${userAbout}
 ${relevantKnowledge}
 ${historicalContext}
 ${precedentHistoryContext}
 ${writingStylePrompt}
+${calendarContext}
+${mcpToolsContext}
 
 Here is the context of the email thread (from oldest to newest):
-${messages
-  .map(
-    (msg) => `<email>
-${stringifyEmail(msg, 3000)}
-</email>`,
-  )
-  .join("\n")}
+${getEmailListPrompt({ messages, messageMaxLength: 3000 })}
      
 Please write a reply to the email.
 ${getTodayForLLM()}
@@ -132,14 +153,18 @@ export async function aiDraftWithKnowledge({
   knowledgeBaseContent,
   emailHistorySummary,
   emailHistoryContext,
+  calendarAvailability,
   writingStyle,
+  mcpContext,
 }: {
   messages: (EmailForLLM & { to: string })[];
   emailAccount: EmailAccountWithAI;
   knowledgeBaseContent: string | null;
   emailHistorySummary: string | null;
   emailHistoryContext: ReplyContextCollectorResult | null;
+  calendarAvailability: CalendarAvailabilityContext | null;
   writingStyle: string | null;
+  mcpContext: string | null;
 }) {
   try {
     logger.info("Drafting email with knowledge base", {
@@ -154,7 +179,9 @@ export async function aiDraftWithKnowledge({
       knowledgeBaseContent,
       emailHistorySummary,
       emailHistoryContext,
+      calendarAvailability,
       writingStyle,
+      mcpContext,
     });
 
     const modelOptions = getModel(emailAccount.user);

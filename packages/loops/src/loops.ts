@@ -98,6 +98,40 @@ export async function cancelledPremium(
   return resp;
 }
 
+async function updateContactProperty(
+  email: string,
+  properties: Record<string, string | number | boolean>,
+): Promise<{ success: boolean }> {
+  const loops = getLoopsClient();
+  if (!loops) return { success: false };
+
+  const resp = await loops.updateContact({
+    email,
+    properties,
+  });
+  return resp;
+}
+
+export async function updateContactRole({
+  email,
+  role,
+}: {
+  email: string;
+  role: string;
+}) {
+  return updateContactProperty(email, { role });
+}
+
+export async function updateContactCompanySize({
+  email,
+  companySize,
+}: {
+  email: string;
+  companySize: number;
+}) {
+  return updateContactProperty(email, { companySize });
+}
+
 function getRandomInt(max: number) {
   return Math.ceil(Math.random() * max);
 }

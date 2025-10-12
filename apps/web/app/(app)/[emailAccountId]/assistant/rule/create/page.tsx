@@ -28,14 +28,13 @@ export default async function CreateRulePage(props: {
               ? [
                   {
                     type: ActionType.LABEL,
-                    label: { value: searchParams.label },
+                    labelId: { name: searchParams.label },
                   },
                 ]
               : [],
             conditions: searchParams.type
               ? [getEmptyCondition(searchParams.type, searchParams.categoryId)]
               : [],
-            automate: true,
             runOnThreads: true,
           }
         }

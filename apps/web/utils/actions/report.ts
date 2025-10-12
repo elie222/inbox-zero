@@ -2,10 +2,7 @@
 
 import type { gmail_v1 } from "@googleapis/gmail";
 import { z } from "zod";
-import {
-  fetchEmailsForReport,
-  fetchGmailTemplates,
-} from "@/utils/ai/report/fetch";
+import { fetchEmailsForReport } from "@/utils/ai/report/fetch";
 import { aiSummarizeEmails } from "@/utils/ai/report/summarize-emails";
 import { aiGenerateExecutiveSummary } from "@/utils/ai/report/generate-executive-summary";
 import { aiBuildUserPersona } from "@/utils/ai/report/build-user-persona";
@@ -13,34 +10,35 @@ import { aiAnalyzeEmailBehavior } from "@/utils/ai/report/analyze-email-behavior
 import { aiAnalyzeResponsePatterns } from "@/utils/ai/report/response-patterns";
 import { aiAnalyzeLabelOptimization } from "@/utils/ai/report/analyze-label-optimization";
 import { aiGenerateActionableRecommendations } from "@/utils/ai/report/generate-actionable-recommendations";
-import { createScopedLogger } from "@/utils/logger";
 import { actionClient } from "@/utils/actions/safe-action";
 import { getEmailAccountWithAi } from "@/utils/user/get";
 import { getGmailClientForEmail } from "@/utils/account";
 import { getEmailForLLM } from "@/utils/get-email-from-message";
-
-const logger = createScopedLogger("actions/report");
+import type { Logger } from "@/utils/logger";
+import { getGmailSignatures } from "@/utils/gmail/signature-settings";
 
 export type EmailReportData = Awaited<ReturnType<typeof getEmailReportData>>;
 
 export const generateReportAction = actionClient
   .metadata({ name: "generateReport" })
   .schema(z.object({}))
-  .action(async ({ ctx: { emailAccountId } }) => {
-    return getEmailReportData({ emailAccountId });
+  .action(async ({ ctx: { emailAccountId, logger } }) => {
+    return getEmailReportData({ emailAccountId, logger });
   });
 
 async function getEmailReportData({
   emailAccountId,
+  logger,
 }: {
   emailAccountId: string;
+  logger: Logger;
 }) {
-  logger.info("getEmailReportData started", { emailAccountId });
+  logger.info("getEmailReportData started");
 
   const emailAccount = await getEmailAccountWithAi({ emailAccountId });
 
   if (!emailAccount) {
-    logger.error("Email account not found", { emailAccountId });
+    logger.error("Email account not found");
     throw new Error("Email account not found");
   }
 
@@ -70,9 +68,8 @@ async function getEmailReportData({
     emailAccountId: emailAccount.id,
   });
 
-  const gmailLabels = await fetchGmailLabels(gmail);
-  const gmailSignature = await fetchGmailSignature(gmail);
-  const gmailTemplates = await fetchGmailTemplates(gmail);
+  const gmailLabels = await fetchGmailLabels(gmail, logger);
+  const gmailSignature = await fetchGmailSignature(gmail, logger);
 
   const [
     executiveSummary,
@@ -94,7 +91,6 @@ async function getEmailReportData({
       emailAccount,
       sentSummaries,
       gmailSignature,
-      gmailTemplates,
     ).catch((error) => {
       logger.error("Error generating user persona", { error });
     }),
@@ -163,6 +159,7 @@ async function getEmailReportData({
 // TODO: should be able to import this functionality from elsewhere
 async function fetchGmailLabels(
   gmail: gmail_v1.Gmail,
+  logger: Logger,
 ): Promise<gmail_v1.Schema$Label[]> {
   try {
     const response = await gmail.users.labels.list({ userId: "me" });
@@ -198,7 +195,8 @@ async function fetchGmailLabels(
               threadsUnread: labelDetail.data.threadsUnread || 0,
             };
           } catch (error) {
-            logger.warn(`Failed to get details for label ${label.name}:`, {
+            logger.warn("Failed to get details for label", {
+              labelName: label.name,
               error: error instanceof Error ? error.message : String(error),
             });
             return {
@@ -218,45 +216,25 @@ async function fetchGmailLabels(
 
     return sortedLabels;
   } catch (error) {
-    logger.warn("Failed to fetch Gmail labels:", {
+    logger.warn("Failed to fetch Gmail labels", {
       error: error instanceof Error ? error.message : String(error),
     });
     return [];
   }
 }
 
-// TODO: should be able to import this functionality from elsewhere
-async function fetchGmailSignature(gmail: gmail_v1.Gmail): Promise<string> {
+async function fetchGmailSignature(
+  gmail: gmail_v1.Gmail,
+  logger: Logger,
+): Promise<string> {
   try {
-    const sendAsList = await gmail.users.settings.sendAs.list({
-      userId: "me",
-    });
+    const signatures = await getGmailSignatures(gmail);
+    const defaultSignature =
+      signatures.find((sig) => sig.isDefault) || signatures[0];
 
-    if (!sendAsList.data.sendAs || sendAsList.data.sendAs.length === 0) {
-      logger.warn("No sendAs settings found");
-      return "";
-    }
-
-    const primarySendAs = sendAsList.data.sendAs[0];
-    if (!primarySendAs.sendAsEmail) {
-      logger.warn("No primary sendAs email found");
-      return "";
-    }
-
-    const signatureResponse = await gmail.users.settings.sendAs.get({
-      userId: "me",
-      sendAsEmail: primarySendAs.sendAsEmail,
-    });
-
-    const signature = signatureResponse.data.signature;
-    logger.info("Gmail signature fetched successfully", {
-      hasSignature: !!signature,
-      sendAsEmail: primarySendAs.sendAsEmail,
-    });
-
-    return signature || "";
+    return defaultSignature?.signature || "";
   } catch (error) {
-    logger.warn("Failed to fetch Gmail signature:", {
+    logger.warn("Failed to fetch Gmail signature", {
       error: error instanceof Error ? error.message : String(error),
     });
     return "";

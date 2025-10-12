@@ -6,19 +6,19 @@ import { coordinateReplyProcess } from "@/utils/reply-tracker/inbound";
 import { internalDateToDate } from "@/utils/date";
 import type { EmailProvider } from "@/utils/email/types";
 import { enqueueDigestItem } from "@/utils/digest/index";
+import { filterNullProperties } from "@/utils";
 
 const logger = createScopedLogger("ai-actions");
 
-type ActionFunction<T extends Partial<Omit<ActionItem, "type" | "id">>> =
-  (options: {
-    client: EmailProvider;
-    email: EmailForAction;
-    args: T;
-    userEmail: string;
-    userId: string;
-    emailAccountId: string;
-    executedRule: ExecutedRule;
-  }) => Promise<any>;
+type ActionFunction<T extends Partial<Omit<ActionItem, "type">>> = (options: {
+  client: EmailProvider;
+  email: EmailForAction;
+  args: T;
+  userEmail: string;
+  userId: string;
+  emailAccountId: string;
+  executedRule: ExecutedRule;
+}) => Promise<any>;
 
 export const runActionFunction = async (options: {
   client: EmailProvider;
@@ -35,7 +35,7 @@ export const runActionFunction = async (options: {
     userEmail,
     id: action.id,
   });
-  logger.trace("Running action:", action);
+  logger.trace("Running action", () => filterNullProperties(action));
 
   const { type, ...args } = action;
   const opts = {
@@ -80,13 +80,35 @@ const archive: ActionFunction<Record<string, unknown>> = async ({
   await client.archiveThread(email.threadId, userEmail);
 };
 
-const label: ActionFunction<{ label?: string | null }> = async ({
-  client,
-  email,
-  args,
-}) => {
-  if (!args.label) return;
-  await client.labelMessage(email.id, args.label);
+const label: ActionFunction<{
+  label?: string | null;
+  labelId?: string | null;
+}> = async ({ client, email, args }) => {
+  let labelIdToUse = args.labelId;
+
+  // Lazy migration: If no labelId but label name exists, look it up
+  if (!labelIdToUse && args.label) {
+    const matchingLabel = await client.getLabelByName(args.label);
+
+    if (matchingLabel) {
+      labelIdToUse = matchingLabel.id;
+      // Note: We don't update the Action here to avoid race conditions
+      // The Action will be migrated when the rule is next updated
+    } else {
+      logger.info("Label not found, creating it", { labelName: args.label });
+      const createdLabel = await client.createLabel(args.label);
+      labelIdToUse = createdLabel.id;
+
+      if (!labelIdToUse) {
+        logger.error("Failed to create label", { labelName: args.label });
+        return;
+      }
+    }
+  }
+
+  if (!labelIdToUse) return;
+
+  await client.labelMessage({ messageId: email.id, labelId: labelIdToUse });
 };
 
 const draft: ActionFunction<{
@@ -266,16 +288,22 @@ const track_thread: ActionFunction<Record<string, unknown>> = async ({
   });
 };
 
-const digest: ActionFunction<any> = async ({ email, emailAccountId, args }) => {
+const digest: ActionFunction<{ id?: string }> = async ({
+  email,
+  emailAccountId,
+  args,
+}) => {
+  if (!args.id) return;
   const actionId = args.id;
   await enqueueDigestItem({ email, emailAccountId, actionId });
 };
 
-const move_folder: ActionFunction<any> = async ({
+const move_folder: ActionFunction<{ folderId?: string | null }> = async ({
   client,
   email,
   userEmail,
   args,
 }) => {
+  if (!args.folderId) return;
   await client.moveThreadToFolder(email.threadId, userEmail, args.folderId);
 };

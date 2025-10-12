@@ -16,13 +16,15 @@ export type ProcessHistoryOptions = {
     EmailAccountWithAI;
 };
 
+// https://learn.microsoft.com/en-us/graph/api/resources/resourcedata?view=graph-rest-1.0
 const resourceDataSchema = z
   .object({
-    id: z.string(),
-    folderId: z.string().nullish(),
-    conversationId: z.string().nullish(),
+    "@odata.type": z.string().optional(),
+    "@odata.id": z.string().optional(),
+    "@odata.etag": z.string().optional(),
+    id: z.string(), // The message identifier
   })
-  .passthrough(); // Allow additional properties
+  .passthrough(); // Allow additional properties from other notification types
 
 const notificationSchema = z.object({
   subscriptionId: z.string(),

@@ -1,15 +1,10 @@
-import type { gmail_v1 } from "@googleapis/gmail";
 import { NextResponse } from "next/server";
-import { dateToSeconds } from "@/utils/date";
-import { getMessages } from "@/utils/gmail/message";
-import { getGmailClientForEmailId } from "@/utils/account";
-import { withEmailAccount } from "@/utils/middleware";
+import { withEmailProvider } from "@/utils/middleware";
+import type { EmailProvider } from "@/utils/email/types";
 
 export type StatsResponse = Awaited<ReturnType<typeof getStats>>;
 
-async function getStats(options: { gmail: gmail_v1.Gmail }) {
-  const { gmail } = options;
-
+async function getStats({ emailProvider }: { emailProvider: EmailProvider }) {
   const now = new Date();
   const twentyFourHoursAgo = new Date(
     now.getFullYear(),
@@ -22,9 +17,6 @@ async function getStats(options: { gmail: gmail_v1.Gmail }) {
     now.getDate() - 7,
   );
 
-  const twentyFourHoursAgoInSeconds = dateToSeconds(twentyFourHoursAgo);
-  const sevenDaysAgoInSeconds = dateToSeconds(sevenDaysAgo);
-
   const [
     emailsReceived24hrs,
     emailsSent24hrs,
@@ -33,30 +25,36 @@ async function getStats(options: { gmail: gmail_v1.Gmail }) {
     emailsSent7days,
     emailsInbox7days,
   ] = await Promise.all([
-    getMessages(gmail, {
-      query: `-in:sent after:${twentyFourHoursAgoInSeconds}`,
+    emailProvider.getMessagesByFields({
+      after: twentyFourHoursAgo,
+      excludeSent: true,
       maxResults: 500,
     }),
-    getMessages(gmail, {
-      query: `in:sent after:${twentyFourHoursAgoInSeconds}`,
+    emailProvider.getMessagesByFields({
+      after: twentyFourHoursAgo,
+      type: "sent",
       maxResults: 500,
     }),
-    getMessages(gmail, {
-      query: `in:inbox after:${twentyFourHoursAgoInSeconds}`,
+    emailProvider.getMessagesByFields({
+      after: twentyFourHoursAgo,
+      type: "inbox",
       maxResults: 500,
     }),
 
     // 7 days
-    getMessages(gmail, {
-      query: `-in:sent after:${sevenDaysAgoInSeconds}`,
+    emailProvider.getMessagesByFields({
+      after: sevenDaysAgo,
+      excludeSent: true,
       maxResults: 500,
     }),
-    getMessages(gmail, {
-      query: `in:sent after:${sevenDaysAgoInSeconds}`,
+    emailProvider.getMessagesByFields({
+      after: sevenDaysAgo,
+      type: "sent",
       maxResults: 500,
     }),
-    getMessages(gmail, {
-      query: `in:inbox after:${sevenDaysAgoInSeconds}`,
+    emailProvider.getMessagesByFields({
+      after: sevenDaysAgo,
+      type: "inbox",
       maxResults: 500,
     }),
   ]);
@@ -72,11 +70,8 @@ async function getStats(options: { gmail: gmail_v1.Gmail }) {
   };
 }
 
-export const GET = withEmailAccount(async (request) => {
-  const emailAccountId = request.auth.emailAccountId;
-
-  const gmail = await getGmailClientForEmailId({ emailAccountId });
-  const result = await getStats({ gmail });
+export const GET = withEmailProvider(async (request) => {
+  const result = await getStats({ emailProvider: request.emailProvider });
 
   return NextResponse.json(result);
 });

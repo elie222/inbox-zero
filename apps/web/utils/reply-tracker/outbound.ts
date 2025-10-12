@@ -7,6 +7,10 @@ import { createScopedLogger, type Logger } from "@/utils/logger";
 import { getEmailForLLM } from "@/utils/get-email-from-message";
 import { internalDateToDate } from "@/utils/date";
 import type { EmailProvider } from "@/utils/email/types";
+import {
+  labelMessageAsAwaitingReply,
+  removeNeedsReplyLabelFromThread,
+} from "./label-helpers";
 
 export async function handleOutboundReply({
   emailAccount,
@@ -114,7 +118,11 @@ async function createReplyTrackerOutbound({
     },
   });
 
-  const labelPromise = provider.labelAwaitingReply(messageId);
+  const labelPromise = labelMessageAsAwaitingReply({
+    emailAccountId,
+    messageId,
+    provider,
+  });
 
   const [upsertResult, labelResult] = await Promise.allSettled([
     upsertPromise,
@@ -151,7 +159,11 @@ async function resolveReplyTrackers(
     },
   });
 
-  const labelPromise = provider.removeNeedsReplyLabel(threadId);
+  const labelPromise = removeNeedsReplyLabelFromThread({
+    emailAccountId,
+    threadId,
+    provider,
+  });
 
   await Promise.allSettled([updateDbPromise, labelPromise]);
 }

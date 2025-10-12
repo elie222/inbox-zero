@@ -1,12 +1,11 @@
 import { NextResponse } from "next/server";
-import { getGmailClientWithRefresh } from "@/utils/gmail/client";
 import prisma from "@/utils/prisma";
-import { watchEmails } from "@/app/api/google/watch/controller";
 import { hasCronSecret, hasPostCronSecret } from "@/utils/cron";
 import { withError } from "@/utils/middleware";
 import { captureException } from "@/utils/error";
 import { hasAiAccess } from "@/utils/premium";
 import { createScopedLogger } from "@/utils/logger";
+import { createEmailProvider } from "@/utils/email/provider";
 
 const logger = createScopedLogger("api/google/watch/all");
 
@@ -99,14 +98,12 @@ async function watchAllEmails() {
         continue;
       }
 
-      const gmail = await getGmailClientWithRefresh({
-        accessToken: emailAccount.account.access_token,
-        refreshToken: emailAccount.account.refresh_token,
-        expiresAt: emailAccount.account.expires_at?.getTime() || null,
+      const emailProvider = await createEmailProvider({
         emailAccountId: emailAccount.id,
+        provider: "google",
       });
 
-      await watchEmails({ emailAccountId: emailAccount.id, gmail });
+      await emailProvider.watchEmails();
     } catch (error) {
       if (error instanceof Error) {
         const warn = [

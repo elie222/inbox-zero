@@ -2,18 +2,15 @@
 
 import { z } from "zod";
 import { handleGmailPermissionsCheck } from "@/utils/gmail/permissions";
-import { createScopedLogger } from "@/utils/logger";
 import { actionClient, adminActionClient } from "@/utils/actions/safe-action";
 import { getGmailAndAccessTokenForEmail } from "@/utils/account";
 import prisma from "@/utils/prisma";
 import { SafeError } from "@/utils/error";
 import { isGoogleProvider } from "@/utils/email/provider-types";
 
-const logger = createScopedLogger("actions/permissions");
-
 export const checkPermissionsAction = actionClient
   .metadata({ name: "checkPermissions" })
-  .action(async ({ ctx: { emailAccountId, provider } }) => {
+  .action(async ({ ctx: { emailAccountId, provider, logger } }) => {
     if (!isGoogleProvider(provider)) {
       // TODO: add Outlook handling
       return { hasAllPermissions: true, hasRefreshToken: true };
@@ -42,10 +39,7 @@ export const checkPermissionsAction = actionClient
 
       return { hasRefreshToken: true, hasAllPermissions };
     } catch (error) {
-      logger.error("Failed to check permissions", {
-        emailAccountId,
-        error,
-      });
+      logger.error("Failed to check permissions", { error });
       // throw new SafeError("Failed to check permissions");
       return { hasRefreshToken: false, hasAllPermissions: false };
     }
@@ -54,7 +48,7 @@ export const checkPermissionsAction = actionClient
 export const adminCheckPermissionsAction = adminActionClient
   .metadata({ name: "adminCheckPermissions" })
   .schema(z.object({ email: z.string().email() }))
-  .action(async ({ parsedInput: { email } }) => {
+  .action(async ({ parsedInput: { email }, ctx: { logger } }) => {
     try {
       const emailAccount = await prisma.emailAccount.findUnique({
         where: { email },
@@ -80,7 +74,7 @@ export const adminCheckPermissionsAction = adminActionClient
       if (error) throw new SafeError(error);
       return { hasAllPermissions };
     } catch (error) {
-      logger.error("Admin failed to check permissions", { email, error });
+      logger.error("Admin failed to check permissions", { error });
       throw new SafeError("Failed to check permissions");
     }
   });

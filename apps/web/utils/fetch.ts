@@ -10,7 +10,7 @@ export const fetchWithAccount = async ({
   init,
 }: {
   url: string | URL | Request;
-  emailAccountId?: string | null;
+  emailAccountId: string | null;
   init?: RequestInit;
 }): Promise<Response> => {
   const headers = new Headers(init?.headers);

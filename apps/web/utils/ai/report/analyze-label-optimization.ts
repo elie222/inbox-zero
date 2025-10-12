@@ -52,8 +52,6 @@ Based on the current labels and email content, suggest specific optimizations:
 
 Each suggestion should include the reason and expected impact.`;
 
-  logger.trace("Input", { system, prompt });
-
   const modelOptions = getModel(emailAccount.user, "economy");
 
   const generateObject = createGenerateObject({
@@ -68,8 +66,6 @@ Each suggestion should include the reason and expected impact.`;
     prompt,
     schema: labelAnalysisSchema,
   });
-
-  logger.trace("Output", result.object);
 
   return result.object;
 }

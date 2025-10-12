@@ -1,5 +1,5 @@
 import type { gmail_v1 } from "@googleapis/gmail";
-import type { ParsedMessage } from "@/utils/types";
+import type { MessageWithPayload, ParsedMessage } from "@/utils/types";
 import { parseMessage } from "@/utils/gmail/message";
 import {
   getMessage,
@@ -9,12 +9,11 @@ import {
 } from "@/utils/gmail/message";
 import {
   getLabels,
+  getLabel,
   getLabelById,
   createLabel,
   getOrCreateInboxZeroLabel,
   GmailLabel,
-  getNeedsReplyLabel,
-  getAwaitingReplyLabel,
 } from "@/utils/gmail/label";
 import { labelVisibility, messageVisibility } from "@/utils/gmail/constants";
 import type { InboxZeroLabel } from "@/utils/label";
@@ -25,10 +24,10 @@ import {
   forwardEmail,
   replyToEmail,
   sendEmailWithPlainText,
+  sendEmailWithHtml,
 } from "@/utils/gmail/mail";
 import {
   archiveThread,
-  getOrCreateLabel,
   labelMessage,
   markReadThread,
   removeThreadLabel,
@@ -62,8 +61,11 @@ import type {
   EmailThread,
   EmailLabel,
   EmailFilter,
+  EmailSignature,
 } from "@/utils/email/types";
 import { createScopedLogger } from "@/utils/logger";
+import { extractEmailAddress } from "@/utils/email";
+import { getGmailSignatures } from "@/utils/gmail/signature-settings";
 
 const logger = createScopedLogger("gmail-provider");
 
@@ -139,20 +141,22 @@ export class GmailProvider implements EmailProvider {
     }
   }
 
+  async getLabelByName(name: string): Promise<EmailLabel | null> {
+    const label = await getLabel({ gmail: this.client, name });
+    if (!label) return null;
+    return {
+      id: label.id!,
+      name: label.name!,
+      type: label.type!,
+      threadsTotal: label.threadsTotal || undefined,
+      labelListVisibility: label.labelListVisibility || undefined,
+      messageListVisibility: label.messageListVisibility || undefined,
+    };
+  }
+
   async getMessage(messageId: string): Promise<ParsedMessage> {
     const message = await getMessage(messageId, this.client, "full");
     return parseMessage(message);
-  }
-
-  async getMessages(query?: string, maxResults = 50): Promise<ParsedMessage[]> {
-    const response = await getMessages(this.client, {
-      query,
-      maxResults,
-    });
-    const messages = response.messages || [];
-    return messages
-      .filter((message) => message.payload)
-      .map((message) => parseMessage(message as any));
   }
 
   async getSentMessages(maxResults = 20): Promise<ParsedMessage[]> {
@@ -244,7 +248,7 @@ export class GmailProvider implements EmailProvider {
     threadId: string,
     ownerEmail: string,
     actionSource: "user" | "automation",
-  ): Promise<void> {
+  ) {
     await trashThread({
       gmail: this.client,
       threadId,
@@ -253,17 +257,17 @@ export class GmailProvider implements EmailProvider {
     });
   }
 
-  async labelMessage(messageId: string, labelName: string): Promise<void> {
-    const label = await getOrCreateLabel({
-      gmail: this.client,
-      name: labelName,
-    });
-    if (!label.id)
-      throw new Error("Label not found and unable to create label");
+  async labelMessage({
+    messageId,
+    labelId,
+  }: {
+    messageId: string;
+    labelId: string;
+  }) {
     await labelMessage({
       gmail: this.client,
       messageId,
-      addLabelIds: [label.id],
+      addLabelIds: [labelId],
     });
   }
 
@@ -312,6 +316,31 @@ export class GmailProvider implements EmailProvider {
     await sendEmailWithPlainText(this.client, args);
   }
 
+  async sendEmailWithHtml(body: {
+    replyToEmail?: {
+      threadId: string;
+      headerMessageId: string;
+      references?: string;
+    };
+    to: string;
+    cc?: string;
+    bcc?: string;
+    replyTo?: string;
+    subject: string;
+    messageHtml: string;
+    attachments?: Array<{
+      filename: string;
+      content: string;
+      contentType: string;
+    }>;
+  }) {
+    const result = await sendEmailWithHtml(this.client, body);
+    return {
+      messageId: result.data.id || "",
+      threadId: result.data.threadId || "",
+    };
+  }
+
   async forwardEmail(
     email: ParsedMessage,
     args: { to: string; cc?: string; bcc?: string; content?: string },
@@ -353,32 +382,6 @@ export class GmailProvider implements EmailProvider {
 
   async removeThreadLabel(threadId: string, labelId: string): Promise<void> {
     await removeThreadLabel(this.client, threadId, labelId);
-  }
-
-  async getAwaitingReplyLabel(): Promise<string | null> {
-    return getAwaitingReplyLabel(this.client);
-  }
-
-  async getNeedsReplyLabel(): Promise<string | null> {
-    return getNeedsReplyLabel(this.client);
-  }
-
-  async removeAwaitingReplyLabel(threadId: string): Promise<void> {
-    const awaitingReplyLabelId = await this.getAwaitingReplyLabel();
-    if (!awaitingReplyLabelId) {
-      logger.warn("No awaiting reply label found");
-      return;
-    }
-    await removeThreadLabel(this.client, threadId, awaitingReplyLabelId);
-  }
-
-  async removeNeedsReplyLabel(threadId: string): Promise<void> {
-    const needsReplyLabelId = await this.getNeedsReplyLabel();
-    if (!needsReplyLabelId) {
-      logger.warn("No needs reply label found");
-      return;
-    }
-    await removeThreadLabel(this.client, threadId, needsReplyLabelId);
   }
 
   async createLabel(name: string): Promise<EmailLabel> {
@@ -439,14 +442,14 @@ export class GmailProvider implements EmailProvider {
     from: string;
     addLabelIds?: string[];
     removeLabelIds?: string[];
-  }): Promise<any> {
+  }) {
     return createFilter({ gmail: this.client, ...options });
   }
 
   async createAutoArchiveFilter(options: {
     from: string;
     gmailLabelId?: string;
-  }): Promise<any> {
+  }) {
     return createAutoArchiveFilter({
       gmail: this.client,
       from: options.from,
@@ -454,7 +457,7 @@ export class GmailProvider implements EmailProvider {
     });
   }
 
-  async deleteFilter(id: string): Promise<any> {
+  async deleteFilter(id: string) {
     return deleteFilter({ gmail: this.client, id });
   }
 
@@ -496,6 +499,97 @@ export class GmailProvider implements EmailProvider {
       messages: await Promise.all(messagePromises),
       nextPageToken: response.nextPageToken || undefined,
     };
+  }
+
+  async getMessagesFromSender(options: {
+    senderEmail: string;
+    maxResults?: number;
+    pageToken?: string;
+    before?: Date;
+    after?: Date;
+  }): Promise<{
+    messages: ParsedMessage[];
+    nextPageToken?: string;
+  }> {
+    return this.getMessagesWithPagination({
+      query: `from:${options.senderEmail}`,
+      maxResults: options.maxResults,
+      pageToken: options.pageToken,
+      before: options.before,
+      after: options.after,
+    });
+  }
+
+  async getMessagesByFields(options: {
+    froms?: string[];
+    tos?: string[];
+    subjects?: string[];
+    before?: Date;
+    after?: Date;
+    type?: "inbox" | "sent" | "all";
+    excludeSent?: boolean;
+    excludeInbox?: boolean;
+    maxResults?: number;
+    pageToken?: string;
+  }): Promise<{
+    messages: ParsedMessage[];
+    nextPageToken?: string;
+  }> {
+    const parts: string[] = [];
+
+    const froms = (options.froms || [])
+      .map((f) => extractEmailAddress(f) || f)
+      .filter((f) => !!f);
+    if (froms.length > 0) {
+      const fromGroup = froms.map((f) => `"${f}"`).join(" OR ");
+      parts.push(`from:(${fromGroup})`);
+    }
+
+    const tos = (options.tos || [])
+      .map((t) => extractEmailAddress(t) || t)
+      .filter((t) => !!t);
+    if (tos.length > 0) {
+      const toGroup = tos.map((t) => `"${t}"`).join(" OR ");
+      parts.push(`to:(${toGroup})`);
+    }
+
+    const subjects = (options.subjects || []).filter((s) => !!s);
+    if (subjects.length > 0) {
+      const subjectGroup = subjects.map((s) => `"${s}"`).join(" OR ");
+      parts.push(`subject:(${subjectGroup})`);
+    }
+
+    // Scope by type/exclusion
+    if (options.type === "inbox") {
+      parts.push(`in:${GmailLabel.INBOX}`);
+    } else if (options.type === "sent") {
+      parts.push(`in:${GmailLabel.SENT}`);
+    }
+    if (options.excludeSent) {
+      parts.push(`-in:${GmailLabel.SENT}`);
+    }
+    if (options.excludeInbox) {
+      parts.push(`-in:${GmailLabel.INBOX}`);
+    }
+
+    const query = parts.join(" ") || undefined;
+
+    return this.getMessagesWithPagination({
+      query,
+      maxResults: options.maxResults,
+      pageToken: options.pageToken,
+      before: options.before,
+      after: options.after,
+    });
+  }
+
+  async getDrafts(options?: { maxResults?: number }): Promise<ParsedMessage[]> {
+    const response = await this.getMessagesWithPagination({
+      query: "in:draft",
+      maxResults: options?.maxResults || 50,
+    });
+
+    return response.messages;
   }
 
   async getMessagesBatch(messageIds: string[]): Promise<ParsedMessage[]> {
@@ -591,22 +685,56 @@ export class GmailProvider implements EmailProvider {
     threads: EmailThread[];
     nextPageToken?: string;
   }> {
-    const query = options.query;
+    const {
+      fromEmail,
+      after,
+      before,
+      isUnread,
+      type,
+      excludeLabelNames,
+      labelIds,
+      labelId,
+    } = options.query || {};
 
     function getQuery() {
-      if (query?.q) {
-        return query.q;
+      const queryParts: string[] = [];
+
+      if (fromEmail) {
+        queryParts.push(`from:${fromEmail}`);
       }
-      if (query?.fromEmail) {
-        return `from:${query.fromEmail}`;
+
+      if (after) {
+        const afterSeconds = Math.floor(after.getTime() / 1000);
+        queryParts.push(`after:${afterSeconds}`);
       }
-      if (query?.type === "archive") {
-        return `-label:${GmailLabel.INBOX}`;
+
+      if (before) {
+        const beforeSeconds = Math.floor(before.getTime() / 1000);
+        queryParts.push(`before:${beforeSeconds}`);
       }
-      return undefined;
+
+      if (isUnread) {
+        queryParts.push("is:unread");
+      }
+
+      if (type === "archive") {
+        queryParts.push(`-in:${GmailLabel.INBOX}`);
+      }
+
+      if (excludeLabelNames) {
+        for (const labelName of excludeLabelNames) {
+          queryParts.push(`-label:"${labelName}"`);
+        }
+      }
+
+      return queryParts.length > 0 ? queryParts.join(" ") : undefined;
     }
 
     function getLabelIds(type?: string | null) {
+      if (labelIds) {
+        return labelIds;
+      }
+
       switch (type) {
         case "inbox":
           return [GmailLabel.INBOX];
@@ -639,9 +767,7 @@ export class GmailProvider implements EmailProvider {
       await getThreadsWithNextPageToken({
         gmail: this.client,
         q: getQuery(),
-        labelIds: query?.labelId
-          ? [query.labelId]
-          : getLabelIds(query?.type) || [],
+        labelIds: labelId ? [labelId] : getLabelIds(type) || [],
         maxResults: options.maxResults || 50,
         pageToken: options.pageToken || undefined,
       });
@@ -661,8 +787,9 @@ export class GmailProvider implements EmailProvider {
         const emailThread: EmailThread = {
           id,
           messages:
-            thread.messages?.map((message) => parseMessage(message as any)) ||
-            [],
+            thread.messages?.map((message) =>
+              parseMessage(message as MessageWithPayload),
+            ) || [],
           snippet: decodeSnippet(thread.snippet),
           historyId: thread.historyId || undefined,
         };
@@ -694,19 +821,6 @@ export class GmailProvider implements EmailProvider {
       sender,
       limit,
     );
-  }
-
-  async labelAwaitingReply(messageId: string): Promise<void> {
-    const awaitingReplyLabelId = await this.getAwaitingReplyLabel();
-    if (!awaitingReplyLabelId) {
-      logger.warn("No awaiting reply label found");
-      return;
-    }
-    await labelMessage({
-      gmail: this.client,
-      messageId,
-      addLabelIds: [awaitingReplyLabelId],
-    });
   }
 
   async processHistory(options: {
@@ -758,5 +872,20 @@ export class GmailProvider implements EmailProvider {
     _folderName: string,
   ): Promise<void> {
     logger.warn("Moving thread to folder is not supported for Gmail");
+  }
+
+  async getOrCreateOutlookFolderIdByName(_folderName: string): Promise<string> {
+    logger.warn("Moving thread to folder is not supported for Gmail");
+    return "";
+  }
+
+  async getSignatures(): Promise<EmailSignature[]> {
+    const gmailSignatures = await getGmailSignatures(this.client);
+    return gmailSignatures.map((sig) => ({
+      email: sig.email,
+      signature: sig.signature,
+      isDefault: sig.isDefault,
+      displayName: sig.displayName,
+    }));
   }
 }

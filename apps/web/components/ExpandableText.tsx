@@ -42,7 +42,10 @@ export function ExpandableText({
 
       <motion.button
         type="button"
-        onClick={() => setIsExpanded(!isExpanded)}
+        onClick={(e) => {
+          e.stopPropagation();
+          setIsExpanded(!isExpanded);
+        }}
         className="mt-1 flex items-center text-xs text-muted-foreground hover:text-primary"
         whileHover={{ scale: 1.05 }}
         whileTap={{ scale: 0.95 }}

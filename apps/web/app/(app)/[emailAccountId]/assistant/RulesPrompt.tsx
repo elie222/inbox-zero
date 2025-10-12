@@ -33,7 +33,6 @@ import { Label } from "@/components/ui/label";
 import { cn } from "@/utils";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useLabels } from "@/hooks/useLabels";
-import { Examples } from "@/app/(app)/[emailAccountId]/assistant/ExamplesList";
 import { toastError } from "@/components/Toast";
 
 export function RulesPrompt() {
@@ -66,7 +65,6 @@ export function RulesPrompt() {
           <div className="mt-4">
             <RulesPromptForm
               emailAccountId={emailAccountId}
-              provider={provider}
               rulesPrompt={data.rulesPrompt}
               personaPrompt={personaPrompt}
               mutate={mutate}
@@ -94,7 +92,6 @@ export function RulesPrompt() {
 
 function RulesPromptForm({
   emailAccountId,
-  provider,
   rulesPrompt,
   personaPrompt,
   mutate,
@@ -103,7 +100,6 @@ function RulesPromptForm({
   personas,
 }: {
   emailAccountId: string;
-  provider: string;
   rulesPrompt: string | null;
   personaPrompt?: string;
   mutate: () => void;
@@ -191,7 +187,7 @@ function RulesPromptForm({
     editorRef.current?.appendText(personaPrompt);
   }, [personaPrompt]);
 
-  const addExamplePrompt = useCallback((example: string) => {
+  const _addExamplePrompt = useCallback((example: string) => {
     editorRef.current?.appendText(`\n* ${example.trim()}`);
   }, []);
 

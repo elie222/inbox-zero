@@ -1,11 +1,11 @@
-import type { gmail_v1 } from "@googleapis/gmail";
-import { parseMessage } from "@/utils/gmail/message";
-import { getMessage, getMessages } from "@/utils/gmail/message";
 import type {
   MessageWithGroupItem,
   RuleWithGroup,
 } from "@/app/(app)/[emailAccountId]/assistant/rule/[ruleId]/examples/types";
-import { matchesStaticRule } from "@/utils/ai/choose-rule/match-rules";
+import {
+  matchesStaticRule,
+  splitEmailPatterns,
+} from "@/utils/ai/choose-rule/match-rules";
 import { fetchPaginatedMessages } from "@/app/api/user/group/[groupId]/messages/controller";
 import {
   isGroupRule,
@@ -14,10 +14,11 @@ import {
   isCategoryRule,
 } from "@/utils/condition";
 import { LogicalOperator } from "@prisma/client";
+import type { EmailProvider } from "@/utils/email/types";
 
 export async function fetchExampleMessages(
   rule: RuleWithGroup,
-  gmail: gmail_v1.Gmail,
+  emailProvider: EmailProvider,
 ) {
   const isStatic = isStaticRule(rule);
   const isGroup = isGroupRule(rule);
@@ -37,13 +38,14 @@ export async function fetchExampleMessages(
   )
     return [];
 
-  if (isStatic) return fetchStaticExampleMessages(rule, gmail);
+  if (isStatic) return fetchStaticExampleMessages(rule, emailProvider);
 
   if (isGroup) {
     if (!rule.group) return [];
+
     const { messages } = await fetchPaginatedMessages({
+      emailProvider,
       groupItems: rule.group.items,
-      gmail,
     });
     return messages;
   }
@@ -53,33 +55,27 @@ export async function fetchExampleMessages(
 
 async function fetchStaticExampleMessages(
   rule: RuleWithGroup,
-  gmail: gmail_v1.Gmail,
+  emailProvider: EmailProvider,
 ): Promise<MessageWithGroupItem[]> {
-  let query = "";
+  // Build structured query options instead of provider-specific query strings
+  const options: Parameters<EmailProvider["getMessagesByFields"]>[0] = {
+    maxResults: 50,
+  };
+
   if (rule.from) {
-    query += `from:${rule.from} `;
+    options.froms = splitEmailPatterns(rule.from);
   }
   if (rule.to) {
-    query += `to:${rule.to} `;
+    options.tos = splitEmailPatterns(rule.to);
   }
   if (rule.subject) {
-    query += `subject:${rule.subject} `;
+    options.subjects = [rule.subject];
   }
 
-  const response = await getMessages(gmail, {
-    query,
-    maxResults: 50,
-  });
-
-  const messages = await Promise.all(
-    (response.messages || []).map(async (message) => {
-      // TODO: Use email provider to get the message which will parse it internally
-      const m = await getMessage(message.id!, gmail);
-      const parsedMessage = parseMessage(m);
-      return parsedMessage;
-    }),
-  );
+  const response = await emailProvider.getMessagesByFields(options);
 
   // search might include messages that don't match the rule, so we filter those out
-  return messages.filter((message) => matchesStaticRule(rule, message));
+  return response.messages.filter((message) =>
+    matchesStaticRule(rule, message),
+  );
 }

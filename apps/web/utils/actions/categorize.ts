@@ -20,18 +20,15 @@ import {
   deleteEmptyCategorizeSendersQueues,
   publishToAiCategorizeSendersQueue,
 } from "@/utils/upstash/categorize-senders";
-import { createScopedLogger } from "@/utils/logger";
 import { saveCategorizationTotalItems } from "@/utils/redis/categorization-progress";
 import { getSenders } from "@/app/api/user/categorize/senders/uncategorized/get-senders";
 import { extractEmailAddress } from "@/utils/email";
 import { actionClient } from "@/utils/actions/safe-action";
 import { prefixPath } from "@/utils/path";
 
-const logger = createScopedLogger("actions/categorize");
-
 export const bulkCategorizeSendersAction = actionClient
   .metadata({ name: "bulkCategorizeSenders" })
-  .action(async ({ ctx: { emailAccountId } }) => {
+  .action(async ({ ctx: { emailAccountId, logger } }) => {
     await validateUserAndAiAccess({ emailAccountId });
 
     // Delete empty queues as Qstash has a limit on how many queues we can have
@@ -75,7 +72,6 @@ export const bulkCategorizeSendersAction = actionClient
       const newUncategorizedSenders = await getUncategorizedSenders(i * LIMIT);
 
       logger.trace("Got uncategorized senders", {
-        emailAccountId,
         uncategorizedSenders: newUncategorizedSenders.length,
       });
 
@@ -98,7 +94,6 @@ export const bulkCategorizeSendersAction = actionClient
     }
 
     logger.info("Queued senders for categorization", {
-      emailAccountId,
       totalUncategorizedSenders,
     });
 

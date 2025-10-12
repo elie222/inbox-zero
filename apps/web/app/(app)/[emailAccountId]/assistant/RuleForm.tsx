@@ -11,7 +11,6 @@ import {
   useForm,
 } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { toast } from "sonner";
 import TextareaAutosize from "react-textarea-autosize";
 import { capitalCase } from "capital-case";
 import { usePostHog } from "posthog-js/react";
@@ -48,9 +47,7 @@ import { actionInputs } from "@/utils/action-item";
 import { Toggle } from "@/components/Toggle";
 import { LoadingContent } from "@/components/LoadingContent";
 import { TooltipExplanation } from "@/components/TooltipExplanation";
-import { Combobox } from "@/components/Combobox";
 import { useLabels } from "@/hooks/useLabels";
-import { createLabelAction } from "@/utils/actions/mail";
 import { MultiSelectFilter } from "@/components/MultiSelectFilter";
 import { useCategories } from "@/hooks/useCategories";
 import { hasVariables, TEMPLATE_VARIABLE_PATTERN } from "@/utils/template";
@@ -97,6 +94,7 @@ import { useFolders } from "@/hooks/useFolders";
 import type { OutlookFolder } from "@/utils/outlook/folders";
 import { cn } from "@/utils";
 import { WebhookDocumentationLink } from "@/components/WebhookDocumentation";
+import { LabelCombobox } from "@/components/LabelCombobox";
 
 export function Rule({
   ruleId,
@@ -201,20 +199,6 @@ export function RuleForm({
 
   const onSubmit: SubmitHandler<CreateRuleBody> = useCallback(
     async (data) => {
-      // create labels that don't exist
-      for (const action of data.actions) {
-        if (action.type === ActionType.LABEL) {
-          const hasLabel = userLabels?.some(
-            (label) => label.name === action.label,
-          );
-          if (!hasLabel && action.label?.value && !action.label?.ai) {
-            await createLabelAction(emailAccountId, {
-              name: action.label.value,
-            });
-          }
-        }
-      }
-
       // set content to empty string if it's not set manually
       for (const action of data.actions) {
         if (action.type === ActionType.DRAFT_EMAIL) {
@@ -268,7 +252,6 @@ export function RuleForm({
           posthog.capture("User updated AI rule", {
             conditions: data.conditions.map((condition) => condition.type),
             actions: actionsToSubmit.map((action) => action.type),
-            automate: data.automate,
             runOnThreads: data.runOnThreads,
             digest: data.digest,
           });
@@ -296,7 +279,6 @@ export function RuleForm({
           posthog.capture("User created AI rule", {
             conditions: data.conditions.map((condition) => condition.type),
             actions: actionsToSubmit.map((action) => action.type),
-            automate: data.automate,
             runOnThreads: data.runOnThreads,
             digest: data.digest,
           });
@@ -304,26 +286,14 @@ export function RuleForm({
             onSuccess();
           } else {
             router.replace(
-              prefixPath(
-                emailAccountId,
-                `/assistant?tab=rule&ruleId=${res.data.rule.id}`,
-              ),
+              prefixPath(emailAccountId, `/assistant/rule/${res.data.rule.id}`),
             );
             router.push(prefixPath(emailAccountId, "/assistant?tab=rules"));
           }
         }
       }
     },
-    [
-      userLabels,
-      router,
-      posthog,
-      emailAccountId,
-      isDialog,
-      onSuccess,
-      mutate,
-      rule,
-    ],
+    [router, posthog, emailAccountId, isDialog, onSuccess, mutate, rule],
   );
 
   const conditions = watch("conditions");
@@ -344,7 +314,7 @@ export function RuleForm({
     watch("actions")?.forEach((_, index) => {
       const actionError =
         errors?.actions?.[index]?.url?.root?.message ||
-        errors?.actions?.[index]?.label?.root?.message ||
+        errors?.actions?.[index]?.labelId?.root?.message ||
         errors?.actions?.[index]?.to?.root?.message;
       if (actionError) actionErrors.push(actionError);
     });
@@ -608,7 +578,7 @@ export function RuleForm({
                               }
                             )?.instructions
                           }
-                          placeholder='e.g. Apply this rule to all "receipts"'
+                          placeholder="e.g. Newsletters, regular content from publications, blogs, or services I've subscribed to"
                           tooltipText="The instructions that will be passed to the AI."
                         />
                       )}
@@ -628,7 +598,7 @@ export function RuleForm({
                                 }
                               )?.from
                             }
-                            tooltipText="Only apply this rule to emails from this address. e.g. @company.com, or hello@company.com"
+                            tooltipText={getFilterTooltipText("from")}
                           />
                           <Input
                             type="text"
@@ -642,7 +612,7 @@ export function RuleForm({
                                 }
                               )?.to
                             }
-                            tooltipText="Only apply this rule to emails sent to this address. e.g. @company.com, or hello@company.com"
+                            tooltipText={getFilterTooltipText("to")}
                           />
                           <Input
                             type="text"
@@ -872,6 +842,7 @@ export function RuleForm({
                 action={action}
                 typeOptions={typeOptions}
                 provider={provider}
+                labels={userLabels}
               />
             ),
           )}
@@ -895,23 +866,6 @@ export function RuleForm({
 
         <div className="space-y-4 mt-8">
           <TypographyH3 className="text-xl">Settings</TypographyH3>
-
-          <div className="flex items-center space-x-2">
-            <Toggle
-              name="automate"
-              labelRight="Automate"
-              enabled={watch("automate") || false}
-              onChange={(enabled) => {
-                setValue("automate", enabled);
-              }}
-            />
-
-            <TooltipExplanation
-              size="md"
-              side="right"
-              text="When enabled our AI will perform actions automatically. If disabled, you will have to confirm actions first."
-            />
-          </div>
 
           <div className="flex items-center space-x-2">
             <Toggle
@@ -1037,7 +991,7 @@ function ActionCard({
   errors: FieldErrors<CreateRuleBody>;
   userLabels: EmailLabel[];
   isLoading: boolean;
-  mutate: () => void;
+  mutate: () => Promise<unknown>;
   emailAccountId: string;
   remove: (index: number) => void;
   typeOptions: { label: string; value: ActionType }[];
@@ -1071,8 +1025,8 @@ function ActionCard({
   ) => {
     // Check if the field is visible - this is handled before calling the function
 
-    // For label field, only allow variables if AI generated is toggled on
-    if (field.name === "label") {
+    // For labelId field, only allow variables if AI generated is toggled on
+    if (field.name === "labelId") {
       return isFieldAiGenerated;
     }
 
@@ -1101,8 +1055,8 @@ function ActionCard({
 
     if (!isFieldVisible) return false;
 
-    // For label field, only show variables if AI generated is toggled on
-    if (field.name === "label") {
+    // For labelId field, only show variables if AI generated is toggled on
+    if (field.name === "labelId") {
       return !!action[field.name]?.ai;
     }
 
@@ -1164,13 +1118,16 @@ function ActionCard({
                 <div>
                   <Label name={field.name} label={field.label} />
 
-                  {field.name === "label" && !isAiGenerated ? (
+                  {field.name === "labelId" && !isAiGenerated ? (
                     <div className="mt-2">
                       <LabelCombobox
-                        userLabels={userLabels}
+                        userLabels={userLabels || []}
                         isLoading={isLoading}
                         mutate={mutate}
-                        value={value}
+                        value={{
+                          id: value,
+                          name: action.labelId?.name || null,
+                        }}
                         onChangeValue={(newValue: string) => {
                           setValue(
                             `actions.${index}.${field.name}.value`,
@@ -1180,7 +1137,7 @@ function ActionCard({
                         emailAccountId={emailAccountId}
                       />
                     </div>
-                  ) : field.name === "label" && isAiGenerated ? (
+                  ) : field.name === "labelId" && isAiGenerated ? (
                     <div className="mt-2">
                       <Input
                         type="text"
@@ -1221,8 +1178,8 @@ function ActionCard({
                     !setManually ? (
                     <div className="mt-2 flex h-full flex-col items-center justify-center gap-2 p-4 border rounded">
                       <div className="max-w-sm text-center text-sm text-muted-foreground">
-                        Our AI will generate a reply using your knowledge base
-                        and previous conversations with the sender
+                        Our AI will generate a reply based on your email history
+                        and knowledge base
                       </div>
 
                       <Button
@@ -1283,7 +1240,7 @@ function ActionCard({
                     </div>
                   )}
 
-                  {field.name === "label" && (
+                  {field.name === "labelId" && (
                     <div className="flex items-center space-x-2 mt-4">
                       <Toggle
                         name={`actions.${index}.${field.name}.ai`}
@@ -1434,69 +1391,6 @@ function CardLayoutRight({
     <div className={cn("space-y-4 mx-auto w-full max-w-md", className)}>
       {children}
     </div>
-  );
-}
-
-function LabelCombobox({
-  value,
-  onChangeValue,
-  userLabels,
-  isLoading,
-  mutate,
-  emailAccountId,
-}: {
-  value: string;
-  onChangeValue: (value: string) => void;
-  userLabels: EmailLabel[];
-  isLoading: boolean;
-  mutate: () => void;
-  emailAccountId: string;
-}) {
-  const [search, setSearch] = useState("");
-
-  return (
-    <Combobox
-      options={userLabels.map((label) => ({
-        value: label.name || "",
-        label: label.name || "",
-      }))}
-      value={value}
-      onChangeValue={onChangeValue}
-      search={search}
-      onSearch={setSearch}
-      placeholder="Select a label"
-      emptyText={
-        <div>
-          <div>No labels</div>
-          {search && (
-            <Button
-              className="mt-2"
-              variant="outline"
-              onClick={() => {
-                toast.promise(
-                  async () => {
-                    const res = await createLabelAction(emailAccountId, {
-                      name: search,
-                    });
-                    mutate();
-                    if (res?.serverError) throw new Error(res.serverError);
-                  },
-                  {
-                    loading: `Creating label "${search}"...`,
-                    success: `Created label "${search}"`,
-                    error: (errorMessage) =>
-                      `Error creating label "${search}": ${errorMessage}`,
-                  },
-                );
-              }}
-            >
-              {`Create "${search}" label`}
-            </Button>
-          )}
-        </div>
-      }
-      loading={isLoading}
-    />
   );
 }
 
@@ -1693,3 +1587,6 @@ function RemoveButton({
     </Button>
   );
 }
+
+const getFilterTooltipText = (filterType: "from" | "to") =>
+  `Only apply this rule ${filterType} emails from this address. Supports multiple addresses separated by comma, pipe, or OR. e.g. "@company.com", "hello@example.com OR support@test.com"`;

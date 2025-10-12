@@ -28,8 +28,12 @@ import {
 import { TooltipExplanation } from "@/components/TooltipExplanation";
 import { Suspense } from "react";
 import { PremiumAiAssistantAlert } from "@/components/PremiumAlert";
-import { PremiumTier } from "@prisma/client";
+import { ActionType, PremiumTier } from "@prisma/client";
 import { SettingCard } from "@/components/SettingCard";
+import { IconCircle } from "@/app/(app)/[emailAccountId]/onboarding/IconCircle";
+import { ActionBadges } from "@/app/(app)/[emailAccountId]/assistant/Rules";
+import { DismissibleVideoCard } from "@/components/VideoCard";
+import { PremiumExpiredCardContent } from "@/components/PremiumExpiredCard";
 
 export const maxDuration = 3;
 
@@ -220,6 +224,120 @@ export default function Components() {
         </div>
 
         <div>
+          <div className="underline">DismissibleVideoCard</div>
+          <div className="mt-4">
+            <DismissibleVideoCard
+              icon={<SparklesIcon className="h-5 w-5" />}
+              title="Getting started with AI Assistant"
+              description={
+                "Learn how to use the AI Assistant to automatically label, archive, and more."
+              }
+              videoSrc="https://www.youtube.com/embed/SoeNDVr7ve4"
+              thumbnailSrc="https://img.youtube.com/vi/SoeNDVr7ve4/0.jpg"
+              storageKey={`video-dismissible-${Date.now()}`}
+            />
+          </div>
+        </div>
+
+        <div>
+          <div className="underline">IconCircle</div>
+          <div className="mt-4">
+            <IconCircle size="md" color="blue" Icon={SparklesIcon} />
+          </div>
+        </div>
+
+        <div>
+          <div className="underline">ActionBadges</div>
+          <div className="mt-4">
+            <ActionBadges
+              actions={[
+                {
+                  type: ActionType.LABEL,
+                  label: "Label",
+                  id: "label",
+                },
+                {
+                  type: ActionType.MOVE_FOLDER,
+                  label: "Move to folder",
+                  id: "move_folder",
+                  folderName: "Marketing",
+                },
+                {
+                  type: ActionType.ARCHIVE,
+                  label: "Archive",
+                  id: "archive",
+                },
+                {
+                  type: ActionType.DRAFT_EMAIL,
+                  label: "Draft",
+                  id: "draft",
+                },
+                {
+                  type: ActionType.DRAFT_EMAIL,
+                  label: "Draft",
+                  id: "draft-with-content",
+                  content: "Hi, I'd like to discuss the project with you.",
+                },
+                {
+                  type: ActionType.REPLY,
+                  label: "Reply",
+                  id: "reply",
+                },
+                {
+                  type: ActionType.SEND_EMAIL,
+                  label: "Send",
+                  id: "send",
+                },
+                {
+                  type: ActionType.SEND_EMAIL,
+                  label: "Send",
+                  id: "send-with-to",
+                  to: "test@example.com",
+                },
+                {
+                  type: ActionType.FORWARD,
+                  label: "Forward",
+                  id: "forward",
+                },
+                {
+                  type: ActionType.FORWARD,
+                  label: "Forward",
+                  id: "forward-with-to",
+                  to: "test@example.com",
+                },
+                {
+                  type: ActionType.MARK_SPAM,
+                  label: "Mark as spam",
+                  id: "mark_spam",
+                },
+                {
+                  type: ActionType.MARK_READ,
+                  label: "Mark as read",
+                  id: "mark_read",
+                },
+                {
+                  type: ActionType.CALL_WEBHOOK,
+                  label: "Call webhook",
+                  id: "call_webhook",
+                },
+                {
+                  type: ActionType.TRACK_THREAD,
+                  label: "Track thread",
+                  id: "track_thread",
+                },
+                {
+                  type: ActionType.DIGEST,
+                  label: "Digest",
+                  id: "digest",
+                },
+              ]}
+              provider="gmail"
+              labels={[{ id: "label", name: "Label" }]}
+            />
+          </div>
+        </div>
+
+        <div>
           <div className="underline">MultiSelectFilter</div>
           <div className="mt-4">
             <MultiSelectFilter
@@ -262,6 +380,82 @@ export default function Components() {
               description="How often to check for new emails"
               right={<Badge color="green">Every 5 minutes</Badge>}
             />
+          </div>
+        </div>
+
+        <div>
+          <div className="underline">Premium Expired Banners</div>
+          <div className="mt-4 space-y-4">
+            <div>
+              <p className="mb-2 text-sm text-muted-foreground">
+                Stripe Past Due:
+              </p>
+              <PremiumExpiredCardContent
+                premium={{
+                  lemonSqueezyRenewsAt: null,
+                  stripeSubscriptionId: "sub_test123",
+                  stripeSubscriptionStatus: "past_due",
+                  lemonSqueezySubscriptionId: null,
+                  tier: "PRO_MONTHLY",
+                }}
+              />
+            </div>
+            <div>
+              <p className="mb-2 text-sm text-muted-foreground">
+                Stripe Canceled:
+              </p>
+              <PremiumExpiredCardContent
+                premium={{
+                  lemonSqueezyRenewsAt: null,
+                  stripeSubscriptionId: "sub_test456",
+                  stripeSubscriptionStatus: "canceled",
+                  lemonSqueezySubscriptionId: null,
+                  tier: "BUSINESS_MONTHLY",
+                }}
+              />
+            </div>
+            <div>
+              <p className="mb-2 text-sm text-muted-foreground">
+                LemonSqueezy Expired:
+              </p>
+              <PremiumExpiredCardContent
+                premium={{
+                  lemonSqueezyRenewsAt: new Date(
+                    Date.now() - 24 * 60 * 60 * 1000,
+                  ), // Yesterday
+                  stripeSubscriptionId: null,
+                  stripeSubscriptionStatus: null,
+                  lemonSqueezySubscriptionId: 456,
+                  tier: "PRO_ANNUALLY",
+                }}
+              />
+            </div>
+            <div>
+              <p className="mb-2 text-sm text-muted-foreground">
+                No Banner (Active Premium):
+              </p>
+              <div className="min-h-[20px] text-xs text-muted-foreground">
+                <PremiumExpiredCardContent
+                  premium={{
+                    lemonSqueezyRenewsAt: null,
+                    stripeSubscriptionId: "sub_active123",
+                    stripeSubscriptionStatus: "active",
+                    lemonSqueezySubscriptionId: null,
+                    tier: "BUSINESS_MONTHLY",
+                  }}
+                />
+                Banner should not appear for active users
+              </div>
+            </div>
+            <div>
+              <p className="mb-2 text-sm text-muted-foreground">
+                No Banner (Never Had Premium):
+              </p>
+              <div className="min-h-[20px] text-xs text-muted-foreground">
+                <PremiumExpiredCardContent premium={null} />
+                Banner should not appear for users who never had premium
+              </div>
+            </div>
           </div>
         </div>
 

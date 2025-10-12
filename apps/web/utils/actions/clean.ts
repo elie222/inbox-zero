@@ -6,7 +6,6 @@ import {
   undoCleanInboxSchema,
   changeKeepToDoneSchema,
 } from "@/utils/actions/clean.validation";
-import { getThreadsWithNextPageToken } from "@/utils/gmail/thread";
 import { bulkPublishToQstash } from "@/utils/upstash";
 import { env } from "@/env";
 import {
@@ -15,7 +14,6 @@ import {
   GmailLabel,
   labelThread,
 } from "@/utils/gmail/label";
-import { createScopedLogger } from "@/utils/logger";
 import type { CleanThreadBody } from "@/app/api/clean/route";
 import { isDefined } from "@/utils/types";
 import { inboxZeroLabels } from "@/utils/label";
@@ -30,15 +28,14 @@ import { createEmailProvider } from "@/utils/email/provider";
 import { isGoogleProvider } from "@/utils/email/provider-types";
 import { getUserPremium } from "@/utils/user/get";
 import { isActivePremium } from "@/utils/premium";
-
-const logger = createScopedLogger("actions/clean");
+import { ONE_DAY_MS } from "@/utils/date";
 
 export const cleanInboxAction = actionClient
   .metadata({ name: "cleanInbox" })
   .schema(cleanInboxSchema)
   .action(
     async ({
-      ctx: { emailAccountId, provider, userId },
+      ctx: { emailAccountId, provider, userId, logger },
       parsedInput: { action, instructions, daysOld, skips, maxEmails },
     }) => {
       if (!isGoogleProvider(provider)) {
@@ -51,7 +48,6 @@ export const cleanInboxAction = actionClient
       if (!premium) throw new SafeError("User not premium");
       if (!isActivePremium(premium)) throw new SafeError("Premium not active");
 
-      const gmail = await getGmailClientForEmail({ emailAccountId });
       const emailProvider = await createEmailProvider({
         emailAccountId,
         provider,
@@ -116,23 +112,24 @@ export const cleanInboxAction = actionClient
 
         let totalEmailsProcessed = 0;
 
-        const query = `${daysOld ? `older_than:${daysOld}d ` : ""}-in:"${inboxZeroLabels.processed.name}"`;
-
         do {
           // fetch all emails from the user's inbox
           const { threads, nextPageToken: pageToken } =
-            await getThreadsWithNextPageToken({
-              gmail,
-              q: query,
-              labelIds:
-                type === "inbox"
-                  ? [GmailLabel.INBOX]
-                  : [GmailLabel.INBOX, GmailLabel.UNREAD],
+            await emailProvider.getThreadsWithQuery({
+              query: {
+                ...(daysOld > 0 && {
+                  before: new Date(Date.now() - daysOld * ONE_DAY_MS),
+                }),
+                labelIds:
+                  type === "inbox"
+                    ? [GmailLabel.INBOX]
+                    : [GmailLabel.INBOX, GmailLabel.UNREAD],
+                excludeLabelNames: [inboxZeroLabels.processed.name],
+              },
               maxResults: Math.min(maxEmails || 100, 100),
             });
 
           logger.info("Fetched threads", {
-            emailAccountId,
             threadCount: threads.length,
             nextPageToken,
           });
@@ -144,7 +141,6 @@ export const cleanInboxAction = actionClient
           const url = `${env.WEBHOOK_URL || env.NEXT_PUBLIC_BASE_URL}/api/clean`;
 
           logger.info("Pushing to Qstash", {
-            emailAccountId,
             threadCount: threads.length,
             nextPageToken,
           });
@@ -200,7 +196,7 @@ export const undoCleanInboxAction = actionClient
   .schema(undoCleanInboxSchema)
   .action(
     async ({
-      ctx: { emailAccountId },
+      ctx: { emailAccountId, logger },
       parsedInput: { threadId, markedDone, action },
     }) => {
       const gmail = await getGmailClientForEmail({ emailAccountId });
@@ -264,7 +260,10 @@ export const changeKeepToDoneAction = actionClient
   .metadata({ name: "changeKeepToDone" })
   .schema(changeKeepToDoneSchema)
   .action(
-    async ({ ctx: { emailAccountId }, parsedInput: { threadId, action } }) => {
+    async ({
+      ctx: { emailAccountId, logger },
+      parsedInput: { threadId, action },
+    }) => {
       const gmail = await getGmailClientForEmail({ emailAccountId });
 
       // Get the label to add (archived or marked_read)

@@ -5,7 +5,11 @@ import withSerwistInit from "@serwist/next";
 import { env } from "./env";
 import type { NextConfig } from "next";
 
-const withMDX = nextMdx();
+const withMDX = nextMdx({
+  options: {
+    remarkPlugins: [[require.resolve("remark-gfm")]],
+  },
+});
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
@@ -24,6 +28,10 @@ const nextConfig: NextConfig = {
       {
         protocol: "https",
         hostname: "img.youtube.com",
+      },
+      {
+        protocol: "https",
+        hostname: "image.mux.com",
       },
       {
         protocol: "https",

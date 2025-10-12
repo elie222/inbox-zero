@@ -4,6 +4,7 @@ import type {
   OutlookCategory,
 } from "@microsoft/microsoft-graph-types";
 import { createScopedLogger } from "@/utils/logger";
+import { isAlreadyExistsError } from "./errors";
 
 const logger = createScopedLogger("outlook/filter");
 
@@ -42,7 +43,7 @@ export async function createFilter(options: {
 
     return { status: 201, data: response };
   } catch (error) {
-    if (isFilterExistsError(error)) {
+    if (isAlreadyExistsError(error)) {
       logger.warn("Filter already exists", { from });
       return { status: 200 };
     }
@@ -82,7 +83,7 @@ export async function createAutoArchiveFilter({
 
     return { status: 201, data: response };
   } catch (error) {
-    if (isFilterExistsError(error)) {
+    if (isAlreadyExistsError(error)) {
       logger.warn("Auto-archive filter already exists", { from });
       return { status: 200 };
     }
@@ -125,17 +126,6 @@ export async function getFiltersList(options: { client: OutlookClient }) {
     });
     throw error;
   }
-}
-
-// Helper function to check if a filter already exists
-function isFilterExistsError(error: unknown) {
-  // biome-ignore lint/suspicious/noExplicitAny: simplest
-  const errorMessage = (error as any)?.message || "";
-  return (
-    errorMessage.includes("already exists") ||
-    errorMessage.includes("duplicate") ||
-    errorMessage.includes("conflict")
-  );
 }
 
 // Additional helper functions for Outlook-specific operations
@@ -188,7 +178,7 @@ export async function createCategoryFilter({
         "Category created. Note: Categories must be applied to individual messages.",
     };
   } catch (error) {
-    if (isFilterExistsError(error)) {
+    if (isAlreadyExistsError(error)) {
       logger.warn("Category filter already exists", { from, categoryName });
       return { status: 200 };
     }

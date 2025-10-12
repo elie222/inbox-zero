@@ -1,5 +1,6 @@
 "use server";
 
+import { after } from "next/server";
 import { actionClient } from "@/utils/actions/safe-action";
 import prisma from "@/utils/prisma";
 import { aiAnalyzePersona } from "@/utils/ai/knowledge/persona";
@@ -8,16 +9,31 @@ import { getEmailAccountWithAiAndTokens } from "@/utils/user/get";
 import { SafeError } from "@/utils/error";
 import { getEmailForLLM } from "@/utils/get-email-from-message";
 import { z } from "zod";
+import { updateContactRole } from "@inboxzero/loops";
 
 export const updateEmailAccountRoleAction = actionClient
   .metadata({ name: "updateEmailAccountRole" })
   .schema(z.object({ role: z.string() }))
-  .action(async ({ ctx: { emailAccountId }, parsedInput: { role } }) => {
-    await prisma.emailAccount.update({
-      where: { id: emailAccountId },
-      data: { role },
-    });
-  });
+  .action(
+    async ({
+      ctx: { emailAccountId, userEmail, logger },
+      parsedInput: { role },
+    }) => {
+      after(async () => {
+        await updateContactRole({
+          email: userEmail,
+          role,
+        }).catch((error) => {
+          logger.error("Loops: Error updating role", { error });
+        });
+      });
+
+      await prisma.emailAccount.update({
+        where: { id: emailAccountId },
+        data: { role },
+      });
+    },
+  );
 
 export const analyzePersonaAction = actionClient
   .metadata({ name: "analyzePersona" })
@@ -77,11 +93,26 @@ const updateReferralSignatureSchema = z.object({ enabled: z.boolean() });
 export const updateReferralSignatureAction = actionClient
   .metadata({ name: "updateReferralSignature" })
   .schema(updateReferralSignatureSchema)
-  .action(async ({ ctx, parsedInput }) => {
-    await prisma.emailAccount.update({
-      where: { id: ctx.emailAccountId },
-      data: { includeReferralSignature: parsedInput.enabled },
+  .action(
+    async ({ ctx: { emailAccountId, logger }, parsedInput: { enabled } }) => {
+      logger.info("Updating referral signature", { enabled });
+
+      await prisma.emailAccount.update({
+        where: { id: emailAccountId },
+        data: { includeReferralSignature: enabled },
+      });
+    },
+  );
+
+export const fetchSignaturesFromProviderAction = actionClient
+  .metadata({ name: "fetchSignaturesFromProvider" })
+  .action(async ({ ctx: { emailAccountId, provider } }) => {
+    const emailProvider = await createEmailProvider({
+      emailAccountId,
+      provider,
     });
 
-    return { success: true };
+    const signatures = await emailProvider.getSignatures();
+
+    return { signatures };
   });

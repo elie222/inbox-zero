@@ -119,6 +119,10 @@ export const AdminUpgradeUserForm = () => {
             label: PremiumTier.COPILOT_MONTHLY,
             value: PremiumTier.COPILOT_MONTHLY,
           },
+          {
+            label: PremiumTier.LIFETIME,
+            value: PremiumTier.LIFETIME,
+          },
         ]}
         {...register("period")}
         error={errors.period}

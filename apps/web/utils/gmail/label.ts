@@ -168,26 +168,6 @@ export async function markReadThread(options: {
   });
 }
 
-export async function markImportantMessage(options: {
-  gmail: gmail_v1.Gmail;
-  messageId: string;
-  important: boolean;
-}) {
-  const { gmail, messageId, important } = options;
-
-  return gmail.users.messages.modify({
-    userId: "me",
-    id: messageId,
-    requestBody: important
-      ? {
-          addLabelIds: [GmailLabel.IMPORTANT],
-        }
-      : {
-          removeLabelIds: [GmailLabel.IMPORTANT],
-        },
-  });
-}
-
 export async function createLabel({
   gmail,
   name,
@@ -272,59 +252,6 @@ export async function getLabelById(options: {
   return (await gmail.users.labels.get({ userId: "me", id })).data;
 }
 
-export async function getOrCreateLabel({
-  gmail,
-  name,
-}: {
-  gmail: gmail_v1.Gmail;
-  name: string;
-}) {
-  if (!name?.trim()) throw new Error("Label name cannot be empty");
-  const label = await getLabel({ gmail, name });
-  if (label) return label;
-  const createdLabel = await createLabel({ gmail, name });
-  return createdLabel;
-}
-
-// More efficient way to get or create multiple labels, so we fetch labels only once
-export async function getOrCreateLabels({
-  gmail,
-  names,
-}: {
-  gmail: gmail_v1.Gmail;
-  names: string[];
-}): Promise<gmail_v1.Schema$Label[]> {
-  if (!names.length) return [];
-
-  // Validate names
-  const emptyNames = names.filter((name) => !name?.trim());
-  if (emptyNames.length) throw new Error("Label names cannot be empty");
-
-  // Fetch labels once
-  const existingLabels = (await getLabels(gmail)) || [];
-  const normalizedNames = names.map(normalizeLabel);
-
-  // Find existing labels
-  const labelMap = new Map<string, gmail_v1.Schema$Label>();
-  existingLabels.forEach((label) => {
-    if (label.name) {
-      labelMap.set(normalizeLabel(label.name), label);
-    }
-  });
-
-  // Create missing labels
-  const results = await Promise.all(
-    normalizedNames.map(async (normalizedName, index) => {
-      const existingLabel = labelMap.get(normalizedName);
-      if (existingLabel) return existingLabel;
-
-      return createLabel({ gmail, name: names[index] });
-    }),
-  );
-
-  return results;
-}
-
 export async function getOrCreateInboxZeroLabel({
   gmail,
   key,
@@ -358,24 +285,4 @@ export async function getOrCreateInboxZeroLabel({
     color,
   });
   return createdLabel;
-}
-
-export async function getAwaitingReplyLabel(
-  gmail: gmail_v1.Gmail,
-): Promise<string | null> {
-  const [awaitingReplyLabel] = await getOrCreateLabels({
-    gmail,
-    names: [AWAITING_REPLY_LABEL_NAME],
-  });
-  return awaitingReplyLabel.id || "";
-}
-
-export async function getNeedsReplyLabel(
-  gmail: gmail_v1.Gmail,
-): Promise<string | null> {
-  const [toReplyLabel] = await getOrCreateLabels({
-    gmail,
-    names: [NEEDS_REPLY_LABEL_NAME],
-  });
-  return toReplyLabel.id || "";
 }

@@ -8,19 +8,19 @@ import { ActionType } from "@prisma/client";
 const ACTION_TYPE_PRIORITY_ORDER: ActionType[] = [
   ActionType.LABEL,
 
-  ActionType.ARCHIVE,
   ActionType.MOVE_FOLDER,
-
+  ActionType.ARCHIVE,
   ActionType.MARK_READ,
-  ActionType.MARK_SPAM,
 
   ActionType.DRAFT_EMAIL,
   ActionType.REPLY,
   ActionType.SEND_EMAIL,
   ActionType.FORWARD,
 
-  ActionType.CALL_WEBHOOK,
   ActionType.DIGEST,
+
+  ActionType.MARK_SPAM,
+  ActionType.CALL_WEBHOOK,
   ActionType.TRACK_THREAD,
 ];
 

@@ -71,7 +71,7 @@ export function DeleteSection() {
       <div>
         <AlertDialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <AlertDialogTrigger asChild>
-            <Button variant="outline" size="sm">
+            <Button variant="destructiveSoft" size="sm">
               Delete user
             </Button>
           </AlertDialogTrigger>
