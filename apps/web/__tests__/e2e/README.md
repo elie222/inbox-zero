@@ -74,11 +74,11 @@ This ensures:
 
 1. Run the app and trigger a webhook
 2. Check the logs for message IDs and conversation IDs
-3. Or use the Outlook API explorer: https://developer.microsoft.com/en-us/graph/graph-explorer
+3. Or use the Outlook API explorer: <https://developer.microsoft.com/en-us/graph/graph-explorer>
 
 ### For Gmail
 
-1. Use the Gmail API explorer: https://developers.google.com/gmail/api/reference/rest
+1. Use the Gmail API explorer: <https://developers.google.com/gmail/api/reference/rest>
 2. Or check your app logs when processing emails
 
 ## Notes
