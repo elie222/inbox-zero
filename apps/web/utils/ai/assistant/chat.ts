@@ -214,6 +214,7 @@ const createRuleTool = ({
           },
           emailAccountId,
           provider,
+          runOnThreads: true,
         });
 
         if ("error" in rule) {

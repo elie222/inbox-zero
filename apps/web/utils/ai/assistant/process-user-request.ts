@@ -571,6 +571,7 @@ ${senderCategory || "No category"}
               emailAccountId: emailAccount.id,
               categoryIds,
               provider: emailAccount.account.provider,
+              runOnThreads: true,
             });
 
             if ("error" in rule) {
