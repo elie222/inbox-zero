@@ -14,7 +14,6 @@ import {
 import { processHistoryItem } from "@/app/api/google/webhook/process-history-item";
 import { logger } from "@/app/api/google/webhook/logger";
 import { getHistory } from "@/utils/gmail/history";
-import { isColdEmailBlockerEnabled } from "@/utils/cold-email/cold-email-blocker-enabled";
 
 export async function processHistoryForUser(
   decodedData: {
@@ -120,8 +119,7 @@ export async function processHistoryForUser(
   }
 
   const hasAutomationRules = emailAccount.rules.length > 0;
-  const shouldBlockColdEmails = isColdEmailBlockerEnabled(emailAccount.rules);
-  if (!hasAutomationRules && !shouldBlockColdEmails) {
+  if (!hasAutomationRules) {
     logger.trace("Has no rules set and cold email blocker disabled", { email });
     return NextResponse.json({ ok: true });
   }
