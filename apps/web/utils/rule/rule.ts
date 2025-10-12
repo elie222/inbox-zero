@@ -47,6 +47,7 @@ export async function safeCreateRule({
   systemType,
   triggerType = "ai_creation",
   shouldCreateIfDuplicate,
+  runOnThreads,
 }: {
   result: CreateRuleWithLabelId;
   emailAccountId: string;
@@ -55,6 +56,7 @@ export async function safeCreateRule({
   systemType?: SystemType | null;
   triggerType?: "ai_creation" | "manual_creation" | "system_creation";
   shouldCreateIfDuplicate: boolean; // maybe this should just always be false?
+  runOnThreads: boolean;
 }) {
   const categoryIds = await getUserCategoriesForNames({
     emailAccountId,
@@ -69,6 +71,7 @@ export async function safeCreateRule({
       systemType,
       triggerType,
       provider,
+      runOnThreads,
     });
     return rule;
   } catch (error) {
@@ -81,6 +84,7 @@ export async function safeCreateRule({
           categoryIds,
           triggerType,
           provider,
+          runOnThreads,
         });
         return rule;
       } else {
@@ -111,6 +115,7 @@ export async function safeCreateRule({
             systemType,
             triggerType,
             provider,
+            runOnThreads,
           });
           return rule;
         }
@@ -164,6 +169,7 @@ export async function safeUpdateRule({
         categoryIds,
         triggerType: "ai_creation", // Default for safeUpdateRule fallback
         provider,
+        runOnThreads: true,
       });
       return { id: rule.id };
     }
@@ -187,6 +193,7 @@ export async function createRule({
   systemType,
   triggerType = "ai_creation",
   provider,
+  runOnThreads,
 }: {
   result: CreateOrUpdateRuleSchemaWithCategories;
   emailAccountId: string;
@@ -194,6 +201,7 @@ export async function createRule({
   systemType?: SystemType | null;
   triggerType?: "ai_creation" | "manual_creation" | "system_creation";
   provider: string;
+  runOnThreads: boolean;
 }) {
   const mappedActions = await mapActionFields(
     result.actions,
@@ -218,7 +226,7 @@ export async function createRule({
           bcc: a.bcc ?? null,
         })),
       ),
-      runOnThreads: true,
+      runOnThreads,
       conditionalOperator: result.condition.conditionalOperator ?? undefined,
       instructions: result.condition.aiInstructions,
       from: result.condition.static?.from,

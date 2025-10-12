@@ -551,7 +551,6 @@ export const toggleRuleAction = actionClient
       const ruleConfig = getRuleConfig(systemType);
       const actionTypes = getSystemRuleActionTypes(systemType, provider);
 
-      // Build actions based on system rule config
       const actions: Array<{
         type: ActionType;
         labelId?: string | null;
@@ -608,6 +607,7 @@ export const toggleRuleAction = actionClient
         triggerType: "manual_creation",
         shouldCreateIfDuplicate: true,
         provider,
+        runOnThreads: ruleConfig.runOnThreads,
       });
 
       if (!createdRule) {
