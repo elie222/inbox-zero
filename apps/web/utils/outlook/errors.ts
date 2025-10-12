@@ -2,7 +2,7 @@
 
 /**
  * Check if an error indicates that a resource already exists
- * (e.g., folder, filter, category, etc.)
+ * (e.g., filter, category, etc.)
  */
 export function isAlreadyExistsError(error: unknown): boolean {
   // biome-ignore lint/suspicious/noExplicitAny: simplest
