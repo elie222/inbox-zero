@@ -4,8 +4,6 @@ import { digestBody } from "./validation";
 import { DigestStatus } from "@prisma/client";
 import { createScopedLogger } from "@/utils/logger";
 import prisma from "@/utils/prisma";
-import { getRuleName } from "@/utils/rule/consts";
-import { SystemType } from "@prisma/client";
 import { aiSummarizeEmailForDigest } from "@/utils/ai/digest/summarize-email-for-digest";
 import { getEmailAccountWithAi } from "@/utils/user/get";
 import type { StoredDigestContent } from "@/app/api/resend/digest/validation";
@@ -46,7 +44,15 @@ export const POST = withError(
         return new NextResponse("OK", { status: 200 });
       }
 
-      const ruleName = await resolveRuleName(actionId);
+      const ruleName = actionId
+        ? await getRuleNameByExecutedAction(actionId)
+        : null;
+
+      if (!ruleName) {
+        logger.warn("Rule name not found for executed action", { actionId });
+        return new NextResponse("OK", { status: 200 });
+      }
+
       const summary = await aiSummarizeEmailForDigest({
         ruleName,
         emailAccount,
@@ -77,13 +83,6 @@ export const POST = withError(
     }
   }),
 );
-
-async function resolveRuleName(actionId?: string): Promise<string> {
-  if (!actionId) return getRuleName(SystemType.COLD_EMAIL);
-
-  const ruleName = await getRuleNameByExecutedAction(actionId);
-  return ruleName || getRuleName(SystemType.COLD_EMAIL);
-}
 
 async function findOrCreateDigest(
   emailAccountId: string,
