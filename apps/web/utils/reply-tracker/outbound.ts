@@ -114,7 +114,9 @@ function isMessageLatestInThread(
   if (!threadMessages.length) return { isLatest: false, sortedMessages: [] }; // Should not happen if called correctly
 
   const sortedMessages = [...threadMessages].sort(
-    (a, b) => (Number(b.internalDate) || 0) - (Number(a.internalDate) || 0),
+    (a, b) =>
+      (internalDateToDate(b.internalDate).getTime() || 0) -
+      (internalDateToDate(a.internalDate).getTime() || 0),
   );
   const actualLatestMessage = sortedMessages[0];
 
