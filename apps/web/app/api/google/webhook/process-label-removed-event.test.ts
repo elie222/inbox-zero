@@ -3,7 +3,6 @@ import { ColdEmailStatus } from "@prisma/client";
 import { HistoryEventType } from "./types";
 import { handleLabelRemovedEvent } from "./process-label-removed-event";
 import type { gmail_v1 } from "@googleapis/gmail";
-import { inboxZeroLabels } from "@/utils/label";
 import { saveLearnedPatterns } from "@/utils/rule/learned-patterns";
 import prisma from "@/utils/__mocks__/prisma";
 
@@ -33,7 +32,7 @@ vi.mock("@/utils/gmail/label", () => ({
   },
   getLabelById: vi.fn().mockImplementation(({ id }: { id: string }) => {
     const labelMap: Record<string, { name: string }> = {
-      "label-1": { name: inboxZeroLabels.cold_email.name },
+      "label-1": { name: "Cold Email" },
       "label-2": { name: "Newsletter" },
       "label-3": { name: "Marketing" },
       "label-4": { name: "To Reply" },
@@ -74,7 +73,7 @@ describe("process-label-removed-event", () => {
       },
     }),
     getLabels: vi.fn().mockResolvedValue([
-      { id: "label-1", name: inboxZeroLabels.cold_email.name, type: "user" },
+      { id: "label-1", name: "Cold Email", type: "user" },
       { id: "label-2", name: "Newsletter", type: "user" },
       { id: "label-3", name: "Marketing", type: "user" },
       { id: "label-4", name: "To Reply", type: "user" },

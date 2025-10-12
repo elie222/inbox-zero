@@ -1,7 +1,6 @@
 import { describe, expect, test, vi } from "vitest";
 import { aiChooseRule } from "@/utils/ai/choose-rule/ai-choose-rule";
 import { ActionType } from "@prisma/client";
-import { defaultReplyTrackerInstructions } from "@/utils/reply-tracker/consts";
 import { getEmail, getEmailAccount, getRule } from "@/__tests__/helpers";
 
 // pnpm test-ai ai-choose-rule
@@ -70,6 +69,7 @@ describe.runIf(isAiTest)("aiChooseRule", () => {
         type: ActionType.REPLY,
         ruleId: "ruleId",
         label: null,
+        labelId: null,
         subject: null,
         content: "{{Write a joke}}",
         to: null,
@@ -104,7 +104,7 @@ describe.runIf(isAiTest)("aiChooseRule", () => {
     const legal = getRule(
       "Match emails containing legal documents or contracts",
     );
-    const requiresResponse = getRule(defaultReplyTrackerInstructions);
+    const requiresResponse = getRule("Match emails requiring a response");
     const productUpdates = getRule(
       "Match emails about product updates or feature announcements",
     );
