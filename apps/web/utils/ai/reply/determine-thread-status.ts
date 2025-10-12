@@ -2,7 +2,7 @@ import { z } from "zod";
 import { createGenerateObject } from "@/utils/llms";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import type { EmailForLLM } from "@/utils/types";
-import { getModel } from "@/utils/llms/model";
+import { getModel, type ModelType } from "@/utils/llms/model";
 import { getUserInfoPrompt, getEmailListPrompt } from "@/utils/ai/helpers";
 import type { ConversationStatus } from "@/utils/reply-tracker/conversation-status-config";
 import { SystemType } from "@prisma/client";
@@ -10,9 +10,11 @@ import { SystemType } from "@prisma/client";
 export async function aiDetermineThreadStatus({
   emailAccount,
   threadMessages,
+  modelType,
 }: {
   emailAccount: EmailAccountWithAI;
   threadMessages: EmailForLLM[];
+  modelType: ModelType;
 }): Promise<{ status: ConversationStatus; rationale: string }> {
   const system = `You are an AI assistant that analyzes email threads to determine their current status.
 
@@ -68,7 +70,7 @@ ${getEmailListPrompt({
 
 Based on the full thread context above, determine the current status of this thread.`.trim();
 
-  const modelOptions = getModel(emailAccount.user);
+  const modelOptions = getModel(emailAccount.user, modelType);
 
   const generateObject = createGenerateObject({
     userEmail: emailAccount.email,

@@ -24,6 +24,7 @@ export async function determineConversationStatus({
   message,
   emailAccount,
   provider,
+  modelType,
 }: {
   conversationRules: RuleWithActionsAndCategories[];
   message: ParsedMessage;
@@ -69,6 +70,7 @@ export async function determineConversationStatus({
   const { status, rationale } = await aiDetermineThreadStatus({
     emailAccount,
     threadMessages: threadMessagesForLLM,
+    modelType,
   });
 
   logger.info("AI determined thread status", {

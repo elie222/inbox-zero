@@ -94,7 +94,7 @@ export async function validateWebhookAccount(
 
   const provider = await createEmailProvider({
     emailAccountId: emailAccount.id,
-    provider: emailAccount.account?.provider || "google",
+    provider: emailAccount.account?.provider,
   });
 
   if (!premium) {
