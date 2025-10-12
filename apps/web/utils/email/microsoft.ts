@@ -57,7 +57,10 @@ import type {
 import { unwatchOutlook, watchOutlook } from "@/utils/outlook/watch";
 import { escapeODataString } from "@/utils/outlook/odata-escape";
 import { extractEmailAddress } from "@/utils/email";
-import { getOrCreateOutlookFolderIdByName } from "@/utils/outlook/folders";
+import {
+  getOrCreateOutlookFolderIdByName,
+  getOutlookFolderTree,
+} from "@/utils/outlook/folders";
 import { hasUnquotedParentFolderId } from "@/utils/outlook/message";
 import { extractSignatureFromHtml } from "@/utils/email/signature-extraction";
 
@@ -314,11 +317,25 @@ export class OutlookProvider implements EmailProvider {
     if (!category) {
       throw new Error(`Category with ID ${labelId} not found`);
     }
-    await labelMessage({
-      client: this.client,
-      messageId,
-      categories: [category.name],
-    });
+
+    // Get current message categories to avoid replacing them
+    const message = await this.client
+      .getClient()
+      .api(`/me/messages/${messageId}`)
+      .select("categories")
+      .get();
+
+    const currentCategories = message.categories || [];
+
+    // Add the new category if it's not already present
+    if (!currentCategories.includes(category.name)) {
+      const updatedCategories = [...currentCategories, category.name];
+      await labelMessage({
+        client: this.client,
+        messageId,
+        categories: updatedCategories,
+      });
+    }
   }
 
   async getDraft(draftId: string): Promise<ParsedMessage | null> {
@@ -408,6 +425,17 @@ export class OutlookProvider implements EmailProvider {
       threadId,
       read: true,
     });
+  }
+
+  async markReadMessage(messageId: string): Promise<void> {
+    await this.client.getClient().api(`/me/messages/${messageId}`).patch({
+      isRead: true,
+    });
+  }
+
+  async blockUnsubscribedEmail(messageId: string): Promise<void> {
+    await this.archiveMessage(messageId);
+    await this.markReadMessage(messageId);
   }
 
   async getThreadMessages(threadId: string): Promise<ParsedMessage[]> {
@@ -505,6 +533,47 @@ export class OutlookProvider implements EmailProvider {
     }
   }
 
+  async removeThreadLabels(
+    threadId: string,
+    labelIds: string[],
+  ): Promise<void> {
+    if (!labelIds.length) return;
+
+    const [allLabels, messages] = await Promise.all([
+      this.getLabels(),
+      this.client
+        .getClient()
+        .api("/me/messages")
+        .filter(`conversationId eq '${escapeODataString(threadId)}'`)
+        .select("id,categories")
+        .get() as Promise<{
+        value: Array<{ id: string; categories?: string[] }>;
+      }>,
+    ]);
+
+    const labelIdsSet = new Set(labelIds);
+    const removeCategoryNames = allLabels
+      .filter((label) => labelIdsSet.has(label.id))
+      .map((label) => label.name);
+
+    if (!removeCategoryNames.length) return;
+
+    for (const message of messages.value) {
+      const currentCategories = message.categories || [];
+
+      // Remove specified categories
+      const newCategories = currentCategories.filter(
+        (cat) => !removeCategoryNames.includes(cat),
+      );
+
+      await labelMessage({
+        client: this.client,
+        messageId: message.id,
+        categories: newCategories,
+      });
+    }
+  }
+
   async createLabel(name: string): Promise<EmailLabel> {
     const label = await createLabel({
       client: this.client,
@@ -516,6 +585,13 @@ export class OutlookProvider implements EmailProvider {
       name: label.displayName || label.id || "",
       type: "user",
     };
+  }
+
+  async deleteLabel(labelId: string): Promise<void> {
+    await this.client
+      .getClient()
+      .api(`/me/outlook/masterCategories/${labelId}`)
+      .delete();
   }
 
   async getOrCreateInboxZeroLabel(key: InboxZeroLabel): Promise<EmailLabel> {
@@ -1168,6 +1244,11 @@ export class OutlookProvider implements EmailProvider {
     }
   }
 
+  // we map this internally beforehand so that this works as expected
+  isSentMessage(message: ParsedMessage): boolean {
+    return message.labelIds?.includes("SENT") || false;
+  }
+
   async moveThreadToFolder(
     threadId: string,
     ownerEmail: string,
@@ -1202,6 +1283,10 @@ export class OutlookProvider implements EmailProvider {
 
   async getOrCreateOutlookFolderIdByName(folderName: string): Promise<string> {
     return await getOrCreateOutlookFolderIdByName(this.client, folderName);
+  }
+
+  async getFolders() {
+    return await getOutlookFolderTree(this.client);
   }
 
   async getSignatures(): Promise<EmailSignature[]> {

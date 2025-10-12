@@ -145,7 +145,6 @@ export const actionInputs: Record<
     ],
   },
   [ActionType.MARK_READ]: { fields: [] },
-  [ActionType.TRACK_THREAD]: { fields: [] },
   [ActionType.MOVE_FOLDER]: {
     fields: [
       {
@@ -221,7 +220,6 @@ export function sanitizeActionFields(
     case ActionType.ARCHIVE:
     case ActionType.MARK_SPAM:
     case ActionType.MARK_READ:
-    case ActionType.TRACK_THREAD:
     case ActionType.DIGEST:
       return base;
     case ActionType.MOVE_FOLDER: {

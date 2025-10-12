@@ -6,11 +6,15 @@ import { ActionType, SystemType } from "@prisma/client";
 // Define supported system types for digest settings
 const SUPPORTED_SYSTEM_TYPES = [
   SystemType.TO_REPLY,
+  SystemType.FYI,
+  SystemType.AWAITING_REPLY,
+  SystemType.ACTIONED,
   SystemType.NEWSLETTER,
   SystemType.MARKETING,
   SystemType.CALENDAR,
   SystemType.RECEIPT,
   SystemType.NOTIFICATION,
+  SystemType.COLD_EMAIL,
 ] as const;
 
 export type GetDigestSettingsResponse = Awaited<
@@ -32,7 +36,6 @@ async function getDigestSettings({
   const emailAccount = await prisma.emailAccount.findUnique({
     where: { id: emailAccountId },
     select: {
-      coldEmailDigest: true,
       rules: {
         where: {
           systemType: {
@@ -66,22 +69,29 @@ async function getDigestSettings({
   // Build digest settings object
   const digestSettings = {
     toReply: false,
+    awaitingReply: false,
+    fyi: false,
+    actioned: false,
     newsletter: false,
     marketing: false,
     calendar: false,
     receipt: false,
     notification: false,
-    coldEmail: emailAccount.coldEmailDigest || false,
+    coldEmail: false,
   };
 
   // Map system types to digest settings
   const systemTypeToKey: Record<SystemType, keyof typeof digestSettings> = {
     [SystemType.TO_REPLY]: "toReply",
+    [SystemType.AWAITING_REPLY]: "awaitingReply",
+    [SystemType.FYI]: "fyi",
+    [SystemType.ACTIONED]: "actioned",
     [SystemType.NEWSLETTER]: "newsletter",
     [SystemType.MARKETING]: "marketing",
     [SystemType.CALENDAR]: "calendar",
     [SystemType.RECEIPT]: "receipt",
     [SystemType.NOTIFICATION]: "notification",
+    [SystemType.COLD_EMAIL]: "coldEmail",
   };
 
   // Verify all supported system types are mapped

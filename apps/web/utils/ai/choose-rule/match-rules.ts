@@ -28,6 +28,11 @@ import { hasIcsAttachment } from "@/utils/parse/calender-event";
 import { checkSenderReplyHistory } from "@/utils/reply-tracker/check-sender-reply-history";
 import type { EmailProvider } from "@/utils/email/types";
 import type { ModelType } from "@/utils/llms/model";
+import {
+  getColdEmailRule,
+  isColdEmailRuleEnabled,
+} from "@/utils/cold-email/cold-email-rule";
+import { isColdEmail } from "@/utils/cold-email/is-cold-email";
 
 const logger = createScopedLogger("match-rules");
 
@@ -211,7 +216,35 @@ export async function findMatchingRule({
   emailAccount: EmailAccountWithAI;
   provider: EmailProvider;
   modelType: ModelType;
-}) {
+}): Promise<{
+  rule?: RuleWithActionsAndCategories;
+  matchReasons?: MatchReason[];
+  reason?: string;
+}> {
+  const coldEmailRule = await getColdEmailRule(emailAccount.id);
+
+  if (coldEmailRule && isColdEmailRuleEnabled(coldEmailRule)) {
+    const coldEmailResult = await isColdEmail({
+      email: getEmailForLLM(message),
+      emailAccount,
+      provider,
+      modelType,
+      coldEmailRule,
+    });
+
+    if (coldEmailResult.isColdEmail) {
+      const coldEmailRuleWithCategories = await prisma.rule.findUniqueOrThrow({
+        where: { id: coldEmailRule.id },
+        include: { actions: true, categoryFilters: true },
+      });
+
+      return {
+        rule: coldEmailRuleWithCategories,
+        reason: coldEmailResult.reason,
+      };
+    }
+  }
+
   const result = await findMatchingRuleWithReasons(
     rules,
     message,

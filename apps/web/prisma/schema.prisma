@@ -122,17 +122,11 @@ model EmailAccount {
   statsEmailFrequency   Frequency         @default(WEEKLY)
   summaryEmailFrequency Frequency         @default(WEEKLY)
   lastSummaryEmailAt    DateTime?
-  coldEmailBlocker      ColdEmailSetting?
-  coldEmailDigest       Boolean           @default(false)
-  coldEmailPrompt       String?
-  rulesPrompt           String?
-  outboundReplyTracking Boolean           @default(false) // When true: manages "To Reply" and "Awaiting Reply" labels automatically
+  coldEmailBlocker      ColdEmailSetting? // @deprecated
+  coldEmailDigest       Boolean           @default(false) // @deprecated
+  coldEmailPrompt       String? // @deprecated
+  rulesPrompt           String? // @deprecated
   autoCategorizeSenders Boolean           @default(false)
-
-  // Configurable system labels (store stable IDs)
-  needsReplyLabelId     String? // Gmail: Label ID, Outlook: Category ID
-  awaitingReplyLabelId  String? // Gmail: Label ID, Outlook: Category ID
-  coldEmailLabelId      String? // Gmail: Label ID, Outlook: Category ID
 
   digestSchedule Schedule?
 
@@ -977,7 +971,7 @@ enum ActionType {
   MARK_SPAM
   CALL_WEBHOOK
   MARK_READ
-  TRACK_THREAD
+  // TRACK_THREAD // @deprecated - No longer used. We rely on rule SystemType instead to run this.
   DIGEST
   MOVE_FOLDER
   // SUMMARIZE
@@ -1005,6 +999,7 @@ enum ColdEmailStatus {
   USER_REJECTED_COLD
 }
 
+// @deprecated - No longer used
 enum ColdEmailSetting {
   DISABLED
   LIST
@@ -1068,7 +1063,14 @@ enum CleanAction {
 }
 
 enum SystemType {
+  // conversation trackers
   TO_REPLY
+  FYI
+  AWAITING_REPLY
+  ACTIONED
+  // cold email blocker
+  COLD_EMAIL
+  // other labels
   NEWSLETTER
   MARKETING
   CALENDAR

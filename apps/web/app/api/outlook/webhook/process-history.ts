@@ -1,13 +1,13 @@
 import { NextResponse } from "next/server";
-import prisma from "@/utils/prisma";
-import { hasAiAccess, isPremium } from "@/utils/premium";
-import { ColdEmailSetting } from "@prisma/client";
 import { captureException } from "@/utils/error";
-import { unwatchEmails } from "@/app/api/watch/controller";
 import { createEmailProvider } from "@/utils/email/provider";
 import type { OutlookResourceData } from "@/app/api/outlook/webhook/types";
 import { processHistoryItem } from "@/app/api/outlook/webhook/process-history-item";
 import { logger } from "@/app/api/outlook/webhook/logger";
+import {
+  validateWebhookAccount,
+  getWebhookEmailAccount,
+} from "@/utils/webhook/validate-webhook-account";
 
 export async function processHistoryForUser({
   subscriptionId,
@@ -16,136 +16,69 @@ export async function processHistoryForUser({
   subscriptionId: string;
   resourceData: OutlookResourceData;
 }) {
-  const emailAccount = await prisma.emailAccount.findFirst({
-    where: { watchEmailsSubscriptionId: subscriptionId },
-    select: {
-      id: true,
-      email: true,
-      userId: true,
-      about: true,
-      coldEmailBlocker: true,
-      coldEmailPrompt: true,
-      autoCategorizeSenders: true,
-      account: {
-        select: {
-          provider: true,
-          access_token: true,
-          refresh_token: true,
-          expires_at: true,
-        },
-      },
-      rules: {
-        where: { enabled: true },
-        include: { actions: true, categoryFilters: true },
-      },
-      user: {
-        select: {
-          aiProvider: true,
-          aiModel: true,
-          aiApiKey: true,
-          premium: {
-            select: {
-              lemonSqueezyRenewsAt: true,
-              stripeSubscriptionStatus: true,
-              tier: true,
-            },
-          },
-        },
-      },
-    },
+  const emailAccount = await getWebhookEmailAccount({
+    watchEmailsSubscriptionId: subscriptionId,
   });
 
-  if (!emailAccount) {
-    logger.error("Account not found", { subscriptionId });
-    return NextResponse.json({ ok: true });
+  const validation = await validateWebhookAccount(emailAccount, logger);
+
+  if (!validation.success) {
+    return validation.response;
   }
 
-  const premium = isPremium(
-    emailAccount.user.premium?.lemonSqueezyRenewsAt || null,
-    emailAccount.user.premium?.stripeSubscriptionStatus || null,
-  )
-    ? emailAccount.user.premium
-    : undefined;
+  const {
+    emailAccount: validatedEmailAccount,
+    hasAutomationRules,
+    hasAiAccess: userHasAiAccess,
+  } = validation.data;
+
+  const accountProvider =
+    validatedEmailAccount.account?.provider || "microsoft";
 
   const provider = await createEmailProvider({
-    emailAccountId: emailAccount.id,
-    provider: emailAccount.account?.provider || "microsoft",
+    emailAccountId: validatedEmailAccount.id,
+    provider: accountProvider,
   });
-
-  if (!premium) {
-    logger.info("Account not premium", {
-      email: emailAccount.email,
-      lemonSqueezyRenewsAt: emailAccount.user.premium?.lemonSqueezyRenewsAt,
-      stripeSubscriptionStatus:
-        emailAccount.user.premium?.stripeSubscriptionStatus,
-    });
-    await unwatchEmails({
-      emailAccountId: emailAccount.id,
-      provider,
-      subscriptionId,
-    });
-    return NextResponse.json({ ok: true });
-  }
-
-  const userHasAiAccess = hasAiAccess(premium.tier, emailAccount.user.aiApiKey);
-
-  if (!userHasAiAccess) {
-    logger.trace("Does not have ai access", { email: emailAccount.email });
-    await unwatchEmails({
-      emailAccountId: emailAccount.id,
-      provider,
-      subscriptionId,
-    });
-    return NextResponse.json({ ok: true });
-  }
-
-  const hasAutomationRules = emailAccount.rules.length > 0;
-  const shouldBlockColdEmails =
-    emailAccount.coldEmailBlocker &&
-    emailAccount.coldEmailBlocker !== ColdEmailSetting.DISABLED;
-
-  if (!hasAutomationRules && !shouldBlockColdEmails) {
-    logger.trace("Has no rules set and cold email blocker disabled", {
-      email: emailAccount.email,
-    });
-    return NextResponse.json({ ok: true });
-  }
-
-  if (
-    !emailAccount.account?.access_token ||
-    !emailAccount.account?.refresh_token
-  ) {
-    logger.error("Missing access or refresh token", {
-      email: emailAccount.email,
-    });
-    return NextResponse.json({ ok: true });
-  }
 
   try {
     await processHistoryItem(resourceData, {
       provider,
       hasAutomationRules,
       hasAiAccess: userHasAiAccess,
-      rules: emailAccount.rules,
-      emailAccount,
+      rules: validatedEmailAccount.rules,
+      emailAccount: {
+        id: validatedEmailAccount.id,
+        userId: validatedEmailAccount.userId,
+        email: validatedEmailAccount.email,
+        about: validatedEmailAccount.about,
+        autoCategorizeSenders: validatedEmailAccount.autoCategorizeSenders,
+        account: {
+          provider: accountProvider,
+        },
+        user: {
+          aiProvider: validatedEmailAccount.user.aiProvider,
+          aiModel: validatedEmailAccount.user.aiModel,
+          aiApiKey: validatedEmailAccount.user.aiApiKey,
+        },
+      },
     });
 
     return NextResponse.json({ ok: true });
   } catch (error) {
     if (error instanceof Error && error.message.includes("invalid_grant")) {
-      logger.warn("Invalid grant", { email: emailAccount.email });
+      logger.warn("Invalid grant", { email: validatedEmailAccount.email });
       return NextResponse.json({ ok: true });
     }
 
     captureException(
       error,
       { extra: { subscriptionId, resourceData } },
-      emailAccount.email,
+      validatedEmailAccount.email,
     );
     logger.error("Error processing webhook", {
       subscriptionId,
       resourceData,
-      email: emailAccount.email,
+      email: validatedEmailAccount.email,
       error:
         error instanceof Error
           ? {

@@ -77,8 +77,6 @@ export function getActionDisplay(
       return "Digest";
     case ActionType.CALL_WEBHOOK:
       return "Call Webhook";
-    case ActionType.TRACK_THREAD:
-      return `Auto-update reply ${terminology.label.singular}`;
     default: {
       const exhaustiveCheck: never = action.type;
       return exhaustiveCheck;
@@ -108,8 +106,6 @@ export function getActionIcon(actionType: ActionType) {
       return MailIcon;
     case ActionType.CALL_WEBHOOK:
       return WebhookIcon;
-    case ActionType.TRACK_THREAD:
-      return EyeIcon;
     case ActionType.DIGEST:
       return NewspaperIcon;
     default: {

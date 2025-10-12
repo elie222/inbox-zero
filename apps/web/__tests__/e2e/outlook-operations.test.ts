@@ -1,15 +1,15 @@
 /**
- * Manual integration tests for Outlook operations
+ * E2E tests for Outlook operations (webhooks, threads, search queries)
+ *
+ * Usage:
+ * pnpm test-e2e outlook-operations
+ * pnpm test-e2e outlook-operations -t "getThread"  # Run specific test
  *
  * Setup:
  * 1. Set TEST_OUTLOOK_EMAIL env var to your Outlook email
  * 2. Set TEST_OUTLOOK_MESSAGE_ID with a real messageId from your logs (optional)
  * 3. Set TEST_CONVERSATION_ID with a real conversationId from your logs (optional)
  * 4. Set TEST_CATEGORY_NAME for category/label testing (optional, defaults to "To Reply")
- *
- * Usage:
- *   TEST_OUTLOOK_EMAIL=your@email.com pnpm test-e2e outlook-operations
- *   pnpm test-e2e outlook-operations -t "getThread"  # Run specific test
  */
 
 import { describe, test, expect, beforeAll, vi } from "vitest";
@@ -455,5 +455,60 @@ describe.skipIf(!RUN_E2E_TESTS)("Outlook Webhook Payload", () => {
     } else {
       console.log("   ℹ️  No draft action found");
     }
+  }, 30_000);
+
+  test("should verify draft ID can be fetched immediately after creation", async () => {
+    const emailAccount = await prisma.emailAccount.findUniqueOrThrow({
+      where: { email: TEST_OUTLOOK_EMAIL },
+    });
+
+    const provider = (await createEmailProvider({
+      emailAccountId: emailAccount.id,
+      provider: "microsoft",
+    })) as OutlookProvider;
+
+    // Get a real message to reply to
+    const messages = await provider.getThreadMessages(TEST_CONVERSATION_ID);
+    if (messages.length === 0) {
+      console.log("   ⚠️  No messages in thread, skipping test");
+      return;
+    }
+
+    const message = messages[0];
+
+    // Create a draft
+    const draftResult = await provider.draftEmail(
+      message,
+      { content: "Test draft - verifying ID can be fetched" },
+      emailAccount.email,
+    );
+
+    expect(draftResult.draftId).toBeDefined();
+    console.log(`   ✅ Created draft with ID: ${draftResult.draftId}`);
+
+    // Immediately try to fetch the draft with the returned ID
+    const fetchedDraft = await provider.getDraft(draftResult.draftId);
+
+    expect(fetchedDraft).toBeDefined();
+    expect(fetchedDraft?.id).toBe(draftResult.draftId);
+
+    console.log("   ✅ Successfully fetched draft with same ID");
+    console.log(`      Draft ID: ${draftResult.draftId}`);
+    console.log(`      Fetched ID: ${fetchedDraft?.id}`);
+    console.log(
+      `      Content preview: ${fetchedDraft?.textPlain?.substring(0, 50) || "(empty)"}...`,
+    );
+
+    // Clean up - delete the test draft
+    await provider.deleteDraft(draftResult.draftId);
+    console.log("   ✅ Cleaned up test draft");
+
+    // Try to fetch the deleted draft to see the error message
+    console.log("\n   🔍 Attempting to fetch deleted draft...");
+    const deletedDraft = await provider.getDraft(draftResult.draftId);
+
+    // Should return null for deleted drafts (not throw an error)
+    expect(deletedDraft).toBeNull();
+    console.log("   ✅ getDraft correctly returned null for deleted draft");
   }, 30_000);
 });

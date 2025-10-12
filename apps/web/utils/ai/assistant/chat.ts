@@ -33,7 +33,7 @@ const getUserRulesAndSettingsTool = ({
   tool({
     name: "getUserRulesAndSettings",
     description:
-      "Retrieve all existing rules for the user, their about information, and the cold email blocker setting",
+      "Retrieve all existing rules for the user, their about information",
     inputSchema: z.object({}),
     execute: async () => {
       trackToolCall({
@@ -45,7 +45,6 @@ const getUserRulesAndSettingsTool = ({
         where: { id: emailAccountId },
         select: {
           about: true,
-          coldEmailBlocker: true,
           rules: {
             select: {
               name: true,
@@ -76,7 +75,6 @@ const getUserRulesAndSettingsTool = ({
 
       return {
         about: emailAccount?.about || "Not set",
-        coldEmailBlocker: emailAccount?.coldEmailBlocker || "Not set",
         rules: emailAccount?.rules.map((rule) => {
           const staticFilter = filterNullProperties({
             from: rule.from,
@@ -216,6 +214,7 @@ const createRuleTool = ({
           },
           emailAccountId,
           provider,
+          runOnThreads: true,
         });
 
         if ("error" in rule) {
@@ -854,17 +853,6 @@ Examples:
       Create some good default rules for me.
     </input>
     <output>
-      <enable_cold_email_blocker>
-        {
-          "action": "ARCHIVE_AND_LABEL"
-        }
-      </enable_cold_email_blocker>
-      <enable_reply_zero>
-        {
-          "enabled": true,
-          "draft_replies": true
-        }
-      </enable_reply_zero>
       <create_rule>
         {
           "name": "Urgent",
@@ -905,7 +893,6 @@ Examples:
       </create_rule>
       <explanation>
         I created 4 rules to handle different types of emails.
-        I also enabled the cold email blocker and reply zero feature.
       </explanation>
     </output>
   </example>
