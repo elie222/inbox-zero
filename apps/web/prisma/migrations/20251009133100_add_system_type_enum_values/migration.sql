@@ -1,0 +1,5 @@
+-- Add new SystemType enum values
+ALTER TYPE "SystemType" ADD VALUE 'FYI';
+ALTER TYPE "SystemType" ADD VALUE 'AWAITING_REPLY';
+ALTER TYPE "SystemType" ADD VALUE 'ACTIONED';
+ALTER TYPE "SystemType" ADD VALUE 'COLD_EMAIL';
