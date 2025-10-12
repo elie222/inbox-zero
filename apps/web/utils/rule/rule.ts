@@ -29,13 +29,14 @@ export function partialUpdateRule({
   });
 }
 
-// Extended type for system rules that can include labelId
+// Extended type for system rules that can include labelId and folderId
 type CreateRuleWithLabelId = Omit<
   CreateOrUpdateRuleSchemaWithCategories,
   "actions"
 > & {
   actions: (CreateOrUpdateRuleSchemaWithCategories["actions"][number] & {
     labelId?: string | null;
+    folderId?: string | null;
   })[];
 };
 
@@ -413,6 +414,7 @@ export async function removeRuleCategories(
 async function mapActionFields(
   actions: (CreateOrUpdateRuleSchemaWithCategories["actions"][number] & {
     labelId?: string | null;
+    folderId?: string | null;
   })[],
   provider: string,
   emailAccountId: string,
@@ -421,6 +423,9 @@ async function mapActionFields(
     async (a): Promise<Prisma.ActionCreateManyRuleInput> => {
       let label = a.fields?.label;
       let labelId: string | null = null;
+      const folderName =
+        typeof a.fields?.folderName === "string" ? a.fields.folderName : null;
+      let folderId: string | null = a.folderId || null;
 
       if (a.type === ActionType.LABEL) {
         const emailProvider = await createEmailProvider({
@@ -437,6 +442,21 @@ async function mapActionFields(
         labelId = resolved.labelId;
       }
 
+      if (
+        a.type === ActionType.MOVE_FOLDER &&
+        folderName &&
+        !folderId &&
+        isMicrosoftProvider(provider)
+      ) {
+        const emailProvider = await createEmailProvider({
+          emailAccountId,
+          provider,
+        });
+
+        folderId =
+          await emailProvider.getOrCreateOutlookFolderIdByName(folderName);
+      }
+
       return {
         type: a.type,
         label,
@@ -448,7 +468,8 @@ async function mapActionFields(
         content: a.fields?.content,
         url: a.fields?.webhookUrl,
         ...(isMicrosoftProvider(provider) && {
-          folderName: a.fields?.folderName as string | null,
+          folderName: folderName ?? null,
+          folderId,
         }),
         delayInMinutes: a.delayInMinutes,
       };

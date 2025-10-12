@@ -1,6 +1,7 @@
 import type { ParsedMessage } from "@/utils/types";
 import type { InboxZeroLabel } from "@/utils/label";
 import type { ThreadsQuery } from "@/app/api/threads/validation";
+import type { OutlookFolder } from "@/utils/outlook/folders";
 
 export interface EmailThread {
   id: string;
@@ -47,6 +48,7 @@ export interface EmailProvider {
   getLabels(): Promise<EmailLabel[]>;
   getLabelById(labelId: string): Promise<EmailLabel | null>;
   getLabelByName(name: string): Promise<EmailLabel | null>;
+  getFolders(): Promise<OutlookFolder[]>;
   getMessage(messageId: string): Promise<ParsedMessage>;
   getMessagesByFields(options: {
     froms?: string[];

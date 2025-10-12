@@ -907,6 +907,11 @@ export class GmailProvider implements EmailProvider {
     return message.labelIds?.includes(GmailLabel.SENT) || false;
   }
 
+  async getFolders() {
+    logger.warn("Getting folders is not supported for Gmail");
+    return [];
+  }
+
   async moveThreadToFolder(
     _threadId: string,
     _ownerEmail: string,

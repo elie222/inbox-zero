@@ -31,6 +31,7 @@ export async function getOutlookRootFolders(
     .getClient()
     .api("/me/mailFolders")
     .select(fields)
+    .top(999)
     .expand(
       `childFolders($select=${fields};$expand=childFolders($select=${fields}))`,
     )

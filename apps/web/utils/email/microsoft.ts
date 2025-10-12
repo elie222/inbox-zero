@@ -57,7 +57,10 @@ import type {
 import { unwatchOutlook, watchOutlook } from "@/utils/outlook/watch";
 import { escapeODataString } from "@/utils/outlook/odata-escape";
 import { extractEmailAddress } from "@/utils/email";
-import { getOrCreateOutlookFolderIdByName } from "@/utils/outlook/folders";
+import {
+  getOrCreateOutlookFolderIdByName,
+  getOutlookFolderTree,
+} from "@/utils/outlook/folders";
 import { hasUnquotedParentFolderId } from "@/utils/outlook/message";
 import { extractSignatureFromHtml } from "@/utils/email/signature-extraction";
 
@@ -1280,6 +1283,10 @@ export class OutlookProvider implements EmailProvider {
 
   async getOrCreateOutlookFolderIdByName(folderName: string): Promise<string> {
     return await getOrCreateOutlookFolderIdByName(this.client, folderName);
+  }
+
+  async getFolders() {
+    return await getOutlookFolderTree(this.client);
   }
 
   async getSignatures(): Promise<EmailSignature[]> {

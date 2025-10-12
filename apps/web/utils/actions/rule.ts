@@ -554,6 +554,7 @@ export const toggleRuleAction = actionClient
       const actions: Array<{
         type: ActionType;
         labelId?: string | null;
+        folderId?: string | null;
         fields: {
           label: string | null;
           to: string | null;
@@ -568,9 +569,12 @@ export const toggleRuleAction = actionClient
 
       for (const actionType of actionTypes) {
         if (actionType.includeFolder) {
-          await emailProvider.getOrCreateOutlookFolderIdByName(ruleConfig.name);
+          const folderId = await emailProvider.getOrCreateOutlookFolderIdByName(
+            ruleConfig.name,
+          );
           actions.push({
             type: actionType.type,
+            folderId,
             fields: createEmptyActionFields({ folderName: ruleConfig.name }),
           });
         } else if (actionType.includeLabel) {
@@ -630,6 +634,7 @@ function mapActionToSanitizedFields(action: {
   bcc?: { value?: string | null } | null;
   url?: { value?: string | null } | null;
   folderName?: { value?: string | null } | null;
+  folderId?: { value?: string | null } | null;
   delayInMinutes?: number | null;
 }) {
   return sanitizeActionFields({
@@ -643,6 +648,7 @@ function mapActionToSanitizedFields(action: {
     bcc: action.bcc?.value,
     url: action.url?.value,
     folderName: action.folderName?.value,
+    folderId: action.folderId?.value,
     delayInMinutes: action.delayInMinutes,
   });
 }
@@ -683,6 +689,12 @@ async function resolveActionLabels<
       value?: string | null;
       ai?: boolean | null;
     } | null;
+    folderName?: {
+      value?: string | null;
+    } | null;
+    folderId?: {
+      value?: string | null;
+    } | null;
   },
 >(actions: T[], emailAccountId: string, provider: string) {
   const emailProvider = await createEmailProvider({
@@ -707,6 +719,22 @@ async function resolveActionLabels<
             ai: action.labelId?.ai,
           },
         };
+      }
+      if (action.type === ActionType.MOVE_FOLDER) {
+        const folderName = action.folderName?.value;
+        if (folderName && !action.folderId?.value) {
+          const resolvedFolderId =
+            await emailProvider.getOrCreateOutlookFolderIdByName(folderName);
+          return {
+            ...action,
+            folderId: {
+              value: resolvedFolderId,
+            },
+            folderName: {
+              value: folderName,
+            },
+          };
+        }
       }
       return action;
     }),
