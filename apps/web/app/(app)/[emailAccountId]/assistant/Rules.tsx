@@ -55,12 +55,13 @@ import { ColdEmailDialog } from "@/app/(app)/[emailAccountId]/cold-email-blocker
 import { useChat } from "@/providers/ChatProvider";
 import { useSidebar } from "@/components/ui/sidebar";
 import { useLabels } from "@/hooks/useLabels";
+import { isConversationStatusType } from "@/utils/reply-tracker/conversation-status-config";
 import {
-  CONVERSATION_STATUS_TYPES,
-  isConversationStatusType,
-  type ConversationStatus,
-} from "@/utils/reply-tracker/conversation-status-config";
-import { getRuleConfig } from "@/utils/rule/consts";
+  getRuleConfig,
+  SYSTEM_RULE_ORDER,
+  getDefaultActions,
+} from "@/utils/rule/consts";
+import { DEFAULT_COLD_EMAIL_PROMPT } from "@/utils/cold-email/prompt";
 
 export function Rules({
   size = "md",
@@ -93,53 +94,45 @@ export function Rules({
   const rules: RulesResponse = useMemo(() => {
     const existingRules = data || [];
 
-    // Create placeholder entries for conversation status rules that don't exist
-    const conversationStatusPlaceholders = CONVERSATION_STATUS_TYPES.map(
-      (systemType) => {
-        const existingRule = existingRules.find(
-          (r) => r.systemType === systemType,
-        );
-        if (existingRule) return existingRule;
+    const systemRulePlaceholders = SYSTEM_RULE_ORDER.map((systemType) => {
+      const existingRule = existingRules.find(
+        (r) => r.systemType === systemType,
+      );
+      if (existingRule) return existingRule;
 
-        const ruleConfiguration = getRuleConfig(systemType);
+      const ruleConfiguration = getRuleConfig(systemType);
 
-        // Create placeholder for missing conversation status rule
-        return {
-          id: `placeholder-${systemType}`,
-          name: ruleConfiguration.name,
-          instructions: ruleConfiguration.instructions,
-          enabled: false,
-          runOnThreads: false,
-          automate: true,
-          actions: [],
-          categoryFilters: [],
-          group: null,
-          emailAccountId: emailAccountId,
-          createdAt: new Date(),
-          updatedAt: new Date(),
-          categoryFilterType: null,
-          conditionalOperator: LogicalOperator.OR,
-          groupId: null,
-          systemType,
-          to: null,
-          from: null,
-          subject: null,
-          body: null,
-          promptText: null,
-        };
-      },
-    );
+      return {
+        id: `placeholder-${systemType}`,
+        name: ruleConfiguration.name,
+        instructions: ruleConfiguration.instructions,
+        enabled: false,
+        runOnThreads: false,
+        automate: true,
+        actions: getDefaultActions(systemType, provider),
+        categoryFilters: [],
+        group: null,
+        emailAccountId: emailAccountId,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        categoryFilterType: null,
+        conditionalOperator: LogicalOperator.OR,
+        groupId: null,
+        systemType,
+        to: null,
+        from: null,
+        subject: null,
+        body: null,
+        promptText: null,
+      };
+    });
 
-    // Get non-conversation-status rules
-    const otherRules = existingRules.filter(
-      (rule) => !isConversationStatusType(rule.systemType),
-    );
+    const userRules = existingRules.filter((rule) => !rule.systemType);
 
-    // Combine and sort: enabled first, then conversation status rules at the top
-    return [...conversationStatusPlaceholders, ...otherRules].sort(
+    return [...systemRulePlaceholders, ...userRules].sort(
       (a, b) => (b.enabled ? 1 : 0) - (a.enabled ? 1 : 0),
     );
-  }, [data, emailAccountId]);
+  }, [data, emailAccountId, provider]);
 
   const hasRules = !!rules?.length;
 
@@ -181,8 +174,11 @@ export function Rules({
                   return (
                     <TableRow
                       key={rule.id}
-                      className={!rule.enabled ? "bg-muted opacity-60" : ""}
+                      className={`${!rule.enabled ? "bg-muted opacity-60" : ""} ${
+                        isPlaceholder ? "cursor-default" : "cursor-pointer"
+                      }`}
                       onClick={() => {
+                        if (isPlaceholder) return;
                         ruleDialog.onOpen({
                           ruleId: rule.id,
                           editMode: false,
@@ -197,10 +193,12 @@ export function Rules({
                           size="sm"
                           checked={rule.enabled}
                           onCheckedChange={async (enabled) => {
+                            const isSystemRule = !!rule.systemType;
+
                             // Optimistic update
                             mutate(
                               data?.map((r) =>
-                                isConversationStatus
+                                isSystemRule
                                   ? r.systemType === rule.systemType
                                     ? { ...r, enabled }
                                     : r
@@ -212,12 +210,8 @@ export function Rules({
                             );
 
                             const result = await toggleRule({
-                              ruleId: isConversationStatus
-                                ? undefined
-                                : rule.id,
-                              systemType: isConversationStatus
-                                ? (rule.systemType as ConversationStatus)
-                                : undefined,
+                              ruleId: isSystemRule ? undefined : rule.id,
+                              systemType: rule.systemType || undefined,
                               enabled,
                             });
 
@@ -234,32 +228,18 @@ export function Rules({
                           }}
                         />
                       </TableCell>
-                      <TableCell className="font-medium">
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            ruleDialog.onOpen({
-                              ruleId: rule.id,
-                              editMode: false,
-                            });
-                          }}
-                          className="text-left"
-                        >
-                          {rule.name}
-                        </button>
-                      </TableCell>
+                      <TableCell className="font-medium">{rule.name}</TableCell>
                       {size === "md" && (
                         <TableCell>
                           {(() => {
                             const systemRuleDesc = getSystemRuleDescription(
                               rule.systemType,
                             );
-                            if (systemRuleDesc) {
+                            if (isConversationStatus) {
                               return (
                                 <div className="flex items-center gap-2">
                                   <span className="text-sm text-muted-foreground">
-                                    {systemRuleDesc.condition}
+                                    {systemRuleDesc?.condition || ""}
                                   </span>
                                   <Tooltip>
                                     <TooltipTrigger asChild>
@@ -269,7 +249,10 @@ export function Rules({
                                       side="right"
                                       className="max-w-xs"
                                     >
-                                      <p>{systemRuleDesc.tooltip}</p>
+                                      <p>
+                                        System rule to track conversation
+                                        status. Conditions cannot be edited.
+                                      </p>
                                     </TooltipContent>
                                   </Tooltip>
                                 </div>
@@ -496,32 +479,22 @@ function getSystemRuleDescription(systemType: SystemType | null) {
     case SystemType.TO_REPLY:
       return {
         condition: "Emails needing your direct response",
-        tooltip:
-          "Tracks emails where someone is waiting for your reply. Excludes automated notifications, bulk emails, and newsletters.",
       };
     case SystemType.FYI:
       return {
         condition: "Important emails that don't need a response",
-        tooltip:
-          "Tracks emails that need your attention but don't require you or the other person to reply. Useful for keeping informed without action items.",
       };
     case SystemType.AWAITING_REPLY:
       return {
         condition: "Emails you're expecting a reply to",
-        tooltip:
-          "Tracks emails where you've replied and are waiting for the other person to respond back.",
       };
     case SystemType.ACTIONED:
       return {
         condition: "Resolved email threads",
-        tooltip:
-          "Marks email threads as complete with nothing left to do. Useful for keeping track of finished conversations.",
       };
     case SystemType.COLD_EMAIL:
       return {
-        condition: "Block cold emails",
-        tooltip:
-          "Uses AI to detect and automatically handle unsolicited outreach emails",
+        condition: DEFAULT_COLD_EMAIL_PROMPT,
       };
     default:
       return null;

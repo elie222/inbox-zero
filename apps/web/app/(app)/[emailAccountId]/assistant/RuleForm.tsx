@@ -63,7 +63,6 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { LearnedPatternsDialog } from "@/app/(app)/[emailAccountId]/assistant/group/LearnedPatterns";
-import { Badge } from "@/components/Badge";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { prefixPath } from "@/utils/path";
 import { useRule } from "@/hooks/useRule";
@@ -97,7 +96,7 @@ import { WebhookDocumentationLink } from "@/components/WebhookDocumentation";
 import { LabelCombobox } from "@/components/LabelCombobox";
 import { isConversationStatusType } from "@/utils/reply-tracker/conversation-status-config";
 import { Tooltip } from "@/components/Tooltip";
-import { getRuleLabel } from "@/utils/rule/consts";
+import { getRuleConfig } from "@/utils/rule/consts";
 
 export function Rule({
   ruleId,
@@ -343,8 +342,10 @@ export function RuleForm({
   }, [provider, terminology.label.action]);
 
   const [isNameEditMode, setIsNameEditMode] = useState(alwaysEditMode);
-  const [isConditionsEditMode, setIsConditionsEditMode] =
-    useState(alwaysEditMode);
+  const [isConditionsEditMode, setIsConditionsEditMode] = useState(
+    alwaysEditMode &&
+      !(rule.systemType && isConversationStatusType(rule.systemType)),
+  );
   const [isActionsEditMode, setIsActionsEditMode] = useState(alwaysEditMode);
 
   const toggleActionsEditMode = useCallback(() => {
@@ -354,10 +355,13 @@ export function RuleForm({
   }, [alwaysEditMode]);
 
   const toggleConditionsEditMode = useCallback(() => {
-    if (!alwaysEditMode) {
+    if (
+      !alwaysEditMode &&
+      !(rule.systemType && isConversationStatusType(rule.systemType))
+    ) {
       setIsConditionsEditMode((prev: boolean) => !prev);
     }
-  }, [alwaysEditMode]);
+  }, [alwaysEditMode, rule.systemType]);
 
   const toggleNameEditMode = useCallback(() => {
     if (!alwaysEditMode) {
@@ -408,45 +412,68 @@ export function RuleForm({
           <TypographyH3 className="text-xl">Conditions</TypographyH3>
 
           <div className="flex items-center gap-1.5">
-            {isConditionsEditMode && (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="outline" size="sm">
-                    <FilterIcon className="mr-2 h-4 w-4" />
-                    Match{" "}
-                    {!conditionalOperator ||
-                    conditionalOperator === LogicalOperator.AND
-                      ? "all"
-                      : "any"}
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent>
-                  <DropdownMenuRadioGroup
-                    value={conditionalOperator}
-                    onValueChange={(value) =>
-                      setValue("conditionalOperator", value as LogicalOperator)
-                    }
-                  >
-                    <DropdownMenuRadioItem value={LogicalOperator.AND}>
-                      Match all conditions
-                    </DropdownMenuRadioItem>
-                    <DropdownMenuRadioItem value={LogicalOperator.OR}>
-                      Match any condition
-                    </DropdownMenuRadioItem>
-                  </DropdownMenuRadioGroup>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            )}
+            {isConditionsEditMode &&
+              !(
+                rule.systemType && isConversationStatusType(rule.systemType)
+              ) && (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" size="sm">
+                      <FilterIcon className="mr-2 h-4 w-4" />
+                      Match{" "}
+                      {!conditionalOperator ||
+                      conditionalOperator === LogicalOperator.AND
+                        ? "all"
+                        : "any"}
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent>
+                    <DropdownMenuRadioGroup
+                      value={conditionalOperator}
+                      onValueChange={(value) =>
+                        setValue(
+                          "conditionalOperator",
+                          value as LogicalOperator,
+                        )
+                      }
+                    >
+                      <DropdownMenuRadioItem value={LogicalOperator.AND}>
+                        Match all conditions
+                      </DropdownMenuRadioItem>
+                      <DropdownMenuRadioItem value={LogicalOperator.OR}>
+                        Match any condition
+                      </DropdownMenuRadioItem>
+                    </DropdownMenuRadioGroup>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              )}
 
             {!alwaysEditMode && (
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={toggleConditionsEditMode}
-                Icon={!isConditionsEditMode ? PencilIcon : undefined}
+              <Tooltip
+                hide={
+                  !(
+                    rule.systemType && isConversationStatusType(rule.systemType)
+                  )
+                }
+                content="System rule to track conversation status. Conditions cannot be edited."
               >
-                {isConditionsEditMode ? "View" : "Edit"}
-              </Button>
+                <span>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={toggleConditionsEditMode}
+                    Icon={!isConditionsEditMode ? PencilIcon : undefined}
+                    disabled={
+                      !!(
+                        rule.systemType &&
+                        isConversationStatusType(rule.systemType)
+                      )
+                    }
+                  >
+                    {isConditionsEditMode ? "View" : "Edit"}
+                  </Button>
+                </span>
+              </Tooltip>
             )}
           </div>
         </div>
@@ -559,28 +586,42 @@ export function RuleForm({
                     </CardLayoutLeft>
 
                     <CardLayoutRight>
-                      {watch(`conditions.${index}.type`) ===
-                        ConditionType.AI && (
-                        <Input
-                          type="text"
-                          autosizeTextarea
-                          rows={3}
-                          name={`conditions.${index}.instructions`}
-                          label="Instructions"
-                          registerProps={register(
-                            `conditions.${index}.instructions`,
-                          )}
-                          error={
-                            (
-                              errors.conditions?.[index] as {
-                                instructions?: FieldError;
-                              }
-                            )?.instructions
-                          }
-                          placeholder="e.g. Newsletters, regular content from publications, blogs, or services I've subscribed to"
-                          tooltipText="The instructions that will be passed to the AI."
-                        />
-                      )}
+                      {watch(`conditions.${index}.type`) === ConditionType.AI &&
+                        (rule.systemType &&
+                        isConversationStatusType(rule.systemType) ? (
+                          <div>
+                            <Label name="instructions" label="Instructions" />
+                            <div className="mt-2 rounded-md bg-muted/50 p-3 text-sm text-muted-foreground">
+                              <p>
+                                {getRuleConfig(rule.systemType).instructions}
+                              </p>
+                              <p className="mt-2 text-xs italic">
+                                Note: Instructions for conversation tracking
+                                rules cannot be edited.
+                              </p>
+                            </div>
+                          </div>
+                        ) : (
+                          <Input
+                            type="text"
+                            autosizeTextarea
+                            rows={3}
+                            name={`conditions.${index}.instructions`}
+                            label="Instructions"
+                            registerProps={register(
+                              `conditions.${index}.instructions`,
+                            )}
+                            error={
+                              (
+                                errors.conditions?.[index] as {
+                                  instructions?: FieldError;
+                                }
+                              )?.instructions
+                            }
+                            placeholder="e.g. Newsletters, regular content from publications, blogs, or services I've subscribed to"
+                            tooltipText="The instructions that will be passed to the AI."
+                          />
+                        ))}
 
                       {watch(`conditions.${index}.type`) ===
                         ConditionType.STATIC && (
@@ -769,29 +810,31 @@ export function RuleForm({
           ))}
         </div>
 
-        {isConditionsEditMode && unusedCondition && (
-          <div className="mt-4">
-            <Tooltip
-              hide={allowMultipleConditions(rule.systemType)}
-              content="You can only set one condition for this rule."
-            >
-              <span>
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  onClick={() => {
-                    appendCondition(getEmptyCondition(unusedCondition));
-                    setIsConditionsEditMode(true);
-                  }}
-                  disabled={!allowMultipleConditions(rule.systemType)}
-                  Icon={PlusIcon}
-                >
-                  Add Condition
-                </Button>
-              </span>
-            </Tooltip>
-          </div>
-        )}
+        {isConditionsEditMode &&
+          unusedCondition &&
+          !(rule.systemType && isConversationStatusType(rule.systemType)) && (
+            <div className="mt-4">
+              <Tooltip
+                hide={allowMultipleConditions(rule.systemType)}
+                content="You can only set one condition for this rule."
+              >
+                <span>
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => {
+                      appendCondition(getEmptyCondition(unusedCondition));
+                      setIsConditionsEditMode(true);
+                    }}
+                    disabled={!allowMultipleConditions(rule.systemType)}
+                    Icon={PlusIcon}
+                  >
+                    Add Condition
+                  </Button>
+                </span>
+              </Tooltip>
+            </div>
+          )}
 
         <div className="mt-4 flex items-center justify-between">
           <TypographyH3 className="text-xl">Actions</TypographyH3>

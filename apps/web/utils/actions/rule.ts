@@ -32,9 +32,9 @@ import {
   enableReplyTracker,
 } from "@/utils/reply-tracker/enable";
 import {
-  getCategoryAction,
   getRuleConfig,
-  getRuleName,
+  getSystemRuleActionTypes,
+  getCategoryAction,
 } from "@/utils/rule/consts";
 import { actionClient } from "@/utils/actions/safe-action";
 import { prefixPath } from "@/utils/path";
@@ -667,37 +667,87 @@ export const toggleRuleAction = actionClient
         provider,
       });
 
-      const labelInfo = await resolveLabelNameAndId({
-        emailProvider,
-        label: getRuleName(systemType),
-        labelId: null,
-      });
+      const ruleConfig = getRuleConfig(systemType);
+      const actionTypes = getSystemRuleActionTypes(systemType, provider);
+
+      // Build actions based on system rule config
+      const actions: Array<{
+        type: ActionType;
+        labelId?: string | null;
+        fields: {
+          label: string | null;
+          to: string | null;
+          subject: string | null;
+          content: string | null;
+          cc: string | null;
+          bcc: string | null;
+          webhookUrl: string | null;
+          folderName: string | null;
+        };
+      }> = [];
+
+      for (const actionType of actionTypes) {
+        if (actionType.includeFolder) {
+          await emailProvider.getOrCreateOutlookFolderIdByName(ruleConfig.name);
+          actions.push({
+            type: actionType.type,
+            fields: {
+              folderName: ruleConfig.name,
+              label: null,
+              to: null,
+              subject: null,
+              content: null,
+              cc: null,
+              bcc: null,
+              webhookUrl: null,
+            },
+          });
+        } else if (actionType.includeLabel) {
+          const labelInfo = await resolveLabelNameAndId({
+            emailProvider,
+            label: ruleConfig.label,
+            labelId: null,
+          });
+          actions.push({
+            type: actionType.type,
+            labelId: labelInfo.labelId,
+            fields: {
+              label: labelInfo.label,
+              to: null,
+              subject: null,
+              content: null,
+              cc: null,
+              bcc: null,
+              webhookUrl: null,
+              folderName: null,
+            },
+          });
+        } else {
+          actions.push({
+            type: actionType.type,
+            fields: {
+              label: null,
+              to: null,
+              subject: null,
+              content: null,
+              cc: null,
+              bcc: null,
+              webhookUrl: null,
+              folderName: null,
+            },
+          });
+        }
+      }
 
       const createdRule = await safeCreateRule({
         result: {
-          name: getRuleName(systemType),
+          name: ruleConfig.name,
           condition: {
-            aiInstructions:
-              "Personal conversations with real people. Excludes: automated notifications and bulk emails.",
+            aiInstructions: ruleConfig.instructions,
             conditionalOperator: null,
             static: null,
           },
-          actions: [
-            {
-              type: ActionType.LABEL,
-              labelId: labelInfo.labelId,
-              fields: {
-                label: labelInfo.label,
-                to: null,
-                subject: null,
-                content: null,
-                cc: null,
-                bcc: null,
-                webhookUrl: null,
-                folderName: null,
-              },
-            },
-          ],
+          actions,
         },
         emailAccountId,
         systemType,

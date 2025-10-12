@@ -273,3 +273,36 @@ export function getDefaultActions(
 
   return actions;
 }
+
+export function getSystemRuleActionTypes(
+  systemType: SystemType,
+  provider: string,
+): Array<{
+  type: ActionType;
+  includeLabel?: boolean;
+  includeFolder?: boolean;
+}> {
+  const config = getRuleConfig(systemType);
+  const categoryAction = getCategoryAction(systemType, provider);
+  const actionTypes: Array<{
+    type: ActionType;
+    includeLabel?: boolean;
+    includeFolder?: boolean;
+  }> = [];
+
+  if (categoryAction === "move_folder") {
+    actionTypes.push({ type: ActionType.MOVE_FOLDER, includeFolder: true });
+  } else {
+    actionTypes.push({ type: ActionType.LABEL, includeLabel: true });
+  }
+
+  if (categoryAction === "label_archive") {
+    actionTypes.push({ type: ActionType.ARCHIVE });
+  }
+
+  if (config.draftReply) {
+    actionTypes.push({ type: ActionType.DRAFT_EMAIL });
+  }
+
+  return actionTypes;
+}
