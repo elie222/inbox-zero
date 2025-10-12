@@ -27,10 +27,6 @@ import { sanitizeActionFields } from "@/utils/action-item";
 import { deleteRule, safeCreateRule } from "@/utils/rule/rule";
 import { SafeError } from "@/utils/error";
 import {
-  createToReplyRule,
-  enableDraftReplies,
-} from "@/utils/reply-tracker/enable";
-import {
   getRuleConfig,
   getSystemRuleActionTypes,
   getCategoryAction,
@@ -249,32 +245,26 @@ export const enableDraftRepliesAction = actionClient
   .schema(enableDraftRepliesBody)
   .action(
     async ({ ctx: { emailAccountId, provider }, parsedInput: { enable } }) => {
-      let rule = await prisma.rule.findUnique({
-        where: {
-          emailAccountId_systemType: {
-            emailAccountId,
-            systemType: SystemType.TO_REPLY,
-          },
-        },
-        include: { actions: true },
+      const rule = await toggleRule({
+        emailAccountId,
+        enabled: enable,
+        systemType: SystemType.TO_REPLY,
+        provider,
+        ruleId: undefined,
       });
 
-      if (!rule) {
-        const newRule = await createToReplyRule(
-          emailAccountId,
-          false,
-          provider,
-        );
-
-        if (!newRule) {
-          throw new SafeError("Failed to create To Reply rule");
-        }
-
-        rule = newRule;
-      }
-
       if (enable) {
-        await enableDraftReplies(rule);
+        const alreadyDraftingReplies = rule?.actions?.find(
+          (a) => a.type === ActionType.DRAFT_EMAIL,
+        );
+        if (!alreadyDraftingReplies) {
+          await prisma.action.create({
+            data: {
+              ruleId: rule.id,
+              type: ActionType.DRAFT_EMAIL,
+            },
+          });
+        }
       } else {
         await prisma.action.deleteMany({
           where: {
@@ -284,8 +274,6 @@ export const enableDraftRepliesAction = actionClient
         });
       }
 
-      revalidatePath(prefixPath(emailAccountId, "/assistant"));
-      revalidatePath(prefixPath(emailAccountId, "/automation"));
       revalidatePath(prefixPath(emailAccountId, "/reply-zero"));
     },
   );
@@ -514,111 +502,135 @@ export const toggleRuleAction = actionClient
       ctx: { emailAccountId, provider },
       parsedInput: { ruleId, systemType, enabled },
     }) => {
-      if (ruleId) {
-        await prisma.rule.update({
-          where: { id: ruleId, emailAccountId },
-          data: { enabled },
-        });
-        return;
-      }
-
-      if (!systemType) {
-        throw new SafeError("System type is required");
-      }
-
-      const existingRule = await prisma.rule.findUnique({
-        where: {
-          emailAccountId_systemType: {
-            emailAccountId,
-            systemType,
-          },
-        },
-      });
-
-      if (existingRule) {
-        await prisma.rule.update({
-          where: { id: existingRule.id },
-          data: { enabled },
-        });
-        return;
-      }
-
-      const emailProvider = await createEmailProvider({
-        emailAccountId,
-        provider,
-      });
-
-      const ruleConfig = getRuleConfig(systemType);
-      const actionTypes = getSystemRuleActionTypes(systemType, provider);
-
-      const actions: Array<{
-        type: ActionType;
-        labelId?: string | null;
-        folderId?: string | null;
-        fields: {
-          label: string | null;
-          to: string | null;
-          subject: string | null;
-          content: string | null;
-          cc: string | null;
-          bcc: string | null;
-          webhookUrl: string | null;
-          folderName: string | null;
-        };
-      }> = [];
-
-      for (const actionType of actionTypes) {
-        if (actionType.includeFolder) {
-          const folderId = await emailProvider.getOrCreateOutlookFolderIdByName(
-            ruleConfig.name,
-          );
-          actions.push({
-            type: actionType.type,
-            folderId,
-            fields: createEmptyActionFields({ folderName: ruleConfig.name }),
-          });
-        } else if (actionType.includeLabel) {
-          const labelInfo = await resolveLabelNameAndId({
-            emailProvider,
-            label: ruleConfig.label,
-            labelId: null,
-          });
-          actions.push({
-            type: actionType.type,
-            labelId: labelInfo.labelId,
-            fields: createEmptyActionFields({ label: labelInfo.label }),
-          });
-        } else {
-          actions.push({
-            type: actionType.type,
-            fields: createEmptyActionFields(),
-          });
-        }
-      }
-
-      const createdRule = await safeCreateRule({
-        result: {
-          name: ruleConfig.name,
-          condition: {
-            aiInstructions: ruleConfig.instructions,
-            conditionalOperator: null,
-            static: null,
-          },
-          actions,
-        },
-        emailAccountId,
+      await toggleRule({
+        ruleId,
         systemType,
-        triggerType: "manual_creation",
-        shouldCreateIfDuplicate: true,
+        enabled,
+        emailAccountId,
         provider,
-        runOnThreads: ruleConfig.runOnThreads,
       });
-
-      if (!createdRule) {
-        throw new SafeError("Failed to create rule");
-      }
     },
   );
+
+async function toggleRule({
+  ruleId,
+  systemType,
+  enabled,
+  emailAccountId,
+  provider,
+}: {
+  ruleId: string | undefined;
+  systemType: SystemType | undefined;
+  enabled: boolean;
+  emailAccountId: string;
+  provider: string;
+}) {
+  if (ruleId) {
+    return await prisma.rule.update({
+      where: { id: ruleId, emailAccountId },
+      data: { enabled },
+      include: { actions: true },
+    });
+  }
+
+  if (!systemType) {
+    throw new SafeError("System type is required");
+  }
+
+  const existingRule = await prisma.rule.findUnique({
+    where: {
+      emailAccountId_systemType: {
+        emailAccountId,
+        systemType,
+      },
+    },
+  });
+
+  if (existingRule) {
+    return await prisma.rule.update({
+      where: { id: existingRule.id },
+      data: { enabled },
+      include: { actions: true },
+    });
+  }
+
+  const emailProvider = await createEmailProvider({
+    emailAccountId,
+    provider,
+  });
+
+  const ruleConfig = getRuleConfig(systemType);
+  const actionTypes = getSystemRuleActionTypes(systemType, provider);
+
+  const actions: Array<{
+    type: ActionType;
+    labelId?: string | null;
+    folderId?: string | null;
+    fields: {
+      label: string | null;
+      to: string | null;
+      subject: string | null;
+      content: string | null;
+      cc: string | null;
+      bcc: string | null;
+      webhookUrl: string | null;
+      folderName: string | null;
+    };
+  }> = [];
+
+  for (const actionType of actionTypes) {
+    if (actionType.includeFolder) {
+      const folderId = await emailProvider.getOrCreateOutlookFolderIdByName(
+        ruleConfig.name,
+      );
+      actions.push({
+        type: actionType.type,
+        folderId,
+        fields: createEmptyActionFields({ folderName: ruleConfig.name }),
+      });
+    } else if (actionType.includeLabel) {
+      const labelInfo = await resolveLabelNameAndId({
+        emailProvider,
+        label: ruleConfig.label,
+        labelId: null,
+      });
+      actions.push({
+        type: actionType.type,
+        labelId: labelInfo.labelId,
+        fields: createEmptyActionFields({ label: labelInfo.label }),
+      });
+    } else {
+      actions.push({
+        type: actionType.type,
+        fields: createEmptyActionFields(),
+      });
+    }
+  }
+
+  const createdRule = await safeCreateRule({
+    result: {
+      name: ruleConfig.name,
+      condition: {
+        aiInstructions: ruleConfig.instructions,
+        conditionalOperator: null,
+        static: null,
+      },
+      actions,
+    },
+    emailAccountId,
+    systemType,
+    triggerType: "manual_creation",
+    shouldCreateIfDuplicate: true,
+    provider,
+    runOnThreads: ruleConfig.runOnThreads,
+  });
+
+  if (!createdRule) {
+    throw new SafeError("Failed to create rule");
+  }
+
+  return createdRule;
+}
 
 function mapActionToSanitizedFields(action: {
   type: ActionType;
