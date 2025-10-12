@@ -7,19 +7,8 @@ import {
   startAnalyzingReplyTracker,
   stopAnalyzingReplyTracker,
 } from "@/utils/redis/reply-tracker-analyzing";
-import { enableReplyTracker } from "@/utils/reply-tracker/enable";
 import { actionClient } from "@/utils/actions/safe-action";
 import { prefixPath } from "@/utils/path";
-
-export const enableReplyTrackerAction = actionClient
-  .metadata({ name: "enableReplyTracker" })
-  .action(async ({ ctx: { emailAccountId, provider } }) => {
-    await enableReplyTracker({ emailAccountId, provider });
-
-    revalidatePath(prefixPath(emailAccountId, "/reply-zero"));
-
-    return { success: true };
-  });
 
 const resolveThreadTrackerSchema = z.object({
   threadId: z.string(),

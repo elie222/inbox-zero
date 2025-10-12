@@ -29,7 +29,6 @@ import { SafeError } from "@/utils/error";
 import {
   createToReplyRule,
   enableDraftReplies,
-  enableReplyTracker,
 } from "@/utils/reply-tracker/enable";
 import {
   getRuleConfig,
@@ -405,14 +404,6 @@ export const createRulesOnboardingAction = actionClient
         }
       }
 
-      const toReply = systemCategoryMap.get(SystemType.TO_REPLY);
-      const newsletter = systemCategoryMap.get(SystemType.NEWSLETTER);
-      const marketing = systemCategoryMap.get(SystemType.MARKETING);
-      const calendar = systemCategoryMap.get(SystemType.CALENDAR);
-      const receipt = systemCategoryMap.get(SystemType.RECEIPT);
-      const notification = systemCategoryMap.get(SystemType.NOTIFICATION);
-      const coldEmail = systemCategoryMap.get(SystemType.COLD_EMAIL);
-
       const emailAccount = await prisma.emailAccount.findUnique({
         where: { id: emailAccountId },
         select: { rulesPrompt: true },
@@ -431,16 +422,6 @@ export const createRulesOnboardingAction = actionClient
         | "move_folder_delayed" => value !== "none" && value !== undefined;
 
       const rules: string[] = [];
-
-      // reply tracker
-      if (toReply && isSet(toReply.action)) {
-        const promise = enableReplyTracker({
-          emailAccountId,
-          addDigest: toReply.hasDigest ?? false,
-          provider,
-        });
-        promises.push(promise);
-      }
 
       async function createRule(systemType: SystemType) {
         const ruleConfiguration = getRuleConfig(systemType);
@@ -461,14 +442,15 @@ export const createRulesOnboardingAction = actionClient
 
         if (existingRule) {
           const promise = (async () => {
-            const actions = await getActionsFromCategoryAction(
+            const actions = await getActionsFromCategoryAction({
               emailAccountId,
-              existingRule,
+              rule: existingRule,
               categoryAction,
               label,
-              false, // digest
+              hasDigest: false,
+              draftReply: !!ruleConfiguration.draftReply,
               provider,
-            );
+            });
 
             return (
               prisma.rule
@@ -493,14 +475,15 @@ export const createRulesOnboardingAction = actionClient
           promises.push(promise);
         } else {
           const promise = (async () => {
-            const actions = await getActionsFromCategoryAction(
+            const actions = await getActionsFromCategoryAction({
               emailAccountId,
-              { name } as Rule, // Mock rule object for create operation
+              rule: { name } as Rule, // Mock rule object for create operation
               categoryAction,
               label,
-              false, // digest
+              hasDigest: false,
+              draftReply: !!ruleConfiguration.draftReply,
               provider,
-            );
+            });
 
             return prisma.rule
               .create({
@@ -540,53 +523,38 @@ export const createRulesOnboardingAction = actionClient
         promises.push(promise());
       }
 
-      if (newsletter && isSet(newsletter.action)) {
-        createRule(SystemType.NEWSLETTER);
-      } else {
-        deleteRule(SystemType.NEWSLETTER, emailAccountId);
-      }
+      // Process system rules
+      const systemRules = [
+        SystemType.TO_REPLY,
+        SystemType.NEWSLETTER,
+        SystemType.MARKETING,
+        SystemType.CALENDAR,
+        SystemType.RECEIPT,
+        SystemType.NOTIFICATION,
+        SystemType.COLD_EMAIL,
+      ];
 
-      if (marketing && isSet(marketing.action)) {
-        createRule(SystemType.MARKETING);
-      } else {
-        deleteRule(SystemType.MARKETING, emailAccountId);
-      }
-
-      if (calendar && isSet(calendar.action)) {
-        createRule(SystemType.CALENDAR);
-      } else {
-        deleteRule(SystemType.CALENDAR, emailAccountId);
-      }
-
-      if (receipt && isSet(receipt.action)) {
-        createRule(SystemType.RECEIPT);
-      } else {
-        deleteRule(SystemType.RECEIPT, emailAccountId);
-      }
-
-      if (notification && isSet(notification.action)) {
-        createRule(SystemType.NOTIFICATION);
-      } else {
-        deleteRule(SystemType.NOTIFICATION, emailAccountId);
-      }
-
-      if (coldEmail && isSet(coldEmail.action)) {
-        createRule(SystemType.COLD_EMAIL);
-      } else {
-        deleteRule(SystemType.COLD_EMAIL, emailAccountId);
+      for (const type of systemRules) {
+        const config = systemCategoryMap.get(type);
+        if (config && isSet(config.action)) {
+          createRule(type);
+        } else {
+          deleteRule(type, emailAccountId);
+        }
       }
 
       // Create rules for custom categories
       for (const customCategory of customCategories) {
         if (customCategory.action && isSet(customCategory.action)) {
-          const actions = await getActionsFromCategoryAction(
+          const actions = await getActionsFromCategoryAction({
             emailAccountId,
-            { name: customCategory.name } as Rule,
-            customCategory.action,
-            customCategory.name,
-            false, // digest
+            rule: { name: customCategory.name } as Rule,
+            categoryAction: customCategory.action,
+            label: customCategory.name,
+            hasDigest: false,
+            draftReply: false,
             provider,
-          );
+          });
 
           const promise = prisma.rule
             .create({
@@ -800,14 +768,23 @@ async function resolveActionLabels<
   );
 }
 
-async function getActionsFromCategoryAction(
-  emailAccountId: string,
-  rule: Rule,
-  categoryAction: CategoryAction,
-  label: string,
-  hasDigest: boolean,
-  provider: string,
-): Promise<Prisma.ActionCreateManyRuleInput[]> {
+async function getActionsFromCategoryAction({
+  emailAccountId,
+  rule,
+  categoryAction,
+  label,
+  draftReply,
+  hasDigest,
+  provider,
+}: {
+  emailAccountId: string;
+  rule: Rule;
+  categoryAction: CategoryAction;
+  label: string;
+  hasDigest: boolean;
+  draftReply: boolean;
+  provider: string;
+}): Promise<Prisma.ActionCreateManyRuleInput[]> {
   const emailProvider = await createEmailProvider({
     emailAccountId,
     provider,
@@ -857,6 +834,10 @@ async function getActionsFromCategoryAction(
       ];
       break;
     }
+  }
+
+  if (draftReply) {
+    actions.push({ type: ActionType.DRAFT_EMAIL });
   }
 
   if (hasDigest) {
