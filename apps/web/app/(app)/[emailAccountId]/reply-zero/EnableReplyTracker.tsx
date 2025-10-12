@@ -6,7 +6,6 @@ import { EnableFeatureCard } from "@/components/EnableFeatureCard";
 import { toastSuccess } from "@/components/Toast";
 import { toastError } from "@/components/Toast";
 import { SectionDescription } from "@/components/Typography";
-import { enableReplyTrackerAction } from "@/utils/actions/reply-tracking";
 import {
   markOnboardingAsCompleted,
   REPLY_ZERO_ONBOARDING_COOKIE,
@@ -15,6 +14,11 @@ import { useAccount } from "@/providers/EmailAccountProvider";
 import { prefixPath } from "@/utils/path";
 import { getRuleLabel } from "@/utils/rule/consts";
 import { SystemType } from "@prisma/client";
+import {
+  enableDraftRepliesAction,
+  toggleRuleAction,
+} from "@/utils/actions/rule";
+import { CONVERSATION_STATUS_TYPES } from "@/utils/reply-tracker/conversation-status-config";
 
 export function EnableReplyTracker({ enabled }: { enabled: boolean }) {
   const router = useRouter();
@@ -62,7 +66,17 @@ export function EnableReplyTracker({ enabled }: { enabled: boolean }) {
           return;
         }
 
-        const result = await enableReplyTrackerAction(emailAccountId);
+        const promises = [
+          ...CONVERSATION_STATUS_TYPES.map((systemType) =>
+            toggleRuleAction(emailAccountId, {
+              enabled: true,
+              systemType,
+            }),
+          ),
+          enableDraftRepliesAction(emailAccountId, { enable: true }),
+        ];
+
+        const result = await Promise.race(promises);
 
         if (result?.serverError) {
           toastError({

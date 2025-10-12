@@ -41,6 +41,7 @@ import { createRuleHistory } from "@/utils/rule/rule-history";
 import { ONE_WEEK_MINUTES } from "@/utils/date";
 import { createEmailProvider } from "@/utils/email/provider";
 import { resolveLabelNameAndId } from "@/utils/label/resolve-label";
+import type { Logger } from "@/utils/logger";
 
 export const createRuleAction = actionClient
   .metadata({ name: "createRule" })
@@ -73,34 +74,7 @@ export const createRuleAction = actionClient
             actions: resolvedActions.length
               ? {
                   createMany: {
-                    data: resolvedActions.map(
-                      ({
-                        type,
-                        labelId,
-                        subject,
-                        content,
-                        to,
-                        cc,
-                        bcc,
-                        url,
-                        folderName,
-                        delayInMinutes,
-                      }) => {
-                        return sanitizeActionFields({
-                          type,
-                          label: labelId?.name,
-                          labelId: labelId?.value,
-                          subject: subject?.value,
-                          content: content?.value,
-                          to: to?.value,
-                          cc: cc?.value,
-                          bcc: bcc?.value,
-                          url: url?.value,
-                          folderName: folderName?.value,
-                          delayInMinutes,
-                        });
-                      },
-                    ),
+                    data: resolvedActions.map(mapActionToSanitizedFields),
                   },
                 }
               : undefined,
@@ -131,17 +105,7 @@ export const createRuleAction = actionClient
 
         return { rule };
       } catch (error) {
-        if (isDuplicateError(error, "name")) {
-          throw new SafeError("Rule name already exists");
-        }
-        if (isDuplicateError(error, "groupId")) {
-          throw new SafeError(
-            "Group already has a rule. Please use the existing rule.",
-          );
-        }
-
-        logger.error("Error creating rule", { error });
-        throw new SafeError("Error creating rule");
+        handleRuleError(error, logger);
       }
     },
   );
@@ -220,46 +184,20 @@ export const updateRuleAction = actionClient
               ]
             : []),
           // update actions
-          ...actionsToUpdate.map((a) => {
-            return prisma.action.update({
+          ...actionsToUpdate.map((a) =>
+            prisma.action.update({
               where: { id: a.id },
-              data: sanitizeActionFields({
-                type: a.type,
-                label: a.labelId?.name,
-                labelId: a.labelId?.value,
-                subject: a.subject?.value,
-                content: a.content?.value,
-                to: a.to?.value,
-                cc: a.cc?.value,
-                bcc: a.bcc?.value,
-                url: a.url?.value,
-                folderName: a.folderName?.value,
-                delayInMinutes: a.delayInMinutes,
-              }),
-            });
-          }),
+              data: mapActionToSanitizedFields(a),
+            }),
+          ),
           // create new actions
           ...(actionsToCreate.length
             ? [
                 prisma.action.createMany({
-                  data: actionsToCreate.map((a) => {
-                    return {
-                      ...sanitizeActionFields({
-                        type: a.type,
-                        label: a.labelId?.name,
-                        labelId: a.labelId?.value,
-                        subject: a.subject?.value,
-                        content: a.content?.value,
-                        to: a.to?.value,
-                        cc: a.cc?.value,
-                        bcc: a.bcc?.value,
-                        url: a.url?.value,
-                        folderName: a.folderName?.value,
-                        delayInMinutes: a.delayInMinutes,
-                      }),
-                      ruleId: id,
-                    };
-                  }),
+                  data: actionsToCreate.map((a) => ({
+                    ...mapActionToSanitizedFields(a),
+                    ruleId: id,
+                  })),
                 }),
               ]
             : []),
@@ -279,17 +217,7 @@ export const updateRuleAction = actionClient
 
         return { rule: updatedRule };
       } catch (error) {
-        if (isDuplicateError(error, "name")) {
-          throw new SafeError("Rule name already exists");
-        }
-        if (isDuplicateError(error, "groupId")) {
-          throw new SafeError(
-            "Group already has a rule. Please use the existing rule.",
-          );
-        }
-
-        logger.error("Error updating rule", { error });
-        throw new SafeError("Error updating rule");
+        handleRuleError(error, logger);
       }
     },
   );
@@ -421,15 +349,9 @@ export const createRulesOnboardingAction = actionClient
         | "move_folder"
         | "move_folder_delayed" => value !== "none" && value !== undefined;
 
-      const rules: string[] = [];
-
       async function createRule(systemType: SystemType) {
         const ruleConfiguration = getRuleConfig(systemType);
-
-        const name = ruleConfiguration.name;
-        const instructions = ruleConfiguration.instructions;
-        const label = ruleConfiguration.label;
-        const runOnThreads = ruleConfiguration.runOnThreads;
+        const { name, instructions, label, runOnThreads } = ruleConfiguration;
         const categoryAction = getCategoryAction(systemType, provider);
 
         const existingRule = systemType
@@ -581,15 +503,6 @@ export const createRulesOnboardingAction = actionClient
       }
 
       await Promise.allSettled(promises);
-
-      await prisma.emailAccount.update({
-        where: { id: emailAccountId },
-        data: {
-          rulesPrompt: `${emailAccount.rulesPrompt || ""}\n${rules
-            .map((r) => `* ${r}`)
-            .join("\n")}`.trim(),
-        },
-      });
     },
   );
 
@@ -659,16 +572,7 @@ export const toggleRuleAction = actionClient
           await emailProvider.getOrCreateOutlookFolderIdByName(ruleConfig.name);
           actions.push({
             type: actionType.type,
-            fields: {
-              folderName: ruleConfig.name,
-              label: null,
-              to: null,
-              subject: null,
-              content: null,
-              cc: null,
-              bcc: null,
-              webhookUrl: null,
-            },
+            fields: createEmptyActionFields({ folderName: ruleConfig.name }),
           });
         } else if (actionType.includeLabel) {
           const labelInfo = await resolveLabelNameAndId({
@@ -679,30 +583,12 @@ export const toggleRuleAction = actionClient
           actions.push({
             type: actionType.type,
             labelId: labelInfo.labelId,
-            fields: {
-              label: labelInfo.label,
-              to: null,
-              subject: null,
-              content: null,
-              cc: null,
-              bcc: null,
-              webhookUrl: null,
-              folderName: null,
-            },
+            fields: createEmptyActionFields({ label: labelInfo.label }),
           });
         } else {
           actions.push({
             type: actionType.type,
-            fields: {
-              label: null,
-              to: null,
-              subject: null,
-              content: null,
-              cc: null,
-              bcc: null,
-              webhookUrl: null,
-              folderName: null,
-            },
+            fields: createEmptyActionFields(),
           });
         }
       }
@@ -729,6 +615,65 @@ export const toggleRuleAction = actionClient
       }
     },
   );
+
+function mapActionToSanitizedFields(action: {
+  type: ActionType;
+  labelId?: {
+    name?: string | null;
+    value?: string | null;
+    ai?: boolean | null;
+  } | null;
+  subject?: { value?: string | null } | null;
+  content?: { value?: string | null } | null;
+  to?: { value?: string | null } | null;
+  cc?: { value?: string | null } | null;
+  bcc?: { value?: string | null } | null;
+  url?: { value?: string | null } | null;
+  folderName?: { value?: string | null } | null;
+  delayInMinutes?: number | null;
+}) {
+  return sanitizeActionFields({
+    type: action.type,
+    label: action.labelId?.name,
+    labelId: action.labelId?.value,
+    subject: action.subject?.value,
+    content: action.content?.value,
+    to: action.to?.value,
+    cc: action.cc?.value,
+    bcc: action.bcc?.value,
+    url: action.url?.value,
+    folderName: action.folderName?.value,
+    delayInMinutes: action.delayInMinutes,
+  });
+}
+
+function handleRuleError(error: unknown, logger: Logger) {
+  if (isDuplicateError(error, "name")) {
+    throw new SafeError("Rule name already exists");
+  }
+  if (isDuplicateError(error, "groupId")) {
+    throw new SafeError(
+      "Group already has a rule. Please use the existing rule.",
+    );
+  }
+  logger.error("Error creating/updating rule", { error });
+  throw new SafeError("Error creating/updating rule");
+}
+
+function createEmptyActionFields(
+  overrides: { label?: string | null; folderName?: string | null } = {},
+) {
+  return {
+    label: overrides.label ?? null,
+    to: null,
+    subject: null,
+    content: null,
+    cc: null,
+    bcc: null,
+    webhookUrl: null,
+    folderName: overrides.folderName ?? null,
+  };
+}
 
 async function resolveActionLabels<
   T extends {
@@ -814,10 +759,6 @@ async function getActionsFromCategoryAction({
     }
     case "move_folder":
     case "move_folder_delayed": {
-      const emailProvider = await createEmailProvider({
-        emailAccountId,
-        provider,
-      });
       const folderId = await emailProvider.getOrCreateOutlookFolderIdByName(
         rule.name,
       );
