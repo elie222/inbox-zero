@@ -53,6 +53,12 @@ Regular marketing or automated emails are NOT cold emails, even if unwanted.'
   FROM "EmailAccount" ea
   WHERE ea."coldEmailBlocker" IS NOT NULL
     AND ea."coldEmailBlocker" IN ('LABEL', 'ARCHIVE_AND_LABEL', 'ARCHIVE_AND_READ_AND_LABEL')
+    -- Skip email accounts that already have a "Cold Email" rule
+    AND NOT EXISTS (
+      SELECT 1 FROM "Rule" r 
+      WHERE r."emailAccountId" = ea.id 
+      AND r.name = 'Cold Email'
+    )
   ON CONFLICT ("emailAccountId", "systemType") DO NOTHING
   RETURNING id, "emailAccountId"
 )
@@ -66,8 +72,7 @@ INSERT INTO "Action" (
   "updatedAt",
   type,
   "ruleId",
-  label,
-  "labelId"
+  label
 )
 SELECT 
   gen_random_uuid() as id,
@@ -75,8 +80,7 @@ SELECT
   NOW() as "updatedAt",
   'LABEL'::"ActionType" as type,
   tcr.id as "ruleId",
-  'Cold Email' as label,
-  ea."coldEmailLabelId" as "labelId"
+  'Cold Email' as label
 FROM temp_created_rules tcr
 JOIN "EmailAccount" ea ON ea.id = tcr."emailAccountId";
 

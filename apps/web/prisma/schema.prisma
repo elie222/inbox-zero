@@ -252,7 +252,7 @@ model DigestItem {
   digestId    String
   digest      Digest          @relation(fields: [digestId], references: [id], onDelete: Cascade)
   actionId    String?
-  action      ExecutedAction? @relation(fields: [actionId], references: [id])
+  action      ExecutedAction? @relation(fields: [actionId], references: [id], onDelete: Cascade)
   coldEmailId String?
   coldEmail   ColdEmail?      @relation(fields: [coldEmailId], references: [id])
 
@@ -548,7 +548,7 @@ model ScheduledAction {
   executedActionId String?   @unique
 
   executedRule   ExecutedRule    @relation(fields: [executedRuleId], references: [id], onDelete: Cascade)
-  executedAction ExecutedAction? @relation(fields: [executedActionId], references: [id])
+  executedAction ExecutedAction? @relation(fields: [executedActionId], references: [id], onDelete: Cascade)
   emailAccount   EmailAccount    @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
 
   @@index([status, scheduledFor])
