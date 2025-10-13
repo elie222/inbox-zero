@@ -63,17 +63,15 @@ export function useDraftReplies() {
     async (enable: boolean) => {
       if (!data) return;
 
-      // Optimistically update the cache
       const optimisticData = data.map((rule) => {
         if (rule.systemType === SystemType.TO_REPLY) {
           return {
             ...rule,
             actions: enable
-              ? // Add DRAFT_EMAIL action if enabling
-                rule.actions.some(
+              ? rule.actions.some(
                   (action) => action.type === ActionType.DRAFT_EMAIL,
                 )
-                ? rule.actions // Already has the action
+                ? rule.actions
                 : [
                     ...rule.actions,
                     {
@@ -113,7 +111,6 @@ export function useDraftReplies() {
           enable,
         });
 
-        // Revalidate to get the real data from server
         mutate();
 
         return result;
