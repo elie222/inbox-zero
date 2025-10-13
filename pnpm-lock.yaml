@@ -486,6 +486,9 @@ importers:
       react-youtube:
         specifier: 10.1.0
         version: 10.1.0(react@19.1.1)
+      recharts:
+        specifier: 2.15.4
+        version: 2.15.4(react-dom@19.1.1(react@19.1.1))(react@19.1.1)
       remark-gfm:
         specifier: 4.0.1
         version: 4.0.1

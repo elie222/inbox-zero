@@ -145,6 +145,7 @@
     "react-syntax-highlighter": "15.6.6",
     "react-textarea-autosize": "8.5.9",
     "react-youtube": "10.1.0",
+    "recharts": "2.15.4",
     "remark-gfm": "4.0.1",
     "sanity-plugin-markdown": "6.0.0",
     "schema-dts": "1.1.5",

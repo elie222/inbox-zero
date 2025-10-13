@@ -43,6 +43,12 @@
     --sidebar-accent-foreground: 240 5.9% 10%;
     --sidebar-border: 220 13% 91%;
     --sidebar-ring: 217.2 91.2% 59.8%;
+
+    --chart-1: oklch(0.75 0.15 250);
+    --chart-2: oklch(0.65 0.18 250);
+    --chart-3: oklch(0.55 0.2 250);
+    --chart-4: oklch(0.45 0.22 250);
+    --chart-5: oklch(0.35 0.18 250);
   }
 
   .dark {
@@ -65,11 +71,11 @@
     --border: 240 3.7% 15.9%;
     --input: 240 3.7% 15.9%;
     --ring: 240 4.9% 83.9%;
-    --chart-1: 220 70% 50%;
-    --chart-2: 160 60% 45%;
-    --chart-3: 30 80% 55%;
-    --chart-4: 280 65% 60%;
-    --chart-5: 340 75% 55%;
+    --chart-1: oklch(0.7 0.2 250);
+    --chart-2: oklch(0.6 0.22 250);
+    --chart-3: oklch(0.5 0.24 250);
+    --chart-4: oklch(0.4 0.22 250);
+    --chart-5: oklch(0.3 0.18 250);
     --sidebar-background: 240 5.9% 10%;
     --sidebar-foreground: 240 4.8% 95.9%;
     --sidebar-primary: 224.3 76.3% 48%;
