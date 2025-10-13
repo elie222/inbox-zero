@@ -233,9 +233,6 @@ export const updateRuleSettingsAction = actionClient
         data: { instructions },
       });
 
-      revalidatePath(prefixPath(emailAccountId, `/assistant/rule/${id}`));
-      revalidatePath(prefixPath(emailAccountId, "/assistant"));
-      revalidatePath(prefixPath(emailAccountId, "/automation"));
       revalidatePath(prefixPath(emailAccountId, "/reply-zero"));
     },
   );
@@ -245,16 +242,33 @@ export const enableDraftRepliesAction = actionClient
   .schema(enableDraftRepliesBody)
   .action(
     async ({ ctx: { emailAccountId, provider }, parsedInput: { enable } }) => {
-      const rule = await toggleRule({
-        emailAccountId,
-        enabled: enable,
-        systemType: SystemType.TO_REPLY,
-        provider,
-        ruleId: undefined,
+      let rule = await prisma.rule.findUnique({
+        where: {
+          emailAccountId_systemType: {
+            emailAccountId,
+            systemType: SystemType.TO_REPLY,
+          },
+        },
+        include: { actions: true },
       });
 
+      if (!rule && !enable) {
+        return;
+      }
+
+      // if rule doesn't exist, then toggle will create it
+      rule =
+        rule ||
+        (await toggleRule({
+          emailAccountId,
+          enabled: enable,
+          systemType: SystemType.TO_REPLY,
+          provider,
+          ruleId: undefined,
+        }));
+
       if (enable) {
-        const alreadyDraftingReplies = rule?.actions?.find(
+        const alreadyDraftingReplies = rule.actions.find(
           (a) => a.type === ActionType.DRAFT_EMAIL,
         );
         if (!alreadyDraftingReplies) {
