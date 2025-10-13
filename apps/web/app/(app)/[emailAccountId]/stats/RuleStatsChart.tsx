@@ -45,19 +45,19 @@ export function RuleStatsChart({ dateRange, title }: RuleStatsChartProps) {
   );
 
   const barChartData = useMemo(() => {
-    if (!data?.groupStats) return [];
-    return data.groupStats.map((group) => ({
-      group: group.groupName,
-      "Executed Rules": group.executedCount,
+    if (!data?.ruleStats) return [];
+    return data.ruleStats.map((rule) => ({
+      group: rule.ruleName,
+      "Executed Rules": rule.executedCount,
     }));
   }, [data]);
 
   const { pieChartData, chartConfig } = useMemo(() => {
-    if (!data?.groupStats) return { pieChartData: [], chartConfig: {} };
+    if (!data?.ruleStats) return { pieChartData: [], chartConfig: {} };
 
-    const pieData = data.groupStats.map((group, index) => ({
-      name: group.groupName,
-      value: group.executedCount,
+    const pieData = data.ruleStats.map((rule, index) => ({
+      name: rule.ruleName,
+      value: rule.executedCount,
       fill: CHART_COLORS[index % CHART_COLORS.length],
     }));
 
@@ -66,10 +66,10 @@ export function RuleStatsChart({ dateRange, title }: RuleStatsChartProps) {
         label: "Executed Rules",
       },
       ...fromPairs(
-        data.groupStats.map((group, index) => [
-          group.groupName,
+        data.ruleStats.map((rule, index) => [
+          rule.ruleName,
           {
-            label: group.groupName,
+            label: rule.ruleName,
             color: CHART_COLORS[index % CHART_COLORS.length],
           },
         ]),
