@@ -105,6 +105,11 @@ export function Stats() {
           />
         )}
 
+        <RuleStatsChart
+          dateRange={dateRange}
+          title="Assistant processed emails"
+        />
+
         <DetailedStats
           dateRange={dateRange}
           period={period}
@@ -121,11 +126,6 @@ export function Stats() {
         </CardBasic>
 
         {isAccountOwner && <EmailActionsAnalytics />}
-
-        <RuleStatsChart
-          dateRange={dateRange}
-          title="Assistant processed emails"
-        />
       </div>
 
       <StatsOnboarding />

@@ -47,7 +47,7 @@ async function getRuleStats({
 
   const groupStats = executedRules.reduce(
     (acc, executedRule) => {
-      const groupName = executedRule.rule?.group?.name || "No Group";
+      const groupName = executedRule.rule?.group?.name || "No Rule";
 
       if (!acc[groupName]) {
         acc[groupName] = {
