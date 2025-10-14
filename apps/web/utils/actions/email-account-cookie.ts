@@ -19,6 +19,7 @@ export async function setLastEmailAccountAction(emailAccountId: string) {
   });
 }
 
+// Not secure. Only used for redirects. Still requires checking user owns the account.
 export async function getLastEmailAccountFromCookie(): Promise<string | null> {
   const cookieStore = await cookies();
   const value = cookieStore.get(LAST_EMAIL_ACCOUNT_COOKIE)?.value;
