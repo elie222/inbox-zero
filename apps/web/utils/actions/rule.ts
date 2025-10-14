@@ -467,6 +467,21 @@ export const createRulesOnboardingAction = actionClient
         }
       }
 
+      const conversationRules = [
+        SystemType.FYI,
+        SystemType.AWAITING_REPLY,
+        SystemType.ACTIONED,
+      ];
+
+      for (const type of conversationRules) {
+        const config = systemCategoryMap.get(SystemType.TO_REPLY);
+        if (config && isSet(config.action)) {
+          createRule(type);
+        } else {
+          deleteRule(type, emailAccountId);
+        }
+      }
+
       // Create rules for custom categories
       for (const customCategory of customCategories) {
         if (customCategory.action && isSet(customCategory.action)) {
