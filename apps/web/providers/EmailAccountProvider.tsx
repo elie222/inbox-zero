@@ -3,6 +3,7 @@
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
 import type { GetEmailAccountsResponse } from "@/app/api/user/email-accounts/route";
+import { setLastEmailAccountAction } from "@/utils/actions/email-account-cookie";
 
 type Context = {
   emailAccount: GetEmailAccountsResponse["emailAccounts"][number] | undefined;
@@ -53,6 +54,12 @@ export function EmailAccountProvider({
       return currentEmailAccount;
     }
   }, [data, emailAccountId]);
+
+  useEffect(() => {
+    if (emailAccountId) {
+      setLastEmailAccountAction(emailAccountId);
+    }
+  }, [emailAccountId]);
 
   return (
     <EmailAccountContext.Provider
