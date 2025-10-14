@@ -10,6 +10,7 @@ import {
 import { redirect } from "next/navigation";
 import prisma from "@/utils/prisma";
 import { notFound } from "next/navigation";
+import { getLastEmailAccountFromCookie } from "@/utils/actions/email-account-cookie";
 
 export async function getGmailClientForEmail({
   emailAccountId,
@@ -117,15 +118,23 @@ export async function redirectToEmailAccountPath(path: `/${string}`) {
   const userId = session?.user.id;
   if (!userId) throw new Error("Not authenticated");
 
-  const emailAccount = await prisma.emailAccount.findFirst({
-    where: { userId },
-  });
+  const lastEmailAccountId = await getLastEmailAccountFromCookie();
 
-  if (!emailAccount) {
+  let emailAccountId = lastEmailAccountId;
+
+  // If no last account or it doesn't exist, fall back to first account
+  if (!emailAccountId) {
+    const emailAccount = await prisma.emailAccount.findFirst({
+      where: { userId },
+    });
+    emailAccountId = emailAccount?.id ?? null;
+  }
+
+  if (!emailAccountId) {
     notFound();
   }
 
-  const redirectUrl = `/${emailAccount.id}${path}`;
+  const redirectUrl = `/${emailAccountId}${path}`;
 
   redirect(redirectUrl);
 }
