@@ -55,7 +55,9 @@ describe("OutlookSubscriptionManager", () => {
         existingSubscriptionId,
       );
       expect(mockProvider.watchEmails).toHaveBeenCalled();
-      expect(result).toEqual(newSubscription);
+      expect(result).toEqual(
+        expect.objectContaining({ ...newSubscription, changed: true }),
+      );
     });
 
     it("should create subscription even if no existing subscription exists", async () => {
@@ -76,7 +78,9 @@ describe("OutlookSubscriptionManager", () => {
       // Assert
       expect(mockProvider.unwatchEmails).not.toHaveBeenCalled();
       expect(mockProvider.watchEmails).toHaveBeenCalled();
-      expect(result).toEqual(newSubscription);
+      expect(result).toEqual(
+        expect.objectContaining({ ...newSubscription, changed: true }),
+      );
     });
 
     it("should continue creating subscription even if canceling old one fails", async () => {
@@ -102,7 +106,9 @@ describe("OutlookSubscriptionManager", () => {
       // Assert
       expect(mockProvider.unwatchEmails).toHaveBeenCalled();
       expect(mockProvider.watchEmails).toHaveBeenCalled();
-      expect(result).toEqual(newSubscription);
+      expect(result).toEqual(
+        expect.objectContaining({ ...newSubscription, changed: true }),
+      );
     });
 
     it("should return null if creating new subscription fails", async () => {
