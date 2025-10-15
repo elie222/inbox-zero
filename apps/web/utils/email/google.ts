@@ -346,7 +346,9 @@ export class GmailProvider implements EmailProvider {
     email: ParsedMessage,
     args: { to: string; cc?: string; bcc?: string; content?: string },
   ): Promise<void> {
-    await forwardEmail(this.client, { messageId: email.id, ...args });
+    const parsedMessage = await this.getMessage(email.id);
+
+    await forwardEmail(this.client, parsedMessage, args);
   }
 
   async markSpam(threadId: string): Promise<void> {
