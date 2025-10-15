@@ -4,7 +4,7 @@ import { useForm } from "react-hook-form";
 import { useAction } from "next-safe-action/hooks";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/Input";
-import { saveAboutAction, type SaveAboutBody } from "@/utils/actions/user";
+import { saveAboutAction } from "@/utils/actions/user";
 import {
   FormSection,
   FormSectionLeft,
@@ -15,6 +15,11 @@ import { toastError, toastSuccess } from "@/components/Toast";
 import { useEmailAccountFull } from "@/hooks/useEmailAccountFull";
 import { Skeleton } from "@/components/ui/skeleton";
 import { LoadingContent } from "@/components/LoadingContent";
+import { zodResolver } from "@hookform/resolvers/zod";
+import {
+  type SaveAboutBody,
+  saveAboutBody,
+} from "@/utils/actions/user.validation";
 
 export function AboutSectionFull() {
   return (
@@ -61,6 +66,7 @@ const AboutSectionForm = ({
     handleSubmit,
   } = useForm<SaveAboutBody>({
     defaultValues: { about: about ?? "" },
+    resolver: zodResolver(saveAboutBody),
   });
 
   const { emailAccountId } = useAccount();
