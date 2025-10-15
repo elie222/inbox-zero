@@ -23,7 +23,7 @@ export const saveAboutAction = actionClient
     });
   });
 
-const saveSignatureBody = z.object({ signature: z.string().max(2000) });
+const saveSignatureBody = z.object({ signature: z.string().max(10_000) });
 export type SaveSignatureBody = z.infer<typeof saveSignatureBody>;
 
 export const saveSignatureAction = actionClient
