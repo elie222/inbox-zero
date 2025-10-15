@@ -9,7 +9,9 @@ import { GmailLabel } from "@/utils/gmail/label";
 import { processAssistantEmail } from "@/utils/assistant/process-assistant-email";
 import { getEmailAccount } from "@/__tests__/helpers";
 import { createEmailProvider } from "@/utils/email/provider";
-import { inboxZeroLabels } from "@/utils/label";
+import { createScopedLogger } from "@/utils/logger";
+
+const logger = createScopedLogger("test");
 
 vi.mock("server-only", () => ({}));
 vi.mock("next/server", () => ({
@@ -87,7 +89,7 @@ vi.mock("@/utils/gmail/label", async () => {
     ...actual,
     getLabelById: vi.fn().mockImplementation(async ({ id }: { id: string }) => {
       const labelMap: Record<string, { name: string }> = {
-        "label-1": { name: inboxZeroLabels.cold_email.name },
+        "label-1": { name: "Cold Email" },
         "label-2": { name: "Newsletter" },
         "label-3": { name: "Marketing" },
         "label-4": { name: "To Reply" },
@@ -162,7 +164,7 @@ describe("processHistoryItem", () => {
       emailAccount: getDefaultEmailAccount(),
     };
 
-    await processHistoryItem(createHistoryItem(), options);
+    await processHistoryItem(createHistoryItem(), options, logger);
   });
 
   it("should skip if message is an assistant email", async () => {
@@ -172,7 +174,7 @@ describe("processHistoryItem", () => {
       ...defaultOptions,
       emailAccount: getDefaultEmailAccount(),
     };
-    await processHistoryItem(createHistoryItem(), options);
+    await processHistoryItem(createHistoryItem(), options, logger);
 
     expect(processAssistantEmail).toHaveBeenCalledWith({
       message: expect.objectContaining({
@@ -216,7 +218,7 @@ describe("processHistoryItem", () => {
       ...defaultOptions,
       emailAccount: getDefaultEmailAccount(),
     };
-    await processHistoryItem(createHistoryItem(), options);
+    await processHistoryItem(createHistoryItem(), options, logger);
   });
 
   it("should skip if email is unsubscribed", async () => {
@@ -261,7 +263,7 @@ describe("processHistoryItem", () => {
       ...defaultOptions,
       emailAccount: getDefaultEmailAccount(),
     };
-    await processHistoryItem(createHistoryItem(), options);
+    await processHistoryItem(createHistoryItem(), options, logger);
 
     expect(mockProvider.blockUnsubscribedEmail).toHaveBeenCalledWith("123");
   });

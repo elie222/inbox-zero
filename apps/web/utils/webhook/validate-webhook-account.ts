@@ -7,6 +7,7 @@ import type { Logger } from "@/utils/logger";
 
 export async function getWebhookEmailAccount(
   where: { email: string } | { watchEmailsSubscriptionId: string },
+  logger: Logger,
 ) {
   const query = {
     select: {
@@ -53,10 +54,16 @@ export async function getWebhookEmailAccount(
     });
   }
 
-  return await prisma.emailAccount.findFirst({
+  const emailAccount = await prisma.emailAccount.findFirst({
     where: { watchEmailsSubscriptionId: where.watchEmailsSubscriptionId },
     ...query,
   });
+
+  if (!emailAccount) {
+    logger.error("Account not found", where);
+  }
+
+  return emailAccount;
 }
 
 export type ValidatedWebhookAccountData = Awaited<

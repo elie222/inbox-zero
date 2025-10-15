@@ -1,6 +1,7 @@
 import prisma from "@/utils/prisma";
 import { captureException } from "@/utils/error";
 import { createScopedLogger } from "@/utils/logger";
+import { cleanupInvalidTokens } from "@/utils/auth/cleanup-invalid-tokens";
 import type { EmailProvider } from "@/utils/email/types";
 import { createManagedOutlookSubscription } from "@/utils/outlook/subscription-manager";
 import { isMicrosoftProvider } from "@/utils/email/provider-types";
@@ -47,12 +48,32 @@ export async function watchEmails({
     return { success: false, error: errorMessage };
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
-    logger.error("Error watching inbox", {
-      emailAccountId,
-      providerName: provider.name,
-      error,
-    });
-    captureException(error);
+
+    // Minimal centralized handling of permanent auth failures (exact checks only)
+    const isInsufficientPermissions =
+      errorMessage === "Request had insufficient authentication scopes.";
+    const isInvalidGrant = errorMessage === "invalid_grant";
+
+    if (isInsufficientPermissions || isInvalidGrant) {
+      logger.warn("Auth failure while watching inbox - cleaning up tokens", {
+        emailAccountId,
+        providerName: provider.name,
+        error: errorMessage,
+      });
+      await cleanupInvalidTokens({
+        emailAccountId,
+        reason: isInvalidGrant ? "invalid_grant" : "insufficient_permissions",
+        logger,
+      });
+    } else {
+      logger.error("Error watching inbox", {
+        emailAccountId,
+        providerName: provider.name,
+        error,
+      });
+      captureException(error);
+    }
+
     return { success: false, error: errorMessage };
   }
 }

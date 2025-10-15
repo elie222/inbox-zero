@@ -30,7 +30,7 @@ export async function processHistoryForUser(
   // So we need to convert it to lowercase
   const email = emailAddress.toLowerCase();
 
-  const emailAccount = await getWebhookEmailAccount({ email });
+  const emailAccount = await getWebhookEmailAccount({ email }, logger);
 
   // biome-ignore lint/style/noParameterAssign: allowed for logging
   logger = logger.with({ email, emailAccountId: emailAccount?.id });
