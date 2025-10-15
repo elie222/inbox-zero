@@ -1,13 +1,12 @@
 import type { gmail_v1 } from "@googleapis/gmail";
 import prisma from "@/utils/prisma";
-
 import { ColdEmailStatus, SystemType } from "@prisma/client";
-import { logger } from "@/app/api/google/webhook/logger";
 import { extractEmailAddress } from "@/utils/email";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import type { EmailProvider } from "@/utils/email/types";
 import { GmailLabel } from "@/utils/gmail/label";
 import { getRuleLabel } from "@/utils/rule/consts";
+import type { Logger } from "@/utils/logger";
 
 const SYSTEM_LABELS = [
   GmailLabel.INBOX,
@@ -29,27 +28,19 @@ export async function handleLabelRemovedEvent(
     emailAccount: EmailAccountWithAI;
     provider: EmailProvider;
   },
+  logger: Logger,
 ) {
   const messageId = message.message?.id;
   const threadId = message.message?.threadId;
   const emailAccountId = emailAccount.id;
   const userEmail = emailAccount.email;
 
-  const loggerOptions = {
-    email: userEmail,
-    messageId,
-    threadId,
-  };
-
   if (!messageId || !threadId) {
-    logger.warn(
-      "Skipping label removal - missing messageId or threadId",
-      loggerOptions,
-    );
+    logger.warn("Skipping label removal - missing messageId or threadId");
     return;
   }
 
-  logger.info("Processing label removal for learning", loggerOptions);
+  logger.info("Processing label removal for learning");
 
   let sender: string | null = null;
 
@@ -59,7 +50,6 @@ export async function handleLabelRemovedEvent(
   } catch (error) {
     logger.error("Error getting sender for label removal", {
       error,
-      ...loggerOptions,
     });
   }
 
@@ -69,7 +59,7 @@ export async function handleLabelRemovedEvent(
   );
 
   if (removedLabelIds.length === 0) {
-    logger.trace("No non-system labels to process", loggerOptions);
+    logger.trace("No non-system labels to process");
     return;
   }
 
@@ -82,7 +72,6 @@ export async function handleLabelRemovedEvent(
     if (!labelName) {
       logger.info("Skipping label removal - missing label name", {
         labelId,
-        ...loggerOptions,
       });
       continue;
     }
@@ -94,13 +83,13 @@ export async function handleLabelRemovedEvent(
         messageId,
         threadId,
         emailAccountId,
+        logger,
       });
     } catch (error) {
       logger.error("Error learning from label removal", {
         error,
         labelName,
         removedLabelIds,
-        ...loggerOptions,
       });
     }
   }
@@ -112,29 +101,28 @@ async function learnFromRemovedLabel({
   messageId,
   threadId,
   emailAccountId,
+  logger,
 }: {
   labelName: string;
   sender: string | null;
   messageId: string;
   threadId: string;
   emailAccountId: string;
+  logger: Logger;
 }) {
-  const loggerOptions = {
-    emailAccountId,
-    messageId,
-    threadId,
+  logger = logger.with({
     labelName,
     sender,
-  };
+  });
 
   // Can't learn patterns without knowing who to exclude
   if (!sender) {
-    logger.info("No sender found, skipping learning", loggerOptions);
+    logger.info("No sender found, skipping learning");
     return;
   }
 
   if (labelName === getRuleLabel(SystemType.COLD_EMAIL)) {
-    logger.info("Processing Cold Email label removal", loggerOptions);
+    logger.info("Processing Cold Email label removal");
 
     await prisma.coldEmail.upsert({
       where: {

@@ -675,7 +675,7 @@ export class GmailProvider implements EmailProvider {
   ): Promise<number> {
     try {
       const query = `from:${senderEmail}`;
-      logger.info(`Checking received message count (up to ${threshold})`, {
+      logger.info("Checking received message count", {
         senderEmail,
         threshold,
       });
@@ -880,6 +880,7 @@ export class GmailProvider implements EmailProvider {
       {
         startHistoryId: options.startHistoryId?.toString(),
       },
+      logger,
     );
   }
 

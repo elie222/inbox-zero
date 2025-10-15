@@ -34,8 +34,6 @@ import { getUserInfoPrompt } from "@/utils/ai/helpers";
  * not for choosing which rule to apply.
  */
 
-const logger = createScopedLogger("AI Choose Args");
-
 export type ActionArgResponse = {
   [key: `${string}-${string}`]: {
     [field: string]: {
@@ -63,23 +61,24 @@ export async function aiGenerateArgs({
   }[];
   modelType: ModelType;
 }): Promise<ActionArgResponse | undefined> {
-  const loggerOptions = {
+  const logger = createScopedLogger("AI Choose Args").with({
     email: emailAccount.email,
     ruleId: selectedRule.id,
     ruleName: selectedRule.name,
-  };
-  logger.info("Generating args for rule", loggerOptions);
+  });
+
+  logger.info("Generating args for rule");
 
   // If no parameters, skip
   if (parameters.length === 0) {
-    logger.info("Skipping. No parameters for rule", loggerOptions);
+    logger.info("Skipping. No parameters for rule");
     return;
   }
 
   const system = getSystemPrompt();
   const prompt = getPrompt({ email, selectedRule, emailAccount });
 
-  logger.info("Calling chat completion tools", loggerOptions);
+  logger.info("Calling chat completion tools");
   // logger.trace("Parameters:", zodToJsonSchema(parameters));
 
   const modelOptions = getModel(emailAccount.user, modelType);
@@ -113,10 +112,7 @@ export async function aiGenerateArgs({
   const result = aiResponse.object;
 
   if (!result) {
-    logger.warn("No tool call found", {
-      ...loggerOptions,
-      aiResponse,
-    });
+    logger.warn("No tool call found", { aiResponse });
     return;
   }
 

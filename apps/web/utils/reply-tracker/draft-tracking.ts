@@ -153,9 +153,9 @@ export async function cleanupThreadAIDrafts({
       return;
     }
 
-    logger.info(
-      `Found ${potentialDraftsToClean.length} potential AI drafts to check for cleanup`,
-    );
+    logger.info("Found potential AI drafts to check for cleanup", {
+      potentialDraftsToCleanLength: potentialDraftsToClean.length,
+    });
 
     for (const action of potentialDraftsToClean) {
       if (!action.draftId) continue; // Not expected to happen, but to fix TS error
