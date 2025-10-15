@@ -346,7 +346,9 @@ export class GmailProvider implements EmailProvider {
     email: ParsedMessage,
     args: { to: string; cc?: string; bcc?: string; content?: string },
   ): Promise<void> {
-    await forwardEmail(this.client, { messageId: email.id, ...args });
+    const parsedMessage = await this.getMessage(email.id);
+
+    await forwardEmail(this.client, parsedMessage, args);
   }
 
   async markSpam(threadId: string): Promise<void> {
@@ -673,7 +675,7 @@ export class GmailProvider implements EmailProvider {
   ): Promise<number> {
     try {
       const query = `from:${senderEmail}`;
-      logger.info(`Checking received message count (up to ${threshold})`, {
+      logger.info("Checking received message count", {
         senderEmail,
         threshold,
       });
@@ -878,6 +880,7 @@ export class GmailProvider implements EmailProvider {
       {
         startHistoryId: options.startHistoryId?.toString(),
       },
+      logger,
     );
   }
 

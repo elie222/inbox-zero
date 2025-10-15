@@ -1,7 +1,7 @@
 import { stepCountIs, tool } from "ai";
 import { z } from "zod";
 import { createGenerateText } from "@/utils/llms";
-import { createScopedLogger } from "@/utils/logger";
+import { createScopedLogger, type Logger } from "@/utils/logger";
 import {
   type Category,
   GroupItemType,
@@ -33,8 +33,6 @@ import { getUserCategoriesForNames } from "@/utils/category.server";
 import { getModel } from "@/utils/llms/model";
 import { getUserInfoPrompt } from "@/utils/ai/helpers";
 
-const logger = createScopedLogger("ai-fix-rules");
-
 export async function processUserRequest({
   emailAccount,
   rules,
@@ -52,6 +50,14 @@ export async function processUserRequest({
   categories: Pick<Category, "id" | "name">[] | null;
   senderCategory: string | null;
 }) {
+  const logger = createScopedLogger("ai-fix-rules").with({
+    emailAccountId: emailAccount.id,
+    userId: emailAccount.userId,
+    email: emailAccount.email,
+    messageId: originalEmail?.id,
+    threadId: originalEmail?.threadId,
+  });
+
   posthogCaptureEvent(emailAccount.email, "AI Assistant Process Started", {
     hasOriginalEmail: !!originalEmail,
     hasMatchedRule: !!matchedRule,
@@ -148,14 +154,6 @@ ${senderCategory || "No category"}
   const createdRules = new Map<string, RuleWithRelations>();
   const updatedRules = new Map<string, RuleWithRelations>();
 
-  const loggerOptions = {
-    emailAccountId: emailAccount.id,
-    userId: emailAccount.userId,
-    email: emailAccount.email,
-    messageId: originalEmail?.id,
-    threadId: originalEmail?.threadId,
-  };
-
   async function updateRule(ruleName: string, rule: Partial<Rule>) {
     try {
       const ruleId = rules.find((r) => r.name === ruleName)?.id;
@@ -174,7 +172,6 @@ ${senderCategory || "No category"}
       const message = error instanceof Error ? error.message : String(error);
 
       logger.error("Error while updating rule", {
-        ...loggerOptions,
         ruleName,
         keys: Object.keys(rule),
         error: message,
@@ -282,7 +279,6 @@ ${senderCategory || "No category"}
 
       //     if (!groupId) {
       //       logger.error("Group not found", {
-      //         ...loggerOptions,
       //         groupName,
       //       });
       //       return { error: "Group not found" };
@@ -292,7 +288,6 @@ ${senderCategory || "No category"}
 
       //     if (!groupItemType) {
       //       logger.error("Invalid pattern type", {
-      //         ...loggerOptions,
       //         type,
       //       });
       //       return { error: "Invalid pattern type" };
@@ -305,7 +300,6 @@ ${senderCategory || "No category"}
       //         error instanceof Error ? error.message : String(error);
 
       //       logger.error("Error while adding pattern", {
-      //         ...loggerOptions,
       //         groupId,
       //         type: groupItemType,
       //         value,
@@ -343,7 +337,6 @@ ${senderCategory || "No category"}
 
                 if (!groupItemType) {
                   logger.error("Invalid pattern type", {
-                    ...loggerOptions,
                     type,
                     value,
                   });
@@ -356,7 +349,6 @@ ${senderCategory || "No category"}
 
                 if (!groupItem) {
                   logger.error("Pattern not found", {
-                    ...loggerOptions,
                     type,
                     value,
                   });
@@ -373,7 +365,6 @@ ${senderCategory || "No category"}
                     error instanceof Error ? error.message : String(error);
 
                   logger.error("Error while deleting pattern", {
-                    ...loggerOptions,
                     groupItemId: groupItem.id,
                     type: groupItemType,
                     value,
@@ -397,7 +388,7 @@ ${senderCategory || "No category"}
               emailAccountId: emailAccount.id,
               userEmail: emailAccount.email,
               categories,
-              loggerOptions,
+              logger,
             }),
             add_categories: tool({
               description: "Add categories to a rule",
@@ -423,7 +414,6 @@ ${senderCategory || "No category"}
 
                   if (!rule) {
                     logger.error("Rule not found", {
-                      ...loggerOptions,
                       ...options,
                       ruleName,
                     });
@@ -448,7 +438,6 @@ ${senderCategory || "No category"}
                     error instanceof Error ? error.message : String(error);
 
                   logger.error("Error while adding categories to rule", {
-                    ...loggerOptions,
                     ...options,
                     error: message,
                   });
@@ -484,7 +473,6 @@ ${senderCategory || "No category"}
 
                   if (!rule) {
                     logger.error("Rule not found", {
-                      ...loggerOptions,
                       ...options,
                       ruleName,
                     });
@@ -509,7 +497,6 @@ ${senderCategory || "No category"}
                     error instanceof Error ? error.message : String(error);
 
                   logger.error("Error while removing categories from rule", {
-                    ...loggerOptions,
                     ...options,
                     error: message,
                   });
@@ -576,7 +563,6 @@ ${senderCategory || "No category"}
 
             if ("error" in rule) {
               logger.error("Error while creating rule", {
-                ...loggerOptions,
                 error: rule.error,
               });
 
@@ -593,10 +579,7 @@ ${senderCategory || "No category"}
             const message =
               error instanceof Error ? error.message : String(error);
 
-            logger.error("Failed to create rule", {
-              ...loggerOptions,
-              error: message,
-            });
+            logger.error("Failed to create rule", { error: message });
 
             return {
               error: "Failed to create rule",
@@ -638,18 +621,13 @@ ${senderCategory || "No category"}
 const getUpdateCategoryTool = ({
   emailAccountId,
   categories,
-  loggerOptions,
   userEmail,
+  logger,
 }: {
   emailAccountId: string;
   categories: Pick<Category, "id" | "name">[];
-  loggerOptions: {
-    userId: string;
-    email: string | null;
-    messageId?: string | null;
-    threadId?: string | null;
-  };
   userEmail: string;
+  logger: Logger;
 }) =>
   tool({
     description: "Update the category of a sender",
@@ -677,10 +655,7 @@ const getUpdateCategoryTool = ({
       const cat = categories.find((c) => c.name === category);
 
       if (!cat) {
-        logger.error("Category not found", {
-          ...loggerOptions,
-          category,
-        });
+        logger.error("Category not found", { category });
         return { error: "Category not found" };
       }
 
@@ -695,7 +670,6 @@ const getUpdateCategoryTool = ({
         const message = error instanceof Error ? error.message : String(error);
 
         logger.error("Error while updating category for sender", {
-          ...loggerOptions,
           sender,
           category,
           error: message,

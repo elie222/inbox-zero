@@ -3,9 +3,11 @@ import { hasAiAccess, isPremium } from "@/utils/premium";
 import { unwatchEmails } from "@/app/api/watch/controller";
 import { createEmailProvider } from "@/utils/email/provider";
 import prisma from "@/utils/prisma";
+import type { Logger } from "@/utils/logger";
 
 export async function getWebhookEmailAccount(
   where: { email: string } | { watchEmailsSubscriptionId: string },
+  logger: Logger,
 ) {
   const query = {
     select: {
@@ -52,10 +54,16 @@ export async function getWebhookEmailAccount(
     });
   }
 
-  return await prisma.emailAccount.findFirst({
+  const emailAccount = await prisma.emailAccount.findFirst({
     where: { watchEmailsSubscriptionId: where.watchEmailsSubscriptionId },
     ...query,
   });
+
+  if (!emailAccount) {
+    logger.error("Account not found", where);
+  }
+
+  return emailAccount;
 }
 
 export type ValidatedWebhookAccountData = Awaited<
@@ -74,11 +82,7 @@ type ValidationResult =
 
 export async function validateWebhookAccount(
   emailAccount: ValidatedWebhookAccountData | null,
-  logger: {
-    error: (message: string, context?: Record<string, unknown>) => void;
-    info: (message: string, context?: Record<string, unknown>) => void;
-    trace: (message: string, context?: Record<string, unknown>) => void;
-  },
+  logger: Logger,
 ): Promise<ValidationResult> {
   if (!emailAccount) {
     logger.error("Account not found");
@@ -99,8 +103,6 @@ export async function validateWebhookAccount(
 
   if (!premium) {
     logger.info("Account not premium", {
-      email: emailAccount.email,
-      emailAccountId: emailAccount.id,
       lemonSqueezyRenewsAt: emailAccount.user.premium?.lemonSqueezyRenewsAt,
       stripeSubscriptionStatus:
         emailAccount.user.premium?.stripeSubscriptionStatus,
@@ -116,10 +118,7 @@ export async function validateWebhookAccount(
   const userHasAiAccess = hasAiAccess(premium.tier, emailAccount.user.aiApiKey);
 
   if (!userHasAiAccess) {
-    logger.trace("Does not have ai access", {
-      email: emailAccount.email,
-      emailAccountId: emailAccount.id,
-    });
+    logger.trace("Does not have ai access");
     await unwatchEmails({
       emailAccountId: emailAccount.id,
       provider,
@@ -130,7 +129,7 @@ export async function validateWebhookAccount(
 
   const hasAutomationRules = emailAccount.rules.length > 0;
   if (!hasAutomationRules) {
-    logger.trace("Has no rules enabled", { email: emailAccount.email });
+    logger.trace("Has no rules enabled");
     return { success: false, response: NextResponse.json({ ok: true }) };
   }
 
@@ -138,9 +137,7 @@ export async function validateWebhookAccount(
     !emailAccount.account?.access_token ||
     !emailAccount.account?.refresh_token
   ) {
-    logger.error("Missing access or refresh token", {
-      email: emailAccount.email,
-    });
+    logger.error("Missing access or refresh token");
     return { success: false, response: NextResponse.json({ ok: true }) };
   }
 

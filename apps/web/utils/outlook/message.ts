@@ -92,7 +92,8 @@ export async function getFolderIds(client: OutlookClient) {
           .get();
         return [key, response.id];
       } catch (error) {
-        logger.warn(`Failed to get well-known folder: ${folderName}`, {
+        logger.warn("Failed to get well-known folder", {
+          folderName,
           error,
         });
         return [key, null];

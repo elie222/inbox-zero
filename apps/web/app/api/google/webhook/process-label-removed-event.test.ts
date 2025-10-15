@@ -5,6 +5,9 @@ import { handleLabelRemovedEvent } from "./process-label-removed-event";
 import type { gmail_v1 } from "@googleapis/gmail";
 import { saveLearnedPatterns } from "@/utils/rule/learned-patterns";
 import prisma from "@/utils/__mocks__/prisma";
+import { createScopedLogger } from "@/utils/logger";
+
+const logger = createScopedLogger("test");
 
 vi.mock("server-only", () => ({}));
 
@@ -94,7 +97,7 @@ describe("process-label-removed-event", () => {
       console.log("Test data:", JSON.stringify(historyItem.item, null, 2));
 
       try {
-        await handleLabelRemovedEvent(historyItem.item, defaultOptions);
+        await handleLabelRemovedEvent(historyItem.item, defaultOptions, logger);
       } catch (error) {
         console.error("Function error:", error);
         throw error;
@@ -125,7 +128,7 @@ describe("process-label-removed-event", () => {
         "label-2",
       ]);
 
-      await handleLabelRemovedEvent(historyItem.item, defaultOptions);
+      await handleLabelRemovedEvent(historyItem.item, defaultOptions, logger);
 
       expect(saveLearnedPatterns).not.toHaveBeenCalled();
     });
@@ -135,7 +138,7 @@ describe("process-label-removed-event", () => {
         "label-4",
       ]);
 
-      await handleLabelRemovedEvent(historyItem.item, defaultOptions);
+      await handleLabelRemovedEvent(historyItem.item, defaultOptions, logger);
 
       expect(saveLearnedPatterns).not.toHaveBeenCalled();
     });
@@ -145,7 +148,7 @@ describe("process-label-removed-event", () => {
         "label-2",
       ]);
 
-      await handleLabelRemovedEvent(historyItem.item, defaultOptions);
+      await handleLabelRemovedEvent(historyItem.item, defaultOptions, logger);
 
       expect(saveLearnedPatterns).not.toHaveBeenCalled();
     });
@@ -155,7 +158,7 @@ describe("process-label-removed-event", () => {
         "label-2",
       ]);
 
-      await handleLabelRemovedEvent(historyItem.item, defaultOptions);
+      await handleLabelRemovedEvent(historyItem.item, defaultOptions, logger);
 
       expect(saveLearnedPatterns).not.toHaveBeenCalled();
     });
@@ -165,7 +168,7 @@ describe("process-label-removed-event", () => {
         "label-3",
       ]);
 
-      await handleLabelRemovedEvent(historyItem.item, defaultOptions);
+      await handleLabelRemovedEvent(historyItem.item, defaultOptions, logger);
 
       expect(saveLearnedPatterns).not.toHaveBeenCalled();
     });
@@ -176,7 +179,7 @@ describe("process-label-removed-event", () => {
         labelIds: ["label-1"],
       } as gmail_v1.Schema$HistoryLabelRemoved;
 
-      await handleLabelRemovedEvent(historyItem, defaultOptions);
+      await handleLabelRemovedEvent(historyItem, defaultOptions, logger);
 
       expect(prisma.coldEmail.upsert).not.toHaveBeenCalled();
     });
@@ -187,7 +190,7 @@ describe("process-label-removed-event", () => {
         labelIds: ["label-1"],
       } as gmail_v1.Schema$HistoryLabelRemoved;
 
-      await handleLabelRemovedEvent(historyItem, defaultOptions);
+      await handleLabelRemovedEvent(historyItem, defaultOptions, logger);
 
       expect(prisma.coldEmail.upsert).not.toHaveBeenCalled();
     });

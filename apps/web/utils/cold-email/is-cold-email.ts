@@ -13,8 +13,6 @@ import { createGenerateObject } from "@/utils/llms";
 
 export const COLD_EMAIL_FOLDER_NAME = "Cold Emails";
 
-const logger = createScopedLogger("ai-cold-email");
-
 type ColdEmailBlockerReason = "hasPreviousEmail" | "ai" | "ai-already-labeled";
 
 export async function isColdEmail({
@@ -34,13 +32,13 @@ export async function isColdEmail({
   reason: ColdEmailBlockerReason;
   aiReason?: string | null;
 }> {
-  const loggerOptions = {
+  const logger = createScopedLogger("ai-cold-email").with({
     email: emailAccount.email,
     threadId: email.threadId,
     messageId: email.id,
-  };
+  });
 
-  logger.info("Checking is cold email", loggerOptions);
+  logger.info("Checking is cold email");
 
   // Check if we marked it as a cold email already
   const isColdEmailer = await isKnownColdEmailSender({
@@ -50,7 +48,6 @@ export async function isColdEmail({
 
   if (isColdEmailer) {
     logger.info("Known cold email sender", {
-      ...loggerOptions,
       from: email.from,
     });
     return { isColdEmail: true, reason: "ai-already-labeled" };
@@ -66,7 +63,7 @@ export async function isColdEmail({
       : false;
 
   if (hasPreviousEmail) {
-    logger.info("Has previous email", loggerOptions);
+    logger.info("Has previous email");
     return { isColdEmail: false, reason: "hasPreviousEmail" };
   }
 
@@ -79,7 +76,6 @@ export async function isColdEmail({
   );
 
   logger.info("AI is cold email?", {
-    ...loggerOptions,
     coldEmail: res.coldEmail,
   });
 

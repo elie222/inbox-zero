@@ -21,7 +21,6 @@ export const adminProcessHistoryAction = adminActionClient
   )
   .action(
     async ({ parsedInput: { emailAddress, historyId, startHistoryId } }) => {
-      // Get the email account to determine the provider
       const emailAccount = await prisma.emailAccount.findUnique({
         where: { email: emailAddress.toLowerCase() },
         select: {
@@ -45,13 +44,11 @@ export const adminProcessHistoryAction = adminActionClient
         throw new SafeError("No provider found for email account");
       }
 
-      // Create the email provider
       const emailProvider = await createEmailProvider({
         emailAccountId: emailAccount.id,
         provider,
       });
 
-      // Use the unified processHistory method
       await emailProvider.processHistory({
         emailAddress,
         historyId,

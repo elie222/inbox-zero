@@ -16,9 +16,12 @@ export async function processHistoryForUser({
   subscriptionId: string;
   resourceData: OutlookResourceData;
 }) {
-  const emailAccount = await getWebhookEmailAccount({
-    watchEmailsSubscriptionId: subscriptionId,
-  });
+  const emailAccount = await getWebhookEmailAccount(
+    {
+      watchEmailsSubscriptionId: subscriptionId,
+    },
+    logger,
+  );
 
   const validation = await validateWebhookAccount(emailAccount, logger);
 
