@@ -7,6 +7,10 @@ import type { EmailProvider } from "@/utils/email/types";
 import { GmailLabel } from "@/utils/gmail/label";
 import { getRuleLabel } from "@/utils/rule/consts";
 import type { Logger } from "@/utils/logger";
+import {
+  isGmailRateLimitExceededError,
+  isGmailQuotaExceededError,
+} from "@/utils/error";
 
 const SYSTEM_LABELS = [
   GmailLabel.INBOX,
@@ -33,14 +37,20 @@ export async function handleLabelRemovedEvent(
   const messageId = message.message?.id;
   const threadId = message.message?.threadId;
   const emailAccountId = emailAccount.id;
-  const userEmail = emailAccount.email;
+  const allRemovedLabelIds = message.labelIds || [];
 
   if (!messageId || !threadId) {
-    logger.warn("Skipping label removal - missing messageId or threadId");
+    logger.error("Skipping label removal - missing messageId or threadId", {
+      hasMessage: !!message.message,
+      hasLabelIds: allRemovedLabelIds.length > 0,
+      labelIds: allRemovedLabelIds,
+    });
     return;
   }
 
-  logger.info("Processing label removal for learning");
+  logger.info("Processing label removal for learning", {
+    labelCount: allRemovedLabelIds.length,
+  });
 
   let sender: string | null = null;
 
@@ -48,7 +58,30 @@ export async function handleLabelRemovedEvent(
     const parsedMessage = await provider.getMessage(messageId);
     sender = extractEmailAddress(parsedMessage.headers.from);
   } catch (error) {
+    // Message not found - expected when message was deleted
+    if (
+      error instanceof Error &&
+      error.message === "Requested entity was not found."
+    ) {
+      logger.warn("Message not found", {
+        removedLabelCount: allRemovedLabelIds.length,
+      });
+      return;
+    }
+
+    if (isGmailRateLimitExceededError(error)) {
+      logger.warn("Rate limit exceeded", { messageId });
+      return;
+    }
+
+    if (isGmailQuotaExceededError(error)) {
+      logger.warn("Quota exceeded", { messageId });
+      return;
+    }
+
+    // Unexpected errors
     logger.error("Error getting sender for label removal", {
+      messageId,
       error,
     });
   }

@@ -21,9 +21,7 @@ export async function processHistoryItem(
   const { type, item } = historyItem;
   const messageId = item.message?.id;
   const threadId = item.message?.threadId;
-
   const emailAccountId = emailAccount.id;
-  const userEmail = emailAccount.email;
 
   if (!messageId || !threadId) return;
 
