@@ -103,7 +103,9 @@ export const getCalendarClientWithRefresh = async ({
         tokens: {
           access_token: tokens.access_token,
           refresh_token: tokens.refresh_token,
-          expires_at: Math.floor(Date.now() / 1000 + tokens.expires_in),
+          expires_at: Math.floor(
+            Date.now() / 1000 + Number(tokens.expires_in ?? 0),
+          ),
         },
         connectionId: calendarConnection.id,
       });
