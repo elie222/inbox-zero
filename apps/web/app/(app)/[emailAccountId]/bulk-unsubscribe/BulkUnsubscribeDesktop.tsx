@@ -106,8 +106,13 @@ export function BulkUnsubscribeRowDesktop({
           onChange={() => onToggleSelect?.(item.name)}
         />
       </TableCell>
-      <TableCell className="max-w-[250px] truncate min-[1550px]:max-w-[300px] min-[1650px]:max-w-[400px]">
-        {item.name}
+      <TableCell className="max-w-[250px] truncate min-[1550px]:max-w-[300px] min-[1650px]:max-w-[400px] py-3">
+        <div className="flex flex-col">
+          <span className="font-medium">{item.fromName || item.name}</span>
+          {item.fromName && (
+            <span className="text-xs text-muted-foreground">{item.name}</span>
+          )}
+        </div>
       </TableCell>
       <TableCell>{item.value}</TableCell>
       <TableCell>
@@ -136,19 +141,21 @@ export function BulkUnsubscribeRowDesktop({
         </div>
         <div className="2xl:hidden">{Math.round(archivedPercentage)}%</div>
       </TableCell>
-      <TableCell className="flex justify-end gap-2 p-2">
-        <ActionCell
-          item={item}
-          hasUnsubscribeAccess={hasUnsubscribeAccess}
-          mutate={mutate}
-          refetchPremium={refetchPremium}
-          onOpenNewsletter={onOpenNewsletter}
-          selected={selected}
-          labels={labels}
-          openPremiumModal={openPremiumModal}
-          userEmail={userEmail}
-          emailAccountId={emailAccountId}
-        />
+      <TableCell className="p-1">
+        <div className="flex justify-end items-center gap-2">
+          <ActionCell
+            item={item}
+            hasUnsubscribeAccess={hasUnsubscribeAccess}
+            mutate={mutate}
+            refetchPremium={refetchPremium}
+            onOpenNewsletter={onOpenNewsletter}
+            selected={selected}
+            labels={labels}
+            openPremiumModal={openPremiumModal}
+            userEmail={userEmail}
+            emailAccountId={emailAccountId}
+          />
+        </div>
       </TableCell>
     </TableRow>
   );

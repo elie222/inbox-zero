@@ -658,6 +658,7 @@ model EmailMessage {
   messageId       String
   date            DateTime // date of the email
   from            String
+  fromName        String?  // sender's display name
   fromDomain      String
   to              String
   unsubscribeLink String?

@@ -5,6 +5,7 @@ import type { UserResponse } from "@/app/api/user/me/route";
 
 export type Row = {
   name: string;
+  fromName?: string;
   unsubscribeLink?: string | null;
   status?: NewsletterStatus | null;
   autoArchived?: { id?: string | null };
