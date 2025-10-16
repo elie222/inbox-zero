@@ -122,17 +122,11 @@ model EmailAccount {
   statsEmailFrequency   Frequency         @default(WEEKLY)
   summaryEmailFrequency Frequency         @default(WEEKLY)
   lastSummaryEmailAt    DateTime?
-  coldEmailBlocker      ColdEmailSetting?
-  coldEmailDigest       Boolean           @default(false)
-  coldEmailPrompt       String?
-  rulesPrompt           String?
-  outboundReplyTracking Boolean           @default(false) // When true: manages "To Reply" and "Awaiting Reply" labels automatically
+  coldEmailBlocker      ColdEmailSetting? // @deprecated
+  coldEmailDigest       Boolean           @default(false) // @deprecated
+  coldEmailPrompt       String? // @deprecated
+  rulesPrompt           String? // @deprecated
   autoCategorizeSenders Boolean           @default(false)
-
-  // Configurable system labels (store stable IDs)
-  needsReplyLabelId     String? // Gmail: Label ID, Outlook: Category ID
-  awaitingReplyLabelId  String? // Gmail: Label ID, Outlook: Category ID
-  coldEmailLabelId      String? // Gmail: Label ID, Outlook: Category ID
 
   digestSchedule Schedule?
 
@@ -258,7 +252,7 @@ model DigestItem {
   digestId    String
   digest      Digest          @relation(fields: [digestId], references: [id], onDelete: Cascade)
   actionId    String?
-  action      ExecutedAction? @relation(fields: [actionId], references: [id])
+  action      ExecutedAction? @relation(fields: [actionId], references: [id], onDelete: Cascade)
   coldEmailId String?
   coldEmail   ColdEmail?      @relation(fields: [coldEmailId], references: [id])
 
@@ -554,7 +548,7 @@ model ScheduledAction {
   executedActionId String?   @unique
 
   executedRule   ExecutedRule    @relation(fields: [executedRuleId], references: [id], onDelete: Cascade)
-  executedAction ExecutedAction? @relation(fields: [executedActionId], references: [id])
+  executedAction ExecutedAction? @relation(fields: [executedActionId], references: [id], onDelete: Cascade)
   emailAccount   EmailAccount    @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
 
   @@index([status, scheduledFor])
@@ -977,7 +971,7 @@ enum ActionType {
   MARK_SPAM
   CALL_WEBHOOK
   MARK_READ
-  TRACK_THREAD
+  // TRACK_THREAD // @deprecated - No longer used. We rely on rule SystemType instead to run this.
   DIGEST
   MOVE_FOLDER
   // SUMMARIZE
@@ -1005,6 +999,7 @@ enum ColdEmailStatus {
   USER_REJECTED_COLD
 }
 
+// @deprecated - No longer used
 enum ColdEmailSetting {
   DISABLED
   LIST
@@ -1068,7 +1063,14 @@ enum CleanAction {
 }
 
 enum SystemType {
+  // conversation trackers
   TO_REPLY
+  FYI
+  AWAITING_REPLY
+  ACTIONED
+  // cold email blocker
+  COLD_EMAIL
+  // other labels
   NEWSLETTER
   MARKETING
   CALENDAR

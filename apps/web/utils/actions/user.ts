@@ -9,9 +9,10 @@ import { SafeError } from "@/utils/error";
 import { updateAccountSeats } from "@/utils/premium/server";
 import { betterAuthConfig } from "@/utils/auth";
 import { headers } from "next/headers";
-
-const saveAboutBody = z.object({ about: z.string().max(2000) });
-export type SaveAboutBody = z.infer<typeof saveAboutBody>;
+import {
+  saveAboutBody,
+  saveSignatureBody,
+} from "@/utils/actions/user.validation";
 
 export const saveAboutAction = actionClient
   .metadata({ name: "saveAbout" })
@@ -22,9 +23,6 @@ export const saveAboutAction = actionClient
       data: { about },
     });
   });
-
-const saveSignatureBody = z.object({ signature: z.string().max(2000) });
-export type SaveSignatureBody = z.infer<typeof saveSignatureBody>;
 
 export const saveSignatureAction = actionClient
   .metadata({ name: "saveSignature" })

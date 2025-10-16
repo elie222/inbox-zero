@@ -38,8 +38,8 @@ export async function withGmailRetry<T>(
         /quota exceeded/i.test(errorMessage);
 
       if (!isRateLimitError) {
-        logger.error("Non-rate limit error encountered, not retrying", {
-          errorMessage,
+        logger.warn("Non-rate limit error encountered, not retrying", {
+          error,
           status,
           reason,
         });

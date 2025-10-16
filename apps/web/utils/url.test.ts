@@ -40,7 +40,7 @@ describe("URL Generation", () => {
     expect(url).toBe("https://graph/link");
   });
 
-  it("should return empty string for Microsoft when no weblink is present", () => {
+  it("should return constructed URL for Microsoft when no weblink is present", () => {
     const url = getEmailUrlForMessage(
       {
         id: testMessageId,
@@ -52,7 +52,8 @@ describe("URL Generation", () => {
       testEmail,
     );
 
-    expect(url).toBe("");
+    expect(url).toContain("outlook.live.com");
+    expect(url).toContain(testThreadId);
   });
 
   it("should fallback to Gmail URL for unknown provider", () => {
@@ -96,7 +97,7 @@ describe("URL Generation", () => {
 
     expect(gmailUrl).not.toBe(outlookUrl);
     expect(gmailUrl).toContain("mail.google.com");
-    expect(outlookUrl).toBe("");
+    expect(outlookUrl).toContain("outlook.live.com");
   });
 
   it("should handle empty email address", () => {
@@ -130,7 +131,7 @@ describe("URL Generation", () => {
     expect(url).toContain("test%2Btag%40example.com");
   });
 
-  it("should return empty string for Outlook when no weblink is provided", () => {
+  it("should return constructed URL for Outlook when no weblink is provided", () => {
     const url = getEmailUrlForMessage(
       {
         id: testMessageId,
@@ -142,6 +143,7 @@ describe("URL Generation", () => {
       testEmail,
     );
 
-    expect(url).toBe("");
+    expect(url).toContain("outlook.live.com");
+    expect(url).toContain(testThreadId);
   });
 });

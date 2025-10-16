@@ -4,7 +4,7 @@ import { withEmailAccount, withError } from "@/utils/middleware";
 import { env } from "@/env";
 import { captureException, SafeError } from "@/utils/error";
 import prisma from "@/utils/prisma";
-import { createScopedLogger } from "@/utils/logger";
+import { createScopedLogger, type Logger } from "@/utils/logger";
 import { createUnsubscribeToken } from "@/utils/unsubscribe";
 import { calculateNextScheduleDate } from "@/utils/schedule";
 import type { ParsedMessage } from "@/utils/types";
@@ -15,7 +15,8 @@ import {
 } from "./validation";
 import { DigestStatus } from "@prisma/client";
 import { extractNameFromEmail } from "../../../../utils/email";
-import { RuleName } from "@/utils/rule/consts";
+import { getRuleName } from "@/utils/rule/consts";
+import { SystemType } from "@prisma/client";
 import { verifySignatureAppRouter } from "@upstash/qstash/nextjs";
 import { camelCase } from "lodash";
 import { getEmailUrlForMessage } from "@/utils/url";
@@ -23,8 +24,6 @@ import { createEmailProvider } from "@/utils/email/provider";
 import { sleep } from "@/utils/sleep";
 
 export const maxDuration = 60;
-
-const logger = createScopedLogger("resend/digest");
 
 type SendEmailResult = {
   success: boolean;
@@ -35,9 +34,14 @@ export const GET = withEmailAccount(async (request) => {
   // send to self
   const emailAccountId = request.auth.emailAccountId;
 
-  logger.info("Sending digest email to user GET", { emailAccountId });
+  const logger = createScopedLogger("resend/digest").with({
+    emailAccountId,
+    force: true,
+  });
 
-  const result = await sendEmail({ emailAccountId, force: true });
+  logger.info("Sending digest email to user GET");
+
+  const result = await sendEmail({ emailAccountId, force: true, logger });
 
   return NextResponse.json(result);
 });
@@ -46,6 +50,8 @@ export const POST = withError(
   verifySignatureAppRouter(async (request: NextRequest) => {
     const json = await request.json();
     const { success, data, error } = sendDigestEmailBody.safeParse(json);
+
+    let logger = createScopedLogger("resend/digest");
 
     if (!success) {
       logger.error("Invalid request body", { error });
@@ -56,10 +62,12 @@ export const POST = withError(
     }
     const { emailAccountId } = data;
 
-    logger.info("Sending digest email to user POST", { emailAccountId });
+    logger = logger.with({ emailAccountId });
+
+    logger.info("Sending digest email to user POST");
 
     try {
-      const result = await sendEmail({ emailAccountId });
+      const result = await sendEmail({ emailAccountId, logger });
       return NextResponse.json(result);
     } catch (error) {
       logger.error("Error sending digest email", { error });
@@ -94,12 +102,13 @@ async function getDigestSchedule({
 async function sendEmail({
   emailAccountId,
   force,
+  logger,
 }: {
   emailAccountId: string;
   force?: boolean;
+  logger: Logger;
 }): Promise<SendEmailResult> {
-  const loggerOptions = { emailAccountId, force };
-  logger.info("Sending digest email", loggerOptions);
+  logger.info("Sending digest email");
 
   const emailAccount = await prisma.emailAccount.findUnique({
     where: { id: emailAccountId },
@@ -181,7 +190,7 @@ async function sendEmail({
       digest.items.map((item) => item.messageId),
     );
 
-    logger.info("Fetching batch of messages", loggerOptions);
+    logger.info("Fetching batch of messages");
 
     const messages: ParsedMessage[] = [];
     if (messageIds.length > 0) {
@@ -201,7 +210,7 @@ async function sendEmail({
       }
     }
 
-    logger.info("Fetched batch of messages", loggerOptions);
+    logger.info("Fetched batch of messages");
 
     // Create a message lookup map for O(1) access
     const messageMap = new Map(messages.map((m) => [m.id, m]));
@@ -221,7 +230,8 @@ async function sendEmail({
         }
 
         const ruleName =
-          item.action?.executedRule?.rule?.name || RuleName.ColdEmail;
+          item.action?.executedRule?.rule?.name ||
+          getRuleName(SystemType.COLD_EMAIL);
 
         const ruleNameKey = camelCase(ruleName);
         if (!ruleNameMap.has(ruleNameKey)) {
@@ -272,10 +282,7 @@ async function sendEmail({
     }, {} as Digest);
 
     if (Object.keys(executedRulesByRule).length === 0) {
-      logger.info(
-        "No executed rules found, skipping digest email",
-        loggerOptions,
-      );
+      logger.info("No executed rules found, skipping digest email");
       return {
         success: true,
         message: "No executed rules found, skipping digest email",
@@ -284,7 +291,7 @@ async function sendEmail({
 
     const token = await createUnsubscribeToken({ emailAccountId });
 
-    logger.info("Sending digest email", loggerOptions);
+    logger.info("Sending digest email");
 
     // First, send the digest email and wait for it to complete
     await sendDigestEmail({
@@ -300,7 +307,7 @@ async function sendEmail({
       },
     });
 
-    logger.info("Digest email sent", loggerOptions);
+    logger.info("Digest email sent");
 
     // Only update database if email sending succeeded
     // Use a transaction to ensure atomicity - all updates succeed or none are applied

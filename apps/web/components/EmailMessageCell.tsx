@@ -14,12 +14,10 @@ import { useEmail } from "@/providers/EmailProvider";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { useMemo } from "react";
 import { isDefined } from "@/utils/types";
-import {
-  NEEDS_REPLY_LABEL_NAME,
-  AWAITING_REPLY_LABEL_NAME,
-} from "@/utils/reply-tracker/consts";
 import { isGoogleProvider } from "@/utils/email/provider-types";
 import type { ParsedMessage } from "@/utils/types";
+import { getRuleLabel } from "@/utils/rule/consts";
+import { SystemType } from "@prisma/client";
 
 export function EmailMessageCell({
   message,
@@ -61,8 +59,8 @@ export function EmailMessageCell({
       .filter((label) => {
         if (filterReplyTrackerLabels) {
           if (
-            label.name === NEEDS_REPLY_LABEL_NAME ||
-            label.name === AWAITING_REPLY_LABEL_NAME
+            label.name === getRuleLabel(SystemType.TO_REPLY) ||
+            label.name === getRuleLabel(SystemType.AWAITING_REPLY)
           ) {
             return false;
           }

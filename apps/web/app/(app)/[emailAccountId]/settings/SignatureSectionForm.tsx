@@ -4,10 +4,8 @@ import { useCallback, useRef } from "react";
 import { useForm } from "react-hook-form";
 import { useAction } from "next-safe-action/hooks";
 import { Button } from "@/components/Button";
-import {
-  saveSignatureAction,
-  type SaveSignatureBody,
-} from "@/utils/actions/user";
+import { saveSignatureAction } from "@/utils/actions/user";
+import type { SaveSignatureBody } from "@/utils/actions/user.validation";
 import { fetchSignaturesFromProviderAction } from "@/utils/actions/email-account";
 import {
   FormSection,
@@ -19,6 +17,8 @@ import { Tiptap, type TiptapHandle } from "@/components/editor/Tiptap";
 import { toastError, toastInfo, toastSuccess } from "@/components/Toast";
 import { ClientOnly } from "@/components/ClientOnly";
 import { useAccount } from "@/providers/EmailAccountProvider";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { saveSignatureBody } from "@/utils/actions/user.validation";
 
 export const SignatureSectionForm = ({
   signature,
@@ -29,6 +29,7 @@ export const SignatureSectionForm = ({
 
   const { handleSubmit, setValue } = useForm<SaveSignatureBody>({
     defaultValues: { signature: defaultSignature },
+    resolver: zodResolver(saveSignatureBody),
   });
 
   const editorRef = useRef<TiptapHandle>(null);

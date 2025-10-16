@@ -1,6 +1,5 @@
 "use client";
 
-import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { Badge } from "@/components/Badge";
 import { EnableFeatureCard } from "@/components/EnableFeatureCard";
@@ -8,19 +7,18 @@ import { toastSuccess } from "@/components/Toast";
 import { toastError } from "@/components/Toast";
 import { SectionDescription } from "@/components/Typography";
 import {
-  enableReplyTrackerAction,
-  processPreviousSentEmailsAction,
-} from "@/utils/actions/reply-tracking";
-import {
-  NEEDS_REPLY_LABEL_NAME,
-  AWAITING_REPLY_LABEL_NAME,
-} from "@/utils/reply-tracker/consts";
-import {
   markOnboardingAsCompleted,
   REPLY_ZERO_ONBOARDING_COOKIE,
 } from "@/utils/cookies";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { prefixPath } from "@/utils/path";
+import { getRuleLabel } from "@/utils/rule/consts";
+import { SystemType } from "@prisma/client";
+import {
+  enableDraftRepliesAction,
+  toggleRuleAction,
+} from "@/utils/actions/rule";
+import { CONVERSATION_STATUS_TYPES } from "@/utils/reply-tracker/conversation-status-config";
 
 export function EnableReplyTracker({ enabled }: { enabled: boolean }) {
   const router = useRouter();
@@ -41,12 +39,14 @@ export function EnableReplyTracker({ enabled }: { enabled: boolean }) {
           <SectionDescription>We label your emails with:</SectionDescription>
 
           <SectionDescription>
-            <Badge color="green">{NEEDS_REPLY_LABEL_NAME}</Badge> - emails you
-            need to reply to.
+            <Badge color="green">{getRuleLabel(SystemType.TO_REPLY)}</Badge> -
+            emails you need to reply to.
           </SectionDescription>
           <SectionDescription>
-            <Badge color="blue">{AWAITING_REPLY_LABEL_NAME}</Badge> - emails
-            where you're waiting for a response.
+            <Badge color="blue">
+              {getRuleLabel(SystemType.AWAITING_REPLY)}
+            </Badge>{" "}
+            - emails where you're waiting for a response.
           </SectionDescription>
 
           <SectionDescription className="mt-4">
@@ -66,7 +66,17 @@ export function EnableReplyTracker({ enabled }: { enabled: boolean }) {
           return;
         }
 
-        const result = await enableReplyTrackerAction(emailAccountId);
+        const promises = [
+          ...CONVERSATION_STATUS_TYPES.map((systemType) =>
+            toggleRuleAction(emailAccountId, {
+              enabled: true,
+              systemType,
+            }),
+          ),
+          enableDraftRepliesAction(emailAccountId, { enable: true }),
+        ];
+
+        const result = await Promise.race(promises);
 
         if (result?.serverError) {
           toastError({
@@ -80,19 +90,7 @@ export function EnableReplyTracker({ enabled }: { enabled: boolean }) {
           });
         }
 
-        toast.promise(
-          async () => {
-            await processPreviousSentEmailsAction(emailAccountId);
-
-            router.push(prefixPath(emailAccountId, "/reply-zero?enabled=true"));
-          },
-          {
-            loading:
-              "Processing previously sent emails... This will take a few minutes. Refresh the page to view updated progress.",
-            success: "Previously sent emails processed",
-            error: "Error processing previously sent emails",
-          },
-        );
+        router.push(prefixPath(emailAccountId, "/reply-zero?enabled=true"));
       }}
     />
   );

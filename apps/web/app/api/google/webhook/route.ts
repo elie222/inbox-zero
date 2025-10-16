@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { withError } from "@/utils/middleware";
 import { env } from "@/env";
 import { processHistoryForUser } from "@/app/api/google/webhook/process-history";
-import { logger } from "@/app/api/google/webhook/logger";
+import { createScopedLogger } from "@/utils/logger";
 
 export const maxDuration = 120;
 
@@ -10,11 +10,14 @@ export const maxDuration = 120;
 export const POST = withError(async (request) => {
   const searchParams = new URL(request.url).searchParams;
   const token = searchParams.get("token");
+
+  let logger = createScopedLogger("google/webhook");
+
   if (
     env.GOOGLE_PUBSUB_VERIFICATION_TOKEN &&
     token !== env.GOOGLE_PUBSUB_VERIFICATION_TOKEN
   ) {
-    logger.error("Invalid verification token");
+    logger.error("Invalid verification token", { token });
     return NextResponse.json(
       {
         message: "Invalid verification token",
@@ -26,20 +29,18 @@ export const POST = withError(async (request) => {
   const body = await request.json();
   const decodedData = decodeHistoryId(body);
 
-  logger.info("Processing webhook", {
-    emailAddress: decodedData.emailAddress,
+  logger = logger.with({
+    email: decodedData.emailAddress,
     historyId: decodedData.historyId,
   });
 
+  logger.info("Processing webhook");
+
   try {
-    return await processHistoryForUser(decodedData);
+    return await processHistoryForUser(decodedData, {}, logger);
   } catch (error) {
     if (error instanceof Error && error.message.includes("invalid_grant")) {
-      logger.warn("Invalid grant error", {
-        error: error.message,
-        emailAddress: decodedData.emailAddress,
-        historyId: decodedData.historyId,
-      });
+      logger.warn("Invalid grant error", { error: error.message });
       // Returning 200 to avoid retry
       return NextResponse.json(
         { message: "Invalid grant error" },

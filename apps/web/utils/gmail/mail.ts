@@ -175,29 +175,25 @@ export async function replyToEmail(
 
 export async function forwardEmail(
   gmail: gmail_v1.Gmail,
+  message: ParsedMessage,
   options: {
-    messageId: string;
     to: string;
     cc?: string;
     bcc?: string;
     content?: string;
   },
 ) {
-  if (!options.to.trim()) throw new Error("Recipient address is required");
-
-  // TODO: Use email provider to get the message which will parse it internally
-  const m = await getMessage(options.messageId, gmail);
-
-  const messageId = m.id;
-  if (!messageId) throw new Error("Message not found");
-
-  const message = parseMessage(m);
+  if (!options.to?.trim()) {
+    throw new Error(
+      `Recipient address is required for forwarding email. Received: "${options.to}"`,
+    );
+  }
 
   const attachments = await Promise.all(
     message.attachments?.map(async (attachment) => {
       const attachmentData = await gmail.users.messages.attachments.get({
         userId: "me",
-        messageId,
+        messageId: message.id,
         id: attachment.attachmentId,
       });
       return {

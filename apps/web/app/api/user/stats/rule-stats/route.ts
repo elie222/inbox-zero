@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
+import { z } from "zod";
+import sumBy from "lodash/sumBy";
 import prisma from "@/utils/prisma";
 import { withEmailAccount } from "@/utils/middleware";
-import { z } from "zod";
+import { Prisma } from "@prisma/client";
 
 const ruleStatsQuery = z.object({
   fromDate: z.coerce.number().nullish(),
@@ -19,60 +21,42 @@ async function getRuleStats({
   fromDate?: number;
   toDate?: number;
 }) {
-  const dateFilter: { gte?: Date; lte?: Date } = {};
+  // Build WHERE conditions as SQL fragments
+  const conditions: Prisma.Sql[] = [
+    Prisma.sql`er."emailAccountId" = ${emailAccountId}`,
+  ];
+
   if (typeof fromDate === "number" && Number.isFinite(fromDate)) {
-    dateFilter.gte = new Date(fromDate);
+    conditions.push(Prisma.sql`er."createdAt" >= ${new Date(fromDate)}`);
   }
   if (typeof toDate === "number" && Number.isFinite(toDate)) {
-    dateFilter.lte = new Date(toDate);
+    conditions.push(Prisma.sql`er."createdAt" <= ${new Date(toDate)}`);
   }
 
-  const executedRules = await prisma.executedRule.findMany({
-    where: {
-      emailAccountId,
-      ...(Object.keys(dateFilter).length > 0 && { createdAt: dateFilter }),
-    },
-    include: {
-      rule: {
-        include: {
-          group: {
-            select: {
-              name: true,
-            },
-          },
-        },
-      },
-    },
-  });
+  const whereClause = Prisma.join(conditions, " AND ");
 
-  const groupStats = executedRules.reduce(
-    (acc, executedRule) => {
-      const groupName = executedRule.rule?.group?.name || "No Group";
+  const results = await prisma.$queryRaw<
+    Array<{ rule_name: string; executed_count: bigint }>
+  >(Prisma.sql`
+    SELECT 
+      COALESCE(r.name, 'No Rule') AS rule_name,
+      COUNT(er.id) AS executed_count
+    FROM "ExecutedRule" er
+    LEFT JOIN "Rule" r ON er."ruleId" = r.id
+    WHERE ${whereClause}
+    GROUP BY r.name
+    ORDER BY executed_count DESC
+  `);
 
-      if (!acc[groupName]) {
-        acc[groupName] = {
-          groupName,
-          executedCount: 0,
-        };
-      }
+  const ruleStats = results.map((row) => ({
+    ruleName: row.rule_name,
+    executedCount: Number(row.executed_count),
+  }));
 
-      acc[groupName].executedCount += 1;
-      return acc;
-    },
-    {} as Record<string, { groupName: string; executedCount: number }>,
-  );
-
-  const groupStatsArray = Object.values(groupStats).sort(
-    (a, b) => b.executedCount - a.executedCount,
-  );
-
-  const totalExecutedRules = groupStatsArray.reduce(
-    (sum, group) => sum + group.executedCount,
-    0,
-  );
+  const totalExecutedRules = sumBy(ruleStats, (rs) => rs.executedCount);
 
   return {
-    groupStats: groupStatsArray,
+    ruleStats,
     totalExecutedRules,
   };
 }

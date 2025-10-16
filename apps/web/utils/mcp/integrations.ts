@@ -115,7 +115,8 @@ export const MCP_INTEGRATIONS: Record<
       "timeline",
     ],
     oauthConfig: {
-      authorization_endpoint: "https://mcp.hubspot.com/oauth/authorize/user",
+      // authorization_endpoint: "https://mcp.hubspot.com/oauth/authorize/user",
+      authorization_endpoint: "https://app.hubspot.com/oauth/authorize",
       token_endpoint: "https://mcp.hubspot.com/oauth/v1/token",
     },
     comingSoon: true,

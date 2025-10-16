@@ -367,8 +367,18 @@ export async function archiveThread({
       publishPromise,
     ]);
 
+    // Handle publish errors as non-fatal (just log)
+    if (publishResult.status === "rejected") {
+      logger.error("Failed to publish action to move thread to folder", {
+        folderId,
+        threadId,
+        error: publishResult.reason,
+      });
+    }
+
+    // Handle archive errors
     if (archiveResult.status === "rejected") {
-      const error = archiveResult.reason as Error;
+      const error = archiveResult.reason;
       if (error.message?.includes("Requested entity was not found")) {
         logger.warn("Thread not found", { threadId, userEmail: ownerEmail });
         return { status: 404, message: "Thread not found" };
@@ -379,14 +389,6 @@ export async function archiveThread({
         error,
       });
       throw error;
-    }
-
-    if (publishResult.status === "rejected") {
-      logger.error("Failed to publish action to move thread to folder", {
-        folderId,
-        threadId,
-        error: publishResult.reason,
-      });
     }
 
     return { status: 200 };

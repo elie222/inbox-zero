@@ -1,9 +1,9 @@
 import type { ParsedMessage } from "@/utils/types";
 function getGmailBaseUrl(emailAddress?: string) {
   if (emailAddress) {
-    return `https://mail.google.com/mail/u/?authuser=${encodeURIComponent(emailAddress)}`;
+    return `https://mail.google.com/mail/?authuser=${encodeURIComponent(emailAddress)}`;
   }
-  return "https://mail.google.com/mail/u/0";
+  return "https://mail.google.com/mail/?authuser=0";
 }
 
 function getGmailMessageUrl(messageId: string, emailAddress?: string) {
@@ -71,7 +71,10 @@ export function getEmailUrlForMessage(
   emailAddress?: string,
 ) {
   if (provider === "microsoft") {
-    return message.weblink ?? "";
+    if (message.weblink) return message.weblink;
+    const config = getProviderConfig(provider);
+    const idToUse = config?.selectId(message.id, message.threadId);
+    return idToUse ? getEmailUrl(idToUse, provider, emailAddress) : undefined;
   }
 
   const config = getProviderConfig(provider);

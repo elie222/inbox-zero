@@ -1,5 +1,5 @@
 import { isDefined, type ParsedMessage } from "@/utils/types";
-import { createScopedLogger } from "@/utils/logger";
+import { createScopedLogger, type Logger } from "@/utils/logger";
 import { processUserRequest } from "@/utils/ai/assistant/process-user-request";
 import { extractEmailAddress } from "@/utils/email";
 import prisma from "@/utils/prisma";
@@ -7,8 +7,6 @@ import { emailToContent } from "@/utils/mail";
 import { isAssistantEmail } from "@/utils/assistant/is-assistant-email";
 import { internalDateToDate } from "@/utils/date";
 import type { EmailProvider } from "@/utils/email/types";
-
-const logger = createScopedLogger("process-assistant-email");
 
 type ProcessAssistantEmailArgs = {
   emailAccountId: string;
@@ -23,13 +21,24 @@ export async function processAssistantEmail({
   message,
   provider,
 }: ProcessAssistantEmailArgs) {
-  return withProcessingLabels(message.id, provider, () =>
-    processAssistantEmailInternal({
-      emailAccountId,
-      userEmail,
-      message,
-      provider,
-    }),
+  const logger = createScopedLogger("process-assistant-email").with({
+    emailAccountId,
+    threadId: message.threadId,
+    messageId: message.id,
+  });
+
+  return withProcessingLabels(
+    message.id,
+    provider,
+    () =>
+      processAssistantEmailInternal({
+        emailAccountId,
+        userEmail,
+        message,
+        provider,
+        logger,
+      }),
+    logger,
   );
 }
 
@@ -38,7 +47,8 @@ async function processAssistantEmailInternal({
   userEmail,
   message,
   provider,
-}: ProcessAssistantEmailArgs) {
+  logger,
+}: ProcessAssistantEmailArgs & { logger: Logger }) {
   if (!verifyUserSentEmail({ message, userEmail })) {
     logger.error("Unauthorized assistant access attempt", {
       email: userEmail,
@@ -48,13 +58,7 @@ async function processAssistantEmailInternal({
     throw new Error("Unauthorized assistant access attempt");
   }
 
-  const loggerOptions = {
-    emailAccountId,
-    threadId: message.threadId,
-    messageId: message.id,
-  };
-
-  logger.info("Processing assistant email", loggerOptions);
+  logger.info("Processing assistant email");
 
   // 1. get thread
   // 2. get first message in thread to the personal assistant
@@ -63,7 +67,7 @@ async function processAssistantEmailInternal({
   const threadMessages = await provider.getThreadMessages(message.threadId);
 
   if (!threadMessages?.length) {
-    logger.error("No thread messages found", loggerOptions);
+    logger.error("No thread messages found");
     await provider.replyToEmail(
       message,
       "Something went wrong. I couldn't read any messages.",
@@ -166,7 +170,7 @@ async function processAssistantEmailInternal({
   ]);
 
   if (!emailAccount) {
-    logger.error("User not found", loggerOptions);
+    logger.error("User not found");
     return;
   }
 
@@ -204,7 +208,7 @@ async function processAssistantEmailInternal({
     });
 
   if (messages[messages.length - 1].role === "assistant") {
-    logger.error("Assistant message cannot be last", loggerOptions);
+    logger.error("Assistant message cannot be last");
     return;
   }
 
@@ -245,6 +249,7 @@ async function withProcessingLabels<T>(
   messageId: string,
   provider: EmailProvider,
   fn: () => Promise<T>,
+  logger: Logger,
 ): Promise<T> {
   // Get labels first so we can reuse them
   const results = await Promise.allSettled([

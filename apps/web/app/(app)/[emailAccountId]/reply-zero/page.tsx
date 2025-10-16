@@ -12,9 +12,9 @@ import { TabsToolbar } from "@/components/TabsToolbar";
 import { GmailProvider } from "@/providers/GmailProvider";
 import { cookies } from "next/headers";
 import { REPLY_ZERO_ONBOARDING_COOKIE } from "@/utils/cookies";
-import { ActionType } from "@prisma/client";
 import { prefixPath } from "@/utils/path";
 import { checkUserOwnsEmailAccount } from "@/utils/email-account";
+import { CONVERSATION_STATUS_TYPES } from "@/utils/reply-tracker/conversation-status-config";
 
 export const maxDuration = 300;
 
@@ -44,7 +44,9 @@ export default async function ReplyTrackerPage(props: {
       email: true,
       rules: {
         where: {
-          actions: { some: { type: ActionType.TRACK_THREAD } },
+          systemType: {
+            in: CONVERSATION_STATUS_TYPES,
+          },
         },
         select: { id: true },
       },
