@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
+import { z } from "zod";
 import { withEmailProvider } from "@/utils/middleware";
 import { extractEmailAddress } from "@/utils/email";
 import { createScopedLogger } from "@/utils/logger";
 import prisma from "@/utils/prisma";
 import { Prisma } from "@prisma/client";
-import { z } from "zod";
 import type { EmailProvider } from "@/utils/email/types";
 import {
   getAutoArchiveFilters,
@@ -89,6 +89,7 @@ async function getEmailMessages(
     const from = extractEmailAddress(email.from);
     return {
       name: from,
+      fromName: email.fromName || "",
       value: email.count,
       inboxEmails: email.inboxEmails,
       readEmails: email.readEmails,
@@ -111,6 +112,7 @@ async function getEmailMessages(
 
 type NewsletterCountResult = {
   from: string;
+  fromName: string | null;
   count: number;
   inboxEmails: number;
   readEmails: number;
@@ -119,6 +121,7 @@ type NewsletterCountResult = {
 
 type NewsletterCountRawResult = {
   from: string;
+  fromName: string | null;
   count: number;
   inboxEmails: number;
   readEmails: number;
@@ -136,67 +139,69 @@ async function getNewsletterCounts(
     andClause?: boolean;
   },
 ): Promise<NewsletterCountResult[]> {
-  // Collect SQL query conditions
-  const whereConditions: string[] = [];
-  const queryParams: Array<string | Date> = [];
+  // Build WHERE conditions using Prisma.sql for type safety
+  const whereConditions: Prisma.Sql[] = [];
 
   // Add date filters if provided
   if (options.fromDate) {
+    const fromTimestamp = (options.fromDate / 1000).toString();
     whereConditions.push(
-      `"date" >= to_timestamp($${queryParams.length + 1}::double precision)`,
+      Prisma.sql`"date" >= to_timestamp(${fromTimestamp}::double precision)`,
     );
-    queryParams.push((options.fromDate / 1000).toString()); // Convert milliseconds to seconds
   }
 
   if (options.toDate) {
+    const toTimestamp = (options.toDate / 1000).toString();
     whereConditions.push(
-      `"date" <= to_timestamp($${queryParams.length + 1}::double precision)`,
+      Prisma.sql`"date" <= to_timestamp(${toTimestamp}::double precision)`,
     );
-    queryParams.push((options.toDate / 1000).toString()); // Convert milliseconds to seconds
   }
 
   // Add read/unread filters
   if (options.read) {
-    whereConditions.push("read = true");
+    whereConditions.push(Prisma.sql`read = true`);
   } else if (options.unread) {
-    whereConditions.push("read = false");
+    whereConditions.push(Prisma.sql`read = false`);
   }
 
   // Add inbox/archived filters
   if (options.unarchived) {
-    whereConditions.push("inbox = true");
+    whereConditions.push(Prisma.sql`inbox = true`);
   } else if (options.archived) {
-    whereConditions.push("inbox = false");
+    whereConditions.push(Prisma.sql`inbox = false`);
   }
 
-  // Always filter by userId
-  whereConditions.push(`"emailAccountId" = $${queryParams.length + 1}`);
-  queryParams.push(options.emailAccountId);
+  // Always filter by emailAccountId
+  whereConditions.push(
+    Prisma.sql`"emailAccountId" = ${options.emailAccountId}`,
+  );
 
-  // Create WHERE clause
-  const whereClause = whereConditions.length
-    ? `WHERE ${whereConditions.join(" AND ")}`
-    : "";
+  // Join conditions with AND
+  const whereClause =
+    whereConditions.length > 0
+      ? Prisma.sql`WHERE ${Prisma.join(whereConditions, " AND ")}`
+      : Prisma.empty;
 
-  // Build order by clause
+  // Build order by clause (safe, no user input)
   const orderByClause = options.orderBy
     ? getOrderByClause(options.orderBy)
     : '"count" DESC';
 
-  // Build limit clause
+  // Build limit clause (safe, validated number)
   const limitClause = options.limit ? `LIMIT ${options.limit}` : "";
 
-  // Wrap in a subquery so we can use aliases in ORDER BY
+  // Build the complete query using Prisma.sql
   const query = Prisma.sql`
     WITH email_message_stats AS (
       SELECT 
         "from",
+        MAX("fromName") as "fromName",
         COUNT(*)::int as "count",
         SUM(CASE WHEN inbox = true THEN 1 ELSE 0 END)::int as "inboxEmails",
         SUM(CASE WHEN read = true THEN 1 ELSE 0 END)::int as "readEmails",
         MAX("unsubscribeLink") as "unsubscribeLink"
       FROM "EmailMessage"
-      ${Prisma.raw(whereClause)}
+      ${whereClause}
       GROUP BY "from"
     )
     SELECT * FROM email_message_stats
@@ -205,15 +210,12 @@ async function getNewsletterCounts(
   `;
 
   try {
-    const results = await prisma.$queryRawUnsafe<NewsletterCountRawResult[]>(
-      query.sql,
-      ...queryParams,
-      ...query.values,
-    );
+    const results = await prisma.$queryRaw<NewsletterCountRawResult[]>(query);
 
     // Convert BigInt values to regular numbers
     return results.map((result) => ({
       from: result.from,
+      fromName: result.fromName,
       count: result.count,
       inboxEmails: result.inboxEmails,
       readEmails: result.readEmails,

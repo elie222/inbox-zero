@@ -273,10 +273,6 @@ export function BulkUnsubscribe() {
             />
           </div>
 
-          <div className="hidden md:block">
-            <ShortcutTooltip />
-          </div>
-
           <SearchBar onSearch={setSearch} />
 
           <DetailedStatsFilter

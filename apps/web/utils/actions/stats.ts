@@ -4,12 +4,17 @@ import { actionClient } from "@/utils/actions/safe-action";
 import { z } from "zod";
 import { createEmailProvider } from "@/utils/email/provider";
 import { isDefined } from "@/utils/types";
-import { extractDomainFromEmail, extractEmailAddress } from "@/utils/email";
+import {
+  extractDomainFromEmail,
+  extractEmailAddress,
+  extractNameFromEmail,
+} from "@/utils/email";
 import { findUnsubscribeLink } from "@/utils/parse/parseHtml.server";
 import { internalDateToDate } from "@/utils/date";
 import prisma from "@/utils/prisma";
 import { SafeError } from "@/utils/error";
 import type { Logger } from "@/utils/logger";
+import type { EmailProvider } from "@/utils/email/types";
 
 const PAGE_SIZE = 20; // avoid setting too high because it will hit the rate limit
 // const PAUSE_AFTER_RATE_LIMIT = 10_000;
@@ -62,7 +67,7 @@ async function loadEmails(
     logger,
   }: {
     emailAccountId: string;
-    emailProvider: any;
+    emailProvider: EmailProvider;
     logger: Logger;
   },
   { loadBefore }: { loadBefore: boolean },
@@ -145,7 +150,7 @@ async function saveBatch({
   after,
 }: {
   emailAccountId: string;
-  emailProvider: any;
+  emailProvider: EmailProvider;
   logger: Logger;
   nextPageToken?: string;
 } & (
@@ -153,7 +158,6 @@ async function saveBatch({
   | { before: undefined; after: Date }
   | { before: undefined; after: undefined }
 )) {
-  // Get messages from the provider with date filtering
   const res = await emailProvider.getMessagesWithPagination({
     maxResults: PAGE_SIZE,
     pageToken: nextPageToken,
@@ -161,15 +165,12 @@ async function saveBatch({
     after,
   });
 
-  // Get full message details for the batch
   const messages = await emailProvider.getMessagesBatch(
-    res.messages?.map((m: any) => m.id).filter(isDefined) || [],
+    res.messages?.map((m) => m.id).filter(isDefined) || [],
   );
 
   const emailsToSave = messages
-    .map((m: any) => {
-      if (!m.id || !m.threadId) return;
-
+    .map((m) => {
       const unsubscribeLink =
         findUnsubscribeLink(m.textHtml) || m.headers["list-unsubscribe"];
 
@@ -186,6 +187,7 @@ async function saveBatch({
         threadId: m.threadId,
         messageId: m.id,
         from: extractEmailAddress(m.headers.from),
+        fromName: extractNameFromEmail(m.headers.from),
         fromDomain: extractDomainFromEmail(m.headers.from),
         to: m.headers.to ? extractEmailAddress(m.headers.to) : "Missing",
         date,
@@ -201,7 +203,6 @@ async function saveBatch({
 
   logger.info("Saving", { count: emailsToSave.length });
 
-  // Use createMany for better performance
   await prisma.emailMessage.createMany({
     data: emailsToSave,
     skipDuplicates: true, // Skip if email already exists (based on unique constraint)
