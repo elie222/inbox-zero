@@ -615,6 +615,7 @@ model Newsletter {
   updatedAt DateTime          @updatedAt
   email     String
   status    NewsletterStatus?
+  priority  Int? // Sender-level priority: 10 (low), 50 (mixed), or 90 (high)
 
   // For learned patterns for rules
   patternAnalyzed Boolean   @default(false)
@@ -658,7 +659,7 @@ model EmailMessage {
   messageId       String
   date            DateTime // date of the email
   from            String
-  fromName        String?  // sender's display name
+  fromName        String? // sender's display name
   fromDomain      String
   to              String
   unsubscribeLink String?

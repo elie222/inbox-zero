@@ -6,13 +6,35 @@ const emailSchema = z.string().email();
 // Converts "John Doe <john.doe@gmail>" to "John Doe"
 // Converts "<john.doe@gmail>" to "john.doe@gmail"
 // Converts "john.doe@gmail" to "john.doe@gmail"
+// Removes surrounding quotes from names like "vercel[bot]" -> vercel[bot]
 export function extractNameFromEmail(email: string) {
   if (!email) return "";
+
+  // Handle format: "Name" <email@domain.com> or Name <email@domain.com>
   const firstPart = email.split("<")[0]?.trim();
-  if (firstPart) return firstPart;
+  if (firstPart) {
+    // Remove surrounding quotes if present
+    return firstPart.replace(/^["']|["']$/g, "");
+  }
+
+  // Handle format: <email@domain.com> or <"quoted-name"@domain.com>
   const secondPart = email.split("<")?.[1]?.trim();
-  if (secondPart) return secondPart.split(">")[0];
-  return email;
+  if (secondPart) {
+    const emailPart = secondPart.split(">")[0];
+
+    // Check if the email part starts with a quoted name
+    // Pattern: "quoted-name"@domain.com or 'quoted-name'@domain.com
+    const quotedNameMatch = emailPart.match(/^["']([^"']+)["']@/);
+    if (quotedNameMatch) {
+      return quotedNameMatch[1];
+    }
+
+    // If no quoted name pattern, return the email part as-is
+    return emailPart;
+  }
+
+  // Remove surrounding quotes if present
+  return email.replace(/^["']|["']$/g, "");
 }
 
 // Converts "John Doe <john.doe@gmail>" to "john.doe@gmail"

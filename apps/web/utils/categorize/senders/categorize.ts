@@ -5,12 +5,11 @@ import { isNewsletterSender } from "@/utils/ai/group/find-newsletters";
 import { isReceiptSender } from "@/utils/ai/group/find-receipts";
 import { aiCategorizeSender } from "@/utils/ai/categorize-sender/ai-categorize-single-sender";
 import type { Category } from "@prisma/client";
-import { getUserCategories } from "@/utils/category.server";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import { createScopedLogger } from "@/utils/logger";
 import { extractEmailAddress } from "@/utils/email";
-import { SafeError } from "@/utils/error";
 import type { EmailProvider } from "@/utils/email/types";
+import { priorityToNumber, type PriorityLevel } from "@/utils/priority";
 
 const logger = createScopedLogger("categorize/senders");
 
@@ -20,10 +19,7 @@ export async function categorizeSender(
   provider: EmailProvider,
   userCategories?: Pick<Category, "id" | "name" | "description">[],
 ) {
-  const categories =
-    userCategories ||
-    (await getUserCategories({ emailAccountId: emailAccount.id }));
-  if (categories.length === 0) return { categoryId: undefined };
+  const categories = userCategories || [];
 
   const previousEmails = await provider.getThreadsFromSenderWithSubject(
     senderAddress,
@@ -43,6 +39,7 @@ export async function categorizeSender(
       categories,
       categoryName: aiResult.category,
       emailAccountId: emailAccount.id,
+      priority: aiResult.priority,
     });
 
     return { categoryId: newsletter.categoryId };
@@ -61,25 +58,64 @@ export async function updateSenderCategory({
   sender,
   categories,
   categoryName,
+  priority,
 }: {
   emailAccountId: string;
   sender: string;
   categories: Pick<Category, "id" | "name">[];
   categoryName: string;
+  priority?: PriorityLevel;
 }) {
   let category = categories.find((c) => c.name === categoryName);
   let newCategory: Category | undefined;
 
-  if (!category) {
-    // create category
-    newCategory = await prisma.category.create({
-      data: {
-        name: categoryName,
-        emailAccountId,
-        // color: getRandomColor(),
-      },
-    });
-    category = newCategory;
+  // First, try to find the category in the database
+  let dbCategory = await prisma.category.findFirst({
+    where: {
+      name: categoryName,
+      emailAccountId,
+    },
+  });
+
+  if (dbCategory) {
+    category = dbCategory;
+  } else {
+    // Category doesn't exist in database, create it
+    const defaultCategoryMatch = Object.values(defaultCategory).find(
+      (c) => c.name === categoryName,
+    );
+
+    try {
+      newCategory = await prisma.category.create({
+        data: {
+          name: categoryName,
+          description: defaultCategoryMatch?.description,
+          emailAccountId,
+        },
+      });
+      category = newCategory;
+    } catch (error) {
+      // Handle race condition - another process might have created the category
+      if (
+        error instanceof Error &&
+        error.message.includes("Unique constraint failed")
+      ) {
+        // Try to find it again
+        dbCategory = await prisma.category.findFirst({
+          where: {
+            name: categoryName,
+            emailAccountId,
+          },
+        });
+        if (dbCategory) {
+          category = dbCategory;
+        } else {
+          throw error; // Re-throw if we still can't find it
+        }
+      } else {
+        throw error;
+      }
+    }
   }
 
   // save category
@@ -87,11 +123,15 @@ export async function updateSenderCategory({
     where: {
       email_emailAccountId: { email: sender, emailAccountId },
     },
-    update: { categoryId: category.id },
+    update: {
+      categoryId: category.id,
+      priority: priority ? priorityToNumber(priority) : null,
+    },
     create: {
       email: sender,
       emailAccountId,
       categoryId: category.id,
+      priority: priority ? priorityToNumber(priority) : null,
     },
   });
 
@@ -138,14 +178,17 @@ function preCategorizeSendersWithStaticRules(
   });
 }
 
-export async function getCategories({
-  emailAccountId,
-}: {
-  emailAccountId: string;
-}) {
-  const categories = await getUserCategories({ emailAccountId });
-  if (categories.length === 0) throw new SafeError("No categories found");
-  return { categories };
+export async function getCategories() {
+  // Use default categories instead of requiring user-created categories
+  const defaultCategories = Object.values(defaultCategory)
+    .filter((category) => category.enabled)
+    .map((category) => ({
+      id: category.name, // Use name as id for default categories
+      name: category.name,
+      description: category.description,
+    }));
+
+  return { categories: defaultCategories };
 }
 
 export async function categorizeWithAi({

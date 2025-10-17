@@ -30,6 +30,70 @@ describe("email utils", () => {
     it("handles empty input", () => {
       expect(extractNameFromEmail("")).toBe("");
     });
+
+    it("removes surrounding double quotes from names", () => {
+      expect(extractNameFromEmail('"vercel[bot]" <noreply@vercel.com>')).toBe(
+        "vercel[bot]",
+      );
+    });
+
+    it("removes surrounding single quotes from names", () => {
+      expect(extractNameFromEmail("'github[bot]' <noreply@github.com>")).toBe(
+        "github[bot]",
+      );
+    });
+
+    it("removes quotes from plain email format", () => {
+      expect(extractNameFromEmail('"vercel[bot]"')).toBe("vercel[bot]");
+      expect(extractNameFromEmail("'github[bot]'")).toBe("github[bot]");
+    });
+
+    it("removes quotes from bracketed email format", () => {
+      expect(extractNameFromEmail('<"vercel[bot]"@vercel.com>')).toBe(
+        "vercel[bot]",
+      );
+      expect(extractNameFromEmail("<'github[bot]'@github.com>")).toBe(
+        "github[bot]",
+      );
+    });
+
+    it("handles mixed quote types", () => {
+      expect(
+        extractNameFromEmail(
+          "\"name with 'inner' quotes\" <email@example.com>",
+        ),
+      ).toBe("name with 'inner' quotes");
+      expect(
+        extractNameFromEmail(
+          "'name with \"inner\" quotes' <email@example.com>",
+        ),
+      ).toBe('name with "inner" quotes');
+    });
+
+    it("handles names with brackets and quotes", () => {
+      expect(extractNameFromEmail('"[bot] system" <bot@example.com>')).toBe(
+        "[bot] system",
+      );
+      expect(
+        extractNameFromEmail("'[automated] service' <service@example.com>"),
+      ).toBe("[automated] service");
+    });
+
+    it("handles edge cases with quotes", () => {
+      expect(extractNameFromEmail('""')).toBe("");
+      expect(extractNameFromEmail("''")).toBe("");
+      expect(extractNameFromEmail('" "')).toBe(" ");
+      expect(extractNameFromEmail("' '")).toBe(" ");
+    });
+
+    it("handles multiple quotes correctly", () => {
+      expect(extractNameFromEmail('""quoted name"" <email@example.com>')).toBe(
+        '"quoted name"',
+      );
+      expect(extractNameFromEmail("''quoted name'' <email@example.com>")).toBe(
+        "'quoted name'",
+      );
+    });
   });
 
   describe("extractEmailAddress", () => {

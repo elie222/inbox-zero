@@ -44,7 +44,7 @@ async function handleBatchInternal(request: Request) {
   const userResult = await validateUserAndAiAccess({ emailAccountId });
   const { emailAccount } = userResult;
 
-  const categoriesResult = await getCategories({ emailAccountId });
+  const categoriesResult = await getCategories();
   const { categories } = categoriesResult;
 
   const emailAccountWithAccount = await prisma.emailAccount.findUnique({
@@ -105,6 +105,7 @@ async function handleBatchInternal(request: Request) {
       categories,
       categoryName: result.category ?? UNKNOWN_CATEGORY,
       emailAccountId,
+      priority: "priority" in result ? result.priority : undefined,
     });
   }
 

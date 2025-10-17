@@ -16,6 +16,11 @@ const categorizeSendersSchema = z.object({
       rationale: z.string().describe("Keep it short."),
       sender: z.string(),
       category: z.string(), // not using enum, because sometimes the ai creates new categories, which throws an error. we prefer to handle this ourselves
+      priority: z
+        .enum(["low", "medium", "high"])
+        .describe(
+          "Priority level: low (newsletters/marketing), medium (notifications/support), high (critical alerts/personal).",
+        ),
     }),
   ),
 });
@@ -35,6 +40,7 @@ export async function aiCategorizeSenders({
   {
     category?: string;
     sender: string;
+    priority?: "low" | "medium" | "high";
   }[]
 > {
   if (senders.length === 0) return [];
@@ -74,15 +80,35 @@ ${formatCategoriesForPrompt(categories)}
 
 <instructions>
 1. Analyze each sender's email address and their recent emails for categorization.
-2. If the sender's category is clear, assign it.
-3. Use "Unknown" if the category is unclear or multiple categories could apply.
-4. Use "${REQUEST_MORE_INFORMATION_CATEGORY}" if more context is needed.
+2. STRONGLY prefer using the provided categories when they fit reasonably well, even if not perfect.
+3. Only create new categories when the sender truly doesn't fit any provided category.
+4. When creating new categories, use broad, general terms rather than specific ones:
+   - Use "Marketing" instead of "Product Onboarding" or "Product Updates"
+   - Use "Notifications" instead of "Product Notifications" or "System Alerts"
+   - Use "Support" instead of "Customer Success" or "Help Desk"
+   - Use "Newsletter" instead of "Weekly Digest" or "Monthly Update"
+5. Use "Unknown" for:
+   - Personal emails that cannot be meaningfully categorized
+   - Senders with very few emails (1-3) that appear to be individual people
+   - Unclear or ambiguous senders where a wrong categorization would be worse than no categorization
+6. CRITICAL: Do NOT categorize personal senders as newsletters/events/marketing. It's better to mark as "Unknown" than to mislabel personal correspondence.
+7. Assign priority levels:
+   - low: Newsletters, marketing, promotional content, social media notifications
+   - medium: Support tickets, banking notifications, general notifications, receipts
+   - high: Critical alerts, server monitoring, important personal communications
+8. You MUST return only these priority values: "low", "medium", or "high". No other values.
 </instructions>
 
 <important>
-- Accuracy is more important than completeness
-- Only use the categories provided above
-- Respond with "Unknown" if unsure
+- STRONGLY prefer existing categories over creating new ones
+- Use broad categories rather than specific ones
+- "Marketing" covers product updates, onboarding, promotional content
+- "Notifications" covers system alerts, product notifications, general notifications
+- "Support" covers customer success, help desk, technical support
+- "Newsletter" covers digests, updates, regular communications
+- NEVER categorize personal emails as newsletters or events
+- When in doubt about personal vs automated, choose "Unknown"
+- It's MUCH better to mark something as "Unknown" than to mislabel personal correspondence
 - Return your response in JSON format
 </important>`;
 
@@ -106,17 +132,12 @@ ${formatCategoriesForPrompt(categories)}
     senders.map((s) => s.emailAddress),
   );
 
-  // filter out any senders that don't have a valid category
-  const results = matchedSenders.map((r) => {
-    if (!categories.find((c) => c.name === r.category)) {
-      return {
-        category: undefined,
-        sender: r.sender,
-      };
-    }
-
-    return r;
-  });
+  // Return all matched senders, including those with new categories created by AI
+  const results = matchedSenders.map((r) => ({
+    category: r.category,
+    sender: r.sender,
+    priority: r.priority,
+  }));
 
   return results;
 }
@@ -143,7 +164,7 @@ function matchSendersWithFullEmail(
 
       if (!sender) return;
 
-      return { sender, category: r.category };
+      return { sender, category: r.category, priority: r.priority };
     })
     .filter(isDefined);
 }

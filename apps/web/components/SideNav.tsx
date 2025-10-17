@@ -88,15 +88,20 @@ export const useNavigation = () => {
         href: prefixPath(currentEmailAccountId, "/bulk-unsubscribe"),
         icon: MailsIcon,
       },
-      ...(isGoogleProvider(provider)
-        ? [
-            {
-              name: "Deep Clean",
-              href: prefixPath(currentEmailAccountId, "/clean"),
-              icon: BrushIcon,
-            },
-          ]
-        : []),
+      {
+        name: "Deep Clean",
+        href: prefixPath(currentEmailAccountId, "/deep-clean"),
+        icon: BrushIcon,
+      },
+      // ...(isGoogleProvider(provider)
+      //   ? [
+      //       {
+      //         name: "Bulk Clean",
+      //         href: prefixPath(currentEmailAccountId, "/clean"),
+      //         icon: BrushIcon,
+      //       },
+      //     ]
+      //   : []),
       {
         name: "Analytics",
         href: prefixPath(currentEmailAccountId, "/stats"),
