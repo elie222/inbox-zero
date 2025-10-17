@@ -105,6 +105,83 @@ export const archiveCategoryAction = actionClient
     },
   );
 
+export const markCategoryAsReadAction = actionClient
+  .metadata({ name: "markCategoryAsRead" })
+  .schema(markCategoryAsReadSchema)
+  .action(
+    async ({ ctx: { emailAccountId, logger }, parsedInput: { category } }) => {
+      await validateUserAndAiAccess({ emailAccountId });
+
+      logger.info("Marking category as read", { category, emailAccountId });
+
+      // Get all senders in this category
+      const senders = await prisma.newsletter.findMany({
+        where: {
+          emailAccountId,
+          categoryId: { not: null },
+          category: {
+            name:
+              FRONTEND_TO_BACKEND_CATEGORY[
+                category as keyof typeof FRONTEND_TO_BACKEND_CATEGORY
+              ] || undefined,
+          },
+        },
+        select: { email: true },
+      });
+
+      // Handle "Other" category - get all senders not in the main categories
+      if (category === "Other") {
+        const otherSenders = await prisma.newsletter.findMany({
+          where: {
+            emailAccountId,
+            categoryId: { not: null },
+            category: {
+              name: {
+                notIn: ["Newsletter", "Marketing", "Receipt", "Notification"],
+              },
+            },
+          },
+          select: { email: true },
+        });
+        senders.push(...otherSenders);
+      }
+
+      if (senders.length === 0) {
+        throw new SafeError(`No senders found in ${category} category`);
+      }
+
+      logger.info("Found senders to mark as read", {
+        category,
+        senderCount: senders.length,
+      });
+
+      // Generate unique operation ID
+      const operationId = `mark-read-${category}-${Date.now()}`;
+
+      // Queue the mark-as-read operation to run in the background
+      await publishMarkAsReadCategoryQueue({
+        emailAccountId,
+        operationId,
+        category,
+        senders: senders.map((s) => s.email),
+      });
+
+      logger.info("Queued mark-as-read operation", {
+        emailAccountId,
+        operationId,
+        category,
+        senderCount: senders.length,
+      });
+
+      return {
+        success: true,
+        operationId,
+        queuedCount: senders.length,
+        message: `Queued ${senders.length} senders to mark as read`,
+      };
+    },
+  );
+
 export const categorizeMoreSendersAction = actionClient
   .metadata({ name: "categorizeMoreSenders" })
   .schema(categorizeMoreSendersSchema)
@@ -220,83 +297,6 @@ export const categorizeMoreSendersAction = actionClient
         success: true,
         queuedCount: sendersToCategorize.length,
         message: `Queued ${sendersToCategorize.length} senders for categorization`,
-      };
-    },
-  );
-
-export const markCategoryAsReadAction = actionClient
-  .metadata({ name: "markCategoryAsRead" })
-  .schema(markCategoryAsReadSchema)
-  .action(
-    async ({ ctx: { emailAccountId, logger }, parsedInput: { category } }) => {
-      await validateUserAndAiAccess({ emailAccountId });
-
-      logger.info("Marking category as read", { category, emailAccountId });
-
-      // Get all senders in this category
-      const senders = await prisma.newsletter.findMany({
-        where: {
-          emailAccountId,
-          categoryId: { not: null },
-          category: {
-            name:
-              FRONTEND_TO_BACKEND_CATEGORY[
-                category as keyof typeof FRONTEND_TO_BACKEND_CATEGORY
-              ] || undefined,
-          },
-        },
-        select: { email: true },
-      });
-
-      // Handle "Other" category - get all senders not in the main categories
-      if (category === "Other") {
-        const otherSenders = await prisma.newsletter.findMany({
-          where: {
-            emailAccountId,
-            categoryId: { not: null },
-            category: {
-              name: {
-                notIn: ["Newsletter", "Marketing", "Receipt", "Notification"],
-              },
-            },
-          },
-          select: { email: true },
-        });
-        senders.push(...otherSenders);
-      }
-
-      if (senders.length === 0) {
-        throw new SafeError(`No senders found in ${category} category`);
-      }
-
-      logger.info("Found senders to mark as read", {
-        category,
-        senderCount: senders.length,
-      });
-
-      // Generate unique operation ID
-      const operationId = `mark-read-${category}-${Date.now()}`;
-
-      // Queue the mark-as-read operation to run in the background
-      await publishMarkAsReadCategoryQueue({
-        emailAccountId,
-        operationId,
-        category,
-        senders: senders.map((s) => s.email),
-      });
-
-      logger.info("Queued mark-as-read operation", {
-        emailAccountId,
-        operationId,
-        category,
-        senderCount: senders.length,
-      });
-
-      return {
-        success: true,
-        operationId,
-        queuedCount: senders.length,
-        message: `Queued ${senders.length} senders to mark as read`,
       };
     },
   );
