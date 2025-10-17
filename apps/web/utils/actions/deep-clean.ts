@@ -1,6 +1,5 @@
 "use server";
 
-import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import prisma from "@/utils/prisma";
 import { validateUserAndAiAccess } from "@/utils/user/validate";
@@ -14,6 +13,11 @@ import {
 import { getTopSendersForDeepClean } from "@/utils/upstash/deep-clean-categorization";
 import { publishToAiCategorizeSendersQueue } from "@/utils/upstash/categorize-senders";
 import { saveCategorizationTotalItems } from "@/utils/redis/categorization-progress";
+import {
+  archiveCategorySchema,
+  categorizeMoreSendersSchema,
+  markCategoryAsReadSchema,
+} from "@/utils/actions/deep-clean.validation";
 
 // Map frontend categories to backend categories
 const FRONTEND_TO_BACKEND_CATEGORY = {
@@ -26,11 +30,7 @@ const FRONTEND_TO_BACKEND_CATEGORY = {
 
 export const archiveCategoryAction = actionClient
   .metadata({ name: "archiveCategory" })
-  .schema(
-    z.object({
-      category: z.string(),
-    }),
-  )
+  .schema(archiveCategorySchema)
   .action(
     async ({ ctx: { emailAccountId, logger }, parsedInput: { category } }) => {
       await validateUserAndAiAccess({ emailAccountId });
@@ -107,11 +107,7 @@ export const archiveCategoryAction = actionClient
 
 export const categorizeMoreSendersAction = actionClient
   .metadata({ name: "categorizeMoreSenders" })
-  .schema(
-    z.object({
-      limit: z.number().optional().default(100),
-    }),
-  )
+  .schema(categorizeMoreSendersSchema)
   .action(
     async ({ ctx: { emailAccountId, logger }, parsedInput: { limit } }) => {
       await validateUserAndAiAccess({ emailAccountId });
@@ -230,11 +226,7 @@ export const categorizeMoreSendersAction = actionClient
 
 export const markCategoryAsReadAction = actionClient
   .metadata({ name: "markCategoryAsRead" })
-  .schema(
-    z.object({
-      category: z.string(),
-    }),
-  )
+  .schema(markCategoryAsReadSchema)
   .action(
     async ({ ctx: { emailAccountId, logger }, parsedInput: { category } }) => {
       await validateUserAndAiAccess({ emailAccountId });
