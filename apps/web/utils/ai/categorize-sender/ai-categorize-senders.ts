@@ -6,23 +6,14 @@ import { formatCategoriesForPrompt } from "@/utils/ai/categorize-sender/format-c
 import { extractEmailAddress } from "@/utils/email";
 import { getModel } from "@/utils/llms/model";
 import { createGenerateObject } from "@/utils/llms";
-
-export const REQUEST_MORE_INFORMATION_CATEGORY = "RequestMoreInformation";
-export const UNKNOWN_CATEGORY = "Unknown";
+import {
+  CATEGORIZE_SENDER_SYSTEM_PROMPT,
+  CATEGORIZATION_INSTRUCTIONS,
+  bulkSenderCategorizationItemSchema,
+} from "@/utils/ai/categorize-sender/prompts";
 
 const categorizeSendersSchema = z.object({
-  senders: z.array(
-    z.object({
-      rationale: z.string().describe("Keep it short."),
-      sender: z.string(),
-      category: z.string(), // allow AI to create a new category if it wants
-      priority: z
-        .enum(["low", "medium", "high"])
-        .describe(
-          "Priority level based on urgency and importance: low for informational content (e.g., newsletters), medium for transactional communications (e.g., receipts), high for time-sensitive or critical messages (e.g., personal communications).",
-        ),
-    }),
-  ),
+  senders: z.array(bulkSenderCategorizationItemSchema),
 });
 
 export async function aiCategorizeSenders({
@@ -44,10 +35,6 @@ export async function aiCategorizeSenders({
   }[]
 > {
   if (senders.length === 0) return [];
-
-  const system = `You are an AI assistant specializing in email management and organization.
-Your task is to categorize email accounts based on their names, email addresses, and emails they've sent us.
-Provide accurate categorizations to help users efficiently manage their inbox.`;
 
   const prompt = `Categorize the following senders:
 
@@ -79,31 +66,9 @@ ${formatCategoriesForPrompt(categories)}
 </categories>
 
 <instructions>
-1. Analyze each sender's email address and their recent emails for categorization.
+Analyze each sender's email address and their recent emails for categorization.
 
-2. STRONGLY prefer existing categories over creating new ones - use them when they fit reasonably well, even if not perfect.
-
-3. When creating new categories, use broad, general terms rather than specific ones:
-   - "Personal" for individual people and personal correspondence
-   - "Marketing" covers product updates, onboarding, promotional content
-   - "Notifications" covers system alerts, product notifications, general notifications
-   - "Support" covers customer success, help desk, technical support
-   - "Newsletter" covers digests, updates, regular communications
-
-4. Use "Personal" for:
-   - Individual people and personal correspondence
-   - Senders that appear to be real people (not automated systems)
-
-5. Use "Unknown" only as a fallback for:
-   - Unclear or ambiguous senders where any categorization would be unreliable
-   - Senders with insufficient information to make a determination
-
-6. CRITICAL: NEVER categorize personal emails as newsletters/events/marketing. Always use "Personal" for individual correspondence.
-
-7. Assign priority levels:
-   - low: Newsletters, marketing, promotional content, social media notifications
-   - medium: Support tickets, banking notifications, general notifications, receipts
-   - high: Critical alerts, server monitoring, important personal communications
+${CATEGORIZATION_INSTRUCTIONS}
 </instructions>`;
 
   const modelOptions = getModel(emailAccount.user, "economy");
@@ -116,7 +81,7 @@ ${formatCategoriesForPrompt(categories)}
 
   const aiResponse = await generateObject({
     ...modelOptions,
-    system,
+    system: CATEGORIZE_SENDER_SYSTEM_PROMPT,
     prompt,
     schema: categorizeSendersSchema,
   });
