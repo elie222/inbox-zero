@@ -16,7 +16,7 @@ import {
   ChevronRight,
   MoreVerticalIcon,
   PencilIcon,
-  EyeIcon,
+  MailOpenIcon,
 } from "lucide-react";
 import { Table, TableBody, TableCell, TableRow } from "@/components/ui/table";
 import { EmailCell } from "@/components/EmailCell";
@@ -27,13 +27,9 @@ import { formatShortDate } from "@/utils/date";
 import { cn } from "@/utils";
 import { toastSuccess, toastError } from "@/components/Toast";
 import { changeSenderCategoryAction } from "@/utils/actions/categorize";
-import { markCategoryAsReadAction } from "@/utils/actions/deep-clean";
+import { bulkSendersAction } from "@/utils/actions/deep-clean";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import {
-  addToArchiveSenderQueue,
-  useArchiveSenderStatus,
-} from "@/store/archive-sender-queue";
 import { getEmailUrl, getGmailSearchUrl } from "@/utils/url";
 import { MessageText } from "@/components/Typography";
 import {
@@ -49,6 +45,7 @@ import {
 import type { CategoryWithRules } from "@/utils/category.server";
 import { ViewEmailButton } from "@/components/ViewEmailButton";
 import { useAccount } from "@/providers/EmailAccountProvider";
+import { useBulkOperationProgress } from "@/hooks/useDeepClean";
 
 const COLUMNS = 5;
 
@@ -162,7 +159,7 @@ export function DeepCleanGroupedTable({
       {
         accessorKey: "preview",
         cell: ({ row }) => {
-          return <ArchiveStatusCell sender={row.original.address} />;
+          return <OperationStatusCell sender={row.original.address} />;
         },
       },
       {
@@ -177,20 +174,46 @@ export function DeepCleanGroupedTable({
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
               <DropdownMenuItem
-                onClick={() => {
-                  // TODO: Implement mark as read functionality
-                  toastSuccess({ description: "Marked as read" });
+                onClick={async () => {
+                  try {
+                    const result = await bulkSendersAction(emailAccountId, {
+                      senders: [row.original.address],
+                      action: "mark-read",
+                      category: "",
+                    });
+
+                    if (result?.serverError) {
+                      toastError({ description: result.serverError });
+                    } else {
+                      toastSuccess({ description: "Marking as read" });
+                    }
+                  } catch (error) {
+                    toastError({ description: "Failed to mark as read" });
+                    console.error("Mark as read error:", error);
+                  }
                 }}
               >
-                <EyeIcon className="mr-2 size-4" />
+                <MailOpenIcon className="mr-2 size-4" />
                 Mark as Read
               </DropdownMenuItem>
               <DropdownMenuItem
-                onClick={() => {
-                  addToArchiveSenderQueue({
-                    sender: row.original.address,
-                    emailAccountId,
-                  });
+                onClick={async () => {
+                  try {
+                    const result = await bulkSendersAction(emailAccountId, {
+                      senders: [row.original.address],
+                      action: "archive",
+                      category: "",
+                    });
+
+                    if (result?.serverError) {
+                      toastError({ description: result.serverError });
+                    } else {
+                      toastSuccess({ description: "Archiving" });
+                    }
+                  } catch (error) {
+                    toastError({ description: "Failed to archive" });
+                    console.error("Archive error:", error);
+                  }
                 }}
               >
                 <ArchiveIcon className="mr-2 size-4" />
@@ -263,22 +286,48 @@ export function DeepCleanGroupedTable({
 
   // Archive selected senders
   const archiveSelected = async () => {
-    for (const sender of selectedSenders) {
-      await addToArchiveSenderQueue({
-        sender,
-        emailAccountId,
+    try {
+      const result = await bulkSendersAction(emailAccountId, {
+        senders: Array.from(selectedSenders),
+        action: "archive",
+        category: "",
       });
+
+      if (result?.serverError) {
+        toastError({ description: result.serverError });
+      } else {
+        toastSuccess({
+          description: `Archiving ${result?.data?.count ?? selectedSenders.size} senders`,
+        });
+        setSelectedSenders(new Set());
+      }
+    } catch (error) {
+      toastError({ description: "Failed to archive senders" });
+      console.error("Archive error:", error);
     }
-    setSelectedSenders(new Set());
   };
 
   // Mark selected as read
   const markSelectedAsRead = async () => {
-    // TODO: Implement mark as read functionality
-    toastSuccess({
-      description: `Marked ${selectedSenders.size} senders as read`,
-    });
-    setSelectedSenders(new Set());
+    try {
+      const result = await bulkSendersAction(emailAccountId, {
+        senders: Array.from(selectedSenders),
+        action: "mark-read",
+        category: "",
+      });
+
+      if (result?.serverError) {
+        toastError({ description: result.serverError });
+      } else {
+        toastSuccess({
+          description: `Marking ${result?.data?.count ?? selectedSenders.size} senders as read`,
+        });
+        setSelectedSenders(new Set());
+      }
+    } catch (error) {
+      toastError({ description: "Failed to mark senders as read" });
+      console.error("Mark as read error:", error);
+    }
   };
 
   return (
@@ -291,7 +340,7 @@ export function DeepCleanGroupedTable({
             selected
           </span>
           <Button size="sm" variant="outline" onClick={markSelectedAsRead}>
-            <EyeIcon className="mr-2 size-4" />
+            <MailOpenIcon className="mr-2 size-4" />
             Mark as Read
           </Button>
           <Button size="sm" variant="destructive" onClick={archiveSelected}>
@@ -322,17 +371,10 @@ export function DeepCleanGroupedTable({
               categorySelectedCount < senders.length;
 
             const onArchiveAll = async () => {
-              for (const sender of senders) {
-                await addToArchiveSenderQueue({
-                  sender: sender.address,
-                  emailAccountId,
-                });
-              }
-            };
-
-            const onMarkAllAsRead = async () => {
               try {
-                const result = await markCategoryAsReadAction(emailAccountId, {
+                const result = await bulkSendersAction(emailAccountId, {
+                  senders: senders.map((s) => s.address),
+                  action: "archive",
                   category: categoryName,
                 });
 
@@ -340,9 +382,28 @@ export function DeepCleanGroupedTable({
                   toastError({ description: result.serverError });
                 } else {
                   toastSuccess({
-                    description:
-                      result?.data?.message ||
-                      `Marked all ${senders.length} senders as read`,
+                    description: `Archiving all ${result?.data?.count ?? senders.length} senders`,
+                  });
+                }
+              } catch (error) {
+                toastError({ description: "Failed to archive senders" });
+                console.error("Archive error:", error);
+              }
+            };
+
+            const onMarkAllAsRead = async () => {
+              try {
+                const result = await bulkSendersAction(emailAccountId, {
+                  senders: senders.map((s) => s.address),
+                  action: "mark-read",
+                  category: categoryName,
+                });
+
+                if (result?.serverError) {
+                  toastError({ description: result.serverError });
+                } else {
+                  toastSuccess({
+                    description: `Marking all ${result?.data?.count ?? senders.length} senders as read`,
                   });
                 }
               } catch (error) {
@@ -512,7 +573,7 @@ function GroupRow({
         </DropdownMenu> */}
 
         <Button variant="outline" size="xs" onClick={onMarkAllAsRead}>
-          <EyeIcon className="mr-2 size-4" />
+          <MailOpenIcon className="mr-2 size-4" />
           Mark as Read
         </Button>
         <Button variant="outline" size="xs" onClick={onArchiveAll}>
@@ -651,28 +712,38 @@ function ExpandedRows({
   );
 }
 
-function ArchiveStatusCell({ sender }: { sender: string }) {
-  const status = useArchiveSenderStatus(sender);
+function OperationStatusCell({ sender }: { sender: string }) {
+  const { data } = useBulkOperationProgress(2000); // Poll every 2 seconds
 
-  switch (status?.status) {
-    case "completed":
-      if (status.threadsTotal) {
-        return (
-          <span className="text-green-500">
-            Archived {status.threadsTotal} emails!
-          </span>
-        );
+  // Find operation for this specific sender
+  const operation = data?.operations.find(
+    (op) => op.categoryOrSender === sender,
+  );
+
+  if (!operation) return null;
+
+  switch (operation.status) {
+    case "completed": {
+      if (operation.completedItems > 0) {
+        const text =
+          operation.operationType === "archive"
+            ? `Archived ${operation.completedItems} emails!`
+            : `Marked ${operation.completedItems} as read!`;
+        return <span className="text-sm text-green-600">{text}</span>;
       }
-      return <span className="text-muted-foreground">Archived</span>;
-    case "processing":
-      return (
-        <span className="text-blue-500">
-          Archiving... {status.threadsTotal - status.threadIds.length} /{" "}
-          {status.threadsTotal}
-        </span>
-      );
+      return <span className="text-sm text-muted-foreground">Completed</span>;
+    }
+    case "processing": {
+      const text =
+        operation.operationType === "archive"
+          ? `Archiving... ${operation.completedItems}/${operation.totalItems}`
+          : `Marking as read... ${operation.completedItems}/${operation.totalItems}`;
+      return <span className="text-sm text-blue-600">{text}</span>;
+    }
     case "pending":
-      return <span className="text-muted-foreground">Pending...</span>;
+      return <span className="text-sm text-muted-foreground">Pending...</span>;
+    case "failed":
+      return <span className="text-sm text-red-600">Failed</span>;
     default:
       return null;
   }

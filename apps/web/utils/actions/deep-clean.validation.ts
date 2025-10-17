@@ -1,10 +1,17 @@
 import { z } from "zod";
 
-export const archiveCategorySchema = z.object({ category: z.string() });
-export type ArchiveCategorySchema = z.infer<typeof archiveCategorySchema>;
+export const bulkCategorySchema = z.object({
+  category: z.string(),
+  action: z.enum(["archive", "mark-read"]),
+});
+export type BulkCategorySchema = z.infer<typeof bulkCategorySchema>;
 
-export const markCategoryAsReadSchema = z.object({ category: z.string() });
-export type MarkCategoryAsReadSchema = z.infer<typeof markCategoryAsReadSchema>;
+export const bulkSendersSchema = z.object({
+  senders: z.array(z.string()),
+  action: z.enum(["archive", "mark-read"]),
+  category: z.string(),
+});
+export type BulkSendersSchema = z.infer<typeof bulkSendersSchema>;
 
 export const categorizeMoreSendersSchema = z.object({
   limit: z.number().optional().default(100),

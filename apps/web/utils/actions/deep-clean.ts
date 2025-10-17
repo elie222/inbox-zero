@@ -3,7 +3,6 @@
 import { revalidatePath } from "next/cache";
 import prisma from "@/utils/prisma";
 import { validateUserAndAiAccess } from "@/utils/user/validate";
-import { SafeError } from "@/utils/error";
 import { actionClient } from "@/utils/actions/safe-action";
 import { prefixPath } from "@/utils/path";
 import {
@@ -14,82 +13,82 @@ import { getTopSendersForDeepClean } from "@/utils/upstash/deep-clean-categoriza
 import { publishToAiCategorizeSendersQueue } from "@/utils/upstash/categorize-senders";
 import { saveCategorizationTotalItems } from "@/utils/redis/categorization-progress";
 import {
-  archiveCategorySchema,
+  bulkCategorySchema,
+  bulkSendersSchema,
   categorizeMoreSendersSchema,
-  markCategoryAsReadSchema,
 } from "@/utils/actions/deep-clean.validation";
+import { SafeError } from "@/utils/error";
 
-// Map frontend categories to backend categories
-const FRONTEND_TO_BACKEND_CATEGORY = {
-  Newsletter: "Newsletter",
-  Marketing: "Marketing",
-  Receipts: "Receipt",
-  Notifications: "Notification",
-  Other: null, // Will handle this separately
-} as const;
-
-export const archiveCategoryAction = actionClient
-  .metadata({ name: "archiveCategory" })
-  .schema(archiveCategorySchema)
+export const bulkCategoryAction = actionClient
+  .metadata({ name: "bulkCategory" })
+  .schema(bulkCategorySchema)
   .action(
-    async ({ ctx: { emailAccountId, logger }, parsedInput: { category } }) => {
+    async ({
+      ctx: { emailAccountId, logger },
+      parsedInput: { category, action },
+    }): Promise<{
+      success: boolean;
+      count: number;
+      operationId: string | null;
+    }> => {
       await validateUserAndAiAccess({ emailAccountId });
 
-      logger.info("Archiving category", { category, emailAccountId });
+      logger.info("Bulk category operation", {
+        category,
+        action,
+        emailAccountId,
+      });
 
-      // Get all senders in this category
       const senders = await prisma.newsletter.findMany({
         where: {
           emailAccountId,
           categoryId: { not: null },
-          category: {
-            name:
-              FRONTEND_TO_BACKEND_CATEGORY[
-                category as keyof typeof FRONTEND_TO_BACKEND_CATEGORY
-              ] || undefined,
-          },
+          category: { name: category },
         },
         select: { email: true },
       });
 
-      // Handle "Other" category - get all senders not in the main categories
-      if (category === "Other") {
-        const otherSenders = await prisma.newsletter.findMany({
-          where: {
-            emailAccountId,
-            categoryId: { not: null },
-            category: {
-              name: {
-                notIn: ["Newsletter", "Marketing", "Receipt", "Notification"],
-              },
-            },
-          },
-          select: { email: true },
-        });
-        senders.push(...otherSenders);
-      }
-
       if (senders.length === 0) {
-        throw new SafeError(`No senders found in ${category} category`);
+        return {
+          success: true,
+          count: 0,
+          operationId: null,
+        };
       }
 
-      logger.info("Found senders to archive", {
+      logger.info("Found senders", {
         category,
         senderCount: senders.length,
       });
 
-      // Generate unique operation ID
-      const operationId = `archive-${category}-${Date.now()}`;
+      const operationId = `${action}-${category}-${Date.now()}`;
 
-      // Queue the archive operation to run in the background
-      await publishArchiveCategoryQueue({
-        emailAccountId,
-        operationId,
-        category,
-        senders: senders.map((s) => s.email),
-      });
+      switch (action) {
+        case "archive": {
+          await publishArchiveCategoryQueue({
+            emailAccountId,
+            operationId,
+            category,
+            senders: senders.map((s) => s.email),
+          });
+          break;
+        }
+        case "mark-read": {
+          await publishMarkAsReadCategoryQueue({
+            emailAccountId,
+            operationId,
+            category,
+            senders: senders.map((s) => s.email),
+          });
+          break;
+        }
+        default: {
+          logger.error("Invalid action", { action });
+          throw new SafeError(`Invalid action: ${action}`);
+        }
+      }
 
-      logger.info("Queued archive operation", {
+      logger.info("Queued bulk category operation", {
         emailAccountId,
         operationId,
         category,
@@ -98,86 +97,78 @@ export const archiveCategoryAction = actionClient
 
       return {
         success: true,
+        count: senders.length,
         operationId,
-        queuedCount: senders.length,
-        message: `Queued ${senders.length} senders for archiving`,
       };
     },
   );
 
-export const markCategoryAsReadAction = actionClient
-  .metadata({ name: "markCategoryAsRead" })
-  .schema(markCategoryAsReadSchema)
+export const bulkSendersAction = actionClient
+  .metadata({ name: "bulkSenders" })
+  .schema(bulkSendersSchema)
   .action(
-    async ({ ctx: { emailAccountId, logger }, parsedInput: { category } }) => {
+    async ({
+      ctx: { emailAccountId, logger },
+      parsedInput: { senders, action, category },
+    }): Promise<{
+      success: boolean;
+      count: number;
+      operationId: string | null;
+    }> => {
       await validateUserAndAiAccess({ emailAccountId });
 
-      logger.info("Marking category as read", { category, emailAccountId });
-
-      // Get all senders in this category
-      const senders = await prisma.newsletter.findMany({
-        where: {
-          emailAccountId,
-          categoryId: { not: null },
-          category: {
-            name:
-              FRONTEND_TO_BACKEND_CATEGORY[
-                category as keyof typeof FRONTEND_TO_BACKEND_CATEGORY
-              ] || undefined,
-          },
-        },
-        select: { email: true },
+      logger.info("Bulk senders operation", {
+        senderCount: senders.length,
+        action,
+        emailAccountId,
+        category,
       });
-
-      // Handle "Other" category - get all senders not in the main categories
-      if (category === "Other") {
-        const otherSenders = await prisma.newsletter.findMany({
-          where: {
-            emailAccountId,
-            categoryId: { not: null },
-            category: {
-              name: {
-                notIn: ["Newsletter", "Marketing", "Receipt", "Notification"],
-              },
-            },
-          },
-          select: { email: true },
-        });
-        senders.push(...otherSenders);
-      }
 
       if (senders.length === 0) {
-        throw new SafeError(`No senders found in ${category} category`);
+        return {
+          success: true,
+          count: 0,
+          operationId: null,
+        };
       }
 
-      logger.info("Found senders to mark as read", {
-        category,
-        senderCount: senders.length,
-      });
+      const operationId = `${action}-${Date.now()}`;
 
-      // Generate unique operation ID
-      const operationId = `mark-read-${category}-${Date.now()}`;
+      switch (action) {
+        case "archive": {
+          await publishArchiveCategoryQueue({
+            emailAccountId,
+            operationId,
+            category,
+            senders,
+          });
+          break;
+        }
+        case "mark-read": {
+          await publishMarkAsReadCategoryQueue({
+            emailAccountId,
+            operationId,
+            category,
+            senders,
+          });
+          break;
+        }
+        default: {
+          logger.error("Invalid action", { action });
+          throw new SafeError(`Invalid action: ${action}`);
+        }
+      }
 
-      // Queue the mark-as-read operation to run in the background
-      await publishMarkAsReadCategoryQueue({
+      logger.info("Queued bulk senders operation", {
         emailAccountId,
         operationId,
-        category,
-        senders: senders.map((s) => s.email),
-      });
-
-      logger.info("Queued mark-as-read operation", {
-        emailAccountId,
-        operationId,
-        category,
         senderCount: senders.length,
       });
 
       return {
         success: true,
+        count: senders.length,
         operationId,
-        queuedCount: senders.length,
-        message: `Queued ${senders.length} senders to mark as read`,
       };
     },
   );

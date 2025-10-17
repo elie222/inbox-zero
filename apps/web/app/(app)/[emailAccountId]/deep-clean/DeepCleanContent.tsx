@@ -12,6 +12,8 @@ import { toast } from "sonner";
 import { LoadingContent } from "@/components/LoadingContent";
 import { DeepCleanGroupedTable } from "@/components/DeepCleanGroupedTable";
 import { useDeepCleanSenders } from "@/hooks/useDeepClean";
+import { PageHeader } from "@/components/PageHeader";
+import { PageWrapper } from "@/components/PageWrapper";
 
 export function DeepCleanContent() {
   const { emailAccount } = useAccount();
@@ -73,28 +75,32 @@ export function DeepCleanContent() {
 
   return (
     <LoadingContent loading={isLoading} error={error}>
-      <ClientOnly>
-        <BulkOperationProgress />
-        <CategorizeSendersProgress refresh={false} />
-      </ClientOnly>
+      <PageWrapper>
+        <div className="flex items-center justify-between">
+          <PageHeader
+            title="Deep Clean"
+            description="Clean out your inbox in minutes."
+          />
 
-      <div className="space-y-6">
-        <div className="flex items-center justify-between mb-6">
-          <Button onClick={handleCategorizeMore} variant="outline">
-            <RefreshCw className="h-4 w-4 mr-2" />
-            Categorize More
+          <Button onClick={handleCategorizeMore} variant="outline" size="sm">
+            Categorize more senders
           </Button>
         </div>
 
-        <DeepCleanGroupedTable
-          emailGroups={data.senders.map((sender) => ({
-            address: sender.email,
-            category: sender.category,
-            meta: { width: "auto" },
-          }))}
-          categories={data.categories}
-        />
-      </div>
+        <ClientOnly>
+          <BulkOperationProgress />
+          <CategorizeSendersProgress refresh={false} />
+        </ClientOnly>
+      </PageWrapper>
+
+      <DeepCleanGroupedTable
+        emailGroups={data.senders.map((sender) => ({
+          address: sender.email,
+          category: sender.category,
+          meta: { width: "auto" },
+        }))}
+        categories={data.categories}
+      />
     </LoadingContent>
   );
 }
