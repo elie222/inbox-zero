@@ -10,6 +10,7 @@ import { createScopedLogger } from "@/utils/logger";
 import { extractEmailAddress } from "@/utils/email";
 import type { EmailProvider } from "@/utils/email/types";
 import { priorityToNumber, type PriorityLevel } from "@/utils/priority";
+import { getUserCategories } from "@/utils/category.server";
 
 const logger = createScopedLogger("categorize/senders");
 
@@ -17,9 +18,10 @@ export async function categorizeSender(
   senderAddress: string,
   emailAccount: EmailAccountWithAI,
   provider: EmailProvider,
-  userCategories?: Pick<Category, "id" | "name" | "description">[],
 ) {
-  const categories = userCategories || [];
+  const categories = await getUserCategories({
+    emailAccountId: emailAccount.id,
+  });
 
   const previousEmails = await provider.getThreadsFromSenderWithSubject(
     senderAddress,
@@ -66,72 +68,53 @@ export async function updateSenderCategory({
   categoryName: string;
   priority?: PriorityLevel;
 }) {
+  // Check if category exists in the provided categories array first
   let category = categories.find((c) => c.name === categoryName);
   let newCategory: Category | undefined;
 
-  // First, try to find the category in the database
-  let dbCategory = await prisma.category.findFirst({
-    where: {
-      name: categoryName,
-      emailAccountId,
-    },
-  });
-
-  if (dbCategory) {
-    category = dbCategory;
-  } else {
-    // Category doesn't exist in database, create it
+  if (!category) {
+    // Category doesn't exist in provided categories, upsert it in the database
     const defaultCategoryMatch = Object.values(defaultCategory).find(
       (c) => c.name === categoryName,
     );
 
-    try {
-      newCategory = await prisma.category.create({
-        data: {
+    const upsertedCategory = await prisma.category.upsert({
+      where: {
+        name_emailAccountId: {
           name: categoryName,
-          description: defaultCategoryMatch?.description,
           emailAccountId,
         },
-      });
-      category = newCategory;
-    } catch (error) {
-      // Handle race condition - another process might have created the category
-      if (
-        error instanceof Error &&
-        error.message.includes("Unique constraint failed")
-      ) {
-        // Try to find it again
-        dbCategory = await prisma.category.findFirst({
-          where: {
-            name: categoryName,
-            emailAccountId,
-          },
-        });
-        if (dbCategory) {
-          category = dbCategory;
-        } else {
-          throw error; // Re-throw if we still can't find it
-        }
-      } else {
-        throw error;
-      }
+      },
+      update: {}, // No updates needed since we're just ensuring it exists
+      create: {
+        name: categoryName,
+        description: defaultCategoryMatch?.description,
+        emailAccountId,
+      },
+    });
+
+    category = upsertedCategory;
+    // Check if this was a newly created category
+    if (!categories.some((c) => c.id === upsertedCategory.id)) {
+      newCategory = upsertedCategory;
     }
   }
 
   // save category
+  const priorityNumber = priority ? priorityToNumber(priority) : null;
   const newsletter = await prisma.newsletter.upsert({
     where: {
       email_emailAccountId: { email: sender, emailAccountId },
     },
     update: {
       categoryId: category.id,
-      priority: priority ? priorityToNumber(priority) : null,
+      priority: priorityNumber,
     },
     create: {
       email: sender,
       emailAccountId,
       categoryId: category.id,
-      priority: priority ? priorityToNumber(priority) : null,
+      priority: priorityNumber,
     },
   });
 
