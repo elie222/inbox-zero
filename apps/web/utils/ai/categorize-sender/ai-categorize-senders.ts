@@ -6,18 +6,14 @@ import { formatCategoriesForPrompt } from "@/utils/ai/categorize-sender/format-c
 import { extractEmailAddress } from "@/utils/email";
 import { getModel } from "@/utils/llms/model";
 import { createGenerateObject } from "@/utils/llms";
-
-export const REQUEST_MORE_INFORMATION_CATEGORY = "RequestMoreInformation";
-export const UNKNOWN_CATEGORY = "Unknown";
+import {
+  CATEGORIZE_SENDER_SYSTEM_PROMPT,
+  CATEGORIZATION_INSTRUCTIONS,
+  bulkSenderCategorizationItemSchema,
+} from "@/utils/ai/categorize-sender/prompts";
 
 const categorizeSendersSchema = z.object({
-  senders: z.array(
-    z.object({
-      rationale: z.string().describe("Keep it short."),
-      sender: z.string(),
-      category: z.string(), // not using enum, because sometimes the ai creates new categories, which throws an error. we prefer to handle this ourselves
-    }),
-  ),
+  senders: z.array(bulkSenderCategorizationItemSchema),
 });
 
 export async function aiCategorizeSenders({
@@ -35,13 +31,10 @@ export async function aiCategorizeSenders({
   {
     category?: string;
     sender: string;
+    priority?: "low" | "medium" | "high";
   }[]
 > {
   if (senders.length === 0) return [];
-
-  const system = `You are an AI assistant specializing in email management and organization.
-Your task is to categorize email accounts based on their names, email addresses, and emails they've sent us.
-Provide accurate categorizations to help users efficiently manage their inbox.`;
 
   const prompt = `Categorize the following senders:
 
@@ -73,18 +66,10 @@ ${formatCategoriesForPrompt(categories)}
 </categories>
 
 <instructions>
-1. Analyze each sender's email address and their recent emails for categorization.
-2. If the sender's category is clear, assign it.
-3. Use "Unknown" if the category is unclear or multiple categories could apply.
-4. Use "${REQUEST_MORE_INFORMATION_CATEGORY}" if more context is needed.
-</instructions>
+Analyze each sender's email address and their recent emails for categorization.
 
-<important>
-- Accuracy is more important than completeness
-- Only use the categories provided above
-- Respond with "Unknown" if unsure
-- Return your response in JSON format
-</important>`;
+${CATEGORIZATION_INSTRUCTIONS}
+</instructions>`;
 
   const modelOptions = getModel(emailAccount.user, "economy");
 
@@ -96,7 +81,7 @@ ${formatCategoriesForPrompt(categories)}
 
   const aiResponse = await generateObject({
     ...modelOptions,
-    system,
+    system: CATEGORIZE_SENDER_SYSTEM_PROMPT,
     prompt,
     schema: categorizeSendersSchema,
   });
@@ -106,19 +91,7 @@ ${formatCategoriesForPrompt(categories)}
     senders.map((s) => s.emailAddress),
   );
 
-  // filter out any senders that don't have a valid category
-  const results = matchedSenders.map((r) => {
-    if (!categories.find((c) => c.name === r.category)) {
-      return {
-        category: undefined,
-        sender: r.sender,
-      };
-    }
-
-    return r;
-  });
-
-  return results;
+  return matchedSenders;
 }
 
 // match up emails with full email
@@ -143,7 +116,7 @@ function matchSendersWithFullEmail(
 
       if (!sender) return;
 
-      return { sender, category: r.category };
+      return { sender, category: r.category, priority: r.priority };
     })
     .filter(isDefined);
 }
