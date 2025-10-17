@@ -15,11 +15,11 @@ const categorizeSendersSchema = z.object({
     z.object({
       rationale: z.string().describe("Keep it short."),
       sender: z.string(),
-      category: z.string(), // not using enum, because sometimes the ai creates new categories, which throws an error. we prefer to handle this ourselves
+      category: z.string(), // allow AI to create a new category if it wants
       priority: z
         .enum(["low", "medium", "high"])
         .describe(
-          "Priority level: low (newsletters/marketing), medium (notifications/support), high (critical alerts/personal).",
+          "Priority level based on urgency and importance: low for informational content (e.g., newsletters), medium for transactional communications (e.g., receipts), high for time-sensitive or critical messages (e.g., personal communications).",
         ),
     }),
   ),
@@ -80,37 +80,31 @@ ${formatCategoriesForPrompt(categories)}
 
 <instructions>
 1. Analyze each sender's email address and their recent emails for categorization.
-2. STRONGLY prefer using the provided categories when they fit reasonably well, even if not perfect.
-3. Only create new categories when the sender truly doesn't fit any provided category.
-4. When creating new categories, use broad, general terms rather than specific ones:
-   - Use "Marketing" instead of "Product Onboarding" or "Product Updates"
-   - Use "Notifications" instead of "Product Notifications" or "System Alerts"
-   - Use "Support" instead of "Customer Success" or "Help Desk"
-   - Use "Newsletter" instead of "Weekly Digest" or "Monthly Update"
-5. Use "Unknown" for:
-   - Personal emails that cannot be meaningfully categorized
-   - Senders with very few emails (1-3) that appear to be individual people
-   - Unclear or ambiguous senders where a wrong categorization would be worse than no categorization
-6. CRITICAL: Do NOT categorize personal senders as newsletters/events/marketing. It's better to mark as "Unknown" than to mislabel personal correspondence.
+
+2. STRONGLY prefer existing categories over creating new ones - use them when they fit reasonably well, even if not perfect.
+
+3. When creating new categories, use broad, general terms rather than specific ones:
+   - "Personal" for individual people and personal correspondence
+   - "Marketing" covers product updates, onboarding, promotional content
+   - "Notifications" covers system alerts, product notifications, general notifications
+   - "Support" covers customer success, help desk, technical support
+   - "Newsletter" covers digests, updates, regular communications
+
+4. Use "Personal" for:
+   - Individual people and personal correspondence
+   - Senders that appear to be real people (not automated systems)
+
+5. Use "Unknown" only as a fallback for:
+   - Unclear or ambiguous senders where any categorization would be unreliable
+   - Senders with insufficient information to make a determination
+
+6. CRITICAL: NEVER categorize personal emails as newsletters/events/marketing. Always use "Personal" for individual correspondence.
+
 7. Assign priority levels:
    - low: Newsletters, marketing, promotional content, social media notifications
    - medium: Support tickets, banking notifications, general notifications, receipts
    - high: Critical alerts, server monitoring, important personal communications
-8. You MUST return only these priority values: "low", "medium", or "high". No other values.
-</instructions>
-
-<important>
-- STRONGLY prefer existing categories over creating new ones
-- Use broad categories rather than specific ones
-- "Marketing" covers product updates, onboarding, promotional content
-- "Notifications" covers system alerts, product notifications, general notifications
-- "Support" covers customer success, help desk, technical support
-- "Newsletter" covers digests, updates, regular communications
-- NEVER categorize personal emails as newsletters or events
-- When in doubt about personal vs automated, choose "Unknown"
-- It's MUCH better to mark something as "Unknown" than to mislabel personal correspondence
-- Return your response in JSON format
-</important>`;
+</instructions>`;
 
   const modelOptions = getModel(emailAccount.user, "economy");
 
@@ -132,14 +126,7 @@ ${formatCategoriesForPrompt(categories)}
     senders.map((s) => s.emailAddress),
   );
 
-  // Return all matched senders, including those with new categories created by AI
-  const results = matchedSenders.map((r) => ({
-    category: r.category,
-    sender: r.sender,
-    priority: r.priority,
-  }));
-
-  return results;
+  return matchedSenders;
 }
 
 // match up emails with full email
