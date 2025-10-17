@@ -82,11 +82,7 @@ function HistoryTable({
             <TableRow key={p.id}>
               <TableCell>
                 <EmailCell
-                  from={p.message.headers.from}
-                  subject={p.message.headers.subject}
-                  snippet={p.message.snippet}
-                  threadId={p.message.threadId}
-                  messageId={p.message.id}
+                  message={p.message}
                   userEmail={userEmail}
                   createdAt={p.createdAt}
                 />

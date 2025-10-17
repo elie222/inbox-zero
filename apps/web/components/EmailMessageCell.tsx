@@ -15,30 +15,24 @@ import { useAccount } from "@/providers/EmailAccountProvider";
 import { useMemo } from "react";
 import { isDefined } from "@/utils/types";
 import { isGoogleProvider } from "@/utils/email/provider-types";
+import type { ParsedMessage } from "@/utils/types";
 import { getRuleLabel } from "@/utils/rule/consts";
 import { SystemType } from "@prisma/client";
 
 export function EmailMessageCell({
-  sender,
+  message,
   userEmail,
-  subject,
-  snippet,
-  threadId,
-  messageId,
   hideViewEmailButton,
-  labelIds,
   filterReplyTrackerLabels,
 }: {
-  sender: string;
+  message: ParsedMessage;
   userEmail: string;
-  subject: string;
-  snippet: string;
-  threadId: string;
-  messageId: string;
   hideViewEmailButton?: boolean;
-  labelIds?: string[];
   filterReplyTrackerLabels?: boolean;
 }) {
+  const { id: messageId, threadId, headers, snippet, labelIds } = message;
+  const sender = headers?.from || "";
+  const subject = headers?.subject || "";
   const { userLabels } = useEmail();
   const { provider } = useAccount();
 
@@ -95,12 +89,7 @@ export function EmailMessageCell({
           <>
             <Link
               className="ml-2 hover:text-foreground"
-              href={getEmailUrlForMessage(
-                messageId,
-                threadId,
-                userEmail,
-                provider,
-              )}
+              href={getEmailUrlForMessage(message, provider, userEmail)}
               target="_blank"
             >
               <ExternalLinkIcon className="h-4 w-4" />
@@ -146,21 +135,31 @@ export function EmailMessageCellWithData({
 
   const firstMessage = data?.thread.messages?.[0];
 
-  return (
-    <EmailMessageCell
-      sender={sender}
-      userEmail={userEmail}
-      subject={
-        error
-          ? "Error loading email"
-          : isLoading
-            ? "Loading email..."
-            : firstMessage?.headers.subject || ""
-      }
-      snippet={error ? "" : isLoading ? "" : firstMessage?.snippet || ""}
-      threadId={threadId}
-      messageId={messageId}
-      labelIds={firstMessage?.labelIds}
-    />
-  );
+  const message: ParsedMessage = {
+    id: messageId,
+    threadId,
+    historyId: firstMessage?.historyId || "",
+    inline: firstMessage?.inline || [],
+    subject: error
+      ? "Error loading email"
+      : isLoading
+        ? "Loading email..."
+        : firstMessage?.headers.subject || "",
+    date: firstMessage?.headers.date || "",
+    headers: {
+      from: sender,
+      to: firstMessage?.headers.to || "",
+      subject: error
+        ? "Error loading email"
+        : isLoading
+          ? "Loading email..."
+          : firstMessage?.headers.subject || "",
+      date: firstMessage?.headers.date || "",
+    },
+    snippet: error ? "" : isLoading ? "" : firstMessage?.snippet || "",
+    labelIds: firstMessage?.labelIds,
+    weblink: firstMessage?.weblink,
+  };
+
+  return <EmailMessageCell message={message} userEmail={userEmail} />;
 }

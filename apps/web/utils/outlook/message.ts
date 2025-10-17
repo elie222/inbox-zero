@@ -203,7 +203,7 @@ export async function queryBatchMessages(
     .getClient()
     .api("/me/messages")
     .select(
-      "id,conversationId,conversationIndex,subject,bodyPreview,from,sender,toRecipients,receivedDateTime,isDraft,isRead,body,categories,parentFolderId",
+      "id,conversationId,conversationIndex,subject,bodyPreview,from,sender,toRecipients,receivedDateTime,isDraft,isRead,body,categories,parentFolderId,webLink",
     )
     .top(maxResults);
 
@@ -348,7 +348,7 @@ export async function queryMessagesWithFilters(
     .getClient()
     .api("/me/messages")
     .select(
-      "id,conversationId,conversationIndex,subject,bodyPreview,from,sender,toRecipients,receivedDateTime,isDraft,isRead,body,categories,parentFolderId",
+      "id,conversationId,conversationIndex,subject,bodyPreview,from,sender,toRecipients,receivedDateTime,isDraft,isRead,body,categories,parentFolderId,webLink",
     )
     .top(maxResults);
 
@@ -420,7 +420,7 @@ export async function getMessage(
     .getClient()
     .api(`/me/messages/${messageId}`)
     .select(
-      "id,conversationId,conversationIndex,subject,bodyPreview,from,sender,toRecipients,receivedDateTime,isDraft,isRead,body,categories,parentFolderId",
+      "id,conversationId,conversationIndex,subject,bodyPreview,from,sender,toRecipients,receivedDateTime,isDraft,isRead,body,categories,parentFolderId,webLink",
     )
     .get();
 
@@ -488,5 +488,6 @@ export function convertMessage(
     historyId: "",
     inline: [],
     conversationIndex: message.conversationIndex,
+    weblink: message.webLink,
   };
 }
