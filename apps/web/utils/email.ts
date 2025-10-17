@@ -13,8 +13,11 @@ export function extractNameFromEmail(email: string) {
   // Handle format: "Name" <email@domain.com> or Name <email@domain.com>
   const firstPart = email.split("<")[0]?.trim();
   if (firstPart) {
-    // Remove surrounding quotes if present
-    return firstPart.replace(/^["']|["']$/g, "");
+    const sanitizedName = removeSurroundingQuotes(firstPart);
+    // Only return the name if it's not empty after sanitization
+    if (sanitizedName) {
+      return sanitizedName;
+    }
   }
 
   // Handle format: <email@domain.com> or <"quoted-name"@domain.com>
@@ -33,8 +36,11 @@ export function extractNameFromEmail(email: string) {
     return emailPart;
   }
 
-  // Remove surrounding quotes if present
-  return email.replace(/^["']|["']$/g, "");
+  return removeSurroundingQuotes(email);
+}
+
+function removeSurroundingQuotes(str: string): string {
+  return str.replace(/^["']|["']$/g, "");
 }
 
 // Converts "John Doe <john.doe@gmail>" to "john.doe@gmail"

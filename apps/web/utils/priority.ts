@@ -1,6 +1,6 @@
 export type PriorityLevel = "low" | "medium" | "high";
 
-export const PRIORITY_MAP = {
+export const PRIORITY_MAP: Record<PriorityLevel, number> = {
   low: 10,
   medium: 50,
   high: 90,
@@ -11,14 +11,8 @@ export function priorityToNumber(priority: PriorityLevel): number {
 }
 
 export function numberToPriority(priority: number): PriorityLevel | null {
-  switch (priority) {
-    case 10:
-      return "low";
-    case 50:
-      return "medium";
-    case 90:
-      return "high";
-    default:
-      return null;
-  }
+  const entry = Object.entries(PRIORITY_MAP).find(
+    ([, value]) => value === priority,
+  );
+  return entry ? (entry[0] as PriorityLevel) : null;
 }
