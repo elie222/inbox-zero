@@ -10,8 +10,6 @@ export default async function WelcomeRedirectPage(props: {
   const session = await auth();
 
   if (!session?.user) redirect("/login");
-  if (!env.NEXT_PUBLIC_POSTHOG_ONBOARDING_SURVEY_ID)
-    redirect(env.NEXT_PUBLIC_APP_HOME_PATH);
 
   const user = await prisma.user.findUnique({
     where: { id: session.user.id },
@@ -23,5 +21,7 @@ export default async function WelcomeRedirectPage(props: {
   if (!searchParams.force && user.completedOnboardingAt)
     redirect(env.NEXT_PUBLIC_APP_HOME_PATH);
 
-  redirect("/onboarding");
+  // Redirect to value prop page for users who haven't completed onboarding
+  // Note: We show value prop even without PostHog configured for dev testing
+  redirect("/value-prop");
 }

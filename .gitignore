@@ -83,3 +83,4 @@ logs
 coverage
 
 .env.google_client_secret.json
+.env*.local

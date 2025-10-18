@@ -7,16 +7,53 @@ import { actionClientUser } from "@/utils/actions/safe-action";
 import { betterAuthConfig } from "@/utils/auth";
 import { isAdmin } from "@/utils/admin";
 
+export const devResetOnboardingAction = actionClientUser
+  .metadata({ name: "devResetOnboarding" })
+  .action(async ({ ctx: { userId, userEmail } }) => {
+    // Only allow in local development environment or for admin users
+    const isLocalDev =
+      process.env.NODE_ENV === "development" &&
+      (process.env.DATABASE_URL?.includes("localhost") ||
+        process.env.DATABASE_URL?.includes("inbox_zero_local") ||
+        process.env.NEXT_PUBLIC_BASE_URL?.includes("localhost"));
+
+    if (!isLocalDev && !isAdmin({ email: userEmail })) {
+      throw new Error(
+        "This action is only available in local development or for admins",
+      );
+    }
+
+    // Reset all onboarding-related fields to trigger the full flow again
+    await prisma.user.update({
+      where: { id: userId },
+      data: {
+        completedOnboardingAt: null,
+        onboardingAnswers: null,
+        surveyFeatures: [],
+        surveyRole: null,
+        surveyGoal: null,
+        surveyCompanySize: null,
+        surveySource: null,
+        surveyImprovements: null,
+      },
+    });
+
+    return { success: true };
+  });
+
 export const devDeleteAccountAction = actionClientUser
   .metadata({ name: "devDeleteAccount" })
   .action(async ({ ctx: { userId, userEmail } }) => {
-    // Only allow in development or for admin users
-    if (
-      process.env.NODE_ENV !== "development" &&
-      !isAdmin({ email: userEmail })
-    ) {
+    // Only allow in local development environment or for admin users
+    const isLocalDev =
+      process.env.NODE_ENV === "development" &&
+      (process.env.DATABASE_URL?.includes("localhost") ||
+        process.env.DATABASE_URL?.includes("inbox_zero_local") ||
+        process.env.NEXT_PUBLIC_BASE_URL?.includes("localhost"));
+
+    if (!isLocalDev && !isAdmin({ email: userEmail })) {
       throw new Error(
-        "This action is only available in development or for admins",
+        "This action is only available in local development or for admins",
       );
     }
 

@@ -48,6 +48,7 @@ export function Hero(props: {
         <div className="mx-auto max-w-7xl px-6 lg:px-8">
           {!props.hideProductHuntBadge && (
             <div className="mb-10 flex flex-col items-center justify-center gap-4">
+              <h1> Hello </h1>
               <ProductHuntBadge />
               {/* <a
                 href="https://www.producthunt.com/products/inbox-zero-tabs"
