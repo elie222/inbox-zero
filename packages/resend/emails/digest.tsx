@@ -16,6 +16,7 @@ type DigestItem = {
   from: string;
   subject: string;
   content: string;
+  emailUrl?: string;
 };
 
 const colorClasses = {
@@ -180,8 +181,8 @@ export default function DigestEmail(props: DigestEmailProps) {
             <div
               className={`border-l-[4px] border-t border-r border-b border-solid border-gray-200 ${colors.leftBorder} bg-[#fdfefe] rounded-[8px] overflow-hidden`}
             >
-              {categoryData.items.map((item, index) => (
-                <div key={index}>
+              {categoryData.items.map((item, index) => {
+                const emailContent = (
                   <div className="p-[20px]">
                     {/* Email Header */}
                     <div className="mb-[12px]">
@@ -199,13 +200,25 @@ export default function DigestEmail(props: DigestEmailProps) {
                     {/* Email Content */}
                     {renderEmailContent(item)}
                   </div>
+                );
 
-                  {/* Separator line - don't show after the last item */}
-                  {index < categoryData.items.length - 1 && (
-                    <Hr className="border-solid border-gray-200 my-0 mx-[20px]" />
-                  )}
-                </div>
-              ))}
+                return (
+                  <div key={index}>
+                    {item.emailUrl ? (
+                      <Link href={item.emailUrl} className="block no-underline">
+                        {emailContent}
+                      </Link>
+                    ) : (
+                      emailContent
+                    )}
+
+                    {/* Separator line - don't show after the last item */}
+                    {index < categoryData.items.length - 1 && (
+                      <Hr className="border-solid border-gray-200 my-0 mx-[20px]" />
+                    )}
+                  </div>
+                );
+              })}
             </div>
           </div>
         </Section>
@@ -328,18 +341,21 @@ DigestEmail.PreviewProps = {
       subject: "🔥 Today's top business stories",
       content:
         "Apple unveils Vision Pro 2 with 40% lighter design and $2,499 price tag",
+      emailUrl: "https://mail.google.com/mail/u/0/#all/18c1234567890abcdef",
     },
     {
       from: "The New York Times",
       subject: "Breaking News: Latest developments",
       content:
         "Fed signals potential rate cuts as inflation shows signs of cooling to 3.2%",
+      emailUrl: "https://mail.google.com/mail/u/0/#all/18d9876543210fedcba",
     },
     {
       from: "Product Hunt Daily",
       subject: "🚀 Today's hottest tech products",
       content:
         "Claude Projects: Anthropic's new workspace for organizing AI conversations (847 upvotes)",
+      emailUrl: "https://mail.google.com/mail/u/0/#all/18e5555555555555555",
     },
     {
       from: "TechCrunch",
@@ -372,6 +388,7 @@ DigestEmail.PreviewProps = {
       from: "Amazon",
       subject: "Order #123-4567890-1234567",
       content: "Your order has been delivered to your doorstep.",
+      emailUrl: "https://www.getinboxzero.com/123/emails/amazon-order-123",
     },
     {
       from: "Uber Eats",
@@ -511,6 +528,7 @@ DigestEmail.PreviewProps = {
       from: "John Smith",
       subject: "Re: Project proposal feedback",
       content: "Received: Yesterday, 4:30 PM • Due: Today",
+      emailUrl: "https://www.getinboxzero.com/123/emails/john-smith-proposal",
     },
     {
       from: "Client XYZ",

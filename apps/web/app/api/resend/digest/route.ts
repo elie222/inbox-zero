@@ -19,6 +19,7 @@ import { getRuleName } from "@/utils/rule/consts";
 import { SystemType } from "@prisma/client";
 import { verifySignatureAppRouter } from "@upstash/qstash/nextjs";
 import { camelCase } from "lodash";
+import { getEmailUrlForMessage } from "@/utils/url";
 import { createEmailProvider } from "@/utils/email/provider";
 import { sleep } from "@/utils/sleep";
 
@@ -138,6 +139,7 @@ async function sendEmail({
       items: {
         select: {
           messageId: true,
+          threadId: true,
           content: true,
           action: {
             select: {
@@ -256,10 +258,17 @@ async function sendEmail({
           storedDigestContentSchema.safeParse(parsedContent);
 
         if (contentResult.success) {
+          const emailUrl = getEmailUrlForMessage(
+            message,
+            emailAccount.account.provider,
+            emailAccount.email,
+          );
+
           acc[ruleNameKey].push({
             content: contentResult.data.content,
             from: extractNameFromEmail(message?.headers?.from || ""),
             subject: message?.headers?.subject || "",
+            emailUrl,
           });
         } else {
           logger.warn("Failed to validate digest content structure", {
