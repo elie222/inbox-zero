@@ -47,7 +47,7 @@ export interface Attributes {
   status_formatted: string;
   card_brand: string;
   card_last_four: string;
-  pause: any;
+  pause: unknown;
   cancelled: boolean;
   trial_ends_at?: string;
   billing_anchor: number;

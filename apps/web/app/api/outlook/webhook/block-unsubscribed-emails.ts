@@ -11,13 +11,13 @@ export async function blockUnsubscribedEmails({
   emailAccountId,
   provider,
   messageId,
-  ownerEmail,
+  _ownerEmail,
 }: {
   from: string;
   emailAccountId: string;
   provider: EmailProvider;
   messageId: string;
-  ownerEmail: string;
+  _ownerEmail: string;
 }): Promise<boolean> {
   const email = extractEmailAddress(from);
   const sender = await prisma.newsletter.findFirst({
