@@ -33,6 +33,7 @@ import {
   isColdEmailRuleEnabled,
 } from "@/utils/cold-email/cold-email-rule";
 import { isColdEmail } from "@/utils/cold-email/is-cold-email";
+import { isConversationStatusType } from "@/utils/reply-tracker/conversation-status-config";
 
 const logger = createScopedLogger("match-rules");
 
@@ -139,7 +140,7 @@ async function findPotentialMatchingRules({
     }
   }
 
-  const filteredPotentialMatches = await filterToReplyPreset(
+  const filteredPotentialMatches = await filterConversationStatusRules(
     potentialMatches,
     message,
     provider,
@@ -445,7 +446,7 @@ function matchesCategoryRule(
   return matchedFilter;
 }
 
-export async function filterToReplyPreset<
+export async function filterConversationStatusRules<
   T extends { id: string; systemType: SystemType | null },
 >(
   potentialMatches: T[],
@@ -474,14 +475,16 @@ export async function filterToReplyPreset<
     "account@",
   ];
 
-  function filteredOutToReplyRule() {
-    return potentialMatches.filter((r) => r.systemType !== SystemType.TO_REPLY);
+  function filteredOutConversationStatusRules() {
+    return potentialMatches.filter(
+      (r) => !isConversationStatusType(r.systemType),
+    );
   }
 
   if (
     noReplyPrefixes.some((prefix) => extractedSenderEmail.startsWith(prefix))
   ) {
-    return filteredOutToReplyRule();
+    return filteredOutConversationStatusRules();
   }
 
   try {
@@ -500,7 +503,7 @@ export async function filterToReplyPreset<
           receivedCount,
         },
       );
-      return filteredOutToReplyRule();
+      return filteredOutConversationStatusRules();
     }
   } catch (error) {
     logger.error("Error checking reply history for TO_REPLY filter", {
