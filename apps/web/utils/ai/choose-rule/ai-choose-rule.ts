@@ -4,10 +4,7 @@ import { stringifyEmail } from "@/utils/stringify-email";
 import { isDefined, type EmailForLLM } from "@/utils/types";
 import { getModel, type ModelType } from "@/utils/llms/model";
 import { createGenerateObject } from "@/utils/llms";
-import { createScopedLogger } from "@/utils/logger";
 import { getUserInfoPrompt, getUserRulesPrompt } from "@/utils/ai/helpers";
-
-const logger = createScopedLogger("AI Choose Rule");
 
 type GetAiResponseOptions = {
   email: EmailForLLM;
@@ -16,41 +13,81 @@ type GetAiResponseOptions = {
   modelType?: ModelType;
 };
 
+export async function aiChooseRule<
+  T extends { name: string; instructions: string; systemType?: string | null },
+>({
+  email,
+  rules,
+  emailAccount,
+  modelType,
+}: {
+  email: EmailForLLM;
+  rules: T[];
+  emailAccount: EmailAccountWithAI;
+  modelType?: ModelType;
+}): Promise<{
+  rules: T[];
+  reason: string;
+}> {
+  if (!rules.length) return { rules: [], reason: "" };
+
+  const { result: aiResponse } = await getAiResponse({
+    email,
+    rules,
+    emailAccount,
+    modelType,
+  });
+
+  if (aiResponse.noMatchFound) return { rules: [], reason: "" };
+
+  const selectedRules = aiResponse.matchedRules
+    .map((match) => {
+      const rule = rules.find(
+        (r) => r.name.toLowerCase() === match.ruleName.toLowerCase(),
+      );
+      return rule;
+    })
+    .filter(isDefined);
+
+  return {
+    rules: selectedRules,
+    reason: aiResponse.reasoning,
+  };
+}
+
 async function getAiResponse(options: GetAiResponseOptions): Promise<{
   result: {
-    matchedRules: {
-      reason: string;
-      ruleName: string;
-    }[];
+    matchedRules: { ruleName: string }[];
+    reasoning: string;
     noMatchFound: boolean;
   };
   modelOptions: ReturnType<typeof getModel>;
 }> {
   const { email, emailAccount, rules, modelType = "default" } = options;
 
-  const emailSection = stringifyEmail(email, 500);
-  const hasCustomRules = rules.some((rule) => !rule.systemType);
-
   const modelOptions = getModel(emailAccount.user, modelType);
+
   const generateObject = createGenerateObject({
     userEmail: emailAccount.email,
     label: "Choose rule",
     modelOptions,
   });
 
-  // Use different prompts based on whether custom rules exist
+  const hasCustomRules = rules.some((rule) => !rule.systemType);
+
   if (hasCustomRules) {
-    return getAiResponseMultiRule({
+    const result = await getAiResponseMultiRule({
       email,
-      emailSection,
       emailAccount,
       rules,
       modelOptions,
       generateObject,
     });
+
+    return { result, modelOptions };
   } else {
     return getAiResponseSingleRule({
-      emailSection,
+      email,
       emailAccount,
       rules,
       modelOptions,
@@ -59,15 +96,14 @@ async function getAiResponse(options: GetAiResponseOptions): Promise<{
   }
 }
 
-// Original single-rule logic (proven, for users without custom rules)
 async function getAiResponseSingleRule({
-  emailSection,
+  email,
   emailAccount,
   rules,
   modelOptions,
   generateObject,
 }: {
-  emailSection: string;
+  email: EmailForLLM;
   emailAccount: EmailAccountWithAI;
   rules: GetAiResponseOptions["rules"];
   modelOptions: ReturnType<typeof getModel>;
@@ -101,7 +137,7 @@ Respond with a valid JSON object:
 
 Example response format:
 {
-  "reason": "This email is a newsletter subscription",
+  "reasoning": "This email is a newsletter subscription",
   "ruleName": "Newsletter",
   "noMatchFound": false
 }`;
@@ -109,7 +145,7 @@ Example response format:
   const prompt = `Select a rule to apply to this email that was sent to me:
 
 <email>
-${emailSection}
+${stringifyEmail(email, 500)}
 </email>`;
 
   const aiResponse = await generateObject({
@@ -117,7 +153,7 @@ ${emailSection}
     system,
     prompt,
     schema: z.object({
-      reason: z
+      reasoning: z
         .string()
         .describe("The reason you chose the rule. Keep it concise"),
       ruleName: z
@@ -133,51 +169,31 @@ ${emailSection}
     result: {
       matchedRules: aiResponse.object ? [aiResponse.object] : [],
       noMatchFound: aiResponse.object?.noMatchFound ?? false,
+      reasoning: aiResponse.object?.reasoning,
     },
     modelOptions,
   };
 }
 
-// New multi-rule logic (for users with custom rules)
 async function getAiResponseMultiRule({
   email,
-  emailSection,
   emailAccount,
   rules,
   modelOptions,
   generateObject,
 }: {
   email: EmailForLLM;
-  emailSection: string;
   emailAccount: EmailAccountWithAI;
   rules: GetAiResponseOptions["rules"];
   modelOptions: ReturnType<typeof getModel>;
   generateObject: ReturnType<typeof createGenerateObject>;
 }) {
-  const systemRules = rules.filter((rule) => rule.systemType);
-  const customRules = rules.filter((rule) => !rule.systemType);
-
-  // Build rules list with clear system vs custom distinction
-  let rulesSection = "";
-  if (systemRules.length > 0) {
-    rulesSection += "\n<system_rules>\nSystem preset rules:\n\n";
-    rulesSection += systemRules
-      .map(
-        (rule, idx) =>
-          `${idx + 1}. ${rule.name}${rule.instructions ? `\n   Instructions: ${rule.instructions}` : ""}`,
-      )
-      .join("\n\n");
-    rulesSection += "\n</system_rules>";
-  }
-
-  rulesSection += "\n\n<custom_rules>\nCustom user-defined rules:\n\n";
-  rulesSection += customRules
+  const rulesSection = rules
     .map(
-      (rule, idx) =>
-        `${idx + 1}. ${rule.name}${rule.instructions ? `\n   Instructions: ${rule.instructions}` : ""}`,
+      (rule) =>
+        `<rule>\n<name>${rule.name}</name>\n<instructions>${rule.instructions}</instructions>\n</rule>`,
     )
-    .join("\n\n");
-  rulesSection += "\n</custom_rules>";
+    .join("\n");
 
   const system = `You are an AI assistant that helps people manage their emails.
 
@@ -207,34 +223,22 @@ Respond with a valid JSON object:
 
 Example response format (single rule):
 {
-  "matchedRules": [
-    {
-      "ruleName": "Newsletter",
-      "reason": "This is a newsletter subscription"
-    }
-  ],
-  "noMatchFound": false
+  "matchedRules": [{ "ruleName": "Newsletter" }],
+  "noMatchFound": false,
+  "reasoning": "This is a newsletter subscription"
 }
 
 Example response format (multiple rules):
 {
-  "matchedRules": [
-    {
-      "ruleName": "To Reply",
-      "reason": "This email requires a response"
-    },
-    {
-      "ruleName": "Team Emails",
-      "reason": "From a team member"
-    }
-  ],
-  "noMatchFound": false
+  "matchedRules": [{ "ruleName": "To Reply" }, { "ruleName": "Team Emails" }],
+  "noMatchFound": false,
+  "reasoning": "This email requires a response and is from a team member"
 }`;
 
   const prompt = `Select all rules that apply to this email that was sent to me:
 
 <email>
-${emailSection}
+${stringifyEmail(email, 500)}
 </email>`;
 
   const aiResponse = await generateObject({
@@ -246,84 +250,23 @@ ${emailSection}
         .array(
           z.object({
             ruleName: z.string().describe("The exact name of the rule"),
-            reason: z.string().describe("Why this rule matches"),
           }),
         )
         .describe("Array of all matching rules"),
+      reasoning: z
+        .string()
+        .describe(
+          "The reasoning you used to choose the rules. Keep it concise",
+        ),
       noMatchFound: z
         .boolean()
         .describe("True if no match was found, false otherwise"),
     }),
   });
 
-  // Log when multiple system rules are selected
-  const selectedSystemRules = aiResponse.object.matchedRules.filter((match) =>
-    systemRules.some(
-      (r) => r.name.toLowerCase() === match.ruleName.toLowerCase(),
-    ),
-  );
-
-  if (selectedSystemRules.length > 1) {
-    logger.warn("Multiple system rules selected", {
-      systemRules: selectedSystemRules.map((r) => r.ruleName),
-      emailId: email.id,
-      model: modelOptions.modelName,
-    });
-  }
-
-  if (aiResponse.object.matchedRules.length > 1) {
-    logger.info("Multiple rules selected", {
-      rules: aiResponse.object.matchedRules.map((r) => r.ruleName),
-      emailId: email.id,
-    });
-  }
-
   return {
-    result: {
-      matchedRules: aiResponse.object.matchedRules || [],
-      noMatchFound: aiResponse.object?.noMatchFound ?? false,
-    },
-    modelOptions,
+    matchedRules: aiResponse.object.matchedRules || [],
+    noMatchFound: aiResponse.object?.noMatchFound ?? false,
+    reasoning: aiResponse.object?.reasoning ?? "",
   };
-}
-
-export async function aiChooseRule<
-  T extends { name: string; instructions: string; systemType?: string | null },
->({
-  email,
-  rules,
-  emailAccount,
-  modelType,
-}: {
-  email: EmailForLLM;
-  rules: T[];
-  emailAccount: EmailAccountWithAI;
-  modelType?: ModelType;
-}): Promise<
-  {
-    rule: T;
-    reason: string;
-  }[]
-> {
-  if (!rules.length) return [];
-
-  const { result: aiResponse } = await getAiResponse({
-    email,
-    rules,
-    emailAccount,
-    modelType,
-  });
-
-  if (aiResponse.noMatchFound) return [];
-
-  const selectedRules = aiResponse.matchedRules
-    .map((match) => {
-      const rule = rules.find(
-        (r) => r.name.toLowerCase() === match.ruleName.toLowerCase(),
-      );
-      return rule ? { rule, reason: match.reason } : undefined;
-    })
-    .filter(isDefined);
-
-  return selectedRules;
 }

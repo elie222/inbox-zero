@@ -317,7 +317,10 @@ async function findMatchingRuleWithReasons(
       modelType,
     });
 
-    return result;
+    return result.rules.map((rule) => ({
+      rule,
+      reason: result.reason,
+    }));
   }
 
   return [];
