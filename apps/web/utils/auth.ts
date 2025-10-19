@@ -18,12 +18,12 @@ import {
 import { encryptToken } from "@/utils/encryption";
 import { captureException } from "@/utils/error";
 import { getContactsClient as getGoogleContactsClient } from "@/utils/gmail/client";
-import { SCOPES as GMAIL_SCOPES } from "@/utils/gmail/scopes";
 import { createScopedLogger } from "@/utils/logger";
 import { getContactsClient as getOutlookContactsClient } from "@/utils/outlook/client";
 import { SCOPES as OUTLOOK_SCOPES } from "@/utils/outlook/scopes";
 import { updateAccountSeats } from "@/utils/premium/server";
 import prisma from "@/utils/prisma";
+import { BASIC_SCOPES } from "@/utils/gmail/scopes";
 
 const logger = createScopedLogger("auth");
 
@@ -109,16 +109,19 @@ export const betterAuthConfig = betterAuth({
     google: {
       clientId: env.GOOGLE_CLIENT_ID,
       clientSecret: env.GOOGLE_CLIENT_SECRET,
-      scope: [...GMAIL_SCOPES],
+      scope: [...BASIC_SCOPES],
       accessType: "offline",
       prompt: "consent",
       disableIdTokenSignIn: false,
       // Add better error handling
-      onError: (error: any) => {
+      onError: (error: unknown) => {
+        const errorMessage =
+          error instanceof Error ? error.message : String(error);
+        const errorObj = error as { code?: string; error_description?: string };
         logger.error("Google OAuth error", {
-          error: error?.message || error,
-          errorCode: error?.code,
-          errorDescription: error?.error_description,
+          error: errorMessage,
+          errorCode: errorObj?.code,
+          errorDescription: errorObj?.error_description,
         });
       },
     },

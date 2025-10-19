@@ -1,5 +1,12 @@
 import { env } from "@/env";
 
+// Basic scopes for initial authentication (account creation only)
+export const BASIC_SCOPES = [
+  "https://www.googleapis.com/auth/userinfo.profile",
+  "https://www.googleapis.com/auth/userinfo.email",
+];
+
+// Full Gmail scopes for inbox connection
 export const SCOPES = [
   "https://www.googleapis.com/auth/userinfo.profile",
   "https://www.googleapis.com/auth/userinfo.email",

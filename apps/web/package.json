@@ -168,7 +168,9 @@
   "devDependencies": {
     "@headlessui/tailwindcss": "0.2.2",
     "@microsoft/microsoft-graph-types": "^2.40.0",
+    "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "16.3.0",
+    "@testing-library/user-event": "^14.6.1",
     "@types/diff": "7.0.2",
     "@types/email-reply-parser": "1.4.2",
     "@types/he": "1.2.3",
@@ -182,6 +184,8 @@
     "@types/react-dom": "19.1.9",
     "@types/react-syntax-highlighter": "15.5.13",
     "@types/string-similarity": "4.0.2",
+    "@vitejs/plugin-react": "^5.0.4",
+    "@vitest/browser": "^3.2.4",
     "@vitest/ui": "3.2.4",
     "autoprefixer": "10.4.21",
     "cross-env": "7.0.3",

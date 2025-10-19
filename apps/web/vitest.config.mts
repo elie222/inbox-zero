@@ -1,10 +1,13 @@
 import { defineConfig } from "vitest/config";
 import tsconfigPaths from "vite-tsconfig-paths";
+import react from "@vitejs/plugin-react";
 
 export default defineConfig({
-  plugins: [tsconfigPaths()],
+  plugins: [tsconfigPaths(), react()],
   test: {
-    environment: "node",
+    environment: "jsdom",
+    setupFiles: ["./__tests__/setup.ts"],
+    globals: true,
     env: {
       NODE_ENV: "test",
       DATABASE_URL: "postgresql://test:test@localhost:5432/test_db",

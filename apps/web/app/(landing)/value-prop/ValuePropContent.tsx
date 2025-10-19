@@ -11,8 +11,6 @@ import {
 } from "lucide-react";
 import { PageHeading, TypographyP } from "@/components/Typography";
 import { Button } from "@/components/ui/button";
-import { env } from "@/env";
-import { completedOnboardingAction } from "@/utils/actions/onboarding";
 
 interface ValuePropContentProps {
   userName: string;
@@ -50,15 +48,8 @@ export function ValuePropContent({ userName }: ValuePropContentProps) {
       user_name: userName,
     });
 
-    // If PostHog survey is configured, go to welcome page
-    // Otherwise, skip to the app (mark onboarding as complete)
-    if (env.NEXT_PUBLIC_POSTHOG_ONBOARDING_SURVEY_ID) {
-      router.push("/welcome");
-    } else {
-      // For local dev without PostHog, mark onboarding as complete and go to app
-      await completedOnboardingAction();
-      router.push(env.NEXT_PUBLIC_APP_HOME_PATH);
-    }
+    // Redirect to Gmail connection page
+    router.push("/connect-gmail");
   };
 
   return (

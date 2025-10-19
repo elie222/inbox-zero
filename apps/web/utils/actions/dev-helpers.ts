@@ -65,7 +65,7 @@ export const devDeleteAccountAction = actionClientUser
       await betterAuthConfig.api.signOut({
         headers: await headers(),
       });
-    } catch (error) {
+    } catch (_error) {
       // Ignore signout errors since user is deleted
     }
 

@@ -85,6 +85,7 @@ export function LoginForm() {
         size="2xl"
         loading={loadingMicrosoft}
         onClick={handleMicrosoftSignIn}
+        className="hidden"
       >
         <span className="flex items-center justify-center">
           <IconBrandWindows size={24} />
