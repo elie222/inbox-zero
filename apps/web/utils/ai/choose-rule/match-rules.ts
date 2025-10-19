@@ -188,21 +188,21 @@ function checkCalendarMatch({
 // Lazy load context data when needed
 class ContextLoader {
   private readonly message: ParsedMessage;
-  private groups?: Awaited<ReturnType<typeof getGroupsWithRules>> | null = null;
-  private sender?: { categoryId: string | null } | null = null;
+  private groups?: Awaited<ReturnType<typeof getGroupsWithRules>> | null;
+  private sender?: { categoryId: string | null } | null;
 
   constructor(message: ParsedMessage) {
     this.message = message;
   }
 
   async getGroups(emailAccountId: string) {
-    if (typeof this.groups === "undefined")
+    if (this.groups === undefined)
       this.groups = await getGroupsWithRules({ emailAccountId });
     return this.groups;
   }
 
   async getSender(emailAccountId: string) {
-    if (typeof this.sender === "undefined") {
+    if (this.sender === undefined) {
       this.sender = await prisma.newsletter.findUnique({
         where: {
           email_emailAccountId: {
