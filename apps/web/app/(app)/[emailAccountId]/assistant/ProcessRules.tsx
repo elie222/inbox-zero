@@ -125,26 +125,28 @@ export function ProcessRulesContent({ testMode }: { testMode: boolean }) {
   const [isRunningAll, setIsRunningAll] = useState(false);
   const [currentPageLimit, setCurrentPageLimit] = useState(testMode ? 1 : 10);
   const [isRunning, setIsRunning] = useState<Record<string, boolean>>({});
-  const [results, setResults] = useState<Record<string, RunRulesResult>>({});
+  const [resultsMap, setResultsMap] = useState<
+    Record<string, RunRulesResult[]>
+  >({});
   const handledThreadsRef = useRef(new Set<string>());
 
   // Merge existing rules with results
   const allResults = useMemo(() => {
-    const merged = { ...results };
+    const merged = { ...resultsMap };
     if (existingRules?.rulesMap) {
       for (const [messageId, rule] of Object.entries(existingRules.rulesMap)) {
         if (!merged[messageId]) {
-          merged[messageId] = {
-            rule: rule.rule,
-            actionItems: rule.actionItems,
-            reason: rule.reason,
+          merged[messageId] = rule.map((r) => ({
+            rule: r.rule,
+            actionItems: r.actionItems,
+            reason: r.reason,
             existing: true,
-          };
+          }));
         }
       }
     }
     return merged;
-  }, [results, existingRules]);
+  }, [resultsMap, existingRules]);
 
   const onRun = useCallback(
     async (message: Message, rerun?: boolean) => {
@@ -162,7 +164,7 @@ export function ProcessRulesContent({ testMode }: { testMode: boolean }) {
           description: result.serverError,
         });
       } else if (result?.data) {
-        setResults((prev) => ({ ...prev, [message.id]: result.data! }));
+        setResultsMap((prev) => ({ ...prev, [message.id]: result.data! }));
       }
       setIsRunning((prev) => ({ ...prev, [message.id]: false }));
     },
@@ -296,7 +298,7 @@ export function ProcessRulesContent({ testMode }: { testMode: boolean }) {
                     message={message}
                     userEmail={userEmail}
                     isRunning={isRunning[message.id]}
-                    result={allResults[message.id]}
+                    results={allResults[message.id]}
                     onRun={(rerun) => onRun(message, rerun)}
                     testMode={testMode}
                     setInput={setInput}
@@ -332,7 +334,7 @@ function ProcessRulesRow({
   message,
   userEmail,
   isRunning,
-  result,
+  results,
   onRun,
   testMode,
   setInput,
@@ -340,7 +342,7 @@ function ProcessRulesRow({
   message: Message;
   userEmail: string;
   isRunning: boolean;
-  result: RunRulesResult;
+  results: RunRulesResult[];
   onRun: (rerun?: boolean) => void;
   testMode: boolean;
   setInput: (input: string) => void;
@@ -363,15 +365,15 @@ function ProcessRulesRow({
             labelIds={message.labelIds}
           />
           <div className="ml-4 flex items-center gap-1">
-            {result ? (
+            {results ? (
               <>
                 <div className="flex max-w-xs flex-col justify-center gap-0.5 whitespace-nowrap">
-                  <ProcessResultDisplay result={result} />
+                  <ProcessResultDisplay results={results} />
                 </div>
                 <FixWithChat
                   setInput={setInput}
                   message={message}
-                  result={result}
+                  results={results}
                 />
                 <Button
                   variant="outline"

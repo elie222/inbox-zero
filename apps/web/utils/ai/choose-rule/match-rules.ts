@@ -57,47 +57,10 @@ async function findPotentialMatchingRules({
     instructions: string;
   })[] = [];
 
-  const isCalendarEvent = hasIcsAttachment(message);
-  if (isCalendarEvent) {
-    const calendarRule = rules.find(
-      (r) => r.systemType === SystemType.CALENDAR,
-    );
-    if (calendarRule) {
-      logger.info("Found matching calendar rule", {
-        ruleId: calendarRule.id,
-        messageId: message.id,
-      });
-      return {
-        match: calendarRule,
-        matchReasons: [
-          { type: ConditionType.PRESET, systemType: SystemType.CALENDAR },
-        ],
-      };
-    }
-  }
+  const calendarMatch = checkCalendarMatch({ rules, message });
+  if (calendarMatch) return calendarMatch;
 
-  // only load once and only when needed
-  let groups: Awaited<ReturnType<typeof getGroupsWithRules>>;
-  async function getGroups({ emailAccountId }: { emailAccountId: string }) {
-    if (!groups) groups = await getGroupsWithRules({ emailAccountId });
-    return groups;
-  }
-
-  let sender: { categoryId: string | null } | null | undefined;
-  async function getSender({ emailAccountId }: { emailAccountId: string }) {
-    if (typeof sender === "undefined") {
-      sender = await prisma.newsletter.findUnique({
-        where: {
-          email_emailAccountId: {
-            email: extractEmailAddress(message.headers.from),
-            emailAccountId,
-          },
-        },
-        select: { categoryId: true },
-      });
-    }
-    return sender;
-  }
+  const contextLoader = new ContextLoader(message);
 
   // loop through rules and check if they match
   for (const rule of rules) {
@@ -108,12 +71,14 @@ async function findPotentialMatchingRules({
     const conditionTypes = getConditionTypes(rule);
     const matchReasons: MatchReason[] = [];
 
-    // group - ignores conditional operator
-    // if a match is found, return it
+    // Learned patterns (groups)
+    // If a match is found, return it immediately
+    // Ignores conditional operator
     if (rule.groupId) {
-      const { matchingItem, group, ruleExcluded } = await matchesGroupRule(
+      const groups = await contextLoader.getGroups(rule.emailAccountId);
+      const { matchingItem, group, ruleExcluded } = matchesGroupRule(
         rule,
-        await getGroups({ emailAccountId: rule.emailAccountId }),
+        groups,
         message,
       );
 
@@ -150,10 +115,8 @@ async function findPotentialMatchingRules({
     }
 
     if (conditionTypes.CATEGORY) {
-      const matchedCategory = await matchesCategoryRule(
-        rule,
-        await getSender({ emailAccountId: rule.emailAccountId }),
-      );
+      const sender = await contextLoader.getSender(rule.emailAccountId);
+      const matchedCategory = matchesCategoryRule(rule, sender);
       if (matchedCategory) {
         unmatchedConditions.delete(ConditionType.CATEGORY);
         if (typeof matchedCategory !== "boolean") {
@@ -185,6 +148,64 @@ async function findPotentialMatchingRules({
   return { potentialMatches: filteredPotentialMatches };
 }
 
+function checkCalendarMatch({
+  rules,
+  message,
+}: {
+  rules: RuleWithActionsAndCategories[];
+  message: ParsedMessage;
+}): MatchingRuleResult | undefined {
+  const isCalendarEvent = hasIcsAttachment(message);
+  if (!isCalendarEvent) return;
+
+  const rule = rules.find((r) => r.systemType === SystemType.CALENDAR);
+  if (!rule) return;
+
+  logger.info("Found matching calendar rule", {
+    ruleId: rule.id,
+    messageId: message.id,
+  });
+  return {
+    match: rule,
+    matchReasons: [
+      { type: ConditionType.PRESET, systemType: SystemType.CALENDAR },
+    ],
+  };
+}
+
+// Lazy load context data when needed
+class ContextLoader {
+  private readonly message: ParsedMessage;
+  private groups: Awaited<ReturnType<typeof getGroupsWithRules>>;
+  private sender: { categoryId: string | null } | null | undefined;
+
+  constructor(message: ParsedMessage) {
+    this.message = message;
+    this.groups = [];
+    this.sender = undefined;
+  }
+
+  async getGroups(emailAccountId: string) {
+    if (!this.groups)
+      this.groups = await getGroupsWithRules({ emailAccountId });
+    return this.groups;
+  }
+
+  async getSender(emailAccountId: string) {
+    if (!this.sender) {
+      this.sender = await prisma.newsletter.findUnique({
+        where: {
+          email_emailAccountId: {
+            email: extractEmailAddress(this.message.headers.from),
+            emailAccountId,
+          },
+        },
+      });
+    }
+    return this.sender;
+  }
+}
+
 function getMatchReason(matchReasons?: MatchReason[]): string | undefined {
   if (!matchReasons || matchReasons.length === 0) return;
 
@@ -204,7 +225,7 @@ function getMatchReason(matchReasons?: MatchReason[]): string | undefined {
     .join(", ");
 }
 
-export async function findMatchingRule({
+export async function findMatchingRules({
   rules,
   message,
   emailAccount,
@@ -216,11 +237,13 @@ export async function findMatchingRule({
   emailAccount: EmailAccountWithAI;
   provider: EmailProvider;
   modelType: ModelType;
-}): Promise<{
-  rule?: RuleWithActionsAndCategories;
-  matchReasons?: MatchReason[];
-  reason?: string;
-}> {
+}): Promise<
+  {
+    rule: RuleWithActionsAndCategories;
+    matchReasons?: MatchReason[];
+    reason?: string;
+  }[]
+> {
   const coldEmailRule = await getColdEmailRule(emailAccount.id);
 
   if (coldEmailRule && isColdEmailRuleEnabled(coldEmailRule)) {
@@ -238,24 +261,27 @@ export async function findMatchingRule({
         include: { actions: true, categoryFilters: true },
       });
 
-      return {
-        rule: coldEmailRuleWithCategories,
-        reason: coldEmailResult.reason,
-      };
+      return [
+        {
+          rule: coldEmailRuleWithCategories,
+          matchReasons: [],
+          reason: coldEmailResult.reason,
+        },
+      ];
     }
   }
 
-  const result = await findMatchingRuleWithReasons(
+  const results = await findMatchingRuleWithReasons(
     rules,
     message,
     emailAccount,
     provider,
     modelType,
   );
-  return {
+  return results.map((result) => ({
     ...result,
     reason: result.reason || getMatchReason(result.matchReasons || []),
-  };
+  }));
 }
 
 async function findMatchingRuleWithReasons(
@@ -264,11 +290,13 @@ async function findMatchingRuleWithReasons(
   emailAccount: EmailAccountWithAI,
   provider: EmailProvider,
   modelType: ModelType,
-): Promise<{
-  rule?: RuleWithActionsAndCategories;
-  matchReasons?: MatchReason[];
-  reason?: string;
-}> {
+): Promise<
+  {
+    rule: RuleWithActionsAndCategories;
+    matchReasons?: MatchReason[];
+    reason?: string;
+  }[]
+> {
   const isThread = provider.isReplyInThread(message);
 
   const { match, matchReasons, potentialMatches } =
@@ -279,7 +307,7 @@ async function findMatchingRuleWithReasons(
       provider,
     });
 
-  if (match) return { rule: match, matchReasons };
+  if (match) return [{ rule: match, matchReasons }];
 
   if (potentialMatches?.length) {
     const result = await aiChooseRule({
@@ -292,7 +320,7 @@ async function findMatchingRuleWithReasons(
     return result;
   }
 
-  return {};
+  return [];
 }
 
 export function matchesStaticRule(
@@ -362,7 +390,7 @@ export function splitEmailPatterns(pattern: string): string[] {
     .filter(Boolean);
 }
 
-async function matchesGroupRule(
+function matchesGroupRule(
   rule: RuleWithActionsAndCategories,
   groups: Awaited<ReturnType<typeof getGroupsWithRules>>,
   message: ParsedMessage,
@@ -385,7 +413,7 @@ async function matchesGroupRule(
   return { group: null, matchingItem: null, ruleExcluded: false };
 }
 
-async function matchesCategoryRule(
+function matchesCategoryRule(
   rule: RuleWithActionsAndCategories,
   sender: { categoryId: string | null } | null,
 ) {

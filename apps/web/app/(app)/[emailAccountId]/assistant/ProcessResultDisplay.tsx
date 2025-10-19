@@ -11,17 +11,18 @@ import { ActionType } from "@prisma/client";
 import { useRuleDialog } from "./RuleDialog";
 
 export function ProcessResultDisplay({
-  result,
+  results,
   prefix,
 }: {
-  result: RunRulesResult;
+  results: RunRulesResult[];
   prefix?: string;
 }) {
   const { ruleDialog, RuleDialogComponent } = useRuleDialog();
 
-  if (!result) return null;
+  if (!results.length) return null;
 
-  if (!result.rule) {
+  if (results.length === 1 && results[0].rule === null) {
+    const result = results[0];
     return (
       <HoverCard
         className="w-auto max-w-3xl"
@@ -51,7 +52,7 @@ export function ProcessResultDisplay({
     ruleDialog.onOpen({ ruleId });
   };
 
-  return (
+  return results.map((result) => (
     <>
       <HoverCard
         className="w-auto max-w-5xl"
@@ -61,13 +62,13 @@ export function ProcessResultDisplay({
       >
         <Badge color="green">
           {prefix ? prefix : ""}
-          {result.rule.name}
+          {result.rule?.name}
           <EyeIcon className="ml-1.5 size-3.5 opacity-70" />
         </Badge>
       </HoverCard>
       <RuleDialogComponent />
     </>
-  );
+  ));
 }
 
 function ActionSummaryCard({

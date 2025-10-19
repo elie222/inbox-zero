@@ -27,11 +27,11 @@ import { Badge } from "@/components/ui/badge";
 export function FixWithChat({
   setInput,
   message,
-  result,
+  results,
 }: {
   setInput: (input: string) => void;
   message: ParsedMessage;
-  result: RunRulesResult | null;
+  results: RunRulesResult[];
 }) {
   const { data, isLoading, error } = useRules();
   const { isModalOpen, setIsModalOpen } = useModal();
@@ -53,7 +53,7 @@ export function FixWithChat({
     if (selectedRuleId === NEW_RULE_ID) {
       input = getFixMessage({
         message,
-        result,
+        results,
         expectedRuleName: NEW_RULE_ID,
         explanation,
       });
@@ -62,7 +62,7 @@ export function FixWithChat({
 
       input = getFixMessage({
         message,
-        result,
+        results,
         expectedRuleName: expectedRule?.name ?? null,
         explanation,
       });
@@ -105,7 +105,7 @@ export function FixWithChat({
         <LoadingContent loading={isLoading} error={error}>
           {data && !showExplanation ? (
             <RuleMismatch
-              result={result}
+              results={results}
               rules={data}
               onSelectExpectedRuleId={handleRuleSelect}
             />
@@ -165,14 +165,15 @@ export function FixWithChat({
   );
 }
 
+// TODO: tag rule like in Cursor so we don't need to show the email contents
 function getFixMessage({
   message,
-  result,
+  results,
   expectedRuleName,
   explanation,
 }: {
   message: ParsedMessage;
-  result: RunRulesResult | null;
+  results: RunRulesResult[];
   expectedRuleName: string | null;
   explanation?: string;
 }) {
@@ -191,10 +192,14 @@ Email details:
 *Subject*: ${message.headers.subject}
 *Content*: ${getMessageContent()}
 
-Current rule applied: ${result?.rule?.name || "No rule"}
+Current rules applied and the reasons they were chosen:
 
-Reason the rule was chosen:
-${result?.reason || "-"}
+${results
+  .map(
+    (r) => `- Rule: ${r.rule?.name || "No rule"}
+- Reason: ${r.reason}`,
+  )
+  .join("\n")}
 
 ${
   expectedRuleName === NEW_RULE_ID
@@ -206,11 +211,11 @@ ${
 }
 
 function RuleMismatch({
-  result,
+  results,
   rules,
   onSelectExpectedRuleId,
 }: {
-  result: RunRulesResult | null;
+  results: RunRulesResult[];
   rules: RulesResponse;
   onSelectExpectedRuleId: (ruleId: string | null) => void;
 }) {
@@ -218,8 +223,8 @@ function RuleMismatch({
     <div>
       <Label name="matchedRule" label="Matched:" />
       <div className="mt-1">
-        {result ? (
-          <ProcessResultDisplay result={result} />
+        {results.length > 0 ? (
+          <ProcessResultDisplay results={results} />
         ) : (
           <p>No rule matched</p>
         )}

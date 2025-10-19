@@ -58,13 +58,11 @@ export async function processHistoryItem(
     const [parsedMessage, hasExistingRule] = await Promise.all([
       provider.getMessage(messageId),
       threadId
-        ? prisma.executedRule.findUnique({
+        ? prisma.executedRule.findFirst({
             where: {
-              unique_emailAccount_thread_message: {
-                emailAccountId,
-                threadId,
-                messageId,
-              },
+              emailAccountId,
+              threadId,
+              messageId,
             },
             select: { id: true },
           })
@@ -79,13 +77,11 @@ export async function processHistoryItem(
       hasExistingRule !== null
         ? hasExistingRule
         : actualThreadId
-          ? await prisma.executedRule.findUnique({
+          ? await prisma.executedRule.findFirst({
               where: {
-                unique_emailAccount_thread_message: {
-                  emailAccountId,
-                  threadId: actualThreadId,
-                  messageId,
-                },
+                emailAccountId,
+                threadId: actualThreadId,
+                messageId,
               },
               select: { id: true },
             })

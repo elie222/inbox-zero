@@ -119,9 +119,9 @@ model EmailAccount {
   personaAnalysis           Json? // ai analysis of the user's persona
   role                      String? // the role confirmed by the user - previously `User.surveyRole`
 
-  statsEmailFrequency   Frequency         @default(WEEKLY)
-  summaryEmailFrequency Frequency         @default(WEEKLY)
-  lastSummaryEmailAt    DateTime?
+  statsEmailFrequency        Frequency         @default(WEEKLY)
+  summaryEmailFrequency      Frequency         @default(WEEKLY)
+  lastSummaryEmailAt         DateTime?
   coldEmailBlocker      ColdEmailSetting? // @deprecated
   coldEmailDigest       Boolean           @default(false) // @deprecated
   coldEmailPrompt       String? // @deprecated
@@ -487,7 +487,8 @@ model ExecutedRule {
   actionItems      ExecutedAction[]
   scheduledActions ScheduledAction[]
 
-  @@unique([emailAccountId, threadId, messageId], name: "unique_emailAccount_thread_message")
+  @@index([emailAccountId, threadId, messageId, ruleId])
+  @@index([emailAccountId, messageId])
   @@index([emailAccountId, status, createdAt])
 }
 
@@ -658,7 +659,7 @@ model EmailMessage {
   messageId       String
   date            DateTime // date of the email
   from            String
-  fromName        String?  // sender's display name
+  fromName        String? // sender's display name
   fromDomain      String
   to              String
   unsubscribeLink String?

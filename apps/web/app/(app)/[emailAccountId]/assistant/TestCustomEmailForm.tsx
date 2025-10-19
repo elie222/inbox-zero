@@ -17,7 +17,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useAccount } from "@/providers/EmailAccountProvider";
 
 export const TestCustomEmailForm = () => {
-  const [testResult, setTestResult] = useState<RunRulesResult | undefined>();
+  const [testResults, setTestResult] = useState<RunRulesResult[]>();
   const { emailAccountId } = useAccount();
 
   const {
@@ -60,9 +60,9 @@ export const TestCustomEmailForm = () => {
           Test
         </Button>
       </form>
-      {testResult && (
+      {testResults && (
         <div className="mt-4">
-          <ProcessResultDisplay result={testResult} />
+          <ProcessResultDisplay results={testResults} />
         </div>
       )}
     </div>

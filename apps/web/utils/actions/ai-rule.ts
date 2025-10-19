@@ -40,7 +40,7 @@ export const runRulesAction = actionClient
     async ({
       ctx: { emailAccountId, provider, logger: ctxLogger },
       parsedInput: { messageId, threadId, rerun, isTest },
-    }): Promise<RunRulesResult> => {
+    }): Promise<RunRulesResult[]> => {
       const logger = ctxLogger.with({ messageId, threadId });
 
       const emailAccount = await getEmailAccountWithAi({ emailAccountId });
@@ -56,14 +56,12 @@ export const runRulesAction = actionClient
 
       const fetchExecutedRule = !isTest && !rerun;
 
-      const executedRule = fetchExecutedRule
-        ? await prisma.executedRule.findUnique({
+      const executedRules = fetchExecutedRule
+        ? await prisma.executedRule.findMany({
             where: {
-              unique_emailAccount_thread_message: {
-                emailAccountId,
-                threadId,
-                messageId,
-              },
+              emailAccountId,
+              threadId,
+              messageId,
             },
             select: {
               id: true,
@@ -72,17 +70,17 @@ export const runRulesAction = actionClient
               rule: true,
             },
           })
-        : null;
+        : [];
 
-      if (executedRule) {
+      if (executedRules.length > 0) {
         logger.info("Skipping. Rule already exists.");
 
-        return {
+        return executedRules.map((executedRule) => ({
           rule: executedRule.rule,
           actionItems: executedRule.actionItems,
           reason: executedRule.reason,
           existing: true,
-        };
+        }));
       }
 
       const rules = await prisma.rule.findMany({
@@ -580,15 +578,3 @@ export const generateRulesPromptAction = actionClient
 
     return { rulesPrompt: result.join("\n\n") };
   });
-
-export const setRuleEnabledAction = actionClient
-  .metadata({ name: "setRuleEnabled" })
-  .schema(z.object({ ruleId: z.string(), enabled: z.boolean() }))
-  .action(
-    async ({ ctx: { emailAccountId }, parsedInput: { ruleId, enabled } }) => {
-      await prisma.rule.update({
-        where: { id: ruleId, emailAccountId },
-        data: { enabled },
-      });
-    },
-  );

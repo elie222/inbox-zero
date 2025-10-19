@@ -32,10 +32,13 @@ async function getData({
   });
 
   // Convert to a map for easy lookup by messageId
-  const rulesMap: Record<string, (typeof executedRules)[0]> = {};
+  const rulesMap: Record<string, typeof executedRules> = {};
 
   for (const executedRule of executedRules) {
-    rulesMap[executedRule.messageId] = executedRule;
+    if (!rulesMap[executedRule.messageId]) {
+      rulesMap[executedRule.messageId] = [];
+    }
+    rulesMap[executedRule.messageId].push(executedRule);
   }
 
   return { rulesMap };
