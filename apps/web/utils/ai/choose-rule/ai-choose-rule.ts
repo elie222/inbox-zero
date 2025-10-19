@@ -206,6 +206,11 @@ async function getAiResponseMultiRule({
   - Only set "noMatchFound" to true if no rules can reasonably apply. There is usually a rule that matches.
   </priority>
 
+  <isPrimary_field>
+  - When returning multiple rules, mark ONLY ONE rule as the primary match (isPrimary: true).
+  - The primary rule should be the MOST SPECIFIC rule that best matches the email's content and purpose.
+  </isPrimary_field>
+
   <guidelines>
   - If a rule says to exclude certain types of emails, DO NOT select that rule for those excluded emails.
   - Do not be greedy - only select rules that add meaningful context.
@@ -223,14 +228,17 @@ Respond with a valid JSON object:
 
 Example response format (single rule):
 {
-  "matchedRules": [{ "ruleName": "Newsletter" }],
+  "matchedRules": [{ "ruleName": "Newsletter", "isPrimary": true }],
   "noMatchFound": false,
   "reasoning": "This is a newsletter subscription"
 }
 
 Example response format (multiple rules):
 {
-  "matchedRules": [{ "ruleName": "To Reply" }, { "ruleName": "Team Emails" }],
+  "matchedRules": [
+    { "ruleName": "To Reply", "isPrimary": true },
+    { "ruleName": "Team Emails", "isPrimary": false }
+  ],
   "noMatchFound": false,
   "reasoning": "This email requires a response and is from a team member"
 }`;
@@ -250,6 +258,11 @@ ${stringifyEmail(email, 500)}
         .array(
           z.object({
             ruleName: z.string().describe("The exact name of the rule"),
+            isPrimary: z
+              .boolean()
+              .describe(
+                "True if the rule is the primary match, false otherwise",
+              ),
           }),
         )
         .describe("Array of all matching rules"),
@@ -269,4 +282,26 @@ ${stringifyEmail(email, 500)}
     noMatchFound: aiResponse.object?.noMatchFound ?? false,
     reasoning: aiResponse.object?.reasoning ?? "",
   };
+}
+
+/**
+ * Filter system rules: if multiple system rules were matched, only keep the primary one.
+ * Always keep all conversation rules (non-system rules).
+ */
+function filterMultipleSystemRules<
+  T extends { name: string; instructions: string; systemType?: string | null },
+>(selectedRules: { rule: T; isPrimary?: boolean }[]): T[] {
+  const systemRules = selectedRules.filter((r) => r.rule.systemType);
+  const conversationRules = selectedRules.filter((r) => !r.rule.systemType);
+
+  let filteredSystemRules = systemRules;
+  if (systemRules.length > 1) {
+    // Only keep the primary system rule
+    const primarySystemRule = systemRules.find((r) => r.isPrimary);
+    filteredSystemRules = primarySystemRule
+      ? [primarySystemRule]
+      : [systemRules[0]];
+  }
+
+  return [...filteredSystemRules, ...conversationRules].map((r) => r.rule);
 }

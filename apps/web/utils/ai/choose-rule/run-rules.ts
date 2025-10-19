@@ -69,11 +69,11 @@ export async function runRules({
   });
 
   logger.trace("Matching rule", () => ({
-    results: results.map(filterNullProperties),
+    results: results.matches.map(filterNullProperties),
   }));
 
-  if (!results.length) {
-    const reason = "No rules matched"; // TODO: get the reason from the prompt?
+  if (!results.matches.length) {
+    const reason = results.reasoning || "No rules matched";
     await prisma.executedRule.create({
       data: {
         threadId: message.threadId,
@@ -90,9 +90,9 @@ export async function runRules({
 
   const executedRules: RunRulesResult[] = [];
 
-  for (const result of results) {
+  for (const result of results.matches) {
     let ruleToExecute = result.rule;
-    let reasonToUse = result.reason;
+    let reasonToUse = results.reasoning;
 
     if (result.rule.id === CONVERSATION_TRACKING_META_RULE_ID) {
       // Determine which specific sub-rule applies

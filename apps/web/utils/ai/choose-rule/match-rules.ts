@@ -39,6 +39,14 @@ const logger = createScopedLogger("match-rules");
 
 const TO_REPLY_RECEIVED_THRESHOLD = 10;
 
+type MatchingRulesResult = {
+  matches: {
+    rule: RuleWithActionsAndCategories;
+    matchReasons?: MatchReason[];
+  }[];
+  reasoning: string;
+};
+
 // if we find a match, return it
 // if we don't find a match, return the potential matches
 // ai rules need further processing to determine if they match
@@ -77,6 +85,7 @@ async function findPotentialMatchingRules({
     // Ignores conditional operator
     if (rule.groupId) {
       const groups = await contextLoader.getGroups(rule.emailAccountId);
+      if (!groups?.length) continue;
       const { matchingItem, group, ruleExcluded } = matchesGroupRule(
         rule,
         groups,
@@ -102,6 +111,7 @@ async function findPotentialMatchingRules({
       Object.keys(conditionTypes) as ConditionType[],
     );
 
+    // TODO: allow multiple matches
     if (conditionTypes.STATIC) {
       const match = matchesStaticRule(rule, message);
       if (match) {
@@ -115,6 +125,7 @@ async function findPotentialMatchingRules({
       }
     }
 
+    // TODO: allow multiple matches?
     if (conditionTypes.CATEGORY) {
       const sender = await contextLoader.getSender(rule.emailAccountId);
       const matchedCategory = matchesCategoryRule(rule, sender);
@@ -177,23 +188,21 @@ function checkCalendarMatch({
 // Lazy load context data when needed
 class ContextLoader {
   private readonly message: ParsedMessage;
-  private groups: Awaited<ReturnType<typeof getGroupsWithRules>>;
-  private sender: { categoryId: string | null } | null | undefined;
+  private groups?: Awaited<ReturnType<typeof getGroupsWithRules>> | null = null;
+  private sender?: { categoryId: string | null } | null = null;
 
   constructor(message: ParsedMessage) {
     this.message = message;
-    this.groups = [];
-    this.sender = undefined;
   }
 
   async getGroups(emailAccountId: string) {
-    if (!this.groups)
+    if (typeof this.groups === "undefined")
       this.groups = await getGroupsWithRules({ emailAccountId });
     return this.groups;
   }
 
   async getSender(emailAccountId: string) {
-    if (!this.sender) {
+    if (typeof this.sender === "undefined") {
       this.sender = await prisma.newsletter.findUnique({
         where: {
           email_emailAccountId: {
@@ -207,6 +216,7 @@ class ContextLoader {
   }
 }
 
+// TODO: how was this used? use it again
 function getMatchReason(matchReasons?: MatchReason[]): string | undefined {
   if (!matchReasons || matchReasons.length === 0) return;
 
@@ -238,13 +248,7 @@ export async function findMatchingRules({
   emailAccount: EmailAccountWithAI;
   provider: EmailProvider;
   modelType: ModelType;
-}): Promise<
-  {
-    rule: RuleWithActionsAndCategories;
-    matchReasons?: MatchReason[];
-    reason?: string;
-  }[]
-> {
+}): Promise<MatchingRulesResult> {
   const coldEmailRule = await getColdEmailRule(emailAccount.id);
 
   if (coldEmailRule && isColdEmailRuleEnabled(coldEmailRule)) {
@@ -262,13 +266,10 @@ export async function findMatchingRules({
         include: { actions: true, categoryFilters: true },
       });
 
-      return [
-        {
-          rule: coldEmailRuleWithCategories,
-          matchReasons: [],
-          reason: coldEmailResult.reason,
-        },
-      ];
+      return {
+        matches: [{ rule: coldEmailRuleWithCategories, matchReasons: [] }],
+        reasoning: coldEmailResult.reason,
+      };
     }
   }
 
@@ -277,32 +278,24 @@ export async function findMatchingRules({
     (rule) => rule.systemType !== SystemType.COLD_EMAIL,
   );
 
-  const results = await findMatchingRuleWithReasons(
+  const results = await findMatchingRulesWithReasons(
     rulesWithoutColdEmail,
     message,
     emailAccount,
     provider,
     modelType,
   );
-  return results.map((result) => ({
-    ...result,
-    reason: result.reason || getMatchReason(result.matchReasons || []),
-  }));
+
+  return results;
 }
 
-async function findMatchingRuleWithReasons(
+async function findMatchingRulesWithReasons(
   rules: RuleWithActionsAndCategories[],
   message: ParsedMessage,
   emailAccount: EmailAccountWithAI,
   provider: EmailProvider,
   modelType: ModelType,
-): Promise<
-  {
-    rule: RuleWithActionsAndCategories;
-    matchReasons?: MatchReason[];
-    reason?: string;
-  }[]
-> {
+): Promise<MatchingRulesResult> {
   const isThread = provider.isReplyInThread(message);
 
   const { match, matchReasons, potentialMatches } =
@@ -313,7 +306,7 @@ async function findMatchingRuleWithReasons(
       provider,
     });
 
-  if (match) return [{ rule: match, matchReasons }];
+  if (match) return { matches: [{ rule: match, matchReasons }], reasoning: "" };
 
   if (potentialMatches?.length) {
     const result = await aiChooseRule({
@@ -323,13 +316,16 @@ async function findMatchingRuleWithReasons(
       modelType,
     });
 
-    return result.rules.map((rule) => ({
-      rule,
-      reason: result.reason,
-    }));
+    return {
+      matches: result.rules.map((rule) => ({
+        rule,
+        matchReasons: [],
+      })),
+      reasoning: result.reason,
+    };
   }
 
-  return [];
+  return { matches: [], reasoning: "" };
 }
 
 export function matchesStaticRule(
