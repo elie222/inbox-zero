@@ -245,8 +245,13 @@ export async function findMatchingRule({
     }
   }
 
+  // Filter out cold email rule which was already checked above
+  const rulesWithoutColdEmail = rules.filter(
+    (rule) => rule.systemType !== SystemType.COLD_EMAIL,
+  );
+
   const result = await findMatchingRuleWithReasons(
-    rules,
+    rulesWithoutColdEmail,
     message,
     emailAccount,
     provider,
