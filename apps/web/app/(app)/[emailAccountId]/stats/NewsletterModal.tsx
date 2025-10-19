@@ -130,9 +130,12 @@ function useSenderEmails(props: {
   const { data, isLoading, error } = useSWR<
     SenderEmailsResponse,
     { error: string }
-  >(`/api/user/stats/sender-emails/?${new URLSearchParams(params as any)}`, {
-    refreshInterval: props.refreshInterval,
-  });
+  >(
+    `/api/user/stats/sender-emails/?${new URLSearchParams(params as Record<string, string>)}`,
+    {
+      refreshInterval: props.refreshInterval,
+    },
+  );
 
   return { data, isLoading, error };
 }

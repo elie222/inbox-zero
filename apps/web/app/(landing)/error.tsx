@@ -6,7 +6,7 @@ import { ErrorDisplay } from "@/components/ErrorDisplay";
 import { Button } from "@/components/Button";
 import { logOut } from "@/utils/user";
 
-export default function ErrorBoundary({ error }: any) {
+export default function ErrorBoundary({ error }: { error: Error }) {
   useEffect(() => {
     Sentry.captureException(error);
   }, [error]);
