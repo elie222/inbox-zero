@@ -261,11 +261,12 @@ async function executeMatchedRule(
 
   if (executedRule) {
     if (delayedActions?.length > 0) {
-      // Attempts to cancel any existing scheduled actions to avoid duplicates
+      // Cancels existing scheduled actions to avoid duplicates
       await cancelScheduledActions({
         emailAccountId: emailAccount.id,
         messageId: message.id,
         threadId: message.threadId,
+        ruleId: rule.id,
         reason: "Superseded by new rule execution",
       });
       await scheduleDelayedActions({
