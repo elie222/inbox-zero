@@ -185,17 +185,14 @@ async function getAiResponseMultiRule({
   IMPORTANT: Follow these instructions carefully when selecting rules:
 
   <priority>
-  1. Review all available rules and select those that genuinely match this email.
-  2. You can select multiple rules if they all apply.
-  3. System preset rules (like To Reply, Newsletter, etc.) typically don't overlap - avoid selecting multiple system rules unless truly necessary.
-  4. Custom user-defined rules can overlap freely - select all that apply.
-  5. Be selective - typically 1-3 rules is appropriate.
-  6. Only set "noMatchFound" to true if no rules can reasonably apply.
+  - Review all available rules and select those that genuinely match this email.
+  - You can select multiple rules, but BE SELECTIVE - it's rare that you need to select more than 1-2 rules.
+  - Only set "noMatchFound" to true if no rules can reasonably apply. There is usually a rule that matches.
   </priority>
 
   <guidelines>
   - If a rule says to exclude certain types of emails, DO NOT select that rule for those excluded emails.
-  - Rules about requiring replies should be prioritized when the email clearly needs a response.
+  - Do not be greedy - only select rules that add meaningful context.
   - Be concise in your reasoning - avoid repetitive explanations.
   </guidelines>
 </instructions>

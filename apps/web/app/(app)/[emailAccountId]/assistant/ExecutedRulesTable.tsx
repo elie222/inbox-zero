@@ -136,7 +136,7 @@ export function RuleCell({
       <FixWithChat
         setInput={setInput}
         message={message}
-        result={{ rule, reason }}
+        results={[{ rule, reason }]}
       />
       <RuleDialogComponent />
     </div>
