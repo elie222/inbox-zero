@@ -5,7 +5,7 @@ import { ErrorDisplay } from "@/components/ErrorDisplay";
 import { Button } from "@/components/ui/button";
 import { captureException } from "@/utils/error";
 
-export default function GlobalError({ error }: any) {
+export default function GlobalError({ error }: { error: Error }) {
   useEffect(() => {
     captureException(error);
   }, [error]);

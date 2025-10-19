@@ -5,8 +5,8 @@ const renderLink = ({
   attributes,
   content,
 }: {
-  attributes: any;
-  content: any;
+  attributes: Record<string, unknown>;
+  content: string;
 }) => {
   const { href, ...props } = attributes;
 

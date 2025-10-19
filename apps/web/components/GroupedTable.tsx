@@ -498,7 +498,9 @@ function SenderRows({
             <TableCell
               key={cell.id}
               style={{
-                width: (cell.column.columnDef.meta as any)?.size || "auto",
+                width:
+                  (cell.column.columnDef.meta as { size?: string })?.size ||
+                  "auto",
               }}
               className="py-1"
             >

@@ -12,7 +12,7 @@ export interface InputProps {
   labelComponent?: React.ReactNode;
   type: HTMLInputTypeAttribute;
   placeholder?: string;
-  registerProps?: any; // TODO
+  registerProps?: Record<string, unknown>; // TODO
   explainText?: string;
   tooltipText?: string;
   as?: React.ElementType;
@@ -149,7 +149,7 @@ export const ErrorMessage = (props: { message: string }) => {
 
 const InputWithLeftFixedText = (props: {
   leftText: string;
-  inputProps: any;
+  inputProps: Record<string, unknown>;
   className?: string;
 }) => {
   return (
@@ -170,7 +170,7 @@ const InputWithLeftFixedText = (props: {
 
 const InputWithRightFixedText = (props: {
   rightText: string;
-  inputProps: any;
+  inputProps: Record<string, unknown>;
   className?: string;
 }) => {
   return (

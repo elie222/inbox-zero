@@ -148,7 +148,7 @@ export function PremiumAlertWithData({
 }
 
 export function PremiumTooltip(props: {
-  children: React.ReactElement<any>;
+  children: React.ReactElement;
   showTooltip: boolean;
   openModal: () => void;
 }) {

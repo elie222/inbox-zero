@@ -167,7 +167,7 @@ export default async function RuleHistoryPage(props: {
                         Type: {history.categoryFilterType}
                         {history.categoryFilters && (
                           <span className="ml-2">
-                            ({(history.categoryFilters as any[]).length}{" "}
+                            ({(history.categoryFilters as unknown[]).length}{" "}
                             categories)
                           </span>
                         )}
@@ -186,33 +186,55 @@ export default async function RuleHistoryPage(props: {
                     <div>
                       <h4 className="mb-1 font-semibold">Actions</h4>
                       <div className="space-y-1">
-                        {(history.actions as any[]).map(
-                          (action: any, index: number) => (
-                            <div key={index} className="text-sm">
-                              <Badge variant="secondary" className="mr-2">
-                                {action.type}
-                              </Badge>
-                              {action.label && (
-                                <span>
-                                  {
-                                    getEmailTerminology(
-                                      rule.emailAccount.account.provider,
-                                    ).label.action
-                                  }
-                                  : {action.label}
-                                </span>
-                              )}
-                              {action.subject && (
-                                <span>Subject: {action.subject}</span>
-                              )}
-                              {action.content && (
-                                <span>
-                                  Content: {action.content.substring(0, 50)}...
-                                </span>
-                              )}
-                              {action.to && <span>To: {action.to}</span>}
-                            </div>
-                          ),
+                        {(history.actions as unknown[]).map(
+                          (action: unknown, index: number) => {
+                            const actionObj = action as {
+                              type?: string;
+                              label?: string;
+                            };
+                            return (
+                              <div key={index} className="text-sm">
+                                <Badge variant="secondary" className="mr-2">
+                                  {actionObj.type}
+                                </Badge>
+                                {actionObj.label && (
+                                  <span>
+                                    {
+                                      getEmailTerminology(
+                                        rule.emailAccount.account.provider,
+                                      ).label.action
+                                    }
+                                    : {actionObj.label}
+                                  </span>
+                                )}
+                                {(actionObj as { subject?: string })
+                                  .subject && (
+                                  <span>
+                                    Subject:{" "}
+                                    {
+                                      (actionObj as { subject?: string })
+                                        .subject
+                                    }
+                                  </span>
+                                )}
+                                {(actionObj as { content?: string })
+                                  .content && (
+                                  <span>
+                                    Content:{" "}
+                                    {(
+                                      actionObj as { content?: string }
+                                    ).content?.substring(0, 50)}
+                                    ...
+                                  </span>
+                                )}
+                                {(actionObj as { to?: string }).to && (
+                                  <span>
+                                    To: {(actionObj as { to?: string }).to}
+                                  </span>
+                                )}
+                              </div>
+                            );
+                          },
                         )}
                       </div>
                     </div>

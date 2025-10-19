@@ -11,7 +11,9 @@ import {
 type NavItem = {
   name: string;
   href: string;
-  icon: LucideIcon | ((props: any) => React.ReactNode);
+  icon:
+    | LucideIcon
+    | ((props: React.SVGProps<SVGSVGElement>) => React.ReactNode);
   target?: "_blank";
   count?: number;
   hideInMail?: boolean;
