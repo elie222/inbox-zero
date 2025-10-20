@@ -18,7 +18,6 @@ describe("ensureConversationRuleContinuity", () => {
 
   const emailAccountId = "account-1";
   const threadId = "thread-1";
-  const messageId = "msg-1";
 
   const createRule = (
     id: string,

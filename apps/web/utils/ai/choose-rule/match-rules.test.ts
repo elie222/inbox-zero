@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { filterMultipleSystemRules } from "./match-rules";
 import {
   findMatchingRules,
   matchesStaticRule,
@@ -1864,6 +1865,261 @@ describe("findMatchingRules - Integration Tests", () => {
     expect(result.matches).toHaveLength(0);
   });
 
+  describe("filterMultipleSystemRules branches", () => {
+    it("returns all system rules when none marked primary (plus conversation rules)", () => {
+      const sysA: {
+        name: string;
+        instructions: string;
+        systemType: string | null;
+      } = {
+        name: "Sys A",
+        instructions: "",
+        systemType: "TO_REPLY",
+      };
+      const sysB: {
+        name: string;
+        instructions: string;
+        systemType: string | null;
+      } = {
+        name: "Sys B",
+        instructions: "",
+        systemType: "AWAITING_REPLY",
+      };
+      const conv: {
+        name: string;
+        instructions: string;
+        systemType: string | null;
+      } = {
+        name: "Conv",
+        instructions: "",
+        systemType: null,
+      };
+
+      const result = filterMultipleSystemRules([
+        { rule: sysA, isPrimary: false },
+        { rule: sysB },
+        { rule: conv },
+      ]);
+
+      expect(result).toEqual([sysA, sysB, conv]);
+    });
+
+    it("keeps only the primary system rule when multiple system rules present", () => {
+      const sysA: {
+        name: string;
+        instructions: string;
+        systemType: string | null;
+      } = {
+        name: "Sys A",
+        instructions: "",
+        systemType: "TO_REPLY",
+      };
+      const sysB: {
+        name: string;
+        instructions: string;
+        systemType: string | null;
+      } = {
+        name: "Sys B",
+        instructions: "",
+        systemType: "AWAITING_REPLY",
+      };
+      const conv: {
+        name: string;
+        instructions: string;
+        systemType: string | null;
+      } = {
+        name: "Conv",
+        instructions: "",
+        systemType: null,
+      };
+
+      const result = filterMultipleSystemRules([
+        { rule: sysA, isPrimary: false },
+        { rule: sysB, isPrimary: true },
+        { rule: conv },
+      ]);
+
+      expect(result).toEqual([sysB, conv]);
+    });
+  });
+
+  describe("Group rules fallthrough when no groups exist", () => {
+    it("falls through to static/AI evaluation when getGroupsWithRules returns empty", async () => {
+      const groupRule = getRule({
+        id: "group-rule-1",
+        from: "group@example.com",
+        groupId: "g1",
+      });
+
+      // Ensure provider treats this as non-thread
+      const providerNoThread = {
+        isReplyInThread: vi.fn().mockReturnValue(false),
+      } as unknown as EmailProvider;
+
+      // Mock groups to be empty so the code path skips learned pattern branch
+      const groupModule = await import("@/utils/group/find-matching-group");
+      vi.spyOn(groupModule, "getGroupsWithRules").mockResolvedValue([] as any);
+
+      const rules = [groupRule];
+      const message = getMessage({
+        headers: getHeaders({ from: "group@example.com" }),
+      });
+      const emailAccount = getEmailAccount();
+
+      const result = await findMatchingRules({
+        rules,
+        message,
+        emailAccount,
+        provider: providerNoThread,
+        modelType: "default",
+      });
+
+      // Should match via static evaluation since groups are empty
+      expect(result.matches).toHaveLength(1);
+      expect(result.matches[0]?.rule.id).toBe("group-rule-1");
+    });
+  });
+  describe("Thread continuity - runOnThreads=false rules", () => {
+    it("should continue applying rule in a thread when it was previously applied", async () => {
+      const notifRule = getRule({
+        id: "notif-rule",
+        from: "notif@example.com",
+        runOnThreads: false,
+      });
+
+      // Mock provider to indicate this is a thread
+      const threadProvider = {
+        isReplyInThread: vi.fn().mockReturnValue(true),
+      } as unknown as EmailProvider;
+
+      // Mock DB to return previously executed rule id
+      prisma.executedRule.findMany.mockResolvedValue([
+        { ruleId: "notif-rule" },
+      ] as any);
+
+      const rules = [notifRule];
+      const message = getMessage({
+        headers: getHeaders({ from: "notif@example.com" }),
+      });
+      const emailAccount = getEmailAccount();
+
+      const result = await findMatchingRules({
+        rules,
+        message,
+        emailAccount,
+        provider: threadProvider,
+        modelType: "default",
+      });
+
+      expect(prisma.executedRule.findMany).toHaveBeenCalledTimes(1);
+      expect(result.matches).toHaveLength(1);
+      expect(result.matches[0]?.rule.id).toBe("notif-rule");
+    });
+
+    it("should lazy-load previous rules only once for multiple runOnThreads=false rules", async () => {
+      const ruleA = getRule({
+        id: "rule-a",
+        from: "multi@example.com",
+        runOnThreads: false,
+      });
+      const ruleB = getRule({
+        id: "rule-b",
+        from: "multi@example.com",
+        runOnThreads: false,
+      });
+
+      const threadProvider = {
+        isReplyInThread: vi.fn().mockReturnValue(true),
+      } as unknown as EmailProvider;
+
+      prisma.executedRule.findMany.mockResolvedValue([
+        { ruleId: "rule-a" },
+        { ruleId: "rule-b" },
+      ] as any);
+
+      const rules = [ruleA, ruleB];
+      const message = getMessage({
+        headers: getHeaders({ from: "multi@example.com" }),
+      });
+      const emailAccount = getEmailAccount();
+
+      const result = await findMatchingRules({
+        rules,
+        message,
+        emailAccount,
+        provider: threadProvider,
+        modelType: "default",
+      });
+
+      expect(prisma.executedRule.findMany).toHaveBeenCalledTimes(1);
+      expect(result.matches.map((m) => m.rule.id).sort()).toEqual([
+        "rule-a",
+        "rule-b",
+      ]);
+    });
+
+    it("should not query DB when message is not a thread", async () => {
+      const notifRule = getRule({
+        id: "not-thread",
+        from: "no-thread@example.com",
+        runOnThreads: false,
+      });
+
+      const providerNotThread = {
+        isReplyInThread: vi.fn().mockReturnValue(false),
+      } as unknown as EmailProvider;
+
+      const rules = [notifRule];
+      const message = getMessage({
+        headers: getHeaders({ from: "no-thread@example.com" }),
+      });
+      const emailAccount = getEmailAccount();
+
+      const result = await findMatchingRules({
+        rules,
+        message,
+        emailAccount,
+        provider: providerNotThread,
+        modelType: "default",
+      });
+
+      expect(prisma.executedRule.findMany).not.toHaveBeenCalled();
+      // Not a thread, so normal matching applies (matches by static from)
+      expect(result.matches).toHaveLength(1);
+      expect(result.matches[0]?.rule.id).toBe("not-thread");
+    });
+
+    it("should not query DB when rule has runOnThreads=true (even in a thread)", async () => {
+      const threadRule = getRule({
+        id: "thread-ok",
+        from: "yes-thread@example.com",
+        runOnThreads: true,
+      });
+
+      const threadProvider = {
+        isReplyInThread: vi.fn().mockReturnValue(true),
+      } as unknown as EmailProvider;
+
+      const rules = [threadRule];
+      const message = getMessage({
+        headers: getHeaders({ from: "yes-thread@example.com" }),
+      });
+      const emailAccount = getEmailAccount();
+
+      const result = await findMatchingRules({
+        rules,
+        message,
+        emailAccount,
+        provider: threadProvider,
+        modelType: "default",
+      });
+
+      expect(prisma.executedRule.findMany).not.toHaveBeenCalled();
+      expect(result.matches).toHaveLength(1);
+      expect(result.matches[0]?.rule.id).toBe("thread-ok");
+    });
+  });
+
   it("should handle invalid regex patterns gracefully", () => {
     const rule = getRule({
       from: "[invalid(regex",
@@ -1909,6 +2165,135 @@ describe("findMatchingRules - Integration Tests", () => {
     // Static matched, so should be sent to AI for AND check
     expect(aiChooseRule).toHaveBeenCalled();
     expect(result.matches[0]?.rule.id).toBe("mixed-rule");
+  });
+
+  it("merges static match with AI rule and combines reasoning text", async () => {
+    const staticRule = getRule({
+      id: "static-rule-1",
+      from: "reason@example.com",
+    });
+    const aiOnlyRule = getRule({ id: "ai-rule-2", instructions: "Do X" });
+
+    // Ensure potentialAiMatches includes aiOnlyRule
+    vi.mocked(aiChooseRule).mockResolvedValue({
+      rules: [aiOnlyRule as any],
+      reason: "AI reasoning here",
+    });
+
+    const rules = [staticRule, aiOnlyRule];
+    const message = getMessage({
+      headers: getHeaders({ from: "reason@example.com" }),
+    });
+    const emailAccount = getEmailAccount();
+
+    const result = await findMatchingRules({
+      rules,
+      message,
+      emailAccount,
+      provider,
+      modelType: "default",
+    });
+
+    // Reasoning should combine existing matchReasons text + AI reason
+    // existing part comes from getMatchReason => "Matched static conditions"
+    expect(result.reasoning).toBe(
+      "Matched static conditions; AI reasoning here",
+    );
+  });
+
+  it("matchesStaticRule: catches RegExp construction error and returns false", () => {
+    const rule = getRule({ from: "trigger-error" });
+    const message = getMessage({
+      headers: getHeaders({ from: "any@example.com" }),
+    });
+
+    const OriginalRegExp = RegExp;
+    // Monkeypatch RegExp to throw for our specific pattern
+    // Only for this test; restore afterwards
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (globalThis as any).RegExp = ((pattern: string) => {
+      if (pattern.includes("trigger-error")) {
+        throw new Error("synthetic error");
+      }
+      // Delegate to original
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      return new (OriginalRegExp as any)(pattern);
+    }) as unknown as RegExpConstructor;
+
+    try {
+      const matched = matchesStaticRule(rule as any, message as any);
+      expect(matched).toBe(false);
+    } finally {
+      // restore
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (globalThis as any).RegExp =
+        OriginalRegExp as unknown as RegExpConstructor;
+    }
+  });
+
+  it("AI path: returns only AI reasoning when no static matches and AI returns no rules", async () => {
+    const aiOnlyRule = getRule({ id: "ai-only-1", instructions: "Do Y" });
+
+    vi.mocked(aiChooseRule).mockResolvedValue({
+      rules: [],
+      reason: "AI had reasoning but selected nothing",
+    });
+
+    const rules = [aiOnlyRule];
+    const message = getMessage({
+      // No static matchers
+      headers: getHeaders({ from: "nobody@example.com" }),
+    });
+    const emailAccount = getEmailAccount();
+
+    const result = await findMatchingRules({
+      rules,
+      message,
+      emailAccount,
+      provider,
+      modelType: "default",
+    });
+
+    expect(result.matches.map((m) => m.rule.id)).toEqual([]);
+    expect(result.reasoning).toBe("AI had reasoning but selected nothing");
+  });
+
+  it("AI path: dedups AI-selected rule when it duplicates a static match", async () => {
+    const dupRule = getRule({
+      id: "dup-rule",
+      from: "dup@example.com",
+      instructions: "Use AI too",
+      runOnThreads: true,
+    });
+
+    vi.mocked(aiChooseRule).mockResolvedValue({
+      rules: [{ rule: dupRule as any }],
+      reason: "AI selects dup-rule",
+    });
+
+    const rules = [dupRule];
+    const message = getMessage({
+      headers: getHeaders({ from: "dup@example.com" }),
+    });
+    const emailAccount = getEmailAccount();
+
+    const spy = vi.spyOn(provider, "isReplyInThread").mockReturnValue(false);
+    try {
+      const result = await findMatchingRules({
+        rules,
+        message,
+        emailAccount,
+        provider,
+        modelType: "default",
+      });
+
+      // Only one occurrence of dup-rule should remain
+      const ids = result.matches.map((m) => m.rule.id);
+      expect(ids).toEqual(["dup-rule"]);
+      expect(result.reasoning).toContain("AI selects dup-rule");
+    } finally {
+      spy.mockRestore();
+    }
   });
 });
 
