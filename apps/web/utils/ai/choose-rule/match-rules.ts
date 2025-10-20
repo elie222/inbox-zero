@@ -407,9 +407,10 @@ async function findMatchingRulesWithReasons(
       .filter((r): r is string => !!r)
       .join(", ");
 
-    const combinedReasoning = existingReasoning
-      ? `${existingReasoning}; ${result.reason}`
-      : result.reason;
+    const aiReason = result.reason?.trim();
+    const combinedReasoning = [existingReasoning, aiReason]
+      .filter((r): r is string => !!r)
+      .join("; ");
 
     return {
       matches: combinedMatches,
