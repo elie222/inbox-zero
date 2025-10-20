@@ -1,6 +1,6 @@
 import * as React from "react";
 
-import { cn } from "@/utils";
+import { cn } from "@/utils/index";
 
 // Note we usually use /components/Input.tsx instead of this one
 const Input = React.forwardRef<HTMLInputElement, React.ComponentProps<"input">>(

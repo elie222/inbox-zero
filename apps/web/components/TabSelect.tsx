@@ -10,7 +10,7 @@
  */
 import { cn } from "@/utils";
 import { cva, type VariantProps } from "class-variance-authority";
-import { LayoutGroup, motion } from "framer-motion";
+import { LayoutGroup, motion } from "motion/react";
 import Link from "next/link";
 import { type Dispatch, type SetStateAction, useId } from "react";
 import { ArrowUpRight } from "lucide-react";
