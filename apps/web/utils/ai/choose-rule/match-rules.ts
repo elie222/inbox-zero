@@ -144,6 +144,7 @@ async function findPotentialMatchingRules({
           { type: ConditionType.PRESET, systemType: SystemType.CALENDAR },
         ],
       });
+      continue;
     }
 
     // TODO: still run this, if a previous email in the thread matched the rule
@@ -327,12 +328,40 @@ async function findMatchingRulesWithReasons(
       modelType,
     });
 
-    return {
-      matches: result.rules.map((rule) => ({
-        rule,
-        matchReasons: [{ type: ConditionType.AI }],
+    // Build combined matches: start with existing static/learned matches, then append AI-selected matches
+    const combinedMatches = [
+      // Map existing matches to the same output shape
+      ...matches.map((match) => ({
+        rule: match.rule,
+        matchReasons: match.matchReasons || [],
       })),
-      reasoning: result.reason,
+      // Append AI-selected matches, deduplicating by rule id
+      ...result.rules
+        .filter(
+          (aiRule) =>
+            !matches.some(
+              (existingMatch) => existingMatch.rule.id === aiRule.id,
+            ),
+        )
+        .map((rule) => ({
+          rule,
+          matchReasons: [{ type: ConditionType.AI }],
+        })),
+    ];
+
+    // Combine reasoning: existing reasoning plus AI reasoning
+    const existingReasoning = matches
+      .map((m) => getMatchReason(m.matchReasons))
+      .filter((r): r is string => !!r)
+      .join(", ");
+
+    const combinedReasoning = existingReasoning
+      ? `${existingReasoning}; ${result.reason}`
+      : result.reason;
+
+    return {
+      matches: combinedMatches,
+      reasoning: combinedReasoning,
     };
   } else {
     return {
