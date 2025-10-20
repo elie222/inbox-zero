@@ -139,6 +139,7 @@ async function processAssistantEmailInternal({
             threadId: originalMessage.threadId,
             messageId: originalMessage.id,
           },
+          orderBy: [{ createdAt: "desc" }, { id: "desc" }],
           select: {
             rule: {
               include: {
