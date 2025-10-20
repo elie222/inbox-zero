@@ -27,6 +27,7 @@ async function getData({
       actionItems: true,
       rule: true,
       status: true,
+      createdAt: true,
     },
     orderBy: { id: "asc" },
   });

@@ -132,6 +132,7 @@ export function ProcessRulesContent({ testMode }: { testMode: boolean }) {
             actionItems: r.actionItems,
             reason: r.reason,
             existing: true,
+            createdAt: r.createdAt,
           }));
         }
       }

@@ -1,5 +1,7 @@
 "use client";
 
+import groupBy from "lodash/groupBy";
+import sortBy from "lodash/sortBy";
 import { capitalCase } from "capital-case";
 import { CheckCircle2Icon, EyeIcon, ExternalLinkIcon } from "lucide-react";
 import type { RunRulesResult } from "@/utils/ai/choose-rule/run-rules";
@@ -52,23 +54,41 @@ export function ProcessResultDisplay({
     ruleDialog.onOpen({ ruleId });
   };
 
-  return results.map((result) => (
-    <>
-      <HoverCard
-        className="w-auto max-w-5xl"
-        content={
-          <ActionSummaryCard result={result} onViewRule={handleViewRule} />
-        }
-      >
-        <Badge color="green">
-          {prefix ? prefix : ""}
-          {result.rule?.name}
-          <EyeIcon className="ml-1.5 size-3.5 opacity-70" />
-        </Badge>
-      </HoverCard>
+  const groupedResults = groupBy(results, (result) => {
+    return result.createdAt.toString();
+  });
+
+  const sortedBatches = sortBy(Object.entries(groupedResults), ([date]) => {
+    return -new Date(date).getTime(); // Negative for descending order
+  });
+
+  return (
+    <div className="flex flex-col gap-2">
+      {sortedBatches.map(([date, batchResults]) => (
+        <div key={date} className="flex gap-1">
+          {batchResults.map((result, resultIndex) => (
+            <HoverCard
+              key={`${date}-${resultIndex}`}
+              className="w-auto max-w-5xl"
+              content={
+                <ActionSummaryCard
+                  result={result}
+                  onViewRule={handleViewRule}
+                />
+              }
+            >
+              <Badge color="green">
+                {prefix ? prefix : ""}
+                {result.rule?.name}
+                <EyeIcon className="ml-1.5 size-3.5 opacity-70" />
+              </Badge>
+            </HoverCard>
+          ))}
+        </div>
+      ))}
       <RuleDialogComponent />
-    </>
-  ));
+    </div>
+  );
 }
 
 function ActionSummaryCard({

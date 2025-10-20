@@ -40,6 +40,7 @@ export type RunRulesResult = {
   reason?: string | null;
   matchReasons?: MatchReason[];
   existing?: boolean;
+  createdAt: Date;
 };
 
 export const CONVERSATION_TRACKING_META_RULE_ID = "conversation-tracking-meta";
@@ -59,6 +60,7 @@ export async function runRules({
   isTest: boolean;
   modelType: ModelType;
 }): Promise<RunRulesResult[]> {
+  const batchTimestamp = new Date(); // Single timestamp for this batch execution
   const { regularRules, conversationRules } = prepareRulesWithMetaRule(rules);
 
   const results = await findMatchingRules({
@@ -97,7 +99,7 @@ export async function runRules({
       });
     }
 
-    return [{ rule: null, reason }];
+    return [{ rule: null, reason, createdAt: batchTimestamp }];
   }
 
   const executedRules: RunRulesResult[] = [];
@@ -121,6 +123,7 @@ export async function runRules({
         const executedRule: RunRulesResult = {
           rule: null,
           reason: statusReason || "No enabled conversation status rule found",
+          createdAt: batchTimestamp,
         };
 
         executedRules.push(executedRule);
@@ -147,6 +150,7 @@ export async function runRules({
       result.matchReasons,
       isTest,
       modelType,
+      batchTimestamp,
     );
 
     executedRules.push(executedRule);
@@ -197,6 +201,7 @@ async function executeMatchedRule(
   matchReasons: MatchReason[] | undefined,
   isTest: boolean,
   modelType: ModelType,
+  batchTimestamp: Date,
 ) {
   const actionItems = await getActionItemsWithAiArgs({
     message,
@@ -219,6 +224,7 @@ async function executeMatchedRule(
       executedRule: null,
       reason,
       matchReasons,
+      createdAt: batchTimestamp,
     };
   }
 
@@ -244,6 +250,7 @@ async function executeMatchedRule(
       reason,
       rule: rule?.id ? { connect: { id: rule.id } } : undefined,
       emailAccount: { connect: { id: emailAccount.id } },
+      createdAt: batchTimestamp, // Use batch timestamp for grouping
     },
     include: { actionItems: true },
   });
@@ -316,6 +323,7 @@ async function executeMatchedRule(
     executedRule,
     reason,
     matchReasons,
+    createdAt: batchTimestamp,
   };
 }
 
