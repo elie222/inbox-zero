@@ -64,26 +64,31 @@ export function ProcessResultDisplay({
 
   return (
     <div className="flex flex-col gap-2">
-      {sortedBatches.map(([date, batchResults]) => (
-        <div key={date} className="flex gap-1">
-          {batchResults.map((result, resultIndex) => (
-            <HoverCard
-              key={`${date}-${resultIndex}`}
-              className="w-auto max-w-5xl"
-              content={
-                <ActionSummaryCard
-                  result={result}
-                  onViewRule={handleViewRule}
-                />
-              }
-            >
-              <Badge color="green">
-                {prefix ? prefix : ""}
-                {result.rule?.name}
-                <EyeIcon className="ml-1.5 size-3.5 opacity-70" />
-              </Badge>
-            </HoverCard>
-          ))}
+      {sortedBatches.map(([date, batchResults], batchIndex) => (
+        <div key={date}>
+          {batchIndex === 1 && sortedBatches.length > 1 && (
+            <div className="mb-1 text-xs text-muted-foreground">Previous:</div>
+          )}
+          <div className="flex gap-1">
+            {batchResults.map((result, resultIndex) => (
+              <HoverCard
+                key={`${date}-${resultIndex}`}
+                className="w-auto max-w-5xl"
+                content={
+                  <ActionSummaryCard
+                    result={result}
+                    onViewRule={handleViewRule}
+                  />
+                }
+              >
+                <Badge color="green">
+                  {prefix ? prefix : ""}
+                  {result.rule?.name}
+                  <EyeIcon className="ml-1.5 size-3.5 opacity-70" />
+                </Badge>
+              </HoverCard>
+            ))}
+          </div>
         </div>
       ))}
       <RuleDialogComponent />
