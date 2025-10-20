@@ -119,9 +119,9 @@ model EmailAccount {
   personaAnalysis           Json? // ai analysis of the user's persona
   role                      String? // the role confirmed by the user - previously `User.surveyRole`
 
-  statsEmailFrequency        Frequency         @default(WEEKLY)
-  summaryEmailFrequency      Frequency         @default(WEEKLY)
-  lastSummaryEmailAt         DateTime?
+  statsEmailFrequency   Frequency         @default(WEEKLY)
+  summaryEmailFrequency Frequency         @default(WEEKLY)
+  lastSummaryEmailAt    DateTime?
   coldEmailBlocker      ColdEmailSetting? // @deprecated
   coldEmailDigest       Boolean           @default(false) // @deprecated
   coldEmailPrompt       String? // @deprecated
@@ -401,8 +401,8 @@ model Rule {
 
   // category condition
   // only apply to (or do not apply to) senders in these categories
-  categoryFilterType CategoryFilterType?
-  categoryFilters    Category[]
+  categoryFilterType CategoryFilterType? // deprecated
+  categoryFilters Category[] // deprecated
 
   systemType SystemType?
 
@@ -454,11 +454,11 @@ model RuleHistory {
   to                  String?
   subject             String?
   body                String?
-  categoryFilterType  String?
+  categoryFilterType  String? // deprecated
   systemType          String?
 
   actions         Json
-  categoryFilters Json?
+  categoryFilters Json? // deprecated
 
   @@unique([ruleId, version])
   @@index([ruleId, createdAt])

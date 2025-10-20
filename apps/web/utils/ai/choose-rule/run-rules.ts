@@ -1,8 +1,5 @@
 import { after } from "next/server";
-import type {
-  ParsedMessage,
-  RuleWithActionsAndCategories,
-} from "@/utils/types";
+import type { ParsedMessage, RuleWithActions } from "@/utils/types";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import { ExecutedRuleStatus, SystemType, type Rule } from "@prisma/client";
 import type { ActionItem } from "@/utils/ai/types";
@@ -30,6 +27,7 @@ import {
 } from "@/utils/reply-tracker/handle-conversation-status";
 import { saveColdEmail } from "@/utils/cold-email/is-cold-email";
 import { internalDateToDate } from "@/utils/date";
+import { ConditionType } from "@/utils/config";
 
 const logger = createScopedLogger("ai-run-rules");
 
@@ -53,7 +51,7 @@ export async function runRules({
 }: {
   provider: EmailProvider;
   message: ParsedMessage;
-  rules: RuleWithActionsAndCategories[];
+  rules: RuleWithActions[];
   emailAccount: EmailAccountWithAI;
   isTest: boolean;
   modelType: ModelType;
@@ -143,9 +141,9 @@ export async function runRules({
   return executedRules;
 }
 
-function prepareRulesWithMetaRule(rules: RuleWithActionsAndCategories[]): {
-  regularRules: RuleWithActionsAndCategories[];
-  conversationRules: RuleWithActionsAndCategories[];
+function prepareRulesWithMetaRule(rules: RuleWithActions[]): {
+  regularRules: RuleWithActions[];
+  conversationRules: RuleWithActions[];
 } {
   // Separate conversation status rules from regular rules
   const conversationRules = rules.filter((r) =>
@@ -168,7 +166,6 @@ function prepareRulesWithMetaRule(rules: RuleWithActionsAndCategories[]): {
       runOnThreads: true,
       systemType: null,
       actions: [],
-      categoryFilters: [],
     };
 
     regularRules.push(metaRule);
@@ -178,7 +175,7 @@ function prepareRulesWithMetaRule(rules: RuleWithActionsAndCategories[]): {
 }
 
 async function executeMatchedRule(
-  rule: RuleWithActionsAndCategories,
+  rule: RuleWithActions,
   message: ParsedMessage,
   emailAccount: EmailAccountWithAI,
   client: EmailProvider,
@@ -348,9 +345,8 @@ function shouldAnalyzeSenderPattern({
   if (
     result.matchReasons?.some(
       (reason) =>
-        reason.type === "STATIC" ||
-        reason.type === "GROUP" ||
-        reason.type === "CATEGORY",
+        reason.type === ConditionType.STATIC ||
+        reason.type === ConditionType.LEARNED_PATTERN,
     )
   ) {
     return false;

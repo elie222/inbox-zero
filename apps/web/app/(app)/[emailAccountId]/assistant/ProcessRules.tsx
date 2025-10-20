@@ -25,12 +25,7 @@ import { Card } from "@/components/ui/card";
 import type { RunRulesResult } from "@/utils/ai/choose-rule/run-rules";
 import { SearchForm } from "@/components/SearchForm";
 import type { BatchExecutedRulesResponse } from "@/app/api/user/executed-rules/batch/route";
-import {
-  isAIRule,
-  isCategoryRule,
-  isGroupRule,
-  isStaticRule,
-} from "@/utils/condition";
+import { isAIRule, isGroupRule, isStaticRule } from "@/utils/condition";
 import { BulkRunRules } from "@/app/(app)/[emailAccountId]/assistant/BulkRunRules";
 import { cn } from "@/utils";
 import { TestCustomEmailForm } from "@/app/(app)/[emailAccountId]/assistant/TestCustomEmailForm";
@@ -114,11 +109,7 @@ export function ProcessRulesContent({ testMode }: { testMode: boolean }) {
 
   // only show test rules form if we have an AI rule. this form won't match group/static rules which will confuse users
   const hasAiRules = rules?.some(
-    (rule) =>
-      isAIRule(rule) &&
-      !isGroupRule(rule) &&
-      !isStaticRule(rule) &&
-      !isCategoryRule(rule),
+    (rule) => isAIRule(rule) && !isGroupRule(rule) && !isStaticRule(rule),
   );
 
   const isRunningAllRef = useRef(false);

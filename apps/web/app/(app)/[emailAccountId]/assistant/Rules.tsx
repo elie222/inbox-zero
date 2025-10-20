@@ -110,7 +110,6 @@ export function Rules({
         runOnThreads: false,
         automate: true,
         actions: getDefaultActions(systemType, provider),
-        categoryFilters: [],
         group: null,
         emailAccountId: emailAccountId,
         createdAt: new Date(),

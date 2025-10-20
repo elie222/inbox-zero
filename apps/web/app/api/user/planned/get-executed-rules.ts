@@ -42,7 +42,6 @@ export async function getExecutedRules({
         rule: {
           include: {
             group: { select: { name: true } },
-            categoryFilters: true,
           },
         },
         actionItems: true,

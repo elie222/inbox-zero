@@ -57,7 +57,6 @@ export function getRule(instructions: string, actions: Action[] = []) {
     body: null,
     to: null,
     enabled: true,
-    categoryFilterType: null,
     conditionalOperator: LogicalOperator.AND,
   };
 }

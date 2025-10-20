@@ -23,9 +23,8 @@ import { aiDiffRules } from "@/utils/ai/rule/diff-rules";
 import { aiFindExistingRules } from "@/utils/ai/rule/find-existing-rules";
 import { aiGenerateRulesPrompt } from "@/utils/ai/rule/generate-rules-prompt";
 import { aiFindSnippets } from "@/utils/ai/snippets/find-snippets";
-import type { CreateOrUpdateRuleSchemaWithCategories } from "@/utils/ai/rule/create-rule-schema";
+import type { CreateOrUpdateRuleSchema } from "@/utils/ai/rule/create-rule-schema";
 import { deleteRule, safeCreateRule, safeUpdateRule } from "@/utils/rule/rule";
-import { getUserCategoriesForNames } from "@/utils/category.server";
 import { actionClient } from "@/utils/actions/safe-action";
 import { getEmailAccountWithAi } from "@/utils/user/get";
 import { SafeError } from "@/utils/error";
@@ -88,7 +87,7 @@ export const runRulesAction = actionClient
           emailAccountId,
           enabled: true,
         },
-        include: { actions: true, categoryFilters: true },
+        include: { actions: true },
       });
 
       const result = await runRules({
@@ -124,7 +123,7 @@ export const testAiCustomContentAction = actionClient
           enabled: true,
           instructions: { not: null },
         },
-        include: { actions: true, categoryFilters: true },
+        include: { actions: true },
       });
 
       const result = await runRules({
@@ -164,7 +163,7 @@ export const createAutomationAction = actionClient
 
     if (!emailAccount) throw new Error("Email account not found");
 
-    let result: CreateOrUpdateRuleSchemaWithCategories;
+    let result: CreateOrUpdateRuleSchema;
 
     try {
       result = await aiCreateRule(prompt, emailAccount);
@@ -297,7 +296,6 @@ export const saveRulesPromptAction = actionClient
             emailAccount,
             promptFile: diff.addedRules.join("\n\n"),
             isEditing: false,
-            availableCategories: emailAccount.categories.map((c) => c.name),
           });
           logger.info("Added rules", {
             addedRules: addedRules?.length || 0,
@@ -376,7 +374,6 @@ export const saveRulesPromptAction = actionClient
               )
               .join("\n\n"),
             isEditing: true,
-            availableCategories: emailAccount.categories.map((c) => c.name),
           });
 
           for (const rule of editedRules) {
@@ -392,18 +389,12 @@ export const saveRulesPromptAction = actionClient
               ruleId: rule.ruleId,
             });
 
-            const categoryIds = await getUserCategoriesForNames({
-              emailAccountId,
-              names: rule.condition.categories?.categoryFilters || [],
-            });
-
             editRulesCount++;
 
             await safeUpdateRule({
               ruleId: rule.ruleId,
               result: rule,
               emailAccountId,
-              categoryIds,
               provider: emailAccount.account.provider,
             });
           }
@@ -414,7 +405,6 @@ export const saveRulesPromptAction = actionClient
           emailAccount,
           promptFile: rulesPrompt,
           isEditing: false,
-          availableCategories: emailAccount.categories.map((c) => c.name),
         });
         logger.info("Rules to be added", { count: addedRules?.length || 0 });
       }
@@ -426,7 +416,6 @@ export const saveRulesPromptAction = actionClient
         await safeCreateRule({
           result: rule,
           emailAccountId,
-          categoryNames: rule.condition.categories?.categoryFilters || [],
           shouldCreateIfDuplicate: false,
           provider: emailAccount.account.provider,
           runOnThreads: true,
@@ -490,7 +479,6 @@ export const createRulesAction = actionClient
       const addedRules = await aiPromptToRules({
         emailAccount,
         promptFile: prompt,
-        availableCategories: emailAccount.categories.map((c) => c.name),
       });
 
       logger.info("Rules to be added", { count: addedRules?.length || 0 });
@@ -503,7 +491,6 @@ export const createRulesAction = actionClient
         const createdRule = await safeCreateRule({
           result: rule,
           emailAccountId,
-          categoryNames: rule.condition.categories?.categoryFilters || [],
           shouldCreateIfDuplicate: false,
           provider: emailAccount.account.provider,
           runOnThreads: true,

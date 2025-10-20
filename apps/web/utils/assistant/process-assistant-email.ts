@@ -114,7 +114,6 @@ async function processAssistantEmailInternal({
         rules: {
           include: {
             actions: true,
-            categoryFilters: true,
             group: {
               select: {
                 id: true,
@@ -145,7 +144,6 @@ async function processAssistantEmailInternal({
             rule: {
               include: {
                 actions: true,
-                categoryFilters: true,
                 group: true,
               },
             },

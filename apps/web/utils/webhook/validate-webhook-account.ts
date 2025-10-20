@@ -28,7 +28,7 @@ export async function getWebhookEmailAccount(
       },
       rules: {
         where: { enabled: true },
-        include: { actions: true, categoryFilters: true },
+        include: { actions: true },
       },
       user: {
         select: {

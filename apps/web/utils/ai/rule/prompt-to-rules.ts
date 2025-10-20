@@ -2,9 +2,8 @@ import { z } from "zod";
 import { createGenerateObject } from "@/utils/llms";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import {
+  type CreateRuleSchema,
   createRuleSchema,
-  type CreateRuleSchemaWithCategories,
-  getCreateRuleSchemaWithCategories,
 } from "@/utils/ai/rule/create-rule-schema";
 import { createScopedLogger } from "@/utils/logger";
 import { convertMentionsToLabels } from "@/utils/mention";
@@ -15,26 +14,11 @@ const logger = createScopedLogger("ai-prompt-to-rules");
 export async function aiPromptToRules({
   emailAccount,
   promptFile,
-  availableCategories,
 }: {
   emailAccount: EmailAccountWithAI;
   promptFile: string;
-  availableCategories?: string[];
-}): Promise<CreateRuleSchemaWithCategories[]> {
-  function getSchema() {
-    if (availableCategories?.length) {
-      return getCreateRuleSchemaWithCategories(
-        availableCategories as [string, ...string[]],
-        emailAccount.account.provider,
-      );
-    }
-
-    return createRuleSchema(emailAccount.account.provider);
-  }
-
-  const system = getSystemPrompt({
-    hasSmartCategories: !!availableCategories?.length,
-  });
+}): Promise<CreateRuleSchema[]> {
+  const system = getSystemPrompt();
 
   const cleanedPromptFile = convertMentionsToLabels(promptFile);
 
@@ -56,7 +40,9 @@ ${cleanedPromptFile}
     ...modelOptions,
     prompt,
     system,
-    schema: z.object({ rules: z.array(getSchema()) }),
+    schema: z.object({
+      rules: z.array(createRuleSchema(emailAccount.account.provider)),
+    }),
   });
 
   if (!aiResponse.object) {
@@ -69,11 +55,7 @@ ${cleanedPromptFile}
   return rules;
 }
 
-function getSystemPrompt({
-  hasSmartCategories,
-}: {
-  hasSmartCategories: boolean;
-}) {
+function getSystemPrompt() {
   return `You are an AI assistant that converts email management rules into a structured format. Parse the given prompt and convert it into rules.
 
 IMPORTANT: If a user provides a snippet, use that full snippet in the rule. Don't include placeholders unless it's clear one is needed.
@@ -95,16 +77,6 @@ IMPORTANT: You must return a JSON object.
           "name": "Label Newsletters",
           "condition": {
             "aiInstructions": "Apply this rule to newsletters"
-            ${
-              hasSmartCategories
-                ? `,
-              "categories": {
-                "categoryFilterType": "INCLUDE",
-                "categoryFilters": ["Newsletters"]
-              },
-              "conditionalOperator": "OR"`
-                : ""
-            }
           },
           "actions": [
             {
