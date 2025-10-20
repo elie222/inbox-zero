@@ -321,12 +321,17 @@ async function findMatchingRulesWithReasons(
   });
 
   if (potentialAiMatches.length) {
-    const result = await aiChooseRule({
+    const fullResult = await aiChooseRule({
       email: getEmailForLLM(message),
       rules: potentialAiMatches,
       emailAccount,
       modelType,
     });
+
+    const result = {
+      rules: filterMultipleSystemRules(fullResult.rules),
+      reason: fullResult.reason,
+    };
 
     // Build combined matches: start with existing static/learned matches, then append AI-selected matches
     const combinedMatches = [
@@ -531,4 +536,24 @@ export async function filterConversationStatusRules<
   }
 
   return potentialMatches;
+}
+
+/**
+ * Filter system rules: if multiple system rules were matched, only keep the primary one.
+ * Always keep all conversation rules (non-system rules).
+ */
+export function filterMultipleSystemRules<
+  T extends { name: string; instructions: string; systemType?: string | null },
+>(selectedRules: { rule: T; isPrimary?: boolean }[]): T[] {
+  const systemRules = selectedRules.filter((r) => r.rule.systemType);
+  const conversationRules = selectedRules.filter((r) => !r.rule.systemType);
+
+  let filteredSystemRules = systemRules;
+  if (systemRules.length > 1) {
+    // Only keep the primary system rule
+    const primarySystemRule = systemRules.find((r) => r.isPrimary);
+    filteredSystemRules = primarySystemRule ? [primarySystemRule] : systemRules;
+  }
+
+  return [...filteredSystemRules, ...conversationRules].map((r) => r.rule);
 }

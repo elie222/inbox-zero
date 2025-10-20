@@ -26,7 +26,7 @@ export async function aiChooseRule<
   emailAccount: EmailAccountWithAI;
   modelType?: ModelType;
 }): Promise<{
-  rules: T[];
+  rules: { rule: T; isPrimary?: boolean }[];
   reason: string;
 }> {
   if (!rules.length) return { rules: [], reason: "" };
@@ -40,24 +40,24 @@ export async function aiChooseRule<
 
   if (aiResponse.noMatchFound) return { rules: [], reason: "" };
 
-  const selectedRules = aiResponse.matchedRules
+  const rulesWithMetadata = aiResponse.matchedRules
     .map((match) => {
       const rule = rules.find(
         (r) => r.name.toLowerCase() === match.ruleName.toLowerCase(),
       );
-      return rule;
+      return rule ? { rule, isPrimary: match.isPrimary } : undefined;
     })
     .filter(isDefined);
 
   return {
-    rules: selectedRules,
+    rules: rulesWithMetadata,
     reason: aiResponse.reasoning,
   };
 }
 
 async function getAiResponse(options: GetAiResponseOptions): Promise<{
   result: {
-    matchedRules: { ruleName: string }[];
+    matchedRules: { ruleName: string; isPrimary?: boolean }[];
     reasoning: string;
     noMatchFound: boolean;
   };
@@ -282,26 +282,4 @@ ${stringifyEmail(email, 500)}
     noMatchFound: aiResponse.object?.noMatchFound ?? false,
     reasoning: aiResponse.object?.reasoning ?? "",
   };
-}
-
-/**
- * Filter system rules: if multiple system rules were matched, only keep the primary one.
- * Always keep all conversation rules (non-system rules).
- */
-function filterMultipleSystemRules<
-  T extends { name: string; instructions: string; systemType?: string | null },
->(selectedRules: { rule: T; isPrimary?: boolean }[]): T[] {
-  const systemRules = selectedRules.filter((r) => r.rule.systemType);
-  const conversationRules = selectedRules.filter((r) => !r.rule.systemType);
-
-  let filteredSystemRules = systemRules;
-  if (systemRules.length > 1) {
-    // Only keep the primary system rule
-    const primarySystemRule = systemRules.find((r) => r.isPrimary);
-    filteredSystemRules = primarySystemRule
-      ? [primarySystemRule]
-      : [systemRules[0]];
-  }
-
-  return [...filteredSystemRules, ...conversationRules].map((r) => r.rule);
 }

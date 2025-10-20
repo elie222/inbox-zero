@@ -17,7 +17,7 @@ describe.runIf(isAiTest)("aiChooseRule", () => {
       emailAccount: getEmailAccount(),
     });
 
-    expect(result).toEqual({ reason: "No rules" });
+    expect(result).toEqual({ rules: [], reason: "" });
   });
 
   test("Should return correct rule when only one rule passed", async () => {
@@ -31,10 +31,10 @@ describe.runIf(isAiTest)("aiChooseRule", () => {
       emailAccount: getEmailAccount(),
     });
 
-    expect(result).toEqual({
-      rule,
-      reason: expect.any(String),
-    });
+    expect(result.rules).toHaveLength(1);
+    expect(result.rules[0].rule).toEqual(rule);
+    expect(result.rules[0].isPrimary).toBe(true);
+    expect(result.reason).toBeTruthy();
   });
 
   test("Should return correct rule when multiple rules passed", async () => {
@@ -51,10 +51,9 @@ describe.runIf(isAiTest)("aiChooseRule", () => {
       emailAccount: getEmailAccount(),
     });
 
-    expect(result).toEqual({
-      rule: rule2,
-      reason: expect.any(String),
-    });
+    expect(result.rules).toHaveLength(1);
+    expect(result.rules[0].rule).toEqual(rule2);
+    expect(result.reason).toBeTruthy();
   });
 
   test("Should generate action arguments", async () => {
@@ -91,10 +90,9 @@ describe.runIf(isAiTest)("aiChooseRule", () => {
       emailAccount: getEmailAccount(),
     });
 
-    expect(result).toEqual({
-      rule: rule2,
-      reason: expect.any(String),
-    });
+    expect(result.rules).toHaveLength(1);
+    expect(result.rules[0].rule).toEqual(rule2);
+    expect(result.reason).toBeTruthy();
   });
 
   describe("Complex real-world rule scenarios", () => {
@@ -159,10 +157,9 @@ describe.runIf(isAiTest)("aiChooseRule", () => {
         emailAccount: getEmailAccount(),
       });
 
-      expect(result).toEqual({
-        rule: requiresResponse,
-        reason: expect.any(String),
-      });
+      expect(result.rules).toHaveLength(1);
+      expect(result.rules[0].rule).toEqual(requiresResponse);
+      expect(result.reason).toBeTruthy();
     });
 
     test("Should match technical issues", async () => {
@@ -176,10 +173,9 @@ describe.runIf(isAiTest)("aiChooseRule", () => {
         emailAccount: getEmailAccount(),
       });
 
-      expect(result).toEqual({
-        rule: technicalIssues,
-        reason: expect.any(String),
-      });
+      expect(result.rules).toHaveLength(1);
+      expect(result.rules[0].rule).toEqual(technicalIssues);
+      expect(result.reason).toBeTruthy();
     });
 
     test("Should match financial emails", async () => {
@@ -192,10 +188,9 @@ describe.runIf(isAiTest)("aiChooseRule", () => {
         emailAccount: getEmailAccount(),
       });
 
-      expect(result).toEqual({
-        rule: financial,
-        reason: expect.any(String),
-      });
+      expect(result.rules).toHaveLength(1);
+      expect(result.rules[0].rule).toEqual(financial);
+      expect(result.reason).toBeTruthy();
     });
 
     test("Should match recruiter emails", async () => {
@@ -209,10 +204,9 @@ describe.runIf(isAiTest)("aiChooseRule", () => {
         emailAccount: getEmailAccount(),
       });
 
-      expect(result).toEqual({
-        rule: recruiters,
-        reason: expect.any(String),
-      });
+      expect(result.rules).toHaveLength(1);
+      expect(result.rules[0].rule).toEqual(recruiters);
+      expect(result.reason).toBeTruthy();
     });
 
     test("Should match legal documents", async () => {
@@ -225,10 +219,9 @@ describe.runIf(isAiTest)("aiChooseRule", () => {
         emailAccount: getEmailAccount(),
       });
 
-      expect(result).toEqual({
-        rule: legal,
-        reason: expect.any(String),
-      });
+      expect(result.rules).toHaveLength(1);
+      expect(result.rules[0].rule).toEqual(legal);
+      expect(result.reason).toBeTruthy();
     });
 
     test("Should match emails requiring response", async () => {
@@ -241,10 +234,9 @@ describe.runIf(isAiTest)("aiChooseRule", () => {
         emailAccount: getEmailAccount(),
       });
 
-      expect(result).toEqual({
-        rule: requiresResponse,
-        reason: expect.any(String),
-      });
+      expect(result.rules).toHaveLength(1);
+      expect(result.rules[0].rule).toEqual(requiresResponse);
+      expect(result.reason).toBeTruthy();
     });
 
     test("Should match product updates", async () => {
@@ -257,10 +249,9 @@ describe.runIf(isAiTest)("aiChooseRule", () => {
         emailAccount: getEmailAccount(),
       });
 
-      expect(result).toEqual({
-        rule: productUpdates,
-        reason: expect.any(String),
-      });
+      expect(result.rules).toHaveLength(1);
+      expect(result.rules[0].rule).toEqual(productUpdates);
+      expect(result.reason).toBeTruthy();
     });
 
     test("Should match marketing emails", async () => {
@@ -273,10 +264,9 @@ describe.runIf(isAiTest)("aiChooseRule", () => {
         emailAccount: getEmailAccount(),
       });
 
-      expect(result).toEqual({
-        rule: marketing,
-        reason: expect.any(String),
-      });
+      expect(result.rules).toHaveLength(1);
+      expect(result.rules[0].rule).toEqual(marketing);
+      expect(result.reason).toBeTruthy();
     });
 
     test("Should match team updates", async () => {
@@ -289,10 +279,9 @@ describe.runIf(isAiTest)("aiChooseRule", () => {
         emailAccount: getEmailAccount(),
       });
 
-      expect(result).toEqual({
-        rule: teamUpdates,
-        reason: expect.any(String),
-      });
+      expect(result.rules).toHaveLength(1);
+      expect(result.rules[0].rule).toEqual(teamUpdates);
+      expect(result.reason).toBeTruthy();
     });
 
     test("Should match customer feedback", async () => {
@@ -305,10 +294,9 @@ describe.runIf(isAiTest)("aiChooseRule", () => {
         emailAccount: getEmailAccount(),
       });
 
-      expect(result).toEqual({
-        rule: customerFeedback,
-        reason: expect.any(String),
-      });
+      expect(result.rules).toHaveLength(1);
+      expect(result.rules[0].rule).toEqual(customerFeedback);
+      expect(result.reason).toBeTruthy();
     });
 
     test("Should match event invitations", async () => {
@@ -321,10 +309,9 @@ describe.runIf(isAiTest)("aiChooseRule", () => {
         emailAccount: getEmailAccount(),
       });
 
-      expect(result).toEqual({
-        rule: events,
-        reason: expect.any(String),
-      });
+      expect(result.rules).toHaveLength(1);
+      expect(result.rules[0].rule).toEqual(events);
+      expect(result.reason).toBeTruthy();
     });
   });
 });
