@@ -84,16 +84,18 @@ export async function runRules({
 
   if (!finalMatches.length) {
     const reason = results.reasoning || "No rules matched";
-    await prisma.executedRule.create({
-      data: {
-        threadId: message.threadId,
-        messageId: message.id,
-        automated: true,
-        reason,
-        status: ExecutedRuleStatus.SKIPPED,
-        emailAccount: { connect: { id: emailAccount.id } },
-      },
-    });
+    if (!isTest) {
+      await prisma.executedRule.create({
+        data: {
+          threadId: message.threadId,
+          messageId: message.id,
+          automated: true,
+          reason,
+          status: ExecutedRuleStatus.SKIPPED,
+          emailAccount: { connect: { id: emailAccount.id } },
+        },
+      });
+    }
 
     return [{ rule: null, reason }];
   }
