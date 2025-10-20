@@ -56,7 +56,7 @@ describe.runIf(isAiTest)("aiChooseRule", () => {
     expect(result.reason).toBeTruthy();
   });
 
-  test("Should generate action arguments", async () => {
+  test("Should select the correct rule and provide a reason", async () => {
     const rule1 = getRule(
       "Match emails that have the word 'question' in the subject line",
     );
