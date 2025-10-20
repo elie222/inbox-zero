@@ -92,6 +92,26 @@ export async function findMatchingRules({
   return results;
 }
 
+/**
+ * Finds all rules that potentially match a message.
+ *
+ * Matching Logic:
+ * 1. For rules with learned patterns (groups):
+ *    - If pattern matches → add to matches and short-circuit (skip other checks for this rule)
+ *    - If pattern doesn't match → continue to check static/AI conditions below
+ *    - Note: Groups are independent of the AND/OR operator (which only applies to AI/Static conditions)
+ *
+ * 2. For all other rules (or group rules that didn't match via pattern):
+ *    - Check static conditions (from, to, subject, body)
+ *    - Check if AI instructions are present
+ *    - Respect the conditional operator (AND/OR) between static and AI conditions
+ *    - Add to matches if conditions match, or to potentialAiMatches if AI check is needed
+ *
+ * 3. Prioritization (at the end):
+ *    - If ANY learned pattern matches were found → ignore all potentialAiMatches
+ *    - This is an optimization: learned patterns are trusted and avoid expensive AI calls
+ *    - Multiple learned pattern matches can be returned
+ */
 async function findPotentialMatchingRules({
   rules,
   message,
@@ -105,14 +125,13 @@ async function findPotentialMatchingRules({
 }): Promise<MatchingRuleResult> {
   const matches: {
     rule: RuleWithActions;
-    matchReasons: MatchReason[]; // why do we need match reasons?
+    matchReasons: MatchReason[];
   }[] = [];
   const potentialAiMatches: (RuleWithActions & { instructions: string })[] = [];
 
   const learnedPatternsLoader = new LearnedPatternsLoader();
 
-  // Go through all rules
-  // Collect matches and potential AI matches
+  // Go through all rules and collect matches and potential AI matches
   for (const rule of rules) {
     // Special case for calendar rules
     const calendarMatch =
@@ -131,30 +150,33 @@ async function findPotentialMatchingRules({
     if (isThread && !rule.runOnThreads) continue;
 
     // Learned patterns (groups)
-    // Ignores conditional operator
+    // Note: Groups are independent of the AND/OR operator (which only applies to AI/Static conditions)
     if (rule.groupId) {
       const groups = await learnedPatternsLoader.getGroups(rule.emailAccountId);
-      if (!groups?.length) continue;
-      const { matchingItem, group, ruleExcluded } = matchesGroupRule(
-        rule,
-        groups,
-        message,
-      );
-
-      // If this rule is excluded by an exclusion pattern, skip it entirely
-      if (ruleExcluded) continue;
-
-      if (matchingItem) {
-        matches.push({
+      if (groups?.length) {
+        const { matchingItem, group, ruleExcluded } = matchesGroupRule(
           rule,
-          matchReasons: [
-            {
-              type: ConditionType.LEARNED_PATTERN,
-              groupItem: matchingItem,
-              group,
-            },
-          ],
-        });
+          groups,
+          message,
+        );
+
+        // If this rule is excluded by an exclusion pattern, skip it entirely
+        if (ruleExcluded) continue;
+
+        if (matchingItem) {
+          // Group matched - add to matches and skip other condition checks
+          matches.push({
+            rule,
+            matchReasons: [
+              {
+                type: ConditionType.LEARNED_PATTERN,
+                groupItem: matchingItem,
+                group,
+              },
+            ],
+          });
+          continue;
+        }
       }
     }
 
@@ -197,7 +219,7 @@ async function findPotentialMatchingRules({
   };
 }
 
-function evaluateRuleConditions({
+export function evaluateRuleConditions({
   rule,
   message,
 }: {
@@ -234,8 +256,9 @@ function evaluateRuleConditions({
       // No static match, but have AI - need to check AI
       return { matched: false, potentialAiMatch: true, matchReasons };
     }
-    // No matches at all
-    return { matched: false, potentialAiMatch: false, matchReasons };
+    // No conditions at all (match everything) or no matches
+    const matched = !hasStaticCondition && !hasAiCondition;
+    return { matched, potentialAiMatch: false, matchReasons };
   } else {
     // AND logic
     if (hasStaticCondition && !staticMatch) {
@@ -246,8 +269,9 @@ function evaluateRuleConditions({
       // Static passed (or doesn't exist), but need AI to complete AND
       return { matched: false, potentialAiMatch: true, matchReasons };
     }
-    // Only static, and it passed
-    return { matched: staticMatch, potentialAiMatch: false, matchReasons };
+    // Only static (and it passed), or no conditions at all (match everything)
+    const matched = hasStaticCondition ? staticMatch : true;
+    return { matched, potentialAiMatch: false, matchReasons };
   }
 }
 
@@ -314,7 +338,8 @@ async function findMatchingRulesWithReasons(
     return {
       matches,
       reasoning: matches
-        .flatMap((m) => getMatchReason(m.matchReasons))
+        .map((m) => getMatchReason(m.matchReasons))
+        .filter((r): r is string => !!r)
         .join(", "),
     };
   }
