@@ -2,8 +2,6 @@
 
 import { useCallback, useRef, useState, useMemo } from "react";
 import { useQueryState } from "nuqs";
-import countBy from "lodash/countBy";
-import { capitalCase } from "capital-case";
 import Link from "next/link";
 import { toast } from "sonner";
 import { ChevronsDownIcon } from "lucide-react";
@@ -52,13 +50,6 @@ export function List({
   const { emailAccountId } = useAccount();
   const [selectedTab] = useQueryState("tab", { defaultValue: "all" });
 
-  const categories = useMemo(() => {
-    return countBy(
-      emails,
-      (email) => email.category?.category || "Uncategorized",
-    );
-  }, [emails]);
-
   const planned = useMemo(() => {
     return emails.filter((email) => email.plan?.rule);
   }, [emails]);
@@ -75,27 +66,19 @@ export function List({
         value: "planned",
         href: "/mail?tab=planned",
       },
-      ...Object.entries(categories).map(([category, count]) => ({
-        label: `${capitalCase(category)} (${count})`,
-        value: category,
-        href: `/mail?tab=${category}`,
-      })),
     ],
-    [categories, planned],
+    [planned],
   );
 
   // only show tabs if there are planned emails or categorized emails
-  const showTabs = !!(planned.length || emails.find((email) => email.category));
+  const showTabs = !!planned.length;
 
   const filteredEmails = useMemo(() => {
     if (selectedTab === "planned") return planned;
 
     if (selectedTab === "all") return emails;
 
-    if (selectedTab === "Uncategorized")
-      return emails.filter((email) => !email.category?.category);
-
-    return emails.filter((email) => email.category?.category === selectedTab);
+    return emails;
   }, [emails, selectedTab, planned]);
 
   return (

@@ -2,12 +2,7 @@ import { stepCountIs, tool } from "ai";
 import { z } from "zod";
 import { createGenerateText } from "@/utils/llms";
 import { createScopedLogger } from "@/utils/logger";
-import {
-  type Category,
-  GroupItemType,
-  LogicalOperator,
-  type Rule,
-} from "@prisma/client";
+import { GroupItemType, LogicalOperator, type Rule } from "@prisma/client";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import type { RuleWithRelations } from "@/utils/rule/types";
 import type { ParsedMessage } from "@/utils/types";
@@ -27,16 +22,12 @@ export async function processUserRequest({
   originalEmail,
   messages,
   matchedRule,
-  categories,
-  senderCategory,
 }: {
   emailAccount: EmailAccountWithAI;
   rules: RuleWithRelations[];
   originalEmail: ParsedMessage | null;
   messages: { role: "assistant" | "user"; content: string }[];
   matchedRule: RuleWithRelations | null;
-  categories: Pick<Category, "id" | "name">[] | null;
-  senderCategory: string | null;
 }) {
   const logger = createScopedLogger("ai-fix-rules").with({
     emailAccountId: emailAccount.id,
@@ -63,7 +54,6 @@ You can fix rules using these specific operations:
 - Change conditional operator (AND/OR logic)
 - Modify AI instructions
 - Update static conditions (from, to, subject, body)
-- Add or remove categories
 
 2. Create New Rules:
 - Create new rules when asked or when existing ones cannot be modified to fit the need
@@ -85,7 +75,7 @@ When fixing rules:
 
 Rule matching logic:
 - All static conditions (from, to, subject, body) use AND logic - meaning all static conditions must match
-- Top level conditions (AI instructions, static, category) can use either AND or OR logic, controlled by the conditionalOperator setting
+- Top level conditions (AI instructions, static) can use either AND or OR logic, controlled by the conditionalOperator setting
 
 Best practices:
 - For static conditions, use email patterns (e.g., '@company.com') when matching multiple addresses
@@ -116,14 +106,6 @@ ${
     ? `<original_email>
 ${stringifyEmailSimple(getEmailForLLM(originalEmail))}
 </original_email>`
-    : ""
-}
-
-${
-  originalEmail && categories?.length
-    ? `<sender_category>
-${senderCategory || "No category"}
-</sender_category>`
     : ""
 }`;
 
