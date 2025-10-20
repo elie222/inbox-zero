@@ -42,7 +42,7 @@ export type RunRulesResult = {
   existing?: boolean;
 };
 
-const CONVERSATION_TRACKING_META_RULE_ID = "conversation-tracking-meta";
+export const CONVERSATION_TRACKING_META_RULE_ID = "conversation-tracking-meta";
 
 export async function runRules({
   provider,
@@ -105,7 +105,7 @@ export async function runRules({
     let ruleToExecute = result.rule;
     let reasonToUse = results.reasoning;
 
-    if (isConversationRule(result.rule.id)) {
+    if (result.rule && isConversationRule(result.rule.id)) {
       // Determine which specific sub-rule applies
       const { specificRule, reason: statusReason } =
         await determineConversationStatus({
@@ -404,8 +404,10 @@ async function checkPreviousConversationRuleInThread({
  * influence it to select the rule naturally, but we enforce it regardless.
  *
  * Returns a new array of matches (does not mutate the input).
+ *
+ * @internal Exported for testing
  */
-async function ensureConversationRuleContinuity({
+export async function ensureConversationRuleContinuity({
   emailAccountId,
   threadId,
   messageId,

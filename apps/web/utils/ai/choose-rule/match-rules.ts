@@ -545,8 +545,10 @@ export async function filterConversationStatusRules<
 export function filterMultipleSystemRules<
   T extends { name: string; instructions: string; systemType?: string | null },
 >(selectedRules: { rule: T; isPrimary?: boolean }[]): T[] {
-  const systemRules = selectedRules.filter((r) => r.rule.systemType);
-  const conversationRules = selectedRules.filter((r) => !r.rule.systemType);
+  const systemRules = selectedRules.filter((r) => r.rule?.systemType);
+  const conversationRules = selectedRules.filter(
+    (r) => r.rule && !r.rule?.systemType,
+  );
 
   let filteredSystemRules = systemRules;
   if (systemRules.length > 1) {

@@ -1522,6 +1522,7 @@ function getRule(overrides: Partial<RuleWithActions> = {}): RuleWithActions {
     runOnThreads: true,
     conditionalOperator: LogicalOperator.AND,
     type: null,
+    systemType: null,
     ...overrides,
   } as RuleWithActions;
 }
@@ -1748,7 +1749,7 @@ describe("findMatchingRules - Integration Tests", () => {
     });
 
     vi.mocked(aiChooseRule).mockResolvedValue({
-      rules: [aiRule as any],
+      rules: [{ rule: aiRule as any }],
       reason: "This is a promotional email",
     });
 
@@ -1884,7 +1885,7 @@ describe("findMatchingRules - Integration Tests", () => {
     });
 
     vi.mocked(aiChooseRule).mockResolvedValue({
-      rules: [mixedRule as any],
+      rules: [{ rule: mixedRule as any }],
       reason: "Email is promotional",
     });
 
