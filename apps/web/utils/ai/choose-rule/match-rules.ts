@@ -39,9 +39,58 @@ type MatchingRulesResult = {
   reasoning: string;
 };
 
-// if we find a match, return it
-// if we don't find a match, return the potential matches
-// ai rules need further processing to determine if they match
+export async function findMatchingRules({
+  rules,
+  message,
+  emailAccount,
+  provider,
+  modelType,
+}: {
+  rules: RuleWithActions[];
+  message: ParsedMessage;
+  emailAccount: EmailAccountWithAI;
+  provider: EmailProvider;
+  modelType: ModelType;
+}): Promise<MatchingRulesResult> {
+  const coldEmailRule = await getColdEmailRule(emailAccount.id);
+
+  if (coldEmailRule && isColdEmailRuleEnabled(coldEmailRule)) {
+    const coldEmailResult = await isColdEmail({
+      email: getEmailForLLM(message),
+      emailAccount,
+      provider,
+      modelType,
+      coldEmailRule,
+    });
+
+    if (coldEmailResult.isColdEmail) {
+      const coldRule = await prisma.rule.findUniqueOrThrow({
+        where: { id: coldEmailRule.id },
+        include: { actions: true },
+      });
+
+      return {
+        matches: [{ rule: coldRule, matchReasons: [] }],
+        reasoning: coldEmailResult.reason,
+      };
+    }
+  }
+
+  // Filter out cold email rule which was already checked above
+  const rulesWithoutColdEmail = rules.filter(
+    (rule) => rule.systemType !== SystemType.COLD_EMAIL,
+  );
+
+  const results = await findMatchingRulesWithReasons(
+    rulesWithoutColdEmail,
+    message,
+    emailAccount,
+    provider,
+    modelType,
+  );
+
+  return results;
+}
 
 async function findPotentialMatchingRules({
   rules,
@@ -228,59 +277,6 @@ function getMatchReason(matchReasons?: MatchReason[]): string | undefined {
       }
     })
     .join(", ");
-}
-
-export async function findMatchingRules({
-  rules,
-  message,
-  emailAccount,
-  provider,
-  modelType,
-}: {
-  rules: RuleWithActions[];
-  message: ParsedMessage;
-  emailAccount: EmailAccountWithAI;
-  provider: EmailProvider;
-  modelType: ModelType;
-}): Promise<MatchingRulesResult> {
-  const coldEmailRule = await getColdEmailRule(emailAccount.id);
-
-  if (coldEmailRule && isColdEmailRuleEnabled(coldEmailRule)) {
-    const coldEmailResult = await isColdEmail({
-      email: getEmailForLLM(message),
-      emailAccount,
-      provider,
-      modelType,
-      coldEmailRule,
-    });
-
-    if (coldEmailResult.isColdEmail) {
-      const coldRule = await prisma.rule.findUniqueOrThrow({
-        where: { id: coldEmailRule.id },
-        include: { actions: true },
-      });
-
-      return {
-        matches: [{ rule: coldRule, matchReasons: [] }],
-        reasoning: coldEmailResult.reason,
-      };
-    }
-  }
-
-  // Filter out cold email rule which was already checked above
-  const rulesWithoutColdEmail = rules.filter(
-    (rule) => rule.systemType !== SystemType.COLD_EMAIL,
-  );
-
-  const results = await findMatchingRulesWithReasons(
-    rulesWithoutColdEmail,
-    message,
-    emailAccount,
-    provider,
-    modelType,
-  );
-
-  return results;
 }
 
 async function findMatchingRulesWithReasons(
