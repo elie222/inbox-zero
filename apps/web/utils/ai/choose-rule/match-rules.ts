@@ -3,16 +3,8 @@ import {
   findMatchingGroup,
   getGroupsWithRules,
 } from "@/utils/group/find-matching-group";
-import type {
-  ParsedMessage,
-  RuleWithActions,
-  RuleWithActionsAndCategories,
-} from "@/utils/types";
-import {
-  CategoryFilterType,
-  LogicalOperator,
-  SystemType,
-} from "@prisma/client";
+import type { ParsedMessage, RuleWithActions } from "@/utils/types";
+import { LogicalOperator, SystemType } from "@prisma/client";
 import { ConditionType } from "@/utils/config";
 import prisma from "@/utils/prisma";
 import { aiChooseRule } from "@/utils/ai/choose-rule/ai-choose-rule";
@@ -41,7 +33,7 @@ const TO_REPLY_RECEIVED_THRESHOLD = 10;
 
 type MatchingRulesResult = {
   matches: {
-    rule: RuleWithActionsAndCategories;
+    rule: RuleWithActions;
     matchReasons?: MatchReason[];
   }[];
   reasoning: string;
@@ -57,34 +49,42 @@ async function findPotentialMatchingRules({
   isThread,
   provider,
 }: {
-  rules: RuleWithActionsAndCategories[];
+  rules: RuleWithActions[];
   message: ParsedMessage;
   isThread: boolean;
   provider: EmailProvider;
 }): Promise<MatchingRuleResult> {
-  const potentialMatches: (RuleWithActionsAndCategories & {
-    instructions: string;
-  })[] = [];
+  const matches: {
+    rule: RuleWithActions;
+    matchReasons: MatchReason[]; // why do we need match reasons?
+  }[] = [];
+  const potentialAiMatches: (RuleWithActions & { instructions: string })[] = [];
 
-  const calendarMatch = checkCalendarMatch({ rules, message });
-  if (calendarMatch) return calendarMatch;
+  const learnedPatternsLoader = new LearnedPatternsLoader();
 
-  const contextLoader = new ContextLoader(message);
-
-  // loop through rules and check if they match
+  // Go through all rules
+  // Collect matches and potential AI matches
   for (const rule of rules) {
-    const { runOnThreads, conditionalOperator: operator } = rule;
+    // Special case for calendar rules
+    const calendarMatch =
+      rule.systemType === SystemType.CALENDAR && hasIcsAttachment(message);
 
-    if (isThread && !runOnThreads) continue;
+    if (calendarMatch) {
+      matches.push({
+        rule,
+        matchReasons: [
+          { type: ConditionType.PRESET, systemType: SystemType.CALENDAR },
+        ],
+      });
+    }
 
-    const conditionTypes = getConditionTypes(rule);
-    const matchReasons: MatchReason[] = [];
+    // TODO: still run this, if a previous email in the thread matched the rule
+    if (isThread && !rule.runOnThreads) continue;
 
     // Learned patterns (groups)
-    // If a match is found, return it immediately
     // Ignores conditional operator
     if (rule.groupId) {
-      const groups = await contextLoader.getGroups(rule.emailAccountId);
+      const groups = await learnedPatternsLoader.getGroups(rule.emailAccountId);
       if (!groups?.length) continue;
       const { matchingItem, group, ruleExcluded } = matchesGroupRule(
         rule,
@@ -96,127 +96,123 @@ async function findPotentialMatchingRules({
       if (ruleExcluded) continue;
 
       if (matchingItem) {
-        matchReasons.push({
-          type: ConditionType.GROUP,
-          groupItem: matchingItem,
-          group,
+        matches.push({
+          rule,
+          matchReasons: [
+            {
+              type: ConditionType.LEARNED_PATTERN,
+              groupItem: matchingItem,
+              group,
+            },
+          ],
         });
-
-        return { match: rule, matchReasons };
       }
     }
 
-    // Regular conditions:
-    const unmatchedConditions = new Set<ConditionType>(
-      Object.keys(conditionTypes) as ConditionType[],
-    );
+    // AI + Static conditions
+    const { matched, potentialAiMatch, matchReasons } = evaluateRuleConditions({
+      rule,
+      message,
+    });
 
-    // TODO: allow multiple matches
-    if (conditionTypes.STATIC) {
-      const match = matchesStaticRule(rule, message);
-      if (match) {
-        unmatchedConditions.delete(ConditionType.STATIC);
-        matchReasons.push({ type: ConditionType.STATIC });
-        if (operator === LogicalOperator.OR || !unmatchedConditions.size)
-          return { match: rule, matchReasons };
-      } else {
-        // no match, so can't be a match with AND
-        if (operator === LogicalOperator.AND) continue;
-      }
+    if (matched) {
+      matches.push({ rule, matchReasons });
     }
 
-    // TODO: allow multiple matches?
-    if (conditionTypes.CATEGORY) {
-      const sender = await contextLoader.getSender(rule.emailAccountId);
-      const matchedCategory = matchesCategoryRule(rule, sender);
-      if (matchedCategory) {
-        unmatchedConditions.delete(ConditionType.CATEGORY);
-        if (typeof matchedCategory !== "boolean") {
-          matchReasons.push({
-            type: ConditionType.CATEGORY,
-            category: matchedCategory,
-          });
-        }
-        if (operator === LogicalOperator.OR || !unmatchedConditions.size)
-          return { match: rule, matchReasons };
-      } else {
-        // no match, so can't be a match with AND
-        if (operator === LogicalOperator.AND) continue;
-      }
-    }
-
-    if (conditionTypes.AI && isAIRule(rule)) {
-      // we'll need to run the LLM later to determine if it matches
-      potentialMatches.push(rule);
+    if (potentialAiMatch) {
+      potentialAiMatches.push({
+        ...rule,
+        instructions: rule.instructions ?? "",
+      });
     }
   }
 
-  const filteredPotentialMatches = await filterConversationStatusRules(
-    potentialMatches,
+  // TODO: move into loop for consistency?
+  const filteredPotentialAiMatches = await filterConversationStatusRules(
+    potentialAiMatches,
     message,
     provider,
   );
 
-  return { potentialMatches: filteredPotentialMatches };
-}
+  const hasLearnedPatternMatch = matches.some((m) =>
+    m.matchReasons.some((r) => r.type === ConditionType.LEARNED_PATTERN),
+  );
 
-function checkCalendarMatch({
-  rules,
-  message,
-}: {
-  rules: RuleWithActionsAndCategories[];
-  message: ParsedMessage;
-}): MatchingRuleResult | undefined {
-  const isCalendarEvent = hasIcsAttachment(message);
-  if (!isCalendarEvent) return;
-
-  const rule = rules.find((r) => r.systemType === SystemType.CALENDAR);
-  if (!rule) return;
-
-  logger.info("Found matching calendar rule", {
-    ruleId: rule.id,
-    messageId: message.id,
-  });
+  // If we have a learned pattern match, then return all matches and no potential AI matches
+  // Learned patterns are used for efficiency to avoid running AI for every rule
   return {
-    match: rule,
-    matchReasons: [
-      { type: ConditionType.PRESET, systemType: SystemType.CALENDAR },
-    ],
+    matches,
+    potentialAiMatches: hasLearnedPatternMatch
+      ? []
+      : filteredPotentialAiMatches,
   };
 }
 
-// Lazy load context data when needed
-class ContextLoader {
-  private readonly message: ParsedMessage;
-  private groups?: Awaited<ReturnType<typeof getGroupsWithRules>> | null;
-  private sender?: { categoryId: string | null } | null;
+function evaluateRuleConditions({
+  rule,
+  message,
+}: {
+  rule: RuleWithActions;
+  message: ParsedMessage;
+}): {
+  matched: boolean;
+  potentialAiMatch: boolean;
+  matchReasons: MatchReason[];
+} {
+  const { conditionalOperator: operator } = rule;
+  const conditionTypes = getConditionTypes(rule);
+  const hasAiCondition = conditionTypes.AI && isAIRule(rule);
+  const hasStaticCondition = conditionTypes.STATIC;
 
-  constructor(message: ParsedMessage) {
-    this.message = message;
+  const matchReasons: MatchReason[] = [];
+
+  // Check STATIC condition
+  const staticMatch = hasStaticCondition
+    ? matchesStaticRule(rule, message)
+    : false;
+  if (staticMatch) {
+    matchReasons.push({ type: ConditionType.STATIC });
   }
+
+  // Determine result based on what we have
+  if (operator === LogicalOperator.OR) {
+    // OR logic
+    if (staticMatch) {
+      // Found a match, no need for AI
+      return { matched: true, potentialAiMatch: false, matchReasons };
+    }
+    if (hasAiCondition) {
+      // No static match, but have AI - need to check AI
+      return { matched: false, potentialAiMatch: true, matchReasons };
+    }
+    // No matches at all
+    return { matched: false, potentialAiMatch: false, matchReasons };
+  } else {
+    // AND logic
+    if (hasStaticCondition && !staticMatch) {
+      // Static failed, so AND fails
+      return { matched: false, potentialAiMatch: false, matchReasons: [] };
+    }
+    if (hasAiCondition) {
+      // Static passed (or doesn't exist), but need AI to complete AND
+      return { matched: false, potentialAiMatch: true, matchReasons };
+    }
+    // Only static, and it passed
+    return { matched: staticMatch, potentialAiMatch: false, matchReasons };
+  }
+}
+
+// Lazy load learned patterns when needed
+class LearnedPatternsLoader {
+  private groups?: Awaited<ReturnType<typeof getGroupsWithRules>> | null;
 
   async getGroups(emailAccountId: string) {
     if (this.groups === undefined)
       this.groups = await getGroupsWithRules({ emailAccountId });
     return this.groups;
   }
-
-  async getSender(emailAccountId: string) {
-    if (this.sender === undefined) {
-      this.sender = await prisma.newsletter.findUnique({
-        where: {
-          email_emailAccountId: {
-            email: extractEmailAddress(this.message.headers.from),
-            emailAccountId,
-          },
-        },
-      });
-    }
-    return this.sender;
-  }
 }
 
-// TODO: how was this used? use it again
 function getMatchReason(matchReasons?: MatchReason[]): string | undefined {
   if (!matchReasons || matchReasons.length === 0) return;
 
@@ -225,10 +221,8 @@ function getMatchReason(matchReasons?: MatchReason[]): string | undefined {
       switch (reason.type) {
         case ConditionType.STATIC:
           return "Matched static conditions";
-        case ConditionType.GROUP:
+        case ConditionType.LEARNED_PATTERN:
           return `Matched learned pattern: "${reason.groupItem.type}: ${reason.groupItem.value}"`;
-        case ConditionType.CATEGORY:
-          return `Matched category: "${reason.category.name}"`;
         case ConditionType.PRESET:
           return "Matched a system preset";
       }
@@ -243,7 +237,7 @@ export async function findMatchingRules({
   provider,
   modelType,
 }: {
-  rules: RuleWithActionsAndCategories[];
+  rules: RuleWithActions[];
   message: ParsedMessage;
   emailAccount: EmailAccountWithAI;
   provider: EmailProvider;
@@ -261,13 +255,13 @@ export async function findMatchingRules({
     });
 
     if (coldEmailResult.isColdEmail) {
-      const coldEmailRuleWithCategories = await prisma.rule.findUniqueOrThrow({
+      const coldRule = await prisma.rule.findUniqueOrThrow({
         where: { id: coldEmailRule.id },
-        include: { actions: true, categoryFilters: true },
+        include: { actions: true },
       });
 
       return {
-        matches: [{ rule: coldEmailRuleWithCategories, matchReasons: [] }],
+        matches: [{ rule: coldRule, matchReasons: [] }],
         reasoning: coldEmailResult.reason,
       };
     }
@@ -290,7 +284,7 @@ export async function findMatchingRules({
 }
 
 async function findMatchingRulesWithReasons(
-  rules: RuleWithActionsAndCategories[],
+  rules: RuleWithActions[],
   message: ParsedMessage,
   emailAccount: EmailAccountWithAI,
   provider: EmailProvider,
@@ -298,20 +292,17 @@ async function findMatchingRulesWithReasons(
 ): Promise<MatchingRulesResult> {
   const isThread = provider.isReplyInThread(message);
 
-  const { match, matchReasons, potentialMatches } =
-    await findPotentialMatchingRules({
-      rules,
-      message,
-      isThread,
-      provider,
-    });
+  const { matches, potentialAiMatches } = await findPotentialMatchingRules({
+    rules,
+    message,
+    isThread,
+    provider,
+  });
 
-  if (match) return { matches: [{ rule: match, matchReasons }], reasoning: "" };
-
-  if (potentialMatches?.length) {
+  if (potentialAiMatches.length) {
     const result = await aiChooseRule({
       email: getEmailForLLM(message),
-      rules: potentialMatches,
+      rules: potentialAiMatches,
       emailAccount,
       modelType,
     });
@@ -319,13 +310,18 @@ async function findMatchingRulesWithReasons(
     return {
       matches: result.rules.map((rule) => ({
         rule,
-        matchReasons: [],
+        matchReasons: [{ type: ConditionType.AI }],
       })),
       reasoning: result.reason,
     };
+  } else {
+    return {
+      matches,
+      reasoning: matches
+        .flatMap((m) => getMatchReason(m.matchReasons))
+        .join(", "),
+    };
   }
-
-  return { matches: [], reasoning: "" };
 }
 
 export function matchesStaticRule(
@@ -396,7 +392,7 @@ export function splitEmailPatterns(pattern: string): string[] {
 }
 
 function matchesGroupRule(
-  rule: RuleWithActionsAndCategories,
+  rule: RuleWithActions,
   groups: Awaited<ReturnType<typeof getGroupsWithRules>>,
   message: ParsedMessage,
 ) {
@@ -416,30 +412,6 @@ function matchesGroupRule(
   }
 
   return { group: null, matchingItem: null, ruleExcluded: false };
-}
-
-function matchesCategoryRule(
-  rule: RuleWithActionsAndCategories,
-  sender: { categoryId: string | null } | null,
-) {
-  if (!rule.categoryFilterType || rule.categoryFilters.length === 0)
-    return true;
-
-  if (!sender) return false;
-
-  const matchedFilter = rule.categoryFilters.find(
-    (c) => c.id === sender.categoryId,
-  );
-
-  if (
-    (rule.categoryFilterType === CategoryFilterType.INCLUDE &&
-      !matchedFilter) ||
-    (rule.categoryFilterType === CategoryFilterType.EXCLUDE && matchedFilter)
-  ) {
-    return false;
-  }
-
-  return matchedFilter;
 }
 
 export async function filterConversationStatusRules<

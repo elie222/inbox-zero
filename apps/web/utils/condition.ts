@@ -64,13 +64,13 @@ export function getConditions(rule: RuleConditions) {
 
 export function getConditionTypes(
   rule: RuleConditions,
-): Record<ConditionType, boolean> {
+): Record<CoreConditionType, boolean> {
   return getConditions(rule).reduce(
     (acc, condition) => {
       acc[condition.type] = true;
       return acc;
     },
-    {} as Record<ConditionType, boolean>,
+    {} as Record<CoreConditionType, boolean>,
   );
 }
 
