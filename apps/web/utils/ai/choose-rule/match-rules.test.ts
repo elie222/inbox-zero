@@ -1843,6 +1843,9 @@ describe("findMatchingRules - Integration Tests", () => {
       isReplyInThread: vi.fn().mockReturnValue(true),
     } as unknown as EmailProvider;
 
+    // Mock no previously executed rules in thread
+    prisma.executedRule.findMany.mockResolvedValue([]);
+
     const rules = [threadRule];
     const message = getMessage({
       headers: getHeaders({ from: "test@example.com" }),

@@ -42,6 +42,7 @@ describe("ensureConversationRuleContinuity", () => {
     systemType,
     automate: true,
     promptText: null,
+    categoryFilterType: null,
   });
 
   const conversationMetaRule = createRule(CONVERSATION_TRACKING_META_RULE_ID);
@@ -54,7 +55,6 @@ describe("ensureConversationRuleContinuity", () => {
     const result = await ensureConversationRuleContinuity({
       emailAccountId,
       threadId,
-      messageId,
       conversationRules: [],
       regularRules: [regularRule],
       matches,
@@ -72,7 +72,6 @@ describe("ensureConversationRuleContinuity", () => {
     const result = await ensureConversationRuleContinuity({
       emailAccountId,
       threadId,
-      messageId,
       conversationRules: [toReplyRule],
       regularRules: [regularRule, conversationMetaRule],
       matches,
@@ -83,7 +82,6 @@ describe("ensureConversationRuleContinuity", () => {
       where: {
         emailAccountId,
         threadId,
-        messageId: { not: messageId },
         status: ExecutedRuleStatus.APPLIED,
         rule: {
           systemType: {
@@ -110,7 +108,6 @@ describe("ensureConversationRuleContinuity", () => {
     const result = await ensureConversationRuleContinuity({
       emailAccountId,
       threadId,
-      messageId,
       conversationRules: [toReplyRule],
       regularRules: [regularRule, conversationMetaRule],
       matches,
@@ -129,7 +126,6 @@ describe("ensureConversationRuleContinuity", () => {
     const result = await ensureConversationRuleContinuity({
       emailAccountId,
       threadId,
-      messageId,
       conversationRules: [toReplyRule],
       regularRules: [regularRule, conversationMetaRule],
       matches,
@@ -153,7 +149,6 @@ describe("ensureConversationRuleContinuity", () => {
     const result = await ensureConversationRuleContinuity({
       emailAccountId,
       threadId,
-      messageId,
       conversationRules: [toReplyRule],
       regularRules: [regularRule], // No meta rule
       matches,
@@ -173,7 +168,6 @@ describe("ensureConversationRuleContinuity", () => {
     const result = await ensureConversationRuleContinuity({
       emailAccountId,
       threadId,
-      messageId,
       conversationRules: [toReplyRule],
       regularRules: [regularRule, conversationMetaRule],
       matches,
@@ -191,7 +185,6 @@ describe("ensureConversationRuleContinuity", () => {
     await ensureConversationRuleContinuity({
       emailAccountId,
       threadId,
-      messageId,
       conversationRules: [toReplyRule],
       regularRules: [regularRule, conversationMetaRule],
       matches,
@@ -201,7 +194,6 @@ describe("ensureConversationRuleContinuity", () => {
       where: {
         emailAccountId,
         threadId,
-        messageId: { not: messageId },
         status: ExecutedRuleStatus.APPLIED,
         rule: {
           systemType: {

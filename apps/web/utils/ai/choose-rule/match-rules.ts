@@ -4,7 +4,11 @@ import {
   getGroupsWithRules,
 } from "@/utils/group/find-matching-group";
 import type { ParsedMessage, RuleWithActions } from "@/utils/types";
-import { LogicalOperator, SystemType } from "@prisma/client";
+import {
+  ExecutedRuleStatus,
+  LogicalOperator,
+  SystemType,
+} from "@prisma/client";
 import { ConditionType } from "@/utils/config";
 import prisma from "@/utils/prisma";
 import { aiChooseRule } from "@/utils/ai/choose-rule/ai-choose-rule";
@@ -117,11 +121,13 @@ async function findPotentialMatchingRules({
   message,
   isThread,
   provider,
+  emailAccountId,
 }: {
   rules: RuleWithActions[];
   message: ParsedMessage;
   isThread: boolean;
   provider: EmailProvider;
+  emailAccountId: string;
 }): Promise<MatchingRuleResult> {
   const matches: {
     rule: RuleWithActions;
@@ -130,6 +136,10 @@ async function findPotentialMatchingRules({
   const potentialAiMatches: (RuleWithActions & { instructions: string })[] = [];
 
   const learnedPatternsLoader = new LearnedPatternsLoader();
+  const previousRulesLoader = new PreviousThreadRulesLoader({
+    emailAccountId,
+    threadId: message.threadId,
+  });
 
   // Go through all rules and collect matches and potential AI matches
   for (const rule of rules) {
@@ -146,9 +156,6 @@ async function findPotentialMatchingRules({
       });
       continue;
     }
-
-    // TODO: still run this, if a previous email in the thread matched the rule
-    if (isThread && !rule.runOnThreads) continue;
 
     // Learned patterns (groups)
     // Note: Groups are independent of the AND/OR operator (which only applies to AI/Static conditions)
@@ -178,6 +185,17 @@ async function findPotentialMatchingRules({
           });
           continue;
         }
+      }
+    }
+
+    // Skip rules with runOnThreads=false, unless this rule was previously applied in the thread
+    // This ensures thread continuity (e.g., notifications continue to be labeled as notifications)
+    if (isThread && !rule.runOnThreads) {
+      const previousRuleIds = await previousRulesLoader.getRuleIds();
+      const wasPreviouslyApplied = previousRuleIds.has(rule.id);
+
+      if (!wasPreviouslyApplied) {
+        continue;
       }
     }
 
@@ -287,6 +305,34 @@ class LearnedPatternsLoader {
   }
 }
 
+// Lazy load previously executed rules in thread when needed
+class PreviousThreadRulesLoader {
+  private ruleIds?: Set<string>;
+  private readonly emailAccountId: string;
+  private readonly threadId: string;
+
+  constructor({
+    emailAccountId,
+    threadId,
+  }: {
+    emailAccountId: string;
+    threadId: string;
+  }) {
+    this.emailAccountId = emailAccountId;
+    this.threadId = threadId;
+  }
+
+  async getRuleIds(): Promise<Set<string>> {
+    if (this.ruleIds === undefined) {
+      this.ruleIds = await getPreviouslyExecutedRuleIds({
+        emailAccountId: this.emailAccountId,
+        threadId: this.threadId,
+      });
+    }
+    return this.ruleIds;
+  }
+}
+
 function getMatchReason(matchReasons?: MatchReason[]): string | undefined {
   if (!matchReasons || matchReasons.length === 0) return;
 
@@ -318,6 +364,7 @@ async function findMatchingRulesWithReasons(
     message,
     isThread,
     provider,
+    emailAccountId: emailAccount.id,
   });
 
   if (potentialAiMatches.length) {
@@ -558,4 +605,32 @@ export function filterMultipleSystemRules<
   }
 
   return [...filteredSystemRules, ...conversationRules].map((r) => r.rule);
+}
+
+/**
+ * Gets the IDs of rules that were previously executed in this thread.
+ * This allows us to continue applying the same rules to a thread for consistency,
+ * even if `runOnThreads` is false.
+ */
+async function getPreviouslyExecutedRuleIds({
+  emailAccountId,
+  threadId,
+}: {
+  emailAccountId: string;
+  threadId: string;
+}): Promise<Set<string>> {
+  const previousRules = await prisma.executedRule.findMany({
+    where: {
+      emailAccountId,
+      threadId,
+      status: ExecutedRuleStatus.APPLIED,
+      ruleId: { not: null },
+    },
+    select: { ruleId: true },
+    distinct: ["ruleId"],
+  });
+
+  return new Set(
+    previousRules.map((r) => r.ruleId).filter((id): id is string => !!id),
+  );
 }

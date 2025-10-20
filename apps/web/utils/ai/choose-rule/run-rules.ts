@@ -73,7 +73,6 @@ export async function runRules({
   const finalMatches = await ensureConversationRuleContinuity({
     emailAccountId: emailAccount.id,
     threadId: message.threadId,
-    messageId: message.id,
     conversationRules,
     regularRules,
     matches: results.matches,
@@ -374,17 +373,14 @@ function shouldAnalyzeSenderPattern({
 async function checkPreviousConversationRuleInThread({
   emailAccountId,
   threadId,
-  messageId,
 }: {
   emailAccountId: string;
   threadId: string;
-  messageId: string;
 }): Promise<boolean> {
   const previousConversationRule = await prisma.executedRule.findFirst({
     where: {
       emailAccountId,
       threadId,
-      messageId: { not: messageId },
       status: ExecutedRuleStatus.APPLIED,
       rule: { systemType: { in: CONVERSATION_STATUS_TYPES } },
     },
@@ -410,14 +406,12 @@ async function checkPreviousConversationRuleInThread({
 export async function ensureConversationRuleContinuity({
   emailAccountId,
   threadId,
-  messageId,
   conversationRules,
   regularRules,
   matches,
 }: {
   emailAccountId: string;
   threadId: string;
-  messageId: string;
   conversationRules: RuleWithActions[];
   regularRules: RuleWithActions[];
   matches: { rule: RuleWithActions; matchReasons?: MatchReason[] }[];
@@ -430,7 +424,6 @@ export async function ensureConversationRuleContinuity({
     await checkPreviousConversationRuleInThread({
       emailAccountId,
       threadId,
-      messageId,
     });
 
   if (!hadConversationRuleInThread) {
