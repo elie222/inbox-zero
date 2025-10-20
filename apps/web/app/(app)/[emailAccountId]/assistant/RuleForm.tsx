@@ -172,7 +172,7 @@ export function RuleForm({
   const { append, remove } = useFieldArray({ control, name: "actions" });
 
   const { userLabels, isLoading, mutate: mutateLabels } = useLabels();
-  const { folders, isLoading: foldersLoading } = useFolders();
+  const { folders, isLoading: foldersLoading } = useFolders(provider);
   const router = useRouter();
 
   const posthog = usePostHog();
