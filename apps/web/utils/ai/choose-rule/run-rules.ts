@@ -20,7 +20,10 @@ import {
 import groupBy from "lodash/groupBy";
 import type { EmailProvider } from "@/utils/email/types";
 import type { ModelType } from "@/utils/llms/model";
-import { isConversationStatusType } from "@/utils/reply-tracker/conversation-status-config";
+import {
+  CONVERSATION_STATUS_TYPES,
+  isConversationStatusType,
+} from "@/utils/reply-tracker/conversation-status-config";
 import {
   determineConversationStatus,
   updateThreadTrackers,
@@ -66,11 +69,21 @@ export async function runRules({
     modelType,
   });
 
+  // Auto-reapply conversation tracking for thread continuity
+  const finalMatches = await ensureConversationRuleContinuity({
+    emailAccountId: emailAccount.id,
+    threadId: message.threadId,
+    messageId: message.id,
+    conversationRules,
+    regularRules,
+    matches: results.matches,
+  });
+
   logger.trace("Matching rule", () => ({
-    results: results.matches.map(filterNullProperties),
+    results: finalMatches.map(filterNullProperties),
   }));
 
-  if (!results.matches.length) {
+  if (!finalMatches.length) {
     const reason = results.reasoning || "No rules matched";
     await prisma.executedRule.create({
       data: {
@@ -88,11 +101,11 @@ export async function runRules({
 
   const executedRules: RunRulesResult[] = [];
 
-  for (const result of results.matches) {
+  for (const result of finalMatches) {
     let ruleToExecute = result.rule;
     let reasonToUse = results.reasoning;
 
-    if (result.rule.id === CONVERSATION_TRACKING_META_RULE_ID) {
+    if (isConversationRule(result.rule.id)) {
       // Determine which specific sub-rule applies
       const { specificRule, reason: statusReason } =
         await determineConversationStatus({
@@ -353,4 +366,107 @@ function shouldAnalyzeSenderPattern({
   }
 
   return true;
+}
+
+/**
+ * Checks if a conversation status rule was previously applied to any email in this thread.
+ */
+async function checkPreviousConversationRuleInThread({
+  emailAccountId,
+  threadId,
+  messageId,
+}: {
+  emailAccountId: string;
+  threadId: string;
+  messageId: string;
+}): Promise<boolean> {
+  const previousConversationRule = await prisma.executedRule.findFirst({
+    where: {
+      emailAccountId,
+      threadId,
+      messageId: { not: messageId },
+      status: ExecutedRuleStatus.APPLIED,
+      rule: { systemType: { in: CONVERSATION_STATUS_TYPES } },
+    },
+    select: { id: true },
+  });
+
+  return !!previousConversationRule;
+}
+
+/**
+ * Ensures conversation tracking continues throughout a thread.
+ * If a conversation meta rule was previously applied to any email in this thread,
+ * we automatically add it to matches even if the AI didn't select it.
+ * This ensures conversation tracking continues consistently throughout the thread.
+ *
+ * Note: The meta rule is still passed to the AI (in regularRules), which may
+ * influence it to select the rule naturally, but we enforce it regardless.
+ *
+ * Returns a new array of matches (does not mutate the input).
+ */
+async function ensureConversationRuleContinuity({
+  emailAccountId,
+  threadId,
+  messageId,
+  conversationRules,
+  regularRules,
+  matches,
+}: {
+  emailAccountId: string;
+  threadId: string;
+  messageId: string;
+  conversationRules: RuleWithActions[];
+  regularRules: RuleWithActions[];
+  matches: { rule: RuleWithActions; matchReasons?: MatchReason[] }[];
+}): Promise<{ rule: RuleWithActions; matchReasons?: MatchReason[] }[]> {
+  if (conversationRules.length === 0) {
+    return matches;
+  }
+
+  const hadConversationRuleInThread =
+    await checkPreviousConversationRuleInThread({
+      emailAccountId,
+      threadId,
+      messageId,
+    });
+
+  if (!hadConversationRuleInThread) {
+    return matches;
+  }
+
+  const hasConversationMetaRuleInMatches = matches.some((match) =>
+    isConversationRule(match.rule.id),
+  );
+
+  if (hasConversationMetaRuleInMatches) {
+    return matches;
+  }
+
+  logger.info(
+    "Automatically adding conversation meta rule due to previous application in thread",
+  );
+
+  // Find the meta rule in regularRules
+  const metaRule = regularRules.find((r) => isConversationRule(r.id));
+
+  if (!metaRule) {
+    return matches;
+  }
+
+  return [
+    ...matches,
+    {
+      rule: metaRule,
+      matchReasons: [
+        {
+          type: ConditionType.STATIC,
+        },
+      ],
+    },
+  ];
+}
+
+function isConversationRule(ruleId: string): boolean {
+  return ruleId === CONVERSATION_TRACKING_META_RULE_ID;
 }
