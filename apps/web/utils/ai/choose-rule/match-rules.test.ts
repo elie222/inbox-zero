@@ -22,6 +22,11 @@ import prisma from "@/utils/__mocks__/prisma";
 import { aiChooseRule } from "@/utils/ai/choose-rule/ai-choose-rule";
 import { getEmailAccount } from "@/__tests__/helpers";
 import { ConditionType } from "@/utils/config";
+import {
+  getColdEmailRule,
+  isColdEmailRuleEnabled,
+} from "@/utils/cold-email/cold-email-rule";
+import { isColdEmail } from "@/utils/cold-email/is-cold-email";
 
 // Run with:
 // pnpm test match-rules.test.ts
@@ -37,6 +42,13 @@ vi.mock("@/utils/ai/choose-rule/ai-choose-rule", () => ({
 }));
 vi.mock("@/utils/reply-tracker/check-sender-reply-history", () => ({
   checkSenderReplyHistory: vi.fn(),
+}));
+vi.mock("@/utils/cold-email/cold-email-rule", () => ({
+  getColdEmailRule: vi.fn(),
+  isColdEmailRuleEnabled: vi.fn(),
+}));
+vi.mock("@/utils/cold-email/is-cold-email", () => ({
+  isColdEmail: vi.fn(),
 }));
 
 describe("matchesStaticRule", () => {
@@ -1569,6 +1581,122 @@ describe("findMatchingRules - Integration Tests", () => {
     vi.clearAllMocks();
   });
 
+  it("should detect and return cold email when enabled", async () => {
+    const coldEmailRule = getRule({
+      id: "cold-email-rule",
+      systemType: SystemType.COLD_EMAIL,
+    });
+
+    vi.mocked(getColdEmailRule).mockResolvedValue(coldEmailRule);
+    vi.mocked(isColdEmailRuleEnabled).mockReturnValue(true);
+    vi.mocked(isColdEmail).mockResolvedValue({
+      isColdEmail: true,
+      reason: "ai",
+    });
+    vi.mocked(prisma.rule.findUniqueOrThrow).mockResolvedValue(coldEmailRule);
+
+    const rules = [coldEmailRule];
+    const message = getMessage({
+      headers: getHeaders({ from: "coldemailer@example.com" }),
+    });
+    const emailAccount = getEmailAccount();
+
+    const result = await findMatchingRules({
+      rules,
+      message,
+      emailAccount,
+      provider,
+      modelType: "default",
+    });
+
+    expect(getColdEmailRule).toHaveBeenCalledWith(emailAccount.id);
+    expect(isColdEmailRuleEnabled).toHaveBeenCalledWith(coldEmailRule);
+    expect(isColdEmail).toHaveBeenCalledWith({
+      email: expect.any(Object),
+      emailAccount,
+      provider,
+      modelType: "default",
+      coldEmailRule,
+    });
+
+    expect(result.matches[0]?.rule.id).toBe("cold-email-rule");
+    expect(result.reasoning).toBe("ai");
+  });
+
+  it("should skip cold email detection when rule is not enabled", async () => {
+    const coldEmailRule = getRule({
+      id: "cold-email-rule",
+      systemType: SystemType.COLD_EMAIL,
+    });
+
+    const normalRule = getRule({
+      id: "normal-rule",
+      from: "test@example.com",
+    });
+
+    vi.mocked(getColdEmailRule).mockResolvedValue(coldEmailRule);
+    vi.mocked(isColdEmailRuleEnabled).mockReturnValue(false);
+
+    const rules = [coldEmailRule, normalRule];
+    const message = getMessage({
+      headers: getHeaders({ from: "test@example.com" }),
+    });
+    const emailAccount = getEmailAccount();
+
+    const result = await findMatchingRules({
+      rules,
+      message,
+      emailAccount,
+      provider,
+      modelType: "default",
+    });
+
+    expect(getColdEmailRule).toHaveBeenCalledWith(emailAccount.id);
+    expect(isColdEmailRuleEnabled).toHaveBeenCalledWith(coldEmailRule);
+    expect(isColdEmail).not.toHaveBeenCalled();
+
+    // Should match the normal rule instead
+    expect(result.matches[0]?.rule.id).toBe("normal-rule");
+  });
+
+  it("should continue to other rules when email is not cold", async () => {
+    const coldEmailRule = getRule({
+      id: "cold-email-rule",
+      systemType: SystemType.COLD_EMAIL,
+    });
+
+    const normalRule = getRule({
+      id: "normal-rule",
+      from: "test@example.com",
+    });
+
+    vi.mocked(getColdEmailRule).mockResolvedValue(coldEmailRule);
+    vi.mocked(isColdEmailRuleEnabled).mockReturnValue(true);
+    vi.mocked(isColdEmail).mockResolvedValue({
+      isColdEmail: false,
+      reason: "hasPreviousEmail",
+    });
+
+    const rules = [coldEmailRule, normalRule];
+    const message = getMessage({
+      headers: getHeaders({ from: "test@example.com" }),
+    });
+    const emailAccount = getEmailAccount();
+
+    const result = await findMatchingRules({
+      rules,
+      message,
+      emailAccount,
+      provider,
+      modelType: "default",
+    });
+
+    expect(isColdEmail).toHaveBeenCalled();
+
+    // Should continue and match the normal rule
+    expect(result.matches[0]?.rule.id).toBe("normal-rule");
+  });
+
   it("should match calendar rule when message has .ics attachment", async () => {
     const calendarRule = getRule({
       id: "calendar-rule",
@@ -1742,6 +1870,7 @@ describe("findMatchingRules - Integration Tests", () => {
     });
 
     // Should not throw, just return false
+    expect(() => matchesStaticRule(rule, message)).not.toThrow();
     const result = matchesStaticRule(rule, message);
     expect(result).toBe(false);
   });
