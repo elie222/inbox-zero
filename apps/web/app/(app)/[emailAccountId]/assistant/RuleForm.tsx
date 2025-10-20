@@ -65,6 +65,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { ActionSummaryCard } from "@/app/(app)/[emailAccountId]/assistant/ActionSummaryCard";
+import { ConditionSummaryCard } from "@/app/(app)/[emailAccountId]/assistant/ConditionSummaryCard";
 import {
   Select,
   SelectContent,
@@ -648,7 +649,9 @@ export function RuleForm({
                     </CardLayoutRight>
                   </CardLayout>
                 </CardBasic>
-              ) : null}
+              ) : (
+                <ConditionSummaryCard condition={conditions[index]} />
+              )}
             </div>
           ))}
         </div>
