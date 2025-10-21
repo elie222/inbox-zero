@@ -1,33 +1,58 @@
+import { NextResponse } from "next/server";
+import { withEmailProvider } from "@/utils/middleware";
 import { isDefined } from "@/utils/types";
 import prisma from "@/utils/prisma";
-import { ExecutedRuleStatus } from "@prisma/client";
+import { ExecutedRuleStatus, type Prisma } from "@prisma/client";
 import { createScopedLogger } from "@/utils/logger";
 import type { EmailProvider } from "@/utils/email/types";
 
-const logger = createScopedLogger("api/user/planned/get-executed-rules");
-
 const LIMIT = 50;
 
-export async function getExecutedRules({
-  status,
+export const dynamic = "force-dynamic";
+
+export type GetExecutedRulesResponse = Awaited<
+  ReturnType<typeof getExecutedRules>
+>;
+
+export const GET = withEmailProvider(async (request) => {
+  const emailAccountId = request.auth.emailAccountId;
+
+  const url = new URL(request.url);
+  const page = Number.parseInt(url.searchParams.get("page") || "1");
+  const ruleId = url.searchParams.get("ruleId") || "all";
+
+  const result = await getExecutedRules({
+    page,
+    ruleId,
+    emailAccountId,
+    emailProvider: request.emailProvider,
+  });
+
+  return NextResponse.json(result);
+});
+
+async function getExecutedRules({
   page,
   ruleId,
   emailAccountId,
   emailProvider,
 }: {
-  status: ExecutedRuleStatus;
   page: number;
   ruleId?: string;
   emailAccountId: string;
   emailProvider: EmailProvider;
 }) {
-  const where = {
+  const logger = createScopedLogger("api/user/executed-rules/history").with({
     emailAccountId,
-    status: ruleId === "skipped" ? ExecutedRuleStatus.SKIPPED : status,
+    ruleId,
+  });
+
+  const where: Prisma.ExecutedRuleWhereInput = {
+    emailAccountId,
+    status: ExecutedRuleStatus.APPLIED,
     rule: ruleId === "skipped" ? undefined : { isNot: null },
     ruleId: ruleId === "all" || ruleId === "skipped" ? undefined : ruleId,
   };
-  logger.info("getExecutedRules query", { where });
 
   const [executedRules, total] = await Promise.all([
     prisma.executedRule.findMany({
@@ -66,8 +91,6 @@ export async function getExecutedRules({
           error,
           messageId: p.messageId,
           threadId: p.threadId,
-          emailAccountId,
-          ruleId,
         });
       }
     }),

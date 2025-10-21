@@ -1,9 +1,8 @@
 "use client";
 
-import useSWR from "swr";
 import { useQueryState, parseAsInteger, parseAsString } from "nuqs";
 import { LoadingContent } from "@/components/LoadingContent";
-import type { GetExecutedRulesResponse } from "@/app/api/user/planned/history/route";
+import type { GetExecutedRulesResponse } from "@/app/api/user/executed-rules/history/route";
 import { AlertBasic } from "@/components/Alert";
 import { Card } from "@/components/ui/card";
 import {

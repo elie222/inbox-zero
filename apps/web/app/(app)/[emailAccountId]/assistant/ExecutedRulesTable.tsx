@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { ExternalLinkIcon, EyeIcon } from "lucide-react";
-import type { GetExecutedRulesResponse } from "@/app/api/user/planned/history/route";
+import type { GetExecutedRulesResponse } from "@/app/api/user/executed-rules/history/route";
 import { decodeSnippet } from "@/utils/gmail/decode";
 import { ActionBadgeExpanded } from "@/components/PlanBadge";
 import { Tooltip } from "@/components/Tooltip";
