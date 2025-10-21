@@ -18,7 +18,6 @@ import { FixWithChat } from "@/app/(app)/[emailAccountId]/assistant/FixWithChat"
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { isGoogleProvider } from "@/utils/email/provider-types";
 import { useRuleDialog } from "@/app/(app)/[emailAccountId]/assistant/RuleDialog";
-import { RunRulesResult } from "@/utils/ai/choose-rule/run-rules";
 
 export function EmailCell({
   from,

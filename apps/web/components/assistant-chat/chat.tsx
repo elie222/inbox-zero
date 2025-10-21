@@ -33,8 +33,8 @@ export function Chat() {
     setInput,
     handleSubmit,
     setNewChat,
-    context: nextContext,
-    setContext: setNextContext,
+    context,
+    setContext,
   } = useChat();
   const { messages, status, stop, regenerate, setMessages } = chat;
   const [localStorageInput, setLocalStorageInput] = useLocalStorage(
@@ -90,16 +90,16 @@ export function Chat() {
       />
 
       <div className="mx-auto w-full px-4 pb-4 md:max-w-3xl md:pb-6">
-        {nextContext ? (
+        {context ? (
           <div className="mb-2 flex items-center gap-2">
             <span className="inline-flex items-center gap-2 rounded-full bg-muted px-3 py-1 text-xs text-muted-foreground">
-              Fix: {nextContext.message.headers.subject.slice(0, 60)}
-              {nextContext.message.headers.subject.length > 60 ? "..." : ""}
+              Fix: {context.message.headers.subject.slice(0, 60)}
+              {context.message.headers.subject.length > 60 ? "..." : ""}
               <button
                 type="button"
                 aria-label="Remove context"
                 className="ml-1 rounded p-0.5 hover:bg-muted-foreground/10"
-                onClick={() => setNextContext(null)}
+                onClick={() => setContext(null)}
               >
                 ×
               </button>
@@ -130,7 +130,7 @@ export function Chat() {
                   ? "submitted"
                   : "ready"
             }
-            disabled={(!input.trim() && !nextContext) || status !== "ready"}
+            disabled={(!input.trim() && !context) || status !== "ready"}
             className="absolute bottom-1 right-1"
             onClick={(e) => {
               if (status === "streaming") {

@@ -45,7 +45,7 @@ export function FixWithChat({
   const [showExplanation, setShowExplanation] = useState(false);
 
   const { setOpen } = useSidebar();
-  const { setContext: setNextContext } = useChat();
+  const { setContext } = useChat();
 
   const selectedRuleName = useMemo(() => {
     if (!data) return null;
@@ -110,7 +110,7 @@ export function FixWithChat({
             ? "none"
             : { name: selectedRuleName || "Unknown" },
     };
-    setNextContext(context);
+    setContext(context);
 
     setInput(input);
     setOpen((arr) => [...arr, "chat-sidebar"]);

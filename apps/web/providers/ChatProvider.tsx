@@ -41,7 +41,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
 
   const [input, setInput] = useState<string>("");
   const [chatId, setChatId] = useQueryState("chatId", parseAsString);
-  const [nextContext, setNextContext] = useState<MessageContext | null>(null);
+  const [context, setContext] = useState<MessageContext | null>(null);
 
   const { data } = useChatMessages(chatId);
 
@@ -61,7 +61,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
           body: {
             id,
             message: messages.at(-1),
-            context: nextContext ?? undefined,
+            context: context ?? undefined,
             ...body,
           },
         };
@@ -99,7 +99,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     });
 
     setInput("");
-  }, [chat.sendMessage, input, nextContext]);
+  }, [chat.sendMessage, input, context]);
 
   return (
     <ChatContext.Provider
@@ -111,8 +111,8 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
         setChatId,
         setNewChat,
         handleSubmit,
-        context: nextContext,
-        setContext: setNextContext,
+        context: context,
+        setContext: setContext,
       }}
     >
       {children}
