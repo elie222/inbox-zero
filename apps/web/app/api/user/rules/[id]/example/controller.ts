@@ -7,12 +7,7 @@ import {
   splitEmailPatterns,
 } from "@/utils/ai/choose-rule/match-rules";
 import { fetchPaginatedMessages } from "@/app/api/user/group/[groupId]/messages/controller";
-import {
-  isGroupRule,
-  isAIRule,
-  isStaticRule,
-  isCategoryRule,
-} from "@/utils/condition";
+import { isGroupRule, isAIRule, isStaticRule } from "@/utils/condition";
 import { LogicalOperator } from "@prisma/client";
 import type { EmailProvider } from "@/utils/email/types";
 
@@ -23,13 +18,12 @@ export async function fetchExampleMessages(
   const isStatic = isStaticRule(rule);
   const isGroup = isGroupRule(rule);
   const isAI = isAIRule(rule);
-  const isCategory = isCategoryRule(rule);
 
-  if (isAI || isCategory) return [];
+  if (isAI) return [];
 
   // if AND and more than 1 condition, return []
   // TODO: handle multiple conditions properly and return real examples
-  const conditions = [isStatic, isGroup, isAI, isCategory];
+  const conditions = [isStatic, isGroup, isAI];
   const trueConditionsCount = conditions.filter(Boolean).length;
 
   if (

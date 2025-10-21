@@ -160,21 +160,6 @@ export default async function RuleHistoryPage(props: {
                     </div>
                   )}
 
-                  {history.categoryFilterType && (
-                    <div>
-                      <h4 className="mb-1 font-semibold">Category Filters</h4>
-                      <p className="text-sm">
-                        Type: {history.categoryFilterType}
-                        {history.categoryFilters && (
-                          <span className="ml-2">
-                            ({(history.categoryFilters as any[]).length}{" "}
-                            categories)
-                          </span>
-                        )}
-                      </p>
-                    </div>
-                  )}
-
                   {history.systemType && (
                     <div>
                       <h4 className="mb-1 font-semibold">System Type</h4>

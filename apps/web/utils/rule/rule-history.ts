@@ -41,13 +41,6 @@ export async function createRuleHistory({
     url: action.url,
   }));
 
-  // Serialize category filters to JSON
-  const categoryFiltersSnapshot = rule.categoryFilters?.map((category) => ({
-    id: category.id,
-    name: category.name,
-    description: category.description,
-  }));
-
   return prisma.ruleHistory.create({
     data: {
       ruleId: rule.id,
@@ -61,11 +54,9 @@ export async function createRuleHistory({
       to: rule.to,
       subject: rule.subject,
       body: rule.body,
-      categoryFilterType: rule.categoryFilterType,
       systemType: rule.systemType,
       promptText: rule.promptText,
       actions: actionsSnapshot,
-      categoryFilters: categoryFiltersSnapshot,
       triggerType,
       // Note: this is unique and can fail in race conditions. Not a big deal for now.
       version: nextVersion,

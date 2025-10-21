@@ -9,6 +9,7 @@ import prisma from "@/utils/prisma";
 import type { Prisma } from "@prisma/client";
 import { convertToUIMessages } from "@/components/assistant-chat/helpers";
 import { captureException } from "@/utils/error";
+import { messageContextSchema } from "@/app/api/chat/validation";
 
 export const maxDuration = 120;
 
@@ -26,6 +27,7 @@ const assistantInputSchema = z.object({
     role: z.enum(["user"]),
     parts: z.array(textPartSchema),
   }),
+  context: messageContextSchema.optional(),
 });
 
 export const POST = withEmailAccount(async (request) => {
@@ -58,7 +60,7 @@ export const POST = withEmailAccount(async (request) => {
     );
   }
 
-  const { message } = data;
+  const { message, context } = data;
   const uiMessages = [...convertToUIMessages(chat), message];
 
   await saveChatMessage({
@@ -73,6 +75,7 @@ export const POST = withEmailAccount(async (request) => {
       messages: convertToModelMessages(uiMessages),
       emailAccountId,
       user,
+      context,
     });
 
     return result.toUIMessageStreamResponse({

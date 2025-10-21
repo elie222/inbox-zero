@@ -83,15 +83,8 @@ export const createRuleAction = actionClient
             to: conditions.to || null,
             subject: conditions.subject || null,
             // body: conditions.body || null,
-            categoryFilterType: conditions.categoryFilterType || null,
-            categoryFilters:
-              conditions.categoryFilterType && conditions.categoryFilters
-                ? {
-                    connect: conditions.categoryFilters.map((id) => ({ id })),
-                  }
-                : {},
           },
-          include: { actions: true, categoryFilters: true, group: true },
+          include: { actions: true, group: true },
         });
 
         // Track rule creation in history
@@ -133,7 +126,7 @@ export const updateRuleAction = actionClient
       try {
         const currentRule = await prisma.rule.findUnique({
           where: { id, emailAccountId },
-          include: { actions: true, categoryFilters: true, group: true },
+          include: { actions: true, group: true },
         });
         if (!currentRule) throw new SafeError("Rule not found");
 
@@ -161,15 +154,8 @@ export const updateRuleAction = actionClient
               to: conditions.to || null,
               subject: conditions.subject || null,
               // body: conditions.body || null,
-              categoryFilterType: conditions.categoryFilterType || null,
-              categoryFilters:
-                conditions.categoryFilterType && conditions.categoryFilters
-                  ? {
-                      set: conditions.categoryFilters.map((id) => ({ id })),
-                    }
-                  : { set: [] },
             },
-            include: { actions: true, categoryFilters: true, group: true },
+            include: { actions: true, group: true },
           }),
           // delete removed actions
           ...(actionsToDelete.length
@@ -298,7 +284,7 @@ export const deleteRuleAction = actionClient
   .action(async ({ ctx: { emailAccountId }, parsedInput: { id } }) => {
     const rule = await prisma.rule.findUnique({
       where: { id, emailAccountId },
-      include: { actions: true, categoryFilters: true, group: true },
+      include: { actions: true, group: true },
     });
     if (!rule) return; // already deleted
     if (rule.emailAccountId !== emailAccountId)

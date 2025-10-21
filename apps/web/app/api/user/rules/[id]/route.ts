@@ -18,7 +18,6 @@ async function getRule({
     where: { id: ruleId, emailAccount: { id: emailAccountId } },
     include: {
       actions: true,
-      categoryFilters: true,
     },
   });
 
@@ -42,7 +41,6 @@ async function getRule({
       folderName: { value: action.folderName },
       folderId: { value: action.folderId },
     })),
-    categoryFilters: rule.categoryFilters.map((category) => category.id),
     conditions: getConditions(rule),
   };
 

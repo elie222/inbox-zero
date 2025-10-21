@@ -2,9 +2,8 @@ import { z } from "zod";
 import { createGenerateObject } from "@/utils/llms";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import {
-  type CreateOrUpdateRuleSchemaWithCategories,
+  type CreateOrUpdateRuleSchema,
   createRuleSchema,
-  getCreateRuleSchemaWithCategories,
 } from "@/utils/ai/rule/create-rule-schema";
 import { createScopedLogger } from "@/utils/logger";
 import { convertMentionsToLabels } from "@/utils/mention";
@@ -21,36 +20,18 @@ export async function aiPromptToRulesOld({
   emailAccount,
   promptFile,
   isEditing,
-  availableCategories,
 }: {
   emailAccount: EmailAccountWithAI;
   promptFile: string;
   isEditing: boolean;
-  availableCategories?: string[];
-}): Promise<CreateOrUpdateRuleSchemaWithCategories[]> {
+}): Promise<CreateOrUpdateRuleSchema[]> {
   function getSchema() {
-    if (availableCategories?.length) {
-      const createRuleSchemaWithCategories = getCreateRuleSchemaWithCategories(
-        availableCategories as [string, ...string[]],
-        emailAccount.account.provider,
-      );
-      const updateRuleSchemaWithCategories =
-        createRuleSchemaWithCategories.extend({
-          ruleId: z.string().optional(),
-        });
-
-      return isEditing
-        ? updateRuleSchemaWithCategories
-        : createRuleSchemaWithCategories;
-    }
     return isEditing
       ? updateRuleSchema(emailAccount.account.provider)
       : createRuleSchema(emailAccount.account.provider);
   }
 
-  const system = getSystemPrompt({
-    hasSmartCategories: !!availableCategories?.length,
-  });
+  const system = getSystemPrompt();
 
   const cleanedPromptFile = convertMentionsToLabels(promptFile);
 
@@ -85,11 +66,7 @@ ${cleanedPromptFile}
   return rules;
 }
 
-function getSystemPrompt({
-  hasSmartCategories,
-}: {
-  hasSmartCategories: boolean;
-}) {
+function getSystemPrompt() {
   return `You are an AI assistant that converts email management rules into a structured format. Parse the given prompt file and conver them into rules.
 
 IMPORTANT: If a user provides a snippet, use that full snippet in the rule. Don't include placeholders unless it's clear one is needed.
@@ -108,16 +85,6 @@ If a rule can be handled fully with static conditions, do so, but this is rarely
         "name": "Label Newsletters",
         "condition": {
           "aiInstructions": "Apply this rule to newsletters"
-          ${
-            hasSmartCategories
-              ? `,
-            "categories": {
-              "categoryFilterType": "INCLUDE",
-              "categoryFilters": ["Newsletters"]
-            },
-            "conditionalOperator": "OR"`
-              : ""
-          }
         },
         "actions": [
           {

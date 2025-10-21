@@ -1,21 +1,12 @@
 import { after } from "next/server";
-import type {
-  ParsedMessage,
-  RuleWithActionsAndCategories,
-} from "@/utils/types";
+import type { ParsedMessage, RuleWithActions } from "@/utils/types";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
-import {
-  ExecutedRuleStatus,
-  SystemType,
-  type Prisma,
-  type Rule,
-} from "@prisma/client";
+import { ExecutedRuleStatus, SystemType, type Rule } from "@prisma/client";
 import type { ActionItem } from "@/utils/ai/types";
-import { findMatchingRule } from "@/utils/ai/choose-rule/match-rules";
+import { findMatchingRules } from "@/utils/ai/choose-rule/match-rules";
 import { getActionItemsWithAiArgs } from "@/utils/ai/choose-rule/choose-args";
 import { executeAct } from "@/utils/ai/choose-rule/execute";
 import prisma from "@/utils/prisma";
-import { isDuplicateError } from "@/utils/prisma-helpers";
 import { createScopedLogger } from "@/utils/logger";
 import type { MatchReason } from "@/utils/ai/choose-rule/types";
 import { sanitizeActionFields } from "@/utils/action-item";
@@ -29,13 +20,17 @@ import {
 import groupBy from "lodash/groupBy";
 import type { EmailProvider } from "@/utils/email/types";
 import type { ModelType } from "@/utils/llms/model";
-import { isConversationStatusType } from "@/utils/reply-tracker/conversation-status-config";
+import {
+  CONVERSATION_STATUS_TYPES,
+  isConversationStatusType,
+} from "@/utils/reply-tracker/conversation-status-config";
 import {
   determineConversationStatus,
   updateThreadTrackers,
 } from "@/utils/reply-tracker/handle-conversation-status";
 import { saveColdEmail } from "@/utils/cold-email/is-cold-email";
 import { internalDateToDate } from "@/utils/date";
+import { ConditionType } from "@/utils/config";
 
 const logger = createScopedLogger("ai-run-rules");
 
@@ -45,9 +40,10 @@ export type RunRulesResult = {
   reason?: string | null;
   matchReasons?: MatchReason[];
   existing?: boolean;
+  createdAt: Date;
 };
 
-const CONVERSATION_TRACKING_META_RULE_ID = "conversation-tracking-meta";
+export const CONVERSATION_TRACKING_META_RULE_ID = "conversation-tracking-meta";
 
 export async function runRules({
   provider,
@@ -59,14 +55,15 @@ export async function runRules({
 }: {
   provider: EmailProvider;
   message: ParsedMessage;
-  rules: RuleWithActionsAndCategories[];
+  rules: RuleWithActions[];
   emailAccount: EmailAccountWithAI;
   isTest: boolean;
   modelType: ModelType;
-}): Promise<RunRulesResult> {
+}): Promise<RunRulesResult[]> {
+  const batchTimestamp = new Date(); // Single timestamp for this batch execution
   const { regularRules, conversationRules } = prepareRulesWithMetaRule(rules);
 
-  const result = await findMatchingRule({
+  const results = await findMatchingRules({
     rules: regularRules,
     message,
     emailAccount,
@@ -74,16 +71,44 @@ export async function runRules({
     modelType,
   });
 
+  // Auto-reapply conversation tracking for thread continuity
+  const finalMatches = await ensureConversationRuleContinuity({
+    emailAccountId: emailAccount.id,
+    threadId: message.threadId,
+    conversationRules,
+    regularRules,
+    matches: results.matches,
+  });
+
   logger.trace("Matching rule", () => ({
-    result: filterNullProperties(result),
+    results: finalMatches.map(filterNullProperties),
   }));
 
-  if (result.rule) {
-    let ruleToExecute = result.rule;
-    let reasonToUse = result.reason;
+  if (!finalMatches.length) {
+    const reason = results.reasoning || "No rules matched";
+    if (!isTest) {
+      await prisma.executedRule.create({
+        data: {
+          threadId: message.threadId,
+          messageId: message.id,
+          automated: true,
+          reason,
+          status: ExecutedRuleStatus.SKIPPED,
+          emailAccount: { connect: { id: emailAccount.id } },
+        },
+      });
+    }
 
-    // Check if this is the conversation tracking meta-rule
-    if (result.rule.id === CONVERSATION_TRACKING_META_RULE_ID) {
+    return [{ rule: null, reason, createdAt: batchTimestamp }];
+  }
+
+  const executedRules: RunRulesResult[] = [];
+
+  for (const result of finalMatches) {
+    let ruleToExecute = result.rule;
+    let reasonToUse = results.reasoning;
+
+    if (result.rule && isConversationRule(result.rule.id)) {
       // Determine which specific sub-rule applies
       const { specificRule, reason: statusReason } =
         await determineConversationStatus({
@@ -95,10 +120,14 @@ export async function runRules({
         });
 
       if (!specificRule) {
-        return {
+        const executedRule: RunRulesResult = {
           rule: null,
           reason: statusReason || "No enabled conversation status rule found",
+          createdAt: batchTimestamp,
         };
+
+        executedRules.push(executedRule);
+        continue;
       }
 
       ruleToExecute = specificRule;
@@ -112,7 +141,7 @@ export async function runRules({
       });
     }
 
-    return await executeMatchedRule(
+    const executedRule = await executeMatchedRule(
       ruleToExecute,
       message,
       emailAccount,
@@ -121,21 +150,18 @@ export async function runRules({
       result.matchReasons,
       isTest,
       modelType,
+      batchTimestamp,
     );
-  } else {
-    await saveSkippedExecutedRule({
-      emailAccountId: emailAccount.id,
-      threadId: message.threadId,
-      messageId: message.id,
-      reason: result.reason,
-    });
+
+    executedRules.push(executedRule);
   }
-  return result;
+
+  return executedRules;
 }
 
-function prepareRulesWithMetaRule(rules: RuleWithActionsAndCategories[]): {
-  regularRules: RuleWithActionsAndCategories[];
-  conversationRules: RuleWithActionsAndCategories[];
+function prepareRulesWithMetaRule(rules: RuleWithActions[]): {
+  regularRules: RuleWithActions[];
+  conversationRules: RuleWithActions[];
 } {
   // Separate conversation status rules from regular rules
   const conversationRules = rules.filter((r) =>
@@ -153,12 +179,11 @@ function prepareRulesWithMetaRule(rules: RuleWithActionsAndCategories[]): {
       id: CONVERSATION_TRACKING_META_RULE_ID,
       name: "Conversation Tracking",
       instructions:
-        "Personal conversations with real people. Excludes automated notifications, newsletters, marketing, receipts, and calendar invites. Apply when the email is part of an actual conversation.",
+        "Personal conversations and communication with real people (emails requiring response, FYI updates, discussions, etc). This is the PRIMARY rule for human-to-human email communication.",
       enabled: true,
       runOnThreads: true,
       systemType: null,
       actions: [],
-      categoryFilters: [],
     };
 
     regularRules.push(metaRule);
@@ -168,7 +193,7 @@ function prepareRulesWithMetaRule(rules: RuleWithActionsAndCategories[]): {
 }
 
 async function executeMatchedRule(
-  rule: RuleWithActionsAndCategories,
+  rule: RuleWithActions,
   message: ParsedMessage,
   emailAccount: EmailAccountWithAI,
   client: EmailProvider,
@@ -176,8 +201,8 @@ async function executeMatchedRule(
   matchReasons: MatchReason[] | undefined,
   isTest: boolean,
   modelType: ModelType,
+  batchTimestamp: Date,
 ) {
-  // get action items with args
   const actionItems = await getActionItemsWithAiArgs({
     message,
     emailAccount,
@@ -192,224 +217,114 @@ async function executeMatchedRule(
       : "immediateActions",
   );
 
-  // handle action
+  if (isTest) {
+    return {
+      rule,
+      actionItems,
+      executedRule: null,
+      reason,
+      matchReasons,
+      createdAt: batchTimestamp,
+    };
+  }
 
-  let executedRule: Awaited<ReturnType<typeof saveExecutedRule>> | null = null;
-
-  if (!isTest) {
-    executedRule = await saveExecutedRule(
-      {
-        emailAccountId: emailAccount.id,
-        threadId: message.threadId,
-        messageId: message.id,
-      },
-      {
-        rule,
-        actionItems: immediateActions, // Only save immediate actions as ExecutedActions
-        reason,
-      },
-    );
-
-    if (rule.systemType === SystemType.COLD_EMAIL) {
-      await saveColdEmail({
-        email: {
-          id: message.id,
-          threadId: message.threadId,
-          from: message.headers.from,
+  const executedRule = await prisma.executedRule.create({
+    data: {
+      actionItems: {
+        createMany: {
+          data:
+            // Only save immediate actions as ExecutedActions
+            immediateActions?.map((item) => {
+              const {
+                delayInMinutes: _delayInMinutes,
+                ...executedActionFields
+              } = sanitizeActionFields(item);
+              return executedActionFields;
+            }) || [],
         },
-        emailAccount,
-        aiReason: reason ?? null,
-      });
-    }
+      },
+      messageId: message.id,
+      threadId: message.threadId,
+      automated: true,
+      status: ExecutedRuleStatus.APPLYING, // Changed from PENDING - rules are now always automated
+      reason,
+      rule: rule?.id ? { connect: { id: rule.id } } : undefined,
+      emailAccount: { connect: { id: emailAccount.id } },
+      createdAt: batchTimestamp, // Use batch timestamp for grouping
+    },
+    include: { actionItems: true },
+  });
 
-    if (isConversationStatusType(rule.systemType)) {
-      await updateThreadTrackers({
-        emailAccountId: emailAccount.id,
+  if (rule.systemType === SystemType.COLD_EMAIL) {
+    await saveColdEmail({
+      email: {
+        id: message.id,
         threadId: message.threadId,
+        from: message.headers.from,
+      },
+      emailAccount,
+      aiReason: reason ?? null,
+    });
+  }
+
+  if (isConversationStatusType(rule.systemType)) {
+    await updateThreadTrackers({
+      emailAccountId: emailAccount.id,
+      threadId: message.threadId,
+      messageId: message.id,
+      sentAt: internalDateToDate(message.internalDate),
+      status: rule.systemType,
+    });
+  }
+
+  if (executedRule) {
+    if (delayedActions?.length > 0) {
+      // Cancels existing scheduled actions to avoid duplicates
+      await cancelScheduledActions({
+        emailAccountId: emailAccount.id,
         messageId: message.id,
-        sentAt: internalDateToDate(message.internalDate),
-        status: rule.systemType,
+        threadId: message.threadId,
+        ruleId: rule.id,
+        reason: "Superseded by new rule execution",
+      });
+      await scheduleDelayedActions({
+        executedRuleId: executedRule.id,
+        actionItems: delayedActions,
+        messageId: message.id,
+        threadId: message.threadId,
+        emailAccountId: emailAccount.id,
       });
     }
 
-    if (executedRule) {
-      if (delayedActions?.length > 0) {
-        // Attempts to cancel any existing scheduled actions to avoid duplicates
-        await cancelScheduledActions({
-          emailAccountId: emailAccount.id,
-          messageId: message.id,
-          threadId: message.threadId,
-          reason: "Superseded by new rule execution",
-        });
-        await scheduleDelayedActions({
-          executedRuleId: executedRule.id,
-          actionItems: delayedActions,
-          messageId: message.id,
-          threadId: message.threadId,
-          emailAccountId: emailAccount.id,
-        });
-      }
-
-      // Execute immediate actions if any
-      if (immediateActions?.length > 0) {
-        await executeAct({
-          client,
-          userEmail: emailAccount.email,
-          userId: emailAccount.userId,
-          emailAccountId: emailAccount.id,
-          executedRule,
-          message,
-        });
-      } else if (!delayedActions?.length) {
-        // No actions at all (neither immediate nor delayed), mark as applied
-        await prisma.executedRule.update({
-          where: { id: executedRule.id },
-          data: { status: ExecutedRuleStatus.APPLIED },
-        });
-      }
+    // Execute immediate actions if any
+    if (immediateActions?.length > 0) {
+      await executeAct({
+        client,
+        userEmail: emailAccount.email,
+        userId: emailAccount.userId,
+        emailAccountId: emailAccount.id,
+        executedRule,
+        message,
+      });
+    } else if (!delayedActions?.length) {
+      // No actions at all (neither immediate nor delayed), mark as applied
+      await prisma.executedRule.update({
+        where: { id: executedRule.id },
+        data: { status: ExecutedRuleStatus.APPLIED },
+      });
     }
   }
 
   // Note: If there are ONLY delayed actions (no immediate), status stays APPLYING
   // and will be updated to APPLIED by checkAndCompleteExecutedRule() when scheduled actions finish
-
   return {
     rule,
     actionItems,
     executedRule,
     reason,
     matchReasons,
+    createdAt: batchTimestamp,
   };
-}
-
-async function saveSkippedExecutedRule({
-  emailAccountId,
-  threadId,
-  messageId,
-  reason,
-}: {
-  emailAccountId: string;
-  threadId: string;
-  messageId: string;
-  reason?: string;
-}) {
-  const data: Prisma.ExecutedRuleCreateInput = {
-    threadId,
-    messageId,
-    automated: true,
-    reason,
-    status: ExecutedRuleStatus.SKIPPED,
-    emailAccount: { connect: { id: emailAccountId } },
-  };
-
-  await upsertExecutedRule({
-    emailAccountId,
-    threadId,
-    messageId,
-    data,
-  });
-}
-
-async function saveExecutedRule(
-  {
-    emailAccountId,
-    threadId,
-    messageId,
-  }: {
-    emailAccountId: string;
-    threadId: string;
-    messageId: string;
-  },
-  {
-    rule,
-    actionItems,
-    reason,
-  }: {
-    rule: RuleWithActionsAndCategories;
-    actionItems: ActionItem[];
-    reason?: string;
-  },
-) {
-  const data: Prisma.ExecutedRuleCreateInput = {
-    actionItems: {
-      createMany: {
-        data:
-          actionItems?.map((item) => {
-            const { delayInMinutes: _delayInMinutes, ...executedActionFields } =
-              sanitizeActionFields(item);
-            return executedActionFields;
-          }) || [],
-      },
-    },
-    messageId,
-    threadId,
-    automated: true,
-    status: ExecutedRuleStatus.APPLYING, // Changed from PENDING - rules are now always automated
-    reason,
-    rule: rule?.id ? { connect: { id: rule.id } } : undefined,
-    emailAccount: { connect: { id: emailAccountId } },
-  };
-
-  return await upsertExecutedRule({
-    emailAccountId,
-    threadId,
-    messageId,
-    data,
-  });
-}
-
-async function upsertExecutedRule({
-  emailAccountId,
-  threadId,
-  messageId,
-  data,
-}: {
-  emailAccountId: string;
-  threadId: string;
-  messageId: string;
-  data: Prisma.ExecutedRuleCreateInput;
-}) {
-  try {
-    return await prisma.executedRule.upsert({
-      where: {
-        unique_emailAccount_thread_message: {
-          emailAccountId,
-          threadId,
-          messageId,
-        },
-      },
-      create: data,
-      update: data.rule
-        ? data
-        : {
-            ...data,
-            rule: { disconnect: true },
-          },
-      include: { actionItems: true },
-    });
-  } catch (error) {
-    if (isDuplicateError(error)) {
-      // Unique constraint violation, ignore the error
-      // May be due to a race condition?
-      logger.info("Ignored duplicate entry for ExecutedRule", {
-        emailAccountId,
-        threadId,
-        messageId,
-      });
-      return await prisma.executedRule.findUnique({
-        where: {
-          unique_emailAccount_thread_message: {
-            emailAccountId,
-            threadId,
-            messageId,
-          },
-        },
-        include: { actionItems: true },
-      });
-    }
-    // Re-throw any other errors
-    throw error;
-  }
 }
 
 async function analyzeSenderPatternIfAiMatch({
@@ -445,18 +360,118 @@ function shouldAnalyzeSenderPattern({
 }) {
   if (isTest) return false;
   if (!result.rule) return false;
-  if (result.rule.systemType === SystemType.TO_REPLY) return false;
+  if (isConversationStatusType(result.rule.systemType)) return false;
 
   // skip if we already matched for static reasons
   // learnings only needed for rules that would run through an ai
   if (
     result.matchReasons?.some(
       (reason) =>
-        reason.type === "STATIC" ||
-        reason.type === "GROUP" ||
-        reason.type === "CATEGORY",
+        reason.type === ConditionType.STATIC ||
+        reason.type === ConditionType.LEARNED_PATTERN,
     )
-  )
+  ) {
     return false;
+  }
+
   return true;
+}
+
+/**
+ * Checks if a conversation status rule was previously applied to any email in this thread.
+ */
+async function checkPreviousConversationRuleInThread({
+  emailAccountId,
+  threadId,
+}: {
+  emailAccountId: string;
+  threadId: string;
+}): Promise<boolean> {
+  const previousConversationRule = await prisma.executedRule.findFirst({
+    where: {
+      emailAccountId,
+      threadId,
+      status: ExecutedRuleStatus.APPLIED,
+      rule: { systemType: { in: CONVERSATION_STATUS_TYPES } },
+    },
+    select: { id: true },
+  });
+
+  return !!previousConversationRule;
+}
+
+/**
+ * Ensures conversation tracking continues throughout a thread.
+ * If a conversation meta rule was previously applied to any email in this thread,
+ * we automatically add it to matches even if the AI didn't select it.
+ * This ensures conversation tracking continues consistently throughout the thread.
+ *
+ * Note: The meta rule is still passed to the AI (in regularRules), which may
+ * influence it to select the rule naturally, but we enforce it regardless.
+ *
+ * Returns a new array of matches (does not mutate the input).
+ *
+ * @internal Exported for testing
+ */
+export async function ensureConversationRuleContinuity({
+  emailAccountId,
+  threadId,
+  conversationRules,
+  regularRules,
+  matches,
+}: {
+  emailAccountId: string;
+  threadId: string;
+  conversationRules: RuleWithActions[];
+  regularRules: RuleWithActions[];
+  matches: { rule: RuleWithActions; matchReasons?: MatchReason[] }[];
+}): Promise<{ rule: RuleWithActions; matchReasons?: MatchReason[] }[]> {
+  if (conversationRules.length === 0) {
+    return matches;
+  }
+
+  const hadConversationRuleInThread =
+    await checkPreviousConversationRuleInThread({
+      emailAccountId,
+      threadId,
+    });
+
+  if (!hadConversationRuleInThread) {
+    return matches;
+  }
+
+  const hasConversationMetaRuleInMatches = matches.some((match) =>
+    isConversationRule(match.rule.id),
+  );
+
+  if (hasConversationMetaRuleInMatches) {
+    return matches;
+  }
+
+  logger.info(
+    "Automatically adding conversation meta rule due to previous application in thread",
+  );
+
+  // Find the meta rule in regularRules
+  const metaRule = regularRules.find((r) => isConversationRule(r.id));
+
+  if (!metaRule) {
+    return matches;
+  }
+
+  return [
+    ...matches,
+    {
+      rule: metaRule,
+      matchReasons: [
+        {
+          type: ConditionType.STATIC,
+        },
+      ],
+    },
+  ];
+}
+
+function isConversationRule(ruleId: string): boolean {
+  return ruleId === CONVERSATION_TRACKING_META_RULE_ID;
 }

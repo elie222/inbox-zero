@@ -1,9 +1,6 @@
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import type { ModelType } from "@/utils/llms/model";
-import type {
-  ParsedMessage,
-  RuleWithActionsAndCategories,
-} from "@/utils/types";
+import type { ParsedMessage, RuleWithActions } from "@/utils/types";
 import type { EmailProvider } from "@/utils/email/types";
 import { aiDetermineThreadStatus } from "@/utils/ai/reply/determine-thread-status";
 import { getEmailForLLM } from "@/utils/get-email-from-message";
@@ -26,13 +23,13 @@ export async function determineConversationStatus({
   provider,
   modelType,
 }: {
-  conversationRules: RuleWithActionsAndCategories[];
+  conversationRules: RuleWithActions[];
   message: ParsedMessage;
   emailAccount: EmailAccountWithAI;
   provider: EmailProvider;
   modelType: ModelType;
 }): Promise<{
-  specificRule: RuleWithActionsAndCategories | null;
+  specificRule: RuleWithActions | null;
   reason: string;
 }> {
   logger.info("Determining conversation status", {

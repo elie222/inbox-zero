@@ -8,7 +8,6 @@ import {
   MailOpenIcon,
   ShieldCheckIcon,
   WebhookIcon,
-  EyeIcon,
   FileTextIcon,
   FolderInputIcon,
 } from "lucide-react";

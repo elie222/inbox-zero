@@ -17,6 +17,7 @@ import type { ChatMessage } from "@/components/assistant-chat/types";
 import { useChatMessages } from "@/hooks/useChatMessages";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { EMAIL_ACCOUNT_HEADER } from "@/utils/config";
+import type { MessageContext } from "@/app/api/chat/validation";
 
 export type Chat = ReturnType<typeof useAiChat<ChatMessage>>;
 
@@ -28,6 +29,8 @@ type ChatContextType = {
   setChatId: (chatId: string | null) => void;
   setNewChat: () => void;
   handleSubmit: () => void;
+  context: MessageContext | null;
+  setContext: (context: MessageContext | null) => void;
 };
 
 const ChatContext = createContext<ChatContextType | undefined>(undefined);
@@ -38,6 +41,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
 
   const [input, setInput] = useState<string>("");
   const [chatId, setChatId] = useQueryState("chatId", parseAsString);
+  const [context, setContext] = useState<MessageContext | null>(null);
 
   const { data } = useChatMessages(chatId);
 
@@ -57,13 +61,13 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
           body: {
             id,
             message: messages.at(-1),
+            context: context ?? undefined,
             ...body,
           },
         };
       },
     }),
-    // TODO: couldn't get this to work
-    // messages: initialMessages,
+    // messages: initialMessages, // NOTE: couldn't get this to work
     experimental_throttle: 100,
     generateId: generateUUID,
     onFinish: () => {
@@ -88,7 +92,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
       parts: [
         {
           type: "text",
-          text: input,
+          text: input.trim(),
         },
       ],
     });
@@ -106,6 +110,8 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
         setChatId,
         setNewChat,
         handleSubmit,
+        context,
+        setContext,
       }}
     >
       {children}
