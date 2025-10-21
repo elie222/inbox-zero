@@ -1,7 +1,7 @@
 import type { ParsedMessage } from "@/utils/types";
 import { z } from "zod";
 
-const emailSchema = z.email();
+const emailSchema = z.string().email();
 
 // Converts "John Doe <john.doe@gmail>" to "John Doe"
 // Converts "<john.doe@gmail>" to "john.doe@gmail"

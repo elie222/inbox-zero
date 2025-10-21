@@ -2,7 +2,7 @@ import { z } from "zod";
 import { PremiumTier } from "@prisma/client";
 
 export const changePremiumStatusSchema = z.object({
-  email: z.email(),
+  email: z.string().email(),
   lemonSqueezyCustomerId: z.coerce.number().optional(),
   emailAccountsAccess: z.coerce.number().optional(),
   period: z.nativeEnum(PremiumTier),
@@ -14,7 +14,7 @@ export type ChangePremiumStatusOptions = z.infer<
 >;
 
 export const adminProcessHistorySchema = z.object({
-  email: z.email(),
+  email: z.string().email(),
   historyId: z.number().optional(),
   startHistoryId: z.number().optional(),
 });

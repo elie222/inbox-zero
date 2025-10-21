@@ -31,7 +31,7 @@ const digestScheduleFormSchema = z.object({
   dayOfWeek: z.string().min(1, "Please select a day"),
   hour: z.string().min(1, "Please select an hour"),
   minute: z.string().min(1, "Please select minutes"),
-  ampm: z.enum(["AM", "PM"], { error: "Please select AM or PM" }),
+  ampm: z.enum(["AM", "PM"], { required_error: "Please select AM or PM" }),
 });
 
 type DigestScheduleFormValues = z.infer<typeof digestScheduleFormSchema>;

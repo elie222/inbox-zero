@@ -141,7 +141,7 @@ export const ComposeEmailForm = ({
     // this assumes last value given by combobox is user typed value
     const lastValue = values[values.length - 1];
 
-    const { success } = z.email().safeParse(lastValue);
+    const { success } = z.string().email().safeParse(lastValue);
     if (success) {
       setValue("to", values.join(","));
       setSearchQuery("");
