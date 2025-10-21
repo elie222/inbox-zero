@@ -49,7 +49,10 @@ async function getExecutedRules({
 
   const where: Prisma.ExecutedRuleWhereInput = {
     emailAccountId,
-    status: ExecutedRuleStatus.APPLIED,
+    status:
+      ruleId === "skipped"
+        ? ExecutedRuleStatus.SKIPPED
+        : ExecutedRuleStatus.APPLIED,
     rule: ruleId === "skipped" ? undefined : { isNot: null },
     ruleId: ruleId === "all" || ruleId === "skipped" ? undefined : ruleId,
   };
