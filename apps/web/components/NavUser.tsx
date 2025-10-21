@@ -9,7 +9,6 @@ import {
   RibbonIcon,
   LogOutIcon,
   PaletteIcon,
-  SettingsIcon,
   ChromeIcon,
   Building2Icon,
 } from "lucide-react";
