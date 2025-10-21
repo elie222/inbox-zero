@@ -6,7 +6,7 @@
     "dev": "cross-env NODE_OPTIONS=--max_old_space_size=16384 next dev --turbopack",
     "build": "cross-env NODE_OPTIONS=--max_old_space_size=16384 prisma migrate deploy && next build",
     "start": "next start",
-    "lint": "next lint",
+    "lint": "biome check .",
     "test": "cross-env RUN_AI_TESTS=false vitest",
     "test-ai": "cross-env RUN_AI_TESTS=true vitest --run",
     "test-e2e": "cross-env RUN_E2E_TESTS=true vitest --run",
