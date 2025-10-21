@@ -121,6 +121,8 @@ jobs:
           push: true
           cache-from: type=gha
           cache-to: type=gha, mode=max
+          build-args: |
+            NEXT_PUBLIC_BASE_URL=http://bDn05eu06Wxq:80
           tags: |
             ghcr.io/${{ env.DOCKER_USERNAME }}/inbox-zero:latest
             ghcr.io/${{ env.DOCKER_USERNAME }}/inbox-zero:${{ needs.fetch-version.outputs.version }}

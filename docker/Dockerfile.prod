@@ -74,3 +74,7 @@ EXPOSE 3000
 # Set the default command to start the production server
 # Use the simpler pnpm command, should work now as pnpm & next are installed
 CMD pnpm --filter inbox-zero-ai start 
+
+# Perform runtime substitution of the NEXT_PUBLIC_BASE_URL env var default value
+COPY docker/entrypoint.sh /entrypoint.sh
+ENTRYPOINT ["/entrypoint.sh"]
