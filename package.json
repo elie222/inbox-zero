@@ -36,7 +36,7 @@
       "@types/react-dom": "19.0.4"
     },
     "patchedDependencies": {
-      "better-auth@1.3.28": "patches/better-auth@1.3.28.patch"
+      "better-auth@1.3.7": "patches/better-auth@1.3.7.patch"
     }
   }
 }
