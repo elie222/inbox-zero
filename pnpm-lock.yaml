@@ -7,9 +7,11 @@ settings:
 overrides:
   '@types/react': 19.0.10
   '@types/react-dom': 19.0.4
-  '@chronark/zod-bird>zod': 4.1.12
 
 patchedDependencies:
+  '@chronark/zod-bird@0.3.10':
+    hash: 68148a9e518c7dd4d0c7b2caff71c8c0df03345f9553c7707f0089bd0116e3f0
+    path: patches/@chronark+zod-bird@0.3.10.patch
   better-auth@1.3.28:
     hash: 873d9e4b9fb6fef04a396ad1b43fe46ec1e6b6049b9a5efa040fd035de5e6582
     path: patches/better-auth@1.3.28.patch
@@ -718,7 +720,7 @@ importers:
     dependencies:
       '@chronark/zod-bird':
         specifier: 0.3.10
-        version: 0.3.10
+        version: 0.3.10(patch_hash=68148a9e518c7dd4d0c7b2caff71c8c0df03345f9553c7707f0089bd0116e3f0)
       p-retry:
         specifier: ^7.1.0
         version: 7.1.0
@@ -740,7 +742,7 @@ importers:
     dependencies:
       '@chronark/zod-bird':
         specifier: 0.3.10
-        version: 0.3.10
+        version: 0.3.10(patch_hash=68148a9e518c7dd4d0c7b2caff71c8c0df03345f9553c7707f0089bd0116e3f0)
       zod:
         specifier: 4.1.12
         version: 4.1.12
@@ -13687,9 +13689,9 @@ snapshots:
 
   '@chevrotain/utils@11.0.3': {}
 
-  '@chronark/zod-bird@0.3.10':
+  '@chronark/zod-bird@0.3.10(patch_hash=68148a9e518c7dd4d0c7b2caff71c8c0df03345f9553c7707f0089bd0116e3f0)':
     dependencies:
-      zod: 4.1.12
+      zod: 3.25.76
 
   '@clack/core@0.5.0':
     dependencies:
