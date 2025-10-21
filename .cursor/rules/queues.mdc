@@ -1,0 +1,283 @@
+# Queue System
+
+Unified queue system supporting both QStash and Redis (BullMQ) with automatic system selection based on `QUEUE_SYSTEM` environment variable.
+
+## Quick Start
+
+### 1. Job Enqueueing
+
+```typescript
+import { enqueueJob } from "@/utils/queue/queue-manager";
+
+// Basic job
+const job = await enqueueJob("my-queue", {
+  message: "Hello from the queue system!",
+  userId: "user-123",
+});
+
+// Delayed job (5 seconds)
+const delayedJob = await enqueueJob("my-queue", {
+  message: "This job was delayed by 5 seconds",
+}, {
+  delay: 5000,
+});
+
+console.log("Jobs enqueued:", job.id || job, delayedJob.id || delayedJob);
+```
+
+### 2. Bulk Job Enqueueing
+
+```typescript
+import { bulkEnqueueJobs } from "@/utils/queue/queue-manager";
+
+const jobs = await bulkEnqueueJobs("my-queue", {
+  jobs: [
+    { data: { message: "Bulk job 1" } },
+    { data: { message: "Bulk job 2" } },
+    { data: { message: "Bulk job 3" } },
+  ],
+});
+
+console.log("Bulk jobs enqueued:", jobs.length);
+```
+
+### 3. Worker Setup (Redis only)
+
+```typescript
+import { registerWorker } from "@/utils/queue/worker";
+
+// Register a worker for processing jobs
+const worker = registerWorker("my-queue", async (job) => {
+  console.log("Processing job:", job.id, job.data);
+  
+  // Your processing logic here
+  await processJob(job.data);
+  
+  console.log("Job completed:", job.id);
+}, {
+  concurrency: 3, // Default concurrency is 3
+});
+
+// Graceful shutdown
+process.on("SIGINT", async () => {
+  await shutdownAllWorkers();
+  process.exit(0);
+});
+```
+
+## Configuration
+
+### Environment Variables
+
+```bash
+# Choose queue system
+QUEUE_SYSTEM=redis    # Use Redis + BullMQ
+QUEUE_SYSTEM=upstash  # Use QStash (default)
+
+# For Redis system
+REDIS_URL=redis://localhost:6379
+
+# For QStash system
+QSTASH_TOKEN=your_qstash_token
+```
+
+### System Information
+
+```typescript
+import { getQueueSystemInfo } from "@/utils/queue/queue-manager";
+
+const info = getQueueSystemInfo();
+console.log("Queue system:", info.system);
+console.log("Is Redis:", info.isRedis);
+console.log("Is QStash:", info.isQStash);
+```
+
+### Retry Configuration
+
+- **QStash**: Automatically retries up to **10 times** (handled by QStash service)
+- **BullMQ (Redis)**: Retries up to **5 times** (configured in BullMQ manager)
+- **Parallelism**: Default concurrency of **3** for both systems
+
+## Migration Examples
+
+### From Direct QStash Usage
+
+**Old way (direct QStash):**
+```typescript
+import { publishToQstashQueue } from "@/utils/upstash";
+
+await publishToQstashQueue({
+  queueName: "digest-item-summarize",
+  parallelism: 3,
+  url: "/api/ai/digest",
+  body: { emailAccountId: "user-123", message: {...} },
+});
+```
+
+**New way (unified queue system):**
+```typescript
+import { enqueueJob } from "@/utils/queue/queue-manager";
+
+await enqueueJob("digest-item-summarize", {
+  emailAccountId: "user-123",
+  message: {...},
+});
+// Retry and parallelism handled automatically by system defaults
+```
+
+## Error Handling
+
+```typescript
+try {
+  const job = await enqueueJob("my-queue", data, {
+    delay: 5000,
+    priority: 1,
+  });
+} catch (error) {
+  console.error("Failed to enqueue job:", error);
+}
+```
+
+### Worker Error Handling
+
+```typescript
+import { registerWorker } from "@/utils/queue/worker";
+
+registerWorker("my-queue", async (job) => {
+  try {
+    await processJob(job.data);
+  } catch (error) {
+    console.error("Job failed:", job.id, error);
+    throw error; // Will trigger retry logic
+  }
+});
+```
+
+## Monitoring
+
+### Queue Health Check
+
+```typescript
+import { getQueueSystemInfo } from "@/utils/queue/queue-manager";
+
+function checkQueueHealth() {
+  const info = getQueueSystemInfo();
+  
+  if (info.isRedis) {
+    console.log("Using Redis + BullMQ - Full feature set available");
+    // Set up BullMQ monitoring here
+  } else {
+    console.log("Using QStash - HTTP-based processing");
+    // Use QStash dashboard for monitoring
+  }
+}
+```
+
+### Worker Monitoring
+
+```typescript
+import { getAllWorkers } from "@/utils/queue/worker";
+
+const workers = getAllWorkers();
+console.log("Active workers:", workers.size);
+
+for (const [queueName, worker] of workers) {
+  console.log(`Worker for ${queueName}:`, {
+    isRunning: worker.isRunning(),
+    concurrency: worker.opts.concurrency,
+  });
+}
+```
+
+## Complete Example
+
+Here's a complete example showing how to set up and use the queue system:
+
+```typescript
+import { 
+  enqueueJob, 
+  bulkEnqueueJobs, 
+  getQueueSystemInfo,
+  closeQueueManager 
+} from "@/utils/queue/queue-manager";
+import { registerWorker, shutdownAllWorkers } from "@/utils/queue/worker";
+
+async function main() {
+  // Check system info
+  const systemInfo = getQueueSystemInfo();
+  console.log("Queue system:", systemInfo.system);
+
+  // Set up worker (Redis only)
+  if (systemInfo.isRedis) {
+    registerWorker("demo-queue", async (job) => {
+      console.log("Processing:", job.data);
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      console.log("Completed:", job.id);
+    });
+  }
+
+  // Enqueue some jobs
+  await enqueueJob("demo-queue", { message: "Hello!" });
+  await bulkEnqueueJobs("demo-queue", {
+    jobs: [
+      { data: { message: "Bulk 1" } },
+      { data: { message: "Bulk 2" } },
+    ],
+  });
+
+  // Wait for processing
+  await new Promise(resolve => setTimeout(resolve, 5000));
+
+  // Cleanup
+  await shutdownAllWorkers();
+  await closeQueueManager();
+}
+
+main().catch(console.error);
+```
+
+## Best Practices
+
+1. **Choose the right system**: Use Redis for self-hosted deployments, QStash for managed cloud deployments (default)
+2. **Use system defaults**: Retry and parallelism are configured automatically - don't override unless necessary
+3. **Handle errors gracefully**: Always implement proper error handling in job processors
+4. **Monitor queue health**: Set up monitoring for queue depth, processing rates, and error rates
+5. **Use job IDs for deduplication**: Prevent duplicate jobs by using meaningful job IDs
+6. **Clean up completed jobs**: Default cleanup policies are set appropriately
+
+## Troubleshooting
+
+### Common Issues
+
+- **Workers not processing jobs**: Ensure you're using Redis queue system and workers are properly registered
+- **Connection errors**: Check your Redis/QStash credentials and network connectivity
+- **Jobs stuck in queue**: Check worker logs for errors and ensure workers are running
+- **Memory issues**: Adjust concurrency settings and job cleanup policies
+
+
+## API Reference
+
+### Core Functions
+
+- `enqueueJob(queueName, data, options?)`: Enqueue a single job
+- `bulkEnqueueJobs(queueName, options)`: Enqueue multiple jobs
+- `createQueueWorker(queueName, processor, options?)`: Create a worker (Redis only)
+- `getQueueManager()`: Get the queue manager instance
+- `getQueueSystemInfo()`: Get current system information
+
+### Worker Functions
+
+- `registerWorker(queueName, processor, config?)`: Register a worker
+- `unregisterWorker(queueName)`: Unregister a worker
+- `shutdownAllWorkers()`: Shutdown all workers gracefully
+
+## File Structure
+
+```
+apps/web/utils/queue/
+├── queue-manager.ts      # Main queue abstraction
+├── bullmq-manager.ts     # BullMQ implementation
+├── qstash-manager.ts     # QStash implementation
+├── types.ts              # Type definitions
+└── worker.ts             # Worker management
+```

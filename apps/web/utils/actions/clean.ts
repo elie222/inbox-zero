@@ -6,7 +6,7 @@ import {
   undoCleanInboxSchema,
   changeKeepToDoneSchema,
 } from "@/utils/actions/clean.validation";
-import { bulkPublishToQstash } from "@/utils/upstash";
+import { bulkEnqueueJobs } from "@/utils/queue/queue-manager";
 import { env } from "@/env";
 import {
   getLabel,
@@ -138,19 +138,17 @@ export const cleanInboxAction = actionClient
 
           if (threads.length === 0) break;
 
-          const url = `${env.WEBHOOK_URL || env.NEXT_PUBLIC_BASE_URL}/api/clean`;
-
-          logger.info("Pushing to Qstash", {
+          logger.info("Pushing to queue system", {
             threadCount: threads.length,
             nextPageToken,
+            queueSystem: env.QUEUE_SYSTEM,
           });
 
-          const items = threads
+          const jobs = threads
             .map((thread) => {
               if (!thread.id) return;
               return {
-                url,
-                body: {
+                data: {
                   emailAccountId,
                   threadId: thread.id,
                   markedDoneLabelId,
@@ -160,20 +158,18 @@ export const cleanInboxAction = actionClient
                   instructions,
                   skips,
                 } satisfies CleanThreadBody,
-                // give every user their own queue for ai processing. if we get too many parallel users we may need more
-                // api keys or a global queue
-                // problem with a global queue is that if there's a backlog users will have to wait for others to finish first
-                flowControl: {
-                  key: `ai-clean-${emailAccountId}`,
-                  parallelism: 3,
+                opts: {
+                  // Add any job-specific options here
                 },
               };
             })
             .filter(isDefined);
 
-          await bulkPublishToQstash({ items });
+          await bulkEnqueueJobs("ai-clean", {
+            jobs,
+          });
 
-          totalEmailsProcessed += items.length;
+          totalEmailsProcessed += jobs.length;
         } while (
           nextPageToken &&
           !isMaxEmailsReached(totalEmailsProcessed, maxEmails)

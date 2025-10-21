@@ -2,7 +2,7 @@ import { verifySignatureAppRouter } from "@upstash/qstash/nextjs";
 import { z } from "zod";
 import { NextResponse } from "next/server";
 import { withError } from "@/utils/middleware";
-import { publishToQstash } from "@/utils/upstash";
+import { enqueueJob } from "@/utils/queue/queue-manager";
 import { getThreadMessages } from "@/utils/gmail/thread";
 import { getGmailClientWithRefresh } from "@/utils/gmail/client";
 import type { CleanGmailBody } from "@/app/api/clean/gmail/route";
@@ -271,10 +271,7 @@ function getPublish({
     });
 
     await Promise.all([
-      publishToQstash("/api/clean/gmail", cleanGmailBody, {
-        key: `gmail-action-${emailAccountId}`,
-        ratePerSecond: maxRatePerSecond,
-      }),
+      enqueueJob("clean-gmail", cleanGmailBody),
       updateThread({
         emailAccountId,
         jobId,

@@ -60,11 +60,9 @@ export const env = createEnv({
 
     UPSTASH_REDIS_URL: z.string().optional(),
     UPSTASH_REDIS_TOKEN: z.string().optional(),
-    REDIS_URL: z.string().optional(), // used for subscriptions
-
+    REDIS_URL: z.string().optional(),
+    QUEUE_SYSTEM: z.enum(["redis", "upstash"]).default("upstash"),
     QSTASH_TOKEN: z.string().optional(),
-    QSTASH_CURRENT_SIGNING_KEY: z.string().optional(),
-    QSTASH_NEXT_SIGNING_KEY: z.string().optional(),
 
     GOOGLE_PUBSUB_TOPIC_NAME: z.string().min(1),
     GOOGLE_PUBSUB_VERIFICATION_TOKEN: z.string().optional(),
@@ -240,3 +238,12 @@ export const env = createEnv({
       process.env.NEXT_PUBLIC_DISABLE_REFERRAL_SIGNATURE,
   },
 });
+
+// Validate queue system configuration once at bootstrap
+if (env.QUEUE_SYSTEM === "redis" && !env.REDIS_URL) {
+  throw new Error("REDIS_URL is required when QUEUE_SYSTEM is set to 'redis'");
+}
+
+if (env.QUEUE_SYSTEM === "upstash" && !env.QSTASH_TOKEN) {
+  console.warn("QSTASH_TOKEN is not set - QStash functionality may be limited");
+}

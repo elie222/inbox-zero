@@ -4,9 +4,9 @@ import type { ActionItem } from "@/utils/ai/types";
 import { createScopedLogger } from "@/utils/logger";
 import { canActionBeDelayed } from "@/utils/delayed-actions";
 import { env } from "@/env";
-import { getCronSecretHeader } from "@/utils/cron";
+import { addMinutes } from "date-fns";
 import { Client } from "@upstash/qstash";
-import { addMinutes, getUnixTime } from "date-fns";
+import { enqueueJob } from "@/utils/queue/queue-manager";
 
 const logger = createScopedLogger("qstash-scheduled-actions");
 
@@ -255,57 +255,29 @@ async function scheduleMessage({
   delayInMinutes: number;
   deduplicationId: string;
 }) {
-  const client = getQstashClient();
-  const url = `${env.WEBHOOK_URL || env.NEXT_PUBLIC_BASE_URL}/api/scheduled-actions/execute`;
-
-  const notBefore = getUnixTime(addMinutes(new Date(), delayInMinutes));
-
   try {
-    if (client) {
-      const response = await client.publishJSON({
-        url,
-        body: payload,
-        notBefore, // Absolute delay using unix timestamp
-        deduplicationId,
-        contentBasedDeduplication: false,
-        headers: getCronSecretHeader(),
-      });
+    // Use the unified queue system instead of direct QStash
+    const delayInMs = delayInMinutes * 60 * 1000; // Convert minutes to milliseconds
 
-      // The messageId here has a different meaning because it is
-      // the QStash identifier and not the usual messageId of the email
-      const messageId =
-        "messageId" in response ? response.messageId : undefined;
+    const job = await enqueueJob("scheduled-actions", payload, {
+      delay: delayInMs,
+      jobId: deduplicationId,
+      attempts: 3,
+    });
 
-      logger.info("Successfully scheduled with QStash", {
-        scheduledActionId: payload.scheduledActionId,
-        scheduledId: messageId,
-        notBefore,
-        delayInMinutes,
-        deduplicationId,
-      });
+    const messageId = typeof job === "string" ? job : job.id;
 
-      return messageId;
-    } else {
-      logger.error(
-        "QStash client not available, scheduled action cannot be executed",
-        {
-          scheduledActionId: payload.scheduledActionId,
-        },
-      );
+    logger.info("Successfully scheduled with queue system", {
+      scheduledActionId: payload.scheduledActionId,
+      scheduledId: messageId,
+      delayInMinutes,
+      deduplicationId,
+      queueSystem: env.QUEUE_SYSTEM,
+    });
 
-      await prisma.scheduledAction.update({
-        where: { id: payload.scheduledActionId },
-        data: {
-          schedulingStatus: "FAILED" as const,
-        },
-      });
-
-      throw new Error(
-        "QStash client not available - scheduled action cannot be executed",
-      );
-    }
+    return messageId;
   } catch (error) {
-    logger.error("Failed to schedule with QStash", {
+    logger.error("Failed to schedule with queue system", {
       error,
       scheduledActionId: payload.scheduledActionId,
       deduplicationId,
@@ -327,13 +299,22 @@ async function cancelMessage(
   messageId: string,
 ) {
   try {
-    await client.http.request({
-      path: ["v2", "messages", messageId],
-      method: "DELETE",
-    });
-    logger.info("Successfully cancelled QStash message", { messageId });
+    // For QStash, we can still cancel directly
+    if (env.QUEUE_SYSTEM === "upstash") {
+      await client.http.request({
+        path: ["v2", "messages", messageId],
+        method: "DELETE",
+      });
+      logger.info("Successfully cancelled QStash message", { messageId });
+    } else {
+      // For Redis/BullMQ, we would need to implement job cancellation
+      // For now, just log that cancellation is not supported
+      logger.warn("Job cancellation not implemented for Redis queue system", {
+        messageId,
+      });
+    }
   } catch (error) {
-    logger.error("Failed to cancel QStash message", { messageId, error });
+    logger.error("Failed to cancel message", { messageId, error });
     throw error;
   }
 }
