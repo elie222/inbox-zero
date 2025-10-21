@@ -30,6 +30,7 @@
     "@googleapis/calendar": "^11.0.1",
     "@googleapis/gmail": "14.0.1",
     "@googleapis/people": "5.0.1",
+    "gaxios": "7.1.1",
     "@headlessui/react": "2.2.7",
     "@hookform/resolvers": "5.2.1",
     "@inboxzero/loops": "workspace:*",

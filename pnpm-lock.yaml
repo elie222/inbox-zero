@@ -375,6 +375,9 @@ importers:
       fast-xml-parser:
         specifier: 5.2.5
         version: 5.2.5
+      gaxios:
+        specifier: 7.1.1
+        version: 7.1.1
       gmail-api-parse-message:
         specifier: 2.1.2
         version: 2.1.2
