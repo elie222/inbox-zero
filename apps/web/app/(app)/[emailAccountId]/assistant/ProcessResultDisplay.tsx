@@ -61,7 +61,8 @@ export function ProcessResultDisplay({
   const sortedBatches = sortBy(
     Object.entries(groupedResults),
     ([, batchResults]) => {
-      return -batchResults[0]?.createdAt.getTime(); // Negative for descending order
+      const createdAt = batchResults[0]?.createdAt;
+      return createdAt ? -new Date(createdAt) : 0; // Negative for descending order
     },
   );
 
