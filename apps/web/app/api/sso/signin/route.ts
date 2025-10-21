@@ -7,7 +7,7 @@ import { withError } from "@/utils/middleware";
 import prisma from "@/utils/prisma";
 
 const getSsoSignInSchema = z.object({
-  email: z.string().email(),
+  email: z.email(),
   organizationSlug: z.string(),
 });
 export type GetSsoSignInParams = z.infer<typeof getSsoSignInSchema>;
