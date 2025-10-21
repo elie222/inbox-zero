@@ -432,5 +432,36 @@ describe.runIf(isAiTest)("aiChooseRule", () => {
       expect(primaryRule?.rule).toEqual(events);
       expect(result.reason).toBeTruthy();
     });
+
+    test("Should return no match when email doesn't fit any rule", async () => {
+      // Use a subset of rules WITHOUT the catch-all rule to test true no-match scenario
+      const rulesWithoutCatchAll = [
+        recruiters,
+        legal,
+        productUpdates,
+        financial,
+        technicalIssues,
+        marketing,
+        teamUpdates,
+        customerFeedback,
+        events,
+        projectDeadlines,
+      ];
+
+      const result = await aiChooseRule({
+        rules: rulesWithoutCatchAll,
+        email: getEmail({
+          subject: "Weather Update: Sunny skies ahead",
+          content:
+            "Today's forecast: Clear skies with temperatures reaching 75°F. Perfect day for outdoor activities!\n\nUV Index: Moderate\nWind: 5-10 mph",
+        }),
+        emailAccount: getEmailAccount(),
+      });
+
+      // This is a weather notification that doesn't match any of our business rules
+      // Should return empty array with no reason
+      expect(result.rules).toEqual([]);
+      expect(result.reason).toBe("");
+    });
   });
 });

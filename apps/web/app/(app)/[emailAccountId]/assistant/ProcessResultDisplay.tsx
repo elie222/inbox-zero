@@ -58,9 +58,12 @@ export function ProcessResultDisplay({
     return result.createdAt.toString();
   });
 
-  const sortedBatches = sortBy(Object.entries(groupedResults), ([date]) => {
-    return -new Date(date).getTime(); // Negative for descending order
-  });
+  const sortedBatches = sortBy(
+    Object.entries(groupedResults),
+    ([, batchResults]) => {
+      return -batchResults[0]?.createdAt.getTime(); // Negative for descending order
+    },
+  );
 
   return (
     <div className="flex flex-col gap-2">
