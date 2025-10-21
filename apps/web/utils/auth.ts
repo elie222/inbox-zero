@@ -81,6 +81,7 @@ export const betterAuthConfig = betterAuth({
       accountId: "providerAccountId",
       providerId: "provider",
       refreshToken: "refresh_token",
+      refreshTokenExpiresAt: "refreshTokenExpiresAt",
       accessToken: "access_token",
       accessTokenExpiresAt: "expires_at",
       idToken: "id_token",

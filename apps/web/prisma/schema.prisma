@@ -10,22 +10,23 @@ generator client {
 
 // Account, User, Session, and VerificationToken based on: https://authjs.dev/reference/adapter/prisma
 model Account {
-  id                String        @id @default(cuid())
-  createdAt         DateTime      @default(now())
-  updatedAt         DateTime      @updatedAt
-  userId            String
-  provider          String
-  type              String        @default("oidc") // next-auth deprecated field
-  providerAccountId String
-  refresh_token     String?       @db.Text
-  access_token      String?       @db.Text
-  expires_at        DateTime?     @default(now())
-  token_type        String?
-  scope             String?
-  id_token          String?       @db.Text
-  session_state     String?
-  user              User          @relation(fields: [userId], references: [id], onDelete: Cascade)
-  emailAccount      EmailAccount?
+  id                    String        @id @default(cuid())
+  createdAt             DateTime      @default(now())
+  updatedAt             DateTime      @updatedAt
+  userId                String
+  provider              String
+  type                  String        @default("oidc") // next-auth deprecated field
+  providerAccountId     String
+  refresh_token         String?       @db.Text
+  refreshTokenExpiresAt DateTime?
+  access_token          String?       @db.Text
+  expires_at            DateTime?     @default(now())
+  token_type            String?
+  scope                 String?
+  id_token              String?       @db.Text
+  session_state         String?
+  user                  User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  emailAccount          EmailAccount?
 
   @@unique([provider, providerAccountId])
 }
@@ -402,7 +403,7 @@ model Rule {
   // category condition
   // only apply to (or do not apply to) senders in these categories
   categoryFilterType CategoryFilterType? // deprecated
-  categoryFilters Category[] // deprecated
+  categoryFilters    Category[] // deprecated
 
   systemType SystemType?
 
