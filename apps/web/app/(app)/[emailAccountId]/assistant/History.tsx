@@ -3,7 +3,7 @@
 import useSWR from "swr";
 import { useQueryState, parseAsInteger, parseAsString } from "nuqs";
 import { LoadingContent } from "@/components/LoadingContent";
-import type { PlanHistoryResponse } from "@/app/api/user/planned/history/route";
+import type { GetExecutedRulesResponse } from "@/app/api/user/planned/history/route";
 import { AlertBasic } from "@/components/Alert";
 import { Card } from "@/components/ui/card";
 import {
@@ -23,14 +23,13 @@ import { Badge } from "@/components/Badge";
 import { RulesSelect } from "@/app/(app)/[emailAccountId]/assistant/RulesSelect";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { useChat } from "@/providers/ChatProvider";
+import { useExecutedRules } from "@/hooks/useExecutedRules";
 
 export function History() {
   const [page] = useQueryState("page", parseAsInteger.withDefault(1));
   const [ruleId] = useQueryState("ruleId", parseAsString.withDefault("all"));
 
-  const { data, isLoading, error } = useSWR<PlanHistoryResponse>(
-    `/api/user/planned/history?page=${page}&ruleId=${ruleId}`,
-  );
+  const { data, isLoading, error } = useExecutedRules({ page, ruleId });
 
   return (
     <>
@@ -62,7 +61,7 @@ function HistoryTable({
   data,
   totalPages,
 }: {
-  data: PlanHistoryResponse["executedRules"];
+  data: GetExecutedRulesResponse["executedRules"];
   totalPages: number;
 }) {
   const { userEmail } = useAccount();
@@ -78,19 +77,19 @@ function HistoryTable({
           </TableRow>
         </TableHeader>
         <TableBody>
-          {data.map((p) => (
-            <TableRow key={p.id}>
+          {data.map((er) => (
+            <TableRow key={er.id}>
               <TableCell>
                 <EmailCell
-                  from={p.message.headers.from}
-                  subject={p.message.headers.subject}
-                  snippet={p.message.snippet}
-                  threadId={p.message.threadId}
-                  messageId={p.message.id}
+                  from={er.message.headers.from}
+                  subject={er.message.headers.subject}
+                  snippet={er.message.snippet}
+                  threadId={er.message.threadId}
+                  messageId={er.message.id}
                   userEmail={userEmail}
-                  createdAt={p.createdAt}
+                  createdAt={er.createdAt}
                 />
-                {!p.automated && (
+                {!er.automated && (
                   <Badge color="yellow" className="mt-2">
                     Applied manually
                   </Badge>
@@ -98,10 +97,11 @@ function HistoryTable({
               </TableCell>
               <TableCell>
                 <RuleCell
-                  rule={p.rule}
-                  status={p.status}
-                  reason={p.reason}
-                  message={p.message}
+                  rule={er.rule}
+                  executedAt={er.createdAt}
+                  status={er.status}
+                  reason={er.reason}
+                  message={er.message}
                   setInput={setInput}
                 />
                 {/* <ActionItemsCell actionItems={p.actionItems} /> */}

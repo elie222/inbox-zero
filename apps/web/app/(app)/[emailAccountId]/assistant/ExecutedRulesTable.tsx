@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { ExternalLinkIcon, EyeIcon } from "lucide-react";
-import type { PlanHistoryResponse } from "@/app/api/user/planned/history/route";
+import type { GetExecutedRulesResponse } from "@/app/api/user/planned/history/route";
 import { decodeSnippet } from "@/utils/gmail/decode";
 import { ActionBadgeExpanded } from "@/components/PlanBadge";
 import { Tooltip } from "@/components/Tooltip";
@@ -18,6 +18,7 @@ import { FixWithChat } from "@/app/(app)/[emailAccountId]/assistant/FixWithChat"
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { isGoogleProvider } from "@/utils/email/provider-types";
 import { useRuleDialog } from "@/app/(app)/[emailAccountId]/assistant/RuleDialog";
+import { RunRulesResult } from "@/utils/ai/choose-rule/run-rules";
 
 export function EmailCell({
   from,
@@ -63,12 +64,14 @@ export function EmailCell({
 
 export function RuleCell({
   rule,
+  executedAt,
   status,
   reason,
   message,
   setInput,
 }: {
-  rule: PlanHistoryResponse["executedRules"][number]["rule"];
+  rule: GetExecutedRulesResponse["executedRules"][number]["rule"];
+  executedAt: Date;
   status: ExecutedRuleStatus;
   reason?: string | null;
   message: ParsedMessage;
@@ -136,7 +139,7 @@ export function RuleCell({
       <FixWithChat
         setInput={setInput}
         message={message}
-        results={[{ rule, reason }]}
+        results={[{ rule, reason, createdAt: executedAt }]}
       />
       <RuleDialogComponent />
     </div>
@@ -147,7 +150,7 @@ export function ActionItemsCell({
   actionItems,
   provider,
 }: {
-  actionItems: PlanHistoryResponse["executedRules"][number]["actionItems"];
+  actionItems: GetExecutedRulesResponse["executedRules"][number]["actionItems"];
   provider: string;
 }) {
   return (
