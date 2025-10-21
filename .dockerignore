@@ -1,0 +1,9 @@
+*.md
+.*
+!.npmrc
+!.nvmrc
+docker
+!docker/entrypoint.sh
+docs
+docker-compose.*
+LICENSE
