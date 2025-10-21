@@ -17,6 +17,10 @@ import { chatCompletionStream } from "@/utils/llms";
 import { filterNullProperties } from "@/utils";
 import { delayInMinutesSchema } from "@/utils/actions/rule.validation";
 import { isMicrosoftProvider } from "@/utils/email/provider-types";
+import type { MessageContext } from "@/app/api/chat/validation";
+import { stringifyEmail } from "@/utils/stringify-email";
+import { getEmailForLLM } from "@/utils/get-email-from-message";
+import type { ParsedMessage } from "@/utils/types";
 
 const logger = createScopedLogger("ai/assistant/chat");
 
@@ -662,10 +666,12 @@ export async function aiProcessAssistantChat({
   messages,
   emailAccountId,
   user,
+  context,
 }: {
   messages: ModelMessage[];
   emailAccountId: string;
   user: EmailAccountWithAI;
+  context?: MessageContext;
 }) {
   const system = `You are an assistant that helps create and update rules to manage a user's inbox. Our platform is called Inbox Zero.
   
@@ -919,6 +925,33 @@ Examples:
     provider: user.account.provider,
   };
 
+  const hiddenContextMessage =
+    context && context.type === "fix-rule"
+      ? [
+          {
+            role: "system" as const,
+            content:
+              "Hidden context for the user's request (do not repeat this to the user):\n\n" +
+              `<email>\n${stringifyEmail(
+                getEmailForLLM(context.message as ParsedMessage, {
+                  maxLength: 3000,
+                }),
+                3000,
+              )}\n</email>\n\n` +
+              `Rules that were applied:\n${context.results
+                .map((r) => `- ${r.ruleName ?? "None"}: ${r.reason}`)
+                .join("\n")}\n\n` +
+              `Expected outcome: ${
+                context.expected === "new"
+                  ? "Create a new rule"
+                  : context.expected === "none"
+                    ? "No rule should be applied"
+                    : `Should match the "${context.expected.name}" rule`
+              }`,
+          },
+        ]
+      : [];
+
   const result = chatCompletionStream({
     userAi: user.user,
     userEmail: user.email,
@@ -929,6 +962,7 @@ Examples:
         role: "system",
         content: system,
       },
+      ...hiddenContextMessage,
       ...messages,
     ],
     onStepFinish: async ({ text, toolCalls }) => {

@@ -1,9 +1,8 @@
 import { MessageCircleIcon } from "lucide-react";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import type { ParsedMessage } from "@/utils/types";
 import type { RunRulesResult } from "@/utils/ai/choose-rule/run-rules";
-import { truncate } from "@/utils/string";
 import {
   Dialog,
   DialogContent,
@@ -23,6 +22,12 @@ import { NONE_RULE_ID } from "@/app/(app)/[emailAccountId]/assistant/consts";
 import { useSidebar } from "@/components/ui/sidebar";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
+import { useChat } from "@/providers/ChatProvider";
+import {
+  NEW_RULE_ID as CONST_NEW_RULE_ID,
+  NONE_RULE_ID as CONST_NONE_RULE_ID,
+} from "@/app/(app)/[emailAccountId]/assistant/consts";
+import type { MessageContext } from "@/app/api/chat/validation";
 
 export function FixWithChat({
   setInput,
@@ -40,6 +45,14 @@ export function FixWithChat({
   const [showExplanation, setShowExplanation] = useState(false);
 
   const { setOpen } = useSidebar();
+  const { setContext: setNextContext } = useChat();
+
+  const selectedRuleName = useMemo(() => {
+    if (!data) return null;
+    if (selectedRuleId === NEW_RULE_ID) return "New rule";
+    if (selectedRuleId === NONE_RULE_ID) return "None";
+    return data.find((r) => r.id === selectedRuleId)?.name ?? null;
+  }, [data, selectedRuleId]);
 
   const handleRuleSelect = (ruleId: string | null) => {
     setSelectedRuleId(ruleId);
@@ -50,23 +63,54 @@ export function FixWithChat({
     if (!selectedRuleId) return;
 
     let input: string;
-    if (selectedRuleId === NEW_RULE_ID) {
-      input = getFixMessage({
-        message,
-        results,
-        expectedRuleName: NEW_RULE_ID,
-        explanation,
-      });
-    } else {
-      const expectedRule = data?.find((rule) => rule.id === selectedRuleId);
 
-      input = getFixMessage({
-        message,
-        results,
-        expectedRuleName: expectedRule?.name ?? null,
-        explanation,
-      });
+    if (selectedRuleId === CONST_NEW_RULE_ID) {
+      input = explanation?.trim()
+        ? `Create a new rule for emails like this: ${explanation.trim()}`
+        : "Create a new rule for emails like this: ";
+    } else if (selectedRuleId === CONST_NONE_RULE_ID) {
+      input = explanation?.trim()
+        ? `This email shouldn't have matched any rule because ${explanation.trim()}`
+        : "This email shouldn't have matched any rule because ";
+    } else {
+      const rulePart = selectedRuleName
+        ? `the "${selectedRuleName}" rule`
+        : "a different rule";
+      input = explanation?.trim()
+        ? `This email should have matched ${rulePart} because ${explanation.trim()}`
+        : `This email should have matched ${rulePart} because `;
     }
+
+    const context: MessageContext = {
+      type: "fix-rule",
+      message: {
+        id: message.id,
+        threadId: message.threadId,
+        snippet: message.snippet,
+        textPlain: message.textPlain,
+        textHtml: message.textHtml,
+        headers: {
+          from: message.headers.from,
+          to: message.headers.to,
+          subject: message.headers.subject,
+          cc: message.headers.cc,
+          date: message.headers.date,
+          "reply-to": message.headers["reply-to"],
+        },
+        internalDate: message.internalDate,
+      },
+      results: results.map((r) => ({
+        ruleName: r.rule?.name ?? null,
+        reason: r.reason ?? "",
+      })),
+      expected:
+        selectedRuleId === CONST_NEW_RULE_ID
+          ? "new"
+          : selectedRuleId === CONST_NONE_RULE_ID
+            ? "none"
+            : { name: selectedRuleName || "Unknown" },
+    };
+    setNextContext(context);
 
     setInput(input);
     setOpen((arr) => [...arr, "chat-sidebar"]);
@@ -163,51 +207,6 @@ export function FixWithChat({
       </DialogContent>
     </Dialog>
   );
-}
-
-// TODO: tag rule like in Cursor so we don't need to show the email contents
-function getFixMessage({
-  message,
-  results,
-  expectedRuleName,
-  explanation,
-}: {
-  message: ParsedMessage;
-  results: RunRulesResult[];
-  expectedRuleName: string | null;
-  explanation?: string;
-}) {
-  // Truncate content if it's too long
-  // TODO: HTML text / text plain
-  const getMessageContent = () => {
-    const content = message.snippet || message.textPlain || "";
-    return truncate(content, 500).trim();
-  };
-
-  return `You applied the wrong rule to this email.
-Fix our rules so this type of email is handled correctly in the future.
-
-Email details:
-*From*: ${message.headers.from}
-*Subject*: ${message.headers.subject}
-*Content*: ${getMessageContent()}
-
-Current rules applied and the reasons they were chosen:
-
-${results
-  .map(
-    (r) => `- Rule: ${r.rule?.name || "No rule"}
-- Reason: ${r.reason}`,
-  )
-  .join("\n")}
-
-${
-  expectedRuleName === NEW_RULE_ID
-    ? "I'd like to create a new rule to handle this type of email."
-    : expectedRuleName
-      ? `The rule that should have been applied was: "${expectedRuleName}"`
-      : "Instead, no rule should have been applied."
-}${explanation ? `\n\nExplanation: ${explanation}` : ""}`.trim();
 }
 
 function RuleMismatch({
