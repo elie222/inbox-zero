@@ -109,7 +109,7 @@ export function Chat() {
         <PromptInput
           onSubmit={(e) => {
             e.preventDefault();
-            if ((input.trim() || nextContext) && status === "ready") {
+            if (input.trim() && status === "ready") {
               handleSubmit();
               setLocalStorageInput("");
             }

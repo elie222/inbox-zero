@@ -85,7 +85,7 @@ export function ProcessResultDisplay({
                 }
               >
                 <Badge color="green">
-                  {prefix ? prefix : ""}
+                  {prefix ?? ""}
                   {result.rule?.name}
                   <EyeIcon className="ml-1.5 size-3.5 opacity-70" />
                 </Badge>
