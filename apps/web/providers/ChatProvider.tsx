@@ -67,8 +67,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
         };
       },
     }),
-    // TODO: couldn't get this to work
-    // messages: initialMessages,
+    // messages: initialMessages, // NOTE: couldn't get this to work
     experimental_throttle: 100,
     generateId: generateUUID,
     onFinish: () => {
@@ -99,7 +98,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     });
 
     setInput("");
-  }, [chat.sendMessage, input, context]);
+  }, [chat.sendMessage, input]);
 
   return (
     <ChatContext.Provider
@@ -111,8 +110,8 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
         setChatId,
         setNewChat,
         handleSubmit,
-        context: context,
-        setContext: setContext,
+        context,
+        setContext,
       }}
     >
       {children}
