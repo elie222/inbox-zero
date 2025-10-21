@@ -42,7 +42,8 @@ export async function applyThreadStatusLabel({
       if (!labelId) {
         const label = providerLabels.find((l) => l.name === getRuleLabel(type));
         if (!label?.id) {
-          logger.error("Failed to get label ID", { type });
+          // Label doesn't exist yet - this is expected if user hasn't set up or used all status types yet
+          logger.info("Skipping removal of non-existent label", { type });
           continue;
         }
         labelId = label.id;
