@@ -27,10 +27,9 @@ vi.mock("@/utils/prisma", () => ({
   },
 }));
 
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 import { betterAuthConfig } from "@/utils/auth";
-import { SafeError } from "@/utils/error";
 import { createScopedLogger } from "@/utils/logger";
 import prisma from "@/utils/prisma";
 import { GET } from "./route";

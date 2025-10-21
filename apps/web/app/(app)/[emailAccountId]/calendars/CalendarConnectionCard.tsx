@@ -8,7 +8,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Trash2, CheckCircle, XCircle } from "lucide-react";
+import { Trash2, XCircle } from "lucide-react";
 import { CalendarList } from "./CalendarList";
 import { useAction } from "next-safe-action/hooks";
 import {

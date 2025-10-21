@@ -3,7 +3,6 @@
 import { Suspense } from "react";
 import dynamic from "next/dynamic";
 import { usePathname } from "next/navigation";
-import { Toaster } from "@/components/Toast";
 import { NavBottom } from "@/components/NavBottom";
 import {
   SidebarInset,

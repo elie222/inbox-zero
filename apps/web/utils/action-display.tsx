@@ -10,7 +10,6 @@ import {
   TagIcon,
   WebhookIcon,
   FileTextIcon,
-  EyeIcon,
   MailIcon,
   NewspaperIcon,
 } from "lucide-react";

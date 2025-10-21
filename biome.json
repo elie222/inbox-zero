@@ -34,12 +34,14 @@
         "noBitwiseOperators": "off",
         "noTsIgnore": "off",
         "useIterableCallbackReturn": "off",
-        "noUnknownAtRules": "off"
+        "noUnknownAtRules": "off",
+        "noAlert": "off"
       },
       "complexity": {
         "noForEach": "off",
         "useSimplifiedLogicExpression": "off",
-        "noExcessiveCognitiveComplexity": "off"
+        "noExcessiveCognitiveComplexity": "off",
+        "useArrowFunction": "off"
       },
       "nursery": {
         "useSortedClasses": "off",
