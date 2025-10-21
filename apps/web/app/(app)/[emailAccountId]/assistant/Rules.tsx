@@ -355,8 +355,7 @@ export function Rules({
 
                                           if (
                                             res?.serverError ||
-                                            res?.validationErrors ||
-                                            res?.bindArgsValidationErrors
+                                            res?.validationErrors
                                           ) {
                                             throw new Error(
                                               res?.serverError ||
