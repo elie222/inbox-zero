@@ -157,7 +157,7 @@ async function handleSignIn({
             userId: user.id,
             error,
           });
-          captureException(error, undefined, user.id);
+          captureException(error, undefined, user.email);
         });
 
       await createLoopsContact(
