@@ -75,7 +75,7 @@ async function getAiResponse(options: GetAiResponseOptions): Promise<{
 
   const hasCustomRules = rules.some((rule) => !rule.systemType);
 
-  if (hasCustomRules) {
+  if (hasCustomRules && emailAccount.multiRuleSelectionEnabled) {
     const result = await getAiResponseMultiRule({
       email,
       emailAccount,

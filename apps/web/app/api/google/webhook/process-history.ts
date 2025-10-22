@@ -100,18 +100,9 @@ export async function processHistoryForUser(
           hasAiAccess: userHasAiAccess,
           rules: validatedEmailAccount.rules,
           emailAccount: {
-            id: validatedEmailAccount.id,
-            userId: validatedEmailAccount.userId,
-            email: validatedEmailAccount.email,
-            about: validatedEmailAccount.about,
-            autoCategorizeSenders: validatedEmailAccount.autoCategorizeSenders,
+            ...validatedEmailAccount,
             account: {
               provider: accountProvider,
-            },
-            user: {
-              aiProvider: validatedEmailAccount.user.aiProvider,
-              aiModel: validatedEmailAccount.user.aiModel,
-              aiApiKey: validatedEmailAccount.user.aiApiKey,
             },
           },
         },

@@ -164,6 +164,11 @@ export type UpdateRuleSettingsBody = z.infer<typeof updateRuleSettingsBody>;
 export const enableDraftRepliesBody = z.object({ enable: z.boolean() });
 export type EnableDraftRepliesBody = z.infer<typeof enableDraftRepliesBody>;
 
+export const enableMultiRuleSelectionBody = z.object({ enable: z.boolean() });
+export type EnableMultiRuleSelectionBody = z.infer<
+  typeof enableMultiRuleSelectionBody
+>;
+
 const categoryAction = z.enum([
   "label",
   "label_archive",

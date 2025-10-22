@@ -7,6 +7,7 @@ import {
   updateRuleBody,
   updateRuleSettingsBody,
   enableDraftRepliesBody,
+  enableMultiRuleSelectionBody,
   deleteRuleBody,
   createRulesOnboardingBody,
   type CategoryConfig,
@@ -277,6 +278,16 @@ export const enableDraftRepliesAction = actionClient
       revalidatePath(prefixPath(emailAccountId, "/reply-zero"));
     },
   );
+
+export const enableMultiRuleSelectionAction = actionClient
+  .metadata({ name: "enableMultiRuleSelection" })
+  .schema(enableMultiRuleSelectionBody)
+  .action(async ({ ctx: { emailAccountId }, parsedInput: { enable } }) => {
+    await prisma.emailAccount.update({
+      where: { id: emailAccountId },
+      data: { multiRuleSelectionEnabled: enable },
+    });
+  });
 
 export const deleteRuleAction = actionClient
   .metadata({ name: "deleteRule" })

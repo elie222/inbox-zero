@@ -120,14 +120,15 @@ model EmailAccount {
   personaAnalysis           Json? // ai analysis of the user's persona
   role                      String? // the role confirmed by the user - previously `User.surveyRole`
 
-  statsEmailFrequency   Frequency         @default(WEEKLY)
-  summaryEmailFrequency Frequency         @default(WEEKLY)
-  lastSummaryEmailAt    DateTime?
-  coldEmailBlocker      ColdEmailSetting? // @deprecated
-  coldEmailDigest       Boolean           @default(false) // @deprecated
-  coldEmailPrompt       String? // @deprecated
-  rulesPrompt           String? // @deprecated
-  autoCategorizeSenders Boolean           @default(false)
+  statsEmailFrequency       Frequency         @default(WEEKLY)
+  summaryEmailFrequency     Frequency         @default(WEEKLY)
+  lastSummaryEmailAt        DateTime?
+  coldEmailBlocker          ColdEmailSetting? // @deprecated
+  coldEmailDigest           Boolean           @default(false) // @deprecated
+  coldEmailPrompt           String? // @deprecated
+  rulesPrompt               String? // @deprecated
+  autoCategorizeSenders     Boolean           @default(false)
+  multiRuleSelectionEnabled Boolean           @default(false)
 
   digestSchedule Schedule?
 
