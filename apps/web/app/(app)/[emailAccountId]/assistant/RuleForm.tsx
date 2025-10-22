@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
 import {
   type FieldError,
   type FieldErrors,
@@ -12,10 +11,8 @@ import {
 } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import TextareaAutosize from "react-textarea-autosize";
-import { capitalCase } from "capital-case";
 import { usePostHog } from "posthog-js/react";
 import {
-  ExternalLinkIcon,
   PlusIcon,
   FilterIcon,
   ChevronDownIcon,
@@ -27,12 +24,8 @@ import { CardBasic } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ErrorMessage, Input, Label } from "@/components/Input";
 import { toastError, toastSuccess } from "@/components/Toast";
-import { SectionDescription, TypographyH3 } from "@/components/Typography";
-import {
-  ActionType,
-  CategoryFilterType,
-  LogicalOperator,
-} from "@prisma/client";
+import { TypographyH3 } from "@/components/Typography";
+import { ActionType, LogicalOperator, SystemType } from "@prisma/client";
 import { ConditionType, type CoreConditionType } from "@/utils/config";
 import {
   createRuleAction,
@@ -48,12 +41,9 @@ import { Toggle } from "@/components/Toggle";
 import { LoadingContent } from "@/components/LoadingContent";
 import { TooltipExplanation } from "@/components/TooltipExplanation";
 import { useLabels } from "@/hooks/useLabels";
-import { MultiSelectFilter } from "@/components/MultiSelectFilter";
-import { useCategories } from "@/hooks/useCategories";
 import { hasVariables, TEMPLATE_VARIABLE_PATTERN } from "@/utils/template";
 import { getEmptyCondition } from "@/utils/condition";
 import { AlertError } from "@/components/Alert";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -62,8 +52,6 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { LearnedPatternsDialog } from "@/app/(app)/[emailAccountId]/assistant/group/LearnedPatterns";
-import { NEEDS_REPLY_LABEL_NAME } from "@/utils/reply-tracker/consts";
-import { Badge } from "@/components/Badge";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { prefixPath } from "@/utils/path";
 import { useRule } from "@/hooks/useRule";
@@ -86,7 +74,6 @@ import {
   SelectTrigger,
 } from "@/components/ui/select";
 import { Form, FormControl, FormField, FormItem } from "@/components/ui/form";
-import { isDefined } from "@/utils/types";
 import { canActionBeDelayed } from "@/utils/delayed-actions";
 import type { EmailLabel } from "@/providers/EmailProvider";
 import { FolderSelector } from "@/components/FolderSelector";
@@ -95,6 +82,9 @@ import type { OutlookFolder } from "@/utils/outlook/folders";
 import { cn } from "@/utils";
 import { WebhookDocumentationLink } from "@/components/WebhookDocumentation";
 import { LabelCombobox } from "@/components/LabelCombobox";
+import { isConversationStatusType } from "@/utils/reply-tracker/conversation-status-config";
+import { Tooltip } from "@/components/Tooltip";
+import { getRuleConfig } from "@/utils/rule/consts";
 
 export function Rule({
   ruleId,
@@ -146,11 +136,7 @@ export function RuleForm({
           ),
           actions: [
             ...rule.actions
-              .filter(
-                (action) =>
-                  action.type !== ActionType.DIGEST &&
-                  action.type !== ActionType.TRACK_THREAD,
-              )
+              .filter((action) => action.type !== ActionType.DIGEST)
               .map((action) => ({
                 ...action,
                 delayInMinutes: action.delayInMinutes,
@@ -187,12 +173,7 @@ export function RuleForm({
   const { append, remove } = useFieldArray({ control, name: "actions" });
 
   const { userLabels, isLoading, mutate: mutateLabels } = useLabels();
-  const {
-    categories,
-    isLoading: categoriesLoading,
-    error: categoriesError,
-  } = useCategories();
-  const { folders, isLoading: foldersLoading } = useFolders();
+  const { folders, isLoading: foldersLoading } = useFolders(provider);
   const router = useRouter();
 
   const posthog = usePostHog();
@@ -344,8 +325,10 @@ export function RuleForm({
   }, [provider, terminology.label.action]);
 
   const [isNameEditMode, setIsNameEditMode] = useState(alwaysEditMode);
-  const [isConditionsEditMode, setIsConditionsEditMode] =
-    useState(alwaysEditMode);
+  const [isConditionsEditMode, setIsConditionsEditMode] = useState(
+    alwaysEditMode &&
+      !(rule.systemType && isConversationStatusType(rule.systemType)),
+  );
   const [isActionsEditMode, setIsActionsEditMode] = useState(alwaysEditMode);
 
   const toggleActionsEditMode = useCallback(() => {
@@ -355,10 +338,13 @@ export function RuleForm({
   }, [alwaysEditMode]);
 
   const toggleConditionsEditMode = useCallback(() => {
-    if (!alwaysEditMode) {
+    if (
+      !alwaysEditMode &&
+      !(rule.systemType && isConversationStatusType(rule.systemType))
+    ) {
       setIsConditionsEditMode((prev: boolean) => !prev);
     }
-  }, [alwaysEditMode]);
+  }, [alwaysEditMode, rule.systemType]);
 
   const toggleNameEditMode = useCallback(() => {
     if (!alwaysEditMode) {
@@ -409,45 +395,68 @@ export function RuleForm({
           <TypographyH3 className="text-xl">Conditions</TypographyH3>
 
           <div className="flex items-center gap-1.5">
-            {isConditionsEditMode && (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="outline" size="sm">
-                    <FilterIcon className="mr-2 h-4 w-4" />
-                    Match{" "}
-                    {!conditionalOperator ||
-                    conditionalOperator === LogicalOperator.AND
-                      ? "all"
-                      : "any"}
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent>
-                  <DropdownMenuRadioGroup
-                    value={conditionalOperator}
-                    onValueChange={(value) =>
-                      setValue("conditionalOperator", value as LogicalOperator)
-                    }
-                  >
-                    <DropdownMenuRadioItem value={LogicalOperator.AND}>
-                      Match all conditions
-                    </DropdownMenuRadioItem>
-                    <DropdownMenuRadioItem value={LogicalOperator.OR}>
-                      Match any condition
-                    </DropdownMenuRadioItem>
-                  </DropdownMenuRadioGroup>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            )}
+            {isConditionsEditMode &&
+              !(
+                rule.systemType && isConversationStatusType(rule.systemType)
+              ) && (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" size="sm">
+                      <FilterIcon className="mr-2 h-4 w-4" />
+                      Match{" "}
+                      {!conditionalOperator ||
+                      conditionalOperator === LogicalOperator.AND
+                        ? "all"
+                        : "any"}
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent>
+                    <DropdownMenuRadioGroup
+                      value={conditionalOperator}
+                      onValueChange={(value) =>
+                        setValue(
+                          "conditionalOperator",
+                          value as LogicalOperator,
+                        )
+                      }
+                    >
+                      <DropdownMenuRadioItem value={LogicalOperator.AND}>
+                        Match all conditions
+                      </DropdownMenuRadioItem>
+                      <DropdownMenuRadioItem value={LogicalOperator.OR}>
+                        Match any condition
+                      </DropdownMenuRadioItem>
+                    </DropdownMenuRadioGroup>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              )}
 
             {!alwaysEditMode && (
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={toggleConditionsEditMode}
-                Icon={!isConditionsEditMode ? PencilIcon : undefined}
+              <Tooltip
+                hide={
+                  !(
+                    rule.systemType && isConversationStatusType(rule.systemType)
+                  )
+                }
+                content="System rule to track conversation status. Conditions cannot be edited."
               >
-                {isConditionsEditMode ? "View" : "Edit"}
-              </Button>
+                <span>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={toggleConditionsEditMode}
+                    Icon={!isConditionsEditMode ? PencilIcon : undefined}
+                    disabled={
+                      !!(
+                        rule.systemType &&
+                        isConversationStatusType(rule.systemType)
+                      )
+                    }
+                  >
+                    {isConditionsEditMode ? "View" : "Edit"}
+                  </Button>
+                </span>
+              </Tooltip>
             )}
           </div>
         </div>
@@ -535,23 +544,14 @@ export function RuleForm({
                                     label: "Static",
                                     value: ConditionType.STATIC,
                                   },
-                                  // Deprecated: only show if this is the selected condition type
-                                  condition.type === ConditionType.CATEGORY
-                                    ? {
-                                        label: "Sender Category",
-                                        value: ConditionType.CATEGORY,
-                                      }
-                                    : null,
-                                ]
-                                  .filter(isDefined)
-                                  .map((option) => (
-                                    <SelectItem
-                                      key={option.value}
-                                      value={option.value}
-                                    >
-                                      {option.label}
-                                    </SelectItem>
-                                  ))}
+                                ].map((option) => (
+                                  <SelectItem
+                                    key={option.value}
+                                    value={option.value}
+                                  >
+                                    {option.label}
+                                  </SelectItem>
+                                ))}
                               </SelectContent>
                             </Select>
                           </FormItem>
@@ -560,28 +560,42 @@ export function RuleForm({
                     </CardLayoutLeft>
 
                     <CardLayoutRight>
-                      {watch(`conditions.${index}.type`) ===
-                        ConditionType.AI && (
-                        <Input
-                          type="text"
-                          autosizeTextarea
-                          rows={3}
-                          name={`conditions.${index}.instructions`}
-                          label="Instructions"
-                          registerProps={register(
-                            `conditions.${index}.instructions`,
-                          )}
-                          error={
-                            (
-                              errors.conditions?.[index] as {
-                                instructions?: FieldError;
-                              }
-                            )?.instructions
-                          }
-                          placeholder="e.g. Newsletters, regular content from publications, blogs, or services I've subscribed to"
-                          tooltipText="The instructions that will be passed to the AI."
-                        />
-                      )}
+                      {watch(`conditions.${index}.type`) === ConditionType.AI &&
+                        (rule.systemType &&
+                        isConversationStatusType(rule.systemType) ? (
+                          <div>
+                            <Label name="instructions" label="Instructions" />
+                            <div className="mt-2 rounded-md bg-muted/50 p-3 text-sm text-muted-foreground">
+                              <p>
+                                {getRuleConfig(rule.systemType).instructions}
+                              </p>
+                              <p className="mt-2 text-xs italic">
+                                Note: Instructions for conversation tracking
+                                rules cannot be edited.
+                              </p>
+                            </div>
+                          </div>
+                        ) : (
+                          <Input
+                            type="text"
+                            autosizeTextarea
+                            rows={3}
+                            name={`conditions.${index}.instructions`}
+                            label="Instructions"
+                            registerProps={register(
+                              `conditions.${index}.instructions`,
+                            )}
+                            error={
+                              (
+                                errors.conditions?.[index] as {
+                                  instructions?: FieldError;
+                                }
+                              )?.instructions
+                            }
+                            placeholder="e.g. Newsletters, regular content from publications, blogs, or services I've subscribed to"
+                            tooltipText="The instructions that will be passed to the AI."
+                          />
+                        ))}
 
                       {watch(`conditions.${index}.type`) ===
                         ConditionType.STATIC && (
@@ -632,159 +646,41 @@ export function RuleForm({
                           />
                         </>
                       )}
-
-                      {watch(`conditions.${index}.type`) ===
-                        ConditionType.CATEGORY && (
-                        <>
-                          <div className="flex items-center gap-4">
-                            <RadioGroup
-                              defaultValue={CategoryFilterType.INCLUDE}
-                              value={
-                                watch(
-                                  `conditions.${index}.categoryFilterType`,
-                                ) || undefined
-                              }
-                              onValueChange={(value) =>
-                                setValue(
-                                  `conditions.${index}.categoryFilterType`,
-                                  value as CategoryFilterType,
-                                )
-                              }
-                              className="flex gap-6"
-                            >
-                              <div className="flex items-center space-x-2">
-                                <RadioGroupItem
-                                  value={CategoryFilterType.INCLUDE}
-                                  id="include"
-                                />
-                                <Label name="include" label="Match" />
-                              </div>
-                              <div className="flex items-center space-x-2">
-                                <RadioGroupItem
-                                  value={CategoryFilterType.EXCLUDE}
-                                  id="exclude"
-                                />
-                                <Label name="exclude" label="Skip" />
-                              </div>
-                            </RadioGroup>
-
-                            <TooltipExplanation text="This stops the AI from applying this rule to emails that don't match your criteria." />
-                          </div>
-
-                          <LoadingContent
-                            loading={categoriesLoading}
-                            error={categoriesError}
-                          >
-                            {categories.length ? (
-                              <>
-                                <MultiSelectFilter
-                                  title="Categories"
-                                  maxDisplayedValues={8}
-                                  options={categories.map((category) => ({
-                                    label: capitalCase(category.name),
-                                    value: category.id,
-                                  }))}
-                                  selectedValues={
-                                    new Set(
-                                      watch(
-                                        `conditions.${index}.categoryFilters`,
-                                      ),
-                                    )
-                                  }
-                                  setSelectedValues={(selectedValues) => {
-                                    setValue(
-                                      `conditions.${index}.categoryFilters`,
-                                      Array.from(selectedValues),
-                                    );
-                                  }}
-                                />
-                                {(
-                                  errors.conditions?.[index] as {
-                                    categoryFilters?: { message?: string };
-                                  }
-                                )?.categoryFilters?.message && (
-                                  <ErrorMessage
-                                    message={
-                                      (
-                                        errors.conditions?.[index] as {
-                                          categoryFilters?: {
-                                            message?: string;
-                                          };
-                                        }
-                                      )?.categoryFilters?.message || ""
-                                    }
-                                  />
-                                )}
-
-                                <Button
-                                  asChild
-                                  variant="ghost"
-                                  size="sm"
-                                  className="ml-2"
-                                >
-                                  <Link
-                                    href={prefixPath(
-                                      emailAccountId,
-                                      "/smart-categories/setup",
-                                    )}
-                                    target="_blank"
-                                  >
-                                    Create category
-                                    <ExternalLinkIcon className="ml-1.5 size-4" />
-                                  </Link>
-                                </Button>
-                              </>
-                            ) : (
-                              <div>
-                                <SectionDescription>
-                                  No sender categories found.
-                                </SectionDescription>
-
-                                <Button asChild className="mt-1">
-                                  <Link
-                                    href={prefixPath(
-                                      emailAccountId,
-                                      "/smart-categories",
-                                    )}
-                                    target="_blank"
-                                  >
-                                    Set up Sender Categories
-                                    <ExternalLinkIcon className="ml-1.5 size-4" />
-                                  </Link>
-                                </Button>
-                              </div>
-                            )}
-                          </LoadingContent>
-                        </>
-                      )}
                     </CardLayoutRight>
                   </CardLayout>
                 </CardBasic>
               ) : (
-                <ConditionSummaryCard
-                  condition={watch(`conditions.${index}`)}
-                  categories={categories}
-                />
+                <ConditionSummaryCard condition={conditions[index]} />
               )}
             </div>
           ))}
         </div>
 
-        {isConditionsEditMode && unusedCondition && (
-          <div className="mt-4">
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={() => {
-                appendCondition(getEmptyCondition(unusedCondition));
-                setIsConditionsEditMode(true);
-              }}
-            >
-              <PlusIcon className="mr-2 h-4 w-4" />
-              Add Condition
-            </Button>
-          </div>
-        )}
+        {isConditionsEditMode &&
+          unusedCondition &&
+          !(rule.systemType && isConversationStatusType(rule.systemType)) && (
+            <div className="mt-4">
+              <Tooltip
+                hide={allowMultipleConditions(rule.systemType)}
+                content="You can only set one condition for this rule."
+              >
+                <span>
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => {
+                      appendCondition(getEmptyCondition(unusedCondition));
+                      setIsConditionsEditMode(true);
+                    }}
+                    disabled={!allowMultipleConditions(rule.systemType)}
+                    Icon={PlusIcon}
+                  >
+                    Add Condition
+                  </Button>
+                </span>
+              </Tooltip>
+            </div>
+          )}
 
         <div className="mt-4 flex items-center justify-between">
           <TypographyH3 className="text-xl">Actions</TypographyH3>
@@ -875,6 +771,7 @@ export function RuleForm({
               onChange={(enabled) => {
                 setValue("runOnThreads", enabled);
               }}
+              disabled={!allowMultipleConditions(rule.systemType)}
             />
 
             <ThreadsExplanation size="md" />
@@ -902,6 +799,7 @@ export function RuleForm({
               <LearnedPatternsDialog
                 ruleId={rule.id}
                 groupId={rule.groupId || null}
+                disabled={!allowMultipleConditions(rule.systemType)}
               />
             </div>
           )}
@@ -1299,7 +1197,6 @@ function ActionCard({
             );
           })}
 
-          {action.type === ActionType.TRACK_THREAD && <ReplyTrackerAction />}
           {shouldShowProTip && <VariableProTip />}
           {actionCanBeDelayed && (
             <div className="">
@@ -1390,18 +1287,6 @@ function CardLayoutRight({
   return (
     <div className={cn("space-y-4 mx-auto w-full max-w-md", className)}>
       {children}
-    </div>
-  );
-}
-
-function ReplyTrackerAction() {
-  return (
-    <div className="flex h-full items-center justify-center">
-      <div className="max-w-sm text-center text-sm text-muted-foreground">
-        This action tracks emails this rule is applied to and removes the{" "}
-        <Badge color="green">{NEEDS_REPLY_LABEL_NAME}</Badge> label after you
-        reply to the email.
-      </div>
     </div>
   );
 }
@@ -1590,3 +1475,10 @@ function RemoveButton({
 
 const getFilterTooltipText = (filterType: "from" | "to") =>
   `Only apply this rule ${filterType} emails from this address. Supports multiple addresses separated by comma, pipe, or OR. e.g. "@company.com", "hello@example.com OR support@test.com"`;
+
+function allowMultipleConditions(systemType: SystemType | null | undefined) {
+  return (
+    systemType !== SystemType.COLD_EMAIL &&
+    !isConversationStatusType(systemType)
+  );
+}

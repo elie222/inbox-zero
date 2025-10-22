@@ -1,27 +1,28 @@
 import uniqBy from "lodash/uniqBy";
 import { NextResponse } from "next/server";
 import { getGmailClientWithRefresh } from "@/utils/gmail/client";
-import prisma from "@/utils/prisma";
 import { GmailLabel } from "@/utils/gmail/label";
-import { hasAiAccess, isPremium } from "@/utils/premium";
-import { ColdEmailSetting } from "@prisma/client";
 import { captureException } from "@/utils/error";
-import { unwatchEmails } from "@/app/api/watch/controller";
-import { createEmailProvider } from "@/utils/email/provider";
 import {
   HistoryEventType,
   type ProcessHistoryOptions,
 } from "@/app/api/google/webhook/types";
 import { processHistoryItem } from "@/app/api/google/webhook/process-history-item";
-import { logger } from "@/app/api/google/webhook/logger";
 import { getHistory } from "@/utils/gmail/history";
+import {
+  validateWebhookAccount,
+  getWebhookEmailAccount,
+} from "@/utils/webhook/validate-webhook-account";
+import prisma from "@/utils/prisma";
+import type { Logger } from "@/utils/logger";
 
 export async function processHistoryForUser(
   decodedData: {
     emailAddress: string;
     historyId: number;
   },
-  options?: { startHistoryId?: string },
+  options: { startHistoryId?: string },
+  logger: Logger,
 ) {
   const { emailAddress, historyId } = decodedData;
   // All emails in the database are stored in lowercase
@@ -29,136 +30,54 @@ export async function processHistoryForUser(
   // So we need to convert it to lowercase
   const email = emailAddress.toLowerCase();
 
-  const emailAccount = await prisma.emailAccount.findUnique({
-    where: { email },
-    select: {
-      id: true,
-      email: true,
-      userId: true,
-      about: true,
-      lastSyncedHistoryId: true,
-      coldEmailBlocker: true,
-      coldEmailPrompt: true,
-      coldEmailDigest: true,
-      autoCategorizeSenders: true,
-      watchEmailsSubscriptionId: true,
-      account: {
-        select: {
-          provider: true,
-          access_token: true,
-          refresh_token: true,
-          expires_at: true,
-        },
-      },
-      rules: {
-        where: { enabled: true },
-        include: { actions: true, categoryFilters: true },
-      },
-      user: {
-        select: {
-          aiProvider: true,
-          aiModel: true,
-          aiApiKey: true,
-          premium: {
-            select: {
-              lemonSqueezyRenewsAt: true,
-              stripeSubscriptionStatus: true,
-              tier: true,
-            },
-          },
-        },
-      },
-    },
-  });
+  const emailAccount = await getWebhookEmailAccount({ email }, logger);
 
-  if (!emailAccount) {
-    logger.error("Account not found", { email });
-    return NextResponse.json({ ok: true });
+  // biome-ignore lint/style/noParameterAssign: allowed for logging
+  logger = logger.with({ email, emailAccountId: emailAccount?.id });
+
+  const validation = await validateWebhookAccount(emailAccount, logger);
+
+  if (!validation.success) {
+    return validation.response;
   }
 
-  const premium = isPremium(
-    emailAccount.user.premium?.lemonSqueezyRenewsAt || null,
-    emailAccount.user.premium?.stripeSubscriptionStatus || null,
-  )
-    ? emailAccount.user.premium
-    : undefined;
-
-  if (!premium) {
-    logger.info("Account not premium", {
-      email,
-      emailAccountId: emailAccount.id,
-      lemonSqueezyRenewsAt: emailAccount.user.premium?.lemonSqueezyRenewsAt,
-      stripeSubscriptionStatus:
-        emailAccount.user.premium?.stripeSubscriptionStatus,
-    });
-    const provider = await createEmailProvider({
-      emailAccountId: emailAccount.id,
-      provider: emailAccount.account?.provider || "google",
-    });
-    await unwatchEmails({
-      emailAccountId: emailAccount.id,
-      provider,
-      subscriptionId: emailAccount.watchEmailsSubscriptionId,
-    });
-    return NextResponse.json({ ok: true });
-  }
-
-  const userHasAiAccess = hasAiAccess(premium.tier, emailAccount.user.aiApiKey);
-
-  if (!userHasAiAccess) {
-    logger.trace("Does not have ai access", {
-      email,
-      emailAccountId: emailAccount.id,
-    });
-    const provider = await createEmailProvider({
-      emailAccountId: emailAccount.id,
-      provider: emailAccount.account?.provider || "google",
-    });
-    await unwatchEmails({
-      emailAccountId: emailAccount.id,
-      provider,
-      subscriptionId: emailAccount.watchEmailsSubscriptionId,
-    });
-    return NextResponse.json({ ok: true });
-  }
-
-  const hasAutomationRules = emailAccount.rules.length > 0;
-  const shouldBlockColdEmails =
-    emailAccount.coldEmailBlocker &&
-    emailAccount.coldEmailBlocker !== ColdEmailSetting.DISABLED;
-  if (!hasAutomationRules && !shouldBlockColdEmails) {
-    logger.trace("Has no rules set and cold email blocker disabled", { email });
-    return NextResponse.json({ ok: true });
-  }
+  const {
+    emailAccount: validatedEmailAccount,
+    hasAutomationRules,
+    hasAiAccess: userHasAiAccess,
+  } = validation.data;
 
   if (
-    !emailAccount.account?.access_token ||
-    !emailAccount.account?.refresh_token
+    !validatedEmailAccount.account?.access_token ||
+    !validatedEmailAccount.account?.refresh_token
   ) {
-    logger.error("Missing access or refresh token", { email });
-    return NextResponse.json({ ok: true });
+    logger.error("Missing tokens after validation");
+    return NextResponse.json({ error: true });
   }
+
+  const accountAccessToken = validatedEmailAccount.account.access_token;
+  const accountRefreshToken = validatedEmailAccount.account.refresh_token;
+  const accountProvider = validatedEmailAccount.account.provider || "google";
 
   try {
     const gmail = await getGmailClientWithRefresh({
-      accessToken: emailAccount.account?.access_token,
-      refreshToken: emailAccount.account?.refresh_token,
-      expiresAt: emailAccount.account?.expires_at?.getTime() || null,
-      emailAccountId: emailAccount.id,
+      accessToken: accountAccessToken,
+      refreshToken: accountRefreshToken,
+      expiresAt: validatedEmailAccount.account.expires_at?.getTime() || null,
+      emailAccountId: validatedEmailAccount.id,
     });
 
     const startHistoryId =
       options?.startHistoryId ||
       Math.max(
-        Number.parseInt(emailAccount.lastSyncedHistoryId || "0"),
+        Number.parseInt(emailAccount?.lastSyncedHistoryId || "0"),
         historyId - 500, // avoid going too far back
       ).toString();
 
     logger.info("Listing history", {
       startHistoryId,
-      lastSyncedHistoryId: emailAccount.lastSyncedHistoryId,
+      lastSyncedHistoryId: emailAccount?.lastSyncedHistoryId,
       gmailHistoryId: startHistoryId,
-      email,
     });
 
     const history = await getHistory(gmail, {
@@ -170,35 +89,36 @@ export async function processHistoryForUser(
     });
 
     if (history.history) {
-      logger.info("Processing history", {
-        email,
-        startHistoryId,
-        historyId: history.historyId,
-      });
+      logger.info("Processing history", { startHistoryId });
 
-      await processHistory({
-        history: history.history,
-        gmail,
-        accessToken: emailAccount.account?.access_token,
-        hasAutomationRules,
-        hasAiAccess: userHasAiAccess,
-        rules: emailAccount.rules,
-        emailAccount,
-      });
+      await processHistory(
+        {
+          history: history.history,
+          gmail,
+          accessToken: accountAccessToken,
+          hasAutomationRules,
+          hasAiAccess: userHasAiAccess,
+          rules: validatedEmailAccount.rules,
+          emailAccount: {
+            ...validatedEmailAccount,
+            account: {
+              provider: accountProvider,
+            },
+          },
+        },
+        logger,
+      );
     } else {
-      logger.info("No history", {
-        startHistoryId,
-        decodedData,
-      });
+      logger.info("No history", { startHistoryId });
 
       // important to save this or we can get into a loop with never receiving history
       await updateLastSyncedHistoryId({
-        emailAccountId: emailAccount.id,
+        emailAccountId: validatedEmailAccount.id,
         lastSyncedHistoryId: historyId.toString(),
       });
     }
 
-    logger.info("Completed processing history", { decodedData });
+    logger.info("Completed processing history");
 
     return NextResponse.json({ ok: true });
   } catch (error) {
@@ -209,8 +129,6 @@ export async function processHistoryForUser(
 
     captureException(error, { extra: { decodedData } }, email);
     logger.error("Error processing webhook", {
-      decodedData,
-      email,
       error:
         error instanceof Error
           ? {
@@ -225,7 +143,7 @@ export async function processHistoryForUser(
   }
 }
 
-async function processHistory(options: ProcessHistoryOptions) {
+async function processHistory(options: ProcessHistoryOptions, logger: Logger) {
   const { history, emailAccount } = options;
   const { email: userEmail, id: emailAccountId } = emailAccount;
 
@@ -260,27 +178,20 @@ async function processHistory(options: ProcessHistoryOptions) {
     );
 
     for (const event of uniqueEvents) {
+      const log = logger.with({
+        messageId: event.item.message?.id,
+        threadId: event.item.message?.threadId,
+      });
+
       try {
-        await processHistoryItem(event, options);
+        await processHistoryItem(event, options, log);
       } catch (error) {
         captureException(
           error,
           { extra: { userEmail, messageId: event.item.message?.id } },
           userEmail,
         );
-        logger.error("Error processing history item", {
-          userEmail,
-          messageId: event.item.message?.id,
-          threadId: event.item.message?.threadId,
-          error:
-            error instanceof Error
-              ? {
-                  message: error.message,
-                  stack: error.stack,
-                  name: error.name,
-                }
-              : error,
-        });
+        logger.error("Error processing history item", { error });
       }
     }
   }

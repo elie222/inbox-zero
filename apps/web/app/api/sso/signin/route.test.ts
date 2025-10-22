@@ -27,10 +27,9 @@ vi.mock("@/utils/prisma", () => ({
   },
 }));
 
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 import { betterAuthConfig } from "@/utils/auth";
-import { SafeError } from "@/utils/error";
 import { createScopedLogger } from "@/utils/logger";
 import prisma from "@/utils/prisma";
 import { GET } from "./route";
@@ -67,20 +66,10 @@ describe("SSO Signin Route", () => {
       const responseBody = await response.json();
 
       expect(response.status).toBe(400);
-      expect(responseBody).toEqual({
-        error: {
-          issues: [
-            {
-              code: "invalid_type",
-              expected: "string",
-              message: "Expected string, received null",
-              path: ["email"],
-              received: "null",
-            },
-          ],
-        },
-        isKnownError: true,
-      });
+      expect(responseBody.isKnownError).toBe(true);
+      expect(responseBody.error.issues).toHaveLength(1);
+      expect(responseBody.error.issues[0].code).toBe("invalid_type");
+      expect(responseBody.error.issues[0].path).toEqual(["email"]);
     });
 
     test("should return 400 when organization name parameter is missing", async () => {
@@ -90,20 +79,10 @@ describe("SSO Signin Route", () => {
       const responseBody = await response.json();
 
       expect(response.status).toBe(400);
-      expect(responseBody).toEqual({
-        error: {
-          issues: [
-            {
-              code: "invalid_type",
-              expected: "string",
-              message: "Expected string, received null",
-              path: ["organizationSlug"],
-              received: "null",
-            },
-          ],
-        },
-        isKnownError: true,
-      });
+      expect(responseBody.isKnownError).toBe(true);
+      expect(responseBody.error.issues).toHaveLength(1);
+      expect(responseBody.error.issues[0].code).toBe("invalid_type");
+      expect(responseBody.error.issues[0].path).toEqual(["organizationSlug"]);
     });
   });
 

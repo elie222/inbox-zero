@@ -12,13 +12,12 @@ export const KNOWLEDGE_BASIC_MAX_CHARS = 2000;
 export const ConditionType = {
   AI: "AI",
   STATIC: "STATIC",
-  GROUP: "GROUP",
-  CATEGORY: "CATEGORY",
+  LEARNED_PATTERN: "LEARNED_PATTERN",
   PRESET: "PRESET",
 } as const;
 
 export type ConditionType = (typeof ConditionType)[keyof typeof ConditionType];
-export type CoreConditionType = Exclude<ConditionType, "GROUP" | "PRESET">;
+export type CoreConditionType = Extract<ConditionType, "AI" | "STATIC">;
 
 export const WELCOME_PATH = "/welcome-redirect";
 

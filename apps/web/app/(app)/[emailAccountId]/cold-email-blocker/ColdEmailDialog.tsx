@@ -22,7 +22,7 @@ export function ColdEmailDialog({ isOpen, onClose }: ColdEmailDialogProps) {
           <DialogTitle>Cold Email Blocker</DialogTitle>
         </DialogHeader>
 
-        <ColdEmailContent isInset={false} searchParam="cold-email-blocker" />
+        <ColdEmailContent searchParam="cold-email-blocker" />
       </DialogContent>
     </Dialog>
   );

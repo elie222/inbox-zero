@@ -1,40 +1,19 @@
 import { NextResponse } from "next/server";
 import { withEmailProvider } from "@/utils/middleware";
 import prisma from "@/utils/prisma";
-import {
-  ActionType,
-  ColdEmailSetting,
-  SystemType,
-  type Prisma,
-} from "@prisma/client";
+import { ActionType, SystemType, type Prisma } from "@prisma/client";
 import type {
   CategoryAction,
   CreateRulesOnboardingBody,
 } from "@/utils/actions/rule.validation";
-import { RuleName, SystemRule } from "@/utils/rule/consts";
-import { isMicrosoftProvider } from "@/utils/email/provider-types";
+import { getRuleName } from "@/utils/rule/consts";
 
 type CategoryConfig = {
   action: CategoryAction | undefined;
   hasDigest: boolean | undefined;
 };
 
-export type GetCategorizationPreferencesResponse = Awaited<
-  ReturnType<typeof getUserPreferences>
->;
-
-export const GET = withEmailProvider(async (request) => {
-  const emailAccountId = request.auth.emailAccountId;
-  const { emailProvider } = request;
-
-  const result = await getUserPreferences({
-    emailAccountId,
-    provider: emailProvider.name,
-  });
-  return NextResponse.json(result);
-});
-
-type UserPreferences = Prisma.EmailAccountGetPayload<{
+type EmailAccountPreferences = Prisma.EmailAccountGetPayload<{
   select: {
     rules: {
       select: {
@@ -44,17 +23,23 @@ type UserPreferences = Prisma.EmailAccountGetPayload<{
         };
       };
     };
-    coldEmailBlocker: true;
-    coldEmailDigest: true;
   };
 }>;
 
+export type GetCategorizationPreferencesResponse = Awaited<
+  ReturnType<typeof getUserPreferences>
+>;
+
+export const GET = withEmailProvider(async (request) => {
+  const emailAccountId = request.auth.emailAccountId;
+  const result = await getUserPreferences({ emailAccountId });
+  return NextResponse.json(result);
+});
+
 async function getUserPreferences({
   emailAccountId,
-  provider,
 }: {
   emailAccountId: string;
-  provider: string;
 }): Promise<CreateRulesOnboardingBody> {
   const emailAccount = await prisma.emailAccount.findUnique({
     where: { id: emailAccountId },
@@ -69,83 +54,59 @@ async function getUserPreferences({
           },
         },
       },
-      coldEmailBlocker: true,
-      coldEmailDigest: true,
     },
   });
   if (!emailAccount) return [];
 
   return [
     {
-      name: RuleName.ToReply,
-      key: SystemRule.ToReply,
+      name: getRuleName(SystemType.TO_REPLY),
+      key: SystemType.TO_REPLY,
       description: "",
-      ...getToReplySetting(emailAccount.rules),
+      ...getRuleSetting(SystemType.TO_REPLY, emailAccount.rules),
     },
     {
-      name: RuleName.ColdEmail,
-      key: SystemRule.ColdEmail,
+      name: getRuleName(SystemType.COLD_EMAIL),
+      key: SystemType.COLD_EMAIL,
       description: "",
-      ...getColdEmailSetting(
-        provider,
-        emailAccount.coldEmailBlocker,
-        emailAccount.coldEmailDigest,
-      ),
+      ...getRuleSetting(SystemType.COLD_EMAIL, emailAccount.rules),
     },
     {
-      name: RuleName.Newsletter,
-      key: SystemRule.Newsletter,
+      name: getRuleName(SystemType.NEWSLETTER),
+      key: SystemType.NEWSLETTER,
       description: "",
       ...getRuleSetting(SystemType.NEWSLETTER, emailAccount.rules),
     },
     {
-      name: RuleName.Marketing,
-      key: SystemRule.Marketing,
+      name: getRuleName(SystemType.MARKETING),
+      key: SystemType.MARKETING,
       description: "",
       ...getRuleSetting(SystemType.MARKETING, emailAccount.rules),
     },
     {
-      name: RuleName.Calendar,
-      key: SystemRule.Calendar,
+      name: getRuleName(SystemType.CALENDAR),
+      key: SystemType.CALENDAR,
       description: "",
       ...getRuleSetting(SystemType.CALENDAR, emailAccount.rules),
     },
     {
-      name: RuleName.Receipt,
-      key: SystemRule.Receipt,
+      name: getRuleName(SystemType.RECEIPT),
+      key: SystemType.RECEIPT,
       description: "",
       ...getRuleSetting(SystemType.RECEIPT, emailAccount.rules),
     },
     {
-      name: RuleName.Notification,
-      key: SystemRule.Notification,
+      name: getRuleName(SystemType.NOTIFICATION),
+      key: SystemType.NOTIFICATION,
       description: "",
       ...getRuleSetting(SystemType.NOTIFICATION, emailAccount.rules),
     },
   ];
 }
 
-function getToReplySetting(
-  rules: UserPreferences["rules"],
-): CategoryConfig | undefined {
-  if (!rules.length) return undefined;
-  const rule = rules.find((rule) =>
-    rule.actions.some((action) => action.type === ActionType.TRACK_THREAD),
-  );
-  const replyRules = rules.find(
-    (rule) => rule.systemType === SystemType.TO_REPLY,
-  );
-  const hasDigest = replyRules?.actions.some(
-    (action) => action.type === ActionType.DIGEST,
-  );
-
-  if (rule) return { action: "label", hasDigest };
-  return { action: "none", hasDigest };
-}
-
 function getRuleSetting(
   systemType: SystemType,
-  rules?: UserPreferences["rules"],
+  rules?: EmailAccountPreferences["rules"],
 ): CategoryConfig | undefined {
   const rule = rules?.find((rule) => rule.systemType === systemType);
   const hasDigest = rule?.actions.some(
@@ -160,24 +121,4 @@ function getRuleSetting(
   if (rule.actions.some((action) => action.type === ActionType.LABEL))
     return { action: "label", hasDigest };
   return { action: "none", hasDigest };
-}
-
-function getColdEmailSetting(
-  provider: string,
-  setting?: ColdEmailSetting | null,
-  hasDigest?: boolean,
-): CategoryConfig | undefined {
-  if (!setting) return undefined;
-
-  switch (setting) {
-    case ColdEmailSetting.ARCHIVE_AND_READ_AND_LABEL:
-    case ColdEmailSetting.ARCHIVE_AND_LABEL:
-      if (isMicrosoftProvider(provider))
-        return { action: "move_folder", hasDigest };
-      return { action: "label_archive", hasDigest };
-    case ColdEmailSetting.LABEL:
-      return { action: "label", hasDigest };
-    default:
-      return { action: "none", hasDigest };
-  }
 }

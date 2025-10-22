@@ -3,8 +3,6 @@ import { withEmailProvider } from "@/utils/middleware";
 import { type ThreadsQuery, threadsQuery } from "@/app/api/threads/validation";
 import { isDefined } from "@/utils/types";
 import prisma from "@/utils/prisma";
-import { getCategory } from "@/utils/redis/category";
-import { ExecutedRuleStatus } from "@prisma/client";
 import { createScopedLogger } from "@/utils/logger";
 import { isIgnoredSender } from "@/utils/filter-ignored-senders";
 import type { EmailProvider } from "@/utils/email/types";
@@ -109,7 +107,6 @@ async function getThreads({
         messages: filteredMessages,
         snippet: thread.snippet,
         plan,
-        category: await getCategory({ emailAccountId, threadId: thread.id }),
       };
     }),
   );

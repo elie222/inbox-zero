@@ -1,5 +1,7 @@
 "use client";
 
+import groupBy from "lodash/groupBy";
+import sortBy from "lodash/sortBy";
 import { capitalCase } from "capital-case";
 import { CheckCircle2Icon, EyeIcon, ExternalLinkIcon } from "lucide-react";
 import type { RunRulesResult } from "@/utils/ai/choose-rule/run-rules";
@@ -11,17 +13,18 @@ import { ActionType } from "@prisma/client";
 import { useRuleDialog } from "./RuleDialog";
 
 export function ProcessResultDisplay({
-  result,
+  results,
   prefix,
 }: {
-  result: RunRulesResult;
+  results: RunRulesResult[];
   prefix?: string;
 }) {
   const { ruleDialog, RuleDialogComponent } = useRuleDialog();
 
-  if (!result) return null;
+  if (!results.length) return null;
 
-  if (!result.rule) {
+  if (results.length === 1 && results[0].rule === null) {
+    const result = results[0];
     return (
       <HoverCard
         className="w-auto max-w-3xl"
@@ -51,22 +54,49 @@ export function ProcessResultDisplay({
     ruleDialog.onOpen({ ruleId });
   };
 
+  const groupedResults = groupBy(results, (result) => {
+    return result.createdAt.toString();
+  });
+
+  const sortedBatches = sortBy(
+    Object.entries(groupedResults),
+    ([, batchResults]) => {
+      const createdAt = batchResults[0]?.createdAt;
+      return createdAt ? -new Date(createdAt) : 0; // Negative for descending order
+    },
+  );
+
   return (
-    <>
-      <HoverCard
-        className="w-auto max-w-5xl"
-        content={
-          <ActionSummaryCard result={result} onViewRule={handleViewRule} />
-        }
-      >
-        <Badge color="green">
-          {prefix ? prefix : ""}
-          {result.rule.name}
-          <EyeIcon className="ml-1.5 size-3.5 opacity-70" />
-        </Badge>
-      </HoverCard>
+    <div className="flex flex-col gap-2">
+      {sortedBatches.map(([date, batchResults], batchIndex) => (
+        <div key={date}>
+          {batchIndex === 1 && sortedBatches.length > 1 && (
+            <div className="mb-1 text-xs text-muted-foreground">Previous:</div>
+          )}
+          <div className="flex gap-1">
+            {batchResults.map((result, resultIndex) => (
+              <HoverCard
+                key={`${date}-${resultIndex}`}
+                className="w-auto max-w-5xl"
+                content={
+                  <ActionSummaryCard
+                    result={result}
+                    onViewRule={handleViewRule}
+                  />
+                }
+              >
+                <Badge color="green">
+                  {prefix ?? ""}
+                  {result.rule?.name}
+                  <EyeIcon className="ml-1.5 size-3.5 opacity-70" />
+                </Badge>
+              </HoverCard>
+            ))}
+          </div>
+        </div>
+      ))}
       <RuleDialogComponent />
-    </>
+    </div>
   );
 }
 
@@ -80,11 +110,7 @@ function ActionSummaryCard({
   const MAX_LENGTH = 280;
 
   const aiGeneratedContent = result.actionItems
-    ?.filter(
-      (action) =>
-        action.type !== ActionType.TRACK_THREAD &&
-        action.type !== ActionType.DIGEST,
-    )
+    ?.filter((action) => action.type !== ActionType.DIGEST)
     .map((action, i) => (
       <div
         key={i}

@@ -168,11 +168,13 @@ export async function cancelScheduledActions({
   emailAccountId,
   messageId,
   threadId,
+  ruleId,
   reason = "Superseded by new rule",
 }: {
   emailAccountId: string;
   messageId: string;
   threadId?: string;
+  ruleId: string;
   reason?: string;
 }) {
   try {
@@ -183,6 +185,9 @@ export async function cancelScheduledActions({
         messageId,
         ...(threadId && { threadId }),
         status: ScheduledActionStatus.PENDING,
+        executedRule: {
+          ruleId,
+        },
       },
       select: { id: true, scheduledId: true },
     });
@@ -220,6 +225,7 @@ export async function cancelScheduledActions({
         messageId,
         ...(threadId && { threadId }),
         status: ScheduledActionStatus.PENDING,
+        executedRule: { ruleId },
       },
       data: {
         status: ScheduledActionStatus.CANCELLED,
@@ -231,6 +237,7 @@ export async function cancelScheduledActions({
       emailAccountId,
       messageId,
       threadId,
+      ruleId,
       reason,
     });
 

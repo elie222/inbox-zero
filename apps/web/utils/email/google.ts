@@ -29,6 +29,7 @@ import {
 import {
   archiveThread,
   labelMessage,
+  labelThread,
   markReadThread,
   removeThreadLabel,
 } from "@/utils/gmail/label";
@@ -345,7 +346,9 @@ export class GmailProvider implements EmailProvider {
     email: ParsedMessage,
     args: { to: string; cc?: string; bcc?: string; content?: string },
   ): Promise<void> {
-    await forwardEmail(this.client, { messageId: email.id, ...args });
+    const parsedMessage = await this.getMessage(email.id);
+
+    await forwardEmail(this.client, parsedMessage, args);
   }
 
   async markSpam(threadId: string): Promise<void> {
@@ -357,6 +360,22 @@ export class GmailProvider implements EmailProvider {
       gmail: this.client,
       threadId,
       read: true,
+    });
+  }
+
+  async blockUnsubscribedEmail(messageId: string): Promise<void> {
+    const unsubscribeLabel =
+      await this.getOrCreateInboxZeroLabel("unsubscribed");
+
+    if (unsubscribeLabel?.id) {
+      logger.warn("Unsubscribe label not found", { messageId });
+    }
+
+    await labelMessage({
+      gmail: this.client,
+      messageId,
+      addLabelIds: unsubscribeLabel?.id ? [unsubscribeLabel.id] : undefined,
+      removeLabelIds: [GmailLabel.INBOX],
     });
   }
 
@@ -384,6 +403,19 @@ export class GmailProvider implements EmailProvider {
     await removeThreadLabel(this.client, threadId, labelId);
   }
 
+  async removeThreadLabels(
+    threadId: string,
+    labelIds: string[],
+  ): Promise<void> {
+    if (!labelIds.length) return;
+
+    await labelThread({
+      gmail: this.client,
+      threadId,
+      removeLabelIds: labelIds,
+    });
+  }
+
   async createLabel(name: string): Promise<EmailLabel> {
     const label = await createLabel({
       gmail: this.client,
@@ -397,6 +429,13 @@ export class GmailProvider implements EmailProvider {
       name: label.name!,
       type: label.type!,
     };
+  }
+
+  async deleteLabel(labelId: string): Promise<void> {
+    await this.client.users.labels.delete({
+      userId: "me",
+      id: labelId,
+    });
   }
 
   async getOrCreateInboxZeroLabel(key: InboxZeroLabel): Promise<EmailLabel> {
@@ -636,7 +675,7 @@ export class GmailProvider implements EmailProvider {
   ): Promise<number> {
     try {
       const query = `from:${senderEmail}`;
-      logger.info(`Checking received message count (up to ${threshold})`, {
+      logger.info("Checking received message count", {
         senderEmail,
         threshold,
       });
@@ -841,6 +880,7 @@ export class GmailProvider implements EmailProvider {
       {
         startHistoryId: options.startHistoryId?.toString(),
       },
+      logger,
     );
   }
 
@@ -864,6 +904,15 @@ export class GmailProvider implements EmailProvider {
   // Gmail: The first message id in a thread is the threadId
   isReplyInThread(message: ParsedMessage): boolean {
     return !!(message.id && message.id !== message.threadId);
+  }
+
+  isSentMessage(message: ParsedMessage): boolean {
+    return message.labelIds?.includes(GmailLabel.SENT) || false;
+  }
+
+  async getFolders() {
+    logger.warn("Getting folders is not supported for Gmail");
+    return [];
   }
 
   async moveThreadToFolder(

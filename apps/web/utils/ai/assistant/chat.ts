@@ -17,6 +17,10 @@ import { chatCompletionStream } from "@/utils/llms";
 import { filterNullProperties } from "@/utils";
 import { delayInMinutesSchema } from "@/utils/actions/rule.validation";
 import { isMicrosoftProvider } from "@/utils/email/provider-types";
+import type { MessageContext } from "@/app/api/chat/validation";
+import { stringifyEmail } from "@/utils/stringify-email";
+import { getEmailForLLM } from "@/utils/get-email-from-message";
+import type { ParsedMessage } from "@/utils/types";
 
 const logger = createScopedLogger("ai/assistant/chat");
 
@@ -33,7 +37,7 @@ const getUserRulesAndSettingsTool = ({
   tool({
     name: "getUserRulesAndSettings",
     description:
-      "Retrieve all existing rules for the user, their about information, and the cold email blocker setting",
+      "Retrieve all existing rules for the user, their about information",
     inputSchema: z.object({}),
     execute: async () => {
       trackToolCall({
@@ -45,7 +49,6 @@ const getUserRulesAndSettingsTool = ({
         where: { id: emailAccountId },
         select: {
           about: true,
-          coldEmailBlocker: true,
           rules: {
             select: {
               name: true,
@@ -76,7 +79,6 @@ const getUserRulesAndSettingsTool = ({
 
       return {
         about: emailAccount?.about || "Not set",
-        coldEmailBlocker: emailAccount?.coldEmailBlocker || "Not set",
         rules: emailAccount?.rules.map((rule) => {
           const staticFilter = filterNullProperties({
             from: rule.from,
@@ -216,11 +218,11 @@ const createRuleTool = ({
           },
           emailAccountId,
           provider,
+          runOnThreads: true,
         });
 
         if ("error" in rule) {
           logger.error("Error while creating rule", {
-            // ...loggerOptions,
             error: rule.error,
           });
 
@@ -236,10 +238,7 @@ const createRuleTool = ({
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
 
-        logger.error("Failed to create rule", {
-          // ...loggerOptions,
-          error: message,
-        });
+        logger.error("Failed to create rule", { error: message });
 
         return { error: "Failed to create rule", message };
       }
@@ -667,10 +666,12 @@ export async function aiProcessAssistantChat({
   messages,
   emailAccountId,
   user,
+  context,
 }: {
   messages: ModelMessage[];
   emailAccountId: string;
   user: EmailAccountWithAI;
+  context?: MessageContext;
 }) {
   const system = `You are an assistant that helps create and update rules to manage a user's inbox. Our platform is called Inbox Zero.
   
@@ -854,17 +855,6 @@ Examples:
       Create some good default rules for me.
     </input>
     <output>
-      <enable_cold_email_blocker>
-        {
-          "action": "ARCHIVE_AND_LABEL"
-        }
-      </enable_cold_email_blocker>
-      <enable_reply_zero>
-        {
-          "enabled": true,
-          "draft_replies": true
-        }
-      </enable_reply_zero>
       <create_rule>
         {
           "name": "Urgent",
@@ -905,7 +895,6 @@ Examples:
       </create_rule>
       <explanation>
         I created 4 rules to handle different types of emails.
-        I also enabled the cold email blocker and reply zero feature.
       </explanation>
     </output>
   </example>
@@ -936,6 +925,33 @@ Examples:
     provider: user.account.provider,
   };
 
+  const hiddenContextMessage =
+    context && context.type === "fix-rule"
+      ? [
+          {
+            role: "system" as const,
+            content:
+              "Hidden context for the user's request (do not repeat this to the user):\n\n" +
+              `<email>\n${stringifyEmail(
+                getEmailForLLM(context.message as ParsedMessage, {
+                  maxLength: 3000,
+                }),
+                3000,
+              )}\n</email>\n\n` +
+              `Rules that were applied:\n${context.results
+                .map((r) => `- ${r.ruleName ?? "None"}: ${r.reason}`)
+                .join("\n")}\n\n` +
+              `Expected outcome: ${
+                context.expected === "new"
+                  ? "Create a new rule"
+                  : context.expected === "none"
+                    ? "No rule should be applied"
+                    : `Should match the "${context.expected.name}" rule`
+              }`,
+          },
+        ]
+      : [];
+
   const result = chatCompletionStream({
     userAi: user.user,
     userEmail: user.email,
@@ -946,6 +962,7 @@ Examples:
         role: "system",
         content: system,
       },
+      ...hiddenContextMessage,
       ...messages,
     ],
     onStepFinish: async ({ text, toolCalls }) => {

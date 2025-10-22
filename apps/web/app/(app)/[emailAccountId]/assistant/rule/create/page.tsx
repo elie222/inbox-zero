@@ -9,7 +9,6 @@ export default async function CreateRulePage(props: {
     example?: string;
     groupId?: string;
     type?: CoreConditionType;
-    categoryId?: string;
     label?: string;
   }>;
 }) {
@@ -33,7 +32,7 @@ export default async function CreateRulePage(props: {
                 ]
               : [],
             conditions: searchParams.type
-              ? [getEmptyCondition(searchParams.type, searchParams.categoryId)]
+              ? [getEmptyCondition(searchParams.type)]
               : [],
             runOnThreads: true,
           }

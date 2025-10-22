@@ -1,13 +1,7 @@
 import { z } from "zod";
-import {
-  ActionType,
-  CategoryFilterType,
-  LogicalOperator,
-  SystemType,
-} from "@prisma/client";
+import { ActionType, LogicalOperator, SystemType } from "@prisma/client";
 import { ConditionType } from "@/utils/config";
 import { NINETY_DAYS_MINUTES } from "@/utils/date";
-import { SystemRule } from "@/utils/rule/consts";
 
 export const delayInMinutesSchema = z
   .number()
@@ -25,15 +19,23 @@ const zodActionType = z.enum([
   ActionType.SEND_EMAIL,
   ActionType.CALL_WEBHOOK,
   ActionType.MARK_READ,
-  ActionType.TRACK_THREAD,
   ActionType.DIGEST,
   ActionType.MOVE_FOLDER,
 ]);
 
-const zodConditionType = z.enum([
-  ConditionType.AI,
-  ConditionType.STATIC,
-  ConditionType.CATEGORY,
+const zodConditionType = z.enum([ConditionType.AI, ConditionType.STATIC]);
+
+const zodSystemRule = z.enum([
+  SystemType.TO_REPLY,
+  SystemType.FYI,
+  SystemType.AWAITING_REPLY,
+  SystemType.ACTIONED,
+  SystemType.COLD_EMAIL,
+  SystemType.NEWSLETTER,
+  SystemType.MARKETING,
+  SystemType.CALENDAR,
+  SystemType.RECEIPT,
+  SystemType.NOTIFICATION,
 ]);
 
 const zodAiCondition = z.object({
@@ -47,18 +49,10 @@ const zodStaticCondition = z.object({
   body: z.string().nullish(),
 });
 
-const zodCategoryCondition = z.object({
-  categoryFilterType: z
-    .enum([CategoryFilterType.INCLUDE, CategoryFilterType.EXCLUDE])
-    .nullish(),
-  categoryFilters: z.array(z.string()).nullish(),
-});
-
 const zodCondition = z.object({
   type: zodConditionType,
   ...zodAiCondition.shape,
   ...zodStaticCondition.shape,
-  ...zodCategoryCondition.shape,
 });
 export type ZodCondition = z.infer<typeof zodCondition>;
 
@@ -146,16 +140,7 @@ export const createRuleBody = z.object({
     .enum([LogicalOperator.AND, LogicalOperator.OR])
     .default(LogicalOperator.AND)
     .optional(),
-  systemType: z
-    .enum([
-      SystemType.TO_REPLY,
-      SystemType.NEWSLETTER,
-      SystemType.MARKETING,
-      SystemType.CALENDAR,
-      SystemType.RECEIPT,
-      SystemType.NOTIFICATION,
-    ])
-    .nullish(),
+  systemType: zodSystemRule.nullish(),
 });
 export type CreateRuleBody = z.infer<typeof createRuleBody>;
 
@@ -179,6 +164,11 @@ export type UpdateRuleSettingsBody = z.infer<typeof updateRuleSettingsBody>;
 export const enableDraftRepliesBody = z.object({ enable: z.boolean() });
 export type EnableDraftRepliesBody = z.infer<typeof enableDraftRepliesBody>;
 
+export const enableMultiRuleSelectionBody = z.object({ enable: z.boolean() });
+export type EnableMultiRuleSelectionBody = z.infer<
+  typeof enableMultiRuleSelectionBody
+>;
+
 const categoryAction = z.enum([
   "label",
   "label_archive",
@@ -198,7 +188,7 @@ const categoryConfig = z.object({
     .min(1, "Please enter a name")
     .max(40, "Please keep names under 40 characters"),
   description: z.string(),
-  key: z.nativeEnum(SystemRule).nullable(),
+  key: zodSystemRule.nullable(),
 });
 export type CategoryConfig = z.infer<typeof categoryConfig>;
 
@@ -206,3 +196,13 @@ export const createRulesOnboardingBody = z.array(categoryConfig);
 export type CreateRulesOnboardingBody = z.infer<
   typeof createRulesOnboardingBody
 >;
+
+export const toggleRuleBody = z
+  .object({
+    ruleId: z.string().optional(),
+    systemType: zodSystemRule.optional(),
+    enabled: z.boolean(),
+  })
+  .refine((data) => data.ruleId || data.systemType, {
+    message: "Either ruleId or systemType must be provided",
+  });

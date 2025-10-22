@@ -1,5 +1,5 @@
 import { isDefined, type ParsedMessage } from "@/utils/types";
-import { createScopedLogger } from "@/utils/logger";
+import { createScopedLogger, type Logger } from "@/utils/logger";
 import { processUserRequest } from "@/utils/ai/assistant/process-user-request";
 import { extractEmailAddress } from "@/utils/email";
 import prisma from "@/utils/prisma";
@@ -7,8 +7,6 @@ import { emailToContent } from "@/utils/mail";
 import { isAssistantEmail } from "@/utils/assistant/is-assistant-email";
 import { internalDateToDate } from "@/utils/date";
 import type { EmailProvider } from "@/utils/email/types";
-
-const logger = createScopedLogger("process-assistant-email");
 
 type ProcessAssistantEmailArgs = {
   emailAccountId: string;
@@ -23,13 +21,24 @@ export async function processAssistantEmail({
   message,
   provider,
 }: ProcessAssistantEmailArgs) {
-  return withProcessingLabels(message.id, provider, () =>
-    processAssistantEmailInternal({
-      emailAccountId,
-      userEmail,
-      message,
-      provider,
-    }),
+  const logger = createScopedLogger("process-assistant-email").with({
+    emailAccountId,
+    threadId: message.threadId,
+    messageId: message.id,
+  });
+
+  return withProcessingLabels(
+    message.id,
+    provider,
+    () =>
+      processAssistantEmailInternal({
+        emailAccountId,
+        userEmail,
+        message,
+        provider,
+        logger,
+      }),
+    logger,
   );
 }
 
@@ -38,7 +47,8 @@ async function processAssistantEmailInternal({
   userEmail,
   message,
   provider,
-}: ProcessAssistantEmailArgs) {
+  logger,
+}: ProcessAssistantEmailArgs & { logger: Logger }) {
   if (!verifyUserSentEmail({ message, userEmail })) {
     logger.error("Unauthorized assistant access attempt", {
       email: userEmail,
@@ -48,13 +58,7 @@ async function processAssistantEmailInternal({
     throw new Error("Unauthorized assistant access attempt");
   }
 
-  const loggerOptions = {
-    emailAccountId,
-    threadId: message.threadId,
-    messageId: message.id,
-  };
-
-  logger.info("Processing assistant email", loggerOptions);
+  logger.info("Processing assistant email");
 
   // 1. get thread
   // 2. get first message in thread to the personal assistant
@@ -63,7 +67,7 @@ async function processAssistantEmailInternal({
   const threadMessages = await provider.getThreadMessages(message.threadId);
 
   if (!threadMessages?.length) {
-    logger.error("No thread messages found", loggerOptions);
+    logger.error("No thread messages found");
     await provider.replyToEmail(
       message,
       "Something went wrong. I couldn't read any messages.",
@@ -92,7 +96,7 @@ async function processAssistantEmailInternal({
   const originalMessageId = firstMessageToAssistant.headers["in-reply-to"];
   const originalMessage = await provider.getOriginalMessage(originalMessageId);
 
-  const [emailAccount, executedRule, senderCategory] = await Promise.all([
+  const [emailAccount, executedRules] = await Promise.all([
     prisma.emailAccount.findUnique({
       where: { email: userEmail },
       select: {
@@ -100,6 +104,7 @@ async function processAssistantEmailInternal({
         userId: true,
         email: true,
         about: true,
+        multiRuleSelectionEnabled: true,
         user: {
           select: {
             aiProvider: true,
@@ -110,7 +115,6 @@ async function processAssistantEmailInternal({
         rules: {
           include: {
             actions: true,
-            categoryFilters: true,
             group: {
               select: {
                 id: true,
@@ -126,47 +130,31 @@ async function processAssistantEmailInternal({
             },
           },
         },
-        categories: true,
         account: { select: { provider: true } },
       },
     }),
     originalMessage
-      ? prisma.executedRule.findUnique({
+      ? prisma.executedRule.findMany({
           where: {
-            unique_emailAccount_thread_message: {
-              emailAccountId,
-              threadId: originalMessage.threadId,
-              messageId: originalMessage.id,
-            },
+            emailAccountId,
+            threadId: originalMessage.threadId,
+            messageId: originalMessage.id,
           },
+          orderBy: [{ createdAt: "desc" }, { id: "desc" }],
           select: {
             rule: {
               include: {
                 actions: true,
-                categoryFilters: true,
                 group: true,
               },
             },
           },
         })
       : null,
-    originalMessage
-      ? prisma.newsletter.findUnique({
-          where: {
-            email_emailAccountId: {
-              email: extractEmailAddress(originalMessage.headers.from),
-              emailAccountId,
-            },
-          },
-          select: {
-            category: { select: { name: true } },
-          },
-        })
-      : null,
   ]);
 
   if (!emailAccount) {
-    logger.error("User not found", loggerOptions);
+    logger.error("User not found");
     return;
   }
 
@@ -204,7 +192,7 @@ async function processAssistantEmailInternal({
     });
 
   if (messages[messages.length - 1].role === "assistant") {
-    logger.error("Assistant message cannot be last", loggerOptions);
+    logger.error("Assistant message cannot be last");
     return;
   }
 
@@ -213,9 +201,7 @@ async function processAssistantEmailInternal({
     rules: emailAccount.rules,
     originalEmail: originalMessage,
     messages,
-    matchedRule: executedRule?.rule || null,
-    categories: emailAccount.categories.length ? emailAccount.categories : null,
-    senderCategory: senderCategory?.category?.name ?? null,
+    matchedRule: executedRules?.length ? executedRules[0].rule : null, // TODO: support multiple rule matching
   });
 
   const toolCalls = result.steps.flatMap((step) => step.toolCalls);
@@ -245,6 +231,7 @@ async function withProcessingLabels<T>(
   messageId: string,
   provider: EmailProvider,
   fn: () => Promise<T>,
+  logger: Logger,
 ): Promise<T> {
   // Get labels first so we can reuse them
   const results = await Promise.allSettled([

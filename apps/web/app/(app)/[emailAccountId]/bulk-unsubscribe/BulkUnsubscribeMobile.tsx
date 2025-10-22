@@ -46,7 +46,7 @@ export function BulkUnsubscribeRowMobile({
   archivedPercentage,
   emailAccountId,
 }: RowProps) {
-  const name = extractNameFromEmail(item.name);
+  const name = item.fromName || extractNameFromEmail(item.name);
   const email = extractEmailAddress(item.name);
 
   const posthog = usePostHog();

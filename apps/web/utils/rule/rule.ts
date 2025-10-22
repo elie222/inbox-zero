@@ -1,17 +1,11 @@
-import type { CreateOrUpdateRuleSchemaWithCategories } from "@/utils/ai/rule/create-rule-schema";
+import type { CreateOrUpdateRuleSchema } from "@/utils/ai/rule/create-rule-schema";
 import prisma from "@/utils/prisma";
 import { isDuplicateError } from "@/utils/prisma-helpers";
 import { createScopedLogger } from "@/utils/logger";
-import {
-  ActionType,
-  type SystemType,
-  type Prisma,
-  type Rule,
-} from "@prisma/client";
-import { getUserCategoriesForNames } from "@/utils/category.server";
+import { ActionType } from "@prisma/client";
+import type { Prisma, Rule, SystemType } from "@prisma/client";
 import { getActionRiskLevel, type RiskAction } from "@/utils/risk";
 import { hasExampleParams } from "@/app/(app)/[emailAccountId]/assistant/examples";
-import { SafeError } from "@/utils/error";
 import { createRuleHistory } from "@/utils/rule/rule-history";
 import { isMicrosoftProvider } from "@/utils/email/provider-types";
 import { createEmailProvider } from "@/utils/email/provider";
@@ -29,17 +23,15 @@ export function partialUpdateRule({
   return prisma.rule.update({
     where: { id: ruleId },
     data,
-    include: { actions: true, categoryFilters: true, group: true },
+    include: { actions: true, group: true },
   });
 }
 
-// Extended type for system rules that can include labelId
-type CreateRuleWithLabelId = Omit<
-  CreateOrUpdateRuleSchemaWithCategories,
-  "actions"
-> & {
-  actions: (CreateOrUpdateRuleSchemaWithCategories["actions"][number] & {
+// Extended type for system rules that can include labelId and folderId
+type CreateRuleWithLabelId = Omit<CreateOrUpdateRuleSchema, "actions"> & {
+  actions: (CreateOrUpdateRuleSchema["actions"][number] & {
     labelId?: string | null;
+    folderId?: string | null;
   })[];
 };
 
@@ -47,32 +39,27 @@ export async function safeCreateRule({
   result,
   emailAccountId,
   provider,
-  categoryNames,
   systemType,
   triggerType = "ai_creation",
   shouldCreateIfDuplicate,
+  runOnThreads,
 }: {
   result: CreateRuleWithLabelId;
   emailAccountId: string;
   provider: string;
-  categoryNames?: string[] | null;
   systemType?: SystemType | null;
   triggerType?: "ai_creation" | "manual_creation" | "system_creation";
   shouldCreateIfDuplicate: boolean; // maybe this should just always be false?
+  runOnThreads: boolean;
 }) {
-  const categoryIds = await getUserCategoriesForNames({
-    emailAccountId,
-    names: categoryNames || [],
-  });
-
   try {
     const rule = await createRule({
       result,
       emailAccountId,
-      categoryIds,
       systemType,
       triggerType,
       provider,
+      runOnThreads,
     });
     return rule;
   } catch (error) {
@@ -82,21 +69,44 @@ export async function safeCreateRule({
         const rule = await createRule({
           result: { ...result, name: `${result.name} - ${Date.now()}` },
           emailAccountId,
-          categoryIds,
           triggerType,
           provider,
+          runOnThreads,
         });
         return rule;
       } else {
-        return prisma.rule.findUnique({
+        // Check if there's an existing rule with this name
+        const existingRule = await prisma.rule.findUnique({
           where: {
             name_emailAccountId: {
               emailAccountId,
               name: result.name,
             },
           },
-          include: { actions: true, categoryFilters: true, group: true },
+          include: { actions: true, group: true },
         });
+
+        // If we're creating a system rule and the existing rule doesn't have
+        // the same systemType, create the system rule with a unique name
+        // to avoid breaking system functionality
+        if (systemType && existingRule?.systemType !== systemType) {
+          logger.info("Creating system rule with unique name due to conflict", {
+            systemType,
+            existingRuleName: result.name,
+            existingRuleSystemType: existingRule?.systemType,
+          });
+          const rule = await createRule({
+            result: { ...result, name: `${result.name} - ${Date.now()}` },
+            emailAccountId,
+            systemType,
+            triggerType,
+            provider,
+            runOnThreads,
+          });
+          return rule;
+        }
+
+        return existingRule;
       }
     }
 
@@ -115,14 +125,12 @@ export async function safeUpdateRule({
   ruleId,
   result,
   emailAccountId,
-  categoryIds,
   triggerType = "ai_update",
   provider,
 }: {
   ruleId: string;
-  result: CreateOrUpdateRuleSchemaWithCategories;
+  result: CreateOrUpdateRuleSchema;
   emailAccountId: string;
-  categoryIds?: string[] | null;
   triggerType?: "ai_update" | "manual_update" | "system_update";
   provider: string;
 }) {
@@ -131,7 +139,6 @@ export async function safeUpdateRule({
       ruleId,
       result,
       emailAccountId,
-      categoryIds,
       triggerType,
       provider,
     });
@@ -142,9 +149,9 @@ export async function safeUpdateRule({
       const rule = await createRule({
         result: { ...result, name: `${result.name} - ${Date.now()}` },
         emailAccountId,
-        categoryIds,
         triggerType: "ai_creation", // Default for safeUpdateRule fallback
         provider,
+        runOnThreads: true,
       });
       return { id: rule.id };
     }
@@ -164,17 +171,17 @@ export async function safeUpdateRule({
 export async function createRule({
   result,
   emailAccountId,
-  categoryIds,
   systemType,
   triggerType = "ai_creation",
   provider,
+  runOnThreads,
 }: {
-  result: CreateOrUpdateRuleSchemaWithCategories;
+  result: CreateOrUpdateRuleSchema;
   emailAccountId: string;
-  categoryIds?: string[] | null;
   systemType?: SystemType | null;
   triggerType?: "ai_creation" | "manual_creation" | "system_creation";
   provider: string;
+  runOnThreads: boolean;
 }) {
   const mappedActions = await mapActionFields(
     result.actions,
@@ -199,22 +206,14 @@ export async function createRule({
           bcc: a.bcc ?? null,
         })),
       ),
-      runOnThreads: true,
+      runOnThreads,
       conditionalOperator: result.condition.conditionalOperator ?? undefined,
       instructions: result.condition.aiInstructions,
       from: result.condition.static?.from,
       to: result.condition.static?.to,
       subject: result.condition.static?.subject,
-      categoryFilterType: result.condition.categories?.categoryFilterType,
-      categoryFilters: categoryIds
-        ? {
-            connect: categoryIds.map((id) => ({
-              id,
-            })),
-          }
-        : undefined,
     },
-    include: { actions: true, categoryFilters: true, group: true },
+    include: { actions: true, group: true },
   });
 
   // Track rule creation in history
@@ -227,14 +226,12 @@ async function updateRule({
   ruleId,
   result,
   emailAccountId,
-  categoryIds,
   triggerType = "ai_update",
   provider,
 }: {
   ruleId: string;
-  result: CreateOrUpdateRuleSchemaWithCategories;
+  result: CreateOrUpdateRuleSchema;
   emailAccountId: string;
-  categoryIds?: string[] | null;
   triggerType?: "ai_update" | "manual_update" | "system_update";
   provider: string;
 }) {
@@ -256,16 +253,8 @@ async function updateRule({
       from: result.condition.static?.from,
       to: result.condition.static?.to,
       subject: result.condition.static?.subject,
-      categoryFilterType: result.condition.categories?.categoryFilterType,
-      categoryFilters: categoryIds
-        ? {
-            set: categoryIds.map((id) => ({
-              id,
-            })),
-          }
-        : undefined,
     },
-    include: { actions: true, categoryFilters: true, group: true },
+    include: { actions: true, group: true },
   });
 
   // Track rule update in history
@@ -281,7 +270,7 @@ export async function updateRuleActions({
   emailAccountId,
 }: {
   ruleId: string;
-  actions: CreateOrUpdateRuleSchemaWithCategories["actions"];
+  actions: CreateOrUpdateRuleSchema["actions"];
   provider: string;
   emailAccountId: string;
 }) {
@@ -316,10 +305,7 @@ export async function deleteRule({
   ]);
 }
 
-function shouldEnable(
-  rule: CreateOrUpdateRuleSchemaWithCategories,
-  actions: RiskAction[],
-) {
+function shouldEnable(rule: CreateOrUpdateRuleSchema, actions: RiskAction[]) {
   // Don't automate if it's an example rule that should have been edited by the user
   if (
     hasExampleParams({
@@ -344,48 +330,10 @@ function shouldEnable(
   return riskLevels.every((level) => level === "low");
 }
 
-export async function addRuleCategories(ruleId: string, categoryIds: string[]) {
-  const rule = await prisma.rule.findUnique({
-    where: { id: ruleId },
-    include: { categoryFilters: true },
-  });
-
-  if (!rule) throw new SafeError("Rule not found");
-
-  const existingIds = rule.categoryFilters.map((c) => c.id) || [];
-  const newIds = [...new Set([...existingIds, ...categoryIds])];
-
-  return prisma.rule.update({
-    where: { id: ruleId },
-    data: { categoryFilters: { set: newIds.map((id) => ({ id })) } },
-    include: { actions: true, categoryFilters: true, group: true },
-  });
-}
-
-export async function removeRuleCategories(
-  ruleId: string,
-  categoryIds: string[],
-) {
-  const rule = await prisma.rule.findUnique({
-    where: { id: ruleId },
-    include: { categoryFilters: true },
-  });
-
-  if (!rule) throw new SafeError("Rule not found");
-
-  const existingIds = rule.categoryFilters.map((c) => c.id) || [];
-  const newIds = existingIds.filter((id) => !categoryIds.includes(id));
-
-  return prisma.rule.update({
-    where: { id: ruleId },
-    data: { categoryFilters: { set: newIds.map((id) => ({ id })) } },
-    include: { actions: true, categoryFilters: true, group: true },
-  });
-}
-
 async function mapActionFields(
-  actions: (CreateOrUpdateRuleSchemaWithCategories["actions"][number] & {
+  actions: (CreateOrUpdateRuleSchema["actions"][number] & {
     labelId?: string | null;
+    folderId?: string | null;
   })[],
   provider: string,
   emailAccountId: string,
@@ -394,6 +342,9 @@ async function mapActionFields(
     async (a): Promise<Prisma.ActionCreateManyRuleInput> => {
       let label = a.fields?.label;
       let labelId: string | null = null;
+      const folderName =
+        typeof a.fields?.folderName === "string" ? a.fields.folderName : null;
+      let folderId: string | null = a.folderId || null;
 
       if (a.type === ActionType.LABEL) {
         const emailProvider = await createEmailProvider({
@@ -410,6 +361,21 @@ async function mapActionFields(
         labelId = resolved.labelId;
       }
 
+      if (
+        a.type === ActionType.MOVE_FOLDER &&
+        folderName &&
+        !folderId &&
+        isMicrosoftProvider(provider)
+      ) {
+        const emailProvider = await createEmailProvider({
+          emailAccountId,
+          provider,
+        });
+
+        folderId =
+          await emailProvider.getOrCreateOutlookFolderIdByName(folderName);
+      }
+
       return {
         type: a.type,
         label,
@@ -421,7 +387,8 @@ async function mapActionFields(
         content: a.fields?.content,
         url: a.fields?.webhookUrl,
         ...(isMicrosoftProvider(provider) && {
-          folderName: a.fields?.folderName as string | null,
+          folderName: folderName ?? null,
+          folderId,
         }),
         delayInMinutes: a.delayInMinutes,
       };

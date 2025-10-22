@@ -27,7 +27,7 @@ export function isErrorMessage(value: any): value is ErrorMessage {
 }
 
 export function formatZodError(error: z.ZodError): string {
-  const formattedError = error.errors
+  const formattedError = error.issues
     .map((err) => `${err.path.join(".")}: ${err.message}`)
     .join(", ");
   return `Invalid data: ${formattedError}`;

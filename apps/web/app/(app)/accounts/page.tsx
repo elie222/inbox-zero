@@ -89,7 +89,7 @@ function AccountItem({
           <CardDescription>{emailAccount.email}</CardDescription>
         </div>
       </CardHeader>
-      <CardContent className="flex justify-end gap-2">
+      <CardContent className="flex justify-end gap-2 flex-wrap">
         <Button variant="outline" size="sm" Icon={BotIcon}>
           <Link href={prefixPath(emailAccount.id, "/automation")}>
             Assistant

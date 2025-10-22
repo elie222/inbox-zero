@@ -41,10 +41,14 @@ export function getEmail({
   };
 }
 
-export function getRule(instructions: string, actions: Action[] = []) {
+export function getRule(
+  instructions: string,
+  actions: Action[] = [],
+  name?: string,
+) {
   return {
     instructions,
-    name: "Joke requests",
+    name: name || "Joke requests",
     actions,
     id: "id",
     userId: "userId",
@@ -57,7 +61,6 @@ export function getRule(instructions: string, actions: Action[] = []) {
     body: null,
     to: null,
     enabled: true,
-    categoryFilterType: null,
     conditionalOperator: LogicalOperator.AND,
   };
 }

@@ -23,9 +23,8 @@ import { aiDiffRules } from "@/utils/ai/rule/diff-rules";
 import { aiFindExistingRules } from "@/utils/ai/rule/find-existing-rules";
 import { aiGenerateRulesPrompt } from "@/utils/ai/rule/generate-rules-prompt";
 import { aiFindSnippets } from "@/utils/ai/snippets/find-snippets";
-import type { CreateOrUpdateRuleSchemaWithCategories } from "@/utils/ai/rule/create-rule-schema";
+import type { CreateOrUpdateRuleSchema } from "@/utils/ai/rule/create-rule-schema";
 import { deleteRule, safeCreateRule, safeUpdateRule } from "@/utils/rule/rule";
-import { getUserCategoriesForNames } from "@/utils/category.server";
 import { actionClient } from "@/utils/actions/safe-action";
 import { getEmailAccountWithAi } from "@/utils/user/get";
 import { SafeError } from "@/utils/error";
@@ -40,7 +39,7 @@ export const runRulesAction = actionClient
     async ({
       ctx: { emailAccountId, provider, logger: ctxLogger },
       parsedInput: { messageId, threadId, rerun, isTest },
-    }): Promise<RunRulesResult> => {
+    }): Promise<RunRulesResult[]> => {
       const logger = ctxLogger.with({ messageId, threadId });
 
       const emailAccount = await getEmailAccountWithAi({ emailAccountId });
@@ -56,33 +55,33 @@ export const runRulesAction = actionClient
 
       const fetchExecutedRule = !isTest && !rerun;
 
-      const executedRule = fetchExecutedRule
-        ? await prisma.executedRule.findUnique({
+      const executedRules = fetchExecutedRule
+        ? await prisma.executedRule.findMany({
             where: {
-              unique_emailAccount_thread_message: {
-                emailAccountId,
-                threadId,
-                messageId,
-              },
+              emailAccountId,
+              threadId,
+              messageId,
             },
             select: {
               id: true,
               reason: true,
               actionItems: true,
               rule: true,
+              createdAt: true,
             },
           })
-        : null;
+        : [];
 
-      if (executedRule) {
+      if (executedRules.length > 0) {
         logger.info("Skipping. Rule already exists.");
 
-        return {
+        return executedRules.map((executedRule) => ({
           rule: executedRule.rule,
           actionItems: executedRule.actionItems,
           reason: executedRule.reason,
           existing: true,
-        };
+          createdAt: executedRule.createdAt,
+        }));
       }
 
       const rules = await prisma.rule.findMany({
@@ -90,7 +89,7 @@ export const runRulesAction = actionClient
           emailAccountId,
           enabled: true,
         },
-        include: { actions: true, categoryFilters: true },
+        include: { actions: true },
       });
 
       const result = await runRules({
@@ -126,7 +125,7 @@ export const testAiCustomContentAction = actionClient
           enabled: true,
           instructions: { not: null },
         },
-        include: { actions: true, categoryFilters: true },
+        include: { actions: true },
       });
 
       const result = await runRules({
@@ -166,7 +165,7 @@ export const createAutomationAction = actionClient
 
     if (!emailAccount) throw new Error("Email account not found");
 
-    let result: CreateOrUpdateRuleSchemaWithCategories;
+    let result: CreateOrUpdateRuleSchema;
 
     try {
       result = await aiCreateRule(prompt, emailAccount);
@@ -184,6 +183,7 @@ export const createAutomationAction = actionClient
       emailAccountId,
       shouldCreateIfDuplicate: true,
       provider: emailAccount.account.provider,
+      runOnThreads: true,
     });
     return createdRule;
   });
@@ -232,6 +232,7 @@ export const saveRulesPromptAction = actionClient
           email: true,
           userId: true,
           about: true,
+          multiRuleSelectionEnabled: true,
           rulesPrompt: true,
           categories: { select: { id: true, name: true } },
           user: {
@@ -298,7 +299,6 @@ export const saveRulesPromptAction = actionClient
             emailAccount,
             promptFile: diff.addedRules.join("\n\n"),
             isEditing: false,
-            availableCategories: emailAccount.categories.map((c) => c.name),
           });
           logger.info("Added rules", {
             addedRules: addedRules?.length || 0,
@@ -377,7 +377,6 @@ export const saveRulesPromptAction = actionClient
               )
               .join("\n\n"),
             isEditing: true,
-            availableCategories: emailAccount.categories.map((c) => c.name),
           });
 
           for (const rule of editedRules) {
@@ -393,18 +392,12 @@ export const saveRulesPromptAction = actionClient
               ruleId: rule.ruleId,
             });
 
-            const categoryIds = await getUserCategoriesForNames({
-              emailAccountId,
-              names: rule.condition.categories?.categoryFilters || [],
-            });
-
             editRulesCount++;
 
             await safeUpdateRule({
               ruleId: rule.ruleId,
               result: rule,
               emailAccountId,
-              categoryIds,
               provider: emailAccount.account.provider,
             });
           }
@@ -415,7 +408,6 @@ export const saveRulesPromptAction = actionClient
           emailAccount,
           promptFile: rulesPrompt,
           isEditing: false,
-          availableCategories: emailAccount.categories.map((c) => c.name),
         });
         logger.info("Rules to be added", { count: addedRules?.length || 0 });
       }
@@ -427,9 +419,9 @@ export const saveRulesPromptAction = actionClient
         await safeCreateRule({
           result: rule,
           emailAccountId,
-          categoryNames: rule.condition.categories?.categoryFilters || [],
           shouldCreateIfDuplicate: false,
           provider: emailAccount.account.provider,
+          runOnThreads: true,
         });
       }
 
@@ -465,6 +457,7 @@ export const createRulesAction = actionClient
           email: true,
           userId: true,
           about: true,
+          multiRuleSelectionEnabled: true,
           rulesPrompt: true,
           categories: { select: { id: true, name: true } },
           user: {
@@ -490,7 +483,6 @@ export const createRulesAction = actionClient
       const addedRules = await aiPromptToRules({
         emailAccount,
         promptFile: prompt,
-        availableCategories: emailAccount.categories.map((c) => c.name),
       });
 
       logger.info("Rules to be added", { count: addedRules?.length || 0 });
@@ -503,9 +495,9 @@ export const createRulesAction = actionClient
         const createdRule = await safeCreateRule({
           result: rule,
           emailAccountId,
-          categoryNames: rule.condition.categories?.categoryFilters || [],
           shouldCreateIfDuplicate: false,
           provider: emailAccount.account.provider,
+          runOnThreads: true,
         });
 
         if (createdRule) {
@@ -577,15 +569,3 @@ export const generateRulesPromptAction = actionClient
 
     return { rulesPrompt: result.join("\n\n") };
   });
-
-export const setRuleEnabledAction = actionClient
-  .metadata({ name: "setRuleEnabled" })
-  .schema(z.object({ ruleId: z.string(), enabled: z.boolean() }))
-  .action(
-    async ({ ctx: { emailAccountId }, parsedInput: { ruleId, enabled } }) => {
-      await prisma.rule.update({
-        where: { id: ruleId, emailAccountId },
-        data: { enabled },
-      });
-    },
-  );

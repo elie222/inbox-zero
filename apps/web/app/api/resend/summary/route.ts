@@ -15,8 +15,6 @@ import { createUnsubscribeToken } from "@/utils/unsubscribe";
 
 export const maxDuration = 60;
 
-const logger = createScopedLogger("resend/summary");
-
 const sendSummaryEmailBody = z.object({ emailAccountId: z.string() });
 
 async function sendEmail({
@@ -26,9 +24,12 @@ async function sendEmail({
   emailAccountId: string;
   force?: boolean;
 }) {
-  const loggerOptions = { emailAccountId, force };
+  const logger = createScopedLogger("resend/summary").with({
+    emailAccountId,
+    force,
+  });
 
-  logger.info("Sending summary email", loggerOptions);
+  logger.info("Sending summary email");
 
   // run every 7 days. but overlap by 1 hour
   const days = 7;
@@ -41,7 +42,7 @@ async function sendEmail({
     });
 
     if (!emailAccount) {
-      logger.error("Email account not found", loggerOptions);
+      logger.error("Email account not found");
       return { success: true };
     }
 
@@ -49,7 +50,6 @@ async function sendEmail({
 
     if (lastSummaryEmailAt && lastSummaryEmailAt > cutOffDate) {
       logger.info("Last summary email was recent", {
-        ...loggerOptions,
         lastSummaryEmailAt,
         cutOffDate,
       });
@@ -71,15 +71,14 @@ async function sendEmail({
   });
 
   if (!emailAccount) {
-    logger.error("Email account not found", loggerOptions);
+    logger.error("Email account not found");
     return { success: false };
   }
 
   if (emailAccount) {
-    logger.info("Email account found", loggerOptions);
+    logger.info("Email account found");
   } else {
     logger.error("Email account not found or cutoff date is in the future", {
-      ...loggerOptions,
       cutOffDate,
     });
     return { success: true };
@@ -157,7 +156,6 @@ async function sendEmail({
   ];
 
   logger.info("Getting messages", {
-    ...loggerOptions,
     messagesCount: messageIds.length,
   });
 
@@ -207,7 +205,6 @@ async function sendEmail({
   );
 
   logger.info("Sending summary email to user", {
-    ...loggerOptions,
     shouldSendEmail,
     coldEmailers: coldEmailers.length,
     needsReplyCount: typeCounts[ThreadTrackerType.NEEDS_REPLY],
@@ -256,6 +253,7 @@ async function sendEmail({
 
 export const GET = withEmailAccount(async (request) => {
   // send to self
+  const logger = createScopedLogger("resend/summary");
   const emailAccountId = request.auth.emailAccountId;
 
   logger.info("Sending summary email to user GET", { emailAccountId });
@@ -266,6 +264,8 @@ export const GET = withEmailAccount(async (request) => {
 });
 
 export const POST = withError(async (request) => {
+  const logger = createScopedLogger("resend/summary");
+
   if (!hasCronSecret(request)) {
     logger.error("Unauthorized cron request");
     captureException(new Error("Unauthorized cron request: resend"));

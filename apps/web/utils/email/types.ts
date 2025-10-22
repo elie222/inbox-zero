@@ -1,6 +1,7 @@
 import type { ParsedMessage } from "@/utils/types";
 import type { InboxZeroLabel } from "@/utils/label";
 import type { ThreadsQuery } from "@/app/api/threads/validation";
+import type { OutlookFolder } from "@/utils/outlook/folders";
 
 export interface EmailThread {
   id: string;
@@ -47,6 +48,7 @@ export interface EmailProvider {
   getLabels(): Promise<EmailLabel[]>;
   getLabelById(labelId: string): Promise<EmailLabel | null>;
   getLabelByName(name: string): Promise<EmailLabel | null>;
+  getFolders(): Promise<OutlookFolder[]>;
   getMessage(messageId: string): Promise<ParsedMessage>;
   getMessagesByFields(options: {
     froms?: string[];
@@ -89,6 +91,7 @@ export interface EmailProvider {
   ): Promise<void>;
   labelMessage(options: { messageId: string; labelId: string }): Promise<void>;
   removeThreadLabel(threadId: string, labelId: string): Promise<void>;
+  removeThreadLabels(threadId: string, labelIds: string[]): Promise<void>;
   draftEmail(
     email: ParsedMessage,
     args: { to?: string; subject?: string; content: string },
@@ -134,7 +137,9 @@ export interface EmailProvider {
   getDraft(draftId: string): Promise<ParsedMessage | null>;
   deleteDraft(draftId: string): Promise<void>;
   createLabel(name: string, description?: string): Promise<EmailLabel>;
+  deleteLabel(labelId: string): Promise<void>;
   getOrCreateInboxZeroLabel(key: InboxZeroLabel): Promise<EmailLabel>;
+  blockUnsubscribedEmail(messageId: string): Promise<void>;
   getOriginalMessage(
     originalMessageId: string | undefined,
   ): Promise<ParsedMessage | null>;
@@ -214,6 +219,7 @@ export interface EmailProvider {
   } | null>;
   unwatchEmails(subscriptionId?: string): Promise<void>;
   isReplyInThread(message: ParsedMessage): boolean;
+  isSentMessage(message: ParsedMessage): boolean;
   moveThreadToFolder(
     threadId: string,
     ownerEmail: string,

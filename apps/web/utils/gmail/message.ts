@@ -16,6 +16,7 @@ import { GmailLabel } from "@/utils/gmail/label";
 import { isIgnoredSender } from "@/utils/filter-ignored-senders";
 import parse from "gmail-api-parse-message";
 import type { EmailProvider } from "@/utils/email/types";
+import { withGmailRetry } from "@/utils/gmail/retry";
 
 const logger = createScopedLogger("gmail/message");
 
@@ -68,13 +69,15 @@ export async function getMessage(
   gmail: gmail_v1.Gmail,
   format?: "full" | "metadata",
 ): Promise<MessageWithPayload> {
-  const message = await gmail.users.messages.get({
-    userId: "me",
-    id: messageId,
-    format,
-  });
+  return withGmailRetry(async () => {
+    const message = await gmail.users.messages.get({
+      userId: "me",
+      id: messageId,
+      format,
+    });
 
-  return message.data as MessageWithPayload;
+    return message.data as MessageWithPayload;
+  });
 }
 
 export async function getMessageByRfc822Id(
@@ -85,11 +88,13 @@ export async function getMessageByRfc822Id(
   // Remove any < > brackets if present
   const cleanMessageId = rfc822MessageId.replace(/[<>]/g, "");
 
-  const response = await gmail.users.messages.list({
-    userId: "me",
-    q: `rfc822msgid:${cleanMessageId}`,
-    maxResults: 1,
-  });
+  const response = await withGmailRetry(() =>
+    gmail.users.messages.list({
+      userId: "me",
+      q: `rfc822msgid:${cleanMessageId}`,
+      maxResults: 1,
+    }),
+  );
 
   const message = response.data.messages?.[0];
   if (!message?.id) {
@@ -264,13 +269,15 @@ export async function getMessages(
   }[];
   nextPageToken?: string;
 }> {
-  const messages = await gmail.users.messages.list({
-    userId: "me",
-    maxResults: options.maxResults,
-    q: options.query,
-    pageToken: options.pageToken,
-    labelIds: options.labelIds,
-  });
+  const messages = await withGmailRetry(() =>
+    gmail.users.messages.list({
+      userId: "me",
+      maxResults: options.maxResults,
+      q: options.query,
+      pageToken: options.pageToken,
+      labelIds: options.labelIds,
+    }),
+  );
 
   return {
     messages: messages.data.messages?.filter(isMessage) || [],

@@ -4,8 +4,6 @@ import { digestBody } from "./validation";
 import { DigestStatus } from "@prisma/client";
 import { createScopedLogger } from "@/utils/logger";
 import prisma from "@/utils/prisma";
-import { RuleName } from "@/utils/rule/consts";
-import { getRuleNameByExecutedAction } from "@/utils/actions/rule";
 import { aiSummarizeEmailForDigest } from "@/utils/ai/digest/summarize-email-for-digest";
 import { getEmailAccountWithAi } from "@/utils/user/get";
 import type { StoredDigestContent } from "@/app/api/resend/digest/validation";
@@ -46,7 +44,15 @@ export const POST = withError(
         return new NextResponse("OK", { status: 200 });
       }
 
-      const ruleName = await resolveRuleName(actionId);
+      const ruleName = actionId
+        ? await getRuleNameByExecutedAction(actionId)
+        : null;
+
+      if (!ruleName) {
+        logger.warn("Rule name not found for executed action", { actionId });
+        return new NextResponse("OK", { status: 200 });
+      }
+
       const summary = await aiSummarizeEmailForDigest({
         ruleName,
         emailAccount,
@@ -77,13 +83,6 @@ export const POST = withError(
     }
   }),
 );
-
-async function resolveRuleName(actionId?: string): Promise<string> {
-  if (!actionId) return RuleName.ColdEmail;
-
-  const ruleName = await getRuleNameByExecutedAction(actionId);
-  return ruleName || RuleName.ColdEmail;
-}
 
 async function findOrCreateDigest(
   emailAccountId: string,
@@ -222,4 +221,29 @@ async function upsertDigest({
     logger.error("Failed to upsert digest", { error });
     throw error;
   }
+}
+
+async function getRuleNameByExecutedAction(
+  actionId: string,
+): Promise<string | undefined> {
+  const executedAction = await prisma.executedAction.findUnique({
+    where: { id: actionId },
+    select: {
+      executedRule: {
+        select: {
+          rule: {
+            select: {
+              name: true,
+            },
+          },
+        },
+      },
+    },
+  });
+
+  if (!executedAction) {
+    throw new Error("Executed action not found");
+  }
+
+  return executedAction.executedRule?.rule?.name;
 }
