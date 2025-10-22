@@ -232,6 +232,7 @@ export const saveRulesPromptAction = actionClient
           email: true,
           userId: true,
           about: true,
+          multiRuleSelectionEnabled: true,
           rulesPrompt: true,
           categories: { select: { id: true, name: true } },
           user: {
@@ -456,6 +457,7 @@ export const createRulesAction = actionClient
           email: true,
           userId: true,
           about: true,
+          multiRuleSelectionEnabled: true,
           rulesPrompt: true,
           categories: { select: { id: true, name: true } },
           user: {
