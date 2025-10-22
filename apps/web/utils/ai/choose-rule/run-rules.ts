@@ -176,9 +176,20 @@ function prepareRulesWithMetaRule(rules: RuleWithActions[]): {
     const metaRule = {
       ...template,
       id: CONVERSATION_TRACKING_META_RULE_ID,
-      name: "Conversation Tracking",
-      instructions:
-        "Personal conversations and communication with real people (emails requiring response, FYI updates, discussions, etc). This is the PRIMARY rule for human-to-human email communication.",
+      name: "Conversations",
+      instructions: `Personal conversations and communication with real people. This covers all conversation states: emails you need to reply to, emails you're awaiting replies on, FYI updates from people, and resolved discussions.
+
+Match when:
+- Questions or requests for information/action
+- Personal updates or FYI information from real people
+- Follow-ups on ongoing conversations
+- Conversations that have been resolved or concluded
+
+EXCLUDE:
+- All automated notifications (LinkedIn, GitHub, Slack, Figma, Jira, Facebook, social media platforms, marketing)
+- System emails (order confirmations, receipts, calendar invites)
+
+NOTE: When this rule matches, it should typically be the primary match.`,
       enabled: true,
       runOnThreads: true,
       systemType: null,
