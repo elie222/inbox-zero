@@ -20,8 +20,8 @@ export function ReadyForBriefContent({ userName }: ReadyForBriefContentProps) {
       user_name: userName,
     });
 
-    // Redirect to welcome survey page
-    router.push("/welcome");
+    // Redirect to analyzing inbox page
+    router.push("/analyzing-inbox");
   };
 
   return (

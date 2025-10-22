@@ -1,6 +1,6 @@
 # Onboarding Flows Documentation
 
-> **Last Updated**: October 18, 2025  
+> **Last Updated**: October 22, 2025  
 > **Audience**: Product Managers, Engineers, Support Team  
 > **Status**: Current Implementation
 
@@ -25,10 +25,12 @@ Inbox Zero's onboarding process guides new users from initial sign-up through ac
 1. **Authenticate users** via Google OAuth
 2. **Show value propositions** to build excitement and set expectations
 3. **Connect Gmail access** with proper OAuth scopes for email management
-4. **Build anticipation** for the first Brief (email digest)
-5. **Collect user preferences** through a multi-step survey
-6. **Offer premium upgrade** with social proof and testimonials
+4. **Display email statistics** to show current inbox state
+5. **Analyze inbox** with streaming terminal-style animation
+6. **Present Brief preview** to complete onboarding
 7. **Direct to the app** where users can start managing their inbox
+
+Note: The welcome survey and premium upgrade steps are currently disabled and will be re-enabled in a future iteration.
 
 ### Key Principles
 
@@ -81,16 +83,18 @@ The database field `User.completedOnboardingAt` (type: `DateTime?`) determines o
    Stores Gmail tokens
         ↓
 10. Ready for Brief (/ready-for-brief) ⭐ NEW
-    Teases upcoming Brief feature
+    Shows email statistics (unread count, yesterday's emails)
         ↓
-11. Welcome Survey (/welcome)
-    Multi-step questionnaire (4-5 questions)
+11. Analyzing Inbox (/analyzing-inbox) ⭐ NEW
+    Streaming terminal-style animation showing analysis
         ↓
-12. Welcome Upgrade (/welcome-upgrade)
-    Premium pricing page with "Skip" option
+12. Preview Brief (/preview-brief) ⭐ NEW
+    Confirms Brief is ready, completes onboarding
         ↓
 13. App Home (/)
     User's main dashboard & inbox
+
+Note: /welcome (survey) and /welcome-upgrade (pricing) are currently bypassed.
 
 
 ┌─────────────────────────────────────────────────────────────┐
@@ -124,17 +128,17 @@ Abandoned onboarding:
 | 8 | `/connect-gmail` | User clicks "Connect Gmail" | Gmail OAuth flow | Still NULL |
 | 9 | Gmail OAuth | User grants Gmail API access | Gmail callback | Still NULL |
 | 10 | Gmail callback | Stores Gmail tokens, redirects | `/ready-for-brief` | Gmail tokens stored |
-| 11 | `/ready-for-brief` | User sees Brief teaser, clicks "I'm ready" | `/welcome` | Still NULL |
-| 12 | `/welcome` | User answers 4-5 survey questions | `/welcome-upgrade` | Survey answers stored, `completedOnboardingAt` set |
-| 13 | `/welcome-upgrade` | User views pricing, clicks "Continue" or "Skip" | `/` (app home) | Onboarding complete |
+| 11 | `/ready-for-brief` | User sees stats & clicks "I'm ready" | `/analyzing-inbox` | Still NULL |
+| 12 | `/analyzing-inbox` | Streaming animation completes | `/preview-brief` | Still NULL |
+| 13 | `/preview-brief` | User clicks "Continue", onboarding marked complete | `/` (app home) | `completedOnboardingAt` set |
 | 14 | `/` (App Home) | User lands on main dashboard | - | Ready to use app |
 
 **PostHog Events Fired**:
 - `value_prop_continue_clicked` (step 7)
 - `connect_gmail_clicked` (step 8)
-- `ready_for_brief_continue_clicked` (step 11)
-- Welcome survey question events (step 12)
-- Premium upgrade decision events (step 13)
+- `ready_for_brief_clicked` (step 11)
+- `analyzing_inbox_completed` (step 12)
+- `preview_brief_continue_clicked` (step 13)
 
 ---
 
@@ -168,11 +172,11 @@ Abandoned onboarding:
 | 3 | `/welcome-redirect` | Checks `completedOnboardingAt` (NULL) | `/value-prop` | Still NULL |
 | 4 | `/value-prop` onward | User resumes onboarding | Continue as Flow 1 | Completes onboarding |
 
-**Abandonment Point: After Gmail Connection, Before Survey**
+**Abandonment Point: After Gmail Connection, Before Completion**
 
 | Step | Page | Action | Next Step | Database State |
 |------|------|--------|-----------|----------------|
-| 1 | Previous session | User left at `/ready-for-brief` or `/welcome` | Browser closed | `completedOnboardingAt = NULL`, Gmail connected |
+| 1 | Previous session | User left at `/ready-for-brief`, `/analyzing-inbox`, or `/preview-brief` | Browser closed | `completedOnboardingAt = NULL`, Gmail connected |
 | 2 | `/login` | User logs back in | Google OAuth | `completedOnboardingAt = NULL` |
 | 3 | `/welcome-redirect` | Checks `completedOnboardingAt` (NULL) | `/value-prop` | Still NULL |
 | 4 | `/value-prop` | User clicks "Continue" | `/connect-gmail` | Gmail already connected |
@@ -192,7 +196,9 @@ Abandoned onboarding:
 | `/value-prop` | `completedOnboardingAt` set | Redirects to `/` (app home) |
 | `/connect-gmail` | `completedOnboardingAt` set | Redirects to `/` (app home) |
 | `/ready-for-brief` | `completedOnboardingAt` set | Redirects to `/` (app home) |
-| `/welcome` | `completedOnboardingAt` set | Allowed (can re-answer survey with `?force=true`) |
+| `/analyzing-inbox` | `completedOnboardingAt` set | Redirects to `/` (app home) |
+| `/preview-brief` | `completedOnboardingAt` set | Redirects to `/` (app home) |
+| `/welcome` | `completedOnboardingAt` set | Currently bypassed in flow |
 | `/welcome-redirect` | `completedOnboardingAt` set | Redirects to `/` (app home) |
 
 **Protection**: All onboarding pages check `completedOnboardingAt` and redirect if set.
@@ -402,13 +408,14 @@ Abandoned onboarding:
 
 ---
 
-### 6. Ready for Brief Page (`/ready-for-brief`) ⭐ NEW
+### 6. Ready for Brief Page (`/ready-for-brief`) ⭐ UPDATED
 
-**Purpose**: Build anticipation for the first Brief (daily email digest) after Gmail connection.
+**Purpose**: Show email statistics and build anticipation for the first Brief after Gmail connection.
 
 **Files**:
 - Server: `apps/web/app/(landing)/ready-for-brief/page.tsx`
 - Client: `apps/web/app/(landing)/ready-for-brief/ReadyForBriefContent.tsx`
+- Component: `apps/web/app/(landing)/ready-for-brief/EmailStatsCard.tsx`
 
 **Server-Side Logic**:
 ```typescript
@@ -421,25 +428,144 @@ Abandoned onboarding:
 
 **Key Elements**:
 - Heading: "Get ready for your first Brief, {userName}!"
-- 2-3 sentences building excitement about organizing inbox and first Brief
+- Description about organizing inbox and crafting personalized Dossier
+- **EmailStatsCard component** showing:
+  - Unread inbox count (with MailOpen icon)
+  - Yesterday's email count (with Calendar icon)
 - Large "I'm ready" button
 
+**Email Stats API**:
+- Fetches from `/api/user/onboarding-stats`
+- Uses SWR for data fetching with loading states
+- Displays skeleton loaders while fetching
+- Shows unread count from "in:inbox is:unread" query
+- Shows yesterday's count from last 24 hours
+
 **User Actions**:
-- Click "I'm ready" → Fires `ready_for_brief_continue_clicked` event, navigates to `/welcome`
+- Click "I'm ready" → Fires `ready_for_brief_clicked` event, navigates to `/analyzing-inbox`
 
 **UI/UX Details**:
-- Matches visual style of value-prop and connect-gmail pages
 - SquaresPattern background with CardBasic wrapper
+- Two-column grid for stats cards (stacks on mobile)
 - Responsive design for mobile and desktop
+- Loading states with skeleton components
 
 **Technical Notes**:
 - Server component for auth/data fetching, client component for interactions
 - PostHog tracking for button click
-- Simple intermediary page to control pacing
+- Real-time email statistics from Gmail API
 
 ---
 
-### 7. Welcome Survey Page (`/welcome`)
+### 7. Analyzing Inbox Page (`/analyzing-inbox`) ⭐ NEW
+
+**Purpose**: Display streaming terminal-style animation showing inbox analysis progress.
+
+**Files**:
+- Server: `apps/web/app/(landing)/analyzing-inbox/page.tsx`
+- Client: `apps/web/app/(landing)/analyzing-inbox/AnalyzingInboxContent.tsx`
+- Component: `apps/web/components/StreamingTerminalLog.tsx`
+
+**Server-Side Logic**:
+```typescript
+1. Check authentication → If NO → redirect("/login")
+2. Query user (completedOnboardingAt, name, email)
+3. If user not found → redirect("/login")
+4. If completedOnboardingAt is NOT NULL → redirect(APP_HOME_PATH)
+5. Otherwise → Render AnalyzingInboxContent with userName
+```
+
+**Key Elements**:
+- **StreamingTerminalLog component** with terminal-style animation
+- Messages displayed sequentially:
+  1. "Dossier:"
+  2. (blank line)
+  3. "Analyzing your inbox..."
+  4. (blank line)
+  5. "Grouping conversations by priority..."
+  6. (blank line)
+  7. "Filtering noise from your feed..."
+- Automatic redirect to `/preview-brief` when animation completes
+
+**StreamingTerminalLog Component**:
+- Dark terminal background (slate-950)
+- Green text (terminal aesthetic)
+- Character-by-character animation (30ms delay per character)
+- Line-by-line progression (1 second delay between lines)
+- Framer Motion for smooth animations
+- Auto-scrolling as content appears
+- `onComplete` callback for navigation
+
+**User Actions**:
+- No direct user action required
+- Animation auto-completes and redirects
+- Fires `analyzing_inbox_completed` event on completion
+
+**UI/UX Details**:
+- Full-screen view with SquaresPattern background
+- 400px tall terminal window with scrollbar
+- Monospace font for terminal feel
+- Smooth fade-in animations for each character
+
+**Technical Notes**:
+- Uses Framer Motion for character animations
+- Configurable timing delays (characterDelay, lineDelay)
+- No user interaction needed - fully automated transition
+- Creates anticipation before showing final result
+
+---
+
+### 8. Preview Brief Page (`/preview-brief`) ⭐ NEW
+
+**Purpose**: Confirm Brief is ready and complete the onboarding process.
+
+**Files**:
+- Server: `apps/web/app/(landing)/preview-brief/page.tsx`
+- Client: `apps/web/app/(landing)/preview-brief/PreviewBriefContent.tsx`
+
+**Server-Side Logic**:
+```typescript
+1. Check authentication → If NO → redirect("/login")
+2. Query user (completedOnboardingAt, name, email)
+3. If user not found → redirect("/login")
+4. If completedOnboardingAt is NOT NULL → redirect(APP_HOME_PATH)
+5. Otherwise → Render PreviewBriefContent with userName
+```
+
+**Key Elements**:
+- Sparkles icon in blue circle (visual celebration)
+- Heading: "Your Brief is ready, {userName}!"
+- Description: "We've organized your inbox and crafted your personalized Dossier."
+- Explanation of daily Brief feature
+- "Continue" button with arrow icon
+
+**User Actions**:
+- Click "Continue" → Calls `completedOnboardingAction()`, fires `preview_brief_continue_clicked` event, redirects to app home
+- **This is where `completedOnboardingAt` is set**
+
+**Onboarding Completion**:
+- Calls server action `completedOnboardingAction()` from `@/utils/actions/onboarding`
+- Sets `completedOnboardingAt` to current timestamp in database
+- Uses `updateMany` with condition to avoid race conditions
+- Bypasses welcome survey and upgrade pages (TODO comments indicate future re-enablement)
+
+**UI/UX Details**:
+- SquaresPattern background with CardBasic wrapper
+- Center-aligned content with icon at top
+- Loading state on button during redirect
+- Celebratory tone with sparkles icon
+
+**Technical Notes**:
+- Server component for auth/redirects, client component for interactions
+- Server action for marking onboarding complete
+- PostHog tracking for completion event
+- Skips /welcome and /welcome-upgrade steps (per TODO comments)
+
+---
+
+### 9. Welcome Survey Page (`/welcome`) - CURRENTLY BYPASSED
+
+**Status**: This page exists but is currently bypassed in the onboarding flow. It will be re-enabled in a future iteration.
 
 **Purpose**: Collect user preferences and information through a multi-step questionnaire.
 
@@ -482,7 +608,9 @@ Abandoned onboarding:
 
 ---
 
-### 8. Welcome Upgrade Page (`/welcome-upgrade`)
+### 10. Welcome Upgrade Page (`/welcome-upgrade`) - CURRENTLY BYPASSED
+
+**Status**: This page exists but is currently bypassed in the onboarding flow. It will be re-enabled in a future iteration.
 
 **Purpose**: Offer premium subscription with pricing and social proof.
 
@@ -513,7 +641,7 @@ Abandoned onboarding:
 
 ---
 
-### 9. App Home (`/`)
+### 11. App Home (`/`)
 
 **Purpose**: Main application dashboard where users manage their inbox.
 
@@ -781,11 +909,13 @@ export function PageContent({ userName }: { userName: string }) {
 **PostHog Events**:
 - `value_prop_continue_clicked`: User clicks Continue on value prop page
 - `connect_gmail_clicked`: User initiates Gmail OAuth
-- `ready_for_brief_continue_clicked`: User proceeds from brief teaser
-- `onboarding_question_answered`: User answers survey question
-- `onboarding_completed`: User completes all survey questions
-- `upgrade_plan_selected`: User chooses premium plan
-- `upgrade_skipped`: User skips premium upgrade
+- `ready_for_brief_clicked`: User proceeds from brief intro page
+- `analyzing_inbox_completed`: Inbox analysis animation finishes
+- `preview_brief_continue_clicked`: User completes onboarding from preview page
+- `onboarding_question_answered`: User answers survey question (currently bypassed)
+- `onboarding_completed`: User completes all survey questions (currently bypassed)
+- `upgrade_plan_selected`: User chooses premium plan (currently bypassed)
+- `upgrade_skipped`: User skips premium upgrade (currently bypassed)
 
 **Implementation Pattern**:
 ```typescript
@@ -1087,11 +1217,16 @@ posthog.capture("onboarding_question_answered", {
 | `apps/web/app/(landing)/connect-gmail/page.tsx` | Server | Gmail connection page |
 | `apps/web/app/(landing)/connect-gmail/ConnectGmailContent.tsx` | Client | Gmail connection UI |
 | `apps/web/app/api/google/gmail/callback/route.ts` | API | Gmail OAuth callback handler |
-| `apps/web/app/(landing)/ready-for-brief/page.tsx` | Server | Brief teaser page |
-| `apps/web/app/(landing)/ready-for-brief/ReadyForBriefContent.tsx` | Client | Brief teaser UI |
-| `apps/web/app/(landing)/welcome/page.tsx` | Server | Welcome survey page |
-| `apps/web/app/(landing)/welcome/form.tsx` | Client | Multi-step survey form |
-| `apps/web/app/(landing)/welcome-upgrade/page.tsx` | Server | Premium upgrade page |
+| `apps/web/app/(landing)/ready-for-brief/page.tsx` | Server | Brief intro with email stats |
+| `apps/web/app/(landing)/ready-for-brief/ReadyForBriefContent.tsx` | Client | Brief intro UI |
+| `apps/web/app/(landing)/ready-for-brief/EmailStatsCard.tsx` | Client | Email statistics display |
+| `apps/web/app/(landing)/analyzing-inbox/page.tsx` | Server | Inbox analysis animation page |
+| `apps/web/app/(landing)/analyzing-inbox/AnalyzingInboxContent.tsx` | Client | Analysis animation UI |
+| `apps/web/app/(landing)/preview-brief/page.tsx` | Server | Brief preview & completion |
+| `apps/web/app/(landing)/preview-brief/PreviewBriefContent.tsx` | Client | Brief preview UI |
+| `apps/web/app/(landing)/welcome/page.tsx` | Server | Survey (bypassed) |
+| `apps/web/app/(landing)/welcome/form.tsx` | Client | Survey form (bypassed) |
+| `apps/web/app/(landing)/welcome-upgrade/page.tsx` | Server | Upgrade (bypassed) |
 
 ### Authentication & Utilities
 
@@ -1104,6 +1239,8 @@ posthog.capture("onboarding_question_answered", {
 | `apps/web/utils/gmail/constants.ts` | Util | Gmail-related constants |
 | `apps/web/utils/gmail/scopes.ts` | Util | Gmail API scopes definition |
 | `apps/web/utils/oauth/state.ts` | Util | OAuth state creation and parsing |
+| `apps/web/utils/actions/onboarding.ts` | Server Action | Onboarding completion actions |
+| `apps/web/app/api/user/onboarding-stats/route.ts` | API | Email statistics endpoint |
 
 ### Database
 
@@ -1117,7 +1254,9 @@ posthog.capture("onboarding_question_answered", {
 |------|------|---------|
 | `apps/web/components/ui/card.tsx` | Component | CardBasic wrapper |
 | `apps/web/components/ui/button.tsx` | Component | Button component |
+| `apps/web/components/ui/skeleton.tsx` | Component | Loading skeleton |
 | `apps/web/components/Typography.tsx` | Component | PageHeading, TypographyP |
+| `apps/web/components/StreamingTerminalLog.tsx` | Component | Terminal animation component |
 | `apps/web/app/(landing)/home/SquaresPattern.tsx` | Component | Background pattern |
 
 ---
@@ -1260,9 +1399,27 @@ NEXT_PUBLIC_POSTHOG_HOST=https://app.posthog.com
 
 ---
 
-**Document Version**: 1.0  
-**Last Reviewed**: October 18, 2025  
+**Document Version**: 2.0  
+**Last Reviewed**: October 22, 2025  
 **Next Review**: January 2026 or upon significant flow changes
+
+## Changelog
+
+### Version 2.0 (October 22, 2025)
+- Added new `/analyzing-inbox` page with streaming terminal animation
+- Added new `/preview-brief` page where onboarding completes
+- Updated `/ready-for-brief` page with email statistics display
+- Added `StreamingTerminalLog` reusable component
+- Added `EmailStatsCard` component with SWR data fetching
+- Added `/api/user/onboarding-stats` endpoint for real-time stats
+- Modified onboarding completion to occur at `/preview-brief` instead of `/welcome`
+- Currently bypassing `/welcome` (survey) and `/welcome-upgrade` (pricing) pages
+- Updated all flow diagrams and documentation to reflect new flow
+- Added `completedOnboardingAction` server action
+
+### Version 1.0 (October 18, 2025)
+- Initial documentation of onboarding flow
+- Documented value prop, Gmail connection, and survey pages
 
 For questions or updates, contact the Product team or update this document directly.
 
