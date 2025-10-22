@@ -146,20 +146,36 @@ async function handleSignIn({
   isNewUser: boolean;
 }) {
   if (isNewUser && user.email) {
-    const loops = createLoopsContact(
-      user.email,
-      user.name?.split(" ")?.[0],
-    ).catch((error) => {
-      const alreadyExists =
-        error instanceof Error && error.message.includes("409");
-      if (!alreadyExists) {
-        logger.error("Error creating Loops contact", {
-          email: user.email,
-          error,
+    const loops = async () => {
+      const account = await prisma.account
+        .findFirst({
+          where: { userId: user.id },
+          select: { provider: true },
+        })
+        .catch((error) => {
+          logger.error("Error finding account", {
+            userId: user.id,
+            error,
+          });
+          captureException(error, undefined, user.email);
         });
-        captureException(error, undefined, user.email);
-      }
-    });
+
+      await createLoopsContact(
+        user.email,
+        user.name?.split(" ")?.[0],
+        account?.provider,
+      ).catch((error) => {
+        const alreadyExists =
+          error instanceof Error && error.message.includes("409");
+        if (!alreadyExists) {
+          logger.error("Error creating Loops contact", {
+            email: user.email,
+            error,
+          });
+          captureException(error, undefined, user.email);
+        }
+      });
+    };
 
     const resend = createResendContact({ email: user.email }).catch((error) => {
       logger.error("Error creating Resend contact", {
@@ -177,7 +193,7 @@ async function handleSignIn({
       captureException(error, undefined, user.email);
     });
 
-    await Promise.all([loops, resend, dub]);
+    await Promise.all([loops(), resend, dub]);
   }
 
   if (isNewUser && user.email && user.id) {
