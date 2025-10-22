@@ -28,6 +28,23 @@ interface CalendarConnectionCardProps {
   connection: CalendarConnection;
 }
 
+const getProviderInfo = (provider: string) => {
+  const providers = {
+    microsoft: {
+      name: "Microsoft Calendar",
+      icon: "/images/product/outlook-calendar.svg",
+      alt: "Microsoft Calendar",
+    },
+    google: {
+      name: "Google Calendar",
+      icon: "/images/product/google-calendar.svg",
+      alt: "Google Calendar",
+    },
+  };
+
+  return providers[provider as keyof typeof providers] || providers.google;
+};
+
 export function CalendarConnectionCard({
   connection,
 }: CalendarConnectionCardProps) {
@@ -36,6 +53,8 @@ export function CalendarConnectionCard({
   const [optimisticUpdates, setOptimisticUpdates] = useState<
     Record<string, boolean>
   >({});
+
+  const providerInfo = getProviderInfo(connection.provider);
 
   const { execute: executeDisconnect, isExecuting: isDisconnecting } =
     useAction(disconnectCalendarAction.bind(null, emailAccountId));
@@ -103,14 +122,14 @@ export function CalendarConnectionCard({
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <Image
-              src="/images/product/google-calendar.svg"
-              alt="Google Calendar"
+              src={providerInfo.icon}
+              alt={providerInfo.alt}
               width={32}
               height={32}
               unoptimized
             />
             <div>
-              <CardTitle className="text-lg">Google Calendar</CardTitle>
+              <CardTitle className="text-lg">{providerInfo.name}</CardTitle>
               <CardDescription className="flex items-center gap-2">
                 {connection.email}
                 {!connection.isConnected && (

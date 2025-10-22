@@ -3,7 +3,7 @@ import { tool } from "ai";
 import { createScopedLogger } from "@/utils/logger";
 import { createGenerateText } from "@/utils/llms";
 import { getModel } from "@/utils/llms/model";
-import { getCalendarAvailability } from "@/utils/calendar/availability";
+import { getUnifiedCalendarAvailability } from "@/utils/calendar/unified-availability";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import type { EmailForLLM } from "@/utils/types";
 import prisma from "@/utils/prisma";
@@ -109,7 +109,8 @@ ${threadContent}
       ) || result.steps.length > 5,
     tools: {
       checkCalendarAvailability: tool({
-        description: "Check Google Calendar availability for meeting requests",
+        description:
+          "Check calendar availability across all connected calendars (Google and Microsoft) for meeting requests",
         inputSchema: z.object({
           timeMin: z
             .string()
@@ -122,40 +123,23 @@ ${threadContent}
           const startDate = new Date(timeMin);
           const endDate = new Date(timeMax);
 
-          const promises = calendarConnections.map(
-            async (calendarConnection) => {
-              const calendarIds = calendarConnections.flatMap((conn) =>
-                conn.calendars.map((cal) => cal.calendarId),
-              );
+          try {
+            const busyPeriods = await getUnifiedCalendarAvailability({
+              emailAccountId: emailAccount.id,
+              startDate,
+              endDate,
+              timezone: userTimezone,
+            });
 
-              if (!calendarIds.length) return;
+            logger.trace("Unified calendar availability data", {
+              busyPeriods,
+            });
 
-              try {
-                const availabilityData = await getCalendarAvailability({
-                  accessToken: calendarConnection.accessToken,
-                  refreshToken: calendarConnection.refreshToken,
-                  expiresAt: calendarConnection.expiresAt?.getTime() || null,
-                  emailAccountId: emailAccount.id,
-                  calendarIds,
-                  startDate,
-                  endDate,
-                  timezone: userTimezone,
-                });
-
-                logger.trace("Calendar availability data", {
-                  availabilityData,
-                });
-
-                return availabilityData;
-              } catch (error) {
-                logger.error("Error checking calendar availability", { error });
-              }
-            },
-          );
-
-          const busyPeriods = await Promise.all(promises);
-
-          return { busyPeriods: busyPeriods.flat() };
+            return { busyPeriods };
+          } catch (error) {
+            logger.error("Error checking calendar availability", { error });
+            return { busyPeriods: [] };
+          }
         },
       }),
       returnSuggestedTimes: tool({
