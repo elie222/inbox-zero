@@ -92,8 +92,6 @@ export const GET = withError(async (request) => {
     return NextResponse.redirect(redirectUrl, { headers: response.headers });
   }
 
-  redirectUrl.pathname = `/${emailAccountId}/calendars`;
-
   const googleAuth = getCalendarOAuth2Client();
 
   try {

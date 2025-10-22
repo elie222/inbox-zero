@@ -10,6 +10,7 @@ import { withError } from "@/utils/middleware";
 import { CALENDAR_STATE_COOKIE_NAME } from "@/utils/calendar/constants";
 import { parseOAuthState } from "@/utils/oauth/state";
 import { auth } from "@/utils/auth";
+import { prefixPath } from "@/utils/path";
 
 const logger = createScopedLogger("outlook/calendar/callback");
 
@@ -24,7 +25,7 @@ export const GET = withError(async (request) => {
   const storedState = request.cookies.get(CALENDAR_STATE_COOKIE_NAME)?.value;
 
   // We'll set the proper redirect URL after we decode the state and get emailAccountId
-  const redirectUrl = new URL("/calendars", request.nextUrl.origin);
+  let redirectUrl = new URL("/calendars", request.nextUrl.origin);
   const response = NextResponse.redirect(redirectUrl);
 
   response.cookies.delete(CALENDAR_STATE_COOKIE_NAME);
@@ -53,24 +54,44 @@ export const GET = withError(async (request) => {
     return NextResponse.redirect(redirectUrl, { headers: response.headers });
   }
 
+  if (decodedState.type !== "calendar") {
+    logger.error("Invalid state type for calendar callback", {
+      type: decodedState.type,
+    });
+    redirectUrl.searchParams.set("error", "invalid_state_type");
+    return NextResponse.redirect(redirectUrl, { headers: response.headers });
+  }
+
   const { emailAccountId } = decodedState;
 
-  // Verify the user has access to this emailAccountId
+  // Update redirect URL to include emailAccountId
+  redirectUrl = new URL(
+    prefixPath(emailAccountId, "/calendars"),
+    request.nextUrl.origin,
+  );
+
+  // Verify user owns this email account
   const session = await auth();
+  if (!session?.user?.id) {
+    logger.warn("Unauthorized calendar callback - no session");
+    redirectUrl.searchParams.set("error", "unauthorized");
+    return NextResponse.redirect(redirectUrl, { headers: response.headers });
+  }
+
   const emailAccount = await prisma.emailAccount.findFirst({
     where: {
       id: emailAccountId,
-      user: {
-        id: session?.user?.id,
-      },
+      userId: session.user.id,
     },
+    select: { id: true },
   });
 
   if (!emailAccount) {
-    logger.warn("User does not have access to email account", {
+    logger.warn("Unauthorized calendar callback - invalid email account", {
       emailAccountId,
+      userId: session.user.id,
     });
-    redirectUrl.searchParams.set("error", "unauthorized");
+    redirectUrl.searchParams.set("error", "forbidden");
     return NextResponse.redirect(redirectUrl, { headers: response.headers });
   }
 
@@ -166,11 +187,8 @@ export const GET = withError(async (request) => {
     redirectUrl.searchParams.set("message", "calendar_connected");
     return NextResponse.redirect(redirectUrl, { headers: response.headers });
   } catch (error) {
-    logger.error("Error in Microsoft Calendar callback", {
-      error,
-      emailAccountId,
-    });
-    redirectUrl.searchParams.set("error", "calendar_connection_failed");
+    logger.error("Error in calendar callback", { error, emailAccountId });
+    redirectUrl.searchParams.set("error", "connection_failed");
     return NextResponse.redirect(redirectUrl, { headers: response.headers });
   }
 });
