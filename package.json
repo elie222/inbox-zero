@@ -23,6 +23,7 @@
     "lint-staged": "16.1.5",
     "prettier": "3.6.2",
     "tsconfig-paths": "^4.2.0",
+    "tsx": "4.20.5",
     "turbo": "2.5.6",
     "ultracite": "5.3.3"
   },

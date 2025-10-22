@@ -57,3 +57,4 @@ volumes:
 networks:
   inbox-zero-dev-network:
     driver: bridge
+
