@@ -29,7 +29,7 @@ export async function determineConversationStatus({
   provider: EmailProvider;
   modelType: ModelType;
 }): Promise<{
-  specificRule: RuleWithActions | null;
+  rule: RuleWithActions | null;
   reason: string;
 }> {
   logger.info("Determining conversation status", {
@@ -37,24 +37,23 @@ export async function determineConversationStatus({
     threadId: message.threadId,
   });
 
-  // Fetch thread messages for context
   const threadMessages = await provider.getThreadMessages(message.threadId);
+
   if (!threadMessages?.length) {
     logger.error("No thread messages found");
     return {
-      specificRule: null,
+      rule: null,
       reason: "Failed to fetch thread messages",
     };
   }
 
-  // Sort messages by date (most recent first)
+  // Sort messages (most recent first)
   const sortedMessages = [...threadMessages].sort(
     (a, b) =>
       (internalDateToDate(b.internalDate).getTime() || 0) -
       (internalDateToDate(a.internalDate).getTime() || 0),
   );
 
-  // Prepare thread messages for AI analysis
   const threadMessagesForLLM = sortedMessages.map((m, index) =>
     getEmailForLLM(m, {
       maxLength: index === 0 ? 2000 : 500,
@@ -63,7 +62,6 @@ export async function determineConversationStatus({
     }),
   );
 
-  // AI determines thread status
   const { status, rationale } = await aiDetermineThreadStatus({
     emailAccount,
     threadMessages: threadMessagesForLLM,
@@ -76,13 +74,12 @@ export async function determineConversationStatus({
     messageId: message.id,
   });
 
-  // Find the specific rule for this status
-  const specificRule = conversationRules.find(
+  const rule = conversationRules.find(
     (r) => r.systemType === status && r.enabled,
   );
 
-  if (!specificRule) {
-    logger.warn("No enabled rule found for determined status", {
+  if (!rule) {
+    logger.info("No enabled rule found for determined status", {
       status,
       availableRules: conversationRules.map((r) => ({
         systemType: r.systemType,
@@ -90,13 +87,13 @@ export async function determineConversationStatus({
       })),
     });
     return {
-      specificRule: null,
-      reason: `Conversation status determined as ${status}, but no enabled rule found`,
+      rule: null,
+      reason: `Conversation status determined as ${status}, but no rule enabled for this status`,
     };
   }
 
   return {
-    specificRule,
+    rule,
     reason: rationale,
   };
 }
@@ -114,7 +111,7 @@ export async function updateThreadTrackers({
   sentAt: Date;
   status: SystemType;
 }) {
-  // First, resolve all existing trackers for this thread
+  // Resolve all existing trackers for this thread
   await prisma.threadTracker.updateMany({
     where: {
       emailAccountId,

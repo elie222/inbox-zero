@@ -109,8 +109,7 @@ export async function runRules({
     let reasonToUse = results.reasoning;
 
     if (result.rule && isConversationRule(result.rule.id)) {
-      // Determine which specific sub-rule applies
-      const { specificRule, reason: statusReason } =
+      const { rule: statusRule, reason: statusReason } =
         await determineConversationStatus({
           conversationRules,
           message,
@@ -119,7 +118,7 @@ export async function runRules({
           modelType,
         });
 
-      if (!specificRule) {
+      if (!statusRule) {
         const executedRule: RunRulesResult = {
           rule: null,
           reason: statusReason || "No enabled conversation status rule found",
@@ -130,7 +129,7 @@ export async function runRules({
         continue;
       }
 
-      ruleToExecute = specificRule;
+      ruleToExecute = statusRule;
       reasonToUse = statusReason;
     } else {
       analyzeSenderPatternIfAiMatch({
