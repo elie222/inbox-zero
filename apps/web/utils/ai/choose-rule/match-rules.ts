@@ -2,6 +2,7 @@ import { getConditionTypes, isAIRule } from "@/utils/condition";
 import {
   findMatchingGroup,
   getGroupsWithRules,
+  type GroupsWithRules,
 } from "@/utils/group/find-matching-group";
 import type { ParsedMessage, RuleWithActions } from "@/utils/types";
 import {
@@ -296,7 +297,7 @@ export function evaluateRuleConditions({
 
 // Lazy load learned patterns when needed
 class LearnedPatternsLoader {
-  private groups?: Awaited<ReturnType<typeof getGroupsWithRules>> | null;
+  private groups?: GroupsWithRules | null;
 
   async getGroups(emailAccountId: string) {
     if (this.groups === undefined)
@@ -496,7 +497,7 @@ export function splitEmailPatterns(pattern: string): string[] {
 
 function matchesGroupRule(
   rule: RuleWithActions,
-  groups: Awaited<ReturnType<typeof getGroupsWithRules>>,
+  groups: GroupsWithRules,
   message: ParsedMessage,
 ) {
   const ruleGroup = groups.find((g) => g.rule?.id === rule.id);
