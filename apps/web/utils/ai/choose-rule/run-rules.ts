@@ -28,6 +28,7 @@ import {
   determineConversationStatus,
   updateThreadTrackers,
 } from "@/utils/reply-tracker/handle-conversation-status";
+import { removeConflictingThreadStatusLabels } from "@/utils/reply-tracker/label-helpers";
 import { saveColdEmail } from "@/utils/cold-email/is-cold-email";
 import { internalDateToDate } from "@/utils/date";
 import { ConditionType } from "@/utils/config";
@@ -278,13 +279,21 @@ async function executeMatchedRule(
   }
 
   if (isConversationStatusType(rule.systemType)) {
-    await updateThreadTrackers({
-      emailAccountId: emailAccount.id,
-      threadId: message.threadId,
-      messageId: message.id,
-      sentAt: internalDateToDate(message.internalDate),
-      status: rule.systemType,
-    });
+    await Promise.all([
+      removeConflictingThreadStatusLabels({
+        emailAccountId: emailAccount.id,
+        threadId: message.threadId,
+        systemType: rule.systemType,
+        provider: client,
+      }),
+      updateThreadTrackers({
+        emailAccountId: emailAccount.id,
+        threadId: message.threadId,
+        messageId: message.id,
+        sentAt: internalDateToDate(message.internalDate),
+        status: rule.systemType,
+      }),
+    ]);
   }
 
   if (executedRule) {
