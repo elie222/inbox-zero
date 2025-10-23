@@ -864,7 +864,7 @@ describe("findMatchingRule", () => {
     );
   });
 
-  it("should match via default when group doesn't match and no other conditions", async () => {
+  it("should NOT match when group doesn't match and no other conditions", async () => {
     const rule = getRule({
       groupId: "correctGroup", // Rule specifically looks for correctGroup
     });
@@ -908,9 +908,8 @@ describe("findMatchingRule", () => {
       modelType: "default",
     });
 
-    // Group didn't match, but no other conditions means match everything
-    expect(result.matches).toHaveLength(1);
-    expect(result.matches[0]?.matchReasons).toEqual([]);
+    // Group didn't match and no other conditions, so rule should NOT match
+    expect(result.matches).toHaveLength(0);
   });
 
   it("should match only when item is in the correct group", async () => {
@@ -1005,6 +1004,106 @@ describe("findMatchingRule", () => {
     // Should match the first rule only
     expect(result.matches[0]?.rule.id).toBe("rule1");
     expect(result.reasoning).toContain("test@example.com");
+  });
+
+  it("should only match rules whose group actually contains the pattern (bug regression test)", async () => {
+    // Regression: Ensure rules only match when their specific group pattern matches,
+    // not when other unrelated groups have matching patterns
+    const ruleA = getRule({
+      id: "rule-a",
+      name: "Label Acme Emails",
+      groupId: "group-a",
+    });
+    const ruleB = getRule({
+      id: "rule-b",
+      name: "Label Beta Emails",
+      groupId: "group-b",
+    });
+    const ruleC = getRule({
+      id: "rule-c",
+      name: "Label Charlie Emails",
+      groupId: "group-c",
+    });
+    const ruleD = getRule({
+      id: "rule-d",
+      name: "Label Delta Emails",
+      groupId: "group-d",
+    });
+
+    prisma.group.findMany.mockResolvedValue([
+      getGroup({
+        id: "group-a",
+        name: "Label Acme Emails",
+        items: [
+          getGroupItem({
+            groupId: "group-a",
+            type: GroupItemType.FROM,
+            value: "alerts@acme.com",
+          }),
+        ],
+        rule: ruleA,
+      }),
+      getGroup({
+        id: "group-b",
+        name: "Label Beta Emails",
+        items: [
+          getGroupItem({
+            groupId: "group-b",
+            type: GroupItemType.FROM,
+            value: "notifications@beta.com",
+          }),
+        ],
+        rule: ruleB,
+      }),
+      getGroup({
+        id: "group-c",
+        name: "Label Charlie Emails",
+        items: [
+          getGroupItem({
+            groupId: "group-c",
+            type: GroupItemType.FROM,
+            value: "support@charlie.com",
+          }),
+        ],
+        rule: ruleC,
+      }),
+      getGroup({
+        id: "group-d",
+        name: "Label Delta Emails",
+        items: [
+          getGroupItem({
+            groupId: "group-d",
+            type: GroupItemType.FROM,
+            value: "info@delta.com",
+          }),
+        ],
+        rule: ruleD,
+      }),
+    ]);
+
+    const rules = [ruleA, ruleB, ruleC, ruleD];
+    const message = getMessage({
+      headers: getHeaders({ from: "alerts@acme.com" }),
+    });
+    const emailAccount = getEmailAccount();
+
+    const result = await findMatchingRules({
+      rules,
+      message,
+      emailAccount,
+      provider,
+      modelType: "default",
+    });
+
+    expect(result.matches).toHaveLength(1);
+    expect(result.matches[0]?.rule.id).toBe("rule-a");
+    expect(result.matches[0]?.rule.name).toBe("Label Acme Emails");
+    expect(result.reasoning).toContain("alerts@acme.com");
+
+    const matchedRuleIds = result.matches.map((m) => m.rule.id);
+    expect(matchedRuleIds).not.toContain("rule-b");
+    expect(matchedRuleIds).not.toContain("rule-c");
+    expect(matchedRuleIds).not.toContain("rule-d");
   });
 
   it("should exclude a rule when an exclusion pattern matches", async () => {
@@ -2409,7 +2508,7 @@ describe("evaluateRuleConditions", () => {
     expect(result.matchReasons).toEqual([]);
   });
 
-  it("should match when no conditions are present", () => {
+  it("should NOT match when no conditions are present", () => {
     const rule = getRule({
       from: null,
       to: null,
@@ -2421,7 +2520,7 @@ describe("evaluateRuleConditions", () => {
 
     const result = evaluateRuleConditions({ rule, message });
 
-    expect(result.matched).toBe(true);
+    expect(result.matched).toBe(false);
     expect(result.potentialAiMatch).toBe(false);
     expect(result.matchReasons).toEqual([]);
   });

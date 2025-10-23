@@ -276,9 +276,8 @@ export function evaluateRuleConditions({
       // No static match, but have AI - need to check AI
       return { matched: false, potentialAiMatch: true, matchReasons };
     }
-    // No conditions at all (match everything) or no matches
-    const matched = !hasStaticCondition && !hasAiCondition;
-    return { matched, potentialAiMatch: false, matchReasons };
+    // No conditions means no match
+    return { matched: false, potentialAiMatch: false, matchReasons };
   } else {
     // AND logic
     if (hasStaticCondition && !staticMatch) {
@@ -289,8 +288,8 @@ export function evaluateRuleConditions({
       // Static passed (or doesn't exist), but need AI to complete AND
       return { matched: false, potentialAiMatch: true, matchReasons };
     }
-    // Only static (and it passed), or no conditions at all (match everything)
-    const matched = hasStaticCondition ? staticMatch : true;
+    // Only static (and it passed), or no conditions (no match)
+    const matched = hasStaticCondition ? staticMatch : false;
     return { matched, potentialAiMatch: false, matchReasons };
   }
 }
@@ -500,7 +499,7 @@ function matchesGroupRule(
   groups: GroupsWithRules,
   message: ParsedMessage,
 ) {
-  const ruleGroup = groups.find((g) => g.rule?.id === rule.id);
+  const ruleGroup = groups.find((g) => g.id === rule.groupId);
   if (!ruleGroup)
     return { group: null, matchingItem: null, ruleExcluded: false };
 
