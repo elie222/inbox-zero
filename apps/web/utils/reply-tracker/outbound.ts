@@ -74,21 +74,22 @@ export async function handleOutboundReply({
 
   logger.info("AI determined thread status", { status: aiResult.status });
 
-  await applyThreadStatusLabel({
-    emailAccountId: emailAccount.id,
-    threadId: message.threadId,
-    messageId: message.id,
-    systemType: aiResult.status,
-    provider,
-  });
-
-  await updateThreadTrackers({
-    emailAccountId: emailAccount.id,
-    threadId: message.threadId,
-    messageId: message.id,
-    sentAt: internalDateToDate(message.internalDate),
-    status: aiResult.status,
-  });
+  await Promise.all([
+    applyThreadStatusLabel({
+      emailAccountId: emailAccount.id,
+      threadId: message.threadId,
+      messageId: message.id,
+      systemType: aiResult.status,
+      provider,
+    }),
+    updateThreadTrackers({
+      emailAccountId: emailAccount.id,
+      threadId: message.threadId,
+      messageId: message.id,
+      sentAt: internalDateToDate(message.internalDate),
+      status: aiResult.status,
+    }),
+  ]);
 }
 
 async function isOutboundTrackingEnabled({
