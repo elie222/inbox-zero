@@ -5,12 +5,6 @@ import prisma from "@/utils/__mocks__/prisma";
 
 vi.mock("server-only", () => ({}));
 vi.mock("@/utils/prisma");
-vi.mock("@/utils/logger", () => ({
-  createScopedLogger: () => ({
-    info: vi.fn(),
-    error: vi.fn(),
-  }),
-}));
 
 describe("applyThreadStatusLabel", () => {
   let mockProvider: EmailProvider;
@@ -275,7 +269,7 @@ describe("applyThreadStatusLabel", () => {
     // Mock prisma to return empty rules for target label
     vi.mocked(prisma.rule.findMany).mockResolvedValue([] as any);
 
-    // Mock provider labels to be empty
+    // Mock provider labels to be empty (no conflicting labels to remove)
     vi.mocked(mockProvider.getLabels).mockResolvedValue([]);
 
     // Mock createLabel to return null
@@ -289,8 +283,8 @@ describe("applyThreadStatusLabel", () => {
       provider: mockProvider,
     });
 
-    // Should still call removeThreadLabels
-    expect(mockProvider.removeThreadLabels).toHaveBeenCalled();
+    // Should NOT call removeThreadLabels since there are no conflicting labels
+    expect(mockProvider.removeThreadLabels).not.toHaveBeenCalled();
 
     // Should not call labelMessage since label creation failed
     expect(mockProvider.labelMessage).not.toHaveBeenCalled();
