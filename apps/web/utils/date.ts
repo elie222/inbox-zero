@@ -86,3 +86,17 @@ export function formatDateSimple(date: Date) {
     year: "numeric",
   });
 }
+
+/**
+ * Comparator function for sorting messages by internalDate
+ * @param direction - 'asc' for oldest first (default, chronological), 'desc' for newest first
+ */
+export function sortByInternalDate<T extends { internalDate?: string | null }>(
+  direction: "asc" | "desc" = "asc",
+) {
+  return (a: T, b: T): number => {
+    const aTime = internalDateToDate(a.internalDate).getTime() || 0;
+    const bTime = internalDateToDate(b.internalDate).getTime() || 0;
+    return direction === "asc" ? aTime - bTime : bTime - aTime;
+  };
+}
