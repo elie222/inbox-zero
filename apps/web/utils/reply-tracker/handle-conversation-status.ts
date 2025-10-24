@@ -7,7 +7,7 @@ import { getEmailForLLM } from "@/utils/get-email-from-message";
 import { createScopedLogger } from "@/utils/logger";
 import { SystemType, ThreadTrackerType } from "@prisma/client";
 import prisma from "@/utils/prisma";
-import { internalDateToDate } from "@/utils/date";
+import { sortByInternalDate } from "@/utils/date";
 
 const logger = createScopedLogger("conversation-status-handler");
 
@@ -47,16 +47,11 @@ export async function determineConversationStatus({
     };
   }
 
-  // Sort messages (most recent first)
-  const sortedMessages = [...threadMessages].sort(
-    (a, b) =>
-      (internalDateToDate(b.internalDate).getTime() || 0) -
-      (internalDateToDate(a.internalDate).getTime() || 0),
-  );
+  const sortedMessages = [...threadMessages].sort(sortByInternalDate());
 
   const threadMessagesForLLM = sortedMessages.map((m, index) =>
     getEmailForLLM(m, {
-      maxLength: index === 0 ? 2000 : 500,
+      maxLength: index === sortedMessages.length - 1 ? 2000 : 500,
       extractReply: true,
       removeForwarded: false,
     }),
