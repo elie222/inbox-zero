@@ -28,8 +28,7 @@ export class QStashManager implements QueueManager {
     const url = `${env.WEBHOOK_URL || env.NEXT_PUBLIC_BASE_URL}/api/queue/${queueName}`;
 
     if (options.delay) {
-      const notBefore =
-        Math.floor(Date.now() / 1000) + Math.floor(options.delay / 1000);
+      const notBefore = Math.ceil((Date.now() + options.delay) / 1000);
       const client = getQstashClient();
       const response = await client.publishJSON({
         url,
@@ -67,8 +66,7 @@ export class QStashManager implements QueueManager {
       };
 
       if (options.delay) {
-        item.notBefore =
-          Math.floor(Date.now() / 1000) + Math.floor(options.delay / 1000);
+        item.notBefore = Math.ceil((Date.now() + options.delay) / 1000);
       }
 
       if (job.opts?.jobId) {

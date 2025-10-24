@@ -100,6 +100,16 @@ export function createQueue<T extends QueueJobData>(
   },
 ): Queue<T> | null {
   const manager = getQueueManager();
+
+  // Only BullMQ supports queue creation; QStash uses HTTP endpoints
+  if (env.QUEUE_SYSTEM !== "redis") {
+    logger.warn("Queue creation not supported for queue system", {
+      queueSystem: env.QUEUE_SYSTEM,
+      queueName,
+    });
+    return null;
+  }
+
   return manager.createQueue(queueName, options);
 }
 

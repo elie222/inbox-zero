@@ -15,6 +15,7 @@ import { storedDigestContentSchema } from "@/app/api/resend/digest/validation";
 import { sleep } from "@/utils/sleep";
 import type { ParsedMessage } from "@/utils/types";
 import type { Digest } from "@/app/api/resend/digest/validation";
+import { handleBatchRequest } from "@/app/api/user/categorize/senders/batch/handle-batch";
 
 const logger = createScopedLogger("queue-handlers");
 
@@ -100,20 +101,22 @@ async function handleCategorizeSendersJob(data: AiCategorizeSendersJobData) {
   });
 
   try {
-    const response = await fetch(
-      `${process.env.NEXT_PUBLIC_BASE_URL}/api/user/categorize/senders/batch`,
-      {
+    // Call the batch categorization logic directly instead of making an HTTP call
+    // This eliminates unnecessary network overhead and improves performance
+    const response = await handleBatchRequest(
+      new Request("http://localhost", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data),
-      },
+      }),
     );
 
     if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
+      const errorText = await response.text();
+      throw new Error(
+        `Batch categorization failed: ${response.status} - ${errorText}`,
+      );
     }
-
-    await new Promise((resolve) => setTimeout(resolve, 2000));
 
     logger.info("Categorize senders job completed successfully");
     return NextResponse.json({ success: true });
@@ -271,7 +274,7 @@ async function sendDigestEmailForAccount(emailAccountId: string) {
     if (messageIds.length > 0) {
       const batchSize = 100;
 
-      // Can't fetch more then 100 messages at a time, so fetch in batches
+      // Can't fetch more than 100 messages at a time, so fetch in batches
       // and wait 2 seconds to avoid rate limiting
       // TODO: Refactor into the provider if used elsewhere
       for (let i = 0; i < messageIds.length; i += batchSize) {
@@ -436,7 +439,6 @@ async function sendDigestEmailForAccount(emailAccountId: string) {
 
 async function handleEmailSummaryAllJob(data: EmailSummaryAllJobData) {
   logger.info("Processing email summary all job", {
-    email: data.email,
     userId: data.userId,
   });
 

@@ -40,19 +40,12 @@ async function startWorkers() {
   let successCount = 0;
   for (const [queueName, handler] of Object.entries(QUEUE_HANDLERS)) {
     const worker = registerWorker(queueName as QueueName, async (job) => {
-      logger.info("Processing job", {
-        queueName,
-        jobId: job.id,
-        data: JSON.stringify(job.data),
-      });
+      logger.info("Processing job", { queueName, jobId: job.id });
 
       try {
-        await handler(job.data);
+        await handler(job.data as never);
 
-        logger.info("Job completed successfully", {
-          queueName,
-          jobId: job.id,
-        });
+        logger.info("Job completed successfully", { queueName, jobId: job.id });
       } catch (error) {
         logger.error("Job failed", {
           queueName,
