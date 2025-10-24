@@ -140,7 +140,7 @@ export function DigestSettingsForm() {
 
   // Initialize selected items and form data from API responses
   useEffect(() => {
-    if (rules && digestSettings && scheduleData) {
+    if (rules && digestSettings) {
       const selectedItems = new Set<string>();
 
       // Add rules that have digest actions
@@ -157,12 +157,22 @@ export function DigestSettingsForm() {
 
       setSelectedDigestItems(selectedItems);
 
-      // Initialize schedule form data
-      const initialScheduleProps = getInitialScheduleProps(scheduleData);
-      reset({
-        selectedItems,
-        ...initialScheduleProps,
-      });
+      // Initialize schedule form data (only if scheduleData is available)
+      if (scheduleData) {
+        const initialScheduleProps = getInitialScheduleProps(scheduleData);
+        reset({
+          selectedItems,
+          ...initialScheduleProps,
+        });
+      } else {
+        // Just set the selected items without schedule data
+        reset({
+          selectedItems,
+          schedule: "daily",
+          dayOfWeek: "1",
+          time: "09:00",
+        });
+      }
     }
   }, [rules, digestSettings, scheduleData, reset]);
 
@@ -269,7 +279,13 @@ export function DigestSettingsForm() {
                   title="Digest Items"
                   options={digestOptions}
                   selectedValues={selectedDigestItems}
-                  setSelectedValues={setSelectedDigestItems}
+                  setSelectedValues={(newValues) => {
+                    console.log(
+                      "MultiSelectFilter setSelectedValues:",
+                      Array.from(newValues),
+                    );
+                    setSelectedDigestItems(newValues);
+                  }}
                   maxDisplayedValues={3}
                 />
               </div>

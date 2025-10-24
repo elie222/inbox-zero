@@ -128,6 +128,7 @@ model EmailAccount {
   rulesPrompt           String?
   outboundReplyTracking Boolean           @default(false) // When true: manages "To Reply" and "Awaiting Reply" labels automatically
   autoCategorizeSenders Boolean           @default(false)
+  digestMigrationCompleted Boolean        @default(false) // Track if user has been migrated to digest defaults
 
   // Configurable system labels (store stable IDs)
   needsReplyLabelId     String? // Gmail: Label ID, Outlook: Category ID
