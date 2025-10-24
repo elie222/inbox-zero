@@ -9,6 +9,7 @@ import { executeAct } from "@/utils/ai/choose-rule/execute";
 import prisma from "@/utils/prisma";
 import { createScopedLogger } from "@/utils/logger";
 import type { MatchReason } from "@/utils/ai/choose-rule/types";
+import { serializeMatchReasons } from "@/utils/ai/choose-rule/types";
 import { sanitizeActionFields } from "@/utils/action-item";
 import { extractEmailAddress } from "@/utils/email";
 import { filterNullProperties } from "@/utils";
@@ -94,6 +95,7 @@ export async function runRules({
           messageId: message.id,
           automated: true,
           reason,
+          matchMetadata: undefined,
           status: ExecutedRuleStatus.SKIPPED,
           emailAccount: { connect: { id: emailAccount.id } },
         },
@@ -259,6 +261,7 @@ async function executeMatchedRule(
       automated: true,
       status: ExecutedRuleStatus.APPLYING, // Changed from PENDING - rules are now always automated
       reason,
+      matchMetadata: serializeMatchReasons(matchReasons),
       rule: rule?.id ? { connect: { id: rule.id } } : undefined,
       emailAccount: { connect: { id: emailAccount.id } },
       createdAt: batchTimestamp, // Use batch timestamp for grouping

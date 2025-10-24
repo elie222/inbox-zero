@@ -75,7 +75,12 @@ export async function findMatchingRules({
       });
 
       return {
-        matches: [{ rule: coldRule, matchReasons: [] }],
+        matches: [
+          {
+            rule: coldRule,
+            matchReasons: [{ type: ConditionType.AI }],
+          },
+        ],
         reasoning: coldEmailResult.reason,
       };
     }
@@ -345,6 +350,8 @@ function getMatchReason(matchReasons?: MatchReason[]): string | undefined {
           return `Matched learned pattern: "${reason.groupItem.type}: ${reason.groupItem.value}"`;
         case ConditionType.PRESET:
           return "Matched a system preset";
+        case ConditionType.AI:
+          return "Matched via AI";
       }
     })
     .join(", ");
