@@ -2,6 +2,7 @@ import type { Worker } from "bullmq";
 import { createScopedLogger } from "@/utils/logger";
 import { createQueueWorker, closeQueueManager } from "./queue-manager";
 import type { WorkerConfig, JobProcessor } from "./types";
+import { DEFAULT_CONCURRENCY } from "./bullmq-manager";
 
 const logger = createScopedLogger("queue-worker");
 
@@ -20,7 +21,7 @@ class WorkerRegistry {
     }
 
     const worker = createQueueWorker(queueName, processor as JobProcessor, {
-      concurrency: config.concurrency || 1,
+      concurrency: config.concurrency || DEFAULT_CONCURRENCY,
     });
 
     if (!worker) {
@@ -29,11 +30,17 @@ class WorkerRegistry {
     }
 
     worker.on("completed", (job) => {
-      logger.info("Job completed", {
+      const logData: Record<string, unknown> = {
         queueName,
         jobId: job.id,
-        duration: Date.now() - job.processedOn!,
-      });
+      };
+
+      if (typeof job.processedOn === "number") {
+        logData.duration = Date.now() - job.processedOn;
+        logData.processedOn = job.processedOn;
+      }
+
+      logger.info("Job completed", logData);
     });
 
     worker.on("failed", (job, err) => {

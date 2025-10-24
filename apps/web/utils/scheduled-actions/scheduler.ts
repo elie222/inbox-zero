@@ -12,6 +12,7 @@ const logger = createScopedLogger("qstash-scheduled-actions");
 
 interface ScheduledActionPayload {
   scheduledActionId: string;
+  [key: string]: unknown;
 }
 
 function getQstashClient() {

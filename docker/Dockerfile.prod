@@ -6,6 +6,8 @@ WORKDIR /app
 RUN apk add --no-cache openssl
 # Install the specific pnpm version used by the project
 RUN npm install -g pnpm@10.15.0
+# Install tsx for running the worker
+RUN npm install -g tsx@4.20.0
 
 # Copy all package manager files first for caching
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc* ./

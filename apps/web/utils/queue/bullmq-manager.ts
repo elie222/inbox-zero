@@ -14,11 +14,8 @@ import type {
   QueueManager,
 } from "./types";
 
-// Default concurrency for BullMQ workers
-const DEFAULT_CONCURRENCY = 3;
-
-// Default retry attempts for BullMQ jobs
-const DEFAULT_ATTEMPTS = 5;
+export const DEFAULT_CONCURRENCY = 3;
+export const DEFAULT_ATTEMPTS = 5;
 
 const logger = createScopedLogger("queue-bullmq");
 
@@ -30,7 +27,7 @@ export class BullMQManager implements QueueManager {
 
   constructor() {
     this.connection = {
-      host: env.REDIS_URL!,
+      host: env.REDIS_URL,
     };
   }
 
@@ -43,10 +40,10 @@ export class BullMQManager implements QueueManager {
 
     const jobOptions = {
       delay: options.delay,
-      attempts: options.attempts || DEFAULT_ATTEMPTS,
+      attempts: options.attempts ?? DEFAULT_ATTEMPTS,
       priority: options.priority,
-      removeOnComplete: options.removeOnComplete || 10,
-      removeOnFail: options.removeOnFail || 5,
+      removeOnComplete: options.removeOnComplete ?? 10,
+      removeOnFail: options.removeOnFail ?? 5,
       jobId: options.jobId,
     };
 
@@ -68,14 +65,14 @@ export class BullMQManager implements QueueManager {
     const queue = this.getOrCreateQueue(queueName);
 
     const jobs = options.jobs.map((jobData) => ({
-      name: jobData.name || queueName,
+      name: jobData.name ?? queueName,
       data: jobData.data,
       opts: {
         delay: options.delay,
-        attempts: options.attempts || DEFAULT_ATTEMPTS,
+        attempts: options.attempts ?? DEFAULT_ATTEMPTS,
         priority: options.priority,
-        removeOnComplete: options.removeOnComplete || 10,
-        removeOnFail: options.removeOnFail || 5,
+        removeOnComplete: options.removeOnComplete ?? 10,
+        removeOnFail: options.removeOnFail ?? 5,
         jobId: jobData.opts?.jobId,
         ...jobData.opts,
       },

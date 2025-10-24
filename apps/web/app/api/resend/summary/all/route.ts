@@ -7,7 +7,6 @@ import { Frequency } from "@prisma/client";
 import { captureException } from "@/utils/error";
 import { createScopedLogger } from "@/utils/logger";
 import { enqueueJob } from "@/utils/queue/queue-manager";
-import { QUEUES } from "@/utils/queue/queues";
 
 const logger = createScopedLogger("cron/resend/summary/all");
 

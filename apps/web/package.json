@@ -6,6 +6,8 @@
     "dev": "cross-env NODE_OPTIONS=--max_old_space_size=16384 next dev --turbopack",
     "build": "cross-env NODE_OPTIONS=--max_old_space_size=16384 prisma migrate deploy && next build",
     "start": "next start",
+    "worker": "tsx worker.ts",
+    "worker:dev": "tsx watch worker.ts",
     "lint": "next lint",
     "test": "cross-env RUN_AI_TESTS=false vitest",
     "test-ai": "cross-env RUN_AI_TESTS=true vitest --run",
@@ -192,6 +194,7 @@
     "serwist": "9.2.0",
     "tailwindcss": "3.4.17",
     "tsconfig": "workspace:*",
+    "tsx": "^4.20.0",
     "vite-tsconfig-paths": "5.1.4",
     "vitest": "3.2.4",
     "vitest-mock-extended": "3.1.0"

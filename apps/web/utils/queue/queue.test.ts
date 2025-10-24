@@ -633,7 +633,7 @@ describe("Queue System", () => {
           "test-queue",
           processor,
           {
-            concurrency: 1,
+            concurrency: 3,
           },
         );
         expect(worker).toBe(mockWorker);

@@ -9,15 +9,15 @@ Unified queue system supporting both QStash and Redis (BullMQ) with automatic sy
 ```typescript
 import { enqueueJob } from "@/utils/queue/queue-manager";
 
-// Basic job
-const job = await enqueueJob("my-queue", {
-  message: "Hello from the queue system!",
-  userId: "user-123",
+// Basic job (will be distributed across ai-categorize-senders-0 to ai-categorize-senders-6)
+const job = await enqueueJob("ai-categorize-senders-0", {
+  emailAccountId: "user-123",
+  senders: ["sender@example.com"],
 });
 
 // Delayed job (5 seconds)
-const delayedJob = await enqueueJob("my-queue", {
-  message: "This job was delayed by 5 seconds",
+const delayedJob = await enqueueJob("scheduled-actions", {
+  scheduledActionId: "action-456",
 }, {
   delay: 5000,
 });
@@ -30,11 +30,11 @@ console.log("Jobs enqueued:", job.id || job, delayedJob.id || delayedJob);
 ```typescript
 import { bulkEnqueueJobs } from "@/utils/queue/queue-manager";
 
-const jobs = await bulkEnqueueJobs("my-queue", {
+const jobs = await bulkEnqueueJobs("ai-categorize-senders-0", {
   jobs: [
-    { data: { message: "Bulk job 1" } },
-    { data: { message: "Bulk job 2" } },
-    { data: { message: "Bulk job 3" } },
+    { data: { emailAccountId: "user-1", senders: ["sender1@example.com"] } },
+    { data: { emailAccountId: "user-2", senders: ["sender2@example.com"] } },
+    { data: { emailAccountId: "user-3", senders: ["sender3@example.com"] } },
   ],
 });
 
@@ -43,27 +43,50 @@ console.log("Bulk jobs enqueued:", jobs.length);
 
 ### 3. Worker Setup (Redis only)
 
-```typescript
-import { registerWorker } from "@/utils/queue/worker";
+**Workers run as a separate process when `QUEUE_SYSTEM=redis`**
 
-// Register a worker for processing jobs
-const worker = registerWorker("my-queue", async (job) => {
-  console.log("Processing job:", job.id, job.data);
-  
-  // Your processing logic here
-  await processJob(job.data);
-  
-  console.log("Job completed:", job.id);
-}, {
-  concurrency: 3, // Default concurrency is 3
-});
+Start the worker process alongside your Next.js application:
 
-// Graceful shutdown
-process.on("SIGINT", async () => {
-  await shutdownAllWorkers();
-  process.exit(0);
-});
+```bash
+# Development (with auto-reload)
+npm run worker:dev
+
+# Production
+npm run worker
+
+# Using Docker Compose (runs both web and worker)
+docker-compose up
+
+# Or run them separately:
+docker-compose up -d web db redis  # Start web, db, redis
+docker-compose up -d worker        # Start worker
 ```
+
+The worker process automatically:
+- Creates one worker per registered queue
+- Handles all queue types:
+  - `digest-item-summarize` - Process digest email items
+  - `ai-categorize-senders-0` to `ai-categorize-senders-6` - 7 distributed queues for AI sender categorization (load balanced)
+  - `scheduled-actions` - Execute scheduled email actions
+  - `ai-clean` - AI-powered email cleaning
+  - `email-digest-all` - Send digest emails to all users
+  - `email-summary-all` - Send summary emails to all users
+  - `clean-gmail` - Clean Gmail-specific operations
+- Runs with concurrency of 3 per queue
+- Implements graceful shutdown
+- Reconnects on database/Redis failures
+
+**Why separate process?**
+- Prevents blocking the main application event loop
+- Allows independent scaling of workers
+- Improves fault isolation
+- Enables better resource management
+
+**Load Balancing for AI Categorization:**
+- Email account IDs are distributed across 7 queues (`ai-categorize-senders-0` to `ai-categorize-senders-6`)
+- Uses a simple hash function to ensure even distribution
+- Each queue can process up to 3 jobs concurrently (21 total concurrent categorizations)
+- QStash still uses per-email-account queues for maximum parallelization
 
 ## Configuration
 
@@ -94,9 +117,14 @@ console.log("Is QStash:", info.isQStash);
 
 ### Retry Configuration
 
-- **QStash**: Automatically retries up to **10 times** (handled by QStash service)
-- **BullMQ (Redis)**: Retries up to **5 times** (configured in BullMQ manager)
-- **Parallelism**: Default concurrency of **3** for both systems
+- **QStash**: Retry count is handled by QStash service (see [QStash documentation](https://docs.upstash.com/qstash) for details)
+- **BullMQ (Redis)**: Retries up to **5 times** (configured in `bullmq-manager.ts`)
+- **Concurrency**: 
+  - **Worker Registry**: Default concurrency of **3** (configured in `worker.ts`)
+  - **BullMQ Manager**: Default concurrency of **3** (configured in `bullmq-manager.ts`)
+  - **QStash**: Uses parallelism of **3** for flow control (configured in `qstash-manager.ts`)
+
+> **Note**: For authoritative concurrency and retry settings, see `worker.ts` and `bullmq-manager.ts`
 
 ## Migration Examples
 
@@ -129,7 +157,7 @@ await enqueueJob("digest-item-summarize", {
 
 ```typescript
 try {
-  const job = await enqueueJob("my-queue", data, {
+  const job = await enqueueJob("ai-categorize-senders-0", data, {
     delay: 5000,
     priority: 1,
   });
@@ -143,7 +171,7 @@ try {
 ```typescript
 import { registerWorker } from "@/utils/queue/worker";
 
-registerWorker("my-queue", async (job) => {
+registerWorker("ai-categorize-senders-0", async (job) => {
   try {
     await processJob(job.data);
   } catch (error) {
@@ -200,28 +228,21 @@ import {
   getQueueSystemInfo,
   closeQueueManager 
 } from "@/utils/queue/queue-manager";
-import { registerWorker, shutdownAllWorkers } from "@/utils/queue/worker";
 
 async function main() {
   // Check system info
   const systemInfo = getQueueSystemInfo();
   console.log("Queue system:", systemInfo.system);
 
-  // Set up worker (Redis only)
-  if (systemInfo.isRedis) {
-    registerWorker("demo-queue", async (job) => {
-      console.log("Processing:", job.data);
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      console.log("Completed:", job.id);
-    });
-  }
+  // Workers are automatically initialized when QUEUE_SYSTEM=redis
+  // No manual setup needed!
 
   // Enqueue some jobs
-  await enqueueJob("demo-queue", { message: "Hello!" });
-  await bulkEnqueueJobs("demo-queue", {
+  await enqueueJob("email-digest-all", { emailAccountId: "account-123" });
+  await bulkEnqueueJobs("ai-categorize-senders-0", {
     jobs: [
-      { data: { message: "Bulk 1" } },
-      { data: { message: "Bulk 2" } },
+      { data: { emailAccountId: "account-123", senders: ["sender1@example.com"] } },
+      { data: { emailAccountId: "account-456", senders: ["sender2@example.com"] } },
     ],
   });
 
@@ -229,7 +250,6 @@ async function main() {
   await new Promise(resolve => setTimeout(resolve, 5000));
 
   // Cleanup
-  await shutdownAllWorkers();
   await closeQueueManager();
 }
 
@@ -274,10 +294,22 @@ main().catch(console.error);
 ## File Structure
 
 ```
-apps/web/utils/queue/
-├── queue-manager.ts      # Main queue abstraction
-├── bullmq-manager.ts     # BullMQ implementation
-├── qstash-manager.ts     # QStash implementation
-├── types.ts              # Type definitions
-└── worker.ts             # Worker management
+apps/web/
+├── worker.ts                  # Worker process entry point
+└── utils/queue/
+    ├── queue-manager.ts       # Main queue abstraction
+    ├── bullmq-manager.ts      # BullMQ implementation
+    ├── qstash-manager.ts      # QStash implementation
+    ├── queues.ts              # Queue handlers and job data types
+    ├── types.ts               # Type definitions
+    ├── worker.ts              # Worker management
+    ├── queue.test.ts          # Comprehensive test suite
+    ├── ai-queue.ts            # AI-specific queue utilities
+    ├── email-action-queue.ts  # Email action queue utilities
+    └── email-actions.ts       # Email action definitions
+
+docker/
+└── Dockerfile.prod            # Production image (supports both web and worker)
+
+docker-compose.yml             # Includes both web and worker services (reuses same image)
 ```
