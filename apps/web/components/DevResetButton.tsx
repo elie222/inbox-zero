@@ -124,7 +124,7 @@ export function DevResetButton({ isAdmin }: { isAdmin: boolean }) {
               Cancel
             </AlertDialogCancel>
             <AlertDialogAction
-              onClick={() => executeResetOnboarding({})}
+              onClick={() => executeResetOnboarding()}
               disabled={isResettingOnboarding}
             >
               {isResettingOnboarding ? "Resetting..." : "Reset Onboarding"}
@@ -155,7 +155,7 @@ export function DevResetButton({ isAdmin }: { isAdmin: boolean }) {
           <AlertDialogFooter>
             <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
             <AlertDialogAction
-              onClick={() => executeDelete({})}
+              onClick={() => executeDelete()}
               disabled={isDeleting}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >

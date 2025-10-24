@@ -28,7 +28,7 @@ export const devResetOnboardingAction = actionClientUser
       where: { id: userId },
       data: {
         completedOnboardingAt: null,
-        onboardingAnswers: null,
+        onboardingAnswers: undefined,
         surveyFeatures: [],
         surveyRole: null,
         surveyGoal: null,

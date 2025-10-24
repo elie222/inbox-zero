@@ -63,7 +63,6 @@ export const POST = withError(async (request) => {
         emailAccount,
         messageToSummarize: {
           id: message.id,
-          threadId: message.threadId,
           from: message.headers.from,
           to: message.headers.to || "",
           subject: message.headers.subject,

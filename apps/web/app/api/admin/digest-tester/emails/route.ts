@@ -49,16 +49,24 @@ export const GET = withError(async (request) => {
   // Try exact match first, then case-insensitive
   for (const labelName of labelNamesToTry) {
     // Try exact match
-    label = allLabels.find((l) => l.name === labelName) || null;
+    const foundLabel = allLabels.find((l) => l.name === labelName && l.id);
+    label = foundLabel
+      ? { id: foundLabel.id!, name: foundLabel.name || undefined }
+      : null;
     if (label) {
       usedLabelName = label.name || labelName;
       break;
     }
     // Try case-insensitive
-    label =
-      allLabels.find(
-        (l) => l.name?.toLowerCase() === labelName.toLowerCase(),
-      ) || null;
+    const foundLabelCaseInsensitive = allLabels.find(
+      (l) => l.name?.toLowerCase() === labelName.toLowerCase() && l.id,
+    );
+    label = foundLabelCaseInsensitive
+      ? {
+          id: foundLabelCaseInsensitive.id!,
+          name: foundLabelCaseInsensitive.name || undefined,
+        }
+      : null;
     if (label) {
       usedLabelName = label.name || labelName;
       break;
@@ -115,9 +123,9 @@ export const GET = withError(async (request) => {
       type Header = { name?: string; value?: string };
       return {
         messageId: id,
-        from: headers.find((h: Header) => h.name === "From")?.value || "",
-        subject: headers.find((h: Header) => h.name === "Subject")?.value || "",
-        date: headers.find((h: Header) => h.name === "Date")?.value || "",
+        from: headers.find((h) => h.name === "From")?.value || "",
+        subject: headers.find((h) => h.name === "Subject")?.value || "",
+        date: headers.find((h) => h.name === "Date")?.value || "",
       };
     }),
   );

@@ -33,7 +33,15 @@ export function StatsSummary(props: {
     StatsByWeekResponse,
     { error: string }
   >(
-    `/api/user/stats/by-period?${new URLSearchParams(params as Record<string, string>)}`,
+    `/api/user/stats/by-period?${new URLSearchParams({
+      period: params.period,
+      ...Object.fromEntries(
+        Object.entries(getDateRangeParams(dateRange)).map(([key, value]) => [
+          key,
+          value?.toString() ?? "",
+        ]),
+      ),
+    })}`,
     {
       refreshInterval: props.refreshInterval,
     },

@@ -17,7 +17,10 @@ export class ErrorBoundary extends Component<
   }
   componentDidCatch(error: unknown, errorInfo: unknown) {
     console.log({ error, errorInfo });
-    Sentry.captureException(error, { ...errorInfo, extra: this.props.extra });
+    Sentry.captureException(error, {
+      ...(errorInfo && typeof errorInfo === "object" ? errorInfo : {}),
+      extra: this.props.extra as Record<string, unknown>,
+    });
   }
   render() {
     if (this.state.hasError)

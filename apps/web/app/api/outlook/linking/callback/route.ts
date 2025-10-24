@@ -266,7 +266,7 @@ export const GET = withError(async (request) => {
     redirectUrl.searchParams.set("error", errorCode);
     redirectUrl.searchParams.set(
       "error_description",
-      error.message || "Unknown error",
+      error instanceof Error ? error.message : "Unknown error",
     );
     response.cookies.delete(OUTLOOK_LINKING_STATE_COOKIE_NAME);
     return NextResponse.redirect(redirectUrl, { headers: response.headers });

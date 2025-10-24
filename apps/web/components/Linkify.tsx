@@ -12,7 +12,7 @@ const renderLink = ({
 
   return (
     <Link
-      href={href}
+      href={href as string}
       {...props}
       target="_blank"
       className="font-semibold hover:underline"

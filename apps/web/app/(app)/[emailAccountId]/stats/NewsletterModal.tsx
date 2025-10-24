@@ -131,7 +131,15 @@ function useSenderEmails(props: {
     SenderEmailsResponse,
     { error: string }
   >(
-    `/api/user/stats/sender-emails/?${new URLSearchParams(params as Record<string, string>)}`,
+    `/api/user/stats/sender-emails/?${new URLSearchParams({
+      fromEmail: params.fromEmail,
+      period: params.period,
+      ...Object.fromEntries(
+        Object.entries(params)
+          .filter(([key]) => key !== "fromEmail" && key !== "period")
+          .map(([key, value]) => [key, value?.toString() ?? ""]),
+      ),
+    })}`,
     {
       refreshInterval: props.refreshInterval,
     },

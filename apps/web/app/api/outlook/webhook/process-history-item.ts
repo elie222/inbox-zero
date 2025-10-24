@@ -168,7 +168,7 @@ export async function processHistoryItem(
       emailAccountId,
       messageId,
       provider,
-      ownerEmail: userEmail,
+      _ownerEmail: userEmail,
     });
 
     if (blocked) {

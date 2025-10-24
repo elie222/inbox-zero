@@ -320,7 +320,10 @@ export function SetupContent() {
   const { data, isLoading, error } = useSetupProgress();
 
   return (
-    <LoadingContent loading={isLoading} error={error}>
+    <LoadingContent
+      loading={isLoading}
+      error={error as { error: string } | undefined}
+    >
       {data && (
         <SetupPageContent
           emailAccountId={emailAccountId}

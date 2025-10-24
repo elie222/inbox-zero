@@ -75,10 +75,16 @@ export const GET = withError(async (request) => {
       if (!verifiedPayload) {
         throw new Error("Could not get payload from verified ID token ticket.");
       }
-      payload = verifiedPayload;
+      payload = verifiedPayload as unknown as {
+        [key: string]: unknown;
+        sub?: string;
+        email?: string;
+      };
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : "Unknown error";
-      logger.error("ID token verification failed using googleAuth:", err);
+      logger.error("ID token verification failed using googleAuth:", {
+        error: errorMessage,
+      });
       throw new Error(`ID token verification failed: ${errorMessage}`);
     }
 
@@ -238,7 +244,11 @@ export const GET = withError(async (request) => {
     logger.error("Error in Google linking callback:", { error });
 
     // Handle invalid_grant error specifically for Gmail onboarding
-    if (error.message?.includes("invalid_grant") && intent === "gmail") {
+    if (
+      error instanceof Error &&
+      error.message?.includes("invalid_grant") &&
+      intent === "gmail"
+    ) {
       logger.info(
         "Invalid grant error for Gmail onboarding - likely duplicate request, checking if already connected",
         {
@@ -270,19 +280,21 @@ export const GET = withError(async (request) => {
     }
 
     let errorCode = "link_failed";
-    if (error.message?.includes("ID token verification failed")) {
-      errorCode = "invalid_id_token";
-    } else if (error.message?.includes("Missing id_token")) {
-      errorCode = "missing_id_token";
-    } else if (error.message?.includes("ID token missing required")) {
-      errorCode = "incomplete_id_token";
-    } else if (error.message?.includes("Missing access_token")) {
-      errorCode = "token_exchange_failed";
+    if (error instanceof Error) {
+      if (error.message?.includes("ID token verification failed")) {
+        errorCode = "invalid_id_token";
+      } else if (error.message?.includes("Missing id_token")) {
+        errorCode = "missing_id_token";
+      } else if (error.message?.includes("ID token missing required")) {
+        errorCode = "incomplete_id_token";
+      } else if (error.message?.includes("Missing access_token")) {
+        errorCode = "token_exchange_failed";
+      }
     }
     redirectUrl.searchParams.set("error", errorCode);
     redirectUrl.searchParams.set(
       "error_description",
-      error.message || "Unknown error",
+      error instanceof Error ? error.message : "Unknown error",
     );
     response.cookies.delete(GOOGLE_LINKING_STATE_COOKIE_NAME);
     return NextResponse.redirect(redirectUrl, { headers: response.headers });

@@ -75,7 +75,7 @@ export default async function AppLayout({
         <AssessUser />
         <SentryIdentify email={session.user.email} />
       </ErrorBoundary>
-      <DevResetButton isAdmin={isAdmin({ email: session.user.email })} />
+      <DevResetButton isAdmin={!!isAdmin({ email: session.user.email })} />
     </AppProviders>
   );
 }
