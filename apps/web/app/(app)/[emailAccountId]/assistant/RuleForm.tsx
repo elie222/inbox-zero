@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
 import {
   type FieldError,
   type FieldErrors,
@@ -12,10 +11,8 @@ import {
 } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import TextareaAutosize from "react-textarea-autosize";
-import { capitalCase } from "capital-case";
 import { usePostHog } from "posthog-js/react";
 import {
-  ExternalLinkIcon,
   PlusIcon,
   FilterIcon,
   ChevronDownIcon,
@@ -27,13 +24,8 @@ import { CardBasic } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ErrorMessage, Input, Label } from "@/components/Input";
 import { toastError, toastSuccess } from "@/components/Toast";
-import { SectionDescription, TypographyH3 } from "@/components/Typography";
-import {
-  ActionType,
-  CategoryFilterType,
-  LogicalOperator,
-  SystemType,
-} from "@prisma/client";
+import { TypographyH3 } from "@/components/Typography";
+import { ActionType, LogicalOperator, SystemType } from "@prisma/client";
 import { ConditionType, type CoreConditionType } from "@/utils/config";
 import {
   createRuleAction,
@@ -49,12 +41,9 @@ import { Toggle } from "@/components/Toggle";
 import { LoadingContent } from "@/components/LoadingContent";
 import { TooltipExplanation } from "@/components/TooltipExplanation";
 import { useLabels } from "@/hooks/useLabels";
-import { MultiSelectFilter } from "@/components/MultiSelectFilter";
-import { useCategories } from "@/hooks/useCategories";
 import { hasVariables, TEMPLATE_VARIABLE_PATTERN } from "@/utils/template";
 import { getEmptyCondition } from "@/utils/condition";
 import { AlertError } from "@/components/Alert";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -85,7 +74,6 @@ import {
   SelectTrigger,
 } from "@/components/ui/select";
 import { Form, FormControl, FormField, FormItem } from "@/components/ui/form";
-import { isDefined } from "@/utils/types";
 import { canActionBeDelayed } from "@/utils/delayed-actions";
 import type { EmailLabel } from "@/providers/EmailProvider";
 import { FolderSelector } from "@/components/FolderSelector";
@@ -185,12 +173,7 @@ export function RuleForm({
   const { append, remove } = useFieldArray({ control, name: "actions" });
 
   const { userLabels, isLoading, mutate: mutateLabels } = useLabels();
-  const {
-    categories,
-    isLoading: categoriesLoading,
-    error: categoriesError,
-  } = useCategories();
-  const { folders, isLoading: foldersLoading } = useFolders();
+  const { folders, isLoading: foldersLoading } = useFolders(provider);
   const router = useRouter();
 
   const posthog = usePostHog();
@@ -561,23 +544,14 @@ export function RuleForm({
                                     label: "Static",
                                     value: ConditionType.STATIC,
                                   },
-                                  // Deprecated: only show if this is the selected condition type
-                                  condition.type === ConditionType.CATEGORY
-                                    ? {
-                                        label: "Sender Category",
-                                        value: ConditionType.CATEGORY,
-                                      }
-                                    : null,
-                                ]
-                                  .filter(isDefined)
-                                  .map((option) => (
-                                    <SelectItem
-                                      key={option.value}
-                                      value={option.value}
-                                    >
-                                      {option.label}
-                                    </SelectItem>
-                                  ))}
+                                ].map((option) => (
+                                  <SelectItem
+                                    key={option.value}
+                                    value={option.value}
+                                  >
+                                    {option.label}
+                                  </SelectItem>
+                                ))}
                               </SelectContent>
                             </Select>
                           </FormItem>
@@ -672,139 +646,11 @@ export function RuleForm({
                           />
                         </>
                       )}
-
-                      {watch(`conditions.${index}.type`) ===
-                        ConditionType.CATEGORY && (
-                        <>
-                          <div className="flex items-center gap-4">
-                            <RadioGroup
-                              defaultValue={CategoryFilterType.INCLUDE}
-                              value={
-                                watch(
-                                  `conditions.${index}.categoryFilterType`,
-                                ) || undefined
-                              }
-                              onValueChange={(value) =>
-                                setValue(
-                                  `conditions.${index}.categoryFilterType`,
-                                  value as CategoryFilterType,
-                                )
-                              }
-                              className="flex gap-6"
-                            >
-                              <div className="flex items-center space-x-2">
-                                <RadioGroupItem
-                                  value={CategoryFilterType.INCLUDE}
-                                  id="include"
-                                />
-                                <Label name="include" label="Match" />
-                              </div>
-                              <div className="flex items-center space-x-2">
-                                <RadioGroupItem
-                                  value={CategoryFilterType.EXCLUDE}
-                                  id="exclude"
-                                />
-                                <Label name="exclude" label="Skip" />
-                              </div>
-                            </RadioGroup>
-
-                            <TooltipExplanation text="This stops the AI from applying this rule to emails that don't match your criteria." />
-                          </div>
-
-                          <LoadingContent
-                            loading={categoriesLoading}
-                            error={categoriesError}
-                          >
-                            {categories.length ? (
-                              <>
-                                <MultiSelectFilter
-                                  title="Categories"
-                                  maxDisplayedValues={8}
-                                  options={categories.map((category) => ({
-                                    label: capitalCase(category.name),
-                                    value: category.id,
-                                  }))}
-                                  selectedValues={
-                                    new Set(
-                                      watch(
-                                        `conditions.${index}.categoryFilters`,
-                                      ),
-                                    )
-                                  }
-                                  setSelectedValues={(selectedValues) => {
-                                    setValue(
-                                      `conditions.${index}.categoryFilters`,
-                                      Array.from(selectedValues),
-                                    );
-                                  }}
-                                />
-                                {(
-                                  errors.conditions?.[index] as {
-                                    categoryFilters?: { message?: string };
-                                  }
-                                )?.categoryFilters?.message && (
-                                  <ErrorMessage
-                                    message={
-                                      (
-                                        errors.conditions?.[index] as {
-                                          categoryFilters?: {
-                                            message?: string;
-                                          };
-                                        }
-                                      )?.categoryFilters?.message || ""
-                                    }
-                                  />
-                                )}
-
-                                <Button
-                                  asChild
-                                  variant="ghost"
-                                  size="sm"
-                                  className="ml-2"
-                                >
-                                  <Link
-                                    href={prefixPath(
-                                      emailAccountId,
-                                      "/smart-categories/setup",
-                                    )}
-                                    target="_blank"
-                                  >
-                                    Create category
-                                    <ExternalLinkIcon className="ml-1.5 size-4" />
-                                  </Link>
-                                </Button>
-                              </>
-                            ) : (
-                              <div>
-                                <SectionDescription>
-                                  No sender categories found.
-                                </SectionDescription>
-
-                                <Button asChild className="mt-1">
-                                  <Link
-                                    href={prefixPath(
-                                      emailAccountId,
-                                      "/smart-categories",
-                                    )}
-                                    target="_blank"
-                                  >
-                                    Set up Sender Categories
-                                    <ExternalLinkIcon className="ml-1.5 size-4" />
-                                  </Link>
-                                </Button>
-                              </div>
-                            )}
-                          </LoadingContent>
-                        </>
-                      )}
                     </CardLayoutRight>
                   </CardLayout>
                 </CardBasic>
               ) : (
-                <ConditionSummaryCard
-                  condition={watch(`conditions.${index}`)}
-                  categories={categories}
-                />
+                <ConditionSummaryCard condition={conditions[index]} />
               )}
             </div>
           ))}

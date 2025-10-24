@@ -1,35 +1,18 @@
 import { stepCountIs, tool } from "ai";
 import { z } from "zod";
 import { createGenerateText } from "@/utils/llms";
-import { createScopedLogger, type Logger } from "@/utils/logger";
-import {
-  type Category,
-  GroupItemType,
-  LogicalOperator,
-  type Rule,
-} from "@prisma/client";
+import { createScopedLogger } from "@/utils/logger";
+import { GroupItemType, LogicalOperator, type Rule } from "@prisma/client";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import type { RuleWithRelations } from "@/utils/rule/types";
-import { isDefined, type ParsedMessage } from "@/utils/types";
-import {
-  createRuleSchema,
-  type CreateRuleSchemaWithCategories,
-  getCreateRuleSchemaWithCategories,
-} from "@/utils/ai/rule/create-rule-schema";
+import type { ParsedMessage } from "@/utils/types";
+import { createRuleSchema } from "@/utils/ai/rule/create-rule-schema";
 import { deleteGroupItem } from "@/utils/group/group-item";
-import {
-  addRuleCategories,
-  createRule,
-  partialUpdateRule,
-  removeRuleCategories,
-} from "@/utils/rule/rule";
-import { updateCategoryForSender } from "@/utils/categorize/senders/categorize";
-import { findSenderByEmail } from "@/utils/sender";
+import { createRule, partialUpdateRule } from "@/utils/rule/rule";
 import { getEmailForLLM } from "@/utils/get-email-from-message";
 import { stringifyEmailSimple } from "@/utils/stringify-email";
 import { env } from "@/env";
 import { posthogCaptureEvent } from "@/utils/posthog";
-import { getUserCategoriesForNames } from "@/utils/category.server";
 import { getModel } from "@/utils/llms/model";
 import { getUserInfoPrompt } from "@/utils/ai/helpers";
 
@@ -39,16 +22,12 @@ export async function processUserRequest({
   originalEmail,
   messages,
   matchedRule,
-  categories,
-  senderCategory,
 }: {
   emailAccount: EmailAccountWithAI;
   rules: RuleWithRelations[];
   originalEmail: ParsedMessage | null;
   messages: { role: "assistant" | "user"; content: string }[];
   matchedRule: RuleWithRelations | null;
-  categories: Pick<Category, "id" | "name">[] | null;
-  senderCategory: string | null;
 }) {
   const logger = createScopedLogger("ai-fix-rules").with({
     emailAccountId: emailAccount.id,
@@ -75,7 +54,6 @@ You can fix rules using these specific operations:
 - Change conditional operator (AND/OR logic)
 - Modify AI instructions
 - Update static conditions (from, to, subject, body)
-- Add or remove categories
 
 2. Create New Rules:
 - Create new rules when asked or when existing ones cannot be modified to fit the need
@@ -97,7 +75,7 @@ When fixing rules:
 
 Rule matching logic:
 - All static conditions (from, to, subject, body) use AND logic - meaning all static conditions must match
-- Top level conditions (AI instructions, static, category) can use either AND or OR logic, controlled by the conditionalOperator setting
+- Top level conditions (AI instructions, static) can use either AND or OR logic, controlled by the conditionalOperator setting
 
 Best practices:
 - For static conditions, use email patterns (e.g., '@company.com') when matching multiple addresses
@@ -128,14 +106,6 @@ ${
     ? `<original_email>
 ${stringifyEmailSimple(getEmailForLLM(originalEmail))}
 </original_email>`
-    : ""
-}
-
-${
-  originalEmail && categories?.length
-    ? `<sender_category>
-${senderCategory || "No category"}
-</sender_category>`
     : ""
 }`;
 
@@ -382,142 +352,9 @@ ${senderCategory || "No category"}
             }),
           }
         : {}),
-      ...(categories
-        ? {
-            update_sender_category: getUpdateCategoryTool({
-              emailAccountId: emailAccount.id,
-              userEmail: emailAccount.email,
-              categories,
-              logger,
-            }),
-            add_categories: tool({
-              description: "Add categories to a rule",
-              inputSchema: z.object({
-                ruleName: z
-                  .string()
-                  .describe("The exact name of the rule to edit"),
-                categories: z
-                  .array(z.string())
-                  .describe("The categories to add"),
-              }),
-              execute: async (options) => {
-                try {
-                  logger.info("Add Rule Categories", options);
-                  trackToolCall({
-                    tool: "add_categories",
-                    email: emailAccount.email,
-                  });
-
-                  const { ruleName } = options;
-
-                  const rule = rules.find((r) => r.name === ruleName);
-
-                  if (!rule) {
-                    logger.error("Rule not found", {
-                      ...options,
-                      ruleName,
-                    });
-                    return { error: "Rule not found" };
-                  }
-
-                  const categoryIds = options.categories
-                    .map((c) => categories.find((cat) => cat.name === c))
-                    .filter(isDefined)
-                    .map((c) => c.id);
-
-                  const updatedRule = await addRuleCategories(
-                    rule.id,
-                    categoryIds,
-                  );
-
-                  updatedRules.set(updatedRule.id, updatedRule);
-
-                  return { success: true };
-                } catch (error) {
-                  const message =
-                    error instanceof Error ? error.message : String(error);
-
-                  logger.error("Error while adding categories to rule", {
-                    ...options,
-                    error: message,
-                  });
-
-                  return {
-                    error: "Failed to add categories to rule",
-                    message,
-                  };
-                }
-              },
-            }),
-            remove_categories: tool({
-              description: "Remove categories from a rule",
-              inputSchema: z.object({
-                ruleName: z
-                  .string()
-                  .describe("The exact name of the rule to edit"),
-                categories: z
-                  .array(z.string())
-                  .describe("The categories to remove"),
-              }),
-              execute: async (options) => {
-                try {
-                  logger.info("Remove Rule Categories", options);
-                  trackToolCall({
-                    tool: "remove_categories",
-                    email: emailAccount.email,
-                  });
-
-                  const { ruleName } = options;
-
-                  const rule = rules.find((r) => r.name === ruleName);
-
-                  if (!rule) {
-                    logger.error("Rule not found", {
-                      ...options,
-                      ruleName,
-                    });
-                    return { error: "Rule not found" };
-                  }
-
-                  const categoryIds = options.categories
-                    .map((c) => categories.find((cat) => cat.name === c))
-                    .filter(isDefined)
-                    .map((c) => c.id);
-
-                  const updatedRule = await removeRuleCategories(
-                    rule.id,
-                    categoryIds,
-                  );
-
-                  updatedRules.set(updatedRule.id, updatedRule);
-
-                  return { success: true };
-                } catch (error) {
-                  const message =
-                    error instanceof Error ? error.message : String(error);
-
-                  logger.error("Error while removing categories from rule", {
-                    ...options,
-                    error: message,
-                  });
-
-                  return {
-                    error: "Failed to remove categories from rule",
-                    message,
-                  };
-                }
-              },
-            }),
-          }
-        : {}),
       create_rule: tool({
         description: "Create a new rule",
-        inputSchema: categories
-          ? getCreateRuleSchemaWithCategories(
-              categories.map((c) => c.name) as [string, ...string[]],
-              emailAccount.account.provider,
-            )
-          : createRuleSchema(emailAccount.account.provider),
+        inputSchema: createRuleSchema(emailAccount.account.provider),
         execute: async ({ name, condition, actions }) => {
           logger.info("Create Rule", { name, condition, actions });
           trackToolCall({
@@ -525,15 +362,7 @@ ${senderCategory || "No category"}
             email: emailAccount.email,
           });
 
-          const conditions =
-            condition as CreateRuleSchemaWithCategories["condition"];
-
           try {
-            const categoryIds = await getUserCategoriesForNames({
-              emailAccountId: emailAccount.id,
-              names: conditions.categories?.categoryFilters || [],
-            });
-
             const rule = await createRule({
               result: {
                 name,
@@ -556,7 +385,6 @@ ${senderCategory || "No category"}
                 })),
               },
               emailAccountId: emailAccount.id,
-              categoryIds,
               provider: emailAccount.account.provider,
               runOnThreads: true,
             });
@@ -618,70 +446,6 @@ ${senderCategory || "No category"}
   return result;
 }
 
-const getUpdateCategoryTool = ({
-  emailAccountId,
-  categories,
-  userEmail,
-  logger,
-}: {
-  emailAccountId: string;
-  categories: Pick<Category, "id" | "name">[];
-  userEmail: string;
-  logger: Logger;
-}) =>
-  tool({
-    description: "Update the category of a sender",
-    inputSchema: z.object({
-      sender: z.string().describe("The sender to update"),
-      category: z
-        .enum([
-          ...(categories.map((c) => c.name) as [string, ...string[]]),
-          "none",
-        ])
-        .describe("The name of the category to assign"),
-    }),
-    execute: async ({ sender, category }) => {
-      logger.info("Update Category", { sender, category });
-      trackToolCall({
-        tool: "update_sender_category",
-        email: userEmail,
-      });
-
-      const existingSender = await findSenderByEmail({
-        emailAccountId,
-        email: sender,
-      });
-
-      const cat = categories.find((c) => c.name === category);
-
-      if (!cat) {
-        logger.error("Category not found", { category });
-        return { error: "Category not found" };
-      }
-
-      try {
-        await updateCategoryForSender({
-          emailAccountId,
-          sender: existingSender?.email || sender,
-          categoryId: cat.id,
-        });
-        return { success: true };
-      } catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
-
-        logger.error("Error while updating category for sender", {
-          sender,
-          category,
-          error: message,
-        });
-        return {
-          error: "Failed to update category for sender",
-          message,
-        };
-      }
-    },
-  });
-
 function ruleToXML(rule: RuleWithRelations) {
   return `<rule>
   <rule_name>${rule.name}</rule_name>
@@ -696,14 +460,6 @@ function ruleToXML(rule: RuleWithRelations) {
       ${rule.subject ? `<subject>${rule.subject}</subject>` : ""}
       ${rule.body ? `<body>${rule.body}</body>` : ""}
     </static_conditions>`
-        : ""
-    }
-    ${
-      hasCategoryConditions(rule)
-        ? `<category_conditions>
-      ${rule.categoryFilterType ? `<filter_type>${rule.categoryFilterType}</filter_type>` : ""}
-      ${rule.categoryFilters?.map((category) => `<category>${category.name}</category>`).join("\n      ")}
-    </category_conditions>`
         : ""
     }
   </conditions>
@@ -734,10 +490,6 @@ ${rules.map((rule) => ruleToXML(rule)).join("\n")}
 
 function hasStaticConditions(rule: RuleWithRelations) {
   return Boolean(rule.from || rule.to || rule.subject || rule.body);
-}
-
-function hasCategoryConditions(rule: RuleWithRelations) {
-  return Boolean(rule.categoryFilters && rule.categoryFilters.length > 0);
 }
 
 function getPatternType(type: string) {

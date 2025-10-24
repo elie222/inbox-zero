@@ -35,7 +35,6 @@ import {
   BulkUnsubscribeRowDesktop,
 } from "@/app/(app)/[emailAccountId]/bulk-unsubscribe/BulkUnsubscribeDesktop";
 import { Card } from "@/components/ui/card";
-import { ShortcutTooltip } from "@/app/(app)/[emailAccountId]/bulk-unsubscribe/ShortcutTooltip";
 import { SearchBar } from "@/app/(app)/[emailAccountId]/bulk-unsubscribe/SearchBar";
 import { useToggleSelect } from "@/hooks/useToggleSelect";
 import { BulkActions } from "@/app/(app)/[emailAccountId]/bulk-unsubscribe/BulkActions";

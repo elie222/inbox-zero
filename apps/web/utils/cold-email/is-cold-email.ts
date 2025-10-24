@@ -10,6 +10,7 @@ import type { EmailForLLM } from "@/utils/types";
 import type { EmailProvider } from "@/utils/email/types";
 import { getModel, type ModelType } from "@/utils/llms/model";
 import { createGenerateObject } from "@/utils/llms";
+import { extractEmailAddress } from "@/utils/email";
 
 export const COLD_EMAIL_FOLDER_NAME = "Cold Emails";
 
@@ -167,17 +168,19 @@ export async function saveColdEmail({
   emailAccount: EmailAccountWithAI;
   aiReason: string | null;
 }): Promise<ColdEmail> {
+  const from = extractEmailAddress(email.from) || email.from;
+
   return await prisma.coldEmail.upsert({
     where: {
       emailAccountId_fromEmail: {
         emailAccountId: emailAccount.id,
-        fromEmail: email.from,
+        fromEmail: from,
       },
     },
     update: { status: ColdEmailStatus.AI_LABELED_COLD },
     create: {
       status: ColdEmailStatus.AI_LABELED_COLD,
-      fromEmail: email.from,
+      fromEmail: from,
       emailAccountId: emailAccount.id,
       reason: aiReason,
       messageId: email.id,

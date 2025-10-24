@@ -5,12 +5,14 @@ import { DraftKnowledgeSetting } from "@/app/(app)/[emailAccountId]/assistant/se
 import { ReferralSignatureSetting } from "@/app/(app)/[emailAccountId]/assistant/settings/ReferralSignatureSetting";
 import { LearnedPatternsSetting } from "@/app/(app)/[emailAccountId]/assistant/settings/LearnedPatternsSetting";
 import { PersonalSignatureSetting } from "@/app/(app)/[emailAccountId]/assistant/settings/PersonalSignatureSetting";
+import { MultiRuleSetting } from "@/app/(app)/[emailAccountId]/assistant/settings/MultiRuleSetting";
 
 export function SettingsTab() {
   return (
     <div className="space-y-2">
       <DraftReplies />
       <DraftKnowledgeSetting />
+      <MultiRuleSetting />
       <AboutSetting />
       <DigestSetting />
       <PersonalSignatureSetting />

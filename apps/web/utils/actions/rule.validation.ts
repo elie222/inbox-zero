@@ -1,10 +1,5 @@
 import { z } from "zod";
-import {
-  ActionType,
-  CategoryFilterType,
-  LogicalOperator,
-  SystemType,
-} from "@prisma/client";
+import { ActionType, LogicalOperator, SystemType } from "@prisma/client";
 import { ConditionType } from "@/utils/config";
 import { NINETY_DAYS_MINUTES } from "@/utils/date";
 
@@ -28,11 +23,7 @@ const zodActionType = z.enum([
   ActionType.MOVE_FOLDER,
 ]);
 
-const zodConditionType = z.enum([
-  ConditionType.AI,
-  ConditionType.STATIC,
-  ConditionType.CATEGORY,
-]);
+const zodConditionType = z.enum([ConditionType.AI, ConditionType.STATIC]);
 
 const zodSystemRule = z.enum([
   SystemType.TO_REPLY,
@@ -58,18 +49,10 @@ const zodStaticCondition = z.object({
   body: z.string().nullish(),
 });
 
-const zodCategoryCondition = z.object({
-  categoryFilterType: z
-    .enum([CategoryFilterType.INCLUDE, CategoryFilterType.EXCLUDE])
-    .nullish(),
-  categoryFilters: z.array(z.string()).nullish(),
-});
-
 const zodCondition = z.object({
   type: zodConditionType,
   ...zodAiCondition.shape,
   ...zodStaticCondition.shape,
-  ...zodCategoryCondition.shape,
 });
 export type ZodCondition = z.infer<typeof zodCondition>;
 
@@ -180,6 +163,11 @@ export type UpdateRuleSettingsBody = z.infer<typeof updateRuleSettingsBody>;
 
 export const enableDraftRepliesBody = z.object({ enable: z.boolean() });
 export type EnableDraftRepliesBody = z.infer<typeof enableDraftRepliesBody>;
+
+export const enableMultiRuleSelectionBody = z.object({ enable: z.boolean() });
+export type EnableMultiRuleSelectionBody = z.infer<
+  typeof enableMultiRuleSelectionBody
+>;
 
 const categoryAction = z.enum([
   "label",

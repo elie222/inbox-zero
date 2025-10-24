@@ -1,13 +1,8 @@
 import type { Rule, Action } from "@prisma/client";
-import {
-  ActionType,
-  CategoryFilterType,
-  LogicalOperator,
-} from "@prisma/client";
+import { ActionType, LogicalOperator } from "@prisma/client";
 
 export interface RuleWithActions extends Rule {
   actions: Action[];
-  categoryFilters?: { name: string }[];
   group?: { name: string } | null;
 }
 
@@ -34,19 +29,6 @@ export function ruleToText(rule: RuleWithActions): string {
 
   if (rule.body) {
     conditions.push(`'Body' contains "${rule.body}"`);
-  }
-
-  // if (rule.group) {
-  //   conditions.push(`Sender is in group "${rule.group.name}"`);
-  // }
-
-  if (rule.categoryFilterType && rule.categoryFilters?.length) {
-    const categoryNames = rule.categoryFilters.map((c) => c.name).join(", ");
-    if (rule.categoryFilterType === CategoryFilterType.INCLUDE) {
-      conditions.push(`Sender is in categories: ${categoryNames}`);
-    } else {
-      conditions.push(`Sender is NOT in categories: ${categoryNames}`);
-    }
   }
 
   // Build actions

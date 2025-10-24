@@ -11,7 +11,6 @@ import { ActionButtons } from "@/components/ActionButtons";
 import { PlanBadge } from "@/components/PlanBadge";
 import type { Thread } from "@/components/email-list/types";
 import { extractNameFromEmail, participant } from "@/utils/email";
-import { CategoryBadge } from "@/components/CategoryBadge";
 import { Checkbox } from "@/components/Checkbox";
 import { EmailDate } from "@/components/email-list/EmailDate";
 import { decodeSnippet } from "@/utils/gmail/decode";
@@ -167,11 +166,8 @@ export const EmailListItem = forwardRef(
                   />
                 </div>
 
-                {!!(thread.category?.category || thread.plan) && (
+                {!!thread.plan && (
                   <div className="ml-3 flex items-center space-x-2 whitespace-nowrap">
-                    {thread.category?.category ? (
-                      <CategoryBadge category={thread.category.category} />
-                    ) : null}
                     <PlanBadge plan={thread.plan} provider={provider} />
                   </div>
                 )}

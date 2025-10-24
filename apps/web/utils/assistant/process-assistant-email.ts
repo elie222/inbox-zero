@@ -96,7 +96,7 @@ async function processAssistantEmailInternal({
   const originalMessageId = firstMessageToAssistant.headers["in-reply-to"];
   const originalMessage = await provider.getOriginalMessage(originalMessageId);
 
-  const [emailAccount, executedRule, senderCategory] = await Promise.all([
+  const [emailAccount, executedRules] = await Promise.all([
     prisma.emailAccount.findUnique({
       where: { email: userEmail },
       select: {
@@ -104,6 +104,7 @@ async function processAssistantEmailInternal({
         userId: true,
         email: true,
         about: true,
+        multiRuleSelectionEnabled: true,
         user: {
           select: {
             aiProvider: true,
@@ -114,7 +115,6 @@ async function processAssistantEmailInternal({
         rules: {
           include: {
             actions: true,
-            categoryFilters: true,
             group: {
               select: {
                 id: true,
@@ -130,40 +130,24 @@ async function processAssistantEmailInternal({
             },
           },
         },
-        categories: true,
         account: { select: { provider: true } },
       },
     }),
     originalMessage
-      ? prisma.executedRule.findUnique({
+      ? prisma.executedRule.findMany({
           where: {
-            unique_emailAccount_thread_message: {
-              emailAccountId,
-              threadId: originalMessage.threadId,
-              messageId: originalMessage.id,
-            },
+            emailAccountId,
+            threadId: originalMessage.threadId,
+            messageId: originalMessage.id,
           },
+          orderBy: [{ createdAt: "desc" }, { id: "desc" }],
           select: {
             rule: {
               include: {
                 actions: true,
-                categoryFilters: true,
                 group: true,
               },
             },
-          },
-        })
-      : null,
-    originalMessage
-      ? prisma.newsletter.findUnique({
-          where: {
-            email_emailAccountId: {
-              email: extractEmailAddress(originalMessage.headers.from),
-              emailAccountId,
-            },
-          },
-          select: {
-            category: { select: { name: true } },
           },
         })
       : null,
@@ -217,9 +201,7 @@ async function processAssistantEmailInternal({
     rules: emailAccount.rules,
     originalEmail: originalMessage,
     messages,
-    matchedRule: executedRule?.rule || null,
-    categories: emailAccount.categories.length ? emailAccount.categories : null,
-    senderCategory: senderCategory?.category?.name ?? null,
+    matchedRule: executedRules?.length ? executedRules[0].rule : null, // TODO: support multiple rule matching
   });
 
   const toolCalls = result.steps.flatMap((step) => step.toolCalls);

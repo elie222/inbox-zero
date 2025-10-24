@@ -106,7 +106,7 @@ export function BulkUnsubscribeRowDesktop({
           onChange={() => onToggleSelect?.(item.name)}
         />
       </TableCell>
-      <TableCell className="max-w-[250px] truncate min-[1550px]:max-w-[300px] min-[1650px]:max-w-[400px] py-3">
+      <TableCell className="max-w-[250px] truncate min-[1550px]:max-w-[300px] py-3">
         <div className="flex flex-col">
           <span className="font-medium">{item.fromName || item.name}</span>
           {item.fromName && (

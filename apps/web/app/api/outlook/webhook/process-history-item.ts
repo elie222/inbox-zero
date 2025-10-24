@@ -1,14 +1,14 @@
 import type { OutlookResourceData } from "@/app/api/outlook/webhook/types";
 import { logger as globalLogger } from "@/app/api/outlook/webhook/logger";
 import { processHistoryItem as processHistoryItemShared } from "@/utils/webhook/process-history-item";
-import type { RuleWithActionsAndCategories } from "@/utils/types";
+import type { RuleWithActions } from "@/utils/types";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import type { EmailAccount } from "@prisma/client";
 import type { EmailProvider } from "@/utils/email/types";
 
 type ProcessHistoryOptions = {
   provider: EmailProvider;
-  rules: RuleWithActionsAndCategories[];
+  rules: RuleWithActions[];
   hasAutomationRules: boolean;
   hasAiAccess: boolean;
   emailAccount: Pick<EmailAccount, "autoCategorizeSenders"> &

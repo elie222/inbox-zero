@@ -4,7 +4,7 @@ import { aiDetermineThreadStatus } from "@/utils/ai/reply/determine-thread-statu
 import prisma from "@/utils/prisma";
 import { createScopedLogger, type Logger } from "@/utils/logger";
 import { getEmailForLLM } from "@/utils/get-email-from-message";
-import { internalDateToDate } from "@/utils/date";
+import { internalDateToDate, sortByInternalDate } from "@/utils/date";
 import type { EmailProvider } from "@/utils/email/types";
 import { applyThreadStatusLabel } from "./label-helpers";
 import { updateThreadTrackers } from "@/utils/reply-tracker/handle-conversation-status";
@@ -53,10 +53,10 @@ export async function handleOutboundReply({
     return; // Stop processing if not the latest
   }
 
-  // Prepare thread messages for AI analysis (most recent first)
+  // Prepare thread messages for AI analysis (chronological order, oldest to newest)
   const threadMessagesForLLM = sortedMessages.map((m, index) =>
     getEmailForLLM(m, {
-      maxLength: index === 0 ? 2000 : 500, // Give more context for the latest message
+      maxLength: index === sortedMessages.length - 1 ? 2000 : 500, // Give more context for the latest message
       extractReply: true,
       removeForwarded: false,
     }),
@@ -74,21 +74,22 @@ export async function handleOutboundReply({
 
   logger.info("AI determined thread status", { status: aiResult.status });
 
-  await applyThreadStatusLabel({
-    emailAccountId: emailAccount.id,
-    threadId: message.threadId,
-    messageId: message.id,
-    systemType: aiResult.status,
-    provider,
-  });
-
-  await updateThreadTrackers({
-    emailAccountId: emailAccount.id,
-    threadId: message.threadId,
-    messageId: message.id,
-    sentAt: internalDateToDate(message.internalDate),
-    status: aiResult.status,
-  });
+  await Promise.all([
+    applyThreadStatusLabel({
+      emailAccountId: emailAccount.id,
+      threadId: message.threadId,
+      messageId: message.id,
+      systemType: aiResult.status,
+      provider,
+    }),
+    updateThreadTrackers({
+      emailAccountId: emailAccount.id,
+      threadId: message.threadId,
+      messageId: message.id,
+      sentAt: internalDateToDate(message.internalDate),
+      status: aiResult.status,
+    }),
+  ]);
 }
 
 async function isOutboundTrackingEnabled({
@@ -113,12 +114,8 @@ function isMessageLatestInThread(
 ): { isLatest: boolean; sortedMessages: ParsedMessage[] } {
   if (!threadMessages.length) return { isLatest: false, sortedMessages: [] }; // Should not happen if called correctly
 
-  const sortedMessages = [...threadMessages].sort(
-    (a, b) =>
-      (internalDateToDate(b.internalDate).getTime() || 0) -
-      (internalDateToDate(a.internalDate).getTime() || 0),
-  );
-  const actualLatestMessage = sortedMessages[0];
+  const sortedMessages = [...threadMessages].sort(sortByInternalDate());
+  const actualLatestMessage = sortedMessages[sortedMessages.length - 1];
 
   if (actualLatestMessage?.id !== message.id) {
     logger.warn(

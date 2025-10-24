@@ -15,6 +15,7 @@ export async function getWebhookEmailAccount(
       email: true,
       userId: true,
       about: true,
+      multiRuleSelectionEnabled: true,
       lastSyncedHistoryId: true,
       autoCategorizeSenders: true,
       watchEmailsSubscriptionId: true,
@@ -28,7 +29,7 @@ export async function getWebhookEmailAccount(
       },
       rules: {
         where: { enabled: true },
-        include: { actions: true, categoryFilters: true },
+        include: { actions: true },
       },
       user: {
         select: {
