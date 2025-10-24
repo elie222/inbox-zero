@@ -1076,6 +1076,18 @@ enum SystemType {
   NOTIFICATION
 }
 
+model DigestTestRun {
+  id            String   @id @default(cuid())
+  createdAt     DateTime @default(now())
+  emailAccountId String
+  testLabel     String
+  emailCount    Int
+  digestIds     String[] // Array of digest IDs
+  
+  @@index([emailAccountId])
+  @@index([createdAt])
+}
+
 enum ReferralStatus {
   PENDING // Referral created, waiting for trial completion
   COMPLETED // Referral completed and reward granted
