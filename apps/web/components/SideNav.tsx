@@ -229,7 +229,8 @@ export function SideNav({ ...props }: React.ComponentProps<typeof Sidebar>) {
         </SidebarGroupContent>
       </SidebarContent>
 
-      <PremiumExpiredCard />
+      {/* Temporarily disabled for testing */}
+      {/* <PremiumExpiredCard /> */}
 
       <SidebarFooter className="pb-4">
         {/* Refer Friend and Premium menu items hidden */}
