@@ -14,6 +14,7 @@ import { HistoryIcon, SettingsIcon } from "lucide-react";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { prefixPath } from "@/utils/path";
 import { isGoogleProvider } from "@/utils/email/provider-types";
+import { useStep } from "@/app/(app)/[emailAccountId]/clean/useStep";
 
 export function ConfirmationStep({
   showFooter,
@@ -38,6 +39,7 @@ export function ConfirmationStep({
 }) {
   const router = useRouter();
   const { emailAccountId, emailAccount } = useAccount();
+  const { onPrevious } = useStep();
   const isGmail = isGoogleProvider(emailAccount?.provider);
 
   const handleStartCleaning = async () => {
@@ -119,7 +121,10 @@ export function ConfirmationStep({
         )}
       </ul>
 
-      <div className="mt-6">
+      <div className="mt-6 flex justify-center gap-2">
+        <Button size="lg" variant="outline" onClick={onPrevious}>
+          Back
+        </Button>
         <Button size="lg" onClick={handleStartCleaning}>
           Start Cleaning
         </Button>
