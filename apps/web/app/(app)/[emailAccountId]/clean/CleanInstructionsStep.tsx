@@ -17,7 +17,7 @@ const schema = z.object({ instructions: z.string().optional() });
 type Inputs = z.infer<typeof schema>;
 
 export function CleanInstructionsStep() {
-  const { onNext } = useStep();
+  const { onNext, onPrevious } = useStep();
   const {
     register,
     handleSubmit,
@@ -103,7 +103,10 @@ I'm in the middle of a building project, keep those emails too.`}
         </div>
       )}
 
-      <div className="mt-6 flex justify-center">
+      <div className="mt-6 flex justify-center gap-2">
+        <Button type="button" variant="outline" onClick={onPrevious}>
+          Back
+        </Button>
         <Button type="submit">Continue</Button>
       </div>
     </form>
