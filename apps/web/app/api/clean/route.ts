@@ -5,6 +5,7 @@ import { withError } from "@/utils/middleware";
 import { publishToQstash } from "@/utils/upstash";
 import { getThreadMessages } from "@/utils/gmail/thread";
 import { getGmailClientWithRefresh } from "@/utils/gmail/client";
+import { getOutlookClientWithRefresh } from "@/utils/outlook/client";
 import type { CleanGmailBody } from "@/app/api/clean/gmail/route";
 import type { CleanOutlookBody } from "@/app/api/clean/outlook/route";
 import { SafeError } from "@/utils/error";
@@ -26,6 +27,7 @@ import { CleanAction } from "@prisma/client";
 import type { ParsedMessage } from "@/utils/types";
 import { isActivePremium } from "@/utils/premium";
 import { isGoogleProvider } from "@/utils/email/provider-types";
+import { getMessage as getOutlookMessage } from "@/utils/outlook/message";
 
 const logger = createScopedLogger("api/clean");
 
@@ -69,9 +71,9 @@ async function cleanThread({
 
   if (!emailAccount) throw new SafeError("User not found", 404);
 
-  if (!emailAccount.tokens) throw new SafeError("No Gmail account found", 404);
+  if (!emailAccount.tokens) throw new SafeError("No account tokens found", 404);
   if (!emailAccount.tokens.access_token || !emailAccount.tokens.refresh_token)
-    throw new SafeError("No Gmail account found", 404);
+    throw new SafeError("No account tokens found", 404);
 
   // Premium check disabled for development/testing
   // TODO: Re-enable for production
@@ -79,14 +81,46 @@ async function cleanThread({
   // if (!premium) throw new SafeError("User not premium");
   // if (!isActivePremium(premium)) throw new SafeError("Premium not active");
 
-  const gmail = await getGmailClientWithRefresh({
-    accessToken: emailAccount.tokens.access_token,
-    refreshToken: emailAccount.tokens.refresh_token,
-    expiresAt: emailAccount.tokens.expires_at,
-    emailAccountId,
-  });
+  let messages: ParsedMessage[];
 
-  const messages = await getThreadMessages(threadId, gmail);
+  const isGmail = isGoogleProvider(emailAccount.account.provider);
+
+  if (isGmail) {
+    // Gmail: Use existing Gmail client
+    const gmail = await getGmailClientWithRefresh({
+      accessToken: emailAccount.tokens.access_token,
+      refreshToken: emailAccount.tokens.refresh_token,
+      expiresAt: emailAccount.tokens.expires_at,
+      emailAccountId,
+    });
+
+    messages = await getThreadMessages(threadId, gmail);
+  } else {
+    // Outlook: Use Outlook client to fetch messages
+    const outlook = await getOutlookClientWithRefresh({
+      accessToken: emailAccount.tokens.access_token,
+      refreshToken: emailAccount.tokens.refresh_token,
+      expiresAt: emailAccount.tokens.expires_at?.getTime() || null,
+      emailAccountId,
+    });
+
+    // For Outlook, threadId is the conversationId
+    // We need to fetch all messages in this conversation
+    try {
+      // Fetch the single message first
+      const message = await getOutlookMessage(threadId, outlook);
+      messages = [message];
+
+      // TODO: In the future, we should fetch all messages in the conversation
+      // using the conversationId to get the full thread context
+    } catch (error) {
+      logger.error("Failed to fetch Outlook message", {
+        error,
+        messageId: threadId,
+      });
+      throw new SafeError("Failed to fetch message");
+    }
+  }
 
   logger.info("Fetched messages", {
     emailAccountId,
@@ -116,7 +150,7 @@ async function cleanThread({
     processedLabelId,
     jobId,
     action,
-    provider: emailAccount.provider,
+    provider: emailAccount.account.provider,
   });
 
   // Provider-agnostic helper functions
