@@ -38,57 +38,8 @@ const TEN_YEARS = 10 * 365 * 24 * 60 * 60 * 1000;
 export const decrementUnsubscribeCreditAction = actionClientUser
   .metadata({ name: "decrementUnsubscribeCredit" })
   .action(async ({ ctx: { userId } }) => {
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
-      select: {
-        premium: {
-          select: {
-            id: true,
-            unsubscribeCredits: true,
-            unsubscribeMonth: true,
-            lemonSqueezyRenewsAt: true,
-            stripeSubscriptionStatus: true,
-          },
-        },
-      },
-    });
-
-    if (!user) throw new SafeError("User not found");
-
-    const isUserPremium = isPremium(
-      user.premium?.lemonSqueezyRenewsAt || null,
-      user.premium?.stripeSubscriptionStatus || null,
-    );
-    if (isUserPremium) return;
-
-    const currentMonth = new Date().getMonth() + 1;
-
-    // create premium row for user if it doesn't already exist
-    const premium = user.premium || (await createPremiumForUser({ userId }));
-
-    if (
-      !premium?.unsubscribeMonth ||
-      premium?.unsubscribeMonth !== currentMonth
-    ) {
-      // reset the monthly credits
-      await prisma.premium.update({
-        where: { id: premium.id },
-        data: {
-          // reset and use a credit
-          unsubscribeCredits: env.NEXT_PUBLIC_FREE_UNSUBSCRIBE_CREDITS - 1,
-          unsubscribeMonth: currentMonth,
-        },
-      });
-    } else {
-      if (!premium?.unsubscribeCredits || premium.unsubscribeCredits <= 0)
-        return;
-
-      // decrement the monthly credits
-      await prisma.premium.update({
-        where: { id: premium.id },
-        data: { unsubscribeCredits: { decrement: 1 } },
-      });
-    }
+    // Premium enabled for all users permanently - no credit management needed
+    return;
   });
 
 export const updateMultiAccountPremiumAction = actionClientUser

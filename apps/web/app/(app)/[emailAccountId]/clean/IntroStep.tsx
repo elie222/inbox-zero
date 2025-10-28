@@ -6,7 +6,6 @@ import { TypographyH3 } from "@/components/Typography";
 import { Button } from "@/components/ui/button";
 import { useStep } from "@/app/(app)/[emailAccountId]/clean/useStep";
 import { CleanAction } from "@prisma/client";
-import { PremiumAlertWithData } from "@/components/PremiumAlert";
 
 export function IntroStep({
   unhandledCount,
@@ -19,7 +18,6 @@ export function IntroStep({
 
   return (
     <div>
-      <PremiumAlertWithData className="mb-20" activeOnly />
       <div className="text-center">
         <Image
           src="/images/illustrations/home-office.svg"

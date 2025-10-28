@@ -38,12 +38,6 @@ export const cleanInboxAction = actionClient
       ctx: { emailAccountId, provider, userId, logger },
       parsedInput: { action, instructions, daysOld, skips, maxEmails },
     }) => {
-      if (!isGoogleProvider(provider)) {
-        throw new SafeError(
-          "Clean inbox is only supported for Google accounts",
-        );
-      }
-
       const premium = await getUserPremium({ userId });
       if (!premium) throw new SafeError("User not premium");
       if (!isActivePremium(premium)) throw new SafeError("Premium not active");
@@ -53,6 +47,7 @@ export const cleanInboxAction = actionClient
         provider,
       });
 
+      // Create InboxZero labels/folders for tracking
       const [markedDoneLabel, processedLabel] = await Promise.all([
         emailProvider.getOrCreateInboxZeroLabel(
           action === CleanAction.ARCHIVE ? "archived" : "marked_read",
@@ -62,11 +57,11 @@ export const cleanInboxAction = actionClient
 
       const markedDoneLabelId = markedDoneLabel?.id;
       if (!markedDoneLabelId)
-        throw new SafeError("Failed to create archived label");
+        throw new SafeError("Failed to create marked done label/folder");
 
       const processedLabelId = processedLabel?.id;
       if (!processedLabelId)
-        throw new SafeError("Failed to create processed label");
+        throw new SafeError("Failed to create processed label/folder");
 
       // create a cleanup job
       const job = await prisma.cleanupJob.create({
@@ -114,16 +109,19 @@ export const cleanInboxAction = actionClient
 
         do {
           // fetch all emails from the user's inbox
+          // Use provider-agnostic query parameters
           const { threads, nextPageToken: pageToken } =
             await emailProvider.getThreadsWithQuery({
               query: {
                 ...(daysOld > 0 && {
                   before: new Date(Date.now() - daysOld * ONE_DAY_MS),
                 }),
-                labelIds:
-                  type === "inbox"
-                    ? [GmailLabel.INBOX]
-                    : [GmailLabel.INBOX, GmailLabel.UNREAD],
+                // For Gmail: use INBOX label. For Outlook: use inbox folder
+                labelId: isGoogleProvider(provider)
+                  ? GmailLabel.INBOX
+                  : "inbox",
+                // Include unread messages if we're processing unread
+                ...(type !== "inbox" && { isUnread: true }),
                 excludeLabelNames: [inboxZeroLabels.processed.name],
               },
               maxResults: Math.min(maxEmails || 100, 100),

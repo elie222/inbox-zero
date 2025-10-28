@@ -51,7 +51,7 @@ export function CleanInstructionsStep() {
           name="starred"
           enabled={skipStates.skipStarred}
           onChange={(value) => setSkipStates({ skipStarred: value })}
-          labelRight="Starred emails"
+          labelRight="Starred/Flagged emails"
         />
         <Toggle
           name="calendar"
