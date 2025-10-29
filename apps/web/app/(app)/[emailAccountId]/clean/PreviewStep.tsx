@@ -41,15 +41,13 @@ export function PreviewStep() {
   const skipReceipt = searchParams.get("skipReceipt") === "true";
   const skipAttachment = searchParams.get("skipAttachment") === "true";
 
-  const runPreview = useCallback(async () => {
-    setIsLoading(true);
-    setError(null);
-
-    const result = await cleanInboxAction(emailAccountId, {
+  // Helper function to build clean inbox payload
+  const buildCleanPayload = useCallback(
+    (maxEmails?: number) => ({
       daysOld: timeRange,
       instructions: instructions || "",
       action,
-      maxEmails: PREVIEW_RUN_COUNT,
+      ...(maxEmails !== undefined && { maxEmails }),
       skips: {
         reply: skipReply,
         starred: skipStarred,
@@ -58,7 +56,27 @@ export function PreviewStep() {
         attachment: skipAttachment,
         conversation: false,
       },
-    });
+    }),
+    [
+      action,
+      timeRange,
+      instructions,
+      skipReply,
+      skipStarred,
+      skipCalendar,
+      skipReceipt,
+      skipAttachment,
+    ],
+  );
+
+  const runPreview = useCallback(async () => {
+    setIsLoading(true);
+    setError(undefined);
+
+    const result = await cleanInboxAction(
+      emailAccountId,
+      buildCleanPayload(PREVIEW_RUN_COUNT),
+    );
 
     if (result?.serverError) {
       setError(result.serverError);
@@ -68,34 +86,14 @@ export function PreviewStep() {
     }
 
     setIsLoading(false);
-  }, [
-    emailAccountId,
-    action,
-    timeRange,
-    instructions,
-    skipReply,
-    skipStarred,
-    skipCalendar,
-    skipReceipt,
-    skipAttachment,
-  ]);
+  }, [emailAccountId, buildCleanPayload]);
 
   const handleProcessPreviewOnly = async () => {
     setIsLoadingPreview(true);
-    const result = await cleanInboxAction(emailAccountId, {
-      daysOld: timeRange,
-      instructions: instructions || "",
-      action,
-      maxEmails: PREVIEW_RUN_COUNT,
-      skips: {
-        reply: skipReply,
-        starred: skipStarred,
-        calendar: skipCalendar,
-        receipt: skipReceipt,
-        attachment: skipAttachment,
-        conversation: false,
-      },
-    });
+    const result = await cleanInboxAction(
+      emailAccountId,
+      buildCleanPayload(PREVIEW_RUN_COUNT),
+    );
 
     setIsLoadingPreview(false);
 
@@ -108,19 +106,7 @@ export function PreviewStep() {
 
   const handleRunOnFullInbox = async () => {
     setIsLoadingFull(true);
-    const result = await cleanInboxAction(emailAccountId, {
-      daysOld: timeRange,
-      instructions: instructions || "",
-      action,
-      skips: {
-        reply: skipReply,
-        starred: skipStarred,
-        calendar: skipCalendar,
-        receipt: skipReceipt,
-        attachment: skipAttachment,
-        conversation: false,
-      },
-    });
+    const result = await cleanInboxAction(emailAccountId, buildCleanPayload());
 
     setIsLoadingFull(false);
 
@@ -148,7 +134,7 @@ export function PreviewStep() {
   }, [emails]);
 
   return (
-    <LoadingContent loading={isLoading} error={error}>
+    <LoadingContent loading={isLoading} error={error ? { error } : undefined}>
       {jobId && (
         <>
           <div className="mb-4">

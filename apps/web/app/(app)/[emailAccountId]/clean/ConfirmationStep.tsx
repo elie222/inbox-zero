@@ -1,12 +1,12 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { TypographyH3 } from "@/components/Typography";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/Badge";
-import { cleanInboxAction } from "@/utils/actions/clean";
 import { toastError } from "@/components/Toast";
 import { CleanAction } from "@prisma/client";
 import { PREVIEW_RUN_COUNT } from "@/app/(app)/[emailAccountId]/clean/consts";
@@ -38,30 +38,35 @@ export function ConfirmationStep({
   reuseSettings: boolean;
 }) {
   const router = useRouter();
-  const { emailAccountId, emailAccount } = useAccount();
-  const { onPrevious } = useStep();
-  const isGmail = isGoogleProvider(emailAccount?.provider);
+  const { emailAccountId, provider } = useAccount();
+  const { step, onPrevious, onNext } = useStep();
+  const isGmail = isGoogleProvider(provider);
+  const [isNavigating, setIsNavigating] = useState(false);
 
-  const handleStartCleaning = async () => {
-    const result = await cleanInboxAction(emailAccountId, {
-      daysOld: timeRange ?? 7,
-      instructions: instructions || "",
-      action: action || CleanAction.ARCHIVE,
-      maxEmails: PREVIEW_RUN_COUNT,
-      skips,
-    });
+  // If this is a standalone page (step 0), navigate to onboarding to start the flow
+  const handleNext = () => {
+    if (isNavigating) return;
+    setIsNavigating(true);
 
-    if (result?.serverError) {
-      toastError({ description: result.serverError });
-      return;
+    if (step === 0) {
+      router.push(prefixPath(emailAccountId, "/clean/onboarding?step=1"));
+    } else {
+      onNext();
+      setIsNavigating(false);
     }
+  };
 
-    router.push(
-      prefixPath(
-        emailAccountId,
-        `/clean/run?jobId=${result?.data?.jobId}&isPreviewBatch=true`,
-      ),
-    );
+  // If this is a standalone page (step 0), Back should go to onboarding
+  const handleBack = () => {
+    if (isNavigating) return;
+    setIsNavigating(true);
+
+    if (step === 0) {
+      router.push(prefixPath(emailAccountId, "/clean/onboarding"));
+    } else {
+      onPrevious();
+      setIsNavigating(false);
+    }
   };
 
   return (
@@ -79,17 +84,13 @@ export function ConfirmationStep({
 
       <ul className="mx-auto mt-4 max-w-prose list-disc space-y-2 pl-4 text-left">
         <li>
-          We'll process {PREVIEW_RUN_COUNT} emails in an initial clean up.
+          We'll show you {PREVIEW_RUN_COUNT} sample emails that match your
+          criteria.
         </li>
         <li>
-          If you're happy with the results, we'll continue to process the rest
-          of your inbox.
+          You can then choose to process just those {PREVIEW_RUN_COUNT} to test,
+          or process your entire inbox.
         </li>
-        {/* TODO: we should count only emails we're processing */}
-        {/* <li>
-          The full process to handle {unhandledCount} emails will take
-          approximately {estimatedTime}
-        </li> */}
         <li>
           {action === CleanAction.ARCHIVE ? (
             <>
@@ -122,11 +123,16 @@ export function ConfirmationStep({
       </ul>
 
       <div className="mt-6 flex justify-center gap-2">
-        <Button size="lg" variant="outline" onClick={onPrevious}>
+        <Button
+          size="lg"
+          variant="outline"
+          onClick={handleBack}
+          loading={isNavigating}
+        >
           Back
         </Button>
-        <Button size="lg" onClick={handleStartCleaning}>
-          Start Cleaning
+        <Button size="lg" onClick={handleNext} loading={isNavigating}>
+          Next
         </Button>
       </div>
 

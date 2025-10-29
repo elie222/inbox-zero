@@ -11,12 +11,12 @@ export function useStep() {
   );
 
   const onNext = useCallback(() => {
-    setStep(step + 1);
-  }, [step, setStep]);
+    setStep((prev) => (prev ?? CleanStep.INTRO) + 1);
+  }, [setStep]);
 
   const onPrevious = useCallback(() => {
-    setStep(step - 1);
-  }, [step, setStep]);
+    setStep((prev) => Math.max(CleanStep.INTRO, (prev ?? CleanStep.INTRO) - 1));
+  }, [setStep]);
 
   return {
     step,
