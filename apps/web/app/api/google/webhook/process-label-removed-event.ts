@@ -10,6 +10,7 @@ import type { Logger } from "@/utils/logger";
 import {
   isGmailRateLimitExceededError,
   isGmailQuotaExceededError,
+  isGmailInsufficientPermissionsError,
 } from "@/utils/error";
 
 const SYSTEM_LABELS = [
@@ -59,10 +60,13 @@ export async function handleLabelRemovedEvent(
     sender = extractEmailAddress(parsedMessage.headers.from);
   } catch (error) {
     // Message not found - expected when message was deleted
-    if (
-      error instanceof Error &&
-      error.message === "Requested entity was not found."
-    ) {
+    // Check both direct error and nested error (from retry wrapper)
+    const errorObj = error as {
+      message?: string;
+      error?: { message?: string };
+    };
+    const errorMessage = errorObj?.message || errorObj?.error?.message;
+    if (errorMessage === "Requested entity was not found.") {
       logger.warn("Message not found", {
         removedLabelCount: allRemovedLabelIds.length,
       });
@@ -79,11 +83,17 @@ export async function handleLabelRemovedEvent(
       return;
     }
 
-    // Unexpected errors
+    if (isGmailInsufficientPermissionsError(error)) {
+      logger.warn("Insufficient permissions to access message", { messageId });
+      return;
+    }
+
+    // Unexpected errors - return early to prevent further processing
     logger.error("Error getting sender for label removal", {
       messageId,
       error,
     });
+    return;
   }
 
   // Filter out system labels early as we don't learn from them
