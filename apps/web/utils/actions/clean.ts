@@ -8,12 +8,7 @@ import {
 } from "@/utils/actions/clean.validation";
 import { bulkPublishToQstash } from "@/utils/upstash";
 import { env } from "@/env";
-import {
-  getLabel,
-  getOrCreateInboxZeroLabel,
-  GmailLabel,
-  labelThread,
-} from "@/utils/gmail/label";
+import { GmailLabel } from "@/utils/gmail/label";
 import type { CleanThreadBody } from "@/app/api/clean/route";
 import { isDefined } from "@/utils/types";
 import { inboxZeroLabels } from "@/utils/label";
@@ -21,7 +16,6 @@ import prisma from "@/utils/prisma";
 import { CleanAction } from "@prisma/client";
 import { updateThread } from "@/utils/redis/clean";
 import { getUnhandledCount } from "@/utils/assess";
-import { getGmailClientForEmail } from "@/utils/account";
 import { actionClient } from "@/utils/actions/safe-action";
 import { SafeError } from "@/utils/error";
 import { createEmailProvider } from "@/utils/email/provider";
@@ -196,34 +190,49 @@ export const undoCleanInboxAction = actionClient
   .schema(undoCleanInboxSchema)
   .action(
     async ({
-      ctx: { emailAccountId, logger },
+      ctx: { emailAccountId, provider, logger },
       parsedInput: { threadId, markedDone, action },
     }) => {
-      const gmail = await getGmailClientForEmail({ emailAccountId });
-
       // nothing to do atm if wasn't marked done
       if (!markedDone) return { success: true };
 
-      // get the label to remove
-      const markedDoneLabel = await getLabel({
-        name:
-          action === CleanAction.ARCHIVE
-            ? inboxZeroLabels.archived.name
-            : inboxZeroLabels.marked_read.name,
-        gmail,
+      const emailProvider = await createEmailProvider({
+        emailAccountId,
+        provider,
       });
 
-      await labelThread({
-        gmail,
-        threadId,
-        // undo core action
-        addLabelIds:
-          action === CleanAction.ARCHIVE
-            ? [GmailLabel.INBOX]
-            : [GmailLabel.UNREAD],
-        // undo our own labelling
-        removeLabelIds: markedDoneLabel?.id ? [markedDoneLabel.id] : undefined,
+      // Get the user's email for provider operations
+      const emailAccount = await prisma.emailAccount.findUnique({
+        where: { id: emailAccountId },
+        select: { email: true },
       });
+
+      if (!emailAccount) throw new SafeError("Email account not found");
+
+      // Get the label to remove
+      const markedDoneLabel = await emailProvider.getLabelByName(
+        action === CleanAction.ARCHIVE
+          ? inboxZeroLabels.archived.name
+          : inboxZeroLabels.marked_read.name,
+      );
+
+      // Undo the action based on what was done
+      if (action === CleanAction.ARCHIVE) {
+        // Move thread back to inbox
+        await emailProvider.moveThreadToFolder(
+          threadId,
+          emailAccount.email,
+          "inbox",
+        );
+      } else if (action === CleanAction.MARK_READ) {
+        // Mark thread as unread
+        await emailProvider.markReadThread(threadId, false);
+      }
+
+      // Remove our tracking label
+      if (markedDoneLabel?.id) {
+        await emailProvider.removeThreadLabel(threadId, markedDoneLabel.id);
+      }
 
       // Update Redis to mark this thread as undone
       try {
@@ -261,27 +270,46 @@ export const changeKeepToDoneAction = actionClient
   .schema(changeKeepToDoneSchema)
   .action(
     async ({
-      ctx: { emailAccountId, logger },
+      ctx: { emailAccountId, provider, logger },
       parsedInput: { threadId, action },
     }) => {
-      const gmail = await getGmailClientForEmail({ emailAccountId });
+      const emailProvider = await createEmailProvider({
+        emailAccountId,
+        provider,
+      });
+
+      // Get the user's email for provider operations
+      const emailAccount = await prisma.emailAccount.findUnique({
+        where: { id: emailAccountId },
+        select: { email: true },
+      });
+
+      if (!emailAccount) throw new SafeError("Email account not found");
 
       // Get the label to add (archived or marked_read)
-      const actionLabel = await getOrCreateInboxZeroLabel({
-        key: action === CleanAction.ARCHIVE ? "archived" : "marked_read",
-        gmail,
-      });
+      const actionLabel = await emailProvider.getOrCreateInboxZeroLabel(
+        action === CleanAction.ARCHIVE ? "archived" : "marked_read",
+      );
 
-      await labelThread({
-        gmail,
-        threadId,
-        // Apply the action (archive or mark as read)
-        removeLabelIds: [
-          ...(action === CleanAction.ARCHIVE ? [GmailLabel.INBOX] : []),
-          ...(action === CleanAction.MARK_READ ? [GmailLabel.UNREAD] : []),
-        ],
-        addLabelIds: [...(actionLabel?.id ? [actionLabel.id] : [])],
-      });
+      // Apply the action based on what was chosen
+      if (action === CleanAction.ARCHIVE) {
+        // Archive the thread (with label)
+        await emailProvider.archiveThreadWithLabel(
+          threadId,
+          emailAccount.email,
+          actionLabel?.id,
+        );
+      } else if (action === CleanAction.MARK_READ) {
+        // Mark thread as read
+        await emailProvider.markReadThread(threadId, true);
+        // Add the marked_read label
+        if (actionLabel?.id) {
+          await emailProvider.labelMessage({
+            messageId: threadId,
+            labelId: actionLabel.id,
+          });
+        }
+      }
 
       // Update Redis to mark this thread with the new status
       try {
@@ -292,12 +320,6 @@ export const changeKeepToDoneAction = actionClient
         });
 
         if (thread) {
-          // await updateThread(userId, thread.jobId, threadId, {
-          //   archive: action === CleanAction.ARCHIVE,
-          //   status: "completed",
-          //   undone: true,
-          // });
-
           await updateThread({
             emailAccountId,
             jobId: thread.jobId,
