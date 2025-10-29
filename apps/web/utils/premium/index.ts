@@ -79,9 +79,8 @@ export const hasUnsubscribeAccess = (
   tier: PremiumTier | null,
   unsubscribeCredits?: number | null,
 ): boolean => {
-  if (tier) return true;
-  if (unsubscribeCredits && unsubscribeCredits > 0) return true;
-  return false;
+  // Premium enabled for all users permanently
+  return true;
 };
 
 export const hasAiAccess = (

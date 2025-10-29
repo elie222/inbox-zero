@@ -122,6 +122,10 @@ export function PremiumAlertWithData({
   className?: string;
   activeOnly?: boolean;
 }) {
+  // Temporarily disabled for testing
+  return null;
+
+  /* Original code - re-enable before production
   const {
     hasAiAccess,
     isLoading: isLoadingPremium,
@@ -145,6 +149,7 @@ export function PremiumAlertWithData({
   }
 
   return null;
+  */
 }
 
 export function PremiumTooltip(props: {

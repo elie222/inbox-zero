@@ -78,3 +78,6 @@ docker-compose.override.yml
 logs
 
 coverage
+
+# Memory bank (Cline AI documentation)
+memory-bank/

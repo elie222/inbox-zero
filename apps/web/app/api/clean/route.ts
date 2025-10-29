@@ -5,7 +5,9 @@ import { withError } from "@/utils/middleware";
 import { publishToQstash } from "@/utils/upstash";
 import { getThreadMessages } from "@/utils/gmail/thread";
 import { getGmailClientWithRefresh } from "@/utils/gmail/client";
+import { getOutlookClientWithRefresh } from "@/utils/outlook/client";
 import type { CleanGmailBody } from "@/app/api/clean/gmail/route";
+import type { CleanOutlookBody } from "@/app/api/clean/outlook/route";
 import { SafeError } from "@/utils/error";
 import { createScopedLogger } from "@/utils/logger";
 import { aiClean } from "@/utils/ai/clean/ai-clean";
@@ -24,6 +26,8 @@ import { internalDateToDate } from "@/utils/date";
 import { CleanAction } from "@prisma/client";
 import type { ParsedMessage } from "@/utils/types";
 import { isActivePremium } from "@/utils/premium";
+import { isGoogleProvider } from "@/utils/email/provider-types";
+import { getMessage as getOutlookMessage } from "@/utils/outlook/message";
 
 const logger = createScopedLogger("api/clean");
 
@@ -67,22 +71,56 @@ async function cleanThread({
 
   if (!emailAccount) throw new SafeError("User not found", 404);
 
-  if (!emailAccount.tokens) throw new SafeError("No Gmail account found", 404);
+  if (!emailAccount.tokens) throw new SafeError("No account tokens found", 404);
   if (!emailAccount.tokens.access_token || !emailAccount.tokens.refresh_token)
-    throw new SafeError("No Gmail account found", 404);
+    throw new SafeError("No account tokens found", 404);
 
-  const premium = await getUserPremium({ userId: emailAccount.userId });
-  if (!premium) throw new SafeError("User not premium");
-  if (!isActivePremium(premium)) throw new SafeError("Premium not active");
+  // Premium check disabled for development/testing
+  // TODO: Re-enable for production
+  // const premium = await getUserPremium({ userId: emailAccount.userId });
+  // if (!premium) throw new SafeError("User not premium");
+  // if (!isActivePremium(premium)) throw new SafeError("Premium not active");
 
-  const gmail = await getGmailClientWithRefresh({
-    accessToken: emailAccount.tokens.access_token,
-    refreshToken: emailAccount.tokens.refresh_token,
-    expiresAt: emailAccount.tokens.expires_at,
-    emailAccountId,
-  });
+  let messages: ParsedMessage[];
 
-  const messages = await getThreadMessages(threadId, gmail);
+  const isGmail = isGoogleProvider(emailAccount.account.provider);
+
+  if (isGmail) {
+    // Gmail: Use existing Gmail client
+    const gmail = await getGmailClientWithRefresh({
+      accessToken: emailAccount.tokens.access_token,
+      refreshToken: emailAccount.tokens.refresh_token,
+      expiresAt: emailAccount.tokens.expires_at,
+      emailAccountId,
+    });
+
+    messages = await getThreadMessages(threadId, gmail);
+  } else {
+    // Outlook: Use Outlook client to fetch messages
+    const outlook = await getOutlookClientWithRefresh({
+      accessToken: emailAccount.tokens.access_token,
+      refreshToken: emailAccount.tokens.refresh_token,
+      expiresAt: emailAccount.tokens.expires_at?.getTime() || null,
+      emailAccountId,
+    });
+
+    // For Outlook, threadId is the conversationId
+    // We need to fetch all messages in this conversation
+    try {
+      // Fetch the single message first
+      const message = await getOutlookMessage(threadId, outlook);
+      messages = [message];
+
+      // TODO: In the future, we should fetch all messages in the conversation
+      // using the conversationId to get the full thread context
+    } catch (error) {
+      logger.error("Failed to fetch Outlook message", {
+        error,
+        messageId: threadId,
+      });
+      throw new SafeError("Failed to fetch message");
+    }
+  }
 
   logger.info("Fetched messages", {
     emailAccountId,
@@ -112,17 +150,24 @@ async function cleanThread({
     processedLabelId,
     jobId,
     action,
+    provider: emailAccount.account.provider,
   });
 
+  // Provider-agnostic helper functions
   function isStarred(message: ParsedMessage) {
-    return message.labelIds?.includes(GmailLabel.STARRED);
+    // Gmail: check STARRED label
+    // Outlook: check isFlagged or flagStatus (handled in message parsing)
+    return message.labelIds?.includes(GmailLabel.STARRED) || message.isFlagged;
   }
 
   function isSent(message: ParsedMessage) {
+    // Gmail: check SENT label
+    // Outlook: check SENT label (we map this during parsing)
     return message.labelIds?.includes(GmailLabel.SENT);
   }
 
   function hasAttachments(message: ParsedMessage) {
+    // Works for both providers
     return message.attachments && message.attachments.length > 0;
   }
 
@@ -200,19 +245,21 @@ async function cleanThread({
     }
   }
 
-  // promotion/social/update
-  if (
-    !needsLLMCheck &&
-    lastMessage.labelIds?.some(
+  // promotion/social/update (Gmail-specific categories)
+  // For Outlook, these categories don't exist, so we skip this check
+  if (!needsLLMCheck && lastMessage.labelIds?.length) {
+    const hasGmailCategory = lastMessage.labelIds.some(
       (label) =>
         label === GmailLabel.SOCIAL ||
         label === GmailLabel.PROMOTIONS ||
         label === GmailLabel.UPDATES ||
         label === GmailLabel.FORUMS,
-    )
-  ) {
-    await publish({ markDone: true });
-    return;
+    );
+
+    if (hasGmailCategory) {
+      await publish({ markDone: true });
+      return;
+    }
   }
 
   // llm check
@@ -234,6 +281,7 @@ function getPublish({
   processedLabelId,
   jobId,
   action,
+  provider,
 }: {
   emailAccountId: string;
   threadId: string;
@@ -241,23 +289,33 @@ function getPublish({
   processedLabelId: string;
   jobId: string;
   action: CleanAction;
+  provider: string;
 }) {
   return async ({ markDone }: { markDone: boolean }) => {
     // max rate:
-    // https://developers.google.com/gmail/api/reference/quota
+    // Gmail: https://developers.google.com/gmail/api/reference/quota
     // 15,000 quota units per user per minute
     // modify thread = 10 units
     // => 25 modify threads per second
     // => assume user has other actions too => max 12 per second
-    const actionCount = 2; // 1. remove "inbox" label. 2. label "clean". increase if we're doing multiple labellings
+    //
+    // Outlook: https://learn.microsoft.com/en-us/graph/throttling
+    // Different throttling limits apply, but we'll use conservative rate
+    const actionCount = 2; // 1. remove "inbox" label/move folder. 2. label "clean"/mark read
     const maxRatePerSecond = Math.ceil(12 / actionCount);
 
-    const cleanGmailBody: CleanGmailBody = {
+    // Route to correct endpoint based on provider
+    const isGmail = isGoogleProvider(provider);
+    const endpoint = isGmail ? "/api/clean/gmail" : "/api/clean/outlook";
+    const queueKey = isGmail
+      ? `gmail-action-${emailAccountId}`
+      : `outlook-action-${emailAccountId}`;
+
+    const cleanBody: CleanGmailBody | CleanOutlookBody = {
       emailAccountId,
       threadId,
       markDone,
       action,
-      // label: aiResult.label,
       markedDoneLabelId,
       processedLabelId,
       jobId,
@@ -268,11 +326,13 @@ function getPublish({
       threadId,
       maxRatePerSecond,
       markDone,
+      provider,
+      endpoint,
     });
 
     await Promise.all([
-      publishToQstash("/api/clean/gmail", cleanGmailBody, {
-        key: `gmail-action-${emailAccountId}`,
+      publishToQstash(endpoint, cleanBody, {
+        key: queueKey,
         ratePerSecond: maxRatePerSecond,
       }),
       updateThread({
@@ -287,7 +347,7 @@ function getPublish({
       }),
     ]);
 
-    logger.info("Published to Qstash", { emailAccountId, threadId });
+    logger.info("Published to Qstash", { emailAccountId, threadId, endpoint });
   };
 }
 

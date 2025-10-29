@@ -4,7 +4,8 @@ import {
 } from "posthog-js/react";
 
 export function useCleanerEnabled() {
-  return useFeatureFlagEnabled("inbox-cleaner");
+  // Feature enabled for all users permanently
+  return true;
 }
 
 const HERO_FLAG_NAME = "hero-copy-7";

@@ -88,15 +88,11 @@ export const useNavigation = () => {
         href: prefixPath(currentEmailAccountId, "/bulk-unsubscribe"),
         icon: MailsIcon,
       },
-      ...(isGoogleProvider(provider)
-        ? [
-            {
-              name: "Deep Clean",
-              href: prefixPath(currentEmailAccountId, "/clean"),
-              icon: BrushIcon,
-            },
-          ]
-        : []),
+      {
+        name: "Deep Clean",
+        href: prefixPath(currentEmailAccountId, "/clean"),
+        icon: BrushIcon,
+      },
       {
         name: "Analytics",
         href: prefixPath(currentEmailAccountId, "/stats"),
@@ -233,12 +229,14 @@ export function SideNav({ ...props }: React.ComponentProps<typeof Sidebar>) {
         </SidebarGroupContent>
       </SidebarContent>
 
-      <PremiumExpiredCard />
+      {/* Temporarily disabled for testing */}
+      {/* <PremiumExpiredCard /> */}
 
       <SidebarFooter className="pb-4">
-        <ClientOnly>
+        {/* Refer Friend and Premium menu items hidden */}
+        {/* <ClientOnly>
           <ReferralDialog />
-        </ClientOnly>
+        </ClientOnly> */}
 
         <SidebarMenuButton asChild>
           <Link href="https://docs.getinboxzero.com" target="_blank">
@@ -247,12 +245,12 @@ export function SideNav({ ...props }: React.ComponentProps<typeof Sidebar>) {
           </Link>
         </SidebarMenuButton>
 
-        <SidebarMenuButton asChild>
+        {/* <SidebarMenuButton asChild>
           <Link href="/premium">
             <CrownIcon className="size-4" />
             <span className="font-semibold">Premium</span>
           </Link>
-        </SidebarMenuButton>
+        </SidebarMenuButton> */}
 
         <SidebarMenuButton asChild>
           <Link href={prefixPath(currentEmailAccountId, "/settings")}>
