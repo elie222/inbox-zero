@@ -11,7 +11,7 @@ export function getEmailAccount(
     userId: "user1",
     email: overrides.email || "user@test.com",
     about: null,
-    multiRuleSelectionEnabled: false,
+    multiRuleSelectionEnabled: overrides.multiRuleSelectionEnabled ?? false,
     user: {
       aiModel: null,
       aiProvider: null,

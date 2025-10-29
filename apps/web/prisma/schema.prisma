@@ -469,14 +469,15 @@ model RuleHistory {
 // Rule/Action models represent the rules and actions that the AI can take.
 // ExecutedRule/ExecutedAction models represent the rules/actions that have been planned or executed by the AI.
 model ExecutedRule {
-  id        String             @id @default(cuid())
-  createdAt DateTime           @default(now())
-  updatedAt DateTime           @updatedAt
-  threadId  String
-  messageId String
-  status    ExecutedRuleStatus
-  automated Boolean
-  reason    String?
+  id            String             @id @default(cuid())
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+  threadId      String
+  messageId     String
+  status        ExecutedRuleStatus
+  automated     Boolean
+  reason        String?
+  matchMetadata Json? // Stores structured match information (e.g., learned patterns, match types)
 
   // may be null if the rule was deleted
   ruleId String?

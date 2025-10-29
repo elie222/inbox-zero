@@ -17,7 +17,7 @@ describe.runIf(isAiTest)("aiChooseRule", () => {
       emailAccount: getEmailAccount(),
     });
 
-    expect(result).toEqual({ rules: [], reason: "" });
+    expect(result).toEqual({ rules: [], reason: "No rules to evaluate" });
   });
 
   test("Should return correct rule when only one rule passed", async () => {

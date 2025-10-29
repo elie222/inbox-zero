@@ -95,8 +95,12 @@ export function sortByInternalDate<T extends { internalDate?: string | null }>(
   direction: "asc" | "desc" = "asc",
 ) {
   return (a: T, b: T): number => {
-    const aTime = internalDateToDate(a.internalDate).getTime() || 0;
-    const bTime = internalDateToDate(b.internalDate).getTime() || 0;
+    const aTime = a.internalDate
+      ? internalDateToDate(a.internalDate).getTime()
+      : 0;
+    const bTime = b.internalDate
+      ? internalDateToDate(b.internalDate).getTime()
+      : 0;
     return direction === "asc" ? aTime - bTime : bTime - aTime;
   };
 }

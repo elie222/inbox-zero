@@ -36,3 +36,55 @@ export type MatchingRuleResult = {
     instructions: string;
   })[];
 };
+
+/**
+ * Serializable version of MatchReason for database storage
+ */
+export type SerializedMatchReason =
+  | { type: "STATIC" }
+  | {
+      type: "LEARNED_PATTERN";
+      group: { id: string; name: string };
+      groupItem: {
+        id: string;
+        type: string;
+        value: string;
+        exclude: boolean;
+      };
+    }
+  | { type: "AI" }
+  | { type: "PRESET"; systemType: string };
+
+/**
+ * Serializes match reasons to a JSON-safe format for database storage
+ */
+export function serializeMatchReasons(
+  matchReasons?: MatchReason[],
+): SerializedMatchReason[] | undefined {
+  if (!matchReasons || matchReasons.length === 0) return undefined;
+
+  return matchReasons.map((reason): SerializedMatchReason => {
+    switch (reason.type) {
+      case "STATIC":
+        return { type: "STATIC" };
+      case "LEARNED_PATTERN":
+        return {
+          type: "LEARNED_PATTERN",
+          group: {
+            id: reason.group.id,
+            name: reason.group.name,
+          },
+          groupItem: {
+            id: reason.groupItem.id,
+            type: reason.groupItem.type,
+            value: reason.groupItem.value,
+            exclude: reason.groupItem.exclude,
+          },
+        };
+      case "AI":
+        return { type: "AI" };
+      case "PRESET":
+        return { type: "PRESET", systemType: reason.systemType };
+    }
+  });
+}
