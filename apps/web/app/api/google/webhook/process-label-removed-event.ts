@@ -49,6 +49,16 @@ export async function handleLabelRemovedEvent(
     return;
   }
 
+  // Skip draft messages - when a draft is sent, Gmail removes the DRAFT label
+  // and the draft message ID no longer exists (it becomes a new sent message with a new ID)
+  if (allRemovedLabelIds.includes(GmailLabel.DRAFT)) {
+    logger.info("Skipping draft label removal", {
+      messageId,
+      removedLabelCount: allRemovedLabelIds.length,
+    });
+    return;
+  }
+
   logger.info("Processing label removal for learning", {
     labelCount: allRemovedLabelIds.length,
   });
