@@ -39,7 +39,7 @@ export const POST = withError(async (request) => {
 
   // Process history asynchronously using after() to avoid Pub/Sub acknowledgment timeout
   // This ensures we acknowledge the message quickly while still processing it fully
-  after(processWebhookAsync(decodedData, logger));
+  after(() => processWebhookAsync(decodedData, logger));
 
   return NextResponse.json({ ok: true });
 });

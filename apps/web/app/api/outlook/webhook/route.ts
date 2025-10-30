@@ -65,7 +65,7 @@ export const POST = withError(async (request) => {
 
   // Process notifications asynchronously using after() to avoid Microsoft webhook timeout
   // Microsoft expects a response within 3 seconds
-  after(processNotificationsAsync(notifications));
+  after(() => processNotificationsAsync(notifications));
 
   return NextResponse.json({ ok: true });
 });
@@ -87,11 +87,16 @@ async function processNotificationsAsync(
         resourceData,
       });
     } catch (error) {
-      // Get email account for error tracking
       const emailAccount = await getWebhookEmailAccount(
         { watchEmailsSubscriptionId: subscriptionId },
         logger,
-      );
+      ).catch((error) => {
+        logger.error("Error getting email account", {
+          error: error instanceof Error ? error.message : error,
+          subscriptionId,
+        });
+        return null;
+      });
 
       if (emailAccount?.email) {
         await handleWebhookError(error, {
