@@ -3,6 +3,7 @@ import { withError } from "@/utils/middleware";
 import { env } from "@/env";
 import { processHistoryForUser } from "@/app/api/google/webhook/process-history";
 import { createScopedLogger, type Logger } from "@/utils/logger";
+import { handleWebhookError } from "@/utils/webhook/error-handler";
 
 export const maxDuration = 300;
 
@@ -50,9 +51,10 @@ async function processWebhookAsync(
   try {
     await processHistoryForUser(decodedData, {}, logger);
   } catch (error) {
-    logger.error("Unhandled error in async webhook processing", {
-      error: error instanceof Error ? error.message : error,
+    await handleWebhookError(error, {
       email: decodedData.emailAddress,
+      url: "/api/google/webhook",
+      logger,
     });
   }
 }

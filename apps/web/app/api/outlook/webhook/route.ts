@@ -5,6 +5,8 @@ import { processHistoryForUser } from "@/app/api/outlook/webhook/process-history
 import { logger } from "@/app/api/outlook/webhook/logger";
 import { env } from "@/env";
 import { webhookBodySchema } from "@/app/api/outlook/webhook/types";
+import { handleWebhookError } from "@/utils/webhook/error-handler";
+import { getWebhookEmailAccount } from "@/utils/webhook/validate-webhook-account";
 
 export const maxDuration = 300;
 
@@ -85,10 +87,24 @@ async function processNotificationsAsync(
         resourceData,
       });
     } catch (error) {
-      logger.error("Error processing notification in async handler", {
-        error: error instanceof Error ? error.message : error,
-        subscriptionId,
-      });
+      // Get email account for error tracking
+      const emailAccount = await getWebhookEmailAccount(
+        { watchEmailsSubscriptionId: subscriptionId },
+        logger,
+      );
+
+      if (emailAccount?.email) {
+        await handleWebhookError(error, {
+          email: emailAccount.email,
+          url: "/api/outlook/webhook",
+          logger,
+        });
+      } else {
+        logger.error("Error processing notification (no email account found)", {
+          error: error instanceof Error ? error.message : error,
+          subscriptionId,
+        });
+      }
     }
   }
 }
