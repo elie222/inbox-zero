@@ -29,7 +29,7 @@ export async function POST(req: Request) {
       env.STRIPE_WEBHOOK_SECRET,
     );
 
-    after(processEvent(event));
+    after(() => processEvent(event));
   }
 
   try {
