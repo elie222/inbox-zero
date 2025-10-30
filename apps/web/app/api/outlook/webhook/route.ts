@@ -1,11 +1,12 @@
-import { NextResponse } from "next/server";
+import type { z } from "zod";
+import { after, NextResponse } from "next/server";
 import { withError } from "@/utils/middleware";
 import { processHistoryForUser } from "@/app/api/outlook/webhook/process-history";
 import { logger } from "@/app/api/outlook/webhook/logger";
 import { env } from "@/env";
 import { webhookBodySchema } from "@/app/api/outlook/webhook/types";
 
-export const maxDuration = 120;
+export const maxDuration = 300;
 
 export const POST = withError(async (request) => {
   const searchParams = new URL(request.url).searchParams;
@@ -53,13 +54,23 @@ export const POST = withError(async (request) => {
     }
   }
 
-  logger.info("Received webhook notification", {
+  logger.info("Received webhook notification - acknowledging immediately", {
     notificationCount: body.value.length,
     subscriptionIds: body.value.map((n) => n.subscriptionId),
   });
 
   const notifications = body.value;
 
+  // Process notifications asynchronously using after() to avoid Microsoft webhook timeout
+  // Microsoft expects a response within 3 seconds
+  after(processNotificationsAsync(notifications));
+
+  return NextResponse.json({ ok: true });
+});
+
+async function processNotificationsAsync(
+  notifications: z.infer<typeof webhookBodySchema>["value"],
+) {
   for (const notification of notifications) {
     const { subscriptionId, resourceData } = notification;
 
@@ -68,11 +79,16 @@ export const POST = withError(async (request) => {
       changeType: notification.changeType,
     });
 
-    await processHistoryForUser({
-      subscriptionId,
-      resourceData,
-    });
+    try {
+      await processHistoryForUser({
+        subscriptionId,
+        resourceData,
+      });
+    } catch (error) {
+      logger.error("Error processing notification in async handler", {
+        error: error instanceof Error ? error.message : error,
+        subscriptionId,
+      });
+    }
   }
-
-  return NextResponse.json({ ok: true });
-});
+}

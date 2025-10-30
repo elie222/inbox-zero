@@ -1,10 +1,10 @@
-import { NextResponse } from "next/server";
+import { after, NextResponse } from "next/server";
 import { withError } from "@/utils/middleware";
 import { env } from "@/env";
 import { processHistoryForUser } from "@/app/api/google/webhook/process-history";
-import { createScopedLogger } from "@/utils/logger";
+import { createScopedLogger, type Logger } from "@/utils/logger";
 
-export const maxDuration = 120;
+export const maxDuration = 300;
 
 // Google PubSub calls this endpoint each time a user recieves an email. We subscribe for updates via `api/google/watch`
 export const POST = withError(async (request) => {
@@ -34,23 +34,28 @@ export const POST = withError(async (request) => {
     historyId: decodedData.historyId,
   });
 
-  logger.info("Processing webhook");
+  logger.info("Received webhook - acknowledging immediately");
 
-  try {
-    return await processHistoryForUser(decodedData, {}, logger);
-  } catch (error) {
-    if (error instanceof Error && error.message.includes("invalid_grant")) {
-      logger.warn("Invalid grant error", { error: error.message });
-      // Returning 200 to avoid retry
-      return NextResponse.json(
-        { message: "Invalid grant error" },
-        { status: 200 },
-      );
-    } else {
-      throw error;
-    }
-  }
+  // Process history asynchronously using after() to avoid Pub/Sub acknowledgment timeout
+  // This ensures we acknowledge the message quickly while still processing it fully
+  after(processWebhookAsync(decodedData, logger));
+
+  return NextResponse.json({ ok: true });
 });
+
+async function processWebhookAsync(
+  decodedData: { emailAddress: string; historyId: number },
+  logger: Logger,
+) {
+  try {
+    await processHistoryForUser(decodedData, {}, logger);
+  } catch (error) {
+    logger.error("Unhandled error in async webhook processing", {
+      error: error instanceof Error ? error.message : error,
+      email: decodedData.emailAddress,
+    });
+  }
+}
 
 function decodeHistoryId(body: { message?: { data?: string } }) {
   const data = body?.message?.data;
