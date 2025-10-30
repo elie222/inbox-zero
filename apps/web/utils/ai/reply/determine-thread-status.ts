@@ -33,35 +33,45 @@ DETAILED CRITERIA:
 - The user needs to provide specific input
 - Someone follows up on a conversation requiring the user's response
 - There are ANY unanswered questions/requests in the thread that the user hasn't addressed yet
-- The user made a promise to get back to someone and hasn't followed through yet
+- The user made a promise/commitment to get back to someone or deliver something and hasn't followed through yet
+- IMPORTANT: In multi-person threads, track the USER'S specific commitments even if other people are having separate conversations
+- CRITICAL: If the user asked a clarifying question AND got an answer BUT still has a pending commitment/deliverable, it's TO_REPLY (not AWAITING_REPLY) - the answered question was just to help complete the commitment
 
 **AWAITING_REPLY**: Waiting for the other person to take action or respond. Use this when:
 - The user asked a question and is still waiting for an answer
 - The user requested information/action and is still waiting for it to be delivered
-- Someone ELSE promised to do something and hasn't done it yet (e.g., "I'll get back to you tomorrow")
+- Someone ELSE promised to do something and hasn't done it yet
 - The ball is in their court - it's THEIR turn to respond or act
 - The user is NOT the one who needs to reply next
+- CRITICAL: If the user requested something and then received a response fulfilling that request, the user is NO LONGER awaiting a reply - the request was fulfilled
 
-**FYI**: The thread no longer needs any response, but the content in the last messages needs the user's attention. Use this when:
-- Important updates, announcements, or information the user should be aware of
-- CC'd on important matters for awareness only
-- Status updates that are valuable to know but don't need acknowledgment
+**FYI**: Information the user RECEIVED that they should be aware of, but doesn't require a response. Use this when:
+- Someone sent the user important updates, announcements, or information they should know about
+- The user is CC'd on important matters for their awareness only
+- Someone sent status updates that are valuable to know but don't need acknowledgment
+- Someone provided requested information/instructions and now the ball is in the user's court to optionally act on it
 - NO questions or requests exist anywhere in the thread
+- CRITICAL: FYI is ONLY for emails the user RECEIVED. If the user SENT the last email, it cannot be FYI - from the user's perspective, they already know what they sent.
 
 **ACTIONED**: The thread is complete/done. No further action needed from anyone. Use this when:
 - All questions have been answered
 - All requests have been fulfilled
-- Conversation concluded with "thanks", "got it", "sounds good", etc.
+- Conversation concluded naturally with acknowledgment or confirmation
 - The thread reached a natural conclusion with nothing pending
+- The user SENT informational content, recommendations, or helpful resources and isn't waiting for a reply
 
 CRITICAL RULES - READ CAREFULLY:
 1. **CHECK EVERY MESSAGE**: Don't just look at the latest message. Scan the ENTIRE thread for unanswered questions or pending requests
-2. **Unanswered questions persist**: If message #1 asks "Can you send me the report?" and message #2 says "FYI, meeting moved to 3pm", the status is still TO_REPLY because the report request is unanswered
+2. **Unanswered questions persist**: If an earlier message contains an unanswered question or request, and a later message contains only informational content, the status is still determined by the unanswered question/request
 3. **Promises from different perspectives**: 
-   - If SOMEONE ELSE says "I'll get back to you" → AWAITING_REPLY (waiting for them)
-   - If YOU said "I'll get back to you" → TO_REPLY (you need to follow through on your promise)
-4. **Latest message context matters**: If the latest message is purely FYI but there are unresolved items earlier in the thread, prioritize the unresolved items
-5. **FYI is only when nothing is pending**: Use FYI ONLY when there are absolutely no questions, requests, or pending actions in the entire thread
+   - If SOMEONE ELSE promised to do something → AWAITING_REPLY (waiting for them)
+   - If YOU promised to do something → TO_REPLY (you need to follow through)
+4. **Multi-person threads**: In threads with multiple participants, focus ONLY on what the user (the perspective being analyzed) needs to do. Ignore conversations between other people that don't involve the user's commitments.
+5. **Request fulfillment**: If the user asked for something (information, help, etc.) and received it, AND the user has no pending commitments/deliverables, they are no longer awaiting a reply. The status should be FYI (if informational) or ACTIONED (if fully resolved). However, if the user still has a pending commitment, see Rule 6.
+6. **Clarifying questions don't cancel commitments**: If the user has a pending commitment/deliverable and asks a clarifying question that gets answered, the status is TO_REPLY (not AWAITING_REPLY). The user needs to complete their original commitment now that they have the clarification.
+7. **User sends info/recommendations**: When the user SENDS informational content, advice, or recommendations without asking questions or expecting specific actions, it's ACTIONED (not AWAITING_REPLY). The user completed their action and isn't waiting for anything.
+8. **Latest message context matters**: If the latest message is purely informational but there are unresolved items earlier in the thread, prioritize the unresolved items
+9. **FYI is only when nothing is pending**: Use FYI ONLY when there are absolutely no questions, requests, or pending actions in the entire thread
 
 Respond with a JSON object with:
 - status: One of TO_REPLY, FYI, AWAITING_REPLY, or ACTIONED

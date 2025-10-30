@@ -160,7 +160,7 @@ async function findPotentialMatchingRules({
           { type: ConditionType.PRESET, systemType: SystemType.CALENDAR },
         ],
       });
-      continue;
+      // Don't continue - let it also be evaluated for AI matching below
     }
 
     // Learned patterns (groups)
@@ -387,14 +387,19 @@ async function findMatchingRulesWithReasons(
       reason: fullResult.reason,
     };
 
-    // Build combined matches: start with existing static/learned matches, then append AI-selected matches
+    // Build combined matches: update existing matches with AI reasons if AI also chose them,
+    // and append new AI-selected matches
+    const aiRuleIds = new Set(result.rules.map((r) => r.id));
+
     const combinedMatches = [
-      // Map existing matches to the same output shape
+      // Map existing matches, appending AI match reason if AI also chose this rule
       ...matches.map((match) => ({
         rule: match.rule,
-        matchReasons: match.matchReasons || [],
+        matchReasons: aiRuleIds.has(match.rule.id)
+          ? [...(match.matchReasons || []), { type: ConditionType.AI }]
+          : match.matchReasons || [],
       })),
-      // Append AI-selected matches, deduplicating by rule id
+      // Append AI-selected matches that weren't already in matches
       ...result.rules
         .filter(
           (aiRule) =>
