@@ -67,7 +67,7 @@ CRITICAL RULES - READ CAREFULLY:
    - If SOMEONE ELSE promised to do something → AWAITING_REPLY (waiting for them)
    - If YOU promised to do something → TO_REPLY (you need to follow through)
 4. **Multi-person threads**: In threads with multiple participants, focus ONLY on what the user (the perspective being analyzed) needs to do. Ignore conversations between other people that don't involve the user's commitments.
-5. **Request fulfillment**: If the user asked for something (information, help, etc.) and received it, they are no longer awaiting a reply. The status should be FYI (if informational) or ACTIONED (if fully resolved).
+5. **Request fulfillment**: If the user asked for something (information, help, etc.) and received it, AND the user has no pending commitments/deliverables, they are no longer awaiting a reply. The status should be FYI (if informational) or ACTIONED (if fully resolved). However, if the user still has a pending commitment, see Rule 6.
 6. **Clarifying questions don't cancel commitments**: If the user has a pending commitment/deliverable and asks a clarifying question that gets answered, the status is TO_REPLY (not AWAITING_REPLY). The user needs to complete their original commitment now that they have the clarification.
 7. **User sends info/recommendations**: When the user SENDS informational content, advice, or recommendations without asking questions or expecting specific actions, it's ACTIONED (not AWAITING_REPLY). The user completed their action and isn't waiting for anything.
 8. **Latest message context matters**: If the latest message is purely informational but there are unresolved items earlier in the thread, prioritize the unresolved items

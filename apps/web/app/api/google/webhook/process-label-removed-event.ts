@@ -49,18 +49,24 @@ export async function handleLabelRemovedEvent(
     return;
   }
 
-  // Skip draft messages - when a draft is sent, Gmail removes the DRAFT label
-  // and the draft message ID no longer exists (it becomes a new sent message with a new ID)
-  if (allRemovedLabelIds.includes(GmailLabel.DRAFT)) {
-    logger.info("Skipping draft label removal", {
+  // Filter out system labels early - we don't learn from system label removals
+  // (e.g., archiving removes INBOX, starring adds/removes STARRED, etc.)
+  const removedLabelIds = allRemovedLabelIds.filter(
+    (labelId) => !SYSTEM_LABELS.includes(labelId),
+  );
+
+  if (removedLabelIds.length === 0) {
+    logger.trace("No non-system labels removed, skipping", {
       messageId,
-      removedLabelCount: allRemovedLabelIds.length,
+      threadId,
+      systemLabelsRemoved: allRemovedLabelIds,
     });
     return;
   }
 
   logger.info("Processing label removal for learning", {
-    labelCount: allRemovedLabelIds.length,
+    labelCount: removedLabelIds.length,
+    removedLabels: removedLabelIds,
   });
 
   let sender: string | null = null;
@@ -77,8 +83,11 @@ export async function handleLabelRemovedEvent(
     };
     const errorMessage = errorObj?.message || errorObj?.error?.message;
     if (errorMessage === "Requested entity was not found.") {
-      logger.warn("Message not found", {
-        removedLabelCount: allRemovedLabelIds.length,
+      logger.warn("Message not found - may have been deleted or trashed", {
+        messageId,
+        threadId,
+        allRemovedLabels: allRemovedLabelIds,
+        nonSystemLabels: removedLabelIds,
       });
       return;
     }
@@ -103,16 +112,6 @@ export async function handleLabelRemovedEvent(
       messageId,
       error,
     });
-    return;
-  }
-
-  // Filter out system labels early as we don't learn from them
-  const removedLabelIds = (message.labelIds || []).filter(
-    (labelId) => !SYSTEM_LABELS.includes(labelId),
-  );
-
-  if (removedLabelIds.length === 0) {
-    logger.trace("No non-system labels to process");
     return;
   }
 
