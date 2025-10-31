@@ -14,9 +14,14 @@ export function useStep() {
     setStep(step + 1);
   }, [step, setStep]);
 
+  const onPrevious = useCallback(() => {
+    setStep(step - 1);
+  }, [step, setStep]);
+
   return {
     step,
     setStep,
     onNext,
+    onPrevious,
   };
 }

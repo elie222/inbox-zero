@@ -6,9 +6,10 @@ import { TypographyH3 } from "@/components/Typography";
 import { useStep } from "@/app/(app)/[emailAccountId]/clean/useStep";
 import { ButtonListSurvey } from "@/components/ButtonListSurvey";
 import { CleanAction } from "@prisma/client";
+import { Button } from "@/components/ui/button";
 
 export function ActionSelectionStep() {
-  const { onNext } = useStep();
+  const { onNext, onPrevious } = useStep();
   const [_, setAction] = useQueryState(
     "action",
     parseAsStringEnum([CleanAction.ARCHIVE, CleanAction.MARK_READ]),
@@ -39,6 +40,12 @@ export function ActionSelectionStep() {
         ]}
         onClick={(value) => onSetAction(value as CleanAction)}
       />
+
+      <div className="mt-6">
+        <Button variant="outline" onClick={onPrevious}>
+          Back
+        </Button>
+      </div>
     </div>
   );
 }

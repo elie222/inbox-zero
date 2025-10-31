@@ -150,3 +150,89 @@ export async function getOrCreateOutlookFolderIdByName(
     throw error;
   }
 }
+
+/**
+ * Get or create an InboxZero folder (for tracking processed/archived emails)
+ * Similar to Gmail's getOrCreateInboxZeroLabel
+ */
+export async function getOrCreateInboxZeroFolder(
+  client: OutlookClient,
+  folderType: "processed" | "archived" | "marked_read",
+): Promise<{ id: string; displayName: string }> {
+  const folderName = `Inbox Zero/${folderType}`;
+  const folderId = await getOrCreateOutlookFolderIdByName(client, folderName);
+
+  return {
+    id: folderId,
+    displayName: folderName,
+  };
+}
+
+/**
+ * Move a message to a specific folder
+ * Used for archiving or organizing emails
+ */
+export async function moveMessageToFolder(
+  client: OutlookClient,
+  messageId: string,
+  destinationFolderId: string,
+): Promise<void> {
+  await client.getClient().api(`/me/messages/${messageId}/move`).post({
+    destinationId: destinationFolderId,
+  });
+}
+
+/**
+ * Mark a message as read or unread
+ */
+export async function markMessageAsRead(
+  client: OutlookClient,
+  messageId: string,
+  isRead: boolean,
+): Promise<void> {
+  await client.getClient().api(`/me/messages/${messageId}`).patch({
+    isRead,
+  });
+}
+
+/**
+ * Flag (star) or unflag a message
+ * Equivalent to Gmail's starred label
+ */
+export async function flagMessage(
+  client: OutlookClient,
+  messageId: string,
+  isFlagged: boolean,
+): Promise<void> {
+  await client
+    .getClient()
+    .api(`/me/messages/${messageId}`)
+    .patch({
+      flag: isFlagged
+        ? { flagStatus: "flagged" }
+        : { flagStatus: "notFlagged" },
+    });
+}
+
+/**
+ * Get well-known folder IDs (inbox, sent, archive, etc.)
+ * These are standard folders that exist in all Outlook accounts
+ */
+export async function getWellKnownFolderId(
+  client: OutlookClient,
+  folderName:
+    | "inbox"
+    | "sentitems"
+    | "deleteditems"
+    | "drafts"
+    | "junkemail"
+    | "archive",
+): Promise<string> {
+  const response = await client
+    .getClient()
+    .api(`/me/mailFolders/${folderName}`)
+    .select("id")
+    .get();
+
+  return response.id;
+}

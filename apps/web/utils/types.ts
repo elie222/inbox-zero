@@ -59,6 +59,7 @@ export interface ParsedMessage {
   date: string;
   conversationIndex?: string | null;
   internalDate?: string | null;
+  isFlagged?: boolean; // Outlook: indicates message is flagged/starred
 }
 
 export interface Attachment {

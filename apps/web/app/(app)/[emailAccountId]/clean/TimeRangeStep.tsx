@@ -6,9 +6,10 @@ import { TypographyH3 } from "@/components/Typography";
 import { timeRangeOptions } from "@/app/(app)/[emailAccountId]/clean/types";
 import { useStep } from "@/app/(app)/[emailAccountId]/clean/useStep";
 import { ButtonListSurvey } from "@/components/ButtonListSurvey";
+import { Button } from "@/components/ui/button";
 
 export function TimeRangeStep() {
-  const { onNext } = useStep();
+  const { onNext, onPrevious } = useStep();
 
   const [_, setTimeRange] = useQueryState("timeRange", parseAsInteger);
 
@@ -30,6 +31,12 @@ export function TimeRangeStep() {
         options={timeRangeOptions}
         onClick={handleTimeRangeSelect}
       />
+
+      <div className="mt-6">
+        <Button variant="outline" onClick={onPrevious}>
+          Back
+        </Button>
+      </div>
     </div>
   );
 }

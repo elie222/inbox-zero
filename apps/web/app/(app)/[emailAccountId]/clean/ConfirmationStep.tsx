@@ -13,6 +13,8 @@ import { PREVIEW_RUN_COUNT } from "@/app/(app)/[emailAccountId]/clean/consts";
 import { HistoryIcon, SettingsIcon } from "lucide-react";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { prefixPath } from "@/utils/path";
+import { isGoogleProvider } from "@/utils/email/provider-types";
+import { useStep } from "@/app/(app)/[emailAccountId]/clean/useStep";
 
 export function ConfirmationStep({
   showFooter,
@@ -36,7 +38,9 @@ export function ConfirmationStep({
   reuseSettings: boolean;
 }) {
   const router = useRouter();
-  const { emailAccountId } = useAccount();
+  const { emailAccountId, emailAccount } = useAccount();
+  const { onPrevious } = useStep();
+  const isGmail = isGoogleProvider(emailAccount?.provider);
 
   const handleStartCleaning = async () => {
     const result = await cleanInboxAction(emailAccountId, {
@@ -89,13 +93,15 @@ export function ConfirmationStep({
         <li>
           {action === CleanAction.ARCHIVE ? (
             <>
-              Archived emails will be labeled{" "}
-              <Badge color="green">Archived</Badge> in Gmail.
+              Archived emails will be {isGmail ? "labeled" : "moved to the"}{" "}
+              <Badge color="green">Archive{isGmail ? "d" : ""}</Badge>{" "}
+              {isGmail ? "in Gmail" : "folder in Outlook"}.
             </>
           ) : (
             <>
               Emails marked as read will be labeled{" "}
-              <Badge color="green">Read</Badge> in Gmail.
+              <Badge color="green">Read</Badge>{" "}
+              {isGmail ? "in Gmail" : "in Outlook"}.
             </>
           )}
         </li>
@@ -115,7 +121,10 @@ export function ConfirmationStep({
         )}
       </ul>
 
-      <div className="mt-6">
+      <div className="mt-6 flex justify-center gap-2">
+        <Button size="lg" variant="outline" onClick={onPrevious}>
+          Back
+        </Button>
         <Button size="lg" onClick={handleStartCleaning}>
           Start Cleaning
         </Button>
