@@ -9,6 +9,8 @@ import { SafeError } from "@/utils/error";
 import { syncStripeDataToDb } from "@/ee/billing/stripe/sync-stripe";
 import { getStripe } from "@/ee/billing/stripe";
 import { createEmailProvider } from "@/utils/email/provider";
+import { hash } from "@/utils/hash";
+import { hashEmailBody } from "@/utils/actions/admin.validation";
 
 export const adminProcessHistoryAction = adminActionClient
   .metadata({ name: "adminProcessHistory" })
@@ -185,4 +187,12 @@ export const adminSyncAllStripeCustomersToDbAction = adminActionClient
     }
     logger.info("Finished syncing all Stripe customers to DB");
     return { success: `Synced ${activeCustomers.length} customers.` };
+  });
+
+export const adminHashEmailAction = adminActionClient
+  .metadata({ name: "adminHashEmail" })
+  .schema(hashEmailBody)
+  .action(async ({ parsedInput: { email } }) => {
+    const hashed = hash(email);
+    return { hash: hashed };
   });

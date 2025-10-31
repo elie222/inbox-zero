@@ -1,4 +1,5 @@
-import { createHash } from "node:crypto";
+import { createHmac } from "node:crypto";
+import { env } from "@/env";
 
 /**
  * Hashes sensitive identifiers (like email addresses) so they can be logged safely.
@@ -13,5 +14,7 @@ export function hash(
 
   const normalized = value.trim().toLowerCase();
 
-  return createHash("sha256").update(normalized).digest("hex");
+  return createHmac("sha256", env.EMAIL_ENCRYPT_SALT)
+    .update(normalized)
+    .digest("hex");
 }
