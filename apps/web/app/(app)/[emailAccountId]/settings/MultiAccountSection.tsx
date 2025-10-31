@@ -67,8 +67,8 @@ export function MultiAccountSection() {
   return (
     <FormSection id="manage-users">
       <FormSectionLeft
-        title="Share Premium"
-        description="Share premium with other email accounts. This does not give other accounts access to read your emails."
+        title="Manage Team Access"
+        description="Grant premium access to additional email accounts. Additional members are billed to your subscription. Each account maintains separate email privacy."
       />
 
       <LoadingContent loading={isLoadingPremium} error={errorPremium}>
