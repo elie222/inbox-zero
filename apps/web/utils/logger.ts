@@ -189,7 +189,8 @@ function hashSensitiveFields<T>(obj: T, depth = 0): T {
     return obj.map((item) => hashSensitiveFields(item, depth + 1)) as T;
   }
 
-  if (typeof obj === "object") {
+  // Only process plain objects - skip class instances, Error, Date, etc.
+  if (isPlainObject(obj)) {
     const processed: Record<string, unknown> = {};
     for (const [key, value] of Object.entries(obj)) {
       // Always redact tokens - never log them
@@ -220,4 +221,10 @@ function hashSensitiveFields<T>(obj: T, depth = 0): T {
   }
 
   return obj;
+}
+
+function isPlainObject(obj: unknown): obj is Record<string, unknown> {
+  if (typeof obj !== "object" || obj === null) return false;
+  const proto = Object.getPrototypeOf(obj);
+  return proto === Object.prototype || proto === null;
 }
