@@ -187,7 +187,10 @@ function MultiAccountForm({
       if (!data.emailAddresses) return;
       if (needsToPurchaseMoreSeats) return;
 
-      const emails = data.emailAddresses.map((e) => e.email);
+      // Filter out empty email strings
+      const emails = data.emailAddresses
+        .map((e) => e.email.trim())
+        .filter((email) => email.length > 0);
       updateMultiAccountPremium({ emails });
     },
     [needsToPurchaseMoreSeats, updateMultiAccountPremium],
@@ -208,14 +211,14 @@ function MultiAccountForm({
                   append({ email: "" });
                   posthog.capture("Clicked Add User");
                 }}
-                onClickRemove={
-                  fields.length > 1
-                    ? () => {
-                        remove(i);
-                        posthog.capture("Clicked Remove User");
-                      }
-                    : undefined
-                }
+                onClickRemove={() => {
+                  remove(i);
+                  posthog.capture("Clicked Remove User");
+                  // If this was the last field, add an empty one so the form isn't completely empty
+                  if (fields.length === 1) {
+                    append({ email: "" });
+                  }
+                }}
               />
             </div>
           );
