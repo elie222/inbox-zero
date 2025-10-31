@@ -110,6 +110,7 @@ export const updateMultiAccountPremiumAction = actionClientUser
             users: { select: { id: true, email: true } },
           },
         },
+        emailAccounts: { select: { email: true } },
       },
     });
 
@@ -183,8 +184,13 @@ export const updateMultiAccountPremiumAction = actionClientUser
     });
 
     // Set pending invites to exactly match non-existing users in the email list
+    // Exclude emails that belong to the user's own EmailAccount records
+    const userEmailAccounts = new Set(
+      user.emailAccounts?.map((ea) => ea.email) || [],
+    );
     const nonExistingUsers = uniqueEmails.filter(
-      (email) => !users.some((u) => u.email === email),
+      (email) =>
+        !users.some((u) => u.email === email) && !userEmailAccounts.has(email),
     );
     const updatedPremium = await prisma.premium.update({
       where: { id: premium.id },
