@@ -635,6 +635,7 @@ model Newsletter {
   updatedAt DateTime          @updatedAt
   email     String
   status    NewsletterStatus?
+  priority  Int? // Sender-level priority: 10 (low), 50 (mixed), or 90 (high)
 
   // For learned patterns for rules
   patternAnalyzed Boolean   @default(false)
