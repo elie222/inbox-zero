@@ -1,7 +1,6 @@
 /** biome-ignore-all lint/suspicious/noConsole: we use console.log for development logs */
 import { log } from "next-axiom";
 import { env } from "@/env";
-import { hash } from "@/utils/hash";
 
 export type Logger = ReturnType<typeof createScopedLogger>;
 
@@ -174,6 +173,8 @@ const REDACTED_FIELD_NAMES = new Set([
  * Recursively processes an object to protect sensitive data:
  * - REDACTED_FIELD_NAMES: Replaced with boolean (never logged)
  * - SENSITIVE_FIELD_NAMES: Hashed in production (raw in dev/test)
+ *
+ * Only works server-side - client-side logs are visible in browser anyway.
  */
 function hashSensitiveFields<T>(obj: T, depth = 0): T {
   // Prevent infinite recursion and excessive processing
@@ -195,12 +196,15 @@ function hashSensitiveFields<T>(obj: T, depth = 0): T {
       if (REDACTED_FIELD_NAMES.has(key)) {
         processed[key] = !!value;
       }
-      // Hash emails in production only
+      // Hash emails in production only (server-side only)
       else if (
         SENSITIVE_FIELD_NAMES.has(key) &&
         typeof value === "string" &&
-        env.NODE_ENV === "production"
+        env.NODE_ENV === "production" &&
+        typeof window === "undefined" // Server-side check
       ) {
+        // Dynamic import to avoid bundling crypto on client
+        const { hash } = require("@/utils/hash");
         processed[key] = hash(value);
       }
       // Recursively process nested objects
