@@ -162,10 +162,7 @@ async function learnFromRemovedLabel({
   emailAccountId: string;
   logger: Logger;
 }) {
-  logger = logger.with({
-    labelName,
-    sender,
-  });
+  logger = logger.with({ labelName, sender });
 
   // Can't learn patterns without knowing who to exclude
   if (!sender) {

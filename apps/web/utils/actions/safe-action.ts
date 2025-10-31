@@ -93,7 +93,7 @@ export const actionClient = baseClient
       userId,
       userEmail,
       emailAccountId,
-      emailAccount,
+      provider: emailAccount.account.provider,
     });
     logger.info("Calling action");
 
