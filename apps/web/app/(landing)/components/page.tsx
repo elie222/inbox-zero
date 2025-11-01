@@ -43,7 +43,6 @@ import {
   ResultsDisplay,
   ResultDisplayContent,
 } from "@/app/(app)/[emailAccountId]/assistant/ResultDisplay";
-import { ActionSummaryCard } from "@/app/(app)/[emailAccountId]/assistant/ProcessResultDisplay";
 
 export const maxDuration = 3;
 
@@ -343,7 +342,7 @@ export default function Components() {
         </div>
 
         <div>
-          <div className="underline">ProcessResultDisplay</div>
+          <div className="underline">ResultsDisplay</div>
           <div className="mt-4">
             <ResultsDisplay
               results={[
@@ -400,30 +399,41 @@ export default function Components() {
                     },
                   ],
                   reason: "Test reason",
-                  rule: getRule(),
+                  rule: {
+                    ...getRule(),
+                    from: "team@company.com",
+                    instructions:
+                      "Urgent requests that need immediate attention",
+                    conditionalOperator: "AND",
+                  },
                   status: ExecutedRuleStatus.APPLIED,
                 }}
               />
             </div>
-          </div>
 
-          <div className="mt-4">
-            <ActionSummaryCard
-              result={{
-                createdAt: new Date("2025-01-01"),
-                actionItems: [
-                  {
-                    id: "1",
-                    type: ActionType.LABEL,
-                    label: "Label",
+            <div className="p-4 border border-border rounded mt-4">
+              <ResultDisplayContent
+                result={{
+                  createdAt: new Date("2025-01-01"),
+                  actionItems: [
+                    {
+                      type: ActionType.LABEL,
+                      label: "Important",
+                      id: "label",
+                    },
+                  ],
+                  reason: "Test reason",
+                  rule: {
+                    ...getRule(),
+                    from: "notifications@github.com",
+                    body: "mentioned you",
+                    instructions: "Pull request reviews that need my feedback",
+                    conditionalOperator: "OR",
                   },
-                ],
-                reason: "Test reason",
-                rule: getRule(),
-                status: ExecutedRuleStatus.APPLIED,
-              }}
-              onViewRule={() => {}}
-            />
+                  status: ExecutedRuleStatus.APPLIED,
+                }}
+              />
+            </div>
           </div>
         </div>
 

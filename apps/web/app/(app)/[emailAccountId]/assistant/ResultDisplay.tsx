@@ -4,7 +4,12 @@ import { capitalCase } from "capital-case";
 import { HoverCard } from "@/components/HoverCard";
 import { Badge } from "@/components/Badge";
 import { conditionTypesToString } from "@/utils/condition";
-import { type ActionType, ExecutedRuleStatus } from "@prisma/client";
+import {
+  type ActionType,
+  ExecutedRuleStatus,
+  type Rule,
+  LogicalOperator,
+} from "@prisma/client";
 import { Button } from "@/components/ui/button";
 import { conditionsToString } from "@/utils/condition";
 import { MessageText } from "@/components/Typography";
@@ -47,12 +52,13 @@ function ResultDisplay({ result }: { result: RunRulesResult }) {
   const { rule, status } = result;
 
   return (
-    <HoverCard
-      className="w-80"
-      content={<ResultDisplayContent result={result} />}
-    >
-      <Badge color={rule ? "green" : "yellow"}>
-        {rule ? rule.name : capitalCase(status)}
+    <HoverCard content={<ResultDisplayContent result={result} />}>
+      <Badge color={rule ? "green" : "red"} className="whitespace-nowrap">
+        {rule
+          ? rule.name
+          : status === ExecutedRuleStatus.SKIPPED
+            ? "No match found"
+            : capitalCase(status)}
         <EyeIcon className="ml-1.5 size-3.5 opacity-70" />
       </Badge>
     </HoverCard>
@@ -74,14 +80,12 @@ export function ResultDisplayContent({ result }: { result: RunRulesResult }) {
             <Badge color="blue">{conditionTypesToString(rule)}</Badge>
           </>
         ) : (
-          <div className="text-muted-foreground">
-            {status === ExecutedRuleStatus.SKIPPED && (
-              <Badge color="yellow">Skipped</Badge>
-            )}
-          </div>
+          status === ExecutedRuleStatus.SKIPPED && "No match found"
         )}
       </div>
-      <div className="mt-2">{rule ? conditionsToString(rule) : null}</div>
+      <div className="mt-2">
+        {rule ? <PrettyConditions rule={rule} /> : null}
+      </div>
       <div className="mt-2">
         {!!rule && (
           <Button
@@ -90,32 +94,37 @@ export function ResultDisplayContent({ result }: { result: RunRulesResult }) {
               ruleDialog.onOpen({ ruleId: rule.id });
             }}
           >
-            View Rule
+            View matching rule
           </Button>
         )}
       </div>
 
       <div className="mt-2">
-        <div className="font-medium text-sm mb-1">Actions taken:</div>
-
-        <Actions
-          actions={
-            result.actionItems?.map((action) => ({
-              id: action.id,
-              type: action.type,
-              label: action.label,
-              folderName: action.folderName,
-              content: action.content,
-              to: action.to,
-              subject: action.subject,
-              cc: action.cc,
-              bcc: action.bcc,
-              url: action.url,
-            })) || []
-          }
-          provider={provider}
-          labels={[]}
-        />
+        {result.actionItems?.length ? (
+          <>
+            <div className="font-medium text-sm mb-1">Actions taken:</div>
+            <Actions
+              actions={
+                result.actionItems?.map((action) => ({
+                  id: action.id,
+                  type: action.type,
+                  label: action.label,
+                  folderName: action.folderName,
+                  content: action.content,
+                  to: action.to,
+                  subject: action.subject,
+                  cc: action.cc,
+                  bcc: action.bcc,
+                  url: action.url,
+                })) || []
+              }
+              provider={provider}
+              labels={[]}
+            />
+          </>
+        ) : (
+          <div className="text-muted-foreground text-sm">No actions taken</div>
+        )}
       </div>
 
       {!!reason && (
@@ -188,6 +197,46 @@ function Actions({
           </div>
         );
       })}
+    </div>
+  );
+}
+
+function PrettyConditions({
+  rule,
+}: {
+  rule: Pick<
+    Rule,
+    "from" | "to" | "subject" | "body" | "instructions" | "conditionalOperator"
+  >;
+}) {
+  const conditions: string[] = [];
+
+  // Static conditions - grouped with commas
+  const staticConditions: string[] = [];
+  if (rule.from) staticConditions.push(`From: ${rule.from}`);
+  if (rule.subject) staticConditions.push(`Subject: "${rule.subject}"`);
+  if (rule.to) staticConditions.push(`To: ${rule.to}`);
+  if (rule.body) staticConditions.push(`Body: "${rule.body}"`);
+  if (staticConditions.length) conditions.push(staticConditions.join(", "));
+
+  // AI condition
+  if (rule.instructions) conditions.push(rule.instructions);
+
+  const operator =
+    rule.conditionalOperator === LogicalOperator.AND ? "AND" : "OR";
+
+  return (
+    <div className="flex flex-wrap items-center gap-1.5">
+      {conditions.map((condition, index) => (
+        <div key={index} className="flex items-center gap-1.5">
+          <span className="text-sm text-muted-foreground">{condition}</span>
+          {index < conditions.length - 1 && (
+            <Badge color="purple" className="text-xs">
+              {operator}
+            </Badge>
+          )}
+        </div>
+      ))}
     </div>
   );
 }
