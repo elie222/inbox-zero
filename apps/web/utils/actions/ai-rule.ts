@@ -68,6 +68,7 @@ export const runRulesAction = actionClient
               actionItems: true,
               rule: true,
               createdAt: true,
+              status: true,
             },
           })
         : [];
@@ -81,6 +82,7 @@ export const runRulesAction = actionClient
           reason: executedRule.reason,
           existing: true,
           createdAt: executedRule.createdAt,
+          status: executedRule.status,
         }));
       }
 
