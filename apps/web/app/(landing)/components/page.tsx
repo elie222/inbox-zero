@@ -28,12 +28,22 @@ import {
 import { TooltipExplanation } from "@/components/TooltipExplanation";
 import { Suspense } from "react";
 import { PremiumAiAssistantAlert } from "@/components/PremiumAlert";
-import { ActionType, PremiumTier } from "@prisma/client";
+import {
+  ActionType,
+  ExecutedRuleStatus,
+  PremiumTier,
+  type Rule,
+} from "@prisma/client";
 import { SettingCard } from "@/components/SettingCard";
 import { IconCircle } from "@/app/(app)/[emailAccountId]/onboarding/IconCircle";
 import { ActionBadges } from "@/app/(app)/[emailAccountId]/assistant/Rules";
 import { DismissibleVideoCard } from "@/components/VideoCard";
 import { PremiumExpiredCardContent } from "@/components/PremiumExpiredCard";
+import {
+  ResultsDisplay,
+  ResultDisplayContent,
+} from "@/app/(app)/[emailAccountId]/assistant/ResultDisplay";
+import { ActionSummaryCard } from "@/app/(app)/[emailAccountId]/assistant/ProcessResultDisplay";
 
 export const maxDuration = 3;
 
@@ -333,6 +343,91 @@ export default function Components() {
         </div>
 
         <div>
+          <div className="underline">ProcessResultDisplay</div>
+          <div className="mt-4">
+            <ResultsDisplay
+              results={[
+                {
+                  createdAt: new Date("2025-01-01"),
+                  actionItems: [
+                    {
+                      type: ActionType.LABEL,
+                      label: "Label",
+                      id: "label",
+                    },
+                  ],
+                  reason: "Test reason",
+                  rule: getRule(),
+                  status: ExecutedRuleStatus.APPLIED,
+                },
+              ]}
+            />
+
+            <div className="p-4 border border-border rounded mt-4">
+              <ResultDisplayContent
+                result={{
+                  createdAt: new Date("2025-01-01"),
+                  actionItems: [
+                    {
+                      type: ActionType.LABEL,
+                      label: "Label",
+                      id: "label",
+                    },
+                  ],
+                  reason: "Test reason",
+                  rule: getRule(),
+                  status: ExecutedRuleStatus.APPLIED,
+                }}
+              />
+            </div>
+
+            <div className="p-4 border border-border rounded mt-4">
+              <ResultDisplayContent
+                result={{
+                  createdAt: new Date("2025-01-01"),
+                  actionItems: [
+                    {
+                      type: ActionType.LABEL,
+                      label: "To Reply",
+                      id: "label",
+                    },
+                    {
+                      type: ActionType.DRAFT_EMAIL,
+                      subject: "Re: Test subject",
+                      content: "Hi, I'd like to discuss the project with you.",
+                      to: "test@example.com",
+                      id: "draft_email",
+                    },
+                  ],
+                  reason: "Test reason",
+                  rule: getRule(),
+                  status: ExecutedRuleStatus.APPLIED,
+                }}
+              />
+            </div>
+          </div>
+
+          <div className="mt-4">
+            <ActionSummaryCard
+              result={{
+                createdAt: new Date("2025-01-01"),
+                actionItems: [
+                  {
+                    id: "1",
+                    type: ActionType.LABEL,
+                    label: "Label",
+                  },
+                ],
+                reason: "Test reason",
+                rule: getRule(),
+                status: ExecutedRuleStatus.APPLIED,
+              }}
+              onViewRule={() => {}}
+            />
+          </div>
+        </div>
+
+        <div>
           <div className="underline">MultiSelectFilter</div>
           <div className="mt-4">
             <MultiSelectFilter
@@ -461,4 +556,27 @@ export default function Components() {
       </div>
     </Container>
   );
+}
+
+function getRule(): Rule {
+  return {
+    id: "1",
+    name: "Test rule",
+    instructions: "Test instructions",
+    from: null,
+    to: null,
+    subject: null,
+    body: null,
+    groupId: null,
+    conditionalOperator: "AND",
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    enabled: true,
+    automate: true,
+    runOnThreads: true,
+    emailAccountId: "emailAccountId",
+    promptText: null,
+    categoryFilterType: null,
+    systemType: null,
+  };
 }

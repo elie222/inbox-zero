@@ -29,7 +29,7 @@ import { isAIRule, isGroupRule, isStaticRule } from "@/utils/condition";
 import { BulkRunRules } from "@/app/(app)/[emailAccountId]/assistant/BulkRunRules";
 import { cn } from "@/utils";
 import { TestCustomEmailForm } from "@/app/(app)/[emailAccountId]/assistant/TestCustomEmailForm";
-import { ProcessResultDisplay } from "@/app/(app)/[emailAccountId]/assistant/ProcessResultDisplay";
+import { ResultsDisplay } from "@/app/(app)/[emailAccountId]/assistant/ResultDisplay";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { FixWithChat } from "@/app/(app)/[emailAccountId]/assistant/FixWithChat";
 import { useChat } from "@/providers/ChatProvider";
@@ -133,6 +133,7 @@ export function ProcessRulesContent({ testMode }: { testMode: boolean }) {
             reason: r.reason,
             existing: true,
             createdAt: r.createdAt,
+            status: r.status,
           }));
         }
       }
@@ -359,9 +360,7 @@ function ProcessRulesRow({
           <div className="ml-4 flex items-center gap-1">
             {results ? (
               <>
-                <div className="flex max-w-xs flex-col justify-center gap-0.5 whitespace-nowrap">
-                  <ProcessResultDisplay results={results} />
-                </div>
+                <ResultsDisplay results={results} />
                 <FixWithChat
                   setInput={setInput}
                   message={message}

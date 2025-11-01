@@ -38,7 +38,7 @@ export function getActionDisplay(
       let labelName: string | null | undefined = null;
 
       // Priority 1: Use labelId to look up current name from labels
-      if (action.labelId && labels) {
+      if (action.labelId && labels?.length) {
         const foundLabel = labels.find((l) => l.id === action.labelId);
         if (foundLabel) {
           labelName = foundLabel.name;

@@ -100,7 +100,7 @@ export function ProcessResultDisplay({
   );
 }
 
-function ActionSummaryCard({
+export function ActionSummaryCard({
   result,
   onViewRule,
 }: {

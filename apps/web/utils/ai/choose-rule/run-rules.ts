@@ -37,9 +37,21 @@ import { ConditionType } from "@/utils/config";
 const logger = createScopedLogger("ai-run-rules");
 
 export type RunRulesResult = {
-  rule?: Rule | null;
+  rule?: Pick<
+    Rule,
+    | "id"
+    | "name"
+    | "instructions"
+    | "groupId"
+    | "from"
+    | "to"
+    | "subject"
+    | "body"
+    | "conditionalOperator"
+  > | null;
   actionItems?: ActionItem[];
   reason?: string | null;
+  status: ExecutedRuleStatus;
   matchReasons?: MatchReason[];
   existing?: boolean;
   createdAt: Date;
@@ -102,7 +114,14 @@ export async function runRules({
       });
     }
 
-    return [{ rule: null, reason, createdAt: batchTimestamp }];
+    return [
+      {
+        rule: null,
+        reason,
+        status: ExecutedRuleStatus.SKIPPED,
+        createdAt: batchTimestamp,
+      },
+    ];
   }
 
   const executedRules: RunRulesResult[] = [];
@@ -126,6 +145,7 @@ export async function runRules({
           rule: null,
           reason: statusReason || "No enabled conversation status rule found",
           createdAt: batchTimestamp,
+          status: ExecutedRuleStatus.SKIPPED,
         };
 
         executedRules.push(executedRule);
@@ -155,7 +175,10 @@ export async function runRules({
       batchTimestamp,
     );
 
-    executedRules.push(executedRule);
+    executedRules.push({
+      ...executedRule,
+      status: executedRule.executedRule?.status || ExecutedRuleStatus.APPLIED,
+    });
   }
 
   return executedRules;
