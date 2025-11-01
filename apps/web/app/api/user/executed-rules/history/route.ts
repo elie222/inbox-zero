@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import groupBy from "lodash/groupBy";
 import { withEmailProvider } from "@/utils/middleware";
 import { isDefined } from "@/utils/types";
 import prisma from "@/utils/prisma";
@@ -67,40 +68,52 @@ async function getExecutedRules({
         id: true,
         messageId: true,
         threadId: true,
-        rule: {
-          include: {
-            group: { select: { name: true } },
-          },
-        },
         actionItems: true,
         status: true,
         reason: true,
         automated: true,
         createdAt: true,
+        rule: {
+          select: {
+            id: true,
+            name: true,
+            instructions: true,
+            groupId: true,
+            from: true,
+            to: true,
+            subject: true,
+            body: true,
+            conditionalOperator: true,
+            group: { select: { name: true } },
+          },
+        },
       },
     }),
     prisma.executedRule.count({ where }),
   ]);
 
-  const executedRulesWithMessages = await Promise.all(
-    executedRules.map(async (p) => {
-      try {
-        return {
-          ...p,
-          message: await emailProvider.getMessage(p.messageId),
-        };
-      } catch (error) {
-        logger.error("Error getting message", {
-          error,
-          messageId: p.messageId,
-          threadId: p.threadId,
-        });
-      }
-    }),
+  const executedRulesByMessageId = groupBy(executedRules, (er) => er.messageId);
+
+  const results = await Promise.all(
+    Object.entries(executedRulesByMessageId).map(
+      async ([messageId, executedRules]) => {
+        try {
+          return {
+            message: await emailProvider.getMessage(messageId),
+            executedRules,
+          };
+        } catch (error) {
+          logger.error("Error getting message", {
+            error,
+            messageId,
+          });
+        }
+      },
+    ),
   );
 
   return {
-    executedRules: executedRulesWithMessages.filter(isDefined),
+    results: results.filter(isDefined),
     totalPages: Math.ceil(total / LIMIT),
   };
 }
