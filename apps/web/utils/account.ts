@@ -1,3 +1,5 @@
+import { notFound } from "next/navigation";
+import { cookies } from "next/headers";
 import { auth } from "@/utils/auth";
 import {
   getGmailClientWithRefresh,
@@ -9,8 +11,10 @@ import {
 } from "@/utils/outlook/client";
 import { redirect } from "next/navigation";
 import prisma from "@/utils/prisma";
-import { notFound } from "next/navigation";
-import { getLastEmailAccountFromCookie } from "@/utils/actions/email-account-cookie";
+import {
+  LAST_EMAIL_ACCOUNT_COOKIE,
+  type LastEmailAccountCookieValue,
+} from "@/utils/cookies";
 
 export async function getGmailClientForEmail({
   emailAccountId,
@@ -118,7 +122,7 @@ export async function redirectToEmailAccountPath(path: `/${string}`) {
   const userId = session?.user.id;
   if (!userId) throw new Error("Not authenticated");
 
-  const lastEmailAccountId = await getLastEmailAccountFromCookie();
+  const lastEmailAccountId = await getLastEmailAccountFromCookie(userId);
 
   let emailAccountId = lastEmailAccountId;
 
@@ -137,4 +141,29 @@ export async function redirectToEmailAccountPath(path: `/${string}`) {
   const redirectUrl = `/${emailAccountId}${path}`;
 
   redirect(redirectUrl);
+}
+
+async function getLastEmailAccountFromCookie(
+  userId: string,
+): Promise<string | null> {
+  try {
+    const cookieStore = await cookies();
+    const cookieValue = cookieStore.get(LAST_EMAIL_ACCOUNT_COOKIE)?.value;
+    if (!cookieValue) return null;
+
+    // Handle backward compatibility: old cookies stored just the emailAccountId as a plain string
+    // New cookies store JSON with { userId, emailAccountId }
+    try {
+      const parsed = JSON.parse(cookieValue) as LastEmailAccountCookieValue;
+      // Validate userId matches to prevent stale data
+      if (parsed.userId !== userId) return null;
+      return parsed.emailAccountId;
+    } catch {
+      // If JSON parse fails, it's an old-format cookie (plain emailAccountId string)
+      // Return it as-is (the caller will still validate the user owns this account)
+      return cookieValue;
+    }
+  } catch {
+    return null;
+  }
 }
