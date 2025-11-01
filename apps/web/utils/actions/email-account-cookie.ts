@@ -25,3 +25,12 @@ export async function getLastEmailAccountFromCookie(): Promise<string | null> {
   const value = cookieStore.get(LAST_EMAIL_ACCOUNT_COOKIE)?.value;
   return value || null;
 }
+
+/**
+ * Clears the last email account cookie.
+ * Called on logout to prevent stale account IDs when switching users.
+ */
+export async function clearLastEmailAccountAction() {
+  const cookieStore = await cookies();
+  cookieStore.delete(LAST_EMAIL_ACCOUNT_COOKIE);
+}

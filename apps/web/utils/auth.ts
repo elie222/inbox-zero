@@ -10,7 +10,6 @@ import { prismaAdapter } from "better-auth/adapters/prisma";
 import { nextCookies } from "better-auth/next-js";
 import { cookies, headers } from "next/headers";
 import { env } from "@/env";
-import { LAST_EMAIL_ACCOUNT_COOKIE } from "@/utils/cookies";
 import { trackDubSignUp } from "@/utils/dub";
 import {
   isGoogleProvider,
@@ -126,20 +125,6 @@ export const betterAuthConfig = betterAuth({
       update: {
         after: async (account: Account) => {
           await handleLinkAccount(account);
-        },
-      },
-    },
-    session: {
-      delete: {
-        after: async () => {
-          try {
-            const cookieStore = await cookies();
-            cookieStore.delete(LAST_EMAIL_ACCOUNT_COOKIE);
-          } catch (error) {
-            logger.error("Failed to clear last email account cookie", {
-              error,
-            });
-          }
         },
       },
     },
