@@ -14,6 +14,7 @@ import type { RunRulesResult } from "@/utils/ai/choose-rule/run-rules";
 import { sortActionsByPriority } from "@/utils/action-sort";
 import { getActionDisplay, getActionIcon } from "@/utils/action-display";
 import { getActionColor } from "@/components/PlanBadge";
+import { useAccount } from "@/providers/EmailAccountProvider";
 
 export function ResultsDisplay({ results }: { results: RunRulesResult[] }) {
   const groupedResults = groupBy(results, (result) => {
@@ -62,6 +63,7 @@ export function ResultDisplayContent({ result }: { result: RunRulesResult }) {
   const { rule, status, reason } = result;
 
   const { ruleDialog, RuleDialogComponent } = useRuleDialog();
+  const { provider } = useAccount();
 
   return (
     <div>
@@ -111,7 +113,7 @@ export function ResultDisplayContent({ result }: { result: RunRulesResult }) {
               url: action.url,
             })) || []
           }
-          provider="google"
+          provider={provider}
           labels={[]}
         />
       </div>
