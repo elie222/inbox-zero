@@ -5,7 +5,7 @@ export function BasicLayout(props: { children: React.ReactNode }) {
   return (
     <div>
       <Header />
-      <main className="isolate">{props.children}</main>
+      <main className="isolate mx-auto max-w-7xl">{props.children}</main>
       <Footer />
     </div>
   );

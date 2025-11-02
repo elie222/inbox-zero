@@ -2,6 +2,7 @@ import { Section } from "./Section";
 import { BasicLayout } from "./BasicLayout";
 import type { Metadata } from "next";
 import Image from "next/image";
+import { FAQs } from "@/app/(landing)/new-landing/FAQs";
 
 export const metadata: Metadata = { alternates: { canonical: "/" } };
 
@@ -90,9 +91,7 @@ export default function NewLanding() {
       >
         <div />
       </Section>
-      <Section title="Frequently asked questions">
-        <div />
-      </Section>
+      <FAQs />
     </BasicLayout>
   );
 }
