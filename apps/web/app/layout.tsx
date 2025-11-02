@@ -29,6 +29,12 @@ const calFont = localFont({
   preload: true,
   display: "swap",
 });
+const aeonikFont = localFont({
+  src: "../styles/aeonik-medium.woff",
+  variable: "--font-aeonik",
+  preload: true,
+  display: "swap",
+});
 
 const title = "Inbox Zero | Automate and clean your inbox";
 const description =
@@ -130,7 +136,7 @@ export default async function RootLayout({
   return (
     <html lang="en" className="h-full" suppressHydrationWarning>
       <body
-        className={`h-full ${inter.variable} ${calFont.variable} font-sans antialiased`}
+        className={`h-full ${inter.variable} ${calFont.variable} ${aeonikFont.variable} font-sans antialiased`}
       >
         <Script
           id="json-ld"

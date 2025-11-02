@@ -7,7 +7,12 @@ import { Outlook } from "@/app/(landing)/new-landing/Outlook";
 export function Hero() {
   return (
     <Section
-      title="Meet your AI email assistant that actually works"
+      variant="hero"
+      title={
+        <span>
+          Meet your AI email assistant that <em>actually</em> works
+        </span>
+      }
       subtitle="Inbox Zero organizes your inbox, drafts replies in your voice, and helps you reach inbox zero fast. Never miss an important email again."
       wrap
     >

@@ -1,23 +1,32 @@
+import { Heading, Subheading } from "@/app/(landing)/new-landing/Typography";
 import { cn } from "@/utils";
 
 interface SectionProps {
-  title: string;
+  title: string | React.ReactNode;
   subtitle?: string;
   children: React.ReactNode;
   wrap?: boolean;
+  variant?: "default" | "hero";
 }
 
-export function Section({ title, subtitle, children, wrap }: SectionProps) {
+export function Section({
+  title,
+  subtitle,
+  children,
+  wrap,
+  variant,
+}: SectionProps) {
   return (
     <section className="py-16 text-center">
-      <h1
-        className={cn(
-          "text-4xl font-bold mx-auto",
-          wrap ? "max-w-[540px]" : "",
-        )}
-      >
-        {title}
-      </h1>
+      {variant === "hero" ? (
+        <Heading className={cn("mx-auto", wrap ? "max-w-[620px]" : "")}>
+          {title}
+        </Heading>
+      ) : (
+        <Subheading className={cn("mx-auto", wrap ? "max-w-[620px]" : "")}>
+          {title}
+        </Subheading>
+      )}
       {subtitle ? (
         <p className="text-gray-500 max-w-[650px] mx-auto mt-4">{subtitle}</p>
       ) : null}
