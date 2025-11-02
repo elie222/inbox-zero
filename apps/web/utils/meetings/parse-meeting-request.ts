@@ -176,8 +176,8 @@ function getPrompt({
 
   // Build recipient list
   const recipients: string[] = [];
-  if (email.headers.to) recipients.push(`To: ${email.headers.to}`);
-  if (email.headers.cc) recipients.push(`CC: ${email.headers.cc}`);
+  if (email.to) recipients.push(`To: ${email.to}`);
+  if (email.cc) recipients.push(`CC: ${email.cc}`);
 
   return `${userInfo}
 
@@ -187,7 +187,7 @@ ${new Date().toISOString()}
 
 <email>
 <subject>${email.subject || "(no subject)"}</subject>
-<from>${email.headers.from}</from>
+<from>${email.from}</from>
 ${recipients.length > 0 ? `<recipients>\n${recipients.join("\n")}\n</recipients>` : ""}
 <content>
 ${email.content || "(no content)"}

@@ -16,6 +16,7 @@ import { detectMeetingTrigger } from "@/utils/meetings/detect-meeting-trigger";
 import { aiParseMeetingRequest } from "@/utils/meetings/parse-meeting-request";
 import { getEmailForLLM } from "@/utils/get-email-from-message";
 import { findMeetingAvailability } from "@/utils/meetings/find-availability";
+import { createMeetingLink } from "@/utils/meetings/create-meeting-link";
 
 export type SharedProcessHistoryOptions = {
   provider: EmailProvider;
@@ -184,11 +185,37 @@ export async function processHistoryItem(
           hasConflicts: availability.hasConflicts,
         });
 
-        // TODO: Phase 4-6 implementation
-        // - Generate meeting link (Phase 4)
-        // - Create calendar event (Phase 5)
-        // - Send confirmation email (Phase 6)
-        // For now, just log the availability results
+        // Select time slot - prefer requested times, fall back to suggestions
+        const timeSlot =
+          availability.requestedTimes[0] || availability.suggestedTimes[0];
+
+        if (!timeSlot) {
+          logger.warn("No available time slots found for meeting");
+        } else {
+          // Generate meeting link (Phase 4)
+          try {
+            const meetingLink = await createMeetingLink({
+              emailAccountId,
+              subject: meetingDetails.title,
+              startDateTime: timeSlot.start,
+              endDateTime: timeSlot.endISO,
+              preferredProvider: meetingDetails.preferredProvider,
+            });
+
+            logger.info("Meeting link created", {
+              provider: meetingLink.provider,
+              joinUrl: meetingLink.joinUrl,
+              startTime: timeSlot.startISO,
+              endTime: timeSlot.endISO,
+            });
+
+            // TODO: Phase 5-6 implementation
+            // - Create calendar event (Phase 5)
+            // - Send confirmation email (Phase 6)
+          } catch (error) {
+            logger.error("Failed to create meeting link", { error });
+          }
+        }
       } catch (error) {
         logger.error("Error parsing meeting request", { error });
       }
