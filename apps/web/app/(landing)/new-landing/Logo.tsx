@@ -1,4 +1,21 @@
-export function Logo() {
+import Image from "next/image";
+
+interface LogoProps {
+  variant?: "default" | "glass";
+}
+
+function GlassLogo() {
+  return (
+    <Image
+      src="/images/new-landing/inbox-zero-glass.png"
+      alt="Logo"
+      width={142}
+      height={19}
+    />
+  );
+}
+
+function DefaultLogo() {
   return (
     <svg
       width="142"
@@ -30,4 +47,12 @@ export function Logo() {
       </defs>
     </svg>
   );
+}
+
+export function Logo({ variant = "default" }: LogoProps) {
+  if (variant === "glass") {
+    return <GlassLogo />;
+  }
+
+  return <DefaultLogo />;
 }
