@@ -1,7 +1,6 @@
 "use client";
 
 import { useRef, useState } from "react";
-import Link from "next/link";
 import { HistoryIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { SectionDescription } from "@/components/Typography";
@@ -23,7 +22,6 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { useAccount } from "@/providers/EmailAccountProvider";
-import { prefixPath } from "@/utils/path";
 import { fetchWithAccount } from "@/utils/fetch";
 
 export function BulkRunRules() {
@@ -165,9 +163,9 @@ async function onRun(
         type: "inbox",
         limit: LIMIT,
         after: startDate,
-        before: endDate,
+        ...(endDate ? { before: endDate } : {}),
         isUnread: true,
-        nextPageToken: nextPageToken || undefined,
+        ...(nextPageToken ? { nextPageToken } : {}),
       };
 
       const res = await fetchWithAccount({
@@ -183,7 +181,10 @@ async function onRun(
         console.error("Failed to fetch threads:", res.status, errorData);
         toastError({
           title: "Failed to fetch emails",
-          description: errorData.error || `Error: ${res.status}`,
+          description:
+            typeof errorData.error === "string"
+              ? errorData.error
+              : `Error: ${res.status}`,
         });
         break;
       }
