@@ -42,7 +42,7 @@ export function FAQs() {
       <CardWrapper>
         <div className="grid grid-cols-2 gap-6">
           {faqs.map((faq) => (
-            <Card key={faq.question}>
+            <Card variant="extra-rounding" className="gap-4" key={faq.question}>
               <p className="font-semibold leading-none tracking-tight">
                 {faq.question}
               </p>

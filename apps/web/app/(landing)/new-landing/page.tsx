@@ -3,6 +3,7 @@ import { BasicLayout } from "./BasicLayout";
 import type { Metadata } from "next";
 import Image from "next/image";
 import { FAQs } from "@/app/(landing)/new-landing/FAQs";
+import { Testimonials } from "@/app/(landing)/new-landing/Testimonials";
 
 export const metadata: Metadata = { alternates: { canonical: "/" } };
 
@@ -79,12 +80,7 @@ export default function NewLanding() {
       >
         <div />
       </Section>
-      <Section
-        title="Join thousands of others who spend less time on emails"
-        subtitle="Our customers love saving time with inboxzero."
-      >
-        <div />
-      </Section>
+      <Testimonials />
       <Section
         title="Buy back your time"
         subtitle="Stop wasting half your day on email. Start using Inbox Zero today."
