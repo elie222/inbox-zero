@@ -12,6 +12,7 @@ import type { EmailProvider } from "@/utils/email/types";
 import type { RuleWithActions } from "@/utils/types";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import type { Logger } from "@/utils/logger";
+import { detectMeetingTrigger } from "@/utils/meetings/detect-meeting-trigger";
 
 export type SharedProcessHistoryOptions = {
   provider: EmailProvider;
@@ -134,6 +135,27 @@ export async function processHistoryItem(
     }
 
     const isOutbound = provider.isSentMessage(parsedMessage);
+
+    // Check for meeting triggers (works for both sent messages and emails to yourself)
+    const meetingTrigger = detectMeetingTrigger({
+      subject: parsedMessage.headers.subject,
+      textBody: parsedMessage.textPlain,
+      htmlBody: parsedMessage.textHtml,
+      fromEmail: extractEmailAddress(parsedMessage.headers.from),
+      userEmail,
+      isSent: isOutbound,
+    });
+
+    if (meetingTrigger.isTriggered) {
+      logger.info("Meeting trigger detected", {
+        triggerType: meetingTrigger.triggerType,
+        isSentEmail: meetingTrigger.isSentEmail,
+      });
+
+      // TODO: Process meeting request
+      // This will be implemented in the next phase
+      // For now, just log the detection
+    }
 
     if (isOutbound) {
       await handleOutboundMessage({
