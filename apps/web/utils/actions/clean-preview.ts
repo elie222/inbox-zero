@@ -5,7 +5,7 @@ import { z } from "zod";
 import { getGmailClientWithRefresh } from "@/utils/gmail/client";
 import { getOutlookClientWithRefresh } from "@/utils/outlook/client";
 import { isGoogleProvider } from "@/utils/email/provider-types";
-import { getMessages as getGmailMessages } from "@/utils/gmail/message";
+import { queryBatchMessages as getGmailMessages } from "@/utils/gmail/message";
 import { getMessages as getOutlookMessages } from "@/utils/outlook/message";
 import { PREVIEW_RUN_COUNT } from "@/app/(app)/[emailAccountId]/clean/consts";
 import { subDays } from "date-fns";
@@ -22,14 +22,16 @@ export const getPreviewEmailsAction = actionClient
   .metadata({ name: "getPreviewEmails" })
   .schema(getPreviewEmailsBody)
   .action(async ({ ctx: { emailAccountId }, parsedInput: { daysOld } }) => {
-    // Fetch full email account with tokens
+    // Fetch full email account with account tokens
     const emailAccount = await prisma.emailAccount.findUnique({
       where: { id: emailAccountId },
       include: {
-        tokens: true,
         account: {
           select: {
             provider: true,
+            access_token: true,
+            refresh_token: true,
+            expires_at: true,
           },
         },
       },
@@ -39,7 +41,10 @@ export const getPreviewEmailsAction = actionClient
       throw new Error("Email account not found");
     }
 
-    if (!emailAccount.tokens) {
+    if (
+      !emailAccount.account.access_token ||
+      !emailAccount.account.refresh_token
+    ) {
       throw new Error("No account tokens found");
     }
 
@@ -49,40 +54,39 @@ export const getPreviewEmailsAction = actionClient
     try {
       if (isGmail) {
         const gmail = await getGmailClientWithRefresh({
-          accessToken: emailAccount.tokens.access_token,
-          refreshToken: emailAccount.tokens.refresh_token,
-          expiresAt: emailAccount.tokens.expires_at,
+          accessToken: emailAccount.account.access_token,
+          refreshToken: emailAccount.account.refresh_token,
+          expiresAt: emailAccount.account.expires_at?.getTime() || null,
           emailAccountId: emailAccount.id,
         });
 
-        const messages = await getGmailMessages(gmail, {
+        const { messages } = await getGmailMessages(gmail, {
           query: `in:inbox after:${after}`,
           maxResults: PREVIEW_RUN_COUNT,
         });
 
-        return messages.messages.map((message) => ({
+        return messages.map((message) => ({
           id: message.id || "",
           threadId: message.threadId || "",
           snippet: message.snippet || "",
-          from: message.parsedMessage.headers.from || "",
-          subject: message.parsedMessage.headers.subject || "",
-          date: message.parsedMessage.headers.date || "",
+          from: message.headers.from || "",
+          subject: message.headers.subject || "",
+          date: message.headers.date || "",
         }));
       } else {
         const outlook = await getOutlookClientWithRefresh({
-          accessToken: emailAccount.tokens.access_token,
-          refreshToken: emailAccount.tokens.refresh_token,
-          expiresAt: emailAccount.tokens.expires_at || null,
+          accessToken: emailAccount.account.access_token,
+          refreshToken: emailAccount.account.refresh_token,
+          expiresAt: emailAccount.account.expires_at?.getTime() || null,
           emailAccountId: emailAccount.id,
         });
 
-        const messages = await getOutlookMessages(outlook, {
+        const { messages } = await getOutlookMessages(outlook, {
           query: "",
           maxResults: PREVIEW_RUN_COUNT,
-          after: subDays(new Date(), daysOld),
         });
 
-        return messages.messages.map((message) => ({
+        return messages.map((message) => ({
           id: message.id || "",
           threadId: message.threadId || "",
           snippet: message.snippet || "",

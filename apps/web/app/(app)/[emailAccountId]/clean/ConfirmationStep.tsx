@@ -23,6 +23,7 @@ export function ConfirmationStep({
   instructions,
   skips,
   reuseSettings,
+  showPreview,
 }: {
   showFooter: boolean;
   action: CleanAction;
@@ -36,6 +37,7 @@ export function ConfirmationStep({
     attachment: boolean;
   };
   reuseSettings: boolean;
+  showPreview?: boolean;
 }) {
   const router = useRouter();
   const { emailAccountId, provider } = useAccount();
