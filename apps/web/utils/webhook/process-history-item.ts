@@ -17,6 +17,7 @@ import { aiParseMeetingRequest } from "@/utils/meetings/parse-meeting-request";
 import { getEmailForLLM } from "@/utils/get-email-from-message";
 import { findMeetingAvailability } from "@/utils/meetings/find-availability";
 import { createMeetingLink } from "@/utils/meetings/create-meeting-link";
+import { createCalendarEvent } from "@/utils/meetings/create-calendar-event";
 
 export type SharedProcessHistoryOptions = {
   provider: EmailProvider;
@@ -209,9 +210,30 @@ export async function processHistoryItem(
               endTime: timeSlot.endISO,
             });
 
-            // TODO: Phase 5-6 implementation
-            // - Create calendar event (Phase 5)
-            // - Send confirmation email (Phase 6)
+            // Create calendar event (Phase 5)
+            try {
+              const calendarEvent = await createCalendarEvent({
+                emailAccountId,
+                meetingDetails,
+                startDateTime: timeSlot.start,
+                endDateTime: timeSlot.endISO,
+                meetingLink,
+                timezone: availability.timezone,
+              });
+
+              logger.info("Calendar event created", {
+                eventId: calendarEvent.eventId,
+                eventUrl: calendarEvent.eventUrl,
+                provider: calendarEvent.provider,
+              });
+
+              // TODO: Phase 6 implementation
+              // - Send confirmation email to attendees
+            } catch (calendarError) {
+              logger.error("Failed to create calendar event", {
+                error: calendarError,
+              });
+            }
           } catch (error) {
             logger.error("Failed to create meeting link", { error });
           }
