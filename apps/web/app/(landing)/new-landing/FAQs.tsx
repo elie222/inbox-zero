@@ -1,6 +1,7 @@
 import { Card } from "@/app/(landing)/new-landing/Card";
 import { CardWrapper } from "@/app/(landing)/new-landing/CardWrapper";
 import { Section } from "@/app/(landing)/new-landing/Section";
+import { Paragraph } from "@/app/(landing)/new-landing/Typography";
 
 // TODO: add links
 const faqs = [
@@ -46,7 +47,7 @@ export function FAQs() {
               <p className="font-semibold leading-none tracking-tight">
                 {faq.question}
               </p>
-              <p className="text-gray-500">{faq.answer}</p>
+              <Paragraph>{faq.answer}</Paragraph>
             </Card>
           ))}
         </div>

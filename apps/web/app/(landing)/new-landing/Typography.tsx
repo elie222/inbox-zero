@@ -1,4 +1,5 @@
 import { cn } from "@/utils";
+import { cva } from "class-variance-authority";
 
 const defaultClasses = "font-aeonik";
 
@@ -24,4 +25,27 @@ export function Subheading({ children, className }: SubheadingProps) {
       {children}
     </h2>
   );
+}
+
+interface ParagraphProps {
+  children: React.ReactNode;
+  variant?: "default" | "light";
+  className?: string;
+}
+
+export function Paragraph({
+  children,
+  className,
+  variant = "default",
+}: ParagraphProps) {
+  const paragraphStyles = cva("", {
+    variants: {
+      variant: {
+        default: "text-gray-500",
+        light: "text-gray-400",
+      },
+    },
+  });
+
+  return <p className={paragraphStyles({ variant, className })}>{children}</p>;
 }

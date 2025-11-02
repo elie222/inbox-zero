@@ -5,6 +5,7 @@ import Image from "next/image";
 import { Section } from "@/app/(landing)/new-landing/Section";
 import { Card } from "@/app/(landing)/new-landing/Card";
 import { cva } from "class-variance-authority";
+import { Paragraph } from "@/app/(landing)/new-landing/Typography";
 
 type Testimonial = {
   body: string;
@@ -240,7 +241,7 @@ function TestimonialCard({
           <div className="text-left">
             <p className="font-semibold">{testimonial.author.name}</p>
             {testimonial.author.handle ? (
-              <p className="text-gray-500">{testimonial.author.handle}</p>
+              <Paragraph>{testimonial.author.handle}</Paragraph>
             ) : undefined}
           </div>
         </div>

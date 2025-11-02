@@ -9,6 +9,7 @@ import { Zap } from "@/app/(landing)/new-landing/Zap";
 import { Check } from "@/app/(landing)/new-landing/Check";
 import { cn } from "@/utils";
 import type { ButtonVariant } from "./Button";
+import { Paragraph } from "@/app/(landing)/new-landing/Typography";
 
 type PricingPlan = {
   title: string;
@@ -131,14 +132,17 @@ export function Pricing() {
                   </div>
                   <div className="space-y-3">
                     <h2 className="text-xl font-bold">{title}</h2>
-                    <p className="text-gray-500">{description}</p>
+                    <Paragraph>{description}</Paragraph>
                   </div>
                   <div className="flex gap-2 items-end">
                     <h1 className="text-4xl font-bold">{price.amount}</h1>
                     {price.subtext ? (
-                      <p className="text-gray-400 text-xs -translate-y-1">
+                      <Paragraph
+                        variant="light"
+                        className="text-xs -translate-y-1"
+                      >
                         {price.subtext}
-                      </p>
+                      </Paragraph>
                     ) : null}
                   </div>
                   <Button className="w-full" variant={button.variant}>
@@ -147,9 +151,9 @@ export function Pricing() {
                 </div>
                 <div className="p-6 border-t border-[#E7E7E780]">
                   {features.title ? (
-                    <p className="text-gray-500 font-medium text-sm mb-4">
+                    <Paragraph className=" font-medium text-sm mb-4">
                       {features.title}
-                    </p>
+                    </Paragraph>
                   ) : null}
                   <ul className="space-y-3">
                     {features.items.map((item) => (
