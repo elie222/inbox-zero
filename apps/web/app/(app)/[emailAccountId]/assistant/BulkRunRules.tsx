@@ -35,7 +35,10 @@ export function BulkRunRules() {
 
   const queue = useAiQueueState();
 
-  const { hasAiAccess, isLoading: isLoadingPremium } = usePremium();
+  // Temporarily disable premium check for testing
+  const hasAiAccess = true;
+  const isLoadingPremium = false;
+  // const { hasAiAccess, isLoading: isLoadingPremium } = usePremium();
 
   const [running, setRunning] = useState(false);
 
@@ -168,7 +171,8 @@ async function onRun(
         limit: LIMIT,
         after: startDate,
         before: endDate || undefined,
-        isUnread: true,
+        // Process all emails, not just unread
+        // isUnread: true,
       };
       const res = await fetchWithAccount({
         url: `/api/threads?${

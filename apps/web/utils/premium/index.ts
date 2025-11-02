@@ -15,10 +15,12 @@ export const isPremium = (
   lemonSqueezyRenewsAt: Date | null,
   stripeSubscriptionStatus: string | null,
 ): boolean => {
-  return (
-    isPremiumStripe(stripeSubscriptionStatus) ||
-    isPremiumLemonSqueezy(lemonSqueezyRenewsAt)
-  );
+  // Premium enabled for all users permanently
+  return true;
+  // return (
+  //   isPremiumStripe(stripeSubscriptionStatus) ||
+  //   isPremiumLemonSqueezy(lemonSqueezyRenewsAt)
+  // );
 };
 
 export const isActivePremium = (
@@ -27,12 +29,14 @@ export const isActivePremium = (
     "lemonSqueezyRenewsAt" | "stripeSubscriptionStatus"
   > | null,
 ): boolean => {
-  if (!premium) return false;
-
-  return (
-    premium.stripeSubscriptionStatus === "active" ||
-    isPremiumLemonSqueezy(premium.lemonSqueezyRenewsAt)
-  );
+  // Premium enabled for all users permanently
+  return true;
+  // if (!premium) return false;
+  //
+  // return (
+  //   premium.stripeSubscriptionStatus === "active" ||
+  //   isPremiumLemonSqueezy(premium.lemonSqueezyRenewsAt)
+  // );
 };
 
 export const getUserTier = (
@@ -87,16 +91,18 @@ export const hasAiAccess = (
   tier: PremiumTier | null,
   aiApiKey?: string | null,
 ) => {
-  if (!tier) return false;
-
-  const ranking = tierRanking[tier];
-
-  const hasAiAccess = !!(
-    ranking >= tierRanking[PremiumTier.BUSINESS_MONTHLY] ||
-    (ranking >= tierRanking[PremiumTier.PRO_MONTHLY] && aiApiKey)
-  );
-
-  return hasAiAccess;
+  // Premium enabled for all users permanently
+  return true;
+  // if (!tier) return false;
+  //
+  // const ranking = tierRanking[tier];
+  //
+  // const hasAiAccess = !!(
+  //   ranking >= tierRanking[PremiumTier.BUSINESS_MONTHLY] ||
+  //   (ranking >= tierRanking[PremiumTier.PRO_MONTHLY] && aiApiKey)
+  // );
+  //
+  // return hasAiAccess;
 };
 
 export const hasTierAccess = ({
@@ -106,13 +112,15 @@ export const hasTierAccess = ({
   tier: PremiumTier | null;
   minimumTier: PremiumTier;
 }): boolean => {
-  if (!tier) return false;
-
-  const ranking = tierRanking[tier];
-
-  const hasAiAccess = ranking >= tierRanking[minimumTier];
-
-  return hasAiAccess;
+  // Premium enabled for all users permanently
+  return true;
+  // if (!tier) return false;
+  //
+  // const ranking = tierRanking[tier];
+  //
+  // const hasAiAccess = ranking >= tierRanking[minimumTier];
+  //
+  // return hasAiAccess;
 };
 
 export function isOnHigherTier(

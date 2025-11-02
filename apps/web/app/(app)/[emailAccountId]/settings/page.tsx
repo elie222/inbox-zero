@@ -3,6 +3,7 @@
 import { ApiKeysSection } from "@/app/(app)/[emailAccountId]/settings/ApiKeysSection";
 import { BillingSection } from "@/app/(app)/[emailAccountId]/settings/BillingSection";
 import { DeleteSection } from "@/app/(app)/[emailAccountId]/settings/DeleteSection";
+import { MeetingSchedulerSection } from "@/app/(app)/[emailAccountId]/settings/MeetingSchedulerSection";
 import { ModelSection } from "@/app/(app)/[emailAccountId]/settings/ModelSection";
 import { MultiAccountSection } from "@/app/(app)/[emailAccountId]/settings/MultiAccountSection";
 import { ResetAnalyticsSection } from "@/app/(app)/[emailAccountId]/settings/ResetAnalyticsSection";
@@ -53,6 +54,7 @@ export default function SettingsPage() {
                 </SectionDescription>
               </FormSection>
 
+              <MeetingSchedulerSection />
               <ResetAnalyticsSection />
 
               {/* this is only used in Gmail when sending a new message. disabling for now. */}
