@@ -14,15 +14,14 @@ export const isValidInternalApiKey = (
   const apiKey = headers.get(INTERNAL_API_KEY_HEADER);
   const isValid = apiKey === env.INTERNAL_API_KEY;
   if (!isValid) {
-    const origin = headers.get("origin");
-    const referer = headers.get("referer");
-    const userAgent = headers.get("user-agent");
+    const allHeaders: Record<string, string | null> = {};
+    headers.forEach((value, key) => {
+      allHeaders[key] = value;
+    });
 
     logger.error("Invalid API key", {
       invalidApiKey: apiKey,
-      origin,
-      referer,
-      userAgent,
+      headers: allHeaders,
     });
   }
   return isValid;
