@@ -14,7 +14,10 @@ import {
   FormSectionRight,
 } from "@/components/Form";
 import { LoadingContent } from "@/components/LoadingContent";
-import { updateMeetingSchedulerSettingsAction } from "@/utils/actions/meeting-scheduler";
+import {
+  updateMeetingSchedulerSettingsAction,
+  connectCalendarWebhookAction,
+} from "@/utils/actions/meeting-scheduler";
 import {
   updateMeetingSchedulerSettingsBody,
   type UpdateMeetingSchedulerSettingsBody,
@@ -39,6 +42,9 @@ export function MeetingSchedulerSection() {
   const { executeAsync: executeUpdateSettings, isExecuting } = useAction(
     updateMeetingSchedulerSettingsAction.bind(null, emailAccountId),
   );
+
+  const { executeAsync: executeConnectCalendar, isExecuting: isConnecting } =
+    useAction(connectCalendarWebhookAction.bind(null, emailAccountId));
 
   const {
     register,
@@ -86,6 +92,20 @@ export function MeetingSchedulerSection() {
       [executeUpdateSettings, mutate],
     );
 
+  const handleConnectCalendar = useCallback(async () => {
+    const result = await executeConnectCalendar();
+
+    if (result?.serverError) {
+      toastError({
+        title: "Connection failed",
+        description: result.serverError,
+      });
+    } else {
+      toastSuccess({ description: "Calendar connected successfully!" });
+      mutate();
+    }
+  }, [executeConnectCalendar, mutate]);
+
   const isEnabled = watch("meetingSchedulerEnabled");
   const preferredProvider = watch("meetingSchedulerPreferredProvider");
 
@@ -97,6 +117,16 @@ export function MeetingSchedulerSection() {
         ? ["auto", "teams", "zoom", "none"]
         : ["auto", "zoom", "none"];
 
+  // Webhook status
+  const isMicrosoft = data?.account?.provider === "microsoft";
+  const webhookExpiration = data?.watchEmailsExpirationDate
+    ? new Date(data.watchEmailsExpirationDate)
+    : null;
+  const isWebhookActive = webhookExpiration && webhookExpiration > new Date();
+  const webhookStatusText = isWebhookActive
+    ? `Connected (expires ${webhookExpiration.toLocaleDateString()})`
+    : "Not connected";
+
   return (
     <FormSection>
       <FormSectionLeft
@@ -107,7 +137,10 @@ export function MeetingSchedulerSection() {
       <FormSectionRight>
         <LoadingContent loading={isLoading} error={error}>
           {data && (
-            <form className="space-y-4" onSubmit={handleSubmit(onSubmit)}>
+            <form
+              className="space-y-4 sm:col-span-6"
+              onSubmit={handleSubmit(onSubmit)}
+            >
               {/* Enable/Disable Toggle */}
               <div className="flex items-center space-x-2">
                 <input
@@ -243,6 +276,35 @@ export function MeetingSchedulerSection() {
                       Automatically create meetings without confirmation
                     </label>
                   </div>
+
+                  {/* Calendar Connection Status (Microsoft only) */}
+                  {isMicrosoft && (
+                    <div className="space-y-2 rounded-md border border-gray-200 bg-gray-50 p-4">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-sm font-medium text-gray-900">
+                            Calendar Connection
+                          </p>
+                          <p className="text-xs text-gray-600">
+                            {webhookStatusText}
+                          </p>
+                        </div>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={handleConnectCalendar}
+                          loading={isConnecting}
+                        >
+                          {isWebhookActive ? "Reconnect" : "Connect Calendar"}
+                        </Button>
+                      </div>
+                      <p className="text-xs text-gray-500">
+                        Calendar connection is required for automatic meeting
+                        scheduling to work in real-time.
+                      </p>
+                    </div>
+                  )}
                 </>
               )}
 

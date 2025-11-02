@@ -2,7 +2,6 @@
 
 import { useCallback } from "react";
 import { type SubmitHandler, useFieldArray, useForm } from "react-hook-form";
-import { useSession } from "@/utils/auth-client";
 import { zodResolver } from "@hookform/resolvers/zod";
 import useSWR from "swr";
 import { usePostHog } from "posthog-js/react";
@@ -24,18 +23,16 @@ import type { MultiAccountEmailsResponse } from "@/app/api/user/settings/multi-a
 import { AlertBasic, AlertWithButton } from "@/components/Alert";
 import { usePremium } from "@/components/PremiumAlert";
 import { PremiumTier } from "@prisma/client";
-import { getUserTier, isAdminForPremium } from "@/utils/premium";
+import { getUserTier } from "@/utils/premium";
 import { usePremiumModal } from "@/app/(app)/premium/PremiumModal";
 import { useAction } from "next-safe-action/hooks";
 import { toastError, toastSuccess } from "@/components/Toast";
 
 export function MultiAccountSection() {
-  const { data: session } = useSession();
   const { data, isLoading, error, mutate } = useSWR<MultiAccountEmailsResponse>(
     "/api/user/settings/multi-account",
   );
   const {
-    isPremium,
     premium,
     isLoading: isLoadingPremium,
     error: errorPremium,
@@ -58,11 +55,12 @@ export function MultiAccountSection() {
     },
   });
 
-  if (
-    isPremium &&
-    !isAdminForPremium(data?.admins || [], session?.user.id || "")
-  )
-    return null;
+  // TEMPORARILY DISABLED FOR TESTING
+  // if (
+  //   isPremium &&
+  //   !isAdminForPremium(data?.admins || [], session?.user.id || "")
+  // )
+  //   return null;
 
   return (
     <FormSection id="manage-users">
@@ -72,49 +70,38 @@ export function MultiAccountSection() {
       />
 
       <LoadingContent loading={isLoadingPremium} error={errorPremium}>
-        {isPremium ? (
-          <LoadingContent loading={isLoading} error={error}>
-            {data && (
-              <div>
-                {!data?.admins.length && (
-                  <div className="mb-4">
-                    <Button onClick={() => claimPremiumAdmin()}>
-                      Claim Admin
-                    </Button>
-                  </div>
-                )}
-
-                {premiumTier && (
-                  <ExtraSeatsAlert
-                    premiumTier={premiumTier}
-                    emailAccountsAccess={premium?.emailAccountsAccess || 0}
-                    seatsUsed={data.users.length}
-                  />
-                )}
-
-                <div className="mt-4">
-                  <MultiAccountForm
-                    emailAddresses={data.users as { email: string }[]}
-                    isLifetime={premium?.tier === PremiumTier.LIFETIME}
-                    emailAccountsAccess={premium?.emailAccountsAccess || 0}
-                    pendingInvites={premium?.pendingInvites || []}
-                    onUpdate={mutate}
-                  />
+        {/* TEMPORARILY DISABLED FOR TESTING - Always show premium features */}
+        <LoadingContent loading={isLoading} error={error}>
+          {data && (
+            <div>
+              {!data?.admins.length && (
+                <div className="mb-4">
+                  <Button onClick={() => claimPremiumAdmin()}>
+                    Claim Admin
+                  </Button>
                 </div>
+              )}
+
+              {premiumTier && (
+                <ExtraSeatsAlert
+                  premiumTier={premiumTier}
+                  emailAccountsAccess={premium?.emailAccountsAccess || 0}
+                  seatsUsed={data.users.length}
+                />
+              )}
+
+              <div className="mt-4">
+                <MultiAccountForm
+                  emailAddresses={data.users as { email: string }[]}
+                  isLifetime={premium?.tier === PremiumTier.LIFETIME}
+                  emailAccountsAccess={premium?.emailAccountsAccess || 0}
+                  pendingInvites={premium?.pendingInvites || []}
+                  onUpdate={mutate}
+                />
               </div>
-            )}
-          </LoadingContent>
-        ) : (
-          <div className="sm:col-span-2">
-            <AlertWithButton
-              title="Upgrade"
-              description="Upgrade to premium to share premium with other email addresses."
-              icon={<CrownIcon className="h-4 w-4" />}
-              button={<Button onClick={openModal}>Upgrade</Button>}
-            />
-            <PremiumModal />
-          </div>
-        )}
+            </div>
+          )}
+        </LoadingContent>
       </LoadingContent>
     </FormSection>
   );

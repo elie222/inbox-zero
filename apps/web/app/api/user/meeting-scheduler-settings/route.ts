@@ -27,6 +27,12 @@ async function getMeetingSchedulerSettings({
       meetingSchedulerWorkingHoursStart: true,
       meetingSchedulerWorkingHoursEnd: true,
       meetingSchedulerAutoCreate: true,
+      watchEmailsExpirationDate: true,
+      account: {
+        select: {
+          provider: true,
+        },
+      },
     },
   });
 

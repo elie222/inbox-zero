@@ -38,7 +38,7 @@ export function ProgressPanel({
             className="w-full"
             color={isCompleted ? "green" : "blue"}
           />
-          <p className="mt-2 flex justify-between text-sm" aria-live="polite">
+          <div className="mt-2 flex justify-between text-sm" aria-live="polite">
             <span
               className={cn(
                 "text-muted-foreground",
@@ -48,16 +48,16 @@ export function ProgressPanel({
               {isCompleted ? (
                 completedText
               ) : (
-                <div className="flex items-center gap-1">
+                <span className="flex items-center gap-1">
                   <LoadingMiniSpinner />
                   <span>{inProgressText}</span>
-                </div>
+                </span>
               )}
             </span>
             <span>
               {totalProcessed} of {totalItems} {itemLabel} processed
             </span>
-          </p>
+          </div>
         </motion.div>
       </AnimatePresence>
     </div>

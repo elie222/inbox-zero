@@ -3,7 +3,6 @@ import prisma from "@/utils/prisma";
 import { hasCronSecret, hasPostCronSecret } from "@/utils/cron";
 import { withError } from "@/utils/middleware";
 import { captureException } from "@/utils/error";
-import { hasAiAccess } from "@/utils/premium";
 import { createScopedLogger } from "@/utils/logger";
 import { createManagedOutlookSubscription } from "@/utils/outlook/subscription-manager";
 
@@ -18,14 +17,15 @@ async function watchAllEmails() {
       account: {
         provider: "microsoft",
       },
-      user: {
-        premium: {
-          OR: [
-            { lemonSqueezyRenewsAt: { gt: new Date() } },
-            { stripeSubscriptionStatus: { in: ["active", "trialing"] } },
-          ],
-        },
-      },
+      // TEMPORARILY DISABLED FOR TESTING - All Microsoft accounts included
+      // user: {
+      //   premium: {
+      //     OR: [
+      //       { lemonSqueezyRenewsAt: { gt: new Date() } },
+      //       { stripeSubscriptionStatus: { in: ["active", "trialing"] } },
+      //     ],
+      //   },
+      // },
     },
     select: {
       id: true,
@@ -59,30 +59,31 @@ async function watchAllEmails() {
         email: emailAccount.email,
       });
 
-      const userHasAiAccess = hasAiAccess(
-        emailAccount.user.premium?.tier || null,
-        emailAccount.user.aiApiKey,
-      );
+      // TEMPORARILY DISABLED FOR TESTING - Premium check bypassed
+      // const userHasAiAccess = hasAiAccess(
+      //   emailAccount.user.premium?.tier || null,
+      //   emailAccount.user.aiApiKey,
+      // );
 
-      if (!userHasAiAccess) {
-        logger.info("User does not have access to AI", {
-          email: emailAccount.email,
-        });
-        if (
-          emailAccount.watchEmailsExpirationDate &&
-          new Date(emailAccount.watchEmailsExpirationDate) < new Date()
-        ) {
-          await prisma.emailAccount.update({
-            where: { email: emailAccount.email },
-            data: {
-              watchEmailsExpirationDate: null,
-              watchEmailsSubscriptionId: null,
-            },
-          });
-        }
+      // if (!userHasAiAccess) {
+      //   logger.info("User does not have access to AI", {
+      //     email: emailAccount.email,
+      //   });
+      //   if (
+      //     emailAccount.watchEmailsExpirationDate &&
+      //     new Date(emailAccount.watchEmailsExpirationDate) < new Date()
+      //   ) {
+      //     await prisma.emailAccount.update({
+      //       where: { email: emailAccount.email },
+      //       data: {
+      //         watchEmailsExpirationDate: null,
+      //         watchEmailsSubscriptionId: null,
+      //       },
+      //     });
+      //   }
 
-        continue;
-      }
+      //   continue;
+      // }
 
       if (
         !emailAccount.account?.access_token ||
