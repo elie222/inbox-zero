@@ -130,6 +130,14 @@ model EmailAccount {
   autoCategorizeSenders     Boolean           @default(false)
   multiRuleSelectionEnabled Boolean           @default(false)
 
+  // Meeting Scheduler settings
+  meetingSchedulerEnabled            Boolean @default(true) // Enable/disable automatic meeting scheduling
+  meetingSchedulerDefaultDuration    Int     @default(60) // Default meeting duration in minutes (30, 60, 90)
+  meetingSchedulerPreferredProvider  String? // Preferred meeting provider: 'auto', 'teams', 'google-meet', 'zoom', 'none'
+  meetingSchedulerWorkingHoursStart  Int     @default(9) // Working hours start (0-23)
+  meetingSchedulerWorkingHoursEnd    Int     @default(17) // Working hours end (0-23)
+  meetingSchedulerAutoCreate         Boolean @default(true) // Auto-create events or prompt for confirmation
+
   digestSchedule Schedule?
 
   userId    String
