@@ -1,9 +1,9 @@
 import Image from "next/image";
-import { Button } from "@/components/new-landing/Button";
-import { Section } from "./Section";
-import { Gmail } from "@/components/new-landing/Gmail";
-import { Outlook } from "@/components/new-landing/Outlook";
-import { Paragraph } from "@/components/new-landing/Typography";
+import { Button } from "@/components/new-landing/common/Button";
+import { Gmail } from "@/components/new-landing/icons/Gmail";
+import { Outlook } from "@/components/new-landing/icons/Outlook";
+import { Section } from "@/components/new-landing/common/Section";
+import { Paragraph } from "@/components/new-landing/common/Typography";
 
 export function Hero() {
   return (

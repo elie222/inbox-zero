@@ -1,6 +1,6 @@
-import { Logo } from "./Logo";
-import { Button } from "./Button";
 import { cn } from "@/utils";
+import { Logo } from "@/components/new-landing/common/Logo";
+import { Button } from "@/components/new-landing/common/Button";
 
 interface HeaderProps {
   layoutStyle: string;

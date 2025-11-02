@@ -1,11 +1,11 @@
 import type { Metadata } from "next";
 import Image from "next/image";
-import { Section } from "@/components/new-landing/Section";
-import { BasicLayout } from "@/components/new-landing/BasicLayout";
-import { FAQs } from "@/components/new-landing/FAQs";
-import { Testimonials } from "@/components/new-landing/Testimonials";
-import { Hero } from "@/components/new-landing/Hero";
-import { Pricing } from "@/components/new-landing/Pricing";
+import { Section } from "@/components/new-landing/common/Section";
+import { BasicLayout } from "@/components/new-landing/common/BasicLayout";
+import { FAQs } from "@/components/new-landing/sections/FAQs";
+import { Testimonials } from "@/components/new-landing/sections/Testimonials";
+import { Hero } from "@/components/new-landing/sections/Hero";
+import { Pricing } from "@/components/new-landing/sections/Pricing";
 
 export const metadata: Metadata = { alternates: { canonical: "/" } };
 

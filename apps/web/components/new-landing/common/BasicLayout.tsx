@@ -1,6 +1,6 @@
-import { Header } from "./Header";
-import { Footer } from "./Footer";
 import { cn } from "@/utils";
+import { Header } from "@/components/new-landing/sections/Header";
+import { Footer } from "@/components/new-landing/sections/Footer";
 
 const LAYOUT_STYLE = "max-w-6xl mx-auto px-6 lg:px-8";
 

@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { EXTENSION_URL } from "@/utils/config";
-import { Logo } from "./Logo";
+import { Logo } from "@/components/new-landing/common/Logo";
 import { cn } from "@/utils";
 
 const navigation = {

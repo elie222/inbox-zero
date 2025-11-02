@@ -1,15 +1,18 @@
 import { cn } from "@/utils";
-import { Badge, type BadgeVariant } from "@/components/new-landing/Badge";
-import { Button } from "@/components/new-landing/Button";
-import { Card } from "@/components/new-landing/Card";
-import { CardWrapper } from "@/components/new-landing/CardWrapper";
-import { Section } from "@/components/new-landing/Section";
-import { Briefcase } from "@/components/new-landing/Briefcase";
-import { Sparkle } from "@/components/new-landing/Sparkle";
-import { Zap } from "@/components/new-landing/Zap";
-import { Check } from "@/components/new-landing/Check";
-import type { ButtonVariant } from "@/components/new-landing/Button";
-import { Paragraph } from "@/components/new-landing/Typography";
+import { Briefcase } from "@/components/new-landing/icons/Briefcase";
+import { Sparkle } from "@/components/new-landing/icons/Sparkle";
+import { Zap } from "@/components/new-landing/icons/Zap";
+import { Check } from "@/components/new-landing/icons/Check";
+import { CardWrapper } from "@/components/new-landing/common/CardWrapper";
+import { Section } from "@/components/new-landing/common/Section";
+import type { ButtonVariant } from "@/components/new-landing/common/Button";
+import { Button } from "@/components/new-landing/common/Button";
+import { Card } from "@/components/new-landing/common/Card";
+import { Paragraph } from "@/components/new-landing/common/Typography";
+import {
+  Badge,
+  type BadgeVariant,
+} from "@/components/new-landing/common/Badge";
 
 type PricingPlan = {
   title: string;

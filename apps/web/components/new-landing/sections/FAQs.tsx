@@ -1,7 +1,7 @@
-import { Card } from "@/components/new-landing/Card";
-import { CardWrapper } from "@/components/new-landing/CardWrapper";
-import { Section } from "@/components/new-landing/Section";
-import { Paragraph } from "@/components/new-landing/Typography";
+import { Card } from "@/components/new-landing/common/Card";
+import { CardWrapper } from "@/components/new-landing/common/CardWrapper";
+import { Section } from "@/components/new-landing/common/Section";
+import { Paragraph } from "@/components/new-landing/common/Typography";
 
 // TODO: add links
 const faqs = [

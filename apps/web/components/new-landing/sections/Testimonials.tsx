@@ -3,9 +3,9 @@
 import clsx from "clsx";
 import Image from "next/image";
 import { cva } from "class-variance-authority";
-import { Section } from "@/components/new-landing/Section";
-import { Card } from "@/components/new-landing/Card";
-import { Paragraph } from "@/components/new-landing/Typography";
+import { Section } from "@/components/new-landing/common/Section";
+import { Card } from "@/components/new-landing/common/Card";
+import { Paragraph } from "@/components/new-landing/common/Typography";
 
 type Testimonial = {
   body: string;

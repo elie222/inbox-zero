@@ -2,7 +2,7 @@ import {
   Heading,
   Paragraph,
   Subheading,
-} from "@/components/new-landing/Typography";
+} from "@/components/new-landing/common/Typography";
 import { cn } from "@/utils";
 
 interface SectionProps {
