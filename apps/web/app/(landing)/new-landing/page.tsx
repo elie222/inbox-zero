@@ -5,6 +5,7 @@ import Image from "next/image";
 import { FAQs } from "@/app/(landing)/new-landing/FAQs";
 import { Testimonials } from "@/app/(landing)/new-landing/Testimonials";
 import { Hero } from "@/app/(landing)/new-landing/Hero";
+import { Pricing } from "@/app/(landing)/new-landing/Pricing";
 
 export const metadata: Metadata = { alternates: { canonical: "/" } };
 
@@ -76,12 +77,7 @@ export default function NewLanding() {
       >
         <div />
       </Section>
-      <Section
-        title="Try for free, affordable paid plans"
-        subtitle="No hidden fees. Cancel anytime."
-      >
-        <div />
-      </Section>
+      <Pricing />
       <Testimonials />
       <Section
         title="Buy back your time"

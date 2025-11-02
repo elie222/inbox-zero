@@ -1,4 +1,3 @@
-import { cn } from "@/utils";
 import { cva } from "class-variance-authority";
 
 interface CardProps {
@@ -29,7 +28,7 @@ export function Card({
     },
   );
   return (
-    <div className={cn(cardVariants({ variant, noPadding }), className)}>
+    <div className={cardVariants({ variant, noPadding, className })}>
       {children}
     </div>
   );

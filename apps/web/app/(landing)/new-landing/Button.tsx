@@ -3,9 +3,14 @@ import { cva } from "class-variance-authority";
 interface ButtonProps {
   children: React.ReactNode;
   variant?: "primary" | "secondary";
+  className?: string;
 }
 
-export function Button({ children, variant = "primary" }: ButtonProps) {
+export function Button({
+  children,
+  variant = "primary",
+  className,
+}: ButtonProps) {
   const buttonVariants = cva("py-2 px-4 rounded-xl text-sm font-medium", {
     variants: {
       variant: {
@@ -17,7 +22,7 @@ export function Button({ children, variant = "primary" }: ButtonProps) {
   });
 
   return (
-    <button type="button" className={buttonVariants({ variant })}>
+    <button type="button" className={buttonVariants({ variant, className })}>
       {children}
     </button>
   );
