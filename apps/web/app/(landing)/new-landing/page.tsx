@@ -1,11 +1,11 @@
-import { Section } from "./Section";
-import { BasicLayout } from "./BasicLayout";
 import type { Metadata } from "next";
 import Image from "next/image";
-import { FAQs } from "@/app/(landing)/new-landing/FAQs";
-import { Testimonials } from "@/app/(landing)/new-landing/Testimonials";
-import { Hero } from "@/app/(landing)/new-landing/Hero";
-import { Pricing } from "@/app/(landing)/new-landing/Pricing";
+import { Section } from "@/components/new-landing/Section";
+import { BasicLayout } from "@/components/new-landing/BasicLayout";
+import { FAQs } from "@/components/new-landing/FAQs";
+import { Testimonials } from "@/components/new-landing/Testimonials";
+import { Hero } from "@/components/new-landing/Hero";
+import { Pricing } from "@/components/new-landing/Pricing";
 
 export const metadata: Metadata = { alternates: { canonical: "/" } };
 

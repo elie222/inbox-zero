@@ -1,15 +1,15 @@
-import { Badge, type BadgeVariant } from "@/app/(landing)/new-landing/Badge";
-import { Button } from "@/app/(landing)/new-landing/Button";
-import { Card } from "@/app/(landing)/new-landing/Card";
-import { CardWrapper } from "@/app/(landing)/new-landing/CardWrapper";
-import { Section } from "@/app/(landing)/new-landing/Section";
-import { Briefcase } from "@/app/(landing)/new-landing/Briefcase";
-import { Sparkle } from "@/app/(landing)/new-landing/Sparkle";
-import { Zap } from "@/app/(landing)/new-landing/Zap";
-import { Check } from "@/app/(landing)/new-landing/Check";
 import { cn } from "@/utils";
-import type { ButtonVariant } from "./Button";
-import { Paragraph } from "@/app/(landing)/new-landing/Typography";
+import { Badge, type BadgeVariant } from "@/components/new-landing/Badge";
+import { Button } from "@/components/new-landing/Button";
+import { Card } from "@/components/new-landing/Card";
+import { CardWrapper } from "@/components/new-landing/CardWrapper";
+import { Section } from "@/components/new-landing/Section";
+import { Briefcase } from "@/components/new-landing/Briefcase";
+import { Sparkle } from "@/components/new-landing/Sparkle";
+import { Zap } from "@/components/new-landing/Zap";
+import { Check } from "@/components/new-landing/Check";
+import type { ButtonVariant } from "@/components/new-landing/Button";
+import { Paragraph } from "@/components/new-landing/Typography";
 
 type PricingPlan = {
   title: string;

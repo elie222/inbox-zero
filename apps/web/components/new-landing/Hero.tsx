@@ -1,9 +1,9 @@
-import { Button } from "@/app/(landing)/new-landing/Button";
-import { Section } from "./Section";
 import Image from "next/image";
-import { Gmail } from "@/app/(landing)/new-landing/Gmail";
-import { Outlook } from "@/app/(landing)/new-landing/Outlook";
-import { Paragraph } from "@/app/(landing)/new-landing/Typography";
+import { Button } from "@/components/new-landing/Button";
+import { Section } from "./Section";
+import { Gmail } from "@/components/new-landing/Gmail";
+import { Outlook } from "@/components/new-landing/Outlook";
+import { Paragraph } from "@/components/new-landing/Typography";
 
 export function Hero() {
   return (
