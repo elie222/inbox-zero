@@ -18,6 +18,7 @@ export async function getWebhookEmailAccount(
       multiRuleSelectionEnabled: true,
       lastSyncedHistoryId: true,
       autoCategorizeSenders: true,
+      meetingSchedulerEnabled: true,
       watchEmailsSubscriptionId: true,
       account: {
         select: {
