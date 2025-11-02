@@ -6,7 +6,7 @@ export const hashEmailBody = z.object({
 export type HashEmailBody = z.infer<typeof hashEmailBody>;
 
 export const convertGmailUrlBody = z.object({
-  rfc822MessageId: z.string().min(1, "RFC822 Message-ID is required"),
-  email: z.string().email("Valid email address is required"),
+  rfc822MessageId: z.string().trim().min(1, "RFC822 Message-ID is required"),
+  email: z.string().trim().email("Valid email address is required"),
 });
 export type ConvertGmailUrlBody = z.infer<typeof convertGmailUrlBody>;

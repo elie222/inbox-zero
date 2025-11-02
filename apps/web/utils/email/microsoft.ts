@@ -161,7 +161,9 @@ export class OutlookProvider implements EmailProvider {
     const response = await this.client
       .getClient()
       .api("/me/messages")
-      .filter(`internetMessageId eq '${messageIdWithBrackets}'`)
+      .filter(
+        `internetMessageId eq '${escapeODataString(messageIdWithBrackets)}'`,
+      )
       .top(1)
       .get();
 
