@@ -16,3 +16,13 @@ export const SCOPES = [
   "MailboxSettings.ReadWrite", // Read and write mailbox settings
   ...(env.NEXT_PUBLIC_CONTACTS_ENABLED ? ["Contacts.ReadWrite"] : []),
 ] as const;
+
+export const CALENDAR_SCOPES = [
+  "openid",
+  "profile",
+  "email",
+  "User.Read",
+  "offline_access", // Required for refresh tokens
+  "Calendars.Read", // Read user calendars
+  "Calendars.ReadWrite", // Read and write user calendars
+] as const;
