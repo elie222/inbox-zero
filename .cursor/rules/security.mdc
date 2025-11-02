@@ -1,6 +1,10 @@
 ---
 description: Security guidelines for API route development
 globs: 
+  - apps/web/app/api/**/*
+  - apps/web/utils/actions/**/*
+  - apps/web/utils/middleware.ts
+  - apps/web/prisma/**/*
 alwaysApply: false
 ---
 # Security Guidelines

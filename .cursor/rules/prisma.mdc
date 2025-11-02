@@ -1,6 +1,9 @@
 ---
 description: How to use Prisma
 globs: 
+  - apps/web/prisma/**/*
+  - apps/web/utils/**/*
+  - apps/web/app/api/**/*
 alwaysApply: false
 ---
 # Prisma Usage

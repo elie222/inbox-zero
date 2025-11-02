@@ -14,15 +14,27 @@ export async function getThread(
   const filter = `conversationId eq '${escapedThreadId}'`;
 
   try {
-    const messages: { value: Message[] } = await client
+    const response = await client
       .getClient()
       .api("/me/messages")
       .filter(filter)
       .top(100) // Get up to 100 messages instead of default 10
       .get();
 
+    // Validate response structure
+    if (!response || !response.value || !Array.isArray(response.value)) {
+      logger.error("Invalid response structure from Graph API", {
+        threadId,
+        filter,
+        response: JSON.stringify(response),
+      });
+      return [];
+    }
+
+    const messages: Message[] = response.value;
+
     // Sort in memory to avoid "restriction or sort order is too complex" error
-    return messages.value.sort((a, b) => {
+    return messages.sort((a, b) => {
       const dateA = new Date(a.receivedDateTime || 0).getTime();
       const dateB = new Date(b.receivedDateTime || 0).getTime();
       return dateB - dateA; // desc order (newest first)
@@ -36,6 +48,7 @@ export async function getThread(
       error: error instanceof Error ? error.message : err,
       errorCode: err?.code,
       errorStatusCode: err?.statusCode,
+      errorDetails: JSON.stringify(err),
     });
     throw error;
   }

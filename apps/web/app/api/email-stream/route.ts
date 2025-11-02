@@ -61,15 +61,26 @@ export const GET = withAuth(async (request) => {
       let inactivityTimer: NodeJS.Timeout;
       let isControllerClosed = false;
 
+      const closeController = () => {
+        if (isControllerClosed) return;
+        isControllerClosed = true;
+        try {
+          controller.close();
+        } catch (error) {
+          // Controller may already be closed, ignore
+        }
+        try {
+          redisSubscriber.punsubscribe(pattern);
+        } catch (error) {
+          // Redis may already be unsubscribed, ignore
+        }
+      };
+
       const resetInactivityTimer = () => {
         if (inactivityTimer) clearTimeout(inactivityTimer);
         inactivityTimer = setTimeout(() => {
           logger.info("Stream closed due to inactivity", { emailAccountId });
-          if (!isControllerClosed) {
-            isControllerClosed = true;
-            controller.close();
-          }
-          redisSubscriber.punsubscribe(pattern);
+          closeController();
         }, INACTIVITY_TIMEOUT);
       };
 
@@ -96,11 +107,7 @@ export const GET = withAuth(async (request) => {
       request.signal.addEventListener("abort", () => {
         logger.info("Cleaning up Redis subscription", { emailAccountId });
         clearTimeout(inactivityTimer);
-        if (!isControllerClosed) {
-          isControllerClosed = true;
-          controller.close();
-        }
-        redisSubscriber.punsubscribe(pattern);
+        closeController();
       });
     },
   });

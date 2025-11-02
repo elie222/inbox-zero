@@ -7,6 +7,7 @@ import {
   moveMessageToFolder,
   markMessageAsRead,
 } from "@/utils/outlook/folders";
+import { labelThread, getLabelById } from "@/utils/outlook/label";
 import { SafeError } from "@/utils/error";
 import prisma from "@/utils/prisma";
 import { isDefined } from "@/utils/types";
@@ -66,44 +67,114 @@ async function performOutlookAction({
 
   logger.info("Handling thread", { threadId, shouldArchive, shouldMarkAsRead });
 
-  // In Outlook, threadId is actually the conversationId
-  // We need to get all messages in this conversation and process them
-  // For now, we'll just process the message with this ID
-  // Note: threadId in Outlook context is actually a messageId
-  const messageId = threadId;
+  // In Outlook, threadId is the conversationId
+  // We need to get all messages in this conversation and process each one
+  const conversationId = threadId;
 
   try {
-    // Perform archive operation (move to Archive folder)
+    // Get all messages in the conversation
+    const client = outlook.getClient();
+    const response: { value: { id: string }[] } = await client
+      .api("/me/messages")
+      .filter(`conversationId eq '${conversationId}'`)
+      .select("id")
+      .get();
+
+    const messageIds = response.value.map((msg) => msg.id);
+
+    if (messageIds.length === 0) {
+      logger.warn("No messages found in conversation", { conversationId });
+      return;
+    }
+
+    logger.info("Processing conversation messages", {
+      conversationId,
+      messageCount: messageIds.length,
+    });
+
+    // Perform archive operation on all messages
     if (shouldArchive) {
-      await moveMessageToFolder({
-        client: outlook,
-        messageId,
-        destinationFolderId: WELL_KNOWN_FOLDERS.archive,
-      });
-      logger.info("Archived message", { messageId });
-    }
-
-    // Perform mark as read operation
-    if (shouldMarkAsRead) {
-      await markMessageAsRead({
-        client: outlook,
-        messageId,
-        read: true,
-      });
-      logger.info("Marked message as read", { messageId });
-    }
-
-    // Note: Outlook doesn't have a direct equivalent to Gmail's label system
-    // We could use categories instead, but for now we're skipping the labeling
-    // functionality as the core archive/mark-read operations are what matter most
-    if (processedLabelId || markedDoneLabelId) {
-      logger.info(
-        "Skipping label operations for Outlook (categories not yet implemented)",
-        {
-          processedLabelId,
-          markedDoneLabelId,
-        },
+      await Promise.all(
+        messageIds.map((messageId) =>
+          moveMessageToFolder(outlook, messageId, WELL_KNOWN_FOLDERS.archive),
+        ),
       );
+      logger.info("Archived conversation", {
+        conversationId,
+        messageCount: messageIds.length,
+      });
+    }
+
+    // Perform mark as read operation on all messages
+    if (shouldMarkAsRead) {
+      await Promise.all(
+        messageIds.map((messageId) =>
+          markMessageAsRead(outlook, messageId, true),
+        ),
+      );
+      logger.info("Marked conversation as read", {
+        conversationId,
+        messageCount: messageIds.length,
+      });
+    }
+
+    // Apply categories (Outlook's equivalent of Gmail labels)
+    const categoriesToApply: string[] = [];
+
+    if (processedLabelId) {
+      try {
+        const processedLabel = await getLabelById({
+          client: outlook,
+          id: processedLabelId,
+        });
+        if (processedLabel?.displayName) {
+          categoriesToApply.push(processedLabel.displayName);
+        }
+      } catch (error) {
+        logger.warn("Failed to get processed label", {
+          processedLabelId,
+          error: error instanceof Error ? error.message : error,
+        });
+      }
+    }
+
+    if (markedDoneLabelId) {
+      try {
+        const markedDoneLabel = await getLabelById({
+          client: outlook,
+          id: markedDoneLabelId,
+        });
+        if (markedDoneLabel?.displayName) {
+          categoriesToApply.push(markedDoneLabel.displayName);
+        }
+      } catch (error) {
+        logger.warn("Failed to get marked done label", {
+          markedDoneLabelId,
+          error: error instanceof Error ? error.message : error,
+        });
+      }
+    }
+
+    // Apply categories to all messages in the conversation
+    if (categoriesToApply.length > 0) {
+      try {
+        await labelThread({
+          client: outlook,
+          threadId: conversationId,
+          categories: categoriesToApply,
+        });
+        logger.info("Applied categories to conversation", {
+          conversationId,
+          categories: categoriesToApply,
+          messageCount: messageIds.length,
+        });
+      } catch (error) {
+        logger.warn("Failed to apply categories", {
+          conversationId,
+          categories: categoriesToApply,
+          error: error instanceof Error ? error.message : error,
+        });
+      }
     }
 
     await saveCleanResult({
@@ -115,7 +186,7 @@ async function performOutlookAction({
   } catch (error) {
     logger.error("Error performing Outlook action", {
       error,
-      messageId,
+      conversationId,
       shouldArchive,
       shouldMarkAsRead,
     });

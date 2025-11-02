@@ -1,7 +1,7 @@
 ---
 description: Project structure and file organization guidelines
 globs:
-alwaysApply: false
+alwaysApply: true
 ---
 
 # Project Structure

@@ -1,6 +1,6 @@
 ---
-description: 
-globs: 
+description: Guidelines for implementing and using PostHog feature flags for early access features and A/B tests
+globs: apps/web/hooks/useFeatureFlags.ts
 alwaysApply: false
 ---
 ---

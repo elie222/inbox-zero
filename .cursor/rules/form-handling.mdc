@@ -1,6 +1,8 @@
 ---
 description: Form handling
 globs: 
+  - apps/web/app/**/*.tsx
+  - apps/web/components/**/*
 alwaysApply: false
 ---
 # Form Handling

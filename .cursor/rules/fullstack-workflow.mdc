@@ -1,5 +1,6 @@
 ---
 description: Complete fullstack workflow combining GET API routes, server actions, SWR data fetching, and form handling. Use when building features that need both data fetching and mutations from API to UI.
+globs:
 alwaysApply: false
 ---
 # Fullstack Workflow
@@ -275,4 +276,3 @@ apps/web/
 - [Data Fetching with SWR](mdc:.cursor/rules/data-fetching.mdc)
 - [Form Handling](mdc:.cursor/rules/form-handling.mdc)
 - [Server Actions](mdc:.cursor/rules/server-actions.mdc)
-

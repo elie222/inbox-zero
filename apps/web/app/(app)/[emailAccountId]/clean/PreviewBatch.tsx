@@ -20,6 +20,35 @@ export function PreviewBatch({ job }: { job: CleanupJob }) {
   const { emailAccountId } = useAccount();
   const [, setIsPreviewBatch] = useQueryState("isPreviewBatch", parseAsBoolean);
   const [isLoading, setIsLoading] = useState(false);
+  const [isLoadingPreview, setIsLoadingPreview] = useState(false);
+
+  const handleProcessPreviewOnly = async () => {
+    setIsLoadingPreview(true);
+    const result = await cleanInboxAction(emailAccountId, {
+      daysOld: job.daysOld,
+      instructions: job.instructions || "",
+      action: job.action,
+      maxEmails: PREVIEW_RUN_COUNT,
+      skips: {
+        reply: job.skipReply,
+        starred: job.skipStarred,
+        calendar: job.skipCalendar,
+        receipt: job.skipReceipt,
+        attachment: job.skipAttachment,
+        conversation: job.skipConversation,
+      },
+    });
+
+    setIsLoadingPreview(false);
+
+    if (result?.serverError) {
+      toastError({ description: result.serverError });
+      return;
+    }
+
+    // Keep in preview mode to show the results
+    setIsPreviewBatch(true);
+  };
 
   const handleRunOnFullInbox = async () => {
     setIsLoading(true);
@@ -64,10 +93,23 @@ export function PreviewBatch({ job }: { job: CleanupJob }) {
           badge and click undo.
         </CardDescription>
       </CardHeader>
-      <CardContent className="flex items-center gap-4">
-        <Button onClick={handleRunOnFullInbox} loading={isLoading}>
-          Run on Full Inbox
-        </Button>
+      <CardContent className="flex flex-col gap-3">
+        <div className="flex items-center gap-3">
+          <Button
+            onClick={handleProcessPreviewOnly}
+            loading={isLoadingPreview}
+            variant="secondary"
+          >
+            Process Only These {PREVIEW_RUN_COUNT} Emails
+          </Button>
+          <Button onClick={handleRunOnFullInbox} loading={isLoading}>
+            Run on Full Inbox
+          </Button>
+        </div>
+        <CardDescription className="text-sm">
+          Choose to test on these {PREVIEW_RUN_COUNT} emails or process your
+          entire mailbox
+        </CardDescription>
         {/* {disableRunOnFullInbox && (
           <CardDescription className="font-semibold">
             All emails have been processed

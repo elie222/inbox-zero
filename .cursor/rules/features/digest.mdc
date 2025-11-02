@@ -1,5 +1,5 @@
 ---
-description: 
+description: Digest feature documentation
 globs: 
 alwaysApply: false
 ---
@@ -288,4 +288,3 @@ const isDigestEnabled = useFeatureFlagEnabled("digest-emails");
   coldEmailDigest: boolean,     // Include cold emails in digest
   digestSchedule: Schedule // When to send digests
 }
-```

@@ -1,7 +1,7 @@
 ---
 description: How to install packages
-globs: 
-alwaysApply: false
+globs: null
+alwaysApply: true
 ---
 - Use `pnpm`.
 - Don't install in root. Install in `apps/web`:

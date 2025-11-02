@@ -1,4 +1,6 @@
 ---
+description: Ultracite linting and formatting guidelines
+globs:
 alwaysApply: false
 ---
 

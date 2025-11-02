@@ -1,6 +1,8 @@
 ---
 description: UI component and styling guidelines using Shadcn UI, Radix UI, and Tailwind
 globs: 
+  - apps/web/components/**/*
+  - apps/web/app/**/*.tsx
 alwaysApply: false
 ---
 # UI Components and Styling
@@ -67,4 +69,4 @@ Use the `LoadingContent` component to handle loading states:
   registerProps={register("message", { required: true })}
   error={errors.message}
 />
-``` 
+```

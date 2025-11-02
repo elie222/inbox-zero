@@ -23,6 +23,8 @@ export function useEmailStream(
 
   const [isPaused, setIsPaused] = useState(initialPaused);
   const eventSourceRef = useRef<EventSource | null>(null);
+  const isConnectingRef = useRef(false);
+  const isMountedRef = useRef(true);
   const maxEmails = 1000; // Maximum emails to keep in the buffer
 
   const connectToSSE = useCallback(() => {
@@ -36,14 +38,25 @@ export function useEmailStream(
         return;
       }
 
-      if (eventSourceRef.current) return;
+      if (eventSourceRef.current) {
+        console.log("Already have an active connection, skipping");
+        return;
+      }
+
+      if (isConnectingRef.current) {
+        console.log("Connection already in progress, skipping");
+        return;
+      }
 
       if (!emailAccountId) {
         console.error("Email account ID is missing, cannot connect to SSE.");
         return;
       }
 
+      isConnectingRef.current = true;
+
       const eventSourceUrl = `/api/email-stream?emailAccountId=${encodeURIComponent(emailAccountId)}`;
+      console.log("Connecting to SSE:", eventSourceUrl);
       const eventSource = new EventSource(eventSourceUrl, {
         withCredentials: true,
       });
@@ -60,12 +73,10 @@ export function useEmailStream(
 
           setEmailsMap((prev) => {
             // If we're at the limit and this is a new email, remove the oldest one
-            if (
-              Object.keys(prev).length >= maxEmails &&
-              !prev[thread.threadId]
-            ) {
+            const currentOrder = Object.keys(prev);
+            if (currentOrder.length >= maxEmails && !prev[thread.threadId]) {
               const newMap = { ...prev };
-              delete newMap[emailOrder[emailOrder.length - 1]];
+              delete newMap[currentOrder[currentOrder.length - 1]];
               return {
                 ...newMap,
                 [thread.threadId]: thread,
@@ -89,8 +100,18 @@ export function useEmailStream(
         }
       });
 
+      eventSource.onopen = () => {
+        console.log("SSE connection opened successfully");
+        isConnectingRef.current = false;
+      };
+
       eventSource.onerror = (error) => {
         console.error("SSE connection error:", error);
+        console.error("EventSource readyState:", eventSource.readyState);
+        console.error("EventSource URL:", eventSourceUrl);
+
+        isConnectingRef.current = false;
+
         if (eventSourceRef.current) {
           eventSourceRef.current.close();
           eventSourceRef.current = null;
@@ -98,29 +119,39 @@ export function useEmailStream(
 
         // Attempt to reconnect after a short delay if not paused
         if (!isPaused) {
-          console.log("Attempting to reconnect in 2 seconds...");
-          setTimeout(connectToSSE, 2000);
+          console.log("Attempting to reconnect in 5 seconds...");
+          setTimeout(connectToSSE, 5000);
         }
       };
     } catch (error) {
       console.error("Error establishing SSE connection:", error);
     }
-  }, [isPaused, emailOrder, emailAccountId]);
+  }, [isPaused, emailAccountId]); // Removed emailOrder from dependencies!
 
   // Connect or disconnect based on pause state
   useEffect(() => {
+    isMountedRef.current = true;
     console.log("SSE effect triggered, isPaused:", isPaused);
     connectToSSE();
 
-    // Cleanup
+    // Cleanup - but only if we're truly unmounting (not just a hot reload)
     return () => {
-      console.log("Cleaning up SSE connection");
-      if (eventSourceRef.current) {
-        eventSourceRef.current.close();
-        eventSourceRef.current = null;
-      }
+      isMountedRef.current = false;
+      // Don't close connection immediately - wait to see if component remounts
+      setTimeout(() => {
+        if (!isMountedRef.current) {
+          console.log("Cleaning up SSE connection (component unmounted)");
+          isConnectingRef.current = false;
+          if (eventSourceRef.current) {
+            eventSourceRef.current.close();
+            eventSourceRef.current = null;
+          }
+        } else {
+          console.log("Component remounted, keeping connection alive");
+        }
+      }, 100);
     };
-  }, [connectToSSE, isPaused]);
+  }, [connectToSSE]); // Removed isPaused - it's already in connectToSSE dependencies
 
   const togglePause = useCallback(() => {
     setIsPaused((prev) => !prev);

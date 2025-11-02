@@ -1,6 +1,9 @@
 ---
 description: Add environment variable
 globs: 
+  - apps/web/env.ts
+  - apps/web/.env.example
+  - turbo.json
 alwaysApply: false
 ---
 # Environment Variables

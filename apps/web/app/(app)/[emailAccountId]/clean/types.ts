@@ -5,6 +5,7 @@ export enum CleanStep {
   TIME_RANGE = 2,
   LABEL_OPTIONS = 3,
   FINAL_CONFIRMATION = 4,
+  PREVIEW = 5,
 }
 
 export const timeRangeOptions = [

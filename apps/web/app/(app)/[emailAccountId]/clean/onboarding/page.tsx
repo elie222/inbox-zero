@@ -4,6 +4,7 @@ import { ActionSelectionStep } from "@/app/(app)/[emailAccountId]/clean/ActionSe
 import { CleanInstructionsStep } from "@/app/(app)/[emailAccountId]/clean/CleanInstructionsStep";
 import { TimeRangeStep } from "@/app/(app)/[emailAccountId]/clean/TimeRangeStep";
 import { ConfirmationStep } from "@/app/(app)/[emailAccountId]/clean/ConfirmationStep";
+import { PreviewStep } from "@/app/(app)/[emailAccountId]/clean/PreviewStep";
 import { getUnhandledCount } from "@/utils/assess";
 import { CleanStep } from "@/app/(app)/[emailAccountId]/clean/types";
 import { CleanAction } from "@prisma/client";
@@ -80,8 +81,12 @@ export default async function CleanPage(props: {
               attachment: searchParams.skipAttachment === "true",
             }}
             reuseSettings={false}
+            showPreview={true}
           />
         );
+
+      case CleanStep.PREVIEW:
+        return <PreviewStep />;
 
       // first / default step
       default:

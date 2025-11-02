@@ -1,6 +1,11 @@
 ---
-description: 
+description: Inbox Cleaner feature documentation
 globs: 
+  - apps/web/utils/actions/clean.ts
+  - apps/web/app/api/clean/**/*
+  - apps/web/app/(app)/*/clean/**/*
+  - apps/web/prisma/schema.prisma
+  - apps/web/utils/redis/clean.ts
 alwaysApply: false
 ---
 ## Inbox Cleaner

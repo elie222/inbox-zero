@@ -1,6 +1,6 @@
 ---
 description: Util functions
-globs: 
+globs: apps/web/utils/**/*
 alwaysApply: false
 ---
 # Utility Functions

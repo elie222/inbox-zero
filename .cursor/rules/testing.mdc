@@ -1,6 +1,6 @@
 ---
 description: Guidelines for testing the application with Vitest
-globs: 
+globs: apps/web/__tests__/**/*
 alwaysApply: false
 ---
 # Testing Guidelines

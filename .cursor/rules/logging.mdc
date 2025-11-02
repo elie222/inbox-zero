@@ -1,6 +1,8 @@
 ---
 description: How to do backend logging
 globs: 
+  - apps/web/utils/**/*
+  - apps/web/app/api/**/*
 alwaysApply: false
 ---
 # Logging

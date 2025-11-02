@@ -960,188 +960,204 @@ export class OutlookProvider implements EmailProvider {
     threads: EmailThread[];
     nextPageToken?: string;
   }> {
-    const {
-      fromEmail,
-      after,
-      before,
-      isUnread,
-      type,
-      labelId,
-      // biome-ignore lint/correctness/noUnusedVariables: to do
-      labelIds,
-      // biome-ignore lint/correctness/noUnusedVariables: to do
-      excludeLabelNames,
-    } = options.query || {};
+    try {
+      const {
+        fromEmail,
+        after,
+        before,
+        isUnread,
+        type,
+        labelId,
+        // biome-ignore lint/correctness/noUnusedVariables: to do
+        labelIds,
+        // biome-ignore lint/correctness/noUnusedVariables: to do
+        excludeLabelNames,
+      } = options.query || {};
 
-    const client = this.client.getClient();
+      const client = this.client.getClient();
 
-    // Determine endpoint and build filters based on query type
-    let endpoint = "/me/messages";
-    const filters: string[] = [];
+      // Determine endpoint and build filters based on query type
+      let endpoint = "/me/messages";
+      const filters: string[] = [];
 
-    // Route to appropriate endpoint based on type
-    if (type === "sent") {
-      endpoint = "/me/mailFolders('sentitems')/messages";
-    } else if (type === "all") {
-      // For "all" type, use default messages endpoint with folder filter
-      filters.push(
-        "(parentFolderId eq 'inbox' or parentFolderId eq 'archive')",
+      // Route to appropriate endpoint based on type
+      if (type === "sent") {
+        endpoint = "/me/mailFolders('sentitems')/messages";
+      } else if (type === "all") {
+        // For "all" type, use default messages endpoint with folder filter
+        filters.push(
+          "(parentFolderId eq 'inbox' or parentFolderId eq 'archive')",
+        );
+      } else if (labelId) {
+        // Use labelId as parentFolderId (should be lowercase for Outlook)
+        filters.push(`parentFolderId eq '${labelId.toLowerCase()}'`);
+      } else {
+        // Default to inbox only
+        filters.push("parentFolderId eq 'inbox'");
+      }
+
+      // Add other filters
+      if (fromEmail) {
+        // Escape single quotes in email address
+        const escapedEmail = escapeODataString(fromEmail);
+        filters.push(`from/emailAddress/address eq '${escapedEmail}'`);
+      }
+
+      // Handle structured date options
+      if (after) {
+        const afterISO = after.toISOString();
+        filters.push(`receivedDateTime gt ${afterISO}`);
+      }
+
+      if (before) {
+        const beforeISO = before.toISOString();
+        filters.push(`receivedDateTime lt ${beforeISO}`);
+      }
+
+      if (isUnread) {
+        filters.push("isRead eq false");
+      }
+
+      const filter = filters.length > 0 ? filters.join(" and ") : undefined;
+
+      // Build the request
+      let request = client
+        .api(endpoint)
+        .select(
+          "id,conversationId,conversationIndex,subject,bodyPreview,from,toRecipients,receivedDateTime,isDraft,body,categories,parentFolderId",
+        )
+        .top(options.maxResults || 50);
+
+      if (filter) {
+        request = request.filter(filter);
+      }
+
+      // Only add ordering if we don't have a fromEmail filter to avoid complexity
+      if (!fromEmail) {
+        request = request.orderby("receivedDateTime DESC");
+      }
+
+      if (options.pageToken) {
+        request = request.skipToken(options.pageToken);
+      }
+
+      const response = await request.get();
+
+      // Sort messages by receivedDateTime if we filtered by fromEmail (since we couldn't use orderby)
+      let sortedMessages = response.value;
+      if (fromEmail) {
+        sortedMessages = response.value.sort(
+          (a: { receivedDateTime: string }, b: { receivedDateTime: string }) =>
+            new Date(b.receivedDateTime).getTime() -
+            new Date(a.receivedDateTime).getTime(),
+        );
+      }
+
+      // Group messages by conversationId to create threads
+      const messagesByThread = new Map<
+        string,
+        {
+          conversationId: string;
+          conversationIndex?: string;
+          id: string;
+          bodyPreview: string;
+          body: { content: string };
+          from: { emailAddress: { address: string } };
+          toRecipients: { emailAddress: { address: string } }[];
+          receivedDateTime: string;
+          subject: string;
+        }[]
+      >();
+      sortedMessages.forEach(
+        (message: {
+          conversationId: string;
+          id: string;
+          bodyPreview: string;
+          body: { content: string };
+          from: { emailAddress: { address: string } };
+          toRecipients: { emailAddress: { address: string } }[];
+          receivedDateTime: string;
+          subject: string;
+        }) => {
+          // Skip messages without conversationId
+          if (!message.conversationId) {
+            logger.warn("Message missing conversationId", {
+              messageId: message.id,
+            });
+            return;
+          }
+
+          const messages = messagesByThread.get(message.conversationId) || [];
+          messages.push(message);
+          messagesByThread.set(message.conversationId, messages);
+        },
       );
-    } else if (labelId) {
-      // Use labelId as parentFolderId (should be lowercase for Outlook)
-      filters.push(`parentFolderId eq '${labelId.toLowerCase()}'`);
-    } else {
-      // Default to inbox only
-      filters.push("parentFolderId eq 'inbox'");
-    }
 
-    // Add other filters
-    if (fromEmail) {
-      // Escape single quotes in email address
-      const escapedEmail = escapeODataString(fromEmail);
-      filters.push(`from/emailAddress/address eq '${escapedEmail}'`);
-    }
+      // Convert to EmailThread format
+      const threads: EmailThread[] = Array.from(messagesByThread.entries())
+        .filter(([_threadId, messages]) => messages.length > 0) // Filter out empty threads
+        .map(([threadId, messages]) => {
+          // Convert messages to ParsedMessage format
+          const parsedMessages: ParsedMessage[] = messages.map((message) => {
+            const subject = message.subject || "";
+            const date = message.receivedDateTime || new Date().toISOString();
 
-    // Handle structured date options
-    if (after) {
-      const afterISO = after.toISOString();
-      filters.push(`receivedDateTime gt ${afterISO}`);
-    }
+            // Add proper null checks for from and toRecipients
+            const fromAddress = message.from?.emailAddress?.address || "";
+            const toAddress =
+              message.toRecipients?.[0]?.emailAddress?.address || "";
 
-    if (before) {
-      const beforeISO = before.toISOString();
-      filters.push(`receivedDateTime lt ${beforeISO}`);
-    }
-
-    if (isUnread) {
-      filters.push("isRead eq false");
-    }
-
-    const filter = filters.length > 0 ? filters.join(" and ") : undefined;
-
-    // Build the request
-    let request = client
-      .api(endpoint)
-      .select(
-        "id,conversationId,conversationIndex,subject,bodyPreview,from,toRecipients,receivedDateTime,isDraft,body,categories,parentFolderId",
-      )
-      .top(options.maxResults || 50);
-
-    if (filter) {
-      request = request.filter(filter);
-    }
-
-    // Only add ordering if we don't have a fromEmail filter to avoid complexity
-    if (!fromEmail) {
-      request = request.orderby("receivedDateTime DESC");
-    }
-
-    if (options.pageToken) {
-      request = request.skipToken(options.pageToken);
-    }
-
-    const response = await request.get();
-
-    // Sort messages by receivedDateTime if we filtered by fromEmail (since we couldn't use orderby)
-    let sortedMessages = response.value;
-    if (fromEmail) {
-      sortedMessages = response.value.sort(
-        (a: { receivedDateTime: string }, b: { receivedDateTime: string }) =>
-          new Date(b.receivedDateTime).getTime() -
-          new Date(a.receivedDateTime).getTime(),
-      );
-    }
-
-    // Group messages by conversationId to create threads
-    const messagesByThread = new Map<
-      string,
-      {
-        conversationId: string;
-        conversationIndex?: string;
-        id: string;
-        bodyPreview: string;
-        body: { content: string };
-        from: { emailAddress: { address: string } };
-        toRecipients: { emailAddress: { address: string } }[];
-        receivedDateTime: string;
-        subject: string;
-      }[]
-    >();
-    sortedMessages.forEach(
-      (message: {
-        conversationId: string;
-        id: string;
-        bodyPreview: string;
-        body: { content: string };
-        from: { emailAddress: { address: string } };
-        toRecipients: { emailAddress: { address: string } }[];
-        receivedDateTime: string;
-        subject: string;
-      }) => {
-        // Skip messages without conversationId
-        if (!message.conversationId) {
-          logger.warn("Message missing conversationId", {
-            messageId: message.id,
-          });
-          return;
-        }
-
-        const messages = messagesByThread.get(message.conversationId) || [];
-        messages.push(message);
-        messagesByThread.set(message.conversationId, messages);
-      },
-    );
-
-    // Convert to EmailThread format
-    const threads: EmailThread[] = Array.from(messagesByThread.entries())
-      .filter(([_threadId, messages]) => messages.length > 0) // Filter out empty threads
-      .map(([threadId, messages]) => {
-        // Convert messages to ParsedMessage format
-        const parsedMessages: ParsedMessage[] = messages.map((message) => {
-          const subject = message.subject || "";
-          const date = message.receivedDateTime || new Date().toISOString();
-
-          // Add proper null checks for from and toRecipients
-          const fromAddress = message.from?.emailAddress?.address || "";
-          const toAddress =
-            message.toRecipients?.[0]?.emailAddress?.address || "";
-
-          return {
-            id: message.id || "",
-            threadId: message.conversationId || "",
-            snippet: message.bodyPreview || "",
-            textPlain: message.body?.content || "",
-            textHtml: message.body?.content || "",
-            headers: {
-              from: fromAddress,
-              to: toAddress,
+            return {
+              id: message.id || "",
+              threadId: message.conversationId || "",
+              snippet: message.bodyPreview || "",
+              textPlain: message.body?.content || "",
+              textHtml: message.body?.content || "",
+              headers: {
+                from: fromAddress,
+                to: toAddress,
+                subject,
+                date,
+              },
               subject,
               date,
-            },
-            subject,
-            date,
-            labelIds: [],
-            internalDate: date,
-            historyId: "",
-            inline: [],
-            conversationIndex: message.conversationIndex,
+              labelIds: [],
+              internalDate: date,
+              historyId: "",
+              inline: [],
+              conversationIndex: message.conversationIndex,
+            };
+          });
+
+          return {
+            id: threadId,
+            messages: parsedMessages,
+            snippet: messages[0]?.bodyPreview || "",
           };
         });
 
-        return {
-          id: threadId,
-          messages: parsedMessages,
-          snippet: messages[0]?.bodyPreview || "",
-        };
+      return {
+        threads,
+        nextPageToken: response["@odata.nextLink"]
+          ? new URL(response["@odata.nextLink"]).searchParams.get(
+              "$skiptoken",
+            ) || undefined
+          : undefined,
+      };
+    } catch (error) {
+      logger.error("getThreadsWithQuery failed", {
+        error: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined,
+        errorCode: (error as any)?.code,
+        errorStatusCode: (error as any)?.statusCode,
+        query: options.query,
       });
-
-    return {
-      threads,
-      nextPageToken: response["@odata.nextLink"]
-        ? new URL(response["@odata.nextLink"]).searchParams.get("$skiptoken") ||
-          undefined
-        : undefined,
-    };
+      // Return empty result instead of throwing to prevent cascading failures
+      return {
+        threads: [],
+        nextPageToken: undefined,
+      };
+    }
   }
 
   async hasPreviousCommunicationsWithSenderOrDomain(options: {

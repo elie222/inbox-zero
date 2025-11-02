@@ -1,6 +1,9 @@
 ---
 description: React hooks
 globs: 
+  - apps/web/hooks/**/*
+  - apps/web/app/**/*.tsx
+  - apps/web/components/**/*
 alwaysApply: false
 ---
 # Custom Hook Guidelines

@@ -1,6 +1,10 @@
 ---
 description: Guidelines for working with Gmail API
 globs: 
+  - apps/web/utils/gmail/**/*
+  - apps/web/utils/outlook/**/*
+  - apps/web/app/api/google/**/*
+  - apps/web/app/api/microsoft/**/*
 alwaysApply: false
 ---
 # Gmail API Usage

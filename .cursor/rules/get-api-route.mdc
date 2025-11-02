@@ -1,6 +1,6 @@
 ---
 description: Guidelines for implementing GET API routes in Next.js
-globs: 
+globs: apps/web/app/api/**/route.ts
 alwaysApply: false
 ---
 # GET API Route Guidelines

@@ -1,6 +1,9 @@
 ---
 description: Fetching data from the API using SWR
 globs: 
+  - apps/web/hooks/**/*
+  - apps/web/app/**/*.tsx
+  - apps/web/components/**/*
 alwaysApply: false
 ---
 # Data Fetching
@@ -44,4 +47,4 @@ const onSubmit: SubmitHandler<TestRulesInputs> = useCallback(async (data) => {
     toastSuccess({ description: "Saved!" });
   }
 }, []);
-``` 
+```

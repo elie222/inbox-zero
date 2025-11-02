@@ -1,6 +1,9 @@
 ---
 description: Guidelines for implementing Next.js server actions
 globs: 
+  - apps/web/utils/actions/**/*
+  - apps/web/app/**/*.tsx
+  - apps/web/app/**/*.ts
 alwaysApply: false
 ---
 # Server Actions

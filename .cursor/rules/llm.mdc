@@ -1,6 +1,9 @@
 ---
 description: Guidelines for implementing LLM (Language Model) functionality in the application
 globs: 
+  - apps/web/utils/ai/**/*
+  - apps/web/utils/llms/**/*
+  - apps/web/__tests__/**/*
 alwaysApply: false
 ---
 # LLM Implementation Guidelines

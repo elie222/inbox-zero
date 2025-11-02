@@ -1,6 +1,6 @@
 ---
 description: Guidelines for writing tests for LLM-related functionality
-globs: 
+globs: apps/web/__tests__/**/*
 alwaysApply: false
 ---
 # LLM Testing Guidelines

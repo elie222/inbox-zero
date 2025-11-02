@@ -1,6 +1,6 @@
 ---
 description: Page structure
-globs: 
+globs: apps/web/app/(app)/**/*
 alwaysApply: false
 ---
 # Page Structure
@@ -9,4 +9,4 @@ alwaysApply: false
 - Components for the page are either put in `page.tsx`, or in the `apps/web/app/(app)/PAGE_NAME` folder
 - Pages are Server components so you can load data into them directly
 - If we're in a deeply nested component we will use `swr` to fetch via API
-- If you need to use `onClick` in a component, that component is a client component and file must start with `use client` 
+- If you need to use `onClick` in a component, that component is a client component and file must start with `use client`

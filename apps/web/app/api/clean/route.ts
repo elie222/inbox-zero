@@ -3,7 +3,8 @@ import { z } from "zod";
 import { NextResponse } from "next/server";
 import { withError } from "@/utils/middleware";
 import { publishToQstash } from "@/utils/upstash";
-import { getThreadMessages } from "@/utils/gmail/thread";
+import { getThreadMessages as getGmailThreadMessages } from "@/utils/gmail/thread";
+import { getThreadMessages as getOutlookThreadMessages } from "@/utils/outlook/thread";
 import { getGmailClientWithRefresh } from "@/utils/gmail/client";
 import { getOutlookClientWithRefresh } from "@/utils/outlook/client";
 import type { CleanGmailBody } from "@/app/api/clean/gmail/route";
@@ -94,31 +95,29 @@ async function cleanThread({
       emailAccountId,
     });
 
-    messages = await getThreadMessages(threadId, gmail);
+    messages = await getGmailThreadMessages(threadId, gmail);
   } else {
     // Outlook: Use Outlook client to fetch messages
     const outlook = await getOutlookClientWithRefresh({
       accessToken: emailAccount.tokens.access_token,
       refreshToken: emailAccount.tokens.refresh_token,
-      expiresAt: emailAccount.tokens.expires_at?.getTime() || null,
+      expiresAt: emailAccount.tokens.expires_at || null,
       emailAccountId,
     });
 
     // For Outlook, threadId is the conversationId
-    // We need to fetch all messages in this conversation
+    // Fetch all messages in the conversation
     try {
-      // Fetch the single message first
-      const message = await getOutlookMessage(threadId, outlook);
-      messages = [message];
-
-      // TODO: In the future, we should fetch all messages in the conversation
-      // using the conversationId to get the full thread context
+      messages = await getOutlookThreadMessages(threadId, outlook);
     } catch (error) {
-      logger.error("Failed to fetch Outlook message", {
-        error,
-        messageId: threadId,
+      logger.error("Failed to fetch Outlook thread messages", {
+        error: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined,
+        conversationId: threadId,
+        errorType: typeof error,
+        errorKeys: error && typeof error === "object" ? Object.keys(error) : [],
       });
-      throw new SafeError("Failed to fetch message");
+      throw error; // Re-throw the original error to see full details
     }
   }
 
