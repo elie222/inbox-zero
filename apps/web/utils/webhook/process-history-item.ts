@@ -15,6 +15,7 @@ import type { Logger } from "@/utils/logger";
 import { detectMeetingTrigger } from "@/utils/meetings/detect-meeting-trigger";
 import { aiParseMeetingRequest } from "@/utils/meetings/parse-meeting-request";
 import { getEmailForLLM } from "@/utils/get-email-from-message";
+import { findMeetingAvailability } from "@/utils/meetings/find-availability";
 
 export type SharedProcessHistoryOptions = {
   provider: EmailProvider;
@@ -170,11 +171,24 @@ export async function processHistoryItem(
           isUrgent: meetingDetails.isUrgent,
         });
 
-        // TODO: Phase 3-6 implementation
-        // - Check availability (Phase 4)
-        // - Generate meeting link (Phase 5)
-        // - Create calendar event (Phase 6)
-        // For now, just log the parsed details
+        // Check availability across all calendars
+        const availability = await findMeetingAvailability({
+          emailAccountId,
+          meetingRequest: meetingDetails,
+        });
+
+        logger.info("Meeting availability checked", {
+          timezone: availability.timezone,
+          requestedSlotsCount: availability.requestedTimes.length,
+          suggestedSlotsCount: availability.suggestedTimes.length,
+          hasConflicts: availability.hasConflicts,
+        });
+
+        // TODO: Phase 4-6 implementation
+        // - Generate meeting link (Phase 4)
+        // - Create calendar event (Phase 5)
+        // - Send confirmation email (Phase 6)
+        // For now, just log the availability results
       } catch (error) {
         logger.error("Error parsing meeting request", { error });
       }
