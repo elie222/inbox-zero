@@ -4,19 +4,14 @@ import type { Metadata } from "next";
 import Image from "next/image";
 import { FAQs } from "@/app/(landing)/new-landing/FAQs";
 import { Testimonials } from "@/app/(landing)/new-landing/Testimonials";
+import { Hero } from "@/app/(landing)/new-landing/Hero";
 
 export const metadata: Metadata = { alternates: { canonical: "/" } };
 
 export default function NewLanding() {
   return (
     <BasicLayout>
-      <Section
-        title="Meet your AI email assistant that actually works"
-        subtitle="Inbox Zero organizes your inbox, drafts replies in your voice, and helps you reach inbox zero fast. Never miss an important email again."
-        wrap
-      >
-        <div />
-      </Section>
+      <Hero />
       <Section
         title="An organized inbox so you never miss an important email"
         subtitle="Drowning in emails? Don’t waste any more valuable brain energy trying to prioritize your emails. Our AI assistant will label everything automatically."
@@ -33,7 +28,14 @@ export default function NewLanding() {
         title="Pre-written drafts waiting in your inbox"
         subtitle="When you check your inbox, every email needing a response will have a pre-drafted reply in your tone, ready for you to send."
       >
-        <div />
+        <div className="mx-20">
+          <Image
+            src="/images/new-landing/pre-written-drafts.svg"
+            alt="pre-written drafts"
+            width={1000}
+            height={1000}
+          />
+        </div>
       </Section>
       <Section
         title="Get started in minutes"
