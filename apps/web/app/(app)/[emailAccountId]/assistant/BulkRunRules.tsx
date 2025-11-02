@@ -10,6 +10,7 @@ import type { ThreadsQuery } from "@/app/api/threads/validation";
 import { LoadingContent } from "@/components/LoadingContent";
 import { runAiRules } from "@/utils/queue/email-actions";
 import { sleep } from "@/utils/sleep";
+import { toastError } from "@/components/Toast";
 import { PremiumAlertWithData, usePremium } from "@/components/PremiumAlert";
 import { SetDateDropdown } from "@/app/(app)/[emailAccountId]/assistant/SetDateDropdown";
 import { useThreads } from "@/hooks/useThreads";
@@ -93,10 +94,22 @@ export function BulkRunRules() {
 
                         <Button
                           type="button"
-                          disabled={running || !startDate}
+                          disabled={running || !startDate || !emailAccountId}
                           loading={running}
                           onClick={async () => {
-                            if (!startDate) return;
+                            if (!startDate) {
+                              toastError({
+                                description: "Please select a start date",
+                              });
+                              return;
+                            }
+                            if (!emailAccountId) {
+                              toastError({
+                                description:
+                                  "Email account ID is missing. Please refresh the page.",
+                              });
+                              return;
+                            }
                             setRunning(true);
                             abortRef.current = await onRun(
                               emailAccountId,
@@ -164,12 +177,13 @@ async function onRun(
     for (let i = 0; i < 100; i++) {
       const query: ThreadsQuery = {
         type: "inbox",
-        nextPageToken,
         limit: LIMIT,
         after: startDate,
-        before: endDate || undefined,
+        before: endDate,
         isUnread: true,
+        nextPageToken: nextPageToken || undefined,
       };
+
       const res = await fetchWithAccount({
         url: `/api/threads?${
           // biome-ignore lint/suspicious/noExplicitAny: simplest
@@ -177,7 +191,27 @@ async function onRun(
         }`,
         emailAccountId,
       });
+
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        console.error("Failed to fetch threads:", res.status, errorData);
+        toastError({
+          title: "Failed to fetch emails",
+          description: errorData.error || `Error: ${res.status}`,
+        });
+        break;
+      }
+
       const data: ThreadsResponse = await res.json();
+
+      if (!data.threads) {
+        console.error("Invalid response: missing threads", data);
+        toastError({
+          title: "Invalid response",
+          description: "Failed to process emails. Please try again.",
+        });
+        break;
+      }
 
       nextPageToken = data.nextPageToken || "";
 
