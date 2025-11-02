@@ -13,6 +13,8 @@ import type { RuleWithActions } from "@/utils/types";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import type { Logger } from "@/utils/logger";
 import { detectMeetingTrigger } from "@/utils/meetings/detect-meeting-trigger";
+import { aiParseMeetingRequest } from "@/utils/meetings/parse-meeting-request";
+import { getEmailForLLM } from "@/utils/get-email-from-message";
 
 export type SharedProcessHistoryOptions = {
   provider: EmailProvider;
@@ -152,9 +154,30 @@ export async function processHistoryItem(
         isSentEmail: meetingTrigger.isSentEmail,
       });
 
-      // TODO: Process meeting request
-      // This will be implemented in the next phase
-      // For now, just log the detection
+      // Parse meeting request details using AI
+      try {
+        const emailForLLM = getEmailForLLM(parsedMessage);
+        const meetingDetails = await aiParseMeetingRequest({
+          email: emailForLLM,
+          emailAccount,
+          userEmail,
+        });
+
+        logger.info("Meeting request parsed", {
+          attendeeCount: meetingDetails.attendees.length,
+          title: meetingDetails.title,
+          provider: meetingDetails.preferredProvider,
+          isUrgent: meetingDetails.isUrgent,
+        });
+
+        // TODO: Phase 3-6 implementation
+        // - Check availability (Phase 4)
+        // - Generate meeting link (Phase 5)
+        // - Create calendar event (Phase 6)
+        // For now, just log the parsed details
+      } catch (error) {
+        logger.error("Error parsing meeting request", { error });
+      }
     }
 
     if (isOutbound) {
