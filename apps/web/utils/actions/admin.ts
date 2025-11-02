@@ -10,7 +10,10 @@ import { syncStripeDataToDb } from "@/ee/billing/stripe/sync-stripe";
 import { getStripe } from "@/ee/billing/stripe";
 import { createEmailProvider } from "@/utils/email/provider";
 import { hash } from "@/utils/hash";
-import { hashEmailBody } from "@/utils/actions/admin.validation";
+import {
+  hashEmailBody,
+  convertGmailUrlBody,
+} from "@/utils/actions/admin.validation";
 
 export const adminProcessHistoryAction = adminActionClient
   .metadata({ name: "adminProcessHistory" })
@@ -195,4 +198,60 @@ export const adminHashEmailAction = adminActionClient
   .action(async ({ parsedInput: { email } }) => {
     const hashed = hash(email);
     return { hash: hashed };
+  });
+
+export const adminConvertGmailUrlAction = adminActionClient
+  .metadata({ name: "adminConvertGmailUrl" })
+  .schema(convertGmailUrlBody)
+  .action(async ({ parsedInput: { rfc822MessageId, email } }) => {
+    // Clean up Message-ID (remove < > if present)
+    const cleanMessageId = rfc822MessageId.trim().replace(/^<|>$/g, "");
+
+    const emailAccount = await prisma.emailAccount.findUnique({
+      where: { email: email.toLowerCase() },
+      select: {
+        id: true,
+        account: {
+          select: {
+            provider: true,
+          },
+        },
+      },
+    });
+
+    if (!emailAccount) {
+      throw new SafeError("Email account not found");
+    }
+
+    const emailProvider = await createEmailProvider({
+      emailAccountId: emailAccount.id,
+      provider: emailAccount.account.provider,
+    });
+
+    const message =
+      await emailProvider.getMessageByRfc822MessageId(cleanMessageId);
+
+    if (!message) {
+      throw new SafeError(
+        `Could not find message with RFC822 Message-ID: ${cleanMessageId}`,
+      );
+    }
+
+    if (!message.threadId) {
+      throw new SafeError("Message does not have a thread ID");
+    }
+
+    const thread = await emailProvider.getThread(message.threadId);
+
+    if (!thread) {
+      throw new SafeError("Could not find thread for message");
+    }
+
+    const messageIds = thread.messages?.map((m) => m.id) || [];
+
+    return {
+      threadId: thread.id,
+      messageIds: messageIds,
+      rfc822MessageId: cleanMessageId,
+    };
   });

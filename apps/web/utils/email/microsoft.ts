@@ -6,6 +6,7 @@ import {
   getMessages,
   queryBatchMessages,
   getFolderIds,
+  convertMessage,
 } from "@/utils/outlook/message";
 import {
   getLabels,
@@ -149,6 +150,28 @@ export class OutlookProvider implements EmailProvider {
       });
       throw error;
     }
+  }
+
+  async getMessageByRfc822MessageId(
+    rfc822MessageId: string,
+  ): Promise<ParsedMessage | null> {
+    const cleanMessageId = rfc822MessageId.trim().replace(/^<|>$/g, "");
+    const messageIdWithBrackets = `<${cleanMessageId}>`;
+
+    const response = await this.client
+      .getClient()
+      .api("/me/messages")
+      .filter(`internetMessageId eq '${messageIdWithBrackets}'`)
+      .top(1)
+      .get();
+
+    const message = response.value?.[0];
+    if (!message) {
+      return null;
+    }
+
+    const folderIds = await getFolderIds(this.client);
+    return convertMessage(message, folderIds);
   }
 
   private async getMessages({
