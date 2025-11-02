@@ -41,6 +41,17 @@ export function Hero() {
           width={1000}
           height={1000}
         />
+        <div className="mt-12">
+          <Paragraph>
+            Join over 15,000 users worldwide saving hours daily
+          </Paragraph>
+          <Image
+            src="/images/new-landing/trusted-by.png"
+            alt="logo cloud"
+            width={1000}
+            height={1000}
+          />
+        </div>
       </div>
     </Section>
   );

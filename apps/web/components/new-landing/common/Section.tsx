@@ -6,7 +6,7 @@ import {
 import { cn } from "@/utils";
 
 interface SectionProps {
-  title: string | React.ReactNode;
+  title?: string | React.ReactNode;
   subtitle?: string;
   children: React.ReactNode;
   wrap?: boolean;
@@ -24,11 +24,11 @@ export function Section({
 
   return (
     <section className="py-16 text-center">
-      {variant === "hero" ? (
+      {variant === "hero" && title ? (
         <Heading className={titleStyles}>{title}</Heading>
-      ) : (
+      ) : title ? (
         <Subheading className={titleStyles}>{title}</Subheading>
-      )}
+      ) : null}
       {subtitle ? (
         <Paragraph className="max-w-[650px] mx-auto mt-4">{subtitle}</Paragraph>
       ) : null}
