@@ -248,13 +248,6 @@ export function SideNav({ ...props }: React.ComponentProps<typeof Sidebar>) {
         </SidebarMenuButton>
 
         <SidebarMenuButton asChild>
-          <Link href="/premium">
-            <CrownIcon className="size-4" />
-            <span className="font-semibold">Premium</span>
-          </Link>
-        </SidebarMenuButton>
-
-        <SidebarMenuButton asChild>
           <Link href={prefixPath(currentEmailAccountId, "/settings")}>
             <SettingsIcon className="size-4" />
             <span className="font-semibold">Settings</span>

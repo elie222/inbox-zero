@@ -13,6 +13,7 @@ import {
   saveAboutBody,
   saveSignatureBody,
 } from "@/utils/actions/user.validation";
+import { clearLastEmailAccountCookie } from "@/utils/cookies.server";
 
 export const saveAboutAction = actionClient
   .metadata({ name: "saveAbout" })
@@ -45,11 +46,13 @@ export const resetAnalyticsAction = actionClient
 export const deleteAccountAction = actionClientUser
   .metadata({ name: "deleteAccount" })
   .action(async ({ ctx: { userId } }) => {
-    try {
-      await betterAuthConfig.api.signOut({
+    clearLastEmailAccountCookie().catch(() => {});
+
+    await betterAuthConfig.api
+      .signOut({
         headers: await headers(),
-      });
-    } catch {}
+      })
+      .catch(() => {});
     await deleteUser({ userId });
   });
 
