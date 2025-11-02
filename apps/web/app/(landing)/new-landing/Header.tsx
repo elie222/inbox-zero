@@ -3,15 +3,15 @@ import { Button } from "./Button";
 import { cn } from "@/utils";
 
 interface HeaderProps {
-  maxWidth: string;
+  layoutStyle: string;
 }
 
-export function Header({ maxWidth }: HeaderProps) {
+export function Header({ layoutStyle }: HeaderProps) {
   return (
     <header
       className={cn(
         "bg-white mx-auto flex items-center justify-between h-16",
-        maxWidth,
+        layoutStyle,
       )}
     >
       <Logo />

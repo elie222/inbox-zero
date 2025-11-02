@@ -112,16 +112,16 @@ const navigation = {
 };
 
 interface FooterProps {
-  maxWidth: string;
+  layoutStyle: string;
 }
 
-export function Footer({ maxWidth }: FooterProps) {
+export function Footer({ layoutStyle }: FooterProps) {
   return (
     <footer className="relative z-50 bg-gray-50 border-t border-[#E7E7E7A3]">
       <div
         className={cn(
-          "mx-auto overflow-hidden px-6 py-20 sm:py-24 lg:px-8",
-          maxWidth,
+          "overflow-hidden px-6 py-20 sm:py-24 lg:px-8",
+          layoutStyle,
         )}
       >
         <div className="mt-16 grid grid-cols-2 gap-8 lg:grid-cols-5 xl:col-span-2 xl:mt-0">
