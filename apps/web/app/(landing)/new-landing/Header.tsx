@@ -1,9 +1,19 @@
 import { Logo } from "./Logo";
 import { Button } from "./Button";
+import { cn } from "@/utils";
 
-export function Header() {
+interface HeaderProps {
+  maxWidth: string;
+}
+
+export function Header({ maxWidth }: HeaderProps) {
   return (
-    <header className="bg-white mx-auto max-w-7xl flex items-center justify-between h-16">
+    <header
+      className={cn(
+        "bg-white mx-auto flex items-center justify-between h-16",
+        maxWidth,
+      )}
+    >
       <Logo />
       <div className="flex items-center gap-3">
         <Button variant="secondary">Log in</Button>

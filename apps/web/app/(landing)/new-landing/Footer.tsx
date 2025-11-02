@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { EXTENSION_URL } from "@/utils/config";
 import { Logo } from "./Logo";
+import { cn } from "@/utils";
 
 const navigation = {
   main: [
@@ -110,10 +111,19 @@ const navigation = {
   ],
 };
 
-export function Footer() {
+interface FooterProps {
+  maxWidth: string;
+}
+
+export function Footer({ maxWidth }: FooterProps) {
   return (
     <footer className="relative z-50 bg-gray-50 border-t border-[#E7E7E7A3]">
-      <div className="mx-auto max-w-7xl overflow-hidden px-6 py-20 sm:py-24 lg:px-8">
+      <div
+        className={cn(
+          "mx-auto overflow-hidden px-6 py-20 sm:py-24 lg:px-8",
+          maxWidth,
+        )}
+      >
         <div className="mt-16 grid grid-cols-2 gap-8 lg:grid-cols-5 xl:col-span-2 xl:mt-0">
           <div>
             <FooterList title="Product" items={navigation.main} />

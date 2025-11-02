@@ -6,11 +6,12 @@ interface ButtonProps {
 }
 
 export function Button({ children, variant = "primary" }: ButtonProps) {
-  const buttonVariants = cva("py-2 px-4 rounded-2xl", {
+  const buttonVariants = cva("py-2 px-4 rounded-xl text-sm font-medium", {
     variants: {
       variant: {
-        primary: "bg-gradient-to-b from-[#2563EB] to-[#6595FF] text-white",
-        secondary: "bg-white border border-gray-200 text-gray-700",
+        primary:
+          "bg-gradient-to-b from-[#2563EB] to-[#6595FF] text-white shadow-[0px_2px_10.1px_0px_#4B83FD4D]",
+        secondary: "bg-white border border-gray-100 text-gray-800",
       },
     },
   });
