@@ -6,6 +6,7 @@ import { FAQs } from "@/components/new-landing/sections/FAQs";
 import { Testimonials } from "@/components/new-landing/sections/Testimonials";
 import { Hero } from "@/components/new-landing/sections/Hero";
 import { Pricing } from "@/components/new-landing/sections/Pricing";
+import { Awards } from "@/components/new-landing/sections/Awards";
 
 export const metadata: Metadata = { alternates: { canonical: "/" } };
 
@@ -71,12 +72,7 @@ export default function NewLanding() {
           height={1000}
         />
       </Section>
-      <Section
-        title="Privacy first and open source"
-        subtitle="Your data stays private — no AI training, no funny business. We’re fully certified for top-tier security, and you can even self-host Inbox Zero if you want total control."
-      >
-        <div />
-      </Section>
+      <Awards />
       <Pricing />
       <Testimonials />
       <Section
