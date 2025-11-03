@@ -14,7 +14,7 @@ export function CardWrapper({ children, size = "md" }: CardWrapperProps) {
       variants: {
         size: {
           sm: "p-3 rounded-[38px]",
-          md: "p-6 rounded-[56px]",
+          md: "p-5 rounded-[52px]",
         },
       },
     },
