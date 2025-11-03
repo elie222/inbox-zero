@@ -49,10 +49,13 @@ export function Awards() {
       title="Privacy first and open source"
       subtitle="Your data stays private — no AI training, no funny business. We’re fully certified for top-tier security, and you can even self-host Inbox Zero if you want total control."
     >
-      <div className="grid grid-cols-4 gap-5 mt-20">
+      <div className="mt-20 gap-x-5 gap-y-20 lg:gap-y-0 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4">
         {awards.map((award) => (
           <CardWrapper size="sm" key={award.title}>
-            <Card className="gap-3 h-full relative pt-32">
+            <Card
+              noPadding
+              className="p-6 gap-3 h-full relative pt-32 text-center"
+            >
               <Image
                 className={cn(
                   "absolute  left-1/2 -translate-x-1/2 -translate-y-20",
@@ -64,7 +67,7 @@ export function Awards() {
                 height={award.imageSize || defaultAwardImageSize}
               />
               <p className="text-sm font-bold text-gray-900">{award.title}</p>
-              <Paragraph>{award.description}</Paragraph>
+              <Paragraph className="text-sm">{award.description}</Paragraph>
             </Card>
           </CardWrapper>
         ))}
