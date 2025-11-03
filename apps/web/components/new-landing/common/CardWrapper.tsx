@@ -14,7 +14,7 @@ export function CardWrapper({
   variant = "default",
 }: CardWrapperProps) {
   const cardWrapperStyles = cva(
-    "w-fit text-left border bg-gradient-to-b from-[#FFFFFF] to-[#F9F9F9]",
+    "text-left border bg-gradient-to-b from-[#FFFFFF] to-[#F9F9F9]",
     {
       variants: {
         size: {
