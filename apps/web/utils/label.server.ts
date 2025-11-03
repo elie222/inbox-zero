@@ -24,7 +24,7 @@ export async function labelMessageAndSync({
   emailAccountId: string;
 }): Promise<void> {
   const logger = createScopedLogger("label.server").with({
-    provider,
+    provider: provider.name,
     messageId,
     labelId,
     labelName,
