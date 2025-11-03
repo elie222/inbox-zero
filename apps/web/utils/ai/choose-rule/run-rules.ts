@@ -407,6 +407,10 @@ function shouldAnalyzeSenderPattern({
   if (!result.rule) return false;
   if (isConversationStatusType(result.rule.systemType)) return false;
 
+  // Cold email blocker has its own AI analysis and stores senders in ColdEmail table
+  // No need for learned pattern analysis
+  if (result.rule.systemType === SystemType.COLD_EMAIL) return false;
+
   // skip if we already matched for static reasons
   // learnings only needed for rules that would run through an ai
   if (
