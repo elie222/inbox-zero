@@ -248,6 +248,20 @@ export async function getLabelById(options: {
   return (await gmail.users.labels.get({ userId: "me", id })).data;
 }
 
+export async function getOrCreateLabel({
+  gmail,
+  name,
+}: {
+  gmail: gmail_v1.Gmail;
+  name: string;
+}) {
+  if (!name?.trim()) throw new Error("Label name cannot be empty");
+  const label = await getLabel({ gmail, name });
+  if (label) return label;
+  const createdLabel = await createLabel({ gmail, name });
+  return createdLabel;
+}
+
 export async function getOrCreateInboxZeroLabel({
   gmail,
   key,

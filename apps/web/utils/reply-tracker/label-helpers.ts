@@ -7,6 +7,7 @@ import {
   type ConversationStatus,
 } from "./conversation-status-config";
 import { getRuleLabel } from "@/utils/rule/consts";
+import { labelMessageAndSync } from "@/utils/label.server";
 
 type LabelIds = Record<
   ConversationStatus,
@@ -139,19 +140,19 @@ export async function applyThreadStatusLabel({
       return;
     }
 
-    return provider
-      .labelMessage({
-        messageId,
-        labelId: targetLabel.labelId || "",
+    return labelMessageAndSync({
+      provider,
+      messageId,
+      labelId: targetLabel.labelId || "",
+      labelName: targetLabel.label,
+      emailAccountId,
+    }).catch((error) =>
+      logger.error("Failed to apply thread status label", {
+        labelId: targetLabel.labelId,
         labelName: targetLabel.label,
-      })
-      .catch((error) =>
-        logger.error("Failed to apply thread status label", {
-          labelId: targetLabel.labelId,
-          labelName: targetLabel.label,
-          error,
-        }),
-      );
+        error,
+      }),
+    );
   };
 
   await Promise.all([

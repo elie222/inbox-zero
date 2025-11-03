@@ -339,19 +339,22 @@ export class OutlookProvider implements EmailProvider {
     messageId: string;
     labelId: string;
     labelName: string | null;
-  }) {
+  }): Promise<{ usedFallback?: boolean; actualLabelId?: string }> {
+    let usedFallback = false;
     let category = await this.getLabelById(labelId);
+
     if (!category && labelName) {
-      logger.warn("Label not found, trying to get by name", {
+      logger.warn("Category not found by ID, trying to get by name", {
         labelId,
         labelName,
       });
       category = await this.getLabelByName(labelName);
+      usedFallback = true;
     }
 
     if (!category) {
       throw new Error(
-        `Category with ID ${labelId} or name ${labelName} not found`,
+        `Category with ID ${labelId}${labelName ? ` or name ${labelName}` : ""} not found`,
       );
     }
 
@@ -373,6 +376,11 @@ export class OutlookProvider implements EmailProvider {
         categories: updatedCategories,
       });
     }
+
+    return {
+      usedFallback,
+      actualLabelId: category.id || undefined,
+    };
   }
 
   async getDraft(draftId: string): Promise<ParsedMessage | null> {

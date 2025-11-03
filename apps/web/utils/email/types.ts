@@ -96,7 +96,7 @@ export interface EmailProvider {
     messageId: string;
     labelId: string;
     labelName: string | null;
-  }): Promise<void>;
+  }): Promise<{ usedFallback?: boolean; actualLabelId?: string }>;
   removeThreadLabel(threadId: string, labelId: string): Promise<void>;
   removeThreadLabels(threadId: string, labelIds: string[]): Promise<void>;
   draftEmail(

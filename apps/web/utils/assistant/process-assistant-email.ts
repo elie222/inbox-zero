@@ -7,6 +7,7 @@ import { emailToContent } from "@/utils/mail";
 import { isAssistantEmail } from "@/utils/assistant/is-assistant-email";
 import { internalDateToDate } from "@/utils/date";
 import type { EmailProvider } from "@/utils/email/types";
+import { labelMessageAndSync } from "@/utils/label.server";
 
 type ProcessAssistantEmailArgs = {
   emailAccountId: string;
@@ -30,6 +31,7 @@ export async function processAssistantEmail({
   return withProcessingLabels(
     message.id,
     provider,
+    emailAccountId,
     () =>
       processAssistantEmailInternal({
         emailAccountId,
@@ -230,6 +232,7 @@ function verifyUserSentEmail({
 async function withProcessingLabels<T>(
   messageId: string,
   provider: EmailProvider,
+  emailAccountId: string,
   fn: () => Promise<T>,
   logger: Logger,
 ): Promise<T> {
@@ -259,15 +262,15 @@ async function withProcessingLabels<T>(
 
   if (labels.length) {
     // Fire and forget the initial labeling
-    provider
-      .labelMessage({
-        messageId,
-        labelId: labels[0].id,
-        labelName: labels[0].name,
-      })
-      .catch((error) => {
-        logger.error("Error labeling message", { error });
-      });
+    labelMessageAndSync({
+      provider,
+      messageId,
+      labelId: labels[0].id,
+      labelName: labels[0].name,
+      emailAccountId,
+    }).catch((error) => {
+      logger.error("Error labeling message", { error });
+    });
   }
 
   try {

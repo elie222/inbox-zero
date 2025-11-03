@@ -12,6 +12,7 @@ import {
   getLabel,
   getLabelById,
   createLabel,
+  getOrCreateLabel,
   getOrCreateInboxZeroLabel,
   GmailLabel,
 } from "@/utils/gmail/label";
@@ -269,15 +270,53 @@ export class GmailProvider implements EmailProvider {
   async labelMessage({
     messageId,
     labelId,
+    labelName,
   }: {
     messageId: string;
     labelId: string;
-  }) {
-    await labelMessage({
-      gmail: this.client,
-      messageId,
-      addLabelIds: [labelId],
-    });
+    labelName: string | null;
+  }): Promise<{ usedFallback?: boolean; actualLabelId?: string }> {
+    try {
+      await labelMessage({
+        gmail: this.client,
+        messageId,
+        addLabelIds: [labelId],
+      });
+
+      return {};
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+
+      // Only use fallback for "label not found" errors
+      if (
+        errorMessage.includes("Requested entity was not found") &&
+        labelName
+      ) {
+        logger.warn("Label not found by ID, trying to get or create by name", {
+          labelId,
+          labelName,
+        });
+
+        const label = await getOrCreateLabel({
+          gmail: this.client,
+          name: labelName,
+        });
+        await labelMessage({
+          gmail: this.client,
+          messageId,
+          addLabelIds: [label.id!],
+        });
+
+        return {
+          usedFallback: true,
+          actualLabelId: label.id!,
+        };
+      }
+
+      // Re-throw if not a "not found" error or fallback didn't work
+      throw error;
+    }
   }
 
   async getDraft(draftId: string): Promise<ParsedMessage | null> {
