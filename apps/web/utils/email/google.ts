@@ -290,7 +290,8 @@ export class GmailProvider implements EmailProvider {
 
       // Only use fallback for "label not found" errors
       if (
-        errorMessage.includes("Requested entity was not found") &&
+        (errorMessage.includes("Requested entity was not found") ||
+          errorMessage.includes("labelId not found")) &&
         labelName
       ) {
         logger.warn("Label not found by ID, trying to get or create by name", {
