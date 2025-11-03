@@ -39,6 +39,7 @@ import { ONE_WEEK_MINUTES } from "@/utils/date";
 import { createEmailProvider } from "@/utils/email/provider";
 import { resolveLabelNameAndId } from "@/utils/label/resolve-label";
 import type { Logger } from "@/utils/logger";
+import { validateGmailLabelName } from "@/utils/gmail/label-validation";
 
 export const createRuleAction = actionClient
   .metadata({ name: "createRule" })
@@ -746,6 +747,16 @@ async function resolveActionLabels<
   return Promise.all(
     actions.map(async (action) => {
       if (action.type === ActionType.LABEL) {
+        const labelName = action.labelId?.name || action.labelId?.value || null;
+
+        // For Gmail, validate against reserved label names
+        if (provider === "google" && labelName) {
+          const validation = validateGmailLabelName(labelName);
+          if (!validation.valid) {
+            throw new SafeError(validation.error!);
+          }
+        }
+
         const { label: resolvedLabel, labelId: resolvedLabelId } =
           await resolveLabelNameAndId({
             emailProvider,

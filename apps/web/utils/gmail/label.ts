@@ -12,6 +12,7 @@ import {
   type LabelVisibility,
   type MessageVisibility,
 } from "@/utils/gmail/constants";
+import { validateGmailLabelName } from "@/utils/gmail/label-validation";
 import { createScopedLogger } from "@/utils/logger";
 import { withGmailRetry } from "@/utils/gmail/retry";
 
@@ -183,6 +184,12 @@ export async function createLabel({
   labelListVisibility?: LabelVisibility;
   color?: string;
 }) {
+  // Validate label name before attempting to create it
+  const validation = validateGmailLabelName(name);
+  if (!validation.valid) {
+    throw new Error(`Invalid Gmail label name: ${validation.error}`);
+  }
+
   try {
     const createdLabel = await gmail.users.labels.create({
       userId: "me",
