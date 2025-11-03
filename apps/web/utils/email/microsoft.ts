@@ -75,6 +75,10 @@ export class OutlookProvider implements EmailProvider {
     this.client = client;
   }
 
+  toJSON() {
+    return { name: this.name, type: "OutlookProvider" };
+  }
+
   async getThreads(folderId?: string): Promise<EmailThread[]> {
     const messages = await this.getMessages({ folderId });
     const threadMap = new Map<string, ParsedMessage[]>();

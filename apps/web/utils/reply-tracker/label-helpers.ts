@@ -37,7 +37,7 @@ export async function removeConflictingThreadStatusLabels({
       emailAccountId,
       threadId,
       systemType,
-      provider,
+      provider: provider.name,
     },
   );
 
@@ -110,7 +110,7 @@ export async function applyThreadStatusLabel({
     threadId,
     messageId,
     systemType,
-    provider,
+    provider: provider.name,
   });
 
   const [dbLabels, providerLabels] = await Promise.all([
