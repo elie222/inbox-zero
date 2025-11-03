@@ -8,11 +8,12 @@ import { Section } from "@/components/new-landing/common/Section";
 import type { ButtonVariant } from "@/components/new-landing/common/Button";
 import { Button } from "@/components/new-landing/common/Button";
 import { Card } from "@/components/new-landing/common/Card";
-import { Paragraph } from "@/components/new-landing/common/Typography";
+import { Heading, Paragraph } from "@/components/new-landing/common/Typography";
 import {
   Badge,
   type BadgeVariant,
 } from "@/components/new-landing/common/Badge";
+import { Chat } from "@/components/new-landing/icons/Chat";
 
 type PricingPlan = {
   title: string;
@@ -22,9 +23,11 @@ type PricingPlan = {
   button: {
     content: string;
     variant?: ButtonVariant;
+    icon?: React.ReactNode;
   };
   price: {
-    amount: string;
+    amount?: string;
+    message?: string;
     subtext?: string;
   };
   features: {
@@ -94,9 +97,10 @@ const plans: PricingPlan[] = [
     button: {
       variant: "secondary-two",
       content: "Speak to sales",
+      icon: <Chat />,
     },
     price: {
-      amount: "Contact us",
+      message: "Contact us",
     },
     features: {
       title: "Everything in Professional, plus:",
@@ -135,10 +139,17 @@ export function Pricing() {
                   </div>
                   <div className="space-y-3">
                     <h2 className="text-xl font-bold">{title}</h2>
-                    <Paragraph>{description}</Paragraph>
+                    <Paragraph className="text-sm">{description}</Paragraph>
                   </div>
                   <div className="flex gap-2 items-end">
-                    <h1 className="text-4xl font-bold">{price.amount}</h1>
+                    <Heading
+                      className={cn(
+                        "text-4xl",
+                        price.amount ? "font-medium" : "",
+                      )}
+                    >
+                      {price.amount || price.message}
+                    </Heading>
                     {price.subtext ? (
                       <Paragraph
                         variant="light"
@@ -148,7 +159,7 @@ export function Pricing() {
                       </Paragraph>
                     ) : null}
                   </div>
-                  <Button className="w-full" variant={button.variant}>
+                  <Button auto variant={button.variant} icon={button.icon}>
                     {button.content}
                   </Button>
                 </div>

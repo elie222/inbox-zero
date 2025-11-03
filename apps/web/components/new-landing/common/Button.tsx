@@ -1,4 +1,4 @@
-import { cva } from "class-variance-authority";
+import { cva, cx } from "class-variance-authority";
 
 export type ButtonVariant = "primary" | "secondary" | "secondary-two";
 
@@ -8,9 +8,11 @@ interface ButtonProps {
   className?: string;
   size?: "md" | "lg";
   icon?: React.ReactNode;
+  auto?: boolean;
 }
 
 export function Button({
+  auto = false,
   children,
   variant = "primary",
   className,
@@ -32,19 +34,32 @@ export function Button({
         lg: "py-[11px] px-[18px]",
       },
       hasIcon: {
-        true: "flex items-center gap-2",
+        true: "flex items-center justify-center gap-2",
+      },
+      auto: {
+        true: "w-full",
       },
     },
   });
 
   if (variant === "primary") {
     return (
-      <div className="rounded-[13px] p-[1px] bg-gradient-to-b from-[#2965EC] to-[#578AFA] w-fit">
+      <div
+        className={cx(
+          "rounded-[13px] p-[1px] bg-gradient-to-b from-[#2965EC] to-[#578AFA]",
+          auto ? "w-full" : "w-fit",
+        )}
+      >
         <button
           type="button"
-          className={buttonVariants({ variant, size, className, hasIcon })}
+          className={buttonVariants({
+            variant,
+            size,
+            className,
+            hasIcon,
+            auto,
+          })}
         >
-          {icon}
           {children}
         </button>
       </div>
@@ -54,9 +69,9 @@ export function Button({
   return (
     <button
       type="button"
-      className={buttonVariants({ variant, size, className, hasIcon })}
+      className={buttonVariants({ variant, size, className, hasIcon, auto })}
     >
-      {icon}
+      {icon ?? ""}
       {children}
     </button>
   );
