@@ -23,7 +23,7 @@ export default function NewLanding() {
         wrap
       >
         <Image
-          src="/images/new-landing/an-organized-inbox.png"
+          src="/images/new-landing/an-organized-inbox.svg"
           alt="an organized inbox"
           width={1000}
           height={1000}

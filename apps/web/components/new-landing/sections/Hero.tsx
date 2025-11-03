@@ -38,7 +38,7 @@ export function Hero() {
             <Play />
           </LiquidGlassButton>
           <Image
-            src="/images/new-landing/video-thumbnail.png"
+            src="/images/new-landing/video-thumbnail.svg"
             alt="an organized inbox"
             width={1000}
             height={1000}
