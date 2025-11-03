@@ -8,6 +8,7 @@ import { isPremium } from "@/utils/premium";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { cn } from "@/utils";
+import { HoverCard } from "@/components/HoverCard";
 
 interface PremiumData {
   lemonSqueezyRenewsAt?: Date | string | null;
@@ -25,7 +26,8 @@ interface PremiumExpiredCardProps {
 export function PremiumExpiredCardContent({
   premium,
   onDismiss,
-}: PremiumExpiredCardProps) {
+  isCollapsed = false,
+}: PremiumExpiredCardProps & { isCollapsed?: boolean }) {
   // Early return if no premium data
   if (!premium) return null;
 
@@ -93,6 +95,43 @@ export function PremiumExpiredCardContent({
 
   const { title, description } = getSubscriptionMessage();
 
+  // When collapsed, show only the alert icon with a hover card
+  if (isCollapsed) {
+    return (
+      <HoverCard
+        className="w-64"
+        content={
+          <div className="space-y-2">
+            <p className="text-sm font-semibold text-orange-800 dark:text-orange-200">
+              {title}
+            </p>
+            <p className="text-sm text-muted-foreground">{description}</p>
+            <Button
+              asChild
+              size="sm"
+              className="w-full bg-orange-600 text-white hover:bg-orange-700 border-0 shadow-sm h-8 mt-2"
+            >
+              <Link
+                href="/settings"
+                className="flex items-center justify-center gap-1.5"
+              >
+                <CreditCardIcon className="h-3.5 w-3.5" />
+                <span className="text-xs font-medium">Reactivate</span>
+              </Link>
+            </Button>
+          </div>
+        }
+      >
+        <Link
+          href="/settings"
+          className="flex items-center justify-center p-2 rounded-lg bg-orange-100 hover:bg-orange-200 transition-colors dark:bg-orange-900/30 dark:hover:bg-orange-900/50"
+        >
+          <AlertTriangleIcon className="h-5 w-5 text-orange-600 dark:text-orange-400" />
+        </Link>
+      </HoverCard>
+    );
+  }
+
   return (
     <Card
       className={cn(
@@ -144,17 +183,22 @@ export function PremiumExpiredCardContent({
   );
 }
 
-export function PremiumExpiredCard() {
+export function PremiumExpiredCard({
+  isCollapsed = false,
+}: {
+  isCollapsed?: boolean;
+}) {
   const [dismissed, setDismissed] = useState(false);
   const { data: user, isLoading } = useUser();
 
   if (isLoading || dismissed || !user) return null;
 
   return (
-    <div className="px-3 pt-4">
+    <div className={cn("px-3 pt-4", isCollapsed && "flex justify-center")}>
       <PremiumExpiredCardContent
         premium={user.premium}
-        onDismiss={() => setDismissed(true)}
+        onDismiss={isCollapsed ? undefined : () => setDismissed(true)}
+        isCollapsed={isCollapsed}
       />
     </div>
   );
