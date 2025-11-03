@@ -10,3 +10,8 @@ export const convertGmailUrlBody = z.object({
   email: z.string().trim().email("Valid email address is required"),
 });
 export type ConvertGmailUrlBody = z.infer<typeof convertGmailUrlBody>;
+
+export const getLabelsBody = z.object({
+  emailAccountId: z.string().min(1, "Email account ID is required"),
+});
+export type GetLabelsBody = z.infer<typeof getLabelsBody>;

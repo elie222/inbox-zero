@@ -13,11 +13,12 @@ import { hash } from "@/utils/hash";
 import {
   hashEmailBody,
   convertGmailUrlBody,
+  getLabelsBody,
 } from "@/utils/actions/admin.validation";
 
 export const adminProcessHistoryAction = adminActionClient
   .metadata({ name: "adminProcessHistory" })
-  .schema(
+  .inputSchema(
     z.object({
       emailAddress: z.string(),
       historyId: z.number().optional(),
@@ -69,7 +70,7 @@ export const adminProcessHistoryAction = adminActionClient
 
 export const adminDeleteAccountAction = adminActionClient
   .metadata({ name: "adminDeleteAccount" })
-  .schema(z.object({ email: z.string() }))
+  .inputSchema(z.object({ email: z.string() }))
   .action(async ({ parsedInput: { email }, ctx: { logger } }) => {
     try {
       const userToDelete = await prisma.user.findUnique({ where: { email } });
@@ -194,7 +195,7 @@ export const adminSyncAllStripeCustomersToDbAction = adminActionClient
 
 export const adminHashEmailAction = adminActionClient
   .metadata({ name: "adminHashEmail" })
-  .schema(hashEmailBody)
+  .inputSchema(hashEmailBody)
   .action(async ({ parsedInput: { email } }) => {
     const hashed = hash(email);
     return { hash: hashed };
@@ -202,7 +203,7 @@ export const adminHashEmailAction = adminActionClient
 
 export const adminConvertGmailUrlAction = adminActionClient
   .metadata({ name: "adminConvertGmailUrl" })
-  .schema(convertGmailUrlBody)
+  .inputSchema(convertGmailUrlBody)
   .action(async ({ parsedInput: { rfc822MessageId, email } }) => {
     // Clean up Message-ID (remove < > if present)
     const cleanMessageId = rfc822MessageId.trim().replace(/^<|>$/g, "");
@@ -254,4 +255,34 @@ export const adminConvertGmailUrlAction = adminActionClient
       messageIds: messageIds,
       rfc822MessageId: cleanMessageId,
     };
+  });
+
+export const adminGetLabelsAction = adminActionClient
+  .metadata({ name: "adminGetLabels" })
+  .inputSchema(getLabelsBody)
+  .action(async ({ parsedInput: { emailAccountId } }) => {
+    const emailAccount = await prisma.emailAccount.findUnique({
+      where: { id: emailAccountId },
+      select: {
+        id: true,
+        account: {
+          select: {
+            provider: true,
+          },
+        },
+      },
+    });
+
+    if (!emailAccount) {
+      throw new SafeError("Email account not found");
+    }
+
+    const emailProvider = await createEmailProvider({
+      emailAccountId: emailAccount.id,
+      provider: emailAccount.account.provider,
+    });
+
+    const labels = await emailProvider.getLabels();
+
+    return { labels };
   });
