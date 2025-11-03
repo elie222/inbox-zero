@@ -12,6 +12,7 @@ const withMDX = nextMdx({
 });
 
 const nextConfig: NextConfig = {
+  output: "standalone",
   reactStrictMode: true,
   serverExternalPackages: ["@sentry/nextjs", "@sentry/node"],
   turbopack: {

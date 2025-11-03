@@ -238,12 +238,3 @@ export const env = createEnv({
       process.env.NEXT_PUBLIC_DISABLE_REFERRAL_SIGNATURE,
   },
 });
-
-// Validate queue system configuration once at bootstrap
-if (env.QUEUE_SYSTEM === "redis" && !env.REDIS_URL) {
-  throw new Error("REDIS_URL is required when QUEUE_SYSTEM is set to 'redis'");
-}
-
-if (env.QUEUE_SYSTEM === "upstash" && !env.QSTASH_TOKEN) {
-  console.warn("QSTASH_TOKEN is not set - QStash functionality may be limited");
-}

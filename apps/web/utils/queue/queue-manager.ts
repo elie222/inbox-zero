@@ -25,18 +25,8 @@ export function createQueueManager(): QueueManager {
 
   switch (queueSystem) {
     case "redis":
-      // Use BullMQ with Redis
-      if (!env.REDIS_URL && !env.UPSTASH_REDIS_URL) {
-        throw new Error(
-          "Missing Redis URL (set REDIS_URL or UPSTASH_REDIS_URL) for QUEUE_SYSTEM=redis",
-        );
-      }
       return new BullMQManager();
     case "upstash":
-      // Use QStash (HTTP-based, no Redis needed for BullMQ)
-      if (!env.QSTASH_TOKEN) {
-        throw new Error("Missing QSTASH_TOKEN for QUEUE_SYSTEM=upstash");
-      }
       return new QStashManager();
     default:
       throw new Error(`Unsupported queue system: ${queueSystem}`);

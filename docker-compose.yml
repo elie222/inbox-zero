@@ -84,7 +84,7 @@ services:
       REDIS_URL: "redis://redis:6379"
       QUEUE_SYSTEM: "redis"
     # Override the default command to run the worker instead of the web server
-    command: ["pnpm", "--filter", "inbox-zero-ai", "run", "worker"]
+    command: ["node", "worker.js"]
     restart: unless-stopped
       
 volumes:

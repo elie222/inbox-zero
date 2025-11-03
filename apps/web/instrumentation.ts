@@ -1,6 +1,12 @@
 /* eslint-disable no-process-env */
 import * as Sentry from "@sentry/nextjs";
 
+declare global {
+  // Flag to avoid starting workers multiple times in dev hot-reload
+  // eslint-disable-next-line no-var
+  var __inboxZeroWorkersStarted: boolean | undefined;
+}
+
 export function register() {
   if (process.env.NEXT_RUNTIME === "nodejs") {
     // this is your Sentry.init call from `sentry.server.config.js|ts`
@@ -13,6 +19,44 @@ export function register() {
       // uncomment the line below to enable Spotlight (https://spotlightjs.com)
       // spotlight: process.env.NODE_ENV === 'development',
     });
+
+    // Start BullMQ workers inside the Next.js server process in dev mode
+    if (process.env.NODE_ENV === "development") {
+      // Avoid duplicate starts during hot reloads
+      if (!globalThis.__inboxZeroWorkersStarted) {
+        globalThis.__inboxZeroWorkersStarted = true;
+
+        // Defer heavy imports until after env is available
+        import("@/env").then(async ({ env }) => {
+          if (env.QUEUE_SYSTEM !== "redis") return;
+
+          try {
+            const [{ registerWorker }, { QUEUE_HANDLERS }] = await Promise.all([
+              import("@/utils/queue/worker"),
+              import("@/utils/queue/queues"),
+            ]);
+
+            let started = 0;
+            const entries = Object.entries(QUEUE_HANDLERS) as Array<
+              [string, (data: unknown) => Promise<unknown>]
+            >;
+            for (const [queueName, handler] of entries) {
+              const worker = registerWorker(queueName, async (job: unknown) => {
+                try {
+                  const data = (job as { data: unknown }).data;
+                  await handler(data);
+                } catch (error) {
+                  throw error instanceof Error
+                    ? error
+                    : new Error(String(error));
+                }
+              });
+              if (worker) started++;
+            }
+          } catch (err) {}
+        });
+      }
+    }
   }
 
   // This is your Sentry.init call from `sentry.edge.config.js|ts`

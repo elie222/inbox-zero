@@ -43,23 +43,20 @@ console.log("Bulk jobs enqueued:", jobs.length);
 
 ### 3. Worker Setup (Redis only)
 
-**Workers run as a separate process when `QUEUE_SYSTEM=redis`**
+**How workers run**
 
-Start the worker process alongside your Next.js application:
+- Development: workers auto-start inside the Next.js server via `apps/web/instrumentation.ts` when `NODE_ENV=development`.
+- Production: run a separate worker process using the standalone build output:
 
 ```bash
-# Development (with auto-reload)
-npm run worker:dev
+# Build app and copy worker into standalone output
+pnpm --filter inbox-zero-ai build
 
-# Production
-npm run worker
+# Start Next.js (prod)
+pnpm --filter inbox-zero-ai start:standalone
 
-# Using Docker Compose (runs both web and worker)
-docker-compose up
-
-# Or run them separately:
-docker-compose up -d web db redis  # Start web, db, redis
-docker-compose up -d worker        # Start worker
+# Start worker (separate process)
+pnpm --filter inbox-zero-ai worker
 ```
 
 The worker process automatically:
@@ -97,7 +94,8 @@ The worker process automatically:
 QUEUE_SYSTEM=redis    # Use Redis + BullMQ
 QUEUE_SYSTEM=upstash  # Use QStash (default)
 
-# For Redis system
+# For Redis system (BullMQ)
+# Must be a full URL. Do NOT pass this as host/port separately to BullMQ.
 REDIS_URL=redis://localhost:6379
 
 # For QStash system
@@ -115,7 +113,7 @@ console.log("Is Redis:", info.isRedis);
 console.log("Is QStash:", info.isQStash);
 ```
 
-### Retry Configuration
+### Retry & Concurrency Configuration
 
 - **QStash**: Retry count is handled by QStash service (see [QStash documentation](https://docs.upstash.com/qstash) for details)
 - **BullMQ (Redis)**: Retries up to **5 times** (configured in `bullmq-manager.ts`)
@@ -124,7 +122,7 @@ console.log("Is QStash:", info.isQStash);
   - **BullMQ Manager**: Default concurrency of **3** (configured in `bullmq-manager.ts`)
   - **QStash**: Uses parallelism of **3** for flow control (configured in `qstash-manager.ts`)
 
-> **Note**: For authoritative concurrency and retry settings, see `worker.ts` and `bullmq-manager.ts`
+> Note: For authoritative concurrency and retry settings, see `apps/web/utils/queue/worker.ts` and `apps/web/utils/queue/bullmq-manager.ts`.
 
 ## Migration Examples
 
@@ -269,10 +267,25 @@ main().catch(console.error);
 
 ### Common Issues
 
-- **Workers not processing jobs**: Ensure you're using Redis queue system and workers are properly registered
-- **Connection errors**: Check your Redis/QStash credentials and network connectivity
+- **Workers not processing jobs**: In dev, confirm `NODE_ENV=development` and that `instrumentation.ts` is loaded. In prod, ensure `pnpm worker` is running.
+- **Connection errors (BullMQ)**: Use `connection: { url: env.REDIS_URL }` with BullMQ. Passing `host: "redis://..."` causes DNS errors like `ENOTFOUND redis://localhost:6379`.
 - **Jobs stuck in queue**: Check worker logs for errors and ensure workers are running
 - **Memory issues**: Adjust concurrency settings and job cleanup policies
+
+### Environment validation & server-only pitfalls
+
+- `@t3-oss/env-nextjs` validates at import time. If the worker is run outside Next without preloading env, you'll see "Invalid environment variables". Next dev/prod automatically load `.env`, but raw `node/tsx` doesn’t.
+- The `server-only` package throws when imported outside Next’s server graph. Running app modules directly with `node/tsx` can crash.
+
+Solutions we use:
+- Development workers run inside Next via `instrumentation.ts` (no env/server-only issues).
+- Production workers use the standalone build and a simple `apps/web/worker.js` that imports from `.next/standalone/...`.
+
+If you need a standalone TypeScript worker entrypoint, bundle it (tsup/esbuild) and:
+- preload env (`@next/env`) before importing `env.ts`
+- alias `server-only` to a no-op only for the worker bundle
+- register tsconfig paths
+This keeps code clean but adds a bundling step.
 
 
 ## API Reference
@@ -295,7 +308,7 @@ main().catch(console.error);
 
 ```
 apps/web/
-├── worker.ts                  # Worker process entry point
+├── worker.js                  # Worker process entry point (copied to standalone on build)
 └── utils/queue/
     ├── queue-manager.ts       # Main queue abstraction
     ├── bullmq-manager.ts      # BullMQ implementation

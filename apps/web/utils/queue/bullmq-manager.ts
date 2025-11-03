@@ -26,9 +26,13 @@ export class BullMQManager implements QueueManager {
   private readonly connection: ConnectionOptions;
 
   constructor() {
+    if (!env.REDIS_URL) {
+      throw new Error("REDIS_URL is required for BullMQ");
+    }
+
     this.connection = {
-      host: env.REDIS_URL,
-    };
+      url: env.REDIS_URL,
+    } as unknown as ConnectionOptions;
   }
 
   async enqueue<T extends QueueJobData>(
