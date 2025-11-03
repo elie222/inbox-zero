@@ -22,7 +22,7 @@ export function Button({
     variants: {
       variant: {
         primary:
-          "bg-gradient-to-b from-[#2563EB] to-[#6595FF] text-white shadow-[0px_2px_10.1px_0px_#4B83FD4D] button-gradient-border",
+          "bg-gradient-to-b from-[#2965EC] to-[#6393FE] text-white shadow-[0px_2px_10.1px_0px_#4B83FD4D] button-gradient-border",
         secondary: "bg-white border border-gray-100 text-gray-800",
         "secondary-two":
           "bg-white border border-gray-100 text-gray-500 shadow-[0px_2px_16px_0px_#00000008]",
@@ -39,7 +39,7 @@ export function Button({
 
   if (variant === "primary") {
     return (
-      <div className="rounded-[13px] p-[1px] bg-gradient-to-b from-[#6595FF] to-[#2e66df] w-fit">
+      <div className="rounded-[13px] p-[1px] bg-gradient-to-b from-[#2965EC] to-[#578AFA] w-fit">
         <button
           type="button"
           className={buttonVariants({ variant, size, className, hasIcon })}
