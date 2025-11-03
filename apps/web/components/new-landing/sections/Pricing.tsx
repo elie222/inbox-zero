@@ -117,7 +117,7 @@ export function Pricing() {
       title="Try for free, affordable paid plans"
       subtitle="No hidden fees. Cancel anytime."
     >
-      <div className="flex gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {plans.map(
           ({ title, description, icon, badges, button, features, price }) => (
             <CardWrapper key={title}>
