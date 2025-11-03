@@ -118,7 +118,12 @@ interface FooterProps {
 
 export function Footer({ layoutStyle }: FooterProps) {
   return (
-    <footer className="relative z-50 bg-gray-50 border-t border-[#E7E7E7A3]">
+    <footer
+      className="relative z-50 bg-gray-50 border-t border-[#E7E7E7A3] bg-cover bg-center bg-no-repeat"
+      style={{
+        backgroundImage: "url('/images/new-landing/footer-bg.png')",
+      }}
+    >
       <div
         className={cn(
           "overflow-hidden px-6 py-20 sm:py-24 lg:px-8",
@@ -161,7 +166,7 @@ export function Footer({ layoutStyle }: FooterProps) {
           </div>
         </div>
       </div>
-      <FooterLineLogo className="hidden xl:block absolute bottom-0 left-1/2 -translate-x-1/2 mx-auto px-6 lg:px-8" />
+      <FooterLineLogo className="hidden xl:block absolute bottom-0 left-1/2 -translate-x-1/2 mx-auto px-6 lg:px-8 -z-10" />
     </footer>
   );
 }
