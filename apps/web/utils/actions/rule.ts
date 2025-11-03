@@ -371,6 +371,7 @@ export const createRulesOnboardingAction = actionClient
               hasDigest: false,
               draftReply: !!ruleConfiguration.draftReply,
               provider,
+              logger,
             });
 
             return (
@@ -404,6 +405,7 @@ export const createRulesOnboardingAction = actionClient
               hasDigest: false,
               draftReply: !!ruleConfiguration.draftReply,
               provider,
+              logger,
             });
 
             return prisma.rule
@@ -490,6 +492,7 @@ export const createRulesOnboardingAction = actionClient
             hasDigest: false,
             draftReply: false,
             provider,
+            logger,
           });
 
           const promise = prisma.rule
@@ -787,6 +790,7 @@ async function getActionsFromCategoryAction({
   draftReply,
   hasDigest,
   provider,
+  logger,
 }: {
   emailAccountId: string;
   rule: Rule;
@@ -795,6 +799,7 @@ async function getActionsFromCategoryAction({
   hasDigest: boolean;
   draftReply: boolean;
   provider: string;
+  logger: Logger;
 }): Promise<Prisma.ActionCreateManyRuleInput[]> {
   const emailProvider = await createEmailProvider({
     emailAccountId,
@@ -805,6 +810,13 @@ async function getActionsFromCategoryAction({
     emailProvider,
     label,
     labelId: null,
+  });
+
+  logger.info("Resolved label ID during onboarding", {
+    requestedLabel: label,
+    resolvedLabelName: labelName,
+    resolvedLabelId: labelId,
+    ruleName: rule.name,
   });
 
   let actions: Prisma.ActionCreateManyRuleInput[] = [
@@ -828,6 +840,13 @@ async function getActionsFromCategoryAction({
       const folderId = await emailProvider.getOrCreateOutlookFolderIdByName(
         rule.name,
       );
+
+      logger.info("Resolved folder ID during onboarding", {
+        folderName: rule.name,
+        resolvedFolderId: folderId,
+        categoryAction,
+      });
+
       actions = [
         {
           type: ActionType.MOVE_FOLDER,
