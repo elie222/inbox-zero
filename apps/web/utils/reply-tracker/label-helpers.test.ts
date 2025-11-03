@@ -261,7 +261,8 @@ describe("applyThreadStatusLabel", () => {
     // Should use the newly created label ID
     expect(mockProvider.labelMessage).toHaveBeenCalledWith({
       messageId,
-      labelId: "label-to-reply", // From createLabel mock
+      labelId: "label-to-reply",
+      labelName: "To Reply",
     });
   });
 
