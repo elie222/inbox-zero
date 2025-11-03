@@ -17,7 +17,7 @@ import { clearLastEmailAccountCookie } from "@/utils/cookies.server";
 
 export const saveAboutAction = actionClient
   .metadata({ name: "saveAbout" })
-  .schema(saveAboutBody)
+  .inputSchema(saveAboutBody)
   .action(async ({ parsedInput: { about }, ctx: { emailAccountId } }) => {
     await prisma.emailAccount.update({
       where: { id: emailAccountId },
@@ -27,7 +27,7 @@ export const saveAboutAction = actionClient
 
 export const saveSignatureAction = actionClient
   .metadata({ name: "saveSignature" })
-  .schema(saveSignatureBody)
+  .inputSchema(saveSignatureBody)
   .action(async ({ parsedInput: { signature }, ctx: { emailAccountId } }) => {
     await prisma.emailAccount.update({
       where: { id: emailAccountId },
@@ -45,20 +45,24 @@ export const resetAnalyticsAction = actionClient
 
 export const deleteAccountAction = actionClientUser
   .metadata({ name: "deleteAccount" })
-  .action(async ({ ctx: { userId } }) => {
-    await clearLastEmailAccountCookie().catch(() => {});
+  .action(async ({ ctx: { userId, logger } }) => {
+    await clearLastEmailAccountCookie().catch((error) => {
+      logger.error("Failed to clear last email account cookie", { error });
+    });
 
     await betterAuthConfig.api
       .signOut({
         headers: await headers(),
       })
-      .catch(() => {});
+      .catch((error) => {
+        logger.error("Failed to sign out", { error });
+      });
     await deleteUser({ userId });
   });
 
 export const deleteEmailAccountAction = actionClientUser
   .metadata({ name: "deleteEmailAccount" })
-  .schema(z.object({ emailAccountId: z.string() }))
+  .inputSchema(z.object({ emailAccountId: z.string() }))
   .action(async ({ ctx: { userId }, parsedInput: { emailAccountId } }) => {
     const emailAccount = await prisma.emailAccount.findUnique({
       where: { id: emailAccountId, userId },
