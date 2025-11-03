@@ -51,7 +51,7 @@ export async function removeConflictingThreadStatusLabels({
     if (type === systemType) continue;
 
     let label = dbLabels[type as ConversationStatus];
-    if (!label) {
+    if (!label.labelId && !label.label) {
       const l = providerLabels.find((l) => l.name === getRuleLabel(type));
       if (!l?.id) {
         continue;
@@ -120,7 +120,8 @@ export async function applyThreadStatusLabel({
   const addLabel = async () => {
     let targetLabel = dbLabels[systemType];
 
-    if (!targetLabel) {
+    // If we don't have both labelId and label from DB, fetch/create it
+    if (!targetLabel.labelId && !targetLabel.label) {
       const label =
         providerLabels.find((l) => l.name === getRuleLabel(systemType)) ||
         (await provider.createLabel(getRuleLabel(systemType)));
@@ -132,7 +133,8 @@ export async function applyThreadStatusLabel({
       }
     }
 
-    if (!targetLabel?.labelId && !targetLabel?.label) {
+    // Error only if we still don't have either field after attempting to fetch/create
+    if (!targetLabel.labelId && !targetLabel.label) {
       logger.error("Failed to get or create target label");
       return;
     }
@@ -140,8 +142,8 @@ export async function applyThreadStatusLabel({
     return provider
       .labelMessage({
         messageId,
-        labelId: targetLabel.labelId ?? "",
-        labelName: targetLabel.label ?? "",
+        labelId: targetLabel.labelId || "",
+        labelName: targetLabel.label,
       })
       .catch((error) =>
         logger.error("Failed to apply thread status label", {
