@@ -36,7 +36,7 @@ export function LiquidGlassButton({
                 "inset 2px 2px 1px 0 rgba(255, 255, 255, 0.5), inset -1px -1px 1px 1px rgba(255, 255, 255, 0.5)",
             }}
           />
-          <div className="z-30 rounded-full transition-all duration-300 ease-[cubic-bezier(0.175,0.885,0.32,2.2)] will-change-transform">
+          <div className="z-30 rounded-full transition-all duration-300 ease-[cubic-bezier(0.175,0.885,0.32,2.2)] will-change-transform group-hover:scale-110">
             {children}
           </div>
         </div>
