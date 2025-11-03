@@ -99,5 +99,44 @@ describe("Gmail retry helpers", () => {
       expect(calculateRetryDelay(false, true, 2)).toBe(10_000); // 10s
       expect(calculateRetryDelay(false, true, 3)).toBe(20_000); // 20s
     });
+
+    it("should use fallback delay when retry time is in the past", () => {
+      const pastDate = new Date(Date.now() - 10_000).toISOString();
+      const errorMessage = `Rate limit exceeded. Retry after ${pastDate}`;
+
+      // Should fall back to 30s for rate limit
+      const delay = calculateRetryDelay(
+        true,
+        false,
+        1,
+        undefined,
+        errorMessage,
+      );
+      expect(delay).toBe(30_000);
+    });
+
+    it("should use fallback delay when Retry-After header is stale", () => {
+      // Use HTTP-date format (like "Wed, 21 Oct 2015 07:28:00 GMT")
+      const pastDate = new Date(Date.now() - 5000).toUTCString();
+
+      // Should fall back to exponential backoff for server error
+      const delay = calculateRetryDelay(false, true, 2, pastDate);
+      expect(delay).toBe(10_000); // 2nd attempt = 10s
+    });
+
+    it("should use retry time from error message when valid", () => {
+      const futureDate = new Date(Date.now() + 15_000).toISOString();
+      const errorMessage = `Rate limit exceeded. Retry after ${futureDate}`;
+
+      const delay = calculateRetryDelay(
+        true,
+        false,
+        1,
+        undefined,
+        errorMessage,
+      );
+      expect(delay).toBeGreaterThan(14_000); // Should be ~15s
+      expect(delay).toBeLessThan(16_000);
+    });
   });
 });

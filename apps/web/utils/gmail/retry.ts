@@ -13,16 +13,31 @@ interface ErrorInfo {
 /**
  * Extracts error information from various error shapes
  */
-export function extractErrorInfo(error: any): ErrorInfo {
-  const err: any = error;
-  const cause = err?.cause ?? err;
+export function extractErrorInfo(error: unknown): ErrorInfo {
+  const err = error as Record<string, unknown>;
+  const cause = (err?.cause ?? err) as Record<string, unknown>;
   const status =
-    cause?.status ?? cause?.code ?? cause?.response?.status ?? undefined;
-  const reason =
-    cause?.errors?.[0]?.reason ??
-    cause?.response?.data?.error?.errors?.[0]?.reason ??
+    (cause?.status as number) ??
+    (cause?.code as number) ??
+    ((cause?.response as Record<string, unknown>)?.status as number) ??
     undefined;
-  const errorMessage = String(cause?.message ?? err?.message ?? "");
+  const reason =
+    ((cause?.errors as Array<Record<string, unknown>>)?.[0]
+      ?.reason as string) ??
+    ((
+      (
+        (
+          (cause?.response as Record<string, unknown>)?.data as Record<
+            string,
+            unknown
+          >
+        )?.error as Record<string, unknown>
+      )?.errors as Array<Record<string, unknown>>
+    )?.[0]?.reason as string) ??
+    undefined;
+  const errorMessage = String(
+    (cause?.message as string) ?? (err?.message as string) ?? "",
+  );
 
   return { status, reason, errorMessage };
 }
@@ -74,7 +89,11 @@ export function calculateRetryDelay(
   // Try to parse retry time from error message
   const retryTime = parseRetryTime(errorMessage || "");
   if (retryTime) {
-    return Math.max(0, retryTime.getTime() - Date.now());
+    const delayMs = Math.max(0, retryTime.getTime() - Date.now());
+    if (delayMs > 0) {
+      return delayMs;
+    }
+    // If stale, fall through to fallback logic
   }
 
   // Handle Retry-After header
@@ -87,7 +106,11 @@ export function calculateRetryDelay(
     // Try parsing as HTTP-date
     const retryDate = new Date(retryAfterHeader);
     if (!Number.isNaN(retryDate.getTime())) {
-      return Math.max(0, retryDate.getTime() - Date.now());
+      const delayMs = Math.max(0, retryDate.getTime() - Date.now());
+      if (delayMs > 0) {
+        return delayMs;
+      }
+      // If stale, fall through to fallback logic
     }
   }
 
@@ -130,9 +153,14 @@ export async function withGmailRetry<T>(
         throw error;
       }
 
-      const err: any = error;
-      const cause = err?.cause ?? err;
-      const retryAfterHeader = cause?.response?.headers?.["retry-after"];
+      const err = error as Record<string, unknown>;
+      const cause = (err?.cause ?? err) as Record<string, unknown>;
+      const retryAfterHeader = (
+        (cause?.response as Record<string, unknown>)?.headers as Record<
+          string,
+          string
+        >
+      )?.["retry-after"];
 
       const delayMs = calculateRetryDelay(
         isRateLimit,
