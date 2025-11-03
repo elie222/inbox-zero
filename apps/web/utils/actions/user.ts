@@ -46,7 +46,7 @@ export const resetAnalyticsAction = actionClient
 export const deleteAccountAction = actionClientUser
   .metadata({ name: "deleteAccount" })
   .action(async ({ ctx: { userId } }) => {
-    clearLastEmailAccountCookie().catch(() => {});
+    await clearLastEmailAccountCookie().catch(() => {});
 
     await betterAuthConfig.api
       .signOut({
