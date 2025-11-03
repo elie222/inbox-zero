@@ -37,24 +37,45 @@ describe("applyThreadStatusLabel", () => {
       {
         id: "rule-1",
         systemType: "TO_REPLY",
-        actions: [{ id: "action-1", type: "LABEL", labelId: "label-to-reply" }],
+        actions: [
+          {
+            id: "action-1",
+            type: "LABEL",
+            labelId: "label-to-reply",
+            label: null,
+          },
+        ],
       },
       {
         id: "rule-2",
         systemType: "AWAITING_REPLY",
         actions: [
-          { id: "action-2", type: "LABEL", labelId: "label-awaiting-reply" },
+          {
+            id: "action-2",
+            type: "LABEL",
+            labelId: "label-awaiting-reply",
+            label: null,
+          },
         ],
       },
       {
         id: "rule-3",
         systemType: "FYI",
-        actions: [{ id: "action-3", type: "LABEL", labelId: "label-fyi" }],
+        actions: [
+          { id: "action-3", type: "LABEL", labelId: "label-fyi", label: null },
+        ],
       },
       {
         id: "rule-4",
         systemType: "ACTIONED",
-        actions: [{ id: "action-4", type: "LABEL", labelId: "label-actioned" }],
+        actions: [
+          {
+            id: "action-4",
+            type: "LABEL",
+            labelId: "label-actioned",
+            label: null,
+          },
+        ],
       },
     ] as any);
   });
@@ -88,6 +109,7 @@ describe("applyThreadStatusLabel", () => {
     expect(mockProvider.labelMessage).toHaveBeenCalledWith({
       messageId,
       labelId: "label-to-reply",
+      labelName: null,
     });
   });
 
@@ -108,6 +130,7 @@ describe("applyThreadStatusLabel", () => {
     expect(mockProvider.labelMessage).toHaveBeenCalledWith({
       messageId,
       labelId: "label-awaiting-reply",
+      labelName: null,
     });
   });
 
@@ -132,6 +155,7 @@ describe("applyThreadStatusLabel", () => {
     expect(mockProvider.labelMessage).toHaveBeenCalledWith({
       messageId,
       labelId: "label-fyi",
+      labelName: null,
     });
   });
 
@@ -156,6 +180,7 @@ describe("applyThreadStatusLabel", () => {
     expect(mockProvider.labelMessage).toHaveBeenCalledWith({
       messageId,
       labelId: "label-actioned",
+      labelName: null,
     });
   });
 
@@ -182,20 +207,39 @@ describe("applyThreadStatusLabel", () => {
       {
         id: "rule-1",
         systemType: "TO_REPLY",
-        actions: [{ id: "action-1", type: "LABEL", labelId: "label-to-reply" }],
+        actions: [
+          {
+            id: "action-1",
+            type: "LABEL",
+            labelId: "label-to-reply",
+            label: null,
+          },
+        ],
       },
       {
         id: "rule-2",
         systemType: "AWAITING_REPLY",
         actions: [
-          { id: "action-2", type: "LABEL", labelId: "label-awaiting-reply" },
+          {
+            id: "action-2",
+            type: "LABEL",
+            labelId: "label-awaiting-reply",
+            label: null,
+          },
         ],
       },
       // FYI is missing from DB
       {
         id: "rule-4",
         systemType: "ACTIONED",
-        actions: [{ id: "action-4", type: "LABEL", labelId: "label-actioned" }],
+        actions: [
+          {
+            id: "action-4",
+            type: "LABEL",
+            labelId: "label-actioned",
+            label: null,
+          },
+        ],
       },
     ] as any);
 
