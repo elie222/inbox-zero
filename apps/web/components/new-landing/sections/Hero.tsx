@@ -1,9 +1,9 @@
 import Image from "next/image";
-import { Button } from "@/components/new-landing/common/Button";
 import { Gmail } from "@/components/new-landing/icons/Gmail";
 import { Outlook } from "@/components/new-landing/icons/Outlook";
 import { Section } from "@/components/new-landing/common/Section";
 import { Paragraph } from "@/components/new-landing/common/Typography";
+import { CallToAction } from "@/components/new-landing/CallToAction";
 
 export function Hero() {
   return (
@@ -22,11 +22,7 @@ export function Hero() {
           <Paragraph variant="light" className="text-sm">
             Try for free with one click
           </Paragraph>
-          <div className="flex items-center gap-4 justify-center">
-            <Button>Get started</Button>
-            <Paragraph className="text-sm">or</Paragraph>
-            <Button variant="secondary">Talk to sales</Button>
-          </div>
+          <CallToAction />
           <div className="flex items-center gap-2 justify-center">
             <Paragraph variant="light" className="text-sm">
               Works with

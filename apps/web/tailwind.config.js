@@ -39,6 +39,7 @@ module.exports = {
         cal: ["var(--font-cal)", ...fontFamily.sans],
         sans: ["var(--font-inter)", ...fontFamily.sans],
         aeonik: ["var(--font-aeonik)", ...fontFamily.sans],
+        geist: ["var(--font-geist)", ...fontFamily.sans],
       },
       colors: {
         // shadcn/ui

@@ -7,6 +7,7 @@ import { Testimonials } from "@/components/new-landing/sections/Testimonials";
 import { Hero } from "@/components/new-landing/sections/Hero";
 import { Pricing } from "@/components/new-landing/sections/Pricing";
 import { Awards } from "@/components/new-landing/sections/Awards";
+import { BuyBackTime } from "@/components/new-landing/sections/BuyBackTime";
 
 export const metadata: Metadata = { alternates: { canonical: "/" } };
 
@@ -75,12 +76,7 @@ export default function NewLanding() {
       <Awards />
       <Pricing />
       <Testimonials />
-      <Section
-        title="Buy back your time"
-        subtitle="Stop wasting half your day on email. Start using Inbox Zero today."
-      >
-        <div />
-      </Section>
+      <BuyBackTime />
       <FAQs />
     </BasicLayout>
   );

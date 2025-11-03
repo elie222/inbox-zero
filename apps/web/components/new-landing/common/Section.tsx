@@ -3,7 +3,7 @@ import {
   Paragraph,
   Subheading,
 } from "@/components/new-landing/common/Typography";
-import { cn } from "@/utils";
+import { cva, cx } from "class-variance-authority";
 
 interface SectionProps {
   title?: string | React.ReactNode;
@@ -11,6 +11,7 @@ interface SectionProps {
   children: React.ReactNode;
   wrap?: boolean;
   variant?: "default" | "hero";
+  childrenMarginTop?: string;
 }
 
 export function Section({
@@ -19,20 +20,40 @@ export function Section({
   children,
   wrap,
   variant,
+  childrenMarginTop,
 }: SectionProps) {
-  const titleStyles = cn("mx-auto", wrap ? "max-w-[620px]" : "");
+  const titleStyles = cva("mx-auto", {
+    variants: {
+      wrap: {
+        true: "max-w-[620px]",
+      },
+    },
+  });
+
+  const subtitleStyles = cva("max-w-[650px] mx-auto", {
+    variants: {
+      variant: {
+        default: "mt-2",
+        hero: "mt-4",
+      },
+    },
+  });
 
   return (
     <section className="py-16 text-center">
       {variant === "hero" && title ? (
-        <Heading className={titleStyles}>{title}</Heading>
+        <Heading className={titleStyles({ wrap })}>{title}</Heading>
       ) : title ? (
-        <Subheading className={titleStyles}>{title}</Subheading>
+        <Subheading className={titleStyles({ wrap })}>{title}</Subheading>
       ) : null}
       {subtitle ? (
-        <Paragraph className="max-w-[650px] mx-auto mt-4">{subtitle}</Paragraph>
+        <Paragraph className={subtitleStyles({ variant })}>
+          {subtitle}
+        </Paragraph>
       ) : null}
-      <div className="mt-10 flex justify-center">{children}</div>
+      <div className={cx("flex justify-center", childrenMarginTop || "mt-10")}>
+        {children}
+      </div>
     </section>
   );
 }
