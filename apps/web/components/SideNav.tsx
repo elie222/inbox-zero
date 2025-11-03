@@ -233,7 +233,7 @@ export function SideNav({ ...props }: React.ComponentProps<typeof Sidebar>) {
         </SidebarGroupContent>
       </SidebarContent>
 
-      <PremiumExpiredCard />
+      <PremiumExpiredCard isCollapsed={!state.includes("left-sidebar")} />
 
       <SidebarFooter className="pb-4">
         <ClientOnly>
