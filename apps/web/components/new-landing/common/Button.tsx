@@ -18,27 +18,38 @@ export function Button({
   icon,
 }: ButtonProps) {
   const hasIcon = !!icon;
-  const buttonVariants = cva(
-    "font-geist font-medium hover:scale-[102%] transition-all duration-200 will-change-transform",
-    {
-      variants: {
-        variant: {
-          primary:
-            "bg-gradient-to-b from-[#2563EB] to-[#6595FF] text-white shadow-[0px_2px_10.1px_0px_#4B83FD4D]",
-          secondary: "bg-white border border-gray-100 text-gray-800",
-          "secondary-two":
-            "bg-white border border-gray-100 text-gray-500 shadow-[0px_2px_16px_0px_#00000008]",
-        },
-        size: {
-          md: "py-2 px-4 rounded-xl text-sm",
-          lg: "py-[11px] px-[18px] rounded-xl text-sm",
-        },
-        hasIcon: {
-          true: "flex items-center gap-2",
-        },
+  const buttonVariants = cva("rounded-xl text-sm font-geist font-medium", {
+    variants: {
+      variant: {
+        primary:
+          "bg-gradient-to-b from-[#2563EB] to-[#6595FF] text-white shadow-[0px_2px_10.1px_0px_#4B83FD4D] button-gradient-border",
+        secondary: "bg-white border border-gray-100 text-gray-800",
+        "secondary-two":
+          "bg-white border border-gray-100 text-gray-500 shadow-[0px_2px_16px_0px_#00000008]",
+      },
+      size: {
+        md: "py-2 px-4",
+        lg: "py-[11px] px-[18px]",
+      },
+      hasIcon: {
+        true: "flex items-center gap-2",
       },
     },
-  );
+  });
+
+  if (variant === "primary") {
+    return (
+      <div className="rounded-[13px] p-[1px] bg-gradient-to-b from-[#6595FF] to-[#2e66df]">
+        <button
+          type="button"
+          className={buttonVariants({ variant, size, className, hasIcon })}
+        >
+          {icon}
+          {children}
+        </button>
+      </div>
+    );
+  }
 
   return (
     <button
