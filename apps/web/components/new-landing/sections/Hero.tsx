@@ -32,7 +32,7 @@ export function Hero() {
           </div>
         </div>
         <Image
-          src="/images/new-landing/video-thumbnail.svg"
+          src="/images/new-landing/video-thumbnail.png"
           alt="an organized inbox"
           width={1000}
           height={1000}
