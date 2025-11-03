@@ -85,14 +85,16 @@ export async function archiveThread({
   actionSource: TinybirdEmailAction["actionSource"];
   labelId?: string;
 }) {
-  const archivePromise = gmail.users.threads.modify({
-    userId: "me",
-    id: threadId,
-    requestBody: {
-      removeLabelIds: [GmailLabel.INBOX],
-      ...(labelId ? { addLabelIds: [labelId] } : {}),
-    },
-  });
+  const archivePromise = withGmailRetry(() =>
+    gmail.users.threads.modify({
+      userId: "me",
+      id: threadId,
+      requestBody: {
+        removeLabelIds: [GmailLabel.INBOX],
+        ...(labelId ? { addLabelIds: [labelId] } : {}),
+      },
+    }),
+  );
 
   const publishPromise = publishArchive({
     ownerEmail,
@@ -137,11 +139,13 @@ export async function labelMessage({
   addLabelIds?: string[];
   removeLabelIds?: string[];
 }) {
-  return gmail.users.messages.modify({
-    userId: "me",
-    id: messageId,
-    requestBody: { addLabelIds, removeLabelIds },
-  });
+  return withGmailRetry(() =>
+    gmail.users.messages.modify({
+      userId: "me",
+      id: messageId,
+      requestBody: { addLabelIds, removeLabelIds },
+    }),
+  );
 }
 
 export async function markReadThread(options: {
@@ -151,17 +155,19 @@ export async function markReadThread(options: {
 }) {
   const { gmail, threadId, read } = options;
 
-  return gmail.users.threads.modify({
-    userId: "me",
-    id: threadId,
-    requestBody: read
-      ? {
-          removeLabelIds: [GmailLabel.UNREAD],
-        }
-      : {
-          addLabelIds: [GmailLabel.UNREAD],
-        },
-  });
+  return withGmailRetry(() =>
+    gmail.users.threads.modify({
+      userId: "me",
+      id: threadId,
+      requestBody: read
+        ? {
+            removeLabelIds: [GmailLabel.UNREAD],
+          }
+        : {
+            addLabelIds: [GmailLabel.UNREAD],
+          },
+    }),
+  );
 }
 
 export async function createLabel({
