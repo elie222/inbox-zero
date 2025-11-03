@@ -2,6 +2,7 @@ import Link from "next/link";
 import { EXTENSION_URL } from "@/utils/config";
 import { Logo } from "@/components/new-landing/common/Logo";
 import { cn } from "@/utils";
+import { FooterLineLogo } from "@/components/new-landing/FooterLineLogo";
 
 const navigation = {
   main: [
@@ -160,6 +161,7 @@ export function Footer({ layoutStyle }: FooterProps) {
           </div>
         </div>
       </div>
+      <FooterLineLogo className="hidden xl:block absolute bottom-0 left-1/2 -translate-x-1/2 mx-auto px-6 lg:px-8" />
     </footer>
   );
 }
