@@ -39,7 +39,7 @@ export function Button({
 
   if (variant === "primary") {
     return (
-      <div className="rounded-[13px] p-[1px] bg-gradient-to-b from-[#6595FF] to-[#2e66df]">
+      <div className="rounded-[13px] p-[1px] bg-gradient-to-b from-[#6595FF] to-[#2e66df] w-fit">
         <button
           type="button"
           className={buttonVariants({ variant, size, className, hasIcon })}
