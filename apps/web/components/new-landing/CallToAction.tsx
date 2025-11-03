@@ -3,7 +3,7 @@ import { Paragraph } from "@/components/new-landing/common/Typography";
 import { Chat } from "@/components/new-landing/icons/Chat";
 
 interface CallToActionProps {
-  text: string;
+  text?: string;
 }
 
 export function CallToAction({ text = "Get started" }: CallToActionProps) {
