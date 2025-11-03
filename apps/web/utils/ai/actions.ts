@@ -5,6 +5,7 @@ import type { ActionItem, EmailForAction } from "@/utils/ai/types";
 import type { EmailProvider } from "@/utils/email/types";
 import { enqueueDigestItem } from "@/utils/digest/index";
 import { filterNullProperties } from "@/utils";
+import { labelMessageAndSync } from "@/utils/label.server";
 
 const logger = createScopedLogger("ai-actions");
 
@@ -79,7 +80,7 @@ const archive: ActionFunction<Record<string, unknown>> = async ({
 const label: ActionFunction<{
   label?: string | null;
   labelId?: string | null;
-}> = async ({ client, email, args }) => {
+}> = async ({ client, email, args, emailAccountId }) => {
   let labelIdToUse = args.labelId;
 
   // Lazy migration: If no labelId but label name exists, look it up
@@ -104,7 +105,13 @@ const label: ActionFunction<{
 
   if (!labelIdToUse) return;
 
-  await client.labelMessage({ messageId: email.id, labelId: labelIdToUse });
+  await labelMessageAndSync({
+    provider: client,
+    messageId: email.id,
+    labelId: labelIdToUse,
+    labelName: args.label || null,
+    emailAccountId,
+  });
 };
 
 const draft: ActionFunction<{
