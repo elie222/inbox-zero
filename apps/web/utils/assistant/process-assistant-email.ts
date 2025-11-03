@@ -254,16 +254,20 @@ async function withProcessingLabels<T>(
   }
 
   const labels = results
-    .map((result) =>
-      result.status === "fulfilled" ? result.value?.id : undefined,
-    )
+    .map((result) => (result.status === "fulfilled" ? result.value : undefined))
     .filter(isDefined);
 
   if (labels.length) {
     // Fire and forget the initial labeling
-    provider.labelMessage({ messageId, labelId: labels[0] }).catch((error) => {
-      logger.error("Error labeling message", { error });
-    });
+    provider
+      .labelMessage({
+        messageId,
+        labelId: labels[0].id,
+        labelName: labels[0].name,
+      })
+      .catch((error) => {
+        logger.error("Error labeling message", { error });
+      });
   }
 
   try {

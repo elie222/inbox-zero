@@ -334,13 +334,25 @@ export class OutlookProvider implements EmailProvider {
   async labelMessage({
     messageId,
     labelId,
+    labelName,
   }: {
     messageId: string;
     labelId: string;
+    labelName: string | null;
   }) {
-    const category = await this.getLabelById(labelId);
+    let category = await this.getLabelById(labelId);
+    if (!category && labelName) {
+      logger.warn("Label not found, trying to get by name", {
+        labelId,
+        labelName,
+      });
+      category = await this.getLabelByName(labelName);
+    }
+
     if (!category) {
-      throw new Error(`Category with ID ${labelId} not found`);
+      throw new Error(
+        `Category with ID ${labelId} or name ${labelName} not found`,
+      );
     }
 
     // Get current message categories to avoid replacing them

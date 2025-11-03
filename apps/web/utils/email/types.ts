@@ -92,7 +92,11 @@ export interface EmailProvider {
     ownerEmail: string,
     actionSource: "user" | "automation",
   ): Promise<void>;
-  labelMessage(options: { messageId: string; labelId: string }): Promise<void>;
+  labelMessage(options: {
+    messageId: string;
+    labelId: string;
+    labelName: string | null;
+  }): Promise<void>;
   removeThreadLabel(threadId: string, labelId: string): Promise<void>;
   removeThreadLabels(threadId: string, labelIds: string[]): Promise<void>;
   draftEmail(
