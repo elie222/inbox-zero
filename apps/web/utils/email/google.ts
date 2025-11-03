@@ -160,6 +160,14 @@ export class GmailProvider implements EmailProvider {
     return parseMessage(message);
   }
 
+  async getMessageByRfc822MessageId(
+    rfc822MessageId: string,
+  ): Promise<ParsedMessage | null> {
+    const message = await getMessageByRfc822Id(rfc822MessageId, this.client);
+    if (!message) return null;
+    return parseMessage(message);
+  }
+
   async getSentMessages(maxResults = 20): Promise<ParsedMessage[]> {
     return getSentMessages(this.client, maxResults);
   }

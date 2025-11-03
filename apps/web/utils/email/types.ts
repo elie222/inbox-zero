@@ -50,6 +50,9 @@ export interface EmailProvider {
   getLabelByName(name: string): Promise<EmailLabel | null>;
   getFolders(): Promise<OutlookFolder[]>;
   getMessage(messageId: string): Promise<ParsedMessage>;
+  getMessageByRfc822MessageId(
+    rfc822MessageId: string,
+  ): Promise<ParsedMessage | null>;
   getMessagesByFields(options: {
     froms?: string[];
     tos?: string[];

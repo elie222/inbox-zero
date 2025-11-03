@@ -10,6 +10,7 @@ import {
 } from "@/app/(app)/admin/AdminSyncStripe";
 import { RegisterSSOModal } from "@/app/(app)/admin/RegisterSSOModal";
 import { AdminHashEmail } from "@/app/(app)/admin/AdminHashEmail";
+import { GmailUrlConverter } from "@/app/(app)/admin/GmailUrlConverter";
 
 // NOTE: Turn on Fluid Compute on Vercel to allow for 800 seconds max duration
 export const maxDuration = 800;
@@ -34,6 +35,7 @@ export default async function AdminPage() {
         <AdminUpgradeUserForm />
         <AdminUserControls />
         <AdminHashEmail />
+        <GmailUrlConverter />
         <RegisterSSOModal />
 
         <div className="flex gap-2">
