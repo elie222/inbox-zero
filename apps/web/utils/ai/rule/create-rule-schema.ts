@@ -1,9 +1,5 @@
 import { z } from "zod";
-import {
-  ActionType,
-  CategoryFilterType,
-  LogicalOperator,
-} from "@prisma/client";
+import { ActionType, LogicalOperator } from "@prisma/client";
 import { delayInMinutesSchema } from "@/utils/actions/rule.validation";
 import { isMicrosoftProvider } from "@/utils/email/provider-types";
 import { isDefined } from "@/utils/types";
@@ -122,45 +118,7 @@ export const createRuleSchema = (provider: string) =>
     actions: z.array(actionSchema(provider)).describe("The actions to take"),
   });
 
-export const getCreateRuleSchemaWithCategories = (
-  availableCategories: [string, ...string[]],
-  provider: string,
-) => {
-  return createRuleSchema(provider).extend({
-    condition: conditionSchema.extend({
-      categories: z
-        .object({
-          categoryFilterType: z
-            .enum([CategoryFilterType.INCLUDE, CategoryFilterType.EXCLUDE])
-            .nullish()
-            .describe(
-              "Whether senders in `categoryFilters` should be included or excluded",
-            ),
-          categoryFilters: z
-            .array(z.string())
-            .nullish()
-            .describe(
-              `The categories to match. If multiple categories are specified, the rule will match if ANY of the categories match (OR operation). Available categories: ${availableCategories
-                .map((c) => `"${c}"`)
-                .join(", ")}`,
-            ),
-        })
-        .nullish()
-        .describe("The categories to match or skip"),
-    }),
-  });
-};
-
 export type CreateRuleSchema = z.infer<ReturnType<typeof createRuleSchema>>;
-export type CreateRuleSchemaWithCategories = CreateRuleSchema & {
-  condition: CreateRuleSchema["condition"] & {
-    categories?: {
-      categoryFilterType: CategoryFilterType;
-      categoryFilters: string[];
-    };
-  };
+export type CreateOrUpdateRuleSchema = CreateRuleSchema & {
+  ruleId?: string;
 };
-export type CreateOrUpdateRuleSchemaWithCategories =
-  CreateRuleSchemaWithCategories & {
-    ruleId?: string;
-  };

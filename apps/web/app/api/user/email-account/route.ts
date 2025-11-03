@@ -10,13 +10,17 @@ export type EmailAccountFullResponse = Awaited<
 async function getEmailAccount({ emailAccountId }: { emailAccountId: string }) {
   const emailAccount = await prisma.emailAccount.findUnique({
     where: { id: emailAccountId },
-    include: {
+    select: {
+      id: true,
+      email: true,
+      name: true,
+      image: true,
       digestSchedule: true,
-      user: {
-        select: {
-          id: true,
-        },
-      },
+      userId: true,
+      about: true,
+      multiRuleSelectionEnabled: true,
+      signature: true,
+      includeReferralSignature: true,
     },
   });
 

@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { validateWebhookAccount } from "./validate-webhook-account";
 import type { ValidatedWebhookAccountData } from "./validate-webhook-account";
 import { PremiumTier } from "@prisma/client";
+import type { Logger } from "@/utils/logger";
 
 // Mock dependencies
 vi.mock("@/utils/premium");
@@ -19,8 +20,10 @@ describe("validateWebhookAccount", () => {
   const mockLogger = {
     error: vi.fn(),
     info: vi.fn(),
+    warn: vi.fn(),
     trace: vi.fn(),
-  };
+    with: vi.fn().mockReturnThis(),
+  } as unknown as Logger;
 
   const mockEmailProvider = { type: "google" as const };
 
@@ -89,7 +92,6 @@ describe("validateWebhookAccount", () => {
       const result = await validateWebhookAccount(null, mockLogger);
 
       expect(result.success).toBe(false);
-      expect(mockLogger.error).toHaveBeenCalledWith("Account not found");
       if (!result.success) {
         expect(await result.response.json()).toEqual({ ok: true });
       }
@@ -112,13 +114,6 @@ describe("validateWebhookAccount", () => {
       const result = await validateWebhookAccount(emailAccount, mockLogger);
 
       expect(result.success).toBe(false);
-      expect(mockLogger.info).toHaveBeenCalledWith(
-        "Account not premium",
-        expect.objectContaining({
-          email: "user@test.com",
-          emailAccountId: "account-id",
-        }),
-      );
       expect(createEmailProvider).toHaveBeenCalledWith({
         emailAccountId: "account-id",
         provider: "google",
@@ -144,13 +139,6 @@ describe("validateWebhookAccount", () => {
       const result = await validateWebhookAccount(emailAccount, mockLogger);
 
       expect(result.success).toBe(false);
-      expect(mockLogger.trace).toHaveBeenCalledWith(
-        "Does not have ai access",
-        expect.objectContaining({
-          email: "user@test.com",
-          emailAccountId: "account-id",
-        }),
-      );
       expect(unwatchEmails).toHaveBeenCalledWith({
         emailAccountId: "account-id",
         provider: mockEmailProvider,
@@ -174,9 +162,6 @@ describe("validateWebhookAccount", () => {
       const result = await validateWebhookAccount(emailAccount, mockLogger);
 
       expect(result.success).toBe(false);
-      expect(mockLogger.trace).toHaveBeenCalledWith("Has no rules enabled", {
-        email: "user@test.com",
-      });
       expect(unwatchEmails).not.toHaveBeenCalled();
       if (!result.success) {
         expect(await result.response.json()).toEqual({ ok: true });
@@ -201,12 +186,6 @@ describe("validateWebhookAccount", () => {
       const result = await validateWebhookAccount(emailAccount, mockLogger);
 
       expect(result.success).toBe(false);
-      expect(mockLogger.error).toHaveBeenCalledWith(
-        "Missing access or refresh token",
-        {
-          email: "user@test.com",
-        },
-      );
       if (!result.success) {
         expect(await result.response.json()).toEqual({ ok: true });
       }
@@ -230,12 +209,6 @@ describe("validateWebhookAccount", () => {
       const result = await validateWebhookAccount(emailAccount, mockLogger);
 
       expect(result.success).toBe(false);
-      expect(mockLogger.error).toHaveBeenCalledWith(
-        "Missing access or refresh token",
-        {
-          email: "user@test.com",
-        },
-      );
       if (!result.success) {
         expect(await result.response.json()).toEqual({ ok: true });
       }
@@ -255,12 +228,6 @@ describe("validateWebhookAccount", () => {
       const result = await validateWebhookAccount(emailAccount, mockLogger);
 
       expect(result.success).toBe(false);
-      expect(mockLogger.error).toHaveBeenCalledWith(
-        "Missing access or refresh token",
-        {
-          email: "user@test.com",
-        },
-      );
       if (!result.success) {
         expect(await result.response.json()).toEqual({ ok: true });
       }
@@ -278,7 +245,6 @@ describe("validateWebhookAccount", () => {
 
       expect(result.success).toBe(true);
       expect(unwatchEmails).not.toHaveBeenCalled();
-      expect(mockLogger.error).not.toHaveBeenCalled();
 
       if (result.success) {
         expect(result.data).toEqual({

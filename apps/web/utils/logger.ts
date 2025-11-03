@@ -25,9 +25,9 @@ export function createScopedLogger(scope: string) {
       message: string,
       args: unknown[],
     ) => {
-      const allArgs = [...args];
+      const allArgs = [...args].map(hashSensitiveFields);
       if (Object.keys(fields).length > 0) {
-        allArgs.push(fields);
+        allArgs.push(hashSensitiveFields(fields));
       }
 
       const formattedArgs = allArgs
@@ -82,18 +82,24 @@ export function createScopedLogger(scope: string) {
 function createAxiomLogger(scope: string) {
   const createLogger = (fields: Record<string, unknown> = {}) => ({
     info: (message: string, args?: Record<string, unknown>) =>
-      log.info(message, { scope, ...fields, ...args }),
+      log.info(message, hashSensitiveFields({ scope, ...fields, ...args })),
     error: (message: string, args?: Record<string, unknown>) =>
-      log.error(message, { scope, ...fields, ...formatError(args) }),
+      log.error(
+        message,
+        hashSensitiveFields({ scope, ...fields, ...formatError(args) }),
+      ),
     warn: (message: string, args?: Record<string, unknown>) =>
-      log.warn(message, { scope, ...fields, ...args }),
+      log.warn(message, hashSensitiveFields({ scope, ...fields, ...args })),
     trace: (
       message: string,
       args?: Record<string, unknown> | (() => Record<string, unknown>),
     ) => {
       if (!env.ENABLE_DEBUG_LOGS) return;
       const resolved = typeof args === "function" ? args() : args;
-      log.debug(message, { scope, ...fields, ...resolved });
+      log.debug(
+        message,
+        hashSensitiveFields({ scope, ...fields, ...resolved }),
+      );
     },
     with: (newFields: Record<string, unknown>) =>
       createLogger({ ...fields, ...newFields }),
@@ -142,4 +148,83 @@ function processErrorsInObject(obj: unknown): unknown {
   }
 
   return obj;
+}
+
+// Field names that contain PII and should be hashed in production
+const SENSITIVE_FIELD_NAMES = new Set([
+  "email",
+  "from",
+  "sender",
+  "to",
+  "userEmail",
+]);
+
+// Field names that should NEVER be logged - replaced with boolean
+const REDACTED_FIELD_NAMES = new Set([
+  "accessToken",
+  "access_token",
+  "refreshToken",
+  "refresh_token",
+  "idToken",
+  "id_token",
+]);
+
+/**
+ * Recursively processes an object to protect sensitive data:
+ * - REDACTED_FIELD_NAMES: Replaced with boolean (never logged)
+ * - SENSITIVE_FIELD_NAMES: Hashed in production (raw in dev/test)
+ *
+ * Only works server-side - client-side logs are visible in browser anyway.
+ */
+function hashSensitiveFields<T>(obj: T, depth = 0): T {
+  // Prevent infinite recursion and excessive processing
+  const MAX_DEPTH = 10;
+  if (depth > MAX_DEPTH) return obj;
+
+  if (obj === null || obj === undefined) {
+    return obj;
+  }
+
+  if (Array.isArray(obj)) {
+    return obj.map((item) => hashSensitiveFields(item, depth + 1)) as T;
+  }
+
+  // Only process plain objects - skip class instances, Error, Date, etc.
+  if (isPlainObject(obj)) {
+    const processed: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(obj)) {
+      // Always redact tokens - never log them
+      if (REDACTED_FIELD_NAMES.has(key)) {
+        processed[key] = !!value;
+      }
+      // Hash emails in production only (server-side only)
+      else if (
+        SENSITIVE_FIELD_NAMES.has(key) &&
+        typeof value === "string" &&
+        env.NODE_ENV === "production" &&
+        typeof window === "undefined" // Server-side check
+      ) {
+        // Dynamic import to avoid bundling crypto on client
+        const { hash } = require("@/utils/hash");
+        processed[key] = hash(value);
+      }
+      // Recursively process nested objects
+      else if (typeof value === "object") {
+        processed[key] = hashSensitiveFields(value, depth + 1);
+      }
+      // Pass through everything else
+      else {
+        processed[key] = value;
+      }
+    }
+    return processed as T;
+  }
+
+  return obj;
+}
+
+function isPlainObject(obj: unknown): obj is Record<string, unknown> {
+  if (typeof obj !== "object" || obj === null) return false;
+  const proto = Object.getPrototypeOf(obj);
+  return proto === Object.prototype || proto === null;
 }

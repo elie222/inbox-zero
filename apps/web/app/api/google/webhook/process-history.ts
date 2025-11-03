@@ -8,28 +8,33 @@ import {
   type ProcessHistoryOptions,
 } from "@/app/api/google/webhook/types";
 import { processHistoryItem } from "@/app/api/google/webhook/process-history-item";
-import { logger } from "@/app/api/google/webhook/logger";
 import { getHistory } from "@/utils/gmail/history";
 import {
   validateWebhookAccount,
   getWebhookEmailAccount,
 } from "@/utils/webhook/validate-webhook-account";
 import prisma from "@/utils/prisma";
+import type { Logger } from "@/utils/logger";
 
 export async function processHistoryForUser(
   decodedData: {
     emailAddress: string;
     historyId: number;
   },
-  options?: { startHistoryId?: string },
+  options: { startHistoryId?: string },
+  logger: Logger,
 ) {
+  const startTime = Date.now();
   const { emailAddress, historyId } = decodedData;
   // All emails in the database are stored in lowercase
   // But it's possible that the email address in the webhook is not
   // So we need to convert it to lowercase
   const email = emailAddress.toLowerCase();
 
-  const emailAccount = await getWebhookEmailAccount({ email });
+  const emailAccount = await getWebhookEmailAccount({ email }, logger);
+
+  // biome-ignore lint/style/noParameterAssign: allowed for logging
+  logger = logger.with({ email, emailAccountId: emailAccount?.id });
 
   const validation = await validateWebhookAccount(emailAccount, logger);
 
@@ -47,7 +52,7 @@ export async function processHistoryForUser(
     !validatedEmailAccount.account?.access_token ||
     !validatedEmailAccount.account?.refresh_token
   ) {
-    logger.error("Missing tokens after validation", { email });
+    logger.error("Missing tokens after validation");
     return NextResponse.json({ error: true });
   }
 
@@ -74,7 +79,6 @@ export async function processHistoryForUser(
       startHistoryId,
       lastSyncedHistoryId: emailAccount?.lastSyncedHistoryId,
       gmailHistoryId: startHistoryId,
-      email,
     });
 
     const history = await getHistory(gmail, {
@@ -86,40 +90,27 @@ export async function processHistoryForUser(
     });
 
     if (history.history) {
-      logger.info("Processing history", {
-        email,
-        startHistoryId,
-        historyId: history.historyId,
-      });
+      logger.info("Processing history", { startHistoryId });
 
-      await processHistory({
-        history: history.history,
-        gmail,
-        accessToken: accountAccessToken,
-        hasAutomationRules,
-        hasAiAccess: userHasAiAccess,
-        rules: validatedEmailAccount.rules,
-        emailAccount: {
-          id: validatedEmailAccount.id,
-          userId: validatedEmailAccount.userId,
-          email: validatedEmailAccount.email,
-          about: validatedEmailAccount.about,
-          autoCategorizeSenders: validatedEmailAccount.autoCategorizeSenders,
-          account: {
-            provider: accountProvider,
-          },
-          user: {
-            aiProvider: validatedEmailAccount.user.aiProvider,
-            aiModel: validatedEmailAccount.user.aiModel,
-            aiApiKey: validatedEmailAccount.user.aiApiKey,
+      await processHistory(
+        {
+          history: history.history,
+          gmail,
+          accessToken: accountAccessToken,
+          hasAutomationRules,
+          hasAiAccess: userHasAiAccess,
+          rules: validatedEmailAccount.rules,
+          emailAccount: {
+            ...validatedEmailAccount,
+            account: {
+              provider: accountProvider,
+            },
           },
         },
-      });
+        logger,
+      );
     } else {
-      logger.info("No history", {
-        startHistoryId,
-        decodedData,
-      });
+      logger.info("No history", { startHistoryId });
 
       // important to save this or we can get into a loop with never receiving history
       await updateLastSyncedHistoryId({
@@ -128,7 +119,8 @@ export async function processHistoryForUser(
       });
     }
 
-    logger.info("Completed processing history", { decodedData });
+    const processingTimeMs = Date.now() - startTime;
+    logger.info("Completed processing history", { processingTimeMs });
 
     return NextResponse.json({ ok: true });
   } catch (error) {
@@ -139,8 +131,6 @@ export async function processHistoryForUser(
 
     captureException(error, { extra: { decodedData } }, email);
     logger.error("Error processing webhook", {
-      decodedData,
-      email,
       error:
         error instanceof Error
           ? {
@@ -155,7 +145,7 @@ export async function processHistoryForUser(
   }
 }
 
-async function processHistory(options: ProcessHistoryOptions) {
+async function processHistory(options: ProcessHistoryOptions, logger: Logger) {
   const { history, emailAccount } = options;
   const { email: userEmail, id: emailAccountId } = emailAccount;
 
@@ -190,27 +180,20 @@ async function processHistory(options: ProcessHistoryOptions) {
     );
 
     for (const event of uniqueEvents) {
+      const log = logger.with({
+        messageId: event.item.message?.id,
+        threadId: event.item.message?.threadId,
+      });
+
       try {
-        await processHistoryItem(event, options);
+        await processHistoryItem(event, options, log);
       } catch (error) {
         captureException(
           error,
           { extra: { userEmail, messageId: event.item.message?.id } },
           userEmail,
         );
-        logger.error("Error processing history item", {
-          userEmail,
-          messageId: event.item.message?.id,
-          threadId: event.item.message?.threadId,
-          error:
-            error instanceof Error
-              ? {
-                  message: error.message,
-                  stack: error.stack,
-                  name: error.name,
-                }
-              : error,
-        });
+        logger.error("Error processing history item", { error });
       }
     }
   }

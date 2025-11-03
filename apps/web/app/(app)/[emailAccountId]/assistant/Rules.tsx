@@ -110,7 +110,6 @@ export function Rules({
         runOnThreads: false,
         automate: true,
         actions: getDefaultActions(systemType, provider),
-        categoryFilters: [],
         group: null,
         emailAccountId: emailAccountId,
         createdAt: new Date(),
@@ -356,8 +355,7 @@ export function Rules({
 
                                           if (
                                             res?.serverError ||
-                                            res?.validationErrors ||
-                                            res?.bindArgsValidationErrors
+                                            res?.validationErrors
                                           ) {
                                             throw new Error(
                                               res?.serverError ||

@@ -86,10 +86,9 @@ async function storePosthogSignupEvent(userId: string, email: string) {
   const ONE_HOUR_AGO = new Date(Date.now() - ONE_HOUR_MS);
 
   if (userCreatedAt.createdAt < ONE_HOUR_AGO) {
-    logger.error(
-      "storePosthogSignupEvent: User created more than an hour ago",
-      { userId },
-    );
+    logger.warn("storePosthogSignupEvent: User created more than an hour ago", {
+      userId,
+    });
     return;
   }
 

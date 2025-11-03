@@ -1,9 +1,4 @@
-import {
-  CategoryFilterType,
-  LogicalOperator,
-  type Category,
-  type Rule,
-} from "@prisma/client";
+import { LogicalOperator, type Rule } from "@prisma/client";
 import { ConditionType, type CoreConditionType } from "@/utils/config";
 import type {
   CreateRuleBody,
@@ -22,11 +17,9 @@ export type RuleConditions = Partial<
     | "to"
     | "subject"
     | "body"
-    | "categoryFilterType"
     | "conditionalOperator"
   > & {
     group?: { name: string } | null;
-    categoryFilters?: Pick<Category, "id" | "name">[];
   }
 >;
 
@@ -44,10 +37,6 @@ export function isGroupRule<T extends RuleConditions>(
 
 export function isStaticRule(rule: RuleConditions) {
   return !!rule.from || !!rule.to || !!rule.subject || !!rule.body;
-}
-
-export function isCategoryRule(rule: RuleConditions) {
-  return !!(rule.categoryFilters?.length && rule.categoryFilterType);
 }
 
 export function getConditions(rule: RuleConditions) {
@@ -70,33 +59,22 @@ export function getConditions(rule: RuleConditions) {
     });
   }
 
-  if (isCategoryRule(rule)) {
-    conditions.push({
-      type: ConditionType.CATEGORY,
-      categoryFilterType: rule.categoryFilterType,
-      categoryFilters: rule.categoryFilters?.map((category) => category.id),
-    });
-  }
-
   return conditions;
 }
 
 export function getConditionTypes(
   rule: RuleConditions,
-): Record<ConditionType, boolean> {
+): Record<CoreConditionType, boolean> {
   return getConditions(rule).reduce(
     (acc, condition) => {
       acc[condition.type] = true;
       return acc;
     },
-    {} as Record<ConditionType, boolean>,
+    {} as Record<CoreConditionType, boolean>,
   );
 }
 
-export function getEmptyCondition(
-  type: CoreConditionType,
-  category?: string,
-): ZodCondition {
+export function getEmptyCondition(type: CoreConditionType): ZodCondition {
   switch (type) {
     case ConditionType.AI:
       return {
@@ -111,12 +89,6 @@ export function getEmptyCondition(
         subject: null,
         body: null,
       };
-    case ConditionType.CATEGORY:
-      return {
-        type: ConditionType.CATEGORY,
-        categoryFilterType: CategoryFilterType.INCLUDE,
-        categoryFilters: category ? [category] : null,
-      };
     default:
       // biome-ignore lint/correctness/noSwitchDeclarations: intentional exhaustive check
       const exhaustiveCheck: never = type;
@@ -130,8 +102,6 @@ type FlattenedConditions = {
   to?: string | null;
   subject?: string | null;
   body?: string | null;
-  categoryFilterType?: CategoryFilterType | null;
-  categoryFilters?: string[] | null;
 };
 
 export const flattenConditions = (
@@ -147,10 +117,6 @@ export const flattenConditions = (
         acc.from = condition.from;
         acc.subject = condition.subject;
         acc.body = condition.body;
-        break;
-      case ConditionType.CATEGORY:
-        acc.categoryFilterType = condition.categoryFilterType;
-        acc.categoryFilters = condition.categoryFilters;
         break;
       default:
         logger.warn("Unknown condition type", { condition });
@@ -178,10 +144,8 @@ function conditionTypeToString(conditionType: ConditionType): string {
       return "AI";
     case ConditionType.STATIC:
       return "Static";
-    case ConditionType.GROUP:
+    case ConditionType.LEARNED_PATTERN:
       return "Group";
-    case ConditionType.CATEGORY:
-      return "Category";
     case ConditionType.PRESET:
       return "Preset";
     default:
@@ -207,36 +171,5 @@ export function conditionsToString(rule: RuleConditions) {
   // AI condition
   if (rule.instructions) conditions.push(rule.instructions);
 
-  // Category condition
-  const categoryFilters = rule.categoryFilters;
-  if (rule.categoryFilterType && categoryFilters?.length) {
-    const max = 3;
-    const categories =
-      categoryFilters
-        .slice(0, max)
-        .map((category) => category.name)
-        .join(", ") + (categoryFilters.length > max ? ", ..." : "");
-    conditions.push(
-      `${rule.categoryFilterType === CategoryFilterType.EXCLUDE ? "Exclude " : ""}${
-        categoryFilters.length === 1 ? "Category" : "Categories"
-      }: ${categories}`,
-    );
-  }
-
   return conditions.join(connector);
-}
-
-export function categoryFilterTypeToString(
-  categoryFilterType: CategoryFilterType,
-): string {
-  switch (categoryFilterType) {
-    case CategoryFilterType.INCLUDE:
-      return "Include";
-    case CategoryFilterType.EXCLUDE:
-      return "Exclude";
-    default:
-      // biome-ignore lint/correctness/noSwitchDeclarations: intentional exhaustive check
-      const exhaustiveCheck: never = categoryFilterType;
-      return exhaustiveCheck;
-  }
 }

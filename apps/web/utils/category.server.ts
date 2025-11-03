@@ -1,8 +1,5 @@
 import prisma from "@/utils/prisma";
 import type { Prisma } from "@prisma/client";
-import { createScopedLogger } from "@/utils/logger";
-
-const logger = createScopedLogger("category");
 
 export type CategoryWithRules = Prisma.CategoryGetPayload<{
   select: {
@@ -39,27 +36,4 @@ export const getUserCategoriesWithRules = async ({
     },
   });
   return categories;
-};
-
-export const getUserCategoriesForNames = async ({
-  emailAccountId,
-  names,
-}: {
-  emailAccountId: string;
-  names: string[];
-}) => {
-  if (!names.length) return [];
-
-  const categories = await prisma.category.findMany({
-    where: { emailAccountId, name: { in: names } },
-    select: { id: true },
-  });
-  if (categories.length !== names.length) {
-    logger.warn("Not all categories were found", {
-      requested: names.length,
-      found: categories.length,
-      names,
-    });
-  }
-  return categories.map((c) => c.id);
 };

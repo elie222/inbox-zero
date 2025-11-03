@@ -11,6 +11,7 @@ export function getEmailAccount(
     userId: "user1",
     email: overrides.email || "user@test.com",
     about: null,
+    multiRuleSelectionEnabled: overrides.multiRuleSelectionEnabled ?? false,
     user: {
       aiModel: null,
       aiProvider: null,
@@ -22,6 +23,25 @@ export function getEmailAccount(
   };
 }
 
+/**
+ * Helper to generate sequential dates for email threads.
+ * Each date is hoursApart hours after the previous one.
+ * @param count - Number of dates to generate
+ * @param hoursApart - Hours between each message (default: 1)
+ * @param startDate - Starting date (default: 7 days ago)
+ */
+export function generateSequentialDates(
+  count: number,
+  hoursApart = 1,
+  startDate = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000),
+): Date[] {
+  return Array.from({ length: count }, (_, i) => {
+    const date = new Date(startDate);
+    date.setHours(date.getHours() + i * hoursApart);
+    return date;
+  });
+}
+
 export function getEmail({
   from = "user@test.com",
   to = "user2@test.com",
@@ -29,6 +49,7 @@ export function getEmail({
   content = "Test content",
   replyTo,
   cc,
+  date,
 }: Partial<EmailForLLM> = {}): EmailForLLM {
   return {
     id: "email-id",
@@ -38,13 +59,18 @@ export function getEmail({
     content,
     ...(replyTo && { replyTo }),
     ...(cc && { cc }),
+    ...(date && { date }),
   };
 }
 
-export function getRule(instructions: string, actions: Action[] = []) {
+export function getRule(
+  instructions: string,
+  actions: Action[] = [],
+  name?: string,
+) {
   return {
     instructions,
-    name: "Joke requests",
+    name: name || "Joke requests",
     actions,
     id: "id",
     userId: "userId",
@@ -57,7 +83,6 @@ export function getRule(instructions: string, actions: Action[] = []) {
     body: null,
     to: null,
     enabled: true,
-    categoryFilterType: null,
     conditionalOperator: LogicalOperator.AND,
   };
 }

@@ -16,9 +16,12 @@ export async function processHistoryForUser({
   subscriptionId: string;
   resourceData: OutlookResourceData;
 }) {
-  const emailAccount = await getWebhookEmailAccount({
-    watchEmailsSubscriptionId: subscriptionId,
-  });
+  const emailAccount = await getWebhookEmailAccount(
+    {
+      watchEmailsSubscriptionId: subscriptionId,
+    },
+    logger,
+  );
 
   const validation = await validateWebhookAccount(emailAccount, logger);
 
@@ -47,19 +50,8 @@ export async function processHistoryForUser({
       hasAiAccess: userHasAiAccess,
       rules: validatedEmailAccount.rules,
       emailAccount: {
-        id: validatedEmailAccount.id,
-        userId: validatedEmailAccount.userId,
-        email: validatedEmailAccount.email,
-        about: validatedEmailAccount.about,
-        autoCategorizeSenders: validatedEmailAccount.autoCategorizeSenders,
-        account: {
-          provider: accountProvider,
-        },
-        user: {
-          aiProvider: validatedEmailAccount.user.aiProvider,
-          aiModel: validatedEmailAccount.user.aiModel,
-          aiApiKey: validatedEmailAccount.user.aiApiKey,
-        },
+        ...validatedEmailAccount,
+        account: { provider: accountProvider },
       },
     });
 

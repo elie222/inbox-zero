@@ -33,13 +33,12 @@ describe("scheduler", () => {
       expect(canActionBeDelayed(ActionType.CALL_WEBHOOK)).toBe(false);
       expect(canActionBeDelayed(ActionType.DRAFT_EMAIL)).toBe(false);
       expect(canActionBeDelayed(ActionType.MARK_SPAM)).toBe(false);
-      expect(canActionBeDelayed(ActionType.TRACK_THREAD)).toBe(false);
       expect(canActionBeDelayed(ActionType.DIGEST)).toBe(false);
     });
   });
 
   describe("cancelScheduledActions", () => {
-    it("should cancel scheduled actions for a message", async () => {
+    it("should cancel scheduled actions for a specific rule", async () => {
       // Mock finding actions to cancel
       prisma.scheduledAction.findMany.mockResolvedValue([
         { id: "action-1", scheduledId: "qstash-msg-1" },
@@ -52,6 +51,7 @@ describe("scheduler", () => {
       const result = await cancelScheduledActions({
         messageId: "msg-123",
         emailAccountId: "account-123",
+        ruleId: "rule-123",
       });
 
       expect(prisma.scheduledAction.findMany).toHaveBeenCalledWith({
@@ -59,6 +59,9 @@ describe("scheduler", () => {
           emailAccountId: "account-123",
           messageId: "msg-123",
           status: ScheduledActionStatus.PENDING,
+          executedRule: {
+            ruleId: "rule-123",
+          },
         },
         select: {
           id: true,
@@ -71,6 +74,9 @@ describe("scheduler", () => {
           emailAccountId: "account-123",
           messageId: "msg-123",
           status: ScheduledActionStatus.PENDING,
+          executedRule: {
+            ruleId: "rule-123",
+          },
         },
         data: {
           status: ScheduledActionStatus.CANCELLED,
@@ -87,6 +93,7 @@ describe("scheduler", () => {
       const result = await cancelScheduledActions({
         messageId: "msg-456",
         emailAccountId: "account-123",
+        ruleId: "rule-456",
       });
 
       expect(result).toBe(0);
@@ -102,6 +109,7 @@ describe("scheduler", () => {
         messageId: "msg-123",
         emailAccountId: "account-123",
         threadId: "thread-123",
+        ruleId: "rule-123",
         reason: "Custom reason",
       });
 
@@ -111,6 +119,9 @@ describe("scheduler", () => {
           messageId: "msg-123",
           threadId: "thread-123",
           status: ScheduledActionStatus.PENDING,
+          executedRule: {
+            ruleId: "rule-123",
+          },
         },
         select: {
           id: true,
@@ -124,6 +135,9 @@ describe("scheduler", () => {
           messageId: "msg-123",
           threadId: "thread-123",
           status: ScheduledActionStatus.PENDING,
+          executedRule: {
+            ruleId: "rule-123",
+          },
         },
         data: {
           status: ScheduledActionStatus.CANCELLED,

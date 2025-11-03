@@ -14,6 +14,7 @@ export async function validateUserAndAiAccess({
       userId: true,
       email: true,
       about: true,
+      multiRuleSelectionEnabled: true,
       user: {
         select: {
           aiProvider: true,

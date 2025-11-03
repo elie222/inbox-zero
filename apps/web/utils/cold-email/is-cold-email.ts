@@ -10,10 +10,9 @@ import type { EmailForLLM } from "@/utils/types";
 import type { EmailProvider } from "@/utils/email/types";
 import { getModel, type ModelType } from "@/utils/llms/model";
 import { createGenerateObject } from "@/utils/llms";
+import { extractEmailAddress } from "@/utils/email";
 
 export const COLD_EMAIL_FOLDER_NAME = "Cold Emails";
-
-const logger = createScopedLogger("ai-cold-email");
 
 type ColdEmailBlockerReason = "hasPreviousEmail" | "ai" | "ai-already-labeled";
 
@@ -34,13 +33,13 @@ export async function isColdEmail({
   reason: ColdEmailBlockerReason;
   aiReason?: string | null;
 }> {
-  const loggerOptions = {
+  const logger = createScopedLogger("ai-cold-email").with({
     email: emailAccount.email,
     threadId: email.threadId,
     messageId: email.id,
-  };
+  });
 
-  logger.info("Checking is cold email", loggerOptions);
+  logger.info("Checking is cold email");
 
   // Check if we marked it as a cold email already
   const isColdEmailer = await isKnownColdEmailSender({
@@ -50,7 +49,6 @@ export async function isColdEmail({
 
   if (isColdEmailer) {
     logger.info("Known cold email sender", {
-      ...loggerOptions,
       from: email.from,
     });
     return { isColdEmail: true, reason: "ai-already-labeled" };
@@ -66,7 +64,7 @@ export async function isColdEmail({
       : false;
 
   if (hasPreviousEmail) {
-    logger.info("Has previous email", loggerOptions);
+    logger.info("Has previous email");
     return { isColdEmail: false, reason: "hasPreviousEmail" };
   }
 
@@ -79,7 +77,6 @@ export async function isColdEmail({
   );
 
   logger.info("AI is cold email?", {
-    ...loggerOptions,
     coldEmail: res.coldEmail,
   });
 
@@ -171,17 +168,19 @@ export async function saveColdEmail({
   emailAccount: EmailAccountWithAI;
   aiReason: string | null;
 }): Promise<ColdEmail> {
+  const from = extractEmailAddress(email.from) || email.from;
+
   return await prisma.coldEmail.upsert({
     where: {
       emailAccountId_fromEmail: {
         emailAccountId: emailAccount.id,
-        fromEmail: email.from,
+        fromEmail: from,
       },
     },
     update: { status: ColdEmailStatus.AI_LABELED_COLD },
     create: {
       status: ColdEmailStatus.AI_LABELED_COLD,
-      fromEmail: email.from,
+      fromEmail: from,
       emailAccountId: emailAccount.id,
       reason: aiReason,
       messageId: email.id,

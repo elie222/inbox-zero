@@ -5,23 +5,44 @@ import { createScopedLogger } from "@/utils/logger";
 import { isAssistantEmail } from "@/utils/assistant/is-assistant-email";
 import { GmailLabel } from "@/utils/gmail/label";
 import type { EmailProvider } from "@/utils/email/types";
+import { isGoogleProvider } from "@/utils/email/provider-types";
 
 const logger = createScopedLogger("api/messages");
 
 export type MessagesResponse = Awaited<ReturnType<typeof getMessages>>;
 
+export const GET = withEmailProvider(async (request) => {
+  const { emailProvider } = request;
+  const { emailAccountId, email } = request.auth;
+
+  const { searchParams } = new URL(request.url);
+  const query = searchParams.get("q");
+  const pageToken = searchParams.get("pageToken");
+  const r = messageQuerySchema.parse({ q: query, pageToken });
+
+  const result = await getMessages({
+    emailAccountId,
+    query: r.q,
+    pageToken: r.pageToken,
+    emailProvider,
+    email,
+  });
+
+  return NextResponse.json(result);
+});
+
 async function getMessages({
   query,
   pageToken,
   emailAccountId,
-  userEmail,
   emailProvider,
+  email,
 }: {
   query?: string | null;
   pageToken?: string | null;
   emailAccountId: string;
-  userEmail: string;
   emailProvider: EmailProvider;
+  email: string;
 }) {
   try {
     const { messages, nextPageToken } =
@@ -39,11 +60,11 @@ async function getMessages({
       // Don't include messages from/to the assistant
       if (
         isAssistantEmail({
-          userEmail,
+          userEmail: email,
           emailToCheck: fromEmail,
         }) ||
         isAssistantEmail({
-          userEmail,
+          userEmail: email,
           emailToCheck: toEmail,
         })
       ) {
@@ -51,7 +72,7 @@ async function getMessages({
       }
 
       // Provider-specific filtering
-      if (emailProvider.name === "google") {
+      if (isGoogleProvider(emailProvider.name)) {
         const isSent = message.labelIds?.includes(GmailLabel.SENT);
         const isDraft = message.labelIds?.includes(GmailLabel.DRAFT);
         const isInbox = message.labelIds?.includes(GmailLabel.INBOX);
@@ -82,21 +103,3 @@ async function getMessages({
     throw error;
   }
 }
-
-export const GET = withEmailProvider(async (request) => {
-  const { emailProvider } = request;
-  const { emailAccountId, email: userEmail } = request.auth;
-
-  const { searchParams } = new URL(request.url);
-  const query = searchParams.get("q");
-  const pageToken = searchParams.get("pageToken");
-  const r = messageQuerySchema.parse({ q: query, pageToken });
-  const result = await getMessages({
-    emailAccountId,
-    query: r.q,
-    pageToken: r.pageToken,
-    userEmail,
-    emailProvider,
-  });
-  return NextResponse.json(result);
-});

@@ -1,7 +1,6 @@
 "use client";
 
 import { useRef, useState } from "react";
-import Link from "next/link";
 import { HistoryIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { SectionDescription } from "@/components/Typography";
@@ -10,6 +9,7 @@ import type { ThreadsQuery } from "@/app/api/threads/validation";
 import { LoadingContent } from "@/components/LoadingContent";
 import { runAiRules } from "@/utils/queue/email-actions";
 import { sleep } from "@/utils/sleep";
+import { toastError } from "@/components/Toast";
 import { PremiumAlertWithData, usePremium } from "@/components/PremiumAlert";
 import { SetDateDropdown } from "@/app/(app)/[emailAccountId]/assistant/SetDateDropdown";
 import { useThreads } from "@/hooks/useThreads";
@@ -22,7 +22,6 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { useAccount } from "@/providers/EmailAccountProvider";
-import { prefixPath } from "@/utils/path";
 import { fetchWithAccount } from "@/utils/fetch";
 
 export function BulkRunRules() {
@@ -72,69 +71,67 @@ export function BulkRunRules() {
                     </SectionDescription>
                   </div>
                 )}
-                <div className="space-y-4">
-                  <LoadingContent loading={isLoadingPremium}>
-                    {hasAiAccess ? (
-                      <div className="flex flex-col space-y-2">
-                        <div className="grid grid-cols-2 gap-2">
-                          <SetDateDropdown
-                            onChange={setStartDate}
-                            value={startDate}
-                            placeholder="Set start date"
-                            disabled={running}
-                          />
-                          <SetDateDropdown
-                            onChange={setEndDate}
-                            value={endDate}
-                            placeholder="Set end date (optional)"
-                            disabled={running}
-                          />
-                        </div>
-
-                        <Button
-                          type="button"
-                          disabled={running || !startDate}
-                          loading={running}
-                          onClick={async () => {
-                            if (!startDate) return;
-                            setRunning(true);
-                            abortRef.current = await onRun(
-                              emailAccountId,
-                              { startDate, endDate },
-                              (count) =>
-                                setTotalThreads((total) => total + count),
-                              () => setRunning(false),
-                            );
-                          }}
-                        >
-                          Process Emails
-                        </Button>
-                        {running && (
-                          <Button
-                            variant="outline"
-                            onClick={() => abortRef.current?.()}
-                          >
-                            Cancel
-                          </Button>
-                        )}
+                <LoadingContent loading={isLoadingPremium}>
+                  {hasAiAccess ? (
+                    <div className="flex flex-col space-y-2">
+                      <div className="grid grid-cols-2 gap-2">
+                        <SetDateDropdown
+                          onChange={setStartDate}
+                          value={startDate}
+                          placeholder="Set start date"
+                          disabled={running}
+                        />
+                        <SetDateDropdown
+                          onChange={setEndDate}
+                          value={endDate}
+                          placeholder="Set end date (optional)"
+                          disabled={running}
+                        />
                       </div>
-                    ) : (
-                      <PremiumAlertWithData />
-                    )}
-                  </LoadingContent>
 
-                  <SectionDescription>
-                    You can also process specific emails by visiting the{" "}
-                    <Link
-                      href={prefixPath(emailAccountId, "/mail")}
-                      target="_blank"
-                      className="font-semibold hover:underline"
-                    >
-                      Mail
-                    </Link>{" "}
-                    page.
-                  </SectionDescription>
-                </div>
+                      <Button
+                        type="button"
+                        disabled={running || !startDate || !emailAccountId}
+                        loading={running}
+                        onClick={async () => {
+                          if (!startDate) {
+                            toastError({
+                              description: "Please select a start date",
+                            });
+                            return;
+                          }
+                          if (!emailAccountId) {
+                            toastError({
+                              description:
+                                "Email account ID is missing. Please refresh the page.",
+                            });
+                            return;
+                          }
+                          setRunning(true);
+                          abortRef.current = await onRun(
+                            emailAccountId,
+                            { startDate, endDate },
+                            (count) =>
+                              setTotalThreads((total) => total + count),
+                            () => setRunning(false),
+                          );
+                        }}
+                      >
+                        Process Emails
+                      </Button>
+                      {running && (
+                        <Button
+                          variant="outline"
+                          onClick={() => abortRef.current?.()}
+                        >
+                          Cancel
+                        </Button>
+                      )}
+                    </div>
+                  ) : (
+                    <PremiumAlertWithData />
+                  )}
+                </LoadingContent>
               </>
             )}
           </LoadingContent>
@@ -164,12 +161,13 @@ async function onRun(
     for (let i = 0; i < 100; i++) {
       const query: ThreadsQuery = {
         type: "inbox",
-        nextPageToken,
         limit: LIMIT,
         after: startDate,
-        before: endDate || undefined,
+        ...(endDate ? { before: endDate } : {}),
         isUnread: true,
+        ...(nextPageToken ? { nextPageToken } : {}),
       };
+
       const res = await fetchWithAccount({
         url: `/api/threads?${
           // biome-ignore lint/suspicious/noExplicitAny: simplest
@@ -177,7 +175,30 @@ async function onRun(
         }`,
         emailAccountId,
       });
+
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        console.error("Failed to fetch threads:", res.status, errorData);
+        toastError({
+          title: "Failed to fetch emails",
+          description:
+            typeof errorData.error === "string"
+              ? errorData.error
+              : `Error: ${res.status}`,
+        });
+        break;
+      }
+
       const data: ThreadsResponse = await res.json();
+
+      if (!data.threads) {
+        console.error("Invalid response: missing threads", data);
+        toastError({
+          title: "Invalid response",
+          description: "Failed to process emails. Please try again.",
+        });
+        break;
+      }
 
       nextPageToken = data.nextPageToken || "";
 

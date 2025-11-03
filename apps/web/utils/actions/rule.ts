@@ -7,6 +7,7 @@ import {
   updateRuleBody,
   updateRuleSettingsBody,
   enableDraftRepliesBody,
+  enableMultiRuleSelectionBody,
   deleteRuleBody,
   createRulesOnboardingBody,
   type CategoryConfig,
@@ -83,15 +84,8 @@ export const createRuleAction = actionClient
             to: conditions.to || null,
             subject: conditions.subject || null,
             // body: conditions.body || null,
-            categoryFilterType: conditions.categoryFilterType || null,
-            categoryFilters:
-              conditions.categoryFilterType && conditions.categoryFilters
-                ? {
-                    connect: conditions.categoryFilters.map((id) => ({ id })),
-                  }
-                : {},
           },
-          include: { actions: true, categoryFilters: true, group: true },
+          include: { actions: true, group: true },
         });
 
         // Track rule creation in history
@@ -133,7 +127,7 @@ export const updateRuleAction = actionClient
       try {
         const currentRule = await prisma.rule.findUnique({
           where: { id, emailAccountId },
-          include: { actions: true, categoryFilters: true, group: true },
+          include: { actions: true, group: true },
         });
         if (!currentRule) throw new SafeError("Rule not found");
 
@@ -161,15 +155,8 @@ export const updateRuleAction = actionClient
               to: conditions.to || null,
               subject: conditions.subject || null,
               // body: conditions.body || null,
-              categoryFilterType: conditions.categoryFilterType || null,
-              categoryFilters:
-                conditions.categoryFilterType && conditions.categoryFilters
-                  ? {
-                      set: conditions.categoryFilters.map((id) => ({ id })),
-                    }
-                  : { set: [] },
             },
-            include: { actions: true, categoryFilters: true, group: true },
+            include: { actions: true, group: true },
           }),
           // delete removed actions
           ...(actionsToDelete.length
@@ -292,13 +279,23 @@ export const enableDraftRepliesAction = actionClient
     },
   );
 
+export const enableMultiRuleSelectionAction = actionClient
+  .metadata({ name: "enableMultiRuleSelection" })
+  .schema(enableMultiRuleSelectionBody)
+  .action(async ({ ctx: { emailAccountId }, parsedInput: { enable } }) => {
+    await prisma.emailAccount.update({
+      where: { id: emailAccountId },
+      data: { multiRuleSelectionEnabled: enable },
+    });
+  });
+
 export const deleteRuleAction = actionClient
   .metadata({ name: "deleteRule" })
   .schema(deleteRuleBody)
   .action(async ({ ctx: { emailAccountId }, parsedInput: { id } }) => {
     const rule = await prisma.rule.findUnique({
       where: { id, emailAccountId },
-      include: { actions: true, categoryFilters: true, group: true },
+      include: { actions: true, group: true },
     });
     if (!rule) return; // already deleted
     if (rule.emailAccountId !== emailAccountId)
@@ -374,6 +371,7 @@ export const createRulesOnboardingAction = actionClient
               hasDigest: false,
               draftReply: !!ruleConfiguration.draftReply,
               provider,
+              logger,
             });
 
             return (
@@ -407,6 +405,7 @@ export const createRulesOnboardingAction = actionClient
               hasDigest: false,
               draftReply: !!ruleConfiguration.draftReply,
               provider,
+              logger,
             });
 
             return prisma.rule
@@ -493,6 +492,7 @@ export const createRulesOnboardingAction = actionClient
             hasDigest: false,
             draftReply: false,
             provider,
+            logger,
           });
 
           const promise = prisma.rule
@@ -790,6 +790,7 @@ async function getActionsFromCategoryAction({
   draftReply,
   hasDigest,
   provider,
+  logger,
 }: {
   emailAccountId: string;
   rule: Rule;
@@ -798,6 +799,7 @@ async function getActionsFromCategoryAction({
   hasDigest: boolean;
   draftReply: boolean;
   provider: string;
+  logger: Logger;
 }): Promise<Prisma.ActionCreateManyRuleInput[]> {
   const emailProvider = await createEmailProvider({
     emailAccountId,
@@ -808,6 +810,13 @@ async function getActionsFromCategoryAction({
     emailProvider,
     label,
     labelId: null,
+  });
+
+  logger.info("Resolved label ID during onboarding", {
+    requestedLabel: label,
+    resolvedLabelName: labelName,
+    resolvedLabelId: labelId,
+    ruleName: rule.name,
   });
 
   let actions: Prisma.ActionCreateManyRuleInput[] = [
@@ -831,6 +840,13 @@ async function getActionsFromCategoryAction({
       const folderId = await emailProvider.getOrCreateOutlookFolderIdByName(
         rule.name,
       );
+
+      logger.info("Resolved folder ID during onboarding", {
+        folderName: rule.name,
+        resolvedFolderId: folderId,
+        categoryAction,
+      });
+
       actions = [
         {
           type: ActionType.MOVE_FOLDER,

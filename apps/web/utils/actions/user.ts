@@ -9,13 +9,15 @@ import { SafeError } from "@/utils/error";
 import { updateAccountSeats } from "@/utils/premium/server";
 import { betterAuthConfig } from "@/utils/auth";
 import { headers } from "next/headers";
-
-const saveAboutBody = z.object({ about: z.string().max(2000) });
-export type SaveAboutBody = z.infer<typeof saveAboutBody>;
+import {
+  saveAboutBody,
+  saveSignatureBody,
+} from "@/utils/actions/user.validation";
+import { clearLastEmailAccountCookie } from "@/utils/cookies.server";
 
 export const saveAboutAction = actionClient
   .metadata({ name: "saveAbout" })
-  .schema(saveAboutBody)
+  .inputSchema(saveAboutBody)
   .action(async ({ parsedInput: { about }, ctx: { emailAccountId } }) => {
     await prisma.emailAccount.update({
       where: { id: emailAccountId },
@@ -23,12 +25,9 @@ export const saveAboutAction = actionClient
     });
   });
 
-const saveSignatureBody = z.object({ signature: z.string().max(2000) });
-export type SaveSignatureBody = z.infer<typeof saveSignatureBody>;
-
 export const saveSignatureAction = actionClient
   .metadata({ name: "saveSignature" })
-  .schema(saveSignatureBody)
+  .inputSchema(saveSignatureBody)
   .action(async ({ parsedInput: { signature }, ctx: { emailAccountId } }) => {
     await prisma.emailAccount.update({
       where: { id: emailAccountId },
@@ -46,18 +45,24 @@ export const resetAnalyticsAction = actionClient
 
 export const deleteAccountAction = actionClientUser
   .metadata({ name: "deleteAccount" })
-  .action(async ({ ctx: { userId } }) => {
-    try {
-      await betterAuthConfig.api.signOut({
+  .action(async ({ ctx: { userId, logger } }) => {
+    await clearLastEmailAccountCookie().catch((error) => {
+      logger.error("Failed to clear last email account cookie", { error });
+    });
+
+    await betterAuthConfig.api
+      .signOut({
         headers: await headers(),
+      })
+      .catch((error) => {
+        logger.error("Failed to sign out", { error });
       });
-    } catch {}
     await deleteUser({ userId });
   });
 
 export const deleteEmailAccountAction = actionClientUser
   .metadata({ name: "deleteEmailAccount" })
-  .schema(z.object({ emailAccountId: z.string() }))
+  .inputSchema(z.object({ emailAccountId: z.string() }))
   .action(async ({ ctx: { userId }, parsedInput: { emailAccountId } }) => {
     const emailAccount = await prisma.emailAccount.findUnique({
       where: { id: emailAccountId, userId },

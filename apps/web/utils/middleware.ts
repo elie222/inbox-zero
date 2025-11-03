@@ -211,6 +211,7 @@ async function emailAccountMiddleware(
   }
 
   if (!email) {
+    logger.error("Invalid account ID", { emailAccountId, userId });
     return NextResponse.json(
       { error: "Invalid account ID", isKnownError: true },
       { status: 403 },

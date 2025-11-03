@@ -21,6 +21,7 @@ import { useAccount } from "@/providers/EmailAccountProvider";
 import { useSignUpEvent } from "@/hooks/useSignupEvent";
 import { isDefined } from "@/utils/types";
 import { StepCompanySize } from "@/app/(app)/[emailAccountId]/onboarding/StepCompanySize";
+import { usePremium } from "@/components/PremiumAlert";
 
 interface OnboardingContentProps {
   step: number;
@@ -28,6 +29,7 @@ interface OnboardingContentProps {
 
 export function OnboardingContent({ step }: OnboardingContentProps) {
   const { emailAccountId, provider, isLoading } = useAccount();
+  const { isPremium } = usePremium();
 
   useSignUpEvent();
 
@@ -80,9 +82,13 @@ export function OnboardingContent({ step }: OnboardingContentProps) {
       analytics.onComplete();
       markOnboardingAsCompleted(ASSISTANT_ONBOARDING_COOKIE);
       await completedOnboardingAction();
-      router.push("/welcome-upgrade");
+      if (isPremium) {
+        router.push(prefixPath(emailAccountId, "/setup"));
+      } else {
+        router.push("/welcome-upgrade");
+      }
     }
-  }, [router, emailAccountId, analytics, clampedStep, steps.length]);
+  }, [router, emailAccountId, analytics, clampedStep, steps.length, isPremium]);
 
   // Trigger persona analysis on mount (first step only)
   useEffect(() => {

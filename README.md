@@ -178,6 +178,8 @@ Create [new credentials](https://console.cloud.google.com/apis/credentials):
     2. In the `Test users` section, click `+Add users`
     3. Enter your email and press `Save`
 
+6.  Enable Google People API in [Google Cloud Console](https://console.cloud.google.com/marketplace/product/google/people.googleapis.com)
+
 ### Updating .env file with Microsoft OAuth credentials:
 
 - `MICROSOFT_CLIENT_ID` -- Microsoft OAuth client ID

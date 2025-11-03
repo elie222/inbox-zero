@@ -6,6 +6,7 @@ import {
   getMessages,
   queryBatchMessages,
   getFolderIds,
+  convertMessage,
 } from "@/utils/outlook/message";
 import {
   getLabels,
@@ -149,6 +150,30 @@ export class OutlookProvider implements EmailProvider {
       });
       throw error;
     }
+  }
+
+  async getMessageByRfc822MessageId(
+    rfc822MessageId: string,
+  ): Promise<ParsedMessage | null> {
+    const cleanMessageId = rfc822MessageId.trim().replace(/^<|>$/g, "");
+    const messageIdWithBrackets = `<${cleanMessageId}>`;
+
+    const response = await this.client
+      .getClient()
+      .api("/me/messages")
+      .filter(
+        `internetMessageId eq '${escapeODataString(messageIdWithBrackets)}'`,
+      )
+      .top(1)
+      .get();
+
+    const message = response.value?.[0];
+    if (!message) {
+      return null;
+    }
+
+    const folderIds = await getFolderIds(this.client);
+    return convertMessage(message, folderIds);
   }
 
   private async getMessages({
@@ -309,13 +334,28 @@ export class OutlookProvider implements EmailProvider {
   async labelMessage({
     messageId,
     labelId,
+    labelName,
   }: {
     messageId: string;
     labelId: string;
-  }) {
-    const category = await this.getLabelById(labelId);
+    labelName: string | null;
+  }): Promise<{ usedFallback?: boolean; actualLabelId?: string }> {
+    let usedFallback = false;
+    let category = await this.getLabelById(labelId);
+
+    if (!category && labelName) {
+      logger.warn("Category not found by ID, trying to get by name", {
+        labelId,
+        labelName,
+      });
+      category = await this.getLabelByName(labelName);
+      usedFallback = true;
+    }
+
     if (!category) {
-      throw new Error(`Category with ID ${labelId} not found`);
+      throw new Error(
+        `Category with ID ${labelId}${labelName ? ` or name ${labelName}` : ""} not found`,
+      );
     }
 
     // Get current message categories to avoid replacing them
@@ -336,6 +376,11 @@ export class OutlookProvider implements EmailProvider {
         categories: updatedCategories,
       });
     }
+
+    return {
+      usedFallback,
+      actualLabelId: category.id || undefined,
+    };
   }
 
   async getDraft(draftId: string): Promise<ParsedMessage | null> {
@@ -904,7 +949,7 @@ export class OutlookProvider implements EmailProvider {
   ): Promise<number> {
     try {
       const query = `from:${senderEmail}`;
-      logger.info(`Checking received message count (up to ${threshold})`, {
+      logger.info("Checking received message count", {
         senderEmail,
         threshold,
       });

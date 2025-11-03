@@ -26,7 +26,16 @@ import { useLocalStorage } from "usehooks-ts";
 const MAX_MESSAGES = 20;
 
 export function Chat() {
-  const { chat, chatId, input, setInput, handleSubmit, setNewChat } = useChat();
+  const {
+    chat,
+    chatId,
+    input,
+    setInput,
+    handleSubmit,
+    setNewChat,
+    context,
+    setContext,
+  } = useChat();
   const { messages, status, stop, regenerate, setMessages } = chat;
   const [localStorageInput, setLocalStorageInput] = useLocalStorage(
     "input",
@@ -81,6 +90,22 @@ export function Chat() {
       />
 
       <div className="mx-auto w-full px-4 pb-4 md:max-w-3xl md:pb-6">
+        {context ? (
+          <div className="mb-2 flex items-center gap-2">
+            <span className="inline-flex items-center gap-2 rounded-full bg-muted px-3 py-1 text-xs text-muted-foreground">
+              Fix: {context.message.headers.subject.slice(0, 60)}
+              {context.message.headers.subject.length > 60 ? "..." : ""}
+              <button
+                type="button"
+                aria-label="Remove context"
+                className="ml-1 rounded p-0.5 hover:bg-muted-foreground/10"
+                onClick={() => setContext(null)}
+              >
+                ×
+              </button>
+            </span>
+          </div>
+        ) : null}
         <PromptInput
           onSubmit={(e) => {
             e.preventDefault();
@@ -105,7 +130,7 @@ export function Chat() {
                   ? "submitted"
                   : "ready"
             }
-            disabled={!input.trim() || status !== "ready"}
+            disabled={(!input.trim() && !context) || status !== "ready"}
             className="absolute bottom-1 right-1"
             onClick={(e) => {
               if (status === "streaming") {

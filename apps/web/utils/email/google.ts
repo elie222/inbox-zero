@@ -12,6 +12,7 @@ import {
   getLabel,
   getLabelById,
   createLabel,
+  getOrCreateLabel,
   getOrCreateInboxZeroLabel,
   GmailLabel,
 } from "@/utils/gmail/label";
@@ -160,6 +161,14 @@ export class GmailProvider implements EmailProvider {
     return parseMessage(message);
   }
 
+  async getMessageByRfc822MessageId(
+    rfc822MessageId: string,
+  ): Promise<ParsedMessage | null> {
+    const message = await getMessageByRfc822Id(rfc822MessageId, this.client);
+    if (!message) return null;
+    return parseMessage(message);
+  }
+
   async getSentMessages(maxResults = 20): Promise<ParsedMessage[]> {
     return getSentMessages(this.client, maxResults);
   }
@@ -261,15 +270,54 @@ export class GmailProvider implements EmailProvider {
   async labelMessage({
     messageId,
     labelId,
+    labelName,
   }: {
     messageId: string;
     labelId: string;
-  }) {
-    await labelMessage({
-      gmail: this.client,
-      messageId,
-      addLabelIds: [labelId],
-    });
+    labelName: string | null;
+  }): Promise<{ usedFallback?: boolean; actualLabelId?: string }> {
+    try {
+      await labelMessage({
+        gmail: this.client,
+        messageId,
+        addLabelIds: [labelId],
+      });
+
+      return {};
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+
+      // Only use fallback for "label not found" errors
+      if (
+        (errorMessage.includes("Requested entity was not found") ||
+          errorMessage.includes("labelId not found")) &&
+        labelName
+      ) {
+        logger.warn("Label not found by ID, trying to get or create by name", {
+          labelId,
+          labelName,
+        });
+
+        const label = await getOrCreateLabel({
+          gmail: this.client,
+          name: labelName,
+        });
+        await labelMessage({
+          gmail: this.client,
+          messageId,
+          addLabelIds: [label.id!],
+        });
+
+        return {
+          usedFallback: true,
+          actualLabelId: label.id!,
+        };
+      }
+
+      // Re-throw if not a "not found" error or fallback didn't work
+      throw error;
+    }
   }
 
   async getDraft(draftId: string): Promise<ParsedMessage | null> {
@@ -346,7 +394,9 @@ export class GmailProvider implements EmailProvider {
     email: ParsedMessage,
     args: { to: string; cc?: string; bcc?: string; content?: string },
   ): Promise<void> {
-    await forwardEmail(this.client, { messageId: email.id, ...args });
+    const parsedMessage = await this.getMessage(email.id);
+
+    await forwardEmail(this.client, parsedMessage, args);
   }
 
   async markSpam(threadId: string): Promise<void> {
@@ -673,7 +723,7 @@ export class GmailProvider implements EmailProvider {
   ): Promise<number> {
     try {
       const query = `from:${senderEmail}`;
-      logger.info(`Checking received message count (up to ${threshold})`, {
+      logger.info("Checking received message count", {
         senderEmail,
         threshold,
       });
@@ -878,6 +928,7 @@ export class GmailProvider implements EmailProvider {
       {
         startHistoryId: options.startHistoryId?.toString(),
       },
+      logger,
     );
   }
 

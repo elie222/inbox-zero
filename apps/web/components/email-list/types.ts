@@ -7,7 +7,6 @@ export type Thread = {
   messages: FullThread["messages"];
   snippet: FullThread["snippet"];
   plan: FullThread["plan"];
-  category: FullThread["category"];
 };
 
 export type Executing = Record<string, boolean>;
