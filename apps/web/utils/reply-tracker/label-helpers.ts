@@ -37,7 +37,7 @@ export async function removeConflictingThreadStatusLabels({
       emailAccountId,
       threadId,
       systemType,
-      provider,
+      provider: provider.name,
     },
   );
 
@@ -110,7 +110,7 @@ export async function applyThreadStatusLabel({
     threadId,
     messageId,
     systemType,
-    provider,
+    provider: provider.name,
   });
 
   const [dbLabels, providerLabels] = await Promise.all([
@@ -121,8 +121,8 @@ export async function applyThreadStatusLabel({
   const addLabel = async () => {
     let targetLabel = dbLabels[systemType];
 
-    // If we don't have both labelId and label from DB, fetch/create it
-    if (!targetLabel.labelId && !targetLabel.label) {
+    // If we don't have labelId from DB, fetch/create it
+    if (!targetLabel.labelId) {
       const label =
         providerLabels.find((l) => l.name === getRuleLabel(systemType)) ||
         (await provider.createLabel(getRuleLabel(systemType)));
@@ -134,16 +134,19 @@ export async function applyThreadStatusLabel({
       }
     }
 
-    // Error only if we still don't have either field after attempting to fetch/create
-    if (!targetLabel.labelId && !targetLabel.label) {
-      logger.error("Failed to get or create target label");
+    // Must have labelId to proceed
+    if (!targetLabel.labelId) {
+      logger.error("Failed to get or create target label", {
+        systemType,
+        labelName: getRuleLabel(systemType),
+      });
       return;
     }
 
     return labelMessageAndSync({
       provider,
       messageId,
-      labelId: targetLabel.labelId || "",
+      labelId: targetLabel.labelId,
       labelName: targetLabel.label,
       emailAccountId,
     }).catch((error) =>
