@@ -39,25 +39,51 @@ export async function labelThread(options: {
   addLabelIds?: string[];
   removeLabelIds?: string[];
 }) {
-  const { gmail, threadId, addLabelIds, removeLabelIds } = options;
+  const { gmail, threadId } = options;
+
+  // Filter out empty/invalid label IDs
+  const addLabelIds = options.addLabelIds?.filter((id) => id?.trim());
+  const removeLabelIds = options.removeLabelIds?.filter((id) => id?.trim());
 
   if (!addLabelIds?.length && !removeLabelIds?.length) {
-    logger.warn("No labels to add or remove", { threadId });
+    logger.warn("No valid labels to add or remove", { threadId });
     return;
   }
 
   logger.trace("Labeling thread", { threadId, addLabelIds, removeLabelIds });
 
-  return withGmailRetry(() =>
-    gmail.users.threads.modify({
-      userId: "me",
-      id: threadId,
-      requestBody: {
+  try {
+    return await withGmailRetry(() =>
+      gmail.users.threads.modify({
+        userId: "me",
+        id: threadId,
+        requestBody: {
+          addLabelIds,
+          removeLabelIds,
+        },
+      }),
+    );
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+
+    // Check if error is due to non-existent label/thread - this is not a critical error
+    // when removing labels, so we can safely ignore it
+    if (
+      errorMessage.includes("Requested entity was not found") ||
+      errorMessage.includes("Label not found")
+    ) {
+      logger.error("Label or thread not found during modification, ignoring", {
+        threadId,
         addLabelIds,
         removeLabelIds,
-      },
-    }),
-  );
+        error: errorMessage,
+      });
+      return;
+    }
+
+    // Re-throw other errors
+    throw error;
+  }
 }
 
 export async function removeThreadLabel(
@@ -183,6 +209,8 @@ export async function createLabel({
   labelListVisibility?: LabelVisibility;
   color?: string;
 }) {
+  await ensureParentLabelsExist(gmail, name);
+
   try {
     const createdLabel = await gmail.users.labels.create({
       userId: "me",
@@ -211,6 +239,25 @@ export async function createLabel({
       throw new Error(`Invalid Gmail label name: "${name}"`);
 
     throw new Error(`Failed to create Gmail label "${name}": ${errorMessage}`);
+  }
+}
+
+/**
+ * Ensures all parent labels exist for a nested label
+ * For "Work/Projects/2024", creates "Work" and "Work/Projects" if they don't exist
+ */
+async function ensureParentLabelsExist(gmail: gmail_v1.Gmail, name: string) {
+  if (!name.includes("/")) return;
+
+  const parts = name.split("/");
+  // Build up parent paths: ["Work", "Work/Projects", "Work/Projects/2024"]
+  // We only need to check/create up to the second-to-last part
+  for (let i = 1; i < parts.length; i++) {
+    const parentPath = parts.slice(0, i).join("/");
+    const exists = await getLabel({ gmail, name: parentPath });
+    if (!exists) {
+      await createLabel({ gmail, name: parentPath });
+    }
   }
 }
 
