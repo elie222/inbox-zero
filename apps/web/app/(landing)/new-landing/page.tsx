@@ -10,6 +10,9 @@ import { Awards } from "@/components/new-landing/sections/Awards";
 import { BuyBackTime } from "@/components/new-landing/sections/BuyBackTime";
 import { EverythingElseSection } from "@/components/new-landing/sections/EverythingElseSection";
 import { StartedInMinutes } from "@/components/new-landing/sections/StartedInMinutes";
+import { BulkUnsubscribe } from "@/components/new-landing/sections/BulkUnsubscribe";
+import { OrganizedInbox } from "@/components/new-landing/sections/OrganizedInbox";
+import { PreWrittenDrafts } from "@/components/new-landing/sections/PreWrittenDrafts";
 
 export const metadata: Metadata = { alternates: { canonical: "/" } };
 
@@ -17,43 +20,10 @@ export default function NewLanding() {
   return (
     <BasicLayout>
       <Hero />
-      <Section
-        title="An organized inbox so you never miss an important email"
-        subtitle="Drowning in emails? Don't waste any more valuable brain energy trying to prioritize your emails. Our AI assistant will label everything automatically."
-        wrap
-      >
-        <Image
-          src="/images/new-landing/an-organized-inbox.svg"
-          alt="an organized inbox"
-          width={1000}
-          height={1000}
-        />
-      </Section>
-      <Section
-        title="Pre-written drafts waiting in your inbox"
-        subtitle="When you check your inbox, every email needing a response will have a pre-drafted reply in your tone, ready for you to send."
-      >
-        <div className="mx-20">
-          <Image
-            src="/images/new-landing/pre-written-drafts.svg"
-            alt="pre-written drafts"
-            width={1000}
-            height={1000}
-          />
-        </div>
-      </Section>
+      <OrganizedInbox />
+      <PreWrittenDrafts />
       <StartedInMinutes />
-      <Section
-        title="Bulk unsubscribe from emails you never read"
-        subtitle="See which emails you never read, and one-click unsubscribe and archive them."
-      >
-        <Image
-          src="/images/new-landing/bulk-unsubscribe.svg"
-          alt="bulk unsubscribe"
-          width={700}
-          height={1000}
-        />
-      </Section>
+      <BulkUnsubscribe />
       <EverythingElseSection />
       <Awards />
       <Pricing />
