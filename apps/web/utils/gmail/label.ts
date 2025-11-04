@@ -12,7 +12,6 @@ import {
   type LabelVisibility,
   type MessageVisibility,
 } from "@/utils/gmail/constants";
-import { validateGmailLabelName } from "@/utils/gmail/label-validation";
 import { createScopedLogger } from "@/utils/logger";
 import { withGmailRetry } from "@/utils/gmail/retry";
 
@@ -184,12 +183,6 @@ export async function createLabel({
   labelListVisibility?: LabelVisibility;
   color?: string;
 }) {
-  // Validate label name before attempting to create it
-  const validation = validateGmailLabelName(name);
-  if (!validation.valid) {
-    throw new Error(`Invalid Gmail label name: ${validation.error}`);
-  }
-
   try {
     const createdLabel = await gmail.users.labels.create({
       userId: "me",
@@ -207,8 +200,6 @@ export async function createLabel({
   } catch (error) {
     const errorMessage: string | undefined = (error as any).message;
 
-    // Handle label already exists case
-    // May be happening due to a race condition where the label was created between the list and create?
     if (errorMessage?.includes("Label name exists or conflicts")) {
       logger.warn("Label already exists", { name });
       const label = await getLabel({ gmail, name });
@@ -216,11 +207,9 @@ export async function createLabel({
       throw new Error(`Label conflict but not found: ${name}`);
     }
 
-    // Handle invalid label name case
     if (errorMessage?.includes("Invalid label name"))
       throw new Error(`Invalid Gmail label name: "${name}"`);
 
-    // Handle other errors with label name context
     throw new Error(`Failed to create Gmail label "${name}": ${errorMessage}`);
   }
 }
