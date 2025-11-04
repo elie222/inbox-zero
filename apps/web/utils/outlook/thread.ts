@@ -3,6 +3,7 @@ import type { Message } from "@microsoft/microsoft-graph-types";
 import type { ParsedMessage } from "@/utils/types";
 import { escapeODataString } from "@/utils/outlook/odata-escape";
 import { createScopedLogger } from "@/utils/logger";
+import { convertMessage, getFolderIds } from "@/utils/outlook/message";
 
 const logger = createScopedLogger("outlook/thread");
 
@@ -18,6 +19,9 @@ export async function getThread(
       .getClient()
       .api("/me/messages")
       .filter(filter)
+      .select(
+        "id,conversationId,conversationIndex,subject,bodyPreview,from,sender,toRecipients,receivedDateTime,isDraft,isRead,body,categories,parentFolderId",
+      )
       .top(100) // Get up to 100 messages instead of default 10
       .get();
 
@@ -186,23 +190,9 @@ export async function getThreadMessages(
   client: OutlookClient,
 ): Promise<ParsedMessage[]> {
   const messages: Message[] = await getThread(threadId, client);
+  const folderIds = await getFolderIds(client);
 
-  return messages.map((msg) => ({
-    id: msg.id || "",
-    threadId: msg.conversationId || "",
-    snippet: msg.bodyPreview || "",
-    textPlain: msg.body?.content || "",
-    headers: {
-      from: msg.from?.emailAddress?.address || "",
-      to: msg.toRecipients?.[0]?.emailAddress?.address || "",
-      subject: msg.subject || "",
-      date: msg.receivedDateTime || new Date().toISOString(),
-    },
-    historyId: "",
-    inline: [],
-    internalDate: msg.receivedDateTime || new Date().toISOString(),
-    subject: msg.subject || "",
-    date: msg.receivedDateTime || new Date().toISOString(),
-    conversationIndex: msg.conversationIndex,
-  }));
+  return messages
+    .filter((msg) => !msg.isDraft)
+    .map((msg) => convertMessage(msg, folderIds));
 }
