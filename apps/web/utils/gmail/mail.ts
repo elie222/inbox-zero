@@ -112,13 +112,15 @@ export async function sendEmailWithHtml(
   }
 
   const raw = await createRawMailMessage({ ...body, messageText });
-  const result = await gmail.users.messages.send({
-    userId: "me",
-    requestBody: {
-      threadId: body.replyToEmail ? body.replyToEmail.threadId : undefined,
-      raw,
-    },
-  });
+  const result = await withGmailRetry(() =>
+    gmail.users.messages.send({
+      userId: "me",
+      requestBody: {
+        threadId: body.replyToEmail ? body.replyToEmail.threadId : undefined,
+        raw,
+      },
+    }),
+  );
   return result;
 }
 
@@ -160,13 +162,15 @@ export async function replyToEmail(
     from,
   );
 
-  const result = await gmail.users.messages.send({
-    userId: "me",
-    requestBody: {
-      threadId: message.threadId,
-      raw,
-    },
-  });
+  const result = await withGmailRetry(() =>
+    gmail.users.messages.send({
+      userId: "me",
+      requestBody: {
+        threadId: message.threadId,
+        raw,
+      },
+    }),
+  );
 
   return result;
 }
@@ -189,11 +193,13 @@ export async function forwardEmail(
 
   const attachments = await Promise.all(
     message.attachments?.map(async (attachment) => {
-      const attachmentData = await gmail.users.messages.attachments.get({
-        userId: "me",
-        messageId: message.id,
-        id: attachment.attachmentId,
-      });
+      const attachmentData = await withGmailRetry(() =>
+        gmail.users.messages.attachments.get({
+          userId: "me",
+          messageId: message.id,
+          id: attachment.attachmentId,
+        }),
+      );
       return {
         content: Buffer.from(attachmentData.data.data || "", "base64"),
         contentType: attachment.mimeType,
@@ -217,13 +223,15 @@ export async function forwardEmail(
     attachments,
   });
 
-  const result = await gmail.users.messages.send({
-    userId: "me",
-    requestBody: {
-      threadId: message.threadId,
-      raw,
-    },
-  });
+  const result = await withGmailRetry(() =>
+    gmail.users.messages.send({
+      userId: "me",
+      requestBody: {
+        threadId: message.threadId,
+        raw,
+      },
+    }),
+  );
 
   return result;
 }

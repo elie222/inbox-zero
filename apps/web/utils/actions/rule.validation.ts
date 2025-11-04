@@ -2,6 +2,7 @@ import { z } from "zod";
 import { ActionType, LogicalOperator, SystemType } from "@prisma/client";
 import { ConditionType } from "@/utils/config";
 import { NINETY_DAYS_MINUTES } from "@/utils/date";
+import { validateLabelNameBasic } from "@/utils/gmail/label-validation";
 
 export const delayInMinutesSchema = z
   .number()
@@ -83,13 +84,29 @@ const zodAction = z
     delayInMinutes: delayInMinutesSchema,
   })
   .superRefine((data, ctx) => {
-    if (data.type === ActionType.LABEL && !data.labelId?.value?.trim()) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: "Please enter a label name for the Label action",
-        path: ["labelId"],
-      });
+    if (data.type === ActionType.LABEL) {
+      const labelValue =
+        data.labelId?.value?.trim() || data.labelId?.name?.trim();
+
+      if (!labelValue) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "Please enter a label name for the Label action",
+          path: ["labelId"],
+        });
+        return;
+      }
+
+      const validation = validateLabelNameBasic(labelValue);
+      if (!validation.valid) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: validation.error!,
+          path: ["labelId"],
+        });
+      }
     }
+
     if (data.type === ActionType.FORWARD && !data.to?.value?.trim()) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,

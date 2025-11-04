@@ -1,6 +1,7 @@
 import type { gmail_v1 } from "@googleapis/gmail";
 import { publishDelete, type TinybirdEmailAction } from "@inboxzero/tinybird";
 import { createScopedLogger } from "@/utils/logger";
+import { withGmailRetry } from "@/utils/gmail/retry";
 
 const logger = createScopedLogger("gmail/trash");
 
@@ -16,10 +17,12 @@ export async function trashThread(options: {
 }) {
   const { gmail, threadId, ownerEmail, actionSource } = options;
 
-  const trashPromise = gmail.users.threads.trash({
-    userId: "me",
-    id: threadId,
-  });
+  const trashPromise = withGmailRetry(() =>
+    gmail.users.threads.trash({
+      userId: "me",
+      id: threadId,
+    }),
+  );
 
   const publishPromise = publishDelete({
     ownerEmail,
@@ -71,8 +74,10 @@ export async function trashMessage(options: {
 }) {
   const { gmail, messageId } = options;
 
-  return gmail.users.messages.trash({
-    userId: "me",
-    id: messageId,
-  });
+  return withGmailRetry(() =>
+    gmail.users.messages.trash({
+      userId: "me",
+      id: messageId,
+    }),
+  );
 }

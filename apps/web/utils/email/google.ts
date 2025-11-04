@@ -78,6 +78,10 @@ export class GmailProvider implements EmailProvider {
     this.client = client;
   }
 
+  toJSON() {
+    return { name: this.name, type: "GmailProvider" };
+  }
+
   async getThreads(labelId?: string): Promise<EmailThread[]> {
     const response = await this.client.users.threads.list({
       userId: "me",

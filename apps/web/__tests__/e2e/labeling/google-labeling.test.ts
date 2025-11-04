@@ -7,8 +7,8 @@
  *
  * Setup:
  * 1. Set TEST_GMAIL_EMAIL env var to your Gmail email
- * 2. Set TEST_GMAIL_MESSAGE_ID with a real messageId from your logs
- * 3. Set TEST_GMAIL_THREAD_ID with a real threadId from your logs
+ * 2. Set getTestMessageId() with a real messageId from your logs
+ * 3. Set getTestThreadId() with a real threadId from your logs
  *
  * These tests follow a clean slate approach:
  * - Create test labels
@@ -27,12 +27,25 @@ import type { GmailProvider } from "@/utils/email/google";
 // ============================================
 const RUN_E2E_TESTS = process.env.RUN_E2E_TESTS;
 const TEST_GMAIL_EMAIL = process.env.TEST_GMAIL_EMAIL;
-const TEST_GMAIL_THREAD_ID =
-  process.env.TEST_GMAIL_THREAD_ID || "18d1c2f3e4b5a678";
-const TEST_GMAIL_MESSAGE_ID =
-  process.env.TEST_GMAIL_MESSAGE_ID || "18d1c2f3e4b5a678";
+let _TEST_GMAIL_THREAD_ID = process.env.TEST_GMAIL_THREAD_ID;
+let _TEST_GMAIL_MESSAGE_ID = process.env.TEST_GMAIL_MESSAGE_ID;
 
 vi.mock("server-only", () => ({}));
+
+// Helper to ensure test IDs are available
+function getTestMessageId(): string {
+  if (!_TEST_GMAIL_MESSAGE_ID) {
+    throw new Error("Test message ID not available");
+  }
+  return _TEST_GMAIL_MESSAGE_ID;
+}
+
+function getTestThreadId(): string {
+  if (!_TEST_GMAIL_THREAD_ID) {
+    throw new Error("Test thread ID not available");
+  }
+  return _TEST_GMAIL_THREAD_ID;
+}
 
 describe.skipIf(!RUN_E2E_TESTS)("Google Gmail Labeling E2E Tests", () => {
   let provider: GmailProvider;
@@ -71,10 +84,36 @@ describe.skipIf(!RUN_E2E_TESTS)("Google Gmail Labeling E2E Tests", () => {
       provider: "google",
     })) as GmailProvider;
 
+    // If message ID not provided, fetch a real message from the account
+    if (!_TEST_GMAIL_MESSAGE_ID || !_TEST_GMAIL_THREAD_ID) {
+      console.log("   📝 Fetching a real message from account for testing...");
+
+      const oneWeekAgo = new Date();
+      oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+
+      const { messages } = await provider.getMessagesByFields({
+        maxResults: 1,
+        after: oneWeekAgo,
+        type: "all",
+      });
+
+      if (messages.length === 0) {
+        throw new Error(
+          "No messages found in account. Please ensure the test account has at least one message from the past week.",
+        );
+      }
+
+      _TEST_GMAIL_MESSAGE_ID = messages[0].id;
+      _TEST_GMAIL_THREAD_ID = messages[0].threadId;
+
+      console.log(`   ✅ Using message from account: ${getTestMessageId()}`);
+      console.log(`   ✅ Using thread from account: ${getTestThreadId()}`);
+    }
+
     console.log(`\n✅ Using account: ${emailAccount.email}`);
     console.log(`   Account ID: ${emailAccount.id}`);
-    console.log(`   Test thread ID: ${TEST_GMAIL_THREAD_ID}`);
-    console.log(`   Test message ID: ${TEST_GMAIL_MESSAGE_ID}\n`);
+    console.log(`   Test thread ID: ${getTestThreadId()}`);
+    console.log(`   Test message ID: ${getTestMessageId()}\n`);
   });
 
   afterAll(async () => {
@@ -184,12 +223,78 @@ describe.skipIf(!RUN_E2E_TESTS)("Google Gmail Labeling E2E Tests", () => {
 
       console.log("   📝 Created label first time:", testLabelName);
 
-      // Try to create it again - Gmail should throw an error or return existing
-      await expect(provider.createLabel(testLabelName)).rejects.toThrow();
+      // Try to create it again - should return existing label (handled in createLabel)
+      const secondLabel = await provider.createLabel(testLabelName);
+      expect(secondLabel.id).toBe(firstLabel.id);
 
       console.log(
-        "   ✅ Duplicate creation correctly threw error (Gmail behavior)",
+        "   ✅ Duplicate creation returned existing label (handled gracefully)",
       );
+    });
+
+    test("should create nested labels with parent/child hierarchy", async () => {
+      const parentName = `E2E Parent ${Date.now()}`;
+      const nestedLabelName = `${parentName}/Child`;
+      createdTestLabels.push(parentName, nestedLabelName);
+
+      console.log(`   📝 Creating nested label: ${nestedLabelName}`);
+
+      // Create nested label directly (should handle parent creation internally)
+      const nestedLabel = await provider.createLabel(nestedLabelName);
+
+      expect(nestedLabel).toBeDefined();
+      expect(nestedLabel.id).toBeDefined();
+      expect(nestedLabel.name).toBe(nestedLabelName);
+
+      console.log("   ✅ Created nested label:", nestedLabel.name);
+      console.log("      ID:", nestedLabel.id);
+
+      // Verify parent label was also created
+      const parentLabel = await provider.getLabelByName(parentName);
+      expect(parentLabel).toBeDefined();
+      expect(parentLabel?.name).toBe(parentName);
+
+      console.log("   ✅ Parent label also exists:", parentLabel?.name);
+
+      // Verify we can retrieve the nested label by name
+      const retrievedNested = await provider.getLabelByName(nestedLabelName);
+      expect(retrievedNested).toBeDefined();
+      expect(retrievedNested?.id).toBe(nestedLabel.id);
+      expect(retrievedNested?.name).toBe(nestedLabelName);
+
+      console.log(
+        "   ✅ Retrieved nested label by full name:",
+        retrievedNested?.name,
+      );
+    });
+
+    test("should create deeply nested labels", async () => {
+      const level1 = `E2E Deep ${Date.now()}`;
+      const level2 = `${level1}/Level2`;
+      const level3 = `${level2}/Level3`;
+      createdTestLabels.push(level1, level2, level3);
+
+      console.log(`   📝 Creating deeply nested label: ${level3}`);
+
+      // Create the deeply nested label
+      const deepLabel = await provider.createLabel(level3);
+
+      expect(deepLabel).toBeDefined();
+      expect(deepLabel.name).toBe(level3);
+
+      console.log("   ✅ Created deeply nested label:", deepLabel.name);
+
+      // Verify all parent levels were created
+      const parent1 = await provider.getLabelByName(level1);
+      const parent2 = await provider.getLabelByName(level2);
+
+      expect(parent1).toBeDefined();
+      expect(parent2).toBeDefined();
+
+      console.log("   ✅ All parent levels created:");
+      console.log(`      - ${level1}`);
+      console.log(`      - ${level2}`);
+      console.log(`      - ${level3}`);
     });
   });
 
@@ -204,14 +309,15 @@ describe.skipIf(!RUN_E2E_TESTS)("Google Gmail Labeling E2E Tests", () => {
 
       // Apply label to message
       await provider.labelMessage({
-        messageId: TEST_GMAIL_MESSAGE_ID,
+        messageId: getTestMessageId(),
         labelId: label.id,
+        labelName: null,
       });
 
-      console.log("   ✅ Applied label to message:", TEST_GMAIL_MESSAGE_ID);
+      console.log("   ✅ Applied label to message:", getTestMessageId());
 
       // Verify by fetching the message
-      const message = await provider.getMessage(TEST_GMAIL_MESSAGE_ID);
+      const message = await provider.getMessage(getTestMessageId());
 
       expect(message.labelIds).toBeDefined();
       expect(message.labelIds).toContain(label.id);
@@ -239,20 +345,22 @@ describe.skipIf(!RUN_E2E_TESTS)("Google Gmail Labeling E2E Tests", () => {
 
       // Apply first label
       await provider.labelMessage({
-        messageId: TEST_GMAIL_MESSAGE_ID,
+        messageId: getTestMessageId(),
         labelId: label1.id,
+        labelName: null,
       });
 
       // Apply second label
       await provider.labelMessage({
-        messageId: TEST_GMAIL_MESSAGE_ID,
+        messageId: getTestMessageId(),
         labelId: label2.id,
+        labelName: null,
       });
 
       console.log("   ✅ Applied both labels to message");
 
       // Verify both labels are on the message
-      const message = await provider.getMessage(TEST_GMAIL_MESSAGE_ID);
+      const message = await provider.getMessage(getTestMessageId());
 
       expect(message.labelIds).toBeDefined();
       expect(message.labelIds).toContain(label1.id);
@@ -279,6 +387,7 @@ describe.skipIf(!RUN_E2E_TESTS)("Google Gmail Labeling E2E Tests", () => {
         provider.labelMessage({
           messageId: fakeMessageId,
           labelId: label.id,
+          labelName: null,
         }),
       ).rejects.toThrow();
 
@@ -297,13 +406,14 @@ describe.skipIf(!RUN_E2E_TESTS)("Google Gmail Labeling E2E Tests", () => {
 
       // Apply label to message
       await provider.labelMessage({
-        messageId: TEST_GMAIL_MESSAGE_ID,
+        messageId: getTestMessageId(),
         labelId: label.id,
+        labelName: null,
       });
       console.log("   📝 Applied label to message");
 
       // Verify label is applied
-      const messageBefore = await provider.getMessage(TEST_GMAIL_MESSAGE_ID);
+      const messageBefore = await provider.getMessage(getTestMessageId());
       expect(messageBefore.labelIds).toContain(label.id);
       console.log("   ✅ Verified label is on message before removal");
 
@@ -312,7 +422,7 @@ describe.skipIf(!RUN_E2E_TESTS)("Google Gmail Labeling E2E Tests", () => {
       console.log("   ✅ Removed label from thread");
 
       // Verify label is removed
-      const messageAfter = await provider.getMessage(TEST_GMAIL_MESSAGE_ID);
+      const messageAfter = await provider.getMessage(getTestMessageId());
       expect(messageAfter.labelIds).not.toContain(label.id);
       console.log("   ✅ Verified label is removed from message");
     });
@@ -322,7 +432,7 @@ describe.skipIf(!RUN_E2E_TESTS)("Google Gmail Labeling E2E Tests", () => {
 
       // Should not throw error
       await expect(
-        provider.removeThreadLabel(TEST_GMAIL_THREAD_ID, fakeLabel),
+        provider.removeThreadLabel(getTestThreadId(), fakeLabel),
       ).resolves.not.toThrow();
 
       console.log("   ✅ Handled removing non-existent label gracefully");
@@ -337,8 +447,9 @@ describe.skipIf(!RUN_E2E_TESTS)("Google Gmail Labeling E2E Tests", () => {
       console.log(`   📝 Created label: ${label.name}`);
 
       // Get all messages in the thread
-      const threadMessages =
-        await provider.getThreadMessages(TEST_GMAIL_THREAD_ID);
+      const threadMessages = await provider.getThreadMessages(
+        getTestThreadId(),
+      );
       console.log(`   📝 Thread has ${threadMessages.length} message(s)`);
 
       if (threadMessages.length === 0) {
@@ -350,11 +461,12 @@ describe.skipIf(!RUN_E2E_TESTS)("Google Gmail Labeling E2E Tests", () => {
       await provider.labelMessage({
         messageId: threadMessages[0].id,
         labelId: label.id,
+        labelName: null,
       });
       console.log("   📝 Applied label to first message in thread");
 
       // Remove label from entire thread
-      await provider.removeThreadLabel(TEST_GMAIL_THREAD_ID, label.id);
+      await provider.removeThreadLabel(getTestThreadId(), label.id);
       console.log("   ✅ Removed label from thread");
 
       // Verify all messages in thread don't have the label
@@ -370,7 +482,7 @@ describe.skipIf(!RUN_E2E_TESTS)("Google Gmail Labeling E2E Tests", () => {
 
     test("should handle empty label ID gracefully", async () => {
       await expect(
-        provider.removeThreadLabel(TEST_GMAIL_THREAD_ID, ""),
+        provider.removeThreadLabel(getTestThreadId(), ""),
       ).resolves.not.toThrow();
 
       console.log("   ✅ Handled empty label ID gracefully");
@@ -401,14 +513,15 @@ describe.skipIf(!RUN_E2E_TESTS)("Google Gmail Labeling E2E Tests", () => {
       // Step 3: Apply label to message
       console.log("   📝 Step 3: Applying label to message...");
       await provider.labelMessage({
-        messageId: TEST_GMAIL_MESSAGE_ID,
+        messageId: getTestMessageId(),
         labelId: label.id,
+        labelName: null,
       });
       console.log("      ✅ Label applied");
 
       // Step 4: Verify label on message
       console.log("   📝 Step 4: Verifying label on message...");
-      const messageWithLabel = await provider.getMessage(TEST_GMAIL_MESSAGE_ID);
+      const messageWithLabel = await provider.getMessage(getTestMessageId());
       expect(messageWithLabel.labelIds).toContain(label.id);
       console.log(
         `      ✅ Label verified on message (${messageWithLabel.labelIds?.length} total labels)`,
@@ -421,9 +534,7 @@ describe.skipIf(!RUN_E2E_TESTS)("Google Gmail Labeling E2E Tests", () => {
 
       // Step 6: Verify label no longer on message
       console.log("   📝 Step 6: Verifying label removed from message...");
-      const messageWithoutLabel = await provider.getMessage(
-        TEST_GMAIL_MESSAGE_ID,
-      );
+      const messageWithoutLabel = await provider.getMessage(getTestMessageId());
       expect(messageWithoutLabel.labelIds).not.toContain(label.id);
       console.log("      ✅ Label confirmed removed from message");
 
@@ -445,24 +556,26 @@ describe.skipIf(!RUN_E2E_TESTS)("Google Gmail Labeling E2E Tests", () => {
 
       // Apply label1
       await provider.labelMessage({
-        messageId: TEST_GMAIL_MESSAGE_ID,
+        messageId: getTestMessageId(),
         labelId: label1.id,
+        labelName: null,
       });
 
       // Verify only label1 is present
-      let message = await provider.getMessage(TEST_GMAIL_MESSAGE_ID);
+      let message = await provider.getMessage(getTestMessageId());
       expect(message.labelIds).toContain(label1.id);
       expect(message.labelIds).not.toContain(label2.id);
       console.log("   ✅ State check 1: Only label1 present");
 
       // Apply label2
       await provider.labelMessage({
-        messageId: TEST_GMAIL_MESSAGE_ID,
+        messageId: getTestMessageId(),
         labelId: label2.id,
+        labelName: null,
       });
 
       // Verify both labels are present
-      message = await provider.getMessage(TEST_GMAIL_MESSAGE_ID);
+      message = await provider.getMessage(getTestMessageId());
       expect(message.labelIds).toContain(label1.id);
       expect(message.labelIds).toContain(label2.id);
       console.log("   ✅ State check 2: Both labels present");
@@ -471,7 +584,7 @@ describe.skipIf(!RUN_E2E_TESTS)("Google Gmail Labeling E2E Tests", () => {
       await provider.removeThreadLabel(message.threadId, label1.id);
 
       // Verify only label2 is present
-      message = await provider.getMessage(TEST_GMAIL_MESSAGE_ID);
+      message = await provider.getMessage(getTestMessageId());
       expect(message.labelIds).not.toContain(label1.id);
       expect(message.labelIds).toContain(label2.id);
       console.log("   ✅ State check 3: Only label2 present");
@@ -480,7 +593,7 @@ describe.skipIf(!RUN_E2E_TESTS)("Google Gmail Labeling E2E Tests", () => {
       await provider.removeThreadLabel(message.threadId, label2.id);
 
       // Verify neither label is present
-      message = await provider.getMessage(TEST_GMAIL_MESSAGE_ID);
+      message = await provider.getMessage(getTestMessageId());
       expect(message.labelIds).not.toContain(label1.id);
       expect(message.labelIds).not.toContain(label2.id);
       console.log("   ✅ State check 4: No test labels present");
