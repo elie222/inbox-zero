@@ -30,6 +30,7 @@ yarn-error.log*
 .env
 .env*.local
 .env.test
+.portainerenv
 
 # IDE
 .vscode
@@ -99,4 +100,3 @@ logs
 
 # Prisma generated (will be regenerated in Docker)
 apps/web/generated
-

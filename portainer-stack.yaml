@@ -1,0 +1,85 @@
+version: "3.8"
+
+
+services:
+  web:
+    image: ghcr.io/${GHCR_OWNER:-sudipta26889}/inbox-zero:${TAG:-latest}
+    ports:
+      - target: 3000
+        published: 3000
+        protocol: tcp
+        mode: ingress
+    environment:
+      DATABASE_URL: ${DATABASE_URL}
+      DIRECT_URL: ${DIRECT_URL}
+      NEXT_PUBLIC_BASE_URL: ${NEXT_PUBLIC_BASE_URL:-http://localhost:3000}
+      AUTH_SECRET: ${AUTH_SECRET}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
+      EMAIL_ENCRYPT_SECRET: ${EMAIL_ENCRYPT_SECRET}
+      EMAIL_ENCRYPT_SALT: ${EMAIL_ENCRYPT_SALT}
+      GOOGLE_PUBSUB_TOPIC_NAME: ${GOOGLE_PUBSUB_TOPIC_NAME}
+      GOOGLE_PUBSUB_VERIFICATION_TOKEN: ${GOOGLE_PUBSUB_VERIFICATION_TOKEN}
+      MICROSOFT_CLIENT_ID: ${MICROSOFT_CLIENT_ID}
+      MICROSOFT_CLIENT_SECRET: ${MICROSOFT_CLIENT_SECRET}
+      MICROSOFT_WEBHOOK_CLIENT_STATE: ${MICROSOFT_WEBHOOK_CLIENT_STATE}
+      DEFAULT_LLM_PROVIDER: ${DEFAULT_LLM_PROVIDER}
+      DEFAULT_LLM_MODEL: ${DEFAULT_LLM_MODEL}
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY}
+      ECONOMY_LLM_PROVIDER: ${ECONOMY_LLM_PROVIDER}
+      ECONOMY_LLM_MODEL: ${ECONOMY_LLM_MODEL}
+      INTERNAL_API_KEY: ${INTERNAL_API_KEY}
+      API_KEY_SALT: ${API_KEY_SALT}
+      REDIS_URL: ${REDIS_URL}
+      QSTASH_TOKEN: ${QSTASH_TOKEN}
+      QSTASH_CURRENT_SIGNING_KEY: ${QSTASH_CURRENT_SIGNING_KEY}
+      QSTASH_NEXT_SIGNING_KEY: ${QSTASH_NEXT_SIGNING_KEY}
+      NEXT_PUBLIC_APP_HOME_PATH: ${NEXT_PUBLIC_APP_HOME_PATH}
+      LOG_ZOD_ERRORS: ${LOG_ZOD_ERRORS}
+      CRON_SECRET: ${CRON_SECRET}
+      TINYBIRD_TOKEN: ${TINYBIRD_TOKEN}
+      TINYBIRD_BASE_URL: ${TINYBIRD_BASE_URL}
+      TINYBIRD_ENCRYPT_SECRET: ${TINYBIRD_ENCRYPT_SECRET}
+      TINYBIRD_ENCRYPT_SALT: ${TINYBIRD_ENCRYPT_SALT}
+      SENTRY_AUTH_TOKEN: ${SENTRY_AUTH_TOKEN}
+      SENTRY_ORGANIZATION: ${SENTRY_ORGANIZATION}
+      SENTRY_PROJECT: ${SENTRY_PROJECT}
+      NEXT_PUBLIC_SENTRY_DSN: ${NEXT_PUBLIC_SENTRY_DSN}
+      NEXT_PUBLIC_AXIOM_DATASET: ${NEXT_PUBLIC_AXIOM_DATASET}
+      NEXT_PUBLIC_AXIOM_TOKEN: ${NEXT_PUBLIC_AXIOM_TOKEN}
+      NEXT_PUBLIC_POSTHOG_KEY: ${NEXT_PUBLIC_POSTHOG_KEY}
+      NEXT_PUBLIC_POSTHOG_HERO_AB: ${NEXT_PUBLIC_POSTHOG_HERO_AB}
+      NEXT_PUBLIC_POSTHOG_ONBOARDING_SURVEY_ID: ${NEXT_PUBLIC_POSTHOG_ONBOARDING_SURVEY_ID}
+      POSTHOG_API_SECRET: ${POSTHOG_API_SECRET}
+      POSTHOG_PROJECT_ID: ${POSTHOG_PROJECT_ID}
+      RESEND_API_KEY: ${RESEND_API_KEY}
+      LOOPS_API_SECRET: ${LOOPS_API_SECRET}
+      NEXT_PUBLIC_CRISP_WEBSITE_ID: ${NEXT_PUBLIC_CRISP_WEBSITE_ID}
+      ADMINS: ${ADMINS}
+    deploy:
+      replicas: 1
+      update_config:
+        parallelism: 1
+        order: start-first
+        failure_action: rollback
+        monitor: 30s
+      rollback_config:
+        parallelism: 1
+        order: stop-first
+      restart_policy:
+        condition: any
+        delay: 5s
+        max_attempts: 3
+        window: 2m
+      resources:
+        reservations:
+          memory: 256M
+        limits:
+          cpus: "1.0"
+          memory: 1G
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"require('http').get('http://localhost:3000', r => process.exit(r.statusCode < 500 ? 0 : 1)).on('error', () => process.exit(1))\" "]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
