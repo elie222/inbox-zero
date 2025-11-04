@@ -66,6 +66,9 @@ ENV QSTASH_NEXT_SIGNING_KEY="dummy_qstash_next_key_for_build"
 # Set NEXT_PUBLIC env vars from ARGs (users can override these)
 ENV NEXT_PUBLIC_BASE_URL=${NEXT_PUBLIC_BASE_URL}
 
+# Increase Node.js memory limit for build (helps prevent OOM kills)
+ENV NODE_OPTIONS="--max-old-space-size=4096"
+
 # Ensure prisma generate runs
 RUN pnpm --filter inbox-zero-ai exec -- next build
 

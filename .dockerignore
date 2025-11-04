@@ -1,0 +1,102 @@
+# Dependencies (installed in Docker)
+node_modules
+.pnp
+.pnp.js
+
+# Build outputs
+.next
+out
+dist
+build
+.turbo
+
+# Testing
+coverage
+__tests__
+*.test.ts
+*.test.tsx
+*.spec.ts
+*.spec.tsx
+
+# Development files
+.DS_Store
+*.pem
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Environment files
+.env
+.env*.local
+.env.test
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+*~
+
+# Git
+.git
+.gitignore
+.gitmodules
+
+# Docker
+docker-compose*.yml
+docker-compose*.yaml
+Dockerfile*
+.dockerignore
+
+# Documentation
+README.md
+docs
+*.md
+
+# CI/CD
+.github
+.gitlab-ci.yml
+
+# Vercel
+.vercel
+
+# TypeScript
+*.tsbuildinfo
+next-env.d.ts
+
+# Tinybird
+.tinyb
+
+# Python
+.venv
+__pycache__
+*.pyc
+
+# React Email
+.react-email
+
+# Sentry
+.sentryclirc
+
+# pnpm
+.pnpm-store
+
+# Serwist
+**/public/serwist**
+**/public/sw**
+**/public/worker**
+**/public/fallback**
+**/public/precache**
+
+# Sanity
+.sanity
+
+# Misc
+TODO.md
+tasks/
+logs
+
+# Prisma generated (will be regenerated in Docker)
+apps/web/generated
+

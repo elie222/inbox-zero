@@ -5,6 +5,8 @@ services:
       dockerfile: ./docker/Dockerfile.prod
       args:
         NEXT_PUBLIC_BASE_URL: ${NEXT_PUBLIC_BASE_URL:-http://localhost:3000}
+      # Increase build memory limit to prevent OOM kills during Next.js build
+      shm_size: '2gb'
     restart: always
     container_name: inbox-zero-web
     ports:
