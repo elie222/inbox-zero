@@ -4,7 +4,12 @@ import {
   CONVERSATION_TRACKING_META_RULE_ID,
   limitDraftEmailActions,
 } from "./run-rules";
-import { ActionType, ExecutedRuleStatus, SystemType } from "@prisma/client";
+import {
+  type Action,
+  ActionType,
+  ExecutedRuleStatus,
+  SystemType,
+} from "@prisma/client";
 import { ConditionType } from "@/utils/config";
 import prisma from "@/utils/__mocks__/prisma";
 import type { RuleWithActions } from "@/utils/types";
@@ -209,6 +214,35 @@ describe("ensureConversationRuleContinuity", () => {
 });
 
 describe("limitDraftEmailActions", () => {
+  it("returns original matches when there are no draft actions", () => {
+    const matches = [
+      {
+        rule: createRule("rule-1", null, [
+          getAction({
+            id: "label-1",
+            type: ActionType.LABEL,
+            label: "Important",
+            ruleId: "rule-1",
+          }),
+        ]),
+      },
+      {
+        rule: createRule("rule-2", null, [
+          getAction({
+            id: "move-1",
+            type: ActionType.MOVE_TO_LABEL,
+            label: "Handled",
+            ruleId: "rule-2",
+          }),
+        ]),
+      },
+    ];
+
+    const result = limitDraftEmailActions(matches);
+
+    expect(result).toBe(matches);
+  });
+
   it("returns original matches when there are fewer than two draft actions", () => {
     const matches = [
       {
@@ -289,6 +323,37 @@ describe("limitDraftEmailActions", () => {
     expect(result[0].rule.actions).toHaveLength(1);
     expect(result[0].rule.actions[0].type).toBe(ActionType.LABEL);
     expect(result[1].rule.actions[0].id).toBe("draft-2");
+  });
+
+  it("keeps the first draft when multiple drafts share identical fixed content", () => {
+    const matches = [
+      {
+        rule: createRule("rule-1", null, [
+          getAction({
+            id: "draft-1",
+            type: ActionType.DRAFT_EMAIL,
+            content: "Hello there",
+            ruleId: "rule-1",
+          }),
+        ]),
+      },
+      {
+        rule: createRule("rule-2", null, [
+          getAction({
+            id: "draft-2",
+            type: ActionType.DRAFT_EMAIL,
+            content: "Hello there",
+            ruleId: "rule-2",
+          }),
+        ]),
+      },
+    ];
+
+    const result = limitDraftEmailActions(matches);
+
+    expect(result[0].rule.actions).toHaveLength(1);
+    expect(result[0].rule.actions[0].id).toBe("draft-1");
+    expect(result[1].rule.actions).toEqual([]);
   });
 
   it("keeps the first draft when none have fixed content", () => {
