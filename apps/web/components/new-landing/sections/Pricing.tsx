@@ -43,10 +43,7 @@ const plans: PricingPlan[] = [
     description:
       "For individuals and entrepreneurs looking to buy back their time.",
     icon: <Briefcase />,
-    badges: [
-      { message: "Save 10%" },
-      { message: "Popular", variant: "success" },
-    ],
+    badges: [{ message: "Save 10%" }, { message: "Popular", variant: "green" }],
     button: {
       content: "Try free for 7 days",
     },
