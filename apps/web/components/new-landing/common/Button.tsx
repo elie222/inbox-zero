@@ -20,7 +20,7 @@ export function Button({
   icon,
 }: ButtonProps) {
   const hasIcon = !!icon;
-  const buttonVariants = cva("rounded-xl text-sm font-geist font-medium", {
+  const buttonVariants = cva("rounded-[13px] text-sm font-geist font-medium", {
     variants: {
       variant: {
         primary:
@@ -31,7 +31,7 @@ export function Button({
       },
       size: {
         md: "py-2 px-4",
-        lg: "py-[11px] px-[18px]",
+        lg: "py-[10.5px] px-[18px]",
       },
       hasIcon: {
         true: "flex items-center justify-center gap-2",
@@ -46,7 +46,7 @@ export function Button({
     return (
       <div
         className={cx(
-          "rounded-[13px] p-[1px] bg-gradient-to-b from-[#2965EC] to-[#578AFA]",
+          "rounded-[14px] p-[1px] bg-gradient-to-b from-[#5989F0] to-[#578AFA]",
           auto ? "w-full" : "w-fit",
         )}
       >
