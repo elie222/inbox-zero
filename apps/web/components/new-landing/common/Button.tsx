@@ -42,6 +42,16 @@ export function Button({
     },
   });
 
+  const buttonIconVariants = cva("", {
+    variants: {
+      variant: {
+        primary: "",
+        secondary: "",
+        "secondary-two": "text-[#AEAAA8]",
+      },
+    },
+  });
+
   if (variant === "primary") {
     return (
       <div
@@ -71,7 +81,9 @@ export function Button({
       type="button"
       className={buttonVariants({ variant, size, className, hasIcon, auto })}
     >
-      {icon ?? ""}
+      {icon ? (
+        <div className={buttonIconVariants({ variant })}>{icon}</div>
+      ) : null}
       {children}
     </button>
   );
