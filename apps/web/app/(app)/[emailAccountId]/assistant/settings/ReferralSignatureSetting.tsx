@@ -25,6 +25,7 @@ export function ReferralSignatureSetting() {
         });
       },
       onError: (error) => {
+        mutate();
         toastError({
           description:
             error.error.serverError ||
@@ -38,10 +39,18 @@ export function ReferralSignatureSetting() {
   );
 
   const handleToggle = useCallback(
-    async (enabled: boolean) => {
+    (enabled: boolean) => {
+      if (!data) return;
+
+      const optimisticData = {
+        ...data,
+        includeReferralSignature: enabled,
+      };
+      mutate(optimisticData, false);
+
       execute({ enabled });
     },
-    [execute],
+    [data, mutate, execute],
   );
 
   if (env.NEXT_PUBLIC_DISABLE_REFERRAL_SIGNATURE) {
