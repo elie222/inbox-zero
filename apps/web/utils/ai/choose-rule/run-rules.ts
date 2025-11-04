@@ -1,7 +1,12 @@
 import { after } from "next/server";
 import type { ParsedMessage, RuleWithActions } from "@/utils/types";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
-import { ExecutedRuleStatus, SystemType, type Rule } from "@prisma/client";
+import {
+  ActionType,
+  ExecutedRuleStatus,
+  SystemType,
+  type Rule,
+} from "@prisma/client";
 import type { ActionItem } from "@/utils/ai/types";
 import { findMatchingRules } from "@/utils/ai/choose-rule/match-rules";
 import { getActionItemsWithAiArgs } from "@/utils/ai/choose-rule/choose-args";
@@ -86,13 +91,15 @@ export async function runRules({
   });
 
   // Auto-reapply conversation tracking for thread continuity
-  const finalMatches = await ensureConversationRuleContinuity({
+  const conversationAwareMatches = await ensureConversationRuleContinuity({
     emailAccountId: emailAccount.id,
     threadId: message.threadId,
     conversationRules,
     regularRules,
     matches: results.matches,
   });
+
+  const finalMatches = limitDraftEmailActions(conversationAwareMatches);
 
   logger.trace("Matching rule", () => ({
     results: finalMatches.map(filterNullProperties),
@@ -182,6 +189,66 @@ export async function runRules({
   }
 
   return executedRules;
+}
+
+export function limitDraftEmailActions(
+  matches: {
+    rule: RuleWithActions;
+    matchReasons?: MatchReason[];
+  }[],
+): {
+  rule: RuleWithActions;
+  matchReasons?: MatchReason[];
+}[] {
+  const draftCandidates = matches.flatMap((match) =>
+    match.rule.actions
+      .filter((action) => action.type === ActionType.DRAFT_EMAIL)
+      .map((action) => ({
+        action,
+        hasFixedContent: Boolean(action.content?.trim()),
+      })),
+  );
+
+  if (draftCandidates.length <= 1) {
+    return matches;
+  }
+
+  const preferredCandidate =
+    draftCandidates.find((candidate) => candidate.hasFixedContent) ||
+    draftCandidates[0];
+
+  if (!preferredCandidate) {
+    return matches;
+  }
+
+  const selectedDraftId = preferredCandidate.action.id;
+
+  logger.debug("Limiting draft actions to a single selection", {
+    selectedDraftId,
+  });
+
+  return matches.map((match) => {
+    const hasExtraDrafts = match.rule.actions.some(
+      (action) =>
+        action.type === ActionType.DRAFT_EMAIL && action.id !== selectedDraftId,
+    );
+
+    if (!hasExtraDrafts) {
+      return match;
+    }
+
+    return {
+      ...match,
+      rule: {
+        ...match.rule,
+        actions: match.rule.actions.filter(
+          (action) =>
+            action.type !== ActionType.DRAFT_EMAIL ||
+            action.id === selectedDraftId,
+        ),
+      },
+    };
+  });
 }
 
 function prepareRulesWithMetaRule(rules: RuleWithActions[]): {
