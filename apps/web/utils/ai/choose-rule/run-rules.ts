@@ -223,7 +223,7 @@ export function limitDraftEmailActions(
 
   const selectedDraftId = preferredCandidate.action.id;
 
-  logger.debug("Limiting draft actions to a single selection", {
+  logger.info("Limiting draft actions to a single selection", {
     selectedDraftId,
   });
 

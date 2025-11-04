@@ -97,6 +97,7 @@ export function getAction(overrides: Partial<Action> = {}): Action {
     to: null,
     subject: null,
     label: null,
+    labelId: null,
     content: null,
     cc: null,
     bcc: null,
@@ -176,26 +177,5 @@ export function getMockExecutedRule({
     messageId,
     threadId,
     rule: { id: ruleId, name: ruleName },
-  };
-}
-
-export function getAction(overrides: Partial<Action> = {}): Action {
-  return {
-    id: "action-id",
-    createdAt: new Date(),
-    updatedAt: new Date(),
-    type: overrides.type ?? ActionType.LABEL,
-    ruleId: "rule-id",
-    to: null,
-    subject: null,
-    label: null,
-    content: null,
-    cc: null,
-    bcc: null,
-    url: null,
-    folderName: null,
-    folderId: null,
-    delayInMinutes: null,
-    ...overrides,
   };
 }
