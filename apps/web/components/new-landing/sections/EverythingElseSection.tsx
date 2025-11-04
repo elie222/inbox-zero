@@ -1,0 +1,71 @@
+import { Button } from "@/components/new-landing/common/Button";
+import { Card } from "@/components/new-landing/common/Card";
+import { CardWrapper } from "@/components/new-landing/common/CardWrapper";
+import { Section } from "@/components/new-landing/common/Section";
+import { Analytics } from "@/components/new-landing/icons/Analytics";
+import { ChatTwo } from "@/components/new-landing/icons/ChatTwo";
+import { Link } from "@/components/new-landing/icons/Link";
+import Image from "next/image";
+
+export function EverythingElseSection() {
+  return (
+    <Section
+      title="And everything else you need"
+      subtitle="Effortless setup with one-click install. Inboxzero is intuitive and requires no technical skills."
+      childrenMarginTop="mt-5"
+    >
+      <div className="flex flex-col items-center gap-5 px-10">
+        <CardWrapper size="xs" variant="dark-border">
+          <Button>Get started free</Button>
+        </CardWrapper>
+        <CardWrapper className="w-full grid grid-cols-3 gap-5">
+          <Card
+            title="Measure what matters with email analytics"
+            description="See who emails you most and what's clogging your inbox. Get clear insights, then take action."
+            icon={<Analytics />}
+            className="overflow-hidden"
+          >
+            <div className="pt-6 px-6 border-t border-[#F6F6F6] bg-[#FCFCFC] flex items-end h-full">
+              <Image
+                src="/images/new-landing/measure-what-matters.svg"
+                alt="analytics"
+                width={1000}
+                height={400}
+              />
+            </div>
+          </Card>
+          <Card
+            title="Drafts that know your schedule"
+            description="Connects to your calendar, CRM, and tools to draft emails based on your actual schedule and customer data."
+            icon={<Link />}
+            className="overflow-hidden"
+          >
+            <div className="border-t border-[#F6F6F6] bg-[#FCFCFC] h-full">
+              <Image
+                src="/images/new-landing/app-integrations.svg"
+                alt="analytics"
+                width={1000}
+                height={400}
+              />
+            </div>
+          </Card>
+          <Card
+            title="Customize your assistant in plain English"
+            description="Every inbox is different. Set your own rules in seconds using everyday language."
+            icon={<ChatTwo />}
+            className="overflow-hidden"
+          >
+            <div className="border-t border-[#F6F6F6] bg-[#FCFCFC] h-full">
+              <Image
+                src="/images/new-landing/customize-assistant.svg"
+                alt="analytics"
+                width={1000}
+                height={400}
+              />
+            </div>
+          </Card>
+        </CardWrapper>
+      </div>
+    </Section>
+  );
+}

@@ -1,4 +1,4 @@
-import { Card } from "@/components/new-landing/common/Card";
+import { Card, CardContent } from "@/components/new-landing/common/Card";
 import { CardWrapper } from "@/components/new-landing/common/CardWrapper";
 import { Section } from "@/components/new-landing/common/Section";
 import { Paragraph } from "@/components/new-landing/common/Typography";
@@ -44,10 +44,12 @@ export function FAQs() {
         <div className="grid grid-cols-2 gap-6">
           {faqs.map((faq) => (
             <Card variant="extra-rounding" className="gap-4" key={faq.question}>
-              <p className="font-semibold leading-none tracking-tight">
-                {faq.question}
-              </p>
-              <Paragraph>{faq.answer}</Paragraph>
+              <CardContent>
+                <p className="font-semibold leading-none tracking-tight">
+                  {faq.question}
+                </p>
+                <Paragraph>{faq.answer}</Paragraph>
+              </CardContent>
             </Card>
           ))}
         </div>

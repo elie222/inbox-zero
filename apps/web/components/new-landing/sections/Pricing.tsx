@@ -7,7 +7,7 @@ import { CardWrapper } from "@/components/new-landing/common/CardWrapper";
 import { Section } from "@/components/new-landing/common/Section";
 import type { ButtonVariant } from "@/components/new-landing/common/Button";
 import { Button } from "@/components/new-landing/common/Button";
-import { Card } from "@/components/new-landing/common/Card";
+import { Card, CardContent } from "@/components/new-landing/common/Card";
 import { Heading, Paragraph } from "@/components/new-landing/common/Typography";
 import {
   Badge,
@@ -125,45 +125,47 @@ export function Pricing() {
         {plans.map(
           ({ title, description, icon, badges, button, features, price }) => (
             <CardWrapper key={title}>
-              <Card noPadding className="h-full">
-                <div className="p-6 space-y-6">
-                  <div className="flex items-center justify-between">
-                    {icon}
-                    <div className="h-0 flex items-center gap-1.5">
-                      {badges?.map(({ message, variant }) => (
-                        <Badge key={message} variant={variant}>
-                          {message}
-                        </Badge>
-                      ))}
-                    </div>
+              <Card
+                title={title}
+                description={description}
+                icon={icon}
+                addon={
+                  <div className="h-0 flex items-center gap-1.5">
+                    {badges?.map(({ message, variant }) => (
+                      <Badge key={message} variant={variant}>
+                        {message}
+                      </Badge>
+                    ))}
                   </div>
-                  <div className="space-y-3">
-                    <h2 className="text-xl font-bold">{title}</h2>
-                    <Paragraph className="text-sm">{description}</Paragraph>
-                  </div>
-                  <div className="flex gap-2 items-end">
-                    <Heading
-                      className={cn(
-                        "text-4xl",
-                        price.amount ? "font-medium" : "",
-                      )}
-                    >
-                      {price.amount || price.message}
-                    </Heading>
-                    {price.subtext ? (
-                      <Paragraph
-                        variant="light"
-                        className="text-xs -translate-y-1"
+                }
+                className="h-full"
+              >
+                <div className="pt-0 px-6 pb-6">
+                  <div className="space-y-6">
+                    <div className="flex gap-2 items-end">
+                      <Heading
+                        className={cn(
+                          "text-4xl",
+                          price.amount ? "font-medium" : "",
+                        )}
                       >
-                        {price.subtext}
-                      </Paragraph>
-                    ) : null}
+                        {price.amount || price.message}
+                      </Heading>
+                      {price.subtext ? (
+                        <Paragraph
+                          variant="light"
+                          className="text-xs -translate-y-1"
+                        >
+                          {price.subtext}
+                        </Paragraph>
+                      ) : null}
+                    </div>
+                    <Button auto variant={button.variant} icon={button.icon}>
+                      {button.content}
+                    </Button>
                   </div>
-                  <Button auto variant={button.variant} icon={button.icon}>
-                    {button.content}
-                  </Button>
                 </div>
-                <div className="p-6 border-t border-[#E7E7E780]">
+                <CardContent className="border-t border-[#E7E7E780]">
                   {features.title ? (
                     <Paragraph className=" font-medium text-sm mb-4">
                       {features.title}
@@ -188,7 +190,7 @@ export function Pricing() {
                       </li>
                     ))}
                   </ul>
-                </div>
+                </CardContent>
               </Card>
             </CardWrapper>
           ),

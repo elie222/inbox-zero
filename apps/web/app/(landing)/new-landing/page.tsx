@@ -10,6 +10,7 @@ import { Awards } from "@/components/new-landing/sections/Awards";
 import { BuyBackTime } from "@/components/new-landing/sections/BuyBackTime";
 import { Button } from "@/components/new-landing/common/Button";
 import { CardWrapper } from "@/components/new-landing/common/CardWrapper";
+import { EverythingElseSection } from "@/components/new-landing/sections/EverythingElseSection";
 
 export const metadata: Metadata = { alternates: { canonical: "/" } };
 
@@ -64,23 +65,7 @@ export default function NewLanding() {
           height={1000}
         />
       </Section>
-      <Section
-        title="And everything else you need"
-        subtitle="Effortless setup with one-click install. Inboxzero is intuitive and requires no technical skills."
-        childrenMarginTop="mt-5"
-      >
-        <div className="flex flex-col items-center gap-5">
-          <CardWrapper size="xs" variant="dark-border">
-            <Button>Get started free</Button>
-          </CardWrapper>
-          <Image
-            src="/images/new-landing/everything-else.svg"
-            alt="everything else"
-            width={1000}
-            height={1000}
-          />
-        </div>
-      </Section>
+      <EverythingElseSection />
       <Awards />
       <Pricing />
       <Testimonials />

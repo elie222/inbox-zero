@@ -6,12 +6,14 @@ interface CardWrapperProps {
   rounded?: string;
   size?: "xs" | "sm" | "md";
   variant?: "default" | "dark-border";
+  className?: string;
 }
 
 export function CardWrapper({
   children,
   size = "md",
   variant = "default",
+  className,
 }: CardWrapperProps) {
   const cardWrapperStyles = cva(
     "text-left border bg-gradient-to-b from-[#FFFFFF] to-[#F9F9F9]",
@@ -30,5 +32,9 @@ export function CardWrapper({
     },
   );
 
-  return <div className={cardWrapperStyles({ size, variant })}>{children}</div>;
+  return (
+    <div className={cardWrapperStyles({ size, variant, className })}>
+      {children}
+    </div>
+  );
 }

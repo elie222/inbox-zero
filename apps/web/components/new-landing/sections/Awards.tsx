@@ -1,4 +1,4 @@
-import { Card } from "@/components/new-landing/common/Card";
+import { Card, CardContent } from "@/components/new-landing/common/Card";
 import { CardWrapper } from "@/components/new-landing/common/CardWrapper";
 import { Section } from "@/components/new-landing/common/Section";
 import { Paragraph } from "@/components/new-landing/common/Typography";
@@ -52,22 +52,21 @@ export function Awards() {
       <div className="mt-20 gap-x-5 gap-y-20 lg:gap-y-0 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4">
         {awards.map((award) => (
           <CardWrapper size="sm" key={award.title}>
-            <Card
-              noPadding
-              className="p-6 gap-3 h-full relative pt-32 text-center"
-            >
-              <Image
-                className={cn(
-                  "absolute  left-1/2 -translate-x-1/2 -translate-y-20",
-                  award.top || "top-0",
-                )}
-                src={award.image}
-                alt={award.title}
-                width={award.imageSize || defaultAwardImageSize}
-                height={award.imageSize || defaultAwardImageSize}
-              />
-              <p className="text-sm font-bold text-gray-900">{award.title}</p>
-              <Paragraph className="text-sm">{award.description}</Paragraph>
+            <Card className="gap-3 h-full relative pt-32 text-center">
+              <CardContent>
+                <Image
+                  className={cn(
+                    "absolute  left-1/2 -translate-x-1/2 -translate-y-20",
+                    award.top || "top-0",
+                  )}
+                  src={award.image}
+                  alt={award.title}
+                  width={award.imageSize || defaultAwardImageSize}
+                  height={award.imageSize || defaultAwardImageSize}
+                />
+                <p className="text-sm font-bold text-gray-900">{award.title}</p>
+                <Paragraph className="text-sm">{award.description}</Paragraph>
+              </CardContent>
             </Card>
           </CardWrapper>
         ))}

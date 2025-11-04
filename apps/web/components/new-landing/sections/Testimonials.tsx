@@ -4,7 +4,7 @@ import clsx from "clsx";
 import Image from "next/image";
 import { cva } from "class-variance-authority";
 import { Section } from "@/components/new-landing/common/Section";
-import { Card } from "@/components/new-landing/common/Card";
+import { Card, CardContent } from "@/components/new-landing/common/Card";
 import { Paragraph } from "@/components/new-landing/common/Typography";
 
 type Testimonial = {
@@ -225,11 +225,11 @@ function TestimonialCard({
   });
 
   return (
-    <Card noPadding key={testimonial.author.handle} className={className}>
-      <div className="p-5">
+    <Card key={testimonial.author.handle} className={className}>
+      <CardContent>
         <p className={testimonialCardBody({ variant })}>{testimonial.body}</p>
-      </div>
-      <div className="p-5 border-t border-[#E7E7E780] flex items-center justify-between">
+      </CardContent>
+      <CardContent className="border-t border-[#E7E7E780] flex items-center justify-between">
         <div className="flex items-center gap-4">
           <Image
             className="h-10 w-10 rounded-full bg-gray-50 border border-[#E7E7E780]"
@@ -255,7 +255,7 @@ function TestimonialCard({
             unoptimized
           />
         ) : null}
-      </div>
+      </CardContent>
     </Card>
   );
 }
