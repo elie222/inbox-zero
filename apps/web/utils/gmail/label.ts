@@ -13,7 +13,7 @@ import {
   type MessageVisibility,
 } from "@/utils/gmail/constants";
 import { createScopedLogger } from "@/utils/logger";
-import { withGmailRetry } from "@/utils/gmail/retry";
+import { extractErrorInfo, withGmailRetry } from "@/utils/gmail/retry";
 
 const logger = createScopedLogger("gmail/label");
 
@@ -64,18 +64,29 @@ export async function labelThread(options: {
       }),
     );
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error);
+    const { status, reason, errorMessage } = extractErrorInfo(error);
+    const lowerMessage = errorMessage.toLowerCase();
+    const isRemovalOnly =
+      !addLabelIds?.length && Boolean(removeLabelIds?.length);
 
-    // Check if error is due to non-existent label/thread - this is not a critical error
-    // when removing labels, so we can safely ignore it
-    if (
-      errorMessage.includes("Requested entity was not found") ||
-      errorMessage.includes("Label not found")
-    ) {
-      logger.error("Label or thread not found during modification, ignoring", {
+    const isMissingLabelError =
+      lowerMessage.includes("not found") ||
+      lowerMessage.includes("invalid label") ||
+      reason === "notFound" ||
+      status === 404;
+
+    const isInvalidRemoval =
+      status === 400 &&
+      ["invalidArgument", "failedPrecondition", "badRequest"].includes(
+        reason?.toString() ?? "",
+      );
+
+    if (isRemovalOnly && (isMissingLabelError || isInvalidRemoval)) {
+      logger.error("Skipping label removal for non-existent label", {
         threadId,
-        addLabelIds,
         removeLabelIds,
+        status,
+        reason,
         error: errorMessage,
       });
       return;
