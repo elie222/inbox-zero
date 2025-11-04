@@ -18,6 +18,8 @@ import prisma from "@/utils/prisma";
 import { createEmailProvider } from "@/utils/email/provider";
 import type { OutlookProvider } from "@/utils/email/microsoft";
 import { webhookBodySchema } from "@/app/api/outlook/webhook/types";
+import { findOldMessage } from "@/__tests__/e2e/helpers";
+import { sleep } from "@/utils/sleep";
 
 // ============================================
 // TEST DATA - SET VIA ENVIRONMENT VARIABLES
@@ -27,9 +29,6 @@ const TEST_OUTLOOK_EMAIL = process.env.TEST_OUTLOOK_EMAIL;
 const TEST_CONVERSATION_ID =
   process.env.TEST_CONVERSATION_ID ||
   "AQQkADAwATNiZmYAZS05YWEAYy1iNWY0LTAwAi0wMAoAEABuo-fmt9KvQ4u55KlWB32H"; // Real conversation ID from demoinboxzero@outlook.com
-const TEST_OUTLOOK_MESSAGE_ID =
-  process.env.TEST_OUTLOOK_MESSAGE_ID ||
-  "AQMkADAwATNiZmYAZS05YWEAYy1iNWY0LTAwAi0wMAoARgAAA-ybH4V64nRKkgXhv9H-GEkHAP38WoVoPXRMilGF27prOB8AAAIBDAAAAP38WoVoPXRMilGF27prOB8AAABGAqbwAAAA"; // Real message ID from demoinboxzero@outlook.com
 const TEST_CATEGORY_NAME = process.env.TEST_CATEGORY_NAME || "To Reply";
 
 vi.mock("server-only", () => ({}));
@@ -37,6 +36,18 @@ vi.mock("server-only", () => ({}));
 vi.mock("@/utils/redis/message-processing", () => ({
   markMessageAsProcessing: vi.fn().mockResolvedValue(true),
 }));
+
+// Mock Next.js after() to run synchronously and await in tests
+vi.mock("next/server", async () => {
+  const actual =
+    await vi.importActual<typeof import("next/server")>("next/server");
+  return {
+    ...actual,
+    after: async (fn: () => void | Promise<void>) => {
+      await fn();
+    },
+  };
+});
 
 describe.skipIf(!RUN_E2E_TESTS)("Outlook Operations Integration Tests", () => {
   let provider: OutlookProvider;
@@ -149,6 +160,7 @@ describe.skipIf(!RUN_E2E_TESTS)("Outlook Operations Integration Tests", () => {
       await provider.labelMessage({
         messageId: firstMessage.id,
         labelId: label.id,
+        labelName: null,
       });
       console.log("   ✅ Added category to message");
 
@@ -325,17 +337,90 @@ describe.skipIf(!RUN_E2E_TESTS)("Outlook Webhook Payload", () => {
   });
 
   test("should process webhook and fetch conversationId from message", async () => {
-    // Clean slate: delete any existing executedRules for this message
     const emailAccount = await prisma.emailAccount.findUniqueOrThrow({
       where: { email: TEST_OUTLOOK_EMAIL },
     });
 
+    const provider = await createEmailProvider({
+      emailAccountId: emailAccount.id,
+      provider: "microsoft",
+    });
+
+    const testMessage = await findOldMessage(provider, 7);
+
+    const MOCK_SUBSCRIPTION_ID = "d2d593e1-9600-4f72-8cd3-dfa04c707f9e";
+
+    await prisma.emailAccount.update({
+      where: { id: emailAccount.id },
+      data: { watchEmailsSubscriptionId: MOCK_SUBSCRIPTION_ID },
+    });
+
+    // Make the account premium for testing
+    const user = await prisma.user.findUniqueOrThrow({
+      where: { id: emailAccount.userId },
+      include: { premium: true },
+    });
+
+    // Clear any existing aiApiKey to use env defaults
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { aiApiKey: null },
+    });
+
+    if (!user.premium) {
+      const premium = await prisma.premium.create({
+        data: {
+          tier: "BUSINESS_MONTHLY",
+          stripeSubscriptionStatus: "active",
+        },
+      });
+
+      await prisma.user.update({
+        where: { id: user.id },
+        data: { premiumId: premium.id },
+      });
+    } else {
+      await prisma.premium.update({
+        where: { id: user.premium.id },
+        data: {
+          stripeSubscriptionStatus: "active",
+          tier: "BUSINESS_MONTHLY",
+        },
+      });
+    }
+
     await prisma.executedRule.deleteMany({
       where: {
         emailAccountId: emailAccount.id,
-        messageId: TEST_OUTLOOK_MESSAGE_ID,
+        messageId: testMessage.messageId,
       },
     });
+
+    // Ensure the user has at least one enabled rule for automation
+    const existingRule = await prisma.rule.findFirst({
+      where: {
+        emailAccountId: emailAccount.id,
+        enabled: true,
+      },
+    });
+
+    if (!existingRule) {
+      await prisma.rule.create({
+        data: {
+          name: "Test Rule for Webhook",
+          emailAccountId: emailAccount.id,
+          enabled: true,
+          automate: true,
+          instructions: "Reply to emails about testing",
+          actions: {
+            create: {
+              type: "DRAFT_EMAIL",
+              content: "Test reply",
+            },
+          },
+        },
+      });
+    }
 
     // This test requires a real Outlook account
     const { POST } = await import("@/app/api/outlook/webhook/route");
@@ -343,15 +428,15 @@ describe.skipIf(!RUN_E2E_TESTS)("Outlook Webhook Payload", () => {
     const realWebhookPayload = {
       value: [
         {
-          subscriptionId: "d2d593e1-9600-4f72-8cd3-dfa04c707f9e",
+          subscriptionId: MOCK_SUBSCRIPTION_ID,
           subscriptionExpirationDateTime: "2025-10-09T15:32:19.8+00:00",
           changeType: "updated",
-          resource: `Users/faa95128258c6335/Messages/${TEST_OUTLOOK_MESSAGE_ID}`,
+          resource: `Users/faa95128258c6335/Messages/${testMessage.messageId}`,
           resourceData: {
             "@odata.type": "#Microsoft.Graph.Message",
-            "@odata.id": `Users/faa95128258c6335/Messages/${TEST_OUTLOOK_MESSAGE_ID}`,
+            "@odata.id": `Users/faa95128258c6335/Messages/${testMessage.messageId}`,
             "@odata.etag": 'W/"CQAAABYAAAD9/FqFaD10TIpRhdu6azgfAABF+9hk"',
-            id: TEST_OUTLOOK_MESSAGE_ID,
+            id: testMessage.messageId,
           },
           clientState: process.env.MICROSOFT_WEBHOOK_CLIENT_STATE,
           tenantId: "",
@@ -384,12 +469,15 @@ describe.skipIf(!RUN_E2E_TESTS)("Outlook Webhook Payload", () => {
 
     console.log("   ✅ Webhook processed successfully");
 
+    // Wait for async processing to complete (after() runs async)
+    await sleep(10_000);
+
     // Verify an executedRule was created for this message
     const thirtySecondsAgo = new Date(Date.now() - 30_000);
 
     const executedRule = await prisma.executedRule.findFirst({
       where: {
-        messageId: TEST_OUTLOOK_MESSAGE_ID,
+        messageId: testMessage.messageId,
         createdAt: {
           gte: thirtySecondsAgo,
         },

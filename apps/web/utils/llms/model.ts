@@ -118,9 +118,8 @@ function selectModel(
     }
     case Provider.AI_GATEWAY: {
       const modelName = aiModel || Model.GEMINI_2_5_PRO_OPENROUTER;
-      const gateway = createGateway({
-        apiKey: aiApiKey || env.AI_GATEWAY_API_KEY,
-      });
+      const aiGatewayApiKey = aiApiKey || env.AI_GATEWAY_API_KEY;
+      const gateway = createGateway({ apiKey: aiGatewayApiKey });
       return {
         provider: Provider.AI_GATEWAY,
         modelName,

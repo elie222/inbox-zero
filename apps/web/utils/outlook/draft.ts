@@ -14,12 +14,11 @@ export async function getDraft(draftId: string, client: OutlookClient) {
     const message = convertMessage(response);
     return message;
   } catch (error) {
-    // Handle 404 errors
-    if (error instanceof Error && "code" in error && error.code === 404) {
+    if (isNotFoundError(error)) {
       return null;
     }
 
-    // Handle Outlook's "object not found in store" error
+    // Handle Outlook's "object not found in the store" error
     if (
       error instanceof Error &&
       error.message.includes("not found in the store")
@@ -37,13 +36,24 @@ export async function deleteDraft(client: OutlookClient, draftId: string) {
     await client.getClient().api(`/me/messages/${draftId}`).delete();
     logger.info("Successfully deleted draft", { draftId });
   } catch (error) {
-    if (error instanceof Error && "code" in error && error.code === 404) {
+    if (isNotFoundError(error)) {
       logger.warn("Draft not found or already deleted, skipping deletion.", {
         draftId,
       });
-    } else {
-      logger.error("Failed to delete draft", { draftId, error });
-      throw error;
+      return;
     }
+
+    logger.error("Failed to delete draft", { draftId, error });
+    throw error;
   }
+}
+
+function isNotFoundError(error: unknown): boolean {
+  const err = error as { statusCode?: number; code?: number | string };
+  return (
+    err?.statusCode === 404 ||
+    err?.code === 404 ||
+    err?.code === "ErrorItemNotFound" ||
+    err?.code === "itemNotFound"
+  );
 }
