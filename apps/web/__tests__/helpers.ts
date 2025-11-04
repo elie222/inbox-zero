@@ -1,6 +1,6 @@
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import type { EmailForLLM } from "@/utils/types";
-import { ActionType, type Action, LogicalOperator } from "@prisma/client";
+import { type Action, LogicalOperator } from "@prisma/client";
 import type { Prisma } from "@prisma/client";
 
 export function getEmailAccount(
@@ -87,27 +87,6 @@ export function getRule(
   };
 }
 
-export function getAction(overrides: Partial<Action> = {}): Action {
-  return {
-    id: "action-id",
-    createdAt: new Date(),
-    updatedAt: new Date(),
-    type: overrides.type ?? ActionType.LABEL,
-    ruleId: "rule-id",
-    to: null,
-    subject: null,
-    label: null,
-    content: null,
-    cc: null,
-    bcc: null,
-    url: null,
-    folderName: null,
-    folderId: null,
-    delayInMinutes: null,
-    ...overrides,
-  };
-}
-
 export function getMockMessage({
   id = "msg1",
   threadId = "thread1",
@@ -176,26 +155,5 @@ export function getMockExecutedRule({
     messageId,
     threadId,
     rule: { id: ruleId, name: ruleName },
-  };
-}
-
-export function getAction(overrides: Partial<Action> = {}): Action {
-  return {
-    id: "action-id",
-    createdAt: new Date(),
-    updatedAt: new Date(),
-    type: overrides.type ?? ActionType.LABEL,
-    ruleId: "rule-id",
-    to: null,
-    subject: null,
-    label: null,
-    content: null,
-    cc: null,
-    bcc: null,
-    url: null,
-    folderName: null,
-    folderId: null,
-    delayInMinutes: null,
-    ...overrides,
   };
 }
