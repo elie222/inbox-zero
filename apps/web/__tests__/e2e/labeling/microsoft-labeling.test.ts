@@ -2,8 +2,8 @@
  * E2E tests for Microsoft Outlook labeling operations
  *
  * Usage:
- * pnpm test-e2e microsoft-labeling
- * pnpm test-e2e microsoft-labeling -t "should apply and remove label"  # Run specific test
+ * RUN_E2E_TESTS=true pnpm test-e2e microsoft-labeling
+ * RUN_E2E_TESTS=true pnpm test-e2e microsoft-labeling -t "should apply and remove label"  # Run specific test
  *
  * Setup:
  * 1. Set TEST_OUTLOOK_EMAIL env var to your Outlook email
@@ -213,6 +213,7 @@ describe.skipIf(!RUN_E2E_TESTS)("Microsoft Outlook Labeling E2E Tests", () => {
       await provider.labelMessage({
         messageId: TEST_OUTLOOK_MESSAGE_ID,
         labelId: label.id,
+        labelName: null,
       });
 
       console.log("   ✅ Applied label to message:", TEST_OUTLOOK_MESSAGE_ID);
@@ -248,12 +249,14 @@ describe.skipIf(!RUN_E2E_TESTS)("Microsoft Outlook Labeling E2E Tests", () => {
       await provider.labelMessage({
         messageId: TEST_OUTLOOK_MESSAGE_ID,
         labelId: label1.id,
+        labelName: null,
       });
 
       // Apply second label
       await provider.labelMessage({
         messageId: TEST_OUTLOOK_MESSAGE_ID,
         labelId: label2.id,
+        labelName: null,
       });
 
       console.log("   ✅ Applied both labels to message");
@@ -286,6 +289,7 @@ describe.skipIf(!RUN_E2E_TESTS)("Microsoft Outlook Labeling E2E Tests", () => {
         provider.labelMessage({
           messageId: fakeMessageId,
           labelId: label.id,
+          labelName: null,
         }),
       ).rejects.toThrow();
 
@@ -306,6 +310,7 @@ describe.skipIf(!RUN_E2E_TESTS)("Microsoft Outlook Labeling E2E Tests", () => {
       await provider.labelMessage({
         messageId: TEST_OUTLOOK_MESSAGE_ID,
         labelId: label.id,
+        labelName: null,
       });
       console.log("   📝 Applied label to message");
 
@@ -357,6 +362,7 @@ describe.skipIf(!RUN_E2E_TESTS)("Microsoft Outlook Labeling E2E Tests", () => {
       await provider.labelMessage({
         messageId: threadMessages[0].id,
         labelId: label.id,
+        labelName: null,
       });
       console.log("   📝 Applied label to first message in thread");
 
@@ -410,6 +416,7 @@ describe.skipIf(!RUN_E2E_TESTS)("Microsoft Outlook Labeling E2E Tests", () => {
       await provider.labelMessage({
         messageId: TEST_OUTLOOK_MESSAGE_ID,
         labelId: label.id,
+        labelName: null,
       });
       console.log("      ✅ Label applied");
 
@@ -456,6 +463,7 @@ describe.skipIf(!RUN_E2E_TESTS)("Microsoft Outlook Labeling E2E Tests", () => {
       await provider.labelMessage({
         messageId: TEST_OUTLOOK_MESSAGE_ID,
         labelId: label1.id,
+        labelName: null,
       });
 
       // Verify only label1 is present
@@ -468,6 +476,7 @@ describe.skipIf(!RUN_E2E_TESTS)("Microsoft Outlook Labeling E2E Tests", () => {
       await provider.labelMessage({
         messageId: TEST_OUTLOOK_MESSAGE_ID,
         labelId: label2.id,
+        labelName: null,
       });
 
       // Verify both labels are present
