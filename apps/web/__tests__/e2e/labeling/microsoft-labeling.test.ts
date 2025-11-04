@@ -2,8 +2,8 @@
  * E2E tests for Microsoft Outlook labeling operations
  *
  * Usage:
- * RUN_E2E_TESTS=true pnpm test-e2e microsoft-labeling
- * RUN_E2E_TESTS=true pnpm test-e2e microsoft-labeling -t "should apply and remove label"  # Run specific test
+ * pnpm test-e2e microsoft-labeling
+ * pnpm test-e2e microsoft-labeling -t "should apply and remove label"  # Run specific test
  *
  * Setup:
  * 1. Set TEST_OUTLOOK_EMAIL env var to your Outlook email
@@ -20,7 +20,8 @@
 import { describe, test, expect, beforeAll, afterAll, vi } from "vitest";
 import prisma from "@/utils/prisma";
 import { createEmailProvider } from "@/utils/email/provider";
-import type { OutlookProvider } from "@/utils/email/microsoft";
+import { findOldMessage } from "@/__tests__/e2e/helpers";
+import type { EmailProvider } from "@/utils/email/types";
 
 // ============================================
 // TEST DATA - SET VIA ENVIRONMENT VARIABLES
@@ -30,14 +31,14 @@ const TEST_OUTLOOK_EMAIL = process.env.TEST_OUTLOOK_EMAIL;
 const TEST_CONVERSATION_ID =
   process.env.TEST_CONVERSATION_ID ||
   "AQQkADAwATNiZmYAZS05YWEAYy1iNWY0LTAwAi0wMAoAEABuo-fmt9KvQ4u55KlWB32H";
-const TEST_OUTLOOK_MESSAGE_ID =
-  process.env.TEST_OUTLOOK_MESSAGE_ID ||
+const DEFAULT_TEST_OUTLOOK_MESSAGE_ID =
   "AQMkADAwATNiZmYAZS05YWEAYy1iNWY0LTAwAi0wMAoARgAAA-ybH4V64nRKkgXhv9H-GEkHAP38WoVoPXRMilGF27prOB8AAAIBDAAAAP38WoVoPXRMilGF27prOB8AAABGAqbwAAAA";
+let TEST_OUTLOOK_MESSAGE_ID = process.env.TEST_OUTLOOK_MESSAGE_ID || "";
 
 vi.mock("server-only", () => ({}));
 
 describe.skipIf(!RUN_E2E_TESTS)("Microsoft Outlook Labeling E2E Tests", () => {
-  let provider: OutlookProvider;
+  let provider: EmailProvider;
   const createdTestLabels: string[] = []; // Track labels to clean up
 
   beforeAll(async () => {
@@ -68,10 +69,25 @@ describe.skipIf(!RUN_E2E_TESTS)("Microsoft Outlook Labeling E2E Tests", () => {
       throw new Error(`No Outlook account found for ${testEmail}`);
     }
 
-    provider = (await createEmailProvider({
+    provider = await createEmailProvider({
       emailAccountId: emailAccount.id,
       provider: "microsoft",
-    })) as OutlookProvider;
+    });
+
+    // If message ID not provided via env, use the helper to find an old message
+    if (!TEST_OUTLOOK_MESSAGE_ID) {
+      console.log("   📝 Fetching a real message from account for testing...");
+      try {
+        const oldMessage = await findOldMessage(provider, 7);
+        TEST_OUTLOOK_MESSAGE_ID = oldMessage.messageId;
+        console.log(
+          `   ✅ Using message from account: ${TEST_OUTLOOK_MESSAGE_ID}`,
+        );
+      } catch {
+        console.log("   ⚠️  Could not find old message, using default");
+        TEST_OUTLOOK_MESSAGE_ID = DEFAULT_TEST_OUTLOOK_MESSAGE_ID;
+      }
+    }
 
     console.log(`\n✅ Using account: ${emailAccount.email}`);
     console.log(`   Account ID: ${emailAccount.id}`);

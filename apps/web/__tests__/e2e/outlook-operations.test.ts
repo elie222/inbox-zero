@@ -16,10 +16,10 @@ import { describe, test, expect, beforeAll, vi } from "vitest";
 import { NextRequest } from "next/server";
 import prisma from "@/utils/prisma";
 import { createEmailProvider } from "@/utils/email/provider";
-import type { OutlookProvider } from "@/utils/email/microsoft";
 import { webhookBodySchema } from "@/app/api/outlook/webhook/types";
 import { findOldMessage } from "@/__tests__/e2e/helpers";
 import { sleep } from "@/utils/sleep";
+import type { EmailProvider } from "@/utils/email/types";
 
 // ============================================
 // TEST DATA - SET VIA ENVIRONMENT VARIABLES
@@ -50,7 +50,7 @@ vi.mock("next/server", async () => {
 });
 
 describe.skipIf(!RUN_E2E_TESTS)("Outlook Operations Integration Tests", () => {
-  let provider: OutlookProvider;
+  let provider: EmailProvider;
 
   beforeAll(async () => {
     const testEmail = TEST_OUTLOOK_EMAIL;
@@ -80,10 +80,10 @@ describe.skipIf(!RUN_E2E_TESTS)("Outlook Operations Integration Tests", () => {
       throw new Error(`No Outlook account found for ${testEmail}`);
     }
 
-    provider = (await createEmailProvider({
+    provider = await createEmailProvider({
       emailAccountId: emailAccount.id,
       provider: "microsoft",
-    })) as OutlookProvider;
+    });
 
     console.log(`\n✅ Using account: ${emailAccount.email}`);
     console.log(`   Account ID: ${emailAccount.id}`);
@@ -516,10 +516,10 @@ describe.skipIf(!RUN_E2E_TESTS)("Outlook Webhook Payload", () => {
         where: { email: TEST_OUTLOOK_EMAIL },
       });
 
-      const provider = (await createEmailProvider({
+      const provider = await createEmailProvider({
         emailAccountId: emailAccount.id,
         provider: "microsoft",
-      })) as OutlookProvider;
+      });
 
       const draft = await provider.getDraft(draftAction.draftId);
 

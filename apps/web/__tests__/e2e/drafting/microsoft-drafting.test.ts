@@ -2,8 +2,8 @@
  * E2E tests for Microsoft Outlook drafting operations
  *
  * Usage:
- * RUN_E2E_TESTS=true pnpm test-e2e microsoft-drafting
- * RUN_E2E_TESTS=true pnpm test-e2e microsoft-drafting -t "should create reply draft"  # Run specific test
+ * pnpm test-e2e microsoft-drafting
+ * pnpm test-e2e microsoft-drafting -t "should create reply draft"  # Run specific test
  *
  * Setup:
  * 1. Set TEST_OUTLOOK_EMAIL env var to your Outlook email
@@ -14,9 +14,10 @@
 import { describe, test, expect, beforeAll, afterAll, vi } from "vitest";
 import prisma from "@/utils/prisma";
 import { createEmailProvider } from "@/utils/email/provider";
-import type { OutlookProvider } from "@/utils/email/microsoft";
+import type { EmailProvider } from "@/utils/email/types";
 import type { ParsedMessage } from "@/utils/types";
 import { extractEmailAddress } from "@/utils/email";
+import { findOldMessage } from "@/__tests__/e2e/helpers";
 
 // ============================================
 // TEST DATA - SET VIA ENVIRONMENT VARIABLES
@@ -31,7 +32,7 @@ const TEST_OUTLOOK_MESSAGE_ID = process.env.TEST_OUTLOOK_MESSAGE_ID;
 vi.mock("server-only", () => ({}));
 
 describe.skipIf(!RUN_E2E_TESTS)("Microsoft Outlook Drafting E2E Tests", () => {
-  let provider: OutlookProvider;
+  let provider: EmailProvider;
   let emailAccount: {
     id: string;
     email: string;
@@ -70,10 +71,10 @@ describe.skipIf(!RUN_E2E_TESTS)("Microsoft Outlook Drafting E2E Tests", () => {
     console.log(`   Account ID: ${account.id}`);
     console.log(`   Test conversation ID: ${TEST_CONVERSATION_ID}\n`);
 
-    provider = (await createEmailProvider({
+    provider = await createEmailProvider({
       emailAccountId: account.id,
       provider: "microsoft",
-    })) as OutlookProvider;
+    });
 
     emailAccount = {
       id: account.id,
@@ -264,7 +265,7 @@ describe.skipIf(!RUN_E2E_TESTS)("Microsoft Outlook Drafting E2E Tests", () => {
     provider,
     accountEmail,
   }: {
-    provider: OutlookProvider;
+    provider: EmailProvider;
     accountEmail: string;
   }): Promise<ParsedMessage | null> {
     const normalizedAccount = normalizeEmail(accountEmail);
@@ -296,7 +297,7 @@ describe.skipIf(!RUN_E2E_TESTS)("Microsoft Outlook Drafting E2E Tests", () => {
         }
       } catch (error) {
         console.warn(
-          "   ⚠️  Failed to load messages from TEST_CONVERSATION_ID, will scan inbox",
+          "   ⚠️  Failed to load messages from TEST_CONVERSATION_ID, will try findOldMessage",
           {
             conversationId: TEST_CONVERSATION_ID,
             error: error instanceof Error ? error.message : String(error),
@@ -305,13 +306,40 @@ describe.skipIf(!RUN_E2E_TESTS)("Microsoft Outlook Drafting E2E Tests", () => {
       }
     }
 
+    // Try using the shared helper to find an old message
+    try {
+      const oldMessage = await findOldMessage(provider, 7);
+      const message = await provider.getMessage(oldMessage.messageId);
+
+      // Check if it's an inbound message (not from the account owner)
+      const from = normalizeEmail(message.headers.from);
+      if (from && from !== normalizedAccount) {
+        console.log("   🔍 Found inbound message for drafting using helper", {
+          messageId: message.id,
+          threadId: message.threadId,
+          subject: message.headers.subject,
+        });
+        return message;
+      } else {
+        console.log("   ⚠️  Message from helper is outbound, will scan threads");
+      }
+    } catch (error) {
+      console.warn(
+        "   ⚠️  Failed to find old message using helper, will scan threads",
+        {
+          error: error instanceof Error ? error.message : String(error),
+        },
+      );
+    }
+
+    // Fallback: scan threads to find an inbound message
     const threads = await provider.getThreads();
     for (const thread of threads) {
       try {
         const messages = await provider.getThreadMessages(thread.id);
         const candidate = pickInboundMessage(messages, normalizedAccount);
         if (candidate) {
-          console.log("   🔍 Selected message from inbox thread", {
+          console.log("   🔍 Selected inbound message from inbox thread", {
             threadId: thread.id,
             messageId: candidate.id,
             subject: candidate.headers.subject,
