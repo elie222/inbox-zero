@@ -1,8 +1,13 @@
-export function Gmail() {
+interface GmailProps {
+  width?: string | number;
+  height?: string | number;
+}
+
+export function Gmail({ width = "26", height = "23" }: GmailProps) {
   return (
     <svg
-      width="26"
-      height="23"
+      width={width}
+      height={height}
       viewBox="0 0 26 23"
       fill="none"
       xmlns="http://www.w3.org/2000/svg"

@@ -9,6 +9,7 @@ import { Pricing } from "@/components/new-landing/sections/Pricing";
 import { Awards } from "@/components/new-landing/sections/Awards";
 import { BuyBackTime } from "@/components/new-landing/sections/BuyBackTime";
 import { EverythingElseSection } from "@/components/new-landing/sections/EverythingElseSection";
+import { StartedInMinutes } from "@/components/new-landing/sections/StartedInMinutes";
 
 export const metadata: Metadata = { alternates: { canonical: "/" } };
 
@@ -41,17 +42,7 @@ export default function NewLanding() {
           />
         </div>
       </Section>
-      <Section
-        title="Get started in minutes"
-        subtitle="One-click setup. Start organizing and drafting replies in minutes."
-      >
-        <Image
-          src="/images/new-landing/get-started-in-minutes.svg"
-          alt="get started in minutes"
-          width={1000}
-          height={1000}
-        />
-      </Section>
+      <StartedInMinutes />
       <Section
         title="Bulk unsubscribe from emails you never read"
         subtitle="See which emails you never read, and one-click unsubscribe and archive them."

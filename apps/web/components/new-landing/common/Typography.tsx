@@ -41,7 +41,7 @@ export function Paragraph({
   const paragraphStyles = cva("", {
     variants: {
       variant: {
-        default: "text-gray-500",
+        default: "text-[#848484]",
         light: "text-gray-400",
       },
     },

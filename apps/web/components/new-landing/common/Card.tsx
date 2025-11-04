@@ -50,7 +50,7 @@ export function CardHeader({
 
 interface CardProps {
   children: React.ReactNode;
-  variant?: "default" | "extra-rounding";
+  variant?: "default" | "extra-rounding" | "circle";
   className?: string;
   icon?: React.ReactNode;
   addon?: React.ReactNode;
@@ -74,6 +74,7 @@ export function Card({
     {
       variants: {
         variant: {
+          circle: "rounded-full",
           "extra-rounding": "rounded-[32px]",
           default: "rounded-[20px]",
         },

@@ -4,7 +4,7 @@ interface CardWrapperProps {
   children: React.ReactNode;
   padding?: string;
   rounded?: string;
-  size?: "xs" | "sm" | "md";
+  size?: "none" | "xs" | "sm" | "md";
   variant?: "default" | "dark-border";
   className?: string;
 }
@@ -20,6 +20,7 @@ export function CardWrapper({
     {
       variants: {
         size: {
+          none: "",
           xs: "p-1.5 rounded-[19px]",
           sm: "p-3 rounded-[38px]",
           md: "p-5 rounded-[52px]",

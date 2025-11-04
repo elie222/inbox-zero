@@ -1,6 +1,7 @@
 import { Button } from "@/components/new-landing/common/Button";
 import { Card } from "@/components/new-landing/common/Card";
 import { CardWrapper } from "@/components/new-landing/common/CardWrapper";
+import { DisplayCard } from "@/components/new-landing/common/DisplayCard";
 import { Section } from "@/components/new-landing/common/Section";
 import { Analytics } from "@/components/new-landing/icons/Analytics";
 import { ChatTwo } from "@/components/new-landing/icons/ChatTwo";
@@ -19,13 +20,12 @@ export function EverythingElseSection() {
           <Button>Get started free</Button>
         </CardWrapper>
         <CardWrapper className="w-full grid grid-cols-3 gap-5">
-          <Card
+          <DisplayCard
             title="Measure what matters with email analytics"
             description="See who emails you most and what's clogging your inbox. Get clear insights, then take action."
             icon={<Analytics />}
-            className="overflow-hidden"
           >
-            <div className="pt-6 px-6 border-t border-[#F6F6F6] bg-[#FCFCFC] flex items-end h-full">
+            <div className="pt-6 px-6">
               <Image
                 src="/images/new-landing/measure-what-matters.svg"
                 alt="analytics"
@@ -33,37 +33,31 @@ export function EverythingElseSection() {
                 height={400}
               />
             </div>
-          </Card>
-          <Card
+          </DisplayCard>
+          <DisplayCard
             title="Drafts that know your schedule"
             description="Connects to your calendar, CRM, and tools to draft emails based on your actual schedule and customer data."
             icon={<Link />}
-            className="overflow-hidden"
           >
-            <div className="border-t border-[#F6F6F6] bg-[#FCFCFC] h-full">
-              <Image
-                src="/images/new-landing/app-integrations.svg"
-                alt="analytics"
-                width={1000}
-                height={400}
-              />
-            </div>
-          </Card>
-          <Card
+            <Image
+              src="/images/new-landing/app-integrations.svg"
+              alt="analytics"
+              width={1000}
+              height={400}
+            />
+          </DisplayCard>
+          <DisplayCard
             title="Customize your assistant in plain English"
             description="Every inbox is different. Set your own rules in seconds using everyday language."
             icon={<ChatTwo />}
-            className="overflow-hidden"
           >
-            <div className="border-t border-[#F6F6F6] bg-[#FCFCFC] h-full">
-              <Image
-                src="/images/new-landing/customize-assistant.svg"
-                alt="analytics"
-                width={1000}
-                height={400}
-              />
-            </div>
-          </Card>
+            <Image
+              src="/images/new-landing/customize-assistant.svg"
+              alt="analytics"
+              width={1000}
+              height={400}
+            />
+          </DisplayCard>
         </CardWrapper>
       </div>
     </Section>
