@@ -15,6 +15,10 @@ describe("validateLabelNameBasic", () => {
         "2024 Taxes",
         "Follow Up",
         "a".repeat(225), // Max length
+        // Nested labels with forward slash are valid
+        "Inbox Zero/Archived",
+        "Work/Projects",
+        "Personal/Family",
         // These would be rejected by Gmail-specific validation but are valid at basic level
         "INBOX",
         "TRAVEL",
@@ -81,12 +85,6 @@ describe("validateLabelNameBasic", () => {
       const result = validateLabelNameBasic("Work\\Items");
       expect(result.valid).toBe(false);
       expect(result.error).toContain("\\");
-    });
-
-    it("should reject labels with forward slash", () => {
-      const result = validateLabelNameBasic("Work/Items");
-      expect(result.valid).toBe(false);
-      expect(result.error).toContain("/");
     });
 
     it("should reject labels with asterisk", () => {

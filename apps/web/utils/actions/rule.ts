@@ -40,6 +40,7 @@ import { createEmailProvider } from "@/utils/email/provider";
 import { resolveLabelNameAndId } from "@/utils/label/resolve-label";
 import type { Logger } from "@/utils/logger";
 import { validateGmailLabelName } from "@/utils/gmail/label-validation";
+import { isGoogleProvider } from "@/utils/email/provider-types";
 
 export const createRuleAction = actionClient
   .metadata({ name: "createRule" })
@@ -749,11 +750,10 @@ async function resolveActionLabels<
       if (action.type === ActionType.LABEL) {
         const labelName = action.labelId?.name || action.labelId?.value || null;
 
-        // For Gmail, validate against reserved label names
-        if (provider === "google" && labelName) {
+        if (isGoogleProvider(provider) && labelName) {
           const validation = validateGmailLabelName(labelName);
           if (!validation.valid) {
-            throw new SafeError(validation.error!);
+            throw new SafeError(validation.error);
           }
         }
 

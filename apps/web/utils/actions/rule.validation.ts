@@ -97,8 +97,6 @@ const zodAction = z
         return;
       }
 
-      // Validate label name with basic validation (provider-agnostic)
-      // Gmail-specific validation (reserved labels) happens in resolveActionLabels
       const validation = validateLabelNameBasic(labelValue);
       if (!validation.valid) {
         ctx.addIssue({

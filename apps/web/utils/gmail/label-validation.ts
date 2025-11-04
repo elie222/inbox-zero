@@ -50,10 +50,12 @@ const GMAIL_RESERVED_LABELS = [
 
 /**
  * Invalid characters that cannot be used in Gmail label names
+ *
+ * Note: Forward slash (/) is NOT included here because it's used to create
+ * nested labels (e.g., "Inbox Zero/Archived")
  */
 const GMAIL_LABEL_INVALID_CHARS = [
   "\\", // Backslash
-  "/", // Forward slash
   "*", // Asterisk
   "+", // Plus sign
   "`", // Backtick
@@ -73,8 +75,7 @@ type LabelValidationResult = {
 };
 
 /**
- * Validates basic label name requirements (provider-agnostic)
- * Use this for general validation that applies to all email providers
+ * Validates basic label name requirements
  *
  * @param name - The label name to validate
  * @returns An object with `valid` boolean and optional `error` message
@@ -87,7 +88,6 @@ export function validateLabelNameBasic(name: string): LabelValidationResult {
 
   const trimmedName = name.trim();
 
-  // Check length
   if (trimmedName.length > GMAIL_LABEL_MAX_LENGTH) {
     return {
       valid: false,
