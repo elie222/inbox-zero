@@ -21,6 +21,7 @@ import { describe, test, expect, beforeAll, afterAll, vi } from "vitest";
 import prisma from "@/utils/prisma";
 import { createEmailProvider } from "@/utils/email/provider";
 import type { GmailProvider } from "@/utils/email/google";
+import { findOldMessage } from "@/__tests__/e2e/helpers";
 
 // ============================================
 // TEST DATA - SET VIA ENVIRONMENT VARIABLES
@@ -88,23 +89,9 @@ describe.skipIf(!RUN_E2E_TESTS)("Google Gmail Labeling E2E Tests", () => {
     if (!_TEST_GMAIL_MESSAGE_ID || !_TEST_GMAIL_THREAD_ID) {
       console.log("   📝 Fetching a real message from account for testing...");
 
-      const oneWeekAgo = new Date();
-      oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
-
-      const { messages } = await provider.getMessagesByFields({
-        maxResults: 1,
-        after: oneWeekAgo,
-        type: "all",
-      });
-
-      if (messages.length === 0) {
-        throw new Error(
-          "No messages found in account. Please ensure the test account has at least one message from the past week.",
-        );
-      }
-
-      _TEST_GMAIL_MESSAGE_ID = messages[0].id;
-      _TEST_GMAIL_THREAD_ID = messages[0].threadId;
+      const oldMessage = await findOldMessage(provider, 7);
+      _TEST_GMAIL_MESSAGE_ID = oldMessage.messageId;
+      _TEST_GMAIL_THREAD_ID = oldMessage.threadId;
 
       console.log(`   ✅ Using message from account: ${getTestMessageId()}`);
       console.log(`   ✅ Using thread from account: ${getTestThreadId()}`);
