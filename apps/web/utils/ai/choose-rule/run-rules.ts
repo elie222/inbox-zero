@@ -191,66 +191,6 @@ export async function runRules({
   return executedRules;
 }
 
-export function limitDraftEmailActions(
-  matches: {
-    rule: RuleWithActions;
-    matchReasons?: MatchReason[];
-  }[],
-): {
-  rule: RuleWithActions;
-  matchReasons?: MatchReason[];
-}[] {
-  const draftCandidates = matches.flatMap((match) =>
-    match.rule.actions
-      .filter((action) => action.type === ActionType.DRAFT_EMAIL)
-      .map((action) => ({
-        action,
-        hasFixedContent: Boolean(action.content?.trim()),
-      })),
-  );
-
-  if (draftCandidates.length <= 1) {
-    return matches;
-  }
-
-  const preferredCandidate =
-    draftCandidates.find((candidate) => candidate.hasFixedContent) ||
-    draftCandidates[0];
-
-  if (!preferredCandidate) {
-    return matches;
-  }
-
-  const selectedDraftId = preferredCandidate.action.id;
-
-  logger.info("Limiting draft actions to a single selection", {
-    selectedDraftId,
-  });
-
-  return matches.map((match) => {
-    const hasExtraDrafts = match.rule.actions.some(
-      (action) =>
-        action.type === ActionType.DRAFT_EMAIL && action.id !== selectedDraftId,
-    );
-
-    if (!hasExtraDrafts) {
-      return match;
-    }
-
-    return {
-      ...match,
-      rule: {
-        ...match.rule,
-        actions: match.rule.actions.filter(
-          (action) =>
-            action.type !== ActionType.DRAFT_EMAIL ||
-            action.id === selectedDraftId,
-        ),
-      },
-    };
-  });
-}
-
 function prepareRulesWithMetaRule(rules: RuleWithActions[]): {
   regularRules: RuleWithActions[];
   conversationRules: RuleWithActions[];
@@ -590,4 +530,72 @@ export async function ensureConversationRuleContinuity({
 
 function isConversationRule(ruleId: string): boolean {
   return ruleId === CONVERSATION_TRACKING_META_RULE_ID;
+}
+
+/**
+ * Limits the number of draft email actions to a single selection.
+ * If there are multiple draft email actions, we select the one with the most fixed content.
+ * If there are no draft email actions, we return the matches as is.
+ * If there is only one draft email action, we return the matches as is.
+ * If there are multiple draft email actions with the same fixed content, we select the first one.
+ * If there are multiple draft email actions with no fixed content, we select the first one.
+ */
+export function limitDraftEmailActions(
+  matches: {
+    rule: RuleWithActions;
+    matchReasons?: MatchReason[];
+  }[],
+): {
+  rule: RuleWithActions;
+  matchReasons?: MatchReason[];
+}[] {
+  const draftCandidates = matches.flatMap((match) =>
+    match.rule.actions
+      .filter((action) => action.type === ActionType.DRAFT_EMAIL)
+      .map((action) => ({
+        action,
+        hasFixedContent: Boolean(action.content?.trim()),
+      })),
+  );
+
+  if (draftCandidates.length <= 1) {
+    return matches;
+  }
+
+  const preferredCandidate =
+    draftCandidates.find((candidate) => candidate.hasFixedContent) ||
+    draftCandidates[0];
+
+  if (!preferredCandidate) {
+    return matches;
+  }
+
+  const selectedDraftId = preferredCandidate.action.id;
+
+  logger.info("Limiting draft actions to a single selection", {
+    selectedDraftId,
+  });
+
+  return matches.map((match) => {
+    const hasExtraDrafts = match.rule.actions.some(
+      (action) =>
+        action.type === ActionType.DRAFT_EMAIL && action.id !== selectedDraftId,
+    );
+
+    if (!hasExtraDrafts) {
+      return match;
+    }
+
+    return {
+      ...match,
+      rule: {
+        ...match.rule,
+        actions: match.rule.actions.filter(
+          (action) =>
+            action.type !== ActionType.DRAFT_EMAIL ||
+            action.id === selectedDraftId,
+        ),
+      },
+    };
+  });
 }
