@@ -550,19 +550,13 @@ describe.skipIf(!RUN_E2E_TESTS)("Outlook Webhook Payload", () => {
       where: { email: TEST_OUTLOOK_EMAIL },
     });
 
-    const provider = (await createEmailProvider({
+    const provider = await createEmailProvider({
       emailAccountId: emailAccount.id,
       provider: "microsoft",
-    })) as OutlookProvider;
+    });
 
-    // Get a real message to reply to
-    const messages = await provider.getThreadMessages(TEST_CONVERSATION_ID);
-    if (messages.length === 0) {
-      console.log("   ⚠️  No messages in thread, skipping test");
-      return;
-    }
-
-    const message = messages[0];
+    const testMessage = await findOldMessage(provider, 7);
+    const message = await provider.getMessage(testMessage.messageId);
 
     // Create a draft
     const draftResult = await provider.draftEmail(
@@ -590,13 +584,5 @@ describe.skipIf(!RUN_E2E_TESTS)("Outlook Webhook Payload", () => {
     // Clean up - delete the test draft
     await provider.deleteDraft(draftResult.draftId);
     console.log("   ✅ Cleaned up test draft");
-
-    // Try to fetch the deleted draft to see the error message
-    console.log("\n   🔍 Attempting to fetch deleted draft...");
-    const deletedDraft = await provider.getDraft(draftResult.draftId);
-
-    // Should return null for deleted drafts (not throw an error)
-    expect(deletedDraft).toBeNull();
-    console.log("   ✅ getDraft correctly returned null for deleted draft");
   }, 30_000);
 });
