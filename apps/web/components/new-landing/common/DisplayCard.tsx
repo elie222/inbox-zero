@@ -25,8 +25,7 @@ export function DisplayCard({
     >
       <div
         className={cx(
-          "border-t border-[#F6F6F6] bg-[#FCFCFC]",
-          "flex h-full",
+          "border-t border-[#F6F6F6] bg-[#FCFCFC] flex h-full min-h-40",
           centerContent ? "items-center justify-center" : "items-end",
         )}
       >

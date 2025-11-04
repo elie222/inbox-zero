@@ -25,7 +25,7 @@ export function StartedInMinutes() {
       subtitle="One-click setup. Start organizing and drafting replies in minutes."
     >
       <div>
-        <CardWrapper className="w-full grid grid-cols-3 gap-5">
+        <CardWrapper className="w-full grid md:grid-cols-3 gap-5">
           <DisplayCard
             title="Connect your email"
             description="Link your Gmail or Outlook in two clicks to get started."

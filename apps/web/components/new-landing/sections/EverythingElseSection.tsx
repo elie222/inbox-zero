@@ -15,11 +15,11 @@ export function EverythingElseSection() {
       subtitle="Effortless setup with one-click install. Inboxzero is intuitive and requires no technical skills."
       childrenMarginTop="mt-5"
     >
-      <div className="flex flex-col items-center gap-5 px-10">
+      <div className="flex flex-col items-center gap-5 lg:px-10">
         <CardWrapper size="xs" variant="dark-border">
           <Button>Get started free</Button>
         </CardWrapper>
-        <CardWrapper className="w-full grid grid-cols-3 gap-5">
+        <CardWrapper className="w-full grid md:grid-cols-3 gap-5">
           <DisplayCard
             title="Measure what matters with email analytics"
             description="See who emails you most and what's clogging your inbox. Get clear insights, then take action."
