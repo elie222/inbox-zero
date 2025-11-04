@@ -35,9 +35,30 @@ export function extractErrorInfo(error: unknown): ErrorInfo {
       )?.errors as Array<Record<string, unknown>>
     )?.[0]?.reason as string) ??
     undefined;
-  const errorMessage = String(
-    (cause?.message as string) ?? (err?.message as string) ?? "",
-  );
+  const primaryMessage =
+    (cause?.message as string) ??
+    (err?.message as string) ??
+    (cause?.error as string) ??
+    (err?.error as string) ??
+    ((cause?.errors as Array<Record<string, unknown>>)?.[0]
+      ?.message as string) ??
+    ((
+      (
+        (cause?.response as Record<string, unknown>)?.data as Record<
+          string,
+          unknown
+        >
+      )?.error as Record<string, unknown>
+    )?.message as string) ??
+    ((
+      (cause?.response as Record<string, unknown>)?.data as Record<
+        string,
+        unknown
+      >
+    )?.error as string as string) ??
+    "";
+
+  const errorMessage = String(primaryMessage);
 
   return { status, reason, errorMessage };
 }
