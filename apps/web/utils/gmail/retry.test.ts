@@ -142,41 +142,41 @@ describe("Gmail retry helpers", () => {
       expect(delay).toBeGreaterThan(14_000); // Should be ~15s
       expect(delay).toBeLessThan(16_000);
     });
+  });
 
-    describe("extractErrorInfo", () => {
-      it("should extract Gmail error details from response payload", () => {
-        const error = {
-          cause: {
-            response: {
-              status: 404,
-              data: {
-                error: {
-                  message: "Invalid label: FAKE_LABEL_ID_123",
-                  errors: [{ reason: "notFound" }],
-                },
+  describe("extractErrorInfo", () => {
+    it("should extract Gmail error details from response payload", () => {
+      const error = {
+        cause: {
+          response: {
+            status: 404,
+            data: {
+              error: {
+                message: "Invalid label: FAKE_LABEL_ID_123",
+                errors: [{ reason: "notFound" }],
               },
             },
           },
-        };
+        },
+      };
 
-        const info = extractErrorInfo(error);
+      const info = extractErrorInfo(error);
 
-        expect(info.status).toBe(404);
-        expect(info.reason).toBe("notFound");
-        expect(info.errorMessage).toBe("Invalid label: FAKE_LABEL_ID_123");
-      });
+      expect(info.status).toBe(404);
+      expect(info.reason).toBe("notFound");
+      expect(info.errorMessage).toBe("Invalid label: FAKE_LABEL_ID_123");
+    });
 
-      it("should fall back to top-level error string when message missing", () => {
-        const error = {
-          error: "Some top-level error",
-        };
+    it("should fall back to top-level error string when message missing", () => {
+      const error = {
+        error: "Some top-level error",
+      };
 
-        const info = extractErrorInfo(error);
+      const info = extractErrorInfo(error);
 
-        expect(info.status).toBeUndefined();
-        expect(info.reason).toBeUndefined();
-        expect(info.errorMessage).toBe("Some top-level error");
-      });
+      expect(info.status).toBeUndefined();
+      expect(info.reason).toBeUndefined();
+      expect(info.errorMessage).toBe("Some top-level error");
     });
   });
 });
