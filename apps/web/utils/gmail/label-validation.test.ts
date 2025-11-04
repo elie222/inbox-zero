@@ -112,11 +112,11 @@ describe("validateGmailLabelName", () => {
     it("should accept valid label names", () => {
       const validLabels = [
         "Work",
-        "Personal",
         "Important Emails",
         "Project Alpha",
         "2024 Taxes",
         "Follow Up",
+        "CATEGORY_PERSONAL",
       ];
 
       validLabels.forEach((label) => {
@@ -153,20 +153,20 @@ describe("validateGmailLabelName", () => {
       });
     });
 
-    it("should reject standard category labels (case-insensitive)", () => {
+    it("should reject standard category names without prefix (case-insensitive)", () => {
       const categoryLabels = [
-        "CATEGORY_PERSONAL",
-        "category_personal",
-        "CATEGORY_SOCIAL",
-        "CATEGORY_PROMOTIONS",
-        "CATEGORY_UPDATES",
-        "CATEGORY_FORUMS",
+        "PERSONAL",
+        "personal",
+        "SOCIAL",
+        "Promotions",
+        "UPDATES",
+        "FORUMS",
       ];
 
       categoryLabels.forEach((label) => {
         const result = validateGmailLabelName(label);
         expect(result.valid).toBe(false);
-        expect(result.error).toContain("reserved");
+        expect(result.error).toContain("reserved Gmail system label");
       });
     });
 
@@ -229,19 +229,20 @@ describe("validateGmailLabelName", () => {
   });
 
   describe("category prefix handling", () => {
-    it("should reject standard CATEGORY_ labels", () => {
+    it("should allow standard CATEGORY_ labels", () => {
       const standardCategories = [
         "CATEGORY_PERSONAL",
         "CATEGORY_SOCIAL",
         "CATEGORY_PROMOTIONS",
         "CATEGORY_UPDATES",
         "CATEGORY_FORUMS",
+        "category_personal",
       ];
 
       standardCategories.forEach((label) => {
         const result = validateGmailLabelName(label);
-        expect(result.valid).toBe(false);
-        expect(result.error).toContain("reserved");
+        expect(result.valid).toBe(true);
+        expect(result.error).toBeUndefined();
       });
     });
 

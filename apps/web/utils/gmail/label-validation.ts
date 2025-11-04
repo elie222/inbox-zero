@@ -32,12 +32,12 @@ const GMAIL_RESERVED_LABELS = [
   "ALL_MAIL",
   "ALLMAIL",
 
-  // Category Labels (Documented)
-  "CATEGORY_PERSONAL",
-  "CATEGORY_SOCIAL",
-  "CATEGORY_PROMOTIONS",
-  "CATEGORY_UPDATES",
-  "CATEGORY_FORUMS",
+  // Category Labels
+  "PERSONAL",
+  "SOCIAL",
+  "PROMOTIONS",
+  "UPDATES",
+  "FORUMS",
 
   // Additional Reserved Labels (Undocumented but Reserved)
   "TRAVEL",
@@ -152,39 +152,5 @@ export function validateGmailLabelName(name: string): LabelValidationResult {
     };
   }
 
-  // Check if starts with CATEGORY_ prefix (case-insensitive)
-  // Note: Only labels starting with CATEGORY_ that match the 5 standard categories are reserved
-  if (upperName.startsWith("CATEGORY_")) {
-    const categoryName = upperName.substring(9); // Remove "CATEGORY_" prefix
-    const reservedCategories = [
-      "PERSONAL",
-      "SOCIAL",
-      "PROMOTIONS",
-      "UPDATES",
-      "FORUMS",
-    ];
-    if (reservedCategories.includes(categoryName)) {
-      return {
-        valid: false,
-        error: `Label names starting with "CATEGORY_" for standard categories are reserved by Gmail`,
-      };
-    }
-  }
-
   return { valid: true };
-}
-
-/**
- * Simple helper to check if a label name is valid for Gmail
- * Returns true if valid, false otherwise
- *
- * @example
- * ```ts
- * if (!isValidGmailLabel("inbox")) {
- *   throw new Error("Invalid label name");
- * }
- * ```
- */
-export function isValidGmailLabel(name: string): boolean {
-  return validateGmailLabelName(name).valid;
 }
