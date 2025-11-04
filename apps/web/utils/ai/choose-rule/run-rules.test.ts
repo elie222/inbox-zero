@@ -230,7 +230,7 @@ describe("limitDraftEmailActions", () => {
         rule: createRule("rule-2", null, [
           getAction({
             id: "move-1",
-            type: ActionType.MOVE_TO_LABEL,
+            type: ActionType.LABEL,
             label: "Handled",
             ruleId: "rule-2",
           }),
