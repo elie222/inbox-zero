@@ -32,7 +32,7 @@ export function SparkleBlue() {
           y2="11"
           gradientUnits="userSpaceOnUse"
         >
-          <stop stop-color="#2563EB" />
+          <stop stopColor="#2563EB" />
           <stop offset="1" stopColor="#6595FF" />
         </linearGradient>
         <linearGradient
