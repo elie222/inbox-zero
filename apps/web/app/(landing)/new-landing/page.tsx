@@ -8,8 +8,6 @@ import { Hero } from "@/components/new-landing/sections/Hero";
 import { Pricing } from "@/components/new-landing/sections/Pricing";
 import { Awards } from "@/components/new-landing/sections/Awards";
 import { BuyBackTime } from "@/components/new-landing/sections/BuyBackTime";
-import { Button } from "@/components/new-landing/common/Button";
-import { CardWrapper } from "@/components/new-landing/common/CardWrapper";
 import { EverythingElseSection } from "@/components/new-landing/sections/EverythingElseSection";
 
 export const metadata: Metadata = { alternates: { canonical: "/" } };
