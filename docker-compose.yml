@@ -46,14 +46,14 @@ services:
       context: .
       dockerfile: ./docker/Dockerfile.prod
       args:
-        NEXT_PUBLIC_BASE_URL: ${NEXT_PUBLIC_BASE_URL:-http://localhost:3000}
+        NEXT_PUBLIC_BASE_URL: ${NEXT_PUBLIC_BASE_URL:-http://localhost:8025}
     env_file:
       - ./apps/web/.env
     depends_on:
       - db
       - redis
     ports:
-      - ${WEB_PORT:-3000}:3000
+      - ${WEB_PORT:-8025}:8025
     networks:
       - inbox-zero-network
     environment:

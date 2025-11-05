@@ -42,7 +42,7 @@ ENV NODE_ENV=production
 
 # Accept build-time arguments for all NEXT_PUBLIC variables
 # Users can override any of these during build
-ARG NEXT_PUBLIC_BASE_URL="http://localhost:3000"
+ARG NEXT_PUBLIC_BASE_URL="http://localhost:8025"
 
 # Provide dummy build-time ENV VARS (Still needed for build)
 ENV DATABASE_URL="postgresql://dummy:dummy@dummy:5432/dummy?schema=public"
@@ -69,7 +69,7 @@ ENV NEXT_PUBLIC_BASE_URL=${NEXT_PUBLIC_BASE_URL}
 # Ensure prisma generate runs
 RUN pnpm --filter inbox-zero-ai exec -- next build
 
-EXPOSE 3000
+EXPOSE 8025
 
 # Set the default command to start the production server
 # Use the simpler pnpm command, should work now as pnpm & next are installed
