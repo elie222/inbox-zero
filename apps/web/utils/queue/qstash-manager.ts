@@ -1,5 +1,3 @@
-import "server-only";
-
 import type { Job, ConnectionOptions } from "bullmq";
 import { env } from "@/env";
 import { createScopedLogger } from "@/utils/logger";

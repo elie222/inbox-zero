@@ -1,4 +1,3 @@
-import "server-only";
 import type { Worker } from "bullmq";
 import { createScopedLogger } from "@/utils/logger";
 import { createQueueWorker, closeQueueManager } from "./queue-manager";
