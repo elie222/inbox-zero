@@ -386,4 +386,37 @@ describe("limitDraftEmailActions", () => {
     expect(result[0].rule.actions[0].id).toBe("draft-1");
     expect(result[1].rule.actions).toEqual([]);
   });
+
+  it("prefers static drafts over fully dynamic drafts", () => {
+    const matches = [
+      {
+        rule: createRule("rule-1", null, [
+          getAction({
+            id: "draft-1",
+            type: ActionType.DRAFT_EMAIL,
+            content: null,
+            ruleId: "rule-1",
+          }),
+        ]),
+      },
+      {
+        rule: createRule("rule-2", null, [
+          getAction({
+            id: "draft-2",
+            type: ActionType.DRAFT_EMAIL,
+            content:
+              "Hello {{name}}, this is a template with some fixed content",
+            ruleId: "rule-2",
+          }),
+        ]),
+      },
+    ];
+
+    const result = limitDraftEmailActions(matches);
+
+    // Should select draft-2 because it has fixed content (static), even though draft-1 came first
+    expect(result[0].rule.actions).toEqual([]);
+    expect(result[1].rule.actions).toHaveLength(1);
+    expect(result[1].rule.actions[0].id).toBe("draft-2");
+  });
 });

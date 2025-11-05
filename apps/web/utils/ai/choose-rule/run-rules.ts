@@ -534,11 +534,11 @@ function isConversationRule(ruleId: string): boolean {
 
 /**
  * Limits the number of draft email actions to a single selection.
- * If there are multiple draft email actions, we select the one with the most fixed content.
+ * If there are multiple draft email actions, we prefer static drafts (with fixed content)
+ * over fully dynamic drafts (no fixed content). When multiple static drafts exist, we
+ * select the first one encountered.
  * If there are no draft email actions, we return the matches as is.
  * If there is only one draft email action, we return the matches as is.
- * If there are multiple draft email actions with the same fixed content, we select the first one.
- * If there are multiple draft email actions with no fixed content, we select the first one.
  */
 export function limitDraftEmailActions(
   matches: {
@@ -562,13 +562,11 @@ export function limitDraftEmailActions(
     return matches;
   }
 
+  // Prefer static drafts (with fixed content) over fully dynamic drafts (no fixed content)
+  // If multiple static drafts exist, use the first one encountered
   const preferredCandidate =
     draftCandidates.find((candidate) => candidate.hasFixedContent) ||
     draftCandidates[0];
-
-  if (!preferredCandidate) {
-    return matches;
-  }
 
   const selectedDraftId = preferredCandidate.action.id;
 
