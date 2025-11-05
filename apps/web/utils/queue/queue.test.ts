@@ -1,5 +1,8 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 
+// Mock server-only to prevent import errors in tests
+vi.mock("server-only", () => ({}));
+
 // Mock BullMQ
 const mockQueue = {
   add: vi.fn(),
@@ -24,6 +27,31 @@ vi.mock("bullmq", () => ({
   QueueEvents: vi.fn().mockImplementation(() => mockQueueEvents),
 }));
 
+// Mock ioredis to prevent connection parsing errors
+// ioredis can be imported as default or named export, so we mock both
+const mockRedisInstance = {
+  connect: vi.fn(),
+  disconnect: vi.fn(),
+  on: vi.fn(),
+  quit: vi.fn(),
+  get: vi.fn(),
+  set: vi.fn(),
+  del: vi.fn(),
+  expire: vi.fn(),
+  keys: vi.fn(),
+  psubscribe: vi.fn(),
+  punsubscribe: vi.fn(),
+};
+
+vi.mock("ioredis", () => {
+  const MockRedis = vi.fn().mockImplementation(() => mockRedisInstance);
+  MockRedis.prototype = mockRedisInstance;
+  return {
+    default: MockRedis,
+    Redis: MockRedis,
+  };
+});
+
 // Mock QStash Client
 const mockClient = {
   publishJSON: vi.fn(),
@@ -40,16 +68,24 @@ vi.mock("@/utils/upstash", () => ({
   publishToQstashQueue: mockPublishToQstashQueue,
 }));
 
-// Mock environment - default to upstash
-vi.mock("@/env", () => ({
+// Helper to create env mock with required encryption vars
+const createEnvMock = (overrides: Record<string, unknown> = {}) => ({
   env: {
     QUEUE_SYSTEM: "upstash",
     QSTASH_TOKEN: "test-token",
     REDIS_URL: "redis://localhost:6379",
     WEBHOOK_URL: "https://test.com",
     NEXT_PUBLIC_BASE_URL: "https://test.com",
+    EMAIL_ENCRYPT_SECRET: "test-encryption-secret-key-for-testing-purposes",
+    EMAIL_ENCRYPT_SALT: "test-encryption-salt-for-testing",
+    NODE_ENV: "test",
+    ...overrides,
   },
-}));
+});
+
+// Mock environment - default to upstash
+// Include all required env vars to prevent validation/initialization errors
+vi.mock("@/env", () => createEnvMock());
 
 describe("Queue System", () => {
   beforeEach(() => {
@@ -69,43 +105,37 @@ describe("Queue System", () => {
         const info = getQueueSystemInfo();
 
         expect(info.system).toBe("upstash");
-        expect(info.isQStash).toBe(true);
-        expect(info.isRedis).toBe(false);
+        expect(info.supportsWorkers).toBe(false);
+        expect(info.supportsDelayedJobs).toBe(true);
+        expect(info.supportsBulkOperations).toBe(true);
       });
 
       it("should detect Redis system when configured", async () => {
-        await vi.doMock("@/env", () => ({
-          env: {
+        await vi.doMock("@/env", () =>
+          createEnvMock({
             QUEUE_SYSTEM: "redis",
-            QSTASH_TOKEN: "test-token",
-            REDIS_URL: "redis://localhost:6379",
-            WEBHOOK_URL: "https://test.com",
-            NEXT_PUBLIC_BASE_URL: "https://test.com",
-          },
-        }));
+          }),
+        );
         vi.resetModules();
 
         const { getQueueSystemInfo } = await import("./queue-manager");
         const info = getQueueSystemInfo();
 
         expect(info.system).toBe("redis");
-        expect(info.isRedis).toBe(true);
-        expect(info.isQStash).toBe(false);
+        expect(info.supportsWorkers).toBe(true);
+        expect(info.supportsDelayedJobs).toBe(true);
+        expect(info.supportsBulkOperations).toBe(true);
       });
     });
 
     describe("Job Enqueueing", () => {
       it("should enqueue a single job with QStash", async () => {
         // Ensure we're using QStash environment
-        await vi.doMock("@/env", () => ({
-          env: {
+        await vi.doMock("@/env", () =>
+          createEnvMock({
             QUEUE_SYSTEM: "upstash",
-            QSTASH_TOKEN: "test-token",
-            REDIS_URL: "redis://localhost:6379",
-            WEBHOOK_URL: "https://test.com",
-            NEXT_PUBLIC_BASE_URL: "https://test.com",
-          },
-        }));
+          }),
+        );
         vi.resetModules();
 
         const { enqueueJob } = await import("./queue-manager");
@@ -128,15 +158,11 @@ describe("Queue System", () => {
 
       it("should enqueue a job with options", async () => {
         // Ensure we're using QStash environment
-        await vi.doMock("@/env", () => ({
-          env: {
+        await vi.doMock("@/env", () =>
+          createEnvMock({
             QUEUE_SYSTEM: "upstash",
-            QSTASH_TOKEN: "test-token",
-            REDIS_URL: "redis://localhost:6379",
-            WEBHOOK_URL: "https://test.com",
-            NEXT_PUBLIC_BASE_URL: "https://test.com",
-          },
-        }));
+          }),
+        );
         vi.resetModules();
 
         const { enqueueJob } = await import("./queue-manager");
@@ -160,15 +186,11 @@ describe("Queue System", () => {
 
       it("should handle job enqueueing errors", async () => {
         // Ensure we're using QStash environment
-        await vi.doMock("@/env", () => ({
-          env: {
+        await vi.doMock("@/env", () =>
+          createEnvMock({
             QUEUE_SYSTEM: "upstash",
-            QSTASH_TOKEN: "test-token",
-            REDIS_URL: "redis://localhost:6379",
-            WEBHOOK_URL: "https://test.com",
-            NEXT_PUBLIC_BASE_URL: "https://test.com",
-          },
-        }));
+          }),
+        );
         vi.resetModules();
 
         const { enqueueJob } = await import("./queue-manager");
@@ -184,15 +206,11 @@ describe("Queue System", () => {
     describe("Bulk Job Enqueueing", () => {
       it("should enqueue multiple jobs", async () => {
         // Ensure we're using QStash environment
-        await vi.doMock("@/env", () => ({
-          env: {
+        await vi.doMock("@/env", () =>
+          createEnvMock({
             QUEUE_SYSTEM: "upstash",
-            QSTASH_TOKEN: "test-token",
-            REDIS_URL: "redis://localhost:6379",
-            WEBHOOK_URL: "https://test.com",
-            NEXT_PUBLIC_BASE_URL: "https://test.com",
-          },
-        }));
+          }),
+        );
         vi.resetModules();
 
         const { bulkEnqueueJobs } = await import("./queue-manager");
@@ -223,15 +241,11 @@ describe("Queue System", () => {
 
       it("should handle bulk enqueueing errors", async () => {
         // Ensure we're using QStash environment
-        await vi.doMock("@/env", () => ({
-          env: {
+        await vi.doMock("@/env", () =>
+          createEnvMock({
             QUEUE_SYSTEM: "upstash",
-            QSTASH_TOKEN: "test-token",
-            REDIS_URL: "redis://localhost:6379",
-            WEBHOOK_URL: "https://test.com",
-            NEXT_PUBLIC_BASE_URL: "https://test.com",
-          },
-        }));
+          }),
+        );
         vi.resetModules();
 
         const { bulkEnqueueJobs } = await import("./queue-manager");
@@ -248,15 +262,11 @@ describe("Queue System", () => {
 
     describe("Error Handling", () => {
       it("should handle unsupported queue system", async () => {
-        await vi.doMock("@/env", () => ({
-          env: {
+        await vi.doMock("@/env", () =>
+          createEnvMock({
             QUEUE_SYSTEM: "unsupported" as any,
-            QSTASH_TOKEN: "test-token",
-            REDIS_URL: "redis://localhost:6379",
-            WEBHOOK_URL: "https://test.com",
-            NEXT_PUBLIC_BASE_URL: "https://test.com",
-          },
-        }));
+          }),
+        );
         vi.resetModules();
 
         const { createQueueManager } = await import("./queue-manager");
@@ -271,15 +281,11 @@ describe("Queue System", () => {
     let manager: any;
 
     beforeEach(async () => {
-      await vi.doMock("@/env", () => ({
-        env: {
+      await vi.doMock("@/env", () =>
+        createEnvMock({
           QUEUE_SYSTEM: "redis",
-          QSTASH_TOKEN: "test-token",
-          REDIS_URL: "redis://localhost:6379",
-          WEBHOOK_URL: "https://test.com",
-          NEXT_PUBLIC_BASE_URL: "https://test.com",
-        },
-      }));
+        }),
+      );
       vi.resetModules();
 
       const { BullMQManager } = await import("./bullmq-manager");
@@ -556,13 +562,12 @@ describe("Queue System", () => {
 
     describe("URL Construction", () => {
       it("should use WEBHOOK_URL when available", async () => {
-        await vi.doMock("@/env", () => ({
-          env: {
-            QSTASH_TOKEN: "test-token",
+        await vi.doMock("@/env", () =>
+          createEnvMock({
             WEBHOOK_URL: "https://webhook.test.com",
             NEXT_PUBLIC_BASE_URL: "https://fallback.test.com",
-          },
-        }));
+          }),
+        );
         vi.resetModules();
 
         const { QStashManager: MockedQStashManager } = await import(
@@ -582,13 +587,12 @@ describe("Queue System", () => {
       });
 
       it("should fallback to NEXT_PUBLIC_BASE_URL when WEBHOOK_URL is not available", async () => {
-        await vi.doMock("@/env", () => ({
-          env: {
-            QSTASH_TOKEN: "test-token",
+        await vi.doMock("@/env", () =>
+          createEnvMock({
             WEBHOOK_URL: undefined,
             NEXT_PUBLIC_BASE_URL: "https://fallback.test.com",
-          },
-        }));
+          }),
+        );
         vi.resetModules();
 
         const { QStashManager: MockedQStashManager } = await import(

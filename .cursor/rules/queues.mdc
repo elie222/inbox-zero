@@ -1,3 +1,12 @@
+---
+description: Unified queue system supporting QStash and Redis (BullMQ) with automatic system selection, worker management, and job enqueueing
+globs: 
+  - "apps/web/utils/queue/**"
+  - "apps/web/worker.js"
+  - "apps/web/instrumentation.ts"
+  - "docker-compose.yml"
+alwaysApply: false
+---
 # Queue System
 
 Unified queue system supporting both QStash and Redis (BullMQ) with automatic system selection based on `QUEUE_SYSTEM` environment variable.
