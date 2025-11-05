@@ -1,10 +1,10 @@
 import type { OutlookResourceData } from "@/app/api/outlook/webhook/types";
-import { logger as globalLogger } from "@/app/api/outlook/webhook/logger";
 import { processHistoryItem as processHistoryItemShared } from "@/utils/webhook/process-history-item";
 import type { RuleWithActions } from "@/utils/types";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import type { EmailAccount } from "@prisma/client";
 import type { EmailProvider } from "@/utils/email/types";
+import type { Logger } from "@/utils/logger";
 
 type ProcessHistoryOptions = {
   provider: EmailProvider;
@@ -23,12 +23,12 @@ export async function processHistoryItem(
     hasAutomationRules,
     hasAiAccess,
     rules,
-  }: ProcessHistoryOptions,
+    logger: log,
+  }: ProcessHistoryOptions & { logger: Logger },
 ) {
   const messageId = resourceData.id;
-  const userEmail = emailAccount.email;
 
-  const logger = globalLogger.with({ email: userEmail, messageId });
+  const logger = log.with({ messageId });
 
   return processHistoryItemShared(
     { messageId },
