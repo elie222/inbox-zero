@@ -65,9 +65,6 @@ export function hasUnquotedParentFolderId(query: string): boolean {
   return /\bparentFolderId\b/.test(cleanedQuery);
 }
 
-// Cache for folder IDs
-let folderIdCache: Record<string, string> | null = null;
-
 // Well-known folder names in Outlook that are consistent across all languages
 export const WELL_KNOWN_FOLDERS = {
   inbox: "inbox",
@@ -79,7 +76,8 @@ export const WELL_KNOWN_FOLDERS = {
 } as const;
 
 export async function getFolderIds(client: OutlookClient) {
-  if (folderIdCache) return folderIdCache;
+  const cachedFolderIds = client.getFolderIdCache();
+  if (cachedFolderIds) return cachedFolderIds;
 
   // First get the well-known folders
   const wellKnownFolders = await Promise.all(
@@ -101,7 +99,7 @@ export async function getFolderIds(client: OutlookClient) {
     }),
   );
 
-  folderIdCache = wellKnownFolders.reduce(
+  const userFolderIds = wellKnownFolders.reduce(
     (acc, [key, id]) => {
       if (id) acc[key] = id;
       return acc;
@@ -109,7 +107,9 @@ export async function getFolderIds(client: OutlookClient) {
     {} as Record<string, string>,
   );
 
-  return folderIdCache;
+  client.setFolderIdCache(userFolderIds);
+
+  return userFolderIds;
 }
 
 function getOutlookLabels(
