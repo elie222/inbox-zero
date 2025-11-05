@@ -234,6 +234,66 @@ describe.skipIf(!RUN_E2E_TESTS)("Microsoft Outlook Drafting E2E Tests", () => {
         }
       }
     }, 30_000);
+
+    test("should handle draft updates without change key errors", async () => {
+      if (!provider || !emailAccount) {
+        console.log("   ⚠️  Provider not initialized, skipping test");
+        return;
+      }
+
+      const message = await loadReplySourceMessage();
+      if (!message) {
+        console.log(
+          "   ⚠️  No replyable message available, skipping change key test",
+        );
+        return;
+      }
+
+      const draftContent = `Change key test draft ${Date.now()}`;
+
+      try {
+        // This should work without throwing a change key error
+        const draftResult = await provider.draftEmail(
+          message,
+          {
+            content: draftContent,
+          },
+          emailAccount.email,
+        );
+
+        expect(draftResult.draftId).toBeDefined();
+        expect(draftResult.draftId).not.toBe("");
+        createdDraftIds.push(draftResult.draftId);
+
+        console.log(
+          "   ✅ Draft created successfully without change key error",
+          {
+            draftId: draftResult.draftId,
+          },
+        );
+      } catch (error) {
+        const errorMessage =
+          error instanceof Error ? error.message : String(error);
+
+        // Check if this is the exact change key error we're trying to fix
+        if (
+          errorMessage.includes(
+            "change key passed in the request does not match the current change key",
+          )
+        ) {
+          console.error(
+            "   ❌ Reproduced change key error! This confirms the bug exists.",
+            {
+              error: errorMessage,
+            },
+          );
+          throw error; // Fail the test to show the bug
+        }
+
+        // Re-throw other errors
+        throw error;
+      }
+    }, 30_000);
   });
 
   async function loadReplySourceMessage(): Promise<ParsedMessage | null> {
