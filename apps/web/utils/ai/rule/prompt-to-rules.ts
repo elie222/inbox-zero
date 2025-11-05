@@ -103,7 +103,7 @@ IMPORTANT: You must return a JSON object.
     <output>
       {
         "rules": [{
-          "name": Forward Urgent"
+          "name": "Forward Urgent",
           "condition": {
             "aiInstructions": "Apply this rule to emails mentioning system outages or critical issues"
           },
