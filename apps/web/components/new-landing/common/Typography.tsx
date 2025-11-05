@@ -52,7 +52,7 @@ export function Paragraph({
   className,
   variant = "default",
 }: ParagraphProps) {
-  const paragraphStyles = cva("", {
+  const paragraphStyles = cva("text-sm md:text-base", {
     variants: {
       variant: {
         default: "text-[#848484]",
