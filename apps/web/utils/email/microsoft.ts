@@ -1256,7 +1256,7 @@ export class OutlookProvider implements EmailProvider {
         id: options.historyId?.toString() || "0",
         conversationId: options.startHistoryId?.toString() || null,
       },
-      logger,
+      logger: options.logger,
     });
   }
 
