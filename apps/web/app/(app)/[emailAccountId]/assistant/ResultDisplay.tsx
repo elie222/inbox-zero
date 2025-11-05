@@ -33,18 +33,22 @@ export function ResultsDisplay({ results }: { results: RunRulesResult[] }) {
     },
   );
 
-  return sortedBatches.map(([date, batchResults], batchIndex) => (
-    <div key={date}>
-      {batchIndex === 1 && sortedBatches.length > 1 && (
-        <div className="mb-1 text-xs text-muted-foreground">Previous:</div>
-      )}
-      <div className="flex gap-1">
-        {batchResults.map((result, resultIndex) => (
-          <ResultDisplay key={`${date}-${resultIndex}`} result={result} />
-        ))}
-      </div>
+  return (
+    <div className="flex flex-col gap-2">
+      {sortedBatches.map(([date, batchResults], batchIndex) => (
+        <div key={date}>
+          {batchIndex === 1 && sortedBatches.length > 1 && (
+            <div className="my-1 text-xs text-muted-foreground">Previous:</div>
+          )}
+          <div className="flex gap-1">
+            {batchResults.map((result, resultIndex) => (
+              <ResultDisplay key={`${date}-${resultIndex}`} result={result} />
+            ))}
+          </div>
+        </div>
+      ))}
     </div>
-  ));
+  );
 }
 
 function ResultDisplay({ result }: { result: RunRulesResult }) {

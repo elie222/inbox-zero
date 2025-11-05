@@ -70,6 +70,7 @@ export function isRetryableError(errorInfo: ErrorInfo): {
   retryable: boolean;
   isRateLimit: boolean;
   isServerError: boolean;
+  isFailedPrecondition: boolean;
 } {
   const { status, reason, errorMessage } = errorInfo;
 
@@ -90,10 +91,16 @@ export function isRetryableError(errorInfo: ErrorInfo): {
     status === 504 ||
     /502|503|504|server error|temporarily unavailable/i.test(errorMessage);
 
+  const isFailedPrecondition =
+    status === 400 &&
+    (String(reason).toLowerCase() === "failedprecondition" ||
+      /precondition check failed/i.test(errorMessage));
+
   return {
-    retryable: isRateLimit || isServerError,
+    retryable: isRateLimit || isServerError || isFailedPrecondition,
     isRateLimit,
     isServerError,
+    isFailedPrecondition,
   };
 }
 
@@ -103,6 +110,7 @@ export function isRetryableError(errorInfo: ErrorInfo): {
 export function calculateRetryDelay(
   isRateLimit: boolean,
   isServerError: boolean,
+  isFailedPrecondition: boolean,
   attemptNumber: number,
   retryAfterHeader?: string,
   errorMessage?: string,
@@ -146,6 +154,11 @@ export function calculateRetryDelay(
     return 30_000;
   }
 
+  if (isFailedPrecondition) {
+    // Short exponential backoff for transient precondition failures: 1s, 2s, 4s, 8s, 10s
+    return Math.min(1000 * 2 ** (attemptNumber - 1), 10_000);
+  }
+
   return 0;
 }
 
@@ -162,7 +175,7 @@ export async function withGmailRetry<T>(
     retries: maxRetries,
     onFailedAttempt: async (error) => {
       const errorInfo = extractErrorInfo(error);
-      const { retryable, isRateLimit, isServerError } =
+      const { retryable, isRateLimit, isServerError, isFailedPrecondition } =
         isRetryableError(errorInfo);
 
       if (!retryable) {
@@ -186,6 +199,7 @@ export async function withGmailRetry<T>(
       const delayMs = calculateRetryDelay(
         isRateLimit,
         isServerError,
+        isFailedPrecondition,
         error.attemptNumber,
         retryAfterHeader,
         errorInfo.errorMessage,
@@ -198,6 +212,7 @@ export async function withGmailRetry<T>(
         status: errorInfo.status,
         isRateLimit,
         isServerError,
+        isFailedPrecondition,
       });
 
       // Apply the custom delay

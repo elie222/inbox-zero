@@ -119,7 +119,10 @@ export async function validateWebhookAccount(
   const userHasAiAccess = hasAiAccess(premium.tier, emailAccount.user.aiApiKey);
 
   if (!userHasAiAccess) {
-    logger.trace("Does not have ai access");
+    logger.info("Does not have ai access - unwatching", {
+      tier: premium.tier,
+      hasApiKey: !!emailAccount.user.aiApiKey,
+    });
     await unwatchEmails({
       emailAccountId: emailAccount.id,
       provider,
@@ -130,7 +133,7 @@ export async function validateWebhookAccount(
 
   const hasAutomationRules = emailAccount.rules.length > 0;
   if (!hasAutomationRules) {
-    logger.trace("Has no rules enabled");
+    logger.info("Has no rules enabled");
     return { success: false, response: NextResponse.json({ ok: true }) };
   }
 

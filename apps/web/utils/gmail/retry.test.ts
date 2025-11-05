@@ -90,18 +90,32 @@ describe("Gmail retry helpers", () => {
       expect(result.isRateLimit).toBe(false);
       expect(result.isServerError).toBe(false);
     });
+
+    it("should identify failedPrecondition as retryable", () => {
+      const errorInfo = {
+        status: 400,
+        reason: "failedPrecondition",
+        errorMessage: "Precondition check failed.",
+      };
+      const result = isRetryableError(errorInfo);
+
+      expect(result.retryable).toBe(true);
+      expect(result.isRateLimit).toBe(false);
+      expect(result.isServerError).toBe(false);
+      expect(result.isFailedPrecondition).toBe(true);
+    });
   });
 
   describe("calculateRetryDelay", () => {
     it("should return 30 seconds for rate limit errors", () => {
-      const delay = calculateRetryDelay(true, false, 1);
+      const delay = calculateRetryDelay(true, false, false, 1);
       expect(delay).toBe(30_000);
     });
 
     it("should use exponential backoff for server errors", () => {
-      expect(calculateRetryDelay(false, true, 1)).toBe(5000); // 5s
-      expect(calculateRetryDelay(false, true, 2)).toBe(10_000); // 10s
-      expect(calculateRetryDelay(false, true, 3)).toBe(20_000); // 20s
+      expect(calculateRetryDelay(false, true, false, 1)).toBe(5000); // 5s
+      expect(calculateRetryDelay(false, true, false, 2)).toBe(10_000); // 10s
+      expect(calculateRetryDelay(false, true, false, 3)).toBe(20_000); // 20s
     });
 
     it("should use fallback delay when retry time is in the past", () => {
@@ -111,6 +125,7 @@ describe("Gmail retry helpers", () => {
       // Should fall back to 30s for rate limit
       const delay = calculateRetryDelay(
         true,
+        false,
         false,
         1,
         undefined,
@@ -124,7 +139,7 @@ describe("Gmail retry helpers", () => {
       const pastDate = new Date(Date.now() - 5000).toUTCString();
 
       // Should fall back to exponential backoff for server error
-      const delay = calculateRetryDelay(false, true, 2, pastDate);
+      const delay = calculateRetryDelay(false, true, false, 2, pastDate);
       expect(delay).toBe(10_000); // 2nd attempt = 10s
     });
 
@@ -135,12 +150,19 @@ describe("Gmail retry helpers", () => {
       const delay = calculateRetryDelay(
         true,
         false,
+        false,
         1,
         undefined,
         errorMessage,
       );
       expect(delay).toBeGreaterThan(14_000); // Should be ~15s
       expect(delay).toBeLessThan(16_000);
+    });
+
+    it("should use short backoff for failed precondition", () => {
+      expect(calculateRetryDelay(false, false, true, 1)).toBe(1000);
+      expect(calculateRetryDelay(false, false, true, 3)).toBe(4000);
+      expect(calculateRetryDelay(false, false, true, 5)).toBe(10_000);
     });
   });
 
