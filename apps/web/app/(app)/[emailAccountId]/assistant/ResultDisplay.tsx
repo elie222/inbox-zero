@@ -34,9 +34,9 @@ export function ResultsDisplay({ results }: { results: RunRulesResult[] }) {
   );
 
   return (
-    <div className="flex flex-col gap-1">
+    <div className="flex flex-col gap-2">
       {sortedBatches.map(([date, batchResults], batchIndex) => (
-        <div key={date} className="gap-1">
+        <div key={date}>
           {batchIndex === 1 && sortedBatches.length > 1 && (
             <div className="my-1 text-xs text-muted-foreground">Previous:</div>
           )}
