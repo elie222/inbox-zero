@@ -2,7 +2,6 @@
 
 import clsx from "clsx";
 import Image from "next/image";
-import { cva } from "class-variance-authority";
 import { Section } from "@/components/new-landing/common/Section";
 import { Card, CardContent } from "@/components/new-landing/common/Card";
 import { Paragraph } from "@/components/new-landing/common/Typography";
@@ -214,34 +213,36 @@ function TestimonialCard({
   className?: string;
   variant?: "default" | "featured";
 }) {
-  const testimonialCardBody = cva("", {
-    variants: {
-      variant: {
-        default: "text-gray-500",
-        featured:
-          "text-gray-700 text-lg font-semibold leading-7 tracking-tight",
-      },
-    },
-  });
-
   return (
     <Card key={testimonial.author.handle} className={className}>
       <CardContent>
-        <p className={testimonialCardBody({ variant })}>{testimonial.body}</p>
+        <Paragraph
+          variant={
+            variant === "featured"
+              ? "testimonial-body-featured"
+              : "testimonial-body"
+          }
+        >
+          {testimonial.body}
+        </Paragraph>
       </CardContent>
-      <CardContent className="border-t border-[#E7E7E780] flex items-center justify-between">
+      <CardContent className="border-t border-[#F3F3F3] flex items-center justify-between">
         <div className="flex items-center gap-4">
           <Image
-            className="h-10 w-10 rounded-full bg-gray-50 border border-[#E7E7E780]"
+            className="size-14 md:size-10 rounded-full bg-gray-50 border-2 border-[#E3E3E3]"
             src={testimonial.author.imageUrl}
             alt=""
-            width={40}
-            height={40}
+            width={100}
+            height={100}
           />
           <div className="text-left">
-            <p className="font-semibold">{testimonial.author.name}</p>
+            <Paragraph variant="testimonial-author-name">
+              {testimonial.author.name}
+            </Paragraph>
             {testimonial.author.handle ? (
-              <Paragraph>{testimonial.author.handle}</Paragraph>
+              <Paragraph variant="testimonial-author-handle">
+                {testimonial.author.handle}
+              </Paragraph>
             ) : undefined}
           </div>
         </div>

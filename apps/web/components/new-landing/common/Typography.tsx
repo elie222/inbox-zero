@@ -43,7 +43,13 @@ export function Subheading({ children, className }: SubheadingProps) {
 
 interface ParagraphProps {
   children: React.ReactNode;
-  variant?: "default" | "light";
+  variant?:
+    | "default"
+    | "light"
+    | "testimonial-body"
+    | "testimonial-body-featured"
+    | "testimonial-author-name"
+    | "testimonial-author-handle";
   className?: string;
 }
 
@@ -52,11 +58,17 @@ export function Paragraph({
   className,
   variant = "default",
 }: ParagraphProps) {
-  const paragraphStyles = cva("text-sm md:text-base", {
+  const paragraphStyles = cva("", {
     variants: {
       variant: {
-        default: "text-[#848484]",
-        light: "text-gray-400",
+        default: "text-sm md:text-base text-[#848484]",
+        light: "text-sm md:text-base text-gray-400",
+        "testimonial-body": "text-lg md:text-base text-[#848484] text-gray-500",
+        "testimonial-body-featured":
+          "text-lg md:text-base text-[#848484] text-gray-700 text-lg font-semibold leading-7 tracking-tight",
+        "testimonial-author-name":
+          "font-semibold text-lg md:text-base text-[#3D3D3D]",
+        "testimonial-author-handle": "text-lg md:text-base text-[#848484]",
       },
     },
   });

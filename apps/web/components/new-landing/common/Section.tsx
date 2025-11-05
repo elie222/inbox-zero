@@ -41,7 +41,7 @@ export function Section({
   });
 
   return (
-    <section className="py-16 text-center">
+    <section className="py-6 md:py-16 text-center">
       {variant === "hero" && title ? (
         <Heading className={titleStyles({ wrap })}>{title}</Heading>
       ) : title ? (

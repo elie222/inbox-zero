@@ -52,7 +52,7 @@ export function Awards() {
       <div className="mt-20 gap-x-5 gap-y-20 lg:gap-y-0 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4">
         {awards.map((award) => (
           <CardWrapper size="sm" key={award.title}>
-            <Card className="gap-3 h-full relative pt-32 text-center">
+            <Card className="gap-3 h-full relative pt-24 text-center">
               <CardContent>
                 <Image
                   className={cn(
@@ -64,8 +64,12 @@ export function Awards() {
                   width={award.imageSize || defaultAwardImageSize}
                   height={award.imageSize || defaultAwardImageSize}
                 />
-                <p className="text-sm font-bold text-gray-900">{award.title}</p>
-                <Paragraph className="text-sm">{award.description}</Paragraph>
+                <p className="text-base  font-bold text-gray-900">
+                  {award.title}
+                </p>
+                <Paragraph className="text-sm mt-4">
+                  {award.description}
+                </Paragraph>
               </CardContent>
             </Card>
           </CardWrapper>

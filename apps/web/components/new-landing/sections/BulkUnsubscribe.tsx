@@ -9,7 +9,7 @@ export function BulkUnsubscribe() {
       subtitle="See which emails you never read, and one-click unsubscribe and archive them."
     >
       <div className="flex justify-center items-center">
-        <CardWrapper>
+        <CardWrapper size="xs">
           <Image
             className="hidden md:block"
             src="/images/new-landing/bulk-unsubscribe.svg"
