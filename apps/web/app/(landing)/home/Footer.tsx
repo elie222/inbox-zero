@@ -15,7 +15,11 @@ const navigation = {
     { name: "Clean your inbox", href: "/clean-inbox" },
     { name: "Cold Email Blocker", href: "/block-cold-emails" },
     { name: "Email Analytics", href: "/email-analytics" },
-    { name: "Open Source", href: "/github", target: "_blank" },
+    {
+      name: "Open Source",
+      href: (process.env.NEXT_PUBLIC_GITHUB_URL as string) || "#",
+      target: "_blank",
+    },
   ],
   useCases: [
     { name: "Founder", href: "/founders" },
@@ -34,14 +38,28 @@ const navigation = {
   ],
   support: [
     { name: "Pricing", href: "/#pricing" },
-    { name: "Contact", href: "mailto:elie@getinboxzero.com", target: "_blank" },
     {
-      name: "Documentation",
-      href: "https://docs.getinboxzero.com",
+      name: "Contact",
+      href: process.env.NEXT_PUBLIC_CONTACT_EMAIL
+        ? `mailto:${process.env.NEXT_PUBLIC_CONTACT_EMAIL}`
+        : "#",
       target: "_blank",
     },
-    { name: "Feature Requests", href: "/feature-requests", target: "_blank" },
-    { name: "Changelog", href: "/changelog", target: "_blank" },
+    {
+      name: "Documentation",
+      href: (process.env.NEXT_PUBLIC_DOCS_URL as string) || "#",
+      target: "_blank",
+    },
+    {
+      name: "Feature Requests",
+      href: (process.env.NEXT_PUBLIC_FEATURE_REQUESTS_URL as string) || "#",
+      target: "_blank",
+    },
+    {
+      name: "Changelog",
+      href: (process.env.NEXT_PUBLIC_CHANGELOG_URL as string) || "#",
+      target: "_blank",
+    },
     {
       name: "Status",
       href: "https://inbox-zero.openstatus.dev/",
@@ -49,12 +67,28 @@ const navigation = {
     },
   ],
   company: [
-    { name: "Affiliates", href: "/affiliates", target: "_blank" },
+    {
+      name: "Affiliates",
+      href: (process.env.NEXT_PUBLIC_AFFILIATES_URL as string) || "#",
+      target: "_blank",
+    },
     { name: "Blog", href: "/blog" },
     { name: "Case Studies", href: "/case-studies" },
-    { name: "Twitter", href: "/twitter", target: "_blank" },
-    { name: "GitHub", href: "/github", target: "_blank" },
-    { name: "Discord", href: "/discord", target: "_blank" },
+    {
+      name: "Twitter",
+      href: (process.env.NEXT_PUBLIC_TWITTER_URL as string) || "#",
+      target: "_blank",
+    },
+    {
+      name: "GitHub",
+      href: (process.env.NEXT_PUBLIC_GITHUB_URL as string) || "#",
+      target: "_blank",
+    },
+    {
+      name: "Discord",
+      href: (process.env.NEXT_PUBLIC_DISCORD_URL as string) || "#",
+      target: "_blank",
+    },
     { name: "OSS Friends", href: "/oss-friends" },
     { name: "Email Blaster", href: "/game" },
   ],
@@ -63,7 +97,7 @@ const navigation = {
     { name: "Privacy", href: "/privacy" },
     {
       name: "SOC2 Compliant",
-      href: "https://security.getinboxzero.com",
+      href: (process.env.NEXT_PUBLIC_SECURITY_URL as string) || "#",
       target: "_blank",
     },
     { name: "Sitemap", href: "/sitemap.xml" },
@@ -71,7 +105,7 @@ const navigation = {
   social: [
     {
       name: "Twitter",
-      href: "/twitter",
+      href: (process.env.NEXT_PUBLIC_TWITTER_URL as string) || "#",
       target: "_blank",
       icon: (props: SVGProps<SVGSVGElement>) => (
         <svg fill="currentColor" viewBox="0 0 24 24" {...props}>
@@ -82,7 +116,7 @@ const navigation = {
     },
     {
       name: "GitHub",
-      href: "/github",
+      href: (process.env.NEXT_PUBLIC_GITHUB_URL as string) || "#",
       target: "_blank",
       icon: (props: SVGProps<SVGSVGElement>) => (
         <svg fill="currentColor" viewBox="0 0 24 24" {...props}>
@@ -97,7 +131,7 @@ const navigation = {
     },
     {
       name: "Discord",
-      href: "/discord",
+      href: (process.env.NEXT_PUBLIC_DISCORD_URL as string) || "#",
       target: "_blank",
       icon: (props: SVGProps<SVGSVGElement>) => (
         <svg width="100" height="100" viewBox="0 0 48 48" {...props}>

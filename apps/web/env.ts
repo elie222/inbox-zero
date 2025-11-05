@@ -101,7 +101,7 @@ export const env = createEnv({
     RESEND_FROM_EMAIL: z
       .string()
       .optional()
-      .default("Inbox Zero <updates@transactional.getinboxzero.com>"),
+      .default("Inbox Zero <noreply@example.com>"),
     CRON_SECRET: z.string().optional(),
     LOOPS_API_SECRET: z.string().optional(),
     FB_CONVERSION_API_ACCESS_TOKEN: z.string().optional(),
@@ -158,7 +158,7 @@ export const env = createEnv({
     NEXT_PUBLIC_SUPPORT_EMAIL: z
       .string()
       .optional()
-      .default("elie@getinboxzero.com"),
+      .default("admin@sudiptadhara.in"),
     NEXT_PUBLIC_GTM_ID: z.string().optional(),
     NEXT_PUBLIC_CRISP_WEBSITE_ID: z.string().optional(),
     NEXT_PUBLIC_WELCOME_UPGRADE_ENABLED: z.coerce
@@ -186,6 +186,19 @@ export const env = createEnv({
       .default(false),
     // global client-side privacy flag
     NEXT_PUBLIC_PRIVACY_MODE: z.coerce.boolean().optional().default(false),
+    // External links (optional)
+    NEXT_PUBLIC_EXTENSION_URL: z.string().optional(),
+    NEXT_PUBLIC_SALES_URL: z.string().optional(),
+    NEXT_PUBLIC_DOCS_URL: z.string().optional(),
+    NEXT_PUBLIC_SECURITY_URL: z.string().optional(),
+    NEXT_PUBLIC_TWITTER_URL: z.string().optional(),
+    NEXT_PUBLIC_GITHUB_URL: z.string().optional(),
+    NEXT_PUBLIC_DISCORD_URL: z.string().optional(),
+    NEXT_PUBLIC_LINKEDIN_URL: z.string().optional(),
+    NEXT_PUBLIC_FEATURE_REQUESTS_URL: z.string().optional(),
+    NEXT_PUBLIC_CHANGELOG_URL: z.string().optional(),
+    NEXT_PUBLIC_AFFILIATES_URL: z.string().optional(),
+    NEXT_PUBLIC_CONTACT_EMAIL: z.string().optional(),
   },
   // For Next.js >= 13.4.4, you only need to destructure client variables:
   experimental__runtimeEnv: {
@@ -243,5 +256,19 @@ export const env = createEnv({
     NEXT_PUBLIC_DISABLE_REFERRAL_SIGNATURE:
       process.env.NEXT_PUBLIC_DISABLE_REFERRAL_SIGNATURE,
     NEXT_PUBLIC_PRIVACY_MODE: process.env.NEXT_PUBLIC_PRIVACY_MODE,
+    // External links (optional)
+    NEXT_PUBLIC_EXTENSION_URL: process.env.NEXT_PUBLIC_EXTENSION_URL,
+    NEXT_PUBLIC_SALES_URL: process.env.NEXT_PUBLIC_SALES_URL,
+    NEXT_PUBLIC_DOCS_URL: process.env.NEXT_PUBLIC_DOCS_URL,
+    NEXT_PUBLIC_SECURITY_URL: process.env.NEXT_PUBLIC_SECURITY_URL,
+    NEXT_PUBLIC_TWITTER_URL: process.env.NEXT_PUBLIC_TWITTER_URL,
+    NEXT_PUBLIC_GITHUB_URL: process.env.NEXT_PUBLIC_GITHUB_URL,
+    NEXT_PUBLIC_DISCORD_URL: process.env.NEXT_PUBLIC_DISCORD_URL,
+    NEXT_PUBLIC_LINKEDIN_URL: process.env.NEXT_PUBLIC_LINKEDIN_URL,
+    NEXT_PUBLIC_FEATURE_REQUESTS_URL:
+      process.env.NEXT_PUBLIC_FEATURE_REQUESTS_URL,
+    NEXT_PUBLIC_CHANGELOG_URL: process.env.NEXT_PUBLIC_CHANGELOG_URL,
+    NEXT_PUBLIC_AFFILIATES_URL: process.env.NEXT_PUBLIC_AFFILIATES_URL,
+    NEXT_PUBLIC_CONTACT_EMAIL: process.env.NEXT_PUBLIC_CONTACT_EMAIL,
   },
 });

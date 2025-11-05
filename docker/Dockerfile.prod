@@ -66,8 +66,8 @@ ENV QSTASH_NEXT_SIGNING_KEY="dummy_qstash_next_key_for_build"
 # Increase Node.js memory limit for build (helps prevent OOM kills)
 ENV NODE_OPTIONS="--max-old-space-size=4096"
 
-# Ensure prisma generate runs
-RUN pnpm --filter inbox-zero-ai exec -- next build
+# Build web app (skip prisma migrate during image build for parity)
+RUN SKIP_PRISMA_MIGRATE=1 pnpm --filter inbox-zero-ai run build
 
 EXPOSE 3000
 

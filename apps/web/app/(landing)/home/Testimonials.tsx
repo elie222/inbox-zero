@@ -25,7 +25,7 @@ const featuredTestimonial = {
 };
 
 const stevenTestimonial: Testimonial = {
-  body: "Love this new open-source app by @elie2222: getinboxzero.com",
+  body: "Love this new open-source app by @elie2222",
   author: {
     name: "Steven Tey",
     handle: "Dub",

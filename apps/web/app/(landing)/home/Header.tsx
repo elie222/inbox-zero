@@ -30,7 +30,11 @@ import { EXTENSION_URL } from "@/utils/config";
 
 const navigation = [
   { name: "Enterprise", href: "/enterprise" },
-  { name: "Open Source", href: "/github", target: "_blank" as const },
+  {
+    name: "Open Source",
+    href: (process.env.NEXT_PUBLIC_GITHUB_URL as string) || "#",
+    target: "_blank" as const,
+  },
   {
     name: "Extension",
     href: EXTENSION_URL,

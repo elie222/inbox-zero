@@ -31,7 +31,7 @@ registry.registerPath({
       groupId: z
         .string()
         .describe(
-          "You can find the group id by going to `https://www.getinboxzero.com/automation?tab=groups`, clicking `Matching Emails`, and then copying the id from the URL.",
+          "You can find the group id by going to your app's Automation page, clicking `Matching Emails`, and then copying the id from the URL.",
         ),
     }),
     query: groupEmailsQuerySchema,
@@ -72,10 +72,7 @@ export async function GET(request: NextRequest) {
       ...(envOrigin && ![requestOrigin, customHost].includes(envOrigin)
         ? [{ url: `${envOrigin}/api/v1`, description: "Configured host" }]
         : []),
-      {
-        url: "https://getinboxzero.com/api/v1",
-        description: "Production server",
-      },
+      ...(envOrigin ? [] : []),
     ],
     security: [{ ApiKeyAuth: [] }],
   });

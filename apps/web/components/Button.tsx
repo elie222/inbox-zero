@@ -103,9 +103,19 @@ const BasicLink = (props: {
     ...rest
   } = props;
 
+  // Disable Next.js prefetch for external links or when opening a new tab.
+  // This avoids RSC prefetch hitting redirect rules and causing CORS/preflight errors.
+  const shouldDisablePrefetch = !!target || href.startsWith("http");
+
   return (
     // @ts-ignore
-    <Link href={href} target={target} rel={rel} {...rest}>
+    <Link
+      href={href}
+      target={target}
+      rel={rel}
+      prefetch={shouldDisablePrefetch ? false : undefined}
+      {...rest}
+    >
       {children}
     </Link>
   );

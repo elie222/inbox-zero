@@ -58,6 +58,7 @@ import { ReferralDialog } from "@/components/ReferralDialog";
 import { isGoogleProvider } from "@/utils/email/provider-types";
 import { NavUser } from "@/components/NavUser";
 import { PremiumExpiredCard } from "@/components/PremiumExpiredCard";
+import { env } from "@/env";
 
 type NavItem = {
   name: string;
@@ -240,7 +241,10 @@ export function SideNav({ ...props }: React.ComponentProps<typeof Sidebar>) {
         </ClientOnly>
 
         <SidebarMenuButton asChild>
-          <Link href="https://docs.getinboxzero.com" target="_blank">
+          <Link
+            href={(process.env.NEXT_PUBLIC_DOCS_URL as string) || "#"}
+            target="_blank"
+          >
             <BookIcon className="size-4" />
             <span className="font-semibold">Help Center</span>
           </Link>

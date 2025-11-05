@@ -23,7 +23,10 @@ export function CTAButtons() {
         <Button
           size="2xl"
           color="transparent"
-          link={{ href: "/sales", target: "_blank" }}
+          link={{
+            href: (process.env.NEXT_PUBLIC_SALES_URL as string) || "#",
+            target: "_blank",
+          }}
           onClick={() => {
             posthog.capture("Clicked talk to sales");
           }}

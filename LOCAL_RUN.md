@@ -344,7 +344,7 @@ To access premium features:
 
 ## 🔗 Useful Links
 
-- **Documentation**: https://docs.getinboxzero.com
+- **Documentation**: <your-docs-url>
 - **Main README**: [README.md](README.md)
 - **Architecture**: [ARCHITECTURE.md](ARCHITECTURE.md)
 - **Contributing**: [AGENTS.md](AGENTS.md)
@@ -377,10 +377,9 @@ To access premium features:
 
 - Check the main [README.md](README.md) for detailed setup
 - View [ARCHITECTURE.md](ARCHITECTURE.md) to understand the codebase
-- Join the [Discord](https://www.getinboxzero.com/discord) community
+- Join the community
 - Open an [Issue](https://github.com/elie222/inbox-zero/issues) on GitHub
 
 ---
 
 **Last Updated**: October 29, 2025
-

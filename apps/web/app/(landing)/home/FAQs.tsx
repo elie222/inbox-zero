@@ -15,7 +15,11 @@ const faqs = [
       <>
         Yes, if you don{"'"}t think we provided you with value send us an{" "}
         <a
-          href="mailto:elie@getinboxzero.com"
+          href={
+            process.env.NEXT_PUBLIC_CONTACT_EMAIL
+              ? `mailto:${process.env.NEXT_PUBLIC_CONTACT_EMAIL}`
+              : "#"
+          }
           target="_blank"
           className="font-semibold hover:underline"
           rel="noreferrer"
@@ -32,7 +36,11 @@ const faqs = [
       <>
         Yes! Email{" "}
         <a
-          href="mailto:elie@getinboxzero.com"
+          href={
+            process.env.NEXT_PUBLIC_CONTACT_EMAIL
+              ? `mailto:${process.env.NEXT_PUBLIC_CONTACT_EMAIL}`
+              : "#"
+          }
           target="_blank"
           className="font-semibold hover:underline"
           rel="noreferrer"

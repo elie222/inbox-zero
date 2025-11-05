@@ -1,15 +1,15 @@
-[![](apps/web/app/opengraph-image.png)](https://www.getinboxzero.com)
+[![](apps/web/app/opengraph-image.png)](#)
 
 <p align="center">
-  <a href="https://www.getinboxzero.com">
+  <a href="#">
     <h1 align="center">Inbox Zero - your 24/7 AI email assistant</h1>
   </a>
   <p align="center">
     Organizes your inbox, pre-drafts replies, and tracks follow‑ups - so you reach inbox zero faster. Open source alternative to Fyxer, but more customisable and secure.
     <br />
-    <a href="https://www.getinboxzero.com">Website</a>
+    <a href="#">Website</a>
     ·
-    <a href="https://www.getinboxzero.com/discord">Discord</a>
+    <a href="#">Discord</a>
     ·
     <a href="https://github.com/elie222/inbox-zero/issues">Issues</a>
   </p>
@@ -44,7 +44,7 @@ To help you spend less time in your inbox, so you can focus on what matters.
 - **Cold Email Blocker:** Auto‑block cold emails.
 - **Email Analytics:** Track your activity and trends over time.
 
-Learn more in our [docs](https://docs.getinboxzero.com).
+Learn more in our docs.
 
 ## Feature Screenshots
 
@@ -73,11 +73,11 @@ Learn more in our [docs](https://docs.getinboxzero.com).
 
 ## Feature Requests
 
-To request a feature open a [GitHub issue](https://github.com/elie222/inbox-zero/issues), or join our [Discord](https://www.getinboxzero.com/discord).
+To request a feature open a [GitHub issue](https://github.com/elie222/inbox-zero/issues).
 
 ## Getting Started for Developers
 
-We offer a hosted version of Inbox Zero at [https://getinboxzero.com](https://getinboxzero.com). To self-host follow the steps below.
+To self-host follow the steps below.
 
 ### Self-Hosting with Docker on VPS
 
@@ -325,7 +325,7 @@ Follow instructions [here](https://developers.google.com/gmail/api/guides/push).
 3. [Grant publish rights on your topic](https://developers.google.com/gmail/api/guides/push#grant_publish_rights_on_your_topic)
 
 Set env var `GOOGLE_PUBSUB_TOPIC_NAME`.
-When creating the subscription select Push and the url should look something like: `https://www.getinboxzero.com/api/google/webhook?token=TOKEN` or `https://abc.ngrok-free.app/api/google/webhook?token=TOKEN` where the domain is your domain. Set `GOOGLE_PUBSUB_VERIFICATION_TOKEN` in your `.env` file to be the value of `TOKEN`.
+When creating the subscription select Push and the url should look like: `https://<your-domain>/api/google/webhook?token=TOKEN` where the domain is your domain. Set `GOOGLE_PUBSUB_VERIFICATION_TOKEN` in your `.env` file to be the value of `TOKEN`.
 
 To run in development ngrok can be helpful:
 
@@ -410,6 +410,6 @@ For more detailed Docker build instructions and security considerations, see [do
 ## Contributing to the project
 
 You can view open tasks in our [GitHub Issues](https://github.com/elie222/inbox-zero/issues).
-Join our [Discord](https://www.getinboxzero.com/discord) to discuss tasks and check what's being worked on.
+Join our community to discuss tasks and check what's being worked on.
 
 [ARCHITECTURE.md](./ARCHITECTURE.md) explains the architecture of the project (LLM generated).
