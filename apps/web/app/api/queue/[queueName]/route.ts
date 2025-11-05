@@ -86,6 +86,34 @@ async function handleQueueJob(
   return await handler(body);
 }
 
-// Export with QStash signature verification for QStash requests
-// and withError middleware for consistent error handling
-export const POST = verifySignatureAppRouter(withError(handleQueueJob));
+const queueRouteHandler = async (
+  request: NextRequest,
+  context: { params: Promise<Record<string, string>> },
+): Promise<NextResponse> => {
+  // Internal Redis requests bypass QStash verification
+  if (
+    env.QUEUE_SYSTEM === "redis" &&
+    (await validateInternalRequest(request))
+  ) {
+    return handleQueueJob(request, context);
+  }
+
+  // QStash requests: apply signature verification
+  const response = await verifySignatureAppRouter(async (req: Request) => {
+    const result = await handleQueueJob(req as NextRequest, context);
+    return new Response(result.body, {
+      status: result.status,
+      statusText: result.statusText,
+      headers: result.headers,
+    });
+  })(request);
+
+  return response instanceof NextResponse
+    ? response
+    : NextResponse.json(await response.json(), {
+        status: response.status,
+        headers: response.headers,
+      });
+};
+
+export const POST = withError(queueRouteHandler);

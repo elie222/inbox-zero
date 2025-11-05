@@ -54,19 +54,22 @@ console.log("Bulk jobs enqueued:", jobs.length);
 
 **How workers run**
 
-- Development: workers auto-start inside the Next.js server via `apps/web/instrumentation.ts` when `NODE_ENV=development`.
-- Production: run a separate worker process using the standalone build output:
+- **Development**: workers can start in two ways:
+  1. **Within Next.js server**: Auto-start inside the Next.js server via `apps/web/instrumentation.ts` when both `NODE_ENV=development` and `ENABLE_WORKER_QUEUES=true` are set.
+  2. **Separate worker container**: Use the `worker` service in `docker-compose.yml` which runs `worker.js` as a separate container (keep `ENABLE_WORKER_QUEUES=false` or unset).
+- **Production**: workers always run as a separate process/container (never within Next.js):
+  - **Standalone build**: Run a separate worker process using the standalone build output:
+    ```bash
+    # Build app and copy worker into standalone output
+    pnpm --filter inbox-zero-ai build
 
-```bash
-# Build app and copy worker into standalone output
-pnpm --filter inbox-zero-ai build
+    # Start Next.js (prod)
+    pnpm --filter inbox-zero-ai start:standalone
 
-# Start Next.js (prod)
-pnpm --filter inbox-zero-ai start:standalone
-
-# Start worker (separate process)
-pnpm --filter inbox-zero-ai worker
-```
+    # Start worker (separate process)
+    pnpm --filter inbox-zero-ai worker
+    ```
+  - **Docker Compose**: Use the `worker` service in `docker-compose.yml` which runs `worker.js` as a separate container.
 
 The worker process automatically:
 - Creates one worker per registered queue

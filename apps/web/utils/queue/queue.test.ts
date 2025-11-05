@@ -89,6 +89,9 @@ vi.mock("@/env", () => createEnvMock());
 
 describe("Queue System", () => {
   beforeEach(() => {
+    // Reset module cache before each test to prevent partially initialized
+    // modules from hanging subsequent tests
+    vi.resetModules();
     vi.clearAllMocks();
   });
 
