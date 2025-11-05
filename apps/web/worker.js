@@ -8,7 +8,8 @@ const path = require('path')
 const fs = require('fs')
 
 // Set up environment similar to server.js
-process.env.NODE_ENV = 'production'
+// Only set NODE_ENV if not already provided (preserve existing value)
+process.env.NODE_ENV = process.env.NODE_ENV || 'production'
 process.chdir(__dirname)
 
 // Load environment variables from .env file (same as Next.js server.js does)

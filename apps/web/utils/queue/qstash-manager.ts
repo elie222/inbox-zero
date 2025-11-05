@@ -54,6 +54,70 @@ export class QStashManager implements QueueManager {
   ): Promise<string[]> {
     const url = `${env.WEBHOOK_URL || env.NEXT_PUBLIC_BASE_URL}/api/queue/${queueName}`;
 
+    // For ai-clean queue, use per-account queues to maintain parallelism limits per account
+    // This ensures each account has its own queue with parallelism=3, preventing one account
+    // from flooding the global queue and maintaining the per-user parallelism safeguard.
+    if (queueName === "ai-clean") {
+      // Group jobs by emailAccountId (all jobs should have emailAccountId in their data)
+      const jobsByAccount = new Map<string, typeof options.jobs>();
+      for (const job of options.jobs) {
+        const emailAccountId = (job.data as { emailAccountId?: string })
+          .emailAccountId;
+        if (!emailAccountId) {
+          logger.warn(
+            "Job missing emailAccountId, skipping per-account queue grouping",
+            {
+              queueName,
+            },
+          );
+          continue;
+        }
+        const accountQueueName = `${queueName}-${emailAccountId}`;
+        if (!jobsByAccount.has(accountQueueName)) {
+          jobsByAccount.set(accountQueueName, []);
+        }
+        jobsByAccount.get(accountQueueName)!.push(job);
+      }
+
+      // Use publishToQstashQueue for each account's queue with parallelism=3
+      // First, ensure each account's queue exists with the correct parallelism
+      const client = getQstashClient();
+      const results: string[] = [];
+      for (const [accountQueueName, accountJobs] of jobsByAccount) {
+        // Create/update the queue with parallelism=3 for this account
+        const queue = client.queue({ queueName: accountQueueName });
+        await queue.upsert({ parallelism: DEFAULT_PARALLELISM });
+
+        // Enqueue all jobs for this account
+        const accountResults = await Promise.all(
+          accountJobs.map(async (job) => {
+            if (options.delay) {
+              // For delayed jobs, use publishJSON with notBefore
+              const notBefore = Math.ceil((Date.now() + options.delay) / 1000);
+              const response = await queue.enqueueJSON({
+                url,
+                body: job.data,
+                notBefore,
+                deduplicationId: job.opts?.jobId,
+              });
+              return response?.messageId || "unknown";
+            } else {
+              // For immediate jobs, use enqueueJSON
+              const response = await queue.enqueueJSON({
+                url,
+                body: job.data,
+                deduplicationId: job.opts?.jobId,
+              });
+              return response?.messageId || "unknown";
+            }
+          }),
+        );
+        results.push(...accountResults);
+      }
+      return results;
+    }
+
+    // For other queues, use the original batchJSON approach
     const items = options.jobs.map((job) => {
       const item: {
         url: string;

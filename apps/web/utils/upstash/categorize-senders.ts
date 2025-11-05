@@ -1,7 +1,10 @@
 import chunk from "lodash/chunk";
 import { deleteQueue, listQueues } from "@/utils/upstash";
 import { enqueueJob } from "@/utils/queue/queue-manager";
-import { AI_CATEGORIZE_SENDERS_QUEUE_COUNT } from "@/utils/queue/queues";
+import {
+  AI_CATEGORIZE_SENDERS_QUEUE_COUNT,
+  getQueueIndexFromEmailAccountId,
+} from "@/utils/queue/queues";
 import { env } from "@/env";
 import type { AiCategorizeSenders } from "@/app/api/user/categorize/senders/batch/handle-batch-validation";
 import { createScopedLogger } from "@/utils/logger";
@@ -27,12 +30,10 @@ const getCategorizeSendersQueueName = ({
   emailAccountId: string;
 }) => {
   if (env.QUEUE_SYSTEM === "redis") {
-    const characterCodeSum = emailAccountId
-      .split("")
-      .reduce((total, character) => total + character.charCodeAt(0), 0);
-
-    const targetQueueIndex =
-      characterCodeSum % AI_CATEGORIZE_SENDERS_QUEUE_COUNT;
+    const targetQueueIndex = getQueueIndexFromEmailAccountId(
+      emailAccountId,
+      AI_CATEGORIZE_SENDERS_QUEUE_COUNT,
+    );
 
     return `${AI_CATEGORIZE_SENDERS_PREFIX}-${targetQueueIndex}`;
   }

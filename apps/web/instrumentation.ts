@@ -13,32 +13,48 @@ export function startBullMQWorkers() {
     globalThis.__inboxZeroWorkersStarted = true;
 
     // Defer heavy imports until after env is available
-    import("@/env").then(async ({ env }) => {
-      if (env.QUEUE_SYSTEM !== "redis") return;
+    import("@/env")
+      .then(async ({ env }) => {
+        if (env.QUEUE_SYSTEM !== "redis") return;
 
-      try {
-        const [{ registerWorker }, { QUEUE_HANDLERS }] = await Promise.all([
-          import("@/utils/queue/worker"),
-          import("@/utils/queue/queues"),
-        ]);
+        try {
+          const [{ registerWorker }, { QUEUE_HANDLERS }] = await Promise.all([
+            import("@/utils/queue/worker"),
+            import("@/utils/queue/queues"),
+          ]);
 
-        const entries = Object.entries(QUEUE_HANDLERS) as Array<
-          [string, (data: unknown) => Promise<unknown>]
-        >;
-        for (const [queueName, handler] of entries) {
-          registerWorker(queueName, async (job: unknown) => {
-            try {
-              const data = (job as { data: unknown }).data;
-              await handler(data);
-            } catch (error) {
-              throw error instanceof Error
-                ? error
-                : new Error(String(error));
-            }
-          });
+          const entries = Object.entries(QUEUE_HANDLERS) as Array<
+            [string, (data: unknown) => Promise<unknown>]
+          >;
+          for (const [queueName, handler] of entries) {
+            registerWorker(queueName, async (job: unknown) => {
+              try {
+                const data = (job as { data: unknown }).data;
+                await handler(data);
+              } catch (error) {
+                throw error instanceof Error ? error : new Error(String(error));
+              }
+            });
+          }
+        } catch {
+          // Worker registration errors are logged by the worker module
         }
-      } catch (err) {}
-    });
+      })
+      .catch((error) => {
+        // biome-ignore lint/suspicious/noConsole: Required during startup before logger is available
+        console.error(
+          "[instrumentation] Failed to load environment variables during worker initialization",
+          {
+            error: error instanceof Error ? error.message : String(error),
+            stack: error instanceof Error ? error.stack : undefined,
+          },
+        );
+        // biome-ignore lint/suspicious/noConsole: Required during startup before logger is available
+        console.error(
+          "[instrumentation] This usually indicates invalid or missing environment variables. Exiting process.",
+        );
+        process.exit(1);
+      });
   }
 }
 
@@ -57,7 +73,10 @@ export function register() {
 
     // Start BullMQ workers inside the Next.js server process when enabled
     // Can be enabled via ENABLE_WORKER_QUEUES=true or automatically in development mode
-    if (process.env.NODE_ENV === "development" && process.env.ENABLE_WORKER_QUEUES === "true") {
+    if (
+      process.env.NODE_ENV === "development" &&
+      process.env.ENABLE_WORKER_QUEUES === "true"
+    ) {
       startBullMQWorkers();
     }
   }

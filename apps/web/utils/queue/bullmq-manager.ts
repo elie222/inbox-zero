@@ -7,6 +7,7 @@ import {
 } from "bullmq";
 import { env } from "@/env";
 import { createScopedLogger } from "@/utils/logger";
+import { getAiCleanQueueName } from "./queues";
 import type {
   QueueJobData,
   EnqueueOptions,
@@ -66,6 +67,63 @@ export class BullMQManager implements QueueManager {
     queueName: string,
     options: BulkEnqueueOptions,
   ): Promise<Job<T>[]> {
+    // For ai-clean queue, use hash-based distribution across multiple queues
+    // This ensures per-account parallelism limits similar to ai-categorize-senders
+    if (queueName === "ai-clean") {
+      // Group jobs by their target queue (based on emailAccountId hash)
+      const jobsByQueue = new Map<string, typeof options.jobs>();
+      for (const job of options.jobs) {
+        const emailAccountId = (job.data as { emailAccountId?: string })
+          .emailAccountId;
+        if (!emailAccountId) {
+          logger.warn(
+            "Job missing emailAccountId, skipping per-account queue grouping",
+            {
+              queueName,
+            },
+          );
+          continue;
+        }
+        const targetQueueName = getAiCleanQueueName({ emailAccountId });
+        if (!jobsByQueue.has(targetQueueName)) {
+          jobsByQueue.set(targetQueueName, []);
+        }
+        jobsByQueue.get(targetQueueName)!.push(job);
+      }
+
+      // Enqueue jobs to their respective queues
+      const allJobs: Job<T>[] = [];
+      for (const [targetQueueName, queueJobs] of jobsByQueue) {
+        const queue = this.getOrCreateQueue(targetQueueName);
+
+        const jobs = queueJobs.map((jobData) => ({
+          name: jobData.name ?? targetQueueName,
+          data: jobData.data,
+          opts: {
+            delay: options.delay,
+            attempts: options.attempts ?? DEFAULT_ATTEMPTS,
+            priority: options.priority,
+            removeOnComplete: options.removeOnComplete ?? 10,
+            removeOnFail: options.removeOnFail ?? 5,
+            jobId: jobData.opts?.jobId,
+            ...jobData.opts,
+          },
+        }));
+
+        const addedJobs = await queue.addBulk(jobs);
+        allJobs.push(...(addedJobs as Job<T>[]));
+      }
+
+      logger.info("Bulk jobs enqueued with BullMQ (distributed)", {
+        queueName,
+        jobCount: allJobs.length,
+        queuesUsed: Array.from(jobsByQueue.keys()),
+      });
+
+      return allJobs;
+    }
+
+    // For other queues, use the original single-queue approach
     const queue = this.getOrCreateQueue(queueName);
 
     const jobs = options.jobs.map((jobData) => ({

@@ -354,6 +354,17 @@ async function sendDigestEmailForAccount(emailAccountId: string) {
 
     if (Object.keys(executedRulesByRule).length === 0) {
       logger.info("No executed rules found, skipping digest email");
+      // Reset digests back to PENDING so they can be picked up again in future runs
+      await prisma.digest.updateMany({
+        where: {
+          id: {
+            in: processedDigestIds,
+          },
+        },
+        data: {
+          status: DigestStatus.PENDING,
+        },
+      });
       return {
         success: true,
         message: "No executed rules found, skipping digest email",
@@ -467,11 +478,53 @@ async function handleCleanGmailJob(data: CleanGmailJobData) {
 export const AI_CATEGORIZE_SENDERS_QUEUE_COUNT = 7;
 const AI_CATEGORIZE_SENDERS_PREFIX = "ai-categorize-senders";
 
+// Configuration for distributed AI clean queues
+export const AI_CLEAN_QUEUE_COUNT = 7;
+const AI_CLEAN_PREFIX = "ai-clean";
+
 // Helper to get the queue index from an AI categorize senders queue name
 export function getAiCategorizeSendersQueueIndex(
   queueName: string,
 ): number | null {
   if (!queueName.startsWith(`${AI_CATEGORIZE_SENDERS_PREFIX}-`)) return null;
+  const index = Number.parseInt(queueName.split("-").pop() || "", 10);
+  return Number.isNaN(index) ? null : index;
+}
+
+// Shared hashing function for queue distribution
+// Uses character code sum to consistently hash emailAccountId to a queue index
+// This ensures the same emailAccountId always maps to the same queue index
+export function getQueueIndexFromEmailAccountId(
+  emailAccountId: string,
+  queueCount: number,
+): number {
+  const characterCodeSum = emailAccountId
+    .split("")
+    .reduce((total, character) => total + character.charCodeAt(0), 0);
+
+  return characterCodeSum % queueCount;
+}
+
+// Helper to get the queue name for ai-clean jobs
+// For BullMQ: Uses hash-based distribution across fixed queues (ai-clean-0 through ai-clean-6)
+// For QStash: This function is not used; QStashManager.bulkEnqueue creates per-account queues (ai-clean-{emailAccountId})
+export function getAiCleanQueueName({
+  emailAccountId,
+}: {
+  emailAccountId: string;
+}): string {
+  // Only used for BullMQ (Redis) - hash-based distribution
+  const targetQueueIndex = getQueueIndexFromEmailAccountId(
+    emailAccountId,
+    AI_CLEAN_QUEUE_COUNT,
+  );
+
+  return `${AI_CLEAN_PREFIX}-${targetQueueIndex}`;
+}
+
+// Helper to get the queue index from an AI clean queue name
+export function getAiCleanQueueIndex(queueName: string): number | null {
+  if (!queueName.startsWith(`${AI_CLEAN_PREFIX}-`)) return null;
   const index = Number.parseInt(queueName.split("-").pop() || "", 10);
   return Number.isNaN(index) ? null : index;
 }
@@ -491,6 +544,14 @@ export const QUEUE_HANDLERS = {
   "ai-categorize-senders-4": handleCategorizeSendersJob,
   "ai-categorize-senders-5": handleCategorizeSendersJob,
   "ai-categorize-senders-6": handleCategorizeSendersJob,
+
+  "ai-clean-0": handleAiCleanJob,
+  "ai-clean-1": handleAiCleanJob,
+  "ai-clean-2": handleAiCleanJob,
+  "ai-clean-3": handleAiCleanJob,
+  "ai-clean-4": handleAiCleanJob,
+  "ai-clean-5": handleAiCleanJob,
+  "ai-clean-6": handleAiCleanJob,
 } as const;
 
 export type QueueName = keyof typeof QUEUE_HANDLERS;
@@ -501,6 +562,26 @@ export function getQueueHandler(queueName: string) {
 
   if (queueName.startsWith(`${AI_CATEGORIZE_SENDERS_PREFIX}-`)) {
     return handleCategorizeSendersJob;
+  }
+
+  // Handle ai-clean queues
+  // For BullMQ: hash-based distribution (ai-clean-0, ai-clean-1, etc.)
+  // For QStash: per-account queues (ai-clean-{emailAccountId})
+  if (queueName.startsWith(`${AI_CLEAN_PREFIX}-`)) {
+    // For BullMQ: validate queue index (0-6)
+    if (env.QUEUE_SYSTEM === "redis") {
+      const queueIndex = getAiCleanQueueIndex(queueName);
+      if (
+        queueIndex !== null &&
+        queueIndex >= 0 &&
+        queueIndex < AI_CLEAN_QUEUE_COUNT
+      ) {
+        return handleAiCleanJob;
+      }
+    } else {
+      // For QStash: accept any per-account queue (ai-clean-{emailAccountId})
+      return handleAiCleanJob;
+    }
   }
 
   return null;
@@ -518,6 +599,24 @@ export function isValidQueueName(queueName: string): boolean {
       queueIndex >= 0 &&
       queueIndex < AI_CATEGORIZE_SENDERS_QUEUE_COUNT
     );
+  }
+
+  // Allow ai-clean queues
+  // For BullMQ: hash-based distribution (ai-clean-0, ai-clean-1, etc.)
+  // For QStash: per-account queues (ai-clean-{emailAccountId})
+  if (queueName.startsWith(`${AI_CLEAN_PREFIX}-`)) {
+    if (env.QUEUE_SYSTEM === "redis") {
+      // For BullMQ: validate queue index (0-6)
+      const queueIndex = getAiCleanQueueIndex(queueName);
+      return (
+        queueIndex !== null &&
+        queueIndex >= 0 &&
+        queueIndex < AI_CLEAN_QUEUE_COUNT
+      );
+    } else {
+      // For QStash: accept any per-account queue
+      return true;
+    }
   }
 
   return false;

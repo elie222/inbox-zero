@@ -14,6 +14,7 @@ import type {
   EnqueueOptions,
   BulkEnqueueOptions,
   QueueManager,
+  QueueSystemInfo,
 } from "./types";
 
 const logger = createScopedLogger("queue");
@@ -110,11 +111,13 @@ export async function closeQueueManager(): Promise<void> {
   }
 }
 
-export function getQueueSystemInfo() {
+export function getQueueSystemInfo(): QueueSystemInfo {
+  const isRedis = env.QUEUE_SYSTEM === "redis";
   return {
     system: env.QUEUE_SYSTEM,
-    isRedis: env.QUEUE_SYSTEM === "redis",
-    isQStash: env.QUEUE_SYSTEM === "upstash",
+    supportsWorkers: isRedis,
+    supportsDelayedJobs: true,
+    supportsBulkOperations: true,
   };
 }
 
