@@ -17,7 +17,12 @@ class WorkerRegistry {
   ): Worker | null {
     if (this.workers.has(queueName)) {
       logger.warn("Worker already registered for queue", { queueName });
-      return this.workers.get(queueName)!;
+      const existingWorker = this.workers.get(queueName);
+      if (existingWorker) {
+        return existingWorker;
+      }
+      logger.error("Worker exists in map but was undefined", { queueName });
+      return null;
     }
 
     const worker = createQueueWorker(queueName, processor as JobProcessor, {

@@ -33,7 +33,7 @@ export class BullMQManager implements QueueManager {
 
     this.connection = {
       url: env.REDIS_URL,
-    } as unknown as ConnectionOptions;
+    };
   }
 
   async enqueue<T extends QueueJobData>(
@@ -57,7 +57,6 @@ export class BullMQManager implements QueueManager {
     logger.info("Job enqueued with BullMQ", {
       queueName,
       jobId: job.id,
-      data: JSON.stringify(data),
     });
 
     return job as Job<T>;
@@ -217,13 +216,16 @@ export class BullMQManager implements QueueManager {
   }
 
   getQueueEvents(queueName: string): QueueEvents {
-    if (!this.queueEvents.has(queueName)) {
-      const queueEvents = new QueueEvents(queueName, {
-        connection: this.connection,
-      });
-      this.queueEvents.set(queueName, queueEvents);
+    const existing = this.queueEvents.get(queueName);
+    if (existing) {
+      return existing;
     }
-    return this.queueEvents.get(queueName)!;
+
+    const queueEvents = new QueueEvents(queueName, {
+      connection: this.connection,
+    });
+    this.queueEvents.set(queueName, queueEvents);
+    return queueEvents;
   }
 
   private getOrCreateQueue(queueName: string): Queue {
