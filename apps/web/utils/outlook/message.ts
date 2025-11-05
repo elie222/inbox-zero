@@ -162,6 +162,28 @@ function getOutlookLabels(
   return [...new Set(labels)];
 }
 
+const OUTLOOK_SEARCH_DISALLOWED_CHARS = /[?]/g;
+
+function sanitizeOutlookSearchQuery(query: string): {
+  sanitized: string;
+  wasSanitized: boolean;
+} {
+  const normalized = query.trim();
+  if (!normalized) {
+    return { sanitized: "", wasSanitized: false };
+  }
+
+  const sanitized = normalized
+    .replace(OUTLOOK_SEARCH_DISALLOWED_CHARS, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  return {
+    sanitized,
+    wasSanitized: sanitized !== normalized,
+  };
+}
+
 export async function queryBatchMessages(
   client: OutlookClient,
   options: {
@@ -190,12 +212,18 @@ export async function queryBatchMessages(
 
   const folderIds = await getFolderIds(client);
 
+  const rawSearchQuery = searchQuery?.trim() || "";
+  const { sanitized: cleanedSearchQuery, wasSanitized } =
+    sanitizeOutlookSearchQuery(rawSearchQuery);
+  const effectiveSearchQuery = cleanedSearchQuery || undefined;
+
   logger.info("Building Outlook request", {
     maxResults,
-    hasSearchQuery: !!searchQuery,
+    hasSearchQuery: !!effectiveSearchQuery,
     hasDateFilters: !!(dateFilters && dateFilters.length > 0),
     pageToken,
     folderId,
+    queryWasSanitized: wasSanitized,
   });
 
   // Build the base request
@@ -210,7 +238,7 @@ export async function queryBatchMessages(
   let nextPageToken: string | undefined;
 
   // Determine if we have a search query vs pure filters
-  const hasSearchQuery = !!searchQuery?.trim();
+  const hasSearchQuery = !!effectiveSearchQuery;
   const hasDateFilters = !!(dateFilters && dateFilters.length > 0);
 
   // Always filter to only include inbox and archive folders
@@ -232,11 +260,13 @@ export async function queryBatchMessages(
   if (hasSearchQuery) {
     // Search path - use $search parameter
     logger.info("Using search path", {
-      searchQuery,
+      rawSearchQuery,
+      effectiveSearchQuery,
+      queryWasSanitized: wasSanitized,
       folderFilter,
     });
 
-    request = request.search(searchQuery!.trim());
+    request = request.search(effectiveSearchQuery!);
 
     // Apply folder filtering via post-processing since $search can't be combined with $filter
     if (pageToken) {

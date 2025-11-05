@@ -11,7 +11,6 @@ import {
   LogicalOperator,
 } from "@prisma/client";
 import { Button } from "@/components/ui/button";
-import { conditionsToString } from "@/utils/condition";
 import { MessageText } from "@/components/Typography";
 import { EyeIcon } from "lucide-react";
 import { useRuleDialog } from "@/app/(app)/[emailAccountId]/assistant/RuleDialog";
@@ -34,18 +33,22 @@ export function ResultsDisplay({ results }: { results: RunRulesResult[] }) {
     },
   );
 
-  return sortedBatches.map(([date, batchResults], batchIndex) => (
-    <div key={date}>
-      {batchIndex === 1 && sortedBatches.length > 1 && (
-        <div className="mb-1 text-xs text-muted-foreground">Previous:</div>
-      )}
-      <div className="flex gap-1">
-        {batchResults.map((result, resultIndex) => (
-          <ResultDisplay key={`${date}-${resultIndex}`} result={result} />
-        ))}
-      </div>
+  return (
+    <div className="flex flex-col gap-1">
+      {sortedBatches.map(([date, batchResults], batchIndex) => (
+        <div key={date} className="gap-1">
+          {batchIndex === 1 && sortedBatches.length > 1 && (
+            <div className="my-1 text-xs text-muted-foreground">Previous:</div>
+          )}
+          <div className="flex gap-1">
+            {batchResults.map((result, resultIndex) => (
+              <ResultDisplay key={`${date}-${resultIndex}`} result={result} />
+            ))}
+          </div>
+        </div>
+      ))}
     </div>
-  ));
+  );
 }
 
 function ResultDisplay({ result }: { result: RunRulesResult }) {
