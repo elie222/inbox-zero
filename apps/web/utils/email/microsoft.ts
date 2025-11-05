@@ -1232,18 +1232,17 @@ export class OutlookProvider implements EmailProvider {
     return getThreadsFromSenderWithSubject(this.client, sender, limit);
   }
 
-  async processHistory(
-    options: {
-      emailAddress: string;
-      historyId?: number;
-      startHistoryId?: number;
-      subscriptionId?: string;
-      resourceData?: {
-        id: string;
-        conversationId?: string;
-      };
-    } & { logger: Logger },
-  ): Promise<void> {
+  async processHistory(options: {
+    emailAddress: string;
+    historyId?: number;
+    startHistoryId?: number;
+    subscriptionId?: string;
+    resourceData?: {
+      id: string;
+      conversationId?: string;
+    };
+    logger?: Logger;
+  }): Promise<void> {
     if (!options.subscriptionId) {
       throw new Error(
         "subscriptionId is required for Outlook history processing",
@@ -1256,7 +1255,7 @@ export class OutlookProvider implements EmailProvider {
         id: options.historyId?.toString() || "0",
         conversationId: options.startHistoryId?.toString() || null,
       },
-      logger: options.logger,
+      logger: options.logger || logger,
     });
   }
 

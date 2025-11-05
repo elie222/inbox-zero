@@ -65,7 +65,7 @@ import type {
   EmailFilter,
   EmailSignature,
 } from "@/utils/email/types";
-import { createScopedLogger } from "@/utils/logger";
+import { createScopedLogger, type Logger } from "@/utils/logger";
 import { extractEmailAddress } from "@/utils/email";
 import { getGmailSignatures } from "@/utils/gmail/signature-settings";
 
@@ -923,6 +923,7 @@ export class GmailProvider implements EmailProvider {
       id: string;
       conversationId?: string;
     };
+    logger?: Logger;
   }): Promise<void> {
     await processHistoryForUser(
       {
@@ -932,7 +933,7 @@ export class GmailProvider implements EmailProvider {
       {
         startHistoryId: options.startHistoryId?.toString(),
       },
-      logger,
+      options.logger || logger,
     );
   }
 
