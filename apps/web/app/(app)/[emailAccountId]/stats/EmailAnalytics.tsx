@@ -19,9 +19,12 @@ export function EmailAnalytics(props: {
   const { userEmail } = useAccount();
 
   const params = getDateRangeParams(props.dateRange);
+  const search = new URLSearchParams();
+  if (params.fromDate != null) search.set("fromDate", String(params.fromDate));
+  if (params.toDate != null) search.set("toDate", String(params.toDate));
 
   const { data, isLoading, error } = useSWR<SendersResponse, { error: string }>(
-    `/api/user/stats/senders?${new URLSearchParams(params as any)}`,
+    `/api/user/stats/senders?${search.toString()}`,
     {
       refreshInterval: props.refreshInterval,
     },
@@ -32,7 +35,7 @@ export function EmailAnalytics(props: {
     isLoading: isLoadingRecipients,
     error: errorRecipients,
   } = useSWR<RecipientsResponse, { error: string }>(
-    `/api/user/stats/recipients?${new URLSearchParams(params as any)}`,
+    `/api/user/stats/recipients?${search.toString()}`,
     {
       refreshInterval: props.refreshInterval,
     },

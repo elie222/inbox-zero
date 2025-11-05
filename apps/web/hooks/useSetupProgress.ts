@@ -1,8 +1,9 @@
 import type { GetSetupProgressResponse } from "@/app/api/user/setup-progress/route";
-import { useSWRWithEmailAccount } from "@/utils/swr";
+import { useSWRWithEmailAccount, processSWRResponse } from "@/utils/swr";
 
 export function useSetupProgress() {
-  return useSWRWithEmailAccount<GetSetupProgressResponse>(
+  const swr = useSWRWithEmailAccount<GetSetupProgressResponse>(
     "/api/user/setup-progress",
   );
+  return processSWRResponse<GetSetupProgressResponse>(swr);
 }

@@ -15,6 +15,7 @@ export function PostHogPageview() {
   const searchParams = useSearchParams();
 
   useEffect(() => {
+    if (env.NEXT_PUBLIC_PRIVACY_MODE) return;
     if (pathname) {
       let url = window.origin + pathname;
       if (searchParams?.toString()) {
@@ -34,6 +35,7 @@ export function PostHogIdentify() {
   const { emailAccount } = useAccount();
 
   useEffect(() => {
+    if (env.NEXT_PUBLIC_PRIVACY_MODE) return;
     if (session?.user.email)
       posthog.identify(session.user.email, {
         email: session.user.email,
@@ -41,6 +43,7 @@ export function PostHogIdentify() {
   }, [session?.user.email]);
 
   useEffect(() => {
+    if (env.NEXT_PUBLIC_PRIVACY_MODE) return;
     // Set super properties that will be included with all events
     posthog.register({
       email_account_id: emailAccount?.id,
@@ -62,7 +65,11 @@ export function PostHogIdentify() {
   return null;
 }
 
-if (typeof window !== "undefined" && env.NEXT_PUBLIC_POSTHOG_KEY) {
+if (
+  typeof window !== "undefined" &&
+  env.NEXT_PUBLIC_POSTHOG_KEY &&
+  !env.NEXT_PUBLIC_PRIVACY_MODE
+) {
   posthog.init(env.NEXT_PUBLIC_POSTHOG_KEY, {
     api_host: env.NEXT_PUBLIC_POSTHOG_API_HOST, // https://posthog.com/docs/advanced/proxy/nextjs
     capture_pageview: false, // Disable automatic pageview capture, as we capture manually

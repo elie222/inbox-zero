@@ -18,6 +18,7 @@ export const sendCompleteRegistrationEvent = async ({
   fbc: string;
   fbp: string;
 }) => {
+  if (env.PRIVACY_MODE) return;
   const accessToken = env.FB_CONVERSION_API_ACCESS_TOKEN;
   const pixelId = env.FB_PIXEL_ID;
   const apiVersion = "v20.0";

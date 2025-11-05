@@ -11,7 +11,6 @@ import {
   LogicalOperator,
 } from "@prisma/client";
 import { Button } from "@/components/ui/button";
-import { conditionsToString } from "@/utils/condition";
 import { MessageText } from "@/components/Typography";
 import { EyeIcon } from "lucide-react";
 import { useRuleDialog } from "@/app/(app)/[emailAccountId]/assistant/RuleDialog";

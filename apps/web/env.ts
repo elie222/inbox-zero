@@ -124,6 +124,8 @@ export const env = createEnv({
     LICENSE_25_SEAT_VARIANT_ID: z.coerce.number().optional(),
 
     DUB_API_KEY: z.string().optional(),
+    // Privacy mode: disables analytics/telemetry/marketing and most external tracking
+    PRIVACY_MODE: z.coerce.boolean().optional().default(false),
   },
   client: {
     // stripe
@@ -150,7 +152,7 @@ export const env = createEnv({
     NEXT_PUBLIC_POSTHOG_API_HOST: z.string().optional(),
     NEXT_PUBLIC_POSTHOG_HERO_AB: z.string().optional(),
     NEXT_PUBLIC_POSTHOG_ONBOARDING_SURVEY_ID: z.string().optional(),
-    NEXT_PUBLIC_BASE_URL: z.string(),
+    NEXT_PUBLIC_BASE_URL: z.string().default("http://localhost:3000"),
     NEXT_PUBLIC_CONTACTS_ENABLED: z.coerce.boolean().optional().default(false),
     NEXT_PUBLIC_SENTRY_DSN: z.string().optional(),
     NEXT_PUBLIC_SUPPORT_EMAIL: z
@@ -182,6 +184,8 @@ export const env = createEnv({
       .boolean()
       .optional()
       .default(false),
+    // global client-side privacy flag
+    NEXT_PUBLIC_PRIVACY_MODE: z.coerce.boolean().optional().default(false),
   },
   // For Next.js >= 13.4.4, you only need to destructure client variables:
   experimental__runtimeEnv: {
@@ -238,5 +242,6 @@ export const env = createEnv({
     NEXT_PUBLIC_DUB_REFER_DOMAIN: process.env.NEXT_PUBLIC_DUB_REFER_DOMAIN,
     NEXT_PUBLIC_DISABLE_REFERRAL_SIGNATURE:
       process.env.NEXT_PUBLIC_DISABLE_REFERRAL_SIGNATURE,
+    NEXT_PUBLIC_PRIVACY_MODE: process.env.NEXT_PUBLIC_PRIVACY_MODE,
   },
 });

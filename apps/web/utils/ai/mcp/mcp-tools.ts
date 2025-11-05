@@ -4,6 +4,7 @@ import prisma from "@/utils/prisma";
 import { createScopedLogger } from "@/utils/logger";
 import { getAuthToken } from "@/utils/mcp/oauth";
 import { createMcpTransport } from "@/utils/mcp/transport";
+import { env } from "@/env";
 
 type MCPClient = Awaited<ReturnType<typeof experimental_createMCPClient>>;
 
@@ -15,6 +16,9 @@ export type MCPToolsResult = {
 export async function createMcpToolsForAgent(
   emailAccountId: string,
 ): Promise<MCPToolsResult> {
+  if (env.PRIVACY_MODE) {
+    return { tools: {}, cleanup: async () => {} };
+  }
   const logger = createScopedLogger("ai-mcp-tools").with({ emailAccountId });
 
   try {

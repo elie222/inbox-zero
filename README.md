@@ -365,18 +365,12 @@ The Google watch is necessary. Others are optional.
 
 ### Docker Build Instructions
 
-When building the Docker image, you **must** specify your `NEXT_PUBLIC_BASE_URL` as a build argument. This is because Next.js embeds `NEXT_PUBLIC_*` variables at build time, not runtime.
+This repository is configured to read `NEXT_PUBLIC_*` at runtime. You do not need to pass build args.
 
 ### Building the Docker image
 
 ```bash
-# For production with your custom domain
-docker build \
-  --build-arg NEXT_PUBLIC_BASE_URL="https://your-domain.com" \
-  -t inbox-zero \
-  -f docker/Dockerfile.prod .
-
-# For local development (default)
+# Build image
 docker build -t inbox-zero -f docker/Dockerfile.prod .
 ```
 
@@ -394,7 +388,7 @@ docker run -p 3000:3000 \
   inbox-zero
 ```
 
-**Important:** If you need to change `NEXT_PUBLIC_BASE_URL`, you must rebuild the Docker image. It cannot be changed at runtime.
+You can change `NEXT_PUBLIC_BASE_URL` at runtime without rebuilding the image.
 
 For more detailed Docker build instructions and security considerations, see [docker/DOCKER_BUILD_GUIDE.md](docker/DOCKER_BUILD_GUIDE.md).
 

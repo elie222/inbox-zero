@@ -16,10 +16,14 @@ const tinybirdAiCall = z.object({
 export type TinybirdAiCall = z.infer<typeof tinybirdAiCall>;
 
 const tb = getTinybird();
+const PRIVACY_MODE =
+  process.env.PRIVACY_MODE === "true" ||
+  process.env.NEXT_PUBLIC_PRIVACY_MODE === "true";
 
-export const publishAiCall = tb
-  ? tb.buildIngestEndpoint({
-      datasource: "aiCall",
-      event: tinybirdAiCall,
-    })
-  : () => {};
+export const publishAiCall =
+  tb && !PRIVACY_MODE
+    ? tb.buildIngestEndpoint({
+        datasource: "aiCall",
+        event: tinybirdAiCall,
+      })
+    : () => {};

@@ -14,7 +14,6 @@ import {
   CalendarIcon,
   ChevronDownIcon,
   ChevronRightIcon,
-  CrownIcon,
   FileIcon,
   InboxIcon,
   type LucideIcon,

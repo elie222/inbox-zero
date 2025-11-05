@@ -43,7 +43,7 @@ export async function GET(request: NextRequest) {
 
 function createMockDigestData(categories: string[]): DigestEmailProps {
   const digestData: DigestEmailProps = {
-    baseUrl: "https://www.getinboxzero.com",
+    baseUrl: process.env.NEXT_PUBLIC_BASE_URL || "",
     unsubscribeToken: "preview-token",
     emailAccountId: "preview-account",
     date: new Date(),

@@ -101,10 +101,14 @@ function selectModel(
       const modelName = aiModel || Model.CLAUDE_4_SONNET_OPENROUTER;
       const openrouter = createOpenRouter({
         apiKey: aiApiKey || env.OPENROUTER_API_KEY,
-        headers: {
-          "HTTP-Referer": "https://www.getinboxzero.com",
-          "X-Title": "Inbox Zero",
-        },
+        headers: env.PRIVACY_MODE
+          ? undefined
+          : {
+              ...(env.NEXT_PUBLIC_BASE_URL
+                ? { "HTTP-Referer": env.NEXT_PUBLIC_BASE_URL }
+                : {}),
+              "X-Title": "Inbox Zero",
+            },
       });
       const chatModel = openrouter.chat(modelName);
 

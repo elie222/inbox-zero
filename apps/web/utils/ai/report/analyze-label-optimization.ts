@@ -6,7 +6,7 @@ import type { EmailSummary } from "@/utils/ai/report/summarize-emails";
 import { createScopedLogger } from "@/utils/logger";
 import { getModel } from "@/utils/llms/model";
 
-const logger = createScopedLogger("email-report-label-analysis");
+const _logger = createScopedLogger("email-report-label-analysis");
 
 const labelAnalysisSchema = z.object({
   optimizationSuggestions: z.array(

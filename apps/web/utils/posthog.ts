@@ -40,6 +40,7 @@ async function getPosthogUserId(options: { email: string }) {
 }
 
 export async function deletePosthogUser(options: { email: string }) {
+  if (env.PRIVACY_MODE) return;
   if (!env.POSTHOG_API_SECRET || !env.POSTHOG_PROJECT_ID) {
     logger.warn("Posthog env variables not set");
     return;
@@ -77,6 +78,7 @@ export async function posthogCaptureEvent(
   sendFeatureFlags?: boolean,
 ) {
   try {
+    if (env.PRIVACY_MODE) return;
     if (!env.NEXT_PUBLIC_POSTHOG_KEY) {
       logger.warn("NEXT_PUBLIC_POSTHOG_KEY not set");
       return;
@@ -96,6 +98,7 @@ export async function posthogCaptureEvent(
 }
 
 export async function trackUserSignedUp(email: string, createdAt: Date) {
+  if (env.PRIVACY_MODE) return;
   return posthogCaptureEvent(
     email,
     "User signed up",
@@ -121,10 +124,12 @@ export async function trackStripeCustomerCreated(
 }
 
 export async function trackStripeCheckoutCreated(email: string) {
+  if (env.PRIVACY_MODE) return;
   return posthogCaptureEvent(email, "Stripe checkout created");
 }
 
 export async function trackStripeCheckoutCompleted(email: string) {
+  if (env.PRIVACY_MODE) return;
   return posthogCaptureEvent(email, "Stripe checkout completed");
 }
 
@@ -139,6 +144,7 @@ export async function trackError({
   type: "api" | "action";
   url: string;
 }) {
+  if (env.PRIVACY_MODE) return;
   return posthogCaptureEvent(email, errorType, {
     $set: { isError: true, type, url },
   });
@@ -252,6 +258,7 @@ export async function trackPaymentSuccess({
   lemonSqueezyId: string;
   lemonSqueezyType: string;
 }) {
+  if (env.PRIVACY_MODE) return;
   return posthogCaptureEvent(email, "Payment success", {
     totalPaidUSD,
     lemonSqueezyId,
@@ -260,9 +267,11 @@ export async function trackPaymentSuccess({
 }
 
 export async function trackStripeEvent(email: string, data: any) {
+  if (env.PRIVACY_MODE) return;
   return posthogCaptureEvent(email, "Stripe event", data);
 }
 
 export async function trackUserDeleted(userId: string) {
+  if (env.PRIVACY_MODE) return;
   return posthogCaptureEvent("anonymous", "User deleted", { userId }, false);
 }

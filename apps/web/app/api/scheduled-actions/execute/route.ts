@@ -1,4 +1,4 @@
-import { verifySignatureAppRouter } from "@upstash/qstash/nextjs";
+import { verifyQstashAtRequestTime } from "@/utils/qstash";
 import type { NextRequest } from "next/server";
 import { z } from "zod";
 import { withError } from "@/utils/middleware";
@@ -17,7 +17,7 @@ const scheduledActionBody = z.object({
   scheduledActionId: z.string().min(1, "Scheduled action ID is required"),
 });
 
-export const POST = verifySignatureAppRouter(
+export const POST = verifyQstashAtRequestTime(
   withError(async (request: NextRequest) => {
     try {
       logger.info("QStash request received", {

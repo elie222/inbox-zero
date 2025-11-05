@@ -86,7 +86,7 @@ export type DigestEmailProps = {
 };
 export default function DigestEmail(props: DigestEmailProps) {
   const {
-    baseUrl = "https://www.getinboxzero.com",
+    baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "",
     unsubscribeToken,
     ruleNames,
     emailAccountId,
@@ -243,15 +243,17 @@ export default function DigestEmail(props: DigestEmailProps) {
         <Body className="bg-white font-sans">
           <Container className="mx-auto w-full max-w-[600px] p-0">
             <Section className="p-4 text-center">
-              <Link href={baseUrl} className="text-[15px]">
-                <Img
-                  src={"https://www.getinboxzero.com/icon.png"}
-                  width="40"
-                  height="40"
-                  alt="Inbox Zero"
-                  className="mx-auto my-0"
-                />
-              </Link>
+              {baseUrl ? (
+                <Link href={baseUrl} className="text-[15px]">
+                  <Img
+                    src={`${baseUrl}/icon.png`}
+                    width="40"
+                    height="40"
+                    alt="Inbox Zero"
+                    className="mx-auto my-0"
+                  />
+                </Link>
+              ) : null}
 
               <Text className="mx-0 mb-8 mt-4 p-0 text-center text-2xl font-normal">
                 <span className="font-semibold tracking-tighter">
@@ -307,7 +309,7 @@ export default function DigestEmail(props: DigestEmailProps) {
 }
 
 DigestEmail.PreviewProps = {
-  baseUrl: "https://www.getinboxzero.com",
+  baseUrl: process.env.NEXT_PUBLIC_BASE_URL || "",
   unsubscribeToken: "123",
   emailAccountId: "123",
   ruleNames: {

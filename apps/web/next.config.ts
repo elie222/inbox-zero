@@ -158,6 +158,7 @@ const nextConfig: NextConfig = {
     ];
   },
   async rewrites() {
+    if (env.PRIVACY_MODE) return [];
     return [
       {
         source: "/ingest/:path*",
@@ -199,38 +200,41 @@ const nextConfig: NextConfig = {
             key: "Referrer-Policy",
             value: "strict-origin-when-cross-origin",
           },
-          {
-            key: "Content-Security-Policy",
-            value: [
+          (() => {
+            const base = [
               "default-src 'self'",
-              // Next.js needs these
               "script-src 'self' 'unsafe-inline' 'unsafe-eval' https:",
-              // Needed for Tailwind/Shadcn
               "style-src 'self' 'unsafe-inline' https:",
-              // Add this line to allow data: fonts
               "font-src 'self' data: https:",
-              // For images including avatars and Mux thumbnails
-              "img-src 'self' data: https: blob: https://image.mux.com https://*.litix.io",
-              // For Mux video and audio content
-              "media-src 'self' blob: https://*.mux.com",
-              // If you use web workers or service workers
               "worker-src 'self' blob:",
-              // For API calls, SWR, external services, and Mux
-              "connect-src 'self' https: wss: https://*.mux.com https://*.litix.io",
-              // iframes for Mux player
-              "frame-src 'self' https:",
-              // Prevent embedding in iframes
               "frame-ancestors 'none'",
-            ].join("; "),
-          },
+            ];
+            if (env.PRIVACY_MODE) {
+              // lock down client-side network calls in privacy mode
+              base.push("img-src 'self' data: blob:");
+              base.push("media-src 'self' blob:");
+              base.push("connect-src 'self'");
+              base.push("frame-src 'self'");
+            } else {
+              base.push(
+                "img-src 'self' data: https: blob: https://image.mux.com https://*.litix.io",
+              );
+              base.push("media-src 'self' blob: https://*.mux.com");
+              base.push(
+                "connect-src 'self' https: wss: https://*.mux.com https://*.litix.io",
+              );
+              base.push("frame-src 'self' https:");
+            }
+            return {
+              key: "Content-Security-Policy",
+              value: base.join("; "),
+            };
+          })(),
           {
             key: "Strict-Transport-Security",
             value: "max-age=31536000",
           },
-          {
-            key: "Access-Control-Allow-Origin",
-            value: env.NEXT_PUBLIC_BASE_URL,
-          },
+          // Access-Control-Allow-Origin is set dynamically at runtime via middleware
           {
             key: "Access-Control-Allow-Methods",
             value: "GET, POST, PUT, DELETE, OPTIONS",
@@ -297,6 +301,7 @@ const sentryConfig = {
 const mdxConfig = withMDX(nextConfig);
 
 const useSentry =
+  !env.PRIVACY_MODE &&
   process.env.NEXT_PUBLIC_SENTRY_DSN &&
   process.env.SENTRY_ORGANIZATION &&
   process.env.SENTRY_PROJECT;
@@ -325,4 +330,8 @@ const withSerwist = withSerwistInit({
   maximumFileSizeToCacheInBytes: 3 * 1024 * 1024, // 3MB
 });
 
-export default withAxiom(withSerwist(exportConfig));
+const withAxiomMaybe: (c: NextConfig) => NextConfig = env.PRIVACY_MODE
+  ? (c) => c
+  : withAxiom;
+
+export default withAxiomMaybe(withSerwist(exportConfig));

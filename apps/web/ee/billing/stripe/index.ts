@@ -13,7 +13,7 @@ export const getStripe = () => {
       appInfo: {
         name: "Inbox Zero",
         version: "1.0.0",
-        url: "https://www.getinboxzero.com",
+        url: env.NEXT_PUBLIC_BASE_URL,
       },
       typescript: true,
     });

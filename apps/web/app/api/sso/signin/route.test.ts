@@ -35,7 +35,7 @@ import prisma from "@/utils/prisma";
 import { GET } from "./route";
 
 const mockBetterAuthConfig = vi.mocked(betterAuthConfig);
-const mockLogger = vi.mocked(createScopedLogger);
+const _mockLogger = vi.mocked(createScopedLogger);
 
 describe("SSO Signin Route", () => {
   const mockContext = { params: Promise.resolve({}) };

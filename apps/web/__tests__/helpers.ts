@@ -157,3 +157,26 @@ export function getMockExecutedRule({
     rule: { id: ruleId, name: ruleName },
   };
 }
+
+// Base URL helpers for E2E tests
+export function getBaseUrl(): string {
+  const envUrl =
+    process.env.E2E_BASE_URL ||
+    process.env.NEXT_PUBLIC_BASE_URL ||
+    process.env.BASE_URL ||
+    process.env.APP_BASE_URL;
+  if (envUrl?.trim()) {
+    return envUrl.replace(/\/$/, "");
+  }
+  return "http://localhost:3000";
+}
+
+export function url(pathOrAbsolute: string): string {
+  // If absolute URL provided, return as is; else join with base
+  if (/^https?:\/\//i.test(pathOrAbsolute)) return pathOrAbsolute;
+  const base = getBaseUrl();
+  const path = pathOrAbsolute.startsWith("/")
+    ? pathOrAbsolute
+    : `/${pathOrAbsolute}`;
+  return `${base}${path}`;
+}

@@ -29,6 +29,12 @@ const pageAnalysisSchema = z.object({
 type PageAnalysis = z.infer<typeof pageAnalysisSchema>;
 
 async function analyzePageWithAI(pageContent: string): Promise<PageAnalysis> {
+  if (
+    process.env.PRIVACY_MODE === "true" ||
+    process.env.NEXT_PUBLIC_PRIVACY_MODE === "true"
+  ) {
+    throw new Error("Privacy mode enabled: AI calls are disabled");
+  }
   const contentToAnalyze = pageContent.slice(0, MAX_CONTENT_LENGTH);
   if (contentToAnalyze.length < pageContent.length) {
     console.warn(

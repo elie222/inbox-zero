@@ -1,134 +1,54 @@
-# Docker Build Guide - Environment Variables
+# Docker Build Guide - Runtime Environment
 
-## Important: NEXT_PUBLIC_* Variables
+This project is configured to use runtime environment variables for `NEXT_PUBLIC_*` values, including `NEXT_PUBLIC_BASE_URL`.
 
-In Next.js, environment variables prefixed with `NEXT_PUBLIC_` are embedded at **build time**, not runtime. This means they are baked into the JavaScript bundles during the build process.
+We rely on `@t3-oss/env-nextjs` with `experimental__runtimeEnv` so you can change public env vars without rebuilding the image, as long as you run the Next.js server (not `next export`).
 
-## Setting Your Own Values
+## Building the image
 
-The Dockerfile uses ARG directives with defaults, but **you can override any of them** during build:
-
-```dockerfile
-# In Dockerfile - these are just defaults
-ARG NEXT_PUBLIC_BASE_URL="http://localhost:3000"
-```
-
-## Building with Custom Values
-
-### Method 1: Command Line Arguments
+Build as usual; there is no need to pass `NEXT_PUBLIC_BASE_URL` as a build-arg:
 
 ```bash
-# Set your custom values
-docker build \
-  --build-arg NEXT_PUBLIC_BASE_URL="https://app.mycompany.com" \
-  -t my-custom-inbox-zero \
-  -f docker/Dockerfile.prod .
+docker build -t inbox-zero -f docker/Dockerfile.prod .
 ```
 
-### Method 2: Using Environment Variables
+## Running with runtime env
+
+Pass `NEXT_PUBLIC_BASE_URL` (and other env) at container runtime:
 
 ```bash
-# Export your value
-export NEXT_PUBLIC_BASE_URL="https://app.mycompany.com"
-
-# Build with the environment variable
-docker build \
-  --build-arg NEXT_PUBLIC_BASE_URL \
-  -t my-custom-inbox-zero \
-  -f docker/Dockerfile.prod .
+docker run -p 3000:3000 \
+  -e NEXT_PUBLIC_BASE_URL="https://your-domain.com" \
+  -e DATABASE_URL="postgres://..." \
+  -e AUTH_SECRET="..." \
+  inbox-zero
 ```
 
-Note: When using `--build-arg NEXT_PUBLIC_BASE_URL` without a value, Docker will use the value from your environment variable.
+## Docker Compose
 
-## Docker Compose Example
-
-If using Docker Compose, you can specify build arguments in your `docker-compose.yml`:
+Compose injects environment at runtime; no build args are needed:
 
 ```yaml
-version: '3.8'
 services:
-  app:
+  web:
     build:
       context: .
       dockerfile: docker/Dockerfile.prod
-      args:
-        NEXT_PUBLIC_BASE_URL: ${NEXT_PUBLIC_BASE_URL:-http://localhost:3000}
+    environment:
+      NEXT_PUBLIC_BASE_URL: ${NEXT_PUBLIC_BASE_URL:-http://localhost:3000}
+      DATABASE_URL: ${DATABASE_URL}
+      # ... other envs
     ports:
       - "3000:3000"
 ```
 
-Then build with:
-```bash
-NEXT_PUBLIC_BASE_URL=https://your-domain.com docker-compose build
-```
+## Notes
 
-## Common Mistakes to Avoid
+- Do not bake `NEXT_PUBLIC_BASE_URL` into the image; provide it via runtime env.
+- This works for server and client code in this repo because env exposure is configured via `experimental__runtimeEnv` in `apps/web/env.ts`.
+- If you change to a fully static export (`next export`), you would lose runtime env behavior.
 
-1. **Don't try to override at runtime**: Setting `NEXT_PUBLIC_BASE_URL` in your `.env` file or as a runtime environment variable won't work if the image was already built with a different value.
+## Security
 
-2. **Rebuild when changing**: You must rebuild the Docker image whenever you need to change the `NEXT_PUBLIC_BASE_URL`.
-
-3. **Multi-stage builds**: If you need different URLs for different environments, build separate images for each environment.
-
-## Alternative Approach: Runtime Configuration
-
-If you need truly dynamic configuration that can change without rebuilding, consider:
-
-1. Using a server-side API endpoint to provide configuration to the client
-2. Using environment variables only on the server side (without `NEXT_PUBLIC_` prefix)
-3. Implementing a configuration service that the client can query
-
-## Verification
-
-After building and running your container, you can verify the configured URL:
-
-```bash
-# Check the bundled JavaScript files
-docker run --rm inbox-zero-prod grep -r "NEXT_PUBLIC_BASE_URL" /app/.next/static
-```
-
-## Security Considerations
-
-### Build Arguments Visibility
-
-Build arguments are visible in the Docker image history:
-
-```bash
-# This will show build args used
-docker history <image-name> --no-trunc
-```
-
-**Important**: `NEXT_PUBLIC_BASE_URL` is not sensitive - it's designed to be public. However, this means:
-
-1. **Never use build args for secrets**: API keys, passwords, or tokens should never be passed as build arguments
-2. **Use runtime environment variables for secrets**: All sensitive configuration should be injected at runtime
-3. **CI/CD considerations**: Build commands may be logged, so ensure your CI/CD system masks sensitive values
-
-### Best Practices
-
-1. **Separate build and runtime configuration**:
-   - Build-time: Only non-sensitive configuration (URLs, feature flags)
-   - Runtime: All secrets and sensitive configuration
-
-2. **Use secret management services**:
-   - AWS Secrets Manager, HashiCorp Vault, or Kubernetes Secrets
-   - Never commit secrets to version control
-
-3. **Multi-stage builds for security**:
-   ```dockerfile
-   # Build stage
-   FROM node:alpine AS builder
-   ARG NEXT_PUBLIC_BASE_URL
-   # ... build process ...
-   
-   # Runtime stage - smaller attack surface
-   FROM node:alpine
-   COPY --from=builder /app/.next ./.next
-   # No build history from builder stage
-   ```
-
-4. **Scan images for vulnerabilities**:
-   ```bash
-   # Use tools like Trivy or Docker Scout
-   docker scout cves <image-name>
-   ```
+- Never pass secrets as build-args; always inject secrets via runtime environment or a secret manager.
+- Continue scanning images (Trivy/Docker Scout) as usual.

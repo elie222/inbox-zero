@@ -15,6 +15,7 @@ const colors = {
 } as const;
 
 export function createScopedLogger(scope: string) {
+  if (env.NEXT_PUBLIC_PRIVACY_MODE) return createNullLogger();
   if (env.NEXT_PUBLIC_AXIOM_TOKEN) return createAxiomLogger(scope);
   if (env.NEXT_PUBLIC_LOG_SCOPES && !env.NEXT_PUBLIC_LOG_SCOPES.includes(scope))
     return createNullLogger();

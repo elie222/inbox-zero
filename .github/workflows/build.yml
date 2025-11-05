@@ -4,12 +4,7 @@ on:
   push:
     branches: [ main ]
     tags: [ 'v*', 'release-*' ]
-  workflow_dispatch:
-    inputs:
-      next_public_base_url:
-        description: "Override NEXT_PUBLIC_BASE_URL (optional)"
-        required: false
-        default: ""
+  workflow_dispatch: {}
 
 permissions:
   contents: read
@@ -29,6 +24,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Set up QEMU (multi-arch)
         uses: docker/setup-qemu-action@v3
@@ -54,20 +51,6 @@ jobs:
             type=ref,event=tag
             type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
 
-      - name: Determine NEXT_PUBLIC_BASE_URL
-        id: baseurl
-        run: |
-          # Priority: workflow input > repo variable > default
-          INPUT_URL="${{ github.event.inputs.next_public_base_url }}"
-          REPO_VAR="${{ vars.NEXT_PUBLIC_BASE_URL }}"
-          if [ -n "$INPUT_URL" ]; then
-            echo "value=$INPUT_URL" >> "$GITHUB_OUTPUT"
-          elif [ -n "$REPO_VAR" ]; then
-            echo "value=$REPO_VAR" >> "$GITHUB_OUTPUT"
-          else
-            echo "value=http://localhost:3000" >> "$GITHUB_OUTPUT"
-          fi
-
       - name: Build and push
         uses: docker/build-push-action@v5
         with:
@@ -77,8 +60,6 @@ jobs:
           platforms: linux/amd64
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          build-args: |
-            NEXT_PUBLIC_BASE_URL=${{ steps.baseurl.outputs.value }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 

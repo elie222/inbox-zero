@@ -5,10 +5,11 @@ import {
 import { APICallError, RetryError } from "ai";
 import type { z } from "zod";
 import { createScopedLogger } from "@/utils/logger";
+import { env } from "@/env";
 
 const logger = createScopedLogger("error");
 
-export type ErrorMessage = { error: string; data?: any };
+export type ErrorMessage = { error: string; data?: unknown };
 export type ZodError = {
   error: { issues: { code: string; message: string }[] };
 };
@@ -18,12 +19,16 @@ export type ApiErrorType = {
   code: number;
 };
 
-export function isError(value: any): value is ErrorMessage | ZodError {
-  return value?.error;
+export function isError(value: unknown): value is ErrorMessage | ZodError {
+  return typeof value === "object" && value !== null && "error" in value;
 }
 
-export function isErrorMessage(value: any): value is ErrorMessage {
-  return typeof value?.error === "string";
+export function isErrorMessage(value: unknown): value is ErrorMessage {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    typeof (value as { error?: unknown }).error === "string"
+  );
 }
 
 export function formatZodError(error: z.ZodError): string {
@@ -33,21 +38,21 @@ export function formatZodError(error: z.ZodError): string {
   return `Invalid data: ${formattedError}`;
 }
 
-export function formatGmailError(error: unknown): string {
-  return (error as any)?.errors?.[0]?.message ?? "Unknown error";
-}
-
 export function isGmailError(
   error: unknown,
-): error is { code: number; errors: { message: string }[] } {
-  return (
-    typeof error === "object" &&
-    error !== null &&
-    Array.isArray((error as any).errors) &&
-    (error as any).errors.length > 0
-  );
+): error is { code: number; errors: { message?: string; reason?: string }[] } {
+  if (typeof error !== "object" || error == null) return false;
+  const e = error as { errors?: unknown };
+  return Array.isArray(e.errors) && e.errors.length > 0;
 }
 
+export function formatGmailError(error: unknown): string {
+  if (isGmailError(error)) {
+    const first = error.errors[0];
+    return first?.message ?? "Unknown error";
+  }
+  return "Unknown error";
+}
 export function formatError(error: unknown): string {
   if (isGmailError(error)) {
     return formatGmailError(error);
@@ -62,11 +67,21 @@ export function formatError(error: unknown): string {
 
 export function captureException(
   error: unknown,
-  additionalInfo?: { extra?: Record<string, any> },
+  additionalInfo?: { extra?: Record<string, unknown> },
   userEmail?: string,
 ) {
   if (isKnownApiError(error)) {
     logger.warn("Known API error", { error, additionalInfo });
+    return;
+  }
+
+  if (env.NEXT_PUBLIC_PRIVACY_MODE) {
+    // Do not forward errors to Sentry in privacy mode
+    logger.error("Error captured (privacy mode - not sent to Sentry)", {
+      error,
+      additionalInfo,
+      userEmail,
+    });
     return;
   }
 
@@ -96,15 +111,18 @@ export class SafeError extends Error {
 }
 
 export function isGmailInsufficientPermissionsError(error: unknown): boolean {
-  return (error as any)?.errors?.[0]?.reason === "insufficientPermissions";
+  if (!isGmailError(error)) return false;
+  return error.errors[0]?.reason === "insufficientPermissions";
 }
 
 export function isGmailRateLimitExceededError(error: unknown): boolean {
-  return (error as any)?.errors?.[0]?.reason === "rateLimitExceeded";
+  if (!isGmailError(error)) return false;
+  return error.errors[0]?.reason === "rateLimitExceeded";
 }
 
 export function isGmailQuotaExceededError(error: unknown): boolean {
-  return (error as any)?.errors?.[0]?.reason === "quotaExceeded";
+  if (!isGmailError(error)) return false;
+  return error.errors[0]?.reason === "quotaExceeded";
 }
 
 export function isIncorrectOpenAIAPIKeyError(error: APICallError): boolean {
@@ -183,8 +201,7 @@ export function checkCommonErrors(
 
   if (isGmailRateLimitExceededError(error)) {
     logger.warn("Gmail rate limit exceeded for url", { url });
-    const errorMessage =
-      (error as any)?.errors?.[0]?.message ?? "Unknown error";
+    const errorMessage = formatGmailError(error);
     return {
       type: "Gmail Rate Limit Exceeded",
       message: `Gmail error: ${errorMessage}`,

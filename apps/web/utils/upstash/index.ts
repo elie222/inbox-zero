@@ -7,6 +7,7 @@ import { createScopedLogger } from "@/utils/logger";
 const logger = createScopedLogger("upstash");
 
 function getQstashClient() {
+  if (env.PRIVACY_MODE) return null;
   if (!env.QSTASH_TOKEN) return null;
   return new Client({ token: env.QSTASH_TOKEN });
 }

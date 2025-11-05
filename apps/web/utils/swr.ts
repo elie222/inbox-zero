@@ -4,9 +4,11 @@ import { useAccount } from "@/providers/EmailAccountProvider";
 
 // Makes sure that we have an email account id before fetching
 // Otherwise the backend will return an error
-export function useSWRWithEmailAccount<Data = any, Error = any>(url: string) {
+export function useSWRWithEmailAccount<Data = unknown, TError = Error>(
+  url: string,
+) {
   const { emailAccountId } = useAccount();
-  return useSWR<Data, Error>(emailAccountId ? url : null);
+  return useSWR<Data, TError>(emailAccountId ? url : null);
 }
 
 type NormalizedError = { error: string };
@@ -18,15 +20,11 @@ type NormalizedError = { error: string };
  * @param swrResult The raw result from the useSWR hook.
  * @returns SWRResponse with data as TData | null and error as NormalizedError | undefined.
  */
-export function processSWRResponse<
-  TData,
-  TApiError extends { error: string } = { error: string }, // Assume API error shape
-  TSWRError = Error, // Assume SWR error type
->(
-  swrResult: SWRResponse<TData | TApiError, TSWRError>,
+export function processSWRResponse<TData, TSWRError = Error>(
+  swrResult: SWRResponse<TData, TSWRError>,
 ): SWRResponse<TData | null, NormalizedError> {
   const swrError = swrResult.error as TSWRError | undefined; // Cast for type checking
-  const data = swrResult.data as TData | TApiError | undefined; // Cast for type checking
+  const data = swrResult.data as unknown; // Treat data as unknown for runtime checks
 
   // Handle SWR hook error
   if (swrError instanceof Error) {
@@ -49,13 +47,13 @@ export function processSWRResponse<
   if (
     data &&
     typeof data === "object" &&
-    "error" in data &&
-    typeof data.error === "string"
+    "error" in (data as Record<string, unknown>) &&
+    typeof (data as { error?: unknown }).error === "string"
   ) {
     return {
       ...swrResult,
       data: null,
-      error: { error: data.error },
+      error: { error: (data as { error: string }).error },
     } as SWRResponse<TData | null, NormalizedError>;
   }
 
@@ -63,7 +61,7 @@ export function processSWRResponse<
   // Cast data to expected type, filtering out the TApiError possibility
   return {
     ...swrResult,
-    data: data as TData | null, // SWR handles undefined during load
+    data: (data as TData | undefined) ?? null, // SWR handles undefined during load
     error: undefined,
   } as SWRResponse<TData | null, NormalizedError>;
 }

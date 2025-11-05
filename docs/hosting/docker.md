@@ -38,14 +38,13 @@ For detailed configuration instructions including all required environment varia
 
 ### 4. Build and Deploy
 
-Build the inbox-zero image with your domain name:
+Build the inbox-zero image:
 
 ```bash
-# Build with your custom domain
-docker compose build --build-arg NEXT_PUBLIC_BASE_URL=https://yourdomain.com
+docker compose build
 ```
 
-Start the services:
+Start the services (runtime env is loaded from your env file and compose environment):
 
 ```bash
 # Start all services in detached mode
@@ -131,8 +130,8 @@ sudo nginx -s reload
 # Pull latest changes
 git pull
 
-# Rebuild and restart
-docker compose build --build-arg NEXT_PUBLIC_BASE_URL=https://yourdomain.com
+# Rebuild and restart (no build args required)
+docker compose build
 docker compose up -d
 ```
 ### Monitoring
@@ -142,4 +141,3 @@ docker compose up -d
 docker compose logs -f web
 docker compose logs -f db
 ```
-

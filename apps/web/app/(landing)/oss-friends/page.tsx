@@ -23,8 +23,11 @@ type OSSFriend = {
 
 export default async function OSSFriendsPage() {
   try {
-    const res = await fetch("https://formbricks.com/api/oss-friends");
-    const data: { data: OSSFriend[] } = await res.json();
+    let data: { data: OSSFriend[] } = { data: [] };
+    if (process.env.NEXT_PUBLIC_PRIVACY_MODE !== "true") {
+      const res = await fetch("https://formbricks.com/api/oss-friends");
+      data = await res.json();
+    }
 
     return (
       <>

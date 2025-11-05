@@ -15,6 +15,7 @@ import {
 import { jsonrepair } from "jsonrepair";
 import type { LanguageModelV2 } from "@ai-sdk/provider";
 import { saveAiUsage } from "@/utils/usage";
+import { env } from "@/env";
 import type { UserAIFields } from "@/utils/llms/types";
 import { addUserErrorMessage, ErrorType } from "@/utils/error-messages";
 import {
@@ -39,7 +40,7 @@ const commonOptions: {
   experimental_telemetry: { isEnabled: boolean };
   headers?: Record<string, string>;
   providerOptions?: Record<string, Record<string, JSONValue>>;
-} = { experimental_telemetry: { isEnabled: true } };
+} = { experimental_telemetry: { isEnabled: !env.PRIVACY_MODE } };
 
 export function createGenerateText({
   userEmail,

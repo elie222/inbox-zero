@@ -150,18 +150,23 @@ export default async function RootLayout({
             <Toaster closeButton richColors theme="light" visibleToasts={9} />
           </GlobalProviders>
         </PostHogProvider>
-        <Analytics />
-        <AxiomWebVitals />
+        {/* Only render Vercel analytics in Vercel deployments */}
+        {!env.NEXT_PUBLIC_PRIVACY_MODE && process.env.VERCEL ? (
+          <Analytics />
+        ) : null}
+        {!env.NEXT_PUBLIC_PRIVACY_MODE ? <AxiomWebVitals /> : null}
         <UTM />
-        <SpeedInsights />
-        {env.NEXT_PUBLIC_DUB_REFER_DOMAIN && (
+        {!env.NEXT_PUBLIC_PRIVACY_MODE && process.env.VERCEL ? (
+          <SpeedInsights />
+        ) : null}
+        {!env.NEXT_PUBLIC_PRIVACY_MODE && env.NEXT_PUBLIC_DUB_REFER_DOMAIN && (
           <DubAnalytics
             apiHost="/_proxy/dub"
             scriptProps={{ src: "/_proxy/dub/script.js" }}
             domainsConfig={{ refer: env.NEXT_PUBLIC_DUB_REFER_DOMAIN }}
           />
         )}
-        {env.NEXT_PUBLIC_GTM_ID ? (
+        {!env.NEXT_PUBLIC_PRIVACY_MODE && env.NEXT_PUBLIC_GTM_ID ? (
           <GoogleTagManager gtmId={env.NEXT_PUBLIC_GTM_ID} />
         ) : null}
       </body>

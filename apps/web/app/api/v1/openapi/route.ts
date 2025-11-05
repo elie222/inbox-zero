@@ -51,6 +51,9 @@ registry.registerPath({
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const customHost = searchParams.get("host");
+  // Prefer explicit ?host=, then current request origin, then env var
+  const requestOrigin = request.nextUrl?.origin || "";
+  const envOrigin = process.env.NEXT_PUBLIC_BASE_URL || "";
 
   const generator = new OpenApiGeneratorV3(registry.definitions);
   const docs = generator.generateDocument({
@@ -63,11 +66,16 @@ export async function GET(request: NextRequest) {
       ...(customHost
         ? [{ url: `${customHost}/api/v1`, description: "Custom host" }]
         : []),
+      ...(requestOrigin
+        ? [{ url: `${requestOrigin}/api/v1`, description: "Current host" }]
+        : []),
+      ...(envOrigin && ![requestOrigin, customHost].includes(envOrigin)
+        ? [{ url: `${envOrigin}/api/v1`, description: "Configured host" }]
+        : []),
       {
         url: "https://getinboxzero.com/api/v1",
         description: "Production server",
       },
-      { url: "http://localhost:3000/api/v1", description: "Local development" },
     ],
     security: [{ ApiKeyAuth: [] }],
   });

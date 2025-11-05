@@ -41,10 +41,15 @@ export function DetailedStats(props: {
     ...getDateRangeParams(dateRange),
   };
 
+  const search = new URLSearchParams();
+  search.set("period", params.period);
+  if (params.fromDate != null) search.set("fromDate", String(params.fromDate));
+  if (params.toDate != null) search.set("toDate", String(params.toDate));
+
   const { data, isLoading, error } = useSWR<
     StatsByWeekResponse,
     { error: string }
-  >(`/api/user/stats/by-period?${new URLSearchParams(params as any)}`, {
+  >(`/api/user/stats/by-period?${search.toString()}`, {
     refreshInterval: props.refreshInterval,
   });
 

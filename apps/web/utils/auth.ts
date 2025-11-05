@@ -145,6 +145,10 @@ async function handleSignIn({
   user: User;
   isNewUser: boolean;
 }) {
+  if (env.PRIVACY_MODE) {
+    // Skip any marketing/analytics integrations in privacy mode
+    return;
+  }
   if (isNewUser && user.email) {
     const loops = async () => {
       const account = await prisma.account

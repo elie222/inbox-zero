@@ -4,6 +4,7 @@ version: "3.8"
 services:
   web:
     image: ghcr.io/${GHCR_OWNER:-sudipta26889}/inbox-zero:${TAG:-latest}
+    command: ["sh", "-c", "pnpm --filter inbox-zero-ai exec -- prisma migrate deploy && pnpm --filter inbox-zero-ai start"]
     ports:
       - target: 3000
         published: 3000
@@ -13,6 +14,8 @@ services:
       DATABASE_URL: ${DATABASE_URL}
       DIRECT_URL: ${DIRECT_URL}
       NEXT_PUBLIC_BASE_URL: ${NEXT_PUBLIC_BASE_URL:-http://localhost:3000}
+      PRIVACY_MODE: ${PRIVACY_MODE:-false}
+      NEXT_PUBLIC_PRIVACY_MODE: ${NEXT_PUBLIC_PRIVACY_MODE:-false}
       AUTH_SECRET: ${AUTH_SECRET}
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
       GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
@@ -67,19 +70,19 @@ services:
         parallelism: 1
         order: stop-first
       restart_policy:
-        condition: any
+        condition: on-failure
         delay: 5s
-        max_attempts: 3
-        window: 2m
+        max_attempts: 1
+        window: 20m
       resources:
         reservations:
           memory: 256M
         limits:
-          cpus: "1.0"
-          memory: 1G
+          cpus: "2.0"
+          memory: 4G
     healthcheck:
       test: ["CMD-SHELL", "node -e \"require('http').get('http://localhost:3000', r => process.exit(r.statusCode < 500 ? 0 : 1)).on('error', () => process.exit(1))\" "]
       interval: 30s
       timeout: 5s
-      retries: 3
-      start_period: 20s
+      retries: 20
+      start_period: 10m

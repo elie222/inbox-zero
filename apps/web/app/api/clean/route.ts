@@ -1,4 +1,4 @@
-import { verifySignatureAppRouter } from "@upstash/qstash/nextjs";
+import { verifyQstashAtRequestTime } from "@/utils/qstash";
 import { z } from "zod";
 import { NextResponse } from "next/server";
 import { withError } from "@/utils/middleware";
@@ -292,7 +292,7 @@ function getPublish({
 }
 
 export const POST = withError(
-  verifySignatureAppRouter(async (request: Request) => {
+  verifyQstashAtRequestTime(async (request: Request) => {
     const json = await request.json();
     const body = cleanThreadBody.parse(json);
 

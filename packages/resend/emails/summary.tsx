@@ -36,7 +36,7 @@ export interface SummaryEmailProps {
 
 export default function SummaryEmail(props: SummaryEmailProps) {
   const {
-    baseUrl = "https://www.getinboxzero.com",
+    baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "",
     coldEmailers,
     needsReplyCount,
     awaitingReplyCount,
@@ -57,15 +57,17 @@ export default function SummaryEmail(props: SummaryEmailProps) {
         <Body className="bg-white font-sans">
           <Container className="mx-auto w-full max-w-[600px] p-0">
             <Section className="p-8 text-center">
-              <Link href={baseUrl} className="text-[15px]">
-                <Img
-                  src={"https://www.getinboxzero.com/icon.png"}
-                  width="40"
-                  height="40"
-                  alt="Inbox Zero"
-                  className="mx-auto my-0"
-                />
-              </Link>
+              {baseUrl ? (
+                <Link href={baseUrl} className="text-[15px]">
+                  <Img
+                    src={`${baseUrl}/icon.png`}
+                    width="40"
+                    height="40"
+                    alt="Inbox Zero"
+                    className="mx-auto my-0"
+                  />
+                </Link>
+              ) : null}
 
               <Text className="mx-0 mb-8 mt-4 p-0 text-center text-2xl font-normal">
                 <span className="font-semibold tracking-tighter">
@@ -102,7 +104,7 @@ export default function SummaryEmail(props: SummaryEmailProps) {
 }
 
 SummaryEmail.PreviewProps = {
-  baseUrl: "https://www.getinboxzero.com",
+  baseUrl: process.env.NEXT_PUBLIC_BASE_URL || "",
   coldEmailers: [
     {
       from: "James <james@example.com>",

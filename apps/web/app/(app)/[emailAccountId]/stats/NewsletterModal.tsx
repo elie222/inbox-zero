@@ -127,10 +127,15 @@ function useSenderEmails(props: {
     ...props,
     ...getDateRangeParams(props.dateRange),
   };
+  const search = new URLSearchParams();
+  search.set("fromEmail", params.fromEmail);
+  search.set("period", params.period);
+  if (params.fromDate != null) search.set("fromDate", String(params.fromDate));
+  if (params.toDate != null) search.set("toDate", String(params.toDate));
   const { data, isLoading, error } = useSWR<
     SenderEmailsResponse,
     { error: string }
-  >(`/api/user/stats/sender-emails/?${new URLSearchParams(params as any)}`, {
+  >(`/api/user/stats/sender-emails/?${search.toString()}`, {
     refreshInterval: props.refreshInterval,
   });
 

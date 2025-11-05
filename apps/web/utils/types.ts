@@ -2,7 +2,7 @@ import type { gmail_v1 } from "@googleapis/gmail";
 import type { Prisma } from "@prisma/client";
 
 // https://stackoverflow.com/a/53276873/2602771
-export type PartialRecord<K extends keyof any, T> = Partial<Record<K, T>>;
+export type PartialRecord<K extends PropertyKey, T> = Partial<Record<K, T>>;
 
 // type guard for filters that removed undefined and null values
 export function isDefined<T>(value: T | undefined | null): value is T {
@@ -17,7 +17,7 @@ export type BatchError = {
   error: {
     code: number;
     message: string;
-    errors: any[][];
+    errors: unknown[][];
     status: string;
   };
 };

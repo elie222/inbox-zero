@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { verifySignatureAppRouter } from "@upstash/qstash/nextjs";
+import { verifyQstashAtRequestTime } from "@/utils/qstash";
 import { digestBody } from "./validation";
 import { DigestStatus } from "@prisma/client";
 import { createScopedLogger } from "@/utils/logger";
@@ -12,7 +12,7 @@ import { isAssistantEmail } from "@/utils/assistant/is-assistant-email";
 import { env } from "@/env";
 
 export const POST = withError(
-  verifySignatureAppRouter(async (request: Request) => {
+  verifyQstashAtRequestTime(async (request: Request) => {
     const logger = createScopedLogger("digest");
 
     try {

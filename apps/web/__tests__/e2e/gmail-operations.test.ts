@@ -12,6 +12,7 @@
 
 import { describe, test, expect, vi, beforeEach, afterEach } from "vitest";
 import { NextRequest } from "next/server";
+import { url } from "../helpers";
 import prisma from "@/utils/prisma";
 import { createEmailProvider } from "@/utils/email/provider";
 import type { GmailProvider } from "@/utils/email/google";
@@ -108,7 +109,9 @@ describe.skipIf(!RUN_E2E_TESTS)("Gmail Webhook Payload", () => {
 
     // Create a mock Request object
     const mockRequest = new NextRequest(
-      `http://localhost:3000/api/google/webhook?token=${process.env.GOOGLE_PUBSUB_VERIFICATION_TOKEN}`,
+      url(
+        `/api/google/webhook?token=${process.env.GOOGLE_PUBSUB_VERIFICATION_TOKEN}`,
+      ),
       {
         method: "POST",
         headers: {

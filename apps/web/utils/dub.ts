@@ -6,6 +6,7 @@ import { createScopedLogger } from "@/utils/logger";
 const logger = createScopedLogger("dub");
 
 function getDub() {
+  if (env.PRIVACY_MODE) return null;
   if (!env.DUB_API_KEY) return null;
   return new Dub({ token: env.DUB_API_KEY });
 }

@@ -1,6 +1,10 @@
 import { z } from "zod";
 import { tb } from "./client";
 
+const PRIVACY_MODE =
+  process.env.PRIVACY_MODE === "true" ||
+  process.env.NEXT_PUBLIC_PRIVACY_MODE === "true";
+
 const tinybirdEmailAction = z.object({
   ownerEmail: z.string(),
   threadId: z.string(),
@@ -11,10 +15,18 @@ const tinybirdEmailAction = z.object({
 
 export type TinybirdEmailAction = z.infer<typeof tinybirdEmailAction>;
 
-export const publishEmailAction = tb.buildIngestEndpoint({
-  datasource: "email_action",
-  event: tinybirdEmailAction,
-});
+export const publishEmailAction = PRIVACY_MODE
+  ? async (
+      _params: Omit<TinybirdEmailAction, "action"> & {
+        action: "archive" | "delete";
+      },
+    ) => {
+      return;
+    }
+  : tb.buildIngestEndpoint({
+      datasource: "email_action",
+      event: tinybirdEmailAction,
+    });
 
 // Helper functions for specific actions
 export const publishArchive = (params: Omit<TinybirdEmailAction, "action">) => {

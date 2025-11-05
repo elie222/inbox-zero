@@ -14,6 +14,7 @@
 
 import { describe, test, expect, beforeAll, vi } from "vitest";
 import { NextRequest } from "next/server";
+import { url } from "../helpers";
 import prisma from "@/utils/prisma";
 import { createEmailProvider } from "@/utils/email/provider";
 import type { OutlookProvider } from "@/utils/email/microsoft";
@@ -360,16 +361,13 @@ describe.skipIf(!RUN_E2E_TESTS)("Outlook Webhook Payload", () => {
     };
 
     // Create a mock Request object
-    const mockRequest = new NextRequest(
-      "http://localhost:3000/api/outlook/webhook",
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(realWebhookPayload),
+    const mockRequest = new NextRequest(url("/api/outlook/webhook"), {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
       },
-    );
+      body: JSON.stringify(realWebhookPayload),
+    });
 
     // Call the webhook handler
     const response = await POST(mockRequest, {

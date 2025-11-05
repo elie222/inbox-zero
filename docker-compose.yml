@@ -32,8 +32,6 @@ services:
     build:
       context: .
       dockerfile: ./docker/Dockerfile.prod
-      args:
-        NEXT_PUBLIC_BASE_URL: ${NEXT_PUBLIC_BASE_URL:-http://localhost:3000}
     env_file:
       - ./apps/web/.env
     depends_on:
@@ -43,6 +41,7 @@ services:
       - ${WEB_PORT:-3000}:3000
     networks:
       - inbox-zero-network
+    command: sh -c "pnpm --filter inbox-zero-ai exec -- prisma migrate deploy && pnpm --filter inbox-zero-ai start"
     environment:
       DATABASE_URL: "postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-password}@db:5432/${POSTGRES_DB:-inboxzero}?schema=public"
       DIRECT_URL: "postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-password}@db:5432/${POSTGRES_DB:-inboxzero}?schema=public"
