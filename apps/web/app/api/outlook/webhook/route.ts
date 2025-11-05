@@ -78,7 +78,7 @@ async function processNotificationsAsync(
 ) {
   for (const notification of notifications) {
     const { subscriptionId, resourceData } = notification;
-    const logger = log.with({ subscriptionId });
+    const logger = log.with({ subscriptionId, messageId: resourceData.id });
 
     logger.info("Processing notification", {
       changeType: notification.changeType,

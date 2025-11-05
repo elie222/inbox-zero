@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { captureException } from "@/utils/error";
 import { createEmailProvider } from "@/utils/email/provider";
 import type { OutlookResourceData } from "@/app/api/outlook/webhook/types";
-import { processHistoryItem } from "@/app/api/outlook/webhook/process-history-item";
+import { processHistoryItem } from "@/utils/webhook/process-history-item";
 import {
   validateWebhookAccount,
   getWebhookEmailAccount,
@@ -54,17 +54,20 @@ export async function processHistoryForUser({
   });
 
   try {
-    await processHistoryItem(resourceData, {
-      provider,
-      hasAutomationRules,
-      hasAiAccess: userHasAiAccess,
-      rules: validatedEmailAccount.rules,
-      emailAccount: {
-        ...validatedEmailAccount,
-        account: { provider: accountProvider },
+    await processHistoryItem(
+      { messageId: resourceData.id },
+      {
+        provider,
+        emailAccount: {
+          ...validatedEmailAccount,
+          account: { provider: accountProvider },
+        },
+        hasAutomationRules,
+        hasAiAccess: userHasAiAccess,
+        rules: validatedEmailAccount.rules,
+        logger,
       },
-      logger,
-    });
+    );
 
     return NextResponse.json({ ok: true });
   } catch (error) {
