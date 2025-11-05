@@ -266,14 +266,14 @@ describe.skipIf(!RUN_E2E_TESTS)("Outlook Operations Integration Tests", () => {
 
     test("should handle special characters in search queries", async () => {
       // Test various special characters
-      // Note: Outlook KQL has restrictions - some chars like ? and : cause syntax errors
+      // Note: Outlook KQL has restrictions - some chars like : cause syntax errors
       const validQueries = [
         "lunch tomorrow", // Plain text (should work)
         "test example", // Multiple words (should work)
+        "can we meet tomorrow?", // Question mark should be sanitized
       ];
 
       const invalidQueries = [
-        "meeting?", // Question mark causes syntax error
         "test:query", // Colon causes syntax error
       ];
 

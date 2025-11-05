@@ -74,7 +74,7 @@ describe.skipIf(!RUN_E2E_TESTS)("Gmail Webhook Payload", () => {
         console.log(
           `   ✅ Using message from account: ${TEST_GMAIL_MESSAGE_ID}`,
         );
-      } catch (error) {
+      } catch (_error) {
         console.log("   ⚠️  Could not find old message, using default");
       }
     }
