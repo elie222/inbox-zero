@@ -62,6 +62,7 @@ services:
       QUEUE_SYSTEM: "redis"
       REDIS_URL: "redis://redis:6379"
       UPSTASH_REDIS_URL: "http://serverless-redis-http:80"
+      UPSTASH_REDIS_TOKEN: ${UPSTASH_REDIS_TOKEN}
   worker:
     image: ghcr.io/elie222/inbox-zero:latest
     pull_policy: if_not_present
@@ -84,6 +85,7 @@ services:
       QUEUE_SYSTEM: "redis"
       REDIS_URL: "redis://redis:6379"
       UPSTASH_REDIS_URL: "http://serverless-redis-http:80"
+      UPSTASH_REDIS_TOKEN: ${UPSTASH_REDIS_TOKEN}
     # Override the default command to run the worker instead of the web server
     command: ["node", "worker.js"]
     restart: unless-stopped
