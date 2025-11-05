@@ -30,7 +30,7 @@ export const usersRolesInfo: Record<
     suggestedLabels: [
       {
         label: "Customer Feedback",
-        description: "Feedback and suggestions from customers",
+        description: "Feedback and suggestions we receive from our customers",
       },
       {
         label: "Investor",
@@ -61,7 +61,7 @@ export const usersRolesInfo: Record<
     suggestedLabels: [
       {
         label: "Customer Feedback",
-        description: "Feedback and suggestions from customers",
+        description: "Feedback and suggestions we receive from our customers",
       },
       {
         label: "Urgent",
@@ -171,7 +171,7 @@ export const usersRolesInfo: Record<
     suggestedLabels: [
       {
         label: "Support Ticket",
-        description: "Customer help requests and issues",
+        description: "Customer requests for help with our product or service",
       },
       {
         label: "Bug",
