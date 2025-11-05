@@ -25,14 +25,12 @@ export function EverythingElseSection() {
             description="See who emails you most and what's clogging your inbox. Get clear insights, then take action."
             icon={<Analytics />}
           >
-            <div className="pt-6 px-6">
-              <Image
-                src="/images/new-landing/measure-what-matters.svg"
-                alt="analytics"
-                width={1000}
-                height={400}
-              />
-            </div>
+            <Image
+              src="/images/new-landing/metrics.svg"
+              alt="metrics"
+              width={1000}
+              height={400}
+            />
           </DisplayCard>
           <DisplayCard
             title="Drafts that know your schedule"
@@ -40,7 +38,7 @@ export function EverythingElseSection() {
             icon={<Link />}
           >
             <Image
-              src="/images/new-landing/app-integrations.svg"
+              src="/images/new-landing/integrations.svg"
               alt="analytics"
               width={1000}
               height={400}
@@ -52,7 +50,7 @@ export function EverythingElseSection() {
             icon={<ChatTwo />}
           >
             <Image
-              src="/images/new-landing/customize-assistant.svg"
+              src="/images/new-landing/create-rules.svg"
               alt="analytics"
               width={1000}
               height={400}

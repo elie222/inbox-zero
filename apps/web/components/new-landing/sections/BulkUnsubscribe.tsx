@@ -1,5 +1,6 @@
-import { Section } from "@/components/new-landing/common/Section";
 import Image from "next/image";
+import { Section } from "@/components/new-landing/common/Section";
+import { CardWrapper } from "@/components/new-landing/common/CardWrapper";
 
 export function BulkUnsubscribe() {
   return (
@@ -7,12 +8,24 @@ export function BulkUnsubscribe() {
       title="Bulk unsubscribe from emails you never read"
       subtitle="See which emails you never read, and one-click unsubscribe and archive them."
     >
-      <Image
-        src="/images/new-landing/bulk-unsubscribe.svg"
-        alt="bulk unsubscribe"
-        width={700}
-        height={1000}
-      />
+      <div className="flex justify-center items-center">
+        <CardWrapper>
+          <Image
+            className="hidden md:block"
+            src="/images/new-landing/bulk-unsubscribe.svg"
+            alt="bulk unsubscribe"
+            width={1000}
+            height={1000}
+          />
+          <Image
+            className="block md:hidden"
+            src="/images/new-landing/bulk-unsubscribe-mobile.svg"
+            alt="bulk unsubscribe"
+            width={1000}
+            height={1000}
+          />
+        </CardWrapper>
+      </div>
     </Section>
   );
 }

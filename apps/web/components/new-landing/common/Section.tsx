@@ -12,6 +12,7 @@ interface SectionProps {
   wrap?: boolean;
   variant?: "default" | "hero";
   childrenMarginTop?: string;
+  className?: string;
 }
 
 export function Section({
@@ -19,7 +20,7 @@ export function Section({
   subtitle,
   children,
   wrap,
-  variant,
+  variant = "default",
   childrenMarginTop,
 }: SectionProps) {
   const titleStyles = cva("mx-auto", {

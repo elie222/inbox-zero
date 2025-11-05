@@ -10,7 +10,13 @@ interface HeadingProps {
 
 export function Heading({ children, className }: HeadingProps) {
   return (
-    <h1 className={cn(defaultClasses, "text-4xl md:text-5xl", className)}>
+    <h1
+      className={cn(
+        defaultClasses,
+        "text-[#242424] text-4xl md:text-5xl",
+        className,
+      )}
+    >
       {children}
     </h1>
   );
@@ -26,7 +32,7 @@ export function Subheading({ children, className }: SubheadingProps) {
     <h2
       className={cn(
         defaultClasses,
-        "text-[1.7rem] md:text-[2.5rem]",
+        "text-[#242424] text-[1.7rem] md:text-[2.5rem] leading-tight",
         className,
       )}
     >

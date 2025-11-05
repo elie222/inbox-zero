@@ -9,7 +9,15 @@ export function OrganizedInbox() {
       wrap
     >
       <Image
-        src="/images/new-landing/an-organized-inbox.svg"
+        className="hidden md:block"
+        src="/images/new-landing/inbox-before-after.svg"
+        alt="an organized inbox"
+        width={1000}
+        height={1000}
+      />
+      <Image
+        className="block md:hidden"
+        src="/images/new-landing/inbox-before-after-mobile.svg"
         alt="an organized inbox"
         width={1000}
         height={1000}
