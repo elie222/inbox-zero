@@ -233,7 +233,7 @@ export function SideNav({ ...props }: React.ComponentProps<typeof Sidebar>) {
         </SidebarGroupContent>
       </SidebarContent>
 
-      <PremiumExpiredCard />
+      <PremiumExpiredCard isCollapsed={!state.includes("left-sidebar")} />
 
       <SidebarFooter className="pb-4">
         <ClientOnly>
@@ -244,13 +244,6 @@ export function SideNav({ ...props }: React.ComponentProps<typeof Sidebar>) {
           <Link href="https://docs.getinboxzero.com" target="_blank">
             <BookIcon className="size-4" />
             <span className="font-semibold">Help Center</span>
-          </Link>
-        </SidebarMenuButton>
-
-        <SidebarMenuButton asChild>
-          <Link href="/premium">
-            <CrownIcon className="size-4" />
-            <span className="font-semibold">Premium</span>
           </Link>
         </SidebarMenuButton>
 

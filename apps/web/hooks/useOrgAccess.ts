@@ -24,7 +24,7 @@ export function useOrgAccess() {
     };
   }
 
-  if (isLoading || !emailAccount || !emailAccount.user || error) {
+  if (isLoading || !emailAccount || !emailAccount.userId || error) {
     return {
       isLoading: true,
       isAccountOwner: false,
@@ -32,7 +32,7 @@ export function useOrgAccess() {
     };
   }
 
-  const isAccountOwner = emailAccount.user.id === session.user.id;
+  const isAccountOwner = emailAccount.userId === session.user.id;
 
   const accountInfo = isAccountOwner
     ? null

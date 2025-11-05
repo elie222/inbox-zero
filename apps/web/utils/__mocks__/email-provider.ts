@@ -36,6 +36,7 @@ export const createMockEmailProvider = (
   overrides?: Partial<EmailProvider>,
 ): EmailProvider => ({
   name: "google",
+  toJSON: () => ({ name: "google", type: "MockEmailProvider" }),
   getThreads: vi.fn().mockResolvedValue([]),
   getThread: vi.fn().mockResolvedValue({
     id: "thread1",
@@ -45,6 +46,8 @@ export const createMockEmailProvider = (
   getLabels: vi.fn().mockResolvedValue([]),
   getLabelById: vi.fn().mockResolvedValue(null),
   getLabelByName: vi.fn().mockResolvedValue(null),
+  getMessageByRfc822MessageId: vi.fn().mockResolvedValue(null),
+  getFolders: vi.fn().mockResolvedValue([]),
   getSignatures: vi.fn().mockResolvedValue([]),
   getMessage: vi.fn().mockResolvedValue({
     id: "msg1",

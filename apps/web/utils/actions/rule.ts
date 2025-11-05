@@ -39,6 +39,8 @@ import { ONE_WEEK_MINUTES } from "@/utils/date";
 import { createEmailProvider } from "@/utils/email/provider";
 import { resolveLabelNameAndId } from "@/utils/label/resolve-label";
 import type { Logger } from "@/utils/logger";
+import { validateGmailLabelName } from "@/utils/gmail/label-validation";
+import { isGoogleProvider } from "@/utils/email/provider-types";
 
 export const createRuleAction = actionClient
   .metadata({ name: "createRule" })
@@ -371,6 +373,7 @@ export const createRulesOnboardingAction = actionClient
               hasDigest: false,
               draftReply: !!ruleConfiguration.draftReply,
               provider,
+              logger,
             });
 
             return (
@@ -404,6 +407,7 @@ export const createRulesOnboardingAction = actionClient
               hasDigest: false,
               draftReply: !!ruleConfiguration.draftReply,
               provider,
+              logger,
             });
 
             return prisma.rule
@@ -490,6 +494,7 @@ export const createRulesOnboardingAction = actionClient
             hasDigest: false,
             draftReply: false,
             provider,
+            logger,
           });
 
           const promise = prisma.rule
@@ -743,6 +748,15 @@ async function resolveActionLabels<
   return Promise.all(
     actions.map(async (action) => {
       if (action.type === ActionType.LABEL) {
+        const labelName = action.labelId?.name || action.labelId?.value || null;
+
+        if (isGoogleProvider(provider) && labelName) {
+          const validation = validateGmailLabelName(labelName);
+          if (!validation.valid) {
+            throw new SafeError(validation.error);
+          }
+        }
+
         const { label: resolvedLabel, labelId: resolvedLabelId } =
           await resolveLabelNameAndId({
             emailProvider,
@@ -787,6 +801,7 @@ async function getActionsFromCategoryAction({
   draftReply,
   hasDigest,
   provider,
+  logger,
 }: {
   emailAccountId: string;
   rule: Rule;
@@ -795,6 +810,7 @@ async function getActionsFromCategoryAction({
   hasDigest: boolean;
   draftReply: boolean;
   provider: string;
+  logger: Logger;
 }): Promise<Prisma.ActionCreateManyRuleInput[]> {
   const emailProvider = await createEmailProvider({
     emailAccountId,
@@ -805,6 +821,13 @@ async function getActionsFromCategoryAction({
     emailProvider,
     label,
     labelId: null,
+  });
+
+  logger.info("Resolved label ID during onboarding", {
+    requestedLabel: label,
+    resolvedLabelName: labelName,
+    resolvedLabelId: labelId,
+    ruleName: rule.name,
   });
 
   let actions: Prisma.ActionCreateManyRuleInput[] = [
@@ -828,6 +851,13 @@ async function getActionsFromCategoryAction({
       const folderId = await emailProvider.getOrCreateOutlookFolderIdByName(
         rule.name,
       );
+
+      logger.info("Resolved folder ID during onboarding", {
+        folderName: rule.name,
+        resolvedFolderId: folderId,
+        categoryAction,
+      });
+
       actions = [
         {
           type: ActionType.MOVE_FOLDER,

@@ -43,6 +43,7 @@ export interface EmailSignature {
 
 export interface EmailProvider {
   readonly name: "google" | "microsoft";
+  toJSON(): { name: string; type: string };
   getThreads(folderId?: string): Promise<EmailThread[]>;
   getThread(threadId: string): Promise<EmailThread>;
   getLabels(): Promise<EmailLabel[]>;
@@ -50,6 +51,9 @@ export interface EmailProvider {
   getLabelByName(name: string): Promise<EmailLabel | null>;
   getFolders(): Promise<OutlookFolder[]>;
   getMessage(messageId: string): Promise<ParsedMessage>;
+  getMessageByRfc822MessageId(
+    rfc822MessageId: string,
+  ): Promise<ParsedMessage | null>;
   getMessagesByFields(options: {
     froms?: string[];
     tos?: string[];
@@ -89,7 +93,11 @@ export interface EmailProvider {
     ownerEmail: string,
     actionSource: "user" | "automation",
   ): Promise<void>;
-  labelMessage(options: { messageId: string; labelId: string }): Promise<void>;
+  labelMessage(options: {
+    messageId: string;
+    labelId: string;
+    labelName: string | null;
+  }): Promise<{ usedFallback?: boolean; actualLabelId?: string }>;
   removeThreadLabel(threadId: string, labelId: string): Promise<void>;
   removeThreadLabels(threadId: string, labelIds: string[]): Promise<void>;
   draftEmail(

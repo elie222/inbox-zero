@@ -57,10 +57,17 @@ export async function determineConversationStatus({
     }),
   );
 
+  // Check if the user sent the last email in the thread
+  const lastMessage = sortedMessages.at(-1);
+  const userSentLastEmail = lastMessage
+    ? provider.isSentMessage(lastMessage)
+    : false;
+
   const { status, rationale } = await aiDetermineThreadStatus({
     emailAccount,
     threadMessages: threadMessagesForLLM,
     modelType,
+    userSentLastEmail,
   });
 
   logger.info("AI determined thread status", {

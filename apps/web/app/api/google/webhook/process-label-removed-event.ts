@@ -10,6 +10,7 @@ import type { Logger } from "@/utils/logger";
 import {
   isGmailRateLimitExceededError,
   isGmailQuotaExceededError,
+  isGmailInsufficientPermissionsError,
 } from "@/utils/error";
 
 const SYSTEM_LABELS = [
@@ -48,8 +49,24 @@ export async function handleLabelRemovedEvent(
     return;
   }
 
+  // Filter out system labels early - we don't learn from system label removals
+  // (e.g., archiving removes INBOX, starring adds/removes STARRED, etc.)
+  const removedLabelIds = allRemovedLabelIds.filter(
+    (labelId) => !SYSTEM_LABELS.includes(labelId),
+  );
+
+  if (removedLabelIds.length === 0) {
+    logger.trace("No non-system labels removed, skipping", {
+      messageId,
+      threadId,
+      systemLabelsRemoved: allRemovedLabelIds,
+    });
+    return;
+  }
+
   logger.info("Processing label removal for learning", {
-    labelCount: allRemovedLabelIds.length,
+    labelCount: removedLabelIds.length,
+    removedLabels: removedLabelIds,
   });
 
   let sender: string | null = null;
@@ -59,12 +76,18 @@ export async function handleLabelRemovedEvent(
     sender = extractEmailAddress(parsedMessage.headers.from);
   } catch (error) {
     // Message not found - expected when message was deleted
-    if (
-      error instanceof Error &&
-      error.message === "Requested entity was not found."
-    ) {
-      logger.warn("Message not found", {
-        removedLabelCount: allRemovedLabelIds.length,
+    // Check both direct error and nested error (from retry wrapper)
+    const errorObj = error as {
+      message?: string;
+      error?: { message?: string };
+    };
+    const errorMessage = errorObj?.message || errorObj?.error?.message;
+    if (errorMessage === "Requested entity was not found.") {
+      logger.warn("Message not found - may have been deleted or trashed", {
+        messageId,
+        threadId,
+        allRemovedLabels: allRemovedLabelIds,
+        nonSystemLabels: removedLabelIds,
       });
       return;
     }
@@ -79,20 +102,16 @@ export async function handleLabelRemovedEvent(
       return;
     }
 
-    // Unexpected errors
+    if (isGmailInsufficientPermissionsError(error)) {
+      logger.warn("Insufficient permissions to access message", { messageId });
+      return;
+    }
+
+    // Unexpected errors - return early to prevent further processing
     logger.error("Error getting sender for label removal", {
       messageId,
       error,
     });
-  }
-
-  // Filter out system labels early as we don't learn from them
-  const removedLabelIds = (message.labelIds || []).filter(
-    (labelId) => !SYSTEM_LABELS.includes(labelId),
-  );
-
-  if (removedLabelIds.length === 0) {
-    logger.trace("No non-system labels to process");
     return;
   }
 
@@ -143,10 +162,7 @@ async function learnFromRemovedLabel({
   emailAccountId: string;
   logger: Logger;
 }) {
-  logger = logger.with({
-    labelName,
-    sender,
-  });
+  logger = logger.with({ labelName, sender });
 
   // Can't learn patterns without knowing who to exclude
   if (!sender) {

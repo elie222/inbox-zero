@@ -29,7 +29,7 @@ export async function aiChooseRule<
   rules: { rule: T; isPrimary?: boolean }[];
   reason: string;
 }> {
-  if (!rules.length) return { rules: [], reason: "" };
+  if (!rules.length) return { rules: [], reason: "No rules to evaluate" };
 
   const { result: aiResponse } = await getAiResponse({
     email,
@@ -38,7 +38,12 @@ export async function aiChooseRule<
     modelType,
   });
 
-  if (aiResponse.noMatchFound) return { rules: [], reason: "" };
+  if (aiResponse.noMatchFound) {
+    return {
+      rules: [],
+      reason: aiResponse.reasoning || "AI determined no rules matched",
+    };
+  }
 
   const rulesWithMetadata = aiResponse.matchedRules
     .map((match) => {
