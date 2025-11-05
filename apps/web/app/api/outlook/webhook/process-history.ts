@@ -2,19 +2,21 @@ import { NextResponse } from "next/server";
 import { captureException } from "@/utils/error";
 import { createEmailProvider } from "@/utils/email/provider";
 import type { OutlookResourceData } from "@/app/api/outlook/webhook/types";
-import { processHistoryItem } from "@/app/api/outlook/webhook/process-history-item";
-import { logger } from "@/app/api/outlook/webhook/logger";
+import { processHistoryItem } from "@/utils/webhook/process-history-item";
 import {
   validateWebhookAccount,
   getWebhookEmailAccount,
 } from "@/utils/webhook/validate-webhook-account";
+import type { Logger } from "@/utils/logger";
 
 export async function processHistoryForUser({
   subscriptionId,
   resourceData,
+  logger,
 }: {
   subscriptionId: string;
   resourceData: OutlookResourceData;
+  logger: Logger;
 }) {
   const emailAccount = await getWebhookEmailAccount(
     {
@@ -23,9 +25,17 @@ export async function processHistoryForUser({
     logger,
   );
 
+  logger = logger.with({
+    email: emailAccount?.email,
+    emailAccountId: emailAccount?.id,
+  });
+
   const validation = await validateWebhookAccount(emailAccount, logger);
 
   if (!validation.success) {
+    logger.error("Error validating webhook account", {
+      error: validation.response.status,
+    });
     return validation.response;
   }
 
@@ -44,16 +54,20 @@ export async function processHistoryForUser({
   });
 
   try {
-    await processHistoryItem(resourceData, {
-      provider,
-      hasAutomationRules,
-      hasAiAccess: userHasAiAccess,
-      rules: validatedEmailAccount.rules,
-      emailAccount: {
-        ...validatedEmailAccount,
-        account: { provider: accountProvider },
+    await processHistoryItem(
+      { messageId: resourceData.id },
+      {
+        provider,
+        emailAccount: {
+          ...validatedEmailAccount,
+          account: { provider: accountProvider },
+        },
+        hasAutomationRules,
+        hasAiAccess: userHasAiAccess,
+        rules: validatedEmailAccount.rules,
+        logger,
       },
-    });
+    );
 
     return NextResponse.json({ ok: true });
   } catch (error) {
@@ -68,7 +82,6 @@ export async function processHistoryForUser({
       validatedEmailAccount.email,
     );
     logger.error("Error processing webhook", {
-      subscriptionId,
       resourceData,
       email: validatedEmailAccount.email,
       error:

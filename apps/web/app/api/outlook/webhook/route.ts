@@ -2,7 +2,7 @@ import type { z } from "zod";
 import { after, NextResponse } from "next/server";
 import { withError } from "@/utils/middleware";
 import { processHistoryForUser } from "@/app/api/outlook/webhook/process-history";
-import { logger } from "@/app/api/outlook/webhook/logger";
+import { createScopedLogger, type Logger } from "@/utils/logger";
 import { env } from "@/env";
 import { webhookBodySchema } from "@/app/api/outlook/webhook/types";
 import { handleWebhookError } from "@/utils/webhook/error-handler";
@@ -13,6 +13,8 @@ export const maxDuration = 300;
 export const POST = withError(async (request) => {
   const searchParams = new URL(request.url).searchParams;
   const validationToken = searchParams.get("validationToken");
+
+  const logger = createScopedLogger("outlook/webhook");
 
   if (validationToken) {
     logger.info("Received validation request", { validationToken });
@@ -65,19 +67,20 @@ export const POST = withError(async (request) => {
 
   // Process notifications asynchronously using after() to avoid Microsoft webhook timeout
   // Microsoft expects a response within 3 seconds
-  after(() => processNotificationsAsync(notifications));
+  after(() => processNotificationsAsync(notifications, logger));
 
   return NextResponse.json({ ok: true });
 });
 
 async function processNotificationsAsync(
   notifications: z.infer<typeof webhookBodySchema>["value"],
+  log: Logger,
 ) {
   for (const notification of notifications) {
     const { subscriptionId, resourceData } = notification;
+    const logger = log.with({ subscriptionId, messageId: resourceData.id });
 
     logger.info("Processing notification", {
-      subscriptionId,
       changeType: notification.changeType,
     });
 
@@ -85,6 +88,7 @@ async function processNotificationsAsync(
       await processHistoryForUser({
         subscriptionId,
         resourceData,
+        logger,
       });
     } catch (error) {
       const emailAccount = await getWebhookEmailAccount(
@@ -93,7 +97,6 @@ async function processNotificationsAsync(
       ).catch((error) => {
         logger.error("Error getting email account", {
           error: error instanceof Error ? error.message : error,
-          subscriptionId,
         });
         return null;
       });
@@ -107,7 +110,6 @@ async function processNotificationsAsync(
       } else {
         logger.error("Error processing notification (no email account found)", {
           error: error instanceof Error ? error.message : error,
-          subscriptionId,
         });
       }
     }

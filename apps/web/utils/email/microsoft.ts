@@ -33,7 +33,7 @@ import {
 import { trashThread } from "@/utils/outlook/trash";
 import { markSpam } from "@/utils/outlook/spam";
 import { handlePreviousDraftDeletion } from "@/utils/ai/choose-rule/draft-management";
-import { createScopedLogger } from "@/utils/logger";
+import { type Logger, createScopedLogger } from "@/utils/logger";
 import {
   getThreadMessages,
   getThreadsFromSenderWithSubject,
@@ -1241,6 +1241,7 @@ export class OutlookProvider implements EmailProvider {
       id: string;
       conversationId?: string;
     };
+    logger?: Logger;
   }): Promise<void> {
     if (!options.subscriptionId) {
       throw new Error(
@@ -1254,6 +1255,7 @@ export class OutlookProvider implements EmailProvider {
         id: options.historyId?.toString() || "0",
         conversationId: options.startHistoryId?.toString() || null,
       },
+      logger: options.logger || logger,
     });
   }
 
