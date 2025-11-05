@@ -1,3 +1,4 @@
+import "server-only";
 import z from "zod";
 import { createPatch } from "diff";
 import type { EmailAccountWithAI } from "@/utils/llms/types";

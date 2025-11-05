@@ -1,7 +1,8 @@
+import "server-only";
+
 import type { Job, ConnectionOptions } from "bullmq";
 import { env } from "@/env";
 import { createScopedLogger } from "@/utils/logger";
-import { publishToQstashQueue } from "@/utils/upstash";
 import { Client } from "@upstash/qstash";
 import type {
   QueueJobData,
@@ -26,10 +27,10 @@ export class QStashManager implements QueueManager {
     options: EnqueueOptions = {},
   ): Promise<string> {
     const url = `${env.WEBHOOK_URL || env.NEXT_PUBLIC_BASE_URL}/api/queue/${queueName}`;
+    const client = getQstashClient();
 
     if (options.delay) {
       const notBefore = Math.ceil((Date.now() + options.delay) / 1000);
-      const client = getQstashClient();
       const response = await client.publishJSON({
         url,
         body: data,
@@ -38,11 +39,13 @@ export class QStashManager implements QueueManager {
       });
       return response?.messageId || "unknown";
     } else {
-      const response = await publishToQstashQueue({
-        queueName,
-        parallelism: DEFAULT_PARALLELISM,
+      // Use queue.enqueueJSON to support deduplicationId
+      const queue = client.queue({ queueName });
+      await queue.upsert({ parallelism: DEFAULT_PARALLELISM });
+      const response = await queue.enqueueJSON({
         url,
         body: data,
+        deduplicationId: options.jobId,
       });
       return response?.messageId || "unknown";
     }
@@ -73,10 +76,12 @@ export class QStashManager implements QueueManager {
           continue;
         }
         const accountQueueName = `${queueName}-${emailAccountId}`;
-        if (!jobsByAccount.has(accountQueueName)) {
-          jobsByAccount.set(accountQueueName, []);
+        let jobs = jobsByAccount.get(accountQueueName);
+        if (!jobs) {
+          jobs = [];
+          jobsByAccount.set(accountQueueName, jobs);
         }
-        jobsByAccount.get(accountQueueName)!.push(job);
+        jobs.push(job);
       }
 
       // Use publishToQstashQueue for each account's queue with parallelism=3

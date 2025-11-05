@@ -593,12 +593,18 @@ export function isValidQueueName(queueName: string): boolean {
   }
 
   if (queueName.startsWith(`${AI_CATEGORIZE_SENDERS_PREFIX}-`)) {
-    const queueIndex = getAiCategorizeSendersQueueIndex(queueName);
-    return (
-      queueIndex !== null &&
-      queueIndex >= 0 &&
-      queueIndex < AI_CATEGORIZE_SENDERS_QUEUE_COUNT
-    );
+    if (env.QUEUE_SYSTEM === "redis") {
+      // For BullMQ: validate queue index (0-6)
+      const queueIndex = getAiCategorizeSendersQueueIndex(queueName);
+      return (
+        queueIndex !== null &&
+        queueIndex >= 0 &&
+        queueIndex < AI_CATEGORIZE_SENDERS_QUEUE_COUNT
+      );
+    } else {
+      // For QStash: accept any per-account queue (ai-categorize-senders-{emailAccountId})
+      return true;
+    }
   }
 
   // Allow ai-clean queues

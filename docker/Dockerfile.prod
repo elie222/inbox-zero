@@ -19,7 +19,8 @@ COPY patches/ patches/
 COPY apps/web/prisma/schema.prisma apps/web/prisma/schema.prisma
 
 # Install deps
-RUN pnpm install --no-frozen-lockfile --prefer-offline
+# Use shamefully-hoist to ensure all packages are available at root level for webpack resolution
+RUN pnpm install --no-frozen-lockfile --prefer-offline --shamefully-hoist
 
  # Copy the full repo
 COPY . .
@@ -52,8 +53,11 @@ ENV QSTASH_NEXT_SIGNING_KEY="dummy_qstash_next_key_for_build"
 ENV DOCKER_BUILD="true"
 
 # Use the package script so worker.js is copied into .next/standalone at root (same level as server.js)
-RUN pnpm --filter inbox-zero-ai exec -- prisma generate \
- && pnpm --filter inbox-zero-ai exec -- next build \
+# Run from apps/web directory to ensure proper module resolution
+RUN cd apps/web \
+ && pnpm exec prisma generate \
+ && pnpm exec next build \
+ && cd ../.. \
  && cp apps/web/worker.js apps/web/.next/standalone/worker.js \
  && chmod +x apps/web/.next/standalone/worker.js \
  && rm -rf apps/web/.next/cache

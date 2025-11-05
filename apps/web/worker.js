@@ -12,22 +12,22 @@ const fs = require('fs')
 process.env.NODE_ENV = process.env.NODE_ENV || 'production'
 process.chdir(__dirname)
 
-// Load environment variables from .env file (same as Next.js server.js does)
-// Try to load .env file from the same directory
-const envPath = path.join(__dirname, '.env')
-if (fs.existsSync(envPath)) {
-  // Use dotenv to load the .env file
+// Load environment variables (same as Next.js server.js does)
+// loadEnvConfig automatically handles .env, .env.local, .env.production, etc.
+// based on NODE_ENV, so we call it unconditionally
+try {
+  const { loadEnvConfig } = require('next/dist/server/config-utils')
+  loadEnvConfig(__dirname)
+} catch (err) {
+  // If loadEnvConfig is not available (shouldn't happen in standalone build),
+  // fallback to dotenv for plain .env file
   try {
-    // Try to use @next/env which Next.js uses
-    const { loadEnvConfig } = require('next/dist/server/config-utils')
-    loadEnvConfig(__dirname)
-  } catch (err) {
-    // Fallback to dotenv if @next/env is not available
-    try {
+    const envPath = path.join(__dirname, '.env')
+    if (fs.existsSync(envPath)) {
       require('dotenv').config({ path: envPath })
-    } catch (dotenvErr) {
-      console.warn('Could not load .env file:', dotenvErr.message)
     }
+  } catch (dotenvErr) {
+    console.warn('Could not load environment variables:', dotenvErr.message)
   }
 }
 

@@ -14,7 +14,7 @@ const withMDX = nextMdx({
 const nextConfig: NextConfig = {
   ...(process.env.DOCKER_BUILD === "true" && { output: "standalone" }),
   reactStrictMode: true,
-  serverExternalPackages: ["@sentry/nextjs", "@sentry/node"],
+  serverExternalPackages: ["@sentry/nextjs", "@sentry/node", "bullmq", "diff"],
   turbopack: {
     rules: {
       "*.svg": {

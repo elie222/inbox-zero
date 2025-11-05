@@ -1,3 +1,5 @@
+import "server-only";
+
 import {
   Queue,
   Worker,
@@ -85,10 +87,12 @@ export class BullMQManager implements QueueManager {
           continue;
         }
         const targetQueueName = getAiCleanQueueName({ emailAccountId });
-        if (!jobsByQueue.has(targetQueueName)) {
-          jobsByQueue.set(targetQueueName, []);
+        let queueJobs = jobsByQueue.get(targetQueueName);
+        if (!queueJobs) {
+          queueJobs = [];
+          jobsByQueue.set(targetQueueName, queueJobs);
         }
-        jobsByQueue.get(targetQueueName)!.push(job);
+        queueJobs.push(job);
       }
 
       // Enqueue jobs to their respective queues
@@ -164,7 +168,6 @@ export class BullMQManager implements QueueManager {
         logger.info("Processing job", {
           queueName,
           jobId: job.id,
-          data: JSON.stringify(job.data),
         });
 
         try {
