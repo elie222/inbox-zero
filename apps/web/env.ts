@@ -62,6 +62,7 @@ export const env = createEnv({
     UPSTASH_REDIS_TOKEN: z.string().optional(),
     REDIS_URL: z.string().optional(),
     QUEUE_SYSTEM: z.enum(["redis", "upstash"]).default("upstash"),
+    ENABLE_WORKER_QUEUES: z.boolean().default(false),
     QSTASH_TOKEN: z.string().optional(),
 
     GOOGLE_PUBSUB_TOPIC_NAME: z.string().min(1),

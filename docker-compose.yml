@@ -59,9 +59,9 @@ services:
     environment:
       DATABASE_URL: "postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-password}@db:5432/${POSTGRES_DB:-inboxzero}?schema=public"
       DIRECT_URL: "postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-password}@db:5432/${POSTGRES_DB:-inboxzero}?schema=public"
+      QUEUE_SYSTEM: "redis"
+      REDIS_URL: "redis://redis:6379"
       UPSTASH_REDIS_URL: "http://serverless-redis-http:80"
-      UPSTASH_REDIS_TOKEN: "${UPSTASH_REDIS_TOKEN}"
-
   worker:
     image: ghcr.io/elie222/inbox-zero:latest
     pull_policy: if_not_present
@@ -81,8 +81,9 @@ services:
     environment:
       DATABASE_URL: "postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-password}@db:5432/${POSTGRES_DB:-inboxzero}?schema=public"
       DIRECT_URL: "postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-password}@db:5432/${POSTGRES_DB:-inboxzero}?schema=public"
-      REDIS_URL: "redis://redis:6379"
       QUEUE_SYSTEM: "redis"
+      REDIS_URL: "redis://redis:6379"
+      UPSTASH_REDIS_URL: "http://serverless-redis-http:80"
     # Override the default command to run the worker instead of the web server
     command: ["node", "worker.js"]
     restart: unless-stopped

@@ -104,6 +104,7 @@
       "!.turbo",
       "!.next",
       "!sw.js",
+      "!worker.js",
       "!.vscode"
     ]
   },

@@ -12,7 +12,7 @@ const withMDX = nextMdx({
 });
 
 const nextConfig: NextConfig = {
-  output: "standalone",
+  ...(process.env.DOCKER_BUILD === "true" && { output: "standalone" }),
   reactStrictMode: true,
   serverExternalPackages: ["@sentry/nextjs", "@sentry/node"],
   turbopack: {

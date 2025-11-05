@@ -49,12 +49,13 @@ ENV REDIS_URL="redis://dummy:dummy@dummy:6379"
 ENV QSTASH_TOKEN="dummy_qstash_token_for_build"
 ENV QSTASH_CURRENT_SIGNING_KEY="dummy_qstash_curr_key_for_build"
 ENV QSTASH_NEXT_SIGNING_KEY="dummy_qstash_next_key_for_build"
+ENV DOCKER_BUILD="true"
 
-# Use the package script so worker.js is copied into .next/standalone
+# Use the package script so worker.js is copied into .next/standalone at root (same level as server.js)
 RUN pnpm --filter inbox-zero-ai exec -- prisma generate \
  && pnpm --filter inbox-zero-ai exec -- next build \
- && pnpm --filter inbox-zero-ai exec -- shx cp worker.js .next/standalone/worker.js \
- && pnpm --filter inbox-zero-ai exec -- shx chmod +x .next/standalone/worker.js \
+ && cp apps/web/worker.js apps/web/.next/standalone/worker.js \
+ && chmod +x apps/web/.next/standalone/worker.js \
  && rm -rf apps/web/.next/cache
 
 FROM node:22-alpine AS runner
@@ -70,4 +71,4 @@ COPY --from=builder /app/apps/web/public ./apps/web/public
 EXPOSE 3000
 
 # Default command runs the Next.js server from the standalone bundle
-CMD ["node", "server.js"]
+CMD ["node", "apps/web/server.js"]
