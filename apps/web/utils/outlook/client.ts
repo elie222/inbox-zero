@@ -19,6 +19,7 @@ type AuthOptions = {
 export class OutlookClient {
   private readonly client: Client;
   private readonly accessToken: string;
+  private folderIdCache: Record<string, string> | null = null;
 
   constructor(accessToken: string) {
     this.accessToken = accessToken;
@@ -43,6 +44,14 @@ export class OutlookClient {
 
   getAccessToken(): string {
     return this.accessToken;
+  }
+
+  getFolderIdCache(): Record<string, string> | null {
+    return this.folderIdCache;
+  }
+
+  setFolderIdCache(cache: Record<string, string>): void {
+    this.folderIdCache = cache;
   }
 
   // Helper methods for common operations
