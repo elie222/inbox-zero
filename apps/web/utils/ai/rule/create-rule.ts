@@ -8,7 +8,7 @@ export async function aiCreateRule(
   emailAccount: EmailAccountWithAI,
 ) {
   const system =
-    "You are an AI assistant that helps people manage their emails. Generate a JSON response with the rule details.";
+    "You are an AI assistant that helps people manage their emails. Generate a JSON response with the rule details. Use short, concise rule names (preferably a single word like 'Marketing', 'Newsletters', 'Urgent').";
   const prompt = `Generate a rule for these instructions:
 <instructions>
   ${instructions}
