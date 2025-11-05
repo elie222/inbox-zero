@@ -194,24 +194,29 @@ export async function draftEmail(
     .post({});
 
   // Update the draft with our content
-  const updatedDraft: Message = await client
-    .getClient()
-    .api(`/me/messages/${replyDraft.id}`)
-    .patch({
-      subject: args.subject || originalEmail.headers.subject,
-      body: {
-        contentType: "html",
-        content: html,
-      },
-      toRecipients: [
-        {
-          emailAddress: {
-            address: recipients.to,
-          },
+  const updateRequest = client.getClient().api(`/me/messages/${replyDraft.id}`);
+
+  // To handle change key error
+  const etag = (replyDraft as { "@odata.etag"?: string })?.["@odata.etag"];
+  if (etag) {
+    updateRequest.header("If-Match", etag);
+  }
+
+  const updatedDraft: Message = await updateRequest.patch({
+    subject: args.subject || originalEmail.headers.subject,
+    body: {
+      contentType: "html",
+      content: html,
+    },
+    toRecipients: [
+      {
+        emailAddress: {
+          address: recipients.to,
         },
-      ],
-      ...(ccRecipients.length > 0 ? { ccRecipients } : {}),
-    });
+      },
+    ],
+    ...(ccRecipients.length > 0 ? { ccRecipients } : {}),
+  });
 
   // Use the original replyDraft.id since that's the stable ID
   // The PATCH response might not always include the full object?
