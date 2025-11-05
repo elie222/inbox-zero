@@ -104,7 +104,9 @@ export async function processHistoryItem(
     const isInSentItems = parsedMessage.labelIds?.includes("SENT") || false;
 
     if (!isInInbox && !isInSentItems) {
-      logger.info("Skipping message not in inbox or sent items");
+      logger.info("Skipping message not in inbox or sent items", {
+        labelIds: parsedMessage.labelIds,
+      });
       return;
     }
 
