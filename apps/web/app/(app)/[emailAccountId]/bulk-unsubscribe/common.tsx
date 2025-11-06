@@ -48,7 +48,7 @@ import {
   useAutoArchive,
   useApproveButton,
   useBulkArchive,
-  useDeleteAllFromSender,
+  useBulkDelete,
 } from "@/app/(app)/[emailAccountId]/bulk-unsubscribe/hooks";
 import { LabelsSubMenu } from "@/components/LabelsSubMenu";
 import type { EmailLabel } from "@/providers/EmailProvider";
@@ -402,8 +402,8 @@ export function MoreDropdown<T extends Row>({
     posthog,
     emailAccountId,
   });
-  const { deleteAllLoading, onDeleteAll } = useDeleteAllFromSender({
-    item,
+  const { onBulkDelete, isBulkDeleting } = useBulkDelete({
+    mutate: () => Promise.resolve(),
     posthog,
     emailAccountId,
   });
@@ -489,10 +489,10 @@ export function MoreDropdown<T extends Row>({
             );
             if (!yes) return;
 
-            onDeleteAll();
+            onBulkDelete([item]);
           }}
         >
-          {deleteAllLoading ? (
+          {isBulkDeleting ? (
             <ButtonLoader />
           ) : (
             <TrashIcon className="mr-2 size-4" />

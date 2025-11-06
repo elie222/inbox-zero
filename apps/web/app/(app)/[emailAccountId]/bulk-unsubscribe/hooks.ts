@@ -17,7 +17,10 @@ import type { GetThreadsResponse } from "@/app/api/threads/basic/route";
 import { isDefined } from "@/utils/types";
 import { fetchWithAccount } from "@/utils/fetch";
 import type { UserResponse } from "@/app/api/user/me/route";
-import { bulkArchiveAction } from "@/utils/actions/bulk-archive";
+import {
+  bulkArchiveAction,
+  bulkTrashAction,
+} from "@/utils/actions/mail-bulk-action";
 
 async function unsubscribeAndArchive({
   newsletterEmail,
@@ -550,19 +553,22 @@ export function useBulkDelete<T extends Row>({
   posthog: PostHog;
   emailAccountId: string;
 }) {
-  const onBulkDelete = async (items: T[]) => {
-    posthog.capture("Clicked Bulk Delete");
+  const { execute: executeBulkTrash, isExecuting } = useAction(
+    bulkTrashAction.bind(null, emailAccountId),
+    {
+      onSuccess: () => {
+        toast.success("Bulk trash completed");
+        mutate();
+      },
+    },
+  );
 
-    for (const item of items) {
-      await deleteAllFromSender({
-        name: item.name,
-        onFinish: () => mutate(),
-        emailAccountId,
-      });
-    }
+  const onBulkDelete = (items: T[]) => {
+    posthog.capture("Clicked Bulk Delete");
+    executeBulkTrash({ froms: items.map((item) => item.name) });
   };
 
-  return { onBulkDelete };
+  return { onBulkDelete, isBulkDeleting: isExecuting };
 }
 
 export function useBulkUnsubscribeShortcuts<T extends Row>({
