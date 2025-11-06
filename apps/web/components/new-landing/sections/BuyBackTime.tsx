@@ -10,9 +10,9 @@ export function BuyBackTime() {
       <Section
         title="Buy back your time"
         subtitle="Stop wasting half your day on email. Start using Inbox Zero today."
-        childrenMarginTop="mt-6"
+        noGap
       >
-        <CallToAction text="Get started for free" />
+        <CallToAction text="Get started for free" className="mt-6" />
       </Section>
     </div>
   );

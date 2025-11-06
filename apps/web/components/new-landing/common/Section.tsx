@@ -11,7 +11,7 @@ interface SectionProps {
   children: React.ReactNode;
   wrap?: boolean;
   variant?: "default" | "hero";
-  childrenMarginTop?: string;
+  noGap?: boolean;
   className?: string;
 }
 
@@ -21,7 +21,7 @@ export function Section({
   children,
   wrap,
   variant = "default",
-  childrenMarginTop,
+  noGap = false,
 }: SectionProps) {
   const titleStyles = cva("mx-auto", {
     variants: {
@@ -48,7 +48,7 @@ export function Section({
           {subtitle}
         </Paragraph>
       ) : null}
-      <div className={cx(childrenMarginTop || "mt-6 md:mt-10")}>{children}</div>
+      <div className={noGap ? "" : "mt-6 md:mt-10"}>{children}</div>
     </section>
   );
 }

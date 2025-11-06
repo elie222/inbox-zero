@@ -12,9 +12,9 @@ export function EverythingElseSection() {
     <Section
       title="And everything else you need"
       subtitle="Effortless setup with one-click install. Inboxzero is intuitive and requires no technical skills."
-      childrenMarginTop="mt-5"
+      noGap
     >
-      <div className="flex flex-col items-center gap-5">
+      <div className="mt-5 flex flex-col items-center gap-5">
         <CardWrapper padding="xs" rounded="xs" variant="dark-border">
           <Button>Get started free</Button>
         </CardWrapper>
