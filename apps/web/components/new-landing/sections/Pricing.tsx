@@ -58,7 +58,7 @@ const plans: PricingPlan[] = [
     button: {
       content: "Try free for 7 days",
     },
-    prices: { month: 20, annual: 16 },
+    prices: { month: 20, annual: 18 },
     features: {
       items: [
         "Sorts and labels every email",
@@ -79,7 +79,7 @@ const plans: PricingPlan[] = [
       variant: "secondary-two",
       content: "Try free for 7 days",
     },
-    prices: { month: 42, annual: 50 },
+    prices: { month: 50, annual: 42 },
     features: {
       title: "Everything in Starter, plus:",
       checkVariant: "secondary",

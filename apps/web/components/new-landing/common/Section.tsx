@@ -48,14 +48,7 @@ export function Section({
           {subtitle}
         </Paragraph>
       ) : null}
-      <div
-        className={cx(
-          "flex justify-center",
-          childrenMarginTop || "mt-6 md:mt-10",
-        )}
-      >
-        {children}
-      </div>
+      <div className={cx(childrenMarginTop || "mt-6 md:mt-10")}>{children}</div>
     </section>
   );
 }

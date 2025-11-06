@@ -2,7 +2,7 @@ import { cn } from "@/utils";
 import { Header } from "@/components/new-landing/sections/Header";
 import { Footer } from "@/components/new-landing/sections/Footer";
 
-const LAYOUT_STYLE = "max-w-6xl mx-auto px-6 lg:px-8";
+const LAYOUT_STYLE = "max-w-6xl mx-auto px-6 lg:px-8 xl:px-0";
 
 export function BasicLayout(props: { children: React.ReactNode }) {
   return (

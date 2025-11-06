@@ -154,6 +154,7 @@ export function Testimonials() {
     <Section
       title="Join thousands of others who spend less time on emails"
       subtitle="Our customers love saving time with inboxzero."
+      wrap
     >
       {/* Mobile */}
       <div className="grid gap-4 text-sm leading-6 text-gray-900 sm:hidden">
