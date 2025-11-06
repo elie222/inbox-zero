@@ -3,7 +3,10 @@
 import Image from "next/image";
 import { Gmail } from "@/components/new-landing/icons/Gmail";
 import { Outlook } from "@/components/new-landing/icons/Outlook";
-import { Section } from "@/components/new-landing/common/Section";
+import {
+  Section,
+  SectionContent,
+} from "@/components/new-landing/common/Section";
 import {
   PageHeading,
   Paragraph,
@@ -23,24 +26,28 @@ import { BlurFade } from "@/components/new-landing/common/BlurFade";
 export function Hero() {
   return (
     <Section>
-      <PageHeading>
-        Meet your AI email assistant that <em>actually</em> works
-      </PageHeading>
-      <Paragraph className={"max-w-[650px] mx-auto mt-4"}>
-        Inbox Zero organizes your inbox, drafts replies in your voice, and helps
-        you reach inbox zero fast. Never miss an important email again.
-      </Paragraph>
-      <div>
+      <BlurFade delay={0.25} inView>
+        <PageHeading>
+          Meet your AI email assistant that <em>actually</em> works
+        </PageHeading>
+      </BlurFade>
+      <BlurFade delay={0.25 * 1.5} inView>
+        <Paragraph className={"max-w-[650px] mx-auto mt-4"}>
+          Inbox Zero organizes your inbox, drafts replies in your voice, and
+          helps you reach inbox zero fast. Never miss an important email again.
+        </Paragraph>
+      </BlurFade>
+      <SectionContent>
         <div className="space-y-3 mb-8">
-          <BlurFade delay={0.25} inView>
+          <BlurFade delay={0.25 * 2} inView>
             <Paragraph color="light" size="sm">
               Try for free with one click
             </Paragraph>
           </BlurFade>
-          <BlurFade delay={0.25 * 2} inView>
+          <BlurFade delay={0.25 * 3} inView>
             <CallToAction />
           </BlurFade>
-          <BlurFade delay={0.25 * 3} inView>
+          <BlurFade delay={0.25 * 4} inView>
             <div className="flex items-center gap-2 justify-center">
               <Paragraph color="light" size="sm">
                 Works with
@@ -59,7 +66,7 @@ export function Hero() {
           </Paragraph>
           <BrandScroller />
         </div>
-      </div>
+      </SectionContent>
     </Section>
   );
 }
