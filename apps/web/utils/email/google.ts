@@ -274,7 +274,7 @@ export class GmailProvider implements EmailProvider {
       return;
     }
 
-    for (const sender of senders) {
+    for (const sender of senders.filter(Boolean)) {
       let nextPageToken: string | undefined;
 
       do {

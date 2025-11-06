@@ -68,7 +68,7 @@ export function BulkUnsubscribeRowMobile({
     },
   );
   const { onBulkArchive, isBulkArchiving } = useBulkArchive({
-    mutate: () => Promise.resolve(),
+    mutate,
     posthog,
     emailAccountId,
   });

@@ -144,6 +144,7 @@ export function ActionCell<T extends Row>({
         emailAccountId={emailAccountId}
         labels={labels}
         posthog={posthog}
+        mutate={mutate}
       />
     </>
   );
@@ -387,6 +388,7 @@ export function MoreDropdown<T extends Row>({
   emailAccountId,
   labels,
   posthog,
+  mutate,
 }: {
   onOpenNewsletter?: (row: T) => void;
   item: T;
@@ -394,16 +396,17 @@ export function MoreDropdown<T extends Row>({
   emailAccountId: string;
   labels: EmailLabel[];
   posthog: PostHog;
+  mutate: () => Promise<void>;
 }) {
   const { provider } = useAccount();
   const terminology = getEmailTerminology(provider);
   const { onBulkArchive, isBulkArchiving } = useBulkArchive({
-    mutate: () => Promise.resolve(),
+    mutate,
     posthog,
     emailAccountId,
   });
   const { onBulkDelete, isBulkDeleting } = useBulkDelete({
-    mutate: () => Promise.resolve(),
+    mutate,
     posthog,
     emailAccountId,
   });
