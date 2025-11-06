@@ -34,6 +34,7 @@ export async function isColdEmail({
   aiReason?: string | null;
 }> {
   const logger = createScopedLogger("ai-cold-email").with({
+    emailAccountId: emailAccount.id,
     email: emailAccount.email,
     threadId: email.threadId,
     messageId: email.id,
