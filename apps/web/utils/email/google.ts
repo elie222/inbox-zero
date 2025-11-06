@@ -259,13 +259,21 @@ export class GmailProvider implements EmailProvider {
   }
 
   private async archiveMessagesBulk(messageIds: string[]): Promise<void> {
-    await this.client.users.messages.batchModify({
-      userId: "me",
-      requestBody: {
-        ids: messageIds,
-        removeLabelIds: [GmailLabel.INBOX],
-      },
-    });
+    try {
+      await this.client.users.messages.batchModify({
+        userId: "me",
+        requestBody: {
+          ids: messageIds,
+          removeLabelIds: [GmailLabel.INBOX],
+        },
+      });
+    } catch (error) {
+      logger.error("Failed to archive messages bulk", {
+        messageIds,
+        error: error instanceof Error ? error.message : error,
+      });
+      throw error;
+    }
   }
 
   // We don't have permissions for Gmail bulkDelete, so we have to do it one thread at a time
@@ -278,23 +286,33 @@ export class GmailProvider implements EmailProvider {
       let nextPageToken: string | undefined;
 
       do {
-        const { messages, nextPageToken: token } =
-          await this.getMessagesFromSender({
-            senderEmail: sender,
-            maxResults: 500,
-            pageToken: nextPageToken,
+        try {
+          const { messages, nextPageToken: token } =
+            await this.getMessagesFromSender({
+              senderEmail: sender,
+              maxResults: 500,
+              pageToken: nextPageToken,
+            });
+
+          const messageIds = messages
+            .map((message) => message.id)
+            .filter(Boolean);
+
+          if (messageIds.length > 0) {
+            await this.archiveMessagesBulk(messageIds);
+          }
+
+          nextPageToken = token;
+        } catch (error) {
+          logger.error("Failed to get messages from sender", {
+            sender,
+            error: error instanceof Error ? error.message : error,
           });
-
-        const messageIds = messages
-          .map((message) => message.id)
-          .filter(Boolean);
-
-        if (messageIds.length > 0) {
-          await this.archiveMessagesBulk(messageIds);
+          throw error;
         }
-
-        nextPageToken = token;
       } while (nextPageToken);
+
+      logger.info("Completed bulk archive from senders");
     }
   }
 
@@ -315,35 +333,45 @@ export class GmailProvider implements EmailProvider {
       const processedThreadIds = new Set<string>();
 
       do {
-        const { messages, nextPageToken: token } =
-          await this.getMessagesFromSender({
-            senderEmail: sender,
-            maxResults: 500,
-            pageToken: nextPageToken,
-          });
-
-        for (const message of messages) {
-          const threadId = message.threadId;
-          if (!threadId || processedThreadIds.has(threadId)) {
-            continue;
-          }
-
-          processedThreadIds.add(threadId);
-
-          try {
-            await this.trashThread(threadId, ownerEmail, "automation");
-          } catch (error) {
-            logger.error("Failed to trash thread for sender", {
-              sender,
-              threadId,
-              error: error instanceof Error ? error.message : error,
+        try {
+          const { messages, nextPageToken: token } =
+            await this.getMessagesFromSender({
+              senderEmail: sender,
+              maxResults: 500,
+              pageToken: nextPageToken,
             });
-            throw error;
-          }
-        }
 
-        nextPageToken = token;
+          for (const message of messages) {
+            const threadId = message.threadId;
+            if (!threadId || processedThreadIds.has(threadId)) {
+              continue;
+            }
+
+            processedThreadIds.add(threadId);
+
+            try {
+              await this.trashThread(threadId, ownerEmail, "automation");
+            } catch (error) {
+              logger.error("Failed to trash thread for sender", {
+                sender,
+                threadId,
+                error: error instanceof Error ? error.message : error,
+              });
+              throw error;
+            }
+          }
+
+          nextPageToken = token;
+        } catch (error) {
+          logger.error("Failed to get messages from sender", {
+            sender,
+            error: error instanceof Error ? error.message : error,
+          });
+          throw error;
+        }
       } while (nextPageToken);
+
+      logger.info("Completed bulk trash from senders");
     }
   }
 
