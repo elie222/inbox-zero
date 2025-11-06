@@ -42,7 +42,9 @@ export function CardHeader({
         </h2>
       ) : null}
       {description ? (
-        <Paragraph className="text-sm mt-3">{description}</Paragraph>
+        <Paragraph size="sm" className="mt-3">
+          {description}
+        </Paragraph>
       ) : null}
     </CardContent>
   );

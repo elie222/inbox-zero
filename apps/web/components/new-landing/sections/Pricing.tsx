@@ -219,7 +219,7 @@ export function PricingCard({ plan, isAnnual }: PricingCardProps) {
       </div>
       <CardContent className="border-t border-[#E7E7E780]">
         {features.title ? (
-          <Paragraph className="font-medium text-sm mb-4">
+          <Paragraph size="sm" className="font-medium mb-4">
             {features.title}
           </Paragraph>
         ) : null}

@@ -216,15 +216,19 @@ function TestimonialCard({
   return (
     <Card key={testimonial.author.handle} className={className}>
       <CardContent>
-        <Paragraph
-          variant={
-            variant === "featured"
-              ? "testimonial-body-featured"
-              : "testimonial-body"
-          }
-        >
-          {testimonial.body}
-        </Paragraph>
+        {variant === "featured" ? (
+          <Paragraph
+            color="gray-700"
+            size="lg"
+            className="font-semibold leading-7 tracking-tight"
+          >
+            {testimonial.body}
+          </Paragraph>
+        ) : (
+          <Paragraph size="two" color="gray-500">
+            {testimonial.body}
+          </Paragraph>
+        )}
       </CardContent>
       <CardContent className="border-t border-[#F3F3F3] flex items-center justify-between">
         <div className="flex items-center gap-4">
@@ -236,11 +240,11 @@ function TestimonialCard({
             height={100}
           />
           <div className="text-left">
-            <Paragraph variant="testimonial-author-name">
+            <Paragraph size="two" color="dark" className="font-semibold">
               {testimonial.author.name}
             </Paragraph>
             {testimonial.author.handle ? (
-              <Paragraph variant="testimonial-author-handle">
+              <Paragraph size="two" variant="testimonial-author-handle">
                 {testimonial.author.handle}
               </Paragraph>
             ) : undefined}

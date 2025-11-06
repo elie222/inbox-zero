@@ -3,7 +3,6 @@ import { CardWrapper } from "@/components/new-landing/common/CardWrapper";
 import { Section } from "@/components/new-landing/common/Section";
 import { Paragraph } from "@/components/new-landing/common/Typography";
 
-// TODO: add links
 const faqs = [
   {
     question: "Which email providers does Inbox Zero support?",

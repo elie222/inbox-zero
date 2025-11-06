@@ -31,15 +31,6 @@ export function Section({
     },
   });
 
-  const subtitleStyles = cva("max-w-[650px] mx-auto", {
-    variants: {
-      variant: {
-        default: "mt-2",
-        hero: "mt-4",
-      },
-    },
-  });
-
   return (
     <section className="py-6 md:py-16 text-center">
       {variant === "hero" && title ? (
@@ -48,7 +39,12 @@ export function Section({
         <Subheading className={titleStyles({ wrap })}>{title}</Subheading>
       ) : null}
       {subtitle ? (
-        <Paragraph className={subtitleStyles({ variant })}>
+        <Paragraph
+          className={cx(
+            "max-w-[650px] mx-auto",
+            variant === "hero" ? "mt-4" : "mt-2",
+          )}
+        >
           {subtitle}
         </Paragraph>
       ) : null}

@@ -67,7 +67,7 @@ export function Awards() {
                 <p className="text-base  font-bold text-gray-900">
                   {award.title}
                 </p>
-                <Paragraph className="text-sm mt-4">
+                <Paragraph size="sm" className="mt-4">
                   {award.description}
                 </Paragraph>
               </CardContent>

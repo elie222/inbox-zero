@@ -29,12 +29,12 @@ export function Hero() {
     >
       <div>
         <div className="space-y-3 mb-8">
-          <Paragraph variant="light" className="text-sm">
+          <Paragraph color="light" size="sm">
             Try for free with one click
           </Paragraph>
           <CallToAction />
           <div className="flex items-center gap-2 justify-center">
-            <Paragraph variant="light" className="text-sm">
+            <Paragraph color="light" size="sm">
               Works with
             </Paragraph>
             <Outlook />
