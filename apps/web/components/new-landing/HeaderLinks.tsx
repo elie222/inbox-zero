@@ -1,12 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { Dialog, DialogPanel } from "@headlessui/react";
 import Link from "next/link";
-import { usePostHog } from "posthog-js/react";
 import {
-  MenuIcon,
-  XIcon,
   HomeIcon,
   UserIcon,
   RocketIcon,
@@ -14,7 +9,6 @@ import {
   HeadphonesIcon,
   ShoppingCartIcon,
 } from "lucide-react";
-import { Logo } from "@/components/Logo";
 import { cn } from "@/utils";
 import {
   NavigationMenu,
