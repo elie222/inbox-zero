@@ -258,6 +258,16 @@ export class GmailProvider implements EmailProvider {
     }
   }
 
+  async archiveMessagesBulk(messageIds: string[]): Promise<void> {
+    await this.client.users.messages.batchModify({
+      userId: "me",
+      requestBody: {
+        ids: messageIds,
+        removeLabelIds: [GmailLabel.INBOX],
+      },
+    });
+  }
+
   async trashThread(
     threadId: string,
     ownerEmail: string,

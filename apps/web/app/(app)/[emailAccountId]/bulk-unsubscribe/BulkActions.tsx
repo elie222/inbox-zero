@@ -50,7 +50,7 @@ export function BulkActions({
     emailAccountId,
   });
 
-  const { onBulkArchive } = useBulkArchive({
+  const { onBulkArchive, isBulkArchiving } = useBulkArchive({
     mutate,
     posthog,
     emailAccountId,
@@ -115,6 +115,7 @@ export function BulkActions({
               size="sm"
               variant="outline"
               onClick={() => onBulkArchive(getSelectedValues())}
+              loading={isBulkArchiving}
             >
               <ArchiveIcon className="mr-2 size-4" />
               Archive All

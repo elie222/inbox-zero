@@ -47,7 +47,7 @@ import {
   useUnsubscribe,
   useAutoArchive,
   useApproveButton,
-  useArchiveAll,
+  useBulkArchive,
   useDeleteAllFromSender,
 } from "@/app/(app)/[emailAccountId]/bulk-unsubscribe/hooks";
 import { LabelsSubMenu } from "@/components/LabelsSubMenu";
@@ -397,8 +397,8 @@ export function MoreDropdown<T extends Row>({
 }) {
   const { provider } = useAccount();
   const terminology = getEmailTerminology(provider);
-  const { archiveAllLoading, onArchiveAll } = useArchiveAll({
-    item,
+  const { onBulkArchive, isBulkArchiving } = useBulkArchive({
+    mutate: () => Promise.resolve(),
     posthog,
     emailAccountId,
   });
@@ -474,8 +474,8 @@ export function MoreDropdown<T extends Row>({
           </DropdownMenuPortal>
         </DropdownMenuSub>
 
-        <DropdownMenuItem onClick={onArchiveAll}>
-          {archiveAllLoading ? (
+        <DropdownMenuItem onClick={() => onBulkArchive([item])}>
+          {isBulkArchiving ? (
             <ButtonLoader />
           ) : (
             <ArchiveIcon className="mr-2 size-4" />

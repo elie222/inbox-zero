@@ -2,6 +2,7 @@
 
 import { useCallback, useState, useEffect } from "react";
 import { toast } from "sonner";
+import { useAction } from "next-safe-action/hooks";
 import type { PostHog } from "posthog-js/react";
 import { onAutoArchive, onDeleteFilter } from "@/utils/actions/client";
 import { setNewsletterStatusAction } from "@/utils/actions/unsubscriber";
@@ -16,6 +17,7 @@ import type { GetThreadsResponse } from "@/app/api/threads/basic/route";
 import { isDefined } from "@/utils/types";
 import { fetchWithAccount } from "@/utils/fetch";
 import type { UserResponse } from "@/app/api/user/me/route";
+import { bulkArchiveAction } from "@/utils/actions/bulk-archive";
 
 async function unsubscribeAndArchive({
   newsletterEmail,
@@ -432,37 +434,6 @@ async function archiveAll({
   );
 }
 
-export function useArchiveAll<T extends Row>({
-  item,
-  posthog,
-  emailAccountId,
-}: {
-  item: T;
-  posthog: PostHog;
-  emailAccountId: string;
-}) {
-  const [archiveAllLoading, setArchiveAllLoading] = useState(false);
-
-  const onArchiveAll = async () => {
-    setArchiveAllLoading(true);
-
-    posthog.capture("Clicked Archive All");
-
-    await archiveAll({
-      name: item.name,
-      onFinish: () => setArchiveAllLoading(false),
-      emailAccountId,
-    });
-
-    setArchiveAllLoading(false);
-  };
-
-  return {
-    archiveAllLoading,
-    onArchiveAll,
-  };
-}
-
 export function useBulkArchive<T extends Row>({
   mutate,
   posthog,
@@ -472,19 +443,27 @@ export function useBulkArchive<T extends Row>({
   posthog: PostHog;
   emailAccountId: string;
 }) {
-  const onBulkArchive = async (items: T[]) => {
-    posthog.capture("Clicked Bulk Archive");
+  const { execute: executeBulkArchive, isExecuting } = useAction(
+    bulkArchiveAction.bind(null, emailAccountId),
+    {
+      onSuccess: () => {
+        toast.success("Bulk archive completed");
+        mutate();
+      },
+      onError: (error) => {
+        toast.error(
+          error.error.serverError || "There was an error archiving the emails",
+        );
+      },
+    },
+  );
 
-    for (const item of items) {
-      await archiveAll({
-        name: item.name,
-        onFinish: mutate,
-        emailAccountId,
-      });
-    }
+  const onBulkArchive = (items: T[]) => {
+    posthog.capture("Clicked Bulk Archive");
+    executeBulkArchive({ froms: items.map((item) => item.name) });
   };
 
-  return { onBulkArchive };
+  return { onBulkArchive, isBulkArchiving: isExecuting };
 }
 
 async function deleteAllFromSender({

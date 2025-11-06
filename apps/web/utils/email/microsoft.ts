@@ -1332,6 +1332,12 @@ export class OutlookProvider implements EmailProvider {
     }
   }
 
+  async archiveMessagesBulk(messageIds: string[]): Promise<void> {
+    for (const messageId of messageIds) {
+      await this.archiveMessage(messageId);
+    }
+  }
+
   async getOrCreateOutlookFolderIdByName(folderName: string): Promise<string> {
     return await getOrCreateOutlookFolderIdByName(this.client, folderName);
   }
