@@ -401,42 +401,6 @@ export function useBulkApprove<T extends Row>({
   };
 }
 
-async function archiveAll({
-  name,
-  onFinish,
-  emailAccountId,
-}: {
-  name: string;
-  onFinish: () => void;
-  emailAccountId: string;
-}) {
-  toast.promise(
-    async () => {
-      const threadsArchived = await new Promise<number>((resolve, reject) => {
-        addToArchiveSenderQueue({
-          sender: name,
-          emailAccountId,
-          onSuccess: (totalThreads) => {
-            onFinish();
-            resolve(totalThreads);
-          },
-          onError: reject,
-        });
-      });
-
-      return threadsArchived;
-    },
-    {
-      loading: `Archiving all emails from ${name}`,
-      success: (data) =>
-        data
-          ? `Archived ${data} emails from ${name}`
-          : `No emails to archive from ${name}`,
-      error: `There was an error archiving the emails from ${name} :(`,
-    },
-  );
-}
-
 export function useBulkArchive<T extends Row>({
   mutate,
   posthog,
@@ -446,24 +410,27 @@ export function useBulkArchive<T extends Row>({
   posthog: PostHog;
   emailAccountId: string;
 }) {
-  const { execute: executeBulkArchive, isExecuting } = useAction(
+  const { executeAsync: executeBulkArchive, isExecuting } = useAction(
     bulkArchiveAction.bind(null, emailAccountId),
     {
       onSuccess: () => {
-        toast.success("Bulk archive completed");
         mutate();
-      },
-      onError: (error) => {
-        toast.error(
-          error.error.serverError || "There was an error archiving the emails",
-        );
       },
     },
   );
 
   const onBulkArchive = (items: T[]) => {
     posthog.capture("Clicked Bulk Archive");
-    executeBulkArchive({ froms: items.map((item) => item.name) });
+    const promise = executeBulkArchive({
+      froms: items.map((item) => item.name),
+    });
+
+    toast.promise(promise, {
+      loading: "Archiving emails...",
+      success: "Bulk archive completed",
+      error: (error) =>
+        error?.error?.serverError || "There was an error archiving the emails",
+    });
   };
 
   return { onBulkArchive, isBulkArchiving: isExecuting };
@@ -553,24 +520,26 @@ export function useBulkDelete<T extends Row>({
   posthog: PostHog;
   emailAccountId: string;
 }) {
-  const { execute: executeBulkTrash, isExecuting } = useAction(
+  const { executeAsync: executeBulkTrash, isExecuting } = useAction(
     bulkTrashAction.bind(null, emailAccountId),
     {
       onSuccess: () => {
-        toast.success("Bulk trash completed");
         mutate();
-      },
-      onError: (error) => {
-        toast.error(
-          error.error.serverError || "There was an error trashing the emails",
-        );
       },
     },
   );
 
   const onBulkDelete = (items: T[]) => {
     posthog.capture("Clicked Bulk Delete");
-    executeBulkTrash({ froms: items.map((item) => item.name) });
+
+    const promise = executeBulkTrash({ froms: items.map((item) => item.name) });
+
+    toast.promise(promise, {
+      loading: "Moving emails to trash...",
+      success: "Bulk trash completed",
+      error: (error) =>
+        error?.error?.serverError || "There was an error trashing the emails",
+    });
   };
 
   return { onBulkDelete, isBulkDeleting: isExecuting };
