@@ -244,9 +244,7 @@ function TestimonialCard({
               {testimonial.author.name}
             </Paragraph>
             {testimonial.author.handle ? (
-              <Paragraph size="lg-2" variant="testimonial-author-handle">
-                {testimonial.author.handle}
-              </Paragraph>
+              <Paragraph size="lg-2">{testimonial.author.handle}</Paragraph>
             ) : undefined}
           </div>
         </div>
