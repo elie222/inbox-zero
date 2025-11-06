@@ -41,33 +41,7 @@ export function Hero() {
             <Gmail />
           </div>
         </div>
-        <div className="relative">
-          <Dialog>
-            <DialogTrigger asChild>
-              <LiquidGlassButton className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2">
-                <Play />
-              </LiquidGlassButton>
-            </DialogTrigger>
-            <DialogContent className="max-w-4xl border-0 bg-transparent p-0">
-              <DialogTitle className="sr-only">Video player</DialogTitle>
-              <div className="relative aspect-video w-full">
-                <iframe
-                  src="https://www.youtube.com/embed/hfvKvTHBjG0?autoplay=1&rel=0"
-                  className="size-full rounded-lg"
-                  title="Video content"
-                  allowFullScreen
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                />
-              </div>
-            </DialogContent>
-          </Dialog>
-          <Image
-            src="/images/new-landing/video-thumbnail.png"
-            alt="an organized inbox"
-            width={1000}
-            height={1000}
-          />
-        </div>
+        <HeroVideoPlayer />
         <div className="mt-12">
           <Paragraph>
             Join over 15,000 users worldwide saving hours daily
@@ -81,5 +55,38 @@ export function Hero() {
         </div>
       </div>
     </Section>
+  );
+}
+
+export function HeroVideoPlayer() {
+  return (
+    <div className="relative w-full">
+      <Dialog>
+        <DialogTrigger asChild>
+          <LiquidGlassButton className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2">
+            <Play />
+          </LiquidGlassButton>
+        </DialogTrigger>
+        <DialogContent className="max-w-4xl border-0 bg-transparent p-0">
+          <DialogTitle className="sr-only">Video player</DialogTitle>
+          <div className="relative aspect-video w-full">
+            <iframe
+              src="https://www.youtube.com/embed/hfvKvTHBjG0?autoplay=1&rel=0"
+              className="size-full rounded-lg"
+              title="Video content"
+              allowFullScreen
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+            />
+          </div>
+        </DialogContent>
+      </Dialog>
+      <Image
+        src="/images/new-landing/video-thumbnail.png"
+        alt="an organized inbox"
+        width={1000}
+        height={1000}
+        className="w-full"
+      />
+    </div>
   );
 }
