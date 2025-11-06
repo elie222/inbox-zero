@@ -18,7 +18,7 @@ export function LiquidGlassButton({
     <>
       <button type={type ?? "button"} className={className} {...props}>
         <div
-          className="group relative flex cursor-pointer overflow-hidden rounded-full p-8 font-semibold text-black transition-all duration-300 hover:p-9 hover:[&>div]:rounded-[4rem] hover:[&_svg]:scale-105 will-change-transform"
+          className="group relative flex cursor-pointer overflow-hidden rounded-full p-8 font-semibold text-black transition-all duration-300 hover:p-9 hover:[&>div]:rounded-[4rem] will-change-transform"
           style={{
             boxShadow:
               "0px 14.3px 38.74px 3.9px #0000001A, 0px 0px 4.16px 0px #0000000D",
