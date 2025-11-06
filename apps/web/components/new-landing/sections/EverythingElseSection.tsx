@@ -1,5 +1,4 @@
 import { Button } from "@/components/new-landing/common/Button";
-import { Card } from "@/components/new-landing/common/Card";
 import { CardWrapper } from "@/components/new-landing/common/CardWrapper";
 import { DisplayCard } from "@/components/new-landing/common/DisplayCard";
 import { Section } from "@/components/new-landing/common/Section";
@@ -16,7 +15,7 @@ export function EverythingElseSection() {
       childrenMarginTop="mt-5"
     >
       <div className="flex flex-col items-center gap-5 lg:px-10">
-        <CardWrapper size="xs" variant="dark-border">
+        <CardWrapper padding="xs" rounded="xs" variant="dark-border">
           <Button>Get started free</Button>
         </CardWrapper>
         <CardWrapper className="w-full grid md:grid-cols-3 gap-5">
