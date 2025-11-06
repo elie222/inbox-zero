@@ -45,6 +45,7 @@ interface ParagraphProps {
   children: React.ReactNode;
   variant?:
     | "default"
+    | "default-small"
     | "light"
     | "testimonial-body"
     | "testimonial-body-featured"
@@ -62,6 +63,7 @@ export function Paragraph({
     variants: {
       variant: {
         default: "text-sm md:text-base text-[#848484]",
+        "default-small": "text-xs md:text-sm text-[#848484]",
         light: "text-sm md:text-base text-gray-400",
         "testimonial-body": "text-lg md:text-base text-[#848484] text-gray-500",
         "testimonial-body-featured":
