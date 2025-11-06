@@ -63,7 +63,7 @@ export function Paragraph({
       },
       size: {
         default: "text-sm md:text-base",
-        xs: "text-xs md:text-sm",
+        xs: "text-xs",
         sm: "text-sm",
         md: "text-base",
         lg: "text-lg",
