@@ -1,6 +1,4 @@
 import type { Metadata } from "next";
-import Image from "next/image";
-import { Section } from "@/components/new-landing/common/Section";
 import { BasicLayout } from "@/components/new-landing/common/BasicLayout";
 import { FAQs } from "@/components/new-landing/sections/FAQs";
 import { Testimonials } from "@/components/new-landing/sections/Testimonials";
