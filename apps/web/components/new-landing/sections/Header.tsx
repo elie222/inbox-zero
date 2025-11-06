@@ -15,7 +15,12 @@ export function Header({ layoutStyle }: HeaderProps) {
         layoutStyle,
       )}
     >
-      <Logo />
+      <div className="hidden md:block">
+        <Logo />
+      </div>
+      <div className="block md:hidden">
+        <Logo variant="mobile" />
+      </div>
       <HeaderLinks />
       <div className="flex items-center gap-3">
         <Button variant="secondary">Log in</Button>
