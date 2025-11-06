@@ -107,7 +107,7 @@ async function process({
 
     // If no threads found or we've detected a conversation, return early
     if (threadsWithMessages.length === 0) {
-      logger.info("No threads found from this sender");
+      logger.error("No threads found from this sender");
 
       // Don't record a check since we didn't run the AI analysis
       return NextResponse.json({ success: true });
