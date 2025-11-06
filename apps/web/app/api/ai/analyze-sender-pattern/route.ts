@@ -267,41 +267,34 @@ async function getThreadsFromSender(
 
   // Check for conversation threads
   for (const thread of threads) {
-    try {
-      const messages = await provider.getThreadMessages(thread.id);
-      if (messages.length === 0) continue;
+    const messages = await provider.getThreadMessages(thread.id);
+    if (messages.length === 0) continue;
 
-      // Check if this is a conversation (multiple senders)
-      const otherSenders = new Set<string>();
+    // Check if this is a conversation (multiple senders)
+    const otherSenders = new Set<string>();
 
-      for (const message of messages) {
-        const senderEmail = extractEmailAddress(message.headers.from);
-        if (!senderEmail) continue;
+    for (const message of messages) {
+      const senderEmail = extractEmailAddress(message.headers.from);
+      if (!senderEmail) continue;
 
-        const normalizedSender = senderEmail.toLowerCase();
-        if (normalizedSender !== normalizedFrom) {
-          otherSenders.add(normalizedSender);
-        }
+      const normalizedSender = senderEmail.toLowerCase();
+      if (normalizedSender !== normalizedFrom) {
+        otherSenders.add(normalizedSender);
       }
-
-      // If we found a conversation thread, skip this sender entirely
-      if (otherSenders.size > 0) {
-        return {
-          threads: [],
-          conversationDetected: true,
-        };
-      }
-
-      threadsWithMessages.push({
-        threadId: thread.id,
-        messages,
-      });
-    } catch (error) {
-      logger.error("Failed to fetch thread messages for sender analysis", {
-        threadId: thread.id,
-        error,
-      });
     }
+
+    // If we found a conversation thread, skip this sender entirely
+    if (otherSenders.size > 0) {
+      return {
+        threads: [],
+        conversationDetected: true,
+      };
+    }
+
+    threadsWithMessages.push({
+      threadId: thread.id,
+      messages,
+    });
   }
 
   return {
