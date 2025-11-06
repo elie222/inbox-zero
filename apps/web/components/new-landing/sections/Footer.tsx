@@ -3,6 +3,7 @@ import { EXTENSION_URL } from "@/utils/config";
 import { Logo } from "@/components/new-landing/common/Logo";
 import { cn } from "@/utils";
 import { FooterLineLogo } from "@/components/new-landing/FooterLineLogo";
+import { Paragraph } from "@/components/new-landing/common/Typography";
 
 const navigation = {
   main: [
@@ -177,9 +178,9 @@ function FooterList(props: {
 }) {
   return (
     <>
-      <h3 className="text-sm font-semibold leading-6 text-gray-900">
+      <Paragraph color="gray-900" size="sm" className="font-semibold leading-6">
         {props.title}
-      </h3>
+      </Paragraph>
       <ul className="mt-6 space-y-3">
         {props.items.map((item) => (
           <li key={item.name}>

@@ -40,7 +40,8 @@ interface ParagraphProps {
   children: React.ReactNode;
   className?: string;
   color?: "default" | "light" | "dark" | "gray-700" | "gray-500" | "gray-900";
-  size?: "default" | "sm" | "md" | "lg" | "lg-2";
+  size?: "default" | "xs" | "sm" | "md" | "lg" | "lg-2";
+  family?: "default" | "geist";
 }
 
 export function Paragraph({
@@ -48,12 +49,10 @@ export function Paragraph({
   className,
   color = "default",
   size = "default",
+  family = "default",
 }: ParagraphProps) {
   const paragraphStyles = cva("", {
     variants: {
-      variant: {
-        "testimonial-body": "text-gray-500",
-      },
       color: {
         default: "text-[#848484]",
         light: "text-gray-400",
@@ -64,15 +63,22 @@ export function Paragraph({
       },
       size: {
         default: "text-sm md:text-base",
+        xs: "text-xs md:text-sm",
         sm: "text-sm",
         md: "text-base",
         lg: "text-lg",
         "lg-2": "text-lg md:text-base",
       },
+      family: {
+        default: "",
+        geist: "font-geist",
+      },
     },
   });
 
   return (
-    <p className={paragraphStyles({ color, size, className })}>{children}</p>
+    <p className={paragraphStyles({ color, size, family, className })}>
+      {children}
+    </p>
   );
 }

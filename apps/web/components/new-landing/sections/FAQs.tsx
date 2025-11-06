@@ -44,9 +44,13 @@ export function FAQs() {
           {faqs.map((faq) => (
             <Card variant="extra-rounding" className="gap-4" key={faq.question}>
               <CardContent>
-                <p className="font-geist font-semibold tracking-tight mb-4">
+                <Paragraph
+                  family="geist"
+                  color="gray-900"
+                  className="font-semibold tracking-tight mb-4"
+                >
                   {faq.question}
-                </p>
+                </Paragraph>
                 <Paragraph>{faq.answer}</Paragraph>
               </CardContent>
             </Card>

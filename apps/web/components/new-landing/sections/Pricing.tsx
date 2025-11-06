@@ -204,9 +204,9 @@ export function PricingCard({ plan, isAnnual }: PricingCardProps) {
             {price ? (
               <>
                 <Subheading>${price}</Subheading>
-                <p className="text-xs md:text-sm text-gray-400 -translate-y-1">
+                <Paragraph size="xs" color="light" className="-translate-y-1">
                   /user /month (billed {isAnnual ? "annually" : "monthly"})
-                </p>
+                </Paragraph>
               </>
             ) : (
               <Subheading className="font-regular">Contact us</Subheading>
