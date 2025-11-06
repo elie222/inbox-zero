@@ -1,14 +1,25 @@
 import Image from "next/image";
-import { Section } from "@/components/new-landing/common/Section";
+import {
+  Section,
+  SectionContent,
+} from "@/components/new-landing/common/Section";
 import { CardWrapper } from "@/components/new-landing/common/CardWrapper";
+import {
+  SectionHeading,
+  SectionSubtitle,
+} from "@/components/new-landing/common/Typography";
 
 export function BulkUnsubscribe() {
   return (
-    <Section
-      title="Bulk unsubscribe from emails you never read"
-      subtitle="See which emails you never read, and one-click unsubscribe and archive them."
-    >
-      <div className="flex justify-center items-center">
+    <Section>
+      <SectionHeading>
+        Bulk unsubscribe from emails you never read
+      </SectionHeading>
+      <SectionSubtitle>
+        See which emails you never read, and one-click unsubscribe and archive
+        them.
+      </SectionSubtitle>
+      <SectionContent className="flex justify-center items-center">
         <CardWrapper
           padding="xs"
           rounded="md"
@@ -29,7 +40,7 @@ export function BulkUnsubscribe() {
             height={1000}
           />
         </CardWrapper>
-      </div>
+      </SectionContent>
     </Section>
   );
 }

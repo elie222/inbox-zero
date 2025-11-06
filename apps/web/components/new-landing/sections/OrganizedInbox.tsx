@@ -1,14 +1,25 @@
-import { Section } from "@/components/new-landing/common/Section";
+import {
+  Section,
+  SectionContent,
+} from "@/components/new-landing/common/Section";
+import {
+  SectionHeading,
+  SectionSubtitle,
+} from "@/components/new-landing/common/Typography";
 import Image from "next/image";
 
 export function OrganizedInbox() {
   return (
-    <Section
-      title="An organized inbox so you never miss an important email"
-      subtitle="Drowning in emails? Don't waste any more valuable brain energy trying to prioritize your emails. Our AI assistant will label everything automatically."
-      wrap
-    >
-      <div className="flex justify-center">
+    <Section>
+      <SectionHeading wrap>
+        An organized inbox so you never miss an important email
+      </SectionHeading>
+      <SectionSubtitle>
+        Drowning in emails? Don't waste any more valuable brain energy trying to
+        prioritize your emails. Our AI assistant will label everything
+        automatically.
+      </SectionSubtitle>
+      <SectionContent className="flex justify-center">
         <Image
           className="hidden md:block"
           src="/images/new-landing/inbox-before-after.svg"
@@ -23,7 +34,7 @@ export function OrganizedInbox() {
           width={1000}
           height={1000}
         />
-      </div>
+      </SectionContent>
     </Section>
   );
 }

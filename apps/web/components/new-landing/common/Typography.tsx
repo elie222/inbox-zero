@@ -18,6 +18,39 @@ export function Heading({ children, className }: HeadingProps) {
   );
 }
 
+interface PageHeadingProps {
+  children: React.ReactNode;
+}
+
+export function PageHeading({ children }: PageHeadingProps) {
+  return <Heading className="mx-auto max-w-[620px]">{children}</Heading>;
+}
+
+interface SectionHeadingProps {
+  children: React.ReactNode;
+  wrap?: boolean;
+}
+
+export function SectionHeading({ children, wrap }: SectionHeadingProps) {
+  return (
+    <Subheading className={cx("mx-auto", wrap ? "max-w-[620px]" : "")}>
+      {children}
+    </Subheading>
+  );
+}
+
+interface SectionSubtitleProps {
+  children: React.ReactNode;
+}
+
+export function SectionSubtitle({ children }: SectionSubtitleProps) {
+  return (
+    <Paragraph className={cx("max-w-[650px] mx-auto mt-2")}>
+      {children}
+    </Paragraph>
+  );
+}
+
 interface SubheadingProps {
   children: React.ReactNode;
   className?: string;

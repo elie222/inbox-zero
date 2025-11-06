@@ -2,7 +2,14 @@ import { Badge } from "@/components/new-landing/common/Badge";
 import { Card } from "@/components/new-landing/common/Card";
 import { CardWrapper } from "@/components/new-landing/common/CardWrapper";
 import { DisplayCard } from "@/components/new-landing/common/DisplayCard";
-import { Section } from "@/components/new-landing/common/Section";
+import {
+  Section,
+  SectionContent,
+} from "@/components/new-landing/common/Section";
+import {
+  SectionHeading,
+  SectionSubtitle,
+} from "@/components/new-landing/common/Typography";
 import { AutoOrganize } from "@/components/new-landing/icons/AutoOrganize";
 import { Bell } from "@/components/new-landing/icons/Bell";
 import { Calendar } from "@/components/new-landing/icons/Calendar";
@@ -20,11 +27,12 @@ import Image from "next/image";
 
 export function StartedInMinutes() {
   return (
-    <Section
-      title="Get started in minutes"
-      subtitle="One-click setup. Start organizing and drafting replies in minutes."
-    >
-      <div>
+    <Section>
+      <SectionHeading>Get started in minutes</SectionHeading>
+      <SectionSubtitle>
+        One-click setup. Start organizing and drafting replies in minutes.
+      </SectionSubtitle>
+      <SectionContent>
         <CardWrapper className="w-full grid md:grid-cols-3 gap-5">
           <DisplayCard
             title="Connect your email"
@@ -37,14 +45,14 @@ export function StartedInMinutes() {
             centerContent={true}
           >
             <div className="flex gap-4">
-              <CardWrapper size="none" className="p-2 rounded-full">
+              <CardWrapper padding="xs-2" rounded="full">
                 <Card variant="circle">
                   <div className="p-2 translate-y-1">
                     <Gmail width="64" height="64" />
                   </div>
                 </Card>
               </CardWrapper>
-              <CardWrapper size="none" className="p-2 rounded-full">
+              <CardWrapper padding="xs-2" rounded="full">
                 <Card variant="circle">
                   <div className="p-2 translate-y-1">
                     <Outlook width="64" height="64" />
@@ -113,7 +121,7 @@ export function StartedInMinutes() {
             </div>
           </DisplayCard>
         </CardWrapper>
-      </div>
+      </SectionContent>
     </Section>
   );
 }

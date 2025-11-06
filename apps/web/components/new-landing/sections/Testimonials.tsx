@@ -2,9 +2,16 @@
 
 import clsx from "clsx";
 import Image from "next/image";
-import { Section } from "@/components/new-landing/common/Section";
+import {
+  Section,
+  SectionContent,
+} from "@/components/new-landing/common/Section";
 import { Card, CardContent } from "@/components/new-landing/common/Card";
-import { Paragraph } from "@/components/new-landing/common/Typography";
+import {
+  Paragraph,
+  SectionHeading,
+  SectionSubtitle,
+} from "@/components/new-landing/common/Typography";
 
 type Testimonial = {
   body: string;
@@ -151,56 +158,60 @@ const mobileTestimonials: Testimonial[] = [
 
 export function Testimonials() {
   return (
-    <Section
-      title="Join thousands of others who spend less time on emails"
-      subtitle="Our customers love saving time with inboxzero."
-      wrap
-    >
-      {/* Mobile */}
-      <div className="grid gap-4 text-sm leading-6 text-gray-900 sm:hidden">
-        {mobileTestimonials.map((testimonial) => (
-          <TestimonialCard
-            testimonial={testimonial}
-            key={testimonial.author.name}
-          />
-        ))}
-      </div>
+    <Section>
+      <SectionHeading wrap>
+        Join thousands of others who spend less time on emails
+      </SectionHeading>
+      <SectionSubtitle>
+        Our customers love saving time with inboxzero.
+      </SectionSubtitle>
+      <SectionContent>
+        {/* Mobile */}
+        <div className="grid gap-4 text-sm leading-6 text-gray-900 sm:hidden">
+          {mobileTestimonials.map((testimonial) => (
+            <TestimonialCard
+              testimonial={testimonial}
+              key={testimonial.author.name}
+            />
+          ))}
+        </div>
 
-      {/* Desktop */}
-      <div className="hidden grid-cols-1 grid-rows-1 gap-8 text-sm leading-6 text-gray-900 sm:grid sm:grid-cols-2 xl:grid-flow-col xl:grid-cols-4">
-        <TestimonialCard
-          testimonial={featuredTestimonial}
-          className="sm:col-span-2 xl:col-start-2 xl:row-end-1"
-          variant="featured"
-        />
-        {desktopTestimonials.map((columnGroup, columnGroupIdx) => (
-          <div
-            key={columnGroupIdx}
-            className="space-y-8 xl:contents xl:space-y-0"
-          >
-            {columnGroup.map((column, columnIdx) => (
-              <div
-                key={columnIdx}
-                className={clsx(
-                  (columnGroupIdx === 0 && columnIdx === 0) ||
-                    (columnGroupIdx === desktopTestimonials.length - 1 &&
-                      columnIdx === columnGroup.length - 1)
-                    ? "xl:row-span-2"
-                    : "xl:row-start-1",
-                  "space-y-8",
-                )}
-              >
-                {column.map((testimonial) => (
-                  <TestimonialCard
-                    testimonial={testimonial}
-                    key={testimonial.author.handle}
-                  />
-                ))}
-              </div>
-            ))}
-          </div>
-        ))}
-      </div>
+        {/* Desktop */}
+        <div className="hidden grid-cols-1 grid-rows-1 gap-8 text-sm leading-6 text-gray-900 sm:grid sm:grid-cols-2 xl:grid-flow-col xl:grid-cols-4">
+          <TestimonialCard
+            testimonial={featuredTestimonial}
+            className="sm:col-span-2 xl:col-start-2 xl:row-end-1"
+            variant="featured"
+          />
+          {desktopTestimonials.map((columnGroup, columnGroupIdx) => (
+            <div
+              key={columnGroupIdx}
+              className="space-y-8 xl:contents xl:space-y-0"
+            >
+              {columnGroup.map((column, columnIdx) => (
+                <div
+                  key={columnIdx}
+                  className={clsx(
+                    (columnGroupIdx === 0 && columnIdx === 0) ||
+                      (columnGroupIdx === desktopTestimonials.length - 1 &&
+                        columnIdx === columnGroup.length - 1)
+                      ? "xl:row-span-2"
+                      : "xl:row-start-1",
+                    "space-y-8",
+                  )}
+                >
+                  {column.map((testimonial) => (
+                    <TestimonialCard
+                      testimonial={testimonial}
+                      key={testimonial.author.handle}
+                    />
+                  ))}
+                </div>
+              ))}
+            </div>
+          ))}
+        </div>
+      </SectionContent>
     </Section>
   );
 }

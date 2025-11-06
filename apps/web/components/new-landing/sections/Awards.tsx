@@ -1,7 +1,14 @@
 import { Card, CardContent } from "@/components/new-landing/common/Card";
 import { CardWrapper } from "@/components/new-landing/common/CardWrapper";
-import { Section } from "@/components/new-landing/common/Section";
-import { Paragraph } from "@/components/new-landing/common/Typography";
+import {
+  Section,
+  SectionContent,
+} from "@/components/new-landing/common/Section";
+import {
+  Paragraph,
+  SectionHeading,
+  SectionSubtitle,
+} from "@/components/new-landing/common/Typography";
 import { cn } from "@/utils";
 import Image from "next/image";
 
@@ -45,11 +52,14 @@ const defaultAwardImageSize = 200;
 
 export function Awards() {
   return (
-    <Section
-      title="Privacy first and open source"
-      subtitle="Your data stays private — no AI training, no funny business. We’re fully certified for top-tier security, and you can even self-host Inbox Zero if you want total control."
-    >
-      <div className="mt-20 gap-x-5 gap-y-20 lg:gap-y-0 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4">
+    <Section>
+      <SectionHeading>Privacy first and open source</SectionHeading>
+      <SectionSubtitle>
+        Your data stays private — no AI training, no funny business. We’re fully
+        certified for top-tier security, and you can even self-host Inbox Zero
+        if you want total control.
+      </SectionSubtitle>
+      <SectionContent className="mt-20 gap-x-5 gap-y-20 lg:gap-y-0 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4">
         {awards.map((award) => (
           <CardWrapper padding="sm" rounded="sm" key={award.title}>
             <Card className="gap-3 h-full relative pt-24 text-center">
@@ -74,7 +84,7 @@ export function Awards() {
             </Card>
           </CardWrapper>
         ))}
-      </div>
+      </SectionContent>
     </Section>
   );
 }

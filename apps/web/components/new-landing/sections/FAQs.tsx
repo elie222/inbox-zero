@@ -1,7 +1,13 @@
 import { Card, CardContent } from "@/components/new-landing/common/Card";
 import { CardWrapper } from "@/components/new-landing/common/CardWrapper";
-import { Section } from "@/components/new-landing/common/Section";
-import { Paragraph } from "@/components/new-landing/common/Typography";
+import {
+  Section,
+  SectionContent,
+} from "@/components/new-landing/common/Section";
+import {
+  Paragraph,
+  SectionHeading,
+} from "@/components/new-landing/common/Typography";
 
 const faqs = [
   {
@@ -38,25 +44,32 @@ const faqs = [
 
 export function FAQs() {
   return (
-    <Section title="Frequently asked questions">
-      <CardWrapper>
-        <div className="grid md:grid-cols-2 gap-6">
-          {faqs.map((faq) => (
-            <Card variant="extra-rounding" className="gap-4" key={faq.question}>
-              <CardContent>
-                <Paragraph
-                  family="geist"
-                  color="gray-900"
-                  className="font-semibold tracking-tight mb-4"
-                >
-                  {faq.question}
-                </Paragraph>
-                <Paragraph>{faq.answer}</Paragraph>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      </CardWrapper>
+    <Section>
+      <SectionHeading>Frequently asked questions</SectionHeading>
+      <SectionContent>
+        <CardWrapper>
+          <div className="grid md:grid-cols-2 gap-6">
+            {faqs.map((faq) => (
+              <Card
+                variant="extra-rounding"
+                className="gap-4"
+                key={faq.question}
+              >
+                <CardContent>
+                  <Paragraph
+                    family="geist"
+                    color="gray-900"
+                    className="font-semibold tracking-tight mb-4"
+                  >
+                    {faq.question}
+                  </Paragraph>
+                  <Paragraph>{faq.answer}</Paragraph>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </CardWrapper>
+      </SectionContent>
     </Section>
   );
 }

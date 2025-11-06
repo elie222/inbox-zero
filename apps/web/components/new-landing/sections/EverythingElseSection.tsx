@@ -1,7 +1,14 @@
 import { Button } from "@/components/new-landing/common/Button";
 import { CardWrapper } from "@/components/new-landing/common/CardWrapper";
 import { DisplayCard } from "@/components/new-landing/common/DisplayCard";
-import { Section } from "@/components/new-landing/common/Section";
+import {
+  Section,
+  SectionContent,
+} from "@/components/new-landing/common/Section";
+import {
+  SectionHeading,
+  SectionSubtitle,
+} from "@/components/new-landing/common/Typography";
 import { Analytics } from "@/components/new-landing/icons/Analytics";
 import { ChatTwo } from "@/components/new-landing/icons/ChatTwo";
 import { Link } from "@/components/new-landing/icons/Link";
@@ -9,12 +16,13 @@ import Image from "next/image";
 
 export function EverythingElseSection() {
   return (
-    <Section
-      title="And everything else you need"
-      subtitle="Effortless setup with one-click install. Inboxzero is intuitive and requires no technical skills."
-      noGap
-    >
-      <div className="mt-5 flex flex-col items-center gap-5">
+    <Section>
+      <SectionHeading>And everything else you need</SectionHeading>
+      <SectionSubtitle>
+        Effortless setup with one-click install. Inboxzero is intuitive and
+        requires no technical skills.
+      </SectionSubtitle>
+      <SectionContent className="mt-5 flex flex-col items-center gap-5">
         <CardWrapper padding="xs" rounded="xs" variant="dark-border">
           <Button>Get started free</Button>
         </CardWrapper>
@@ -56,7 +64,7 @@ export function EverythingElseSection() {
             />
           </DisplayCard>
         </CardWrapper>
-      </div>
+      </SectionContent>
     </Section>
   );
 }

@@ -5,7 +5,10 @@ import { Sparkle } from "@/components/new-landing/icons/Sparkle";
 import { Zap } from "@/components/new-landing/icons/Zap";
 import { Check } from "@/components/new-landing/icons/Check";
 import { CardWrapper } from "@/components/new-landing/common/CardWrapper";
-import { Section } from "@/components/new-landing/common/Section";
+import {
+  Section,
+  SectionContent,
+} from "@/components/new-landing/common/Section";
 import {
   Button,
   type ButtonVariant,
@@ -13,6 +16,8 @@ import {
 import { Card, CardContent } from "@/components/new-landing/common/Card";
 import {
   Paragraph,
+  SectionHeading,
+  SectionSubtitle,
   Subheading,
 } from "@/components/new-landing/common/Typography";
 import {
@@ -120,12 +125,10 @@ export function Pricing() {
   const [frequency, setFrequency] = useState(frequencies[0]);
 
   return (
-    <Section
-      title="Try for free, affordable paid plans"
-      subtitle="No hidden fees. Cancel anytime."
-      noGap
-    >
-      <div className="mt-6 flex flex-col items-center justify-center">
+    <Section>
+      <SectionHeading>Try for free, affordable paid plans</SectionHeading>
+      <SectionSubtitle>No hidden fees. Cancel anytime.</SectionSubtitle>
+      <SectionContent className="mt-6 flex flex-col items-center justify-center">
         <RadioGroup
           value={frequency}
           onChange={setFrequency}
@@ -154,7 +157,7 @@ export function Pricing() {
             </CardWrapper>
           ))}
         </div>
-      </div>
+      </SectionContent>
     </Section>
   );
 }
