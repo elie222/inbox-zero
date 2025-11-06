@@ -64,9 +64,9 @@ export function Awards() {
                   width={award.imageSize || defaultAwardImageSize}
                   height={award.imageSize || defaultAwardImageSize}
                 />
-                <p className="text-base  font-bold text-gray-900">
+                <Paragraph color="gray-900" size="md" className="font-bold">
                   {award.title}
-                </p>
+                </Paragraph>
                 <Paragraph size="sm" className="mt-4">
                   {award.description}
                 </Paragraph>

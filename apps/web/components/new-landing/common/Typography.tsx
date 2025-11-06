@@ -39,15 +39,15 @@ export function Subheading({ children, className }: SubheadingProps) {
 interface ParagraphProps {
   children: React.ReactNode;
   className?: string;
-  color?: "default" | "light" | "dark" | "gray-700" | "gray-500";
-  size?: "sm" | "lg" | "one" | "two";
+  color?: "default" | "light" | "dark" | "gray-700" | "gray-500" | "gray-900";
+  size?: "default" | "sm" | "md" | "lg" | "lg-2";
 }
 
 export function Paragraph({
   children,
   className,
   color = "default",
-  size = "one",
+  size = "default",
 }: ParagraphProps) {
   const paragraphStyles = cva("", {
     variants: {
@@ -60,12 +60,14 @@ export function Paragraph({
         dark: "text-[#3D3D3D]",
         "gray-700": "text-gray-700",
         "gray-500": "text-gray-500",
+        "gray-900": "text-gray-900",
       },
       size: {
+        default: "text-sm md:text-base",
         sm: "text-sm",
-        one: "text-sm md:text-base",
-        two: "text-lg md:text-base",
+        md: "text-base",
         lg: "text-lg",
+        "lg-2": "text-lg md:text-base",
       },
     },
   });
