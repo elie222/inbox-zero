@@ -1,6 +1,5 @@
 "use client";
 
-import { cn } from "@/utils";
 import { Briefcase } from "@/components/new-landing/icons/Briefcase";
 import { Sparkle } from "@/components/new-landing/icons/Sparkle";
 import { Zap } from "@/components/new-landing/icons/Zap";
@@ -23,6 +22,7 @@ import {
 import { Chat } from "@/components/new-landing/icons/Chat";
 import { useState } from "react";
 import { Label, Radio, RadioGroup } from "@headlessui/react";
+import { cx } from "class-variance-authority";
 
 type PricingPlan = {
   title: string;
@@ -114,18 +114,7 @@ const plans: PricingPlan[] = [
   },
 ];
 
-const frequencies = [
-  {
-    value: "annually" as const,
-    label: "Annually",
-    priceSuffix: "/month, billed annually",
-  },
-  {
-    value: "monthly" as const,
-    label: "Monthly",
-    priceSuffix: "/month, billed monthly",
-  },
-];
+const frequencies = ["annually", "monthly"];
 
 export function Pricing() {
   const [frequency, setFrequency] = useState(frequencies[0]);
@@ -143,28 +132,25 @@ export function Pricing() {
           className="w-fit rounded-full p-1.5 text-xs font-semibold leading-5 ring-1 ring-inset ring-gray-200 mb-6 shadow-[0_0_7px_0_rgba(0,0,0,0.0.07)]"
         >
           <Label className="sr-only">Payment frequency</Label>
-          {frequencies.map((option) => (
+          {frequencies.map((value) => (
             <Radio
-              key={option.value}
-              value={option}
+              key={value}
+              value={value}
               className={({ checked }) =>
-                cn(
+                cx(
                   checked ? "bg-black text-white" : "text-gray-500",
                   "cursor-pointer rounded-full px-6 py-1",
                 )
               }
             >
-              <span>{option.label}</span>
+              <span>{value.charAt(0).toUpperCase() + value.slice(1)}</span>
             </Radio>
           ))}
         </RadioGroup>
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {plans.map((plan) => (
             <CardWrapper key={plan.title}>
-              <PricingCard
-                plan={plan}
-                isAnnual={frequency.value === "annually"}
-              />
+              <PricingCard plan={plan} isAnnual={frequency === "annually"} />
             </CardWrapper>
           ))}
         </div>
@@ -189,11 +175,13 @@ export function PricingCard({ plan, isAnnual }: PricingCardProps) {
       icon={icon}
       addon={
         <div className="h-0 flex items-center gap-1.5">
-          {badges?.map(({ message, variant }) => (
-            <Badge key={message} variant={variant}>
-              {message}
-            </Badge>
-          ))}
+          {badges
+            ?.filter(({ annualOnly }) => !annualOnly || isAnnual)
+            .map(({ message, variant }) => (
+              <Badge key={message} variant={variant}>
+                {message}
+              </Badge>
+            ))}
         </div>
       }
       className="h-full"
@@ -230,7 +218,7 @@ export function PricingCard({ plan, isAnnual }: PricingCardProps) {
               key={item}
             >
               <div
-                className={cn(
+                className={cx(
                   features.checkVariant === "secondary"
                     ? "text-gray-400"
                     : "text-blue-500",
