@@ -107,7 +107,7 @@ async function process({
       logger.info("Skipping sender pattern detection - conversation detected", {
         provider: account.provider,
       });
-
+      await savePatternCheck({ emailAccountId, from });
       return NextResponse.json({ success: true });
     }
 
