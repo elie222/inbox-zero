@@ -560,6 +560,11 @@ export function useBulkDelete<T extends Row>({
         toast.success("Bulk trash completed");
         mutate();
       },
+      onError: (error) => {
+        toast.error(
+          error.error.serverError || "There was an error trashing the emails",
+        );
+      },
     },
   );
 
