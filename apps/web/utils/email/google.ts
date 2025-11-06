@@ -357,7 +357,7 @@ export class GmailProvider implements EmailProvider {
                 threadId,
                 error: error instanceof Error ? error.message : error,
               });
-              throw error;
+              // Continue processing remaining threads
             }
           }
 
