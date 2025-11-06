@@ -197,7 +197,7 @@ export function PricingCard({ plan, isAnnual }: PricingCardProps) {
                 </Paragraph>
               </>
             ) : (
-              <Subheading className="font-regular">Contact us</Subheading>
+              <Subheading className="font-light">Contact us</Subheading>
             )}
           </div>
           <Button auto variant={button.variant} icon={button.icon}>
