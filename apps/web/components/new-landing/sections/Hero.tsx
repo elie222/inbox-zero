@@ -14,6 +14,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { BrandScroller } from "@/components/new-landing/BrandScroller";
 
 export function Hero() {
   return (
@@ -46,12 +47,7 @@ export function Hero() {
           <Paragraph>
             Join over 15,000 users worldwide saving hours daily
           </Paragraph>
-          <Image
-            src="/images/new-landing/trusted-by.png"
-            alt="logo cloud"
-            width={1000}
-            height={1000}
-          />
+          <BrandScroller />
         </div>
       </div>
     </Section>
