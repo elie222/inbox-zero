@@ -7,12 +7,15 @@ import {
 } from "@/utils/types";
 import { parseMessage } from "@/utils/gmail/message";
 import { GmailLabel } from "@/utils/gmail/label";
+import { withGmailRetry } from "@/utils/gmail/retry";
 
 export async function getThread(
   threadId: string,
   gmail: gmail_v1.Gmail,
 ): Promise<ThreadWithPayloadMessages> {
-  const thread = await gmail.users.threads.get({ userId: "me", id: threadId });
+  const thread = await withGmailRetry(() =>
+    gmail.users.threads.get({ userId: "me", id: threadId }),
+  );
   return thread.data as ThreadWithPayloadMessages;
 }
 
@@ -32,12 +35,14 @@ export async function getThreads(
   resultSizeEstimate?: number | null;
   threads: MinimalThread[];
 }> {
-  const threads = await gmail.users.threads.list({
-    userId: "me",
-    q,
-    labelIds,
-    maxResults,
-  });
+  const threads = await withGmailRetry(() =>
+    gmail.users.threads.list({
+      userId: "me",
+      q,
+      labelIds,
+      maxResults,
+    }),
+  );
   return {
     nextPageToken: threads.data.nextPageToken,
     resultSizeEstimate: threads.data.resultSizeEstimate,
@@ -58,13 +63,15 @@ export async function getThreadsWithNextPageToken({
   maxResults?: number;
   pageToken?: string;
 }) {
-  const threads = await gmail.users.threads.list({
-    userId: "me",
-    q,
-    labelIds,
-    maxResults,
-    pageToken,
-  });
+  const threads = await withGmailRetry(() =>
+    gmail.users.threads.list({
+      userId: "me",
+      q,
+      labelIds,
+      maxResults,
+      pageToken,
+    }),
+  );
 
   return {
     threads: threads.data.threads || [],
@@ -97,11 +104,13 @@ async function getThreadsFromSender(
   }>
 > {
   const query = `from:${sender} -label:sent -label:draft`;
-  const response = await gmail.users.threads.list({
-    userId: "me",
-    q: query,
-    maxResults: limit,
-  });
+  const response = await withGmailRetry(() =>
+    gmail.users.threads.list({
+      userId: "me",
+      q: query,
+      maxResults: limit,
+    }),
+  );
 
   return response.data.threads || [];
 }

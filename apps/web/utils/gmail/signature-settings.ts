@@ -1,5 +1,6 @@
 import type { gmail_v1 } from "@googleapis/gmail";
 import { createScopedLogger } from "@/utils/logger";
+import { withGmailRetry } from "@/utils/gmail/retry";
 
 const logger = createScopedLogger("gmail-signature");
 
@@ -18,9 +19,11 @@ export async function getGmailSignatures(
   gmail: gmail_v1.Gmail,
 ): Promise<GmailSignature[]> {
   try {
-    const sendAsList = await gmail.users.settings.sendAs.list({
-      userId: "me",
-    });
+    const sendAsList = await withGmailRetry(() =>
+      gmail.users.settings.sendAs.list({
+        userId: "me",
+      }),
+    );
 
     if (!sendAsList.data.sendAs || sendAsList.data.sendAs.length === 0) {
       logger.warn("No sendAs settings found");

@@ -102,7 +102,12 @@ export async function handlePreviousDraftDeletion({
       logger.info("No previous draft found for this thread to delete");
     }
   } catch (error) {
-    logger.error("Error finding or deleting previous draft", { error });
+    logger.error("Error finding or deleting previous draft", {
+      error:
+        (error as any)?.error instanceof Error
+          ? (error as any)?.error?.message
+          : error,
+    });
     // Log error but continue, failing to delete shouldn't block execution
   }
 }

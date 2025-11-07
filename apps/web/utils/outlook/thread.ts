@@ -4,6 +4,7 @@ import type { ParsedMessage } from "@/utils/types";
 import { escapeODataString } from "@/utils/outlook/odata-escape";
 import { createScopedLogger } from "@/utils/logger";
 import { convertMessage } from "@/utils/outlook/message";
+import { withOutlookRetry } from "@/utils/outlook/retry";
 
 const logger = createScopedLogger("outlook/thread");
 
@@ -15,15 +16,17 @@ export async function getThread(
   const filter = `conversationId eq '${escapedThreadId}'`;
 
   try {
-    const messages: { value: Message[] } = await client
-      .getClient()
-      .api("/me/messages")
-      .filter(filter)
-      .select(
-        "id,conversationId,conversationIndex,subject,bodyPreview,from,sender,toRecipients,receivedDateTime,isDraft,isRead,body,categories,parentFolderId",
-      )
-      .top(100) // Get up to 100 messages instead of default 10
-      .get();
+    const messages: { value: Message[] } = await withOutlookRetry(() =>
+      client
+        .getClient()
+        .api("/me/messages")
+        .filter(filter)
+        .select(
+          "id,conversationId,conversationIndex,subject,bodyPreview,from,sender,toRecipients,receivedDateTime,isDraft,isRead,body,categories,parentFolderId",
+        )
+        .top(100) // Get up to 100 messages instead of default 10
+        .get(),
+    );
 
     // Sort in memory to avoid "restriction or sort order is too complex" error
     return messages.value.sort((a, b) => {
@@ -62,10 +65,12 @@ export async function getThreads(
   }
 
   const response: { value: Message[]; "@odata.nextLink"?: string } =
-    await request
-      .top(maxResults)
-      .select("id,conversationId,subject,bodyPreview")
-      .get();
+    await withOutlookRetry(() =>
+      request
+        .top(maxResults)
+        .select("id,conversationId,subject,bodyPreview")
+        .get(),
+    );
 
   // Group messages by conversationId to create thread-like structure
   const threadMap = new Map<string, { id: string; snippet: string }>();
