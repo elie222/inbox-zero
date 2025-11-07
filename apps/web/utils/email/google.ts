@@ -299,7 +299,7 @@ export class GmailProvider implements EmailProvider {
           const { messages, nextPageToken: token } = await getMessages(
             this.client,
             {
-              query: `from:${sender}`,
+              query: `from:${sender} in:inbox`,
               maxResults: 500,
               pageToken: nextPageToken,
             },

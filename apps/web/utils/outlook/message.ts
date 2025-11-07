@@ -506,7 +506,10 @@ export function convertMessage(
     textPlain: message.body?.content || "",
     textHtml: message.body?.content || "",
     headers: {
-      from: message.from?.emailAddress?.address || "",
+      from:
+        message.from?.emailAddress?.name && message.from?.emailAddress?.address
+          ? `${message.from.emailAddress.name} <${message.from.emailAddress.address}>`
+          : message.from?.emailAddress?.address || "",
       to: message.toRecipients?.[0]?.emailAddress?.address || "",
       subject: message.subject || "",
       date: message.receivedDateTime || new Date().toISOString(),

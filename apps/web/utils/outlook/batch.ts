@@ -183,6 +183,11 @@ export async function moveMessagesForSenders({
 
     const processedMessageIds = new Set<string>();
     const publishedThreadIds = new Set<string>();
+    const fromFilter = `from/emailAddress/address eq '${escapeODataString(sender)}'`;
+    const filterExpression =
+      action === "archive"
+        ? `${fromFilter} and parentFolderId eq 'inbox'`
+        : fromFilter;
     let skipToken: string | undefined;
 
     do {
@@ -190,7 +195,7 @@ export async function moveMessagesForSenders({
         let request = client
           .getClient()
           .api("/me/messages")
-          .filter(`from/emailAddress/address eq '${escapeODataString(sender)}'`)
+          .filter(filterExpression)
           .top(100)
           .select("id,conversationId");
 
