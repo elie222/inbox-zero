@@ -33,9 +33,7 @@ export async function processHistoryForUser({
   const validation = await validateWebhookAccount(emailAccount, logger);
 
   if (!validation.success) {
-    logger.error("Error validating webhook account", {
-      error: validation.response.status,
-    });
+    // Validation function already logs the specific reason for failure
     return validation.response;
   }
 
