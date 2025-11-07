@@ -5,6 +5,8 @@ import { captureException } from "@/utils/error";
 import { handleReferralOnSignUp } from "@/utils/auth";
 
 // Mock the dependencies
+vi.mock("server-only", () => ({}));
+
 vi.mock("next/headers", () => ({
   cookies: vi.fn(),
 }));
