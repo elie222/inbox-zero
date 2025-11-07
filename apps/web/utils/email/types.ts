@@ -89,6 +89,11 @@ export interface EmailProvider {
     labelId?: string,
   ): Promise<void>;
   archiveMessage(messageId: string): Promise<void>;
+  bulkArchiveFromSenders(
+    fromEmails: string[],
+    ownerEmail: string,
+  ): Promise<void>;
+  bulkTrashFromSenders(fromEmails: string[], ownerEmail: string): Promise<void>;
   trashThread(
     threadId: string,
     ownerEmail: string,

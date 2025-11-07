@@ -2,6 +2,7 @@
 
 import { useCallback, useState, useEffect } from "react";
 import { toast } from "sonner";
+import { useAction } from "next-safe-action/hooks";
 import type { PostHog } from "posthog-js/react";
 import { onAutoArchive, onDeleteFilter } from "@/utils/actions/client";
 import { setNewsletterStatusAction } from "@/utils/actions/unsubscriber";
@@ -16,6 +17,10 @@ import type { GetThreadsResponse } from "@/app/api/threads/basic/route";
 import { isDefined } from "@/utils/types";
 import { fetchWithAccount } from "@/utils/fetch";
 import type { UserResponse } from "@/app/api/user/me/route";
+import {
+  bulkArchiveAction,
+  bulkTrashAction,
+} from "@/utils/actions/mail-bulk-action";
 
 async function unsubscribeAndArchive({
   newsletterEmail,
@@ -396,73 +401,6 @@ export function useBulkApprove<T extends Row>({
   };
 }
 
-async function archiveAll({
-  name,
-  onFinish,
-  emailAccountId,
-}: {
-  name: string;
-  onFinish: () => void;
-  emailAccountId: string;
-}) {
-  toast.promise(
-    async () => {
-      const threadsArchived = await new Promise<number>((resolve, reject) => {
-        addToArchiveSenderQueue({
-          sender: name,
-          emailAccountId,
-          onSuccess: (totalThreads) => {
-            onFinish();
-            resolve(totalThreads);
-          },
-          onError: reject,
-        });
-      });
-
-      return threadsArchived;
-    },
-    {
-      loading: `Archiving all emails from ${name}`,
-      success: (data) =>
-        data
-          ? `Archived ${data} emails from ${name}`
-          : `No emails to archive from ${name}`,
-      error: `There was an error archiving the emails from ${name} :(`,
-    },
-  );
-}
-
-export function useArchiveAll<T extends Row>({
-  item,
-  posthog,
-  emailAccountId,
-}: {
-  item: T;
-  posthog: PostHog;
-  emailAccountId: string;
-}) {
-  const [archiveAllLoading, setArchiveAllLoading] = useState(false);
-
-  const onArchiveAll = async () => {
-    setArchiveAllLoading(true);
-
-    posthog.capture("Clicked Archive All");
-
-    await archiveAll({
-      name: item.name,
-      onFinish: () => setArchiveAllLoading(false),
-      emailAccountId,
-    });
-
-    setArchiveAllLoading(false);
-  };
-
-  return {
-    archiveAllLoading,
-    onArchiveAll,
-  };
-}
-
 export function useBulkArchive<T extends Row>({
   mutate,
   posthog,
@@ -472,19 +410,30 @@ export function useBulkArchive<T extends Row>({
   posthog: PostHog;
   emailAccountId: string;
 }) {
-  const onBulkArchive = async (items: T[]) => {
-    posthog.capture("Clicked Bulk Archive");
+  const { executeAsync: executeBulkArchive, isExecuting } = useAction(
+    bulkArchiveAction.bind(null, emailAccountId),
+    {
+      onSuccess: () => {
+        mutate();
+      },
+    },
+  );
 
-    for (const item of items) {
-      await archiveAll({
-        name: item.name,
-        onFinish: mutate,
-        emailAccountId,
-      });
-    }
+  const onBulkArchive = (items: T[]) => {
+    posthog.capture("Clicked Bulk Archive");
+    const promise = executeBulkArchive({
+      froms: items.map((item) => item.name),
+    });
+
+    toast.promise(promise, {
+      loading: "Archiving emails...",
+      success: "Bulk archive completed",
+      error: (error) =>
+        error?.error?.serverError || "There was an error archiving the emails",
+    });
   };
 
-  return { onBulkArchive };
+  return { onBulkArchive, isBulkArchiving: isExecuting };
 }
 
 async function deleteAllFromSender({
@@ -571,19 +520,29 @@ export function useBulkDelete<T extends Row>({
   posthog: PostHog;
   emailAccountId: string;
 }) {
-  const onBulkDelete = async (items: T[]) => {
+  const { executeAsync: executeBulkTrash, isExecuting } = useAction(
+    bulkTrashAction.bind(null, emailAccountId),
+    {
+      onSuccess: () => {
+        mutate();
+      },
+    },
+  );
+
+  const onBulkDelete = (items: T[]) => {
     posthog.capture("Clicked Bulk Delete");
 
-    for (const item of items) {
-      await deleteAllFromSender({
-        name: item.name,
-        onFinish: () => mutate(),
-        emailAccountId,
-      });
-    }
+    const promise = executeBulkTrash({ froms: items.map((item) => item.name) });
+
+    toast.promise(promise, {
+      loading: "Moving emails to trash...",
+      success: "Bulk trash completed",
+      error: (error) =>
+        error?.error?.serverError || "There was an error trashing the emails",
+    });
   };
 
-  return { onBulkDelete };
+  return { onBulkDelete, isBulkDeleting: isExecuting };
 }
 
 export function useBulkUnsubscribeShortcuts<T extends Row>({

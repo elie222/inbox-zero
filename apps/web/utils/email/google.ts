@@ -258,6 +258,139 @@ export class GmailProvider implements EmailProvider {
     }
   }
 
+  private async archiveMessagesBulk(messageIds: string[]): Promise<void> {
+    try {
+      await this.client.users.messages.batchModify({
+        userId: "me",
+        requestBody: {
+          ids: messageIds,
+          removeLabelIds: [GmailLabel.INBOX],
+        },
+      });
+    } catch (error) {
+      logger.error("Failed to archive messages bulk", {
+        messageIds,
+        error: error instanceof Error ? error.message : error,
+      });
+      throw error;
+    }
+  }
+
+  // We don't have permissions for Gmail bulkDelete, so we have to do it one thread at a time
+  private async archiveMessagesFromSenders(senders: string[]): Promise<void> {
+    if (senders.length === 0) {
+      return;
+    }
+
+    for (const sender of senders.filter(Boolean)) {
+      let nextPageToken: string | undefined;
+
+      do {
+        try {
+          const { messages, nextPageToken: token } =
+            await this.getMessagesFromSender({
+              senderEmail: sender,
+              maxResults: 500,
+              pageToken: nextPageToken,
+            });
+
+          const messageIds = messages
+            .map((message) => message.id)
+            .filter(Boolean);
+
+          if (messageIds.length > 0) {
+            await this.archiveMessagesBulk(messageIds);
+          }
+
+          nextPageToken = token;
+        } catch (error) {
+          logger.error("Failed to get messages from sender", {
+            sender,
+            error: error instanceof Error ? error.message : error,
+          });
+          // continue processing remaining senders
+          nextPageToken = undefined;
+        }
+      } while (nextPageToken);
+    }
+
+    logger.info("Completed bulk archive from senders");
+  }
+
+  private async trashThreadsFromSenders(
+    senders: string[],
+    ownerEmail: string,
+  ): Promise<void> {
+    if (senders.length === 0) {
+      return;
+    }
+
+    for (const sender of senders) {
+      if (!sender) {
+        continue;
+      }
+
+      let nextPageToken: string | undefined;
+      const processedThreadIds = new Set<string>();
+
+      do {
+        try {
+          const { messages, nextPageToken: token } =
+            await this.getMessagesFromSender({
+              senderEmail: sender,
+              maxResults: 500,
+              pageToken: nextPageToken,
+            });
+
+          for (const message of messages) {
+            const threadId = message.threadId;
+            if (!threadId || processedThreadIds.has(threadId)) {
+              continue;
+            }
+
+            processedThreadIds.add(threadId);
+
+            try {
+              await this.trashThread(threadId, ownerEmail, "automation");
+            } catch (error) {
+              logger.error("Failed to trash thread for sender", {
+                sender,
+                threadId,
+                error: error instanceof Error ? error.message : error,
+              });
+              // Continue processing remaining threads
+            }
+          }
+
+          nextPageToken = token;
+        } catch (error) {
+          logger.error("Failed to get messages from sender", {
+            sender,
+            error: error instanceof Error ? error.message : error,
+          });
+          // continue processing remaining senders
+          nextPageToken = undefined;
+        }
+      } while (nextPageToken);
+    }
+
+    logger.info("Completed bulk trash from senders");
+  }
+
+  async bulkArchiveFromSenders(
+    fromEmails: string[],
+    _ownerEmail: string,
+  ): Promise<void> {
+    await this.archiveMessagesFromSenders(fromEmails);
+  }
+
+  async bulkTrashFromSenders(
+    fromEmails: string[],
+    ownerEmail: string,
+  ): Promise<void> {
+    await this.trashThreadsFromSenders(fromEmails, ownerEmail);
+  }
+
   async trashThread(
     threadId: string,
     ownerEmail: string,
