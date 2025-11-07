@@ -4,6 +4,7 @@ import { createScopedLogger } from "@/utils/logger";
 import type { OutlookClient } from "@/utils/outlook/client";
 import { OutlookLabel } from "./label";
 import { escapeODataString } from "@/utils/outlook/odata-escape";
+import { withOutlookRetry } from "@/utils/outlook/retry";
 
 const logger = createScopedLogger("outlook/message");
 
@@ -274,7 +275,7 @@ export async function queryBatchMessages(
     }
 
     const response: { value: Message[]; "@odata.nextLink"?: string } =
-      await request.get();
+      await withOutlookRetry(() => request.get());
 
     // Filter messages to only include inbox and archive folders
     const filteredMessages = response.value.filter((message) => {
@@ -328,7 +329,7 @@ export async function queryBatchMessages(
     }
 
     const response: { value: Message[]; "@odata.nextLink"?: string } =
-      await request.get();
+      await withOutlookRetry(() => request.get());
     const messages = await convertMessages(response.value, folderIds);
 
     nextPageToken = response["@odata.nextLink"]
@@ -421,7 +422,7 @@ export async function queryMessagesWithFilters(
   }
 
   const response: { value: Message[]; "@odata.nextLink"?: string } =
-    await request.get();
+    await withOutlookRetry(() => request.get());
 
   const messages = await convertMessages(response.value, folderIds);
   const nextPageToken = response["@odata.nextLink"]
@@ -446,13 +447,15 @@ export async function getMessage(
   messageId: string,
   client: OutlookClient,
 ): Promise<ParsedMessage> {
-  const message = await client
-    .getClient()
-    .api(`/me/messages/${messageId}`)
-    .select(
-      "id,conversationId,conversationIndex,subject,bodyPreview,from,sender,toRecipients,receivedDateTime,isDraft,isRead,body,categories,parentFolderId",
-    )
-    .get();
+  const message = await withOutlookRetry(() =>
+    client
+      .getClient()
+      .api(`/me/messages/${messageId}`)
+      .select(
+        "id,conversationId,conversationIndex,subject,bodyPreview,from,sender,toRecipients,receivedDateTime,isDraft,isRead,body,categories,parentFolderId",
+      )
+      .get(),
+  );
 
   const folderIds = await getFolderIds(client);
 
@@ -483,7 +486,7 @@ export async function getMessages(
   }
 
   const response: { value: Message[]; "@odata.nextLink"?: string } =
-    await request.get();
+    await withOutlookRetry(() => request.get());
 
   // Get folder IDs to properly map labels
   const folderIds = await getFolderIds(client);
