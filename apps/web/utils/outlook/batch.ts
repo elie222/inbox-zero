@@ -233,9 +233,6 @@ export async function moveMessagesForSenders({
             const newThreadIds = Array.from(batchThreadIds).filter(
               (threadId) => !publishedThreadIds.has(threadId),
             );
-            newThreadIds.forEach((threadId) =>
-              publishedThreadIds.add(threadId),
-            );
 
             const promises = [
               updateEmailMessagesForSender({
@@ -257,6 +254,10 @@ export async function moveMessagesForSenders({
             }
 
             await Promise.all(promises);
+
+            newThreadIds.forEach((threadId) =>
+              publishedThreadIds.add(threadId),
+            );
           } catch (error) {
             logger.error("Failed to move or track messages", {
               action,
