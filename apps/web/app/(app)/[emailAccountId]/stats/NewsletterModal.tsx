@@ -35,8 +35,9 @@ export function NewsletterModal(props: {
   newsletter?: Pick<Row, "name" | "unsubscribeLink" | "autoArchived">;
   onClose: (isOpen: boolean) => void;
   refreshInterval?: number;
+  mutate: () => Promise<any>;
 }) {
-  const { newsletter, refreshInterval, onClose } = props;
+  const { newsletter, refreshInterval, onClose, mutate } = props;
 
   const { emailAccountId, userEmail } = useAccount();
 
@@ -94,6 +95,7 @@ export function NewsletterModal(props: {
                 emailAccountId={emailAccountId}
                 labels={userLabels}
                 posthog={posthog}
+                mutate={mutate}
               />
             </div>
 
