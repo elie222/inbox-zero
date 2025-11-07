@@ -308,12 +308,13 @@ export class GmailProvider implements EmailProvider {
             sender,
             error: error instanceof Error ? error.message : error,
           });
-          throw error;
+          // continue processing remaining senders
+          nextPageToken = undefined;
         }
       } while (nextPageToken);
-
-      logger.info("Completed bulk archive from senders");
     }
+
+    logger.info("Completed bulk archive from senders");
   }
 
   private async trashThreadsFromSenders(
@@ -367,12 +368,13 @@ export class GmailProvider implements EmailProvider {
             sender,
             error: error instanceof Error ? error.message : error,
           });
-          throw error;
+          // continue processing remaining senders
+          nextPageToken = undefined;
         }
       } while (nextPageToken);
-
-      logger.info("Completed bulk trash from senders");
     }
+
+    logger.info("Completed bulk trash from senders");
   }
 
   async bulkArchiveFromSenders(
