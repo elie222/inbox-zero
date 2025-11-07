@@ -309,6 +309,7 @@ export class GmailProvider implements EmailProvider {
             error: error instanceof Error ? error.message : error,
           });
           // continue processing remaining senders
+          nextPageToken = undefined;
         }
       } while (nextPageToken);
     }
@@ -368,6 +369,7 @@ export class GmailProvider implements EmailProvider {
             error: error instanceof Error ? error.message : error,
           });
           // continue processing remaining senders
+          nextPageToken = undefined;
         }
       } while (nextPageToken);
     }
