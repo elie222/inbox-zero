@@ -186,89 +186,99 @@ export async function moveMessagesForSenders({
     let skipToken: string | undefined;
 
     do {
-      let request = client
-        .getClient()
-        .api("/me/messages")
-        .filter(`from/emailAddress/address eq '${escapeODataString(sender)}'`)
-        .top(100)
-        .select("id,conversationId");
+      try {
+        let request = client
+          .getClient()
+          .api("/me/messages")
+          .filter(`from/emailAddress/address eq '${escapeODataString(sender)}'`)
+          .top(100)
+          .select("id,conversationId");
 
-      if (skipToken) {
-        request = request.skipToken(skipToken);
-      }
-
-      const response: {
-        value?: Array<{ id?: string | null; conversationId?: string | null }>;
-        "@odata.nextLink"?: string;
-      } = await request.get();
-
-      const allMessages = (response.value ?? []).filter(
-        (message): message is { id: string; conversationId: string } =>
-          !!message.id &&
-          !!message.conversationId &&
-          !processedMessageIds.has(message.id),
-      );
-
-      const messageIds = allMessages.map((msg) => msg.id);
-
-      if (messageIds.length > 0) {
-        try {
-          await moveMessagesInBatches({
-            client,
-            messageIds,
-            destinationId,
-            action,
-          });
-
-          messageIds.forEach((id) => processedMessageIds.add(id));
-
-          const batchThreadIds = new Set(
-            allMessages.map((msg) => msg.conversationId),
-          );
-
-          const newThreadIds = Array.from(batchThreadIds).filter(
-            (threadId) => !publishedThreadIds.has(threadId),
-          );
-          newThreadIds.forEach((threadId) => publishedThreadIds.add(threadId));
-
-          const promises = [
-            updateEmailMessagesForSender({
-              sender,
-              messageIds,
-              emailAccountId,
-              action,
-            }),
-          ];
-
-          if (newThreadIds.length > 0) {
-            promises.push(
-              publishBulkActionToTinybird({
-                threadIds: newThreadIds,
-                action,
-                ownerEmail,
-              }),
-            );
-          }
-
-          await Promise.all(promises);
-        } catch (error) {
-          logger.error("Failed to move or track messages", {
-            action,
-            sender,
-            ownerEmail,
-            destinationId,
-            messageIds,
-            error: error instanceof Error ? error.message : error,
-          });
-          // Don't throw - continue processing remaining batches
+        if (skipToken) {
+          request = request.skipToken(skipToken);
         }
-      }
 
-      const nextLink = response["@odata.nextLink"];
-      if (nextLink) {
-        const url = new URL(nextLink);
-        skipToken = url.searchParams.get("$skiptoken") ?? undefined;
-      } else {
+        const response: {
+          value?: Array<{ id?: string | null; conversationId?: string | null }>;
+          "@odata.nextLink"?: string;
+        } = await request.get();
+
+        const allMessages = (response.value ?? []).filter(
+          (message): message is { id: string; conversationId: string } =>
+            !!message.id &&
+            !!message.conversationId &&
+            !processedMessageIds.has(message.id),
+        );
+
+        const messageIds = allMessages.map((msg) => msg.id);
+
+        if (messageIds.length > 0) {
+          try {
+            await moveMessagesInBatches({
+              client,
+              messageIds,
+              destinationId,
+              action,
+            });
+
+            const batchThreadIds = new Set(
+              allMessages.map((msg) => msg.conversationId),
+            );
+
+            const newThreadIds = Array.from(batchThreadIds).filter(
+              (threadId) => !publishedThreadIds.has(threadId),
+            );
+            newThreadIds.forEach((threadId) =>
+              publishedThreadIds.add(threadId),
+            );
+
+            const promises = [
+              updateEmailMessagesForSender({
+                sender,
+                messageIds,
+                emailAccountId,
+                action,
+              }),
+            ];
+
+            if (newThreadIds.length > 0) {
+              promises.push(
+                publishBulkActionToTinybird({
+                  threadIds: newThreadIds,
+                  action,
+                  ownerEmail,
+                }),
+              );
+            }
+
+            await Promise.all(promises);
+          } catch (error) {
+            logger.error("Failed to move or track messages", {
+              action,
+              sender,
+              ownerEmail,
+              destinationId,
+              messageIds,
+              error: error instanceof Error ? error.message : error,
+            });
+          } finally {
+            messageIds.forEach((id) => processedMessageIds.add(id));
+          }
+        }
+
+        const nextLink = response["@odata.nextLink"];
+        if (nextLink) {
+          const url = new URL(nextLink);
+          skipToken = url.searchParams.get("$skiptoken") ?? undefined;
+        } else {
+          skipToken = undefined;
+        }
+      } catch (error) {
+        logger.error("Failed to fetch messages from sender", {
+          sender,
+          action,
+          error: error instanceof Error ? error.message : error,
+        });
         skipToken = undefined;
       }
     } while (skipToken);
