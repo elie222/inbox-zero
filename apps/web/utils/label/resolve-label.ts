@@ -1,5 +1,6 @@
 import type { EmailProvider } from "@/utils/email/types";
 import { createScopedLogger } from "@/utils/logger";
+import { hasVariables } from "@/utils/template";
 
 const logger = createScopedLogger("resolve-label");
 
@@ -9,6 +10,7 @@ const logger = createScopedLogger("resolve-label");
  * - If only labelId is provided, looks up the label name
  * - If both are provided, returns both
  * - Returns null for both if lookup fails
+ * - Skips resolution for AI templates (strings containing {{...}})
  */
 export async function resolveLabelNameAndId({
   emailProvider,
@@ -22,6 +24,12 @@ export async function resolveLabelNameAndId({
   // If we have both, return them
   if (label && labelId) {
     return { label, labelId };
+  }
+
+  // If we have label name with AI template, don't resolve it
+  // Templates will be processed at runtime by the AI
+  if (label && hasVariables(label)) {
+    return { label, labelId: null };
   }
 
   // If we have label name, look up the ID (or create if not found)
