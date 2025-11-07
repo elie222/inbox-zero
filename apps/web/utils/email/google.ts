@@ -8,6 +8,10 @@ import {
   hasPreviousCommunicationsWithSenderOrDomain,
 } from "@/utils/gmail/message";
 import {
+  publishBulkActionToTinybird,
+  updateEmailMessagesForSender,
+} from "@/utils/email/bulk-action-tracking";
+import {
   getLabels,
   getLabel,
   getLabelById,
@@ -277,38 +281,72 @@ export class GmailProvider implements EmailProvider {
   }
 
   // We don't have permissions for Gmail bulkDelete, so we have to do it one thread at a time
-  private async archiveMessagesFromSenders(senders: string[]): Promise<void> {
-    if (senders.length === 0) {
-      return;
-    }
+  private async archiveMessagesFromSenders(
+    senders: string[],
+    ownerEmail: string,
+    emailAccountId: string,
+  ): Promise<void> {
+    if (senders.length === 0) return;
 
-    for (const sender of senders.filter(Boolean)) {
+    for (const sender of senders) {
+      if (!sender) continue;
+
+      const publishedThreadIds = new Set<string>();
       let nextPageToken: string | undefined;
 
       do {
         try {
-          const { messages, nextPageToken: token } =
-            await this.getMessagesFromSender({
-              senderEmail: sender,
+          const { messages, nextPageToken: token } = await getMessages(
+            this.client,
+            {
+              query: `from:${sender}`,
               maxResults: 500,
               pageToken: nextPageToken,
-            });
+            },
+          );
 
-          const messageIds = messages
-            .map((message) => message.id)
-            .filter(Boolean);
+          const batchThreadIds = new Set(messages.map((msg) => msg.threadId));
+          const batchMessageIds = messages.map((msg) => msg.id);
 
-          if (messageIds.length > 0) {
-            await this.archiveMessagesBulk(messageIds);
+          if (batchMessageIds.length > 0) {
+            await this.archiveMessagesBulk(batchMessageIds);
+
+            const newThreadIds = Array.from(batchThreadIds).filter(
+              (threadId) => !publishedThreadIds.has(threadId),
+            );
+            newThreadIds.forEach((threadId) =>
+              publishedThreadIds.add(threadId),
+            );
+
+            const promises = [
+              updateEmailMessagesForSender({
+                sender,
+                messageIds: batchMessageIds,
+                emailAccountId,
+                action: "archive",
+              }),
+            ];
+
+            if (newThreadIds.length > 0) {
+              promises.push(
+                publishBulkActionToTinybird({
+                  threadIds: newThreadIds,
+                  action: "archive",
+                  ownerEmail,
+                }),
+              );
+            }
+
+            await Promise.all(promises);
           }
 
           nextPageToken = token;
         } catch (error) {
-          logger.error("Failed to get messages from sender", {
+          logger.error("Failed to archive messages from sender", {
             sender,
             error: error instanceof Error ? error.message : error,
           });
-          // continue processing remaining senders
+          // continue processing remaining pages
           nextPageToken = undefined;
         }
       } while (nextPageToken);
@@ -320,6 +358,7 @@ export class GmailProvider implements EmailProvider {
   private async trashThreadsFromSenders(
     senders: string[],
     ownerEmail: string,
+    emailAccountId: string,
   ): Promise<void> {
     if (senders.length === 0) {
       return;
@@ -330,37 +369,27 @@ export class GmailProvider implements EmailProvider {
         continue;
       }
 
+      const allThreadIds = new Set<string>();
+      const threadToMessages = new Map<string, string[]>();
       let nextPageToken: string | undefined;
-      const processedThreadIds = new Set<string>();
 
       do {
         try {
-          const { messages, nextPageToken: token } =
-            await this.getMessagesFromSender({
-              senderEmail: sender,
+          const { messages, nextPageToken: token } = await getMessages(
+            this.client,
+            {
+              query: `from:${sender}`,
               maxResults: 500,
               pageToken: nextPageToken,
-            });
+            },
+          );
 
-          for (const message of messages) {
-            const threadId = message.threadId;
-            if (!threadId || processedThreadIds.has(threadId)) {
-              continue;
-            }
-
-            processedThreadIds.add(threadId);
-
-            try {
-              await this.trashThread(threadId, ownerEmail, "automation");
-            } catch (error) {
-              logger.error("Failed to trash thread for sender", {
-                sender,
-                threadId,
-                error: error instanceof Error ? error.message : error,
-              });
-              // Continue processing remaining threads
-            }
-          }
+          messages.forEach((msg) => {
+            allThreadIds.add(msg.threadId);
+            const existingMessages = threadToMessages.get(msg.threadId) || [];
+            existingMessages.push(msg.id);
+            threadToMessages.set(msg.threadId, existingMessages);
+          });
 
           nextPageToken = token;
         } catch (error) {
@@ -372,6 +401,61 @@ export class GmailProvider implements EmailProvider {
           nextPageToken = undefined;
         }
       } while (nextPageToken);
+
+      // Trash threads one by one (no bulk delete permission in Gmail)
+      if (allThreadIds.size > 0) {
+        const successfullyTrashedThreadIds = new Set<string>();
+
+        for (const threadId of allThreadIds) {
+          try {
+            await this.trashThread(threadId, ownerEmail, "automation");
+            successfullyTrashedThreadIds.add(threadId);
+          } catch (error) {
+            logger.error("Failed to trash thread for sender", {
+              sender,
+              threadId,
+              error: error instanceof Error ? error.message : error,
+            });
+            // Continue processing remaining threads
+          }
+        }
+
+        if (successfullyTrashedThreadIds.size > 0) {
+          try {
+            const successfulMessageIds: string[] = [];
+            for (const threadId of successfullyTrashedThreadIds) {
+              const messages = threadToMessages.get(threadId) || [];
+              successfulMessageIds.push(...messages);
+            }
+
+            const promises = [
+              publishBulkActionToTinybird({
+                threadIds: Array.from(successfullyTrashedThreadIds),
+                action: "trash",
+                ownerEmail,
+              }),
+            ];
+
+            if (successfulMessageIds.length > 0) {
+              promises.push(
+                updateEmailMessagesForSender({
+                  sender,
+                  messageIds: successfulMessageIds,
+                  emailAccountId,
+                  action: "trash",
+                }),
+              );
+            }
+
+            await Promise.all(promises);
+          } catch (error) {
+            logger.error("Failed to track trash operation for sender", {
+              sender,
+              error: error instanceof Error ? error.message : error,
+            });
+          }
+        }
+      }
     }
 
     logger.info("Completed bulk trash from senders");
@@ -379,16 +463,22 @@ export class GmailProvider implements EmailProvider {
 
   async bulkArchiveFromSenders(
     fromEmails: string[],
-    _ownerEmail: string,
+    ownerEmail: string,
+    emailAccountId: string,
   ): Promise<void> {
-    await this.archiveMessagesFromSenders(fromEmails);
+    await this.archiveMessagesFromSenders(
+      fromEmails,
+      ownerEmail,
+      emailAccountId,
+    );
   }
 
   async bulkTrashFromSenders(
     fromEmails: string[],
     ownerEmail: string,
+    emailAccountId: string,
   ): Promise<void> {
-    await this.trashThreadsFromSenders(fromEmails, ownerEmail);
+    await this.trashThreadsFromSenders(fromEmails, ownerEmail, emailAccountId);
   }
 
   async trashThread(

@@ -64,7 +64,7 @@ import {
 } from "@/utils/outlook/folders";
 import { hasUnquotedParentFolderId } from "@/utils/outlook/message";
 import { extractSignatureFromHtml } from "@/utils/email/signature-extraction";
-import { moveMessagesForSenders } from "@/utils/outlook/move-sender-messages";
+import { moveMessagesForSenders } from "@/utils/outlook/batch";
 
 const logger = createScopedLogger("outlook-provider");
 
@@ -1336,6 +1336,7 @@ export class OutlookProvider implements EmailProvider {
   async bulkArchiveFromSenders(
     fromEmails: string[],
     ownerEmail: string,
+    emailAccountId: string,
   ): Promise<void> {
     await moveMessagesForSenders({
       client: this.client,
@@ -1343,12 +1344,14 @@ export class OutlookProvider implements EmailProvider {
       destinationId: "archive",
       action: "archive",
       ownerEmail,
+      emailAccountId,
     });
   }
 
   async bulkTrashFromSenders(
     fromEmails: string[],
     ownerEmail: string,
+    emailAccountId: string,
   ): Promise<void> {
     await moveMessagesForSenders({
       client: this.client,
@@ -1356,6 +1359,7 @@ export class OutlookProvider implements EmailProvider {
       destinationId: "deleteditems",
       action: "trash",
       ownerEmail,
+      emailAccountId,
     });
   }
 

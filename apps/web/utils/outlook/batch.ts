@@ -1,11 +1,16 @@
 import { createScopedLogger } from "@/utils/logger";
 import type { OutlookClient } from "@/utils/outlook/client";
+import { escapeODataString } from "@/utils/outlook/odata-escape";
+import {
+  publishBulkActionToTinybird,
+  updateEmailMessagesForSender,
+} from "@/utils/email/bulk-action-tracking";
 
 const logger = createScopedLogger("outlook/batch");
 
-export const GRAPH_JSON_BATCH_LIMIT = 20; // Microsoft Graph JSON batching limit
+const GRAPH_JSON_BATCH_LIMIT = 20; // Microsoft Graph JSON batching limit
 
-export type GraphBatchRequestItem<TBody = unknown> = {
+type GraphBatchRequestItem<TBody = unknown> = {
   id: string;
   method: string;
   url: string;
@@ -13,25 +18,24 @@ export type GraphBatchRequestItem<TBody = unknown> = {
   body?: TBody;
 };
 
-export type GraphBatchRequest<TBody = unknown> = {
-  requests: GraphBatchRequestItem<TBody>[];
-};
-
-export type GraphBatchResponseItem<TBody = unknown> = {
+type GraphBatchResponseItem<TBody = unknown> = {
   id: string;
   status: number;
   headers?: Record<string, string>;
   body?: TBody | null;
 };
 
-export type GraphBatchResponse<TBody = unknown> = {
+type GraphBatchResponse<TBody = unknown> = {
   responses?: GraphBatchResponseItem<TBody>[];
 };
 
-export async function batch<
-  TRequestBody = unknown,
-  TResponseBody = unknown,
->(options: {
+async function batch<TRequestBody = unknown, TResponseBody = unknown>({
+  client,
+  requests,
+  stopOnError = false,
+  onFailure,
+  context,
+}: {
   client: OutlookClient;
   requests: GraphBatchRequestItem<TRequestBody>[];
   stopOnError?: boolean;
@@ -41,11 +45,7 @@ export async function batch<
   }) => void;
   context?: Record<string, unknown>;
 }): Promise<GraphBatchResponseItem<TResponseBody>[]> {
-  const { client, requests, stopOnError = false, onFailure, context } = options;
-
-  if (requests.length === 0) {
-    return [];
-  }
+  if (requests.length === 0) return [];
 
   const graphClient = client.getClient();
   const aggregatedResponses: GraphBatchResponseItem<TResponseBody>[] = [];
@@ -101,21 +101,18 @@ export async function batch<
   return aggregatedResponses;
 }
 
-export type MoveMessagesInBatchesOptions = {
+async function moveMessagesInBatches({
+  client,
+  messageIds,
+  destinationId,
+  action,
+}: {
   client: OutlookClient;
   messageIds: string[];
   destinationId: string;
   action: "archive" | "trash";
-};
-
-export async function moveMessagesInBatches(
-  options: MoveMessagesInBatchesOptions,
-): Promise<void> {
-  const { client, messageIds, destinationId, action } = options;
-
-  if (messageIds.length === 0) {
-    return;
-  }
+}): Promise<void> {
+  if (messageIds.length === 0) return;
 
   const requestIdToMessageId = new Map<string, string>();
   const requests = messageIds.map((messageId, index) => {
@@ -135,7 +132,7 @@ export async function moveMessagesInBatches(
     };
   });
 
-  await batch<{ destinationId: string }, { error?: { message?: string } }>({
+  await batch({
     client,
     requests,
     stopOnError: true,
@@ -162,4 +159,118 @@ export async function moveMessagesInBatches(
       });
     },
   });
+}
+
+export async function moveMessagesForSenders({
+  client,
+  senders,
+  destinationId,
+  action,
+  ownerEmail,
+  emailAccountId,
+}: {
+  client: OutlookClient;
+  senders: string[];
+  destinationId: string;
+  action: "archive" | "trash";
+  ownerEmail: string;
+  emailAccountId: string;
+}): Promise<void> {
+  if (senders.length === 0) return;
+
+  for (const sender of senders) {
+    if (!sender) continue;
+
+    const processedMessageIds = new Set<string>();
+    const publishedThreadIds = new Set<string>();
+    let skipToken: string | undefined;
+
+    do {
+      let request = client
+        .getClient()
+        .api("/me/messages")
+        .filter(`from/emailAddress/address eq '${escapeODataString(sender)}'`)
+        .top(100)
+        .select("id,conversationId");
+
+      if (skipToken) {
+        request = request.skipToken(skipToken);
+      }
+
+      const response: {
+        value?: Array<{ id?: string | null; conversationId?: string | null }>;
+        "@odata.nextLink"?: string;
+      } = await request.get();
+
+      const allMessages = (response.value ?? []).filter(
+        (message): message is { id: string; conversationId: string } =>
+          !!message.id &&
+          !!message.conversationId &&
+          !processedMessageIds.has(message.id),
+      );
+
+      const messageIds = allMessages.map((msg) => msg.id);
+      messageIds.forEach((id) => processedMessageIds.add(id));
+
+      if (messageIds.length > 0) {
+        try {
+          await moveMessagesInBatches({
+            client,
+            messageIds,
+            destinationId,
+            action,
+          });
+
+          const batchThreadIds = new Set(
+            allMessages.map((msg) => msg.conversationId),
+          );
+          const batchMessageIds = allMessages.map((msg) => msg.id);
+
+          const newThreadIds = Array.from(batchThreadIds).filter(
+            (threadId) => !publishedThreadIds.has(threadId),
+          );
+          newThreadIds.forEach((threadId) => publishedThreadIds.add(threadId));
+
+          const promises = [
+            updateEmailMessagesForSender({
+              sender,
+              messageIds: batchMessageIds,
+              emailAccountId,
+              action,
+            }),
+          ];
+
+          if (newThreadIds.length > 0) {
+            promises.push(
+              publishBulkActionToTinybird({
+                threadIds: newThreadIds,
+                action,
+                ownerEmail,
+              }),
+            );
+          }
+
+          await Promise.all(promises);
+        } catch (error) {
+          logger.error("Failed to move or track messages", {
+            action,
+            sender,
+            ownerEmail,
+            destinationId,
+            messageIds,
+            error: error instanceof Error ? error.message : error,
+          });
+          // Don't throw - continue processing remaining batches
+        }
+      }
+
+      const nextLink = response["@odata.nextLink"];
+      if (nextLink) {
+        const url = new URL(nextLink);
+        skipToken = url.searchParams.get("$skiptoken") ?? undefined;
+      } else {
+        skipToken = undefined;
+      }
+    } while (skipToken);
+  }
 }

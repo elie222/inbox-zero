@@ -21,7 +21,11 @@ export const bulkArchiveAction = actionClient
         provider,
       });
 
-      await emailProvider.bulkArchiveFromSenders(froms, emailAccount.email);
+      await emailProvider.bulkArchiveFromSenders(
+        froms,
+        emailAccount.email,
+        emailAccountId,
+      );
     },
   );
 
@@ -42,6 +46,10 @@ export const bulkTrashAction = actionClient
         provider,
       });
 
-      await emailProvider.bulkTrashFromSenders(froms, emailAccount.email);
+      await emailProvider.bulkTrashFromSenders(
+        froms,
+        emailAccount.email,
+        emailAccountId,
+      );
     },
   );
