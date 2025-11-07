@@ -92,8 +92,13 @@ export interface EmailProvider {
   bulkArchiveFromSenders(
     fromEmails: string[],
     ownerEmail: string,
+    emailAccountId: string,
   ): Promise<void>;
-  bulkTrashFromSenders(fromEmails: string[], ownerEmail: string): Promise<void>;
+  bulkTrashFromSenders(
+    fromEmails: string[],
+    ownerEmail: string,
+    emailAccountId: string,
+  ): Promise<void>;
   trashThread(
     threadId: string,
     ownerEmail: string,
