@@ -11,6 +11,67 @@ interface ErrorInfo {
 }
 
 /**
+ * Retries a Gmail API operation when rate limits or temporary server errors are encountered
+ * - Rate limits: 429, 403 with specific reasons
+ * - Server errors: 502, 503, 504
+ */
+export async function withGmailRetry<T>(
+  operation: () => Promise<T>,
+  maxRetries = 5,
+): Promise<T> {
+  return pRetry(operation, {
+    retries: maxRetries,
+    onFailedAttempt: async (error) => {
+      const errorInfo = extractErrorInfo(error);
+      const { retryable, isRateLimit, isServerError, isFailedPrecondition } =
+        isRetryableError(errorInfo);
+
+      if (!retryable) {
+        logger.warn("Non-retryable error encountered", {
+          error,
+          status: errorInfo.status,
+          reason: errorInfo.reason,
+        });
+        throw error;
+      }
+
+      const err = error as Record<string, unknown>;
+      const cause = (err?.cause ?? err) as Record<string, unknown>;
+      const retryAfterHeader = (
+        (cause?.response as Record<string, unknown>)?.headers as Record<
+          string,
+          string
+        >
+      )?.["retry-after"];
+
+      const delayMs = calculateRetryDelay(
+        isRateLimit,
+        isServerError,
+        isFailedPrecondition,
+        error.attemptNumber,
+        retryAfterHeader,
+        errorInfo.errorMessage,
+      );
+
+      logger.warn("Gmail error. Will retry", {
+        delaySeconds: Math.ceil(delayMs / 1000),
+        attemptNumber: error.attemptNumber,
+        maxRetries,
+        status: errorInfo.status,
+        isRateLimit,
+        isServerError,
+        isFailedPrecondition,
+      });
+
+      // Apply the custom delay
+      if (delayMs > 0) {
+        await sleep(delayMs);
+      }
+    },
+  });
+}
+
+/**
  * Extracts error information from various error shapes
  */
 export function extractErrorInfo(error: unknown): ErrorInfo {
@@ -160,67 +221,6 @@ export function calculateRetryDelay(
   }
 
   return 0;
-}
-
-/**
- * Retries a Gmail API operation when rate limits or temporary server errors are encountered
- * - Rate limits: 429, 403 with specific reasons
- * - Server errors: 502, 503, 504
- */
-export async function withGmailRetry<T>(
-  operation: () => Promise<T>,
-  maxRetries = 5,
-): Promise<T> {
-  return pRetry(operation, {
-    retries: maxRetries,
-    onFailedAttempt: async (error) => {
-      const errorInfo = extractErrorInfo(error);
-      const { retryable, isRateLimit, isServerError, isFailedPrecondition } =
-        isRetryableError(errorInfo);
-
-      if (!retryable) {
-        logger.warn("Non-retryable error encountered", {
-          error,
-          status: errorInfo.status,
-          reason: errorInfo.reason,
-        });
-        throw error;
-      }
-
-      const err = error as Record<string, unknown>;
-      const cause = (err?.cause ?? err) as Record<string, unknown>;
-      const retryAfterHeader = (
-        (cause?.response as Record<string, unknown>)?.headers as Record<
-          string,
-          string
-        >
-      )?.["retry-after"];
-
-      const delayMs = calculateRetryDelay(
-        isRateLimit,
-        isServerError,
-        isFailedPrecondition,
-        error.attemptNumber,
-        retryAfterHeader,
-        errorInfo.errorMessage,
-      );
-
-      logger.warn("Gmail error. Will retry", {
-        delaySeconds: Math.ceil(delayMs / 1000),
-        attemptNumber: error.attemptNumber,
-        maxRetries,
-        status: errorInfo.status,
-        isRateLimit,
-        isServerError,
-        isFailedPrecondition,
-      });
-
-      // Apply the custom delay
-      if (delayMs > 0) {
-        await sleep(delayMs);
-      }
-    },
-  });
 }
 
 /**
