@@ -210,7 +210,6 @@ export async function moveMessagesForSenders({
       );
 
       const messageIds = allMessages.map((msg) => msg.id);
-      messageIds.forEach((id) => processedMessageIds.add(id));
 
       if (messageIds.length > 0) {
         try {
@@ -221,10 +220,11 @@ export async function moveMessagesForSenders({
             action,
           });
 
+          messageIds.forEach((id) => processedMessageIds.add(id));
+
           const batchThreadIds = new Set(
             allMessages.map((msg) => msg.conversationId),
           );
-          const batchMessageIds = allMessages.map((msg) => msg.id);
 
           const newThreadIds = Array.from(batchThreadIds).filter(
             (threadId) => !publishedThreadIds.has(threadId),
@@ -234,7 +234,7 @@ export async function moveMessagesForSenders({
           const promises = [
             updateEmailMessagesForSender({
               sender,
-              messageIds: batchMessageIds,
+              messageIds,
               emailAccountId,
               action,
             }),

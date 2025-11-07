@@ -314,9 +314,6 @@ export class GmailProvider implements EmailProvider {
             const newThreadIds = Array.from(batchThreadIds).filter(
               (threadId) => !publishedThreadIds.has(threadId),
             );
-            newThreadIds.forEach((threadId) =>
-              publishedThreadIds.add(threadId),
-            );
 
             const promises = [
               updateEmailMessagesForSender({
@@ -338,6 +335,10 @@ export class GmailProvider implements EmailProvider {
             }
 
             await Promise.all(promises);
+
+            newThreadIds.forEach((threadId) =>
+              publishedThreadIds.add(threadId),
+            );
           }
 
           nextPageToken = token;
