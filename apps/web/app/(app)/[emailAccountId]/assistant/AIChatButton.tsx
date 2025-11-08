@@ -12,8 +12,10 @@ export function AIChatButton() {
       size="sm"
       variant="outline"
       onClick={() => {
-        const setter = isMobile ? setOpenMobile : setOpen;
-        setter((arr) => [...arr, "chat-sidebar"]);
+        setOpen((arr) => [...arr, "chat-sidebar"]);
+        if (isMobile) {
+          setOpenMobile((arr) => [...arr, "chat-sidebar"]);
+        }
       }}
     >
       <MessageCircleIcon className="mr-2 size-4" />
