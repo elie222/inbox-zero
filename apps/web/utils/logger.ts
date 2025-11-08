@@ -130,11 +130,35 @@ function formatError(args?: Record<string, unknown>) {
         ? (error as { message: unknown }).message
         : error;
 
+  const errorFull = serializeError(error);
+
   return {
     ...args,
     error: errorMessage,
-    errorFull: error,
+    errorFull,
   };
+}
+
+function serializeError(error: unknown): unknown {
+  if (error instanceof Error) {
+    // Convert Error instance to plain object so hashSensitiveFields can process it
+    const serialized: Record<string, unknown> = {
+      name: error.name,
+      message: error.message,
+      stack: error.stack,
+    };
+
+    // Copy all enumerable properties
+    for (const key in error) {
+      if (Object.hasOwn(error, key)) {
+        serialized[key] = (error as any)[key];
+      }
+    }
+
+    return serialized;
+  }
+
+  return error;
 }
 
 function processErrorsInObject(obj: unknown): unknown {
@@ -174,6 +198,8 @@ const REDACTED_FIELD_NAMES = new Set([
   "refresh_token",
   "idToken",
   "id_token",
+  "headers",
+  "authorization",
 ]);
 
 /**
