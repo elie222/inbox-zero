@@ -175,7 +175,7 @@ function RulesPromptForm({
                 />
               </LoadingContent>
 
-              <div className="flex flex-wrap gap-2">
+              <div className="flex flex-col sm:flex-row flex-wrap gap-2">
                 <Button type="submit" size="sm" loading={isSubmitting}>
                   Create rules
                 </Button>
@@ -190,7 +190,7 @@ function RulesPromptForm({
                 </Button>
 
                 <Button
-                  className="ml-auto"
+                  className="ml-auto w-full sm:w-auto"
                   variant="outline"
                   size="sm"
                   onClick={() => ruleDialog.onOpen()}
