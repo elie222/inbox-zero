@@ -14,7 +14,7 @@ export function OnboardingWrapper({
         className,
       )}
     >
-      <div className="mx-auto flex max-w-6xl flex-col justify-center space-y-6 p-10 duration-500 animate-in fade-in">
+      <div className="mx-auto flex max-w-6xl flex-col justify-center space-y-6 p-4 sm:p-10 duration-500 animate-in fade-in">
         {children}
       </div>
     </div>

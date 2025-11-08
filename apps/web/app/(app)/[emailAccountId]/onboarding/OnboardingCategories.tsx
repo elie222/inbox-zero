@@ -218,7 +218,7 @@ function CategoryCard({
           <IconCircle size="sm" color={iconColor} Icon={Icon} />
           <div>
             {useTooltip ? (
-              <div className="flex flex-1 items-center gap-2">
+              <div className="flex flex-1 items-center gap-2 text-sm sm:text-base">
                 {label}
                 {description && (
                   <TooltipExplanation
@@ -256,9 +256,9 @@ function CategoryCard({
                 <>
                   <SelectItem value="label">Categorise</SelectItem>
                   <SelectItem value="move_folder">Move to folder</SelectItem>
-                  <SelectItem value="move_folder_delayed">
+                  {/* <SelectItem value="move_folder_delayed">
                     Move to folder after a week
-                  </SelectItem>
+                  </SelectItem> */}
                 </>
               )}
               {isGoogleProvider(provider) && (
@@ -267,9 +267,9 @@ function CategoryCard({
                   <SelectItem value="label_archive">
                     Label & skip inbox
                   </SelectItem>
-                  <SelectItem value="label_archive_delayed">
+                  {/* <SelectItem value="label_archive_delayed">
                     Label & archive after a week
-                  </SelectItem>
+                  </SelectItem> */}
                 </>
               )}
               <SelectItem value="none">Do nothing</SelectItem>

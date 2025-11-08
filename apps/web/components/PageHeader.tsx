@@ -23,8 +23,10 @@ export function PageHeader({
   return (
     <div>
       <PageHeading>{title}</PageHeading>
-      <div className="flex items-center mt-1">
-        <PageSubHeading>{description}</PageSubHeading>
+      <div className="flex flex-col sm:flex-row items-start sm:items-center mt-1 gap-3">
+        <PageSubHeading className="hidden sm:block">
+          {description}
+        </PageSubHeading>
         {video && (video.youtubeVideoId || video.muxPlaybackId) && (
           <WatchVideo video={video} />
         )}
@@ -37,7 +39,7 @@ function WatchVideo({ video }: { video: Video }) {
   return (
     <Dialog>
       <DialogTrigger asChild>
-        <Button variant="outline" size="xs" className="ml-3">
+        <Button variant="outline" size="xs">
           <PlayIcon className="mr-2 size-3" />
           Watch demo
         </Button>

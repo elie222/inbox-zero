@@ -64,10 +64,8 @@ import {
 import { DEFAULT_COLD_EMAIL_PROMPT } from "@/utils/cold-email/prompt";
 
 export function Rules({
-  size = "md",
   showAddRuleButton = true,
 }: {
-  size?: "sm" | "md";
   showAddRuleButton?: boolean;
 }) {
   const { data, isLoading, error, mutate } = useRules();
@@ -143,11 +141,13 @@ export function Rules({
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-16">Enabled</TableHead>
-                  <TableHead>Name</TableHead>
-                  {size === "md" && <TableHead>Condition</TableHead>}
-                  <TableHead>Action</TableHead>
-                  <TableHead>
+                  <TableHead className="w-16 px-2 sm:px-4">Enabled</TableHead>
+                  <TableHead className="px-2 sm:px-4">Name</TableHead>
+                  <TableHead className="hidden sm:table-cell px-2 sm:px-4">
+                    Condition
+                  </TableHead>
+                  <TableHead className="px-2 sm:px-4">Action</TableHead>
+                  <TableHead className="px-2 sm:px-4">
                     {showAddRuleButton && (
                       <div className="flex justify-end">
                         <div className="my-2">
@@ -186,7 +186,7 @@ export function Rules({
                     >
                       <TableCell
                         onClick={(e) => e.stopPropagation()}
-                        className="text-center"
+                        className="text-center p-2 sm:p-4"
                       >
                         <Switch
                           size="sm"
@@ -227,53 +227,53 @@ export function Rules({
                           }}
                         />
                       </TableCell>
-                      <TableCell className="font-medium">{rule.name}</TableCell>
-                      {size === "md" && (
-                        <TableCell>
-                          {(() => {
-                            const systemRuleDesc = getSystemRuleDescription(
-                              rule.systemType,
-                            );
-                            if (isConversationStatus) {
-                              return (
-                                <div className="flex items-center gap-2">
-                                  <span className="text-sm text-muted-foreground">
-                                    {systemRuleDesc?.condition || ""}
-                                  </span>
-                                  <Tooltip>
-                                    <TooltipTrigger asChild>
-                                      <InfoIcon className="size-3.5 text-green-600 dark:text-green-500 flex-shrink-0 cursor-help" />
-                                    </TooltipTrigger>
-                                    <TooltipContent
-                                      side="right"
-                                      className="max-w-xs"
-                                    >
-                                      <p>
-                                        System rule to track conversation
-                                        status. Conditions cannot be edited.
-                                      </p>
-                                    </TooltipContent>
-                                  </Tooltip>
-                                </div>
-                              );
-                            }
+                      <TableCell className="font-medium p-2 sm:p-4">
+                        {rule.name}
+                      </TableCell>
+                      <TableCell className="hidden sm:table-cell p-2 sm:p-4">
+                        {(() => {
+                          const systemRuleDesc = getSystemRuleDescription(
+                            rule.systemType,
+                          );
+                          if (isConversationStatus) {
                             return (
-                              <ExpandableText
-                                text={conditionsToString(rule)}
-                                className="max-w-xs"
-                              />
+                              <div className="flex items-center gap-2">
+                                <span className="text-sm text-muted-foreground">
+                                  {systemRuleDesc?.condition || ""}
+                                </span>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <InfoIcon className="size-3.5 text-green-600 dark:text-green-500 flex-shrink-0 cursor-help" />
+                                  </TooltipTrigger>
+                                  <TooltipContent
+                                    side="right"
+                                    className="max-w-xs"
+                                  >
+                                    <p>
+                                      System rule to track conversation status.
+                                      Conditions cannot be edited.
+                                    </p>
+                                  </TooltipContent>
+                                </Tooltip>
+                              </div>
                             );
-                          })()}
-                        </TableCell>
-                      )}
-                      <TableCell>
+                          }
+                          return (
+                            <ExpandableText
+                              text={conditionsToString(rule)}
+                              className="max-w-xs"
+                            />
+                          );
+                        })()}
+                      </TableCell>
+                      <TableCell className="p-2 sm:p-4">
                         <ActionBadges
                           actions={rule.actions}
                           provider={provider}
                           labels={userLabels}
                         />
                       </TableCell>
-                      <TableCell className="text-center">
+                      <TableCell className="text-center p-2 sm:p-4">
                         {!isPlaceholder && (
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
@@ -434,7 +434,7 @@ export function ActionBadges({
   labels: Array<{ id: string; name: string }>;
 }) {
   return (
-    <div className="flex gap-2 flex-wrap">
+    <div className="flex gap-2 flex-wrap min-w-0">
       {sortActionsByPriority(actions).map((action) => {
         const Icon = getActionIcon(action.type);
 
@@ -442,9 +442,9 @@ export function ActionBadges({
           <Badge
             key={action.id}
             color={getActionColor(action.type)}
-            className="w-fit text-nowrap"
+            className="w-fit sm:text-nowrap shrink-0"
           >
-            <Icon className="size-3 mr-1.5" />
+            <Icon className="size-3 mr-1.5 hidden sm:block" />
             {getActionDisplay(action, provider, labels)}
           </Badge>
         );

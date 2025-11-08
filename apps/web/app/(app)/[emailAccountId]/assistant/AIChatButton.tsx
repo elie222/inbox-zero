@@ -5,13 +5,16 @@ import { useSidebar } from "@/components/ui/sidebar";
 import { MessageCircleIcon } from "lucide-react";
 
 export function AIChatButton() {
-  const { setOpen } = useSidebar();
+  const { setOpen, setOpenMobile, isMobile } = useSidebar();
 
   return (
     <Button
       size="sm"
       variant="outline"
-      onClick={() => setOpen((arr) => [...arr, "chat-sidebar"])}
+      onClick={() => {
+        const setter = isMobile ? setOpenMobile : setOpen;
+        setter((arr) => [...arr, "chat-sidebar"]);
+      }}
     >
       <MessageCircleIcon className="mr-2 size-4" />
       AI Chat
