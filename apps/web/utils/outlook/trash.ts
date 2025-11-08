@@ -1,6 +1,7 @@
 import type { OutlookClient } from "@/utils/outlook/client";
 import { publishDelete, type TinybirdEmailAction } from "@inboxzero/tinybird";
 import { createScopedLogger } from "@/utils/logger";
+import { withOutlookRetry } from "@/utils/outlook/retry";
 
 const logger = createScopedLogger("outlook/trash");
 
@@ -26,12 +27,11 @@ export async function trashThread(options: {
     const trashPromise = Promise.all(
       messages.value.map(async (message: { id: string }) => {
         try {
-          return await client
-            .getClient()
-            .api(`/me/messages/${message.id}/move`)
-            .post({
+          return await withOutlookRetry(() =>
+            client.getClient().api(`/me/messages/${message.id}/move`).post({
               destinationId: "deleteditems",
-            });
+            }),
+          );
         } catch (error) {
           // Log the error but don't fail the entire operation
           logger.warn("Failed to move message to trash", {

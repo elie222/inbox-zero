@@ -2,15 +2,15 @@ import type { Message } from "@microsoft/microsoft-graph-types";
 import type { OutlookClient } from "@/utils/outlook/client";
 import { createScopedLogger } from "@/utils/logger";
 import { convertMessage } from "@/utils/outlook/message";
+import { withOutlookRetry } from "@/utils/outlook/retry";
 
 const logger = createScopedLogger("outlook/draft");
 
 export async function getDraft(draftId: string, client: OutlookClient) {
   try {
-    const response: Message = await client
-      .getClient()
-      .api(`/me/messages/${draftId}`)
-      .get();
+    const response: Message = await withOutlookRetry(() =>
+      client.getClient().api(`/me/messages/${draftId}`).get(),
+    );
     const message = convertMessage(response);
     return message;
   } catch (error) {
@@ -33,7 +33,9 @@ export async function getDraft(draftId: string, client: OutlookClient) {
 export async function deleteDraft(client: OutlookClient, draftId: string) {
   try {
     logger.info("Deleting draft", { draftId });
-    await client.getClient().api(`/me/messages/${draftId}`).delete();
+    await withOutlookRetry(() =>
+      client.getClient().api(`/me/messages/${draftId}`).delete(),
+    );
     logger.info("Successfully deleted draft", { draftId });
   } catch (error) {
     if (isNotFoundError(error)) {
