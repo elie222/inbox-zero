@@ -112,33 +112,48 @@ describe("isRetryableError", () => {
 
 describe("calculateRetryDelay", () => {
   it("uses Retry-After header in seconds", () => {
-    const delay = calculateRetryDelay(true, false, 1, "10");
+    const delay = calculateRetryDelay(true, false, false, 1, "10");
     expect(delay).toBe(10_000); // 10 seconds in ms
   });
 
   it("uses Retry-After header as HTTP-date", () => {
     const futureDate = new Date(Date.now() + 5000);
-    const delay = calculateRetryDelay(true, false, 1, futureDate.toUTCString());
+    const delay = calculateRetryDelay(
+      true,
+      false,
+      false,
+      1,
+      futureDate.toUTCString(),
+    );
     expect(delay).toBeGreaterThanOrEqual(4000);
     expect(delay).toBeLessThanOrEqual(5000);
   });
 
   it("falls back to 30s for rate limits without header", () => {
-    const delay = calculateRetryDelay(true, false, 1);
+    const delay = calculateRetryDelay(true, false, false, 1);
     expect(delay).toBe(30_000);
   });
 
   it("uses exponential backoff for server errors", () => {
-    expect(calculateRetryDelay(false, true, 1)).toBe(5000); // 5s
-    expect(calculateRetryDelay(false, true, 2)).toBe(10_000); // 10s
-    expect(calculateRetryDelay(false, true, 3)).toBe(20_000); // 20s
-    expect(calculateRetryDelay(false, true, 4)).toBe(40_000); // 40s
-    expect(calculateRetryDelay(false, true, 5)).toBe(80_000); // 80s max
-    expect(calculateRetryDelay(false, true, 6)).toBe(80_000); // capped at 80s
+    expect(calculateRetryDelay(false, true, false, 1)).toBe(5000); // 5s
+    expect(calculateRetryDelay(false, true, false, 2)).toBe(10_000); // 10s
+    expect(calculateRetryDelay(false, true, false, 3)).toBe(20_000); // 20s
+    expect(calculateRetryDelay(false, true, false, 4)).toBe(40_000); // 40s
+    expect(calculateRetryDelay(false, true, false, 5)).toBe(80_000); // 80s max
+    expect(calculateRetryDelay(false, true, false, 6)).toBe(80_000); // capped at 80s
+  });
+
+  it("uses exponential backoff for conflict errors", () => {
+    expect(calculateRetryDelay(false, false, true, 1)).toBe(500); // 500ms
+    expect(calculateRetryDelay(false, false, true, 2)).toBe(1000); // 1s
+    expect(calculateRetryDelay(false, false, true, 3)).toBe(2000); // 2s
+    expect(calculateRetryDelay(false, false, true, 4)).toBe(4000); // 4s
+    expect(calculateRetryDelay(false, false, true, 5)).toBe(8000); // 8s max
+    expect(calculateRetryDelay(false, false, true, 6)).toBe(8000); // capped at 8s
   });
 
   it("returns 0 for non-retryable errors", () => {
-    const delay = calculateRetryDelay(false, false, 1);
+    const delay = calculateRetryDelay(false, false, false, 1);
     expect(delay).toBe(0);
   });
 });
