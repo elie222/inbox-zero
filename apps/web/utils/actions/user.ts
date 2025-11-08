@@ -14,6 +14,7 @@ import {
   saveSignatureBody,
 } from "@/utils/actions/user.validation";
 import { clearLastEmailAccountCookie } from "@/utils/cookies.server";
+import { aliasPosthogUser } from "@/utils/posthog";
 
 export const saveAboutAction = actionClient
   .metadata({ name: "saveAbout" })
@@ -76,10 +77,49 @@ export const deleteEmailAccountAction = actionClientUser
     if (!emailAccount) throw new SafeError("Email account not found");
     if (!emailAccount.accountId) throw new SafeError("Account id not found");
 
-    if (emailAccount.email === emailAccount.user.email)
-      throw new SafeError(
-        "Cannot delete primary email account. Go to the Settings page to delete your entire account.",
-      );
+    const isPrimaryAccount = emailAccount.email === emailAccount.user.email;
+
+    if (isPrimaryAccount) {
+      // Check if there are other email accounts
+      const otherEmailAccounts = await prisma.emailAccount.findMany({
+        where: { userId, id: { not: emailAccountId } },
+        orderBy: { createdAt: "asc" },
+        take: 1,
+        select: {
+          id: true,
+          email: true,
+          name: true,
+          image: true,
+        },
+      });
+
+      if (otherEmailAccounts.length === 0) {
+        throw new SafeError(
+          "Cannot delete your only email account. Go to the Settings page to delete your entire account.",
+        );
+      }
+
+      // Promote the next email account to primary
+      const newPrimaryAccount = otherEmailAccounts[0];
+      const oldEmail = emailAccount.user.email;
+
+      await prisma.user.update({
+        where: { id: userId },
+        data: {
+          email: newPrimaryAccount.email,
+          name: newPrimaryAccount.name,
+          image: newPrimaryAccount.image,
+        },
+      });
+
+      // Alias the old PostHog identity to the new one
+      after(async () => {
+        await aliasPosthogUser({
+          oldEmail,
+          newEmail: newPrimaryAccount.email,
+        });
+      });
+    }
 
     await prisma.account.delete({
       where: { id: emailAccount.accountId, userId },

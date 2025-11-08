@@ -98,26 +98,28 @@ function AccountItem({
         <Button variant="outline" size="sm" Icon={ArrowRight}>
           <Link href={prefixPath(emailAccount.id, "/setup")}>Setup</Link>
         </Button>
-        {!emailAccount.isPrimary && (
-          <ConfirmDialog
-            trigger={
-              <Button
-                variant="destructiveSoft"
-                size="sm"
-                loading={isExecuting}
-                Icon={Trash2}
-              >
-                Delete
-              </Button>
-            }
-            title="Delete Account"
-            description={`Are you sure you want to delete "${emailAccount.email}"? This will delete all data for it on Inbox Zero.`}
-            confirmText="Delete"
-            onConfirm={() => {
-              execute({ emailAccountId: emailAccount.id });
-            }}
-          />
-        )}
+        <ConfirmDialog
+          trigger={
+            <Button
+              variant="destructiveSoft"
+              size="sm"
+              loading={isExecuting}
+              Icon={Trash2}
+            >
+              Delete
+            </Button>
+          }
+          title="Delete Account"
+          description={
+            emailAccount.isPrimary
+              ? `Are you sure you want to delete "${emailAccount.email}"? This is your primary account. Your oldest remaining account will become your new primary account. All data for "${emailAccount.email}" will be permanently deleted from Inbox Zero.`
+              : `Are you sure you want to delete "${emailAccount.email}"? This will delete all data for it on Inbox Zero.`
+          }
+          confirmText="Delete"
+          onConfirm={() => {
+            execute({ emailAccountId: emailAccount.id });
+          }}
+        />
       </CardContent>
     </Card>
   );
