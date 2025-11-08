@@ -1,6 +1,5 @@
 import { AdminUpgradeUserForm } from "@/app/(app)/admin/AdminUpgradeUserForm";
 import { AdminUserControls } from "@/app/(app)/admin/AdminUserControls";
-import { TopSection } from "@/components/TopSection";
 import { auth } from "@/utils/auth";
 import { ErrorPage } from "@/components/ErrorPage";
 import { isAdmin } from "@/utils/admin";
@@ -12,6 +11,8 @@ import { RegisterSSOModal } from "@/app/(app)/admin/RegisterSSOModal";
 import { AdminHashEmail } from "@/app/(app)/admin/AdminHashEmail";
 import { GmailUrlConverter } from "@/app/(app)/admin/GmailUrlConverter";
 import { DebugLabels } from "@/app/(app)/admin/DebugLabels";
+import { PageWrapper } from "@/components/PageWrapper";
+import { PageHeader } from "@/components/PageHeader";
 
 // NOTE: Turn on Fluid Compute on Vercel to allow for 800 seconds max duration
 export const maxDuration = 800;
@@ -29,10 +30,10 @@ export default async function AdminPage() {
   }
 
   return (
-    <div>
-      <TopSection title="Admin" />
+    <PageWrapper>
+      <PageHeader title="Admin" description="" />
 
-      <div className="m-8 space-y-8">
+      <div className="space-y-8 mt-4 mb-20">
         <AdminUpgradeUserForm />
         <AdminUserControls />
         <AdminHashEmail />
@@ -45,6 +46,6 @@ export default async function AdminPage() {
           <AdminSyncStripeCustomers />
         </div>
       </div>
-    </div>
+    </PageWrapper>
   );
 }
