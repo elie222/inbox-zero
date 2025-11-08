@@ -23,7 +23,7 @@ export async function withOutlookRetry<T>(
     retries: maxRetries,
     onFailedAttempt: async (error) => {
       const errorInfo = extractErrorInfo(error);
-      const { retryable, isRateLimit, isServerError } =
+      const { retryable, isRateLimit, isServerError, isConflictError } =
         isRetryableError(errorInfo);
 
       if (!retryable) {
@@ -53,6 +53,7 @@ export async function withOutlookRetry<T>(
       const delayMs = calculateRetryDelay(
         isRateLimit,
         isServerError,
+        isConflictError,
         error.attemptNumber,
         retryAfterHeader,
       );
@@ -65,6 +66,7 @@ export async function withOutlookRetry<T>(
         code: errorInfo.code,
         isRateLimit,
         isServerError,
+        isConflictError,
       });
 
       // Apply the custom delay
@@ -107,12 +109,13 @@ export function extractErrorInfo(error: unknown): ErrorInfo {
 }
 
 /**
- * Determines if an error is retryable (rate limit or server error)
+ * Determines if an error is retryable (rate limit, server error, or conflict)
  */
 export function isRetryableError(errorInfo: ErrorInfo): {
   retryable: boolean;
   isRateLimit: boolean;
   isServerError: boolean;
+  isConflictError: boolean;
 } {
   const { status, code, errorMessage } = errorInfo;
 
@@ -134,10 +137,17 @@ export function isRetryableError(errorInfo: ErrorInfo): {
       errorMessage,
     );
 
+  // Conflict errors from stale change keys (412)
+  const isConflictError =
+    status === 412 ||
+    code === "ErrorIrresolvableConflict" ||
+    /change key/i.test(errorMessage);
+
   return {
-    retryable: isRateLimit || isServerError,
+    retryable: isRateLimit || isServerError || isConflictError,
     isRateLimit,
     isServerError,
+    isConflictError,
   };
 }
 
@@ -147,6 +157,7 @@ export function isRetryableError(errorInfo: ErrorInfo): {
 export function calculateRetryDelay(
   isRateLimit: boolean,
   isServerError: boolean,
+  isConflictError: boolean,
   attemptNumber: number,
   retryAfterHeader?: string,
 ): number {
@@ -169,6 +180,12 @@ export function calculateRetryDelay(
   }
 
   // Use different fallback delays based on error type
+  if (isConflictError) {
+    // Fast exponential backoff for conflict errors: 500ms, 1s, 2s, 4s, 8s
+    // Conflicts resolve quickly once the stale operation completes
+    return Math.min(500 * 2 ** (attemptNumber - 1), 8000);
+  }
+
   if (isServerError) {
     // Exponential backoff for server errors: 5s, 10s, 20s, 40s, 80s
     return Math.min(5000 * 2 ** (attemptNumber - 1), 80_000);
