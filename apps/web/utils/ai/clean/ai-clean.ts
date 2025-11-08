@@ -93,7 +93,7 @@ The current date is ${currentDate}.
   const modelOptions = getModel(emailAccount.user);
 
   const generateObject = createGenerateObject({
-    userEmail: emailAccount.email,
+    emailAccount,
     label: "Clean",
     modelOptions,
   });

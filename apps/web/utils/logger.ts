@@ -120,13 +120,44 @@ function createNullLogger() {
 
 function formatError(args?: Record<string, unknown>) {
   if (env.NODE_ENV !== "production") return args;
-  const error = args?.error;
-  if (error) args.error = cleanError(error);
-  return args;
+  if (!args?.error) return args;
+
+  const error = args.error;
+  const errorMessage =
+    error instanceof Error
+      ? error.message
+      : typeof error === "object" && error !== null && "message" in error
+        ? (error as { message: unknown }).message
+        : error;
+
+  const errorFull = serializeError(error);
+
+  return {
+    ...args,
+    error: errorMessage,
+    errorFull,
+  };
 }
 
-function cleanError(error: unknown) {
-  if (error instanceof Error) return error.message;
+function serializeError(error: unknown): unknown {
+  if (error instanceof Error) {
+    // Convert Error instance to plain object so hashSensitiveFields can process it
+    const serialized: Record<string, unknown> = {
+      name: error.name,
+      message: error.message,
+      stack: error.stack,
+    };
+
+    // Copy all enumerable properties
+    for (const key in error) {
+      if (Object.hasOwn(error, key)) {
+        serialized[key] = (error as any)[key];
+      }
+    }
+
+    return serialized;
+  }
+
   return error;
 }
 
@@ -167,6 +198,8 @@ const REDACTED_FIELD_NAMES = new Set([
   "refresh_token",
   "idToken",
   "id_token",
+  "headers",
+  "authorization",
 ]);
 
 /**

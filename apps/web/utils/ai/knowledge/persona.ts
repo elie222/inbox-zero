@@ -96,7 +96,7 @@ ${getEmailListPrompt({ messages: emails, messageMaxLength: 1000 })}
   const modelOptions = getModel(emailAccount.user, "economy");
 
   const generateObject = createGenerateObject({
-    userEmail: emailAccount.email,
+    emailAccount,
     label: "Persona Analysis",
     modelOptions,
   });

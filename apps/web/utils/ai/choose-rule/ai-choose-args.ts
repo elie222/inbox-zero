@@ -85,7 +85,7 @@ export async function aiGenerateArgs({
 
   const generateObject = createGenerateObject({
     label: "Args for rule",
-    userEmail: emailAccount.email,
+    emailAccount,
     modelOptions,
   });
 

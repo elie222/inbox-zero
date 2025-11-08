@@ -9,12 +9,19 @@ export async function logErrorToPosthog(
   type: "api" | "action",
   url: string,
   errorType: string,
+  emailAccountId: string,
 ) {
   try {
     const session = await auth();
     if (session?.user.email) {
       setUser({ email: session.user.email });
-      await trackError({ email: session.user.email, errorType, type, url });
+      await trackError({
+        email: session.user.email,
+        emailAccountId,
+        errorType,
+        type,
+        url,
+      });
     }
   } catch (error) {
     logger.error("Error logging to PostHog:", { error });

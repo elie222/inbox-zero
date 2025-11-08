@@ -142,7 +142,7 @@ ${stringifyEmail(email, 500)}
   const modelOptions = getModel(emailAccount.user, modelType);
 
   const generateObject = createGenerateObject({
-    userEmail: emailAccount.email,
+    emailAccount,
     label: "Cold email check",
     modelOptions,
   });

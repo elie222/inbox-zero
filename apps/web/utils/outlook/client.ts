@@ -101,7 +101,10 @@ export const getOutlookClientWithRefresh = async ({
   expiresAt: number | null;
   emailAccountId: string;
 }): Promise<OutlookClient> => {
-  if (!refreshToken) throw new SafeError("No refresh token");
+  if (!refreshToken) {
+    logger.error("No refresh token", { emailAccountId });
+    throw new SafeError("No refresh token");
+  }
 
   // Check if token needs refresh
   const expiryDate = expiresAt ? expiresAt : null;

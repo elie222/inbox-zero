@@ -51,7 +51,7 @@ ${getEmailListPrompt({ messages: sentEmails, messageMaxLength: 2000 })}`;
   const modelOptions = getModel(emailAccount.user, "chat");
 
   const generateObject = createGenerateObject({
-    userEmail: emailAccount.email,
+    emailAccount,
     label: "ai-find-snippets",
     modelOptions,
   });

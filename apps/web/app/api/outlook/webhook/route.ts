@@ -104,6 +104,7 @@ async function processNotificationsAsync(
       if (emailAccount?.email) {
         await handleWebhookError(error, {
           email: emailAccount.email,
+          emailAccountId: emailAccount.id,
           url: "/api/outlook/webhook",
           logger,
         });

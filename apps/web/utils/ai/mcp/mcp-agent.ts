@@ -58,7 +58,7 @@ ${getEmailListPrompt({ messages, messageMaxLength: 1000, maxMessages: 5 })}
   const modelOptions = getModel(emailAccount.user, "economy");
 
   const generateText = createGenerateText({
-    userEmail: emailAccount.email,
+    emailAccount,
     label: "MCP Agent",
     modelOptions,
   });
