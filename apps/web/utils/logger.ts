@@ -120,14 +120,21 @@ function createNullLogger() {
 
 function formatError(args?: Record<string, unknown>) {
   if (env.NODE_ENV !== "production") return args;
-  const error = args?.error;
-  if (error) args.error = cleanError(error);
-  return args;
-}
+  if (!args?.error) return args;
 
-function cleanError(error: unknown) {
-  if (error instanceof Error) return error.message;
-  return error;
+  const error = args.error;
+  const errorMessage =
+    error instanceof Error
+      ? error.message
+      : typeof error === "object" && error !== null && "message" in error
+        ? (error as { message: unknown }).message
+        : error;
+
+  return {
+    ...args,
+    error: errorMessage,
+    errorFull: error,
+  };
 }
 
 function processErrorsInObject(obj: unknown): unknown {

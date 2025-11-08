@@ -87,7 +87,7 @@ ${getTodayForLLM()}`;
     const modelOptions = getModel(emailAccount.user, "economy");
 
     const generateText = createGenerateText({
-      userEmail: emailAccount.email,
+      emailAccount,
       label: "Reply context collector",
       modelOptions,
     });

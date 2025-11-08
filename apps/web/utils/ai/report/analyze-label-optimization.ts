@@ -55,7 +55,7 @@ Each suggestion should include the reason and expected impact.`;
   const modelOptions = getModel(emailAccount.user, "economy");
 
   const generateObject = createGenerateObject({
-    userEmail: emailAccount.email,
+    emailAccount,
     label: "email-report-label-analysis",
     modelOptions,
   });

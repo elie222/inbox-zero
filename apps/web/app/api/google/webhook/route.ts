@@ -53,6 +53,7 @@ async function processWebhookAsync(
   } catch (error) {
     await handleWebhookError(error, {
       email: decodedData.emailAddress,
+      emailAccountId: "unknown", // TODO: add emailAccountId
       url: "/api/google/webhook",
       logger,
     });

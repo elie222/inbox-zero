@@ -60,7 +60,7 @@ Analyze the email patterns and identify:
   const modelOptions = getModel(emailAccount.user, "economy");
 
   const generateObject = createGenerateObject({
-    userEmail: emailAccount.email,
+    emailAccount,
     label: "email-report-email-behavior",
     modelOptions,
   });

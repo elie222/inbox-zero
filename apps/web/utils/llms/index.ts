@@ -15,7 +15,7 @@ import {
 import { jsonrepair } from "jsonrepair";
 import type { LanguageModelV2 } from "@ai-sdk/provider";
 import { saveAiUsage } from "@/utils/usage";
-import type { UserAIFields } from "@/utils/llms/types";
+import type { EmailAccountWithAI, UserAIFields } from "@/utils/llms/types";
 import { addUserErrorMessage, ErrorType } from "@/utils/error-messages";
 import {
   captureException,
@@ -42,11 +42,11 @@ const commonOptions: {
 } = { experimental_telemetry: { isEnabled: true } };
 
 export function createGenerateText({
-  userEmail,
+  emailAccount,
   label,
   modelOptions,
 }: {
-  userEmail: string;
+  emailAccount: Pick<EmailAccountWithAI, "email" | "id">;
   label: string;
   modelOptions: ReturnType<typeof getModel>;
 }): typeof generateText {
@@ -71,7 +71,7 @@ export function createGenerateText({
 
       if (result.usage) {
         await saveAiUsage({
-          email: userEmail,
+          email: emailAccount.email,
           usage: result.usage,
           provider: modelOptions.provider,
           model: modelOptions.modelName,
@@ -105,23 +105,35 @@ export function createGenerateText({
         try {
           return await generate(modelOptions.backupModel);
         } catch (error) {
-          await handleError(error, userEmail, label, modelOptions.modelName);
+          await handleError(
+            error,
+            emailAccount.email,
+            emailAccount.id,
+            label,
+            modelOptions.modelName,
+          );
           throw error;
         }
       }
 
-      await handleError(error, userEmail, label, modelOptions.modelName);
+      await handleError(
+        error,
+        emailAccount.email,
+        emailAccount.id,
+        label,
+        modelOptions.modelName,
+      );
       throw error;
     }
   };
 }
 
 export function createGenerateObject({
-  userEmail,
+  emailAccount,
   label,
   modelOptions,
 }: {
-  userEmail: string;
+  emailAccount: Pick<EmailAccountWithAI, "email" | "id">;
   label: string;
   modelOptions: ReturnType<typeof getModel>;
 }): typeof generateObject {
@@ -158,7 +170,7 @@ export function createGenerateObject({
 
       if (result.usage) {
         await saveAiUsage({
-          email: userEmail,
+          email: emailAccount.email,
           usage: result.usage,
           provider: modelOptions.provider,
           model: modelOptions.modelName,
@@ -173,7 +185,13 @@ export function createGenerateObject({
 
       return result;
     } catch (error) {
-      await handleError(error, userEmail, label, modelOptions.modelName);
+      await handleError(
+        error,
+        emailAccount.email,
+        emailAccount.id,
+        label,
+        modelOptions.modelName,
+      );
       throw error;
     }
   };
@@ -265,10 +283,17 @@ export async function chatCompletionStream({
 async function handleError(
   error: unknown,
   userEmail: string,
+  emailAccountId: string,
   label: string,
   modelName: string,
 ) {
-  logger.error("Error in LLM call", { error, userEmail, label, modelName });
+  logger.error("Error in LLM call", {
+    error,
+    userEmail,
+    emailAccountId,
+    label,
+    modelName,
+  });
 
   if (APICallError.isInstance(error)) {
     if (isIncorrectOpenAIAPIKeyError(error)) {

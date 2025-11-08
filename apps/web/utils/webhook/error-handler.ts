@@ -10,16 +10,18 @@ export async function handleWebhookError(
   error: unknown,
   options: {
     email: string;
+    emailAccountId: string;
     url: string;
     logger: Logger;
   },
 ) {
-  const { email, url, logger } = options;
+  const { email, emailAccountId, url, logger } = options;
 
   const apiError = checkCommonErrors(error, url);
   if (apiError) {
     await trackError({
       email,
+      emailAccountId,
       errorType: apiError.type,
       type: "api",
       url,

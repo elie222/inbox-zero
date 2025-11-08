@@ -31,7 +31,7 @@ ${cleanedPromptFile}
   const modelOptions = getModel(emailAccount.user, "chat");
 
   const generateObject = createGenerateObject({
-    userEmail: emailAccount.email,
+    emailAccount,
     label: "Prompt to rules",
     modelOptions,
   });

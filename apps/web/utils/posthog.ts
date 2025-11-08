@@ -1,6 +1,7 @@
 import { PostHog } from "posthog-node";
 import { env } from "@/env";
 import { createScopedLogger } from "@/utils/logger";
+import { hash } from "@/utils/hash";
 
 const logger = createScopedLogger("posthog");
 
@@ -70,6 +71,33 @@ export async function deletePosthogUser(options: { email: string }) {
   }
 }
 
+export async function aliasPosthogUser({
+  oldEmail,
+  newEmail,
+}: {
+  oldEmail: string;
+  newEmail: string;
+}) {
+  if (!env.NEXT_PUBLIC_POSTHOG_KEY) {
+    logger.warn("NEXT_PUBLIC_POSTHOG_KEY not set");
+    return;
+  }
+
+  try {
+    const client = new PostHog(env.NEXT_PUBLIC_POSTHOG_KEY);
+    // Alias links the old distinct ID to the new distinct ID
+    // This ensures all historical events remain connected
+    client.alias({ distinctId: newEmail, alias: oldEmail });
+    await client.shutdown();
+    logger.info("PostHog user aliased", {
+      oldEmail: hash(oldEmail),
+      newEmail: hash(newEmail),
+    });
+  } catch (error) {
+    logger.error("Error aliasing PostHog user", { error });
+  }
+}
+
 export async function posthogCaptureEvent(
   email: string,
   event: string,
@@ -130,17 +158,19 @@ export async function trackStripeCheckoutCompleted(email: string) {
 
 export async function trackError({
   email,
+  emailAccountId,
   errorType,
   type,
   url,
 }: {
   email: string;
+  emailAccountId: string;
   errorType: string;
   type: "api" | "action";
   url: string;
 }) {
   return posthogCaptureEvent(email, errorType, {
-    $set: { isError: true, type, url },
+    $set: { isError: true, type, url, emailAccountId },
   });
 }
 

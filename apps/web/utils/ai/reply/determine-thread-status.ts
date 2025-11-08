@@ -107,7 +107,7 @@ Based on the full thread context above, determine the current status of this thr
   const modelOptions = getModel(emailAccount.user, modelType);
 
   const generateObject = createGenerateObject({
-    userEmail: emailAccount.email,
+    emailAccount,
     label: "Determine thread status",
     modelOptions,
   });

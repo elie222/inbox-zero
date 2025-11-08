@@ -113,7 +113,7 @@ export async function getThreadsWithNextPageToken({
   }
 
   const response: { value: Message[]; "@odata.nextLink"?: string } =
-    await request.get();
+    await withOutlookRetry(() => request.get());
 
   // Group messages by conversationId to create thread-like structure
   const threadMap = new Map<string, { id: string; snippet: string }>();
@@ -137,13 +137,15 @@ export async function getThreadsFromSender(
   sender: string,
   limit: number,
 ): Promise<Array<{ id: string; snippet: string }>> {
-  const response: { value: Message[] } = await client
-    .getClient()
-    .api("/me/messages")
-    .filter(`from/emailAddress/address eq '${escapeODataString(sender)}'`)
-    .top(limit)
-    .select("id,conversationId,bodyPreview")
-    .get();
+  const response: { value: Message[] } = await withOutlookRetry(() =>
+    client
+      .getClient()
+      .api("/me/messages")
+      .filter(`from/emailAddress/address eq '${escapeODataString(sender)}'`)
+      .top(limit)
+      .select("id,conversationId,bodyPreview")
+      .get(),
+  );
 
   // Group messages by conversationId
   const threadMap = new Map<string, { id: string; snippet: string }>();
@@ -164,13 +166,15 @@ export async function getThreadsFromSenderWithSubject(
   sender: string,
   limit: number,
 ): Promise<Array<{ id: string; snippet: string; subject: string }>> {
-  const response: { value: Message[] } = await client
-    .getClient()
-    .api("/me/messages")
-    .filter(`from/emailAddress/address eq '${escapeODataString(sender)}'`)
-    .top(limit)
-    .select("id,conversationId,subject,bodyPreview")
-    .get();
+  const response: { value: Message[] } = await withOutlookRetry(() =>
+    client
+      .getClient()
+      .api("/me/messages")
+      .filter(`from/emailAddress/address eq '${escapeODataString(sender)}'`)
+      .top(limit)
+      .select("id,conversationId,subject,bodyPreview")
+      .get(),
+  );
 
   // Group messages by conversationId
   const threadMap = new Map<
