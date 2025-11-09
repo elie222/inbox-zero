@@ -20,28 +20,38 @@ export function Button({
   icon,
 }: ButtonProps) {
   const hasIcon = !!icon;
-  const buttonVariants = cva("rounded-[13px] font-geist font-medium", {
-    variants: {
-      variant: {
-        primary:
-          "bg-gradient-to-b from-[#2965EC] to-[#6393FE] text-white shadow-[0px_2px_10.1px_0px_#4B83FD4D] button-gradient-border",
-        secondary: "bg-white border border-gray-100 text-gray-800",
-        "secondary-two":
-          "bg-white border border-gray-100 text-gray-500 shadow-[0px_2px_16px_0px_#00000008]",
-      },
-      size: {
-        md: "text-sm py-2 px-4",
-        lg: "text-sm py-[10.5px] px-[18px]",
-        xl: "text-[15px] py-[11.7px] px-[20px]",
-      },
-      hasIcon: {
-        true: "flex items-center justify-center gap-2",
-      },
-      auto: {
-        true: "w-full",
+  const buttonVariants = cva(
+    [
+      "rounded-[13px] font-geist font-medium transition-all will-change-transform",
+      variant === "primary" ? "" : "hover:scale-105",
+    ],
+    {
+      variants: {
+        variant: {
+          primary: [
+            "bg-gradient-to-b from-[#2965EC] to-[#5C89F8] text-white button-gradient-border shadow-[0px_2px_10.1px_0px_#4B83FD33] hover:shadow-[0px_2px_10.1px_0px_#4B83FD44]",
+            "relative overflow-hidden z-10",
+            "before:absolute before:inset-0 before:bg-gradient-to-b before:from-[#285EE5] before:to-[#5380F2] before:opacity-0 hover:before:opacity-100 before:transition-opacity before:duration-200 before:z-0",
+          ],
+          secondary:
+            "bg-white hover:bg-gray-50 border border-gray-100 hover:border-gray-200 text-gray-800",
+          "secondary-two":
+            "bg-white hover:bg-gray-50 border border-gray-100 hover:border-gray-200 text-gray-500 shadow-[0px_2px_16px_0px_#00000008] hover:shadow-[0px_2px_16px_0px_#00000020]",
+        },
+        size: {
+          md: "text-sm py-2 px-4",
+          lg: "text-sm py-[10.5px] px-[18px]",
+          xl: "text-[15px] py-[11.7px] px-[20px]",
+        },
+        hasIcon: {
+          true: "flex items-center justify-center gap-2",
+        },
+        auto: {
+          true: "w-full",
+        },
       },
     },
-  });
+  );
 
   const buttonIconVariants = cva("", {
     variants: {
@@ -57,7 +67,9 @@ export function Button({
     return (
       <div
         className={cx(
-          "rounded-[14px] p-[1px] bg-gradient-to-b from-[#5989F0] to-[#578AFA]",
+          "hover:scale-105 transition-all duration-200 will-change-transform",
+          "rounded-[14px] p-[1px] bg-gradient-to-b",
+          "from-[#5989F0] to-[#578AFA] hover:from-[#4875d0] hover:to-[#396ecc]",
           auto ? "w-full" : "w-fit",
         )}
       >
@@ -71,7 +83,7 @@ export function Button({
             auto,
           })}
         >
-          {children}
+          <span className="relative z-10">{children}</span>
         </button>
       </div>
     );
