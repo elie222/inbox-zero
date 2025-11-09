@@ -7,6 +7,7 @@ import type { EmailForAction } from "@/utils/ai/types";
 import { createReplyContent } from "@/utils/gmail/reply";
 import { forwardEmailHtml, forwardEmailSubject } from "@/utils/gmail/forward";
 import { buildReplyAllRecipients } from "@/utils/email/reply-all";
+import { withOutlookRetry } from "@/utils/outlook/retry";
 
 interface OutlookMessageRequest {
   subject: string;
@@ -188,10 +189,12 @@ export async function draftEmail(
 
   // Use createReply endpoint to create a proper reply draft
   // This ensures the draft is linked to the original message as a reply
-  const replyDraft: Message = await client
-    .getClient()
-    .api(`/me/messages/${originalEmail.id}/createReply`)
-    .post({});
+  const replyDraft: Message = await withOutlookRetry(() =>
+    client
+      .getClient()
+      .api(`/me/messages/${originalEmail.id}/createReply`)
+      .post({}),
+  );
 
   // Update the draft with our content
   const updateRequest = client.getClient().api(`/me/messages/${replyDraft.id}`);
@@ -202,21 +205,23 @@ export async function draftEmail(
     updateRequest.header("If-Match", etag);
   }
 
-  const updatedDraft: Message = await updateRequest.patch({
-    subject: args.subject || originalEmail.headers.subject,
-    body: {
-      contentType: "html",
-      content: html,
-    },
-    toRecipients: [
-      {
-        emailAddress: {
-          address: recipients.to,
-        },
+  const updatedDraft: Message = await withOutlookRetry(() =>
+    updateRequest.patch({
+      subject: args.subject || originalEmail.headers.subject,
+      body: {
+        contentType: "html",
+        content: html,
       },
-    ],
-    ...(ccRecipients.length > 0 ? { ccRecipients } : {}),
-  });
+      toRecipients: [
+        {
+          emailAddress: {
+            address: recipients.to,
+          },
+        },
+      ],
+      ...(ccRecipients.length > 0 ? { ccRecipients } : {}),
+    }),
+  );
 
   // Use the original replyDraft.id since that's the stable ID
   // The PATCH response might not always include the full object?

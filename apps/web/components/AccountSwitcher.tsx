@@ -144,7 +144,7 @@ export function AccountSwitcherInternal({
                   <Plus className="size-4" />
                 </div>
                 <div className="font-medium text-muted-foreground">
-                  Add account
+                  Add or manage accounts
                 </div>
               </DropdownMenuItem>
             </Link>
