@@ -1,3 +1,5 @@
+import { cx } from "class-variance-authority";
+
 interface SectionProps {
   children: React.ReactNode;
 }
@@ -9,11 +11,17 @@ export function Section({ children }: SectionProps) {
 interface SectionContentProps {
   children: React.ReactNode;
   className?: string;
+  noMarginTop?: boolean;
 }
 
 export function SectionContent({
   children,
   className = "mt-6 md:mt-10",
+  noMarginTop = false,
 }: SectionContentProps) {
-  return <div className={className}>{children}</div>;
+  return (
+    <div className={cx(noMarginTop ? "" : "mt-6 md:mt-10", className)}>
+      {children}
+    </div>
+  );
 }

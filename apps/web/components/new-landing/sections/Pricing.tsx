@@ -128,7 +128,10 @@ export function Pricing() {
     <Section>
       <SectionHeading>Try for free, affordable paid plans</SectionHeading>
       <SectionSubtitle>No hidden fees. Cancel anytime.</SectionSubtitle>
-      <SectionContent className="mt-6 flex flex-col items-center justify-center">
+      <SectionContent
+        noMarginTop
+        className="mt-6 flex flex-col items-center justify-center"
+      >
         <RadioGroup
           value={frequency}
           onChange={setFrequency}

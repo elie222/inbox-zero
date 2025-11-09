@@ -59,7 +59,10 @@ export function Awards() {
         certified for top-tier security, and you can even self-host Inbox Zero
         if you want total control.
       </SectionSubtitle>
-      <SectionContent className="mt-20 gap-x-5 gap-y-20 lg:gap-y-0 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4">
+      <SectionContent
+        noMarginTop
+        className="mt-20 gap-x-5 gap-y-20 lg:gap-y-0 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4"
+      >
         {awards.map((award) => (
           <CardWrapper padding="sm" rounded="sm" key={award.title}>
             <Card className="gap-3 h-full relative pt-24 text-center">

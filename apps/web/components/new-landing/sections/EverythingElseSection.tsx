@@ -22,7 +22,10 @@ export function EverythingElseSection() {
         Effortless setup with one-click install. Inboxzero is intuitive and
         requires no technical skills.
       </SectionSubtitle>
-      <SectionContent className="mt-5 flex flex-col items-center gap-5">
+      <SectionContent
+        noMarginTop
+        className="mt-5 flex flex-col items-center gap-5"
+      >
         <CardWrapper padding="xs" rounded="xs" variant="dark-border">
           <Button>Get started free</Button>
         </CardWrapper>
