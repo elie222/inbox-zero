@@ -7,39 +7,32 @@ const brands = [
   {
     alt: "Diary of a CEO",
     src: "/images/new-landing/logos/doac.svg",
-    width: 100,
-    offset: "-translate-y-1",
+    height: "h-7 sm:h-8 md:h-10 -translate-y-1",
   },
   {
     alt: "Netflix",
     src: "/images/new-landing/logos/netflix.svg",
-    width: 130,
   },
   {
     alt: "Resend",
     src: "/images/new-landing/logos/resend.svg",
-    width: 150,
   },
   {
     alt: "Zendesk",
     src: "/images/new-landing/logos/zendesk.svg",
-    width: 140,
   },
   {
     alt: "Alta",
     src: "/images/new-landing/logos/alta.svg",
-    width: 90,
-    offset: "-translate-y-1.5",
+    height: "h-6 sm:h-7 md:h-9 -translate-y-1",
   },
   {
     alt: "ByteDance",
     src: "/images/new-landing/logos/bytedance.svg",
-    width: 200,
   },
   {
     alt: "Wix",
     src: "/images/new-landing/logos/wix.svg",
-    width: 80,
   },
 ];
 
@@ -51,9 +44,15 @@ export const BrandScroller = () => {
           className="flex shrink-0 justify-around [margin-right:var(--gap)] [gap:var(--gap)] flex-row animate-marquee [--duration:100s] opacity-90"
           key={i}
         >
-          {brands.map(({ alt, src, width, offset }) => (
-            <div className={cx("flex items-start", offset)} key={alt}>
-              <Image src={src} alt={alt} width={width} height={0} />
+          {brands.map(({ alt, src, height }) => (
+            <div className="flex items-start" key={alt}>
+              <Image
+                src={src}
+                alt={alt}
+                width={100}
+                height={100}
+                className={cx("w-auto", height || "h-5 sm:h-6 md:h-8")}
+              />
             </div>
           ))}
         </div>
