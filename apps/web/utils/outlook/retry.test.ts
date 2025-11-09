@@ -94,12 +94,40 @@ describe("isRetryableError", () => {
     expect(result.retryable).toBe(true);
   });
 
+  it("identifies 412 as conflict error", () => {
+    const errorInfo = { status: 412, errorMessage: "Precondition failed" };
+    const result = isRetryableError(errorInfo);
+    expect(result.isConflictError).toBe(true);
+    expect(result.retryable).toBe(true);
+  });
+
+  it("identifies ErrorIrresolvableConflict code as conflict error", () => {
+    const errorInfo = {
+      code: "ErrorIrresolvableConflict",
+      errorMessage: "Change key conflict",
+    };
+    const result = isRetryableError(errorInfo);
+    expect(result.isConflictError).toBe(true);
+    expect(result.retryable).toBe(true);
+  });
+
+  it("identifies conflict by message pattern", () => {
+    const errorInfo = {
+      status: 409,
+      errorMessage: "The change key passed does not match",
+    };
+    const result = isRetryableError(errorInfo);
+    expect(result.isConflictError).toBe(true);
+    expect(result.retryable).toBe(true);
+  });
+
   it("identifies non-retryable errors", () => {
     const errorInfo = { status: 404, errorMessage: "Not found" };
     const result = isRetryableError(errorInfo);
     expect(result.retryable).toBe(false);
     expect(result.isRateLimit).toBe(false);
     expect(result.isServerError).toBe(false);
+    expect(result.isConflictError).toBe(false);
   });
 
   it("identifies rate limit by message pattern", () => {
