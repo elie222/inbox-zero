@@ -93,6 +93,7 @@ async function watchEmailAccounts(
           "invalid_grant",
           "Mail service not enabled",
           "Insufficient Permission",
+          "AADSTS7000215", // Raw Azure AD error for invalid client secret (old tokens after secret rotation)
         ];
 
         if (warn.some((w) => error.message.includes(w))) {

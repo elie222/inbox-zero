@@ -185,13 +185,7 @@ function processErrorsInObject(obj: unknown): unknown {
 }
 
 // Field names that contain PII and should be hashed in production
-const SENSITIVE_FIELD_NAMES = new Set([
-  "email",
-  "from",
-  "sender",
-  "to",
-  "userEmail",
-]);
+const SENSITIVE_FIELD_NAMES = new Set(["from", "sender", "to"]);
 
 // Field names that should NEVER be logged - replaced with boolean
 const REDACTED_FIELD_NAMES = new Set([
