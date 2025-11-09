@@ -9,7 +9,6 @@ import {
   Paragraph,
   SectionHeading,
 } from "@/components/new-landing/common/Typography";
-import Link from "next/link";
 
 const faqs = [
   {
@@ -39,7 +38,7 @@ const faqs = [
     answer: (
       <span>
         Yes! You can see the entire source code for the inbox zero app in our{" "}
-        <Anchor href="https://github.com/elie222/inbox-zero" newTab>
+        <Anchor href="/github" newTab>
           GitHub repo
         </Anchor>
         .
