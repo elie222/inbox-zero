@@ -19,13 +19,6 @@ vi.mock("@/utils/error", () => ({
   captureException: vi.fn(),
 }));
 
-vi.mock("@/utils/logger", () => ({
-  createScopedLogger: () => ({
-    info: vi.fn(),
-    error: vi.fn(),
-  }),
-}));
-
 // Import the real function from auth.ts for testing
 
 describe("handleReferralOnSignUp", () => {
