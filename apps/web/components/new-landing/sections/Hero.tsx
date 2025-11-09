@@ -22,17 +22,29 @@ import {
 } from "@/components/ui/dialog";
 import { BrandScroller } from "@/components/new-landing/BrandScroller";
 import { BlurFade } from "@/components/new-landing/common/BlurFade";
+import { WordReveal } from "@/components/new-landing/common/WordReveal";
 
 export function Hero() {
   return (
     <Section className="mt-20">
-      <BlurFade delay={0.125} inView>
-        <PageHeading>
-          Meet your AI email assistant that <em>actually</em> works
-        </PageHeading>
-      </BlurFade>
-      <BlurFade delay={0.125 * 5} inView>
-        <Paragraph className={"max-w-[540px] mx-auto mt-4"}>
+      <PageHeading>
+        <WordReveal
+          duration={0.04}
+          delay={0.125}
+          words={[
+            "Meet",
+            "your",
+            "AI",
+            "email",
+            "assistant",
+            "that",
+            <em key="actually">actually</em>,
+            "works",
+          ]}
+        />
+      </PageHeading>
+      <BlurFade duration={0.4} delay={0.125 * 5} inView>
+        <Paragraph size="lg" className={"max-w-[640px] mx-auto mt-6"}>
           Inbox Zero organizes your inbox, drafts replies in your voice, and
           helps you reach inbox zero fast. Never miss an important email again.
         </Paragraph>
