@@ -13,8 +13,8 @@ export function CallToAction({
 }: CallToActionProps) {
   return (
     <div className={cx("flex items-center gap-4 justify-center", className)}>
-      <Button size="lg">{text}</Button>
-      <Button variant="secondary-two" size="lg" icon={<Chat />}>
+      <Button size="xl">{text}</Button>
+      <Button variant="secondary-two" size="xl" icon={<Chat />}>
         Talk to sales
       </Button>
     </div>

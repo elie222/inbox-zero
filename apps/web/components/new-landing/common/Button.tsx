@@ -6,7 +6,7 @@ interface ButtonProps {
   children: React.ReactNode;
   variant?: ButtonVariant;
   className?: string;
-  size?: "md" | "lg";
+  size?: "md" | "lg" | "xl";
   icon?: React.ReactNode;
   auto?: boolean;
 }
@@ -20,7 +20,7 @@ export function Button({
   icon,
 }: ButtonProps) {
   const hasIcon = !!icon;
-  const buttonVariants = cva("rounded-[13px] text-sm font-geist font-medium", {
+  const buttonVariants = cva("rounded-[13px] font-geist font-medium", {
     variants: {
       variant: {
         primary:
@@ -30,8 +30,9 @@ export function Button({
           "bg-white border border-gray-100 text-gray-500 shadow-[0px_2px_16px_0px_#00000008]",
       },
       size: {
-        md: "py-2 px-4",
-        lg: "py-[10.5px] px-[18px]",
+        md: "text-sm py-2 px-4",
+        lg: "text-sm py-[10.5px] px-[18px]",
+        xl: "text-[15px] py-[11.7px] px-[20px]",
       },
       hasIcon: {
         true: "flex items-center justify-center gap-2",
