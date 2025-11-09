@@ -73,6 +73,7 @@ export function createScopedLogger(scope: string) {
       },
       with: (newFields: Record<string, unknown>) =>
         createLogger({ ...fields, ...newFields }),
+      flush: () => Promise.resolve(), // No-op for console logger
     };
   };
 
@@ -103,6 +104,7 @@ function createAxiomLogger(scope: string) {
     },
     with: (newFields: Record<string, unknown>) =>
       createLogger({ ...fields, ...newFields }),
+    flush: () => log.flush(),
   });
 
   return createLogger();
@@ -115,6 +117,7 @@ function createNullLogger() {
     warn: () => {},
     trace: () => {},
     with: () => createNullLogger(),
+    flush: () => Promise.resolve(),
   };
 }
 
