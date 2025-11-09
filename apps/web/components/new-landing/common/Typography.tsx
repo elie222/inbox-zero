@@ -73,7 +73,7 @@ interface ParagraphProps {
   children: React.ReactNode;
   className?: string;
   color?: "default" | "light" | "dark" | "gray-700" | "gray-500" | "gray-900";
-  size?: "default" | "xs" | "sm" | "md" | "lg" | "lg-2";
+  size?: "default" | "xs" | "sm" | "md" | "lg";
   family?: "default" | "geist";
 }
 
@@ -100,7 +100,6 @@ export function Paragraph({
         sm: "text-sm",
         md: "text-base",
         lg: "text-lg",
-        "lg-2": "text-lg md:text-base",
       },
       family: {
         default: "",

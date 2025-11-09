@@ -237,7 +237,7 @@ function TestimonialCard({
             {testimonial.body}
           </Paragraph>
         ) : (
-          <Paragraph size="lg-2" color="gray-500">
+          <Paragraph size="md" color="gray-500">
             {testimonial.body}
           </Paragraph>
         )}
@@ -252,11 +252,11 @@ function TestimonialCard({
             height={100}
           />
           <div className="text-left">
-            <Paragraph size="lg-2" color="dark" className="font-semibold">
+            <Paragraph size="md" color="dark" className="font-semibold">
               {testimonial.author.name}
             </Paragraph>
             {testimonial.author.handle ? (
-              <Paragraph size="lg-2">{testimonial.author.handle}</Paragraph>
+              <Paragraph size="md">{testimonial.author.handle}</Paragraph>
             ) : undefined}
           </div>
         </div>
