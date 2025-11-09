@@ -1,3 +1,4 @@
+import { Anchor } from "@/components/new-landing/common/Anchor";
 import { Card, CardContent } from "@/components/new-landing/common/Card";
 import { CardWrapper } from "@/components/new-landing/common/CardWrapper";
 import {
@@ -8,6 +9,7 @@ import {
   Paragraph,
   SectionHeading,
 } from "@/components/new-landing/common/Typography";
+import Link from "next/link";
 
 const faqs = [
   {
@@ -17,8 +19,15 @@ const faqs = [
   },
   {
     question: "How can I request a feature?",
-    answer:
-      "Email us or post an issue on GitHub. We're happy to hear how we can improve your email experience.",
+    answer: (
+      <span>
+        Email us or post an issue on{" "}
+        <Anchor href="/github" newTab>
+          GitHub
+        </Anchor>
+        . We're happy to hear how we can improve your email experience.
+      </span>
+    ),
   },
   {
     question: "Will Inbox Zero replace my current email client?",
@@ -27,13 +36,25 @@ const faqs = [
   },
   {
     question: "Is the code open-source?",
-    answer:
-      "Yes! You can see the entire source code for the inbox zero app in our GitHub repo.",
+    answer: (
+      <span>
+        Yes! You can see the entire source code for the inbox zero app in our{" "}
+        <Anchor href="https://github.com/elie222/inbox-zero" newTab>
+          GitHub repo
+        </Anchor>
+        .
+      </span>
+    ),
   },
   {
     question: "Do you offer refunds?",
-    answer:
-      "Yes, if you don't think we provided you with value send us an email within 14 days of upgrading and we'll refund you.",
+    answer: (
+      <span>
+        Yes, if you don't think we provided you with value send us an{" "}
+        <Anchor href="mailto:elie@getinboxzero.com">email</Anchor> within 14
+        days of upgrading and we'll refund you.
+      </span>
+    ),
   },
   {
     question: "Can I try Inbox Zero for free?",
