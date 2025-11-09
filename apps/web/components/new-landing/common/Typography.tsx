@@ -9,7 +9,7 @@ export function Heading({ children, className }: HeadingProps) {
   return (
     <h1
       className={cx(
-        "font-aeonik text-[#242424] text-[34px] md:text-6xl leading-tight",
+        "font-aeonik text-[#242424] text-[34px] sm:text-5xl md:text-6xl leading-tight",
         className,
       )}
     >

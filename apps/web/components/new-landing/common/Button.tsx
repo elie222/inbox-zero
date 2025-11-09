@@ -41,7 +41,7 @@ export function Button({
         size: {
           md: "text-sm py-2 px-4",
           lg: "text-sm py-[10.5px] px-[18px]",
-          xl: "text-[15px] py-[11.7px] px-[20px]",
+          xl: "text-[16px] py-[11.7px] px-[22px]",
         },
         hasIcon: {
           true: "flex items-center justify-center gap-2",

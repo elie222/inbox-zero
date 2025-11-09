@@ -26,9 +26,6 @@ export function EverythingElseSection() {
         noMarginTop
         className="mt-5 flex flex-col items-center gap-5"
       >
-        <CardWrapper padding="xs" rounded="xs" variant="dark-border">
-          <Button>Get started free</Button>
-        </CardWrapper>
         <CardWrapper className="w-full grid md:grid-cols-3 gap-5">
           <DisplayCard
             title="Measure what matters with email analytics"

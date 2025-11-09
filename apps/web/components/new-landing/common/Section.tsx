@@ -2,10 +2,15 @@ import { cx } from "class-variance-authority";
 
 interface SectionProps {
   children: React.ReactNode;
+  className?: string;
 }
 
-export function Section({ children }: SectionProps) {
-  return <section className="py-6 md:py-16 text-center">{children}</section>;
+export function Section({ children, className }: SectionProps) {
+  return (
+    <section className={cx("py-6 md:py-16 text-center", className)}>
+      {children}
+    </section>
+  );
 }
 
 interface SectionContentProps {

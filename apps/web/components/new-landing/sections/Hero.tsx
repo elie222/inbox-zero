@@ -25,30 +25,25 @@ import { BlurFade } from "@/components/new-landing/common/BlurFade";
 
 export function Hero() {
   return (
-    <Section>
+    <Section className="mt-20">
       <BlurFade delay={0.125} inView>
         <PageHeading>
           Meet your AI email assistant that <em>actually</em> works
         </PageHeading>
       </BlurFade>
       <BlurFade delay={0.125 * 5} inView>
-        <Paragraph className={"max-w-[650px] mx-auto mt-4"}>
+        <Paragraph className={"max-w-[540px] mx-auto mt-4"}>
           Inbox Zero organizes your inbox, drafts replies in your voice, and
           helps you reach inbox zero fast. Never miss an important email again.
         </Paragraph>
       </BlurFade>
       <SectionContent>
         <div className="space-y-3 mb-8">
-          <BlurFade duration={0.4} delay={0.125 * 13} inView>
-            <Paragraph color="light" size="sm">
-              Try for free with one click
-            </Paragraph>
-          </BlurFade>
           <BlurFade duration={0.4} delay={0.125 * 14} inView>
             <CallToAction />
           </BlurFade>
           <BlurFade duration={0.4} delay={0.125 * 15} inView>
-            <div className="flex items-center gap-2 justify-center">
+            <div className="mb-12 flex items-center gap-2 justify-center">
               <Paragraph color="light" size="sm">
                 Works with
               </Paragraph>
