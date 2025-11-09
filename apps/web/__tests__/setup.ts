@@ -5,9 +5,9 @@ vi.mock("next/server", async () => {
   const actual = await vi.importActual("next/server");
   return {
     ...actual,
-    after: (fn: () => void | Promise<void>) => {
+    after: async (fn: () => void | Promise<void>) => {
       // In tests, just run the function synchronously
-      return fn();
+      return await fn();
     },
   };
 });

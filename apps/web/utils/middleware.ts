@@ -435,7 +435,9 @@ function flushLogger(req: NextRequest) {
   if (reqWithLogger.logger) {
     const loggerToFlush = reqWithLogger.logger;
     after(async () => {
-      await loggerToFlush.flush();
+      await loggerToFlush.flush().catch((error) => {
+        captureException(error, { extra: { url: req.url } });
+      });
     });
   }
 }
