@@ -78,7 +78,6 @@ export const GET = withError(async (request) => {
     if (!tokenResponse.ok) {
       logger.error("Failed to exchange code for tokens", {
         error: tokens.error_description,
-        code,
       });
       captureException(
         new Error(
