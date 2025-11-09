@@ -15,7 +15,6 @@ export function CallToAction({
   return (
     <div className={cx("flex items-center gap-4 justify-center", className)}>
       <Button size="lg">{text}</Button>
-      <Paragraph size="sm">or</Paragraph>
       <Button variant="secondary-two" size="lg" icon={<Chat />}>
         Talk to sales
       </Button>
