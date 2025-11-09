@@ -1,5 +1,4 @@
 import { Button } from "@/components/new-landing/common/Button";
-import { Paragraph } from "@/components/new-landing/common/Typography";
 import { Chat } from "@/components/new-landing/icons/Chat";
 import { cx } from "class-variance-authority";
 
