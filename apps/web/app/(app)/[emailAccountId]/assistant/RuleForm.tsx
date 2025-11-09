@@ -158,9 +158,12 @@ export function RuleForm({
     watch,
     setValue,
     control,
-    formState: { errors, isSubmitting, isSubmitted },
+    formState ,
     trigger,
   } = form;
+
+  const { errors, isSubmitting, isSubmitted } = formState;
+
 
   const {
     fields: conditionFields,
@@ -285,23 +288,6 @@ export function RuleForm({
     ) as CoreConditionType | undefined;
   }, [conditions]);
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: needed
-  useEffect(() => {
-    trigger("conditions");
-  }, [conditions]);
-
-  const actionErrors = useMemo(() => {
-    const actionErrors: string[] = [];
-    watch("actions")?.forEach((_, index) => {
-      const actionError =
-        errors?.actions?.[index]?.url?.root?.message ||
-        errors?.actions?.[index]?.labelId?.root?.message ||
-        errors?.actions?.[index]?.to?.root?.message;
-      if (actionError) actionErrors.push(actionError);
-    });
-    return actionErrors;
-  }, [errors, watch]);
-
   const conditionalOperator = watch("conditionalOperator");
   const terminology = getEmailTerminology(provider);
 
@@ -351,18 +337,48 @@ export function RuleForm({
       setIsNameEditMode((prev: boolean) => !prev);
     }
   }, [alwaysEditMode]);
+  
+  function getErrorMessages(errors: any): string[] {
+    const messages: string[] = [];
+  
+    if (!errors) {
+      return messages;
+    }
+  
+    if (typeof errors.name?.message === 'string') {
+      messages.push(errors.name.message);
+    }
+  
+    const actionsMessage = errors.actions?.root?.message || errors.actions?.message;
+    
+    if (typeof actionsMessage === 'string') {
+      messages.push(actionsMessage);
+    }
+  
+    const conditionsMessage = errors.conditions?.root?.message || errors.conditions?.message;
+  
+    if (typeof conditionsMessage === 'string') {
+      messages.push(conditionsMessage);
+    }
+    
+    return messages;
+  }
+
+  const errorMessages = useMemo(() => {
+    return getErrorMessages(errors);
+  }, [formState]);
 
   return (
     <Form {...form}>
       <form onSubmit={handleSubmit(onSubmit)}>
-        {isSubmitted && Object.keys(errors).length > 0 && (
+        {isSubmitted && errorMessages.length > 0 && (
           <div className="mt-4">
             <AlertError
               title="Error"
               description={
                 <ul className="list-disc">
-                  {Object.values(errors).map((error) => (
-                    <li key={error.message}>{error.message}</li>
+                  {errorMessages.map((message, index) => (
+                    <li key={index}>{message}</li>
                   ))}
                 </ul>
               }
@@ -460,15 +476,6 @@ export function RuleForm({
             )}
           </div>
         </div>
-
-        {errors.conditions?.root?.message && (
-          <div className="mt-2">
-            <AlertError
-              title="Error"
-              description={errors.conditions.root.message}
-            />
-          </div>
-        )}
 
         <div className="mt-2">
           {conditionFields.map((condition, index) => (
@@ -695,21 +702,6 @@ export function RuleForm({
             </Button>
           )}
         </div>
-
-        {actionErrors.length > 0 && (
-          <div className="mt-2">
-            <AlertError
-              title="Error"
-              description={
-                <ul className="list-inside list-disc">
-                  {actionErrors.map((error, index) => (
-                    <li key={`action-${index}`}>{error}</li>
-                  ))}
-                </ul>
-              }
-            />
-          </div>
-        )}
 
         <div className="mt-2 space-y-4">
           {watch("actions")?.map((action, i) =>
