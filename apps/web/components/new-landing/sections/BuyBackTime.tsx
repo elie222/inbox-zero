@@ -21,7 +21,11 @@ export function BuyBackTime() {
           Stop wasting half your day on email. Start using Inbox Zero today.
         </SectionSubtitle>
         <SectionContent>
-          <CallToAction text="Get started for free" className="mt-6" />
+          <CallToAction
+            text="Get started for free"
+            className="mt-6"
+            includeSalesButton={false}
+          />
         </SectionContent>
       </Section>
     </div>
