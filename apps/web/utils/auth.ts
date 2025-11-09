@@ -375,24 +375,21 @@ async function handleLinkAccount(account: Account) {
       return;
     }
 
-    // --- Create/Update the corresponding EmailAccount record ---
-    const emailAccountData: Prisma.EmailAccountUpsertArgs = {
-      where: { email: profileData?.email },
-      update: {
-        userId: account.userId,
-        accountId: account.id,
-        name: primaryName,
-        image: primaryPhotoUrl,
-      },
-      create: {
-        email: primaryEmail,
-        userId: account.userId,
-        accountId: account.id,
-        name: primaryName,
-        image: primaryPhotoUrl,
-      },
+    const data = {
+      userId: account.userId,
+      accountId: account.id,
+      name: primaryName,
+      image: primaryPhotoUrl,
     };
-    await prisma.emailAccount.upsert(emailAccountData);
+
+    await prisma.emailAccount.upsert({
+      where: { email: profileData?.email },
+      update: data,
+      create: {
+        ...data,
+        email: primaryEmail,
+      },
+    });
 
     // Handle premium account seats
     await updateAccountSeats({ userId: account.userId }).catch((error) => {
