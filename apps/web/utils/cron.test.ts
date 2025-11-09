@@ -7,10 +7,6 @@ vi.mock("@/env", () => ({
   env: { CRON_SECRET: "test-secret-123" },
 }));
 
-vi.mock("@/utils/logger", () => ({
-  createScopedLogger: () => ({ error: vi.fn() }),
-}));
-
 describe("hasCronSecret", () => {
   let request: Request;
 

@@ -6,6 +6,7 @@ export default defineConfig({
   plugins: [tsconfigPaths()],
   test: {
     environment: "node",
+    setupFiles: ["./__tests__/setup.ts"],
     env: {
       ...config({ path: "./.env.test" }).parsed,
     },

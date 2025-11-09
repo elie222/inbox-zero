@@ -11,12 +11,6 @@ import { getEmailAccount } from "@/__tests__/helpers";
 const TIMEOUT = 15_000;
 
 vi.mock("server-only", () => ({}));
-vi.mock("@/utils/logger", () => ({
-  createScopedLogger: () => ({
-    trace: vi.fn(),
-    error: vi.fn(),
-  }),
-}));
 vi.mock("@/utils/braintrust", () => ({
   Braintrust: class {
     insertToDataset() {}
