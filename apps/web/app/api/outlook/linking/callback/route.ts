@@ -4,7 +4,7 @@ import prisma from "@/utils/prisma";
 import { createScopedLogger } from "@/utils/logger";
 import { OUTLOOK_LINKING_STATE_COOKIE_NAME } from "@/utils/outlook/constants";
 import { withError } from "@/utils/middleware";
-import { SafeError } from "@/utils/error";
+import { captureException, SafeError } from "@/utils/error";
 import { transferPremiumDuringMerge } from "@/utils/user/merge-premium";
 import { parseOAuthState } from "@/utils/oauth/state";
 
@@ -76,6 +76,15 @@ export const GET = withError(async (request) => {
     const tokens = await tokenResponse.json();
 
     if (!tokenResponse.ok) {
+      logger.error("Failed to exchange code for tokens", {
+        error: tokens.error_description,
+        code,
+      });
+      captureException(
+        new Error(
+          tokens.error_description || "Failed to exchange code for tokens",
+        ),
+      );
       throw new Error(
         tokens.error_description || "Failed to exchange code for tokens",
       );
