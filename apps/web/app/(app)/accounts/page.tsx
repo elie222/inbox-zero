@@ -21,6 +21,7 @@ import { prefixPath } from "@/utils/path";
 import { AddAccount } from "@/app/(app)/accounts/AddAccount";
 import { PageHeader } from "@/components/PageHeader";
 import { PageWrapper } from "@/components/PageWrapper";
+import { logOut } from "@/utils/user";
 
 export default function AccountsPage() {
   const { data, isLoading, error, mutate } = useAccounts();
@@ -59,12 +60,15 @@ function AccountItem({
   onAccountDeleted: () => void;
 }) {
   const { execute, isExecuting } = useAction(deleteEmailAccountAction, {
-    onSuccess: () => {
+    onSuccess: async () => {
       toastSuccess({
         title: "Email account deleted",
         description: "The email account has been deleted successfully.",
       });
       onAccountDeleted();
+      if (emailAccount.isPrimary) {
+        await logOut("/login");
+      }
     },
     onError: (error) => {
       toastError({
@@ -112,7 +116,7 @@ function AccountItem({
           title="Delete Account"
           description={
             emailAccount.isPrimary
-              ? `Are you sure you want to delete "${emailAccount.email}"? This is your primary account. Your oldest remaining account will become your new primary account. All data for "${emailAccount.email}" will be permanently deleted from Inbox Zero.`
+              ? `Are you sure you want to delete "${emailAccount.email}"? This is your primary account. You will be logged out and need to log in again. Your oldest remaining account will become your new primary account. All data for "${emailAccount.email}" will be permanently deleted from Inbox Zero.`
               : `Are you sure you want to delete "${emailAccount.email}"? This will delete all data for it on Inbox Zero.`
           }
           confirmText="Delete"
