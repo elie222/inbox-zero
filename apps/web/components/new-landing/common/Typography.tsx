@@ -9,7 +9,7 @@ export function Heading({ children, className }: HeadingProps) {
   return (
     <h1
       className={cx(
-        "font-aeonik text-[#242424] text-[34px] md:text-5xl leading-tight",
+        "font-aeonik text-[#242424] text-[34px] md:text-6xl leading-tight",
         className,
       )}
     >
@@ -23,7 +23,7 @@ interface PageHeadingProps {
 }
 
 export function PageHeading({ children }: PageHeadingProps) {
-  return <Heading className="mx-auto max-w-[620px]">{children}</Heading>;
+  return <Heading className="mx-auto max-w-[780px]">{children}</Heading>;
 }
 
 interface SectionHeadingProps {
