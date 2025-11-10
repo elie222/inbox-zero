@@ -4,6 +4,11 @@ import { captureException } from "@/utils/error";
 import type { EmailProvider } from "@/utils/email/types";
 import { createEmailProvider } from "@/utils/email/provider";
 import type { Logger } from "@/utils/logger";
+import {
+  parseSubscriptionHistory,
+  cleanupOldHistoryEntries,
+  addCurrentSubscriptionToHistory,
+} from "@/utils/outlook/subscription-history";
 
 /**
  * Manages Outlook subscriptions, ensuring only one active subscription per email account
@@ -138,6 +143,8 @@ export class OutlookSubscriptionManager {
       select: {
         watchEmailsSubscriptionId: true,
         watchEmailsExpirationDate: true,
+        watchEmailsSubscriptionHistory: true,
+        createdAt: true,
       },
     });
 
@@ -146,9 +153,8 @@ export class OutlookSubscriptionManager {
     return {
       subscriptionId: emailAccount.watchEmailsSubscriptionId || null,
       expirationDate: emailAccount.watchEmailsExpirationDate || null,
-    } as {
-      subscriptionId: string | null;
-      expirationDate: Date | null;
+      subscriptionHistory: emailAccount.watchEmailsSubscriptionHistory,
+      accountCreatedAt: emailAccount.createdAt,
     };
   }
 
@@ -161,18 +167,48 @@ export class OutlookSubscriptionManager {
     }
 
     const expirationDate = subscription.expirationDate;
+    const now = new Date();
+
+    const existing = await this.getExistingSubscription();
+
+    let updatedHistory = parseSubscriptionHistory(
+      existing?.subscriptionHistory,
+      this.logger,
+    );
+    updatedHistory = cleanupOldHistoryEntries(updatedHistory);
+
+    if (
+      existing?.subscriptionId &&
+      existing.subscriptionId !== subscription.subscriptionId
+    ) {
+      updatedHistory = addCurrentSubscriptionToHistory(
+        updatedHistory,
+        existing.subscriptionId,
+        now,
+        existing.accountCreatedAt,
+        this.logger,
+      );
+
+      this.logger.info("Moving old subscription to history", {
+        oldSubscriptionId: existing.subscriptionId,
+        newSubscriptionId: subscription.subscriptionId,
+        historyLength: updatedHistory.length,
+      });
+    }
 
     await prisma.emailAccount.update({
       where: { id: this.emailAccountId },
       data: {
         watchEmailsExpirationDate: expirationDate,
         watchEmailsSubscriptionId: subscription.subscriptionId,
+        watchEmailsSubscriptionHistory: updatedHistory,
       },
     });
 
     this.logger.info("Updated subscription in database", {
       subscriptionId: subscription.subscriptionId,
       expirationDate,
+      historyEntries: updatedHistory.length,
     });
   }
 }
