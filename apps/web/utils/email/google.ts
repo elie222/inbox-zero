@@ -241,6 +241,11 @@ export class GmailProvider implements EmailProvider {
   }
 
   async archiveMessage(messageId: string): Promise<void> {
+    const log = logger.with({
+      action: "archiveMessage",
+      messageId,
+    });
+
     try {
       await this.client.users.messages.modify({
         userId: "me",
@@ -250,12 +255,9 @@ export class GmailProvider implements EmailProvider {
         },
       });
 
-      logger.info("Message archived successfully", {
-        messageId,
-      });
+      log.info("Message archived successfully");
     } catch (error) {
-      logger.error("Failed to archive message", {
-        messageId,
+      log.error("Failed to archive message", {
         error: error instanceof Error ? error.message : error,
       });
       throw error;
@@ -263,6 +265,11 @@ export class GmailProvider implements EmailProvider {
   }
 
   private async archiveMessagesBulk(messageIds: string[]): Promise<void> {
+    const log = logger.with({
+      action: "archiveMessagesBulk",
+      messageIds: messageIds,
+    });
+
     try {
       await this.client.users.messages.batchModify({
         userId: "me",
@@ -272,8 +279,7 @@ export class GmailProvider implements EmailProvider {
         },
       });
     } catch (error) {
-      logger.error("Failed to archive messages bulk", {
-        messageIds,
+      log.error("Failed to archive messages bulk", {
         error: error instanceof Error ? error.message : error,
       });
       throw error;
@@ -286,6 +292,13 @@ export class GmailProvider implements EmailProvider {
     ownerEmail: string,
     emailAccountId: string,
   ): Promise<void> {
+    const log = logger.with({
+      action: "archiveMessagesFromSenders",
+      emailAccountId,
+      email: ownerEmail,
+      sendersCount: senders.length,
+    });
+
     if (senders.length === 0) return;
 
     for (const sender of senders) {
@@ -343,7 +356,7 @@ export class GmailProvider implements EmailProvider {
 
           nextPageToken = token;
         } catch (error) {
-          logger.error("Failed to archive messages from sender", {
+          log.error("Failed to archive messages from sender", {
             sender,
             error: error instanceof Error ? error.message : error,
           });
@@ -353,7 +366,7 @@ export class GmailProvider implements EmailProvider {
       } while (nextPageToken);
     }
 
-    logger.info("Completed bulk archive from senders");
+    log.info("Completed bulk archive from senders");
   }
 
   private async trashThreadsFromSenders(
@@ -361,6 +374,13 @@ export class GmailProvider implements EmailProvider {
     ownerEmail: string,
     emailAccountId: string,
   ): Promise<void> {
+    const log = logger.with({
+      action: "bulkTrashFromSenders",
+      emailAccountId,
+      email: ownerEmail,
+      sendersCount: senders.length,
+    });
+
     if (senders.length === 0) {
       return;
     }
@@ -394,7 +414,7 @@ export class GmailProvider implements EmailProvider {
 
           nextPageToken = token;
         } catch (error) {
-          logger.error("Failed to get messages from sender", {
+          log.error("Failed to get messages from sender", {
             sender,
             error: error instanceof Error ? error.message : error,
           });
@@ -412,7 +432,7 @@ export class GmailProvider implements EmailProvider {
             await this.trashThread(threadId, ownerEmail, "automation");
             successfullyTrashedThreadIds.add(threadId);
           } catch (error) {
-            logger.error("Failed to trash thread for sender", {
+            log.error("Failed to trash thread for sender", {
               sender,
               threadId,
               error: error instanceof Error ? error.message : error,
@@ -450,7 +470,7 @@ export class GmailProvider implements EmailProvider {
 
             await Promise.all(promises);
           } catch (error) {
-            logger.error("Failed to track trash operation for sender", {
+            log.error("Failed to track trash operation for sender", {
               sender,
               error: error instanceof Error ? error.message : error,
             });
@@ -459,7 +479,7 @@ export class GmailProvider implements EmailProvider {
       }
     }
 
-    logger.info("Completed bulk trash from senders");
+    log.info("Completed bulk trash from senders");
   }
 
   async bulkArchiveFromSenders(
@@ -504,6 +524,13 @@ export class GmailProvider implements EmailProvider {
     labelId: string;
     labelName: string | null;
   }): Promise<{ usedFallback?: boolean; actualLabelId?: string }> {
+    const log = logger.with({
+      action: "labelMessage",
+      messageId,
+      labelId,
+      labelName,
+    });
+
     try {
       await labelMessage({
         gmail: this.client,
@@ -522,10 +549,7 @@ export class GmailProvider implements EmailProvider {
           errorMessage.includes("labelId not found")) &&
         labelName
       ) {
-        logger.warn("Label not found by ID, trying to get or create by name", {
-          labelId,
-          labelName,
-        });
+        log.warn("Label not found by ID, trying to get or create by name");
 
         const label = await getOrCreateLabel({
           gmail: this.client,
@@ -562,6 +586,14 @@ export class GmailProvider implements EmailProvider {
     userEmail: string,
     executedRule?: { id: string; threadId: string; emailAccountId: string },
   ): Promise<{ draftId: string }> {
+    const log = logger.with({
+      action: "draftEmail",
+      email: userEmail,
+      executedRuleId: executedRule?.id,
+      threadId: executedRule?.threadId,
+      messageId: email.id,
+    });
+
     if (executedRule) {
       // Run draft creation and previous draft deletion in parallel
       const [result] = await Promise.all([
@@ -569,7 +601,7 @@ export class GmailProvider implements EmailProvider {
         handlePreviousDraftDeletion({
           client: this,
           executedRule,
-          logger,
+          logger: log,
         }),
       ]);
       return { draftId: result.data.id || "" };
@@ -640,11 +672,16 @@ export class GmailProvider implements EmailProvider {
   }
 
   async blockUnsubscribedEmail(messageId: string): Promise<void> {
+    const log = logger.with({
+      action: "blockUnsubscribedEmail",
+      messageId,
+    });
+
     const unsubscribeLabel =
       await this.getOrCreateInboxZeroLabel("unsubscribed");
 
     if (unsubscribeLabel?.id) {
-      logger.warn("Unsubscribe label not found", { messageId });
+      log.warn("Unsubscribe label not found");
     }
 
     await labelMessage({
@@ -927,6 +964,11 @@ export class GmailProvider implements EmailProvider {
   }
 
   async checkIfReplySent(senderEmail: string): Promise<boolean> {
+    const log = logger.with({
+      action: "checkIfReplySent",
+      sender: senderEmail,
+    });
+
     try {
       const query = `from:me to:${senderEmail} label:sent`;
       const response = await getMessages(this.client, {
@@ -934,12 +976,11 @@ export class GmailProvider implements EmailProvider {
         maxResults: 1,
       });
       const sent = (response.messages?.length ?? 0) > 0;
-      logger.info("Checked for sent reply", { senderEmail, sent });
+      log.info("Checked for sent reply", { sent });
       return sent;
     } catch (error) {
-      logger.error("Error checking if reply was sent", {
+      log.error("Error checking if reply was sent", {
         error,
-        senderEmail,
       });
       return true; // Default to true on error (safer for TO_REPLY filtering)
     }
@@ -949,12 +990,15 @@ export class GmailProvider implements EmailProvider {
     senderEmail: string,
     threshold: number,
   ): Promise<number> {
+    const log = logger.with({
+      action: "countReceivedMessages",
+      sender: senderEmail,
+      threshold,
+    });
+
     try {
       const query = `from:${senderEmail}`;
-      logger.info("Checking received message count", {
-        senderEmail,
-        threshold,
-      });
+      log.info("Checking received message count");
 
       // Fetch up to the threshold number of message IDs.
       const response = await getMessages(this.client, {
@@ -963,16 +1007,10 @@ export class GmailProvider implements EmailProvider {
       });
       const count = response.messages?.length ?? 0;
 
-      logger.info("Received message count check result", {
-        senderEmail,
-        count,
-      });
+      log.info("Received message count check result", { count });
       return count;
     } catch (error) {
-      logger.error("Error counting received messages", {
-        error,
-        senderEmail,
-      });
+      log.error("Error counting received messages", { error });
       return 0; // Default to 0 on error
     }
   }

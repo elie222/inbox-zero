@@ -58,7 +58,7 @@ export async function isColdEmail({
   const hasPreviousEmail =
     email.date && email.id
       ? await provider.hasPreviousCommunicationsWithSenderOrDomain({
-          from: email.from,
+          from: extractEmailAddress(email.from) || email.from,
           date: email.date,
           messageId: email.id,
         })
