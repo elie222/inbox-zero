@@ -114,10 +114,10 @@ const navigation = {
 };
 
 interface FooterProps {
-  layoutStyle: string;
+  className: string;
 }
 
-export function Footer({ layoutStyle }: FooterProps) {
+export function Footer({ className }: FooterProps) {
   return (
     <footer
       className="relative z-50 bg-gray-50 border-t border-[#E7E7E7A3] bg-cover bg-center bg-no-repeat"
@@ -126,10 +126,7 @@ export function Footer({ layoutStyle }: FooterProps) {
       }}
     >
       <div
-        className={cn(
-          "overflow-hidden px-6 py-20 sm:py-24 lg:px-8",
-          layoutStyle,
-        )}
+        className={cn("overflow-hidden px-6 py-20 sm:py-24 lg:px-8", className)}
       >
         <div className="mt-16 grid grid-cols-2 gap-8 lg:grid-cols-5 xl:col-span-2 xl:mt-0">
           <div>

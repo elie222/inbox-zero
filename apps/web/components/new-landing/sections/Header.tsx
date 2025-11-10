@@ -4,15 +4,15 @@ import { Button } from "@/components/new-landing/common/Button";
 import { HeaderLinks } from "@/components/new-landing/HeaderLinks";
 
 interface HeaderProps {
-  layoutStyle: string;
+  className: string;
 }
 
-export function Header({ layoutStyle }: HeaderProps) {
+export function Header({ className }: HeaderProps) {
   return (
     <header
       className={cn(
         "bg-white mx-auto flex items-center justify-between h-16",
-        layoutStyle,
+        className,
       )}
     >
       <div className="hidden md:block">
