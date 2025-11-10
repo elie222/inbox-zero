@@ -7,6 +7,7 @@ interface DisplayCardProps {
   icon: React.ReactNode;
   children: React.ReactNode;
   centerContent?: boolean;
+  className?: string;
 }
 
 export function DisplayCard({
@@ -15,13 +16,14 @@ export function DisplayCard({
   icon,
   children,
   centerContent = false,
+  className,
 }: DisplayCardProps) {
   return (
     <Card
       title={title}
       description={description}
       icon={icon}
-      className="overflow-hidden"
+      className={cx("overflow-hidden", className)}
     >
       <div
         className={cx(
