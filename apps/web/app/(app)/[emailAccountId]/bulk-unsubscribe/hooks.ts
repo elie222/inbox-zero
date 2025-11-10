@@ -425,9 +425,11 @@ export function useBulkArchive<T extends Row>({
       froms: items.map((item) => item.name),
     });
 
+    const displayNames = formatSenderNames(items);
+
     toast.promise(promise, {
-      loading: "Archiving emails...",
-      success: "Bulk archive completed",
+      loading: `Archiving emails from ${displayNames}...`,
+      success: `Archived emails from ${displayNames}`,
       error: (error) =>
         error?.error?.serverError || "There was an error archiving the emails",
     });
@@ -534,9 +536,11 @@ export function useBulkDelete<T extends Row>({
 
     const promise = executeBulkTrash({ froms: items.map((item) => item.name) });
 
+    const displayNames = formatSenderNames(items);
+
     toast.promise(promise, {
-      loading: "Moving emails to trash...",
-      success: "Bulk trash completed",
+      loading: `Deleting emails from ${displayNames}...`,
+      success: `Deleted emails from ${displayNames}`,
       error: (error) =>
         error?.error?.serverError || "There was an error trashing the emails",
     });
@@ -674,4 +678,11 @@ export function useNewsletterFilter() {
     )[],
     setFilters,
   };
+}
+
+function formatSenderNames<T extends Row>(items: T[]): string {
+  const senderNames = items.map((item) => item.name);
+  return senderNames.length > 3
+    ? `${senderNames.slice(0, 3).join(", ")}...`
+    : senderNames.join(", ");
 }
