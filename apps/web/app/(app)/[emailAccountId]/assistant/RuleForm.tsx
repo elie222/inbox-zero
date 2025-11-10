@@ -338,7 +338,7 @@ export function RuleForm({
     }
   }, [alwaysEditMode]);
   
-  function getErrorMessages(errors: any): string[] {
+  function getErrorMessages(errors: FieldErrors<CreateRuleBody>): string[] {
     const messages: string[] = [];
   
     if (!errors) {
