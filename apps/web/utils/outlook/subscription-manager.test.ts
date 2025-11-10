@@ -146,6 +146,7 @@ describe("OutlookSubscriptionManager", () => {
         data: {
           watchEmailsExpirationDate: new Date("2024-01-01T00:00:00Z"),
           watchEmailsSubscriptionId: "test-subscription-id",
+          watchEmailsSubscriptionHistory: [],
         },
       });
     });
