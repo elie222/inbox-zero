@@ -23,6 +23,7 @@ import {
 import { BrandScroller } from "@/components/new-landing/BrandScroller";
 import { BlurFade } from "@/components/new-landing/common/BlurFade";
 import { WordReveal } from "@/components/new-landing/common/WordReveal";
+import { userMinCount } from "@/utils/config";
 
 export function Hero() {
   return (
@@ -68,7 +69,7 @@ export function Hero() {
         </BlurFade>
         <div className="mt-12">
           <Paragraph>
-            Join over 15,000 users worldwide saving hours daily
+            Join over {userMinCount} users worldwide saving hours daily
           </Paragraph>
           <BrandScroller />
         </div>
