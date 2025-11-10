@@ -98,10 +98,10 @@ export function Referrals() {
   return (
     <div className="space-y-8">
       <div className="text-center">
-        <h1 className="text-3xl font-bold tracking-tight text-gray-900">
+        <h1 className="text-3xl font-bold tracking-tight text-primary dark:text-foreground">
           Refer Friends, Get Rewards
         </h1>
-        <p className="mt-4 text-lg text-gray-600">
+        <p className="mt-4 text-lg text-muted-foreground">
           Share Inbox Zero with friends and get a free month for each friend who
           completes their trial
         </p>
