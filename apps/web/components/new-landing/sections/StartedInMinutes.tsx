@@ -37,7 +37,7 @@ export function StartedInMinutes() {
         <CardWrapper className="w-full grid md:grid-cols-3 gap-5">
           <BlurFade inView>
             <DisplayCard
-              title="Connect your email"
+              title="Connect your Google or Microsoft email"
               description="Link your Gmail or Outlook in two clicks to get started."
               icon={
                 <Badge variant="dark-gray" size="sm" icon={<Connect />}>
@@ -67,8 +67,8 @@ export function StartedInMinutes() {
           </BlurFade>
           <BlurFade delay={0.25} inView>
             <DisplayCard
-              title="Auto-organizes your inbox"
-              description="Smart categories set up automatically. Use ours or create your own in seconds."
+              title="Organizes your inbox exactly how you want it"
+              description="Smart categories set up automatically. Use our categories or create your own."
               icon={
                 <Badge variant="dark-gray" size="sm" icon={<AutoOrganize />}>
                   STEP 2
@@ -111,7 +111,7 @@ export function StartedInMinutes() {
           </BlurFade>
           <BlurFade delay={0.25 * 2} inView>
             <DisplayCard
-              title="Pre-drafted replies"
+              title="Pre-drafted replies based on your email history and calendar"
               description="Every email you get needing a reply will have a pre-written draft."
               icon={
                 <Badge variant="dark-gray" size="sm" icon={<SparkleBlue />}>

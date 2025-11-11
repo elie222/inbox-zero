@@ -13,7 +13,9 @@ export function BulkUnsubscribe() {
   return (
     <Section>
       <SectionHeading>
-        Bulk unsubscribe from emails you never read
+        Get to Inbox Zero fast.
+        <br />
+        Bulk unsubscribe from emails you never read.
       </SectionHeading>
       <SectionSubtitle>
         See which emails you never read, and one-click unsubscribe and archive

@@ -15,10 +15,13 @@ export function BuyBackTime() {
       style={{ backgroundPosition: "center 44%" }}
     >
       <Section>
-        <SectionHeading>Boost your productivity.</SectionHeading>
-        <SectionHeading>Start using Inbox Zero today.</SectionHeading>
+        <SectionHeading>
+          Get back an hour a day.
+          <br />
+          Start using Inbox Zero.
+        </SectionHeading>
         <SectionSubtitle>
-          Stop wasting half your day on email. Start using Inbox Zero today.
+          Less time in your inbox. More time for what actually matters.
         </SectionSubtitle>
         <SectionContent>
           <CallToAction

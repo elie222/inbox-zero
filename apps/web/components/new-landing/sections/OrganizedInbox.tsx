@@ -12,12 +12,11 @@ export function OrganizedInbox() {
   return (
     <Section>
       <SectionHeading wrap>
-        An organized inbox so you never miss an important email
+        Never miss an important email with an organized inbox
       </SectionHeading>
       <SectionSubtitle>
-        Drowning in emails? Don't waste any more valuable brain energy trying to
-        prioritize your emails. Our AI assistant will label everything
-        automatically.
+        Drowning in emails? Don't waste energy trying to prioritize your emails.
+        Our AI assistant will label everything automatically.
       </SectionSubtitle>
       <SectionContent className="flex justify-center">
         <Image
