@@ -122,7 +122,7 @@ export function StartedInMinutes() {
               <div className="pt-6 px-6">
                 <Image
                   src="/images/new-landing/new-email.svg"
-                  alt="analytics"
+                  alt="Pre-drafted replies"
                   width={1000}
                   height={400}
                 />

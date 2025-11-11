@@ -50,7 +50,7 @@ export function EverythingElseSection() {
             >
               <Image
                 src="/images/new-landing/integrations.svg"
-                alt="analytics"
+                alt="App integrations"
                 width={1000}
                 height={400}
               />
@@ -64,7 +64,7 @@ export function EverythingElseSection() {
             >
               <Image
                 src="/images/new-landing/create-rules.svg"
-                alt="analytics"
+                alt="Customize"
                 width={1000}
                 height={400}
               />
