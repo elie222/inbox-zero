@@ -11,7 +11,7 @@
     "editor.defaultFormatter": "biomejs.biome"
   },
   "typescript.tsdk": "node_modules/typescript/lib",
-  "editor.formatOnSave": true,
+  "editor.formatOnSave": false,
   "editor.formatOnPaste": false,
   "emmet.showExpandedAbbreviation": "never",
   "editor.codeActionsOnSave": {
