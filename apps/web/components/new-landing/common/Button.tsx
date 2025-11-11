@@ -36,7 +36,7 @@ export function Button({
           secondary:
             "bg-white hover:bg-gray-50 border border-gray-100 hover:border-gray-200 text-gray-800",
           "secondary-two":
-            "bg-white hover:bg-gray-50 border border-gray-100 hover:border-gray-200 text-gray-500 shadow-[0px_2px_16px_0px_#00000008] hover:shadow-[0px_2px_16px_0px_#00000020]",
+            "bg-white hover:bg-gray-[#F5F5F5] border border-gray-100 hover:border-gray-200 text-gray-500 shadow-[0px_2px_16px_0px_#00000008] hover:shadow-[0px_2px_16px_0px_#00000015]",
         },
         size: {
           md: "text-sm py-2 px-4",
