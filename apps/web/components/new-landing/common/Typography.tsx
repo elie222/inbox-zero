@@ -75,6 +75,7 @@ interface ParagraphProps {
   color?: "default" | "light" | "dark" | "gray-700" | "gray-500" | "gray-900";
   size?: "default" | "xs" | "sm" | "md" | "lg";
   family?: "default" | "geist";
+  as?: "p" | "h3";
 }
 
 export function Paragraph({
@@ -83,6 +84,7 @@ export function Paragraph({
   color = "default",
   size = "default",
   family = "default",
+  as = "p",
 }: ParagraphProps) {
   const paragraphStyles = cva("", {
     variants: {
@@ -107,10 +109,13 @@ export function Paragraph({
       },
     },
   });
+  const ParagraphComponent = as as React.ElementType;
 
   return (
-    <p className={paragraphStyles({ color, size, family, className })}>
+    <ParagraphComponent
+      className={paragraphStyles({ color, size, family, className })}
+    >
       {children}
-    </p>
+    </ParagraphComponent>
   );
 }

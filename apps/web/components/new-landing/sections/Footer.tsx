@@ -187,7 +187,12 @@ function FooterList(props: {
 }) {
   return (
     <>
-      <Paragraph color="gray-900" size="sm" className="font-semibold leading-6">
+      <Paragraph
+        color="gray-900"
+        size="sm"
+        className="font-semibold leading-6"
+        as="h3"
+      >
         {props.title}
       </Paragraph>
       <ul className="mt-6 space-y-3">
