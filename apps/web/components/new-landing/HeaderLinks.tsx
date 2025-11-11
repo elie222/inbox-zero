@@ -51,7 +51,7 @@ const useCases = [
     iconColor: "text-[#30A24B]",
     borderColor: "from-[#DDF4D3] to-[#CFF4C0]",
     gradient: "from-[#F3FFEF] to-[#E1FFD8]",
-    hoverBg: "hover:bg-[#F3FFEF90]",
+    hoverBg: "hover:bg-[#F3FFEF]",
   },
   {
     title: "Content Creators",
