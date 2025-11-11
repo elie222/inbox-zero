@@ -50,10 +50,9 @@ export async function sendEmailWithHtml(
     message.conversationId = body.replyToEmail.threadId;
   }
 
-  const result: Message = await client
-    .getClient()
-    .api("/me/messages")
-    .post(message);
+  const result: Message = await withOutlookRetry(() =>
+    client.getClient().api("/me/messages").post(message),
+  );
   return result;
 }
 
@@ -93,10 +92,12 @@ export async function replyToEmail(
   };
 
   // Send the email immediately using the sendMail endpoint
-  const result = await client.getClient().api("/me/sendMail").post({
-    message: replyMessage,
-    saveToSentItems: true,
-  });
+  const result = await withOutlookRetry(() =>
+    client.getClient().api("/me/sendMail").post({
+      message: replyMessage,
+      saveToSentItems: true,
+    }),
+  );
   return result;
 }
 
@@ -113,10 +114,9 @@ export async function forwardEmail(
   if (!options.to.trim()) throw new Error("Recipient address is required");
 
   // Get the original message
-  const originalMessage: Message = await client
-    .getClient()
-    .api(`/me/messages/${options.messageId}`)
-    .get();
+  const originalMessage: Message = await withOutlookRetry(() =>
+    client.getClient().api(`/me/messages/${options.messageId}`).get(),
+  );
 
   const message: ParsedMessage = {
     id: originalMessage.id || "",
@@ -153,10 +153,12 @@ export async function forwardEmail(
     },
   };
 
-  const result = await client
-    .getClient()
-    .api(`/me/messages/${options.messageId}/forward`)
-    .post({ message: forwardMessage });
+  const result = await withOutlookRetry(() =>
+    client
+      .getClient()
+      .api(`/me/messages/${options.messageId}/forward`)
+      .post({ message: forwardMessage }),
+  );
 
   return result;
 }
