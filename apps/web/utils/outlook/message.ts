@@ -5,8 +5,13 @@ import type { OutlookClient } from "@/utils/outlook/client";
 import { OutlookLabel } from "./label";
 import { escapeODataString } from "@/utils/outlook/odata-escape";
 import { withOutlookRetry } from "@/utils/outlook/retry";
+import { formatEmailWithName } from "@/utils/email";
 
 const logger = createScopedLogger("outlook/message");
+
+// Standard fields to select when fetching messages from Microsoft Graph API
+export const MESSAGE_SELECT_FIELDS =
+  "id,conversationId,conversationIndex,subject,bodyPreview,from,sender,toRecipients,ccRecipients,receivedDateTime,isDraft,isRead,body,categories,parentFolderId";
 
 /**
  * Removes quoted string literals from a query string to avoid false positives
@@ -228,13 +233,7 @@ export async function queryBatchMessages(
   });
 
   // Build the base request
-  let request = client
-    .getClient()
-    .api("/me/messages")
-    .select(
-      "id,conversationId,conversationIndex,subject,bodyPreview,from,sender,toRecipients,receivedDateTime,isDraft,isRead,body,categories,parentFolderId",
-    )
-    .top(maxResults);
+  let request = createMessagesRequest(client).top(maxResults);
 
   let nextPageToken: string | undefined;
 
@@ -375,13 +374,7 @@ export async function queryMessagesWithFilters(
   const archiveFolderId = folderIds.archive;
 
   // Build base request
-  let request = client
-    .getClient()
-    .api("/me/messages")
-    .select(
-      "id,conversationId,conversationIndex,subject,bodyPreview,from,sender,toRecipients,receivedDateTime,isDraft,isRead,body,categories,parentFolderId",
-    )
-    .top(maxResults);
+  let request = createMessagesRequest(client).top(maxResults);
 
   // Build folder filter safely (avoid empty IDs)
   let folderFilter: string | undefined;
@@ -448,13 +441,7 @@ export async function getMessage(
   client: OutlookClient,
 ): Promise<ParsedMessage> {
   const message = await withOutlookRetry(() =>
-    client
-      .getClient()
-      .api(`/me/messages/${messageId}`)
-      .select(
-        "id,conversationId,conversationIndex,subject,bodyPreview,from,sender,toRecipients,receivedDateTime,isDraft,isRead,body,categories,parentFolderId",
-      )
-      .get(),
+    createMessageRequest(client, messageId).get(),
   );
 
   const folderIds = await getFolderIds(client);
@@ -471,13 +458,7 @@ export async function getMessages(
   },
 ) {
   const top = options.maxResults || 20;
-  let request = client
-    .getClient()
-    .api("/me/messages")
-    .top(top)
-    .select(
-      "id,conversationId,conversationIndex,subject,bodyPreview,body,from,toRecipients,receivedDateTime,isRead,categories,parentFolderId,isDraft",
-    );
+  let request = createMessagesRequest(client).top(top);
 
   if (options.query) {
     request = request.filter(
@@ -498,6 +479,51 @@ export async function getMessages(
   };
 }
 
+/**
+ * Helper to create a request for fetching multiple messages with standard fields selected.
+ * Returns a typed request builder that can be chained with .filter(), .top(), etc.
+ */
+export function createMessagesRequest(client: OutlookClient) {
+  return client.getClient().api("/me/messages").select(MESSAGE_SELECT_FIELDS);
+}
+
+/**
+ * Helper to create a request for fetching a single message with standard fields selected.
+ */
+export function createMessageRequest(client: OutlookClient, messageId: string) {
+  return client
+    .getClient()
+    .api(`/me/messages/${messageId}`)
+    .select(MESSAGE_SELECT_FIELDS);
+}
+
+/**
+ * Converts Outlook message recipients array to comma-separated string
+ * Format: "Name1 <email1@example.com>, Name2 <email2@example.com>"
+ */
+function formatRecipientsList(
+  recipients:
+    | Array<{
+        emailAddress?: { name?: string | null; address?: string | null } | null;
+      }>
+    | null
+    | undefined,
+): string | undefined {
+  if (!recipients || recipients.length === 0) return undefined;
+
+  const formatted = recipients
+    .map((recipient) =>
+      formatEmailWithName(
+        recipient.emailAddress?.name,
+        recipient.emailAddress?.address,
+      ),
+    )
+    .filter(Boolean)
+    .join(", ");
+
+  return formatted || undefined;
+}
+
 export function convertMessage(
   message: Message,
   folderIds: Record<string, string> = {},
@@ -510,10 +536,12 @@ export function convertMessage(
     textHtml: message.body?.content || "",
     headers: {
       from:
-        message.from?.emailAddress?.name && message.from?.emailAddress?.address
-          ? `${message.from.emailAddress.name} <${message.from.emailAddress.address}>`
-          : message.from?.emailAddress?.address || "",
-      to: message.toRecipients?.[0]?.emailAddress?.address || "",
+        formatEmailWithName(
+          message.from?.emailAddress?.name,
+          message.from?.emailAddress?.address,
+        ) || "",
+      to: formatRecipientsList(message.toRecipients) || "",
+      cc: formatRecipientsList(message.ccRecipients),
       subject: message.subject || "",
       date: message.receivedDateTime || new Date().toISOString(),
     },

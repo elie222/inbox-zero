@@ -3,7 +3,7 @@ import type { Message } from "@microsoft/microsoft-graph-types";
 import type { ParsedMessage } from "@/utils/types";
 import { escapeODataString } from "@/utils/outlook/odata-escape";
 import { createScopedLogger } from "@/utils/logger";
-import { convertMessage } from "@/utils/outlook/message";
+import { convertMessage, createMessagesRequest } from "@/utils/outlook/message";
 import { withOutlookRetry } from "@/utils/outlook/retry";
 
 const logger = createScopedLogger("outlook/thread");
@@ -17,13 +17,8 @@ export async function getThread(
 
   try {
     const messages: { value: Message[] } = await withOutlookRetry(() =>
-      client
-        .getClient()
-        .api("/me/messages")
+      createMessagesRequest(client)
         .filter(filter)
-        .select(
-          "id,conversationId,conversationIndex,subject,bodyPreview,from,sender,toRecipients,receivedDateTime,isDraft,isRead,body,categories,parentFolderId",
-        )
         .top(100) // Get up to 100 messages instead of default 10
         .get(),
     );

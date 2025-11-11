@@ -7,6 +7,7 @@ import {
   queryBatchMessages,
   getFolderIds,
   convertMessage,
+  MESSAGE_SELECT_FIELDS,
 } from "@/utils/outlook/message";
 import {
   getLabels,
@@ -267,9 +268,7 @@ export class OutlookProvider implements EmailProvider {
     // Get messages from Microsoft Graph API (well-known Sent Items folder)
     let request = client
       .api("/me/mailFolders('sentitems')/messages")
-      .select(
-        "id,conversationId,subject,bodyPreview,receivedDateTime,from,toRecipients",
-      )
+      .select(MESSAGE_SELECT_FIELDS)
       .top(maxResults)
       .orderby("receivedDateTime desc");
 
@@ -514,9 +513,7 @@ export class OutlookProvider implements EmailProvider {
         .filter(
           `conversationId eq '${escapedThreadId}' and parentFolderId eq 'inbox'`,
         )
-        .select(
-          "id,conversationId,subject,bodyPreview,receivedDateTime,from,toRecipients,body,isDraft,categories,parentFolderId",
-        )
+        .select(MESSAGE_SELECT_FIELDS)
         .get();
 
       // Convert to ParsedMessage format using existing helper
@@ -1072,9 +1069,7 @@ export class OutlookProvider implements EmailProvider {
     // Build the request
     let request = client
       .api(endpoint)
-      .select(
-        "id,conversationId,conversationIndex,subject,bodyPreview,from,toRecipients,receivedDateTime,isDraft,body,categories,parentFolderId",
-      )
+      .select(MESSAGE_SELECT_FIELDS)
       .top(options.maxResults || 50);
 
     if (filter) {
