@@ -528,12 +528,19 @@ export function convertMessage(
   message: Message,
   folderIds: Record<string, string> = {},
 ): ParsedMessage {
+  const bodyContent = message.body?.content || "";
+  const bodyType = message.body?.contentType?.toLowerCase() as
+    | "text"
+    | "html"
+    | undefined;
+
   return {
     id: message.id || "",
     threadId: message.conversationId || "",
     snippet: message.bodyPreview || "",
-    textPlain: message.body?.content || "",
-    textHtml: message.body?.content || "",
+    textPlain: bodyContent,
+    textHtml: bodyContent,
+    bodyContentType: bodyType,
     headers: {
       from:
         formatEmailWithName(

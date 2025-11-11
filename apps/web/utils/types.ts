@@ -59,6 +59,7 @@ export interface ParsedMessage {
   date: string;
   conversationIndex?: string | null;
   internalDate?: string | null;
+  bodyContentType?: "text" | "html"; // For Outlook: indicates which format the body was originally in
 }
 
 export interface Attachment {

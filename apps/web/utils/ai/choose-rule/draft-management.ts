@@ -3,6 +3,7 @@ import { ActionType } from "@prisma/client";
 import type { ExecutedRule } from "@prisma/client";
 import type { Logger } from "@/utils/logger";
 import type { EmailProvider } from "@/utils/email/types";
+import { convertEmailHtmlToText } from "@/utils/mail";
 
 /**
  * Handles finding and potentially deleting a previous AI-generated draft for a thread.
@@ -50,6 +51,18 @@ export async function handlePreviousDraftDeletion({
       );
 
       if (currentDraftDetails?.textPlain) {
+        // Get text content - convert from HTML if needed based on bodyContentType
+        let currentText: string;
+        if (currentDraftDetails.bodyContentType === "html") {
+          // Outlook HTML body - convert to plain text for comparison
+          currentText = convertEmailHtmlToText({
+            htmlText: currentDraftDetails.textPlain,
+          });
+        } else {
+          // Plain text body (or Gmail which provides both formats)
+          currentText = currentDraftDetails.textPlain;
+        }
+
         // Basic comparison: Compare original content with current plain text
         // Try multiple quote header patterns
         const quoteHeaderPatterns = [
@@ -59,7 +72,7 @@ export async function handlePreviousDraftDeletion({
           /\n\nFrom: .*/,
         ];
 
-        let currentReplyContent = currentDraftDetails.textPlain;
+        let currentReplyContent = currentText;
         for (const pattern of quoteHeaderPatterns) {
           const parts = currentReplyContent.split(pattern);
           if (parts.length > 1) {
@@ -71,7 +84,7 @@ export async function handlePreviousDraftDeletion({
 
         const originalContent = previousDraftAction.content?.trim();
 
-        logger.info("Comparing draft content", {
+        logger.trace("Comparing draft content", {
           original: originalContent,
           current: currentReplyContent,
         });
