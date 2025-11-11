@@ -8,6 +8,7 @@ interface DisplayCardProps {
   children: React.ReactNode;
   centerContent?: boolean;
   className?: string;
+  cardHeaderClassName?: string;
 }
 
 export function DisplayCard({
@@ -17,6 +18,7 @@ export function DisplayCard({
   children,
   centerContent = false,
   className,
+  cardHeaderClassName,
 }: DisplayCardProps) {
   return (
     <Card
@@ -25,6 +27,7 @@ export function DisplayCard({
       icon={icon}
       className={cx("overflow-hidden h-full", className)}
       variant="extra-rounding"
+      cardHeaderClassName={cardHeaderClassName}
     >
       <div
         className={cx(

@@ -15,6 +15,7 @@ interface CardHeaderProps {
   icon?: React.ReactNode;
   addon?: React.ReactNode;
   description?: string;
+  className?: string;
 }
 
 export function CardHeader({
@@ -22,9 +23,10 @@ export function CardHeader({
   icon,
   addon,
   description,
+  className,
 }: CardHeaderProps) {
   return (
-    <CardContent>
+    <CardContent className={className}>
       {title || addon ? (
         <div className="flex items-center justify-between">
           {icon}
@@ -53,21 +55,23 @@ export function CardHeader({
 interface CardProps {
   children: React.ReactNode;
   variant?: "default" | "extra-rounding" | "circle";
-  className?: string;
   icon?: React.ReactNode;
   addon?: React.ReactNode;
   title?: string;
   description?: string;
+  className?: string;
+  cardHeaderClassName?: string;
 }
 
 export function Card({
   children,
   variant = "default",
-  className,
   icon,
   addon,
   title,
   description,
+  className,
+  cardHeaderClassName,
 }: CardProps) {
   const cardVariants = cva(
     [
@@ -91,6 +95,7 @@ export function Card({
           icon={icon}
           addon={addon}
           description={description}
+          className={cardHeaderClassName}
         />
       ) : null}
       {children}
