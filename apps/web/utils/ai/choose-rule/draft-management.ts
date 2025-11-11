@@ -62,11 +62,13 @@ export async function handlePreviousDraftDeletion({
       return;
     }
 
-    const isUnmodified = isDraftUnmodified({
-      originalContent: previousDraftAction.content,
-      currentDraft: currentDraftDetails,
-      logger,
-    });
+    const isUnmodified =
+      !previousDraftAction.content ||
+      isDraftUnmodified({
+        originalContent: previousDraftAction.content,
+        currentDraft: currentDraftDetails,
+        logger,
+      });
 
     if (isUnmodified) {
       logger.info("Draft content matches, deleting draft.");
@@ -163,17 +165,18 @@ export function isDraftUnmodified({
   currentDraft,
   logger,
 }: {
-  originalContent: string | null | undefined;
+  originalContent: string;
   currentDraft: ParsedMessage;
   logger: Logger;
 }): boolean {
   const currentText = extractDraftPlainText(currentDraft);
   const currentReplyContent = stripQuotedContent(currentText);
 
-  const originalWithBr = originalContent?.replace(/\n/g, "<br>") || "";
-  const originalContentPlain = originalWithBr
-    ? convertEmailHtmlToText({ htmlText: originalWithBr, includeLinks: false })
-    : "";
+  const originalWithBr = originalContent.replace(/\n/g, "<br>");
+  const originalContentPlain = convertEmailHtmlToText({
+    htmlText: originalWithBr,
+    includeLinks: false,
+  });
   const originalContentTrimmed = originalContentPlain.trim();
 
   logger.trace("Comparing draft content", {

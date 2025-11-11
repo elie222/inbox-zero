@@ -279,6 +279,46 @@ describe("handlePreviousDraftDeletion", () => {
       data: { wasDraftSent: false },
     });
   });
+
+  it("should not delete when draft has extra user content", async () => {
+    const mockPreviousDraft = {
+      id: "action-111",
+      draftId: "draft-222",
+      content: "Original AI draft",
+    };
+
+    const mockCurrentDraft: ParsedMessage = {
+      id: "msg-123",
+      threadId: "thread-456",
+      textPlain:
+        "Original AI draft\n\nUser added this extra paragraph.\n\nOn Monday wrote:\n> Quote",
+      textHtml: undefined,
+      subject: "subject",
+      date: new Date().toISOString(),
+      snippet: "snippet",
+      historyId: "12345",
+      internalDate: "1234567890",
+      headers: {
+        from: "test@example.com",
+        to: "recipient@example.com",
+        subject: "Test",
+        date: "Mon, 1 Jan 2024 12:00:00 +0000",
+      },
+      labelIds: [],
+      inline: [],
+    };
+
+    mockFindFirst.mockResolvedValue(mockPreviousDraft);
+    mockGetDraft.mockResolvedValue(mockCurrentDraft);
+
+    await handlePreviousDraftDeletion({
+      client: mockClient,
+      executedRule: mockExecutedRule,
+      logger,
+    });
+
+    expect(mockDeleteDraft).not.toHaveBeenCalled();
+  });
 });
 
 describe("extractDraftPlainText", () => {
@@ -389,6 +429,62 @@ describe("extractDraftPlainText", () => {
     const result = extractDraftPlainText(draft);
     expect(result).toBe("");
   });
+
+  it("should handle empty string textPlain", () => {
+    const draft: ParsedMessage = {
+      id: "msg-123",
+      threadId: "thread-456",
+      textPlain: "",
+      textHtml: undefined,
+      subject: "subject",
+      date: new Date().toISOString(),
+      snippet: "snippet",
+      historyId: "12345",
+      internalDate: "1234567890",
+      headers: {
+        from: "test@example.com",
+        to: "recipient@example.com",
+        subject: "Test",
+        date: "Mon, 1 Jan 2024 12:00:00 +0000",
+      },
+      labelIds: [],
+      inline: [],
+    };
+
+    const result = extractDraftPlainText(draft);
+    expect(result).toBe("");
+  });
+
+  it("should handle Outlook HTML with complex formatting", () => {
+    const draft: ParsedMessage = {
+      id: "msg-123",
+      threadId: "thread-456",
+      textPlain:
+        '<html><body><div><strong>Bold</strong> and <em>italic</em> and <a href="http://example.com">link</a></div></body></html>',
+      textHtml: undefined,
+      subject: "subject",
+      date: new Date().toISOString(),
+      snippet: "snippet",
+      historyId: "12345",
+      internalDate: "1234567890",
+      headers: {
+        from: "test@example.com",
+        to: "recipient@example.com",
+        subject: "Test",
+        date: "Mon, 1 Jan 2024 12:00:00 +0000",
+      },
+      labelIds: [],
+      inline: [],
+      bodyContentType: "html",
+    };
+
+    const result = extractDraftPlainText(draft);
+    expect(result).toContain("Bold");
+    expect(result).toContain("italic");
+    expect(result).toContain("link");
+    expect(result).not.toContain("<strong>");
+    expect(result).not.toContain("http://example.com");
+  });
 });
 
 describe("stripQuotedContent", () => {
@@ -431,6 +527,24 @@ describe("stripQuotedContent", () => {
   it("should only strip after first matching pattern", () => {
     const text =
       "My reply\n\nOn Monday wrote:\n> Quote 1\n\nFrom: test@example.com\n> Quote 2";
+    const result = stripQuotedContent(text);
+    expect(result).toBe("My reply");
+  });
+
+  it("should handle text with newlines but no quotes", () => {
+    const text = "Line 1\nLine 2\nLine 3";
+    const result = stripQuotedContent(text);
+    expect(result).toBe("Line 1\nLine 2\nLine 3");
+  });
+
+  it("should handle text that looks like a quote but isn't (single newline)", () => {
+    const text = "My reply\nOn Monday wrote: something";
+    const result = stripQuotedContent(text);
+    expect(result).toBe("My reply\nOn Monday wrote: something");
+  });
+
+  it("should handle multiple consecutive newlines", () => {
+    const text = "My reply\n\n\n\nOn Monday wrote:\n> Quote";
     const result = stripQuotedContent(text);
     expect(result).toBe("My reply");
   });
@@ -536,7 +650,38 @@ describe("isDraftUnmodified", () => {
     expect(result).toBe(true);
   });
 
-  it("should return false when original content is null", () => {
+  it("should handle whitespace differences", () => {
+    const originalContent = "  Hello, this is a test  ";
+    const currentDraft: ParsedMessage = {
+      id: "msg-123",
+      threadId: "thread-456",
+      textPlain: "Hello, this is a test\n\nOn Monday wrote:\n> Quote",
+      textHtml: undefined,
+      subject: "subject",
+      date: new Date().toISOString(),
+      snippet: "snippet",
+      historyId: "12345",
+      internalDate: "1234567890",
+      headers: {
+        from: "test@example.com",
+        to: "recipient@example.com",
+        subject: "Test",
+        date: "Mon, 1 Jan 2024 12:00:00 +0000",
+      },
+      labelIds: [],
+      inline: [],
+    };
+
+    const result = isDraftUnmodified({
+      originalContent,
+      currentDraft,
+      logger,
+    });
+
+    expect(result).toBe(true);
+  });
+
+  it("should return false when original content is empty string", () => {
     const currentDraft: ParsedMessage = {
       id: "msg-123",
       threadId: "thread-456",
@@ -558,7 +703,7 @@ describe("isDraftUnmodified", () => {
     };
 
     const result = isDraftUnmodified({
-      originalContent: null,
+      originalContent: "",
       currentDraft,
       logger,
     });
@@ -566,12 +711,201 @@ describe("isDraftUnmodified", () => {
     expect(result).toBe(false);
   });
 
-  it("should handle whitespace differences", () => {
-    const originalContent = "  Hello, this is a test  ";
+  it("should handle different quote patterns", () => {
+    const originalContent = "My response";
     const currentDraft: ParsedMessage = {
       id: "msg-123",
       threadId: "thread-456",
-      textPlain: "Hello, this is a test\n\nOn Monday wrote:\n> Quote",
+      textPlain: "My response\n\n---- Original Message ----\nFrom: test",
+      textHtml: undefined,
+      subject: "subject",
+      date: new Date().toISOString(),
+      snippet: "snippet",
+      historyId: "12345",
+      internalDate: "1234567890",
+      headers: {
+        from: "test@example.com",
+        to: "recipient@example.com",
+        subject: "Test",
+        date: "Mon, 1 Jan 2024 12:00:00 +0000",
+      },
+      labelIds: [],
+      inline: [],
+    };
+
+    const result = isDraftUnmodified({
+      originalContent,
+      currentDraft,
+      logger,
+    });
+
+    expect(result).toBe(true);
+  });
+
+  it("should handle special characters in content", () => {
+    const originalContent = "Reply with émojis 🎉 and spëcial çhars!";
+    const currentDraft: ParsedMessage = {
+      id: "msg-123",
+      threadId: "thread-456",
+      textPlain:
+        "Reply with émojis 🎉 and spëcial çhars!\n\nOn Monday wrote:\n> Quote",
+      textHtml: undefined,
+      subject: "subject",
+      date: new Date().toISOString(),
+      snippet: "snippet",
+      historyId: "12345",
+      internalDate: "1234567890",
+      headers: {
+        from: "test@example.com",
+        to: "recipient@example.com",
+        subject: "Test",
+        date: "Mon, 1 Jan 2024 12:00:00 +0000",
+      },
+      labelIds: [],
+      inline: [],
+    };
+
+    const result = isDraftUnmodified({
+      originalContent,
+      currentDraft,
+      logger,
+    });
+
+    expect(result).toBe(true);
+  });
+
+  it("should handle content with multiple paragraph breaks", () => {
+    const originalContent = "Paragraph 1\n\nParagraph 2\n\nParagraph 3";
+    const currentDraft: ParsedMessage = {
+      id: "msg-123",
+      threadId: "thread-456",
+      textPlain:
+        "Paragraph 1\n\nParagraph 2\n\nParagraph 3\n\nOn Monday wrote:\n> Quote",
+      textHtml: undefined,
+      subject: "subject",
+      date: new Date().toISOString(),
+      snippet: "snippet",
+      historyId: "12345",
+      internalDate: "1234567890",
+      headers: {
+        from: "test@example.com",
+        to: "recipient@example.com",
+        subject: "Test",
+        date: "Mon, 1 Jan 2024 12:00:00 +0000",
+      },
+      labelIds: [],
+      inline: [],
+    };
+
+    const result = isDraftUnmodified({
+      originalContent,
+      currentDraft,
+      logger,
+    });
+
+    expect(result).toBe(true);
+  });
+
+  it("should detect modification when user adds content before quote", () => {
+    const originalContent = "Original text";
+    const currentDraft: ParsedMessage = {
+      id: "msg-123",
+      threadId: "thread-456",
+      textPlain:
+        "Original text\n\nUser added this\n\nOn Monday wrote:\n> Quote",
+      textHtml: undefined,
+      subject: "subject",
+      date: new Date().toISOString(),
+      snippet: "snippet",
+      historyId: "12345",
+      internalDate: "1234567890",
+      headers: {
+        from: "test@example.com",
+        to: "recipient@example.com",
+        subject: "Test",
+        date: "Mon, 1 Jan 2024 12:00:00 +0000",
+      },
+      labelIds: [],
+      inline: [],
+    };
+
+    const result = isDraftUnmodified({
+      originalContent,
+      currentDraft,
+      logger,
+    });
+
+    expect(result).toBe(false);
+  });
+
+  it("should handle draft without any quoted content", () => {
+    const originalContent = "Just a reply";
+    const currentDraft: ParsedMessage = {
+      id: "msg-123",
+      threadId: "thread-456",
+      textPlain: "Just a reply",
+      textHtml: undefined,
+      subject: "subject",
+      date: new Date().toISOString(),
+      snippet: "snippet",
+      historyId: "12345",
+      internalDate: "1234567890",
+      headers: {
+        from: "test@example.com",
+        to: "recipient@example.com",
+        subject: "Test",
+        date: "Mon, 1 Jan 2024 12:00:00 +0000",
+      },
+      labelIds: [],
+      inline: [],
+    };
+
+    const result = isDraftUnmodified({
+      originalContent,
+      currentDraft,
+      logger,
+    });
+
+    expect(result).toBe(true);
+  });
+
+  it("should be case-sensitive", () => {
+    const originalContent = "Hello World";
+    const currentDraft: ParsedMessage = {
+      id: "msg-123",
+      threadId: "thread-456",
+      textPlain: "hello world\n\nOn Monday wrote:\n> Quote",
+      textHtml: undefined,
+      subject: "subject",
+      date: new Date().toISOString(),
+      snippet: "snippet",
+      historyId: "12345",
+      internalDate: "1234567890",
+      headers: {
+        from: "test@example.com",
+        to: "recipient@example.com",
+        subject: "Test",
+        date: "Mon, 1 Jan 2024 12:00:00 +0000",
+      },
+      labelIds: [],
+      inline: [],
+    };
+
+    const result = isDraftUnmodified({
+      originalContent,
+      currentDraft,
+      logger,
+    });
+
+    expect(result).toBe(false);
+  });
+
+  it("should handle draft with only whitespace as reply", () => {
+    const originalContent = "   ";
+    const currentDraft: ParsedMessage = {
+      id: "msg-123",
+      threadId: "thread-456",
+      textPlain: "   \n\nOn Monday wrote:\n> Quote",
       textHtml: undefined,
       subject: "subject",
       date: new Date().toISOString(),
