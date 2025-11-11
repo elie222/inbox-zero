@@ -30,7 +30,7 @@ import { cx } from "class-variance-authority";
 import { type Tier, tiers } from "@/app/(app)/premium/config";
 import { Briefcase } from "@/components/new-landing/icons/Briefcase";
 
-type TierAddon = {
+type PricingTier = Tier & {
   badges?: {
     message: string;
     variant?: BadgeVariant;
@@ -44,8 +44,9 @@ type TierAddon = {
   icon: React.ReactNode;
 };
 
-const tierAddons: TierAddon[] = [
+const pricingTiers: PricingTier[] = [
   {
+    ...tiers[0],
     badges: [
       { message: "Save 10%", annualOnly: true },
       { message: "Popular", variant: "green" },
@@ -56,6 +57,7 @@ const tierAddons: TierAddon[] = [
     icon: <Briefcase />,
   },
   {
+    ...tiers[1],
     badges: [{ message: "Save 16%", annualOnly: true }],
     button: {
       variant: "secondary-two",
@@ -64,6 +66,7 @@ const tierAddons: TierAddon[] = [
     icon: <Zap />,
   },
   {
+    ...tiers[2],
     button: {
       variant: "secondary-two",
       content: "Speak to sales",
@@ -108,7 +111,7 @@ export function Pricing() {
           ))}
         </RadioGroup>
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {tiers.map((tier, index) => (
+          {pricingTiers.map((tier, index) => (
             <CardWrapper key={tier.name}>
               <PricingCard
                 tier={tier}
@@ -124,7 +127,7 @@ export function Pricing() {
 }
 
 interface PricingCardProps {
-  tier: Tier;
+  tier: PricingTier;
   tierIndex: number;
   isAnnual: boolean;
 }
@@ -132,24 +135,21 @@ interface PricingCardProps {
 export function PricingCard({ tier, tierIndex, isAnnual }: PricingCardProps) {
   const { name, description, features } = tier;
   const price = isAnnual ? tier.price.annually : tier.price.monthly;
-  const featuresTitle = features.find((feature) =>
-    feature.text.includes("Everything in"),
-  )?.text;
-  const { badges, button, icon } = tierAddons[tierIndex];
+  const isFirstTier = !tierIndex;
 
   return (
     <Card
       title={name}
       description={description}
-      icon={icon}
+      icon={tier.icon}
       variant="extra-rounding"
       addon={
         <div className="h-0 flex items-center gap-1.5">
-          {badges
+          {tier.badges
             ?.filter(({ annualOnly }) => !annualOnly || isAnnual)
-            .map(({ message, variant }) => (
-              <Badge key={message} variant={variant}>
-                {message}
+            .map((badge) => (
+              <Badge key={badge.message} variant={badge.variant}>
+                {badge.message}
               </Badge>
             ))}
         </div>
@@ -170,20 +170,20 @@ export function PricingCard({ tier, tierIndex, isAnnual }: PricingCardProps) {
               <Subheading className="font-light">Contact us</Subheading>
             )}
           </div>
-          <Button auto variant={button.variant} icon={button.icon}>
-            {button.content}
+          <Button auto variant={tier.button.variant} icon={tier.button.icon}>
+            {tier.button.content}
           </Button>
         </div>
       </div>
       <CardContent className="border-t border-[#E7E7E780]">
-        {featuresTitle ? (
+        {isFirstTier ? null : (
           <Paragraph size="sm" className="font-medium mb-4">
-            {featuresTitle}
+            {tier.features[0].text}
           </Paragraph>
-        ) : null}
+        )}
         <ul className="space-y-3">
           {features
-            .filter((feature) => feature.text !== featuresTitle)
+            .filter((_, index) => !!isFirstTier || index > 0)
             .map((feature) => (
               <li
                 className="text-gray-500 flex items-center gap-2 text-sm"
