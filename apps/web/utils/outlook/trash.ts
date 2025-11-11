@@ -111,12 +111,11 @@ export async function trashThread(options: {
         const movePromises = threadMessages.map(
           async (message: { id: string }) => {
             try {
-              return await client
-                .getClient()
-                .api(`/me/messages/${message.id}/move`)
-                .post({
+              return await withOutlookRetry(() =>
+                client.getClient().api(`/me/messages/${message.id}/move`).post({
                   destinationId: "deleteditems",
-                });
+                }),
+              );
             } catch (moveError) {
               // Log the error but don't fail the entire operation
               logger.warn("Failed to move message to trash", {
@@ -133,9 +132,11 @@ export async function trashThread(options: {
         await Promise.allSettled(movePromises);
       } else {
         // If no messages found, try treating threadId as a messageId
-        await client.getClient().api(`/me/messages/${threadId}/move`).post({
-          destinationId: "deleteditems",
-        });
+        await withOutlookRetry(() =>
+          client.getClient().api(`/me/messages/${threadId}/move`).post({
+            destinationId: "deleteditems",
+          }),
+        );
       }
 
       // Publish the delete action

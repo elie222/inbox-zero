@@ -93,13 +93,12 @@ export async function createLabel({
         ? color
         : OUTLOOK_COLORS[Math.floor(Math.random() * OUTLOOK_COLORS.length)];
 
-    const response: OutlookCategory = await client
-      .getClient()
-      .api("/me/outlook/masterCategories")
-      .post({
+    const response: OutlookCategory = await withOutlookRetry(() =>
+      client.getClient().api("/me/outlook/masterCategories").post({
         displayName: name,
         color: outlookColor,
-      });
+      }),
+    );
     return response;
   } catch (error) {
     const errorMessage =
@@ -201,9 +200,11 @@ export async function labelMessage({
   messageId: string;
   categories: string[];
 }) {
-  return client.getClient().api(`/me/messages/${messageId}`).patch({
-    categories,
-  });
+  return withOutlookRetry(() =>
+    client.getClient().api(`/me/messages/${messageId}`).patch({
+      categories,
+    }),
+  );
 }
 
 export async function labelThread({
@@ -268,10 +269,12 @@ export async function removeThreadLabel({
         );
 
         try {
-          await client
-            .getClient()
-            .api(`/me/messages/${message.id}`)
-            .patch({ categories: updatedCategories });
+          await withOutlookRetry(() =>
+            client
+              .getClient()
+              .api(`/me/messages/${message.id}`)
+              .patch({ categories: updatedCategories }),
+          );
         } catch (error) {
           logger.warn("Failed to remove category from message", {
             messageId: message.id,
@@ -418,12 +421,11 @@ export async function archiveThread({
         const movePromises = threadMessages.map(
           async (message: { id: string }) => {
             try {
-              return await client
-                .getClient()
-                .api(`/me/messages/${message.id}/move`)
-                .post({
+              return await withOutlookRetry(() =>
+                client.getClient().api(`/me/messages/${message.id}/move`).post({
                   destinationId: folderId,
-                });
+                }),
+              );
             } catch (moveError) {
               // Log the error but don't fail the entire operation
               logger.warn("Failed to move message to folder", {
@@ -441,9 +443,11 @@ export async function archiveThread({
         await Promise.allSettled(movePromises);
       } else {
         // If no messages found, try treating threadId as a messageId
-        await client.getClient().api(`/me/messages/${threadId}/move`).post({
-          destinationId: folderId,
-        });
+        await withOutlookRetry(() =>
+          client.getClient().api(`/me/messages/${threadId}/move`).post({
+            destinationId: folderId,
+          }),
+        );
       }
 
       // Publish the archive action
@@ -564,12 +568,14 @@ export async function markImportantMessage({
   important: boolean;
 }) {
   // In Outlook, we use the "Important" flag
-  await client
-    .getClient()
-    .api(`/me/messages/${messageId}`)
-    .patch({
-      importance: important ? "high" : "normal",
-    });
+  await withOutlookRetry(() =>
+    client
+      .getClient()
+      .api(`/me/messages/${messageId}`)
+      .patch({
+        importance: important ? "high" : "normal",
+      }),
+  );
 }
 
 export async function getOrCreateInboxZeroLabel({
