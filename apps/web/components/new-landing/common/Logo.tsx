@@ -1,4 +1,5 @@
 import Image from "next/image";
+import Link from "next/link";
 
 interface LogoProps {
   variant?: "default" | "mobile" | "glass";
@@ -67,12 +68,15 @@ function MobileLogo() {
 }
 
 export function Logo({ variant = "default" }: LogoProps) {
-  switch (variant) {
-    case "glass":
-      return <GlassLogo />;
-    case "mobile":
-      return <MobileLogo />;
-    default:
-      return <DefaultLogo />;
-  }
+  return (
+    <Link href="/">
+      {variant === "default" ? (
+        <DefaultLogo />
+      ) : variant === "mobile" ? (
+        <MobileLogo />
+      ) : (
+        <GlassLogo />
+      )}
+    </Link>
+  );
 }
