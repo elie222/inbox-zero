@@ -4,7 +4,7 @@ import type { Attachment } from "nodemailer/lib/mailer";
 import type { SendEmailBody } from "@/utils/gmail/mail";
 import type { ParsedMessage } from "@/utils/types";
 import type { EmailForAction } from "@/utils/ai/types";
-import { createReplyContent } from "@/utils/gmail/reply";
+import { createOutlookReplyContent } from "@/utils/outlook/reply";
 import { forwardEmailHtml, forwardEmailSubject } from "@/utils/gmail/forward";
 import { buildReplyAllRecipients } from "@/utils/email/reply-all";
 import { withOutlookRetry } from "@/utils/outlook/retry";
@@ -69,7 +69,7 @@ export async function replyToEmail(
   message: EmailForAction,
   reply: string,
 ) {
-  const { html } = createReplyContent({
+  const { html } = createOutlookReplyContent({
     textContent: reply,
     message,
   });
@@ -171,7 +171,7 @@ export async function draftEmail(
   },
   userEmail: string,
 ) {
-  const { html } = createReplyContent({
+  const { html } = createOutlookReplyContent({
     textContent: args.content,
     message: originalEmail,
   });
