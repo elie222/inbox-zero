@@ -1,6 +1,5 @@
 "use client";
 
-import { Briefcase } from "@/components/new-landing/icons/Briefcase";
 import { Sparkle } from "@/components/new-landing/icons/Sparkle";
 import { Zap } from "@/components/new-landing/icons/Zap";
 import { Check } from "@/components/new-landing/icons/Check";
@@ -28,34 +27,25 @@ import { Chat } from "@/components/new-landing/icons/Chat";
 import { useState } from "react";
 import { Label, Radio, RadioGroup } from "@headlessui/react";
 import { cx } from "class-variance-authority";
+import { type Tier, tiers } from "@/app/(app)/premium/config";
+import { Briefcase } from "@/components/new-landing/icons/Briefcase";
 
-type PricingPlan = {
-  title: string;
-  description: string;
-  icon: React.ReactNode;
-  badges?: { message: string; variant?: BadgeVariant; annualOnly?: boolean }[];
+type TierAddon = {
+  badges?: {
+    message: string;
+    variant?: BadgeVariant;
+    annualOnly?: boolean;
+  }[];
   button: {
     content: string;
     variant?: ButtonVariant;
     icon?: React.ReactNode;
   };
-  prices?: {
-    month: number;
-    annual: number;
-  };
-  features: {
-    title?: string;
-    checkVariant?: "primary" | "secondary";
-    items: string[];
-  };
+  icon: React.ReactNode;
 };
 
-const plans: PricingPlan[] = [
+const tierAddons: TierAddon[] = [
   {
-    title: "Starter",
-    description:
-      "For individuals and entrepreneurs looking to buy back their time.",
-    icon: <Briefcase />,
     badges: [
       { message: "Save 10%", annualOnly: true },
       { message: "Popular", variant: "green" },
@@ -63,59 +53,23 @@ const plans: PricingPlan[] = [
     button: {
       content: "Try free for 7 days",
     },
-    prices: { month: 20, annual: 18 },
-    features: {
-      items: [
-        "Sorts and labels every email",
-        "Drafts replies in your voice",
-        "Blocks cold emails",
-        "Bulk unsubscribe",
-        "Email analytics",
-      ],
-    },
+    icon: <Briefcase />,
   },
   {
-    title: "Professional",
-    description:
-      "For teams and growing businesses handling high email volumes.",
-    icon: <Zap />,
     badges: [{ message: "Save 16%", annualOnly: true }],
     button: {
       variant: "secondary-two",
       content: "Try free for 7 days",
     },
-    prices: { month: 50, annual: 42 },
-    features: {
-      title: "Everything in Starter, plus:",
-      checkVariant: "secondary",
-      items: [
-        "Unlimited knowledge base",
-        "Team-wide analytics",
-        "Priority support",
-        "Dedicated onboarding manager",
-      ],
-    },
+    icon: <Zap />,
   },
   {
-    title: "Enterprise",
-    description:
-      "For organizations with enterprise-grade security requirements.",
-    icon: <Sparkle />,
     button: {
       variant: "secondary-two",
       content: "Speak to sales",
       icon: <Chat />,
     },
-    features: {
-      title: "Everything in Professional, plus:",
-      checkVariant: "secondary",
-      items: [
-        "SSO Login",
-        "On-premise deployment (optional)",
-        "Advanced security & SLA",
-        "Dedicated manager & training",
-      ],
-    },
+    icon: <Sparkle />,
   },
 ];
 
@@ -154,9 +108,13 @@ export function Pricing() {
           ))}
         </RadioGroup>
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {plans.map((plan) => (
-            <CardWrapper key={plan.title}>
-              <PricingCard plan={plan} isAnnual={frequency === "annually"} />
+          {tiers.map((tier, index) => (
+            <CardWrapper key={tier.name}>
+              <PricingCard
+                tier={tier}
+                tierIndex={index}
+                isAnnual={frequency === "annually"}
+              />
             </CardWrapper>
           ))}
         </div>
@@ -166,17 +124,22 @@ export function Pricing() {
 }
 
 interface PricingCardProps {
-  plan: PricingPlan;
+  tier: Tier;
+  tierIndex: number;
   isAnnual: boolean;
 }
 
-export function PricingCard({ plan, isAnnual }: PricingCardProps) {
-  const { title, description, icon, badges, prices, features, button } = plan;
-  const price = isAnnual ? prices?.annual : prices?.month;
+export function PricingCard({ tier, tierIndex, isAnnual }: PricingCardProps) {
+  const { name, description, features } = tier;
+  const price = isAnnual ? tier.price.annually : tier.price.monthly;
+  const featuresTitle = features.find((feature) =>
+    feature.text.includes("Everything in"),
+  )?.text;
+  const { badges, button, icon } = tierAddons[tierIndex];
 
   return (
     <Card
-      title={title}
+      title={name}
       description={description}
       icon={icon}
       addon={
@@ -212,29 +175,25 @@ export function PricingCard({ plan, isAnnual }: PricingCardProps) {
         </div>
       </div>
       <CardContent className="border-t border-[#E7E7E780]">
-        {features.title ? (
+        {featuresTitle ? (
           <Paragraph size="sm" className="font-medium mb-4">
-            {features.title}
+            {featuresTitle}
           </Paragraph>
         ) : null}
         <ul className="space-y-3">
-          {features.items.map((item) => (
-            <li
-              className="text-gray-500 flex items-center gap-2 text-sm"
-              key={item}
-            >
-              <div
-                className={cx(
-                  features.checkVariant === "secondary"
-                    ? "text-gray-400"
-                    : "text-blue-500",
-                )}
+          {features
+            .filter((feature) => feature.text !== featuresTitle)
+            .map((feature) => (
+              <li
+                className="text-gray-500 flex items-center gap-2 text-sm"
+                key={feature.text}
               >
-                <Check />
-              </div>
-              {item}
-            </li>
-          ))}
+                <div className={tierIndex ? "text-gray-400" : "text-blue-500"}>
+                  <Check />
+                </div>
+                {feature.text}
+              </li>
+            ))}
         </ul>
       </CardContent>
     </Card>
