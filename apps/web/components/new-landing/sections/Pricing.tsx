@@ -189,7 +189,7 @@ export function PricingCard({ tier, tierIndex, isAnnual }: PricingCardProps) {
                 className="text-gray-500 flex items-center gap-2 text-sm"
                 key={feature.text}
               >
-                <div className={tierIndex ? "text-gray-400" : "text-blue-500"}>
+                <div className="text-blue-500">
                   <Check />
                 </div>
                 {feature.text}
