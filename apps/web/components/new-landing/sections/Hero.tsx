@@ -106,7 +106,7 @@ export function HeroVideoPlayer() {
           src="/images/new-landing/video-thumbnail-transparent.png"
           // src="/images/new-landing/video-thumbnail.png"
           alt="an organized inbox"
-          width={1000}
+          width={2000}
           height={1000}
           className="w-full"
         />
