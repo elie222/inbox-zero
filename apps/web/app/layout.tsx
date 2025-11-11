@@ -6,7 +6,7 @@ import { SpeedInsights } from "@vercel/speed-insights/next";
 import { AxiomWebVitals } from "next-axiom";
 import { GoogleTagManager } from "@next/third-parties/google";
 import { Analytics as DubAnalytics } from "@dub/analytics/react";
-import { Inter } from "next/font/google";
+import { Inter, Geist } from "next/font/google";
 import localFont from "next/font/local";
 import type { WebApplication, WithContext } from "schema-dts";
 import "../styles/globals.css";
@@ -27,6 +27,18 @@ const calFont = localFont({
   src: "../styles/CalSans-SemiBold.woff2",
   variable: "--font-cal",
   preload: true,
+  display: "swap",
+});
+const aeonikFont = localFont({
+  src: "../styles/aeonik-medium.woff",
+  variable: "--font-aeonik",
+  preload: true,
+  display: "swap",
+});
+const geist = Geist({
+  subsets: ["latin"],
+  variable: "--font-geist",
+  weight: ["100", "200", "300", "400", "500", "600", "700", "800", "900"],
   display: "swap",
 });
 
@@ -130,7 +142,7 @@ export default async function RootLayout({
   return (
     <html lang="en" className="h-full" suppressHydrationWarning>
       <body
-        className={`h-full ${inter.variable} ${calFont.variable} font-sans antialiased`}
+        className={`h-full ${inter.variable} ${calFont.variable} ${aeonikFont.variable} ${geist.variable} font-sans antialiased`}
       >
         <Script
           id="json-ld"

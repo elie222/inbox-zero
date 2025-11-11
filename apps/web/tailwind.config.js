@@ -30,14 +30,22 @@ module.exports = {
           from: { height: "var(--radix-accordion-content-height)" },
           to: { height: 0 },
         },
+        marquee: {
+          from: { transform: "translateX(0)" },
+          to: { transform: "translateX(calc(-200% - var(--gap)))" },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
+        marquee: "marquee var(--duration) linear infinite",
+        "marquee-reverse": "marquee-reverse var(--duration) linear infinite",
       },
       fontFamily: {
         cal: ["var(--font-cal)", ...fontFamily.sans],
         sans: ["var(--font-inter)", ...fontFamily.sans],
+        aeonik: ["var(--font-aeonik)", ...fontFamily.sans],
+        geist: ["var(--font-geist)", ...fontFamily.sans],
       },
       colors: {
         // shadcn/ui
