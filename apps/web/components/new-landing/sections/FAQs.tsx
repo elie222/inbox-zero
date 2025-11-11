@@ -9,6 +9,7 @@ import {
   Paragraph,
   SectionHeading,
 } from "@/components/new-landing/common/Typography";
+import { env } from "@/env";
 
 const faqs = [
   {
@@ -50,8 +51,8 @@ const faqs = [
     answer: (
       <span>
         Yes, if you don't think we provided you with value send us an{" "}
-        <Anchor href="mailto:elie@getinboxzero.com">email</Anchor> within 14
-        days of upgrading and we'll refund you.
+        <Anchor href={`mailto:${env.NEXT_PUBLIC_SUPPORT_EMAIL}`}>email</Anchor>{" "}
+        within 14 days of upgrading and we'll refund you.
       </span>
     ),
   },
