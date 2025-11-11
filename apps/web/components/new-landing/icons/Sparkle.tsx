@@ -1,11 +1,28 @@
-export function Sparkle() {
+import type { SVGProps } from "react";
+
+interface SparkleProps extends SVGProps<SVGSVGElement> {
+  size?: number;
+  "aria-label"?: string;
+}
+
+export function Sparkle({
+  size = 15,
+  className,
+  "aria-label": ariaLabel,
+  ...props
+}: SparkleProps) {
   return (
     <svg
-      width="15"
-      height="15"
+      width={size}
+      height={size}
       viewBox="0 0 15 15"
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
+      className={className}
+      role={ariaLabel ? "img" : undefined}
+      aria-label={ariaLabel}
+      aria-hidden={ariaLabel ? undefined : true}
+      {...props}
     >
       <path
         d="M10 4.66667C10 4.29848 9.70152 4 9.33333 4C8.96514 4 8.66667 4.29848 8.66667 4.66667C8.66667 6.20566 8.32613 7.16162 7.74387 7.74387C7.16162 8.32613 6.20566 8.66667 4.66667 8.66667C4.29848 8.66667 4 8.96514 4 9.33333C4 9.70152 4.29848 10 4.66667 10C6.20566 10 7.16162 10.3405 7.74387 10.9228C8.32613 11.505 8.66667 12.461 8.66667 14C8.66667 14.3682 8.96514 14.6667 9.33333 14.6667C9.70152 14.6667 10 14.3682 10 14C10 12.461 10.3405 11.505 10.9228 10.9228C11.505 10.3405 12.461 10 14 10C14.3682 10 14.6667 9.70152 14.6667 9.33333C14.6667 8.96514 14.3682 8.66667 14 8.66667C12.461 8.66667 11.505 8.32613 10.9228 7.74387C10.3405 7.16162 10 6.20566 10 4.66667Z"
