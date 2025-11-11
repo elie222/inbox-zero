@@ -65,7 +65,10 @@ export function Awards() {
       >
         {awards.map((award) => (
           <CardWrapper padding="sm" rounded="sm" key={award.title}>
-            <Card className="gap-3 h-full relative pt-24 text-center">
+            <Card
+              variant="extra-rounding"
+              className="gap-3 h-full relative pt-24 text-center"
+            >
               <CardContent>
                 <Image
                   className={cn(

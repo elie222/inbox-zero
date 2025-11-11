@@ -142,6 +142,7 @@ export function PricingCard({ tier, tierIndex, isAnnual }: PricingCardProps) {
       title={name}
       description={description}
       icon={icon}
+      variant="extra-rounding"
       addon={
         <div className="h-0 flex items-center gap-1.5">
           {badges

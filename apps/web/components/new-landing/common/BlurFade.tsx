@@ -8,6 +8,7 @@ import {
   type UseInViewOptions,
   type Variants,
 } from "framer-motion";
+import { cx } from "class-variance-authority";
 
 type MarginType = UseInViewOptions["margin"];
 
@@ -44,7 +45,7 @@ export function BlurFade({
   const isInView = !inView || inViewResult;
   const defaultVariants: Variants = {
     hidden: { y: yOffset, opacity: 0, filter: `blur(${blur})` },
-    visible: { y: -yOffset, opacity: 1, filter: "blur(0px)" },
+    visible: { y: 0, opacity: 1, filter: "blur(0px)" },
   };
   const combinedVariants = variant || defaultVariants;
   const MotionComponent = as === "span" ? motion.span : motion.div;
@@ -62,7 +63,7 @@ export function BlurFade({
           duration,
           ease: "easeOut",
         }}
-        className={className}
+        className={cx(className, as === "span" ? "inline-block" : "")}
       >
         {children}
       </MotionComponent>
