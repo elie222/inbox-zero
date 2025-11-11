@@ -102,13 +102,20 @@ export function emailToContent(
 
 export function convertEmailHtmlToText({
   htmlText,
+  includeLinks = true,
 }: {
   htmlText: string;
+  includeLinks?: boolean;
 }): string {
   const plainText = convert(htmlText, {
     wordwrap: 130,
     selectors: [
-      { selector: "a", options: { hideLinkHrefIfSameAsText: true } },
+      {
+        selector: "a",
+        options: includeLinks
+          ? { hideLinkHrefIfSameAsText: true } // Keep link URLs: "Text [URL]"
+          : { ignoreHref: true }, // Remove links entirely: "Text"
+      },
       { selector: "img", format: "skip" },
     ],
   });

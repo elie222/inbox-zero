@@ -8,6 +8,7 @@ import { createReplyContent } from "@/utils/gmail/reply";
 import { forwardEmailHtml, forwardEmailSubject } from "@/utils/gmail/forward";
 import { buildReplyAllRecipients } from "@/utils/email/reply-all";
 import { withOutlookRetry } from "@/utils/outlook/retry";
+import { extractEmailAddress, extractNameFromEmail } from "@/utils/email";
 
 interface OutlookMessageRequest {
   subject: string;
@@ -182,9 +183,20 @@ export async function draftEmail(
     userEmail,
   );
 
+  // Use raw recipients if available (Outlook), otherwise parse from string (Gmail)
+  const toRecipient = originalEmail.rawRecipients?.from || {
+    emailAddress: {
+      address: extractEmailAddress(recipients.to),
+      name: extractNameFromEmail(recipients.to),
+    },
+  };
+
   // Convert CC addresses to Outlook format
   const ccRecipients = recipients.cc.map((addr) => ({
-    emailAddress: { address: addr },
+    emailAddress: {
+      address: extractEmailAddress(addr),
+      name: extractNameFromEmail(addr),
+    },
   }));
 
   // Use createReplyAll endpoint to create a proper reply draft
@@ -212,13 +224,7 @@ export async function draftEmail(
         contentType: "html",
         content: html,
       },
-      toRecipients: [
-        {
-          emailAddress: {
-            address: recipients.to,
-          },
-        },
-      ],
+      toRecipients: [toRecipient],
       ...(ccRecipients.length > 0 ? { ccRecipients } : {}),
     }),
   );
