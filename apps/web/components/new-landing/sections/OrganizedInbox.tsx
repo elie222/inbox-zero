@@ -11,8 +11,10 @@ import Image from "next/image";
 export function OrganizedInbox() {
   return (
     <Section>
-      <SectionHeading wrap>
-        Never miss an important email with an organized inbox
+      <SectionHeading>
+        Automatically organized.
+        <br />
+        Never miss an important email again.
       </SectionHeading>
       <SectionSubtitle>
         Drowning in emails? Don't waste energy trying to prioritize your emails.
