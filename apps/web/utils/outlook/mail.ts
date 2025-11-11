@@ -187,12 +187,12 @@ export async function draftEmail(
     emailAddress: { address: addr },
   }));
 
-  // Use createReply endpoint to create a proper reply draft
-  // This ensures the draft is linked to the original message as a reply
+  // Use createReplyAll endpoint to create a proper reply draft
+  // This ensures the draft is linked to the original message as a reply all
   const replyDraft: Message = await withOutlookRetry(() =>
     client
       .getClient()
-      .api(`/me/messages/${originalEmail.id}/createReply`)
+      .api(`/me/messages/${originalEmail.id}/createReplyAll`)
       .post({}),
   );
 
