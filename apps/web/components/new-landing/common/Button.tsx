@@ -23,7 +23,7 @@ export function Button({
   const buttonVariants = cva(
     [
       "rounded-[13px] font-geist font-medium transition-all will-change-transform",
-      variant === "primary" ? "" : "hover:scale-105",
+      variant === "primary" ? "" : "hover:scale-[104%]",
     ],
     {
       variants: {
@@ -67,7 +67,7 @@ export function Button({
     return (
       <div
         className={cx(
-          "hover:scale-105 transition-all duration-200 will-change-transform",
+          "hover:scale-[104%] transition-all duration-200 will-change-transform",
           "rounded-[14px] p-[1px] bg-gradient-to-b",
           "from-[#5989F0] to-[#578AFA] hover:from-[#4875d0] hover:to-[#396ecc]",
           auto ? "w-full" : "w-fit",
