@@ -23,7 +23,7 @@ export function DisplayCard({
       title={title}
       description={description}
       icon={icon}
-      className={cx("overflow-hidden", className)}
+      className={cx("overflow-hidden h-full", className)}
       variant="extra-rounding"
     >
       <div
