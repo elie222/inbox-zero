@@ -136,9 +136,7 @@ interface FooterProps {
 export function Footer({ className }: FooterProps) {
   return (
     <footer className="relative z-50 border-t border-[#E7E7E7A3] bg-cover bg-center bg-no-repeat overflow-hidden">
-      <div className="absolute top-0 left-0 -z-10 h-full w-full">
-        <UnicornScene />
-      </div>
+      <UnicornScene className="opacity-15" />
       <div
         className={cn("overflow-hidden px-6 py-20 sm:py-24 lg:px-8", className)}
       >
