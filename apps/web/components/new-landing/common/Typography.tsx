@@ -45,7 +45,7 @@ interface SectionSubtitleProps {
 
 export function SectionSubtitle({ children }: SectionSubtitleProps) {
   return (
-    <Paragraph className={cx("max-w-[650px] mx-auto mt-2")}>
+    <Paragraph className={cx("max-w-[650px] mx-auto mt-2.5")} size="lg">
       {children}
     </Paragraph>
   );
