@@ -4,6 +4,7 @@ import type { ExecutedRule } from "@prisma/client";
 import type { Logger } from "@/utils/logger";
 import type { EmailProvider } from "@/utils/email/types";
 import { convertEmailHtmlToText } from "@/utils/mail";
+import type { ParsedMessage } from "@/utils/types";
 
 /**
  * Handles finding and potentially deleting a previous AI-generated draft for a thread.
@@ -40,88 +41,52 @@ export async function handlePreviousDraftDeletion({
       },
     });
 
-    if (previousDraftAction?.draftId) {
-      logger.info("Found previous draft", {
-        previousDraftId: previousDraftAction.draftId,
-      });
-
-      // Fetch the current state of the draft
-      const currentDraftDetails = await client.getDraft(
-        previousDraftAction.draftId,
-      );
-
-      if (currentDraftDetails?.textPlain) {
-        // Get text content - convert from HTML if needed based on bodyContentType
-        let currentText: string;
-        if (currentDraftDetails.bodyContentType === "html") {
-          // Outlook HTML body - convert to plain text for comparison
-          currentText = convertEmailHtmlToText({
-            htmlText: currentDraftDetails.textPlain,
-          });
-        } else {
-          // Plain text body (or Gmail which provides both formats)
-          currentText = currentDraftDetails.textPlain;
-        }
-
-        // Basic comparison: Compare original content with current plain text
-        // Try multiple quote header patterns
-        const quoteHeaderPatterns = [
-          /\n\nOn .* wrote:/,
-          /\n\n----+ Original Message ----+/,
-          /\n\n>+ On .*/,
-          /\n\nFrom: .*/,
-        ];
-
-        let currentReplyContent = currentText;
-        for (const pattern of quoteHeaderPatterns) {
-          const parts = currentReplyContent.split(pattern);
-          if (parts.length > 1) {
-            currentReplyContent = parts[0];
-            break;
-          }
-        }
-        currentReplyContent = currentReplyContent.trim();
-
-        const originalContent = previousDraftAction.content?.trim();
-
-        logger.trace("Comparing draft content", {
-          original: originalContent,
-          current: currentReplyContent,
-        });
-
-        if (originalContent === currentReplyContent) {
-          logger.info("Draft content matches, deleting draft.");
-
-          // Delete the draft and mark as not sent
-          await Promise.all([
-            client.deleteDraft(previousDraftAction.draftId),
-            prisma.executedAction.update({
-              where: { id: previousDraftAction.id },
-              data: { wasDraftSent: false },
-            }),
-          ]);
-
-          logger.info("Deleted draft and updated action status.");
-        } else {
-          logger.info("Draft content modified by user, skipping deletion.");
-        }
-      } else {
-        logger.warn(
-          "Could not fetch current draft details or content, skipping deletion.",
-          { previousDraftId: previousDraftAction.draftId },
-        );
-      }
-    } else {
+    if (!previousDraftAction?.draftId) {
       logger.info("No previous draft found for this thread to delete");
+      return;
+    }
+
+    logger.info("Found previous draft", {
+      previousDraftId: previousDraftAction.draftId,
+    });
+
+    const currentDraftDetails = await client.getDraft(
+      previousDraftAction.draftId,
+    );
+
+    if (!currentDraftDetails?.textPlain) {
+      logger.warn(
+        "Could not fetch current draft details or content, skipping deletion.",
+        { previousDraftId: previousDraftAction.draftId },
+      );
+      return;
+    }
+
+    const isUnmodified = isDraftUnmodified({
+      originalContent: previousDraftAction.content,
+      currentDraft: currentDraftDetails,
+      logger,
+    });
+
+    if (isUnmodified) {
+      logger.info("Draft content matches, deleting draft.");
+
+      await Promise.all([
+        client.deleteDraft(previousDraftAction.draftId),
+        prisma.executedAction.update({
+          where: { id: previousDraftAction.id },
+          data: { wasDraftSent: false },
+        }),
+      ]);
+
+      logger.info("Deleted draft and updated action status.");
+    } else {
+      logger.info("Draft content modified by user, skipping deletion.");
     }
   } catch (error) {
     logger.error("Error finding or deleting previous draft", {
-      error:
-        (error as any)?.error instanceof Error
-          ? (error as any)?.error?.message
-          : error,
+      error: (error as Error)?.message || error,
     });
-    // Log error but continue, failing to delete shouldn't block execution
   }
 }
 
@@ -150,4 +115,71 @@ export async function updateExecutedActionWithDraftId({
       error,
     });
   }
+}
+
+/**
+ * Extracts plain text from a draft, handling both Gmail and Outlook formats.
+ */
+export function extractDraftPlainText(draft: ParsedMessage): string {
+  if (draft.bodyContentType === "html") {
+    return draft.textPlain
+      ? convertEmailHtmlToText({
+          htmlText: draft.textPlain,
+          includeLinks: false,
+        })
+      : "";
+  }
+  return draft.textPlain || "";
+}
+
+/**
+ * Removes quoted content from email text.
+ */
+export function stripQuotedContent(text: string): string {
+  const quoteHeaderPatterns = [
+    /\n\nOn .* wrote:/,
+    /\n\n----+ Original Message ----+/,
+    /\n\n>+ On .*/,
+    /\n\nFrom: .*/,
+  ];
+
+  let result = text;
+  for (const pattern of quoteHeaderPatterns) {
+    const parts = result.split(pattern);
+    if (parts.length > 1) {
+      result = parts[0];
+      break;
+    }
+  }
+
+  return result.trim();
+}
+
+/**
+ * Checks if a draft has been modified by comparing original and current content.
+ */
+export function isDraftUnmodified({
+  originalContent,
+  currentDraft,
+  logger,
+}: {
+  originalContent: string | null | undefined;
+  currentDraft: ParsedMessage;
+  logger: Logger;
+}): boolean {
+  const currentText = extractDraftPlainText(currentDraft);
+  const currentReplyContent = stripQuotedContent(currentText);
+
+  const originalWithBr = originalContent?.replace(/\n/g, "<br>") || "";
+  const originalContentPlain = originalWithBr
+    ? convertEmailHtmlToText({ htmlText: originalWithBr, includeLinks: false })
+    : "";
+  const originalContentTrimmed = originalContentPlain.trim();
+
+  logger.trace("Comparing draft content", {
+    original: originalContentTrimmed,
+    current: currentReplyContent,
+  });
+
+  return originalContentTrimmed === currentReplyContent;
 }

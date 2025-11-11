@@ -1,10 +1,17 @@
 import { describe, it, expect, vi, beforeEach, type Mock } from "vitest";
-import { handlePreviousDraftDeletion } from "@/utils/ai/choose-rule/draft-management";
+import {
+  handlePreviousDraftDeletion,
+  extractDraftPlainText,
+  stripQuotedContent,
+  isDraftUnmodified,
+} from "@/utils/ai/choose-rule/draft-management";
 import prisma from "@/utils/prisma";
 import { ActionType } from "@prisma/client";
 import { createScopedLogger } from "@/utils/logger";
 import type { ParsedMessage } from "@/utils/types";
 import type { EmailProvider } from "@/utils/email/types";
+
+vi.mock("server-only", () => ({}));
 
 vi.mock("@/utils/prisma", () => ({
   default: {
@@ -224,5 +231,369 @@ describe("handlePreviousDraftDeletion", () => {
     });
 
     expect(mockDeleteDraft).not.toHaveBeenCalled();
+  });
+
+  it("should handle Outlook HTML draft with signature link", async () => {
+    const mockPreviousDraft = {
+      id: "action-111",
+      draftId: "draft-222",
+      content:
+        'Hello, this is a test draft\n\nDrafted by <a href="http://localhost:3000/?ref=ABC">Inbox Zero</a>.',
+    };
+
+    // Simulate real Outlook HTML output with proper structure
+    const mockCurrentDraft: ParsedMessage = {
+      id: "msg-123",
+      threadId: "thread-456",
+      textPlain:
+        '<html><head>\r\n<meta http-equiv="Content-Type" content="text/html; charset=utf-8"></head><body><div dir="ltr">Hello, this is a test draft<br><br>Drafted by <a href="http://localhost:3000/?ref=ABC">Inbox Zero</a>.</div><br><div class="gmail_quote gmail_quote_container"><div dir="ltr" class="gmail_attr">On Tue, 11 Nov 2025 at 2:18, John wrote:<br></div><blockquote class="gmail_quote" style="margin:0px 0px 0px 0.8ex; border-left:1px solid rgb(204,204,204); padding-left:1ex"><div dir="ltr">Previous message content</div></blockquote></div></body></html>',
+      textHtml: undefined,
+      subject: "subject",
+      date: new Date().toISOString(),
+      snippet: "Hello",
+      historyId: "12345",
+      internalDate: "1234567890",
+      headers: {
+        from: "test@example.com",
+        to: "recipient@example.com",
+        subject: "Test Subject",
+        date: "Mon, 1 Jan 2024 12:00:00 +0000",
+      },
+      labelIds: [],
+      inline: [],
+      bodyContentType: "html",
+    };
+
+    mockFindFirst.mockResolvedValue(mockPreviousDraft);
+    mockGetDraft.mockResolvedValue(mockCurrentDraft);
+
+    await handlePreviousDraftDeletion({
+      client: mockClient,
+      executedRule: mockExecutedRule,
+      logger,
+    });
+
+    expect(mockDeleteDraft).toHaveBeenCalledWith("draft-222");
+    expect(mockUpdate).toHaveBeenCalledWith({
+      where: { id: "action-111" },
+      data: { wasDraftSent: false },
+    });
+  });
+});
+
+describe("extractDraftPlainText", () => {
+  it("should return textPlain as-is for Gmail (no bodyContentType)", () => {
+    const draft: ParsedMessage = {
+      id: "msg-123",
+      threadId: "thread-456",
+      textPlain: "Plain text content",
+      textHtml: "<p>HTML content</p>",
+      subject: "subject",
+      date: new Date().toISOString(),
+      snippet: "snippet",
+      historyId: "12345",
+      internalDate: "1234567890",
+      headers: {
+        from: "test@example.com",
+        to: "recipient@example.com",
+        subject: "Test",
+        date: "Mon, 1 Jan 2024 12:00:00 +0000",
+      },
+      labelIds: [],
+      inline: [],
+    };
+
+    const result = extractDraftPlainText(draft);
+    expect(result).toBe("Plain text content");
+  });
+
+  it("should return textPlain as-is when bodyContentType is text", () => {
+    const draft: ParsedMessage = {
+      id: "msg-123",
+      threadId: "thread-456",
+      textPlain: "Plain text content",
+      textHtml: undefined,
+      subject: "subject",
+      date: new Date().toISOString(),
+      snippet: "snippet",
+      historyId: "12345",
+      internalDate: "1234567890",
+      headers: {
+        from: "test@example.com",
+        to: "recipient@example.com",
+        subject: "Test",
+        date: "Mon, 1 Jan 2024 12:00:00 +0000",
+      },
+      labelIds: [],
+      inline: [],
+      bodyContentType: "text",
+    };
+
+    const result = extractDraftPlainText(draft);
+    expect(result).toBe("Plain text content");
+  });
+
+  it("should convert HTML to plain text when bodyContentType is html", () => {
+    const draft: ParsedMessage = {
+      id: "msg-123",
+      threadId: "thread-456",
+      textPlain:
+        '<p>HTML content with <a href="http://example.com">link</a></p>',
+      textHtml: undefined,
+      subject: "subject",
+      date: new Date().toISOString(),
+      snippet: "snippet",
+      historyId: "12345",
+      internalDate: "1234567890",
+      headers: {
+        from: "test@example.com",
+        to: "recipient@example.com",
+        subject: "Test",
+        date: "Mon, 1 Jan 2024 12:00:00 +0000",
+      },
+      labelIds: [],
+      inline: [],
+      bodyContentType: "html",
+    };
+
+    const result = extractDraftPlainText(draft);
+    // Should convert HTML to plain text and remove link URLs
+    expect(result).toContain("HTML content");
+    expect(result).toContain("link");
+    expect(result).not.toContain("<p>");
+    expect(result).not.toContain("<a href");
+  });
+
+  it("should return empty string when textPlain is undefined", () => {
+    const draft: ParsedMessage = {
+      id: "msg-123",
+      threadId: "thread-456",
+      textPlain: undefined,
+      textHtml: undefined,
+      subject: "subject",
+      date: new Date().toISOString(),
+      snippet: "snippet",
+      historyId: "12345",
+      internalDate: "1234567890",
+      headers: {
+        from: "test@example.com",
+        to: "recipient@example.com",
+        subject: "Test",
+        date: "Mon, 1 Jan 2024 12:00:00 +0000",
+      },
+      labelIds: [],
+      inline: [],
+      bodyContentType: "html",
+    };
+
+    const result = extractDraftPlainText(draft);
+    expect(result).toBe("");
+  });
+});
+
+describe("stripQuotedContent", () => {
+  it("should strip content after 'On ... wrote:' pattern", () => {
+    const text = "My reply\n\nOn Monday, John wrote:\n> Quoted content";
+    const result = stripQuotedContent(text);
+    expect(result).toBe("My reply");
+  });
+
+  it("should strip content after 'Original Message' pattern", () => {
+    const text =
+      "My reply\n\n---- Original Message ----\nFrom: test@example.com";
+    const result = stripQuotedContent(text);
+    expect(result).toBe("My reply");
+  });
+
+  it("should strip content after '>' quote pattern", () => {
+    const text = "My reply\n\n> On Monday:\n> Quoted content";
+    const result = stripQuotedContent(text);
+    expect(result).toBe("My reply");
+  });
+
+  it("should strip content after 'From:' pattern", () => {
+    const text = "My reply\n\nFrom: sender@example.com\nQuoted content";
+    const result = stripQuotedContent(text);
+    expect(result).toBe("My reply");
+  });
+
+  it("should return trimmed text when no quote patterns found", () => {
+    const text = "  Just a simple reply  ";
+    const result = stripQuotedContent(text);
+    expect(result).toBe("Just a simple reply");
+  });
+
+  it("should handle empty string", () => {
+    const result = stripQuotedContent("");
+    expect(result).toBe("");
+  });
+
+  it("should only strip after first matching pattern", () => {
+    const text =
+      "My reply\n\nOn Monday wrote:\n> Quote 1\n\nFrom: test@example.com\n> Quote 2";
+    const result = stripQuotedContent(text);
+    expect(result).toBe("My reply");
+  });
+});
+
+describe("isDraftUnmodified", () => {
+  const logger = createScopedLogger("test");
+
+  it("should return true when content matches exactly", () => {
+    const originalContent = "Hello, this is a test";
+    const currentDraft: ParsedMessage = {
+      id: "msg-123",
+      threadId: "thread-456",
+      textPlain: "Hello, this is a test\n\nOn Monday wrote:\n> Quote",
+      textHtml: undefined,
+      subject: "subject",
+      date: new Date().toISOString(),
+      snippet: "snippet",
+      historyId: "12345",
+      internalDate: "1234567890",
+      headers: {
+        from: "test@example.com",
+        to: "recipient@example.com",
+        subject: "Test",
+        date: "Mon, 1 Jan 2024 12:00:00 +0000",
+      },
+      labelIds: [],
+      inline: [],
+    };
+
+    const result = isDraftUnmodified({
+      originalContent,
+      currentDraft,
+      logger,
+    });
+
+    expect(result).toBe(true);
+  });
+
+  it("should return false when content is modified", () => {
+    const originalContent = "Hello, this is a test";
+    const currentDraft: ParsedMessage = {
+      id: "msg-123",
+      threadId: "thread-456",
+      textPlain: "Hello, this is MODIFIED\n\nOn Monday wrote:\n> Quote",
+      textHtml: undefined,
+      subject: "subject",
+      date: new Date().toISOString(),
+      snippet: "snippet",
+      historyId: "12345",
+      internalDate: "1234567890",
+      headers: {
+        from: "test@example.com",
+        to: "recipient@example.com",
+        subject: "Test",
+        date: "Mon, 1 Jan 2024 12:00:00 +0000",
+      },
+      labelIds: [],
+      inline: [],
+    };
+
+    const result = isDraftUnmodified({
+      originalContent,
+      currentDraft,
+      logger,
+    });
+
+    expect(result).toBe(false);
+  });
+
+  it("should handle HTML content with links (Outlook case)", () => {
+    const originalContent =
+      'My reply\n\nDrafted by <a href="http://localhost:3000/?ref=ABC">Inbox Zero</a>.';
+    // Real Outlook HTML structure with proper gmail_quote formatting
+    const currentDraft: ParsedMessage = {
+      id: "msg-123",
+      threadId: "thread-456",
+      textPlain:
+        '<html><head>\r\n<meta http-equiv="Content-Type" content="text/html; charset=utf-8"></head><body><div dir="ltr">My reply<br><br>Drafted by <a href="http://localhost:3000/?ref=ABC">Inbox Zero</a>.</div><br><div class="gmail_quote gmail_quote_container"><div dir="ltr" class="gmail_attr">On Tue, 11 Nov 2025 at 2:18, John wrote:<br></div><blockquote class="gmail_quote" style="margin:0px 0px 0px 0.8ex; border-left:1px solid rgb(204,204,204); padding-left:1ex"><div dir="ltr">Quote content</div></blockquote></div></body></html>',
+      textHtml: undefined,
+      subject: "subject",
+      date: new Date().toISOString(),
+      snippet: "snippet",
+      historyId: "12345",
+      internalDate: "1234567890",
+      headers: {
+        from: "test@example.com",
+        to: "recipient@example.com",
+        subject: "Test",
+        date: "Mon, 1 Jan 2024 12:00:00 +0000",
+      },
+      labelIds: [],
+      inline: [],
+      bodyContentType: "html",
+    };
+
+    const result = isDraftUnmodified({
+      originalContent,
+      currentDraft,
+      logger,
+    });
+
+    expect(result).toBe(true);
+  });
+
+  it("should return false when original content is null", () => {
+    const currentDraft: ParsedMessage = {
+      id: "msg-123",
+      threadId: "thread-456",
+      textPlain: "Some content",
+      textHtml: undefined,
+      subject: "subject",
+      date: new Date().toISOString(),
+      snippet: "snippet",
+      historyId: "12345",
+      internalDate: "1234567890",
+      headers: {
+        from: "test@example.com",
+        to: "recipient@example.com",
+        subject: "Test",
+        date: "Mon, 1 Jan 2024 12:00:00 +0000",
+      },
+      labelIds: [],
+      inline: [],
+    };
+
+    const result = isDraftUnmodified({
+      originalContent: null,
+      currentDraft,
+      logger,
+    });
+
+    expect(result).toBe(false);
+  });
+
+  it("should handle whitespace differences", () => {
+    const originalContent = "  Hello, this is a test  ";
+    const currentDraft: ParsedMessage = {
+      id: "msg-123",
+      threadId: "thread-456",
+      textPlain: "Hello, this is a test\n\nOn Monday wrote:\n> Quote",
+      textHtml: undefined,
+      subject: "subject",
+      date: new Date().toISOString(),
+      snippet: "snippet",
+      historyId: "12345",
+      internalDate: "1234567890",
+      headers: {
+        from: "test@example.com",
+        to: "recipient@example.com",
+        subject: "Test",
+        date: "Mon, 1 Jan 2024 12:00:00 +0000",
+      },
+      labelIds: [],
+      inline: [],
+    };
+
+    const result = isDraftUnmodified({
+      originalContent,
+      currentDraft,
+      logger,
+    });
+
+    expect(result).toBe(true);
   });
 });
