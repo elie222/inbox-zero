@@ -559,5 +559,10 @@ export function convertMessage(
     historyId: "",
     inline: [],
     conversationIndex: message.conversationIndex,
+    rawRecipients: {
+      from: message.from,
+      toRecipients: message.toRecipients,
+      ccRecipients: message.ccRecipients,
+    },
   };
 }
