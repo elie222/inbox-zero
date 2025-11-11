@@ -24,7 +24,7 @@ export const createOutlookReplyContent = ({
     ?.split("\n")
     .map((line) => `> ${line}`)
     .join("\n");
-  const plainText = `${textContent}\n\n${quotedHeader}\n\n${quotedContent}`;
+  const plainText = `${textContent || ""}\n\n${quotedHeader}\n\n${quotedContent || ""}`;
 
   // Get the message content, preserving any existing quotes
   const messageContent =
