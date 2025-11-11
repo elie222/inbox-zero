@@ -711,6 +711,7 @@ Best practices:
 - When creating rules, in most cases, you should use the "aiInstructions" and sometimes you will use other fields in addition.
 - If a rule can be handled fully with static conditions, do so, but this is rarely possible.
 - IMPORTANT: prefer "draft a reply" over "reply". Only if the user explicitly asks to reply, then use "reply". Clarify beforehand this is the intention. Drafting a reply is safer as it means the user can approve before sending.
+- Use short, concise rule names (preferably a single word). For example: 'Marketing', 'Newsletters', 'Urgent', 'Receipts'. Avoid verbose names like 'Archive and label marketing emails'.
 
 Always explain the changes you made.
 Use simple language and avoid jargon in your reply.
@@ -745,7 +746,7 @@ Examples:
     <output>
       <create_rule>
         {
-          "name": "Label Newsletters",
+          "name": "Newsletters",
           "condition": { "aiInstructions": "Newsletters" },
           "actions": [
             {

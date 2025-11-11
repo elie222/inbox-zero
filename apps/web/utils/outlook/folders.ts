@@ -1,6 +1,7 @@
 import type { MailFolder } from "@microsoft/microsoft-graph-types";
 import type { OutlookClient } from "./client";
 import { createScopedLogger } from "@/utils/logger";
+import { withOutlookRetry } from "@/utils/outlook/retry";
 
 const logger = createScopedLogger("outlook/folders");
 
@@ -27,15 +28,17 @@ export async function getOutlookRootFolders(
   client: OutlookClient,
 ): Promise<OutlookFolder[]> {
   const fields = "id,displayName";
-  const response: { value: MailFolder[] } = await client
-    .getClient()
-    .api("/me/mailFolders")
-    .select(fields)
-    .top(999)
-    .expand(
-      `childFolders($select=${fields};$expand=childFolders($select=${fields}))`,
-    )
-    .get();
+  const response: { value: MailFolder[] } = await withOutlookRetry(() =>
+    client
+      .getClient()
+      .api("/me/mailFolders")
+      .select(fields)
+      .top(999)
+      .expand(
+        `childFolders($select=${fields};$expand=childFolders($select=${fields}))`,
+      )
+      .get(),
+  );
 
   return response.value.map(convertMailFolderToOutlookFolder);
 }
@@ -45,14 +48,16 @@ export async function getOutlookChildFolders(
   folderId: string,
 ): Promise<OutlookFolder[]> {
   const fields = "id,displayName";
-  const response: { value: MailFolder[] } = await client
-    .getClient()
-    .api(`/me/mailFolders/${folderId}/childFolders`)
-    .select(fields)
-    .expand(
-      `childFolders($select=${fields};$expand=childFolders($select=${fields}))`,
-    )
-    .get();
+  const response: { value: MailFolder[] } = await withOutlookRetry(() =>
+    client
+      .getClient()
+      .api(`/me/mailFolders/${folderId}/childFolders`)
+      .select(fields)
+      .expand(
+        `childFolders($select=${fields};$expand=childFolders($select=${fields}))`,
+      )
+      .get(),
+  );
 
   return response.value.map(convertMailFolderToOutlookFolder);
 }
@@ -62,13 +67,15 @@ async function findOutlookFolderByName(
   folderName: string,
 ): Promise<OutlookFolder | undefined> {
   try {
-    const response: { value: MailFolder[] } = await client
-      .getClient()
-      .api("/me/mailFolders")
-      .filter(`displayName eq '${folderName.replace(/'/g, "''")}'`)
-      .select("id,displayName")
-      .top(1)
-      .get();
+    const response: { value: MailFolder[] } = await withOutlookRetry(() =>
+      client
+        .getClient()
+        .api("/me/mailFolders")
+        .filter(`displayName eq '${folderName.replace(/'/g, "''")}'`)
+        .select("id,displayName")
+        .top(1)
+        .get(),
+    );
 
     if (response.value && response.value.length > 0) {
       return convertMailFolderToOutlookFolder(response.value[0]);
@@ -128,9 +135,11 @@ export async function getOrCreateOutlookFolderIdByName(
   }
 
   try {
-    const response = await client.getClient().api("/me/mailFolders").post({
-      displayName: folderName,
-    });
+    const response = await withOutlookRetry(() =>
+      client.getClient().api("/me/mailFolders").post({
+        displayName: folderName,
+      }),
+    );
 
     return response.id;
   } catch (error) {

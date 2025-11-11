@@ -398,6 +398,7 @@ export function BulkUnsubscribe() {
         newsletter={openedNewsletter}
         onClose={() => setOpenedNewsletter(undefined)}
         refreshInterval={refreshInterval}
+        mutate={mutate}
       />
       <PremiumModal />
     </PageWrapper>

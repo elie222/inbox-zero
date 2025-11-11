@@ -57,7 +57,10 @@ export const getGmailClientWithRefresh = async ({
   expiresAt: number | null;
   emailAccountId: string;
 }): Promise<gmail_v1.Gmail> => {
-  if (!refreshToken) throw new SafeError("No refresh token");
+  if (!refreshToken) {
+    logger.error("No refresh token", { emailAccountId });
+    throw new SafeError("No refresh token");
+  }
 
   // we handle refresh ourselves so not passing in expiresAt
   const auth = getAuth({ accessToken, refreshToken });

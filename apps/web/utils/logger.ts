@@ -73,6 +73,7 @@ export function createScopedLogger(scope: string) {
       },
       with: (newFields: Record<string, unknown>) =>
         createLogger({ ...fields, ...newFields }),
+      flush: () => Promise.resolve(), // No-op for console logger
     };
   };
 
@@ -103,6 +104,7 @@ function createAxiomLogger(scope: string) {
     },
     with: (newFields: Record<string, unknown>) =>
       createLogger({ ...fields, ...newFields }),
+    flush: () => log.flush(),
   });
 
   return createLogger();
@@ -115,18 +117,50 @@ function createNullLogger() {
     warn: () => {},
     trace: () => {},
     with: () => createNullLogger(),
+    flush: () => Promise.resolve(),
   };
 }
 
 function formatError(args?: Record<string, unknown>) {
   if (env.NODE_ENV !== "production") return args;
-  const error = args?.error;
-  if (error) args.error = cleanError(error);
-  return args;
+  if (!args?.error) return args;
+
+  const error = args.error;
+  const errorMessage =
+    error instanceof Error
+      ? error.message
+      : typeof error === "object" && error !== null && "message" in error
+        ? (error as { message: unknown }).message
+        : error;
+
+  const errorFull = serializeError(error);
+
+  return {
+    ...args,
+    error: errorMessage,
+    errorFull,
+  };
 }
 
-function cleanError(error: unknown) {
-  if (error instanceof Error) return error.message;
+function serializeError(error: unknown): unknown {
+  if (error instanceof Error) {
+    // Convert Error instance to plain object so hashSensitiveFields can process it
+    const serialized: Record<string, unknown> = {
+      name: error.name,
+      message: error.message,
+      stack: error.stack,
+    };
+
+    // Copy all enumerable properties
+    for (const key in error) {
+      if (Object.hasOwn(error, key)) {
+        serialized[key] = (error as any)[key];
+      }
+    }
+
+    return serialized;
+  }
+
   return error;
 }
 
@@ -151,13 +185,7 @@ function processErrorsInObject(obj: unknown): unknown {
 }
 
 // Field names that contain PII and should be hashed in production
-const SENSITIVE_FIELD_NAMES = new Set([
-  "email",
-  "from",
-  "sender",
-  "to",
-  "userEmail",
-]);
+const SENSITIVE_FIELD_NAMES = new Set(["from", "sender", "to"]);
 
 // Field names that should NEVER be logged - replaced with boolean
 const REDACTED_FIELD_NAMES = new Set([
@@ -167,6 +195,8 @@ const REDACTED_FIELD_NAMES = new Set([
   "refresh_token",
   "idToken",
   "id_token",
+  "headers",
+  "authorization",
 ]);
 
 /**

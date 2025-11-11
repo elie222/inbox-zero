@@ -1,8 +1,8 @@
 import { describe, expect, test, vi } from "vitest";
-import { type Action, ActionType, LogicalOperator } from "@prisma/client";
-import type { ParsedMessage, RuleWithActions } from "@/utils/types";
+import type { ParsedMessage } from "@/utils/types";
 import { getActionItemsWithAiArgs } from "@/utils/ai/choose-rule/choose-args";
-import { getEmailAccount } from "@/__tests__/helpers";
+import { getEmailAccount, getAction, getRule } from "@/__tests__/helpers";
+import { ActionType } from "@prisma/client";
 
 // pnpm test-ai ai-choose-args
 
@@ -166,57 +166,44 @@ Matt`,
     console.debug("Generated label:\n", result[0].label);
     console.debug("Generated content:\n", result[1].content);
   });
+
+  test(
+    "should handle label with template variable and dynamic action ID",
+    async () => {
+      const actions = [
+        getAction({
+          id: "LABEL-clkm123abc456def789", // Realistic action ID
+          type: ActionType.LABEL,
+          label: "Categories/{{category name}}", // Template like Finance/{{...}}
+        }),
+      ];
+      const rule = getRule("Categorize emails by topic", actions);
+
+      const result = await getActionItemsWithAiArgs({
+        message: getParsedMessage({
+          from: "notifications@amazon.com",
+          subject: "Your order has shipped",
+          content: "Your Amazon order #123 has been shipped",
+        }),
+        emailAccount: getEmailAccount(),
+        selectedRule: rule,
+        client: {} as any,
+        modelType: "default",
+      });
+
+      expect(result).toHaveLength(1);
+      expect(result[0].label).toBeTruthy();
+      expect(result[0].label).toContain("Categories/");
+      expect(result[0].label).not.toContain("{{");
+      expect(result[0].label).not.toContain("$PARAMETER_NAME");
+
+      console.debug("Generated label:", result[0].label);
+    },
+    TIMEOUT,
+  );
 });
 
 // helpers
-function getAction(action: Partial<Action> = {}): Action {
-  return {
-    id: "a123",
-    createdAt: new Date(),
-    updatedAt: new Date(),
-    type: ActionType.REPLY,
-    ruleId: "ruleId",
-    label: null,
-    subject: null,
-    content: null,
-    to: null,
-    cc: null,
-    bcc: null,
-    url: null,
-    delayInMinutes: null,
-    folderName: null,
-    folderId: null,
-    ...action,
-  };
-}
-
-function getRule(
-  instructions: string,
-  actions: Action[] = [],
-): RuleWithActions {
-  return {
-    instructions,
-    name: "Test Rule",
-    actions,
-    id: "r123",
-    emailAccountId: "emailAccountId",
-    createdAt: new Date(),
-    updatedAt: new Date(),
-    automate: false,
-    runOnThreads: false,
-    groupId: null,
-    from: null,
-    subject: null,
-    body: null,
-    to: null,
-    enabled: true,
-    categoryFilterType: null,
-    conditionalOperator: LogicalOperator.AND,
-    systemType: null,
-    promptText: null,
-  };
-}
-
 function getParsedMessage({
   from = "from@test.com",
   subject = "subject",

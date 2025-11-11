@@ -55,7 +55,7 @@ Decide if the message we are sending needs a reply. Respond with a JSON object w
   const modelOptions = getModel(emailAccount.user);
 
   const generateObject = createGenerateObject({
-    userEmail: emailAccount.email,
+    emailAccount,
     label: "Check if needs reply",
     modelOptions,
   });

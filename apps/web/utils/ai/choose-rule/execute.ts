@@ -28,6 +28,7 @@ export async function executeAct({
 }) {
   const logger = createScopedLogger("ai-execute-act").with({
     email: userEmail,
+    emailAccountId,
     executedRuleId: executedRule.id,
     ruleId: executedRule.ruleId,
     threadId: executedRule.threadId,
@@ -54,6 +55,7 @@ export async function executeAct({
         });
       }
     } catch (error) {
+      logger.error("Error executing action", { error });
       await prisma.executedRule.update({
         where: { id: executedRule.id },
         data: { status: ExecutedRuleStatus.ERROR },

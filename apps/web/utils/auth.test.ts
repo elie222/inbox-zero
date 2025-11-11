@@ -5,6 +5,8 @@ import { captureException } from "@/utils/error";
 import { handleReferralOnSignUp } from "@/utils/auth";
 
 // Mock the dependencies
+vi.mock("server-only", () => ({}));
+
 vi.mock("next/headers", () => ({
   cookies: vi.fn(),
 }));
@@ -15,13 +17,6 @@ vi.mock("@/utils/referral/referral-code", () => ({
 
 vi.mock("@/utils/error", () => ({
   captureException: vi.fn(),
-}));
-
-vi.mock("@/utils/logger", () => ({
-  createScopedLogger: () => ({
-    info: vi.fn(),
-    error: vi.fn(),
-  }),
 }));
 
 // Import the real function from auth.ts for testing

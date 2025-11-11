@@ -47,8 +47,8 @@ import {
   useUnsubscribe,
   useAutoArchive,
   useApproveButton,
-  useArchiveAll,
-  useDeleteAllFromSender,
+  useBulkArchive,
+  useBulkDelete,
 } from "@/app/(app)/[emailAccountId]/bulk-unsubscribe/hooks";
 import { LabelsSubMenu } from "@/components/LabelsSubMenu";
 import type { EmailLabel } from "@/providers/EmailProvider";
@@ -144,6 +144,7 @@ export function ActionCell<T extends Row>({
         emailAccountId={emailAccountId}
         labels={labels}
         posthog={posthog}
+        mutate={mutate}
       />
     </>
   );
@@ -387,6 +388,7 @@ export function MoreDropdown<T extends Row>({
   emailAccountId,
   labels,
   posthog,
+  mutate,
 }: {
   onOpenNewsletter?: (row: T) => void;
   item: T;
@@ -394,16 +396,17 @@ export function MoreDropdown<T extends Row>({
   emailAccountId: string;
   labels: EmailLabel[];
   posthog: PostHog;
+  mutate: () => Promise<void>;
 }) {
   const { provider } = useAccount();
   const terminology = getEmailTerminology(provider);
-  const { archiveAllLoading, onArchiveAll } = useArchiveAll({
-    item,
+  const { onBulkArchive, isBulkArchiving } = useBulkArchive({
+    mutate,
     posthog,
     emailAccountId,
   });
-  const { deleteAllLoading, onDeleteAll } = useDeleteAllFromSender({
-    item,
+  const { onBulkDelete, isBulkDeleting } = useBulkDelete({
+    mutate,
     posthog,
     emailAccountId,
   });
@@ -474,8 +477,8 @@ export function MoreDropdown<T extends Row>({
           </DropdownMenuPortal>
         </DropdownMenuSub>
 
-        <DropdownMenuItem onClick={onArchiveAll}>
-          {archiveAllLoading ? (
+        <DropdownMenuItem onClick={() => onBulkArchive([item])}>
+          {isBulkArchiving ? (
             <ButtonLoader />
           ) : (
             <ArchiveIcon className="mr-2 size-4" />
@@ -489,10 +492,10 @@ export function MoreDropdown<T extends Row>({
             );
             if (!yes) return;
 
-            onDeleteAll();
+            onBulkDelete([item]);
           }}
         >
-          {deleteAllLoading ? (
+          {isBulkDeleting ? (
             <ButtonLoader />
           ) : (
             <TrashIcon className="mr-2 size-4" />

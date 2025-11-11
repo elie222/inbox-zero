@@ -3,9 +3,6 @@ import OpenAI from "openai";
 import prisma from "@/utils/prisma";
 import { withEmailAccount } from "@/utils/middleware";
 import { Provider } from "@/utils/llms/config";
-import { createScopedLogger } from "@/utils/logger";
-
-const logger = createScopedLogger("api/ai/models");
 
 export type OpenAiModelsResponse = Awaited<ReturnType<typeof getOpenAiModels>>;
 
@@ -17,8 +14,8 @@ async function getOpenAiModels({ apiKey }: { apiKey: string }) {
   return models.data;
 }
 
-export const GET = withEmailAccount(async (request) => {
-  const emailAccountId = request.auth.emailAccountId;
+export const GET = withEmailAccount("api/ai/models", async (req) => {
+  const { emailAccountId } = req.auth;
 
   const emailAccount = await prisma.emailAccount.findUnique({
     where: { id: emailAccountId },
@@ -38,7 +35,7 @@ export const GET = withEmailAccount(async (request) => {
     });
     return NextResponse.json(result);
   } catch (error) {
-    logger.error("Failed to get OpenAI models", { error });
+    req.logger.error("Failed to get OpenAI models", { error });
     return NextResponse.json([]);
   }
 });

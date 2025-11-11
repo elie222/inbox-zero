@@ -15,13 +15,14 @@ import { NextRequest } from "next/server";
 import prisma from "@/utils/prisma";
 import { createEmailProvider } from "@/utils/email/provider";
 import type { GmailProvider } from "@/utils/email/google";
+import { findOldMessage } from "@/__tests__/e2e/helpers";
 
 // ============================================
 // TEST DATA - SET VIA ENVIRONMENT VARIABLES
 // ============================================
 const RUN_E2E_TESTS = process.env.RUN_E2E_TESTS;
 const TEST_GMAIL_EMAIL = process.env.TEST_GMAIL_EMAIL;
-const TEST_GMAIL_MESSAGE_ID =
+let TEST_GMAIL_MESSAGE_ID =
   process.env.TEST_GMAIL_MESSAGE_ID || "199c055aa113c499";
 
 vi.mock("server-only", () => ({}));
@@ -59,6 +60,24 @@ describe.skipIf(!RUN_E2E_TESTS)("Gmail Webhook Payload", () => {
     });
     emailAccountId = emailAccount.id;
     originalLastSyncedHistoryId = emailAccount.lastSyncedHistoryId;
+
+    // If message ID not provided via env, use the helper to find an old message
+    if (!process.env.TEST_GMAIL_MESSAGE_ID) {
+      const provider = (await createEmailProvider({
+        emailAccountId: emailAccount.id,
+        provider: "google",
+      })) as GmailProvider;
+
+      try {
+        const oldMessage = await findOldMessage(provider, 7);
+        TEST_GMAIL_MESSAGE_ID = oldMessage.messageId;
+        console.log(
+          `   ✅ Using message from account: ${TEST_GMAIL_MESSAGE_ID}`,
+        );
+      } catch (_error) {
+        console.log("   ⚠️  Could not find old message, using default");
+      }
+    }
   });
 
   afterEach(async () => {

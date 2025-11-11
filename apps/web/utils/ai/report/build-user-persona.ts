@@ -67,7 +67,7 @@ Analyze the data and identify:
   const modelOptions = getModel(emailAccount.user);
 
   const generateObject = createGenerateObject({
-    userEmail: emailAccount.email,
+    emailAccount,
     label: "email-report-user-persona",
     modelOptions,
   });

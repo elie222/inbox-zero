@@ -40,7 +40,7 @@ export const examples: {
     description: "Archive newsletters and label them as 'Newsletter'.",
     icon: <NewspaperIcon className="h-4 w-4" />,
     rule: {
-      name: "Archive and label newsletters",
+      name: "Newsletters",
       conditions: [
         {
           type: ConditionType.AI,

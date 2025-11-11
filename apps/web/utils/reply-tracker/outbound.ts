@@ -70,6 +70,7 @@ export async function handleOutboundReply({
   const aiResult = await aiDetermineThreadStatus({
     emailAccount,
     threadMessages: threadMessagesForLLM,
+    userSentLastEmail: true,
   });
 
   logger.info("AI determined thread status", { status: aiResult.status });

@@ -34,6 +34,7 @@ export async function isColdEmail({
   aiReason?: string | null;
 }> {
   const logger = createScopedLogger("ai-cold-email").with({
+    emailAccountId: emailAccount.id,
     email: emailAccount.email,
     threadId: email.threadId,
     messageId: email.id,
@@ -57,7 +58,7 @@ export async function isColdEmail({
   const hasPreviousEmail =
     email.date && email.id
       ? await provider.hasPreviousCommunicationsWithSenderOrDomain({
-          from: email.from,
+          from: extractEmailAddress(email.from) || email.from,
           date: email.date,
           messageId: email.id,
         })
@@ -141,7 +142,7 @@ ${stringifyEmail(email, 500)}
   const modelOptions = getModel(emailAccount.user, modelType);
 
   const generateObject = createGenerateObject({
-    userEmail: emailAccount.email,
+    emailAccount,
     label: "Cold email check",
     modelOptions,
   });

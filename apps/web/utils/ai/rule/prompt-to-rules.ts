@@ -31,7 +31,7 @@ ${cleanedPromptFile}
   const modelOptions = getModel(emailAccount.user, "chat");
 
   const generateObject = createGenerateObject({
-    userEmail: emailAccount.email,
+    emailAccount,
     label: "Prompt to rules",
     modelOptions,
   });
@@ -58,6 +58,8 @@ ${cleanedPromptFile}
 function getSystemPrompt() {
   return `You are an AI assistant that converts email management rules into a structured format. Parse the given prompt and convert it into rules.
 
+Use short, concise rule names (preferably a single word). For example: 'Marketing', 'Newsletters', 'Urgent', 'Receipts'. Avoid verbose names like 'Archive and label marketing emails'.
+
 IMPORTANT: If a user provides a snippet, use that full snippet in the rule. Don't include placeholders unless it's clear one is needed.
 
 You can use multiple conditions in a rule, but aim for simplicity.
@@ -74,7 +76,7 @@ IMPORTANT: You must return a JSON object.
     <output>
       {
         "rules": [{
-          "name": "Label Newsletters",
+          "name": "Newsletters",
           "condition": {
             "aiInstructions": "Apply this rule to newsletters"
           },
@@ -101,7 +103,7 @@ IMPORTANT: You must return a JSON object.
     <output>
       {
         "rules": [{
-          "name": "Forward Urgent Emails",
+          "name": "Forward Urgent",
           "condition": {
             "aiInstructions": "Apply this rule to emails mentioning system outages or critical issues"
           },
@@ -166,7 +168,7 @@ IMPORTANT: You must return a JSON object.
     <output>
       {
         "rules": [{
-          "name": "Reply to Call Requests",
+          "name": "Call Requests",
           "condition": {
             "aiInstructions": "Apply this rule to emails from people asking to set up a call"
           },

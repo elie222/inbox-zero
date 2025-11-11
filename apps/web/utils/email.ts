@@ -101,3 +101,14 @@ export function participant(
   if (message.headers.from.includes(userEmail)) return message.headers.to;
   return message.headers.from;
 }
+
+// Converts name and email to "Name <email@example.com>" or just "email@example.com" if no name
+// This is the inverse of extractNameFromEmail/extractEmailAddress
+export function formatEmailWithName(
+  name: string | null | undefined,
+  address: string | null | undefined,
+): string {
+  if (!address) return "";
+  if (!name || name === address) return address;
+  return `${name} <${address}>`;
+}

@@ -4,6 +4,7 @@ import { z } from "zod";
 import { withError } from "@/utils/middleware";
 import prisma from "@/utils/prisma";
 import { createScopedLogger, type Logger } from "@/utils/logger";
+import type { ParsedMessage } from "@/utils/types";
 import { aiDetectRecurringPattern } from "@/utils/ai/choose-rule/ai-detect-recurring-pattern";
 import { isValidInternalApiKey } from "@/utils/internal-api";
 import { extractEmailAddress } from "@/utils/email";
@@ -98,16 +99,22 @@ async function process({
       provider: account.provider,
     });
 
-    const threadsWithMessages = await getThreadsFromSender(
-      provider,
-      from,
-      MAX_RESULTS,
-      logger,
-    );
+    const { threads: threadsWithMessages, conversationDetected } =
+      await getThreadsFromSender(provider, from, MAX_RESULTS, logger);
 
     // If no threads found or we've detected a conversation, return early
+    if (conversationDetected) {
+      logger.info("Skipping sender pattern detection - conversation detected", {
+        provider: account.provider,
+      });
+      await savePatternCheck({ emailAccountId, from });
+      return NextResponse.json({ success: true });
+    }
+
     if (threadsWithMessages.length === 0) {
-      logger.info("No threads found from this sender");
+      logger.error("No threads found from this sender", {
+        provider: account.provider,
+      });
 
       // Don't record a check since we didn't run the AI analysis
       return NextResponse.json({ success: true });
@@ -231,8 +238,24 @@ async function getThreadsFromSender(
   sender: string,
   maxResults: number,
   logger: Logger,
-) {
+): Promise<{
+  threads: Array<{
+    threadId: string;
+    messages: ParsedMessage[];
+  }>;
+  conversationDetected: boolean;
+}> {
   const from = extractEmailAddress(sender);
+
+  if (!from) {
+    logger.error("Unable to analyze sender pattern - from address missing", {
+      from: sender,
+    });
+    return {
+      threads: [],
+      conversationDetected: false,
+    };
+  }
 
   const { threads } = await provider.getThreadsWithQuery({
     query: { fromEmail: from, type: "all" },
@@ -240,21 +263,32 @@ async function getThreadsFromSender(
   });
 
   const threadsWithMessages = [];
+  const normalizedFrom = from.toLowerCase();
 
   // Check for conversation threads
   for (const thread of threads) {
     const messages = await provider.getThreadMessages(thread.id);
+    if (messages.length === 0) continue;
 
     // Check if this is a conversation (multiple senders)
-    const senders = messages.map((msg) =>
-      extractEmailAddress(msg.headers.from),
-    );
-    const hasOtherSenders = senders.some((s) => s !== from);
+    const otherSenders = new Set<string>();
+
+    for (const message of messages) {
+      const senderEmail = extractEmailAddress(message.headers.from);
+      if (!senderEmail) continue;
+
+      const normalizedSender = senderEmail.toLowerCase();
+      if (normalizedSender !== normalizedFrom) {
+        otherSenders.add(normalizedSender);
+      }
+    }
 
     // If we found a conversation thread, skip this sender entirely
-    if (hasOtherSenders) {
-      logger.info("Skipping sender pattern detection - conversation detected");
-      return [];
+    if (otherSenders.size > 0) {
+      return {
+        threads: [],
+        conversationDetected: true,
+      };
     }
 
     threadsWithMessages.push({
@@ -263,7 +297,10 @@ async function getThreadsFromSender(
     });
   }
 
-  return threadsWithMessages;
+  return {
+    threads: threadsWithMessages,
+    conversationDetected: false,
+  };
 }
 
 async function getEmailAccountWithRules({

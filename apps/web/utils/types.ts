@@ -1,5 +1,9 @@
 import type { gmail_v1 } from "@googleapis/gmail";
 import type { Prisma } from "@prisma/client";
+import type {
+  Recipient,
+  NullableOption,
+} from "@microsoft/microsoft-graph-types";
 
 // https://stackoverflow.com/a/53276873/2602771
 export type PartialRecord<K extends keyof any, T> = Partial<Record<K, T>>;
@@ -59,6 +63,13 @@ export interface ParsedMessage {
   date: string;
   conversationIndex?: string | null;
   internalDate?: string | null;
+  bodyContentType?: "text" | "html"; // For Outlook: indicates which format the body was originally in
+  // For Outlook: store raw recipient data to avoid double conversion
+  rawRecipients?: {
+    from?: NullableOption<Recipient>;
+    toRecipients?: NullableOption<Recipient[]>;
+    ccRecipients?: NullableOption<Recipient[]>;
+  };
 }
 
 export interface Attachment {

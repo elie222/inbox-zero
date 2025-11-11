@@ -6,6 +6,8 @@ import {
   getMessages,
   queryBatchMessages,
   getFolderIds,
+  convertMessage,
+  MESSAGE_SELECT_FIELDS,
 } from "@/utils/outlook/message";
 import {
   getLabels,
@@ -32,7 +34,7 @@ import {
 import { trashThread } from "@/utils/outlook/trash";
 import { markSpam } from "@/utils/outlook/spam";
 import { handlePreviousDraftDeletion } from "@/utils/ai/choose-rule/draft-management";
-import { createScopedLogger } from "@/utils/logger";
+import { type Logger, createScopedLogger } from "@/utils/logger";
 import {
   getThreadMessages,
   getThreadsFromSenderWithSubject,
@@ -63,6 +65,7 @@ import {
 } from "@/utils/outlook/folders";
 import { hasUnquotedParentFolderId } from "@/utils/outlook/message";
 import { extractSignatureFromHtml } from "@/utils/email/signature-extraction";
+import { moveMessagesForSenders } from "@/utils/outlook/batch";
 
 const logger = createScopedLogger("outlook-provider");
 
@@ -72,6 +75,10 @@ export class OutlookProvider implements EmailProvider {
 
   constructor(client: OutlookClient) {
     this.client = client;
+  }
+
+  toJSON() {
+    return { name: this.name, type: "OutlookProvider" };
   }
 
   async getThreads(folderId?: string): Promise<EmailThread[]> {
@@ -149,6 +156,30 @@ export class OutlookProvider implements EmailProvider {
       });
       throw error;
     }
+  }
+
+  async getMessageByRfc822MessageId(
+    rfc822MessageId: string,
+  ): Promise<ParsedMessage | null> {
+    const cleanMessageId = rfc822MessageId.trim().replace(/^<|>$/g, "");
+    const messageIdWithBrackets = `<${cleanMessageId}>`;
+
+    const response = await this.client
+      .getClient()
+      .api("/me/messages")
+      .filter(
+        `internetMessageId eq '${escapeODataString(messageIdWithBrackets)}'`,
+      )
+      .top(1)
+      .get();
+
+    const message = response.value?.[0];
+    if (!message) {
+      return null;
+    }
+
+    const folderIds = await getFolderIds(this.client);
+    return convertMessage(message, folderIds);
   }
 
   private async getMessages({
@@ -237,9 +268,7 @@ export class OutlookProvider implements EmailProvider {
     // Get messages from Microsoft Graph API (well-known Sent Items folder)
     let request = client
       .api("/me/mailFolders('sentitems')/messages")
-      .select(
-        "id,conversationId,subject,bodyPreview,receivedDateTime,from,toRecipients",
-      )
+      .select(MESSAGE_SELECT_FIELDS)
       .top(maxResults)
       .orderby("receivedDateTime desc");
 
@@ -309,13 +338,28 @@ export class OutlookProvider implements EmailProvider {
   async labelMessage({
     messageId,
     labelId,
+    labelName,
   }: {
     messageId: string;
     labelId: string;
-  }) {
-    const category = await this.getLabelById(labelId);
+    labelName: string | null;
+  }): Promise<{ usedFallback?: boolean; actualLabelId?: string }> {
+    let usedFallback = false;
+    let category = await this.getLabelById(labelId);
+
+    if (!category && labelName) {
+      logger.warn("Category not found by ID, trying to get by name", {
+        labelId,
+        labelName,
+      });
+      category = await this.getLabelByName(labelName);
+      usedFallback = true;
+    }
+
     if (!category) {
-      throw new Error(`Category with ID ${labelId} not found`);
+      throw new Error(
+        `Category with ID ${labelId}${labelName ? ` or name ${labelName}` : ""} not found`,
+      );
     }
 
     // Get current message categories to avoid replacing them
@@ -336,6 +380,11 @@ export class OutlookProvider implements EmailProvider {
         categories: updatedCategories,
       });
     }
+
+    return {
+      usedFallback,
+      actualLabelId: category.id || undefined,
+    };
   }
 
   async getDraft(draftId: string): Promise<ParsedMessage | null> {
@@ -464,9 +513,7 @@ export class OutlookProvider implements EmailProvider {
         .filter(
           `conversationId eq '${escapedThreadId}' and parentFolderId eq 'inbox'`,
         )
-        .select(
-          "id,conversationId,subject,bodyPreview,receivedDateTime,from,toRecipients,body,isDraft,categories,parentFolderId",
-        )
+        .select(MESSAGE_SELECT_FIELDS)
         .get();
 
       // Convert to ParsedMessage format using existing helper
@@ -1022,9 +1069,7 @@ export class OutlookProvider implements EmailProvider {
     // Build the request
     let request = client
       .api(endpoint)
-      .select(
-        "id,conversationId,conversationIndex,subject,bodyPreview,from,toRecipients,receivedDateTime,isDraft,body,categories,parentFolderId",
-      )
+      .select(MESSAGE_SELECT_FIELDS)
       .top(options.maxResults || 50);
 
     if (filter) {
@@ -1192,6 +1237,7 @@ export class OutlookProvider implements EmailProvider {
       id: string;
       conversationId?: string;
     };
+    logger?: Logger;
   }): Promise<void> {
     if (!options.subscriptionId) {
       throw new Error(
@@ -1205,6 +1251,7 @@ export class OutlookProvider implements EmailProvider {
         id: options.historyId?.toString() || "0",
         conversationId: options.startHistoryId?.toString() || null,
       },
+      logger: options.logger || logger,
     });
   }
 
@@ -1279,6 +1326,36 @@ export class OutlookProvider implements EmailProvider {
       });
       throw error;
     }
+  }
+
+  async bulkArchiveFromSenders(
+    fromEmails: string[],
+    ownerEmail: string,
+    emailAccountId: string,
+  ): Promise<void> {
+    await moveMessagesForSenders({
+      client: this.client,
+      senders: fromEmails,
+      destinationId: "archive",
+      action: "archive",
+      ownerEmail,
+      emailAccountId,
+    });
+  }
+
+  async bulkTrashFromSenders(
+    fromEmails: string[],
+    ownerEmail: string,
+    emailAccountId: string,
+  ): Promise<void> {
+    await moveMessagesForSenders({
+      client: this.client,
+      senders: fromEmails,
+      destinationId: "deleteditems",
+      action: "trash",
+      ownerEmail,
+      emailAccountId,
+    });
   }
 
   async getOrCreateOutlookFolderIdByName(folderName: string): Promise<string> {

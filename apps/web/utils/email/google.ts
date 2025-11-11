@@ -8,10 +8,15 @@ import {
   hasPreviousCommunicationsWithSenderOrDomain,
 } from "@/utils/gmail/message";
 import {
+  publishBulkActionToTinybird,
+  updateEmailMessagesForSender,
+} from "@/utils/email/bulk-action-tracking";
+import {
   getLabels,
   getLabel,
   getLabelById,
   createLabel,
+  getOrCreateLabel,
   getOrCreateInboxZeroLabel,
   GmailLabel,
 } from "@/utils/gmail/label";
@@ -64,7 +69,7 @@ import type {
   EmailFilter,
   EmailSignature,
 } from "@/utils/email/types";
-import { createScopedLogger } from "@/utils/logger";
+import { createScopedLogger, type Logger } from "@/utils/logger";
 import { extractEmailAddress } from "@/utils/email";
 import { getGmailSignatures } from "@/utils/gmail/signature-settings";
 
@@ -75,6 +80,10 @@ export class GmailProvider implements EmailProvider {
   private readonly client: gmail_v1.Gmail;
   constructor(client: gmail_v1.Gmail) {
     this.client = client;
+  }
+
+  toJSON() {
+    return { name: this.name, type: "GmailProvider" };
   }
 
   async getThreads(labelId?: string): Promise<EmailThread[]> {
@@ -160,6 +169,14 @@ export class GmailProvider implements EmailProvider {
     return parseMessage(message);
   }
 
+  async getMessageByRfc822MessageId(
+    rfc822MessageId: string,
+  ): Promise<ParsedMessage | null> {
+    const message = await getMessageByRfc822Id(rfc822MessageId, this.client);
+    if (!message) return null;
+    return parseMessage(message);
+  }
+
   async getSentMessages(maxResults = 20): Promise<ParsedMessage[]> {
     return getSentMessages(this.client, maxResults);
   }
@@ -224,6 +241,11 @@ export class GmailProvider implements EmailProvider {
   }
 
   async archiveMessage(messageId: string): Promise<void> {
+    const log = logger.with({
+      action: "archiveMessage",
+      messageId,
+    });
+
     try {
       await this.client.users.messages.modify({
         userId: "me",
@@ -233,16 +255,251 @@ export class GmailProvider implements EmailProvider {
         },
       });
 
-      logger.info("Message archived successfully", {
-        messageId,
-      });
+      log.info("Message archived successfully");
     } catch (error) {
-      logger.error("Failed to archive message", {
-        messageId,
+      log.error("Failed to archive message", {
         error: error instanceof Error ? error.message : error,
       });
       throw error;
     }
+  }
+
+  private async archiveMessagesBulk(messageIds: string[]): Promise<void> {
+    const log = logger.with({
+      action: "archiveMessagesBulk",
+      messageIds: messageIds,
+    });
+
+    try {
+      await this.client.users.messages.batchModify({
+        userId: "me",
+        requestBody: {
+          ids: messageIds,
+          removeLabelIds: [GmailLabel.INBOX],
+        },
+      });
+    } catch (error) {
+      log.error("Failed to archive messages bulk", {
+        error: error instanceof Error ? error.message : error,
+      });
+      throw error;
+    }
+  }
+
+  // We don't have permissions for Gmail bulkDelete, so we have to do it one thread at a time
+  private async archiveMessagesFromSenders(
+    senders: string[],
+    ownerEmail: string,
+    emailAccountId: string,
+  ): Promise<void> {
+    const log = logger.with({
+      action: "archiveMessagesFromSenders",
+      emailAccountId,
+      email: ownerEmail,
+      sendersCount: senders.length,
+    });
+
+    if (senders.length === 0) return;
+
+    for (const sender of senders) {
+      if (!sender) continue;
+
+      const publishedThreadIds = new Set<string>();
+      let nextPageToken: string | undefined;
+
+      do {
+        try {
+          const { messages, nextPageToken: token } = await getMessages(
+            this.client,
+            {
+              query: `from:${sender} in:inbox`,
+              maxResults: 500,
+              pageToken: nextPageToken,
+            },
+          );
+
+          const batchThreadIds = new Set(messages.map((msg) => msg.threadId));
+          const batchMessageIds = messages.map((msg) => msg.id);
+
+          if (batchMessageIds.length > 0) {
+            await this.archiveMessagesBulk(batchMessageIds);
+
+            const newThreadIds = Array.from(batchThreadIds).filter(
+              (threadId) => !publishedThreadIds.has(threadId),
+            );
+
+            const promises = [
+              updateEmailMessagesForSender({
+                sender,
+                messageIds: batchMessageIds,
+                emailAccountId,
+                action: "archive",
+              }),
+            ];
+
+            if (newThreadIds.length > 0) {
+              promises.push(
+                publishBulkActionToTinybird({
+                  threadIds: newThreadIds,
+                  action: "archive",
+                  ownerEmail,
+                }),
+              );
+            }
+
+            await Promise.all(promises);
+
+            newThreadIds.forEach((threadId) =>
+              publishedThreadIds.add(threadId),
+            );
+          }
+
+          nextPageToken = token;
+        } catch (error) {
+          log.error("Failed to archive messages from sender", {
+            sender,
+            error: error instanceof Error ? error.message : error,
+          });
+          // continue processing remaining pages
+          nextPageToken = undefined;
+        }
+      } while (nextPageToken);
+    }
+
+    log.info("Completed bulk archive from senders");
+  }
+
+  private async trashThreadsFromSenders(
+    senders: string[],
+    ownerEmail: string,
+    emailAccountId: string,
+  ): Promise<void> {
+    const log = logger.with({
+      action: "bulkTrashFromSenders",
+      emailAccountId,
+      email: ownerEmail,
+      sendersCount: senders.length,
+    });
+
+    if (senders.length === 0) {
+      return;
+    }
+
+    for (const sender of senders) {
+      if (!sender) {
+        continue;
+      }
+
+      const allThreadIds = new Set<string>();
+      const threadToMessages = new Map<string, string[]>();
+      let nextPageToken: string | undefined;
+
+      do {
+        try {
+          const { messages, nextPageToken: token } = await getMessages(
+            this.client,
+            {
+              query: `from:${sender}`,
+              maxResults: 500,
+              pageToken: nextPageToken,
+            },
+          );
+
+          messages.forEach((msg) => {
+            allThreadIds.add(msg.threadId);
+            const existingMessages = threadToMessages.get(msg.threadId) || [];
+            existingMessages.push(msg.id);
+            threadToMessages.set(msg.threadId, existingMessages);
+          });
+
+          nextPageToken = token;
+        } catch (error) {
+          log.error("Failed to get messages from sender", {
+            sender,
+            error: error instanceof Error ? error.message : error,
+          });
+          // continue processing remaining senders
+          nextPageToken = undefined;
+        }
+      } while (nextPageToken);
+
+      // Trash threads one by one (no bulk delete permission in Gmail)
+      if (allThreadIds.size > 0) {
+        const successfullyTrashedThreadIds = new Set<string>();
+
+        for (const threadId of allThreadIds) {
+          try {
+            await this.trashThread(threadId, ownerEmail, "automation");
+            successfullyTrashedThreadIds.add(threadId);
+          } catch (error) {
+            log.error("Failed to trash thread for sender", {
+              sender,
+              threadId,
+              error: error instanceof Error ? error.message : error,
+            });
+            // Continue processing remaining threads
+          }
+        }
+
+        if (successfullyTrashedThreadIds.size > 0) {
+          try {
+            const successfulMessageIds: string[] = [];
+            for (const threadId of successfullyTrashedThreadIds) {
+              const messages = threadToMessages.get(threadId) || [];
+              successfulMessageIds.push(...messages);
+            }
+
+            const promises = [
+              publishBulkActionToTinybird({
+                threadIds: Array.from(successfullyTrashedThreadIds),
+                action: "trash",
+                ownerEmail,
+              }),
+            ];
+
+            if (successfulMessageIds.length > 0) {
+              promises.push(
+                updateEmailMessagesForSender({
+                  sender,
+                  messageIds: successfulMessageIds,
+                  emailAccountId,
+                  action: "trash",
+                }),
+              );
+            }
+
+            await Promise.all(promises);
+          } catch (error) {
+            log.error("Failed to track trash operation for sender", {
+              sender,
+              error: error instanceof Error ? error.message : error,
+            });
+          }
+        }
+      }
+    }
+
+    log.info("Completed bulk trash from senders");
+  }
+
+  async bulkArchiveFromSenders(
+    fromEmails: string[],
+    ownerEmail: string,
+    emailAccountId: string,
+  ): Promise<void> {
+    await this.archiveMessagesFromSenders(
+      fromEmails,
+      ownerEmail,
+      emailAccountId,
+    );
+  }
+
+  async bulkTrashFromSenders(
+    fromEmails: string[],
+    ownerEmail: string,
+    emailAccountId: string,
+  ): Promise<void> {
+    await this.trashThreadsFromSenders(fromEmails, ownerEmail, emailAccountId);
   }
 
   async trashThread(
@@ -261,15 +518,58 @@ export class GmailProvider implements EmailProvider {
   async labelMessage({
     messageId,
     labelId,
+    labelName,
   }: {
     messageId: string;
     labelId: string;
-  }) {
-    await labelMessage({
-      gmail: this.client,
+    labelName: string | null;
+  }): Promise<{ usedFallback?: boolean; actualLabelId?: string }> {
+    const log = logger.with({
+      action: "labelMessage",
       messageId,
-      addLabelIds: [labelId],
+      labelId,
+      labelName,
     });
+
+    try {
+      await labelMessage({
+        gmail: this.client,
+        messageId,
+        addLabelIds: [labelId],
+      });
+
+      return {};
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+
+      // Only use fallback for "label not found" errors
+      if (
+        (errorMessage.includes("Requested entity was not found") ||
+          errorMessage.includes("labelId not found")) &&
+        labelName
+      ) {
+        log.warn("Label not found by ID, trying to get or create by name");
+
+        const label = await getOrCreateLabel({
+          gmail: this.client,
+          name: labelName,
+        });
+        await labelMessage({
+          gmail: this.client,
+          messageId,
+          addLabelIds: [label.id!],
+        });
+
+        return {
+          usedFallback: true,
+          actualLabelId: label.id!,
+        };
+      }
+
+      // Re-throw if not a "not found" error or fallback didn't work
+      throw error;
+    }
   }
 
   async getDraft(draftId: string): Promise<ParsedMessage | null> {
@@ -286,6 +586,14 @@ export class GmailProvider implements EmailProvider {
     userEmail: string,
     executedRule?: { id: string; threadId: string; emailAccountId: string },
   ): Promise<{ draftId: string }> {
+    const log = logger.with({
+      action: "draftEmail",
+      email: userEmail,
+      executedRuleId: executedRule?.id,
+      threadId: executedRule?.threadId,
+      messageId: email.id,
+    });
+
     if (executedRule) {
       // Run draft creation and previous draft deletion in parallel
       const [result] = await Promise.all([
@@ -293,7 +601,7 @@ export class GmailProvider implements EmailProvider {
         handlePreviousDraftDeletion({
           client: this,
           executedRule,
-          logger,
+          logger: log,
         }),
       ]);
       return { draftId: result.data.id || "" };
@@ -364,11 +672,16 @@ export class GmailProvider implements EmailProvider {
   }
 
   async blockUnsubscribedEmail(messageId: string): Promise<void> {
+    const log = logger.with({
+      action: "blockUnsubscribedEmail",
+      messageId,
+    });
+
     const unsubscribeLabel =
       await this.getOrCreateInboxZeroLabel("unsubscribed");
 
     if (unsubscribeLabel?.id) {
-      logger.warn("Unsubscribe label not found", { messageId });
+      log.warn("Unsubscribe label not found");
     }
 
     await labelMessage({
@@ -651,6 +964,11 @@ export class GmailProvider implements EmailProvider {
   }
 
   async checkIfReplySent(senderEmail: string): Promise<boolean> {
+    const log = logger.with({
+      action: "checkIfReplySent",
+      sender: senderEmail,
+    });
+
     try {
       const query = `from:me to:${senderEmail} label:sent`;
       const response = await getMessages(this.client, {
@@ -658,12 +976,11 @@ export class GmailProvider implements EmailProvider {
         maxResults: 1,
       });
       const sent = (response.messages?.length ?? 0) > 0;
-      logger.info("Checked for sent reply", { senderEmail, sent });
+      log.info("Checked for sent reply", { sent });
       return sent;
     } catch (error) {
-      logger.error("Error checking if reply was sent", {
+      log.error("Error checking if reply was sent", {
         error,
-        senderEmail,
       });
       return true; // Default to true on error (safer for TO_REPLY filtering)
     }
@@ -673,12 +990,15 @@ export class GmailProvider implements EmailProvider {
     senderEmail: string,
     threshold: number,
   ): Promise<number> {
+    const log = logger.with({
+      action: "countReceivedMessages",
+      sender: senderEmail,
+      threshold,
+    });
+
     try {
       const query = `from:${senderEmail}`;
-      logger.info("Checking received message count", {
-        senderEmail,
-        threshold,
-      });
+      log.info("Checking received message count");
 
       // Fetch up to the threshold number of message IDs.
       const response = await getMessages(this.client, {
@@ -687,16 +1007,10 @@ export class GmailProvider implements EmailProvider {
       });
       const count = response.messages?.length ?? 0;
 
-      logger.info("Received message count check result", {
-        senderEmail,
-        count,
-      });
+      log.info("Received message count check result", { count });
       return count;
     } catch (error) {
-      logger.error("Error counting received messages", {
-        error,
-        senderEmail,
-      });
+      log.error("Error counting received messages", { error });
       return 0; // Default to 0 on error
     }
   }
@@ -871,6 +1185,7 @@ export class GmailProvider implements EmailProvider {
       id: string;
       conversationId?: string;
     };
+    logger?: Logger;
   }): Promise<void> {
     await processHistoryForUser(
       {
@@ -880,7 +1195,7 @@ export class GmailProvider implements EmailProvider {
       {
         startHistoryId: options.startHistoryId?.toString(),
       },
-      logger,
+      options.logger || logger,
     );
   }
 

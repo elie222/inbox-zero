@@ -84,7 +84,7 @@ Key guidelines:
   const modelOptions = getModel(emailAccount.user);
 
   const generateText = createGenerateText({
-    userEmail: emailAccount.email,
+    emailAccount,
     label: "Create group",
     modelOptions,
   });
@@ -154,7 +154,7 @@ Guidelines:
   const modelOptions = getModel(emailAccount.user);
 
   const generateText = createGenerateText({
-    userEmail: emailAccount.email,
+    emailAccount,
     label: "Verify group criteria",
     modelOptions,
   });

@@ -1,5 +1,6 @@
 "use client";
 
+import { useCallback } from "react";
 import { Toggle } from "@/components/Toggle";
 import { enableMultiRuleSelectionAction } from "@/utils/actions/rule";
 import { toastError } from "@/components/Toast";
@@ -19,6 +20,7 @@ export function MultiRuleSetting() {
         mutate();
       },
       onError: (error) => {
+        mutate();
         toastError({
           description: `There was an error: ${error.error.serverError || "Unknown error"}`,
         });
@@ -27,6 +29,21 @@ export function MultiRuleSetting() {
   );
 
   const enabled = data?.multiRuleSelectionEnabled ?? false;
+
+  const handleToggle = useCallback(
+    (enable: boolean) => {
+      if (!data) return;
+
+      const optimisticData = {
+        ...data,
+        multiRuleSelectionEnabled: enable,
+      };
+      mutate(optimisticData, false);
+
+      execute({ enable });
+    },
+    [data, mutate, execute],
+  );
 
   return (
     <SettingCard
@@ -41,7 +58,7 @@ export function MultiRuleSetting() {
           <Toggle
             name="multi-rule-selection"
             enabled={enabled}
-            onChange={(enable) => execute({ enable })}
+            onChange={handleToggle}
             disabled={isLoading}
           />
         </LoadingContent>

@@ -44,7 +44,7 @@ export function StepCustomRules({
         <div className="rounded-2xl p-4 bg-slate-50 border border-slate-200">
           <Image
             src="/images/onboarding/custom-rules.png"
-            alt="Draft replies"
+            alt="Custom rules"
             width={1200}
             height={800}
             className="rounded-xl border border-slate-200"

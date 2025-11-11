@@ -362,6 +362,121 @@ export default function Components() {
               ]}
             />
 
+            <div className="mt-8">
+              <p className="mb-2 text-sm text-muted-foreground">
+                Complex example with multiple batches:
+              </p>
+              <ResultsDisplay
+                results={[
+                  // Batch 1 (most recent): 2 rules
+                  {
+                    createdAt: new Date("2025-01-05T10:00:00"),
+                    actionItems: [
+                      {
+                        type: ActionType.LABEL,
+                        label: "Urgent",
+                        id: "label1",
+                      },
+                    ],
+                    reason: "Matches urgent criteria",
+                    rule: getRuleWithName("Urgent Handler"),
+                    status: ExecutedRuleStatus.APPLIED,
+                  },
+                  {
+                    createdAt: new Date("2025-01-05T10:00:00"),
+                    actionItems: [
+                      {
+                        type: ActionType.ARCHIVE,
+                        id: "archive1",
+                      },
+                    ],
+                    reason: "Matches archive criteria",
+                    rule: getRuleWithName("Auto Archive"),
+                    status: ExecutedRuleStatus.APPLIED,
+                  },
+                  // Batch 2 (previous): 2 rules - will show "Previous:"
+                  {
+                    createdAt: new Date("2025-01-04T10:00:00"),
+                    actionItems: [
+                      {
+                        type: ActionType.LABEL,
+                        label: "Important",
+                        id: "label2",
+                      },
+                    ],
+                    reason: "Matches important criteria",
+                    rule: getRuleWithName("Important Filter"),
+                    status: ExecutedRuleStatus.APPLIED,
+                  },
+                  {
+                    createdAt: new Date("2025-01-04T10:00:00"),
+                    actionItems: [
+                      {
+                        type: ActionType.MARK_READ,
+                        id: "mark_read1",
+                      },
+                    ],
+                    reason: "Matches read criteria",
+                    rule: getRuleWithName("Mark as Read"),
+                    status: ExecutedRuleStatus.APPLIED,
+                  },
+                  // Batch 3: 3 rules
+                  {
+                    createdAt: new Date("2025-01-03T10:00:00"),
+                    actionItems: [
+                      {
+                        type: ActionType.LABEL,
+                        label: "Newsletter",
+                        id: "label3",
+                      },
+                    ],
+                    reason: "Matches newsletter criteria",
+                    rule: getRuleWithName("Newsletter Handler"),
+                    status: ExecutedRuleStatus.APPLIED,
+                  },
+                  {
+                    createdAt: new Date("2025-01-03T10:00:00"),
+                    actionItems: [
+                      {
+                        type: ActionType.MOVE_FOLDER,
+                        folderName: "Marketing",
+                        id: "move1",
+                      },
+                    ],
+                    reason: "Matches marketing criteria",
+                    rule: getRuleWithName("Marketing Folder"),
+                    status: ExecutedRuleStatus.APPLIED,
+                  },
+                  {
+                    createdAt: new Date("2025-01-03T10:00:00"),
+                    actionItems: [
+                      {
+                        type: ActionType.DIGEST,
+                        id: "digest1",
+                      },
+                    ],
+                    reason: "Matches digest criteria",
+                    rule: getRuleWithName("Weekly Digest"),
+                    status: ExecutedRuleStatus.APPLIED,
+                  },
+                  // Batch 4: 1 rule
+                  {
+                    createdAt: new Date("2025-01-02T10:00:00"),
+                    actionItems: [
+                      {
+                        type: ActionType.LABEL,
+                        label: "Follow Up",
+                        id: "label4",
+                      },
+                    ],
+                    reason: "Matches follow-up criteria",
+                    rule: getRuleWithName("Follow Up Tracker"),
+                    status: ExecutedRuleStatus.APPLIED,
+                  },
+                ]}
+              />
+            </div>
+
             <div className="p-4 border border-border rounded mt-4">
               <ResultDisplayContent
                 result={{
@@ -588,5 +703,13 @@ function getRule(): Rule {
     promptText: null,
     categoryFilterType: null,
     systemType: null,
+  };
+}
+
+function getRuleWithName(name: string): Rule {
+  return {
+    ...getRule(),
+    id: name.toLowerCase().replace(/\s+/g, "-"),
+    name,
   };
 }

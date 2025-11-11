@@ -225,18 +225,32 @@ describe("applyThreadStatusLabel", () => {
         id: "rule-2",
         systemType: "AWAITING_REPLY",
         actions: [
-          { id: "action-2", type: "LABEL", labelId: "label-awaiting-reply" },
+          {
+            id: "action-2",
+            type: "LABEL",
+            labelId: "label-awaiting-reply",
+            label: null,
+          },
         ],
       },
       {
         id: "rule-3",
         systemType: "FYI",
-        actions: [{ id: "action-3", type: "LABEL", labelId: "label-fyi" }],
+        actions: [
+          { id: "action-3", type: "LABEL", labelId: "label-fyi", label: null },
+        ],
       },
       {
         id: "rule-4",
         systemType: "ACTIONED",
-        actions: [{ id: "action-4", type: "LABEL", labelId: "label-actioned" }],
+        actions: [
+          {
+            id: "action-4",
+            type: "LABEL",
+            labelId: "label-actioned",
+            label: null,
+          },
+        ],
       },
     ] as any);
 
@@ -261,7 +275,8 @@ describe("applyThreadStatusLabel", () => {
     // Should use the newly created label ID
     expect(mockProvider.labelMessage).toHaveBeenCalledWith({
       messageId,
-      labelId: "label-to-reply", // From createLabel mock
+      labelId: "label-to-reply",
+      labelName: "To Reply",
     });
   });
 

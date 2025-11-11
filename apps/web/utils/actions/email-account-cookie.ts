@@ -6,6 +6,7 @@ import {
   LAST_EMAIL_ACCOUNT_COOKIE,
   type LastEmailAccountCookieValue,
 } from "@/utils/cookies";
+import { clearLastEmailAccountCookie } from "@/utils/cookies.server";
 import { actionClientUser } from "@/utils/actions/safe-action";
 
 /**
@@ -40,6 +41,5 @@ export const setLastEmailAccountAction = actionClientUser
 export const clearLastEmailAccountAction = actionClientUser
   .metadata({ name: "clearLastEmailAccount" })
   .action(async () => {
-    const cookieStore = await cookies();
-    cookieStore.delete(LAST_EMAIL_ACCOUNT_COOKIE);
+    await clearLastEmailAccountCookie();
   });
