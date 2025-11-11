@@ -1,5 +1,6 @@
 "use client";
 
+import { cx } from "class-variance-authority";
 import { useEffect } from "react";
 
 type UnicornStudioInitFlag = {
@@ -18,7 +19,11 @@ declare global {
     | undefined;
 }
 
-export function UnicornScene() {
+interface UnicornSceneProps {
+  className?: string;
+}
+
+export function UnicornScene({ className }: UnicornSceneProps) {
   useEffect(() => {
     if (!window.UnicornStudio) {
       // @ts-expect-error - window.UnicornStudio is a flag object, not the global UnicornStudio
@@ -44,7 +49,7 @@ export function UnicornScene() {
   return (
     <div
       data-us-project="7EOg9x6JDnLX6WDUJiAj"
-      className="w-full h-full opacity-15"
+      className={cx("w-full h-full absolute top-0 left-0 -z-10", className)}
     />
   );
 }
