@@ -31,6 +31,7 @@ export function Hero() {
     <Section className="mt-20">
       <PageHeading>
         <WordReveal
+          spaceBetween="w-2 md:w-3"
           words={[
             "Meet",
             "your",
