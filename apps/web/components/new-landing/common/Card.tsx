@@ -36,7 +36,7 @@ export function CardHeader({
       {title ? (
         <h2
           className={cx(
-            "font-aeonik text-xl leading-6",
+            "font-title text-xl leading-6",
             title || addon ? "mt-5" : "",
           )}
         >

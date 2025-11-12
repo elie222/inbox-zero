@@ -10,12 +10,12 @@ export function WelcomeUpgradeHeader() {
   return (
     <div className="mb-8 flex flex-col items-start">
       <div className="mx-auto text-center">
-        <h2 className="font-cal text-base leading-7 text-blue-600">
+        <h2 className="font-title text-base leading-7 text-blue-600">
           Spend 50% less time on email
         </h2>
         {variant === "free-trial-emphasis" ? (
           <div>
-            <h1 className="mt-2 font-cal text-2xl text-gray-900 sm:text-3xl">
+            <h1 className="mt-2 font-title text-2xl text-gray-900 sm:text-3xl">
               Start your 7-day FREE trial
             </h1>
             <p className="mt-2 text-lg text-gray-900 sm:text-xl">
@@ -23,7 +23,7 @@ export function WelcomeUpgradeHeader() {
             </p>
           </div>
         ) : (
-          <h1 className="mt-2 font-cal text-2xl text-gray-900 sm:text-3xl">
+          <h1 className="mt-2 font-title text-2xl text-gray-900 sm:text-3xl">
             Join {userCount} users that use Inbox Zero
             <br />
             to be more productive!

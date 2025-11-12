@@ -17,7 +17,7 @@ export function CTA(props: { CTAComponent?: React.ComponentType }) {
         />
       </div> */}
       <div className="mx-auto max-w-2xl text-center">
-        <h2 className="font-cal text-3xl text-gray-900 sm:text-4xl">
+        <h2 className="font-title text-3xl text-gray-900 sm:text-4xl">
           Boost your productivity.
           <br />
           Start using Inbox Zero today.

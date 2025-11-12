@@ -78,7 +78,6 @@ export function FAQs() {
               >
                 <CardContent>
                   <Paragraph
-                    family="geist"
                     color="gray-900"
                     className="font-semibold tracking-tight mb-4"
                   >
