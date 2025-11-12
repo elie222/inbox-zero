@@ -5,7 +5,7 @@ import { Testimonials } from "@/components/new-landing/sections/Testimonials";
 import { Hero } from "@/components/new-landing/sections/Hero";
 import { Pricing } from "@/components/new-landing/sections/Pricing";
 import { Awards } from "@/components/new-landing/sections/Awards";
-import { BuyBackTime } from "@/components/new-landing/sections/BuyBackTime";
+import { FinalCTA } from "@/components/new-landing/sections/FinalCTA";
 import { EverythingElseSection } from "@/components/new-landing/sections/EverythingElseSection";
 import { StartedInMinutes } from "@/components/new-landing/sections/StartedInMinutes";
 import { BulkUnsubscribe } from "@/components/new-landing/sections/BulkUnsubscribe";
@@ -26,7 +26,7 @@ export default function NewLanding() {
       <Awards />
       <Pricing />
       <Testimonials />
-      <BuyBackTime />
+      <FinalCTA />
       <FAQs />
     </BasicLayout>
   );

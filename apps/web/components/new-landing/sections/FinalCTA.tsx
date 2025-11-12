@@ -8,7 +8,7 @@ import {
   SectionSubtitle,
 } from "@/components/new-landing/common/Typography";
 
-export function BuyBackTime() {
+export function FinalCTA() {
   return (
     <div
       className="bg-[url('/images/new-landing/buy-back-time-bg.png')] bg-cover bg-center bg-no-repeat"
