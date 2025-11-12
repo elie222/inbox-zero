@@ -26,7 +26,7 @@ export function Button({
 
   const buttonVariants = cva(
     [
-      "rounded-[13px] font-geist font-medium transition-all will-change-transform",
+      "rounded-[13px] font-medium transition-all will-change-transform",
       "flex items-center justify-center gap-2",
       variant === "primary" ? "" : "hover:scale-[1.04]",
     ],

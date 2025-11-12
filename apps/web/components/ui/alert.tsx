@@ -41,7 +41,7 @@ const AlertTitle = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <h5
     ref={ref}
-    className={cn("mb-1 font-cal leading-none", className)}
+    className={cn("mb-1 font-title leading-none", className)}
     {...props}
   />
 ));

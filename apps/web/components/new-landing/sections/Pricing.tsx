@@ -180,7 +180,7 @@ function PricingCard({ tier, tierIndex, isAnnual, posthog }: PricingCardProps) {
                 </Paragraph>
               </>
             ) : (
-              <Subheading className="font-light">Contact us</Subheading>
+              <Subheading>Contact us</Subheading>
             )}
           </div>
           <Button auto size="lg" variant={tier.button.variant} asChild>

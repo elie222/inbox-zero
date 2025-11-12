@@ -45,10 +45,9 @@ module.exports = {
         "marquee-reverse": "marquee-reverse var(--duration) linear infinite",
       },
       fontFamily: {
-        cal: ["var(--font-cal)", ...fontFamily.sans],
-        sans: ["var(--font-inter)", ...fontFamily.sans],
-        aeonik: ["var(--font-aeonik)", ...fontFamily.sans],
-        geist: ["var(--font-geist)", ...fontFamily.sans],
+        sans: ["var(--font-geist)", ...fontFamily.sans],
+        inter: ["var(--font-inter)", ...fontFamily.sans],
+        title: ["var(--font-title)", ...fontFamily.sans],
       },
       colors: {
         // shadcn/ui

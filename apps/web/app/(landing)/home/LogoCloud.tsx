@@ -3,7 +3,7 @@ import { userCount } from "@/utils/config";
 export function LogoCloud() {
   return (
     <div className="mx-auto mt-16 max-w-7xl px-6 lg:px-8">
-      <h2 className="text-center font-cal text-lg leading-8 text-gray-900">
+      <h2 className="text-center font-title text-lg leading-8 text-gray-900">
         Trusted by {userCount} productive users
       </h2>
 
