@@ -1,4 +1,8 @@
-export function Play() {
+interface PlayProps {
+  className?: string;
+}
+
+export function Play({ className }: PlayProps) {
   return (
     <svg
       width="18"
@@ -6,6 +10,7 @@ export function Play() {
       viewBox="0 0 18 21"
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
+      className={className}
     >
       <g filter="url(#filter0_i_481_2380)">
         <path

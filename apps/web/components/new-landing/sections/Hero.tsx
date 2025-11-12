@@ -86,7 +86,9 @@ export function HeroVideoPlayer() {
         <Dialog>
           <DialogTrigger asChild>
             <LiquidGlassButton className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2">
-              <Play />
+              <div>
+                <Play className="translate-x-[2px]" />
+              </div>
             </LiquidGlassButton>
           </DialogTrigger>
           <DialogContent className="max-w-4xl border-0 bg-transparent p-0">
