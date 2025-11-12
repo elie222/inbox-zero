@@ -183,7 +183,7 @@ function PricingCard({ tier, tierIndex, isAnnual, posthog }: PricingCardProps) {
               <Subheading className="font-light">Contact us</Subheading>
             )}
           </div>
-          <Button auto variant={tier.button.variant} asChild>
+          <Button auto size="lg" variant={tier.button.variant} asChild>
             <Link
               href={tier.button.href}
               target={tier.button.target}
@@ -195,17 +195,9 @@ function PricingCard({ tier, tierIndex, isAnnual, posthog }: PricingCardProps) {
                 )
               }
             >
-              {tier.button.variant ? (
-                <>
-                  {tier.button.icon}
-                  {tier.button.content}
-                </>
-              ) : (
-                <span className="relative z-10">
-                  {tier.button.icon}
-                  {tier.button.content}
-                </span>
-              )}
+              {tier.button.icon}
+              {/* z-10 keeps text above gradient background on hover to prevent color shift */}
+              <span className="relative z-10">{tier.button.content}</span>
             </Link>
           </Button>
         </div>
