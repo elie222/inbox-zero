@@ -50,7 +50,7 @@ export function Hero() {
           helps you reach inbox zero fast. Never miss an important email again.
         </Paragraph>
       </BlurFade>
-      <SectionContent>
+      <SectionContent noMarginTop className="mt-6 md:mt-8">
         <div className="space-y-3 mb-8">
           <BlurFade duration={0.4} delay={0.125 * 7} inView>
             <CallToAction />
