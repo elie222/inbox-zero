@@ -12,6 +12,7 @@ import {
   SectionHeading,
   SectionSubtitle,
 } from "@/components/new-landing/common/Typography";
+import { userCount } from "@/utils/config";
 
 type Testimonial = {
   body: string;
@@ -160,10 +161,10 @@ export function Testimonials() {
   return (
     <Section>
       <SectionHeading wrap>
-        Join thousands of others who spend less time on emails
+        Join {userCount} others who spend less time on emails
       </SectionHeading>
       <SectionSubtitle>
-        Our customers love saving time with inboxzero.
+        Our customers love saving time with Inbox Zero.
       </SectionSubtitle>
       <SectionContent>
         {/* Mobile */}

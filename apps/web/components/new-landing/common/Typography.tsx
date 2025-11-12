@@ -9,7 +9,7 @@ export function Heading({ children, className }: HeadingProps) {
   return (
     <h1
       className={cx(
-        "font-aeonik text-[#242424] text-[34px] sm:text-5xl md:text-6xl leading-tight",
+        "font-title text-[#242424] text-[34px] sm:text-5xl md:text-6xl leading-tight",
         className,
       )}
     >
@@ -45,7 +45,7 @@ interface SectionSubtitleProps {
 
 export function SectionSubtitle({ children }: SectionSubtitleProps) {
   return (
-    <Paragraph className={cx("max-w-[650px] mx-auto mt-2")}>
+    <Paragraph className={cx("max-w-[650px] mx-auto mt-2.5")} size="lg">
       {children}
     </Paragraph>
   );
@@ -60,7 +60,7 @@ export function Subheading({ children, className }: SubheadingProps) {
   return (
     <h2
       className={cx(
-        "font-aeonik text-[#242424] text-[1.7rem] md:text-[2.5rem] leading-tight",
+        "font-title text-[#242424] text-[1.7rem] md:text-[2.5rem] leading-tight",
         className,
       )}
     >
@@ -74,7 +74,6 @@ interface ParagraphProps {
   className?: string;
   color?: "default" | "light" | "dark" | "gray-700" | "gray-500" | "gray-900";
   size?: "default" | "xs" | "sm" | "md" | "lg";
-  family?: "default" | "geist";
   as?: "p" | "h3";
 }
 
@@ -83,7 +82,6 @@ export function Paragraph({
   className,
   color = "default",
   size = "default",
-  family = "default",
   as = "p",
 }: ParagraphProps) {
   const paragraphStyles = cva("font-geist", {
@@ -103,18 +101,12 @@ export function Paragraph({
         md: "text-base",
         lg: "text-lg",
       },
-      family: {
-        default: "",
-        geist: "font-geist",
-      },
     },
   });
   const ParagraphComponent = as as React.ElementType;
 
   return (
-    <ParagraphComponent
-      className={paragraphStyles({ color, size, family, className })}
-    >
+    <ParagraphComponent className={paragraphStyles({ color, size, className })}>
       {children}
     </ParagraphComponent>
   );

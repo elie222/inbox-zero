@@ -16,7 +16,7 @@ export function HeroText(props: {
 
   return (
     <h1
-      className={cn("font-cal text-4xl text-gray-900 sm:text-6xl", className)}
+      className={cn("font-title text-4xl text-gray-900 sm:text-6xl", className)}
       {...rest}
     />
   );

@@ -438,7 +438,7 @@ function ToolCardHeader({
 }) {
   return (
     <div className="flex items-center justify-between">
-      <h3 className="font-cal text-lg">{title}</h3>
+      <h3 className="font-title text-lg">{title}</h3>
       {actions}
     </div>
   );

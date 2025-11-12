@@ -35,7 +35,7 @@ export const createOutlookReplyContent = ({
 
   // Outlook-specific font styling with Aptos as default
   const outlookFontStyle =
-    "font-family: Aptos, Calibri, Arial, Helvetica, sans-serif; font-size: 11pt; color: rgb(0, 0, 0);";
+    "font-family: Aptos, Calibri, Arial, Helvetica, sans-serif; font-size: 12pt; color: rgb(0, 0, 0);";
 
   // Format HTML version with Outlook-style formatting
   const html =

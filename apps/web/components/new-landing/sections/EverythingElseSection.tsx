@@ -17,10 +17,9 @@ import Image from "next/image";
 export function EverythingElseSection() {
   return (
     <Section>
-      <SectionHeading>And everything else you need</SectionHeading>
+      <SectionHeading>Designed around how you actually work</SectionHeading>
       <SectionSubtitle>
-        Effortless setup with one-click install. Inboxzero is intuitive and
-        requires no technical skills.
+        Flexible enough to fit any workflow. Simple enough to set up in minutes.
       </SectionSubtitle>
       <SectionContent
         noMarginTop
@@ -29,7 +28,7 @@ export function EverythingElseSection() {
         <CardWrapper className="w-full grid grid-cols-1 md:grid-cols-3 gap-5">
           <BlurFade inView>
             <DisplayCard
-              title="Measure what matters with email analytics"
+              title="Email analytics. What gets measured, gets managed"
               description="See who emails you most and what's clogging your inbox. Get clear insights, then take action."
               icon={<Analytics />}
             >
@@ -43,8 +42,8 @@ export function EverythingElseSection() {
           </BlurFade>
           <BlurFade delay={0.25} inView>
             <DisplayCard
-              title="Drafts that know your schedule"
-              description="Connects to your calendar, CRM, and tools to draft emails based on your actual schedule and customer data."
+              title="Drafts that know your schedule and availability"
+              description="Connects to your calendar and CRM to draft emails based on your actual schedule and customer data."
               icon={<Link />}
             >
               <Image
@@ -57,8 +56,8 @@ export function EverythingElseSection() {
           </BlurFade>
           <BlurFade delay={0.25 * 2} inView>
             <DisplayCard
-              title="Customize your assistant in plain English"
-              description="Every inbox is different. Set your own rules in seconds using everyday language."
+              title="Built to fit your workflow. Customize in plain English"
+              description="Your inbox, your rules. Configure everything in plain English. Make it work the way you actually work."
               icon={<ChatTwo />}
             >
               <Image

@@ -91,7 +91,7 @@ export const SimpleRichTextEditor = forwardRef<
           class: cn(
             "p-3 max-w-none focus:outline-none max-w-none simple-rich-editor",
             "prose prose-sm",
-            "prose-headings:font-cal prose-headings:text-foreground",
+            "prose-headings:font-title prose-headings:text-foreground",
             "prose-p:text-foreground prose-li:text-foreground",
             "prose-strong:text-foreground prose-strong:font-semibold",
             "prose-ul:text-foreground prose-ol:text-foreground",

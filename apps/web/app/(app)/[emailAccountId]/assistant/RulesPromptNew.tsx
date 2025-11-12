@@ -158,7 +158,9 @@ function RulesPromptForm({
               onSubmit();
             }}
           >
-            <Label className="font-cal text-xl leading-7">Add new rules</Label>
+            <Label className="font-title text-xl leading-7">
+              Add new rules
+            </Label>
 
             <div className="mt-1.5 space-y-2">
               <LoadingContent
@@ -208,7 +210,7 @@ function RulesPromptForm({
 
       {examples && (
         <div className="mt-2">
-          <Label className="font-cal text-xl leading-7">Examples</Label>
+          <Label className="font-title text-xl leading-7">Examples</Label>
           <div className="mt-1.5">
             <ExamplesGrid
               examples={examples}

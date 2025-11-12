@@ -10,6 +10,7 @@ import {
   Trash2Icon,
   SparklesIcon,
   InfoIcon,
+  CopyIcon,
 } from "lucide-react";
 import { useMemo } from "react";
 import { LoadingContent } from "@/components/LoadingContent";
@@ -73,7 +74,11 @@ export function Rules({
   const { setInput } = useChat();
 
   const { userLabels } = useLabels();
-  const ruleDialog = useDialogState<{ ruleId: string; editMode?: boolean }>();
+  const ruleDialog = useDialogState<{
+    ruleId?: string;
+    editMode?: boolean;
+    duplicateRule?: RulesResponse[number];
+  }>();
   const coldEmailDialog = useDialogState();
 
   const onCreateRule = () => ruleDialog.onOpen();
@@ -319,6 +324,16 @@ export function Rules({
                                   Edit via AI
                                 </DropdownMenuItem>
                               )}
+                              <DropdownMenuItem
+                                onClick={() => {
+                                  ruleDialog.onOpen({
+                                    duplicateRule: rule,
+                                  });
+                                }}
+                              >
+                                <CopyIcon className="mr-2 size-4" />
+                                Duplicate
+                              </DropdownMenuItem>
                               <DropdownMenuItem asChild>
                                 <Link
                                   href={
@@ -399,6 +414,7 @@ export function Rules({
 
       <RuleDialog
         ruleId={ruleDialog.data?.ruleId}
+        duplicateRule={ruleDialog.data?.duplicateRule}
         isOpen={ruleDialog.isOpen}
         onClose={ruleDialog.onClose}
         onSuccess={() => {

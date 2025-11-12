@@ -21,6 +21,9 @@ module.exports = {
       },
     },
     extend: {
+      transitionTimingFunction: {
+        "back-out": "cubic-bezier(0.175, 0.885, 0.32, 2.2)",
+      },
       keyframes: {
         "accordion-down": {
           from: { height: 0 },
@@ -42,10 +45,9 @@ module.exports = {
         "marquee-reverse": "marquee-reverse var(--duration) linear infinite",
       },
       fontFamily: {
-        cal: ["var(--font-cal)", ...fontFamily.sans],
-        sans: ["var(--font-inter)", ...fontFamily.sans],
-        aeonik: ["var(--font-aeonik)", ...fontFamily.sans],
-        geist: ["var(--font-geist)", ...fontFamily.sans],
+        sans: ["var(--font-geist)", ...fontFamily.sans],
+        inter: ["var(--font-inter)", ...fontFamily.sans],
+        title: ["var(--font-title)", ...fontFamily.sans],
       },
       colors: {
         // shadcn/ui

@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import { usePostHog } from "posthog-js/react";
 import { Gmail } from "@/components/new-landing/icons/Gmail";
 import { Outlook } from "@/components/new-landing/icons/Outlook";
 import {
@@ -23,8 +24,9 @@ import {
 import { BrandScroller } from "@/components/new-landing/BrandScroller";
 import { BlurFade } from "@/components/new-landing/common/BlurFade";
 import { WordReveal } from "@/components/new-landing/common/WordReveal";
-import { userMinCount } from "@/utils/config";
+import { userCount } from "@/utils/config";
 import { UnicornScene } from "@/components/new-landing/UnicornScene";
+import { landingPageAnalytics } from "@/hooks/useAnalytics";
 
 export function Hero() {
   return (
@@ -69,9 +71,7 @@ export function Hero() {
           <HeroVideoPlayer />
         </BlurFade>
         <div className="mt-12">
-          <Paragraph>
-            Join over {userMinCount} users worldwide saving hours daily
-          </Paragraph>
+          <Paragraph>Join {userCount} users saving hours daily</Paragraph>
           <BrandScroller />
         </div>
       </SectionContent>
@@ -80,18 +80,23 @@ export function Hero() {
 }
 
 export function HeroVideoPlayer() {
+  const posthog = usePostHog();
+
   return (
     <div className="relative w-full">
       <div className="relative border border-[#EFEFEF] rounded-3xl md:rounded-[43px] overflow-hidden block">
         <Dialog>
-          <DialogTrigger asChild>
+          <DialogTrigger
+            asChild
+            onClick={() => landingPageAnalytics.videoClicked(posthog)}
+          >
             <LiquidGlassButton className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2">
               <div>
                 <Play className="translate-x-[2px]" />
               </div>
             </LiquidGlassButton>
           </DialogTrigger>
-          <DialogContent className="max-w-4xl border-0 bg-transparent p-0">
+          <DialogContent className="max-w-7xl border-0 bg-transparent p-0">
             <DialogTitle className="sr-only">Video player</DialogTitle>
             <div className="relative aspect-video w-full">
               <iframe
