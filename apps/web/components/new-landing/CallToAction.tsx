@@ -5,6 +5,7 @@ import { usePostHog } from "posthog-js/react";
 import { Button } from "@/components/new-landing/common/Button";
 import { Chat } from "@/components/new-landing/icons/Chat";
 import { cx } from "class-variance-authority";
+import { landingPageAnalytics } from "@/hooks/useAnalytics";
 
 interface CallToActionProps {
   text?: string;
@@ -28,9 +29,7 @@ export function CallToAction({
       <Button size="xl" asChild>
         <Link
           href="/login"
-          onClick={() => {
-            posthog.capture("Clicked Get Started");
-          }}
+          onClick={() => landingPageAnalytics.getStartedClicked(posthog)}
         >
           <span className="relative z-10">{text}</span>
         </Link>
@@ -39,9 +38,7 @@ export function CallToAction({
         <Link
           href="/sales"
           target="_blank"
-          onClick={() => {
-            posthog.capture("Clicked talk to sales");
-          }}
+          onClick={() => landingPageAnalytics.talkToSalesClicked(posthog)}
         >
           <Chat />
           Talk to sales

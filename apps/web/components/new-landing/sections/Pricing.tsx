@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { usePostHog } from "posthog-js/react";
+import type { PostHog } from "posthog-js";
 import { cx } from "class-variance-authority";
 import { Label, Radio, RadioGroup } from "@headlessui/react";
 import { Sparkle } from "@/components/new-landing/icons/Sparkle";
@@ -30,6 +32,7 @@ import {
 import { Chat } from "@/components/new-landing/icons/Chat";
 import { type Tier, tiers } from "@/app/(app)/premium/config";
 import { Briefcase } from "@/components/new-landing/icons/Briefcase";
+import { landingPageAnalytics } from "@/hooks/useAnalytics";
 
 type PricingTier = Tier & {
   badges?: {
@@ -87,6 +90,7 @@ const frequencies = ["annually", "monthly"];
 
 export function Pricing() {
   const [frequency, setFrequency] = useState(frequencies[0]);
+  const posthog = usePostHog();
 
   return (
     <Section id="pricing">
@@ -124,6 +128,7 @@ export function Pricing() {
                 tier={tier}
                 tierIndex={index}
                 isAnnual={frequency === "annually"}
+                posthog={posthog}
               />
             </CardWrapper>
           ))}
@@ -137,9 +142,10 @@ interface PricingCardProps {
   tier: PricingTier;
   tierIndex: number;
   isAnnual: boolean;
+  posthog: PostHog;
 }
 
-export function PricingCard({ tier, tierIndex, isAnnual }: PricingCardProps) {
+function PricingCard({ tier, tierIndex, isAnnual, posthog }: PricingCardProps) {
   const { name, description, features } = tier;
   const price = isAnnual ? tier.price.annually : tier.price.monthly;
   const isFirstTier = !tierIndex;
@@ -178,7 +184,17 @@ export function PricingCard({ tier, tierIndex, isAnnual }: PricingCardProps) {
             )}
           </div>
           <Button auto variant={tier.button.variant} asChild>
-            <Link href={tier.button.href} target={tier.button.target}>
+            <Link
+              href={tier.button.href}
+              target={tier.button.target}
+              onClick={() =>
+                landingPageAnalytics.pricingCtaClicked(
+                  posthog,
+                  tier.name,
+                  tier.button.content,
+                )
+              }
+            >
               {tier.button.variant ? (
                 <>
                   {tier.button.icon}
