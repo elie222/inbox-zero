@@ -66,9 +66,15 @@ export async function safeCreateRule({
     if (isDuplicateError(error, "name")) {
       if (shouldCreateIfDuplicate) {
         // if rule name already exists, create a new rule with a unique name
+        logger.warn("Creating duplicate rule with timestamp suffix", {
+          originalName: result.name,
+          systemType,
+          triggerType,
+        });
         const rule = await createRule({
           result: { ...result, name: `${result.name} - ${Date.now()}` },
           emailAccountId,
+          systemType,
           triggerType,
           provider,
           runOnThreads,
@@ -147,15 +153,12 @@ export async function safeUpdateRule({
     return { id: rule.id };
   } catch (error) {
     if (isDuplicateError(error, "name")) {
-      // if rule name already exists, create a new rule with a unique name
-      const rule = await createRule({
-        result: { ...result, name: `${result.name} - ${Date.now()}` },
-        emailAccountId,
-        triggerType: "ai_creation", // Default for safeUpdateRule fallback
-        provider,
-        runOnThreads: true,
+      logger.warn("Rule name already exists", {
+        ruleName: result.name,
+        triggerType,
       });
-      return { id: rule.id };
+
+      return { error: "A rule with this name already exists." };
     }
 
     logger.error("Error updating rule", {
