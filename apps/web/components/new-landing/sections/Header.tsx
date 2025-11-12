@@ -1,4 +1,7 @@
+"use client";
+
 import Link from "next/link";
+import { usePostHog } from "posthog-js/react";
 import { cn } from "@/utils";
 import { Logo } from "@/components/new-landing/common/Logo";
 import { Button } from "@/components/new-landing/common/Button";
@@ -9,6 +12,8 @@ interface HeaderProps {
 }
 
 export function Header({ className }: HeaderProps) {
+  const posthog = usePostHog();
+
   return (
     <header
       className={cn(
@@ -25,10 +30,22 @@ export function Header({ className }: HeaderProps) {
       <HeaderLinks />
       <div className="flex items-center gap-3">
         <Button variant="secondary" asChild>
-          <Link href="/login">Log in</Link>
+          <Link
+            href="/login"
+            onClick={() => {
+              posthog.capture("Clicked Log in");
+            }}
+          >
+            Log in
+          </Link>
         </Button>
         <Button asChild>
-          <Link href="/login">
+          <Link
+            href="/login"
+            onClick={() => {
+              posthog.capture("Clicked Get Started");
+            }}
+          >
             <span className="relative z-10">Get started free</span>
           </Link>
         </Button>

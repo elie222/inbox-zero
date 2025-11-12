@@ -89,7 +89,7 @@ export function Pricing() {
   const [frequency, setFrequency] = useState(frequencies[0]);
 
   return (
-    <Section>
+    <Section id="pricing">
       <SectionHeading>Try for free, affordable paid plans</SectionHeading>
       <SectionSubtitle>No hidden fees. Cancel anytime.</SectionSubtitle>
       <SectionContent
