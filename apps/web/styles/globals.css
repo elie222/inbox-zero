@@ -99,3 +99,7 @@
     @apply bg-background text-foreground;
   }
 }
+
+* {
+  font-variant-ligatures: none;
+}
