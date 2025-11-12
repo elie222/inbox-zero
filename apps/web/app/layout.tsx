@@ -17,7 +17,7 @@ import { UTM } from "@/app/utm";
 import { startupImage } from "@/app/startup-image";
 import { Toaster } from "@/components/Toast";
 
-const titleFont = localFont({
+const aeonikFont = localFont({
   src: "../styles/aeonik-medium.woff",
   variable: "--font-title",
   preload: true,
@@ -130,7 +130,7 @@ export default async function RootLayout({
   return (
     <html lang="en" className="h-full" suppressHydrationWarning>
       <body
-        className={`h-full ${titleFont.variable} ${geist.variable} font-sans antialiased`}
+        className={`h-full ${env.NEXT_PUBLIC_USE_AEONIK_FONT ? aeonikFont.variable : ""} ${geist.variable} font-sans antialiased`}
       >
         <Script
           id="json-ld"
