@@ -162,33 +162,36 @@ export const testAiCustomContentAction = actionClient
 export const createAutomationAction = actionClient
   .metadata({ name: "createAutomation" })
   .schema(createAutomationBody)
-  .action(async ({ ctx: { emailAccountId }, parsedInput: { prompt } }) => {
-    const emailAccount = await getEmailAccountWithAi({ emailAccountId });
+  .action(
+    async ({ ctx: { emailAccountId, logger }, parsedInput: { prompt } }) => {
+      const emailAccount = await getEmailAccountWithAi({ emailAccountId });
 
-    if (!emailAccount) throw new Error("Email account not found");
+      if (!emailAccount) throw new Error("Email account not found");
 
-    let result: CreateOrUpdateRuleSchema;
+      let result: CreateOrUpdateRuleSchema;
 
-    try {
-      result = await aiCreateRule(prompt, emailAccount);
-    } catch (error) {
-      if (error instanceof Error) {
-        throw new Error(`AI error creating rule. ${error.message}`);
+      try {
+        result = await aiCreateRule(prompt, emailAccount);
+      } catch (error) {
+        if (error instanceof Error) {
+          throw new Error(`AI error creating rule. ${error.message}`);
+        }
+        throw new Error("AI error creating rule.");
       }
-      throw new Error("AI error creating rule.");
-    }
 
-    if (!result) throw new Error("AI error creating rule.");
+      if (!result) throw new Error("AI error creating rule.");
 
-    const createdRule = await safeCreateRule({
-      result,
-      emailAccountId,
-      shouldCreateIfDuplicate: true,
-      provider: emailAccount.account.provider,
-      runOnThreads: true,
-    });
-    return createdRule;
-  });
+      const createdRule = await safeCreateRule({
+        result,
+        emailAccountId,
+        shouldCreateIfDuplicate: true,
+        provider: emailAccount.account.provider,
+        runOnThreads: true,
+        logger,
+      });
+      return createdRule;
+    },
+  );
 
 export const setRuleRunOnThreadsAction = actionClient
   .metadata({ name: "setRuleRunOnThreads" })
@@ -401,6 +404,7 @@ export const saveRulesPromptAction = actionClient
               result: rule,
               emailAccountId,
               provider: emailAccount.account.provider,
+              logger,
             });
           }
         }
@@ -424,6 +428,7 @@ export const saveRulesPromptAction = actionClient
           shouldCreateIfDuplicate: false,
           provider: emailAccount.account.provider,
           runOnThreads: true,
+          logger,
         });
       }
 
@@ -500,6 +505,7 @@ export const createRulesAction = actionClient
           shouldCreateIfDuplicate: false,
           provider: emailAccount.account.provider,
           runOnThreads: true,
+          logger,
         });
 
         if (createdRule) {

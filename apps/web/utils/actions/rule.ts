@@ -44,7 +44,7 @@ import { isGoogleProvider } from "@/utils/email/provider-types";
 
 export const createRuleAction = actionClient
   .metadata({ name: "createRule" })
-  .schema(createRuleBody)
+  .inputSchema(createRuleBody)
   .action(
     async ({
       ctx: { emailAccountId, logger, provider },
@@ -104,7 +104,7 @@ export const createRuleAction = actionClient
 
 export const updateRuleAction = actionClient
   .metadata({ name: "updateRule" })
-  .schema(updateRuleBody)
+  .inputSchema(updateRuleBody)
   .action(
     async ({
       ctx: { emailAccountId, logger, provider },
@@ -209,7 +209,7 @@ export const updateRuleAction = actionClient
 
 export const updateRuleSettingsAction = actionClient
   .metadata({ name: "updateRuleSettings" })
-  .schema(updateRuleSettingsBody)
+  .inputSchema(updateRuleSettingsBody)
   .action(
     async ({ ctx: { emailAccountId }, parsedInput: { id, instructions } }) => {
       const currentRule = await prisma.rule.findUnique({
@@ -228,9 +228,12 @@ export const updateRuleSettingsAction = actionClient
 
 export const enableDraftRepliesAction = actionClient
   .metadata({ name: "enableDraftReplies" })
-  .schema(enableDraftRepliesBody)
+  .inputSchema(enableDraftRepliesBody)
   .action(
-    async ({ ctx: { emailAccountId, provider }, parsedInput: { enable } }) => {
+    async ({
+      ctx: { emailAccountId, provider, logger },
+      parsedInput: { enable },
+    }) => {
       let rule = await prisma.rule.findUnique({
         where: {
           emailAccountId_systemType: {
@@ -254,6 +257,7 @@ export const enableDraftRepliesAction = actionClient
           systemType: SystemType.TO_REPLY,
           provider,
           ruleId: undefined,
+          logger,
         }));
 
       if (enable) {
@@ -283,7 +287,7 @@ export const enableDraftRepliesAction = actionClient
 
 export const enableMultiRuleSelectionAction = actionClient
   .metadata({ name: "enableMultiRuleSelection" })
-  .schema(enableMultiRuleSelectionBody)
+  .inputSchema(enableMultiRuleSelectionBody)
   .action(async ({ ctx: { emailAccountId }, parsedInput: { enable } }) => {
     await prisma.emailAccount.update({
       where: { id: emailAccountId },
@@ -293,7 +297,7 @@ export const enableMultiRuleSelectionAction = actionClient
 
 export const deleteRuleAction = actionClient
   .metadata({ name: "deleteRule" })
-  .schema(deleteRuleBody)
+  .inputSchema(deleteRuleBody)
   .action(async ({ ctx: { emailAccountId }, parsedInput: { id } }) => {
     const rule = await prisma.rule.findUnique({
       where: { id, emailAccountId },
@@ -319,7 +323,7 @@ export const deleteRuleAction = actionClient
 
 export const createRulesOnboardingAction = actionClient
   .metadata({ name: "createRulesOnboarding" })
-  .schema(createRulesOnboardingBody)
+  .inputSchema(createRulesOnboardingBody)
   .action(
     async ({ ctx: { emailAccountId, provider, logger }, parsedInput }) => {
       const systemCategoryMap: Map<SystemType, CategoryConfig> = new Map();
@@ -527,10 +531,10 @@ export const createRulesOnboardingAction = actionClient
 
 export const toggleRuleAction = actionClient
   .metadata({ name: "toggleRule" })
-  .schema(toggleRuleBody)
+  .inputSchema(toggleRuleBody)
   .action(
     async ({
-      ctx: { emailAccountId, provider },
+      ctx: { emailAccountId, provider, logger },
       parsedInput: { ruleId, systemType, enabled },
     }) => {
       await toggleRule({
@@ -539,6 +543,7 @@ export const toggleRuleAction = actionClient
         enabled,
         emailAccountId,
         provider,
+        logger,
       });
     },
   );
@@ -549,12 +554,14 @@ async function toggleRule({
   enabled,
   emailAccountId,
   provider,
+  logger,
 }: {
   ruleId: string | undefined;
   systemType: SystemType | undefined;
   enabled: boolean;
   emailAccountId: string;
   provider: string;
+  logger: Logger;
 }) {
   if (ruleId) {
     return await prisma.rule.update({
@@ -638,6 +645,12 @@ async function toggleRule({
     }
   }
 
+  logger.info("Creating system rule via toggleRule", {
+    systemType,
+    ruleName: ruleConfig.name,
+    shouldCreateIfDuplicate: true,
+  });
+
   const createdRule = await safeCreateRule({
     result: {
       name: ruleConfig.name,
@@ -654,11 +667,18 @@ async function toggleRule({
     shouldCreateIfDuplicate: true,
     provider,
     runOnThreads: ruleConfig.runOnThreads,
+    logger,
   });
 
   if (!createdRule) {
     throw new SafeError("Failed to create rule");
   }
+
+  logger.info("Successfully created system rule via toggleRule", {
+    ruleId: createdRule.id,
+    ruleName: createdRule.name,
+    systemType: createdRule.systemType,
+  });
 
   return createdRule;
 }

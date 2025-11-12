@@ -1,7 +1,7 @@
 import type { CreateOrUpdateRuleSchema } from "@/utils/ai/rule/create-rule-schema";
 import prisma from "@/utils/prisma";
 import { isDuplicateError } from "@/utils/prisma-helpers";
-import { createScopedLogger } from "@/utils/logger";
+import type { Logger } from "@/utils/logger";
 import { ActionType } from "@prisma/client";
 import type { Prisma, Rule, SystemType } from "@prisma/client";
 import { getActionRiskLevel, type RiskAction } from "@/utils/risk";
@@ -10,8 +10,6 @@ import { createRuleHistory } from "@/utils/rule/rule-history";
 import { isMicrosoftProvider } from "@/utils/email/provider-types";
 import { createEmailProvider } from "@/utils/email/provider";
 import { resolveLabelNameAndId } from "@/utils/label/resolve-label";
-
-const logger = createScopedLogger("rule");
 
 export function partialUpdateRule({
   ruleId,
@@ -43,6 +41,7 @@ export async function safeCreateRule({
   triggerType = "ai_creation",
   shouldCreateIfDuplicate,
   runOnThreads,
+  logger,
 }: {
   result: CreateRuleWithLabelId;
   emailAccountId: string;
@@ -51,6 +50,7 @@ export async function safeCreateRule({
   triggerType?: "ai_creation" | "manual_creation" | "system_creation";
   shouldCreateIfDuplicate: boolean; // maybe this should just always be false?
   runOnThreads: boolean;
+  logger: Logger;
 }) {
   try {
     const rule = await createRule({
@@ -127,12 +127,14 @@ export async function safeUpdateRule({
   emailAccountId,
   triggerType = "ai_update",
   provider,
+  logger,
 }: {
   ruleId: string;
   result: CreateOrUpdateRuleSchema;
   emailAccountId: string;
   triggerType?: "ai_update" | "manual_update" | "system_update";
   provider: string;
+  logger: Logger;
 }) {
   try {
     const rule = await updateRule({
