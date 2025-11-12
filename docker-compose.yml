@@ -29,7 +29,7 @@ services:
       - "${REDIS_HTTP_PORT:-8079}:80"
     image: hiett/serverless-redis-http:latest
     env_file:
-      - ./apps/web/.env
+      - ./apps/web/.env.example
     environment:
       SRH_MODE: env
       SRH_TOKEN: ${UPSTASH_REDIS_TOKEN}
@@ -48,7 +48,7 @@ services:
       args:
         NEXT_PUBLIC_BASE_URL: ${NEXT_PUBLIC_BASE_URL:-http://localhost:3000}
     env_file:
-      - ./apps/web/.env
+      - ./apps/web/.env.example
     depends_on:
       - db
       - redis

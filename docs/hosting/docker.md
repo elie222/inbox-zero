@@ -29,12 +29,14 @@ cd inbox-zero
 Create environment file
 
 ```bash
-cp apps/web/.env.example apps/web/.env
+cp apps/web/.env.example .env
 ```
 
 and edit with your production settings.
 
 For detailed configuration instructions including all required environment variables, OAuth setup, and LLM configuration, see the [main README.md configuration section](../../README.md#updating-env-file-secrets).
+
+If you need to adjust volumes ort other parameters you can override them with `docker-compose.override.yml`, please refer to [official documentation](https://docs.docker.com/compose/how-tos/multiple-compose-files/) on how to manage multiple compose files.
 
 ### 4. Build and Deploy
 
@@ -49,7 +51,7 @@ Start the services:
 
 ```bash
 # Start all services in detached mode
-docker compose --env-file ./apps/web/.env up -d
+docker compose up -d
 ```
 
 ### 5. Run Database Migrations
