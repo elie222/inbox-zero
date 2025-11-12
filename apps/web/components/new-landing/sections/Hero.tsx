@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import { usePostHog } from "posthog-js/react";
 import { Gmail } from "@/components/new-landing/icons/Gmail";
 import { Outlook } from "@/components/new-landing/icons/Outlook";
 import {
@@ -25,6 +26,7 @@ import { BlurFade } from "@/components/new-landing/common/BlurFade";
 import { WordReveal } from "@/components/new-landing/common/WordReveal";
 import { userCount } from "@/utils/config";
 import { UnicornScene } from "@/components/new-landing/UnicornScene";
+import { landingPageAnalytics } from "@/hooks/useAnalytics";
 
 export function Hero() {
   return (
@@ -77,16 +79,21 @@ export function Hero() {
 }
 
 export function HeroVideoPlayer() {
+  const posthog = usePostHog();
+
   return (
     <div className="relative w-full">
       <div className="relative border border-[#EFEFEF] rounded-[43px] overflow-hidden block">
         <Dialog>
-          <DialogTrigger asChild>
+          <DialogTrigger
+            asChild
+            onClick={() => landingPageAnalytics.videoClicked(posthog)}
+          >
             <LiquidGlassButton className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2">
               <Play />
             </LiquidGlassButton>
           </DialogTrigger>
-          <DialogContent className="max-w-4xl border-0 bg-transparent p-0">
+          <DialogContent className="max-w-7xl border-0 bg-transparent p-0">
             <DialogTitle className="sr-only">Video player</DialogTitle>
             <div className="relative aspect-video w-full">
               <iframe

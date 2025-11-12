@@ -1,5 +1,11 @@
 "use client";
 
+import { useState } from "react";
+import Link from "next/link";
+import { usePostHog } from "posthog-js/react";
+import type { PostHog } from "posthog-js";
+import { cx } from "class-variance-authority";
+import { Label, Radio, RadioGroup } from "@headlessui/react";
 import { Sparkle } from "@/components/new-landing/icons/Sparkle";
 import { Zap } from "@/components/new-landing/icons/Zap";
 import { Check } from "@/components/new-landing/icons/Check";
@@ -24,11 +30,9 @@ import {
   type BadgeVariant,
 } from "@/components/new-landing/common/Badge";
 import { Chat } from "@/components/new-landing/icons/Chat";
-import { useState } from "react";
-import { Label, Radio, RadioGroup } from "@headlessui/react";
-import { cx } from "class-variance-authority";
 import { type Tier, tiers } from "@/app/(app)/premium/config";
 import { Briefcase } from "@/components/new-landing/icons/Briefcase";
+import { landingPageAnalytics } from "@/hooks/useAnalytics";
 
 type PricingTier = Tier & {
   badges?: {
@@ -40,6 +44,8 @@ type PricingTier = Tier & {
     content: string;
     variant?: ButtonVariant;
     icon?: React.ReactNode;
+    href: string;
+    target?: string;
   };
   icon: React.ReactNode;
 };
@@ -53,6 +59,7 @@ const pricingTiers: PricingTier[] = [
     ],
     button: {
       content: "Try free for 7 days",
+      href: "/login",
     },
     icon: <Briefcase />,
   },
@@ -62,6 +69,7 @@ const pricingTiers: PricingTier[] = [
     button: {
       variant: "secondary-two",
       content: "Try free for 7 days",
+      href: "/login",
     },
     icon: <Zap />,
   },
@@ -71,6 +79,8 @@ const pricingTiers: PricingTier[] = [
       variant: "secondary-two",
       content: "Speak to sales",
       icon: <Chat />,
+      href: "/sales",
+      target: "_blank",
     },
     icon: <Sparkle />,
   },
@@ -80,9 +90,10 @@ const frequencies = ["annually", "monthly"];
 
 export function Pricing() {
   const [frequency, setFrequency] = useState(frequencies[0]);
+  const posthog = usePostHog();
 
   return (
-    <Section>
+    <Section id="pricing">
       <SectionHeading>Try for free, affordable paid plans</SectionHeading>
       <SectionSubtitle>No hidden fees. Cancel anytime.</SectionSubtitle>
       <SectionContent
@@ -117,6 +128,7 @@ export function Pricing() {
                 tier={tier}
                 tierIndex={index}
                 isAnnual={frequency === "annually"}
+                posthog={posthog}
               />
             </CardWrapper>
           ))}
@@ -130,9 +142,10 @@ interface PricingCardProps {
   tier: PricingTier;
   tierIndex: number;
   isAnnual: boolean;
+  posthog: PostHog;
 }
 
-export function PricingCard({ tier, tierIndex, isAnnual }: PricingCardProps) {
+function PricingCard({ tier, tierIndex, isAnnual, posthog }: PricingCardProps) {
   const { name, description, features } = tier;
   const price = isAnnual ? tier.price.annually : tier.price.monthly;
   const isFirstTier = !tierIndex;
@@ -170,8 +183,22 @@ export function PricingCard({ tier, tierIndex, isAnnual }: PricingCardProps) {
               <Subheading className="font-light">Contact us</Subheading>
             )}
           </div>
-          <Button auto variant={tier.button.variant} icon={tier.button.icon}>
-            {tier.button.content}
+          <Button auto size="lg" variant={tier.button.variant} asChild>
+            <Link
+              href={tier.button.href}
+              target={tier.button.target}
+              onClick={() =>
+                landingPageAnalytics.pricingCtaClicked(
+                  posthog,
+                  tier.name,
+                  tier.button.content,
+                )
+              }
+            >
+              {tier.button.icon}
+              {/* z-10 keeps text above gradient background on hover to prevent color shift */}
+              <span className="relative z-10">{tier.button.content}</span>
+            </Link>
           </Button>
         </div>
       </div>

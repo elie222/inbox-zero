@@ -2,6 +2,7 @@
 
 import { Button } from "@/components/Button";
 import { usePostHog } from "posthog-js/react";
+import { landingPageAnalytics } from "@/hooks/useAnalytics";
 
 export function CTAButtons() {
   const posthog = usePostHog();
@@ -12,9 +13,7 @@ export function CTAButtons() {
           size="2xl"
           color="blue"
           link={{ href: "/login" }}
-          onClick={() => {
-            posthog.capture("Clicked Get Started");
-          }}
+          onClick={() => landingPageAnalytics.getStartedClicked(posthog)}
         >
           Get Started for Free
         </Button>
@@ -24,9 +23,7 @@ export function CTAButtons() {
           size="2xl"
           color="transparent"
           link={{ href: "/sales", target: "_blank" }}
-          onClick={() => {
-            posthog.capture("Clicked talk to sales");
-          }}
+          onClick={() => landingPageAnalytics.talkToSalesClicked(posthog)}
         >
           Talk to sales
         </Button>

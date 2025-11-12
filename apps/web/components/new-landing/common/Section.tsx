@@ -3,11 +3,12 @@ import { cx } from "class-variance-authority";
 interface SectionProps {
   children: React.ReactNode;
   className?: string;
+  id?: string;
 }
 
-export function Section({ children, className }: SectionProps) {
+export function Section({ children, className, id }: SectionProps) {
   return (
-    <section className={cx("py-6 md:py-16 text-center", className)}>
+    <section id={id} className={cx("py-6 md:py-16 text-center", className)}>
       {children}
     </section>
   );
