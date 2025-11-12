@@ -4,7 +4,6 @@ import type { EmailProvider } from "@/utils/email/types";
 import { createScopedLogger } from "@/utils/logger";
 import { handleOutboundReply } from "./outbound";
 import { trackSentDraftStatus, cleanupThreadAIDrafts } from "./draft-tracking";
-import { formatError } from "@/utils/error";
 
 export async function handleOutboundMessage({
   emailAccount,
@@ -30,18 +29,14 @@ export async function handleOutboundMessage({
       provider,
       logger,
     }).catch((error) => {
-      logger.error("Error tracking sent draft status", {
-        error: formatError(error),
-      });
+      logger.error("Error tracking sent draft status", { error });
     }),
     handleOutboundReply({
       emailAccount,
       message,
       provider,
     }).catch((error) => {
-      logger.error("Error handling outbound reply", {
-        error: formatError(error),
-      });
+      logger.error("Error handling outbound reply", { error });
     }),
   ]);
 
@@ -52,9 +47,7 @@ export async function handleOutboundMessage({
       provider,
       logger,
     });
-  } catch (cleanupError) {
-    logger.error("Error during thread draft cleanup", {
-      error: cleanupError,
-    });
+  } catch (error) {
+    logger.error("Error during thread draft cleanup", { error });
   }
 }
