@@ -179,8 +179,17 @@ export function PricingCard({ tier, tierIndex, isAnnual }: PricingCardProps) {
           </div>
           <Button auto variant={tier.button.variant} asChild>
             <Link href={tier.button.href} target={tier.button.target}>
-              {tier.button.icon}
-              {tier.button.content}
+              {tier.button.variant ? (
+                <>
+                  {tier.button.icon}
+                  {tier.button.content}
+                </>
+              ) : (
+                <span className="relative z-10">
+                  {tier.button.icon}
+                  {tier.button.content}
+                </span>
+              )}
             </Link>
           </Button>
         </div>

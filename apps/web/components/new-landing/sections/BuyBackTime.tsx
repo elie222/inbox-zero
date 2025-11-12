@@ -24,11 +24,7 @@ export function BuyBackTime() {
           Less time in your inbox. More time for what actually matters.
         </SectionSubtitle>
         <SectionContent>
-          <CallToAction
-            text="Get started for free"
-            className="mt-6"
-            includeSalesButton={false}
-          />
+          <CallToAction text="Get started for free" className="mt-6" />
         </SectionContent>
       </Section>
     </div>
