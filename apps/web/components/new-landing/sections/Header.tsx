@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { cn } from "@/utils";
 import { Logo } from "@/components/new-landing/common/Logo";
 import { Button } from "@/components/new-landing/common/Button";
@@ -23,8 +24,14 @@ export function Header({ className }: HeaderProps) {
       </div>
       <HeaderLinks />
       <div className="flex items-center gap-3">
-        <Button variant="secondary">Log in</Button>
-        <Button>Get started free</Button>
+        <Button variant="secondary" asChild>
+          <Link href="/login">Log in</Link>
+        </Button>
+        <Button asChild>
+          <Link href="/login">
+            <span className="relative z-10">Get started free</span>
+          </Link>
+        </Button>
       </div>
     </header>
   );

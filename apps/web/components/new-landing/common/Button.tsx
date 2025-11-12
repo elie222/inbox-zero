@@ -1,14 +1,15 @@
+import { Slot } from "@radix-ui/react-slot";
 import { cva, cx } from "class-variance-authority";
 
 export type ButtonVariant = "primary" | "secondary" | "secondary-two";
 
-interface ButtonProps {
+interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   children: React.ReactNode;
   variant?: ButtonVariant;
   className?: string;
   size?: "md" | "lg" | "xl";
-  icon?: React.ReactNode;
   auto?: boolean;
+  asChild?: boolean;
 }
 
 export function Button({
@@ -17,12 +18,16 @@ export function Button({
   variant = "primary",
   className,
   size = "md",
-  icon,
+  asChild = false,
+  ...props
 }: ButtonProps) {
-  const hasIcon = !!icon;
+  const Comp = asChild ? Slot : "button";
+  const type = props.type ?? "button";
+
   const buttonVariants = cva(
     [
       "rounded-[13px] font-geist font-medium transition-all will-change-transform",
+      "flex items-center justify-center gap-2",
       variant === "primary" ? "" : "hover:scale-[1.04]",
     ],
     {
@@ -36,15 +41,12 @@ export function Button({
           secondary:
             "bg-white hover:bg-gray-50 border border-gray-100 hover:border-gray-200 text-gray-800",
           "secondary-two":
-            "bg-white hover:bg-gray-50 border border-gray-100 hover:border-gray-200 text-gray-500 shadow-[0px_2px_16px_0px_#00000008] hover:shadow-[0px_2px_16px_0px_#00000015]",
+            "bg-white hover:bg-gray-50 border border-gray-100 hover:border-gray-200 text-gray-500 shadow-[0px_2px_16px_0px_#00000008] hover:shadow-[0px_2px_16px_0px_#00000015] [&>svg]:text-[#AEAAA8]",
         },
         size: {
           md: "text-sm py-2 px-4",
           lg: "text-sm py-[10.5px] px-[18px]",
           xl: "text-[16px] py-[11.7px] px-[22px]",
-        },
-        hasIcon: {
-          true: "flex items-center justify-center gap-2",
         },
         auto: {
           true: "w-full",
@@ -53,16 +55,7 @@ export function Button({
     },
   );
 
-  const buttonIconVariants = cva("", {
-    variants: {
-      variant: {
-        primary: "",
-        secondary: "",
-        "secondary-two": "text-[#AEAAA8]",
-      },
-    },
-  });
-
+  // For primary variant with gradient border wrapper
   if (variant === "primary") {
     return (
       <div
@@ -73,31 +66,34 @@ export function Button({
           auto ? "w-full" : "w-fit",
         )}
       >
-        <button
-          type="button"
+        <Comp
+          type={type}
           className={buttonVariants({
             variant,
             size,
             className,
-            hasIcon,
             auto,
           })}
+          {...props}
         >
-          <span className="relative z-10">{children}</span>
-        </button>
+          {asChild ? (
+            children
+          ) : (
+            <span className="relative z-10">{children}</span>
+          )}
+        </Comp>
       </div>
     );
   }
 
+  // For secondary variants - simpler, no wrapper
   return (
-    <button
-      type="button"
-      className={buttonVariants({ variant, size, className, hasIcon, auto })}
+    <Comp
+      type={type}
+      className={buttonVariants({ variant, size, className, auto })}
+      {...props}
     >
-      {icon ? (
-        <div className={buttonIconVariants({ variant })}>{icon}</div>
-      ) : null}
       {children}
-    </button>
+    </Comp>
   );
 }

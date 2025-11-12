@@ -1,5 +1,9 @@
 "use client";
 
+import { useState } from "react";
+import Link from "next/link";
+import { cx } from "class-variance-authority";
+import { Label, Radio, RadioGroup } from "@headlessui/react";
 import { Sparkle } from "@/components/new-landing/icons/Sparkle";
 import { Zap } from "@/components/new-landing/icons/Zap";
 import { Check } from "@/components/new-landing/icons/Check";
@@ -24,9 +28,6 @@ import {
   type BadgeVariant,
 } from "@/components/new-landing/common/Badge";
 import { Chat } from "@/components/new-landing/icons/Chat";
-import { useState } from "react";
-import { Label, Radio, RadioGroup } from "@headlessui/react";
-import { cx } from "class-variance-authority";
 import { type Tier, tiers } from "@/app/(app)/premium/config";
 import { Briefcase } from "@/components/new-landing/icons/Briefcase";
 
@@ -40,6 +41,8 @@ type PricingTier = Tier & {
     content: string;
     variant?: ButtonVariant;
     icon?: React.ReactNode;
+    href: string;
+    target?: string;
   };
   icon: React.ReactNode;
 };
@@ -53,6 +56,7 @@ const pricingTiers: PricingTier[] = [
     ],
     button: {
       content: "Try free for 7 days",
+      href: "/login",
     },
     icon: <Briefcase />,
   },
@@ -62,6 +66,7 @@ const pricingTiers: PricingTier[] = [
     button: {
       variant: "secondary-two",
       content: "Try free for 7 days",
+      href: "/login",
     },
     icon: <Zap />,
   },
@@ -71,6 +76,8 @@ const pricingTiers: PricingTier[] = [
       variant: "secondary-two",
       content: "Speak to sales",
       icon: <Chat />,
+      href: "/sales",
+      target: "_blank",
     },
     icon: <Sparkle />,
   },
@@ -170,8 +177,11 @@ export function PricingCard({ tier, tierIndex, isAnnual }: PricingCardProps) {
               <Subheading className="font-light">Contact us</Subheading>
             )}
           </div>
-          <Button auto variant={tier.button.variant} icon={tier.button.icon}>
-            {tier.button.content}
+          <Button auto variant={tier.button.variant} asChild>
+            <Link href={tier.button.href} target={tier.button.target}>
+              {tier.button.icon}
+              {tier.button.content}
+            </Link>
           </Button>
         </div>
       </div>
