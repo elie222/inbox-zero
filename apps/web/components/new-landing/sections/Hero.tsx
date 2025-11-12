@@ -23,7 +23,7 @@ import {
 import { BrandScroller } from "@/components/new-landing/BrandScroller";
 import { BlurFade } from "@/components/new-landing/common/BlurFade";
 import { WordReveal } from "@/components/new-landing/common/WordReveal";
-import { userMinCount } from "@/utils/config";
+import { userCount } from "@/utils/config";
 import { UnicornScene } from "@/components/new-landing/UnicornScene";
 
 export function Hero() {
@@ -68,9 +68,7 @@ export function Hero() {
           <HeroVideoPlayer />
         </BlurFade>
         <div className="mt-12">
-          <Paragraph>
-            Join over {userMinCount} users worldwide saving hours daily
-          </Paragraph>
+          <Paragraph>Join {userCount} users saving hours daily</Paragraph>
           <BrandScroller />
         </div>
       </SectionContent>

@@ -11,13 +11,14 @@ import Image from "next/image";
 export function OrganizedInbox() {
   return (
     <Section>
-      <SectionHeading wrap>
-        An organized inbox so you never miss an important email
+      <SectionHeading>
+        Automatically organized.
+        <br />
+        Never miss an important email again.
       </SectionHeading>
       <SectionSubtitle>
-        Drowning in emails? Don't waste any more valuable brain energy trying to
-        prioritize your emails. Our AI assistant will label everything
-        automatically.
+        Drowning in emails? Don't waste energy trying to prioritize your emails.
+        Our AI assistant will label everything automatically.
       </SectionSubtitle>
       <SectionContent className="flex justify-center">
         <Image
