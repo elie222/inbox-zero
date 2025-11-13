@@ -96,7 +96,7 @@ export function HeaderLinks() {
         <NavigationMenuList>
           {/* Solutions Dropdown */}
           <NavigationMenuItem>
-            <NavigationMenuTrigger className="text-sm font-semibold leading-6 text-gray-900">
+            <NavigationMenuTrigger className="text-sm font-semibold font-geist leading-6 text-gray-900">
               Solutions
             </NavigationMenuTrigger>
             <NavigationMenuContent>
@@ -130,7 +130,7 @@ export function HeaderLinks() {
                   href={item.href}
                   target={item.target}
                   prefetch={item.target !== "_blank"}
-                  className="text-sm font-semibold leading-6 text-gray-900"
+                  className="text-sm font-semibold font-geist leading-6 text-gray-900"
                 >
                   {item.name}
                 </Link>
