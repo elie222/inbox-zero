@@ -119,11 +119,9 @@ export function buildServer(): FastifyInstance {
         );
         return reply.code(200).send({ jobId });
       } catch (error) {
-        return reply
-          .code(500)
-          .send({
-            error: error instanceof Error ? error.message : String(error),
-          });
+        return reply.code(500).send({
+          error: error instanceof Error ? error.message : String(error),
+        });
       }
     },
   );
@@ -164,11 +162,9 @@ export function buildServer(): FastifyInstance {
         );
         return reply.code(200).send({ jobIds });
       } catch (error) {
-        return reply
-          .code(500)
-          .send({
-            error: error instanceof Error ? error.message : String(error),
-          });
+        return reply.code(500).send({
+          error: error instanceof Error ? error.message : String(error),
+        });
       }
     },
   );
