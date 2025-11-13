@@ -2,7 +2,7 @@
 
 import { z } from "zod";
 import prisma from "@/utils/prisma";
-import { isNotFoundError } from "@/utils/prisma-helpers";
+import { isNotFoundError, isDuplicateError } from "@/utils/prisma-helpers";
 import {
   runRules,
   type RunRulesResult,
@@ -21,8 +21,10 @@ import { aiDiffRules } from "@/utils/ai/rule/diff-rules";
 import { aiFindExistingRules } from "@/utils/ai/rule/find-existing-rules";
 import { aiGenerateRulesPrompt } from "@/utils/ai/rule/generate-rules-prompt";
 import { aiFindSnippets } from "@/utils/ai/snippets/find-snippets";
+import type { CreateOrUpdateRuleSchema } from "@/utils/ai/rule/create-rule-schema";
 import { createRule, updateRule, deleteRule } from "@/utils/rule/rule";
 import { actionClient } from "@/utils/actions/safe-action";
+import type { Logger } from "@/utils/logger";
 import { getEmailAccountWithAi } from "@/utils/user/get";
 import { SafeError } from "@/utils/error";
 import { createEmailProvider } from "@/utils/email/provider";
@@ -385,16 +387,26 @@ export const saveRulesPromptAction = actionClient
       for (const rule of addedRules || []) {
         logger.info("Creating rule", { ruleName: rule.name });
 
-        await createRule({
-          result: rule,
-          emailAccountId,
-          provider: emailAccount.account.provider,
-          runOnThreads: true,
-          logger,
-        });
+        try {
+          await createRule({
+            result: rule,
+            emailAccountId,
+            provider: emailAccount.account.provider,
+            runOnThreads: true,
+            logger,
+          });
+        } catch (error) {
+          if (isDuplicateError(error, "name")) {
+            logger.info("Skipping duplicate rule", { ruleName: rule.name });
+          } else {
+            logger.error("Failed to create rule", {
+              ruleName: rule.name,
+              error: error instanceof Error ? error.message : String(error),
+            });
+          }
+        }
       }
 
-      // update rules prompt for user
       await prisma.emailAccount.update({
         where: { id: emailAccountId },
         data: { rulesPrompt },
@@ -457,27 +469,46 @@ export const createRulesAction = actionClient
       logger.info("Rules to be added", { count: addedRules?.length || 0 });
 
       const createdRules: CreateRuleResult[] = [];
+      const errors: { ruleName: string; error: string }[] = [];
 
       for (const rule of addedRules || []) {
         logger.info("Creating rule", { ruleName: rule.name });
 
-        const createdRule = await createRule({
-          result: rule,
-          emailAccountId,
-          provider: emailAccount.account.provider,
-          runOnThreads: true,
-          logger,
-        });
-
-        if (createdRule) {
+        try {
+          const createdRule = await createRule({
+            result: rule,
+            emailAccountId,
+            provider: emailAccount.account.provider,
+            runOnThreads: true,
+            logger,
+          });
           createdRules.push(createdRule);
+        } catch (error) {
+          if (isDuplicateError(error, "name")) {
+            logger.info("Skipping duplicate rule", { ruleName: rule.name });
+          } else {
+            const errorMessage =
+              error instanceof Error ? error.message : String(error);
+            logger.error("Failed to create rule", {
+              ruleName: rule.name,
+              error: errorMessage,
+            });
+            errors.push({
+              ruleName: rule.name,
+              error: errorMessage,
+            });
+          }
         }
       }
 
-      logger.info("Completed", { createdRules: createdRules.length });
+      logger.info("Completed", {
+        createdRules: createdRules.length,
+        failedRules: errors.length,
+      });
 
       return {
         rules: createdRules,
+        errors: errors.length > 0 ? errors : undefined,
       };
     },
   );
