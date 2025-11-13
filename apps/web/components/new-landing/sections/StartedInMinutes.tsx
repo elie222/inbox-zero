@@ -121,7 +121,7 @@ export function StartedInMinutes() {
             >
               <div className="pt-6 pl-6">
                 <Image
-                  src="/images/new-landing/new-email.svg"
+                  src="/images/new-landing/new-message.png"
                   alt="Pre-drafted replies"
                   width={1000}
                   height={400}
