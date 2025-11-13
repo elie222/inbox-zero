@@ -24,7 +24,11 @@ export function FinalCTA() {
           Less time in your inbox. More time for what actually matters.
         </SectionSubtitle>
         <SectionContent>
-          <CallToAction text="Get started for free" className="mt-6" />
+          <CallToAction
+            text="Get started for free"
+            buttonSize="lg"
+            className="mt-6"
+          />
         </SectionContent>
       </Section>
     </div>

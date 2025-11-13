@@ -47,7 +47,7 @@ export function EverythingElseSection() {
               icon={<Link />}
             >
               <Image
-                src="/images/new-landing/integrations.svg"
+                src="/images/new-landing/integrations.png"
                 alt="App integrations"
                 width={1000}
                 height={400}
@@ -61,7 +61,7 @@ export function EverythingElseSection() {
               icon={<ChatTwo />}
             >
               <Image
-                src="/images/new-landing/create-rules.svg"
+                src="/images/new-landing/create-rules.png"
                 alt="Customize"
                 width={1000}
                 height={400}

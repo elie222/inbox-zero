@@ -23,14 +23,14 @@ export function OrganizedInbox() {
       <SectionContent className="flex justify-center">
         <Image
           className="hidden md:block"
-          src="/images/new-landing/inbox-before-after.svg"
+          src="/images/new-landing/an-organized-inbox.png"
           alt="an organized inbox"
           width={1000}
           height={1000}
         />
         <Image
           className="block md:hidden"
-          src="/images/new-landing/inbox-before-after-mobile.svg"
+          src="/images/new-landing/an-organized-inbox-mobile.png"
           alt="an organized inbox"
           width={1000}
           height={1000}
