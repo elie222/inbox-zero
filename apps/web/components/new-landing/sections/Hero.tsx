@@ -30,9 +30,10 @@ import { landingPageAnalytics } from "@/hooks/useAnalytics";
 
 export function Hero() {
   return (
-    <Section className="mt-20">
+    <Section className="mt-10 md:mt-20">
       <PageHeading>
         <WordReveal
+          spaceBetween="w-2 md:w-3"
           words={[
             "Meet",
             "your",
@@ -51,7 +52,7 @@ export function Hero() {
           helps you reach inbox zero fast. Never miss an important email again.
         </Paragraph>
       </BlurFade>
-      <SectionContent>
+      <SectionContent noMarginTop className="mt-6 md:mt-8">
         <div className="space-y-3 mb-8">
           <BlurFade duration={0.4} delay={0.125 * 7} inView>
             <CallToAction />
@@ -83,14 +84,16 @@ export function HeroVideoPlayer() {
 
   return (
     <div className="relative w-full">
-      <div className="relative border border-[#EFEFEF] rounded-[43px] overflow-hidden block">
+      <div className="relative border border-[#EFEFEF] rounded-3xl md:rounded-[43px] overflow-hidden block">
         <Dialog>
           <DialogTrigger
             asChild
             onClick={() => landingPageAnalytics.videoClicked(posthog)}
           >
             <LiquidGlassButton className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2">
-              <Play />
+              <div>
+                <Play className="translate-x-[2px]" />
+              </div>
             </LiquidGlassButton>
           </DialogTrigger>
           <DialogContent className="max-w-7xl border-0 bg-transparent p-0">

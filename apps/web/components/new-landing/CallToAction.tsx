@@ -20,12 +20,7 @@ export function CallToAction({
   const posthog = usePostHog();
 
   return (
-    <div
-      className={cx(
-        "flex flex-col md:flex-row justify-center items-center gap-4",
-        className,
-      )}
-    >
+    <div className={cx("flex justify-center items-center gap-4", className)}>
       <Button size="xl" asChild>
         <Link
           href="/login"

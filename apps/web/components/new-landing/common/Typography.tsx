@@ -84,7 +84,7 @@ export function Paragraph({
   size = "default",
   as = "p",
 }: ParagraphProps) {
-  const paragraphStyles = cva("", {
+  const paragraphStyles = cva("font-geist", {
     variants: {
       color: {
         default: "text-[#848484]",

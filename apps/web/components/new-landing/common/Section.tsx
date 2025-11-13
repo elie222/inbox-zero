@@ -22,7 +22,7 @@ interface SectionContentProps {
 
 export function SectionContent({
   children,
-  className = "mt-6 md:mt-10",
+  className,
   noMarginTop = false,
 }: SectionContentProps) {
   return (
