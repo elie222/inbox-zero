@@ -25,23 +25,25 @@ export function BulkUnsubscribe() {
         <CardWrapper
           padding="xs"
           rounded="md"
-          className="hidden md:block md:mx-20 lg:mx-52"
+          className="hidden md:block md:mx-20 lg:mx-40 xl:mx-52"
         >
           <Image
-            src="/images/new-landing/bulk-unsubscribe.svg"
+            src="/images/new-landing/bulk-unsubscribe.png"
             alt="bulk unsubscribe"
             width={1000}
             height={1000}
           />
         </CardWrapper>
-        <CardWrapper padding="xs" rounded="md" className="block md:hidden">
-          <Image
-            src="/images/new-landing/bulk-unsubscribe-mobile.svg"
-            alt="bulk unsubscribe"
-            width={1000}
-            height={1000}
-          />
-        </CardWrapper>
+        <div className="flex flex-col gap-2">
+          <CardWrapper padding="xs" rounded="md" className="block md:hidden">
+            <Image
+              src="/images/new-landing/bulk-unsubscribe-mobile.png"
+              alt="bulk unsubscribe"
+              width={1000}
+              height={1000}
+            />
+          </CardWrapper>
+        </div>
       </SectionContent>
     </Section>
   );

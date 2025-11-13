@@ -34,6 +34,18 @@ const brands = [
     alt: "Wix",
     src: "/images/new-landing/logos/wix.svg",
   },
+  {
+    alt: "JOCO",
+    src: "/images/new-landing/logos/joco.svg",
+  },
+  {
+    alt: "Compass",
+    src: "/images/new-landing/logos/compass.svg",
+  },
+  {
+    alt: "Keller Williams",
+    src: "/images/new-landing/logos/kw.svg",
+  },
 ];
 
 export const BrandScroller = () => {

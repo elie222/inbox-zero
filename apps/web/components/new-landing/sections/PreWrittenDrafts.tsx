@@ -19,14 +19,14 @@ export function PreWrittenDrafts() {
       <SectionContent className="flex justify-center">
         <Image
           className="hidden md:block"
-          src="/images/new-landing/pre-written-drafts.svg"
+          src="/images/new-landing/pre-written-drafts.png"
           alt="pre-written drafts"
-          width={1000}
-          height={1000}
+          width={2000}
+          height={2000}
         />
         <Image
           className="block md:hidden"
-          src="/images/new-landing/pre-written-drafts-mobile.svg"
+          src="/images/new-landing/pre-written-drafts-mobile.png"
           alt="an organized inbox"
           width={2000}
           height={2000}

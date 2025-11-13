@@ -23,9 +23,9 @@ export function EverythingElseSection() {
       </SectionSubtitle>
       <SectionContent
         noMarginTop
-        className="mt-5 flex flex-col items-center gap-5"
+        className="mt-5 flex flex-col items-center gap-5 sm:mx-10 md:mx-40 lg:mx-0"
       >
-        <CardWrapper className="w-full grid grid-cols-1 md:grid-cols-3 gap-5">
+        <CardWrapper className="w-full grid grid-cols-1 lg:grid-cols-3 gap-5">
           <BlurFade inView>
             <DisplayCard
               title="Email analytics. What gets measured, gets managed"
@@ -47,7 +47,7 @@ export function EverythingElseSection() {
               icon={<Link />}
             >
               <Image
-                src="/images/new-landing/integrations.svg"
+                src="/images/new-landing/integrations.png"
                 alt="App integrations"
                 width={1000}
                 height={400}
@@ -61,7 +61,7 @@ export function EverythingElseSection() {
               icon={<ChatTwo />}
             >
               <Image
-                src="/images/new-landing/create-rules.svg"
+                src="/images/new-landing/create-rules.png"
                 alt="Customize"
                 width={1000}
                 height={400}
