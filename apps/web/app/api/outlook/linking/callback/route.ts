@@ -243,7 +243,7 @@ export const GET = withError(async (request) => {
         data: {
           userId: targetUserId,
           name: existingAccount.user.name,
-          email: existingAccount.user.email,
+          email: providerEmail,
         },
       }),
       prisma.user.delete({

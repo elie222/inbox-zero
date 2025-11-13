@@ -184,6 +184,7 @@ export async function upsertSystemRule({
       emailAccountId,
       provider,
       logger,
+      runOnThreads,
     });
   } else {
     logger.info("Creating new system rule");

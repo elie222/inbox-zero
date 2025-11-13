@@ -5,7 +5,6 @@ import type { CoreConditionType } from "@/utils/config";
 
 export default async function CreateRulePage(props: {
   searchParams: Promise<{
-    example?: string;
     groupId?: string;
     type?: CoreConditionType;
     label?: string;
