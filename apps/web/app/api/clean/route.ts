@@ -1,9 +1,12 @@
 import { verifyQueueSignatureAppRouter } from "@/utils/queue-signature";
-import { verifyWorkerSignatureAppRouter } from "@/utils/worker-signature";
+// import { verifyWorkerSignatureAppRouter } from "@/utils/worker-signature";
 import { z } from "zod";
 import { NextResponse } from "next/server";
 import { withError } from "@/utils/middleware";
-import { enqueueJob } from "@/utils/queue/queue-manager";
+// import { publishToQstash } from "@/utils/upstash";
+// import { enqueueJob } from "@/utils/queue/queue-manager";
+import { env } from "@/env";
+import { publishFlowControlled } from "@/utils/queue/publish";
 import { getThreadMessages } from "@/utils/gmail/thread";
 import { getGmailClientWithRefresh } from "@/utils/gmail/client";
 import type { CleanGmailBody } from "@/app/api/clean/gmail/route";
@@ -271,8 +274,17 @@ function getPublish({
       markDone,
     });
 
+    const base = env.WEBHOOK_URL || env.NEXT_PUBLIC_BASE_URL || "";
     await Promise.all([
-      enqueueJob("clean-gmail", cleanGmailBody),
+      publishFlowControlled({
+        url: `${base}/api/clean/gmail`,
+        body: cleanGmailBody,
+        flowControl: {
+          key: `gmail-action-${emailAccountId}`,
+          ratePerSecond: maxRatePerSecond,
+        },
+        redisQueueName: "clean-gmail",
+      }),
       updateThread({
         emailAccountId,
         jobId,

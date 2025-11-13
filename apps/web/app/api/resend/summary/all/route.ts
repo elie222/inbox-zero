@@ -2,10 +2,16 @@ import { NextResponse } from "next/server";
 import subDays from "date-fns/subDays";
 import prisma from "@/utils/prisma";
 import { withError } from "@/utils/middleware";
-import { hasCronSecret, hasPostCronSecret } from "@/utils/cron";
+import { env } from "@/env";
+import {
+  getCronSecretHeader,
+  hasCronSecret,
+  hasPostCronSecret,
+} from "@/utils/cron";
 import { Frequency } from "@prisma/client";
 import { captureException } from "@/utils/error";
 import { createScopedLogger } from "@/utils/logger";
+import { publishToQstashQueue } from "@/utils/upstash";
 import { enqueueJob } from "@/utils/queue/queue-manager";
 
 const logger = createScopedLogger("cron/resend/summary/all");
@@ -40,11 +46,25 @@ async function sendSummaryAllUpdate() {
 
   logger.info("Sending summary to users", { count: emailAccounts.length });
 
+  const url = `${env.NEXT_PUBLIC_BASE_URL}/api/resend/summary`;
+
   for (const emailAccount of emailAccounts) {
     try {
-      await enqueueJob("email-summary-all", {
-        email: emailAccount.email,
-      });
+      if (env.QUEUE_SYSTEM === "upstash") {
+        await publishToQstashQueue({
+          queueName: "email-summary-all",
+          parallelism: 3,
+          url,
+          body: { email: emailAccount.email },
+          headers: getCronSecretHeader(),
+        });
+      } else {
+        await enqueueJob(
+          "email-summary-all",
+          { email: emailAccount.email },
+          { targetPath: url },
+        );
+      }
     } catch (error) {
       logger.error("Failed to enqueue summary job", {
         email: emailAccount.email,

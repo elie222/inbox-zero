@@ -45,7 +45,26 @@ export class BullMQManager implements QueueManager {
   ): Promise<Job<T> | string> {
     const url = `${getWorkerBaseUrl()}/v1/jobs`;
     const base = env.WEBHOOK_URL || env.NEXT_PUBLIC_BASE_URL || "";
-    const callbackPath = options.targetPath ?? `/api/queue/${queueName}`;
+    const mapPath = (name: string, fallback: string) => {
+      switch (name) {
+        case "digest-item-summarize":
+          return "/api/ai/digest";
+        case "scheduled-actions":
+          return "/api/scheduled-actions/execute";
+        case "ai-clean":
+          return "/api/clean";
+        case "email-digest-all":
+          return "/api/resend/digest";
+        case "email-summary-all":
+          return "/api/resend/summary";
+        case "clean-gmail":
+          return "/api/clean/gmail";
+        default:
+          return fallback;
+      }
+    };
+    const callbackPath =
+      options.targetPath ?? mapPath(queueName, `/api/queue/${queueName}`);
     const callbackUrl =
       callbackPath.startsWith("http://") || callbackPath.startsWith("https://")
         ? callbackPath
@@ -100,7 +119,24 @@ export class BullMQManager implements QueueManager {
           const p =
             j.opts?.targetPath ??
             options.targetPath ??
-            `/api/queue/${queueName}`;
+            ((): string => {
+              switch (queueName) {
+                case "digest-item-summarize":
+                  return "/api/ai/digest";
+                case "scheduled-actions":
+                  return "/api/scheduled-actions/execute";
+                case "ai-clean":
+                  return "/api/clean";
+                case "email-digest-all":
+                  return "/api/resend/digest";
+                case "email-summary-all":
+                  return "/api/resend/summary";
+                case "clean-gmail":
+                  return "/api/clean/gmail";
+                default:
+                  return `/api/queue/${queueName}`;
+              }
+            })();
           return p.startsWith("http://") || p.startsWith("https://")
             ? p
             : `${base}${p}`;

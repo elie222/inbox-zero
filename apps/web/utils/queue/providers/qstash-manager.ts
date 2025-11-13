@@ -25,7 +25,10 @@ export class QStashManager implements QueueManager {
     options: EnqueueOptions = {},
   ): Promise<string> {
     const callbackPath = options.targetPath ?? `/api/queue/${queueName}`;
-    const url = `${env.WEBHOOK_URL || env.NEXT_PUBLIC_BASE_URL}${callbackPath}`;
+    const url =
+      callbackPath.startsWith("http://") || callbackPath.startsWith("https://")
+        ? callbackPath
+        : `${env.WEBHOOK_URL || env.NEXT_PUBLIC_BASE_URL}${callbackPath}`;
     const client = getQstashClient();
 
     if (options.notBefore) {
@@ -99,10 +102,14 @@ export class QStashManager implements QueueManager {
         const accountResults = await Promise.all(
           accountJobs.map(async (job) => {
             const targetPath = job.opts?.targetPath ?? defaultPath;
-            const url = `${base}${targetPath}`;
-            if (options.delay) {
-              // For delayed jobs, use publishJSON with notBefore
-              const notBefore = Math.ceil((Date.now() + options.delay) / 1000);
+            const url =
+              targetPath.startsWith("http://") ||
+              targetPath.startsWith("https://")
+                ? targetPath
+                : `${base}${targetPath}`;
+            if (options.notBefore) {
+              // For delayed jobs, use enqueueJSON with notBefore
+              const notBefore = options.notBefore;
               const response = await queue.enqueueJSON({
                 url,
                 body: job.data,
@@ -131,7 +138,10 @@ export class QStashManager implements QueueManager {
     // For other queues, use the original batchJSON approach
     const items = options.jobs.map((job) => {
       const targetPath = job.opts?.targetPath ?? defaultPath;
-      const url = `${base}${targetPath}`;
+      const url =
+        targetPath.startsWith("http://") || targetPath.startsWith("https://")
+          ? targetPath
+          : `${base}${targetPath}`;
       const item: {
         url: string;
         body: QueueJobData;

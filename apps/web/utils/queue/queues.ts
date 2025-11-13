@@ -153,7 +153,9 @@ async function handleAiCleanJob(data: AiCleanJobData) {
   return NextResponse.json({ success: true });
 }
 
-async function handleEmailDigestAllJob(data: EmailDigestAllJobData) {
+async function handleEmailDigestAllJob(
+  data: EmailDigestAllJobData,
+): Promise<void> {
   logger.info("Processing email digest all job", {
     emailAccountId: data.emailAccountId,
   });
@@ -161,7 +163,7 @@ async function handleEmailDigestAllJob(data: EmailDigestAllJobData) {
   try {
     const result = await sendDigestEmailForAccount(data.emailAccountId);
     logger.info("Email digest all job completed", { result });
-    return NextResponse.json({ success: true, result });
+    return;
   } catch (error) {
     logger.error("Email digest all job failed", {
       emailAccountId: data.emailAccountId,
@@ -453,11 +455,10 @@ async function handleEmailSummaryAllJob(data: EmailSummaryAllJobData) {
     userId: data.userId,
   });
 
-  // TODO: Implement actual email summary all logic
-  await new Promise((resolve) => setTimeout(resolve, 2500));
+  await sleep(2500);
 
   logger.info("Email summary all job completed");
-  return NextResponse.json({ success: true });
+  return { success: true };
 }
 
 async function handleCleanGmailJob(data: CleanGmailJobData) {
@@ -467,11 +468,10 @@ async function handleCleanGmailJob(data: CleanGmailJobData) {
     jobId: data.jobId,
   });
 
-  // TODO: Implement actual clean Gmail logic
-  await new Promise((resolve) => setTimeout(resolve, 2000));
+  await sleep(2000);
 
   logger.info("Clean Gmail job completed");
-  return NextResponse.json({ success: true });
+  return { success: true };
 }
 
 // Configuration for distributed AI categorize senders queues
@@ -529,59 +529,4 @@ export function getAiCleanQueueIndex(queueName: string): number | null {
   return Number.isNaN(index) ? null : index;
 }
 
-export const QUEUE_HANDLERS = {
-  "digest-item-summarize": handleDigestJob,
-  "scheduled-actions": handleScheduledActionJob,
-  "ai-clean": handleAiCleanJob,
-  "email-digest-all": handleEmailDigestAllJob,
-  "email-summary-all": handleEmailSummaryAllJob,
-  "clean-gmail": handleCleanGmailJob,
-} as const;
-
-export type QueueName = keyof typeof QUEUE_HANDLERS;
-export function getQueueHandler(queueName: string) {
-  if (queueName in QUEUE_HANDLERS) {
-    return QUEUE_HANDLERS[queueName as QueueName];
-  }
-
-  if (queueName.startsWith(`${AI_CATEGORIZE_SENDERS_PREFIX}-`)) {
-    return handleCategorizeSendersJob;
-  }
-
-  // Handle ai-clean queues
-  // For BullMQ: hash-based distribution (ai-clean-0, ai-clean-1, etc.)
-  // For QStash: per-account queues (ai-clean-{emailAccountId})
-  if (queueName.startsWith(`${AI_CLEAN_PREFIX}-`)) {
-    // For BullMQ: validate queue index (0-6)
-    if (env.QUEUE_SYSTEM === "redis") {
-      const queueIndex = getAiCleanQueueIndex(queueName);
-      if (
-        queueIndex !== null &&
-        queueIndex >= 0 &&
-        queueIndex < AI_CLEAN_QUEUE_COUNT
-      ) {
-        return handleAiCleanJob;
-      }
-    } else {
-      // For QStash: accept any per-account queue (ai-clean-{emailAccountId})
-      return handleAiCleanJob;
-    }
-  }
-
-  return null;
-}
-
-export function isValidQueueName(queueName: string): boolean {
-  if (queueName in QUEUE_HANDLERS) {
-    return true;
-  }
-
-  // Accept any ai-categorize-senders-* queue (dynamic naming)
-  if (queueName.startsWith(`${AI_CATEGORIZE_SENDERS_PREFIX}-`)) return true;
-
-  // Allow ai-clean queues
-  // Accept any ai-clean-* queue (dynamic naming)
-  if (queueName.startsWith(`${AI_CLEAN_PREFIX}-`)) return true;
-
-  return false;
-}
+export const QUEUE_HANDLERS = {} as const;

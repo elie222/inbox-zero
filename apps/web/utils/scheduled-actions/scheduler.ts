@@ -264,28 +264,60 @@ async function scheduleMessage({
   deduplicationId: string;
 }) {
   try {
-    // Use the unified queue system instead of direct QStash
-    const delayInMs = delayInMinutes * 60 * 1000; // Convert minutes to milliseconds
+    const notBefore = Math.ceil(
+      (Date.now() + delayInMinutes * 60 * 1000) / 1000,
+    );
 
-    const job = await enqueueJob("scheduled-actions", payload, {
-      delay: delayInMs,
-      jobId: deduplicationId,
-      attempts: 3,
-    });
+    if (env.QUEUE_SYSTEM === "upstash") {
+      // Use QStash client to schedule with notBefore (main pattern)
+      const client = getQstashClient();
+      if (!client) {
+        throw new Error("QStash client not configured");
+      }
 
-    const messageId = typeof job === "string" ? job : job.id;
+      const base = env.WEBHOOK_URL || env.NEXT_PUBLIC_BASE_URL || "";
+      const url = `${base}/api/scheduled-actions/execute`;
 
-    logger.info("Successfully scheduled with queue system", {
-      scheduledActionId: payload.scheduledActionId,
-      scheduledId: messageId,
-      delayInMinutes,
-      deduplicationId,
-      queueSystem: env.QUEUE_SYSTEM,
-    });
+      const response = await client.publishJSON({
+        url,
+        body: payload,
+        notBefore,
+        deduplicationId,
+      });
 
-    return messageId;
+      const messageId = response?.messageId || "unknown";
+
+      logger.info("Successfully scheduled with QStash", {
+        scheduledActionId: payload.scheduledActionId,
+        scheduledId: messageId,
+        delayInMinutes,
+        deduplicationId,
+      });
+
+      return messageId;
+    } else {
+      const base = env.WEBHOOK_URL || env.NEXT_PUBLIC_BASE_URL || "";
+      const url = `${base}/api/scheduled-actions/execute`;
+      // Redis/BullMQ via worker service with similar payload shape
+      const job = await enqueueJob("scheduled-actions", payload, {
+        notBefore,
+        deduplicationId,
+        targetPath: url,
+      });
+
+      const messageId = typeof job === "string" ? job : job.id;
+
+      logger.info("Successfully scheduled with worker", {
+        scheduledActionId: payload.scheduledActionId,
+        scheduledId: messageId,
+        delayInMinutes,
+        deduplicationId,
+      });
+
+      return messageId;
+    }
   } catch (error) {
-    logger.error("Failed to schedule with queue system", {
+    logger.error("Failed to schedule delayed action", {
       error,
       scheduledActionId: payload.scheduledActionId,
       deduplicationId,

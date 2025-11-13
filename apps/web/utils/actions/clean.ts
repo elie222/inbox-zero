@@ -167,6 +167,7 @@ export const cleanInboxAction = actionClient
 
           await bulkEnqueueJobs("ai-clean", {
             jobs,
+            targetPath: `${env.WEBHOOK_URL || env.NEXT_PUBLIC_BASE_URL || ""}/api/clean`,
           });
 
           totalEmailsProcessed += jobs.length;
