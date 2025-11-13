@@ -21,7 +21,12 @@ export function WordReveal({
   return (
     <>
       {wordsToReveal.map((word, index) => (
-        <BlurFade delay={delay + duration * index} inView as="span" key={index}>
+        <BlurFade
+          delay={delay + duration * index}
+          inView
+          as="span"
+          key={`${word}-${index}`}
+        >
           {word}
           {index < wordsToReveal.length - 1 && (
             <span className={cx("inline-block", spaceBetween)}> </span>
