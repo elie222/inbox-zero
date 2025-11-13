@@ -12,7 +12,6 @@
 
 import { type NextRequest, NextResponse } from "next/server";
 import { createScopedLogger } from "@/utils/logger";
-import { getQueueHandler, isValidQueueName } from "@/utils/queue/queues";
 import { verifySignatureAppRouter } from "@upstash/qstash/nextjs";
 import { withError } from "@/utils/middleware";
 import { isValidInternalApiKey } from "@/utils/internal-api";
@@ -51,12 +50,6 @@ async function handleQueueJob(
 ) {
   const { queueName } = await params;
 
-  // Validate queue name first
-  if (!isValidQueueName(queueName)) {
-    logger.warn("Unknown queue name", { queueName });
-    return NextResponse.json({ error: "Unknown queue name" }, { status: 400 });
-  }
-
   // For internal Redis/BullMQ requests, validate authentication
   if (env.QUEUE_SYSTEM === "redis") {
     const isAuthorized = await validateInternalRequest(request);
@@ -66,25 +59,16 @@ async function handleQueueJob(
     }
   }
 
-  const body = await request.json();
+  await request.json().catch(() => null);
 
   logger.info("Processing queue job", {
     queueName,
     queueSystem: env.QUEUE_SYSTEM,
   });
 
-  // Get the appropriate handler
-  const handler = getQueueHandler(queueName);
-  if (!handler) {
-    logger.error("No handler found for queue", { queueName });
-    return NextResponse.json(
-      { error: "No handler found for queue" },
-      { status: 500 },
-    );
-  }
-
-  // Execute the handler
-  return await handler(body);
+  // No centralized handling; acknowledge receipt only (legacy fallback)
+  logger.info("Queue job acknowledged (no-op handler)", { queueName });
+  return NextResponse.json({ success: true });
 }
 
 const queueRouteHandler = async (

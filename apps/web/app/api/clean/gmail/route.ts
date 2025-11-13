@@ -1,6 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { verifyQueueSignatureAppRouter } from "@/utils/queue-signature";
-import { verifyWorkerSignatureAppRouter } from "@/utils/worker-signature";
 import { z } from "zod";
 import { withError } from "@/utils/middleware";
 import { getGmailClientWithRefresh } from "@/utils/gmail/client";
