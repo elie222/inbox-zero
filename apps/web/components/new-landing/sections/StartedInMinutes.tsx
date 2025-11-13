@@ -33,8 +33,8 @@ export function StartedInMinutes() {
       <SectionSubtitle>
         One-click setup. Start organizing and drafting replies in minutes.
       </SectionSubtitle>
-      <SectionContent>
-        <CardWrapper className="w-full grid grid-cols-1 md:grid-cols-3 gap-5">
+      <SectionContent className="sm:mx-10 md:mx-40 lg:mx-0">
+        <CardWrapper className="w-full grid grid-cols-1 lg:grid-cols-3 gap-5">
           <BlurFade inView>
             <DisplayCard
               title="Connect your Google or Microsoft email"
