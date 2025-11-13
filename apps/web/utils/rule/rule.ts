@@ -176,10 +176,6 @@ export async function upsertSystemRule({
     instructions,
     systemType,
     runOnThreads,
-    actions: {
-      deleteMany: {},
-      createMany: { data: actions },
-    },
   };
 
   if (existingRule) {
@@ -190,7 +186,13 @@ export async function upsertSystemRule({
 
     const rule = await prisma.rule.update({
       where: { id: existingRule.id },
-      data,
+      data: {
+        ...data,
+        actions: {
+          deleteMany: {},
+          createMany: { data: actions },
+        },
+      },
       include: { actions: true, group: true },
     });
 
@@ -204,6 +206,7 @@ export async function upsertSystemRule({
         ...data,
         enabled: true,
         emailAccountId,
+        actions: { createMany: { data: actions } },
       },
       include: { actions: true, group: true },
     });
