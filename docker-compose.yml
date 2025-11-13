@@ -23,6 +23,7 @@ services:
       - database-data:/data
     networks:
       - inbox-zero-network
+    restart: unless-stopped
 
   serverless-redis-http:
     ports:
@@ -36,7 +37,7 @@ services:
       SRH_CONNECTION_STRING: "redis://redis:6379" # Using `redis` hostname since they're in the same Docker network.
     networks:
       - inbox-zero-network
-
+    restart: unless-stopped
   web:
     image: ghcr.io/elie222/inbox-zero:latest
     pull_policy: if_not_present
@@ -52,6 +53,7 @@ services:
     depends_on:
       - db
       - redis
+      - queue-worker
     ports:
       - ${WEB_PORT:-3000}:3000
     networks:
@@ -63,31 +65,23 @@ services:
       REDIS_URL: "redis://redis:6379"
       UPSTASH_REDIS_URL: "http://serverless-redis-http:80"
       UPSTASH_REDIS_TOKEN: ${UPSTASH_REDIS_TOKEN}
+      WORKER_BASE_URL: "http://queue-worker:5070"
+      CRON_SECRET: ${CRON_SECRET}
+    restart: unless-stopped
   worker:
-    image: ghcr.io/elie222/inbox-zero:latest
-    pull_policy: if_not_present
-    # Use the same build context as web service
     build:
       context: .
-      dockerfile: ./docker/Dockerfile.prod
-      args:
-        NEXT_PUBLIC_BASE_URL: ${NEXT_PUBLIC_BASE_URL:-http://localhost:3000}
-    env_file:
-      - ./apps/web/.env
+      dockerfile: ./docker/Dockerfile.worker
     depends_on:
-      - db
       - redis
     networks:
       - inbox-zero-network
     environment:
-      DATABASE_URL: "postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-password}@db:5432/${POSTGRES_DB:-inboxzero}?schema=public"
-      DIRECT_URL: "postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-password}@db:5432/${POSTGRES_DB:-inboxzero}?schema=public"
-      QUEUE_SYSTEM: "redis"
+      PORT: 5070
       REDIS_URL: "redis://redis:6379"
-      UPSTASH_REDIS_URL: "http://serverless-redis-http:80"
-      UPSTASH_REDIS_TOKEN: ${UPSTASH_REDIS_TOKEN}
-    # Override the default command to run the worker instead of the web server
-    command: ["node", "worker.js"]
+      WEB_BASE_URL: "http://web:3000"
+      CRON_SECRET: ${CRON_SECRET}
+      WORKER_SIGNING_SECRET: ${WORKER_SIGNING_SECRET}
     restart: unless-stopped
       
 volumes:

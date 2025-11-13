@@ -25,7 +25,7 @@ RUN pnpm install --no-frozen-lockfile --prefer-offline --shamefully-hoist
  # Copy the full repo
 COPY . .
 
- # Build app (runs Next build and copies worker.js into .next/standalone)
+ # Build app (Next.js standalone)
 ENV NODE_ENV=production
 # Increase V8 heap for Next build to avoid OOM in builder
 ENV NODE_OPTIONS=--max_old_space_size=16384
@@ -52,14 +52,10 @@ ENV QSTASH_CURRENT_SIGNING_KEY="dummy_qstash_curr_key_for_build"
 ENV QSTASH_NEXT_SIGNING_KEY="dummy_qstash_next_key_for_build"
 ENV DOCKER_BUILD="true"
 
-# Use the package script so worker.js is copied into .next/standalone at root (same level as server.js)
-# Run from apps/web directory to ensure proper module resolution
 RUN cd apps/web \
  && pnpm exec prisma generate \
  && pnpm exec next build \
  && cd ../.. \
- && cp apps/web/worker.js apps/web/.next/standalone/worker.js \
- && chmod +x apps/web/.next/standalone/worker.js \
  && rm -rf apps/web/.next/cache
 
 FROM node:22-alpine AS runner

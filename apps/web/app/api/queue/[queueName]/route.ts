@@ -17,6 +17,7 @@ import { verifySignatureAppRouter } from "@upstash/qstash/nextjs";
 import { withError } from "@/utils/middleware";
 import { isValidInternalApiKey } from "@/utils/internal-api";
 import { env } from "@/env";
+import { verifyWorkerSignatureAppRouter } from "@/utils/worker-signature";
 
 const logger = createScopedLogger("queue-api");
 
@@ -95,6 +96,29 @@ const queueRouteHandler = async (
     env.QUEUE_SYSTEM === "redis" &&
     (await validateInternalRequest(request))
   ) {
+    // If worker signature headers are present and secret configured, verify HMAC
+    if (
+      request.headers.has("x-worker-signature") &&
+      request.headers.has("x-worker-timestamp")
+    ) {
+      const response = await verifyWorkerSignatureAppRouter(
+        async (req: Request): Promise<Response> => {
+          const result = await handleQueueJob(req as NextRequest, context);
+          return new Response(result.body, {
+            status: result.status,
+            statusText: result.statusText,
+            headers: result.headers,
+          });
+        },
+      )(request);
+
+      return response instanceof NextResponse
+        ? response
+        : NextResponse.json(await response.json(), {
+            status: response.status,
+            headers: response.headers,
+          });
+    }
     return handleQueueJob(request, context);
   }
 

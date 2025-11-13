@@ -7,8 +7,8 @@ import type {
 } from "bullmq";
 import { env } from "@/env";
 import { createScopedLogger } from "@/utils/logger";
-import { BullMQManager } from "./bullmq-manager";
-import { QStashManager } from "./qstash-manager";
+import { QStashManager } from "./providers/qstash-manager";
+import { BullMQManager } from "./providers/bullmq-manager";
 import type {
   QueueJobData,
   EnqueueOptions,
@@ -62,46 +62,35 @@ export async function bulkEnqueueJobs<T extends QueueJobData>(
 }
 
 export function createQueueWorker<T extends QueueJobData>(
-  queueName: string,
-  processor: (job: Job<T>) => Promise<void>,
-  options?: {
+  _queueName: string,
+  _processor: (job: Job<T>) => Promise<void>,
+  _options?: {
     concurrency?: number;
     connection?: ConnectionOptions;
   },
 ): Worker | null {
-  const manager = getQueueManager();
-
-  // Only BullMQ supports workers; QStash uses HTTP endpoints
-  if (env.QUEUE_SYSTEM !== "redis") {
-    logger.warn("Workers not supported for queue system", {
-      queueSystem: env.QUEUE_SYSTEM,
-      queueName,
-    });
-    return null;
-  }
-
-  return manager.createWorker(queueName, processor, options);
+  logger.warn("createQueueWorker is disabled; using external worker service", {
+    queueSystem: env.QUEUE_SYSTEM,
+    queueName: _queueName,
+  });
+  return null;
 }
 
 export function createQueue<T extends QueueJobData>(
-  queueName: string,
-  options?: {
+  _queueName: string,
+  _options?: {
     connection?: ConnectionOptions;
     defaultJobOptions?: Record<string, unknown>;
   },
 ): Queue<T> | null {
-  const manager = getQueueManager();
-
-  // Only BullMQ supports queue creation; QStash uses HTTP endpoints
-  if (env.QUEUE_SYSTEM !== "redis") {
-    logger.warn("Queue creation not supported for queue system", {
+  logger.warn(
+    "createQueue is disabled; queues are managed by the worker service",
+    {
       queueSystem: env.QUEUE_SYSTEM,
-      queueName,
-    });
-    return null;
-  }
-
-  return manager.createQueue(queueName, options);
+      queueName: _queueName,
+    },
+  );
+  return null;
 }
 
 export async function closeQueueManager(): Promise<void> {

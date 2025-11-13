@@ -536,22 +536,6 @@ export const QUEUE_HANDLERS = {
   "email-digest-all": handleEmailDigestAllJob,
   "email-summary-all": handleEmailSummaryAllJob,
   "clean-gmail": handleCleanGmailJob,
-
-  "ai-categorize-senders-0": handleCategorizeSendersJob,
-  "ai-categorize-senders-1": handleCategorizeSendersJob,
-  "ai-categorize-senders-2": handleCategorizeSendersJob,
-  "ai-categorize-senders-3": handleCategorizeSendersJob,
-  "ai-categorize-senders-4": handleCategorizeSendersJob,
-  "ai-categorize-senders-5": handleCategorizeSendersJob,
-  "ai-categorize-senders-6": handleCategorizeSendersJob,
-
-  "ai-clean-0": handleAiCleanJob,
-  "ai-clean-1": handleAiCleanJob,
-  "ai-clean-2": handleAiCleanJob,
-  "ai-clean-3": handleAiCleanJob,
-  "ai-clean-4": handleAiCleanJob,
-  "ai-clean-5": handleAiCleanJob,
-  "ai-clean-6": handleAiCleanJob,
 } as const;
 
 export type QueueName = keyof typeof QUEUE_HANDLERS;
@@ -592,38 +576,12 @@ export function isValidQueueName(queueName: string): boolean {
     return true;
   }
 
-  if (queueName.startsWith(`${AI_CATEGORIZE_SENDERS_PREFIX}-`)) {
-    if (env.QUEUE_SYSTEM === "redis") {
-      // For BullMQ: validate queue index (0-6)
-      const queueIndex = getAiCategorizeSendersQueueIndex(queueName);
-      return (
-        queueIndex !== null &&
-        queueIndex >= 0 &&
-        queueIndex < AI_CATEGORIZE_SENDERS_QUEUE_COUNT
-      );
-    } else {
-      // For QStash: accept any per-account queue (ai-categorize-senders-{emailAccountId})
-      return true;
-    }
-  }
+  // Accept any ai-categorize-senders-* queue (dynamic naming)
+  if (queueName.startsWith(`${AI_CATEGORIZE_SENDERS_PREFIX}-`)) return true;
 
   // Allow ai-clean queues
-  // For BullMQ: hash-based distribution (ai-clean-0, ai-clean-1, etc.)
-  // For QStash: per-account queues (ai-clean-{emailAccountId})
-  if (queueName.startsWith(`${AI_CLEAN_PREFIX}-`)) {
-    if (env.QUEUE_SYSTEM === "redis") {
-      // For BullMQ: validate queue index (0-6)
-      const queueIndex = getAiCleanQueueIndex(queueName);
-      return (
-        queueIndex !== null &&
-        queueIndex >= 0 &&
-        queueIndex < AI_CLEAN_QUEUE_COUNT
-      );
-    } else {
-      // For QStash: accept any per-account queue
-      return true;
-    }
-  }
+  // Accept any ai-clean-* queue (dynamic naming)
+  if (queueName.startsWith(`${AI_CLEAN_PREFIX}-`)) return true;
 
   return false;
 }

@@ -22,8 +22,6 @@ export interface QueueSystemConfig {
 export interface QueueConfig {
   name: string;
   parallelism?: number;
-  delay?: number;
-  attempts?: number;
   backoff?: {
     type: "fixed" | "exponential";
     delay: number;
@@ -31,12 +29,14 @@ export interface QueueConfig {
 }
 
 export interface EnqueueOptions {
-  delay?: number;
-  attempts?: number;
-  priority?: number;
-  removeOnComplete?: number;
-  removeOnFail?: number;
-  jobId?: string;
+  // seconds since epoch (QStash style). If provided, takes precedence over delay at worker.
+  notBefore?: number;
+  // QStash style name
+  deduplicationId?: string;
+  // Optional explicit callback path (e.g., "/api/clean/gmail"); defaults to "/api/queue/{queueName}"
+  targetPath?: string;
+  // Optional extra headers to include when the worker calls back
+  headers?: Record<string, string>;
 }
 
 export interface BulkEnqueueOptions extends EnqueueOptions {

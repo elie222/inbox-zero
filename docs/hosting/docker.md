@@ -52,6 +52,75 @@ Start the services:
 docker compose --env-file ./apps/web/.env up -d
 ```
 
+### Queue Worker (Redis) setup
+
+Inbox Zero supports two queue backends:
+- QStash (Upstash) - managed HTTP queues
+- Redis (BullMQ) - via a dedicated Queue Worker service
+
+For self-hosting with Redis, enable and configure the Queue Worker service:
+
+- Web app (`apps/web`) runtime env (in `apps/web/.env`):
+  - `QUEUE_SYSTEM=redis`
+  - `WORKER_BASE_URL=http://queue-worker:5070` (internal URL the web app uses to enqueue)
+  - `CRON_SECRET=...` (shared secret used by web → worker and worker → web)
+  - `WORKER_SIGNING_SECRET=...` (optional; enables HMAC verification on callbacks)
+  - Keep your existing DB/OAuth/LLM envs as usual
+
+- Queue Worker service (`apps/queue-worker`) runtime env:
+  - `PORT=5070`
+  - `REDIS_URL=redis://redis:6379`
+  - `WEB_BASE_URL=http://web:3000` (internal URL the worker uses to callback the web)
+  - `CRON_SECRET=...` (must match web’s)
+  - `WORKER_SIGNING_SECRET=...` (optional; must match web’s if used)
+
+Example Docker Compose services (excerpt):
+
+```yaml
+services:
+  web:
+    # ...
+    environment:
+      DATABASE_URL: "postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-password}@db:5432/${POSTGRES_DB:-inboxzero}?schema=public"
+      DIRECT_URL: "postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-password}@db:5432/${POSTGRES_DB:-inboxzero}?schema=public"
+      QUEUE_SYSTEM: "redis"
+      REDIS_URL: "redis://redis:6379"
+      WORKER_BASE_URL: "http://queue-worker:5070"
+      CRON_SECRET: ${CRON_SECRET}
+      WORKER_SIGNING_SECRET: ${WORKER_SIGNING_SECRET} # optional
+    depends_on:
+      - db
+      - redis
+      - queue-worker
+
+  queue-worker:
+    build:
+      context: .
+      dockerfile: ./docker/Dockerfile.worker
+    environment:
+      PORT: 5070
+      REDIS_URL: "redis://redis:6379"
+      WEB_BASE_URL: "http://web:3000"
+      CRON_SECRET: ${CRON_SECRET}
+      WORKER_SIGNING_SECRET: ${WORKER_SIGNING_SECRET} # optional
+    depends_on:
+      - redis
+```
+
+Auth and callbacks:
+- Web → Worker: `Authorization: Bearer ${CRON_SECRET}` (enqueuing)
+- Worker → Web (callbacks):
+  - Calls the URL you provide in the enqueue request (QStash-style `url`); `url` is required
+  - `Authorization: Bearer ${CRON_SECRET}`
+  - Optional HMAC headers if `WORKER_SIGNING_SECRET` is set: `x-worker-signature`, `x-worker-timestamp`
+
+Health checks:
+- Worker: `GET http://queue-worker:5070/health` should return 200 when ready
+
+Using QStash instead:
+- Set `QUEUE_SYSTEM=upstash` and configure `QSTASH_TOKEN`
+- No worker service is required
+
 ### 5. Run Database Migrations
 
 In another terminal, run the database migrations :

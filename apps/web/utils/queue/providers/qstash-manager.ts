@@ -7,7 +7,7 @@ import type {
   EnqueueOptions,
   BulkEnqueueOptions,
   QueueManager,
-} from "./types";
+} from "../types";
 
 const logger = createScopedLogger("queue-qstash");
 
@@ -24,16 +24,18 @@ export class QStashManager implements QueueManager {
     data: T,
     options: EnqueueOptions = {},
   ): Promise<string> {
-    const url = `${env.WEBHOOK_URL || env.NEXT_PUBLIC_BASE_URL}/api/queue/${queueName}`;
+    const callbackPath = options.targetPath ?? `/api/queue/${queueName}`;
+    const url = `${env.WEBHOOK_URL || env.NEXT_PUBLIC_BASE_URL}${callbackPath}`;
     const client = getQstashClient();
 
-    if (options.delay) {
-      const notBefore = Math.ceil((Date.now() + options.delay) / 1000);
+    if (options.notBefore) {
+      const notBefore = options.notBefore;
       const response = await client.publishJSON({
         url,
         body: data,
         notBefore,
-        deduplicationId: options.jobId,
+        deduplicationId: options.deduplicationId,
+        headers: options.headers,
       });
       return response?.messageId || "unknown";
     } else {
@@ -43,7 +45,8 @@ export class QStashManager implements QueueManager {
       const response = await queue.enqueueJSON({
         url,
         body: data,
-        deduplicationId: options.jobId,
+        deduplicationId: options.deduplicationId,
+        headers: options.headers,
       });
       return response?.messageId || "unknown";
     }
@@ -53,7 +56,8 @@ export class QStashManager implements QueueManager {
     queueName: string,
     options: BulkEnqueueOptions,
   ): Promise<string[]> {
-    const url = `${env.WEBHOOK_URL || env.NEXT_PUBLIC_BASE_URL}/api/queue/${queueName}`;
+    const base = `${env.WEBHOOK_URL || env.NEXT_PUBLIC_BASE_URL}`;
+    const defaultPath = options.targetPath ?? `/api/queue/${queueName}`;
 
     // For ai-clean queue, use per-account queues to maintain parallelism limits per account
     // This ensures each account has its own queue with parallelism=3, preventing one account
@@ -94,6 +98,8 @@ export class QStashManager implements QueueManager {
         // Enqueue all jobs for this account
         const accountResults = await Promise.all(
           accountJobs.map(async (job) => {
+            const targetPath = job.opts?.targetPath ?? defaultPath;
+            const url = `${base}${targetPath}`;
             if (options.delay) {
               // For delayed jobs, use publishJSON with notBefore
               const notBefore = Math.ceil((Date.now() + options.delay) / 1000);
@@ -101,7 +107,8 @@ export class QStashManager implements QueueManager {
                 url,
                 body: job.data,
                 notBefore,
-                deduplicationId: job.opts?.jobId,
+                deduplicationId: job.opts?.deduplicationId,
+                headers: job.opts?.headers ?? options.headers,
               });
               return response?.messageId || "unknown";
             } else {
@@ -109,7 +116,8 @@ export class QStashManager implements QueueManager {
               const response = await queue.enqueueJSON({
                 url,
                 body: job.data,
-                deduplicationId: job.opts?.jobId,
+                deduplicationId: job.opts?.deduplicationId,
+                headers: job.opts?.headers ?? options.headers,
               });
               return response?.messageId || "unknown";
             }
@@ -122,22 +130,29 @@ export class QStashManager implements QueueManager {
 
     // For other queues, use the original batchJSON approach
     const items = options.jobs.map((job) => {
+      const targetPath = job.opts?.targetPath ?? defaultPath;
+      const url = `${base}${targetPath}`;
       const item: {
         url: string;
         body: QueueJobData;
         notBefore?: number;
         deduplicationId?: string;
+        headers?: Record<string, string>;
       } = {
         url,
         body: job.data,
       };
 
-      if (options.delay) {
-        item.notBefore = Math.ceil((Date.now() + options.delay) / 1000);
+      if (options.notBefore) {
+        item.notBefore = options.notBefore;
       }
 
-      if (job.opts?.jobId) {
-        item.deduplicationId = job.opts.jobId;
+      if (job.opts?.deduplicationId) {
+        item.deduplicationId = job.opts.deduplicationId;
+      }
+
+      if (job.opts?.headers ?? options.headers) {
+        item.headers = job.opts?.headers ?? options.headers;
       }
 
       return item;

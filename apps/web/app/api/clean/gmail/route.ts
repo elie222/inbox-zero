@@ -1,5 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server";
-import { verifySignatureAppRouter } from "@upstash/qstash/nextjs";
+import { verifyQueueSignatureAppRouter } from "@/utils/queue-signature";
+import { verifyWorkerSignatureAppRouter } from "@/utils/worker-signature";
 import { z } from "zod";
 import { withError } from "@/utils/middleware";
 import { getGmailClientWithRefresh } from "@/utils/gmail/client";
@@ -138,12 +139,10 @@ async function saveToDatabase({
 }
 
 export const POST = withError(
-  verifySignatureAppRouter(async (request: NextRequest) => {
-    const json = await request.json();
+  verifyQueueSignatureAppRouter(async (req: NextRequest) => {
+    const json = await req.json();
     const body = cleanGmailSchema.parse(json);
-
     await performGmailAction(body);
-
     return NextResponse.json({ success: true });
   }),
 );

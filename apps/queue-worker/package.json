@@ -1,0 +1,26 @@
+{
+  "name": "@inbox-zero/queue-worker",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "tsx --tsconfig tsconfig.json src/server.ts",
+    "dev": "tsx watch --tsconfig tsconfig.json src/server.ts",
+    "build": "tsc --project tsconfig.json",
+    "typecheck": "tsc --noEmit --project tsconfig.json",
+    "lint": "echo \"No lint configured for queue-worker yet\" && exit 0"
+  },
+  "dependencies": {
+    "@fastify/cors": "11.1.0",
+    "@t3-oss/env-core": "0.13.8",
+    "bullmq": "5.62.0",
+    "dotenv": "17.2.3",
+    "fastify": "5.6.1",
+    "zod": "3.25.46"
+  },
+  "devDependencies": {
+    "@types/node": "24.9.1",
+    "tsx": "4.20.6",
+    "typescript": "5.9.3"
+  }
+}

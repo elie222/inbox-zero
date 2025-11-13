@@ -6,6 +6,14 @@ import prisma from "@/utils/__mocks__/prisma";
 
 vi.mock("server-only", () => ({}));
 vi.mock("@/utils/prisma");
+// Mock QStash Client to avoid real HTTP in tests
+vi.mock("@upstash/qstash", () => ({
+  Client: vi.fn().mockImplementation(() => ({
+    http: {
+      request: vi.fn().mockResolvedValue({}),
+    },
+  })),
+}));
 vi.mock("@/utils/upstash", () => ({
   qstash: {
     messages: {

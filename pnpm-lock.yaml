@@ -45,6 +45,37 @@ importers:
         specifier: 5.3.3
         version: 5.3.3(@inquirer/prompts@7.9.0(@types/node@24.9.1))(@types/debug@4.1.12)(@types/node@24.9.1)(@vitest/ui@3.2.4)(jiti@2.6.1)(jsdom@27.0.1(postcss@8.5.6))(terser@5.44.0)(tsx@4.20.6)(typescript@5.9.3)(yaml@2.8.1)
 
+  apps/queue-worker:
+    dependencies:
+      '@fastify/cors':
+        specifier: 11.1.0
+        version: 11.1.0
+      '@t3-oss/env-core':
+        specifier: 0.13.8
+        version: 0.13.8(typescript@5.9.3)(valibot@1.1.0(typescript@5.9.3))(zod@3.25.46)
+      bullmq:
+        specifier: 5.62.0
+        version: 5.62.0
+      dotenv:
+        specifier: 17.2.3
+        version: 17.2.3
+      fastify:
+        specifier: 5.6.1
+        version: 5.6.1
+      zod:
+        specifier: 3.25.46
+        version: 3.25.46
+    devDependencies:
+      '@types/node':
+        specifier: 24.9.1
+        version: 24.9.1
+      tsx:
+        specifier: 4.20.6
+        version: 4.20.6
+      typescript:
+        specifier: 5.9.3
+        version: 5.9.3
+
   apps/unsubscriber:
     dependencies:
       '@ai-sdk/amazon-bedrock':
@@ -136,7 +167,7 @@ importers:
         specifier: 0.9.0
         version: 0.9.0
       '@googleapis/calendar':
-        specifier: ^12.0.0
+        specifier: 12.0.0
         version: 12.0.0
       '@googleapis/gmail':
         specifier: 15.0.0
@@ -175,7 +206,7 @@ importers:
         specifier: 3.0.7
         version: 3.0.7
       '@modelcontextprotocol/sdk':
-        specifier: ^1.20.1
+        specifier: 1.20.1
         version: 1.20.1
       '@mux/mux-player-react':
         specifier: 3.6.1
@@ -331,8 +362,8 @@ importers:
         specifier: 0.4.6
         version: 0.4.6(@aws-sdk/credential-provider-web-identity@3.911.0)(zod@3.25.46)
       bullmq:
-        specifier: ^5.61.0
-        version: 5.62.0
+        specifier: 5.61.0
+        version: 5.61.0
       capital-case:
         specifier: 2.0.0
         version: 2.0.0
@@ -355,8 +386,8 @@ importers:
         specifier: 4.1.0
         version: 4.1.0
       diff:
-        specifier: ^8.0.0
-        version: 8.0.2
+        specifier: 8.0.0
+        version: 8.0.0
       dompurify:
         specifier: 3.3.0
         version: 3.3.0
@@ -364,7 +395,7 @@ importers:
         specifier: 0.67.0
         version: 0.67.0
       easymde:
-        specifier: ^2.20.0
+        specifier: 2.20.0
         version: 2.20.0
       email-reply-parser:
         specifier: 1.9.4
@@ -557,7 +588,7 @@ importers:
         specifier: 0.2.2
         version: 0.2.2(tailwindcss@3.4.17(ts-node@10.9.2(@types/node@24.9.1)(typescript@5.9.3)))
       '@microsoft/microsoft-graph-types':
-        specifier: ^2.43.1
+        specifier: 2.43.1
         version: 2.43.1
       '@testing-library/react':
         specifier: 16.3.0
@@ -625,18 +656,12 @@ importers:
       serwist:
         specifier: 9.2.1
         version: 9.2.1(typescript@5.9.3)
-      shx:
-        specifier: ^0.3.4
-        version: 0.3.4
       tailwindcss:
         specifier: 3.4.17
         version: 3.4.17(ts-node@10.9.2(@types/node@24.9.1)(typescript@5.9.3))
       tsconfig:
         specifier: workspace:*
         version: link:../../packages/tsconfig
-      tsx:
-        specifier: ^4.20.0
-        version: 4.20.6
       vite-tsconfig-paths:
         specifier: 5.1.4
         version: 5.1.4(typescript@5.9.3)(vite@7.1.11(@types/node@24.9.1)(jiti@2.6.1)(terser@5.44.0)(tsx@4.20.6)(yaml@2.8.1))
@@ -6208,6 +6233,9 @@ packages:
   buffer@6.0.3:
     resolution: {integrity: sha512-FTiCpNxtwiZZHEZbcbTIcZjERVICn9yq/pDFkTl95/AxzD1naBctN7YO68riM/gLSDY7sdrMby8hofADYuuqOA==}
 
+  bullmq@5.61.0:
+    resolution: {integrity: sha512-khaTjc1JnzaYFl4FrUtsSsqugAW/urRrcZ9Q0ZE+REAw8W+gkHFqxbGlutOu6q7j7n91wibVaaNlOUMdiEvoSQ==}
+
   bullmq@5.62.0:
     resolution: {integrity: sha512-Q+UwvZs53FeYeJgkGuhtnUBh+rgvi4kvoLiCLBcc36ukB1UvE3/Lw5jx7rDCEgTMWSSyUClpnGpP+B8lGE64GQ==}
 
@@ -7037,8 +7065,8 @@ packages:
     resolution: {integrity: sha512-58lmxKSA4BNyLz+HHMUzlOEpg09FV+ev6ZMe3vJihgdxzgcwZ8VoEEPmALCZG9LmqfVoNMMKpttIYTVG6uDY7A==}
     engines: {node: '>=0.3.1'}
 
-  diff@8.0.2:
-    resolution: {integrity: sha512-sSuxWU5j5SR9QQji/o2qMvqRNYRDOcBTgsJ/DeCf4iSN4gW+gNMXM7wFIP+fdXZxoNiAnHUTGjCr+TSWXdRDKg==}
+  diff@8.0.0:
+    resolution: {integrity: sha512-DJkPOAHudnz8swaqtm8cYmR9YfHLVDmoIH02+MqJiI/V9PxCf0WG+TBMduL7FZfnO53LhUXaPMo8Iw/uUJXLRA==}
     engines: {node: '>=0.3.1'}
 
   dir-glob@3.0.1:
@@ -15302,8 +15330,8 @@ snapshots:
 
   '@prisma/config@6.6.0':
     dependencies:
-      esbuild: 0.25.9
-      esbuild-register: 3.6.0(esbuild@0.25.9)
+      esbuild: 0.25.11
+      esbuild-register: 3.6.0(esbuild@0.25.11)
     transitivePeerDependencies:
       - supports-color
 
@@ -17851,7 +17879,7 @@ snapshots:
 
   '@types/diff@8.0.0':
     dependencies:
-      diff: 8.0.2
+      diff: 8.0.0
 
   '@types/dotenv@8.2.3':
     dependencies:
@@ -18201,7 +18229,7 @@ snapshots:
       sirv: 3.0.2
       tinyglobby: 0.2.14
       tinyrainbow: 2.0.0
-      vitest: 3.2.4(@types/debug@4.1.12)(@types/node@24.9.1)(@vitest/ui@3.2.4)(jiti@2.6.1)(jsdom@27.0.1(postcss@8.5.6))(terser@5.44.0)(tsx@4.20.6)(yaml@2.8.1)
+      vitest: 3.2.4(@types/debug@4.1.12)(@types/node@24.9.1)(@vitest/ui@3.2.4)(jiti@2.6.1)(jsdom@26.1.0)(terser@5.44.0)(tsx@4.20.6)(yaml@2.8.1)
 
   '@vitest/utils@3.2.4':
     dependencies:
@@ -18803,6 +18831,18 @@ snapshots:
     dependencies:
       base64-js: 1.5.1
       ieee754: 1.2.1
+
+  bullmq@5.61.0:
+    dependencies:
+      cron-parser: 4.9.0
+      ioredis: 5.8.2
+      msgpackr: 1.11.5
+      node-abort-controller: 3.1.1
+      semver: 7.7.3
+      tslib: 2.8.1
+      uuid: 11.1.0
+    transitivePeerDependencies:
+      - supports-color
 
   bullmq@5.62.0:
     dependencies:
@@ -19639,7 +19679,7 @@ snapshots:
 
   diff@4.0.2: {}
 
-  diff@8.0.2: {}
+  diff@8.0.0: {}
 
   dir-glob@3.0.1:
     dependencies:
@@ -19853,10 +19893,10 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  esbuild-register@3.6.0(esbuild@0.25.9):
+  esbuild-register@3.6.0(esbuild@0.25.11):
     dependencies:
       debug: 4.4.3(supports-color@8.1.1)
-      esbuild: 0.25.9
+      esbuild: 0.25.11
     transitivePeerDependencies:
       - supports-color
 
@@ -25193,7 +25233,7 @@ snapshots:
 
   tsx@4.20.6:
     dependencies:
-      esbuild: 0.25.9
+      esbuild: 0.25.11
       get-tsconfig: 4.10.1
     optionalDependencies:
       fsevents: 2.3.3
@@ -25597,7 +25637,7 @@ snapshots:
 
   vite@7.1.11(@types/node@24.9.1)(jiti@2.6.1)(terser@5.44.0)(tsx@4.20.6)(yaml@2.8.1):
     dependencies:
-      esbuild: 0.25.10
+      esbuild: 0.25.11
       fdir: 6.5.0(picomatch@4.0.3)
       picomatch: 4.0.3
       postcss: 8.5.6

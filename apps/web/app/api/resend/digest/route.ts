@@ -17,7 +17,7 @@ import { DigestStatus } from "@prisma/client";
 import { extractNameFromEmail } from "../../../../utils/email";
 import { getRuleName } from "@/utils/rule/consts";
 import { SystemType } from "@prisma/client";
-import { verifySignatureAppRouter } from "@upstash/qstash/nextjs";
+import { verifyQueueSignatureAppRouter } from "@/utils/queue-signature";
 import { camelCase } from "lodash";
 import { createEmailProvider } from "@/utils/email/provider";
 import { sleep } from "@/utils/sleep";
@@ -46,12 +46,11 @@ export const GET = withEmailAccount(async (request) => {
 });
 
 export const POST = withError(
-  verifySignatureAppRouter(async (request: NextRequest) => {
-    const json = await request.json();
+  verifyQueueSignatureAppRouter(async (req: NextRequest) => {
+    const json = await req.json();
     const { success, data, error } = sendDigestEmailBody.safeParse(json);
 
     let logger = createScopedLogger("resend/digest");
-
     if (!success) {
       logger.error("Invalid request body", { error });
       return NextResponse.json(
