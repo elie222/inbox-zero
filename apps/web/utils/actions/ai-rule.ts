@@ -3,14 +3,12 @@
 import { z } from "zod";
 import prisma from "@/utils/prisma";
 import { isNotFoundError } from "@/utils/prisma-helpers";
-import { aiCreateRule } from "@/utils/ai/rule/create-rule";
 import {
   runRules,
   type RunRulesResult,
 } from "@/utils/ai/choose-rule/run-rules";
 import { emailToContent } from "@/utils/mail";
 import {
-  createAutomationBody,
   runRulesBody,
   testAiCustomContentBody,
 } from "@/utils/actions/ai-rule.validation";
@@ -23,8 +21,7 @@ import { aiDiffRules } from "@/utils/ai/rule/diff-rules";
 import { aiFindExistingRules } from "@/utils/ai/rule/find-existing-rules";
 import { aiGenerateRulesPrompt } from "@/utils/ai/rule/generate-rules-prompt";
 import { aiFindSnippets } from "@/utils/ai/snippets/find-snippets";
-import type { CreateOrUpdateRuleSchema } from "@/utils/ai/rule/create-rule-schema";
-import { deleteRule, safeCreateRule, safeUpdateRule } from "@/utils/rule/rule";
+import { createRule, updateRule, deleteRule } from "@/utils/rule/rule";
 import { actionClient } from "@/utils/actions/safe-action";
 import { getEmailAccountWithAi } from "@/utils/user/get";
 import { SafeError } from "@/utils/error";
@@ -156,40 +153,6 @@ export const testAiCustomContentAction = actionClient
       });
 
       return result;
-    },
-  );
-
-export const createAutomationAction = actionClient
-  .metadata({ name: "createAutomation" })
-  .schema(createAutomationBody)
-  .action(
-    async ({ ctx: { emailAccountId, logger }, parsedInput: { prompt } }) => {
-      const emailAccount = await getEmailAccountWithAi({ emailAccountId });
-
-      if (!emailAccount) throw new Error("Email account not found");
-
-      let result: CreateOrUpdateRuleSchema;
-
-      try {
-        result = await aiCreateRule(prompt, emailAccount);
-      } catch (error) {
-        if (error instanceof Error) {
-          throw new Error(`AI error creating rule. ${error.message}`);
-        }
-        throw new Error("AI error creating rule.");
-      }
-
-      if (!result) throw new Error("AI error creating rule.");
-
-      const createdRule = await safeCreateRule({
-        result,
-        emailAccountId,
-        shouldCreateIfDuplicate: true,
-        provider: emailAccount.account.provider,
-        runOnThreads: true,
-        logger,
-      });
-      return createdRule;
     },
   );
 
@@ -399,7 +362,7 @@ export const saveRulesPromptAction = actionClient
 
             editRulesCount++;
 
-            await safeUpdateRule({
+            await updateRule({
               ruleId: rule.ruleId,
               result: rule,
               emailAccountId,
@@ -422,10 +385,9 @@ export const saveRulesPromptAction = actionClient
       for (const rule of addedRules || []) {
         logger.info("Creating rule", { ruleName: rule.name });
 
-        await safeCreateRule({
+        await createRule({
           result: rule,
           emailAccountId,
-          shouldCreateIfDuplicate: false,
           provider: emailAccount.account.provider,
           runOnThreads: true,
           logger,
@@ -499,10 +461,9 @@ export const createRulesAction = actionClient
       for (const rule of addedRules || []) {
         logger.info("Creating rule", { ruleName: rule.name });
 
-        const createdRule = await safeCreateRule({
+        const createdRule = await createRule({
           result: rule,
           emailAccountId,
-          shouldCreateIfDuplicate: false,
           provider: emailAccount.account.provider,
           runOnThreads: true,
           logger,

@@ -219,20 +219,8 @@ const createRuleTool = ({
           emailAccountId,
           provider,
           runOnThreads: true,
+          logger,
         });
-
-        if ("error" in rule) {
-          logger.error("Error while creating rule", {
-            error: rule.error,
-          });
-
-          return {
-            error: "Failed to create rule",
-            message: rule.error,
-          };
-        }
-
-        // createdRules.set(rule.id, rule);
 
         return { success: true, ruleId: rule.id };
       } catch (error) {

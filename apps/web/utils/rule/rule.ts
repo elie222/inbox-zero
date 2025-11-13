@@ -1,6 +1,5 @@
 import type { CreateOrUpdateRuleSchema } from "@/utils/ai/rule/create-rule-schema";
 import prisma from "@/utils/prisma";
-import { isDuplicateError } from "@/utils/prisma-helpers";
 import type { Logger } from "@/utils/logger";
 import { ActionType } from "@prisma/client";
 import type { Prisma, Rule, SystemType } from "@prisma/client";
@@ -25,247 +24,179 @@ export function partialUpdateRule({
   });
 }
 
-// Extended type for system rules that can include labelId and folderId
-type CreateRuleWithLabelId = Omit<CreateOrUpdateRuleSchema, "actions"> & {
-  actions: (CreateOrUpdateRuleSchema["actions"][number] & {
-    labelId?: string | null;
-    folderId?: string | null;
-  })[];
-};
-
-export async function safeCreateRule({
-  result,
-  emailAccountId,
-  provider,
-  systemType,
-  triggerType = "ai_creation",
-  shouldCreateIfDuplicate,
-  runOnThreads,
-  logger,
-}: {
-  result: CreateRuleWithLabelId;
-  emailAccountId: string;
-  provider: string;
-  systemType?: SystemType | null;
-  triggerType?: "ai_creation" | "manual_creation" | "system_creation";
-  shouldCreateIfDuplicate: boolean; // maybe this should just always be false?
-  runOnThreads: boolean;
-  logger: Logger;
-}) {
-  try {
-    const rule = await createRule({
-      result,
-      emailAccountId,
-      systemType,
-      triggerType,
-      provider,
-      runOnThreads,
-    });
-    return rule;
-  } catch (error) {
-    if (isDuplicateError(error, "name")) {
-      if (shouldCreateIfDuplicate) {
-        // if rule name already exists, create a new rule with a unique name
-        logger.warn("Creating duplicate rule with timestamp suffix", {
-          originalName: result.name,
-          systemType,
-          triggerType,
-        });
-        const rule = await createRule({
-          result: { ...result, name: `${result.name} - ${Date.now()}` },
-          emailAccountId,
-          systemType,
-          triggerType,
-          provider,
-          runOnThreads,
-        });
-        return rule;
-      } else {
-        // Check if there's an existing rule with this name
-        const existingRule = await prisma.rule.findUnique({
-          where: {
-            name_emailAccountId: {
-              emailAccountId,
-              name: result.name,
-            },
-          },
-          include: { actions: true, group: true },
-        });
-
-        // If we're creating a system rule and the existing rule doesn't have
-        // the same systemType, create the system rule with a unique name
-        // to avoid breaking system functionality
-        if (systemType && existingRule?.systemType !== systemType) {
-          logger.info("Creating system rule with unique name due to conflict", {
-            systemType,
-            existingRuleName: result.name,
-            existingRuleSystemType: existingRule?.systemType,
-          });
-          const rule = await createRule({
-            result: { ...result, name: `${result.name} - ${Date.now()}` },
-            emailAccountId,
-            systemType,
-            triggerType,
-            provider,
-            runOnThreads,
-          });
-          return rule;
-        }
-
-        return existingRule;
-      }
-    }
-
-    logger.error("Error creating rule", {
-      emailAccountId,
-      error:
-        error instanceof Error
-          ? { message: error.message, stack: error.stack, name: error.name }
-          : error,
-    });
-    // return { error: "Error creating rule." };
-  }
-}
-
-export async function safeUpdateRule({
-  ruleId,
-  result,
-  emailAccountId,
-  triggerType = "ai_update",
-  provider,
-  logger,
-}: {
-  ruleId: string;
-  result: CreateOrUpdateRuleSchema;
-  emailAccountId: string;
-  triggerType?: "ai_update" | "manual_update" | "system_update";
-  provider: string;
-  logger: Logger;
-}) {
-  try {
-    const rule = await updateRule({
-      ruleId,
-      result,
-      emailAccountId,
-      triggerType,
-      provider,
-    });
-    return { id: rule.id };
-  } catch (error) {
-    if (isDuplicateError(error, "name")) {
-      logger.warn("Rule name already exists", {
-        ruleName: result.name,
-        triggerType,
-      });
-
-      return { error: "A rule with this name already exists." };
-    }
-
-    logger.error("Error updating rule", {
-      emailAccountId,
-      error:
-        error instanceof Error
-          ? { message: error.message, stack: error.stack, name: error.name }
-          : error,
-    });
-
-    return { error: "Error updating rule." };
-  }
-}
-
 export async function createRule({
   result,
   emailAccountId,
   systemType,
-  triggerType = "ai_creation",
   provider,
   runOnThreads,
+  logger,
 }: {
   result: CreateOrUpdateRuleSchema;
   emailAccountId: string;
   systemType?: SystemType | null;
-  triggerType?: "ai_creation" | "manual_creation" | "system_creation";
   provider: string;
   runOnThreads: boolean;
+  logger: Logger;
 }) {
-  const mappedActions = await mapActionFields(
-    result.actions,
-    provider,
-    emailAccountId,
-  );
-
-  const rule = await prisma.rule.create({
-    data: {
+  try {
+    logger.info("Creating rule", {
       name: result.name,
-      emailAccountId,
       systemType,
-      actions: { createMany: { data: mappedActions } },
-      enabled: shouldEnable(
-        result,
-        mappedActions.map((a) => ({
-          type: a.type,
-          subject: a.subject ?? null,
-          content: a.content ?? null,
-          to: a.to ?? null,
-          cc: a.cc ?? null,
-          bcc: a.bcc ?? null,
-        })),
-      ),
-      runOnThreads,
-      conditionalOperator: result.condition.conditionalOperator ?? undefined,
-      instructions: result.condition.aiInstructions,
-      from: result.condition.static?.from,
-      to: result.condition.static?.to,
-      subject: result.condition.static?.subject,
-    },
-    include: { actions: true, group: true },
-  });
+    });
 
-  // Track rule creation in history
-  await createRuleHistory({ rule, triggerType });
+    const mappedActions = await mapActionFields(
+      result.actions,
+      provider,
+      emailAccountId,
+    );
 
-  return rule;
+    const rule = await prisma.rule.create({
+      data: {
+        name: result.name,
+        emailAccountId,
+        systemType,
+        actions: { createMany: { data: mappedActions } },
+        enabled: shouldEnable(
+          result,
+          mappedActions.map((a) => ({
+            type: a.type,
+            subject: a.subject ?? null,
+            content: a.content ?? null,
+            to: a.to ?? null,
+            cc: a.cc ?? null,
+            bcc: a.bcc ?? null,
+          })),
+        ),
+        runOnThreads,
+        conditionalOperator: result.condition.conditionalOperator ?? undefined,
+        instructions: result.condition.aiInstructions,
+        from: result.condition.static?.from,
+        to: result.condition.static?.to,
+        subject: result.condition.static?.subject,
+      },
+      include: { actions: true, group: true },
+    });
+
+    await createRuleHistory({ rule, triggerType: "created" });
+
+    return rule;
+  } catch (error) {
+    logger.error("Error creating rule", { error });
+    throw error;
+  }
 }
 
-async function updateRule({
+export async function updateRule({
   ruleId,
   result,
   emailAccountId,
-  triggerType = "ai_update",
   provider,
+  logger,
+  runOnThreads,
 }: {
   ruleId: string;
   result: CreateOrUpdateRuleSchema;
   emailAccountId: string;
-  triggerType?: "ai_update" | "manual_update" | "system_update";
   provider: string;
+  logger: Logger;
+  runOnThreads?: boolean;
 }) {
-  const rule = await prisma.rule.update({
-    where: { id: ruleId },
-    data: {
+  try {
+    logger.info("Updating rule", {
       name: result.name,
-      emailAccountId,
-      // NOTE: this is safe for now as `Action` doesn't have relations
-      // but if we add relations to `Action`, we would need to `update` here instead of `deleteMany` and `createMany` to avoid cascading deletes
-      actions: {
-        deleteMany: {},
-        createMany: {
-          data: await mapActionFields(result.actions, provider, emailAccountId),
+      ruleId,
+    });
+
+    const rule = await prisma.rule.update({
+      where: { id: ruleId },
+      data: {
+        name: result.name,
+        emailAccountId,
+        // NOTE: this is safe for now as `Action` doesn't have relations
+        // but if we add relations to `Action`, we would need to `update` here instead of `deleteMany` and `createMany` to avoid cascading deletes
+        actions: {
+          deleteMany: {},
+          createMany: {
+            data: await mapActionFields(
+              result.actions,
+              provider,
+              emailAccountId,
+            ),
+          },
         },
+        conditionalOperator: result.condition.conditionalOperator ?? undefined,
+        instructions: result.condition.aiInstructions,
+        from: result.condition.static?.from,
+        to: result.condition.static?.to,
+        subject: result.condition.static?.subject,
+        ...(runOnThreads !== undefined && { runOnThreads }),
       },
-      conditionalOperator: result.condition.conditionalOperator ?? undefined,
-      instructions: result.condition.aiInstructions,
-      from: result.condition.static?.from,
-      to: result.condition.static?.to,
-      subject: result.condition.static?.subject,
+      include: { actions: true, group: true },
+    });
+
+    await createRuleHistory({ rule, triggerType: "updated" });
+
+    return rule;
+  } catch (error) {
+    logger.error("Error updating rule", { error });
+    throw error;
+  }
+}
+
+export async function upsertSystemRule({
+  result,
+  emailAccountId,
+  systemType,
+  provider,
+  runOnThreads,
+  logger,
+}: {
+  result: CreateOrUpdateRuleSchema;
+  emailAccountId: string;
+  systemType: SystemType;
+  provider: string;
+  runOnThreads: boolean;
+  logger: Logger;
+}) {
+  logger.info("Upserting system rule", {
+    name: result.name,
+    systemType,
+  });
+
+  const existingRule = await prisma.rule.findFirst({
+    where: {
+      emailAccountId,
+      OR: [{ systemType }, { name: result.name }],
     },
     include: { actions: true, group: true },
   });
 
-  // Track rule update in history
-  await createRuleHistory({ rule, triggerType });
+  if (existingRule) {
+    logger.info("Updating existing rule", {
+      ruleId: existingRule.id,
+      hadSystemType: !!existingRule.systemType,
+    });
 
-  return rule;
+    return await updateRule({
+      ruleId: existingRule.id,
+      result,
+      emailAccountId,
+      provider,
+      logger,
+    });
+  } else {
+    logger.info("Creating new system rule");
+
+    return await createRule({
+      result,
+      emailAccountId,
+      systemType,
+      provider,
+      runOnThreads,
+      logger,
+    });
+  }
 }
 
 export async function updateRuleActions({
