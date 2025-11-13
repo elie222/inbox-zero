@@ -30,7 +30,7 @@ import { landingPageAnalytics } from "@/hooks/useAnalytics";
 
 export function Hero() {
   return (
-    <Section className="mt-20">
+    <Section className="mt-10 md:mt-20">
       <PageHeading>
         <WordReveal
           spaceBetween="w-2 md:w-3"
