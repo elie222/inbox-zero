@@ -11,6 +11,7 @@ export type EmailForAction = Pick<
   | "snippet"
   | "attachments"
   | "internalDate"
+  | "rawRecipients"
 >;
 
 export type ActionItem = {

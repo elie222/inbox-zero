@@ -187,7 +187,7 @@ export async function aiDraftWithKnowledge({
     const modelOptions = getModel(emailAccount.user);
 
     const generateObject = createGenerateObject({
-      userEmail: emailAccount.email,
+      emailAccount,
       label: "Email draft with knowledge",
       modelOptions,
     });

@@ -89,7 +89,7 @@ ${formatCategoriesForPrompt(categories)}
   const modelOptions = getModel(emailAccount.user, "economy");
 
   const generateObject = createGenerateObject({
-    userEmail: emailAccount.email,
+    emailAccount,
     label: "Categorize senders bulk",
     modelOptions,
   });

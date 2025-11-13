@@ -6,6 +6,7 @@ import type { EmailProvider } from "@/utils/email/types";
 import { enqueueDigestItem } from "@/utils/digest/index";
 import { filterNullProperties } from "@/utils";
 import { labelMessageAndSync } from "@/utils/label.server";
+import { hasVariables } from "@/utils/template";
 
 const logger = createScopedLogger("ai-actions");
 
@@ -85,6 +86,11 @@ const label: ActionFunction<{
 
   // Lazy migration: If no labelId but label name exists, look it up
   if (!labelIdToUse && args.label) {
+    if (hasVariables(args.label)) {
+      logger.error("Template label not processed by AI", { label: args.label });
+      return;
+    }
+
     const matchingLabel = await client.getLabelByName(args.label);
 
     if (matchingLabel) {

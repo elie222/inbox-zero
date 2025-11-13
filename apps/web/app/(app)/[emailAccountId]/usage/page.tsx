@@ -1,5 +1,4 @@
 import { getUsage } from "@/utils/redis/usage";
-import { TopSection } from "@/components/TopSection";
 import { Usage } from "@/app/(app)/[emailAccountId]/usage/usage";
 import { auth } from "@/utils/auth";
 import {
@@ -9,6 +8,8 @@ import {
 import { checkUserOwnsEmailAccount } from "@/utils/email-account";
 import { notFound } from "next/navigation";
 import prisma from "@/utils/prisma";
+import { PageWrapper } from "@/components/PageWrapper";
+import { PageHeader } from "@/components/PageHeader";
 
 export default async function UsagePage(props: {
   params: Promise<{ emailAccountId: string }>;
@@ -53,17 +54,18 @@ export default async function UsagePage(props: {
   const isOwnAccount = emailAccount.user.id === userId;
 
   return (
-    <div>
-      <TopSection
+    <PageWrapper>
+      <PageHeader
         title={
           isOwnAccount
             ? "Credits and Usage"
             : `Credits and Usage for ${emailAccount.name || emailAccount.email}`
         }
+        description=""
       />
-      <div className="m-4">
+      <div className="my-4">
         <Usage usage={usage} />
       </div>
-    </div>
+    </PageWrapper>
   );
 }

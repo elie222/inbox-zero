@@ -223,18 +223,20 @@ export async function createLabel({
   await ensureParentLabelsExist(gmail, name);
 
   try {
-    const createdLabel = await gmail.users.labels.create({
-      userId: "me",
-      requestBody: {
-        name,
-        messageListVisibility,
-        labelListVisibility,
-        color: {
-          backgroundColor: color || getLabelColor(name),
-          textColor: "#000000",
+    const createdLabel = await withGmailRetry(() =>
+      gmail.users.labels.create({
+        userId: "me",
+        requestBody: {
+          name,
+          messageListVisibility,
+          labelListVisibility,
+          color: {
+            backgroundColor: color || getLabelColor(name),
+            textColor: "#000000",
+          },
         },
-      },
-    });
+      }),
+    );
     return createdLabel.data;
   } catch (error) {
     const errorMessage: string | undefined = (error as any).message;
@@ -273,7 +275,9 @@ async function ensureParentLabelsExist(gmail: gmail_v1.Gmail, name: string) {
 }
 
 export async function getLabels(gmail: gmail_v1.Gmail) {
-  const response = await gmail.users.labels.list({ userId: "me" });
+  const response = await withGmailRetry(() =>
+    gmail.users.labels.list({ userId: "me" }),
+  );
   return response.data.labels;
 }
 
@@ -305,7 +309,9 @@ export async function getLabelById(options: {
   id: string;
 }) {
   const { gmail, id } = options;
-  return (await gmail.users.labels.get({ userId: "me", id })).data;
+  return (
+    await withGmailRetry(() => gmail.users.labels.get({ userId: "me", id }))
+  ).data;
 }
 
 export async function getOrCreateLabel({

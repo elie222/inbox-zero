@@ -5,6 +5,7 @@ import type {
 } from "@microsoft/microsoft-graph-types";
 import { createScopedLogger } from "@/utils/logger";
 import { isAlreadyExistsError } from "./errors";
+import { withOutlookRetry } from "@/utils/outlook/retry";
 
 const logger = createScopedLogger("outlook/filter");
 
@@ -36,10 +37,9 @@ export async function createFilter(options: {
       },
     };
 
-    const response: MessageRule = await client
-      .getClient()
-      .api("/me/mailFolders/inbox/messageRules")
-      .post(rule);
+    const response: MessageRule = await withOutlookRetry(() =>
+      client.getClient().api("/me/mailFolders/inbox/messageRules").post(rule),
+    );
 
     return { status: 201, data: response };
   } catch (error) {
@@ -76,10 +76,9 @@ export async function createAutoArchiveFilter({
       },
     };
 
-    const response: MessageRule = await client
-      .getClient()
-      .api("/me/mailFolders/inbox/messageRules")
-      .post(rule);
+    const response: MessageRule = await withOutlookRetry(() =>
+      client.getClient().api("/me/mailFolders/inbox/messageRules").post(rule),
+    );
 
     return { status: 201, data: response };
   } catch (error) {
@@ -98,10 +97,12 @@ export async function deleteFilter(options: {
   const { client, id } = options;
 
   try {
-    await client
-      .getClient()
-      .api(`/me/mailFolders/inbox/messageRules/${id}`)
-      .delete();
+    await withOutlookRetry(() =>
+      client
+        .getClient()
+        .api(`/me/mailFolders/inbox/messageRules/${id}`)
+        .delete(),
+    );
 
     return { status: 204 };
   } catch (error) {
@@ -152,13 +153,12 @@ export async function createCategoryFilter({
 
     if (!category) {
       // Create the category if it doesn't exist
-      category = await client
-        .getClient()
-        .api("/me/outlook/masterCategories")
-        .post({
+      category = await withOutlookRetry(() =>
+        client.getClient().api("/me/outlook/masterCategories").post({
           displayName: categoryName,
           color: "preset0", // Default color
-        });
+        }),
+      );
     }
 
     // Note: Microsoft Graph API doesn't support applying categories directly in mail rules
@@ -212,10 +212,12 @@ export async function updateFilter({
       },
     };
 
-    const response: MessageRule = await client
-      .getClient()
-      .api(`/me/mailFolders/inbox/messageRules/${id}`)
-      .patch(rule);
+    const response: MessageRule = await withOutlookRetry(() =>
+      client
+        .getClient()
+        .api(`/me/mailFolders/inbox/messageRules/${id}`)
+        .patch(rule),
+    );
 
     return response;
   } catch (error) {

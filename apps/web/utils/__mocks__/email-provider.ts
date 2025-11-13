@@ -77,6 +77,8 @@ export const createMockEmailProvider = (
   archiveThreadWithLabel: vi.fn().mockResolvedValue(undefined),
   archiveMessage: vi.fn().mockResolvedValue(undefined),
   trashThread: vi.fn().mockResolvedValue(undefined),
+  bulkArchiveFromSenders: vi.fn().mockResolvedValue(undefined),
+  bulkTrashFromSenders: vi.fn().mockResolvedValue(undefined),
   labelMessage: vi.fn().mockResolvedValue(undefined),
   removeThreadLabel: vi.fn().mockResolvedValue(undefined),
   removeThreadLabels: vi.fn().mockResolvedValue(undefined),

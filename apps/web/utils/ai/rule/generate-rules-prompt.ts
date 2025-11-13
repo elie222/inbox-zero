@@ -106,7 +106,7 @@ IMPORTANT: Do not create overly specific rules that only occur on a one off basi
   const modelOptions = getModel(emailAccount.user, "chat");
 
   const generateObject = createGenerateObject({
-    userEmail: emailAccount.email,
+    emailAccount,
     label: "Generate rules prompt",
     modelOptions,
   });

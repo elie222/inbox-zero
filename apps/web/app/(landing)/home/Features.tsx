@@ -61,10 +61,10 @@ export function FeaturesWithImage({
             )}
           >
             <div className="lg:max-w-lg">
-              <h2 className="font-cal text-base leading-7 text-blue-600">
+              <h2 className="font-title text-base leading-7 text-blue-600">
                 {title}
               </h2>
-              <p className="mt-2 font-cal text-3xl text-gray-900 sm:text-4xl">
+              <p className="mt-2 font-title text-3xl text-gray-900 sm:text-4xl">
                 {subtitle}
               </p>
               <p className="mt-6 text-lg leading-8 text-gray-600">

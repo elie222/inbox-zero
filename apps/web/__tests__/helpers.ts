@@ -74,8 +74,10 @@ export function getRule(
     actions,
     id: "id",
     userId: "userId",
+    emailAccountId: "emailAccountId",
     createdAt: new Date(),
     updatedAt: new Date(),
+    automate: true,
     runOnThreads: false,
     groupId: null,
     from: null,
@@ -83,7 +85,10 @@ export function getRule(
     body: null,
     to: null,
     enabled: true,
+    categoryFilterType: null,
     conditionalOperator: LogicalOperator.AND,
+    systemType: null,
+    promptText: null,
   };
 }
 

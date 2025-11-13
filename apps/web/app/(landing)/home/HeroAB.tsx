@@ -51,7 +51,7 @@ export function HeroAB() {
     <Hero
       title={
         <span
-          className={`transition-opacity duration-300 ease-in-out ${
+          className={`transition-opacity duration-300 ease-out ${
             isHydrated && isFlagEnabled ? "opacity-100" : "opacity-0"
           }`}
         >
@@ -60,7 +60,7 @@ export function HeroAB() {
       }
       subtitle={
         <span
-          className={`transition-opacity duration-300 ease-in-out ${
+          className={`transition-opacity duration-300 ease-out ${
             isHydrated && isFlagEnabled ? "opacity-100" : "opacity-0"
           }`}
         >

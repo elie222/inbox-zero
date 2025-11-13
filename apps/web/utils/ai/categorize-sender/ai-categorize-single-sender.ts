@@ -49,7 +49,7 @@ ${formatCategoriesForPrompt(categories)}
   const modelOptions = getModel(emailAccount.user);
 
   const generateObject = createGenerateObject({
-    userEmail: emailAccount.email,
+    emailAccount,
     label: "Categorize sender",
     modelOptions,
   });

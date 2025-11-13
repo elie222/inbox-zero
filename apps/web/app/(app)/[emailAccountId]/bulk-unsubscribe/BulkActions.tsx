@@ -50,13 +50,17 @@ export function BulkActions({
     emailAccountId,
   });
 
-  const { onBulkArchive } = useBulkArchive({
+  const { onBulkArchive, isBulkArchiving } = useBulkArchive({
     mutate,
     posthog,
     emailAccountId,
   });
 
-  const { onBulkDelete } = useBulkDelete({ mutate, posthog, emailAccountId });
+  const { onBulkDelete, isBulkDeleting } = useBulkDelete({
+    mutate,
+    posthog,
+    emailAccountId,
+  });
 
   const getSelectedValues = () =>
     Array.from(selected.entries())
@@ -115,6 +119,7 @@ export function BulkActions({
               size="sm"
               variant="outline"
               onClick={() => onBulkArchive(getSelectedValues())}
+              loading={isBulkArchiving}
             >
               <ArchiveIcon className="mr-2 size-4" />
               Archive All
@@ -125,6 +130,7 @@ export function BulkActions({
               size="sm"
               variant="outline"
               onClick={() => onBulkDelete(getSelectedValues())}
+              loading={isBulkDeleting}
             >
               <TrashIcon className="mr-2 size-4" />
               Delete All

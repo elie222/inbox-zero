@@ -27,6 +27,7 @@ import {
   navigationMenuTriggerStyle,
 } from "@/components/ui/navigation-menu";
 import { EXTENSION_URL } from "@/utils/config";
+import { landingPageAnalytics } from "@/hooks/useAnalytics";
 
 const navigation = [
   { name: "Enterprise", href: "/enterprise" },
@@ -171,7 +172,7 @@ export function Header({ className }: { className?: string }) {
             <Link
               href="/login"
               onClick={() => {
-                posthog.capture("Clicked Log In", { position: "top-nav" });
+                landingPageAnalytics.logInClicked(posthog, "top-nav");
                 setMobileMenuOpen(false);
               }}
             >
@@ -182,7 +183,7 @@ export function Header({ className }: { className?: string }) {
             <Link
               href="/login"
               onClick={() => {
-                posthog.capture("Clicked Sign Up", { position: "top-nav" });
+                landingPageAnalytics.signUpClicked(posthog, "top-nav");
                 setMobileMenuOpen(false);
               }}
             >
@@ -268,7 +269,7 @@ export function Header({ className }: { className?: string }) {
                   href="/login"
                   className="-mx-3 block rounded-lg px-3 py-2.5 text-base font-semibold leading-7 text-gray-900 hover:bg-gray-50"
                   onClick={() => {
-                    posthog.capture("Clicked Log In", { position: "top-nav" });
+                    landingPageAnalytics.logInClicked(posthog, "top-nav");
                     setMobileMenuOpen(false);
                   }}
                 >

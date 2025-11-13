@@ -213,7 +213,7 @@ function RulesPromptForm({
           className={showExamples ? "sm:col-span-2" : ""}
         >
           <div className="flex items-center justify-between">
-            <Label className="font-cal text-xl leading-7">
+            <Label className="font-title text-xl leading-7">
               How your assistant should handle incoming emails
             </Label>
 

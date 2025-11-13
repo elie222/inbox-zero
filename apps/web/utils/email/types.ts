@@ -2,6 +2,7 @@ import type { ParsedMessage } from "@/utils/types";
 import type { InboxZeroLabel } from "@/utils/label";
 import type { ThreadsQuery } from "@/app/api/threads/validation";
 import type { OutlookFolder } from "@/utils/outlook/folders";
+import type { Logger } from "@/utils/logger";
 
 export interface EmailThread {
   id: string;
@@ -88,6 +89,16 @@ export interface EmailProvider {
     labelId?: string,
   ): Promise<void>;
   archiveMessage(messageId: string): Promise<void>;
+  bulkArchiveFromSenders(
+    fromEmails: string[],
+    ownerEmail: string,
+    emailAccountId: string,
+  ): Promise<void>;
+  bulkTrashFromSenders(
+    fromEmails: string[],
+    ownerEmail: string,
+    emailAccountId: string,
+  ): Promise<void>;
   trashThread(
     threadId: string,
     ownerEmail: string,
@@ -220,6 +231,7 @@ export interface EmailProvider {
       id: string;
       conversationId?: string;
     };
+    logger?: Logger;
   }): Promise<void>;
   watchEmails(): Promise<{
     expirationDate: Date;

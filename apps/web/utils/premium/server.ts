@@ -1,9 +1,11 @@
 import sumBy from "lodash/sumBy";
+import { after } from "next/server";
 import { updateSubscriptionItemQuantity } from "@/ee/billing/lemon/index";
 import { updateStripeSubscriptionItemQuantity } from "@/ee/billing/stripe/index";
 import prisma from "@/utils/prisma";
-import type { PremiumTier } from "@prisma/client";
+import type { PremiumTier, Prisma } from "@prisma/client";
 import { createScopedLogger } from "@/utils/logger";
+import { ensureEmailAccountsWatched } from "@/utils/email/watch-manager";
 import { hasTierAccess, isPremium } from "@/utils/premium";
 import { SafeError } from "@/utils/error";
 
@@ -23,30 +25,44 @@ export async function upgradeToPremiumLemon(options: {
   lemonLicenseInstanceId?: string;
   emailAccountsAccess?: number;
 }) {
-  const { userId: _userId, ...data } = options;
+  const { userId, ...data } = options;
 
   const user = await prisma.user.findUnique({
-    where: { id: options.userId },
+    where: { id: userId },
     select: { premiumId: true },
   });
 
-  if (!user) throw new Error(`User not found for id ${options.userId}`);
-
-  if (user.premiumId) {
-    return await prisma.premium.update({
-      where: { id: user.premiumId },
-      data,
-      select: { users: { select: { email: true } } },
-    });
+  if (!user) {
+    logger.error("User not found", { userId });
+    throw new Error("User not found");
   }
-  return await prisma.premium.create({
-    data: {
-      users: { connect: { id: options.userId } },
-      admins: { connect: { id: options.userId } },
-      ...data,
-    },
-    select: { users: { select: { email: true } } },
+
+  const premiumRecord = user.premiumId
+    ? await prisma.premium.update({
+        where: { id: user.premiumId },
+        data,
+        select: { users: { select: { id: true, email: true } } },
+      })
+    : await prisma.premium.create({
+        data: {
+          users: { connect: { id: userId } },
+          admins: { connect: { id: userId } },
+          ...data,
+        },
+        select: { users: { select: { id: true, email: true } } },
+      });
+
+  after(() => {
+    const userIds = premiumRecord.users.map((premiumUser) => premiumUser.id);
+    ensureEmailAccountsWatched({ userIds }).catch((error) => {
+      logger.error("Failed to ensure email watches after premium upgrade", {
+        userIds,
+        error,
+      });
+    });
   });
+
+  return premiumRecord;
 }
 
 export async function extendPremiumLemon(options: {

@@ -5,6 +5,7 @@ import {
   extractDomainFromEmail,
   participant,
   normalizeEmailAddress,
+  formatEmailWithName,
 } from "./email";
 
 describe("email utils", () => {
@@ -295,6 +296,79 @@ describe("email utils", () => {
 
     it("handles empty string", () => {
       expect(normalizeEmailAddress("")).toBe("");
+    });
+  });
+
+  describe("formatEmailWithName", () => {
+    it("formats email with name", () => {
+      expect(formatEmailWithName("John Doe", "john.doe@example.com")).toBe(
+        "John Doe <john.doe@example.com>",
+      );
+    });
+
+    it("returns just email when name is not provided", () => {
+      expect(formatEmailWithName(null, "john.doe@example.com")).toBe(
+        "john.doe@example.com",
+      );
+      expect(formatEmailWithName(undefined, "john.doe@example.com")).toBe(
+        "john.doe@example.com",
+      );
+    });
+
+    it("returns just email when name is empty string", () => {
+      expect(formatEmailWithName("", "john.doe@example.com")).toBe(
+        "john.doe@example.com",
+      );
+    });
+
+    it("returns just email when name equals address", () => {
+      expect(
+        formatEmailWithName("john.doe@example.com", "john.doe@example.com"),
+      ).toBe("john.doe@example.com");
+    });
+
+    it("returns empty string when address is null or undefined", () => {
+      expect(formatEmailWithName("John Doe", null)).toBe("");
+      expect(formatEmailWithName("John Doe", undefined)).toBe("");
+    });
+
+    it("returns empty string when address is empty string", () => {
+      expect(formatEmailWithName("John Doe", "")).toBe("");
+    });
+
+    it("handles both null/undefined name and address", () => {
+      expect(formatEmailWithName(null, null)).toBe("");
+      expect(formatEmailWithName(undefined, undefined)).toBe("");
+    });
+
+    it("preserves special characters in name", () => {
+      expect(formatEmailWithName("O'Brien, John", "john@example.com")).toBe(
+        "O'Brien, John <john@example.com>",
+      );
+    });
+
+    it("is the inverse of extractNameFromEmail and extractEmailAddress", () => {
+      const formatted = formatEmailWithName("John Doe", "john@example.com");
+      expect(extractNameFromEmail(formatted)).toBe("John Doe");
+      expect(extractEmailAddress(formatted)).toBe("john@example.com");
+    });
+
+    it("handles names with special characters and unicode", () => {
+      expect(formatEmailWithName("José García", "jose@example.com")).toBe(
+        "José García <jose@example.com>",
+      );
+      expect(formatEmailWithName("李明", "li@example.com")).toBe(
+        "李明 <li@example.com>",
+      );
+    });
+
+    it("handles email addresses with special characters", () => {
+      expect(formatEmailWithName("System", "no-reply@example.com")).toBe(
+        "System <no-reply@example.com>",
+      );
+      expect(formatEmailWithName("Support", "support+tag@example.com")).toBe(
+        "Support <support+tag@example.com>",
+      );
     });
   });
 });

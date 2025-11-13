@@ -32,7 +32,7 @@ IMPORTANT: The person you're writing an email for is: ${messages.at(-1)?.from}.`
 
   const generateText = createGenerateText({
     label: "Reply",
-    userEmail: emailAccount.email,
+    emailAccount,
     modelOptions,
   });
 

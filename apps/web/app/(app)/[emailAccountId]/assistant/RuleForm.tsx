@@ -998,7 +998,11 @@ function ActionCard({
         <CardLayoutRight>
           {fields.map((field) => {
             const isAiGenerated = !!action[field.name]?.ai;
-            const value = watch(`actions.${index}.${field.name}.value`) || "";
+            // For AI-generated labelId, read from .name instead of .value
+            const value =
+              field.name === "labelId" && isAiGenerated
+                ? watch(`actions.${index}.${field.name}.name`) || ""
+                : watch(`actions.${index}.${field.name}.value`) || "";
             const setManually = !!watch(
               `actions.${index}.${field.name}.setManually`,
             );
@@ -1039,9 +1043,9 @@ function ActionCard({
                     <div className="mt-2">
                       <Input
                         type="text"
-                        name={`actions.${index}.${field.name}.value`}
+                        name={`actions.${index}.${field.name}.name`}
                         registerProps={register(
-                          `actions.${index}.${field.name}.value`,
+                          `actions.${index}.${field.name}.name`,
                         )}
                       />
                     </div>

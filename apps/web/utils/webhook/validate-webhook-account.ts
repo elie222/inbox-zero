@@ -19,6 +19,7 @@ export async function getWebhookEmailAccount(
       lastSyncedHistoryId: true,
       autoCategorizeSenders: true,
       watchEmailsSubscriptionId: true,
+      watchEmailsSubscriptionHistory: true,
       account: {
         select: {
           provider: true,
@@ -55,10 +56,39 @@ export async function getWebhookEmailAccount(
     });
   }
 
-  const emailAccount = await prisma.emailAccount.findFirst({
+  let emailAccount = await prisma.emailAccount.findFirst({
     where: { watchEmailsSubscriptionId: where.watchEmailsSubscriptionId },
     ...query,
   });
+
+  if (!emailAccount) {
+    logger.info("Subscription not found in current field, checking history", {
+      subscriptionId: where.watchEmailsSubscriptionId,
+    });
+
+    const [foundAccount] = await prisma.$queryRaw<Array<{ id: string }>>`
+      SELECT id FROM "EmailAccount"
+      WHERE "watchEmailsSubscriptionHistory" @> ${JSON.stringify([
+        { subscriptionId: where.watchEmailsSubscriptionId },
+      ])}::jsonb
+      LIMIT 1
+    `;
+
+    if (foundAccount) {
+      emailAccount = await prisma.emailAccount.findUnique({
+        where: { id: foundAccount.id },
+        ...query,
+      });
+
+      if (emailAccount) {
+        logger.info("Found account by historical subscription ID", {
+          subscriptionId: where.watchEmailsSubscriptionId,
+          email: emailAccount.email,
+          currentSubscriptionId: emailAccount.watchEmailsSubscriptionId,
+        });
+      }
+    }
+  }
 
   if (!emailAccount) {
     logger.error("Account not found", where);
