@@ -126,8 +126,15 @@ function RulesPromptForm({
       {
         loading: "Creating rules...",
         success: (result) => {
-          const { rules = [] } = result?.data || {};
+          const { rules = [], errors = [] } = result?.data || {};
           setCreatedRules(rules);
+
+          if (errors.length > 0) {
+            const errorDetails = errors
+              .map((e) => `${e.ruleName}: ${e.error}`)
+              .join(", ");
+            return `${rules.length} rules created. ${errors.length} failed: ${errorDetails}`;
+          }
 
           return `${rules.length} rules created!`;
         },

@@ -94,10 +94,32 @@ export class OutlookSubscriptionManager {
     if (!result?.subscriptionId) return null;
 
     if (result.changed) {
-      await this.updateSubscriptionInDatabase({
-        expirationDate: result.expirationDate,
-        subscriptionId: result.subscriptionId,
-      });
+      try {
+        await this.updateSubscriptionInDatabase({
+          expirationDate: result.expirationDate,
+          subscriptionId: result.subscriptionId,
+        });
+      } catch (error) {
+        this.logger.error("Failed to save subscription to database", {
+          subscriptionId: result.subscriptionId,
+          error,
+        });
+
+        try {
+          await this.client.unwatchEmails(result.subscriptionId);
+          this.logger.info("Canceled orphaned subscription after DB failure", {
+            subscriptionId: result.subscriptionId,
+          });
+        } catch (cancelError) {
+          this.logger.error("Failed to cancel orphaned subscription", {
+            subscriptionId: result.subscriptionId,
+            error: cancelError,
+          });
+        }
+
+        captureException(error);
+        return null;
+      }
     }
 
     return result.expirationDate;
@@ -168,6 +190,11 @@ export class OutlookSubscriptionManager {
 
     const expirationDate = subscription.expirationDate;
     const now = new Date();
+
+    this.logger.info("Updating subscription in database", {
+      subscriptionId: subscription.subscriptionId,
+      expirationDate,
+    });
 
     const existing = await this.getExistingSubscription();
 

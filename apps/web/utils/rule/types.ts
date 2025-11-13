@@ -1,8 +1,8 @@
-import type { safeCreateRule } from "@/utils/rule/rule";
+import type { createRule } from "@/utils/rule/rule";
 import type { Action, Rule, Prisma } from "@prisma/client";
 
 export type CreateRuleResult = NonNullable<
-  Awaited<ReturnType<typeof safeCreateRule>>
+  Awaited<ReturnType<typeof createRule>>
 >;
 
 export type RuleWithRelations = Rule & {

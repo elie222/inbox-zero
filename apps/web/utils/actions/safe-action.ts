@@ -1,5 +1,6 @@
 import { createSafeActionClient } from "next-safe-action";
 import { withServerActionInstrumentation } from "@sentry/nextjs";
+import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import { auth } from "@/utils/auth";
 import { createScopedLogger } from "@/utils/logger";
@@ -51,7 +52,8 @@ const baseClient = createSafeActionClient({
     return "An unknown error occurred.";
   },
 }).use(async ({ next, metadata }) => {
-  const logger = createScopedLogger(metadata.name);
+  const requestId = randomUUID();
+  const logger = createScopedLogger(metadata.name).with({ requestId });
   return next({ ctx: { logger } });
 });
 // .schema(z.object({}), {
