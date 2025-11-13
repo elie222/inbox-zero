@@ -25,7 +25,7 @@ export function BulkUnsubscribe() {
         <CardWrapper
           padding="xs"
           rounded="md"
-          className="hidden md:block md:mx-20 lg:mx-52"
+          className="hidden md:block md:mx-20 lg:mx-40 xl:mx-52"
         >
           <Image
             src="/images/new-landing/bulk-unsubscribe.png"

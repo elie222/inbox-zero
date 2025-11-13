@@ -116,7 +116,7 @@ export function HeroVideoPlayer() {
           height={1000}
           className="w-full"
         />
-        <UnicornScene className="h-[calc(100%+1px)] opacity-30" />
+        <UnicornScene className="h-[calc(100%+5px)] opacity-30" />
       </div>
     </div>
   );
