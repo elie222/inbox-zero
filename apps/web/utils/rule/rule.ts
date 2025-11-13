@@ -145,29 +145,28 @@ export async function updateRule({
 }
 
 export async function upsertSystemRule({
-  result,
+  name,
+  instructions,
+  actions,
   emailAccountId,
   systemType,
-  provider,
   runOnThreads,
   logger,
 }: {
-  result: CreateOrUpdateRuleSchema;
+  name: string;
+  instructions: string;
+  actions: Prisma.ActionCreateManyRuleInput[];
   emailAccountId: string;
   systemType: SystemType;
-  provider: string;
   runOnThreads: boolean;
   logger: Logger;
 }) {
-  logger.info("Upserting system rule", {
-    name: result.name,
-    systemType,
-  });
+  logger.info("Upserting system rule", { name, systemType });
 
   const existingRule = await prisma.rule.findFirst({
     where: {
       emailAccountId,
-      OR: [{ systemType }, { name: result.name }],
+      OR: [{ systemType }, { name }],
     },
     include: { actions: true, group: true },
   });
@@ -178,25 +177,41 @@ export async function upsertSystemRule({
       hadSystemType: !!existingRule.systemType,
     });
 
-    return await updateRule({
-      ruleId: existingRule.id,
-      result,
-      emailAccountId,
-      provider,
-      logger,
-      runOnThreads,
+    const rule = await prisma.rule.update({
+      where: { id: existingRule.id },
+      data: {
+        name,
+        emailAccountId,
+        actions: {
+          deleteMany: {},
+          createMany: { data: actions },
+        },
+        instructions,
+        runOnThreads,
+      },
+      include: { actions: true, group: true },
     });
+
+    await createRuleHistory({ rule, triggerType: "updated" });
+    return rule;
   } else {
     logger.info("Creating new system rule");
 
-    return await createRule({
-      result,
-      emailAccountId,
-      systemType,
-      provider,
-      runOnThreads,
-      logger,
+    const rule = await prisma.rule.create({
+      data: {
+        name,
+        emailAccountId,
+        systemType,
+        actions: { createMany: { data: actions } },
+        enabled: true,
+        runOnThreads,
+        instructions,
+      },
+      include: { actions: true, group: true },
     });
+
+    await createRuleHistory({ rule, triggerType: "created" });
+    return rule;
   }
 }
 

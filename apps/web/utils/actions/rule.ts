@@ -306,18 +306,11 @@ export const createRulesOnboardingAction = actionClient
           });
 
           return upsertSystemRule({
-            result: {
-              name,
-              condition: {
-                aiInstructions: instructions,
-                conditionalOperator: null,
-                static: null,
-              },
-              actions,
-            },
+            name,
+            instructions,
+            actions,
             emailAccountId,
             systemType,
-            provider,
             runOnThreads,
             logger,
           });
@@ -490,21 +483,7 @@ async function toggleRule({
   const ruleConfig = getRuleConfig(systemType);
   const actionTypes = getSystemRuleActionTypes(systemType, provider);
 
-  const actions: Array<{
-    type: ActionType;
-    labelId?: string | null;
-    folderId?: string | null;
-    fields: {
-      label: string | null;
-      to: string | null;
-      subject: string | null;
-      content: string | null;
-      cc: string | null;
-      bcc: string | null;
-      webhookUrl: string | null;
-      folderName: string | null;
-    };
-  }> = [];
+  const actions: Prisma.ActionCreateManyRuleInput[] = [];
 
   for (const actionType of actionTypes) {
     if (actionType.includeFolder) {
@@ -514,7 +493,7 @@ async function toggleRule({
       actions.push({
         type: actionType.type,
         folderId,
-        fields: createEmptyActionFields({ folderName: ruleConfig.name }),
+        folderName: ruleConfig.name,
       });
     } else if (actionType.includeLabel) {
       const labelInfo = await resolveLabelNameAndId({
@@ -525,29 +504,21 @@ async function toggleRule({
       actions.push({
         type: actionType.type,
         labelId: labelInfo.labelId,
-        fields: createEmptyActionFields({ label: labelInfo.label }),
+        label: labelInfo.label,
       });
     } else {
       actions.push({
         type: actionType.type,
-        fields: createEmptyActionFields(),
       });
     }
   }
 
   const upsertedRule = await upsertSystemRule({
-    result: {
-      name: ruleConfig.name,
-      condition: {
-        aiInstructions: ruleConfig.instructions,
-        conditionalOperator: null,
-        static: null,
-      },
-      actions,
-    },
+    name: ruleConfig.name,
+    instructions: ruleConfig.instructions,
+    actions,
     emailAccountId,
     systemType,
-    provider,
     runOnThreads: ruleConfig.runOnThreads,
     logger,
   });
@@ -610,21 +581,6 @@ function handleRuleError(error: unknown, logger: Logger) {
   }
   logger.error("Error creating/updating rule", { error });
   throw new SafeError("Error creating/updating rule");
-}
-
-function createEmptyActionFields(
-  overrides: { label?: string | null; folderName?: string | null } = {},
-) {
-  return {
-    label: overrides.label ?? null,
-    to: null,
-    subject: null,
-    content: null,
-    cc: null,
-    bcc: null,
-    webhookUrl: null,
-    folderName: overrides.folderName ?? null,
-  };
 }
 
 async function resolveActionLabels<
