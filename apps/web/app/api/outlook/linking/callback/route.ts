@@ -1,13 +1,19 @@
-import { NextResponse } from "next/server";
 import { env } from "@/env";
 import prisma from "@/utils/prisma";
-import { OUTLOOK_LINKING_STATE_COOKIE_NAME } from "@/utils/outlook/constants";
+import {
+  OUTLOOK_LINKING_STATE_COOKIE_NAME,
+  OUTLOOK_LINKING_STATE_RESULT_COOKIE_NAME,
+} from "@/utils/outlook/constants";
 import { withError } from "@/utils/middleware";
 import { captureException, SafeError } from "@/utils/error";
 import { validateOAuthCallback } from "@/utils/oauth/callback-validation";
 import { handleAccountLinking } from "@/utils/oauth/account-linking";
 import { mergeAccount } from "@/utils/user/merge-account";
 import { handleOAuthCallbackError } from "@/utils/oauth/error-handler";
+import {
+  checkOAuthCallbackDedupe,
+  buildOAuthSuccessRedirect,
+} from "@/utils/oauth/callback-helpers";
 
 export const GET = withError("outlook/linking/callback", async (request) => {
   const logger = request.logger;
@@ -15,7 +21,19 @@ export const GET = withError("outlook/linking/callback", async (request) => {
   if (!env.MICROSOFT_CLIENT_ID || !env.MICROSOFT_CLIENT_SECRET)
     throw new SafeError("Microsoft login not enabled");
 
+  const dedupeResponse = checkOAuthCallbackDedupe({
+    request,
+    stateCookieName: OUTLOOK_LINKING_STATE_COOKIE_NAME,
+    resultCookieName: OUTLOOK_LINKING_STATE_RESULT_COOKIE_NAME,
+    baseUrl: request.nextUrl.origin,
+  });
+
+  if (dedupeResponse) {
+    return dedupeResponse;
+  }
+
   const searchParams = request.nextUrl.searchParams;
+
   const storedState = request.cookies.get(
     OUTLOOK_LINKING_STATE_COOKIE_NAME,
   )?.value;
@@ -33,10 +51,14 @@ export const GET = withError("outlook/linking/callback", async (request) => {
     return validation.response;
   }
 
+  const receivedState = searchParams.get("state");
+  if (!receivedState) {
+    throw new Error("Missing state parameter after validation");
+  }
+
   const { targetUserId, code } = validation;
-  const redirectUrl = new URL("/accounts", request.nextUrl.origin);
-  const response = NextResponse.redirect(redirectUrl);
-  response.cookies.delete(OUTLOOK_LINKING_STATE_COOKIE_NAME);
+  const state = receivedState;
+  const baseRedirectUrl = new URL("/accounts", request.nextUrl.origin);
 
   try {
     // Exchange code for tokens
@@ -136,6 +158,10 @@ export const GET = withError("outlook/linking/callback", async (request) => {
     });
 
     if (linkingResult.type === "redirect") {
+      linkingResult.response.cookies.delete(OUTLOOK_LINKING_STATE_COOKIE_NAME);
+      linkingResult.response.cookies.delete(
+        OUTLOOK_LINKING_STATE_RESULT_COOKIE_NAME,
+      );
       return linkingResult.response;
     }
 
@@ -210,9 +236,12 @@ export const GET = withError("outlook/linking/callback", async (request) => {
         targetUserId,
         accountId: newAccount.id,
       });
-      redirectUrl.searchParams.set("success", "account_created_and_linked");
-      return NextResponse.redirect(redirectUrl, {
-        headers: response.headers,
+      return buildOAuthSuccessRedirect({
+        state,
+        params: { success: "account_created_and_linked" },
+        stateCookieName: OUTLOOK_LINKING_STATE_COOKIE_NAME,
+        resultCookieName: OUTLOOK_LINKING_STATE_RESULT_COOKIE_NAME,
+        baseUrl: request.nextUrl.origin,
       });
     }
 
@@ -242,16 +271,19 @@ export const GET = withError("outlook/linking/callback", async (request) => {
       mergeType,
     });
 
-    redirectUrl.searchParams.set("success", successMessage);
-    return NextResponse.redirect(redirectUrl, {
-      headers: response.headers,
+    return buildOAuthSuccessRedirect({
+      state,
+      params: { success: successMessage },
+      stateCookieName: OUTLOOK_LINKING_STATE_COOKIE_NAME,
+      resultCookieName: OUTLOOK_LINKING_STATE_RESULT_COOKIE_NAME,
+      baseUrl: request.nextUrl.origin,
     });
   } catch (error) {
     return handleOAuthCallbackError({
       error,
-      redirectUrl,
-      response,
+      redirectUrl: baseRedirectUrl,
       stateCookieName: OUTLOOK_LINKING_STATE_COOKIE_NAME,
+      resultCookieName: OUTLOOK_LINKING_STATE_RESULT_COOKIE_NAME,
       logger,
     });
   }

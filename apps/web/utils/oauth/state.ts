@@ -47,3 +47,49 @@ export const getMcpPkceCookieName = (integration: IntegrationKey) =>
 
 export const getMcpOAuthStateType = (integration: IntegrationKey) =>
   `${integration}-mcp`;
+
+export interface OAuthStateResultCookieValue {
+  state: string;
+  params: Record<string, string>;
+}
+
+export function encodeOAuthStateResultCookie(
+  value: OAuthStateResultCookieValue,
+): string {
+  return Buffer.from(JSON.stringify(value)).toString("base64url");
+}
+
+export function parseOAuthStateResultCookie(
+  cookieValue: string | undefined,
+): OAuthStateResultCookieValue | null {
+  if (!cookieValue) {
+    return null;
+  }
+
+  try {
+    const parsed = JSON.parse(
+      Buffer.from(cookieValue, "base64url").toString("utf8"),
+    );
+
+    if (
+      !parsed ||
+      typeof parsed !== "object" ||
+      typeof parsed.state !== "string" ||
+      typeof parsed.params !== "object" ||
+      Array.isArray(parsed.params)
+    ) {
+      return null;
+    }
+
+    const params: Record<string, string> = {};
+    for (const [key, value] of Object.entries(parsed.params)) {
+      if (typeof key === "string" && typeof value === "string") {
+        params[key] = value;
+      }
+    }
+
+    return { state: parsed.state, params };
+  } catch {
+    return null;
+  }
+}
