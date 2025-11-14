@@ -3,6 +3,26 @@ import type { EmailForLLM } from "@/utils/types";
 import { ActionType, type Action, LogicalOperator } from "@prisma/client";
 import type { Prisma } from "@prisma/client";
 
+type EmailAccountSelect = {
+  id: string;
+  email: string;
+  accountId: string;
+  userId?: string;
+  name?: string | null;
+};
+
+type UserSelect = {
+  email: string;
+  id?: string;
+  name?: string | null;
+};
+
+type AccountWithEmailAccount = {
+  id: string;
+  userId: string;
+  emailAccount?: { id: string } | null;
+};
+
 export function getEmailAccount(
   overrides: Partial<EmailAccountWithAI> = {},
 ): EmailAccountWithAI {
@@ -182,5 +202,40 @@ export function getMockExecutedRule({
     messageId,
     threadId,
     rule: { id: ruleId, name: ruleName },
+  };
+}
+
+export function getMockEmailAccountSelect(
+  overrides: Partial<EmailAccountSelect> = {},
+): EmailAccountSelect {
+  return {
+    id: overrides.id || "email-account-id",
+    email: overrides.email || "test@example.com",
+    accountId: overrides.accountId || "account-id",
+    userId: overrides.userId || "user-id",
+    name: overrides.name !== undefined ? overrides.name : "Test User",
+  };
+}
+
+export function getMockUserSelect(
+  overrides: Partial<UserSelect> = {},
+): UserSelect {
+  return {
+    email: overrides.email || "test@example.com",
+    id: overrides.id || "user-id",
+    name: overrides.name !== undefined ? overrides.name : "Test User",
+  };
+}
+
+export function getMockAccountWithEmailAccount(
+  overrides: Partial<AccountWithEmailAccount> = {},
+): AccountWithEmailAccount {
+  return {
+    id: overrides.id || "account-id",
+    userId: overrides.userId || "user-id",
+    emailAccount:
+      overrides.emailAccount !== undefined
+        ? overrides.emailAccount
+        : { id: "email-account-id" },
   };
 }
