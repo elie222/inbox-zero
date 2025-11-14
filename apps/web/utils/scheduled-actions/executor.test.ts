@@ -6,6 +6,8 @@ import { createScopedLogger } from "@/utils/logger";
 
 // Run with: pnpm test utils/scheduled-actions/executor.test.ts
 
+const logger = createScopedLogger("test");
+
 vi.mock("server-only", () => ({}));
 vi.mock("@/utils/prisma");
 vi.mock("@/utils/user/get", () => ({
@@ -139,7 +141,7 @@ describe("executor", () => {
       const result = await executeScheduledAction(
         mockScheduledAction,
         mockEmailProvider,
-        createScopedLogger("test"),
+        logger,
       );
 
       expect(result.success).toBe(true);
@@ -218,7 +220,7 @@ describe("executor", () => {
       const result = await executeScheduledAction(
         mockScheduledAction,
         mockEmailProvider,
-        createScopedLogger("test"),
+        logger,
       );
 
       expect(result.success).toBe(false);
@@ -250,7 +252,7 @@ describe("executor", () => {
       await executeScheduledAction(
         mockScheduledAction,
         mockEmailProvider,
-        createScopedLogger("test"),
+        logger,
       );
 
       expect(prisma.scheduledAction.update).toHaveBeenCalledWith({

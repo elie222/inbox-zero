@@ -7,6 +7,8 @@ import { createScopedLogger } from "@/utils/logger";
 
 // pnpm test-ai ai-choose-args
 
+const logger = createScopedLogger("test");
+
 const isAiTest = process.env.RUN_AI_TESTS === "true";
 
 const TIMEOUT = 15_000;
@@ -27,7 +29,7 @@ describe.runIf(isAiTest)("getActionItemsWithAiArgs", () => {
       selectedRule: rule,
       client: {} as any,
       modelType: "default",
-      logger: createScopedLogger("test"),
+      logger: logger,
     });
 
     expect(result).toEqual(actions);
@@ -51,7 +53,7 @@ describe.runIf(isAiTest)("getActionItemsWithAiArgs", () => {
       selectedRule: rule,
       client: {} as any,
       modelType: "default",
-      logger: createScopedLogger("test"),
+      logger: logger,
     });
 
     expect(result).toHaveLength(1);
@@ -82,7 +84,7 @@ describe.runIf(isAiTest)("getActionItemsWithAiArgs", () => {
         selectedRule: rule,
         client: {} as any,
         modelType: "default",
-        logger: createScopedLogger("test"),
+        logger: logger,
       });
 
       expect(result).toHaveLength(1);
@@ -113,7 +115,7 @@ describe.runIf(isAiTest)("getActionItemsWithAiArgs", () => {
       selectedRule: rule,
       client: {} as any,
       modelType: "default",
-      logger: createScopedLogger("test"),
+      logger: logger,
     });
 
     expect(result).toHaveLength(2);
@@ -152,7 +154,7 @@ Matt`,
       selectedRule: rule,
       client: {} as any,
       modelType: "default",
-      logger: createScopedLogger("test"),
+      logger: logger,
     });
 
     expect(result).toHaveLength(2);
@@ -195,7 +197,7 @@ Matt`,
         selectedRule: rule,
         client: {} as any,
         modelType: "default",
-        logger: createScopedLogger("test"),
+        logger: logger,
       });
 
       expect(result).toHaveLength(1);

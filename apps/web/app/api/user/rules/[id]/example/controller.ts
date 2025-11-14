@@ -10,10 +10,12 @@ import { fetchPaginatedMessages } from "@/app/api/user/group/[groupId]/messages/
 import { isGroupRule, isAIRule, isStaticRule } from "@/utils/condition";
 import { LogicalOperator } from "@prisma/client";
 import type { EmailProvider } from "@/utils/email/types";
+import type { Logger } from "@/utils/logger";
 
 export async function fetchExampleMessages(
   rule: RuleWithGroup,
   emailProvider: EmailProvider,
+  logger: Logger,
 ) {
   const isStatic = isStaticRule(rule);
   const isGroup = isGroupRule(rule);
@@ -32,7 +34,7 @@ export async function fetchExampleMessages(
   )
     return [];
 
-  if (isStatic) return fetchStaticExampleMessages(rule, emailProvider);
+  if (isStatic) return fetchStaticExampleMessages(rule, emailProvider, logger);
 
   if (isGroup) {
     if (!rule.group) return [];
@@ -50,6 +52,7 @@ export async function fetchExampleMessages(
 async function fetchStaticExampleMessages(
   rule: RuleWithGroup,
   emailProvider: EmailProvider,
+  logger: Logger,
 ): Promise<MessageWithGroupItem[]> {
   // Build structured query options instead of provider-specific query strings
   const options: Parameters<EmailProvider["getMessagesByFields"]>[0] = {
@@ -70,6 +73,6 @@ async function fetchStaticExampleMessages(
 
   // search might include messages that don't match the rule, so we filter those out
   return response.messages.filter((message) =>
-    matchesStaticRule(rule, message),
+    matchesStaticRule(rule, message, logger),
   );
 }

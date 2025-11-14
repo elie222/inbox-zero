@@ -32,7 +32,11 @@ async function getExamples({
     logger,
   });
 
-  const exampleMessages = await fetchExampleMessages(rule, emailProvider);
+  const exampleMessages = await fetchExampleMessages(
+    rule,
+    emailProvider,
+    logger,
+  );
 
   return exampleMessages;
 }
