@@ -15,7 +15,6 @@ type ValidationResult =
   | {
       success: true;
       targetUserId: string;
-      action: "auto" | "merge_confirmed";
       code: string;
     }
   | {
@@ -51,7 +50,6 @@ export function validateOAuthCallback({
 
   let decodedState: {
     userId: string;
-    action: "auto" | "merge_confirmed";
     nonce: string;
   };
   try {
@@ -83,7 +81,6 @@ export function validateOAuthCallback({
   return {
     success: true,
     targetUserId: decodedState.userId,
-    action: decodedState.action,
     code,
   };
 }

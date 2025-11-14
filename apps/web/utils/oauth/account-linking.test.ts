@@ -25,7 +25,6 @@ describe("handleAccountLinking", () => {
       hasEmailAccount: false,
       existingUserId: "orphaned-user-id",
       targetUserId: "target-user-id",
-      action: "auto",
       provider: "google",
       providerEmail: "test@gmail.com",
       baseUrl: "http://localhost:3000",
@@ -45,7 +44,6 @@ describe("handleAccountLinking", () => {
       hasEmailAccount: false,
       existingUserId: null,
       targetUserId: "target-user-id",
-      action: "auto",
       provider: "google",
       providerEmail: "new@gmail.com",
       baseUrl: "http://localhost:3000",
@@ -61,7 +59,6 @@ describe("handleAccountLinking", () => {
       hasEmailAccount: true,
       existingUserId: "same-user-id",
       targetUserId: "same-user-id",
-      action: "auto",
       provider: "google",
       providerEmail: "test@gmail.com",
       baseUrl: "http://localhost:3000",
@@ -75,35 +72,12 @@ describe("handleAccountLinking", () => {
     }
   });
 
-  it("should redirect to confirm merge when account exists for different user and action is auto", async () => {
+  it("should return merge when account exists for different user", async () => {
     const result = await handleAccountLinking({
       existingAccountId: "account-id",
       hasEmailAccount: true,
       existingUserId: "different-user-id",
       targetUserId: "target-user-id",
-      action: "auto",
-      provider: "google",
-      providerEmail: "test@gmail.com",
-      baseUrl: "http://localhost:3000",
-      logger,
-    });
-
-    expect(result.type).toBe("redirect");
-    if (result.type === "redirect") {
-      const url = new URL(result.response.headers.get("location") || "");
-      expect(url.searchParams.get("confirm_merge")).toBe("true");
-      expect(url.searchParams.get("provider")).toBe("google");
-      expect(url.searchParams.get("email")).toBe("test@gmail.com");
-    }
-  });
-
-  it("should return merge when account exists for different user and action is merge_confirmed", async () => {
-    const result = await handleAccountLinking({
-      existingAccountId: "account-id",
-      hasEmailAccount: true,
-      existingUserId: "different-user-id",
-      targetUserId: "target-user-id",
-      action: "merge_confirmed",
       provider: "google",
       providerEmail: "test@gmail.com",
       baseUrl: "http://localhost:3000",
@@ -130,7 +104,6 @@ describe("handleAccountLinking", () => {
       hasEmailAccount: false,
       existingUserId: null,
       targetUserId: "target-user-id",
-      action: "auto",
       provider: "google",
       providerEmail: "existing@gmail.com",
       baseUrl: "http://localhost:3000",

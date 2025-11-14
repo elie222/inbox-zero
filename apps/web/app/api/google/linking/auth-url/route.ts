@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-import { z } from "zod";
 import { withAuth } from "@/utils/middleware";
 import { getLinkingOAuth2Client } from "@/utils/gmail/client";
 import { GOOGLE_LINKING_STATE_COOKIE_NAME } from "@/utils/gmail/constants";
@@ -11,18 +10,10 @@ import {
 
 export type GetAuthLinkUrlResponse = { url: string };
 
-const actionSchema = z.enum(["auto", "merge_confirmed"]);
-
-const getAuthUrl = ({
-  userId,
-  action,
-}: {
-  userId: string;
-  action: "auto" | "merge_confirmed";
-}) => {
+const getAuthUrl = ({ userId }: { userId: string }) => {
   const googleAuth = getLinkingOAuth2Client();
 
-  const state = generateOAuthState({ userId, action });
+  const state = generateOAuthState({ userId });
 
   const url = googleAuth.generateAuthUrl({
     access_type: "offline",
@@ -36,23 +27,7 @@ const getAuthUrl = ({
 
 export const GET = withAuth("google/linking/auth-url", async (request) => {
   const userId = request.auth.userId;
-  const url = new URL(request.url);
-
-  const actionParam = url.searchParams.get("action");
-  const parseResult = actionSchema.safeParse(actionParam);
-
-  if (!parseResult.success) {
-    return NextResponse.json(
-      {
-        error:
-          "Invalid or missing action parameter. Must be 'auto' or 'merge_confirmed'.",
-      },
-      { status: 400 },
-    );
-  }
-
-  const action = parseResult.data;
-  const { url: authUrl, state } = getAuthUrl({ userId, action });
+  const { url: authUrl, state } = getAuthUrl({ userId });
 
   const response = NextResponse.json({ url: authUrl });
 

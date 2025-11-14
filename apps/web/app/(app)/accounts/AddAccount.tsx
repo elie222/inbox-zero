@@ -19,13 +19,10 @@ export function AddAccount() {
     setLoading(true);
 
     try {
-      const response = await fetch(
-        `/api/${provider}/linking/auth-url?action=auto`,
-        {
-          method: "GET",
-          headers: { "Content-Type": "application/json" },
-        },
-      );
+      const response = await fetch(`/api/${provider}/linking/auth-url`, {
+        method: "GET",
+        headers: { "Content-Type": "application/json" },
+      });
 
       if (!response.ok) {
         toastError({
@@ -86,8 +83,8 @@ export function AddAccount() {
           <span className="ml-2">Add Microsoft Account</span>
         </Button>
 
-        <TypographyP className="text-sm">
-          You will be billed for each additional account
+        <TypographyP className="text-sm text-muted-foreground">
+          You will be billed for each account.
         </TypographyP>
       </CardContent>
     </Card>
