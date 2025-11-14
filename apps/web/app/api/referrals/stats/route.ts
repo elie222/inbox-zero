@@ -28,7 +28,7 @@ async function getReferralStats(userId: string) {
   return { stats };
 }
 
-export const GET = withAuth(async (request) => {
+export const GET = withAuth("referrals/stats", async (request) => {
   const userId = request.auth.userId;
   const result = await getReferralStats(userId);
   return NextResponse.json(result);

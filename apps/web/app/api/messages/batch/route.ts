@@ -30,7 +30,7 @@ async function getMessagesBatch({
   return messages;
 }
 
-export const GET = withEmailProvider(async (request) => {
+export const GET = withEmailProvider("messages/batch", async (request) => {
   const { emailProvider } = request;
 
   const { searchParams } = new URL(request.url);

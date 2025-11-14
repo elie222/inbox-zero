@@ -17,7 +17,7 @@ async function getApiKeys({ userId }: { userId: string }) {
   return { apiKeys };
 }
 
-export const GET = withAuth(async (request) => {
+export const GET = withAuth("user/api-keys", async (request) => {
   const userId = request.auth.userId;
 
   const apiKeys = await getApiKeys({ userId });

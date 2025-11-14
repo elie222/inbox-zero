@@ -79,7 +79,7 @@ async function getDomainsMostReceivedFrom({
   });
 }
 
-export const GET = withEmailAccount(async (request) => {
+export const GET = withEmailAccount("user/stats/senders", async (request) => {
   const emailAccountId = request.auth.emailAccountId;
 
   const { searchParams } = new URL(request.url);

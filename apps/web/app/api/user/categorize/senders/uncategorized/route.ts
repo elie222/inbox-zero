@@ -7,16 +7,19 @@ export type UncategorizedSendersResponse = {
   nextOffset?: number;
 };
 
-export const GET = withEmailAccount(async (request) => {
-  const emailAccountId = request.auth.emailAccountId;
+export const GET = withEmailAccount(
+  "user/categorize/senders/uncategorized",
+  async (request) => {
+    const emailAccountId = request.auth.emailAccountId;
 
-  const url = new URL(request.url);
-  const offset = Number.parseInt(url.searchParams.get("offset") || "0");
+    const url = new URL(request.url);
+    const offset = Number.parseInt(url.searchParams.get("offset") || "0");
 
-  const result = await getUncategorizedSenders({
-    emailAccountId,
-    offset,
-  });
+    const result = await getUncategorizedSenders({
+      emailAccountId,
+      offset,
+    });
 
-  return NextResponse.json(result);
-});
+    return NextResponse.json(result);
+  },
+);

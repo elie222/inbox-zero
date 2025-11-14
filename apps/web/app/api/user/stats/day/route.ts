@@ -93,7 +93,7 @@ async function getPastSevenDayStats({
   return lastSevenDaysCountsArray;
 }
 
-export const GET = withEmailProvider(async (request) => {
+export const GET = withEmailProvider("user/stats/day", async (request) => {
   const emailAccountId = request.auth.emailAccountId;
   const provider = request.emailProvider.name;
 

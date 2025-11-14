@@ -9,7 +9,7 @@ async function getCategories({ emailAccountId }: { emailAccountId: string }) {
   return { result };
 }
 
-export const GET = withEmailAccount(async (request) => {
+export const GET = withEmailAccount("user/categories", async (request) => {
   const emailAccountId = request.auth.emailAccountId;
   const result = await getCategories({ emailAccountId });
   return NextResponse.json(result);

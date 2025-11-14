@@ -17,7 +17,7 @@ async function getGroups({ emailAccountId }: { emailAccountId: string }) {
   return { groups };
 }
 
-export const GET = withEmailAccount(async (request) => {
+export const GET = withEmailAccount("user/group", async (request) => {
   const emailAccountId = request.auth.emailAccountId;
   const result = await getGroups({ emailAccountId });
   return NextResponse.json(result);

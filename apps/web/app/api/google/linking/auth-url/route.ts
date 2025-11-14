@@ -25,7 +25,7 @@ const getAuthUrl = ({ userId }: { userId: string }) => {
   return { url, state };
 };
 
-export const GET = withAuth(async (request) => {
+export const GET = withAuth("google/linking/auth-url", async (request) => {
   const userId = request.auth.userId;
   const { url, state } = getAuthUrl({ userId });
 

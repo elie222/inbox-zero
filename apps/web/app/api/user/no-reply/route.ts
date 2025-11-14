@@ -45,7 +45,7 @@ async function getNoReply({
   return sentEmailsWithThreads;
 }
 
-export const GET = withEmailProvider(async (request) => {
+export const GET = withEmailProvider("user/no-reply", async (request) => {
   const emailAccountId = request.auth.emailAccountId;
   const userEmail = request.auth.email;
 

@@ -15,7 +15,7 @@ async function getRules({ emailAccountId }: { emailAccountId: string }) {
   });
 }
 
-export const GET = withEmailAccount(async (request) => {
+export const GET = withEmailAccount("user/rules", async (request) => {
   const emailAccountId = request.auth.emailAccountId;
   const result = await getRules({ emailAccountId });
   return NextResponse.json(result);

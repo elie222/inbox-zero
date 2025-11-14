@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { env } from "@/env";
 import { withEmailAccount } from "@/utils/middleware";
-import { createScopedLogger } from "@/utils/logger";
 import { SafeError } from "@/utils/error";
 import {
   oauthStateCookieOptions,
@@ -15,59 +14,61 @@ import { generateOAuthUrl } from "@/utils/mcp/oauth";
 
 export type GetMcpAuthUrlResponse = { url: string };
 
-export const GET = withEmailAccount(async (request, { params }) => {
-  const { integration } = await params;
-  const { emailAccountId } = request.auth;
-  const userId = request.auth.userId;
+export const GET = withEmailAccount(
+  "mcp/auth-url",
+  async (request, { params }) => {
+    const { integration } = await params;
+    const { emailAccountId } = request.auth;
+    const userId = request.auth.userId;
 
-  const logger = createScopedLogger("mcp/auth-url").with({
-    userId,
-    integration,
-  });
-
-  const integrationConfig = getIntegration(integration);
-
-  if (!integrationConfig) {
-    throw new SafeError(`Integration ${integration} not found`);
-  }
-
-  if (integrationConfig.authType !== "oauth") {
-    throw new SafeError(`Integration ${integration} does not support OAuth`);
-  }
-
-  try {
-    const redirectUri = `${env.NEXT_PUBLIC_BASE_URL}/api/mcp/${integration}/callback`;
-
-    const state = generateOAuthState({
-      userId,
-      emailAccountId,
-      type: getMcpOAuthStateType(integration),
-    });
-
-    const { url, codeVerifier } = await generateOAuthUrl({
+    const logger = request.logger.with({
       integration,
-      redirectUri,
-      state,
     });
 
-    // Set secure cookies for state and PKCE verifier
-    const response = NextResponse.json<GetMcpAuthUrlResponse>({ url });
+    const integrationConfig = getIntegration(integration);
 
-    const maxAge = 60 * 10; // 10 minutes
+    if (!integrationConfig) {
+      throw new SafeError(`Integration ${integration} not found`);
+    }
 
-    response.cookies.set(getMcpStateCookieName(integration), state, {
-      ...oauthStateCookieOptions,
-      maxAge,
-    });
+    if (integrationConfig.authType !== "oauth") {
+      throw new SafeError(`Integration ${integration} does not support OAuth`);
+    }
 
-    response.cookies.set(getMcpPkceCookieName(integration), codeVerifier, {
-      ...oauthStateCookieOptions,
-      maxAge,
-    });
+    try {
+      const redirectUri = `${env.NEXT_PUBLIC_BASE_URL}/api/mcp/${integration}/callback`;
 
-    return response;
-  } catch (error) {
-    logger.error("Failed to generate MCP auth URL", { error });
-    throw new SafeError("Failed to generate authorization URL");
-  }
-});
+      const state = generateOAuthState({
+        userId,
+        emailAccountId,
+        type: getMcpOAuthStateType(integration),
+      });
+
+      const { url, codeVerifier } = await generateOAuthUrl({
+        integration,
+        redirectUri,
+        state,
+      });
+
+      // Set secure cookies for state and PKCE verifier
+      const response = NextResponse.json<GetMcpAuthUrlResponse>({ url });
+
+      const maxAge = 60 * 10; // 10 minutes
+
+      response.cookies.set(getMcpStateCookieName(integration), state, {
+        ...oauthStateCookieOptions,
+        maxAge,
+      });
+
+      response.cookies.set(getMcpPkceCookieName(integration), codeVerifier, {
+        ...oauthStateCookieOptions,
+        maxAge,
+      });
+
+      return response;
+    } catch (error) {
+      logger.error("Failed to generate MCP auth URL", { error });
+      throw new SafeError("Failed to generate authorization URL");
+    }
+  },
+);
