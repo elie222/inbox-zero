@@ -8,7 +8,6 @@ interface AccountLinkingParams {
   hasEmailAccount: boolean;
   existingUserId: string | null;
   targetUserId: string;
-  action: "auto" | "merge_confirmed";
   provider: "google" | "microsoft";
   providerEmail: string;
   baseUrl: string;
@@ -20,7 +19,6 @@ export async function handleAccountLinking({
   hasEmailAccount,
   existingUserId,
   targetUserId,
-  action,
   provider,
   providerEmail,
   baseUrl,
@@ -45,34 +43,27 @@ export async function handleAccountLinking({
   }
 
   if (!existingAccountId || !hasEmailAccount) {
-    if (action === "auto") {
-      const existingEmailAccount = await prisma.emailAccount.findUnique({
-        where: { email: providerEmail.trim().toLowerCase() },
-        select: { userId: true, email: true },
-      });
+    const existingEmailAccount = await prisma.emailAccount.findUnique({
+      where: { email: providerEmail.trim().toLowerCase() },
+      select: { userId: true, email: true },
+    });
 
-      if (
-        existingEmailAccount &&
-        existingEmailAccount.userId !== targetUserId
-      ) {
-        logger.warn(
-          `Create Failed: ${provider} account with this email already exists for a different user.`,
-          {
-            email: providerEmail,
-            existingUserId: existingEmailAccount.userId,
-            targetUserId,
-          },
-        );
-        redirectUrl.searchParams.set(
-          "error",
-          "account_already_exists_use_merge",
-        );
-        return {
-          type: "redirect",
-          response: NextResponse.redirect(redirectUrl),
-        };
-      }
+    if (existingEmailAccount && existingEmailAccount.userId !== targetUserId) {
+      logger.warn(
+        `Create Failed: ${provider} account with this email already exists for a different user.`,
+        {
+          email: providerEmail,
+          existingUserId: existingEmailAccount.userId,
+          targetUserId,
+        },
+      );
+      redirectUrl.searchParams.set("error", "account_already_exists_use_merge");
+      return {
+        type: "redirect",
+        response: NextResponse.redirect(redirectUrl),
+      };
     }
+
     return { type: "continue_create" };
   }
 
@@ -88,28 +79,15 @@ export async function handleAccountLinking({
     };
   }
 
-  if (action === "auto") {
-    logger.info(
-      "Account exists for different user, requesting merge confirmation",
-      {
-        email: providerEmail,
-        existingUserId,
-        targetUserId,
-      },
-    );
-
-    redirectUrl.searchParams.set("confirm_merge", "true");
-    redirectUrl.searchParams.set("provider", provider);
-    redirectUrl.searchParams.set("email", providerEmail);
-    return {
-      type: "redirect",
-      response: NextResponse.redirect(redirectUrl),
-    };
-  }
-
   if (!existingAccountId || !existingUserId) {
     throw new Error("Unexpected state: existingAccount should exist");
   }
+
+  logger.info("Account exists for different user, merging accounts", {
+    email: providerEmail,
+    existingUserId,
+    targetUserId,
+  });
 
   return {
     type: "merge",

@@ -32,7 +32,6 @@ describe("validateOAuthCallback", () => {
   it("should return error when code is missing", () => {
     vi.mocked(parseOAuthState).mockReturnValue({
       userId: "user-id",
-      action: "auto",
       nonce: "nonce",
     });
 
@@ -92,7 +91,6 @@ describe("validateOAuthCallback", () => {
     expect(result.success).toBe(true);
     if (result.success) {
       expect(result.targetUserId).toBe("user-id");
-      expect(result.action).toBe("auto");
       expect(result.code).toBe("valid-code");
     }
   });

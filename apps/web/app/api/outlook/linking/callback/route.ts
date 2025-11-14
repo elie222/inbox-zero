@@ -33,7 +33,7 @@ export const GET = withError("outlook/linking/callback", async (request) => {
     return validation.response;
   }
 
-  const { targetUserId, action, code } = validation;
+  const { targetUserId, code } = validation;
   const redirectUrl = new URL("/accounts", request.nextUrl.origin);
   const response = NextResponse.redirect(redirectUrl);
   response.cookies.delete(OUTLOOK_LINKING_STATE_COOKIE_NAME);
@@ -129,7 +129,6 @@ export const GET = withError("outlook/linking/callback", async (request) => {
       hasEmailAccount: !!existingAccount?.emailAccount,
       existingUserId: existingAccount?.userId || null,
       targetUserId,
-      action,
       provider: "microsoft",
       providerEmail,
       baseUrl: request.nextUrl.origin,
