@@ -7,6 +7,7 @@ import { hasCronSecret, hasPostCronSecret } from "@/utils/cron";
 import { captureException } from "@/utils/error";
 import { createScopedLogger } from "@/utils/logger";
 import { publishToQstashQueue } from "@/utils/upstash";
+import { enqueueJob } from "@/utils/queue/queue-manager";
 
 const logger = createScopedLogger("cron/resend/digest/all");
 
@@ -51,14 +52,22 @@ async function sendDigestAllUpdate() {
 
   for (const emailAccount of emailAccounts) {
     try {
-      await publishToQstashQueue({
-        queueName: "email-digest-all",
-        parallelism: 3, // Allow up to 3 concurrent jobs from this queue
-        url,
-        body: { emailAccountId: emailAccount.id },
-      });
+      if (env.QUEUE_SYSTEM === "upstash") {
+        await publishToQstashQueue({
+          queueName: "email-digest-all",
+          parallelism: 3,
+          url,
+          body: { emailAccountId: emailAccount.id },
+        });
+      } else {
+        await enqueueJob(
+          "email-digest-all",
+          { emailAccountId: emailAccount.id },
+          { targetPath: url },
+        );
+      }
     } catch (error) {
-      logger.error("Failed to publish to Qstash", {
+      logger.error("Failed to enqueue digest job", {
         email: emailAccount.email,
         error,
       });

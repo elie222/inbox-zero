@@ -1,5 +1,6 @@
 import chunk from "lodash/chunk";
 import { deleteQueue, listQueues, publishToQstashQueue } from "@/utils/upstash";
+import { enqueueJob } from "@/utils/queue/queue-manager";
 import { env } from "@/env";
 import type { AiCategorizeSenders } from "@/app/api/user/categorize/senders/batch/handle-batch-validation";
 import { createScopedLogger } from "@/utils/logger";
@@ -40,19 +41,35 @@ export async function publishToAiCategorizeSendersQueue(
   });
 
   // Process all chunks in parallel, each as a separate queue item
-  await Promise.all(
-    chunks.map((senderChunk) =>
-      publishToQstashQueue({
-        queueName,
-        parallelism: 3, // Allow up to 3 concurrent jobs from this queue
-        url,
-        body: {
-          emailAccountId: body.emailAccountId,
-          senders: senderChunk,
-        } satisfies AiCategorizeSenders,
-      }),
-    ),
-  );
+  if (env.QUEUE_SYSTEM === "upstash") {
+    await Promise.all(
+      chunks.map((senderChunk) =>
+        publishToQstashQueue({
+          queueName,
+          parallelism: 3,
+          url,
+          body: {
+            emailAccountId: body.emailAccountId,
+            senders: senderChunk,
+          } satisfies AiCategorizeSenders,
+        }),
+      ),
+    );
+  } else {
+    // Redis/BullMQ: enqueue directly to the endpoint via worker
+    await Promise.all(
+      chunks.map((senderChunk) =>
+        enqueueJob(
+          queueName,
+          {
+            emailAccountId: body.emailAccountId,
+            senders: senderChunk,
+          } satisfies AiCategorizeSenders,
+          { targetPath: url },
+        ),
+      ),
+    );
+  }
 }
 
 export async function deleteEmptyCategorizeSendersQueues({

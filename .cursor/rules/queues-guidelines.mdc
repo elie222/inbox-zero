@@ -1,0 +1,31 @@
+Queues guidelines (main parity)
+
+Purpose
+- Keep queue behavior aligned with upstream main branch. Avoid centralization and implicit remapping. Prefer QStash-first flows unless explicitly asked to implement Redis/BullMQ specifics.
+
+Do
+- Use QStash helpers directly for main-parity code:
+  - publishToQstashQueue with full absolute URLs (base from env) and explicit queueName/parallelism.
+  - Per-account queue for categorize senders: ai-categorize-senders-{emailAccountId}.
+  - Digest item enqueue via publishToQstashQueue to /api/ai/digest.
+- Keep endpoint handlers as dedicated routes with signature verification:
+  - /api/ai/digest
+  - /api/clean
+  - /api/clean/gmail
+  - /api/resend/digest
+  - /api/resend/summary
+  - /api/user/categorize/senders/batch
+  - /api/scheduled-actions/execute
+- Use verifySignatureAppRouter or verifyQueueSignatureAppRouter at endpoints (QStash/worker).
+- When supporting Redis/BullMQ, post back to the same dedicated endpoints (no remapping).
+
+Do NOT
+- Do not centralize queue handling via /api/queue/[queueName] for QStash flows.
+- Do not add queueName→path maps in queue providers.
+- Do not add targetPath overrides unless explicitly requested. Default to main’s absolute URLs and per-endpoint publishing for QStash.
+- Do not revert categorize-senders to hashed-queue distribution for QStash; use per-account queue.
+
+References (main)
+- Digest enqueue pattern (publishToQstashQueue to /api/ai/digest):
+  https://raw.githubusercontent.com/elie222/inbox-zero/4885d86c6e7c74ee7c38f83b435ae5d3095c29e1/apps/web/utils/digest/index.ts
+

@@ -60,11 +60,11 @@ export const env = createEnv({
 
     UPSTASH_REDIS_URL: z.string().optional(),
     UPSTASH_REDIS_TOKEN: z.string().optional(),
-    REDIS_URL: z.string().optional(), // used for subscriptions
-
+    REDIS_URL: z.string().optional(),
+    QUEUE_SYSTEM: z.enum(["redis", "upstash"]).default("upstash"),
+    ENABLE_WORKER_QUEUES: z.coerce.boolean().default(false),
     QSTASH_TOKEN: z.string().optional(),
-    QSTASH_CURRENT_SIGNING_KEY: z.string().optional(),
-    QSTASH_NEXT_SIGNING_KEY: z.string().optional(),
+    WORKER_BASE_URL: z.string().optional(),
 
     GOOGLE_PUBSUB_TOPIC_NAME: z.string().min(1),
     GOOGLE_PUBSUB_VERIFICATION_TOKEN: z.string().optional(),
@@ -112,6 +112,7 @@ export const env = createEnv({
       .transform((value) => value?.split(",")),
     WEBHOOK_URL: z.string().optional(),
     INTERNAL_API_KEY: z.string(),
+    WORKER_SIGNING_SECRET: z.string().optional(),
     WHITELIST_FROM: z.string().optional(),
     USE_BACKUP_MODEL: z.coerce.boolean().optional().default(false),
     HEALTH_API_KEY: z.string().optional(),

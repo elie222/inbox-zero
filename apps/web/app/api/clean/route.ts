@@ -1,8 +1,12 @@
-import { verifySignatureAppRouter } from "@upstash/qstash/nextjs";
+import { verifyQueueSignatureAppRouter } from "@/utils/queue-signature";
+// import { verifyWorkerSignatureAppRouter } from "@/utils/worker-signature";
 import { z } from "zod";
 import { NextResponse } from "next/server";
 import { withError } from "@/utils/middleware";
-import { publishToQstash } from "@/utils/upstash";
+// import { publishToQstash } from "@/utils/upstash";
+// import { enqueueJob } from "@/utils/queue/queue-manager";
+import { env } from "@/env";
+import { publishFlowControlled } from "@/utils/queue/publish";
 import { getThreadMessages } from "@/utils/gmail/thread";
 import { getGmailClientWithRefresh } from "@/utils/gmail/client";
 import type { CleanGmailBody } from "@/app/api/clean/gmail/route";
@@ -270,10 +274,16 @@ function getPublish({
       markDone,
     });
 
+    const base = env.WEBHOOK_URL || env.NEXT_PUBLIC_BASE_URL || "";
     await Promise.all([
-      publishToQstash("/api/clean/gmail", cleanGmailBody, {
-        key: `gmail-action-${emailAccountId}`,
-        ratePerSecond: maxRatePerSecond,
+      publishFlowControlled({
+        url: `${base}/api/clean/gmail`,
+        body: cleanGmailBody,
+        flowControl: {
+          key: `gmail-action-${emailAccountId}`,
+          ratePerSecond: maxRatePerSecond,
+        },
+        redisQueueName: "clean-gmail",
       }),
       updateThread({
         emailAccountId,
@@ -292,12 +302,10 @@ function getPublish({
 }
 
 export const POST = withError(
-  verifySignatureAppRouter(async (request: Request) => {
-    const json = await request.json();
+  verifyQueueSignatureAppRouter(async (req: Request) => {
+    const json = await req.json();
     const body = cleanThreadBody.parse(json);
-
     await cleanThread(body);
-
     return NextResponse.json({ success: true });
   }),
 );

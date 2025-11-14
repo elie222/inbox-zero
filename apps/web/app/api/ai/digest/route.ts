@@ -1,5 +1,5 @@
-import { NextResponse } from "next/server";
-import { verifySignatureAppRouter } from "@upstash/qstash/nextjs";
+import { type NextRequest, NextResponse } from "next/server";
+import { verifyQueueSignatureAppRouter } from "@/utils/queue-signature";
 import { digestBody } from "./validation";
 import { DigestStatus } from "@prisma/client";
 import { createScopedLogger } from "@/utils/logger";
@@ -12,11 +12,11 @@ import { isAssistantEmail } from "@/utils/assistant/is-assistant-email";
 import { env } from "@/env";
 
 export const POST = withError(
-  verifySignatureAppRouter(async (request: Request) => {
+  verifyQueueSignatureAppRouter(async (req: NextRequest) => {
     const logger = createScopedLogger("digest");
 
     try {
-      const body = digestBody.parse(await request.json());
+      const body = digestBody.parse(await req.json());
       const { emailAccountId, coldEmailId, actionId, message } = body;
 
       logger.with({ emailAccountId, messageId: message.id });

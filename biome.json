@@ -104,7 +104,8 @@
       "!.turbo",
       "!.next",
       "!sw.js",
-      "!.vscode"
+      "!.vscode",
+      "!apps/web/worker.js"
     ]
   },
   "assist": {

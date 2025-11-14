@@ -104,6 +104,43 @@ The Inbox Zero repository is structured as a monorepo, consisting of two main ap
   - `rule/`: Rule-related utilities (prompt file parsing, rule fixing, etc.).
   - `scripts/`: Scripts for database migrations, data manipulation, and other maintenance tasks.
 
+### Queue System and Worker Service
+
+Inbox Zero supports two queue backends:
+- QStash (Upstash) — managed HTTP queues
+- Redis (BullMQ) — via a dedicated, external Queue Worker service
+
+High-level flow:
+- The web app enqueues jobs through a unified manager (`apps/web/utils/queue/queue-manager.ts`)
+  - When `QUEUE_SYSTEM=upstash`, it publishes directly to QStash
+  - When `QUEUE_SYSTEM=redis`, it makes an HTTP POST to the Queue Worker (`apps/queue-worker`)
+- The Queue Worker persists jobs in Redis using BullMQ and executes them by making HTTP callbacks to the URL provided in the enqueue request (QStash-style). The `url` is required; there is no implicit fallback.
+- Callbacks are authenticated with `Authorization: Bearer ${CRON_SECRET}` and can be HMAC-signed with `WORKER_SIGNING_SECRET`
+
+Key files:
+- Web:
+  - `apps/web/utils/queue/queue-manager.ts`
+  - `apps/web/utils/queue/providers/qstash-manager.ts`
+  - `apps/web/utils/queue/providers/bullmq-manager.ts` (HTTP client to the worker)
+  - `apps/web/app/api/queue/[queueName]/route.ts` (receives callbacks from either system)
+- Worker:
+  - `apps/queue-worker/src/http.ts` (enqueue endpoints, health)
+  - `apps/queue-worker/src/queue.ts` (BullMQ setup and worker registry)
+  - `apps/queue-worker/src/processor.ts` (HTTP callback processor with optional HMAC)
+  - `apps/queue-worker/src/env.ts` (environment validation)
+
+Environment variables (essential):
+- Web:
+  - `QUEUE_SYSTEM=redis|upstash`
+  - `WORKER_BASE_URL` (when `redis`)
+  - `CRON_SECRET` (shared with worker)
+  - `WORKER_SIGNING_SECRET` (optional, for HMAC verification)
+- Worker:
+  - `REDIS_URL`
+  - `WEB_BASE_URL`
+  - `CRON_SECRET` (shared with web)
+  - `WORKER_SIGNING_SECRET` (optional)
+
 ### 8. `docker` - Docker Configuration
 
 - **Purpose:** Contains Dockerfile for containerizing the web application.

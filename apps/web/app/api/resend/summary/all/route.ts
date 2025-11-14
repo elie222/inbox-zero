@@ -12,6 +12,7 @@ import { Frequency } from "@prisma/client";
 import { captureException } from "@/utils/error";
 import { createScopedLogger } from "@/utils/logger";
 import { publishToQstashQueue } from "@/utils/upstash";
+import { enqueueJob } from "@/utils/queue/queue-manager";
 
 const logger = createScopedLogger("cron/resend/summary/all");
 
@@ -49,15 +50,23 @@ async function sendSummaryAllUpdate() {
 
   for (const emailAccount of emailAccounts) {
     try {
-      await publishToQstashQueue({
-        queueName: "email-summary-all",
-        parallelism: 3, // Allow up to 3 concurrent jobs from this queue
-        url,
-        body: { email: emailAccount.email },
-        headers: getCronSecretHeader(),
-      });
+      if (env.QUEUE_SYSTEM === "upstash") {
+        await publishToQstashQueue({
+          queueName: "email-summary-all",
+          parallelism: 3,
+          url,
+          body: { email: emailAccount.email },
+          headers: getCronSecretHeader(),
+        });
+      } else {
+        await enqueueJob(
+          "email-summary-all",
+          { email: emailAccount.email },
+          { targetPath: url },
+        );
+      }
     } catch (error) {
-      logger.error("Failed to publish to Qstash", {
+      logger.error("Failed to enqueue summary job", {
         email: emailAccount.email,
         error,
       });
