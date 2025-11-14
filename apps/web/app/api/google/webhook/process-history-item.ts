@@ -28,6 +28,7 @@ export async function processHistoryItem(
   const provider = await createEmailProvider({
     emailAccountId,
     provider: "google",
+    logger,
   });
 
   // Handle Google-specific label events

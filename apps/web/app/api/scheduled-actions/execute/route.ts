@@ -93,10 +93,12 @@ export const POST = verifySignatureAppRouter(
       const provider = await createEmailProvider({
         emailAccountId: scheduledAction.emailAccountId,
         provider: scheduledAction.emailAccount.account.provider,
+        logger,
       });
       const executionResult = await executeScheduledAction(
         scheduledAction,
         provider,
+        logger,
       );
 
       if (executionResult.success) {

@@ -18,12 +18,16 @@ import { SystemType } from "@prisma/client";
 
 export const markNotColdEmailAction = actionClient
   .metadata({ name: "markNotColdEmail" })
-  .schema(markNotColdEmailBody)
+  .inputSchema(markNotColdEmailBody)
   .action(
-    async ({ ctx: { emailAccountId, provider }, parsedInput: { sender } }) => {
+    async ({
+      ctx: { emailAccountId, provider, logger },
+      parsedInput: { sender },
+    }) => {
       const emailProvider = await createEmailProvider({
         emailAccountId,
         provider,
+        logger,
       });
 
       await Promise.all([
@@ -93,10 +97,10 @@ async function removeColdEmailLabelFromSender(
 
 export const testColdEmailAction = actionClient
   .metadata({ name: "testColdEmail" })
-  .schema(coldEmailBlockerBody)
+  .inputSchema(coldEmailBlockerBody)
   .action(
     async ({
-      ctx: { emailAccountId, provider },
+      ctx: { emailAccountId, provider, logger },
       parsedInput: {
         from,
         subject,
@@ -125,6 +129,7 @@ export const testColdEmailAction = actionClient
       const emailProvider = await createEmailProvider({
         emailAccountId,
         provider,
+        logger,
       });
 
       const content = emailToContent({

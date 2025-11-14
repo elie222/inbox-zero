@@ -1,5 +1,5 @@
 import { ActionType, type ExecutedRule } from "@prisma/client";
-import { createScopedLogger } from "@/utils/logger";
+import { createScopedLogger, type Logger } from "@/utils/logger";
 import { callWebhook } from "@/utils/webhook";
 import type { ActionItem, EmailForAction } from "@/utils/ai/types";
 import type { EmailProvider } from "@/utils/email/types";
@@ -8,7 +8,7 @@ import { filterNullProperties } from "@/utils";
 import { labelMessageAndSync } from "@/utils/label.server";
 import { hasVariables } from "@/utils/template";
 
-const logger = createScopedLogger("ai-actions");
+const MODULE = "ai-actions";
 
 type ActionFunction<T extends Partial<Omit<ActionItem, "type">>> = (options: {
   client: EmailProvider;
@@ -18,6 +18,7 @@ type ActionFunction<T extends Partial<Omit<ActionItem, "type">>> = (options: {
   userId: string;
   emailAccountId: string;
   executedRule: ExecutedRule;
+  logger: Logger;
 }) => Promise<any>;
 
 export const runActionFunction = async (options: {
@@ -28,19 +29,23 @@ export const runActionFunction = async (options: {
   userId: string;
   emailAccountId: string;
   executedRule: ExecutedRule;
+  logger: Logger;
 }) => {
-  const { action, userEmail } = options;
-  logger.info("Running action", {
+  const { action, userEmail, logger } = options;
+  const log = logger.with({ module: MODULE });
+
+  log.info("Running action", {
     actionType: action.type,
     userEmail,
     id: action.id,
   });
-  logger.trace("Running action", () => filterNullProperties(action));
+  log.trace("Running action", () => filterNullProperties(action));
 
   const { type, ...args } = action;
   const opts = {
     ...options,
     args,
+    logger: log,
   };
   switch (type) {
     case ActionType.ARCHIVE:
@@ -81,7 +86,7 @@ const archive: ActionFunction<Record<string, unknown>> = async ({
 const label: ActionFunction<{
   label?: string | null;
   labelId?: string | null;
-}> = async ({ client, email, args, emailAccountId }) => {
+}> = async ({ client, email, args, emailAccountId, logger }) => {
   let labelIdToUse = args.labelId;
 
   // Lazy migration: If no labelId but label name exists, look it up

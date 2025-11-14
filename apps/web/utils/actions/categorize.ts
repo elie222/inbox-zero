@@ -105,7 +105,7 @@ export const categorizeSenderAction = actionClient
   .schema(z.object({ senderAddress: z.string() }))
   .action(
     async ({
-      ctx: { emailAccountId, provider },
+      ctx: { emailAccountId, provider, logger },
       parsedInput: { senderAddress },
     }) => {
       const userResult = await validateUserAndAiAccess({ emailAccountId });
@@ -114,6 +114,7 @@ export const categorizeSenderAction = actionClient
       const emailProvider = await createEmailProvider({
         emailAccountId,
         provider,
+        logger,
       });
 
       const result = await categorizeSender(

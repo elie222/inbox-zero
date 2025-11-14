@@ -192,6 +192,7 @@ export async function processHistoryItem(
         emailAccount,
         isTest: false,
         modelType: "default",
+        logger,
       });
     }
   } catch (error: unknown) {

@@ -49,6 +49,7 @@ export async function processHistoryForUser({
   const provider = await createEmailProvider({
     emailAccountId: validatedEmailAccount.id,
     provider: accountProvider,
+    logger,
   });
 
   try {

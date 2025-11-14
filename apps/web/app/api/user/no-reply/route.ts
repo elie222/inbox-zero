@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { isDefined } from "@/utils/types";
 import { withEmailProvider } from "@/utils/middleware";
 import { createEmailProvider } from "@/utils/email/provider";
+import type { Logger } from "@/utils/logger";
 
 export type NoReplyResponse = Awaited<ReturnType<typeof getNoReply>>;
 
@@ -9,14 +10,17 @@ async function getNoReply({
   emailAccountId,
   userEmail,
   provider,
+  logger,
 }: {
   emailAccountId: string;
   userEmail: string;
   provider: string;
+  logger: Logger;
 }) {
   const emailProvider = await createEmailProvider({
     emailAccountId,
     provider,
+    logger,
   });
 
   const sentEmails = await emailProvider.getSentMessages(50);
@@ -53,6 +57,7 @@ export const GET = withEmailProvider("user/no-reply", async (request) => {
     emailAccountId,
     userEmail,
     provider: request.emailProvider.name,
+    logger: request.logger,
   });
 
   return NextResponse.json(result);

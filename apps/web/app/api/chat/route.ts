@@ -4,7 +4,7 @@ import { withEmailAccount } from "@/utils/middleware";
 import { getEmailAccountWithAi } from "@/utils/user/get";
 import { NextResponse } from "next/server";
 import { aiProcessAssistantChat } from "@/utils/ai/assistant/chat";
-import { createScopedLogger } from "@/utils/logger";
+import type { Logger } from "@/utils/logger";
 import prisma from "@/utils/prisma";
 import type { Prisma } from "@prisma/client";
 import { convertToUIMessages } from "@/components/assistant-chat/helpers";
@@ -12,8 +12,6 @@ import { captureException } from "@/utils/error";
 import { messageContextSchema } from "@/app/api/chat/validation";
 
 export const maxDuration = 120;
-
-const logger = createScopedLogger("api/chat");
 
 const textPartSchema = z.object({
   text: z.string().min(1).max(3000),
@@ -30,7 +28,7 @@ const assistantInputSchema = z.object({
   context: messageContextSchema.optional(),
 });
 
-export const POST = withEmailAccount(async (request) => {
+export const POST = withEmailAccount("chat", async (request) => {
   const emailAccountId = request.auth.emailAccountId;
 
   const user = await getEmailAccountWithAi({ emailAccountId });
@@ -44,7 +42,11 @@ export const POST = withEmailAccount(async (request) => {
 
   const chat =
     (await getChatById(data.id)) ||
-    (await createNewChat({ emailAccountId, chatId: data.id }));
+    (await createNewChat({
+      emailAccountId,
+      chatId: data.id,
+      logger: request.logger,
+    }));
 
   if (!chat) {
     return NextResponse.json(
@@ -80,11 +82,11 @@ export const POST = withEmailAccount(async (request) => {
 
     return result.toUIMessageStreamResponse({
       onFinish: async ({ messages }) => {
-        await saveChatMessages(messages, chat.id);
+        await saveChatMessages(messages, chat.id, request.logger);
       },
     });
   } catch (error) {
-    logger.error("Error in assistant chat", { error });
+    request.logger.error("Error in assistant chat", { error });
     return NextResponse.json(
       { error: "Error in assistant chat" },
       { status: 500 },
@@ -95,9 +97,11 @@ export const POST = withEmailAccount(async (request) => {
 async function createNewChat({
   emailAccountId,
   chatId,
+  logger,
 }: {
   emailAccountId: string;
   chatId: string;
+  logger: Logger;
 }) {
   try {
     const newChat = await prisma.chat.create({
@@ -124,7 +128,11 @@ async function saveChatMessage(message: Prisma.ChatMessageCreateInput) {
   return prisma.chatMessage.create({ data: message });
 }
 
-async function saveChatMessages(messages: UIMessage[], chatId: string) {
+async function saveChatMessages(
+  messages: UIMessage[],
+  chatId: string,
+  logger: Logger,
+) {
   try {
     return prisma.chatMessage.createMany({
       data: messages.map((message) => ({
