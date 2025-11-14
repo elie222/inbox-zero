@@ -164,6 +164,7 @@ model EmailAccount {
   ssoproviders        SsoProvider[]
   calendarConnections CalendarConnection[]
   mcpConnections      McpConnection[]
+  meetings            Meeting[]
 
   @@index([userId])
   @@index([lastSummaryEmailAt])
@@ -879,6 +880,8 @@ model CalendarConnection {
   expiresAt    DateTime?
   isConnected  Boolean   @default(true)
 
+  recallCalendarId String? @unique
+
   emailAccountId String
   emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
 
@@ -898,6 +901,7 @@ model Calendar {
   primary     Boolean @default(false)
   isEnabled   Boolean @default(true)
   timezone    String?
+  transcriptEnabled Boolean @default(false)
 
   connectionId String
   connection   CalendarConnection @relation(fields: [connectionId], references: [id], onDelete: Cascade)
@@ -931,6 +935,27 @@ model Referral {
 
   @@index([referrerUserId])
   @@index([status])
+}
+
+model Meeting {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  emailAccountId   String
+  eventId          String
+  botId            String
+  deduplicationKey String
+  status           MeetingStatus @default(SCHEDULED)
+  transcript       Json?
+  botWillJoinAt    DateTime
+  meetingUrl       String
+
+  emailAccount EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
+
+  @@unique([botId])
+  @@unique([deduplicationKey])
+  @@index([emailAccountId, eventId, status])
 }
 
 model McpIntegration {
@@ -1132,5 +1157,13 @@ enum ScheduledActionStatus {
 enum SchedulingStatus {
   PENDING
   SCHEDULED
+  FAILED
+}
+
+enum MeetingStatus {
+  SCHEDULED
+  ACTIVE
+  COMPLETED
+  CANCELLED
   FAILED
 }

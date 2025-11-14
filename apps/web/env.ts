@@ -70,6 +70,9 @@ export const env = createEnv({
     GOOGLE_PUBSUB_VERIFICATION_TOKEN: z.string().optional(),
 
     MICROSOFT_WEBHOOK_CLIENT_STATE: z.string().optional(),
+    RECALL_WEBHOOK_SECRET: z.string().optional(),
+    RECALL_API_KEY: z.string().optional(),
+    RECALL_API_BASE_URL: z.string().default("https://us-west-2.recall.ai"),
 
     SENTRY_AUTH_TOKEN: z.string().optional(),
     SENTRY_ORGANIZATION: z.string().optional(),
