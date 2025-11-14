@@ -28,11 +28,8 @@ export function PremiumExpiredCardContent({
   onDismiss,
   isCollapsed = false,
 }: PremiumExpiredCardProps & { isCollapsed?: boolean }) {
-  // Early return if no premium data
-  if (!premium) return null;
-
   // Convert string dates to Date objects if needed
-  const lemonSqueezyRenewsAt = premium.lemonSqueezyRenewsAt
+  const lemonSqueezyRenewsAt = premium?.lemonSqueezyRenewsAt
     ? typeof premium.lemonSqueezyRenewsAt === "string"
       ? new Date(premium.lemonSqueezyRenewsAt)
       : premium.lemonSqueezyRenewsAt
@@ -40,16 +37,37 @@ export function PremiumExpiredCardContent({
 
   const isUserPremium = isPremium(
     lemonSqueezyRenewsAt,
-    premium.stripeSubscriptionStatus || null,
+    premium?.stripeSubscriptionStatus || null,
   );
 
   if (isUserPremium) return null;
 
-  // Determine the message based on subscription state
   const getSubscriptionMessage = () => {
+    const UPGRADE_MESSAGE = {
+      title: "Upgrade to Premium",
+      description: "Upgrade to Premium to enable your AI email assistant.",
+    };
+
+    if (!premium) {
+      return UPGRADE_MESSAGE;
+    }
+
     const status = premium.stripeSubscriptionStatus;
     const hasLemonSqueezyExpired =
       lemonSqueezyRenewsAt && lemonSqueezyRenewsAt < new Date();
+
+    // Check if user never had a subscription
+    const hasNoSubscription =
+      !status &&
+      !premium.stripeSubscriptionId &&
+      !premium.lemonSqueezySubscriptionId;
+
+    if (!premium || hasNoSubscription) {
+      return {
+        title: "Upgrade to Premium",
+        description: "Upgrade to Premium to enable your AI email assistant.",
+      };
+    }
 
     if (status === "past_due") {
       return {
@@ -95,6 +113,15 @@ export function PremiumExpiredCardContent({
 
   const { title, description } = getSubscriptionMessage();
 
+  const isNewUser =
+    !premium ||
+    (!premium.stripeSubscriptionStatus &&
+      !premium.stripeSubscriptionId &&
+      !premium.lemonSqueezySubscriptionId);
+
+  const buttonText = isNewUser ? "Upgrade" : "Reactivate";
+  const buttonHref = isNewUser ? "/premium" : "/settings";
+
   // When collapsed, show only the alert icon with a hover card
   if (isCollapsed) {
     return (
@@ -112,18 +139,18 @@ export function PremiumExpiredCardContent({
               className="w-full bg-orange-600 text-white hover:bg-orange-700 border-0 shadow-sm h-8 mt-2"
             >
               <Link
-                href="/settings"
+                href={buttonHref}
                 className="flex items-center justify-center gap-1.5"
               >
                 <CreditCardIcon className="h-3.5 w-3.5" />
-                <span className="text-xs font-medium">Reactivate</span>
+                <span className="text-xs font-medium">{buttonText}</span>
               </Link>
             </Button>
           </div>
         }
       >
         <Link
-          href="/settings"
+          href={buttonHref}
           className="flex items-center justify-center p-2 rounded-lg bg-orange-100 hover:bg-orange-200 transition-colors dark:bg-orange-900/30 dark:hover:bg-orange-900/50"
         >
           <AlertTriangleIcon className="h-5 w-5 text-orange-600 dark:text-orange-400" />
@@ -170,11 +197,11 @@ export function PremiumExpiredCardContent({
             className="w-full bg-orange-600 text-white hover:bg-orange-700 border-0 shadow-sm h-8"
           >
             <Link
-              href="/settings"
+              href={buttonHref}
               className="flex items-center justify-center gap-1.5"
             >
               <CreditCardIcon className="h-3.5 w-3.5" />
-              <span className="text-xs font-medium">Reactivate</span>
+              <span className="text-xs font-medium">{buttonText}</span>
             </Link>
           </Button>
         </div>
@@ -183,7 +210,7 @@ export function PremiumExpiredCardContent({
   );
 }
 
-export function PremiumExpiredCard({
+export function PremiumCard({
   isCollapsed = false,
 }: {
   isCollapsed?: boolean;

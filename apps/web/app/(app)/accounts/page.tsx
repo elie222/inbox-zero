@@ -45,7 +45,7 @@ export default function AccountsPage() {
       <PageHeader title="Accounts" description="Manage your email accounts." />
 
       <LoadingContent loading={isLoading} error={error}>
-        <div className="grid grid-cols-1 gap-4 py-6 md:grid-cols-2 lg:grid-cols-3">
+        <div className="grid grid-cols-1 gap-4 py-6 lg:grid-cols-2 xl:grid-cols-3">
           {data?.emailAccounts.map((emailAccount) => (
             <AccountItem
               key={emailAccount.id}

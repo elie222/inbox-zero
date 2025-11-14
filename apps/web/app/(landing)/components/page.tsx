@@ -38,7 +38,7 @@ import { SettingCard } from "@/components/SettingCard";
 import { IconCircle } from "@/app/(app)/[emailAccountId]/onboarding/IconCircle";
 import { ActionBadges } from "@/app/(app)/[emailAccountId]/assistant/Rules";
 import { DismissibleVideoCard } from "@/components/VideoCard";
-import { PremiumExpiredCardContent } from "@/components/PremiumExpiredCard";
+import { PremiumExpiredCardContent } from "@/components/PremiumCard";
 import {
   ResultsDisplay,
   ResultDisplayContent,
