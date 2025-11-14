@@ -12,7 +12,10 @@ export async function cleanupOrphanedAccount(
     select: { id: true, userId: true, emailAccount: true },
   });
 
-  if (!orphanedAccount) return;
+  if (!orphanedAccount) {
+    logger.info("Account not found, may have been deleted already");
+    return;
+  }
 
   if (orphanedAccount.emailAccount) {
     logger.info("Account has an email account, skipping cleanup");

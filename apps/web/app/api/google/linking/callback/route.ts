@@ -7,6 +7,7 @@ import { withError } from "@/utils/middleware";
 import { validateOAuthCallback } from "@/utils/oauth/callback-validation";
 import { handleAccountLinking } from "@/utils/oauth/account-linking";
 import { mergeAccount } from "@/utils/user/merge-account";
+import { handleOAuthCallbackError } from "@/utils/oauth/error-handler";
 
 export const GET = withError("google/linking/callback", async (request) => {
   const logger = request.logger;
@@ -21,6 +22,7 @@ export const GET = withError("google/linking/callback", async (request) => {
     receivedState: searchParams.get("state"),
     storedState,
     stateCookieName: GOOGLE_LINKING_STATE_COOKIE_NAME,
+    baseUrl: request.nextUrl.origin,
     logger,
   });
 
@@ -96,6 +98,7 @@ export const GET = withError("google/linking/callback", async (request) => {
       action,
       provider: "google",
       providerEmail,
+      baseUrl: request.nextUrl.origin,
       logger,
     });
 
@@ -176,24 +179,12 @@ export const GET = withError("google/linking/callback", async (request) => {
       headers: response.headers,
     });
   } catch (error) {
-    logger.error("Error in Google linking callback:", { error });
-    const errorMessage =
-      error instanceof Error ? error.message : "Unknown error";
-    let errorCode = "link_failed";
-
-    if (errorMessage.includes("ID token verification failed")) {
-      errorCode = "invalid_id_token";
-    } else if (errorMessage.includes("Missing id_token")) {
-      errorCode = "missing_id_token";
-    } else if (errorMessage.includes("ID token missing required")) {
-      errorCode = "incomplete_id_token";
-    } else if (errorMessage.includes("Missing access_token")) {
-      errorCode = "token_exchange_failed";
-    }
-
-    redirectUrl.searchParams.set("error", errorCode);
-    redirectUrl.searchParams.set("error_description", errorMessage);
-    response.cookies.delete(GOOGLE_LINKING_STATE_COOKIE_NAME);
-    return NextResponse.redirect(redirectUrl, { headers: response.headers });
+    return handleOAuthCallbackError({
+      error,
+      redirectUrl,
+      response,
+      stateCookieName: GOOGLE_LINKING_STATE_COOKIE_NAME,
+      logger,
+    });
   }
 });

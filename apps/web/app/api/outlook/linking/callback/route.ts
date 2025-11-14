@@ -7,6 +7,7 @@ import { captureException, SafeError } from "@/utils/error";
 import { validateOAuthCallback } from "@/utils/oauth/callback-validation";
 import { handleAccountLinking } from "@/utils/oauth/account-linking";
 import { mergeAccount } from "@/utils/user/merge-account";
+import { handleOAuthCallbackError } from "@/utils/oauth/error-handler";
 
 export const GET = withError("outlook/linking/callback", async (request) => {
   const logger = request.logger;
@@ -24,6 +25,7 @@ export const GET = withError("outlook/linking/callback", async (request) => {
     receivedState: searchParams.get("state"),
     storedState,
     stateCookieName: OUTLOOK_LINKING_STATE_COOKIE_NAME,
+    baseUrl: request.nextUrl.origin,
     logger,
   });
 
@@ -130,6 +132,7 @@ export const GET = withError("outlook/linking/callback", async (request) => {
       action,
       provider: "microsoft",
       providerEmail,
+      baseUrl: request.nextUrl.origin,
       logger,
     });
 
@@ -245,22 +248,12 @@ export const GET = withError("outlook/linking/callback", async (request) => {
       headers: response.headers,
     });
   } catch (error) {
-    logger.error("Error in Outlook linking callback:", { error });
-    const errorMessage =
-      error instanceof Error ? error.message : "Unknown error";
-    let errorCode = "link_failed";
-
-    if (errorMessage.includes("Failed to exchange code")) {
-      errorCode = "token_exchange_failed";
-    } else if (errorMessage.includes("Failed to fetch user profile")) {
-      errorCode = "profile_fetch_failed";
-    } else if (errorMessage.includes("Profile missing required")) {
-      errorCode = "incomplete_profile";
-    }
-
-    redirectUrl.searchParams.set("error", errorCode);
-    redirectUrl.searchParams.set("error_description", errorMessage);
-    response.cookies.delete(OUTLOOK_LINKING_STATE_COOKIE_NAME);
-    return NextResponse.redirect(redirectUrl, { headers: response.headers });
+    return handleOAuthCallbackError({
+      error,
+      redirectUrl,
+      response,
+      stateCookieName: OUTLOOK_LINKING_STATE_COOKIE_NAME,
+      logger,
+    });
   }
 });

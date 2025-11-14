@@ -7,6 +7,7 @@ interface ValidateCallbackParams {
   receivedState: string | null;
   storedState: string | undefined;
   stateCookieName: string;
+  baseUrl: string;
   logger: Logger;
 }
 
@@ -27,12 +28,10 @@ export function validateOAuthCallback({
   receivedState,
   storedState,
   stateCookieName,
+  baseUrl,
   logger,
 }: ValidateCallbackParams): ValidationResult {
-  const redirectUrl = new URL(
-    "/accounts",
-    process.env.NEXT_PUBLIC_BASE_URL || "",
-  );
+  const redirectUrl = new URL("/accounts", baseUrl);
   const response = NextResponse.redirect(redirectUrl);
 
   if (!storedState || !receivedState || storedState !== receivedState) {

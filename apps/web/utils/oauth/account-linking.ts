@@ -11,6 +11,7 @@ interface AccountLinkingParams {
   action: "auto" | "merge_confirmed";
   provider: "google" | "microsoft";
   providerEmail: string;
+  baseUrl: string;
   logger: Logger;
 }
 
@@ -22,16 +23,14 @@ export async function handleAccountLinking({
   action,
   provider,
   providerEmail,
+  baseUrl,
   logger,
 }: AccountLinkingParams): Promise<
   | { type: "continue_create" }
   | { type: "redirect"; response: NextResponse }
   | { type: "merge"; sourceAccountId: string; sourceUserId: string }
 > {
-  const redirectUrl = new URL(
-    "/accounts",
-    process.env.NEXT_PUBLIC_BASE_URL || "",
-  );
+  const redirectUrl = new URL("/accounts", baseUrl);
 
   if (existingAccountId && !hasEmailAccount) {
     logger.warn("Found orphaned Account, cleaning up", {
