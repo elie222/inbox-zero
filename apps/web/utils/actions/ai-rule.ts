@@ -98,6 +98,7 @@ export const runRulesAction = actionClient
         message,
         rules,
         emailAccount,
+        logger,
         modelType: "chat",
       });
 
@@ -135,6 +136,7 @@ export const testAiCustomContentAction = actionClient
       const result = await runRules({
         isTest: true,
         provider: emailProvider,
+        logger,
         message: {
           id: "testMessageId",
           threadId: "testThreadId",

@@ -98,6 +98,7 @@ export const POST = verifySignatureAppRouter(
       const executionResult = await executeScheduledAction(
         scheduledAction,
         provider,
+        logger,
       );
 
       if (executionResult.success) {
