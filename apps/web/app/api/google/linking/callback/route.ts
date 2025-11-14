@@ -1,18 +1,36 @@
-import { NextResponse } from "next/server";
 import { env } from "@/env";
 import prisma from "@/utils/prisma";
 import { getLinkingOAuth2Client } from "@/utils/gmail/client";
-import { GOOGLE_LINKING_STATE_COOKIE_NAME } from "@/utils/gmail/constants";
+import {
+  GOOGLE_LINKING_STATE_COOKIE_NAME,
+  GOOGLE_LINKING_STATE_RESULT_COOKIE_NAME,
+} from "@/utils/gmail/constants";
 import { withError } from "@/utils/middleware";
 import { validateOAuthCallback } from "@/utils/oauth/callback-validation";
 import { handleAccountLinking } from "@/utils/oauth/account-linking";
 import { mergeAccount } from "@/utils/user/merge-account";
 import { handleOAuthCallbackError } from "@/utils/oauth/error-handler";
+import {
+  checkOAuthCallbackDedupe,
+  buildOAuthSuccessRedirect,
+} from "@/utils/oauth/callback-helpers";
 
 export const GET = withError("google/linking/callback", async (request) => {
   const logger = request.logger;
 
+  const dedupeResponse = checkOAuthCallbackDedupe({
+    request,
+    stateCookieName: GOOGLE_LINKING_STATE_COOKIE_NAME,
+    resultCookieName: GOOGLE_LINKING_STATE_RESULT_COOKIE_NAME,
+    baseUrl: request.nextUrl.origin,
+  });
+
+  if (dedupeResponse) {
+    return dedupeResponse;
+  }
+
   const searchParams = request.nextUrl.searchParams;
+
   const storedState = request.cookies.get(
     GOOGLE_LINKING_STATE_COOKIE_NAME,
   )?.value;
@@ -30,10 +48,14 @@ export const GET = withError("google/linking/callback", async (request) => {
     return validation.response;
   }
 
+  const receivedState = searchParams.get("state");
+  if (!receivedState) {
+    throw new Error("Missing state parameter after validation");
+  }
+
   const { targetUserId, code } = validation;
-  const redirectUrl = new URL("/accounts", request.nextUrl.origin);
-  const response = NextResponse.redirect(redirectUrl);
-  response.cookies.delete(GOOGLE_LINKING_STATE_COOKIE_NAME);
+  const state = receivedState;
+  const baseRedirectUrl = new URL("/accounts", request.nextUrl.origin);
 
   const googleAuth = getLinkingOAuth2Client();
 
@@ -102,6 +124,10 @@ export const GET = withError("google/linking/callback", async (request) => {
     });
 
     if (linkingResult.type === "redirect") {
+      linkingResult.response.cookies.delete(GOOGLE_LINKING_STATE_COOKIE_NAME);
+      linkingResult.response.cookies.delete(
+        GOOGLE_LINKING_STATE_RESULT_COOKIE_NAME,
+      );
       return linkingResult.response;
     }
 
@@ -139,9 +165,12 @@ export const GET = withError("google/linking/callback", async (request) => {
         targetUserId,
         accountId: newAccount.id,
       });
-      redirectUrl.searchParams.set("success", "account_created_and_linked");
-      return NextResponse.redirect(redirectUrl, {
-        headers: response.headers,
+      return buildOAuthSuccessRedirect({
+        state,
+        params: { success: "account_created_and_linked" },
+        stateCookieName: GOOGLE_LINKING_STATE_COOKIE_NAME,
+        resultCookieName: GOOGLE_LINKING_STATE_RESULT_COOKIE_NAME,
+        baseUrl: request.nextUrl.origin,
       });
     }
 
@@ -173,16 +202,19 @@ export const GET = withError("google/linking/callback", async (request) => {
       mergeType,
     });
 
-    redirectUrl.searchParams.set("success", successMessage);
-    return NextResponse.redirect(redirectUrl, {
-      headers: response.headers,
+    return buildOAuthSuccessRedirect({
+      state,
+      params: { success: successMessage },
+      stateCookieName: GOOGLE_LINKING_STATE_COOKIE_NAME,
+      resultCookieName: GOOGLE_LINKING_STATE_RESULT_COOKIE_NAME,
+      baseUrl: request.nextUrl.origin,
     });
   } catch (error) {
     return handleOAuthCallbackError({
       error,
-      redirectUrl,
-      response,
+      redirectUrl: baseRedirectUrl,
       stateCookieName: GOOGLE_LINKING_STATE_COOKIE_NAME,
+      resultCookieName: GOOGLE_LINKING_STATE_RESULT_COOKIE_NAME,
       logger,
     });
   }
