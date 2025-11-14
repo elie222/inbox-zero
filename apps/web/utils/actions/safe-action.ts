@@ -2,6 +2,7 @@ import { createSafeActionClient } from "next-safe-action";
 import { withServerActionInstrumentation } from "@sentry/nextjs";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
+import { after } from "next/server";
 import { auth } from "@/utils/auth";
 import { createScopedLogger } from "@/utils/logger";
 import prisma from "@/utils/prisma";
@@ -54,6 +55,18 @@ const baseClient = createSafeActionClient({
 }).use(async ({ next, metadata }) => {
   const requestId = randomUUID();
   const logger = createScopedLogger(metadata.name).with({ requestId });
+
+  after(async () => {
+    await logger.flush().catch((error) => {
+      captureException(error, {
+        extra: {
+          action: metadata.name,
+          requestId,
+        },
+      });
+    });
+  });
+
   return next({ ctx: { logger } });
 });
 // .schema(z.object({}), {
