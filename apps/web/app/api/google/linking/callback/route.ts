@@ -5,9 +5,9 @@ import { createScopedLogger } from "@/utils/logger";
 import { getLinkingOAuth2Client } from "@/utils/gmail/client";
 import { GOOGLE_LINKING_STATE_COOKIE_NAME } from "@/utils/gmail/constants";
 import { withError } from "@/utils/middleware";
-import { transferPremiumDuringMerge } from "@/utils/user/merge-premium";
 import { parseOAuthState } from "@/utils/oauth/state";
 import { cleanupOrphanedAccount } from "@/utils/user/orphaned-account";
+import { mergeAccount } from "@/utils/user/merge-account";
 
 const logger = createScopedLogger("google/linking/callback");
 
@@ -77,9 +77,12 @@ export const GET = withError(async (request) => {
         throw new Error("Could not get payload from verified ID token ticket.");
       }
       payload = verifiedPayload;
-    } catch (err: any) {
-      logger.error("ID token verification failed using googleAuth:", err);
-      throw new Error(`ID token verification failed: ${err.message}`);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Unknown error";
+      logger.error("ID token verification failed using googleAuth:", {
+        error: err,
+      });
+      throw new Error(`ID token verification failed: ${message}`);
     }
 
     const providerAccountId = payload.sub;
@@ -229,29 +232,20 @@ export const GET = withError(async (request) => {
       targetUserId,
     });
 
-    // Transfer premium subscription before deleting the source user
-    await transferPremiumDuringMerge({
+    const mergeType = await mergeAccount({
+      sourceAccountId: existingAccount.id,
       sourceUserId: existingAccount.userId,
       targetUserId,
+      email: providerEmail,
+      name: existingAccount.user.name,
+      logger,
     });
 
-    await prisma.$transaction([
-      prisma.account.update({
-        where: { id: existingAccount.id },
-        data: { userId: targetUserId },
-      }),
-      prisma.emailAccount.update({
-        where: { accountId: existingAccount.id },
-        data: {
-          userId: targetUserId,
-          name: existingAccount.user.name,
-          email: providerEmail,
-        },
-      }),
-      prisma.user.delete({
-        where: { id: existingAccount.userId },
-      }),
-    ]);
+    const successMessage =
+      mergeType === "full_merge"
+        ? "account_merged"
+        : "account_created_and_linked";
+    redirectUrl.searchParams.set("success", successMessage);
 
     logger.info("Account re-assigned to user. Original user was different.", {
       providerAccountId,
@@ -262,23 +256,24 @@ export const GET = withError(async (request) => {
     return NextResponse.redirect(redirectUrl, {
       headers: response.headers,
     });
-  } catch (error: any) {
+  } catch (error) {
     logger.error("Error in Google linking callback:", { error });
+    const errorMessage =
+      error instanceof Error ? error.message : "Unknown error";
     let errorCode = "link_failed";
-    if (error.message?.includes("ID token verification failed")) {
+
+    if (errorMessage.includes("ID token verification failed")) {
       errorCode = "invalid_id_token";
-    } else if (error.message?.includes("Missing id_token")) {
+    } else if (errorMessage.includes("Missing id_token")) {
       errorCode = "missing_id_token";
-    } else if (error.message?.includes("ID token missing required")) {
+    } else if (errorMessage.includes("ID token missing required")) {
       errorCode = "incomplete_id_token";
-    } else if (error.message?.includes("Missing access_token")) {
+    } else if (errorMessage.includes("Missing access_token")) {
       errorCode = "token_exchange_failed";
     }
+
     redirectUrl.searchParams.set("error", errorCode);
-    redirectUrl.searchParams.set(
-      "error_description",
-      error.message || "Unknown error",
-    );
+    redirectUrl.searchParams.set("error_description", errorMessage);
     response.cookies.delete(GOOGLE_LINKING_STATE_COOKIE_NAME);
     return NextResponse.redirect(redirectUrl, { headers: response.headers });
   }

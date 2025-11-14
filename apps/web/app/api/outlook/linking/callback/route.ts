@@ -5,9 +5,9 @@ import { createScopedLogger } from "@/utils/logger";
 import { OUTLOOK_LINKING_STATE_COOKIE_NAME } from "@/utils/outlook/constants";
 import { withError } from "@/utils/middleware";
 import { captureException, SafeError } from "@/utils/error";
-import { transferPremiumDuringMerge } from "@/utils/user/merge-premium";
 import { parseOAuthState } from "@/utils/oauth/state";
 import { cleanupOrphanedAccount } from "@/utils/user/orphaned-account";
+import { mergeAccount } from "@/utils/user/merge-account";
 
 const logger = createScopedLogger("outlook/linking/callback");
 
@@ -305,29 +305,20 @@ export const GET = withError(async (request) => {
       targetUserId,
     });
 
-    // Transfer premium subscription before deleting the source user
-    await transferPremiumDuringMerge({
+    const mergeType = await mergeAccount({
+      sourceAccountId: existingAccount.id,
       sourceUserId: existingAccount.userId,
       targetUserId,
+      email: providerEmail,
+      name: existingAccount.user.name,
+      logger,
     });
 
-    await prisma.$transaction([
-      prisma.account.update({
-        where: { id: existingAccount.id },
-        data: { userId: targetUserId },
-      }),
-      prisma.emailAccount.update({
-        where: { accountId: existingAccount.id },
-        data: {
-          userId: targetUserId,
-          name: existingAccount.user.name,
-          email: providerEmail,
-        },
-      }),
-      prisma.user.delete({
-        where: { id: existingAccount.userId },
-      }),
-    ]);
+    const successMessage =
+      mergeType === "full_merge"
+        ? "account_merged"
+        : "account_created_and_linked";
+    redirectUrl.searchParams.set("success", successMessage);
 
     logger.info("Account re-assigned to user.", {
       email: providerEmail,
@@ -338,21 +329,22 @@ export const GET = withError(async (request) => {
     return NextResponse.redirect(redirectUrl, {
       headers: response.headers,
     });
-  } catch (error: any) {
+  } catch (error) {
     logger.error("Error in Outlook linking callback:", { error });
+    const errorMessage =
+      error instanceof Error ? error.message : "Unknown error";
     let errorCode = "link_failed";
-    if (error.message?.includes("Failed to exchange code")) {
+
+    if (errorMessage.includes("Failed to exchange code")) {
       errorCode = "token_exchange_failed";
-    } else if (error.message?.includes("Failed to fetch user profile")) {
+    } else if (errorMessage.includes("Failed to fetch user profile")) {
       errorCode = "profile_fetch_failed";
-    } else if (error.message?.includes("Profile missing required")) {
+    } else if (errorMessage.includes("Profile missing required")) {
       errorCode = "incomplete_profile";
     }
+
     redirectUrl.searchParams.set("error", errorCode);
-    redirectUrl.searchParams.set(
-      "error_description",
-      error.message || "Unknown error",
-    );
+    redirectUrl.searchParams.set("error_description", errorMessage);
     response.cookies.delete(OUTLOOK_LINKING_STATE_COOKIE_NAME);
     return NextResponse.redirect(redirectUrl, { headers: response.headers });
   }
