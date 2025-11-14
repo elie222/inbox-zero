@@ -73,13 +73,16 @@ import { createScopedLogger, type Logger } from "@/utils/logger";
 import { extractEmailAddress } from "@/utils/email";
 import { getGmailSignatures } from "@/utils/gmail/signature-settings";
 
-const logger = createScopedLogger("gmail-provider");
-
 export class GmailProvider implements EmailProvider {
   readonly name = "google";
   private readonly client: gmail_v1.Gmail;
-  constructor(client: gmail_v1.Gmail) {
+  private readonly logger: Logger;
+
+  constructor(client: gmail_v1.Gmail, logger?: Logger) {
     this.client = client;
+    this.logger = (logger || createScopedLogger("gmail-provider")).with({
+      provider: "google",
+    });
   }
 
   toJSON() {
@@ -241,7 +244,7 @@ export class GmailProvider implements EmailProvider {
   }
 
   async archiveMessage(messageId: string): Promise<void> {
-    const log = logger.with({
+    const log = this.logger.with({
       action: "archiveMessage",
       messageId,
     });
@@ -265,7 +268,7 @@ export class GmailProvider implements EmailProvider {
   }
 
   private async archiveMessagesBulk(messageIds: string[]): Promise<void> {
-    const log = logger.with({
+    const log = this.logger.with({
       action: "archiveMessagesBulk",
       messageIds: messageIds,
     });
@@ -292,7 +295,7 @@ export class GmailProvider implements EmailProvider {
     ownerEmail: string,
     emailAccountId: string,
   ): Promise<void> {
-    const log = logger.with({
+    const log = this.logger.with({
       action: "archiveMessagesFromSenders",
       emailAccountId,
       email: ownerEmail,
@@ -374,7 +377,7 @@ export class GmailProvider implements EmailProvider {
     ownerEmail: string,
     emailAccountId: string,
   ): Promise<void> {
-    const log = logger.with({
+    const log = this.logger.with({
       action: "bulkTrashFromSenders",
       emailAccountId,
       email: ownerEmail,
@@ -524,7 +527,7 @@ export class GmailProvider implements EmailProvider {
     labelId: string;
     labelName: string | null;
   }): Promise<{ usedFallback?: boolean; actualLabelId?: string }> {
-    const log = logger.with({
+    const log = this.logger.with({
       action: "labelMessage",
       messageId,
       labelId,
@@ -586,7 +589,7 @@ export class GmailProvider implements EmailProvider {
     userEmail: string,
     executedRule?: { id: string; threadId: string; emailAccountId: string },
   ): Promise<{ draftId: string }> {
-    const log = logger.with({
+    const log = this.logger.with({
       action: "draftEmail",
       email: userEmail,
       executedRuleId: executedRule?.id,
@@ -672,7 +675,7 @@ export class GmailProvider implements EmailProvider {
   }
 
   async blockUnsubscribedEmail(messageId: string): Promise<void> {
-    const log = logger.with({
+    const log = this.logger.with({
       action: "blockUnsubscribedEmail",
       messageId,
     });
@@ -964,7 +967,7 @@ export class GmailProvider implements EmailProvider {
   }
 
   async checkIfReplySent(senderEmail: string): Promise<boolean> {
-    const log = logger.with({
+    const log = this.logger.with({
       action: "checkIfReplySent",
       sender: senderEmail,
     });
@@ -990,7 +993,7 @@ export class GmailProvider implements EmailProvider {
     senderEmail: string,
     threshold: number,
   ): Promise<number> {
-    const log = logger.with({
+    const log = this.logger.with({
       action: "countReceivedMessages",
       sender: senderEmail,
       threshold,
@@ -1195,7 +1198,7 @@ export class GmailProvider implements EmailProvider {
       {
         startHistoryId: options.startHistoryId?.toString(),
       },
-      options.logger || logger,
+      options.logger || this.logger,
     );
   }
 
@@ -1226,7 +1229,7 @@ export class GmailProvider implements EmailProvider {
   }
 
   async getFolders() {
-    logger.warn("Getting folders is not supported for Gmail");
+    this.logger.warn("Getting folders is not supported for Gmail");
     return [];
   }
 
@@ -1235,11 +1238,11 @@ export class GmailProvider implements EmailProvider {
     _ownerEmail: string,
     _folderName: string,
   ): Promise<void> {
-    logger.warn("Moving thread to folder is not supported for Gmail");
+    this.logger.warn("Moving thread to folder is not supported for Gmail");
   }
 
   async getOrCreateOutlookFolderIdByName(_folderName: string): Promise<string> {
-    logger.warn("Moving thread to folder is not supported for Gmail");
+    this.logger.warn("Moving thread to folder is not supported for Gmail");
     return "";
   }
 

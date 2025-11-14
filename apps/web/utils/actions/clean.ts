@@ -51,6 +51,7 @@ export const cleanInboxAction = actionClient
       const emailProvider = await createEmailProvider({
         emailAccountId,
         provider,
+        logger,
       });
 
       const [markedDoneLabel, processedLabel] = await Promise.all([

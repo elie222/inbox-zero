@@ -13,12 +13,13 @@ export const bulkArchiveAction = actionClient
   )
   .action(
     async ({
-      ctx: { emailAccountId, provider, emailAccount },
+      ctx: { emailAccountId, provider, emailAccount, logger },
       parsedInput: { froms },
     }) => {
       const emailProvider = await createEmailProvider({
         emailAccountId,
         provider,
+        logger,
       });
 
       await emailProvider.bulkArchiveFromSenders(
@@ -38,12 +39,13 @@ export const bulkTrashAction = actionClient
   )
   .action(
     async ({
-      ctx: { emailAccountId, provider, emailAccount },
+      ctx: { emailAccountId, provider, emailAccount, logger },
       parsedInput: { froms },
     }) => {
       const emailProvider = await createEmailProvider({
         emailAccountId,
         provider,
+        logger,
       });
 
       await emailProvider.bulkTrashFromSenders(

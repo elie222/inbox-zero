@@ -45,6 +45,7 @@ export const loadEmailStatsAction = actionClient
       const emailProvider = await createEmailProvider({
         emailAccountId,
         provider: emailAccount.account.provider,
+        logger,
       });
 
       await loadEmails(

@@ -674,6 +674,7 @@ async function getActionsFromCategoryAction({
   const emailProvider = await createEmailProvider({
     emailAccountId,
     provider,
+    logger,
   });
 
   const { label: labelName, labelId } = await resolveLabelNameAndId({

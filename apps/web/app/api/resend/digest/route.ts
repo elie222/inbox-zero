@@ -123,6 +123,7 @@ async function sendEmail({
   const emailProvider = await createEmailProvider({
     emailAccountId,
     provider: emailAccount.account.provider,
+    logger,
   });
 
   const digestScheduleData = await getDigestSchedule({ emailAccountId });

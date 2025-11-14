@@ -174,6 +174,7 @@ async function watchEmailAccount(
   const provider = await createEmailProvider({
     emailAccountId: emailAccount.id,
     provider: account.provider,
+    logger,
   });
 
   const result = await watchEmails({

@@ -21,10 +21,8 @@ import { aiDiffRules } from "@/utils/ai/rule/diff-rules";
 import { aiFindExistingRules } from "@/utils/ai/rule/find-existing-rules";
 import { aiGenerateRulesPrompt } from "@/utils/ai/rule/generate-rules-prompt";
 import { aiFindSnippets } from "@/utils/ai/snippets/find-snippets";
-import type { CreateOrUpdateRuleSchema } from "@/utils/ai/rule/create-rule-schema";
 import { createRule, updateRule, deleteRule } from "@/utils/rule/rule";
 import { actionClient } from "@/utils/actions/safe-action";
-import type { Logger } from "@/utils/logger";
 import { getEmailAccountWithAi } from "@/utils/user/get";
 import { SafeError } from "@/utils/error";
 import { createEmailProvider } from "@/utils/email/provider";
@@ -33,7 +31,7 @@ import type { CreateRuleResult } from "@/utils/rule/types";
 
 export const runRulesAction = actionClient
   .metadata({ name: "runRules" })
-  .schema(runRulesBody)
+  .inputSchema(runRulesBody)
   .action(
     async ({
       ctx: { emailAccountId, provider, logger: ctxLogger },
@@ -49,6 +47,7 @@ export const runRulesAction = actionClient
       const emailProvider = await createEmailProvider({
         emailAccountId,
         provider,
+        logger,
       });
       const message = await emailProvider.getMessage(messageId);
 
@@ -108,9 +107,12 @@ export const runRulesAction = actionClient
 
 export const testAiCustomContentAction = actionClient
   .metadata({ name: "testAiCustomContent" })
-  .schema(testAiCustomContentBody)
+  .inputSchema(testAiCustomContentBody)
   .action(
-    async ({ ctx: { emailAccountId, provider }, parsedInput: { content } }) => {
+    async ({
+      ctx: { emailAccountId, provider, logger },
+      parsedInput: { content },
+    }) => {
       const emailAccount = await getEmailAccountWithAi({ emailAccountId });
 
       if (!emailAccount) throw new SafeError("Email account not found");
@@ -118,6 +120,7 @@ export const testAiCustomContentAction = actionClient
       const emailProvider = await createEmailProvider({
         emailAccountId,
         provider,
+        logger,
       });
 
       const rules = await prisma.rule.findMany({
@@ -160,7 +163,7 @@ export const testAiCustomContentAction = actionClient
 
 export const setRuleRunOnThreadsAction = actionClient
   .metadata({ name: "setRuleRunOnThreads" })
-  .schema(z.object({ ruleId: z.string(), runOnThreads: z.boolean() }))
+  .inputSchema(z.object({ ruleId: z.string(), runOnThreads: z.boolean() }))
   .action(
     async ({
       ctx: { emailAccountId },
@@ -189,7 +192,7 @@ export const setRuleRunOnThreadsAction = actionClient
  */
 export const saveRulesPromptAction = actionClient
   .metadata({ name: "saveRulesPrompt" })
-  .schema(saveRulesPromptBody)
+  .inputSchema(saveRulesPromptBody)
   .action(
     async ({
       ctx: { emailAccountId, logger },
@@ -428,7 +431,7 @@ export const saveRulesPromptAction = actionClient
 
 export const createRulesAction = actionClient
   .metadata({ name: "createRules" })
-  .schema(createRulesBody)
+  .inputSchema(createRulesBody)
   .action(
     async ({ ctx: { emailAccountId, logger }, parsedInput: { prompt } }) => {
       const emailAccount = await prisma.emailAccount.findUnique({
@@ -523,7 +526,7 @@ export const createRulesAction = actionClient
  */
 export const generateRulesPromptAction = actionClient
   .metadata({ name: "generateRulesPrompt" })
-  .schema(z.object({}))
+  .inputSchema(z.object({}))
   .action(async ({ ctx: { emailAccountId, provider } }) => {
     const emailAccount = await getEmailAccountWithAi({ emailAccountId });
 

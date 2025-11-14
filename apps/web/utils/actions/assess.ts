@@ -12,10 +12,11 @@ import { SafeError } from "@/utils/error";
 // to help with onboarding and provide the best flow to new users
 export const assessAction = actionClient
   .metadata({ name: "assessUser" })
-  .action(async ({ ctx: { emailAccountId, provider } }) => {
+  .action(async ({ ctx: { emailAccountId, provider, logger } }) => {
     const emailProvider = await createEmailProvider({
       emailAccountId,
       provider,
+      logger,
     });
 
     const emailAccount = await prisma.emailAccount.findUnique({
@@ -36,7 +37,7 @@ export const assessAction = actionClient
 
 export const analyzeWritingStyleAction = actionClient
   .metadata({ name: "analyzeWritingStyle" })
-  .action(async ({ ctx: { emailAccountId, provider } }) => {
+  .action(async ({ ctx: { emailAccountId, provider, logger } }) => {
     const emailAccount = await prisma.emailAccount.findUnique({
       where: { id: emailAccountId },
       select: {
@@ -58,6 +59,7 @@ export const analyzeWritingStyleAction = actionClient
     const emailProvider = await createEmailProvider({
       emailAccountId,
       provider,
+      logger,
     });
     const sentMessages = await emailProvider.getSentMessages(20);
 

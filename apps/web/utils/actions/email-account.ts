@@ -37,7 +37,7 @@ export const updateEmailAccountRoleAction = actionClient
 
 export const analyzePersonaAction = actionClient
   .metadata({ name: "analyzePersona" })
-  .action(async ({ ctx: { emailAccountId, provider } }) => {
+  .action(async ({ ctx: { emailAccountId, provider, logger } }) => {
     const existingPersona = await prisma.emailAccount.findUnique({
       where: { id: emailAccountId },
       select: { personaAnalysis: true },
@@ -58,6 +58,7 @@ export const analyzePersonaAction = actionClient
     const emailProvider = await createEmailProvider({
       emailAccountId,
       provider,
+      logger,
     });
 
     const messagesResponse = await emailProvider.getMessagesWithPagination({
@@ -106,10 +107,11 @@ export const updateReferralSignatureAction = actionClient
 
 export const fetchSignaturesFromProviderAction = actionClient
   .metadata({ name: "fetchSignaturesFromProvider" })
-  .action(async ({ ctx: { emailAccountId, provider } }) => {
+  .action(async ({ ctx: { emailAccountId, provider, logger } }) => {
     const emailProvider = await createEmailProvider({
       emailAccountId,
       provider,
+      logger,
     });
 
     const signatures = await emailProvider.getSignatures();

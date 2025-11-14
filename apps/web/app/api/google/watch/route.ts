@@ -27,6 +27,7 @@ export const GET = withAuth("google/watch", async (request) => {
       const emailProvider = await createEmailProvider({
         emailAccountId,
         provider: "google",
+        logger: request.logger,
       });
       const expirationDate = await watchEmails({
         emailAccountId,

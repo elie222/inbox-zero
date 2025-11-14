@@ -290,14 +290,13 @@ async function emailProviderMiddleware(
     const provider = await createEmailProvider({
       emailAccountId: emailAccount.id,
       provider: emailAccount.account.provider,
+      logger: emailAccountReq.logger,
     });
 
     const providerReq = emailAccountReq.clone() as RequestWithEmailProvider;
     providerReq.auth = emailAccountReq.auth;
     providerReq.emailProvider = provider;
-    providerReq.logger = emailAccountReq.logger.with({
-      provider: emailAccount.account.provider,
-    });
+    providerReq.logger = emailAccountReq.logger;
 
     return providerReq;
   } catch (error) {
