@@ -114,7 +114,7 @@ export const GET = withError(async (request) => {
         targetUserId,
       });
 
-      await cleanupOrphanedAccount(existingAccount.id);
+      await cleanupOrphanedAccount(existingAccount.id, logger);
     }
 
     const hasValidAccount = existingAccount?.emailAccount;
@@ -245,14 +245,15 @@ export const GET = withError(async (request) => {
       mergeType === "full_merge"
         ? "account_merged"
         : "account_created_and_linked";
-    redirectUrl.searchParams.set("success", successMessage);
 
     logger.info("Account re-assigned to user. Original user was different.", {
       providerAccountId,
       targetUserId,
       originalUserId: existingAccount.userId,
+      mergeType,
     });
-    redirectUrl.searchParams.set("success", "account_merged");
+
+    redirectUrl.searchParams.set("success", successMessage);
     return NextResponse.redirect(redirectUrl, {
       headers: response.headers,
     });
