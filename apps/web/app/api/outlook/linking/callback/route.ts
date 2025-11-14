@@ -5,8 +5,8 @@ import { createScopedLogger } from "@/utils/logger";
 import { OUTLOOK_LINKING_STATE_COOKIE_NAME } from "@/utils/outlook/constants";
 import { withError } from "@/utils/middleware";
 import { captureException, SafeError } from "@/utils/error";
-import { parseOAuthState } from "@/utils/oauth/state";
-import { cleanupOrphanedAccount } from "@/utils/user/orphaned-account";
+import { validateOAuthCallback } from "@/utils/oauth/callback-validation";
+import { handleAccountLinking } from "@/utils/oauth/account-linking";
 import { mergeAccount } from "@/utils/user/merge-account";
 
 const logger = createScopedLogger("outlook/linking/callback");
@@ -16,48 +16,26 @@ export const GET = withError(async (request) => {
     throw new SafeError("Microsoft login not enabled");
 
   const searchParams = request.nextUrl.searchParams;
-  const code = searchParams.get("code");
-  const receivedState = searchParams.get("state");
   const storedState = request.cookies.get(
     OUTLOOK_LINKING_STATE_COOKIE_NAME,
   )?.value;
 
+  const validation = validateOAuthCallback({
+    code: searchParams.get("code"),
+    receivedState: searchParams.get("state"),
+    storedState,
+    stateCookieName: OUTLOOK_LINKING_STATE_COOKIE_NAME,
+    logger,
+  });
+
+  if (!validation.success) {
+    return validation.response;
+  }
+
+  const { targetUserId, action, code } = validation;
   const redirectUrl = new URL("/accounts", request.nextUrl.origin);
   const response = NextResponse.redirect(redirectUrl);
-
-  if (!storedState || !receivedState || storedState !== receivedState) {
-    logger.warn("Invalid state during Outlook linking callback", {
-      receivedState,
-      hasStoredState: !!storedState,
-    });
-    redirectUrl.searchParams.set("error", "invalid_state");
-    response.cookies.delete(OUTLOOK_LINKING_STATE_COOKIE_NAME);
-    return NextResponse.redirect(redirectUrl, { headers: response.headers });
-  }
-
-  let decodedState: {
-    userId: string;
-    action: "auto" | "merge_confirmed";
-    nonce: string;
-  };
-  try {
-    decodedState = parseOAuthState(storedState);
-  } catch (error) {
-    logger.error("Failed to decode state", { error });
-    redirectUrl.searchParams.set("error", "invalid_state_format");
-    response.cookies.delete(OUTLOOK_LINKING_STATE_COOKIE_NAME);
-    return NextResponse.redirect(redirectUrl, { headers: response.headers });
-  }
-
   response.cookies.delete(OUTLOOK_LINKING_STATE_COOKIE_NAME);
-
-  const { userId: targetUserId, action } = decodedState;
-
-  if (!code) {
-    logger.warn("Missing code in Outlook linking callback");
-    redirectUrl.searchParams.set("error", "missing_code");
-    return NextResponse.redirect(redirectUrl, { headers: response.headers });
-  }
 
   try {
     // Exchange code for tokens
@@ -112,7 +90,6 @@ export const GET = withError(async (request) => {
       throw new Error("Profile missing required email");
     }
 
-    // First, check if Account exists by providerAccountId (handles orphaned accounts)
     const existingAccountByProviderId = await prisma.account.findUnique({
       where: {
         provider_providerAccountId: {
@@ -128,7 +105,6 @@ export const GET = withError(async (request) => {
       },
     });
 
-    // Also check by email (for accounts that may have different providerAccountIds)
     const existingAccountByEmail = await prisma.account.findFirst({
       where: {
         provider: "microsoft",
@@ -147,154 +123,95 @@ export const GET = withError(async (request) => {
     const existingAccount =
       existingAccountByProviderId || existingAccountByEmail;
 
-    if (existingAccount && !existingAccount.emailAccount) {
-      logger.warn("Found orphaned Account, cleaning up", {
-        orphanedAccountId: existingAccount.id,
-        orphanedUserId: existingAccount.userId,
-        email: providerEmail,
-        targetUserId,
-      });
+    const linkingResult = await handleAccountLinking({
+      existingAccountId: existingAccount?.id || null,
+      hasEmailAccount: !!existingAccount?.emailAccount,
+      existingUserId: existingAccount?.userId || null,
+      targetUserId,
+      action,
+      provider: "microsoft",
+      providerEmail,
+      logger,
+    });
 
-      await cleanupOrphanedAccount(existingAccount.id, logger);
+    if (linkingResult.type === "redirect") {
+      return linkingResult.response;
     }
 
-    const hasValidAccount = existingAccount?.emailAccount;
-
-    if (!hasValidAccount) {
-      if (action === "auto") {
-        const existingEmailAccount = await prisma.emailAccount.findUnique({
-          where: { email: providerEmail.trim().toLowerCase() },
-          select: { userId: true, email: true },
-        });
-
-        if (
-          existingEmailAccount &&
-          existingEmailAccount.userId !== targetUserId
-        ) {
-          logger.warn(
-            "Create Failed: Microsoft account with this email already exists for a different user.",
-            {
-              email: providerEmail,
-              existingUserId: existingEmailAccount.userId,
-              targetUserId,
-            },
-          );
-          redirectUrl.searchParams.set(
-            "error",
-            "account_already_exists_use_merge",
-          );
-          return NextResponse.redirect(redirectUrl, {
-            headers: response.headers,
-          });
-        }
-
-        logger.info(
-          "Creating new Microsoft account and linking to current user",
-          {
-            email: providerEmail,
-            targetUserId,
-          },
-        );
-
-        let expiresAt: Date | null = null;
-        if (tokens.expires_at) {
-          expiresAt = new Date(tokens.expires_at * 1000);
-        } else if (tokens.expires_in) {
-          const expiresInSeconds =
-            typeof tokens.expires_in === "string"
-              ? Number.parseInt(tokens.expires_in, 10)
-              : tokens.expires_in;
-          expiresAt = new Date(Date.now() + expiresInSeconds * 1000);
-        }
-
-        const newAccount = await prisma.account.create({
-          data: {
-            userId: targetUserId,
-            type: "oidc",
-            provider: "microsoft",
-            providerAccountId: profile.id || providerEmail,
-            access_token: tokens.access_token,
-            refresh_token: tokens.refresh_token,
-            expires_at: expiresAt,
-            scope: tokens.scope,
-            token_type: tokens.token_type,
-          },
-        });
-
-        let profileImage = null;
-        try {
-          const photoResponse = await fetch(
-            "https://graph.microsoft.com/v1.0/me/photo/$value",
-            {
-              headers: {
-                Authorization: `Bearer ${tokens.access_token}`,
-              },
-            },
-          );
-
-          if (photoResponse.ok) {
-            const photoBuffer = await photoResponse.arrayBuffer();
-            const photoBase64 = Buffer.from(photoBuffer).toString("base64");
-            profileImage = `data:image/jpeg;base64,${photoBase64}`;
-          }
-        } catch (error) {
-          logger.warn("Failed to fetch profile picture", { error });
-        }
-
-        await prisma.emailAccount.create({
-          data: {
-            email: providerEmail,
-            userId: targetUserId,
-            accountId: newAccount.id,
-            name:
-              profile.displayName ||
-              profile.givenName ||
-              profile.surname ||
-              providerEmail,
-            image: profileImage,
-          },
-        });
-
-        logger.info("Successfully created and linked new Microsoft account", {
-          email: providerEmail,
-          targetUserId,
-          accountId: newAccount.id,
-        });
-        redirectUrl.searchParams.set("success", "account_created_and_linked");
-        return NextResponse.redirect(redirectUrl, {
-          headers: response.headers,
-        });
-      }
-    }
-
-    if (existingAccount?.userId === targetUserId) {
-      logger.warn("Microsoft account is already linked to the correct user.", {
-        email: providerEmail,
-        targetUserId,
-      });
-      redirectUrl.searchParams.set("error", "already_linked_to_self");
-      return NextResponse.redirect(redirectUrl, {
-        headers: response.headers,
-      });
-    }
-
-    if (!existingAccount) {
-      throw new Error("Unexpected state: existingAccount should exist");
-    }
-
-    if (action === "auto") {
+    if (linkingResult.type === "continue_create") {
       logger.info(
-        "Account exists for different user, requesting merge confirmation",
+        "Creating new Microsoft account and linking to current user",
         {
           email: providerEmail,
-          existingUserId: existingAccount.userId,
           targetUserId,
         },
       );
 
-      redirectUrl.searchParams.set("confirm_merge", "true");
-      redirectUrl.searchParams.set("provider", "microsoft");
-      redirectUrl.searchParams.set("email", providerEmail);
+      let expiresAt: Date | null = null;
+      if (tokens.expires_at) {
+        expiresAt = new Date(tokens.expires_at * 1000);
+      } else if (tokens.expires_in) {
+        const expiresInSeconds =
+          typeof tokens.expires_in === "string"
+            ? Number.parseInt(tokens.expires_in, 10)
+            : tokens.expires_in;
+        expiresAt = new Date(Date.now() + expiresInSeconds * 1000);
+      }
+
+      const newAccount = await prisma.account.create({
+        data: {
+          userId: targetUserId,
+          type: "oidc",
+          provider: "microsoft",
+          providerAccountId: profile.id || providerEmail,
+          access_token: tokens.access_token,
+          refresh_token: tokens.refresh_token,
+          expires_at: expiresAt,
+          scope: tokens.scope,
+          token_type: tokens.token_type,
+        },
+      });
+
+      let profileImage = null;
+      try {
+        const photoResponse = await fetch(
+          "https://graph.microsoft.com/v1.0/me/photo/$value",
+          {
+            headers: {
+              Authorization: `Bearer ${tokens.access_token}`,
+            },
+          },
+        );
+
+        if (photoResponse.ok) {
+          const photoBuffer = await photoResponse.arrayBuffer();
+          const photoBase64 = Buffer.from(photoBuffer).toString("base64");
+          profileImage = `data:image/jpeg;base64,${photoBase64}`;
+        }
+      } catch (error) {
+        logger.warn("Failed to fetch profile picture", { error });
+      }
+
+      await prisma.emailAccount.create({
+        data: {
+          email: providerEmail,
+          userId: targetUserId,
+          accountId: newAccount.id,
+          name:
+            profile.displayName ||
+            profile.givenName ||
+            profile.surname ||
+            providerEmail,
+          image: profileImage,
+        },
+      });
+
+      logger.info("Successfully created and linked new Microsoft account", {
+        email: providerEmail,
+        targetUserId,
+        accountId: newAccount.id,
+      });
+      redirectUrl.searchParams.set("success", "account_created_and_linked");
       return NextResponse.redirect(redirectUrl, {
         headers: response.headers,
       });
@@ -306,11 +223,11 @@ export const GET = withError(async (request) => {
     });
 
     const mergeType = await mergeAccount({
-      sourceAccountId: existingAccount.id,
-      sourceUserId: existingAccount.userId,
+      sourceAccountId: linkingResult.sourceAccountId,
+      sourceUserId: linkingResult.sourceUserId,
       targetUserId,
       email: providerEmail,
-      name: existingAccount.user.name,
+      name: existingAccount?.user.name || null,
       logger,
     });
 
@@ -322,7 +239,7 @@ export const GET = withError(async (request) => {
     logger.info("Account re-assigned to user.", {
       email: providerEmail,
       targetUserId,
-      sourceUserId: existingAccount.userId,
+      sourceUserId: linkingResult.sourceUserId,
       mergeType,
     });
 
