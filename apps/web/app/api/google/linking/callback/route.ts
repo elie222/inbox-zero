@@ -7,6 +7,7 @@ import { GOOGLE_LINKING_STATE_COOKIE_NAME } from "@/utils/gmail/constants";
 import { withError } from "@/utils/middleware";
 import { transferPremiumDuringMerge } from "@/utils/user/merge-premium";
 import { parseOAuthState } from "@/utils/oauth/state";
+import { cleanupOrphanedAccount } from "@/utils/user/orphaned-account";
 
 const logger = createScopedLogger("google/linking/callback");
 
@@ -31,7 +32,11 @@ export const GET = withError(async (request) => {
     return NextResponse.redirect(redirectUrl, { headers: response.headers });
   }
 
-  let decodedState: { userId: string; intent?: string; nonce: string };
+  let decodedState: {
+    userId: string;
+    action: "auto" | "merge_confirmed";
+    nonce: string;
+  };
   try {
     decodedState = parseOAuthState(storedState);
   } catch (error) {
@@ -43,7 +48,7 @@ export const GET = withError(async (request) => {
 
   response.cookies.delete(GOOGLE_LINKING_STATE_COOKIE_NAME);
 
-  const { userId: targetUserId } = decodedState;
+  const { userId: targetUserId, action } = decodedState;
 
   if (!code) {
     logger.warn("Missing code in Google linking callback");
@@ -94,45 +99,135 @@ export const GET = withError(async (request) => {
         id: true,
         userId: true,
         user: { select: { name: true, email: true } },
+        emailAccount: true,
       },
     });
 
-    if (!existingAccount) {
-      logger.warn(
-        "Merge Failed: Google account not found in the system. Cannot merge.",
-        {
-          email: providerEmail,
-          providerAccountId,
-        },
-      );
-      redirectUrl.searchParams.set("error", "account_not_found_for_merge");
-      return NextResponse.redirect(redirectUrl, { headers: response.headers });
+    if (existingAccount && !existingAccount.emailAccount) {
+      logger.warn("Found orphaned Account, cleaning up", {
+        orphanedAccountId: existingAccount.id,
+        orphanedUserId: existingAccount.userId,
+        email: providerEmail,
+        targetUserId,
+      });
+
+      await cleanupOrphanedAccount(existingAccount.id);
     }
 
-    if (existingAccount.userId === targetUserId) {
-      logger.warn(
-        "Google account is already linked to the correct user. Merge action unnecessary.",
-        {
+    const hasValidAccount = existingAccount?.emailAccount;
+
+    if (!hasValidAccount) {
+      if (action === "auto") {
+        const existingEmailAccount = await prisma.emailAccount.findUnique({
+          where: { email: providerEmail.trim().toLowerCase() },
+          select: { userId: true, email: true },
+        });
+
+        if (
+          existingEmailAccount &&
+          existingEmailAccount.userId !== targetUserId
+        ) {
+          logger.warn(
+            "Create Failed: Google account with this email already exists for a different user.",
+            {
+              email: providerEmail,
+              existingUserId: existingEmailAccount.userId,
+              targetUserId,
+            },
+          );
+          redirectUrl.searchParams.set(
+            "error",
+            "account_already_exists_use_merge",
+          );
+          return NextResponse.redirect(redirectUrl, {
+            headers: response.headers,
+          });
+        }
+
+        logger.info("Creating new Google account and linking to current user", {
           email: providerEmail,
-          providerAccountId,
-          userId: targetUserId,
-        },
-      );
+          targetUserId,
+        });
+
+        const newAccount = await prisma.account.create({
+          data: {
+            userId: targetUserId,
+            type: "oidc",
+            provider: "google",
+            providerAccountId,
+            access_token: tokens.access_token,
+            refresh_token: tokens.refresh_token,
+            expires_at: tokens.expiry_date
+              ? new Date(tokens.expiry_date)
+              : null,
+            scope: tokens.scope,
+            token_type: tokens.token_type,
+            id_token: tokens.id_token,
+          },
+        });
+
+        await prisma.emailAccount.create({
+          data: {
+            email: providerEmail,
+            userId: targetUserId,
+            accountId: newAccount.id,
+            name: payload.name || providerEmail,
+            image: payload.picture,
+          },
+        });
+
+        logger.info("Successfully created and linked new Google account", {
+          email: providerEmail,
+          targetUserId,
+          accountId: newAccount.id,
+        });
+        redirectUrl.searchParams.set("success", "account_created_and_linked");
+        return NextResponse.redirect(redirectUrl, {
+          headers: response.headers,
+        });
+      }
+    }
+
+    if (existingAccount?.userId === targetUserId) {
+      logger.warn("Google account is already linked to the correct user.", {
+        email: providerEmail,
+        providerAccountId,
+        userId: targetUserId,
+      });
       redirectUrl.searchParams.set("error", "already_linked_to_self");
       return NextResponse.redirect(redirectUrl, {
         headers: response.headers,
       });
     }
 
-    logger.info(
-      "Merging Google account linked to user, merging into target user.",
-      {
-        email: providerEmail,
-        providerAccountId,
-        existingUserId: existingAccount.userId,
-        targetUserId,
-      },
-    );
+    if (!existingAccount) {
+      throw new Error("Unexpected state: existingAccount should exist");
+    }
+
+    if (action === "auto") {
+      logger.info(
+        "Account exists for different user, requesting merge confirmation",
+        {
+          email: providerEmail,
+          existingUserId: existingAccount.userId,
+          targetUserId,
+        },
+      );
+
+      redirectUrl.searchParams.set("confirm_merge", "true");
+      redirectUrl.searchParams.set("provider", "google");
+      redirectUrl.searchParams.set("email", providerEmail);
+      return NextResponse.redirect(redirectUrl, {
+        headers: response.headers,
+      });
+    }
+
+    logger.info("Merging Google account (user confirmed).", {
+      email: providerEmail,
+      providerAccountId,
+      existingUserId: existingAccount.userId,
+      targetUserId,
+    });
 
     // Transfer premium subscription before deleting the source user
     await transferPremiumDuringMerge({

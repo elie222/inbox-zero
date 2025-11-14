@@ -7,6 +7,7 @@ import { withError } from "@/utils/middleware";
 import { captureException, SafeError } from "@/utils/error";
 import { transferPremiumDuringMerge } from "@/utils/user/merge-premium";
 import { parseOAuthState } from "@/utils/oauth/state";
+import { cleanupOrphanedAccount } from "@/utils/user/orphaned-account";
 
 const logger = createScopedLogger("outlook/linking/callback");
 
@@ -34,7 +35,11 @@ export const GET = withError(async (request) => {
     return NextResponse.redirect(redirectUrl, { headers: response.headers });
   }
 
-  let decodedState: { userId: string; action: string; nonce: string };
+  let decodedState: {
+    userId: string;
+    action: "auto" | "merge_confirmed";
+    nonce: string;
+  };
   try {
     decodedState = parseOAuthState(storedState);
   } catch (error) {
@@ -107,7 +112,24 @@ export const GET = withError(async (request) => {
       throw new Error("Profile missing required email");
     }
 
-    const existingAccount = await prisma.account.findFirst({
+    // First, check if Account exists by providerAccountId (handles orphaned accounts)
+    const existingAccountByProviderId = await prisma.account.findUnique({
+      where: {
+        provider_providerAccountId: {
+          provider: "microsoft",
+          providerAccountId: profile.id || providerEmail,
+        },
+      },
+      select: {
+        id: true,
+        userId: true,
+        user: { select: { name: true, email: true } },
+        emailAccount: true,
+      },
+    });
+
+    // Also check by email (for accounts that may have different providerAccountIds)
+    const existingAccountByEmail = await prisma.account.findFirst({
       where: {
         provider: "microsoft",
         user: {
@@ -118,20 +140,54 @@ export const GET = withError(async (request) => {
         id: true,
         userId: true,
         user: { select: { name: true, email: true } },
+        emailAccount: true,
       },
     });
 
-    if (!existingAccount) {
-      if (action === "merge") {
-        logger.warn(
-          "Merge Failed: Microsoft account not found in the system. Cannot merge.",
-          { email: providerEmail },
-        );
-        redirectUrl.searchParams.set("error", "account_not_found_for_merge");
-        return NextResponse.redirect(redirectUrl, {
-          headers: response.headers,
+    const existingAccount =
+      existingAccountByProviderId || existingAccountByEmail;
+
+    if (existingAccount && !existingAccount.emailAccount) {
+      logger.warn("Found orphaned Account, cleaning up", {
+        orphanedAccountId: existingAccount.id,
+        orphanedUserId: existingAccount.userId,
+        email: providerEmail,
+        targetUserId,
+      });
+
+      await cleanupOrphanedAccount(existingAccount.id);
+    }
+
+    const hasValidAccount = existingAccount?.emailAccount;
+
+    if (!hasValidAccount) {
+      if (action === "auto") {
+        const existingEmailAccount = await prisma.emailAccount.findUnique({
+          where: { email: providerEmail.trim().toLowerCase() },
+          select: { userId: true, email: true },
         });
-      } else {
+
+        if (
+          existingEmailAccount &&
+          existingEmailAccount.userId !== targetUserId
+        ) {
+          logger.warn(
+            "Create Failed: Microsoft account with this email already exists for a different user.",
+            {
+              email: providerEmail,
+              existingUserId: existingEmailAccount.userId,
+              targetUserId,
+            },
+          );
+          redirectUrl.searchParams.set(
+            "error",
+            "account_already_exists_use_merge",
+          );
+          return NextResponse.redirect(redirectUrl, {
+            headers: response.headers,
+          });
+        }
+
         logger.info(
           "Creating new Microsoft account and linking to current user",
           {
@@ -211,18 +267,40 @@ export const GET = withError(async (request) => {
       }
     }
 
-    if (existingAccount.userId === targetUserId) {
-      logger.warn(
-        "Microsoft account is already linked to the correct user. Merge action unnecessary.",
-        { email: providerEmail, targetUserId },
-      );
+    if (existingAccount?.userId === targetUserId) {
+      logger.warn("Microsoft account is already linked to the correct user.", {
+        email: providerEmail,
+        targetUserId,
+      });
       redirectUrl.searchParams.set("error", "already_linked_to_self");
       return NextResponse.redirect(redirectUrl, {
         headers: response.headers,
       });
     }
 
-    logger.info("Merging Microsoft account linked to user.", {
+    if (!existingAccount) {
+      throw new Error("Unexpected state: existingAccount should exist");
+    }
+
+    if (action === "auto") {
+      logger.info(
+        "Account exists for different user, requesting merge confirmation",
+        {
+          email: providerEmail,
+          existingUserId: existingAccount.userId,
+          targetUserId,
+        },
+      );
+
+      redirectUrl.searchParams.set("confirm_merge", "true");
+      redirectUrl.searchParams.set("provider", "microsoft");
+      redirectUrl.searchParams.set("email", providerEmail);
+      return NextResponse.redirect(redirectUrl, {
+        headers: response.headers,
+      });
+    }
+
+    logger.info("Merging Microsoft account (user confirmed).", {
       email: providerEmail,
       targetUserId,
     });
