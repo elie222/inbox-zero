@@ -5,7 +5,7 @@ import type { EmailProvider } from "@/utils/email/types";
 
 export type GetFoldersResponse = Awaited<ReturnType<typeof getFolders>>;
 
-export const GET = withEmailProvider(async (request) => {
+export const GET = withEmailProvider("user/folders", async (request) => {
   const emailProvider = request.emailProvider;
 
   if (!isMicrosoftProvider(emailProvider.name)) {

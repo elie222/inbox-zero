@@ -33,14 +33,17 @@ async function getExamples({
   return exampleMessages;
 }
 
-export const GET = withEmailProvider(async (request, { params }) => {
-  const emailAccountId = request.auth.emailAccountId;
-  const provider = request.emailProvider.name;
+export const GET = withEmailProvider(
+  "user/rules/example",
+  async (request, { params }) => {
+    const emailAccountId = request.auth.emailAccountId;
+    const provider = request.emailProvider.name;
 
-  const { id } = await params;
-  if (!id) return NextResponse.json({ error: "Missing rule id" });
+    const { id } = await params;
+    if (!id) return NextResponse.json({ error: "Missing rule id" });
 
-  const result = await getExamples({ ruleId: id, emailAccountId, provider });
+    const result = await getExamples({ ruleId: id, emailAccountId, provider });
 
-  return NextResponse.json(result);
-});
+    return NextResponse.json(result);
+  },
+);

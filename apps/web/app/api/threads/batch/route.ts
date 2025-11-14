@@ -1,9 +1,6 @@
 import { NextResponse } from "next/server";
 import { withEmailProvider } from "@/utils/middleware";
-import { createScopedLogger } from "@/utils/logger";
 import type { ThreadsResponse } from "@/app/api/threads/route";
-
-const logger = createScopedLogger("api/threads/batch");
 
 export type ThreadsBatchResponse = {
   threads: ThreadsResponse["threads"];
@@ -13,7 +10,7 @@ export const dynamic = "force-dynamic";
 
 export const maxDuration = 30;
 
-export const GET = withEmailProvider(async (request) => {
+export const GET = withEmailProvider("threads/batch", async (request) => {
   const { emailProvider } = request;
   const { emailAccountId } = request.auth;
 
@@ -40,7 +37,7 @@ export const GET = withEmailProvider(async (request) => {
         try {
           return await emailProvider.getThread(threadId);
         } catch (error) {
-          logger.error("Error fetching thread", { error, threadId });
+          request.logger.error("Error fetching thread", { error, threadId });
           return null;
         }
       }),
@@ -52,7 +49,10 @@ export const GET = withEmailProvider(async (request) => {
 
     return NextResponse.json({ threads: validThreads });
   } catch (error) {
-    logger.error("Error fetching batch threads", { error, emailAccountId });
+    request.logger.error("Error fetching batch threads", {
+      error,
+      emailAccountId,
+    });
     return NextResponse.json(
       { error: "Failed to fetch threads" },
       { status: 500 },

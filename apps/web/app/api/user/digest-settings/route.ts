@@ -21,7 +21,7 @@ export type GetDigestSettingsResponse = Awaited<
   ReturnType<typeof getDigestSettings>
 >;
 
-export const GET = withEmailAccount(async (request) => {
+export const GET = withEmailAccount("user/digest-settings", async (request) => {
   const emailAccountId = request.auth.emailAccountId;
 
   const result = await getDigestSettings({ emailAccountId });

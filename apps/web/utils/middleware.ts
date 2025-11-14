@@ -23,7 +23,7 @@ export type NextHandler<T extends NextRequest = NextRequest> = (
   context: { params: Promise<Record<string, string>> },
 ) => Promise<Response>;
 
-interface RequestWithLogger extends NextRequest {
+export interface RequestWithLogger extends NextRequest {
   logger: Logger;
 }
 
@@ -318,7 +318,7 @@ async function emailProviderMiddleware(
 // withError overloads
 export function withError(
   scope: string,
-  handler: NextHandler,
+  handler: NextHandler<RequestWithLogger>,
   options?: MiddlewareOptions,
 ): NextHandler;
 export function withError(
@@ -326,20 +326,20 @@ export function withError(
   options?: MiddlewareOptions,
 ): NextHandler;
 export function withError(
-  scopeOrHandler: string | NextHandler,
-  handlerOrOptions?: NextHandler | MiddlewareOptions,
+  scopeOrHandler: string | NextHandler | NextHandler<RequestWithLogger>,
+  handlerOrOptions?: NextHandler<RequestWithLogger> | MiddlewareOptions,
   options?: MiddlewareOptions,
 ): NextHandler {
   if (typeof scopeOrHandler === "string") {
     return withMiddleware(
-      handlerOrOptions as NextHandler,
+      handlerOrOptions as NextHandler<RequestWithLogger>,
       undefined,
       options,
       scopeOrHandler,
     );
   }
   return withMiddleware(
-    scopeOrHandler,
+    scopeOrHandler as NextHandler,
     undefined,
     handlerOrOptions as MiddlewareOptions,
   );
@@ -421,7 +421,7 @@ function isErrorWithConfigAndHeaders(
     typeof error === "object" &&
     error !== null &&
     "config" in error &&
-    "headers" in (error as { config: any }).config
+    "headers" in (error as { config: Record<string, unknown> }).config
   );
 }
 

@@ -6,7 +6,7 @@ export type GetDigestScheduleResponse = Awaited<
   ReturnType<typeof getDigestSchedule>
 >;
 
-export const GET = withEmailAccount(async (request) => {
+export const GET = withEmailAccount("user/digest-schedule", async (request) => {
   const emailAccountId = request.auth.emailAccountId;
 
   const result = await getDigestSchedule({ emailAccountId });

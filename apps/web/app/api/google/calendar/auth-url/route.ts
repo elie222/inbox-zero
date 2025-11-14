@@ -28,18 +28,21 @@ const getAuthUrl = ({ emailAccountId }: { emailAccountId: string }) => {
   return { url, state };
 };
 
-export const GET = withEmailAccount(async (request) => {
-  const { emailAccountId } = request.auth;
-  const { url, state } = getAuthUrl({ emailAccountId });
+export const GET = withEmailAccount(
+  "google/calendar/auth-url",
+  async (request) => {
+    const { emailAccountId } = request.auth;
+    const { url, state } = getAuthUrl({ emailAccountId });
 
-  const res: GetCalendarAuthUrlResponse = { url };
-  const response = NextResponse.json(res);
+    const res: GetCalendarAuthUrlResponse = { url };
+    const response = NextResponse.json(res);
 
-  response.cookies.set(
-    CALENDAR_STATE_COOKIE_NAME,
-    state,
-    oauthStateCookieOptions,
-  );
+    response.cookies.set(
+      CALENDAR_STATE_COOKIE_NAME,
+      state,
+      oauthStateCookieOptions,
+    );
 
-  return response;
-});
+    return response;
+  },
+);

@@ -1,17 +1,14 @@
 import { NextResponse } from "next/server";
 import { withEmailProvider } from "@/utils/middleware";
 import { messageQuerySchema } from "@/app/api/messages/validation";
-import { createScopedLogger } from "@/utils/logger";
 import { isAssistantEmail } from "@/utils/assistant/is-assistant-email";
 import { GmailLabel } from "@/utils/gmail/label";
 import type { EmailProvider } from "@/utils/email/types";
 import { isGoogleProvider } from "@/utils/email/provider-types";
 
-const logger = createScopedLogger("api/messages");
-
 export type MessagesResponse = Awaited<ReturnType<typeof getMessages>>;
 
-export const GET = withEmailProvider(async (request) => {
+export const GET = withEmailProvider("messages", async (request) => {
   const { emailProvider } = request;
   const { emailAccountId, email } = request.auth;
 
@@ -26,6 +23,7 @@ export const GET = withEmailProvider(async (request) => {
     pageToken: r.pageToken,
     emailProvider,
     email,
+    logger: request.logger,
   });
 
   return NextResponse.json(result);
@@ -37,12 +35,14 @@ async function getMessages({
   emailAccountId,
   emailProvider,
   email,
+  logger,
 }: {
   query?: string | null;
   pageToken?: string | null;
   emailAccountId: string;
   emailProvider: EmailProvider;
   email: string;
+  logger: any;
 }) {
   try {
     const { messages, nextPageToken } =

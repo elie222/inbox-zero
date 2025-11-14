@@ -5,7 +5,7 @@ import { ensureEmailAccountsWatched } from "@/utils/email/watch-manager";
 
 export const dynamic = "force-dynamic";
 
-export const GET = withAuth(async (request) => {
+export const GET = withAuth("watch", async (request) => {
   const userId = request.auth.userId;
   const emailAccountCount = await prisma.emailAccount.count({
     where: { userId },

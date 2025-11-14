@@ -8,7 +8,7 @@ export type GetSetupProgressResponse = Awaited<
   ReturnType<typeof getSetupProgress>
 >;
 
-export const GET = withEmailAccount(async (request) => {
+export const GET = withEmailAccount("user/setup-progress", async (request) => {
   const { emailAccountId } = request.auth;
 
   const result = await getSetupProgress({ emailAccountId });

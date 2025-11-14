@@ -15,8 +15,11 @@ async function getCategorizeProgress({
   return progress;
 }
 
-export const GET = withEmailAccount(async (request) => {
-  const emailAccountId = request.auth.emailAccountId;
-  const result = await getCategorizeProgress({ emailAccountId });
-  return NextResponse.json(result);
-});
+export const GET = withEmailAccount(
+  "user/categorize/senders/progress",
+  async (request) => {
+    const emailAccountId = request.auth.emailAccountId;
+    const result = await getCategorizeProgress({ emailAccountId });
+    return NextResponse.json(result);
+  },
+);

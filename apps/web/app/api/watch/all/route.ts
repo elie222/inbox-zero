@@ -20,7 +20,7 @@ async function watchAllEmails() {
   }
 }
 
-export const GET = withError(async (request) => {
+export const GET = withError("watch/all", async (request) => {
   if (!hasCronSecret(request)) {
     captureException(new Error("Unauthorized cron request: api/watch/all"));
     return new Response("Unauthorized", { status: 401 });

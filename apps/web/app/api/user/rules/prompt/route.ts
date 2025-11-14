@@ -11,7 +11,7 @@ async function getRulesPrompt({ emailAccountId }: { emailAccountId: string }) {
   });
 }
 
-export const GET = withEmailAccount(async (request) => {
+export const GET = withEmailAccount("user/rules/prompt", async (request) => {
   const emailAccountId = request.auth.emailAccountId;
 
   const result = await getRulesPrompt({ emailAccountId });

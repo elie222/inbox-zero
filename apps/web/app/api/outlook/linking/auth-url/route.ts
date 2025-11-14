@@ -18,7 +18,7 @@ const getAuthUrl = ({ userId, action }: { userId: string; action: string }) => {
   return { url, state };
 };
 
-export const GET = withAuth(async (request) => {
+export const GET = withAuth("outlook/linking/auth-url", async (request) => {
   const userId = request.auth.userId;
   const url = new URL(request.url);
   const action = url.searchParams.get("action") || "merge";

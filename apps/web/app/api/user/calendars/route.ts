@@ -4,7 +4,7 @@ import { withEmailAccount } from "@/utils/middleware";
 
 export type GetCalendarsResponse = Awaited<ReturnType<typeof getData>>;
 
-export const GET = withEmailAccount(async (request) => {
+export const GET = withEmailAccount("user/calendars", async (request) => {
   const { emailAccountId } = request.auth;
 
   const result = await getData({ emailAccountId });

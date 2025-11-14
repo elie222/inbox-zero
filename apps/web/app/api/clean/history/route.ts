@@ -13,7 +13,7 @@ async function getCleanHistory({ emailAccountId }: { emailAccountId: string }) {
   return { result };
 }
 
-export const GET = withEmailAccount(async (request) => {
+export const GET = withEmailAccount("clean/history", async (request) => {
   const emailAccountId = request.auth.emailAccountId;
 
   const result = await getCleanHistory({ emailAccountId });

@@ -244,27 +244,30 @@ function getOrderByClause(orderBy: string): string {
   }
 }
 
-export const GET = withEmailProvider(async (request) => {
-  const { emailProvider } = request;
-  const { emailAccountId } = request.auth;
+export const GET = withEmailProvider(
+  "user/stats/newsletters",
+  async (request) => {
+    const { emailProvider } = request;
+    const { emailAccountId } = request.auth;
 
-  const { searchParams } = new URL(request.url);
-  const params = newsletterStatsQuery.parse({
-    limit: searchParams.get("limit"),
-    fromDate: searchParams.get("fromDate"),
-    toDate: searchParams.get("toDate"),
-    orderBy: searchParams.get("orderBy"),
-    types: searchParams.get("types")?.split(",") || [],
-    filters: searchParams.get("filters")?.split(",") || [],
-    includeMissingUnsubscribe:
-      searchParams.get("includeMissingUnsubscribe") === "true",
-  });
+    const { searchParams } = new URL(request.url);
+    const params = newsletterStatsQuery.parse({
+      limit: searchParams.get("limit"),
+      fromDate: searchParams.get("fromDate"),
+      toDate: searchParams.get("toDate"),
+      orderBy: searchParams.get("orderBy"),
+      types: searchParams.get("types")?.split(",") || [],
+      filters: searchParams.get("filters")?.split(",") || [],
+      includeMissingUnsubscribe:
+        searchParams.get("includeMissingUnsubscribe") === "true",
+    });
 
-  const result = await getEmailMessages({
-    ...params,
-    emailAccountId,
-    emailProvider,
-  });
+    const result = await getEmailMessages({
+      ...params,
+      emailAccountId,
+      emailProvider,
+    });
 
-  return NextResponse.json(result);
-});
+    return NextResponse.json(result);
+  },
+);
