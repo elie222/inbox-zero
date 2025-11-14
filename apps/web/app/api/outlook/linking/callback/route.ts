@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { env } from "@/env";
 import prisma from "@/utils/prisma";
-import { createScopedLogger } from "@/utils/logger";
 import { OUTLOOK_LINKING_STATE_COOKIE_NAME } from "@/utils/outlook/constants";
 import { withError } from "@/utils/middleware";
 import { captureException, SafeError } from "@/utils/error";
@@ -9,9 +8,9 @@ import { validateOAuthCallback } from "@/utils/oauth/callback-validation";
 import { handleAccountLinking } from "@/utils/oauth/account-linking";
 import { mergeAccount } from "@/utils/user/merge-account";
 
-const logger = createScopedLogger("outlook/linking/callback");
+export const GET = withError("outlook/linking/callback", async (request) => {
+  const logger = request.logger;
 
-export const GET = withError(async (request) => {
   if (!env.MICROSOFT_CLIENT_ID || !env.MICROSOFT_CLIENT_SECRET)
     throw new SafeError("Microsoft login not enabled");
 
@@ -158,20 +157,6 @@ export const GET = withError(async (request) => {
         expiresAt = new Date(Date.now() + expiresInSeconds * 1000);
       }
 
-      const newAccount = await prisma.account.create({
-        data: {
-          userId: targetUserId,
-          type: "oidc",
-          provider: "microsoft",
-          providerAccountId: profile.id || providerEmail,
-          access_token: tokens.access_token,
-          refresh_token: tokens.refresh_token,
-          expires_at: expiresAt,
-          scope: tokens.scope,
-          token_type: tokens.token_type,
-        },
-      });
-
       let profileImage = null;
       try {
         const photoResponse = await fetch(
@@ -192,17 +177,29 @@ export const GET = withError(async (request) => {
         logger.warn("Failed to fetch profile picture", { error });
       }
 
-      await prisma.emailAccount.create({
+      const newAccount = await prisma.account.create({
         data: {
-          email: providerEmail,
           userId: targetUserId,
-          accountId: newAccount.id,
-          name:
-            profile.displayName ||
-            profile.givenName ||
-            profile.surname ||
-            providerEmail,
-          image: profileImage,
+          type: "oidc",
+          provider: "microsoft",
+          providerAccountId: profile.id || providerEmail,
+          access_token: tokens.access_token,
+          refresh_token: tokens.refresh_token,
+          expires_at: expiresAt,
+          scope: tokens.scope,
+          token_type: tokens.token_type,
+          emailAccount: {
+            create: {
+              email: providerEmail,
+              userId: targetUserId,
+              name:
+                profile.displayName ||
+                profile.givenName ||
+                profile.surname ||
+                null,
+              image: profileImage,
+            },
+          },
         },
       });
 

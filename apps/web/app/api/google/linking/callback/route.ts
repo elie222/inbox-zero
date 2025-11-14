@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { env } from "@/env";
 import prisma from "@/utils/prisma";
-import { createScopedLogger } from "@/utils/logger";
 import { getLinkingOAuth2Client } from "@/utils/gmail/client";
 import { GOOGLE_LINKING_STATE_COOKIE_NAME } from "@/utils/gmail/constants";
 import { withError } from "@/utils/middleware";
@@ -9,9 +8,9 @@ import { validateOAuthCallback } from "@/utils/oauth/callback-validation";
 import { handleAccountLinking } from "@/utils/oauth/account-linking";
 import { mergeAccount } from "@/utils/user/merge-account";
 
-const logger = createScopedLogger("google/linking/callback");
+export const GET = withError("google/linking/callback", async (request) => {
+  const logger = request.logger;
 
-export const GET = withError(async (request) => {
   const searchParams = request.nextUrl.searchParams;
   const storedState = request.cookies.get(
     GOOGLE_LINKING_STATE_COOKIE_NAME,
@@ -122,16 +121,14 @@ export const GET = withError(async (request) => {
           scope: tokens.scope,
           token_type: tokens.token_type,
           id_token: tokens.id_token,
-        },
-      });
-
-      await prisma.emailAccount.create({
-        data: {
-          email: providerEmail,
-          userId: targetUserId,
-          accountId: newAccount.id,
-          name: payload.name || providerEmail,
-          image: payload.picture,
+          emailAccount: {
+            create: {
+              email: providerEmail,
+              userId: targetUserId,
+              name: payload.name || null,
+              image: payload.picture,
+            },
+          },
         },
       });
 
