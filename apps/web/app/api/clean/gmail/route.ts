@@ -1,17 +1,15 @@
-import { type NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { verifySignatureAppRouter } from "@upstash/qstash/nextjs";
 import { z } from "zod";
-import { withError } from "@/utils/middleware";
+import { withError, type RequestWithLogger } from "@/utils/middleware";
 import { getGmailClientWithRefresh } from "@/utils/gmail/client";
 import { GmailLabel, labelThread } from "@/utils/gmail/label";
 import { SafeError } from "@/utils/error";
 import prisma from "@/utils/prisma";
 import { isDefined } from "@/utils/types";
-import { createScopedLogger } from "@/utils/logger";
+import type { Logger } from "@/utils/logger";
 import { CleanAction } from "@prisma/client";
 import { updateThread } from "@/utils/redis/clean";
-
-const logger = createScopedLogger("api/clean/gmail");
 
 const cleanGmailSchema = z.object({
   emailAccountId: z.string(),
@@ -34,7 +32,8 @@ async function performGmailAction({
   processedLabelId,
   jobId,
   action,
-}: CleanGmailBody) {
+  logger,
+}: CleanGmailBody & { logger: Logger }) {
   const account = await prisma.emailAccount.findUnique({
     where: { id: emailAccountId },
     select: {
@@ -138,11 +137,15 @@ async function saveToDatabase({
 }
 
 export const POST = withError(
-  verifySignatureAppRouter(async (request: NextRequest) => {
+  "clean/gmail",
+  verifySignatureAppRouter(async (request: Request) => {
     const json = await request.json();
     const body = cleanGmailSchema.parse(json);
 
-    await performGmailAction(body);
+    await performGmailAction({
+      ...body,
+      logger: (request as RequestWithLogger).logger,
+    });
 
     return NextResponse.json({ success: true });
   }),
