@@ -224,7 +224,9 @@ function MergeConfirmationDialog() {
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel onClick={handleCancel}>Cancel</AlertDialogCancel>
+          <AlertDialogCancel onClick={handleCancel} disabled={isConfirming}>
+            Cancel
+          </AlertDialogCancel>
           <AlertDialogAction onClick={handleConfirm} disabled={isConfirming}>
             {isConfirming ? "Merging..." : "Merge Accounts"}
           </AlertDialogAction>
