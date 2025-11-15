@@ -6,7 +6,6 @@ interface ErrorHandlerParams {
   redirectUrl: URL;
   stateCookieName: string;
   logger: Logger;
-  resultCookieName?: string;
 }
 
 export function handleOAuthCallbackError({
@@ -14,7 +13,6 @@ export function handleOAuthCallbackError({
   redirectUrl,
   stateCookieName,
   logger,
-  resultCookieName,
 }: ErrorHandlerParams): NextResponse {
   logger.error("Error in OAuth linking callback:", { error });
   const errorMessage = error instanceof Error ? error.message : "Unknown error";
@@ -23,8 +21,5 @@ export function handleOAuthCallbackError({
   redirectUrl.searchParams.set("error_description", errorMessage);
   const response = NextResponse.redirect(redirectUrl);
   response.cookies.delete(stateCookieName);
-  if (resultCookieName) {
-    response.cookies.delete(resultCookieName);
-  }
   return response;
 }
