@@ -1,12 +1,13 @@
 import { redis } from "@/utils/redis";
 import { createHash } from "node:crypto";
 
-function hashCode(code: string): string {
+// Not password hashing - creating a short cache key for OAuth authorization codes
+function createOAuthCodeCacheKey(code: string): string {
   return createHash("sha256").update(code).digest("hex").slice(0, 16);
 }
 
 function getCodeKey(code: string) {
-  return `oauth-code:${hashCode(code)}`;
+  return `oauth-code:${createOAuthCodeCacheKey(code)}`;
 }
 
 interface OAuthCodeResult {
