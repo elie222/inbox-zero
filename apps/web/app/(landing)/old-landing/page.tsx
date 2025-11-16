@@ -6,7 +6,7 @@ import { Privacy } from "@/app/(landing)/home/Privacy";
 import { Testimonials } from "@/app/(landing)/home/Testimonials";
 import { PricingLazy } from "@/app/(app)/premium/PricingLazy";
 import { FAQs } from "@/app/(landing)/home/FAQs";
-import { CTA } from "@/app/(landing)/home/CTA";
+import { FinalCTA } from "@/app/(landing)/home/FinalCTA";
 
 export const metadata: Metadata = { alternates: { canonical: "/" } };
 
@@ -19,7 +19,7 @@ export default function Home() {
       <PricingLazy className="pb-32" />
       <Privacy />
       <FAQs />
-      <CTA />
+      <FinalCTA />
     </BasicLayout>
   );
 }
