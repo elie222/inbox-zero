@@ -253,7 +253,7 @@ export function ProcessRulesContent({ testMode }: { testMode: boolean }) {
         </div>
 
         <div className="flex items-center gap-2">
-          {hasAiRules && testMode && (
+          {testMode && (
             <Button
               variant="ghost"
               onClick={() => setShowCustomForm((show) => !show)}
@@ -270,7 +270,7 @@ export function ProcessRulesContent({ testMode }: { testMode: boolean }) {
         </div>
       </div>
 
-      {hasAiRules && showCustomForm && testMode && (
+      {showCustomForm && testMode && (
         <div className="my-2">
           <TestCustomEmailForm />
         </div>
