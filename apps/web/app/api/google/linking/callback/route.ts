@@ -14,6 +14,7 @@ import {
   setOAuthCodeResult,
   clearOAuthCode,
 } from "@/utils/redis/oauth-code";
+import { isDuplicateError } from "@/utils/prisma-helpers";
 
 export const GET = withError("google/linking/callback", async (request) => {
   const logger = request.logger;
@@ -140,34 +141,64 @@ export const GET = withError("google/linking/callback", async (request) => {
         targetUserId,
       });
 
-      const newAccount = await prisma.account.create({
-        data: {
-          userId: targetUserId,
-          type: "oidc",
-          provider: "google",
-          providerAccountId,
-          access_token: tokens.access_token,
-          refresh_token: tokens.refresh_token,
-          expires_at: tokens.expiry_date ? new Date(tokens.expiry_date) : null,
-          scope: tokens.scope,
-          token_type: tokens.token_type,
-          id_token: tokens.id_token,
-          emailAccount: {
-            create: {
-              email: providerEmail,
-              userId: targetUserId,
-              name: payload.name || null,
-              image: payload.picture,
+      try {
+        const newAccount = await prisma.account.create({
+          data: {
+            userId: targetUserId,
+            type: "oidc",
+            provider: "google",
+            providerAccountId,
+            access_token: tokens.access_token,
+            refresh_token: tokens.refresh_token,
+            expires_at: tokens.expiry_date
+              ? new Date(tokens.expiry_date)
+              : null,
+            scope: tokens.scope,
+            token_type: tokens.token_type,
+            id_token: tokens.id_token,
+            emailAccount: {
+              create: {
+                email: providerEmail,
+                userId: targetUserId,
+                name: payload.name || null,
+                image: payload.picture,
+              },
             },
           },
-        },
-      });
+        });
 
-      logger.info("Successfully created and linked new Google account", {
-        email: providerEmail,
-        targetUserId,
-        accountId: newAccount.id,
-      });
+        logger.info("Successfully created and linked new Google account", {
+          email: providerEmail,
+          targetUserId,
+          accountId: newAccount.id,
+        });
+      } catch (createError: unknown) {
+        if (isDuplicateError(createError)) {
+          const accountNow = await prisma.account.findUnique({
+            where: {
+              provider_providerAccountId: {
+                provider: "google",
+                providerAccountId,
+              },
+            },
+            select: { userId: true },
+          });
+
+          if (accountNow?.userId === targetUserId) {
+            logger.info(
+              "Account was created by concurrent request, continuing",
+              {
+                targetUserId,
+                providerAccountId,
+              },
+            );
+          } else {
+            throw createError;
+          }
+        } else {
+          throw createError;
+        }
+      }
 
       await setOAuthCodeResult(code, { success: "account_created_and_linked" });
 

@@ -14,6 +14,7 @@ import {
   setOAuthCodeResult,
   clearOAuthCode,
 } from "@/utils/redis/oauth-code";
+import { isDuplicateError } from "@/utils/prisma-helpers";
 
 export const GET = withError("outlook/linking/callback", async (request) => {
   const logger = request.logger;
@@ -208,37 +209,67 @@ export const GET = withError("outlook/linking/callback", async (request) => {
         logger.warn("Failed to fetch profile picture", { error });
       }
 
-      const newAccount = await prisma.account.create({
-        data: {
-          userId: targetUserId,
-          type: "oidc",
-          provider: "microsoft",
-          providerAccountId: profile.id || providerEmail,
-          access_token: tokens.access_token,
-          refresh_token: tokens.refresh_token,
-          expires_at: expiresAt,
-          scope: tokens.scope,
-          token_type: tokens.token_type,
-          emailAccount: {
-            create: {
-              email: providerEmail,
-              userId: targetUserId,
-              name:
-                profile.displayName ||
-                profile.givenName ||
-                profile.surname ||
-                null,
-              image: profileImage,
+      const microsoftProviderAccountId = profile.id || providerEmail;
+
+      try {
+        const newAccount = await prisma.account.create({
+          data: {
+            userId: targetUserId,
+            type: "oidc",
+            provider: "microsoft",
+            providerAccountId: microsoftProviderAccountId,
+            access_token: tokens.access_token,
+            refresh_token: tokens.refresh_token,
+            expires_at: expiresAt,
+            scope: tokens.scope,
+            token_type: tokens.token_type,
+            emailAccount: {
+              create: {
+                email: providerEmail,
+                userId: targetUserId,
+                name:
+                  profile.displayName ||
+                  profile.givenName ||
+                  profile.surname ||
+                  null,
+                image: profileImage,
+              },
             },
           },
-        },
-      });
+        });
 
-      logger.info("Successfully created and linked new Microsoft account", {
-        email: providerEmail,
-        targetUserId,
-        accountId: newAccount.id,
-      });
+        logger.info("Successfully created and linked new Microsoft account", {
+          email: providerEmail,
+          targetUserId,
+          accountId: newAccount.id,
+        });
+      } catch (createError: unknown) {
+        if (isDuplicateError(createError)) {
+          const accountNow = await prisma.account.findUnique({
+            where: {
+              provider_providerAccountId: {
+                provider: "microsoft",
+                providerAccountId: microsoftProviderAccountId,
+              },
+            },
+            select: { userId: true },
+          });
+
+          if (accountNow?.userId === targetUserId) {
+            logger.info(
+              "Account was created by concurrent request, continuing",
+              {
+                targetUserId,
+                providerAccountId: microsoftProviderAccountId,
+              },
+            );
+          } else {
+            throw createError;
+          }
+        } else {
+          throw createError;
+        }
+      }
 
       await setOAuthCodeResult(code, { success: "account_created_and_linked" });
 
