@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import { FAQs } from "@/components/new-landing/sections/FAQs";
 import { Testimonials } from "@/components/new-landing/sections/Testimonials";
 import { Hero } from "@/components/new-landing/sections/Hero";
 import { Pricing } from "@/components/new-landing/sections/Pricing";
@@ -11,6 +10,7 @@ import { BulkUnsubscribe } from "@/components/new-landing/sections/BulkUnsubscri
 import { OrganizedInbox } from "@/components/new-landing/sections/OrganizedInbox";
 import { PreWrittenDrafts } from "@/components/new-landing/sections/PreWrittenDrafts";
 import { BasicLayout } from "@/components/layouts/BasicLayout";
+import { FAQs } from "@/app/(landing)/home/FAQs";
 
 export const metadata: Metadata = { alternates: { canonical: "/" } };
 
