@@ -21,27 +21,20 @@ import { StatsCards } from "@/components/StatsCards";
 export function StatsSummary(props: {
   dateRange?: DateRange;
   refreshInterval: number;
-  mockData?: StatsByWeekResponse;
 }) {
-  const { dateRange, mockData } = props;
+  const { dateRange } = props;
 
   const params: StatsByWeekParams = {
     period: "week",
     ...getDateRangeParams(dateRange),
   };
 
-  const {
-    data: swrData,
-    isLoading,
-    error,
-  } = useOrgSWR<StatsByWeekResponse, { error: string }>(
-    `/api/user/stats/by-period?${new URLSearchParams(params as any)}`,
-    {
-      refreshInterval: props.refreshInterval,
-    },
-  );
-
-  const data = mockData ?? swrData;
+  const { data, isLoading, error } = useOrgSWR<
+    StatsByWeekResponse,
+    { error: string }
+  >(`/api/user/stats/by-period?${new URLSearchParams(params as any)}`, {
+    refreshInterval: props.refreshInterval,
+  });
 
   return (
     <LoadingContent

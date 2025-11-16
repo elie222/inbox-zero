@@ -7,18 +7,10 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { CardBasic } from "@/components/ui/card";
 import type { EmailActionStatsResponse } from "@/app/api/user/stats/email-actions/route";
 
-export function EmailActionsAnalytics({
-  mockData,
-}: {
-  mockData?: EmailActionStatsResponse;
-}) {
-  const {
-    data: swrData,
-    isLoading,
-    error,
-  } = useOrgSWR<EmailActionStatsResponse>("/api/user/stats/email-actions");
-
-  const data = mockData ?? swrData;
+export function EmailActionsAnalytics() {
+  const { data, isLoading, error } = useOrgSWR<EmailActionStatsResponse>(
+    "/api/user/stats/email-actions",
+  );
 
   return (
     <LoadingContent

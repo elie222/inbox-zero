@@ -9,23 +9,13 @@ import { Skeleton } from "@/components/ui/skeleton";
 import type { NewsletterSummaryResponse } from "@/app/api/user/stats/newsletters/summary/route";
 import { NewsletterStatus } from "@prisma/client";
 
-export function BulkUnsubscribeSummary({
-  mockData,
-}: {
-  mockData?: NewsletterSummaryResponse;
-}) {
-  const {
-    data: swrData,
-    isLoading,
-    error,
-  } = useSWR<NewsletterSummaryResponse, { error: string }>(
-    "/api/user/stats/newsletters/summary",
-    {
-      keepPreviousData: true,
-    },
-  );
-
-  const data = mockData ?? swrData;
+export function BulkUnsubscribeSummary() {
+  const { data, isLoading, error } = useSWR<
+    NewsletterSummaryResponse,
+    { error: string }
+  >("/api/user/stats/newsletters/summary", {
+    keepPreviousData: true,
+  });
 
   return (
     <LoadingContent
