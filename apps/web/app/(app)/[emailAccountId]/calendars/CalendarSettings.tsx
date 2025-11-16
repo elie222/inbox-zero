@@ -160,6 +160,7 @@ export function CalendarSettings() {
       <SettingCard
         title="Timezone"
         description="Your timezone for calendar scheduling suggestions"
+        collapseOnMobile
         right={
           <LoadingContent
             loading={isLoading}
@@ -168,16 +169,21 @@ export function CalendarSettings() {
           >
             <form
               onSubmit={handleSubmitTimezone(onSubmitTimezone)}
-              className="flex items-center gap-2"
+              className="flex flex-col gap-2 sm:flex-row sm:items-center w-full md:w-auto"
             >
-              <div className="w-64">
+              <div className="w-full sm:w-64">
                 <Select
                   options={timezoneOptions}
                   {...registerTimezone("timezone")}
                   error={timezoneErrors.timezone}
                 />
               </div>
-              <Button type="submit" loading={isUpdatingTimezone} size="sm">
+              <Button
+                type="submit"
+                loading={isUpdatingTimezone}
+                size="sm"
+                className="w-full sm:w-auto"
+              >
                 Save
               </Button>
             </form>
@@ -188,6 +194,7 @@ export function CalendarSettings() {
       <SettingCard
         title="Calendar Booking Link"
         description="Your booking link for the AI to share when scheduling meetings"
+        collapseOnMobile
         right={
           <LoadingContent
             loading={isLoading}
@@ -196,9 +203,9 @@ export function CalendarSettings() {
           >
             <form
               onSubmit={handleSubmitBookingLink(onSubmitBookingLink)}
-              className="flex items-center gap-2"
+              className="flex flex-col gap-2 sm:flex-row sm:items-center w-full md:w-auto"
             >
-              <div className="w-80">
+              <div className="w-full sm:w-80">
                 <Input
                   type="url"
                   name="bookingLink"
@@ -207,7 +214,12 @@ export function CalendarSettings() {
                   error={bookingLinkErrors.bookingLink}
                 />
               </div>
-              <Button type="submit" loading={isUpdatingBookingLink} size="sm">
+              <Button
+                type="submit"
+                loading={isUpdatingBookingLink}
+                size="sm"
+                className="w-full sm:w-auto"
+              >
                 Save
               </Button>
             </form>
