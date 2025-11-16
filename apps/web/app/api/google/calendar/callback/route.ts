@@ -12,8 +12,32 @@ import { CALENDAR_STATE_COOKIE_NAME } from "@/utils/calendar/constants";
 import { parseOAuthState } from "@/utils/oauth/state";
 import { auth } from "@/utils/auth";
 import { prefixPath } from "@/utils/path";
+import { createRecallCalendar } from "@/utils/recall/calendar";
 
 const logger = createScopedLogger("google/calendar/callback");
+
+async function createAndLinkRecallCalendar(
+  connectionId: string,
+  refreshToken: string,
+  emailAccountId: string,
+): Promise<void> {
+  try {
+    const recallCalendar = await createRecallCalendar({
+      oauth_refresh_token: refreshToken,
+    });
+
+    await prisma.calendarConnection.update({
+      where: { id: connectionId },
+      data: { recallCalendarId: recallCalendar.id },
+    });
+  } catch (error) {
+    logger.error("Failed to create Recall calendar for connection", {
+      error: error instanceof Error ? error.message : error,
+      connectionId,
+      emailAccountId,
+    });
+  }
+}
 
 export const GET = withError(async (request) => {
   const searchParams = request.nextUrl.searchParams;
@@ -21,7 +45,6 @@ export const GET = withError(async (request) => {
   const receivedState = searchParams.get("state");
   const storedState = request.cookies.get(CALENDAR_STATE_COOKIE_NAME)?.value;
 
-  // We'll set the proper redirect URL after we decode the state and get emailAccountId
   let redirectUrl = new URL("/calendars", request.nextUrl.origin);
   const response = NextResponse.redirect(redirectUrl);
 
@@ -61,13 +84,11 @@ export const GET = withError(async (request) => {
 
   const { emailAccountId } = decodedState;
 
-  // Update redirect URL to include emailAccountId
   redirectUrl = new URL(
     prefixPath(emailAccountId, "/calendars"),
     request.nextUrl.origin,
   );
 
-  // Verify user owns this email account
   const session = await auth();
   if (!session?.user?.id) {
     logger.warn("Unauthorized calendar callback - no session");
@@ -134,7 +155,11 @@ export const GET = withError(async (request) => {
       logger.info("Calendar connection already exists", {
         emailAccountId,
         googleEmail,
+        connectionId: existingConnection.id,
+        hasRecallCalendarId: !!existingConnection.recallCalendarId,
+        recallCalendarId: existingConnection.recallCalendarId,
       });
+
       redirectUrl.searchParams.set("message", "calendar_already_connected");
       return NextResponse.redirect(redirectUrl, { headers: response.headers });
     }

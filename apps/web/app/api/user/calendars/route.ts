@@ -19,6 +19,7 @@ async function getData({ emailAccountId }: { emailAccountId: string }) {
       email: true,
       provider: true,
       isConnected: true,
+      recallCalendarId: true,
       calendars: {
         select: {
           id: true,
@@ -27,6 +28,7 @@ async function getData({ emailAccountId }: { emailAccountId: string }) {
           primary: true,
           description: true,
           timezone: true,
+          transcriptEnabled: true,
         },
         orderBy: {
           name: "asc",
