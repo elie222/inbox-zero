@@ -140,6 +140,7 @@ export async function fetchMicrosoftCalendars(calendarClient: Client): Promise<
     name?: string;
     description?: string;
     timeZone?: string;
+    isDefaultCalendar?: boolean;
   }>
 > {
   try {

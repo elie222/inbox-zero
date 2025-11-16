@@ -6,6 +6,7 @@ import {
   getCalendarClientWithRefresh,
 } from "@/utils/outlook/calendar-client";
 import type { CalendarOAuthProvider, CalendarTokens } from "../oauth-types";
+import { autoPopulateTimezone } from "../timezone-helpers";
 
 const logger = createScopedLogger("microsoft/calendar/provider");
 
@@ -119,6 +120,8 @@ export const microsoftCalendarProvider: CalendarOAuthProvider = {
           },
         });
       }
+
+      await autoPopulateTimezone(emailAccountId, microsoftCalendars, logger);
     } catch (error) {
       logger.error("Error syncing calendars", { error, connectionId });
       await prisma.calendarConnection.update({

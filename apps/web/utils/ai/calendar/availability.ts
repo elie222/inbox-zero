@@ -11,7 +11,19 @@ import { getUserInfoPrompt } from "@/utils/ai/helpers";
 
 const logger = createScopedLogger("calendar-availability");
 
-const schema = z.object({ suggestedTimes: z.array(z.string()) });
+const timeSlotSchema = z.object({
+  start: z.string().describe("Start time in format YYYY-MM-DD HH:MM"),
+  end: z
+    .string()
+    .describe(
+      "End time in format YYYY-MM-DD HH:MM - infer meeting duration from email context",
+    ),
+});
+
+const schema = z.object({
+  suggestedTimes: z.array(timeSlotSchema),
+});
+
 export type CalendarAvailabilityContext = z.infer<typeof schema>;
 
 export async function aiGetCalendarAvailability({
@@ -56,26 +68,27 @@ export async function aiGetCalendarAvailability({
     },
   });
 
-  // Determine user's primary timezone from calendars
-  const userTimezone = getUserTimezone(calendarConnections);
+  const userTimezone = getUserTimezone(emailAccount, calendarConnections);
 
   logger.trace("Determined user timezone", { userTimezone });
 
-  const system = `You are an AI assistant that analyzes email threads to determine if they contain meeting or scheduling requests, and if yes, returns the suggested times for the meeting.
+  const system = `You are an AI assistant that analyzes email threads to determine if they contain meeting or scheduling requests, and returns available meeting time slots.
+
+TIMEZONE: All times (busy periods, suggested times) are in ${userTimezone}.
 
 Your task is to:
-1. Analyze the email thread to determine if it's related to scheduling a meeting, call, or appointment
-2. If it is scheduling-related, extract the date and time information mentioned anywhere in the thread
-3. Use the checkCalendarAvailability tool to get actual availability from the user's calendars
-4. Return possible times for the meeting by calling "returnSuggestedTimes" with the suggested dates and times
+1. Analyze if the email is scheduling-related (meeting, call, appointment)
+2. Extract any date/time preferences from the email
+3. Use checkCalendarAvailability to get busy periods (already in ${userTimezone})
+4. Suggest ONLY times that DO NOT overlap with busy periods
+5. Return time slots with start AND end times (infer duration from context: "quick call" = 30min, "meeting" = 60min)
 
-If the email thread is not about scheduling, return isRelevant: false.
+CRITICAL: Do NOT suggest times overlapping with busy periods.
+Example: If busy 2025-11-17 09:00 to 2025-11-17 17:00, suggest times AFTER 17:00 or BEFORE 09:00.
 
-You can only call "returnSuggestedTimes" once.
-Your suggested times should be in the format of "YYYY-MM-DD HH:MM".
-IMPORTANT: Another agent is responsible for drafting the final email reply. You just need to reply with the suggested times.
-
-TIMEZONE CONTEXT: The user's primary timezone is ${userTimezone}. When interpreting times mentioned in emails (like "6pm"), assume they refer to this timezone unless explicitly stated otherwise.`;
+Format: "YYYY-MM-DD HH:MM"
+If email mentions timezone (e.g., "5pm PST"), convert to ${userTimezone}.
+Call "returnSuggestedTimes" only once.`;
 
   const prompt = `${getUserInfoPrompt({ emailAccount })}
   
@@ -156,6 +169,7 @@ ${threadContent}
 }
 
 function getUserTimezone(
+  emailAccount: EmailAccountWithAI,
   calendarConnections: Array<{
     calendars: Array<{
       calendarId: string;
@@ -164,7 +178,12 @@ function getUserTimezone(
     }>;
   }>,
 ): string {
-  // First, try to find the primary calendar's timezone
+  // First priority: user's explicitly set timezone
+  if (emailAccount.timezone) {
+    return emailAccount.timezone;
+  }
+
+  // Second: try to find the primary calendar's timezone
   for (const connection of calendarConnections) {
     const primaryCalendar = connection.calendars.find((cal) => cal.primary);
     if (primaryCalendar?.timezone) {
@@ -172,7 +191,7 @@ function getUserTimezone(
     }
   }
 
-  // If no primary calendar found, find any calendar with a timezone
+  // Third: find any calendar with a timezone
   for (const connection of calendarConnections) {
     for (const calendar of connection.calendars) {
       if (calendar.timezone) {
@@ -181,6 +200,6 @@ function getUserTimezone(
     }
   }
 
-  // Fallback to UTC if no timezone information is available
+  // Last resort: UTC
   return "UTC";
 }

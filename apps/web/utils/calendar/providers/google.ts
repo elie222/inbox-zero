@@ -7,6 +7,7 @@ import {
   getCalendarClientWithRefresh,
 } from "@/utils/calendar/client";
 import type { CalendarOAuthProvider, CalendarTokens } from "../oauth-types";
+import { autoPopulateTimezone } from "../timezone-helpers";
 
 const logger = createScopedLogger("google/calendar/provider");
 
@@ -87,6 +88,8 @@ export const googleCalendarProvider: CalendarOAuthProvider = {
           },
         });
       }
+
+      await autoPopulateTimezone(emailAccountId, googleCalendars, logger);
     } catch (error) {
       logger.error("Error syncing calendars", { error, connectionId });
       await prisma.calendarConnection.update({

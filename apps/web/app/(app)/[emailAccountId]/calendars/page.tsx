@@ -1,6 +1,7 @@
 import { PageWrapper } from "@/components/PageWrapper";
 import { PageHeader } from "@/components/PageHeader";
 import { CalendarConnections } from "./CalendarConnections";
+import { CalendarSettings } from "./CalendarSettings";
 import { ConnectCalendar } from "@/app/(app)/[emailAccountId]/calendars/ConnectCalendar";
 
 export default function CalendarsPage() {
@@ -13,7 +14,8 @@ export default function CalendarsPage() {
         />
         <ConnectCalendar />
       </div>
-      <div className="mt-6">
+      <div className="mt-6 space-y-4">
+        <CalendarSettings />
         <CalendarConnections />
       </div>
     </PageWrapper>

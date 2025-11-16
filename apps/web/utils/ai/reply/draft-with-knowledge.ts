@@ -107,10 +107,22 @@ ${writingStyle}
     ? `Calendar availability information:
     
 <calendar_availability>
-Suggested times: ${calendarAvailability.suggestedTimes.join(", ")}
+Suggested time slots:
+${calendarAvailability.suggestedTimes.map((slot) => `- ${slot.start} to ${slot.end}`).join("\n")}
 </calendar_availability>
 
-IMPORTANT: Use this calendar information to suggest specific available times when responding to meeting requests. You can now offer specific times when the user is available.
+IMPORTANT: Use these available time slots when responding to meeting requests. Mention specific times the user is available.
+`
+    : "";
+
+  const bookingLinkContext = emailAccount.calendarBookingLink
+    ? `Calendar booking link:
+
+<booking_link>
+${emailAccount.calendarBookingLink}
+</booking_link>
+
+You can suggest this booking link if it helps with scheduling (e.g., "Feel free to book a time: [link]"). Use your judgment on whether to include it.
 `
     : "";
 
@@ -129,6 +141,7 @@ ${historicalContext}
 ${precedentHistoryContext}
 ${writingStylePrompt}
 ${calendarContext}
+${bookingLinkContext}
 ${mcpToolsContext}
 
 Here is the context of the email thread (from oldest to newest):

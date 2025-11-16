@@ -1,5 +1,5 @@
 import { TZDate } from "@date-fns/tz";
-import { startOfDay, endOfDay } from "date-fns";
+import { startOfDay, endOfDay, format } from "date-fns";
 import { createScopedLogger } from "@/utils/logger";
 import prisma from "@/utils/prisma";
 import type { BusyPeriod } from "./availability-types";
@@ -133,11 +133,35 @@ export async function getUnifiedCalendarAvailability({
   // Flatten and merge all busy periods
   const allBusyPeriods = results.flat();
 
+  // Convert all busy periods from UTC to user timezone
+  const convertedBusyPeriods = convertBusyPeriodsToTimezone(
+    allBusyPeriods,
+    timezone,
+  );
+
   logger.trace("Unified calendar availability results", {
-    totalBusyPeriods: allBusyPeriods.length,
+    totalBusyPeriods: convertedBusyPeriods.length,
     googleConnectionsCount: googleConnections.length,
     microsoftConnectionsCount: microsoftConnections.length,
   });
 
-  return allBusyPeriods;
+  return convertedBusyPeriods;
+}
+
+/**
+ * Converts busy periods from UTC to specified timezone
+ */
+function convertBusyPeriodsToTimezone(
+  busyPeriods: BusyPeriod[],
+  timezone: string,
+): BusyPeriod[] {
+  return busyPeriods.map((period) => {
+    const startInTZ = new TZDate(period.start, timezone);
+    const endInTZ = new TZDate(period.end, timezone);
+
+    return {
+      start: format(startInTZ, "yyyy-MM-dd'T'HH:mm:ssXXX"),
+      end: format(endInTZ, "yyyy-MM-dd'T'HH:mm:ssXXX"),
+    };
+  });
 }
