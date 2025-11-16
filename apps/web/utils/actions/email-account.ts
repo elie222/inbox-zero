@@ -13,7 +13,7 @@ import { updateContactRole } from "@inboxzero/loops";
 
 export const updateEmailAccountRoleAction = actionClient
   .metadata({ name: "updateEmailAccountRole" })
-  .schema(z.object({ role: z.string() }))
+  .inputSchema(z.object({ role: z.string() }))
   .action(
     async ({
       ctx: { emailAccountId, userEmail, logger },
@@ -93,7 +93,7 @@ const updateReferralSignatureSchema = z.object({ enabled: z.boolean() });
 
 export const updateReferralSignatureAction = actionClient
   .metadata({ name: "updateReferralSignature" })
-  .schema(updateReferralSignatureSchema)
+  .inputSchema(updateReferralSignatureSchema)
   .action(
     async ({ ctx: { emailAccountId, logger }, parsedInput: { enabled } }) => {
       logger.info("Updating referral signature", { enabled });

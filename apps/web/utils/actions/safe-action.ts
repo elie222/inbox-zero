@@ -69,7 +69,7 @@ const baseClient = createSafeActionClient({
 
   return next({ ctx: { logger } });
 });
-// .schema(z.object({}), {
+// .inputSchema(z.object({}), {
 //   handleValidationErrorsShape: async (ve) =>
 //     flattenValidationErrors(ve).fieldErrors,
 // });

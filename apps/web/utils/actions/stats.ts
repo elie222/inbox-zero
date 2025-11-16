@@ -22,7 +22,7 @@ const MAX_PAGES = 50;
 
 export const loadEmailStatsAction = actionClient
   .metadata({ name: "loadEmailStats" })
-  .schema(z.object({ loadBefore: z.boolean() }))
+  .inputSchema(z.object({ loadBefore: z.boolean() }))
   .action(
     async ({
       parsedInput: { loadBefore },

@@ -99,7 +99,7 @@ async function acceptInvitation({
 
 export const handleInvitationAction = actionClientUser
   .metadata({ name: "handleInvitation" })
-  .schema(handleInvitationBody)
+  .inputSchema(handleInvitationBody)
   .action(async ({ ctx: { userId }, parsedInput: { invitationId } }) => {
     const invitation = await prisma.invitation.findUnique({
       where: { id: invitationId },

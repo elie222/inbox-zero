@@ -32,7 +32,7 @@ import { ONE_DAY_MS } from "@/utils/date";
 
 export const cleanInboxAction = actionClient
   .metadata({ name: "cleanInbox" })
-  .schema(cleanInboxSchema)
+  .inputSchema(cleanInboxSchema)
   .action(
     async ({
       ctx: { emailAccountId, provider, userId, logger },
@@ -194,7 +194,7 @@ function isMaxEmailsReached(totalEmailsProcessed: number, maxEmails?: number) {
 
 export const undoCleanInboxAction = actionClient
   .metadata({ name: "undoCleanInbox" })
-  .schema(undoCleanInboxSchema)
+  .inputSchema(undoCleanInboxSchema)
   .action(
     async ({
       ctx: { emailAccountId, logger },
@@ -259,7 +259,7 @@ export const undoCleanInboxAction = actionClient
 
 export const changeKeepToDoneAction = actionClient
   .metadata({ name: "changeKeepToDone" })
-  .schema(changeKeepToDoneSchema)
+  .inputSchema(changeKeepToDoneSchema)
   .action(
     async ({
       ctx: { emailAccountId, logger },

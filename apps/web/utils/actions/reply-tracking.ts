@@ -17,7 +17,7 @@ const resolveThreadTrackerSchema = z.object({
 
 export const resolveThreadTrackerAction = actionClient
   .metadata({ name: "resolveThreadTracker" })
-  .schema(resolveThreadTrackerSchema)
+  .inputSchema(resolveThreadTrackerSchema)
   .action(
     async ({
       ctx: { emailAccountId, logger },

@@ -7,7 +7,7 @@ import { SafeError } from "@/utils/error";
 
 export const createOrganizationAction = actionClient
   .metadata({ name: "createOrganization" })
-  .schema(createOrganizationBody)
+  .inputSchema(createOrganizationBody)
   .action(async ({ ctx: { emailAccountId }, parsedInput: { name, slug } }) => {
     const existingMembership = await prisma.member.findFirst({
       where: { emailAccountId },
