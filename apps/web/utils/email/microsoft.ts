@@ -63,7 +63,6 @@ import {
   getOrCreateOutlookFolderIdByName,
   getOutlookFolderTree,
 } from "@/utils/outlook/folders";
-import { hasUnquotedParentFolderId } from "@/utils/outlook/message";
 import { extractSignatureFromHtml } from "@/utils/email/signature-extraction";
 import { moveMessagesForSenders } from "@/utils/outlook/batch";
 
@@ -754,37 +753,20 @@ export class OutlookProvider implements EmailProvider {
       hasDateFilters: dateFilters.length > 0,
     });
 
-    // Check if the query already contains parentFolderId as an unquoted identifier
-    // If it does, skip applying the default folder filter to avoid conflicts
-    const queryHasParentFolderId =
-      originalQuery && hasUnquotedParentFolderId(originalQuery);
-
-    // Get folder IDs to get the inbox folder ID
-    const folderIds = await getFolderIds(this.client);
-    const inboxFolderId = folderIds.inbox;
-
-    if (!queryHasParentFolderId && !inboxFolderId) {
-      throw new Error("Could not find inbox folder ID");
-    }
-
-    // Only apply folder filtering if the query doesn't already specify parentFolderId
-    const folderId = queryHasParentFolderId ? undefined : inboxFolderId;
-
     this.logger.info("Calling queryBatchMessages with separated parameters", {
       searchQuery: originalQuery.trim() || undefined,
       dateFilters,
       maxResults: options.maxResults || 20,
       pageToken: options.pageToken,
-      folderId,
-      queryHasParentFolderId,
     });
 
+    // Don't pass folderId - let the API return all folders except Junk/Deleted (auto-excluded)
+    // Drafts are filtered out in convertMessages
     const response = await queryBatchMessages(this.client, {
       searchQuery: originalQuery.trim() || undefined,
       dateFilters,
       maxResults: options.maxResults || 20,
       pageToken: options.pageToken,
-      folderId,
     });
 
     return {
