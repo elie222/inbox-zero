@@ -252,15 +252,13 @@ async function resolveCategoryNames(
       if (category?.displayName) {
         categoryNames.push(category.displayName);
       } else {
-        logger.warn("Category not found by ID, using ID as name", { labelId });
-        categoryNames.push(labelId);
+        logger.error("Category not found by ID", { labelId });
       }
     } catch (error) {
-      logger.warn("Failed to resolve category ID, using ID as name", {
+      logger.error("Failed to resolve category ID", {
         labelId,
         error,
       });
-      categoryNames.push(labelId);
     }
   }
 
