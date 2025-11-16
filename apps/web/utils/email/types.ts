@@ -76,7 +76,6 @@ export interface EmailProvider {
     excludeFromEmails?: string[];
     maxResults?: number;
   }): Promise<EmailThread[]>;
-  getDrafts(options?: { maxResults?: number }): Promise<ParsedMessage[]>;
   getThreadMessages(threadId: string): Promise<ParsedMessage[]>;
   getThreadMessagesInInbox(threadId: string): Promise<ParsedMessage[]>;
   getPreviousConversationMessages(

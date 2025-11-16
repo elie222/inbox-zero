@@ -102,34 +102,3 @@ async function fetchSentEmails(
     return [];
   }
 }
-
-export async function fetchEmailTemplates(
-  emailProvider: EmailProvider,
-): Promise<string[]> {
-  try {
-    const drafts = await emailProvider.getDrafts({ maxResults: 50 });
-
-    const templates: string[] = [];
-
-    for (const draft of drafts) {
-      try {
-        if (draft.textPlain?.trim()) {
-          templates.push(draft.textPlain.trim());
-        }
-
-        if (templates.length >= 10) break;
-      } catch (error) {
-        logger.warn("Failed to process draft:", {
-          error: error instanceof Error ? error.message : String(error),
-        });
-      }
-    }
-
-    return templates;
-  } catch (error) {
-    logger.warn("Failed to fetch email templates:", {
-      error: error instanceof Error ? error.message : String(error),
-    });
-    return [];
-  }
-}

@@ -938,15 +938,6 @@ export class GmailProvider implements EmailProvider {
     });
   }
 
-  async getDrafts(options?: { maxResults?: number }): Promise<ParsedMessage[]> {
-    const response = await this.getMessagesWithPagination({
-      query: "in:draft",
-      maxResults: options?.maxResults || 50,
-    });
-
-    return response.messages;
-  }
-
   async getMessagesBatch(messageIds: string[]): Promise<ParsedMessage[]> {
     return getMessagesBatch({
       messageIds,

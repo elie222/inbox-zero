@@ -886,14 +886,6 @@ export class OutlookProvider implements EmailProvider {
     });
   }
 
-  async getDrafts(options?: { maxResults?: number }): Promise<ParsedMessage[]> {
-    const response = await this.getMessagesWithPagination({
-      query: "isDraft eq true",
-      maxResults: options?.maxResults || 50,
-    });
-    return response.messages;
-  }
-
   async getMessagesBatch(messageIds: string[]): Promise<ParsedMessage[]> {
     // For Outlook, we need to fetch messages individually since there's no batch endpoint
     const messagePromises = messageIds.map((messageId) =>
