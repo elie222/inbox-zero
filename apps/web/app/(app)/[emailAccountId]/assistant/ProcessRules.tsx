@@ -16,6 +16,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { toastError } from "@/components/Toast";
 import { LoadingContent } from "@/components/LoadingContent";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import type { MessagesResponse } from "@/app/api/messages/route";
 import { EmailMessageCell } from "@/components/EmailMessageCell";
 import { runRulesAction } from "@/utils/actions/ai-rule";
@@ -271,7 +272,15 @@ export function ProcessRulesContent({ testMode }: { testMode: boolean }) {
       </div>
 
       {showCustomForm && testMode && (
-        <div className="my-2">
+        <div className="my-2 space-y-2">
+          {!hasAiRules && (
+            <Alert variant="destructive">
+              <AlertDescription>
+                You don't have any AI rules set up. The test won't match
+                anything. Please create AI rules first.
+              </AlertDescription>
+            </Alert>
+          )}
           <TestCustomEmailForm />
         </div>
       )}
