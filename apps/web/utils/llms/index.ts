@@ -11,11 +11,13 @@ import {
   stepCountIs,
   type StreamTextOnFinishCallback,
   type StreamTextOnStepFinishCallback,
+  NoObjectGeneratedError,
+  TypeValidationError,
 } from "ai";
 import { jsonrepair } from "jsonrepair";
 import type { LanguageModelV2 } from "@ai-sdk/provider";
 import { saveAiUsage } from "@/utils/usage";
-import type { UserAIFields } from "@/utils/llms/types";
+import type { EmailAccountWithAI, UserAIFields } from "@/utils/llms/types";
 import { addUserErrorMessage, ErrorType } from "@/utils/error-messages";
 import {
   captureException,
@@ -42,11 +44,11 @@ const commonOptions: {
 } = { experimental_telemetry: { isEnabled: true } };
 
 export function createGenerateText({
-  userEmail,
+  emailAccount,
   label,
   modelOptions,
 }: {
-  userEmail: string;
+  emailAccount: Pick<EmailAccountWithAI, "email" | "id">;
   label: string;
   modelOptions: ReturnType<typeof getModel>;
 }): typeof generateText {
@@ -71,7 +73,7 @@ export function createGenerateText({
 
       if (result.usage) {
         await saveAiUsage({
-          email: userEmail,
+          email: emailAccount.email,
           usage: result.usage,
           provider: modelOptions.provider,
           model: modelOptions.modelName,
@@ -105,77 +107,135 @@ export function createGenerateText({
         try {
           return await generate(modelOptions.backupModel);
         } catch (error) {
-          await handleError(error, userEmail, label);
+          await handleError(
+            error,
+            emailAccount.email,
+            emailAccount.id,
+            label,
+            modelOptions.modelName,
+          );
           throw error;
         }
       }
 
-      await handleError(error, userEmail, label);
+      await handleError(
+        error,
+        emailAccount.email,
+        emailAccount.id,
+        label,
+        modelOptions.modelName,
+      );
       throw error;
     }
   };
 }
 
 export function createGenerateObject({
-  userEmail,
+  emailAccount,
   label,
   modelOptions,
 }: {
-  userEmail: string;
+  emailAccount: Pick<EmailAccountWithAI, "email" | "id">;
   label: string;
   modelOptions: ReturnType<typeof getModel>;
 }): typeof generateObject {
   return async (...args) => {
-    try {
-      const [options, ...restArgs] = args;
+    const maxRetries = 2;
+    let lastError: unknown;
 
-      logger.trace("Generating object", {
-        label,
-        system: options.system?.slice(0, MAX_LOG_LENGTH),
-        prompt: options.prompt?.slice(0, MAX_LOG_LENGTH),
-      });
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      try {
+        const [options, ...restArgs] = args;
 
-      if (
-        !options.system?.includes("JSON") &&
-        typeof options.prompt === "string" &&
-        !options.prompt?.includes("JSON")
-      ) {
-        logger.warn("Missing JSON in prompt", { label });
-      }
+        if (attempt > 0) {
+          logger.info("Retrying generateObject after validation error", {
+            label,
+            attempt,
+            maxRetries,
+          });
+        }
 
-      const result = await generateObject(
-        {
-          experimental_repairText: async ({ text }) => {
-            logger.info("Repairing text", { label });
-            const fixed = jsonrepair(text);
-            return fixed;
-          },
-          ...options,
-          ...commonOptions,
-        },
-        ...restArgs,
-      );
-
-      if (result.usage) {
-        await saveAiUsage({
-          email: userEmail,
-          usage: result.usage,
-          provider: modelOptions.provider,
-          model: modelOptions.modelName,
+        logger.trace("Generating object", {
           label,
+          system: options.system?.slice(0, MAX_LOG_LENGTH),
+          prompt: options.prompt?.slice(0, MAX_LOG_LENGTH),
+          attempt,
         });
+
+        if (
+          !options.system?.includes("JSON") &&
+          typeof options.prompt === "string" &&
+          !options.prompt?.includes("JSON")
+        ) {
+          logger.warn("Missing JSON in prompt", { label });
+        }
+
+        const result = await generateObject(
+          {
+            experimental_repairText: async ({ text }) => {
+              logger.info("Repairing text", { label, attempt });
+              const fixed = jsonrepair(text);
+              return fixed;
+            },
+            ...options,
+            ...commonOptions,
+          },
+          ...restArgs,
+        );
+
+        if (result.usage) {
+          await saveAiUsage({
+            email: emailAccount.email,
+            usage: result.usage,
+            provider: modelOptions.provider,
+            model: modelOptions.modelName,
+            label,
+          });
+        }
+
+        logger.trace("Generated object", {
+          label,
+          result: result.object,
+          attempt,
+        });
+
+        return result;
+      } catch (error) {
+        lastError = error;
+
+        // Check if this is a validation error that we should retry
+        const isValidationError =
+          NoObjectGeneratedError.isInstance(error) ||
+          TypeValidationError.isInstance(error);
+
+        if (isValidationError && attempt < maxRetries) {
+          logger.warn("Validation error, will retry", {
+            label,
+            attempt,
+            maxRetries,
+            errorName: error.name,
+            errorMessage: error.message,
+          });
+
+          // Wait a bit before retrying
+          await sleep(1000);
+          continue;
+        }
+
+        // Not a validation error or out of retries
+        await handleError(
+          error,
+          emailAccount.email,
+          emailAccount.id,
+          label,
+          modelOptions.modelName,
+        );
+        throw error;
       }
-
-      logger.trace("Generated object", {
-        label,
-        result: result.object,
-      });
-
-      return result;
-    } catch (error) {
-      await handleError(error, userEmail, label);
-      throw error;
     }
+
+    // Should never reach here, but TypeScript needs it
+    throw lastError;
   };
 }
 
@@ -262,8 +322,20 @@ export async function chatCompletionStream({
   return result;
 }
 
-async function handleError(error: unknown, userEmail: string, label: string) {
-  logger.error("Error in LLM call", { error, userEmail, label });
+async function handleError(
+  error: unknown,
+  userEmail: string,
+  emailAccountId: string,
+  label: string,
+  modelName: string,
+) {
+  logger.error("Error in LLM call", {
+    error,
+    userEmail,
+    emailAccountId,
+    label,
+    modelName,
+  });
 
   if (APICallError.isInstance(error)) {
     if (isIncorrectOpenAIAPIKeyError(error)) {

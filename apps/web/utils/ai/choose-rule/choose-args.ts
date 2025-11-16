@@ -13,10 +13,10 @@ import {
   type ActionArgResponse,
   aiGenerateArgs,
 } from "@/utils/ai/choose-rule/ai-choose-args";
-import { createScopedLogger } from "@/utils/logger";
+import type { Logger } from "@/utils/logger";
 import type { EmailProvider } from "@/utils/email/types";
 
-const logger = createScopedLogger("choose-args");
+const MODULE = "choose-args";
 
 export async function getActionItemsWithAiArgs({
   message,
@@ -24,13 +24,16 @@ export async function getActionItemsWithAiArgs({
   selectedRule,
   client,
   modelType,
+  logger,
 }: {
   message: ParsedMessage;
   emailAccount: EmailAccountWithAI;
   selectedRule: RuleWithActions;
   client: EmailProvider;
   modelType: ModelType;
+  logger: Logger;
 }): Promise<Action[]> {
+  const log = logger.with({ module: MODULE });
   // Draft content is handled via its own AI call
   // We provide a lot more context to the AI to draft the content
   const draftEmailActions = selectedRule.actions.filter(
@@ -41,7 +44,7 @@ export async function getActionItemsWithAiArgs({
 
   if (draftEmailActions.length) {
     try {
-      logger.info("Generating draft", {
+      log.info("Generating draft", {
         email: emailAccount.email,
         threadId: message.threadId,
       });
@@ -52,12 +55,12 @@ export async function getActionItemsWithAiArgs({
         client,
       );
 
-      logger.info("Draft generated", {
+      log.info("Draft generated", {
         email: emailAccount.email,
         threadId: message.threadId,
       });
     } catch (error) {
-      logger.error("Failed to generate draft", {
+      log.error("Failed to generate draft", {
         email: emailAccount.email,
         threadId: message.threadId,
         error,

@@ -140,7 +140,7 @@ Generate:
   const modelOptions = getModel(emailAccount.user);
 
   const generateObject = createGenerateObject({
-    userEmail: emailAccount.email,
+    emailAccount,
     label: "email-report-executive-summary",
     modelOptions,
   });

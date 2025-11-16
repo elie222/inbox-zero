@@ -22,7 +22,7 @@ const MAX_PAGES = 50;
 
 export const loadEmailStatsAction = actionClient
   .metadata({ name: "loadEmailStats" })
-  .schema(z.object({ loadBefore: z.boolean() }))
+  .inputSchema(z.object({ loadBefore: z.boolean() }))
   .action(
     async ({
       parsedInput: { loadBefore },
@@ -45,6 +45,7 @@ export const loadEmailStatsAction = actionClient
       const emailProvider = await createEmailProvider({
         emailAccountId,
         provider: emailAccount.account.provider,
+        logger,
       });
 
       await loadEmails(
@@ -98,7 +99,10 @@ async function loadEmails(
     nextPageToken = res.data.nextPageToken ?? undefined;
 
     if (!res.data.messages || res.data.messages.length < PAGE_SIZE) break;
+
     pages++;
+
+    if (!nextPageToken) break;
   }
 
   logger.info("Completed emails after", { after, pages });
@@ -133,7 +137,10 @@ async function loadEmails(
     nextPageToken = res.data.nextPageToken ?? undefined;
 
     if (!res.data.messages || res.data.messages.length < PAGE_SIZE) break;
+
     pages++;
+
+    if (!nextPageToken) break;
   }
 
   logger.info("Completed emails before", { before, pages });

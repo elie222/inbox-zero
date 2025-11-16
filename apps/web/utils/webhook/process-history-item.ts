@@ -104,7 +104,9 @@ export async function processHistoryItem(
     const isInSentItems = parsedMessage.labelIds?.includes("SENT") || false;
 
     if (!isInInbox && !isInSentItems) {
-      logger.info("Skipping message not in inbox or sent items");
+      logger.info("Skipping message not in inbox or sent items", {
+        labelIds: parsedMessage.labelIds,
+      });
       return;
     }
 
@@ -190,6 +192,7 @@ export async function processHistoryItem(
         emailAccount,
         isTest: false,
         modelType: "default",
+        logger,
       });
     }
   } catch (error: unknown) {
@@ -207,6 +210,9 @@ export async function processHistoryItem(
       }
     }
 
+    logger.error("Error processing message", {
+      error: error instanceof Error ? error.message : String(error),
+    });
     throw error;
   }
 }

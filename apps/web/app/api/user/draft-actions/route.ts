@@ -5,7 +5,7 @@ import { ActionType } from "@prisma/client";
 
 export type DraftActionsResponse = Awaited<ReturnType<typeof getData>>;
 
-export const GET = withEmailAccount(async (request) => {
+export const GET = withEmailAccount("user/draft-actions", async (request) => {
   const emailAccountId = request.auth.emailAccountId;
 
   const response = await getData({ emailAccountId });

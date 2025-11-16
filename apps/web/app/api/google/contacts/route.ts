@@ -16,7 +16,7 @@ async function getContacts(client: people_v1.People, query: string) {
   return { result };
 }
 
-export const GET = withEmailAccount(async (request) => {
+export const GET = withEmailAccount("google/contacts", async (request) => {
   if (!env.NEXT_PUBLIC_CONTACTS_ENABLED)
     return NextResponse.json({ error: "Contacts API not enabled" });
 

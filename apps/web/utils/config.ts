@@ -4,7 +4,8 @@ export const EMAIL_ACCOUNT_HEADER = "X-Email-Account-ID";
 
 export const NO_REFRESH_TOKEN_ERROR_CODE = "NO_REFRESH_TOKEN";
 
-export const userCount = "15,000+";
+export const userMinCount = "15,000";
+export const userCount = `${userMinCount}+`;
 
 export const KNOWLEDGE_BASIC_MAX_ITEMS = 1;
 export const KNOWLEDGE_BASIC_MAX_CHARS = 2000;

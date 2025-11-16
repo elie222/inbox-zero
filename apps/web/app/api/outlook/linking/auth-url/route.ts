@@ -9,8 +9,8 @@ import {
 
 export type GetOutlookAuthLinkUrlResponse = { url: string };
 
-const getAuthUrl = ({ userId, action }: { userId: string; action: string }) => {
-  const state = generateOAuthState({ userId, action });
+const getAuthUrl = ({ userId }: { userId: string }) => {
+  const state = generateOAuthState({ userId });
 
   const baseUrl = getLinkingOAuth2Url();
   const url = `${baseUrl}&state=${state}`;
@@ -18,11 +18,9 @@ const getAuthUrl = ({ userId, action }: { userId: string; action: string }) => {
   return { url, state };
 };
 
-export const GET = withAuth(async (request) => {
+export const GET = withAuth("outlook/linking/auth-url", async (request) => {
   const userId = request.auth.userId;
-  const url = new URL(request.url);
-  const action = url.searchParams.get("action") || "merge";
-  const { url: authUrl, state } = getAuthUrl({ userId, action });
+  const { url: authUrl, state } = getAuthUrl({ userId });
 
   const response = NextResponse.json({ url: authUrl });
 

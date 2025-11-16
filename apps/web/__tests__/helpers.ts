@@ -1,7 +1,27 @@
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import type { EmailForLLM } from "@/utils/types";
-import { type Action, LogicalOperator } from "@prisma/client";
+import { ActionType, type Action, LogicalOperator } from "@prisma/client";
 import type { Prisma } from "@prisma/client";
+
+type EmailAccountSelect = {
+  id: string;
+  email: string;
+  accountId: string;
+  userId?: string;
+  name?: string | null;
+};
+
+type UserSelect = {
+  email: string;
+  id?: string;
+  name?: string | null;
+};
+
+type AccountWithEmailAccount = {
+  id: string;
+  userId: string;
+  emailAccount?: { id: string } | null;
+};
 
 export function getEmailAccount(
   overrides: Partial<EmailAccountWithAI> = {},
@@ -11,6 +31,7 @@ export function getEmailAccount(
     userId: "user1",
     email: overrides.email || "user@test.com",
     about: null,
+    multiRuleSelectionEnabled: overrides.multiRuleSelectionEnabled ?? false,
     user: {
       aiModel: null,
       aiProvider: null,
@@ -22,6 +43,25 @@ export function getEmailAccount(
   };
 }
 
+/**
+ * Helper to generate sequential dates for email threads.
+ * Each date is hoursApart hours after the previous one.
+ * @param count - Number of dates to generate
+ * @param hoursApart - Hours between each message (default: 1)
+ * @param startDate - Starting date (default: 7 days ago)
+ */
+export function generateSequentialDates(
+  count: number,
+  hoursApart = 1,
+  startDate = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000),
+): Date[] {
+  return Array.from({ length: count }, (_, i) => {
+    const date = new Date(startDate);
+    date.setHours(date.getHours() + i * hoursApart);
+    return date;
+  });
+}
+
 export function getEmail({
   from = "user@test.com",
   to = "user2@test.com",
@@ -29,6 +69,7 @@ export function getEmail({
   content = "Test content",
   replyTo,
   cc,
+  date,
 }: Partial<EmailForLLM> = {}): EmailForLLM {
   return {
     id: "email-id",
@@ -38,6 +79,7 @@ export function getEmail({
     content,
     ...(replyTo && { replyTo }),
     ...(cc && { cc }),
+    ...(date && { date }),
   };
 }
 
@@ -52,8 +94,10 @@ export function getRule(
     actions,
     id: "id",
     userId: "userId",
+    emailAccountId: "emailAccountId",
     createdAt: new Date(),
     updatedAt: new Date(),
+    automate: true,
     runOnThreads: false,
     groupId: null,
     from: null,
@@ -61,7 +105,32 @@ export function getRule(
     body: null,
     to: null,
     enabled: true,
+    categoryFilterType: null,
     conditionalOperator: LogicalOperator.AND,
+    systemType: null,
+    promptText: null,
+  };
+}
+
+export function getAction(overrides: Partial<Action> = {}): Action {
+  return {
+    id: "action-id",
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    type: overrides.type ?? ActionType.LABEL,
+    ruleId: "rule-id",
+    to: null,
+    subject: null,
+    label: null,
+    labelId: null,
+    content: null,
+    cc: null,
+    bcc: null,
+    url: null,
+    folderName: null,
+    folderId: null,
+    delayInMinutes: null,
+    ...overrides,
   };
 }
 
@@ -133,5 +202,40 @@ export function getMockExecutedRule({
     messageId,
     threadId,
     rule: { id: ruleId, name: ruleName },
+  };
+}
+
+export function getMockEmailAccountSelect(
+  overrides: Partial<EmailAccountSelect> = {},
+): EmailAccountSelect {
+  return {
+    id: overrides.id || "email-account-id",
+    email: overrides.email || "test@example.com",
+    accountId: overrides.accountId || "account-id",
+    userId: overrides.userId || "user-id",
+    name: overrides.name !== undefined ? overrides.name : "Test User",
+  };
+}
+
+export function getMockUserSelect(
+  overrides: Partial<UserSelect> = {},
+): UserSelect {
+  return {
+    email: overrides.email || "test@example.com",
+    id: overrides.id || "user-id",
+    name: overrides.name !== undefined ? overrides.name : "Test User",
+  };
+}
+
+export function getMockAccountWithEmailAccount(
+  overrides: Partial<AccountWithEmailAccount> = {},
+): AccountWithEmailAccount {
+  return {
+    id: overrides.id || "account-id",
+    userId: overrides.userId || "user-id",
+    emailAccount:
+      overrides.emailAccount !== undefined
+        ? overrides.emailAccount
+        : { id: "email-account-id" },
   };
 }

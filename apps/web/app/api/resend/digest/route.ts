@@ -29,12 +29,11 @@ type SendEmailResult = {
   message: string;
 };
 
-export const GET = withEmailAccount(async (request) => {
+export const GET = withEmailAccount("resend/digest", async (request) => {
   // send to self
   const emailAccountId = request.auth.emailAccountId;
 
-  const logger = createScopedLogger("resend/digest").with({
-    emailAccountId,
+  const logger = request.logger.with({
     force: true,
   });
 
@@ -124,6 +123,7 @@ async function sendEmail({
   const emailProvider = await createEmailProvider({
     emailAccountId,
     provider: emailAccount.account.provider,
+    logger,
   });
 
   const digestScheduleData = await getDigestSchedule({ emailAccountId });

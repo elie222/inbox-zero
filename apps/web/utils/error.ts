@@ -22,21 +22,6 @@ export function isError(value: any): value is ErrorMessage | ZodError {
   return value?.error;
 }
 
-export function isErrorMessage(value: any): value is ErrorMessage {
-  return typeof value?.error === "string";
-}
-
-export function formatZodError(error: z.ZodError): string {
-  const formattedError = error.issues
-    .map((err) => `${err.path.join(".")}: ${err.message}`)
-    .join(", ");
-  return `Invalid data: ${formattedError}`;
-}
-
-export function formatGmailError(error: unknown): string {
-  return (error as any)?.errors?.[0]?.message ?? "Unknown error";
-}
-
 export function isGmailError(
   error: unknown,
 ): error is { code: number; errors: { message: string }[] } {
@@ -46,18 +31,6 @@ export function isGmailError(
     Array.isArray((error as any).errors) &&
     (error as any).errors.length > 0
   );
-}
-
-export function formatError(error: unknown): string {
-  if (isGmailError(error)) {
-    return formatGmailError(error);
-  } else if (error instanceof Error) {
-    // Use the standard message for Error instances
-    return error.message;
-  } else {
-    // Fallback for other types
-    return String(error);
-  }
 }
 
 export function captureException(

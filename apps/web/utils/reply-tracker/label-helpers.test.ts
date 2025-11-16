@@ -5,12 +5,6 @@ import prisma from "@/utils/__mocks__/prisma";
 
 vi.mock("server-only", () => ({}));
 vi.mock("@/utils/prisma");
-vi.mock("@/utils/logger", () => ({
-  createScopedLogger: () => ({
-    info: vi.fn(),
-    error: vi.fn(),
-  }),
-}));
 
 describe("applyThreadStatusLabel", () => {
   let mockProvider: EmailProvider;
@@ -231,18 +225,32 @@ describe("applyThreadStatusLabel", () => {
         id: "rule-2",
         systemType: "AWAITING_REPLY",
         actions: [
-          { id: "action-2", type: "LABEL", labelId: "label-awaiting-reply" },
+          {
+            id: "action-2",
+            type: "LABEL",
+            labelId: "label-awaiting-reply",
+            label: null,
+          },
         ],
       },
       {
         id: "rule-3",
         systemType: "FYI",
-        actions: [{ id: "action-3", type: "LABEL", labelId: "label-fyi" }],
+        actions: [
+          { id: "action-3", type: "LABEL", labelId: "label-fyi", label: null },
+        ],
       },
       {
         id: "rule-4",
         systemType: "ACTIONED",
-        actions: [{ id: "action-4", type: "LABEL", labelId: "label-actioned" }],
+        actions: [
+          {
+            id: "action-4",
+            type: "LABEL",
+            labelId: "label-actioned",
+            label: null,
+          },
+        ],
       },
     ] as any);
 
@@ -267,7 +275,8 @@ describe("applyThreadStatusLabel", () => {
     // Should use the newly created label ID
     expect(mockProvider.labelMessage).toHaveBeenCalledWith({
       messageId,
-      labelId: "label-to-reply", // From createLabel mock
+      labelId: "label-to-reply",
+      labelName: "To Reply",
     });
   });
 
@@ -275,7 +284,7 @@ describe("applyThreadStatusLabel", () => {
     // Mock prisma to return empty rules for target label
     vi.mocked(prisma.rule.findMany).mockResolvedValue([] as any);
 
-    // Mock provider labels to be empty
+    // Mock provider labels to be empty (no conflicting labels to remove)
     vi.mocked(mockProvider.getLabels).mockResolvedValue([]);
 
     // Mock createLabel to return null
@@ -289,8 +298,8 @@ describe("applyThreadStatusLabel", () => {
       provider: mockProvider,
     });
 
-    // Should still call removeThreadLabels
-    expect(mockProvider.removeThreadLabels).toHaveBeenCalled();
+    // Should NOT call removeThreadLabels since there are no conflicting labels
+    expect(mockProvider.removeThreadLabels).not.toHaveBeenCalled();
 
     // Should not call labelMessage since label creation failed
     expect(mockProvider.labelMessage).not.toHaveBeenCalled();

@@ -4,8 +4,8 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   BarChartIcon,
+  CalendarIcon,
   MailMinusIcon,
-  ShieldHalfIcon,
   SparklesIcon,
 } from "lucide-react";
 import { cn } from "@/utils";
@@ -59,14 +59,14 @@ const links = [
     icon: MailMinusIcon,
   },
   {
-    path: "/cold-email-blocker",
-    label: "Cold Email",
-    icon: ShieldHalfIcon,
-  },
-  {
     path: "/stats",
     label: "Analytics",
     icon: BarChartIcon,
+  },
+  {
+    path: "/calendars",
+    label: "Calendars",
+    icon: CalendarIcon,
   },
 ];
 

@@ -70,7 +70,7 @@ async function getStats({ emailProvider }: { emailProvider: EmailProvider }) {
   };
 }
 
-export const GET = withEmailProvider(async (request) => {
+export const GET = withEmailProvider("user/stats", async (request) => {
   const result = await getStats({ emailProvider: request.emailProvider });
 
   return NextResponse.json(result);

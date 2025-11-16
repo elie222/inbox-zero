@@ -69,22 +69,25 @@ async function getSenderEmails(
   };
 }
 
-export const GET = withEmailAccount(async (request) => {
-  const emailAccountId = request.auth.emailAccountId;
+export const GET = withEmailAccount(
+  "user/stats/sender-emails",
+  async (request) => {
+    const emailAccountId = request.auth.emailAccountId;
 
-  const { searchParams } = new URL(request.url);
+    const { searchParams } = new URL(request.url);
 
-  const query = senderEmailsQuery.parse({
-    fromEmail: searchParams.get("fromEmail"),
-    period: searchParams.get("period") || "week",
-    fromDate: searchParams.get("fromDate"),
-    toDate: searchParams.get("toDate"),
-  });
+    const query = senderEmailsQuery.parse({
+      fromEmail: searchParams.get("fromEmail"),
+      period: searchParams.get("period") || "week",
+      fromDate: searchParams.get("fromDate"),
+      toDate: searchParams.get("toDate"),
+    });
 
-  const result = await getSenderEmails({
-    ...query,
-    emailAccountId,
-  });
+    const result = await getSenderEmails({
+      ...query,
+      emailAccountId,
+    });
 
-  return NextResponse.json(result);
-});
+    return NextResponse.json(result);
+  },
+);

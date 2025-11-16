@@ -57,7 +57,7 @@ export function EmailAccountProvider({
 
   useEffect(() => {
     if (emailAccountId) {
-      setLastEmailAccountAction(emailAccountId);
+      setLastEmailAccountAction({ emailAccountId });
     }
   }, [emailAccountId]);
 

@@ -47,7 +47,7 @@ export const checkPermissionsAction = actionClient
 
 export const adminCheckPermissionsAction = adminActionClient
   .metadata({ name: "adminCheckPermissions" })
-  .schema(z.object({ email: z.string().email() }))
+  .inputSchema(z.object({ email: z.string().email() }))
   .action(async ({ parsedInput: { email }, ctx: { logger } }) => {
     try {
       const emailAccount = await prisma.emailAccount.findUnique({

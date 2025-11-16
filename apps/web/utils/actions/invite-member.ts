@@ -9,7 +9,7 @@ import { sendOrganizationInvitation } from "@/utils/organizations/invitations";
 
 export const inviteMemberAction = actionClientUser
   .metadata({ name: "inviteMember" })
-  .schema(inviteMemberBody)
+  .inputSchema(inviteMemberBody)
   .action(
     async ({
       ctx: { userId },

@@ -60,7 +60,7 @@ Return the result in JSON format. Do not include any other text in your response
   const modelOptions = getModel(emailAccount.user, "chat");
 
   const generateObject = createGenerateObject({
-    userEmail: emailAccount.email,
+    emailAccount,
     label: "Diff rules",
     modelOptions,
   });

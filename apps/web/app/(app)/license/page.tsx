@@ -5,12 +5,13 @@ import { useAction } from "next-safe-action/hooks";
 import { type SubmitHandler, useForm } from "react-hook-form";
 import { Button } from "@/components/Button";
 import { Input } from "@/components/Input";
-import { TopSection } from "@/components/TopSection";
 import { activateLicenseKeyAction } from "@/utils/actions/premium";
 import { AlertBasic } from "@/components/Alert";
 import { usePremium } from "@/components/PremiumAlert";
 import { toastError, toastSuccess } from "@/components/Toast";
 import type { ActivateLicenseKeyOptions } from "@/utils/actions/premium.validation";
+import { PageWrapper } from "@/components/PageWrapper";
+import { PageHeader } from "@/components/PageHeader";
 
 export default function LicensePage(props: {
   searchParams: Promise<{ "license-key"?: string }>;
@@ -21,10 +22,10 @@ export default function LicensePage(props: {
   const { premium } = usePremium();
 
   return (
-    <div>
-      <TopSection title="Activate your license" />
+    <PageWrapper>
+      <PageHeader title="Activate your license" description="" />
 
-      <div className="content-container max-w-2xl py-6">
+      <div className="max-w-2xl py-4">
         {premium?.lemonLicenseKey && (
           <AlertBasic
             variant="success"
@@ -36,7 +37,7 @@ export default function LicensePage(props: {
 
         <ActivateLicenseForm licenseKey={licenseKey} />
       </div>
-    </div>
+    </PageWrapper>
   );
 }
 

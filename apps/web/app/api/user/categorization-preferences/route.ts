@@ -30,11 +30,14 @@ export type GetCategorizationPreferencesResponse = Awaited<
   ReturnType<typeof getUserPreferences>
 >;
 
-export const GET = withEmailProvider(async (request) => {
-  const emailAccountId = request.auth.emailAccountId;
-  const result = await getUserPreferences({ emailAccountId });
-  return NextResponse.json(result);
-});
+export const GET = withEmailProvider(
+  "user/categorization-preferences",
+  async (request) => {
+    const emailAccountId = request.auth.emailAccountId;
+    const result = await getUserPreferences({ emailAccountId });
+    return NextResponse.json(result);
+  },
+);
 
 async function getUserPreferences({
   emailAccountId,

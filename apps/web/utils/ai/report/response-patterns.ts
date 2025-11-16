@@ -91,7 +91,7 @@ Only suggest categories that are meaningful and provide clear organizational val
   const modelOptions = getModel(emailAccount.user);
 
   const generateObject = createGenerateObject({
-    userEmail: emailAccount.email,
+    emailAccount,
     label: "email-report-response-patterns",
     modelOptions,
   });

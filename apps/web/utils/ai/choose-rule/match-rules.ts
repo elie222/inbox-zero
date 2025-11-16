@@ -2,6 +2,7 @@ import { getConditionTypes, isAIRule } from "@/utils/condition";
 import {
   findMatchingGroup,
   getGroupsWithRules,
+  type GroupsWithRules,
 } from "@/utils/group/find-matching-group";
 import type { ParsedMessage, RuleWithActions } from "@/utils/types";
 import {
@@ -14,7 +15,7 @@ import prisma from "@/utils/prisma";
 import { aiChooseRule } from "@/utils/ai/choose-rule/ai-choose-rule";
 import { getEmailForLLM } from "@/utils/get-email-from-message";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
-import { createScopedLogger } from "@/utils/logger";
+import type { Logger } from "@/utils/logger";
 import type {
   MatchReason,
   MatchingRuleResult,
@@ -31,7 +32,7 @@ import {
 import { isColdEmail } from "@/utils/cold-email/is-cold-email";
 import { isConversationStatusType } from "@/utils/reply-tracker/conversation-status-config";
 
-const logger = createScopedLogger("match-rules");
+const MODULE = "match-rules";
 
 const TO_REPLY_RECEIVED_THRESHOLD = 10;
 
@@ -49,13 +50,16 @@ export async function findMatchingRules({
   emailAccount,
   provider,
   modelType,
+  logger: log,
 }: {
   rules: RuleWithActions[];
   message: ParsedMessage;
   emailAccount: EmailAccountWithAI;
   provider: EmailProvider;
   modelType: ModelType;
+  logger: Logger;
 }): Promise<MatchingRulesResult> {
+  const logger = log.with({ module: MODULE });
   const coldEmailRule = await getColdEmailRule(emailAccount.id);
 
   if (coldEmailRule && isColdEmailRuleEnabled(coldEmailRule)) {
@@ -74,7 +78,12 @@ export async function findMatchingRules({
       });
 
       return {
-        matches: [{ rule: coldRule, matchReasons: [] }],
+        matches: [
+          {
+            rule: coldRule,
+            matchReasons: [{ type: ConditionType.AI }],
+          },
+        ],
         reasoning: coldEmailResult.reason,
       };
     }
@@ -91,6 +100,7 @@ export async function findMatchingRules({
     emailAccount,
     provider,
     modelType,
+    logger,
   );
 
   return results;
@@ -122,12 +132,14 @@ async function findPotentialMatchingRules({
   isThread,
   provider,
   emailAccountId,
+  logger,
 }: {
   rules: RuleWithActions[];
   message: ParsedMessage;
   isThread: boolean;
   provider: EmailProvider;
   emailAccountId: string;
+  logger: Logger;
 }): Promise<MatchingRuleResult> {
   const matches: {
     rule: RuleWithActions;
@@ -154,7 +166,7 @@ async function findPotentialMatchingRules({
           { type: ConditionType.PRESET, systemType: SystemType.CALENDAR },
         ],
       });
-      continue;
+      // Don't continue - let it also be evaluated for AI matching below
     }
 
     // Learned patterns (groups)
@@ -203,6 +215,7 @@ async function findPotentialMatchingRules({
     const { matched, potentialAiMatch, matchReasons } = evaluateRuleConditions({
       rule,
       message,
+      logger,
     });
 
     if (matched) {
@@ -222,6 +235,7 @@ async function findPotentialMatchingRules({
     potentialAiMatches,
     message,
     provider,
+    logger,
   );
 
   const hasLearnedPatternMatch = matches.some((m) =>
@@ -241,9 +255,11 @@ async function findPotentialMatchingRules({
 export function evaluateRuleConditions({
   rule,
   message,
+  logger,
 }: {
   rule: RuleWithActions;
   message: ParsedMessage;
+  logger: Logger;
 }): {
   matched: boolean;
   potentialAiMatch: boolean;
@@ -258,7 +274,7 @@ export function evaluateRuleConditions({
 
   // Check STATIC condition
   const staticMatch = hasStaticCondition
-    ? matchesStaticRule(rule, message)
+    ? matchesStaticRule(rule, message, logger)
     : false;
   if (staticMatch) {
     matchReasons.push({ type: ConditionType.STATIC });
@@ -275,9 +291,8 @@ export function evaluateRuleConditions({
       // No static match, but have AI - need to check AI
       return { matched: false, potentialAiMatch: true, matchReasons };
     }
-    // No conditions at all (match everything) or no matches
-    const matched = !hasStaticCondition && !hasAiCondition;
-    return { matched, potentialAiMatch: false, matchReasons };
+    // No conditions means no match
+    return { matched: false, potentialAiMatch: false, matchReasons };
   } else {
     // AND logic
     if (hasStaticCondition && !staticMatch) {
@@ -288,15 +303,15 @@ export function evaluateRuleConditions({
       // Static passed (or doesn't exist), but need AI to complete AND
       return { matched: false, potentialAiMatch: true, matchReasons };
     }
-    // Only static (and it passed), or no conditions at all (match everything)
-    const matched = hasStaticCondition ? staticMatch : true;
+    // Only static (and it passed), or no conditions (no match)
+    const matched = hasStaticCondition ? staticMatch : false;
     return { matched, potentialAiMatch: false, matchReasons };
   }
 }
 
 // Lazy load learned patterns when needed
 class LearnedPatternsLoader {
-  private groups?: Awaited<ReturnType<typeof getGroupsWithRules>> | null;
+  private groups?: GroupsWithRules | null;
 
   async getGroups(emailAccountId: string) {
     if (this.groups === undefined)
@@ -345,6 +360,8 @@ function getMatchReason(matchReasons?: MatchReason[]): string | undefined {
           return `Matched learned pattern: "${reason.groupItem.type}: ${reason.groupItem.value}"`;
         case ConditionType.PRESET:
           return "Matched a system preset";
+        case ConditionType.AI:
+          return "Matched via AI";
       }
     })
     .join(", ");
@@ -356,6 +373,7 @@ async function findMatchingRulesWithReasons(
   emailAccount: EmailAccountWithAI,
   provider: EmailProvider,
   modelType: ModelType,
+  logger: Logger,
 ): Promise<MatchingRulesResult> {
   const isThread = provider.isReplyInThread(message);
 
@@ -365,6 +383,7 @@ async function findMatchingRulesWithReasons(
     isThread,
     provider,
     emailAccountId: emailAccount.id,
+    logger,
   });
 
   if (potentialAiMatches.length) {
@@ -380,14 +399,19 @@ async function findMatchingRulesWithReasons(
       reason: fullResult.reason,
     };
 
-    // Build combined matches: start with existing static/learned matches, then append AI-selected matches
+    // Build combined matches: update existing matches with AI reasons if AI also chose them,
+    // and append new AI-selected matches
+    const aiRuleIds = new Set(result.rules.map((r) => r.id));
+
     const combinedMatches = [
-      // Map existing matches to the same output shape
+      // Map existing matches, appending AI match reason if AI also chose this rule
       ...matches.map((match) => ({
         rule: match.rule,
-        matchReasons: match.matchReasons || [],
+        matchReasons: aiRuleIds.has(match.rule.id)
+          ? [...(match.matchReasons || []), { type: ConditionType.AI }]
+          : match.matchReasons || [],
       })),
-      // Append AI-selected matches, deduplicating by rule id
+      // Append AI-selected matches that weren't already in matches
       ...result.rules
         .filter(
           (aiRule) =>
@@ -430,7 +454,9 @@ async function findMatchingRulesWithReasons(
 export function matchesStaticRule(
   rule: Pick<RuleWithActions, "from" | "to" | "subject" | "body">,
   message: ParsedMessage,
+  logger: Logger,
 ) {
+  const log = logger.with({ module: MODULE });
   const { from, to, subject, body } = rule;
 
   if (!from && !to && !subject && !body) return false;
@@ -463,7 +489,7 @@ export function matchesStaticRule(
 
       return false;
     } catch (error) {
-      logger.error("Invalid regex pattern", { pattern, error });
+      log.error("Invalid regex pattern", { pattern, error });
       return false;
     }
   };
@@ -496,10 +522,10 @@ export function splitEmailPatterns(pattern: string): string[] {
 
 function matchesGroupRule(
   rule: RuleWithActions,
-  groups: Awaited<ReturnType<typeof getGroupsWithRules>>,
+  groups: GroupsWithRules,
   message: ParsedMessage,
 ) {
-  const ruleGroup = groups.find((g) => g.rule?.id === rule.id);
+  const ruleGroup = groups.find((g) => g.id === rule.groupId);
   if (!ruleGroup)
     return { group: null, matchingItem: null, ruleExcluded: false };
 
@@ -523,7 +549,9 @@ export async function filterConversationStatusRules<
   potentialMatches: T[],
   message: ParsedMessage,
   provider: EmailProvider,
+  logger: Logger,
 ): Promise<T[]> {
+  const log = logger.with({ module: MODULE });
   const toReplyRule = potentialMatches.find(
     (r) => r.systemType === SystemType.TO_REPLY,
   );
@@ -566,7 +594,7 @@ export async function filterConversationStatusRules<
     );
 
     if (!hasReplied && receivedCount >= TO_REPLY_RECEIVED_THRESHOLD) {
-      logger.info(
+      log.info(
         "Filtering out TO_REPLY rule due to no prior reply and high received count",
         {
           ruleId: toReplyRule.id,
@@ -577,7 +605,7 @@ export async function filterConversationStatusRules<
       return filteredOutConversationStatusRules();
     }
   } catch (error) {
-    logger.error("Error checking reply history for TO_REPLY filter", {
+    log.error("Error checking reply history for TO_REPLY filter", {
       senderEmail,
       error,
     });

@@ -67,8 +67,8 @@ export function MultiAccountSection() {
   return (
     <FormSection id="manage-users">
       <FormSectionLeft
-        title="Share Premium"
-        description="Share premium with other email accounts. This does not give other accounts access to read your emails."
+        title="Manage Team Access"
+        description="Grant premium access to additional email accounts. Additional members are billed to your subscription. Each account maintains separate email privacy."
       />
 
       <LoadingContent loading={isLoadingPremium} error={errorPremium}>
@@ -187,7 +187,10 @@ function MultiAccountForm({
       if (!data.emailAddresses) return;
       if (needsToPurchaseMoreSeats) return;
 
-      const emails = data.emailAddresses.map((e) => e.email);
+      // Filter out empty email strings
+      const emails = data.emailAddresses
+        .map((e) => e.email.trim())
+        .filter((email) => email.length > 0);
       updateMultiAccountPremium({ emails });
     },
     [needsToPurchaseMoreSeats, updateMultiAccountPremium],
@@ -208,14 +211,14 @@ function MultiAccountForm({
                   append({ email: "" });
                   posthog.capture("Clicked Add User");
                 }}
-                onClickRemove={
-                  fields.length > 1
-                    ? () => {
-                        remove(i);
-                        posthog.capture("Clicked Remove User");
-                      }
-                    : undefined
-                }
+                onClickRemove={() => {
+                  remove(i);
+                  posthog.capture("Clicked Remove User");
+                  // If this was the last field, add an empty one so the form isn't completely empty
+                  if (fields.length === 1) {
+                    append({ email: "" });
+                  }
+                }}
               />
             </div>
           );

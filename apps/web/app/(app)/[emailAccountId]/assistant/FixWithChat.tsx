@@ -17,7 +17,7 @@ import { NEW_RULE_ID } from "@/app/(app)/[emailAccountId]/assistant/consts";
 import { Label } from "@/components/Input";
 import { ButtonList } from "@/components/ButtonList";
 import type { RulesResponse } from "@/app/api/user/rules/route";
-import { ProcessResultDisplay } from "@/app/(app)/[emailAccountId]/assistant/ProcessResultDisplay";
+import { ResultsDisplay } from "@/app/(app)/[emailAccountId]/assistant/ResultDisplay";
 import { NONE_RULE_ID } from "@/app/(app)/[emailAccountId]/assistant/consts";
 import { useSidebar } from "@/components/ui/sidebar";
 import { Textarea } from "@/components/ui/textarea";
@@ -223,7 +223,7 @@ function RuleMismatch({
       <Label name="matchedRule" label="Matched:" />
       <div className="mt-1">
         {results.length > 0 ? (
-          <ProcessResultDisplay results={results} />
+          <ResultsDisplay results={results} />
         ) : (
           <p>No rule matched</p>
         )}

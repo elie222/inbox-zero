@@ -4,9 +4,11 @@ import type { Attachment } from "nodemailer/lib/mailer";
 import type { SendEmailBody } from "@/utils/gmail/mail";
 import type { ParsedMessage } from "@/utils/types";
 import type { EmailForAction } from "@/utils/ai/types";
-import { createReplyContent } from "@/utils/gmail/reply";
+import { createOutlookReplyContent } from "@/utils/outlook/reply";
 import { forwardEmailHtml, forwardEmailSubject } from "@/utils/gmail/forward";
 import { buildReplyAllRecipients } from "@/utils/email/reply-all";
+import { withOutlookRetry } from "@/utils/outlook/retry";
+import { extractEmailAddress, extractNameFromEmail } from "@/utils/email";
 
 interface OutlookMessageRequest {
   subject: string;
@@ -48,10 +50,9 @@ export async function sendEmailWithHtml(
     message.conversationId = body.replyToEmail.threadId;
   }
 
-  const result: Message = await client
-    .getClient()
-    .api("/me/messages")
-    .post(message);
+  const result: Message = await withOutlookRetry(() =>
+    client.getClient().api("/me/messages").post(message),
+  );
   return result;
 }
 
@@ -68,7 +69,7 @@ export async function replyToEmail(
   message: EmailForAction,
   reply: string,
 ) {
-  const { html } = createReplyContent({
+  const { html } = createOutlookReplyContent({
     textContent: reply,
     message,
   });
@@ -91,10 +92,12 @@ export async function replyToEmail(
   };
 
   // Send the email immediately using the sendMail endpoint
-  const result = await client.getClient().api("/me/sendMail").post({
-    message: replyMessage,
-    saveToSentItems: true,
-  });
+  const result = await withOutlookRetry(() =>
+    client.getClient().api("/me/sendMail").post({
+      message: replyMessage,
+      saveToSentItems: true,
+    }),
+  );
   return result;
 }
 
@@ -111,10 +114,9 @@ export async function forwardEmail(
   if (!options.to.trim()) throw new Error("Recipient address is required");
 
   // Get the original message
-  const originalMessage: Message = await client
-    .getClient()
-    .api(`/me/messages/${options.messageId}`)
-    .get();
+  const originalMessage: Message = await withOutlookRetry(() =>
+    client.getClient().api(`/me/messages/${options.messageId}`).get(),
+  );
 
   const message: ParsedMessage = {
     id: originalMessage.id || "",
@@ -151,10 +153,12 @@ export async function forwardEmail(
     },
   };
 
-  const result = await client
-    .getClient()
-    .api(`/me/messages/${options.messageId}/forward`)
-    .post({ message: forwardMessage });
+  const result = await withOutlookRetry(() =>
+    client
+      .getClient()
+      .api(`/me/messages/${options.messageId}/forward`)
+      .post({ message: forwardMessage }),
+  );
 
   return result;
 }
@@ -170,7 +174,7 @@ export async function draftEmail(
   },
   userEmail: string,
 ) {
-  const { html } = createReplyContent({
+  const { html } = createOutlookReplyContent({
     textContent: args.content,
     message: originalEmail,
   });
@@ -181,37 +185,51 @@ export async function draftEmail(
     userEmail,
   );
 
+  // Use raw recipients if available (Outlook), otherwise parse from string (Gmail)
+  const toRecipient = originalEmail.rawRecipients?.from || {
+    emailAddress: {
+      address: extractEmailAddress(recipients.to),
+      name: extractNameFromEmail(recipients.to),
+    },
+  };
+
   // Convert CC addresses to Outlook format
   const ccRecipients = recipients.cc.map((addr) => ({
-    emailAddress: { address: addr },
+    emailAddress: {
+      address: extractEmailAddress(addr),
+      name: extractNameFromEmail(addr),
+    },
   }));
 
-  // Use createReply endpoint to create a proper reply draft
-  // This ensures the draft is linked to the original message as a reply
-  const replyDraft: Message = await client
-    .getClient()
-    .api(`/me/messages/${originalEmail.id}/createReply`)
-    .post({});
+  // Use createReplyAll endpoint to create a proper reply draft
+  // This ensures the draft is linked to the original message as a reply all
+  const replyDraft: Message = await withOutlookRetry(() =>
+    client
+      .getClient()
+      .api(`/me/messages/${originalEmail.id}/createReplyAll`)
+      .post({}),
+  );
 
   // Update the draft with our content
-  const updatedDraft: Message = await client
-    .getClient()
-    .api(`/me/messages/${replyDraft.id}`)
-    .patch({
+  const updateRequest = client.getClient().api(`/me/messages/${replyDraft.id}`);
+
+  // To handle change key error
+  const etag = (replyDraft as { "@odata.etag"?: string })?.["@odata.etag"];
+  if (etag) {
+    updateRequest.header("If-Match", etag);
+  }
+
+  const updatedDraft: Message = await withOutlookRetry(() =>
+    updateRequest.patch({
       subject: args.subject || originalEmail.headers.subject,
       body: {
         contentType: "html",
         content: html,
       },
-      toRecipients: [
-        {
-          emailAddress: {
-            address: recipients.to,
-          },
-        },
-      ],
+      toRecipients: [toRecipient],
       ...(ccRecipients.length > 0 ? { ccRecipients } : {}),
-    });
+    }),
+  );
 
   // Use the original replyDraft.id since that's the stable ID
   // The PATCH response might not always include the full object?

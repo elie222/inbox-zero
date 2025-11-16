@@ -2,8 +2,11 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { ActionType, ScheduledActionStatus } from "@prisma/client";
 import { executeScheduledAction } from "./executor";
 import prisma from "@/utils/__mocks__/prisma";
+import { createScopedLogger } from "@/utils/logger";
 
 // Run with: pnpm test utils/scheduled-actions/executor.test.ts
+
+const logger = createScopedLogger("test");
 
 vi.mock("server-only", () => ({}));
 vi.mock("@/utils/prisma");
@@ -109,6 +112,7 @@ describe("executor", () => {
         automated: true,
         reason: null,
         ruleId: null,
+        matchMetadata: null,
       });
 
       const { runActionFunction } = await import("@/utils/ai/actions");
@@ -137,6 +141,7 @@ describe("executor", () => {
       const result = await executeScheduledAction(
         mockScheduledAction,
         mockEmailProvider,
+        logger,
       );
 
       expect(result.success).toBe(true);
@@ -215,6 +220,7 @@ describe("executor", () => {
       const result = await executeScheduledAction(
         mockScheduledAction,
         mockEmailProvider,
+        logger,
       );
 
       expect(result.success).toBe(false);
@@ -243,7 +249,11 @@ describe("executor", () => {
         provider: "google",
       });
 
-      await executeScheduledAction(mockScheduledAction, mockEmailProvider);
+      await executeScheduledAction(
+        mockScheduledAction,
+        mockEmailProvider,
+        logger,
+      );
 
       expect(prisma.scheduledAction.update).toHaveBeenCalledWith({
         where: { id: "scheduled-action-123" },

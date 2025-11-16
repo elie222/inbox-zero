@@ -8,7 +8,7 @@ import { Input } from "@/components/Input";
 import { toastError } from "@/components/Toast";
 import { testAiCustomContentAction } from "@/utils/actions/ai-rule";
 import type { RunRulesResult } from "@/utils/ai/choose-rule/run-rules";
-import { ProcessResultDisplay } from "@/app/(app)/[emailAccountId]/assistant/ProcessResultDisplay";
+import { ResultsDisplay } from "@/app/(app)/[emailAccountId]/assistant/ResultDisplay";
 import {
   testAiCustomContentBody,
   type TestAiCustomContentBody,
@@ -62,7 +62,7 @@ export const TestCustomEmailForm = () => {
       </form>
       {testResults && (
         <div className="mt-4">
-          <ProcessResultDisplay results={testResults} />
+          <ResultsDisplay results={testResults} />
         </div>
       )}
     </div>

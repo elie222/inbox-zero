@@ -1,3 +1,4 @@
+import { after } from "next/server";
 import sumBy from "lodash/sumBy";
 import prisma from "@/utils/prisma";
 import { createScopedLogger } from "@/utils/logger";
@@ -5,6 +6,7 @@ import { getStripe } from "@/ee/billing/stripe";
 import { getStripeSubscriptionTier } from "@/app/(app)/premium/config";
 import { handleLoopsEvents } from "@/ee/billing/stripe/loops-events";
 import { updateAccountSeatsForPremium } from "@/utils/premium/server";
+import { ensureEmailAccountsWatched } from "@/utils/email/watch-manager";
 import type { Prisma } from "@prisma/client";
 
 const logger = createScopedLogger("stripe/syncStripeDataToDb");
@@ -122,6 +124,7 @@ export async function syncStripeDataToDb({
         pendingInvites: true,
         users: {
           select: {
+            id: true,
             email: true,
             _count: { select: { emailAccounts: true } },
           },
@@ -141,6 +144,24 @@ export async function syncStripeDataToDb({
     });
 
     await syncSeats(updatedPremium);
+
+    after(() => {
+      const userIds = updatedPremium.users.map((user) => user.id);
+
+      const statusChanged =
+        currentPremium?.stripeSubscriptionStatus !== subscription.status;
+      const tierChanged = currentPremium?.tier !== tier;
+
+      if (userIds.length && (!currentPremium || statusChanged || tierChanged)) {
+        ensureEmailAccountsWatched({ userIds }).catch((error) => {
+          logger.error("Failed to ensure email watches after Stripe sync", {
+            customerId,
+            userIds,
+            error,
+          });
+        });
+      }
+    });
   } catch (error) {
     logger.error("Error syncing Stripe data to DB", { customerId, error });
     throw error;

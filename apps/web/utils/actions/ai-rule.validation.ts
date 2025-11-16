@@ -12,6 +12,3 @@ export const runRulesBody = z.object({
   isTest: z.boolean(),
 });
 export type RunRulesBody = z.infer<typeof runRulesBody>;
-
-export const createAutomationBody = z.object({ prompt: z.string() });
-export type CreateAutomationBody = z.infer<typeof createAutomationBody>;

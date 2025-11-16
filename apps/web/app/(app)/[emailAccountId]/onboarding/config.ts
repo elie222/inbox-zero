@@ -30,15 +30,11 @@ export const usersRolesInfo: Record<
     suggestedLabels: [
       {
         label: "Customer Feedback",
-        description: "Feedback and suggestions from customers",
+        description: "Feedback and suggestions we receive from our customers",
       },
       {
         label: "Investor",
         description: "Communications from investors and VCs",
-      },
-      {
-        label: "Team",
-        description: "Internal team communications",
       },
       {
         label: "Urgent",
@@ -54,14 +50,6 @@ export const usersRolesInfo: Record<
         description: "Board meetings, materials, and director communications",
       },
       {
-        label: "Strategic Initiative",
-        description: "High-priority strategic projects and planning",
-      },
-      {
-        label: "Direct Reports",
-        description: "Communications from team leaders and direct reports",
-      },
-      {
         label: "Key Stakeholder",
         description:
           "Important partners, major clients, and VIP communications",
@@ -73,11 +61,7 @@ export const usersRolesInfo: Record<
     suggestedLabels: [
       {
         label: "Customer Feedback",
-        description: "Feedback and suggestions from customers",
-      },
-      {
-        label: "Team",
-        description: "Internal team communications",
+        description: "Feedback and suggestions we receive from our customers",
       },
       {
         label: "Urgent",
@@ -114,16 +98,8 @@ export const usersRolesInfo: Record<
         description: "Emails that need a meeting to be scheduled",
       },
       {
-        label: "To Do",
-        description: "Tasks and action items to complete",
-      },
-      {
         label: "Travel",
         description: "Travel arrangements and itineraries",
-      },
-      {
-        label: "Expense",
-        description: "Receipts and expense reports to process",
       },
     ],
   },
@@ -195,7 +171,7 @@ export const usersRolesInfo: Record<
     suggestedLabels: [
       {
         label: "Support Ticket",
-        description: "Customer help requests and issues",
+        description: "Customer requests for help with our product or service",
       },
       {
         label: "Bug",

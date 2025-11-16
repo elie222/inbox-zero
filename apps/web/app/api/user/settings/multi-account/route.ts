@@ -25,7 +25,7 @@ async function getMultiAccountEmails({ userId }: { userId: string }) {
   };
 }
 
-export const GET = withAuth(async (request) => {
+export const GET = withAuth("user/settings/multi-account", async (request) => {
   const userId = request.auth.userId;
 
   const result = await getMultiAccountEmails({ userId });

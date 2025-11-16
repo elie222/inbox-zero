@@ -28,12 +28,21 @@ import {
 import { TooltipExplanation } from "@/components/TooltipExplanation";
 import { Suspense } from "react";
 import { PremiumAiAssistantAlert } from "@/components/PremiumAlert";
-import { ActionType, PremiumTier } from "@prisma/client";
+import {
+  ActionType,
+  ExecutedRuleStatus,
+  PremiumTier,
+  type Rule,
+} from "@prisma/client";
 import { SettingCard } from "@/components/SettingCard";
 import { IconCircle } from "@/app/(app)/[emailAccountId]/onboarding/IconCircle";
 import { ActionBadges } from "@/app/(app)/[emailAccountId]/assistant/Rules";
 import { DismissibleVideoCard } from "@/components/VideoCard";
-import { PremiumExpiredCardContent } from "@/components/PremiumExpiredCard";
+import { PremiumExpiredCardContent } from "@/components/PremiumCard";
+import {
+  ResultsDisplay,
+  ResultDisplayContent,
+} from "@/app/(app)/[emailAccountId]/assistant/ResultDisplay";
 
 export const maxDuration = 3;
 
@@ -333,6 +342,217 @@ export default function Components() {
         </div>
 
         <div>
+          <div className="underline">ResultsDisplay</div>
+          <div className="mt-4">
+            <ResultsDisplay
+              results={[
+                {
+                  createdAt: new Date("2025-01-01"),
+                  actionItems: [
+                    {
+                      type: ActionType.LABEL,
+                      label: "Label",
+                      id: "label",
+                    },
+                  ],
+                  reason: "Test reason",
+                  rule: getRule(),
+                  status: ExecutedRuleStatus.APPLIED,
+                },
+              ]}
+            />
+
+            <div className="mt-8">
+              <p className="mb-2 text-sm text-muted-foreground">
+                Complex example with multiple batches:
+              </p>
+              <ResultsDisplay
+                results={[
+                  // Batch 1 (most recent): 2 rules
+                  {
+                    createdAt: new Date("2025-01-05T10:00:00"),
+                    actionItems: [
+                      {
+                        type: ActionType.LABEL,
+                        label: "Urgent",
+                        id: "label1",
+                      },
+                    ],
+                    reason: "Matches urgent criteria",
+                    rule: getRuleWithName("Urgent Handler"),
+                    status: ExecutedRuleStatus.APPLIED,
+                  },
+                  {
+                    createdAt: new Date("2025-01-05T10:00:00"),
+                    actionItems: [
+                      {
+                        type: ActionType.ARCHIVE,
+                        id: "archive1",
+                      },
+                    ],
+                    reason: "Matches archive criteria",
+                    rule: getRuleWithName("Auto Archive"),
+                    status: ExecutedRuleStatus.APPLIED,
+                  },
+                  // Batch 2 (previous): 2 rules - will show "Previous:"
+                  {
+                    createdAt: new Date("2025-01-04T10:00:00"),
+                    actionItems: [
+                      {
+                        type: ActionType.LABEL,
+                        label: "Important",
+                        id: "label2",
+                      },
+                    ],
+                    reason: "Matches important criteria",
+                    rule: getRuleWithName("Important Filter"),
+                    status: ExecutedRuleStatus.APPLIED,
+                  },
+                  {
+                    createdAt: new Date("2025-01-04T10:00:00"),
+                    actionItems: [
+                      {
+                        type: ActionType.MARK_READ,
+                        id: "mark_read1",
+                      },
+                    ],
+                    reason: "Matches read criteria",
+                    rule: getRuleWithName("Mark as Read"),
+                    status: ExecutedRuleStatus.APPLIED,
+                  },
+                  // Batch 3: 3 rules
+                  {
+                    createdAt: new Date("2025-01-03T10:00:00"),
+                    actionItems: [
+                      {
+                        type: ActionType.LABEL,
+                        label: "Newsletter",
+                        id: "label3",
+                      },
+                    ],
+                    reason: "Matches newsletter criteria",
+                    rule: getRuleWithName("Newsletter Handler"),
+                    status: ExecutedRuleStatus.APPLIED,
+                  },
+                  {
+                    createdAt: new Date("2025-01-03T10:00:00"),
+                    actionItems: [
+                      {
+                        type: ActionType.MOVE_FOLDER,
+                        folderName: "Marketing",
+                        id: "move1",
+                      },
+                    ],
+                    reason: "Matches marketing criteria",
+                    rule: getRuleWithName("Marketing Folder"),
+                    status: ExecutedRuleStatus.APPLIED,
+                  },
+                  {
+                    createdAt: new Date("2025-01-03T10:00:00"),
+                    actionItems: [
+                      {
+                        type: ActionType.DIGEST,
+                        id: "digest1",
+                      },
+                    ],
+                    reason: "Matches digest criteria",
+                    rule: getRuleWithName("Weekly Digest"),
+                    status: ExecutedRuleStatus.APPLIED,
+                  },
+                  // Batch 4: 1 rule
+                  {
+                    createdAt: new Date("2025-01-02T10:00:00"),
+                    actionItems: [
+                      {
+                        type: ActionType.LABEL,
+                        label: "Follow Up",
+                        id: "label4",
+                      },
+                    ],
+                    reason: "Matches follow-up criteria",
+                    rule: getRuleWithName("Follow Up Tracker"),
+                    status: ExecutedRuleStatus.APPLIED,
+                  },
+                ]}
+              />
+            </div>
+
+            <div className="p-4 border border-border rounded mt-4">
+              <ResultDisplayContent
+                result={{
+                  createdAt: new Date("2025-01-01"),
+                  actionItems: [
+                    {
+                      type: ActionType.LABEL,
+                      label: "Label",
+                      id: "label",
+                    },
+                  ],
+                  reason: "Test reason",
+                  rule: getRule(),
+                  status: ExecutedRuleStatus.APPLIED,
+                }}
+              />
+            </div>
+
+            <div className="p-4 border border-border rounded mt-4">
+              <ResultDisplayContent
+                result={{
+                  createdAt: new Date("2025-01-01"),
+                  actionItems: [
+                    {
+                      type: ActionType.LABEL,
+                      label: "To Reply",
+                      id: "label",
+                    },
+                    {
+                      type: ActionType.DRAFT_EMAIL,
+                      subject: "Re: Test subject",
+                      content: "Hi, I'd like to discuss the project with you.",
+                      to: "test@example.com",
+                      id: "draft_email",
+                    },
+                  ],
+                  reason: "Test reason",
+                  rule: {
+                    ...getRule(),
+                    from: "team@company.com",
+                    instructions:
+                      "Urgent requests that need immediate attention",
+                    conditionalOperator: "AND",
+                  },
+                  status: ExecutedRuleStatus.APPLIED,
+                }}
+              />
+            </div>
+
+            <div className="p-4 border border-border rounded mt-4">
+              <ResultDisplayContent
+                result={{
+                  createdAt: new Date("2025-01-01"),
+                  actionItems: [
+                    {
+                      type: ActionType.LABEL,
+                      label: "Important",
+                      id: "label",
+                    },
+                  ],
+                  reason: "Test reason",
+                  rule: {
+                    ...getRule(),
+                    from: "notifications@github.com",
+                    body: "mentioned you",
+                    instructions: "Pull request reviews that need my feedback",
+                    conditionalOperator: "OR",
+                  },
+                  status: ExecutedRuleStatus.APPLIED,
+                }}
+              />
+            </div>
+          </div>
+        </div>
+
+        <div>
           <div className="underline">MultiSelectFilter</div>
           <div className="mt-4">
             <MultiSelectFilter
@@ -461,4 +681,35 @@ export default function Components() {
       </div>
     </Container>
   );
+}
+
+function getRule(): Rule {
+  return {
+    id: "1",
+    name: "Test rule",
+    instructions: "Test instructions",
+    from: null,
+    to: null,
+    subject: null,
+    body: null,
+    groupId: null,
+    conditionalOperator: "AND",
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    enabled: true,
+    automate: true,
+    runOnThreads: true,
+    emailAccountId: "emailAccountId",
+    promptText: null,
+    categoryFilterType: null,
+    systemType: null,
+  };
+}
+
+function getRuleWithName(name: string): Rule {
+  return {
+    ...getRule(),
+    id: name.toLowerCase().replace(/\s+/g, "-"),
+    name,
+  };
 }

@@ -21,6 +21,9 @@ module.exports = {
       },
     },
     extend: {
+      transitionTimingFunction: {
+        "back-out": "cubic-bezier(0.175, 0.885, 0.32, 2.2)",
+      },
       keyframes: {
         "accordion-down": {
           from: { height: 0 },
@@ -30,14 +33,21 @@ module.exports = {
           from: { height: "var(--radix-accordion-content-height)" },
           to: { height: 0 },
         },
+        marquee: {
+          from: { transform: "translateX(0)" },
+          to: { transform: "translateX(calc(-200% - var(--gap)))" },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
+        marquee: "marquee var(--duration) linear infinite",
+        "marquee-reverse": "marquee-reverse var(--duration) linear infinite",
       },
       fontFamily: {
-        cal: ["var(--font-cal)", ...fontFamily.sans],
-        sans: ["var(--font-inter)", ...fontFamily.sans],
+        sans: ["var(--font-geist)", ...fontFamily.sans],
+        inter: ["var(--font-inter)", ...fontFamily.sans],
+        title: ["var(--font-title)", ...fontFamily.sans],
       },
       colors: {
         // shadcn/ui

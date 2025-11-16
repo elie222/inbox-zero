@@ -6,7 +6,7 @@ import { SpeedInsights } from "@vercel/speed-insights/next";
 import { AxiomWebVitals } from "next-axiom";
 import { GoogleTagManager } from "@next/third-parties/google";
 import { Analytics as DubAnalytics } from "@dub/analytics/react";
-import { Inter } from "next/font/google";
+import { Geist } from "next/font/google";
 import localFont from "next/font/local";
 import type { WebApplication, WithContext } from "schema-dts";
 import "../styles/globals.css";
@@ -17,16 +17,16 @@ import { UTM } from "@/app/utm";
 import { startupImage } from "@/app/startup-image";
 import { Toaster } from "@/components/Toast";
 
-const inter = Inter({
-  subsets: ["latin"],
-  variable: "--font-inter",
+const aeonikFont = localFont({
+  src: "../styles/aeonik-medium.woff",
+  variable: "--font-title",
   preload: true,
   display: "swap",
 });
-const calFont = localFont({
-  src: "../styles/CalSans-SemiBold.woff2",
-  variable: "--font-cal",
-  preload: true,
+const geist = Geist({
+  subsets: ["latin"],
+  variable: "--font-geist",
+  weight: ["400", "500", "600", "700"], // font-normal, font-medium, font-semibold, font-bold
   display: "swap",
 });
 
@@ -130,7 +130,7 @@ export default async function RootLayout({
   return (
     <html lang="en" className="h-full" suppressHydrationWarning>
       <body
-        className={`h-full ${inter.variable} ${calFont.variable} font-sans antialiased`}
+        className={`h-full ${env.NEXT_PUBLIC_USE_AEONIK_FONT ? aeonikFont.variable : ""} ${geist.variable} font-sans antialiased`}
       >
         <Script
           id="json-ld"

@@ -1,14 +1,19 @@
 import { after } from "next/server";
 import type { ParsedMessage, RuleWithActions } from "@/utils/types";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
-import { ExecutedRuleStatus, SystemType, type Rule } from "@prisma/client";
+import {
+  ActionType,
+  ExecutedRuleStatus,
+  SystemType,
+  type Rule,
+} from "@prisma/client";
 import type { ActionItem } from "@/utils/ai/types";
 import { findMatchingRules } from "@/utils/ai/choose-rule/match-rules";
 import { getActionItemsWithAiArgs } from "@/utils/ai/choose-rule/choose-args";
 import { executeAct } from "@/utils/ai/choose-rule/execute";
 import prisma from "@/utils/prisma";
-import { createScopedLogger } from "@/utils/logger";
 import type { MatchReason } from "@/utils/ai/choose-rule/types";
+import { serializeMatchReasons } from "@/utils/ai/choose-rule/types";
 import { sanitizeActionFields } from "@/utils/action-item";
 import { extractEmailAddress } from "@/utils/email";
 import { filterNullProperties } from "@/utils";
@@ -28,16 +33,30 @@ import {
   determineConversationStatus,
   updateThreadTrackers,
 } from "@/utils/reply-tracker/handle-conversation-status";
+import { removeConflictingThreadStatusLabels } from "@/utils/reply-tracker/label-helpers";
 import { saveColdEmail } from "@/utils/cold-email/is-cold-email";
 import { internalDateToDate } from "@/utils/date";
 import { ConditionType } from "@/utils/config";
+import type { Logger } from "@/utils/logger";
 
-const logger = createScopedLogger("ai-run-rules");
+const MODULE = "ai/choose-rule";
 
 export type RunRulesResult = {
-  rule?: Rule | null;
+  rule?: Pick<
+    Rule,
+    | "id"
+    | "name"
+    | "instructions"
+    | "groupId"
+    | "from"
+    | "to"
+    | "subject"
+    | "body"
+    | "conditionalOperator"
+  > | null;
   actionItems?: ActionItem[];
   reason?: string | null;
+  status: ExecutedRuleStatus;
   matchReasons?: MatchReason[];
   existing?: boolean;
   createdAt: Date;
@@ -52,6 +71,7 @@ export async function runRules({
   emailAccount,
   isTest,
   modelType,
+  logger,
 }: {
   provider: EmailProvider;
   message: ParsedMessage;
@@ -59,6 +79,7 @@ export async function runRules({
   emailAccount: EmailAccountWithAI;
   isTest: boolean;
   modelType: ModelType;
+  logger: Logger;
 }): Promise<RunRulesResult[]> {
   const batchTimestamp = new Date(); // Single timestamp for this batch execution
   const { regularRules, conversationRules } = prepareRulesWithMetaRule(rules);
@@ -69,18 +90,23 @@ export async function runRules({
     emailAccount,
     provider,
     modelType,
+    logger,
   });
 
   // Auto-reapply conversation tracking for thread continuity
-  const finalMatches = await ensureConversationRuleContinuity({
+  const conversationAwareMatches = await ensureConversationRuleContinuity({
     emailAccountId: emailAccount.id,
     threadId: message.threadId,
     conversationRules,
     regularRules,
     matches: results.matches,
+    logger,
   });
 
+  const finalMatches = limitDraftEmailActions(conversationAwareMatches, logger);
+
   logger.trace("Matching rule", () => ({
+    module: MODULE,
     results: finalMatches.map(filterNullProperties),
   }));
 
@@ -93,13 +119,21 @@ export async function runRules({
           messageId: message.id,
           automated: true,
           reason,
+          matchMetadata: undefined,
           status: ExecutedRuleStatus.SKIPPED,
           emailAccount: { connect: { id: emailAccount.id } },
         },
       });
     }
 
-    return [{ rule: null, reason, createdAt: batchTimestamp }];
+    return [
+      {
+        rule: null,
+        reason,
+        status: ExecutedRuleStatus.SKIPPED,
+        createdAt: batchTimestamp,
+      },
+    ];
   }
 
   const executedRules: RunRulesResult[] = [];
@@ -123,6 +157,7 @@ export async function runRules({
           rule: null,
           reason: statusReason || "No enabled conversation status rule found",
           createdAt: batchTimestamp,
+          status: ExecutedRuleStatus.SKIPPED,
         };
 
         executedRules.push(executedRule);
@@ -150,9 +185,13 @@ export async function runRules({
       isTest,
       modelType,
       batchTimestamp,
+      logger,
     );
 
-    executedRules.push(executedRule);
+    executedRules.push({
+      ...executedRule,
+      status: executedRule.executedRule?.status || ExecutedRuleStatus.APPLIED,
+    });
   }
 
   return executedRules;
@@ -212,6 +251,7 @@ async function executeMatchedRule(
   isTest: boolean,
   modelType: ModelType,
   batchTimestamp: Date,
+  logger: Logger,
 ) {
   const actionItems = await getActionItemsWithAiArgs({
     message,
@@ -219,6 +259,7 @@ async function executeMatchedRule(
     selectedRule: rule,
     client,
     modelType,
+    logger,
   });
 
   const { immediateActions, delayedActions } = groupBy(actionItems, (item) =>
@@ -258,6 +299,7 @@ async function executeMatchedRule(
       automated: true,
       status: ExecutedRuleStatus.APPLYING, // Changed from PENDING - rules are now always automated
       reason,
+      matchMetadata: serializeMatchReasons(matchReasons),
       rule: rule?.id ? { connect: { id: rule.id } } : undefined,
       emailAccount: { connect: { id: emailAccount.id } },
       createdAt: batchTimestamp, // Use batch timestamp for grouping
@@ -278,13 +320,21 @@ async function executeMatchedRule(
   }
 
   if (isConversationStatusType(rule.systemType)) {
-    await updateThreadTrackers({
-      emailAccountId: emailAccount.id,
-      threadId: message.threadId,
-      messageId: message.id,
-      sentAt: internalDateToDate(message.internalDate),
-      status: rule.systemType,
-    });
+    await Promise.all([
+      removeConflictingThreadStatusLabels({
+        emailAccountId: emailAccount.id,
+        threadId: message.threadId,
+        systemType: rule.systemType,
+        provider: client,
+      }),
+      updateThreadTrackers({
+        emailAccountId: emailAccount.id,
+        threadId: message.threadId,
+        messageId: message.id,
+        sentAt: internalDateToDate(message.internalDate),
+        status: rule.systemType,
+      }),
+    ]);
   }
 
   if (executedRule) {
@@ -311,6 +361,7 @@ async function executeMatchedRule(
       await executeAct({
         client,
         userEmail: emailAccount.email,
+        logger,
         userId: emailAccount.userId,
         emailAccountId: emailAccount.id,
         executedRule,
@@ -372,6 +423,10 @@ function shouldAnalyzeSenderPattern({
   if (!result.rule) return false;
   if (isConversationStatusType(result.rule.systemType)) return false;
 
+  // Cold email blocker has its own AI analysis and stores senders in ColdEmail table
+  // No need for learned pattern analysis
+  if (result.rule.systemType === SystemType.COLD_EMAIL) return false;
+
   // skip if we already matched for static reasons
   // learnings only needed for rules that would run through an ai
   if (
@@ -429,12 +484,14 @@ export async function ensureConversationRuleContinuity({
   conversationRules,
   regularRules,
   matches,
+  logger,
 }: {
   emailAccountId: string;
   threadId: string;
   conversationRules: RuleWithActions[];
   regularRules: RuleWithActions[];
   matches: { rule: RuleWithActions; matchReasons?: MatchReason[] }[];
+  logger: Logger;
 }): Promise<{ rule: RuleWithActions; matchReasons?: MatchReason[] }[]> {
   if (conversationRules.length === 0) {
     return matches;
@@ -460,6 +517,7 @@ export async function ensureConversationRuleContinuity({
 
   logger.info(
     "Automatically adding conversation meta rule due to previous application in thread",
+    { module: MODULE },
   );
 
   // Find the meta rule in regularRules
@@ -484,4 +542,72 @@ export async function ensureConversationRuleContinuity({
 
 function isConversationRule(ruleId: string): boolean {
   return ruleId === CONVERSATION_TRACKING_META_RULE_ID;
+}
+
+/**
+ * Limits the number of draft email actions to a single selection.
+ * If there are multiple draft email actions, we prefer static drafts (with fixed content)
+ * over fully dynamic drafts (no fixed content). When multiple static drafts exist, we
+ * select the first one encountered.
+ * If there are no draft email actions, we return the matches as is.
+ * If there is only one draft email action, we return the matches as is.
+ */
+export function limitDraftEmailActions(
+  matches: {
+    rule: RuleWithActions;
+    matchReasons?: MatchReason[];
+  }[],
+  logger: Logger,
+): {
+  rule: RuleWithActions;
+  matchReasons?: MatchReason[];
+}[] {
+  const draftCandidates = matches.flatMap((match) =>
+    match.rule.actions
+      .filter((action) => action.type === ActionType.DRAFT_EMAIL)
+      .map((action) => ({
+        action,
+        hasFixedContent: Boolean(action.content?.trim()),
+      })),
+  );
+
+  if (draftCandidates.length <= 1) {
+    return matches;
+  }
+
+  // Prefer static drafts (with fixed content) over fully dynamic drafts (no fixed content)
+  // If multiple static drafts exist, use the first one encountered
+  const preferredCandidate =
+    draftCandidates.find((candidate) => candidate.hasFixedContent) ||
+    draftCandidates[0];
+
+  const selectedDraftId = preferredCandidate.action.id;
+
+  logger.info("Limiting draft actions to a single selection", {
+    module: MODULE,
+    selectedDraftId,
+  });
+
+  return matches.map((match) => {
+    const hasExtraDrafts = match.rule.actions.some(
+      (action) =>
+        action.type === ActionType.DRAFT_EMAIL && action.id !== selectedDraftId,
+    );
+
+    if (!hasExtraDrafts) {
+      return match;
+    }
+
+    return {
+      ...match,
+      rule: {
+        ...match.rule,
+        actions: match.rule.actions.filter(
+          (action) =>
+            action.type !== ActionType.DRAFT_EMAIL ||
+            action.id === selectedDraftId,
+        ),
+      },
+    };
+  });
 }

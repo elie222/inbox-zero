@@ -330,6 +330,7 @@ export function RuleForm({
       !(rule.systemType && isConversationStatusType(rule.systemType)),
   );
   const [isActionsEditMode, setIsActionsEditMode] = useState(alwaysEditMode);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const toggleActionsEditMode = useCallback(() => {
     if (!alwaysEditMode) {
@@ -809,12 +810,15 @@ export function RuleForm({
               size="sm"
               variant="outline"
               Icon={TrashIcon}
+              loading={isDeleting}
+              disabled={isSubmitting}
               onClick={async () => {
                 const yes = confirm(
                   "Are you sure you want to delete this rule?",
                 );
                 if (yes) {
                   try {
+                    setIsDeleting(true);
                     const result = await deleteRuleAction(emailAccountId, {
                       id: rule.id!,
                     });
@@ -826,12 +830,19 @@ export function RuleForm({
                       toastSuccess({
                         description: "The rule has been deleted.",
                       });
+
+                      if (isDialog && onSuccess) {
+                        onSuccess();
+                      }
+
                       router.push(
                         prefixPath(emailAccountId, "/automation?tab=rules"),
                       );
                     }
                   } catch {
                     toastError({ description: "Failed to delete rule." });
+                  } finally {
+                    setIsDeleting(false);
                   }
                 }
               }}
@@ -849,7 +860,7 @@ export function RuleForm({
           )}
 
           {rule.id ? (
-            <Button type="submit" loading={isSubmitting}>
+            <Button type="submit" loading={isSubmitting} disabled={isDeleting}>
               Save
             </Button>
           ) : (
@@ -998,7 +1009,11 @@ function ActionCard({
         <CardLayoutRight>
           {fields.map((field) => {
             const isAiGenerated = !!action[field.name]?.ai;
-            const value = watch(`actions.${index}.${field.name}.value`) || "";
+            // For AI-generated labelId, read from .name instead of .value
+            const value =
+              field.name === "labelId" && isAiGenerated
+                ? watch(`actions.${index}.${field.name}.name`) || ""
+                : watch(`actions.${index}.${field.name}.value`) || "";
             const setManually = !!watch(
               `actions.${index}.${field.name}.setManually`,
             );
@@ -1039,9 +1054,9 @@ function ActionCard({
                     <div className="mt-2">
                       <Input
                         type="text"
-                        name={`actions.${index}.${field.name}.value`}
+                        name={`actions.${index}.${field.name}.name`}
                         registerProps={register(
-                          `actions.${index}.${field.name}.value`,
+                          `actions.${index}.${field.name}.name`,
                         )}
                       />
                     </div>

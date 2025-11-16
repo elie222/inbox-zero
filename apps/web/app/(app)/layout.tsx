@@ -3,6 +3,7 @@ import type React from "react";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { after } from "next/server";
+import { Inter } from "next/font/google";
 import { SideNavWithTopNav } from "@/components/SideNavWithTopNav";
 import { auth } from "@/utils/auth";
 import { PostHogIdentify } from "@/providers/PostHogProvider";
@@ -19,6 +20,14 @@ import prisma from "@/utils/prisma";
 import { createScopedLogger } from "@/utils/logger";
 
 const logger = createScopedLogger("AppLayout");
+
+const inter = Inter({
+  subsets: ["latin"],
+  variable: "--font-inter",
+  weight: ["400", "500", "600", "700"], // font-normal, font-medium, font-semibold, font-bold
+  preload: true,
+  display: "swap",
+});
 
 export const viewport = {
   themeColor: "#FFF",
@@ -58,20 +67,24 @@ export default async function AppLayout({
   });
 
   return (
-    <AppProviders>
-      <SideNavWithTopNav defaultOpen={!isClosed}>
-        <ErrorMessages />
-        {children}
-      </SideNavWithTopNav>
-      <EmailViewer />
-      <ErrorBoundary extra={{ component: "AppLayout" }}>
-        <PostHogIdentify />
+    <div className={inter.variable}>
+      <div className="font-inter">
+        <AppProviders>
+          <SideNavWithTopNav defaultOpen={!isClosed}>
+            <ErrorMessages />
+            {children}
+          </SideNavWithTopNav>
+          <EmailViewer />
+          <ErrorBoundary extra={{ component: "AppLayout" }}>
+            <PostHogIdentify />
 
-        <CommandK />
-        <QueueInitializer />
-        <AssessUser />
-        <SentryIdentify email={session.user.email} />
-      </ErrorBoundary>
-    </AppProviders>
+            <CommandK />
+            <QueueInitializer />
+            <AssessUser />
+            <SentryIdentify email={session.user.email} />
+          </ErrorBoundary>
+        </AppProviders>
+      </div>
+    </div>
   );
 }

@@ -50,7 +50,7 @@ async function getEmailAccounts({ userId }: { userId: string }) {
   return { emailAccounts: accountsWithNames };
 }
 
-export const GET = withAuth(async (request) => {
+export const GET = withAuth("user/email-accounts", async (request) => {
   const userId = request.auth.userId;
   const result = await getEmailAccounts({ userId });
   return NextResponse.json(result);

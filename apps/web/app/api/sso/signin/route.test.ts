@@ -10,14 +10,6 @@ vi.mock("@/utils/auth", () => ({
   },
 }));
 
-// Mock the logger
-vi.mock("@/utils/logger", () => ({
-  createScopedLogger: vi.fn(() => ({
-    info: vi.fn(),
-    error: vi.fn(),
-  })),
-}));
-
 // Mock Prisma
 vi.mock("@/utils/prisma", () => ({
   default: {
@@ -30,12 +22,10 @@ vi.mock("@/utils/prisma", () => ({
 import { NextRequest } from "next/server";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 import { betterAuthConfig } from "@/utils/auth";
-import { createScopedLogger } from "@/utils/logger";
 import prisma from "@/utils/prisma";
 import { GET } from "./route";
 
 const mockBetterAuthConfig = vi.mocked(betterAuthConfig);
-const mockLogger = vi.mocked(createScopedLogger);
 
 describe("SSO Signin Route", () => {
   const mockContext = { params: Promise.resolve({}) };

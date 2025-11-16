@@ -90,7 +90,7 @@ ${threadContent}
   const modelOptions = getModel(emailAccount.user);
 
   const generateText = createGenerateText({
-    userEmail: emailAccount.email,
+    emailAccount,
     label: "Calendar availability analysis",
     modelOptions,
   });

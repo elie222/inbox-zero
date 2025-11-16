@@ -8,7 +8,7 @@ import { hasOrganizationAdminRole } from "@/utils/organizations/roles";
 
 export const removeMemberAction = actionClient
   .metadata({ name: "removeMember" })
-  .schema(removeMemberBody)
+  .inputSchema(removeMemberBody)
   .action(async ({ ctx: { emailAccountId }, parsedInput: { memberId } }) => {
     const callerEmailAccount = await prisma.emailAccount.findUnique({
       where: { id: emailAccountId },
