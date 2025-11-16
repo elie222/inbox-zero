@@ -1,4 +1,5 @@
 import type { NextRequest, NextResponse } from "next/server";
+import { env } from "@/env";
 import type { Logger } from "@/utils/logger";
 import type { CalendarOAuthProvider } from "./oauth-types";
 import {
@@ -21,21 +22,25 @@ export async function handleCalendarCallback(
   provider: CalendarOAuthProvider,
   logger: Logger,
 ): Promise<NextResponse> {
+  let redirectHeaders = new Headers();
+
   try {
     // Step 1: Validate OAuth callback parameters
     const { code, redirectUrl, response } = await validateOAuthCallback(
       request,
       logger,
     );
+    redirectHeaders = response.headers;
 
-    const storedState = request.cookies.get("calendar_state")?.value;
-    if (!storedState) {
-      throw new Error("Missing stored state");
+    // The validated state is in the request query params (already validated by validateOAuthCallback)
+    const receivedState = request.nextUrl.searchParams.get("state");
+    if (!receivedState) {
+      throw new Error("Missing validated state");
     }
 
     // Step 2: Parse and validate the OAuth state
     const decodedState = parseAndValidateCalendarState(
-      storedState,
+      receivedState,
       logger,
       redirectUrl,
       response.headers,
@@ -44,10 +49,7 @@ export async function handleCalendarCallback(
     const { emailAccountId } = decodedState;
 
     // Step 3: Update redirect URL to include emailAccountId
-    const finalRedirectUrl = buildCalendarRedirectUrl(
-      emailAccountId,
-      request.nextUrl.origin,
-    );
+    const finalRedirectUrl = buildCalendarRedirectUrl(emailAccountId);
 
     // Step 4: Verify user owns this email account
     await verifyEmailAccountAccess(
@@ -77,7 +79,7 @@ export async function handleCalendarCallback(
       return redirectWithMessage(
         finalRedirectUrl,
         "calendar_already_connected",
-        response.headers,
+        redirectHeaders,
       );
     }
 
@@ -97,6 +99,7 @@ export async function handleCalendarCallback(
       accessToken,
       refreshToken,
       emailAccountId,
+      expiresAt,
     );
 
     logger.info("Calendar connected successfully", {
@@ -109,7 +112,7 @@ export async function handleCalendarCallback(
     return redirectWithMessage(
       finalRedirectUrl,
       "calendar_connected",
-      response.headers,
+      redirectHeaders,
     );
   } catch (error) {
     // Handle redirect errors
@@ -125,11 +128,11 @@ export async function handleCalendarCallback(
     logger.error("Error in calendar callback", { error });
 
     // Try to build a redirect URL, fallback to /calendars
-    const errorRedirectUrl = new URL("/calendars", request.nextUrl.origin);
+    const errorRedirectUrl = new URL("/calendars", env.NEXT_PUBLIC_BASE_URL);
     return redirectWithError(
       errorRedirectUrl,
       "connection_failed",
-      new Headers(),
+      redirectHeaders,
     );
   }
 }

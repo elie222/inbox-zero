@@ -23,6 +23,7 @@ export interface CalendarOAuthProvider {
     accessToken: string,
     refreshToken: string,
     emailAccountId: string,
+    expiresAt: Date | null,
   ): Promise<void>;
 }
 
@@ -34,6 +35,6 @@ export interface OAuthCallbackValidation {
 
 export interface CalendarOAuthState {
   emailAccountId: string;
-  type: string;
+  type: "calendar";
   nonce: string;
 }

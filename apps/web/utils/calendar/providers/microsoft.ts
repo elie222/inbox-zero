@@ -61,6 +61,12 @@ export const microsoftCalendarProvider: CalendarOAuthProvider = {
       throw new Error("Profile missing required email");
     }
 
+    if (!tokens.refresh_token) {
+      throw new Error(
+        "No refresh_token returned from Microsoft (ensure offline_access scope and correct app type)",
+      );
+    }
+
     return {
       accessToken: tokens.access_token,
       refreshToken: tokens.refresh_token,
@@ -76,12 +82,13 @@ export const microsoftCalendarProvider: CalendarOAuthProvider = {
     accessToken: string,
     refreshToken: string,
     emailAccountId: string,
+    expiresAt: Date | null,
   ): Promise<void> {
     try {
       const calendarClient = await getCalendarClientWithRefresh({
         accessToken,
         refreshToken,
-        expiresAt: null,
+        expiresAt: expiresAt?.getTime() ?? null,
         emailAccountId,
       });
 

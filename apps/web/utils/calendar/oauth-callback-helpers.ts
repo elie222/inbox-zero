@@ -1,15 +1,23 @@
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
+import { z } from "zod";
 import prisma from "@/utils/prisma";
 import { CALENDAR_STATE_COOKIE_NAME } from "@/utils/calendar/constants";
 import { parseOAuthState } from "@/utils/oauth/state";
 import { auth } from "@/utils/auth";
 import { prefixPath } from "@/utils/path";
+import { env } from "@/env";
 import type { Logger } from "@/utils/logger";
 import type {
   OAuthCallbackValidation,
   CalendarOAuthState,
 } from "./oauth-types";
+
+const calendarOAuthStateSchema = z.object({
+  emailAccountId: z.string().min(1).max(64),
+  type: z.literal("calendar"),
+  nonce: z.string().min(8).max(128),
+});
 
 /**
  * Validate OAuth callback parameters and setup redirect
@@ -23,13 +31,22 @@ export async function validateOAuthCallback(
   const receivedState = searchParams.get("state");
   const storedState = request.cookies.get(CALENDAR_STATE_COOKIE_NAME)?.value;
 
-  const redirectUrl = new URL("/calendars", request.nextUrl.origin);
+  const expectedOrigin = new URL(env.NEXT_PUBLIC_BASE_URL).origin;
+  if (request.nextUrl.origin !== expectedOrigin) {
+    logger.error("Invalid origin in OAuth callback", {
+      received: request.nextUrl.origin,
+      expected: expectedOrigin,
+    });
+    throw new Error("Invalid redirect origin");
+  }
+
+  const redirectUrl = new URL("/calendars", env.NEXT_PUBLIC_BASE_URL);
   const response = NextResponse.redirect(redirectUrl);
 
   response.cookies.delete(CALENDAR_STATE_COOKIE_NAME);
 
-  if (!code) {
-    logger.warn("Missing code in calendar callback");
+  if (!code || code.length < 10) {
+    logger.warn("Missing or invalid code in calendar callback");
     redirectUrl.searchParams.set("error", "missing_code");
     throw new RedirectError(redirectUrl, response.headers);
   }
@@ -55,35 +72,35 @@ export function parseAndValidateCalendarState(
   redirectUrl: URL,
   responseHeaders: Headers,
 ): CalendarOAuthState {
-  let decodedState: CalendarOAuthState;
+  let rawState: unknown;
   try {
-    decodedState =
-      parseOAuthState<Omit<CalendarOAuthState, "nonce">>(storedState);
+    rawState = parseOAuthState<Omit<CalendarOAuthState, "nonce">>(storedState);
   } catch (error) {
     logger.error("Failed to decode state", { error });
     redirectUrl.searchParams.set("error", "invalid_state_format");
     throw new RedirectError(redirectUrl, responseHeaders);
   }
 
-  if (decodedState.type !== "calendar") {
-    logger.error("Invalid state type for calendar callback", {
-      type: decodedState.type,
+  const validationResult = calendarOAuthStateSchema.safeParse(rawState);
+  if (!validationResult.success) {
+    logger.error("State validation failed", {
+      errors: validationResult.error.errors,
     });
-    redirectUrl.searchParams.set("error", "invalid_state_type");
+    redirectUrl.searchParams.set("error", "invalid_state_format");
     throw new RedirectError(redirectUrl, responseHeaders);
   }
 
-  return decodedState;
+  return validationResult.data;
 }
 
 /**
  * Build redirect URL with emailAccountId
  */
-export function buildCalendarRedirectUrl(
-  emailAccountId: string,
-  origin: string,
-): URL {
-  return new URL(prefixPath(emailAccountId, "/calendars"), origin);
+export function buildCalendarRedirectUrl(emailAccountId: string): URL {
+  return new URL(
+    prefixPath(emailAccountId, "/calendars"),
+    env.NEXT_PUBLIC_BASE_URL,
+  );
 }
 
 /**

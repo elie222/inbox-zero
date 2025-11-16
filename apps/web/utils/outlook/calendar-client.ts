@@ -89,6 +89,10 @@ export const getCalendarClientWithRefresh = async ({
       throw new Error(tokens.error_description || "Failed to refresh token");
     }
 
+    if (!tokens.expires_in) {
+      throw new Error("Token response missing expires_in field");
+    }
+
     // Find the calendar connection to update
     const calendarConnection = await prisma.calendarConnection.findFirst({
       where: {
@@ -103,9 +107,7 @@ export const getCalendarClientWithRefresh = async ({
         tokens: {
           access_token: tokens.access_token,
           refresh_token: tokens.refresh_token,
-          expires_at: Math.floor(
-            Date.now() / 1000 + Number(tokens.expires_in ?? 0),
-          ),
+          expires_at: Math.floor(Date.now() / 1000 + Number(tokens.expires_in)),
         },
         connectionId: calendarConnection.id,
       });

@@ -50,12 +50,13 @@ export const googleCalendarProvider: CalendarOAuthProvider = {
     accessToken: string,
     refreshToken: string,
     emailAccountId: string,
+    expiresAt: Date | null,
   ): Promise<void> {
     try {
       const calendarClient = await getCalendarClientWithRefresh({
         accessToken,
         refreshToken,
-        expiresAt: null,
+        expiresAt: expiresAt?.getTime() ?? null,
         emailAccountId,
       });
 

@@ -32,7 +32,6 @@ export const GET = withError("outlook/linking/callback", async (request) => {
     receivedState: searchParams.get("state"),
     storedState,
     stateCookieName: OUTLOOK_LINKING_STATE_COOKIE_NAME,
-    baseUrl: request.nextUrl.origin,
     logger,
   });
 
@@ -47,7 +46,7 @@ export const GET = withError("outlook/linking/callback", async (request) => {
     logger.info("OAuth code already processed, returning cached result", {
       targetUserId,
     });
-    const redirectUrl = new URL("/accounts", request.nextUrl.origin);
+    const redirectUrl = new URL("/accounts", env.NEXT_PUBLIC_BASE_URL);
     for (const [key, value] of Object.entries(cachedResult.params)) {
       redirectUrl.searchParams.set(key, value);
     }
@@ -61,7 +60,7 @@ export const GET = withError("outlook/linking/callback", async (request) => {
     logger.info("OAuth code is being processed by another request", {
       targetUserId,
     });
-    const redirectUrl = new URL("/accounts", request.nextUrl.origin);
+    const redirectUrl = new URL("/accounts", env.NEXT_PUBLIC_BASE_URL);
     const response = NextResponse.redirect(redirectUrl);
     response.cookies.delete(OUTLOOK_LINKING_STATE_COOKIE_NAME);
     return response;
@@ -160,7 +159,6 @@ export const GET = withError("outlook/linking/callback", async (request) => {
       targetUserId,
       provider: "microsoft",
       providerEmail,
-      baseUrl: request.nextUrl.origin,
       logger,
     });
 
@@ -273,7 +271,7 @@ export const GET = withError("outlook/linking/callback", async (request) => {
 
       await setOAuthCodeResult(code, { success: "account_created_and_linked" });
 
-      const successUrl = new URL("/accounts", request.nextUrl.origin);
+      const successUrl = new URL("/accounts", env.NEXT_PUBLIC_BASE_URL);
       successUrl.searchParams.set("success", "account_created_and_linked");
       const successResponse = NextResponse.redirect(successUrl);
       successResponse.cookies.delete(OUTLOOK_LINKING_STATE_COOKIE_NAME);
@@ -309,7 +307,7 @@ export const GET = withError("outlook/linking/callback", async (request) => {
 
     await setOAuthCodeResult(code, { success: successMessage });
 
-    const successUrl = new URL("/accounts", request.nextUrl.origin);
+    const successUrl = new URL("/accounts", env.NEXT_PUBLIC_BASE_URL);
     successUrl.searchParams.set("success", successMessage);
     const successResponse = NextResponse.redirect(successUrl);
     successResponse.cookies.delete(OUTLOOK_LINKING_STATE_COOKIE_NAME);
@@ -318,7 +316,7 @@ export const GET = withError("outlook/linking/callback", async (request) => {
   } catch (error) {
     await clearOAuthCode(code);
 
-    const errorUrl = new URL("/accounts", request.nextUrl.origin);
+    const errorUrl = new URL("/accounts", env.NEXT_PUBLIC_BASE_URL);
     return handleOAuthCallbackError({
       error,
       redirectUrl: errorUrl,
