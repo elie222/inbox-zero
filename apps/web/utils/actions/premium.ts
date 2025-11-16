@@ -93,7 +93,7 @@ export const decrementUnsubscribeCreditAction = actionClientUser
 
 export const updateMultiAccountPremiumAction = actionClientUser
   .metadata({ name: "updateMultiAccountPremium" })
-  .schema(z.object({ emails: z.array(z.string()) }))
+  .inputSchema(z.object({ emails: z.array(z.string()) }))
   .action(async ({ ctx: { userId }, parsedInput: { emails } }) => {
     const user = await prisma.user.findUnique({
       where: { id: userId },
@@ -228,7 +228,7 @@ export const updateMultiAccountPremiumAction = actionClientUser
 
 // export const switchLemonPremiumPlanAction = actionClientUser
 //   .metadata({ name: "switchLemonPremiumPlan" })
-//   .schema(z.object({ premiumTier: z.nativeEnum(PremiumTier) }))
+//   .inputSchema(z.object({ premiumTier: z.nativeEnum(PremiumTier) }))
 //   .action(async ({ ctx: { userId }, parsedInput: { premiumTier } }) => {
 //     const user = await prisma.user.findUnique({
 //       where: { id: userId },
@@ -250,7 +250,7 @@ export const updateMultiAccountPremiumAction = actionClientUser
 
 export const activateLicenseKeyAction = actionClientUser
   .metadata({ name: "activateLicenseKey" })
-  .schema(activateLicenseKeySchema)
+  .inputSchema(activateLicenseKeySchema)
   .action(async ({ ctx: { userId }, parsedInput: { licenseKey } }) => {
     const lemonSqueezyLicense = await activateLemonLicenseKey(
       licenseKey,
@@ -291,7 +291,7 @@ export const activateLicenseKeyAction = actionClientUser
 
 export const adminChangePremiumStatusAction = adminActionClient
   .metadata({ name: "adminChangePremiumStatus" })
-  .schema(changePremiumStatusSchema)
+  .inputSchema(changePremiumStatusSchema)
   .action(
     async ({
       parsedInput: {
@@ -404,7 +404,7 @@ export const claimPremiumAdminAction = actionClientUser
 
 export const getBillingPortalUrlAction = actionClientUser
   .metadata({ name: "getBillingPortalUrl" })
-  .schema(z.object({ tier: z.nativeEnum(PremiumTier).optional() }))
+  .inputSchema(z.object({ tier: z.nativeEnum(PremiumTier).optional() }))
   .action(async ({ ctx: { userId, logger }, parsedInput: { tier } }) => {
     const priceId = tier ? getStripePriceId({ tier }) : undefined;
 
@@ -477,7 +477,7 @@ export const getBillingPortalUrlAction = actionClientUser
 
 export const generateCheckoutSessionAction = actionClientUser
   .metadata({ name: "generateCheckoutSession" })
-  .schema(z.object({ tier: z.nativeEnum(PremiumTier) }))
+  .inputSchema(z.object({ tier: z.nativeEnum(PremiumTier) }))
   .action(async ({ ctx: { userId, logger }, parsedInput: { tier } }) => {
     const priceId = getStripePriceId({ tier });
 

@@ -10,7 +10,7 @@ import { SafeError } from "@/utils/error";
 
 export const disconnectCalendarAction = actionClient
   .metadata({ name: "disconnectCalendar" })
-  .schema(disconnectCalendarBody)
+  .inputSchema(disconnectCalendarBody)
   .action(
     async ({ ctx: { emailAccountId }, parsedInput: { connectionId } }) => {
       const connection = await prisma.calendarConnection.findFirst({
@@ -34,7 +34,7 @@ export const disconnectCalendarAction = actionClient
 
 export const toggleCalendarAction = actionClient
   .metadata({ name: "toggleCalendar" })
-  .schema(toggleCalendarBody)
+  .inputSchema(toggleCalendarBody)
   .action(
     async ({
       ctx: { emailAccountId },

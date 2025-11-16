@@ -46,7 +46,7 @@ export function Hero() {
           ]}
         />
       </PageHeading>
-      <BlurFade duration={0.4} delay={0.125 * 5} inView>
+      <BlurFade duration={0.4} delay={0.125 * 5}>
         <Paragraph size="lg" className={"max-w-[640px] mx-auto mt-6"}>
           Inbox Zero organizes your inbox, drafts replies in your voice, and
           helps you reach inbox zero fast. Never miss an important email again.
@@ -54,10 +54,10 @@ export function Hero() {
       </BlurFade>
       <SectionContent noMarginTop className="mt-6 md:mt-8">
         <div className="space-y-3 mb-8">
-          <BlurFade duration={0.4} delay={0.125 * 7} inView>
+          <BlurFade duration={0.4} delay={0.125 * 7}>
             <CallToAction />
           </BlurFade>
-          <BlurFade duration={0.4} delay={0.125 * 8} inView>
+          <BlurFade duration={0.4} delay={0.125 * 8}>
             <div className="mb-12 flex items-center gap-2 justify-center">
               <Paragraph color="light" size="sm">
                 Works with
@@ -67,7 +67,7 @@ export function Hero() {
             </div>
           </BlurFade>
         </div>
-        <BlurFade delay={0.125 * 9} inView>
+        <BlurFade delay={0.125 * 9}>
           <HeroVideoPlayer />
         </BlurFade>
         <div className="mt-12">

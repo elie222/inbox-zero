@@ -10,7 +10,7 @@ import { SafeError } from "@/utils/error";
 
 export const generateNudgeReplyAction = actionClient
   .metadata({ name: "generateNudgeReply" })
-  .schema(generateReplySchema)
+  .inputSchema(generateReplySchema)
   .action(
     async ({
       ctx: { emailAccountId },

@@ -1,6 +1,7 @@
 import pRetry from "p-retry";
 import { createScopedLogger } from "@/utils/logger";
 import { sleep } from "@/utils/sleep";
+import { isFetchError } from "@/utils/retry/is-fetch-error";
 
 const logger = createScopedLogger("gmail-retry");
 
@@ -61,6 +62,7 @@ export async function withGmailRetry<T>(
         isRateLimit,
         isServerError,
         isFailedPrecondition,
+        isFetchError: isFetchError(errorInfo),
       });
 
       // Apply the custom delay
@@ -74,7 +76,9 @@ export async function withGmailRetry<T>(
 /**
  * Extracts error information from various error shapes
  */
-export function extractErrorInfo(error: unknown): ErrorInfo {
+export function extractErrorInfo(
+  error: unknown,
+): ErrorInfo & { code?: string } {
   const err = error as Record<string, unknown>;
   const cause = (err?.cause ?? err) as Record<string, unknown>;
   const status =
@@ -82,6 +86,7 @@ export function extractErrorInfo(error: unknown): ErrorInfo {
     (cause?.code as number) ??
     ((cause?.response as Record<string, unknown>)?.status as number) ??
     undefined;
+  const code = (err?.code as string) ?? (cause?.code as string) ?? undefined;
   const reason =
     ((cause?.errors as Array<Record<string, unknown>>)?.[0]
       ?.reason as string) ??
@@ -121,13 +126,13 @@ export function extractErrorInfo(error: unknown): ErrorInfo {
 
   const errorMessage = String(primaryMessage);
 
-  return { status, reason, errorMessage };
+  return { status, code, reason, errorMessage };
 }
 
 /**
- * Determines if an error is retryable (rate limit or server error)
+ * Determines if an error is retryable (rate limit, server error, or network error)
  */
-export function isRetryableError(errorInfo: ErrorInfo): {
+export function isRetryableError(errorInfo: ErrorInfo & { code?: string }): {
   retryable: boolean;
   isRateLimit: boolean;
   isServerError: boolean;
@@ -158,7 +163,11 @@ export function isRetryableError(errorInfo: ErrorInfo): {
       /precondition check failed/i.test(errorMessage));
 
   return {
-    retryable: isRateLimit || isServerError || isFailedPrecondition,
+    retryable:
+      isRateLimit ||
+      isServerError ||
+      isFailedPrecondition ||
+      isFetchError(errorInfo),
     isRateLimit,
     isServerError,
     isFailedPrecondition,
@@ -220,7 +229,8 @@ export function calculateRetryDelay(
     return Math.min(1000 * 2 ** (attemptNumber - 1), 10_000);
   }
 
-  return 0;
+  // Default exponential backoff for other retryable errors: 1s, 2s, 4s, 8s, 16s
+  return Math.min(1000 * 2 ** (attemptNumber - 1), 16_000);
 }
 
 /**

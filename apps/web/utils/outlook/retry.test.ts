@@ -121,6 +121,15 @@ describe("isRetryableError", () => {
     expect(result.retryable).toBe(true);
   });
 
+  it("identifies fetch failed as network error", () => {
+    const errorInfo = { errorMessage: "fetch failed" };
+    const result = isRetryableError(errorInfo);
+    expect(result.retryable).toBe(true);
+    expect(result.isRateLimit).toBe(false);
+    expect(result.isServerError).toBe(false);
+    expect(result.isConflictError).toBe(false);
+  });
+
   it("identifies non-retryable errors", () => {
     const errorInfo = { status: 404, errorMessage: "Not found" };
     const result = isRetryableError(errorInfo);
@@ -180,8 +189,13 @@ describe("calculateRetryDelay", () => {
     expect(calculateRetryDelay(false, false, true, 6)).toBe(8000); // capped at 8s
   });
 
-  it("returns 0 for non-retryable errors", () => {
-    const delay = calculateRetryDelay(false, false, false, 1);
-    expect(delay).toBe(0);
+  it("uses default exponential backoff for other retryable errors (e.g., network)", () => {
+    // When no specific error type matches, falls back to default
+    expect(calculateRetryDelay(false, false, false, 1)).toBe(1000); // 1s
+    expect(calculateRetryDelay(false, false, false, 2)).toBe(2000); // 2s
+    expect(calculateRetryDelay(false, false, false, 3)).toBe(4000); // 4s
+    expect(calculateRetryDelay(false, false, false, 4)).toBe(8000); // 8s
+    expect(calculateRetryDelay(false, false, false, 5)).toBe(16_000); // 16s max
+    expect(calculateRetryDelay(false, false, false, 6)).toBe(16_000); // capped at 16s
   });
 });

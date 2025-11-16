@@ -7,7 +7,7 @@ import { actionClient } from "@/utils/actions/safe-action";
 
 export const setNewsletterStatusAction = actionClient
   .metadata({ name: "setNewsletterStatus" })
-  .schema(setNewsletterStatusBody)
+  .inputSchema(setNewsletterStatusBody)
   .action(
     async ({
       parsedInput: { newsletterEmail, status },
