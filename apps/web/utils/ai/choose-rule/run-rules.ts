@@ -261,6 +261,7 @@ async function executeMatchedRule(
     client,
     modelType,
     logger,
+    isTest,
   });
 
   const { immediateActions, delayedActions } = groupBy(actionItems, (item) =>

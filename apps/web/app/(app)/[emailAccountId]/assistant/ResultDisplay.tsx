@@ -216,7 +216,7 @@ function Actions({
             {fields.length > 0 && (
               <div className="ml-1 text-sm text-muted-foreground space-y-0.5">
                 {fields.map((field) => (
-                  <div key={field.key}>
+                  <div key={field.key} className="whitespace-pre-wrap">
                     <span className="font-medium capitalize">{field.key}:</span>{" "}
                     {field.value}
                   </div>

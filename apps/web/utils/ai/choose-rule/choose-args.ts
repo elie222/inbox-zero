@@ -25,6 +25,7 @@ export async function getActionItemsWithAiArgs({
   client,
   modelType,
   logger,
+  isTest = false,
 }: {
   message: ParsedMessage;
   emailAccount: EmailAccountWithAI;
@@ -32,6 +33,7 @@ export async function getActionItemsWithAiArgs({
   client: EmailProvider;
   modelType: ModelType;
   logger: Logger;
+  isTest?: boolean;
 }): Promise<Action[]> {
   const log = logger.with({ module: MODULE });
   // Draft content is handled via its own AI call
@@ -47,12 +49,14 @@ export async function getActionItemsWithAiArgs({
       log.info("Generating draft", {
         email: emailAccount.email,
         threadId: message.threadId,
+        isTest,
       });
 
       draft = await fetchMessagesAndGenerateDraft(
         emailAccount,
         message.threadId,
         client,
+        isTest ? message : undefined,
       );
 
       log.info("Draft generated", {

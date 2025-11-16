@@ -27,9 +27,11 @@ export async function fetchMessagesAndGenerateDraft(
   emailAccount: EmailAccountWithAI,
   threadId: string,
   client: EmailProvider,
+  testMessage?: ParsedMessage,
 ): Promise<string> {
-  const { threadMessages, previousConversationMessages } =
-    await fetchThreadAndConversationMessages(threadId, client);
+  const { threadMessages, previousConversationMessages } = testMessage
+    ? { threadMessages: [testMessage], previousConversationMessages: null }
+    : await fetchThreadAndConversationMessages(threadId, client);
 
   const result = await generateDraftContent(
     emailAccount,
