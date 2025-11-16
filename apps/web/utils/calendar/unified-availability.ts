@@ -98,7 +98,13 @@ export async function getUnifiedCalendarAvailability({
   // Fetch Microsoft calendar availability
   for (const connection of microsoftConnections) {
     const calendarIds = connection.calendars.map((cal) => cal.calendarId);
-    if (!calendarIds.length) continue;
+
+    if (!calendarIds.length) {
+      logger.warn("No enabled calendars for Microsoft connection", {
+        connectionId: connection.id,
+      });
+      continue;
+    }
 
     promises.push(
       microsoftAvailabilityProvider
