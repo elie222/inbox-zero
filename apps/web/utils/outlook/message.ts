@@ -13,64 +13,6 @@ const logger = createScopedLogger("outlook/message");
 export const MESSAGE_SELECT_FIELDS =
   "id,conversationId,conversationIndex,subject,bodyPreview,from,sender,toRecipients,ccRecipients,receivedDateTime,isDraft,isRead,body,categories,parentFolderId";
 
-/**
- * Removes quoted string literals from a query string to avoid false positives
- * when checking for identifiers that might appear inside quotes.
- * Handles both single and double quotes, including escaped quotes.
- */
-function stripQuotedLiterals(query: string): string {
-  let result = "";
-  let i = 0;
-
-  while (i < query.length) {
-    const char = query[i];
-
-    if (char === "'" || char === '"') {
-      const quote = char;
-      i++; // Skip opening quote
-
-      // Skip until we find the matching closing quote (or end of string)
-      while (i < query.length) {
-        const current = query[i];
-        if (current === quote) {
-          // Found closing quote, check if it's escaped
-          let backslashCount = 0;
-          let j = i - 1;
-          while (j >= 0 && query[j] === "\\") {
-            backslashCount++;
-            j--;
-          }
-
-          // If even number of backslashes (including 0), quote is not escaped
-          if (backslashCount % 2 === 0) {
-            i++; // Skip closing quote
-            break;
-          }
-        }
-        i++;
-      }
-
-      // Replace the entire quoted section with spaces to maintain positions
-      // This prevents issues with adjacent identifiers
-      result += " ";
-    } else {
-      result += char;
-      i++;
-    }
-  }
-
-  return result;
-}
-
-/**
- * Checks if parentFolderId appears as an unquoted identifier in the query.
- * This avoids false positives when parentFolderId appears inside string literals.
- */
-export function hasUnquotedParentFolderId(query: string): boolean {
-  const cleanedQuery = stripQuotedLiterals(query);
-  return /\bparentFolderId\b/.test(cleanedQuery);
-}
-
 // Well-known folder names in Outlook that are consistent across all languages
 export const WELL_KNOWN_FOLDERS = {
   inbox: "inbox",
@@ -241,21 +183,11 @@ export async function queryBatchMessages(
   const hasSearchQuery = !!effectiveSearchQuery;
   const hasDateFilters = !!(dateFilters && dateFilters.length > 0);
 
-  // Always filter to only include inbox and archive folders
-  const inboxFolderId = folderIds.inbox;
-  const archiveFolderId = folderIds.archive;
-
-  if (!inboxFolderId || !archiveFolderId) {
-    logger.warn("Missing required folder IDs", {
-      inboxFolderId,
-      archiveFolderId,
-    });
-  }
-
-  // Build folder filter for all cases
+  // Only apply folder filtering if a specific folderId is requested
+  // API already excludes Junk/Deleted by default, and drafts are filtered in convertMessages
   const folderFilter = folderId
     ? `parentFolderId eq '${escapeODataString(folderId)}'`
-    : `(parentFolderId eq '${escapeODataString(inboxFolderId)}' or parentFolderId eq '${escapeODataString(archiveFolderId)}')`;
+    : undefined;
 
   if (hasSearchQuery) {
     // Search path - use $search parameter
@@ -276,16 +208,10 @@ export async function queryBatchMessages(
     const response: { value: Message[]; "@odata.nextLink"?: string } =
       await withOutlookRetry(() => request.get());
 
-    // Filter messages to only include inbox and archive folders
-    const filteredMessages = response.value.filter((message) => {
-      if (folderId) {
-        return message.parentFolderId === folderId;
-      }
-      return (
-        message.parentFolderId === inboxFolderId ||
-        message.parentFolderId === archiveFolderId
-      );
-    });
+    // Filter to specific folder if requested, otherwise get all
+    const filteredMessages = folderId
+      ? response.value.filter((message) => message.parentFolderId === folderId)
+      : response.value;
     const messages = await convertMessages(filteredMessages, folderIds);
 
     nextPageToken = response["@odata.nextLink"]
@@ -295,7 +221,7 @@ export async function queryBatchMessages(
 
     logger.info("Search results", {
       totalFound: response.value.length,
-      afterFolderFiltering: filteredMessages.length,
+      filteredByFolder: folderId ? filteredMessages.length : undefined,
       messageCount: messages.length,
       hasNextPageToken: !!nextPageToken,
     });
@@ -303,14 +229,20 @@ export async function queryBatchMessages(
     return { messages, nextPageToken };
   } else {
     // Filter path - use $filter parameter for date filters or folder-only queries
-    const filters = [folderFilter];
+    const filters: string[] = [];
+
+    // Add folder filter if a specific folder is requested
+    if (folderFilter) {
+      filters.push(folderFilter);
+    }
 
     // Add date filters if provided
     if (hasDateFilters) {
       filters.push(...dateFilters!);
     }
 
-    const combinedFilter = filters.join(" and ");
+    const combinedFilter =
+      filters.length > 0 ? filters.join(" and ") : undefined;
 
     logger.info("Using filter path", {
       folderFilter,
@@ -318,7 +250,10 @@ export async function queryBatchMessages(
       combinedFilter,
     });
 
-    request = request.filter(combinedFilter);
+    // Only apply filter if we have something to filter
+    if (combinedFilter) {
+      request = request.filter(combinedFilter);
+    }
 
     if (pageToken) {
       request = request.skipToken(pageToken);
