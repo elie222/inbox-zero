@@ -13,7 +13,11 @@ export function Banner({ title, children }: BannerProps) {
         <h2 className="font-title text-3xl text-gray-900 sm:text-4xl">
           {title}
         </h2>
-        <p className="mt-6 text-lg leading-8 text-gray-600">{children}</p>
+        {typeof children === "string" ? (
+          <p className="mt-6 text-lg leading-8 text-gray-600">{children}</p>
+        ) : (
+          children
+        )}
       </div>
     </div>
   );

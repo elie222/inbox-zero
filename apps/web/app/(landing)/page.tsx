@@ -50,6 +50,10 @@ export default function NewLanding() {
         }
         subtitle="Drowning in emails? Don't waste energy trying to prioritize your emails. Our AI assistant will label everything automatically."
       />
+      <PreWrittenDrafts
+        title="Pre-written drafts waiting in your inbox"
+        subtitle="When you check your inbox, every email needing a response will have a pre-drafted reply in your tone, ready for you to send."
+      />
       <StartedInMinutes
         title="Get started in minutes"
         subtitle="One-click setup. Start organizing and drafting replies in minutes."
