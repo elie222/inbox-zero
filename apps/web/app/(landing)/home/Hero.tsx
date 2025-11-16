@@ -47,9 +47,11 @@ export function Hero({
   return (
     <Section className={badge ? "mt-7 md:mt-7" : "mt-10 md:mt-20"}>
       {badge ? (
-        <div className="flex justify-center mb-7">
-          <Badge variant={badgeVariant}>{badge}</Badge>
-        </div>
+        <BlurFade duration={0.4} delay={0}>
+          <div className="flex justify-center mb-7">
+            <Badge variant={badgeVariant}>{badge}</Badge>
+          </div>
+        </BlurFade>
       ) : null}
       <PageHeading>{title}</PageHeading>
       <BlurFade duration={0.4} delay={0.125 * 5}>
