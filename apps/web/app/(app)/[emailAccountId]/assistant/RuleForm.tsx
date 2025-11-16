@@ -833,11 +833,11 @@ export function RuleForm({
 
                       if (isDialog && onSuccess) {
                         onSuccess();
-                      } else {
-                        router.push(
-                          prefixPath(emailAccountId, "/automation?tab=rules"),
-                        );
                       }
+
+                      router.push(
+                        prefixPath(emailAccountId, "/automation?tab=rules"),
+                      );
                     }
                   } catch {
                     toastError({ description: "Failed to delete rule." });
