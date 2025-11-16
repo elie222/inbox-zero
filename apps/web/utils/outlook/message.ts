@@ -241,21 +241,11 @@ export async function queryBatchMessages(
   const hasSearchQuery = !!effectiveSearchQuery;
   const hasDateFilters = !!(dateFilters && dateFilters.length > 0);
 
-  // Always filter to only include inbox and archive folders
-  const inboxFolderId = folderIds.inbox;
-  const archiveFolderId = folderIds.archive;
-
-  if (!inboxFolderId || !archiveFolderId) {
-    logger.warn("Missing required folder IDs", {
-      inboxFolderId,
-      archiveFolderId,
-    });
-  }
-
-  // Build folder filter for all cases
+  // Only apply folder filtering if a specific folderId is requested
+  // API already excludes Junk/Deleted by default, and drafts are filtered in convertMessages
   const folderFilter = folderId
     ? `parentFolderId eq '${escapeODataString(folderId)}'`
-    : `(parentFolderId eq '${escapeODataString(inboxFolderId)}' or parentFolderId eq '${escapeODataString(archiveFolderId)}')`;
+    : undefined;
 
   if (hasSearchQuery) {
     // Search path - use $search parameter
@@ -276,16 +266,10 @@ export async function queryBatchMessages(
     const response: { value: Message[]; "@odata.nextLink"?: string } =
       await withOutlookRetry(() => request.get());
 
-    // Filter messages to only include inbox and archive folders
-    const filteredMessages = response.value.filter((message) => {
-      if (folderId) {
-        return message.parentFolderId === folderId;
-      }
-      return (
-        message.parentFolderId === inboxFolderId ||
-        message.parentFolderId === archiveFolderId
-      );
-    });
+    // Filter to specific folder if requested, otherwise get all
+    const filteredMessages = folderId
+      ? response.value.filter((message) => message.parentFolderId === folderId)
+      : response.value;
     const messages = await convertMessages(filteredMessages, folderIds);
 
     nextPageToken = response["@odata.nextLink"]
@@ -295,7 +279,7 @@ export async function queryBatchMessages(
 
     logger.info("Search results", {
       totalFound: response.value.length,
-      afterFolderFiltering: filteredMessages.length,
+      filteredByFolder: folderId ? filteredMessages.length : undefined,
       messageCount: messages.length,
       hasNextPageToken: !!nextPageToken,
     });
@@ -303,14 +287,20 @@ export async function queryBatchMessages(
     return { messages, nextPageToken };
   } else {
     // Filter path - use $filter parameter for date filters or folder-only queries
-    const filters = [folderFilter];
+    const filters: string[] = [];
+
+    // Add folder filter if a specific folder is requested
+    if (folderFilter) {
+      filters.push(folderFilter);
+    }
 
     // Add date filters if provided
     if (hasDateFilters) {
       filters.push(...dateFilters!);
     }
 
-    const combinedFilter = filters.join(" and ");
+    const combinedFilter =
+      filters.length > 0 ? filters.join(" and ") : undefined;
 
     logger.info("Using filter path", {
       folderFilter,
@@ -318,7 +308,10 @@ export async function queryBatchMessages(
       combinedFilter,
     });
 
-    request = request.filter(combinedFilter);
+    // Only apply filter if we have something to filter
+    if (combinedFilter) {
+      request = request.filter(combinedFilter);
+    }
 
     if (pageToken) {
       request = request.skipToken(pageToken);
