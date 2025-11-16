@@ -99,7 +99,10 @@ async function loadEmails(
     nextPageToken = res.data.nextPageToken ?? undefined;
 
     if (!res.data.messages || res.data.messages.length < PAGE_SIZE) break;
+
     pages++;
+
+    if (!nextPageToken) break;
   }
 
   logger.info("Completed emails after", { after, pages });
@@ -134,7 +137,10 @@ async function loadEmails(
     nextPageToken = res.data.nextPageToken ?? undefined;
 
     if (!res.data.messages || res.data.messages.length < PAGE_SIZE) break;
+
     pages++;
+
+    if (!nextPageToken) break;
   }
 
   logger.info("Completed emails before", { before, pages });
