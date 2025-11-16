@@ -27,6 +27,7 @@ import type { RuleStatsResponse } from "@/app/api/user/stats/rule-stats/route";
 interface RuleStatsChartProps {
   dateRange?: DateRange;
   title: string;
+  mockData?: RuleStatsResponse;
 }
 
 const CHART_COLORS = [
@@ -37,12 +38,22 @@ const CHART_COLORS = [
   "var(--chart-5)",
 ];
 
-export function RuleStatsChart({ dateRange, title }: RuleStatsChartProps) {
+export function RuleStatsChart({
+  dateRange,
+  title,
+  mockData,
+}: RuleStatsChartProps) {
   const params = getDateRangeParams(dateRange);
 
-  const { data, isLoading, error } = useOrgSWR<RuleStatsResponse>(
+  const {
+    data: swrData,
+    isLoading,
+    error,
+  } = useOrgSWR<RuleStatsResponse>(
     `/api/user/stats/rule-stats?${new URLSearchParams(params as Record<string, string>)}`,
   );
+
+  const data = mockData ?? swrData;
 
   const barChartData = useMemo(() => {
     if (!data?.ruleStats) return [];

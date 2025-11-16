@@ -19,6 +19,7 @@ import { Title } from "@tremor/react";
 import { PageHeading } from "@/components/Typography";
 import { PageWrapper } from "@/components/PageWrapper";
 import { useOrgAccess } from "@/hooks/useOrgAccess";
+import { mockAnalyticsData } from "./mockAnalyticsData";
 
 const selectOptions = [
   { label: "Last week", value: "7" },
@@ -96,24 +97,32 @@ export function Stats() {
       </div>
 
       <div className="grid gap-2 sm:gap-4 mt-2 sm:mt-4">
-        <StatsSummary dateRange={dateRange} refreshInterval={refreshInterval} />
+        <StatsSummary
+          dateRange={dateRange}
+          refreshInterval={refreshInterval}
+          mockData={mockAnalyticsData.statsByWeek}
+        />
 
         {isAccountOwner && (
           <EmailAnalytics
             dateRange={dateRange}
             refreshInterval={refreshInterval}
+            mockSenders={mockAnalyticsData.senders}
+            mockRecipients={mockAnalyticsData.recipients}
           />
         )}
 
         <RuleStatsChart
           dateRange={dateRange}
           title="Assistant processed emails"
+          mockData={mockAnalyticsData.ruleStats}
         />
 
         <DetailedStats
           dateRange={dateRange}
           period={period}
           refreshInterval={refreshInterval}
+          mockData={mockAnalyticsData.statsByWeek}
         />
 
         <CardBasic>
@@ -121,11 +130,15 @@ export function Stats() {
             How many emailers you've handled with Inbox Zero bulk unsubscribe
           </Title>
           <div className="mt-2">
-            <BulkUnsubscribeSummary />
+            <BulkUnsubscribeSummary
+              mockData={mockAnalyticsData.newsletterSummary}
+            />
           </div>
         </CardBasic>
 
-        {isAccountOwner && <EmailActionsAnalytics />}
+        {isAccountOwner && (
+          <EmailActionsAnalytics mockData={mockAnalyticsData.emailActions} />
+        )}
       </div>
 
       <StatsOnboarding />

@@ -19,8 +19,9 @@ export function DetailedStats(props: {
   dateRange?: DateRange | undefined;
   period: "day" | "week" | "month" | "year";
   refreshInterval: number;
+  mockData?: StatsByWeekResponse;
 }) {
-  const { dateRange, period } = props;
+  const { dateRange, period, mockData } = props;
 
   const [visibleBars, setVisibleBars] = useState<
     Record<
@@ -41,12 +42,18 @@ export function DetailedStats(props: {
     ...getDateRangeParams(dateRange),
   };
 
-  const { data, isLoading, error } = useSWR<
-    StatsByWeekResponse,
-    { error: string }
-  >(`/api/user/stats/by-period?${new URLSearchParams(params as any)}`, {
-    refreshInterval: props.refreshInterval,
-  });
+  const {
+    data: swrData,
+    isLoading,
+    error,
+  } = useSWR<StatsByWeekResponse, { error: string }>(
+    `/api/user/stats/by-period?${new URLSearchParams(params as any)}`,
+    {
+      refreshInterval: props.refreshInterval,
+    },
+  );
+
+  const data = mockData ?? swrData;
 
   return (
     <LoadingContent

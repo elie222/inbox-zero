@@ -15,12 +15,18 @@ import { useAccount } from "@/providers/EmailAccountProvider";
 export function EmailAnalytics(props: {
   dateRange?: DateRange | undefined;
   refreshInterval: number;
+  mockSenders?: SendersResponse;
+  mockRecipients?: RecipientsResponse;
 }) {
   const { userEmail } = useAccount();
 
   const params = getDateRangeParams(props.dateRange);
 
-  const { data, isLoading, error } = useSWR<SendersResponse, { error: string }>(
+  const {
+    data: swrData,
+    isLoading,
+    error,
+  } = useSWR<SendersResponse, { error: string }>(
     `/api/user/stats/senders?${new URLSearchParams(params as any)}`,
     {
       refreshInterval: props.refreshInterval,
@@ -28,7 +34,7 @@ export function EmailAnalytics(props: {
   );
 
   const {
-    data: dataRecipients,
+    data: swrDataRecipients,
     isLoading: isLoadingRecipients,
     error: errorRecipients,
   } = useSWR<RecipientsResponse, { error: string }>(
@@ -37,6 +43,9 @@ export function EmailAnalytics(props: {
       refreshInterval: props.refreshInterval,
     },
   );
+
+  const data = props.mockSenders ?? swrData;
+  const dataRecipients = props.mockRecipients ?? swrDataRecipients;
 
   const { expanded, extra } = useExpanded();
 
