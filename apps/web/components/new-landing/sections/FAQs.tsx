@@ -69,7 +69,7 @@ export function FAQs() {
       <SectionHeading>Frequently asked questions</SectionHeading>
       <SectionContent>
         <CardWrapper>
-          <div className="grid md:grid-cols-2 gap-6">
+          <dl className="grid md:grid-cols-2 gap-6">
             {faqs.map((faq) => (
               <Card
                 variant="extra-rounding"
@@ -78,16 +78,19 @@ export function FAQs() {
               >
                 <CardContent>
                   <Paragraph
+                    as="dt"
                     color="gray-900"
                     className="font-semibold tracking-tight mb-4"
                   >
                     {faq.question}
                   </Paragraph>
-                  <Paragraph>{faq.answer}</Paragraph>
+                  <dd>
+                    <Paragraph>{faq.answer}</Paragraph>
+                  </dd>
                 </CardContent>
               </Card>
             ))}
-          </div>
+          </dl>
         </CardWrapper>
       </SectionContent>
     </Section>
