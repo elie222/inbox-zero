@@ -150,6 +150,7 @@ export async function runRules({
           emailAccount,
           provider,
           modelType,
+          isTest,
         });
 
       if (!statusRule) {

@@ -20,7 +20,13 @@ import { getActionDisplay, getActionIcon } from "@/utils/action-display";
 import { getActionColor } from "@/components/PlanBadge";
 import { useAccount } from "@/providers/EmailAccountProvider";
 
-export function ResultsDisplay({ results }: { results: RunRulesResult[] }) {
+export function ResultsDisplay({
+  results,
+  showFullContent = false,
+}: {
+  results: RunRulesResult[];
+  showFullContent?: boolean;
+}) {
   const groupedResults = groupBy(results, (result) => {
     return result.createdAt.toString();
   });
@@ -40,9 +46,15 @@ export function ResultsDisplay({ results }: { results: RunRulesResult[] }) {
           {batchIndex === 1 && sortedBatches.length > 1 && (
             <div className="my-1 text-xs text-muted-foreground">Previous:</div>
           )}
-          <div className="flex gap-1">
+          <div
+            className={showFullContent ? "flex flex-col gap-4" : "flex gap-1"}
+          >
             {batchResults.map((result, resultIndex) => (
-              <ResultDisplay key={`${date}-${resultIndex}`} result={result} />
+              <ResultDisplay
+                key={`${date}-${resultIndex}`}
+                result={result}
+                showFullContent={showFullContent}
+              />
             ))}
           </div>
         </div>
@@ -51,8 +63,22 @@ export function ResultsDisplay({ results }: { results: RunRulesResult[] }) {
   );
 }
 
-function ResultDisplay({ result }: { result: RunRulesResult }) {
+function ResultDisplay({
+  result,
+  showFullContent = false,
+}: {
+  result: RunRulesResult;
+  showFullContent?: boolean;
+}) {
   const { rule, status } = result;
+
+  if (showFullContent) {
+    return (
+      <div className="w-full">
+        <ResultDisplayContent result={result} />
+      </div>
+    );
+  }
 
   return (
     <HoverCard content={<ResultDisplayContent result={result} />}>
