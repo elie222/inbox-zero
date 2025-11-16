@@ -13,64 +13,6 @@ const logger = createScopedLogger("outlook/message");
 export const MESSAGE_SELECT_FIELDS =
   "id,conversationId,conversationIndex,subject,bodyPreview,from,sender,toRecipients,ccRecipients,receivedDateTime,isDraft,isRead,body,categories,parentFolderId";
 
-/**
- * Removes quoted string literals from a query string to avoid false positives
- * when checking for identifiers that might appear inside quotes.
- * Handles both single and double quotes, including escaped quotes.
- */
-function stripQuotedLiterals(query: string): string {
-  let result = "";
-  let i = 0;
-
-  while (i < query.length) {
-    const char = query[i];
-
-    if (char === "'" || char === '"') {
-      const quote = char;
-      i++; // Skip opening quote
-
-      // Skip until we find the matching closing quote (or end of string)
-      while (i < query.length) {
-        const current = query[i];
-        if (current === quote) {
-          // Found closing quote, check if it's escaped
-          let backslashCount = 0;
-          let j = i - 1;
-          while (j >= 0 && query[j] === "\\") {
-            backslashCount++;
-            j--;
-          }
-
-          // If even number of backslashes (including 0), quote is not escaped
-          if (backslashCount % 2 === 0) {
-            i++; // Skip closing quote
-            break;
-          }
-        }
-        i++;
-      }
-
-      // Replace the entire quoted section with spaces to maintain positions
-      // This prevents issues with adjacent identifiers
-      result += " ";
-    } else {
-      result += char;
-      i++;
-    }
-  }
-
-  return result;
-}
-
-/**
- * Checks if parentFolderId appears as an unquoted identifier in the query.
- * This avoids false positives when parentFolderId appears inside string literals.
- */
-export function hasUnquotedParentFolderId(query: string): boolean {
-  const cleanedQuery = stripQuotedLiterals(query);
-  return /\bparentFolderId\b/.test(cleanedQuery);
-}
-
 // Well-known folder names in Outlook that are consistent across all languages
 export const WELL_KNOWN_FOLDERS = {
   inbox: "inbox",
