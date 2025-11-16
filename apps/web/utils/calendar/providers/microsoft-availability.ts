@@ -20,45 +20,42 @@ async function fetchMicrosoftCalendarBusyPeriods({
   timeMax: string;
 }): Promise<BusyPeriod[]> {
   try {
-    // Microsoft Graph API getSchedule endpoint
-    const response = await calendarClient.api("/me/calendar/getSchedule").post({
-      schedules: calendarIds,
-      startTime: {
-        dateTime: timeMin,
-        timeZone: "UTC",
-      },
-      endTime: {
-        dateTime: timeMax,
-        timeZone: "UTC",
-      },
-    });
+    const allBusyPeriods: BusyPeriod[] = [];
 
-    const busyPeriods: BusyPeriod[] = [];
+    for (const calendarId of calendarIds) {
+      try {
+        const startDateTime = new Date(timeMin).toISOString();
+        const endDateTime = new Date(timeMax).toISOString();
 
-    if (response.value) {
-      for (const schedule of response.value) {
-        if (schedule.scheduleItems) {
-          for (const item of schedule.scheduleItems) {
-            // Microsoft returns various statuses: busy, tentative, oof, workingElsewhere
-            // We consider all non-free items as busy
-            if (item.status !== "free" && item.start && item.end) {
-              busyPeriods.push({
-                start: item.start.dateTime,
-                end: item.end.dateTime,
+        const response = await calendarClient
+          .api(`/me/calendars/${calendarId}/calendarView`)
+          .query({ startDateTime, endDateTime })
+          .select("subject,start,end,showAs,isAllDay")
+          .get();
+
+        if (response.value) {
+          for (const event of response.value) {
+            if (
+              event.showAs !== "free" &&
+              event.start?.dateTime &&
+              event.end?.dateTime
+            ) {
+              allBusyPeriods.push({
+                start: event.start.dateTime,
+                end: event.end.dateTime,
               });
             }
           }
         }
+      } catch (calendarError) {
+        logger.error("Error fetching calendar events", {
+          calendarId,
+          error: calendarError,
+        });
       }
     }
 
-    logger.trace("Microsoft Calendar busy periods", {
-      busyPeriods,
-      timeMin,
-      timeMax,
-    });
-
-    return busyPeriods;
+    return allBusyPeriods;
   } catch (error) {
     logger.error("Error fetching Microsoft Calendar busy periods", { error });
     throw error;
