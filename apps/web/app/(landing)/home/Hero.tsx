@@ -23,7 +23,6 @@ import {
 } from "@/components/ui/dialog";
 import { BrandScroller } from "@/components/new-landing/BrandScroller";
 import { BlurFade } from "@/components/new-landing/common/BlurFade";
-import { userCount } from "@/utils/config";
 import { UnicornScene } from "@/components/new-landing/UnicornScene";
 import { landingPageAnalytics } from "@/hooks/useAnalytics";
 import {
@@ -36,6 +35,7 @@ interface HeroProps {
   subtitle?: React.ReactNode;
   badge?: React.ReactNode;
   badgeVariant?: BadgeVariant;
+  children?: React.ReactNode;
 }
 
 export function Hero({
@@ -43,6 +43,7 @@ export function Hero({
   subtitle,
   badge,
   badgeVariant = "blue",
+  children,
 }: HeroProps) {
   return (
     <Section className={badge ? "mt-7 md:mt-7" : "mt-10 md:mt-20"}>
@@ -72,13 +73,7 @@ export function Hero({
             </div>
           </BlurFade>
         </div>
-        <BlurFade delay={0.125 * 9}>
-          <HeroVideoPlayer />
-        </BlurFade>
-        <div className="mt-12">
-          <Paragraph>Join {userCount} users saving hours daily</Paragraph>
-          <BrandScroller />
-        </div>
+        {children}
       </SectionContent>
     </Section>
   );
@@ -88,41 +83,43 @@ export function HeroVideoPlayer() {
   const posthog = usePostHog();
 
   return (
-    <div className="relative w-full">
-      <div className="relative border border-[#EFEFEF] rounded-3xl md:rounded-[43px] overflow-hidden block">
-        <Dialog>
-          <DialogTrigger
-            asChild
-            onClick={() => landingPageAnalytics.videoClicked(posthog)}
-          >
-            <LiquidGlassButton className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2">
-              <div>
-                <Play className="translate-x-[2px]" />
+    <BlurFade delay={0.125 * 9}>
+      <div className="relative w-full">
+        <div className="relative border border-[#EFEFEF] rounded-3xl md:rounded-[43px] overflow-hidden block">
+          <Dialog>
+            <DialogTrigger
+              asChild
+              onClick={() => landingPageAnalytics.videoClicked(posthog)}
+            >
+              <LiquidGlassButton className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2">
+                <div>
+                  <Play className="translate-x-[2px]" />
+                </div>
+              </LiquidGlassButton>
+            </DialogTrigger>
+            <DialogContent className="max-w-7xl border-0 bg-transparent p-0">
+              <DialogTitle className="sr-only">Video player</DialogTitle>
+              <div className="relative aspect-video w-full">
+                <iframe
+                  src="https://www.youtube.com/embed/hfvKvTHBjG0?autoplay=1&rel=0"
+                  className="size-full rounded-lg"
+                  title="Video content"
+                  allowFullScreen
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                />
               </div>
-            </LiquidGlassButton>
-          </DialogTrigger>
-          <DialogContent className="max-w-7xl border-0 bg-transparent p-0">
-            <DialogTitle className="sr-only">Video player</DialogTitle>
-            <div className="relative aspect-video w-full">
-              <iframe
-                src="https://www.youtube.com/embed/hfvKvTHBjG0?autoplay=1&rel=0"
-                className="size-full rounded-lg"
-                title="Video content"
-                allowFullScreen
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-              />
-            </div>
-          </DialogContent>
-        </Dialog>
-        <Image
-          src="/images/new-landing/video-thumbnail.png"
-          alt="an organized inbox"
-          width={2000}
-          height={1000}
-          className="w-full"
-        />
-        <UnicornScene className="h-[calc(100%+5px)] opacity-30" />
+            </DialogContent>
+          </Dialog>
+          <Image
+            src="/images/new-landing/video-thumbnail.png"
+            alt="an organized inbox"
+            width={2000}
+            height={1000}
+            className="w-full"
+          />
+          <UnicornScene className="h-[calc(100%+5px)] opacity-30" />
+        </div>
       </div>
-    </div>
+    </BlurFade>
   );
 }

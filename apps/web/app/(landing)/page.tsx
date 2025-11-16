@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { Testimonials } from "@/components/new-landing/sections/Testimonials";
-import { Hero } from "@/app/(landing)/home/Hero";
+import { Hero, HeroVideoPlayer } from "@/app/(landing)/home/Hero";
 import { Pricing } from "@/components/new-landing/sections/Pricing";
 import { Awards } from "@/components/new-landing/sections/Awards";
 import { EverythingElseSection } from "@/components/new-landing/sections/EverythingElseSection";
@@ -12,6 +12,7 @@ import { BasicLayout } from "@/components/layouts/BasicLayout";
 import { FAQs } from "@/app/(landing)/home/FAQs";
 import { FinalCTA } from "@/app/(landing)/home/FinalCTA";
 import { WordReveal } from "@/components/new-landing/common/WordReveal";
+import { BrandScroller } from "@/components/new-landing/BrandScroller";
 
 export const metadata: Metadata = { alternates: { canonical: "/" } };
 
@@ -35,10 +36,24 @@ export default function NewLanding() {
           />
         }
         subtitle=" Inbox Zero organizes your inbox, drafts replies in your voice, and helps you reach inbox zero fast. Never miss an important email again."
+      >
+        <HeroVideoPlayer />
+        <BrandScroller />
+      </Hero>
+      <OrganizedInbox
+        title={
+          <>
+            Automatically organized.
+            <br />
+            Never miss an important email again.
+          </>
+        }
+        subtitle="Drowning in emails? Don't waste energy trying to prioritize your emails. Our AI assistant will label everything automatically."
       />
-      <OrganizedInbox />
-      <PreWrittenDrafts />
-      <StartedInMinutes />
+      <StartedInMinutes
+        title="Get started in minutes"
+        subtitle="One-click setup. Start organizing and drafting replies in minutes."
+      />
       <BulkUnsubscribe />
       <EverythingElseSection />
       <Awards />
