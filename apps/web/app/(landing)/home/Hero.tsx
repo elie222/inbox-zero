@@ -21,7 +21,6 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { BrandScroller } from "@/components/new-landing/BrandScroller";
 import { BlurFade } from "@/components/new-landing/common/BlurFade";
 import { UnicornScene } from "@/components/new-landing/UnicornScene";
 import { landingPageAnalytics } from "@/hooks/useAnalytics";
