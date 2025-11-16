@@ -1,10 +1,7 @@
 import { NextResponse } from "next/server";
 import { withAuth } from "@/utils/middleware";
 import { getLinkingOAuth2Client } from "@/utils/gmail/client";
-import {
-  GOOGLE_LINKING_STATE_COOKIE_NAME,
-  GOOGLE_LINKING_STATE_RESULT_COOKIE_NAME,
-} from "@/utils/gmail/constants";
+import { GOOGLE_LINKING_STATE_COOKIE_NAME } from "@/utils/gmail/constants";
 import { SCOPES } from "@/utils/gmail/scopes";
 import {
   generateOAuthState,
@@ -34,7 +31,6 @@ export const GET = withAuth("google/linking/auth-url", async (request) => {
 
   const response = NextResponse.json({ url: authUrl });
 
-  response.cookies.delete(GOOGLE_LINKING_STATE_RESULT_COOKIE_NAME);
   response.cookies.set(
     GOOGLE_LINKING_STATE_COOKIE_NAME,
     state,
