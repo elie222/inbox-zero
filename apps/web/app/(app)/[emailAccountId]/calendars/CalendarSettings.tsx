@@ -74,8 +74,14 @@ export function CalendarSettings() {
     const utcIndex = BASE_TIMEZONES.findIndex((tz) => tz.value === "UTC");
     const options = [...BASE_TIMEZONES];
     options.splice(utcIndex + 1, 0, autoDetectOption);
+
+    // Ensure the currently stored timezone is also selectable
+    if (timezone && !options.some((tz) => tz.value === timezone)) {
+      options.push({ label: timezone, value: timezone });
+    }
+
     return options;
-  }, []);
+  }, [timezone]);
 
   const { execute: executeUpdateTimezone, isExecuting: isUpdatingTimezone } =
     useAction(updateEmailAccountTimezoneAction.bind(null, emailAccountId), {
