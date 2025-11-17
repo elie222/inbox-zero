@@ -316,6 +316,8 @@ async function getEmailAccountWithRules({
       email: true,
       about: true,
       multiRuleSelectionEnabled: true,
+      timezone: true,
+      calendarBookingLink: true,
       user: {
         select: {
           aiProvider: true,
