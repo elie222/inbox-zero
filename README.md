@@ -226,7 +226,7 @@ Go to [Microsoft Azure Portal](https://portal.azure.com/). Create a new Azure Ac
       - Mail.ReadWrite
       - Mail.Send
       - MailboxSettings.ReadWrite
-      - Contacts.ReadWrite
+      - Contacts.Read
 
    6. Click "Add permissions"
    7. Click "Grant admin consent" if you're an admin
