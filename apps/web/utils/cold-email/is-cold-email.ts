@@ -95,8 +95,6 @@ async function isKnownColdEmailSender({
   from: string;
   emailAccountId: string;
 }) {
-  // Normalize the from address to match what saveColdEmail stores
-  // This ensures that "Name <email@example.com>" matches "email@example.com"
   const normalizedFrom = extractEmailAddress(from) || from;
 
   const coldEmail = await prisma.coldEmail.findUnique({
