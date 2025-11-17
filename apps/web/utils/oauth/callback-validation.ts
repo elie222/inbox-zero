@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { env } from "@/env";
 import type { Logger } from "@/utils/logger";
 import { parseOAuthState } from "@/utils/oauth/state";
 
@@ -7,7 +8,6 @@ interface ValidateCallbackParams {
   receivedState: string | null;
   storedState: string | undefined;
   stateCookieName: string;
-  baseUrl: string;
   logger: Logger;
 }
 
@@ -27,10 +27,9 @@ export function validateOAuthCallback({
   receivedState,
   storedState,
   stateCookieName,
-  baseUrl,
   logger,
 }: ValidateCallbackParams): ValidationResult {
-  const redirectUrl = new URL("/accounts", baseUrl);
+  const redirectUrl = new URL("/accounts", env.NEXT_PUBLIC_BASE_URL);
   const response = NextResponse.redirect(redirectUrl);
 
   if (!storedState || !receivedState || storedState !== receivedState) {

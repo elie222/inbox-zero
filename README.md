@@ -401,8 +401,6 @@ For more detailed Docker build instructions and security considerations, see [do
 
 ### Calendar integrations
 
-*Note:* The calendar integration feature is a work in progress.
-
 #### Google Calendar
 
 1. Visit: https://console.cloud.google.com/apis/library
@@ -412,6 +410,25 @@ For more detailed Docker build instructions and security considerations, see [do
     1. Click on your project
     2. In `Authorized redirect URIs` add:
       - `http://localhost:3000/api/google/calendar/callback`
+
+#### Microsoft Calendar
+
+1. Go to your existing Microsoft Azure app registration (created earlier in the Microsoft OAuth setup)
+2. Add the calendar redirect URI:
+    1. In the "Manage" menu click "Authentication (Preview)"
+    2. Add the Redirect URI: `http://localhost:3000/api/outlook/calendar/callback`
+3. Add calendar permissions:
+    1. In the "Manage" menu click "API permissions"
+    2. Click "Add a permission"
+    3. Select "Microsoft Graph"
+    4. Select "Delegated permissions"
+    5. Add the following calendar permissions:
+       - Calendars.Read
+       - Calendars.ReadWrite
+    6. Click "Add permissions"
+    7. Click "Grant admin consent" if you're an admin
+
+Note: The calendar integration uses a separate OAuth flow from the main email OAuth, so users can connect their calendar independently.
 
 ## Contributing to the project
 

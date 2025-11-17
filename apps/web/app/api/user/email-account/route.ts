@@ -19,6 +19,8 @@ async function getEmailAccount({ emailAccountId }: { emailAccountId: string }) {
       userId: true,
       about: true,
       multiRuleSelectionEnabled: true,
+      timezone: true,
+      calendarBookingLink: true,
       signature: true,
       includeReferralSignature: true,
     },
