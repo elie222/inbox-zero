@@ -1,4 +1,5 @@
 import type { Client } from "@microsoft/microsoft-graph-client";
+import { TZDate } from "@date-fns/tz";
 import { createScopedLogger } from "@/utils/logger";
 import { getCalendarClientWithRefresh } from "@/utils/outlook/calendar-client";
 import type {
@@ -30,7 +31,9 @@ async function fetchMicrosoftCalendarBusyPeriods({
         const response = await calendarClient
           .api(`/me/calendars/${calendarId}/calendarView`)
           .query({ startDateTime, endDateTime })
-          .select("subject,start,end,showAs,isAllDay")
+          .select(
+            "subject,start,end,showAs,isAllDay,originalStartTimeZone,originalEndTimeZone",
+          )
           .get();
 
         if (response.value) {
@@ -40,9 +43,18 @@ async function fetchMicrosoftCalendarBusyPeriods({
               event.start?.dateTime &&
               event.end?.dateTime
             ) {
+              // Use originalStartTimeZone - the actual timezone the event was created in
+              const eventStartTZ =
+                event.originalStartTimeZone || event.start.timeZone || "UTC";
+              const eventEndTZ =
+                event.originalEndTimeZone || event.end.timeZone || "UTC";
+
+              const startInTZ = new TZDate(event.start.dateTime, eventStartTZ);
+              const endInTZ = new TZDate(event.end.dateTime, eventEndTZ);
+
               allBusyPeriods.push({
-                start: event.start.dateTime,
-                end: event.end.dateTime,
+                start: startInTZ.toISOString(),
+                end: endInTZ.toISOString(),
               });
             }
           }

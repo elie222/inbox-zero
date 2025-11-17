@@ -139,14 +139,13 @@ export async function fetchMicrosoftCalendars(calendarClient: Client): Promise<
     id?: string;
     name?: string;
     description?: string;
-    timeZone?: string;
     isDefaultCalendar?: boolean;
   }>
 > {
   try {
     const response = await calendarClient
       .api("/me/calendars")
-      .select("id,name,color,isDefaultCalendar,canEdit,owner,timeZone")
+      .select("id,name,color,isDefaultCalendar,canEdit,owner")
       .get();
 
     return response.value || [];
