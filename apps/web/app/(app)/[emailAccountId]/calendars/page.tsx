@@ -3,10 +3,12 @@ import { PageHeader } from "@/components/PageHeader";
 import { CalendarConnections } from "./CalendarConnections";
 import { CalendarSettings } from "./CalendarSettings";
 import { ConnectCalendar } from "@/app/(app)/[emailAccountId]/calendars/ConnectCalendar";
+import { TimezoneDetector } from "./TimezoneDetector";
 
 export default function CalendarsPage() {
   return (
     <PageWrapper>
+      <TimezoneDetector />
       <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3 lg:gap-4">
         <PageHeader
           title="Calendars"
