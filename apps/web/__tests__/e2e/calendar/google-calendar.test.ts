@@ -8,9 +8,12 @@
  * 1. Set TEST_GMAIL_EMAIL env var to your Gmail address
  */
 
-import { describe, test, expect, beforeAll, vi } from "vitest";
+import { describe, test, expect, beforeAll, afterAll, vi } from "vitest";
 import prisma from "@/utils/prisma";
 import { googleAvailabilityProvider } from "@/utils/calendar/providers/google-availability";
+import { getCalendarClientWithRefresh } from "@/utils/calendar/client";
+import type { calendar_v3 } from "@googleapis/calendar";
+import { env } from "@/env";
 
 // ============================================
 // TEST DATA - SET VIA ENVIRONMENT VARIABLES
@@ -30,6 +33,9 @@ describe.skipIf(!RUN_E2E_TESTS)("Google Calendar Integration Tests", () => {
   } | null = null;
 
   let enabledCalendars: Array<{ calendarId: string }> = [];
+  let calendarClient: calendar_v3.Calendar | null = null;
+  let primaryCalendarId: string | null = null;
+  const createdEventIds: Array<{ calendarId: string; eventId: string }> = [];
 
   beforeAll(async () => {
     const testEmail = TEST_GMAIL_EMAIL;
@@ -42,7 +48,15 @@ describe.skipIf(!RUN_E2E_TESTS)("Google Calendar Integration Tests", () => {
       return;
     }
 
-    // Load account from DB
+    if (!env.GOOGLE_CLIENT_ID || !env.GOOGLE_CLIENT_SECRET) {
+      console.warn(
+        "\n⚠️  Missing GOOGLE_CLIENT_ID or GOOGLE_CLIENT_SECRET in .env.test\n",
+      );
+      throw new Error(
+        "Missing GOOGLE_CLIENT_ID or GOOGLE_CLIENT_SECRET in .env.test",
+      );
+    }
+
     const emailAccount = await prisma.emailAccount.findFirst({
       where: {
         email: testEmail,
@@ -59,7 +73,6 @@ describe.skipIf(!RUN_E2E_TESTS)("Google Calendar Integration Tests", () => {
       throw new Error(`No Google account found for ${testEmail}`);
     }
 
-    // Load calendar connection
     const connection = await prisma.calendarConnection.findFirst({
       where: {
         emailAccountId: emailAccount.id,
@@ -69,7 +82,7 @@ describe.skipIf(!RUN_E2E_TESTS)("Google Calendar Integration Tests", () => {
       include: {
         calendars: {
           where: { isEnabled: true },
-          select: { calendarId: true },
+          select: { calendarId: true, primary: true },
         },
       },
     });
@@ -80,7 +93,6 @@ describe.skipIf(!RUN_E2E_TESTS)("Google Calendar Integration Tests", () => {
       return;
     }
 
-    // Ensure we have valid tokens
     if (!connection.accessToken || !connection.refreshToken) {
       console.warn(
         "\n⚠️  Calendar connection has no access token or refresh token",
@@ -96,11 +108,56 @@ describe.skipIf(!RUN_E2E_TESTS)("Google Calendar Integration Tests", () => {
       emailAccountId: connection.emailAccountId,
     };
     enabledCalendars = connection.calendars;
+    primaryCalendarId =
+      connection.calendars.find((c) => c.primary)?.calendarId ||
+      connection.calendars[0]?.calendarId ||
+      null;
 
-    console.log(`\n✅ Using account: ${emailAccount.email}`);
-    console.log(`   Account ID: ${emailAccount.id}`);
-    console.log(`   Calendar connection ID: ${connection.id}`);
-    console.log(`   Enabled calendars: ${enabledCalendars.length}\n`);
+    calendarClient = await getCalendarClientWithRefresh({
+      accessToken: connection.accessToken,
+      refreshToken: connection.refreshToken,
+      expiresAt: connection.expiresAt?.getTime() || null,
+      emailAccountId: connection.emailAccountId,
+    });
+
+    console.log(
+      `\n✅ Using account: ${emailAccount.email} (${emailAccount.id})`,
+    );
+    console.log(
+      `   Calendars: ${enabledCalendars.length} enabled, primary: ${primaryCalendarId}\n`,
+    );
+  });
+
+  afterAll(async () => {
+    if (!calendarClient || createdEventIds.length === 0) return;
+
+    console.log(
+      `\n   🧹 Cleaning up ${createdEventIds.length} test event(s)...`,
+    );
+
+    let deletedCount = 0;
+    let failedCount = 0;
+
+    for (const { calendarId, eventId } of createdEventIds) {
+      try {
+        await calendarClient.events.delete({
+          calendarId,
+          eventId,
+        });
+        deletedCount++;
+        console.log(`      ✅ Deleted event ${eventId}`);
+      } catch (error) {
+        failedCount++;
+        console.log("      ⚠️  Failed to delete event", {
+          eventId,
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
+    }
+
+    console.log(
+      `   🧹 Cleanup complete: ${deletedCount} deleted, ${failedCount} failed\n`,
+    );
   });
 
   describe("Calendar availability", () => {
@@ -112,7 +169,6 @@ describe.skipIf(!RUN_E2E_TESTS)("Google Calendar Integration Tests", () => {
         return;
       }
 
-      // Get tomorrow's date
       const tomorrow = new Date();
       tomorrow.setDate(tomorrow.getDate() + 1);
       tomorrow.setHours(0, 0, 0, 0);
@@ -124,14 +180,9 @@ describe.skipIf(!RUN_E2E_TESTS)("Google Calendar Integration Tests", () => {
       const timeMax = tomorrowEnd.toISOString();
 
       console.log(
-        `   📅 Checking availability for: ${tomorrow.toDateString()}`,
-      );
-      console.log(`   ⏰ Time range: ${timeMin} to ${timeMax}`);
-      console.log(
-        `   📋 Calendar IDs (${enabledCalendars.length}): ${enabledCalendars.map((c) => `${c.calendarId.substring(0, 30)}...`).join(", ")}`,
+        `\n   📅 Checking ${tomorrow.toDateString()}: ${timeMin} to ${timeMax}`,
       );
 
-      // Use the Google availability provider
       const busyPeriods = await googleAvailabilityProvider.fetchBusyPeriods({
         accessToken: calendarConnection.accessToken,
         refreshToken: calendarConnection.refreshToken,
@@ -142,34 +193,21 @@ describe.skipIf(!RUN_E2E_TESTS)("Google Calendar Integration Tests", () => {
         timeMax,
       });
 
-      console.log("\n   📦 Provider Response:");
-      console.log(`   ${"=".repeat(60)}`);
-      console.log(`   Total busy periods found: ${busyPeriods.length}`);
-
+      console.log(`   ✅ Found ${busyPeriods.length} busy periods`);
       if (busyPeriods.length > 0) {
-        console.log("\n   Busy Periods:");
-        for (let i = 0; i < busyPeriods.length; i++) {
-          const period = busyPeriods[i];
-          console.log(`   ${i + 1}. Start: ${period.start}`);
-          console.log(`      End:   ${period.end}`);
-        }
-      } else {
-        console.log("\n   ⚠️  No busy periods found!");
-        console.log(
-          "      This likely means your calendar is empty for tomorrow",
-        );
+        busyPeriods.slice(0, 3).forEach((period, i) => {
+          console.log(`      ${i + 1}. ${period.start} → ${period.end}`);
+        });
+        if (busyPeriods.length > 3)
+          console.log(`      ... and ${busyPeriods.length - 3} more`);
       }
-
-      console.log(`\n   ${"=".repeat(60)}`);
-      console.log("   ✅ Test complete - see logs above for details\n");
+      console.log();
 
       expect(busyPeriods).toBeDefined();
       expect(Array.isArray(busyPeriods)).toBe(true);
 
-      // Verify at least one busy period was found
       expect(busyPeriods.length).toBeGreaterThan(0);
 
-      // Verify busy periods have correct structure
       if (busyPeriods.length > 0) {
         expect(busyPeriods[0]).toHaveProperty("start");
         expect(busyPeriods[0]).toHaveProperty("end");
