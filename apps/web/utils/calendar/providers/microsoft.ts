@@ -108,14 +108,14 @@ export const microsoftCalendarProvider: CalendarOAuthProvider = {
           update: {
             name: microsoftCalendar.name || "Untitled Calendar",
             description: microsoftCalendar.description,
-            timezone: microsoftCalendar.timeZone,
+            timezone: null,
           },
           create: {
             connectionId,
             calendarId: microsoftCalendar.id,
             name: microsoftCalendar.name || "Untitled Calendar",
             description: microsoftCalendar.description,
-            timezone: microsoftCalendar.timeZone,
+            timezone: null,
             isEnabled: true,
           },
         });

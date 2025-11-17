@@ -208,6 +208,8 @@ export const saveRulesPromptAction = actionClient
           userId: true,
           about: true,
           multiRuleSelectionEnabled: true,
+          timezone: true,
+          calendarBookingLink: true,
           rulesPrompt: true,
           categories: { select: { id: true, name: true } },
           user: {
@@ -444,6 +446,8 @@ export const createRulesAction = actionClient
           userId: true,
           about: true,
           multiRuleSelectionEnabled: true,
+          timezone: true,
+          calendarBookingLink: true,
           rulesPrompt: true,
           categories: { select: { id: true, name: true } },
           user: {

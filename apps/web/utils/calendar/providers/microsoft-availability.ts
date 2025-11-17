@@ -27,26 +27,39 @@ async function fetchMicrosoftCalendarBusyPeriods({
         const startDateTime = new Date(timeMin).toISOString();
         const endDateTime = new Date(timeMax).toISOString();
 
-        const response = await calendarClient
-          .api(`/me/calendars/${calendarId}/calendarView`)
-          .query({ startDateTime, endDateTime })
-          .select("subject,start,end,showAs,isAllDay")
-          .get();
+        // Fetch all pages of events by following @odata.nextLink
+        let nextLink: string | undefined;
+        let isFirstPage = true;
 
-        if (response.value) {
-          for (const event of response.value) {
-            if (
-              event.showAs !== "free" &&
-              event.start?.dateTime &&
-              event.end?.dateTime
-            ) {
-              allBusyPeriods.push({
-                start: event.start.dateTime,
-                end: event.end.dateTime,
-              });
+        do {
+          const response = isFirstPage
+            ? await calendarClient
+                .api(`/me/calendars/${calendarId}/calendarView`)
+                .query({ startDateTime, endDateTime })
+                .select("subject,start,end,showAs,isAllDay")
+                .get()
+            : await calendarClient.api(nextLink!).get();
+
+          isFirstPage = false;
+
+          if (response.value) {
+            for (const event of response.value) {
+              if (
+                event.showAs !== "free" &&
+                event.start?.dateTime &&
+                event.end?.dateTime
+              ) {
+                allBusyPeriods.push({
+                  start: event.start.dateTime,
+                  end: event.end.dateTime,
+                });
+              }
             }
           }
-        }
+
+          // Check for next page
+          nextLink = response["@odata.nextLink"];
+        } while (nextLink);
       } catch (calendarError) {
         logger.error("Error fetching calendar events", {
           calendarId,
