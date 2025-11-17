@@ -22,6 +22,12 @@ const timeSlotSchema = z.object({
 
 const schema = z.object({
   suggestedTimes: z.array(timeSlotSchema),
+  noAvailability: z
+    .boolean()
+    .optional()
+    .describe(
+      "Set to true if the user has no availability in the requested timeframe",
+    ),
 });
 
 export type CalendarAvailabilityContext = z.infer<typeof schema>;
@@ -82,9 +88,11 @@ Your task is to:
 3. Use checkCalendarAvailability to get busy periods (already in ${userTimezone})
 4. Suggest ONLY times that DO NOT overlap with busy periods
 5. Return time slots with start AND end times (infer duration from context: "quick call" = 30min, "meeting" = 60min)
+6. If there are NO available times (user is busy all day), set noAvailability=true and return empty suggestedTimes array
 
 CRITICAL: Do NOT suggest times overlapping with busy periods.
 Example: If busy 2025-11-17 09:00 to 2025-11-17 17:00, suggest times AFTER 17:00 or BEFORE 09:00.
+Example: If busy all day (00:00 to 23:59), return empty array and set noAvailability=true.
 
 Format: "YYYY-MM-DD HH:MM"
 If email mentions timezone (e.g., "5pm PST"), convert to ${userTimezone}.
@@ -108,7 +116,7 @@ ${threadContent}
     modelOptions,
   });
 
-  let result: CalendarAvailabilityContext["suggestedTimes"] | null = null;
+  let result: CalendarAvailabilityContext | null = null;
 
   await generateText({
     ...modelOptions,
@@ -158,14 +166,14 @@ ${threadContent}
       returnSuggestedTimes: tool({
         description: "Return suggested times for a meeting",
         inputSchema: schema,
-        execute: async ({ suggestedTimes }) => {
-          result = suggestedTimes;
+        execute: async (data) => {
+          result = data;
         },
       }),
     },
   });
 
-  return result ? { suggestedTimes: result } : null;
+  return result;
 }
 
 function getUserTimezone(

@@ -103,8 +103,17 @@ ${writingStyle}
 `
     : "";
 
-  const calendarContext = calendarAvailability?.suggestedTimes.length
+  const calendarContext = calendarAvailability?.noAvailability
     ? `Calendar availability information:
+
+<calendar_availability>
+The user has NO available time slots in the requested timeframe (fully booked).
+</calendar_availability>
+
+IMPORTANT: The user is NOT available. Do NOT suggest specific times. You may acknowledge the request and suggest alternative approaches (e.g., "I'm fully booked tomorrow, but let's find another day that works" or share a booking link if available).
+`
+    : calendarAvailability?.suggestedTimes.length
+      ? `Calendar availability information:
     
 <calendar_availability>
 Suggested time slots:
@@ -113,7 +122,7 @@ ${calendarAvailability.suggestedTimes.map((slot) => `- ${slot.start} to ${slot.e
 
 IMPORTANT: Use these available time slots when responding to meeting requests. Mention specific times the user is available.
 `
-    : "";
+      : "";
 
   const bookingLinkContext = emailAccount.calendarBookingLink
     ? `Calendar booking link:
@@ -184,6 +193,13 @@ export async function aiDraftWithKnowledge({
       messageCount: messages.length,
       hasKnowledge: !!knowledgeBaseContent,
       hasHistory: !!emailHistorySummary,
+      calendarAvailability: calendarAvailability
+        ? {
+            noAvailability: calendarAvailability.noAvailability,
+            suggestedTimesCount:
+              calendarAvailability.suggestedTimes?.length || 0,
+          }
+        : null,
     });
 
     const prompt = getUserPrompt({
