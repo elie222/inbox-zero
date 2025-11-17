@@ -138,8 +138,8 @@ export const testAiCustomContentAction = actionClient
         provider: emailProvider,
         logger,
         message: {
-          id: `testMessageId-${Date.now()}}`,
-          threadId: `testThreadId-${Date.now()}}`,
+          id: `testMessageId-${Date.now()}`,
+          threadId: `testThreadId-${Date.now()}`,
           snippet: content,
           textPlain: content,
           headers: {
