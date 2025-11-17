@@ -225,9 +225,6 @@ Go to [Microsoft Azure Portal](https://portal.azure.com/). Create a new Azure Ac
       - offline_access
       - Mail.ReadWrite
       - Mail.Send
-      - Mail.ReadBasic
-      - Mail.Read
-      - Mail.Read.Shared
       - MailboxSettings.ReadWrite
       - Contacts.ReadWrite
 
