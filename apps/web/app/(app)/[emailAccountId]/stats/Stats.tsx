@@ -110,11 +110,11 @@ export function Stats() {
           title="Assistant processed emails"
         />
 
-        <DetailedStats
+        {/* <DetailedStats
           dateRange={dateRange}
           period={period}
           refreshInterval={refreshInterval}
-        />
+        /> */}
 
         <CardBasic>
           <Title>
