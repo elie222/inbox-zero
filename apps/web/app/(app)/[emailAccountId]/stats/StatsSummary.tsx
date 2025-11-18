@@ -17,6 +17,7 @@ import type {
 import { getDateRangeParams } from "./params";
 import { formatStat } from "@/utils/stats";
 import { StatsCards } from "@/components/StatsCards";
+import { ChartLineNew } from "@/app/(app)/[emailAccountId]/stats/ChartLineNew";
 
 export function StatsSummary(props: {
   dateRange?: DateRange;
@@ -32,9 +33,16 @@ export function StatsSummary(props: {
   const { data, isLoading, error } = useOrgSWR<
     StatsByWeekResponse,
     { error: string }
-  >(`/api/user/stats/by-period?${new URLSearchParams(params as any)}`, {
-    refreshInterval: props.refreshInterval,
-  });
+  >(
+    `/api/user/stats/by-period?${new URLSearchParams(
+      Object.fromEntries(
+        Object.entries(params).map(([k, v]) => [k, v?.toString() ?? ""]),
+      ) as Record<string, string>,
+    )}`,
+    {
+      refreshInterval: props.refreshInterval,
+    },
+  );
 
   return (
     <LoadingContent
@@ -44,7 +52,10 @@ export function StatsSummary(props: {
     >
       {data && (
         <div>
-          <StatsCards
+          <ChartLineNew data={data} />
+          {/* <ChartLineMultiple /> */}
+          {/* <ChartLineInteractive /> */}
+          {/* <StatsCards
             stats={[
               {
                 name: "Received",
@@ -71,7 +82,7 @@ export function StatsSummary(props: {
                 icon: <SendHorizonalIcon className="h-4 w-4" />,
               },
             ]}
-          />
+          /> */}
         </div>
       )}
     </LoadingContent>
