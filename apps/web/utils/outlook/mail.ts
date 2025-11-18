@@ -9,6 +9,7 @@ import { forwardEmailHtml, forwardEmailSubject } from "@/utils/gmail/forward";
 import { buildReplyAllRecipients } from "@/utils/email/reply-all";
 import { withOutlookRetry } from "@/utils/outlook/retry";
 import { extractEmailAddress, extractNameFromEmail } from "@/utils/email";
+import { ensureEmailSendingEnabled } from "@/utils/mail";
 
 interface OutlookMessageRequest {
   subject: string;
@@ -28,6 +29,8 @@ export async function sendEmailWithHtml(
   client: OutlookClient,
   body: SendEmailBody,
 ) {
+  ensureEmailSendingEnabled();
+
   const message: OutlookMessageRequest = {
     subject: body.subject,
     body: {
@@ -91,6 +94,8 @@ export async function replyToEmail(
     conversationId: message.threadId,
   };
 
+  ensureEmailSendingEnabled();
+
   // Send the email immediately using the sendMail endpoint
   const result = await withOutlookRetry(() =>
     client.getClient().api("/me/sendMail").post({
@@ -111,6 +116,8 @@ export async function forwardEmail(
     content?: string;
   },
 ) {
+  ensureEmailSendingEnabled();
+
   if (!options.to.trim()) throw new Error("Recipient address is required");
 
   // Get the original message
