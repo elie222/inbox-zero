@@ -26,13 +26,16 @@ import { SparkleBlue } from "@/components/new-landing/icons/SparkleBlue";
 import { Team } from "@/components/new-landing/icons/Team";
 import Image from "next/image";
 
-export function StartedInMinutes() {
+interface StartedInMinutesProps {
+  title: React.ReactNode;
+  subtitle: React.ReactNode;
+}
+
+export function StartedInMinutes({ title, subtitle }: StartedInMinutesProps) {
   return (
     <Section>
-      <SectionHeading>Get started in minutes</SectionHeading>
-      <SectionSubtitle>
-        One-click setup. Start organizing and drafting replies in minutes.
-      </SectionSubtitle>
+      <SectionHeading>{title}</SectionHeading>
+      <SectionSubtitle>{subtitle}</SectionSubtitle>
       <SectionContent className="sm:mx-10 md:mx-40 lg:mx-0">
         <CardWrapper className="w-full grid grid-cols-1 lg:grid-cols-3 gap-5">
           <BlurFade inView>

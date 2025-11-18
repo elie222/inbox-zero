@@ -8,18 +8,16 @@ import {
 } from "@/components/new-landing/common/Typography";
 import Image from "next/image";
 
-export function OrganizedInbox() {
+interface OrganizedInboxProps {
+  title: React.ReactNode;
+  subtitle: React.ReactNode;
+}
+
+export function OrganizedInbox({ title, subtitle }: OrganizedInboxProps) {
   return (
     <Section>
-      <SectionHeading>
-        Automatically organized.
-        <br />
-        Never miss an important email again.
-      </SectionHeading>
-      <SectionSubtitle>
-        Drowning in emails? Don't waste energy trying to prioritize your emails.
-        Our AI assistant will label everything automatically.
-      </SectionSubtitle>
+      <SectionHeading>{title}</SectionHeading>
+      <SectionSubtitle>{subtitle}</SectionSubtitle>
       <SectionContent className="flex justify-center">
         <Image
           className="hidden md:block"

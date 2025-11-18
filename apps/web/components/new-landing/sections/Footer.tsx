@@ -131,12 +131,13 @@ const navigation = {
 
 interface FooterProps {
   className: string;
+  variant?: "default" | "simple";
 }
 
-export function Footer({ className }: FooterProps) {
+export function Footer({ className, variant = "default" }: FooterProps) {
   return (
     <footer className="relative z-50 border-t border-[#E7E7E7A3] bg-cover bg-center bg-no-repeat overflow-hidden">
-      <UnicornScene className="opacity-15" />
+      {variant === "default" ? <UnicornScene className="opacity-15" /> : null}
       <div
         className={cn("overflow-hidden px-6 py-20 sm:py-24 lg:px-8", className)}
       >
@@ -176,7 +177,9 @@ export function Footer({ className }: FooterProps) {
           </div>
         </div>
       </div>
-      <FooterLineLogo className="hidden xl:block absolute bottom-0 left-1/2 -translate-x-1/2 mx-auto px-6 lg:px-8 -z-10" />
+      {variant === "default" ? (
+        <FooterLineLogo className="hidden xl:block absolute bottom-0 left-1/2 -translate-x-1/2 mx-auto px-6 lg:px-8 -z-10" />
+      ) : null}
     </footer>
   );
 }
