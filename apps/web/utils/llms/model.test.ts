@@ -3,6 +3,7 @@ import { getModel } from "./model";
 import { Provider, Model } from "./config";
 import { env } from "@/env";
 import type { UserAIFields } from "./types";
+import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
 
 // Mock AI provider imports
 vi.mock("@ai-sdk/openai", () => ({
@@ -35,6 +36,10 @@ vi.mock("ollama-ai-provider", () => ({
   createOllama: vi.fn(() => (model: string) => ({ model })),
 }));
 
+vi.mock("@ai-sdk/openai-compatible", () => ({
+  createOpenAICompatible: vi.fn(() => (model: string) => ({ model })),
+}));
+
 vi.mock("@/env", () => ({
   env: {
     DEFAULT_LLM_PROVIDER: "openai",
@@ -56,6 +61,8 @@ vi.mock("@/env", () => ({
     BEDROCK_ACCESS_KEY: "",
     BEDROCK_SECRET_KEY: "",
     NEXT_PUBLIC_BEDROCK_SONNET_MODEL: "anthropic.claude-3-sonnet-20240229-v1:0",
+    LM_STUDIO_BASE_URL: "http://localhost:1234/v1",
+    NEXT_PUBLIC_LM_STUDIO_MODEL: "qwen/qwen3-vl-4b",
   },
 }));
 
@@ -163,6 +170,27 @@ describe("Models", () => {
     //   expect(result.modelName).toBe("llama3");
     //   expect(result.model).toBeDefined();
     // });
+
+    it("should configure LM Studio model correctly", () => {
+      const userAi: UserAIFields = {
+        aiApiKey: "user-api-key",
+        aiProvider: Provider.LM_STUDIO,
+        aiModel: Model.LM_STUDIO!,
+      };
+
+      const result = getModel(userAi);
+
+      expect(result.provider).toBe(Provider.LM_STUDIO);
+      expect(result.modelName).toBe(Model.LM_STUDIO);
+
+      expect(createOpenAICompatible).toHaveBeenCalledWith({
+        name: Provider.LM_STUDIO,
+        baseURL: env.LM_STUDIO_BASE_URL!,
+        supportsStructuredOutputs: true,
+      });
+
+      expect(result.model).toBeDefined();
+    });
 
     it("should configure Anthropic model correctly without Bedrock credentials", () => {
       const userAi: UserAIFields = {
