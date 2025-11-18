@@ -3,26 +3,34 @@
 import type * as React from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { DayPicker } from "react-day-picker";
-
 import { cn } from "@/utils";
 import { buttonVariants } from "@/components/ui/button";
+import { cx } from "class-variance-authority";
 
-export type CalendarProps = React.ComponentProps<typeof DayPicker>;
+export type CalendarProps = React.ComponentProps<typeof DayPicker> & {
+  rightContent?: React.ReactNode;
+};
 
 function Calendar({
   className,
   classNames,
   showOutsideDays = true,
+  rightContent,
   ...props
 }: CalendarProps) {
+  const padding = "p-3";
+  const borderLeft = "border-l border-gray-200";
+
   return (
     <DayPicker
       showOutsideDays={showOutsideDays}
-      className={cn("p-3", className)}
+      className={cn("", className)}
       classNames={{
         months: "flex flex-col sm:flex-row space-y-4 sm:space-x-4 sm:space-y-0",
         month: "space-y-4",
         caption: "flex justify-center pt-1 relative items-center",
+        caption_start: padding,
+        caption_end: cx(padding, borderLeft),
         caption_label: "text-sm font-medium",
         nav: "space-x-1 flex items-center",
         nav_button: cn(
@@ -57,6 +65,14 @@ function Calendar({
       components={{
         IconLeft: () => <ChevronLeft className="h-4 w-4" />,
         IconRight: () => <ChevronRight className="h-4 w-4" />,
+        Months: ({ children }) => (
+          <div className="flex">
+            <div className="flex flex-row">{children}</div>
+            {rightContent ? (
+              <div className={cx(padding, borderLeft)}>{rightContent}</div>
+            ) : null}
+          </div>
+        ),
       }}
       {...props}
     />

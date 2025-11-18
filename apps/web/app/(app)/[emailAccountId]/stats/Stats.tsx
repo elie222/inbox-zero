@@ -20,6 +20,7 @@ import { PageHeading } from "@/components/Typography";
 import { PageWrapper } from "@/components/PageWrapper";
 import { useOrgAccess } from "@/hooks/useOrgAccess";
 import { PageHeader } from "@/components/PageHeader";
+import { List } from "@/components/common/List";
 
 const selectOptions = [
   { label: "Last week", value: "7" },
@@ -81,15 +82,29 @@ export function Stats() {
     <PageWrapper>
       <PageHeading>{title}</PageHeading>
       <ActionBar
-        selectOptions={selectOptions}
-        dateDropdown={dateDropdown}
-        setDateDropdown={onSetDateDropdown}
         dateRange={dateRange}
         setDateRange={setDateRange}
         period={period}
         setPeriod={setPeriod}
         isMobile={false}
         className="mt-6"
+        datePickerRightContent={
+          <List
+            value={
+              selectOptions.find((option) => option.label === dateDropdown)
+                ?.value
+            }
+            items={selectOptions}
+            className="min-w-32"
+            onSelect={({ label, value }) => {
+              onSetDateDropdown({ label, value });
+              setDateRange({
+                from: subDays(now, Number.parseInt(value)),
+                to: now,
+              });
+            }}
+          />
+        }
       />
       <div className="grid gap-2 sm:gap-4 mt-2 sm:mt-4">
         <StatsSummary dateRange={dateRange} refreshInterval={refreshInterval} />

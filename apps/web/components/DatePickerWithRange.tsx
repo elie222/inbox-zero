@@ -4,7 +4,6 @@ import type * as React from "react";
 import format from "date-fns/format";
 import { CalendarIcon, ChevronDown } from "lucide-react";
 import type { DateRange } from "react-day-picker";
-
 import { cn } from "@/utils";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
@@ -17,9 +16,11 @@ import {
 export function DatePickerWithRange({
   dateRange,
   onSetDateRange,
+  rightContent,
 }: React.HTMLAttributes<HTMLDivElement> & {
   dateRange?: DateRange;
   onSetDateRange: (dateRange?: DateRange) => void;
+  rightContent?: React.ReactNode;
 }) {
   return (
     <Popover modal={true}>
@@ -48,7 +49,7 @@ export function DatePickerWithRange({
           <ChevronDown className="ml-2 h-4 w-4 text-gray-400" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-auto p-0" align="start">
+      <PopoverContent className="w-auto p-0">
         <Calendar
           initialFocus
           mode="range"
@@ -56,6 +57,7 @@ export function DatePickerWithRange({
           selected={dateRange}
           onSelect={onSetDateRange}
           numberOfMonths={2}
+          rightContent={rightContent}
         />
       </PopoverContent>
     </Popover>
