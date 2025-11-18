@@ -71,33 +71,37 @@ export function Stats() {
     }
   }, [onLoad, isAccountOwner]);
 
+  const title =
+    !isAccountOwner && accountInfo?.name
+      ? `Analytics for ${accountInfo.name}`
+      : "Analytics";
+
   return (
     <PageWrapper>
       <PageHeading>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            {!isAccountOwner && accountInfo?.name
-              ? `Analytics for ${accountInfo.name}`
-              : "Analytics"}
+            {title}
             <LoadStatsButton />
-          </div>
-          <div className="flex items-center justify-between mt-2 sm:mt-0">
-            {/* {isLoading ? <LoadProgress /> : <div />} */}
-            <div className="flex flex-wrap gap-1">
-              <ActionBar
-                selectOptions={selectOptions}
-                dateDropdown={dateDropdown}
-                setDateDropdown={onSetDateDropdown}
-                dateRange={dateRange}
-                setDateRange={setDateRange}
-                period={period}
-                setPeriod={setPeriod}
-                isMobile={false}
-              />
-            </div>
           </div>
         </div>
       </PageHeading>
+
+      <div className="flex items-center justify-end">
+        {/* {isLoading ? <LoadProgress /> : <div />} */}
+        <div className="flex flex-wrap gap-1">
+          <ActionBar
+            selectOptions={selectOptions}
+            dateDropdown={dateDropdown}
+            setDateDropdown={onSetDateDropdown}
+            dateRange={dateRange}
+            setDateRange={setDateRange}
+            period={period}
+            setPeriod={setPeriod}
+            isMobile={false}
+          />
+        </div>
+      </div>
 
       <div className="grid gap-2 sm:gap-4 mt-2 sm:mt-4">
         <StatsSummary dateRange={dateRange} refreshInterval={refreshInterval} />
