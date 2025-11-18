@@ -19,6 +19,7 @@ import { Title } from "@tremor/react";
 import { PageHeading } from "@/components/Typography";
 import { PageWrapper } from "@/components/PageWrapper";
 import { useOrgAccess } from "@/hooks/useOrgAccess";
+import { PageHeader } from "@/components/PageHeader";
 
 const selectOptions = [
   { label: "Last week", value: "7" },
@@ -79,22 +80,17 @@ export function Stats() {
   return (
     <PageWrapper>
       <PageHeading>{title}</PageHeading>
-
-      <div className="mt-6 flex items-center">
-        <div className="flex flex-wrap gap-1 w-full">
-          <ActionBar
-            selectOptions={selectOptions}
-            dateDropdown={dateDropdown}
-            setDateDropdown={onSetDateDropdown}
-            dateRange={dateRange}
-            setDateRange={setDateRange}
-            period={period}
-            setPeriod={setPeriod}
-            isMobile={false}
-          />
-        </div>
-      </div>
-
+      <ActionBar
+        selectOptions={selectOptions}
+        dateDropdown={dateDropdown}
+        setDateDropdown={onSetDateDropdown}
+        dateRange={dateRange}
+        setDateRange={setDateRange}
+        period={period}
+        setPeriod={setPeriod}
+        isMobile={false}
+        className="mt-6"
+      />
       <div className="grid gap-2 sm:gap-4 mt-2 sm:mt-4">
         <StatsSummary dateRange={dateRange} refreshInterval={refreshInterval} />
 

@@ -4,6 +4,19 @@ import type { DateRange } from "react-day-picker";
 import { DetailedStatsFilter } from "@/app/(app)/[emailAccountId]/stats/DetailedStatsFilter";
 import { DatePickerWithRange } from "@/components/DatePickerWithRange";
 import { LoadStatsButton } from "@/app/(app)/[emailAccountId]/stats/LoadStatsButton";
+import { cx } from "class-variance-authority";
+
+interface ActionBarProps {
+  dateDropdown: string;
+  setDateDropdown: (option: { label: string; value: string }) => void;
+  dateRange?: DateRange | undefined;
+  setDateRange: (dateRange?: DateRange) => void;
+  selectOptions: { label: string; value: string }[];
+  period?: "day" | "week" | "month" | "year";
+  setPeriod?: (value: "day" | "week" | "month" | "year") => void;
+  isMobile: boolean;
+  className?: string;
+}
 
 export function ActionBar({
   selectOptions,
@@ -14,18 +27,15 @@ export function ActionBar({
   period,
   setPeriod,
   isMobile,
-}: {
-  dateDropdown: string;
-  setDateDropdown: (option: { label: string; value: string }) => void;
-  dateRange?: DateRange | undefined;
-  setDateRange: (dateRange?: DateRange) => void;
-  selectOptions: { label: string; value: string }[];
-  period?: "day" | "week" | "month" | "year";
-  setPeriod?: (value: "day" | "week" | "month" | "year") => void;
-  isMobile: boolean;
-}) {
+  className,
+}: ActionBarProps) {
   return (
-    <div className="flex items-center justify-between w-full gap-3">
+    <div
+      className={cx(
+        "flex items-center justify-between w-full gap-3",
+        className,
+      )}
+    >
       <div className="flex items-center gap-3">
         {period && setPeriod && (
           <DetailedStatsFilter
