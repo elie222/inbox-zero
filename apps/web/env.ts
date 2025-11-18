@@ -11,6 +11,7 @@ const llmProviderEnum = z.enum([
   "groq",
   "aigateway",
   "ollama",
+  "lmstudio",
 ]);
 
 export const env = createEnv({
@@ -57,6 +58,7 @@ export const env = createEnv({
     OPENROUTER_API_KEY: z.string().optional(),
     AI_GATEWAY_API_KEY: z.string().optional(),
     OLLAMA_BASE_URL: z.string().optional(),
+    LM_STUDIO_BASE_URL: z.string().optional(),
 
     UPSTASH_REDIS_URL: z.string().optional(),
     UPSTASH_REDIS_TOKEN: z.string().optional(),
@@ -177,6 +179,7 @@ export const env = createEnv({
       .string()
       .default("us.anthropic.claude-3-7-sonnet-20250219-v1:0"),
     NEXT_PUBLIC_OLLAMA_MODEL: z.string().optional(),
+    NEXT_PUBLIC_LM_STUDIO_MODEL: z.string().optional(),
     NEXT_PUBLIC_APP_HOME_PATH: z.string().default("/setup"),
     NEXT_PUBLIC_DUB_REFER_DOMAIN: z.string().optional(),
     NEXT_PUBLIC_DISABLE_REFERRAL_SIGNATURE: z.coerce
@@ -237,6 +240,7 @@ export const env = createEnv({
     NEXT_PUBLIC_BEDROCK_SONNET_MODEL:
       process.env.NEXT_PUBLIC_BEDROCK_SONNET_MODEL,
     NEXT_PUBLIC_OLLAMA_MODEL: process.env.NEXT_PUBLIC_OLLAMA_MODEL,
+    NEXT_PUBLIC_LM_STUDIO_MODEL: process.env.NEXT_PUBLIC_LM_STUDIO_MODEL,
     NEXT_PUBLIC_APP_HOME_PATH: process.env.NEXT_PUBLIC_APP_HOME_PATH,
     NEXT_PUBLIC_DUB_REFER_DOMAIN: process.env.NEXT_PUBLIC_DUB_REFER_DOMAIN,
     NEXT_PUBLIC_DISABLE_REFERRAL_SIGNATURE:

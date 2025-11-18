@@ -6,6 +6,7 @@ import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import { createGroq } from "@ai-sdk/groq";
 import { createOpenRouter } from "@openrouter/ai-sdk-provider";
 import { createGateway } from "@ai-sdk/gateway";
+import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
 // import { createOllama } from "ollama-ai-provider";
 import { env } from "@/env";
 import { Model, Provider } from "@/utils/llms/config";
@@ -138,6 +139,26 @@ function selectModel(
       //   modelName,
       //   model: createOllama({ baseURL: env.OLLAMA_BASE_URL })(model),
       // };
+    }
+    case Provider.LM_STUDIO: {
+      const modelName = aiModel || Model.LM_STUDIO;
+
+      if (!modelName) {
+        throw new Error("For LM_STUDIO, 'LLM_MODEL' must be set.");
+      }
+
+      const lmstudio = createOpenAICompatible({
+        name: Provider.LM_STUDIO,
+        baseURL: env.LM_STUDIO_BASE_URL!,
+        supportsStructuredOutputs: true,
+      });
+
+      return {
+        provider: Provider.LM_STUDIO,
+        modelName,
+        model: lmstudio(modelName),
+        backupModel: null,
+      };
     }
 
     // this is messy. better to have two providers. one for bedrock and one for anthropic
