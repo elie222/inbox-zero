@@ -1,4 +1,4 @@
-import { Tally3Icon } from "lucide-react";
+import { LayoutGrid } from "lucide-react";
 import type { DateRange } from "react-day-picker";
 import { DetailedStatsFilter } from "@/app/(app)/[emailAccountId]/stats/DetailedStatsFilter";
 import { DatePickerWithRange } from "@/components/DatePickerWithRange";
@@ -34,7 +34,7 @@ export function ActionBar({
         {period && setPeriod && (
           <DetailedStatsFilter
             label={`Group by ${period}`}
-            icon={<Tally3Icon className="mr-2 h-4 w-4" />}
+            icon={<LayoutGrid className="mr-2 h-4 w-4" />}
             columns={[
               {
                 label: "Day",
