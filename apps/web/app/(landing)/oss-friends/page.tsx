@@ -32,7 +32,7 @@ export default async function OSSFriendsPage() {
       <>
         <BlogHeader />
 
-        <div className="mx-auto mt-40 max-w-6xl pb-10">
+        <div className="mx-auto mt-20 max-w-6xl pb-10">
           <div className="text-center">
             <PageHeading>Open Source Friends</PageHeading>
             <Paragraph className="mt-4">
