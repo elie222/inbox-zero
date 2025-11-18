@@ -19,7 +19,7 @@ import { captureException } from "@/utils/error";
 import { getContactsClient as getGoogleContactsClient } from "@/utils/gmail/client";
 import { SCOPES as GMAIL_SCOPES } from "@/utils/gmail/scopes";
 import { createScopedLogger } from "@/utils/logger";
-import { getContactsClient as getOutlookContactsClient } from "@/utils/outlook/client";
+import { createOutlookClient } from "@/utils/outlook/client";
 import { SCOPES as OUTLOOK_SCOPES } from "@/utils/outlook/scopes";
 import { updateAccountSeats } from "@/utils/premium/server";
 import prisma from "@/utils/prisma";
@@ -301,7 +301,7 @@ async function getProfileData(providerId: string, accessToken: string) {
   }
 
   if (isMicrosoftProvider(providerId)) {
-    const client = getOutlookContactsClient({ accessToken });
+    const client = createOutlookClient(accessToken);
     try {
       const profileResponse = await client.getUserProfile();
 

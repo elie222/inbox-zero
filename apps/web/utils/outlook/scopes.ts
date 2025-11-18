@@ -1,7 +1,5 @@
 // https://learn.microsoft.com/en-us/graph/permissions-reference
 
-import { env } from "@/env";
-
 export const SCOPES = [
   "openid",
   "profile",
@@ -11,7 +9,6 @@ export const SCOPES = [
   "Mail.ReadWrite", // Read and write access to mailbox
   "Mail.Send", // Send emails
   "MailboxSettings.ReadWrite", // Read and write mailbox settings
-  ...(env.NEXT_PUBLIC_CONTACTS_ENABLED ? ["Contacts.Read"] : []),
 ] as const;
 
 export const CALENDAR_SCOPES = [
