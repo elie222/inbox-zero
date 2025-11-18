@@ -24,27 +24,27 @@ export const description =
 const chartConfig = {
   received: {
     label: "Received",
-    color: "#8FC4FF",
-  },
-  read: {
-    label: "Read",
-    color: "#2B7FFF",
+    color: "#006EFF80",
   },
   sent: {
     label: "Sent",
-    color: "#447DFC",
+    color: "#6410FF80",
   },
-  archived: {
-    label: "Archived",
-    color: "#1447E6",
+  read: {
+    label: "Read",
+    color: "#C942B2",
   },
   unread: {
     label: "Unread",
-    color: "#B8DAFF",
+    color: "#C942B260",
+  },
+  archived: {
+    label: "Archived",
+    color: "#17A34A",
   },
   inbox: {
     label: "Inbox",
-    color: "#5A9FFF",
+    color: "#17A34A60",
   },
 } satisfies ChartConfig;
 
@@ -103,7 +103,11 @@ export function ChartLineNew(props: { data: StatsByWeekResponse }) {
                 className="data-[active=true]:bg-muted/50 flex flex-1 min-w-0 flex-col justify-center gap-1 border-t px-6 py-4 text-left [&:not(:first-child)]:border-l sm:border-t-0 sm:border-l sm:px-8 sm:py-6"
                 onClick={() => setActiveChart(chart)}
               >
-                <span className="text-muted-foreground text-xs">
+                <span className="text-muted-foreground text-xs flex items-center gap-1.5">
+                  <span
+                    className="h-2 w-2 rounded-full"
+                    style={{ backgroundColor: chartConfig[chart].color }}
+                  />
                   {chartConfig[chart].label}
                 </span>
                 <span className="text-lg leading-none font-bold sm:text-3xl">
@@ -129,28 +133,76 @@ export function ChartLineNew(props: { data: StatsByWeekResponse }) {
           >
             <defs>
               <linearGradient id="receivedGradient" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#8FC4FF" stopOpacity={0.8} />
-                <stop offset="100%" stopColor="#8FC4FF" stopOpacity={0.3} />
+                <stop
+                  offset="0%"
+                  stopColor={chartConfig.received.color}
+                  stopOpacity={0.8}
+                />
+                <stop
+                  offset="100%"
+                  stopColor={chartConfig.received.color}
+                  stopOpacity={0.3}
+                />
               </linearGradient>
               <linearGradient id="readGradient" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#2B7FFF" stopOpacity={0.8} />
-                <stop offset="100%" stopColor="#2B7FFF" stopOpacity={0.3} />
+                <stop
+                  offset="0%"
+                  stopColor={chartConfig.read.color}
+                  stopOpacity={0.8}
+                />
+                <stop
+                  offset="100%"
+                  stopColor={chartConfig.read.color}
+                  stopOpacity={0.3}
+                />
               </linearGradient>
               <linearGradient id="sentGradient" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#447DFC" stopOpacity={0.8} />
-                <stop offset="100%" stopColor="#447DFC" stopOpacity={0.3} />
+                <stop
+                  offset="0%"
+                  stopColor={chartConfig.sent.color}
+                  stopOpacity={0.8}
+                />
+                <stop
+                  offset="100%"
+                  stopColor={chartConfig.sent.color}
+                  stopOpacity={0.3}
+                />
               </linearGradient>
               <linearGradient id="archivedGradient" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#1447E6" stopOpacity={0.8} />
-                <stop offset="100%" stopColor="#1447E6" stopOpacity={0.3} />
+                <stop
+                  offset="0%"
+                  stopColor={chartConfig.archived.color}
+                  stopOpacity={0.8}
+                />
+                <stop
+                  offset="100%"
+                  stopColor={chartConfig.archived.color}
+                  stopOpacity={0.3}
+                />
               </linearGradient>
               <linearGradient id="unreadGradient" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#B8DAFF" stopOpacity={0.8} />
-                <stop offset="100%" stopColor="#B8DAFF" stopOpacity={0.3} />
+                <stop
+                  offset="0%"
+                  stopColor={chartConfig.unread.color}
+                  stopOpacity={0.8}
+                />
+                <stop
+                  offset="100%"
+                  stopColor={chartConfig.unread.color}
+                  stopOpacity={0.3}
+                />
               </linearGradient>
               <linearGradient id="inboxGradient" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#5A9FFF" stopOpacity={0.8} />
-                <stop offset="100%" stopColor="#5A9FFF" stopOpacity={0.3} />
+                <stop
+                  offset="0%"
+                  stopColor={chartConfig.inbox.color}
+                  stopOpacity={0.8}
+                />
+                <stop
+                  offset="100%"
+                  stopColor={chartConfig.inbox.color}
+                  stopOpacity={0.3}
+                />
               </linearGradient>
             </defs>
             <CartesianGrid vertical={false} />
