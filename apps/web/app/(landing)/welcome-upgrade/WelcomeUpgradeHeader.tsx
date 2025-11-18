@@ -2,33 +2,22 @@
 
 import { CheckCircleIcon } from "lucide-react";
 import { userCount } from "@/utils/config";
-import { usePricingCopyVariant } from "@/hooks/useFeatureFlags";
 
 export function WelcomeUpgradeHeader() {
-  const variant = usePricingCopyVariant();
-
   return (
     <div className="mb-8 flex flex-col items-start">
       <div className="mx-auto text-center">
         <h2 className="font-title text-base leading-7 text-blue-600">
           Spend 50% less time on email
         </h2>
-        {variant === "free-trial-emphasis" ? (
-          <div>
-            <h1 className="mt-2 font-title text-2xl text-gray-900 sm:text-3xl">
-              Start your 7-day FREE trial
-            </h1>
-            <p className="mt-2 text-lg text-gray-900 sm:text-xl">
-              Join {userCount} users that use Inbox Zero to be more productive!
-            </p>
-          </div>
-        ) : (
+        <div>
           <h1 className="mt-2 font-title text-2xl text-gray-900 sm:text-3xl">
-            Join {userCount} users that use Inbox Zero
-            <br />
-            to be more productive!
+            Start your 7-day FREE trial
           </h1>
-        )}
+          <p className="mt-2 text-lg text-gray-900 sm:text-xl">
+            Join {userCount} users that use Inbox Zero to be more productive!
+          </p>
+        </div>
       </div>
 
       <div className="mx-auto mt-4 flex flex-col items-start gap-2">

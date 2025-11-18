@@ -5,7 +5,7 @@ import type { PricingProps } from "./Pricing";
 
 const PricingComponent = dynamic(() => import("./Pricing"));
 
-export const OldPricingLazy = (props: PricingProps) => (
+export const AppPricingLazy = (props: PricingProps) => (
   <Suspense fallback={<Loading />}>
     <PricingComponent {...props} />
   </Suspense>
