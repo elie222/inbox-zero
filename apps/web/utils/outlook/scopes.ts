@@ -1,5 +1,7 @@
 // https://learn.microsoft.com/en-us/graph/permissions-reference
 
+import { env } from "@/env";
+
 export const SCOPES = [
   "openid",
   "profile",
@@ -7,7 +9,7 @@ export const SCOPES = [
   "User.Read",
   "offline_access", // Required for refresh tokens
   "Mail.ReadWrite", // Read and write access to mailbox
-  "Mail.Send", // Send emails
+  ...(env.NEXT_PUBLIC_EMAIL_SEND_ENABLED ? ["Mail.Send"] : []), // Send emails
   "MailboxSettings.ReadWrite", // Read and write mailbox settings
 ] as const;
 

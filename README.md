@@ -224,7 +224,7 @@ Go to [Microsoft Azure Portal](https://portal.azure.com/). Create a new Azure Ac
       - User.Read
       - offline_access
       - Mail.ReadWrite
-      - Mail.Send
+      - Mail.Send (only required if `NEXT_PUBLIC_EMAIL_SEND_ENABLED=true`, which is the default)
       - MailboxSettings.ReadWrite
 
    6. Click "Add permissions"
