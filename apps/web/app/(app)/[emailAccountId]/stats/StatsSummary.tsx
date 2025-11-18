@@ -17,7 +17,7 @@ import type {
 import { getDateRangeParams } from "./params";
 import { formatStat } from "@/utils/stats";
 import { StatsCards } from "@/components/StatsCards";
-import { ChartLineNew } from "@/app/(app)/[emailAccountId]/stats/ChartLineNew";
+import { MainStatChart } from "@/app/(app)/[emailAccountId]/stats/MainStatChart";
 
 export function StatsSummary(props: {
   dateRange?: DateRange;
@@ -52,7 +52,7 @@ export function StatsSummary(props: {
     >
       {data && (
         <div>
-          <ChartLineNew data={data} />
+          <MainStatChart data={data} />
           {/* <StatsCards
             stats={[
               {

@@ -48,7 +48,7 @@ const chartConfig = {
   },
 } satisfies ChartConfig;
 
-export function ChartLineNew(props: { data: StatsByWeekResponse }) {
+export function MainStatChart(props: { data: StatsByWeekResponse }) {
   const [activeChart, setActiveChart] =
     React.useState<keyof typeof chartConfig>("received");
 
