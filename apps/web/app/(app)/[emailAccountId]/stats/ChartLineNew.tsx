@@ -222,22 +222,53 @@ export function ChartLineNew(props: { data: StatsByWeekResponse }) {
             />
             <YAxis tickLine={false} axisLine={false} tickMargin={8} />
             <ChartTooltip
-              content={
-                <ChartTooltipContent
-                  className="w-[150px]"
-                  labelFormatter={(value) => {
-                    return new Date(value).toLocaleDateString("en-US", {
-                      month: "short",
-                      day: "numeric",
-                      year: "numeric",
-                    });
-                  }}
-                />
-              }
+              content={({ active, payload }) => {
+                if (!active || !payload?.length) return null;
+                const data = payload[0];
+                return (
+                  <div className="rounded-lg border border-border/50 bg-background px-3 py-2 text-xs shadow-xl">
+                    <p className="mb-2 font-medium">
+                      {new Date(data.payload.date).toLocaleDateString("en-US", {
+                        month: "short",
+                        day: "numeric",
+                        year: "numeric",
+                      })}
+                    </p>
+                    {payload.map((entry) => (
+                      <div
+                        key={entry.dataKey}
+                        className="flex items-center gap-2 py-0.5"
+                      >
+                        <span
+                          className="h-2.5 w-2.5 rounded-full"
+                          style={{
+                            backgroundColor:
+                              chartConfig[
+                                entry.dataKey as keyof typeof chartConfig
+                              ]?.color,
+                          }}
+                        />
+                        <span className="text-muted-foreground">
+                          {
+                            chartConfig[
+                              entry.dataKey as keyof typeof chartConfig
+                            ]?.label
+                          }
+                          :
+                        </span>
+                        <span className="ml-auto font-medium">
+                          {entry.value}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                );
+              }}
             />
             <Bar
               dataKey="received"
               fill="url(#receivedGradient)"
+              color={chartConfig.received.color}
               radius={[4, 4, 0, 0]}
               animationDuration={750}
               animationBegin={0}
@@ -246,6 +277,7 @@ export function ChartLineNew(props: { data: StatsByWeekResponse }) {
             <Bar
               dataKey="sent"
               fill="url(#sentGradient)"
+              color={chartConfig.sent.color}
               radius={[4, 4, 0, 0]}
               animationDuration={750}
               animationBegin={0}
@@ -254,6 +286,7 @@ export function ChartLineNew(props: { data: StatsByWeekResponse }) {
             <Bar
               dataKey="read"
               fill="url(#readGradient)"
+              color={chartConfig.read.color}
               radius={[4, 4, 0, 0]}
               animationDuration={750}
               animationBegin={0}
@@ -262,6 +295,7 @@ export function ChartLineNew(props: { data: StatsByWeekResponse }) {
             <Bar
               dataKey="unread"
               fill="url(#unreadGradient)"
+              color={chartConfig.unread.color}
               radius={[4, 4, 0, 0]}
               animationDuration={750}
               animationBegin={0}
@@ -270,6 +304,7 @@ export function ChartLineNew(props: { data: StatsByWeekResponse }) {
             <Bar
               dataKey="archived"
               fill="url(#archivedGradient)"
+              color={chartConfig.archived.color}
               radius={[4, 4, 0, 0]}
               animationDuration={750}
               animationBegin={0}
@@ -278,6 +313,7 @@ export function ChartLineNew(props: { data: StatsByWeekResponse }) {
             <Bar
               dataKey="inbox"
               fill="url(#inboxGradient)"
+              color={chartConfig.inbox.color}
               radius={[4, 4, 0, 0]}
               animationDuration={750}
               animationBegin={0}
