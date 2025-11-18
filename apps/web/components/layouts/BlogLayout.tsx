@@ -19,7 +19,7 @@ export function BlogLayout(props: { children: React.ReactNode }) {
       <div className="mt-20">
         <Footer
           variant="simple"
-          className="mx-auto w-full max-w-screen-xl px-0 lg:px-20"
+          className="mx-auto w-full max-w-screen-xl px-0"
         />
       </div>
     </div>
