@@ -2,7 +2,7 @@
 
 import type * as React from "react";
 import format from "date-fns/format";
-import { CalendarIcon } from "lucide-react";
+import { CalendarIcon, ChevronDown } from "lucide-react";
 import type { DateRange } from "react-day-picker";
 
 import { cn } from "@/utils";
@@ -45,6 +45,7 @@ export function DatePickerWithRange({
           ) : (
             <span>Pick a date</span>
           )}
+          <ChevronDown className="ml-2 h-4 w-4 text-gray-400" />
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-auto p-0" align="start">

@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/utils";
 import { Separator } from "@/components/ui/separator";
+import { ChevronDown } from "lucide-react";
 
 type Checked = DropdownMenuCheckboxItemProps["checked"];
 
@@ -48,6 +49,7 @@ export function DetailedStatsFilter(props: {
         >
           {props.icon}
           {props.label}
+          <ChevronDown className="ml-2 h-4 w-4 text-gray-400" />
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent
