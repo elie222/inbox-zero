@@ -42,7 +42,7 @@ export function DetailedStatsFilter(props: {
     >
       <DropdownMenuTrigger asChild>
         <Button
-          variant="ghost"
+          variant="outline"
           size="sm"
           className={cn("h-10 whitespace-nowrap", className)}
         >

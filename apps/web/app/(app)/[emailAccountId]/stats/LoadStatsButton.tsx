@@ -11,8 +11,7 @@ export function LoadStatsButton() {
   return (
     <div>
       <Button
-        variant="secondary"
-        size="xs"
+        variant="outline"
         onClick={() => onLoadBatch({ loadBefore: true, showToast: true })}
         disabled={isLoading}
       >
@@ -21,7 +20,7 @@ export function LoadStatsButton() {
         ) : (
           <RefreshCcw className="mr-2 hidden h-4 w-4 sm:block" />
         )}
-        Load more
+        {isLoading ? "Loading more..." : "Load more"}
       </Button>
     </div>
   );

@@ -78,18 +78,10 @@ export function Stats() {
 
   return (
     <PageWrapper>
-      <PageHeading>
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            {title}
-            <LoadStatsButton />
-          </div>
-        </div>
-      </PageHeading>
+      <PageHeading>{title}</PageHeading>
 
-      <div className="flex items-center justify-end">
-        {/* {isLoading ? <LoadProgress /> : <div />} */}
-        <div className="flex flex-wrap gap-1">
+      <div className="mt-6 flex items-center">
+        <div className="flex flex-wrap gap-1 w-full">
           <ActionBar
             selectOptions={selectOptions}
             dateDropdown={dateDropdown}
