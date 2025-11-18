@@ -86,12 +86,8 @@ export function MainStatChart(props: { data: StatsByWeekResponse }) {
 
   return (
     <Card className="py-4 sm:py-0">
-      <div className="flex flex-col items-stretch border-b !p-0 sm:flex-row">
-        <div className="flex w-full flex-col justify-center gap-1 px-6 sm:w-1/2 sm:pb-0">
-          <CardTitle>Email Activity</CardTitle>
-          <CardDescription>Showing email metrics over time</CardDescription>
-        </div>
-        <div className="flex w-full sm:w-1/2">
+      <div className="flex flex-col items-stretch border-b sm:flex-row">
+        <div className="flex w-full">
           {(["received", "sent", "read", "archived"] as const).map((key) => {
             const chart = key as keyof typeof chartConfig;
             const isActive = activeChart === chart;
@@ -100,7 +96,7 @@ export function MainStatChart(props: { data: StatsByWeekResponse }) {
                 type="button"
                 key={chart}
                 data-active={isActive}
-                className="data-[active=true]:bg-muted/50 flex flex-1 min-w-0 flex-col justify-center gap-1 border-t px-6 py-4 text-left [&:not(:first-child)]:border-l sm:border-t-0 sm:border-l sm:px-8 sm:py-6"
+                className="data-[active=true]:bg-muted/50 flex flex-1 min-w-0 flex-col justify-center gap-1 border-t px-6 py-4 text-left [&:not(:first-child)]:border-l sm:border-t-0 sm:px-8 sm:py-6"
                 onClick={() => setActiveChart(chart)}
               >
                 <span className="text-muted-foreground text-xs flex items-center gap-1.5">
