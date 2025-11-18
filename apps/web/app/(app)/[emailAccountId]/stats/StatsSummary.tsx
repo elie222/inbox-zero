@@ -53,8 +53,6 @@ export function StatsSummary(props: {
       {data && (
         <div>
           <ChartLineNew data={data} />
-          {/* <ChartLineMultiple /> */}
-          {/* <ChartLineInteractive /> */}
           {/* <StatsCards
             stats={[
               {
