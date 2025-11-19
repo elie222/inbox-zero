@@ -2,18 +2,16 @@
 
 import useSWR from "swr";
 import type { DateRange } from "react-day-picker";
-import { BarList as TremorBarList, Flex, Text } from "@tremor/react";
 import { useExpanded } from "@/app/(app)/[emailAccountId]/stats/useExpanded";
 import type { RecipientsResponse } from "@/app/api/user/stats/recipients/route";
 import type { SendersResponse } from "@/app/api/user/stats/senders/route";
 import { LoadingContent } from "@/components/LoadingContent";
 import { Skeleton } from "@/components/ui/skeleton";
-import { BarList } from "@/components/charts/BarList";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { getDateRangeParams } from "@/app/(app)/[emailAccountId]/stats/params";
 import { getGmailSearchUrl } from "@/utils/url";
 import { useAccount } from "@/providers/EmailAccountProvider";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { BarListCard } from "@/app/(app)/[emailAccountId]/stats/BarListCard";
+import { Mail, Send } from "lucide-react";
 
 export function EmailAnalytics(props: {
   dateRange?: DateRange | undefined;
@@ -51,68 +49,37 @@ export function EmailAnalytics(props: {
         loadingComponent={<Skeleton className="h-64 w-full rounded" />}
       >
         {data && (
-          <Tabs defaultValue="sender">
-            <TabsContent value="sender">
-              <Card className="h-full bg-background">
-                <CardHeader>
-                  <div className="flex items-center justify-between">
-                    <CardTitle className="text-lg">Who emails you</CardTitle>
-                    <TabsList>
-                      <TabsTrigger value="sender">Sender</TabsTrigger>
-                      <TabsTrigger value="domain">Domain</TabsTrigger>
-                    </TabsList>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <Flex>
-                    <Text>Sender</Text>
-                    <Text>Emails</Text>
-                  </Flex>
-                  <TremorBarList
-                    data={data.mostActiveSenderEmails
-                      ?.slice(0, expanded ? undefined : 5)
-                      .map((d) => ({
-                        ...d,
-                        href: getGmailSearchUrl(d.name, userEmail),
-                        target: "_blank",
-                      }))}
-                    className="mt-2"
-                  />
-                  {extra}
-                </CardContent>
-              </Card>
-            </TabsContent>
-            <TabsContent value="domain">
-              <Card className="h-full bg-background">
-                <CardHeader>
-                  <div className="flex items-center justify-between">
-                    <CardTitle className="text-lg">Who emails you</CardTitle>
-                    <TabsList>
-                      <TabsTrigger value="sender">Sender</TabsTrigger>
-                      <TabsTrigger value="domain">Domain</TabsTrigger>
-                    </TabsList>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <Flex>
-                    <Text>Domain</Text>
-                    <Text>Emails</Text>
-                  </Flex>
-                  <TremorBarList
-                    data={data.mostActiveSenderDomains
-                      ?.slice(0, expanded ? undefined : 5)
-                      .map((d) => ({
-                        ...d,
-                        href: getGmailSearchUrl(d.name, userEmail),
-                        target: "_blank",
-                      }))}
-                    className="mt-2"
-                  />
-                  {extra}
-                </CardContent>
-              </Card>
-            </TabsContent>
-          </Tabs>
+          <BarListCard
+            icon={
+              <Mail className="size-4 text-neutral-500 translate-y-[-0.5px]" />
+            }
+            title="RECEIVED"
+            tabs={[
+              {
+                id: "emailAddress",
+                label: "Email address",
+                data: data.mostActiveSenderEmails
+                  ?.slice(0, expanded ? undefined : 5)
+                  .map((d) => ({
+                    ...d,
+                    href: getGmailSearchUrl(d.name, userEmail),
+                    target: "_blank",
+                  })),
+              },
+              {
+                id: "domain",
+                label: "Domain",
+                data: data.mostActiveSenderDomains
+                  ?.slice(0, expanded ? undefined : 5)
+                  .map((d) => ({
+                    ...d,
+                    href: getGmailSearchUrl(d.name, userEmail),
+                    target: "_blank",
+                  })),
+              },
+            ]}
+            extra={extra}
+          />
         )}
       </LoadingContent>
       <LoadingContent
@@ -121,19 +88,23 @@ export function EmailAnalytics(props: {
         loadingComponent={<Skeleton className="h-64 w-full rounded" />}
       >
         {dataRecipients && (
-          <BarList
-            title="Who you email the most"
-            col1="Recipient"
-            col2="Emails"
-            data={
-              dataRecipients.mostActiveRecipientEmails
-                ?.slice(0, expanded ? undefined : 5)
-                .map((d) => ({
-                  ...d,
-                  href: getGmailSearchUrl(d.name, userEmail),
-                  target: "_blank",
-                })) || []
-            }
+          <BarListCard
+            icon={<Send className="size-4 text-neutral-500" />}
+            title="SENT"
+            tabs={[
+              {
+                id: "emailAddress",
+                label: "Email address",
+                data:
+                  dataRecipients.mostActiveRecipientEmails
+                    ?.slice(0, expanded ? undefined : 5)
+                    .map((d) => ({
+                      ...d,
+                      href: getGmailSearchUrl(d.name, userEmail),
+                      target: "_blank",
+                    })) || [],
+              },
+            ]}
             extra={extra}
           />
         )}
