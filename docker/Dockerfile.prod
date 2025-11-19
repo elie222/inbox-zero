@@ -30,7 +30,7 @@ COPY . .
  # Build app (Next.js standalone)
 ENV NODE_ENV=production
 # Increase V8 heap for Next build to avoid OOM in builder
-ENV NODE_OPTIONS=--max_old_space_size=16384
+ENV NODE_OPTIONS=--max_old_space_size=4096
 ARG NEXT_PUBLIC_BASE_URL="http://localhost:3000"
 ENV NEXT_PUBLIC_BASE_URL=${NEXT_PUBLIC_BASE_URL}
 
