@@ -232,7 +232,17 @@ function createOpenRouterProviderOptions(
  */
 function selectEconomyModel(userAi: UserAIFields): SelectModel {
   if (env.ECONOMY_LLM_PROVIDER && env.ECONOMY_LLM_MODEL) {
+    const isLMStudio = env.ECONOMY_LLM_PROVIDER === Provider.LM_STUDIO;
+    if (isLMStudio) {
+      return selectModel({
+        aiProvider: Provider.LM_STUDIO,
+        aiModel: env.ECONOMY_LLM_MODEL,
+        aiApiKey: null,
+      });
+    }
+
     const apiKey = getProviderApiKey(env.ECONOMY_LLM_PROVIDER);
+
     if (!apiKey) {
       logger.warn("Economy LLM provider configured but API key not found", {
         provider: env.ECONOMY_LLM_PROVIDER,
@@ -269,6 +279,15 @@ function selectEconomyModel(userAi: UserAIFields): SelectModel {
  */
 function selectChatModel(userAi: UserAIFields): SelectModel {
   if (env.CHAT_LLM_PROVIDER && env.CHAT_LLM_MODEL) {
+    const isLMStudio = env.CHAT_LLM_PROVIDER === Provider.LM_STUDIO;
+    if (isLMStudio) {
+      return selectModel({
+        aiProvider: Provider.LM_STUDIO,
+        aiModel: env.CHAT_LLM_MODEL,
+        aiApiKey: null,
+      });
+    }
+
     const apiKey = getProviderApiKey(env.CHAT_LLM_PROVIDER);
     if (!apiKey) {
       logger.warn("Chat LLM provider configured but API key not found", {
@@ -322,7 +341,6 @@ function selectDefaultModel(userAi: UserAIFields): SelectModel {
     const openRouterOptions = createOpenRouterProviderOptions(
       env.DEFAULT_OPENROUTER_PROVIDERS || "",
     );
-
     // Preserve any custom options set earlier; always ensure reasoning exists.
     const existingOpenRouterOptions = providerOptions.openrouter || {};
     providerOptions.openrouter = {
