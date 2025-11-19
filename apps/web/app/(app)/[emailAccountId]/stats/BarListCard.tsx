@@ -38,7 +38,6 @@ export function BarListCard({ tabs, icon, title }: BarListCardProps) {
           className={cx(
             "absolute bottom-0 left-0 w-full h-1/2 z-20 rounded-[0.44rem]",
             "bg-gradient-to-b from-transparent to-white",
-            // "bg-gray-50"
           )}
         />
         <HorizontalBarChart
