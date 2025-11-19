@@ -23,7 +23,6 @@ export function EmailActionsAnalytics() {
           <Title>
             How many emails you've archived and deleted with Inbox Zero
           </Title>
-
           <BarChart
             className="mt-4 h-72"
             data={data.result}

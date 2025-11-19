@@ -62,9 +62,9 @@ export function BarListCard({ tabs, icon, title }: BarListCardProps) {
                 <DialogHeader className="px-6 py-4 border-b border-neutral-200">
                   <div className="flex items-center gap-2">
                     {icon}
-                    <p className="text-base text-neutral-900 font-medium">
+                    <DialogTitle className="text-base text-neutral-900 font-medium">
                       {title}
-                    </p>
+                    </DialogTitle>
                   </div>
                 </DialogHeader>
                 <div className="max-h-[60vh] overflow-y-auto p-6">
