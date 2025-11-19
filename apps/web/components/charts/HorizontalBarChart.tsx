@@ -34,9 +34,13 @@ export function HorizontalBarChart({
                   className="absolute top-0 left-0 bg-gradient-to-r from-blue-100 to-blue-50 h-full rounded-md"
                   style={{ width: `${widthPercentage}%` }}
                 />
-                <span className="text-sm text-gray-900 truncate block z-10 relative">
+                <a
+                  href={item.href}
+                  target={item.target}
+                  className="text-sm text-gray-900 truncate block z-10 relative hover:underline"
+                >
                   {item.name}
-                </span>
+                </a>
               </div>
             </div>
             <div className="flex-shrink-0">

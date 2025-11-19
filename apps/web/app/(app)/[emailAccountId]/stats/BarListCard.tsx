@@ -43,14 +43,14 @@ export function BarListCard({ tabs, icon, title }: BarListCardProps) {
       <CardContent className="pt-5 pb-0 px-5 overflow-hidden h-[330px]">
         <div
           className={cx(
-            "absolute bottom-0 left-0 w-full h-1/2 z-20 rounded-[0.44rem]",
+            "pointer-events-none absolute bottom-0 left-0 w-full h-1/2 z-20 rounded-[0.44rem]",
             "bg-gradient-to-b from-transparent to-white",
           )}
         />
         <HorizontalBarChart
           data={tabs.find((d) => d.id === selected)?.data || []}
         />
-        <div className="absolute w-full bottom-[20px] z-30">
+        <div className="absolute w-full left-0 bottom-0 pb-6 z-30">
           <div className="flex justify-center">
             <Dialog>
               <DialogTrigger asChild>
