@@ -19,7 +19,7 @@ export function HorizontalBarChart({
   const maxValue = Math.max(...data.map((item) => item.value), 1);
 
   return (
-    <div className={cx("space-y-3", className)}>
+    <div className={cx("space-y-2", className)}>
       {data.map((item) => {
         const widthPercentage = (item.value / maxValue) * 100;
 
@@ -29,7 +29,7 @@ export function HorizontalBarChart({
             className="flex items-center justify-between gap-4"
           >
             <div className="flex-1 min-w-0">
-              <div className="px-3 py-2.5 relative">
+              <div className="px-3 py-2 relative">
                 <div
                   className="absolute top-0 left-0 bg-gradient-to-r from-blue-100 to-blue-50 h-full rounded-md"
                   style={{ width: `${widthPercentage}%` }}

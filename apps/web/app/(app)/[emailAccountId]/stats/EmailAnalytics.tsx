@@ -2,7 +2,6 @@
 
 import useSWR from "swr";
 import type { DateRange } from "react-day-picker";
-import { useExpanded } from "@/app/(app)/[emailAccountId]/stats/useExpanded";
 import type { RecipientsResponse } from "@/app/api/user/stats/recipients/route";
 import type { SendersResponse } from "@/app/api/user/stats/senders/route";
 import { LoadingContent } from "@/components/LoadingContent";
@@ -39,7 +38,15 @@ export function EmailAnalytics(props: {
     },
   );
 
-  const { expanded, extra } = useExpanded();
+  const amountToShow = 7;
+
+  function formatEmailItem(item: { name: string }) {
+    return {
+      ...item,
+      href: getGmailSearchUrl(item.name, userEmail),
+      target: "_blank",
+    };
+  }
 
   return (
     <div className="grid gap-2 sm:gap-4 sm:grid-cols-2">
@@ -59,26 +66,17 @@ export function EmailAnalytics(props: {
                 id: "emailAddress",
                 label: "Email address",
                 data: data.mostActiveSenderEmails
-                  ?.slice(0, expanded ? undefined : 5)
-                  .map((d) => ({
-                    ...d,
-                    href: getGmailSearchUrl(d.name, userEmail),
-                    target: "_blank",
-                  })),
+                  ?.slice(0, amountToShow)
+                  .map(formatEmailItem),
               },
               {
                 id: "domain",
                 label: "Domain",
                 data: data.mostActiveSenderDomains
-                  ?.slice(0, expanded ? undefined : 5)
-                  .map((d) => ({
-                    ...d,
-                    href: getGmailSearchUrl(d.name, userEmail),
-                    target: "_blank",
-                  })),
+                  .slice(0, amountToShow)
+                  .map(formatEmailItem),
               },
             ]}
-            extra={extra}
           />
         )}
       </LoadingContent>
@@ -97,15 +95,10 @@ export function EmailAnalytics(props: {
                 label: "Email address",
                 data:
                   dataRecipients.mostActiveRecipientEmails
-                    ?.slice(0, expanded ? undefined : 5)
-                    .map((d) => ({
-                      ...d,
-                      href: getGmailSearchUrl(d.name, userEmail),
-                      target: "_blank",
-                    })) || [],
+                    ?.slice(0, amountToShow)
+                    .map(formatEmailItem) || [],
               },
             ]}
-            extra={extra}
           />
         )}
       </LoadingContent>

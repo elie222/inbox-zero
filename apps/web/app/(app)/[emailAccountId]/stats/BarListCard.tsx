@@ -4,21 +4,22 @@ import { TabSelect } from "@/components/TabSelect";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { HorizontalBarChart } from "@/components/charts/HorizontalBarChart";
 import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import { cx } from "class-variance-authority";
 
 interface BarListCardProps {
   tabs: { id: string; label: string; data: any }[]; // TODO: add type
-  extra: any; // TODO: add type
   icon: React.ReactNode;
   title: string;
 }
 
-export function BarListCard({ tabs, extra, icon, title }: BarListCardProps) {
+export function BarListCard({ tabs, icon, title }: BarListCardProps) {
   const [selected, setSelected] = useState<string | null>(
     tabs?.length > 0 ? tabs[0]?.id : null,
   );
 
   return (
-    <Card className="h-full bg-background">
+    <Card className="h-full bg-background relative">
       <CardHeader className="p-0">
         <div className="px-5 flex items-center justify-between border-b border-neutral-200">
           <TabSelect
@@ -32,11 +33,24 @@ export function BarListCard({ tabs, extra, icon, title }: BarListCardProps) {
           </div>
         </div>
       </CardHeader>
-      <CardContent className="pt-5 px-5">
+      <CardContent className="pt-5 pb-0 px-5 overflow-hidden">
+        <div
+          className={cx(
+            "absolute bottom-0 left-0 w-full h-1/2 z-20 rounded-[0.44rem]",
+            "bg-gradient-to-b from-transparent to-white",
+            // "bg-gray-50"
+          )}
+        />
         <HorizontalBarChart
           data={tabs.find((d) => d.id === selected)?.data || []}
         />
-        {extra}
+        <div className="absolute w-full bottom-[20px] z-30">
+          <div className="flex justify-center">
+            <Button variant="outline" size="xs">
+              View more
+            </Button>
+          </div>
+        </div>
       </CardContent>
     </Card>
   );
