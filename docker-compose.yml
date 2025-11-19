@@ -2,7 +2,7 @@ name: inbox-zero-services
 services:
   db:
     image: postgres
-    restart: always
+    restart: unless-stopped
     container_name: inbox-zero
     environment:
       - POSTGRES_USER=${POSTGRES_USER:-postgres}
@@ -23,6 +23,7 @@ services:
       - database-data:/data
     networks:
       - inbox-zero-network
+    restart: unless-stopped
 
   serverless-redis-http:
     ports:
@@ -36,6 +37,7 @@ services:
       SRH_CONNECTION_STRING: "redis://redis:6379" # Using `redis` hostname since they're in the same Docker network.
     networks:
       - inbox-zero-network
+    restart: unless-stopped
 
   web:
     image: ghcr.io/elie222/inbox-zero:latest
@@ -61,6 +63,7 @@ services:
       DIRECT_URL: "postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-password}@db:5432/${POSTGRES_DB:-inboxzero}?schema=public"
       UPSTASH_REDIS_URL: "http://serverless-redis-http:80"
       UPSTASH_REDIS_TOKEN: "${UPSTASH_REDIS_TOKEN}"
+    restart: unless-stopped
 
 volumes:
   database-data:
