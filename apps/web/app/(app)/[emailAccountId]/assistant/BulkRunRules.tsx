@@ -28,7 +28,9 @@ export function BulkRunRules() {
   const { emailAccountId } = useAccount();
 
   const [isOpen, setIsOpen] = useState(false);
-  const [totalThreads, setTotalThreads] = useState(0);
+  const [processedThreadIds, setProcessedThreadIds] = useState<Set<string>>(
+    new Set(),
+  );
 
   const { data, isLoading, error } = useThreads({ type: "inbox" });
 
@@ -40,8 +42,16 @@ export function BulkRunRules() {
 
   const [startDate, setStartDate] = useState<Date | undefined>();
   const [endDate, setEndDate] = useState<Date | undefined>();
+  const [runResult, setRunResult] = useState<{
+    count: number;
+  } | null>(null);
 
   const abortRef = useRef<() => void>(undefined);
+
+  const remaining = new Set(
+    [...processedThreadIds].filter((id) => queue.has(id)),
+  ).size;
+  const completed = processedThreadIds.size - remaining;
 
   return (
     <div>
@@ -63,11 +73,12 @@ export function BulkRunRules() {
                   (that have not been previously processed).
                 </SectionDescription>
 
-                {!!queue.size && (
+                {processedThreadIds.size > 0 && (
                   <div className="rounded-md border border-green-200 bg-green-50 px-2 py-1.5 dark:border-green-800 dark:bg-green-950">
                     <SectionDescription className="mt-0">
-                      Progress: {totalThreads - queue.size}/{totalThreads}{" "}
-                      emails completed
+                      {remaining > 0
+                        ? `Progress: ${completed}/${processedThreadIds.size} emails completed`
+                        : `Success: Processed ${processedThreadIds.size} emails`}
                     </SectionDescription>
                   </div>
                 )}
@@ -76,13 +87,21 @@ export function BulkRunRules() {
                     <div className="flex flex-col space-y-2">
                       <div className="grid grid-cols-2 gap-2">
                         <SetDateDropdown
-                          onChange={setStartDate}
+                          onChange={(date) => {
+                            setStartDate(date);
+                            setRunResult(null);
+                            setProcessedThreadIds(new Set());
+                          }}
                           value={startDate}
                           placeholder="Set start date"
                           disabled={running}
                         />
                         <SetDateDropdown
-                          onChange={setEndDate}
+                          onChange={(date) => {
+                            setEndDate(date);
+                            setRunResult(null);
+                            setProcessedThreadIds(new Set());
+                          }}
                           value={endDate}
                           placeholder="Set end date (optional)"
                           disabled={running}
@@ -94,6 +113,8 @@ export function BulkRunRules() {
                         disabled={running || !startDate || !emailAccountId}
                         loading={running}
                         onClick={async () => {
+                          setRunResult(null);
+                          setProcessedThreadIds(new Set());
                           if (!startDate) {
                             toastError({
                               description: "Please select a start date",
@@ -111,9 +132,21 @@ export function BulkRunRules() {
                           abortRef.current = await onRun(
                             emailAccountId,
                             { startDate, endDate },
-                            (count) =>
-                              setTotalThreads((total) => total + count),
-                            () => setRunning(false),
+                            (ids) => {
+                              setProcessedThreadIds((prev) => {
+                                const next = new Set(prev);
+                                for (const id of ids) {
+                                  next.add(id);
+                                }
+                                return next;
+                              });
+                            },
+                            (status, count) => {
+                              setRunning(false);
+                              if (status === "success" && count === 0) {
+                                setRunResult({ count });
+                              }
+                            },
                           );
                         }}
                       >
@@ -126,6 +159,12 @@ export function BulkRunRules() {
                         >
                           Cancel
                         </Button>
+                      )}
+
+                      {runResult && runResult.count === 0 && (
+                        <div className="mt-4 rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-800 dark:border-blue-800 dark:bg-blue-950 dark:text-blue-200">
+                          No unread emails found in the selected date range.
+                        </div>
                       )}
                     </div>
                   ) : (
@@ -145,11 +184,15 @@ export function BulkRunRules() {
 async function onRun(
   emailAccountId: string,
   { startDate, endDate }: { startDate: Date; endDate?: Date },
-  incrementThreadsQueued: (count: number) => void,
-  onComplete: () => void,
+  onThreadsQueued: (threadIds: string[]) => void,
+  onComplete: (
+    status: "success" | "error" | "cancelled",
+    count: number,
+  ) => void,
 ) {
   let nextPageToken = "";
   const LIMIT = 25;
+  let totalProcessed = 0;
 
   let aborted = false;
 
@@ -186,7 +229,8 @@ async function onRun(
               ? errorData.error
               : `Error: ${res.status}`,
         });
-        break;
+        onComplete("error", totalProcessed);
+        return;
       }
 
       const data: ThreadsResponse = await res.json();
@@ -197,25 +241,32 @@ async function onRun(
           title: "Invalid response",
           description: "Failed to process emails. Please try again.",
         });
-        break;
+        onComplete("error", totalProcessed);
+        return;
       }
 
       nextPageToken = data.nextPageToken || "";
 
       const threadsWithoutPlan = data.threads.filter((t) => !t.plan);
 
-      incrementThreadsQueued(threadsWithoutPlan.length);
+      onThreadsQueued(threadsWithoutPlan.map((t) => t.id));
+      totalProcessed += threadsWithoutPlan.length;
 
       runAiRules(emailAccountId, threadsWithoutPlan, false);
 
-      if (!nextPageToken || aborted) break;
+      if (aborted) {
+        onComplete("cancelled", totalProcessed);
+        return;
+      }
+
+      if (!nextPageToken) break;
 
       // avoid gmail api rate limits
       // ai takes longer anyway
       await sleep(threadsWithoutPlan.length ? 5000 : 2000);
     }
 
-    onComplete();
+    onComplete("success", totalProcessed);
   }
 
   run();
