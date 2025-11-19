@@ -144,12 +144,20 @@ function selectModel(
       const modelName = aiModel || Model.LM_STUDIO;
 
       if (!modelName) {
-        throw new Error("For LM_STUDIO, 'LLM_MODEL' must be set.");
+        throw new Error(
+          "LM Studio model not configured. Please set NEXT_PUBLIC_LM_STUDIO_MODEL environment variable.",
+        );
+      }
+
+      if (!env.LM_STUDIO_BASE_URL) {
+        throw new Error(
+          "LM Studio base URL not configured. Please set LM_STUDIO_BASE_URL environment variable.",
+        );
       }
 
       const lmstudio = createOpenAICompatible({
         name: Provider.LM_STUDIO,
-        baseURL: env.LM_STUDIO_BASE_URL!,
+        baseURL: env.LM_STUDIO_BASE_URL,
         supportsStructuredOutputs: true,
       });
 
