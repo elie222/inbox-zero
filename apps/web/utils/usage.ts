@@ -86,6 +86,7 @@ const costs: Record<
   "anthropic/claude-3.5-sonnet": sonnet,
   "anthropic/claude-3.7-sonnet": sonnet,
   "anthropic/claude-sonnet-4": sonnet,
+  "anthropic/claude-sonnet-4.5": sonnet,
   // https://aws.amazon.com/bedrock/pricing/
   "anthropic.claude-3-5-sonnet-20240620-v1:0": sonnet,
   "anthropic.claude-3-5-sonnet-20241022-v2:0": sonnet,
@@ -120,6 +121,10 @@ const costs: Record<
   "google/gemini-2.5-pro-preview-06-05": gemini2_5pro,
   "google/gemini-2.5-pro-preview": gemini2_5pro,
   "google/gemini-2.5-pro": gemini2_5pro,
+  "google/gemini-3-pro-preview": {
+    input: 2 / 1_000_000,
+    output: 12 / 1_000_000,
+  },
   "meta-llama/llama-4-maverick": {
     input: 0.2 / 1_000_000,
     output: 0.85 / 1_000_000,
