@@ -6,6 +6,13 @@ import { HorizontalBarChart } from "@/components/charts/HorizontalBarChart";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { cx } from "class-variance-authority";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 
 interface BarListCardProps {
   tabs: { id: string; label: string; data: any }[]; // TODO: add type
@@ -29,11 +36,11 @@ export function BarListCard({ tabs, icon, title }: BarListCardProps) {
           />
           <div className="flex items-center gap-2">
             {icon}
-            <p className="text-xs text-neutral-500">{title}</p>
+            <p className="text-xs text-neutral-500">{title.toUpperCase()}</p>
           </div>
         </div>
       </CardHeader>
-      <CardContent className="pt-5 pb-0 px-5 overflow-hidden">
+      <CardContent className="pt-5 pb-0 px-5 overflow-hidden h-[330px]">
         <div
           className={cx(
             "absolute bottom-0 left-0 w-full h-1/2 z-20 rounded-[0.44rem]",
@@ -45,9 +52,28 @@ export function BarListCard({ tabs, icon, title }: BarListCardProps) {
         />
         <div className="absolute w-full bottom-[20px] z-30">
           <div className="flex justify-center">
-            <Button variant="outline" size="xs">
-              View more
-            </Button>
+            <Dialog>
+              <DialogTrigger asChild>
+                <Button variant="outline" size="xs">
+                  View more
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-2xl p-0 gap-0">
+                <DialogHeader className="px-6 py-4 border-b border-neutral-200">
+                  <div className="flex items-center gap-2">
+                    {icon}
+                    <p className="text-base text-neutral-900 font-medium">
+                      {title}
+                    </p>
+                  </div>
+                </DialogHeader>
+                <div className="max-h-[60vh] overflow-y-auto p-6">
+                  <HorizontalBarChart
+                    data={tabs.find((d) => d.id === selected)?.data || []}
+                  />
+                </div>
+              </DialogContent>
+            </Dialog>
           </div>
         </div>
       </CardContent>

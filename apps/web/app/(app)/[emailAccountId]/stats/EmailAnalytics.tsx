@@ -38,8 +38,6 @@ export function EmailAnalytics(props: {
     },
   );
 
-  const amountToShow = 7;
-
   function formatEmailItem(item: { name: string }) {
     return {
       ...item,
@@ -60,21 +58,17 @@ export function EmailAnalytics(props: {
             icon={
               <Mail className="size-4 text-neutral-500 translate-y-[-0.5px]" />
             }
-            title="RECEIVED"
+            title="Received"
             tabs={[
               {
                 id: "emailAddress",
                 label: "Email address",
-                data: data.mostActiveSenderEmails
-                  ?.slice(0, amountToShow)
-                  .map(formatEmailItem),
+                data: data.mostActiveSenderEmails.map(formatEmailItem),
               },
               {
                 id: "domain",
                 label: "Domain",
-                data: data.mostActiveSenderDomains
-                  .slice(0, amountToShow)
-                  .map(formatEmailItem),
+                data: data.mostActiveSenderDomains.map(formatEmailItem),
               },
             ]}
           />
@@ -88,15 +82,15 @@ export function EmailAnalytics(props: {
         {dataRecipients && (
           <BarListCard
             icon={<Send className="size-4 text-neutral-500" />}
-            title="SENT"
+            title="Sent"
             tabs={[
               {
                 id: "emailAddress",
                 label: "Email address",
                 data:
-                  dataRecipients.mostActiveRecipientEmails
-                    ?.slice(0, amountToShow)
-                    .map(formatEmailItem) || [],
+                  dataRecipients.mostActiveRecipientEmails.map(
+                    formatEmailItem,
+                  ) || [],
               },
             ]}
           />
