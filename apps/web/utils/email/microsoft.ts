@@ -1186,17 +1186,16 @@ export class OutlookProvider implements EmailProvider {
         .getClient()
         .api("/me/messages")
         .filter(
-          `from/emailAddress/address eq '${escapeODataString(options.from)}' and receivedDateTime lt ${options.date.toISOString()}`,
+          `(toRecipients/any(a:a/emailAddress/address eq '${escapeODataString(options.from)}') and sentDateTime lt ${options.date.toISOString()}) or (from/emailAddress/address eq '${escapeODataString(options.from)}' and receivedDateTime lt ${options.date.toISOString()})`,
         )
         .top(2)
         .select("id")
         .get();
 
-      // Check if there are any messages from this sender before the current date
-      // and exclude the current message
-      const hasPreviousEmail = response.value.some(
-        (message) => message.id !== options.messageId,
-      );
+      // If we have any outgoing emails, or any incoming emails (excluding current message)
+      const hasPreviousEmail =
+        response.value.length > 0 &&
+        response.value.some((message) => message.id !== options.messageId);
 
       return hasPreviousEmail;
     } catch (error) {
