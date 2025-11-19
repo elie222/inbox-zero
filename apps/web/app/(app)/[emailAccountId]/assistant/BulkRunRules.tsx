@@ -141,9 +141,9 @@ export function BulkRunRules() {
                                 return next;
                               });
                             },
-                            (count) => {
+                            (status, count) => {
                               setRunning(false);
-                              if (count === 0) {
+                              if (status === "success" && count === 0) {
                                 setRunResult({ count });
                               }
                             },
@@ -185,7 +185,10 @@ async function onRun(
   emailAccountId: string,
   { startDate, endDate }: { startDate: Date; endDate?: Date },
   onThreadsQueued: (threadIds: string[]) => void,
-  onComplete: (count: number) => void,
+  onComplete: (
+    status: "success" | "error" | "cancelled",
+    count: number,
+  ) => void,
 ) {
   let nextPageToken = "";
   const LIMIT = 25;
@@ -226,7 +229,8 @@ async function onRun(
               ? errorData.error
               : `Error: ${res.status}`,
         });
-        break;
+        onComplete("error", totalProcessed);
+        return;
       }
 
       const data: ThreadsResponse = await res.json();
@@ -237,7 +241,8 @@ async function onRun(
           title: "Invalid response",
           description: "Failed to process emails. Please try again.",
         });
-        break;
+        onComplete("error", totalProcessed);
+        return;
       }
 
       nextPageToken = data.nextPageToken || "";
@@ -249,14 +254,19 @@ async function onRun(
 
       runAiRules(emailAccountId, threadsWithoutPlan, false);
 
-      if (!nextPageToken || aborted) break;
+      if (aborted) {
+        onComplete("cancelled", totalProcessed);
+        return;
+      }
+
+      if (!nextPageToken) break;
 
       // avoid gmail api rate limits
       // ai takes longer anyway
       await sleep(threadsWithoutPlan.length ? 5000 : 2000);
     }
 
-    onComplete(totalProcessed);
+    onComplete("success", totalProcessed);
   }
 
   run();
