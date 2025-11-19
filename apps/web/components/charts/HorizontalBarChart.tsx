@@ -84,23 +84,25 @@ export function HorizontalBarChart({
                   style={{ width: `${widthPercentage}%` }}
                 />
                 <div className="flex items-center gap-2">
-                  {fallbackEnabled[item.name] ? (
-                    <FallbackIcon seed={item.name} />
-                  ) : (
-                    <Image
-                      width={20}
-                      height={20}
-                      src={domainFavicon}
-                      alt="favicon"
-                      className="rounded-full z-10"
-                      onError={() =>
-                        setFallbackEnabled({
-                          ...fallbackEnabled,
-                          [item.name]: true,
-                        })
-                      }
-                    />
-                  )}
+                  <div className="size-5 overflow-hidden relative">
+                    {fallbackEnabled[item.name] ? (
+                      <FallbackIcon seed={item.name} />
+                    ) : (
+                      <Image
+                        width={20}
+                        height={20}
+                        src={domainFavicon}
+                        alt="favicon"
+                        className="rounded-full z-10"
+                        onError={() =>
+                          setFallbackEnabled({
+                            ...fallbackEnabled,
+                            [item.name]: true,
+                          })
+                        }
+                      />
+                    )}
+                  </div>
                   <a
                     href={item.href}
                     target={item.target}
