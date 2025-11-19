@@ -175,17 +175,21 @@ async function findPreviousEmailsWithSender(
   options: {
     sender: string;
     dateInSeconds: number;
+    excludeLabel: string | null;
   },
 ) {
   const beforeDate = new Date(options.dateInSeconds * 1000);
+  const excludeLabelQuery = options.excludeLabel
+    ? ` -label:"${options.excludeLabel}"`
+    : "";
   const [incomingEmails, outgoingEmails] = await Promise.all([
     client.getMessagesWithPagination({
-      query: `from:${options.sender}`,
+      query: `from:${options.sender}${excludeLabelQuery}`,
       maxResults: 2,
       before: beforeDate,
     }),
     client.getMessagesWithPagination({
-      query: `to:${options.sender}`,
+      query: `to:${options.sender}${excludeLabelQuery}`,
       maxResults: 2,
       before: beforeDate,
     }),
@@ -201,11 +205,17 @@ async function findPreviousEmailsWithSender(
 
 export async function hasPreviousCommunicationWithSender(
   client: EmailProvider,
-  options: { from: string; date: Date; messageId: string },
+  options: {
+    from: string;
+    date: Date;
+    messageId: string;
+    excludeLabel: string | null;
+  },
 ) {
   const previousEmails = await findPreviousEmailsWithSender(client, {
     sender: options.from,
     dateInSeconds: +new Date(options.date) / 1000,
+    excludeLabel: options.excludeLabel,
   });
   // Ignore the current email
   const hasPreviousEmail = !!previousEmails?.find(
@@ -233,7 +243,13 @@ const PUBLIC_DOMAINS = new Set([
 
 export async function hasPreviousCommunicationsWithSenderOrDomain(
   client: EmailProvider,
-  options: { from: string; date: Date; messageId: string },
+  options: {
+    from: string;
+    date: Date;
+    messageId: string;
+    excludeLabel: string | null;
+    excludeFolder: string | null; // Not used for Gmail
+  },
 ) {
   const domain = extractDomainFromEmail(options.from);
   if (!domain) return hasPreviousCommunicationWithSender(client, options);
@@ -247,6 +263,7 @@ export async function hasPreviousCommunicationsWithSenderOrDomain(
   return hasPreviousCommunicationWithSender(client, {
     ...options,
     from: searchTerm,
+    excludeLabel: options.excludeLabel,
   });
 }
 

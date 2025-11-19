@@ -1180,13 +1180,40 @@ export class OutlookProvider implements EmailProvider {
     from: string;
     date: Date;
     messageId: string;
+    excludeLabel: string | null;
+    excludeFolder: string | null;
   }): Promise<boolean> {
     try {
+      let excludeFilter = "";
+
+      if (options.excludeFolder) {
+        // Exclude by folder (for MOVE_FOLDER action)
+        try {
+          const folderId = await getOrCreateOutlookFolderIdByName(
+            this.client,
+            options.excludeFolder,
+          );
+          if (folderId) {
+            excludeFilter = ` and parentFolderId ne '${folderId}'`;
+          }
+        } catch (error) {
+          // If folder doesn't exist or we can't get it, proceed without filtering
+          this.logger.info("Could not get folder ID for exclusion", {
+            folder: options.excludeFolder,
+            error,
+          });
+        }
+      } else if (options.excludeLabel) {
+        // Exclude by category (for LABEL action)
+        const categoryName = escapeODataString(options.excludeLabel);
+        excludeFilter = ` and not (categories/any(c: c eq '${categoryName}'))`;
+      }
+
       const response: { value: Message[] } = await this.client
         .getClient()
         .api("/me/messages")
         .filter(
-          `(toRecipients/any(a:a/emailAddress/address eq '${escapeODataString(options.from)}') and sentDateTime lt ${options.date.toISOString()}) or (from/emailAddress/address eq '${escapeODataString(options.from)}' and receivedDateTime lt ${options.date.toISOString()})`,
+          `(toRecipients/any(a:a/emailAddress/address eq '${escapeODataString(options.from)}') and sentDateTime lt ${options.date.toISOString()}${excludeFilter}) or (from/emailAddress/address eq '${escapeODataString(options.from)}' and receivedDateTime lt ${options.date.toISOString()}${excludeFilter})`,
         )
         .top(2)
         .select("id")
