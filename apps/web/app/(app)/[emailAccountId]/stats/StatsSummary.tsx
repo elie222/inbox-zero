@@ -40,7 +40,7 @@ export function StatsSummary(props: {
     <LoadingContent
       loading={isLoading}
       error={error}
-      loadingComponent={<Skeleton className="h-64 rounded" />}
+      loadingComponent={<Skeleton className="h-[405px] rounded" />}
     >
       {data && <MainStatChart data={data} />}
     </LoadingContent>

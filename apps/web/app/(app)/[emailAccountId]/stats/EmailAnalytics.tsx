@@ -51,7 +51,7 @@ export function EmailAnalytics(props: {
       <LoadingContent
         loading={isLoading}
         error={error}
-        loadingComponent={<Skeleton className="h-64 w-full rounded" />}
+        loadingComponent={<Skeleton className="h-[377px] rounded" />}
       >
         {data && (
           <BarListCard
@@ -77,7 +77,7 @@ export function EmailAnalytics(props: {
       <LoadingContent
         loading={isLoadingRecipients}
         error={errorRecipients}
-        loadingComponent={<Skeleton className="h-64 w-full rounded" />}
+        loadingComponent={<Skeleton className="h-[377px] w-full rounded" />}
       >
         {dataRecipients && (
           <BarListCard
