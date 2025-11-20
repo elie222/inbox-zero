@@ -150,6 +150,7 @@ export async function runRules({
           emailAccount,
           provider,
           modelType,
+          isTest,
         });
 
       if (!statusRule) {
@@ -260,6 +261,7 @@ async function executeMatchedRule(
     client,
     modelType,
     logger,
+    isTest,
   });
 
   const { immediateActions, delayedActions } = groupBy(actionItems, (item) =>

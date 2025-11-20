@@ -1,14 +1,27 @@
-import { Footer } from "@/app/(landing)/home/Footer";
-import { Header } from "@/app/(landing)/home/Header";
+import { Header } from "@/components/new-landing/sections/Header";
+import { Footer } from "@/components/new-landing/sections/Footer";
+
+export function BlogHeader() {
+  return (
+    <div className="sticky inset-x-0 top-0 z-30 w-full transition-all">
+      <div className="bg-white/75 shadow backdrop-blur-md">
+        <Header className="mx-auto w-full max-w-screen-xl px-6 lg:px-8" />
+      </div>
+    </div>
+  );
+}
 
 export function BlogLayout(props: { children: React.ReactNode }) {
   return (
     <div className="bg-slate-50">
-      <div className="sticky inset-x-0 top-0 z-30 w-full transition-all">
-        <Header className="bg-white/75 shadow backdrop-blur-md" />
-      </div>
+      <BlogHeader />
       <main className="isolate">{props.children}</main>
-      <Footer />
+      <div className="mt-20">
+        <Footer
+          variant="simple"
+          className="mx-auto w-full max-w-screen-xl px-0"
+        />
+      </div>
     </div>
   );
 }

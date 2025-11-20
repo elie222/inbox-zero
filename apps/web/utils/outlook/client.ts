@@ -8,13 +8,6 @@ import { SafeError } from "@/utils/error";
 
 const logger = createScopedLogger("outlook/client");
 
-type AuthOptions = {
-  accessToken?: string | null;
-  refreshToken?: string | null;
-  expiryDate?: number | null;
-  expiresAt?: number | null;
-};
-
 // Wrapper class to hold both the Microsoft Graph client and its access token
 export class OutlookClient {
   private readonly client: Client;
@@ -80,13 +73,9 @@ export class OutlookClient {
 }
 
 // Helper to create OutlookClient instance
-const createOutlookClient = (accessToken: string) => {
-  return new OutlookClient(accessToken);
-};
-
-export const getContactsClient = ({ accessToken }: AuthOptions) => {
+export const createOutlookClient = (accessToken: string) => {
   if (!accessToken) throw new SafeError("No access token provided");
-  return createOutlookClient(accessToken);
+  return new OutlookClient(accessToken);
 };
 
 // Similar to Gmail's getGmailClientWithRefresh

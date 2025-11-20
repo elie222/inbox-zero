@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { env } from "@/env";
 import prisma from "@/utils/prisma";
 import type { Logger } from "@/utils/logger";
 import { cleanupOrphanedAccount } from "@/utils/user/orphaned-account";
@@ -10,7 +11,6 @@ interface AccountLinkingParams {
   targetUserId: string;
   provider: "google" | "microsoft";
   providerEmail: string;
-  baseUrl: string;
   logger: Logger;
 }
 
@@ -21,14 +21,13 @@ export async function handleAccountLinking({
   targetUserId,
   provider,
   providerEmail,
-  baseUrl,
   logger,
 }: AccountLinkingParams): Promise<
   | { type: "continue_create" }
   | { type: "redirect"; response: NextResponse }
   | { type: "merge"; sourceAccountId: string; sourceUserId: string }
 > {
-  const redirectUrl = new URL("/accounts", baseUrl);
+  const redirectUrl = new URL("/accounts", env.NEXT_PUBLIC_BASE_URL);
 
   if (existingAccountId && !hasEmailAccount) {
     logger.warn("Found orphaned Account, cleaning up", {

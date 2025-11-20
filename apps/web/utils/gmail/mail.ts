@@ -16,6 +16,7 @@ import type { EmailForAction } from "@/utils/ai/types";
 import { createScopedLogger } from "@/utils/logger";
 import { withGmailRetry } from "@/utils/gmail/retry";
 import { buildReplyAllRecipients, formatCcList } from "@/utils/email/reply-all";
+import { ensureEmailSendingEnabled } from "@/utils/mail";
 
 const logger = createScopedLogger("gmail/mail");
 
@@ -101,6 +102,8 @@ export async function sendEmailWithHtml(
   gmail: gmail_v1.Gmail,
   body: SendEmailBody,
 ) {
+  ensureEmailSendingEnabled();
+
   let messageText: string;
 
   try {
@@ -141,6 +144,8 @@ export async function replyToEmail(
   reply: string,
   from?: string,
 ) {
+  ensureEmailSendingEnabled();
+
   const { text, html } = createReplyContent({
     textContent: reply,
     message,
@@ -185,6 +190,8 @@ export async function forwardEmail(
     content?: string;
   },
 ) {
+  ensureEmailSendingEnabled();
+
   if (!options.to?.trim()) {
     throw new Error(
       `Recipient address is required for forwarding email. Received: "${options.to}"`,

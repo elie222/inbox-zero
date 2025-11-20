@@ -18,6 +18,10 @@ import { AIChatButton } from "@/app/(app)/[emailAccountId]/assistant/AIChatButto
 import { PageWrapper } from "@/components/PageWrapper";
 import { PageHeader } from "@/components/PageHeader";
 import { DismissibleVideoCard } from "@/components/VideoCard";
+import {
+  STEP_KEYS,
+  getStepNumber,
+} from "@/app/(app)/[emailAccountId]/onboarding/OnboardingContent";
 
 export const maxDuration = 300; // Applies to the actions
 
@@ -67,7 +71,12 @@ export default async function AutomationPage({
     });
 
     if (!hasRule) {
-      redirect(prefixPath(emailAccountId, "/assistant/onboarding"));
+      redirect(
+        prefixPath(
+          emailAccountId,
+          `/onboarding?step=${getStepNumber(STEP_KEYS.LABELS)}`,
+        ),
+      );
     }
   }
 

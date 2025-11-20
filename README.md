@@ -75,13 +75,17 @@ Learn more in our [docs](https://docs.getinboxzero.com).
 
 To request a feature open a [GitHub issue](https://github.com/elie222/inbox-zero/issues), or join our [Discord](https://www.getinboxzero.com/discord).
 
-## Getting Started for Developers
+## Getting Started
 
-We offer a hosted version of Inbox Zero at [https://getinboxzero.com](https://getinboxzero.com). To self-host follow the steps below.
+We offer a hosted version of Inbox Zero at [https://getinboxzero.com](https://getinboxzero.com).
 
-### Self-Hosting with Docker on VPS
+### Self-Hosting with Docker
 
-For a complete guide on deploying Inbox Zero to a VPS using Docker, see our [Docker Self-Hosting Guide](docs/hosting/docker.md).
+The easiest way to self-host Inbox Zero is using our pre-built Docker image.
+
+See our **[Docker Self-Hosting Guide](docs/hosting/docker.md)** for complete instructions.
+
+### Local Development Setup
 
 ### Setup
 
@@ -224,12 +228,8 @@ Go to [Microsoft Azure Portal](https://portal.azure.com/). Create a new Azure Ac
       - User.Read
       - offline_access
       - Mail.ReadWrite
-      - Mail.Send
-      - Mail.ReadBasic
-      - Mail.Read
-      - Mail.Read.Shared
+      - Mail.Send (only required if `NEXT_PUBLIC_EMAIL_SEND_ENABLED=true`, which is the default)
       - MailboxSettings.ReadWrite
-      - Contacts.ReadWrite
 
    6. Click "Add permissions"
    7. Click "Grant admin consent" if you're an admin
@@ -271,16 +271,19 @@ DEFAULT_LLM_PROVIDER=ollama
 
 If this is the case you must also set the `ECONOMY_LLM_PROVIDER` environment variable.
 
-### Redis and Postgres
+### Local Development Infrastructure
 
 We use Postgres for the database.
 For Redis, you can use [Upstash Redis](https://upstash.com/) or set up your own Redis instance.
 
-You can run Postgres & Redis locally using `docker-compose`
+To run the app locally in development mode, you need these services running. You can use `docker-compose` to spin them up, or you can use a remote database via services like Upstash or Neon:
 
 ```bash
-docker-compose up -d # -d will run the services in the background
+# Start services (Postgres + Redis) in the background
+docker-compose up -d db redis serverless-redis-http
 ```
+
+> **Note:** This is for local development (using `pnpm dev`). For production deployment, see [Self-Hosting with Docker](#self-hosting-with-docker).
 
 ### Running the app
 
@@ -290,7 +293,7 @@ To run the migrations:
 pnpm prisma migrate dev
 ```
 
-To run the app locally for development (slower):
+To run the app locally for development (slower, but with HMR):
 
 ```bash
 pnpm run dev
@@ -302,7 +305,19 @@ Or from the project root:
 turbo dev
 ```
 
-To build and run the app locally in production mode (faster):
+### Production Build with Docker
+
+To build and run the full stack (App + DB + Redis) locally in production mode using Docker:
+
+```bash
+# Build and start all services
+# NOTE: You must provide NEXT_PUBLIC_BASE_URL at build time
+NEXT_PUBLIC_BASE_URL=http://localhost:3000 docker compose up --build
+```
+
+This uses the standalone build output for a smaller, optimized image.
+
+To run without Docker (local production build):
 
 ```bash
 pnpm run build
@@ -401,8 +416,6 @@ For more detailed Docker build instructions and security considerations, see [do
 
 ### Calendar integrations
 
-*Note:* The calendar integration feature is a work in progress.
-
 #### Google Calendar
 
 1. Visit: https://console.cloud.google.com/apis/library
@@ -412,6 +425,25 @@ For more detailed Docker build instructions and security considerations, see [do
     1. Click on your project
     2. In `Authorized redirect URIs` add:
       - `http://localhost:3000/api/google/calendar/callback`
+
+#### Microsoft Calendar
+
+1. Go to your existing Microsoft Azure app registration (created earlier in the Microsoft OAuth setup)
+2. Add the calendar redirect URI:
+    1. In the "Manage" menu click "Authentication (Preview)"
+    2. Add the Redirect URI: `http://localhost:3000/api/outlook/calendar/callback`
+3. Add calendar permissions:
+    1. In the "Manage" menu click "API permissions"
+    2. Click "Add a permission"
+    3. Select "Microsoft Graph"
+    4. Select "Delegated permissions"
+    5. Add the following calendar permissions:
+       - Calendars.Read
+       - Calendars.ReadWrite
+    6. Click "Add permissions"
+    7. Click "Grant admin consent" if you're an admin
+
+Note: The calendar integration uses a separate OAuth flow from the main email OAuth, so users can connect their calendar independently.
 
 ## Contributing to the project
 

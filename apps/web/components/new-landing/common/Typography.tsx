@@ -74,7 +74,7 @@ interface ParagraphProps {
   className?: string;
   color?: "default" | "light" | "dark" | "gray-700" | "gray-500" | "gray-900";
   size?: "default" | "xs" | "sm" | "md" | "lg";
-  as?: "p" | "h3";
+  as?: "p" | "h3" | "dt" | "dl";
 }
 
 export function Paragraph({

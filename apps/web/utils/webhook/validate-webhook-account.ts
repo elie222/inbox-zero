@@ -16,6 +16,8 @@ export async function getWebhookEmailAccount(
       userId: true,
       about: true,
       multiRuleSelectionEnabled: true,
+      timezone: true,
+      calendarBookingLink: true,
       lastSyncedHistoryId: true,
       autoCategorizeSenders: true,
       watchEmailsSubscriptionId: true,

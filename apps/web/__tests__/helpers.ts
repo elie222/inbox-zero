@@ -32,6 +32,8 @@ export function getEmailAccount(
     email: overrides.email || "user@test.com",
     about: null,
     multiRuleSelectionEnabled: overrides.multiRuleSelectionEnabled ?? false,
+    timezone: null,
+    calendarBookingLink: null,
     user: {
       aiModel: null,
       aiProvider: null,
@@ -237,5 +239,36 @@ export function getMockAccountWithEmailAccount(
       overrides.emailAccount !== undefined
         ? overrides.emailAccount
         : { id: "email-account-id" },
+  };
+}
+
+export function getCalendarConnection({
+  provider = "google",
+  calendarIds = ["cal-1"],
+  emailAccountId = "test-account-id",
+}: {
+  provider?: "google" | "microsoft";
+  calendarIds?: string[];
+  emailAccountId?: string;
+} = {}): Prisma.CalendarConnectionGetPayload<{
+  include: {
+    calendars: {
+      where: { isEnabled: true };
+      select: { calendarId: true };
+    };
+  };
+}> {
+  return {
+    id: `conn-${provider}`,
+    provider,
+    email: `test@${provider === "google" ? "gmail" : "outlook"}.com`,
+    accessToken: "token",
+    refreshToken: "refresh",
+    expiresAt: new Date(),
+    isConnected: true,
+    emailAccountId,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    calendars: calendarIds.map((id) => ({ calendarId: id })),
   };
 }

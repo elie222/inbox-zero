@@ -46,12 +46,3 @@ export function useTestimonialsVariant() {
     "control"
   );
 }
-
-export type PricingCopyVariant = "control" | "free-trial-emphasis";
-
-export function usePricingCopyVariant() {
-  return (
-    (useFeatureFlagVariantKey("pricing-copy") as PricingCopyVariant) ||
-    "control"
-  );
-}

@@ -95,11 +95,13 @@ async function isKnownColdEmailSender({
   from: string;
   emailAccountId: string;
 }) {
+  const normalizedFrom = extractEmailAddress(from) || from;
+
   const coldEmail = await prisma.coldEmail.findUnique({
     where: {
       emailAccountId_fromEmail: {
         emailAccountId,
-        fromEmail: from,
+        fromEmail: normalizedFrom,
       },
       status: ColdEmailStatus.AI_LABELED_COLD,
     },

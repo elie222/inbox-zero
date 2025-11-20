@@ -8,14 +8,16 @@ import {
 } from "@/components/new-landing/common/Typography";
 import Image from "next/image";
 
-export function PreWrittenDrafts() {
+interface PreWrittenDraftsProps {
+  title: React.ReactNode;
+  subtitle: React.ReactNode;
+}
+
+export function PreWrittenDrafts({ title, subtitle }: PreWrittenDraftsProps) {
   return (
     <Section>
-      <SectionHeading>Pre-written drafts waiting in your inbox</SectionHeading>
-      <SectionSubtitle>
-        When you check your inbox, every email needing a response will have a
-        pre-drafted reply in your tone, ready for you to send.
-      </SectionSubtitle>
+      <SectionHeading>{title}</SectionHeading>
+      <SectionSubtitle>{subtitle}</SectionSubtitle>
       <SectionContent className="flex justify-center">
         <Image
           className="hidden md:block"
