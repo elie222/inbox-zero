@@ -17,10 +17,12 @@ export function DatePickerWithRange({
   dateRange,
   onSetDateRange,
   rightContent,
+  label,
 }: React.HTMLAttributes<HTMLDivElement> & {
   dateRange?: DateRange;
   onSetDateRange: (dateRange?: DateRange) => void;
   rightContent?: React.ReactNode;
+  label?: string;
 }) {
   return (
     <Popover modal={true}>
@@ -29,23 +31,26 @@ export function DatePickerWithRange({
           id="date"
           variant="outline"
           className={cn(
-            "justify-start whitespace-nowrap text-left font-normal",
+            "justify-between whitespace-nowrap text-left font-normal min-w-52",
             !dateRange && "text-muted-foreground",
           )}
         >
-          <CalendarIcon className="mr-2 hidden h-4 w-4 sm:block" />
-          {dateRange?.from ? (
-            dateRange.to ? (
-              <>
-                {format(dateRange.from, "LLL dd, y")} -{" "}
-                {format(dateRange.to, "LLL dd, y")}
-              </>
-            ) : (
-              format(dateRange.from, "LLL dd, y")
-            )
-          ) : (
-            <span>Pick a date</span>
-          )}
+          <div className="flex items-center">
+            <CalendarIcon className="mr-2 hidden h-4 w-4 sm:block" />
+            {label ||
+              (dateRange?.from ? (
+                dateRange.to ? (
+                  <>
+                    {format(dateRange.from, "LLL dd, y")} -{" "}
+                    {format(dateRange.to, "LLL dd, y")}
+                  </>
+                ) : (
+                  format(dateRange.from, "LLL dd, y")
+                )
+              ) : (
+                <span>Pick a date</span>
+              ))}
+          </div>
           <ChevronDown className="ml-2 h-4 w-4 text-gray-400" />
         </Button>
       </PopoverTrigger>

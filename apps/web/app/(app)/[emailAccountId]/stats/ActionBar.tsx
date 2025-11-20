@@ -4,6 +4,7 @@ import { DetailedStatsFilter } from "@/app/(app)/[emailAccountId]/stats/Detailed
 import { DatePickerWithRange } from "@/components/DatePickerWithRange";
 import { LoadStatsButton } from "@/app/(app)/[emailAccountId]/stats/LoadStatsButton";
 import { cx } from "class-variance-authority";
+import { differenceInDays } from "date-fns";
 
 interface ActionBarProps {
   dateRange?: DateRange | undefined;
@@ -23,6 +24,10 @@ export function ActionBar({
   className,
   datePickerRightContent,
 }: ActionBarProps) {
+  const days =
+    dateRange?.from && dateRange?.to
+      ? differenceInDays(dateRange.to, dateRange.from)
+      : 0;
   return (
     <div
       className={cx(
@@ -63,6 +68,17 @@ export function ActionBar({
           dateRange={dateRange}
           onSetDateRange={setDateRange}
           rightContent={datePickerRightContent}
+          label={
+            days === 1
+              ? "Last day"
+              : days === 7
+                ? "Last week"
+                : days === 30
+                  ? "Last month"
+                  : days === 365
+                    ? "Last year"
+                    : "All"
+          }
         />
       </div>
       <LoadStatsButton />
