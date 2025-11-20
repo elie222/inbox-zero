@@ -85,7 +85,7 @@ export function HorizontalBarChart({
                 />
                 <div className="flex items-center gap-2">
                   <div className="size-5 overflow-hidden relative">
-                    {fallbackEnabled[item.name] ? (
+                    {fallbackEnabled[item.name] || !domainFavicon ? (
                       <FallbackIcon seed={item.name} />
                     ) : (
                       <Image
