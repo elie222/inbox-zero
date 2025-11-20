@@ -1,7 +1,6 @@
 "use client";
 
 import { useOrgSWR } from "@/hooks/useOrgSWR";
-import { Title } from "@tremor/react";
 import { LoadingContent } from "@/components/LoadingContent";
 import { Skeleton } from "@/components/ui/skeleton";
 import { CardBasic } from "@/components/ui/card";
@@ -35,9 +34,7 @@ export function EmailActionsAnalytics() {
     >
       {data && (
         <CardBasic>
-          <Title>
-            How many emails you've archived and deleted with Inbox Zero
-          </Title>
+          <p>How many emails you've archived and deleted with Inbox Zero</p>
           <div className="mt-4">
             <NewBarChart
               data={data.result}

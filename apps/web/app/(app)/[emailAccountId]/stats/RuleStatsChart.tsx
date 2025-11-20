@@ -1,6 +1,5 @@
 "use client";
 
-import { Card, Title } from "@tremor/react";
 import { useMemo } from "react";
 import type { DateRange } from "react-day-picker";
 import { LabelList, Pie, PieChart } from "recharts";
@@ -25,6 +24,7 @@ import { useOrgSWR } from "@/hooks/useOrgSWR";
 import type { RuleStatsResponse } from "@/app/api/user/stats/rule-stats/route";
 import { MOCK_RULE_STATS } from "@/app/(app)/[emailAccountId]/stats/mock-data";
 import { NewBarChart } from "./NewBarChart";
+import { CardBasic } from "@/components/ui/card";
 
 interface RuleStatsChartProps {
   dateRange?: DateRange;
@@ -102,9 +102,9 @@ export function RuleStatsChart({ dateRange, title }: RuleStatsChartProps) {
     >
       {data && barChartData.length > 0 && (
         <Tabs defaultValue="bar">
-          <Card>
+          <CardBasic>
             <div className="flex items-center justify-between">
-              <Title>{title}</Title>
+              <p>{title}</p>
               <TabsList>
                 <TabsTrigger value="bar">Bar Chart</TabsTrigger>
                 <TabsTrigger value="pie">Pie Chart</TabsTrigger>
@@ -152,16 +152,16 @@ export function RuleStatsChart({ dateRange, title }: RuleStatsChartProps) {
                 </CardContent>
               </ShadcnCard>
             </TabsContent>
-          </Card>
+          </CardBasic>
         </Tabs>
       )}
       {data && barChartData.length === 0 && (
-        <Card>
-          <Title>{title}</Title>
+        <CardBasic>
+          <p>{title}</p>
           <div className="mt-4 h-72 flex items-center justify-center text-muted-foreground">
             <p>No executed rules found for this period.</p>
           </div>
-        </Card>
+        </CardBasic>
       )}
     </LoadingContent>
   );
