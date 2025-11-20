@@ -3,15 +3,7 @@
 import { Card, Title } from "@tremor/react";
 import { useMemo } from "react";
 import type { DateRange } from "react-day-picker";
-import {
-  Bar,
-  BarChart,
-  LabelList,
-  Pie,
-  PieChart,
-  XAxis,
-  YAxis,
-} from "recharts";
+import { LabelList, Pie, PieChart } from "recharts";
 import { fromPairs } from "lodash";
 import { LoadingContent } from "@/components/LoadingContent";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -32,6 +24,7 @@ import { getDateRangeParams } from "./params";
 import { useOrgSWR } from "@/hooks/useOrgSWR";
 import type { RuleStatsResponse } from "@/app/api/user/stats/rule-stats/route";
 import { MOCK_RULE_STATS } from "@/app/(app)/[emailAccountId]/stats/mock-data";
+import { NewBarChart } from "./NewBarChart";
 
 interface RuleStatsChartProps {
   dateRange?: DateRange;
@@ -58,7 +51,7 @@ export function RuleStatsChart({ dateRange, title }: RuleStatsChartProps) {
     if (!data?.ruleStats) return [];
     return data.ruleStats.map((rule) => ({
       group: rule.ruleName,
-      "Executed Rules": rule.executedCount,
+      executed: rule.executedCount,
     }));
   }, [data]);
 
@@ -88,9 +81,9 @@ export function RuleStatsChart({ dateRange, title }: RuleStatsChartProps) {
     };
 
     const barConfig: ChartConfig = {
-      "Executed Rules": {
+      executed: {
         label: "Executed Rules",
-        color: "hsl(var(--chart-1))",
+        color: "#006EFF",
       },
     };
 
@@ -118,27 +111,14 @@ export function RuleStatsChart({ dateRange, title }: RuleStatsChartProps) {
               </TabsList>
             </div>
 
-            <TabsContent value="bar">
-              <ChartContainer
+            <TabsContent value="bar" className="mt-4">
+              <NewBarChart
+                data={barChartData}
                 config={barChartConfig}
-                className="mt-4 h-72 w-full"
-              >
-                <BarChart data={barChartData}>
-                  <XAxis
-                    dataKey="group"
-                    tickLine={false}
-                    tickMargin={10}
-                    axisLine={false}
-                  />
-                  <YAxis tickLine={false} axisLine={false} tickMargin={10} />
-                  <ChartTooltip content={<ChartTooltipContent />} />
-                  <Bar
-                    dataKey="Executed Rules"
-                    fill="var(--color-Executed Rules)"
-                    radius={8}
-                  />
-                </BarChart>
-              </ChartContainer>
+                dataKeys={["executed"]}
+                xAxisKey="group"
+                xAxisFormatter={(value) => value}
+              />
             </TabsContent>
 
             <TabsContent value="pie">
