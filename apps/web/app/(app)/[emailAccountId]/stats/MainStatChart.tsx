@@ -107,7 +107,17 @@ export function MainStatChart(props: { data: StatsByWeekResponse }) {
         <NewBarChart
           data={chartData}
           config={chartConfig}
-          activeChart={activeChart}
+          activeCharts={
+            activeChart === "received"
+              ? ["received"]
+              : activeChart === "sent"
+                ? ["sent"]
+                : activeChart === "read"
+                  ? ["read", "unread"]
+                  : activeChart === "archived"
+                    ? ["archived", "inbox"]
+                    : []
+          }
         />
       </CardContent>
     </Card>

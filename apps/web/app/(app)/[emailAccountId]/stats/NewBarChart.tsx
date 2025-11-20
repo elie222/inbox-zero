@@ -11,7 +11,7 @@ interface NewBarChartProps {
   dataKeys?: string[];
   xAxisKey?: string;
   xAxisFormatter?: (value: any) => string;
-  activeChart?: string;
+  activeCharts?: string[];
 }
 
 export function NewBarChart({
@@ -26,20 +26,13 @@ export function NewBarChart({
       day: "numeric",
     });
   },
-  activeChart,
+  activeCharts,
 }: NewBarChartProps) {
   const keys = dataKeys || Object.keys(config);
 
   return (
     <ChartContainer config={config} className="aspect-auto h-[250px] w-full">
-      <BarChart
-        accessibilityLayer
-        data={data}
-        margin={{
-          left: 12,
-          right: 12,
-        }}
-      >
+      <BarChart accessibilityLayer data={data} margin={{ left: 12, right: 12 }}>
         <defs>
           {keys.map((key) => (
             <linearGradient
@@ -120,7 +113,7 @@ export function NewBarChart({
             radius={[4, 4, 0, 0]}
             animationDuration={750}
             animationBegin={0}
-            hide={activeChart ? activeChart !== key : false}
+            hide={activeCharts ? !activeCharts.includes(key) : false}
           />
         ))}
       </BarChart>
