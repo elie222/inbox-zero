@@ -81,21 +81,9 @@ We offer a hosted version of Inbox Zero at [https://getinboxzero.com](https://ge
 
 ### Self-Hosting with Docker
 
-The easiest way to self-host Inbox Zero is using our pre-built Docker image. See our [Docker Self-Hosting Guide](docs/hosting/docker.md) for complete instructions.
+The easiest way to self-host Inbox Zero is using our pre-built Docker image.
 
-**Quick Start:**
-```bash
-# Download docker-compose.yml
-curl -O https://raw.githubusercontent.com/elie222/inbox-zero/main/docker-compose.yml
-
-# Configure environment
-mkdir -p apps/web
-curl -o apps/web/.env https://raw.githubusercontent.com/elie222/inbox-zero/main/apps/web/.env.example
-nano apps/web/.env
-
-# Start services
-NEXT_PUBLIC_BASE_URL=https://yourdomain.com docker compose up -d
-```
+See our **[Docker Self-Hosting Guide](docs/hosting/docker.md)** for complete instructions.
 
 ### Local Development Setup
 
@@ -295,7 +283,7 @@ To run the app locally in development mode, you need these services running. You
 docker-compose up -d db redis serverless-redis-http
 ```
 
-> **Note:** This is for local development (using `pnpm dev`). For production deployment instructions, see [Self-Hosting with Docker on VPS](#self-hosting-with-docker-on-vps).
+> **Note:** This is for local development (using `pnpm dev`). For production deployment, see [Self-Hosting with Docker](#self-hosting-with-docker).
 
 ### Running the app
 
