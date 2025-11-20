@@ -52,7 +52,6 @@ import { sortActionsByPriority } from "@/utils/action-sort";
 import { getActionDisplay, getActionIcon } from "@/utils/action-display";
 import { RuleDialog } from "./RuleDialog";
 import { useDialogState } from "@/hooks/useDialogState";
-import { ColdEmailDialog } from "@/app/(app)/[emailAccountId]/cold-email-blocker/ColdEmailDialog";
 import { useChat } from "@/providers/ChatProvider";
 import { useSidebar } from "@/components/ui/sidebar";
 import { useLabels } from "@/hooks/useLabels";
@@ -79,8 +78,6 @@ export function Rules({
     editMode?: boolean;
     duplicateRule?: RulesResponse[number];
   }>();
-  const coldEmailDialog = useDialogState();
-
   const onCreateRule = () => ruleDialog.onOpen();
 
   const { emailAccountId, provider } = useAccount();
@@ -298,14 +295,10 @@ export function Rules({
                             >
                               <DropdownMenuItem
                                 onClick={() => {
-                                  if (isColdEmailBlocker) {
-                                    coldEmailDialog.onOpen();
-                                  } else {
-                                    ruleDialog.onOpen({
-                                      ruleId: rule.id,
-                                      editMode: true,
-                                    });
-                                  }
+                                  ruleDialog.onOpen({
+                                    ruleId: rule.id,
+                                    editMode: true,
+                                  });
                                 }}
                               >
                                 <PenIcon className="mr-2 size-4" />
@@ -422,11 +415,6 @@ export function Rules({
           ruleDialog.onClose();
         }}
         editMode={ruleDialog.data?.editMode}
-      />
-
-      <ColdEmailDialog
-        isOpen={coldEmailDialog.isOpen}
-        onClose={coldEmailDialog.onClose}
       />
     </div>
   );
