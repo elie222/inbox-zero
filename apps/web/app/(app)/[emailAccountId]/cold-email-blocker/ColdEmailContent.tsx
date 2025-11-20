@@ -9,12 +9,13 @@ import { Button } from "@/components/ui/button";
 import { prefixPath } from "@/utils/path";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import Link from "next/link";
+import { MessageText } from "@/components/Typography";
 
 export function ColdEmailContent({ searchParam }: { searchParam?: string }) {
   const { emailAccountId } = useAccount();
 
   return (
-    <Tabs defaultValue="settings" searchParam={searchParam}>
+    <Tabs defaultValue="test" searchParam={searchParam}>
       <TabsList>
         <TabsTrigger value="test">Test</TabsTrigger>
         <TabsTrigger value="cold-emails">Cold Emails</TabsTrigger>
@@ -38,9 +39,13 @@ export function ColdEmailContent({ searchParam }: { searchParam?: string }) {
       </TabsContent>
 
       <TabsContent value="settings" className="mb-10">
-        <Button asChild>
+        <MessageText className="my-4">
+          To manage cold email settings, go to the Assistant Rules tab and click
+          Edit on the Cold Email rule.
+        </MessageText>
+        <Button asChild variant="outline">
           <Link href={prefixPath(emailAccountId, "/automation?tab=rules")}>
-            Edit Cold Email Settings
+            Go to Assistant Rules
           </Link>
         </Button>
       </TabsContent>

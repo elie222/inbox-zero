@@ -23,6 +23,33 @@ import { isDefined } from "@/utils/types";
 import { StepCompanySize } from "@/app/(app)/[emailAccountId]/onboarding/StepCompanySize";
 import { usePremium } from "@/components/PremiumAlert";
 
+export const STEP_KEYS = {
+  INTRO: "intro",
+  FEATURES: "features",
+  WHO: "who",
+  COMPANY_SIZE: "companySize",
+  LABELS: "labels",
+  DRAFT: "draft",
+  CUSTOM_RULES: "customRules",
+} as const;
+
+const STEP_ORDER = [
+  STEP_KEYS.INTRO,
+  STEP_KEYS.FEATURES,
+  STEP_KEYS.WHO,
+  STEP_KEYS.COMPANY_SIZE,
+  STEP_KEYS.LABELS,
+  STEP_KEYS.DRAFT,
+  STEP_KEYS.CUSTOM_RULES,
+] as const;
+
+export function getStepNumber(
+  stepKey: (typeof STEP_KEYS)[keyof typeof STEP_KEYS],
+): number {
+  const index = STEP_ORDER.indexOf(stepKey);
+  return index === -1 ? 1 : index + 1;
+}
+
 interface OnboardingContentProps {
   step: number;
 }
@@ -33,34 +60,37 @@ export function OnboardingContent({ step }: OnboardingContentProps) {
 
   useSignUpEvent();
 
-  const steps = [
-    () => <StepIntro onNext={onNext} />,
-    () => <StepFeatures onNext={onNext} />,
-    () => (
+  const stepMap = {
+    [STEP_KEYS.INTRO]: () => <StepIntro onNext={onNext} />,
+    [STEP_KEYS.FEATURES]: () => <StepFeatures onNext={onNext} />,
+    [STEP_KEYS.WHO]: () => (
       <StepWho
         initialRole={data?.role || data?.personaAnalysis?.persona}
         emailAccountId={emailAccountId}
         onNext={onNext}
       />
     ),
-    () => <StepCompanySize onNext={onNext} />,
-    () => (
+    [STEP_KEYS.COMPANY_SIZE]: () => <StepCompanySize onNext={onNext} />,
+    [STEP_KEYS.LABELS]: () => (
       <StepLabels
         provider={provider}
         emailAccountId={emailAccountId}
         onNext={onNext}
       />
     ),
-    () => (
+    [STEP_KEYS.DRAFT]: () => (
       <StepDraft
         provider={provider}
         emailAccountId={emailAccountId}
         onNext={onNext}
       />
     ),
-    // <StepDigest onNext={onNext} />
-    () => <StepCustomRules provider={provider} onNext={onNext} />,
-  ].filter(isDefined);
+    [STEP_KEYS.CUSTOM_RULES]: () => (
+      <StepCustomRules provider={provider} onNext={onNext} />
+    ),
+  };
+
+  const steps = STEP_ORDER.map((key) => stepMap[key]).filter(isDefined);
 
   const { data, mutate } = usePersona();
   const clampedStep = Math.min(Math.max(step, 1), steps.length);
