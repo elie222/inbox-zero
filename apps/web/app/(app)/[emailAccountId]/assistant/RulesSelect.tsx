@@ -9,7 +9,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useSearchParams, useRouter } from "next/navigation";
-import { ListFilter, ChevronDown, Tag } from "lucide-react";
+import { ChevronDown, Tag } from "lucide-react";
 
 export function RulesSelect() {
   const { data, isLoading, error } = useRules();
