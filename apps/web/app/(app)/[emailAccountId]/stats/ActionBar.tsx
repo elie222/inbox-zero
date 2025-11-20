@@ -75,9 +75,11 @@ export function ActionBar({
                 ? "Last week"
                 : days === 30
                   ? "Last month"
-                  : days === 365
-                    ? "Last year"
-                    : "All"
+                  : days === 90
+                    ? "Last 3 months"
+                    : days === 365
+                      ? "Last year"
+                      : "All"
           }
         />
       </div>
