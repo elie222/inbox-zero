@@ -48,14 +48,14 @@ nano apps/web/.env
 
 For detailed configuration instructions including all required environment variables, OAuth setup, and LLM configuration, see the [main README.md configuration section](../../README.md#updating-env-file-secrets).
 
-**Important**: Set your domain in the environment file or via the command line (shown below).
+**Important**: The `NEXT_PUBLIC_BASE_URL` must be set as a shell environment variable when running `docker compose up` (as shown below). Setting it in `apps/web/.env` will not work because `docker-compose.yml` overrides it.
 
 ### 4. Deploy
 
-Pull and start the services:
+Pull and start the services with your domain:
 
 ```bash
-# Pull the latest pre-built image and start all services
+# Set your domain and start all services
 NEXT_PUBLIC_BASE_URL=https://yourdomain.com docker compose up -d
 ```
 
