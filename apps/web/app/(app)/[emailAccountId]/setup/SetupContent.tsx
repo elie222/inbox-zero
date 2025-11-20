@@ -209,7 +209,6 @@ function Checklist({
   completedCount,
   totalSteps,
   progressPercentage,
-  isReplyTrackerConfigured,
   isBulkUnsubscribeConfigured,
   isAiAssistantConfigured,
   isCalendarConnected,
@@ -219,7 +218,6 @@ function Checklist({
   completedCount: number;
   totalSteps: number;
   progressPercentage: number;
-  isReplyTrackerConfigured: boolean;
   isBulkUnsubscribeConfigured: boolean;
   isAiAssistantConfigured: boolean;
   isCalendarConnected: boolean;
@@ -275,21 +273,10 @@ function Checklist({
       />
 
       <StepItem
-        href={prefixPath(emailAccountId, "/reply-zero")}
-        icon={<MailIcon size={20} />}
-        iconBg="bg-blue-100 dark:bg-blue-900/50"
-        iconColor="text-blue-500 dark:text-blue-400"
-        title="View emails needing replies"
-        timeEstimate="30 seconds"
-        completed={isReplyTrackerConfigured}
-        actionText="View"
-      />
-
-      <StepItem
         href={prefixPath(emailAccountId, "/calendars")}
         icon={<CalendarIcon size={20} />}
-        iconBg="bg-yellow-100 dark:bg-yellow-900/50"
-        iconColor="text-yellow-600 dark:text-yellow-400"
+        iconBg="bg-blue-100 dark:bg-blue-900/50"
+        iconColor="text-blue-500 dark:text-blue-400"
         title="Connect your calendar"
         timeEstimate="2 minutes"
         completed={isCalendarConnected}
@@ -325,7 +312,6 @@ export function SetupContent() {
         <SetupPageContent
           emailAccountId={emailAccountId}
           provider={provider}
-          isReplyTrackerConfigured={data.steps.replyTracker}
           isAiAssistantConfigured={data.steps.aiAssistant}
           isBulkUnsubscribeConfigured={data.steps.bulkUnsubscribe}
           isCalendarConnected={data.steps.calendarConnected}
@@ -341,7 +327,6 @@ export function SetupContent() {
 function SetupPageContent({
   emailAccountId,
   provider,
-  isReplyTrackerConfigured,
   isBulkUnsubscribeConfigured,
   isAiAssistantConfigured,
   isCalendarConnected,
@@ -351,7 +336,6 @@ function SetupPageContent({
 }: {
   emailAccountId: string;
   provider: string;
-  isReplyTrackerConfigured: boolean;
   isBulkUnsubscribeConfigured: boolean;
   isAiAssistantConfigured: boolean;
   isCalendarConnected: boolean;
@@ -378,7 +362,6 @@ function SetupPageContent({
         <Checklist
           emailAccountId={emailAccountId}
           provider={provider}
-          isReplyTrackerConfigured={isReplyTrackerConfigured}
           isBulkUnsubscribeConfigured={isBulkUnsubscribeConfigured}
           isAiAssistantConfigured={isAiAssistantConfigured}
           isCalendarConnected={isCalendarConnected}
