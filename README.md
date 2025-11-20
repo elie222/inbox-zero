@@ -75,13 +75,17 @@ Learn more in our [docs](https://docs.getinboxzero.com).
 
 To request a feature open a [GitHub issue](https://github.com/elie222/inbox-zero/issues), or join our [Discord](https://www.getinboxzero.com/discord).
 
-## Getting Started for Developers
+## Getting Started
 
-We offer a hosted version of Inbox Zero at [https://getinboxzero.com](https://getinboxzero.com). To self-host follow the steps below.
+We offer a hosted version of Inbox Zero at [https://getinboxzero.com](https://getinboxzero.com).
 
-### Self-Hosting with Docker on VPS
+### Self-Hosting with Docker
 
-For a complete guide on deploying Inbox Zero to a VPS using Docker, see our [Docker Self-Hosting Guide](docs/hosting/docker.md).
+The easiest way to self-host Inbox Zero is using our pre-built Docker image.
+
+See our **[Docker Self-Hosting Guide](docs/hosting/docker.md)** for complete instructions.
+
+### Local Development Setup
 
 ### Setup
 
@@ -267,16 +271,19 @@ DEFAULT_LLM_PROVIDER=ollama
 
 If this is the case you must also set the `ECONOMY_LLM_PROVIDER` environment variable.
 
-### Redis and Postgres
+### Local Development Infrastructure
 
 We use Postgres for the database.
 For Redis, you can use [Upstash Redis](https://upstash.com/) or set up your own Redis instance.
 
-You can run Postgres & Redis locally using `docker-compose`
+To run the app locally in development mode, you need these services running. You can use `docker-compose` to spin them up, or you can use a remote database via services like Upstash or Neon:
 
 ```bash
-docker-compose up -d # -d will run the services in the background
+# Start services (Postgres + Redis) in the background
+docker-compose up -d db redis serverless-redis-http
 ```
+
+> **Note:** This is for local development (using `pnpm dev`). For production deployment, see [Self-Hosting with Docker](#self-hosting-with-docker).
 
 ### Running the app
 
@@ -286,7 +293,7 @@ To run the migrations:
 pnpm prisma migrate dev
 ```
 
-To run the app locally for development (slower):
+To run the app locally for development (slower, but with HMR):
 
 ```bash
 pnpm run dev
@@ -298,7 +305,19 @@ Or from the project root:
 turbo dev
 ```
 
-To build and run the app locally in production mode (faster):
+### Production Build with Docker
+
+To build and run the full stack (App + DB + Redis) locally in production mode using Docker:
+
+```bash
+# Build and start all services
+# NOTE: You must provide NEXT_PUBLIC_BASE_URL at build time
+NEXT_PUBLIC_BASE_URL=http://localhost:3000 docker compose up --build
+```
+
+This uses the standalone build output for a smaller, optimized image.
+
+To run without Docker (local production build):
 
 ```bash
 pnpm run build
