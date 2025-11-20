@@ -4,19 +4,11 @@ import type { DateRange } from "react-day-picker";
 import { useOrgSWR } from "@/hooks/useOrgSWR";
 import { LoadingContent } from "@/components/LoadingContent";
 import { Skeleton } from "@/components/ui/skeleton";
-import {
-  MailCheckIcon,
-  MailOpenIcon,
-  MailsIcon,
-  SendHorizonalIcon,
-} from "lucide-react";
 import type {
   StatsByWeekParams,
   StatsByWeekResponse,
 } from "@/app/api/user/stats/by-period/route";
 import { getDateRangeParams } from "./params";
-import { formatStat } from "@/utils/stats";
-import { StatsCards } from "@/components/StatsCards";
 import { MainStatChart } from "@/app/(app)/[emailAccountId]/stats/MainStatChart";
 
 export function StatsSummary(props: {
@@ -50,39 +42,7 @@ export function StatsSummary(props: {
       error={error}
       loadingComponent={<Skeleton className="h-64 rounded" />}
     >
-      {data && (
-        <div>
-          <MainStatChart data={data} />
-          {/* <StatsCards
-            stats={[
-              {
-                name: "Received",
-                value: formatStat(data.allCount),
-                subvalue: "emails",
-                icon: <MailsIcon className="h-4 w-4" />,
-              },
-              {
-                name: "Read",
-                value: formatStat(data.readCount),
-                subvalue: "emails",
-                icon: <MailOpenIcon className="h-4 w-4" />,
-              },
-              {
-                name: "Archived",
-                value: formatStat(data.allCount - data.inboxCount),
-                subvalue: "emails",
-                icon: <MailCheckIcon className="h-4 w-4" />,
-              },
-              {
-                name: "Sent",
-                value: formatStat(data.sentCount),
-                subvalue: "emails",
-                icon: <SendHorizonalIcon className="h-4 w-4" />,
-              },
-            ]}
-          /> */}
-        </div>
-      )}
+      {data && <MainStatChart data={data} />}
     </LoadingContent>
   );
 }
