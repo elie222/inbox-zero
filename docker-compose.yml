@@ -47,8 +47,6 @@ services:
     build:
       context: .
       dockerfile: ./docker/Dockerfile.prod
-      args:
-        NEXT_PUBLIC_BASE_URL: ${NEXT_PUBLIC_BASE_URL:-http://localhost:3000}
     env_file:
       - ./apps/web/.env
     depends_on:
@@ -59,6 +57,7 @@ services:
     networks:
       - inbox-zero-network
     environment:
+      NEXT_PUBLIC_BASE_URL: ${NEXT_PUBLIC_BASE_URL:-http://localhost:3000}
       DATABASE_URL: "postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-password}@db:5432/${POSTGRES_DB:-inboxzero}?schema=public"
       DIRECT_URL: "postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-password}@db:5432/${POSTGRES_DB:-inboxzero}?schema=public"
       UPSTASH_REDIS_URL: "http://serverless-redis-http:80"

@@ -6,7 +6,7 @@ This guide will walk you through self-hosting the Inbox Zero application on a VP
 
 ### Requirements
 
-- VPS with Minimum 2GB RAM, 2 CPU cores, 20GB storage and linux distribution and [minimum security](https://help.ovhcloud.com/csm/en-gb-vps-security-tips?id=kb_article_view&sysparm_article=KB0047706)
+- VPS with Minimum 2GB RAM, 2 CPU cores, 20GB storage and linux distribution with [minimum security](https://help.ovhcloud.com/csm/en-gb-vps-security-tips?id=kb_article_view&sysparm_article=KB0047706)
 - Domain name pointed to your VPS IP
 - SSH access to your VPS
 
@@ -16,49 +16,58 @@ This guide will walk you through self-hosting the Inbox Zero application on a VP
 
 Connect to your VPS and install Docker Engine by following the [the official guide](https://docs.docker.com/engine/install) and the [Post installation steps](https://docs.docker.com/engine/install/linux-postinstall/#manage-docker-as-a-non-root-user)
 
-### 2. Clone
+### 2. Setup Docker Compose
+
+Create a directory for your Inbox Zero installation:
 
 ```bash
-# Clone the repository
-git clone https://github.com/elie222/inbox-zero.git
+mkdir inbox-zero
 cd inbox-zero
+```
+
+Download the docker-compose.yml file:
+
+```bash
+curl -O https://raw.githubusercontent.com/elie222/inbox-zero/main/docker-compose.yml
 ```
 
 ### 3. Configure
 
-Create environment file
+Create environment file:
 
 ```bash
-cp apps/web/.env.example apps/web/.env
+mkdir -p apps/web
+curl -o apps/web/.env https://raw.githubusercontent.com/elie222/inbox-zero/main/apps/web/.env.example
 ```
 
-and edit with your production settings.
+Edit the environment file with your production settings:
+
+```bash
+nano apps/web/.env
+```
 
 For detailed configuration instructions including all required environment variables, OAuth setup, and LLM configuration, see the [main README.md configuration section](../../README.md#updating-env-file-secrets).
 
-### 4. Build and Deploy
+**Important**: Set your domain in the environment file or via the command line (shown below).
 
-Build the inbox-zero image with your domain name:
+### 4. Deploy
 
-```bash
-# Build with your custom domain
-docker compose build --build-arg NEXT_PUBLIC_BASE_URL=https://yourdomain.com
-```
-
-Start the services:
+Pull and start the services:
 
 ```bash
-# Start all services in detached mode
-docker compose --env-file ./apps/web/.env up -d
+# Pull the latest pre-built image and start all services
+NEXT_PUBLIC_BASE_URL=https://yourdomain.com docker compose up -d
 ```
+
+The pre-built Docker image is hosted at `ghcr.io/elie222/inbox-zero:latest` and will be automatically pulled.
 
 ### 5. Run Database Migrations
 
-In another terminal, run the database migrations :
+Wait for the containers to start, then run the database migrations:
 
 ```bash
-# Run Prisma migrations
-docker compose exec web pnpm --filter inbox-zero-ai exec -- prisma migrate deploy
+# Wait a few seconds for the database to be ready, then run migrations
+docker compose exec web npx prisma migrate deploy
 ```
 
 ### 6. Setup Nginx
@@ -125,21 +134,45 @@ sudo certbot --nginx -d yourdomain.com
 sudo nginx -s reload
 ```
 
-### Updates
+## Updates
+
+To update to the latest version:
 
 ```bash
-# Pull latest changes
-git pull
+# Pull the latest image
+docker compose pull web
 
-# Rebuild and restart
-docker compose build --build-arg NEXT_PUBLIC_BASE_URL=https://yourdomain.com
-docker compose up -d
+# Restart with the new image
+NEXT_PUBLIC_BASE_URL=https://yourdomain.com docker compose up -d
+
+# Run any new database migrations
+docker compose exec web npx prisma migrate deploy
 ```
-### Monitoring
+## Monitoring
 
 ```bash
 # View logs
 docker compose logs -f web
 docker compose logs -f db
 ```
+
+## Building from Source (Optional)
+
+If you prefer to build the image yourself instead of using the pre-built one:
+
+```bash
+# Clone the repository
+git clone https://github.com/elie222/inbox-zero.git
+cd inbox-zero
+
+# Configure environment
+cp apps/web/.env.example apps/web/.env
+nano apps/web/.env
+
+# Build and start
+docker compose build
+NEXT_PUBLIC_BASE_URL=https://yourdomain.com docker compose up -d
+```
+
+**Note**: Building from source requires significantly more resources (4GB+ RAM recommended) and takes longer than pulling the pre-built image.
 
