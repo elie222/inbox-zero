@@ -20,6 +20,10 @@ import { LoadingContent } from "@/components/LoadingContent";
 import { EXTENSION_URL } from "@/utils/config";
 import { isGoogleProvider } from "@/utils/email/provider-types";
 import { useAccount } from "@/providers/EmailAccountProvider";
+import {
+  STEP_KEYS,
+  getStepNumber,
+} from "@/app/(app)/[emailAccountId]/onboarding/OnboardingContent";
 
 function FeatureCard({
   emailAccountId,
@@ -170,12 +174,14 @@ const StepItem = ({
 
         <div className="flex items-center gap-2">
           {completed ? (
-            <div className="flex size-6 items-center justify-center rounded-full bg-green-100 dark:bg-green-900/50">
-              <CheckIcon
-                size={14}
-                className="text-green-600 dark:text-green-400"
-              />
-            </div>
+            <Link href={href} {...linkProps}>
+              <div className="flex size-6 items-center justify-center rounded-full bg-green-100 dark:bg-green-900/50">
+                <CheckIcon
+                  size={14}
+                  className="text-green-600 dark:text-green-400"
+                />
+              </div>
+            </Link>
           ) : (
             <>
               {showMarkDone && (
@@ -251,7 +257,10 @@ function Checklist({
       </div>
 
       <StepItem
-        href={prefixPath(emailAccountId, "/assistant/onboarding")}
+        href={prefixPath(
+          emailAccountId,
+          `/onboarding?step=${getStepNumber(STEP_KEYS.LABELS)}`,
+        )}
         icon={<BotIcon size={20} />}
         iconBg="bg-green-100 dark:bg-green-900/50"
         iconColor="text-green-500 dark:text-green-400"

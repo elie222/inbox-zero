@@ -62,6 +62,10 @@ import {
   getDefaultActions,
 } from "@/utils/rule/consts";
 import { DEFAULT_COLD_EMAIL_PROMPT } from "@/utils/cold-email/prompt";
+import {
+  STEP_KEYS,
+  getStepNumber,
+} from "@/app/(app)/[emailAccountId]/onboarding/OnboardingContent";
 
 export function Rules({
   showAddRuleButton = true,
@@ -466,7 +470,12 @@ function NoRules() {
         You don't have any rules yet.
         <div>
           <Button asChild size="sm">
-            <Link href={prefixPath(emailAccountId, "/assistant/onboarding")}>
+            <Link
+              href={prefixPath(
+                emailAccountId,
+                `/onboarding?step=${getStepNumber(STEP_KEYS.LABELS)}`,
+              )}
+            >
               Set up default rules
             </Link>
           </Button>
