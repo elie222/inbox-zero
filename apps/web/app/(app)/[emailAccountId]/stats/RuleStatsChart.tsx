@@ -83,7 +83,7 @@ export function RuleStatsChart({ dateRange, title }: RuleStatsChartProps) {
     const barConfig: ChartConfig = {
       executed: {
         label: "Executed Rules",
-        color: "#006EFF",
+        color: "#006EFF80",
       },
     };
 
