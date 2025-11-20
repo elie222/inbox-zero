@@ -1,9 +1,17 @@
 "use client";
 
-import { BarChart, Card, Title } from "@tremor/react";
+import { Card, Title } from "@tremor/react";
 import { useMemo } from "react";
 import type { DateRange } from "react-day-picker";
-import { LabelList, Pie, PieChart } from "recharts";
+import {
+  Bar,
+  BarChart,
+  LabelList,
+  Pie,
+  PieChart,
+  XAxis,
+  YAxis,
+} from "recharts";
 import { fromPairs } from "lodash";
 import { LoadingContent } from "@/components/LoadingContent";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -54,8 +62,9 @@ export function RuleStatsChart({ dateRange, title }: RuleStatsChartProps) {
     }));
   }, [data]);
 
-  const { pieChartData, chartConfig } = useMemo(() => {
-    if (!data?.ruleStats) return { pieChartData: [], chartConfig: {} };
+  const { pieChartData, chartConfig, barChartConfig } = useMemo(() => {
+    if (!data?.ruleStats)
+      return { pieChartData: [], chartConfig: {}, barChartConfig: {} };
 
     const pieData = data.ruleStats.map((rule, index) => ({
       name: rule.ruleName,
@@ -78,7 +87,18 @@ export function RuleStatsChart({ dateRange, title }: RuleStatsChartProps) {
       ),
     };
 
-    return { pieChartData: pieData, chartConfig: config };
+    const barConfig: ChartConfig = {
+      "Executed Rules": {
+        label: "Executed Rules",
+        color: "hsl(var(--chart-1))",
+      },
+    };
+
+    return {
+      pieChartData: pieData,
+      chartConfig: config,
+      barChartConfig: barConfig,
+    };
   }, [data]);
 
   return (
@@ -99,15 +119,26 @@ export function RuleStatsChart({ dateRange, title }: RuleStatsChartProps) {
             </div>
 
             <TabsContent value="bar">
-              <BarChart
-                className="mt-4 h-72"
-                data={barChartData}
-                index="group"
-                categories={["Executed Rules"]}
-                colors={["blue"]}
-                showLegend={false}
-                showGridLines={true}
-              />
+              <ChartContainer
+                config={barChartConfig}
+                className="mt-4 h-72 w-full"
+              >
+                <BarChart data={barChartData}>
+                  <XAxis
+                    dataKey="group"
+                    tickLine={false}
+                    tickMargin={10}
+                    axisLine={false}
+                  />
+                  <YAxis tickLine={false} axisLine={false} tickMargin={10} />
+                  <ChartTooltip content={<ChartTooltipContent />} />
+                  <Bar
+                    dataKey="Executed Rules"
+                    fill="var(--color-Executed Rules)"
+                    radius={8}
+                  />
+                </BarChart>
+              </ChartContainer>
             </TabsContent>
 
             <TabsContent value="pie">
