@@ -11,6 +11,7 @@ export const Provider = {
   GROQ: "groq",
   OPENROUTER: "openrouter",
   AI_GATEWAY: "aigateway",
+  LM_STUDIO: "lmstudio",
   ...(supportsOllama ? { OLLAMA: "ollama" } : {}),
 };
 
@@ -33,6 +34,7 @@ export const Model = {
   GEMINI_3_PRO_PREVIEW_OPENROUTER: "google/gemini-3-pro-preview",
   GROQ_LLAMA_3_3_70B: "llama-3.3-70b-versatile",
   KIMI_K2_OPENROUTER: "moonshotai/kimi-k2",
+  LM_STUDIO: env.NEXT_PUBLIC_LM_STUDIO_MODEL,
   ...(supportsOllama ? { OLLAMA: env.NEXT_PUBLIC_OLLAMA_MODEL } : {}),
 };
 

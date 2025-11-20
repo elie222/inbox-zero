@@ -6,6 +6,7 @@ import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import { createGroq } from "@ai-sdk/groq";
 import { createOpenRouter } from "@openrouter/ai-sdk-provider";
 import { createGateway } from "@ai-sdk/gateway";
+import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
 // import { createOllama } from "ollama-ai-provider";
 import { env } from "@/env";
 import { Model, Provider } from "@/utils/llms/config";
@@ -139,6 +140,34 @@ function selectModel(
       //   model: createOllama({ baseURL: env.OLLAMA_BASE_URL })(model),
       // };
     }
+    case Provider.LM_STUDIO: {
+      const modelName = aiModel || Model.LM_STUDIO;
+
+      if (!modelName) {
+        throw new Error(
+          "LM Studio model not configured. Please set NEXT_PUBLIC_LM_STUDIO_MODEL environment variable.",
+        );
+      }
+
+      if (!env.LM_STUDIO_BASE_URL) {
+        throw new Error(
+          "LM Studio base URL not configured. Please set LM_STUDIO_BASE_URL environment variable.",
+        );
+      }
+
+      const lmstudio = createOpenAICompatible({
+        name: Provider.LM_STUDIO,
+        baseURL: env.LM_STUDIO_BASE_URL,
+        supportsStructuredOutputs: true,
+      });
+
+      return {
+        provider: Provider.LM_STUDIO,
+        modelName,
+        model: lmstudio(modelName),
+        backupModel: null,
+      };
+    }
 
     // this is messy. better to have two providers. one for bedrock and one for anthropic
     case Provider.ANTHROPIC: {
@@ -211,7 +240,17 @@ function createOpenRouterProviderOptions(
  */
 function selectEconomyModel(userAi: UserAIFields): SelectModel {
   if (env.ECONOMY_LLM_PROVIDER && env.ECONOMY_LLM_MODEL) {
+    const isLMStudio = env.ECONOMY_LLM_PROVIDER === Provider.LM_STUDIO;
+    if (isLMStudio) {
+      return selectModel({
+        aiProvider: Provider.LM_STUDIO,
+        aiModel: env.ECONOMY_LLM_MODEL,
+        aiApiKey: null,
+      });
+    }
+
     const apiKey = getProviderApiKey(env.ECONOMY_LLM_PROVIDER);
+
     if (!apiKey) {
       logger.warn("Economy LLM provider configured but API key not found", {
         provider: env.ECONOMY_LLM_PROVIDER,
@@ -248,6 +287,15 @@ function selectEconomyModel(userAi: UserAIFields): SelectModel {
  */
 function selectChatModel(userAi: UserAIFields): SelectModel {
   if (env.CHAT_LLM_PROVIDER && env.CHAT_LLM_MODEL) {
+    const isLMStudio = env.CHAT_LLM_PROVIDER === Provider.LM_STUDIO;
+    if (isLMStudio) {
+      return selectModel({
+        aiProvider: Provider.LM_STUDIO,
+        aiModel: env.CHAT_LLM_MODEL,
+        aiApiKey: null,
+      });
+    }
+
     const apiKey = getProviderApiKey(env.CHAT_LLM_PROVIDER);
     if (!apiKey) {
       logger.warn("Chat LLM provider configured but API key not found", {
@@ -301,7 +349,6 @@ function selectDefaultModel(userAi: UserAIFields): SelectModel {
     const openRouterOptions = createOpenRouterProviderOptions(
       env.DEFAULT_OPENROUTER_PROVIDERS || "",
     );
-
     // Preserve any custom options set earlier; always ensure reasoning exists.
     const existingOpenRouterOptions = providerOptions.openrouter || {};
     providerOptions.openrouter = {
