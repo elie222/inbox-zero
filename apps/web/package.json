@@ -84,7 +84,6 @@
     "@tiptap/react": "2.26.1",
     "@tiptap/starter-kit": "2.26.1",
     "@tiptap/suggestion": "2.26.1",
-    "@tremor/react": "3.18.7",
     "@upstash/qstash": "2.8.4",
     "@upstash/redis": "1.35.6",
     "@vercel/analytics": "1.5.0",
