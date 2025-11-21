@@ -9,7 +9,7 @@ import {
   ActionType,
   ExecutedRuleStatus,
   SystemType,
-} from "@prisma/client";
+} from "@/generated/prisma/client";
 import { ConditionType } from "@/utils/config";
 import prisma from "@/utils/__mocks__/prisma";
 import type { RuleWithActions } from "@/utils/types";

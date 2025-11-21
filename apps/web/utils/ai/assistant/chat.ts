@@ -9,7 +9,11 @@ import {
   partialUpdateRule,
   updateRuleActions,
 } from "@/utils/rule/rule";
-import { ActionType, GroupItemType, LogicalOperator } from "@prisma/client";
+import {
+  ActionType,
+  GroupItemType,
+  LogicalOperator,
+} from "@/generated/prisma/client";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import { saveLearnedPatterns } from "@/utils/rule/learned-patterns";
 import { posthogCaptureEvent } from "@/utils/posthog";

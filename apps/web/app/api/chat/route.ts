@@ -6,7 +6,7 @@ import { NextResponse } from "next/server";
 import { aiProcessAssistantChat } from "@/utils/ai/assistant/chat";
 import type { Logger } from "@/utils/logger";
 import prisma from "@/utils/prisma";
-import type { Prisma } from "@prisma/client";
+import type { Prisma } from "@/generated/prisma/client";
 import { convertToUIMessages } from "@/components/assistant-chat/helpers";
 import { captureException } from "@/utils/error";
 import { messageContextSchema } from "@/app/api/chat/validation";

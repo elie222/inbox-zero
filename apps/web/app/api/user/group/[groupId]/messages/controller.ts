@@ -3,7 +3,7 @@ import { createHash } from "node:crypto";
 import groupBy from "lodash/groupBy";
 import { findMatchingGroupItem } from "@/utils/group/find-matching-group";
 import { extractEmailAddress } from "@/utils/email";
-import { type GroupItem, GroupItemType } from "@prisma/client";
+import { type GroupItem, GroupItemType } from "@/generated/prisma/client";
 import type { MessageWithGroupItem } from "@/app/(app)/[emailAccountId]/assistant/rule/[ruleId]/examples/types";
 import { SafeError } from "@/utils/error";
 import { createEmailProvider } from "@/utils/email/provider";

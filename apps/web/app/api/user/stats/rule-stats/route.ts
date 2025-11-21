@@ -3,7 +3,7 @@ import { z } from "zod";
 import sumBy from "lodash/sumBy";
 import prisma from "@/utils/prisma";
 import { withEmailAccount } from "@/utils/middleware";
-import { Prisma } from "@prisma/client";
+import { Prisma } from "@/generated/prisma/client";
 
 const ruleStatsQuery = z.object({
   fromDate: z.coerce.number().nullish(),

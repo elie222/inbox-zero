@@ -12,7 +12,7 @@ import {
   LogicalOperator,
   type Prisma,
   SystemType,
-} from "@prisma/client";
+} from "@/generated/prisma/client";
 import type {
   RuleWithActions,
   ParsedMessage,

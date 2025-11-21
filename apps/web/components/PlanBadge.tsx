@@ -8,7 +8,7 @@ import {
   type ExecutedAction,
   type Rule,
   ExecutedRuleStatus,
-} from "@prisma/client";
+} from "@/generated/prisma/client";
 import { truncate } from "@/utils/string";
 import { getEmailTerminology } from "@/utils/terminology";
 import { sortActionsByPriority } from "@/utils/action-sort";

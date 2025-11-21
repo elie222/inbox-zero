@@ -9,7 +9,7 @@ import {
   ExecutedRuleStatus,
   type Rule,
   LogicalOperator,
-} from "@prisma/client";
+} from "@/generated/prisma/client";
 import { Button } from "@/components/ui/button";
 import { MessageText } from "@/components/Typography";
 import { EyeIcon } from "lucide-react";

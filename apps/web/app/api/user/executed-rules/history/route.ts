@@ -3,7 +3,7 @@ import groupBy from "lodash/groupBy";
 import { withEmailProvider } from "@/utils/middleware";
 import { isDefined } from "@/utils/types";
 import prisma from "@/utils/prisma";
-import { ExecutedRuleStatus, type Prisma } from "@prisma/client";
+import { ExecutedRuleStatus, type Prisma } from "@/generated/prisma/client";
 import type { EmailProvider } from "@/utils/email/types";
 import type { Logger } from "@/utils/logger";
 

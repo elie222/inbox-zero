@@ -33,7 +33,7 @@ import {
   ExecutedRuleStatus,
   PremiumTier,
   type Rule,
-} from "@prisma/client";
+} from "@/generated/prisma/client";
 import { SettingCard } from "@/components/SettingCard";
 import { IconCircle } from "@/app/(app)/[emailAccountId]/onboarding/IconCircle";
 import { ActionBadges } from "@/app/(app)/[emailAccountId]/assistant/Rules";

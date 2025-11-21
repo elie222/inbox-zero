@@ -5,7 +5,7 @@ import {
   getEmail,
   generateSequentialDates,
 } from "@/__tests__/helpers";
-import { SystemType } from "@prisma/client";
+import { SystemType } from "@/generated/prisma/client";
 
 // Run with: pnpm test-ai determine-thread-status
 

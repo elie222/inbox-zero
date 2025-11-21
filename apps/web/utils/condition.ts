@@ -1,4 +1,4 @@
-import { LogicalOperator, type Rule } from "@prisma/client";
+import { LogicalOperator, type Rule } from "@/generated/prisma/client";
 import { ConditionType, type CoreConditionType } from "@/utils/config";
 import type {
   CreateRuleBody,

@@ -1,4 +1,4 @@
-import { ActionType, type Action } from "@prisma/client";
+import { ActionType, type Action } from "@/generated/prisma/client";
 
 export function isDigestEnabled(ruleActions: Pick<Action, "type">[]) {
   return ruleActions.some((action) => action.type === ActionType.DIGEST);

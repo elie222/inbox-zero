@@ -5,7 +5,7 @@ import { markMessageAsProcessing } from "@/utils/redis/message-processing";
 import { isAssistantEmail } from "@/utils/assistant/is-assistant-email";
 import { processAssistantEmail } from "@/utils/assistant/process-assistant-email";
 import { handleOutboundMessage } from "@/utils/reply-tracker/handle-outbound";
-import { type EmailAccount, NewsletterStatus } from "@prisma/client";
+import { type EmailAccount, NewsletterStatus } from "@/generated/prisma/client";
 import { extractEmailAddress } from "@/utils/email";
 import { isIgnoredSender } from "@/utils/filter-ignored-senders";
 import type { EmailProvider } from "@/utils/email/types";

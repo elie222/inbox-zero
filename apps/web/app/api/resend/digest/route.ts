@@ -13,10 +13,10 @@ import {
   storedDigestContentSchema,
   type Digest,
 } from "./validation";
-import { DigestStatus } from "@prisma/client";
+import { DigestStatus } from "@/generated/prisma/client";
 import { extractNameFromEmail } from "../../../../utils/email";
 import { getRuleName } from "@/utils/rule/consts";
-import { SystemType } from "@prisma/client";
+import { SystemType } from "@/generated/prisma/client";
 import { verifySignatureAppRouter } from "@upstash/qstash/nextjs";
 import { camelCase } from "lodash";
 import { createEmailProvider } from "@/utils/email/provider";
