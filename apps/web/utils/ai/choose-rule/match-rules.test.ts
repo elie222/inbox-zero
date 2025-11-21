@@ -1,21 +1,20 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { filterMultipleSystemRules } from "./match-rules";
 import {
-  findMatchingRule,
+  findMatchingRules,
   matchesStaticRule,
-  filterToReplyPreset,
+  filterConversationStatusRules,
+  evaluateRuleConditions,
 } from "./match-rules";
 import {
-  type Category,
-  CategoryFilterType,
   type GroupItem,
   GroupItemType,
   LogicalOperator,
-  type Newsletter,
   type Prisma,
   SystemType,
 } from "@prisma/client";
 import type {
-  RuleWithActionsAndCategories,
+  RuleWithActions,
   ParsedMessage,
   ParsedMessageHeaders,
 } from "@/utils/types";
@@ -23,9 +22,18 @@ import type { EmailProvider } from "@/utils/email/types";
 import prisma from "@/utils/__mocks__/prisma";
 import { aiChooseRule } from "@/utils/ai/choose-rule/ai-choose-rule";
 import { getEmailAccount } from "@/__tests__/helpers";
+import { ConditionType } from "@/utils/config";
+import {
+  getColdEmailRule,
+  isColdEmailRuleEnabled,
+} from "@/utils/cold-email/cold-email-rule";
+import { isColdEmail } from "@/utils/cold-email/is-cold-email";
+import { createScopedLogger } from "@/utils/logger";
 
 // Run with:
 // pnpm test match-rules.test.ts
+
+const logger = createScopedLogger("test");
 
 const provider = {
   isReplyInThread: vi.fn().mockReturnValue(false),
@@ -39,6 +47,13 @@ vi.mock("@/utils/ai/choose-rule/ai-choose-rule", () => ({
 vi.mock("@/utils/reply-tracker/check-sender-reply-history", () => ({
   checkSenderReplyHistory: vi.fn(),
 }));
+vi.mock("@/utils/cold-email/cold-email-rule", () => ({
+  getColdEmailRule: vi.fn(),
+  isColdEmailRuleEnabled: vi.fn(),
+}));
+vi.mock("@/utils/cold-email/is-cold-email", () => ({
+  isColdEmail: vi.fn(),
+}));
 
 describe("matchesStaticRule", () => {
   it("should match wildcard pattern at start of email", () => {
@@ -47,7 +62,7 @@ describe("matchesStaticRule", () => {
       headers: getHeaders({ from: "test@gmail.com" }),
     });
 
-    expect(matchesStaticRule(rule, message)).toBe(true);
+    expect(matchesStaticRule(rule, message, logger)).toBe(true);
   });
 
   it("should not match when wildcard pattern doesn't match domain", () => {
@@ -56,7 +71,7 @@ describe("matchesStaticRule", () => {
       headers: getHeaders({ from: "test@yahoo.com" }),
     });
 
-    expect(matchesStaticRule(rule, message)).toBe(false);
+    expect(matchesStaticRule(rule, message, logger)).toBe(false);
   });
 
   it("should handle multiple wildcards in pattern", () => {
@@ -65,7 +80,7 @@ describe("matchesStaticRule", () => {
       headers: getHeaders({ subject: "This is important message" }),
     });
 
-    expect(matchesStaticRule(rule, message)).toBe(true);
+    expect(matchesStaticRule(rule, message, logger)).toBe(true);
   });
 
   it("should handle invalid regex patterns gracefully", () => {
@@ -74,7 +89,7 @@ describe("matchesStaticRule", () => {
       headers: getHeaders({ from: "test@example.com" }),
     });
 
-    expect(matchesStaticRule(rule, message)).toBe(false);
+    expect(matchesStaticRule(rule, message, logger)).toBe(false);
   });
 
   it("should return false when no conditions are provided", () => {
@@ -83,7 +98,7 @@ describe("matchesStaticRule", () => {
       headers: getHeaders({ from: "test@example.com" }),
     });
 
-    expect(matchesStaticRule(rule, message)).toBe(false);
+    expect(matchesStaticRule(rule, message, logger)).toBe(false);
   });
 
   it("should match body content with wildcard", () => {
@@ -93,7 +108,7 @@ describe("matchesStaticRule", () => {
       textPlain: "Click here to unsubscribe from our newsletter",
     });
 
-    expect(matchesStaticRule(rule, message)).toBe(true);
+    expect(matchesStaticRule(rule, message, logger)).toBe(true);
   });
 
   it("should match @domain.com", () => {
@@ -102,7 +117,7 @@ describe("matchesStaticRule", () => {
       headers: getHeaders({ from: "test@domain.com" }),
     });
 
-    expect(matchesStaticRule(rule, message)).toBe(true);
+    expect(matchesStaticRule(rule, message, logger)).toBe(true);
   });
 
   it("should match Creator Message subject pattern", () => {
@@ -113,7 +128,7 @@ describe("matchesStaticRule", () => {
       }),
     });
 
-    expect(matchesStaticRule(rule, message)).toBe(true);
+    expect(matchesStaticRule(rule, message, logger)).toBe(true);
   });
 
   it("should match exact Creator Message subject", () => {
@@ -126,7 +141,7 @@ describe("matchesStaticRule", () => {
       }),
     });
 
-    expect(matchesStaticRule(rule, message)).toBe(true);
+    expect(matchesStaticRule(rule, message, logger)).toBe(true);
   });
 
   it("should match parentheses in subject", () => {
@@ -135,7 +150,7 @@ describe("matchesStaticRule", () => {
       headers: getHeaders({ subject: "Invoice (PDF)" }),
     });
 
-    expect(matchesStaticRule(rule, message)).toBe(true);
+    expect(matchesStaticRule(rule, message, logger)).toBe(true);
   });
 
   it("should match plus sign in email address", () => {
@@ -144,7 +159,7 @@ describe("matchesStaticRule", () => {
       headers: getHeaders({ from: "user+tag@gmail.com" }),
     });
 
-    expect(matchesStaticRule(rule, message)).toBe(true);
+    expect(matchesStaticRule(rule, message, logger)).toBe(true);
   });
 
   it("should match dots in subject", () => {
@@ -153,7 +168,7 @@ describe("matchesStaticRule", () => {
       headers: getHeaders({ subject: "Order #123.456" }),
     });
 
-    expect(matchesStaticRule(rule, message)).toBe(true);
+    expect(matchesStaticRule(rule, message, logger)).toBe(true);
   });
 
   it("should match dollar signs in subject", () => {
@@ -162,7 +177,7 @@ describe("matchesStaticRule", () => {
       headers: getHeaders({ subject: "Payment $100" }),
     });
 
-    expect(matchesStaticRule(rule, message)).toBe(true);
+    expect(matchesStaticRule(rule, message, logger)).toBe(true);
   });
 
   it("should match curly braces in subject", () => {
@@ -171,7 +186,7 @@ describe("matchesStaticRule", () => {
       headers: getHeaders({ subject: "Template {name}" }),
     });
 
-    expect(matchesStaticRule(rule, message)).toBe(true);
+    expect(matchesStaticRule(rule, message, logger)).toBe(true);
   });
 
   it("should match pipe symbol in subject", () => {
@@ -180,7 +195,7 @@ describe("matchesStaticRule", () => {
       headers: getHeaders({ subject: "Alert | System" }),
     });
 
-    expect(matchesStaticRule(rule, message)).toBe(true);
+    expect(matchesStaticRule(rule, message, logger)).toBe(true);
   });
 
   it("should match question mark in subject", () => {
@@ -189,7 +204,7 @@ describe("matchesStaticRule", () => {
       headers: getHeaders({ subject: "Are you ready?" }),
     });
 
-    expect(matchesStaticRule(rule, message)).toBe(true);
+    expect(matchesStaticRule(rule, message, logger)).toBe(true);
   });
 
   it("should match caret symbol in subject", () => {
@@ -198,7 +213,7 @@ describe("matchesStaticRule", () => {
       headers: getHeaders({ subject: "Version ^1.0" }),
     });
 
-    expect(matchesStaticRule(rule, message)).toBe(true);
+    expect(matchesStaticRule(rule, message, logger)).toBe(true);
   });
 
   it("should match wildcards with special characters", () => {
@@ -207,7 +222,7 @@ describe("matchesStaticRule", () => {
       headers: getHeaders({ subject: "URGENT [Important] Notice" }),
     });
 
-    expect(matchesStaticRule(rule, message)).toBe(true);
+    expect(matchesStaticRule(rule, message, logger)).toBe(true);
   });
 
   it("should match common notification patterns", () => {
@@ -216,7 +231,7 @@ describe("matchesStaticRule", () => {
       headers: getHeaders({ from: "noreply-notification@company.com" }),
     });
 
-    expect(matchesStaticRule(rule, message)).toBe(true);
+    expect(matchesStaticRule(rule, message, logger)).toBe(true);
   });
 
   it("should match receipt patterns", () => {
@@ -225,7 +240,7 @@ describe("matchesStaticRule", () => {
       headers: getHeaders({ subject: "Your receipt from store" }),
     });
 
-    expect(matchesStaticRule(rule, message)).toBe(true);
+    expect(matchesStaticRule(rule, message, logger)).toBe(true);
   });
 
   it("should be case sensitive", () => {
@@ -234,7 +249,7 @@ describe("matchesStaticRule", () => {
       headers: getHeaders({ subject: "urgent" }),
     });
 
-    expect(matchesStaticRule(rule, message)).toBe(false);
+    expect(matchesStaticRule(rule, message, logger)).toBe(false);
   });
 
   it("should handle empty header values gracefully", () => {
@@ -243,7 +258,7 @@ describe("matchesStaticRule", () => {
       headers: getHeaders({ from: "" }),
     });
 
-    expect(matchesStaticRule(rule, message)).toBe(false);
+    expect(matchesStaticRule(rule, message, logger)).toBe(false);
   });
 
   it("should match backslash characters", () => {
@@ -252,7 +267,7 @@ describe("matchesStaticRule", () => {
       headers: getHeaders({ subject: "Path: C:\\Users\\Name" }),
     });
 
-    expect(matchesStaticRule(rule, message)).toBe(true);
+    expect(matchesStaticRule(rule, message, logger)).toBe(true);
   });
 
   it("should match multiple domains separated by pipe characters", () => {
@@ -264,25 +279,25 @@ describe("matchesStaticRule", () => {
     const message1 = getMessage({
       headers: getHeaders({ from: "user@company-a.com" }),
     });
-    expect(matchesStaticRule(rule, message1)).toBe(true);
+    expect(matchesStaticRule(rule, message1, logger)).toBe(true);
 
     // Should match middle domain
     const message2 = getMessage({
       headers: getHeaders({ from: "contact@startup-x.io" }),
     });
-    expect(matchesStaticRule(rule, message2)).toBe(true);
+    expect(matchesStaticRule(rule, message2, logger)).toBe(true);
 
     // Should match last domain
     const message3 = getMessage({
       headers: getHeaders({ from: "info@brand-z.co" }),
     });
-    expect(matchesStaticRule(rule, message3)).toBe(true);
+    expect(matchesStaticRule(rule, message3, logger)).toBe(true);
 
     // Should not match domain not in list
     const message4 = getMessage({
       headers: getHeaders({ from: "test@other-company.com" }),
     });
-    expect(matchesStaticRule(rule, message4)).toBe(false);
+    expect(matchesStaticRule(rule, message4, logger)).toBe(false);
   });
 
   it("should treat pipes as OR operator in 'to' field", () => {
@@ -294,25 +309,25 @@ describe("matchesStaticRule", () => {
     const message1 = getMessage({
       headers: getHeaders({ to: "support@company.com" }),
     });
-    expect(matchesStaticRule(rule, message1)).toBe(true);
+    expect(matchesStaticRule(rule, message1, logger)).toBe(true);
 
     // Should match second email
     const message2 = getMessage({
       headers: getHeaders({ to: "help@company.com" }),
     });
-    expect(matchesStaticRule(rule, message2)).toBe(true);
+    expect(matchesStaticRule(rule, message2, logger)).toBe(true);
 
     // Should match third email
     const message3 = getMessage({
       headers: getHeaders({ to: "contact@company.com" }),
     });
-    expect(matchesStaticRule(rule, message3)).toBe(true);
+    expect(matchesStaticRule(rule, message3, logger)).toBe(true);
 
     // Should not match other email
     const message4 = getMessage({
       headers: getHeaders({ to: "sales@company.com" }),
     });
-    expect(matchesStaticRule(rule, message4)).toBe(false);
+    expect(matchesStaticRule(rule, message4, logger)).toBe(false);
   });
 
   it("should combine wildcards with pipe OR logic in from field", () => {
@@ -324,25 +339,25 @@ describe("matchesStaticRule", () => {
     const message1 = getMessage({
       headers: getHeaders({ from: "weekly@newsletter.com" }),
     });
-    expect(matchesStaticRule(rule, message1)).toBe(true);
+    expect(matchesStaticRule(rule, message1, logger)).toBe(true);
 
     // Should match wildcard + second domain
     const message2 = getMessage({
       headers: getHeaders({ from: "campaign@marketing.org" }),
     });
-    expect(matchesStaticRule(rule, message2)).toBe(true);
+    expect(matchesStaticRule(rule, message2, logger)).toBe(true);
 
     // Should match third pattern with wildcard
     const message3 = getMessage({
       headers: getHeaders({ from: "notifications@example.com" }),
     });
-    expect(matchesStaticRule(rule, message3)).toBe(true);
+    expect(matchesStaticRule(rule, message3, logger)).toBe(true);
 
     // Should not match pattern not in list
     const message4 = getMessage({
       headers: getHeaders({ from: "test@other.com" }),
     });
-    expect(matchesStaticRule(rule, message4)).toBe(false);
+    expect(matchesStaticRule(rule, message4, logger)).toBe(false);
   });
 
   it("should treat pipes as literal characters in subject field", () => {
@@ -353,13 +368,13 @@ describe("matchesStaticRule", () => {
       headers: getHeaders({ subject: "Status: Active | Pending | Completed" }),
     });
 
-    expect(matchesStaticRule(rule, message)).toBe(true);
+    expect(matchesStaticRule(rule, message, logger)).toBe(true);
 
     // Should not match partial pipe patterns
     const message2 = getMessage({
       headers: getHeaders({ subject: "Status: Active" }),
     });
-    expect(matchesStaticRule(rule, message2)).toBe(false);
+    expect(matchesStaticRule(rule, message2, logger)).toBe(false);
   });
 
   it("should treat pipes as literal characters in body field", () => {
@@ -371,14 +386,14 @@ describe("matchesStaticRule", () => {
       textPlain: "Please choose option A | B | C from the menu to continue",
     });
 
-    expect(matchesStaticRule(rule, message)).toBe(true);
+    expect(matchesStaticRule(rule, message, logger)).toBe(true);
 
     // Should not match partial pipe patterns
     const message2 = getMessage({
       headers: getHeaders(),
       textPlain: "Please choose option A to continue",
     });
-    expect(matchesStaticRule(rule, message2)).toBe(false);
+    expect(matchesStaticRule(rule, message2, logger)).toBe(false);
   });
 
   it("should handle empty patterns between pipes gracefully", () => {
@@ -388,12 +403,12 @@ describe("matchesStaticRule", () => {
     const message1 = getMessage({
       headers: getHeaders({ from: "test@domain1.com" }),
     });
-    expect(matchesStaticRule(rule, message1)).toBe(true);
+    expect(matchesStaticRule(rule, message1, logger)).toBe(true);
 
     const message2 = getMessage({
       headers: getHeaders({ from: "test@domain2.com" }),
     });
-    expect(matchesStaticRule(rule, message2)).toBe(true);
+    expect(matchesStaticRule(rule, message2, logger)).toBe(true);
   });
 
   it("should handle single pattern without pipes in from field", () => {
@@ -402,7 +417,7 @@ describe("matchesStaticRule", () => {
       headers: getHeaders({ from: "user@single-domain.com" }),
     });
 
-    expect(matchesStaticRule(rule, message)).toBe(true);
+    expect(matchesStaticRule(rule, message, logger)).toBe(true);
   });
 
   it("should handle pipes at beginning and end of from pattern", () => {
@@ -412,12 +427,12 @@ describe("matchesStaticRule", () => {
     const message1 = getMessage({
       headers: getHeaders({ from: "test@domain1.com" }),
     });
-    expect(matchesStaticRule(rule, message1)).toBe(true);
+    expect(matchesStaticRule(rule, message1, logger)).toBe(true);
 
     const message2 = getMessage({
       headers: getHeaders({ from: "test@domain2.com" }),
     });
-    expect(matchesStaticRule(rule, message2)).toBe(true);
+    expect(matchesStaticRule(rule, message2, logger)).toBe(true);
   });
 
   it("should handle mixed conditions with pipes in from and literal pipes in subject", () => {
@@ -433,7 +448,7 @@ describe("matchesStaticRule", () => {
         subject: "Alert | System Status",
       }),
     });
-    expect(matchesStaticRule(rule, message1)).toBe(true);
+    expect(matchesStaticRule(rule, message1, logger)).toBe(true);
 
     // Should match with second domain
     const message2 = getMessage({
@@ -442,7 +457,7 @@ describe("matchesStaticRule", () => {
         subject: "Alert | System Status",
       }),
     });
-    expect(matchesStaticRule(rule, message2)).toBe(true);
+    expect(matchesStaticRule(rule, message2, logger)).toBe(true);
 
     // Should not match with wrong domain
     const message3 = getMessage({
@@ -451,7 +466,7 @@ describe("matchesStaticRule", () => {
         subject: "Alert | System Status",
       }),
     });
-    expect(matchesStaticRule(rule, message3)).toBe(false);
+    expect(matchesStaticRule(rule, message3, logger)).toBe(false);
 
     // Should not match with partial subject
     const message4 = getMessage({
@@ -460,7 +475,7 @@ describe("matchesStaticRule", () => {
         subject: "Alert",
       }),
     });
-    expect(matchesStaticRule(rule, message4)).toBe(false);
+    expect(matchesStaticRule(rule, message4, logger)).toBe(false);
   });
 
   it("should handle complex email patterns with pipes", () => {
@@ -472,25 +487,25 @@ describe("matchesStaticRule", () => {
     const message1 = getMessage({
       headers: getHeaders({ from: "noreply@newsletter.com" }),
     });
-    expect(matchesStaticRule(rule, message1)).toBe(true);
+    expect(matchesStaticRule(rule, message1, logger)).toBe(true);
 
     // Should match second pattern
     const message2 = getMessage({
       headers: getHeaders({ from: "system-notifications@company.com" }),
     });
-    expect(matchesStaticRule(rule, message2)).toBe(true);
+    expect(matchesStaticRule(rule, message2, logger)).toBe(true);
 
     // Should match third pattern with plus and wildcard
     const message3 = getMessage({
       headers: getHeaders({ from: "alerts+billing@service.io" }),
     });
-    expect(matchesStaticRule(rule, message3)).toBe(true);
+    expect(matchesStaticRule(rule, message3, logger)).toBe(true);
 
     // Should not match unrelated pattern
     const message4 = getMessage({
       headers: getHeaders({ from: "user@other.com" }),
     });
-    expect(matchesStaticRule(rule, message4)).toBe(false);
+    expect(matchesStaticRule(rule, message4, logger)).toBe(false);
   });
 
   it("should support comma as separator in from field", () => {
@@ -502,25 +517,25 @@ describe("matchesStaticRule", () => {
     const message1 = getMessage({
       headers: getHeaders({ from: "user@company-a.com" }),
     });
-    expect(matchesStaticRule(rule, message1)).toBe(true);
+    expect(matchesStaticRule(rule, message1, logger)).toBe(true);
 
     // Should match second domain
     const message2 = getMessage({
       headers: getHeaders({ from: "contact@company-b.org" }),
     });
-    expect(matchesStaticRule(rule, message2)).toBe(true);
+    expect(matchesStaticRule(rule, message2, logger)).toBe(true);
 
     // Should match third domain
     const message3 = getMessage({
       headers: getHeaders({ from: "info@startup-x.io" }),
     });
-    expect(matchesStaticRule(rule, message3)).toBe(true);
+    expect(matchesStaticRule(rule, message3, logger)).toBe(true);
 
     // Should not match unlisted domain
     const message4 = getMessage({
       headers: getHeaders({ from: "test@other.com" }),
     });
-    expect(matchesStaticRule(rule, message4)).toBe(false);
+    expect(matchesStaticRule(rule, message4, logger)).toBe(false);
   });
 
   it("should support comma as separator in to field", () => {
@@ -535,6 +550,7 @@ describe("matchesStaticRule", () => {
         getMessage({
           headers: getHeaders({ to: "support@company.com" }),
         }),
+        logger,
       ),
     ).toBe(true);
 
@@ -544,6 +560,7 @@ describe("matchesStaticRule", () => {
         getMessage({
           headers: getHeaders({ to: "help@company.com" }),
         }),
+        logger,
       ),
     ).toBe(true);
 
@@ -553,6 +570,7 @@ describe("matchesStaticRule", () => {
         getMessage({
           headers: getHeaders({ to: "contact@company.com" }),
         }),
+        logger,
       ),
     ).toBe(true);
   });
@@ -566,25 +584,25 @@ describe("matchesStaticRule", () => {
     const message1 = getMessage({
       headers: getHeaders({ from: "admin@company1.com" }),
     });
-    expect(matchesStaticRule(rule, message1)).toBe(true);
+    expect(matchesStaticRule(rule, message1, logger)).toBe(true);
 
     // Should match second domain
     const message2 = getMessage({
       headers: getHeaders({ from: "admin@company2.com" }),
     });
-    expect(matchesStaticRule(rule, message2)).toBe(true);
+    expect(matchesStaticRule(rule, message2, logger)).toBe(true);
 
     // Should match third domain
     const message3 = getMessage({
       headers: getHeaders({ from: "admin@company3.com" }),
     });
-    expect(matchesStaticRule(rule, message3)).toBe(true);
+    expect(matchesStaticRule(rule, message3, logger)).toBe(true);
 
     // Should not match unlisted domain
     const message4 = getMessage({
       headers: getHeaders({ from: "admin@company4.com" }),
     });
-    expect(matchesStaticRule(rule, message4)).toBe(false);
+    expect(matchesStaticRule(rule, message4, logger)).toBe(false);
   });
 
   it("should support mixed separators (pipe, comma, OR)", () => {
@@ -599,6 +617,7 @@ describe("matchesStaticRule", () => {
         getMessage({
           headers: getHeaders({ from: "user@company1.com" }),
         }),
+        logger,
       ),
     ).toBe(true);
 
@@ -608,6 +627,7 @@ describe("matchesStaticRule", () => {
         getMessage({
           headers: getHeaders({ from: "user@company2.com" }),
         }),
+        logger,
       ),
     ).toBe(true);
 
@@ -617,6 +637,7 @@ describe("matchesStaticRule", () => {
         getMessage({
           headers: getHeaders({ from: "user@company3.com" }),
         }),
+        logger,
       ),
     ).toBe(true);
 
@@ -626,6 +647,7 @@ describe("matchesStaticRule", () => {
         getMessage({
           headers: getHeaders({ from: "user@company4.com" }),
         }),
+        logger,
       ),
     ).toBe(true);
   });
@@ -642,6 +664,7 @@ describe("matchesStaticRule", () => {
         getMessage({
           headers: getHeaders({ from: "user@company1.com" }),
         }),
+        logger,
       ),
     ).toBe(true);
 
@@ -651,6 +674,7 @@ describe("matchesStaticRule", () => {
         getMessage({
           headers: getHeaders({ from: "user@company2.com" }),
         }),
+        logger,
       ),
     ).toBe(true);
   });
@@ -667,6 +691,7 @@ describe("matchesStaticRule", () => {
         getMessage({
           headers: getHeaders({ from: "weekly@newsletter.com" }),
         }),
+        logger,
       ),
     ).toBe(true);
 
@@ -676,6 +701,7 @@ describe("matchesStaticRule", () => {
         getMessage({
           headers: getHeaders({ from: "campaign@marketing.org" }),
         }),
+        logger,
       ),
     ).toBe(true);
 
@@ -685,6 +711,7 @@ describe("matchesStaticRule", () => {
         getMessage({
           headers: getHeaders({ from: "notifications@example.com" }),
         }),
+        logger,
       ),
     ).toBe(true);
   });
@@ -701,6 +728,7 @@ describe("matchesStaticRule", () => {
         getMessage({
           headers: getHeaders({ from: "user@company1.com" }),
         }),
+        logger,
       ),
     ).toBe(true);
 
@@ -710,6 +738,7 @@ describe("matchesStaticRule", () => {
         getMessage({
           headers: getHeaders({ from: "user@company2.com" }),
         }),
+        logger,
       ),
     ).toBe(true);
   });
@@ -723,13 +752,13 @@ describe("matchesStaticRule", () => {
     const message1 = getMessage({
       headers: getHeaders({ subject: "Option A, Option B, Option C" }),
     });
-    expect(matchesStaticRule(rule, message1)).toBe(true);
+    expect(matchesStaticRule(rule, message1, logger)).toBe(true);
 
     // Should not match partial
     const message2 = getMessage({
       headers: getHeaders({ subject: "Option A" }),
     });
-    expect(matchesStaticRule(rule, message2)).toBe(false);
+    expect(matchesStaticRule(rule, message2, logger)).toBe(false);
   });
 
   it("should not treat OR as separator in subject field", () => {
@@ -741,13 +770,13 @@ describe("matchesStaticRule", () => {
     const message1 = getMessage({
       headers: getHeaders({ subject: "Status: Active OR Pending" }),
     });
-    expect(matchesStaticRule(rule, message1)).toBe(true);
+    expect(matchesStaticRule(rule, message1, logger)).toBe(true);
 
     // Should not match partial
     const message2 = getMessage({
       headers: getHeaders({ subject: "Status: Active" }),
     });
-    expect(matchesStaticRule(rule, message2)).toBe(false);
+    expect(matchesStaticRule(rule, message2, logger)).toBe(false);
   });
 });
 
@@ -763,16 +792,19 @@ describe("findMatchingRule", () => {
       headers: getHeaders({ from: "test@example.com" }),
     });
     const emailAccount = getEmailAccount();
-    const result = await findMatchingRule({
+    const result = await findMatchingRules({
       rules,
       message,
       emailAccount,
       provider,
       modelType: "default",
+      logger,
     });
 
-    expect(result.rule?.id).toBe(rule.id);
-    expect(result.reason).toBe("Matched static conditions");
+    expect(result.matches[0].rule.id).toBe(rule.id);
+    expect(result.matches[0].matchReasons).toEqual([
+      { type: ConditionType.STATIC },
+    ]);
   });
 
   it("matches a static domain", async () => {
@@ -783,16 +815,19 @@ describe("findMatchingRule", () => {
     });
     const emailAccount = getEmailAccount();
 
-    const result = await findMatchingRule({
+    const result = await findMatchingRules({
       rules,
       message,
       emailAccount,
       provider,
       modelType: "default",
+      logger,
     });
 
-    expect(result.rule?.id).toBe(rule.id);
-    expect(result.reason).toBe("Matched static conditions");
+    expect(result.matches[0].rule.id).toBe(rule.id);
+    expect(result.matches[0].matchReasons).toEqual([
+      { type: ConditionType.STATIC },
+    ]);
   });
 
   it("doens't match wrong static domain", async () => {
@@ -803,16 +838,17 @@ describe("findMatchingRule", () => {
     });
     const emailAccount = getEmailAccount();
 
-    const result = await findMatchingRule({
+    const result = await findMatchingRules({
       rules,
       message,
       emailAccount,
       provider,
       modelType: "default",
+      logger,
     });
 
-    expect(result.rule?.id).toBeUndefined();
-    expect(result.reason).toBeUndefined();
+    expect(result.matches).toHaveLength(0);
+    expect(result.reasoning).toBe("");
   });
 
   it("matches a group rule", async () => {
@@ -834,248 +870,27 @@ describe("findMatchingRule", () => {
     });
     const emailAccount = getEmailAccount();
 
-    const result = await findMatchingRule({
+    const result = await findMatchingRules({
       rules,
       message,
       emailAccount,
       provider,
       modelType: "default",
+      logger,
     });
 
-    expect(result.rule?.id).toBe(rule.id);
-    expect(result.reason).toBe(
+    expect(result.matches[0]?.rule.id).toBe(rule.id);
+    expect(result.reasoning).toBe(
       `Matched learned pattern: "FROM: test@example.com"`,
     );
   });
 
-  it("matches a smart category rule", async () => {
-    prisma.newsletter.findUnique.mockResolvedValue(
-      getNewsletter({ categoryId: "test-category" }),
-    );
-
-    const rule = getRule({
-      categoryFilters: [getCategory({ id: "test-category" })],
-      categoryFilterType: CategoryFilterType.INCLUDE,
-    });
-    const rules = [rule];
-    const message = getMessage();
-    const emailAccount = getEmailAccount();
-
-    const result = await findMatchingRule({
-      rules,
-      message,
-      emailAccount,
-      provider,
-      modelType: "default",
-    });
-
-    expect(result.rule?.id).toBe(rule.id);
-    expect(result.reason).toBe('Matched category: "category"');
-  });
-
-  it("matches a smart category rule with exclude", async () => {
-    prisma.newsletter.findUnique.mockResolvedValue(
-      getNewsletter({ categoryId: "test-category" }),
-    );
-
-    const rule = getRule({
-      categoryFilters: [getCategory({ id: "test-category" })],
-      categoryFilterType: CategoryFilterType.EXCLUDE,
-    });
-    const rules = [rule];
-    const message = getMessage();
-    const emailAccount = getEmailAccount();
-
-    const result = await findMatchingRule({
-      rules,
-      message,
-      emailAccount,
-      provider,
-      modelType: "default",
-    });
-
-    expect(result.rule?.id).toBeUndefined();
-    expect(result.reason).toBeUndefined();
-  });
-
-  it("matches a rule with multiple conditions AND (category and group)", async () => {
-    const rule = getRule({
-      conditionalOperator: LogicalOperator.AND,
-      categoryFilters: [getCategory({ id: "category1" })],
-      groupId: "group1",
-    });
-
-    prisma.group.findMany.mockResolvedValue([
-      getGroup({
-        id: "group1",
-        items: [
-          getGroupItem({
-            groupId: "group1",
-            type: GroupItemType.FROM,
-            value: "test@example.com",
-          }),
-        ],
-        rule,
-      }),
-    ]);
-    prisma.newsletter.findUnique.mockResolvedValue(
-      getNewsletter({ categoryId: "category1" }),
-    );
-
-    const rules = [rule];
-    const message = getMessage({
-      headers: getHeaders({ from: "test@example.com" }),
-    });
-    const emailAccount = getEmailAccount();
-
-    const result = await findMatchingRule({
-      rules,
-      message,
-      emailAccount,
-      provider,
-      modelType: "default",
-    });
-
-    expect(result.rule?.id).toBe(rule.id);
-    expect(result.reason).toBe(
-      `Matched learned pattern: "FROM: test@example.com"`,
-    );
-  });
-
-  it("matches a rule with multiple conditions AND (category and AI)", async () => {
-    prisma.newsletter.findUnique.mockResolvedValue(
-      getNewsletter({ categoryId: "newsletterCategory" }),
-    );
-
-    const rule = getRule({
-      conditionalOperator: LogicalOperator.AND,
-      instructions: "Match if the email is an AI newsletter",
-      categoryFilters: [getCategory({ id: "newsletterCategory" })],
-    });
-
-    (aiChooseRule as ReturnType<typeof vi.fn>).mockImplementationOnce(() => {
-      return {
-        reason: "reason",
-        rule: { id: "r123" },
-      };
-    });
-
-    const rules = [rule];
-    const message = getMessage({
-      headers: getHeaders({ from: "ai@newsletter.com" }),
-    });
-    const emailAccount = getEmailAccount();
-
-    const result = await findMatchingRule({
-      rules,
-      message,
-      emailAccount,
-      provider,
-      modelType: "default",
-    });
-
-    expect(result.rule?.id).toBe(rule.id);
-    expect(result.reason).toBeDefined();
-    expect(aiChooseRule).toHaveBeenCalledOnce();
-  });
-
-  it("doesn't match when AI condition fails (category matches but AI doesn't)", async () => {
-    prisma.newsletter.findUnique.mockResolvedValue(
-      getNewsletter({ categoryId: "newsletterCategory" }),
-    );
-
-    const rule = getRule({
-      conditionalOperator: LogicalOperator.AND,
-      instructions: "Match if the email is an AI newsletter",
-      categoryFilters: [getCategory({ id: "newsletterCategory" })],
-    });
-
-    (aiChooseRule as ReturnType<typeof vi.fn>).mockImplementationOnce(() => {
-      return {
-        reason: "Not an AI newsletter",
-        rule: undefined,
-      };
-    });
-
-    const rules = [rule];
-    const message = getMessage({
-      headers: getHeaders({ from: "marketing@newsletter.com" }),
-    });
-    const emailAccount = getEmailAccount();
-
-    const result = await findMatchingRule({
-      rules,
-      message,
-      emailAccount,
-      provider,
-      modelType: "default",
-    });
-
-    expect(result.rule).toBeUndefined();
-    expect(result.reason).toBeDefined();
-    expect(aiChooseRule).toHaveBeenCalledOnce();
-  });
-
-  it("should match with only one of category or group", async () => {
-    prisma.newsletter.findUnique.mockResolvedValue(
-      getNewsletter({ categoryId: "category1" }),
-    );
-    prisma.group.findMany.mockResolvedValue([]);
-
-    const rule = getRule({
-      conditionalOperator: LogicalOperator.AND,
-      categoryFilters: [getCategory({ id: "category1" })],
-      groupId: "group1",
-    });
-    const rules = [rule];
-    const message = getMessage();
-    const emailAccount = getEmailAccount();
-
-    const result = await findMatchingRule({
-      rules,
-      message,
-      emailAccount,
-      provider,
-      modelType: "default",
-    });
-
-    expect(result.rule?.id).toBe(rule.id);
-    expect(result.reason).toBe('Matched category: "category"');
-  });
-
-  it("matches with OR and one of category or group", async () => {
-    prisma.newsletter.findUnique.mockResolvedValue(
-      getNewsletter({ categoryId: "category1" }),
-    );
-    prisma.group.findMany.mockResolvedValue([]);
-
-    const rule = getRule({
-      conditionalOperator: LogicalOperator.OR,
-      categoryFilters: [getCategory({ id: "category1" })],
-      groupId: "group1",
-    });
-    const rules = [rule];
-    const message = getMessage();
-    const emailAccount = getEmailAccount();
-
-    const result = await findMatchingRule({
-      rules,
-      message,
-      emailAccount,
-      provider,
-      modelType: "default",
-    });
-
-    expect(result.rule?.id).toBe(rule.id);
-    expect(result.reason).toBe('Matched category: "category"');
-  });
-
-  it("should not match when item matches but is in wrong group", async () => {
+  it("should NOT match when group doesn't match and no other conditions", async () => {
     const rule = getRule({
       groupId: "correctGroup", // Rule specifically looks for correctGroup
     });
 
-    // Set up two groups - one referenced by the rule, one not
+    // Set up groups - message doesn't match the rule's group
     prisma.group.findMany.mockResolvedValue([
       getGroup({
         id: "wrongGroup",
@@ -1102,20 +917,21 @@ describe("findMatchingRule", () => {
 
     const rules = [rule];
     const message = getMessage({
-      headers: getHeaders({ from: "test@example.com" }), // This matches item in wrongGroup
+      headers: getHeaders({ from: "test@example.com" }), // Doesn't match correctGroup
     });
     const emailAccount = getEmailAccount();
 
-    const result = await findMatchingRule({
+    const result = await findMatchingRules({
       rules,
       message,
       emailAccount,
       provider,
       modelType: "default",
+      logger,
     });
 
-    expect(result.rule).toBeUndefined();
-    expect(result.reason).toBeUndefined();
+    // Group didn't match and no other conditions, so rule should NOT match
+    expect(result.matches).toHaveLength(0);
   });
 
   it("should match only when item is in the correct group", async () => {
@@ -1152,16 +968,17 @@ describe("findMatchingRule", () => {
     });
     const emailAccount = getEmailAccount();
 
-    const result = await findMatchingRule({
+    const result = await findMatchingRules({
       rules,
       message,
       emailAccount,
       provider,
       modelType: "default",
+      logger,
     });
 
-    expect(result.rule?.id).toBe(rule.id);
-    expect(result.reason).toContain("test@example.com");
+    expect(result.matches[0]?.rule.id).toBe(rule.id);
+    expect(result.reasoning).toContain("test@example.com");
   });
 
   it("should handle multiple rules with different group conditions correctly", async () => {
@@ -1199,17 +1016,119 @@ describe("findMatchingRule", () => {
     });
     const emailAccount = getEmailAccount();
 
-    const result = await findMatchingRule({
+    const result = await findMatchingRules({
       rules,
       message,
       emailAccount,
       provider,
       modelType: "default",
+      logger,
     });
 
     // Should match the first rule only
-    expect(result.rule?.id).toBe("rule1");
-    expect(result.reason).toContain("test@example.com");
+    expect(result.matches[0]?.rule.id).toBe("rule1");
+    expect(result.reasoning).toContain("test@example.com");
+  });
+
+  it("should only match rules whose group actually contains the pattern (bug regression test)", async () => {
+    // Regression: Ensure rules only match when their specific group pattern matches,
+    // not when other unrelated groups have matching patterns
+    const ruleA = getRule({
+      id: "rule-a",
+      name: "Label Acme Emails",
+      groupId: "group-a",
+    });
+    const ruleB = getRule({
+      id: "rule-b",
+      name: "Label Beta Emails",
+      groupId: "group-b",
+    });
+    const ruleC = getRule({
+      id: "rule-c",
+      name: "Label Charlie Emails",
+      groupId: "group-c",
+    });
+    const ruleD = getRule({
+      id: "rule-d",
+      name: "Label Delta Emails",
+      groupId: "group-d",
+    });
+
+    prisma.group.findMany.mockResolvedValue([
+      getGroup({
+        id: "group-a",
+        name: "Label Acme Emails",
+        items: [
+          getGroupItem({
+            groupId: "group-a",
+            type: GroupItemType.FROM,
+            value: "alerts@acme.com",
+          }),
+        ],
+        rule: ruleA,
+      }),
+      getGroup({
+        id: "group-b",
+        name: "Label Beta Emails",
+        items: [
+          getGroupItem({
+            groupId: "group-b",
+            type: GroupItemType.FROM,
+            value: "notifications@beta.com",
+          }),
+        ],
+        rule: ruleB,
+      }),
+      getGroup({
+        id: "group-c",
+        name: "Label Charlie Emails",
+        items: [
+          getGroupItem({
+            groupId: "group-c",
+            type: GroupItemType.FROM,
+            value: "support@charlie.com",
+          }),
+        ],
+        rule: ruleC,
+      }),
+      getGroup({
+        id: "group-d",
+        name: "Label Delta Emails",
+        items: [
+          getGroupItem({
+            groupId: "group-d",
+            type: GroupItemType.FROM,
+            value: "info@delta.com",
+          }),
+        ],
+        rule: ruleD,
+      }),
+    ]);
+
+    const rules = [ruleA, ruleB, ruleC, ruleD];
+    const message = getMessage({
+      headers: getHeaders({ from: "alerts@acme.com" }),
+    });
+    const emailAccount = getEmailAccount();
+
+    const result = await findMatchingRules({
+      rules,
+      message,
+      emailAccount,
+      provider,
+      modelType: "default",
+      logger,
+    });
+
+    expect(result.matches).toHaveLength(1);
+    expect(result.matches[0]?.rule.id).toBe("rule-a");
+    expect(result.matches[0]?.rule.name).toBe("Label Acme Emails");
+    expect(result.reasoning).toContain("alerts@acme.com");
+
+    const matchedRuleIds = result.matches.map((m) => m.rule.id);
+    expect(matchedRuleIds).not.toContain("rule-b");
+    expect(matchedRuleIds).not.toContain("rule-c");
+    expect(matchedRuleIds).not.toContain("rule-d");
   });
 
   it("should exclude a rule when an exclusion pattern matches", async () => {
@@ -1240,17 +1159,155 @@ describe("findMatchingRule", () => {
     });
     const emailAccount = getEmailAccount();
 
-    const result = await findMatchingRule({
+    const result = await findMatchingRules({
       rules,
       message,
       emailAccount,
       provider,
       modelType: "default",
+      logger,
     });
 
     // The rule should be excluded (not matched)
-    expect(result.rule).toBeUndefined();
-    expect(result.reason).toBeUndefined();
+    expect(result.matches).toHaveLength(0);
+    expect(result.reasoning).toBe("");
+  });
+
+  it("should match via static condition when group rule doesn't match pattern (OR operator)", async () => {
+    const rule = getRule({
+      id: "group-with-fallback",
+      groupId: "test-group",
+      from: "fallback@example.com", // Static condition
+      conditionalOperator: LogicalOperator.OR,
+    });
+
+    // Group has different pattern
+    prisma.group.findMany.mockResolvedValue([
+      getGroup({
+        id: "test-group",
+        items: [
+          getGroupItem({
+            type: GroupItemType.FROM,
+            value: "group@example.com",
+          }),
+        ],
+        rule,
+      }),
+    ]);
+
+    const rules = [rule];
+    const message = getMessage({
+      headers: getHeaders({ from: "fallback@example.com" }), // Matches static, not group
+    });
+    const emailAccount = getEmailAccount();
+
+    const result = await findMatchingRules({
+      rules,
+      message,
+      emailAccount,
+      provider,
+      modelType: "default",
+      logger,
+    });
+
+    expect(result.matches[0]?.rule.id).toBe(rule.id);
+    expect(result.matches[0]?.matchReasons).toEqual([
+      { type: ConditionType.STATIC },
+    ]);
+  });
+
+  it("should match via static when group rule has group miss and static hit (AND operator)", async () => {
+    const rule = getRule({
+      id: "group-with-and",
+      groupId: "test-group",
+      from: "test@example.com", // Static condition
+      conditionalOperator: LogicalOperator.AND, // Only applies to AI/Static, not groups
+    });
+
+    // Group has different pattern
+    prisma.group.findMany.mockResolvedValue([
+      getGroup({
+        id: "test-group",
+        items: [
+          getGroupItem({
+            type: GroupItemType.FROM,
+            value: "group@example.com",
+          }),
+        ],
+        rule,
+      }),
+    ]);
+
+    const rules = [rule];
+    const message = getMessage({
+      headers: getHeaders({ from: "test@example.com" }), // Matches static, not group
+    });
+    const emailAccount = getEmailAccount();
+
+    const result = await findMatchingRules({
+      rules,
+      message,
+      emailAccount,
+      provider,
+      modelType: "default",
+      logger,
+    });
+
+    // Groups are independent of AND/OR operator - static match should work
+    expect(result.matches[0]?.rule.id).toBe(rule.id);
+    expect(result.matches[0]?.matchReasons).toEqual([
+      { type: ConditionType.STATIC },
+    ]);
+  });
+
+  it("should match when group rule with AND operator has both group and static match", async () => {
+    const rule = getRule({
+      id: "group-with-and-both",
+      groupId: "test-group",
+      subject: "Important", // Additional static condition
+      conditionalOperator: LogicalOperator.AND,
+    });
+
+    prisma.group.findMany.mockResolvedValue([
+      getGroup({
+        id: "test-group",
+        items: [
+          getGroupItem({ type: GroupItemType.FROM, value: "test@example.com" }),
+        ],
+        rule,
+      }),
+    ]);
+
+    const rules = [rule];
+    const message = getMessage({
+      headers: getHeaders({
+        from: "test@example.com", // Matches group
+        subject: "Important update", // Matches static
+      }),
+    });
+    const emailAccount = getEmailAccount();
+
+    const result = await findMatchingRules({
+      rules,
+      message,
+      emailAccount,
+      provider,
+      modelType: "default",
+      logger,
+    });
+
+    // Should match via learned pattern and short-circuit (not check static)
+    expect(result.matches[0]?.rule.id).toBe(rule.id);
+    expect(result.matches[0]?.matchReasons).toEqual([
+      {
+        type: ConditionType.LEARNED_PATTERN,
+        groupItem: expect.objectContaining({
+          type: GroupItemType.FROM,
+          value: "test@example.com",
+        }),
+        group: expect.objectContaining({ id: "test-group" }),
+      },
+    ]);
   });
 
   it("should match learned pattern when email has display name format", async () => {
@@ -1287,17 +1344,18 @@ describe("findMatchingRule", () => {
     });
     const emailAccount = getEmailAccount();
 
-    const result = await findMatchingRule({
+    const result = await findMatchingRules({
       rules,
       message,
       emailAccount,
       provider,
       modelType: "default",
+      logger,
     });
 
     // Should match despite the display name format, due to the group rule
-    expect(result.rule?.id).toBe(rule.id);
-    expect(result.reason).toBe(
+    expect(result.matches[0]?.rule.id).toBe(rule.id);
+    expect(result.reasoning).toBe(
       `Matched learned pattern: "FROM: central@example.com"`,
     );
     expect(aiChooseRule).not.toHaveBeenCalled();
@@ -1325,10 +1383,11 @@ describe("filterToReplyPreset", () => {
       headers: getHeaders({ from: "noreply@company.com" }),
     });
 
-    const result = await filterToReplyPreset(
+    const result = await filterConversationStatusRules(
       potentialMatches,
       message,
       provider,
+      logger,
     );
 
     expect(result).toHaveLength(1);
@@ -1355,10 +1414,11 @@ describe("filterToReplyPreset", () => {
       headers: getHeaders({ from: "user@example.com" }),
     });
 
-    const result = await filterToReplyPreset(
+    const result = await filterConversationStatusRules(
       potentialMatches,
       message,
       provider,
+      logger,
     );
 
     // Should return all rules when no TO_REPLY rule exists
@@ -1399,10 +1459,11 @@ describe("filterToReplyPreset", () => {
       headers: getHeaders({ from: "sender@example.com" }),
     });
 
-    const result = await filterToReplyPreset(
+    const result = await filterConversationStatusRules(
       potentialMatches,
       message,
       provider,
+      logger,
     );
 
     // Should filter out TO_REPLY rule
@@ -1447,10 +1508,11 @@ describe("filterToReplyPreset", () => {
       headers: getHeaders({ from: "friend@example.com" }),
     });
 
-    const result = await filterToReplyPreset(
+    const result = await filterConversationStatusRules(
       potentialMatches,
       message,
       provider,
+      logger,
     );
 
     // Should keep TO_REPLY rule because sender has replied before
@@ -1484,10 +1546,11 @@ describe("filterToReplyPreset", () => {
       headers: getHeaders({ from: "newcontact@example.com" }),
     });
 
-    const result = await filterToReplyPreset(
+    const result = await filterConversationStatusRules(
       potentialMatches,
       message,
       provider,
+      logger,
     );
 
     // Should keep TO_REPLY rule because received count is low
@@ -1517,10 +1580,11 @@ describe("filterToReplyPreset", () => {
         headers: getHeaders({ from: email }),
       });
 
-      const result = await filterToReplyPreset(
+      const result = await filterConversationStatusRules(
         [toReplyRule],
         message,
         provider,
+        logger,
       );
 
       // All no-reply variations should return the rule (not filtered)
@@ -1550,10 +1614,11 @@ describe("filterToReplyPreset", () => {
       headers: getHeaders({ from: "user@example.com" }),
     });
 
-    const result = await filterToReplyPreset(
+    const result = await filterConversationStatusRules(
       potentialMatches,
       message,
       provider,
+      logger,
     );
 
     // Should return all rules when error occurs
@@ -1575,10 +1640,11 @@ describe("filterToReplyPreset", () => {
       headers: getHeaders({ from: "" }),
     });
 
-    const result = await filterToReplyPreset(
+    const result = await filterConversationStatusRules(
       potentialMatches,
       message,
       provider,
+      logger,
     );
 
     // Should return all rules when no sender email
@@ -1587,19 +1653,16 @@ describe("filterToReplyPreset", () => {
   });
 });
 
-function getRule(
-  overrides: Partial<RuleWithActionsAndCategories> = {},
-): RuleWithActionsAndCategories {
+function getRule(overrides: Partial<RuleWithActions> = {}): RuleWithActions {
   return {
     id: "r123",
     userId: "userId",
     runOnThreads: true,
     conditionalOperator: LogicalOperator.AND,
-    categoryFilters: [],
-    categoryFilterType: CategoryFilterType.INCLUDE,
     type: null,
+    systemType: null,
     ...overrides,
-  } as RuleWithActionsAndCategories;
+  } as RuleWithActions;
 }
 
 function getHeaders(
@@ -1619,18 +1682,6 @@ function getMessage(overrides: Partial<ParsedMessage> = {}): ParsedMessage {
   };
 
   return message as ParsedMessage;
-}
-
-function getCategory(overrides: Partial<Category> = {}): Category {
-  return {
-    id: "category1",
-    name: "category",
-    createdAt: new Date(),
-    updatedAt: new Date(),
-    emailAccountId: "emailAccountId",
-    description: null,
-    ...overrides,
-  };
 }
 
 function getGroup(
@@ -1664,23 +1715,890 @@ function getGroupItem(overrides: Partial<GroupItem> = {}): GroupItem {
   };
 }
 
-function getNewsletter(overrides: Partial<Newsletter> = {}): Newsletter {
-  return {
-    id: "newsletter1",
-    createdAt: new Date(),
-    updatedAt: new Date(),
-    userId: "userId",
-    email: "test@example.com",
-    status: null,
-    categoryId: "category1",
-    ...overrides,
-  } as Newsletter;
-}
+describe("findMatchingRules - Integration Tests", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("should detect and return cold email when enabled", async () => {
+    const coldEmailRule = getRule({
+      id: "cold-email-rule",
+      systemType: SystemType.COLD_EMAIL,
+    });
+
+    vi.mocked(getColdEmailRule).mockResolvedValue(coldEmailRule);
+    vi.mocked(isColdEmailRuleEnabled).mockReturnValue(true);
+    vi.mocked(isColdEmail).mockResolvedValue({
+      isColdEmail: true,
+      reason: "ai",
+    });
+    vi.mocked(prisma.rule.findUniqueOrThrow).mockResolvedValue(coldEmailRule);
+
+    const rules = [coldEmailRule];
+    const message = getMessage({
+      headers: getHeaders({ from: "coldemailer@example.com" }),
+    });
+    const emailAccount = getEmailAccount();
+
+    const result = await findMatchingRules({
+      rules,
+      message,
+      emailAccount,
+      provider,
+      modelType: "default",
+      logger,
+    });
+
+    expect(getColdEmailRule).toHaveBeenCalledWith(emailAccount.id);
+    expect(isColdEmailRuleEnabled).toHaveBeenCalledWith(coldEmailRule);
+    expect(isColdEmail).toHaveBeenCalledWith({
+      email: expect.any(Object),
+      emailAccount,
+      provider,
+      modelType: "default",
+      coldEmailRule,
+    });
+
+    expect(result.matches[0]?.rule.id).toBe("cold-email-rule");
+    expect(result.reasoning).toBe("ai");
+  });
+
+  it("should skip cold email detection when rule is not enabled", async () => {
+    const coldEmailRule = getRule({
+      id: "cold-email-rule",
+      systemType: SystemType.COLD_EMAIL,
+    });
+
+    const normalRule = getRule({
+      id: "normal-rule",
+      from: "test@example.com",
+    });
+
+    vi.mocked(getColdEmailRule).mockResolvedValue(coldEmailRule);
+    vi.mocked(isColdEmailRuleEnabled).mockReturnValue(false);
+
+    const rules = [coldEmailRule, normalRule];
+    const message = getMessage({
+      headers: getHeaders({ from: "test@example.com" }),
+    });
+    const emailAccount = getEmailAccount();
+
+    const result = await findMatchingRules({
+      rules,
+      message,
+      emailAccount,
+      provider,
+      modelType: "default",
+      logger,
+    });
+
+    expect(getColdEmailRule).toHaveBeenCalledWith(emailAccount.id);
+    expect(isColdEmailRuleEnabled).toHaveBeenCalledWith(coldEmailRule);
+    expect(isColdEmail).not.toHaveBeenCalled();
+
+    // Should match the normal rule instead
+    expect(result.matches[0]?.rule.id).toBe("normal-rule");
+  });
+
+  it("should continue to other rules when email is not cold", async () => {
+    const coldEmailRule = getRule({
+      id: "cold-email-rule",
+      systemType: SystemType.COLD_EMAIL,
+    });
+
+    const normalRule = getRule({
+      id: "normal-rule",
+      from: "test@example.com",
+    });
+
+    vi.mocked(getColdEmailRule).mockResolvedValue(coldEmailRule);
+    vi.mocked(isColdEmailRuleEnabled).mockReturnValue(true);
+    vi.mocked(isColdEmail).mockResolvedValue({
+      isColdEmail: false,
+      reason: "hasPreviousEmail",
+    });
+
+    const rules = [coldEmailRule, normalRule];
+    const message = getMessage({
+      headers: getHeaders({ from: "test@example.com" }),
+    });
+    const emailAccount = getEmailAccount();
+
+    const result = await findMatchingRules({
+      rules,
+      message,
+      emailAccount,
+      provider,
+      modelType: "default",
+      logger,
+    });
+
+    expect(isColdEmail).toHaveBeenCalled();
+
+    // Should continue and match the normal rule
+    expect(result.matches[0]?.rule.id).toBe("normal-rule");
+  });
+
+  it("should match calendar rule when message has .ics attachment", async () => {
+    const calendarRule = getRule({
+      id: "calendar-rule",
+      systemType: SystemType.CALENDAR,
+    });
+
+    const rules = [calendarRule];
+    const message = getMessage({
+      headers: getHeaders(),
+      attachments: [
+        {
+          filename: "meeting.ics",
+          mimeType: "text/calendar",
+          size: 1024,
+          attachmentId: "attachment-1",
+          headers: {
+            "content-type": "text/calendar",
+            "content-description": "",
+            "content-transfer-encoding": "",
+            "content-id": "",
+          },
+        },
+      ],
+    });
+    const emailAccount = getEmailAccount();
+
+    const result = await findMatchingRules({
+      rules,
+      message,
+      emailAccount,
+      provider,
+      modelType: "default",
+      logger,
+    });
+
+    expect(result.matches[0]?.rule.id).toBe("calendar-rule");
+    expect(result.matches[0]?.matchReasons).toEqual([
+      { type: ConditionType.PRESET, systemType: SystemType.CALENDAR },
+    ]);
+  });
+
+  it("should execute AI rules when potentialAiMatches exist", async () => {
+    const aiRule = getRule({
+      id: "ai-rule",
+      instructions: "Archive promotional emails",
+      from: null,
+      to: null,
+      subject: null,
+      body: null,
+    });
+
+    vi.mocked(aiChooseRule).mockResolvedValue({
+      rules: [{ rule: aiRule as any }],
+      reason: "This is a promotional email",
+    });
+
+    const rules = [aiRule];
+    const message = getMessage();
+    const emailAccount = getEmailAccount();
+
+    const result = await findMatchingRules({
+      rules,
+      message,
+      emailAccount,
+      provider,
+      modelType: "default",
+      logger,
+    });
+
+    expect(aiChooseRule).toHaveBeenCalledWith(
+      expect.objectContaining({
+        email: expect.any(Object),
+        emailAccount,
+        modelType: "default",
+        rules: expect.arrayContaining([
+          expect.objectContaining({
+            id: "ai-rule",
+            instructions: "Archive promotional emails",
+          }),
+        ]),
+      }),
+    );
+
+    expect(result.matches[0]?.rule.id).toBe("ai-rule");
+    expect(result.matches[0]?.matchReasons).toEqual([
+      { type: ConditionType.AI },
+    ]);
+    expect(result.reasoning).toBe("This is a promotional email");
+  });
+
+  it("should prioritize learned patterns over AI rules", async () => {
+    const learnedPatternRule = getRule({
+      id: "learned-rule",
+      groupId: "group1",
+    });
+
+    const aiRule = getRule({
+      id: "ai-rule",
+      instructions: "Some AI instructions",
+    });
+
+    prisma.group.findMany.mockResolvedValue([
+      getGroup({
+        id: "group1",
+        items: [
+          getGroupItem({ type: GroupItemType.FROM, value: "test@example.com" }),
+        ],
+        rule: learnedPatternRule,
+      }),
+    ]);
+
+    const rules = [learnedPatternRule, aiRule];
+    const message = getMessage({
+      headers: getHeaders({ from: "test@example.com" }),
+    });
+    const emailAccount = getEmailAccount();
+
+    const result = await findMatchingRules({
+      rules,
+      message,
+      emailAccount,
+      provider,
+      modelType: "default",
+      logger,
+    });
+
+    // Should match via learned pattern
+    expect(result.matches[0]?.rule.id).toBe("learned-rule");
+    expect(result.matches[0]?.matchReasons?.[0]?.type).toBe(
+      ConditionType.LEARNED_PATTERN,
+    );
+
+    // AI should NOT be called because learned pattern matched
+    expect(aiChooseRule).not.toHaveBeenCalled();
+  });
+
+  it("should skip rules with runOnThreads=false when message is a thread", async () => {
+    const threadRule = getRule({
+      id: "thread-rule",
+      from: "test@example.com",
+      runOnThreads: false,
+    });
+
+    // Mock provider to return true for isReplyInThread
+    const threadProvider = {
+      isReplyInThread: vi.fn().mockReturnValue(true),
+    } as unknown as EmailProvider;
+
+    // Mock no previously executed rules in thread
+    prisma.executedRule.findMany.mockResolvedValue([]);
+
+    const rules = [threadRule];
+    const message = getMessage({
+      headers: getHeaders({ from: "test@example.com" }),
+    });
+    const emailAccount = getEmailAccount();
+
+    const result = await findMatchingRules({
+      rules,
+      message,
+      emailAccount,
+      provider: threadProvider,
+      modelType: "default",
+      logger,
+    });
+
+    // Rule should not match because it's a thread and runOnThreads=false
+    expect(result.matches).toHaveLength(0);
+  });
+
+  describe("filterMultipleSystemRules branches", () => {
+    it("returns all system rules when none marked primary (plus conversation rules)", () => {
+      const sysA: {
+        name: string;
+        instructions: string;
+        systemType: string | null;
+      } = {
+        name: "Sys A",
+        instructions: "",
+        systemType: "TO_REPLY",
+      };
+      const sysB: {
+        name: string;
+        instructions: string;
+        systemType: string | null;
+      } = {
+        name: "Sys B",
+        instructions: "",
+        systemType: "AWAITING_REPLY",
+      };
+      const conv: {
+        name: string;
+        instructions: string;
+        systemType: string | null;
+      } = {
+        name: "Conv",
+        instructions: "",
+        systemType: null,
+      };
+
+      const result = filterMultipleSystemRules([
+        { rule: sysA, isPrimary: false },
+        { rule: sysB },
+        { rule: conv },
+      ]);
+
+      expect(result).toEqual([sysA, sysB, conv]);
+    });
+
+    it("keeps only the primary system rule when multiple system rules present", () => {
+      const sysA: {
+        name: string;
+        instructions: string;
+        systemType: string | null;
+      } = {
+        name: "Sys A",
+        instructions: "",
+        systemType: "TO_REPLY",
+      };
+      const sysB: {
+        name: string;
+        instructions: string;
+        systemType: string | null;
+      } = {
+        name: "Sys B",
+        instructions: "",
+        systemType: "AWAITING_REPLY",
+      };
+      const conv: {
+        name: string;
+        instructions: string;
+        systemType: string | null;
+      } = {
+        name: "Conv",
+        instructions: "",
+        systemType: null,
+      };
+
+      const result = filterMultipleSystemRules([
+        { rule: sysA, isPrimary: false },
+        { rule: sysB, isPrimary: true },
+        { rule: conv },
+      ]);
+
+      expect(result).toEqual([sysB, conv]);
+    });
+  });
+
+  describe("Group rules fallthrough when no groups exist", () => {
+    it("falls through to static/AI evaluation when getGroupsWithRules returns empty", async () => {
+      const groupRule = getRule({
+        id: "group-rule-1",
+        from: "group@example.com",
+        groupId: "g1",
+      });
+
+      // Ensure provider treats this as non-thread
+      const providerNoThread = {
+        isReplyInThread: vi.fn().mockReturnValue(false),
+      } as unknown as EmailProvider;
+
+      // Mock groups to be empty so the code path skips learned pattern branch
+      const groupModule = await import("@/utils/group/find-matching-group");
+      vi.spyOn(groupModule, "getGroupsWithRules").mockResolvedValue([] as any);
+
+      const rules = [groupRule];
+      const message = getMessage({
+        headers: getHeaders({ from: "group@example.com" }),
+      });
+      const emailAccount = getEmailAccount();
+
+      const result = await findMatchingRules({
+        rules,
+        message,
+        emailAccount,
+        provider: providerNoThread,
+        modelType: "default",
+        logger,
+      });
+
+      // Should match via static evaluation since groups are empty
+      expect(result.matches).toHaveLength(1);
+      expect(result.matches[0]?.rule.id).toBe("group-rule-1");
+    });
+  });
+  describe("Thread continuity - runOnThreads=false rules", () => {
+    it("should continue applying rule in a thread when it was previously applied", async () => {
+      const notifRule = getRule({
+        id: "notif-rule",
+        from: "notif@example.com",
+        runOnThreads: false,
+      });
+
+      // Mock provider to indicate this is a thread
+      const threadProvider = {
+        isReplyInThread: vi.fn().mockReturnValue(true),
+      } as unknown as EmailProvider;
+
+      // Mock DB to return previously executed rule id
+      prisma.executedRule.findMany.mockResolvedValue([
+        { ruleId: "notif-rule" },
+      ] as any);
+
+      const rules = [notifRule];
+      const message = getMessage({
+        headers: getHeaders({ from: "notif@example.com" }),
+      });
+      const emailAccount = getEmailAccount();
+
+      const result = await findMatchingRules({
+        rules,
+        message,
+        emailAccount,
+        provider: threadProvider,
+        modelType: "default",
+        logger,
+      });
+
+      expect(prisma.executedRule.findMany).toHaveBeenCalledTimes(1);
+      expect(result.matches).toHaveLength(1);
+      expect(result.matches[0]?.rule.id).toBe("notif-rule");
+    });
+
+    it("should lazy-load previous rules only once for multiple runOnThreads=false rules", async () => {
+      const ruleA = getRule({
+        id: "rule-a",
+        from: "multi@example.com",
+        runOnThreads: false,
+      });
+      const ruleB = getRule({
+        id: "rule-b",
+        from: "multi@example.com",
+        runOnThreads: false,
+      });
+
+      const threadProvider = {
+        isReplyInThread: vi.fn().mockReturnValue(true),
+      } as unknown as EmailProvider;
+
+      prisma.executedRule.findMany.mockResolvedValue([
+        { ruleId: "rule-a" },
+        { ruleId: "rule-b" },
+      ] as any);
+
+      const rules = [ruleA, ruleB];
+      const message = getMessage({
+        headers: getHeaders({ from: "multi@example.com" }),
+      });
+      const emailAccount = getEmailAccount();
+
+      const result = await findMatchingRules({
+        rules,
+        message,
+        emailAccount,
+        provider: threadProvider,
+        modelType: "default",
+        logger,
+      });
+
+      expect(prisma.executedRule.findMany).toHaveBeenCalledTimes(1);
+      expect(result.matches.map((m) => m.rule.id).sort()).toEqual([
+        "rule-a",
+        "rule-b",
+      ]);
+    });
+
+    it("should not query DB when message is not a thread", async () => {
+      const notifRule = getRule({
+        id: "not-thread",
+        from: "no-thread@example.com",
+        runOnThreads: false,
+      });
+
+      const providerNotThread = {
+        isReplyInThread: vi.fn().mockReturnValue(false),
+      } as unknown as EmailProvider;
+
+      const rules = [notifRule];
+      const message = getMessage({
+        headers: getHeaders({ from: "no-thread@example.com" }),
+      });
+      const emailAccount = getEmailAccount();
+
+      const result = await findMatchingRules({
+        rules,
+        message,
+        emailAccount,
+        provider: providerNotThread,
+        modelType: "default",
+        logger,
+      });
+
+      expect(prisma.executedRule.findMany).not.toHaveBeenCalled();
+      // Not a thread, so normal matching applies (matches by static from)
+      expect(result.matches).toHaveLength(1);
+      expect(result.matches[0]?.rule.id).toBe("not-thread");
+    });
+
+    it("should not query DB when rule has runOnThreads=true (even in a thread)", async () => {
+      const threadRule = getRule({
+        id: "thread-ok",
+        from: "yes-thread@example.com",
+        runOnThreads: true,
+      });
+
+      const threadProvider = {
+        isReplyInThread: vi.fn().mockReturnValue(true),
+      } as unknown as EmailProvider;
+
+      const rules = [threadRule];
+      const message = getMessage({
+        headers: getHeaders({ from: "yes-thread@example.com" }),
+      });
+      const emailAccount = getEmailAccount();
+
+      const result = await findMatchingRules({
+        rules,
+        message,
+        emailAccount,
+        provider: threadProvider,
+        modelType: "default",
+        logger,
+      });
+
+      expect(prisma.executedRule.findMany).not.toHaveBeenCalled();
+      expect(result.matches).toHaveLength(1);
+      expect(result.matches[0]?.rule.id).toBe("thread-ok");
+    });
+  });
+
+  it("should handle invalid regex patterns gracefully", () => {
+    const rule = getRule({
+      from: "[invalid(regex",
+    });
+
+    const message = getMessage({
+      headers: getHeaders({ from: "test@example.com" }),
+    });
+
+    // Should not throw, just return false
+    expect(() => matchesStaticRule(rule, message, logger)).not.toThrow();
+    const result = matchesStaticRule(rule, message, logger);
+    expect(result).toBe(false);
+  });
+
+  it("should combine static match with AI potentialMatch correctly", async () => {
+    const mixedRule = getRule({
+      id: "mixed-rule",
+      from: "test@example.com",
+      instructions: "Archive if promotional",
+      conditionalOperator: LogicalOperator.AND,
+    });
+
+    vi.mocked(aiChooseRule).mockResolvedValue({
+      rules: [{ rule: mixedRule as any }],
+      reason: "Email is promotional",
+    });
+
+    const rules = [mixedRule];
+    const message = getMessage({
+      headers: getHeaders({ from: "test@example.com" }),
+    });
+    const emailAccount = getEmailAccount();
+
+    const result = await findMatchingRules({
+      rules,
+      message,
+      emailAccount,
+      provider,
+      modelType: "default",
+      logger,
+    });
+
+    // Static matched, so should be sent to AI for AND check
+    expect(aiChooseRule).toHaveBeenCalled();
+    expect(result.matches[0]?.rule.id).toBe("mixed-rule");
+  });
+
+  it("merges static match with AI rule and combines reasoning text", async () => {
+    const staticRule = getRule({
+      id: "static-rule-1",
+      from: "reason@example.com",
+    });
+    const aiOnlyRule = getRule({ id: "ai-rule-2", instructions: "Do X" });
+
+    // Ensure potentialAiMatches includes aiOnlyRule
+    vi.mocked(aiChooseRule).mockResolvedValue({
+      rules: [aiOnlyRule as any],
+      reason: "AI reasoning here",
+    });
+
+    const rules = [staticRule, aiOnlyRule];
+    const message = getMessage({
+      headers: getHeaders({ from: "reason@example.com" }),
+    });
+    const emailAccount = getEmailAccount();
+
+    const result = await findMatchingRules({
+      rules,
+      message,
+      emailAccount,
+      provider,
+      modelType: "default",
+      logger,
+    });
+
+    // Reasoning should combine existing matchReasons text + AI reason
+    // existing part comes from getMatchReason => "Matched static conditions"
+    expect(result.reasoning).toBe(
+      "Matched static conditions; AI reasoning here",
+    );
+  });
+
+  it("matchesStaticRule: catches RegExp construction error and returns false", () => {
+    const rule = getRule({ from: "trigger-error" });
+    const message = getMessage({
+      headers: getHeaders({ from: "any@example.com" }),
+    });
+
+    const OriginalRegExp = RegExp;
+    // Monkeypatch RegExp to throw for our specific pattern
+    // Only for this test; restore afterwards
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (globalThis as any).RegExp = ((pattern: string) => {
+      if (pattern.includes("trigger-error")) {
+        throw new Error("synthetic error");
+      }
+      // Delegate to original
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      return new (OriginalRegExp as any)(pattern);
+    }) as unknown as RegExpConstructor;
+
+    try {
+      const matched = matchesStaticRule(rule as any, message as any, logger);
+      expect(matched).toBe(false);
+    } finally {
+      // restore
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (globalThis as any).RegExp =
+        OriginalRegExp as unknown as RegExpConstructor;
+    }
+  });
+
+  it("AI path: returns only AI reasoning when no static matches and AI returns no rules", async () => {
+    const aiOnlyRule = getRule({ id: "ai-only-1", instructions: "Do Y" });
+
+    vi.mocked(aiChooseRule).mockResolvedValue({
+      rules: [],
+      reason: "AI had reasoning but selected nothing",
+    });
+
+    const rules = [aiOnlyRule];
+    const message = getMessage({
+      // No static matchers
+      headers: getHeaders({ from: "nobody@example.com" }),
+    });
+    const emailAccount = getEmailAccount();
+
+    const result = await findMatchingRules({
+      rules,
+      message,
+      emailAccount,
+      provider,
+      modelType: "default",
+      logger,
+    });
+
+    expect(result.matches.map((m) => m.rule.id)).toEqual([]);
+    expect(result.reasoning).toBe("AI had reasoning but selected nothing");
+  });
+
+  it("AI path: dedups AI-selected rule when it duplicates a static match", async () => {
+    const dupRule = getRule({
+      id: "dup-rule",
+      from: "dup@example.com",
+      instructions: "Use AI too",
+      runOnThreads: true,
+    });
+
+    vi.mocked(aiChooseRule).mockResolvedValue({
+      rules: [{ rule: dupRule as any }],
+      reason: "AI selects dup-rule",
+    });
+
+    const rules = [dupRule];
+    const message = getMessage({
+      headers: getHeaders({ from: "dup@example.com" }),
+    });
+    const emailAccount = getEmailAccount();
+
+    const spy = vi.spyOn(provider, "isReplyInThread").mockReturnValue(false);
+    try {
+      const result = await findMatchingRules({
+        rules,
+        message,
+        emailAccount,
+        provider,
+        modelType: "default",
+        logger,
+      });
+
+      // Only one occurrence of dup-rule should remain
+      const ids = result.matches.map((m) => m.rule.id);
+      expect(ids).toEqual(["dup-rule"]);
+      expect(result.reasoning).toContain("AI selects dup-rule");
+    } finally {
+      spy.mockRestore();
+    }
+  });
+});
+
+describe("evaluateRuleConditions", () => {
+  it("should match STATIC condition", () => {
+    const rule = getRule({ from: "test@example.com" });
+    const message = getMessage({
+      headers: getHeaders({ from: "test@example.com" }),
+    });
+
+    const result = evaluateRuleConditions({ rule, message, logger });
+
+    expect(result.matched).toBe(true);
+    expect(result.potentialAiMatch).toBe(false);
+    expect(result.matchReasons).toEqual([{ type: ConditionType.STATIC }]);
+  });
+
+  it("should not match when STATIC condition fails", () => {
+    const rule = getRule({ from: "test@example.com" });
+    const message = getMessage({
+      headers: getHeaders({ from: "other@example.com" }),
+    });
+
+    const result = evaluateRuleConditions({ rule, message, logger });
+
+    expect(result.matched).toBe(false);
+    expect(result.potentialAiMatch).toBe(false);
+    expect(result.matchReasons).toEqual([]);
+  });
+
+  it("should return potentialAiMatch for AI-only rule", () => {
+    const rule = getRule({
+      instructions: "Some AI instructions",
+      from: null,
+      to: null,
+      subject: null,
+      body: null,
+    });
+    const message = getMessage();
+
+    const result = evaluateRuleConditions({ rule, message, logger });
+
+    expect(result.matched).toBe(false);
+    expect(result.potentialAiMatch).toBe(true);
+    expect(result.matchReasons).toEqual([]);
+  });
+
+  it("OR: should match immediately with STATIC, ignoring AI", () => {
+    const rule = getRule({
+      conditionalOperator: LogicalOperator.OR,
+      from: "test@example.com",
+      instructions: "Some AI instructions",
+    });
+    const message = getMessage({
+      headers: getHeaders({ from: "test@example.com" }),
+    });
+
+    const result = evaluateRuleConditions({ rule, message, logger });
+
+    expect(result.matched).toBe(true);
+    expect(result.potentialAiMatch).toBe(false);
+    expect(result.matchReasons).toEqual([{ type: ConditionType.STATIC }]);
+  });
+
+  it("OR: should return potentialAiMatch when STATIC fails but has AI", () => {
+    const rule = getRule({
+      conditionalOperator: LogicalOperator.OR,
+      from: "test@example.com",
+      instructions: "Some AI instructions",
+    });
+    const message = getMessage({
+      headers: getHeaders({ from: "other@example.com" }),
+    });
+
+    const result = evaluateRuleConditions({ rule, message, logger });
+
+    expect(result.matched).toBe(false);
+    expect(result.potentialAiMatch).toBe(true);
+    expect(result.matchReasons).toEqual([]);
+  });
+
+  it("AND: should return potentialAiMatch when STATIC passes and has AI", () => {
+    const rule = getRule({
+      conditionalOperator: LogicalOperator.AND,
+      from: "test@example.com",
+      instructions: "Some AI instructions",
+    });
+    const message = getMessage({
+      headers: getHeaders({ from: "test@example.com" }),
+    });
+
+    const result = evaluateRuleConditions({ rule, message, logger });
+
+    expect(result.matched).toBe(false);
+    expect(result.potentialAiMatch).toBe(true);
+    expect(result.matchReasons).toEqual([{ type: ConditionType.STATIC }]);
+  });
+
+  it("AND: should not match when STATIC fails even with AI", () => {
+    const rule = getRule({
+      conditionalOperator: LogicalOperator.AND,
+      from: "test@example.com",
+      instructions: "Some AI instructions",
+    });
+    const message = getMessage({
+      headers: getHeaders({ from: "other@example.com" }),
+    });
+
+    const result = evaluateRuleConditions({ rule, message, logger });
+
+    expect(result.matched).toBe(false);
+    expect(result.potentialAiMatch).toBe(false);
+    expect(result.matchReasons).toEqual([]);
+  });
+
+  it("should NOT match when no conditions are present", () => {
+    const rule = getRule({
+      from: null,
+      to: null,
+      subject: null,
+      body: null,
+      instructions: null,
+    });
+    const message = getMessage();
+
+    const result = evaluateRuleConditions({ rule, message, logger });
+
+    expect(result.matched).toBe(false);
+    expect(result.potentialAiMatch).toBe(false);
+    expect(result.matchReasons).toEqual([]);
+  });
+
+  it("OR: should not match when STATIC fails and no AI condition", () => {
+    const rule = getRule({
+      conditionalOperator: LogicalOperator.OR,
+      from: "test@example.com",
+      instructions: null,
+    });
+    const message = getMessage({
+      headers: getHeaders({ from: "other@example.com" }),
+    });
+
+    const result = evaluateRuleConditions({ rule, message, logger });
+
+    expect(result.matched).toBe(false);
+    expect(result.potentialAiMatch).toBe(false);
+    expect(result.matchReasons).toEqual([]);
+  });
+});
 
 function getStaticRule(
-  rule: Partial<
-    Pick<RuleWithActionsAndCategories, "from" | "to" | "subject" | "body">
-  >,
+  rule: Partial<Pick<RuleWithActions, "from" | "to" | "subject" | "body">>,
 ) {
   return {
     from: null,

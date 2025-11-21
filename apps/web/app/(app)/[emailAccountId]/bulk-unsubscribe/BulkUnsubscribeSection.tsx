@@ -35,7 +35,6 @@ import {
   BulkUnsubscribeRowDesktop,
 } from "@/app/(app)/[emailAccountId]/bulk-unsubscribe/BulkUnsubscribeDesktop";
 import { Card } from "@/components/ui/card";
-import { ShortcutTooltip } from "@/app/(app)/[emailAccountId]/bulk-unsubscribe/ShortcutTooltip";
 import { SearchBar } from "@/app/(app)/[emailAccountId]/bulk-unsubscribe/SearchBar";
 import { useToggleSelect } from "@/hooks/useToggleSelect";
 import { BulkActions } from "@/app/(app)/[emailAccountId]/bulk-unsubscribe/BulkActions";
@@ -273,10 +272,6 @@ export function BulkUnsubscribe() {
             />
           </div>
 
-          <div className="hidden md:block">
-            <ShortcutTooltip />
-          </div>
-
           <SearchBar onSearch={setSearch} />
 
           <DetailedStatsFilter
@@ -403,6 +398,7 @@ export function BulkUnsubscribe() {
         newsletter={openedNewsletter}
         onClose={() => setOpenedNewsletter(undefined)}
         refreshInterval={refreshInterval}
+        mutate={mutate}
       />
       <PremiumModal />
     </PageWrapper>

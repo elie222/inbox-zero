@@ -83,7 +83,7 @@ Return the analysis as a JSON array of objects.`;
   const modelOptions = getModel(emailAccount.user, "economy");
 
   const generateObject = createGenerateObject({
-    userEmail: emailAccount.email,
+    emailAccount,
     label: "email-report-summary-generation",
     modelOptions,
   });

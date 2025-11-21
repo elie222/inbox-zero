@@ -98,7 +98,7 @@ function selectModel(
       };
     }
     case Provider.OPENROUTER: {
-      const modelName = aiModel || Model.CLAUDE_4_SONNET_OPENROUTER;
+      const modelName = aiModel || Model.CLAUDE_4_5_SONNET_OPENROUTER;
       const openrouter = createOpenRouter({
         apiKey: aiApiKey || env.OPENROUTER_API_KEY,
         headers: {
@@ -118,9 +118,8 @@ function selectModel(
     }
     case Provider.AI_GATEWAY: {
       const modelName = aiModel || Model.GEMINI_2_5_PRO_OPENROUTER;
-      const gateway = createGateway({
-        apiKey: aiApiKey || env.AI_GATEWAY_API_KEY,
-      });
+      const aiGatewayApiKey = aiApiKey || env.AI_GATEWAY_API_KEY;
+      const gateway = createGateway({ apiKey: aiGatewayApiKey });
       return {
         provider: Provider.AI_GATEWAY,
         modelName,

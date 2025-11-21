@@ -10,24 +10,26 @@ generator client {
 
 // Account, User, Session, and VerificationToken based on: https://authjs.dev/reference/adapter/prisma
 model Account {
-  id                String        @id @default(cuid())
-  createdAt         DateTime      @default(now())
-  updatedAt         DateTime      @updatedAt
-  userId            String
-  provider          String
-  type              String        @default("oidc") // next-auth deprecated field
-  providerAccountId String
-  refresh_token     String?       @db.Text
-  access_token      String?       @db.Text
-  expires_at        DateTime?     @default(now())
-  token_type        String?
-  scope             String?
-  id_token          String?       @db.Text
-  session_state     String?
-  user              User          @relation(fields: [userId], references: [id], onDelete: Cascade)
-  emailAccount      EmailAccount?
+  id                    String        @id @default(cuid())
+  createdAt             DateTime      @default(now())
+  updatedAt             DateTime      @updatedAt
+  userId                String
+  provider              String
+  type                  String        @default("oidc") // next-auth deprecated field
+  providerAccountId     String
+  refresh_token         String?       @db.Text
+  refreshTokenExpiresAt DateTime?
+  access_token          String?       @db.Text
+  expires_at            DateTime?     @default(now())
+  token_type            String?
+  scope                 String?
+  id_token              String?       @db.Text
+  session_state         String?
+  user                  User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  emailAccount          EmailAccount?
 
   @@unique([provider, providerAccountId])
+  @@index([userId])
 }
 
 // not in use. we only use jwt for sessions
@@ -44,6 +46,9 @@ model Session {
 
   activeOrganizationId String?
   activeOrganization   Organization? @relation(fields: [activeOrganizationId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([activeOrganizationId])
 }
 
 model User {
@@ -108,31 +113,29 @@ model EmailAccount {
   name  String? // Name associated with the Google account
   image String? // Profile image URL from the Google account
 
-  about                     String?
-  writingStyle              String?
-  signature                 String? // User's email signature from provider or manually set
-  includeReferralSignature  Boolean   @default(true)
-  watchEmailsExpirationDate DateTime?
-  watchEmailsSubscriptionId String? // For Outlook subscription ID
-  lastSyncedHistoryId       String?
-  behaviorProfile           Json?
-  personaAnalysis           Json? // ai analysis of the user's persona
-  role                      String? // the role confirmed by the user - previously `User.surveyRole`
+  about                          String?
+  writingStyle                   String?
+  signature                      String? // User's email signature from provider or manually set
+  includeReferralSignature       Boolean   @default(true)
+  watchEmailsExpirationDate      DateTime?
+  watchEmailsSubscriptionId      String? // For Outlook subscription ID
+  watchEmailsSubscriptionHistory Json? // Historical Outlook subscription IDs: [{ subscriptionId, createdAt, replacedAt }]
+  lastSyncedHistoryId            String?
+  behaviorProfile                Json?
+  personaAnalysis                Json? // ai analysis of the user's persona
+  role                           String? // the role confirmed by the user - previously `User.surveyRole`
+  timezone                       String? // User's timezone (IANA tz database format, e.g., "America/Los_Angeles", "Asia/Jerusalem") - handles DST automatically
+  calendarBookingLink            String? // User's calendar booking link
 
-  statsEmailFrequency   Frequency         @default(WEEKLY)
-  summaryEmailFrequency Frequency         @default(WEEKLY)
-  lastSummaryEmailAt    DateTime?
-  coldEmailBlocker      ColdEmailSetting?
-  coldEmailDigest       Boolean           @default(false)
-  coldEmailPrompt       String?
-  rulesPrompt           String?
-  outboundReplyTracking Boolean           @default(false) // When true: manages "To Reply" and "Awaiting Reply" labels automatically
-  autoCategorizeSenders Boolean           @default(false)
-
-  // Configurable system labels (store stable IDs)
-  needsReplyLabelId     String? // Gmail: Label ID, Outlook: Category ID
-  awaitingReplyLabelId  String? // Gmail: Label ID, Outlook: Category ID
-  coldEmailLabelId      String? // Gmail: Label ID, Outlook: Category ID
+  statsEmailFrequency       Frequency         @default(WEEKLY)
+  summaryEmailFrequency     Frequency         @default(WEEKLY)
+  lastSummaryEmailAt        DateTime?
+  coldEmailBlocker          ColdEmailSetting? // @deprecated
+  coldEmailDigest           Boolean           @default(false) // @deprecated
+  coldEmailPrompt           String? // @deprecated
+  rulesPrompt               String? // @deprecated
+  autoCategorizeSenders     Boolean           @default(false)
+  multiRuleSelectionEnabled Boolean           @default(false)
 
   digestSchedule Schedule?
 
@@ -164,6 +167,7 @@ model EmailAccount {
   calendarConnections CalendarConnection[]
   mcpConnections      McpConnection[]
 
+  @@index([userId])
   @@index([lastSummaryEmailAt])
 }
 
@@ -206,6 +210,8 @@ model Invitation {
   inviterId      String
   inviter        EmailAccount @relation(fields: [inviterId], references: [id], onDelete: Cascade)
 
+  @@index([organizationId])
+  @@index([inviterId])
   @@map("invitation")
 }
 
@@ -232,6 +238,8 @@ model SsoProvider {
   organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   domain         String
 
+  @@index([emailAccountId])
+  @@index([organizationId])
   @@map("ssoProvider")
 }
 
@@ -258,11 +266,13 @@ model DigestItem {
   digestId    String
   digest      Digest          @relation(fields: [digestId], references: [id], onDelete: Cascade)
   actionId    String?
-  action      ExecutedAction? @relation(fields: [actionId], references: [id])
+  action      ExecutedAction? @relation(fields: [actionId], references: [id], onDelete: Cascade)
   coldEmailId String?
   coldEmail   ColdEmail?      @relation(fields: [coldEmailId], references: [id])
 
   @@unique([digestId, threadId, messageId])
+  @@index([actionId])
+  @@index([coldEmailId])
 }
 
 model Schedule {
@@ -407,8 +417,8 @@ model Rule {
 
   // category condition
   // only apply to (or do not apply to) senders in these categories
-  categoryFilterType CategoryFilterType?
-  categoryFilters    Category[]
+  categoryFilterType CategoryFilterType? // deprecated
+  categoryFilters    Category[] // deprecated
 
   systemType SystemType?
 
@@ -439,6 +449,8 @@ model Action {
   folderName     String?
   folderId       String?
   delayInMinutes Int?
+
+  @@index([ruleId])
 }
 
 model RuleHistory {
@@ -460,11 +472,11 @@ model RuleHistory {
   to                  String?
   subject             String?
   body                String?
-  categoryFilterType  String?
+  categoryFilterType  String? // deprecated
   systemType          String?
 
   actions         Json
-  categoryFilters Json?
+  categoryFilters Json? // deprecated
 
   @@unique([ruleId, version])
   @@index([ruleId, createdAt])
@@ -473,14 +485,15 @@ model RuleHistory {
 // Rule/Action models represent the rules and actions that the AI can take.
 // ExecutedRule/ExecutedAction models represent the rules/actions that have been planned or executed by the AI.
 model ExecutedRule {
-  id        String             @id @default(cuid())
-  createdAt DateTime           @default(now())
-  updatedAt DateTime           @updatedAt
-  threadId  String
-  messageId String
-  status    ExecutedRuleStatus
-  automated Boolean
-  reason    String?
+  id            String             @id @default(cuid())
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+  threadId      String
+  messageId     String
+  status        ExecutedRuleStatus
+  automated     Boolean
+  reason        String?
+  matchMetadata Json? // Stores structured match information (e.g., learned patterns, match types)
 
   // may be null if the rule was deleted
   ruleId String?
@@ -493,7 +506,8 @@ model ExecutedRule {
   actionItems      ExecutedAction[]
   scheduledActions ScheduledAction[]
 
-  @@unique([emailAccountId, threadId, messageId], name: "unique_emailAccount_thread_message")
+  @@index([emailAccountId, threadId, messageId, ruleId])
+  @@index([emailAccountId, messageId])
   @@index([emailAccountId, status, createdAt])
 }
 
@@ -523,6 +537,8 @@ model ExecutedAction {
   draftSendLog    DraftSendLog? // Will exist if the draft was sent
   digestItems     DigestItem[] // Relation to digest items created by this action
   scheduledAction ScheduledAction? // Reverse relation for delayed actions
+
+  @@index([executedRuleId])
 }
 
 model ScheduledAction {
@@ -554,9 +570,10 @@ model ScheduledAction {
   executedActionId String?   @unique
 
   executedRule   ExecutedRule    @relation(fields: [executedRuleId], references: [id], onDelete: Cascade)
-  executedAction ExecutedAction? @relation(fields: [executedActionId], references: [id])
+  executedAction ExecutedAction? @relation(fields: [executedActionId], references: [id], onDelete: Cascade)
   emailAccount   EmailAccount    @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
 
+  @@index([executedRuleId])
   @@index([status, scheduledFor])
   @@index([emailAccountId, messageId])
 }
@@ -634,6 +651,7 @@ model Newsletter {
 
   @@unique([email, emailAccountId])
   @@index([emailAccountId, status])
+  @@index([categoryId])
 }
 
 model ColdEmail {
@@ -664,6 +682,7 @@ model EmailMessage {
   messageId       String
   date            DateTime // date of the email
   from            String
+  fromName        String? // sender's display name
   fromDomain      String
   to              String
   unsubscribeLink String?
@@ -718,6 +737,8 @@ model CleanupJob {
   emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
 
   threads CleanupThread[]
+
+  @@index([emailAccountId])
 }
 
 model CleanupThread {
@@ -731,6 +752,8 @@ model CleanupThread {
 
   emailAccountId String
   emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
+
+  @@index([jobId])
 }
 
 model Knowledge {
@@ -769,6 +792,8 @@ model EmailToken {
 
   emailAccountId String
   emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
+
+  @@index([emailAccountId])
 }
 
 model Payment {
@@ -800,6 +825,8 @@ model Payment {
 
   // Metadata
   billingReason String? // initial, renewal, update, etc.
+
+  @@index([premiumId])
 }
 
 model DraftSendLog {
@@ -977,7 +1004,7 @@ enum ActionType {
   MARK_SPAM
   CALL_WEBHOOK
   MARK_READ
-  TRACK_THREAD
+  // TRACK_THREAD // @deprecated - No longer used. We rely on rule SystemType instead to run this.
   DIGEST
   MOVE_FOLDER
   // SUMMARIZE
@@ -1005,6 +1032,7 @@ enum ColdEmailStatus {
   USER_REJECTED_COLD
 }
 
+// @deprecated - No longer used
 enum ColdEmailSetting {
   DISABLED
   LIST
@@ -1068,7 +1096,14 @@ enum CleanAction {
 }
 
 enum SystemType {
+  // conversation trackers
   TO_REPLY
+  FYI
+  AWAITING_REPLY
+  ACTIONED
+  // cold email blocker
+  COLD_EMAIL
+  // other labels
   NEWSLETTER
   MARKETING
   CALENDAR

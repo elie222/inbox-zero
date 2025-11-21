@@ -75,11 +75,10 @@ export type UpdateExampleBody = z.infer<typeof updateExampleBody>;
 import { actionClient } from "@/utils/actions/safe-action";
 import { createExampleBody, updateExampleBody } from "@/utils/actions/example.validation";
 import prisma from "@/utils/prisma";
-import { revalidatePath } from "next/cache";
 
 export const createExampleAction = actionClient
   .metadata({ name: "createExample" })
-  .schema(createExampleBody)
+  .inputSchema(createExampleBody)
   .action(async ({ 
     ctx: { emailAccountId }, 
     parsedInput: { name, email, description } 
@@ -93,13 +92,12 @@ export const createExampleAction = actionClient
       },
     });
     
-    revalidatePath("/examples");
     return example;
   });
 
 export const updateExampleAction = actionClient
   .metadata({ name: "updateExample" })
-  .schema(updateExampleBody)
+  .inputSchema(updateExampleBody)
   .action(async ({ 
     ctx: { emailAccountId }, 
     parsedInput: { id, name, email, description } 
@@ -109,7 +107,6 @@ export const updateExampleAction = actionClient
       data: { name, email, description },
     });
     
-    revalidatePath("/examples");
     return example;
   });
 ```
@@ -258,7 +255,6 @@ export function Examples() {
 ### Performance
 - Use SWR for efficient data fetching and caching
 - Call `mutate()` after successful mutations to refresh data
-- Use `revalidatePath` in server actions for cache invalidation
 
 ### File Organization
 ```

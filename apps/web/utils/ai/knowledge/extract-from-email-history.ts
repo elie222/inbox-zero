@@ -90,7 +90,7 @@ export async function aiExtractFromEmailHistory({
     const modelOptions = getModel(emailAccount.user, "economy");
 
     const generateObject = createGenerateObject({
-      userEmail: emailAccount.email,
+      emailAccount,
       label: "Email history extraction",
       modelOptions,
     });

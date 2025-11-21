@@ -16,20 +16,21 @@ export default function Mail(props: {
   searchParams: Promise<{ type?: string; labelId?: string }>;
 }) {
   const searchParams = use(props.searchParams);
-  const query: ThreadsQuery = {};
-
-  // Handle different query params
-  if (searchParams.type === "label" && searchParams.labelId) {
-    query.labelId = searchParams.labelId;
-  } else if (searchParams.type) {
-    query.type = searchParams.type;
-  }
 
   const getKey = (
     pageIndex: number,
     previousPageData: ThreadsResponse | null,
   ) => {
     if (previousPageData && !previousPageData.nextPageToken) return null;
+
+    const query: ThreadsQuery = {};
+
+    // Handle different query params
+    if (searchParams.type === "label" && searchParams.labelId) {
+      query.labelId = searchParams.labelId;
+    } else if (searchParams.type) {
+      query.type = searchParams.type;
+    }
 
     // Append nextPageToken for subsequent pages
     if (pageIndex > 0 && previousPageData?.nextPageToken) {

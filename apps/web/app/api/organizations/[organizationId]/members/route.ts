@@ -7,23 +7,26 @@ export type OrganizationMembersResponse = Awaited<
   ReturnType<typeof getOrganizationMembers>
 >;
 
-export const GET = withAuth(async (request, { params }) => {
-  const { userId } = request.auth;
-  const { organizationId } = await params;
+export const GET = withAuth(
+  "organizations/members",
+  async (request, { params }) => {
+    const { userId } = request.auth;
+    const { organizationId } = await params;
 
-  if (!organizationId) {
-    return NextResponse.json(
-      { error: "Organization ID is required" },
-      { status: 400 },
-    );
-  }
+    if (!organizationId) {
+      return NextResponse.json(
+        { error: "Organization ID is required" },
+        { status: 400 },
+      );
+    }
 
-  await fetchAndCheckIsAdmin({ organizationId, userId });
+    await fetchAndCheckIsAdmin({ organizationId, userId });
 
-  const result = await getOrganizationMembers({ organizationId });
+    const result = await getOrganizationMembers({ organizationId });
 
-  return NextResponse.json(result);
-});
+    return NextResponse.json(result);
+  },
+);
 
 async function getOrganizationMembers({
   organizationId,

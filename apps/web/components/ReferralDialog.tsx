@@ -28,7 +28,7 @@ export function ReferralDialog() {
           <span className="font-semibold">Refer friend</span>
         </SidebarMenuButton>
       </DialogTrigger>
-      <DialogContent className="max-w-4xl">
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <Referrals />
       </DialogContent>
     </Dialog>
@@ -96,12 +96,12 @@ export function Referrals() {
   }
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6 sm:space-y-8">
       <div className="text-center">
-        <h1 className="text-3xl font-bold tracking-tight text-gray-900">
+        <h1 className="font-title text-2xl sm:text-3xl font-bold text-primary dark:text-foreground">
           Refer Friends, Get Rewards
         </h1>
-        <p className="mt-4 text-lg text-gray-600">
+        <p className="mt-3 sm:mt-4 text-sm sm:text-base px-2 text-muted-foreground">
           Share Inbox Zero with friends and get a free month for each friend who
           completes their trial
         </p>
@@ -118,21 +118,15 @@ export function Referrals() {
         <CardContent>
           {codeData?.code ? (
             <div className="space-y-4">
-              <div className="flex flex-col items-center justify-between rounded-lg border bg-gray-50 p-4 sm:flex-row">
-                <span className="font-mono text-2xl font-bold text-gray-900">
-                  {link}
-                </span>
-                {/* <Button
-                  onClick={() => copyToClipboard(link, "code")}
-                  variant="outline"
-                  size="sm"
-                >
-                  <Copy className="mr-2 h-4 w-4" />
-                  Copy Link
-                </Button> */}
+              <div className="rounded-lg border bg-gray-50 p-3 sm:p-4">
+                <div className="overflow-x-auto">
+                  <span className="font-mono text-sm sm:text-base lg:text-lg font-bold text-gray-900 break-all">
+                    {link}
+                  </span>
+                </div>
               </div>
 
-              <div className="flex gap-2">
+              <div className="flex flex-col sm:flex-row gap-2">
                 <Button
                   onClick={() => copyToClipboard(link, "link")}
                   variant="outline"
@@ -201,20 +195,20 @@ export function Referrals() {
 
 function ReferralDashboardSkeleton() {
   return (
-    <div className="space-y-8">
+    <div className="space-y-6 sm:space-y-8">
       <div className="text-center">
-        <Skeleton className="mx-auto h-10 w-96" />
-        <Skeleton className="mx-auto mt-4 h-6 w-[600px]" />
+        <Skeleton className="mx-auto h-8 sm:h-10 w-full max-w-sm" />
+        <Skeleton className="mx-auto mt-3 sm:mt-4 h-5 sm:h-6 w-full max-w-md" />
       </div>
 
       <Card>
         <CardHeader>
           <Skeleton className="h-6 w-40" />
-          <Skeleton className="mt-2 h-4 w-60" />
+          <Skeleton className="mt-2 h-4 w-full max-w-xs" />
         </CardHeader>
         <CardContent>
-          <Skeleton className="h-20 w-full" />
-          <div className="mt-4 flex gap-2">
+          <Skeleton className="h-16 sm:h-20 w-full" />
+          <div className="mt-4 flex flex-col sm:flex-row gap-2">
             <Skeleton className="h-10 flex-1" />
             <Skeleton className="h-10 flex-1" />
           </div>

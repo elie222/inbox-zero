@@ -1,195 +1,201 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import prisma from "@/utils/prisma";
-import { ColdEmailSetting, ColdEmailStatus } from "@prisma/client";
-import { blockColdEmail } from "./is-cold-email";
+import { isColdEmail, saveColdEmail } from "./is-cold-email";
 import { getEmailAccount } from "@/__tests__/helpers";
-import type { EmailProvider } from "@/utils/email/types";
-import { getOrCreateSystemLabelId } from "@/utils/label-config";
+import type { EmailForLLM } from "@/utils/types";
+import { ColdEmailStatus } from "@prisma/client";
+import prisma from "@/utils/prisma";
+import { extractEmailAddress } from "@/utils/email";
 
-// Mock dependencies
 vi.mock("server-only", () => ({}));
 
 vi.mock("@/utils/prisma", () => ({
   default: {
     coldEmail: {
-      upsert: vi.fn(),
-    },
-    emailAccount: {
       findUnique: vi.fn(),
-      update: vi.fn(),
+      upsert: vi.fn(),
     },
   },
 }));
 
-vi.mock("@/utils/label-config", () => ({
-  getOrCreateSystemLabelId: vi.fn(),
+vi.mock("@/utils/email", async () => {
+  const actual =
+    await vi.importActual<typeof import("@/utils/email")>("@/utils/email");
+  return {
+    ...actual,
+  };
+});
+
+vi.mock("@/utils/llms", () => ({
+  createGenerateObject: vi.fn(() => vi.fn()),
 }));
 
-describe("blockColdEmail", () => {
-  const mockProvider = {
-    labelMessage: vi.fn(),
-    archiveThread: vi.fn(),
-    markReadThread: vi.fn(),
-    moveThreadToFolder: vi.fn(),
-    getOrCreateOutlookFolderIdByName: vi.fn(),
-    name: "google",
-  } as unknown as EmailProvider;
+const mockProvider = {
+  hasPreviousCommunicationsWithSenderOrDomain: vi.fn().mockResolvedValue(false),
+};
 
-  const mockEmail = {
-    from: "sender@example.com",
-    id: "123",
-    threadId: "thread123",
-  };
-  const mockEmailAccount = {
-    ...getEmailAccount(),
-    coldEmailBlocker: ColdEmailSetting.LABEL,
-  };
-  const mockAiReason = "This is a cold email";
-
+describe("isColdEmail", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-
-    // Mock getOrCreateSystemLabelId to return a label ID
-    vi.mocked(getOrCreateSystemLabelId).mockResolvedValue("label123");
   });
 
-  it("should upsert cold email record in database", async () => {
-    await blockColdEmail({
-      provider: mockProvider,
-      email: mockEmail,
-      emailAccount: mockEmailAccount,
-      aiReason: mockAiReason,
+  it("should recognize a known cold email sender even when from field format differs", async () => {
+    const emailAccount = getEmailAccount({ id: "test-account-id" });
+    const normalizedEmail = "cold.sender@example.com";
+
+    // First, simulate saving a cold email with normalized email address
+    // This is what saveColdEmail does - it extracts just the email address
+    vi.mocked(prisma.coldEmail.upsert).mockResolvedValue({
+      id: "cold-email-id",
+      emailAccountId: emailAccount.id,
+      fromEmail: normalizedEmail,
+      status: ColdEmailStatus.AI_LABELED_COLD,
+      reason: "Test reason",
+      messageId: "msg1",
+      threadId: "thread1",
+      createdAt: new Date(),
+      updatedAt: new Date(),
     });
 
-    expect(prisma.coldEmail.upsert).toHaveBeenCalledWith({
+    await saveColdEmail({
+      email: {
+        from: normalizedEmail,
+        id: "msg1",
+        threadId: "thread1",
+      },
+      emailAccount,
+      aiReason: "Test reason",
+    });
+
+    // Now simulate a second email from the same sender but with a different format
+    // This is the bug scenario: the from field has a display name
+    const secondEmail: EmailForLLM = {
+      id: "msg2",
+      from: `"Cold Sender" <${normalizedEmail}>`,
+      to: emailAccount.email,
+      subject: "Another cold email",
+      content: "This is another cold email",
+      date: new Date(),
+    };
+
+    // Mock Prisma to return the cold email record when queried with normalized email
+    vi.mocked(prisma.coldEmail.findUnique).mockResolvedValue({
+      id: "cold-email-id",
+      emailAccountId: emailAccount.id,
+      fromEmail: normalizedEmail,
+      status: ColdEmailStatus.AI_LABELED_COLD,
+      reason: "Test reason",
+      messageId: "msg1",
+      threadId: "thread1",
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+
+    const result = await isColdEmail({
+      email: secondEmail,
+      emailAccount,
+      provider: mockProvider as never,
+      coldEmailRule: null,
+    });
+
+    // This test should pass after the fix - the sender should be recognized as cold
+    expect(result.isColdEmail).toBe(true);
+    expect(result.reason).toBe("ai-already-labeled");
+
+    // Verify that findUnique was called with the normalized email address
+    expect(prisma.coldEmail.findUnique).toHaveBeenCalledWith({
       where: {
         emailAccountId_fromEmail: {
-          emailAccountId: mockEmailAccount.id,
-          fromEmail: mockEmail.from,
+          emailAccountId: emailAccount.id,
+          fromEmail: normalizedEmail,
         },
-      },
-      update: { status: ColdEmailStatus.AI_LABELED_COLD },
-      create: {
         status: ColdEmailStatus.AI_LABELED_COLD,
-        fromEmail: mockEmail.from,
-        emailAccountId: mockEmailAccount.id,
-        reason: mockAiReason,
-        messageId: mockEmail.id,
-        threadId: mockEmail.threadId,
       },
+      select: { id: true },
     });
   });
 
-  it("should add cold email label when coldEmailBlocker is LABEL", async () => {
-    await blockColdEmail({
-      provider: mockProvider,
-      email: mockEmail,
-      emailAccount: mockEmailAccount,
-      aiReason: mockAiReason,
-    });
+  it("should handle various email formats consistently", async () => {
+    const emailAccount = getEmailAccount({ id: "test-account-id" });
+    const normalizedEmail = "sender@example.com";
 
-    expect(getOrCreateSystemLabelId).toHaveBeenCalledWith({
-      emailAccountId: mockEmailAccount.id,
-      type: "coldEmail",
-      provider: mockProvider,
-    });
-    expect(mockProvider.labelMessage).toHaveBeenCalledWith({
-      messageId: mockEmail.id,
-      labelId: "label123",
-    });
-  });
+    // Test different from field formats that should all resolve to the same normalized email
+    const emailFormats = [
+      normalizedEmail,
+      `<${normalizedEmail}>`,
+      `"Display Name" <${normalizedEmail}>`,
+      `Display Name <${normalizedEmail}>`,
+      `  ${normalizedEmail}  `, // with spaces
+    ];
 
-  it("should archive email when coldEmailBlocker is ARCHIVE_AND_LABEL", async () => {
-    const userWithArchive = {
-      ...mockEmailAccount,
-      coldEmailBlocker: ColdEmailSetting.ARCHIVE_AND_LABEL,
-    };
+    // Mock Prisma to return cold email for normalized email
+    vi.mocked(prisma.coldEmail.findUnique).mockImplementation(
+      (args) =>
+        new Promise((resolve) => {
+          const where = args?.where as
+            | {
+                emailAccountId_fromEmail: {
+                  emailAccountId: string;
+                  fromEmail: string;
+                };
+                status: ColdEmailStatus;
+              }
+            | undefined;
 
-    await blockColdEmail({
-      provider: mockProvider,
-      email: mockEmail,
-      emailAccount: userWithArchive,
-      aiReason: mockAiReason,
-    });
-
-    expect(mockProvider.labelMessage).toHaveBeenCalledWith({
-      messageId: mockEmail.id,
-      labelId: "label123",
-    });
-    expect(mockProvider.archiveThread).toHaveBeenCalledWith(
-      mockEmail.threadId,
-      userWithArchive.email,
+          if (
+            where?.emailAccountId_fromEmail.fromEmail === normalizedEmail &&
+            where.status === ColdEmailStatus.AI_LABELED_COLD
+          ) {
+            resolve({
+              id: "cold-email-id",
+              emailAccountId: emailAccount.id,
+              fromEmail: normalizedEmail,
+              status: ColdEmailStatus.AI_LABELED_COLD,
+              reason: "Test reason",
+              messageId: "msg1",
+              threadId: "thread1",
+              createdAt: new Date(),
+              updatedAt: new Date(),
+            } as never);
+          } else {
+            resolve(null as never);
+          }
+        }) as never,
     );
-  });
 
-  it("should archive and mark as read when coldEmailBlocker is ARCHIVE_AND_READ_AND_LABEL", async () => {
-    const userWithArchiveAndRead = {
-      ...mockEmailAccount,
-      coldEmailBlocker: ColdEmailSetting.ARCHIVE_AND_READ_AND_LABEL,
-    };
+    for (const fromFormat of emailFormats) {
+      vi.clearAllMocks();
 
-    await blockColdEmail({
-      provider: mockProvider,
-      email: mockEmail,
-      emailAccount: userWithArchiveAndRead,
-      aiReason: mockAiReason,
-    });
+      const email: EmailForLLM = {
+        id: "msg-test",
+        from: fromFormat,
+        to: emailAccount.email,
+        subject: "Test",
+        content: "Test content",
+        date: new Date(),
+      };
 
-    expect(mockProvider.labelMessage).toHaveBeenCalledWith({
-      messageId: mockEmail.id,
-      labelId: "label123",
-    });
-    expect(mockProvider.archiveThread).toHaveBeenCalledWith(
-      mockEmail.threadId,
-      userWithArchiveAndRead.email,
-    );
-    expect(mockProvider.markReadThread).toHaveBeenCalledWith(
-      mockEmail.threadId,
-      true,
-    );
-  });
+      const result = await isColdEmail({
+        email,
+        emailAccount,
+        provider: mockProvider as never,
+        coldEmailRule: null,
+      });
 
-  it("should throw error when user email is missing", async () => {
-    const userWithoutEmail = { ...mockEmailAccount, email: null as any };
+      expect(result.isColdEmail).toBe(true);
+      expect(result.reason).toBe("ai-already-labeled");
 
-    await expect(
-      blockColdEmail({
-        provider: mockProvider,
-        email: mockEmail,
-        emailAccount: userWithoutEmail,
-        aiReason: mockAiReason,
-      }),
-    ).rejects.toThrow("User email is required");
-  });
-
-  it("should handle missing label id", async () => {
-    vi.mocked(getOrCreateSystemLabelId).mockResolvedValue(null);
-
-    await blockColdEmail({
-      provider: mockProvider,
-      email: mockEmail,
-      emailAccount: mockEmailAccount,
-      aiReason: mockAiReason,
-    });
-
-    expect(getOrCreateSystemLabelId).toHaveBeenCalled();
-    expect(mockProvider.labelMessage).not.toHaveBeenCalled();
-  });
-
-  it("should not modify labels when coldEmailBlocker is DISABLED", async () => {
-    const userWithBlockerOff = {
-      ...mockEmailAccount,
-      coldEmailBlocker: ColdEmailSetting.DISABLED,
-    };
-
-    await blockColdEmail({
-      provider: mockProvider,
-      email: mockEmail,
-      emailAccount: userWithBlockerOff,
-      aiReason: mockAiReason,
-    });
-
-    expect(getOrCreateSystemLabelId).not.toHaveBeenCalled();
-    expect(mockProvider.labelMessage).not.toHaveBeenCalled();
+      // Verify extractEmailAddress was used to normalize
+      const expectedNormalized = extractEmailAddress(fromFormat);
+      expect(prisma.coldEmail.findUnique).toHaveBeenCalledWith({
+        where: {
+          emailAccountId_fromEmail: {
+            emailAccountId: emailAccount.id,
+            fromEmail: expectedNormalized,
+          },
+          status: ColdEmailStatus.AI_LABELED_COLD,
+        },
+        select: { id: true },
+      });
+    }
   });
 });

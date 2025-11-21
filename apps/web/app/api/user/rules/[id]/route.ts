@@ -18,7 +18,6 @@ async function getRule({
     where: { id: ruleId, emailAccount: { id: emailAccountId } },
     include: {
       actions: true,
-      categoryFilters: true,
     },
   });
 
@@ -42,20 +41,22 @@ async function getRule({
       folderName: { value: action.folderName },
       folderId: { value: action.folderId },
     })),
-    categoryFilters: rule.categoryFilters.map((category) => category.id),
     conditions: getConditions(rule),
   };
 
   return { rule: ruleWithActions };
 }
 
-export const GET = withEmailAccount(async (request, { params }) => {
-  const emailAccountId = request.auth.emailAccountId;
+export const GET = withEmailAccount(
+  "user/rules/detail",
+  async (request, { params }) => {
+    const emailAccountId = request.auth.emailAccountId;
 
-  const { id } = await params;
-  if (!id) return NextResponse.json({ error: "Missing rule id" });
+    const { id } = await params;
+    if (!id) return NextResponse.json({ error: "Missing rule id" });
 
-  const result = await getRule({ ruleId: id, emailAccountId });
+    const result = await getRule({ ruleId: id, emailAccountId });
 
-  return NextResponse.json(result);
-});
+    return NextResponse.json(result);
+  },
+);

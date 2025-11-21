@@ -93,7 +93,7 @@ async function getPastSevenDayStats({
   return lastSevenDaysCountsArray;
 }
 
-export const GET = withEmailProvider(async (request) => {
+export const GET = withEmailProvider("user/stats/day", async (request) => {
   const emailAccountId = request.auth.emailAccountId;
   const provider = request.emailProvider.name;
 
@@ -101,7 +101,11 @@ export const GET = withEmailProvider(async (request) => {
   const type = searchParams.get("type");
   const query = statsByDayQuery.parse({ type });
 
-  const emailProvider = await createEmailProvider({ emailAccountId, provider });
+  const emailProvider = await createEmailProvider({
+    emailAccountId,
+    provider,
+    logger: request.logger,
+  });
 
   const result = await getPastSevenDayStats({
     ...query,

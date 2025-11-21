@@ -5,6 +5,8 @@ import type {
 } from "@microsoft/microsoft-graph-types";
 import { createScopedLogger } from "@/utils/logger";
 import { isAlreadyExistsError } from "./errors";
+import { withOutlookRetry } from "@/utils/outlook/retry";
+import { getLabelById } from "@/utils/outlook/label";
 
 const logger = createScopedLogger("outlook/filter");
 
@@ -18,10 +20,16 @@ export async function createFilter(options: {
   addLabelIds?: string[];
   removeLabelIds?: string[];
 }) {
-  const { client, from, removeLabelIds } = options;
+  const { client, from, addLabelIds, removeLabelIds } = options;
 
   try {
-    // Create a mail rule that moves messages from specific sender
+    const actions = await buildFilterActions({
+      client,
+      addLabelIds,
+      removeLabelIds,
+      context: { from },
+    });
+
     const rule: MessageRule = {
       displayName: `Filter for ${from}`,
       sequence: 1,
@@ -29,17 +37,12 @@ export async function createFilter(options: {
       conditions: {
         senderContains: [from],
       },
-      actions: {
-        moveToFolder: removeLabelIds?.includes("INBOX") ? "archive" : undefined,
-        markAsRead: removeLabelIds?.includes("UNREAD") ? true : undefined,
-        // Categories would need to be handled separately
-      },
+      actions,
     };
 
-    const response: MessageRule = await client
-      .getClient()
-      .api("/me/mailFolders/inbox/messageRules")
-      .post(rule);
+    const response: MessageRule = await withOutlookRetry(() =>
+      client.getClient().api("/me/mailFolders/inbox/messageRules").post(rule),
+    );
 
     return { status: 201, data: response };
   } catch (error) {
@@ -76,10 +79,9 @@ export async function createAutoArchiveFilter({
       },
     };
 
-    const response: MessageRule = await client
-      .getClient()
-      .api("/me/mailFolders/inbox/messageRules")
-      .post(rule);
+    const response: MessageRule = await withOutlookRetry(() =>
+      client.getClient().api("/me/mailFolders/inbox/messageRules").post(rule),
+    );
 
     return { status: 201, data: response };
   } catch (error) {
@@ -98,10 +100,12 @@ export async function deleteFilter(options: {
   const { client, id } = options;
 
   try {
-    await client
-      .getClient()
-      .api(`/me/mailFolders/inbox/messageRules/${id}`)
-      .delete();
+    await withOutlookRetry(() =>
+      client
+        .getClient()
+        .api(`/me/mailFolders/inbox/messageRules/${id}`)
+        .delete(),
+    );
 
     return { status: 204 };
   } catch (error) {
@@ -152,13 +156,12 @@ export async function createCategoryFilter({
 
     if (!category) {
       // Create the category if it doesn't exist
-      category = await client
-        .getClient()
-        .api("/me/outlook/masterCategories")
-        .post({
+      category = await withOutlookRetry(() =>
+        client.getClient().api("/me/outlook/masterCategories").post({
           displayName: categoryName,
           color: "preset0", // Default color
-        });
+        }),
+      );
     }
 
     // Note: Microsoft Graph API doesn't support applying categories directly in mail rules
@@ -190,6 +193,7 @@ export async function updateFilter({
   client,
   id,
   from,
+  addLabelIds,
   removeLabelIds,
 }: {
   client: OutlookClient;
@@ -199,6 +203,13 @@ export async function updateFilter({
   removeLabelIds?: string[];
 }) {
   try {
+    const actions = await buildFilterActions({
+      client,
+      addLabelIds,
+      removeLabelIds,
+      context: { id, from },
+    });
+
     const rule: MessageRule = {
       displayName: `Filter for ${from}`,
       sequence: 1,
@@ -206,20 +217,102 @@ export async function updateFilter({
       conditions: {
         senderContains: [from],
       },
-      actions: {
-        moveToFolder: removeLabelIds?.includes("INBOX") ? "archive" : undefined,
-        markAsRead: removeLabelIds?.includes("UNREAD") ? true : undefined,
-      },
+      actions,
     };
 
-    const response: MessageRule = await client
-      .getClient()
-      .api(`/me/mailFolders/inbox/messageRules/${id}`)
-      .patch(rule);
+    const response: MessageRule = await withOutlookRetry(() =>
+      client
+        .getClient()
+        .api(`/me/mailFolders/inbox/messageRules/${id}`)
+        .patch(rule),
+    );
 
     return response;
   } catch (error) {
     logger.error("Error updating Outlook filter", { id, error });
     throw error;
   }
+}
+
+// Helper functions
+
+/**
+ * Resolves label IDs to category names for Outlook rules.
+ * Outlook rules use category names, not IDs.
+ */
+async function resolveCategoryNames(
+  client: OutlookClient,
+  labelIds: string[],
+): Promise<string[]> {
+  const categoryNames: string[] = [];
+
+  for (const labelId of labelIds) {
+    try {
+      const category = await getLabelById({ client, id: labelId });
+      if (category?.displayName) {
+        categoryNames.push(category.displayName);
+      } else {
+        logger.error("Category not found by ID", { labelId });
+      }
+    } catch (error) {
+      logger.error("Failed to resolve category ID", {
+        labelId,
+        error,
+      });
+    }
+  }
+
+  return categoryNames;
+}
+
+/**
+ * Builds the actions object for Outlook message rules.
+ * Microsoft API requires at least one action.
+ */
+async function buildFilterActions(options: {
+  client: OutlookClient;
+  addLabelIds?: string[];
+  removeLabelIds?: string[];
+  context?: Record<string, unknown>;
+}): Promise<{
+  moveToFolder?: string;
+  markAsRead?: boolean;
+  assignCategories?: string[];
+}> {
+  const { client, addLabelIds, removeLabelIds, context = {} } = options;
+  const actions: {
+    moveToFolder?: string;
+    markAsRead?: boolean;
+    assignCategories?: string[];
+  } = {};
+
+  // Handle label additions (categories in Outlook)
+  if (addLabelIds && addLabelIds.length > 0) {
+    const categoryNames = await resolveCategoryNames(client, addLabelIds);
+    if (categoryNames.length > 0) {
+      actions.assignCategories = categoryNames;
+    }
+  }
+
+  // Handle label removals
+  if (removeLabelIds?.includes("INBOX")) {
+    actions.moveToFolder = "archive";
+  }
+
+  if (removeLabelIds?.includes("UNREAD")) {
+    actions.markAsRead = true;
+  }
+
+  // If no actions were specified, default to marking as read
+  // (Microsoft API requires at least one action)
+  if (Object.keys(actions).length === 0) {
+    logger.warn("No actions specified for filter, defaulting to markAsRead", {
+      addLabelIds,
+      removeLabelIds,
+      ...context,
+    });
+    actions.markAsRead = true;
+  }
+
+  return actions;
 }

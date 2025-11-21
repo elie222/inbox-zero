@@ -1,23 +1,14 @@
-import type { CreateOrUpdateRuleSchemaWithCategories } from "@/utils/ai/rule/create-rule-schema";
+import type { CreateOrUpdateRuleSchema } from "@/utils/ai/rule/create-rule-schema";
 import prisma from "@/utils/prisma";
-import { isDuplicateError } from "@/utils/prisma-helpers";
-import { createScopedLogger } from "@/utils/logger";
-import {
-  ActionType,
-  type SystemType,
-  type Prisma,
-  type Rule,
-} from "@prisma/client";
-import { getUserCategoriesForNames } from "@/utils/category.server";
+import type { Logger } from "@/utils/logger";
+import { ActionType } from "@prisma/client";
+import type { Prisma, Rule, SystemType } from "@prisma/client";
 import { getActionRiskLevel, type RiskAction } from "@/utils/risk";
 import { hasExampleParams } from "@/app/(app)/[emailAccountId]/assistant/examples";
-import { SafeError } from "@/utils/error";
 import { createRuleHistory } from "@/utils/rule/rule-history";
 import { isMicrosoftProvider } from "@/utils/email/provider-types";
 import { createEmailProvider } from "@/utils/email/provider";
 import { resolveLabelNameAndId } from "@/utils/label/resolve-label";
-
-const logger = createScopedLogger("rule");
 
 export function partialUpdateRule({
   ruleId,
@@ -29,249 +20,200 @@ export function partialUpdateRule({
   return prisma.rule.update({
     where: { id: ruleId },
     data,
-    include: { actions: true, categoryFilters: true, group: true },
+    include: { actions: true, group: true },
   });
-}
-
-// Extended type for system rules that can include labelId
-type CreateRuleWithLabelId = Omit<
-  CreateOrUpdateRuleSchemaWithCategories,
-  "actions"
-> & {
-  actions: (CreateOrUpdateRuleSchemaWithCategories["actions"][number] & {
-    labelId?: string | null;
-  })[];
-};
-
-export async function safeCreateRule({
-  result,
-  emailAccountId,
-  provider,
-  categoryNames,
-  systemType,
-  triggerType = "ai_creation",
-  shouldCreateIfDuplicate,
-}: {
-  result: CreateRuleWithLabelId;
-  emailAccountId: string;
-  provider: string;
-  categoryNames?: string[] | null;
-  systemType?: SystemType | null;
-  triggerType?: "ai_creation" | "manual_creation" | "system_creation";
-  shouldCreateIfDuplicate: boolean; // maybe this should just always be false?
-}) {
-  const categoryIds = await getUserCategoriesForNames({
-    emailAccountId,
-    names: categoryNames || [],
-  });
-
-  try {
-    const rule = await createRule({
-      result,
-      emailAccountId,
-      categoryIds,
-      systemType,
-      triggerType,
-      provider,
-    });
-    return rule;
-  } catch (error) {
-    if (isDuplicateError(error, "name")) {
-      if (shouldCreateIfDuplicate) {
-        // if rule name already exists, create a new rule with a unique name
-        const rule = await createRule({
-          result: { ...result, name: `${result.name} - ${Date.now()}` },
-          emailAccountId,
-          categoryIds,
-          triggerType,
-          provider,
-        });
-        return rule;
-      } else {
-        return prisma.rule.findUnique({
-          where: {
-            name_emailAccountId: {
-              emailAccountId,
-              name: result.name,
-            },
-          },
-          include: { actions: true, categoryFilters: true, group: true },
-        });
-      }
-    }
-
-    logger.error("Error creating rule", {
-      emailAccountId,
-      error:
-        error instanceof Error
-          ? { message: error.message, stack: error.stack, name: error.name }
-          : error,
-    });
-    // return { error: "Error creating rule." };
-  }
-}
-
-export async function safeUpdateRule({
-  ruleId,
-  result,
-  emailAccountId,
-  categoryIds,
-  triggerType = "ai_update",
-  provider,
-}: {
-  ruleId: string;
-  result: CreateOrUpdateRuleSchemaWithCategories;
-  emailAccountId: string;
-  categoryIds?: string[] | null;
-  triggerType?: "ai_update" | "manual_update" | "system_update";
-  provider: string;
-}) {
-  try {
-    const rule = await updateRule({
-      ruleId,
-      result,
-      emailAccountId,
-      categoryIds,
-      triggerType,
-      provider,
-    });
-    return { id: rule.id };
-  } catch (error) {
-    if (isDuplicateError(error, "name")) {
-      // if rule name already exists, create a new rule with a unique name
-      const rule = await createRule({
-        result: { ...result, name: `${result.name} - ${Date.now()}` },
-        emailAccountId,
-        categoryIds,
-        triggerType: "ai_creation", // Default for safeUpdateRule fallback
-        provider,
-      });
-      return { id: rule.id };
-    }
-
-    logger.error("Error updating rule", {
-      emailAccountId,
-      error:
-        error instanceof Error
-          ? { message: error.message, stack: error.stack, name: error.name }
-          : error,
-    });
-
-    return { error: "Error updating rule." };
-  }
 }
 
 export async function createRule({
   result,
   emailAccountId,
-  categoryIds,
   systemType,
-  triggerType = "ai_creation",
   provider,
+  runOnThreads,
+  logger,
 }: {
-  result: CreateOrUpdateRuleSchemaWithCategories;
+  result: CreateOrUpdateRuleSchema;
   emailAccountId: string;
-  categoryIds?: string[] | null;
   systemType?: SystemType | null;
-  triggerType?: "ai_creation" | "manual_creation" | "system_creation";
   provider: string;
+  runOnThreads: boolean;
+  logger: Logger;
 }) {
-  const mappedActions = await mapActionFields(
-    result.actions,
-    provider,
-    emailAccountId,
-  );
-
-  const rule = await prisma.rule.create({
-    data: {
+  try {
+    logger.info("Creating rule", {
       name: result.name,
-      emailAccountId,
       systemType,
-      actions: { createMany: { data: mappedActions } },
-      enabled: shouldEnable(
-        result,
-        mappedActions.map((a) => ({
-          type: a.type,
-          subject: a.subject ?? null,
-          content: a.content ?? null,
-          to: a.to ?? null,
-          cc: a.cc ?? null,
-          bcc: a.bcc ?? null,
-        })),
-      ),
-      runOnThreads: true,
-      conditionalOperator: result.condition.conditionalOperator ?? undefined,
-      instructions: result.condition.aiInstructions,
-      from: result.condition.static?.from,
-      to: result.condition.static?.to,
-      subject: result.condition.static?.subject,
-      categoryFilterType: result.condition.categories?.categoryFilterType,
-      categoryFilters: categoryIds
-        ? {
-            connect: categoryIds.map((id) => ({
-              id,
-            })),
-          }
-        : undefined,
-    },
-    include: { actions: true, categoryFilters: true, group: true },
-  });
+    });
 
-  // Track rule creation in history
-  await createRuleHistory({ rule, triggerType });
+    const mappedActions = await mapActionFields(
+      result.actions,
+      provider,
+      emailAccountId,
+    );
 
-  return rule;
+    const rule = await prisma.rule.create({
+      data: {
+        name: result.name,
+        emailAccountId,
+        systemType,
+        actions: { createMany: { data: mappedActions } },
+        enabled: shouldEnable(
+          result,
+          mappedActions.map((a) => ({
+            type: a.type,
+            subject: a.subject ?? null,
+            content: a.content ?? null,
+            to: a.to ?? null,
+            cc: a.cc ?? null,
+            bcc: a.bcc ?? null,
+          })),
+        ),
+        runOnThreads,
+        conditionalOperator: result.condition.conditionalOperator ?? undefined,
+        instructions: result.condition.aiInstructions,
+        from: result.condition.static?.from,
+        to: result.condition.static?.to,
+        subject: result.condition.static?.subject,
+      },
+      include: { actions: true, group: true },
+    });
+
+    await createRuleHistory({ rule, triggerType: "created" });
+
+    return rule;
+  } catch (error) {
+    logger.error("Error creating rule", { error });
+    throw error;
+  }
 }
 
-async function updateRule({
+export async function updateRule({
   ruleId,
   result,
   emailAccountId,
-  categoryIds,
-  triggerType = "ai_update",
   provider,
+  logger,
+  runOnThreads,
 }: {
   ruleId: string;
-  result: CreateOrUpdateRuleSchemaWithCategories;
+  result: CreateOrUpdateRuleSchema;
   emailAccountId: string;
-  categoryIds?: string[] | null;
-  triggerType?: "ai_update" | "manual_update" | "system_update";
   provider: string;
+  logger: Logger;
+  runOnThreads?: boolean;
 }) {
-  const rule = await prisma.rule.update({
-    where: { id: ruleId },
-    data: {
+  try {
+    logger.info("Updating rule", {
       name: result.name,
-      emailAccountId,
-      // NOTE: this is safe for now as `Action` doesn't have relations
-      // but if we add relations to `Action`, we would need to `update` here instead of `deleteMany` and `createMany` to avoid cascading deletes
-      actions: {
-        deleteMany: {},
-        createMany: {
-          data: await mapActionFields(result.actions, provider, emailAccountId),
+      ruleId,
+    });
+
+    const rule = await prisma.rule.update({
+      where: { id: ruleId },
+      data: {
+        name: result.name,
+        emailAccountId,
+        // NOTE: this is safe for now as `Action` doesn't have relations
+        // but if we add relations to `Action`, we would need to `update` here instead of `deleteMany` and `createMany` to avoid cascading deletes
+        actions: {
+          deleteMany: {},
+          createMany: {
+            data: await mapActionFields(
+              result.actions,
+              provider,
+              emailAccountId,
+            ),
+          },
         },
+        conditionalOperator: result.condition.conditionalOperator ?? undefined,
+        instructions: result.condition.aiInstructions,
+        from: result.condition.static?.from,
+        to: result.condition.static?.to,
+        subject: result.condition.static?.subject,
+        ...(runOnThreads !== undefined && { runOnThreads }),
       },
-      conditionalOperator: result.condition.conditionalOperator ?? undefined,
-      instructions: result.condition.aiInstructions,
-      from: result.condition.static?.from,
-      to: result.condition.static?.to,
-      subject: result.condition.static?.subject,
-      categoryFilterType: result.condition.categories?.categoryFilterType,
-      categoryFilters: categoryIds
-        ? {
-            set: categoryIds.map((id) => ({
-              id,
-            })),
-          }
-        : undefined,
+      include: { actions: true, group: true },
+    });
+
+    await createRuleHistory({ rule, triggerType: "updated" });
+
+    return rule;
+  } catch (error) {
+    logger.error("Error updating rule", { error });
+    throw error;
+  }
+}
+
+export async function upsertSystemRule({
+  name,
+  instructions,
+  actions,
+  emailAccountId,
+  systemType,
+  runOnThreads,
+  logger,
+}: {
+  name: string;
+  instructions: string;
+  actions: Prisma.ActionCreateManyRuleInput[];
+  emailAccountId: string;
+  systemType: SystemType;
+  runOnThreads: boolean;
+  logger: Logger;
+}) {
+  logger.info("Upserting system rule", { name, systemType });
+
+  const existingRule = await prisma.rule.findFirst({
+    where: {
+      emailAccountId,
+      OR: [{ systemType }, { name }],
     },
-    include: { actions: true, categoryFilters: true, group: true },
+    include: { actions: true, group: true },
   });
 
-  // Track rule update in history
-  await createRuleHistory({ rule, triggerType });
+  const data = {
+    name,
+    instructions,
+    systemType,
+    runOnThreads,
+  };
 
-  return rule;
+  if (existingRule) {
+    logger.info("Updating existing rule", {
+      ruleId: existingRule.id,
+      hadSystemType: !!existingRule.systemType,
+    });
+
+    const rule = await prisma.rule.update({
+      where: { id: existingRule.id },
+      data: {
+        ...data,
+        actions: {
+          deleteMany: {},
+          createMany: { data: actions },
+        },
+      },
+      include: { actions: true, group: true },
+    });
+
+    await createRuleHistory({ rule, triggerType: "updated" });
+    return rule;
+  } else {
+    logger.info("Creating new system rule");
+
+    const rule = await prisma.rule.create({
+      data: {
+        ...data,
+        enabled: true,
+        emailAccountId,
+        actions: { createMany: { data: actions } },
+      },
+      include: { actions: true, group: true },
+    });
+
+    await createRuleHistory({ rule, triggerType: "created" });
+    return rule;
+  }
 }
 
 export async function updateRuleActions({
@@ -281,7 +223,7 @@ export async function updateRuleActions({
   emailAccountId,
 }: {
   ruleId: string;
-  actions: CreateOrUpdateRuleSchemaWithCategories["actions"];
+  actions: CreateOrUpdateRuleSchema["actions"];
   provider: string;
   emailAccountId: string;
 }) {
@@ -316,10 +258,7 @@ export async function deleteRule({
   ]);
 }
 
-function shouldEnable(
-  rule: CreateOrUpdateRuleSchemaWithCategories,
-  actions: RiskAction[],
-) {
+function shouldEnable(rule: CreateOrUpdateRuleSchema, actions: RiskAction[]) {
   // Don't automate if it's an example rule that should have been edited by the user
   if (
     hasExampleParams({
@@ -344,48 +283,10 @@ function shouldEnable(
   return riskLevels.every((level) => level === "low");
 }
 
-export async function addRuleCategories(ruleId: string, categoryIds: string[]) {
-  const rule = await prisma.rule.findUnique({
-    where: { id: ruleId },
-    include: { categoryFilters: true },
-  });
-
-  if (!rule) throw new SafeError("Rule not found");
-
-  const existingIds = rule.categoryFilters.map((c) => c.id) || [];
-  const newIds = [...new Set([...existingIds, ...categoryIds])];
-
-  return prisma.rule.update({
-    where: { id: ruleId },
-    data: { categoryFilters: { set: newIds.map((id) => ({ id })) } },
-    include: { actions: true, categoryFilters: true, group: true },
-  });
-}
-
-export async function removeRuleCategories(
-  ruleId: string,
-  categoryIds: string[],
-) {
-  const rule = await prisma.rule.findUnique({
-    where: { id: ruleId },
-    include: { categoryFilters: true },
-  });
-
-  if (!rule) throw new SafeError("Rule not found");
-
-  const existingIds = rule.categoryFilters.map((c) => c.id) || [];
-  const newIds = existingIds.filter((id) => !categoryIds.includes(id));
-
-  return prisma.rule.update({
-    where: { id: ruleId },
-    data: { categoryFilters: { set: newIds.map((id) => ({ id })) } },
-    include: { actions: true, categoryFilters: true, group: true },
-  });
-}
-
 async function mapActionFields(
-  actions: (CreateOrUpdateRuleSchemaWithCategories["actions"][number] & {
+  actions: (CreateOrUpdateRuleSchema["actions"][number] & {
     labelId?: string | null;
+    folderId?: string | null;
   })[],
   provider: string,
   emailAccountId: string,
@@ -394,6 +295,9 @@ async function mapActionFields(
     async (a): Promise<Prisma.ActionCreateManyRuleInput> => {
       let label = a.fields?.label;
       let labelId: string | null = null;
+      const folderName =
+        typeof a.fields?.folderName === "string" ? a.fields.folderName : null;
+      let folderId: string | null = a.folderId || null;
 
       if (a.type === ActionType.LABEL) {
         const emailProvider = await createEmailProvider({
@@ -410,6 +314,21 @@ async function mapActionFields(
         labelId = resolved.labelId;
       }
 
+      if (
+        a.type === ActionType.MOVE_FOLDER &&
+        folderName &&
+        !folderId &&
+        isMicrosoftProvider(provider)
+      ) {
+        const emailProvider = await createEmailProvider({
+          emailAccountId,
+          provider,
+        });
+
+        folderId =
+          await emailProvider.getOrCreateOutlookFolderIdByName(folderName);
+      }
+
       return {
         type: a.type,
         label,
@@ -421,7 +340,8 @@ async function mapActionFields(
         content: a.fields?.content,
         url: a.fields?.webhookUrl,
         ...(isMicrosoftProvider(provider) && {
-          folderName: a.fields?.folderName as string | null,
+          folderName: folderName ?? null,
+          folderId,
         }),
         delayInMinutes: a.delayInMinutes,
       };

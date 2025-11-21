@@ -27,35 +27,42 @@ async function getData({
       actionItems: true,
       rule: true,
       status: true,
+      createdAt: true,
     },
     orderBy: { id: "asc" },
   });
 
   // Convert to a map for easy lookup by messageId
-  const rulesMap: Record<string, (typeof executedRules)[0]> = {};
+  const rulesMap: Record<string, typeof executedRules> = {};
 
   for (const executedRule of executedRules) {
-    rulesMap[executedRule.messageId] = executedRule;
+    if (!rulesMap[executedRule.messageId]) {
+      rulesMap[executedRule.messageId] = [];
+    }
+    rulesMap[executedRule.messageId].push(executedRule);
   }
 
   return { rulesMap };
 }
 
-export const GET = withEmailAccount(async (request) => {
-  const emailAccountId = request.auth.emailAccountId;
+export const GET = withEmailAccount(
+  "user/executed-rules/batch",
+  async (request) => {
+    const emailAccountId = request.auth.emailAccountId;
 
-  const { searchParams } = new URL(request.url);
+    const { searchParams } = new URL(request.url);
 
-  const parsed = batchRequestSchema.safeParse({
-    messageIds: searchParams.get("messageIds")?.split(",") || [],
-  });
-  if (!parsed.success) {
-    return NextResponse.json({ error: "Invalid request" }, { status: 400 });
-  }
+    const parsed = batchRequestSchema.safeParse({
+      messageIds: searchParams.get("messageIds")?.split(",") || [],
+    });
+    if (!parsed.success) {
+      return NextResponse.json({ error: "Invalid request" }, { status: 400 });
+    }
 
-  const result = await getData({
-    emailAccountId,
-    messageIds: parsed.data.messageIds,
-  });
-  return NextResponse.json(result);
-});
+    const result = await getData({
+      emailAccountId,
+      messageIds: parsed.data.messageIds,
+    });
+    return NextResponse.json(result);
+  },
+);

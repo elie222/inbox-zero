@@ -25,11 +25,11 @@ const getAuthUrl = ({ userId }: { userId: string }) => {
   return { url, state };
 };
 
-export const GET = withAuth(async (request) => {
+export const GET = withAuth("google/linking/auth-url", async (request) => {
   const userId = request.auth.userId;
-  const { url, state } = getAuthUrl({ userId });
+  const { url: authUrl, state } = getAuthUrl({ userId });
 
-  const response = NextResponse.json({ url });
+  const response = NextResponse.json({ url: authUrl });
 
   response.cookies.set(
     GOOGLE_LINKING_STATE_COOKIE_NAME,

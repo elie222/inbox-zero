@@ -15,7 +15,7 @@ import { testMcpSchema } from "@/utils/actions/mcp.validation";
 
 export const disconnectMcpConnectionAction = actionClient
   .metadata({ name: "disconnectMcpConnection" })
-  .schema(disconnectMcpConnectionBody)
+  .inputSchema(disconnectMcpConnectionBody)
   .action(
     async ({ ctx: { emailAccountId }, parsedInput: { connectionId } }) => {
       await prisma.mcpConnection.delete({
@@ -26,7 +26,7 @@ export const disconnectMcpConnectionAction = actionClient
 
 export const toggleMcpConnectionAction = actionClient
   .metadata({ name: "toggleMcpConnection" })
-  .schema(toggleMcpConnectionBody)
+  .inputSchema(toggleMcpConnectionBody)
   .action(
     async ({
       ctx: { emailAccountId },
@@ -41,7 +41,7 @@ export const toggleMcpConnectionAction = actionClient
 
 export const toggleMcpToolAction = actionClient
   .metadata({ name: "toggleMcpTool" })
-  .schema(toggleMcpToolBody)
+  .inputSchema(toggleMcpToolBody)
   .action(
     async ({ ctx: { emailAccountId }, parsedInput: { toolId, isEnabled } }) => {
       await prisma.mcpTool.update({
@@ -53,7 +53,7 @@ export const toggleMcpToolAction = actionClient
 
 export const testMcpAction = actionClient
   .metadata({ name: "mcpAgent" })
-  .schema(testMcpSchema)
+  .inputSchema(testMcpSchema)
   .action(
     async ({
       ctx: { emailAccountId },

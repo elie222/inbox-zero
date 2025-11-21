@@ -2,9 +2,8 @@ import { z } from "zod";
 import { createGenerateObject } from "@/utils/llms";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import {
+  type CreateRuleSchema,
   createRuleSchema,
-  type CreateRuleSchemaWithCategories,
-  getCreateRuleSchemaWithCategories,
 } from "@/utils/ai/rule/create-rule-schema";
 import { createScopedLogger } from "@/utils/logger";
 import { convertMentionsToLabels } from "@/utils/mention";
@@ -15,26 +14,11 @@ const logger = createScopedLogger("ai-prompt-to-rules");
 export async function aiPromptToRules({
   emailAccount,
   promptFile,
-  availableCategories,
 }: {
   emailAccount: EmailAccountWithAI;
   promptFile: string;
-  availableCategories?: string[];
-}): Promise<CreateRuleSchemaWithCategories[]> {
-  function getSchema() {
-    if (availableCategories?.length) {
-      return getCreateRuleSchemaWithCategories(
-        availableCategories as [string, ...string[]],
-        emailAccount.account.provider,
-      );
-    }
-
-    return createRuleSchema(emailAccount.account.provider);
-  }
-
-  const system = getSystemPrompt({
-    hasSmartCategories: !!availableCategories?.length,
-  });
+}): Promise<CreateRuleSchema[]> {
+  const system = getSystemPrompt();
 
   const cleanedPromptFile = convertMentionsToLabels(promptFile);
 
@@ -47,7 +31,7 @@ ${cleanedPromptFile}
   const modelOptions = getModel(emailAccount.user, "chat");
 
   const generateObject = createGenerateObject({
-    userEmail: emailAccount.email,
+    emailAccount,
     label: "Prompt to rules",
     modelOptions,
   });
@@ -56,7 +40,9 @@ ${cleanedPromptFile}
     ...modelOptions,
     prompt,
     system,
-    schema: z.object({ rules: z.array(getSchema()) }),
+    schema: z.object({
+      rules: z.array(createRuleSchema(emailAccount.account.provider)),
+    }),
   });
 
   if (!aiResponse.object) {
@@ -69,12 +55,10 @@ ${cleanedPromptFile}
   return rules;
 }
 
-function getSystemPrompt({
-  hasSmartCategories,
-}: {
-  hasSmartCategories: boolean;
-}) {
+function getSystemPrompt() {
   return `You are an AI assistant that converts email management rules into a structured format. Parse the given prompt and convert it into rules.
+
+Use short, concise rule names (preferably a single word). For example: 'Marketing', 'Newsletters', 'Urgent', 'Receipts'. Avoid verbose names like 'Archive and label marketing emails'.
 
 IMPORTANT: If a user provides a snippet, use that full snippet in the rule. Don't include placeholders unless it's clear one is needed.
 
@@ -92,19 +76,9 @@ IMPORTANT: You must return a JSON object.
     <output>
       {
         "rules": [{
-          "name": "Label Newsletters",
+          "name": "Newsletters",
           "condition": {
             "aiInstructions": "Apply this rule to newsletters"
-            ${
-              hasSmartCategories
-                ? `,
-              "categories": {
-                "categoryFilterType": "INCLUDE",
-                "categoryFilters": ["Newsletters"]
-              },
-              "conditionalOperator": "OR"`
-                : ""
-            }
           },
           "actions": [
             {
@@ -129,7 +103,7 @@ IMPORTANT: You must return a JSON object.
     <output>
       {
         "rules": [{
-          "name": "Forward Urgent Emails",
+          "name": "Forward Urgent",
           "condition": {
             "aiInstructions": "Apply this rule to emails mentioning system outages or critical issues"
           },
@@ -194,7 +168,7 @@ IMPORTANT: You must return a JSON object.
     <output>
       {
         "rules": [{
-          "name": "Reply to Call Requests",
+          "name": "Call Requests",
           "condition": {
             "aiInstructions": "Apply this rule to emails from people asking to set up a call"
           },

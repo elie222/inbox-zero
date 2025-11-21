@@ -6,7 +6,7 @@ export type GetReferralCodeResponse = Awaited<
   ReturnType<typeof getOrCreateReferralCode>
 >;
 
-export const GET = withAuth(async (request) => {
+export const GET = withAuth("referrals/code", async (request) => {
   const userId = request.auth.userId;
   const result = await getOrCreateReferralCode(userId);
   return NextResponse.json(result);

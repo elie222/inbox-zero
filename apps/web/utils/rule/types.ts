@@ -1,13 +1,12 @@
-import type { safeCreateRule } from "@/utils/rule/rule";
-import type { Action, Rule, Category, Prisma } from "@prisma/client";
+import type { createRule } from "@/utils/rule/rule";
+import type { Action, Rule, Prisma } from "@prisma/client";
 
 export type CreateRuleResult = NonNullable<
-  Awaited<ReturnType<typeof safeCreateRule>>
+  Awaited<ReturnType<typeof createRule>>
 >;
 
 export type RuleWithRelations = Rule & {
   actions: Action[];
-  categoryFilters?: Category[];
   group?:
     | (Prisma.GroupGetPayload<{
         select: { id: true; name: true };

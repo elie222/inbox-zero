@@ -1,16 +1,13 @@
-FROM node:22-alpine
+
+FROM node:22-alpine AS builder
 
 WORKDIR /app
 
-# Install necessary tools
 RUN apk add --no-cache openssl
-# Install the specific pnpm version used by the project
 RUN npm install -g pnpm@10.15.0
 
-# Copy all package manager files first for caching
+# Copy lockfiles/workspace manifests for better caching
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc* ./
-
-# Create directory structure and copy package.json files
 COPY apps/web/package.json apps/web/package.json
 COPY apps/unsubscriber/package.json apps/unsubscriber/package.json
 COPY packages/loops/package.json packages/loops/package.json
@@ -18,33 +15,26 @@ COPY packages/resend/package.json packages/resend/package.json
 COPY packages/tinybird/package.json packages/tinybird/package.json
 COPY packages/tinybird-ai-analytics/package.json packages/tinybird-ai-analytics/package.json
 COPY packages/tsconfig/package.json packages/tsconfig/package.json
-
-# Copy patches directory so patches can be applied during install
 COPY patches/ patches/
 
 # Copy Prisma schema file needed for postinstall script
 COPY apps/web/prisma/schema.prisma apps/web/prisma/schema.prisma
 
-# Install ALL dependencies (including dev, no pruning)
-# Remove --ignore-scripts to allow patches to be applied
-# Use --no-frozen-lockfile to allow lockfile updates for patches
-RUN pnpm install --no-frozen-lockfile --prefer-offline
+# Install deps
+# Use shamefully-hoist to ensure all packages are available at root level for webpack resolution
+RUN pnpm install --no-frozen-lockfile --prefer-offline --shamefully-hoist
 
-# Copy the rest of the application code FIRST
+ # Copy the full repo
 COPY . .
 
-
-# Run Prisma generate with build-time variables (cached)
-RUN pnpm --filter inbox-zero-ai exec -- prisma generate
-
-# Set NODE_ENV for build and runtime
+ # Build app (Next.js standalone)
 ENV NODE_ENV=production
+# Increase V8 heap for Next build to avoid OOM in builder
+ENV NODE_OPTIONS=--max_old_space_size=4096
+ARG NEXT_PUBLIC_BASE_URL="http://NEXT_PUBLIC_BASE_URL_PLACEHOLDER"
+ENV NEXT_PUBLIC_BASE_URL=${NEXT_PUBLIC_BASE_URL}
 
-# Accept build-time arguments for all NEXT_PUBLIC variables
-# Users can override any of these during build
-ARG NEXT_PUBLIC_BASE_URL="http://localhost:3000"
-
-# Provide dummy build-time ENV VARS (Still needed for build)
+# Provide safe dummy envs so Next build can complete at image build time
 ENV DATABASE_URL="postgresql://dummy:dummy@dummy:5432/dummy?schema=public"
 ENV DIRECT_URL="postgresql://dummy:dummy@dummy:5432/dummy?schema=public"
 ENV AUTH_SECRET="dummy_secret_for_build_only"
@@ -62,15 +52,34 @@ ENV REDIS_URL="redis://dummy:dummy@dummy:6379"
 ENV QSTASH_TOKEN="dummy_qstash_token_for_build"
 ENV QSTASH_CURRENT_SIGNING_KEY="dummy_qstash_curr_key_for_build"
 ENV QSTASH_NEXT_SIGNING_KEY="dummy_qstash_next_key_for_build"
+ENV DOCKER_BUILD="true"
 
-# Set NEXT_PUBLIC env vars from ARGs (users can override these)
-ENV NEXT_PUBLIC_BASE_URL=${NEXT_PUBLIC_BASE_URL}
+RUN cd apps/web \
+ && pnpm exec prisma generate \
+ && pnpm exec next build \
+ && cd ../.. \
+ && rm -rf apps/web/.next/cache
 
-# Ensure prisma generate runs
-RUN pnpm --filter inbox-zero-ai exec -- next build
+FROM node:22-alpine AS runner
+
+WORKDIR /app
+
+# Install openssl for Prisma
+RUN apk add --no-cache openssl
+
+# Copy the standalone server output (contains node_modules subset + server.js)
+COPY --from=builder /app/apps/web/.next/standalone ./
+# Static assets used by the server
+COPY --from=builder /app/apps/web/.next/static ./apps/web/.next/static
+COPY --from=builder /app/apps/web/public ./apps/web/public
+COPY --from=builder /app/apps/web/prisma ./apps/web/prisma
+
+# Copy runtime scripts
+COPY docker/scripts /app/docker/scripts
+RUN chmod +x /app/docker/scripts/*.sh
 
 EXPOSE 3000
 
-# Set the default command to start the production server
-# Use the simpler pnpm command, should work now as pnpm & next are installed
-CMD pnpm --filter inbox-zero-ai start 
+# Default command runs the Next.js server from the standalone bundle
+CMD ["/app/docker/scripts/start.sh"]
+# Cache bust Fri Nov 21 17:08:13 IST 2025

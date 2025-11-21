@@ -20,7 +20,7 @@ export const completedOnboardingAction = actionClientUser
 
 export const saveOnboardingAnswersAction = actionClientUser
   .metadata({ name: "saveOnboardingAnswers" })
-  .schema(saveOnboardingAnswersBody)
+  .inputSchema(saveOnboardingAnswersBody)
   .action(
     async ({
       parsedInput: { surveyId, questions, answers },
@@ -145,7 +145,7 @@ export const saveOnboardingAnswersAction = actionClientUser
 
 export const saveOnboardingFeaturesAction = actionClientUser
   .metadata({ name: "saveOnboardingFeatures" })
-  .schema(saveOnboardingFeaturesSchema)
+  .inputSchema(saveOnboardingFeaturesSchema)
   .action(async ({ ctx: { userId }, parsedInput: { features } }) => {
     await prisma.user.update({
       where: { id: userId },

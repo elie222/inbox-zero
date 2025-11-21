@@ -126,8 +126,15 @@ function RulesPromptForm({
       {
         loading: "Creating rules...",
         success: (result) => {
-          const { rules = [] } = result?.data || {};
+          const { rules = [], errors = [] } = result?.data || {};
           setCreatedRules(rules);
+
+          if (errors.length > 0) {
+            const errorDetails = errors
+              .map((e) => `${e.ruleName}: ${e.error}`)
+              .join(", ");
+            return `${rules.length} rules created. ${errors.length} failed: ${errorDetails}`;
+          }
 
           return `${rules.length} rules created!`;
         },
@@ -158,7 +165,9 @@ function RulesPromptForm({
               onSubmit();
             }}
           >
-            <Label className="font-cal text-xl leading-7">Add new rules</Label>
+            <Label className="font-title text-xl leading-7">
+              Add new rules
+            </Label>
 
             <div className="mt-1.5 space-y-2">
               <LoadingContent
@@ -175,7 +184,7 @@ function RulesPromptForm({
                 />
               </LoadingContent>
 
-              <div className="flex flex-wrap gap-2">
+              <div className="flex flex-col sm:flex-row flex-wrap gap-2">
                 <Button type="submit" size="sm" loading={isSubmitting}>
                   Create rules
                 </Button>
@@ -190,7 +199,7 @@ function RulesPromptForm({
                 </Button>
 
                 <Button
-                  className="ml-auto"
+                  className="ml-auto w-full sm:w-auto"
                   variant="outline"
                   size="sm"
                   onClick={() => ruleDialog.onOpen()}
@@ -208,7 +217,7 @@ function RulesPromptForm({
 
       {examples && (
         <div className="mt-2">
-          <Label className="font-cal text-xl leading-7">Examples</Label>
+          <Label className="font-title text-xl leading-7">Examples</Label>
           <div className="mt-1.5">
             <ExamplesGrid
               examples={examples}

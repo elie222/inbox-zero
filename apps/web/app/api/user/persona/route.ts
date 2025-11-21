@@ -5,7 +5,7 @@ import type { PersonaAnalysis } from "@/utils/ai/knowledge/persona";
 
 export type GetPersonaResponse = Awaited<ReturnType<typeof getData>>;
 
-export const GET = withEmailAccount(async (request) => {
+export const GET = withEmailAccount("user/persona", async (request) => {
   const { emailAccountId } = request.auth;
 
   const result = await getData({ emailAccountId });

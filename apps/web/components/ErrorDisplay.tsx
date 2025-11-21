@@ -1,8 +1,15 @@
 "use client";
 
 import Image from "next/image";
+import { AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Panel } from "./Panel";
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@/components/ui/empty";
 import { logOut } from "@/utils/user";
 import { env } from "@/env";
 
@@ -16,38 +23,40 @@ export function ErrorDisplay(props: {
 
   if (errorMessage) {
     return (
-      <NotFound>
-        <p>There was an error:</p>
-        <p>{errorMessage}</p>
-      </NotFound>
+      <Empty>
+        <EmptyHeader>
+          <EmptyMedia variant="icon" className="bg-destructive/10">
+            <AlertCircle className="text-destructive" />
+          </EmptyMedia>
+          <EmptyTitle>There was an error</EmptyTitle>
+          <EmptyDescription>{errorMessage}</EmptyDescription>
+        </EmptyHeader>
+      </Empty>
     );
   }
 
   if (props.error) {
     return (
-      <NotFound>
-        <p>There was an error.</p>
-        <p>
-          Please refresh or contact support at{" "}
-          <a href={`mailto:${env.NEXT_PUBLIC_SUPPORT_EMAIL}`}>
-            {env.NEXT_PUBLIC_SUPPORT_EMAIL}
-          </a>{" "}
-          if the error persists.
-        </p>
-      </NotFound>
+      <Empty>
+        <EmptyHeader>
+          <EmptyMedia variant="icon" className="bg-destructive/10">
+            <AlertCircle className="text-destructive" />
+          </EmptyMedia>
+          <EmptyTitle>There was an error</EmptyTitle>
+          <EmptyDescription>
+            Please refresh or contact support at{" "}
+            <a href={`mailto:${env.NEXT_PUBLIC_SUPPORT_EMAIL}`}>
+              {env.NEXT_PUBLIC_SUPPORT_EMAIL}
+            </a>{" "}
+            if the error persists.
+          </EmptyDescription>
+        </EmptyHeader>
+      </Empty>
     );
   }
 
   return null;
 }
-
-const NotFound = (props: { children: React.ReactNode }) => {
-  return (
-    <div className="text-gray-700">
-      <Panel>{props.children}</Panel>
-    </div>
-  );
-};
 
 export const NotLoggedIn = () => {
   return (

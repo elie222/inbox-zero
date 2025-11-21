@@ -11,14 +11,14 @@ export function SidebarRight({
   name: string;
   className?: string;
 }) {
-  const { state } = useSidebar();
-  const isOpen = state.includes(name);
+  const { state, openMobile, isMobile } = useSidebar();
+  const isOpen = isMobile ? openMobile.includes(name) : state.includes(name);
 
   return (
     <div
       className={cn(
-        "fixed right-0 top-0 z-10 h-screen w-[450px] border-l bg-background transition-transform duration-200 ease-linear",
-        "hidden lg:block",
+        "fixed right-0 top-0 z-50 h-screen border-l bg-background transition-transform duration-200 ease-linear",
+        "w-full lg:w-[450px]",
         isOpen ? "translate-x-0" : "translate-x-full",
         className,
       )}

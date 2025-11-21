@@ -1,20 +1,24 @@
-import { NextResponse } from "next/server";
+import { after, NextResponse } from "next/server";
 import { withError } from "@/utils/middleware";
 import { env } from "@/env";
 import { processHistoryForUser } from "@/app/api/google/webhook/process-history";
-import { logger } from "@/app/api/google/webhook/logger";
+import { createScopedLogger, type Logger } from "@/utils/logger";
+import { handleWebhookError } from "@/utils/webhook/error-handler";
 
-export const maxDuration = 120;
+export const maxDuration = 300;
 
 // Google PubSub calls this endpoint each time a user recieves an email. We subscribe for updates via `api/google/watch`
 export const POST = withError(async (request) => {
   const searchParams = new URL(request.url).searchParams;
   const token = searchParams.get("token");
+
+  let logger = createScopedLogger("google/webhook");
+
   if (
     env.GOOGLE_PUBSUB_VERIFICATION_TOKEN &&
     token !== env.GOOGLE_PUBSUB_VERIFICATION_TOKEN
   ) {
-    logger.error("Invalid verification token");
+    logger.error("Invalid verification token", { token });
     return NextResponse.json(
       {
         message: "Invalid verification token",
@@ -26,30 +30,35 @@ export const POST = withError(async (request) => {
   const body = await request.json();
   const decodedData = decodeHistoryId(body);
 
-  logger.info("Processing webhook", {
-    emailAddress: decodedData.emailAddress,
+  logger = logger.with({
+    email: decodedData.emailAddress,
     historyId: decodedData.historyId,
   });
 
-  try {
-    return await processHistoryForUser(decodedData);
-  } catch (error) {
-    if (error instanceof Error && error.message.includes("invalid_grant")) {
-      logger.warn("Invalid grant error", {
-        error: error.message,
-        emailAddress: decodedData.emailAddress,
-        historyId: decodedData.historyId,
-      });
-      // Returning 200 to avoid retry
-      return NextResponse.json(
-        { message: "Invalid grant error" },
-        { status: 200 },
-      );
-    } else {
-      throw error;
-    }
-  }
+  logger.info("Received webhook - acknowledging immediately");
+
+  // Process history asynchronously using after() to avoid Pub/Sub acknowledgment timeout
+  // This ensures we acknowledge the message quickly while still processing it fully
+  after(() => processWebhookAsync(decodedData, logger));
+
+  return NextResponse.json({ ok: true });
 });
+
+async function processWebhookAsync(
+  decodedData: { emailAddress: string; historyId: number },
+  logger: Logger,
+) {
+  try {
+    await processHistoryForUser(decodedData, {}, logger);
+  } catch (error) {
+    await handleWebhookError(error, {
+      email: decodedData.emailAddress,
+      emailAccountId: "unknown", // TODO: add emailAccountId
+      url: "/api/google/webhook",
+      logger,
+    });
+  }
+}
 
 function decodeHistoryId(body: { message?: { data?: string } }) {
   const data = body?.message?.data;

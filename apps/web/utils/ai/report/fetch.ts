@@ -68,13 +68,15 @@ async function fetchReceivedEmails(
 
       emails.push(...response.messages);
 
-      logger.info(`Fetched emails from ${source.name}`, {
+      logger.info("Fetched emails", {
+        sourceName: source.name,
         count: response.messages.length,
         totalSoFar: emails.length,
         targetCount,
       });
     } catch (error) {
-      logger.error(`Error fetching emails from ${source.name}`, {
+      logger.error("Error fetching emails", {
+        sourceName: source.name,
         error,
         sourceConfig: source,
       });

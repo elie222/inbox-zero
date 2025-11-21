@@ -47,7 +47,10 @@ export const getCalendarClientWithRefresh = async ({
   expiresAt: number | null;
   emailAccountId: string;
 }): Promise<calendar_v3.Calendar> => {
-  if (!refreshToken) throw new SafeError("No refresh token");
+  if (!refreshToken) {
+    logger.error("No refresh token", { emailAccountId });
+    throw new SafeError("No refresh token");
+  }
 
   // Check if token is still valid
   if (expiresAt && expiresAt > Date.now()) {

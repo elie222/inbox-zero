@@ -7,7 +7,7 @@ export type GetKnowledgeResponse = {
   items: Knowledge[];
 };
 
-export const GET = withEmailAccount(async (request) => {
+export const GET = withEmailAccount("knowledge", async (request) => {
   const emailAccountId = request.auth.emailAccountId;
   const items = await prisma.knowledge.findMany({
     where: { emailAccountId },

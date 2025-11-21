@@ -47,18 +47,21 @@ async function getMostSentTo({
   });
 }
 
-export const GET = withEmailAccount(async (request) => {
-  const emailAccountId = request.auth.emailAccountId;
-  const { searchParams } = new URL(request.url);
-  const query = recipientStatsQuery.parse({
-    fromDate: searchParams.get("fromDate"),
-    toDate: searchParams.get("toDate"),
-  });
+export const GET = withEmailAccount(
+  "user/stats/recipients",
+  async (request) => {
+    const emailAccountId = request.auth.emailAccountId;
+    const { searchParams } = new URL(request.url);
+    const query = recipientStatsQuery.parse({
+      fromDate: searchParams.get("fromDate"),
+      toDate: searchParams.get("toDate"),
+    });
 
-  const result = await getRecipientStatistics({
-    ...query,
-    emailAccountId,
-  });
+    const result = await getRecipientStatistics({
+      ...query,
+      emailAccountId,
+    });
 
-  return NextResponse.json(result);
-});
+    return NextResponse.json(result);
+  },
+);

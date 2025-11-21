@@ -1,4 +1,5 @@
 import { type Premium, PremiumTier } from "@prisma/client";
+import { env } from "@/env";
 
 function isPremiumStripe(stripeSubscriptionStatus: string | null): boolean {
   if (!stripeSubscriptionStatus) return false;
@@ -15,6 +16,8 @@ export const isPremium = (
   lemonSqueezyRenewsAt: Date | null,
   stripeSubscriptionStatus: string | null,
 ): boolean => {
+  if (env.NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS) return true;
+
   return (
     isPremiumStripe(stripeSubscriptionStatus) ||
     isPremiumLemonSqueezy(lemonSqueezyRenewsAt)
@@ -27,6 +30,8 @@ export const isActivePremium = (
     "lemonSqueezyRenewsAt" | "stripeSubscriptionStatus"
   > | null,
 ): boolean => {
+  if (env.NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS) return true;
+
   if (!premium) return false;
 
   return (
@@ -41,6 +46,10 @@ export const getUserTier = (
     "tier" | "lemonSqueezyRenewsAt" | "stripeSubscriptionStatus"
   > | null,
 ) => {
+  if (env.NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS) {
+    return PremiumTier.BUSINESS_PLUS_ANNUALLY;
+  }
+
   if (!premium) return null;
 
   const isActive = isPremium(
@@ -79,6 +88,8 @@ export const hasUnsubscribeAccess = (
   tier: PremiumTier | null,
   unsubscribeCredits?: number | null,
 ): boolean => {
+  if (env.NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS) return true;
+
   if (tier) return true;
   if (unsubscribeCredits && unsubscribeCredits > 0) return true;
   return false;
@@ -88,6 +99,8 @@ export const hasAiAccess = (
   tier: PremiumTier | null,
   aiApiKey?: string | null,
 ) => {
+  if (env.NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS) return true;
+
   if (!tier) return false;
 
   const ranking = tierRanking[tier];
@@ -107,6 +120,8 @@ export const hasTierAccess = ({
   tier: PremiumTier | null;
   minimumTier: PremiumTier;
 }): boolean => {
+  if (env.NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS) return true;
+
   if (!tier) return false;
 
   const ranking = tierRanking[tier];

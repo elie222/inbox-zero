@@ -15,7 +15,6 @@ import {
   updateDigestItemsAction,
   updateDigestScheduleAction,
 } from "@/utils/actions/settings";
-import type { UpdateDigestItemsBody } from "@/utils/actions/settings.validation";
 import { ActionType } from "@prisma/client";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import type { GetDigestSettingsResponse } from "@/app/api/user/digest-settings/route";
@@ -175,7 +174,6 @@ export function DigestSettingsForm() {
     async (data) => {
       // Handle items update
       const ruleDigestPreferences: Record<string, boolean> = {};
-      const coldEmailDigest = data.selectedItems.has("cold-emails");
 
       // Set all rules to false first
       rules?.forEach((rule) => {
@@ -188,11 +186,6 @@ export function DigestSettingsForm() {
           ruleDigestPreferences[itemId] = true;
         }
       });
-
-      const itemsData: UpdateDigestItemsBody = {
-        ruleDigestPreferences,
-        coldEmailDigest,
-      };
 
       // Handle schedule update
       const { schedule, dayOfWeek, time } = data;
@@ -225,7 +218,7 @@ export function DigestSettingsForm() {
       // Execute both updates
       try {
         await Promise.all([
-          executeItems(itemsData),
+          executeItems({ ruleDigestPreferences }),
           executeSchedule(scheduleUpdateData),
         ]);
         toastSuccess({

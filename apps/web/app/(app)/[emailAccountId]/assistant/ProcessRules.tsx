@@ -16,6 +16,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { toastError } from "@/components/Toast";
 import { LoadingContent } from "@/components/LoadingContent";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import type { MessagesResponse } from "@/app/api/messages/route";
 import { EmailMessageCell } from "@/components/EmailMessageCell";
 import { runRulesAction } from "@/utils/actions/ai-rule";
@@ -25,16 +26,11 @@ import { Card } from "@/components/ui/card";
 import type { RunRulesResult } from "@/utils/ai/choose-rule/run-rules";
 import { SearchForm } from "@/components/SearchForm";
 import type { BatchExecutedRulesResponse } from "@/app/api/user/executed-rules/batch/route";
-import {
-  isAIRule,
-  isCategoryRule,
-  isGroupRule,
-  isStaticRule,
-} from "@/utils/condition";
+import { isAIRule, isGroupRule, isStaticRule } from "@/utils/condition";
 import { BulkRunRules } from "@/app/(app)/[emailAccountId]/assistant/BulkRunRules";
 import { cn } from "@/utils";
 import { TestCustomEmailForm } from "@/app/(app)/[emailAccountId]/assistant/TestCustomEmailForm";
-import { ProcessResultDisplay } from "@/app/(app)/[emailAccountId]/assistant/ProcessResultDisplay";
+import { ResultsDisplay } from "@/app/(app)/[emailAccountId]/assistant/ResultDisplay";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { FixWithChat } from "@/app/(app)/[emailAccountId]/assistant/FixWithChat";
 import { useChat } from "@/providers/ChatProvider";
@@ -114,37 +110,37 @@ export function ProcessRulesContent({ testMode }: { testMode: boolean }) {
 
   // only show test rules form if we have an AI rule. this form won't match group/static rules which will confuse users
   const hasAiRules = rules?.some(
-    (rule) =>
-      isAIRule(rule) &&
-      !isGroupRule(rule) &&
-      !isStaticRule(rule) &&
-      !isCategoryRule(rule),
+    (rule) => isAIRule(rule) && !isGroupRule(rule) && !isStaticRule(rule),
   );
 
   const isRunningAllRef = useRef(false);
   const [isRunningAll, setIsRunningAll] = useState(false);
   const [currentPageLimit, setCurrentPageLimit] = useState(testMode ? 1 : 10);
   const [isRunning, setIsRunning] = useState<Record<string, boolean>>({});
-  const [results, setResults] = useState<Record<string, RunRulesResult>>({});
+  const [resultsMap, setResultsMap] = useState<
+    Record<string, RunRulesResult[]>
+  >({});
   const handledThreadsRef = useRef(new Set<string>());
 
   // Merge existing rules with results
   const allResults = useMemo(() => {
-    const merged = { ...results };
+    const merged = { ...resultsMap };
     if (existingRules?.rulesMap) {
       for (const [messageId, rule] of Object.entries(existingRules.rulesMap)) {
         if (!merged[messageId]) {
-          merged[messageId] = {
-            rule: rule.rule,
-            actionItems: rule.actionItems,
-            reason: rule.reason,
+          merged[messageId] = rule.map((r) => ({
+            rule: r.rule,
+            actionItems: r.actionItems,
+            reason: r.reason,
             existing: true,
-          };
+            createdAt: r.createdAt,
+            status: r.status,
+          }));
         }
       }
     }
     return merged;
-  }, [results, existingRules]);
+  }, [resultsMap, existingRules]);
 
   const onRun = useCallback(
     async (message: Message, rerun?: boolean) => {
@@ -162,7 +158,7 @@ export function ProcessRulesContent({ testMode }: { testMode: boolean }) {
           description: result.serverError,
         });
       } else if (result?.data) {
-        setResults((prev) => ({ ...prev, [message.id]: result.data! }));
+        setResultsMap((prev) => ({ ...prev, [message.id]: result.data! }));
       }
       setIsRunning((prev) => ({ ...prev, [message.id]: false }));
     },
@@ -258,7 +254,7 @@ export function ProcessRulesContent({ testMode }: { testMode: boolean }) {
         </div>
 
         <div className="flex items-center gap-2">
-          {hasAiRules && testMode && (
+          {testMode && (
             <Button
               variant="ghost"
               onClick={() => setShowCustomForm((show) => !show)}
@@ -275,8 +271,16 @@ export function ProcessRulesContent({ testMode }: { testMode: boolean }) {
         </div>
       </div>
 
-      {hasAiRules && showCustomForm && testMode && (
-        <div className="my-2">
+      {showCustomForm && testMode && (
+        <div className="my-2 space-y-2">
+          {!hasAiRules && (
+            <Alert variant="destructive">
+              <AlertDescription>
+                You don't have any AI rules set up. The test won't match
+                anything. Please create AI rules first.
+              </AlertDescription>
+            </Alert>
+          )}
           <TestCustomEmailForm />
         </div>
       )}
@@ -296,7 +300,7 @@ export function ProcessRulesContent({ testMode }: { testMode: boolean }) {
                     message={message}
                     userEmail={userEmail}
                     isRunning={isRunning[message.id]}
-                    result={allResults[message.id]}
+                    results={allResults[message.id]}
                     onRun={(rerun) => onRun(message, rerun)}
                     testMode={testMode}
                     setInput={setInput}
@@ -332,7 +336,7 @@ function ProcessRulesRow({
   message,
   userEmail,
   isRunning,
-  result,
+  results,
   onRun,
   testMode,
   setInput,
@@ -340,7 +344,7 @@ function ProcessRulesRow({
   message: Message;
   userEmail: string;
   isRunning: boolean;
-  result: RunRulesResult;
+  results: RunRulesResult[];
   onRun: (rerun?: boolean) => void;
   testMode: boolean;
   setInput: (input: string) => void;
@@ -363,15 +367,13 @@ function ProcessRulesRow({
             labelIds={message.labelIds}
           />
           <div className="ml-4 flex items-center gap-1">
-            {result ? (
+            {results ? (
               <>
-                <div className="flex max-w-xs flex-col justify-center gap-0.5 whitespace-nowrap">
-                  <ProcessResultDisplay result={result} />
-                </div>
+                <ResultsDisplay results={results} />
                 <FixWithChat
                   setInput={setInput}
                   message={message}
-                  result={result}
+                  results={results}
                 />
                 <Button
                   variant="outline"

@@ -7,29 +7,25 @@ import {
   splitEmailPatterns,
 } from "@/utils/ai/choose-rule/match-rules";
 import { fetchPaginatedMessages } from "@/app/api/user/group/[groupId]/messages/controller";
-import {
-  isGroupRule,
-  isAIRule,
-  isStaticRule,
-  isCategoryRule,
-} from "@/utils/condition";
+import { isGroupRule, isAIRule, isStaticRule } from "@/utils/condition";
 import { LogicalOperator } from "@prisma/client";
 import type { EmailProvider } from "@/utils/email/types";
+import type { Logger } from "@/utils/logger";
 
 export async function fetchExampleMessages(
   rule: RuleWithGroup,
   emailProvider: EmailProvider,
+  logger: Logger,
 ) {
   const isStatic = isStaticRule(rule);
   const isGroup = isGroupRule(rule);
   const isAI = isAIRule(rule);
-  const isCategory = isCategoryRule(rule);
 
-  if (isAI || isCategory) return [];
+  if (isAI) return [];
 
   // if AND and more than 1 condition, return []
   // TODO: handle multiple conditions properly and return real examples
-  const conditions = [isStatic, isGroup, isAI, isCategory];
+  const conditions = [isStatic, isGroup, isAI];
   const trueConditionsCount = conditions.filter(Boolean).length;
 
   if (
@@ -38,7 +34,7 @@ export async function fetchExampleMessages(
   )
     return [];
 
-  if (isStatic) return fetchStaticExampleMessages(rule, emailProvider);
+  if (isStatic) return fetchStaticExampleMessages(rule, emailProvider, logger);
 
   if (isGroup) {
     if (!rule.group) return [];
@@ -56,6 +52,7 @@ export async function fetchExampleMessages(
 async function fetchStaticExampleMessages(
   rule: RuleWithGroup,
   emailProvider: EmailProvider,
+  logger: Logger,
 ): Promise<MessageWithGroupItem[]> {
   // Build structured query options instead of provider-specific query strings
   const options: Parameters<EmailProvider["getMessagesByFields"]>[0] = {
@@ -76,6 +73,6 @@ async function fetchStaticExampleMessages(
 
   // search might include messages that don't match the rule, so we filter those out
   return response.messages.filter((message) =>
-    matchesStaticRule(rule, message),
+    matchesStaticRule(rule, message, logger),
   );
 }

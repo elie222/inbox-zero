@@ -5,7 +5,7 @@ import { withAuth } from "@/utils/middleware";
 import prisma from "@/utils/prisma";
 import { trackStripeCheckoutCompleted } from "@/utils/posthog";
 
-export const GET = withAuth(async (request) => {
+export const GET = withAuth("stripe/success", async (request) => {
   const userId = request.auth.userId;
 
   after(async () => {

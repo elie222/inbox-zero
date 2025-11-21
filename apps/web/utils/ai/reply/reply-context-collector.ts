@@ -47,6 +47,11 @@ CRITICAL GUIDELINES:
 - Focus on emails that show how similar questions were answered before
 - Only include information that directly helps a downstream drafting agent
 
+IMPORTANT - For scheduling/meeting requests:
+- DO NOT include emails that show old availability times or scheduling patterns
+- DO include context about the person (relationship, past meeting topics, ongoing projects)
+- If you only find old scheduling emails with no useful context, return empty relevantEmails array
+
 When searching, use natural language queries that would find relevant emails. The search will look through the past 6 months automatically.
 
 Search Tips:
@@ -87,7 +92,7 @@ ${getTodayForLLM()}`;
     const modelOptions = getModel(emailAccount.user, "economy");
 
     const generateText = createGenerateText({
-      userEmail: emailAccount.email,
+      emailAccount,
       label: "Reply context collector",
       modelOptions,
     });

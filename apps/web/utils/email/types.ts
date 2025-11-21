@@ -1,6 +1,8 @@
 import type { ParsedMessage } from "@/utils/types";
 import type { InboxZeroLabel } from "@/utils/label";
 import type { ThreadsQuery } from "@/app/api/threads/validation";
+import type { OutlookFolder } from "@/utils/outlook/folders";
+import type { Logger } from "@/utils/logger";
 
 export interface EmailThread {
   id: string;
@@ -42,12 +44,17 @@ export interface EmailSignature {
 
 export interface EmailProvider {
   readonly name: "google" | "microsoft";
+  toJSON(): { name: string; type: string };
   getThreads(folderId?: string): Promise<EmailThread[]>;
   getThread(threadId: string): Promise<EmailThread>;
   getLabels(): Promise<EmailLabel[]>;
   getLabelById(labelId: string): Promise<EmailLabel | null>;
   getLabelByName(name: string): Promise<EmailLabel | null>;
+  getFolders(): Promise<OutlookFolder[]>;
   getMessage(messageId: string): Promise<ParsedMessage>;
+  getMessageByRfc822MessageId(
+    rfc822MessageId: string,
+  ): Promise<ParsedMessage | null>;
   getMessagesByFields(options: {
     froms?: string[];
     tos?: string[];
@@ -82,13 +89,28 @@ export interface EmailProvider {
     labelId?: string,
   ): Promise<void>;
   archiveMessage(messageId: string): Promise<void>;
+  bulkArchiveFromSenders(
+    fromEmails: string[],
+    ownerEmail: string,
+    emailAccountId: string,
+  ): Promise<void>;
+  bulkTrashFromSenders(
+    fromEmails: string[],
+    ownerEmail: string,
+    emailAccountId: string,
+  ): Promise<void>;
   trashThread(
     threadId: string,
     ownerEmail: string,
     actionSource: "user" | "automation",
   ): Promise<void>;
-  labelMessage(options: { messageId: string; labelId: string }): Promise<void>;
+  labelMessage(options: {
+    messageId: string;
+    labelId: string;
+    labelName: string | null;
+  }): Promise<{ usedFallback?: boolean; actualLabelId?: string }>;
   removeThreadLabel(threadId: string, labelId: string): Promise<void>;
+  removeThreadLabels(threadId: string, labelIds: string[]): Promise<void>;
   draftEmail(
     email: ParsedMessage,
     args: { to?: string; subject?: string; content: string },
@@ -134,7 +156,9 @@ export interface EmailProvider {
   getDraft(draftId: string): Promise<ParsedMessage | null>;
   deleteDraft(draftId: string): Promise<void>;
   createLabel(name: string, description?: string): Promise<EmailLabel>;
+  deleteLabel(labelId: string): Promise<void>;
   getOrCreateInboxZeroLabel(key: InboxZeroLabel): Promise<EmailLabel>;
+  blockUnsubscribedEmail(messageId: string): Promise<void>;
   getOriginalMessage(
     originalMessageId: string | undefined,
   ): Promise<ParsedMessage | null>;
@@ -207,6 +231,7 @@ export interface EmailProvider {
       id: string;
       conversationId?: string;
     };
+    logger?: Logger;
   }): Promise<void>;
   watchEmails(): Promise<{
     expirationDate: Date;
@@ -214,6 +239,7 @@ export interface EmailProvider {
   } | null>;
   unwatchEmails(subscriptionId?: string): Promise<void>;
   isReplyInThread(message: ParsedMessage): boolean;
+  isSentMessage(message: ParsedMessage): boolean;
   moveThreadToFolder(
     threadId: string,
     ownerEmail: string,

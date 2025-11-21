@@ -4,7 +4,7 @@ import { withEmailAccount } from "@/utils/middleware";
 
 export type GetChatsResponse = Awaited<ReturnType<typeof getChats>>;
 
-export const GET = withEmailAccount(async (request) => {
+export const GET = withEmailAccount("chats", async (request) => {
   const emailAccountId = request.auth.emailAccountId;
   const result = await getChats({ emailAccountId });
   return NextResponse.json(result);

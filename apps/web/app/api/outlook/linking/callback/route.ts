@@ -1,57 +1,69 @@
 import { NextResponse } from "next/server";
 import { env } from "@/env";
 import prisma from "@/utils/prisma";
-import { createScopedLogger } from "@/utils/logger";
 import { OUTLOOK_LINKING_STATE_COOKIE_NAME } from "@/utils/outlook/constants";
 import { withError } from "@/utils/middleware";
-import { SafeError } from "@/utils/error";
-import { transferPremiumDuringMerge } from "@/utils/user/merge-premium";
-import { parseOAuthState } from "@/utils/oauth/state";
+import { captureException, SafeError } from "@/utils/error";
+import { validateOAuthCallback } from "@/utils/oauth/callback-validation";
+import { handleAccountLinking } from "@/utils/oauth/account-linking";
+import { mergeAccount } from "@/utils/user/merge-account";
+import { handleOAuthCallbackError } from "@/utils/oauth/error-handler";
+import {
+  acquireOAuthCodeLock,
+  getOAuthCodeResult,
+  setOAuthCodeResult,
+  clearOAuthCode,
+} from "@/utils/redis/oauth-code";
+import { isDuplicateError } from "@/utils/prisma-helpers";
 
-const logger = createScopedLogger("outlook/linking/callback");
+export const GET = withError("outlook/linking/callback", async (request) => {
+  const logger = request.logger;
 
-export const GET = withError(async (request) => {
   if (!env.MICROSOFT_CLIENT_ID || !env.MICROSOFT_CLIENT_SECRET)
     throw new SafeError("Microsoft login not enabled");
 
   const searchParams = request.nextUrl.searchParams;
-  const code = searchParams.get("code");
-  const receivedState = searchParams.get("state");
   const storedState = request.cookies.get(
     OUTLOOK_LINKING_STATE_COOKIE_NAME,
   )?.value;
 
-  const redirectUrl = new URL("/accounts", request.nextUrl.origin);
-  const response = NextResponse.redirect(redirectUrl);
+  const validation = validateOAuthCallback({
+    code: searchParams.get("code"),
+    receivedState: searchParams.get("state"),
+    storedState,
+    stateCookieName: OUTLOOK_LINKING_STATE_COOKIE_NAME,
+    logger,
+  });
 
-  if (!storedState || !receivedState || storedState !== receivedState) {
-    logger.warn("Invalid state during Outlook linking callback", {
-      receivedState,
-      hasStoredState: !!storedState,
+  if (!validation.success) {
+    return validation.response;
+  }
+
+  const { targetUserId, code } = validation;
+
+  const cachedResult = await getOAuthCodeResult(code);
+  if (cachedResult) {
+    logger.info("OAuth code already processed, returning cached result", {
+      targetUserId,
     });
-    redirectUrl.searchParams.set("error", "invalid_state");
+    const redirectUrl = new URL("/accounts", env.NEXT_PUBLIC_BASE_URL);
+    for (const [key, value] of Object.entries(cachedResult.params)) {
+      redirectUrl.searchParams.set(key, value);
+    }
+    const response = NextResponse.redirect(redirectUrl);
     response.cookies.delete(OUTLOOK_LINKING_STATE_COOKIE_NAME);
-    return NextResponse.redirect(redirectUrl, { headers: response.headers });
+    return response;
   }
 
-  let decodedState: { userId: string; action: string; nonce: string };
-  try {
-    decodedState = parseOAuthState(storedState);
-  } catch (error) {
-    logger.error("Failed to decode state", { error });
-    redirectUrl.searchParams.set("error", "invalid_state_format");
+  const acquiredLock = await acquireOAuthCodeLock(code);
+  if (!acquiredLock) {
+    logger.info("OAuth code is being processed by another request", {
+      targetUserId,
+    });
+    const redirectUrl = new URL("/accounts", env.NEXT_PUBLIC_BASE_URL);
+    const response = NextResponse.redirect(redirectUrl);
     response.cookies.delete(OUTLOOK_LINKING_STATE_COOKIE_NAME);
-    return NextResponse.redirect(redirectUrl, { headers: response.headers });
-  }
-
-  response.cookies.delete(OUTLOOK_LINKING_STATE_COOKIE_NAME);
-
-  const { userId: targetUserId, action } = decodedState;
-
-  if (!code) {
-    logger.warn("Missing code in Outlook linking callback");
-    redirectUrl.searchParams.set("error", "missing_code");
-    return NextResponse.redirect(redirectUrl, { headers: response.headers });
+    return response;
   }
 
   try {
@@ -76,6 +88,14 @@ export const GET = withError(async (request) => {
     const tokens = await tokenResponse.json();
 
     if (!tokenResponse.ok) {
+      logger.error("Failed to exchange code for tokens", {
+        error: tokens.error_description,
+      });
+      captureException(
+        new Error(
+          tokens.error_description || "Failed to exchange code for tokens",
+        ),
+      );
       throw new Error(
         tokens.error_description || "Failed to exchange code for tokens",
       );
@@ -99,7 +119,22 @@ export const GET = withError(async (request) => {
       throw new Error("Profile missing required email");
     }
 
-    const existingAccount = await prisma.account.findFirst({
+    const existingAccountByProviderId = await prisma.account.findUnique({
+      where: {
+        provider_providerAccountId: {
+          provider: "microsoft",
+          providerAccountId: profile.id || providerEmail,
+        },
+      },
+      select: {
+        id: true,
+        userId: true,
+        user: { select: { name: true, email: true } },
+        emailAccount: true,
+      },
+    });
+
+    const existingAccountByEmail = await prisma.account.findFirst({
       where: {
         provider: "microsoft",
         user: {
@@ -110,84 +145,94 @@ export const GET = withError(async (request) => {
         id: true,
         userId: true,
         user: { select: { name: true, email: true } },
+        emailAccount: true,
       },
     });
 
-    if (!existingAccount) {
-      if (action === "merge") {
-        logger.warn(
-          "Merge Failed: Microsoft account not found in the system. Cannot merge.",
-          { email: providerEmail },
-        );
-        redirectUrl.searchParams.set("error", "account_not_found_for_merge");
-        return NextResponse.redirect(redirectUrl, {
-          headers: response.headers,
-        });
-      } else {
-        logger.info(
-          "Creating new Microsoft account and linking to current user",
+    const existingAccount =
+      existingAccountByProviderId || existingAccountByEmail;
+
+    const linkingResult = await handleAccountLinking({
+      existingAccountId: existingAccount?.id || null,
+      hasEmailAccount: !!existingAccount?.emailAccount,
+      existingUserId: existingAccount?.userId || null,
+      targetUserId,
+      provider: "microsoft",
+      providerEmail,
+      logger,
+    });
+
+    if (linkingResult.type === "redirect") {
+      linkingResult.response.cookies.delete(OUTLOOK_LINKING_STATE_COOKIE_NAME);
+      return linkingResult.response;
+    }
+
+    if (linkingResult.type === "continue_create") {
+      logger.info(
+        "Creating new Microsoft account and linking to current user",
+        {
+          email: providerEmail,
+          targetUserId,
+        },
+      );
+
+      let expiresAt: Date | null = null;
+      if (tokens.expires_at) {
+        expiresAt = new Date(tokens.expires_at * 1000);
+      } else if (tokens.expires_in) {
+        const expiresInSeconds =
+          typeof tokens.expires_in === "string"
+            ? Number.parseInt(tokens.expires_in, 10)
+            : tokens.expires_in;
+        expiresAt = new Date(Date.now() + expiresInSeconds * 1000);
+      }
+
+      let profileImage = null;
+      try {
+        const photoResponse = await fetch(
+          "https://graph.microsoft.com/v1.0/me/photo/$value",
           {
-            email: providerEmail,
-            targetUserId,
+            headers: {
+              Authorization: `Bearer ${tokens.access_token}`,
+            },
           },
         );
 
-        let expiresAt: Date | null = null;
-        if (tokens.expires_at) {
-          expiresAt = new Date(tokens.expires_at * 1000);
-        } else if (tokens.expires_in) {
-          const expiresInSeconds =
-            typeof tokens.expires_in === "string"
-              ? Number.parseInt(tokens.expires_in, 10)
-              : tokens.expires_in;
-          expiresAt = new Date(Date.now() + expiresInSeconds * 1000);
+        if (photoResponse.ok) {
+          const photoBuffer = await photoResponse.arrayBuffer();
+          const photoBase64 = Buffer.from(photoBuffer).toString("base64");
+          profileImage = `data:image/jpeg;base64,${photoBase64}`;
         }
+      } catch (error) {
+        logger.warn("Failed to fetch profile picture", { error });
+      }
 
+      const microsoftProviderAccountId = profile.id || providerEmail;
+
+      try {
         const newAccount = await prisma.account.create({
           data: {
             userId: targetUserId,
             type: "oidc",
             provider: "microsoft",
-            providerAccountId: profile.id || providerEmail,
+            providerAccountId: microsoftProviderAccountId,
             access_token: tokens.access_token,
             refresh_token: tokens.refresh_token,
             expires_at: expiresAt,
             scope: tokens.scope,
             token_type: tokens.token_type,
-          },
-        });
-
-        let profileImage = null;
-        try {
-          const photoResponse = await fetch(
-            "https://graph.microsoft.com/v1.0/me/photo/$value",
-            {
-              headers: {
-                Authorization: `Bearer ${tokens.access_token}`,
+            emailAccount: {
+              create: {
+                email: providerEmail,
+                userId: targetUserId,
+                name:
+                  profile.displayName ||
+                  profile.givenName ||
+                  profile.surname ||
+                  null,
+                image: profileImage,
               },
             },
-          );
-
-          if (photoResponse.ok) {
-            const photoBuffer = await photoResponse.arrayBuffer();
-            const photoBase64 = Buffer.from(photoBuffer).toString("base64");
-            profileImage = `data:image/jpeg;base64,${photoBase64}`;
-          }
-        } catch (error) {
-          logger.warn("Failed to fetch profile picture", { error });
-        }
-
-        await prisma.emailAccount.create({
-          data: {
-            email: providerEmail,
-            userId: targetUserId,
-            accountId: newAccount.id,
-            name:
-              profile.displayName ||
-              profile.givenName ||
-              profile.surname ||
-              providerEmail,
-            image: profileImage,
           },
         });
 
@@ -196,78 +241,87 @@ export const GET = withError(async (request) => {
           targetUserId,
           accountId: newAccount.id,
         });
-        redirectUrl.searchParams.set("success", "account_created_and_linked");
-        return NextResponse.redirect(redirectUrl, {
-          headers: response.headers,
-        });
+      } catch (createError: unknown) {
+        if (isDuplicateError(createError)) {
+          const accountNow = await prisma.account.findUnique({
+            where: {
+              provider_providerAccountId: {
+                provider: "microsoft",
+                providerAccountId: microsoftProviderAccountId,
+              },
+            },
+            select: { userId: true },
+          });
+
+          if (accountNow?.userId === targetUserId) {
+            logger.info(
+              "Account was created by concurrent request, continuing",
+              {
+                targetUserId,
+                providerAccountId: microsoftProviderAccountId,
+              },
+            );
+          } else {
+            throw createError;
+          }
+        } else {
+          throw createError;
+        }
       }
+
+      await setOAuthCodeResult(code, { success: "account_created_and_linked" });
+
+      const successUrl = new URL("/accounts", env.NEXT_PUBLIC_BASE_URL);
+      successUrl.searchParams.set("success", "account_created_and_linked");
+      const successResponse = NextResponse.redirect(successUrl);
+      successResponse.cookies.delete(OUTLOOK_LINKING_STATE_COOKIE_NAME);
+
+      return successResponse;
     }
 
-    if (existingAccount.userId === targetUserId) {
-      logger.warn(
-        "Microsoft account is already linked to the correct user. Merge action unnecessary.",
-        { email: providerEmail, targetUserId },
-      );
-      redirectUrl.searchParams.set("error", "already_linked_to_self");
-      return NextResponse.redirect(redirectUrl, {
-        headers: response.headers,
-      });
-    }
-
-    logger.info("Merging Microsoft account linked to user.", {
+    logger.info("Merging Microsoft account (user confirmed).", {
       email: providerEmail,
       targetUserId,
     });
 
-    // Transfer premium subscription before deleting the source user
-    await transferPremiumDuringMerge({
-      sourceUserId: existingAccount.userId,
+    const mergeType = await mergeAccount({
+      sourceAccountId: linkingResult.sourceAccountId,
+      sourceUserId: linkingResult.sourceUserId,
       targetUserId,
+      email: providerEmail,
+      name: existingAccount?.user.name || null,
+      logger,
     });
 
-    await prisma.$transaction([
-      prisma.account.update({
-        where: { id: existingAccount.id },
-        data: { userId: targetUserId },
-      }),
-      prisma.emailAccount.update({
-        where: { accountId: existingAccount.id },
-        data: {
-          userId: targetUserId,
-          name: existingAccount.user.name,
-          email: existingAccount.user.email,
-        },
-      }),
-      prisma.user.delete({
-        where: { id: existingAccount.userId },
-      }),
-    ]);
+    const successMessage =
+      mergeType === "full_merge"
+        ? "account_merged"
+        : "account_created_and_linked";
 
     logger.info("Account re-assigned to user.", {
       email: providerEmail,
       targetUserId,
-      sourceUserId: existingAccount.userId,
+      sourceUserId: linkingResult.sourceUserId,
+      mergeType,
     });
-    redirectUrl.searchParams.set("success", "account_merged");
-    return NextResponse.redirect(redirectUrl, {
-      headers: response.headers,
+
+    await setOAuthCodeResult(code, { success: successMessage });
+
+    const successUrl = new URL("/accounts", env.NEXT_PUBLIC_BASE_URL);
+    successUrl.searchParams.set("success", successMessage);
+    const successResponse = NextResponse.redirect(successUrl);
+    successResponse.cookies.delete(OUTLOOK_LINKING_STATE_COOKIE_NAME);
+
+    return successResponse;
+  } catch (error) {
+    await clearOAuthCode(code);
+
+    const errorUrl = new URL("/accounts", env.NEXT_PUBLIC_BASE_URL);
+    return handleOAuthCallbackError({
+      error,
+      redirectUrl: errorUrl,
+      stateCookieName: OUTLOOK_LINKING_STATE_COOKIE_NAME,
+      logger,
     });
-  } catch (error: any) {
-    logger.error("Error in Outlook linking callback:", { error });
-    let errorCode = "link_failed";
-    if (error.message?.includes("Failed to exchange code")) {
-      errorCode = "token_exchange_failed";
-    } else if (error.message?.includes("Failed to fetch user profile")) {
-      errorCode = "profile_fetch_failed";
-    } else if (error.message?.includes("Profile missing required")) {
-      errorCode = "incomplete_profile";
-    }
-    redirectUrl.searchParams.set("error", errorCode);
-    redirectUrl.searchParams.set(
-      "error_description",
-      error.message || "Unknown error",
-    );
-    response.cookies.delete(OUTLOOK_LINKING_STATE_COOKIE_NAME);
-    return NextResponse.redirect(redirectUrl, { headers: response.headers });
   }
 });

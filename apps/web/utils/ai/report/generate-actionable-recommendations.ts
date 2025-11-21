@@ -62,7 +62,7 @@ Focus on practical, implementable solutions that improve email organization and 
   const modelOptions = getModel(emailAccount.user);
 
   const generateObject = createGenerateObject({
-    userEmail: emailAccount.email,
+    emailAccount,
     label: "email-report-actionable-recommendations",
     modelOptions,
   });

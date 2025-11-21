@@ -189,7 +189,7 @@ function TestimonialsContent() {
               <Image
                 className="h-10 w-10 rounded-full bg-gray-50"
                 src={testimonial.author.imageUrl}
-                alt=""
+                alt={testimonial.author.name}
                 width={40}
                 height={40}
               />
@@ -216,7 +216,7 @@ function TestimonialsContent() {
             <Image
               className="h-10 w-10 flex-none rounded-full bg-gray-50"
               src={featuredTestimonial.author.imageUrl}
-              alt=""
+              alt={featuredTestimonial.author.name}
               width={40}
               height={40}
             />

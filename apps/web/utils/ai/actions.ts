@@ -1,14 +1,14 @@
 import { ActionType, type ExecutedRule } from "@prisma/client";
-import { createScopedLogger } from "@/utils/logger";
+import { createScopedLogger, type Logger } from "@/utils/logger";
 import { callWebhook } from "@/utils/webhook";
 import type { ActionItem, EmailForAction } from "@/utils/ai/types";
-import { coordinateReplyProcess } from "@/utils/reply-tracker/inbound";
-import { internalDateToDate } from "@/utils/date";
 import type { EmailProvider } from "@/utils/email/types";
 import { enqueueDigestItem } from "@/utils/digest/index";
 import { filterNullProperties } from "@/utils";
+import { labelMessageAndSync } from "@/utils/label.server";
+import { hasVariables } from "@/utils/template";
 
-const logger = createScopedLogger("ai-actions");
+const MODULE = "ai-actions";
 
 type ActionFunction<T extends Partial<Omit<ActionItem, "type">>> = (options: {
   client: EmailProvider;
@@ -18,6 +18,7 @@ type ActionFunction<T extends Partial<Omit<ActionItem, "type">>> = (options: {
   userId: string;
   emailAccountId: string;
   executedRule: ExecutedRule;
+  logger: Logger;
 }) => Promise<any>;
 
 export const runActionFunction = async (options: {
@@ -28,19 +29,23 @@ export const runActionFunction = async (options: {
   userId: string;
   emailAccountId: string;
   executedRule: ExecutedRule;
+  logger: Logger;
 }) => {
-  const { action, userEmail } = options;
-  logger.info("Running action", {
+  const { action, userEmail, logger } = options;
+  const log = logger.with({ module: MODULE });
+
+  log.info("Running action", {
     actionType: action.type,
     userEmail,
     id: action.id,
   });
-  logger.trace("Running action", () => filterNullProperties(action));
+  log.trace("Running action", () => filterNullProperties(action));
 
   const { type, ...args } = action;
   const opts = {
     ...options,
     args,
+    logger: log,
   };
   switch (type) {
     case ActionType.ARCHIVE:
@@ -61,8 +66,6 @@ export const runActionFunction = async (options: {
       return call_webhook(opts);
     case ActionType.MARK_READ:
       return mark_read(opts);
-    case ActionType.TRACK_THREAD:
-      return track_thread(opts);
     case ActionType.DIGEST:
       return digest(opts);
     case ActionType.MOVE_FOLDER:
@@ -83,11 +86,16 @@ const archive: ActionFunction<Record<string, unknown>> = async ({
 const label: ActionFunction<{
   label?: string | null;
   labelId?: string | null;
-}> = async ({ client, email, args }) => {
+}> = async ({ client, email, args, emailAccountId, logger }) => {
   let labelIdToUse = args.labelId;
 
   // Lazy migration: If no labelId but label name exists, look it up
   if (!labelIdToUse && args.label) {
+    if (hasVariables(args.label)) {
+      logger.error("Template label not processed by AI", { label: args.label });
+      return;
+    }
+
     const matchingLabel = await client.getLabelByName(args.label);
 
     if (matchingLabel) {
@@ -108,7 +116,13 @@ const label: ActionFunction<{
 
   if (!labelIdToUse) return;
 
-  await client.labelMessage({ messageId: email.id, labelId: labelIdToUse });
+  await labelMessageAndSync({
+    provider: client,
+    messageId: email.id,
+    labelId: labelIdToUse,
+    labelName: args.label || null,
+    emailAccountId,
+  });
 };
 
 const draft: ActionFunction<{
@@ -151,7 +165,7 @@ const reply: ActionFunction<{
   content?: string | null;
   cc?: string | null;
   bcc?: string | null;
-}> = async ({ client, email, args, emailAccountId }) => {
+}> = async ({ client, email, args }) => {
   if (!args.content) return;
 
   await client.replyToEmail(
@@ -168,14 +182,6 @@ const reply: ActionFunction<{
     },
     args.content,
   );
-
-  await coordinateReplyProcess({
-    threadId: email.threadId,
-    messageId: email.id,
-    emailAccountId,
-    sentAt: internalDateToDate(email.internalDate),
-    client,
-  });
 };
 
 const send_email: ActionFunction<{
@@ -272,20 +278,6 @@ const mark_read: ActionFunction<Record<string, unknown>> = async ({
   email,
 }) => {
   await client.markRead(email.threadId);
-};
-
-const track_thread: ActionFunction<Record<string, unknown>> = async ({
-  client,
-  email,
-  emailAccountId,
-}) => {
-  await coordinateReplyProcess({
-    threadId: email.threadId,
-    messageId: email.id,
-    emailAccountId,
-    sentAt: internalDateToDate(email.internalDate),
-    client,
-  });
 };
 
 const digest: ActionFunction<{ id?: string }> = async ({

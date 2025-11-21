@@ -1,7 +1,7 @@
 import type { MailFolder } from "@microsoft/microsoft-graph-types";
 import type { OutlookClient } from "./client";
 import { createScopedLogger } from "@/utils/logger";
-import { isAlreadyExistsError } from "./errors";
+import { withOutlookRetry } from "@/utils/outlook/retry";
 
 const logger = createScopedLogger("outlook/folders");
 
@@ -28,14 +28,17 @@ export async function getOutlookRootFolders(
   client: OutlookClient,
 ): Promise<OutlookFolder[]> {
   const fields = "id,displayName";
-  const response: { value: MailFolder[] } = await client
-    .getClient()
-    .api("/me/mailFolders")
-    .select(fields)
-    .expand(
-      `childFolders($select=${fields};$expand=childFolders($select=${fields}))`,
-    )
-    .get();
+  const response: { value: MailFolder[] } = await withOutlookRetry(() =>
+    client
+      .getClient()
+      .api("/me/mailFolders")
+      .select(fields)
+      .top(999)
+      .expand(
+        `childFolders($select=${fields};$expand=childFolders($select=${fields}))`,
+      )
+      .get(),
+  );
 
   return response.value.map(convertMailFolderToOutlookFolder);
 }
@@ -45,14 +48,16 @@ export async function getOutlookChildFolders(
   folderId: string,
 ): Promise<OutlookFolder[]> {
   const fields = "id,displayName";
-  const response: { value: MailFolder[] } = await client
-    .getClient()
-    .api(`/me/mailFolders/${folderId}/childFolders`)
-    .select(fields)
-    .expand(
-      `childFolders($select=${fields};$expand=childFolders($select=${fields}))`,
-    )
-    .get();
+  const response: { value: MailFolder[] } = await withOutlookRetry(() =>
+    client
+      .getClient()
+      .api(`/me/mailFolders/${folderId}/childFolders`)
+      .select(fields)
+      .expand(
+        `childFolders($select=${fields};$expand=childFolders($select=${fields}))`,
+      )
+      .get(),
+  );
 
   return response.value.map(convertMailFolderToOutlookFolder);
 }
@@ -61,8 +66,25 @@ async function findOutlookFolderByName(
   client: OutlookClient,
   folderName: string,
 ): Promise<OutlookFolder | undefined> {
-  const folders = await getOutlookRootFolders(client);
-  return folders.find((folder) => folder.displayName === folderName);
+  try {
+    const response: { value: MailFolder[] } = await withOutlookRetry(() =>
+      client
+        .getClient()
+        .api("/me/mailFolders")
+        .filter(`displayName eq '${folderName.replace(/'/g, "''")}'`)
+        .select("id,displayName")
+        .top(1)
+        .get(),
+    );
+
+    if (response.value && response.value.length > 0) {
+      return convertMailFolderToOutlookFolder(response.value[0]);
+    }
+    return undefined;
+  } catch (error) {
+    logger.warn("Error finding folder by name", { folderName, error });
+    return undefined;
+  }
 }
 
 export async function getOutlookFolderTree(
@@ -113,15 +135,19 @@ export async function getOrCreateOutlookFolderIdByName(
   }
 
   try {
-    const response = await client.getClient().api("/me/mailFolders").post({
-      displayName: folderName,
-    });
+    const response = await withOutlookRetry(() =>
+      client.getClient().api("/me/mailFolders").post({
+        displayName: folderName,
+      }),
+    );
 
     return response.id;
   } catch (error) {
     // If folder already exists (race condition or created between check and create),
     // fetch folders again and return the existing folder ID
-    if (isAlreadyExistsError(error)) {
+    // biome-ignore lint/suspicious/noExplicitAny: simplest
+    const err = error as any;
+    if (err?.code === "ErrorFolderExists" || err?.statusCode === 409) {
       logger.info("Folder already exists, fetching existing folder", {
         folderName,
       });

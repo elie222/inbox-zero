@@ -208,7 +208,7 @@ export function FolderSelector({
                   <Loader2 className="h-4 w-4 animate-spin" />
                   <span>Loading folders...</span>
                 </>
-              ) : selectedFolder?.displayName ? (
+              ) : value.id ? (
                 <div className="flex items-center gap-2">
                   <FolderIcon className="h-4 w-4" />
                   <span>{value.name || selectedFolder?.displayName || ""}</span>
@@ -218,7 +218,7 @@ export function FolderSelector({
               )}
             </div>
             <div className="flex items-center gap-1">
-              {selectedFolder?.displayName && !isLoading && (
+              {value.id && !isLoading && (
                 <Button
                   variant="ghost"
                   size="sm"

@@ -2,7 +2,6 @@ import { z } from "zod";
 import { NextResponse } from "next/server";
 import { betterAuthConfig } from "@/utils/auth";
 import { SafeError } from "@/utils/error";
-import { createScopedLogger } from "@/utils/logger";
 import { withError } from "@/utils/middleware";
 import prisma from "@/utils/prisma";
 
@@ -16,16 +15,14 @@ export type GetSsoSignInResponse = {
   providerId: string;
 };
 
-const logger = createScopedLogger("api/sso/signin");
-
-export const GET = withError(async (request) => {
+export const GET = withError("sso/signin", async (request) => {
   const { searchParams } = new URL(request.url);
   const { email, organizationSlug } = getSsoSignInSchema.parse({
     email: searchParams.get("email"),
     organizationSlug: searchParams.get("organizationSlug"),
   });
 
-  logger.info("SSO sign-in requested", { email, organizationSlug });
+  request.logger.info("SSO sign-in requested", { email, organizationSlug });
 
   const provider = await prisma.ssoProvider.findFirst({
     where: {
@@ -39,7 +36,7 @@ export const GET = withError(async (request) => {
   });
 
   if (!provider) {
-    logger.error("No SSO provider found for sign-in", {
+    request.logger.error("No SSO provider found for sign-in", {
       email,
       organizationSlug,
     });

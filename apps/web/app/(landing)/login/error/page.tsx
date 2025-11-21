@@ -12,6 +12,7 @@ import { LoadingContent } from "@/components/LoadingContent";
 import { Loading } from "@/components/Loading";
 import { WELCOME_PATH } from "@/utils/config";
 import { CrispChatLoggedOutVisible } from "@/components/CrispChat";
+import { getAndClearAuthErrorCookie } from "@/utils/auth-cookies";
 
 export default function LogInErrorPage() {
   const { data, isLoading, error } = useUser();
@@ -21,7 +22,13 @@ export default function LogInErrorPage() {
   // This will redirect them out of this page to the app
   useEffect(() => {
     if (data?.id) {
-      router.push(WELCOME_PATH);
+      const authErrorCookie = getAndClearAuthErrorCookie();
+
+      if (authErrorCookie) {
+        router.push("/accounts");
+      } else {
+        router.push(WELCOME_PATH);
+      }
     }
   }, [data, router]);
 

@@ -1,6 +1,5 @@
 "use client";
 
-import { useCallback } from "react";
 import Image from "next/image";
 import { Play } from "lucide-react";
 import { cn } from "@/utils";
@@ -11,6 +10,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { landingPageAnalytics } from "@/hooks/useAnalytics";
 
 interface HeroVideoProps {
   videoSrc: string;
@@ -27,17 +27,13 @@ export default function HeroVideoDialog({
 }: HeroVideoProps) {
   const posthog = usePostHog();
 
-  const handleOpenVideo = useCallback(() => {
-    posthog.capture("Landing Page Video Clicked");
-  }, [posthog]);
-
   return (
     <Dialog>
       <div className={cn("relative", className)}>
         <DialogTrigger asChild>
           <button
             type="button"
-            onClick={handleOpenVideo}
+            onClick={() => landingPageAnalytics.videoClicked(posthog)}
             aria-label="Play video"
             className="group relative cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 rounded-xl"
           >

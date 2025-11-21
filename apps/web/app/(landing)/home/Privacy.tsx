@@ -25,10 +25,10 @@ export function Privacy() {
 
       <div className="mx-auto max-w-7xl px-6 lg:px-8">
         <div className="mx-auto max-w-2xl lg:text-center">
-          <h2 className="font-cal text-base leading-7 text-blue-600">
+          <h2 className="font-title text-base leading-7 text-blue-600">
             Privacy first
           </h2>
-          <p className="mt-2 font-cal text-3xl text-gray-900 sm:text-4xl">
+          <p className="mt-2 font-title text-3xl text-gray-900 sm:text-4xl">
             Open Source. See exactly what our code does. Or host it yourself.
           </p>
           <p className="mt-6 text-lg leading-8 text-gray-600">

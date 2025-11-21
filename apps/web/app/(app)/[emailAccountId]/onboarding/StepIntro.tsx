@@ -18,12 +18,12 @@ export function StepIntro({ onNext }: { onNext: () => void }) {
       <div className="text-center mt-4">
         <PageHeading>Get to know Inbox Zero</PageHeading>
         <TypographyP className="mt-2 max-w-lg mx-auto">
-          Here are the basics of Inbox Zero. We'll take you through the steps to
-          get you started and set you up for success.
+          We'll take you through the steps to get you started and set you up for
+          success.
         </TypographyP>
       </div>
       <div className="mt-8">
-        <div className="grid gap-8">
+        <div className="grid gap-4 sm:gap-8">
           <Benefit
             index={1}
             title="Emails sorted automatically"
@@ -73,7 +73,7 @@ function Benefit({
       <div className="flex items-center gap-4 col-span-2">
         <IconCircle>{index}</IconCircle>
         <div>
-          <div className="font-semibold text-xl">{title}</div>
+          <div className="font-semibold text-lg sm:text-xl">{title}</div>
           <div className="text-sm text-muted-foreground mt-1 leading-6">
             <p>{description}</p>
           </div>

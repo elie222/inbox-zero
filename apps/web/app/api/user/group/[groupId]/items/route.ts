@@ -23,13 +23,16 @@ async function getGroupItems({
   return { group };
 }
 
-export const GET = withEmailAccount(async (request, { params }) => {
-  const emailAccountId = request.auth.emailAccountId;
+export const GET = withEmailAccount(
+  "user/group/items",
+  async (request, { params }) => {
+    const emailAccountId = request.auth.emailAccountId;
 
-  const { groupId } = await params;
-  if (!groupId) return NextResponse.json({ error: "Group id required" });
+    const { groupId } = await params;
+    if (!groupId) return NextResponse.json({ error: "Group id required" });
 
-  const result = await getGroupItems({ emailAccountId, groupId });
+    const result = await getGroupItems({ emailAccountId, groupId });
 
-  return NextResponse.json(result);
-});
+    return NextResponse.json(result);
+  },
+);

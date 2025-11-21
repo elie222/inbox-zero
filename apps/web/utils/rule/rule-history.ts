@@ -1,13 +1,7 @@
 import prisma from "@/utils/prisma";
 import type { RuleWithRelations } from "@/utils/rule/types";
 
-export type RuleHistoryTrigger =
-  | "ai_update" // AI updates existing rule from prompt changes
-  | "manual_update" // User manually edits existing rule
-  | "ai_creation" // AI creates rule from parsing prompts
-  | "manual_creation" // User manually creates new rule
-  | "system_creation" // System automatically creates rule (e.g., reply tracker)
-  | "system_update"; // System automatically updates rule
+export type RuleHistoryTrigger = "created" | "updated";
 
 /**
  * Creates a complete snapshot of a rule in the RuleHistory table
@@ -41,13 +35,6 @@ export async function createRuleHistory({
     url: action.url,
   }));
 
-  // Serialize category filters to JSON
-  const categoryFiltersSnapshot = rule.categoryFilters?.map((category) => ({
-    id: category.id,
-    name: category.name,
-    description: category.description,
-  }));
-
   return prisma.ruleHistory.create({
     data: {
       ruleId: rule.id,
@@ -61,11 +48,9 @@ export async function createRuleHistory({
       to: rule.to,
       subject: rule.subject,
       body: rule.body,
-      categoryFilterType: rule.categoryFilterType,
       systemType: rule.systemType,
       promptText: rule.promptText,
       actions: actionsSnapshot,
-      categoryFilters: categoryFiltersSnapshot,
       triggerType,
       // Note: this is unique and can fail in race conditions. Not a big deal for now.
       version: nextVersion,

@@ -1,6 +1,6 @@
 "use client";
 
-import { AnimatePresence, motion } from "framer-motion";
+import { AnimatePresence, motion } from "motion/react";
 import { ProgressBar } from "@tremor/react";
 import { cn } from "@/utils";
 import { LoadingMiniSpinner } from "@/components/Loading";

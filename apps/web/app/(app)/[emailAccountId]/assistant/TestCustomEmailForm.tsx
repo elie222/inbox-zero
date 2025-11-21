@@ -8,16 +8,17 @@ import { Input } from "@/components/Input";
 import { toastError } from "@/components/Toast";
 import { testAiCustomContentAction } from "@/utils/actions/ai-rule";
 import type { RunRulesResult } from "@/utils/ai/choose-rule/run-rules";
-import { ProcessResultDisplay } from "@/app/(app)/[emailAccountId]/assistant/ProcessResultDisplay";
+import { ResultsDisplay } from "@/app/(app)/[emailAccountId]/assistant/ResultDisplay";
 import {
   testAiCustomContentBody,
   type TestAiCustomContentBody,
 } from "@/utils/actions/ai-rule.validation";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useAccount } from "@/providers/EmailAccountProvider";
+import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 
 export const TestCustomEmailForm = () => {
-  const [testResult, setTestResult] = useState<RunRulesResult | undefined>();
+  const [testResults, setTestResult] = useState<RunRulesResult[]>();
   const { emailAccountId } = useAccount();
 
   const {
@@ -60,10 +61,15 @@ export const TestCustomEmailForm = () => {
           Test
         </Button>
       </form>
-      {testResult && (
-        <div className="mt-4">
-          <ProcessResultDisplay result={testResult} />
-        </div>
+      {testResults && (
+        <Card className="mt-4">
+          <CardHeader>
+            <CardTitle>Test Result</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ResultsDisplay results={testResults} showFullContent={true} />
+          </CardContent>
+        </Card>
       )}
     </div>
   );

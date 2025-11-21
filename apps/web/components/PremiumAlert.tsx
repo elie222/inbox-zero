@@ -10,6 +10,7 @@ import { PremiumTier } from "@prisma/client";
 import { businessTierName } from "@/app/(app)/premium/config";
 import { useUser } from "@/hooks/useUser";
 import { ActionCard } from "@/components/ui/card";
+import { env } from "@/env";
 
 export function usePremium() {
   const swrResponse = useUser();
@@ -17,6 +18,18 @@ export function usePremium() {
 
   const premium = data?.premium;
   const aiApiKey = data?.aiApiKey;
+
+  if (env.NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS) {
+    return {
+      ...swrResponse,
+      premium,
+      isPremium: true,
+      hasUnsubscribeAccess: true,
+      hasAiAccess: true,
+      isProPlanWithoutApiKey: false,
+      tier: PremiumTier.BUSINESS_PLUS_ANNUALLY,
+    };
+  }
 
   const isUserPremium = !!(
     premium &&

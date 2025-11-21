@@ -1,8 +1,6 @@
 import { messageVisibility } from "@/utils/gmail/constants";
-import {
-  AWAITING_REPLY_LABEL_NAME,
-  NEEDS_REPLY_LABEL_NAME,
-} from "@/utils/reply-tracker/consts";
+import { getRuleLabel } from "@/utils/rule/consts";
+import { SystemType } from "@prisma/client";
 
 export const PARENT_LABEL = "Inbox Zero";
 
@@ -30,11 +28,6 @@ const LABEL_COLORS = [
 ] as const;
 
 export const inboxZeroLabels = {
-  cold_email: {
-    name: "Cold Email",
-    color: orange,
-    messageListVisibility: messageVisibility.hide,
-  },
   archived: {
     name: `${PARENT_LABEL}/Archived`,
     color: blue,
@@ -71,21 +64,25 @@ export type InboxZeroLabel = keyof typeof inboxZeroLabels;
 
 export function getLabelColor(name: string) {
   switch (name) {
-    case NEEDS_REPLY_LABEL_NAME:
+    case getRuleLabel(SystemType.TO_REPLY):
       return blue;
-    case AWAITING_REPLY_LABEL_NAME:
+    case getRuleLabel(SystemType.AWAITING_REPLY):
       return green;
-    case "Newsletter":
-      return cyan;
-    case "Marketing":
-      return purple;
-    case "Calendar":
+    case getRuleLabel(SystemType.FYI):
       return pink;
-    case "Receipt":
-      return red;
-    case "Notification":
+    case getRuleLabel(SystemType.ACTIONED):
       return coral;
-    case "Cold Email":
+    case getRuleLabel(SystemType.NEWSLETTER):
+      return cyan;
+    case getRuleLabel(SystemType.MARKETING):
+      return purple;
+    case getRuleLabel(SystemType.CALENDAR):
+      return pink;
+    case getRuleLabel(SystemType.RECEIPT):
+      return red;
+    case getRuleLabel(SystemType.NOTIFICATION):
+      return coral;
+    case getRuleLabel(SystemType.COLD_EMAIL):
       return orange;
     default:
       return getRandomLabelColor();

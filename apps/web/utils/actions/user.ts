@@ -9,13 +9,16 @@ import { SafeError } from "@/utils/error";
 import { updateAccountSeats } from "@/utils/premium/server";
 import { betterAuthConfig } from "@/utils/auth";
 import { headers } from "next/headers";
-
-const saveAboutBody = z.object({ about: z.string().max(2000) });
-export type SaveAboutBody = z.infer<typeof saveAboutBody>;
+import {
+  saveAboutBody,
+  saveSignatureBody,
+} from "@/utils/actions/user.validation";
+import { clearLastEmailAccountCookie } from "@/utils/cookies.server";
+import { aliasPosthogUser } from "@/utils/posthog";
 
 export const saveAboutAction = actionClient
   .metadata({ name: "saveAbout" })
-  .schema(saveAboutBody)
+  .inputSchema(saveAboutBody)
   .action(async ({ parsedInput: { about }, ctx: { emailAccountId } }) => {
     await prisma.emailAccount.update({
       where: { id: emailAccountId },
@@ -23,12 +26,9 @@ export const saveAboutAction = actionClient
     });
   });
 
-const saveSignatureBody = z.object({ signature: z.string().max(2000) });
-export type SaveSignatureBody = z.infer<typeof saveSignatureBody>;
-
 export const saveSignatureAction = actionClient
   .metadata({ name: "saveSignature" })
-  .schema(saveSignatureBody)
+  .inputSchema(saveSignatureBody)
   .action(async ({ parsedInput: { signature }, ctx: { emailAccountId } }) => {
     await prisma.emailAccount.update({
       where: { id: emailAccountId },
@@ -46,18 +46,24 @@ export const resetAnalyticsAction = actionClient
 
 export const deleteAccountAction = actionClientUser
   .metadata({ name: "deleteAccount" })
-  .action(async ({ ctx: { userId } }) => {
-    try {
-      await betterAuthConfig.api.signOut({
+  .action(async ({ ctx: { userId, logger } }) => {
+    await clearLastEmailAccountCookie().catch((error) => {
+      logger.error("Failed to clear last email account cookie", { error });
+    });
+
+    await betterAuthConfig.api
+      .signOut({
         headers: await headers(),
+      })
+      .catch((error) => {
+        logger.error("Failed to sign out", { error });
       });
-    } catch {}
     await deleteUser({ userId });
   });
 
 export const deleteEmailAccountAction = actionClientUser
   .metadata({ name: "deleteEmailAccount" })
-  .schema(z.object({ emailAccountId: z.string() }))
+  .inputSchema(z.object({ emailAccountId: z.string() }))
   .action(async ({ ctx: { userId }, parsedInput: { emailAccountId } }) => {
     const emailAccount = await prisma.emailAccount.findUnique({
       where: { id: emailAccountId, userId },
@@ -71,10 +77,49 @@ export const deleteEmailAccountAction = actionClientUser
     if (!emailAccount) throw new SafeError("Email account not found");
     if (!emailAccount.accountId) throw new SafeError("Account id not found");
 
-    if (emailAccount.email === emailAccount.user.email)
-      throw new SafeError(
-        "Cannot delete primary email account. Go to the Settings page to delete your entire account.",
-      );
+    const isPrimaryAccount = emailAccount.email === emailAccount.user.email;
+
+    if (isPrimaryAccount) {
+      // Check if there are other email accounts
+      const otherEmailAccounts = await prisma.emailAccount.findMany({
+        where: { userId, id: { not: emailAccountId } },
+        orderBy: { createdAt: "asc" },
+        take: 1,
+        select: {
+          id: true,
+          email: true,
+          name: true,
+          image: true,
+        },
+      });
+
+      if (otherEmailAccounts.length === 0) {
+        throw new SafeError(
+          "Cannot delete your only email account. Go to the Settings page to delete your entire account.",
+        );
+      }
+
+      // Promote the next email account to primary
+      const newPrimaryAccount = otherEmailAccounts[0];
+      const oldEmail = emailAccount.user.email;
+
+      await prisma.user.update({
+        where: { id: userId },
+        data: {
+          email: newPrimaryAccount.email,
+          name: newPrimaryAccount.name,
+          image: newPrimaryAccount.image,
+        },
+      });
+
+      // Alias the old PostHog identity to the new one
+      after(async () => {
+        await aliasPosthogUser({
+          oldEmail,
+          newEmail: newPrimaryAccount.email,
+        });
+      });
+    }
 
     await prisma.account.delete({
       where: { id: emailAccount.accountId, userId },

@@ -3,9 +3,11 @@ import { ColdEmailStatus } from "@prisma/client";
 import { HistoryEventType } from "./types";
 import { handleLabelRemovedEvent } from "./process-label-removed-event";
 import type { gmail_v1 } from "@googleapis/gmail";
-import { inboxZeroLabels } from "@/utils/label";
 import { saveLearnedPatterns } from "@/utils/rule/learned-patterns";
 import prisma from "@/utils/__mocks__/prisma";
+import { createScopedLogger } from "@/utils/logger";
+
+const logger = createScopedLogger("test");
 
 vi.mock("server-only", () => ({}));
 
@@ -33,7 +35,7 @@ vi.mock("@/utils/gmail/label", () => ({
   },
   getLabelById: vi.fn().mockImplementation(({ id }: { id: string }) => {
     const labelMap: Record<string, { name: string }> = {
-      "label-1": { name: inboxZeroLabels.cold_email.name },
+      "label-1": { name: "Cold Email" },
       "label-2": { name: "Newsletter" },
       "label-3": { name: "Marketing" },
       "label-4": { name: "To Reply" },
@@ -74,7 +76,7 @@ describe("process-label-removed-event", () => {
       },
     }),
     getLabels: vi.fn().mockResolvedValue([
-      { id: "label-1", name: inboxZeroLabels.cold_email.name, type: "user" },
+      { id: "label-1", name: "Cold Email", type: "user" },
       { id: "label-2", name: "Newsletter", type: "user" },
       { id: "label-3", name: "Marketing", type: "user" },
       { id: "label-4", name: "To Reply", type: "user" },
@@ -95,7 +97,7 @@ describe("process-label-removed-event", () => {
       console.log("Test data:", JSON.stringify(historyItem.item, null, 2));
 
       try {
-        await handleLabelRemovedEvent(historyItem.item, defaultOptions);
+        await handleLabelRemovedEvent(historyItem.item, defaultOptions, logger);
       } catch (error) {
         console.error("Function error:", error);
         throw error;
@@ -126,7 +128,7 @@ describe("process-label-removed-event", () => {
         "label-2",
       ]);
 
-      await handleLabelRemovedEvent(historyItem.item, defaultOptions);
+      await handleLabelRemovedEvent(historyItem.item, defaultOptions, logger);
 
       expect(saveLearnedPatterns).not.toHaveBeenCalled();
     });
@@ -136,7 +138,7 @@ describe("process-label-removed-event", () => {
         "label-4",
       ]);
 
-      await handleLabelRemovedEvent(historyItem.item, defaultOptions);
+      await handleLabelRemovedEvent(historyItem.item, defaultOptions, logger);
 
       expect(saveLearnedPatterns).not.toHaveBeenCalled();
     });
@@ -146,7 +148,7 @@ describe("process-label-removed-event", () => {
         "label-2",
       ]);
 
-      await handleLabelRemovedEvent(historyItem.item, defaultOptions);
+      await handleLabelRemovedEvent(historyItem.item, defaultOptions, logger);
 
       expect(saveLearnedPatterns).not.toHaveBeenCalled();
     });
@@ -156,7 +158,7 @@ describe("process-label-removed-event", () => {
         "label-2",
       ]);
 
-      await handleLabelRemovedEvent(historyItem.item, defaultOptions);
+      await handleLabelRemovedEvent(historyItem.item, defaultOptions, logger);
 
       expect(saveLearnedPatterns).not.toHaveBeenCalled();
     });
@@ -166,9 +168,35 @@ describe("process-label-removed-event", () => {
         "label-3",
       ]);
 
-      await handleLabelRemovedEvent(historyItem.item, defaultOptions);
+      await handleLabelRemovedEvent(historyItem.item, defaultOptions, logger);
 
       expect(saveLearnedPatterns).not.toHaveBeenCalled();
+    });
+
+    it("should skip processing when only system labels are removed", async () => {
+      const historyItem = {
+        message: { id: "msg-123", threadId: "thread-123" },
+        labelIds: ["INBOX", "UNREAD"], // Only system labels
+      } as gmail_v1.Schema$HistoryLabelRemoved;
+
+      await handleLabelRemovedEvent(historyItem, defaultOptions, logger);
+
+      // Should not try to fetch the message when only system labels removed
+      expect(mockProvider.getMessage).not.toHaveBeenCalled();
+      expect(prisma.coldEmail.upsert).not.toHaveBeenCalled();
+    });
+
+    it("should skip processing when DRAFT label is removed (prevents 404 errors)", async () => {
+      const historyItem = {
+        message: { id: "draft-123", threadId: "thread-123" },
+        labelIds: ["DRAFT"], // Draft was sent - message no longer exists
+      } as gmail_v1.Schema$HistoryLabelRemoved;
+
+      await handleLabelRemovedEvent(historyItem, defaultOptions, logger);
+
+      // Should not try to fetch the message (which would fail with 404)
+      expect(mockProvider.getMessage).not.toHaveBeenCalled();
+      expect(prisma.coldEmail.upsert).not.toHaveBeenCalled();
     });
 
     it("should skip processing when messageId is missing", async () => {
@@ -177,7 +205,7 @@ describe("process-label-removed-event", () => {
         labelIds: ["label-1"],
       } as gmail_v1.Schema$HistoryLabelRemoved;
 
-      await handleLabelRemovedEvent(historyItem, defaultOptions);
+      await handleLabelRemovedEvent(historyItem, defaultOptions, logger);
 
       expect(prisma.coldEmail.upsert).not.toHaveBeenCalled();
     });
@@ -188,7 +216,7 @@ describe("process-label-removed-event", () => {
         labelIds: ["label-1"],
       } as gmail_v1.Schema$HistoryLabelRemoved;
 
-      await handleLabelRemovedEvent(historyItem, defaultOptions);
+      await handleLabelRemovedEvent(historyItem, defaultOptions, logger);
 
       expect(prisma.coldEmail.upsert).not.toHaveBeenCalled();
     });

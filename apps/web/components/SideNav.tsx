@@ -14,7 +14,6 @@ import {
   CalendarIcon,
   ChevronDownIcon,
   ChevronRightIcon,
-  CrownIcon,
   FileIcon,
   InboxIcon,
   type LucideIcon,
@@ -58,7 +57,7 @@ import { prefixPath } from "@/utils/path";
 import { ReferralDialog } from "@/components/ReferralDialog";
 import { isGoogleProvider } from "@/utils/email/provider-types";
 import { NavUser } from "@/components/NavUser";
-import { PremiumExpiredCard } from "@/components/PremiumExpiredCard";
+import { PremiumCard } from "@/components/PremiumCard";
 
 type NavItem = {
   name: string;
@@ -233,7 +232,7 @@ export function SideNav({ ...props }: React.ComponentProps<typeof Sidebar>) {
         </SidebarGroupContent>
       </SidebarContent>
 
-      <PremiumExpiredCard />
+      <PremiumCard isCollapsed={!state.includes("left-sidebar")} />
 
       <SidebarFooter className="pb-4">
         <ClientOnly>
@@ -244,13 +243,6 @@ export function SideNav({ ...props }: React.ComponentProps<typeof Sidebar>) {
           <Link href="https://docs.getinboxzero.com" target="_blank">
             <BookIcon className="size-4" />
             <span className="font-semibold">Help Center</span>
-          </Link>
-        </SidebarMenuButton>
-
-        <SidebarMenuButton asChild>
-          <Link href="/premium">
-            <CrownIcon className="size-4" />
-            <span className="font-semibold">Premium</span>
           </Link>
         </SidebarMenuButton>
 

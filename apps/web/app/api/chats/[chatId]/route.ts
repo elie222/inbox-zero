@@ -4,21 +4,24 @@ import { withEmailAccount } from "@/utils/middleware";
 
 export type GetChatResponse = Awaited<ReturnType<typeof getChat>>;
 
-export const GET = withEmailAccount(async (request, { params }) => {
-  const { emailAccountId } = request.auth;
-  const { chatId } = await params;
+export const GET = withEmailAccount(
+  "chats/detail",
+  async (request, { params }) => {
+    const { emailAccountId } = request.auth;
+    const { chatId } = await params;
 
-  if (!chatId) {
-    return NextResponse.json(
-      { error: "Chat ID is required." },
-      { status: 400 },
-    );
-  }
+    if (!chatId) {
+      return NextResponse.json(
+        { error: "Chat ID is required." },
+        { status: 400 },
+      );
+    }
 
-  const chat = await getChat({ chatId, emailAccountId });
+    const chat = await getChat({ chatId, emailAccountId });
 
-  return NextResponse.json(chat);
-});
+    return NextResponse.json(chat);
+  },
+);
 
 async function getChat({
   chatId,

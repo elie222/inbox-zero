@@ -5,8 +5,6 @@ import type Mail from "nodemailer/lib/mailer";
 import type { Attachment } from "nodemailer/lib/mailer";
 import { zodAttachment } from "@/utils/types/mail";
 import { convertEmailHtmlToText } from "@/utils/mail";
-import { parseMessage } from "@/utils/gmail/message";
-import { getMessage } from "@/utils/gmail/message";
 import {
   forwardEmailHtml,
   forwardEmailSubject,
@@ -18,6 +16,7 @@ import type { EmailForAction } from "@/utils/ai/types";
 import { createScopedLogger } from "@/utils/logger";
 import { withGmailRetry } from "@/utils/gmail/retry";
 import { buildReplyAllRecipients, formatCcList } from "@/utils/email/reply-all";
+import { ensureEmailSendingEnabled } from "@/utils/mail";
 
 const logger = createScopedLogger("gmail/mail");
 
@@ -103,6 +102,8 @@ export async function sendEmailWithHtml(
   gmail: gmail_v1.Gmail,
   body: SendEmailBody,
 ) {
+  ensureEmailSendingEnabled();
+
   let messageText: string;
 
   try {
@@ -114,13 +115,15 @@ export async function sendEmailWithHtml(
   }
 
   const raw = await createRawMailMessage({ ...body, messageText });
-  const result = await gmail.users.messages.send({
-    userId: "me",
-    requestBody: {
-      threadId: body.replyToEmail ? body.replyToEmail.threadId : undefined,
-      raw,
-    },
-  });
+  const result = await withGmailRetry(() =>
+    gmail.users.messages.send({
+      userId: "me",
+      requestBody: {
+        threadId: body.replyToEmail ? body.replyToEmail.threadId : undefined,
+        raw,
+      },
+    }),
+  );
   return result;
 }
 
@@ -141,6 +144,8 @@ export async function replyToEmail(
   reply: string,
   from?: string,
 ) {
+  ensureEmailSendingEnabled();
+
   const { text, html } = createReplyContent({
     textContent: reply,
     message,
@@ -162,44 +167,46 @@ export async function replyToEmail(
     from,
   );
 
-  const result = await gmail.users.messages.send({
-    userId: "me",
-    requestBody: {
-      threadId: message.threadId,
-      raw,
-    },
-  });
+  const result = await withGmailRetry(() =>
+    gmail.users.messages.send({
+      userId: "me",
+      requestBody: {
+        threadId: message.threadId,
+        raw,
+      },
+    }),
+  );
 
   return result;
 }
 
 export async function forwardEmail(
   gmail: gmail_v1.Gmail,
+  message: ParsedMessage,
   options: {
-    messageId: string;
     to: string;
     cc?: string;
     bcc?: string;
     content?: string;
   },
 ) {
-  if (!options.to.trim()) throw new Error("Recipient address is required");
+  ensureEmailSendingEnabled();
 
-  // TODO: Use email provider to get the message which will parse it internally
-  const m = await getMessage(options.messageId, gmail);
-
-  const messageId = m.id;
-  if (!messageId) throw new Error("Message not found");
-
-  const message = parseMessage(m);
+  if (!options.to?.trim()) {
+    throw new Error(
+      `Recipient address is required for forwarding email. Received: "${options.to}"`,
+    );
+  }
 
   const attachments = await Promise.all(
     message.attachments?.map(async (attachment) => {
-      const attachmentData = await gmail.users.messages.attachments.get({
-        userId: "me",
-        messageId,
-        id: attachment.attachmentId,
-      });
+      const attachmentData = await withGmailRetry(() =>
+        gmail.users.messages.attachments.get({
+          userId: "me",
+          messageId: message.id,
+          id: attachment.attachmentId,
+        }),
+      );
       return {
         content: Buffer.from(attachmentData.data.data || "", "base64"),
         contentType: attachment.mimeType,
@@ -223,13 +230,15 @@ export async function forwardEmail(
     attachments,
   });
 
-  const result = await gmail.users.messages.send({
-    userId: "me",
-    requestBody: {
-      threadId: message.threadId,
-      raw,
-    },
-  });
+  const result = await withGmailRetry(() =>
+    gmail.users.messages.send({
+      userId: "me",
+      requestBody: {
+        threadId: message.threadId,
+        raw,
+      },
+    }),
+  );
 
   return result;
 }

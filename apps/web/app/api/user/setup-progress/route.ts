@@ -1,14 +1,12 @@
 import { NextResponse } from "next/server";
 import prisma from "@/utils/prisma";
 import { withEmailAccount } from "@/utils/middleware";
-import { cookies } from "next/headers";
-import { REPLY_ZERO_ONBOARDING_COOKIE } from "@/utils/cookies";
 
 export type GetSetupProgressResponse = Awaited<
   ReturnType<typeof getSetupProgress>
 >;
 
-export const GET = withEmailAccount(async (request) => {
+export const GET = withEmailAccount("user/setup-progress", async (request) => {
   const { emailAccountId } = request.auth;
 
   const result = await getSetupProgress({ emailAccountId });
@@ -36,14 +34,9 @@ async function getSetupProgress({
     throw new Error("Email account not found");
   }
 
-  const cookieStore = await cookies();
-  const isReplyTrackerConfigured =
-    cookieStore.get(REPLY_ZERO_ONBOARDING_COOKIE)?.value === "true";
-
   const steps = {
     aiAssistant: emailAccount.rules.length > 0,
     bulkUnsubscribe: emailAccount.newsletters.length > 0,
-    replyTracker: isReplyTrackerConfigured,
     calendarConnected: emailAccount.calendarConnections.length > 0,
   };
 

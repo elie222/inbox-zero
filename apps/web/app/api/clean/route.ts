@@ -1,13 +1,13 @@
 import { verifySignatureAppRouter } from "@upstash/qstash/nextjs";
 import { z } from "zod";
 import { NextResponse } from "next/server";
-import { withError } from "@/utils/middleware";
+import { withError, type RequestWithLogger } from "@/utils/middleware";
 import { publishToQstash } from "@/utils/upstash";
 import { getThreadMessages } from "@/utils/gmail/thread";
 import { getGmailClientWithRefresh } from "@/utils/gmail/client";
 import type { CleanGmailBody } from "@/app/api/clean/gmail/route";
 import { SafeError } from "@/utils/error";
-import { createScopedLogger } from "@/utils/logger";
+import type { Logger } from "@/utils/logger";
 import { aiClean } from "@/utils/ai/clean/ai-clean";
 import { getEmailForLLM } from "@/utils/get-email-from-message";
 import {
@@ -24,8 +24,6 @@ import { internalDateToDate } from "@/utils/date";
 import { CleanAction } from "@prisma/client";
 import type { ParsedMessage } from "@/utils/types";
 import { isActivePremium } from "@/utils/premium";
-
-const logger = createScopedLogger("api/clean");
 
 const cleanThreadBody = z.object({
   emailAccountId: z.string(),
@@ -56,7 +54,8 @@ async function cleanThread({
   action,
   instructions,
   skips,
-}: CleanThreadBody) {
+  logger,
+}: CleanThreadBody & { logger: Logger }) {
   // 1. get thread with messages
   // 2. process thread with ai / fixed logic
   // 3. add to gmail action queue
@@ -112,6 +111,7 @@ async function cleanThread({
     processedLabelId,
     jobId,
     action,
+    logger,
   });
 
   function isStarred(message: ParsedMessage) {
@@ -234,6 +234,7 @@ function getPublish({
   processedLabelId,
   jobId,
   action,
+  logger,
 }: {
   emailAccountId: string;
   threadId: string;
@@ -241,6 +242,7 @@ function getPublish({
   processedLabelId: string;
   jobId: string;
   action: CleanAction;
+  logger: Logger;
 }) {
   return async ({ markDone }: { markDone: boolean }) => {
     // max rate:
@@ -296,7 +298,10 @@ export const POST = withError(
     const json = await request.json();
     const body = cleanThreadBody.parse(json);
 
-    await cleanThread(body);
+    await cleanThread({
+      ...body,
+      logger: (request as RequestWithLogger).logger,
+    });
 
     return NextResponse.json({ success: true });
   }),

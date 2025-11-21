@@ -10,7 +10,6 @@ import {
   TagIcon,
   WebhookIcon,
   FileTextIcon,
-  EyeIcon,
   MailIcon,
   NewspaperIcon,
 } from "lucide-react";
@@ -39,7 +38,7 @@ export function getActionDisplay(
       let labelName: string | null | undefined = null;
 
       // Priority 1: Use labelId to look up current name from labels
-      if (action.labelId && labels) {
+      if (action.labelId && labels?.length) {
         const foundLabel = labels.find((l) => l.id === action.labelId);
         if (foundLabel) {
           labelName = foundLabel.name;
@@ -77,8 +76,6 @@ export function getActionDisplay(
       return "Digest";
     case ActionType.CALL_WEBHOOK:
       return "Call Webhook";
-    case ActionType.TRACK_THREAD:
-      return `Auto-update reply ${terminology.label.singular}`;
     default: {
       const exhaustiveCheck: never = action.type;
       return exhaustiveCheck;
@@ -108,8 +105,6 @@ export function getActionIcon(actionType: ActionType) {
       return MailIcon;
     case ActionType.CALL_WEBHOOK:
       return WebhookIcon;
-    case ActionType.TRACK_THREAD:
-      return EyeIcon;
     case ActionType.DIGEST:
       return NewspaperIcon;
     default: {

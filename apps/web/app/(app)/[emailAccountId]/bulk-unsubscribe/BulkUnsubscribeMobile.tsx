@@ -12,7 +12,7 @@ import {
 import {
   useUnsubscribe,
   useApproveButton,
-  useArchiveAll,
+  useBulkArchive,
 } from "@/app/(app)/[emailAccountId]/bulk-unsubscribe/hooks";
 import {
   Card,
@@ -46,7 +46,7 @@ export function BulkUnsubscribeRowMobile({
   archivedPercentage,
   emailAccountId,
 }: RowProps) {
-  const name = extractNameFromEmail(item.name);
+  const name = item.fromName || extractNameFromEmail(item.name);
   const email = extractEmailAddress(item.name);
 
   const posthog = usePostHog();
@@ -67,12 +67,11 @@ export function BulkUnsubscribeRowMobile({
       emailAccountId,
     },
   );
-  const { archiveAllLoading, onArchiveAll } = useArchiveAll({
-    item,
+  const { onBulkArchive, isBulkArchiving } = useBulkArchive({
+    mutate,
     posthog,
     emailAccountId,
   });
-
   const hasUnsubscribeLink = unsubscribeLink !== "#";
 
   return (
@@ -141,8 +140,12 @@ export function BulkUnsubscribeRowMobile({
             </Link>
           </Button>
 
-          <Button size="sm" variant="secondary" onClick={onArchiveAll}>
-            {archiveAllLoading ? (
+          <Button
+            size="sm"
+            variant="secondary"
+            onClick={() => onBulkArchive([item])}
+          >
+            {isBulkArchiving ? (
               <ButtonLoader />
             ) : (
               <ArchiveIcon className="mr-2 size-4" />

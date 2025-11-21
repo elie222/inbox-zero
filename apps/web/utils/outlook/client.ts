@@ -8,23 +8,25 @@ import { SafeError } from "@/utils/error";
 
 const logger = createScopedLogger("outlook/client");
 
-type AuthOptions = {
-  accessToken?: string | null;
-  refreshToken?: string | null;
-  expiryDate?: number | null;
-  expiresAt?: number | null;
-};
-
 // Wrapper class to hold both the Microsoft Graph client and its access token
 export class OutlookClient {
   private readonly client: Client;
   private readonly accessToken: string;
+  private folderIdCache: Record<string, string> | null = null;
 
   constructor(accessToken: string) {
     this.accessToken = accessToken;
     this.client = Client.init({
       authProvider: (done) => {
         done(null, this.accessToken);
+      },
+      defaultVersion: "v1.0",
+      // Use immutable IDs to ensure message IDs remain stable
+      // https://learn.microsoft.com/en-us/graph/outlook-immutable-id
+      fetchOptions: {
+        headers: {
+          Prefer: 'IdType="ImmutableId"',
+        },
       },
     });
   }
@@ -35,6 +37,14 @@ export class OutlookClient {
 
   getAccessToken(): string {
     return this.accessToken;
+  }
+
+  getFolderIdCache(): Record<string, string> | null {
+    return this.folderIdCache;
+  }
+
+  setFolderIdCache(cache: Record<string, string>): void {
+    this.folderIdCache = cache;
   }
 
   // Helper methods for common operations
@@ -63,13 +73,9 @@ export class OutlookClient {
 }
 
 // Helper to create OutlookClient instance
-const createOutlookClient = (accessToken: string) => {
-  return new OutlookClient(accessToken);
-};
-
-export const getContactsClient = ({ accessToken }: AuthOptions) => {
+export const createOutlookClient = (accessToken: string) => {
   if (!accessToken) throw new SafeError("No access token provided");
-  return createOutlookClient(accessToken);
+  return new OutlookClient(accessToken);
 };
 
 // Similar to Gmail's getGmailClientWithRefresh
@@ -84,7 +90,10 @@ export const getOutlookClientWithRefresh = async ({
   expiresAt: number | null;
   emailAccountId: string;
 }): Promise<OutlookClient> => {
-  if (!refreshToken) throw new SafeError("No refresh token");
+  if (!refreshToken) {
+    logger.error("No refresh token", { emailAccountId });
+    throw new SafeError("No refresh token");
+  }
 
   // Check if token needs refresh
   const expiryDate = expiresAt ? expiresAt : null;
@@ -118,7 +127,23 @@ export const getOutlookClientWithRefresh = async ({
     const tokens = await response.json();
 
     if (!response.ok) {
-      throw new Error(tokens.error_description || "Failed to refresh token");
+      const errorMessage =
+        tokens.error_description || "Failed to refresh token";
+
+      // AADSTS7000215 = Invalid client secret
+      // Happens when Azure AD client secret rotates or refresh token expires
+      // Background processes (watch-manager) will catch and log this as a warning
+      // User-facing flows will show an error prompting reconnection
+      if (errorMessage.includes("AADSTS7000215")) {
+        logger.warn(
+          "Microsoft refresh token failed - user may need to reconnect",
+          {
+            emailAccountId,
+          },
+        );
+      }
+
+      throw new Error(errorMessage);
     }
 
     // Save new tokens

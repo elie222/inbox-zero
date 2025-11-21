@@ -36,6 +36,7 @@ export const createMockEmailProvider = (
   overrides?: Partial<EmailProvider>,
 ): EmailProvider => ({
   name: "google",
+  toJSON: () => ({ name: "google", type: "MockEmailProvider" }),
   getThreads: vi.fn().mockResolvedValue([]),
   getThread: vi.fn().mockResolvedValue({
     id: "thread1",
@@ -45,6 +46,8 @@ export const createMockEmailProvider = (
   getLabels: vi.fn().mockResolvedValue([]),
   getLabelById: vi.fn().mockResolvedValue(null),
   getLabelByName: vi.fn().mockResolvedValue(null),
+  getMessageByRfc822MessageId: vi.fn().mockResolvedValue(null),
+  getFolders: vi.fn().mockResolvedValue([]),
   getSignatures: vi.fn().mockResolvedValue([]),
   getMessage: vi.fn().mockResolvedValue({
     id: "msg1",
@@ -74,13 +77,17 @@ export const createMockEmailProvider = (
   archiveThreadWithLabel: vi.fn().mockResolvedValue(undefined),
   archiveMessage: vi.fn().mockResolvedValue(undefined),
   trashThread: vi.fn().mockResolvedValue(undefined),
+  bulkArchiveFromSenders: vi.fn().mockResolvedValue(undefined),
+  bulkTrashFromSenders: vi.fn().mockResolvedValue(undefined),
   labelMessage: vi.fn().mockResolvedValue(undefined),
   removeThreadLabel: vi.fn().mockResolvedValue(undefined),
+  removeThreadLabels: vi.fn().mockResolvedValue(undefined),
   draftEmail: vi.fn().mockResolvedValue({ draftId: "draft1" }),
   replyToEmail: vi.fn().mockResolvedValue(undefined),
   sendEmail: vi.fn().mockResolvedValue(undefined),
   forwardEmail: vi.fn().mockResolvedValue(undefined),
   markSpam: vi.fn().mockResolvedValue(undefined),
+  blockUnsubscribedEmail: vi.fn().mockResolvedValue(undefined),
   markRead: vi.fn().mockResolvedValue(undefined),
   markReadThread: vi.fn().mockResolvedValue(undefined),
   getDraft: vi.fn().mockResolvedValue(null),
@@ -88,6 +95,7 @@ export const createMockEmailProvider = (
   createLabel: vi
     .fn()
     .mockResolvedValue({ id: "label1", name: "Test Label", type: "user" }),
+  deleteLabel: vi.fn().mockResolvedValue(undefined),
   getOrCreateInboxZeroLabel: vi
     .fn()
     .mockResolvedValue({ id: "label1", name: "Test Label", type: "user" }),
@@ -116,6 +124,7 @@ export const createMockEmailProvider = (
     .mockResolvedValue({ expirationDate: new Date(), subscriptionId: "sub1" }),
   unwatchEmails: vi.fn().mockResolvedValue(undefined),
   isReplyInThread: vi.fn().mockReturnValue(false),
+  isSentMessage: vi.fn().mockReturnValue(false),
   getThreadsFromSenderWithSubject: vi.fn().mockResolvedValue([]),
   processHistory: vi.fn().mockResolvedValue(undefined),
   moveThreadToFolder: vi.fn().mockResolvedValue(undefined),

@@ -15,7 +15,7 @@ export function Celebration(props: { message: string }) {
 
   return (
     <>
-      <div className="flex items-center justify-center font-cal text-2xl text-primary">
+      <div className="flex items-center justify-center font-title text-2xl text-primary">
         Congrats! {props.message}
       </div>
       <div className="flex items-center justify-center">

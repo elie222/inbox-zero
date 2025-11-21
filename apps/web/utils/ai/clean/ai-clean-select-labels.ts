@@ -30,7 +30,7 @@ ${instructions}
   const modelOptions = getModel(emailAccount.user);
 
   const generateObject = createGenerateObject({
-    userEmail: emailAccount.email,
+    emailAccount,
     label: "Clean - Select Labels",
     modelOptions,
   });

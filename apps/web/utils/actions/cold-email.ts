@@ -7,52 +7,27 @@ import { isColdEmail } from "@/utils/cold-email/is-cold-email";
 import {
   coldEmailBlockerBody,
   markNotColdEmailBody,
-  updateColdEmailPromptBody,
-  updateColdEmailSettingsBody,
 } from "@/utils/actions/cold-email.validation";
 import { actionClient } from "@/utils/actions/safe-action";
 import { SafeError } from "@/utils/error";
 import { createEmailProvider } from "@/utils/email/provider";
 import type { EmailProvider } from "@/utils/email/types";
-
-export const updateColdEmailSettingsAction = actionClient
-  .metadata({ name: "updateColdEmailSettings" })
-  .schema(updateColdEmailSettingsBody)
-  .action(
-    async ({
-      ctx: { emailAccountId },
-      parsedInput: { coldEmailBlocker, coldEmailDigest },
-    }) => {
-      await prisma.emailAccount.update({
-        where: { id: emailAccountId },
-        data: {
-          coldEmailBlocker,
-          coldEmailDigest: coldEmailDigest ?? undefined,
-        },
-      });
-    },
-  );
-
-export const updateColdEmailPromptAction = actionClient
-  .metadata({ name: "updateColdEmailPrompt" })
-  .schema(updateColdEmailPromptBody)
-  .action(
-    async ({ ctx: { emailAccountId }, parsedInput: { coldEmailPrompt } }) => {
-      await prisma.emailAccount.update({
-        where: { id: emailAccountId },
-        data: { coldEmailPrompt },
-      });
-    },
-  );
+import { getColdEmailRule } from "@/utils/cold-email/cold-email-rule";
+import { getRuleLabel } from "@/utils/rule/consts";
+import { SystemType } from "@prisma/client";
 
 export const markNotColdEmailAction = actionClient
   .metadata({ name: "markNotColdEmail" })
-  .schema(markNotColdEmailBody)
+  .inputSchema(markNotColdEmailBody)
   .action(
-    async ({ ctx: { emailAccountId, provider }, parsedInput: { sender } }) => {
+    async ({
+      ctx: { emailAccountId, provider, logger },
+      parsedInput: { sender },
+    }) => {
       const emailProvider = await createEmailProvider({
         emailAccountId,
         provider,
+        logger,
       });
 
       await Promise.all([
@@ -67,7 +42,7 @@ export const markNotColdEmailAction = actionClient
             status: ColdEmailStatus.USER_REJECTED_COLD,
           },
         }),
-        removeColdEmailLabelFromSender(emailProvider, sender),
+        removeColdEmailLabelFromSender(emailAccountId, emailProvider, sender),
       ]);
     },
   );
@@ -92,6 +67,7 @@ async function getThreadsFromSender(
 }
 
 async function removeColdEmailLabelFromSender(
+  emailAccountId: string,
   emailProvider: EmailProvider,
   sender: string,
 ) {
@@ -99,7 +75,16 @@ async function removeColdEmailLabelFromSender(
   // 2. find emails from sender
   // 3. remove cold email label from emails
 
-  const label = await emailProvider.getOrCreateInboxZeroLabel("cold_email");
+  const coldEmailRule = await getColdEmailRule(emailAccountId);
+  if (!coldEmailRule) return;
+
+  const labels = await emailProvider.getLabels();
+
+  // NOTE: this doesn't work completely if the user set 2 labels:
+  const label =
+    labels.find((label) => label.id === coldEmailRule.actions?.[0]?.labelId) ||
+    labels.find((label) => label.name === getRuleLabel(SystemType.COLD_EMAIL));
+
   if (!label?.id) return;
 
   const threads = await getThreadsFromSender(emailProvider, sender, label.id);
@@ -112,10 +97,10 @@ async function removeColdEmailLabelFromSender(
 
 export const testColdEmailAction = actionClient
   .metadata({ name: "testColdEmail" })
-  .schema(coldEmailBlockerBody)
+  .inputSchema(coldEmailBlockerBody)
   .action(
     async ({
-      ctx: { emailAccountId, provider },
+      ctx: { emailAccountId, provider, logger },
       parsedInput: {
         from,
         subject,
@@ -137,9 +122,14 @@ export const testColdEmailAction = actionClient
 
       if (!emailAccount) throw new SafeError("Email account not found");
 
+      const coldEmailRule = await getColdEmailRule(emailAccountId);
+
+      if (!coldEmailRule) throw new SafeError("Cold email rule not found");
+
       const emailProvider = await createEmailProvider({
         emailAccountId,
         provider,
+        logger,
       });
 
       const content = emailToContent({
@@ -161,6 +151,7 @@ export const testColdEmailAction = actionClient
         emailAccount,
         provider: emailProvider,
         modelType: "chat",
+        coldEmailRule,
       });
 
       return response;

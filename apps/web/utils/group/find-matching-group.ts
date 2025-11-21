@@ -3,15 +3,20 @@ import { generalizeSubject } from "@/utils/string";
 import type { ParsedMessage } from "@/utils/types";
 import { type GroupItem, GroupItemType } from "@prisma/client";
 
-type GroupsWithRules = Awaited<ReturnType<typeof getGroupsWithRules>>;
+export type GroupsWithRules = Awaited<ReturnType<typeof getGroupsWithRules>>;
 
 export async function getGroupsWithRules({
   emailAccountId,
+  enabledOnly = true,
 }: {
   emailAccountId: string;
+  enabledOnly?: boolean;
 }) {
   return prisma.group.findMany({
-    where: { emailAccountId, rule: { isNot: null } },
+    where: {
+      emailAccountId,
+      rule: enabledOnly ? { enabled: true } : { isNot: null },
+    },
     include: { items: true, rule: { include: { actions: true } } },
   });
 }

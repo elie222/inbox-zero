@@ -4,14 +4,6 @@ import { encryptToken, decryptToken } from "./encryption";
 // Mock server-only as it's required for tests
 vi.mock("server-only", () => ({}));
 
-// Mock the logger to prevent actual logging during tests
-vi.mock("@/utils/logger", () => ({
-  createScopedLogger: () => ({
-    error: vi.fn(),
-    log: vi.fn(),
-  }),
-}));
-
 // Mock environment variables
 vi.mock("@/env", () => ({
   env: {

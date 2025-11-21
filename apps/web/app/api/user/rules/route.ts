@@ -10,13 +10,12 @@ async function getRules({ emailAccountId }: { emailAccountId: string }) {
     include: {
       actions: true,
       group: { select: { name: true } },
-      categoryFilters: { select: { id: true, name: true } },
     },
     orderBy: { createdAt: "asc" },
   });
 }
 
-export const GET = withEmailAccount(async (request) => {
+export const GET = withEmailAccount("user/rules", async (request) => {
   const emailAccountId = request.auth.emailAccountId;
   const result = await getRules({ emailAccountId });
   return NextResponse.json(result);
