@@ -18,27 +18,27 @@ Connect to your VPS and install Docker Engine by following the [the official gui
 
 ### 2. Setup Docker Compose
 
-Create a directory for your Inbox Zero installation (optional, but recommended for organization):
+**Option A: Clone the repository**
+
+```bash
+git clone https://github.com/elie222/inbox-zero.git
+cd inbox-zero
+cp apps/web/.env.example apps/web/.env
+```
+
+This is simpler if you want to easily update your deployment later with `git pull`.
+
+**Option B: Download only the necessary files**
 
 ```bash
 mkdir inbox-zero
 cd inbox-zero
-```
-
-Download the docker-compose.yml file:
-
-```bash
 curl -O https://raw.githubusercontent.com/elie222/inbox-zero/main/docker-compose.yml
-```
-
-### 3. Configure
-
-Create environment file:
-
-```bash
 mkdir -p apps/web
 curl -o apps/web/.env https://raw.githubusercontent.com/elie222/inbox-zero/main/apps/web/.env.example
 ```
+
+### 3. Configure
 
 Edit the environment file with your production settings:
 
@@ -47,6 +47,33 @@ nano apps/web/.env
 ```
 
 For detailed configuration instructions including all required environment variables, OAuth setup, and LLM configuration, see the [main README.md configuration section](../../README.md#updating-env-file-secrets).
+
+#### Using External Database Services (Optional)
+
+The `docker-compose.yml` supports different deployment modes using profiles:
+
+**All-in-one (default):** Includes Postgres and Redis containers
+```bash
+NEXT_PUBLIC_BASE_URL=https://yourdomain.com docker compose --profile all up -d
+```
+
+**External database only:** Use managed Postgres (RDS, Neon, Supabase) with local Redis
+```bash
+# Set DATABASE_URL and DIRECT_URL in .env to your external database
+NEXT_PUBLIC_BASE_URL=https://yourdomain.com docker compose --profile local-redis up -d
+```
+
+**External Redis only:** Use managed Redis (Upstash, ElastiCache) with local Postgres
+```bash
+# Set UPSTASH_REDIS_URL and UPSTASH_REDIS_TOKEN in .env
+NEXT_PUBLIC_BASE_URL=https://yourdomain.com docker compose --profile local-db up -d
+```
+
+**Fully external:** Use managed services for both (production recommended)
+```bash
+# Set DATABASE_URL, DIRECT_URL, UPSTASH_REDIS_URL, and UPSTASH_REDIS_TOKEN in .env
+NEXT_PUBLIC_BASE_URL=https://yourdomain.com docker compose up -d
+```
 
 **Important**: The `NEXT_PUBLIC_BASE_URL` must be set as a shell environment variable when running `docker compose up` (as shown below). Setting it in `apps/web/.env` will not work because `docker-compose.yml` overrides it.
 
@@ -69,6 +96,8 @@ Wait for the containers to start, then run the database migrations:
 # Wait a few seconds for the database to be ready, then run migrations
 docker compose exec web npx prisma migrate deploy
 ```
+
+**Note:** You'll need to run this command again after pulling updates to apply any new database schema changes.
 
 ### 6. Access Your Application
 
