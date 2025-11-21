@@ -70,69 +70,13 @@ Wait for the containers to start, then run the database migrations:
 docker compose exec web npx prisma migrate deploy
 ```
 
-### 6. Setup Nginx
+### 6. Access Your Application
 
-Install and configure Nginx as reverse proxy:
+Your application should now be accessible at:
+- `http://your-server-ip:3000` (if accessing directly)
+- `https://yourdomain.com` (if you've set up a reverse proxy with SSL)
 
-```bash
-# Install Nginx
-sudo apt update
-sudo apt install nginx
-```
-
-Create Nginx configuration file (replace `yourdomain.com` with your domain):
-
-```bash
-sudo vim /etc/nginx/sites-available/yourdomain.com
-```
-
-Add the following configuration:
-
-```nginx
-server {
-    server_name yourdomain.com;
-    
-    location / {
-        proxy_pass http://localhost:3000;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header Host $host;
-    }
-}
-```
-
-Enable the site:
-
-```bash
-# Disable default configuration
-sudo rm /etc/nginx/sites-enabled/default
-
-# Enable the configuration
-sudo ln -s /etc/nginx/sites-available/yourdomain.com /etc/nginx/sites-enabled/yourdomain.com
-
-# Test configuration
-sudo nginx -t
-
-# Reload Nginx
-sudo systemctl reload nginx
-```
-
-### 7. Setup SSL Certificate
-
-Install Certbot and generate SSL certificate:
-
-```bash
-# Install Certbot using snap
-sudo apt install snapd
-sudo snap install --classic certbot
-
-# Generate SSL certificate (replace yourdomain.com with your domain)
-sudo certbot --nginx -d yourdomain.com
-
-# Reload Nginx to apply SSL configuration
-sudo nginx -s reload
-```
+**Note:** For production deployments, you should set up a reverse proxy (like Nginx, Caddy, or use a cloud load balancer) to handle SSL/TLS termination and route traffic to your Docker container.
 
 ## Updates
 
