@@ -1,4 +1,4 @@
-import { type Premium, PremiumTier } from "@/generated/prisma/client";
+import type { Premium, PremiumTier } from "@/generated/prisma/client";
 import { env } from "@/env";
 
 function isPremiumStripe(stripeSubscriptionStatus: string | null): boolean {
@@ -47,7 +47,7 @@ export const getUserTier = (
   > | null,
 ) => {
   if (env.NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS) {
-    return PremiumTier.BUSINESS_PLUS_ANNUALLY;
+    return "BUSINESS_PLUS_ANNUALLY" as const;
   }
 
   if (!premium) return null;
@@ -72,16 +72,16 @@ export const isAdminForPremium = (
 };
 
 const tierRanking = {
-  [PremiumTier.BASIC_MONTHLY]: 1,
-  [PremiumTier.BASIC_ANNUALLY]: 2,
-  [PremiumTier.PRO_MONTHLY]: 3,
-  [PremiumTier.PRO_ANNUALLY]: 4,
-  [PremiumTier.BUSINESS_MONTHLY]: 5,
-  [PremiumTier.BUSINESS_ANNUALLY]: 6,
-  [PremiumTier.BUSINESS_PLUS_MONTHLY]: 7,
-  [PremiumTier.BUSINESS_PLUS_ANNUALLY]: 8,
-  [PremiumTier.COPILOT_MONTHLY]: 9,
-  [PremiumTier.LIFETIME]: 10,
+  BASIC_MONTHLY: 1,
+  BASIC_ANNUALLY: 2,
+  PRO_MONTHLY: 3,
+  PRO_ANNUALLY: 4,
+  BUSINESS_MONTHLY: 5,
+  BUSINESS_ANNUALLY: 6,
+  BUSINESS_PLUS_MONTHLY: 7,
+  BUSINESS_PLUS_ANNUALLY: 8,
+  COPILOT_MONTHLY: 9,
+  LIFETIME: 10,
 };
 
 export const hasUnsubscribeAccess = (
@@ -106,8 +106,8 @@ export const hasAiAccess = (
   const ranking = tierRanking[tier];
 
   const hasAiAccess = !!(
-    ranking >= tierRanking[PremiumTier.BUSINESS_MONTHLY] ||
-    (ranking >= tierRanking[PremiumTier.PRO_MONTHLY] && aiApiKey)
+    ranking >= tierRanking.BUSINESS_MONTHLY ||
+    (ranking >= tierRanking.PRO_MONTHLY && aiApiKey)
   );
 
   return hasAiAccess;

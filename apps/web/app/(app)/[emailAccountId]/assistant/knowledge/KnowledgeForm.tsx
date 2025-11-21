@@ -46,7 +46,7 @@ export function KnowledgeForm({
 
   const hasFullAccess = hasTierAccess({
     tier: tier || null,
-    minimumTier: PremiumTier.BUSINESS_PLUS_MONTHLY,
+    minimumTier: "BUSINESS_PLUS_MONTHLY",
   });
 
   const {

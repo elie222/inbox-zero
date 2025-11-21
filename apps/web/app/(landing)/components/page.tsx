@@ -211,7 +211,7 @@ export default function Components() {
               </p>
               <PremiumAiAssistantAlert
                 showSetApiKey={false}
-                tier={PremiumTier.BASIC_MONTHLY}
+                tier={"BASIC_MONTHLY"}
               />
             </div>
             <div>
@@ -220,7 +220,7 @@ export default function Components() {
               </p>
               <PremiumAiAssistantAlert
                 showSetApiKey={true}
-                tier={PremiumTier.PRO_MONTHLY}
+                tier={"PRO_MONTHLY"}
               />
             </div>
             <div>
