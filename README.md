@@ -129,7 +129,7 @@ The required environment variables:
 - `UPSTASH_REDIS_URL` -- Redis URL from Upstash. (can be empty if you are using Docker Compose)
 - `UPSTASH_REDIS_TOKEN` -- Redis token from Upstash. (or specify your own random string if you are using Docker Compose)
 
-When using Vercel with Fluid Compute turned off, you should set `MAX_DURATION=300` or lower. See Vercel limits for different plans [here](https://vercel.com/docs/functions/configuring-functions/duration#duration-limits).
+- `NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS` -- Set to `true` (default) to bypass all premium checks for self-hosting.
 
 ### Updating .env file with Google OAuth credentials:
 

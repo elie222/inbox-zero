@@ -184,6 +184,7 @@ export const env = createEnv({
       .optional()
       .default(false),
     NEXT_PUBLIC_USE_AEONIK_FONT: z.coerce.boolean().optional().default(false),
+    NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS: z.coerce.boolean().optional(),
   },
   // For Next.js >= 13.4.4, you only need to destructure client variables:
   experimental__runtimeEnv: {
@@ -242,5 +243,7 @@ export const env = createEnv({
     NEXT_PUBLIC_DISABLE_REFERRAL_SIGNATURE:
       process.env.NEXT_PUBLIC_DISABLE_REFERRAL_SIGNATURE,
     NEXT_PUBLIC_USE_AEONIK_FONT: process.env.NEXT_PUBLIC_USE_AEONIK_FONT,
+    NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS:
+      process.env.NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS,
   },
 });
