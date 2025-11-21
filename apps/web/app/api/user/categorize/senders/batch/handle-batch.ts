@@ -8,7 +8,6 @@ import {
 } from "@/utils/categorize/senders/categorize";
 import { validateUserAndAiAccess } from "@/utils/user/validate";
 import { getGmailClientWithRefresh } from "@/utils/gmail/client";
-import { UNKNOWN_CATEGORY } from "@/utils/ai/categorize-sender/ai-categorize-senders";
 import { createScopedLogger } from "@/utils/logger";
 import prisma from "@/utils/prisma";
 import { saveCategorizationProgress } from "@/utils/redis/categorization-progress";
@@ -44,7 +43,7 @@ async function handleBatchInternal(request: Request) {
   const userResult = await validateUserAndAiAccess({ emailAccountId });
   const { emailAccount } = userResult;
 
-  const categoriesResult = await getCategories({ emailAccountId });
+  const categoriesResult = await getCategories();
   const { categories } = categoriesResult;
 
   const emailAccountWithAccount = await prisma.emailAccount.findUnique({
@@ -103,8 +102,9 @@ async function handleBatchInternal(request: Request) {
     await updateSenderCategory({
       sender: result.sender,
       categories,
-      categoryName: result.category ?? UNKNOWN_CATEGORY,
+      categoryName: result.category ?? "Unknown",
       emailAccountId,
+      priority: "priority" in result ? result.priority : undefined,
     });
   }
 
