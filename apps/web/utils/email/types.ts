@@ -217,6 +217,8 @@ export interface EmailProvider {
     from: string;
     date: Date;
     messageId: string;
+    excludeLabel: string | null; // Gmail: label name | Outlook: category name
+    excludeFolder: string | null; // Outlook only: folder name
   }): Promise<boolean>;
   getThreadsFromSenderWithSubject(
     sender: string,

@@ -1,6 +1,6 @@
 import { z } from "zod";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
-import type { ColdEmail, Rule } from "@prisma/client";
+import type { ColdEmail } from "@prisma/client";
 import { ColdEmailStatus } from "@prisma/client";
 import prisma from "@/utils/prisma";
 import { DEFAULT_COLD_EMAIL_PROMPT } from "@/utils/cold-email/prompt";
@@ -11,6 +11,7 @@ import type { EmailProvider } from "@/utils/email/types";
 import { getModel, type ModelType } from "@/utils/llms/model";
 import { createGenerateObject } from "@/utils/llms";
 import { extractEmailAddress } from "@/utils/email";
+import type { ColdEmailRule } from "@/utils/cold-email/cold-email-rule";
 
 export const COLD_EMAIL_FOLDER_NAME = "Cold Emails";
 
@@ -27,7 +28,7 @@ export async function isColdEmail({
   emailAccount: EmailAccountWithAI;
   provider: EmailProvider;
   modelType?: ModelType;
-  coldEmailRule: Pick<Rule, "instructions"> | null;
+  coldEmailRule: ColdEmailRule | null;
 }): Promise<{
   isColdEmail: boolean;
   reason: ColdEmailBlockerReason;
@@ -55,12 +56,21 @@ export async function isColdEmail({
     return { isColdEmail: true, reason: "ai-already-labeled" };
   }
 
+  // Get the label/folder name to exclude from search
+  const action = coldEmailRule?.actions?.[0];
+  const labelOrFolderName = action?.label || "Cold Email"; // fallback to default
+
+  // For Microsoft, determine if we're excluding by folder (MOVE_FOLDER) or category (LABEL)
+  const isMoveFolder = action?.type === "MOVE_FOLDER";
+
   const hasPreviousEmail =
     email.date && email.id
       ? await provider.hasPreviousCommunicationsWithSenderOrDomain({
           from: extractEmailAddress(email.from) || email.from,
           date: email.date,
           messageId: email.id,
+          excludeLabel: isMoveFolder ? null : labelOrFolderName,
+          excludeFolder: isMoveFolder ? labelOrFolderName : null,
         })
       : false;
 
