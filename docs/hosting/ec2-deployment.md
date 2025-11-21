@@ -50,10 +50,10 @@ Connect with: `ssh inbox-zero-test`
 
 Once logged in, run these commands to prepare the server.
 
-#### 1. Update & Install Docker
+#### 1. Update & Install Required Tools
 ```bash
 sudo dnf update -y
-sudo dnf install docker -y
+sudo dnf install docker git -y
 sudo service docker start
 sudo usermod -a -G docker ec2-user
 # You must log out and log back in for group changes to take effect
