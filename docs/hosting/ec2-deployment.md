@@ -1,6 +1,8 @@
 # AWS EC2 Deployment Guide
 
-This guide covers setting up a test or production environment on AWS EC2 for Inbox Zero.
+This guide covers setting up Inbox Zero on AWS EC2 with ALB.
+
+**Note:** This is a reference implementation. There are many ways to deploy on AWS (ECS, EKS, Elastic Beanstalk, etc.). Use what works best for your infrastructure and expertise.
 
 ## 1. Launch Instance
 
@@ -9,8 +11,8 @@ This guide covers setting up a test or production environment on AWS EC2 for Inb
 3.  **OS / AMI:**
     *   Select **Amazon Linux 2023** (Kernel 6.1 LTS).
 4.  **Instance Type:**
-    *   **Test:** `t2.med` or `t3.micro` (Free Tier).
-        *   *Warning:* These have only 1GB RAM. You **must** set up swap memory (see below) or the app will crash.
+    *   **Test:** `t2.micro` or `t3.micro` (Free Tier, 1GB RAM).
+        *   *Warning:* You **must** set up swap memory (see below) or the app will crash.
     *   **Production:** `t3.medium` (4GB RAM) or larger is recommended to avoid OOM kills.
 5.  **Key Pair:**
     *   Create a new key pair if you don't have one.
@@ -58,6 +60,16 @@ sudo usermod -a -G docker ec2-user
 exit
 ```
 
+After logging back in, install Docker Compose:
+
+```bash
+mkdir -p ~/.docker/cli-plugins
+curl -SL "https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m)" -o ~/.docker/cli-plugins/docker-compose
+chmod +x ~/.docker/cli-plugins/docker-compose
+# Verify it works
+docker compose version
+```
+
 #### 2. Setup Swap Memory (CRITICAL for Micro Instances)
 If you are using a `t2.micro` or `t3.micro` (1GB RAM), you MUST add swap or the build/runtime will crash.
 
@@ -70,6 +82,55 @@ sudo swapon /swapfile
 echo '/swapfile swap swap defaults 0 0' | sudo tee -a /etc/fstab
 ```
 
-## 3. Deployment
+## 3. SSL/HTTPS Setup
 
-Once your EC2 instance is set up with Docker and swap memory, follow the deployment steps in the [Docker deployment guide](./docker.md).
+### Application Load Balancer (ALB)
+
+You can also use nginx or any approach of your choice.
+
+1.  **Request SSL Certificate (AWS Certificate Manager):**
+    *   Go to **AWS Certificate Manager** console
+    *   Click **Request certificate** → **Request a public certificate**
+    *   Enter your domain name (e.g., `app.yourdomain.com`)
+    *   Choose **DNS validation** (easier) or **Email validation**
+    *   Follow validation steps: AWS will provide a CNAME record to add to your DNS. Once added, the certificate will be issued in 5-10 minutes.
+    *   Wait for certificate status to show **Issued**
+
+2.  **Create Target Group:**
+    *   Go to **EC2 Console** → **Target Groups** → **Create target group**
+    *   Name: e.g., `inbox-zero-web`
+    *   Target type: **Instances**
+    *   Protocol: **HTTP**, Port: **3000**
+    *   Health check path: `/` (or `/api/health` if you have one)
+    *   Click **Next**, select your EC2 instance, click **Include as pending below**, then **Next**, then **Create target group**
+
+3.  **Create Application Load Balancer:**
+    *   Go to **EC2 Console** → **Load Balancers** → **Create load balancer**
+    *   Choose **Application Load Balancer**
+    *   Name: `inbox-zero-alb`
+    *   Scheme: **Internet-facing**
+    *   IP address type: **IPv4**
+    *   Network mapping: Select at least 2 availability zones
+    *   Security groups: Create/select one that allows HTTP (80) and HTTPS (443) from anywhere
+    *   **Listeners:**
+        *   Add listener: **HTTPS (443)** → Forward to your target group
+        *   (Optional) Add listener: **HTTP (80)** → Redirect to HTTPS
+    *   **Secure listener settings**: Select your ACM certificate
+    *   Click **Create load balancer**
+
+4.  **Update DNS:**
+    *   Wait for the ALB to finish provisioning (status: **Active**, takes 2-5 minutes)
+    *   Find the ALB DNS name in **EC2 Console** → **Load Balancers** → click your ALB → copy the **DNS name**
+    *   In your DNS provider, create a CNAME record:
+        *   **Name:** Your domain/subdomain (e.g., `test` for `test.yourdomain.com` or `@` for root domain)
+        *   **Target:** `<ALB-DNS-name>` (e.g., `inbox-zero-alb-123456789.us-east-1.elb.amazonaws.com`)
+        *   **Proxy status:** DNS only (if using Cloudflare DNS)
+
+5.  **Update Security Group:**
+    *   Your EC2 instance security group should allow traffic from the ALB security group on port 3000
+    *   Add a new port 3000 rule with source set to the ALB's security group (find it in ALB → Security tab)
+    *   This allows only the ALB to access your app on port 3000, not the public internet
+
+## 4. Deployment
+
+Once your EC2 instance is set up with Docker, swap memory, and HTTPS, follow the deployment steps in the [Docker deployment guide](./docker.md).
