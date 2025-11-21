@@ -1,83 +1,89 @@
-import subDays from "date-fns/subDays";
-import { GanttChartIcon, Tally3Icon } from "lucide-react";
+import { LayoutGrid } from "lucide-react";
 import type { DateRange } from "react-day-picker";
 import { DetailedStatsFilter } from "@/app/(app)/[emailAccountId]/stats/DetailedStatsFilter";
 import { DatePickerWithRange } from "@/components/DatePickerWithRange";
+import { LoadStatsButton } from "@/app/(app)/[emailAccountId]/stats/LoadStatsButton";
+import { cx } from "class-variance-authority";
+import { differenceInDays } from "date-fns";
+
+interface ActionBarProps {
+  dateRange?: DateRange | undefined;
+  setDateRange: (dateRange?: DateRange) => void;
+  period?: "day" | "week" | "month" | "year";
+  setPeriod?: (value: "day" | "week" | "month" | "year") => void;
+  isMobile: boolean;
+  className?: string;
+  datePickerRightContent?: React.ReactNode;
+}
 
 export function ActionBar({
-  selectOptions,
-  dateDropdown,
-  setDateDropdown,
   dateRange,
   setDateRange,
   period,
   setPeriod,
-  isMobile,
-}: {
-  dateDropdown: string;
-  setDateDropdown: (option: { label: string; value: string }) => void;
-  dateRange?: DateRange | undefined;
-  setDateRange: (dateRange?: DateRange) => void;
-  selectOptions: { label: string; value: string }[];
-  period?: "day" | "week" | "month" | "year";
-  setPeriod?: (value: "day" | "week" | "month" | "year") => void;
-  isMobile: boolean;
-}) {
+  className,
+  datePickerRightContent,
+}: ActionBarProps) {
+  const days =
+    dateRange?.from && dateRange?.to
+      ? differenceInDays(dateRange.to, dateRange.from)
+      : 0;
   return (
-    <>
-      {period && setPeriod && (
-        <DetailedStatsFilter
-          label={`By ${period}`}
-          icon={<Tally3Icon className="mr-2 h-4 w-4" />}
-          columns={[
-            {
-              label: "Day",
-              checked: period === "day",
-              setChecked: () => setPeriod("day"),
-            },
-            {
-              label: "Week",
-              checked: period === "week",
-              setChecked: () => setPeriod("week"),
-            },
-            {
-              label: "Month",
-              checked: period === "month",
-              setChecked: () => setPeriod("month"),
-            },
-            {
-              label: "Year",
-              checked: period === "year",
-              setChecked: () => setPeriod("year"),
-            },
-          ]}
-        />
+    <div
+      className={cx(
+        "flex items-center justify-between w-full gap-3",
+        className,
       )}
-      {!isMobile && (
-        <DetailedStatsFilter
-          label={dateDropdown || "Set date range"}
-          icon={<GanttChartIcon className="mr-2 h-4 w-4" />}
-          columns={selectOptions.map((option) => ({
-            ...option,
-            checked: option.label === dateDropdown,
-            setChecked: () => {
-              setDateDropdown(option);
-
-              const days = Number.parseInt(option.value);
-
-              if (days === 0) setDateRange(undefined);
-              if (days) {
-                const now = new Date();
-                setDateRange({ from: subDays(now, days), to: now });
-              }
-            },
-          }))}
+    >
+      <div className="flex items-center gap-3">
+        {period && setPeriod && (
+          <DetailedStatsFilter
+            label={`Group by ${period}`}
+            icon={<LayoutGrid className="mr-2 h-4 w-4" />}
+            columns={[
+              {
+                label: "Day",
+                checked: period === "day",
+                setChecked: () => setPeriod("day"),
+              },
+              {
+                label: "Week",
+                checked: period === "week",
+                setChecked: () => setPeriod("week"),
+              },
+              {
+                label: "Month",
+                checked: period === "month",
+                setChecked: () => setPeriod("month"),
+              },
+              {
+                label: "Year",
+                checked: period === "year",
+                setChecked: () => setPeriod("year"),
+              },
+            ]}
+          />
+        )}
+        <DatePickerWithRange
+          dateRange={dateRange}
+          onSetDateRange={setDateRange}
+          rightContent={datePickerRightContent}
+          label={
+            days === 1
+              ? "Last day"
+              : days === 7
+                ? "Last week"
+                : days === 30
+                  ? "Last month"
+                  : days === 90
+                    ? "Last 3 months"
+                    : days === 365
+                      ? "Last year"
+                      : "All"
+          }
         />
-      )}
-      <DatePickerWithRange
-        dateRange={dateRange}
-        onSetDateRange={setDateRange}
-      />
-    </>
+      </div>
+      <LoadStatsButton />
+    </div>
   );
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { AreaChartIcon } from "lucide-react";
+import { RefreshCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ButtonLoader } from "@/components/Loading";
 import { useStatLoader } from "@/providers/StatLoaderProvider";
@@ -18,9 +18,9 @@ export function LoadStatsButton() {
         {isLoading ? (
           <ButtonLoader />
         ) : (
-          <AreaChartIcon className="mr-2 hidden h-4 w-4 sm:block" />
+          <RefreshCcw className="mr-2 hidden h-4 w-4 sm:block" />
         )}
-        Load more
+        {isLoading ? "Loading more..." : "Load more"}
       </Button>
     </div>
   );

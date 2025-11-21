@@ -51,6 +51,10 @@ const nextConfig: NextConfig = {
         protocol: "https",
         hostname: "images.getinboxzero.com",
       },
+      {
+        protocol: "https",
+        hostname: "t1.gstatic.com",
+      },
     ],
   },
   async redirects() {

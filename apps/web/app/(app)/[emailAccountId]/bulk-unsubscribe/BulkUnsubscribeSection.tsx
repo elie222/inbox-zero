@@ -341,7 +341,6 @@ export function BulkUnsubscribe() {
             setDateRange={setDateRange}
             isMobile={isMobile}
           />
-          <LoadStatsButton />
         </div>
       </div>
 

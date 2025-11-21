@@ -1,0 +1,82 @@
+"use client";
+
+import { TabSelect } from "@/components/TabSelect";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { HorizontalBarChart } from "@/components/charts/HorizontalBarChart";
+import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import { cx } from "class-variance-authority";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+
+interface BarListCardProps {
+  tabs: { id: string; label: string; data: any }[]; // TODO: add type
+  icon: React.ReactNode;
+  title: string;
+}
+
+export function BarListCard({ tabs, icon, title }: BarListCardProps) {
+  const [selected, setSelected] = useState<string | null>(
+    tabs?.length > 0 ? tabs[0]?.id : null,
+  );
+
+  return (
+    <Card className="h-full bg-background relative">
+      <CardHeader className="p-0">
+        <div className="px-5 flex items-center justify-between border-b border-neutral-200">
+          <TabSelect
+            options={tabs.map((d) => ({ id: d.id, label: d.label }))}
+            onSelect={(id: string) => setSelected(id)}
+            selected={selected}
+          />
+          <div className="flex items-center gap-2">
+            {icon}
+            <p className="text-xs text-neutral-500">{title.toUpperCase()}</p>
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent className="pt-5 pb-0 px-5 overflow-hidden h-[330px]">
+        <div
+          className={cx(
+            "pointer-events-none absolute bottom-0 left-0 w-full h-1/2 z-20 rounded-[0.44rem]",
+            "bg-gradient-to-b from-transparent to-white",
+          )}
+        />
+        <HorizontalBarChart
+          data={tabs.find((d) => d.id === selected)?.data || []}
+        />
+        <div className="absolute w-full left-0 bottom-0 pb-6 z-30">
+          <div className="flex justify-center">
+            <Dialog>
+              <DialogTrigger asChild>
+                <Button variant="outline" size="xs">
+                  View more
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-2xl p-0 gap-0">
+                <DialogHeader className="px-6 py-4 border-b border-neutral-200">
+                  <div className="flex items-center gap-2">
+                    {icon}
+                    <DialogTitle className="text-base text-neutral-900 font-medium">
+                      {title}
+                    </DialogTitle>
+                  </div>
+                </DialogHeader>
+                <div className="max-h-[60vh] overflow-y-auto p-6">
+                  <HorizontalBarChart
+                    data={tabs.find((d) => d.id === selected)?.data || []}
+                  />
+                </div>
+              </DialogContent>
+            </Dialog>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}

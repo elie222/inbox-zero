@@ -1,6 +1,6 @@
 import useSWR from "swr";
-import { BarChart } from "@tremor/react";
 import type { DateRange } from "react-day-picker";
+import { NewBarChart } from "@/app/(app)/[emailAccountId]/stats/NewBarChart";
 import Link from "next/link";
 import { ExternalLinkIcon } from "lucide-react";
 import { usePostHog } from "posthog-js/react";
@@ -47,7 +47,7 @@ export function NewsletterModal(props: {
 
   return (
     <Dialog open={!!newsletter} onOpenChange={onClose}>
-      <DialogContent className="overflow-scroll lg:min-w-[880px] xl:min-w-[1280px]">
+      <DialogContent className="lg:min-w-[880px] xl:min-w-[1280px]">
         {newsletter && (
           <>
             <DialogHeader>
@@ -150,12 +150,15 @@ function EmailsChart(props: {
   return (
     <LoadingContent loading={isLoading} error={error}>
       {data && (
-        <BarChart
-          className="h-72"
+        <NewBarChart
           data={data.result}
-          index="startOfPeriod"
-          categories={["Emails"]}
-          colors={["lime"]}
+          config={{
+            Emails: {
+              label: "Emails",
+              color: "#17A34A",
+            },
+          }}
+          xAxisKey="startOfPeriod"
         />
       )}
     </LoadingContent>
