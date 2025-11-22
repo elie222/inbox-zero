@@ -1,4 +1,4 @@
-#!/usr/bin/env tsx
+#!/usr/bin/env node
 
 /**
  * Prisma Enum Import Checker
@@ -29,8 +29,8 @@
  * ✅ Type-only import from client (always safe)
  */
 
-import { execSync } from "node:child_process";
-import fs from "node:fs";
+const { execSync } = require("node:child_process");
+const fs = require("node:fs");
 
 // All Prisma enums that should be imported from @/generated/prisma/enums
 const PRISMA_ENUMS = [
@@ -50,13 +50,6 @@ const PRISMA_ENUMS = [
   "ThreadTrackerType",
 ];
 
-interface ProblematicFile {
-  file: string;
-  line: number;
-  content: string;
-  enum: string;
-}
-
 console.log("🔍 Checking for problematic Prisma enum imports...\n");
 
 try {
@@ -64,7 +57,7 @@ try {
   const grepCommand =
     'grep -r "from \\"@/generated/prisma/client\\"" . --include="*.tsx" --include="*.ts" -l';
 
-  let files: string[];
+  let files;
   try {
     files = execSync(grepCommand, { encoding: "utf-8" })
       .trim()
@@ -75,7 +68,7 @@ try {
     process.exit(0);
   }
 
-  const problematicFiles: ProblematicFile[] = [];
+  const problematicFiles = [];
 
   for (const file of files) {
     const content = fs.readFileSync(file, "utf-8");
@@ -154,6 +147,7 @@ try {
 
   process.exit(1);
 } catch (error) {
-  console.error("Error running check:", (error as Error).message);
+  console.error("Error running check:", error.message);
   process.exit(1);
 }
+

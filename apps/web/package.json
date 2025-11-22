@@ -8,7 +8,7 @@
     "start": "next start",
     "start:standalone": "node .next/standalone/server.js",
     "lint": "biome check .",
-    "check-enums": "tsx scripts/check-enum-imports.ts",
+    "check-enums": "node scripts/check-enum-imports.js",
     "test": "cross-env RUN_AI_TESTS=false vitest",
     "test-ai": "cross-env RUN_AI_TESTS=true vitest --run",
     "test-e2e": "cross-env RUN_E2E_TESTS=true vitest --run",
