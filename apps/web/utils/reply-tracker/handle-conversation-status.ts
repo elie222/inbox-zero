@@ -5,7 +5,7 @@ import type { EmailProvider } from "@/utils/email/types";
 import { aiDetermineThreadStatus } from "@/utils/ai/reply/determine-thread-status";
 import { getEmailForLLM } from "@/utils/get-email-from-message";
 import { createScopedLogger } from "@/utils/logger";
-import { SystemType, ThreadTrackerType } from "@prisma/client";
+import { SystemType, ThreadTrackerType } from "@/generated/prisma/enums";
 import prisma from "@/utils/prisma";
 import { sortByInternalDate } from "@/utils/date";
 

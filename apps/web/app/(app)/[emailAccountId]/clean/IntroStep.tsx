@@ -5,7 +5,7 @@ import { SectionDescription } from "@/components/Typography";
 import { TypographyH3 } from "@/components/Typography";
 import { Button } from "@/components/ui/button";
 import { useStep } from "@/app/(app)/[emailAccountId]/clean/useStep";
-import { CleanAction } from "@prisma/client";
+import { CleanAction } from "@/generated/prisma/enums";
 import { PremiumAlertWithData } from "@/components/PremiumAlert";
 
 export function IntroStep({

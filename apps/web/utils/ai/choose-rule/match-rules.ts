@@ -9,7 +9,7 @@ import {
   ExecutedRuleStatus,
   LogicalOperator,
   SystemType,
-} from "@prisma/client";
+} from "@/generated/prisma/enums";
 import { ConditionType } from "@/utils/config";
 import prisma from "@/utils/prisma";
 import { aiChooseRule } from "@/utils/ai/choose-rule/ai-choose-rule";

@@ -12,7 +12,8 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { cleanInboxAction } from "@/utils/actions/clean";
-import { CleanAction, type CleanupJob } from "@prisma/client";
+import { CleanAction } from "@/generated/prisma/enums";
+import type { CleanupJob } from "@/generated/prisma/client";
 import { PREVIEW_RUN_COUNT } from "@/app/(app)/[emailAccountId]/clean/consts";
 import { useAccount } from "@/providers/EmailAccountProvider";
 

@@ -1,4 +1,4 @@
-import { ThreadTrackerType } from "@prisma/client";
+import { ThreadTrackerType } from "@/generated/prisma/enums";
 import { ReplyTrackerEmails } from "./ReplyTrackerEmails";
 import { getPaginatedThreadTrackers } from "./fetch-trackers";
 import type { TimeRange } from "./date-filter";

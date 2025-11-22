@@ -16,7 +16,7 @@ import { useMemo } from "react";
 import { isDefined } from "@/utils/types";
 import { isGoogleProvider } from "@/utils/email/provider-types";
 import { getRuleLabel } from "@/utils/rule/consts";
-import { SystemType } from "@prisma/client";
+import { SystemType } from "@/generated/prisma/enums";
 
 export function EmailMessageCell({
   sender,

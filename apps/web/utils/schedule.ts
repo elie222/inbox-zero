@@ -1,4 +1,4 @@
-import type { Schedule } from "@prisma/client";
+import type { Schedule } from "@/generated/prisma/client";
 import { addDays } from "date-fns";
 
 /**

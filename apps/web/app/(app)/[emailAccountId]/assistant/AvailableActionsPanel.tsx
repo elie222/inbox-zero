@@ -1,4 +1,4 @@
-import { ActionType } from "@prisma/client";
+import { ActionType } from "@/generated/prisma/enums";
 import { Card, CardContent } from "@/components/ui/card";
 import { getActionIcon } from "@/utils/action-display";
 import { SectionHeader } from "@/components/Typography";

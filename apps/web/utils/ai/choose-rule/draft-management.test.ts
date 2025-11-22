@@ -6,7 +6,7 @@ import {
   isDraftUnmodified,
 } from "@/utils/ai/choose-rule/draft-management";
 import prisma from "@/utils/prisma";
-import { ActionType } from "@prisma/client";
+import { ActionType } from "@/generated/prisma/enums";
 import { createScopedLogger } from "@/utils/logger";
 import type { ParsedMessage } from "@/utils/types";
 import type { EmailProvider } from "@/utils/email/types";

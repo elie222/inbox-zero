@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { NewsletterStatus } from "@prisma/client";
+import { NewsletterStatus } from "@/generated/prisma/enums";
 
 export const setNewsletterStatusBody = z.object({
   newsletterEmail: z.string().email(),
