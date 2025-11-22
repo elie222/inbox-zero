@@ -64,11 +64,15 @@ FROM node:22-alpine AS runner
 
 WORKDIR /app
 
+# Install openssl for Prisma
+RUN apk add --no-cache openssl
+
 # Copy the standalone server output (contains node_modules subset + server.js)
 COPY --from=builder /app/apps/web/.next/standalone ./
 # Static assets used by the server
 COPY --from=builder /app/apps/web/.next/static ./apps/web/.next/static
 COPY --from=builder /app/apps/web/public ./apps/web/public
+COPY --from=builder /app/apps/web/prisma ./apps/web/prisma
 
 # Copy runtime scripts
 COPY docker/scripts /app/docker/scripts
@@ -78,3 +82,4 @@ EXPOSE 3000
 
 # Default command runs the Next.js server from the standalone bundle
 CMD ["/app/docker/scripts/start.sh"]
+# Cache bust Fri Nov 21 17:08:13 IST 2025

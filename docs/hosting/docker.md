@@ -18,27 +18,27 @@ Connect to your VPS and install Docker Engine by following the [the official gui
 
 ### 2. Setup Docker Compose
 
-Create a directory for your Inbox Zero installation:
+**Option A: Clone the repository**
+
+```bash
+git clone https://github.com/elie222/inbox-zero.git
+cd inbox-zero
+cp apps/web/.env.example apps/web/.env
+```
+
+This is simpler if you want to easily update your deployment later with `git pull`.
+
+**Option B: Download only the necessary files**
 
 ```bash
 mkdir inbox-zero
 cd inbox-zero
-```
-
-Download the docker-compose.yml file:
-
-```bash
 curl -O https://raw.githubusercontent.com/elie222/inbox-zero/main/docker-compose.yml
-```
-
-### 3. Configure
-
-Create environment file:
-
-```bash
 mkdir -p apps/web
 curl -o apps/web/.env https://raw.githubusercontent.com/elie222/inbox-zero/main/apps/web/.env.example
 ```
+
+### 3. Configure
 
 Edit the environment file with your production settings:
 
@@ -47,6 +47,33 @@ nano apps/web/.env
 ```
 
 For detailed configuration instructions including all required environment variables, OAuth setup, and LLM configuration, see the [main README.md configuration section](../../README.md#updating-env-file-secrets).
+
+#### Using External Database Services (Optional)
+
+The `docker-compose.yml` supports different deployment modes using profiles:
+
+**All-in-one (default):** Includes Postgres and Redis containers
+```bash
+NEXT_PUBLIC_BASE_URL=https://yourdomain.com docker compose --profile all up -d
+```
+
+**External database only:** Use managed Postgres (RDS, Neon, Supabase) with local Redis
+```bash
+# Set DATABASE_URL and DIRECT_URL in .env to your external database
+NEXT_PUBLIC_BASE_URL=https://yourdomain.com docker compose --profile local-redis up -d
+```
+
+**External Redis only:** Use managed Redis (Upstash, ElastiCache) with local Postgres
+```bash
+# Set UPSTASH_REDIS_URL and UPSTASH_REDIS_TOKEN in .env
+NEXT_PUBLIC_BASE_URL=https://yourdomain.com docker compose --profile local-db up -d
+```
+
+**Fully external:** Use managed services for both (production recommended)
+```bash
+# Set DATABASE_URL, DIRECT_URL, UPSTASH_REDIS_URL, and UPSTASH_REDIS_TOKEN in .env
+NEXT_PUBLIC_BASE_URL=https://yourdomain.com docker compose up -d
+```
 
 **Important**: The `NEXT_PUBLIC_BASE_URL` must be set as a shell environment variable when running `docker compose up` (as shown below). Setting it in `apps/web/.env` will not work because `docker-compose.yml` overrides it.
 
@@ -70,69 +97,15 @@ Wait for the containers to start, then run the database migrations:
 docker compose exec web npx prisma migrate deploy
 ```
 
-### 6. Setup Nginx
+**Note:** You'll need to run this command again after pulling updates to apply any new database schema changes.
 
-Install and configure Nginx as reverse proxy:
+### 6. Access Your Application
 
-```bash
-# Install Nginx
-sudo apt update
-sudo apt install nginx
-```
+Your application should now be accessible at:
+- `http://your-server-ip:3000` (if accessing directly)
+- `https://yourdomain.com` (if you've set up a reverse proxy with SSL)
 
-Create Nginx configuration file (replace `yourdomain.com` with your domain):
-
-```bash
-sudo vim /etc/nginx/sites-available/yourdomain.com
-```
-
-Add the following configuration:
-
-```nginx
-server {
-    server_name yourdomain.com;
-    
-    location / {
-        proxy_pass http://localhost:3000;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header Host $host;
-    }
-}
-```
-
-Enable the site:
-
-```bash
-# Disable default configuration
-sudo rm /etc/nginx/sites-enabled/default
-
-# Enable the configuration
-sudo ln -s /etc/nginx/sites-available/yourdomain.com /etc/nginx/sites-enabled/yourdomain.com
-
-# Test configuration
-sudo nginx -t
-
-# Reload Nginx
-sudo systemctl reload nginx
-```
-
-### 7. Setup SSL Certificate
-
-Install Certbot and generate SSL certificate:
-
-```bash
-# Install Certbot using snap
-sudo apt install snapd
-sudo snap install --classic certbot
-
-# Generate SSL certificate (replace yourdomain.com with your domain)
-sudo certbot --nginx -d yourdomain.com
-
-# Reload Nginx to apply SSL configuration
-sudo nginx -s reload
-```
+**Note:** For production deployments, you should set up a reverse proxy (like Nginx, Caddy, or use a cloud load balancer) to handle SSL/TLS termination and route traffic to your Docker container.
 
 ## Updates
 

@@ -87,15 +87,39 @@ See our **[Docker Self-Hosting Guide](docs/hosting/docker.md)** for complete ins
 
 ### Local Development Setup
 
-### Setup
-
 [Here's a video](https://youtu.be/hVQENQ4WT2Y) on how to set up the project. It covers the same steps mentioned in this document. But goes into greater detail on setting up the external services.
 
-### Requirements
+#### Requirements
 
-- [Node.js](https://nodejs.org/en/) >= 18.0.0
-- [pnpm](https://pnpm.io/) >= 8.6.12
-- [Docker desktop](https://www.docker.com/products/docker-desktop/) (recommended but optional)
+- [Node.js](https://nodejs.org/en/) >= 22.0.0
+- [pnpm](https://pnpm.io/) >= 10.0.0
+- [Docker desktop](https://www.docker.com/products/docker-desktop/) (recommended for running Postgres and Redis)
+
+#### Quick Start
+
+1. **Start the database and Redis (recommended):**
+   ```bash
+   docker compose -f docker-compose.dev.yml up -d
+   ```
+   This starts Postgres and Redis in Docker containers. Alternatively, you can use your own Postgres/Redis instances.
+
+2. **Install dependencies and set up the database:**
+   ```bash
+   pnpm install
+   cd apps/web
+   cp .env.example .env
+   # Edit .env with your configuration
+   pnpm prisma migrate dev
+   ```
+
+3. **Run the development server:**
+   ```bash
+   pnpm dev
+   ```
+
+The app will be available at `http://localhost:3000`.
+
+#### Detailed Setup
 
 Make sure you have the above installed before starting.
 
@@ -129,7 +153,7 @@ The required environment variables:
 - `UPSTASH_REDIS_URL` -- Redis URL from Upstash. (can be empty if you are using Docker Compose)
 - `UPSTASH_REDIS_TOKEN` -- Redis token from Upstash. (or specify your own random string if you are using Docker Compose)
 
-When using Vercel with Fluid Compute turned off, you should set `MAX_DURATION=300` or lower. See Vercel limits for different plans [here](https://vercel.com/docs/functions/configuring-functions/duration#duration-limits).
+- `NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS` -- Set to `true` (default) to bypass all premium checks for self-hosting.
 
 ### Updating .env file with Google OAuth credentials:
 
@@ -151,8 +175,8 @@ Create [new credentials](https://console.cloud.google.com/apis/credentials):
     1. Click the `+Create Credentials` button. Choose OAuth Client ID.
     2. In `Application Type`, Choose `Web application`
     3. Choose a name for your web client
-    4. In Authorized JavaScript origins, add a URI and enter `http://localhost:3000`
-    5. In `Authorized redirect URIs` enter:
+    4. In Authorized JavaScript origins, add a URI and enter `http://localhost:3000` (or your custom domain)
+    5. In `Authorized redirect URIs` enter (or your custom domain):
       - `http://localhost:3000/api/auth/callback/google`
       - `http://localhost:3000/api/google/linking/callback`
     6. Click `Create`.
@@ -273,15 +297,16 @@ If this is the case you must also set the `ECONOMY_LLM_PROVIDER` environment var
 
 ### Local Development Infrastructure
 
-We use Postgres for the database.
-For Redis, you can use [Upstash Redis](https://upstash.com/) or set up your own Redis instance.
+We use Postgres for the database and Redis for caching.
 
-To run the app locally in development mode, you need these services running. You can use `docker-compose` to spin them up, or you can use a remote database via services like Upstash or Neon:
+The easiest way to run these services locally is using the development Docker Compose file:
 
 ```bash
-# Start services (Postgres + Redis) in the background
-docker-compose up -d db redis serverless-redis-http
+# Start Postgres and Redis in the background
+docker compose -f docker-compose.dev.yml up -d
 ```
+
+Alternatively, you can use remote services like [Upstash Redis](https://upstash.com/) or [Neon Postgres](https://neon.tech/).
 
 > **Note:** This is for local development (using `pnpm dev`). For production deployment, see [Self-Hosting with Docker](#self-hosting-with-docker).
 
@@ -310,12 +335,11 @@ turbo dev
 To build and run the full stack (App + DB + Redis) locally in production mode using Docker:
 
 ```bash
-# Build and start all services
-# NOTE: You must provide NEXT_PUBLIC_BASE_URL at build time
-NEXT_PUBLIC_BASE_URL=http://localhost:3000 docker compose up --build
+# Build and start all services (includes Postgres and Redis)
+NEXT_PUBLIC_BASE_URL=http://localhost:3000 docker compose --profile all up --build
 ```
 
-This uses the standalone build output for a smaller, optimized image.
+For production deployments with external databases, see the [Docker Self-Hosting Guide](docs/hosting/docker.md).
 
 To run without Docker (local production build):
 
@@ -378,40 +402,17 @@ The Google watch is necessary. Others are optional.
 
 [Here](https://vercel.com/guides/how-to-setup-cron-jobs-on-vercel#alternative-cron-providers) are some easy ways to run cron jobs. Upstash is a free, easy option. I could never get the Vercel `vercel.json`. Open to PRs if you find a fix for that.
 
-### Docker Build Instructions
+### Advanced Docker Usage
 
-When building the Docker image, you **must** specify your `NEXT_PUBLIC_BASE_URL` as a build argument. This is because Next.js embeds `NEXT_PUBLIC_*` variables at build time, not runtime.
+For detailed instructions on:
+- Building custom Docker images
+- Using external databases (RDS, Neon, Upstash)
+- AWS EC2 deployment with ALB
+- Production configuration
 
-### Building the Docker image
-
-```bash
-# For production with your custom domain
-docker build \
-  --build-arg NEXT_PUBLIC_BASE_URL="https://your-domain.com" \
-  -t inbox-zero \
-  -f docker/Dockerfile.prod .
-
-# For local development (default)
-docker build -t inbox-zero -f docker/Dockerfile.prod .
-```
-
-### Running the container
-
-After building, run the container with your runtime secrets:
-
-```bash
-docker run -p 3000:3000 \
-  -e DATABASE_URL="your-database-url" \
-  -e AUTH_SECRET="your-auth-secret" \
-  -e GOOGLE_CLIENT_ID="your-google-client-id" \
-  -e GOOGLE_CLIENT_SECRET="your-google-client-secret" \
-  # ... other runtime environment variables
-  inbox-zero
-```
-
-**Important:** If you need to change `NEXT_PUBLIC_BASE_URL`, you must rebuild the Docker image. It cannot be changed at runtime.
-
-For more detailed Docker build instructions and security considerations, see [docker/DOCKER_BUILD_GUIDE.md](docker/DOCKER_BUILD_GUIDE.md).
+See our comprehensive guides:
+- [Docker Self-Hosting Guide](docs/hosting/docker.md)
+- [AWS EC2 Deployment Guide](docs/hosting/ec2-deployment.md)
 
 
 ### Calendar integrations

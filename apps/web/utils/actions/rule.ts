@@ -554,7 +554,7 @@ function mapActionToSanitizedFields(action: {
   folderId?: { value?: string | null } | null;
   delayInMinutes?: number | null;
 }) {
-  return sanitizeActionFields({
+  const sanitized = sanitizeActionFields({
     type: action.type,
     label: action.labelId?.name,
     labelId: action.labelId?.value,
@@ -568,6 +568,23 @@ function mapActionToSanitizedFields(action: {
     folderId: action.folderId?.value,
     delayInMinutes: action.delayInMinutes,
   });
+
+  return {
+    type: sanitized.type,
+    fields: {
+      label: sanitized.label ?? null,
+      to: sanitized.to ?? null,
+      cc: sanitized.cc ?? null,
+      bcc: sanitized.bcc ?? null,
+      subject: sanitized.subject ?? null,
+      content: sanitized.content ?? null,
+      webhookUrl: sanitized.url ?? null,
+      folderName: sanitized.folderName ?? null,
+    },
+    labelId: sanitized.labelId ?? null,
+    folderId: sanitized.folderId ?? null,
+    delayInMinutes: sanitized.delayInMinutes ?? null,
+  };
 }
 
 function handleRuleError(error: unknown, logger: Logger) {

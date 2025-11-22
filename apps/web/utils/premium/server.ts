@@ -3,11 +3,12 @@ import { after } from "next/server";
 import { updateSubscriptionItemQuantity } from "@/ee/billing/lemon/index";
 import { updateStripeSubscriptionItemQuantity } from "@/ee/billing/stripe/index";
 import prisma from "@/utils/prisma";
-import type { PremiumTier, Prisma } from "@prisma/client";
+import type { PremiumTier } from "@prisma/client";
 import { createScopedLogger } from "@/utils/logger";
 import { ensureEmailAccountsWatched } from "@/utils/email/watch-manager";
 import { hasTierAccess, isPremium } from "@/utils/premium";
 import { SafeError } from "@/utils/error";
+import { env } from "@/env";
 
 const logger = createScopedLogger("premium");
 
@@ -169,6 +170,8 @@ export async function checkHasAccess({
   userId: string;
   minimumTier: PremiumTier;
 }): Promise<boolean> {
+  if (env.NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS) return true;
+
   const user = await prisma.user.findUnique({
     where: { id: userId },
     select: {
