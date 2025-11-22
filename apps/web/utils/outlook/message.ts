@@ -5,66 +5,13 @@ import type { OutlookClient } from "@/utils/outlook/client";
 import { OutlookLabel } from "./label";
 import { escapeODataString } from "@/utils/outlook/odata-escape";
 import { withOutlookRetry } from "@/utils/outlook/retry";
+import { formatEmailWithName } from "@/utils/email";
 
 const logger = createScopedLogger("outlook/message");
 
-/**
- * Removes quoted string literals from a query string to avoid false positives
- * when checking for identifiers that might appear inside quotes.
- * Handles both single and double quotes, including escaped quotes.
- */
-function stripQuotedLiterals(query: string): string {
-  let result = "";
-  let i = 0;
-
-  while (i < query.length) {
-    const char = query[i];
-
-    if (char === "'" || char === '"') {
-      const quote = char;
-      i++; // Skip opening quote
-
-      // Skip until we find the matching closing quote (or end of string)
-      while (i < query.length) {
-        const current = query[i];
-        if (current === quote) {
-          // Found closing quote, check if it's escaped
-          let backslashCount = 0;
-          let j = i - 1;
-          while (j >= 0 && query[j] === "\\") {
-            backslashCount++;
-            j--;
-          }
-
-          // If even number of backslashes (including 0), quote is not escaped
-          if (backslashCount % 2 === 0) {
-            i++; // Skip closing quote
-            break;
-          }
-        }
-        i++;
-      }
-
-      // Replace the entire quoted section with spaces to maintain positions
-      // This prevents issues with adjacent identifiers
-      result += " ";
-    } else {
-      result += char;
-      i++;
-    }
-  }
-
-  return result;
-}
-
-/**
- * Checks if parentFolderId appears as an unquoted identifier in the query.
- * This avoids false positives when parentFolderId appears inside string literals.
- */
-export function hasUnquotedParentFolderId(query: string): boolean {
-  const cleanedQuery = stripQuotedLiterals(query);
-  return /\bparentFolderId\b/.test(cleanedQuery);
-}
+// Standard fields to select when fetching messages from Microsoft Graph API
+export const MESSAGE_SELECT_FIELDS =
+  "id,conversationId,conversationIndex,subject,bodyPreview,from,sender,toRecipients,ccRecipients,receivedDateTime,isDraft,isRead,body,categories,parentFolderId";
 
 // Well-known folder names in Outlook that are consistent across all languages
 export const WELL_KNOWN_FOLDERS = {
@@ -228,13 +175,7 @@ export async function queryBatchMessages(
   });
 
   // Build the base request
-  let request = client
-    .getClient()
-    .api("/me/messages")
-    .select(
-      "id,conversationId,conversationIndex,subject,bodyPreview,from,sender,toRecipients,receivedDateTime,isDraft,isRead,body,categories,parentFolderId",
-    )
-    .top(maxResults);
+  let request = createMessagesRequest(client).top(maxResults);
 
   let nextPageToken: string | undefined;
 
@@ -242,21 +183,11 @@ export async function queryBatchMessages(
   const hasSearchQuery = !!effectiveSearchQuery;
   const hasDateFilters = !!(dateFilters && dateFilters.length > 0);
 
-  // Always filter to only include inbox and archive folders
-  const inboxFolderId = folderIds.inbox;
-  const archiveFolderId = folderIds.archive;
-
-  if (!inboxFolderId || !archiveFolderId) {
-    logger.warn("Missing required folder IDs", {
-      inboxFolderId,
-      archiveFolderId,
-    });
-  }
-
-  // Build folder filter for all cases
+  // Only apply folder filtering if a specific folderId is requested
+  // API already excludes Junk/Deleted by default, and drafts are filtered in convertMessages
   const folderFilter = folderId
     ? `parentFolderId eq '${escapeODataString(folderId)}'`
-    : `(parentFolderId eq '${escapeODataString(inboxFolderId)}' or parentFolderId eq '${escapeODataString(archiveFolderId)}')`;
+    : undefined;
 
   if (hasSearchQuery) {
     // Search path - use $search parameter
@@ -277,16 +208,10 @@ export async function queryBatchMessages(
     const response: { value: Message[]; "@odata.nextLink"?: string } =
       await withOutlookRetry(() => request.get());
 
-    // Filter messages to only include inbox and archive folders
-    const filteredMessages = response.value.filter((message) => {
-      if (folderId) {
-        return message.parentFolderId === folderId;
-      }
-      return (
-        message.parentFolderId === inboxFolderId ||
-        message.parentFolderId === archiveFolderId
-      );
-    });
+    // Filter to specific folder if requested, otherwise get all
+    const filteredMessages = folderId
+      ? response.value.filter((message) => message.parentFolderId === folderId)
+      : response.value;
     const messages = await convertMessages(filteredMessages, folderIds);
 
     nextPageToken = response["@odata.nextLink"]
@@ -296,7 +221,7 @@ export async function queryBatchMessages(
 
     logger.info("Search results", {
       totalFound: response.value.length,
-      afterFolderFiltering: filteredMessages.length,
+      filteredByFolder: folderId ? filteredMessages.length : undefined,
       messageCount: messages.length,
       hasNextPageToken: !!nextPageToken,
     });
@@ -304,14 +229,20 @@ export async function queryBatchMessages(
     return { messages, nextPageToken };
   } else {
     // Filter path - use $filter parameter for date filters or folder-only queries
-    const filters = [folderFilter];
+    const filters: string[] = [];
+
+    // Add folder filter if a specific folder is requested
+    if (folderFilter) {
+      filters.push(folderFilter);
+    }
 
     // Add date filters if provided
     if (hasDateFilters) {
       filters.push(...dateFilters!);
     }
 
-    const combinedFilter = filters.join(" and ");
+    const combinedFilter =
+      filters.length > 0 ? filters.join(" and ") : undefined;
 
     logger.info("Using filter path", {
       folderFilter,
@@ -319,7 +250,10 @@ export async function queryBatchMessages(
       combinedFilter,
     });
 
-    request = request.filter(combinedFilter);
+    // Only apply filter if we have something to filter
+    if (combinedFilter) {
+      request = request.filter(combinedFilter);
+    }
 
     if (pageToken) {
       request = request.skipToken(pageToken);
@@ -375,13 +309,7 @@ export async function queryMessagesWithFilters(
   const archiveFolderId = folderIds.archive;
 
   // Build base request
-  let request = client
-    .getClient()
-    .api("/me/messages")
-    .select(
-      "id,conversationId,conversationIndex,subject,bodyPreview,from,sender,toRecipients,receivedDateTime,isDraft,isRead,body,categories,parentFolderId",
-    )
-    .top(maxResults);
+  let request = createMessagesRequest(client).top(maxResults);
 
   // Build folder filter safely (avoid empty IDs)
   let folderFilter: string | undefined;
@@ -448,13 +376,7 @@ export async function getMessage(
   client: OutlookClient,
 ): Promise<ParsedMessage> {
   const message = await withOutlookRetry(() =>
-    client
-      .getClient()
-      .api(`/me/messages/${messageId}`)
-      .select(
-        "id,conversationId,conversationIndex,subject,bodyPreview,from,sender,toRecipients,receivedDateTime,isDraft,isRead,body,categories,parentFolderId",
-      )
-      .get(),
+    createMessageRequest(client, messageId).get(),
   );
 
   const folderIds = await getFolderIds(client);
@@ -471,13 +393,7 @@ export async function getMessages(
   },
 ) {
   const top = options.maxResults || 20;
-  let request = client
-    .getClient()
-    .api("/me/messages")
-    .top(top)
-    .select(
-      "id,conversationId,conversationIndex,subject,bodyPreview,body,from,toRecipients,receivedDateTime,isRead,categories,parentFolderId,isDraft",
-    );
+  let request = createMessagesRequest(client).top(top);
 
   if (options.query) {
     request = request.filter(
@@ -498,22 +414,76 @@ export async function getMessages(
   };
 }
 
+/**
+ * Helper to create a request for fetching multiple messages with standard fields selected.
+ * Returns a typed request builder that can be chained with .filter(), .top(), etc.
+ */
+export function createMessagesRequest(client: OutlookClient) {
+  return client.getClient().api("/me/messages").select(MESSAGE_SELECT_FIELDS);
+}
+
+/**
+ * Helper to create a request for fetching a single message with standard fields selected.
+ */
+export function createMessageRequest(client: OutlookClient, messageId: string) {
+  return client
+    .getClient()
+    .api(`/me/messages/${messageId}`)
+    .select(MESSAGE_SELECT_FIELDS);
+}
+
+/**
+ * Converts Outlook message recipients array to comma-separated string
+ * Format: "Name1 <email1@example.com>, Name2 <email2@example.com>"
+ */
+function formatRecipientsList(
+  recipients:
+    | Array<{
+        emailAddress?: { name?: string | null; address?: string | null } | null;
+      }>
+    | null
+    | undefined,
+): string | undefined {
+  if (!recipients || recipients.length === 0) return undefined;
+
+  const formatted = recipients
+    .map((recipient) =>
+      formatEmailWithName(
+        recipient.emailAddress?.name,
+        recipient.emailAddress?.address,
+      ),
+    )
+    .filter(Boolean)
+    .join(", ");
+
+  return formatted || undefined;
+}
+
 export function convertMessage(
   message: Message,
   folderIds: Record<string, string> = {},
 ): ParsedMessage {
+  const bodyContent = message.body?.content || "";
+  const bodyType = message.body?.contentType?.toLowerCase() as
+    | "text"
+    | "html"
+    | undefined;
+
   return {
     id: message.id || "",
     threadId: message.conversationId || "",
     snippet: message.bodyPreview || "",
-    textPlain: message.body?.content || "",
-    textHtml: message.body?.content || "",
+    textPlain: bodyContent,
+    textHtml: bodyContent,
+    bodyContentType: bodyType,
     headers: {
       from:
-        message.from?.emailAddress?.name && message.from?.emailAddress?.address
-          ? `${message.from.emailAddress.name} <${message.from.emailAddress.address}>`
-          : message.from?.emailAddress?.address || "",
-      to: message.toRecipients?.[0]?.emailAddress?.address || "",
+        formatEmailWithName(
+          message.from?.emailAddress?.name,
+          message.from?.emailAddress?.address,
+        ) || "",
+      to: formatRecipientsList(message.toRecipients) || "",
+      cc: formatRecipientsList(message.ccRecipients),
       subject: message.subject || "",
       date: message.receivedDateTime || new Date().toISOString(),
     },
@@ -524,5 +494,10 @@ export function convertMessage(
     historyId: "",
     inline: [],
     conversationIndex: message.conversationIndex,
+    rawRecipients: {
+      from: message.from,
+      toRecipients: message.toRecipients,
+      ccRecipients: message.ccRecipients,
+    },
   };
 }

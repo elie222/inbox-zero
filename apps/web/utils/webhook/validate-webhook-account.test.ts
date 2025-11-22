@@ -2,7 +2,9 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { validateWebhookAccount } from "./validate-webhook-account";
 import type { ValidatedWebhookAccountData } from "./validate-webhook-account";
 import { PremiumTier } from "@prisma/client";
-import type { Logger } from "@/utils/logger";
+import { createScopedLogger } from "@/utils/logger";
+
+const logger = createScopedLogger("test");
 
 // Mock dependencies
 vi.mock("@/utils/premium");
@@ -17,14 +19,6 @@ import { unwatchEmails } from "@/app/api/watch/controller";
 import { createEmailProvider } from "@/utils/email/provider";
 
 describe("validateWebhookAccount", () => {
-  const mockLogger = {
-    error: vi.fn(),
-    info: vi.fn(),
-    warn: vi.fn(),
-    trace: vi.fn(),
-    with: vi.fn().mockReturnThis(),
-  } as unknown as Logger;
-
   const mockEmailProvider = { type: "google" as const };
 
   beforeEach(() => {
@@ -43,6 +37,8 @@ describe("validateWebhookAccount", () => {
       lastSyncedHistoryId: null,
       autoCategorizeSenders: false,
       watchEmailsSubscriptionId: "subscription-id",
+      multiRuleSelectionEnabled: false,
+      watchEmailsSubscriptionHistory: [],
       account: {
         provider: "google",
         access_token: "access-token",
@@ -55,7 +51,6 @@ describe("validateWebhookAccount", () => {
           name: "Test Rule",
           instructions: "Test instructions",
           actions: [],
-          categoryFilters: [],
           createdAt: new Date(),
           updatedAt: new Date(),
           enabled: true,
@@ -89,7 +84,7 @@ describe("validateWebhookAccount", () => {
 
   describe("when emailAccount is null", () => {
     it("should return failure with error logged", async () => {
-      const result = await validateWebhookAccount(null, mockLogger);
+      const result = await validateWebhookAccount(null, logger);
 
       expect(result.success).toBe(false);
       if (!result.success) {
@@ -111,7 +106,7 @@ describe("validateWebhookAccount", () => {
 
       vi.mocked(isPremium).mockReturnValue(false);
 
-      const result = await validateWebhookAccount(emailAccount, mockLogger);
+      const result = await validateWebhookAccount(emailAccount, logger);
 
       expect(result.success).toBe(false);
       expect(createEmailProvider).toHaveBeenCalledWith({
@@ -136,7 +131,7 @@ describe("validateWebhookAccount", () => {
       vi.mocked(isPremium).mockReturnValue(true);
       vi.mocked(hasAiAccess).mockReturnValue(false);
 
-      const result = await validateWebhookAccount(emailAccount, mockLogger);
+      const result = await validateWebhookAccount(emailAccount, logger);
 
       expect(result.success).toBe(false);
       expect(unwatchEmails).toHaveBeenCalledWith({
@@ -159,7 +154,7 @@ describe("validateWebhookAccount", () => {
       vi.mocked(isPremium).mockReturnValue(true);
       vi.mocked(hasAiAccess).mockReturnValue(true);
 
-      const result = await validateWebhookAccount(emailAccount, mockLogger);
+      const result = await validateWebhookAccount(emailAccount, logger);
 
       expect(result.success).toBe(false);
       expect(unwatchEmails).not.toHaveBeenCalled();
@@ -183,7 +178,7 @@ describe("validateWebhookAccount", () => {
       vi.mocked(isPremium).mockReturnValue(true);
       vi.mocked(hasAiAccess).mockReturnValue(true);
 
-      const result = await validateWebhookAccount(emailAccount, mockLogger);
+      const result = await validateWebhookAccount(emailAccount, logger);
 
       expect(result.success).toBe(false);
       if (!result.success) {
@@ -206,7 +201,7 @@ describe("validateWebhookAccount", () => {
       vi.mocked(isPremium).mockReturnValue(true);
       vi.mocked(hasAiAccess).mockReturnValue(true);
 
-      const result = await validateWebhookAccount(emailAccount, mockLogger);
+      const result = await validateWebhookAccount(emailAccount, logger);
 
       expect(result.success).toBe(false);
       if (!result.success) {
@@ -225,7 +220,7 @@ describe("validateWebhookAccount", () => {
       vi.mocked(isPremium).mockReturnValue(true);
       vi.mocked(hasAiAccess).mockReturnValue(true);
 
-      const result = await validateWebhookAccount(emailAccount, mockLogger);
+      const result = await validateWebhookAccount(emailAccount, logger);
 
       expect(result.success).toBe(false);
       if (!result.success) {
@@ -241,7 +236,7 @@ describe("validateWebhookAccount", () => {
       vi.mocked(isPremium).mockReturnValue(true);
       vi.mocked(hasAiAccess).mockReturnValue(true);
 
-      const result = await validateWebhookAccount(emailAccount, mockLogger);
+      const result = await validateWebhookAccount(emailAccount, logger);
 
       expect(result.success).toBe(true);
       expect(unwatchEmails).not.toHaveBeenCalled();

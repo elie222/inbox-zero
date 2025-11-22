@@ -10,6 +10,7 @@ import {
   Trash2Icon,
   SparklesIcon,
   InfoIcon,
+  CopyIcon,
 } from "lucide-react";
 import { useMemo } from "react";
 import { LoadingContent } from "@/components/LoadingContent";
@@ -51,7 +52,6 @@ import { sortActionsByPriority } from "@/utils/action-sort";
 import { getActionDisplay, getActionIcon } from "@/utils/action-display";
 import { RuleDialog } from "./RuleDialog";
 import { useDialogState } from "@/hooks/useDialogState";
-import { ColdEmailDialog } from "@/app/(app)/[emailAccountId]/cold-email-blocker/ColdEmailDialog";
 import { useChat } from "@/providers/ChatProvider";
 import { useSidebar } from "@/components/ui/sidebar";
 import { useLabels } from "@/hooks/useLabels";
@@ -62,6 +62,10 @@ import {
   getDefaultActions,
 } from "@/utils/rule/consts";
 import { DEFAULT_COLD_EMAIL_PROMPT } from "@/utils/cold-email/prompt";
+import {
+  STEP_KEYS,
+  getStepNumber,
+} from "@/app/(app)/[emailAccountId]/onboarding/OnboardingContent";
 
 export function Rules({
   showAddRuleButton = true,
@@ -73,9 +77,11 @@ export function Rules({
   const { setInput } = useChat();
 
   const { userLabels } = useLabels();
-  const ruleDialog = useDialogState<{ ruleId: string; editMode?: boolean }>();
-  const coldEmailDialog = useDialogState();
-
+  const ruleDialog = useDialogState<{
+    ruleId?: string;
+    editMode?: boolean;
+    duplicateRule?: RulesResponse[number];
+  }>();
   const onCreateRule = () => ruleDialog.onOpen();
 
   const { emailAccountId, provider } = useAccount();
@@ -293,14 +299,10 @@ export function Rules({
                             >
                               <DropdownMenuItem
                                 onClick={() => {
-                                  if (isColdEmailBlocker) {
-                                    coldEmailDialog.onOpen();
-                                  } else {
-                                    ruleDialog.onOpen({
-                                      ruleId: rule.id,
-                                      editMode: true,
-                                    });
-                                  }
+                                  ruleDialog.onOpen({
+                                    ruleId: rule.id,
+                                    editMode: true,
+                                  });
                                 }}
                               >
                                 <PenIcon className="mr-2 size-4" />
@@ -319,6 +321,16 @@ export function Rules({
                                   Edit via AI
                                 </DropdownMenuItem>
                               )}
+                              <DropdownMenuItem
+                                onClick={() => {
+                                  ruleDialog.onOpen({
+                                    duplicateRule: rule,
+                                  });
+                                }}
+                              >
+                                <CopyIcon className="mr-2 size-4" />
+                                Duplicate
+                              </DropdownMenuItem>
                               <DropdownMenuItem asChild>
                                 <Link
                                   href={
@@ -399,6 +411,7 @@ export function Rules({
 
       <RuleDialog
         ruleId={ruleDialog.data?.ruleId}
+        duplicateRule={ruleDialog.data?.duplicateRule}
         isOpen={ruleDialog.isOpen}
         onClose={ruleDialog.onClose}
         onSuccess={() => {
@@ -406,11 +419,6 @@ export function Rules({
           ruleDialog.onClose();
         }}
         editMode={ruleDialog.data?.editMode}
-      />
-
-      <ColdEmailDialog
-        isOpen={coldEmailDialog.isOpen}
-        onClose={coldEmailDialog.onClose}
       />
     </div>
   );
@@ -462,7 +470,12 @@ function NoRules() {
         You don't have any rules yet.
         <div>
           <Button asChild size="sm">
-            <Link href={prefixPath(emailAccountId, "/assistant/onboarding")}>
+            <Link
+              href={prefixPath(
+                emailAccountId,
+                `/onboarding?step=${getStepNumber(STEP_KEYS.LABELS)}`,
+              )}
+            >
               Set up default rules
             </Link>
           </Button>

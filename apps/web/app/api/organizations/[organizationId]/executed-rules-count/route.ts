@@ -7,16 +7,19 @@ export type GetExecutedRulesCountResponse = Awaited<
   ReturnType<typeof getExecutedRulesCount>
 >;
 
-export const GET = withAuth(async (request, { params }) => {
-  const { userId } = request.auth;
-  const { organizationId } = await params;
+export const GET = withAuth(
+  "organizations/executed-rules-count",
+  async (request, { params }) => {
+    const { userId } = request.auth;
+    const { organizationId } = await params;
 
-  await fetchAndCheckIsAdmin({ organizationId, userId });
+    await fetchAndCheckIsAdmin({ organizationId, userId });
 
-  const result = await getExecutedRulesCount({ organizationId });
+    const result = await getExecutedRulesCount({ organizationId });
 
-  return NextResponse.json(result);
-});
+    return NextResponse.json(result);
+  },
+);
 
 async function getExecutedRulesCount({
   organizationId,

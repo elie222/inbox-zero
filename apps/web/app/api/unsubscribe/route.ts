@@ -1,20 +1,17 @@
 import { NextResponse } from "next/server";
-import { withError } from "@/utils/middleware";
+import { withError, type RequestWithLogger } from "@/utils/middleware";
 import prisma from "@/utils/prisma";
-import { createScopedLogger } from "@/utils/logger";
 import { Frequency } from "@prisma/client";
 
-const logger = createScopedLogger("unsubscribe");
-
-export const GET = withError(async (request) => {
+export const GET = withError("unsubscribe", async (request) => {
   return unsubscribe(request);
 });
 
 export const POST = withError(async (request) => {
-  return unsubscribe(request);
+  return unsubscribe(request as RequestWithLogger);
 });
 
-async function unsubscribe(request: Request) {
+async function unsubscribe(request: RequestWithLogger) {
   const url = new URL(request.url);
   const encodedToken = url.searchParams.get("token");
 
@@ -63,7 +60,7 @@ async function unsubscribe(request: Request) {
   ]);
 
   if (userUpdate.status === "rejected") {
-    logger.error("Error updating user preferences", {
+    request.logger.error("Error updating user preferences", {
       email: emailToken.emailAccount.email,
       error: userUpdate.reason,
     });
@@ -78,14 +75,14 @@ async function unsubscribe(request: Request) {
   }
 
   if (tokenDelete.status === "rejected") {
-    logger.error("Error deleting token", {
+    request.logger.error("Error deleting token", {
       email: emailToken.emailAccountId,
       tokenId: emailToken.id,
       error: tokenDelete.reason,
     });
   }
 
-  logger.info("User unsubscribed from emails", {
+  request.logger.info("User unsubscribed from emails", {
     email: emailToken.emailAccountId,
   });
 

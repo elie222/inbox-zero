@@ -4,8 +4,8 @@ import { withEmailProvider } from "@/utils/middleware";
 import { isDefined } from "@/utils/types";
 import prisma from "@/utils/prisma";
 import { ExecutedRuleStatus, type Prisma } from "@prisma/client";
-import { createScopedLogger } from "@/utils/logger";
 import type { EmailProvider } from "@/utils/email/types";
+import type { Logger } from "@/utils/logger";
 
 const LIMIT = 50;
 
@@ -15,39 +15,40 @@ export type GetExecutedRulesResponse = Awaited<
   ReturnType<typeof getExecutedRules>
 >;
 
-export const GET = withEmailProvider(async (request) => {
-  const emailAccountId = request.auth.emailAccountId;
+export const GET = withEmailProvider(
+  "user/executed-rules/history",
+  async (request) => {
+    const emailAccountId = request.auth.emailAccountId;
 
-  const url = new URL(request.url);
-  const page = Number.parseInt(url.searchParams.get("page") || "1");
-  const ruleId = url.searchParams.get("ruleId") || "all";
+    const url = new URL(request.url);
+    const page = Number.parseInt(url.searchParams.get("page") || "1");
+    const ruleId = url.searchParams.get("ruleId") || "all";
 
-  const result = await getExecutedRules({
-    page,
-    ruleId,
-    emailAccountId,
-    emailProvider: request.emailProvider,
-  });
+    const result = await getExecutedRules({
+      page,
+      ruleId,
+      emailAccountId,
+      emailProvider: request.emailProvider,
+      logger: request.logger,
+    });
 
-  return NextResponse.json(result);
-});
+    return NextResponse.json(result);
+  },
+);
 
 async function getExecutedRules({
   page,
   ruleId,
   emailAccountId,
   emailProvider,
+  logger,
 }: {
   page: number;
   ruleId?: string;
   emailAccountId: string;
   emailProvider: EmailProvider;
+  logger: Logger;
 }) {
-  const logger = createScopedLogger("api/user/executed-rules/history").with({
-    emailAccountId,
-    ruleId,
-  });
-
   const where: Prisma.ExecutedRuleWhereInput = {
     emailAccountId,
     status:

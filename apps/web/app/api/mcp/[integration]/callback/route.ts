@@ -50,7 +50,7 @@ export const GET = withError(async (request: NextRequest, { params }) => {
   };
 
   // Default redirect - will be updated once we decode state
-  let redirectUrl = new URL("/integrations", request.nextUrl.origin);
+  let redirectUrl = new URL("/integrations", env.NEXT_PUBLIC_BASE_URL);
 
   if (error) {
     logger.warn("OAuth error in MCP callback", {
@@ -117,7 +117,7 @@ export const GET = withError(async (request: NextRequest, { params }) => {
   // Update redirect URL to include emailAccountId
   redirectUrl = new URL(
     prefixPath(emailAccountId, "/integrations"),
-    request.nextUrl.origin,
+    env.NEXT_PUBLIC_BASE_URL,
   );
 
   const emailAccount = await prisma.emailAccount.findFirst({

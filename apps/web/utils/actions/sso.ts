@@ -12,7 +12,7 @@ import { slugify } from "@/utils/string";
 
 export const registerSSOProviderAction = adminActionClient
   .metadata({ name: "registerSSOProvider" })
-  .schema(ssoRegistrationBody)
+  .inputSchema(ssoRegistrationBody)
   .action(
     async ({
       parsedInput: { organizationName, idpMetadata, domain, providerId },

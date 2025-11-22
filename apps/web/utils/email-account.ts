@@ -1,3 +1,4 @@
+import { redirect } from "next/navigation";
 import { auth } from "@/utils/auth";
 import prisma from "@/utils/prisma";
 
@@ -16,6 +17,6 @@ export async function checkUserOwnsEmailAccount({
   });
 
   if (!emailAccount) {
-    throw new Error("Email account not found or you don't have access to it");
+    redirect("/no-access");
   }
 }

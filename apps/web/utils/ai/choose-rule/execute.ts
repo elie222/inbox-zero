@@ -2,10 +2,12 @@ import { runActionFunction } from "@/utils/ai/actions";
 import prisma from "@/utils/prisma";
 import type { Prisma } from "@prisma/client";
 import { ExecutedRuleStatus, ActionType } from "@prisma/client";
-import { createScopedLogger } from "@/utils/logger";
+import type { Logger } from "@/utils/logger";
 import type { ParsedMessage } from "@/utils/types";
 import { updateExecutedActionWithDraftId } from "@/utils/ai/choose-rule/draft-management";
 import type { EmailProvider } from "@/utils/email/types";
+
+const MODULE = "ai-execute-act";
 
 type ExecutedRuleWithActionItems = Prisma.ExecutedRuleGetPayload<{
   include: { actionItems: true };
@@ -18,6 +20,7 @@ export async function executeAct({
   userId,
   emailAccountId,
   message,
+  logger,
 }: {
   client: EmailProvider;
   executedRule: ExecutedRuleWithActionItems;
@@ -25,10 +28,10 @@ export async function executeAct({
   userEmail: string;
   userId: string;
   emailAccountId: string;
+  logger: Logger;
 }) {
-  const logger = createScopedLogger("ai-execute-act").with({
-    email: userEmail,
-    emailAccountId,
+  const log = logger.with({
+    module: MODULE,
     executedRuleId: executedRule.id,
     ruleId: executedRule.ruleId,
     threadId: executedRule.threadId,
@@ -45,6 +48,7 @@ export async function executeAct({
         userId,
         emailAccountId,
         executedRule,
+        logger: log,
       });
 
       if (action.type === ActionType.DRAFT_EMAIL && actionResult?.draftId) {
@@ -55,7 +59,7 @@ export async function executeAct({
         });
       }
     } catch (error) {
-      logger.error("Error executing action", { error });
+      log.error("Error executing action", { error });
       await prisma.executedRule.update({
         where: { id: executedRule.id },
         data: { status: ExecutedRuleStatus.ERROR },
@@ -70,6 +74,6 @@ export async function executeAct({
       data: { status: ExecutedRuleStatus.APPLIED },
     })
     .catch((error) => {
-      logger.error("Failed to update executed rule", { error });
+      log.error("Failed to update executed rule", { error });
     });
 }

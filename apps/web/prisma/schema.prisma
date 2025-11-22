@@ -124,6 +124,8 @@ model EmailAccount {
   behaviorProfile                Json?
   personaAnalysis                Json? // ai analysis of the user's persona
   role                           String? // the role confirmed by the user - previously `User.surveyRole`
+  timezone                       String? // User's timezone (IANA tz database format, e.g., "America/Los_Angeles", "Asia/Jerusalem") - handles DST automatically
+  calendarBookingLink            String? // User's calendar booking link
 
   statsEmailFrequency       Frequency         @default(WEEKLY)
   summaryEmailFrequency     Frequency         @default(WEEKLY)

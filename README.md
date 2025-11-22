@@ -75,23 +75,51 @@ Learn more in our [docs](https://docs.getinboxzero.com).
 
 To request a feature open a [GitHub issue](https://github.com/elie222/inbox-zero/issues), or join our [Discord](https://www.getinboxzero.com/discord).
 
-## Getting Started for Developers
+## Getting Started
 
-We offer a hosted version of Inbox Zero at [https://getinboxzero.com](https://getinboxzero.com). To self-host follow the steps below.
+We offer a hosted version of Inbox Zero at [https://getinboxzero.com](https://getinboxzero.com).
 
-### Self-Hosting with Docker on VPS
+### Self-Hosting with Docker
 
-For a complete guide on deploying Inbox Zero to a VPS using Docker, see our [Docker Self-Hosting Guide](docs/hosting/docker.md).
+The easiest way to self-host Inbox Zero is using our pre-built Docker image.
 
-### Setup
+See our **[Docker Self-Hosting Guide](docs/hosting/docker.md)** for complete instructions.
+
+### Local Development Setup
 
 [Here's a video](https://youtu.be/hVQENQ4WT2Y) on how to set up the project. It covers the same steps mentioned in this document. But goes into greater detail on setting up the external services.
 
-### Requirements
+#### Requirements
 
-- [Node.js](https://nodejs.org/en/) >= 18.0.0
-- [pnpm](https://pnpm.io/) >= 8.6.12
-- [Docker desktop](https://www.docker.com/products/docker-desktop/) (recommended but optional)
+- [Node.js](https://nodejs.org/en/) >= 22.0.0
+- [pnpm](https://pnpm.io/) >= 10.0.0
+- [Docker desktop](https://www.docker.com/products/docker-desktop/) (recommended for running Postgres and Redis)
+
+#### Quick Start
+
+1. **Start the database and Redis (recommended):**
+   ```bash
+   docker compose -f docker-compose.dev.yml up -d
+   ```
+   This starts Postgres and Redis in Docker containers. Alternatively, you can use your own Postgres/Redis instances.
+
+2. **Install dependencies and set up the database:**
+   ```bash
+   pnpm install
+   cd apps/web
+   cp .env.example .env
+   # Edit .env with your configuration
+   pnpm prisma migrate dev
+   ```
+
+3. **Run the development server:**
+   ```bash
+   pnpm dev
+   ```
+
+The app will be available at `http://localhost:3000`.
+
+#### Detailed Setup
 
 Make sure you have the above installed before starting.
 
@@ -125,7 +153,7 @@ The required environment variables:
 - `UPSTASH_REDIS_URL` -- Redis URL from Upstash. (can be empty if you are using Docker Compose)
 - `UPSTASH_REDIS_TOKEN` -- Redis token from Upstash. (or specify your own random string if you are using Docker Compose)
 
-When using Vercel with Fluid Compute turned off, you should set `MAX_DURATION=300` or lower. See Vercel limits for different plans [here](https://vercel.com/docs/functions/configuring-functions/duration#duration-limits).
+- `NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS` -- Set to `true` (default) to bypass all premium checks for self-hosting.
 
 ### Updating .env file with Google OAuth credentials:
 
@@ -147,8 +175,8 @@ Create [new credentials](https://console.cloud.google.com/apis/credentials):
     1. Click the `+Create Credentials` button. Choose OAuth Client ID.
     2. In `Application Type`, Choose `Web application`
     3. Choose a name for your web client
-    4. In Authorized JavaScript origins, add a URI and enter `http://localhost:3000`
-    5. In `Authorized redirect URIs` enter:
+    4. In Authorized JavaScript origins, add a URI and enter `http://localhost:3000` (or your custom domain)
+    5. In `Authorized redirect URIs` enter (or your custom domain):
       - `http://localhost:3000/api/auth/callback/google`
       - `http://localhost:3000/api/google/linking/callback`
     6. Click `Create`.
@@ -224,12 +252,8 @@ Go to [Microsoft Azure Portal](https://portal.azure.com/). Create a new Azure Ac
       - User.Read
       - offline_access
       - Mail.ReadWrite
-      - Mail.Send
-      - Mail.ReadBasic
-      - Mail.Read
-      - Mail.Read.Shared
+      - Mail.Send (only required if `NEXT_PUBLIC_EMAIL_SEND_ENABLED=true`, which is the default)
       - MailboxSettings.ReadWrite
-      - Contacts.ReadWrite
 
    6. Click "Add permissions"
    7. Click "Grant admin consent" if you're an admin
@@ -271,16 +295,20 @@ DEFAULT_LLM_PROVIDER=ollama
 
 If this is the case you must also set the `ECONOMY_LLM_PROVIDER` environment variable.
 
-### Redis and Postgres
+### Local Development Infrastructure
 
-We use Postgres for the database.
-For Redis, you can use [Upstash Redis](https://upstash.com/) or set up your own Redis instance.
+We use Postgres for the database and Redis for caching.
 
-You can run Postgres & Redis locally using `docker-compose`
+The easiest way to run these services locally is using the development Docker Compose file:
 
 ```bash
-docker-compose up -d # -d will run the services in the background
+# Start Postgres and Redis in the background
+docker compose -f docker-compose.dev.yml up -d
 ```
+
+Alternatively, you can use remote services like [Upstash Redis](https://upstash.com/) or [Neon Postgres](https://neon.tech/).
+
+> **Note:** This is for local development (using `pnpm dev`). For production deployment, see [Self-Hosting with Docker](#self-hosting-with-docker).
 
 ### Running the app
 
@@ -290,7 +318,7 @@ To run the migrations:
 pnpm prisma migrate dev
 ```
 
-To run the app locally for development (slower):
+To run the app locally for development (slower, but with HMR):
 
 ```bash
 pnpm run dev
@@ -302,7 +330,18 @@ Or from the project root:
 turbo dev
 ```
 
-To build and run the app locally in production mode (faster):
+### Production Build with Docker
+
+To build and run the full stack (App + DB + Redis) locally in production mode using Docker:
+
+```bash
+# Build and start all services (includes Postgres and Redis)
+NEXT_PUBLIC_BASE_URL=http://localhost:3000 docker compose --profile all up --build
+```
+
+For production deployments with external databases, see the [Docker Self-Hosting Guide](docs/hosting/docker.md).
+
+To run without Docker (local production build):
 
 ```bash
 pnpm run build
@@ -363,45 +402,20 @@ The Google watch is necessary. Others are optional.
 
 [Here](https://vercel.com/guides/how-to-setup-cron-jobs-on-vercel#alternative-cron-providers) are some easy ways to run cron jobs. Upstash is a free, easy option. I could never get the Vercel `vercel.json`. Open to PRs if you find a fix for that.
 
-### Docker Build Instructions
+### Advanced Docker Usage
 
-When building the Docker image, you **must** specify your `NEXT_PUBLIC_BASE_URL` as a build argument. This is because Next.js embeds `NEXT_PUBLIC_*` variables at build time, not runtime.
+For detailed instructions on:
+- Building custom Docker images
+- Using external databases (RDS, Neon, Upstash)
+- AWS EC2 deployment with ALB
+- Production configuration
 
-### Building the Docker image
-
-```bash
-# For production with your custom domain
-docker build \
-  --build-arg NEXT_PUBLIC_BASE_URL="https://your-domain.com" \
-  -t inbox-zero \
-  -f docker/Dockerfile.prod .
-
-# For local development (default)
-docker build -t inbox-zero -f docker/Dockerfile.prod .
-```
-
-### Running the container
-
-After building, run the container with your runtime secrets:
-
-```bash
-docker run -p 3000:3000 \
-  -e DATABASE_URL="your-database-url" \
-  -e AUTH_SECRET="your-auth-secret" \
-  -e GOOGLE_CLIENT_ID="your-google-client-id" \
-  -e GOOGLE_CLIENT_SECRET="your-google-client-secret" \
-  # ... other runtime environment variables
-  inbox-zero
-```
-
-**Important:** If you need to change `NEXT_PUBLIC_BASE_URL`, you must rebuild the Docker image. It cannot be changed at runtime.
-
-For more detailed Docker build instructions and security considerations, see [docker/DOCKER_BUILD_GUIDE.md](docker/DOCKER_BUILD_GUIDE.md).
+See our comprehensive guides:
+- [Docker Self-Hosting Guide](docs/hosting/docker.md)
+- [AWS EC2 Deployment Guide](docs/hosting/ec2-deployment.md)
 
 
 ### Calendar integrations
-
-*Note:* The calendar integration feature is a work in progress.
 
 #### Google Calendar
 
@@ -412,6 +426,25 @@ For more detailed Docker build instructions and security considerations, see [do
     1. Click on your project
     2. In `Authorized redirect URIs` add:
       - `http://localhost:3000/api/google/calendar/callback`
+
+#### Microsoft Calendar
+
+1. Go to your existing Microsoft Azure app registration (created earlier in the Microsoft OAuth setup)
+2. Add the calendar redirect URI:
+    1. In the "Manage" menu click "Authentication (Preview)"
+    2. Add the Redirect URI: `http://localhost:3000/api/outlook/calendar/callback`
+3. Add calendar permissions:
+    1. In the "Manage" menu click "API permissions"
+    2. Click "Add a permission"
+    3. Select "Microsoft Graph"
+    4. Select "Delegated permissions"
+    5. Add the following calendar permissions:
+       - Calendars.Read
+       - Calendars.ReadWrite
+    6. Click "Add permissions"
+    7. Click "Grant admin consent" if you're an admin
+
+Note: The calendar integration uses a separate OAuth flow from the main email OAuth, so users can connect their calendar independently.
 
 ## Contributing to the project
 

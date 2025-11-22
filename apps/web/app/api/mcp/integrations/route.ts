@@ -5,7 +5,7 @@ import prisma from "@/utils/prisma";
 
 export type GetIntegrationsResponse = Awaited<ReturnType<typeof getData>>;
 
-export const GET = withEmailAccount(async (request) => {
+export const GET = withEmailAccount("mcp/integrations", async (request) => {
   const emailAccountId = request.auth.emailAccountId;
   return NextResponse.json(await getData(emailAccountId));
 });

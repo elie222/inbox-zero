@@ -1,117 +1,126 @@
-import Link from "next/link";
+"use client";
+
 import Image from "next/image";
-import { CTAButtons } from "@/app/(landing)/home/CTAButtons";
-import { SquaresPattern } from "@/app/(landing)/home/SquaresPattern";
-import { cn } from "@/utils";
-import { LogoCloud } from "@/app/(landing)/home/LogoCloud";
-import { env } from "@/env";
-import { HeroAB } from "@/app/(landing)/home/HeroAB";
-import HeroVideoDialog from "@/components/HeroVideoDialog";
+import { usePostHog } from "posthog-js/react";
+import { Gmail } from "@/components/new-landing/icons/Gmail";
+import { Outlook } from "@/components/new-landing/icons/Outlook";
+import {
+  Section,
+  SectionContent,
+} from "@/components/new-landing/common/Section";
+import {
+  PageHeading,
+  Paragraph,
+} from "@/components/new-landing/common/Typography";
+import { CallToAction } from "@/components/new-landing/CallToAction";
+import { LiquidGlassButton } from "@/components/new-landing/LiquidGlassButton";
+import { Play } from "@/components/new-landing/icons/Play";
+import {
+  Dialog,
+  DialogContent,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { BlurFade } from "@/components/new-landing/common/BlurFade";
+import { UnicornScene } from "@/components/new-landing/UnicornScene";
+import { landingPageAnalytics } from "@/hooks/useAnalytics";
+import {
+  Badge,
+  type BadgeVariant,
+} from "@/components/new-landing/common/Badge";
 
-export function HeroText(props: {
-  children: React.ReactNode;
-  className?: string;
-}) {
-  const { className, ...rest } = props;
-
-  return (
-    <h1
-      className={cn("font-cal text-4xl text-gray-900 sm:text-6xl", className)}
-      {...rest}
-    />
-  );
-}
-
-export function HeroSubtitle(props: { children: React.ReactNode }) {
-  return <p className="mt-6 text-lg leading-8 text-gray-600" {...props} />;
-}
-
-export function HeroHome() {
-  if (env.NEXT_PUBLIC_POSTHOG_HERO_AB) return <HeroAB />;
-  return <Hero />;
-}
-
-export function Hero(props: {
+interface HeroProps {
   title?: React.ReactNode;
   subtitle?: React.ReactNode;
-  image?: string;
-  CTAComponent?: React.ComponentType;
-  hideProductHuntBadge?: boolean;
-  video?: React.ReactNode;
-}) {
-  const CTAComponent = props.CTAComponent || CTAButtons;
+  badge?: React.ReactNode;
+  badgeVariant?: BadgeVariant;
+  children?: React.ReactNode;
+}
 
+export function Hero({
+  title,
+  subtitle,
+  badge,
+  badgeVariant = "blue",
+  children,
+}: HeroProps) {
   return (
-    <div className="relative pt-14">
-      <SquaresPattern />
-      <div className="pt-24 sm:pb-12 sm:pt-32">
-        <div className="mx-auto max-w-7xl px-6 lg:px-8">
-          {!props.hideProductHuntBadge && (
-            <div className="mb-10 flex flex-col items-center justify-center gap-4">
-              <ProductHuntBadge />
-              {/* <a
-                href="https://www.producthunt.com/products/inbox-zero-tabs"
-                target="_blank"
-                rel="noreferrer"
-                className="mx-auto flex max-w-fit animate-fade-up items-center justify-center space-x-2 overflow-hidden rounded-full bg-green-50 px-7 py-2 transition-colors hover:bg-green-100"
-              >
-                <LayoutPanelTopIcon className="h-5 w-5 text-green-600" />
-                <p className="text-sm font-semibold text-green-600">
-                  Inbox Zero Tabs is live on Product Hunt!
-                </p>
-              </a> */}
+    <Section className={badge ? "mt-7 md:mt-7" : "mt-10 md:mt-20"}>
+      {badge ? (
+        <BlurFade duration={0.4} delay={0}>
+          <div className="flex justify-center mb-7">
+            <Badge variant={badgeVariant}>{badge}</Badge>
+          </div>
+        </BlurFade>
+      ) : null}
+      <PageHeading>{title}</PageHeading>
+      <BlurFade duration={0.4} delay={0.125 * 5}>
+        <Paragraph size="lg" className={"max-w-[640px] mx-auto mt-6"}>
+          {subtitle}
+        </Paragraph>
+      </BlurFade>
+      <SectionContent noMarginTop className="mt-6 md:mt-8">
+        <div className="space-y-3 mb-8">
+          <BlurFade duration={0.4} delay={0.125 * 7}>
+            <CallToAction />
+          </BlurFade>
+          <BlurFade duration={0.4} delay={0.125 * 8}>
+            <div className="mb-12 flex items-center gap-2 justify-center">
+              <Paragraph color="light" size="sm">
+                Works with
+              </Paragraph>
+              <Outlook />
+              <Gmail />
             </div>
-          )}
-
-          <div className="mx-auto max-w-3xl text-center">
-            <HeroText>
-              {props.title ||
-                "Meet Your AI Email Assistant That Actually Works"}
-            </HeroText>
-            <HeroSubtitle>
-              {props.subtitle ||
-                "Cut your email time in half. Inbox Zero organizes your inbox, drafts responses, and helps you reach inbox zero fast. For Gmail and Outlook."}
-            </HeroSubtitle>
-            <CTAComponent />
-          </div>
-
-          <LogoCloud />
-
-          <div className="relative mt-16 flow-root sm:mt-24">
-            {props.video || (
-              <HeroVideoDialog
-                className="block"
-                videoSrc="https://www.youtube.com/embed/hfvKvTHBjG0?autoplay=1&rel=0"
-                thumbnailSrc={
-                  props.image || "/images/home/bulk-unsubscriber.png"
-                }
-                thumbnailAlt="Bulk Unsubscriber Screenshot"
-              />
-            )}
-          </div>
+          </BlurFade>
         </div>
-      </div>
-    </div>
+        {children}
+      </SectionContent>
+    </Section>
   );
 }
 
-function ProductHuntBadge() {
+export function HeroVideoPlayer() {
+  const posthog = usePostHog();
+
   return (
-    <div className="flex flex-col items-center justify-center gap-2 sm:flex-row">
-      <Link
-        // href="https://www.producthunt.com/posts/inbox-zero-2?utm_source=badge-top-post-badge&utm_medium=badge&utm_souce=badge-inbox&#0045;zero&#0045;2"
-        href="https://www.producthunt.com/products/inbox-zero-tabs"
-        target="_blank"
-        rel="noreferrer"
-      >
-        <Image
-          src="/images/home/product-hunt-badge.svg"
-          alt="Inbox&#0032;Zero | Product Hunt"
-          className="h-[54px] w-[250px]"
-          width="250"
-          height="54"
-        />
-      </Link>
-    </div>
+    <BlurFade delay={0.125 * 9}>
+      <div className="relative w-full">
+        <div className="relative border border-[#EFEFEF] rounded-3xl md:rounded-[43px] overflow-hidden block">
+          <Dialog>
+            <DialogTrigger
+              asChild
+              onClick={() => landingPageAnalytics.videoClicked(posthog)}
+            >
+              <LiquidGlassButton className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2">
+                <div>
+                  <Play className="translate-x-[2px]" />
+                </div>
+              </LiquidGlassButton>
+            </DialogTrigger>
+            <DialogContent className="max-w-7xl border-0 bg-transparent p-0">
+              <DialogTitle className="sr-only">Video player</DialogTitle>
+              <div className="relative aspect-video w-full">
+                <iframe
+                  src="https://www.youtube.com/embed/hfvKvTHBjG0?autoplay=1&rel=0"
+                  className="size-full rounded-lg"
+                  title="Video content"
+                  allowFullScreen
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                />
+              </div>
+            </DialogContent>
+          </Dialog>
+          <Image
+            src="/images/new-landing/video-thumbnail.png"
+            alt="an organized inbox"
+            width={2000}
+            height={1000}
+            className="w-full"
+          />
+          <UnicornScene className="h-[calc(100%+5px)] opacity-30" />
+        </div>
+      </div>
+    </BlurFade>
   );
 }

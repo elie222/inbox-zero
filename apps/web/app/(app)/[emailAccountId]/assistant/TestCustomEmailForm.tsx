@@ -15,6 +15,7 @@ import {
 } from "@/utils/actions/ai-rule.validation";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useAccount } from "@/providers/EmailAccountProvider";
+import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 
 export const TestCustomEmailForm = () => {
   const [testResults, setTestResult] = useState<RunRulesResult[]>();
@@ -61,9 +62,14 @@ export const TestCustomEmailForm = () => {
         </Button>
       </form>
       {testResults && (
-        <div className="mt-4">
-          <ResultsDisplay results={testResults} />
-        </div>
+        <Card className="mt-4">
+          <CardHeader>
+            <CardTitle>Test Result</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ResultsDisplay results={testResults} showFullContent={true} />
+          </CardContent>
+        </Card>
       )}
     </div>
   );

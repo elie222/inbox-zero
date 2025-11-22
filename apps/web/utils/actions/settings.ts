@@ -15,7 +15,7 @@ import { ActionType, type Prisma } from "@prisma/client";
 
 export const updateEmailSettingsAction = actionClient
   .metadata({ name: "updateEmailSettings" })
-  .schema(saveEmailUpdateSettingsBody)
+  .inputSchema(saveEmailUpdateSettingsBody)
   .action(
     async ({
       ctx: { emailAccountId },
@@ -33,7 +33,7 @@ export const updateEmailSettingsAction = actionClient
 
 export const updateAiSettingsAction = actionClientUser
   .metadata({ name: "updateAiSettings" })
-  .schema(saveAiSettingsBody)
+  .inputSchema(saveAiSettingsBody)
   .action(
     async ({
       ctx: { userId },
@@ -51,7 +51,7 @@ export const updateAiSettingsAction = actionClientUser
 
 export const updateDigestScheduleAction = actionClient
   .metadata({ name: "updateDigestSchedule" })
-  .schema(saveDigestScheduleBody)
+  .inputSchema(saveDigestScheduleBody)
   .action(async ({ ctx: { emailAccountId }, parsedInput }) => {
     const { intervalDays, daysOfWeek, timeOfDay, occurrences } = parsedInput;
 
@@ -82,7 +82,7 @@ export const updateDigestScheduleAction = actionClient
 
 export const updateDigestItemsAction = actionClient
   .metadata({ name: "updateDigestItems" })
-  .schema(updateDigestItemsBody)
+  .inputSchema(updateDigestItemsBody)
   .action(
     async ({
       ctx: { emailAccountId, logger },

@@ -1,0 +1,35 @@
+# VCS
+.git
+
+# Node / package managers
+node_modules
+pnpm-store
+
+# Build outputs / caches
+.next
+.turbo
+out
+coverage
+*.log
+
+# OS/editor junk
+.DS_Store
+*.swp
+*.swo
+.idea
+.vscode
+
+# Local env files (do not bake secrets)
+*.env
+*.env.*
+!.env.example
+
+# Docker
+Dockerfile*
+!.dockerignore
+
+# Misc
+*.local
+_tmp
+.tmp
+

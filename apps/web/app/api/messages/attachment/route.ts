@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { withEmailProvider } from "@/utils/middleware";
 import { attachmentQuery } from "@/app/api/messages/validation";
 
-export const GET = withEmailProvider(async (request) => {
+export const GET = withEmailProvider("messages/attachment", async (request) => {
   const { emailProvider } = request;
 
   const { searchParams } = new URL(request.url);

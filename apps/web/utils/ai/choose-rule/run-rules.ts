@@ -12,7 +12,6 @@ import { findMatchingRules } from "@/utils/ai/choose-rule/match-rules";
 import { getActionItemsWithAiArgs } from "@/utils/ai/choose-rule/choose-args";
 import { executeAct } from "@/utils/ai/choose-rule/execute";
 import prisma from "@/utils/prisma";
-import { createScopedLogger } from "@/utils/logger";
 import type { MatchReason } from "@/utils/ai/choose-rule/types";
 import { serializeMatchReasons } from "@/utils/ai/choose-rule/types";
 import { sanitizeActionFields } from "@/utils/action-item";
@@ -38,8 +37,9 @@ import { removeConflictingThreadStatusLabels } from "@/utils/reply-tracker/label
 import { saveColdEmail } from "@/utils/cold-email/is-cold-email";
 import { internalDateToDate } from "@/utils/date";
 import { ConditionType } from "@/utils/config";
+import type { Logger } from "@/utils/logger";
 
-const logger = createScopedLogger("ai-run-rules");
+const MODULE = "ai/choose-rule";
 
 export type RunRulesResult = {
   rule?: Pick<
@@ -71,6 +71,7 @@ export async function runRules({
   emailAccount,
   isTest,
   modelType,
+  logger,
 }: {
   provider: EmailProvider;
   message: ParsedMessage;
@@ -78,6 +79,7 @@ export async function runRules({
   emailAccount: EmailAccountWithAI;
   isTest: boolean;
   modelType: ModelType;
+  logger: Logger;
 }): Promise<RunRulesResult[]> {
   const batchTimestamp = new Date(); // Single timestamp for this batch execution
   const { regularRules, conversationRules } = prepareRulesWithMetaRule(rules);
@@ -88,6 +90,7 @@ export async function runRules({
     emailAccount,
     provider,
     modelType,
+    logger,
   });
 
   // Auto-reapply conversation tracking for thread continuity
@@ -97,11 +100,13 @@ export async function runRules({
     conversationRules,
     regularRules,
     matches: results.matches,
+    logger,
   });
 
-  const finalMatches = limitDraftEmailActions(conversationAwareMatches);
+  const finalMatches = limitDraftEmailActions(conversationAwareMatches, logger);
 
   logger.trace("Matching rule", () => ({
+    module: MODULE,
     results: finalMatches.map(filterNullProperties),
   }));
 
@@ -145,6 +150,7 @@ export async function runRules({
           emailAccount,
           provider,
           modelType,
+          isTest,
         });
 
       if (!statusRule) {
@@ -180,6 +186,7 @@ export async function runRules({
       isTest,
       modelType,
       batchTimestamp,
+      logger,
     );
 
     executedRules.push({
@@ -245,6 +252,7 @@ async function executeMatchedRule(
   isTest: boolean,
   modelType: ModelType,
   batchTimestamp: Date,
+  logger: Logger,
 ) {
   const actionItems = await getActionItemsWithAiArgs({
     message,
@@ -252,6 +260,8 @@ async function executeMatchedRule(
     selectedRule: rule,
     client,
     modelType,
+    logger,
+    isTest,
   });
 
   const { immediateActions, delayedActions } = groupBy(actionItems, (item) =>
@@ -353,6 +363,7 @@ async function executeMatchedRule(
       await executeAct({
         client,
         userEmail: emailAccount.email,
+        logger,
         userId: emailAccount.userId,
         emailAccountId: emailAccount.id,
         executedRule,
@@ -475,12 +486,14 @@ export async function ensureConversationRuleContinuity({
   conversationRules,
   regularRules,
   matches,
+  logger,
 }: {
   emailAccountId: string;
   threadId: string;
   conversationRules: RuleWithActions[];
   regularRules: RuleWithActions[];
   matches: { rule: RuleWithActions; matchReasons?: MatchReason[] }[];
+  logger: Logger;
 }): Promise<{ rule: RuleWithActions; matchReasons?: MatchReason[] }[]> {
   if (conversationRules.length === 0) {
     return matches;
@@ -506,6 +519,7 @@ export async function ensureConversationRuleContinuity({
 
   logger.info(
     "Automatically adding conversation meta rule due to previous application in thread",
+    { module: MODULE },
   );
 
   // Find the meta rule in regularRules
@@ -545,6 +559,7 @@ export function limitDraftEmailActions(
     rule: RuleWithActions;
     matchReasons?: MatchReason[];
   }[],
+  logger: Logger,
 ): {
   rule: RuleWithActions;
   matchReasons?: MatchReason[];
@@ -571,6 +586,7 @@ export function limitDraftEmailActions(
   const selectedDraftId = preferredCandidate.action.id;
 
   logger.info("Limiting draft actions to a single selection", {
+    module: MODULE,
     selectedDraftId,
   });
 

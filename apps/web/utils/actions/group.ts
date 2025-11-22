@@ -12,7 +12,7 @@ import { SafeError } from "@/utils/error";
 
 export const createGroupAction = actionClient
   .metadata({ name: "createGroup" })
-  .schema(createGroupBody)
+  .inputSchema(createGroupBody)
   .action(async ({ ctx: { emailAccountId }, parsedInput: { ruleId } }) => {
     const rule = await prisma.rule.findUnique({
       where: { id: ruleId, emailAccountId },
@@ -36,7 +36,7 @@ export const createGroupAction = actionClient
 
 export const addGroupItemAction = actionClient
   .metadata({ name: "addGroupItem" })
-  .schema(addGroupItemBody)
+  .inputSchema(addGroupItemBody)
   .action(
     async ({
       ctx: { emailAccountId },
@@ -57,7 +57,7 @@ export const addGroupItemAction = actionClient
 
 export const deleteGroupItemAction = actionClient
   .metadata({ name: "deleteGroupItem" })
-  .schema(z.object({ id: z.string() }))
+  .inputSchema(z.object({ id: z.string() }))
   .action(async ({ ctx: { emailAccountId }, parsedInput: { id } }) => {
     await deleteGroupItem({ id, emailAccountId });
   });

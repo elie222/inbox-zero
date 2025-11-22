@@ -1,13 +1,7 @@
 import prisma from "@/utils/prisma";
 import type { RuleWithRelations } from "@/utils/rule/types";
 
-export type RuleHistoryTrigger =
-  | "ai_update" // AI updates existing rule from prompt changes
-  | "manual_update" // User manually edits existing rule
-  | "ai_creation" // AI creates rule from parsing prompts
-  | "manual_creation" // User manually creates new rule
-  | "system_creation" // System automatically creates rule (e.g., reply tracker)
-  | "system_update"; // System automatically updates rule
+export type RuleHistoryTrigger = "created" | "updated";
 
 /**
  * Creates a complete snapshot of a rule in the RuleHistory table

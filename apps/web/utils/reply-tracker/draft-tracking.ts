@@ -2,7 +2,6 @@ import { ActionType } from "@prisma/client";
 import type { ParsedMessage } from "@/utils/types";
 import prisma from "@/utils/prisma";
 import { calculateSimilarity } from "@/utils/similarity-score";
-import { formatError } from "@/utils/error";
 import type { EmailProvider } from "@/utils/email/types";
 import type { Logger } from "@/utils/logger";
 
@@ -219,15 +218,13 @@ export async function cleanupThreadAIDrafts({
       } catch (error) {
         logger.error("Error checking draft for cleanup", {
           ...actionLoggerOptions,
-          error: formatError(error),
+          error,
         });
       }
     }
 
     logger.info("Completed cleanup of old AI drafts for thread");
   } catch (error) {
-    logger.error("Error during thread draft cleanup", {
-      error: formatError(error),
-    });
+    logger.error("Error during thread draft cleanup", { error });
   }
 }

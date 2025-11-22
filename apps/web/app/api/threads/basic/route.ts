@@ -1,9 +1,6 @@
 import { NextResponse } from "next/server";
 import { withEmailProvider } from "@/utils/middleware";
-import { createScopedLogger } from "@/utils/logger";
 import type { ThreadsResponse } from "@/app/api/threads/route";
-
-const logger = createScopedLogger("api/threads/basic");
 
 export type GetThreadsResponse = {
   threads: ThreadsResponse["threads"];
@@ -13,7 +10,7 @@ export const dynamic = "force-dynamic";
 
 export const maxDuration = 30;
 
-export const GET = withEmailProvider(async (request) => {
+export const GET = withEmailProvider("threads/basic", async (request) => {
   const { emailProvider } = request;
   const { emailAccountId } = request.auth;
 
@@ -31,7 +28,10 @@ export const GET = withEmailProvider(async (request) => {
 
     return NextResponse.json({ threads });
   } catch (error) {
-    logger.error("Error fetching basic threads", { error, emailAccountId });
+    request.logger.error("Error fetching basic threads", {
+      error,
+      emailAccountId,
+    });
     return NextResponse.json(
       { error: "Failed to fetch threads" },
       { status: 500 },

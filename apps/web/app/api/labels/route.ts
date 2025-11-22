@@ -1,8 +1,5 @@
 import { NextResponse } from "next/server";
 import { withEmailProvider } from "@/utils/middleware";
-import { createScopedLogger } from "@/utils/logger";
-
-const logger = createScopedLogger("labels");
 
 export type UnifiedLabel = {
   id: string;
@@ -23,7 +20,7 @@ export type LabelsResponse = {
 export const dynamic = "force-dynamic";
 export const maxDuration = 30;
 
-export const GET = withEmailProvider(async (request) => {
+export const GET = withEmailProvider("labels", async (request) => {
   const { emailProvider } = request;
 
   try {
@@ -39,7 +36,7 @@ export const GET = withEmailProvider(async (request) => {
     }));
     return NextResponse.json({ labels: unifiedLabels });
   } catch (error) {
-    logger.error("Error fetching labels", { error });
+    request.logger.error("Error fetching labels", { error });
     return NextResponse.json({ labels: [] }, { status: 500 });
   }
 });

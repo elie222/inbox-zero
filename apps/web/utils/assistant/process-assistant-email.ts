@@ -107,6 +107,8 @@ async function processAssistantEmailInternal({
         email: true,
         about: true,
         multiRuleSelectionEnabled: true,
+        timezone: true,
+        calendarBookingLink: true,
         user: {
           select: {
             aiProvider: true,

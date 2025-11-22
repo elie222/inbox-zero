@@ -1,6 +1,7 @@
 import pRetry from "p-retry";
 import { createScopedLogger } from "@/utils/logger";
 import { sleep } from "@/utils/sleep";
+import { isFetchError } from "@/utils/retry/is-fetch-error";
 
 const logger = createScopedLogger("outlook-retry");
 
@@ -67,6 +68,7 @@ export async function withOutlookRetry<T>(
         isRateLimit,
         isServerError,
         isConflictError,
+        isFetchError: isFetchError(errorInfo),
       });
 
       // Apply the custom delay
@@ -109,7 +111,7 @@ export function extractErrorInfo(error: unknown): ErrorInfo {
 }
 
 /**
- * Determines if an error is retryable (rate limit, server error, or conflict)
+ * Determines if an error is retryable (rate limit, server error, conflict, or network error)
  */
 export function isRetryableError(errorInfo: ErrorInfo): {
   retryable: boolean;
@@ -144,7 +146,11 @@ export function isRetryableError(errorInfo: ErrorInfo): {
     /change key/i.test(errorMessage);
 
   return {
-    retryable: isRateLimit || isServerError || isConflictError,
+    retryable:
+      isRateLimit ||
+      isServerError ||
+      isConflictError ||
+      isFetchError(errorInfo),
     isRateLimit,
     isServerError,
     isConflictError,
@@ -196,5 +202,6 @@ export function calculateRetryDelay(
     return 30_000;
   }
 
-  return 0;
+  // Default exponential backoff for other retryable errors: 1s, 2s, 4s, 8s, 16s
+  return Math.min(1000 * 2 ** (attemptNumber - 1), 16_000);
 }

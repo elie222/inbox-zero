@@ -12,15 +12,18 @@ const isStatusOk = (status: number) => status >= 200 && status < 300;
 
 export const archiveThreadAction = actionClient
   .metadata({ name: "archiveThread" })
-  .schema(z.object({ threadId: z.string(), labelId: z.string().optional() }))
+  .inputSchema(
+    z.object({ threadId: z.string(), labelId: z.string().optional() }),
+  )
   .action(
     async ({
-      ctx: { emailAccountId, emailAccount, provider },
+      ctx: { emailAccountId, emailAccount, provider, logger },
       parsedInput: { threadId, labelId },
     }) => {
       const emailProvider = await createEmailProvider({
         emailAccountId,
         provider,
+        logger,
       });
 
       await emailProvider.archiveThreadWithLabel(
@@ -33,15 +36,16 @@ export const archiveThreadAction = actionClient
 
 export const trashThreadAction = actionClient
   .metadata({ name: "trashThread" })
-  .schema(z.object({ threadId: z.string() }))
+  .inputSchema(z.object({ threadId: z.string() }))
   .action(
     async ({
-      ctx: { emailAccountId, emailAccount, provider },
+      ctx: { emailAccountId, emailAccount, provider, logger },
       parsedInput: { threadId },
     }) => {
       const emailProvider = await createEmailProvider({
         emailAccountId,
         provider,
+        logger,
       });
 
       await emailProvider.trashThread(threadId, emailAccount.email, "user");
@@ -50,15 +54,16 @@ export const trashThreadAction = actionClient
 
 export const markReadThreadAction = actionClient
   .metadata({ name: "markReadThread" })
-  .schema(z.object({ threadId: z.string(), read: z.boolean() }))
+  .inputSchema(z.object({ threadId: z.string(), read: z.boolean() }))
   .action(
     async ({
-      ctx: { emailAccountId, provider },
+      ctx: { emailAccountId, provider, logger },
       parsedInput: { threadId, read },
     }) => {
       const emailProvider = await createEmailProvider({
         emailAccountId,
         provider,
+        logger,
       });
 
       await emailProvider.markReadThread(threadId, read);
@@ -67,7 +72,7 @@ export const markReadThreadAction = actionClient
 
 export const createAutoArchiveFilterAction = actionClient
   .metadata({ name: "createAutoArchiveFilter" })
-  .schema(
+  .inputSchema(
     z.object({
       from: z.string(),
       gmailLabelId: z.string().optional(),
@@ -76,12 +81,13 @@ export const createAutoArchiveFilterAction = actionClient
   )
   .action(
     async ({
-      ctx: { emailAccountId, provider },
+      ctx: { emailAccountId, provider, logger },
       parsedInput: { from, gmailLabelId, labelName },
     }) => {
       const emailProvider = await createEmailProvider({
         emailAccountId,
         provider,
+        logger,
       });
 
       await emailProvider.createAutoArchiveFilter({
@@ -94,15 +100,16 @@ export const createAutoArchiveFilterAction = actionClient
 
 export const createFilterAction = actionClient
   .metadata({ name: "createFilter" })
-  .schema(z.object({ from: z.string(), gmailLabelId: z.string() }))
+  .inputSchema(z.object({ from: z.string(), gmailLabelId: z.string() }))
   .action(
     async ({
-      ctx: { emailAccountId, provider },
+      ctx: { emailAccountId, provider, logger },
       parsedInput: { from, gmailLabelId },
     }) => {
       const emailProvider = await createEmailProvider({
         emailAccountId,
         provider,
+        logger,
       });
 
       const res = await emailProvider.createFilter({
@@ -119,12 +126,16 @@ export const createFilterAction = actionClient
 
 export const deleteFilterAction = actionClient
   .metadata({ name: "deleteFilter" })
-  .schema(z.object({ id: z.string() }))
+  .inputSchema(z.object({ id: z.string() }))
   .action(
-    async ({ ctx: { emailAccountId, provider }, parsedInput: { id } }) => {
+    async ({
+      ctx: { emailAccountId, provider, logger },
+      parsedInput: { id },
+    }) => {
       const emailProvider = await createEmailProvider({
         emailAccountId,
         provider,
+        logger,
       });
 
       const res = await emailProvider.deleteFilter(id);
@@ -136,15 +147,18 @@ export const deleteFilterAction = actionClient
 
 export const createLabelAction = actionClient
   .metadata({ name: "createLabel" })
-  .schema(z.object({ name: z.string(), description: z.string().optional() }))
+  .inputSchema(
+    z.object({ name: z.string(), description: z.string().optional() }),
+  )
   .action(
     async ({
-      ctx: { emailAccountId, provider },
+      ctx: { emailAccountId, provider, logger },
       parsedInput: { name, description },
     }) => {
       const emailProvider = await createEmailProvider({
         emailAccountId,
         provider,
+        logger,
       });
       const label = await emailProvider.createLabel(name, description);
       return label;
@@ -153,7 +167,7 @@ export const createLabelAction = actionClient
 
 export const updateLabelsAction = actionClient
   .metadata({ name: "updateLabels" })
-  .schema(
+  .inputSchema(
     z.object({
       labels: z.array(
         z.object({
@@ -200,18 +214,21 @@ export const updateLabelsAction = actionClient
 
 export const sendEmailAction = actionClient
   .metadata({ name: "sendEmail" })
-  .schema(sendEmailBody)
-  .action(async ({ ctx: { emailAccountId, provider }, parsedInput }) => {
-    const emailProvider = await createEmailProvider({
-      emailAccountId,
-      provider,
-    });
+  .inputSchema(sendEmailBody)
+  .action(
+    async ({ ctx: { emailAccountId, provider, logger }, parsedInput }) => {
+      const emailProvider = await createEmailProvider({
+        emailAccountId,
+        provider,
+        logger,
+      });
 
-    const result = await emailProvider.sendEmailWithHtml(parsedInput);
+      const result = await emailProvider.sendEmailWithHtml(parsedInput);
 
-    return {
-      success: true,
-      messageId: result.messageId,
-      threadId: result.threadId,
-    };
-  });
+      return {
+        success: true,
+        messageId: result.messageId,
+        threadId: result.threadId,
+      };
+    },
+  );

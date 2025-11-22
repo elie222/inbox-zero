@@ -2,15 +2,13 @@
 
 import { z } from "zod";
 import prisma from "@/utils/prisma";
-import { isNotFoundError } from "@/utils/prisma-helpers";
-import { aiCreateRule } from "@/utils/ai/rule/create-rule";
+import { isNotFoundError, isDuplicateError } from "@/utils/prisma-helpers";
 import {
   runRules,
   type RunRulesResult,
 } from "@/utils/ai/choose-rule/run-rules";
 import { emailToContent } from "@/utils/mail";
 import {
-  createAutomationBody,
   runRulesBody,
   testAiCustomContentBody,
 } from "@/utils/actions/ai-rule.validation";
@@ -23,8 +21,7 @@ import { aiDiffRules } from "@/utils/ai/rule/diff-rules";
 import { aiFindExistingRules } from "@/utils/ai/rule/find-existing-rules";
 import { aiGenerateRulesPrompt } from "@/utils/ai/rule/generate-rules-prompt";
 import { aiFindSnippets } from "@/utils/ai/snippets/find-snippets";
-import type { CreateOrUpdateRuleSchema } from "@/utils/ai/rule/create-rule-schema";
-import { deleteRule, safeCreateRule, safeUpdateRule } from "@/utils/rule/rule";
+import { createRule, updateRule, deleteRule } from "@/utils/rule/rule";
 import { actionClient } from "@/utils/actions/safe-action";
 import { getEmailAccountWithAi } from "@/utils/user/get";
 import { SafeError } from "@/utils/error";
@@ -34,7 +31,7 @@ import type { CreateRuleResult } from "@/utils/rule/types";
 
 export const runRulesAction = actionClient
   .metadata({ name: "runRules" })
-  .schema(runRulesBody)
+  .inputSchema(runRulesBody)
   .action(
     async ({
       ctx: { emailAccountId, provider, logger: ctxLogger },
@@ -50,6 +47,7 @@ export const runRulesAction = actionClient
       const emailProvider = await createEmailProvider({
         emailAccountId,
         provider,
+        logger,
       });
       const message = await emailProvider.getMessage(messageId);
 
@@ -100,6 +98,7 @@ export const runRulesAction = actionClient
         message,
         rules,
         emailAccount,
+        logger,
         modelType: "chat",
       });
 
@@ -109,9 +108,12 @@ export const runRulesAction = actionClient
 
 export const testAiCustomContentAction = actionClient
   .metadata({ name: "testAiCustomContent" })
-  .schema(testAiCustomContentBody)
+  .inputSchema(testAiCustomContentBody)
   .action(
-    async ({ ctx: { emailAccountId, provider }, parsedInput: { content } }) => {
+    async ({
+      ctx: { emailAccountId, provider, logger },
+      parsedInput: { content },
+    }) => {
       const emailAccount = await getEmailAccountWithAi({ emailAccountId });
 
       if (!emailAccount) throw new SafeError("Email account not found");
@@ -119,6 +121,7 @@ export const testAiCustomContentAction = actionClient
       const emailProvider = await createEmailProvider({
         emailAccountId,
         provider,
+        logger,
       });
 
       const rules = await prisma.rule.findMany({
@@ -133,9 +136,10 @@ export const testAiCustomContentAction = actionClient
       const result = await runRules({
         isTest: true,
         provider: emailProvider,
+        logger,
         message: {
-          id: "testMessageId",
-          threadId: "testThreadId",
+          id: `testMessageId-${Date.now()}`,
+          threadId: `testThreadId-${Date.now()}`,
           snippet: content,
           textPlain: content,
           headers: {
@@ -159,40 +163,9 @@ export const testAiCustomContentAction = actionClient
     },
   );
 
-export const createAutomationAction = actionClient
-  .metadata({ name: "createAutomation" })
-  .schema(createAutomationBody)
-  .action(async ({ ctx: { emailAccountId }, parsedInput: { prompt } }) => {
-    const emailAccount = await getEmailAccountWithAi({ emailAccountId });
-
-    if (!emailAccount) throw new Error("Email account not found");
-
-    let result: CreateOrUpdateRuleSchema;
-
-    try {
-      result = await aiCreateRule(prompt, emailAccount);
-    } catch (error) {
-      if (error instanceof Error) {
-        throw new Error(`AI error creating rule. ${error.message}`);
-      }
-      throw new Error("AI error creating rule.");
-    }
-
-    if (!result) throw new Error("AI error creating rule.");
-
-    const createdRule = await safeCreateRule({
-      result,
-      emailAccountId,
-      shouldCreateIfDuplicate: true,
-      provider: emailAccount.account.provider,
-      runOnThreads: true,
-    });
-    return createdRule;
-  });
-
 export const setRuleRunOnThreadsAction = actionClient
   .metadata({ name: "setRuleRunOnThreads" })
-  .schema(z.object({ ruleId: z.string(), runOnThreads: z.boolean() }))
+  .inputSchema(z.object({ ruleId: z.string(), runOnThreads: z.boolean() }))
   .action(
     async ({
       ctx: { emailAccountId },
@@ -221,7 +194,7 @@ export const setRuleRunOnThreadsAction = actionClient
  */
 export const saveRulesPromptAction = actionClient
   .metadata({ name: "saveRulesPrompt" })
-  .schema(saveRulesPromptBody)
+  .inputSchema(saveRulesPromptBody)
   .action(
     async ({
       ctx: { emailAccountId, logger },
@@ -235,6 +208,8 @@ export const saveRulesPromptAction = actionClient
           userId: true,
           about: true,
           multiRuleSelectionEnabled: true,
+          timezone: true,
+          calendarBookingLink: true,
           rulesPrompt: true,
           categories: { select: { id: true, name: true } },
           user: {
@@ -396,11 +371,12 @@ export const saveRulesPromptAction = actionClient
 
             editRulesCount++;
 
-            await safeUpdateRule({
+            await updateRule({
               ruleId: rule.ruleId,
               result: rule,
               emailAccountId,
               provider: emailAccount.account.provider,
+              logger,
             });
           }
         }
@@ -418,16 +394,26 @@ export const saveRulesPromptAction = actionClient
       for (const rule of addedRules || []) {
         logger.info("Creating rule", { ruleName: rule.name });
 
-        await safeCreateRule({
-          result: rule,
-          emailAccountId,
-          shouldCreateIfDuplicate: false,
-          provider: emailAccount.account.provider,
-          runOnThreads: true,
-        });
+        try {
+          await createRule({
+            result: rule,
+            emailAccountId,
+            provider: emailAccount.account.provider,
+            runOnThreads: true,
+            logger,
+          });
+        } catch (error) {
+          if (isDuplicateError(error, "name")) {
+            logger.info("Skipping duplicate rule", { ruleName: rule.name });
+          } else {
+            logger.error("Failed to create rule", {
+              ruleName: rule.name,
+              error: error instanceof Error ? error.message : String(error),
+            });
+          }
+        }
       }
 
-      // update rules prompt for user
       await prisma.emailAccount.update({
         where: { id: emailAccountId },
         data: { rulesPrompt },
@@ -449,7 +435,7 @@ export const saveRulesPromptAction = actionClient
 
 export const createRulesAction = actionClient
   .metadata({ name: "createRules" })
-  .schema(createRulesBody)
+  .inputSchema(createRulesBody)
   .action(
     async ({ ctx: { emailAccountId, logger }, parsedInput: { prompt } }) => {
       const emailAccount = await prisma.emailAccount.findUnique({
@@ -460,6 +446,8 @@ export const createRulesAction = actionClient
           userId: true,
           about: true,
           multiRuleSelectionEnabled: true,
+          timezone: true,
+          calendarBookingLink: true,
           rulesPrompt: true,
           categories: { select: { id: true, name: true } },
           user: {
@@ -490,27 +478,46 @@ export const createRulesAction = actionClient
       logger.info("Rules to be added", { count: addedRules?.length || 0 });
 
       const createdRules: CreateRuleResult[] = [];
+      const errors: { ruleName: string; error: string }[] = [];
 
       for (const rule of addedRules || []) {
         logger.info("Creating rule", { ruleName: rule.name });
 
-        const createdRule = await safeCreateRule({
-          result: rule,
-          emailAccountId,
-          shouldCreateIfDuplicate: false,
-          provider: emailAccount.account.provider,
-          runOnThreads: true,
-        });
-
-        if (createdRule) {
+        try {
+          const createdRule = await createRule({
+            result: rule,
+            emailAccountId,
+            provider: emailAccount.account.provider,
+            runOnThreads: true,
+            logger,
+          });
           createdRules.push(createdRule);
+        } catch (error) {
+          if (isDuplicateError(error, "name")) {
+            logger.info("Skipping duplicate rule", { ruleName: rule.name });
+          } else {
+            const errorMessage =
+              error instanceof Error ? error.message : String(error);
+            logger.error("Failed to create rule", {
+              ruleName: rule.name,
+              error: errorMessage,
+            });
+            errors.push({
+              ruleName: rule.name,
+              error: errorMessage,
+            });
+          }
         }
       }
 
-      logger.info("Completed", { createdRules: createdRules.length });
+      logger.info("Completed", {
+        createdRules: createdRules.length,
+        failedRules: errors.length,
+      });
 
       return {
         rules: createdRules,
+        errors: errors.length > 0 ? errors : undefined,
       };
     },
   );
@@ -525,7 +532,7 @@ export const createRulesAction = actionClient
  */
 export const generateRulesPromptAction = actionClient
   .metadata({ name: "generateRulesPrompt" })
-  .schema(z.object({}))
+  .inputSchema(z.object({}))
   .action(async ({ ctx: { emailAccountId, provider } }) => {
     const emailAccount = await getEmailAccountWithAi({ emailAccountId });
 

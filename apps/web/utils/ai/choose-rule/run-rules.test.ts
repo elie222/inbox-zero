@@ -14,6 +14,9 @@ import { ConditionType } from "@/utils/config";
 import prisma from "@/utils/__mocks__/prisma";
 import type { RuleWithActions } from "@/utils/types";
 import { getAction } from "@/__tests__/helpers";
+import { createScopedLogger } from "@/utils/logger";
+
+const logger = createScopedLogger("test");
 
 vi.mock("@/utils/prisma");
 vi.mock("server-only", () => ({}));
@@ -65,6 +68,7 @@ describe("ensureConversationRuleContinuity", () => {
       conversationRules: [],
       regularRules: [regularRule],
       matches,
+      logger,
     });
 
     expect(result).toEqual(matches);
@@ -82,6 +86,7 @@ describe("ensureConversationRuleContinuity", () => {
       conversationRules: [toReplyRule],
       regularRules: [regularRule, conversationMetaRule],
       matches,
+      logger,
     });
 
     expect(result).toEqual(matches);
@@ -118,6 +123,7 @@ describe("ensureConversationRuleContinuity", () => {
       conversationRules: [toReplyRule],
       regularRules: [regularRule, conversationMetaRule],
       matches,
+      logger,
     });
 
     expect(result).toEqual(matches);
@@ -136,6 +142,7 @@ describe("ensureConversationRuleContinuity", () => {
       conversationRules: [toReplyRule],
       regularRules: [regularRule, conversationMetaRule],
       matches,
+      logger,
     });
 
     expect(result).toHaveLength(2);
@@ -159,6 +166,7 @@ describe("ensureConversationRuleContinuity", () => {
       conversationRules: [toReplyRule],
       regularRules: [regularRule], // No meta rule
       matches,
+      logger,
     });
 
     expect(result).toEqual(matches);
@@ -178,6 +186,7 @@ describe("ensureConversationRuleContinuity", () => {
       conversationRules: [toReplyRule],
       regularRules: [regularRule, conversationMetaRule],
       matches,
+      logger,
     });
 
     expect(matches).toEqual(originalMatches);
@@ -195,6 +204,7 @@ describe("ensureConversationRuleContinuity", () => {
       conversationRules: [toReplyRule],
       regularRules: [regularRule, conversationMetaRule],
       matches,
+      logger,
     });
 
     expect(prisma.executedRule.findFirst).toHaveBeenCalledWith({
@@ -238,7 +248,7 @@ describe("limitDraftEmailActions", () => {
       },
     ];
 
-    const result = limitDraftEmailActions(matches);
+    const result = limitDraftEmailActions(matches, logger);
 
     expect(result).toBe(matches);
   });
@@ -252,7 +262,7 @@ describe("limitDraftEmailActions", () => {
       },
     ];
 
-    const result = limitDraftEmailActions(matches);
+    const result = limitDraftEmailActions(matches, createScopedLogger("test"));
 
     expect(result).toBe(matches);
   });
@@ -281,7 +291,7 @@ describe("limitDraftEmailActions", () => {
       },
     ];
 
-    const result = limitDraftEmailActions(matches);
+    const result = limitDraftEmailActions(matches, logger);
 
     expect(result[0].rule.actions).toEqual([]);
     expect(result[1].rule.actions).toHaveLength(1);
@@ -318,7 +328,7 @@ describe("limitDraftEmailActions", () => {
       },
     ];
 
-    const result = limitDraftEmailActions(matches);
+    const result = limitDraftEmailActions(matches, logger);
 
     expect(result[0].rule.actions).toHaveLength(1);
     expect(result[0].rule.actions[0].type).toBe(ActionType.LABEL);
@@ -349,7 +359,7 @@ describe("limitDraftEmailActions", () => {
       },
     ];
 
-    const result = limitDraftEmailActions(matches);
+    const result = limitDraftEmailActions(matches, logger);
 
     expect(result[0].rule.actions).toHaveLength(1);
     expect(result[0].rule.actions[0].id).toBe("draft-1");
@@ -380,7 +390,7 @@ describe("limitDraftEmailActions", () => {
       },
     ];
 
-    const result = limitDraftEmailActions(matches);
+    const result = limitDraftEmailActions(matches, logger);
 
     expect(result[0].rule.actions).toHaveLength(1);
     expect(result[0].rule.actions[0].id).toBe("draft-1");
@@ -412,7 +422,7 @@ describe("limitDraftEmailActions", () => {
       },
     ];
 
-    const result = limitDraftEmailActions(matches);
+    const result = limitDraftEmailActions(matches, logger);
 
     // Should select draft-2 because it has fixed content (static), even though draft-1 came first
     expect(result[0].rule.actions).toEqual([]);

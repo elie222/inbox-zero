@@ -15,7 +15,7 @@ import prisma from "@/utils/prisma";
 import { aiChooseRule } from "@/utils/ai/choose-rule/ai-choose-rule";
 import { getEmailForLLM } from "@/utils/get-email-from-message";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
-import { createScopedLogger } from "@/utils/logger";
+import type { Logger } from "@/utils/logger";
 import type {
   MatchReason,
   MatchingRuleResult,
@@ -32,7 +32,7 @@ import {
 import { isColdEmail } from "@/utils/cold-email/is-cold-email";
 import { isConversationStatusType } from "@/utils/reply-tracker/conversation-status-config";
 
-const logger = createScopedLogger("match-rules");
+const MODULE = "match-rules";
 
 const TO_REPLY_RECEIVED_THRESHOLD = 10;
 
@@ -50,13 +50,16 @@ export async function findMatchingRules({
   emailAccount,
   provider,
   modelType,
+  logger: log,
 }: {
   rules: RuleWithActions[];
   message: ParsedMessage;
   emailAccount: EmailAccountWithAI;
   provider: EmailProvider;
   modelType: ModelType;
+  logger: Logger;
 }): Promise<MatchingRulesResult> {
+  const logger = log.with({ module: MODULE });
   const coldEmailRule = await getColdEmailRule(emailAccount.id);
 
   if (coldEmailRule && isColdEmailRuleEnabled(coldEmailRule)) {
@@ -97,6 +100,7 @@ export async function findMatchingRules({
     emailAccount,
     provider,
     modelType,
+    logger,
   );
 
   return results;
@@ -128,12 +132,14 @@ async function findPotentialMatchingRules({
   isThread,
   provider,
   emailAccountId,
+  logger,
 }: {
   rules: RuleWithActions[];
   message: ParsedMessage;
   isThread: boolean;
   provider: EmailProvider;
   emailAccountId: string;
+  logger: Logger;
 }): Promise<MatchingRuleResult> {
   const matches: {
     rule: RuleWithActions;
@@ -209,6 +215,7 @@ async function findPotentialMatchingRules({
     const { matched, potentialAiMatch, matchReasons } = evaluateRuleConditions({
       rule,
       message,
+      logger,
     });
 
     if (matched) {
@@ -228,6 +235,7 @@ async function findPotentialMatchingRules({
     potentialAiMatches,
     message,
     provider,
+    logger,
   );
 
   const hasLearnedPatternMatch = matches.some((m) =>
@@ -247,9 +255,11 @@ async function findPotentialMatchingRules({
 export function evaluateRuleConditions({
   rule,
   message,
+  logger,
 }: {
   rule: RuleWithActions;
   message: ParsedMessage;
+  logger: Logger;
 }): {
   matched: boolean;
   potentialAiMatch: boolean;
@@ -264,7 +274,7 @@ export function evaluateRuleConditions({
 
   // Check STATIC condition
   const staticMatch = hasStaticCondition
-    ? matchesStaticRule(rule, message)
+    ? matchesStaticRule(rule, message, logger)
     : false;
   if (staticMatch) {
     matchReasons.push({ type: ConditionType.STATIC });
@@ -363,6 +373,7 @@ async function findMatchingRulesWithReasons(
   emailAccount: EmailAccountWithAI,
   provider: EmailProvider,
   modelType: ModelType,
+  logger: Logger,
 ): Promise<MatchingRulesResult> {
   const isThread = provider.isReplyInThread(message);
 
@@ -372,6 +383,7 @@ async function findMatchingRulesWithReasons(
     isThread,
     provider,
     emailAccountId: emailAccount.id,
+    logger,
   });
 
   if (potentialAiMatches.length) {
@@ -442,7 +454,9 @@ async function findMatchingRulesWithReasons(
 export function matchesStaticRule(
   rule: Pick<RuleWithActions, "from" | "to" | "subject" | "body">,
   message: ParsedMessage,
+  logger: Logger,
 ) {
+  const log = logger.with({ module: MODULE });
   const { from, to, subject, body } = rule;
 
   if (!from && !to && !subject && !body) return false;
@@ -475,7 +489,7 @@ export function matchesStaticRule(
 
       return false;
     } catch (error) {
-      logger.error("Invalid regex pattern", { pattern, error });
+      log.error("Invalid regex pattern", { pattern, error });
       return false;
     }
   };
@@ -535,7 +549,9 @@ export async function filterConversationStatusRules<
   potentialMatches: T[],
   message: ParsedMessage,
   provider: EmailProvider,
+  logger: Logger,
 ): Promise<T[]> {
+  const log = logger.with({ module: MODULE });
   const toReplyRule = potentialMatches.find(
     (r) => r.systemType === SystemType.TO_REPLY,
   );
@@ -578,7 +594,7 @@ export async function filterConversationStatusRules<
     );
 
     if (!hasReplied && receivedCount >= TO_REPLY_RECEIVED_THRESHOLD) {
-      logger.info(
+      log.info(
         "Filtering out TO_REPLY rule due to no prior reply and high received count",
         {
           ruleId: toReplyRule.id,
@@ -589,7 +605,7 @@ export async function filterConversationStatusRules<
       return filteredOutConversationStatusRules();
     }
   } catch (error) {
-    logger.error("Error checking reply history for TO_REPLY filter", {
+    log.error("Error checking reply history for TO_REPLY filter", {
       senderEmail,
       error,
     });

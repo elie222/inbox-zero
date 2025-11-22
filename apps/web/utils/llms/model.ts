@@ -98,7 +98,7 @@ function selectModel(
       };
     }
     case Provider.OPENROUTER: {
-      const modelName = aiModel || Model.CLAUDE_4_SONNET_OPENROUTER;
+      const modelName = aiModel || Model.CLAUDE_4_5_SONNET_OPENROUTER;
       const openrouter = createOpenRouter({
         apiKey: aiApiKey || env.OPENROUTER_API_KEY,
         headers: {

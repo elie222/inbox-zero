@@ -22,12 +22,14 @@ export async function determineConversationStatus({
   emailAccount,
   provider,
   modelType,
+  isTest = false,
 }: {
   conversationRules: RuleWithActions[];
   message: ParsedMessage;
   emailAccount: EmailAccountWithAI;
   provider: EmailProvider;
   modelType: ModelType;
+  isTest?: boolean;
 }): Promise<{
   rule: RuleWithActions | null;
   reason: string;
@@ -35,9 +37,13 @@ export async function determineConversationStatus({
   logger.info("Determining conversation status", {
     messageId: message.id,
     threadId: message.threadId,
+    isTest,
   });
 
-  const threadMessages = await provider.getThreadMessages(message.threadId);
+  // For test messages with fake IDs, skip the API call and use the message itself as the thread
+  const threadMessages = isTest
+    ? [message]
+    : await provider.getThreadMessages(message.threadId);
 
   if (!threadMessages?.length) {
     logger.error("No thread messages found");

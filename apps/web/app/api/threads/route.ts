@@ -3,17 +3,14 @@ import { withEmailProvider } from "@/utils/middleware";
 import { type ThreadsQuery, threadsQuery } from "@/app/api/threads/validation";
 import { isDefined } from "@/utils/types";
 import prisma from "@/utils/prisma";
-import { createScopedLogger } from "@/utils/logger";
 import { isIgnoredSender } from "@/utils/filter-ignored-senders";
 import type { EmailProvider } from "@/utils/email/types";
-
-const logger = createScopedLogger("api/threads");
 
 export const dynamic = "force-dynamic";
 
 export const maxDuration = 30;
 
-export const GET = withEmailProvider(async (request) => {
+export const GET = withEmailProvider("threads", async (request) => {
   const { emailProvider } = request;
   const { emailAccountId } = request.auth;
 
@@ -48,7 +45,7 @@ export const GET = withEmailProvider(async (request) => {
     });
     return NextResponse.json(threads);
   } catch (error) {
-    logger.error("Error fetching threads", { error, emailAccountId });
+    request.logger.error("Error fetching threads", { error, emailAccountId });
     return NextResponse.json(
       { error: "Failed to fetch threads" },
       { status: 500 },

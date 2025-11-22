@@ -1,28 +1,40 @@
 name: inbox-zero-services
 services:
   db:
-    image: postgres
+    image: postgres:16
     restart: always
     container_name: inbox-zero
     environment:
       - POSTGRES_USER=${POSTGRES_USER:-postgres}
       - POSTGRES_DB=${POSTGRES_DB:-inboxzero}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-password}
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER:-postgres}']
+      interval: 10s
+      timeout: 5s
+      retries: 5
     volumes:
       - database-data:/var/lib/postgresql/data/
     ports:
       - ${POSTGRES_PORT:-5432}:5432
     networks:
       - inbox-zero-network
+    profiles:
+      - local-db
+      - all
 
   redis:
-    image: redis
+    image: redis:7
     ports:
       - ${REDIS_PORT:-6380}:6379
     volumes:
       - database-data:/data
     networks:
       - inbox-zero-network
+    restart: always
+    profiles:
+      - local-redis
+      - all
 
   serverless-redis-http:
     ports:
@@ -36,6 +48,10 @@ services:
       SRH_CONNECTION_STRING: "redis://redis:6379" # Using `redis` hostname since they're in the same Docker network.
     networks:
       - inbox-zero-network
+    restart: always
+    profiles:
+      - local-redis
+      - all
 
   web:
     image: ghcr.io/elie222/inbox-zero:latest
@@ -45,22 +61,26 @@ services:
     build:
       context: .
       dockerfile: ./docker/Dockerfile.prod
-      args:
-        NEXT_PUBLIC_BASE_URL: ${NEXT_PUBLIC_BASE_URL:-http://localhost:3000}
     env_file:
       - ./apps/web/.env
     depends_on:
-      - db
-      - redis
+      db:
+        condition: service_healthy
+        required: false
+      redis:
+        condition: service_started
+        required: false
     ports:
       - ${WEB_PORT:-3000}:3000
     networks:
       - inbox-zero-network
     environment:
-      DATABASE_URL: "postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-password}@db:5432/${POSTGRES_DB:-inboxzero}?schema=public"
-      DIRECT_URL: "postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-password}@db:5432/${POSTGRES_DB:-inboxzero}?schema=public"
-      UPSTASH_REDIS_URL: "http://serverless-redis-http:80"
+      NEXT_PUBLIC_BASE_URL: ${NEXT_PUBLIC_BASE_URL:-http://localhost:3000}
+      DATABASE_URL: ${DATABASE_URL:-postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-password}@db:5432/${POSTGRES_DB:-inboxzero}?schema=public}
+      DIRECT_URL: ${DIRECT_URL:-postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-password}@db:5432/${POSTGRES_DB:-inboxzero}?schema=public}
+      UPSTASH_REDIS_URL: ${UPSTASH_REDIS_URL:-http://serverless-redis-http:80}
       UPSTASH_REDIS_TOKEN: "${UPSTASH_REDIS_TOKEN}"
+    restart: always
 
 volumes:
   database-data:

@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { withEmailProvider } from "@/utils/middleware";
 import { extractEmailAddress } from "@/utils/email";
-import { createScopedLogger } from "@/utils/logger";
+import type { Logger } from "@/utils/logger";
 import prisma from "@/utils/prisma";
 import { Prisma } from "@prisma/client";
 import type { EmailProvider } from "@/utils/email/types";
@@ -12,8 +12,6 @@ import {
   findAutoArchiveFilter,
   filterNewsletters,
 } from "@/app/api/user/stats/newsletters/helpers";
-
-const logger = createScopedLogger("api/user/stats/newsletters");
 
 const newsletterStatsQuery = z.object({
   limit: z.coerce.number().nullish(),
@@ -71,15 +69,17 @@ async function getEmailMessages(
   options: {
     emailAccountId: string;
     emailProvider: EmailProvider;
+    logger: Logger;
   } & NewsletterStatsQuery,
 ) {
-  const { emailAccountId, emailProvider } = options;
+  const { emailAccountId, emailProvider, logger } = options;
   const types = getTypeFilters(options.types);
 
   const [counts, autoArchiveFilters, userNewsletters] = await Promise.all([
     getNewsletterCounts({
       ...options,
       ...types,
+      logger,
     }),
     getAutoArchiveFilters(emailProvider),
     findNewsletterStatus({ emailAccountId }),
@@ -137,8 +137,10 @@ async function getNewsletterCounts(
     unarchived?: boolean;
     all?: boolean;
     andClause?: boolean;
+    logger: Logger;
   },
 ): Promise<NewsletterCountResult[]> {
+  const { logger } = options;
   // Build WHERE conditions using Prisma.sql for type safety
   const whereConditions: Prisma.Sql[] = [];
 
@@ -244,27 +246,31 @@ function getOrderByClause(orderBy: string): string {
   }
 }
 
-export const GET = withEmailProvider(async (request) => {
-  const { emailProvider } = request;
-  const { emailAccountId } = request.auth;
+export const GET = withEmailProvider(
+  "user/stats/newsletters",
+  async (request) => {
+    const { emailProvider } = request;
+    const { emailAccountId } = request.auth;
 
-  const { searchParams } = new URL(request.url);
-  const params = newsletterStatsQuery.parse({
-    limit: searchParams.get("limit"),
-    fromDate: searchParams.get("fromDate"),
-    toDate: searchParams.get("toDate"),
-    orderBy: searchParams.get("orderBy"),
-    types: searchParams.get("types")?.split(",") || [],
-    filters: searchParams.get("filters")?.split(",") || [],
-    includeMissingUnsubscribe:
-      searchParams.get("includeMissingUnsubscribe") === "true",
-  });
+    const { searchParams } = new URL(request.url);
+    const params = newsletterStatsQuery.parse({
+      limit: searchParams.get("limit"),
+      fromDate: searchParams.get("fromDate"),
+      toDate: searchParams.get("toDate"),
+      orderBy: searchParams.get("orderBy"),
+      types: searchParams.get("types")?.split(",") || [],
+      filters: searchParams.get("filters")?.split(",") || [],
+      includeMissingUnsubscribe:
+        searchParams.get("includeMissingUnsubscribe") === "true",
+    });
 
-  const result = await getEmailMessages({
-    ...params,
-    emailAccountId,
-    emailProvider,
-  });
+    const result = await getEmailMessages({
+      ...params,
+      emailAccountId,
+      emailProvider,
+      logger: request.logger,
+    });
 
-  return NextResponse.json(result);
-});
+    return NextResponse.json(result);
+  },
+);

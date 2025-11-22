@@ -1,15 +1,12 @@
 import { NextResponse } from "next/server";
 import { watchEmails } from "./controller";
 import { withAuth } from "@/utils/middleware";
-import { createScopedLogger } from "@/utils/logger";
 import prisma from "@/utils/prisma";
 import { createEmailProvider } from "@/utils/email/provider";
 
 export const dynamic = "force-dynamic";
 
-const logger = createScopedLogger("api/google/watch");
-
-export const GET = withAuth(async (request) => {
+export const GET = withAuth("google/watch", async (request) => {
   const userId = request.auth.userId;
   const results = [];
 
@@ -30,6 +27,7 @@ export const GET = withAuth(async (request) => {
       const emailProvider = await createEmailProvider({
         emailAccountId,
         provider: "google",
+        logger: request.logger,
       });
       const expirationDate = await watchEmails({
         emailAccountId,
@@ -43,7 +41,9 @@ export const GET = withAuth(async (request) => {
           expirationDate,
         });
       } else {
-        logger.error("Error watching inbox for account", { emailAccountId });
+        request.logger.error("Error watching inbox for account", {
+          emailAccountId,
+        });
         results.push({
           emailAccountId,
           status: "error",
@@ -51,7 +51,7 @@ export const GET = withAuth(async (request) => {
         });
       }
     } catch (error) {
-      logger.error("Exception while watching inbox for account", {
+      request.logger.error("Exception while watching inbox for account", {
         emailAccountId,
         error,
       });

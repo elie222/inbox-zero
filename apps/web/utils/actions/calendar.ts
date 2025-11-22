@@ -4,13 +4,15 @@ import { actionClient } from "@/utils/actions/safe-action";
 import {
   disconnectCalendarBody,
   toggleCalendarBody,
+  updateTimezoneBody,
+  updateBookingLinkBody,
 } from "@/utils/actions/calendar.validation";
 import prisma from "@/utils/prisma";
 import { SafeError } from "@/utils/error";
 
 export const disconnectCalendarAction = actionClient
   .metadata({ name: "disconnectCalendar" })
-  .schema(disconnectCalendarBody)
+  .inputSchema(disconnectCalendarBody)
   .action(
     async ({ ctx: { emailAccountId }, parsedInput: { connectionId } }) => {
       const connection = await prisma.calendarConnection.findFirst({
@@ -34,7 +36,7 @@ export const disconnectCalendarAction = actionClient
 
 export const toggleCalendarAction = actionClient
   .metadata({ name: "toggleCalendar" })
-  .schema(toggleCalendarBody)
+  .inputSchema(toggleCalendarBody)
   .action(
     async ({
       ctx: { emailAccountId },
@@ -57,3 +59,23 @@ export const toggleCalendarAction = actionClient
       return { success: true };
     },
   );
+
+export const updateEmailAccountTimezoneAction = actionClient
+  .metadata({ name: "updateTimezone" })
+  .inputSchema(updateTimezoneBody)
+  .action(async ({ ctx: { emailAccountId }, parsedInput: { timezone } }) => {
+    await prisma.emailAccount.update({
+      where: { id: emailAccountId },
+      data: { timezone },
+    });
+  });
+
+export const updateCalendarBookingLinkAction = actionClient
+  .metadata({ name: "updateBookingLink" })
+  .inputSchema(updateBookingLinkBody)
+  .action(async ({ ctx: { emailAccountId }, parsedInput: { bookingLink } }) => {
+    await prisma.emailAccount.update({
+      where: { id: emailAccountId },
+      data: { calendarBookingLink: bookingLink || null },
+    });
+  });

@@ -102,10 +102,10 @@ export const bulkCategorizeSendersAction = actionClient
 
 export const categorizeSenderAction = actionClient
   .metadata({ name: "categorizeSender" })
-  .schema(z.object({ senderAddress: z.string() }))
+  .inputSchema(z.object({ senderAddress: z.string() }))
   .action(
     async ({
-      ctx: { emailAccountId, provider },
+      ctx: { emailAccountId, provider, logger },
       parsedInput: { senderAddress },
     }) => {
       const userResult = await validateUserAndAiAccess({ emailAccountId });
@@ -114,6 +114,7 @@ export const categorizeSenderAction = actionClient
       const emailProvider = await createEmailProvider({
         emailAccountId,
         provider,
+        logger,
       });
 
       const result = await categorizeSender(
@@ -130,7 +131,7 @@ export const categorizeSenderAction = actionClient
 
 export const changeSenderCategoryAction = actionClient
   .metadata({ name: "changeSenderCategory" })
-  .schema(z.object({ sender: z.string(), categoryId: z.string() }))
+  .inputSchema(z.object({ sender: z.string(), categoryId: z.string() }))
   .action(
     async ({
       ctx: { emailAccountId },
@@ -153,7 +154,7 @@ export const changeSenderCategoryAction = actionClient
 
 export const upsertDefaultCategoriesAction = actionClient
   .metadata({ name: "upsertDefaultCategories" })
-  .schema(
+  .inputSchema(
     z.object({
       categories: z.array(
         z.object({
@@ -185,7 +186,7 @@ export const upsertDefaultCategoriesAction = actionClient
 
 export const createCategoryAction = actionClient
   .metadata({ name: "createCategory" })
-  .schema(createCategoryBody)
+  .inputSchema(createCategoryBody)
   .action(
     async ({ ctx: { emailAccountId }, parsedInput: { name, description } }) => {
       await upsertCategory({
@@ -199,7 +200,7 @@ export const createCategoryAction = actionClient
 
 export const deleteCategoryAction = actionClient
   .metadata({ name: "deleteCategory" })
-  .schema(z.object({ categoryId: z.string() }))
+  .inputSchema(z.object({ categoryId: z.string() }))
   .action(async ({ ctx: { emailAccountId }, parsedInput: { categoryId } }) => {
     await deleteCategory({ emailAccountId, categoryId });
 
@@ -257,7 +258,7 @@ async function upsertCategory({
 
 export const setAutoCategorizeAction = actionClient
   .metadata({ name: "setAutoCategorize" })
-  .schema(z.object({ autoCategorizeSenders: z.boolean() }))
+  .inputSchema(z.object({ autoCategorizeSenders: z.boolean() }))
   .action(
     async ({
       ctx: { emailAccountId },
@@ -272,7 +273,7 @@ export const setAutoCategorizeAction = actionClient
 
 export const removeAllFromCategoryAction = actionClient
   .metadata({ name: "removeAllFromCategory" })
-  .schema(z.object({ categoryName: z.string() }))
+  .inputSchema(z.object({ categoryName: z.string() }))
   .action(
     async ({ ctx: { emailAccountId }, parsedInput: { categoryName } }) => {
       await prisma.newsletter.updateMany({
