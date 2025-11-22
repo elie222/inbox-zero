@@ -2,13 +2,12 @@ import { CheckCircleIcon } from "lucide-react";
 import { capitalCase } from "capital-case";
 import { Badge, type Color } from "@/components/Badge";
 import { HoverCard } from "@/components/HoverCard";
-import {
-  ActionType,
-  type ExecutedRule,
-  type ExecutedAction,
-  type Rule,
-  ExecutedRuleStatus,
-} from "@prisma/client";
+import { ActionType, ExecutedRuleStatus } from "@/generated/prisma/enums";
+import type {
+  ExecutedRule,
+  ExecutedAction,
+  Rule,
+} from "@/generated/prisma/client";
 import { truncate } from "@/utils/string";
 import { getEmailTerminology } from "@/utils/terminology";
 import { sortActionsByPriority } from "@/utils/action-sort";

@@ -1,6 +1,6 @@
 import prisma from "@/utils/prisma";
-import { ActionType } from "@prisma/client";
-import type { ExecutedRule } from "@prisma/client";
+import { ActionType } from "@/generated/prisma/enums";
+import type { ExecutedRule } from "@/generated/prisma/client";
 import type { Logger } from "@/utils/logger";
 import type { EmailProvider } from "@/utils/email/types";
 import { convertEmailHtmlToText } from "@/utils/mail";

@@ -1,5 +1,5 @@
 import type { createRule } from "@/utils/rule/rule";
-import type { Action, Rule, Prisma } from "@prisma/client";
+import type { Action, Rule, Prisma } from "@/generated/prisma/client";
 
 export type CreateRuleResult = NonNullable<
   Awaited<ReturnType<typeof createRule>>

@@ -4,7 +4,7 @@ import { withEmailProvider } from "@/utils/middleware";
 import { extractEmailAddress } from "@/utils/email";
 import type { Logger } from "@/utils/logger";
 import prisma from "@/utils/prisma";
-import { Prisma } from "@prisma/client";
+import { Prisma } from "@/generated/prisma/client";
 import type { EmailProvider } from "@/utils/email/types";
 import {
   getAutoArchiveFilters,

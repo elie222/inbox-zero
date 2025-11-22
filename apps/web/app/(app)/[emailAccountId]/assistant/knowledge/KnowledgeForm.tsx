@@ -20,7 +20,7 @@ import {
 } from "@/utils/actions/knowledge";
 import { toastError, toastSuccess } from "@/components/Toast";
 import type { GetKnowledgeResponse } from "@/app/api/knowledge/route";
-import { PremiumTier, type Knowledge } from "@prisma/client";
+import type { Knowledge } from "@/generated/prisma/client";
 import { Tiptap, type TiptapHandle } from "@/components/editor/Tiptap";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/utils";
@@ -46,7 +46,7 @@ export function KnowledgeForm({
 
   const hasFullAccess = hasTierAccess({
     tier: tier || null,
-    minimumTier: PremiumTier.BUSINESS_PLUS_MONTHLY,
+    minimumTier: "BUSINESS_PLUS_MONTHLY",
   });
 
   const {

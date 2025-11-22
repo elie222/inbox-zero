@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { getExamplePrompts } from "@/app/(app)/[emailAccountId]/assistant/examples";
 import { getActionIcon } from "@/utils/action-display";
 import { getActionColor } from "@/components/PlanBadge";
-import { ActionType } from "@prisma/client";
+import { ActionType } from "@/generated/prisma/enums";
 import type { Color } from "@/components/Badge";
 import { cn } from "@/utils";
 

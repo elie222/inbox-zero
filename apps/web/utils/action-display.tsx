@@ -1,4 +1,4 @@
-import { ActionType } from "@prisma/client";
+import { ActionType } from "@/generated/prisma/enums";
 import { getEmailTerminology } from "@/utils/terminology";
 import {
   ArchiveIcon,

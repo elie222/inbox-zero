@@ -4,7 +4,7 @@ import { aiGetCalendarAvailability } from "@/utils/ai/calendar/availability";
 import type { EmailForLLM } from "@/utils/types";
 import { getEmailAccount } from "@/__tests__/helpers";
 import type { BusyPeriod } from "@/utils/calendar/availability";
-import type { Prisma } from "@prisma/client";
+import type { Prisma } from "@/generated/prisma/client";
 
 // Run with: pnpm test-ai calendar-availability
 

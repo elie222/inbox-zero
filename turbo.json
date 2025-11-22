@@ -136,6 +136,7 @@
       "env": ["RUN_AI_TESTS"]
     },
     "lint": {},
+    "check-enums": {},
     "dev": {
       "cache": false,
       "persistent": true

@@ -1,4 +1,5 @@
-import type { Group, GroupItem, SystemType } from "@prisma/client";
+import type { SystemType } from "@/generated/prisma/enums";
+import type { Group, GroupItem } from "@/generated/prisma/client";
 import type { ConditionType } from "@/utils/config";
 import type { RuleWithActions } from "@/utils/types";
 

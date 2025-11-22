@@ -1,4 +1,5 @@
-import { type Prisma, SystemType } from "@prisma/client";
+import { SystemType } from "@/generated/prisma/enums";
+import type { Prisma } from "@/generated/prisma/client";
 
 export type RuleWithActions = Prisma.RuleGetPayload<{
   select: { systemType: true; enabled: true };

@@ -1,8 +1,9 @@
 import type { CreateOrUpdateRuleSchema } from "@/utils/ai/rule/create-rule-schema";
 import prisma from "@/utils/prisma";
 import type { Logger } from "@/utils/logger";
-import { ActionType } from "@prisma/client";
-import type { Prisma, Rule, SystemType } from "@prisma/client";
+import { ActionType } from "@/generated/prisma/enums";
+import type { SystemType } from "@/generated/prisma/enums";
+import type { Prisma, Rule } from "@/generated/prisma/client";
 import { getActionRiskLevel, type RiskAction } from "@/utils/risk";
 import { hasExampleParams } from "@/app/(app)/[emailAccountId]/assistant/examples";
 import { createRuleHistory } from "@/utils/rule/rule-history";

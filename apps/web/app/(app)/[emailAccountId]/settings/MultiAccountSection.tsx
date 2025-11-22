@@ -23,7 +23,7 @@ import {
 import type { MultiAccountEmailsResponse } from "@/app/api/user/settings/multi-account/route";
 import { AlertBasic, AlertWithButton } from "@/components/Alert";
 import { usePremium } from "@/components/PremiumAlert";
-import { PremiumTier } from "@prisma/client";
+import type { PremiumTier } from "@/generated/prisma/enums";
 import { getUserTier, isAdminForPremium } from "@/utils/premium";
 import { usePremiumModal } from "@/app/(app)/premium/PremiumModal";
 import { useAction } from "next-safe-action/hooks";
@@ -95,7 +95,7 @@ export function MultiAccountSection() {
                 <div className="mt-4">
                   <MultiAccountForm
                     emailAddresses={data.users as { email: string }[]}
-                    isLifetime={premium?.tier === PremiumTier.LIFETIME}
+                    isLifetime={premium?.tier === "LIFETIME"}
                     emailAccountsAccess={premium?.emailAccountsAccess || 0}
                     pendingInvites={premium?.pendingInvites || []}
                     onUpdate={mutate}

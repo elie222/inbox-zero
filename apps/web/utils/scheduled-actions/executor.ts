@@ -1,8 +1,8 @@
 import {
   ExecutedRuleStatus,
   ScheduledActionStatus,
-  type ScheduledAction,
-} from "@prisma/client";
+} from "@/generated/prisma/enums";
+import type { ScheduledAction } from "@/generated/prisma/client";
 import prisma from "@/utils/prisma";
 import type { Logger } from "@/utils/logger";
 import { getEmailAccountWithAiAndTokens } from "@/utils/user/get";

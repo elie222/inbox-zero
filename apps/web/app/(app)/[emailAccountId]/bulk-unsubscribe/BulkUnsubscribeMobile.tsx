@@ -25,7 +25,7 @@ import { extractEmailAddress, extractNameFromEmail } from "@/utils/email";
 import type { RowProps } from "@/app/(app)/[emailAccountId]/bulk-unsubscribe/types";
 import { Button } from "@/components/ui/button";
 import { ButtonLoader } from "@/components/Loading";
-import { NewsletterStatus } from "@prisma/client";
+import { NewsletterStatus } from "@/generated/prisma/enums";
 import { Badge } from "@/components/ui/badge";
 
 export function BulkUnsubscribeMobile({

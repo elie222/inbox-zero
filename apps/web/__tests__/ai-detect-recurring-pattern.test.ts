@@ -3,7 +3,7 @@ import { describe, expect, test, vi, beforeEach } from "vitest";
 import { aiDetectRecurringPattern } from "@/utils/ai/choose-rule/ai-detect-recurring-pattern";
 import type { EmailForLLM } from "@/utils/types";
 import { getRuleName, getRuleConfig } from "@/utils/rule/consts";
-import { SystemType } from "@prisma/client";
+import { SystemType } from "@/generated/prisma/enums";
 import { getEmailAccount } from "@/__tests__/helpers";
 
 // Run with: pnpm test-ai ai-detect-recurring-pattern

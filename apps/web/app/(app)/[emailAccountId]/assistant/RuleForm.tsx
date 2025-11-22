@@ -25,7 +25,11 @@ import { Button } from "@/components/ui/button";
 import { ErrorMessage, Input, Label } from "@/components/Input";
 import { toastError, toastSuccess } from "@/components/Toast";
 import { TypographyH3 } from "@/components/Typography";
-import { ActionType, LogicalOperator, SystemType } from "@prisma/client";
+import {
+  ActionType,
+  LogicalOperator,
+  SystemType,
+} from "@/generated/prisma/enums";
 import { ConditionType, type CoreConditionType } from "@/utils/config";
 import {
   createRuleAction,

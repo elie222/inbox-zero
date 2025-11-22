@@ -1,7 +1,7 @@
 // Run with: `npx tsx scripts/addUsersToResend.ts`. Make sure to set ENV vars
 
 import { createContact } from "@inboxzero/resend";
-import { PrismaClient } from "@prisma/client";
+import { PrismaClient } from "@/generated/prisma/client";
 
 const prisma = new PrismaClient();
 

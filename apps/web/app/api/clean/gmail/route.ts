@@ -8,7 +8,7 @@ import { SafeError } from "@/utils/error";
 import prisma from "@/utils/prisma";
 import { isDefined } from "@/utils/types";
 import type { Logger } from "@/utils/logger";
-import { CleanAction } from "@prisma/client";
+import { CleanAction } from "@/generated/prisma/enums";
 import { updateThread } from "@/utils/redis/clean";
 
 const cleanGmailSchema = z.object({

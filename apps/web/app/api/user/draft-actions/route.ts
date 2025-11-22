@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import prisma from "@/utils/prisma";
 import { withEmailAccount } from "@/utils/middleware";
-import { ActionType } from "@prisma/client";
+import { ActionType } from "@/generated/prisma/enums";
 
 export type DraftActionsResponse = Awaited<ReturnType<typeof getData>>;
 

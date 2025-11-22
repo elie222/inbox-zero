@@ -11,7 +11,8 @@ import { DEFAULT_PROVIDER } from "@/utils/llms/config";
 import prisma from "@/utils/prisma";
 import { calculateNextScheduleDate } from "@/utils/schedule";
 import { actionClientUser } from "@/utils/actions/safe-action";
-import { ActionType, type Prisma } from "@prisma/client";
+import { ActionType } from "@/generated/prisma/enums";
+import type { Prisma } from "@/generated/prisma/client";
 
 export const updateEmailSettingsAction = actionClient
   .metadata({ name: "updateEmailSettings" })

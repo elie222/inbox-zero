@@ -1,7 +1,7 @@
 import { createScopedLogger } from "@/utils/logger";
 import prisma from "@/utils/prisma";
 import { sleep } from "@/utils/sleep";
-import type { ExecutedRule } from "@prisma/client";
+import type { ExecutedRule } from "@/generated/prisma/client";
 
 const logger = createScopedLogger("webhook");
 

@@ -1,6 +1,6 @@
 import { DEFAULT_COLD_EMAIL_PROMPT } from "@/utils/cold-email/prompt";
 import { isMicrosoftProvider } from "@/utils/email/provider-types";
-import { ActionType, SystemType } from "@prisma/client";
+import { ActionType, SystemType } from "@/generated/prisma/enums";
 
 const ruleConfig: Record<
   SystemType,

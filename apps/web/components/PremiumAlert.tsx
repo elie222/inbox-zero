@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { hasAiAccess, hasUnsubscribeAccess, isPremium } from "@/utils/premium";
 import { Tooltip } from "@/components/Tooltip";
 import { usePremiumModal } from "@/app/(app)/premium/PremiumModal";
-import { PremiumTier } from "@prisma/client";
+import type { PremiumTier } from "@/generated/prisma/enums";
 import { businessTierName } from "@/app/(app)/premium/config";
 import { useUser } from "@/hooks/useUser";
 import { ActionCard } from "@/components/ui/card";
@@ -27,7 +27,7 @@ export function usePremium() {
       hasUnsubscribeAccess: true,
       hasAiAccess: true,
       isProPlanWithoutApiKey: false,
-      tier: PremiumTier.BUSINESS_PLUS_ANNUALLY,
+      tier: "BUSINESS_PLUS_ANNUALLY" as const,
     };
   }
 
@@ -37,8 +37,7 @@ export function usePremium() {
   );
 
   const isProPlanWithoutApiKey =
-    (premium?.tier === PremiumTier.PRO_MONTHLY ||
-      premium?.tier === PremiumTier.PRO_ANNUALLY) &&
+    (premium?.tier === "PRO_MONTHLY" || premium?.tier === "PRO_ANNUALLY") &&
     !aiApiKey;
 
   return {
@@ -69,8 +68,7 @@ export function PremiumAiAssistantAlert({
 }) {
   const { PremiumModal, openModal } = usePremiumModal();
 
-  const isBasicPlan =
-    tier === PremiumTier.BASIC_MONTHLY || tier === PremiumTier.BASIC_ANNUALLY;
+  const isBasicPlan = tier === "BASIC_MONTHLY" || tier === "BASIC_ANNUALLY";
 
   const isStripeTrialing =
     stripeSubscriptionStatus && stripeSubscriptionStatus !== "active";

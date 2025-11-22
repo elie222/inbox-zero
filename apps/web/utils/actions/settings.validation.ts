@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { Frequency } from "@prisma/client";
+import { Frequency } from "@/generated/prisma/enums";
 import { DEFAULT_PROVIDER, Provider } from "@/utils/llms/config";
 
 export const saveDigestScheduleBody = z.object({

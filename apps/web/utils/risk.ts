@@ -1,6 +1,6 @@
 import type { RulesResponse } from "@/app/api/user/rules/route";
 import { isAIRule, type RuleConditions } from "@/utils/condition";
-import { ActionType } from "@prisma/client";
+import { ActionType } from "@/generated/prisma/enums";
 import { TEMPLATE_VARIABLE_PATTERN } from "@/utils/template";
 
 const RISK_LEVELS = {

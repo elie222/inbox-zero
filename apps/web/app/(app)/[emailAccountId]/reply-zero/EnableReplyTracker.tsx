@@ -13,7 +13,7 @@ import {
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { prefixPath } from "@/utils/path";
 import { getRuleLabel } from "@/utils/rule/consts";
-import { SystemType } from "@prisma/client";
+import { SystemType } from "@/generated/prisma/enums";
 import {
   enableDraftRepliesAction,
   toggleRuleAction,

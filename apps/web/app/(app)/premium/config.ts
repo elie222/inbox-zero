@@ -1,5 +1,5 @@
 import { env } from "@/env";
-import { PremiumTier } from "@prisma/client";
+import type { PremiumTier } from "@/generated/prisma/enums";
 
 type Feature = { text: string; tooltip?: string };
 
@@ -17,26 +17,26 @@ export type Tier = {
 };
 
 const pricing: Record<PremiumTier, number> = {
-  [PremiumTier.BASIC_MONTHLY]: 16,
-  [PremiumTier.BASIC_ANNUALLY]: 8,
-  [PremiumTier.PRO_MONTHLY]: 16,
-  [PremiumTier.PRO_ANNUALLY]: 10,
-  [PremiumTier.BUSINESS_MONTHLY]: 20,
-  [PremiumTier.BUSINESS_ANNUALLY]: 18,
-  [PremiumTier.BUSINESS_PLUS_MONTHLY]: 50,
-  [PremiumTier.BUSINESS_PLUS_ANNUALLY]: 42,
-  [PremiumTier.COPILOT_MONTHLY]: 500,
-  [PremiumTier.LIFETIME]: 299,
+  BASIC_MONTHLY: 16,
+  BASIC_ANNUALLY: 8,
+  PRO_MONTHLY: 16,
+  PRO_ANNUALLY: 10,
+  BUSINESS_MONTHLY: 20,
+  BUSINESS_ANNUALLY: 18,
+  BUSINESS_PLUS_MONTHLY: 50,
+  BUSINESS_PLUS_ANNUALLY: 42,
+  COPILOT_MONTHLY: 500,
+  LIFETIME: 299,
 };
 
 const variantIdToTier: Record<number, PremiumTier> = {
-  [env.NEXT_PUBLIC_BASIC_MONTHLY_VARIANT_ID]: PremiumTier.BASIC_MONTHLY,
-  [env.NEXT_PUBLIC_BASIC_ANNUALLY_VARIANT_ID]: PremiumTier.BASIC_ANNUALLY,
-  [env.NEXT_PUBLIC_PRO_MONTHLY_VARIANT_ID]: PremiumTier.PRO_MONTHLY,
-  [env.NEXT_PUBLIC_PRO_ANNUALLY_VARIANT_ID]: PremiumTier.PRO_ANNUALLY,
-  [env.NEXT_PUBLIC_BUSINESS_MONTHLY_VARIANT_ID]: PremiumTier.BUSINESS_MONTHLY,
-  [env.NEXT_PUBLIC_BUSINESS_ANNUALLY_VARIANT_ID]: PremiumTier.BUSINESS_ANNUALLY,
-  [env.NEXT_PUBLIC_COPILOT_MONTHLY_VARIANT_ID]: PremiumTier.COPILOT_MONTHLY,
+  [env.NEXT_PUBLIC_BASIC_MONTHLY_VARIANT_ID]: "BASIC_MONTHLY",
+  [env.NEXT_PUBLIC_BASIC_ANNUALLY_VARIANT_ID]: "BASIC_ANNUALLY",
+  [env.NEXT_PUBLIC_PRO_MONTHLY_VARIANT_ID]: "PRO_MONTHLY",
+  [env.NEXT_PUBLIC_PRO_ANNUALLY_VARIANT_ID]: "PRO_ANNUALLY",
+  [env.NEXT_PUBLIC_BUSINESS_MONTHLY_VARIANT_ID]: "BUSINESS_MONTHLY",
+  [env.NEXT_PUBLIC_BUSINESS_ANNUALLY_VARIANT_ID]: "BUSINESS_ANNUALLY",
+  [env.NEXT_PUBLIC_COPILOT_MONTHLY_VARIANT_ID]: "COPILOT_MONTHLY",
 };
 
 const STRIPE_PRICE_ID_CONFIG: Record<
@@ -48,11 +48,11 @@ const STRIPE_PRICE_ID_CONFIG: Record<
     oldPriceIds?: string[];
   }
 > = {
-  [PremiumTier.BASIC_MONTHLY]: { priceId: "price_1RfeDLKGf8mwZWHn6UW8wJcY" },
-  [PremiumTier.BASIC_ANNUALLY]: { priceId: "price_1RfeDLKGf8mwZWHn5kfC8gcM" },
-  [PremiumTier.PRO_MONTHLY]: {},
-  [PremiumTier.PRO_ANNUALLY]: {},
-  [PremiumTier.BUSINESS_MONTHLY]: {
+  BASIC_MONTHLY: { priceId: "price_1RfeDLKGf8mwZWHn6UW8wJcY" },
+  BASIC_ANNUALLY: { priceId: "price_1RfeDLKGf8mwZWHn5kfC8gcM" },
+  PRO_MONTHLY: {},
+  PRO_ANNUALLY: {},
+  BUSINESS_MONTHLY: {
     priceId: env.NEXT_PUBLIC_STRIPE_BUSINESS_MONTHLY_PRICE_ID,
     oldPriceIds: [
       "price_1S5u73KGf8mwZWHn8VYFdALA",
@@ -65,7 +65,7 @@ const STRIPE_PRICE_ID_CONFIG: Record<
       "price_1Rg03pKGf8mwZWHnWMNeQzLc",
     ],
   },
-  [PremiumTier.BUSINESS_ANNUALLY]: {
+  BUSINESS_ANNUALLY: {
     priceId: env.NEXT_PUBLIC_STRIPE_BUSINESS_ANNUALLY_PRICE_ID,
     oldPriceIds: [
       "price_1S5u6uKGf8mwZWHnEvPWuQzG",
@@ -74,22 +74,22 @@ const STRIPE_PRICE_ID_CONFIG: Record<
       "price_1RfSoxKGf8mwZWHngHcug4YM",
     ],
   },
-  [PremiumTier.BUSINESS_PLUS_MONTHLY]: {
+  BUSINESS_PLUS_MONTHLY: {
     priceId: env.NEXT_PUBLIC_STRIPE_BUSINESS_PLUS_MONTHLY_PRICE_ID,
     oldPriceIds: [
       "price_1S5u6NKGf8mwZWHnZCfy4D5n",
       "price_1RMSoMKGf8mwZWHn5fAKBT19",
     ],
   },
-  [PremiumTier.BUSINESS_PLUS_ANNUALLY]: {
+  BUSINESS_PLUS_ANNUALLY: {
     priceId: env.NEXT_PUBLIC_STRIPE_BUSINESS_PLUS_ANNUALLY_PRICE_ID,
     oldPriceIds: [
       "price_1S5u6XKGf8mwZWHnba8HX1H2",
       "price_1RMSoMKGf8mwZWHnGjf6fRmh",
     ],
   },
-  [PremiumTier.COPILOT_MONTHLY]: {},
-  [PremiumTier.LIFETIME]: {},
+  COPILOT_MONTHLY: {},
+  LIFETIME: {},
 };
 
 export function getStripeSubscriptionTier({
@@ -124,8 +124,8 @@ export const businessTierName = "Starter";
 const businessTier: Tier = {
   name: businessTierName,
   tiers: {
-    monthly: PremiumTier.BUSINESS_MONTHLY,
-    annually: PremiumTier.BUSINESS_ANNUALLY,
+    monthly: "BUSINESS_MONTHLY",
+    annually: "BUSINESS_ANNUALLY",
   },
   price: {
     monthly: pricing.BUSINESS_MONTHLY,
@@ -161,8 +161,8 @@ const businessTier: Tier = {
 const businessPlusTier: Tier = {
   name: "Professional",
   tiers: {
-    monthly: PremiumTier.BUSINESS_PLUS_MONTHLY,
-    annually: PremiumTier.BUSINESS_PLUS_ANNUALLY,
+    monthly: "BUSINESS_PLUS_MONTHLY",
+    annually: "BUSINESS_PLUS_ANNUALLY",
   },
   price: {
     monthly: pricing.BUSINESS_PLUS_MONTHLY,
@@ -200,8 +200,8 @@ const businessPlusTier: Tier = {
 const enterpriseTier: Tier = {
   name: "Enterprise",
   tiers: {
-    monthly: PremiumTier.COPILOT_MONTHLY,
-    annually: PremiumTier.COPILOT_MONTHLY,
+    monthly: "COPILOT_MONTHLY",
+    annually: "COPILOT_MONTHLY",
   },
   price: { monthly: 0, annually: 0 },
   discount: { monthly: 0, annually: 0 },

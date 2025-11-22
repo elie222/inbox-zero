@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { PremiumTier } from "@prisma/client";
+import { PremiumTier } from "@/generated/prisma/enums";
 
 export const changePremiumStatusSchema = z.object({
   email: z.string().email(),

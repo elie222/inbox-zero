@@ -39,6 +39,9 @@ jobs:
       - name: Install dependencies
         run: pnpm install
 
+      - name: Check Prisma enum imports
+        run: pnpm -F inbox-zero-ai check-enums
+
       - name: Run tests
         run: pnpm -F inbox-zero-ai test
         env:

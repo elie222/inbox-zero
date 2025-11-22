@@ -1,5 +1,5 @@
 import prisma from "@/utils/prisma";
-import { SystemType } from "@prisma/client";
+import { SystemType } from "@/generated/prisma/enums";
 
 export type ColdEmailRule = NonNullable<
   Awaited<ReturnType<typeof getColdEmailRule>>

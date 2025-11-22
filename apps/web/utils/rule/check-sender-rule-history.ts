@@ -3,7 +3,7 @@ import prisma from "@/utils/prisma";
 import { createScopedLogger } from "@/utils/logger";
 import type { EmailProvider } from "@/utils/email/types";
 import { extractEmailAddress } from "@/utils/email";
-import { ExecutedRuleStatus } from "@prisma/client";
+import { ExecutedRuleStatus } from "@/generated/prisma/enums";
 
 export interface SenderRuleHistory {
   totalEmails: number;
