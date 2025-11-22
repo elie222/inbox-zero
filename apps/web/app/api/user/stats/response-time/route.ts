@@ -2,9 +2,12 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { withEmailProvider } from "@/utils/middleware";
 import type { EmailProvider } from "@/utils/email/types";
-import { format, subDays, differenceInDays, startOfWeek } from "date-fns";
+import format from "date-fns/format";
+import subDays from "date-fns/subDays";
+import differenceInDays from "date-fns/differenceInDays";
+import startOfWeek from "date-fns/startOfWeek";
 import type { Logger } from "@/utils/logger";
-import { extractEmailAddress } from "@/utils/email";
+import type { ParsedMessage } from "@/utils/types";
 
 const responseTimeSchema = z.object({
   fromDate: z.coerce.number().nullish(),
@@ -117,12 +120,13 @@ async function getResponseTimeStats({
 }
 
 export async function calculateResponseTimes(
-  sentMessages: any[],
+  sentMessages: ParsedMessage[],
   emailProvider: EmailProvider,
   logger: Logger,
 ): Promise<ResponseTimeEntry[]> {
   const responseTimes: ResponseTimeEntry[] = [];
   const processedThreads = new Set<string>();
+  const sentMessageIds = new Set(sentMessages.map((m) => m.id));
 
   const sentLabelId = "SENT";
 
@@ -156,11 +160,8 @@ export async function calculateResponseTimes(
 
         // If we still haven't matched, fallback to checking if this specific message is in our known sent list
         // (Only efficient if sentMessages is small, but we capped it at 100)
-        if (!isSent) {
-          // Optimize: check id match
-          if (sentMessages.some((sm: any) => sm.id === message.id)) {
-            isSent = true;
-          }
+        if (!isSent && sentMessageIds.has(message.id)) {
+          isSent = true;
         }
 
         if (isSent) {
@@ -278,14 +279,26 @@ export function calculateDistribution(
   responseTimes: ResponseTimeEntry[],
 ): DistributionStats {
   const values = responseTimes.map((r) => r.responseTimeMinutes);
-  return {
-    lessThan1Hour: values.filter((v) => v < 60).length,
-    oneToFourHours: values.filter((v) => v >= 60 && v < 240).length,
-    fourTo24Hours: values.filter((v) => v >= 240 && v < 1440).length,
-    oneToThreeDays: values.filter((v) => v >= 1440 && v < 4320).length,
-    threeToSevenDays: values.filter((v) => v >= 4320 && v < 10_080).length,
-    moreThan7Days: values.filter((v) => v >= 10_080).length,
+
+  const distribution: DistributionStats = {
+    lessThan1Hour: 0,
+    oneToFourHours: 0,
+    fourTo24Hours: 0,
+    oneToThreeDays: 0,
+    threeToSevenDays: 0,
+    moreThan7Days: 0,
   };
+
+  for (const v of values) {
+    if (v < 60) distribution.lessThan1Hour++;
+    else if (v < 240) distribution.oneToFourHours++;
+    else if (v < 1440) distribution.fourTo24Hours++;
+    else if (v < 4320) distribution.oneToThreeDays++;
+    else if (v < 10_080) distribution.threeToSevenDays++;
+    else distribution.moreThan7Days++;
+  }
+
+  return distribution;
 }
 
 export function calculateTrend(
