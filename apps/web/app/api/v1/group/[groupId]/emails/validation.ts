@@ -1,4 +1,4 @@
-import { GroupItemType } from "@/generated/prisma/client";
+import { GroupItemType } from "@/generated/prisma/enums";
 import { z } from "zod";
 
 export const groupEmailsQuerySchema = z.object({

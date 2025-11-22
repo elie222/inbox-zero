@@ -2,11 +2,8 @@ import { stepCountIs, tool } from "ai";
 import { z } from "zod";
 import { createGenerateText } from "@/utils/llms";
 import { createScopedLogger } from "@/utils/logger";
-import {
-  GroupItemType,
-  LogicalOperator,
-  type Rule,
-} from "@/generated/prisma/client";
+import { GroupItemType, LogicalOperator } from "@/generated/prisma/enums";
+import type { Rule } from "@/generated/prisma/client";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import type { RuleWithRelations } from "@/utils/rule/types";
 import type { ParsedMessage } from "@/utils/types";

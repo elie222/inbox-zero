@@ -7,7 +7,7 @@ import { env } from "@/env";
 import { hasCronSecret } from "@/utils/cron";
 import { captureException } from "@/utils/error";
 import prisma from "@/utils/prisma";
-import { ThreadTrackerType } from "@/generated/prisma/client";
+import { ThreadTrackerType } from "@/generated/prisma/enums";
 import { createScopedLogger } from "@/utils/logger";
 import { getMessagesBatch } from "@/utils/gmail/message";
 import { decodeSnippet } from "@/utils/gmail/decode";

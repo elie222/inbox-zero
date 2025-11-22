@@ -1,7 +1,7 @@
 import type { EmailProvider, EmailLabel } from "@/utils/email/types";
 import { createScopedLogger } from "@/utils/logger";
 import prisma from "@/utils/prisma";
-import { ActionType } from "@/generated/prisma/client";
+import { ActionType } from "@/generated/prisma/enums";
 import {
   CONVERSATION_STATUS_TYPES,
   type ConversationStatus,

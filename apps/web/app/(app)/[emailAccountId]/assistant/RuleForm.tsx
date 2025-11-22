@@ -29,7 +29,7 @@ import {
   ActionType,
   LogicalOperator,
   SystemType,
-} from "@/generated/prisma/client";
+} from "@/generated/prisma/enums";
 import { ConditionType, type CoreConditionType } from "@/utils/config";
 import {
   createRuleAction,

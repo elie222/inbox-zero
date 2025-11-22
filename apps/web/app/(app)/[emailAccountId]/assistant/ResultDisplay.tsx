@@ -4,12 +4,9 @@ import { capitalCase } from "capital-case";
 import { HoverCard } from "@/components/HoverCard";
 import { Badge } from "@/components/Badge";
 import { conditionTypesToString } from "@/utils/condition";
-import {
-  type ActionType,
-  ExecutedRuleStatus,
-  type Rule,
-  LogicalOperator,
-} from "@/generated/prisma/client";
+import { ExecutedRuleStatus, LogicalOperator } from "@/generated/prisma/enums";
+import type { ActionType } from "@/generated/prisma/enums";
+import type { Rule } from "@/generated/prisma/client";
 import { Button } from "@/components/ui/button";
 import { MessageText } from "@/components/Typography";
 import { EyeIcon } from "lucide-react";

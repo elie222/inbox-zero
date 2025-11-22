@@ -1,4 +1,4 @@
-import { ScheduledActionStatus } from "@/generated/prisma/client";
+import { ScheduledActionStatus } from "@/generated/prisma/enums";
 import prisma from "@/utils/prisma";
 import type { ActionItem } from "@/utils/ai/types";
 import { createScopedLogger } from "@/utils/logger";

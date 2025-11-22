@@ -12,7 +12,7 @@ import {
   type ChangePremiumStatusOptions,
 } from "@/app/(app)/admin/validation";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { PremiumTier } from "@/generated/prisma/client";
+import { PremiumTier } from "@/generated/prisma/enums";
 import { toastError, toastSuccess } from "@/components/Toast";
 
 export const AdminUpgradeUserForm = () => {

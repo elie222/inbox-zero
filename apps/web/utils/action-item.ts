@@ -1,9 +1,5 @@
-import {
-  type Action,
-  ActionType,
-  type ExecutedAction,
-  type Prisma,
-} from "@/generated/prisma/client";
+import { ActionType } from "@/generated/prisma/enums";
+import type { Action, ExecutedAction, Prisma } from "@/generated/prisma/client";
 
 export const actionInputs: Record<
   ActionType,

@@ -42,11 +42,8 @@ import { Badge } from "@/components/Badge";
 import { getActionColor } from "@/components/PlanBadge";
 import { toastError } from "@/components/Toast";
 import { useRules } from "@/hooks/useRules";
-import {
-  type ActionType,
-  LogicalOperator,
-  SystemType,
-} from "@/generated/prisma/client";
+import { LogicalOperator, SystemType } from "@/generated/prisma/enums";
+import type { ActionType } from "@/generated/prisma/client";
 import { useAction } from "next-safe-action/hooks";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { prefixPath } from "@/utils/path";

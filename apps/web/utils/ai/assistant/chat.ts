@@ -13,7 +13,7 @@ import {
   ActionType,
   GroupItemType,
   LogicalOperator,
-} from "@/generated/prisma/client";
+} from "@/generated/prisma/enums";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import { saveLearnedPatterns } from "@/utils/rule/learned-patterns";
 import { posthogCaptureEvent } from "@/utils/posthog";

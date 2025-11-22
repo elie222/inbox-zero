@@ -1,4 +1,5 @@
-import type { Premium, PremiumTier } from "@/generated/prisma/client";
+import type { PremiumTier } from "@/generated/prisma/enums";
+import type { Premium } from "@/generated/prisma/client";
 import { env } from "@/env";
 
 function isPremiumStripe(stripeSubscriptionStatus: string | null): boolean {

@@ -3,7 +3,7 @@ import {
   ActionType,
   LogicalOperator,
   SystemType,
-} from "@/generated/prisma/client";
+} from "@/generated/prisma/enums";
 import { ConditionType } from "@/utils/config";
 import { NINETY_DAYS_MINUTES } from "@/utils/date";
 import { validateLabelNameBasic } from "@/utils/gmail/label-validation";
