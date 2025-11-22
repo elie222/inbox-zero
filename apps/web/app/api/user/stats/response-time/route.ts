@@ -2,299 +2,53 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { withEmailProvider } from "@/utils/middleware";
 import type { EmailProvider } from "@/utils/email/types";
-import format from "date-fns/format";
-import subDays from "date-fns/subDays";
-import differenceInDays from "date-fns/differenceInDays";
-import startOfWeek from "date-fns/startOfWeek";
+import { format, subDays, differenceInDays, startOfWeek } from "date-fns";
 import type { Logger } from "@/utils/logger";
+import { extractEmailAddress } from "@/utils/email";
 
-const responseTimeParams = z.object({
+const responseTimeSchema = z.object({
   fromDate: z.coerce.number().nullish(),
   toDate: z.coerce.number().nullish(),
 });
-export type ResponseTimeParams = z.infer<typeof responseTimeParams>;
+export type ResponseTimeParams = z.infer<typeof responseTimeSchema>;
 
-async function getResponseTimeStats({
-  fromDate,
-  toDate,
-  emailProvider,
-  logger,
-}: ResponseTimeParams & {
-  emailProvider: EmailProvider;
-  logger: Logger;
-}): Promise<{
-  summary: {
-    medianResponseTime: number;
-    averageResponseTime: number;
-    responseRate: number;
-    within1Hour: number;
-    previousPeriodComparison: {
-      medianResponseTime: number;
-      percentChange: number;
-    } | null;
-  };
-  distribution: {
-    lessThan1Hour: number;
-    oneToFourHours: number;
-    fourTo24Hours: number;
-    oneToThreeDays: number;
-    threeToSevenDays: number;
-    moreThan7Days: number;
-  };
-  trend: Array<{
-    period: string;
-    periodDate: Date;
-    medianResponseTime: number;
-    count: number;
-  }>;
-}> {
-  // Fetch sent messages in the date range
-  const sentMessages = await emailProvider.getMessagesByFields({
-    type: "sent",
-    ...(fromDate ? { after: new Date(fromDate) } : {}),
-    ...(toDate ? { before: new Date(toDate) } : {}),
-    maxResults: 500,
-  });
-
-  if (!sentMessages.messages.length) {
-    return {
-      summary: {
-        medianResponseTime: 0,
-        averageResponseTime: 0,
-        responseRate: 0,
-        within1Hour: 0,
-        previousPeriodComparison: null,
-      },
-      distribution: {
-        lessThan1Hour: 0,
-        oneToFourHours: 0,
-        fourTo24Hours: 0,
-        oneToThreeDays: 0,
-        threeToSevenDays: 0,
-        moreThan7Days: 0,
-      },
-      trend: [],
-    };
-  }
-
-  // For each sent message, get the thread and find first received message
-  const responseTimes: Array<{
-    threadId: string;
-    firstReceivedDate: Date;
-    firstSentDate: Date;
-    responseTimeMinutes: number;
-  }> = [];
-
-  // Process threads to calculate response times
-  const processedThreads = new Set<string>();
-
-  for (const sentMsg of sentMessages.messages) {
-    if (!sentMsg.threadId || processedThreads.has(sentMsg.threadId)) continue;
-    processedThreads.add(sentMsg.threadId);
-
-    try {
-      // Get all messages in the thread
-      const threadMessages = await emailProvider.getThreadMessages(
-        sentMsg.threadId,
-      );
-
-      // Find first received and first sent messages
-      const receivedMessages = threadMessages
-        .filter(
-          (m) =>
-            m.internalDate &&
-            !m.headers.from?.includes(sentMsg.headers.to || ""),
-        )
-        .sort(
-          (a, b) =>
-            new Date(a.internalDate!).getTime() -
-            new Date(b.internalDate!).getTime(),
-        );
-
-      const sentMessagesInThread = threadMessages
-        .filter(
-          (m) =>
-            m.internalDate &&
-            m.headers.from?.includes(sentMsg.headers.to || ""),
-        )
-        .sort(
-          (a, b) =>
-            new Date(a.internalDate!).getTime() -
-            new Date(b.internalDate!).getTime(),
-        );
-
-      if (receivedMessages.length > 0 && sentMessagesInThread.length > 0) {
-        const firstReceived = receivedMessages[0];
-        const firstSent = sentMessagesInThread[0];
-
-        const firstReceivedDate = new Date(firstReceived.internalDate!);
-        const firstSentDate = new Date(firstSent.internalDate!);
-
-        // Only count if user replied after receiving
-        if (firstSentDate > firstReceivedDate) {
-          const responseTimeMinutes =
-            (firstSentDate.getTime() - firstReceivedDate.getTime()) /
-            (1000 * 60);
-
-          if (responseTimeMinutes > 0) {
-            responseTimes.push({
-              threadId: sentMsg.threadId,
-              firstReceivedDate,
-              firstSentDate,
-              responseTimeMinutes,
-            });
-          }
-        }
-      }
-    } catch (error) {
-      // Skip threads that fail to load
-      logger.error(`Failed to process thread ${sentMsg.threadId}`, { error });
-    }
-  }
-
-  // Calculate summary statistics
-  const responseTimeValues = responseTimes.map((r) => r.responseTimeMinutes);
-
-  if (responseTimeValues.length === 0) {
-    return {
-      summary: {
-        medianResponseTime: 0,
-        averageResponseTime: 0,
-        responseRate: 0,
-        within1Hour: 0,
-        previousPeriodComparison: null,
-      },
-      distribution: {
-        lessThan1Hour: 0,
-        oneToFourHours: 0,
-        fourTo24Hours: 0,
-        oneToThreeDays: 0,
-        threeToSevenDays: 0,
-        moreThan7Days: 0,
-      },
-      trend: [],
-    };
-  }
-
-  // Calculate median
-  const sortedTimes = [...responseTimeValues].sort((a, b) => a - b);
-  const medianResponseTime =
-    sortedTimes.length % 2 === 0
-      ? (sortedTimes[sortedTimes.length / 2 - 1] +
-          sortedTimes[sortedTimes.length / 2]) /
-        2
-      : sortedTimes[Math.floor(sortedTimes.length / 2)];
-
-  // Calculate average
-  const averageResponseTime =
-    responseTimeValues.reduce((sum, val) => sum + val, 0) /
-    responseTimeValues.length;
-
-  // Calculate percentage within 1 hour
-  const within1HourCount = responseTimeValues.filter((val) => val <= 60).length;
-  const within1Hour = (within1HourCount / responseTimeValues.length) * 100;
-
-  // Calculate distribution
-  const distribution = {
-    lessThan1Hour: responseTimeValues.filter((val) => val < 60).length,
-    oneToFourHours: responseTimeValues.filter((val) => val >= 60 && val < 240)
-      .length,
-    fourTo24Hours: responseTimeValues.filter((val) => val >= 240 && val < 1440)
-      .length,
-    oneToThreeDays: responseTimeValues.filter(
-      (val) => val >= 1440 && val < 4320,
-    ).length,
-    threeToSevenDays: responseTimeValues.filter(
-      (val) => val >= 4320 && val < 10_080,
-    ).length,
-    moreThan7Days: responseTimeValues.filter((val) => val >= 10_080).length,
-  };
-
-  // Calculate trend by week (simplified for now - can be enhanced with period parameter)
-  const trendMap = new Map<string, { values: number[]; date: Date }>();
-
-  for (const rt of responseTimes) {
-    const weekStart = startOfWeek(rt.firstSentDate);
-    const weekKey = format(weekStart, "yyyy-MM-dd");
-
-    if (!trendMap.has(weekKey)) {
-      trendMap.set(weekKey, { values: [], date: weekStart });
-    }
-    trendMap.get(weekKey)!.values.push(rt.responseTimeMinutes);
-  }
-
-  const trend = Array.from(trendMap.entries())
-    .map(([_key, { values, date }]) => {
-      const sortedValues = [...values].sort((a, b) => a - b);
-      const median =
-        sortedValues.length % 2 === 0
-          ? (sortedValues[sortedValues.length / 2 - 1] +
-              sortedValues[sortedValues.length / 2]) /
-            2
-          : sortedValues[Math.floor(sortedValues.length / 2)];
-
-      return {
-        period: format(date, "LLL dd, y"),
-        periodDate: date,
-        medianResponseTime: Math.round(median),
-        count: values.length,
-      };
-    })
-    .sort((a, b) => a.periodDate.getTime() - b.periodDate.getTime());
-
-  // Calculate previous period comparison
-  let previousPeriodComparison = null;
-  if (fromDate && toDate) {
-    const currentPeriodDays = differenceInDays(
-      new Date(toDate),
-      new Date(fromDate),
-    );
-    const previousFromDate = subDays(new Date(fromDate), currentPeriodDays);
-    const previousToDate = new Date(fromDate);
-
-    const previousPeriodStats = await getResponseTimeStats({
-      fromDate: previousFromDate.getTime(),
-      toDate: previousToDate.getTime(),
-      emailProvider,
-      logger,
-    });
-
-    if (previousPeriodStats.summary.medianResponseTime > 0) {
-      const percentChange =
-        ((medianResponseTime - previousPeriodStats.summary.medianResponseTime) /
-          previousPeriodStats.summary.medianResponseTime) *
-        100;
-
-      previousPeriodComparison = {
-        medianResponseTime: previousPeriodStats.summary.medianResponseTime,
-        percentChange: Math.round(percentChange),
-      };
-    }
-  }
-
-  // Calculate response rate (threads with reply vs total sent)
-  const responseRate = 100; // All threads in our dataset have replies by definition
-
-  return {
-    summary: {
-      medianResponseTime: Math.round(medianResponseTime),
-      averageResponseTime: Math.round(averageResponseTime),
-      responseRate: Math.round(responseRate),
-      within1Hour: Math.round(within1Hour),
-      previousPeriodComparison,
-    },
-    distribution,
-    trend,
-  };
+interface ResponseTimeEntry {
+  threadId: string;
+  receivedDate: Date;
+  sentDate: Date;
+  responseTimeMinutes: number;
 }
 
-export type ResponseTimeResponse = Awaited<
-  ReturnType<typeof getResponseTimeStats>
->;
+interface SummaryStats {
+  medianResponseTime: number;
+  averageResponseTime: number;
+  responseRate: number;
+  within1Hour: number;
+  previousPeriodComparison: {
+    medianResponseTime: number;
+    percentChange: number;
+  } | null;
+}
+
+interface DistributionStats {
+  lessThan1Hour: number;
+  oneToFourHours: number;
+  fourTo24Hours: number;
+  oneToThreeDays: number;
+  threeToSevenDays: number;
+  moreThan7Days: number;
+}
+
+interface TrendEntry {
+  period: string;
+  periodDate: Date;
+  medianResponseTime: number;
+  count: number;
+}
 
 export const GET = withEmailProvider("response-time-stats", async (request) => {
   const { searchParams } = new URL(request.url);
-  const params = responseTimeParams.parse({
+  const params = responseTimeSchema.parse({
     fromDate: searchParams.get("fromDate"),
     toDate: searchParams.get("toDate"),
   });
@@ -307,3 +61,279 @@ export const GET = withEmailProvider("response-time-stats", async (request) => {
 
   return NextResponse.json(result);
 });
+
+async function getResponseTimeStats({
+  fromDate,
+  toDate,
+  emailProvider,
+  logger,
+}: ResponseTimeParams & {
+  emailProvider: EmailProvider;
+  logger: Logger;
+}): Promise<{
+  summary: SummaryStats;
+  distribution: DistributionStats;
+  trend: TrendEntry[];
+}> {
+  // 1. Fetch sent messages to initiate the search
+  const sentMessagesResult = await emailProvider.getMessagesByFields({
+    type: "sent",
+    ...(fromDate ? { after: new Date(fromDate) } : {}),
+    ...(toDate ? { before: new Date(toDate) } : {}),
+    maxResults: 100,
+  });
+
+  if (!sentMessagesResult.messages.length) {
+    return getEmptyStats();
+  }
+
+  // 2. Calculate raw response times
+  const responseTimes = await calculateResponseTimes(
+    sentMessagesResult.messages,
+    emailProvider,
+    logger,
+  );
+
+  if (responseTimes.length === 0) {
+    return getEmptyStats();
+  }
+
+  // 3. Calculate derived statistics
+  const summary = await calculateSummaryStats(
+    responseTimes,
+    fromDate,
+    toDate,
+    emailProvider,
+    logger,
+  );
+  const distribution = calculateDistribution(responseTimes);
+  const trend = calculateTrend(responseTimes);
+
+  return {
+    summary,
+    distribution,
+    trend,
+  };
+}
+
+export async function calculateResponseTimes(
+  sentMessages: any[],
+  emailProvider: EmailProvider,
+  logger: Logger,
+): Promise<ResponseTimeEntry[]> {
+  const responseTimes: ResponseTimeEntry[] = [];
+  const processedThreads = new Set<string>();
+
+  const sentLabelId = "SENT";
+
+  for (const sentMsg of sentMessages) {
+    if (!sentMsg.threadId || processedThreads.has(sentMsg.threadId)) continue;
+    processedThreads.add(sentMsg.threadId);
+
+    try {
+      const threadMessages = await emailProvider.getThreadMessages(
+        sentMsg.threadId,
+      );
+
+      // Sort by date ascending
+      const sortedMessages = threadMessages.sort((a, b) => {
+        const dateA = a.internalDate ? new Date(a.internalDate).getTime() : 0;
+        const dateB = b.internalDate ? new Date(b.internalDate).getTime() : 0;
+        return dateA - dateB;
+      });
+
+      let lastReceivedDate: Date | null = null;
+
+      for (const message of sortedMessages) {
+        if (!message.internalDate) continue;
+        const messageDate = new Date(message.internalDate);
+
+        // Determine if message is sent or received
+        let isSent = false;
+        if (message.labelIds?.includes(sentLabelId)) {
+          isSent = true;
+        }
+
+        // If we still haven't matched, fallback to checking if this specific message is in our known sent list
+        // (Only efficient if sentMessages is small, but we capped it at 100)
+        if (!isSent) {
+          // Optimize: check id match
+          if (sentMessages.some((sm: any) => sm.id === message.id)) {
+            isSent = true;
+          }
+        }
+
+        if (isSent) {
+          // Message is SENT
+          if (lastReceivedDate) {
+            const diff = messageDate.getTime() - lastReceivedDate.getTime();
+            // Check bounds - only if valid positive diff
+            if (diff > 0) {
+              responseTimes.push({
+                threadId: sentMsg.threadId,
+                receivedDate: lastReceivedDate,
+                sentDate: messageDate,
+                responseTimeMinutes: diff / (1000 * 60),
+              });
+            }
+            // Reset lastReceivedDate because this sent message has now "responded" to the previous received message.
+            lastReceivedDate = null;
+          }
+        } else {
+          // Message is RECEIVED
+          lastReceivedDate = messageDate;
+        }
+      }
+    } catch (error) {
+      logger.error(`Failed to process thread ${sentMsg.threadId}`, { error });
+    }
+  }
+
+  return responseTimes;
+}
+
+function calculateMedian(values: number[]): number {
+  const sorted = [...values].sort((a, b) => a - b);
+  if (sorted.length === 0) return 0;
+
+  const mid = Math.floor(sorted.length / 2);
+  return sorted.length % 2 !== 0
+    ? sorted[mid]
+    : (sorted[mid - 1] + sorted[mid]) / 2;
+}
+
+function calculateAverage(values: number[]): number {
+  if (values.length === 0) return 0;
+  return values.reduce((a, b) => a + b, 0) / values.length;
+}
+
+function calculateWithin1Hour(values: number[]): number {
+  if (values.length === 0) return 0;
+  const within1HourCount = values.filter((v) => v <= 60).length;
+  return (within1HourCount / values.length) * 100;
+}
+
+async function calculatePreviousPeriodComparison(
+  fromDate: number | null | undefined,
+  toDate: number | null | undefined,
+  currentMedian: number,
+  emailProvider: EmailProvider,
+  logger: Logger,
+): Promise<SummaryStats["previousPeriodComparison"]> {
+  if (!fromDate || !toDate) return null;
+
+  const currentDays = differenceInDays(new Date(toDate), new Date(fromDate));
+  const prevFrom = subDays(new Date(fromDate), currentDays);
+  const prevTo = new Date(fromDate);
+
+  const prevStats = await getResponseTimeStats({
+    fromDate: prevFrom.getTime(),
+    toDate: prevTo.getTime(),
+    emailProvider,
+    logger,
+  });
+
+  if (prevStats.summary.medianResponseTime > 0) {
+    const prevMedian = prevStats.summary.medianResponseTime;
+    const change = ((currentMedian - prevMedian) / prevMedian) * 100;
+    return {
+      medianResponseTime: prevMedian,
+      percentChange: Math.round(change),
+    };
+  }
+  return null;
+}
+
+export async function calculateSummaryStats(
+  responseTimes: ResponseTimeEntry[],
+  fromDate: number | null | undefined,
+  toDate: number | null | undefined,
+  emailProvider: EmailProvider,
+  logger: Logger,
+): Promise<SummaryStats> {
+  const values = responseTimes.map((r) => r.responseTimeMinutes);
+
+  const medianResponseTime = calculateMedian(values);
+  const averageResponseTime = calculateAverage(values);
+  const within1Hour = calculateWithin1Hour(values);
+
+  const previousPeriodComparison = await calculatePreviousPeriodComparison(
+    fromDate,
+    toDate,
+    medianResponseTime,
+    emailProvider,
+    logger,
+  );
+
+  return {
+    medianResponseTime: Math.round(medianResponseTime),
+    averageResponseTime: Math.round(averageResponseTime),
+    responseRate: 100,
+    within1Hour: Math.round(within1Hour),
+    previousPeriodComparison,
+  };
+}
+
+export function calculateDistribution(
+  responseTimes: ResponseTimeEntry[],
+): DistributionStats {
+  const values = responseTimes.map((r) => r.responseTimeMinutes);
+  return {
+    lessThan1Hour: values.filter((v) => v < 60).length,
+    oneToFourHours: values.filter((v) => v >= 60 && v < 240).length,
+    fourTo24Hours: values.filter((v) => v >= 240 && v < 1440).length,
+    oneToThreeDays: values.filter((v) => v >= 1440 && v < 4320).length,
+    threeToSevenDays: values.filter((v) => v >= 4320 && v < 10_080).length,
+    moreThan7Days: values.filter((v) => v >= 10_080).length,
+  };
+}
+
+export function calculateTrend(
+  responseTimes: ResponseTimeEntry[],
+): TrendEntry[] {
+  const trendMap = new Map<string, { values: number[]; date: Date }>();
+
+  for (const rt of responseTimes) {
+    const weekStart = startOfWeek(rt.sentDate);
+    const key = format(weekStart, "yyyy-MM-dd");
+
+    if (!trendMap.has(key)) {
+      trendMap.set(key, { values: [], date: weekStart });
+    }
+    trendMap.get(key)!.values.push(rt.responseTimeMinutes);
+  }
+
+  return Array.from(trendMap.entries())
+    .map(([_, { values, date }]) => {
+      const median = calculateMedian(values);
+
+      return {
+        period: format(date, "LLL dd, y"),
+        periodDate: date,
+        medianResponseTime: Math.round(median),
+        count: values.length,
+      };
+    })
+    .sort((a, b) => a.periodDate.getTime() - b.periodDate.getTime());
+}
+
+function getEmptyStats() {
+  return {
+    summary: {
+      medianResponseTime: 0,
+      averageResponseTime: 0,
+      responseRate: 0,
+      within1Hour: 0,
+      previousPeriodComparison: null,
+    },
+    distribution: {
+      lessThan1Hour: 0,
+      oneToFourHours: 0,
+      fourTo24Hours: 0,
+      oneToThreeDays: 0,
+      threeToSevenDays: 0,
+      moreThan7Days: 0,
+    },
+    trend: [],
+  };
+}
