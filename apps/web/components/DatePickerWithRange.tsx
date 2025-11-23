@@ -16,6 +16,15 @@ import { List } from "@/components/List";
 import { differenceInDays, subDays } from "date-fns";
 import { useMemo } from "react";
 
+function getRelativeDateLabel(days: number) {
+  if (days === 1) return "Last day";
+  if (days === 7) return "Last week";
+  if (days === 30) return "Last month";
+  if (days === 90) return "Last 3 months";
+  if (days === 365) return "Last year";
+  return "All";
+}
+
 interface DatePickerWithRangeProps
   extends React.HTMLAttributes<HTMLDivElement> {
   dateRange?: DateRange;
@@ -37,19 +46,7 @@ export function DatePickerWithRange({
     dateRange?.from && dateRange?.to
       ? differenceInDays(dateRange.to, dateRange.from)
       : 0;
-
-  const relativeDateLabel =
-    days === 1
-      ? "Last day"
-      : days === 7
-        ? "Last week"
-        : days === 30
-          ? "Last month"
-          : days === 90
-            ? "Last 3 months"
-            : days === 365
-              ? "Last year"
-              : "All";
+  const relativeDateLabel = getRelativeDateLabel(days);
 
   return (
     <Popover modal={true}>
