@@ -1,4 +1,4 @@
-import { cx } from "class-variance-authority";
+import { cn } from "@/utils";
 
 interface SectionProps {
   children: React.ReactNode;
@@ -8,7 +8,7 @@ interface SectionProps {
 
 export function Section({ children, className, id }: SectionProps) {
   return (
-    <section id={id} className={cx("py-6 md:py-16 text-center", className)}>
+    <section id={id} className={cn("py-6 md:py-16 text-center", className)}>
       {children}
     </section>
   );
@@ -26,7 +26,7 @@ export function SectionContent({
   noMarginTop = false,
 }: SectionContentProps) {
   return (
-    <div className={cx(noMarginTop ? "" : "mt-6 md:mt-10", className)}>
+    <div className={cn(noMarginTop ? "" : "mt-6 md:mt-10", className)}>
       {children}
     </div>
   );

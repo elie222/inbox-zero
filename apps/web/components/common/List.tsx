@@ -1,5 +1,5 @@
 import { Button } from "@/components/ui/button";
-import { cx } from "class-variance-authority";
+import { cn } from "@/utils";
 
 type ListItem = {
   label: string;
@@ -15,7 +15,7 @@ interface ListProps {
 
 export function List({ items, className, value, onSelect }: ListProps) {
   return (
-    <div className={cx("flex flex-col", className)}>
+    <div className={cn("flex flex-col", className)}>
       {items.map((item) => {
         const isSelected = value === item.value;
 
@@ -23,7 +23,7 @@ export function List({ items, className, value, onSelect }: ListProps) {
           <Button
             variant={isSelected ? "ghost" : "ghost"}
             size="sm"
-            className={cx(
+            className={cn(
               "text-left justify-start",
               isSelected ? "font-bold" : "font-normal",
             )}

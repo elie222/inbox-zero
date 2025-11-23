@@ -5,7 +5,6 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import { DayPicker } from "react-day-picker";
 import { cn } from "@/utils";
 import { buttonVariants } from "@/components/ui/button";
-import { cx } from "class-variance-authority";
 
 export type CalendarProps = React.ComponentProps<typeof DayPicker> & {
   rightContent?: React.ReactNode;
@@ -30,7 +29,7 @@ function Calendar({
         month: "space-y-4",
         caption: "flex justify-center pt-1 relative items-center",
         caption_start: padding,
-        caption_end: cx(padding, borderLeft),
+        caption_end: cn(padding, borderLeft),
         caption_label: "text-sm font-medium",
         nav: "space-x-1 flex items-center",
         nav_button: cn(
@@ -69,7 +68,7 @@ function Calendar({
           <div className="flex">
             <div className="flex flex-row">{children}</div>
             {rightContent ? (
-              <div className={cx(padding, borderLeft)}>{rightContent}</div>
+              <div className={cn(padding, borderLeft)}>{rightContent}</div>
             ) : null}
           </div>
         ),

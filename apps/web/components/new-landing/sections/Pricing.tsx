@@ -4,7 +4,6 @@ import { useState } from "react";
 import Link from "next/link";
 import { usePostHog } from "posthog-js/react";
 import type { PostHog } from "posthog-js";
-import { cx } from "class-variance-authority";
 import { Label, Radio, RadioGroup } from "@headlessui/react";
 import { Sparkle } from "@/components/new-landing/icons/Sparkle";
 import { Zap } from "@/components/new-landing/icons/Zap";
@@ -33,6 +32,7 @@ import { Chat } from "@/components/new-landing/icons/Chat";
 import { type Tier, tiers } from "@/app/(app)/premium/config";
 import { Briefcase } from "@/components/new-landing/icons/Briefcase";
 import { landingPageAnalytics } from "@/hooks/useAnalytics";
+import { cn } from "@/utils";
 
 type PricingTier = Tier & {
   badges?: {
@@ -111,7 +111,7 @@ export function Pricing() {
               key={value}
               value={value}
               className={({ checked }) =>
-                cx(
+                cn(
                   checked ? "bg-black text-white" : "text-gray-500",
                   "cursor-pointer rounded-full px-6 py-1",
                 )

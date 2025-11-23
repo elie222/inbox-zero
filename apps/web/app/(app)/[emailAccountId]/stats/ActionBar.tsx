@@ -1,4 +1,4 @@
-import { cx } from "class-variance-authority";
+import { cn } from "@/utils";
 
 interface ActionBarProps {
   children: React.ReactNode;
@@ -13,7 +13,7 @@ export function ActionBar({
 }: ActionBarProps) {
   return (
     <div
-      className={cx(
+      className={cn(
         "flex items-center justify-between w-full gap-3",
         className,
       )}

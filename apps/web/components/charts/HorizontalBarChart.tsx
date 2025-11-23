@@ -1,7 +1,7 @@
 "use client";
 
 import { DomainIcon } from "@/components/charts/DomainIcon";
-import { cx } from "class-variance-authority";
+import { cn } from "@/utils";
 
 interface HorizontalBarChartProps {
   data: Array<{
@@ -20,7 +20,7 @@ export function HorizontalBarChart({
   const maxValue = Math.max(...data.map((item) => item.value), 1);
 
   return (
-    <div className={cx("space-y-2", className)}>
+    <div className={cn("space-y-2", className)}>
       {data.map((item) => {
         const widthPercentage = (item.value / maxValue) * 100;
         const domain = item.name.includes("@")

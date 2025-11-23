@@ -5,7 +5,6 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { HorizontalBarChart } from "@/components/charts/HorizontalBarChart";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { cx } from "class-variance-authority";
 import {
   Dialog,
   DialogContent,
@@ -13,6 +12,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { cn } from "@/utils";
 
 interface BarListCardProps {
   tabs: { id: string; label: string; data: any }[]; // TODO: add type
@@ -42,7 +42,7 @@ export function BarListCard({ tabs, icon, title }: BarListCardProps) {
       </CardHeader>
       <CardContent className="pt-5 pb-0 px-5 overflow-hidden h-[330px]">
         <div
-          className={cx(
+          className={cn(
             "pointer-events-none absolute bottom-0 left-0 w-full h-1/2 z-20 rounded-[0.44rem]",
             "bg-gradient-to-b from-transparent to-white",
           )}

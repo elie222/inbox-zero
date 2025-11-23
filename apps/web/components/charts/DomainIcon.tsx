@@ -1,4 +1,4 @@
-import { cx } from "class-variance-authority";
+import { cn } from "@/utils";
 import Image from "next/image";
 import { useState } from "react";
 
@@ -40,7 +40,7 @@ export function FallbackIcon({ seed }: FallbackIconProps) {
 
   return (
     <div
-      className={cx(
+      className={cn(
         "rounded-full size-5 z-10 bg-gradient-to-r",
         gradients[gradientIndex],
       )}
