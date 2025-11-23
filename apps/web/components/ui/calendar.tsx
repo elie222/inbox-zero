@@ -65,7 +65,7 @@ function Calendar({
           <div className="flex">
             <div className="flex flex-row">{children}</div>
             {rightContent ? (
-              <div className="p3 border-l border-gray-200">{rightContent}</div>
+              <div className="p-3 border-l border-gray-200">{rightContent}</div>
             ) : null}
           </div>
         ),
