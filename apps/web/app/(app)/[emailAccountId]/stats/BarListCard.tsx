@@ -51,30 +51,32 @@ export function BarListCard({ tabs, icon, title }: BarListCardProps) {
           data={tabs.find((d) => d.id === selected)?.data || []}
         />
         <div className="absolute w-full left-0 bottom-0 pb-6 z-30">
-          <div className="flex justify-center">
-            <Dialog>
-              <DialogTrigger asChild>
-                <Button variant="outline" size="xs-2">
-                  View more
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="max-w-2xl p-0 gap-0">
-                <DialogHeader className="px-6 py-4 border-b border-neutral-200">
-                  <div className="flex items-center gap-2">
-                    {icon}
-                    <DialogTitle className="text-base text-neutral-900 font-medium">
-                      {title}
-                    </DialogTitle>
+          {tabs.find((d) => d.id === selected)?.data.length > 0 && (
+            <div className="flex justify-center">
+              <Dialog>
+                <DialogTrigger asChild>
+                  <Button variant="outline" size="xs-2">
+                    View more
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="max-w-2xl p-0 gap-0">
+                  <DialogHeader className="px-6 py-4 border-b border-neutral-200">
+                    <div className="flex items-center gap-2">
+                      {icon}
+                      <DialogTitle className="text-base text-neutral-900 font-medium">
+                        {title}
+                      </DialogTitle>
+                    </div>
+                  </DialogHeader>
+                  <div className="max-h-[60vh] overflow-y-auto p-6">
+                    <HorizontalBarChart
+                      data={tabs.find((d) => d.id === selected)?.data || []}
+                    />
                   </div>
-                </DialogHeader>
-                <div className="max-h-[60vh] overflow-y-auto p-6">
-                  <HorizontalBarChart
-                    data={tabs.find((d) => d.id === selected)?.data || []}
-                  />
-                </div>
-              </DialogContent>
-            </Dialog>
-          </div>
+                </DialogContent>
+              </Dialog>
+            </div>
+          )}
         </div>
       </CardContent>
     </Card>
