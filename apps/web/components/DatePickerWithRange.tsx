@@ -12,7 +12,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { List } from "@/components/common/List";
+import { List } from "@/components/List";
 import { differenceInDays, subDays } from "date-fns";
 import { useMemo } from "react";
 

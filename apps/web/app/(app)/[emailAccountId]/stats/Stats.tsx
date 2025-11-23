@@ -114,12 +114,10 @@ export function Stats() {
       </ActionBar>
       <div className="grid gap-2 sm:gap-4 mt-2 sm:mt-4">
         <StatsSummary dateRange={dateRange} refreshInterval={refreshInterval} />
-        {isAccountOwner && (
-          <EmailAnalytics
-            dateRange={dateRange}
-            refreshInterval={refreshInterval}
-          />
-        )}
+        <EmailAnalytics
+          dateRange={dateRange}
+          refreshInterval={refreshInterval}
+        />
         <RuleStatsChart
           dateRange={dateRange}
           title="Assistant processed emails"
