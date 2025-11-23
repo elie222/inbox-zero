@@ -22,7 +22,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { getDateRangeParams } from "./params";
 import { useOrgSWR } from "@/hooks/useOrgSWR";
 import type { RuleStatsResponse } from "@/app/api/user/stats/rule-stats/route";
-import { MOCK_RULE_STATS } from "@/app/(app)/[emailAccountId]/stats/mock-data";
 import { NewBarChart } from "./NewBarChart";
 import { CardBasic } from "@/components/ui/card";
 
@@ -42,10 +41,9 @@ const CHART_COLORS = [
 export function RuleStatsChart({ dateRange, title }: RuleStatsChartProps) {
   const params = getDateRangeParams(dateRange);
 
-  const { /*data,*/ isLoading, error } = useOrgSWR<RuleStatsResponse>(
+  const { data, isLoading, error } = useOrgSWR<RuleStatsResponse>(
     `/api/user/stats/rule-stats?${new URLSearchParams(params as Record<string, string>)}`,
   );
-  const data = MOCK_RULE_STATS;
 
   const barChartData = useMemo(() => {
     if (!data?.ruleStats) return [];
