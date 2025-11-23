@@ -17,19 +17,16 @@ function Calendar({
   rightContent,
   ...props
 }: CalendarProps) {
-  const padding = "p-3";
-  const borderLeft = "border-l border-gray-200";
-
   return (
     <DayPicker
       showOutsideDays={showOutsideDays}
-      className={cn("", className)}
+      className={className}
       classNames={{
         months: "flex flex-col sm:flex-row space-y-4 sm:space-x-4 sm:space-y-0",
         month: "space-y-4",
         caption: "flex justify-center pt-1 relative items-center",
-        caption_start: padding,
-        caption_end: cn(padding, borderLeft),
+        caption_start: "p-3",
+        caption_end: "p-3 border-l border-gray-200",
         caption_label: "text-sm font-medium",
         nav: "space-x-1 flex items-center",
         nav_button: cn(
@@ -68,7 +65,7 @@ function Calendar({
           <div className="flex">
             <div className="flex flex-row">{children}</div>
             {rightContent ? (
-              <div className={cn(padding, borderLeft)}>{rightContent}</div>
+              <div className="p3 border-l border-gray-200">{rightContent}</div>
             ) : null}
           </div>
         ),
