@@ -6,46 +6,31 @@ import { Card, CardContent } from "@/components/ui/card";
 import type { ChartConfig } from "@/components/ui/chart";
 import type { StatsByWeekResponse } from "@/app/api/user/stats/by-period/route";
 import { NewBarChart } from "@/app/(app)/[emailAccountId]/stats/NewBarChart";
-
-export const description =
-  "An interactive multiple bar chart for email metrics";
+import { COLORS } from "@/utils/colors";
 
 const chartConfig = {
-  received: {
-    label: "Received",
-    color: "#006EFF80",
-  },
-  sent: {
-    label: "Sent",
-    color: "#6410FF80",
-  },
-  read: {
-    label: "Read",
-    color: "#C942B2",
-  },
-  unread: {
-    label: "Unread",
-    color: "#C942B260",
-  },
-  archived: {
-    label: "Archived",
-    color: "#17A34A",
-  },
-  inbox: {
-    label: "Inbox",
-    color: "#17A34A60",
-  },
+  received: { label: "Received", color: COLORS.analytics.blue },
+  sent: { label: "Sent", color: COLORS.analytics.purple },
+  read: { label: "Read", color: COLORS.analytics.pink },
+  unread: { label: "Unread", color: COLORS.analytics.lightPink },
+  archived: { label: "Archived", color: COLORS.analytics.green },
+  inbox: { label: "Inbox", color: COLORS.analytics.lightGreen },
 } satisfies ChartConfig;
+
+function getActiveChart(activChart: keyof typeof chartConfig): string[] {
+  if (activChart === "received") return ["received"];
+  if (activChart === "sent") return ["sent"];
+  if (activChart === "read") return ["read", "unread"];
+  if (activChart === "archived") return ["archived", "inbox"];
+  return [];
+}
 
 export function MainStatChart(props: { data: StatsByWeekResponse }) {
   const [activeChart, setActiveChart] =
     React.useState<keyof typeof chartConfig>("received");
 
-  // Transform API data to chart format
   const chartData = React.useMemo(() => {
     return props.data.result.map((item) => {
-      // Parse the date string (format: "LLL dd, y" like "Jan 01, 2024")
-      // Use "MMM" for parsing (month abbreviation)
       const date = parse(item.startOfPeriod, "MMM dd, y", new Date());
       const dateStr = date.toISOString().split("T")[0];
 
@@ -107,17 +92,7 @@ export function MainStatChart(props: { data: StatsByWeekResponse }) {
         <NewBarChart
           data={chartData}
           config={chartConfig}
-          activeCharts={
-            activeChart === "received"
-              ? ["received"]
-              : activeChart === "sent"
-                ? ["sent"]
-                : activeChart === "read"
-                  ? ["read", "unread"]
-                  : activeChart === "archived"
-                    ? ["archived", "inbox"]
-                    : []
-          }
+          activeCharts={getActiveChart(activeChart)}
         />
       </CardContent>
     </Card>
