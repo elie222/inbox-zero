@@ -11,7 +11,7 @@ import {
   FileTextIcon,
   FolderInputIcon,
 } from "lucide-react";
-import { ActionType } from "@prisma/client";
+import { ActionType } from "@/generated/prisma/enums";
 
 const ACTION_TYPE_COLORS = {
   [ActionType.LABEL]: "bg-blue-500",

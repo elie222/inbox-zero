@@ -6,7 +6,7 @@ import { createScopedLogger } from "@/utils/logger";
 import { markQStashActionAsExecuting } from "@/utils/scheduled-actions/scheduler";
 import { executeScheduledAction } from "@/utils/scheduled-actions/executor";
 import prisma from "@/utils/prisma";
-import { ScheduledActionStatus } from "@prisma/client";
+import { ScheduledActionStatus } from "@/generated/prisma/enums";
 import { createEmailProvider } from "@/utils/email/provider";
 
 const logger = createScopedLogger("scheduled-actions-executor");

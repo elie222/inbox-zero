@@ -7,12 +7,11 @@ import {
   evaluateRuleConditions,
 } from "./match-rules";
 import {
-  type GroupItem,
   GroupItemType,
   LogicalOperator,
-  type Prisma,
   SystemType,
-} from "@prisma/client";
+} from "@/generated/prisma/enums";
+import type { GroupItem, Prisma } from "@/generated/prisma/client";
 import type {
   RuleWithActions,
   ParsedMessage,

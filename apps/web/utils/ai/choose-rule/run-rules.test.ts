@@ -5,11 +5,11 @@ import {
   limitDraftEmailActions,
 } from "./run-rules";
 import {
-  type Action,
   ActionType,
   ExecutedRuleStatus,
   SystemType,
-} from "@prisma/client";
+} from "@/generated/prisma/enums";
+import type { Action } from "@/generated/prisma/client";
 import { ConditionType } from "@/utils/config";
 import prisma from "@/utils/__mocks__/prisma";
 import type { RuleWithActions } from "@/utils/types";

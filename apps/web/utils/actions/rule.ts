@@ -16,7 +16,8 @@ import {
 import prisma from "@/utils/prisma";
 import { isDuplicateError, isNotFoundError } from "@/utils/prisma-helpers";
 import { flattenConditions } from "@/utils/condition";
-import { ActionType, SystemType, type Prisma } from "@prisma/client";
+import { ActionType, SystemType } from "@/generated/prisma/enums";
+import type { Prisma } from "@/generated/prisma/client";
 import { sanitizeActionFields } from "@/utils/action-item";
 import {
   deleteRule,

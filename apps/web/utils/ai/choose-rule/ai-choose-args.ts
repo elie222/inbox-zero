@@ -5,7 +5,8 @@ import { stringifyEmail } from "@/utils/stringify-email";
 import { createScopedLogger } from "@/utils/logger";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import type { EmailForLLM, RuleWithActions } from "@/utils/types";
-import { LogicalOperator, type ActionType } from "@prisma/client";
+import { LogicalOperator } from "@/generated/prisma/enums";
+import type { ActionType } from "@/generated/prisma/enums";
 import { getModel, type ModelType } from "@/utils/llms/model";
 import { getUserInfoPrompt } from "@/utils/ai/helpers";
 

@@ -1,0 +1,26 @@
+# Prisma Enum Imports
+
+## Rule
+
+**Always import Prisma enums from `@/generated/prisma/enums` instead of `@/generated/prisma/client`.**
+
+Importing enums from `@prisma/client` causes Next.js bundling errors when used in client components because Prisma Client depends on Node.js modules.
+
+## Correct Pattern
+
+```typescript
+// ✅ Import enums from enums file
+import { ActionType, SystemType } from "@/generated/prisma/enums";
+import type { Rule, User } from "@/generated/prisma/client";
+```
+
+## Incorrect Pattern
+
+```typescript
+// ❌ Don't import enums from client
+import { ActionType, SystemType } from "@/generated/prisma/client";
+```
+
+## Check Imports
+
+Run `pnpm check-enums` from `apps/web` to verify all enum imports are correct. This runs automatically in CI.

@@ -21,7 +21,7 @@ import { isNewsletterSender } from "@/utils/ai/group/find-newsletters";
 import { isMaybeReceipt, isReceipt } from "@/utils/ai/group/find-receipts";
 import { saveThread, updateThread } from "@/utils/redis/clean";
 import { internalDateToDate } from "@/utils/date";
-import { CleanAction } from "@prisma/client";
+import { CleanAction } from "@/generated/prisma/enums";
 import type { ParsedMessage } from "@/utils/types";
 import { isActivePremium } from "@/utils/premium";
 

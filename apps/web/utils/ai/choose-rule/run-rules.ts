@@ -5,8 +5,8 @@ import {
   ActionType,
   ExecutedRuleStatus,
   SystemType,
-  type Rule,
-} from "@prisma/client";
+} from "@/generated/prisma/enums";
+import type { Rule } from "@/generated/prisma/client";
 import type { ActionItem } from "@/utils/ai/types";
 import { findMatchingRules } from "@/utils/ai/choose-rule/match-rules";
 import { getActionItemsWithAiArgs } from "@/utils/ai/choose-rule/choose-args";
