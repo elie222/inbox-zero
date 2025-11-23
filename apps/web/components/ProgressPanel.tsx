@@ -35,7 +35,7 @@ export function ProgressPanel({
         >
           <Progress
             value={progress}
-            color={isCompleted ? "bg-green-500" : "bg-blue-500"}
+            innerClassName={isCompleted ? "bg-green-500" : "bg-blue-500"}
           />
           <p className="mt-2 flex justify-between text-sm" aria-live="polite">
             <span

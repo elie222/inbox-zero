@@ -9,9 +9,9 @@ import { cx } from "class-variance-authority";
 const Progress = React.forwardRef<
   React.ElementRef<typeof ProgressPrimitive.Root>,
   React.ComponentPropsWithoutRef<typeof ProgressPrimitive.Root> & {
-    color?: string;
+    innerClassName?: string;
   }
->(({ className, value, color = "bg-blue-500", ...props }, ref) => (
+>(({ className, value, innerClassName = "bg-blue-500", ...props }, ref) => (
   <ProgressPrimitive.Root
     ref={ref}
     className={cn(
@@ -21,7 +21,7 @@ const Progress = React.forwardRef<
     {...props}
   >
     <ProgressPrimitive.Indicator
-      className={cx("h-full w-full flex-1 transition-all", color)}
+      className={cx("h-full w-full flex-1 transition-all", innerClassName)}
       style={{ transform: `translateX(-${100 - (value || 0)}%)` }}
     />
   </ProgressPrimitive.Root>
