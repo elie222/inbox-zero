@@ -125,7 +125,7 @@ export function BulkUnsubscribeRowDesktop({
           <div className="flex items-center gap-4">
             <Tooltip>
               <TooltipTrigger asChild>
-                <Progress value={readPercentage} className="w-[150px]" />
+                <Progress value={readPercentage} className="h-2 w-[150px]" />
               </TooltipTrigger>
               <TooltipContent>
                 {item.readEmails} read. {item.value - item.readEmails} unread.
@@ -141,7 +141,10 @@ export function BulkUnsubscribeRowDesktop({
           <div className="flex items-center gap-4">
             <Tooltip>
               <TooltipTrigger asChild>
-                <Progress value={archivedPercentage} className="w-[150px]" />
+                <Progress
+                  value={archivedPercentage}
+                  className="h-2 w-[150px]"
+                />
               </TooltipTrigger>
               <TooltipContent>
                 {archivedEmails} archived. {item.inboxEmails} unarchived.
