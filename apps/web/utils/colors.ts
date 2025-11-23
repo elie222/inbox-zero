@@ -31,4 +31,7 @@ export const COLORS = {
     green: "#17A34A",
     lightGreen: "#17A34A60",
   },
+  footer: {
+    gray: "#4E4E4E",
+  },
 };
