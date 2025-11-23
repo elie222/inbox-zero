@@ -15,7 +15,7 @@ import Link from "next/link";
 import { type Dispatch, type SetStateAction, useId } from "react";
 import { ArrowUpRight } from "lucide-react";
 
-const tabSelectButtonVariants = cva("p-3 transition-colors duration-75", {
+const tabSelectButtonVariants = cva("p-4 transition-colors duration-75", {
   variants: {
     variant: {
       default:
