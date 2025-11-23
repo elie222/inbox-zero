@@ -12,18 +12,45 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import { List } from "@/components/common/List";
+import { differenceInDays, subDays } from "date-fns";
+import { useMemo } from "react";
+
+interface DatePickerWithRangeProps
+  extends React.HTMLAttributes<HTMLDivElement> {
+  dateRange?: DateRange;
+  onSetDateRange: (dateRange?: DateRange) => void;
+  selectOptions: { label: string; value: string }[];
+  dateDropdown: string;
+  onSetDateDropdown: (option: { label: string; value: string }) => void;
+}
 
 export function DatePickerWithRange({
   dateRange,
   onSetDateRange,
-  rightContent,
-  label,
-}: React.HTMLAttributes<HTMLDivElement> & {
-  dateRange?: DateRange;
-  onSetDateRange: (dateRange?: DateRange) => void;
-  rightContent?: React.ReactNode;
-  label?: string;
-}) {
+  selectOptions,
+  dateDropdown,
+  onSetDateDropdown,
+}: DatePickerWithRangeProps) {
+  const now = useMemo(() => new Date(), []);
+  const days =
+    dateRange?.from && dateRange?.to
+      ? differenceInDays(dateRange.to, dateRange.from)
+      : 0;
+
+  const relativeDateLabel =
+    days === 1
+      ? "Last day"
+      : days === 7
+        ? "Last week"
+        : days === 30
+          ? "Last month"
+          : days === 90
+            ? "Last 3 months"
+            : days === 365
+              ? "Last year"
+              : "All";
+
   return (
     <Popover modal={true}>
       <PopoverTrigger asChild>
@@ -37,7 +64,7 @@ export function DatePickerWithRange({
         >
           <div className="flex items-center">
             <CalendarIcon className="mr-2 hidden h-4 w-4 sm:block" />
-            {label ||
+            {relativeDateLabel ||
               (dateRange?.from ? (
                 dateRange.to ? (
                   <>
@@ -62,7 +89,23 @@ export function DatePickerWithRange({
           selected={dateRange}
           onSelect={onSetDateRange}
           numberOfMonths={2}
-          rightContent={rightContent}
+          rightContent={
+            <List
+              value={
+                selectOptions.find((option) => option.label === dateDropdown)
+                  ?.value
+              }
+              items={selectOptions}
+              className="min-w-32"
+              onSelect={({ label, value }) => {
+                onSetDateDropdown({ label, value });
+                onSetDateRange({
+                  from: subDays(now, Number.parseInt(value)),
+                  to: now,
+                });
+              }}
+            />
+          }
         />
       </PopoverContent>
     </Popover>

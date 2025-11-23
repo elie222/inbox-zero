@@ -6,14 +6,17 @@ import subDays from "date-fns/subDays";
 import { EmailAnalytics } from "@/app/(app)/[emailAccountId]/stats/EmailAnalytics";
 import { StatsSummary } from "@/app/(app)/[emailAccountId]/stats/StatsSummary";
 import { StatsOnboarding } from "@/app/(app)/[emailAccountId]/stats/StatsOnboarding";
-import { ActionBar } from "@/app/(app)/[emailAccountId]/stats/ActionBar";
 import { useStatLoader } from "@/providers/StatLoaderProvider";
 import { EmailActionsAnalytics } from "@/app/(app)/[emailAccountId]/stats/EmailActionsAnalytics";
 import { RuleStatsChart } from "./RuleStatsChart";
 import { PageHeading } from "@/components/Typography";
 import { PageWrapper } from "@/components/PageWrapper";
 import { useOrgAccess } from "@/hooks/useOrgAccess";
-import { List } from "@/components/common/List";
+import { LoadStatsButton } from "@/app/(app)/[emailAccountId]/stats/LoadStatsButton";
+import { ActionBar } from "@/app/(app)/[emailAccountId]/stats/ActionBar";
+import { DetailedStatsFilter } from "@/app/(app)/[emailAccountId]/stats/DetailedStatsFilter";
+import { LayoutGrid } from "lucide-react";
+import { DatePickerWithRange } from "@/components/DatePickerWithRange";
 
 const selectOptions = [
   { label: "Last week", value: "7" },
@@ -74,31 +77,41 @@ export function Stats() {
   return (
     <PageWrapper>
       <PageHeading>{title}</PageHeading>
-      <ActionBar
-        dateRange={dateRange}
-        setDateRange={setDateRange}
-        period={period}
-        setPeriod={setPeriod}
-        isMobile={false}
-        className="mt-6"
-        datePickerRightContent={
-          <List
-            value={
-              selectOptions.find((option) => option.label === dateDropdown)
-                ?.value
-            }
-            items={selectOptions}
-            className="min-w-32"
-            onSelect={({ label, value }) => {
-              onSetDateDropdown({ label, value });
-              setDateRange({
-                from: subDays(now, Number.parseInt(value)),
-                to: now,
-              });
-            }}
-          />
-        }
-      />
+      <ActionBar className="mt-6" rightContent={<LoadStatsButton />}>
+        <DetailedStatsFilter
+          label={`Group by ${period}`}
+          icon={<LayoutGrid className="mr-2 h-4 w-4" />}
+          columns={[
+            {
+              label: "Day",
+              checked: period === "day",
+              setChecked: () => setPeriod("day"),
+            },
+            {
+              label: "Week",
+              checked: period === "week",
+              setChecked: () => setPeriod("week"),
+            },
+            {
+              label: "Month",
+              checked: period === "month",
+              setChecked: () => setPeriod("month"),
+            },
+            {
+              label: "Year",
+              checked: period === "year",
+              setChecked: () => setPeriod("year"),
+            },
+          ]}
+        />
+        <DatePickerWithRange
+          dateRange={dateRange}
+          onSetDateRange={setDateRange}
+          selectOptions={selectOptions}
+          dateDropdown={dateDropdown}
+          onSetDateDropdown={onSetDateDropdown}
+        />
+      </ActionBar>
       <div className="grid gap-2 sm:gap-4 mt-2 sm:mt-4">
         <StatsSummary dateRange={dateRange} refreshInterval={refreshInterval} />
         {isAccountOwner && (

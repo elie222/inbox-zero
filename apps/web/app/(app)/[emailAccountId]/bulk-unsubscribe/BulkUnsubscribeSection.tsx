@@ -43,12 +43,14 @@ import { ClientOnly } from "@/components/ClientOnly";
 import { Toggle } from "@/components/Toggle";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { useWindowSize } from "usehooks-ts";
-import { ActionBar } from "@/app/(app)/[emailAccountId]/stats/ActionBar";
 import { LoadStatsButton } from "@/app/(app)/[emailAccountId]/stats/LoadStatsButton";
 import { PageWrapper } from "@/components/PageWrapper";
 import { PageHeader } from "@/components/PageHeader";
 import { TextLink } from "@/components/Typography";
 import { DismissibleVideoCard } from "@/components/VideoCard";
+import { ActionBar } from "@/app/(app)/[emailAccountId]/stats/ActionBar";
+import { DatePickerWithRange } from "@/components/DatePickerWithRange";
+import { differenceInDays } from "date-fns";
 
 const selectOptions = [
   { label: "Last week", value: "7" },
@@ -208,6 +210,11 @@ export function BulkUnsubscribe() {
     !filters.unsubscribed &&
     !filters.approved;
 
+  const days =
+    dateRange?.from && dateRange?.to
+      ? differenceInDays(dateRange.to, dateRange.from)
+      : 0;
+
   return (
     <PageWrapper>
       <PageHeader
@@ -246,34 +253,34 @@ export function BulkUnsubscribe() {
       />
 
       <div className="items-center justify-between flex mt-4 flex-wrap">
-        <div className="flex items-center justify-end gap-1">
-          <div className="">
-            <Toggle
-              name="show-unhandled"
-              label="Only unhandled"
-              enabled={onlyUnhandled}
-              onChange={() =>
-                setFilters(
-                  onlyUnhandled
-                    ? {
-                        unhandled: true,
-                        autoArchived: true,
-                        unsubscribed: true,
-                        approved: true,
-                      }
-                    : {
-                        unhandled: true,
-                        autoArchived: false,
-                        unsubscribed: false,
-                        approved: false,
-                      },
-                )
-              }
-            />
+        <ActionBar rightContent={<LoadStatsButton />}>
+          <div className="flex items-center justify-end gap-1">
+            <div className="">
+              <Toggle
+                name="show-unhandled"
+                label="Only unhandled"
+                enabled={onlyUnhandled}
+                onChange={() =>
+                  setFilters(
+                    onlyUnhandled
+                      ? {
+                          unhandled: true,
+                          autoArchived: true,
+                          unsubscribed: true,
+                          approved: true,
+                        }
+                      : {
+                          unhandled: true,
+                          autoArchived: false,
+                          unsubscribed: false,
+                          approved: false,
+                        },
+                  )
+                }
+              />
+            </div>
           </div>
-
           <SearchBar onSearch={setSearch} />
-
           <DetailedStatsFilter
             label="Filter"
             icon={<FilterIcon className="mr-2 h-4 w-4" />}
@@ -330,18 +337,14 @@ export function BulkUnsubscribe() {
               },
             ]}
           />
-        </div>
-
-        <div className="flex flex-wrap gap-1">
-          <ActionBar
+          <DatePickerWithRange
+            dateRange={dateRange}
+            onSetDateRange={setDateRange}
             selectOptions={selectOptions}
             dateDropdown={dateDropdown}
-            setDateDropdown={onSetDateDropdown}
-            dateRange={dateRange}
-            setDateRange={setDateRange}
-            isMobile={isMobile}
+            onSetDateDropdown={onSetDateDropdown}
           />
-        </div>
+        </ActionBar>
       </div>
 
       <ClientOnly>

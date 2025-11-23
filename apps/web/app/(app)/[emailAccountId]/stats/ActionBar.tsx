@@ -1,33 +1,16 @@
-import { LayoutGrid } from "lucide-react";
-import type { DateRange } from "react-day-picker";
-import { DetailedStatsFilter } from "@/app/(app)/[emailAccountId]/stats/DetailedStatsFilter";
-import { DatePickerWithRange } from "@/components/DatePickerWithRange";
-import { LoadStatsButton } from "@/app/(app)/[emailAccountId]/stats/LoadStatsButton";
 import { cx } from "class-variance-authority";
-import { differenceInDays } from "date-fns";
 
 interface ActionBarProps {
-  dateRange?: DateRange | undefined;
-  setDateRange: (dateRange?: DateRange) => void;
-  period?: "day" | "week" | "month" | "year";
-  setPeriod?: (value: "day" | "week" | "month" | "year") => void;
-  isMobile: boolean;
+  children: React.ReactNode;
   className?: string;
-  datePickerRightContent?: React.ReactNode;
+  rightContent?: React.ReactNode;
 }
 
 export function ActionBar({
-  dateRange,
-  setDateRange,
-  period,
-  setPeriod,
+  children,
   className,
-  datePickerRightContent,
+  rightContent,
 }: ActionBarProps) {
-  const days =
-    dateRange?.from && dateRange?.to
-      ? differenceInDays(dateRange.to, dateRange.from)
-      : 0;
   return (
     <div
       className={cx(
@@ -35,55 +18,8 @@ export function ActionBar({
         className,
       )}
     >
-      <div className="flex items-center gap-3">
-        {period && setPeriod && (
-          <DetailedStatsFilter
-            label={`Group by ${period}`}
-            icon={<LayoutGrid className="mr-2 h-4 w-4" />}
-            columns={[
-              {
-                label: "Day",
-                checked: period === "day",
-                setChecked: () => setPeriod("day"),
-              },
-              {
-                label: "Week",
-                checked: period === "week",
-                setChecked: () => setPeriod("week"),
-              },
-              {
-                label: "Month",
-                checked: period === "month",
-                setChecked: () => setPeriod("month"),
-              },
-              {
-                label: "Year",
-                checked: period === "year",
-                setChecked: () => setPeriod("year"),
-              },
-            ]}
-          />
-        )}
-        <DatePickerWithRange
-          dateRange={dateRange}
-          onSetDateRange={setDateRange}
-          rightContent={datePickerRightContent}
-          label={
-            days === 1
-              ? "Last day"
-              : days === 7
-                ? "Last week"
-                : days === 30
-                  ? "Last month"
-                  : days === 90
-                    ? "Last 3 months"
-                    : days === 365
-                      ? "Last year"
-                      : "All"
-          }
-        />
-      </div>
-      <LoadStatsButton />
+      <div className="flex items-center gap-3">{children}</div>
+      <div className="flex items-center gap-3">{rightContent}</div>
     </div>
   );
 }
