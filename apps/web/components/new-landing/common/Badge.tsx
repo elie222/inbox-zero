@@ -32,26 +32,26 @@ export function Badge({
     {
       variants: {
         variant: {
-          blue: "text-badge-blue-main from-badge-blue-outer-from to-badge-blue-outer-to shadow-[0px_2px_3.4px_0px_#CFD9F938,0px_1px_1px_0px_#CFD9F994]",
+          blue: "text-new-blue-600 from-new-blue-150 to-new-blue-200 shadow-[0px_2px_3.4px_0px_#CFD9F938,0px_1px_1px_0px_#CFD9F994]",
           purple:
-            "text-badge-purple-main from-badge-purple-outer-from to-badge-purple-outer-to shadow-[0px_2px_3.4px_0px_#CFD9F938,0px_1px_1px_0px_#CFD9F994]",
+            "text-new-purple-600 from-new-purple-200 to-new-purple-300 shadow-[0px_2px_3.4px_0px_#CFD9F938,0px_1px_1px_0px_#CFD9F994]",
           "dark-blue":
-            "text-badge-dark-blue-main from-badge-dark-blue-outer-from to-badge-dark-blue-outer-to shadow-[0px_2px_3.4px_0px_#CFD9F938,0px_1px_1px_0px_#CFD9F994]",
+            "text-new-indigo-600 from-new-indigo-150 to-new-indigo-200 shadow-[0px_2px_3.4px_0px_#CFD9F938,0px_1px_1px_0px_#CFD9F994]",
           green:
-            "text-badge-green-main from-badge-green-outer-from to-badge-green-outer-to shadow-[0px_2px_3.4px_0px_#CFF9DE38,0px_1px_1px_0px_#76D98F1C]",
+            "text-new-green-600 from-new-green-150 to-new-green-200 shadow-[0px_2px_3.4px_0px_#CFF9DE38,0px_1px_1px_0px_#76D98F1C]",
           yellow:
-            "text-badge-yellow-main from-badge-yellow-outer-from to-badge-yellow-outer-to shadow-[0px_2px_3.4px_0px_#F9EDCF38,0px_1px_1px_0px_#F9ECCF94]",
+            "text-new-yellow-500 from-new-yellow-150 to-new-yellow-200 shadow-[0px_2px_3.4px_0px_#F9EDCF38,0px_1px_1px_0px_#F9ECCF94]",
           brown:
-            "text-badge-brown-main from-badge-brown-outer-from to-badge-brown-outer-to shadow-[0px_2px_3.4px_0px_#F0D4BA38,0px_1px_1px_0px_#F9E0CF94]",
-          red: "text-badge-red-main from-badge-red-outer-from to-badge-red-outer-to shadow-[0px_2px_3.4px_0px_#F9CFD326,0px_1px_1px_0px_#F9CFD08A]",
+            "text-new-brown-500 from-new-brown-150 to-new-brown-200 shadow-[0px_2px_3.4px_0px_#F0D4BA38,0px_1px_1px_0px_#F9E0CF94]",
+          red: "text-new-red-500 from-new-red-150 to-new-red-200 shadow-[0px_2px_3.4px_0px_#F9CFD326,0px_1px_1px_0px_#F9CFD08A]",
           "light-blue":
-            "text-badge-light-blue-main from-badge-light-blue-outer-from to-badge-light-blue-outer-to shadow-[0px_2px_3.4px_0px_#E6E6E638,0px_1px_1px_0px_#B1B1B11C]",
+            "text-new-cyan-500 from-new-cyan-100 to-new-cyan-200 shadow-[0px_2px_3.4px_0px_#E6E6E638,0px_1px_1px_0px_#B1B1B11C]",
           orange:
-            "text-badge-orange-main from-badge-orange-outer-from to-badge-orange-outer-to shadow-[0px_2px_3.4px_0px_#F9D3CF38,0px_1px_1px_0px_#F9E5CF94]",
-          pink: "text-badge-pink-main from-badge-pink-outer-from to-badge-pink-outer-to shadow-[0px_2px_3.4px_0px_#F9CFD326,0px_1px_1px_0px_#F9CFD08A]",
-          gray: "text-badge-gray-main from-badge-gray-outer-from to-badge-gray-outer-to shadow-[0px_2px_3.4px_0px_#E6E6E638,0px_1px_1px_0px_#B1B1B11C]",
+            "text-new-orange-600 from-new-orange-150 to-new-orange-200 shadow-[0px_2px_3.4px_0px_#F9D3CF38,0px_1px_1px_0px_#F9E5CF94]",
+          pink: "text-new-pink-500 from-new-pink-150 to-new-pink-200 shadow-[0px_2px_3.4px_0px_#F9CFD326,0px_1px_1px_0px_#F9CFD08A]",
+          gray: "text-new-gray-500 from-new-gray-150 to-new-gray-200 shadow-[0px_2px_3.4px_0px_#E6E6E638,0px_1px_1px_0px_#B1B1B11C]",
           "dark-gray":
-            "text-badge-dark-gray-main from-badge-dark-gray-outer-from to-badge-dark-gray-outer-to shadow-[0px_2px_3.4px_0px_#E6E6E638,0px_1px_1px_0px_#B1B1B11C]",
+            "text-new-gray-600 from-new-gray-150 to-new-gray-200 shadow-[0px_2px_3.4px_0px_#E6E6E638,0px_1px_1px_0px_#B1B1B11C]",
         },
       },
     },
@@ -62,21 +62,18 @@ export function Badge({
     {
       variants: {
         variant: {
-          blue: "from-badge-blue-inner-from to-badge-blue-inner-to",
-          purple: "from-badge-purple-inner-from to-badge-purple-inner-to",
-          "dark-blue":
-            "from-badge-dark-blue-inner-from to-badge-dark-blue-inner-to",
-          green: "from-badge-green-inner-from to-badge-green-inner-to",
-          yellow: "from-badge-yellow-inner-from to-badge-yellow-inner-to",
-          brown: "from-badge-brown-inner-from to-badge-brown-inner-to",
-          red: "from-badge-red-inner-from to-badge-red-inner-to",
-          "light-blue":
-            "from-badge-light-blue-inner-from to-badge-light-blue-inner-to",
-          orange: "from-badge-orange-inner-from to-badge-orange-inner-to",
-          pink: "from-badge-pink-inner-from to-badge-pink-inner-to",
-          gray: "from-badge-gray-inner-from to-badge-gray-inner-to",
-          "dark-gray":
-            "from-badge-dark-gray-inner-from to-badge-dark-gray-inner-to",
+          blue: "from-new-blue-50 to-new-blue-100",
+          purple: "from-new-purple-50 to-new-purple-100",
+          "dark-blue": "from-new-indigo-50 to-new-indigo-100",
+          green: "from-new-green-50 to-new-green-100",
+          yellow: "from-new-yellow-50 to-new-yellow-100",
+          brown: "from-new-brown-50 to-new-brown-100",
+          red: "from-new-red-50 to-new-red-100",
+          "light-blue": "from-new-cyan-50 to-new-cyan-100",
+          orange: "from-new-orange-50 to-new-orange-100",
+          pink: "from-new-pink-50 to-new-pink-100",
+          gray: "from-new-gray-50 to-new-gray-100",
+          "dark-gray": "from-new-gray-50 to-new-gray-100",
         },
       },
     },
