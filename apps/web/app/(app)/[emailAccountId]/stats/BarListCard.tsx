@@ -54,7 +54,7 @@ export function BarListCard({ tabs, icon, title }: BarListCardProps) {
           <div className="flex justify-center">
             <Dialog>
               <DialogTrigger asChild>
-                <Button variant="outline" size="xs">
+                <Button variant="outline" size="xs-2">
                   View more
                 </Button>
               </DialogTrigger>
