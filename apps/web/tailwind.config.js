@@ -93,6 +93,50 @@ module.exports = {
           border: "hsl(var(--sidebar-border))",
           ring: "hsl(var(--sidebar-ring))",
         },
+        header: {
+          purple: {
+            50: "#F3EAFE",
+            100: "#E7DAFF",
+            200: "#E1D5FC",
+            300: "#D7C3FC",
+            600: "#6410FF",
+          },
+          green: {
+            50: "#F3FFEF",
+            100: "#E1FFD8",
+            150: "#DDF4D3",
+            200: "#CFF4C0",
+            500: "#30A24B",
+          },
+          blue: {
+            50: "#EFF6FF",
+            100: "#D8E9FF",
+            150: "#D6E8FC",
+            200: "#C3DEFC",
+            600: "#006EFF",
+          },
+          pink: {
+            50: "#FFEEF8",
+            100: "#FFDAEC",
+            150: "#FDD3EB",
+            200: "#FDBFE0",
+            500: "#C942B2",
+          },
+          orange: {
+            50: "#FFF5EF",
+            100: "#FFE7DA",
+            150: "#FCE2D5",
+            200: "#FCD6C2",
+            600: "#E65707",
+          },
+          indigo: {
+            50: "#EFF3FF",
+            100: "#D9E2FF",
+            150: "#D5DEFC",
+            200: "#C2D0FC",
+            600: "#124DFF",
+          },
+        },
         badge: {
           blue: {
             main: "#006EFF",
