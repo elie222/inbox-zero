@@ -50,7 +50,6 @@ import { TextLink } from "@/components/Typography";
 import { DismissibleVideoCard } from "@/components/VideoCard";
 import { ActionBar } from "@/app/(app)/[emailAccountId]/stats/ActionBar";
 import { DatePickerWithRange } from "@/components/DatePickerWithRange";
-import { differenceInDays } from "date-fns";
 
 const selectOptions = [
   { label: "Last week", value: "7" },
@@ -209,11 +208,6 @@ export function BulkUnsubscribe() {
     !filters.autoArchived &&
     !filters.unsubscribed &&
     !filters.approved;
-
-  const days =
-    dateRange?.from && dateRange?.to
-      ? differenceInDays(dateRange.to, dateRange.from)
-      : 0;
 
   return (
     <PageWrapper>
