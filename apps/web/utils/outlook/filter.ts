@@ -30,6 +30,12 @@ export async function createFilter(options: {
       context: { from },
     });
 
+    if (Object.keys(actions).length === 0) {
+      throw new Error(
+        "No valid actions specified for Outlook filter. Outlook rules require at least one action (e.g. assign category, move to folder, mark as read).",
+      );
+    }
+
     const rule: MessageRule = {
       displayName: `Filter for ${from}`,
       sequence: 1,
@@ -210,6 +216,12 @@ export async function updateFilter({
       context: { id, from },
     });
 
+    if (Object.keys(actions).length === 0) {
+      throw new Error(
+        "No valid actions specified for Outlook filter. Outlook rules require at least one action (e.g. assign category, move to folder, mark as read).",
+      );
+    }
+
     const rule: MessageRule = {
       displayName: `Filter for ${from}`,
       sequence: 1,
@@ -303,15 +315,14 @@ async function buildFilterActions(options: {
     actions.markAsRead = true;
   }
 
-  // If no actions were specified, default to marking as read
-  // (Microsoft API requires at least one action)
+  // If no actions were specified, return empty object
+  // (Microsoft API requires at least one action, but we handle that in the caller)
   if (Object.keys(actions).length === 0) {
-    logger.warn("No actions specified for filter, defaulting to markAsRead", {
+    logger.warn("No valid actions specified for filter", {
       addLabelIds,
       removeLabelIds,
       ...context,
     });
-    actions.markAsRead = true;
   }
 
   return actions;
