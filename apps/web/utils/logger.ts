@@ -138,22 +138,12 @@ function formatError(args?: Record<string, unknown>) {
 
 function serializeError(error: unknown): unknown {
   if (error instanceof Error) {
-    // Convert Error instance to plain object so hashSensitiveFields can process it
-    const serialized: Record<string, unknown> = {
+    return {
+      ...error,
       name: error.name,
       message: error.message,
       stack: error.stack,
     };
-
-    if (isRecord(error)) {
-      for (const key of Object.keys(error)) {
-        if (Object.hasOwn(error, key)) {
-          serialized[key] = error[key];
-        }
-      }
-    }
-
-    return serialized;
   }
 
   return error;
@@ -212,10 +202,6 @@ function hasMessageField(value: unknown): value is { message?: unknown } {
 
 function hasNestedErrorField(value: unknown): value is { error: unknown } {
   return typeof value === "object" && value !== null && "error" in value;
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null;
 }
 
 // Field names that contain PII and should be hashed in production
