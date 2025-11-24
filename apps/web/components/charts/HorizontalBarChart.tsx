@@ -43,6 +43,11 @@ export function HorizontalBarChart({
                   <a
                     href={item.href}
                     target={item.target}
+                    rel={
+                      item.target === "_blank"
+                        ? "noopener noreferrer"
+                        : undefined
+                    }
                     className="text-sm text-gray-900 truncate block z-10 relative hover:underline"
                   >
                     {item.name}
