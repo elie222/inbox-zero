@@ -328,6 +328,7 @@ async function executeMatchedRule(
         threadId: message.threadId,
         systemType: rule.systemType,
         provider: client,
+        logger,
       }),
       updateThreadTrackers({
         emailAccountId: emailAccount.id,

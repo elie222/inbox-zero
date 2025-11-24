@@ -123,6 +123,7 @@ const label: ActionFunction<{
     labelId: labelIdToUse,
     labelName: args.label || null,
     emailAccountId,
+    logger,
   });
 };
 

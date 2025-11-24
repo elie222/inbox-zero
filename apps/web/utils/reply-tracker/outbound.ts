@@ -82,6 +82,7 @@ export async function handleOutboundReply({
       messageId: message.id,
       systemType: aiResult.status,
       provider,
+      logger,
     }),
     updateThreadTrackers({
       emailAccountId: emailAccount.id,
