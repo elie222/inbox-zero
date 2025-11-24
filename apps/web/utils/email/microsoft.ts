@@ -1182,12 +1182,16 @@ export class OutlookProvider implements EmailProvider {
     messageId: string;
   }): Promise<boolean> {
     try {
+      const escapedFrom = escapeODataString(options.from);
+      const dateString = options.date.toISOString();
+
+      const sentToFilter = `(toRecipients/any(a: a/emailAddress/address eq '${escapedFrom}') and sentDateTime lt ${dateString})`;
+      const receivedFromFilter = `(from/emailAddress/address eq '${escapedFrom}' and receivedDateTime lt ${dateString})`;
+
       const response: { value: Message[] } = await this.client
         .getClient()
         .api("/me/messages")
-        .filter(
-          `(toRecipients/any(a:a/emailAddress/address eq '${escapeODataString(options.from)}') and sentDateTime lt ${options.date.toISOString()}) or (from/emailAddress/address eq '${escapeODataString(options.from)}' and receivedDateTime lt ${options.date.toISOString()})`,
-        )
+        .filter(`${sentToFilter} or ${receivedFromFilter}`)
         .top(2)
         .select("id")
         .get();
