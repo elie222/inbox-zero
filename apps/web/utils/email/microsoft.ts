@@ -1185,23 +1185,51 @@ export class OutlookProvider implements EmailProvider {
       const escapedFrom = escapeODataString(options.from);
       const dateString = options.date.toISOString();
 
-      const sentToFilter = `(toRecipients/any(a: a/emailAddress/address eq '${escapedFrom}') and sentDateTime lt ${dateString})`;
-      const receivedFromFilter = `(from/emailAddress/address eq '${escapedFrom}' and receivedDateTime lt ${dateString})`;
+      // Split into two parallel queries to avoid OData "invalid nodes" error
+      // when combining any() lambda with other filters.
+      const receivedFilter = `from/emailAddress/address eq '${escapedFrom}' and receivedDateTime lt ${dateString}`;
 
-      const response: { value: Message[] } = await this.client
-        .getClient()
-        .api("/me/messages")
-        .filter(`${sentToFilter} or ${receivedFromFilter}`)
-        .top(2)
-        .select("id")
-        .get();
+      // Use $search for sent messages as $filter on toRecipients is unreliable
+      const sentSearch = `"to:${options.from}"`;
 
-      // If we have any outgoing emails, or any incoming emails (excluding current message)
-      const hasPreviousEmail =
-        response.value.length > 0 &&
-        response.value.some((message) => message.id !== options.messageId);
+      const [sentResponse, receivedResponse] = await Promise.all([
+        this.client
+          .getClient()
+          .api("/me/messages")
+          .search(sentSearch)
+          .top(2)
+          .select("id")
+          .get()
+          .catch((error) => {
+            this.logger.error("Error checking sent messages", {
+              error,
+              search: sentSearch,
+            });
+            return { value: [] };
+          }),
 
-      return hasPreviousEmail;
+        this.client
+          .getClient()
+          .api("/me/messages")
+          .filter(receivedFilter)
+          .top(2)
+          .select("id")
+          .get()
+          .catch((error) => {
+            this.logger.error("Error checking received messages", {
+              error,
+              filter: receivedFilter,
+            });
+            return { value: [] };
+          }),
+      ]);
+
+      const messages = [
+        ...(sentResponse.value || []),
+        ...(receivedResponse.value || []),
+      ];
+
+      return messages.some((message) => message.id !== options.messageId);
     } catch (error) {
       this.logger.error("Error checking previous communications", {
         error,

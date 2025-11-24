@@ -150,4 +150,3 @@ try {
   console.error("Error running check:", error.message);
   process.exit(1);
 }
-
