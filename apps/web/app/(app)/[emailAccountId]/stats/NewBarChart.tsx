@@ -1,5 +1,5 @@
 import {
-  type config,
+  type ChartConfig,
   ChartContainer,
   ChartTooltip,
 } from "@/components/ui/chart";
@@ -7,11 +7,12 @@ import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from "recharts";
 
 interface NewBarChartProps {
   data: any[];
-  config: config;
+  config: ChartConfig;
   dataKeys?: string[];
   xAxisKey?: string;
   xAxisFormatter?: (value: any) => string;
   activeCharts?: string[];
+  period?: "day" | "week" | "month" | "year";
 }
 
 export function NewBarChart({
@@ -19,15 +20,40 @@ export function NewBarChart({
   config,
   dataKeys,
   xAxisKey = "date",
-  xAxisFormatter = (value) => {
+  xAxisFormatter,
+  activeCharts,
+  period,
+}: NewBarChartProps) {
+  const defaultFormatter = (value: any) => {
     const date = new Date(value);
+
+    if (period === "year") {
+      return date.toLocaleDateString("en-US", {
+        year: "numeric",
+      });
+    }
+
+    if (period === "month") {
+      return date.toLocaleDateString("en-US", {
+        month: "short",
+        year: "numeric",
+      });
+    }
+
+    if (period === "week" || period === "day") {
+      return date.toLocaleDateString("en-US", {
+        month: "short",
+        day: "numeric",
+      });
+    }
+
     return date.toLocaleDateString("en-US", {
       month: "short",
       day: "numeric",
     });
-  },
-  activeCharts,
-}: NewBarChartProps) {
+  };
+
+  const formatter = xAxisFormatter || defaultFormatter;
   const keys = dataKeys || Object.keys(config);
 
   return (
@@ -63,24 +89,28 @@ export function NewBarChart({
           axisLine={false}
           tickMargin={8}
           minTickGap={32}
-          tickFormatter={xAxisFormatter}
+          tickFormatter={formatter}
         />
         <YAxis tickLine={false} axisLine={false} tickMargin={8} />
         <ChartTooltip
           content={({ active, payload }) => {
             if (!active || !payload?.length) return null;
             const data = payload[0];
+            const date = new Date(data.payload[xAxisKey]);
+
+            let dateFormat: Intl.DateTimeFormatOptions;
+            if (period === "year") {
+              dateFormat = { year: "numeric" };
+            } else if (period === "month") {
+              dateFormat = { month: "short", year: "numeric" };
+            } else {
+              dateFormat = { month: "short", day: "numeric", year: "numeric" };
+            }
+
             return (
               <div className="rounded-lg border border-border/50 bg-background px-3 py-2 text-xs shadow-xl">
                 <p className="mb-2 font-medium">
-                  {new Date(data.payload[xAxisKey]).toLocaleDateString(
-                    "en-US",
-                    {
-                      month: "short",
-                      day: "numeric",
-                      year: "numeric",
-                    },
-                  )}
+                  {date.toLocaleDateString("en-US", dateFormat)}
                 </p>
                 {payload.map((entry) => (
                   <div

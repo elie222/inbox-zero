@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { parse } from "date-fns";
+import { parse, format } from "date-fns";
 import { Card, CardContent } from "@/components/ui/card";
 import type { ChartConfig } from "@/components/ui/chart";
 import type { StatsByWeekResponse } from "@/app/api/user/stats/by-period/route";
@@ -25,14 +25,17 @@ function getActiveChart(activChart: keyof typeof chartConfig): string[] {
   return [];
 }
 
-export function MainStatChart(props: { data: StatsByWeekResponse }) {
+export function MainStatChart(props: {
+  data: StatsByWeekResponse;
+  period: "day" | "week" | "month" | "year";
+}) {
   const [activeChart, setActiveChart] =
     React.useState<keyof typeof chartConfig>("received");
 
   const chartData = React.useMemo(() => {
     return props.data.result.map((item) => {
-      const date = parse(item.startOfPeriod, "MMM dd, y", new Date());
-      const dateStr = date.toISOString().split("T")[0];
+      const date = parse(item.startOfPeriod, "MMM dd, yyyy", new Date());
+      const dateStr = format(date, "yyyy-MM-dd");
 
       return {
         date: dateStr,
@@ -93,6 +96,7 @@ export function MainStatChart(props: { data: StatsByWeekResponse }) {
           data={chartData}
           config={chartConfig}
           activeCharts={getActiveChart(activeChart)}
+          period={props.period}
         />
       </CardContent>
     </Card>

@@ -43,7 +43,7 @@ export function StatsSummary(props: {
       error={error}
       loadingComponent={<Skeleton className="h-[405px] rounded" />}
     >
-      {data && <MainStatChart data={data} />}
+      {data && <MainStatChart data={data} period={period} />}
     </LoadingContent>
   );
 }
