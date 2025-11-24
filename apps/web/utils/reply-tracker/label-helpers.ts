@@ -1,5 +1,5 @@
 import type { EmailProvider, EmailLabel } from "@/utils/email/types";
-import { createScopedLogger, type Logger } from "@/utils/logger";
+import type { Logger } from "@/utils/logger";
 import prisma from "@/utils/prisma";
 import { ActionType } from "@/generated/prisma/enums";
 import {
