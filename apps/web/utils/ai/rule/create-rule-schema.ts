@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { ActionType, LogicalOperator } from "@prisma/client";
+import { ActionType, LogicalOperator } from "@/generated/prisma/enums";
 import { delayInMinutesSchema } from "@/utils/actions/rule.validation";
 import { isMicrosoftProvider } from "@/utils/email/provider-types";
 import { isDefined } from "@/utils/types";

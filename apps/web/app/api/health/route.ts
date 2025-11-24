@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import prisma from "@/utils/prisma";
-import { ExecutedRuleStatus } from "@prisma/client";
+import { ExecutedRuleStatus } from "@/generated/prisma/enums";
 import { createScopedLogger } from "@/utils/logger";
 import { env } from "@/env";
 

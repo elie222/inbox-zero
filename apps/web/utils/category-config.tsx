@@ -5,7 +5,7 @@ import {
   getRuleConfig,
   getRuleLabel,
 } from "@/utils/rule/consts";
-import { SystemType } from "@prisma/client";
+import { SystemType } from "@/generated/prisma/enums";
 import {
   MailIcon,
   NewspaperIcon,

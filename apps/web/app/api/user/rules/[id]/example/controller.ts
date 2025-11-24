@@ -8,7 +8,7 @@ import {
 } from "@/utils/ai/choose-rule/match-rules";
 import { fetchPaginatedMessages } from "@/app/api/user/group/[groupId]/messages/controller";
 import { isGroupRule, isAIRule, isStaticRule } from "@/utils/condition";
-import { LogicalOperator } from "@prisma/client";
+import { LogicalOperator } from "@/generated/prisma/enums";
 import type { EmailProvider } from "@/utils/email/types";
 import type { Logger } from "@/utils/logger";
 

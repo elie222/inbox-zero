@@ -19,9 +19,31 @@ export async function getDraft(draftId: string, gmail: gmail_v1.Gmail) {
     const message = parseMessage(response.data.message as MessageWithPayload);
     return message;
   } catch (error) {
-    if (isGmailError(error) && error.code === 404) return null;
+    if (isNotFoundError(error)) {
+      logger.info("Draft not found, returning null.", { draftId });
+      return null;
+    }
     throw error;
   }
+}
+
+function isNotFoundError(error: unknown): boolean {
+  if (isGmailError(error) && error.code === 404) return true;
+
+  // biome-ignore lint/suspicious/noExplicitAny: simple
+  const err = error as any;
+
+  const statusCode =
+    err.response?.data?.error?.code ??
+    err.response?.status ??
+    err.status ??
+    err.code ??
+    err.error?.response?.data?.error?.code ??
+    err.error?.response?.status ??
+    err.error?.status ??
+    err.error?.code;
+
+  return statusCode === 404;
 }
 
 export async function deleteDraft(gmail: gmail_v1.Gmail, draftId: string) {

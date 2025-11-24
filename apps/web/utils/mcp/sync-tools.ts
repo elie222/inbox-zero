@@ -2,7 +2,7 @@ import { listMcpTools } from "@/utils/mcp/list-tools";
 import { getIntegration, type IntegrationKey } from "@/utils/mcp/integrations";
 import prisma from "@/utils/prisma";
 import { createScopedLogger } from "@/utils/logger";
-import type { Prisma } from "@prisma/client";
+import type { Prisma } from "@/generated/prisma/client";
 
 /**
  * Syncs tools from an MCP integration server to the database

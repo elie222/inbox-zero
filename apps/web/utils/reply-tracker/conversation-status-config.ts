@@ -1,4 +1,4 @@
-import { SystemType } from "@prisma/client";
+import { SystemType } from "@/generated/prisma/enums";
 
 export const CONVERSATION_STATUS_TYPES: SystemType[] = [
   SystemType.TO_REPLY,

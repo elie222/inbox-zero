@@ -1,4 +1,5 @@
-import { ActionType, type ExecutedRule } from "@prisma/client";
+import { ActionType } from "@/generated/prisma/enums";
+import type { ExecutedRule } from "@/generated/prisma/client";
 import { createScopedLogger, type Logger } from "@/utils/logger";
 import { callWebhook } from "@/utils/webhook";
 import type { ActionItem, EmailForAction } from "@/utils/ai/types";
@@ -122,6 +123,7 @@ const label: ActionFunction<{
     labelId: labelIdToUse,
     labelName: args.label || null,
     emailAccountId,
+    logger,
   });
 };
 
