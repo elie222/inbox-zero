@@ -35,7 +35,7 @@ export async function handleWebhookError(
   }
 
   logger.error("Unhandled error", {
-    error: error instanceof Error ? error.message : error,
+    error,
     url,
   });
 }

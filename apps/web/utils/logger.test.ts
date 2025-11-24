@@ -143,4 +143,40 @@ describe("Logger", () => {
     expect(loggedMessage).toContain("Invalid token");
     expect(loggedMessage).toContain("/api/endpoint");
   });
+
+  it("should handle complex nested error objects without [object Object]", () => {
+    const logger = createScopedLogger("test");
+
+    // Complex error like Gmail API error
+    const complexError = {
+      error: {
+        response: {
+          data: {
+            error: {
+              code: 404,
+              message: "Requested entity was not found.",
+              status: "NOT_FOUND",
+            },
+          },
+        },
+        code: 404,
+        message: "Requested entity was not found.",
+      },
+      attemptNumber: 1,
+      retriesLeft: 5,
+    };
+
+    logger.error("Error finding draft", { error: complexError });
+
+    const loggedMessage = consoleErrorSpy.mock.calls[0][0];
+
+    // Should not have [object Object]
+    expect(loggedMessage).not.toContain("[object Object]");
+
+    // Should contain important details
+    expect(loggedMessage).toContain("404");
+    expect(loggedMessage).toContain("Requested entity was not found");
+    expect(loggedMessage).toContain("attemptNumber");
+    expect(loggedMessage).toContain("retriesLeft");
+  });
 });
