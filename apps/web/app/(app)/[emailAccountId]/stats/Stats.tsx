@@ -78,6 +78,13 @@ export function Stats() {
     <PageWrapper>
       <PageHeading>{title}</PageHeading>
       <ActionBar className="mt-6" rightContent={<LoadStatsButton />}>
+        <DatePickerWithRange
+          dateRange={dateRange}
+          onSetDateRange={setDateRange}
+          selectOptions={selectOptions}
+          dateDropdown={dateDropdown}
+          onSetDateDropdown={onSetDateDropdown}
+        />
         <DetailedStatsFilter
           label={`Group by ${period}`}
           icon={<LayoutGrid className="mr-2 h-4 w-4" />}
@@ -103,13 +110,6 @@ export function Stats() {
               setChecked: () => setPeriod("year"),
             },
           ]}
-        />
-        <DatePickerWithRange
-          dateRange={dateRange}
-          onSetDateRange={setDateRange}
-          selectOptions={selectOptions}
-          dateDropdown={dateDropdown}
-          onSetDateDropdown={onSetDateDropdown}
         />
       </ActionBar>
       <div className="grid gap-2 sm:gap-4 mt-2 sm:mt-4">
