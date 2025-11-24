@@ -14,11 +14,12 @@ import { MainStatChart } from "@/app/(app)/[emailAccountId]/stats/MainStatChart"
 export function StatsSummary(props: {
   dateRange?: DateRange;
   refreshInterval: number;
+  period: "day" | "week" | "month" | "year";
 }) {
-  const { dateRange } = props;
+  const { dateRange, period } = props;
 
   const params: StatsByWeekParams = {
-    period: "week",
+    period,
     ...getDateRangeParams(dateRange),
   };
 
