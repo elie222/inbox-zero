@@ -248,11 +248,15 @@ export const adminConvertGmailUrlAction = adminActionClient
       throw new SafeError("Could not find thread for message");
     }
 
-    const messageIds = thread.messages?.map((m) => m.id) || [];
+    const messages =
+      thread.messages?.map((m) => ({
+        id: m.id,
+        date: m.internalDate || null,
+      })) || [];
 
     return {
       threadId: thread.id,
-      messageIds: messageIds,
+      messages: messages,
       rfc822MessageId: cleanMessageId,
     };
   });
