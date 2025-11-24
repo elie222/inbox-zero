@@ -1190,15 +1190,19 @@ export class OutlookProvider implements EmailProvider {
       const receivedFilter = `from/emailAddress/address eq '${escapedFrom}' and receivedDateTime lt ${dateString}`;
 
       // Use $search for sent messages as $filter on toRecipients is unreliable
-      const sentSearch = `"to:${options.from}"`;
+      // We escape double quotes for the KQL search query
+      const escapedSearchFrom = options.from
+        .replace(/\\/g, "\\\\")
+        .replace(/"/g, '\\"');
+      const sentSearch = `"to:${escapedSearchFrom}"`;
 
       const [sentResponse, receivedResponse] = await Promise.all([
         this.client
           .getClient()
           .api("/me/messages")
           .search(sentSearch)
-          .top(2)
-          .select("id")
+          .top(5) // Increase top to account for potential future messages we filter out
+          .select("id,sentDateTime")
           .get()
           .catch((error) => {
             this.logger.error("Error checking sent messages", {
@@ -1224,8 +1228,16 @@ export class OutlookProvider implements EmailProvider {
           }),
       ]);
 
+      // Filter sent messages by date since $search doesn't support date filtering well
+      const validSentMessages = (sentResponse.value || []).filter(
+        (msg: Message) => {
+          if (!msg.sentDateTime) return false;
+          return new Date(msg.sentDateTime) < options.date;
+        },
+      );
+
       const messages = [
-        ...(sentResponse.value || []),
+        ...validSentMessages,
         ...(receivedResponse.value || []),
       ];
 
