@@ -17,6 +17,7 @@ import { ActionBar } from "@/app/(app)/[emailAccountId]/stats/ActionBar";
 import { DetailedStatsFilter } from "@/app/(app)/[emailAccountId]/stats/DetailedStatsFilter";
 import { LayoutGrid } from "lucide-react";
 import { DatePickerWithRange } from "@/components/DatePickerWithRange";
+import { TopicDistribution } from "@/app/(app)/[emailAccountId]/stats/TopicDistribution";
 
 const selectOptions = [
   { label: "Last week", value: "7" },
@@ -122,6 +123,9 @@ export function Stats() {
           dateRange={dateRange}
           refreshInterval={refreshInterval}
         />
+        <div className="grid grid-cols-2 gap-4">
+          <TopicDistribution />
+        </div>
         <RuleStatsChart
           dateRange={dateRange}
           title="Assistant processed emails"

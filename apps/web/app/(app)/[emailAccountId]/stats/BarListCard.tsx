@@ -16,11 +16,19 @@ import { cn } from "@/utils";
 
 interface BarListCardProps {
   tabs: { id: string; label: string; data: any }[]; // TODO: add type
-  icon: React.ReactNode;
+  icon?: React.ReactNode;
   title: string;
+  onItemClick?: (item: any) => void;
+  hideIcons?: boolean;
 }
 
-export function BarListCard({ tabs, icon, title }: BarListCardProps) {
+export function BarListCard({
+  tabs,
+  icon,
+  title,
+  onItemClick,
+  hideIcons,
+}: BarListCardProps) {
   const [selected, setSelected] = useState<string | null>(
     tabs?.length > 0 ? tabs[0]?.id : null,
   );
@@ -35,7 +43,7 @@ export function BarListCard({ tabs, icon, title }: BarListCardProps) {
             selected={selected}
           />
           <div className="flex items-center gap-2">
-            {icon}
+            {icon && icon}
             <p className="text-xs text-neutral-500">{title.toUpperCase()}</p>
           </div>
         </div>
@@ -49,6 +57,8 @@ export function BarListCard({ tabs, icon, title }: BarListCardProps) {
         />
         <HorizontalBarChart
           data={tabs.find((d) => d.id === selected)?.data || []}
+          onItemClick={onItemClick}
+          hideIcon={hideIcons}
         />
         <div className="absolute w-full left-0 bottom-0 pb-6 z-30">
           {tabs.find((d) => d.id === selected)?.data.length > 0 && (
@@ -71,6 +81,8 @@ export function BarListCard({ tabs, icon, title }: BarListCardProps) {
                   <div className="max-h-[60vh] overflow-y-auto p-6">
                     <HorizontalBarChart
                       data={tabs.find((d) => d.id === selected)?.data || []}
+                      onItemClick={onItemClick}
+                      hideIcon={hideIcons}
                     />
                   </div>
                 </DialogContent>
