@@ -83,6 +83,7 @@ const costs: Record<
   "claude-3-5-sonnet-20240620": sonnet,
   "claude-3-5-sonnet-20241022": sonnet,
   "claude-3-7-sonnet-20250219": sonnet,
+  "claude-sonnet-4-5-20250929": sonnet,
   "anthropic/claude-3.5-sonnet": sonnet,
   "anthropic/claude-3.7-sonnet": sonnet,
   "anthropic/claude-sonnet-4": sonnet,

@@ -163,7 +163,7 @@ function selectModel(
           backupModel: getBackupModel(aiApiKey),
         };
       } else {
-        const modelName = aiModel || "claude-3-7-sonnet-20250219";
+        const modelName = aiModel || "claude-sonnet-4-5-20250929";
         return {
           provider: Provider.ANTHROPIC,
           modelName,
