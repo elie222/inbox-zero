@@ -55,7 +55,7 @@ cp apps/web/.env.example apps/web/.env
 | `OPENROUTER_API_KEY` | No | OpenRouter API key | — |
 | `AI_GATEWAY_API_KEY` | No | AI Gateway API key | — |
 | **AWS Bedrock** ||||
-| `BEDROCK_ACCESS_KEY` | No | AWS access key for Bedrock. See more [here](https://ai-sdk.dev/providers/ai-sdk-providers/amazon-bedrock). | — |
+| `BEDROCK_ACCESS_KEY` | No | AWS access key for Bedrock. See [AI SDK Bedrock documentation](https://ai-sdk.dev/providers/ai-sdk-providers/amazon-bedrock). | — |
 | `BEDROCK_SECRET_KEY` | No | AWS secret key for Bedrock | — |
 | `BEDROCK_REGION` | No | AWS region for Bedrock | `us-west-2` |
 | **Ollama (Local LLM)** ||||

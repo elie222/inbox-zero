@@ -323,6 +323,10 @@ function selectDefaultModel(userAi: UserAIFields): SelectModel {
 function getProviderApiKey(provider: string) {
   const providerApiKeys: Record<string, string | undefined> = {
     [Provider.ANTHROPIC]: env.ANTHROPIC_API_KEY,
+    [Provider.BEDROCK]:
+      env.BEDROCK_ACCESS_KEY && env.BEDROCK_SECRET_KEY
+        ? "bedrock-credentials"
+        : undefined,
     [Provider.OPEN_AI]: env.OPENAI_API_KEY,
     [Provider.GOOGLE]: env.GOOGLE_API_KEY,
     [Provider.GROQ]: env.GROQ_API_KEY,
