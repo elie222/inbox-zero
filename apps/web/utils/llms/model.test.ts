@@ -72,6 +72,9 @@ describe("Models", () => {
   beforeEach(() => {
     vi.resetAllMocks();
     vi.mocked(env).DEFAULT_LLM_PROVIDER = "openai";
+    vi.mocked(env).DEFAULT_LLM_MODEL = undefined;
+    vi.mocked(env).BEDROCK_ACCESS_KEY = "";
+    vi.mocked(env).BEDROCK_SECRET_KEY = "";
   });
 
   describe("getModel", () => {
