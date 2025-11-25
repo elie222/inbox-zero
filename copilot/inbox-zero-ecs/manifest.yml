@@ -39,7 +39,7 @@ variables:                    # Pass environment variables as key value pairs.
   NEXT_PUBLIC_BASE_URL: # YOUR_DOMAIN, e.g. https://getinboxzero.com (with http or https)
   DEFAULT_LLM_PROVIDER: 
 
-# Set these secerts at AWS Systems Manager (SSM) Parameter Store for extra security.
+# Set these secrets at AWS Systems Manager (SSM) Parameter Store for extra security.
 # Alternatively, you can set them as environment variables in the section above.
 secrets:
   AUTH_SECRET: #

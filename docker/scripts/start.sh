@@ -13,9 +13,18 @@ if [ -n "$NEXT_PUBLIC_BASE_URL" ]; then
 fi
 
 if [ -n "$DATABASE_URL" ]; then
-    prisma migrate deploy --schema=./apps/web/prisma/schema.prisma || {
-        echo "⚠️  Migration failed, but continuing startup (database might be unavailable or migrations already applied)"
-    }
+    echo "🔄 Running database migrations..."
+    if timeout 320 prisma migrate deploy --schema=./apps/web/prisma/schema.prisma; then
+        echo "✅ Database migrations completed successfully"
+    else
+        EXIT_CODE=$?
+        if [ $EXIT_CODE -eq 124 ]; then
+            echo "⚠️  Migration timeout (300s) exceeded"
+        else
+            echo "⚠️  Migration failed with exit code $EXIT_CODE"
+        fi
+        echo "⚠️  Continuing startup (database might be unavailable or migrations already applied)"
+    fi
 fi
 
 # Start the Next.js application
