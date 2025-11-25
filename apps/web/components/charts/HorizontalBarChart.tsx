@@ -40,18 +40,24 @@ export function HorizontalBarChart({
                 />
                 <div className="flex items-center gap-2">
                   <DomainIcon domain={domain} />
-                  <a
-                    href={item.href}
-                    target={item.target}
-                    rel={
-                      item.target === "_blank"
-                        ? "noopener noreferrer"
-                        : undefined
-                    }
-                    className="text-sm text-gray-900 truncate block z-10 relative hover:underline"
-                  >
-                    {item.name}
-                  </a>
+                  {item.href ? (
+                    <a
+                      href={item.href}
+                      target={item.target}
+                      rel={
+                        item.target === "_blank"
+                          ? "noopener noreferrer"
+                          : undefined
+                      }
+                      className="text-sm text-gray-900 truncate block z-10 relative hover:underline"
+                    >
+                      {item.name}
+                    </a>
+                  ) : (
+                    <span className="text-sm text-gray-900 truncate block z-10 relative">
+                      {item.name}
+                    </span>
+                  )}
                 </div>
               </div>
             </div>
