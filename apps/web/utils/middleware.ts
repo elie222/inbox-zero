@@ -305,6 +305,12 @@ async function emailProviderMiddleware(
       emailAccountId,
       userId,
     });
+
+    // Re-throw SafeError so it gets handled with the user-friendly message
+    if (error instanceof SafeError) {
+      throw error;
+    }
+
     return NextResponse.json(
       { error: "Failed to initialize email provider" },
       { status: 500 },

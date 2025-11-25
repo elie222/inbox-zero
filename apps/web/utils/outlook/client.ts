@@ -143,6 +143,40 @@ export const getOutlookClientWithRefresh = async ({
         );
       }
 
+      // Microsoft identity platform errors that require user re-authentication:
+      // AADSTS70000 = Scopes unauthorized or expired
+      // AADSTS70008 = Refresh token expired due to inactivity
+      // AADSTS70011 = Invalid scope
+      // AADSTS700082 = Refresh token expired
+      // AADSTS50173 = Invalid grant (refresh token revoked)
+      // AADSTS65001 = User hasn't consented to permissions
+      // AADSTS500011 = Resource principal not found (scope issue)
+      // AADSTS54005 = Authorization code already redeemed
+      // invalid_grant = General token refresh failure
+      const requiresReauth =
+        errorMessage.includes("AADSTS70000") ||
+        errorMessage.includes("AADSTS70008") ||
+        errorMessage.includes("AADSTS70011") ||
+        errorMessage.includes("AADSTS700082") ||
+        errorMessage.includes("AADSTS50173") ||
+        errorMessage.includes("AADSTS65001") ||
+        errorMessage.includes("AADSTS500011") ||
+        errorMessage.includes("AADSTS54005") ||
+        errorMessage.includes("invalid_grant");
+
+      if (requiresReauth) {
+        logger.warn(
+          "Microsoft authorization expired - user needs to reconnect",
+          {
+            emailAccountId,
+            errorMessage,
+          },
+        );
+        throw new SafeError(
+          "Your Microsoft authorization has expired. Please sign out and log in again to reconnect your account.",
+        );
+      }
+
       throw new Error(errorMessage);
     }
 
