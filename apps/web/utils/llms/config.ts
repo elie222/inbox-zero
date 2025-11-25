@@ -7,6 +7,7 @@ export const DEFAULT_PROVIDER = "DEFAULT";
 export const Provider = {
   OPEN_AI: "openai",
   ANTHROPIC: "anthropic",
+  BEDROCK: "bedrock",
   GOOGLE: "google",
   GROQ: "groq",
   OPENROUTER: "openrouter",
@@ -17,6 +18,7 @@ export const Provider = {
 export const providerOptions: { label: string; value: string }[] = [
   { label: "Default", value: DEFAULT_PROVIDER },
   { label: "Anthropic", value: Provider.ANTHROPIC },
+  { label: "AWS Bedrock", value: Provider.BEDROCK },
   { label: "OpenAI", value: Provider.OPEN_AI },
   { label: "Google", value: Provider.GOOGLE },
   { label: "Groq", value: Provider.GROQ },

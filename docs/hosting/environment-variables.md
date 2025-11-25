@@ -8,16 +8,6 @@ This document provides a comprehensive reference for all environment variables r
 cp apps/web/.env.example apps/web/.env
 ```
 
-## Generating Secrets
-
-```bash
-# For 32-character hex secrets (AUTH_SECRET, EMAIL_ENCRYPT_SECRET, INTERNAL_API_KEY)
-openssl rand -hex 32
-
-# For 16-character hex salts (EMAIL_ENCRYPT_SALT)
-openssl rand -hex 16
-```
-
 ## All Environment Variables
 
 | Variable | Required | Description | Default |
@@ -25,20 +15,19 @@ openssl rand -hex 16
 | **Core** ||||
 | `DATABASE_URL` | Yes | PostgreSQL connection string | — |
 | `NEXT_PUBLIC_BASE_URL` | Yes | Public URL where app is hosted (e.g., `https://yourdomain.com`) | — |
-| `INTERNAL_API_KEY` | Yes | Secret key for internal API calls | — |
-| `AUTH_SECRET` | No | NextAuth secret (random string) | — |
-| `NEXTAUTH_SECRET` | No | Alternative to AUTH_SECRET | — |
+| `INTERNAL_API_KEY` | Yes | Secret key for internal API calls. Generate with `openssl rand -hex 32` | — |
+| `AUTH_SECRET` | Yes | better-auth secret. Generate with `openssl rand -hex 32` | — |
 | `NODE_ENV` | No | Environment mode | `development` |
 | **Encryption** ||||
-| `EMAIL_ENCRYPT_SECRET` | Yes | Secret for encrypting OAuth tokens (32 hex chars) | — |
-| `EMAIL_ENCRYPT_SALT` | Yes | Salt for encrypting OAuth tokens (16 hex chars) | — |
+| `EMAIL_ENCRYPT_SECRET` | Yes | Secret for encrypting OAuth tokens. Generate with `openssl rand -hex 32` | — |
+| `EMAIL_ENCRYPT_SALT` | Yes | Salt for encrypting OAuth tokens. Generate with `openssl rand -hex 16` | — |
 | **Google OAuth** ||||
 | `GOOGLE_CLIENT_ID` | Yes | OAuth client ID from Google Cloud Console | — |
 | `GOOGLE_CLIENT_SECRET` | Yes | OAuth client secret from Google Cloud Console | — |
 | **Microsoft OAuth** ||||
 | `MICROSOFT_CLIENT_ID` | No | OAuth client ID from Azure Portal | — |
 | `MICROSOFT_CLIENT_SECRET` | No | OAuth client secret from Azure Portal | — |
-| `MICROSOFT_WEBHOOK_CLIENT_STATE` | No | Secret for Microsoft webhook verification | — |
+| `MICROSOFT_WEBHOOK_CLIENT_STATE` | No | Secret for Microsoft webhook verification. Generate with `openssl rand -hex 32` | — |
 | **Google PubSub** ||||
 | `GOOGLE_PUBSUB_TOPIC_NAME` | Yes | Full topic name (e.g., `projects/my-project/topics/gmail`) | — |
 | `GOOGLE_PUBSUB_VERIFICATION_TOKEN` | No | Token for webhook verification | — |

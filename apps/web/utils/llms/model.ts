@@ -140,39 +140,34 @@ function selectModel(
       // };
     }
 
-    // this is messy. better to have two providers. one for bedrock and one for anthropic
+    case Provider.BEDROCK: {
+      const modelName =
+        aiModel || "global.anthropic.claude-sonnet-4-5-20250929-v1:0";
+      return {
+        provider: Provider.BEDROCK,
+        modelName,
+        // Based on: https://github.com/vercel/ai/issues/4996#issuecomment-2751630936
+        model: createAmazonBedrock({
+          region: env.BEDROCK_REGION,
+          credentialProvider: async () => ({
+            accessKeyId: env.BEDROCK_ACCESS_KEY!,
+            secretAccessKey: env.BEDROCK_SECRET_KEY!,
+            sessionToken: undefined,
+          }),
+        })(modelName),
+        backupModel: getBackupModel(aiApiKey),
+      };
+    }
     case Provider.ANTHROPIC: {
-      if (env.BEDROCK_ACCESS_KEY && env.BEDROCK_SECRET_KEY && !aiApiKey) {
-        const modelName =
-          aiModel || "global.anthropic.claude-sonnet-4-5-20250929-v1:0";
-        return {
-          provider: Provider.ANTHROPIC,
-          modelName,
-          // Based on: https://github.com/vercel/ai/issues/4996#issuecomment-2751630936
-          model: createAmazonBedrock({
-            // accessKeyId: env.BEDROCK_ACCESS_KEY,
-            // secretAccessKey: env.BEDROCK_SECRET_KEY,
-            // sessionToken: undefined,
-            region: env.BEDROCK_REGION,
-            credentialProvider: async () => ({
-              accessKeyId: env.BEDROCK_ACCESS_KEY!,
-              secretAccessKey: env.BEDROCK_SECRET_KEY!,
-              sessionToken: undefined,
-            }),
-          })(modelName),
-          backupModel: getBackupModel(aiApiKey),
-        };
-      } else {
-        const modelName = aiModel || "claude-sonnet-4-5-20250929";
-        return {
-          provider: Provider.ANTHROPIC,
-          modelName,
-          model: createAnthropic({
-            apiKey: aiApiKey || env.ANTHROPIC_API_KEY,
-          })(modelName),
-          backupModel: getBackupModel(aiApiKey),
-        };
-      }
+      const modelName = aiModel || "claude-sonnet-4-5-20250929";
+      return {
+        provider: Provider.ANTHROPIC,
+        modelName,
+        model: createAnthropic({
+          apiKey: aiApiKey || env.ANTHROPIC_API_KEY,
+        })(modelName),
+        backupModel: getBackupModel(aiApiKey),
+      };
     }
     default: {
       logger.error("LLM provider not supported", { aiProvider });

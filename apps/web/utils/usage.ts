@@ -45,6 +45,10 @@ const sonnet = {
   input: 3 / 1_000_000,
   output: 15 / 1_000_000,
 };
+const haiku = {
+  input: 1 / 1_000_000,
+  output: 5 / 1_000_000,
+};
 
 const gemini2_5flash = {
   input: 0.15 / 1_000_000,
@@ -88,6 +92,7 @@ const costs: Record<
   "anthropic/claude-3.7-sonnet": sonnet,
   "anthropic/claude-sonnet-4": sonnet,
   "anthropic/claude-sonnet-4.5": sonnet,
+  "anthropic/claude-haiku-4.5": haiku,
   // https://aws.amazon.com/bedrock/pricing/
   "anthropic.claude-3-5-sonnet-20240620-v1:0": sonnet,
   "anthropic.claude-3-5-sonnet-20241022-v2:0": sonnet,
@@ -95,6 +100,7 @@ const costs: Record<
   "us.anthropic.claude-3-7-sonnet-20250219-v1:0": sonnet,
   "us.anthropic.claude-sonnet-4-20250514-v1:0": sonnet,
   "global.anthropic.claude-sonnet-4-5-20250929-v1:0": sonnet,
+  "global.anthropic.claude-haiku-4-5-20251001-v1:0": haiku,
   "anthropic.claude-3-5-haiku-20241022-v1:0": {
     input: 0.8 / 1_000_000,
     output: 4 / 1_000_000,
