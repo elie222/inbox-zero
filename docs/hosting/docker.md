@@ -46,7 +46,7 @@ Edit the environment file with your production settings:
 nano apps/web/.env
 ```
 
-For detailed configuration instructions including all required environment variables, OAuth setup, and LLM configuration, see the [main README.md configuration section](../../README.md#updating-env-file-secrets).
+For detailed configuration instructions, see the [Environment Variables Reference](./environment-variables.md).
 
 #### Using External Database Services (Optional)
 
