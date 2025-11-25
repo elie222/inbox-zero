@@ -5,7 +5,7 @@ import { parse, format } from "date-fns";
 import { Card, CardContent } from "@/components/ui/card";
 import type { ChartConfig } from "@/components/ui/chart";
 import type { StatsByWeekResponse } from "@/app/api/user/stats/by-period/route";
-import { NewBarChart } from "@/app/(app)/[emailAccountId]/stats/NewBarChart";
+import { BarChart } from "@/app/(app)/[emailAccountId]/stats/BarChart";
 import { COLORS } from "@/utils/colors";
 
 const chartConfig = {
@@ -92,7 +92,7 @@ export function MainStatChart(props: {
         </div>
       </div>
       <CardContent className="px-2 sm:p-6">
-        <NewBarChart
+        <BarChart
           data={chartData}
           config={chartConfig}
           activeCharts={getActiveChart(activeChart)}

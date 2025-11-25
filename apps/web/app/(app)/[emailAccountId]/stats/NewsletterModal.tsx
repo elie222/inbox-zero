@@ -1,6 +1,6 @@
 import useSWR from "swr";
 import type { DateRange } from "react-day-picker";
-import { NewBarChart } from "@/app/(app)/[emailAccountId]/stats/NewBarChart";
+import { BarChart } from "@/app/(app)/[emailAccountId]/stats/BarChart";
 import Link from "next/link";
 import { ExternalLinkIcon } from "lucide-react";
 import { usePostHog } from "posthog-js/react";
@@ -151,7 +151,7 @@ function EmailsChart(props: {
   return (
     <LoadingContent loading={isLoading} error={error}>
       {data && (
-        <NewBarChart
+        <BarChart
           data={data.result}
           config={{
             Emails: { label: "Emails", color: COLORS.analytics.green },

@@ -22,7 +22,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { getDateRangeParams } from "./params";
 import { useOrgSWR } from "@/hooks/useOrgSWR";
 import type { RuleStatsResponse } from "@/app/api/user/stats/rule-stats/route";
-import { NewBarChart } from "./NewBarChart";
+import { BarChart } from "./BarChart";
 import { CardBasic } from "@/components/ui/card";
 import { COLORS } from "@/utils/colors";
 
@@ -108,7 +108,7 @@ export function RuleStatsChart({ dateRange, title }: RuleStatsChartProps) {
             </div>
 
             <TabsContent value="bar" className="mt-4">
-              <NewBarChart
+              <BarChart
                 data={barChartData}
                 config={barChartConfig}
                 dataKeys={["executed"]}

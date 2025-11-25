@@ -5,7 +5,7 @@ import { LoadingContent } from "@/components/LoadingContent";
 import { Skeleton } from "@/components/ui/skeleton";
 import { CardBasic } from "@/components/ui/card";
 import type { EmailActionStatsResponse } from "@/app/api/user/stats/email-actions/route";
-import { NewBarChart } from "./NewBarChart";
+import { BarChart } from "./BarChart";
 import type { ChartConfig } from "@/components/ui/chart";
 import { COLORS } from "@/utils/colors";
 
@@ -29,7 +29,7 @@ export function EmailActionsAnalytics() {
         <CardBasic>
           <p>How many emails you've archived and deleted with Inbox Zero</p>
           <div className="mt-4">
-            <NewBarChart
+            <BarChart
               data={data.result}
               config={chartConfig}
               dataKeys={["Archived", "Deleted"]}

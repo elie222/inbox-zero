@@ -3,19 +3,25 @@ import {
   ChartContainer,
   ChartTooltip,
 } from "@/components/ui/chart";
-import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from "recharts";
+import {
+  Bar,
+  BarChart as RechartsBarChart,
+  CartesianGrid,
+  XAxis,
+  YAxis,
+} from "recharts";
 
-interface NewBarChartProps {
-  data: any[];
+interface BarChartProps {
+  data: { date: string; [key: string]: number }[];
   config: ChartConfig;
   dataKeys?: string[];
   xAxisKey?: string;
-  xAxisFormatter?: (value: any) => string;
+  xAxisFormatter?: (value: string) => string;
   activeCharts?: string[];
   period?: "day" | "week" | "month" | "year";
 }
 
-export function NewBarChart({
+export function BarChart({
   data,
   config,
   dataKeys,
@@ -23,7 +29,7 @@ export function NewBarChart({
   xAxisFormatter,
   activeCharts,
   period,
-}: NewBarChartProps) {
+}: BarChartProps) {
   const defaultFormatter = (value: any) => {
     const date = new Date(value);
 
@@ -58,7 +64,11 @@ export function NewBarChart({
 
   return (
     <ChartContainer config={config} className="aspect-auto h-[250px] w-full">
-      <BarChart accessibilityLayer data={data} margin={{ left: 12, right: 12 }}>
+      <RechartsBarChart
+        accessibilityLayer
+        data={data}
+        margin={{ left: 12, right: 12 }}
+      >
         <defs>
           {keys.map((key) => (
             <linearGradient
@@ -146,7 +156,7 @@ export function NewBarChart({
             hide={activeCharts ? !activeCharts.includes(key) : false}
           />
         ))}
-      </BarChart>
+      </RechartsBarChart>
     </ChartContainer>
   );
 }
