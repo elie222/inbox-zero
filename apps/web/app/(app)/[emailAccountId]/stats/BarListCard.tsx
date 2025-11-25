@@ -29,6 +29,8 @@ export function BarListCard({ tabs, icon, title }: BarListCardProps) {
     tabs?.length > 0 ? tabs[0]?.id : null,
   );
 
+  const selectedTabData = tabs.find((d) => d.id === selected)?.data || [];
+
   return (
     <Card className="h-full bg-background relative">
       <CardHeader className="p-0">
@@ -51,37 +53,46 @@ export function BarListCard({ tabs, icon, title }: BarListCardProps) {
             "bg-gradient-to-b from-transparent to-white",
           )}
         />
-        <HorizontalBarChart
-          data={tabs.find((d) => d.id === selected)?.data || []}
-        />
-        <div className="absolute w-full left-0 bottom-0 pb-6 z-30">
-          {(tabs.find((d) => d.id === selected)?.data || []).length > 0 && (
-            <div className="flex justify-center">
-              <Dialog>
-                <DialogTrigger asChild>
-                  <Button variant="outline" size="xs-2">
-                    View more
-                  </Button>
-                </DialogTrigger>
-                <DialogContent className="max-w-2xl p-0 gap-0">
-                  <DialogHeader className="px-6 py-4 border-b border-neutral-200">
-                    <div className="flex items-center gap-2">
-                      {icon}
-                      <DialogTitle className="text-base text-neutral-900 font-medium">
-                        {title}
-                      </DialogTitle>
-                    </div>
-                  </DialogHeader>
-                  <div className="max-h-[60vh] overflow-y-auto p-6">
-                    <HorizontalBarChart
-                      data={tabs.find((d) => d.id === selected)?.data || []}
-                    />
-                  </div>
-                </DialogContent>
-              </Dialog>
+        {selectedTabData.length === 0 ? (
+          <div className="absolute inset-0 flex items-center justify-center z-30 pointer-events-none">
+            <div className="text-center space-y-2 px-4">
+              <div className="text-muted-foreground text-sm">
+                No data available
+              </div>
+              <p className="text-xs text-muted-foreground/70">
+                Select a different time period to view statistics
+              </p>
             </div>
-          )}
-        </div>
+          </div>
+        ) : (
+          <>
+            <HorizontalBarChart data={selectedTabData} />
+            <div className="absolute w-full left-0 bottom-0 pb-6 z-30">
+              <div className="flex justify-center">
+                <Dialog>
+                  <DialogTrigger asChild>
+                    <Button variant="outline" size="xs-2">
+                      View more
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="max-w-2xl p-0 gap-0">
+                    <DialogHeader className="px-6 py-4 border-b border-neutral-200">
+                      <div className="flex items-center gap-2">
+                        {icon}
+                        <DialogTitle className="text-base text-neutral-900 font-medium">
+                          {title}
+                        </DialogTitle>
+                      </div>
+                    </DialogHeader>
+                    <div className="max-h-[60vh] overflow-y-auto p-6">
+                      <HorizontalBarChart data={selectedTabData} />
+                    </div>
+                  </DialogContent>
+                </Dialog>
+              </div>
+            </div>
+          </>
+        )}
       </CardContent>
     </Card>
   );
