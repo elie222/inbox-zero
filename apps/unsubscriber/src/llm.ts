@@ -12,7 +12,7 @@ export function getModel(provider: LLMProvider) {
     case "openai":
       return openai("gpt-4o-mini");
     case "anthropic":
-      return anthropic("claude-3-7-sonnet-20250219");
+      return anthropic("claude-sonnet-4-5-20250929");
     case "bedrock":
       return bedrock("anthropic.claude-3-7-sonnet-20250219-v1:0");
     default:

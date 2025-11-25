@@ -140,6 +140,8 @@ pnpm install
 
 Set the environment variables in the newly created `.env`. You can see a list of required variables in: `apps/web/env.ts`.
 
+For a comprehensive reference of all environment variables, see the [Environment Variables Guide](docs/hosting/environment-variables.md).
+
 The required environment variables:
 
 - `AUTH_SECRET` -- can be any random string (try using `openssl rand -hex 32` for a quick secure random string)
