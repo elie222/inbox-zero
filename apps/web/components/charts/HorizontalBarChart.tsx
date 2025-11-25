@@ -35,7 +35,7 @@ export function HorizontalBarChart({
             <div className="flex-1 min-w-0">
               <div className="px-3 py-2 relative">
                 <div
-                  className="absolute top-0 left-0 bg-gradient-to-r from-blue-100 to-blue-50 h-full rounded-md"
+                  className="absolute top-0 left-0 bg-gradient-to-r h-full rounded-md from-blue-100 to-blue-50 dark:from-blue-500 dark:to-blue-500/80"
                   style={{ width: `${widthPercentage}%` }}
                 />
                 <div className="flex items-center gap-2">
@@ -49,7 +49,7 @@ export function HorizontalBarChart({
                           ? "noopener noreferrer"
                           : undefined
                       }
-                      className="text-sm text-gray-900 truncate block z-10 relative hover:underline"
+                      className="text-sm text-gray-900 dark:text-gray-100 truncate block z-10 relative hover:underline"
                     >
                       {item.name}
                     </a>
