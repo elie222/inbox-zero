@@ -21,7 +21,7 @@ export function List({ items, className, value, onSelect }: ListProps) {
 
         return (
           <Button
-            variant={isSelected ? "ghost" : "ghost"}
+            variant="ghost"
             size="sm"
             className={cn(
               "text-left justify-start",
