@@ -8,7 +8,7 @@ import { createOpenRouter } from "@openrouter/ai-sdk-provider";
 import { createGateway } from "@ai-sdk/gateway";
 // import { createOllama } from "ollama-ai-provider";
 import { env } from "@/env";
-import { Model, Provider } from "@/utils/llms/config";
+import { Provider } from "@/utils/llms/config";
 import type { UserAIFields } from "@/utils/llms/types";
 import { createScopedLogger } from "@/utils/logger";
 
@@ -67,7 +67,7 @@ function selectModel(
 ): SelectModel {
   switch (aiProvider) {
     case Provider.OPEN_AI: {
-      const modelName = aiModel || Model.GPT_4O;
+      const modelName = aiModel || "gpt-4o";
       return {
         provider: Provider.OPEN_AI,
         modelName,
@@ -78,7 +78,7 @@ function selectModel(
       };
     }
     case Provider.GOOGLE: {
-      const mod = aiModel || Model.GEMINI_2_0_FLASH;
+      const mod = aiModel || "gemini-2.0-flash";
       return {
         provider: Provider.GOOGLE,
         modelName: mod,
@@ -89,7 +89,7 @@ function selectModel(
       };
     }
     case Provider.GROQ: {
-      const modelName = aiModel || Model.GROQ_LLAMA_3_3_70B;
+      const modelName = aiModel || "llama-3.3-70b-versatile";
       return {
         provider: Provider.GROQ,
         modelName,
@@ -98,7 +98,7 @@ function selectModel(
       };
     }
     case Provider.OPENROUTER: {
-      const modelName = aiModel || Model.CLAUDE_4_5_SONNET_OPENROUTER;
+      const modelName = aiModel || "anthropic/claude-sonnet-4.5";
       const openrouter = createOpenRouter({
         apiKey: aiApiKey || env.OPENROUTER_API_KEY,
         headers: {
@@ -117,7 +117,7 @@ function selectModel(
       };
     }
     case Provider.AI_GATEWAY: {
-      const modelName = aiModel || Model.GEMINI_2_5_PRO_OPENROUTER;
+      const modelName = aiModel || "google/gemini-2.5-pro";
       const aiGatewayApiKey = aiApiKey || env.AI_GATEWAY_API_KEY;
       const gateway = createGateway({ apiKey: aiGatewayApiKey });
       return {
@@ -143,7 +143,8 @@ function selectModel(
     // this is messy. better to have two providers. one for bedrock and one for anthropic
     case Provider.ANTHROPIC: {
       if (env.BEDROCK_ACCESS_KEY && env.BEDROCK_SECRET_KEY && !aiApiKey) {
-        const modelName = aiModel || Model.CLAUDE_4_5_SONNET_BEDROCK;
+        const modelName =
+          aiModel || "global.anthropic.claude-sonnet-4-5-20250929-v1:0";
         return {
           provider: Provider.ANTHROPIC,
           modelName,
@@ -162,7 +163,7 @@ function selectModel(
           backupModel: getBackupModel(aiApiKey),
         };
       } else {
-        const modelName = aiModel || Model.CLAUDE_3_7_SONNET_ANTHROPIC;
+        const modelName = aiModel || "claude-3-7-sonnet-20250219";
         return {
           provider: Provider.ANTHROPIC,
           modelName,

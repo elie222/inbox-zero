@@ -69,7 +69,6 @@ openssl rand -hex 16
 | `BEDROCK_ACCESS_KEY` | No | AWS access key for Bedrock. See more [here](https://ai-sdk.dev/providers/ai-sdk-providers/amazon-bedrock). | — |
 | `BEDROCK_SECRET_KEY` | No | AWS secret key for Bedrock | — |
 | `BEDROCK_REGION` | No | AWS region for Bedrock | `us-west-2` |
-| `NEXT_PUBLIC_BEDROCK_SONNET_MODEL` | No | Bedrock model ID | `us.anthropic.claude-3-7-sonnet-20250219-v1:0` |
 | **Ollama (Local LLM)** ||||
 | `OLLAMA_BASE_URL` | No | Ollama API endpoint (e.g., `http://localhost:11434/api`) | — |
 | `NEXT_PUBLIC_OLLAMA_MODEL` | No | Model to use with Ollama | — |

@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { getModel } from "./model";
-import { Provider, Model } from "./config";
+import { Provider } from "./config";
 import { env } from "@/env";
 import type { UserAIFields } from "./types";
 
@@ -55,7 +55,6 @@ vi.mock("@/env", () => ({
     BEDROCK_REGION: "us-west-2",
     BEDROCK_ACCESS_KEY: "",
     BEDROCK_SECRET_KEY: "",
-    NEXT_PUBLIC_BEDROCK_SONNET_MODEL: "anthropic.claude-3-sonnet-20240229-v1:0",
   },
 }));
 
@@ -92,12 +91,12 @@ describe("Models", () => {
       const userAi: UserAIFields = {
         aiApiKey: "user-api-key",
         aiProvider: Provider.GOOGLE,
-        aiModel: Model.GEMINI_1_5_PRO,
+        aiModel: "gemini-1.5-pro-latest",
       };
 
       const result = getModel(userAi);
       expect(result.provider).toBe(Provider.GOOGLE);
-      expect(result.modelName).toBe(Model.GEMINI_1_5_PRO);
+      expect(result.modelName).toBe("gemini-1.5-pro-latest");
     });
 
     it("should use user's API key with default provider when only API key is provided", () => {
@@ -116,12 +115,12 @@ describe("Models", () => {
       const userAi: UserAIFields = {
         aiApiKey: "user-api-key",
         aiProvider: Provider.GOOGLE,
-        aiModel: Model.GEMINI_1_5_PRO,
+        aiModel: "gemini-1.5-pro-latest",
       };
 
       const result = getModel(userAi);
       expect(result.provider).toBe(Provider.GOOGLE);
-      expect(result.modelName).toBe(Model.GEMINI_1_5_PRO);
+      expect(result.modelName).toBe("gemini-1.5-pro-latest");
       expect(result.model).toBeDefined();
     });
 
@@ -129,12 +128,12 @@ describe("Models", () => {
       const userAi: UserAIFields = {
         aiApiKey: "user-api-key",
         aiProvider: Provider.GROQ,
-        aiModel: Model.GROQ_LLAMA_3_3_70B,
+        aiModel: "llama-3.3-70b-versatile",
       };
 
       const result = getModel(userAi);
       expect(result.provider).toBe(Provider.GROQ);
-      expect(result.modelName).toBe(Model.GROQ_LLAMA_3_3_70B);
+      expect(result.modelName).toBe("llama-3.3-70b-versatile");
       expect(result.model).toBeDefined();
     });
 
@@ -142,12 +141,12 @@ describe("Models", () => {
       const userAi: UserAIFields = {
         aiApiKey: "user-api-key",
         aiProvider: Provider.OPENROUTER,
-        aiModel: Model.GROQ_LLAMA_3_3_70B,
+        aiModel: "llama-3.3-70b-versatile",
       };
 
       const result = getModel(userAi);
       expect(result.provider).toBe(Provider.OPENROUTER);
-      expect(result.modelName).toBe(Model.GROQ_LLAMA_3_3_70B);
+      expect(result.modelName).toBe("llama-3.3-70b-versatile");
       expect(result.model).toBeDefined();
     });
 
@@ -168,7 +167,7 @@ describe("Models", () => {
       const userAi: UserAIFields = {
         aiApiKey: "user-api-key",
         aiProvider: Provider.ANTHROPIC,
-        aiModel: Model.CLAUDE_3_7_SONNET_ANTHROPIC,
+        aiModel: "claude-3-7-sonnet-20250219",
       };
 
       vi.mocked(env).BEDROCK_ACCESS_KEY = "";
@@ -176,7 +175,7 @@ describe("Models", () => {
 
       const result = getModel(userAi);
       expect(result.provider).toBe(Provider.ANTHROPIC);
-      expect(result.modelName).toBe(Model.CLAUDE_3_7_SONNET_ANTHROPIC);
+      expect(result.modelName).toBe("claude-3-7-sonnet-20250219");
       expect(result.model).toBeDefined();
     });
 
@@ -184,7 +183,7 @@ describe("Models", () => {
       const userAi: UserAIFields = {
         aiApiKey: "user-api-key",
         aiProvider: Provider.ANTHROPIC,
-        aiModel: Model.CLAUDE_3_7_SONNET_BEDROCK,
+        aiModel: "us.anthropic.claude-3-7-sonnet-20250219-v1:0",
       };
 
       vi.mocked(env).BEDROCK_ACCESS_KEY = "test-bedrock-key";
@@ -192,7 +191,9 @@ describe("Models", () => {
 
       const result = getModel(userAi);
       expect(result.provider).toBe(Provider.ANTHROPIC);
-      expect(result.modelName).toBe(Model.CLAUDE_3_7_SONNET_BEDROCK);
+      expect(result.modelName).toBe(
+        "us.anthropic.claude-3-7-sonnet-20250219-v1:0",
+      );
       expect(result.model).toBeDefined();
     });
 
