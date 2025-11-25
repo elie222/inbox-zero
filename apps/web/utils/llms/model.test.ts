@@ -179,10 +179,10 @@ describe("Models", () => {
       expect(result.model).toBeDefined();
     });
 
-    it("should configure Anthropic model with Bedrock when Bedrock credentials exist", () => {
+    it("should configure Bedrock model correctly", () => {
       const userAi: UserAIFields = {
-        aiApiKey: "user-api-key",
-        aiProvider: Provider.ANTHROPIC,
+        aiApiKey: null,
+        aiProvider: Provider.BEDROCK,
         aiModel: "us.anthropic.claude-3-7-sonnet-20250219-v1:0",
       };
 
@@ -190,7 +190,7 @@ describe("Models", () => {
       vi.mocked(env).BEDROCK_SECRET_KEY = "test-bedrock-secret";
 
       const result = getModel(userAi);
-      expect(result.provider).toBe(Provider.ANTHROPIC);
+      expect(result.provider).toBe(Provider.BEDROCK);
       expect(result.modelName).toBe(
         "us.anthropic.claude-3-7-sonnet-20250219-v1:0",
       );
