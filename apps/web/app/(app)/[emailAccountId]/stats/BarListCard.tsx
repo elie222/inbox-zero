@@ -15,7 +15,11 @@ import {
 import { cn } from "@/utils";
 
 interface BarListCardProps {
-  tabs: { id: string; label: string; data: any }[]; // TODO: add type
+  tabs: {
+    id: string;
+    label: string;
+    data: { name: string; value: number; href?: string; target?: string }[];
+  }[];
   icon: React.ReactNode;
   title: string;
 }
