@@ -179,13 +179,16 @@ describe("Models", () => {
       expect(result.model).toBeDefined();
     });
 
-    it("should configure Bedrock model correctly", () => {
+    it("should configure Bedrock model correctly via env vars", () => {
       const userAi: UserAIFields = {
         aiApiKey: null,
-        aiProvider: Provider.BEDROCK,
-        aiModel: "us.anthropic.claude-3-7-sonnet-20250219-v1:0",
+        aiProvider: null,
+        aiModel: null,
       };
 
+      vi.mocked(env).DEFAULT_LLM_PROVIDER = "bedrock";
+      vi.mocked(env).DEFAULT_LLM_MODEL =
+        "us.anthropic.claude-3-7-sonnet-20250219-v1:0";
       vi.mocked(env).BEDROCK_ACCESS_KEY = "test-bedrock-key";
       vi.mocked(env).BEDROCK_SECRET_KEY = "test-bedrock-secret";
 
@@ -289,6 +292,10 @@ describe("Models", () => {
         aiProvider: null,
         aiModel: null,
       };
+
+      // Reset to default
+      vi.mocked(env).DEFAULT_LLM_PROVIDER = "openai";
+      vi.mocked(env).DEFAULT_LLM_MODEL = undefined;
 
       const result = getModel(userAi, "default");
       expect(result.provider).toBe(Provider.OPEN_AI);
