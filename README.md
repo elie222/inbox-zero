@@ -408,11 +408,13 @@ For detailed instructions on:
 - Building custom Docker images
 - Using external databases (RDS, Neon, Upstash)
 - AWS EC2 deployment with ALB
+- AWS Copilot deployment (ECS/Fargate)
 - Production configuration
 
 See our comprehensive guides:
 - [Docker Self-Hosting Guide](docs/hosting/docker.md)
 - [AWS EC2 Deployment Guide](docs/hosting/ec2-deployment.md)
+- [AWS Copilot Deployment Guide](docs/hosting/aws-copilot.md)
 
 
 ### Calendar integrations
