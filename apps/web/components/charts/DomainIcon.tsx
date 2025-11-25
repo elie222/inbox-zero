@@ -5,8 +5,7 @@ import Image from "next/image";
 import { useState } from "react";
 import { getDomain } from "tldts";
 
-function getFavicon(domain: string) {
-  const apexDomain = getDomain(domain) || domain;
+function getFavicon(apexDomain: string) {
   return `https://t1.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=http://${apexDomain}&size=64`;
 }
 
@@ -53,7 +52,8 @@ interface DomainIconProps {
 }
 
 export function DomainIcon({ domain }: DomainIconProps) {
-  const domainFavicon = getFavicon(domain);
+  const apexDomain = getDomain(domain) || domain;
+  const domainFavicon = getFavicon(apexDomain);
   const [fallbackEnabled, setFallbackEnabled] = useState(false);
 
   return (
@@ -66,7 +66,7 @@ export function DomainIcon({ domain }: DomainIconProps) {
           height={20}
           src={domainFavicon}
           alt="favicon"
-          className="rounded-full z-10"
+          className="z-10 rounded-full"
           onError={() => setFallbackEnabled(true)}
         />
       )}
