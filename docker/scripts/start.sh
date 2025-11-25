@@ -19,7 +19,7 @@ if [ -n "$DATABASE_URL" ]; then
     else
         EXIT_CODE=$?
         if [ $EXIT_CODE -eq 124 ]; then
-            echo "⚠️  Migration timeout (300s) exceeded"
+            echo "⚠️  Migration timeout (320s) exceeded"
         else
             echo "⚠️  Migration failed with exit code $EXIT_CODE"
         fi
