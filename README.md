@@ -270,34 +270,17 @@ Go to [Microsoft Azure Portal](https://portal.azure.com/). Create a new Azure Ac
 
 ### Updating .env file with LLM parameters
 
-You need to set an LLM, but you can use a local one too:
+You need to configure an LLM provider. Supported options:
 
 - [Anthropic](https://console.anthropic.com/settings/keys)
 - [OpenAI](https://platform.openai.com/api-keys)
-- AWS Bedrock Anthropic
-- Google Gemini
-- Groq Llama 3.3 70B
-- Ollama (local)
+- [Google Gemini](https://ai.google.dev/)
+- [OpenRouter](https://openrouter.ai/settings/keys)
+- [Vercel AI Gateway](https://vercel.com/docs/ai-gateway)
+- [AWS Bedrock](https://aws.amazon.com/bedrock/)
+- [Groq](https://console.groq.com/)
 
-For the LLM, you can use Anthropic, OpenAI, or Anthropic on AWS Bedrock. You
-can also use Ollama by setting the following enviroment variables:
-
-```sh
-OLLAMA_BASE_URL=http://localhost:11434/api
-NEXT_PUBLIC_OLLAMA_MODEL=phi3
-```
-
-Note: If you need to access Ollama hosted locally and the application is running on Docker setup, you can use `http://host.docker.internal:11434/api` as the base URL. You might also need to set `OLLAMA_HOST` to `0.0.0.0` in the Ollama configuration file.
-
-You can select the model you wish to use in the app on the `/settings` page of the app.
-
-If you are using local ollama, you can set it to be default:
-
-```sh
-DEFAULT_LLM_PROVIDER=ollama
-```
-
-If this is the case you must also set the `ECONOMY_LLM_PROVIDER` environment variable.
+You can select the model you wish to use in the app on the `/settings` page.
 
 ### Running the app
 
