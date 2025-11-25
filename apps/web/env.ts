@@ -175,7 +175,7 @@ export const env = createEnv({
       }),
     NEXT_PUBLIC_BEDROCK_SONNET_MODEL: z
       .string()
-      .default("us.anthropic.claude-3-7-sonnet-20250219-v1:0"),
+      .default("global.anthropic.claude-sonnet-4-5-20250929-v1:0"),
     NEXT_PUBLIC_OLLAMA_MODEL: z.string().optional(),
     NEXT_PUBLIC_APP_HOME_PATH: z.string().default("/setup"),
     NEXT_PUBLIC_DUB_REFER_DOMAIN: z.string().optional(),

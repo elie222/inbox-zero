@@ -66,7 +66,7 @@ openssl rand -hex 16
 | `OPENROUTER_API_KEY` | No | OpenRouter API key | — |
 | `AI_GATEWAY_API_KEY` | No | AI Gateway API key | — |
 | **AWS Bedrock** ||||
-| `BEDROCK_ACCESS_KEY` | No | AWS access key for Bedrock | — |
+| `BEDROCK_ACCESS_KEY` | No | AWS access key for Bedrock. See more [here](https://ai-sdk.dev/providers/ai-sdk-providers/amazon-bedrock). | — |
 | `BEDROCK_SECRET_KEY` | No | AWS secret key for Bedrock | — |
 | `BEDROCK_REGION` | No | AWS region for Bedrock | `us-west-2` |
 | `NEXT_PUBLIC_BEDROCK_SONNET_MODEL` | No | Bedrock model ID | `us.anthropic.claude-3-7-sonnet-20250219-v1:0` |
