@@ -130,15 +130,9 @@ The external services that are required are (detailed setup instructions below):
 
 ### Updating .env file: secrets
 
-Create your own `.env` file from the example supplied:
+If you haven't already, create your `.env` file: `cp apps/web/.env.example apps/web/.env`
 
-```bash
-cp apps/web/.env.example apps/web/.env
-cd apps/web
-pnpm install
-```
-
-Set the environment variables in the newly created `.env`. You can see a list of required variables in: `apps/web/env.ts`.
+You can see a list of required variables in: `apps/web/env.ts`.
 
 For a comprehensive reference of all environment variables, see the [Environment Variables Guide](docs/hosting/environment-variables.md).
 
@@ -181,6 +175,7 @@ Create [new credentials](https://console.cloud.google.com/apis/credentials):
     5. In `Authorized redirect URIs` enter (or your custom domain):
       - `http://localhost:3000/api/auth/callback/google`
       - `http://localhost:3000/api/google/linking/callback`
+      - `http://localhost:3000/api/google/calendar/callback` (only required for calendar integration)
     6. Click `Create`.
     7. A popup will show up with the new credentials, including the Client ID and secret.
 3.  Update .env file:
@@ -198,6 +193,7 @@ Create [new credentials](https://console.cloud.google.com/apis/credentials):
     https://www.googleapis.com/auth/gmail.modify
     https://www.googleapis.com/auth/gmail.settings.basic
     https://www.googleapis.com/auth/contacts
+    https://www.googleapis.com/auth/calendar (only required for calendar integration)
     ```
 
     4. Click `Update`
@@ -208,7 +204,9 @@ Create [new credentials](https://console.cloud.google.com/apis/credentials):
     2. In the `Test users` section, click `+Add users`
     3. Enter your email and press `Save`
 
-6.  Enable Google People API in [Google Cloud Console](https://console.cloud.google.com/marketplace/product/google/people.googleapis.com)
+6.  Enable required APIs in [Google Cloud Console](https://console.cloud.google.com/apis/library):
+    - [Google People API](https://console.cloud.google.com/marketplace/product/google/people.googleapis.com) (required)
+    - [Google Calendar API](https://console.cloud.google.com/marketplace/product/google/calendar-json.googleapis.com) (only required for calendar integration)
 
 ### Updating .env file with Microsoft OAuth credentials:
 
@@ -228,17 +226,19 @@ Go to [Microsoft Azure Portal](https://portal.azure.com/). Create a new Azure Ac
       - URL: `http://localhost:3000/api/auth/callback/microsoft`
    4. Click "Register"
    5. In the "Manage" menu click "Authentication (Preview)"
-   6. Add the Redirect URI: `http://localhost:3000/api/outlook/linking/callback`
+   6. Add the following Redirect URIs:
+      - `http://localhost:3000/api/outlook/linking/callback`
+      - `http://localhost:3000/api/outlook/calendar/callback` (only required for calendar integration)
 
-4. Get your credentials:
+4. Get your credentials from the `Overview` tab:
 
-   1. The "Application (client) ID" shown is your `MICROSOFT_CLIENT_ID`
+   1. The "Application (client) ID" value is your `MICROSOFT_CLIENT_ID`
    2. To get your client secret:
       - Click "Certificates & secrets" in the left sidebar
       - Click "New client secret"
       - Add a description and choose an expiry
       - Click "Add"
-      - Copy the secret Value (not the ID) - this is your `MICROSOFT_CLIENT_SECRET`
+      - Copy the `Value` - this is your `MICROSOFT_CLIENT_SECRET`. **Important:** copy `Value` and not `Secret ID`!
 
 5. Configure API permissions:
 
@@ -256,6 +256,8 @@ Go to [Microsoft Azure Portal](https://portal.azure.com/). Create a new Azure Ac
       - Mail.ReadWrite
       - Mail.Send (only required if `NEXT_PUBLIC_EMAIL_SEND_ENABLED=true`, which is the default)
       - MailboxSettings.ReadWrite
+      - Calendars.Read (only required for calendar integration)
+      - Calendars.ReadWrite (only required for calendar integration)
 
    6. Click "Add permissions"
    7. Click "Grant admin consent" if you're an admin
@@ -297,40 +299,17 @@ DEFAULT_LLM_PROVIDER=ollama
 
 If this is the case you must also set the `ECONOMY_LLM_PROVIDER` environment variable.
 
-### Local Development Infrastructure
-
-We use Postgres for the database and Redis for caching.
-
-The easiest way to run these services locally is using the development Docker Compose file:
-
-```bash
-# Start Postgres and Redis in the background
-docker compose -f docker-compose.dev.yml up -d
-```
-
-Alternatively, you can use remote services like [Upstash Redis](https://upstash.com/) or [Neon Postgres](https://neon.tech/).
-
-> **Note:** This is for local development (using `pnpm dev`). For production deployment, see [Self-Hosting with Docker](#self-hosting-with-docker).
-
 ### Running the app
 
-To run the migrations:
+Follow the [Quick Start](#quick-start) above, or run these commands:
 
 ```bash
-pnpm prisma migrate dev
+docker compose -f docker-compose.dev.yml up -d  # Start Postgres and Redis
+pnpm prisma migrate dev                          # Run migrations
+pnpm dev                                         # Start the dev server
 ```
 
-To run the app locally for development (slower, but with HMR):
-
-```bash
-pnpm run dev
-```
-
-Or from the project root:
-
-```bash
-turbo dev
-```
+Alternatively, you can use remote services like [Upstash Redis](https://upstash.com/) or [Neon Postgres](https://neon.tech/) instead of Docker.
 
 ### Production Build with Docker
 
@@ -418,37 +397,6 @@ See our comprehensive guides:
 - [AWS EC2 Deployment Guide](docs/hosting/ec2-deployment.md)
 - [AWS Copilot Deployment Guide](docs/hosting/aws-copilot.md)
 
-
-### Calendar integrations
-
-#### Google Calendar
-
-1. Visit: https://console.cloud.google.com/apis/library
-2. Search for "Google Calendar API"
-3. Click on it and then click "Enable"
-4. Visit: [credentials](https://console.cloud.google.com/apis/credentials):
-    1. Click on your project
-    2. In `Authorized redirect URIs` add:
-      - `http://localhost:3000/api/google/calendar/callback`
-
-#### Microsoft Calendar
-
-1. Go to your existing Microsoft Azure app registration (created earlier in the Microsoft OAuth setup)
-2. Add the calendar redirect URI:
-    1. In the "Manage" menu click "Authentication (Preview)"
-    2. Add the Redirect URI: `http://localhost:3000/api/outlook/calendar/callback`
-3. Add calendar permissions:
-    1. In the "Manage" menu click "API permissions"
-    2. Click "Add a permission"
-    3. Select "Microsoft Graph"
-    4. Select "Delegated permissions"
-    5. Add the following calendar permissions:
-       - Calendars.Read
-       - Calendars.ReadWrite
-    6. Click "Add permissions"
-    7. Click "Grant admin consent" if you're an admin
-
-Note: The calendar integration uses a separate OAuth flow from the main email OAuth, so users can connect their calendar independently.
 
 ## Contributing to the project
 
