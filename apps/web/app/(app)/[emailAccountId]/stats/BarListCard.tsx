@@ -55,7 +55,7 @@ export function BarListCard({ tabs, icon, title }: BarListCardProps) {
           data={tabs.find((d) => d.id === selected)?.data || []}
         />
         <div className="absolute w-full left-0 bottom-0 pb-6 z-30">
-          {tabs.find((d) => d.id === selected)?.data.length > 0 && (
+          {(tabs.find((d) => d.id === selected)?.data || []).length > 0 && (
             <div className="flex justify-center">
               <Dialog>
                 <DialogTrigger asChild>
