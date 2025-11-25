@@ -16,9 +16,9 @@ export function StatsCards(props: {
         props.stats.length === 3 ? "lg:grid-cols-3" : "lg:grid-cols-4",
       )}
     >
-      {props.stats.map((stat) => {
+      {props.stats.map((stat, index) => {
         return (
-          <Card key={stat.name}>
+          <Card key={`${stat.name}-${index}`}>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">{stat.name}</CardTitle>
               {stat.icon}
