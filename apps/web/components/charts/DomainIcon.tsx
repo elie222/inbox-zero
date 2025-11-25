@@ -3,12 +3,10 @@
 import { cn } from "@/utils";
 import Image from "next/image";
 import { useState } from "react";
+import { getDomain } from "tldts";
 
 function getFavicon(domain: string) {
-  const hasSubdomain = domain.split(".").length > 2;
-  const apexDomain = hasSubdomain
-    ? domain.split(".").slice(1).join(".")
-    : domain;
+  const apexDomain = getDomain(domain) || domain;
   return `https://t1.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=http://${apexDomain}&size=64`;
 }
 

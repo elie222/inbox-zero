@@ -166,6 +166,7 @@
     "tailwind-merge": "2.6.0",
     "tailwindcss-animate": "1.0.7",
     "tiptap-markdown": "0.8.10",
+    "tldts": "^7.0.19",
     "typescript": "5.9.3",
     "use-stick-to-bottom": "1.1.1",
     "usehooks-ts": "3.1.1",
