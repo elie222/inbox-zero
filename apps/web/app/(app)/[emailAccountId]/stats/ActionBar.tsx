@@ -1,83 +1,27 @@
-import subDays from "date-fns/subDays";
-import { GanttChartIcon, Tally3Icon } from "lucide-react";
-import type { DateRange } from "react-day-picker";
-import { DetailedStatsFilter } from "@/app/(app)/[emailAccountId]/stats/DetailedStatsFilter";
-import { DatePickerWithRange } from "@/components/DatePickerWithRange";
+import { cn } from "@/utils";
+
+interface ActionBarProps {
+  children: React.ReactNode;
+  className?: string;
+  rightContent?: React.ReactNode;
+}
 
 export function ActionBar({
-  selectOptions,
-  dateDropdown,
-  setDateDropdown,
-  dateRange,
-  setDateRange,
-  period,
-  setPeriod,
-  isMobile,
-}: {
-  dateDropdown: string;
-  setDateDropdown: (option: { label: string; value: string }) => void;
-  dateRange?: DateRange | undefined;
-  setDateRange: (dateRange?: DateRange) => void;
-  selectOptions: { label: string; value: string }[];
-  period?: "day" | "week" | "month" | "year";
-  setPeriod?: (value: "day" | "week" | "month" | "year") => void;
-  isMobile: boolean;
-}) {
+  children,
+  className,
+  rightContent,
+}: ActionBarProps) {
   return (
-    <>
-      {period && setPeriod && (
-        <DetailedStatsFilter
-          label={`By ${period}`}
-          icon={<Tally3Icon className="mr-2 h-4 w-4" />}
-          columns={[
-            {
-              label: "Day",
-              checked: period === "day",
-              setChecked: () => setPeriod("day"),
-            },
-            {
-              label: "Week",
-              checked: period === "week",
-              setChecked: () => setPeriod("week"),
-            },
-            {
-              label: "Month",
-              checked: period === "month",
-              setChecked: () => setPeriod("month"),
-            },
-            {
-              label: "Year",
-              checked: period === "year",
-              setChecked: () => setPeriod("year"),
-            },
-          ]}
-        />
+    <div
+      className={cn(
+        "flex flex-col sm:flex-row sm:items-center sm:justify-between w-full gap-3",
+        className,
       )}
-      {!isMobile && (
-        <DetailedStatsFilter
-          label={dateDropdown || "Set date range"}
-          icon={<GanttChartIcon className="mr-2 h-4 w-4" />}
-          columns={selectOptions.map((option) => ({
-            ...option,
-            checked: option.label === dateDropdown,
-            setChecked: () => {
-              setDateDropdown(option);
-
-              const days = Number.parseInt(option.value);
-
-              if (days === 0) setDateRange(undefined);
-              if (days) {
-                const now = new Date();
-                setDateRange({ from: subDays(now, days), to: now });
-              }
-            },
-          }))}
-        />
+    >
+      <div className="flex flex-wrap items-center gap-3">{children}</div>
+      {rightContent && (
+        <div className="flex items-center gap-3">{rightContent}</div>
       )}
-      <DatePickerWithRange
-        dateRange={dateRange}
-        onSetDateRange={setDateRange}
-      />
-    </>
+    </div>
   );
 }

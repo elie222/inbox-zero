@@ -15,7 +15,7 @@ import {
   updateDigestItemsAction,
   updateDigestScheduleAction,
 } from "@/utils/actions/settings";
-import { ActionType } from "@prisma/client";
+import { ActionType } from "@/generated/prisma/enums";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import type { GetDigestSettingsResponse } from "@/app/api/user/digest-settings/route";
 import type { GetDigestScheduleResponse } from "@/app/api/user/digest-schedule/route";

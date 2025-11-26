@@ -1,0 +1,47 @@
+name: inbox-zero-dev
+
+services:
+  db:
+    image: postgres:16
+    container_name: inbox-zero-dev-db
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER:-postgres}
+      - POSTGRES_DB=${POSTGRES_DB:-inboxzero}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-password}
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER:-postgres}']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    volumes:
+      - dev-database-data:/var/lib/postgresql/data
+    ports:
+      - ${POSTGRES_PORT:-5432}:5432
+    restart: unless-stopped
+
+  redis:
+    image: redis:7
+    container_name: inbox-zero-dev-redis
+    ports:
+      - ${REDIS_PORT:-6380}:6379
+    volumes:
+      - dev-redis-data:/data
+    restart: unless-stopped
+
+  serverless-redis-http:
+    image: hiett/serverless-redis-http:latest
+    container_name: inbox-zero-dev-redis-http
+    ports:
+      - "${REDIS_HTTP_PORT:-8079}:80"
+    environment:
+      SRH_MODE: env
+      SRH_TOKEN: ${UPSTASH_REDIS_TOKEN:-dev_token}
+      SRH_CONNECTION_STRING: "redis://redis:6379"
+    depends_on:
+      - redis
+    restart: unless-stopped
+
+volumes:
+  dev-database-data:
+  dev-redis-data:
+

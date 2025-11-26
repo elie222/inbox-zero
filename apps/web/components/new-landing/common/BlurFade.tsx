@@ -8,7 +8,7 @@ import {
   type UseInViewOptions,
   type Variants,
 } from "framer-motion";
-import { cx } from "class-variance-authority";
+import { cn } from "@/utils";
 
 type MarginType = UseInViewOptions["margin"];
 
@@ -63,7 +63,7 @@ export function BlurFade({
           duration,
           ease: "easeOut",
         }}
-        className={cx(className, as === "span" ? "inline-block" : "")}
+        className={cn(className, as === "span" ? "inline-block" : "")}
       >
         {children}
       </MotionComponent>

@@ -1,6 +1,6 @@
 import { messageVisibility } from "@/utils/gmail/constants";
 import { getRuleLabel } from "@/utils/rule/consts";
-import { SystemType } from "@prisma/client";
+import { SystemType } from "@/generated/prisma/enums";
 
 export const PARENT_LABEL = "Inbox Zero";
 

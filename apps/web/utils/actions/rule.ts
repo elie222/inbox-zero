@@ -16,7 +16,8 @@ import {
 import prisma from "@/utils/prisma";
 import { isDuplicateError, isNotFoundError } from "@/utils/prisma-helpers";
 import { flattenConditions } from "@/utils/condition";
-import { ActionType, SystemType, type Prisma } from "@prisma/client";
+import { ActionType, SystemType } from "@/generated/prisma/enums";
+import type { Prisma } from "@/generated/prisma/client";
 import { sanitizeActionFields } from "@/utils/action-item";
 import {
   deleteRule,
@@ -554,7 +555,7 @@ function mapActionToSanitizedFields(action: {
   folderId?: { value?: string | null } | null;
   delayInMinutes?: number | null;
 }) {
-  return sanitizeActionFields({
+  const sanitized = sanitizeActionFields({
     type: action.type,
     label: action.labelId?.name,
     labelId: action.labelId?.value,
@@ -568,6 +569,23 @@ function mapActionToSanitizedFields(action: {
     folderId: action.folderId?.value,
     delayInMinutes: action.delayInMinutes,
   });
+
+  return {
+    type: sanitized.type,
+    fields: {
+      label: sanitized.label ?? null,
+      to: sanitized.to ?? null,
+      cc: sanitized.cc ?? null,
+      bcc: sanitized.bcc ?? null,
+      subject: sanitized.subject ?? null,
+      content: sanitized.content ?? null,
+      webhookUrl: sanitized.url ?? null,
+      folderName: sanitized.folderName ?? null,
+    },
+    labelId: sanitized.labelId ?? null,
+    folderId: sanitized.folderId ?? null,
+    delayInMinutes: sanitized.delayInMinutes ?? null,
+  };
 }
 
 function handleRuleError(error: unknown, logger: Logger) {

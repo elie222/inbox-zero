@@ -19,6 +19,7 @@ import {
   convertGmailUrlBody,
   type ConvertGmailUrlBody,
 } from "@/utils/actions/admin.validation";
+import { internalDateToDate } from "@/utils/date";
 
 export function GmailUrlConverter() {
   const {
@@ -90,10 +91,19 @@ export function GmailUrlConverter() {
               <code className="text-sm">{result.data.threadId}</code>
             </div>
             <div>
-              <span className="text-sm font-medium">Message IDs: </span>
-              <code className="text-sm">
-                {result.data.messageIds.join(", ")}
-              </code>
+              <span className="text-sm font-medium">Messages: </span>
+              <div className="space-y-1">
+                {result.data.messages.map((msg) => (
+                  <div key={msg.id} className="text-sm">
+                    <code>{msg.id}</code>
+                    {msg.date && (
+                      <span className="ml-2 text-muted-foreground">
+                        ({internalDateToDate(msg.date).toLocaleString()})
+                      </span>
+                    )}
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
         )}

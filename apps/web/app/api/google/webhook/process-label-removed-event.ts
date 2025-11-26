@@ -1,6 +1,6 @@
 import type { gmail_v1 } from "@googleapis/gmail";
 import prisma from "@/utils/prisma";
-import { ColdEmailStatus, SystemType } from "@prisma/client";
+import { ColdEmailStatus, SystemType } from "@/generated/prisma/enums";
 import { extractEmailAddress } from "@/utils/email";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import type { EmailProvider } from "@/utils/email/types";

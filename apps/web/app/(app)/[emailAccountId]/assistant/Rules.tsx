@@ -42,7 +42,8 @@ import { Badge } from "@/components/Badge";
 import { getActionColor } from "@/components/PlanBadge";
 import { toastError } from "@/components/Toast";
 import { useRules } from "@/hooks/useRules";
-import { type ActionType, LogicalOperator, SystemType } from "@prisma/client";
+import { LogicalOperator, SystemType } from "@/generated/prisma/enums";
+import type { ActionType } from "@/generated/prisma/client";
 import { useAction } from "next-safe-action/hooks";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { prefixPath } from "@/utils/path";
@@ -65,7 +66,7 @@ import { DEFAULT_COLD_EMAIL_PROMPT } from "@/utils/cold-email/prompt";
 import {
   STEP_KEYS,
   getStepNumber,
-} from "@/app/(app)/[emailAccountId]/onboarding/OnboardingContent";
+} from "@/app/(app)/[emailAccountId]/onboarding/steps";
 
 export function Rules({
   showAddRuleButton = true,

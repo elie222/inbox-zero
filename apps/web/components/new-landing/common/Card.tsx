@@ -1,5 +1,6 @@
 import { Paragraph } from "@/components/new-landing/common/Typography";
-import { cva, cx } from "class-variance-authority";
+import { cn } from "@/utils";
+import { cva } from "class-variance-authority";
 
 interface CardContentProps {
   children: React.ReactNode;
@@ -7,7 +8,7 @@ interface CardContentProps {
 }
 
 export function CardContent({ children, className }: CardContentProps) {
-  return <div className={cx("p-6", className)}>{children}</div>;
+  return <div className={cn("p-6", className)}>{children}</div>;
 }
 
 interface CardHeaderProps {
@@ -35,7 +36,7 @@ export function CardHeader({
       ) : null}
       {title ? (
         <h2
-          className={cx(
+          className={cn(
             "font-title text-xl leading-6",
             title || addon ? "mt-5" : "",
           )}

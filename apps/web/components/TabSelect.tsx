@@ -29,7 +29,7 @@ const tabSelectButtonVariants = cva("p-4 transition-colors duration-75", {
   },
 });
 
-const tabSelectIndicatorVariants = cva("absolute bottom-0 w-full px-1.5", {
+const tabSelectIndicatorVariants = cva("absolute bottom-0 w-full", {
   variants: {
     variant: {
       default: "text-bg-inverted",
@@ -74,6 +74,9 @@ export function TabSelect<T extends string>({
                 className={cn(
                   tabSelectButtonVariants({ variant }),
                   target === "_blank" && "group flex items-center gap-1.5",
+                  isSelected
+                    ? ""
+                    : "text-gray-500 dark:text-gray-400 hover:text-gray-700 hover:dark:text-gray-300",
                 )}
                 data-selected={isSelected}
               >

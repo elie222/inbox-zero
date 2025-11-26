@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { isColdEmail, saveColdEmail } from "./is-cold-email";
 import { getEmailAccount } from "@/__tests__/helpers";
 import type { EmailForLLM } from "@/utils/types";
-import { ColdEmailStatus } from "@prisma/client";
+import { ColdEmailStatus } from "@/generated/prisma/enums";
 import prisma from "@/utils/prisma";
 import { extractEmailAddress } from "@/utils/email";
 

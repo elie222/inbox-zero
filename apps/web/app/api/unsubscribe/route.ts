@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { withError, type RequestWithLogger } from "@/utils/middleware";
 import prisma from "@/utils/prisma";
-import { Frequency } from "@prisma/client";
+import { Frequency } from "@/generated/prisma/enums";
 
 export const GET = withError("unsubscribe", async (request) => {
   return unsubscribe(request);

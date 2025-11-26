@@ -1,7 +1,7 @@
 "use server";
 
 import prisma from "@/utils/prisma";
-import { ColdEmailStatus } from "@prisma/client";
+import { ColdEmailStatus, SystemType } from "@/generated/prisma/enums";
 import { emailToContent } from "@/utils/mail";
 import { isColdEmail } from "@/utils/cold-email/is-cold-email";
 import {
@@ -14,7 +14,6 @@ import { createEmailProvider } from "@/utils/email/provider";
 import type { EmailProvider } from "@/utils/email/types";
 import { getColdEmailRule } from "@/utils/cold-email/cold-email-rule";
 import { getRuleLabel } from "@/utils/rule/consts";
-import { SystemType } from "@prisma/client";
 
 export const markNotColdEmailAction = actionClient
   .metadata({ name: "markNotColdEmail" })

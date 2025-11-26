@@ -83,60 +83,55 @@ We offer a hosted version of Inbox Zero at [https://getinboxzero.com](https://ge
 
 The easiest way to self-host Inbox Zero is using our pre-built Docker image.
 
-See our **[Docker Self-Hosting Guide](docs/hosting/docker.md)** for complete instructions.
+See our **[Self-Hosting Guide](docs/hosting/self-hosting.md)** for complete instructions.
 
 ### Local Development Setup
 
-### Setup
-
 [Here's a video](https://youtu.be/hVQENQ4WT2Y) on how to set up the project. It covers the same steps mentioned in this document. But goes into greater detail on setting up the external services.
 
-### Requirements
+#### Requirements
 
-- [Node.js](https://nodejs.org/en/) >= 18.0.0
-- [pnpm](https://pnpm.io/) >= 8.6.12
-- [Docker desktop](https://www.docker.com/products/docker-desktop/) (recommended but optional)
+- [Node.js](https://nodejs.org/en/) >= 22.0.0
+- [pnpm](https://pnpm.io/) >= 10.0.0
+- [Docker desktop](https://www.docker.com/products/docker-desktop/) (recommended for running Postgres and Redis)
 
-Make sure you have the above installed before starting.
+#### Quick Start
 
-The external services that are required are (detailed setup instructions below):
+1. **Start PostgreSQL and Redis:**
+   ```bash
+   docker compose -f docker-compose.dev.yml up -d
+   ```
 
-- [Google OAuth](https://console.cloud.google.com/apis/credentials)
-- [Google PubSub](https://console.cloud.google.com/cloudpubsub/topic/list)
+2. **Install dependencies and set up environment:**
+   ```bash
+   pnpm install
+   ./docker/scripts/setup-env.sh  # Creates .env with auto-generated secrets
+   ```
 
-### Updating .env file: secrets
+3. **Configure OAuth and LLM:**
+   
+   Edit `apps/web/.env` and add:
+   - **OAuth credentials** (at least one required): [Google OAuth](#google-oauth-setup) or [Microsoft OAuth](#microsoft-oauth-setup)
+   - **LLM provider**: Uncomment one provider block and add your API key
 
-Create your own `.env` file from the example supplied:
+4. **Run database migrations:**
+   ```bash
+   cd apps/web
+   pnpm prisma migrate dev
+   ```
 
-```bash
-cp apps/web/.env.example apps/web/.env
-cd apps/web
-pnpm install
-```
+5. **Run the development server:**
+   ```bash
+   pnpm dev
+   ```
 
-Set the environment variables in the newly created `.env`. You can see a list of required variables in: `apps/web/env.ts`.
+The app will be available at `http://localhost:3000`.
 
-The required environment variables:
+The setup script auto-generates all required secrets. The sections below cover the services you need to configure manually. For a comprehensive reference of all environment variables, see the [Environment Variables Guide](docs/hosting/environment-variables.md).
 
-- `AUTH_SECRET` -- can be any random string (try using `openssl rand -hex 32` for a quick secure random string)
-- `EMAIL_ENCRYPT_SECRET` -- Secret key for encrypting OAuth tokens (try using `openssl rand -hex 32` for a secure key)
-- `EMAIL_ENCRYPT_SALT` -- Salt for encrypting OAuth tokens (try using `openssl rand -hex 16` for a secure salt)
+### Google OAuth Setup
 
-
-- `NEXT_PUBLIC_BASE_URL` -- The URL where your app is hosted (e.g., `http://localhost:3000` for local development or `https://yourdomain.com` for production).
-- `INTERNAL_API_KEY` -- A secret key for internal API calls (try using `openssl rand -hex 32` for a secure key)
-
-- `UPSTASH_REDIS_URL` -- Redis URL from Upstash. (can be empty if you are using Docker Compose)
-- `UPSTASH_REDIS_TOKEN` -- Redis token from Upstash. (or specify your own random string if you are using Docker Compose)
-
-When using Vercel with Fluid Compute turned off, you should set `MAX_DURATION=300` or lower. See Vercel limits for different plans [here](https://vercel.com/docs/functions/configuring-functions/duration#duration-limits).
-
-### Updating .env file with Google OAuth credentials:
-
-- `GOOGLE_CLIENT_ID` -- Google OAuth client ID. More info [here](https://next-auth.js.org/providers/google)
-- `GOOGLE_CLIENT_SECRET` -- Google OAuth client secret. More info [here](https://next-auth.js.org/providers/google)
-
-Go to [Google Cloud](https://console.cloud.google.com/). Create a new project if necessary.
+Go to [Google Cloud Console](https://console.cloud.google.com/) and create a new project if necessary.
 
 Create [new credentials](https://console.cloud.google.com/apis/credentials):
 
@@ -151,10 +146,11 @@ Create [new credentials](https://console.cloud.google.com/apis/credentials):
     1. Click the `+Create Credentials` button. Choose OAuth Client ID.
     2. In `Application Type`, Choose `Web application`
     3. Choose a name for your web client
-    4. In Authorized JavaScript origins, add a URI and enter `http://localhost:3000`
-    5. In `Authorized redirect URIs` enter:
+    4. In Authorized JavaScript origins, add a URI and enter `http://localhost:3000` (or your custom domain)
+    5. In `Authorized redirect URIs` enter (or your custom domain):
       - `http://localhost:3000/api/auth/callback/google`
       - `http://localhost:3000/api/google/linking/callback`
+      - `http://localhost:3000/api/google/calendar/callback` (only required for calendar integration)
     6. Click `Create`.
     7. A popup will show up with the new credentials, including the Client ID and secret.
 3.  Update .env file:
@@ -172,6 +168,7 @@ Create [new credentials](https://console.cloud.google.com/apis/credentials):
     https://www.googleapis.com/auth/gmail.modify
     https://www.googleapis.com/auth/gmail.settings.basic
     https://www.googleapis.com/auth/contacts
+    https://www.googleapis.com/auth/calendar (only required for calendar integration)
     ```
 
     4. Click `Update`
@@ -182,14 +179,38 @@ Create [new credentials](https://console.cloud.google.com/apis/credentials):
     2. In the `Test users` section, click `+Add users`
     3. Enter your email and press `Save`
 
-6.  Enable Google People API in [Google Cloud Console](https://console.cloud.google.com/marketplace/product/google/people.googleapis.com)
+6.  Enable required APIs in [Google Cloud Console](https://console.cloud.google.com/apis/library):
+    - [Google People API](https://console.cloud.google.com/marketplace/product/google/people.googleapis.com) (required)
+    - [Google Calendar API](https://console.cloud.google.com/marketplace/product/google/calendar-json.googleapis.com) (only required for calendar integration)
 
-### Updating .env file with Microsoft OAuth credentials:
+### Google PubSub Setup
 
-- `MICROSOFT_CLIENT_ID` -- Microsoft OAuth client ID
-- `MICROSOFT_CLIENT_SECRET` -- Microsoft OAuth client secret
+PubSub enables real-time email notifications. Follow the [official guide](https://developers.google.com/gmail/api/guides/push):
 
-Go to [Microsoft Azure Portal](https://portal.azure.com/). Create a new Azure Active Directory app registration:
+1. [Create a topic](https://developers.google.com/gmail/api/guides/push#create_a_topic)
+2. [Create a subscription](https://developers.google.com/gmail/api/guides/push#create_a_subscription)
+3. [Grant publish rights on your topic](https://developers.google.com/gmail/api/guides/push#grant_publish_rights_on_your_topic)
+
+Set `GOOGLE_PUBSUB_TOPIC_NAME` in your `.env` file.
+
+When creating the subscription, select **Push** and set the URL to:
+`https://yourdomain.com/api/google/webhook?token=TOKEN`
+
+Set `GOOGLE_PUBSUB_VERIFICATION_TOKEN` in your `.env` file to the value of `TOKEN`.
+
+**For local development**, use ngrok to expose your local server:
+
+```sh
+ngrok http 3000
+```
+
+Then update the webhook endpoint in the [Google PubSub subscriptions dashboard](https://console.cloud.google.com/cloudpubsub/subscription/list).
+
+**Email watch renewal:** Gmail watch subscriptions expire periodically and must be renewed. If using Docker Compose, this is handled automatically by the cron container every 6 hours. Otherwise, set up a cron job to call `/api/watch/all` (see [Self-Hosting Guide](docs/hosting/self-hosting.md#scheduled-tasks)).
+
+### Microsoft OAuth Setup
+
+Go to [Microsoft Azure Portal](https://portal.azure.com/) and create a new Azure Active Directory app registration:
 
 1. Navigate to Azure Active Directory
 2. Go to "App registrations" in the left sidebar or search it in the searchbar
@@ -202,17 +223,18 @@ Go to [Microsoft Azure Portal](https://portal.azure.com/). Create a new Azure Ac
       - URL: `http://localhost:3000/api/auth/callback/microsoft`
    4. Click "Register"
    5. In the "Manage" menu click "Authentication (Preview)"
-   6. Add the Redirect URI: `http://localhost:3000/api/outlook/linking/callback`
+   6. Add the following Redirect URIs:
+      - `http://localhost:3000/api/outlook/linking/callback`
+      - `http://localhost:3000/api/outlook/calendar/callback` (only required for calendar integration)
 
-4. Get your credentials:
+4. Get your credentials from the `Overview` tab:
 
-   1. The "Application (client) ID" shown is your `MICROSOFT_CLIENT_ID`
-   2. To get your client secret:
-      - Click "Certificates & secrets" in the left sidebar
+   1. Copy the "Application (client) ID" → this is your `MICROSOFT_CLIENT_ID`
+   2. Go to "Certificates & secrets" in the left sidebar
       - Click "New client secret"
       - Add a description and choose an expiry
       - Click "Add"
-      - Copy the secret Value (not the ID) - this is your `MICROSOFT_CLIENT_SECRET`
+      - Copy the `Value` → this is your `MICROSOFT_CLIENT_SECRET` (**Important:** copy `Value`, not `Secret ID`)
 
 5. Configure API permissions:
 
@@ -230,220 +252,52 @@ Go to [Microsoft Azure Portal](https://portal.azure.com/). Create a new Azure Ac
       - Mail.ReadWrite
       - Mail.Send (only required if `NEXT_PUBLIC_EMAIL_SEND_ENABLED=true`, which is the default)
       - MailboxSettings.ReadWrite
+      - Calendars.Read (only required for calendar integration)
+      - Calendars.ReadWrite (only required for calendar integration)
 
    6. Click "Add permissions"
    7. Click "Grant admin consent" if you're an admin
 
-6. Update your .env file with the credentials:
-   ```plaintext
+6. Update your `.env` file with the credentials:
+   ```
    MICROSOFT_CLIENT_ID=your_client_id_here
    MICROSOFT_CLIENT_SECRET=your_client_secret_here
    ```
 
-### Updating .env file with LLM parameters
+### LLM Setup
 
-You need to set an LLM, but you can use a local one too:
+In your `.env` file, uncomment one of the LLM provider blocks and add your API key:
 
 - [Anthropic](https://console.anthropic.com/settings/keys)
 - [OpenAI](https://platform.openai.com/api-keys)
-- AWS Bedrock Anthropic
-- Google Gemini
-- Groq Llama 3.3 70B
-- Ollama (local)
+- [Google Gemini](https://ai.google.dev/)
+- [OpenRouter](https://openrouter.ai/settings/keys)
+- [Vercel AI Gateway](https://vercel.com/docs/ai-gateway)
+- [AWS Bedrock](https://aws.amazon.com/bedrock/)
+- [Groq](https://console.groq.com/)
 
-For the LLM, you can use Anthropic, OpenAI, or Anthropic on AWS Bedrock. You
-can also use Ollama by setting the following enviroment variables:
+Users can also change the model in the app on the `/settings` page.
 
-```sh
-OLLAMA_BASE_URL=http://localhost:11434/api
-NEXT_PUBLIC_OLLAMA_MODEL=phi3
-```
+### Local Production Build
 
-Note: If you need to access Ollama hosted locally and the application is running on Docker setup, you can use `http://host.docker.internal:11434/api` as the base URL. You might also need to set `OLLAMA_HOST` to `0.0.0.0` in the Ollama configuration file.
-
-You can select the model you wish to use in the app on the `/settings` page of the app.
-
-If you are using local ollama, you can set it to be default:
-
-```sh
-DEFAULT_LLM_PROVIDER=ollama
-```
-
-If this is the case you must also set the `ECONOMY_LLM_PROVIDER` environment variable.
-
-### Local Development Infrastructure
-
-We use Postgres for the database.
-For Redis, you can use [Upstash Redis](https://upstash.com/) or set up your own Redis instance.
-
-To run the app locally in development mode, you need these services running. You can use `docker-compose` to spin them up, or you can use a remote database via services like Upstash or Neon:
+To test a production build locally:
 
 ```bash
-# Start services (Postgres + Redis) in the background
-docker-compose up -d db redis serverless-redis-http
-```
-
-> **Note:** This is for local development (using `pnpm dev`). For production deployment, see [Self-Hosting with Docker](#self-hosting-with-docker).
-
-### Running the app
-
-To run the migrations:
-
-```bash
-pnpm prisma migrate dev
-```
-
-To run the app locally for development (slower, but with HMR):
-
-```bash
-pnpm run dev
-```
-
-Or from the project root:
-
-```bash
-turbo dev
-```
-
-### Production Build with Docker
-
-To build and run the full stack (App + DB + Redis) locally in production mode using Docker:
-
-```bash
-# Build and start all services
-# NOTE: You must provide NEXT_PUBLIC_BASE_URL at build time
-NEXT_PUBLIC_BASE_URL=http://localhost:3000 docker compose up --build
-```
-
-This uses the standalone build output for a smaller, optimized image.
-
-To run without Docker (local production build):
-
-```bash
+# Without Docker
 pnpm run build
 pnpm start
+
+# With Docker (includes Postgres and Redis)
+NEXT_PUBLIC_BASE_URL=http://localhost:3000 docker compose --profile all up --build
 ```
 
-Open [http://localhost:3000](http://localhost:3000) to view the app in your browser.
+### Self-Hosting
 
-### Premium
+For production deployments, see our guides:
+- [Self-Hosting Guide](docs/hosting/self-hosting.md)
+- [AWS EC2 Deployment](docs/hosting/ec2-deployment.md)
+- [AWS Copilot (ECS/Fargate)](docs/hosting/aws-copilot.md)
 
-Many features are available only to premium users. To upgrade yourself, make yourself an admin in the `.env`: `ADMINS=hello@gmail.com`
-Then upgrade yourself at: [http://localhost:3000/admin](http://localhost:3000/admin).
-
-### Set up push notifications via Google PubSub to handle emails in real time
-
-Follow instructions [here](https://developers.google.com/gmail/api/guides/push).
-
-1. [Create a topic](https://developers.google.com/gmail/api/guides/push#create_a_topic)
-2. [Create a subscription](https://developers.google.com/gmail/api/guides/push#create_a_subscription)
-3. [Grant publish rights on your topic](https://developers.google.com/gmail/api/guides/push#grant_publish_rights_on_your_topic)
-
-Set env var `GOOGLE_PUBSUB_TOPIC_NAME`.
-When creating the subscription select Push and the url should look something like: `https://www.getinboxzero.com/api/google/webhook?token=TOKEN` or `https://abc.ngrok-free.app/api/google/webhook?token=TOKEN` where the domain is your domain. Set `GOOGLE_PUBSUB_VERIFICATION_TOKEN` in your `.env` file to be the value of `TOKEN`.
-
-To run in development ngrok can be helpful:
-
-```sh
-ngrok http 3000
-# or with an ngrok domain to keep your endpoint stable (set `XYZ`):
-ngrok http --domain=XYZ.ngrok-free.app 3000
-```
-
-And then update the webhook endpoint in the [Google PubSub subscriptions dashboard](https://console.cloud.google.com/cloudpubsub/subscription/list).
-
-To start watching emails visit: `/api/watch/all`
-
-### Watching for email updates
-
-Set a cron job to run these:
-The Google watch is necessary. Others are optional.
-
-```json
-  "crons": [
-    {
-      "path": "/api/watch/all",
-      "schedule": "0 1 * * *"
-    },
-    {
-      "path": "/api/resend/summary/all",
-      "schedule": "0 16 * * 1"
-    },
-    {
-      "path": "/api/reply-tracker/disable-unused-auto-draft",
-      "schedule": "0 3 * * *"
-    }
-  ]
-```
-
-[Here](https://vercel.com/guides/how-to-setup-cron-jobs-on-vercel#alternative-cron-providers) are some easy ways to run cron jobs. Upstash is a free, easy option. I could never get the Vercel `vercel.json`. Open to PRs if you find a fix for that.
-
-### Docker Build Instructions
-
-When building the Docker image, you **must** specify your `NEXT_PUBLIC_BASE_URL` as a build argument. This is because Next.js embeds `NEXT_PUBLIC_*` variables at build time, not runtime.
-
-### Building the Docker image
-
-```bash
-# For production with your custom domain
-docker build \
-  --build-arg NEXT_PUBLIC_BASE_URL="https://your-domain.com" \
-  -t inbox-zero \
-  -f docker/Dockerfile.prod .
-
-# For local development (default)
-docker build -t inbox-zero -f docker/Dockerfile.prod .
-```
-
-### Running the container
-
-After building, run the container with your runtime secrets:
-
-```bash
-docker run -p 3000:3000 \
-  -e DATABASE_URL="your-database-url" \
-  -e AUTH_SECRET="your-auth-secret" \
-  -e GOOGLE_CLIENT_ID="your-google-client-id" \
-  -e GOOGLE_CLIENT_SECRET="your-google-client-secret" \
-  # ... other runtime environment variables
-  inbox-zero
-```
-
-**Important:** If you need to change `NEXT_PUBLIC_BASE_URL`, you must rebuild the Docker image. It cannot be changed at runtime.
-
-For more detailed Docker build instructions and security considerations, see [docker/DOCKER_BUILD_GUIDE.md](docker/DOCKER_BUILD_GUIDE.md).
-
-
-### Calendar integrations
-
-#### Google Calendar
-
-1. Visit: https://console.cloud.google.com/apis/library
-2. Search for "Google Calendar API"
-3. Click on it and then click "Enable"
-4. Visit: [credentials](https://console.cloud.google.com/apis/credentials):
-    1. Click on your project
-    2. In `Authorized redirect URIs` add:
-      - `http://localhost:3000/api/google/calendar/callback`
-
-#### Microsoft Calendar
-
-1. Go to your existing Microsoft Azure app registration (created earlier in the Microsoft OAuth setup)
-2. Add the calendar redirect URI:
-    1. In the "Manage" menu click "Authentication (Preview)"
-    2. Add the Redirect URI: `http://localhost:3000/api/outlook/calendar/callback`
-3. Add calendar permissions:
-    1. In the "Manage" menu click "API permissions"
-    2. Click "Add a permission"
-    3. Select "Microsoft Graph"
-    4. Select "Delegated permissions"
-    5. Add the following calendar permissions:
-       - Calendars.Read
-       - Calendars.ReadWrite
-    6. Click "Add permissions"
-    7. Click "Grant admin consent" if you're an admin
-
-Note: The calendar integration uses a separate OAuth flow from the main email OAuth, so users can connect their calendar independently.
 
 ## Contributing to the project
 

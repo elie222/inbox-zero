@@ -13,10 +13,9 @@ import {
   storedDigestContentSchema,
   type Digest,
 } from "./validation";
-import { DigestStatus } from "@prisma/client";
+import { DigestStatus, SystemType } from "@/generated/prisma/enums";
 import { extractNameFromEmail } from "../../../../utils/email";
 import { getRuleName } from "@/utils/rule/consts";
-import { SystemType } from "@prisma/client";
 import { verifySignatureAppRouter } from "@upstash/qstash/nextjs";
 import { camelCase } from "lodash";
 import { createEmailProvider } from "@/utils/email/provider";

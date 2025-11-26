@@ -1,6 +1,6 @@
 "use client";
 
-import { cx } from "class-variance-authority";
+import { cn } from "@/utils";
 import { useEffect } from "react";
 
 type UnicornStudioInitFlag = {
@@ -49,7 +49,7 @@ export function UnicornScene({ className }: UnicornSceneProps) {
   return (
     <div
       data-us-project="7EOg9x6JDnLX6WDUJiAj"
-      className={cx("w-full h-full absolute top-0 left-0 -z-10", className)}
+      className={cn("w-full h-full absolute top-0 left-0 -z-10", className)}
     />
   );
 }

@@ -173,9 +173,6 @@ export const env = createEnv({
         if (!value) return;
         return value.split(",");
       }),
-    NEXT_PUBLIC_BEDROCK_SONNET_MODEL: z
-      .string()
-      .default("us.anthropic.claude-3-7-sonnet-20250219-v1:0"),
     NEXT_PUBLIC_OLLAMA_MODEL: z.string().optional(),
     NEXT_PUBLIC_APP_HOME_PATH: z.string().default("/setup"),
     NEXT_PUBLIC_DUB_REFER_DOMAIN: z.string().optional(),
@@ -184,6 +181,7 @@ export const env = createEnv({
       .optional()
       .default(false),
     NEXT_PUBLIC_USE_AEONIK_FONT: z.coerce.boolean().optional().default(false),
+    NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS: z.coerce.boolean().optional(),
   },
   // For Next.js >= 13.4.4, you only need to destructure client variables:
   experimental__runtimeEnv: {
@@ -234,13 +232,13 @@ export const env = createEnv({
     NEXT_PUBLIC_AXIOM_DATASET: process.env.NEXT_PUBLIC_AXIOM_DATASET,
     NEXT_PUBLIC_AXIOM_TOKEN: process.env.NEXT_PUBLIC_AXIOM_TOKEN,
     NEXT_PUBLIC_LOG_SCOPES: process.env.NEXT_PUBLIC_LOG_SCOPES,
-    NEXT_PUBLIC_BEDROCK_SONNET_MODEL:
-      process.env.NEXT_PUBLIC_BEDROCK_SONNET_MODEL,
     NEXT_PUBLIC_OLLAMA_MODEL: process.env.NEXT_PUBLIC_OLLAMA_MODEL,
     NEXT_PUBLIC_APP_HOME_PATH: process.env.NEXT_PUBLIC_APP_HOME_PATH,
     NEXT_PUBLIC_DUB_REFER_DOMAIN: process.env.NEXT_PUBLIC_DUB_REFER_DOMAIN,
     NEXT_PUBLIC_DISABLE_REFERRAL_SIGNATURE:
       process.env.NEXT_PUBLIC_DISABLE_REFERRAL_SIGNATURE,
     NEXT_PUBLIC_USE_AEONIK_FONT: process.env.NEXT_PUBLIC_USE_AEONIK_FONT,
+    NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS:
+      process.env.NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS,
   },
 });

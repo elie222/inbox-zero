@@ -2,6 +2,9 @@ import { describe, expect, test, vi, beforeEach } from "vitest";
 import { applyThreadStatusLabel } from "./label-helpers";
 import type { EmailProvider } from "@/utils/email/types";
 import prisma from "@/utils/__mocks__/prisma";
+import { createScopedLogger } from "@/utils/logger";
+
+const logger = createScopedLogger("test");
 
 vi.mock("server-only", () => ({}));
 vi.mock("@/utils/prisma");
@@ -66,6 +69,7 @@ describe("applyThreadStatusLabel", () => {
       messageId,
       systemType: "TO_REPLY",
       provider: mockProvider,
+      logger,
     });
 
     // Should remove other conversation status labels from thread
@@ -98,6 +102,7 @@ describe("applyThreadStatusLabel", () => {
       messageId,
       systemType: "AWAITING_REPLY",
       provider: mockProvider,
+      logger,
     });
 
     expect(mockProvider.removeThreadLabels).toHaveBeenCalledWith(
@@ -118,6 +123,7 @@ describe("applyThreadStatusLabel", () => {
       messageId,
       systemType: "FYI",
       provider: mockProvider,
+      logger,
     });
 
     expect(mockProvider.removeThreadLabels).toHaveBeenCalledWith(
@@ -142,6 +148,7 @@ describe("applyThreadStatusLabel", () => {
       messageId,
       systemType: "ACTIONED",
       provider: mockProvider,
+      logger,
     });
 
     expect(mockProvider.removeThreadLabels).toHaveBeenCalledWith(
@@ -172,6 +179,7 @@ describe("applyThreadStatusLabel", () => {
         messageId,
         systemType: "TO_REPLY",
         provider: mockProvider,
+        logger,
       }),
     ).resolves.not.toThrow();
   });
@@ -205,6 +213,7 @@ describe("applyThreadStatusLabel", () => {
       messageId,
       systemType: "TO_REPLY",
       provider: mockProvider,
+      logger,
     });
 
     // Should still include FYI label from provider labels
@@ -267,6 +276,7 @@ describe("applyThreadStatusLabel", () => {
       messageId,
       systemType: "TO_REPLY",
       provider: mockProvider,
+      logger,
     });
 
     // Should have created the label
@@ -296,6 +306,7 @@ describe("applyThreadStatusLabel", () => {
       messageId,
       systemType: "TO_REPLY",
       provider: mockProvider,
+      logger,
     });
 
     // Should NOT call removeThreadLabels since there are no conflicting labels
@@ -320,6 +331,7 @@ describe("applyThreadStatusLabel", () => {
       messageId,
       systemType: "FYI",
       provider: mockProvider,
+      logger,
     });
 
     // Both operations should have been called
@@ -334,6 +346,7 @@ describe("applyThreadStatusLabel", () => {
       messageId,
       systemType: "FYI",
       provider: mockProvider,
+      logger,
     });
 
     const removeCall = vi.mocked(mockProvider.removeThreadLabels).mock.calls[0];

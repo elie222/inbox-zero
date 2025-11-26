@@ -6,10 +6,11 @@ import { Button } from "@/components/ui/button";
 import { hasAiAccess, hasUnsubscribeAccess, isPremium } from "@/utils/premium";
 import { Tooltip } from "@/components/Tooltip";
 import { usePremiumModal } from "@/app/(app)/premium/PremiumModal";
-import { PremiumTier } from "@prisma/client";
+import type { PremiumTier } from "@/generated/prisma/enums";
 import { businessTierName } from "@/app/(app)/premium/config";
 import { useUser } from "@/hooks/useUser";
 import { ActionCard } from "@/components/ui/card";
+import { env } from "@/env";
 
 export function usePremium() {
   const swrResponse = useUser();
@@ -18,14 +19,25 @@ export function usePremium() {
   const premium = data?.premium;
   const aiApiKey = data?.aiApiKey;
 
+  if (env.NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS) {
+    return {
+      ...swrResponse,
+      premium,
+      isPremium: true,
+      hasUnsubscribeAccess: true,
+      hasAiAccess: true,
+      isProPlanWithoutApiKey: false,
+      tier: "BUSINESS_PLUS_ANNUALLY" as const,
+    };
+  }
+
   const isUserPremium = !!(
     premium &&
     isPremium(premium.lemonSqueezyRenewsAt, premium.stripeSubscriptionStatus)
   );
 
   const isProPlanWithoutApiKey =
-    (premium?.tier === PremiumTier.PRO_MONTHLY ||
-      premium?.tier === PremiumTier.PRO_ANNUALLY) &&
+    (premium?.tier === "PRO_MONTHLY" || premium?.tier === "PRO_ANNUALLY") &&
     !aiApiKey;
 
   return {
@@ -56,8 +68,7 @@ export function PremiumAiAssistantAlert({
 }) {
   const { PremiumModal, openModal } = usePremiumModal();
 
-  const isBasicPlan =
-    tier === PremiumTier.BASIC_MONTHLY || tier === PremiumTier.BASIC_ANNUALLY;
+  const isBasicPlan = tier === "BASIC_MONTHLY" || tier === "BASIC_ANNUALLY";
 
   const isStripeTrialing =
     stripeSubscriptionStatus && stripeSubscriptionStatus !== "active";

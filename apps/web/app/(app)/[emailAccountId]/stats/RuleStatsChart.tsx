@@ -1,6 +1,5 @@
 "use client";
 
-import { BarChart, Card, Title } from "@tremor/react";
 import { useMemo } from "react";
 import type { DateRange } from "react-day-picker";
 import { LabelList, Pie, PieChart } from "recharts";
@@ -23,6 +22,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { getDateRangeParams } from "./params";
 import { useOrgSWR } from "@/hooks/useOrgSWR";
 import type { RuleStatsResponse } from "@/app/api/user/stats/rule-stats/route";
+import { BarChart } from "./BarChart";
+import { CardBasic } from "@/components/ui/card";
+import { COLORS } from "@/utils/colors";
 
 interface RuleStatsChartProps {
   dateRange?: DateRange;
@@ -48,12 +50,13 @@ export function RuleStatsChart({ dateRange, title }: RuleStatsChartProps) {
     if (!data?.ruleStats) return [];
     return data.ruleStats.map((rule) => ({
       group: rule.ruleName,
-      "Executed Rules": rule.executedCount,
+      executed: rule.executedCount,
     }));
   }, [data]);
 
-  const { pieChartData, chartConfig } = useMemo(() => {
-    if (!data?.ruleStats) return { pieChartData: [], chartConfig: {} };
+  const { pieChartData, chartConfig, barChartConfig } = useMemo(() => {
+    if (!data?.ruleStats)
+      return { pieChartData: [], chartConfig: {}, barChartConfig: {} };
 
     const pieData = data.ruleStats.map((rule, index) => ({
       name: rule.ruleName,
@@ -76,7 +79,15 @@ export function RuleStatsChart({ dateRange, title }: RuleStatsChartProps) {
       ),
     };
 
-    return { pieChartData: pieData, chartConfig: config };
+    const barConfig: ChartConfig = {
+      executed: { label: "Executed Rules", color: COLORS.analytics.blue },
+    };
+
+    return {
+      pieChartData: pieData,
+      chartConfig: config,
+      barChartConfig: barConfig,
+    };
   }, [data]);
 
   return (
@@ -87,24 +98,22 @@ export function RuleStatsChart({ dateRange, title }: RuleStatsChartProps) {
     >
       {data && barChartData.length > 0 && (
         <Tabs defaultValue="bar">
-          <Card>
+          <CardBasic>
             <div className="flex items-center justify-between">
-              <Title>{title}</Title>
+              <p>{title}</p>
               <TabsList>
                 <TabsTrigger value="bar">Bar Chart</TabsTrigger>
                 <TabsTrigger value="pie">Pie Chart</TabsTrigger>
               </TabsList>
             </div>
 
-            <TabsContent value="bar">
+            <TabsContent value="bar" className="mt-4">
               <BarChart
-                className="mt-4 h-72"
                 data={barChartData}
-                index="group"
-                categories={["Executed Rules"]}
-                colors={["blue"]}
-                showLegend={false}
-                showGridLines={true}
+                config={barChartConfig}
+                dataKeys={["executed"]}
+                xAxisKey="group"
+                xAxisFormatter={(value) => value}
               />
             </TabsContent>
 
@@ -139,16 +148,16 @@ export function RuleStatsChart({ dateRange, title }: RuleStatsChartProps) {
                 </CardContent>
               </ShadcnCard>
             </TabsContent>
-          </Card>
+          </CardBasic>
         </Tabs>
       )}
       {data && barChartData.length === 0 && (
-        <Card>
-          <Title>{title}</Title>
+        <CardBasic>
+          <p>{title}</p>
           <div className="mt-4 h-72 flex items-center justify-center text-muted-foreground">
             <p>No executed rules found for this period.</p>
           </div>
-        </Card>
+        </CardBasic>
       )}
     </LoadingContent>
   );

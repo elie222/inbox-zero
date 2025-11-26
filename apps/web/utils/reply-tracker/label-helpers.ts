@@ -1,7 +1,7 @@
 import type { EmailProvider, EmailLabel } from "@/utils/email/types";
-import { createScopedLogger } from "@/utils/logger";
+import type { Logger } from "@/utils/logger";
 import prisma from "@/utils/prisma";
-import { ActionType } from "@prisma/client";
+import { ActionType } from "@/generated/prisma/enums";
 import {
   CONVERSATION_STATUS_TYPES,
   type ConversationStatus,
@@ -24,6 +24,7 @@ export async function removeConflictingThreadStatusLabels({
   provider,
   dbLabels: providedDbLabels,
   providerLabels: providedProviderLabels,
+  logger,
 }: {
   emailAccountId: string;
   threadId: string;
@@ -31,16 +32,8 @@ export async function removeConflictingThreadStatusLabels({
   provider: EmailProvider;
   dbLabels?: LabelIds;
   providerLabels?: EmailLabel[];
+  logger: Logger;
 }): Promise<void> {
-  const logger = createScopedLogger("removeConflictingThreadStatusLabels").with(
-    {
-      emailAccountId,
-      threadId,
-      systemType,
-      provider: provider.name,
-    },
-  );
-
   const [dbLabels, providerLabels] = await Promise.all([
     providedDbLabels ?? getLabelsFromDb(emailAccountId),
     providedProviderLabels ?? provider.getLabels(),
@@ -98,21 +91,15 @@ export async function applyThreadStatusLabel({
   messageId,
   systemType,
   provider,
+  logger,
 }: {
   emailAccountId: string;
   threadId: string;
   messageId: string;
   systemType: ConversationStatus;
   provider: EmailProvider;
+  logger: Logger;
 }): Promise<void> {
-  const logger = createScopedLogger("applyThreadStatusLabel").with({
-    emailAccountId,
-    threadId,
-    messageId,
-    systemType,
-    provider: provider.name,
-  });
-
   const [dbLabels, providerLabels] = await Promise.all([
     getLabelsFromDb(emailAccountId),
     provider.getLabels(),
@@ -149,6 +136,7 @@ export async function applyThreadStatusLabel({
       labelId: targetLabel.labelId,
       labelName: targetLabel.label,
       emailAccountId,
+      logger,
     }).catch((error) =>
       logger.error("Failed to apply thread status label", {
         labelId: targetLabel.labelId,
@@ -166,6 +154,7 @@ export async function applyThreadStatusLabel({
       provider,
       dbLabels,
       providerLabels,
+      logger,
     }),
     addLabel(),
   ]);

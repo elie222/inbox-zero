@@ -12,7 +12,7 @@ import { LoadingContent } from "@/components/LoadingContent";
 import { useRule } from "@/hooks/useRule";
 import type { CreateRuleBody } from "@/utils/actions/rule.validation";
 import { useDialogState } from "@/hooks/useDialogState";
-import { ActionType, LogicalOperator } from "@prisma/client";
+import { ActionType, LogicalOperator } from "@/generated/prisma/enums";
 import { ConditionType } from "@/utils/config";
 import type { RulesResponse } from "@/app/api/user/rules/route";
 

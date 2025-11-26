@@ -1,5 +1,5 @@
-import type { Rule, Action } from "@prisma/client";
-import { ActionType, LogicalOperator } from "@prisma/client";
+import type { Rule, Action } from "@/generated/prisma/client";
+import { ActionType, LogicalOperator } from "@/generated/prisma/enums";
 
 export interface RuleWithActions extends Rule {
   actions: Action[];

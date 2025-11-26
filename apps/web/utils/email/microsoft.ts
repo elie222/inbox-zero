@@ -1182,22 +1182,66 @@ export class OutlookProvider implements EmailProvider {
     messageId: string;
   }): Promise<boolean> {
     try {
-      const response: { value: Message[] } = await this.client
-        .getClient()
-        .api("/me/messages")
-        .filter(
-          `(toRecipients/any(a:a/emailAddress/address eq '${escapeODataString(options.from)}') and sentDateTime lt ${options.date.toISOString()}) or (from/emailAddress/address eq '${escapeODataString(options.from)}' and receivedDateTime lt ${options.date.toISOString()})`,
-        )
-        .top(2)
-        .select("id")
-        .get();
+      const escapedFrom = escapeODataString(options.from);
+      const dateString = options.date.toISOString();
 
-      // If we have any outgoing emails, or any incoming emails (excluding current message)
-      const hasPreviousEmail =
-        response.value.length > 0 &&
-        response.value.some((message) => message.id !== options.messageId);
+      // Split into two parallel queries to avoid OData "invalid nodes" error
+      // when combining any() lambda with other filters.
+      const receivedFilter = `from/emailAddress/address eq '${escapedFrom}' and receivedDateTime lt ${dateString}`;
 
-      return hasPreviousEmail;
+      // Use $search for sent messages as $filter on toRecipients is unreliable
+      // We escape double quotes for the KQL search query
+      const escapedSearchFrom = options.from
+        .replace(/\\/g, "\\\\")
+        .replace(/"/g, '\\"');
+      const sentSearch = `"to:${escapedSearchFrom}"`;
+
+      const [sentResponse, receivedResponse] = await Promise.all([
+        this.client
+          .getClient()
+          .api("/me/messages")
+          .search(sentSearch)
+          .top(5) // Increase top to account for potential future messages we filter out
+          .select("id,sentDateTime")
+          .get()
+          .catch((error) => {
+            this.logger.error("Error checking sent messages", {
+              error,
+              search: sentSearch,
+            });
+            return { value: [] };
+          }),
+
+        this.client
+          .getClient()
+          .api("/me/messages")
+          .filter(receivedFilter)
+          .top(2)
+          .select("id")
+          .get()
+          .catch((error) => {
+            this.logger.error("Error checking received messages", {
+              error,
+              filter: receivedFilter,
+            });
+            return { value: [] };
+          }),
+      ]);
+
+      // Filter sent messages by date since $search doesn't support date filtering well
+      const validSentMessages = (sentResponse.value || []).filter(
+        (msg: Message) => {
+          if (!msg.sentDateTime) return false;
+          return new Date(msg.sentDateTime) < options.date;
+        },
+      );
+
+      const messages = [
+        ...validSentMessages,
+        ...(receivedResponse.value || []),
+      ];
+
+      return messages.some((message) => message.id !== options.messageId);
     } catch (error) {
       this.logger.error("Error checking previous communications", {
         error,
