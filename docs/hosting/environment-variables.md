@@ -93,10 +93,10 @@ cp apps/web/.env.example apps/web/.env
 
 For detailed setup instructions:
 
-- **Google OAuth**: See [README - Google OAuth Setup](../../README.md#updating-env-file-with-google-oauth-credentials)
-- **Microsoft OAuth**: See [README - Microsoft OAuth Setup](../../README.md#updating-env-file-with-microsoft-oauth-credentials)
-- **Google PubSub**: See [README - PubSub Setup](../../README.md#set-up-push-notifications-via-google-pubsub-to-handle-emails-in-real-time)
-- **LLM Configuration**: See [README - LLM Setup](../../README.md#updating-env-file-with-llm-parameters)
+- **Google OAuth**: See [README - Google OAuth Setup](../../README.md#google-oauth-setup)
+- **Microsoft OAuth**: See [README - Microsoft OAuth Setup](../../README.md#microsoft-oauth-setup)
+- **Google PubSub**: See [README - PubSub Setup](../../README.md#google-pubsub-setup)
+- **LLM Configuration**: See [README - LLM Setup](../../README.md#llm-setup)
 
 ## Notes
 

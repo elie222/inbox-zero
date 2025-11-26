@@ -87,7 +87,7 @@ describe("Models", () => {
 
       const result = getModel(userAi);
       expect(result.provider).toBe(Provider.OPEN_AI);
-      expect(result.modelName).toBe("gpt-4o");
+      expect(result.modelName).toBe("gpt-5.1");
     });
 
     it("should use user's provider and model when API key is provided", () => {
@@ -111,7 +111,7 @@ describe("Models", () => {
 
       const result = getModel(userAi);
       expect(result.provider).toBe(Provider.OPEN_AI);
-      expect(result.modelName).toBe("gpt-4o");
+      expect(result.modelName).toBe("gpt-5.1");
     });
 
     it("should configure Google model correctly", () => {
@@ -302,7 +302,7 @@ describe("Models", () => {
 
       const result = getModel(userAi, "default");
       expect(result.provider).toBe(Provider.OPEN_AI);
-      expect(result.modelName).toBe("gpt-4o");
+      expect(result.modelName).toBe("gpt-5.1");
     });
 
     it("should use OpenRouter with provider options for default model", () => {

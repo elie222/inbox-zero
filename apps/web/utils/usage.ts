@@ -83,6 +83,14 @@ const costs: Record<
     input: 5 / 1_000_000,
     output: 15 / 1_000_000,
   },
+  "gpt-5-mini": {
+    input: 0.25 / 1_000_000,
+    output: 2 / 1_000_000,
+  },
+  "gpt-5.1": {
+    input: 1.25 / 1_000_000,
+    output: 10 / 1_000_000,
+  },
   // https://www.anthropic.com/pricing#anthropic-api
   "claude-3-5-sonnet-20240620": sonnet,
   "claude-3-5-sonnet-20241022": sonnet,

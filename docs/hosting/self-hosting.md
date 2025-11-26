@@ -18,25 +18,11 @@ Connect to your VPS and install Docker Engine by following the [the official gui
 
 ### 2. Setup Docker Compose
 
-**Option A: Clone the repository**
+Clone the repository:
 
 ```bash
 git clone https://github.com/elie222/inbox-zero.git
 cd inbox-zero
-```
-
-This is simpler if you want to easily update your deployment later with `git pull`.
-
-**Option B: Download only the necessary files**
-
-```bash
-mkdir inbox-zero
-cd inbox-zero
-curl -O https://raw.githubusercontent.com/elie222/inbox-zero/main/docker-compose.yml
-mkdir -p apps/web docker/scripts
-curl -o apps/web/.env.example https://raw.githubusercontent.com/elie222/inbox-zero/main/apps/web/.env.example
-curl -o docker/scripts/setup-env.sh https://raw.githubusercontent.com/elie222/inbox-zero/main/docker/scripts/setup-env.sh
-chmod +x docker/scripts/setup-env.sh
 ```
 
 ### 3. Configure
@@ -69,7 +55,7 @@ For detailed configuration instructions, see the [Environment Variables Referenc
 Pull and start the services with your domain:
 
 ```bash
-NEXT_PUBLIC_BASE_URL=https://yourdomain.com docker compose --profile all up -d
+NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS=true NEXT_PUBLIC_BASE_URL=https://yourdomain.com docker compose --profile all up -d
 ```
 
 The pre-built Docker image is hosted at `ghcr.io/elie222/inbox-zero:latest` and will be automatically pulled.
@@ -122,7 +108,7 @@ To update to the latest version:
 docker compose pull web
 
 # Restart with the new image
-NEXT_PUBLIC_BASE_URL=https://yourdomain.com docker compose up -d
+NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS=true NEXT_PUBLIC_BASE_URL=https://yourdomain.com docker compose up -d
 
 # Run any new database migrations
 docker compose exec web npx prisma migrate deploy --schema=apps/web/prisma/schema.prisma
@@ -134,6 +120,18 @@ docker compose exec web npx prisma migrate deploy --schema=apps/web/prisma/schem
 docker compose logs -f web
 docker compose logs -f db
 ```
+
+## Scheduled Tasks
+
+Gmail and Outlook push notification subscriptions expire periodically and must be renewed. The Docker Compose setup includes a `cron` container that handles this automatically.
+
+**If you're not using Docker Compose** (e.g., running directly, Kubernetes, etc.), you need to set up a cron job to call the watch renewal endpoint every 6 hours:
+
+```bash
+0 */6 * * * curl -s -X GET "https://yourdomain.com/api/watch/all" -H "Authorization: Bearer YOUR_CRON_SECRET"
+```
+
+Replace `YOUR_CRON_SECRET` with the value of `CRON_SECRET` from your `.env` file.
 
 ## Building from Source (Optional)
 
@@ -150,7 +148,7 @@ nano apps/web/.env
 
 # Build and start
 docker compose build
-NEXT_PUBLIC_BASE_URL=https://yourdomain.com docker compose up -d
+NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS=true NEXT_PUBLIC_BASE_URL=https://yourdomain.com docker compose up -d
 ```
 
 **Note**: Building from source requires significantly more resources (4GB+ RAM recommended) and takes longer than pulling the pre-built image.
