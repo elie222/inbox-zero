@@ -38,7 +38,7 @@ export function EmailAnalytics(props: {
     },
   );
 
-  function formatEmailItem(item: { name: string }) {
+  function formatEmailItem(item: { name: string; value: number }) {
     return {
       ...item,
       href: getGmailSearchUrl(item.name, userEmail),

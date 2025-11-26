@@ -12,7 +12,7 @@ import {
 } from "recharts";
 
 interface BarChartProps {
-  data: { date: string; [key: string]: number }[];
+  data: { date: string; [key: string]: string | number }[];
   config: ChartConfig;
   dataKeys?: string[];
   xAxisKey?: string;
