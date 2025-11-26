@@ -8,25 +8,20 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { useSearchParams, useRouter } from "next/navigation";
+import { parseAsString, useQueryState } from "nuqs";
 import { ChevronDown, Tag } from "lucide-react";
 
 export function RulesSelect() {
   const { data, isLoading, error } = useRules();
-  const searchParams = useSearchParams();
-  const router = useRouter();
-  const currentValue = searchParams.get("ruleId") || "all";
-
-  const handleValueChange = (value: string) => {
-    const params = new URLSearchParams(searchParams.toString());
-    params.set("ruleId", value);
-    router.push(`?${params.toString()}`);
-  };
+  const [ruleId, setRuleId] = useQueryState(
+    "ruleId",
+    parseAsString.withDefault("all"),
+  );
 
   const getCurrentLabel = () => {
-    if (currentValue === "all") return "All rules";
-    if (currentValue === "skipped") return "No match";
-    return data?.find((rule) => rule.id === currentValue)?.name || "All rules";
+    if (ruleId === "all") return "All rules";
+    if (ruleId === "skipped") return "No match";
+    return data?.find((rule) => rule.id === ruleId)?.name || "All rules";
   };
 
   return (
@@ -48,17 +43,14 @@ export function RulesSelect() {
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
-          <DropdownMenuItem onClick={() => handleValueChange("all")}>
+          <DropdownMenuItem onClick={() => setRuleId("all")}>
             All rules
           </DropdownMenuItem>
-          <DropdownMenuItem onClick={() => handleValueChange("skipped")}>
+          <DropdownMenuItem onClick={() => setRuleId("skipped")}>
             No match
           </DropdownMenuItem>
           {data?.map((rule) => (
-            <DropdownMenuItem
-              key={rule.id}
-              onClick={() => handleValueChange(rule.id)}
-            >
+            <DropdownMenuItem key={rule.id} onClick={() => setRuleId(rule.id)}>
               {rule.name}
             </DropdownMenuItem>
           ))}
