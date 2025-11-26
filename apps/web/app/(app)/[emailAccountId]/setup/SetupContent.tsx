@@ -23,7 +23,7 @@ import { useAccount } from "@/providers/EmailAccountProvider";
 import {
   STEP_KEYS,
   getStepNumber,
-} from "@/app/(app)/[emailAccountId]/onboarding/OnboardingContent";
+} from "@/app/(app)/[emailAccountId]/onboarding/steps";
 
 function FeatureCard({
   emailAccountId,
