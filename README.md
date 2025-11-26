@@ -83,7 +83,7 @@ We offer a hosted version of Inbox Zero at [https://getinboxzero.com](https://ge
 
 The easiest way to self-host Inbox Zero is using our pre-built Docker image.
 
-See our **[Docker Self-Hosting Guide](docs/hosting/docker.md)** for complete instructions.
+See our **[Self-Hosting Guide](docs/hosting/self-hosting.md)** for complete instructions.
 
 ### Local Development Setup
 
@@ -303,7 +303,7 @@ To build and run the full stack (App + DB + Redis) locally in production mode us
 NEXT_PUBLIC_BASE_URL=http://localhost:3000 docker compose --profile all up --build
 ```
 
-For production deployments with external databases, see the [Docker Self-Hosting Guide](docs/hosting/docker.md).
+For production deployments with external databases, see the [Self-Hosting Guide](docs/hosting/self-hosting.md).
 
 To run without Docker (local production build):
 
@@ -376,7 +376,7 @@ For detailed instructions on:
 - Production configuration
 
 See our comprehensive guides:
-- [Docker Self-Hosting Guide](docs/hosting/docker.md)
+- [Self-Hosting Guide](docs/hosting/self-hosting.md)
 - [AWS EC2 Deployment Guide](docs/hosting/ec2-deployment.md)
 - [AWS Copilot Deployment Guide](docs/hosting/aws-copilot.md)
 

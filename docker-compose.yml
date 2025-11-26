@@ -82,6 +82,26 @@ services:
       UPSTASH_REDIS_URL: ${UPSTASH_REDIS_URL:-http://serverless-redis-http:80}
     restart: always
 
+  cron:
+    image: alpine:latest
+    command: >
+      sh -c "
+        apk add --no-cache curl &&
+        while true; do
+          echo \"[cron] Renewing email watches...\" &&
+          curl -s -X GET 'http://web:3000/api/watch/all' -H \"Authorization: Bearer $${CRON_SECRET}\" &&
+          echo \"[cron] Done. Sleeping for 6 hours...\" &&
+          sleep 21600
+        done
+      "
+    env_file:
+      - ./apps/web/.env
+    depends_on:
+      - web
+    networks:
+      - inbox-zero-network
+    restart: always
+
 volumes:
   database-data:
 
