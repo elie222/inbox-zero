@@ -21,3 +21,17 @@ const colors = [
 export function getRandomColor() {
   return colors[Math.floor(Math.random() * colors.length)];
 }
+
+export const COLORS = {
+  analytics: {
+    blue: "#006EFF80",
+    purple: "#6410FF80",
+    pink: "#C942B2",
+    lightPink: "#C942B260",
+    green: "#17A34A",
+    lightGreen: "#17A34A60",
+  },
+  footer: {
+    gray: "#4E4E4E",
+  },
+};

@@ -4,8 +4,8 @@ import Link from "next/link";
 import { usePostHog } from "posthog-js/react";
 import { Button } from "@/components/new-landing/common/Button";
 import { Chat } from "@/components/new-landing/icons/Chat";
-import { cx } from "class-variance-authority";
 import { landingPageAnalytics } from "@/hooks/useAnalytics";
+import { cn } from "@/utils";
 
 interface CallToActionProps {
   text?: string;
@@ -21,7 +21,7 @@ export function CallToAction({
   const posthog = usePostHog();
 
   return (
-    <div className={cx("flex justify-center items-center gap-4", className)}>
+    <div className={cn("flex justify-center items-center gap-4", className)}>
       <Button size={buttonSize} asChild>
         <Link
           href="/login"

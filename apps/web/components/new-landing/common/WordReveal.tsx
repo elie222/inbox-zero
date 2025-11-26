@@ -1,5 +1,5 @@
 import { BlurFade } from "@/components/new-landing/common/BlurFade";
-import { cx } from "class-variance-authority";
+import { cn } from "@/utils";
 
 interface WordRevealProps {
   children?: string;
@@ -29,7 +29,7 @@ export function WordReveal({
         >
           {word}
           {index < wordsToReveal.length - 1 && (
-            <span className={cx("inline-block", spaceBetween)}> </span>
+            <span className={cn("inline-block", spaceBetween)}> </span>
           )}
         </BlurFade>
       ))}

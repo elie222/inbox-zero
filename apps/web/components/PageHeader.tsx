@@ -11,15 +11,13 @@ type Video = {
   muxPlaybackId?: string;
 };
 
-export function PageHeader({
-  title,
-  description,
-  video,
-}: {
+interface PageHeaderProps {
   title: string;
   description: string;
   video?: Video;
-}) {
+}
+
+export function PageHeader({ title, description, video }: PageHeaderProps) {
   return (
     <div>
       <PageHeading>{title}</PageHeading>

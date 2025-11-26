@@ -306,9 +306,6 @@ importers:
       '@tiptap/suggestion':
         specifier: 2.26.1
         version: 2.26.1(@tiptap/core@2.26.1(@tiptap/pm@2.26.1))(@tiptap/pm@2.26.1)
-      '@tremor/react':
-        specifier: 3.18.7
-        version: 3.18.7(react-dom@19.1.1(react@19.1.1))(react@19.1.1)
       '@upstash/qstash':
         specifier: 2.8.4
         version: 2.8.4
@@ -546,6 +543,9 @@ importers:
       tiptap-markdown:
         specifier: 0.8.10
         version: 0.8.10(@tiptap/core@2.26.1(@tiptap/pm@2.26.1))
+      tldts:
+        specifier: ^7.0.19
+        version: 7.0.19
       typescript:
         specifier: 5.9.3
         version: 5.9.3
@@ -2384,20 +2384,8 @@ packages:
   '@floating-ui/dom@1.7.4':
     resolution: {integrity: sha512-OOchDgh4F2CchOX94cRVqhvy7b3AFb+/rQXyswmzmGakRfkMgoWVjfnLWkRirfLEfuD4ysVW16eXzwt3jHIzKA==}
 
-  '@floating-ui/react-dom@1.3.0':
-    resolution: {integrity: sha512-htwHm67Ji5E/pROEAr7f8IKFShuiCKHwUC/UY4vC3I5jiSvGFAYnSYiZO5MlGmads+QqvUkR9ANHEguGrDv72g==}
-    peerDependencies:
-      react: '>=16.8.0'
-      react-dom: '>=16.8.0'
-
   '@floating-ui/react-dom@2.1.6':
     resolution: {integrity: sha512-4JX6rEatQEvlmgU80wZyq9RT96HZJa88q8hp0pBd+LrczeDI4o6uA2M+uvxngVHo4Ihr8uibXxH6+70zhAFrVw==}
-    peerDependencies:
-      react: '>=16.8.0'
-      react-dom: '>=16.8.0'
-
-  '@floating-ui/react@0.19.2':
-    resolution: {integrity: sha512-JyNk4A0Ezirq8FlXECvRtQOX/iBe5Ize0W/pLkrZjfHW9GUV7Xnq6zm6fyZuQzaHHqEnVizmvlA96e1/CkZv+w==}
     peerDependencies:
       react: '>=16.8.0'
       react-dom: '>=16.8.0'
@@ -2425,13 +2413,6 @@ packages:
   '@googleapis/people@6.0.0':
     resolution: {integrity: sha512-6zW9ls1zaJbLp2VR9KVwv5CohY32AF4DI9HfePeYpoXB9Py5fYCOQRqurQl6dXzUj68efv+Ph+cuaOYoUCfZFw==}
     engines: {node: '>=12.0.0'}
-
-  '@headlessui/react@2.2.0':
-    resolution: {integrity: sha512-RzCEg+LXsuI7mHiSomsu/gBJSjpupm6A1qIZ5sWjd7JhARNlMiSA4kKfJpCKwU9tE+zMRterhhrP74PvfJrpXQ==}
-    engines: {node: '>=10'}
-    peerDependencies:
-      react: ^18 || ^19 || ^19.0.0-rc
-      react-dom: ^18 || ^19 || ^19.0.0-rc
 
   '@headlessui/react@2.2.9':
     resolution: {integrity: sha512-Mb+Un58gwBn0/yWZfyrCh0TJyurtT+dETj7YHleylHk5od3dv2XqETPGWMyQ5/7sYN7oWdyM1u9MvC0OC8UmzQ==}
@@ -5171,12 +5152,6 @@ packages:
   '@tootallnate/quickjs-emscripten@0.23.0':
     resolution: {integrity: sha512-C5Mc6rdnsaJDjO3UpGW/CQTHtCKaYlScZTly4JIu97Jxo/odCiH0ITnDXSJPTOrEKk/ycSZ0AOgTmkDtkOsvIA==}
 
-  '@tremor/react@3.18.7':
-    resolution: {integrity: sha512-nmqvf/1m0GB4LXc7v2ftdfSLoZhy5WLrhV6HNf0SOriE6/l8WkYeWuhQq8QsBjRi94mUIKLJ/VC3/Y/pj6VubQ==}
-    peerDependencies:
-      react: ^18.0.0
-      react-dom: '>=16.6.0'
-
   '@trpc/server@11.6.0':
     resolution: {integrity: sha512-skTso0AWbOZck40jwNeYv++AMZXNWLUWdyk+pB5iVaYmEKTuEeMoPrEudR12VafbEU6tZa8HK3QhBfTYYHDCdg==}
     peerDependencies:
@@ -6860,9 +6835,6 @@ packages:
   date-fns@2.30.0:
     resolution: {integrity: sha512-fnULvOpxnC5/Vg3NCiWelDsLiUc9bRwAPs/+LfTLNvetFCtCTN+yQz15C/fs4AwX1R9K5GLtLfn8QW+dWisaAw==}
     engines: {node: '>=0.11'}
-
-  date-fns@3.6.0:
-    resolution: {integrity: sha512-fRHTG8g/Gif+kSh50gaGEdToemgfj74aRX3swtiouboip5JDLAyDE9F11nHMIcvOaXeOC6D7SpNhi7uFyB7Uww==}
 
   date-fns@4.1.0:
     resolution: {integrity: sha512-Ukq0owbQXxa/U3EGtsdVBkR1w7KOQ5gIBqdH2hkvknzZPYvBxb/aa6E8L7tmjFtkwZBu3UXBbjIgPo/Ez4xaNg==}
@@ -10288,12 +10260,6 @@ packages:
       react: '>=16.6.0'
       react-dom: '>=16.6.0'
 
-  react-transition-state@2.3.1:
-    resolution: {integrity: sha512-Z48el73x+7HUEM131dof9YpcQ5IlM4xB+pKWH/lX3FhxGfQaNTZa16zb7pWkC/y5btTZzXfCtglIJEGc57giOw==}
-    peerDependencies:
-      react: '>=16.8.0'
-      react-dom: '>=16.8.0'
-
   react-youtube@10.1.0:
     resolution: {integrity: sha512-ZfGtcVpk0SSZtWCSTYOQKhfx5/1cfyEW1JN/mugGNfAxT3rmVJeMbGpA9+e78yG21ls5nc/5uZJETE3cm3knBg==}
     engines: {node: '>= 14.x'}
@@ -11292,12 +11258,19 @@ packages:
   tldts-core@7.0.17:
     resolution: {integrity: sha512-DieYoGrP78PWKsrXr8MZwtQ7GLCUeLxihtjC1jZsW1DnvSMdKPitJSe8OSYDM2u5H6g3kWJZpePqkp43TfLh0g==}
 
+  tldts-core@7.0.19:
+    resolution: {integrity: sha512-lJX2dEWx0SGH4O6p+7FPwYmJ/bu1JbcGJ8RLaG9b7liIgZ85itUVEPbMtWRVrde/0fnDPEPHW10ZsKW3kVsE9A==}
+
   tldts@6.1.86:
     resolution: {integrity: sha512-WMi/OQ2axVTf/ykqCQgXiIct+mSQDFdH2fkwhPwgEwvJ1kSzZRiinb0zF2Xb8u4+OqPChmyI6MEu4EezNJz+FQ==}
     hasBin: true
 
   tldts@7.0.17:
     resolution: {integrity: sha512-Y1KQBgDd/NUc+LfOtKS6mNsC9CCaH+m2P1RoIZy7RAPo3C3/t8X45+zgut31cRZtZ3xKPjfn3TkGTrctC2TQIQ==}
+    hasBin: true
+
+  tldts@7.0.19:
+    resolution: {integrity: sha512-8PWx8tvC4jDB39BQw1m4x8y5MH1BcQ5xHeL2n7UVFulMPH/3Q0uiamahFJ3lXA0zO2SUyRXuVVbWSDmstlt9YA==}
     hasBin: true
 
   tmp@0.0.33:
@@ -14233,25 +14206,11 @@ snapshots:
       '@floating-ui/core': 1.7.3
       '@floating-ui/utils': 0.2.10
 
-  '@floating-ui/react-dom@1.3.0(react-dom@19.1.1(react@19.1.1))(react@19.1.1)':
-    dependencies:
-      '@floating-ui/dom': 1.7.4
-      react: 19.1.1
-      react-dom: 19.1.1(react@19.1.1)
-
   '@floating-ui/react-dom@2.1.6(react-dom@19.1.1(react@19.1.1))(react@19.1.1)':
     dependencies:
       '@floating-ui/dom': 1.7.4
       react: 19.1.1
       react-dom: 19.1.1(react@19.1.1)
-
-  '@floating-ui/react@0.19.2(react-dom@19.1.1(react@19.1.1))(react@19.1.1)':
-    dependencies:
-      '@floating-ui/react-dom': 1.3.0(react-dom@19.1.1(react@19.1.1))(react@19.1.1)
-      aria-hidden: 1.2.6
-      react: 19.1.1
-      react-dom: 19.1.1(react@19.1.1)
-      tabbable: 6.2.0
 
   '@floating-ui/react@0.26.28(react-dom@19.1.1(react@19.1.1))(react@19.1.1)':
     dependencies:
@@ -14282,15 +14241,6 @@ snapshots:
       googleapis-common: 8.0.0
     transitivePeerDependencies:
       - supports-color
-
-  '@headlessui/react@2.2.0(react-dom@19.1.1(react@19.1.1))(react@19.1.1)':
-    dependencies:
-      '@floating-ui/react': 0.26.28(react-dom@19.1.1(react@19.1.1))(react@19.1.1)
-      '@react-aria/focus': 3.21.1(react-dom@19.1.1(react@19.1.1))(react@19.1.1)
-      '@react-aria/interactions': 3.25.5(react-dom@19.1.1(react@19.1.1))(react@19.1.1)
-      '@tanstack/react-virtual': 3.13.12(react-dom@19.1.1(react@19.1.1))(react@19.1.1)
-      react: 19.1.1
-      react-dom: 19.1.1(react@19.1.1)
 
   '@headlessui/react@2.2.9(react-dom@19.1.1(react@19.1.1))(react@19.1.1)':
     dependencies:
@@ -17617,18 +17567,6 @@ snapshots:
 
   '@tootallnate/quickjs-emscripten@0.23.0': {}
 
-  '@tremor/react@3.18.7(react-dom@19.1.1(react@19.1.1))(react@19.1.1)':
-    dependencies:
-      '@floating-ui/react': 0.19.2(react-dom@19.1.1(react@19.1.1))(react@19.1.1)
-      '@headlessui/react': 2.2.0(react-dom@19.1.1(react@19.1.1))(react@19.1.1)
-      date-fns: 3.6.0
-      react: 19.1.1
-      react-day-picker: 8.10.1(date-fns@3.6.0)(react@19.1.1)
-      react-dom: 19.1.1(react@19.1.1)
-      react-transition-state: 2.3.1(react-dom@19.1.1(react@19.1.1))(react@19.1.1)
-      recharts: 2.15.4(react-dom@19.1.1(react@19.1.1))(react@19.1.1)
-      tailwind-merge: 2.6.0
-
   '@trpc/server@11.6.0(typescript@5.9.3)':
     dependencies:
       typescript: 5.9.3
@@ -19516,8 +19454,6 @@ snapshots:
   date-fns@2.30.0:
     dependencies:
       '@babel/runtime': 7.28.3
-
-  date-fns@3.6.0: {}
 
   date-fns@4.1.0: {}
 
@@ -23417,11 +23353,6 @@ snapshots:
     dependencies:
       react: 19.1.1
 
-  react-day-picker@8.10.1(date-fns@3.6.0)(react@19.1.1):
-    dependencies:
-      date-fns: 3.6.0
-      react: 19.1.1
-
   react-day-picker@8.10.1(date-fns@4.1.0)(react@19.1.1):
     dependencies:
       date-fns: 4.1.0
@@ -23626,11 +23557,6 @@ snapshots:
       dom-helpers: 5.2.1
       loose-envify: 1.4.0
       prop-types: 15.8.1
-      react: 19.1.1
-      react-dom: 19.1.1(react@19.1.1)
-
-  react-transition-state@2.3.1(react-dom@19.1.1(react@19.1.1))(react@19.1.1):
-    dependencies:
       react: 19.1.1
       react-dom: 19.1.1(react@19.1.1)
 
@@ -25065,6 +24991,8 @@ snapshots:
   tldts-core@7.0.17:
     optional: true
 
+  tldts-core@7.0.19: {}
+
   tldts@6.1.86:
     dependencies:
       tldts-core: 6.1.86
@@ -25073,6 +25001,10 @@ snapshots:
     dependencies:
       tldts-core: 7.0.17
     optional: true
+
+  tldts@7.0.19:
+    dependencies:
+      tldts-core: 7.0.19
 
   tmp@0.0.33:
     dependencies:

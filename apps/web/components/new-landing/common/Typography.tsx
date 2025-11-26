@@ -1,4 +1,5 @@
-import { cva, cx } from "class-variance-authority";
+import { cn } from "@/utils";
+import { cva } from "class-variance-authority";
 
 interface HeadingProps {
   children: React.ReactNode;
@@ -8,7 +9,7 @@ interface HeadingProps {
 export function Heading({ children, className }: HeadingProps) {
   return (
     <h1
-      className={cx(
+      className={cn(
         "font-title text-[#242424] text-[34px] sm:text-5xl md:text-6xl leading-tight",
         className,
       )}
@@ -33,7 +34,7 @@ interface SectionHeadingProps {
 
 export function SectionHeading({ children, wrap }: SectionHeadingProps) {
   return (
-    <Subheading className={cx("mx-auto", wrap ? "max-w-[620px]" : "")}>
+    <Subheading className={cn("mx-auto", wrap ? "max-w-[620px]" : "")}>
       {children}
     </Subheading>
   );
@@ -45,7 +46,7 @@ interface SectionSubtitleProps {
 
 export function SectionSubtitle({ children }: SectionSubtitleProps) {
   return (
-    <Paragraph className={cx("max-w-[650px] mx-auto mt-2.5")} size="lg">
+    <Paragraph className={cn("max-w-[650px] mx-auto mt-2.5")} size="lg">
       {children}
     </Paragraph>
   );
@@ -59,7 +60,7 @@ interface SubheadingProps {
 export function Subheading({ children, className }: SubheadingProps) {
   return (
     <h2
-      className={cx(
+      className={cn(
         "font-title text-[#242424] text-[1.7rem] md:text-[2.5rem] leading-tight",
         className,
       )}

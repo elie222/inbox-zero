@@ -1,5 +1,6 @@
+import { cn } from "@/utils";
 import { Slot } from "@radix-ui/react-slot";
-import { cva, cx } from "class-variance-authority";
+import { cva } from "class-variance-authority";
 
 export type ButtonVariant = "primary" | "secondary" | "secondary-two";
 
@@ -59,7 +60,7 @@ export function Button({
   if (variant === "primary") {
     return (
       <div
-        className={cx(
+        className={cn(
           "hover:scale-[1.04] transition-all duration-200 will-change-transform",
           "rounded-[14px] p-[1px] bg-gradient-to-b",
           "from-[#5989F0] to-[#578AFA] hover:from-[#4875d0] hover:to-[#396ecc]",

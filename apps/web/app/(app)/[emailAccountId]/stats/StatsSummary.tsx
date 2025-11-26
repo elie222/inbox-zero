@@ -4,76 +4,46 @@ import type { DateRange } from "react-day-picker";
 import { useOrgSWR } from "@/hooks/useOrgSWR";
 import { LoadingContent } from "@/components/LoadingContent";
 import { Skeleton } from "@/components/ui/skeleton";
-import {
-  MailCheckIcon,
-  MailOpenIcon,
-  MailsIcon,
-  SendHorizonalIcon,
-} from "lucide-react";
 import type {
   StatsByWeekParams,
   StatsByWeekResponse,
 } from "@/app/api/user/stats/by-period/route";
 import { getDateRangeParams } from "./params";
-import { formatStat } from "@/utils/stats";
-import { StatsCards } from "@/components/StatsCards";
+import { MainStatChart } from "@/app/(app)/[emailAccountId]/stats/MainStatChart";
 
 export function StatsSummary(props: {
   dateRange?: DateRange;
   refreshInterval: number;
+  period: "day" | "week" | "month" | "year";
 }) {
-  const { dateRange } = props;
+  const { dateRange, period } = props;
 
   const params: StatsByWeekParams = {
-    period: "week",
+    period,
     ...getDateRangeParams(dateRange),
   };
 
   const { data, isLoading, error } = useOrgSWR<
     StatsByWeekResponse,
     { error: string }
-  >(`/api/user/stats/by-period?${new URLSearchParams(params as any)}`, {
-    refreshInterval: props.refreshInterval,
-  });
+  >(
+    `/api/user/stats/by-period?${new URLSearchParams(
+      Object.fromEntries(
+        Object.entries(params).map(([k, v]) => [k, v?.toString() ?? ""]),
+      ) as Record<string, string>,
+    )}`,
+    {
+      refreshInterval: props.refreshInterval,
+    },
+  );
 
   return (
     <LoadingContent
       loading={isLoading}
       error={error}
-      loadingComponent={<Skeleton className="h-64 rounded" />}
+      loadingComponent={<Skeleton className="h-[405px] rounded" />}
     >
-      {data && (
-        <div>
-          <StatsCards
-            stats={[
-              {
-                name: "Received",
-                value: formatStat(data.allCount),
-                subvalue: "emails",
-                icon: <MailsIcon className="h-4 w-4" />,
-              },
-              {
-                name: "Read",
-                value: formatStat(data.readCount),
-                subvalue: "emails",
-                icon: <MailOpenIcon className="h-4 w-4" />,
-              },
-              {
-                name: "Archived",
-                value: formatStat(data.allCount - data.inboxCount),
-                subvalue: "emails",
-                icon: <MailCheckIcon className="h-4 w-4" />,
-              },
-              {
-                name: "Sent",
-                value: formatStat(data.sentCount),
-                subvalue: "emails",
-                icon: <SendHorizonalIcon className="h-4 w-4" />,
-              },
-            ]}
-          />
-        </div>
-      )}
+      {data && <MainStatChart data={data} period={period} />}
     </LoadingContent>
   );
 }

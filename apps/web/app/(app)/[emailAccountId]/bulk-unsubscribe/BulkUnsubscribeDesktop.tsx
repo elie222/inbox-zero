@@ -1,7 +1,6 @@
 "use client";
 
 import type React from "react";
-import { ProgressBar } from "@tremor/react";
 import {
   Table,
   TableBody,
@@ -16,6 +15,12 @@ import {
 } from "@/app/(app)/[emailAccountId]/bulk-unsubscribe/common";
 import type { RowProps } from "@/app/(app)/[emailAccountId]/bulk-unsubscribe/types";
 import { Checkbox } from "@/components/Checkbox";
+import { Progress } from "@/components/ui/progress";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 export function BulkUnsubscribeDesktop({
   tableRows,
@@ -117,27 +122,36 @@ export function BulkUnsubscribeRowDesktop({
       <TableCell>{item.value}</TableCell>
       <TableCell>
         <div className="hidden xl:block">
-          <ProgressBar
-            label={`${Math.round(readPercentage)}%`}
-            value={readPercentage}
-            tooltip={`${item.readEmails} read. ${
-              item.value - item.readEmails
-            } unread.`}
-            color="blue"
-            className="w-[150px]"
-          />
+          <div className="flex items-center gap-4">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Progress value={readPercentage} className="h-2 w-[150px]" />
+              </TooltipTrigger>
+              <TooltipContent>
+                {item.readEmails} read. {item.value - item.readEmails} unread.
+              </TooltipContent>
+            </Tooltip>
+            <span className="text-sm">{Math.round(readPercentage)}%</span>
+          </div>
         </div>
         <div className="xl:hidden">{Math.round(readPercentage)}%</div>
       </TableCell>
       <TableCell>
         <div className="hidden 2xl:block">
-          <ProgressBar
-            label={`${Math.round(archivedPercentage)}%`}
-            value={archivedPercentage}
-            tooltip={`${archivedEmails} archived. ${item.inboxEmails} unarchived.`}
-            color="blue"
-            className="w-[150px]"
-          />
+          <div className="flex items-center gap-4">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Progress
+                  value={archivedPercentage}
+                  className="h-2 w-[150px]"
+                />
+              </TooltipTrigger>
+              <TooltipContent>
+                {archivedEmails} archived. {item.inboxEmails} unarchived.
+              </TooltipContent>
+            </Tooltip>
+            <span className="text-sm">{Math.round(archivedPercentage)}%</span>
+          </div>
         </div>
         <div className="2xl:hidden">{Math.round(archivedPercentage)}%</div>
       </TableCell>
