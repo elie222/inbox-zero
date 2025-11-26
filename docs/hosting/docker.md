@@ -64,53 +64,43 @@ You'll need to configure:
 
 For detailed configuration instructions, see the [Environment Variables Reference](./environment-variables.md).
 
-#### Using External Database Services (Optional)
-
-The `docker-compose.yml` supports different deployment modes using profiles:
-
-**All-in-one (default):** Includes Postgres and Redis containers
-```bash
-NEXT_PUBLIC_BASE_URL=https://yourdomain.com docker compose --profile all up -d
-```
-
-**External database only:** Use managed Postgres (RDS, Neon, Supabase) with local Redis
-```bash
-# Set DATABASE_URL and DIRECT_URL in .env to your external database
-NEXT_PUBLIC_BASE_URL=https://yourdomain.com docker compose --profile local-redis up -d
-```
-
-**External Redis only:** Use managed Redis (Upstash, ElastiCache) with local Postgres
-```bash
-# Set UPSTASH_REDIS_URL and UPSTASH_REDIS_TOKEN in .env
-NEXT_PUBLIC_BASE_URL=https://yourdomain.com docker compose --profile local-db up -d
-```
-
-**Fully external:** Use managed services for both (production recommended)
-```bash
-# Set DATABASE_URL, DIRECT_URL, UPSTASH_REDIS_URL, and UPSTASH_REDIS_TOKEN in .env
-NEXT_PUBLIC_BASE_URL=https://yourdomain.com docker compose up -d
-```
-
-**Important**: The `NEXT_PUBLIC_BASE_URL` must be set as a shell environment variable when running `docker compose up` (as shown below). Setting it in `apps/web/.env` will not work because `docker-compose.yml` overrides it.
-
 ### 4. Deploy
 
 Pull and start the services with your domain:
 
 ```bash
-# Set your domain and start all services
-NEXT_PUBLIC_BASE_URL=https://yourdomain.com docker compose up -d
+NEXT_PUBLIC_BASE_URL=https://yourdomain.com docker compose --profile all up -d
 ```
 
 The pre-built Docker image is hosted at `ghcr.io/elie222/inbox-zero:latest` and will be automatically pulled.
+
+**Important**: The `NEXT_PUBLIC_BASE_URL` must be set as a shell environment variable when running `docker compose up` (as shown above). Setting it in `apps/web/.env` will not work because `docker-compose.yml` overrides it.
+
+#### Using External Database Services (Optional)
+
+The `docker-compose.yml` supports different deployment modes using profiles:
+
+| Profile | Description | Use when |
+|---------|-------------|----------|
+| `--profile all` | Includes Postgres and Redis containers | Default, simplest setup |
+| `--profile local-redis` | Local Redis only | Using managed Postgres (RDS, Neon, Supabase) |
+| `--profile local-db` | Local Postgres only | Using managed Redis (Upstash, ElastiCache) |
+| *(no profile)* | No local databases | Using managed services for both (production recommended) |
+
+For external services, set the appropriate environment variables in `apps/web/.env`:
+- **External Postgres**: Set `DATABASE_URL` and `DIRECT_URL`
+- **External Redis**: Set `UPSTASH_REDIS_URL` and `UPSTASH_REDIS_TOKEN`
 
 ### 5. Run Database Migrations
 
 Wait for the containers to start, then run the database migrations:
 
 ```bash
-# Wait a few seconds for the database to be ready, then run migrations
-docker compose exec web npx prisma migrate deploy
+# Check that containers are running (STATUS should show "Up")
+docker ps
+
+# Run migrations
+docker compose exec web npx prisma migrate deploy --schema=apps/web/prisma/schema.prisma
 ```
 
 **Note:** You'll need to run this command again after pulling updates to apply any new database schema changes.
@@ -135,7 +125,7 @@ docker compose pull web
 NEXT_PUBLIC_BASE_URL=https://yourdomain.com docker compose up -d
 
 # Run any new database migrations
-docker compose exec web npx prisma migrate deploy
+docker compose exec web npx prisma migrate deploy --schema=apps/web/prisma/schema.prisma
 ```
 ## Monitoring
 
