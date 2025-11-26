@@ -79,11 +79,6 @@ COPY --from=builder /app/apps/web/.next/static ./apps/web/.next/static
 COPY --from=builder /app/apps/web/public ./apps/web/public
 COPY --from=builder /app/apps/web/prisma ./apps/web/prisma
 
-# Copy Prisma schema and migrations for runtime migrations
-COPY --from=builder /app/apps/web/prisma ./apps/web/prisma
-# Copy generated Prisma client from builder
-COPY --from=builder /app/node_modules/.pnpm/@prisma+client*/node_modules/.prisma ./node_modules/.prisma
-COPY --from=builder /app/node_modules/.pnpm/@prisma+client*/node_modules/@prisma ./node_modules/@prisma
 # Install Prisma CLI for migrations (uses npm which comes with node image)
 RUN npm install -g prisma@6
 
