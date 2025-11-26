@@ -66,7 +66,10 @@ set_secret "INTERNAL_API_KEY" "$(generate_secret 32)"
 set_secret "API_KEY_SALT" "$(generate_secret 32)"
 set_secret "GOOGLE_PUBSUB_VERIFICATION_TOKEN" "$(generate_secret 32)"
 set_secret "MICROSOFT_WEBHOOK_CLIENT_STATE" "$(generate_secret 32)"
-set_secret "UPSTASH_REDIS_TOKEN" "$(generate_secret 32)"
+# Generate Redis token - used by both the app (UPSTASH_REDIS_TOKEN) and local Redis adapter (SRH_TOKEN)
+REDIS_TOKEN="$(generate_secret 32)"
+set_secret "UPSTASH_REDIS_TOKEN" "$REDIS_TOKEN"
+set_secret "SRH_TOKEN" "$REDIS_TOKEN"
 set_secret "TINYBIRD_ENCRYPT_SECRET" "$(generate_secret 32)"
 set_secret "CRON_SECRET" "$(generate_secret 32)"
 
