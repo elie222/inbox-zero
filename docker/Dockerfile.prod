@@ -4,7 +4,7 @@ FROM node:22-alpine AS builder
 WORKDIR /app
 
 RUN apk add --no-cache openssl
-RUN npm install -g pnpm@10.15.0
+RUN npm install -g pnpm@10.22.0
 
 # Copy lockfiles/workspace manifests for better caching
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc* ./
@@ -33,6 +33,8 @@ ENV NODE_ENV=production
 ENV NODE_OPTIONS=--max_old_space_size=4096
 ARG NEXT_PUBLIC_BASE_URL="http://NEXT_PUBLIC_BASE_URL_PLACEHOLDER"
 ENV NEXT_PUBLIC_BASE_URL=${NEXT_PUBLIC_BASE_URL}
+ARG NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS="NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS_PLACEHOLDER"
+ENV NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS=${NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS}
 
 # Provide safe dummy envs so Next build can complete at image build time
 ENV DATABASE_URL="postgresql://dummy:dummy@dummy:5432/dummy?schema=public"
@@ -54,8 +56,8 @@ ENV QSTASH_CURRENT_SIGNING_KEY="dummy_qstash_curr_key_for_build"
 ENV QSTASH_NEXT_SIGNING_KEY="dummy_qstash_next_key_for_build"
 ENV DOCKER_BUILD="true"
 
-RUN cd apps/web \
- && pnpm exec prisma generate \
+RUN npx prisma generate --schema=apps/web/prisma/schema.prisma \
+ && cd apps/web \
  && pnpm exec next build \
  && cd ../.. \
  && rm -rf apps/web/.next/cache
@@ -66,6 +68,9 @@ WORKDIR /app
 
 # Install openssl for Prisma
 RUN apk add --no-cache openssl
+
+# Install Prisma CLI globally (npm handles all dependencies including @prisma/engines)
+RUN npm install -g prisma@6.16.3
 
 # Copy the standalone server output (contains node_modules subset + server.js)
 COPY --from=builder /app/apps/web/.next/standalone ./
