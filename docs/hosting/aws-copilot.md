@@ -182,5 +182,5 @@ If migrations fail:
 
 - [AWS Copilot Documentation](https://aws.github.io/copilot-cli/docs/)
 - [Copilot Manifest Reference](https://aws.github.io/copilot-cli/docs/manifest/overview/)
-- [Docker Self-Hosting Guide](./docker.md) - For local Docker setup
+- [Self-Hosting Guide](./self-hosting.md) - For local Docker setup
 

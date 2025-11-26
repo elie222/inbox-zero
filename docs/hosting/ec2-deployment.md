@@ -133,4 +133,4 @@ You can also use nginx or any approach of your choice.
 
 ## 4. Deployment
 
-Once your EC2 instance is set up with Docker, swap memory, and HTTPS, follow the deployment steps in the [Docker deployment guide](./docker.md).
+Once your EC2 instance is set up with Docker, swap memory, and HTTPS, follow the deployment steps in the [Self-Hosting Guide](./self-hosting.md).
