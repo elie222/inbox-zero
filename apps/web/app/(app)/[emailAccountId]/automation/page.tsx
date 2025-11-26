@@ -21,7 +21,7 @@ import { DismissibleVideoCard } from "@/components/VideoCard";
 import {
   STEP_KEYS,
   getStepNumber,
-} from "@/app/(app)/[emailAccountId]/onboarding/OnboardingContent";
+} from "@/app/(app)/[emailAccountId]/onboarding/steps";
 
 export const maxDuration = 300; // Applies to the actions
 
