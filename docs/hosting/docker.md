@@ -55,7 +55,7 @@ For detailed configuration instructions, see the [Environment Variables Referenc
 Pull and start the services with your domain:
 
 ```bash
-NEXT_PUBLIC_BASE_URL=https://yourdomain.com docker compose --profile all up -d
+NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS=true NEXT_PUBLIC_BASE_URL=https://yourdomain.com docker compose --profile all up -d
 ```
 
 The pre-built Docker image is hosted at `ghcr.io/elie222/inbox-zero:latest` and will be automatically pulled.
@@ -108,7 +108,7 @@ To update to the latest version:
 docker compose pull web
 
 # Restart with the new image
-NEXT_PUBLIC_BASE_URL=https://yourdomain.com docker compose up -d
+NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS=true NEXT_PUBLIC_BASE_URL=https://yourdomain.com docker compose up -d
 
 # Run any new database migrations
 docker compose exec web npx prisma migrate deploy --schema=apps/web/prisma/schema.prisma
@@ -136,7 +136,7 @@ nano apps/web/.env
 
 # Build and start
 docker compose build
-NEXT_PUBLIC_BASE_URL=https://yourdomain.com docker compose up -d
+NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS=true NEXT_PUBLIC_BASE_URL=https://yourdomain.com docker compose up -d
 ```
 
 **Note**: Building from source requires significantly more resources (4GB+ RAM recommended) and takes longer than pulling the pre-built image.
