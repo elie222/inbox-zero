@@ -67,7 +67,7 @@ function selectModel(
 ): SelectModel {
   switch (aiProvider) {
     case Provider.OPEN_AI: {
-      const modelName = aiModel || "gpt-4o";
+      const modelName = aiModel || "gpt-5.1";
       return {
         provider: Provider.OPEN_AI,
         modelName,
