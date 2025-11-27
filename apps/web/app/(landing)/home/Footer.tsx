@@ -14,6 +14,7 @@ const navigation = {
     { name: "Clean your inbox", href: "/clean-inbox" },
     { name: "Cold Email Blocker", href: "/block-cold-emails" },
     { name: "Email Analytics", href: "/email-analytics" },
+    { name: "Auto Forward Emails", href: "/auto-forward-emails" },
     { name: "Open Source", href: "/github", target: "_blank" },
   ],
   useCases: [
