@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { after } from "next/server";
 import {
   createRuleBody,
   updateRuleBody,
@@ -39,6 +40,8 @@ import { resolveLabelNameAndId } from "@/utils/label/resolve-label";
 import type { Logger } from "@/utils/logger";
 import { validateGmailLabelName } from "@/utils/gmail/label-validation";
 import { isGoogleProvider } from "@/utils/email/provider-types";
+import { bulkProcessInboxEmails } from "@/utils/ai/choose-rule/bulk-process-emails";
+import { getEmailAccountWithAi } from "@/utils/user/get";
 
 export const createRuleAction = actionClient
   .metadata({ name: "createRule" })
@@ -272,10 +275,7 @@ export const createRulesOnboardingAction = actionClient
         }
       }
 
-      const emailAccount = await prisma.emailAccount.findUnique({
-        where: { id: emailAccountId },
-        select: { rulesPrompt: true },
-      });
+      const emailAccount = await getEmailAccountWithAi({ emailAccountId });
       if (!emailAccount) throw new SafeError("User not found");
 
       const promises: Promise<unknown>[] = [];
@@ -410,6 +410,16 @@ export const createRulesOnboardingAction = actionClient
       }
 
       await Promise.allSettled(promises);
+
+      after(() =>
+        bulkProcessInboxEmails({
+          emailAccount,
+          provider,
+          maxEmails: 20,
+          skipArchive: true,
+          logger,
+        }),
+      );
     },
   );
 
