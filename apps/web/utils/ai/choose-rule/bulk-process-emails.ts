@@ -5,20 +5,22 @@ import type { Logger } from "@/utils/logger";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import type { ParsedMessage } from "@/utils/types";
 
-const ONBOARDING_EMAIL_COUNT = 20;
-
-export async function processOnboardingEmails({
+export async function bulkProcessInboxEmails({
   emailAccount,
   provider,
+  maxEmails,
+  skipArchive,
   logger: log,
 }: {
   emailAccount: EmailAccountWithAI;
   provider: string;
+  maxEmails: number;
+  skipArchive: boolean;
   logger: Logger;
 }) {
-  const logger = log.with({ module: "onboarding/process-emails" });
+  const logger = log.with({ module: "bulk-process-emails" });
 
-  logger.info("Starting onboarding email processing");
+  logger.info("Starting bulk inbox email processing");
 
   try {
     const emailProvider = await createEmailProvider({
@@ -30,7 +32,7 @@ export async function processOnboardingEmails({
     const [{ messages }, rules] = await Promise.all([
       emailProvider.getMessagesByFields({
         type: "inbox",
-        maxResults: ONBOARDING_EMAIL_COUNT,
+        maxResults: maxEmails,
       }),
       prisma.rule.findMany({
         where: {
@@ -42,12 +44,12 @@ export async function processOnboardingEmails({
     ]);
 
     if (messages.length === 0) {
-      logger.info("No inbox emails to process for onboarding");
+      logger.info("No inbox emails to process");
       return;
     }
 
     if (rules.length === 0) {
-      logger.info("No rules found for onboarding processing");
+      logger.info("No rules found");
       return;
     }
 
@@ -72,12 +74,12 @@ export async function processOnboardingEmails({
           isTest: false,
           modelType: "economy",
           logger,
-          skipArchive: true,
+          skipArchive,
         });
         processedCount++;
       } catch (error) {
         errorCount++;
-        logger.error("Error processing email during onboarding", {
+        logger.error("Error processing email", {
           messageId: message.id,
           error,
         });
@@ -85,13 +87,13 @@ export async function processOnboardingEmails({
       }
     }
 
-    logger.info("Completed onboarding email processing", {
+    logger.info("Completed bulk email processing", {
       processedCount,
       errorCount,
       totalEmails: uniqueMessages.length,
     });
   } catch (error) {
-    logger.error("Failed to process onboarding emails", { error });
+    logger.error("Failed to process emails", { error });
   }
 }
 

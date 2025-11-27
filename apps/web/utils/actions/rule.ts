@@ -40,7 +40,7 @@ import { resolveLabelNameAndId } from "@/utils/label/resolve-label";
 import type { Logger } from "@/utils/logger";
 import { validateGmailLabelName } from "@/utils/gmail/label-validation";
 import { isGoogleProvider } from "@/utils/email/provider-types";
-import { processOnboardingEmails } from "@/utils/ai/choose-rule/bulk-process-emails";
+import { bulkProcessInboxEmails } from "@/utils/ai/choose-rule/bulk-process-emails";
 import { getEmailAccountWithAi } from "@/utils/user/get";
 
 export const createRuleAction = actionClient
@@ -412,9 +412,11 @@ export const createRulesOnboardingAction = actionClient
       await Promise.allSettled(promises);
 
       after(() =>
-        processOnboardingEmails({
+        bulkProcessInboxEmails({
           emailAccount,
           provider,
+          maxEmails: 20,
+          skipArchive: true,
           logger,
         }),
       );
