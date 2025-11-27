@@ -22,7 +22,6 @@ import {
 
 const navigation = [
   { name: "Enterprise", href: "/enterprise" },
-  { name: "Open Source", href: "/github", target: "_blank" as const },
   { name: "Pricing", href: "/#pricing" },
 ];
 
@@ -128,8 +127,6 @@ export function HeaderLinks() {
               >
                 <Link
                   href={item.href}
-                  target={item.target}
-                  prefetch={item.target !== "_blank"}
                   className="text-sm font-semibold font-geist leading-6 text-gray-900"
                 >
                   {item.name}
