@@ -50,12 +50,14 @@ You'll need to configure:
 
 For detailed configuration instructions, see the [Environment Variables Reference](./environment-variables.md).
 
+**Note**: The first section of `.env.example` contains Docker auto-configured variables that are commented out. Leave them commented - Docker Compose sets these automatically with the correct internal hostnames.
+
 ### 4. Deploy
 
 Pull and start the services with your domain:
 
 ```bash
-NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS=true NEXT_PUBLIC_BASE_URL=https://yourdomain.com docker compose --profile all up -d
+NEXT_PUBLIC_BASE_URL=https://yourdomain.com docker compose --profile all up -d
 ```
 
 The pre-built Docker image is hosted at `ghcr.io/elie222/inbox-zero:latest` and will be automatically pulled.
@@ -85,11 +87,13 @@ Wait for the containers to start, then run the database migrations:
 # Check that containers are running (STATUS should show "Up")
 docker ps
 
-# Run migrations
-docker compose exec web npx prisma migrate deploy --schema=apps/web/prisma/schema.prisma
+# Run migrations (prisma is pre-installed in the container)
+docker compose exec web prisma migrate deploy --schema=apps/web/prisma/schema.prisma
 ```
 
 **Note:** You'll need to run this command again after pulling updates to apply any new database schema changes.
+
+**Troubleshooting:** If you see `npx` trying to install a different Prisma version, run `docker compose pull web` to get the latest image which has Prisma pre-installed.
 
 ### 6. Access Your Application
 
@@ -108,10 +112,10 @@ To update to the latest version:
 docker compose pull web
 
 # Restart with the new image
-NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS=true NEXT_PUBLIC_BASE_URL=https://yourdomain.com docker compose up -d
+NEXT_PUBLIC_BASE_URL=https://yourdomain.com docker compose up -d
 
 # Run any new database migrations
-docker compose exec web npx prisma migrate deploy --schema=apps/web/prisma/schema.prisma
+docker compose exec web prisma migrate deploy --schema=apps/web/prisma/schema.prisma
 ```
 ## Monitoring
 
@@ -148,7 +152,7 @@ nano apps/web/.env
 
 # Build and start
 docker compose build
-NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS=true NEXT_PUBLIC_BASE_URL=https://yourdomain.com docker compose up -d
+NEXT_PUBLIC_BASE_URL=https://yourdomain.com docker compose up -d
 ```
 
 **Note**: Building from source requires significantly more resources (4GB+ RAM recommended) and takes longer than pulling the pre-built image.

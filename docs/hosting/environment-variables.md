@@ -32,7 +32,7 @@ cp apps/web/.env.example apps/web/.env
 | `GOOGLE_PUBSUB_TOPIC_NAME` | Yes | Full topic name (e.g., `projects/my-project/topics/gmail`) | — |
 | `GOOGLE_PUBSUB_VERIFICATION_TOKEN` | No | Token for webhook verification | — |
 | **Redis** ||||
-| `UPSTASH_REDIS_URL` | No* | Upstash Redis URL (*required if not using Docker Compose) | — |
+| `UPSTASH_REDIS_URL` | No* | Upstash Redis URL (*required if not using Docker Compose with local Redis) | — |
 | `UPSTASH_REDIS_TOKEN` | No* | Upstash Redis token (*required if not using Docker Compose) | — |
 | `REDIS_URL` | No | Alternative Redis URL (for subscriptions) | — |
 | **LLM Provider Selection** ||||
@@ -83,7 +83,7 @@ cp apps/web/.env.example apps/web/.env
 | **Feature Flags** ||||
 | `NEXT_PUBLIC_CONTACTS_ENABLED` | No | Enable contacts feature | `false` |
 | `NEXT_PUBLIC_EMAIL_SEND_ENABLED` | No | Enable email sending | `true` |
-| `NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS` | No | Bypass premium checks (recommended for self-hosting) | — |
+| `NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS` | No | Bypass premium checks (recommended for self-hosting) | `true` |
 | **Debugging** ||||
 | `LOG_ZOD_ERRORS` | No | Log Zod validation errors | — |
 | `ENABLE_DEBUG_LOGS` | No | Enable debug logging | `false` |
@@ -101,5 +101,4 @@ For detailed setup instructions:
 ## Notes
 
 - If running the app in Docker and Ollama locally, use `http://host.docker.internal:11434/api` as the `OLLAMA_BASE_URL`.
-- Redis variables are required if not using Docker Compose with local Redis.
-- Set `NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS=true` to unlock all features for self-hosting.
+- When using Docker Compose with `--profile all`, database and Redis URLs are auto-configured. See the [Self-Hosting Guide](./self-hosting.md) for details.
