@@ -70,7 +70,7 @@ export async function processOnboardingEmails({
           rules,
           emailAccount,
           isTest: false,
-          modelType: "default",
+          modelType: "economy",
           logger,
           skipArchive: true,
         });
