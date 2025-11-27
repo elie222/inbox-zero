@@ -13,6 +13,7 @@ import { TabsToolbar } from "@/components/TabsToolbar";
 import { SectionDescription } from "@/components/Typography";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAccount } from "@/providers/EmailAccountProvider";
+import { env } from "@/env";
 
 export default function SettingsPage() {
   const { emailAccount } = useAccount();
@@ -35,8 +36,12 @@ export default function SettingsPage() {
 
         <TabsContent value="user">
           <FormWrapper>
-            <MultiAccountSection />
-            <BillingSection />
+            {!env.NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS && (
+              <>
+                <MultiAccountSection />
+                <BillingSection />
+              </>
+            )}
             <ModelSection />
             <WebhookSection />
             <ApiKeysSection />
