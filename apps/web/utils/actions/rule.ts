@@ -40,7 +40,7 @@ import { resolveLabelNameAndId } from "@/utils/label/resolve-label";
 import type { Logger } from "@/utils/logger";
 import { validateGmailLabelName } from "@/utils/gmail/label-validation";
 import { isGoogleProvider } from "@/utils/email/provider-types";
-import { processOnboardingEmails } from "@/utils/onboarding/process-onboarding-emails";
+import { processOnboardingEmails } from "@/utils/ai/choose-rule/bulk-process-emails";
 import { getEmailAccountWithAi } from "@/utils/user/get";
 
 export const createRuleAction = actionClient
