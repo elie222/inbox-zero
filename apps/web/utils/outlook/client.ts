@@ -108,7 +108,7 @@ export const getOutlookClientWithRefresh = async ({
     }
 
     const response = await fetch(
-      "https://login.microsoftonline.com/common/oauth2/v2.0/token",
+      `https://login.microsoftonline.com/${env.MICROSOFT_TENANT_ID}/oauth2/v2.0/token`,
       {
         method: "POST",
         headers: {
