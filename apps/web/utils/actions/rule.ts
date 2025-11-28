@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { ONBOARDING_PROCESS_EMAILS_COUNT } from "@/utils/config";
 import { after } from "next/server";
 import {
   createRuleBody,
@@ -415,7 +416,7 @@ export const createRulesOnboardingAction = actionClient
         bulkProcessInboxEmails({
           emailAccount,
           provider,
-          maxEmails: 20,
+          maxEmails: ONBOARDING_PROCESS_EMAILS_COUNT,
           skipArchive: true,
           logger,
         }),
