@@ -59,7 +59,6 @@ export function RulesPrompt() {
         onSelect={setPersona}
         personas={personas}
       />
-      <AssistantOnboarding />
     </>
   );
 }

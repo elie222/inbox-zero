@@ -11,9 +11,12 @@ import {
 import { SWRConfig, mutate } from "swr";
 import { captureException } from "@/utils/error";
 import { useAccount } from "@/providers/EmailAccountProvider";
-import { EMAIL_ACCOUNT_HEADER } from "@/utils/config";
+import {
+  EMAIL_ACCOUNT_HEADER,
+  MICROSOFT_AUTH_EXPIRED_ERROR_CODE,
+  NO_REFRESH_TOKEN_ERROR_CODE,
+} from "@/utils/config";
 import { prefixPath } from "@/utils/path";
-import { NO_REFRESH_TOKEN_ERROR_CODE } from "@/utils/config";
 
 // https://swr.vercel.app/docs/error-handling#status-code-and-error-object
 const fetcher = async (
@@ -34,9 +37,17 @@ const fetcher = async (
   if (!res.ok) {
     const errorData = await res.json();
 
-    if (errorData.errorCode === NO_REFRESH_TOKEN_ERROR_CODE) {
+    if (
+      errorData.errorCode === NO_REFRESH_TOKEN_ERROR_CODE ||
+      errorData.errorCode === MICROSOFT_AUTH_EXPIRED_ERROR_CODE
+    ) {
       if (emailAccountId) {
-        captureException(new Error("Refresh token missing"), {
+        const errorMessage =
+          errorData.errorCode === MICROSOFT_AUTH_EXPIRED_ERROR_CODE
+            ? "Microsoft authorization expired"
+            : "Refresh token missing";
+
+        captureException(new Error(errorMessage), {
           extra: {
             url,
             status: res.status,
@@ -46,7 +57,7 @@ const fetcher = async (
           },
         });
 
-        console.log("Refresh token missing, redirecting to consent page...");
+        console.log(`${errorMessage}, redirecting to consent page...`);
         const redirectUrl = prefixPath(emailAccountId, "/permissions/consent");
         window.location.href = redirectUrl;
         return;

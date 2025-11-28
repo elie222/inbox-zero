@@ -119,7 +119,6 @@ export const getOutlookClientWithRefresh = async ({
           client_secret: env.MICROSOFT_CLIENT_SECRET,
           refresh_token: refreshToken,
           grant_type: "refresh_token",
-          scope: SCOPES.join(" "),
         }),
       },
     );
