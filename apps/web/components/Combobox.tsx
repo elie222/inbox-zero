@@ -56,7 +56,11 @@ export function Combobox(props: {
             value={props.onSearch ? props.search : undefined}
             onValueChange={props.onSearch}
           />
-          <CommandList>
+          <CommandList
+            onWheelCapture={(e) => {
+              e.currentTarget.scrollTop += e.deltaY;
+            }}
+          >
             {loading && (
               <CommandLoading>
                 <div className="flex items-center justify-center">
