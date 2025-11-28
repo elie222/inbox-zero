@@ -213,7 +213,6 @@ export function BulkUnsubscribe() {
     <PageWrapper>
       <PageHeader
         title="Bulk Unsubscriber"
-        description="Unsubscribe from and archive emails you don't want to receive."
         video={{
           title: "Getting started with Bulk Unsubscribe",
           description: (

@@ -8,7 +8,7 @@ import { PageHeader } from "@/components/PageHeader";
 export default function ColdEmailBlockerPage() {
   return (
     <PageWrapper>
-      <PageHeader title="Cold Email Blocker" description="" />
+      <PageHeader title="Cold Email Blocker" />
       <GmailProvider>
         <Suspense>
           <PermissionsCheck />

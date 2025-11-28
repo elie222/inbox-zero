@@ -31,7 +31,7 @@ export default async function AdminPage() {
 
   return (
     <PageWrapper>
-      <PageHeader title="Admin" description="" />
+      <PageHeader title="Admin" />
 
       <div className="space-y-8 mt-4 mb-20">
         <AdminUpgradeUserForm />

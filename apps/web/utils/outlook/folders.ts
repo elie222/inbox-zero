@@ -37,7 +37,7 @@ export async function getOutlookRootFolders(
       .select(fields)
       .top(999)
       .expand(
-        `childFolders($select=${fields};$expand=childFolders($select=${fields}))`,
+        `childFolders($select=${fields};$top=999;$expand=childFolders($select=${fields};$top=999))`,
       )
       .get(),
   );
@@ -55,8 +55,9 @@ export async function getOutlookChildFolders(
       .getClient()
       .api(`/me/mailFolders/${folderId}/childFolders`)
       .select(fields)
+      .top(999)
       .expand(
-        `childFolders($select=${fields};$expand=childFolders($select=${fields}))`,
+        `childFolders($select=${fields};$top=999;$expand=childFolders($select=${fields};$top=999))`,
       )
       .get(),
   );

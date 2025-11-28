@@ -32,7 +32,7 @@ export default function AccountsPage() {
 
   return (
     <PageWrapper>
-      <PageHeader title="Accounts" description="Manage your email accounts." />
+      <PageHeader title="Accounts" />
 
       <LoadingContent loading={isLoading} error={error}>
         <div className="grid grid-cols-1 gap-4 py-6 lg:grid-cols-2 xl:grid-cols-3">
