@@ -245,6 +245,7 @@ export function FolderSelector({
             />
             <CommandList
               onWheelCapture={(e) => {
+                e.preventDefault();
                 e.currentTarget.scrollTop += e.deltaY;
               }}
             >

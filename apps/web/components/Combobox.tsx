@@ -58,6 +58,7 @@ export function Combobox(props: {
           />
           <CommandList
             onWheelCapture={(e) => {
+              e.preventDefault();
               e.currentTarget.scrollTop += e.deltaY;
             }}
           >
