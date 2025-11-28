@@ -243,7 +243,11 @@ export function FolderSelector({
               value={searchQuery}
               onValueChange={setSearchQuery}
             />
-            <CommandList>
+            <CommandList
+              onWheelCapture={(e) => {
+                e.currentTarget.scrollTop += e.deltaY;
+              }}
+            >
               {isLoading ? (
                 <div className="flex items-center justify-center py-6">
                   <Loader2 className="h-4 w-4 animate-spin mr-2" />
