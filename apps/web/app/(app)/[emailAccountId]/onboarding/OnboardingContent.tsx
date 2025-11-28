@@ -10,6 +10,7 @@ import { analyzePersonaAction } from "@/utils/actions/email-account";
 import { StepFeatures } from "@/app/(app)/[emailAccountId]/onboarding/StepFeatures";
 import { StepDraft } from "@/app/(app)/[emailAccountId]/onboarding/StepDraft";
 import { StepCustomRules } from "@/app/(app)/[emailAccountId]/onboarding/StepCustomRules";
+import { StepInboxProcessed } from "@/app/(app)/[emailAccountId]/onboarding/StepInboxProcessed";
 import {
   ASSISTANT_ONBOARDING_COOKIE,
   markOnboardingAsCompleted,
@@ -65,6 +66,7 @@ export function OnboardingContent({ step }: OnboardingContentProps) {
     [STEP_KEYS.CUSTOM_RULES]: () => (
       <StepCustomRules provider={provider} onNext={onNext} />
     ),
+    [STEP_KEYS.INBOX_PROCESSED]: () => <StepInboxProcessed onNext={onNext} />,
   };
 
   const steps = STEP_ORDER.map((key) => stepMap[key]).filter(isDefined);
