@@ -16,6 +16,10 @@ if [ -n "$NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS" ]; then
     /app/docker/scripts/replace-placeholder.sh "NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS_PLACEHOLDER" "$NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS"
 fi
 
+if [ -n "$NEXT_PUBLIC_EMAIL_SEND_ENABLED" ]; then
+    /app/docker/scripts/replace-placeholder.sh "NEXT_PUBLIC_EMAIL_SEND_ENABLED_PLACEHOLDER" "$NEXT_PUBLIC_EMAIL_SEND_ENABLED"
+fi
+
 if [ -n "$DATABASE_URL" ]; then
     echo "🔄 Running database migrations..."
     if timeout 320 prisma migrate deploy --schema=./apps/web/prisma/schema.prisma; then
