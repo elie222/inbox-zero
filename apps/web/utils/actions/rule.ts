@@ -39,7 +39,6 @@ import { ONE_WEEK_MINUTES } from "@/utils/date";
 import { createEmailProvider } from "@/utils/email/provider";
 import { resolveLabelNameAndId } from "@/utils/label/resolve-label";
 import type { Logger } from "@/utils/logger";
-import { createScopedLogger } from "@/utils/logger";
 import { validateGmailLabelName } from "@/utils/gmail/label-validation";
 import { isGoogleProvider } from "@/utils/email/provider-types";
 import { bulkProcessInboxEmails } from "@/utils/ai/choose-rule/bulk-process-emails";
@@ -87,20 +86,6 @@ export const createRuleAction = actionClient
           runOnThreads: runOnThreads ?? true,
           logger,
         });
-
-        const emailAccount = await getEmailAccountWithAi({ emailAccountId });
-
-        if (emailAccount) {
-          after(() =>
-            bulkProcessInboxEmails({
-              emailAccount,
-              provider,
-              maxEmails: ONBOARDING_PROCESS_EMAILS_COUNT,
-              skipArchive: true,
-              logger,
-            }),
-          );
-        }
 
         return { rule };
       } catch (error) {
