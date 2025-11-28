@@ -90,7 +90,6 @@ export default async function AutomationPage({
             <div>
               <PageHeader
                 title="AI Assistant"
-                description="Personalized AI to help you manage emails faster."
                 video={{
                   title: "Getting started with AI Personal Assistant",
                   description:

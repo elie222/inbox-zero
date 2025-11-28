@@ -21,7 +21,7 @@ export default function SettingsPage() {
   return (
     <div>
       <div className="content-container mb-4">
-        <PageHeader title="Settings" description="Manage your settings." />
+        <PageHeader title="Settings" />
       </div>
 
       <Tabs defaultValue="user">

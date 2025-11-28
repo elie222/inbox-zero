@@ -11,10 +11,7 @@ export default async function MembersPage({
 
   return (
     <PageWrapper>
-      <PageHeader
-        title="Organization Members"
-        description="Manage your organization members and invite new team members."
-      />
+      <PageHeader title="Organization Members" />
 
       <div className="mt-8">
         <Members organizationId={organizationId} />
