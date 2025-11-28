@@ -10,6 +10,7 @@ import { getEmailAccount } from "@/utils/redis/account-validation";
 import { getCallerEmailAccount } from "@/utils/organizations/access";
 import {
   EMAIL_ACCOUNT_HEADER,
+  MICROSOFT_AUTH_EXPIRED_ERROR_CODE,
   NO_REFRESH_TOKEN_ERROR_CODE,
 } from "@/utils/config";
 import prisma from "@/utils/prisma";
@@ -103,6 +104,17 @@ function withMiddleware<T extends NextRequest>(
             {
               error: "Authorization required. Please grant permissions.",
               errorCode: NO_REFRESH_TOKEN_ERROR_CODE,
+              isKnownError: true,
+            },
+            { status: 401 },
+          );
+        }
+
+        if (error.message.includes("Microsoft authorization has expired")) {
+          return NextResponse.json(
+            {
+              error: error.safeMessage,
+              errorCode: MICROSOFT_AUTH_EXPIRED_ERROR_CODE,
               isKnownError: true,
             },
             { status: 401 },
