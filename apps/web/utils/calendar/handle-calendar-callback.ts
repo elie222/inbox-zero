@@ -13,6 +13,13 @@ import {
   redirectWithError,
   RedirectError,
 } from "./oauth-callback-helpers";
+import {
+  acquireOAuthCodeLock,
+  getOAuthCodeResult,
+  setOAuthCodeResult,
+  clearOAuthCode,
+} from "@/utils/redis/oauth-code";
+import { CALENDAR_STATE_COOKIE_NAME } from "./constants";
 
 /**
  * Unified handler for calendar OAuth callbacks
@@ -31,6 +38,34 @@ export async function handleCalendarCallback(
       logger,
     );
     redirectHeaders = response.headers;
+
+    // Step 1.5: Check for duplicate OAuth code processing
+    const cachedResult = await getOAuthCodeResult(code);
+    if (cachedResult) {
+      logger.info("OAuth code already processed, returning cached result");
+      const cachedRedirectUrl = new URL("/calendars", env.NEXT_PUBLIC_BASE_URL);
+      for (const [key, value] of Object.entries(cachedResult.params)) {
+        cachedRedirectUrl.searchParams.set(key, value);
+      }
+      response.cookies.delete(CALENDAR_STATE_COOKIE_NAME);
+      return redirectWithMessage(
+        cachedRedirectUrl,
+        cachedResult.params.message || "calendar_connected",
+        redirectHeaders,
+      );
+    }
+
+    const acquiredLock = await acquireOAuthCodeLock(code);
+    if (!acquiredLock) {
+      logger.info("OAuth code is being processed by another request");
+      const lockRedirectUrl = new URL("/calendars", env.NEXT_PUBLIC_BASE_URL);
+      response.cookies.delete(CALENDAR_STATE_COOKIE_NAME);
+      return redirectWithMessage(
+        lockRedirectUrl,
+        "processing",
+        redirectHeaders,
+      );
+    }
 
     // The validated state is in the request query params (already validated by validateOAuthCallback)
     const receivedState = request.nextUrl.searchParams.get("state");
@@ -76,6 +111,8 @@ export async function handleCalendarCallback(
         email,
         provider: provider.name,
       });
+      // Cache the result for duplicate requests
+      await setOAuthCodeResult(code, { message: "calendar_already_connected" });
       return redirectWithMessage(
         finalRedirectUrl,
         "calendar_already_connected",
@@ -109,12 +146,21 @@ export async function handleCalendarCallback(
       connectionId: connection.id,
     });
 
+    // Cache the successful result
+    await setOAuthCodeResult(code, { message: "calendar_connected" });
+
     return redirectWithMessage(
       finalRedirectUrl,
       "calendar_connected",
       redirectHeaders,
     );
   } catch (error) {
+    // Clear the OAuth code lock on error
+    const searchParams = request.nextUrl.searchParams;
+    const code = searchParams.get("code");
+    if (code) {
+      await clearOAuthCode(code);
+    }
     // Handle redirect errors
     if (error instanceof RedirectError) {
       return redirectWithError(
