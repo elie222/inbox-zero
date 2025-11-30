@@ -1,4 +1,4 @@
-#!/usr/bin/env npx tsx
+#!/usr/bin/env bun
 
 import { randomBytes } from "node:crypto";
 import { existsSync, writeFileSync } from "node:fs";
@@ -6,8 +6,25 @@ import { resolve } from "node:path";
 import { program } from "commander";
 import * as p from "@clack/prompts";
 
-// Paths - script is run via `pnpm setup` from project root
-const PROJECT_ROOT = process.cwd();
+// Detect if we're in an inbox-zero project
+function findProjectRoot(): string {
+  const cwd = process.cwd();
+
+  // Check if we're in project root (has apps/web directory)
+  if (existsSync(resolve(cwd, "apps/web"))) {
+    return cwd;
+  }
+
+  // Check if we're in apps/web
+  if (existsSync(resolve(cwd, "../../apps/web"))) {
+    return resolve(cwd, "../..");
+  }
+
+  // Default to cwd and let the user know
+  return cwd;
+}
+
+const PROJECT_ROOT = findProjectRoot();
 const ENV_FILE = resolve(PROJECT_ROOT, "apps/web/.env");
 
 // Secret generation
@@ -20,16 +37,39 @@ type EnvConfig = Record<string, string | undefined>;
 
 async function main() {
   program
-    .name("setup-env")
+    .name("inbox-zero")
+    .description("CLI tool for setting up Inbox Zero")
+    .version("2.21.15");
+
+  program
+    .command("setup")
     .description("Interactive setup for Inbox Zero environment")
-    .version("1.0.0")
     .action(runSetup);
+
+  // Default to setup if no command provided
+  if (process.argv.length === 2) {
+    process.argv.push("setup");
+  }
 
   await program.parseAsync();
 }
 
 async function runSetup() {
   p.intro("🚀 Inbox Zero Environment Setup");
+
+  // Verify we're in an inbox-zero project
+  if (!existsSync(resolve(PROJECT_ROOT, "apps/web"))) {
+    p.log.error(
+      "Could not find inbox-zero project.\n" +
+        "Please run this command from the root of a cloned inbox-zero repository:\n\n" +
+        "  git clone https://github.com/elie222/inbox-zero.git\n" +
+        "  cd inbox-zero\n" +
+        "  inbox-zero setup",
+    );
+    process.exit(1);
+  }
+
+  p.log.info(`Project root: ${PROJECT_ROOT}`);
 
   // Check if .env already exists
   if (existsSync(ENV_FILE)) {
@@ -54,7 +94,11 @@ async function runSetup() {
     message: "Environment",
     options: [
       { value: "development", label: "Development", hint: "local development" },
-      { value: "production", label: "Production", hint: "production deployment" },
+      {
+        value: "production",
+        label: "Production",
+        hint: "production deployment",
+      },
     ],
   });
 
@@ -71,7 +115,7 @@ async function runSetup() {
 
   p.note(
     "Choose which email providers to support.\nPress Enter to skip any field and add it to .env later.",
-    "OAuth Configuration"
+    "OAuth Configuration",
   );
 
   const oauthProviders = await p.multiselect({
@@ -102,7 +146,7 @@ async function runSetup() {
 4. Copy Client ID and Client Secret
 
 Full guide: https://github.com/elie222/inbox-zero#google-oauth-setup`,
-      "Google OAuth Setup"
+      "Google OAuth Setup",
     );
 
     const googleOAuth = await p.group(
@@ -123,11 +167,12 @@ Full guide: https://github.com/elie222/inbox-zero#google-oauth-setup`,
           p.cancel("Setup cancelled.");
           process.exit(0);
         },
-      }
+      },
     );
 
     env.GOOGLE_CLIENT_ID = googleOAuth.clientId || "your-google-client-id";
-    env.GOOGLE_CLIENT_SECRET = googleOAuth.clientSecret || "your-google-client-secret";
+    env.GOOGLE_CLIENT_SECRET =
+      googleOAuth.clientSecret || "your-google-client-secret";
 
     // Google PubSub (for real-time email notifications)
     p.note(
@@ -139,7 +184,7 @@ Full guide: https://github.com/elie222/inbox-zero#google-oauth-setup`,
 3. Grant publish rights to: gmail-api-push@system.gserviceaccount.com
 
 Full guide: https://developers.google.com/gmail/api/guides/push`,
-      "Google PubSub Configuration"
+      "Google PubSub Configuration",
     );
 
     const pubsubTopic = await p.text({
@@ -152,7 +197,8 @@ Full guide: https://developers.google.com/gmail/api/guides/push`,
       process.exit(0);
     }
 
-    env.GOOGLE_PUBSUB_TOPIC_NAME = pubsubTopic || "projects/your-project/topics/gmail";
+    env.GOOGLE_PUBSUB_TOPIC_NAME =
+      pubsubTopic || "projects/your-project/topics/gmail";
     env.GOOGLE_PUBSUB_VERIFICATION_TOKEN = generateSecret(32);
   } else {
     // Microsoft only - add placeholder for required Google vars
@@ -173,7 +219,7 @@ Full guide: https://developers.google.com/gmail/api/guides/push`,
 6. Copy Application (client) ID and the secret Value
 
 Full guide: https://github.com/elie222/inbox-zero#microsoft-oauth-setup`,
-      "Microsoft OAuth Setup"
+      "Microsoft OAuth Setup",
     );
 
     const microsoftOAuth = await p.group(
@@ -199,11 +245,13 @@ Full guide: https://github.com/elie222/inbox-zero#microsoft-oauth-setup`,
           p.cancel("Setup cancelled.");
           process.exit(0);
         },
-      }
+      },
     );
 
-    env.MICROSOFT_CLIENT_ID = microsoftOAuth.clientId || "your-microsoft-client-id";
-    env.MICROSOFT_CLIENT_SECRET = microsoftOAuth.clientSecret || "your-microsoft-client-secret";
+    env.MICROSOFT_CLIENT_ID =
+      microsoftOAuth.clientId || "your-microsoft-client-id";
+    env.MICROSOFT_CLIENT_SECRET =
+      microsoftOAuth.clientSecret || "your-microsoft-client-secret";
     env.MICROSOFT_TENANT_ID = microsoftOAuth.tenantId || "common";
     env.MICROSOFT_WEBHOOK_CLIENT_STATE = generateSecret(32);
   }
@@ -214,7 +262,7 @@ Full guide: https://github.com/elie222/inbox-zero#microsoft-oauth-setup`,
 
   p.note(
     "Choose how to connect to PostgreSQL.\nDocker Compose includes a local PostgreSQL instance.",
-    "Database Configuration"
+    "Database Configuration",
   );
 
   const dbChoice = await p.select({
@@ -268,7 +316,7 @@ Full guide: https://github.com/elie222/inbox-zero#microsoft-oauth-setup`,
 
   p.note(
     "Redis is used for rate limiting and caching.\nDocker Compose includes a local Redis instance.",
-    "Redis Configuration"
+    "Redis Configuration",
   );
 
   const redisChoice = await p.select({
@@ -319,13 +367,15 @@ Full guide: https://github.com/elie222/inbox-zero#microsoft-oauth-setup`,
           p.cancel("Setup cancelled.");
           process.exit(0);
         },
-      }
+      },
     );
 
     env.UPSTASH_REDIS_URL = upstashConfig.url;
     env.UPSTASH_REDIS_TOKEN = upstashConfig.token;
 
-    p.log.info("Get Upstash credentials at:\nhttps://console.upstash.com/redis");
+    p.log.info(
+      "Get Upstash credentials at:\nhttps://console.upstash.com/redis",
+    );
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -334,7 +384,7 @@ Full guide: https://github.com/elie222/inbox-zero#microsoft-oauth-setup`,
 
   p.note(
     "Choose your AI provider. You can change this later in settings.",
-    "LLM Configuration"
+    "LLM Configuration",
   );
 
   const llmProvider = await p.select({
@@ -343,7 +393,11 @@ Full guide: https://github.com/elie222/inbox-zero#microsoft-oauth-setup`,
       { value: "anthropic", label: "Anthropic (Claude)" },
       { value: "openai", label: "OpenAI (GPT)" },
       { value: "google", label: "Google (Gemini)" },
-      { value: "openrouter", label: "OpenRouter", hint: "access multiple models" },
+      {
+        value: "openrouter",
+        label: "OpenRouter",
+        hint: "access multiple models",
+      },
       { value: "groq", label: "Groq", hint: "fast inference" },
       { value: "aigateway", label: "Vercel AI Gateway" },
     ],
@@ -358,12 +412,24 @@ Full guide: https://github.com/elie222/inbox-zero#microsoft-oauth-setup`,
 
   // Default models for each provider
   const defaultModels: Record<string, { default: string; economy: string }> = {
-    anthropic: { default: "claude-sonnet-4-5-20250514", economy: "claude-haiku-4-5-20250514" },
+    anthropic: {
+      default: "claude-sonnet-4-5-20250514",
+      economy: "claude-haiku-4-5-20250514",
+    },
     openai: { default: "gpt-4.1", economy: "gpt-4.1-mini" },
     google: { default: "gemini-2.5-pro", economy: "gemini-2.5-flash" },
-    openrouter: { default: "anthropic/claude-sonnet-4.5", economy: "anthropic/claude-haiku-4.5" },
-    groq: { default: "llama-3.3-70b-versatile", economy: "llama-3.1-8b-instant" },
-    aigateway: { default: "anthropic/claude-sonnet-4.5", economy: "anthropic/claude-haiku-4.5" },
+    openrouter: {
+      default: "anthropic/claude-sonnet-4.5",
+      economy: "anthropic/claude-haiku-4.5",
+    },
+    groq: {
+      default: "llama-3.3-70b-versatile",
+      economy: "llama-3.1-8b-instant",
+    },
+    aigateway: {
+      default: "anthropic/claude-sonnet-4.5",
+      economy: "anthropic/claude-haiku-4.5",
+    },
   };
 
   env.DEFAULT_LLM_MODEL = defaultModels[llmProvider].default;
@@ -410,7 +476,7 @@ Full guide: https://github.com/elie222/inbox-zero#microsoft-oauth-setup`,
 
   p.note(
     "Tinybird provides analytics for email statistics.\nGet credentials at: https://www.tinybird.co/",
-    "Tinybird Analytics (Optional)"
+    "Tinybird Analytics (Optional)",
   );
 
   const tinybirdToken = await p.text({
@@ -494,22 +560,19 @@ Full guide: https://github.com/elie222/inbox-zero#microsoft-oauth-setup`,
 
   p.note(configuredFeatures, "Configuration Summary");
 
-  p.note(
-    `Environment file saved to:\n${ENV_FILE}`,
-    "Output"
-  );
+  p.note(`Environment file saved to:\n${ENV_FILE}`, "Output");
 
   const useDocker = dbChoice === "docker" || redisChoice === "docker";
 
   if (useDocker) {
     p.note(
       "# Start with Docker Compose (includes database & Redis):\npnpm docker:up\n\n# Then run database migrations:\npnpm prisma:migrate:dev\n\n# Start the development server:\npnpm dev",
-      "Next Steps"
+      "Next Steps",
     );
   } else {
     p.note(
       "# Run database migrations:\npnpm prisma:migrate:dev\n\n# Start the development server:\npnpm dev",
-      "Next Steps"
+      "Next Steps",
     );
   }
 
@@ -526,13 +589,21 @@ function generateEnvFile(env: EnvConfig): string {
 
   // Helper to add a section
   // comment: true = always show as comment, false/undefined = show with value or empty
-  const addSection = (title: string, vars: { name: string; comment?: boolean }[]) => {
+  const addSection = (
+    title: string,
+    vars: { name: string; comment?: boolean }[],
+  ) => {
     const hasAnyNonComment = vars.some((v) => !v.comment);
-    if (!hasAnyNonComment && vars.every((v) => env[v.name] === undefined)) return;
+    if (!hasAnyNonComment && vars.every((v) => env[v.name] === undefined))
+      return;
 
-    lines.push("# ═══════════════════════════════════════════════════════════════");
+    lines.push(
+      "# ═══════════════════════════════════════════════════════════════",
+    );
     lines.push(`# ${title}`);
-    lines.push("# ═══════════════════════════════════════════════════════════════");
+    lines.push(
+      "# ═══════════════════════════════════════════════════════════════",
+    );
 
     for (const { name, comment } of vars) {
       const value = env[name];
@@ -626,9 +697,13 @@ function generateEnvFile(env: EnvConfig): string {
   ]);
 
   // Optional Services (always show as comments)
-  lines.push("# ═══════════════════════════════════════════════════════════════");
+  lines.push(
+    "# ═══════════════════════════════════════════════════════════════",
+  );
   lines.push("# Optional Services");
-  lines.push("# ═══════════════════════════════════════════════════════════════");
+  lines.push(
+    "# ═══════════════════════════════════════════════════════════════",
+  );
   lines.push("");
   lines.push("# Sentry (error tracking)");
   lines.push("# SENTRY_AUTH_TOKEN=");
@@ -660,4 +735,3 @@ main().catch((error) => {
   p.log.error(String(error));
   process.exit(1);
 });
-
