@@ -105,16 +105,20 @@ See our **[Self-Hosting Guide](docs/hosting/self-hosting.md)** for complete inst
 2. **Install dependencies and set up environment:**
    ```bash
    pnpm install
-   ./docker/scripts/setup-env.sh  # Creates .env with auto-generated secrets
    ```
 
-3. **Configure OAuth and LLM:**
-   
-   Edit `apps/web/.env` and add:
-   - **OAuth credentials** (at least one required): [Google OAuth](#google-oauth-setup) or [Microsoft OAuth](#microsoft-oauth-setup)
-   - **LLM provider**: Uncomment one provider block and add your API key
+   **Option A: Interactive CLI** - Guides you through each step and auto-generates secrets
+   ```bash
+   pnpm run setup
+   ```
 
-4. **Run database migrations:**
+   **Option B: Manual setup** - Copy the example file and edit it yourself
+   ```bash
+   cp apps/web/.env.example apps/web/.env
+   # Generate secrets with: openssl rand -hex 32
+   ```
+
+3. **Run database migrations:**
    ```bash
    cd apps/web
    pnpm prisma migrate dev
@@ -127,7 +131,7 @@ See our **[Self-Hosting Guide](docs/hosting/self-hosting.md)** for complete inst
 
 The app will be available at `http://localhost:3000`.
 
-The setup script auto-generates all required secrets. The sections below cover the services you need to configure manually. For a comprehensive reference of all environment variables, see the [Environment Variables Guide](docs/hosting/environment-variables.md).
+The sections below provide detailed setup instructions for OAuth and other services. For a comprehensive reference of all environment variables, see the [Environment Variables Guide](docs/hosting/environment-variables.md).
 
 ### Google OAuth Setup
 
