@@ -146,8 +146,8 @@ Create [new credentials](https://console.cloud.google.com/apis/credentials):
     1. Click the `+Create Credentials` button. Choose OAuth Client ID.
     2. In `Application Type`, Choose `Web application`
     3. Choose a name for your web client
-    4. In Authorized JavaScript origins, add a URI and enter `http://localhost:3000` (or your custom domain)
-    5. In `Authorized redirect URIs` enter (or your custom domain):
+    4. In Authorized JavaScript origins, add a URI and enter `http://localhost:3000` (replace `localhost:3000` with your domain in production)
+    5. In `Authorized redirect URIs` enter (replace `localhost:3000` with your domain in production):
       - `http://localhost:3000/api/auth/callback/google`
       - `http://localhost:3000/api/google/linking/callback`
       - `http://localhost:3000/api/google/calendar/callback` (only required for calendar integration)
@@ -220,10 +220,10 @@ Go to [Microsoft Azure Portal](https://portal.azure.com/) and create a new Azure
    2. Under "Supported account types" select "Accounts in any organizational directory (Any Azure AD directory - Multitenant) and personal Microsoft accounts (e.g. Skype, Xbox)"
    3. Set the Redirect URI:
       - Platform: Web
-      - URL: `http://localhost:3000/api/auth/callback/microsoft`
+      - URL: `http://localhost:3000/api/auth/callback/microsoft` (replace `localhost:3000` with your domain in production)
    4. Click "Register"
    5. In the "Manage" menu click "Authentication (Preview)"
-   6. Add the following Redirect URIs:
+   6. Add the following Redirect URIs (replace `localhost:3000` with your domain in production):
       - `http://localhost:3000/api/outlook/linking/callback`
       - `http://localhost:3000/api/outlook/calendar/callback` (only required for calendar integration)
 
