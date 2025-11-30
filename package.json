@@ -10,7 +10,7 @@
     "ncu": "ncu -u -ws",
     "format-and-lint": "biome check .",
     "format-and-lint:fix": "biome check . --write",
-    "setup": "tsx scripts/setup-env.ts"
+    "setup": "tsx packages/cli/src/main.ts setup"
   },
   "devDependencies": {
     "@biomejs/biome": "2.2.2",
