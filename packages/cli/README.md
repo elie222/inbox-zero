@@ -1,6 +1,6 @@
 # @inbox-zero/cli
 
-CLI tool for running [Inbox Zero](https://www.getinboxzero.com) - an open source AI email assistant.
+CLI tool for running [Inbox Zero](https://www.getinboxzero.com) - an open-source AI email assistant.
 
 ## Installation
 

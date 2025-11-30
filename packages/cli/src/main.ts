@@ -55,10 +55,19 @@ function checkDocker(): boolean {
   return result.status === 0;
 }
 
-// Check if Docker Compose is available
+// Check if Docker Compose is available (plugin or standalone)
 function checkDockerCompose(): boolean {
-  const result = spawnSync("docker", ["compose", "version"], { stdio: "pipe" });
-  return result.status === 0;
+  // First try the Docker CLI plugin (docker compose)
+  const pluginResult = spawnSync("docker", ["compose", "version"], {
+    stdio: "pipe",
+  });
+  if (pluginResult.status === 0) return true;
+
+  // Fallback to standalone docker-compose binary
+  const standaloneResult = spawnSync("docker-compose", ["version"], {
+    stdio: "pipe",
+  });
+  return standaloneResult.status === 0;
 }
 
 // Environment variable builder
@@ -68,7 +77,7 @@ async function main() {
   program
     .name("inbox-zero")
     .description("CLI tool for running Inbox Zero - AI email assistant")
-    .version("1.0.0");
+    .version("2.21.16");
 
   program
     .command("setup")
@@ -78,7 +87,7 @@ async function main() {
   program
     .command("start")
     .description("Start Inbox Zero containers")
-    .option("-d, --detach", "Run in background", true)
+    .option("--no-detach", "Run in foreground (default: runs in background)")
     .action(runStart);
 
   program
@@ -450,6 +459,10 @@ Full guide: https://docs.getinboxzero.com/self-hosting/microsoft-oauth`,
   env.API_KEY_SALT = generateSecret(32);
   env.CRON_SECRET = generateSecret(32);
   env.GOOGLE_PUBSUB_VERIFICATION_TOKEN = generateSecret(32);
+  // Google PubSub topic - required for Gmail push notifications
+  // Self-hosters need to set up their own topic in Google Cloud Console
+  env.GOOGLE_PUBSUB_TOPIC_NAME =
+    "projects/your-project/topics/inbox-zero-emails";
 
   // App config
   env.NEXT_PUBLIC_BASE_URL = `http://localhost:${webPort}`;
@@ -468,7 +481,7 @@ Full guide: https://docs.getinboxzero.com/self-hosting/microsoft-oauth`,
     let composeContent: string;
     try {
       composeContent = await fetchDockerCompose();
-    } catch (error) {
+    } catch {
       spinner.stop("Failed to fetch docker-compose.yml");
       p.log.error(
         "Could not fetch docker-compose.yml from GitHub.\n" +
@@ -566,7 +579,11 @@ async function runStart(options: { detach: boolean }) {
 
   spinner.stop("Image pulled");
 
-  spinner.start("Starting containers...");
+  if (options.detach) {
+    spinner.start("Starting containers...");
+  } else {
+    spinner.stop("Starting containers in foreground...");
+  }
 
   const args = ["compose", "-f", COMPOSE_FILE, "up"];
   if (options.detach) {
@@ -577,18 +594,29 @@ async function runStart(options: { detach: boolean }) {
     stdio: options.detach ? "pipe" : "inherit",
   });
 
-  if (upResult.status !== 0 && options.detach) {
-    spinner.stop("Failed to start");
-    p.log.error(upResult.stderr?.toString() || "Unknown error");
-    process.exit(1);
-  }
-
   if (options.detach) {
+    if (upResult.status !== 0) {
+      spinner.stop("Failed to start");
+      p.log.error(
+        upResult.error?.message ||
+          upResult.stderr?.toString() ||
+          `Unknown error (status: ${upResult.status})`,
+      );
+      process.exit(1);
+    }
+
     spinner.stop("Containers started");
 
-    // Get web port from env
-    const envContent = readFileSync(ENV_FILE, "utf-8");
-    const webPort = envContent.match(/WEB_PORT=(\d+)/)?.[1] || "3000";
+    // Get web port from env (with safe reading)
+    let webPort = "3000";
+    if (existsSync(ENV_FILE)) {
+      try {
+        const envContent = readFileSync(ENV_FILE, "utf-8");
+        webPort = envContent.match(/WEB_PORT=(\d+)/)?.[1] || webPort;
+      } catch {
+        // Use default port if env file can't be read
+      }
+    }
 
     p.note(
       `Inbox Zero is running at:\nhttp://localhost:${webPort}\n\nView logs: inbox-zero logs\nStop: inbox-zero stop`,

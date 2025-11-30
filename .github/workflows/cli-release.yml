@@ -167,5 +167,5 @@ jobs:
           git config --local user.name "github-actions[bot]"
           git add Formula/inbox-zero.rb
           git diff --staged --quiet || git commit -m "chore: update Homebrew formula for CLI v${{ steps.version.outputs.version }}"
-          git push
+          git push origin HEAD:${{ github.ref_name }}
 
