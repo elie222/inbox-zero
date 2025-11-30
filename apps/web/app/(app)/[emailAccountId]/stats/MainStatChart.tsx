@@ -7,6 +7,7 @@ import type { ChartConfig } from "@/components/ui/chart";
 import type { StatsByWeekResponse } from "@/app/api/user/stats/by-period/route";
 import { BarChart } from "@/app/(app)/[emailAccountId]/stats/BarChart";
 import { COLORS } from "@/utils/colors";
+import { cn } from "@/utils";
 
 const chartConfig = {
   received: { label: "Received", color: COLORS.analytics.blue },
@@ -72,7 +73,7 @@ export function MainStatChart(props: {
               type="button"
               key={chart}
               data-active={isActive}
-              className="data-[active=true]:bg-muted/50 flex flex-1 min-w-0 flex-col justify-center gap-1 px-6 py-4 text-left [&:nth-child(even)]:border-l [&:nth-child(n+3)]:border-t sm:[&:nth-child(n+3)]:border-t-0 sm:[&:nth-child(even)]:border-l-0 sm:[&:nth-child(2)]:border-l sm:[&:nth-child(3)]:border-l sm:[&:nth-child(4)]:border-l sm:px-8 sm:py-6"
+              className="data-[active=true]:bg-muted/50 flex flex-1 min-w-0 flex-col justify-center gap-1 px-6 py-4 text-left sm:px-8 sm:py-6 [&:nth-child(even)]:border-l [&:nth-child(n+3)]:border-t sm:[&:nth-child(n+3)]:border-t-0 sm:[&:nth-child(2)]:border-l sm:[&:nth-child(3)]:border-l sm:[&:nth-child(4)]:border-l"
               onClick={() => setActiveChart(chart)}
             >
               <span className="text-muted-foreground text-xs flex items-center gap-1.5">
