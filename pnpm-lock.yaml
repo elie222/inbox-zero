@@ -20,9 +20,15 @@ importers:
       '@biomejs/biome':
         specifier: 2.2.2
         version: 2.2.2
+      '@clack/prompts':
+        specifier: 0.11.0
+        version: 0.11.0
       '@turbo/gen':
         specifier: 2.5.8
         version: 2.5.8(@types/node@24.9.1)(typescript@5.9.3)
+      commander:
+        specifier: 14.0.2
+        version: 14.0.2
       husky:
         specifier: 9.1.7
         version: 9.1.7
@@ -35,6 +41,9 @@ importers:
       tsconfig-paths:
         specifier: ^4.2.0
         version: 4.2.0
+      tsx:
+        specifier: 4.20.6
+        version: 4.20.6
       turbo:
         specifier: 2.6.1
         version: 2.6.1
@@ -6460,8 +6469,8 @@ packages:
     resolution: {integrity: sha512-/rFeCpNJQbhSZjGVwO9RFV3xPqbnERS8MmIQzCtD/zl6gpJuV/bMLuN92oG3F7d8oDEHHRrujSXNUr8fpjntKw==}
     engines: {node: '>=18'}
 
-  commander@14.0.1:
-    resolution: {integrity: sha512-2JkV3gUZUVrbNA+1sjBOYLsMZ5cEEl8GTFP2a4AVz5hvasAMCQ1D2l2le/cX+pV4N6ZU17zjUahLpIXRrnWL8A==}
+  commander@14.0.2:
+    resolution: {integrity: sha512-TywoWNNRbhoD0BXs1P3ZEScW8W5iKrnbithIl0YH+uCmBd0QpPOA8yc82DS3BIE5Ma6FnBVUsJ7wVUDz4dvOWQ==}
     engines: {node: '>=20'}
 
   commander@2.20.3:
@@ -11255,18 +11264,11 @@ packages:
   tldts-core@6.1.86:
     resolution: {integrity: sha512-Je6p7pkk+KMzMv2XXKmAE3McmolOQFdxkKw0R8EYNr7sELW46JqnNeTX8ybPiQgvg1ymCoF8LXs5fzFaZvJPTA==}
 
-  tldts-core@7.0.17:
-    resolution: {integrity: sha512-DieYoGrP78PWKsrXr8MZwtQ7GLCUeLxihtjC1jZsW1DnvSMdKPitJSe8OSYDM2u5H6g3kWJZpePqkp43TfLh0g==}
-
   tldts-core@7.0.19:
     resolution: {integrity: sha512-lJX2dEWx0SGH4O6p+7FPwYmJ/bu1JbcGJ8RLaG9b7liIgZ85itUVEPbMtWRVrde/0fnDPEPHW10ZsKW3kVsE9A==}
 
   tldts@6.1.86:
     resolution: {integrity: sha512-WMi/OQ2axVTf/ykqCQgXiIct+mSQDFdH2fkwhPwgEwvJ1kSzZRiinb0zF2Xb8u4+OqPChmyI6MEu4EezNJz+FQ==}
-    hasBin: true
-
-  tldts@7.0.17:
-    resolution: {integrity: sha512-Y1KQBgDd/NUc+LfOtKS6mNsC9CCaH+m2P1RoIZy7RAPo3C3/t8X45+zgut31cRZtZ3xKPjfn3TkGTrctC2TQIQ==}
     hasBin: true
 
   tldts@7.0.19:
@@ -18129,7 +18131,7 @@ snapshots:
       sirv: 3.0.2
       tinyglobby: 0.2.14
       tinyrainbow: 2.0.0
-      vitest: 3.2.4(@types/debug@4.1.12)(@types/node@24.9.1)(@vitest/ui@3.2.4)(jiti@2.6.1)(jsdom@26.1.0)(terser@5.44.0)(tsx@4.20.6)(yaml@2.8.1)
+      vitest: 3.2.4(@types/debug@4.1.12)(@types/node@24.9.1)(@vitest/ui@3.2.4)(jiti@2.6.1)(jsdom@27.0.1(postcss@8.5.6))(terser@5.44.0)(tsx@4.20.6)(yaml@2.8.1)
 
   '@vitest/utils@3.2.4':
     dependencies:
@@ -19067,7 +19069,7 @@ snapshots:
 
   commander@13.1.0: {}
 
-  commander@14.0.1: {}
+  commander@14.0.2: {}
 
   commander@2.20.3: {}
 
@@ -21416,7 +21418,7 @@ snapshots:
 
   lint-staged@16.2.5:
     dependencies:
-      commander: 14.0.1
+      commander: 14.0.2
       listr2: 9.0.5
       micromatch: 4.0.8
       nano-spawn: 2.0.0
@@ -24988,19 +24990,11 @@ snapshots:
 
   tldts-core@6.1.86: {}
 
-  tldts-core@7.0.17:
-    optional: true
-
   tldts-core@7.0.19: {}
 
   tldts@6.1.86:
     dependencies:
       tldts-core: 6.1.86
-
-  tldts@7.0.17:
-    dependencies:
-      tldts-core: 7.0.17
-    optional: true
 
   tldts@7.0.19:
     dependencies:
@@ -25033,7 +25027,7 @@ snapshots:
 
   tough-cookie@6.0.0:
     dependencies:
-      tldts: 7.0.17
+      tldts: 7.0.19
     optional: true
 
   tr46@0.0.3: {}
@@ -25061,7 +25055,7 @@ snapshots:
     dependencies:
       '@trpc/server': 11.6.0(typescript@5.9.3)
       '@types/omelette': 0.4.5
-      commander: 14.0.1
+      commander: 14.0.2
       picocolors: 1.1.1
       zod: 3.25.46
       zod-to-json-schema: 3.24.6(zod@3.25.46)
@@ -25116,7 +25110,7 @@ snapshots:
 
   tsx@4.20.6:
     dependencies:
-      esbuild: 0.25.9
+      esbuild: 0.25.11
       get-tsconfig: 4.10.1
     optionalDependencies:
       fsevents: 2.3.3
@@ -25520,7 +25514,7 @@ snapshots:
 
   vite@7.1.11(@types/node@24.9.1)(jiti@2.6.1)(terser@5.44.0)(tsx@4.20.6)(yaml@2.8.1):
     dependencies:
-      esbuild: 0.25.10
+      esbuild: 0.25.11
       fdir: 6.5.0(picomatch@4.0.3)
       picomatch: 4.0.3
       postcss: 8.5.6

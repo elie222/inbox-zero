@@ -107,7 +107,6 @@ export const betterAuthConfig = betterAuth({
       clientSecret: env.MICROSOFT_CLIENT_SECRET || "",
       scope: [...OUTLOOK_SCOPES],
       tenantId: env.MICROSOFT_TENANT_ID,
-      prompt: "consent",
       disableIdTokenSignIn: true,
     },
   },
