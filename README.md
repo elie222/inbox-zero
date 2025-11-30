@@ -77,7 +77,7 @@ To request a feature open a [GitHub issue](https://github.com/elie222/inbox-zero
 
 ## Getting Started
 
-We offer a hosted version of Inbox Zero at [https://getinboxzero.com](https://getinboxzero.com).
+We offer a hosted version of Inbox Zero at [https://getinboxzero.com](https://www.getinboxzero.com).
 
 ### Self-Hosting with Docker
 

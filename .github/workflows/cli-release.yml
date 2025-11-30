@@ -123,10 +123,49 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Output Homebrew formula values
+      - name: Update Homebrew formula
         run: |
-          echo "::notice::Update Homebrew formula with these SHA256 values:"
-          echo "darwin-arm64: ${{ steps.sha.outputs.darwin_arm64 }}"
-          echo "darwin-x64: ${{ steps.sha.outputs.darwin_x64 }}"
-          echo "linux-x64: ${{ steps.sha.outputs.linux_x64 }}"
+          python3 << 'EOF'
+          import re
+          
+          with open('Formula/inbox-zero.rb', 'r') as f:
+              content = f.read()
+          
+          # Update version
+          content = re.sub(r'version "[^"]*"', 'version "${{ steps.version.outputs.version }}"', content)
+          
+          # Update SHA256 for darwin-arm64 (first sha256 after "on_arm do")
+          content = re.sub(
+              r'(on_arm do.*?sha256 ")[^"]*(")',
+              r'\g<1>${{ steps.sha.outputs.darwin_arm64 }}\2',
+              content, count=1, flags=re.DOTALL
+          )
+          
+          # Update SHA256 for darwin-x64 (first sha256 after "on_intel do" inside on_macos)
+          content = re.sub(
+              r'(on_macos do.*?on_intel do.*?sha256 ")[^"]*(")',
+              r'\g<1>${{ steps.sha.outputs.darwin_x64 }}\2',
+              content, count=1, flags=re.DOTALL
+          )
+          
+          # Update SHA256 for linux-x64 (sha256 after "on_linux do")
+          content = re.sub(
+              r'(on_linux do.*?sha256 ")[^"]*(")',
+              r'\g<1>${{ steps.sha.outputs.linux_x64 }}\2',
+              content, count=1, flags=re.DOTALL
+          )
+          
+          with open('Formula/inbox-zero.rb', 'w') as f:
+              f.write(content)
+          
+          print(content)
+          EOF
+
+      - name: Commit formula update
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          git add Formula/inbox-zero.rb
+          git diff --staged --quiet || git commit -m "chore: update Homebrew formula for CLI v${{ steps.version.outputs.version }}"
+          git push
 

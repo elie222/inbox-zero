@@ -1,6 +1,6 @@
 # @inbox-zero/cli
 
-CLI tool for setting up [Inbox Zero](https://www.getinboxzero.com) - an open source AI email assistant.
+CLI tool for running [Inbox Zero](https://www.getinboxzero.com) - an open source AI email assistant.
 
 ## Installation
 
@@ -15,43 +15,86 @@ brew install inbox-zero
 
 Download the binary for your platform from [releases](https://github.com/elie222/inbox-zero/releases) and add to your PATH.
 
-### From source (via pnpm)
-
-If you've cloned the repository:
+## Quick Start
 
 ```bash
-pnpm setup
-```
-
-## Usage
-
-```bash
-# Clone the inbox-zero repository
-git clone https://github.com/elie222/inbox-zero.git
-cd inbox-zero
-
-# Run the setup wizard
+# Configure Inbox Zero (interactive)
 inbox-zero setup
 
-# Or just run (defaults to setup)
-inbox-zero
+# Start Inbox Zero
+inbox-zero start
+
+# Open http://localhost:3000
 ```
 
-The CLI will:
-1. Guide you through configuring OAuth providers (Google/Microsoft)
-2. Set up database connection (Docker or custom PostgreSQL)
-3. Configure Redis (Docker or Upstash)
-4. Select your LLM provider
-5. Generate all required secrets
-6. Create the `.env` file in `apps/web/`
+## Commands
 
-## Development
+### `inbox-zero setup`
+
+Interactive setup wizard that:
+- Configures OAuth providers (Google/Microsoft)
+- Sets up your LLM provider and API key
+- Configures ports (to avoid conflicts)
+- Generates all required secrets
+
+Configuration is stored in `~/.inbox-zero/`
+
+### `inbox-zero start`
+
+Pulls the latest Docker image and starts all containers:
+- PostgreSQL database
+- Redis cache
+- Inbox Zero web app
+- Cron job for email sync
 
 ```bash
-cd packages/cli
-pnpm install
-pnpm dev
+inbox-zero start           # Start in background
+inbox-zero start --no-detach  # Start in foreground
 ```
+
+### `inbox-zero stop`
+
+Stops all running containers.
+
+```bash
+inbox-zero stop
+```
+
+### `inbox-zero logs`
+
+View container logs.
+
+```bash
+inbox-zero logs            # Show last 100 lines
+inbox-zero logs -f         # Follow logs
+inbox-zero logs -n 500     # Show last 500 lines
+```
+
+### `inbox-zero status`
+
+Show status of running containers.
+
+### `inbox-zero update`
+
+Pull the latest Inbox Zero image and optionally restart.
+
+```bash
+inbox-zero update
+```
+
+## Requirements
+
+- [Docker Desktop](https://www.docker.com/products/docker-desktop/) installed and running
+- OAuth credentials from Google and/or Microsoft
+- An LLM API key (Anthropic, OpenAI, Google, etc.)
+
+## Configuration
+
+All configuration is stored in `~/.inbox-zero/`:
+- `.env` - Environment variables
+- `docker-compose.yml` - Docker Compose configuration
+
+To reconfigure, run `inbox-zero setup` again.
 
 ## License
 

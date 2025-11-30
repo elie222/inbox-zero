@@ -1,13 +1,15 @@
 #!/usr/bin/env bun
 
 import { randomBytes } from "node:crypto";
-import { existsSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { homedir } from "node:os";
 import { resolve } from "node:path";
+import { spawn, spawnSync } from "node:child_process";
 import { program } from "commander";
 import * as p from "@clack/prompts";
 
-// Detect if we're in an inbox-zero project
-function findProjectRoot(): string {
+// Detect if we're running from within the repo
+function findRepoRoot(): string | null {
   const cwd = process.cwd();
 
   // Check if we're in project root (has apps/web directory)
@@ -20,16 +22,43 @@ function findProjectRoot(): string {
     return resolve(cwd, "../..");
   }
 
-  // Default to cwd and let the user know
-  return cwd;
+  return null;
 }
 
-const PROJECT_ROOT = findProjectRoot();
-const ENV_FILE = resolve(PROJECT_ROOT, "apps/web/.env");
+const REPO_ROOT = findRepoRoot();
+const IS_REPO_MODE = REPO_ROOT !== null;
+
+// Config paths depend on mode
+const CONFIG_DIR = IS_REPO_MODE ? REPO_ROOT : resolve(homedir(), ".inbox-zero");
+const ENV_FILE = IS_REPO_MODE
+  ? resolve(REPO_ROOT, "apps/web/.env")
+  : resolve(CONFIG_DIR, ".env");
+const COMPOSE_FILE = IS_REPO_MODE
+  ? resolve(REPO_ROOT, "docker-compose.yml")
+  : resolve(CONFIG_DIR, "docker-compose.yml");
+
+// Ensure config directory exists (only needed for standalone mode)
+function ensureConfigDir() {
+  if (!IS_REPO_MODE && !existsSync(CONFIG_DIR)) {
+    mkdirSync(CONFIG_DIR, { recursive: true });
+  }
+}
 
 // Secret generation
 function generateSecret(bytes: number): string {
   return randomBytes(bytes).toString("hex");
+}
+
+// Check if Docker is available
+function checkDocker(): boolean {
+  const result = spawnSync("docker", ["--version"], { stdio: "pipe" });
+  return result.status === 0;
+}
+
+// Check if Docker Compose is available
+function checkDockerCompose(): boolean {
+  const result = spawnSync("docker", ["compose", "version"], { stdio: "pipe" });
+  return result.status === 0;
 }
 
 // Environment variable builder
@@ -38,40 +67,82 @@ type EnvConfig = Record<string, string | undefined>;
 async function main() {
   program
     .name("inbox-zero")
-    .description("CLI tool for setting up Inbox Zero")
-    .version("2.21.15");
+    .description("CLI tool for running Inbox Zero - AI email assistant")
+    .version("1.0.0");
 
   program
     .command("setup")
-    .description("Interactive setup for Inbox Zero environment")
+    .description("Interactive setup for Inbox Zero")
     .action(runSetup);
 
-  // Default to setup if no command provided
+  program
+    .command("start")
+    .description("Start Inbox Zero containers")
+    .option("-d, --detach", "Run in background", true)
+    .action(runStart);
+
+  program
+    .command("stop")
+    .description("Stop Inbox Zero containers")
+    .action(runStop);
+
+  program
+    .command("logs")
+    .description("View container logs")
+    .option("-f, --follow", "Follow log output", false)
+    .option("-n, --tail <lines>", "Number of lines to show", "100")
+    .action(runLogs);
+
+  program
+    .command("status")
+    .description("Show status of Inbox Zero containers")
+    .action(runStatus);
+
+  program
+    .command("update")
+    .description("Pull latest Inbox Zero image")
+    .action(runUpdate);
+
+  // Default to help if no command
   if (process.argv.length === 2) {
-    process.argv.push("setup");
+    program.help();
   }
 
   await program.parseAsync();
 }
 
-async function runSetup() {
-  p.intro("🚀 Inbox Zero Environment Setup");
+// ═══════════════════════════════════════════════════════════════════════════
+// Setup Command
+// ═══════════════════════════════════════════════════════════════════════════
 
-  // Verify we're in an inbox-zero project
-  if (!existsSync(resolve(PROJECT_ROOT, "apps/web"))) {
-    p.log.error(
-      "Could not find inbox-zero project.\n" +
-        "Please run this command from the root of a cloned inbox-zero repository:\n\n" +
-        "  git clone https://github.com/elie222/inbox-zero.git\n" +
-        "  cd inbox-zero\n" +
-        "  inbox-zero setup",
-    );
-    process.exit(1);
+async function runSetup() {
+  if (IS_REPO_MODE) {
+    p.intro("🚀 Inbox Zero Environment Setup (Repository Mode)");
+    p.log.info(`Detected repository at: ${REPO_ROOT}`);
+  } else {
+    p.intro("🚀 Inbox Zero Setup (Standalone Mode)");
+
+    // Check Docker only in standalone mode
+    if (!checkDocker()) {
+      p.log.error(
+        "Docker is not installed or not running.\n" +
+          "Please install Docker Desktop: https://www.docker.com/products/docker-desktop/",
+      );
+      process.exit(1);
+    }
+
+    if (!checkDockerCompose()) {
+      p.log.error(
+        "Docker Compose is not available.\n" +
+          "Please update Docker Desktop or install Docker Compose.",
+      );
+      process.exit(1);
+    }
   }
 
-  p.log.info(`Project root: ${PROJECT_ROOT}`);
+  ensureConfigDir();
 
-  // Check if .env already exists
+  // Check if already configured
   if (existsSync(ENV_FILE)) {
     const overwrite = await p.confirm({
       message: ".env file already exists. Overwrite it?",
@@ -79,42 +150,78 @@ async function runSetup() {
     });
 
     if (p.isCancel(overwrite) || !overwrite) {
-      p.cancel("Setup cancelled. Existing .env file preserved.");
+      p.cancel("Setup cancelled. Existing configuration preserved.");
       process.exit(0);
     }
   }
 
   const env: EnvConfig = {};
 
+  // Default ports
+  let webPort = "3000";
+  let postgresPort = "5432";
+  let redisPort = "8079";
+
   // ═══════════════════════════════════════════════════════════════════════════
-  // Environment
+  // Ports Configuration (standalone mode only)
   // ═══════════════════════════════════════════════════════════════════════════
 
-  const nodeEnv = await p.select({
-    message: "Environment",
-    options: [
-      { value: "development", label: "Development", hint: "local development" },
+  if (!IS_REPO_MODE) {
+    p.note(
+      "Configure ports for Inbox Zero services.\nChange these if you have conflicts with existing services.",
+      "Port Configuration",
+    );
+
+    const ports = await p.group(
       {
-        value: "production",
-        label: "Production",
-        hint: "production deployment",
+        web: () =>
+          p.text({
+            message: "Web app port",
+            placeholder: "3000",
+            initialValue: "3000",
+            validate: (v) =>
+              /^\d+$/.test(v) ? undefined : "Must be a valid port number",
+          }),
+        postgres: () =>
+          p.text({
+            message: "PostgreSQL port",
+            placeholder: "5432",
+            initialValue: "5432",
+            validate: (v) =>
+              /^\d+$/.test(v) ? undefined : "Must be a valid port number",
+          }),
+        redis: () =>
+          p.text({
+            message: "Redis HTTP port",
+            placeholder: "8079",
+            initialValue: "8079",
+            validate: (v) =>
+              /^\d+$/.test(v) ? undefined : "Must be a valid port number",
+          }),
       },
-    ],
-  });
+      {
+        onCancel: () => {
+          p.cancel("Setup cancelled.");
+          process.exit(0);
+        },
+      },
+    );
 
-  if (p.isCancel(nodeEnv)) {
-    p.cancel("Setup cancelled.");
-    process.exit(0);
+    webPort = ports.web;
+    postgresPort = ports.postgres;
+    redisPort = ports.redis;
+
+    env.WEB_PORT = webPort;
+    env.POSTGRES_PORT = postgresPort;
+    env.REDIS_HTTP_PORT = redisPort;
   }
-
-  env.NODE_ENV = nodeEnv;
 
   // ═══════════════════════════════════════════════════════════════════════════
   // OAuth Providers
   // ═══════════════════════════════════════════════════════════════════════════
 
   p.note(
-    "Choose which email providers to support.\nPress Enter to skip any field and add it to .env later.",
+    "Choose which email providers to support.\nPress Enter to skip any field and add it later.",
     "OAuth Configuration",
   );
 
@@ -141,11 +248,11 @@ async function runSetup() {
       `1. Go to Google Cloud Console: https://console.cloud.google.com/apis/credentials
 2. Create OAuth 2.0 Client ID (Web application)
 3. Add redirect URIs:
-   - http://localhost:3000/api/auth/callback/google
-   - http://localhost:3000/api/google/linking/callback
+   - http://localhost:${webPort}/api/auth/callback/google
+   - http://localhost:${webPort}/api/google/linking/callback
 4. Copy Client ID and Client Secret
 
-Full guide: https://github.com/elie222/inbox-zero#google-oauth-setup`,
+Full guide: https://docs.getinboxzero.com/self-hosting/google-oauth`,
       "Google OAuth Setup",
     );
 
@@ -173,35 +280,7 @@ Full guide: https://github.com/elie222/inbox-zero#google-oauth-setup`,
     env.GOOGLE_CLIENT_ID = googleOAuth.clientId || "your-google-client-id";
     env.GOOGLE_CLIENT_SECRET =
       googleOAuth.clientSecret || "your-google-client-secret";
-
-    // Google PubSub (for real-time email notifications)
-    p.note(
-      `PubSub enables real-time email notifications from Gmail.
-
-1. Create a topic: https://console.cloud.google.com/cloudpubsub/topic/list
-2. Create a Push subscription with URL:
-   https://yourdomain.com/api/google/webhook?token=YOUR_TOKEN
-3. Grant publish rights to: gmail-api-push@system.gserviceaccount.com
-
-Full guide: https://developers.google.com/gmail/api/guides/push`,
-      "Google PubSub Configuration",
-    );
-
-    const pubsubTopic = await p.text({
-      message: "Google PubSub Topic Name (press Enter to skip)",
-      placeholder: "projects/my-project/topics/gmail",
-    });
-
-    if (p.isCancel(pubsubTopic)) {
-      p.cancel("Setup cancelled.");
-      process.exit(0);
-    }
-
-    env.GOOGLE_PUBSUB_TOPIC_NAME =
-      pubsubTopic || "projects/your-project/topics/gmail";
-    env.GOOGLE_PUBSUB_VERIFICATION_TOKEN = generateSecret(32);
   } else {
-    // Microsoft only - add placeholder for required Google vars
     env.GOOGLE_CLIENT_ID = "skipped";
     env.GOOGLE_CLIENT_SECRET = "skipped";
   }
@@ -213,12 +292,12 @@ Full guide: https://developers.google.com/gmail/api/guides/push`,
 2. Navigate to App registrations → New registration
 3. Set account type: "Accounts in any organizational directory and personal Microsoft accounts"
 4. Add redirect URIs:
-   - http://localhost:3000/api/auth/callback/microsoft
-   - http://localhost:3000/api/outlook/linking/callback
+   - http://localhost:${webPort}/api/auth/callback/microsoft
+   - http://localhost:${webPort}/api/outlook/linking/callback
 5. Go to Certificates & secrets → New client secret
 6. Copy Application (client) ID and the secret Value
 
-Full guide: https://github.com/elie222/inbox-zero#microsoft-oauth-setup`,
+Full guide: https://docs.getinboxzero.com/self-hosting/microsoft-oauth`,
       "Microsoft OAuth Setup",
     );
 
@@ -234,11 +313,6 @@ Full guide: https://github.com/elie222/inbox-zero#microsoft-oauth-setup`,
             message: "Microsoft Client Secret (press Enter to skip)",
             placeholder: "your-client-secret",
           }),
-        tenantId: () =>
-          p.text({
-            message: "Microsoft Tenant ID (press Enter for 'common')",
-            placeholder: "common",
-          }),
       },
       {
         onCancel: () => {
@@ -252,130 +326,8 @@ Full guide: https://github.com/elie222/inbox-zero#microsoft-oauth-setup`,
       microsoftOAuth.clientId || "your-microsoft-client-id";
     env.MICROSOFT_CLIENT_SECRET =
       microsoftOAuth.clientSecret || "your-microsoft-client-secret";
-    env.MICROSOFT_TENANT_ID = microsoftOAuth.tenantId || "common";
+    env.MICROSOFT_TENANT_ID = "common";
     env.MICROSOFT_WEBHOOK_CLIENT_STATE = generateSecret(32);
-  }
-
-  // ═══════════════════════════════════════════════════════════════════════════
-  // Database
-  // ═══════════════════════════════════════════════════════════════════════════
-
-  p.note(
-    "Choose how to connect to PostgreSQL.\nDocker Compose includes a local PostgreSQL instance.",
-    "Database Configuration",
-  );
-
-  const dbChoice = await p.select({
-    message: "Database setup",
-    options: [
-      {
-        value: "docker",
-        label: "Use Docker Compose (local PostgreSQL)",
-        hint: "recommended for local development",
-      },
-      {
-        value: "custom",
-        label: "Bring your own PostgreSQL",
-        hint: "provide a connection string",
-      },
-    ],
-  });
-
-  if (p.isCancel(dbChoice)) {
-    p.cancel("Setup cancelled.");
-    process.exit(0);
-  }
-
-  if (dbChoice === "docker") {
-    env.DATABASE_URL =
-      "postgresql://postgres:password@localhost:5432/inbox_zero";
-  } else {
-    const dbUrl = await p.text({
-      message: "PostgreSQL connection string",
-      placeholder: "postgresql://user:password@host:5432/database",
-      validate: (v) => {
-        if (!v) return "Connection string is required";
-        if (!v.startsWith("postgresql://") && !v.startsWith("postgres://")) {
-          return "Must be a valid PostgreSQL connection string";
-        }
-        return undefined;
-      },
-    });
-
-    if (p.isCancel(dbUrl)) {
-      p.cancel("Setup cancelled.");
-      process.exit(0);
-    }
-
-    env.DATABASE_URL = dbUrl;
-  }
-
-  // ═══════════════════════════════════════════════════════════════════════════
-  // Redis
-  // ═══════════════════════════════════════════════════════════════════════════
-
-  p.note(
-    "Redis is used for rate limiting and caching.\nDocker Compose includes a local Redis instance.",
-    "Redis Configuration",
-  );
-
-  const redisChoice = await p.select({
-    message: "Redis setup",
-    options: [
-      {
-        value: "docker",
-        label: "Use Docker Compose (local Redis)",
-        hint: "recommended for local development",
-      },
-      {
-        value: "upstash",
-        label: "Use Upstash Redis",
-        hint: "serverless Redis",
-      },
-    ],
-  });
-
-  if (p.isCancel(redisChoice)) {
-    p.cancel("Setup cancelled.");
-    process.exit(0);
-  }
-
-  const redisToken = generateSecret(32);
-
-  if (redisChoice === "docker") {
-    env.UPSTASH_REDIS_URL = "http://localhost:8079";
-    env.UPSTASH_REDIS_TOKEN = redisToken;
-    env.SRH_TOKEN = redisToken; // For local Redis HTTP adapter
-  } else {
-    const upstashConfig = await p.group(
-      {
-        url: () =>
-          p.text({
-            message: "Upstash Redis REST URL",
-            placeholder: "https://xxxx.upstash.io",
-            validate: (v) => (!v ? "Upstash URL is required" : undefined),
-          }),
-        token: () =>
-          p.text({
-            message: "Upstash Redis REST Token",
-            placeholder: "AXxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
-            validate: (v) => (!v ? "Upstash token is required" : undefined),
-          }),
-      },
-      {
-        onCancel: () => {
-          p.cancel("Setup cancelled.");
-          process.exit(0);
-        },
-      },
-    );
-
-    env.UPSTASH_REDIS_URL = upstashConfig.url;
-    env.UPSTASH_REDIS_TOKEN = upstashConfig.token;
-
-    p.log.info(
-      "Get Upstash credentials at:\nhttps://console.upstash.com/redis",
-    );
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -399,7 +351,6 @@ Full guide: https://github.com/elie222/inbox-zero#microsoft-oauth-setup`,
         hint: "access multiple models",
       },
       { value: "groq", label: "Groq", hint: "fast inference" },
-      { value: "aigateway", label: "Vercel AI Gateway" },
     ],
   });
 
@@ -410,7 +361,6 @@ Full guide: https://github.com/elie222/inbox-zero#microsoft-oauth-setup`,
 
   env.DEFAULT_LLM_PROVIDER = llmProvider;
 
-  // Default models for each provider
   const defaultModels: Record<string, { default: string; economy: string }> = {
     anthropic: {
       default: "claude-sonnet-4-5-20250514",
@@ -426,10 +376,6 @@ Full guide: https://github.com/elie222/inbox-zero#microsoft-oauth-setup`,
       default: "llama-3.3-70b-versatile",
       economy: "llama-3.1-8b-instant",
     },
-    aigateway: {
-      default: "anthropic/claude-sonnet-4.5",
-      economy: "anthropic/claude-haiku-4.5",
-    },
   };
 
   env.DEFAULT_LLM_MODEL = defaultModels[llmProvider].default;
@@ -442,7 +388,6 @@ Full guide: https://github.com/elie222/inbox-zero#microsoft-oauth-setup`,
     google: "https://aistudio.google.com/apikey",
     openrouter: "https://openrouter.ai/settings/keys",
     groq: "https://console.groq.com/keys",
-    aigateway: "https://vercel.com/docs/ai-gateway",
   };
 
   const apiKeyEnvVar: Record<string, string> = {
@@ -451,14 +396,14 @@ Full guide: https://github.com/elie222/inbox-zero#microsoft-oauth-setup`,
     google: "GOOGLE_API_KEY",
     openrouter: "OPENROUTER_API_KEY",
     groq: "GROQ_API_KEY",
-    aigateway: "AI_GATEWAY_API_KEY",
   };
 
   p.log.info(`Get your API key at:\n${llmLinks[llmProvider]}`);
 
   const apiKey = await p.text({
-    message: `${llmProvider.charAt(0).toUpperCase() + llmProvider.slice(1)} API Key (press Enter to skip)`,
+    message: `${llmProvider.charAt(0).toUpperCase() + llmProvider.slice(1)} API Key`,
     placeholder: "sk-...",
+    validate: (v) => (!v ? "API key is required for AI features" : undefined),
   });
 
   if (p.isCancel(apiKey)) {
@@ -466,80 +411,84 @@ Full guide: https://github.com/elie222/inbox-zero#microsoft-oauth-setup`,
     process.exit(0);
   }
 
-  if (apiKey) {
-    env[apiKeyEnvVar[llmProvider]] = apiKey;
-  }
+  env[apiKeyEnvVar[llmProvider]] = apiKey;
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // Tinybird (Optional)
-  // ═══════════════════════════════════════════════════════════════════════════
-
-  p.note(
-    "Tinybird provides analytics for email statistics.\nGet credentials at: https://www.tinybird.co/",
-    "Tinybird Analytics (Optional)",
-  );
-
-  const tinybirdToken = await p.text({
-    message: "Tinybird Token - optional, press Enter to skip",
-    placeholder: "p.xxxxx",
-  });
-
-  if (p.isCancel(tinybirdToken)) {
-    p.cancel("Setup cancelled.");
-    process.exit(0);
-  }
-
-  if (tinybirdToken) {
-    env.TINYBIRD_TOKEN = tinybirdToken;
-    env.TINYBIRD_BASE_URL = "https://api.us-east.tinybird.co/";
-    env.TINYBIRD_ENCRYPT_SECRET = generateSecret(32);
-    env.TINYBIRD_ENCRYPT_SALT = generateSecret(16);
-  }
-
-  // ═══════════════════════════════════════════════════════════════════════════
-  // Base URL
-  // ═══════════════════════════════════════════════════════════════════════════
-
-  const baseUrl = await p.text({
-    message: "Base URL for the app",
-    placeholder: "http://localhost:3000",
-    initialValue: "http://localhost:3000",
-  });
-
-  if (p.isCancel(baseUrl)) {
-    p.cancel("Setup cancelled.");
-    process.exit(0);
-  }
-
-  env.NEXT_PUBLIC_BASE_URL = baseUrl;
-
-  // ═══════════════════════════════════════════════════════════════════════════
-  // Auto-generated Secrets
+  // Auto-generated values
   // ═══════════════════════════════════════════════════════════════════════════
 
   const spinner = p.spinner();
-  spinner.start("Generating secrets...");
+  spinner.start("Generating configuration...");
 
+  // Redis token
+  const redisToken = generateSecret(32);
+
+  if (IS_REPO_MODE) {
+    // Repo mode: Use localhost URLs for local development
+    env.DATABASE_URL = `postgresql://postgres:password@localhost:${postgresPort}/inboxzero`;
+    env.UPSTASH_REDIS_URL = `http://localhost:${redisPort}`;
+    env.UPSTASH_REDIS_TOKEN = redisToken;
+    env.SRH_TOKEN = redisToken;
+    env.NODE_ENV = "development";
+  } else {
+    // Standalone mode: Use Docker network hostnames
+    env.POSTGRES_USER = "postgres";
+    env.POSTGRES_PASSWORD = generateSecret(16);
+    env.POSTGRES_DB = "inboxzero";
+    env.DATABASE_URL = `postgresql://${env.POSTGRES_USER}:${env.POSTGRES_PASSWORD}@db:5432/${env.POSTGRES_DB}`;
+    env.UPSTASH_REDIS_URL = "http://serverless-redis-http:80";
+    env.UPSTASH_REDIS_TOKEN = redisToken;
+    env.SRH_TOKEN = redisToken;
+    env.NODE_ENV = "production";
+  }
+
+  // Secrets (same for both modes)
   env.AUTH_SECRET = generateSecret(32);
   env.EMAIL_ENCRYPT_SECRET = generateSecret(32);
   env.EMAIL_ENCRYPT_SALT = generateSecret(16);
   env.INTERNAL_API_KEY = generateSecret(32);
   env.API_KEY_SALT = generateSecret(32);
   env.CRON_SECRET = generateSecret(32);
+  env.GOOGLE_PUBSUB_VERIFICATION_TOKEN = generateSecret(32);
 
-  // Self-hosting recommended setting
+  // App config
+  env.NEXT_PUBLIC_BASE_URL = `http://localhost:${webPort}`;
   env.NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS = "true";
 
-  spinner.stop("Secrets generated");
+  spinner.stop("Configuration generated");
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // Write .env file
+  // Write files
   // ═══════════════════════════════════════════════════════════════════════════
+
+  // Only fetch docker-compose.yml in standalone mode
+  if (!IS_REPO_MODE) {
+    spinner.start("Fetching docker-compose.yml from repository...");
+
+    let composeContent: string;
+    try {
+      composeContent = await fetchDockerCompose();
+    } catch (error) {
+      spinner.stop("Failed to fetch docker-compose.yml");
+      p.log.error(
+        "Could not fetch docker-compose.yml from GitHub.\n" +
+          "Please check your internet connection and try again.",
+      );
+      process.exit(1);
+    }
+
+    spinner.stop("Configuration fetched");
+    writeFileSync(COMPOSE_FILE, composeContent);
+  }
 
   spinner.start("Writing .env file...");
 
-  const envContent = generateEnvFile(env);
-  writeFileSync(ENV_FILE, envContent);
+  // Write .env
+  const envContent = Object.entries(env)
+    .filter(([, v]) => v !== undefined)
+    .map(([k, v]) => `${k}=${v}`)
+    .join("\n");
+  writeFileSync(ENV_FILE, `${envContent}\n`);
 
   spinner.stop(".env file created");
 
@@ -550,28 +499,28 @@ Full guide: https://github.com/elie222/inbox-zero#microsoft-oauth-setup`,
   const configuredFeatures = [
     wantsGoogle ? "✓ Google OAuth" : "✗ Google OAuth (skipped)",
     wantsMicrosoft ? "✓ Microsoft OAuth" : "✗ Microsoft OAuth (skipped)",
-    `✓ Database (${dbChoice === "docker" ? "Docker" : "custom"})`,
-    `✓ Redis (${redisChoice === "docker" ? "Docker" : "Upstash"})`,
     `✓ LLM Provider (${llmProvider})`,
-    wantsGoogle ? "✓ Google PubSub" : "✗ Google PubSub (not applicable)",
-    tinybirdToken ? "✓ Tinybird Analytics" : "✗ Tinybird Analytics (skipped)",
-    "✓ Auto-generated secrets",
+    ...(IS_REPO_MODE
+      ? []
+      : [
+          `✓ Web port: ${webPort}`,
+          `✓ PostgreSQL port: ${postgresPort}`,
+          `✓ Redis HTTP port: ${redisPort}`,
+        ]),
   ].join("\n");
 
   p.note(configuredFeatures, "Configuration Summary");
 
   p.note(`Environment file saved to:\n${ENV_FILE}`, "Output");
 
-  const useDocker = dbChoice === "docker" || redisChoice === "docker";
-
-  if (useDocker) {
+  if (IS_REPO_MODE) {
     p.note(
-      "# Start with Docker Compose (includes database & Redis):\npnpm docker:up\n\n# Then run database migrations:\npnpm prisma:migrate:dev\n\n# Start the development server:\npnpm dev",
+      "# Start Docker services (database & Redis):\ndocker compose --profile local-db --profile local-redis up -d\n\n# Run database migrations:\npnpm prisma:migrate:dev\n\n# Start the dev server:\npnpm dev\n\n# Then open:\nhttp://localhost:3000",
       "Next Steps",
     );
   } else {
     p.note(
-      "# Run database migrations:\npnpm prisma:migrate:dev\n\n# Start the development server:\npnpm dev",
+      `# Start Inbox Zero:\ninbox-zero start\n\n# Then open:\nhttp://localhost:${webPort}`,
       "Next Steps",
     );
   }
@@ -579,156 +528,240 @@ Full guide: https://github.com/elie222/inbox-zero#microsoft-oauth-setup`,
   p.outro("Setup complete! 🎉");
 }
 
-function generateEnvFile(env: EnvConfig): string {
-  const lines: string[] = [
-    "# Inbox Zero Environment Configuration",
-    "# Generated by setup-env CLI",
-    `# ${new Date().toISOString()}`,
-    "",
-  ];
+// ═══════════════════════════════════════════════════════════════════════════
+// Start Command
+// ═══════════════════════════════════════════════════════════════════════════
 
-  // Helper to add a section
-  // comment: true = always show as comment, false/undefined = show with value or empty
-  const addSection = (
-    title: string,
-    vars: { name: string; comment?: boolean }[],
-  ) => {
-    const hasAnyNonComment = vars.some((v) => !v.comment);
-    if (!hasAnyNonComment && vars.every((v) => env[v.name] === undefined))
-      return;
-
-    lines.push(
-      "# ═══════════════════════════════════════════════════════════════",
+async function runStart(options: { detach: boolean }) {
+  if (IS_REPO_MODE) {
+    p.log.info(
+      "You're in the repository. Use these commands instead:\n\n" +
+        "  docker compose --profile all up -d   # Start all services\n" +
+        "  pnpm dev                              # Start dev server\n",
     );
-    lines.push(`# ${title}`);
-    lines.push(
-      "# ═══════════════════════════════════════════════════════════════",
+    process.exit(0);
+  }
+
+  if (!existsSync(COMPOSE_FILE)) {
+    p.log.error("Inbox Zero is not configured.\nRun 'inbox-zero setup' first.");
+    process.exit(1);
+  }
+
+  p.intro("🚀 Starting Inbox Zero");
+
+  const spinner = p.spinner();
+  spinner.start("Pulling latest image...");
+
+  const pullResult = spawnSync(
+    "docker",
+    ["compose", "-f", COMPOSE_FILE, "pull"],
+    { stdio: "pipe" },
+  );
+
+  if (pullResult.status !== 0) {
+    spinner.stop("Failed to pull image");
+    p.log.error(pullResult.stderr?.toString() || "Unknown error");
+    process.exit(1);
+  }
+
+  spinner.stop("Image pulled");
+
+  spinner.start("Starting containers...");
+
+  const args = ["compose", "-f", COMPOSE_FILE, "up"];
+  if (options.detach) {
+    args.push("-d");
+  }
+
+  const upResult = spawnSync("docker", args, {
+    stdio: options.detach ? "pipe" : "inherit",
+  });
+
+  if (upResult.status !== 0 && options.detach) {
+    spinner.stop("Failed to start");
+    p.log.error(upResult.stderr?.toString() || "Unknown error");
+    process.exit(1);
+  }
+
+  if (options.detach) {
+    spinner.stop("Containers started");
+
+    // Get web port from env
+    const envContent = readFileSync(ENV_FILE, "utf-8");
+    const webPort = envContent.match(/WEB_PORT=(\d+)/)?.[1] || "3000";
+
+    p.note(
+      `Inbox Zero is running at:\nhttp://localhost:${webPort}\n\nView logs: inbox-zero logs\nStop: inbox-zero stop`,
+      "Running",
     );
 
-    for (const { name, comment } of vars) {
-      const value = env[name];
-      if (comment) {
-        // Always show as comment
-        lines.push(value !== undefined ? `# ${name}=${value}` : `# ${name}=`);
+    p.outro("Inbox Zero started! 🎉");
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Stop Command
+// ═══════════════════════════════════════════════════════════════════════════
+
+async function runStop() {
+  if (IS_REPO_MODE) {
+    p.log.info("You're in the repository. Use: docker compose down");
+    process.exit(0);
+  }
+
+  if (!existsSync(COMPOSE_FILE)) {
+    p.log.error("Inbox Zero is not configured.");
+    process.exit(1);
+  }
+
+  p.intro("Stopping Inbox Zero");
+
+  const spinner = p.spinner();
+  spinner.start("Stopping containers...");
+
+  const result = spawnSync("docker", ["compose", "-f", COMPOSE_FILE, "down"], {
+    stdio: "pipe",
+  });
+
+  if (result.status !== 0) {
+    spinner.stop("Failed to stop");
+    p.log.error(result.stderr?.toString() || "Unknown error");
+    process.exit(1);
+  }
+
+  spinner.stop("Containers stopped");
+  p.outro("Inbox Zero stopped");
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Logs Command
+// ═══════════════════════════════════════════════════════════════════════════
+
+async function runLogs(options: { follow: boolean; tail: string }) {
+  if (IS_REPO_MODE) {
+    p.log.info("You're in the repository. Use: docker compose logs");
+    process.exit(0);
+  }
+
+  if (!existsSync(COMPOSE_FILE)) {
+    p.log.error("Inbox Zero is not configured.");
+    process.exit(1);
+  }
+
+  const args = ["compose", "-f", COMPOSE_FILE, "logs", "--tail", options.tail];
+  if (options.follow) {
+    args.push("-f");
+  }
+
+  const child = spawn("docker", args, { stdio: "inherit" });
+
+  await new Promise<void>((resolve, reject) => {
+    child.on("close", (code) => {
+      if (code === 0 || options.follow) {
+        resolve();
       } else {
-        // Show with value or empty
-        lines.push(`${name}=${value ?? ""}`);
+        reject(new Error(`docker compose logs exited with code ${code}`));
       }
-    }
+    });
+    child.on("error", reject);
+  });
+}
 
-    lines.push("");
-  };
+// ═══════════════════════════════════════════════════════════════════════════
+// Status Command
+// ═══════════════════════════════════════════════════════════════════════════
 
-  // Core
-  addSection("Core", [
-    { name: "NODE_ENV" },
-    { name: "DATABASE_URL" },
-    { name: "NEXT_PUBLIC_BASE_URL" },
-    { name: "NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS" },
-  ]);
+async function runStatus() {
+  if (IS_REPO_MODE) {
+    p.log.info("You're in the repository. Use: docker compose ps");
+    process.exit(0);
+  }
 
-  // Authentication
-  addSection("Authentication", [{ name: "AUTH_SECRET" }]);
+  if (!existsSync(COMPOSE_FILE)) {
+    p.log.error("Inbox Zero is not configured.\nRun 'inbox-zero setup' first.");
+    process.exit(1);
+  }
 
-  // Encryption
-  addSection("Encryption", [
-    { name: "EMAIL_ENCRYPT_SECRET" },
-    { name: "EMAIL_ENCRYPT_SALT" },
-  ]);
+  spawnSync("docker", ["compose", "-f", COMPOSE_FILE, "ps"], {
+    stdio: "inherit",
+  });
+}
 
-  // Google OAuth
-  addSection("Google OAuth", [
-    { name: "GOOGLE_CLIENT_ID" },
-    { name: "GOOGLE_CLIENT_SECRET" },
-  ]);
+// ═══════════════════════════════════════════════════════════════════════════
+// Update Command
+// ═══════════════════════════════════════════════════════════════════════════
 
-  // Microsoft OAuth
-  addSection("Microsoft OAuth", [
-    { name: "MICROSOFT_CLIENT_ID" },
-    { name: "MICROSOFT_CLIENT_SECRET" },
-    { name: "MICROSOFT_TENANT_ID" },
-    { name: "MICROSOFT_WEBHOOK_CLIENT_STATE" },
-  ]);
+async function runUpdate() {
+  if (IS_REPO_MODE) {
+    p.log.info("You're in the repository. Use: git pull");
+    process.exit(0);
+  }
 
-  // Google PubSub
-  addSection("Google PubSub", [
-    { name: "GOOGLE_PUBSUB_TOPIC_NAME" },
-    { name: "GOOGLE_PUBSUB_VERIFICATION_TOKEN" },
-  ]);
+  if (!existsSync(COMPOSE_FILE)) {
+    p.log.error("Inbox Zero is not configured.");
+    process.exit(1);
+  }
 
-  // Redis
-  addSection("Redis", [
-    { name: "UPSTASH_REDIS_URL" },
-    { name: "UPSTASH_REDIS_TOKEN" },
-    { name: "SRH_TOKEN" },
-    { name: "REDIS_URL", comment: true },
-    { name: "QSTASH_TOKEN", comment: true },
-    { name: "QSTASH_CURRENT_SIGNING_KEY", comment: true },
-    { name: "QSTASH_NEXT_SIGNING_KEY", comment: true },
-  ]);
+  p.intro("Updating Inbox Zero");
 
-  // LLM Provider
-  addSection("LLM Provider", [
-    { name: "DEFAULT_LLM_PROVIDER" },
-    { name: "DEFAULT_LLM_MODEL" },
-    { name: "ECONOMY_LLM_PROVIDER" },
-    { name: "ECONOMY_LLM_MODEL" },
-    { name: "ANTHROPIC_API_KEY" },
-    { name: "OPENAI_API_KEY" },
-    { name: "GOOGLE_API_KEY" },
-    { name: "OPENROUTER_API_KEY" },
-    { name: "GROQ_API_KEY" },
-    { name: "AI_GATEWAY_API_KEY" },
-  ]);
+  const spinner = p.spinner();
+  spinner.start("Pulling latest image...");
 
-  // Tinybird Analytics
-  addSection("Tinybird Analytics (Optional)", [
-    { name: "TINYBIRD_TOKEN" },
-    { name: "TINYBIRD_BASE_URL" },
-    { name: "TINYBIRD_ENCRYPT_SECRET" },
-    { name: "TINYBIRD_ENCRYPT_SALT" },
-  ]);
-
-  // Internal
-  addSection("Internal", [
-    { name: "INTERNAL_API_KEY" },
-    { name: "API_KEY_SALT" },
-    { name: "CRON_SECRET" },
-  ]);
-
-  // Optional Services (always show as comments)
-  lines.push(
-    "# ═══════════════════════════════════════════════════════════════",
+  const pullResult = spawnSync(
+    "docker",
+    ["compose", "-f", COMPOSE_FILE, "pull"],
+    { stdio: "pipe" },
   );
-  lines.push("# Optional Services");
-  lines.push(
-    "# ═══════════════════════════════════════════════════════════════",
-  );
-  lines.push("");
-  lines.push("# Sentry (error tracking)");
-  lines.push("# SENTRY_AUTH_TOKEN=");
-  lines.push("# SENTRY_ORGANIZATION=");
-  lines.push("# SENTRY_PROJECT=");
-  lines.push("# NEXT_PUBLIC_SENTRY_DSN=");
-  lines.push("");
-  lines.push("# Axiom (logging)");
-  lines.push("# NEXT_PUBLIC_AXIOM_DATASET=");
-  lines.push("# NEXT_PUBLIC_AXIOM_TOKEN=");
-  lines.push("");
-  lines.push("# Resend (transactional emails)");
-  lines.push("# RESEND_API_KEY=");
-  lines.push("");
-  lines.push("# PostHog (analytics)");
-  lines.push("# NEXT_PUBLIC_POSTHOG_KEY=");
-  lines.push("# POSTHOG_API_SECRET=");
-  lines.push("# POSTHOG_PROJECT_ID=");
-  lines.push("");
-  lines.push("# Debug");
-  lines.push("# LOG_ZOD_ERRORS=true");
-  lines.push("# ENABLE_DEBUG_LOGS=false");
-  lines.push("");
 
-  return lines.join("\n");
+  if (pullResult.status !== 0) {
+    spinner.stop("Failed to pull");
+    p.log.error(pullResult.stderr?.toString() || "Unknown error");
+    process.exit(1);
+  }
+
+  spinner.stop("Image updated");
+
+  const restart = await p.confirm({
+    message: "Restart with new image?",
+    initialValue: true,
+  });
+
+  if (p.isCancel(restart)) {
+    p.outro("Update complete. Run 'inbox-zero start' to use the new version.");
+    return;
+  }
+
+  if (restart) {
+    spinner.start("Restarting...");
+
+    spawnSync("docker", ["compose", "-f", COMPOSE_FILE, "down"], {
+      stdio: "pipe",
+    });
+    spawnSync("docker", ["compose", "-f", COMPOSE_FILE, "up", "-d"], {
+      stdio: "pipe",
+    });
+
+    spinner.stop("Restarted");
+  }
+
+  p.outro("Update complete! 🎉");
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Docker Compose Fetcher
+// ═══════════════════════════════════════════════════════════════════════════
+
+const COMPOSE_URL =
+  "https://raw.githubusercontent.com/elie222/inbox-zero/main/docker-compose.yml";
+
+async function fetchDockerCompose(): Promise<string> {
+  const response = await fetch(COMPOSE_URL);
+  if (!response.ok) {
+    throw new Error(
+      `Failed to fetch docker-compose.yml: ${response.statusText}`,
+    );
+  }
+  return response.text();
 }
 
 main().catch((error) => {
