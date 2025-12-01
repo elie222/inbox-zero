@@ -9,7 +9,6 @@ import {
   HistoryIcon,
   Trash2Icon,
   SparklesIcon,
-  InfoIcon,
   CopyIcon,
 } from "lucide-react";
 import { useMemo } from "react";
@@ -31,13 +30,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Switch } from "@/components/ui/switch";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
 import { deleteRuleAction, toggleRuleAction } from "@/utils/actions/rule";
-import { conditionsToString } from "@/utils/condition";
 import { Badge } from "@/components/Badge";
 import { getActionColor } from "@/components/PlanBadge";
 import { toastError } from "@/components/Toast";
@@ -47,7 +40,6 @@ import type { ActionType } from "@/generated/prisma/client";
 import { useAction } from "next-safe-action/hooks";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { prefixPath } from "@/utils/path";
-import { ExpandableText } from "@/components/ExpandableText";
 import type { RulesResponse } from "@/app/api/user/rules/route";
 import { sortActionsByPriority } from "@/utils/action-sort";
 import { getActionDisplay, getActionIcon } from "@/utils/action-display";
@@ -150,9 +142,6 @@ export function Rules({
                 <TableRow>
                   <TableHead className="w-16 px-2 sm:px-4">Enabled</TableHead>
                   <TableHead className="px-2 sm:px-4">Name</TableHead>
-                  {/* <TableHead className="hidden sm:table-cell px-2 sm:px-4">
-                    Condition
-                  </TableHead> */}
                   <TableHead className="text-right px-2 sm:px-4">
                     Action
                   </TableHead>
@@ -239,42 +228,6 @@ export function Rules({
                       <TableCell className="font-medium p-2 sm:p-4">
                         {rule.name}
                       </TableCell>
-                      {/* <TableCell className="hidden sm:table-cell p-2 sm:p-4">
-                        {(() => {
-                          const systemRuleDesc = getSystemRuleDescription(
-                            rule.systemType,
-                          );
-                          if (isConversationStatus) {
-                            return (
-                              <div className="flex items-center gap-2">
-                                <span className="text-sm text-muted-foreground">
-                                  {systemRuleDesc?.condition || ""}
-                                </span>
-                                <Tooltip>
-                                  <TooltipTrigger asChild>
-                                    <InfoIcon className="size-3.5 text-green-600 dark:text-green-500 flex-shrink-0 cursor-help" />
-                                  </TooltipTrigger>
-                                  <TooltipContent
-                                    side="right"
-                                    className="max-w-xs"
-                                  >
-                                    <p>
-                                      System rule to track conversation status.
-                                      Conditions cannot be edited.
-                                    </p>
-                                  </TooltipContent>
-                                </Tooltip>
-                              </div>
-                            );
-                          }
-                          return (
-                            <ExpandableText
-                              text={conditionsToString(rule)}
-                              className="max-w-xs"
-                            />
-                          );
-                        })()}
-                      </TableCell> */}
                       <TableCell className="text-right p-2 sm:p-4">
                         <ActionBadges
                           actions={rule.actions}
