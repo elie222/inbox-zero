@@ -13,7 +13,7 @@ function RemoveButton({
     <Button
       size="icon"
       variant="ghost"
-      className="absolute top-2 right-2 size-8"
+      className="size-8"
       onClick={onClick}
       aria-label={ariaLabel}
     >
@@ -38,9 +38,7 @@ function CardLayoutRight({
   className?: string;
 }) {
   return (
-    <div className={cn("space-y-4 mx-auto w-full max-w-md", className)}>
-      {children}
-    </div>
+    <div className={cn("space-y-4 mx-auto w-full", className)}>{children}</div>
   );
 }
 
@@ -58,10 +56,10 @@ export function RuleStep({
   return (
     <div className="flex items-start gap-3">
       <div className="relative flex-1">
-        <RemoveButton onClick={onRemove} ariaLabel={removeAriaLabel} />
         <CardLayout>
           <CardLayoutLeft>{leftContent}</CardLayoutLeft>
           <CardLayoutRight>{rightContent}</CardLayoutRight>
+          <RemoveButton onClick={onRemove} ariaLabel={removeAriaLabel} />
         </CardLayout>
       </div>
     </div>

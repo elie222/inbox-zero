@@ -26,7 +26,6 @@ import { ErrorMessage, Input, Label } from "@/components/Input";
 import { toastError, toastSuccess } from "@/components/Toast";
 import { TypographyH3 } from "@/components/Typography";
 import { ActionType, SystemType } from "@/generated/prisma/enums";
-import { ConditionType, type CoreConditionType } from "@/utils/config";
 import {
   createRuleAction,
   deleteRuleAction,
@@ -42,7 +41,6 @@ import { LoadingContent } from "@/components/LoadingContent";
 import { TooltipExplanation } from "@/components/TooltipExplanation";
 import { useLabels } from "@/hooks/useLabels";
 import { hasVariables, TEMPLATE_VARIABLE_PATTERN } from "@/utils/template";
-import { getEmptyCondition } from "@/utils/condition";
 import { AlertError } from "@/components/Alert";
 import { LearnedPatternsDialog } from "@/app/(app)/[emailAccountId]/assistant/group/LearnedPatterns";
 import { useAccount } from "@/providers/EmailAccountProvider";
@@ -57,7 +55,6 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { ActionSummaryCard } from "@/app/(app)/[emailAccountId]/assistant/ActionSummaryCard";
 import {
   Select,
   SelectContent,
@@ -75,7 +72,6 @@ import { cn } from "@/utils";
 import { WebhookDocumentationLink } from "@/components/WebhookDocumentation";
 import { LabelCombobox } from "@/components/LabelCombobox";
 import { isConversationStatusType } from "@/utils/reply-tracker/conversation-status-config";
-import { Tooltip } from "@/components/Tooltip";
 import { Badge } from "@/components/ui/badge";
 import { RuleSectionCard } from "@/app/(app)/[emailAccountId]/assistant/RuleSectionCard";
 import { RuleSteps } from "@/app/(app)/[emailAccountId]/assistant/RuleSteps";
@@ -272,12 +268,6 @@ export function RuleForm({
   );
 
   const conditions = watch("conditions");
-  const unusedCondition = useMemo(() => {
-    const usedConditions = new Set(conditions?.map(({ type }) => type));
-    return [ConditionType.AI, ConditionType.STATIC].find(
-      (type) => !usedConditions.has(type),
-    ) as CoreConditionType | undefined;
-  }, [conditions]);
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: needed
   useEffect(() => {
@@ -381,29 +371,7 @@ export function RuleForm({
               />
             ) : undefined
           }
-          footerActions={
-            unusedCondition &&
-            !(rule.systemType && isConversationStatusType(rule.systemType)) ? (
-              <Tooltip
-                hide={allowMultipleConditions(rule.systemType)}
-                content="You can only set one condition for this rule."
-              >
-                <span>
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    onClick={() => {
-                      appendCondition(getEmptyCondition(unusedCondition));
-                    }}
-                    disabled={!allowMultipleConditions(rule.systemType)}
-                    Icon={PlusIcon}
-                  >
-                    Add Condition
-                  </Button>
-                </span>
-              </Tooltip>
-            ) : undefined
-          }
+          footerActions={undefined}
         >
           <RuleSteps
             conditionFields={conditionFields}
@@ -416,6 +384,7 @@ export function RuleForm({
             errors={errors}
             conditions={conditions}
             ruleSystemType={rule.systemType}
+            appendCondition={appendCondition}
           />
         </RuleSectionCard>
 
