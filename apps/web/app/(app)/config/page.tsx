@@ -3,21 +3,13 @@ import path from "node:path";
 import { env } from "@/env";
 import { auth } from "@/utils/auth";
 import { isAdmin } from "@/utils/admin";
-import { ErrorPage } from "@/components/ErrorPage";
 import { PageWrapper } from "@/components/PageWrapper";
 import { PageHeader } from "@/components/PageHeader";
 
 export default async function AdminConfigPage() {
   const session = await auth();
 
-  if (!isAdmin({ email: session?.user.email })) {
-    return (
-      <ErrorPage
-        title="No Access"
-        description="You do not have permission to access this page."
-      />
-    );
-  }
+  const isUserAdmin = await isAdmin({ email: session?.user.email });
 
   const version = getVersion();
 
@@ -98,45 +90,63 @@ export default async function AdminConfigPage() {
           />
         </Section>
 
-        <Section title="LLM Configuration">
-          <Row label="Default Provider" value={info.llm.defaultProvider} />
-          <Row label="Default Model" value={info.llm.defaultModel} />
-          <Row label="Economy Provider" value={info.llm.economyProvider} />
-          <Row label="Economy Model" value={info.llm.economyModel} />
-        </Section>
+        {isUserAdmin && (
+          <>
+            <Section title="LLM Configuration">
+              <Row label="Default Provider" value={info.llm.defaultProvider} />
+              <Row label="Default Model" value={info.llm.defaultModel} />
+              <Row label="Economy Provider" value={info.llm.economyProvider} />
+              <Row label="Economy Model" value={info.llm.economyModel} />
+            </Section>
 
-        <Section title="Integrations">
-          <Row
-            label="Redis"
-            value={info.integrations.redis ? "Configured" : "Not configured"}
-          />
-          <Row
-            label="QStash"
-            value={info.integrations.qstash ? "Configured" : "Not configured"}
-          />
-          <Row
-            label="Tinybird"
-            value={info.integrations.tinybird ? "Configured" : "Not configured"}
-          />
-          <Row
-            label="Sentry"
-            value={info.integrations.sentry ? "Configured" : "Not configured"}
-          />
-          <Row
-            label="PostHog"
-            value={info.integrations.posthog ? "Configured" : "Not configured"}
-          />
-          <Row
-            label="Stripe"
-            value={info.integrations.stripe ? "Configured" : "Not configured"}
-          />
-          <Row
-            label="Lemon Squeezy"
-            value={
-              info.integrations.lemonSqueezy ? "Configured" : "Not configured"
-            }
-          />
-        </Section>
+            <Section title="Integrations">
+              <Row
+                label="Redis"
+                value={
+                  info.integrations.redis ? "Configured" : "Not configured"
+                }
+              />
+              <Row
+                label="QStash"
+                value={
+                  info.integrations.qstash ? "Configured" : "Not configured"
+                }
+              />
+              <Row
+                label="Tinybird"
+                value={
+                  info.integrations.tinybird ? "Configured" : "Not configured"
+                }
+              />
+              <Row
+                label="Sentry"
+                value={
+                  info.integrations.sentry ? "Configured" : "Not configured"
+                }
+              />
+              <Row
+                label="PostHog"
+                value={
+                  info.integrations.posthog ? "Configured" : "Not configured"
+                }
+              />
+              <Row
+                label="Stripe"
+                value={
+                  info.integrations.stripe ? "Configured" : "Not configured"
+                }
+              />
+              <Row
+                label="Lemon Squeezy"
+                value={
+                  info.integrations.lemonSqueezy
+                    ? "Configured"
+                    : "Not configured"
+                }
+              />
+            </Section>
+          </>
+        )}
       </div>
     </PageWrapper>
   );
