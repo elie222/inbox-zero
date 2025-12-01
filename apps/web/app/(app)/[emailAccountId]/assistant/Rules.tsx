@@ -150,11 +150,13 @@ export function Rules({
                 <TableRow>
                   <TableHead className="w-16 px-2 sm:px-4">Enabled</TableHead>
                   <TableHead className="px-2 sm:px-4">Name</TableHead>
-                  <TableHead className="hidden sm:table-cell px-2 sm:px-4">
+                  {/* <TableHead className="hidden sm:table-cell px-2 sm:px-4">
                     Condition
+                  </TableHead> */}
+                  <TableHead className="text-right px-2 sm:px-4">
+                    Action
                   </TableHead>
-                  <TableHead className="px-2 sm:px-4">Action</TableHead>
-                  <TableHead className="px-2 sm:px-4">
+                  <TableHead className="w-fit whitespace-nowrap px-1">
                     {showAddRuleButton && (
                       <div className="flex justify-end">
                         <div className="my-2">
@@ -237,7 +239,7 @@ export function Rules({
                       <TableCell className="font-medium p-2 sm:p-4">
                         {rule.name}
                       </TableCell>
-                      <TableCell className="hidden sm:table-cell p-2 sm:p-4">
+                      {/* <TableCell className="hidden sm:table-cell p-2 sm:p-4">
                         {(() => {
                           const systemRuleDesc = getSystemRuleDescription(
                             rule.systemType,
@@ -272,15 +274,15 @@ export function Rules({
                             />
                           );
                         })()}
-                      </TableCell>
-                      <TableCell className="p-2 sm:p-4">
+                      </TableCell> */}
+                      <TableCell className="text-right p-2 sm:p-4">
                         <ActionBadges
                           actions={rule.actions}
                           provider={provider}
                           labels={userLabels}
                         />
                       </TableCell>
-                      <TableCell className="text-center p-2 sm:p-4">
+                      <TableCell className="w-fit whitespace-nowrap text-center px-1 py-2">
                         {!isPlaceholder && (
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
@@ -443,7 +445,7 @@ export function ActionBadges({
   labels: Array<{ id: string; name: string }>;
 }) {
   return (
-    <div className="flex gap-2 flex-wrap min-w-0">
+    <div className="flex gap-2 flex-wrap min-w-0 justify-end">
       {sortActionsByPriority(actions).map((action) => {
         const Icon = getActionIcon(action.type);
 
