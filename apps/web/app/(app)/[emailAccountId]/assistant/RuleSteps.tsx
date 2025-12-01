@@ -123,17 +123,20 @@ export function RuleSteps({
                         }}
                         value={field.value}
                       >
-                        <FormControl>
-                          <SelectTrigger className="w-[180px]">
-                            {field.value ? (
-                              <Badge variant="secondary">
-                                {conditionTypeLabel}
-                              </Badge>
-                            ) : (
-                              <SelectValue placeholder="Select trigger" />
-                            )}
-                          </SelectTrigger>
-                        </FormControl>
+                        <div className="flex items-center gap-2">
+                          <p>Where</p>
+                          <FormControl>
+                            <SelectTrigger className="w-[180px]">
+                              {field.value ? (
+                                <Badge variant="secondary">
+                                  {conditionTypeLabel}
+                                </Badge>
+                              ) : (
+                                <SelectValue placeholder="Select trigger" />
+                              )}
+                            </SelectTrigger>
+                          </FormControl>
+                        </div>
                         <SelectContent>
                           {[
                             { label: "AI", value: ConditionType.AI },
