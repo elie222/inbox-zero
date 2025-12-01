@@ -393,7 +393,7 @@ export function RuleForm({
           iconBg="bg-green-100 dark:bg-green-900/30"
           iconColor="text-green-600 dark:text-green-400"
           title="Then"
-          description="Update Fields, create child Entities, and script entire workflows."
+          description="Then..."
           errors={
             actionErrors.length > 0 ? (
               <AlertError
