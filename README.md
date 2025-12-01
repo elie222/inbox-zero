@@ -77,7 +77,7 @@ To request a feature open a [GitHub issue](https://github.com/elie222/inbox-zero
 
 ## Getting Started
 
-We offer a hosted version of Inbox Zero at [https://getinboxzero.com](https://getinboxzero.com).
+We offer a hosted version of Inbox Zero at [https://getinboxzero.com](https://www.getinboxzero.com).
 
 ### Self-Hosting with Docker
 
@@ -221,7 +221,9 @@ Go to [Microsoft Azure Portal](https://portal.azure.com/) and create a new Azure
 3. Click "New registration"
 
    1. Choose a name for your application
-   2. Under "Supported account types" select "Accounts in any organizational directory (Any Azure AD directory - Multitenant) and personal Microsoft accounts (e.g. Skype, Xbox)"
+   2. Under "Supported account types" select one of:
+      - **Multitenant (default):** "Accounts in any organizational directory (Any Azure AD directory - Multitenant) and personal Microsoft accounts (e.g. Skype, Xbox)" - allows any Microsoft account
+      - **Single tenant:** "Accounts in this organizational directory only" - restricts to your organization only
    3. Set the Redirect URI:
       - Platform: Web
       - URL: `http://localhost:3000/api/auth/callback/microsoft` (replace `localhost:3000` with your domain in production)
@@ -234,7 +236,8 @@ Go to [Microsoft Azure Portal](https://portal.azure.com/) and create a new Azure
 4. Get your credentials from the `Overview` tab:
 
    1. Copy the "Application (client) ID" → this is your `MICROSOFT_CLIENT_ID`
-   2. Go to "Certificates & secrets" in the left sidebar
+   2. If using single tenant, copy the "Directory (tenant) ID" → this is your `MICROSOFT_TENANT_ID`
+   3. Go to "Certificates & secrets" in the left sidebar
       - Click "New client secret"
       - Add a description and choose an expiry
       - Click "Add"
@@ -266,6 +269,7 @@ Go to [Microsoft Azure Portal](https://portal.azure.com/) and create a new Azure
    ```
    MICROSOFT_CLIENT_ID=your_client_id_here
    MICROSOFT_CLIENT_SECRET=your_client_secret_here
+   MICROSOFT_TENANT_ID=your_tenant_id_here  # Only needed for single tenant, omit for multitenant
    ```
 
 ### LLM Setup

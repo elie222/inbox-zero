@@ -36,7 +36,7 @@ network:
 
 variables:                    # Pass environment variables as key value pairs.
   HOSTNAME: 0.0.0.0
-  NEXT_PUBLIC_BASE_URL: # YOUR_DOMAIN, e.g. https://getinboxzero.com (with http or https)
+  NEXT_PUBLIC_BASE_URL: # YOUR_DOMAIN, e.g. https://www.getinboxzero.com (with http or https)
   DEFAULT_LLM_PROVIDER: 
 
 # Set these secrets at AWS Systems Manager (SSM) Parameter Store for extra security.

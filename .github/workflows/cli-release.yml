@@ -1,0 +1,171 @@
+name: CLI Release
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        include:
+          - os: macos-latest
+            target: bun-darwin-arm64
+            artifact: inbox-zero-darwin-arm64
+          - os: macos-13
+            target: bun-darwin-x64
+            artifact: inbox-zero-darwin-x64
+          - os: ubuntu-latest
+            target: bun-linux-x64
+            artifact: inbox-zero-linux-x64
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: cd packages/cli && bun install
+
+      - name: Build binary
+        run: |
+          cd packages/cli
+          bun build src/main.ts --compile --target=${{ matrix.target }} --outfile dist/${{ matrix.artifact }}
+
+      - name: Create tarball (Unix)
+        run: |
+          cd packages/cli/dist
+          tar -czvf ${{ matrix.artifact }}.tar.gz ${{ matrix.artifact }}
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: packages/cli/dist/${{ matrix.artifact }}.tar.gz
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Get version
+        id: version
+        run: |
+          VERSION=$(cat version.txt | tr -d 'v' | tr -d '\n')
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Calculate SHA256
+        id: sha
+        run: |
+          echo "darwin_arm64=$(sha256sum artifacts/inbox-zero-darwin-arm64/inbox-zero-darwin-arm64.tar.gz | cut -d ' ' -f 1)" >> $GITHUB_OUTPUT
+          echo "darwin_x64=$(sha256sum artifacts/inbox-zero-darwin-x64/inbox-zero-darwin-x64.tar.gz | cut -d ' ' -f 1)" >> $GITHUB_OUTPUT
+          echo "linux_x64=$(sha256sum artifacts/inbox-zero-linux-x64/inbox-zero-linux-x64.tar.gz | cut -d ' ' -f 1)" >> $GITHUB_OUTPUT
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: cli-v${{ steps.version.outputs.version }}
+          name: CLI v${{ steps.version.outputs.version }}
+          draft: false
+          prerelease: false
+          files: |
+            artifacts/inbox-zero-darwin-arm64/inbox-zero-darwin-arm64.tar.gz
+            artifacts/inbox-zero-darwin-x64/inbox-zero-darwin-x64.tar.gz
+            artifacts/inbox-zero-linux-x64/inbox-zero-linux-x64.tar.gz
+          body: |
+            ## Inbox Zero CLI v${{ steps.version.outputs.version }}
+
+            ### Installation
+
+            **Homebrew (macOS/Linux):**
+            ```bash
+            brew tap inbox-zero/inbox-zero https://github.com/elie222/inbox-zero.git
+            brew install inbox-zero
+            ```
+
+            **Manual installation:**
+            ```bash
+            # macOS (Apple Silicon)
+            curl -L https://github.com/elie222/inbox-zero/releases/download/cli-v${{ steps.version.outputs.version }}/inbox-zero-darwin-arm64.tar.gz | tar xz
+            chmod +x inbox-zero-darwin-arm64
+            sudo mv inbox-zero-darwin-arm64 /usr/local/bin/inbox-zero
+
+            # macOS (Intel)
+            curl -L https://github.com/elie222/inbox-zero/releases/download/cli-v${{ steps.version.outputs.version }}/inbox-zero-darwin-x64.tar.gz | tar xz
+            chmod +x inbox-zero-darwin-x64
+            sudo mv inbox-zero-darwin-x64 /usr/local/bin/inbox-zero
+
+            # Linux
+            curl -L https://github.com/elie222/inbox-zero/releases/download/cli-v${{ steps.version.outputs.version }}/inbox-zero-linux-x64.tar.gz | tar xz
+            chmod +x inbox-zero-linux-x64
+            sudo mv inbox-zero-linux-x64 /usr/local/bin/inbox-zero
+            ```
+
+            ### SHA256 Checksums
+            ```
+            ${{ steps.sha.outputs.darwin_arm64 }}  inbox-zero-darwin-arm64.tar.gz
+            ${{ steps.sha.outputs.darwin_x64 }}  inbox-zero-darwin-x64.tar.gz
+            ${{ steps.sha.outputs.linux_x64 }}  inbox-zero-linux-x64.tar.gz
+            ```
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Update Homebrew formula
+        run: |
+          python3 << 'EOF'
+          import re
+          
+          with open('Formula/inbox-zero.rb', 'r') as f:
+              content = f.read()
+          
+          # Update version
+          content = re.sub(r'version "[^"]*"', 'version "${{ steps.version.outputs.version }}"', content)
+          
+          # Update SHA256 for darwin-arm64 (first sha256 after "on_arm do")
+          content = re.sub(
+              r'(on_arm do.*?sha256 ")[^"]*(")',
+              r'\g<1>${{ steps.sha.outputs.darwin_arm64 }}\2',
+              content, count=1, flags=re.DOTALL
+          )
+          
+          # Update SHA256 for darwin-x64 (first sha256 after "on_intel do" inside on_macos)
+          content = re.sub(
+              r'(on_macos do.*?on_intel do.*?sha256 ")[^"]*(")',
+              r'\g<1>${{ steps.sha.outputs.darwin_x64 }}\2',
+              content, count=1, flags=re.DOTALL
+          )
+          
+          # Update SHA256 for linux-x64 (sha256 after "on_linux do")
+          content = re.sub(
+              r'(on_linux do.*?sha256 ")[^"]*(")',
+              r'\g<1>${{ steps.sha.outputs.linux_x64 }}\2',
+              content, count=1, flags=re.DOTALL
+          )
+          
+          with open('Formula/inbox-zero.rb', 'w') as f:
+              f.write(content)
+          
+          print(content)
+          EOF
+
+      - name: Commit formula update
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          git add Formula/inbox-zero.rb
+          git diff --staged --quiet || git commit -m "chore: update Homebrew formula for CLI v${{ steps.version.outputs.version }}"
+          git push origin HEAD:${{ github.ref_name }}
+
