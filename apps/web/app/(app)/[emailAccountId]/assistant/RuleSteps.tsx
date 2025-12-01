@@ -80,7 +80,6 @@ export function RuleSteps({
             </div>
           )}
           <RuleStep
-            stepNumber={index + 1}
             onRemove={() => removeCondition(index)}
             removeAriaLabel="Remove condition"
             leftContent={

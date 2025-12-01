@@ -2,14 +2,6 @@ import { Button } from "@/components/ui/button";
 import { TrashIcon } from "lucide-react";
 import { cn } from "@/utils";
 
-function StepNumber({ number }: { number: number }) {
-  return (
-    <div className="flex size-6 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-medium text-muted-foreground">
-      {number}
-    </div>
-  );
-}
-
 function RemoveButton({
   onClick,
   ariaLabel,
@@ -53,13 +45,11 @@ function CardLayoutRight({
 }
 
 export function RuleStep({
-  stepNumber,
   onRemove,
   leftContent,
   rightContent,
   removeAriaLabel,
 }: {
-  stepNumber: number;
   onRemove: () => void;
   leftContent: React.ReactNode;
   rightContent: React.ReactNode;
@@ -67,7 +57,6 @@ export function RuleStep({
 }) {
   return (
     <div className="flex items-start gap-3">
-      <StepNumber number={stepNumber} />
       <div className="relative flex-1">
         <RemoveButton onClick={onRemove} ariaLabel={removeAriaLabel} />
         <CardLayout>
