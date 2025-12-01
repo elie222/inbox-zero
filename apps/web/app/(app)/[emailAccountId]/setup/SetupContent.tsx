@@ -10,6 +10,7 @@ import {
   type LucideIcon,
   ChromeIcon,
   CalendarIcon,
+  TargetIcon,
 } from "lucide-react";
 import { useLocalStorage } from "usehooks-ts";
 import { PageHeading, SectionDescription } from "@/components/Typography";
@@ -20,10 +21,12 @@ import { LoadingContent } from "@/components/LoadingContent";
 import { EXTENSION_URL } from "@/utils/config";
 import { isGoogleProvider } from "@/utils/email/provider-types";
 import { useAccount } from "@/providers/EmailAccountProvider";
+import { formatStat } from "@/utils/stats";
 import {
   STEP_KEYS,
   getStepNumber,
 } from "@/app/(app)/[emailAccountId]/onboarding/steps";
+import { StatsCardGrid, type StatItem } from "@/components/StatsCardGrid";
 
 function FeatureCard({
   emailAccountId,
@@ -327,6 +330,9 @@ export function SetupContent() {
           completedCount={data.completed}
           totalSteps={data.total}
           isSetupComplete={data.isComplete}
+          emailsProcessed={data.emailsProcessed}
+          rulesExecuted={data.rulesExecuted}
+          inboxCoverage={data.inboxCoverage ?? 0}
         />
       )}
     </LoadingContent>
@@ -342,6 +348,9 @@ function SetupPageContent({
   completedCount,
   totalSteps,
   isSetupComplete,
+  emailsProcessed,
+  rulesExecuted,
+  inboxCoverage,
 }: {
   emailAccountId: string;
   provider: string;
@@ -351,19 +360,46 @@ function SetupPageContent({
   completedCount: number;
   totalSteps: number;
   isSetupComplete: boolean;
+  emailsProcessed: number;
+  rulesExecuted: number;
+  inboxCoverage: number;
 }) {
   const progressPercentage = (completedCount / totalSteps) * 100;
+
+  const statsItems: StatItem[] = [
+    {
+      icon: MailIcon,
+      variant: "blue",
+      value: formatStat(emailsProcessed),
+      title: "Emails processed",
+      tooltip: "Total emails that have been processed so far.",
+    },
+    {
+      icon: BotIcon,
+      variant: "green",
+      value: formatStat(rulesExecuted),
+      title: "Rules executed",
+      tooltip: "Total automation actions that have been executed so far.",
+    },
+    {
+      icon: TargetIcon,
+      variant: "orange",
+      value: inboxCoverage != null ? `${inboxCoverage}%` : "0%",
+      title: "Inbox coverage",
+      tooltip: "Percentage of emails that have been processed and handled.",
+    },
+  ];
 
   return (
     <div className="mx-auto flex min-h-screen w-full max-w-3xl flex-col p-6">
       <div className="mb-4 sm:mb-8">
         <PageHeading className="text-center">Welcome to Inbox Zero</PageHeading>
         <SectionDescription className="mt-2 text-center text-base">
-          {isSetupComplete
-            ? "What would you like to do?"
-            : "Complete these steps to get the most out of Inbox Zero"}
+          Here's an overview what's been happening in your inbox.
         </SectionDescription>
       </div>
+
+      <StatsCardGrid items={statsItems} />
 
       {isSetupComplete ? (
         <FeatureGrid emailAccountId={emailAccountId} provider={provider} />
