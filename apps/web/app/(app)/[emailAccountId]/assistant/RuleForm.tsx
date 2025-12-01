@@ -19,6 +19,8 @@ import {
   ChevronRightIcon,
   PencilIcon,
   TrashIcon,
+  ZapIcon,
+  BotIcon,
 } from "lucide-react";
 import { CardBasic } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -69,7 +71,6 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { ActionSummaryCard } from "@/app/(app)/[emailAccountId]/assistant/ActionSummaryCard";
-import { ConditionSummaryCard } from "@/app/(app)/[emailAccountId]/assistant/ConditionSummaryCard";
 import {
   Select,
   SelectContent,
@@ -89,6 +90,9 @@ import { LabelCombobox } from "@/components/LabelCombobox";
 import { isConversationStatusType } from "@/utils/reply-tracker/conversation-status-config";
 import { Tooltip } from "@/components/Tooltip";
 import { getRuleConfig } from "@/utils/rule/consts";
+import { Badge } from "@/components/ui/badge";
+import { RuleSectionCard } from "@/app/(app)/[emailAccountId]/assistant/RuleSectionCard";
+import { RuleStep } from "@/app/(app)/[emailAccountId]/assistant/RuleStep";
 
 export function Rule({
   ruleId,
@@ -329,10 +333,6 @@ export function RuleForm({
   }, [provider, terminology.label.action]);
 
   const [isNameEditMode, setIsNameEditMode] = useState(alwaysEditMode);
-  const [isConditionsEditMode, setIsConditionsEditMode] = useState(
-    alwaysEditMode &&
-      !(rule.systemType && isConversationStatusType(rule.systemType)),
-  );
   const [isActionsEditMode, setIsActionsEditMode] = useState(alwaysEditMode);
   const [isDeleting, setIsDeleting] = useState(false);
 
@@ -341,15 +341,6 @@ export function RuleForm({
       setIsActionsEditMode((prev: boolean) => !prev);
     }
   }, [alwaysEditMode]);
-
-  const toggleConditionsEditMode = useCallback(() => {
-    if (
-      !alwaysEditMode &&
-      !(rule.systemType && isConversationStatusType(rule.systemType))
-    ) {
-      setIsConditionsEditMode((prev: boolean) => !prev);
-    }
-  }, [alwaysEditMode, rule.systemType]);
 
   const toggleNameEditMode = useCallback(() => {
     if (!alwaysEditMode) {
@@ -396,86 +387,75 @@ export function RuleForm({
           )}
         </div>
 
-        <div className="mt-4 flex items-end justify-between">
-          <TypographyH3 className="text-xl">Conditions</TypographyH3>
-
-          <div className="flex items-center gap-1.5">
-            {isConditionsEditMode &&
-              !(
-                rule.systemType && isConversationStatusType(rule.systemType)
-              ) && (
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="outline" size="sm">
-                      <FilterIcon className="mr-2 h-4 w-4" />
-                      Match{" "}
-                      {!conditionalOperator ||
-                      conditionalOperator === LogicalOperator.AND
-                        ? "all"
-                        : "any"}
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent>
-                    <DropdownMenuRadioGroup
-                      value={conditionalOperator}
-                      onValueChange={(value) =>
-                        setValue(
-                          "conditionalOperator",
-                          value as LogicalOperator,
-                        )
-                      }
-                    >
-                      <DropdownMenuRadioItem value={LogicalOperator.AND}>
-                        Match all conditions
-                      </DropdownMenuRadioItem>
-                      <DropdownMenuRadioItem value={LogicalOperator.OR}>
-                        Match any condition
-                      </DropdownMenuRadioItem>
-                    </DropdownMenuRadioGroup>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              )}
-
-            {!alwaysEditMode && (
+        <RuleSectionCard
+          icon={ZapIcon}
+          iconBg="bg-purple-100 dark:bg-purple-900/30"
+          iconColor="text-purple-600 dark:text-purple-400"
+          title="When an email is received"
+          description="When a new email is received into your inbox"
+          headerActions={
+            !(rule.systemType && isConversationStatusType(rule.systemType)) ? (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="sm">
+                    <FilterIcon className="mr-2 h-4 w-4" />
+                    Match{" "}
+                    {!conditionalOperator ||
+                    conditionalOperator === LogicalOperator.AND
+                      ? "all"
+                      : "any"}
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent>
+                  <DropdownMenuRadioGroup
+                    value={conditionalOperator}
+                    onValueChange={(value) =>
+                      setValue("conditionalOperator", value as LogicalOperator)
+                    }
+                  >
+                    <DropdownMenuRadioItem value={LogicalOperator.AND}>
+                      Match all conditions
+                    </DropdownMenuRadioItem>
+                    <DropdownMenuRadioItem value={LogicalOperator.OR}>
+                      Match any condition
+                    </DropdownMenuRadioItem>
+                  </DropdownMenuRadioGroup>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            ) : undefined
+          }
+          errors={
+            errors.conditions?.root?.message ? (
+              <AlertError
+                title="Error"
+                description={errors.conditions.root.message}
+              />
+            ) : undefined
+          }
+          footerActions={
+            unusedCondition &&
+            !(rule.systemType && isConversationStatusType(rule.systemType)) ? (
               <Tooltip
-                hide={
-                  !(
-                    rule.systemType && isConversationStatusType(rule.systemType)
-                  )
-                }
-                content="System rule to track conversation status. Conditions cannot be edited."
+                hide={allowMultipleConditions(rule.systemType)}
+                content="You can only set one condition for this rule."
               >
                 <span>
                   <Button
+                    variant="secondary"
                     size="sm"
-                    variant="outline"
-                    onClick={toggleConditionsEditMode}
-                    Icon={!isConditionsEditMode ? PencilIcon : undefined}
-                    disabled={
-                      !!(
-                        rule.systemType &&
-                        isConversationStatusType(rule.systemType)
-                      )
-                    }
+                    onClick={() => {
+                      appendCondition(getEmptyCondition(unusedCondition));
+                    }}
+                    disabled={!allowMultipleConditions(rule.systemType)}
+                    Icon={PlusIcon}
                   >
-                    {isConditionsEditMode ? "View" : "Edit"}
+                    Add Condition
                   </Button>
                 </span>
               </Tooltip>
-            )}
-          </div>
-        </div>
-
-        {errors.conditions?.root?.message && (
-          <div className="mt-2">
-            <AlertError
-              title="Error"
-              description={errors.conditions.root.message}
-            />
-          </div>
-        )}
-
-        <div className="mt-2">
+            ) : undefined
+          }
+        >
           {conditionFields.map((condition, index) => (
             <div key={condition.id}>
               {index > 0 && (
@@ -491,279 +471,264 @@ export function RuleForm({
                   </div>
                 </div>
               )}
-              {isConditionsEditMode ? (
-                <CardBasic className="relative">
-                  <RemoveButton
-                    onClick={() => removeCondition(index)}
-                    ariaLabel="Remove condition"
+              <RuleStep
+                stepNumber={index + 1}
+                onRemove={() => removeCondition(index)}
+                removeAriaLabel="Remove condition"
+                leftContent={
+                  <FormField
+                    control={control}
+                    name={`conditions.${index}.type`}
+                    render={({ field }) => {
+                      const conditionTypeLabel =
+                        field.value === ConditionType.AI
+                          ? "AI"
+                          : field.value === ConditionType.STATIC
+                            ? "Static"
+                            : field.value;
+                      return (
+                        <FormItem>
+                          <Select
+                            onValueChange={(value) => {
+                              const selectedType = value;
+
+                              // check if we have duplicate condition types
+                              const prospectiveTypes = new Set(
+                                conditions.map((c, idx) =>
+                                  idx === index ? selectedType : c.type,
+                                ),
+                              );
+
+                              if (prospectiveTypes.size !== conditions.length) {
+                                toastError({
+                                  description:
+                                    "You can only have one condition of each type.",
+                                });
+                                return; // abort update
+                              }
+
+                              const emptyCondition = getEmptyCondition(
+                                selectedType as CoreConditionType,
+                              );
+                              if (emptyCondition) {
+                                setValue(`conditions.${index}`, emptyCondition);
+                              }
+                            }}
+                            value={field.value}
+                          >
+                            <FormControl>
+                              <SelectTrigger className="w-[180px]">
+                                {field.value ? (
+                                  <Badge variant="secondary">
+                                    {conditionTypeLabel}
+                                  </Badge>
+                                ) : (
+                                  <SelectValue placeholder="Select trigger" />
+                                )}
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              {[
+                                { label: "AI", value: ConditionType.AI },
+                                {
+                                  label: "Static",
+                                  value: ConditionType.STATIC,
+                                },
+                              ].map((option) => (
+                                <SelectItem
+                                  key={option.value}
+                                  value={option.value}
+                                >
+                                  {option.label}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </FormItem>
+                      );
+                    }}
                   />
-                  <CardLayout>
-                    <CardLayoutLeft>
-                      <FormField
-                        control={control}
-                        name={`conditions.${index}.type`}
-                        render={({ field }) => (
-                          <FormItem>
-                            <Select
-                              onValueChange={(value) => {
-                                const selectedType = value;
-
-                                // check if we have duplicate condition types
-                                const prospectiveTypes = new Set(
-                                  conditions.map((c, idx) =>
-                                    idx === index ? selectedType : c.type,
-                                  ),
-                                );
-
-                                if (
-                                  prospectiveTypes.size !== conditions.length
-                                ) {
-                                  toastError({
-                                    description:
-                                      "You can only have one condition of each type.",
-                                  });
-                                  return; // abort update
-                                }
-
-                                const emptyCondition = getEmptyCondition(
-                                  selectedType as CoreConditionType,
-                                );
-                                if (emptyCondition) {
-                                  setValue(
-                                    `conditions.${index}`,
-                                    emptyCondition,
-                                  );
-                                }
-                              }}
-                              value={field.value}
-                            >
-                              <FormControl>
-                                <SelectTrigger className="w-[180px]">
-                                  <SelectValue />
-                                </SelectTrigger>
-                              </FormControl>
-                              <SelectContent>
-                                {[
-                                  { label: "AI", value: ConditionType.AI },
-                                  {
-                                    label: "Static",
-                                    value: ConditionType.STATIC,
-                                  },
-                                ].map((option) => (
-                                  <SelectItem
-                                    key={option.value}
-                                    value={option.value}
-                                  >
-                                    {option.label}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          </FormItem>
-                        )}
-                      />
-                    </CardLayoutLeft>
-
-                    <CardLayoutRight>
-                      {watch(`conditions.${index}.type`) === ConditionType.AI &&
-                        (rule.systemType &&
-                        isConversationStatusType(rule.systemType) ? (
-                          <div>
-                            <Label name="instructions" label="Instructions" />
-                            <div className="mt-2 rounded-md bg-muted/50 p-3 text-sm text-muted-foreground">
-                              <p>
-                                {getRuleConfig(rule.systemType).instructions}
-                              </p>
-                              <p className="mt-2 text-xs italic">
-                                Note: Instructions for conversation tracking
-                                rules cannot be edited.
-                              </p>
-                            </div>
+                }
+                rightContent={
+                  <>
+                    {watch(`conditions.${index}.type`) === ConditionType.AI &&
+                      (rule.systemType &&
+                      isConversationStatusType(rule.systemType) ? (
+                        <div>
+                          <Label name="instructions" label="Instructions" />
+                          <div className="mt-2 rounded-md bg-muted/50 p-3 text-sm text-muted-foreground">
+                            <p>{getRuleConfig(rule.systemType).instructions}</p>
+                            <p className="mt-2 text-xs italic">
+                              Note: Instructions for conversation tracking rules
+                              cannot be edited.
+                            </p>
                           </div>
-                        ) : (
-                          <Input
-                            type="text"
-                            autosizeTextarea
-                            rows={3}
-                            name={`conditions.${index}.instructions`}
-                            label="Instructions"
-                            registerProps={register(
-                              `conditions.${index}.instructions`,
-                            )}
-                            error={
-                              (
-                                errors.conditions?.[index] as {
-                                  instructions?: FieldError;
-                                }
-                              )?.instructions
-                            }
-                            placeholder="e.g. Newsletters, regular content from publications, blogs, or services I've subscribed to"
-                            tooltipText="The instructions that will be passed to the AI."
-                          />
-                        ))}
+                        </div>
+                      ) : (
+                        <Input
+                          type="text"
+                          autosizeTextarea
+                          rows={3}
+                          name={`conditions.${index}.instructions`}
+                          label="Instructions"
+                          registerProps={register(
+                            `conditions.${index}.instructions`,
+                          )}
+                          error={
+                            (
+                              errors.conditions?.[index] as {
+                                instructions?: FieldError;
+                              }
+                            )?.instructions
+                          }
+                          placeholder="e.g. Newsletters, regular content from publications, blogs, or services I've subscribed to"
+                          tooltipText="The instructions that will be passed to the AI."
+                        />
+                      ))}
 
-                      {watch(`conditions.${index}.type`) ===
-                        ConditionType.STATIC && (
-                        <>
-                          <Input
-                            type="text"
-                            name={`conditions.${index}.from`}
-                            label="From"
-                            registerProps={register(`conditions.${index}.from`)}
-                            error={
-                              (
-                                errors.conditions?.[index] as {
-                                  from?: FieldError;
-                                }
-                              )?.from
-                            }
-                            tooltipText={getFilterTooltipText("from")}
-                          />
-                          <Input
-                            type="text"
-                            name={`conditions.${index}.to`}
-                            label="To"
-                            registerProps={register(`conditions.${index}.to`)}
-                            error={
-                              (
-                                errors.conditions?.[index] as {
-                                  to?: FieldError;
-                                }
-                              )?.to
-                            }
-                            tooltipText={getFilterTooltipText("to")}
-                          />
-                          <Input
-                            type="text"
-                            name={`conditions.${index}.subject`}
-                            label="Subject"
-                            registerProps={register(
-                              `conditions.${index}.subject`,
-                            )}
-                            error={
-                              (
-                                errors.conditions?.[index] as {
-                                  subject?: FieldError;
-                                }
-                              )?.subject
-                            }
-                            tooltipText="Only apply this rule to emails with this subject. e.g. Receipt for your purchase"
-                          />
-                        </>
-                      )}
-                    </CardLayoutRight>
-                  </CardLayout>
-                </CardBasic>
-              ) : (
-                <ConditionSummaryCard condition={conditions[index]} />
-              )}
+                    {watch(`conditions.${index}.type`) ===
+                      ConditionType.STATIC && (
+                      <>
+                        <Input
+                          type="text"
+                          name={`conditions.${index}.from`}
+                          label="From"
+                          registerProps={register(`conditions.${index}.from`)}
+                          error={
+                            (
+                              errors.conditions?.[index] as {
+                                from?: FieldError;
+                              }
+                            )?.from
+                          }
+                          tooltipText={getFilterTooltipText("from")}
+                        />
+                        <Input
+                          type="text"
+                          name={`conditions.${index}.to`}
+                          label="To"
+                          registerProps={register(`conditions.${index}.to`)}
+                          error={
+                            (
+                              errors.conditions?.[index] as {
+                                to?: FieldError;
+                              }
+                            )?.to
+                          }
+                          tooltipText={getFilterTooltipText("to")}
+                        />
+                        <Input
+                          type="text"
+                          name={`conditions.${index}.subject`}
+                          label="Subject"
+                          registerProps={register(
+                            `conditions.${index}.subject`,
+                          )}
+                          error={
+                            (
+                              errors.conditions?.[index] as {
+                                subject?: FieldError;
+                              }
+                            )?.subject
+                          }
+                          tooltipText="Only apply this rule to emails with this subject. e.g. Receipt for your purchase"
+                        />
+                      </>
+                    )}
+                  </>
+                }
+              />
             </div>
           ))}
-        </div>
+        </RuleSectionCard>
 
-        {isConditionsEditMode &&
-          unusedCondition &&
-          !(rule.systemType && isConversationStatusType(rule.systemType)) && (
-            <div className="mt-4">
-              <Tooltip
-                hide={allowMultipleConditions(rule.systemType)}
-                content="You can only set one condition for this rule."
+        <RuleSectionCard
+          icon={BotIcon}
+          iconBg="bg-green-100 dark:bg-green-900/30"
+          iconColor="text-green-600 dark:text-green-400"
+          title="Then"
+          description="Update Fields, create child Entities, and script entire workflows."
+          headerActions={
+            !alwaysEditMode ? (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={toggleActionsEditMode}
+                Icon={!isActionsEditMode ? PencilIcon : undefined}
               >
-                <span>
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    onClick={() => {
-                      appendCondition(getEmptyCondition(unusedCondition));
-                      setIsConditionsEditMode(true);
-                    }}
-                    disabled={!allowMultipleConditions(rule.systemType)}
-                    Icon={PlusIcon}
-                  >
-                    Add Condition
-                  </Button>
-                </span>
-              </Tooltip>
-            </div>
-          )}
-
-        <div className="mt-4 flex items-center justify-between">
-          <TypographyH3 className="text-xl">Actions</TypographyH3>
-          {!alwaysEditMode && (
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={toggleActionsEditMode}
-              Icon={!isActionsEditMode ? PencilIcon : undefined}
-            >
-              {isActionsEditMode ? "View" : "Edit"}
-            </Button>
-          )}
-        </div>
-
-        {actionErrors.length > 0 && (
-          <div className="mt-2">
-            <AlertError
-              title="Error"
-              description={
-                <ul className="list-inside list-disc">
-                  {actionErrors.map((error, index) => (
-                    <li key={`action-${index}`}>{error}</li>
-                  ))}
-                </ul>
-              }
-            />
-          </div>
-        )}
-
-        <div className="mt-2 space-y-4">
+                {isActionsEditMode ? "View" : "Edit"}
+              </Button>
+            ) : undefined
+          }
+          errors={
+            actionErrors.length > 0 ? (
+              <AlertError
+                title="Error"
+                description={
+                  <ul className="list-inside list-disc">
+                    {actionErrors.map((error, index) => (
+                      <li key={`action-${index}`}>{error}</li>
+                    ))}
+                  </ul>
+                }
+              />
+            ) : undefined
+          }
+          footerActions={
+            isActionsEditMode ? (
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => {
+                  append({ type: ActionType.LABEL });
+                  setIsActionsEditMode(true);
+                }}
+              >
+                <PlusIcon className="mr-2 size-4" />
+                Add Action
+              </Button>
+            ) : undefined
+          }
+        >
           {watch("actions")?.map((action, i) =>
             isActionsEditMode ? (
-              <ActionCard
-                key={i}
-                action={action}
-                index={i}
-                register={register}
-                watch={watch}
-                setValue={setValue}
-                control={control}
-                errors={errors}
-                userLabels={userLabels}
-                isLoading={isLoading}
-                mutate={mutateLabels}
-                emailAccountId={emailAccountId}
-                remove={remove}
-                typeOptions={typeOptions}
-                folders={folders}
-                foldersLoading={foldersLoading}
-              />
+              <div key={i} className="flex items-start gap-3">
+                <StepNumber number={i + 1} />
+                <div className="flex-1">
+                  <ActionCard
+                    action={action}
+                    index={i}
+                    register={register}
+                    watch={watch}
+                    setValue={setValue}
+                    control={control}
+                    errors={errors}
+                    userLabels={userLabels}
+                    isLoading={isLoading}
+                    mutate={mutateLabels}
+                    emailAccountId={emailAccountId}
+                    remove={remove}
+                    typeOptions={typeOptions}
+                    folders={folders}
+                    foldersLoading={foldersLoading}
+                  />
+                </div>
+              </div>
             ) : (
-              <ActionSummaryCard
-                key={i}
-                action={action}
-                typeOptions={typeOptions}
-                provider={provider}
-                labels={userLabels}
-              />
+              <div key={i} className="flex items-start gap-3">
+                <StepNumber number={i + 1} />
+                <div className="flex-1">
+                  <ActionSummaryCard
+                    action={action}
+                    typeOptions={typeOptions}
+                    provider={provider}
+                    labels={userLabels}
+                  />
+                </div>
+              </div>
             ),
           )}
-        </div>
-
-        {isActionsEditMode && (
-          <div className="mt-4">
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={() => {
-                append({ type: ActionType.LABEL });
-                setIsActionsEditMode(true);
-              }}
-            >
-              <PlusIcon className="mr-2 size-4" />
-              Add Action
-            </Button>
-          </div>
-        )}
+        </RuleSectionCard>
 
         <div className="space-y-4 mt-8">
           <TypographyH3 className="text-xl">Settings</TypographyH3>
@@ -990,24 +955,33 @@ function ActionCard({
           <FormField
             control={control}
             name={`actions.${index}.type`}
-            render={({ field }) => (
-              <FormItem>
-                <Select value={field.value} onValueChange={field.onChange}>
-                  <FormControl>
-                    <SelectTrigger className="w-[180px]">
-                      <SelectValue />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    {typeOptions.map((option) => (
-                      <SelectItem key={option.value} value={option.value}>
-                        {option.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </FormItem>
-            )}
+            render={({ field }) => {
+              const actionTypeLabel =
+                typeOptions.find((opt) => opt.value === field.value)?.label ||
+                field.value;
+              return (
+                <FormItem>
+                  <Select value={field.value} onValueChange={field.onChange}>
+                    <FormControl>
+                      <SelectTrigger className="w-[180px]">
+                        {field.value ? (
+                          <Badge variant="secondary">{actionTypeLabel}</Badge>
+                        ) : (
+                          <SelectValue placeholder="Select action" />
+                        )}
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {typeOptions.map((option) => (
+                        <SelectItem key={option.value} value={option.value}>
+                          {option.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </FormItem>
+              );
+            }}
           />
         </CardLayoutLeft>
         <CardLayoutRight>
@@ -1285,6 +1259,14 @@ function ActionCard({
         </CardLayoutRight>
       </CardLayout>
     </CardBasic>
+  );
+}
+
+function StepNumber({ number }: { number: number }) {
+  return (
+    <div className="flex size-6 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-medium text-muted-foreground">
+      {number}
+    </div>
   );
 }
 
