@@ -1,6 +1,5 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/utils/auth";
-import { env } from "@/env";
 import prisma from "@/utils/prisma";
 
 export default async function WelcomeRedirectPage(props: {
