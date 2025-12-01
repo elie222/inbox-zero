@@ -10,8 +10,6 @@ export default async function WelcomeRedirectPage(props: {
   const session = await auth();
 
   if (!session?.user) redirect("/login");
-  if (!env.NEXT_PUBLIC_POSTHOG_ONBOARDING_SURVEY_ID)
-    redirect(env.NEXT_PUBLIC_APP_HOME_PATH);
 
   const user = await prisma.user.findUnique({
     where: { id: session.user.id },
@@ -20,8 +18,7 @@ export default async function WelcomeRedirectPage(props: {
 
   if (!user) redirect("/login");
 
-  if (!searchParams.force && user.completedOnboardingAt)
-    redirect(env.NEXT_PUBLIC_APP_HOME_PATH);
+  if (!searchParams.force && user.completedOnboardingAt) redirect("/setup");
 
   redirect("/onboarding");
 }

@@ -221,7 +221,7 @@ export const OnboardingForm = (props: { questionIndex: number }) => {
 //         submitPosthog(responses);
 //         posthog.capture("survey dismissed", { $survey_id: surveyId });
 //         await completedOnboardingAction();
-//         router.push(env.NEXT_PUBLIC_APP_HOME_PATH);
+//         router.push("/setup");
 //       }}
 //     >
 //       Skip Onboarding
