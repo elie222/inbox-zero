@@ -3,7 +3,7 @@ import { auth } from "@/utils/auth";
 import prisma from "@/utils/prisma";
 
 export default async function WelcomeRedirectPage(props: {
-  searchParams: Promise<{ question?: string; force?: boolean }>;
+  searchParams: Promise<{ force?: boolean }>;
 }) {
   const searchParams = await props.searchParams;
   const session = await auth();
@@ -16,8 +16,7 @@ export default async function WelcomeRedirectPage(props: {
   });
 
   if (!user) redirect("/login");
-
-  if (!searchParams.force && user.completedOnboardingAt) redirect("/setup");
-
+  if (searchParams.force) redirect("/onboarding");
+  if (user.completedOnboardingAt) redirect("/setup");
   redirect("/onboarding");
 }
