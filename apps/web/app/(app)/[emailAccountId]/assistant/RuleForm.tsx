@@ -319,14 +319,7 @@ export function RuleForm({
   }, [provider, terminology.label.action]);
 
   const [isNameEditMode, setIsNameEditMode] = useState(alwaysEditMode);
-  const [isActionsEditMode, setIsActionsEditMode] = useState(alwaysEditMode);
   const [isDeleting, setIsDeleting] = useState(false);
-
-  const toggleActionsEditMode = useCallback(() => {
-    if (!alwaysEditMode) {
-      setIsActionsEditMode((prev: boolean) => !prev);
-    }
-  }, [alwaysEditMode]);
 
   const toggleNameEditMode = useCallback(() => {
     if (!alwaysEditMode) {
@@ -432,18 +425,6 @@ export function RuleForm({
           iconColor="text-green-600 dark:text-green-400"
           title="Then"
           description="Update Fields, create child Entities, and script entire workflows."
-          headerActions={
-            !alwaysEditMode ? (
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={toggleActionsEditMode}
-                Icon={!isActionsEditMode ? PencilIcon : undefined}
-              >
-                {isActionsEditMode ? "View" : "Edit"}
-              </Button>
-            ) : undefined
-          }
           errors={
             actionErrors.length > 0 ? (
               <AlertError
@@ -459,59 +440,40 @@ export function RuleForm({
             ) : undefined
           }
           footerActions={
-            isActionsEditMode ? (
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={() => {
-                  append({ type: ActionType.LABEL });
-                  setIsActionsEditMode(true);
-                }}
-              >
-                <PlusIcon className="mr-2 size-4" />
-                Add Action
-              </Button>
-            ) : undefined
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => append({ type: ActionType.LABEL })}
+            >
+              <PlusIcon className="mr-2 size-4" />
+              Add Action
+            </Button>
           }
         >
-          {watch("actions")?.map((action, i) =>
-            isActionsEditMode ? (
-              <div key={i} className="flex items-start gap-3">
-                <StepNumber number={i + 1} />
-                <div className="flex-1">
-                  <ActionCard
-                    action={action}
-                    index={i}
-                    register={register}
-                    watch={watch}
-                    setValue={setValue}
-                    control={control}
-                    errors={errors}
-                    userLabels={userLabels}
-                    isLoading={isLoading}
-                    mutate={mutateLabels}
-                    emailAccountId={emailAccountId}
-                    remove={remove}
-                    typeOptions={typeOptions}
-                    folders={folders}
-                    foldersLoading={foldersLoading}
-                  />
-                </div>
+          {watch("actions")?.map((action, i) => (
+            <div key={i} className="flex items-start gap-3">
+              <StepNumber number={i + 1} />
+              <div className="flex-1">
+                <ActionCard
+                  action={action}
+                  index={i}
+                  register={register}
+                  watch={watch}
+                  setValue={setValue}
+                  control={control}
+                  errors={errors}
+                  userLabels={userLabels}
+                  isLoading={isLoading}
+                  mutate={mutateLabels}
+                  emailAccountId={emailAccountId}
+                  remove={remove}
+                  typeOptions={typeOptions}
+                  folders={folders}
+                  foldersLoading={foldersLoading}
+                />
               </div>
-            ) : (
-              <div key={i} className="flex items-start gap-3">
-                <StepNumber number={i + 1} />
-                <div className="flex-1">
-                  <ActionSummaryCard
-                    action={action}
-                    typeOptions={typeOptions}
-                    provider={provider}
-                    labels={userLabels}
-                  />
-                </div>
-              </div>
-            ),
-          )}
+            </div>
+          ))}
         </RuleSectionCard>
 
         <div className="space-y-4 mt-8">
