@@ -25,6 +25,7 @@ import {
 import { FormControl, FormField, FormItem } from "@/components/ui/form";
 import { RuleStep } from "@/app/(app)/[emailAccountId]/assistant/RuleStep";
 import type { SystemType } from "@/generated/prisma/enums";
+import { Button } from "@/components/ui/button";
 
 const getFilterTooltipText = (filterType: "from" | "to") =>
   `Only apply this rule ${filterType} emails from this address. Supports multiple addresses separated by comma, pipe, or OR. e.g. "@company.com", "hello@example.com OR support@test.com"`;
@@ -60,9 +61,20 @@ export function RuleSteps({
             <div className="flex items-center justify-center py-3">
               <div className="flex items-center gap-3">
                 <div className="h-px w-12 bg-border" />
-                <div className="rounded-full bg-muted px-3 py-1 text-xs font-medium text-muted-foreground">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-auto rounded-full bg-muted px-3 py-1 text-xs font-medium text-muted-foreground hover:bg-muted/80"
+                  onClick={() => {
+                    const newOperator =
+                      conditionalOperator === LogicalOperator.OR
+                        ? LogicalOperator.AND
+                        : LogicalOperator.OR;
+                    setValue("conditionalOperator", newOperator);
+                  }}
+                >
                   {conditionalOperator === LogicalOperator.OR ? "OR" : "AND"}
-                </div>
+                </Button>
                 <div className="h-px w-12 bg-border" />
               </div>
             </div>

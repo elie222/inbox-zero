@@ -13,7 +13,6 @@ import TextareaAutosize from "react-textarea-autosize";
 import { usePostHog } from "posthog-js/react";
 import {
   PlusIcon,
-  FilterIcon,
   ChevronDownIcon,
   ChevronRightIcon,
   PencilIcon,
@@ -26,11 +25,7 @@ import { Button } from "@/components/ui/button";
 import { ErrorMessage, Input, Label } from "@/components/Input";
 import { toastError, toastSuccess } from "@/components/Toast";
 import { TypographyH3 } from "@/components/Typography";
-import {
-  ActionType,
-  LogicalOperator,
-  SystemType,
-} from "@/generated/prisma/enums";
+import { ActionType, SystemType } from "@/generated/prisma/enums";
 import { ConditionType, type CoreConditionType } from "@/utils/config";
 import {
   createRuleAction,
@@ -49,13 +44,6 @@ import { useLabels } from "@/hooks/useLabels";
 import { hasVariables, TEMPLATE_VARIABLE_PATTERN } from "@/utils/template";
 import { getEmptyCondition } from "@/utils/condition";
 import { AlertError } from "@/components/Alert";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { LearnedPatternsDialog } from "@/app/(app)/[emailAccountId]/assistant/group/LearnedPatterns";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { prefixPath } from "@/utils/path";
@@ -391,37 +379,7 @@ export function RuleForm({
           iconColor="text-purple-600 dark:text-purple-400"
           title="When an email is received"
           description="When a new email is received into your inbox"
-          headerActions={
-            !(rule.systemType && isConversationStatusType(rule.systemType)) ? (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="outline" size="sm">
-                    <FilterIcon className="mr-2 h-4 w-4" />
-                    Match{" "}
-                    {!conditionalOperator ||
-                    conditionalOperator === LogicalOperator.AND
-                      ? "all"
-                      : "any"}
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent>
-                  <DropdownMenuRadioGroup
-                    value={conditionalOperator}
-                    onValueChange={(value) =>
-                      setValue("conditionalOperator", value as LogicalOperator)
-                    }
-                  >
-                    <DropdownMenuRadioItem value={LogicalOperator.AND}>
-                      Match all conditions
-                    </DropdownMenuRadioItem>
-                    <DropdownMenuRadioItem value={LogicalOperator.OR}>
-                      Match any condition
-                    </DropdownMenuRadioItem>
-                  </DropdownMenuRadioGroup>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            ) : undefined
-          }
+          headerActions={undefined}
           errors={
             errors.conditions?.root?.message ? (
               <AlertError
