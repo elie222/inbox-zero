@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
-  type FieldError,
   type FieldErrors,
   type SubmitHandler,
   useFieldArray,
@@ -22,7 +21,7 @@ import {
   ZapIcon,
   BotIcon,
 } from "lucide-react";
-import { Card, CardBasic } from "@/components/ui/card";
+import { CardBasic } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ErrorMessage, Input, Label } from "@/components/Input";
 import { toastError, toastSuccess } from "@/components/Toast";
@@ -89,10 +88,9 @@ import { WebhookDocumentationLink } from "@/components/WebhookDocumentation";
 import { LabelCombobox } from "@/components/LabelCombobox";
 import { isConversationStatusType } from "@/utils/reply-tracker/conversation-status-config";
 import { Tooltip } from "@/components/Tooltip";
-import { getRuleConfig } from "@/utils/rule/consts";
 import { Badge } from "@/components/ui/badge";
 import { RuleSectionCard } from "@/app/(app)/[emailAccountId]/assistant/RuleSectionCard";
-import { RuleStep } from "@/app/(app)/[emailAccountId]/assistant/RuleStep";
+import { RuleSteps } from "@/app/(app)/[emailAccountId]/assistant/RuleSteps";
 
 export function Rule({
   ruleId,
@@ -456,199 +454,18 @@ export function RuleForm({
             ) : undefined
           }
         >
-          <Card className="p-4">
-            {conditionFields.map((condition, index) => (
-              <div key={condition.id}>
-                {index > 0 && (
-                  <div className="flex items-center justify-center py-3">
-                    <div className="flex items-center gap-3">
-                      <div className="h-px w-12 bg-border" />
-                      <div className="rounded-full bg-muted px-3 py-1 text-xs font-medium text-muted-foreground">
-                        {conditionalOperator === LogicalOperator.OR
-                          ? "OR"
-                          : "AND"}
-                      </div>
-                      <div className="h-px w-12 bg-border" />
-                    </div>
-                  </div>
-                )}
-                <RuleStep
-                  stepNumber={index + 1}
-                  onRemove={() => removeCondition(index)}
-                  removeAriaLabel="Remove condition"
-                  leftContent={
-                    <FormField
-                      control={control}
-                      name={`conditions.${index}.type`}
-                      render={({ field }) => {
-                        const conditionTypeLabel =
-                          field.value === ConditionType.AI
-                            ? "AI"
-                            : field.value === ConditionType.STATIC
-                              ? "Static"
-                              : field.value;
-                        return (
-                          <FormItem>
-                            <Select
-                              onValueChange={(value) => {
-                                const selectedType = value;
-
-                                // check if we have duplicate condition types
-                                const prospectiveTypes = new Set(
-                                  conditions.map((c, idx) =>
-                                    idx === index ? selectedType : c.type,
-                                  ),
-                                );
-
-                                if (
-                                  prospectiveTypes.size !== conditions.length
-                                ) {
-                                  toastError({
-                                    description:
-                                      "You can only have one condition of each type.",
-                                  });
-                                  return; // abort update
-                                }
-
-                                const emptyCondition = getEmptyCondition(
-                                  selectedType as CoreConditionType,
-                                );
-                                if (emptyCondition) {
-                                  setValue(
-                                    `conditions.${index}`,
-                                    emptyCondition,
-                                  );
-                                }
-                              }}
-                              value={field.value}
-                            >
-                              <FormControl>
-                                <SelectTrigger className="w-[180px]">
-                                  {field.value ? (
-                                    <Badge variant="secondary">
-                                      {conditionTypeLabel}
-                                    </Badge>
-                                  ) : (
-                                    <SelectValue placeholder="Select trigger" />
-                                  )}
-                                </SelectTrigger>
-                              </FormControl>
-                              <SelectContent>
-                                {[
-                                  { label: "AI", value: ConditionType.AI },
-                                  {
-                                    label: "Static",
-                                    value: ConditionType.STATIC,
-                                  },
-                                ].map((option) => (
-                                  <SelectItem
-                                    key={option.value}
-                                    value={option.value}
-                                  >
-                                    {option.label}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          </FormItem>
-                        );
-                      }}
-                    />
-                  }
-                  rightContent={
-                    <>
-                      {watch(`conditions.${index}.type`) === ConditionType.AI &&
-                        (rule.systemType &&
-                        isConversationStatusType(rule.systemType) ? (
-                          <div>
-                            <Label name="instructions" label="Instructions" />
-                            <div className="mt-2 rounded-md bg-muted/50 p-3 text-sm text-muted-foreground">
-                              <p>
-                                {getRuleConfig(rule.systemType).instructions}
-                              </p>
-                              <p className="mt-2 text-xs italic">
-                                Note: Instructions for conversation tracking
-                                rules cannot be edited.
-                              </p>
-                            </div>
-                          </div>
-                        ) : (
-                          <Input
-                            type="text"
-                            autosizeTextarea
-                            rows={3}
-                            name={`conditions.${index}.instructions`}
-                            label="Instructions"
-                            registerProps={register(
-                              `conditions.${index}.instructions`,
-                            )}
-                            error={
-                              (
-                                errors.conditions?.[index] as {
-                                  instructions?: FieldError;
-                                }
-                              )?.instructions
-                            }
-                            placeholder="e.g. Newsletters, regular content from publications, blogs, or services I've subscribed to"
-                            tooltipText="The instructions that will be passed to the AI."
-                          />
-                        ))}
-
-                      {watch(`conditions.${index}.type`) ===
-                        ConditionType.STATIC && (
-                        <>
-                          <Input
-                            type="text"
-                            name={`conditions.${index}.from`}
-                            label="From"
-                            registerProps={register(`conditions.${index}.from`)}
-                            error={
-                              (
-                                errors.conditions?.[index] as {
-                                  from?: FieldError;
-                                }
-                              )?.from
-                            }
-                            tooltipText={getFilterTooltipText("from")}
-                          />
-                          <Input
-                            type="text"
-                            name={`conditions.${index}.to`}
-                            label="To"
-                            registerProps={register(`conditions.${index}.to`)}
-                            error={
-                              (
-                                errors.conditions?.[index] as {
-                                  to?: FieldError;
-                                }
-                              )?.to
-                            }
-                            tooltipText={getFilterTooltipText("to")}
-                          />
-                          <Input
-                            type="text"
-                            name={`conditions.${index}.subject`}
-                            label="Subject"
-                            registerProps={register(
-                              `conditions.${index}.subject`,
-                            )}
-                            error={
-                              (
-                                errors.conditions?.[index] as {
-                                  subject?: FieldError;
-                                }
-                              )?.subject
-                            }
-                            tooltipText="Only apply this rule to emails with this subject. e.g. Receipt for your purchase"
-                          />
-                        </>
-                      )}
-                    </>
-                  }
-                />
-              </div>
-            ))}
-          </Card>
+          <RuleSteps
+            conditionFields={conditionFields}
+            conditionalOperator={conditionalOperator}
+            removeCondition={removeCondition}
+            control={control}
+            watch={watch}
+            setValue={setValue}
+            register={register}
+            errors={errors}
+            conditions={conditions}
+            ruleSystemType={rule.systemType}
+          />
         </RuleSectionCard>
 
         <RuleSectionCard
@@ -1482,9 +1299,6 @@ function RemoveButton({
     </Button>
   );
 }
-
-const getFilterTooltipText = (filterType: "from" | "to") =>
-  `Only apply this rule ${filterType} emails from this address. Supports multiple addresses separated by comma, pipe, or OR. e.g. "@company.com", "hello@example.com OR support@test.com"`;
 
 function allowMultipleConditions(systemType: SystemType | null | undefined) {
   return (
