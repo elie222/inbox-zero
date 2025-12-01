@@ -4,6 +4,8 @@ import { env } from "@/env";
 import { auth } from "@/utils/auth";
 import { isAdmin } from "@/utils/admin";
 import { ErrorPage } from "@/components/ErrorPage";
+import { PageWrapper } from "@/components/PageWrapper";
+import { PageHeader } from "@/components/PageHeader";
 
 export default async function AdminConfigPage() {
   const session = await auth();
@@ -52,104 +54,91 @@ export default async function AdminConfigPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 p-8">
-      <div className="mx-auto max-w-2xl">
-        <h1 className="mb-6 text-2xl font-bold text-gray-900">
-          Inbox Zero - Configuration
-        </h1>
+    <PageWrapper className="max-w-2xl mx-auto">
+      <PageHeader title="App Configuration" />
 
-        <div className="space-y-6">
-          <Section title="Application">
-            <Row label="Version" value={info.version} />
-            <Row label="Environment" value={info.environment} />
-            <Row label="Base URL" value={info.baseUrl} />
-          </Section>
+      <div className="space-y-4 mt-4">
+        <Section title="Application">
+          <Row label="Version" value={info.version} />
+          <Row label="Environment" value={info.environment} />
+          <Row label="Base URL" value={info.baseUrl} />
+        </Section>
 
-          <Section title="Features">
-            <Row
-              label="Email Send"
-              value={info.features.emailSendEnabled ? "Enabled" : "Disabled"}
-            />
-            <Row
-              label="Contacts"
-              value={info.features.contactsEnabled ? "Enabled" : "Disabled"}
-            />
-            <Row
-              label="Bypass Premium"
-              value={info.features.bypassPremiumChecks ? "Yes" : "No"}
-            />
-          </Section>
+        <Section title="Features">
+          <Row
+            label="Email Send"
+            value={info.features.emailSendEnabled ? "Enabled" : "Disabled"}
+          />
+          <Row
+            label="Contacts"
+            value={info.features.contactsEnabled ? "Enabled" : "Disabled"}
+          />
+          <Row
+            label="Bypass Premium"
+            value={info.features.bypassPremiumChecks ? "Yes" : "No"}
+          />
+        </Section>
 
-          <Section title="Auth Providers">
-            <Row
-              label="Google"
-              value={info.providers.google ? "Configured" : "Not configured"}
-            />
-            <Row
-              label="Microsoft"
-              value={info.providers.microsoft ? "Configured" : "Not configured"}
-            />
-            <Row
-              label="Microsoft Tenant"
-              value={
-                info.providers.microsoftTenantConfigured
-                  ? "Single tenant"
-                  : "Multitenant (common)"
-              }
-            />
-          </Section>
+        <Section title="Auth Providers">
+          <Row
+            label="Google"
+            value={info.providers.google ? "Configured" : "Not configured"}
+          />
+          <Row
+            label="Microsoft"
+            value={info.providers.microsoft ? "Configured" : "Not configured"}
+          />
+          <Row
+            label="Microsoft Tenant"
+            value={
+              info.providers.microsoftTenantConfigured
+                ? "Single tenant"
+                : "Multitenant (common)"
+            }
+          />
+        </Section>
 
-          <Section title="LLM Configuration">
-            <Row label="Default Provider" value={info.llm.defaultProvider} />
-            <Row label="Default Model" value={info.llm.defaultModel} />
-            <Row label="Economy Provider" value={info.llm.economyProvider} />
-            <Row label="Economy Model" value={info.llm.economyModel} />
-          </Section>
+        <Section title="LLM Configuration">
+          <Row label="Default Provider" value={info.llm.defaultProvider} />
+          <Row label="Default Model" value={info.llm.defaultModel} />
+          <Row label="Economy Provider" value={info.llm.economyProvider} />
+          <Row label="Economy Model" value={info.llm.economyModel} />
+        </Section>
 
-          <Section title="Integrations">
-            <Row
-              label="Redis"
-              value={info.integrations.redis ? "Configured" : "Not configured"}
-            />
-            <Row
-              label="QStash"
-              value={info.integrations.qstash ? "Configured" : "Not configured"}
-            />
-            <Row
-              label="Tinybird"
-              value={
-                info.integrations.tinybird ? "Configured" : "Not configured"
-              }
-            />
-            <Row
-              label="Sentry"
-              value={info.integrations.sentry ? "Configured" : "Not configured"}
-            />
-            <Row
-              label="PostHog"
-              value={
-                info.integrations.posthog ? "Configured" : "Not configured"
-              }
-            />
-            <Row
-              label="Stripe"
-              value={info.integrations.stripe ? "Configured" : "Not configured"}
-            />
-            <Row
-              label="Lemon Squeezy"
-              value={
-                info.integrations.lemonSqueezy ? "Configured" : "Not configured"
-              }
-            />
-          </Section>
-        </div>
-
-        <p className="mt-8 text-sm text-gray-500">
-          This page shows configuration status for debugging. No sensitive
-          values are exposed.
-        </p>
+        <Section title="Integrations">
+          <Row
+            label="Redis"
+            value={info.integrations.redis ? "Configured" : "Not configured"}
+          />
+          <Row
+            label="QStash"
+            value={info.integrations.qstash ? "Configured" : "Not configured"}
+          />
+          <Row
+            label="Tinybird"
+            value={info.integrations.tinybird ? "Configured" : "Not configured"}
+          />
+          <Row
+            label="Sentry"
+            value={info.integrations.sentry ? "Configured" : "Not configured"}
+          />
+          <Row
+            label="PostHog"
+            value={info.integrations.posthog ? "Configured" : "Not configured"}
+          />
+          <Row
+            label="Stripe"
+            value={info.integrations.stripe ? "Configured" : "Not configured"}
+          />
+          <Row
+            label="Lemon Squeezy"
+            value={
+              info.integrations.lemonSqueezy ? "Configured" : "Not configured"
+            }
+          />
+        </Section>
       </div>
-    </div>
+    </PageWrapper>
   );
 }
 
@@ -161,11 +150,11 @@ function Section({
   children: React.ReactNode;
 }) {
   return (
-    <div className="rounded-lg border border-gray-200 bg-white">
-      <h2 className="border-b border-gray-200 px-4 py-3 font-semibold text-gray-900">
+    <div className="rounded-lg border border-slate-200 bg-white">
+      <h2 className="border-b border-slate-200 px-4 py-3 font-semibold text-slate-900">
         {title}
       </h2>
-      <div className="divide-y divide-gray-100">{children}</div>
+      <div className="divide-y divide-slate-100">{children}</div>
     </div>
   );
 }
@@ -176,8 +165,8 @@ function Row({ label, value }: { label: string; value: string | boolean }) {
 
   return (
     <div className="flex justify-between px-4 py-2">
-      <span className="text-gray-600">{label}</span>
-      <span className="font-mono text-sm text-gray-900">{displayValue}</span>
+      <span className="text-slate-600">{label}</span>
+      <span className="font-mono text-sm text-slate-900">{displayValue}</span>
     </div>
   );
 }
