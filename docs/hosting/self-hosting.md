@@ -14,7 +14,10 @@ This guide will walk you through self-hosting the Inbox Zero application on a VP
 
 ### 1. Prepare Your VPS
 
-Connect to your VPS and install Docker Engine by following the [the official guide](https://docs.docker.com/engine/install) and the [Post installation steps](https://docs.docker.com/engine/install/linux-postinstall/#manage-docker-as-a-non-root-user)
+Connect to your VPS and install:
+
+1. **Docker Engine**: Follow [the official guide](https://docs.docker.com/engine/install) and the [Post installation steps](https://docs.docker.com/engine/install/linux-postinstall/#manage-docker-as-a-non-root-user)
+2. **Node.js**: Follow [the official guide](https://nodejs.org/en/download) (required for the setup CLI)
 
 ### 2. Setup Docker Compose
 
