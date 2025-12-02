@@ -301,6 +301,7 @@ Full guide: https://docs.getinboxzero.com/self-hosting/google-oauth`,
 4. Add redirect URIs:
    - http://localhost:${webPort}/api/auth/callback/microsoft
    - http://localhost:${webPort}/api/outlook/linking/callback
+   - http://localhost:${webPort}/api/outlook/calendar/callback (only required for calendar integration)
 5. Go to Certificates & secrets → New client secret
 6. Copy Application (client) ID and the secret Value
 
@@ -368,7 +369,7 @@ Full guide: https://docs.getinboxzero.com/self-hosting/microsoft-oauth`,
         label: "Vercel AI Gateway",
         hint: "access multiple models",
       },
-      { value: "bedrock", label: "AWS Bedrock", hint: "Claude via AWS" },
+      { value: "bedrock", label: "AWS Bedrock" },
       { value: "groq", label: "Groq", hint: "fast inference" },
     ],
   });
@@ -589,18 +590,36 @@ Full guide: https://docs.getinboxzero.com/self-hosting/microsoft-oauth`,
   }
 
   // Build next steps based on configuration
-  const dockerStep = useDockerInfra
-    ? "# Start Docker services (database & Redis):\ndocker compose --profile local-db --profile local-redis up -d\n\n"
-    : "";
-  const migrateCmd = isDevMode
-    ? "pnpm prisma:migrate:dev"
-    : "pnpm prisma:migrate:deploy";
-  const startCmd = isDevMode ? "pnpm dev" : "pnpm build && pnpm start";
+  let nextSteps: string;
 
-  p.note(
-    `${dockerStep}# Run database migrations:\n${migrateCmd}\n\n# Start the server:\n${startCmd}\n\n# Then open:\nhttp://localhost:${webPort}`,
-    "Next Steps",
-  );
+  if (!isDevMode && useDockerInfra) {
+    // Production with Docker Compose - everything runs in containers
+    nextSteps = `# Start all services (web, database & Redis):
+NEXT_PUBLIC_BASE_URL=https://yourdomain.com docker compose --profile all up -d
+
+# Then open:
+https://yourdomain.com`;
+  } else {
+    // Development mode or external infrastructure
+    const dockerStep = useDockerInfra
+      ? "# Start Docker services (database & Redis):\ndocker compose --profile local-db --profile local-redis up -d\n\n"
+      : "";
+    const migrateCmd = isDevMode
+      ? "pnpm prisma:migrate:dev"
+      : "pnpm prisma:migrate:deploy";
+    const startCmd = isDevMode ? "pnpm dev" : "pnpm build && pnpm start";
+
+    nextSteps = `${dockerStep}# Run database migrations:
+${migrateCmd}
+
+# Start the server:
+${startCmd}
+
+# Then open:
+http://localhost:${webPort}`;
+  }
+
+  p.note(nextSteps, "Next Steps");
 
   p.outro("Setup complete! 🎉");
 }
