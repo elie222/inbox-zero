@@ -83,9 +83,9 @@ services:
       sh -c "
         apk add --no-cache curl &&
         while true; do
-          echo \"[cron] Renewing email watches...\" &&
-          curl -s -X GET 'http://web:3000/api/watch/all' -H \"Authorization: Bearer $${CRON_SECRET}\" &&
-          echo \"[cron] Done. Sleeping for 6 hours...\" &&
+          echo \"[cron] Renewing email watches...\"
+          curl -s -X GET 'http://web:3000/api/watch/all' -H \"Authorization: Bearer $${CRON_SECRET}\" || echo \"[cron] Warning: curl request failed\"
+          echo \"[cron] Done. Sleeping for 6 hours...\"
           sleep 21600
         done
       "
