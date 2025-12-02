@@ -55,12 +55,6 @@ services:
 
   web:
     image: ghcr.io/elie222/inbox-zero:latest
-    pull_policy: if_not_present
-    # The pre-built image will be used by default. For local development,
-    # use 'docker compose build web' to build from source instead.
-    build:
-      context: .
-      dockerfile: ./docker/Dockerfile.prod
     env_file:
       - ./apps/web/.env
     depends_on:
