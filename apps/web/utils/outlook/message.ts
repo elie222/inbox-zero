@@ -213,11 +213,6 @@ export async function queryBatchMessages(
 
     request = request.search(effectiveSearchQuery!);
 
-    // Apply folder filtering via post-processing since $search can't be combined with $filter
-    if (pageToken) {
-      request = request.skipToken(pageToken);
-    }
-
     const response: { value: Message[]; "@odata.nextLink"?: string } =
       await withOutlookRetry(() => request.get());
 
@@ -265,12 +260,8 @@ export async function queryBatchMessages(
       request = request.filter(combinedFilter);
     }
 
-    if (pageToken) {
-      request = request.skipToken(pageToken);
-    } else {
-      // Only add orderby for non-paginated requests to avoid sorting complexity errors
-      request = request.orderby("receivedDateTime DESC");
-    }
+    // Only add orderby for first page to avoid sorting complexity errors
+    request = request.orderby("receivedDateTime DESC");
 
     const response: { value: Message[]; "@odata.nextLink"?: string } =
       await withOutlookRetry(() => request.get());
@@ -361,10 +352,6 @@ export async function queryMessagesWithFilters(
   const combinedFilter = combinedFilters.join(" and ");
 
   request = request.filter(combinedFilter);
-
-  if (pageToken) {
-    request = request.skipToken(pageToken);
-  }
 
   const response: { value: Message[]; "@odata.nextLink"?: string } =
     await withOutlookRetry(() => request.get());
