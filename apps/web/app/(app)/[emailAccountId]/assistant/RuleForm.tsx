@@ -20,7 +20,6 @@ import {
   ZapIcon,
   BotIcon,
 } from "lucide-react";
-import { CardBasic } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ErrorMessage, Input, Label } from "@/components/Input";
 import { toastError, toastSuccess } from "@/components/Toast";
@@ -72,9 +71,10 @@ import { cn } from "@/utils";
 import { WebhookDocumentationLink } from "@/components/WebhookDocumentation";
 import { LabelCombobox } from "@/components/LabelCombobox";
 import { isConversationStatusType } from "@/utils/reply-tracker/conversation-status-config";
-import { Badge } from "@/components/ui/badge";
 import { RuleSectionCard } from "@/app/(app)/[emailAccountId]/assistant/RuleSectionCard";
-import { RuleSteps } from "@/app/(app)/[emailAccountId]/assistant/RuleSteps";
+import { ConditionSteps } from "@/app/(app)/[emailAccountId]/assistant/ConditionSteps";
+import { ActionSteps } from "@/app/(app)/[emailAccountId]/assistant/ActionSteps";
+import { RuleStep } from "@/app/(app)/[emailAccountId]/assistant/RuleStep";
 
 export function Rule({
   ruleId,
@@ -373,7 +373,7 @@ export function RuleForm({
           }
           footerActions={undefined}
         >
-          <RuleSteps
+          <ConditionSteps
             conditionFields={conditionFields}
             conditionalOperator={conditionalOperator}
             removeCondition={removeCondition}
@@ -408,41 +408,25 @@ export function RuleForm({
               />
             ) : undefined
           }
-          footerActions={
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={() => append({ type: ActionType.LABEL })}
-            >
-              <PlusIcon className="mr-2 size-4" />
-              Add Action
-            </Button>
-          }
+          footerActions={undefined}
         >
-          {watch("actions")?.map((action, i) => (
-            <div key={i} className="flex items-start gap-3">
-              <StepNumber number={i + 1} />
-              <div className="flex-1">
-                <ActionCard
-                  action={action}
-                  index={i}
-                  register={register}
-                  watch={watch}
-                  setValue={setValue}
-                  control={control}
-                  errors={errors}
-                  userLabels={userLabels}
-                  isLoading={isLoading}
-                  mutate={mutateLabels}
-                  emailAccountId={emailAccountId}
-                  remove={remove}
-                  typeOptions={typeOptions}
-                  folders={folders}
-                  foldersLoading={foldersLoading}
-                />
-              </div>
-            </div>
-          ))}
+          <ActionSteps
+            actions={watch("actions") || []}
+            register={register}
+            watch={watch}
+            setValue={setValue}
+            control={control}
+            errors={errors}
+            userLabels={userLabels}
+            isLoading={isLoading}
+            mutate={mutateLabels}
+            emailAccountId={emailAccountId}
+            remove={remove}
+            typeOptions={typeOptions}
+            folders={folders}
+            foldersLoading={foldersLoading}
+            append={append}
+          />
         </RuleSectionCard>
 
         <div className="space-y-4 mt-8">
@@ -558,7 +542,7 @@ export function RuleForm({
   );
 }
 
-function ActionCard({
+export function ActionCard({
   action,
   index,
   register,
@@ -662,271 +646,264 @@ function ActionCard({
     return true;
   });
 
-  return (
-    <CardBasic className="relative">
-      <RemoveButton onClick={() => remove(index)} ariaLabel="Remove action" />
-      <CardLayout>
-        <CardLayoutLeft>
-          <FormField
-            control={control}
-            name={`actions.${index}.type`}
-            render={({ field }) => {
-              const actionTypeLabel =
-                typeOptions.find((opt) => opt.value === field.value)?.label ||
-                field.value;
-              return (
-                <FormItem>
-                  <Select value={field.value} onValueChange={field.onChange}>
-                    <FormControl>
-                      <SelectTrigger className="w-[180px]">
-                        {field.value ? (
-                          <Badge variant="secondary">{actionTypeLabel}</Badge>
-                        ) : (
-                          <SelectValue placeholder="Select action" />
-                        )}
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {typeOptions.map((option) => (
-                        <SelectItem key={option.value} value={option.value}>
-                          {option.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </FormItem>
-              );
-            }}
-          />
-        </CardLayoutLeft>
-        <CardLayoutRight>
-          {fields.map((field) => {
-            const isAiGenerated = !!action[field.name]?.ai;
-            // For AI-generated labelId, read from .name instead of .value
-            const value =
-              field.name === "labelId" && isAiGenerated
-                ? watch(`actions.${index}.${field.name}.name`) || ""
-                : watch(`actions.${index}.${field.name}.value`) || "";
-            const setManually = !!watch(
-              `actions.${index}.${field.name}.setManually`,
-            );
+  const leftContent = (
+    <FormField
+      control={control}
+      name={`actions.${index}.type`}
+      render={({ field }) => {
+        return (
+          <FormItem>
+            <Select value={field.value} onValueChange={field.onChange}>
+              <FormControl>
+                <SelectTrigger className="w-[180px]">
+                  <SelectValue placeholder="Select action" />
+                </SelectTrigger>
+              </FormControl>
+              <SelectContent>
+                {typeOptions.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </FormItem>
+        );
+      }}
+    />
+  );
 
-            // Show field if it's not expandable, or it's expanded, or it has a value
-            const showField = !field.expandable || expandedFields || !!value;
+  const rightContent = (
+    <>
+      {fields.map((field) => {
+        const isAiGenerated = !!action[field.name]?.ai;
+        // For AI-generated labelId, read from .name instead of .value
+        const value =
+          field.name === "labelId" && isAiGenerated
+            ? watch(`actions.${index}.${field.name}.name`) || ""
+            : watch(`actions.${index}.${field.name}.value`) || "";
+        const setManually = !!watch(
+          `actions.${index}.${field.name}.setManually`,
+        );
 
-            if (!showField) return null;
+        // Show field if it's not expandable, or it's expanded, or it has a value
+        const showField = !field.expandable || expandedFields || !!value;
 
-            return (
-              <CardLayoutRight
-                key={field.name}
-                className={field.expandable && !value ? "opacity-80" : ""}
-              >
-                <div>
-                  <Label name={field.name} label={field.label} />
+        if (!showField) return null;
 
-                  {field.name === "labelId" && !isAiGenerated ? (
-                    <div className="mt-2">
-                      <LabelCombobox
-                        userLabels={userLabels || []}
-                        isLoading={isLoading}
-                        mutate={mutate}
-                        value={{
-                          id: value,
-                          name: action.labelId?.name || null,
-                        }}
-                        onChangeValue={(newValue: string) => {
-                          setValue(
-                            `actions.${index}.${field.name}.value`,
-                            newValue,
-                          );
-                        }}
-                        emailAccountId={emailAccountId}
-                      />
-                    </div>
-                  ) : field.name === "labelId" && isAiGenerated ? (
-                    <div className="mt-2">
-                      <Input
-                        type="text"
-                        name={`actions.${index}.${field.name}.name`}
-                        registerProps={register(
-                          `actions.${index}.${field.name}.name`,
-                        )}
-                      />
-                    </div>
-                  ) : field.name === "folderName" &&
-                    action.type === ActionType.MOVE_FOLDER ? (
-                    <div className="mt-2">
-                      <FolderSelector
-                        folders={folders}
-                        isLoading={foldersLoading}
-                        value={{
-                          name:
-                            watch(`actions.${index}.folderName.value`) || "",
-                          id: watch(`actions.${index}.folderId.value`) || "",
-                        }}
-                        onChangeValue={(folderData) => {
-                          if (folderData.name && folderData.id) {
-                            setValue(`actions.${index}.folderName`, {
-                              value: folderData.name,
-                            });
-                            setValue(`actions.${index}.folderId`, {
-                              value: folderData.id,
-                            });
-                          } else {
-                            setValue(`actions.${index}.folderName`, undefined);
-                            setValue(`actions.${index}.folderId`, undefined);
-                          }
-                        }}
-                      />
-                    </div>
-                  ) : field.name === "content" &&
+        return (
+          <div
+            key={field.name}
+            className={cn(
+              "space-y-4 mx-auto w-full",
+              field.expandable && !value ? "opacity-80" : "",
+            )}
+          >
+            <div>
+              <Label name={field.name} label={field.label} />
+
+              {field.name === "labelId" && !isAiGenerated ? (
+                <div className="mt-2">
+                  <LabelCombobox
+                    userLabels={userLabels || []}
+                    isLoading={isLoading}
+                    mutate={mutate}
+                    value={{
+                      id: value,
+                      name: action.labelId?.name || null,
+                    }}
+                    onChangeValue={(newValue: string) => {
+                      setValue(
+                        `actions.${index}.${field.name}.value`,
+                        newValue,
+                      );
+                    }}
+                    emailAccountId={emailAccountId}
+                  />
+                </div>
+              ) : field.name === "labelId" && isAiGenerated ? (
+                <div className="mt-2">
+                  <Input
+                    type="text"
+                    name={`actions.${index}.${field.name}.name`}
+                    registerProps={register(
+                      `actions.${index}.${field.name}.name`,
+                    )}
+                  />
+                </div>
+              ) : field.name === "folderName" &&
+                action.type === ActionType.MOVE_FOLDER ? (
+                <div className="mt-2">
+                  <FolderSelector
+                    folders={folders}
+                    isLoading={foldersLoading}
+                    value={{
+                      name: watch(`actions.${index}.folderName.value`) || "",
+                      id: watch(`actions.${index}.folderId.value`) || "",
+                    }}
+                    onChangeValue={(folderData) => {
+                      if (folderData.name && folderData.id) {
+                        setValue(`actions.${index}.folderName`, {
+                          value: folderData.name,
+                        });
+                        setValue(`actions.${index}.folderId`, {
+                          value: folderData.id,
+                        });
+                      } else {
+                        setValue(`actions.${index}.folderName`, undefined);
+                        setValue(`actions.${index}.folderId`, undefined);
+                      }
+                    }}
+                  />
+                </div>
+              ) : field.name === "content" &&
+                action.type === ActionType.DRAFT_EMAIL &&
+                !setManually ? (
+                <div className="mt-2 flex h-full flex-col items-center justify-center gap-2 p-4 border rounded">
+                  <div className="max-w-sm text-center text-sm text-muted-foreground">
+                    Our AI will generate a reply based on your email history and
+                    knowledge base
+                  </div>
+
+                  <Button
+                    variant="link"
+                    size="xs"
+                    onClick={() => {
+                      setValue(`actions.${index}.content.setManually`, true);
+                    }}
+                  >
+                    Set manually
+                  </Button>
+                </div>
+              ) : field.textArea ? (
+                <div className="mt-2">
+                  <TextareaAutosize
+                    className="block w-full flex-1 whitespace-pre-wrap rounded-md border border-border bg-background shadow-sm focus:border-black focus:ring-black sm:text-sm"
+                    minRows={3}
+                    rows={3}
+                    {...register(`actions.${index}.${field.name}.value`)}
+                  />
+
+                  {field.name === "content" &&
                     action.type === ActionType.DRAFT_EMAIL &&
-                    !setManually ? (
-                    <div className="mt-2 flex h-full flex-col items-center justify-center gap-2 p-4 border rounded">
-                      <div className="max-w-sm text-center text-sm text-muted-foreground">
-                        Our AI will generate a reply based on your email history
-                        and knowledge base
-                      </div>
-
+                    setManually && (
                       <Button
                         variant="link"
                         size="xs"
                         onClick={() => {
                           setValue(
                             `actions.${index}.content.setManually`,
-                            true,
+                            false,
                           );
                         }}
                       >
-                        Set manually
+                        Auto draft
                       </Button>
-                    </div>
-                  ) : field.textArea ? (
-                    <div className="mt-2">
-                      <TextareaAutosize
-                        className="block w-full flex-1 whitespace-pre-wrap rounded-md border border-border bg-background shadow-sm focus:border-black focus:ring-black sm:text-sm"
-                        minRows={3}
-                        rows={3}
-                        {...register(`actions.${index}.${field.name}.value`)}
-                      />
-
-                      {field.name === "content" &&
-                        action.type === ActionType.DRAFT_EMAIL &&
-                        setManually && (
-                          <Button
-                            variant="link"
-                            size="xs"
-                            onClick={() => {
-                              setValue(
-                                `actions.${index}.content.setManually`,
-                                false,
-                              );
-                            }}
-                          >
-                            Auto draft
-                          </Button>
-                        )}
-                    </div>
-                  ) : (
-                    <div className="mt-2">
-                      <Input
-                        type="text"
-                        name={`actions.${index}.${field.name}.value`}
-                        registerProps={register(
-                          `actions.${index}.${field.name}.value`,
-                        )}
-                        placeholder={field.placeholder}
-                      />
-                      {field.name === "url" &&
-                        action.type === ActionType.CALL_WEBHOOK && (
-                          <div className="mt-2">
-                            <WebhookDocumentationLink />
-                          </div>
-                        )}
-                    </div>
-                  )}
-
-                  {field.name === "labelId" && (
-                    <div className="flex items-center space-x-2 mt-4">
-                      <Toggle
-                        name={`actions.${index}.${field.name}.ai`}
-                        labelRight="AI generated"
-                        enabled={isAiGenerated || false}
-                        onChange={(enabled) => {
-                          setValue(
-                            `actions.${index}.${field.name}`,
-                            enabled
-                              ? { value: "", ai: true }
-                              : { value: "", ai: false },
-                          );
-                        }}
-                      />
-
-                      <TooltipExplanation
-                        side="right"
-                        text="When enabled our AI will generate a value when processing the email. Put the prompt inside braces like so: {{your prompt here}}."
-                      />
-                    </div>
-                  )}
+                    )}
                 </div>
-                {hasVariables(value) &&
-                  canFieldUseVariables(field, isAiGenerated) && (
-                    <div className="mt-2 whitespace-pre-wrap rounded-md bg-muted/50 p-2 font-mono text-sm text-foreground">
-                      {(value || "")
-                        .split(
-                          new RegExp(`(${TEMPLATE_VARIABLE_PATTERN})`, "g"),
-                        )
-                        .map((part: string, idx: number) =>
-                          part.startsWith("{{") ? (
-                            <span
-                              key={idx}
-                              className="rounded bg-blue-100 px-1 text-blue-500 dark:bg-blue-950 dark:text-blue-400"
-                            >
-                              <sub className="font-sans">AI</sub>
-                              {part}
-                            </span>
-                          ) : (
-                            <span key={idx}>{part}</span>
-                          ),
-                        )}
-                    </div>
-                  )}
-
-                {errors?.actions?.[index]?.[field.name]?.message && (
-                  <ErrorMessage
-                    message={
-                      errors.actions?.[index]?.[
-                        field.name
-                      ]?.message?.toString() || "Invalid value"
-                    }
+              ) : (
+                <div className="mt-2">
+                  <Input
+                    type="text"
+                    name={`actions.${index}.${field.name}.value`}
+                    registerProps={register(
+                      `actions.${index}.${field.name}.value`,
+                    )}
+                    placeholder={field.placeholder}
                   />
-                )}
-              </CardLayoutRight>
-            );
-          })}
+                  {field.name === "url" &&
+                    action.type === ActionType.CALL_WEBHOOK && (
+                      <div className="mt-2">
+                        <WebhookDocumentationLink />
+                      </div>
+                    )}
+                </div>
+              )}
 
-          {shouldShowProTip && <VariableProTip />}
-          {actionCanBeDelayed && (
-            <div className="">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-2">
+              {field.name === "labelId" && (
+                <div className="flex items-center space-x-2 mt-4">
                   <Toggle
-                    name={`actions.${index}.delayEnabled`}
-                    labelRight="Delay"
-                    enabled={delayEnabled}
-                    onChange={(enabled: boolean) => {
-                      const newValue = enabled ? 60 : null;
-                      setValue(`actions.${index}.delayInMinutes`, newValue, {
-                        shouldValidate: true,
-                      });
+                    name={`actions.${index}.${field.name}.ai`}
+                    labelRight="AI generated"
+                    enabled={isAiGenerated || false}
+                    onChange={(enabled) => {
+                      setValue(
+                        `actions.${index}.${field.name}`,
+                        enabled
+                          ? { value: "", ai: true }
+                          : { value: "", ai: false },
+                      );
                     }}
                   />
+
                   <TooltipExplanation
-                    text="Delay this action to run later. Perfect for auto-archiving newsletters after you've had time to read them, or cleaning up notifications after a few days."
                     side="right"
+                    text="When enabled our AI will generate a value when processing the email. Put the prompt inside braces like so: {{your prompt here}}."
                   />
                 </div>
+              )}
+            </div>
+            {hasVariables(value) &&
+              canFieldUseVariables(field, isAiGenerated) && (
+                <div className="mt-2 whitespace-pre-wrap rounded-md bg-muted/50 p-2 font-mono text-sm text-foreground">
+                  {(value || "")
+                    .split(new RegExp(`(${TEMPLATE_VARIABLE_PATTERN})`, "g"))
+                    .map((part: string, idx: number) =>
+                      part.startsWith("{{") ? (
+                        <span
+                          key={idx}
+                          className="rounded bg-blue-100 px-1 text-blue-500 dark:bg-blue-950 dark:text-blue-400"
+                        >
+                          <sub className="font-sans">AI</sub>
+                          {part}
+                        </span>
+                      ) : (
+                        <span key={idx}>{part}</span>
+                      ),
+                    )}
+                </div>
+              )}
 
+            {errors?.actions?.[index]?.[field.name]?.message && (
+              <ErrorMessage
+                message={
+                  errors.actions?.[index]?.[field.name]?.message?.toString() ||
+                  "Invalid value"
+                }
+              />
+            )}
+          </div>
+        );
+      })}
+
+      {shouldShowProTip && <VariableProTip />}
+      {actionCanBeDelayed && (
+        <div className="">
+          {action.type === ActionType.ARCHIVE ? (
+            <div className="space-y-2">
+              <div className="flex items-center space-x-4">
+                <Select
+                  value={delayEnabled ? "after" : "immediately"}
+                  onValueChange={(value) => {
+                    if (value === "after") {
+                      setValue(`actions.${index}.delayInMinutes`, 60, {
+                        shouldValidate: true,
+                      });
+                    } else {
+                      setValue(`actions.${index}.delayInMinutes`, null, {
+                        shouldValidate: true,
+                      });
+                    }
+                  }}
+                >
+                  <SelectTrigger className="w-[140px]">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="immediately">Immediately</SelectItem>
+                    <SelectItem value="after">After</SelectItem>
+                  </SelectContent>
+                </Select>
                 {delayEnabled && (
                   <DelayInputControls
                     index={index}
@@ -947,62 +924,89 @@ function ActionCard({
                 </div>
               )}
             </div>
-          )}
+          ) : (
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-2">
+                <Toggle
+                  name={`actions.${index}.delayEnabled`}
+                  labelRight="Delay"
+                  enabled={delayEnabled}
+                  onChange={(enabled: boolean) => {
+                    const newValue = enabled ? 60 : null;
+                    setValue(`actions.${index}.delayInMinutes`, newValue, {
+                      shouldValidate: true,
+                    });
+                  }}
+                />
+                <TooltipExplanation
+                  text="Delay this action to run later. Perfect for auto-archiving newsletters after you've had time to read them, or cleaning up notifications after a few days."
+                  side="right"
+                />
+              </div>
 
-          {hasExpandableFields && (
-            <div className="mt-2 flex">
-              <Button
-                size="xs"
-                variant="ghost"
-                className="flex items-center gap-1 text-xs text-muted-foreground"
-                onClick={() => setExpandedFields(!expandedFields)}
-              >
-                {expandedFields ? (
-                  <>
-                    <ChevronDownIcon className="h-3.5 w-3.5" />
-                    Hide extra fields
-                  </>
-                ) : (
-                  <>
-                    <ChevronRightIcon className="h-3.5 w-3.5" />
-                    Show all fields
-                  </>
-                )}
-              </Button>
+              {delayEnabled && (
+                <DelayInputControls
+                  index={index}
+                  delayInMinutes={delayValue}
+                  setValue={setValue}
+                />
+              )}
             </div>
           )}
-        </CardLayoutRight>
-      </CardLayout>
-    </CardBasic>
+
+          {action.type !== ActionType.ARCHIVE &&
+            errors?.actions?.[index]?.delayInMinutes && (
+              <div className="mt-2">
+                <ErrorMessage
+                  message={
+                    errors.actions?.[index]?.delayInMinutes?.message ||
+                    "Invalid delay value"
+                  }
+                />
+              </div>
+            )}
+        </div>
+      )}
+
+      {hasExpandableFields && (
+        <div className="mt-2 flex">
+          <Button
+            size="xs"
+            variant="ghost"
+            className="flex items-center gap-1 text-xs text-muted-foreground"
+            onClick={() => setExpandedFields(!expandedFields)}
+          >
+            {expandedFields ? (
+              <>
+                <ChevronDownIcon className="h-3.5 w-3.5" />
+                Hide extra fields
+              </>
+            ) : (
+              <>
+                <ChevronRightIcon className="h-3.5 w-3.5" />
+                Show all fields
+              </>
+            )}
+          </Button>
+        </div>
+      )}
+    </>
+  );
+
+  return (
+    <RuleStep
+      onRemove={() => remove(index)}
+      removeAriaLabel="Remove action"
+      leftContent={leftContent}
+      rightContent={rightContent}
+    />
   );
 }
 
-function StepNumber({ number }: { number: number }) {
+export function StepNumber({ number }: { number: number }) {
   return (
     <div className="flex size-6 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-medium text-muted-foreground">
       {number}
-    </div>
-  );
-}
-
-function CardLayout({ children }: { children: React.ReactNode }) {
-  return <div className="flex flex-col sm:flex-row gap-4">{children}</div>;
-}
-
-function CardLayoutLeft({ children }: { children: React.ReactNode }) {
-  return <div className="w-[200px]">{children}</div>;
-}
-
-function CardLayoutRight({
-  children,
-  className,
-}: {
-  children: React.ReactNode;
-  className?: string;
-}) {
-  return (
-    <div className={cn("space-y-4 mx-auto w-full max-w-md", className)}>
-      {children}
     </div>
   );
 }
@@ -1106,7 +1110,7 @@ function DelayInputControls({
   };
 
   return (
-    <div className="flex items-center space-x-2">
+    <div className="flex items-center space-x-4">
       <Input
         name={`delay-${index}`}
         type="text"
@@ -1128,9 +1132,15 @@ function DelayInputControls({
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value="minutes">Minutes</SelectItem>
-          <SelectItem value="hours">Hours</SelectItem>
-          <SelectItem value="days">Days</SelectItem>
+          <SelectItem value="minutes">
+            {delayInMinutes === 1 ? "Minute" : "Minutes"}
+          </SelectItem>
+          <SelectItem value="hours">
+            {delayInMinutes === 60 ? "Hour" : "Hours"}
+          </SelectItem>
+          <SelectItem value="days">
+            {delayInMinutes === 1440 ? "Day" : "Days"}
+          </SelectItem>
         </SelectContent>
       </Select>
     </div>
@@ -1167,26 +1177,6 @@ function convertToMinutes(value: string, unit: string) {
     default:
       return numValue;
   }
-}
-
-function RemoveButton({
-  onClick,
-  ariaLabel,
-}: {
-  onClick: () => void;
-  ariaLabel: string;
-}) {
-  return (
-    <Button
-      size="icon"
-      variant="ghost"
-      className="absolute top-2 right-2 size-8"
-      onClick={onClick}
-      aria-label={ariaLabel}
-    >
-      <TrashIcon className="size-4" />
-    </Button>
-  );
 }
 
 function allowMultipleConditions(systemType: SystemType | null | undefined) {
