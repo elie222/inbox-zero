@@ -595,7 +595,7 @@ Full guide: https://docs.getinboxzero.com/self-hosting/microsoft-oauth`,
   if (!isDevMode && useDockerInfra) {
     // Production with Docker Compose - everything runs in containers
     nextSteps = `# Start all services (web, database & Redis):
-NEXT_PUBLIC_BASE_URL=https://yourdomain.com docker compose --profile all up -d
+NEXT_PUBLIC_BASE_URL=https://yourdomain.com docker compose --env-file apps/web/.env --profile all up -d
 
 # Then open:
 https://yourdomain.com`;

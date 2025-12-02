@@ -163,6 +163,13 @@ function withMiddleware<T extends NextRequest>(
 
       reqLogger.error("Unhandled error", {
         error: error instanceof Error ? error.message : error,
+        cause:
+          error instanceof Error && error.cause
+            ? error.cause instanceof Error
+              ? error.cause.message
+              : error.cause
+            : undefined,
+        stack: error instanceof Error ? error.stack : undefined,
       });
       captureException(error, { extra: { url: req.url } });
 
