@@ -63,6 +63,7 @@ import {
 } from "@/components/ui/select";
 import { Form, FormControl, FormField, FormItem } from "@/components/ui/form";
 import { canActionBeDelayed } from "@/utils/delayed-actions";
+import { getActionIcon } from "@/utils/action-display";
 import type { EmailLabel } from "@/providers/EmailProvider";
 import { FolderSelector } from "@/components/FolderSelector";
 import { useFolders } from "@/hooks/useFolders";
@@ -290,19 +291,65 @@ export function RuleForm({
   const terminology = getEmailTerminology(provider);
 
   const typeOptions = useMemo(() => {
-    const options: { label: string; value: ActionType }[] = [
-      { label: "Archive", value: ActionType.ARCHIVE },
-      { label: terminology.label.action, value: ActionType.LABEL },
+    const options: {
+      label: string;
+      value: ActionType;
+      icon: React.ElementType;
+    }[] = [
+      {
+        label: "Archive",
+        value: ActionType.ARCHIVE,
+        icon: getActionIcon(ActionType.ARCHIVE),
+      },
+      {
+        label: terminology.label.action,
+        value: ActionType.LABEL,
+        icon: getActionIcon(ActionType.LABEL),
+      },
       ...(isMicrosoftProvider(provider)
-        ? [{ label: "Move to folder", value: ActionType.MOVE_FOLDER }]
+        ? [
+            {
+              label: "Move to folder",
+              value: ActionType.MOVE_FOLDER,
+              icon: getActionIcon(ActionType.MOVE_FOLDER),
+            },
+          ]
         : []),
-      { label: "Draft reply", value: ActionType.DRAFT_EMAIL },
-      { label: "Reply", value: ActionType.REPLY },
-      { label: "Send email", value: ActionType.SEND_EMAIL },
-      { label: "Forward", value: ActionType.FORWARD },
-      { label: "Mark read", value: ActionType.MARK_READ },
-      { label: "Mark spam", value: ActionType.MARK_SPAM },
-      { label: "Call webhook", value: ActionType.CALL_WEBHOOK },
+      {
+        label: "Draft reply",
+        value: ActionType.DRAFT_EMAIL,
+        icon: getActionIcon(ActionType.DRAFT_EMAIL),
+      },
+      {
+        label: "Reply",
+        value: ActionType.REPLY,
+        icon: getActionIcon(ActionType.REPLY),
+      },
+      {
+        label: "Send email",
+        value: ActionType.SEND_EMAIL,
+        icon: getActionIcon(ActionType.SEND_EMAIL),
+      },
+      {
+        label: "Forward",
+        value: ActionType.FORWARD,
+        icon: getActionIcon(ActionType.FORWARD),
+      },
+      {
+        label: "Mark read",
+        value: ActionType.MARK_READ,
+        icon: getActionIcon(ActionType.MARK_READ),
+      },
+      {
+        label: "Mark spam",
+        value: ActionType.MARK_SPAM,
+        icon: getActionIcon(ActionType.MARK_SPAM),
+      },
+      {
+        label: "Call webhook",
+        value: ActionType.CALL_WEBHOOK,
+        icon: getActionIcon(ActionType.CALL_WEBHOOK),
+      },
     ];
 
     return options;
@@ -571,7 +618,7 @@ export function ActionCard({
   mutate: () => Promise<unknown>;
   emailAccountId: string;
   remove: (index: number) => void;
-  typeOptions: { label: string; value: ActionType }[];
+  typeOptions: { label: string; value: ActionType; icon: React.ElementType }[];
   folders: OutlookFolder[];
   foldersLoading: boolean;
 }) {
@@ -651,20 +698,38 @@ export function ActionCard({
       control={control}
       name={`actions.${index}.type`}
       render={({ field }) => {
+        const selectedOption = typeOptions.find(
+          (opt) => opt.value === field.value,
+        );
+        const SelectedIcon = selectedOption?.icon;
+
         return (
           <FormItem>
             <Select value={field.value} onValueChange={field.onChange}>
               <FormControl>
                 <SelectTrigger className="w-[180px]">
-                  <SelectValue placeholder="Select action" />
+                  {selectedOption ? (
+                    <div className="flex items-center gap-2">
+                      {SelectedIcon && <SelectedIcon className="size-4" />}
+                      <span>{selectedOption.label}</span>
+                    </div>
+                  ) : (
+                    <SelectValue placeholder="Select action" />
+                  )}
                 </SelectTrigger>
               </FormControl>
               <SelectContent>
-                {typeOptions.map((option) => (
-                  <SelectItem key={option.value} value={option.value}>
-                    {option.label}
-                  </SelectItem>
-                ))}
+                {typeOptions.map((option) => {
+                  const Icon = option.icon;
+                  return (
+                    <SelectItem key={option.value} value={option.value}>
+                      <div className="flex items-center gap-2">
+                        {Icon && <Icon className="size-4" />}
+                        {option.label}
+                      </div>
+                    </SelectItem>
+                  );
+                })}
               </SelectContent>
             </Select>
           </FormItem>

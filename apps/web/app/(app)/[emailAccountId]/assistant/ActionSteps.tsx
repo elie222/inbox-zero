@@ -40,7 +40,7 @@ export function ActionSteps({
   mutate: () => Promise<unknown>;
   emailAccountId: string;
   remove: (index: number) => void;
-  typeOptions: { label: string; value: ActionType }[];
+  typeOptions: { label: string; value: ActionType; icon: React.ElementType }[];
   folders: OutlookFolder[];
   foldersLoading: boolean;
   append: (action: CreateRuleBody["actions"][number]) => void;
