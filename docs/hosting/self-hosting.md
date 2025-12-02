@@ -73,21 +73,16 @@ For external services, set the appropriate environment variables in `apps/web/.e
 - **External Postgres**: Set `DATABASE_URL` and `DIRECT_URL`
 - **External Redis**: Set `UPSTASH_REDIS_URL` and `UPSTASH_REDIS_TOKEN`
 
-### 5. Run Database Migrations
+### 5. Check Logs
 
 Wait for the containers to start, then run the database migrations:
 
 ```bash
 # Check that containers are running (STATUS should show "Up")
 docker ps
-
-# Run migrations (prisma is pre-installed in the container)
-docker compose exec web prisma migrate deploy --schema=apps/web/prisma/schema.prisma
+# Check logs. This can take 30 seconds to complete
+docker logs inbox-zero-services-web-1 -f
 ```
-
-**Note:** You'll need to run this command again after pulling updates to apply any new database schema changes.
-
-**Troubleshooting:** If you see `npx` trying to install a different Prisma version, run `docker compose pull web` to get the latest image which has Prisma pre-installed.
 
 ### 6. Access Your Application
 
@@ -107,10 +102,8 @@ docker compose pull web
 
 # Restart with the new image
 NEXT_PUBLIC_BASE_URL=https://yourdomain.com docker compose up -d
-
-# Run any new database migrations
-docker compose exec web prisma migrate deploy --schema=apps/web/prisma/schema.prisma
 ```
+
 ## Monitoring
 
 ```bash
