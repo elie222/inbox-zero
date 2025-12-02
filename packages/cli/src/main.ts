@@ -437,7 +437,6 @@ Full guide: https://docs.getinboxzero.com/self-hosting/microsoft-oauth`,
     env.DATABASE_URL = `postgresql://postgres:password@localhost:${postgresPort}/inboxzero`;
     env.UPSTASH_REDIS_URL = `http://localhost:${redisPort}`;
     env.UPSTASH_REDIS_TOKEN = redisToken;
-    env.SRH_TOKEN = redisToken;
     env.NODE_ENV = "development";
   } else {
     // Standalone mode: Use Docker network hostnames
@@ -447,7 +446,6 @@ Full guide: https://docs.getinboxzero.com/self-hosting/microsoft-oauth`,
     env.DATABASE_URL = `postgresql://${env.POSTGRES_USER}:${env.POSTGRES_PASSWORD}@db:5432/${env.POSTGRES_DB}`;
     env.UPSTASH_REDIS_URL = "http://serverless-redis-http:80";
     env.UPSTASH_REDIS_TOKEN = redisToken;
-    env.SRH_TOKEN = redisToken;
     env.NODE_ENV = "production";
   }
 
