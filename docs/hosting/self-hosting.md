@@ -105,7 +105,7 @@ To update to the latest version:
 docker compose pull web
 
 # Restart with the new image
-NEXT_PUBLIC_BASE_URL=https://yourdomain.com docker compose up -d
+NEXT_PUBLIC_BASE_URL=https://yourdomain.com docker compose --profile all up -d
 ```
 
 ## Monitoring
