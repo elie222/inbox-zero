@@ -7,7 +7,6 @@ import type { ChartConfig } from "@/components/ui/chart";
 import type { StatsByWeekResponse } from "@/app/api/user/stats/by-period/route";
 import { BarChart } from "@/app/(app)/[emailAccountId]/stats/BarChart";
 import { COLORS } from "@/utils/colors";
-import { cn } from "@/utils";
 
 const chartConfig = {
   received: { label: "Received", color: COLORS.analytics.blue },
