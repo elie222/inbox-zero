@@ -109,7 +109,7 @@ See our **[Self-Hosting Guide](docs/hosting/self-hosting.md)** for complete inst
 
    **Option A: Interactive CLI** - Guides you through each step and auto-generates secrets
    ```bash
-   pnpm run setup
+   npm run setup
    ```
 
    **Option B: Manual setup** - Copy the example file and edit it yourself

@@ -27,30 +27,24 @@ cd inbox-zero
 
 ### 3. Configure
 
-Run the setup script to create your environment file with auto-generated secrets:
+Run the setup CLI to create your environment file with auto-generated secrets:
 
 ```bash
-./docker/scripts/setup-env.sh
+npm run setup
 ```
 
-This will:
-- Copy `.env.example` to `.env`
-- Auto-generate all required secrets (AUTH_SECRET, encryption keys, etc.)
+You can also copy `.env.example` to `.env` and set the values yourself.
 
-Then edit the file to add your credentials:
-
-```bash
-nano apps/web/.env
-```
-
-You'll need to configure:
+If doing this manually edit then you'll need to configure:
 - **Google OAuth**: `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET`
 - **LLM Provider**: Uncomment one provider block and add your API key
 - **Optional**: Microsoft OAuth, external Redis, etc.
 
 For detailed configuration instructions, see the [Environment Variables Reference](./environment-variables.md).
 
-**Note**: The first section of `.env.example` contains Docker auto-configured variables that are commented out. Leave them commented - Docker Compose sets these automatically with the correct internal hostnames.
+**Note**: If you only want to use Microsoft and not Google OAuth then add skipped for the the Google client id and secret.
+
+**Note**: The first section of `.env.example` variables that are commented out. If you're using Docker Compose leave them commented - Docker Compose sets these automatically with the correct internal hostnames.
 
 ### 4. Deploy
 
@@ -147,7 +141,7 @@ git clone https://github.com/elie222/inbox-zero.git
 cd inbox-zero
 
 # Configure environment (auto-generates secrets)
-./docker/scripts/setup-env.sh
+npm run setup
 nano apps/web/.env
 
 # Build and start
