@@ -55,7 +55,7 @@ For detailed configuration instructions, see the [Environment Variables Referenc
 Pull and start the services with your domain:
 
 ```bash
-NEXT_PUBLIC_BASE_URL=https://yourdomain.com docker compose --profile all up -d
+NEXT_PUBLIC_BASE_URL=https://yourdomain.com docker compose --env-file apps/web/.env --profile all up -d
 ```
 
 The pre-built Docker image is hosted at `ghcr.io/elie222/inbox-zero:latest` and will be automatically pulled.
@@ -105,7 +105,7 @@ To update to the latest version:
 docker compose pull web
 
 # Restart with the new image
-NEXT_PUBLIC_BASE_URL=https://yourdomain.com docker compose --profile all up -d
+NEXT_PUBLIC_BASE_URL=https://yourdomain.com docker compose --env-file apps/web/.env --profile all up -d
 ```
 
 ## Monitoring
@@ -144,7 +144,7 @@ nano apps/web/.env
 
 # Build and start
 docker compose build
-NEXT_PUBLIC_BASE_URL=https://yourdomain.com docker compose up -d
+NEXT_PUBLIC_BASE_URL=https://yourdomain.com docker compose --env-file apps/web/.env --profile all up -d
 ```
 
 **Note**: Building from source requires significantly more resources (4GB+ RAM recommended) and takes longer than pulling the pre-built image.
