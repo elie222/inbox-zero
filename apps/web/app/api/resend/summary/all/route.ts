@@ -12,6 +12,7 @@ import { Frequency } from "@/generated/prisma/enums";
 import { captureException } from "@/utils/error";
 import { createScopedLogger } from "@/utils/logger";
 import { publishToQstashQueue } from "@/utils/upstash";
+import { getPremiumUserFilter } from "@/utils/premium";
 
 const logger = createScopedLogger("cron/resend/summary/all");
 
@@ -27,15 +28,7 @@ async function sendSummaryAllUpdate() {
       summaryEmailFrequency: {
         not: Frequency.NEVER,
       },
-      // Only send to premium users
-      user: {
-        premium: {
-          OR: [
-            { lemonSqueezyRenewsAt: { gt: new Date() } },
-            { stripeSubscriptionStatus: { in: ["active", "trialing"] } },
-          ],
-        },
-      },
+      ...getPremiumUserFilter(),
       // User at least 4 days old
       createdAt: {
         lt: subDays(new Date(), 4),
