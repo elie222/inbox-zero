@@ -62,6 +62,7 @@ import {
   SelectTrigger,
 } from "@/components/ui/select";
 import { Form, FormControl, FormField, FormItem } from "@/components/ui/form";
+import { Label } from "@/components/ui/label";
 import { canActionBeDelayed } from "@/utils/delayed-actions";
 import { getActionIcon } from "@/utils/action-display";
 import type { EmailLabel } from "@/providers/EmailProvider";
@@ -76,6 +77,7 @@ import { RuleSectionCard } from "@/app/(app)/[emailAccountId]/assistant/RuleSect
 import { ConditionSteps } from "@/app/(app)/[emailAccountId]/assistant/ConditionSteps";
 import { ActionSteps } from "@/app/(app)/[emailAccountId]/assistant/ActionSteps";
 import { RuleStep } from "@/app/(app)/[emailAccountId]/assistant/RuleStep";
+import { Card } from "@/components/ui/card";
 
 export function Rule({
   ruleId,
@@ -749,7 +751,13 @@ export function ActionCard({
     />
   );
 
-  const rightContent = (
+  const isEmailAction =
+    action.type === ActionType.DRAFT_EMAIL ||
+    action.type === ActionType.REPLY ||
+    action.type === ActionType.SEND_EMAIL ||
+    action.type === ActionType.FORWARD;
+
+  const fieldsContent = (
     <>
       {fields.map((field) => {
         const isAiGenerated = !!action[field.name]?.ai;
@@ -937,7 +945,7 @@ export function ActionCard({
               ) : field.name === "content" &&
                 action.type === ActionType.DRAFT_EMAIL &&
                 !setManually ? (
-                <div className="mt-2 flex h-full flex-col items-center justify-center gap-2 p-4 border rounded">
+                <div className="flex h-full flex-col items-center justify-center gap-2 p-4 border rounded">
                   <div className="max-w-sm text-center text-sm text-muted-foreground">
                     Our AI will generate a reply based on your email history and
                     knowledge base
@@ -954,7 +962,15 @@ export function ActionCard({
                   </Button>
                 </div>
               ) : field.textArea ? (
-                <div className="mt-2">
+                <div>
+                  {isEmailAction && (
+                    <Label
+                      htmlFor={`actions.${index}.${field.name}.value`}
+                      className="mb-2 block"
+                    >
+                      {field.label}
+                    </Label>
+                  )}
                   <TextareaAutosize
                     className="block w-full flex-1 whitespace-pre-wrap rounded-md border border-border bg-background shadow-sm focus:border-black focus:ring-black sm:text-sm"
                     minRows={3}
@@ -980,7 +996,15 @@ export function ActionCard({
                     )}
                 </div>
               ) : (
-                <div className="mt-2">
+                <div>
+                  {isEmailAction && (
+                    <Label
+                      htmlFor={`actions.${index}.${field.name}.value`}
+                      className="mb-2 block"
+                    >
+                      {field.label}
+                    </Label>
+                  )}
                   <Input
                     type="text"
                     name={`actions.${index}.${field.name}.value`}
@@ -1044,8 +1068,22 @@ export function ActionCard({
           </div>
         );
       })}
+    </>
+  );
 
-      {shouldShowProTip && <VariableProTip />}
+  const rightContent = (
+    <>
+      {isEmailAction ? (
+        <Card className="p-4 space-y-4">
+          {fieldsContent}
+          {shouldShowProTip && <VariableProTip />}
+        </Card>
+      ) : (
+        <>
+          {fieldsContent}
+          {shouldShowProTip && <VariableProTip />}
+        </>
+      )}
       {actionCanBeDelayed && action.type !== ActionType.LABEL && (
         <div className="">
           {action.type === ActionType.ARCHIVE ? (
