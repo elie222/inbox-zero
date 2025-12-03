@@ -178,7 +178,7 @@ AUTH_SECRET=
     expect(result).not.toContain("# DATABASE_URL=");
   });
 
-  it("should append values not found in template", () => {
+  it("should append known keys not found in template", () => {
     const minimalTemplate = `# Minimal
 AUTH_SECRET=
 `;
@@ -186,7 +186,7 @@ AUTH_SECRET=
     const result = generateEnvFile({
       env: {
         AUTH_SECRET: "secret",
-        CUSTOM_VAR: "custom-value",
+        GOOGLE_CLIENT_ID: "google-id-value",
       },
       useDockerInfra: false,
       llmProvider: "anthropic",
@@ -194,8 +194,8 @@ AUTH_SECRET=
     });
 
     expect(result).toContain("AUTH_SECRET=secret");
-    // CUSTOM_VAR should be appended since it's not in template
-    // Note: only values that are explicitly set via setValue will be added
+    // GOOGLE_CLIENT_ID is a known key handled by setValue, so it should be appended
+    expect(result).toContain("GOOGLE_CLIENT_ID=google-id-value");
   });
 
   it("should preserve template structure and comments", () => {
@@ -386,5 +386,32 @@ UPSTASH_REDIS_TOKEN=redis-token-abc123
 `;
 
     expect(result).toBe(expectedOutput);
+  });
+
+  it("should not write 'undefined' string when env values are undefined", () => {
+    const template = `DATABASE_URL=placeholder
+UPSTASH_REDIS_URL=placeholder
+AUTH_SECRET=
+`;
+
+    // Only set AUTH_SECRET, leave DATABASE_URL and UPSTASH_REDIS_URL undefined
+    const result = generateEnvFile({
+      env: {
+        AUTH_SECRET: "secret123",
+        DATABASE_URL: undefined,
+        UPSTASH_REDIS_URL: undefined,
+      },
+      useDockerInfra: false,
+      llmProvider: "anthropic",
+      template,
+    });
+
+    // Should NOT contain the literal string "undefined"
+    expect(result).not.toContain('"undefined"');
+    expect(result).not.toContain("=undefined");
+    // Original placeholders should remain since we didn't set them
+    expect(result).toContain("DATABASE_URL=placeholder");
+    expect(result).toContain("UPSTASH_REDIS_URL=placeholder");
+    expect(result).toContain("AUTH_SECRET=secret123");
   });
 });

@@ -18,6 +18,10 @@ export function generateEnvFile(config: {
 
   let content = template;
 
+  // Helper to wrap a value in quotes if defined (prevents "undefined" string bug)
+  const wrapInQuotes = (value: string | undefined): string | undefined =>
+    value !== undefined ? `"${value}"` : undefined;
+
   // Helper to set a value (handles both commented and uncommented lines)
   const setValue = (key: string, value: string | undefined) => {
     if (value === undefined) return;
@@ -45,13 +49,13 @@ export function generateEnvFile(config: {
     setValue("POSTGRES_USER", env.POSTGRES_USER);
     setValue("POSTGRES_PASSWORD", env.POSTGRES_PASSWORD);
     setValue("POSTGRES_DB", env.POSTGRES_DB);
-    setValue("DATABASE_URL", `"${env.DATABASE_URL}"`);
-    setValue("UPSTASH_REDIS_URL", `"${env.UPSTASH_REDIS_URL}"`);
+    setValue("DATABASE_URL", wrapInQuotes(env.DATABASE_URL));
+    setValue("UPSTASH_REDIS_URL", wrapInQuotes(env.UPSTASH_REDIS_URL));
     setValue("UPSTASH_REDIS_TOKEN", env.UPSTASH_REDIS_TOKEN);
   } else {
     // External infra - set placeholders
-    setValue("DATABASE_URL", `"${env.DATABASE_URL}"`);
-    setValue("UPSTASH_REDIS_URL", `"${env.UPSTASH_REDIS_URL}"`);
+    setValue("DATABASE_URL", wrapInQuotes(env.DATABASE_URL));
+    setValue("UPSTASH_REDIS_URL", wrapInQuotes(env.UPSTASH_REDIS_URL));
     setValue("UPSTASH_REDIS_TOKEN", env.UPSTASH_REDIS_TOKEN);
   }
 
