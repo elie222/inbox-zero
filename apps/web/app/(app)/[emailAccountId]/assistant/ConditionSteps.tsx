@@ -26,9 +26,8 @@ import { FormControl, FormField, FormItem } from "@/components/ui/form";
 import { RuleStep } from "@/app/(app)/[emailAccountId]/assistant/RuleStep";
 import { SystemType } from "@/generated/prisma/enums";
 import TextareaAutosize from "react-textarea-autosize";
-import { Tooltip } from "@/components/Tooltip";
-import { CircleQuestionMark } from "lucide-react";
 import { RuleSteps } from "@/app/(app)/[emailAccountId]/assistant/RuleSteps";
+import { TooltipExplanation } from "@/components/TooltipExplanation";
 
 const getFilterTooltipText = (filterType: "from" | "to") =>
   `Only apply this rule ${filterType} emails from this address. Supports multiple addresses separated by comma, pipe, or OR. e.g. "@company.com", "hello@example.com OR support@test.com"`;
@@ -283,14 +282,7 @@ export function ConditionSteps({
                           <FormControl>
                             <SelectTrigger className="w-[180px]">
                               {uiType ? (
-                                <div className="flex gap-1 items-center">
-                                  {conditionTypeLabel}
-                                  <Tooltip
-                                    content={getConditionTypeTooltip(uiType)}
-                                  >
-                                    <CircleQuestionMark className="inline-block size-3.5 text-muted-foreground" />
-                                  </Tooltip>
-                                </div>
+                                conditionTypeLabel
                               ) : (
                                 <SelectValue placeholder="Choose" />
                               )}
@@ -354,13 +346,23 @@ export function ConditionSteps({
                 }
                 return (
                   <>
-                    <TextareaAutosize
-                      className="block w-full flex-1 whitespace-pre-wrap rounded-md border border-border bg-background shadow-sm focus:border-black focus:ring-black sm:text-sm"
-                      minRows={3}
-                      rows={3}
-                      {...register(`conditions.${index}.instructions`)}
-                      placeholder="e.g. Newsletters, regular content from publications, blogs, or services I've subscribed to"
-                    />
+                    <div className="relative">
+                      <TextareaAutosize
+                        className="block w-full flex-1 whitespace-pre-wrap rounded-md border border-border bg-background shadow-sm focus:border-black focus:ring-black sm:text-sm pr-8"
+                        minRows={3}
+                        rows={3}
+                        {...register(`conditions.${index}.instructions`)}
+                        placeholder="e.g. Newsletters, regular content from publications, blogs, or services I've subscribed to"
+                      />
+                      <div className="absolute right-2 top-2">
+                        <TooltipExplanation
+                          text={getConditionTypeTooltip("prompt")}
+                          side="right"
+                          size="sm"
+                          className="text-gray-400"
+                        />
+                      </div>
+                    </div>
                     {(
                       errors.conditions?.[index] as {
                         instructions?: FieldError;
@@ -384,52 +386,88 @@ export function ConditionSteps({
 
               if (uiType === "from") {
                 return (
-                  <Input
-                    type="text"
-                    name={`conditions.${index}.from`}
-                    registerProps={register(`conditions.${index}.from`)}
-                    error={
-                      (
-                        errors.conditions?.[index] as {
-                          from?: FieldError;
-                        }
-                      )?.from
-                    }
-                  />
+                  <div className="relative">
+                    <Input
+                      type="text"
+                      name={`conditions.${index}.from`}
+                      registerProps={register(`conditions.${index}.from`)}
+                      placeholder="hello@example.com OR support@test.com"
+                      className="pr-8"
+                      error={
+                        (
+                          errors.conditions?.[index] as {
+                            from?: FieldError;
+                          }
+                        )?.from
+                      }
+                    />
+                    <div className="absolute right-2 top-1/2 -translate-y-1/2">
+                      <TooltipExplanation
+                        text={getConditionTypeTooltip("from")}
+                        side="right"
+                        size="sm"
+                        className="text-gray-400"
+                      />
+                    </div>
+                  </div>
                 );
               }
 
               if (uiType === "to") {
                 return (
-                  <Input
-                    type="text"
-                    name={`conditions.${index}.to`}
-                    registerProps={register(`conditions.${index}.to`)}
-                    error={
-                      (
-                        errors.conditions?.[index] as {
-                          to?: FieldError;
-                        }
-                      )?.to
-                    }
-                  />
+                  <div className="relative">
+                    <Input
+                      type="text"
+                      name={`conditions.${index}.to`}
+                      registerProps={register(`conditions.${index}.to`)}
+                      placeholder="hello@example.com OR support@test.com"
+                      className="pr-8"
+                      error={
+                        (
+                          errors.conditions?.[index] as {
+                            to?: FieldError;
+                          }
+                        )?.to
+                      }
+                    />
+                    <div className="absolute right-2 top-1/2 -translate-y-1/2">
+                      <TooltipExplanation
+                        text={getConditionTypeTooltip("to")}
+                        side="right"
+                        size="sm"
+                        className="text-gray-400"
+                      />
+                    </div>
+                  </div>
                 );
               }
 
               if (uiType === "subject") {
                 return (
-                  <Input
-                    type="text"
-                    name={`conditions.${index}.subject`}
-                    registerProps={register(`conditions.${index}.subject`)}
-                    error={
-                      (
-                        errors.conditions?.[index] as {
-                          subject?: FieldError;
-                        }
-                      )?.subject
-                    }
-                  />
+                  <div className="relative">
+                    <Input
+                      type="text"
+                      name={`conditions.${index}.subject`}
+                      registerProps={register(`conditions.${index}.subject`)}
+                      placeholder="Receipt for your purchase"
+                      className="pr-8"
+                      error={
+                        (
+                          errors.conditions?.[index] as {
+                            subject?: FieldError;
+                          }
+                        )?.subject
+                      }
+                    />
+                    <div className="absolute right-2 top-1/2 -translate-y-1/2">
+                      <TooltipExplanation
+                        text={getConditionTypeTooltip("subject")}
+                        side="right"
+                        size="sm"
+                        className="text-gray-400"
+                      />
+                    </div>
+                  </div>
                 );
               }
 
