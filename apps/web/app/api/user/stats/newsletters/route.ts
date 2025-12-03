@@ -28,6 +28,7 @@ const newsletterStatsQuery = z.object({
     .optional()
     .transform((arr) => arr?.filter(Boolean)),
   includeMissingUnsubscribe: z.boolean().optional(),
+  search: z.string().optional(),
 });
 
 export type NewsletterStatsQuery = z.infer<typeof newsletterStatsQuery>;
@@ -178,6 +179,12 @@ async function getNewsletterCounts(
     Prisma.sql`"emailAccountId" = ${options.emailAccountId}`,
   );
 
+  // Add search filter if provided
+  if (options.search) {
+    const searchPattern = `%${options.search.toLowerCase()}%`;
+    whereConditions.push(Prisma.sql`LOWER("from") LIKE ${searchPattern}`);
+  }
+
   // Join conditions with AND
   const whereClause =
     whereConditions.length > 0
@@ -238,9 +245,11 @@ function getOrderByClause(orderBy: string): string {
     case "emails":
       return '"count" DESC';
     case "unread":
-      return '"count" - "readEmails" DESC';
+      // Sort by read percentage ascending (lowest read % first = most unread)
+      return '"readEmails"::float / NULLIF("count", 0) ASC';
     case "unarchived":
-      return '"inboxEmails" DESC';
+      // Sort by archived percentage ascending (lowest archived % first = most in inbox)
+      return '("count" - "inboxEmails")::float / NULLIF("count", 0) ASC';
     default:
       return '"count" DESC';
   }
@@ -262,6 +271,7 @@ export const GET = withEmailProvider(
       filters: searchParams.get("filters")?.split(",") || [],
       includeMissingUnsubscribe:
         searchParams.get("includeMissingUnsubscribe") === "true",
+      search: searchParams.get("search") || undefined,
     });
 
     const result = await getEmailMessages({
