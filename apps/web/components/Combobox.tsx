@@ -29,6 +29,7 @@ export function Combobox(props: {
   loading: boolean;
   search?: string;
   onSearch?: (value: string) => void;
+  footer?: React.ReactNode;
 }) {
   const { value, onChangeValue, placeholder, emptyText, loading } = props;
   const [open, setOpen] = React.useState(false);
@@ -92,6 +93,7 @@ export function Combobox(props: {
                 ))}
               </CommandGroup>
             ) : null}
+            {props.footer && <div className="border-t p-1">{props.footer}</div>}
           </CommandList>
         </Command>
       </PopoverContent>

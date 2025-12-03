@@ -37,6 +37,7 @@ import { actionInputs } from "@/utils/action-item";
 import { Toggle } from "@/components/Toggle";
 import { LoadingContent } from "@/components/LoadingContent";
 import { TooltipExplanation } from "@/components/TooltipExplanation";
+import { Tooltip } from "@/components/Tooltip";
 import { useLabels } from "@/hooks/useLabels";
 import { hasVariables, TEMPLATE_VARIABLE_PATTERN } from "@/utils/template";
 import { AlertError } from "@/components/Alert";
@@ -672,16 +673,16 @@ export function ActionCard({
       return false;
     }
 
+    // Don't show for labelId fields
+    if (field.name === "labelId") {
+      return false;
+    }
+
     // Get field value for zodField objects
     const value = watch(`actions.${index}.${field.name}.value`);
     const isFieldVisible = !field.expandable || expandedFields || !!value;
 
     if (!isFieldVisible) return false;
-
-    // For labelId field, only show variables if AI generated is toggled on
-    if (field.name === "labelId") {
-      return !!action[field.name]?.ai;
-    }
 
     // For draft email content, only show variables if set manually
     if (field.name === "content" && action.type === ActionType.DRAFT_EMAIL) {
@@ -701,6 +702,9 @@ export function ActionCard({
           (opt) => opt.value === field.value,
         );
         const SelectedIcon = selectedOption?.icon;
+
+        const isLabelAction = field.value === ActionType.LABEL;
+        const isAiGenerated = !!action.labelId?.ai;
 
         return (
           <FormItem>
@@ -733,6 +737,11 @@ export function ActionCard({
                   })}
                 </SelectContent>
               </Select>
+              {isLabelAction && (
+                <p className="text-muted-foreground whitespace-nowrap">
+                  {isAiGenerated ? "using" : "as"}
+                </p>
+              )}
             </div>
           </FormItem>
         );
@@ -767,29 +776,138 @@ export function ActionCard({
             )}
           >
             <div>
-              {field.name === "labelId" && !isAiGenerated ? (
-                <LabelCombobox
-                  userLabels={userLabels || []}
-                  isLoading={isLoading}
-                  mutate={mutate}
-                  value={{
-                    id: value,
-                    name: action.labelId?.name || null,
-                  }}
-                  onChangeValue={(newValue: string) => {
-                    setValue(`actions.${index}.${field.name}.value`, newValue);
-                  }}
-                  emailAccountId={emailAccountId}
-                />
-              ) : field.name === "labelId" && isAiGenerated ? (
-                <div className="mt-2">
-                  <Input
-                    type="text"
-                    name={`actions.${index}.${field.name}.name`}
-                    registerProps={register(
-                      `actions.${index}.${field.name}.name`,
+              {field.name === "labelId" && action.type === ActionType.LABEL ? (
+                <div>
+                  <div className="flex items-center gap-2">
+                    <Select
+                      value={isAiGenerated ? "prompt" : "label"}
+                      onValueChange={(value) => {
+                        setValue(`actions.${index}.labelId`, {
+                          value: "",
+                          ai: value === "prompt",
+                        });
+                      }}
+                    >
+                      <FormControl>
+                        <SelectTrigger className="w-[100px]">
+                          <SelectValue />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="label">Label</SelectItem>
+                        <SelectItem value="prompt">Prompt</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    {isAiGenerated ? (
+                      <div className="relative flex-1 min-w-[200px]">
+                        <Input
+                          type="text"
+                          name={`actions.${index}.${field.name}.name`}
+                          registerProps={register(
+                            `actions.${index}.${field.name}.name`,
+                          )}
+                          className="pr-8"
+                          placeholder='e.g. {{choose "urgent", "normal", or "low"}}'
+                        />
+                        <div className="absolute right-2 top-1/2 -translate-y-1/2">
+                          <TooltipExplanation
+                            side="right"
+                            text="When enabled our AI will generate a value when processing the email. Put the prompt inside braces like so: {{your prompt here}}."
+                          />
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex-1 min-w-[200px]">
+                        <LabelCombobox
+                          userLabels={userLabels || []}
+                          isLoading={isLoading}
+                          mutate={mutate}
+                          value={{
+                            id: value,
+                            name: action.labelId?.name || null,
+                          }}
+                          onChangeValue={(newValue: string) => {
+                            setValue(
+                              `actions.${index}.${field.name}.value`,
+                              newValue,
+                            );
+                          }}
+                          emailAccountId={emailAccountId}
+                        />
+                      </div>
                     )}
-                  />
+                    {actionCanBeDelayed &&
+                      action.type === ActionType.LABEL &&
+                      !delayEnabled && (
+                        <Select
+                          value="immediately"
+                          onValueChange={(value) => {
+                            if (value === "after") {
+                              setValue(`actions.${index}.delayInMinutes`, 60, {
+                                shouldValidate: true,
+                              });
+                            } else {
+                              setValue(
+                                `actions.${index}.delayInMinutes`,
+                                null,
+                                {
+                                  shouldValidate: true,
+                                },
+                              );
+                            }
+                          }}
+                        >
+                          <SelectTrigger className="w-[140px]">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="immediately">
+                              Immediately
+                            </SelectItem>
+                            <SelectItem value="after">After</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      )}
+                  </div>
+                  {actionCanBeDelayed &&
+                    action.type === ActionType.LABEL &&
+                    delayEnabled && (
+                      <div className="flex items-center gap-2 mt-2">
+                        <Select
+                          value="after"
+                          onValueChange={(value) => {
+                            if (value === "after") {
+                              setValue(`actions.${index}.delayInMinutes`, 60, {
+                                shouldValidate: true,
+                              });
+                            } else {
+                              setValue(
+                                `actions.${index}.delayInMinutes`,
+                                null,
+                                {
+                                  shouldValidate: true,
+                                },
+                              );
+                            }
+                          }}
+                        >
+                          <SelectTrigger className="w-[140px]">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="immediately">
+                              Immediately
+                            </SelectItem>
+                            <SelectItem value="after">After</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <DelayInputControls
+                          index={index}
+                          delayInMinutes={delayValue}
+                          setValue={setValue}
+                        />
+                      </div>
+                    )}
                 </div>
               ) : field.name === "folderName" &&
                 action.type === ActionType.MOVE_FOLDER ? (
@@ -880,31 +998,22 @@ export function ActionCard({
                 </div>
               )}
 
-              {field.name === "labelId" && (
-                <div className="flex items-center space-x-2 mt-4">
-                  <Toggle
-                    name={`actions.${index}.${field.name}.ai`}
-                    labelRight="AI generated"
-                    enabled={isAiGenerated || false}
-                    onChange={(enabled) => {
-                      setValue(
-                        `actions.${index}.${field.name}`,
-                        enabled
-                          ? { value: "", ai: true }
-                          : { value: "", ai: false },
-                      );
-                    }}
-                  />
-
-                  <TooltipExplanation
-                    side="right"
-                    text="When enabled our AI will generate a value when processing the email. Put the prompt inside braces like so: {{your prompt here}}."
-                  />
-                </div>
-              )}
+              {field.name === "labelId" &&
+                action.type === ActionType.LABEL &&
+                errors?.actions?.[index]?.delayInMinutes && (
+                  <div className="mt-2">
+                    <ErrorMessage
+                      message={
+                        errors.actions?.[index]?.delayInMinutes?.message ||
+                        "Invalid delay value"
+                      }
+                    />
+                  </div>
+                )}
             </div>
             {hasVariables(value) &&
-              canFieldUseVariables(field, isAiGenerated) && (
+              canFieldUseVariables(field, isAiGenerated) &&
+              field.name !== "labelId" && (
                 <div className="mt-2 whitespace-pre-wrap rounded-md bg-muted/50 p-2 font-mono text-sm text-foreground">
                   {(value || "")
                     .split(new RegExp(`(${TEMPLATE_VARIABLE_PATTERN})`, "g"))
@@ -937,7 +1046,7 @@ export function ActionCard({
       })}
 
       {shouldShowProTip && <VariableProTip />}
-      {actionCanBeDelayed && (
+      {actionCanBeDelayed && action.type !== ActionType.LABEL && (
         <div className="">
           {action.type === ActionType.ARCHIVE ? (
             <div className="space-y-2">

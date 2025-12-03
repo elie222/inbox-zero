@@ -13,7 +13,7 @@ function RemoveButton({
     <Button
       size="icon"
       variant="ghost"
-      className="size-8"
+      className="size-8 mt-1"
       onClick={onClick}
       aria-label={ariaLabel}
     >
@@ -23,7 +23,7 @@ function RemoveButton({
 }
 
 function CardLayout({ children }: { children: React.ReactNode }) {
-  return <div className="flex flex-col sm:flex-row gap-4">{children}</div>;
+  return <div className="flex flex-col sm:flex-row gap-2">{children}</div>;
 }
 
 function CardLayoutLeft({ children }: { children: React.ReactNode }) {
