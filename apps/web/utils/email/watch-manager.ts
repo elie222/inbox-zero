@@ -1,5 +1,5 @@
 import prisma from "@/utils/prisma";
-import { hasAiAccess } from "@/utils/premium";
+import { hasAiAccess, getPremiumUserFilter } from "@/utils/premium";
 import { createScopedLogger } from "@/utils/logger";
 import { createEmailProvider } from "@/utils/email/provider";
 import { watchEmails } from "@/app/api/watch/controller";
@@ -32,14 +32,7 @@ async function getEmailAccountsToWatch(userIds: string[] | null) {
   return prisma.emailAccount.findMany({
     where: {
       ...(userIds ? { userId: { in: userIds } } : {}),
-      user: {
-        premium: {
-          OR: [
-            { lemonSqueezyRenewsAt: { gt: new Date() } },
-            { stripeSubscriptionStatus: { in: ["active", "trialing"] } },
-          ],
-        },
-      },
+      ...getPremiumUserFilter(),
     },
     select: {
       id: true,

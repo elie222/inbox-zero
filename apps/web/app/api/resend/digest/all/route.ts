@@ -7,6 +7,7 @@ import { hasCronSecret, hasPostCronSecret } from "@/utils/cron";
 import { captureException } from "@/utils/error";
 import { createScopedLogger } from "@/utils/logger";
 import { publishToQstashQueue } from "@/utils/upstash";
+import { getPremiumUserFilter } from "@/utils/premium";
 
 const logger = createScopedLogger("cron/resend/digest/all");
 
@@ -24,15 +25,7 @@ async function sendDigestAllUpdate() {
       digestSchedule: {
         nextOccurrenceAt: { lte: now },
       },
-      // Only send to premium users
-      user: {
-        premium: {
-          OR: [
-            { lemonSqueezyRenewsAt: { gt: now } },
-            { stripeSubscriptionStatus: { in: ["active", "trialing"] } },
-          ],
-        },
-      },
+      ...getPremiumUserFilter(),
       createdAt: {
         lt: subDays(now, 1),
       },

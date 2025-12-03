@@ -3,7 +3,7 @@ import prisma from "@/utils/prisma";
 import { hasCronSecret, hasPostCronSecret } from "@/utils/cron";
 import { withError } from "@/utils/middleware";
 import { captureException } from "@/utils/error";
-import { hasAiAccess } from "@/utils/premium";
+import { hasAiAccess, getPremiumUserFilter } from "@/utils/premium";
 import { createScopedLogger } from "@/utils/logger";
 import { createEmailProvider } from "@/utils/email/provider";
 
@@ -15,14 +15,7 @@ export const maxDuration = 300;
 async function watchAllEmails() {
   const emailAccounts = await prisma.emailAccount.findMany({
     where: {
-      user: {
-        premium: {
-          OR: [
-            { lemonSqueezyRenewsAt: { gt: new Date() } },
-            { stripeSubscriptionStatus: { in: ["active", "trialing"] } },
-          ],
-        },
-      },
+      ...getPremiumUserFilter(),
     },
     select: {
       id: true,

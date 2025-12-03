@@ -141,3 +141,18 @@ export function isOnHigherTier(
 
   return tier1Rank > tier2Rank;
 }
+
+export function getPremiumUserFilter() {
+  if (env.NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS) return {};
+
+  return {
+    user: {
+      premium: {
+        OR: [
+          { lemonSqueezyRenewsAt: { gt: new Date() } },
+          { stripeSubscriptionStatus: { in: ["active", "trialing"] } },
+        ],
+      },
+    },
+  };
+}
