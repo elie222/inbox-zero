@@ -165,31 +165,31 @@ async function runSetup() {
 
   const useDockerInfra = infraChoice === "docker";
 
-  // Ask if running web app in Docker too (only relevant for Docker infra)
+  // Ask if running full stack in Docker (only relevant for Docker infra)
   let runWebInDocker = false;
   if (useDockerInfra) {
-    const webDeployment = await p.select({
-      message: "How will you run the web app?",
+    const fullStackDocker = await p.select({
+      message: "Do you want to run the full stack in Docker?",
       options: [
         {
-          value: "host",
-          label: "On host machine",
-          hint: "pnpm dev or pnpm start",
+          value: "no",
+          label: "No, just database & Redis",
+          hint: "I'll run Next.js separately with pnpm",
         },
         {
-          value: "docker",
-          label: "In Docker",
+          value: "yes",
+          label: "Yes, everything in Docker",
           hint: "docker compose --profile all",
         },
       ],
     });
 
-    if (p.isCancel(webDeployment)) {
+    if (p.isCancel(fullStackDocker)) {
       p.cancel("Setup cancelled.");
       process.exit(0);
     }
 
-    runWebInDocker = webDeployment === "docker";
+    runWebInDocker = fullStackDocker === "yes";
   }
 
   // Check Docker if needed
