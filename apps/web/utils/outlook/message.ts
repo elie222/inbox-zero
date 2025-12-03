@@ -160,6 +160,19 @@ export async function queryBatchMessages(
 
   const folderIds = await getFolderIds(client);
 
+  // If pageToken is a URL, fetch directly (per MS docs, don't extract $skiptoken)
+  if (pageToken?.startsWith("http")) {
+    const response: { value: Message[]; "@odata.nextLink"?: string } =
+      await withOutlookRetry(() => client.getClient().api(pageToken).get());
+
+    const filteredMessages = folderId
+      ? response.value.filter((message) => message.parentFolderId === folderId)
+      : response.value;
+    const messages = await convertMessages(filteredMessages, folderIds);
+
+    return { messages, nextPageToken: response["@odata.nextLink"] };
+  }
+
   const rawSearchQuery = searchQuery?.trim() || "";
   const { sanitized: cleanedSearchQuery, wasSanitized } =
     sanitizeOutlookSearchQuery(rawSearchQuery);
@@ -200,11 +213,6 @@ export async function queryBatchMessages(
 
     request = request.search(effectiveSearchQuery!);
 
-    // Apply folder filtering via post-processing since $search can't be combined with $filter
-    if (pageToken) {
-      request = request.skipToken(pageToken);
-    }
-
     const response: { value: Message[]; "@odata.nextLink"?: string } =
       await withOutlookRetry(() => request.get());
 
@@ -214,10 +222,7 @@ export async function queryBatchMessages(
       : response.value;
     const messages = await convertMessages(filteredMessages, folderIds);
 
-    nextPageToken = response["@odata.nextLink"]
-      ? new URL(response["@odata.nextLink"]).searchParams.get("$skiptoken") ||
-        undefined
-      : undefined;
+    nextPageToken = response["@odata.nextLink"];
 
     logger.info("Search results", {
       totalFound: response.value.length,
@@ -255,21 +260,14 @@ export async function queryBatchMessages(
       request = request.filter(combinedFilter);
     }
 
-    if (pageToken) {
-      request = request.skipToken(pageToken);
-    } else {
-      // Only add orderby for non-paginated requests to avoid sorting complexity errors
-      request = request.orderby("receivedDateTime DESC");
-    }
+    // Only add orderby for first page to avoid sorting complexity errors
+    request = request.orderby("receivedDateTime DESC");
 
     const response: { value: Message[]; "@odata.nextLink"?: string } =
       await withOutlookRetry(() => request.get());
     const messages = await convertMessages(response.value, folderIds);
 
-    nextPageToken = response["@odata.nextLink"]
-      ? new URL(response["@odata.nextLink"]).searchParams.get("$skiptoken") ||
-        undefined
-      : undefined;
+    nextPageToken = response["@odata.nextLink"];
 
     logger.info("Filter results", {
       messageCount: messages.length,
@@ -305,6 +303,16 @@ export async function queryMessagesWithFilters(
   }
 
   const folderIds = await getFolderIds(client);
+
+  // If pageToken is a URL, fetch directly (per MS docs, don't extract $skiptoken)
+  if (pageToken?.startsWith("http")) {
+    const response: { value: Message[]; "@odata.nextLink"?: string } =
+      await withOutlookRetry(() => client.getClient().api(pageToken).get());
+
+    const messages = await convertMessages(response.value, folderIds);
+    return { messages, nextPageToken: response["@odata.nextLink"] };
+  }
+
   const inboxFolderId = folderIds.inbox;
   const archiveFolderId = folderIds.archive;
 
@@ -343,22 +351,16 @@ export async function queryMessagesWithFilters(
   ].filter(Boolean);
   const combinedFilter = combinedFilters.join(" and ");
 
-  request = request.filter(combinedFilter);
-
-  if (pageToken) {
-    request = request.skipToken(pageToken);
+  if (combinedFilter) {
+    request = request.filter(combinedFilter);
   }
 
   const response: { value: Message[]; "@odata.nextLink"?: string } =
     await withOutlookRetry(() => request.get());
 
   const messages = await convertMessages(response.value, folderIds);
-  const nextPageToken = response["@odata.nextLink"]
-    ? new URL(response["@odata.nextLink"]).searchParams.get("$skiptoken") ||
-      undefined
-    : undefined;
 
-  return { messages, nextPageToken };
+  return { messages, nextPageToken: response["@odata.nextLink"] };
 }
 
 // Helper function to convert messages
