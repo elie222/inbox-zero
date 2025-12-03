@@ -184,7 +184,7 @@ export function ConditionSteps({
       }
     >
       {conditionFields.map((condition, index) => (
-        <div className="pl-3 py-1" key={condition.id}>
+        <div className="pl-3" key={condition.id}>
           <RuleStep
             onRemove={() => removeCondition(index)}
             removeAriaLabel="Remove condition"
