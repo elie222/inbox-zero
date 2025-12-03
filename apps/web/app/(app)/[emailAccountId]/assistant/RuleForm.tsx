@@ -1110,7 +1110,7 @@ export function ActionCard({
       <div className="">
         {action.type === ActionType.ARCHIVE ? (
           <div className="space-y-2">
-            <div className="flex items-center space-x-4">
+            <div className="flex items-center space-x-2">
               <Select
                 value={delayEnabled ? "after" : "immediately"}
                 onValueChange={(value) => {
@@ -1332,7 +1332,7 @@ function DelayInputControls({
   };
 
   return (
-    <div className="flex items-center space-x-4">
+    <div className="flex items-center space-x-2">
       <Input
         name={`delay-${index}`}
         type="text"
