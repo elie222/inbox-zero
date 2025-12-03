@@ -3,7 +3,7 @@ import { getModel } from "./model";
 import { Provider } from "./config";
 import { env } from "@/env";
 import type { UserAIFields } from "./types";
-import { createOllama } from "ollama-ai-provider";
+import { createOllama } from "ollama-ai-provider-v2";
 
 // Mock AI provider imports
 vi.mock("@ai-sdk/openai", () => ({
