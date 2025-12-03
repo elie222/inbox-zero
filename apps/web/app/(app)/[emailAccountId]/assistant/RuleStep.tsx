@@ -17,7 +17,7 @@ function RemoveButton({
       onClick={onClick}
       aria-label={ariaLabel}
     >
-      <TrashIcon className="size-4" />
+      <TrashIcon className="size-4 text-muted-foreground" />
     </Button>
   );
 }
