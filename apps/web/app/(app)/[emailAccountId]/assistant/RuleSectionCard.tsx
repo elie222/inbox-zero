@@ -55,7 +55,7 @@ export function RuleSectionCard({
   footerActions?: React.ReactNode;
 }) {
   return (
-    <Card className="rounded-lg p-4 mt-8">
+    <Card className="rounded-lg p-4">
       <div>
         <SectionHeader
           icon={Icon}

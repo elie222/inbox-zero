@@ -18,6 +18,7 @@ import {
   TrashIcon,
   MailIcon,
   BotIcon,
+  SettingsIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ErrorMessage, Input } from "@/components/Input";
@@ -37,7 +38,6 @@ import { actionInputs } from "@/utils/action-item";
 import { Toggle } from "@/components/Toggle";
 import { LoadingContent } from "@/components/LoadingContent";
 import { TooltipExplanation } from "@/components/TooltipExplanation";
-import { Tooltip } from "@/components/Tooltip";
 import { useLabels } from "@/hooks/useLabels";
 import { hasVariables, TEMPLATE_VARIABLE_PATTERN } from "@/utils/template";
 import { AlertError } from "@/components/Alert";
@@ -368,7 +368,7 @@ export function RuleForm({
 
   return (
     <Form {...form}>
-      <form onSubmit={handleSubmit(onSubmit)}>
+      <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
         {isSubmitted && Object.keys(errors).length > 0 && (
           <div className="mt-4">
             <AlertError
@@ -384,7 +384,7 @@ export function RuleForm({
           </div>
         )}
 
-        <div className="mt-4">
+        <div>
           {isNameEditMode ? (
             <Input
               type="text"
@@ -478,113 +478,135 @@ export function RuleForm({
           />
         </RuleSectionCard>
 
-        <div className="space-y-4 mt-8">
-          <TypographyH3 className="text-xl">Settings</TypographyH3>
+        <div className="flex justify-between items-center pt-3">
+          <Dialog>
+            <DialogTrigger asChild>
+              <Button variant="outline" size="sm" Icon={SettingsIcon}>
+                Advanced Settings
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-lg">
+              <DialogHeader>
+                <DialogTitle>Advanced Settings</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4">
+                <div className="flex items-center space-x-2">
+                  <Toggle
+                    name="runOnThreads"
+                    labelRight="Apply to threads"
+                    enabled={watch("runOnThreads") || false}
+                    onChange={(enabled) => {
+                      setValue("runOnThreads", enabled);
+                    }}
+                    disabled={!allowMultipleConditions(rule.systemType)}
+                  />
 
-          <div className="flex items-center space-x-2">
-            <Toggle
-              name="runOnThreads"
-              labelRight="Apply to threads"
-              enabled={watch("runOnThreads") || false}
-              onChange={(enabled) => {
-                setValue("runOnThreads", enabled);
-              }}
-              disabled={!allowMultipleConditions(rule.systemType)}
-            />
+                  <ThreadsExplanation size="md" />
+                </div>
 
-            <ThreadsExplanation size="md" />
-          </div>
+                <div className="flex items-center space-x-2">
+                  <Toggle
+                    name="digest"
+                    labelRight="Include in daily digest"
+                    enabled={watch("digest") || false}
+                    onChange={(enabled) => {
+                      setValue("digest", enabled);
+                    }}
+                  />
 
-          <div className="flex items-center space-x-2">
-            <Toggle
-              name="digest"
-              labelRight="Include in daily digest"
-              enabled={watch("digest") || false}
-              onChange={(enabled) => {
-                setValue("digest", enabled);
-              }}
-            />
+                  <TooltipExplanation
+                    size="md"
+                    side="right"
+                    text="When enabled you will receive a summary of the emails that match this rule in your digest email."
+                  />
+                </div>
 
-            <TooltipExplanation
-              size="md"
-              side="right"
-              text="When enabled you will receive a summary of the emails that match this rule in your digest email."
-            />
-          </div>
+                {!!rule.id && (
+                  <div className="flex">
+                    <LearnedPatternsDialog
+                      ruleId={rule.id}
+                      groupId={rule.groupId || null}
+                      disabled={!allowMultipleConditions(rule.systemType)}
+                    />
+                  </div>
+                )}
 
-          {!!rule.id && (
-            <div className="flex">
-              <LearnedPatternsDialog
-                ruleId={rule.id}
-                groupId={rule.groupId || null}
-                disabled={!allowMultipleConditions(rule.systemType)}
-              />
-            </div>
-          )}
-
-          {rule.id && (
-            <Button
-              size="sm"
-              variant="outline"
-              Icon={TrashIcon}
-              loading={isDeleting}
-              disabled={isSubmitting}
-              onClick={async () => {
-                const yes = confirm(
-                  "Are you sure you want to delete this rule?",
-                );
-                if (yes) {
-                  try {
-                    setIsDeleting(true);
-                    const result = await deleteRuleAction(emailAccountId, {
-                      id: rule.id!,
-                    });
-                    if (result?.serverError) {
-                      toastError({
-                        description: result.serverError,
-                      });
-                    } else {
-                      toastSuccess({
-                        description: "The rule has been deleted.",
-                      });
-
-                      if (isDialog && onSuccess) {
-                        onSuccess();
-                      }
-
-                      router.push(
-                        prefixPath(emailAccountId, "/automation?tab=rules"),
+                {rule.id && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    Icon={TrashIcon}
+                    loading={isDeleting}
+                    disabled={isSubmitting}
+                    onClick={async () => {
+                      const yes = confirm(
+                        "Are you sure you want to delete this rule?",
                       );
-                    }
-                  } catch {
-                    toastError({ description: "Failed to delete rule." });
-                  } finally {
-                    setIsDeleting(false);
-                  }
-                }
-              }}
-            >
-              Delete
-            </Button>
-          )}
-        </div>
+                      if (yes) {
+                        try {
+                          setIsDeleting(true);
+                          const result = await deleteRuleAction(
+                            emailAccountId,
+                            {
+                              id: rule.id!,
+                            },
+                          );
+                          if (result?.serverError) {
+                            toastError({
+                              description: result.serverError,
+                            });
+                          } else {
+                            toastSuccess({
+                              description: "The rule has been deleted.",
+                            });
 
-        <div className="flex justify-end space-x-2 pt-6">
-          {onCancel && (
-            <Button variant="outline" onClick={onCancel}>
-              Cancel
-            </Button>
-          )}
+                            if (isDialog && onSuccess) {
+                              onSuccess();
+                            }
 
-          {rule.id ? (
-            <Button type="submit" loading={isSubmitting} disabled={isDeleting}>
-              Save
-            </Button>
-          ) : (
-            <Button type="submit" loading={isSubmitting}>
-              Create
-            </Button>
-          )}
+                            router.push(
+                              prefixPath(
+                                emailAccountId,
+                                "/automation?tab=rules",
+                              ),
+                            );
+                          }
+                        } catch {
+                          toastError({ description: "Failed to delete rule." });
+                        } finally {
+                          setIsDeleting(false);
+                        }
+                      }
+                    }}
+                  >
+                    Delete
+                  </Button>
+                )}
+              </div>
+            </DialogContent>
+          </Dialog>
+
+          <div className="flex space-x-2">
+            {onCancel && (
+              <Button variant="outline" onClick={onCancel}>
+                Cancel
+              </Button>
+            )}
+
+            {rule.id ? (
+              <Button
+                type="submit"
+                loading={isSubmitting}
+                disabled={isDeleting}
+              >
+                Save
+              </Button>
+            ) : (
+              <Button type="submit" loading={isSubmitting}>
+                Create
+              </Button>
+            )}
+          </div>
         </div>
       </form>
     </Form>
