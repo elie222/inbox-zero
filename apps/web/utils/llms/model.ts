@@ -6,7 +6,7 @@ import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import { createGroq } from "@ai-sdk/groq";
 import { createOpenRouter } from "@openrouter/ai-sdk-provider";
 import { createGateway } from "@ai-sdk/gateway";
-// import { createOllama } from "ollama-ai-provider";
+import { createOllama } from "ollama-ai-provider";
 import { env } from "@/env";
 import { Provider } from "@/utils/llms/config";
 import type { UserAIFields } from "@/utils/llms/types";
@@ -139,16 +139,21 @@ function selectModel(
       };
     }
     case Provider.OLLAMA: {
-      throw new Error(
-        "Ollama is not supported. Revert to version v1.7.28 or older to use it.",
-      );
-      // const modelName = aiModel || env.NEXT_PUBLIC_OLLAMA_MODEL;
-      // if (!modelName) throw new Error("Ollama model is not set");
-      // return {
-      //   provider: Provider.OLLAMA!,
-      //   modelName,
-      //   model: createOllama({ baseURL: env.OLLAMA_BASE_URL })(model),
-      // };
+      const modelName = aiModel;
+
+      if (!modelName) {
+        throw new Error("Ollama model must be specified");
+      }
+
+      const baseURL = env.OLLAMA_BASE_URL || "http://localhost:11434";
+      const ollama = createOllama({ baseURL });
+
+      return {
+        provider: Provider.OLLAMA!,
+        modelName,
+        model: ollama(modelName),
+        backupModel: null,
+      };
     }
 
     case Provider.BEDROCK: {
@@ -219,7 +224,7 @@ function createOpenRouterProviderOptions(
 function selectEconomyModel(userAi: UserAIFields): SelectModel {
   if (env.ECONOMY_LLM_PROVIDER && env.ECONOMY_LLM_MODEL) {
     const apiKey = getProviderApiKey(env.ECONOMY_LLM_PROVIDER);
-    if (!apiKey) {
+    if (!apiKey && providerRequiresApiKey(env.ECONOMY_LLM_PROVIDER)) {
       logger.warn("Economy LLM provider configured but API key not found", {
         provider: env.ECONOMY_LLM_PROVIDER,
       });
@@ -256,7 +261,7 @@ function selectEconomyModel(userAi: UserAIFields): SelectModel {
 function selectChatModel(userAi: UserAIFields): SelectModel {
   if (env.CHAT_LLM_PROVIDER && env.CHAT_LLM_MODEL) {
     const apiKey = getProviderApiKey(env.CHAT_LLM_PROVIDER);
-    if (!apiKey) {
+    if (!apiKey && providerRequiresApiKey(env.CHAT_LLM_PROVIDER)) {
       logger.warn("Chat LLM provider configured but API key not found", {
         provider: env.CHAT_LLM_PROVIDER,
       });
@@ -296,7 +301,7 @@ function selectDefaultModel(userAi: UserAIFields): SelectModel {
 
   // If user has not api key set, then use default model
   // If they do they can use the model of their choice
-  if (aiApiKey) {
+  if (aiApiKey || userAi.aiProvider === Provider.OLLAMA) {
     aiProvider = userAi.aiProvider || env.DEFAULT_LLM_PROVIDER;
     aiModel = userAi.aiModel || null;
   } else {
@@ -346,6 +351,10 @@ function getProviderApiKey(provider: string) {
   };
 
   return providerApiKeys[provider];
+}
+
+function providerRequiresApiKey(provider: string) {
+  return provider !== Provider.OLLAMA;
 }
 
 function getBackupModel(userApiKey: string | null): LanguageModelV2 | null {

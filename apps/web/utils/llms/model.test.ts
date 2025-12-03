@@ -3,6 +3,7 @@ import { getModel } from "./model";
 import { Provider } from "./config";
 import { env } from "@/env";
 import type { UserAIFields } from "./types";
+import { createOllama } from "ollama-ai-provider";
 
 // Mock AI provider imports
 vi.mock("@ai-sdk/openai", () => ({
@@ -50,6 +51,7 @@ vi.mock("@/env", () => ({
     ANTHROPIC_API_KEY: "test-anthropic-key",
     GROQ_API_KEY: "test-groq-key",
     OPENROUTER_API_KEY: "test-openrouter-key",
+    OPENROUTER_BACKUP_MODEL: "google/gemini-2.5-flash",
     OLLAMA_BASE_URL: "http://localhost:11434",
     NEXT_PUBLIC_OLLAMA_MODEL: "llama3",
     BEDROCK_REGION: "us-west-2",
@@ -75,6 +77,8 @@ describe("Models", () => {
     vi.mocked(env).DEFAULT_LLM_MODEL = undefined;
     vi.mocked(env).BEDROCK_ACCESS_KEY = "";
     vi.mocked(env).BEDROCK_SECRET_KEY = "";
+    vi.mocked(env).NEXT_PUBLIC_OLLAMA_MODEL = "llama3";
+    vi.mocked(env).OLLAMA_BASE_URL = "http://localhost:11434";
   });
 
   describe("getModel", () => {
@@ -153,18 +157,48 @@ describe("Models", () => {
       expect(result.model).toBeDefined();
     });
 
-    // it("should configure Ollama model correctly", () => {
-    //   const userAi: UserAIFields = {
-    //     aiApiKey: "user-api-key",
-    //     aiProvider: Provider.OLLAMA!,
-    //     aiModel: "llama3",
-    //   };
+    it("should configure Ollama model correctly", () => {
+      const userAi: UserAIFields = {
+        aiApiKey: null,
+        aiProvider: Provider.OLLAMA!,
+        aiModel: "llama3",
+      };
 
-    //   const result = getModel(userAi);
-    //   expect(result.provider).toBe(Provider.OLLAMA);
-    //   expect(result.modelName).toBe("llama3");
-    //   expect(result.model).toBeDefined();
-    // });
+      const result = getModel(userAi);
+      expect(result.provider).toBe(Provider.OLLAMA);
+      expect(result.modelName).toBe("llama3");
+      expect(result.model).toBeDefined();
+      expect(createOllama).toHaveBeenCalledWith({
+        baseURL: "http://localhost:11434",
+      });
+      expect(result.backupModel).toBeNull();
+    });
+
+    it("should throw when Ollama model is missing", () => {
+      const userAi: UserAIFields = {
+        aiApiKey: null,
+        aiProvider: Provider.OLLAMA!,
+        aiModel: null,
+      };
+
+      expect(() => getModel(userAi)).toThrow("Ollama model must be specified");
+    });
+
+    it("should fall back to default Ollama base URL when env missing", () => {
+      vi.mocked(env).OLLAMA_BASE_URL = undefined as any;
+
+      const userAi: UserAIFields = {
+        aiApiKey: null,
+        aiProvider: Provider.OLLAMA!,
+        aiModel: "llama3",
+      };
+
+      getModel(userAi);
+
+      expect(createOllama).toHaveBeenCalledWith({
+        baseURL: "http://localhost:11434",
+      });
+    });
 
     it("should configure Anthropic model correctly without Bedrock credentials", () => {
       const userAi: UserAIFields = {
