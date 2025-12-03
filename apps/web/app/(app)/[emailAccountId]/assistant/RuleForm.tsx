@@ -12,7 +12,6 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import TextareaAutosize from "react-textarea-autosize";
 import { usePostHog } from "posthog-js/react";
 import {
-  PlusIcon,
   ChevronDownIcon,
   ChevronRightIcon,
   PencilIcon,
@@ -440,7 +439,7 @@ export function RuleForm({
           iconBg="bg-green-100 dark:bg-green-900/30"
           iconColor="text-green-600 dark:text-green-400"
           title="Then"
-          description="Then..."
+          description="Choose what the assistant should do"
           errors={
             actionErrors.length > 0 ? (
               <AlertError
@@ -705,33 +704,36 @@ export function ActionCard({
 
         return (
           <FormItem>
-            <Select value={field.value} onValueChange={field.onChange}>
-              <FormControl>
-                <SelectTrigger className="w-[180px]">
-                  {selectedOption ? (
-                    <div className="flex items-center gap-2">
-                      {SelectedIcon && <SelectedIcon className="size-4" />}
-                      <span>{selectedOption.label}</span>
-                    </div>
-                  ) : (
-                    <SelectValue placeholder="Select action" />
-                  )}
-                </SelectTrigger>
-              </FormControl>
-              <SelectContent>
-                {typeOptions.map((option) => {
-                  const Icon = option.icon;
-                  return (
-                    <SelectItem key={option.value} value={option.value}>
+            <div className="flex items-center gap-2">
+              {index ? <p className="text-muted-foreground">and</p> : null}
+              <Select value={field.value} onValueChange={field.onChange}>
+                <FormControl>
+                  <SelectTrigger className="w-[180px]">
+                    {selectedOption ? (
                       <div className="flex items-center gap-2">
-                        {Icon && <Icon className="size-4" />}
-                        {option.label}
+                        {SelectedIcon && <SelectedIcon className="size-4" />}
+                        <span>{selectedOption.label}</span>
                       </div>
-                    </SelectItem>
-                  );
-                })}
-              </SelectContent>
-            </Select>
+                    ) : (
+                      <SelectValue placeholder="Select action" />
+                    )}
+                  </SelectTrigger>
+                </FormControl>
+                <SelectContent>
+                  {typeOptions.map((option) => {
+                    const Icon = option.icon;
+                    return (
+                      <SelectItem key={option.value} value={option.value}>
+                        <div className="flex items-center gap-2">
+                          {Icon && <Icon className="size-4" />}
+                          {option.label}
+                        </div>
+                      </SelectItem>
+                    );
+                  })}
+                </SelectContent>
+              </Select>
+            </div>
           </FormItem>
         );
       }}
@@ -765,27 +767,20 @@ export function ActionCard({
             )}
           >
             <div>
-              <Label name={field.name} label={field.label} />
-
               {field.name === "labelId" && !isAiGenerated ? (
-                <div className="mt-2">
-                  <LabelCombobox
-                    userLabels={userLabels || []}
-                    isLoading={isLoading}
-                    mutate={mutate}
-                    value={{
-                      id: value,
-                      name: action.labelId?.name || null,
-                    }}
-                    onChangeValue={(newValue: string) => {
-                      setValue(
-                        `actions.${index}.${field.name}.value`,
-                        newValue,
-                      );
-                    }}
-                    emailAccountId={emailAccountId}
-                  />
-                </div>
+                <LabelCombobox
+                  userLabels={userLabels || []}
+                  isLoading={isLoading}
+                  mutate={mutate}
+                  value={{
+                    id: value,
+                    name: action.labelId?.name || null,
+                  }}
+                  onChangeValue={(newValue: string) => {
+                    setValue(`actions.${index}.${field.name}.value`, newValue);
+                  }}
+                  emailAccountId={emailAccountId}
+                />
               ) : field.name === "labelId" && isAiGenerated ? (
                 <div className="mt-2">
                   <Input
