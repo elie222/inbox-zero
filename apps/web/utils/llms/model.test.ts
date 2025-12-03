@@ -32,7 +32,7 @@ vi.mock("@openrouter/ai-sdk-provider", () => ({
   })),
 }));
 
-vi.mock("ollama-ai-provider", () => ({
+vi.mock("ollama-ai-provider-v2", () => ({
   createOllama: vi.fn(() => (model: string) => ({ model })),
 }));
 
