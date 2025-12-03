@@ -128,7 +128,7 @@ export function ResultDisplayContent({ result }: { result: RunRulesResult }) {
       <div className="mt-2">
         {result.actionItems?.length ? (
           <>
-            <div className="font-medium text-sm mb-1">Actions taken:</div>
+            <div className="font-medium text-sm mb-1">Actions:</div>
             <Actions
               actions={
                 result.actionItems?.map((action) => ({

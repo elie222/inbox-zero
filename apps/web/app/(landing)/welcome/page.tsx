@@ -6,7 +6,10 @@ import { OnboardingForm } from "@/app/(landing)/welcome/form";
 import { SquaresPattern } from "@/app/(landing)/home/SquaresPattern";
 import { PageHeading, TypographyP } from "@/components/Typography";
 import { CardBasic } from "@/components/ui/card";
-import { fetchUserAndStoreUtms } from "@/app/(landing)/welcome/utms";
+import {
+  extractUtmValues,
+  fetchUserAndStoreUtms,
+} from "@/app/(landing)/welcome/utms";
 import { auth } from "@/utils/auth";
 
 export const metadata: Metadata = {
@@ -27,10 +30,12 @@ export default async function WelcomePage(props: {
   const authPromise = auth();
 
   const cookieStore = await cookies();
+  const utmValues = extractUtmValues(cookieStore);
+
   after(async () => {
     const user = await authPromise;
     if (!user?.user) return;
-    await fetchUserAndStoreUtms(user.user.id, cookieStore);
+    await fetchUserAndStoreUtms(user.user.id, utmValues);
   });
 
   return (
