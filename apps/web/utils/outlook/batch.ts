@@ -135,7 +135,7 @@ async function moveMessagesInBatches({
   await batch({
     client,
     requests,
-    stopOnError: true,
+    stopOnError: false,
     context: {
       action,
       destinationId,
@@ -283,6 +283,10 @@ export async function moveMessagesForSenders({
         }
 
         nextLink = response["@odata.nextLink"];
+        logger.info("Pagination status", {
+          processedCount: processedMessageIds.size,
+          hasNextLink: !!nextLink,
+        });
       } catch (error) {
         logger.error("Failed to fetch messages from sender", {
           sender,
