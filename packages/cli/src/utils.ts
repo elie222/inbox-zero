@@ -50,11 +50,13 @@ export function generateEnvFile(config: {
     setValue("POSTGRES_PASSWORD", env.POSTGRES_PASSWORD);
     setValue("POSTGRES_DB", env.POSTGRES_DB);
     setValue("DATABASE_URL", wrapInQuotes(env.DATABASE_URL));
+    setValue("DIRECT_URL", wrapInQuotes(env.DIRECT_URL));
     setValue("UPSTASH_REDIS_URL", wrapInQuotes(env.UPSTASH_REDIS_URL));
     setValue("UPSTASH_REDIS_TOKEN", env.UPSTASH_REDIS_TOKEN);
   } else {
     // External infra - set placeholders
     setValue("DATABASE_URL", wrapInQuotes(env.DATABASE_URL));
+    setValue("DIRECT_URL", wrapInQuotes(env.DIRECT_URL));
     setValue("UPSTASH_REDIS_URL", wrapInQuotes(env.UPSTASH_REDIS_URL));
     setValue("UPSTASH_REDIS_TOKEN", env.UPSTASH_REDIS_TOKEN);
   }
