@@ -44,6 +44,20 @@ If doing this manually edit then you'll need to configure:
 - **LLM Provider**: Uncomment one provider block and add your API key
 - **Optional**: Microsoft OAuth, external Redis, etc.
 
+#### Using Ollama (local LLM)
+
+To use a locally hosted Ollama model instead of a cloud LLM provider:
+
+1. Set `NEXT_PUBLIC_OLLAMA_MODEL` in `apps/web/.env` to the exact model name you have pulled in Ollama (e.g., `llama3` or `qwen2.5`).
+2. (Optional) Set `OLLAMA_BASE_URL` if your Ollama server is not on the default `http://localhost:11434`. When running the app in Docker but Ollama is on the host, use `http://host.docker.internal:11434`.
+3. Restart the stack so the updated environment variables are loaded:
+
+```bash
+NEXT_PUBLIC_BASE_URL=https://yourdomain.com docker compose --env-file apps/web/.env --profile all up -d
+```
+
+No API key is required for Ollama. The UI will only show Ollama as a selectable provider when `NEXT_PUBLIC_OLLAMA_MODEL` is set.
+
 For detailed configuration instructions, see the [Environment Variables Reference](./environment-variables.md).
 
 **Note**: If you only want to use Microsoft and not Google OAuth then add skipped for the the Google client id and secret.
