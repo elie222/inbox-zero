@@ -843,6 +843,7 @@ export function ActionCard({
                       <TooltipExplanation
                         side="right"
                         text="When enabled our AI will generate a value when processing the email. Put the prompt inside braces like so: {{your prompt here}}."
+                        className="text-gray-400"
                       />
                     </div>
                   </div>
@@ -1171,6 +1172,7 @@ export function ActionCard({
               <TooltipExplanation
                 text="Delay this action to run later. Perfect for auto-archiving newsletters after you've had time to read them, or cleaning up notifications after a few days."
                 side="right"
+                className="text-gray-400"
               />
             </div>
 
