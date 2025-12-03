@@ -1108,7 +1108,8 @@ export function ActionCard({
   const delayControls =
     actionCanBeDelayed && action.type !== ActionType.LABEL ? (
       <div className="">
-        {action.type === ActionType.ARCHIVE ? (
+        {action.type === ActionType.ARCHIVE ||
+        action.type === ActionType.MARK_READ ? (
           <div className="space-y-2">
             <div className="flex items-center space-x-2">
               <Select
@@ -1184,6 +1185,7 @@ export function ActionCard({
         )}
 
         {action.type !== ActionType.ARCHIVE &&
+          action.type !== ActionType.MARK_READ &&
           errors?.actions?.[index]?.delayInMinutes && (
             <div className="mt-2">
               <ErrorMessage
