@@ -3,7 +3,10 @@ import type { Metadata } from "next";
 import { cookies } from "next/headers";
 import { after } from "next/server";
 import { OnboardingContent } from "@/app/(app)/[emailAccountId]/onboarding/OnboardingContent";
-import { fetchUserAndStoreUtms } from "@/app/(landing)/welcome/utms";
+import {
+  extractUtmValues,
+  fetchUserAndStoreUtms,
+} from "@/app/(landing)/welcome/utms";
 import { auth } from "@/utils/auth";
 
 export const maxDuration = 300;
@@ -25,10 +28,12 @@ export default async function OnboardingPage(props: {
   const authPromise = auth();
 
   const cookieStore = await cookies();
+  const utmValues = extractUtmValues(cookieStore);
+
   after(async () => {
     const user = await authPromise;
     if (!user?.user) return;
-    await fetchUserAndStoreUtms(user.user.id, cookieStore);
+    await fetchUserAndStoreUtms(user.user.id, utmValues);
   });
 
   return (

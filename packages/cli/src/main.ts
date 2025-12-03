@@ -525,15 +525,18 @@ Full guide: https://docs.getinboxzero.com/self-hosting/microsoft-oauth`,
     if (runWebInDocker) {
       // Web app runs in Docker: use container hostnames
       env.DATABASE_URL = `postgresql://${env.POSTGRES_USER}:${env.POSTGRES_PASSWORD}@db:5432/${env.POSTGRES_DB}`;
+      env.DIRECT_URL = env.DATABASE_URL;
       env.UPSTASH_REDIS_URL = "http://serverless-redis-http:80";
     } else {
       // Web app runs on host: containers expose ports to localhost
       env.DATABASE_URL = `postgresql://${env.POSTGRES_USER}:${env.POSTGRES_PASSWORD}@localhost:${postgresPort}/${env.POSTGRES_DB}`;
+      env.DIRECT_URL = env.DATABASE_URL;
       env.UPSTASH_REDIS_URL = `http://localhost:${redisPort}`;
     }
   } else {
     // External infrastructure - set placeholders for user to fill in
     env.DATABASE_URL = "postgresql://user:password@your-host:5432/inboxzero";
+    env.DIRECT_URL = env.DATABASE_URL;
     env.UPSTASH_REDIS_URL = "https://your-redis-url";
     env.UPSTASH_REDIS_TOKEN = "your-redis-token";
   }
