@@ -1071,86 +1071,34 @@ export function ActionCard({
     </>
   );
 
-  const rightContent = (
-    <>
-      {isEmailAction ? (
-        <Card className="p-4 space-y-4">
-          {fieldsContent}
-          {shouldShowProTip && <VariableProTip />}
-        </Card>
-      ) : (
-        <>
-          {fieldsContent}
-          {shouldShowProTip && <VariableProTip />}
-        </>
-      )}
-      {actionCanBeDelayed && action.type !== ActionType.LABEL && (
-        <div className="">
-          {action.type === ActionType.ARCHIVE ? (
-            <div className="space-y-2">
-              <div className="flex items-center space-x-4">
-                <Select
-                  value={delayEnabled ? "after" : "immediately"}
-                  onValueChange={(value) => {
-                    if (value === "after") {
-                      setValue(`actions.${index}.delayInMinutes`, 60, {
-                        shouldValidate: true,
-                      });
-                    } else {
-                      setValue(`actions.${index}.delayInMinutes`, null, {
-                        shouldValidate: true,
-                      });
-                    }
-                  }}
-                >
-                  <SelectTrigger className="w-[140px]">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="immediately">Immediately</SelectItem>
-                    <SelectItem value="after">After</SelectItem>
-                  </SelectContent>
-                </Select>
-                {delayEnabled && (
-                  <DelayInputControls
-                    index={index}
-                    delayInMinutes={delayValue}
-                    setValue={setValue}
-                  />
-                )}
-              </div>
-
-              {errors?.actions?.[index]?.delayInMinutes && (
-                <div className="mt-2">
-                  <ErrorMessage
-                    message={
-                      errors.actions?.[index]?.delayInMinutes?.message ||
-                      "Invalid delay value"
-                    }
-                  />
-                </div>
-              )}
-            </div>
-          ) : (
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-2">
-                <Toggle
-                  name={`actions.${index}.delayEnabled`}
-                  labelRight="Delay"
-                  enabled={delayEnabled}
-                  onChange={(enabled: boolean) => {
-                    const newValue = enabled ? 60 : null;
-                    setValue(`actions.${index}.delayInMinutes`, newValue, {
+  const delayControls =
+    actionCanBeDelayed && action.type !== ActionType.LABEL ? (
+      <div className="">
+        {action.type === ActionType.ARCHIVE ? (
+          <div className="space-y-2">
+            <div className="flex items-center space-x-4">
+              <Select
+                value={delayEnabled ? "after" : "immediately"}
+                onValueChange={(value) => {
+                  if (value === "after") {
+                    setValue(`actions.${index}.delayInMinutes`, 60, {
                       shouldValidate: true,
                     });
-                  }}
-                />
-                <TooltipExplanation
-                  text="Delay this action to run later. Perfect for auto-archiving newsletters after you've had time to read them, or cleaning up notifications after a few days."
-                  side="right"
-                />
-              </div>
-
+                  } else {
+                    setValue(`actions.${index}.delayInMinutes`, null, {
+                      shouldValidate: true,
+                    });
+                  }
+                }}
+              >
+                <SelectTrigger className="w-[140px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="immediately">Immediately</SelectItem>
+                  <SelectItem value="after">After</SelectItem>
+                </SelectContent>
+              </Select>
               {delayEnabled && (
                 <DelayInputControls
                   index={index}
@@ -1159,10 +1107,8 @@ export function ActionCard({
                 />
               )}
             </div>
-          )}
 
-          {action.type !== ActionType.ARCHIVE &&
-            errors?.actions?.[index]?.delayInMinutes && (
+            {errors?.actions?.[index]?.delayInMinutes && (
               <div className="mt-2">
                 <ErrorMessage
                   message={
@@ -1172,30 +1118,90 @@ export function ActionCard({
                 />
               </div>
             )}
-        </div>
-      )}
+          </div>
+        ) : (
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-2">
+              <Toggle
+                name={`actions.${index}.delayEnabled`}
+                labelRight="Delay"
+                enabled={delayEnabled}
+                onChange={(enabled: boolean) => {
+                  const newValue = enabled ? 60 : null;
+                  setValue(`actions.${index}.delayInMinutes`, newValue, {
+                    shouldValidate: true,
+                  });
+                }}
+              />
+              <TooltipExplanation
+                text="Delay this action to run later. Perfect for auto-archiving newsletters after you've had time to read them, or cleaning up notifications after a few days."
+                side="right"
+              />
+            </div>
 
-      {hasExpandableFields && (
-        <div className="mt-2 flex">
-          <Button
-            size="xs"
-            variant="ghost"
-            className="flex items-center gap-1 text-xs text-muted-foreground"
-            onClick={() => setExpandedFields(!expandedFields)}
-          >
-            {expandedFields ? (
-              <>
-                <ChevronDownIcon className="h-3.5 w-3.5" />
-                Hide extra fields
-              </>
-            ) : (
-              <>
-                <ChevronRightIcon className="h-3.5 w-3.5" />
-                Show all fields
-              </>
+            {delayEnabled && (
+              <DelayInputControls
+                index={index}
+                delayInMinutes={delayValue}
+                setValue={setValue}
+              />
             )}
-          </Button>
-        </div>
+          </div>
+        )}
+
+        {action.type !== ActionType.ARCHIVE &&
+          errors?.actions?.[index]?.delayInMinutes && (
+            <div className="mt-2">
+              <ErrorMessage
+                message={
+                  errors.actions?.[index]?.delayInMinutes?.message ||
+                  "Invalid delay value"
+                }
+              />
+            </div>
+          )}
+      </div>
+    ) : null;
+
+  const expandableFieldsButton = hasExpandableFields ? (
+    <div className="mt-2 flex">
+      <Button
+        size="xs"
+        variant="ghost"
+        className="flex items-center gap-1 text-xs text-muted-foreground"
+        onClick={() => setExpandedFields(!expandedFields)}
+      >
+        {expandedFields ? (
+          <>
+            <ChevronDownIcon className="h-3.5 w-3.5" />
+            Hide extra fields
+          </>
+        ) : (
+          <>
+            <ChevronRightIcon className="h-3.5 w-3.5" />
+            Show all fields
+          </>
+        )}
+      </Button>
+    </div>
+  ) : null;
+
+  const rightContent = (
+    <>
+      {isEmailAction ? (
+        <Card className="p-4 space-y-4">
+          {fieldsContent}
+          {shouldShowProTip && <VariableProTip />}
+          {delayControls}
+          {expandableFieldsButton}
+        </Card>
+      ) : (
+        <>
+          {fieldsContent}
+          {shouldShowProTip && <VariableProTip />}
+          {delayControls}
+          {expandableFieldsButton}
+        </>
       )}
     </>
   );
