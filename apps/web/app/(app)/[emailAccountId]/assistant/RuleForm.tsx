@@ -16,11 +16,11 @@ import {
   ChevronRightIcon,
   PencilIcon,
   TrashIcon,
-  ZapIcon,
+  MailIcon,
   BotIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { ErrorMessage, Input, Label } from "@/components/Input";
+import { ErrorMessage, Input } from "@/components/Input";
 import { toastError, toastSuccess } from "@/components/Toast";
 import { TypographyH3 } from "@/components/Typography";
 import { ActionType, SystemType } from "@/generated/prisma/enums";
@@ -403,9 +403,9 @@ export function RuleForm({
         </div>
 
         <RuleSectionCard
-          icon={ZapIcon}
-          iconBg="bg-purple-100 dark:bg-purple-900/30"
-          iconColor="text-purple-600 dark:text-purple-400"
+          icon={MailIcon}
+          iconBg="bg-blue-100 dark:bg-blue-900/30"
+          iconColor="text-blue-600 dark:text-blue-400"
           title="When an email is received"
           description="When a new email is received into your inbox"
           headerActions={undefined}
@@ -439,7 +439,7 @@ export function RuleForm({
           iconBg="bg-green-100 dark:bg-green-900/30"
           iconColor="text-green-600 dark:text-green-400"
           title="Then"
-          description="Choose what the assistant should do"
+          description="Choose actions for your assistant to perform"
           errors={
             actionErrors.length > 0 ? (
               <AlertError
