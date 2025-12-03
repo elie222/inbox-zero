@@ -246,7 +246,7 @@ function selectEconomyModel(userAi: UserAIFields): SelectModel {
       {
         aiProvider: env.ECONOMY_LLM_PROVIDER,
         aiModel: env.ECONOMY_LLM_MODEL,
-        aiApiKey: apiKey,
+        aiApiKey: apiKey ?? null,
       },
       providerOptions,
     );
@@ -283,7 +283,7 @@ function selectChatModel(userAi: UserAIFields): SelectModel {
       {
         aiProvider: env.CHAT_LLM_PROVIDER,
         aiModel: env.CHAT_LLM_MODEL,
-        aiApiKey: apiKey,
+        aiApiKey: apiKey ?? null,
       },
       providerOptions,
     );
