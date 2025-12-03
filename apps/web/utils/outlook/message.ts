@@ -351,7 +351,9 @@ export async function queryMessagesWithFilters(
   ].filter(Boolean);
   const combinedFilter = combinedFilters.join(" and ");
 
-  request = request.filter(combinedFilter);
+  if (combinedFilter) {
+    request = request.filter(combinedFilter);
+  }
 
   const response: { value: Message[]; "@odata.nextLink"?: string } =
     await withOutlookRetry(() => request.get());

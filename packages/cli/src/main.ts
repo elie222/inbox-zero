@@ -640,26 +640,25 @@ Full guide: https://docs.getinboxzero.com/self-hosting/microsoft-oauth`,
   // Build next steps based on configuration
   let nextSteps: string;
 
+  // For standalone installs, include -f flag to point to the compose file
+  const composeCmd = REPO_ROOT
+    ? "docker compose"
+    : `docker compose -f ${composeFile}`;
+
   if (runWebInDocker) {
     // Web app runs in Docker with database & Redis
     nextSteps = `# Start all services (web, database & Redis):
-NEXT_PUBLIC_BASE_URL=https://yourdomain.com docker compose --env-file apps/web/.env --profile all up -d
+NEXT_PUBLIC_BASE_URL=https://yourdomain.com ${composeCmd} --env-file ${envFile} --profile all up -d
 
 # View logs:
 docker logs inbox-zero-services-web-1 -f
-
-# Stop services (preserves data):
-docker compose --profile all down
-
-# Stop services AND delete database (fresh start):
-docker compose --profile all down -v
 
 # Then open:
 https://yourdomain.com`;
   } else {
     // Web app runs on host (pnpm dev or pnpm start)
     const dockerStep = useDockerInfra
-      ? "# Start Docker services (database & Redis):\ndocker compose --profile local-db --profile local-redis up -d\n\n"
+      ? `# Start Docker services (database & Redis):\n${composeCmd} --profile local-db --profile local-redis up -d\n\n`
       : "";
     const migrateCmd = isDevMode
       ? "pnpm prisma:migrate:dev"
