@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { tb } from "./client";
+import { isTinybirdEnabled, tb } from "./client";
 
 const tinybirdEmailAction = z.object({
   ownerEmail: z.string(),
@@ -11,10 +11,17 @@ const tinybirdEmailAction = z.object({
 
 export type TinybirdEmailAction = z.infer<typeof tinybirdEmailAction>;
 
-export const publishEmailAction = tb.buildIngestEndpoint({
+const tinybirdPublishEmailAction = tb.buildIngestEndpoint({
   datasource: "email_action",
   event: tinybirdEmailAction,
 });
+
+export async function publishEmailAction(
+  event: TinybirdEmailAction,
+): Promise<void> {
+  if (!isTinybirdEnabled()) return;
+  await tinybirdPublishEmailAction(event);
+}
 
 // Helper functions for specific actions
 export const publishArchive = (params: Omit<TinybirdEmailAction, "action">) => {
