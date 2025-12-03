@@ -292,7 +292,7 @@ export function ConditionSteps({
                                   </Tooltip>
                                 </div>
                               ) : (
-                                <SelectValue placeholder="Select trigger" />
+                                <SelectValue placeholder="Choose" />
                               )}
                             </SelectTrigger>
                           </FormControl>
