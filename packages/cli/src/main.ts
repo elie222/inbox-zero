@@ -1,12 +1,12 @@
 #!/usr/bin/env bun
 
-import { randomBytes } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { resolve } from "node:path";
 import { spawn, spawnSync } from "node:child_process";
 import { program } from "commander";
 import * as p from "@clack/prompts";
+import { generateSecret, generateEnvFile, type EnvConfig } from "./utils";
 
 // Detect if we're running from within the repo
 function findRepoRoot(): string | null {
@@ -42,11 +42,6 @@ function ensureConfigDir(configDir: string) {
   }
 }
 
-// Secret generation
-function generateSecret(bytes: number): string {
-  return randomBytes(bytes).toString("hex");
-}
-
 // Check if Docker is available
 function checkDocker(): boolean {
   const result = spawnSync("docker", ["--version"], { stdio: "pipe" });
@@ -67,9 +62,6 @@ function checkDockerCompose(): boolean {
   });
   return standaloneResult.status === 0;
 }
-
-// Environment variable builder
-type EnvConfig = Record<string, string | undefined>;
 
 async function main() {
   program
@@ -172,6 +164,33 @@ async function runSetup() {
   }
 
   const useDockerInfra = infraChoice === "docker";
+
+  // Ask if running web app in Docker too (only relevant for Docker infra)
+  let runWebInDocker = false;
+  if (useDockerInfra) {
+    const webDeployment = await p.select({
+      message: "How will you run the web app?",
+      options: [
+        {
+          value: "host",
+          label: "On host machine",
+          hint: "pnpm dev or pnpm start",
+        },
+        {
+          value: "docker",
+          label: "In Docker",
+          hint: "docker compose --profile all",
+        },
+      ],
+    });
+
+    if (p.isCancel(webDeployment)) {
+      p.cancel("Setup cancelled.");
+      process.exit(0);
+    }
+
+    runWebInDocker = webDeployment === "docker";
+  }
 
   // Check Docker if needed
   if (useDockerInfra) {
@@ -498,13 +517,20 @@ Full guide: https://docs.getinboxzero.com/self-hosting/microsoft-oauth`,
 
   if (useDockerInfra) {
     // Using Docker Compose for Postgres/Redis
-    // Use localhost URLs since containers expose ports to host
     env.POSTGRES_USER = "postgres";
     env.POSTGRES_PASSWORD = isDevMode ? "password" : generateSecret(16);
     env.POSTGRES_DB = "inboxzero";
-    env.DATABASE_URL = `postgresql://${env.POSTGRES_USER}:${env.POSTGRES_PASSWORD}@localhost:${postgresPort}/${env.POSTGRES_DB}`;
-    env.UPSTASH_REDIS_URL = `http://localhost:${redisPort}`;
     env.UPSTASH_REDIS_TOKEN = redisToken;
+
+    if (runWebInDocker) {
+      // Web app runs in Docker: use container hostnames
+      env.DATABASE_URL = `postgresql://${env.POSTGRES_USER}:${env.POSTGRES_PASSWORD}@db:5432/${env.POSTGRES_DB}`;
+      env.UPSTASH_REDIS_URL = "http://serverless-redis-http:80";
+    } else {
+      // Web app runs on host: containers expose ports to localhost
+      env.DATABASE_URL = `postgresql://${env.POSTGRES_USER}:${env.POSTGRES_PASSWORD}@localhost:${postgresPort}/${env.POSTGRES_DB}`;
+      env.UPSTASH_REDIS_URL = `http://localhost:${redisPort}`;
+    }
   } else {
     // External infrastructure - set placeholders for user to fill in
     env.DATABASE_URL = "postgresql://user:password@your-host:5432/inboxzero";
@@ -555,14 +581,31 @@ Full guide: https://docs.getinboxzero.com/self-hosting/microsoft-oauth`,
     writeFileSync(composeFile, composeContent);
   }
 
+  spinner.start("Fetching .env template...");
+
+  let template: string;
+  try {
+    template = await getEnvTemplate();
+  } catch {
+    spinner.stop("Failed to fetch .env template");
+    p.log.error(
+      "Could not fetch .env.example template.\n" +
+        "Please check your internet connection and try again.",
+    );
+    process.exit(1);
+  }
+
+  spinner.stop("Template loaded");
   spinner.start("Writing .env file...");
 
-  // Write .env
-  const envContent = Object.entries(env)
-    .filter(([, v]) => v !== undefined)
-    .map(([k, v]) => `${k}=${v}`)
-    .join("\n");
-  writeFileSync(envFile, `${envContent}\n`);
+  // Write .env based on template with user values filled in
+  const envContent = generateEnvFile({
+    env,
+    useDockerInfra,
+    llmProvider,
+    template,
+  });
+  writeFileSync(envFile, envContent);
 
   spinner.stop(".env file created");
 
@@ -573,10 +616,15 @@ Full guide: https://docs.getinboxzero.com/self-hosting/microsoft-oauth`,
   const configuredFeatures = [
     `✓ Environment: ${isDevMode ? "Development" : "Production"}`,
     `✓ Infrastructure: ${useDockerInfra ? "Docker Compose" : "External"}`,
+    useDockerInfra
+      ? `✓ Web app: ${runWebInDocker ? "In Docker" : "On host"}`
+      : null,
     wantsGoogle ? "✓ Google OAuth" : "✗ Google OAuth (skipped)",
     wantsMicrosoft ? "✓ Microsoft OAuth" : "✗ Microsoft OAuth (skipped)",
     `✓ LLM Provider (${llmProvider})`,
-  ].join("\n");
+  ]
+    .filter(Boolean)
+    .join("\n");
 
   p.note(configuredFeatures, "Configuration Summary");
 
@@ -592,15 +640,24 @@ Full guide: https://docs.getinboxzero.com/self-hosting/microsoft-oauth`,
   // Build next steps based on configuration
   let nextSteps: string;
 
-  if (!isDevMode && useDockerInfra) {
-    // Production with Docker Compose - everything runs in containers
+  if (runWebInDocker) {
+    // Web app runs in Docker with database & Redis
     nextSteps = `# Start all services (web, database & Redis):
 NEXT_PUBLIC_BASE_URL=https://yourdomain.com docker compose --env-file apps/web/.env --profile all up -d
+
+# View logs:
+docker logs inbox-zero-services-web-1 -f
+
+# Stop services (preserves data):
+docker compose --profile all down
+
+# Stop services AND delete database (fresh start):
+docker compose --profile all down -v
 
 # Then open:
 https://yourdomain.com`;
   } else {
-    // Development mode or external infrastructure
+    // Web app runs on host (pnpm dev or pnpm start)
     const dockerStep = useDockerInfra
       ? "# Start Docker services (database & Redis):\ndocker compose --profile local-db --profile local-redis up -d\n\n"
       : "";
@@ -846,6 +903,31 @@ async function runUpdate() {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// Env File Generator (template-based)
+// ═══════════════════════════════════════════════════════════════════════════
+
+const ENV_EXAMPLE_URL =
+  "https://raw.githubusercontent.com/elie222/inbox-zero/main/apps/web/.env.example";
+
+async function fetchEnvExample(): Promise<string> {
+  const response = await fetch(ENV_EXAMPLE_URL);
+  if (!response.ok) {
+    throw new Error(`Failed to fetch .env.example: ${response.statusText}`);
+  }
+  return response.text();
+}
+
+async function getEnvTemplate(): Promise<string> {
+  if (REPO_ROOT) {
+    const templatePath = resolve(REPO_ROOT, "apps/web/.env.example");
+    if (existsSync(templatePath)) {
+      return readFileSync(templatePath, "utf-8");
+    }
+  }
+  return fetchEnvExample();
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // Docker Compose Fetcher
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -862,7 +944,16 @@ async function fetchDockerCompose(): Promise<string> {
   return response.text();
 }
 
-main().catch((error) => {
-  p.log.error(String(error));
-  process.exit(1);
-});
+// Only run main() when executed directly, not when imported for testing
+const isMainModule =
+  process.argv[1] &&
+  (process.argv[1].endsWith("main.ts") ||
+    process.argv[1].endsWith("inbox-zero.js") ||
+    process.argv[1].endsWith("inbox-zero"));
+
+if (isMainModule) {
+  main().catch((error) => {
+    p.log.error(String(error));
+    process.exit(1);
+  });
+}
