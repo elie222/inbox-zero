@@ -135,7 +135,7 @@ export const actionInputs: Record<
     fields: [
       {
         name: "url",
-        label: "URL",
+        label: "Webhook URL",
         placeholder: "https://example.com/webhook",
       },
     ],

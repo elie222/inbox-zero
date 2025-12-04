@@ -1013,7 +1013,7 @@ export function ActionCard({
             </div>
           ) : (
             <div>
-              {isEmailAction && (
+              {(isEmailAction || actionType === ActionType.CALL_WEBHOOK) && (
                 <Label
                   htmlFor={`actions.${index}.${field.name}.value`}
                   className="mb-2 block"
@@ -1211,7 +1211,7 @@ export function ActionCard({
 
   const rightContent = (
     <>
-      {isEmailAction ? (
+      {isEmailAction || actionType === ActionType.CALL_WEBHOOK ? (
         <Card className="p-4 space-y-4">
           {fieldsContent}
           {shouldShowProTip && <VariableProTip />}
