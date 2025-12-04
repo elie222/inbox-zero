@@ -121,14 +121,22 @@ function sanitizeOutlookSearchQuery(query: string): {
     return { sanitized: "", wasSanitized: false };
   }
 
-  const sanitized = normalized
+  // Remove disallowed characters
+  let sanitized = normalized
     .replace(OUTLOOK_SEARCH_DISALLOWED_CHARS, " ")
     .replace(/\s+/g, " ")
     .trim();
 
+  // Escape backslashes and double quotes for KQL
+  sanitized = sanitized.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+
+  // Wrap in double quotes to treat as literal phrase search
+  // This prevents KQL from interpreting special characters like - . and numbers
+  sanitized = `"${sanitized}"`;
+
   return {
     sanitized,
-    wasSanitized: sanitized !== normalized,
+    wasSanitized: true, // Always true now since we're wrapping in quotes
   };
 }
 
