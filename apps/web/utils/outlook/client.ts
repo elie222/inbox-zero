@@ -8,6 +8,9 @@ import { SafeError } from "@/utils/error";
 
 const logger = createScopedLogger("outlook/client");
 
+// Add buffer time to prevent token expiry during long-running operations
+const TOKEN_REFRESH_BUFFER_MS = 10 * 60 * 1000; // 10 minutes
+
 // Wrapper class to hold both the Microsoft Graph client and its access token
 export class OutlookClient {
   private readonly client: Client;
@@ -97,7 +100,11 @@ export const getOutlookClientWithRefresh = async ({
 
   // Check if token needs refresh
   const expiryDate = expiresAt ? expiresAt : null;
-  if (accessToken && expiryDate && expiryDate > Date.now()) {
+  if (
+    accessToken &&
+    expiryDate &&
+    expiryDate > Date.now() + TOKEN_REFRESH_BUFFER_MS
+  ) {
     return createOutlookClient(accessToken);
   }
 
