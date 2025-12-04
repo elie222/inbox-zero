@@ -67,7 +67,7 @@ async function main() {
   program
     .name("inbox-zero")
     .description("CLI tool for running Inbox Zero - AI email assistant")
-    .version("2.21.16");
+    .version("2.21.38");
 
   program
     .command("setup")

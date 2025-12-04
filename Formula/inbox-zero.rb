@@ -3,7 +3,7 @@
 class InboxZero < Formula
   desc "CLI tool for setting up Inbox Zero - AI email assistant"
   homepage "https://www.getinboxzero.com"
-  version "2.21.16"
+  version "2.21.38"
   license "AGPL-3.0-only"
 
   on_macos do
