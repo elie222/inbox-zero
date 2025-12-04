@@ -68,12 +68,22 @@ function selectModel(
   switch (aiProvider) {
     case Provider.OPEN_AI: {
       const modelName = aiModel || "gpt-5.1";
+      // When Zero Data Retention is enabled, set store: false to avoid
+      // "Items are not persisted for Zero Data Retention organizations" errors
+      // See: https://github.com/vercel/ai/issues/10060
+      const openAiProviderOptions = env.OPENAI_ZERO_DATA_RETENTION
+        ? {
+            ...providerOptions,
+            openai: { ...providerOptions?.openai, store: false },
+          }
+        : providerOptions;
       return {
         provider: Provider.OPEN_AI,
         modelName,
         model: createOpenAI({ apiKey: aiApiKey || env.OPENAI_API_KEY })(
           modelName,
         ),
+        providerOptions: openAiProviderOptions,
         backupModel: getBackupModel(aiApiKey),
       };
     }

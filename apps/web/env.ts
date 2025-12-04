@@ -60,6 +60,8 @@ export const env = createEnv({
     AI_GATEWAY_API_KEY: z.string().optional(),
     OLLAMA_BASE_URL: z.string().optional(),
 
+    OPENAI_ZERO_DATA_RETENTION: z.coerce.boolean().optional().default(false),
+
     UPSTASH_REDIS_URL: z.string().optional(),
     UPSTASH_REDIS_TOKEN: z.string().optional(),
     REDIS_URL: z.string().optional(), // used for subscriptions
