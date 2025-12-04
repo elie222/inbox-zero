@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { env } from "@/env";
+import { allowUserAiProviderUrl } from "@/utils/llms/config";
 
 export type OllamaModel = {
   name: string;
@@ -22,7 +23,10 @@ export type OllamaModelsResponse = {
 };
 
 async function getOllamaModels(baseUrl: string): Promise<OllamaModel[]> {
-  const response = await fetch(`${baseUrl}/api/tags`, {
+  // Normalize URL - remove trailing /api if present since we add it
+  const normalizedUrl = baseUrl.replace(/\/api\/?$/, "");
+
+  const response = await fetch(`${normalizedUrl}/api/tags`, {
     method: "GET",
     headers: {
       "Content-Type": "application/json",
@@ -38,7 +42,15 @@ async function getOllamaModels(baseUrl: string): Promise<OllamaModel[]> {
 }
 
 export async function GET(req: NextRequest) {
-  const baseUrl = env.OLLAMA_BASE_URL || "http://localhost:11434";
+  // Only allow custom URL if the feature is enabled via env var
+  const { searchParams } = new URL(req.url);
+  const customUrl = searchParams.get("baseUrl");
+
+  // Security: Only use custom URL if ALLOW_USER_AI_PROVIDER_URL is enabled
+  const baseUrl =
+    allowUserAiProviderUrl && customUrl
+      ? customUrl
+      : env.OLLAMA_BASE_URL || "http://localhost:11434";
 
   try {
     const models = await getOllamaModels(baseUrl);

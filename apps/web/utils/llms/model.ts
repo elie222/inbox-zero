@@ -8,7 +8,7 @@ import { createOpenRouter } from "@openrouter/ai-sdk-provider";
 import { createGateway } from "@ai-sdk/gateway";
 import { createOllama } from "ollama-ai-provider-v2";
 import { env } from "@/env";
-import { Provider } from "@/utils/llms/config";
+import { Provider, allowUserAiProviderUrl } from "@/utils/llms/config";
 import type { UserAIFields } from "@/utils/llms/types";
 import { createScopedLogger } from "@/utils/logger";
 
@@ -58,10 +58,12 @@ function selectModel(
     aiProvider,
     aiModel,
     aiApiKey,
+    aiBaseUrl,
   }: {
     aiProvider: string;
     aiModel: string | null;
     aiApiKey: string | null;
+    aiBaseUrl?: string | null;
   },
   providerOptions?: Record<string, any>,
 ): SelectModel {
@@ -145,7 +147,11 @@ function selectModel(
         throw new Error("Ollama model must be specified");
       }
 
-      const baseURL = env.OLLAMA_BASE_URL || "http://localhost:11434";
+      // Security: Only use user's custom URL if ALLOW_USER_AI_PROVIDER_URL is enabled
+      const baseURL =
+        allowUserAiProviderUrl && aiBaseUrl
+          ? aiBaseUrl
+          : env.OLLAMA_BASE_URL || "http://localhost:11434";
       const ollama = createOllama({ baseURL });
 
       return {
@@ -331,6 +337,7 @@ function selectDefaultModel(userAi: UserAIFields): SelectModel {
       aiProvider,
       aiModel,
       aiApiKey,
+      aiBaseUrl: userAi.aiBaseUrl,
     },
     providerOptions,
   );

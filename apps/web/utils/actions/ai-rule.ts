@@ -217,6 +217,7 @@ export const saveRulesPromptAction = actionClient
               aiProvider: true,
               aiModel: true,
               aiApiKey: true,
+              aiBaseUrl: true,
             },
           },
           account: {
@@ -455,6 +456,7 @@ export const createRulesAction = actionClient
               aiProvider: true,
               aiModel: true,
               aiApiKey: true,
+              aiBaseUrl: true,
             },
           },
           account: {

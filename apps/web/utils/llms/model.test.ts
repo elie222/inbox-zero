@@ -87,6 +87,7 @@ describe("Models", () => {
         aiApiKey: null,
         aiProvider: null,
         aiModel: null,
+        aiBaseUrl: null,
       };
 
       const result = getModel(userAi);
@@ -99,6 +100,7 @@ describe("Models", () => {
         aiApiKey: "user-api-key",
         aiProvider: Provider.GOOGLE,
         aiModel: "gemini-1.5-pro-latest",
+        aiBaseUrl: null,
       };
 
       const result = getModel(userAi);
@@ -111,6 +113,7 @@ describe("Models", () => {
         aiApiKey: "user-api-key",
         aiProvider: null,
         aiModel: null,
+        aiBaseUrl: null,
       };
 
       const result = getModel(userAi);
@@ -123,6 +126,7 @@ describe("Models", () => {
         aiApiKey: "user-api-key",
         aiProvider: Provider.GOOGLE,
         aiModel: "gemini-1.5-pro-latest",
+        aiBaseUrl: null,
       };
 
       const result = getModel(userAi);
@@ -136,6 +140,7 @@ describe("Models", () => {
         aiApiKey: "user-api-key",
         aiProvider: Provider.GROQ,
         aiModel: "llama-3.3-70b-versatile",
+        aiBaseUrl: null,
       };
 
       const result = getModel(userAi);
@@ -149,6 +154,7 @@ describe("Models", () => {
         aiApiKey: "user-api-key",
         aiProvider: Provider.OPENROUTER,
         aiModel: "llama-3.3-70b-versatile",
+        aiBaseUrl: null,
       };
 
       const result = getModel(userAi);
@@ -162,6 +168,7 @@ describe("Models", () => {
         aiApiKey: null,
         aiProvider: Provider.OLLAMA!,
         aiModel: "llama3",
+        aiBaseUrl: null,
       };
 
       const result = getModel(userAi);
@@ -179,6 +186,7 @@ describe("Models", () => {
         aiApiKey: null,
         aiProvider: Provider.OLLAMA!,
         aiModel: null,
+        aiBaseUrl: null,
       };
 
       expect(() => getModel(userAi)).toThrow("Ollama model must be specified");
@@ -191,6 +199,7 @@ describe("Models", () => {
         aiApiKey: null,
         aiProvider: Provider.OLLAMA!,
         aiModel: "llama3",
+        aiBaseUrl: null,
       };
 
       getModel(userAi);
@@ -205,6 +214,7 @@ describe("Models", () => {
         aiApiKey: "user-api-key",
         aiProvider: Provider.ANTHROPIC,
         aiModel: "claude-3-7-sonnet-20250219",
+        aiBaseUrl: null,
       };
 
       vi.mocked(env).BEDROCK_ACCESS_KEY = "";
@@ -221,6 +231,7 @@ describe("Models", () => {
         aiApiKey: null,
         aiProvider: null,
         aiModel: null,
+        aiBaseUrl: null,
       };
 
       vi.mocked(env).DEFAULT_LLM_PROVIDER = "bedrock";
@@ -242,6 +253,7 @@ describe("Models", () => {
         aiApiKey: "user-api-key",
         aiProvider: "unsupported" as any,
         aiModel: "some-model",
+        aiBaseUrl: null,
       };
 
       expect(() => getModel(userAi)).toThrow("LLM provider not supported");
@@ -252,6 +264,7 @@ describe("Models", () => {
     //     aiApiKey: null,
     //     aiProvider: null,
     //     aiModel: null,
+    //     aiBaseUrl: null,
     //   };
 
     //   vi.mocked(env).CHAT_LLM_PROVIDER = "openrouter";
@@ -268,6 +281,7 @@ describe("Models", () => {
     //     aiApiKey: null,
     //     aiProvider: null,
     //     aiModel: null,
+    //     aiBaseUrl: null,
     //   };
 
     //   vi.mocked(env).CHAT_LLM_PROVIDER = "openrouter";
@@ -289,6 +303,7 @@ describe("Models", () => {
         aiApiKey: null,
         aiProvider: null,
         aiModel: null,
+        aiBaseUrl: null,
       };
 
       vi.mocked(env).ECONOMY_LLM_PROVIDER = "openrouter";
@@ -306,6 +321,7 @@ describe("Models", () => {
         aiApiKey: null,
         aiProvider: null,
         aiModel: null,
+        aiBaseUrl: null,
       };
 
       vi.mocked(env).ECONOMY_LLM_PROVIDER = "openrouter";
@@ -328,6 +344,7 @@ describe("Models", () => {
         aiApiKey: null,
         aiProvider: null,
         aiModel: null,
+        aiBaseUrl: null,
       };
 
       // Reset to default
@@ -344,6 +361,7 @@ describe("Models", () => {
         aiApiKey: null,
         aiProvider: null,
         aiModel: null,
+        aiBaseUrl: null,
       };
 
       vi.mocked(env).DEFAULT_LLM_PROVIDER = "openrouter";

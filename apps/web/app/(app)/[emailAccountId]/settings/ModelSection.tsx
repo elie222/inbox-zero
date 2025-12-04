@@ -3,6 +3,7 @@
 import { useCallback, useState } from "react";
 import { type SubmitHandler, useForm } from "react-hook-form";
 import useSWR from "swr";
+import { RefreshCwIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { FormSection, FormSectionLeft } from "@/components/Form";
 import { toastError, toastSuccess } from "@/components/Toast";
@@ -22,6 +23,7 @@ import {
   Provider,
   providerOptions,
   supportsOllama,
+  allowUserAiProviderUrl,
 } from "@/utils/llms/config";
 import { useUser } from "@/hooks/useUser";
 import {
@@ -31,6 +33,7 @@ import {
 
 export function ModelSection() {
   const { data, isLoading, error, mutate } = useUser();
+  const [ollamaUrl, setOllamaUrl] = useState<string | undefined>(undefined);
 
   const { data: dataModels, isLoading: isLoadingModels } =
     useSWR<OpenAiModelsResponse>(
@@ -39,9 +42,26 @@ export function ModelSection() {
         : null,
     );
 
-  const { data: ollamaModels, isLoading: isLoadingOllamaModels } = useSWR<
-    OllamaModel[]
-  >(supportsOllama ? "/api/ai/ollama-models" : null);
+  // Build Ollama models URL with optional custom baseUrl parameter
+  const ollamaModelsUrl = supportsOllama
+    ? ollamaUrl
+      ? `/api/ai/ollama-models?baseUrl=${encodeURIComponent(ollamaUrl)}`
+      : "/api/ai/ollama-models"
+    : null;
+
+  const {
+    data: ollamaModels,
+    isLoading: isLoadingOllamaModels,
+    mutate: mutateOllamaModels,
+  } = useSWR<OllamaModel[]>(ollamaModelsUrl);
+
+  const refetchOllamaModels = useCallback(
+    (url?: string) => {
+      setOllamaUrl(url);
+      mutateOllamaModels();
+    },
+    [mutateOllamaModels],
+  );
 
   return (
     <FormSection>
@@ -50,18 +70,18 @@ export function ModelSection() {
         description="Use the default model at no cost, or choose a custom model with your own API key."
       />
 
-      <LoadingContent
-        loading={isLoading || isLoadingModels || isLoadingOllamaModels}
-        error={error}
-      >
+      <LoadingContent loading={isLoading || isLoadingModels} error={error}>
         {data && (
           <ModelSectionForm
             aiProvider={data.aiProvider}
             aiModel={data.aiModel}
             aiApiKey={data.aiApiKey}
+            aiBaseUrl={data.aiBaseUrl}
             models={dataModels}
             ollamaModels={ollamaModels}
+            isLoadingOllamaModels={isLoadingOllamaModels}
             refetchUser={mutate}
+            refetchOllamaModels={refetchOllamaModels}
           />
         )}
       </LoadingContent>
@@ -73,11 +93,14 @@ function ModelSectionForm(props: {
   aiProvider: SaveAiSettingsBody["aiProvider"] | null;
   aiModel: SaveAiSettingsBody["aiModel"] | null;
   aiApiKey: SaveAiSettingsBody["aiApiKey"] | null;
+  aiBaseUrl: string | null;
   models?: OpenAiModelsResponse;
-  ollamaModels?: OllamaModel[];
   refetchUser: () => void;
+  refetchOllamaModels: (url?: string) => void;
+  ollamaModels?: OllamaModel[];
+  isLoadingOllamaModels?: boolean;
 }) {
-  const { refetchUser } = props;
+  const { refetchUser, refetchOllamaModels } = props;
 
   const {
     register,
@@ -90,11 +113,13 @@ function ModelSectionForm(props: {
       aiProvider: props.aiProvider ?? DEFAULT_PROVIDER,
       aiModel: props.aiModel ?? "",
       aiApiKey: props.aiApiKey ?? undefined,
+      aiBaseUrl: props.aiBaseUrl ?? "",
     },
   });
 
   const [isTesting, setIsTesting] = useState(false);
   const aiProvider = watch("aiProvider");
+  const aiBaseUrl = watch("aiBaseUrl");
 
   const onSubmit: SubmitHandler<SaveAiSettingsBody> = useCallback(
     async (data) => {
@@ -207,6 +232,30 @@ function ModelSectionForm(props: {
                   : undefined
               }
             />
+          )}
+
+          {aiProvider === Provider.OLLAMA && allowUserAiProviderUrl && (
+            <div className="space-y-2">
+              <Input
+                type="text"
+                name="aiBaseUrl"
+                label="Server URL (optional)"
+                registerProps={register("aiBaseUrl")}
+                error={errors.aiBaseUrl}
+                placeholder="http://localhost:11434"
+                explainText="Custom Ollama or LM Studio server URL. Leave empty to use the default."
+              />
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => refetchOllamaModels(aiBaseUrl || undefined)}
+                disabled={props.isLoadingOllamaModels}
+              >
+                <RefreshCwIcon className="mr-2 size-4" />
+                {props.isLoadingOllamaModels ? "Loading..." : "Refresh models"}
+              </Button>
+            </div>
           )}
 
           {aiProvider !== Provider.OLLAMA && (

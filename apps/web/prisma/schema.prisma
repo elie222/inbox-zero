@@ -86,6 +86,7 @@ model User {
   aiProvider    String?
   aiModel       String?
   aiApiKey      String?
+  aiBaseUrl     String? // custom base URL for AI provider (e.g., Ollama server, LM Studio)
   webhookSecret String?
 
   // referral system

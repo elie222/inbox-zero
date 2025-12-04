@@ -37,6 +37,7 @@ export const saveAiSettingsBody = z
     ]),
     aiModel: z.string(),
     aiApiKey: z.string().optional(),
+    aiBaseUrl: z.string().url().optional().or(z.literal("")),
   })
   .superRefine((val, ctx) => {
     const requiresApiKey =

@@ -40,6 +40,7 @@ export async function getWebhookEmailAccount(
           aiProvider: true,
           aiModel: true,
           aiApiKey: true,
+          aiBaseUrl: true,
           premium: {
             select: {
               lemonSqueezyRenewsAt: true,

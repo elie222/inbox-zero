@@ -22,6 +22,7 @@ export async function validateUserAndAiAccess({
           aiProvider: true,
           aiModel: true,
           aiApiKey: true,
+          aiBaseUrl: true,
           premium: {
             select: {
               tier: true,

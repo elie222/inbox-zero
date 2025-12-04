@@ -14,6 +14,7 @@ async function getUser({ userId }: { userId: string }) {
       aiProvider: true,
       aiModel: true,
       aiApiKey: true,
+      aiBaseUrl: true,
       webhookSecret: true,
       referralCode: true,
       premium: {

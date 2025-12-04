@@ -33,6 +33,7 @@ export default async function AdminConfigPage() {
       defaultModel: env.DEFAULT_LLM_MODEL ?? "default",
       economyProvider: env.ECONOMY_LLM_PROVIDER ?? "not configured",
       economyModel: env.ECONOMY_LLM_MODEL ?? "not configured",
+      allowUserAiProviderUrl: env.ALLOW_USER_AI_PROVIDER_URL ?? false,
     },
     integrations: {
       redis: !!env.UPSTASH_REDIS_URL || !!env.REDIS_URL,
@@ -97,6 +98,10 @@ export default async function AdminConfigPage() {
               <Row label="Default Model" value={info.llm.defaultModel} />
               <Row label="Economy Provider" value={info.llm.economyProvider} />
               <Row label="Economy Model" value={info.llm.economyModel} />
+              <Row
+                label="User AI Provider URL"
+                value={info.llm.allowUserAiProviderUrl ? "Enabled" : "Disabled"}
+              />
             </Section>
 
             <Section title="Integrations">

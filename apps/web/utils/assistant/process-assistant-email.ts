@@ -114,6 +114,7 @@ async function processAssistantEmailInternal({
             aiProvider: true,
             aiModel: true,
             aiApiKey: true,
+            aiBaseUrl: true,
           },
         },
         rules: {

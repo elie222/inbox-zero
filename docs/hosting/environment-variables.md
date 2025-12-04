@@ -61,6 +61,7 @@ cp apps/web/.env.example apps/web/.env
 | **Ollama (Local LLM)** ||||
 | `OLLAMA_BASE_URL` | No | Ollama API endpoint (e.g., `http://localhost:11434/api`) | — |
 | `NEXT_PUBLIC_OLLAMA_MODEL` | No | Model to use with Ollama | — |
+| `ALLOW_USER_AI_PROVIDER_URL` | No | ⚠️ **Security Risk** - Allow users to set custom AI provider URLs (Ollama/LM Studio). See [Security Warning](#allow_user_ai_provider_url-security) below. | `false` |
 | **Background Jobs (QStash)** ||||
 | `QSTASH_TOKEN` | No | QStash API token | — |
 | `QSTASH_CURRENT_SIGNING_KEY` | No | Current signing key for webhooks | — |
@@ -102,3 +103,26 @@ For detailed setup instructions:
 
 - If running the app in Docker and Ollama locally, use `http://host.docker.internal:11434/api` as the `OLLAMA_BASE_URL`.
 - When using Docker Compose with `--profile all`, database and Redis URLs are auto-configured. See the [Self-Hosting Guide](./self-hosting.md) for details.
+
+## Security Warnings
+
+### `ALLOW_USER_AI_PROVIDER_URL` Security
+
+**⚠️ WARNING: Only enable this if you understand the risks.**
+
+Setting `ALLOW_USER_AI_PROVIDER_URL=true` allows users to configure their own AI provider server URLs (e.g., for Ollama or LM Studio). This introduces potential security risks:
+
+1. **SSRF (Server-Side Request Forgery)**: Users could point the URL to internal network resources, potentially accessing services that should not be publicly exposed (e.g., `http://localhost:6379` for Redis, or internal APIs).
+
+2. **Network Probing**: Malicious users could use this to discover and probe internal network infrastructure.
+
+3. **Data Exfiltration**: If your instance processes sensitive data, a malicious server URL could potentially capture request data.
+
+**When is it safe to enable?**
+- Single-user self-hosted deployments where you control all access
+- Isolated network environments with no sensitive internal services
+- When you fully trust all users with access to the application
+
+**Recommended alternatives:**
+- Set `OLLAMA_BASE_URL` at the server level instead — this provides the same functionality without user-configurable URLs
+- Use a reverse proxy to expose your LM Studio/Ollama instance and set that as `OLLAMA_BASE_URL`
