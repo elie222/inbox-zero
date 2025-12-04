@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/dialog";
 import { signIn } from "@/utils/auth-client";
 import { WELCOME_PATH } from "@/utils/config";
+import { toastError } from "@/components/Toast";
 
 export function LoginForm() {
   const searchParams = useSearchParams();
@@ -26,22 +27,40 @@ export function LoginForm() {
 
   const handleGoogleSignIn = async () => {
     setLoadingGoogle(true);
-    await signIn.social({
-      provider: "google",
-      errorCallbackURL: "/login/error",
-      callbackURL: next && next.length > 0 ? next : WELCOME_PATH,
-    });
-    setLoadingGoogle(false);
+    try {
+      await signIn.social({
+        provider: "google",
+        errorCallbackURL: "/login/error",
+        callbackURL: next && next.length > 0 ? next : WELCOME_PATH,
+      });
+    } catch (error) {
+      console.error("Error signing in with Google:", error);
+      toastError({
+        title: "Error signing in with Google",
+        description: "Please try again or contact support",
+      });
+    } finally {
+      setLoadingGoogle(false);
+    }
   };
 
   const handleMicrosoftSignIn = async () => {
     setLoadingMicrosoft(true);
-    await signIn.social({
-      provider: "microsoft",
-      errorCallbackURL: "/login/error",
-      callbackURL: next && next.length > 0 ? next : WELCOME_PATH,
-    });
-    setLoadingMicrosoft(false);
+    try {
+      await signIn.social({
+        provider: "microsoft",
+        errorCallbackURL: "/login/error",
+        callbackURL: next && next.length > 0 ? next : WELCOME_PATH,
+      });
+    } catch (error) {
+      console.error("Error signing in with Microsoft:", error);
+      toastError({
+        title: "Error signing in with Microsoft",
+        description: "Please try again or contact support",
+      });
+    } finally {
+      setLoadingMicrosoft(false);
+    }
   };
 
   return (

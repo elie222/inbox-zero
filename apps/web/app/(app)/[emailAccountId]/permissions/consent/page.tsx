@@ -25,6 +25,7 @@ export default function PermissionsConsentPage() {
         title: "Error initiating reconnection",
         description: "Please try again or contact support",
       });
+    } finally {
       setIsReconnecting(false);
     }
   };
