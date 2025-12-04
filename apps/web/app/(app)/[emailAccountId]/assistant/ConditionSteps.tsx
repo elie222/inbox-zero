@@ -226,11 +226,13 @@ export function ConditionSteps({
                           const prospectiveUITypes = conditions.map((c, idx) =>
                             idx === index ? value : getUIConditionType(c),
                           );
-                          const uniqueUITypes = new Set(prospectiveUITypes);
+                          const configuredTypes = prospectiveUITypes.filter(
+                            (type): type is UIConditionType =>
+                              type !== undefined && type !== null,
+                          );
+                          const uniqueUITypes = new Set(configuredTypes);
 
-                          if (
-                            uniqueUITypes.size !== prospectiveUITypes.length
-                          ) {
+                          if (uniqueUITypes.size !== configuredTypes.length) {
                             toastError({
                               description:
                                 "You can only have one condition of each type.",
