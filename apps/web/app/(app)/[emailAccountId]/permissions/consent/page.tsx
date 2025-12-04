@@ -1,15 +1,38 @@
 "use client";
 
+import { useState } from "react";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
-import { logOut } from "@/utils/user";
 import { PageHeading, TypographyP } from "@/components/Typography";
+import { useAccount } from "@/providers/EmailAccountProvider";
+import { toastError } from "@/components/Toast";
+import { getAccountLinkingUrl } from "@/utils/account-linking";
 
 export default function PermissionsConsentPage() {
+  const { provider, isLoading: accountLoading } = useAccount();
+  const [isReconnecting, setIsReconnecting] = useState(false);
+
+  const handleReconnect = async () => {
+    setIsReconnecting(true);
+
+    try {
+      const accountProvider = provider === "microsoft" ? "microsoft" : "google";
+      const url = await getAccountLinkingUrl(accountProvider);
+      window.location.href = url;
+    } catch (error) {
+      console.error("Error initiating reconnection:", error);
+      toastError({
+        title: "Error initiating reconnection",
+        description: "Please try again or contact support",
+      });
+      setIsReconnecting(false);
+    }
+  };
+
   return (
     <div className="flex flex-col items-center justify-center sm:p-20 md:p-32">
       <PageHeading className="text-center">
-        We are missing consent 😔
+        We are missing permissions 😔
       </PageHeading>
 
       <TypographyP className="mx-auto mt-4 max-w-prose text-center">
@@ -19,9 +42,11 @@ export default function PermissionsConsentPage() {
 
       <Button
         className="mt-4"
-        onClick={() => logOut("/login?error=RequiresReconsent")}
+        onClick={handleReconnect}
+        loading={isReconnecting}
+        disabled={isReconnecting || accountLoading}
       >
-        Sign in again
+        Reconnect account
       </Button>
 
       <div className="mt-8">

@@ -22,10 +22,12 @@ export function PermissionsCheck() {
     permissionsChecked[emailAccountId] = true;
 
     checkPermissionsAction(emailAccountId).then((result) => {
-      if (result?.data?.hasAllPermissions === false)
-        router.replace(prefixPath(emailAccountId, "/permissions/error"));
-      if (result?.data?.hasRefreshToken === false)
+      if (
+        result?.data?.hasAllPermissions === false ||
+        result?.data?.hasRefreshToken === false
+      ) {
         router.replace(prefixPath(emailAccountId, "/permissions/consent"));
+      }
     });
   }, [router, emailAccountId, isAccountOwner]);
 

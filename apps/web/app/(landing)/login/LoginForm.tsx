@@ -20,7 +20,6 @@ import { WELCOME_PATH } from "@/utils/config";
 export function LoginForm() {
   const searchParams = useSearchParams();
   const next = searchParams?.get("next");
-  const error = searchParams?.get("error");
 
   const [loadingGoogle, setLoadingGoogle] = useState(false);
   const [loadingMicrosoft, setLoadingMicrosoft] = useState(false);
@@ -31,7 +30,6 @@ export function LoginForm() {
       provider: "google",
       errorCallbackURL: "/login/error",
       callbackURL: next && next.length > 0 ? next : WELCOME_PATH,
-      ...(error === "RequiresReconsent" ? { consent: true } : {}),
     });
     setLoadingGoogle(false);
   };
@@ -42,7 +40,6 @@ export function LoginForm() {
       provider: "microsoft",
       errorCallbackURL: "/login/error",
       callbackURL: next && next.length > 0 ? next : WELCOME_PATH,
-      ...(error === "RequiresReconsent" ? { consent: true } : {}),
     });
     setLoadingMicrosoft(false);
   };
