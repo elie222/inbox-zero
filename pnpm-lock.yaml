@@ -407,8 +407,8 @@ importers:
         specifier: 2.15.2
         version: 2.15.2(@babel/core@7.28.5)(@babel/template@7.27.2)(@types/react@19.0.10)(react@19.2.1)
       jsdom:
-        specifier: 27.2.0
-        version: 27.2.0
+        specifier: 26.1.0
+        version: 26.1.0
       json5:
         specifier: 2.2.3
         version: 2.2.3
@@ -646,7 +646,7 @@ importers:
         version: 5.1.4(typescript@5.9.3)(vite@7.2.6(@types/node@24.10.1)(jiti@2.6.1)(terser@5.44.1)(tsx@4.21.0)(yaml@2.8.1))
       vitest:
         specifier: 4.0.15
-        version: 4.0.15(@opentelemetry/api@1.9.0)(@types/node@24.10.1)(@vitest/ui@4.0.15)(jiti@2.6.1)(jsdom@27.2.0)(terser@5.44.1)(tsx@4.21.0)(yaml@2.8.1)
+        version: 4.0.15(@opentelemetry/api@1.9.0)(@types/node@24.10.1)(@vitest/ui@4.0.15)(jiti@2.6.1)(jsdom@26.1.0)(terser@5.44.1)(tsx@4.21.0)(yaml@2.8.1)
       vitest-mock-extended:
         specifier: 3.1.0
         version: 3.1.0(typescript@5.9.3)(vitest@4.0.15)
@@ -8966,10 +8966,6 @@ packages:
   lru-cache@10.4.3:
     resolution: {integrity: sha512-JNAzZcXrCt42VGLuYz0zfAzDfAvJWW6AfYlDBQyDV5DClI2m5sAmK+OIO7s59XfsRsWHp02jAJrRadPRGTt6SQ==}
 
-  lru-cache@11.1.0:
-    resolution: {integrity: sha512-QIXZUBJUx+2zHUdQujWejBkcD9+cs94tLn0+YL8UrCh+D5sCXZ4c7LaEH48pNwRY3MLDgqUFyhlCyjJPf1WP0A==}
-    engines: {node: 20 || >=22}
-
   lru-cache@11.2.4:
     resolution: {integrity: sha512-B5Y16Jr9LB9dHVkh6ZevG+vAbOsNOYCX+sXvFWFu7B3Iz5mijW3zdbMyhsh8ANd2mSWBYdJgnqi+mL7/LrOPYg==}
     engines: {node: 20 || >=22}
@@ -12572,7 +12568,8 @@ packages:
 
 snapshots:
 
-  '@acemir/cssom@0.9.24': {}
+  '@acemir/cssom@0.9.24':
+    optional: true
 
   '@actions/core@1.11.1':
     dependencies:
@@ -12741,6 +12738,7 @@ snapshots:
       '@csstools/css-parser-algorithms': 3.0.5(@csstools/css-tokenizer@3.0.4)
       '@csstools/css-tokenizer': 3.0.4
       lru-cache: 11.2.4
+    optional: true
 
   '@asamuzakjp/dom-selector@6.7.5':
     dependencies:
@@ -12749,8 +12747,10 @@ snapshots:
       css-tree: 3.1.0
       is-potential-custom-element-name: 1.0.1
       lru-cache: 11.2.4
+    optional: true
 
-  '@asamuzakjp/nwsapi@2.3.9': {}
+  '@asamuzakjp/nwsapi@2.3.9':
+    optional: true
 
   '@asteasolutions/zod-to-openapi@8.1.0(zod@3.25.46)':
     dependencies:
@@ -14232,7 +14232,8 @@ snapshots:
     dependencies:
       '@csstools/css-tokenizer': 3.0.4
 
-  '@csstools/css-syntax-patches-for-csstree@1.0.20': {}
+  '@csstools/css-syntax-patches-for-csstree@1.0.20':
+    optional: true
 
   '@csstools/css-tokenizer@3.0.4': {}
 
@@ -18601,7 +18602,7 @@ snapshots:
       obug: 2.1.1
       std-env: 3.10.0
       tinyrainbow: 3.0.3
-      vitest: 4.0.15(@opentelemetry/api@1.9.0)(@types/node@24.10.1)(@vitest/ui@4.0.15)(jiti@2.6.1)(jsdom@27.2.0)(terser@5.44.1)(tsx@4.21.0)(yaml@2.8.1)
+      vitest: 4.0.15(@opentelemetry/api@1.9.0)(@types/node@24.10.1)(@vitest/ui@4.0.15)(jiti@2.6.1)(jsdom@26.1.0)(terser@5.44.1)(tsx@4.21.0)(yaml@2.8.1)
     transitivePeerDependencies:
       - supports-color
 
@@ -18696,7 +18697,7 @@ snapshots:
       sirv: 3.0.2
       tinyglobby: 0.2.15
       tinyrainbow: 3.0.3
-      vitest: 4.0.15(@opentelemetry/api@1.9.0)(@types/node@24.10.1)(@vitest/ui@4.0.15)(jiti@2.6.1)(jsdom@27.2.0)(terser@5.44.1)(tsx@4.21.0)(yaml@2.8.1)
+      vitest: 4.0.15(@opentelemetry/api@1.9.0)(@types/node@24.10.1)(@vitest/ui@4.0.15)(jiti@2.6.1)(jsdom@26.1.0)(terser@5.44.1)(tsx@4.21.0)(yaml@2.8.1)
 
   '@vitest/utils@3.2.4':
     dependencies:
@@ -19168,6 +19169,7 @@ snapshots:
   bidi-js@1.0.3:
     dependencies:
       require-from-string: 2.0.2
+    optional: true
 
   bignumber.js@9.3.1: {}
 
@@ -19780,6 +19782,7 @@ snapshots:
     dependencies:
       mdn-data: 2.12.2
       source-map-js: 1.2.1
+    optional: true
 
   css-what@6.2.2: {}
 
@@ -19795,6 +19798,7 @@ snapshots:
       '@asamuzakjp/css-color': 4.1.0
       '@csstools/css-syntax-patches-for-csstree': 1.0.20
       css-tree: 3.1.0
+    optional: true
 
   csstype@3.1.3: {}
 
@@ -20003,6 +20007,7 @@ snapshots:
     dependencies:
       whatwg-mimetype: 4.0.0
       whatwg-url: 15.1.0
+    optional: true
 
   dataloader@2.2.3: {}
 
@@ -21860,6 +21865,7 @@ snapshots:
       - bufferutil
       - supports-color
       - utf-8-validate
+    optional: true
 
   jsesc@3.0.2: {}
 
@@ -22096,8 +22102,6 @@ snapshots:
       highlight.js: 10.7.3
 
   lru-cache@10.4.3: {}
-
-  lru-cache@11.1.0: {}
 
   lru-cache@11.2.4: {}
 
@@ -22361,7 +22365,8 @@ snapshots:
     dependencies:
       '@types/mdast': 4.0.4
 
-  mdn-data@2.12.2: {}
+  mdn-data@2.12.2:
+    optional: true
 
   mdurl@2.0.0: {}
 
@@ -23330,6 +23335,7 @@ snapshots:
   parse5@8.0.0:
     dependencies:
       entities: 6.0.1
+    optional: true
 
   parseley@0.12.1:
     dependencies:
@@ -23368,7 +23374,7 @@ snapshots:
 
   path-scurry@2.0.0:
     dependencies:
-      lru-cache: 11.1.0
+      lru-cache: 11.2.4
       minipass: 7.1.2
 
   path-to-regexp@0.1.12: {}
@@ -25542,6 +25548,7 @@ snapshots:
   tough-cookie@6.0.0:
     dependencies:
       tldts: 7.0.19
+    optional: true
 
   tr46@0.0.3: {}
 
@@ -25556,6 +25563,7 @@ snapshots:
   tr46@6.0.0:
     dependencies:
       punycode: 2.3.1
+    optional: true
 
   trim-lines@3.0.1: {}
 
@@ -26064,7 +26072,7 @@ snapshots:
     dependencies:
       ts-essentials: 10.1.1(typescript@5.9.3)
       typescript: 5.9.3
-      vitest: 4.0.15(@opentelemetry/api@1.9.0)(@types/node@24.10.1)(@vitest/ui@4.0.15)(jiti@2.6.1)(jsdom@27.2.0)(terser@5.44.1)(tsx@4.21.0)(yaml@2.8.1)
+      vitest: 4.0.15(@opentelemetry/api@1.9.0)(@types/node@24.10.1)(@vitest/ui@4.0.15)(jiti@2.6.1)(jsdom@26.1.0)(terser@5.44.1)(tsx@4.21.0)(yaml@2.8.1)
 
   vitest@3.2.4(@types/debug@4.1.12)(@types/node@24.10.1)(@vitest/ui@3.2.4)(jiti@2.6.1)(jsdom@27.2.0)(terser@5.44.1)(tsx@4.21.0)(yaml@2.8.1):
     dependencies:
@@ -26150,6 +26158,46 @@ snapshots:
       - tsx
       - yaml
     optional: true
+
+  vitest@4.0.15(@opentelemetry/api@1.9.0)(@types/node@24.10.1)(@vitest/ui@4.0.15)(jiti@2.6.1)(jsdom@26.1.0)(terser@5.44.1)(tsx@4.21.0)(yaml@2.8.1):
+    dependencies:
+      '@vitest/expect': 4.0.15
+      '@vitest/mocker': 4.0.15(vite@7.1.11(@types/node@24.10.1)(jiti@2.6.1)(terser@5.44.1)(tsx@4.21.0)(yaml@2.8.1))
+      '@vitest/pretty-format': 4.0.15
+      '@vitest/runner': 4.0.15
+      '@vitest/snapshot': 4.0.15
+      '@vitest/spy': 4.0.15
+      '@vitest/utils': 4.0.15
+      es-module-lexer: 1.7.0
+      expect-type: 1.2.2
+      magic-string: 0.30.21
+      obug: 2.1.1
+      pathe: 2.0.3
+      picomatch: 4.0.3
+      std-env: 3.10.0
+      tinybench: 2.9.0
+      tinyexec: 1.0.2
+      tinyglobby: 0.2.15
+      tinyrainbow: 3.0.3
+      vite: 7.1.11(@types/node@24.10.1)(jiti@2.6.1)(terser@5.44.1)(tsx@4.21.0)(yaml@2.8.1)
+      why-is-node-running: 2.3.0
+    optionalDependencies:
+      '@opentelemetry/api': 1.9.0
+      '@types/node': 24.10.1
+      '@vitest/ui': 4.0.15(vitest@4.0.15)
+      jsdom: 26.1.0
+    transitivePeerDependencies:
+      - jiti
+      - less
+      - lightningcss
+      - msw
+      - sass
+      - sass-embedded
+      - stylus
+      - sugarss
+      - terser
+      - tsx
+      - yaml
 
   vitest@4.0.15(@opentelemetry/api@1.9.0)(@types/node@24.10.1)(@vitest/ui@4.0.15)(jiti@2.6.1)(jsdom@27.2.0)(terser@5.44.1)(tsx@4.21.0)(yaml@2.8.1):
     dependencies:
@@ -26248,7 +26296,8 @@ snapshots:
 
   webidl-conversions@7.0.0: {}
 
-  webidl-conversions@8.0.0: {}
+  webidl-conversions@8.0.0:
+    optional: true
 
   webpack-sources@3.3.3: {}
 
@@ -26303,6 +26352,7 @@ snapshots:
     dependencies:
       tr46: 6.0.0
       webidl-conversions: 8.0.0
+    optional: true
 
   whatwg-url@5.0.0:
     dependencies:

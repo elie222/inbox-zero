@@ -181,7 +181,7 @@
     "@types/email-reply-parser": "1.4.2",
     "@types/he": "1.2.3",
     "@types/html-to-text": "9.0.4",
-    "@types/jsdom": "26.1.0",
+    "@types/jsdom": "27.0.0",
     "@types/lodash": "4.17.21",
     "@types/mdx": "2.0.13",
     "@types/node": "24.10.1",
