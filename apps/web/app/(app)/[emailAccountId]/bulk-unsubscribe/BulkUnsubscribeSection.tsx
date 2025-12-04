@@ -5,7 +5,6 @@ import useSWR from "swr";
 import subDays from "date-fns/subDays";
 import { usePostHog } from "posthog-js/react";
 import { ArchiveIcon, FilterIcon } from "lucide-react";
-import sortBy from "lodash/sortBy";
 import type { DateRange } from "react-day-picker";
 import { LoadingContent } from "@/components/LoadingContent";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -70,15 +69,25 @@ export function BulkUnsubscribe() {
     defaultSelected.label,
   );
 
+  const now = useMemo(() => new Date(), []);
+
   const onSetDateDropdown = useCallback(
     (option: { label: string; value: string }) => {
-      const { label } = option;
+      const { label, value } = option;
       setDateDropdown(label);
+      // When "All" is selected (value "0"), set dateRange to undefined to skip date filtering
+      if (value === "0") {
+        setDateRange(undefined);
+      } else {
+        setDateRange({
+          from: subDays(now, Number.parseInt(value)),
+          to: now,
+        });
+      }
     },
-    [],
+    [now],
   );
 
-  const now = useMemo(() => new Date(), []);
   const [dateRange, setDateRange] = useState<DateRange | undefined>({
     from: subDays(now, Number.parseInt(defaultSelected.value)),
     to: now,
@@ -100,13 +109,18 @@ export function BulkUnsubscribe() {
   const { filtersArray, filters, setFilters } = useNewsletterFilter();
   const posthog = usePostHog();
 
+  const [search, setSearch] = useState("");
+
+  const { expanded, extra } = useExpanded();
+
   const params: NewsletterStatsQuery = {
     types: typesArray,
     filters: filtersArray,
     orderBy: sortColumn,
-    limit: 100,
+    limit: expanded ? 500 : 50,
     includeMissingUnsubscribe: true,
     ...getDateRangeParams(dateRange),
+    ...(search ? { search } : {}),
   };
   // biome-ignore lint/suspicious/noExplicitAny: simplest
   const urlParams = new URLSearchParams(params as any);
@@ -120,7 +134,6 @@ export function BulkUnsubscribe() {
 
   const { hasUnsubscribeAccess, mutate: refetchPremium } = usePremium();
 
-  const { expanded, extra } = useExpanded();
   const [openedNewsletter, setOpenedNewsletter] = useState<Newsletter>();
 
   const onOpenNewsletter = (newsletter: Newsletter) => {
@@ -142,8 +155,6 @@ export function BulkUnsubscribe() {
     emailAccountId,
   });
 
-  const [search, setSearch] = useState("");
-
   const { isLoading: isStatsLoading } = useStatLoader();
 
   const { userLabels } = useLabels();
@@ -154,25 +165,21 @@ export function BulkUnsubscribe() {
     ? BulkUnsubscribeRowMobile
     : BulkUnsubscribeRowDesktop;
 
-  const rows = data?.newsletters
-    ?.filter(
-      search
-        ? (item) =>
-            item.name.toLowerCase().includes(search.toLowerCase()) ||
-            item.unsubscribeLink?.toLowerCase().includes(search.toLowerCase())
-        : Boolean,
-    )
-    .slice(0, expanded ? undefined : 50);
+  // Data is now filtered, sorted, and limited by the backend
+  const rows = data?.newsletters;
 
   const { selected, isAllSelected, onToggleSelect, onToggleSelectAll } =
     useToggleSelect(rows?.map((item) => ({ id: item.name })) || []);
 
-  const unsortedTableRows = rows?.map((item) => {
-    const readPercentage = (item.readEmails / item.value) * 100;
+  // Backend now handles sorting, so we just map the rows in order
+  const tableRows = rows?.map((item) => {
+    const readPercentage =
+      item.value > 0 ? (item.readEmails / item.value) * 100 : 0;
     const archivedEmails = item.value - item.inboxEmails;
-    const archivedPercentage = (archivedEmails / item.value) * 100;
+    const archivedPercentage =
+      item.value > 0 ? (archivedEmails / item.value) * 100 : 0;
 
-    const row = (
+    return (
       <RowComponent
         key={item.name}
         item={item}
@@ -194,13 +201,6 @@ export function BulkUnsubscribe() {
         archivedPercentage={archivedPercentage}
       />
     );
-
-    return { row, readPercentage, archivedEmails, archivedPercentage };
-  });
-
-  const tableRows = sortBy(unsortedTableRows, (row) => {
-    if (sortColumn === "unread") return row.readPercentage;
-    if (sortColumn === "unarchived") return row.archivedPercentage;
   });
 
   const onlyUnhandled =
@@ -366,14 +366,12 @@ export function BulkUnsubscribe() {
             {tableRows?.length ? (
               <>
                 {isMobile ? (
-                  <BulkUnsubscribeMobile
-                    tableRows={tableRows.map((row) => row.row)}
-                  />
+                  <BulkUnsubscribeMobile tableRows={tableRows} />
                 ) : (
                   <BulkUnsubscribeDesktop
                     sortColumn={sortColumn}
                     setSortColumn={setSortColumn}
-                    tableRows={tableRows.map((row) => row.row)}
+                    tableRows={tableRows}
                     isAllSelected={isAllSelected}
                     onToggleSelectAll={onToggleSelectAll}
                   />
