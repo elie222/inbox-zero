@@ -395,7 +395,7 @@ function SetupPageContent({
       <div className="mb-4 sm:mb-8">
         <PageHeading className="text-center">Welcome to Inbox Zero</PageHeading>
         <SectionDescription className="mt-2 text-center text-base">
-          Here's an overview what's been happening in your inbox.
+          Here's an overview of what's been happening in your inbox.
         </SectionDescription>
       </div>
 
