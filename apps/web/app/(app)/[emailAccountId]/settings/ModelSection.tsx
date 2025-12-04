@@ -252,8 +252,8 @@ function ModelSectionForm(props: {
                 label="Server URL (optional)"
                 registerProps={register("aiBaseUrl")}
                 error={errors.aiBaseUrl}
-                placeholder="http://localhost:11434/api"
-                explainText="Custom Ollama or LM Studio server URL. Must include /api at the end. Save first, then refresh models."
+                placeholder="http://localhost:11434"
+                explainText="Custom Ollama or LM Studio server URL. Save first, then refresh models."
               />
               <Button
                 type="button"

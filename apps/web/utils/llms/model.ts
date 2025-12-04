@@ -156,11 +156,12 @@ function selectModel(
       }
 
       // Security: Only use user's custom URL if ALLOW_USER_AI_PROVIDER_URL is enabled
-      // Note: baseURL should include /api (e.g., http://localhost:11434/api)
-      const baseURL =
+      // Normalize URL - strip /api if present, then add it back
+      const rawUrl =
         allowUserAiProviderUrl && aiBaseUrl
           ? aiBaseUrl
-          : env.OLLAMA_BASE_URL || "http://localhost:11434/api";
+          : env.OLLAMA_BASE_URL || "http://localhost:11434";
+      const baseURL = `${rawUrl.replace(/\/api\/?$/, "")}/api`;
       const ollama = createOllama({ baseURL });
 
       return {

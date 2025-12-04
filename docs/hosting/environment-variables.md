@@ -60,7 +60,7 @@ cp apps/web/.env.example apps/web/.env
 | `BEDROCK_SECRET_KEY` | No | AWS secret key for Bedrock | — |
 | `BEDROCK_REGION` | No | AWS region for Bedrock | `us-west-2` |
 | **Ollama (Local LLM)** ||||
-| `OLLAMA_BASE_URL` | No | Ollama API endpoint. Must include `/api` (e.g., `http://localhost:11434/api`) | — |
+| `OLLAMA_BASE_URL` | No | Ollama server URL (e.g., `http://localhost:11434`) | — |
 | `NEXT_PUBLIC_OLLAMA_MODEL` | No | Model to use with Ollama | — |
 | `ALLOW_USER_AI_PROVIDER_URL` | No | ⚠️ **Security Risk** - Allow users to set custom AI provider URLs (Ollama/LM Studio). See [Security Warning](#allow_user_ai_provider_url-security) below. | `false` |
 | **Background Jobs (QStash)** ||||
@@ -102,7 +102,7 @@ For detailed setup instructions:
 
 ## Notes
 
-- If running the app in Docker and Ollama locally, use `http://host.docker.internal:11434/api` as the `OLLAMA_BASE_URL`.
+- If running the app in Docker and Ollama locally, use `http://host.docker.internal:11434` as the `OLLAMA_BASE_URL`.
 - When using Docker Compose with `--profile all`, database and Redis URLs are auto-configured. See the [Self-Hosting Guide](./self-hosting.md) for details.
 
 ## Security Warnings

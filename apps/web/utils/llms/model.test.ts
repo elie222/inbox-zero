@@ -176,7 +176,7 @@ describe("Models", () => {
       expect(result.modelName).toBe("llama3");
       expect(result.model).toBeDefined();
       expect(createOllama).toHaveBeenCalledWith({
-        baseURL: "http://localhost:11434",
+        baseURL: "http://localhost:11434/api",
       });
       expect(result.backupModel).toBeNull();
     });
