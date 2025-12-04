@@ -497,6 +497,8 @@ async function getOAuthClient(
     response_types: ["code"],
     token_endpoint_auth_method: "none", // Public client with PKCE
     scope: integrationConfig.scopes.join(" "),
+    logo_uri: "https://getinboxzero.com/icon.png",
+    tos_uri: "https://getinboxzero.com/terms",
   };
 
   const registered = await registerClient(metadata.registration_endpoint, {
