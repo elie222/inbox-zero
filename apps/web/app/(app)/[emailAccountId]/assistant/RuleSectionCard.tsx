@@ -73,7 +73,7 @@ export function RuleSectionCard({
 
         {errors && <div className="mt-2">{errors}</div>}
 
-        <div className="mt-4 space-y-2">{children}</div>
+        {children && <div className="mt-4 space-y-2">{children}</div>}
 
         {footerActions && <div className="mt-4">{footerActions}</div>}
       </div>
