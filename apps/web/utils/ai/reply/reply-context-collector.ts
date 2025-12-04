@@ -1,5 +1,5 @@
 import { tool } from "ai";
-import subMonths from "date-fns/subMonths";
+import { subMonths } from "date-fns/subMonths";
 import { z } from "zod";
 import { createScopedLogger } from "@/utils/logger";
 import { createGenerateText } from "@/utils/llms";

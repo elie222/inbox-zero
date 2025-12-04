@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import useSWR from "swr";
-import subDays from "date-fns/subDays";
+import { subDays } from "date-fns/subDays";
 import { usePostHog } from "posthog-js/react";
 import { ArchiveIcon, FilterIcon } from "lucide-react";
 import type { DateRange } from "react-day-picker";
