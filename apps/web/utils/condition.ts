@@ -47,17 +47,56 @@ export function getConditions(rule: RuleConditions) {
     conditions.push({
       type: ConditionType.AI,
       instructions: rule.instructions,
+      from: null,
+      to: null,
+      subject: null,
+      body: null,
     });
   }
 
   if (isStaticRule(rule)) {
-    conditions.push({
-      type: ConditionType.STATIC,
-      from: rule.from,
-      to: rule.to,
-      subject: rule.subject,
-      body: rule.body,
-    });
+    // Split static conditions into separate conditions for each populated field
+    // This matches the new UI where each condition has only one field
+    if (rule.from) {
+      conditions.push({
+        type: ConditionType.STATIC,
+        from: rule.from,
+        to: null,
+        subject: null,
+        body: null,
+        instructions: null,
+      });
+    }
+    if (rule.to) {
+      conditions.push({
+        type: ConditionType.STATIC,
+        from: null,
+        to: rule.to,
+        subject: null,
+        body: null,
+        instructions: null,
+      });
+    }
+    if (rule.subject) {
+      conditions.push({
+        type: ConditionType.STATIC,
+        from: null,
+        to: null,
+        subject: rule.subject,
+        body: null,
+        instructions: null,
+      });
+    }
+    if (rule.body) {
+      conditions.push({
+        type: ConditionType.STATIC,
+        from: null,
+        to: null,
+        subject: null,
+        body: rule.body,
+        instructions: null,
+      });
+    }
   }
 
   return conditions;
@@ -81,14 +120,20 @@ export function getEmptyCondition(type: CoreConditionType): ZodCondition {
       return {
         type: ConditionType.AI,
         instructions: "",
-      };
-    case ConditionType.STATIC:
-      return {
-        type: ConditionType.STATIC,
         from: null,
         to: null,
         subject: null,
         body: null,
+      };
+    case ConditionType.STATIC:
+      // Default to "from" field for new STATIC conditions
+      return {
+        type: ConditionType.STATIC,
+        from: "",
+        to: null,
+        subject: null,
+        body: null,
+        instructions: null,
       };
     default:
       // biome-ignore lint/correctness/noSwitchDeclarations: intentional exhaustive check
@@ -114,10 +159,12 @@ export const flattenConditions = (
         acc.instructions = condition.instructions;
         break;
       case ConditionType.STATIC:
-        acc.to = condition.to;
-        acc.from = condition.from;
-        acc.subject = condition.subject;
-        acc.body = condition.body;
+        // Merge fields from multiple STATIC conditions instead of overwriting
+        // Only set fields that have values (not null/empty)
+        if (condition.from) acc.from = condition.from;
+        if (condition.to) acc.to = condition.to;
+        if (condition.subject) acc.subject = condition.subject;
+        if (condition.body) acc.body = condition.body;
         break;
       default:
         logger.warn("Unknown condition type", { condition });

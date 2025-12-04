@@ -18,17 +18,29 @@ async function getSetupProgress({
 }: {
   emailAccountId: string;
 }) {
-  const emailAccount = await prisma.emailAccount.findUnique({
-    where: { id: emailAccountId },
-    select: {
-      rules: { select: { id: true }, take: 1 },
-      newsletters: {
-        where: { status: { not: null } },
-        take: 1,
-      },
-      calendarConnections: { select: { id: true }, take: 1 },
-    },
-  });
+  const [emailAccount, emailCount, executedRulesCount, inboxEmailCount] =
+    await Promise.all([
+      prisma.emailAccount.findUnique({
+        where: { id: emailAccountId },
+        select: {
+          rules: { select: { id: true }, take: 1 },
+          newsletters: {
+            where: { status: { not: null } },
+            take: 1,
+          },
+          calendarConnections: { select: { id: true }, take: 1 },
+        },
+      }),
+      prisma.emailMessage.count({
+        where: { emailAccountId },
+      }),
+      prisma.executedRule.count({
+        where: { emailAccountId },
+      }),
+      prisma.emailMessage.count({
+        where: { emailAccountId, inbox: true },
+      }),
+    ]);
 
   if (!emailAccount) {
     throw new Error("Email account not found");
@@ -43,10 +55,19 @@ async function getSetupProgress({
   const completed = Object.values(steps).filter(Boolean).length;
   const total = Object.keys(steps).length;
 
+  // Calculate inbox coverage: percentage of emails that have been handled (archived)
+  const inboxCoverage =
+    emailCount > 0
+      ? Math.round(((emailCount - inboxEmailCount) / emailCount) * 100)
+      : 0;
+
   return {
     steps,
     completed,
     total,
     isComplete: completed === total,
+    emailsProcessed: emailCount,
+    rulesExecuted: executedRulesCount,
+    inboxCoverage,
   };
 }
