@@ -180,11 +180,11 @@ async function getNewsletterCounts(
     Prisma.sql`"emailAccountId" = ${options.emailAccountId}`,
   );
 
-  // Add search filter if provided - use position() for literal substring matching
+  // Add search filter if provided - search both from (email) and fromName fields
   if (options.search) {
     const searchTerm = options.search.toLowerCase();
     whereConditions.push(
-      Prisma.sql`position(${searchTerm} in LOWER("from")) > 0`,
+      Prisma.sql`(position(${searchTerm} in LOWER("from")) > 0 OR position(${searchTerm} in LOWER(COALESCE("fromName", ''))) > 0)`,
     );
   }
 
