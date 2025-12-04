@@ -104,6 +104,21 @@ export function BulkUnsubscribe() {
   const [sortColumn, setSortColumn] = useState<
     "emails" | "unread" | "unarchived"
   >("emails");
+  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
+
+  const handleSort = useCallback(
+    (column: "emails" | "unread" | "unarchived") => {
+      if (sortColumn === column) {
+        // Toggle direction if clicking the same column
+        setSortDirection((prev) => (prev === "desc" ? "asc" : "desc"));
+      } else {
+        // Set new column with default desc direction
+        setSortColumn(column);
+        setSortDirection("desc");
+      }
+    },
+    [sortColumn],
+  );
 
   const { typesArray } = useEmailsToIncludeFilter();
   const { filtersArray, filters, setFilters } = useNewsletterFilter();
@@ -117,6 +132,7 @@ export function BulkUnsubscribe() {
     types: typesArray,
     filters: filtersArray,
     orderBy: sortColumn,
+    orderDirection: sortDirection,
     limit: expanded ? 500 : 50,
     includeMissingUnsubscribe: true,
     ...getDateRangeParams(dateRange),
@@ -370,7 +386,8 @@ export function BulkUnsubscribe() {
                 ) : (
                   <BulkUnsubscribeDesktop
                     sortColumn={sortColumn}
-                    setSortColumn={setSortColumn}
+                    sortDirection={sortDirection}
+                    onSort={handleSort}
                     tableRows={tableRows}
                     isAllSelected={isAllSelected}
                     onToggleSelectAll={onToggleSelectAll}

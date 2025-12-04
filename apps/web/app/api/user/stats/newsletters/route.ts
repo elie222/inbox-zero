@@ -18,6 +18,7 @@ const newsletterStatsQuery = z.object({
   fromDate: z.coerce.number().nullish(),
   toDate: z.coerce.number().nullish(),
   orderBy: z.enum(["emails", "unread", "unarchived"]).optional(),
+  orderDirection: z.enum(["asc", "desc"]).optional(),
   types: z
     .array(z.enum(["read", "unread", "archived", "unarchived", ""]))
     .transform((arr) => arr?.filter(Boolean)),
@@ -195,7 +196,7 @@ async function getNewsletterCounts(
 
   // Build order by clause (safe, no user input)
   const orderByClause = options.orderBy
-    ? getOrderByClause(options.orderBy)
+    ? getOrderByClause(options.orderBy, options.orderDirection)
     : '"count" DESC';
 
   // Build limit clause (safe, validated number)
@@ -242,18 +243,23 @@ async function getNewsletterCounts(
   }
 }
 
-function getOrderByClause(orderBy: string): string {
+function getOrderByClause(
+  orderBy: string,
+  orderDirection?: "asc" | "desc",
+): string {
+  const direction = orderDirection?.toUpperCase() || "DESC";
+
   switch (orderBy) {
     case "emails":
-      return '"count" DESC';
+      return `"count" ${direction}`;
     case "unread":
-      // Sort by read percentage ascending (lowest read % first = most unread)
-      return '"readEmails"::float / NULLIF("count", 0) ASC';
+      // Sort by read percentage (lower = more unread)
+      return `"readEmails"::float / NULLIF("count", 0) ${direction}`;
     case "unarchived":
-      // Sort by archived percentage ascending (lowest archived % first = most in inbox)
-      return '("count" - "inboxEmails")::float / NULLIF("count", 0) ASC';
+      // Sort by archived percentage (lower = more in inbox)
+      return `("count" - "inboxEmails")::float / NULLIF("count", 0) ${direction}`;
     default:
-      return '"count" DESC';
+      return `"count" ${direction}`;
   }
 }
 
@@ -269,6 +275,7 @@ export const GET = withEmailProvider(
       fromDate: searchParams.get("fromDate"),
       toDate: searchParams.get("toDate"),
       orderBy: searchParams.get("orderBy"),
+      orderDirection: searchParams.get("orderDirection") || undefined,
       types: searchParams.get("types")?.split(",") || [],
       filters: searchParams.get("filters")?.split(",") || [],
       includeMissingUnsubscribe:
