@@ -71,10 +71,11 @@ function selectModel(
       // When Zero Data Retention is enabled, set store: false to avoid
       // "Items are not persisted for Zero Data Retention organizations" errors
       // See: https://github.com/vercel/ai/issues/10060
+      const baseOptions = providerOptions ?? {};
       const openAiProviderOptions = env.OPENAI_ZERO_DATA_RETENTION
         ? {
-            ...providerOptions,
-            openai: { ...providerOptions?.openai, store: false },
+            ...baseOptions,
+            openai: { ...(baseOptions.openai ?? {}), store: false },
           }
         : providerOptions;
       return {
