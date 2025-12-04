@@ -173,9 +173,11 @@ export function BulkUnsubscribe() {
 
   // Backend now handles sorting, so we just map the rows in order
   const tableRows = rows?.map((item) => {
-    const readPercentage = (item.readEmails / item.value) * 100;
+    const readPercentage =
+      item.value > 0 ? (item.readEmails / item.value) * 100 : 0;
     const archivedEmails = item.value - item.inboxEmails;
-    const archivedPercentage = (archivedEmails / item.value) * 100;
+    const archivedPercentage =
+      item.value > 0 ? (archivedEmails / item.value) * 100 : 0;
 
     return (
       <RowComponent
