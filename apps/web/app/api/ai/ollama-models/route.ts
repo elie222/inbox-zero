@@ -1,6 +1,7 @@
-import { NextResponse, type NextRequest } from "next/server";
+import { NextResponse } from "next/server";
 import { env } from "@/env";
 import { allowUserAiProviderUrl } from "@/utils/llms/config";
+import { withEmailAccount } from "@/utils/middleware";
 
 export type OllamaModel = {
   name: string;
@@ -31,6 +32,8 @@ async function getOllamaModels(baseUrl: string): Promise<OllamaModel[]> {
     headers: {
       "Content-Type": "application/json",
     },
+    // Timeout after 10 seconds to prevent hanging requests
+    signal: AbortSignal.timeout(10_000),
   });
 
   if (!response.ok) {
@@ -41,25 +44,26 @@ async function getOllamaModels(baseUrl: string): Promise<OllamaModel[]> {
   return data.models || [];
 }
 
-export async function GET(req: NextRequest) {
+export const GET = withEmailAccount("api/ai/ollama-models", async (req) => {
   // Only allow custom URL if the feature is enabled via env var
   const { searchParams } = new URL(req.url);
   const customUrl = searchParams.get("baseUrl");
 
   // Security: Only use custom URL if ALLOW_USER_AI_PROVIDER_URL is enabled
+  // Note: URL should include /api (e.g., http://localhost:11434/api)
   const baseUrl =
     allowUserAiProviderUrl && customUrl
       ? customUrl
-      : env.OLLAMA_BASE_URL || "http://localhost:11434";
+      : env.OLLAMA_BASE_URL || "http://localhost:11434/api";
 
   try {
     const models = await getOllamaModels(baseUrl);
     return NextResponse.json(models);
   } catch (error) {
-    console.error("Failed to get Ollama models", { error });
+    req.logger.error("Failed to get Ollama models", { error });
     return NextResponse.json(
       { error: "Failed to fetch Ollama models" },
       { status: 500 },
     );
   }
-}
+});

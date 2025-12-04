@@ -50,6 +50,7 @@ cp apps/web/.env.example apps/web/.env
 | **LLM API Keys** ||||
 | `ANTHROPIC_API_KEY` | No | Anthropic API key | — |
 | `OPENAI_API_KEY` | No | OpenAI API key | — |
+| `OPENAI_BASE_URL` | No | Custom OpenAI-compatible API endpoint (e.g., LM Studio, LocalAI, vLLM) | — |
 | `GOOGLE_API_KEY` | No | Google Gemini API key | — |
 | `GROQ_API_KEY` | No | Groq API key | — |
 | `OPENROUTER_API_KEY` | No | OpenRouter API key | — |
@@ -59,7 +60,7 @@ cp apps/web/.env.example apps/web/.env
 | `BEDROCK_SECRET_KEY` | No | AWS secret key for Bedrock | — |
 | `BEDROCK_REGION` | No | AWS region for Bedrock | `us-west-2` |
 | **Ollama (Local LLM)** ||||
-| `OLLAMA_BASE_URL` | No | Ollama API endpoint (e.g., `http://localhost:11434/api`) | — |
+| `OLLAMA_BASE_URL` | No | Ollama API endpoint. Must include `/api` (e.g., `http://localhost:11434/api`) | — |
 | `NEXT_PUBLIC_OLLAMA_MODEL` | No | Model to use with Ollama | — |
 | `ALLOW_USER_AI_PROVIDER_URL` | No | ⚠️ **Security Risk** - Allow users to set custom AI provider URLs (Ollama/LM Studio). See [Security Warning](#allow_user_ai_provider_url-security) below. | `false` |
 | **Background Jobs (QStash)** ||||

@@ -205,7 +205,7 @@ describe("Models", () => {
       getModel(userAi);
 
       expect(createOllama).toHaveBeenCalledWith({
-        baseURL: "http://localhost:11434",
+        baseURL: "http://localhost:11434/api",
       });
     });
 

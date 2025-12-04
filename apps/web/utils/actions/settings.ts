@@ -55,7 +55,17 @@ export const updateAiSettingsAction = actionClientUser
                 aiApiKey: null,
                 aiBaseUrl: null,
               }
-            : { aiProvider, aiModel, aiApiKey, aiBaseUrl: aiBaseUrl || null },
+            : {
+                aiProvider,
+                aiModel,
+                aiApiKey,
+                // Only store aiBaseUrl for Ollama and OpenAI providers
+                aiBaseUrl:
+                  aiProvider === Provider.OLLAMA ||
+                  aiProvider === Provider.OPEN_AI
+                    ? aiBaseUrl || null
+                    : null,
+              },
       });
     },
   );

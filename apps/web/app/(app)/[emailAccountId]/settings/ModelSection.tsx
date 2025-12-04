@@ -33,7 +33,6 @@ import {
 
 export function ModelSection() {
   const { data, isLoading, error, mutate } = useUser();
-  const [ollamaUrl, setOllamaUrl] = useState<string | undefined>(undefined);
 
   const { data: dataModels, isLoading: isLoadingModels } =
     useSWR<OpenAiModelsResponse>(
@@ -43,9 +42,10 @@ export function ModelSection() {
     );
 
   // Build Ollama models URL with optional custom baseUrl parameter
+  // Use the user's saved aiBaseUrl if available
   const ollamaModelsUrl = supportsOllama
-    ? ollamaUrl
-      ? `/api/ai/ollama-models?baseUrl=${encodeURIComponent(ollamaUrl)}`
+    ? data?.aiBaseUrl
+      ? `/api/ai/ollama-models?baseUrl=${encodeURIComponent(data.aiBaseUrl)}`
       : "/api/ai/ollama-models"
     : null;
 
@@ -55,13 +55,10 @@ export function ModelSection() {
     mutate: mutateOllamaModels,
   } = useSWR<OllamaModel[]>(ollamaModelsUrl);
 
-  const refetchOllamaModels = useCallback(
-    (url?: string) => {
-      setOllamaUrl(url);
-      mutateOllamaModels();
-    },
-    [mutateOllamaModels],
-  );
+  // Refetch models - after saving, the user data will update and trigger a refetch
+  const refetchOllamaModels = useCallback(() => {
+    mutateOllamaModels();
+  }, [mutateOllamaModels]);
 
   return (
     <FormSection>
@@ -96,7 +93,7 @@ function ModelSectionForm(props: {
   aiBaseUrl: string | null;
   models?: OpenAiModelsResponse;
   refetchUser: () => void;
-  refetchOllamaModels: (url?: string) => void;
+  refetchOllamaModels: () => void;
   ollamaModels?: OllamaModel[];
   isLoadingOllamaModels?: boolean;
 }) {
@@ -242,20 +239,32 @@ function ModelSectionForm(props: {
                 label="Server URL (optional)"
                 registerProps={register("aiBaseUrl")}
                 error={errors.aiBaseUrl}
-                placeholder="http://localhost:11434"
-                explainText="Custom Ollama or LM Studio server URL. Leave empty to use the default."
+                placeholder="http://localhost:11434/api"
+                explainText="Custom Ollama or LM Studio server URL. Must include /api at the end. Save first, then refresh models."
               />
               <Button
                 type="button"
                 variant="outline"
                 size="sm"
-                onClick={() => refetchOllamaModels(aiBaseUrl || undefined)}
+                onClick={() => refetchOllamaModels()}
                 disabled={props.isLoadingOllamaModels}
               >
                 <RefreshCwIcon className="mr-2 size-4" />
                 {props.isLoadingOllamaModels ? "Loading..." : "Refresh models"}
               </Button>
             </div>
+          )}
+
+          {aiProvider === Provider.OPEN_AI && allowUserAiProviderUrl && (
+            <Input
+              type="text"
+              name="aiBaseUrl"
+              label="Server URL (optional)"
+              registerProps={register("aiBaseUrl")}
+              error={errors.aiBaseUrl}
+              placeholder="http://localhost:1234/v1"
+              explainText="Custom OpenAI-compatible server URL (e.g., LM Studio, LocalAI, vLLM). Leave empty to use OpenAI."
+            />
           )}
 
           {aiProvider !== Provider.OLLAMA && (

@@ -50,6 +50,19 @@ export const saveAiSettingsBody = z
         path: ["aiApiKey"],
       });
     }
+
+    // aiBaseUrl is only valid for Ollama and OpenAI providers (for LM Studio, LocalAI, etc.)
+    if (
+      val.aiBaseUrl &&
+      val.aiProvider !== Provider.OLLAMA &&
+      val.aiProvider !== Provider.OPEN_AI
+    ) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Server URL is only supported for Ollama and OpenAI providers",
+        path: ["aiBaseUrl"],
+      });
+    }
   });
 export type SaveAiSettingsBody = z.infer<typeof saveAiSettingsBody>;
 
