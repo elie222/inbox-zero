@@ -163,7 +163,11 @@ export function RuleForm({
     control,
     name: "conditions",
   });
-  const { append, remove } = useFieldArray({ control, name: "actions" });
+  const {
+    fields: actionFields,
+    append,
+    remove,
+  } = useFieldArray({ control, name: "actions" });
 
   const { userLabels, isLoading, mutate: mutateLabels } = useLabels();
   const { folders, isLoading: foldersLoading } = useFolders(provider);
@@ -460,7 +464,7 @@ export function RuleForm({
           footerActions={undefined}
         >
           <ActionSteps
-            actions={watch("actions") || []}
+            actionFields={actionFields}
             register={register}
             watch={watch}
             setValue={setValue}
@@ -646,7 +650,9 @@ export function ActionCard({
   folders: OutlookFolder[];
   foldersLoading: boolean;
 }) {
-  const fields = actionInputs[action.type].fields;
+  // Watch the action type from the form to ensure reactivity
+  const actionType = watch(`actions.${index}.type`);
+  const fields = actionInputs[actionType].fields;
   const [expandedFields, setExpandedFields] = useState(false);
 
   // Get expandable fields that should be visible regardless of expanded state
@@ -654,13 +660,13 @@ export function ActionCard({
 
   // Precompute content setManually state
   const contentSetManually =
-    action.type === ActionType.DRAFT_EMAIL
+    actionType === ActionType.DRAFT_EMAIL
       ? !!watch(`actions.${index}.content.setManually`)
       : false;
 
   const actionCanBeDelayed = useMemo(
-    () => canActionBeDelayed(action.type),
-    [action.type],
+    () => canActionBeDelayed(actionType),
+    [actionType],
   );
 
   const delayValue = watch(`actions.${index}.delayInMinutes`);
@@ -679,7 +685,7 @@ export function ActionCard({
     }
 
     // For draft email content, only allow variables if set manually
-    if (field.name === "content" && action.type === ActionType.DRAFT_EMAIL) {
+    if (field.name === "content" && actionType === ActionType.DRAFT_EMAIL) {
       return contentSetManually;
     }
 
@@ -709,7 +715,7 @@ export function ActionCard({
     if (!isFieldVisible) return false;
 
     // For draft email content, only show variables if set manually
-    if (field.name === "content" && action.type === ActionType.DRAFT_EMAIL) {
+    if (field.name === "content" && actionType === ActionType.DRAFT_EMAIL) {
       return contentSetManually;
     }
 
@@ -728,7 +734,8 @@ export function ActionCard({
         const SelectedIcon = selectedOption?.icon;
 
         const isLabelAction = field.value === ActionType.LABEL;
-        const isAiGenerated = !!action.labelId?.ai;
+        const labelIdValue = watch(`actions.${index}.labelId`);
+        const isAiGenerated = !!labelIdValue?.ai;
 
         return (
           <FormItem>
@@ -774,17 +781,18 @@ export function ActionCard({
   );
 
   const isEmailAction =
-    action.type === ActionType.DRAFT_EMAIL ||
-    action.type === ActionType.REPLY ||
-    action.type === ActionType.SEND_EMAIL ||
-    action.type === ActionType.FORWARD;
+    actionType === ActionType.DRAFT_EMAIL ||
+    actionType === ActionType.REPLY ||
+    actionType === ActionType.SEND_EMAIL ||
+    actionType === ActionType.FORWARD;
 
   // Separate fields into non-expandable and expandable
   const nonExpandableFields = fields.filter((field) => !field.expandable);
   const expandableFields = fields.filter((field) => field.expandable);
 
   const renderField = (field: (typeof fields)[number]) => {
-    const isAiGenerated = !!action[field.name]?.ai;
+    const fieldValue = watch(`actions.${index}.${field.name}`);
+    const isAiGenerated = !!fieldValue?.ai;
     // For AI-generated labelId, read from .name instead of .value
     const value =
       field.name === "labelId" && isAiGenerated
@@ -806,7 +814,7 @@ export function ActionCard({
         )}
       >
         <div>
-          {field.name === "labelId" && action.type === ActionType.LABEL ? (
+          {field.name === "labelId" && actionType === ActionType.LABEL ? (
             <div>
               <div className="flex items-center gap-2">
                 <Select
@@ -855,7 +863,7 @@ export function ActionCard({
                       mutate={mutate}
                       value={{
                         id: value,
-                        name: action.labelId?.name || null,
+                        name: fieldValue?.name || null,
                       }}
                       onChangeValue={(newValue: string) => {
                         setValue(
@@ -868,7 +876,7 @@ export function ActionCard({
                   </div>
                 )}
                 {actionCanBeDelayed &&
-                  action.type === ActionType.LABEL &&
+                  actionType === ActionType.LABEL &&
                   !delayEnabled && (
                     <Select
                       value="immediately"
@@ -895,7 +903,7 @@ export function ActionCard({
                   )}
               </div>
               {actionCanBeDelayed &&
-                action.type === ActionType.LABEL &&
+                actionType === ActionType.LABEL &&
                 delayEnabled && (
                   <div className="flex items-center gap-2 mt-2">
                     <Select
@@ -929,7 +937,7 @@ export function ActionCard({
                 )}
             </div>
           ) : field.name === "folderName" &&
-            action.type === ActionType.MOVE_FOLDER ? (
+            actionType === ActionType.MOVE_FOLDER ? (
             <div className="mt-2">
               <FolderSelector
                 folders={folders}
@@ -954,7 +962,7 @@ export function ActionCard({
               />
             </div>
           ) : field.name === "content" &&
-            action.type === ActionType.DRAFT_EMAIL &&
+            actionType === ActionType.DRAFT_EMAIL &&
             !setManually ? (
             <div className="flex h-full flex-col items-center justify-center gap-2 p-4 border rounded">
               <div className="max-w-sm text-center text-sm text-muted-foreground">
@@ -990,7 +998,7 @@ export function ActionCard({
               />
 
               {field.name === "content" &&
-                action.type === ActionType.DRAFT_EMAIL &&
+                actionType === ActionType.DRAFT_EMAIL &&
                 setManually && (
                   <Button
                     variant="link"
@@ -1020,7 +1028,7 @@ export function ActionCard({
                 placeholder={field.placeholder}
               />
               {field.name === "url" &&
-                action.type === ActionType.CALL_WEBHOOK && (
+                actionType === ActionType.CALL_WEBHOOK && (
                   <div className="mt-2">
                     <WebhookDocumentationLink />
                   </div>
@@ -1029,7 +1037,7 @@ export function ActionCard({
           )}
 
           {field.name === "labelId" &&
-            action.type === ActionType.LABEL &&
+            actionType === ActionType.LABEL &&
             errors?.actions?.[index]?.delayInMinutes && (
               <div className="mt-2">
                 <ErrorMessage
@@ -1107,10 +1115,10 @@ export function ActionCard({
   );
 
   const delayControls =
-    actionCanBeDelayed && action.type !== ActionType.LABEL ? (
+    actionCanBeDelayed && actionType !== ActionType.LABEL ? (
       <div className="">
-        {action.type === ActionType.ARCHIVE ||
-        action.type === ActionType.MARK_READ ? (
+        {actionType === ActionType.ARCHIVE ||
+        actionType === ActionType.MARK_READ ? (
           <div className="space-y-2">
             <div className="flex items-center space-x-2">
               <Select
@@ -1186,8 +1194,8 @@ export function ActionCard({
           </div>
         )}
 
-        {action.type !== ActionType.ARCHIVE &&
-          action.type !== ActionType.MARK_READ &&
+        {actionType !== ActionType.ARCHIVE &&
+          actionType !== ActionType.MARK_READ &&
           errors?.actions?.[index]?.delayInMinutes && (
             <div className="mt-2">
               <ErrorMessage

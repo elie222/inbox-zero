@@ -13,7 +13,7 @@ import type { OutlookFolder } from "@/utils/outlook/folders";
 import { ActionCard } from "@/app/(app)/[emailAccountId]/assistant/RuleForm";
 
 export function ActionSteps({
-  actions,
+  actionFields,
   register,
   watch,
   setValue,
@@ -29,7 +29,7 @@ export function ActionSteps({
   foldersLoading,
   append,
 }: {
-  actions: CreateRuleBody["actions"];
+  actionFields: Array<{ id: string } & CreateRuleBody["actions"][number]>;
   register: UseFormRegister<CreateRuleBody>;
   watch: UseFormWatch<CreateRuleBody>;
   setValue: UseFormSetValue<CreateRuleBody>;
@@ -51,10 +51,10 @@ export function ActionSteps({
       addButtonLabel="Add Action"
       addButtonDisabled={false}
     >
-      {actions?.map((action, i) => (
+      {actionFields?.map((field, i) => (
         <ActionCard
-          key={i}
-          action={action}
+          key={field.id}
+          action={field}
           index={i}
           register={register}
           watch={watch}
