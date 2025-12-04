@@ -158,6 +158,9 @@ export const getOutlookClientWithRefresh = async ({
       // AADSTS65001 = User hasn't consented to permissions
       // AADSTS500011 = Resource principal not found (scope issue)
       // AADSTS54005 = Authorization code already redeemed
+      // AADSTS50076 = MFA required (Conditional Access policy)
+      // AADSTS50079 = MFA registration required
+      // AADSTS50158 = External security challenge not satisfied
       // invalid_grant = General token refresh failure
       const requiresReauth =
         errorMessage.includes("AADSTS70000") ||
@@ -168,6 +171,9 @@ export const getOutlookClientWithRefresh = async ({
         errorMessage.includes("AADSTS65001") ||
         errorMessage.includes("AADSTS500011") ||
         errorMessage.includes("AADSTS54005") ||
+        errorMessage.includes("AADSTS50076") ||
+        errorMessage.includes("AADSTS50079") ||
+        errorMessage.includes("AADSTS50158") ||
         errorMessage.includes("invalid_grant");
 
       if (requiresReauth) {
