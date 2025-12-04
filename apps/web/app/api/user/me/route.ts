@@ -3,6 +3,7 @@ import prisma from "@/utils/prisma";
 import { withError } from "@/utils/middleware";
 import { SafeError } from "@/utils/error";
 import { auth } from "@/utils/auth";
+import { supportsOllama, allowUserAiProviderUrl } from "@/utils/llms/config";
 
 export type UserResponse = Awaited<ReturnType<typeof getUser>> | null;
 
@@ -62,6 +63,9 @@ async function getUser({ userId }: { userId: string }) {
   return {
     ...user,
     members,
+    // Server-side config passed to client
+    supportsOllama,
+    allowUserAiProviderUrl,
   };
 }
 

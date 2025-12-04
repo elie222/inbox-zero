@@ -34,7 +34,19 @@ const baseProviderOptions: { label: string; value: string }[] = [
   { label: "AI Gateway", value: Provider.AI_GATEWAY },
 ];
 
+// Function to get provider options based on Ollama support
+// Use this on client components where supportsOllama is passed from server
+export function getProviderOptions(
+  ollamaSupported: boolean,
+): { label: string; value: string }[] {
+  return ollamaSupported
+    ? [...baseProviderOptions, { label: "Ollama", value: Provider.OLLAMA }]
+    : baseProviderOptions;
+}
+
 // Only include Ollama in provider options if it's supported
+// NOTE: This static export should only be used on server-side code.
+// For client components, use getProviderOptions() with supportsOllama from API.
 export const providerOptions: { label: string; value: string }[] =
   supportsOllama
     ? [...baseProviderOptions, { label: "Ollama", value: Provider.OLLAMA }]

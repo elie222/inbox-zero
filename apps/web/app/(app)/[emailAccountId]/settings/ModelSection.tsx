@@ -21,9 +21,7 @@ import { AlertBasic, AlertError } from "@/components/Alert";
 import {
   DEFAULT_PROVIDER,
   Provider,
-  providerOptions,
-  supportsOllama,
-  allowUserAiProviderUrl,
+  getProviderOptions,
 } from "@/utils/llms/config";
 import { useUser } from "@/hooks/useUser";
 import {
@@ -33,6 +31,11 @@ import {
 
 export function ModelSection() {
   const { data, isLoading, error, mutate } = useUser();
+
+  // Get server-side config from API response
+  const supportsOllama = data?.supportsOllama ?? false;
+  const allowUserAiProviderUrl = data?.allowUserAiProviderUrl ?? false;
+  const providerOptions = getProviderOptions(supportsOllama);
 
   const { data: dataModels, isLoading: isLoadingModels } =
     useSWR<OpenAiModelsResponse>(
@@ -80,6 +83,8 @@ export function ModelSection() {
             isLoadingOllamaModels={isLoadingOllamaModels}
             refetchUser={mutate}
             refetchOllamaModels={refetchOllamaModels}
+            providerOptions={providerOptions}
+            allowUserAiProviderUrl={allowUserAiProviderUrl}
           />
         )}
       </LoadingContent>
@@ -97,8 +102,15 @@ function ModelSectionForm(props: {
   refetchOllamaModels: () => void;
   ollamaModels?: OllamaModel[];
   isLoadingOllamaModels?: boolean;
+  providerOptions: { label: string; value: string }[];
+  allowUserAiProviderUrl: boolean;
 }) {
-  const { refetchUser, refetchOllamaModels } = props;
+  const {
+    refetchUser,
+    refetchOllamaModels,
+    providerOptions,
+    allowUserAiProviderUrl,
+  } = props;
 
   // If user's saved provider is no longer available (e.g., Ollama disabled), reset to default
   const getInitialProvider = () => {
@@ -107,7 +119,7 @@ function ModelSectionForm(props: {
 
     // Check if the saved provider is still in the available options
     const isProviderAvailable = providerOptions.some(
-      (opt) => opt.value === savedProvider,
+      (opt: { label: string; value: string }) => opt.value === savedProvider,
     );
     return isProviderAvailable ? savedProvider : DEFAULT_PROVIDER;
   };
