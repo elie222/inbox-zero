@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import subDays from "date-fns/subDays";
+import { subDays } from "date-fns/subDays";
 import prisma from "@/utils/prisma";
 import { withError } from "@/utils/middleware";
 import { env } from "@/env";
