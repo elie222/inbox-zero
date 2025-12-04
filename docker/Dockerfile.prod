@@ -15,7 +15,6 @@ COPY packages/resend/package.json packages/resend/package.json
 COPY packages/tinybird/package.json packages/tinybird/package.json
 COPY packages/tinybird-ai-analytics/package.json packages/tinybird-ai-analytics/package.json
 COPY packages/tsconfig/package.json packages/tsconfig/package.json
-COPY patches/ patches/
 
 # Copy Prisma schema file needed for postinstall script
 COPY apps/web/prisma/schema.prisma apps/web/prisma/schema.prisma
