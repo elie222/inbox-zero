@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import format from "date-fns/format";
+import { format } from "date-fns/format";
 import { z } from "zod";
 import sumBy from "lodash/sumBy";
 import { zodPeriod } from "@inboxzero/tinybird";

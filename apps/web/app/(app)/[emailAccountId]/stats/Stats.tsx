@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useCallback, useEffect } from "react";
 import type { DateRange } from "react-day-picker";
-import subDays from "date-fns/subDays";
+import { subDays } from "date-fns/subDays";
 import { EmailAnalytics } from "@/app/(app)/[emailAccountId]/stats/EmailAnalytics";
 import { StatsSummary } from "@/app/(app)/[emailAccountId]/stats/StatsSummary";
 import { StatsOnboarding } from "@/app/(app)/[emailAccountId]/stats/StatsOnboarding";

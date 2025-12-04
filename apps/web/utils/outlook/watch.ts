@@ -1,6 +1,6 @@
 import type { Client } from "@microsoft/microsoft-graph-client";
 import type { Subscription } from "@microsoft/microsoft-graph-types";
-import addDays from "date-fns/addDays";
+import { addDays } from "date-fns/addDays";
 import { env } from "@/env";
 import { withOutlookRetry } from "@/utils/outlook/retry";
 
