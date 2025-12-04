@@ -15,11 +15,13 @@ import {
 } from "@/utils/actions/settings.validation";
 import { Select } from "@/components/Select";
 import type { OpenAiModelsResponse } from "@/app/api/ai/models/route";
+import type { OllamaModel } from "@/app/api/ai/ollama-models/route";
 import { AlertBasic, AlertError } from "@/components/Alert";
 import {
   DEFAULT_PROVIDER,
   Provider,
   providerOptions,
+  supportsOllama,
 } from "@/utils/llms/config";
 import { useUser } from "@/hooks/useUser";
 import {
@@ -37,6 +39,10 @@ export function ModelSection() {
         : null,
     );
 
+  const { data: ollamaModels, isLoading: isLoadingOllamaModels } = useSWR<
+    OllamaModel[]
+  >(supportsOllama ? "/api/ai/ollama-models" : null);
+
   return (
     <FormSection>
       <FormSectionLeft
@@ -44,13 +50,17 @@ export function ModelSection() {
         description="Use the default model at no cost, or choose a custom model with your own API key."
       />
 
-      <LoadingContent loading={isLoading || isLoadingModels} error={error}>
+      <LoadingContent
+        loading={isLoading || isLoadingModels || isLoadingOllamaModels}
+        error={error}
+      >
         {data && (
           <ModelSectionForm
             aiProvider={data.aiProvider}
             aiModel={data.aiModel}
             aiApiKey={data.aiApiKey}
             models={dataModels}
+            ollamaModels={ollamaModels}
             refetchUser={mutate}
           />
         )}
@@ -64,6 +74,7 @@ function ModelSectionForm(props: {
   aiModel: SaveAiSettingsBody["aiModel"] | null;
   aiApiKey: SaveAiSettingsBody["aiApiKey"] | null;
   models?: OpenAiModelsResponse;
+  ollamaModels?: OllamaModel[];
   refetchUser: () => void;
 }) {
   const { refetchUser } = props;
@@ -146,13 +157,24 @@ function ModelSectionForm(props: {
 
   const globalError = (errors as any)[""];
 
-  const modelSelectOptions =
+  const openAiModelOptions =
     aiProvider === Provider.OPEN_AI && watch("aiApiKey")
       ? props.models?.map((m) => ({
           label: m.id,
           value: m.id,
         })) || []
       : [];
+
+  const ollamaModelOptions =
+    aiProvider === Provider.OLLAMA
+      ? props.ollamaModels?.map((m) => ({
+          label: `${m.name} (${m.details?.parameter_size || "unknown size"})`,
+          value: m.name,
+        })) || []
+      : [];
+
+  const modelSelectOptions =
+    aiProvider === Provider.OLLAMA ? ollamaModelOptions : openAiModelOptions;
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
@@ -179,16 +201,23 @@ function ModelSectionForm(props: {
               label="Model"
               registerProps={register("aiModel")}
               error={errors.aiModel}
+              placeholder={
+                aiProvider === Provider.OLLAMA
+                  ? "e.g., llama3, mistral"
+                  : undefined
+              }
             />
           )}
 
-          <Input
-            type="password"
-            name="aiApiKey"
-            label="API Key"
-            registerProps={register("aiApiKey")}
-            error={errors.aiApiKey}
-          />
+          {aiProvider !== Provider.OLLAMA && (
+            <Input
+              type="password"
+              name="aiApiKey"
+              label="API Key"
+              registerProps={register("aiApiKey")}
+              error={errors.aiApiKey}
+            />
+          )}
         </>
       )}
 
@@ -198,7 +227,7 @@ function ModelSectionForm(props: {
 
       {watch("aiProvider") === Provider.OPEN_AI &&
         watch("aiApiKey") &&
-        modelSelectOptions.length === 0 &&
+        openAiModelOptions.length === 0 &&
         (props.aiApiKey ? (
           <AlertError
             title="Invalid API Key"
@@ -210,6 +239,14 @@ function ModelSectionForm(props: {
             description="Click Save to view available models for your API key."
           />
         ))}
+
+      {watch("aiProvider") === Provider.OLLAMA &&
+        ollamaModelOptions.length === 0 && (
+          <AlertBasic
+            title="No Ollama models found"
+            description="Make sure Ollama is running and has models installed. You can also type the model name manually above."
+          />
+        )}
 
       <div className="flex gap-2">
         <Button type="submit" loading={isSubmitting}>
