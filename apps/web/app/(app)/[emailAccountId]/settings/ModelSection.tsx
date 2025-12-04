@@ -119,7 +119,7 @@ function ModelSectionForm(props: {
 
     // Check if the saved provider is still in the available options
     const isProviderAvailable = providerOptions.some(
-      (opt: { label: string; value: string }) => opt.value === savedProvider,
+      (opt) => opt.value === savedProvider,
     );
     return isProviderAvailable ? savedProvider : DEFAULT_PROVIDER;
   };
