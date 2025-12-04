@@ -22,7 +22,7 @@ import {
   DEFAULT_PROVIDER,
   Provider,
   getProviderOptions,
-} from "@/utils/llms/config";
+} from "@/utils/llms/config.shared";
 import { useUser } from "@/hooks/useUser";
 import {
   testAiSettingsAction,
