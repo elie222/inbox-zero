@@ -1,18 +1,23 @@
 "use server";
 
+import { generateText } from "ai";
 import { actionClient } from "@/utils/actions/safe-action";
 import {
   saveAiSettingsBody,
+  type SaveAiSettingsBody,
   saveEmailUpdateSettingsBody,
   saveDigestScheduleBody,
   updateDigestItemsBody,
 } from "@/utils/actions/settings.validation";
-import { DEFAULT_PROVIDER } from "@/utils/llms/config";
+import { DEFAULT_PROVIDER, Provider } from "@/utils/llms/config";
 import prisma from "@/utils/prisma";
 import { calculateNextScheduleDate } from "@/utils/schedule";
 import { actionClientUser } from "@/utils/actions/safe-action";
 import { ActionType } from "@/generated/prisma/enums";
 import type { Prisma } from "@/generated/prisma/client";
+import { getModel } from "@/utils/llms/model";
+import type { UserAIFields } from "@/utils/llms/types";
+import { SafeError } from "@/utils/error";
 
 export const updateEmailSettingsAction = actionClient
   .metadata({ name: "updateEmailSettings" })
@@ -49,6 +54,44 @@ export const updateAiSettingsAction = actionClientUser
       });
     },
   );
+
+export const testAiSettingsAction = actionClientUser
+  .metadata({ name: "testAiSettings" })
+  .inputSchema(saveAiSettingsBody)
+  .action(async ({ parsedInput, ctx }) => {
+    try {
+      const userAi = toUserAiFields(parsedInput);
+      const modelOptions = getModel(userAi);
+
+      await generateText({
+        model: modelOptions.model,
+        prompt: "Inbox Zero AI connection test",
+        temperature: 0,
+        maxOutputTokens: 5,
+        ...(modelOptions.providerOptions
+          ? { providerOptions: modelOptions.providerOptions }
+          : {}),
+      });
+
+      return {
+        success: true,
+        provider: modelOptions.provider,
+        model: modelOptions.modelName,
+      };
+    } catch (error) {
+      ctx.logger.error("AI connection test failed", {
+        provider: parsedInput.aiProvider,
+        model: parsedInput.aiModel,
+        error,
+      });
+
+      const message =
+        error instanceof Error && error.message
+          ? error.message
+          : "Unable to reach the selected AI provider. Please verify your settings.";
+      throw new SafeError(message);
+    }
+  });
 
 export const updateDigestScheduleAction = actionClient
   .metadata({ name: "updateDigestSchedule" })
@@ -133,3 +176,16 @@ export const updateDigestItemsAction = actionClient
       return { success: true };
     },
   );
+
+function toUserAiFields(input: SaveAiSettingsBody): UserAIFields {
+  if (input.aiProvider === DEFAULT_PROVIDER) {
+    return { aiProvider: null, aiModel: null, aiApiKey: null };
+  }
+
+  return {
+    aiProvider: input.aiProvider,
+    aiModel: input.aiModel || null,
+    aiApiKey:
+      input.aiProvider === Provider.OLLAMA ? null : (input.aiApiKey ?? null),
+  };
+}

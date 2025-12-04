@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback } from "react";
+import { useCallback, useState } from "react";
 import { type SubmitHandler, useForm } from "react-hook-form";
 import useSWR from "swr";
 import { Button } from "@/components/ui/button";
@@ -22,7 +22,10 @@ import {
   providerOptions,
 } from "@/utils/llms/config";
 import { useUser } from "@/hooks/useUser";
-import { updateAiSettingsAction } from "@/utils/actions/settings";
+import {
+  testAiSettingsAction,
+  updateAiSettingsAction,
+} from "@/utils/actions/settings";
 
 export function ModelSection() {
   const { data, isLoading, error, mutate } = useUser();
@@ -79,6 +82,7 @@ function ModelSectionForm(props: {
     },
   });
 
+  const [isTesting, setIsTesting] = useState(false);
   const aiProvider = watch("aiProvider");
 
   const onSubmit: SubmitHandler<SaveAiSettingsBody> = useCallback(
@@ -99,6 +103,45 @@ function ModelSectionForm(props: {
       refetchUser();
     },
     [refetchUser],
+  );
+
+  const handleTestConnection = useCallback(
+    () =>
+      handleSubmit(async (data) => {
+        setIsTesting(true);
+
+        try {
+          const res = await testAiSettingsAction(data);
+
+          if (res?.serverError) {
+            toastError({ description: res.serverError });
+          } else if (res?.validationErrors) {
+            toastError({
+              description: "Please fix the highlighted errors before testing.",
+            });
+          } else if (res?.data?.success) {
+            const descriptor =
+              res.data.model ?? res.data.provider ?? "your AI settings";
+            toastSuccess({
+              description: `Connection successful for ${descriptor}.`,
+            });
+          } else {
+            toastError({
+              description: "Unable to test the AI connection.",
+            });
+          }
+        } catch (error) {
+          toastError({
+            description:
+              error instanceof Error
+                ? error.message
+                : "Unable to test the AI connection.",
+          });
+        } finally {
+          setIsTesting(false);
+        }
+      })(),
+    [handleSubmit],
   );
 
   const globalError = (errors as any)[""];
@@ -168,9 +211,20 @@ function ModelSectionForm(props: {
           />
         ))}
 
-      <Button type="submit" loading={isSubmitting}>
-        Save
-      </Button>
+      <div className="flex gap-2">
+        <Button type="submit" loading={isSubmitting}>
+          Save
+        </Button>
+        <Button
+          type="button"
+          variant="outline"
+          onClick={handleTestConnection}
+          loading={isTesting}
+          disabled={isSubmitting}
+        >
+          Test connection
+        </Button>
+      </div>
     </form>
   );
 }
