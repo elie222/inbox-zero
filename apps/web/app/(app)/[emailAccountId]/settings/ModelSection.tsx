@@ -42,12 +42,13 @@ export function ModelSection() {
     );
 
   // Build Ollama models URL with optional custom baseUrl parameter
-  // Use the user's saved aiBaseUrl if available
-  const ollamaModelsUrl = supportsOllama
-    ? data?.aiBaseUrl
-      ? `/api/ai/ollama-models?baseUrl=${encodeURIComponent(data.aiBaseUrl)}`
-      : "/api/ai/ollama-models"
-    : null;
+  // Only fetch when user has Ollama selected and it's supported
+  const ollamaModelsUrl =
+    supportsOllama && data?.aiProvider === Provider.OLLAMA
+      ? data?.aiBaseUrl
+        ? `/api/ai/ollama-models?baseUrl=${encodeURIComponent(data.aiBaseUrl)}`
+        : "/api/ai/ollama-models"
+      : null;
 
   const {
     data: ollamaModels,
@@ -99,6 +100,18 @@ function ModelSectionForm(props: {
 }) {
   const { refetchUser, refetchOllamaModels } = props;
 
+  // If user's saved provider is no longer available (e.g., Ollama disabled), reset to default
+  const getInitialProvider = () => {
+    const savedProvider = props.aiProvider;
+    if (!savedProvider) return DEFAULT_PROVIDER;
+
+    // Check if the saved provider is still in the available options
+    const isProviderAvailable = providerOptions.some(
+      (opt) => opt.value === savedProvider,
+    );
+    return isProviderAvailable ? savedProvider : DEFAULT_PROVIDER;
+  };
+
   const {
     register,
     handleSubmit,
@@ -107,7 +120,7 @@ function ModelSectionForm(props: {
   } = useForm<SaveAiSettingsBody>({
     resolver: zodResolver(saveAiSettingsBody),
     defaultValues: {
-      aiProvider: props.aiProvider ?? DEFAULT_PROVIDER,
+      aiProvider: getInitialProvider(),
       aiModel: props.aiModel ?? "",
       aiApiKey: props.aiApiKey ?? undefined,
       aiBaseUrl: props.aiBaseUrl ?? "",

@@ -8,7 +8,11 @@ import { createOpenRouter } from "@openrouter/ai-sdk-provider";
 import { createGateway } from "@ai-sdk/gateway";
 import { createOllama } from "ollama-ai-provider-v2";
 import { env } from "@/env";
-import { Provider, allowUserAiProviderUrl } from "@/utils/llms/config";
+import {
+  Provider,
+  allowUserAiProviderUrl,
+  supportsOllama,
+} from "@/utils/llms/config";
 import type { UserAIFields } from "@/utils/llms/types";
 import { createScopedLogger } from "@/utils/logger";
 
@@ -310,9 +314,17 @@ function selectDefaultModel(userAi: UserAIFields): SelectModel {
 
   const providerOptions: Record<string, any> = {};
 
-  // If user has not api key set, then use default model
-  // If they do they can use the model of their choice
-  if (aiApiKey || userAi.aiProvider === Provider.OLLAMA) {
+  // Check if user's selected provider is still valid
+  // (e.g., Ollama may have been disabled after user selected it)
+  const isUserProviderValid =
+    userAi.aiProvider !== Provider.OLLAMA || supportsOllama;
+
+  // If user has an API key set, or has Ollama (which doesn't need API key),
+  // and their provider is still valid, use their settings
+  if (
+    (aiApiKey || userAi.aiProvider === Provider.OLLAMA) &&
+    isUserProviderValid
+  ) {
     aiProvider = userAi.aiProvider || env.DEFAULT_LLM_PROVIDER;
     aiModel = userAi.aiModel || null;
   } else {

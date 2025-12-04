@@ -202,6 +202,11 @@ function toUserAiFields(input: SaveAiSettingsBody): UserAIFields {
     aiModel: input.aiModel || null,
     aiApiKey:
       input.aiProvider === Provider.OLLAMA ? null : (input.aiApiKey ?? null),
-    aiBaseUrl: input.aiBaseUrl || null,
+    // Only use aiBaseUrl for providers that support custom URLs
+    aiBaseUrl:
+      input.aiProvider === Provider.OLLAMA ||
+      input.aiProvider === Provider.OPEN_AI
+        ? input.aiBaseUrl || null
+        : null,
   };
 }
