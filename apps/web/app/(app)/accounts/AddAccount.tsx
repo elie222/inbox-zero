@@ -5,38 +5,21 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { toastError } from "@/components/Toast";
 import Image from "next/image";
-import type { GetAuthLinkUrlResponse } from "@/app/api/google/linking/auth-url/route";
-import type { GetOutlookAuthLinkUrlResponse } from "@/app/api/outlook/linking/auth-url/route";
 import { TypographyP } from "@/components/Typography";
+import { getAccountLinkingUrl } from "@/utils/account-linking";
 
 export function AddAccount() {
   const [isLoadingGoogle, setIsLoadingGoogle] = useState(false);
   const [isLoadingMicrosoft, setIsLoadingMicrosoft] = useState(false);
 
-  const handleAddAccount = async (provider: "google" | "outlook") => {
+  const handleAddAccount = async (provider: "google" | "microsoft") => {
     const setLoading =
       provider === "google" ? setIsLoadingGoogle : setIsLoadingMicrosoft;
     setLoading(true);
 
     try {
-      const response = await fetch(`/api/${provider}/linking/auth-url`, {
-        method: "GET",
-        headers: { "Content-Type": "application/json" },
-      });
-
-      if (!response.ok) {
-        toastError({
-          title: `Error initiating ${provider === "google" ? "Google" : "Microsoft"} link`,
-          description: "Please try again or contact support",
-        });
-        setLoading(false);
-        return;
-      }
-
-      const data: GetAuthLinkUrlResponse | GetOutlookAuthLinkUrlResponse =
-        await response.json();
-
-      window.location.href = data.url;
+      const url = await getAccountLinkingUrl(provider);
+      window.location.href = url;
     } catch (error) {
       console.error(`Error initiating ${provider} link:`, error);
       toastError({
@@ -69,7 +52,7 @@ export function AddAccount() {
         <Button
           variant="outline"
           className="w-full"
-          onClick={() => handleAddAccount("outlook")}
+          onClick={() => handleAddAccount("microsoft")}
           loading={isLoadingMicrosoft}
           disabled={isLoadingGoogle || isLoadingMicrosoft}
         >

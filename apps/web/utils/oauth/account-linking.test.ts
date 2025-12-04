@@ -6,6 +6,11 @@ import { createScopedLogger } from "@/utils/logger";
 
 const logger = createScopedLogger("test");
 
+vi.mock("@/env", () => ({
+  env: {
+    NEXT_PUBLIC_BASE_URL: "http://localhost:3000",
+  },
+}));
 vi.mock("@/utils/prisma");
 vi.mock("@/utils/user/orphaned-account");
 
@@ -27,7 +32,6 @@ describe("handleAccountLinking", () => {
       targetUserId: "target-user-id",
       provider: "google",
       providerEmail: "test@gmail.com",
-      baseUrl: "http://localhost:3000",
       logger,
     });
 
@@ -46,14 +50,13 @@ describe("handleAccountLinking", () => {
       targetUserId: "target-user-id",
       provider: "google",
       providerEmail: "new@gmail.com",
-      baseUrl: "http://localhost:3000",
       logger,
     });
 
     expect(result).toEqual({ type: "continue_create" });
   });
 
-  it("should redirect with error when account already linked to self", async () => {
+  it("should return update_tokens when account already linked to self", async () => {
     const result = await handleAccountLinking({
       existingAccountId: "account-id",
       hasEmailAccount: true,
@@ -61,15 +64,13 @@ describe("handleAccountLinking", () => {
       targetUserId: "same-user-id",
       provider: "google",
       providerEmail: "test@gmail.com",
-      baseUrl: "http://localhost:3000",
       logger,
     });
 
-    expect(result.type).toBe("redirect");
-    if (result.type === "redirect") {
-      const url = new URL(result.response.headers.get("location") || "");
-      expect(url.searchParams.get("error")).toBe("already_linked_to_self");
-    }
+    expect(result).toEqual({
+      type: "update_tokens",
+      existingAccountId: "account-id",
+    });
   });
 
   it("should return merge when account exists for different user", async () => {
@@ -80,7 +81,6 @@ describe("handleAccountLinking", () => {
       targetUserId: "target-user-id",
       provider: "google",
       providerEmail: "test@gmail.com",
-      baseUrl: "http://localhost:3000",
       logger,
     });
 
@@ -106,7 +106,6 @@ describe("handleAccountLinking", () => {
       targetUserId: "target-user-id",
       provider: "google",
       providerEmail: "existing@gmail.com",
-      baseUrl: "http://localhost:3000",
       logger,
     });
 

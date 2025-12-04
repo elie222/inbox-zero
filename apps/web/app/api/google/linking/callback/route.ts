@@ -208,6 +208,41 @@ export const GET = withError("google/linking/callback", async (request) => {
       return successResponse;
     }
 
+    if (linkingResult.type === "update_tokens") {
+      logger.info("Updating tokens for existing Google account", {
+        email: providerEmail,
+        targetUserId,
+        accountId: linkingResult.existingAccountId,
+      });
+
+      await prisma.account.update({
+        where: { id: linkingResult.existingAccountId },
+        data: {
+          access_token: tokens.access_token,
+          refresh_token: tokens.refresh_token,
+          expires_at: tokens.expiry_date ? new Date(tokens.expiry_date) : null,
+          scope: tokens.scope,
+          token_type: tokens.token_type,
+          id_token: tokens.id_token,
+        },
+      });
+
+      logger.info("Successfully updated tokens for Google account", {
+        email: providerEmail,
+        targetUserId,
+        accountId: linkingResult.existingAccountId,
+      });
+
+      await setOAuthCodeResult(code, { success: "tokens_updated" });
+
+      const successUrl = new URL("/accounts", env.NEXT_PUBLIC_BASE_URL);
+      successUrl.searchParams.set("success", "tokens_updated");
+      const successResponse = NextResponse.redirect(successUrl);
+      successResponse.cookies.delete(GOOGLE_LINKING_STATE_COOKIE_NAME);
+
+      return successResponse;
+    }
+
     logger.info("Merging Google account (user confirmed).", {
       email: providerEmail,
       providerAccountId,
