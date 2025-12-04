@@ -44,26 +44,6 @@ export function ModelSection() {
         : null,
     );
 
-  // Build Ollama models URL with optional custom baseUrl parameter
-  // Only fetch when user has Ollama selected and it's supported
-  const ollamaModelsUrl =
-    supportsOllama && data?.aiProvider === Provider.OLLAMA
-      ? data?.aiBaseUrl
-        ? `/api/ai/ollama-models?baseUrl=${encodeURIComponent(data.aiBaseUrl)}`
-        : "/api/ai/ollama-models"
-      : null;
-
-  const {
-    data: ollamaModels,
-    isLoading: isLoadingOllamaModels,
-    mutate: mutateOllamaModels,
-  } = useSWR<OllamaModel[]>(ollamaModelsUrl);
-
-  // Refetch models - after saving, the user data will update and trigger a refetch
-  const refetchOllamaModels = useCallback(() => {
-    mutateOllamaModels();
-  }, [mutateOllamaModels]);
-
   return (
     <FormSection>
       <FormSectionLeft
@@ -79,12 +59,10 @@ export function ModelSection() {
             aiApiKey={data.aiApiKey}
             aiBaseUrl={data.aiBaseUrl}
             models={dataModels}
-            ollamaModels={ollamaModels}
-            isLoadingOllamaModels={isLoadingOllamaModels}
             refetchUser={mutate}
-            refetchOllamaModels={refetchOllamaModels}
             providerOptions={providerOptions}
             allowUserAiProviderUrl={allowUserAiProviderUrl}
+            supportsOllama={supportsOllama}
           />
         )}
       </LoadingContent>
@@ -99,17 +77,15 @@ function ModelSectionForm(props: {
   aiBaseUrl: string | null;
   models?: OpenAiModelsResponse;
   refetchUser: () => void;
-  refetchOllamaModels: () => void;
-  ollamaModels?: OllamaModel[];
-  isLoadingOllamaModels?: boolean;
   providerOptions: { label: string; value: string }[];
   allowUserAiProviderUrl: boolean;
+  supportsOllama: boolean;
 }) {
   const {
     refetchUser,
-    refetchOllamaModels,
     providerOptions,
     allowUserAiProviderUrl,
+    supportsOllama,
   } = props;
 
   // If user's saved provider is no longer available (e.g., Ollama disabled), reset to default
@@ -142,6 +118,20 @@ function ModelSectionForm(props: {
   const [isTesting, setIsTesting] = useState(false);
   const aiProvider = watch("aiProvider");
   const aiBaseUrl = watch("aiBaseUrl");
+
+  // Fetch Ollama models when Ollama is selected (using watched value, not saved value)
+  const ollamaModelsUrl =
+    supportsOllama && aiProvider === Provider.OLLAMA
+      ? aiBaseUrl
+        ? `/api/ai/ollama-models?baseUrl=${encodeURIComponent(aiBaseUrl)}`
+        : "/api/ai/ollama-models"
+      : null;
+
+  const {
+    data: ollamaModels,
+    isLoading: isLoadingOllamaModels,
+    mutate: refetchOllamaModels,
+  } = useSWR<OllamaModel[]>(ollamaModelsUrl);
 
   const onSubmit: SubmitHandler<SaveAiSettingsBody> = useCallback(
     async (data) => {
@@ -214,7 +204,7 @@ function ModelSectionForm(props: {
 
   const ollamaModelOptions =
     aiProvider === Provider.OLLAMA
-      ? props.ollamaModels?.map((m) => ({
+      ? ollamaModels?.map((m) => ({
           label: `${m.name} (${m.details?.parameter_size || "unknown size"})`,
           value: m.name,
         })) || []
@@ -272,10 +262,10 @@ function ModelSectionForm(props: {
                 variant="outline"
                 size="sm"
                 onClick={() => refetchOllamaModels()}
-                disabled={props.isLoadingOllamaModels}
+                disabled={isLoadingOllamaModels}
               >
                 <RefreshCwIcon className="mr-2 size-4" />
-                {props.isLoadingOllamaModels ? "Loading..." : "Refresh models"}
+                {isLoadingOllamaModels ? "Loading..." : "Refresh models"}
               </Button>
             </div>
           )}
