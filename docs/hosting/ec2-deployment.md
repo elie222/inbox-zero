@@ -51,6 +51,7 @@ Connect with: `ssh inbox-zero-test`
 Once logged in, run these commands to prepare the server.
 
 #### 1. Update & Install Required Tools
+
 ```bash
 sudo dnf update -y
 sudo dnf install docker git -y
@@ -60,7 +61,18 @@ sudo usermod -a -G docker ec2-user
 exit
 ```
 
-After logging back in, install Docker Compose:
+#### 2. Install Node.js (Required if using setup CLI)
+
+After logging back in, install Node.js:
+
+**Note:** this is only needed if you want to run the setup CLI:
+
+```bash
+curl -fsSL https://rpm.nodesource.com/setup_lts.x | sudo bash -
+sudo dnf install -y nodejs
+```
+
+#### 3. Install Docker Compose
 
 ```bash
 mkdir -p ~/.docker/cli-plugins
@@ -70,7 +82,7 @@ chmod +x ~/.docker/cli-plugins/docker-compose
 docker compose version
 ```
 
-#### 2. Setup Swap Memory (CRITICAL for Micro Instances)
+#### 4. Setup Swap Memory (CRITICAL for Micro Instances)
 If you are using a `t2.micro` or `t3.micro` (1GB RAM), you MUST add swap or the build/runtime will crash.
 
 ```bash

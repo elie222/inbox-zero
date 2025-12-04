@@ -1,12 +1,12 @@
 #!/usr/bin/env bun
 
-import { randomBytes } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { resolve } from "node:path";
 import { spawn, spawnSync } from "node:child_process";
 import { program } from "commander";
 import * as p from "@clack/prompts";
+import { generateSecret, generateEnvFile, type EnvConfig } from "./utils";
 
 // Detect if we're running from within the repo
 function findRepoRoot(): string | null {
@@ -26,27 +26,20 @@ function findRepoRoot(): string | null {
 }
 
 const REPO_ROOT = findRepoRoot();
-const IS_REPO_MODE = REPO_ROOT !== null;
 
-// Config paths depend on mode
-const CONFIG_DIR = IS_REPO_MODE ? REPO_ROOT : resolve(homedir(), ".inbox-zero");
-const ENV_FILE = IS_REPO_MODE
-  ? resolve(REPO_ROOT, "apps/web/.env")
-  : resolve(CONFIG_DIR, ".env");
-const COMPOSE_FILE = IS_REPO_MODE
-  ? resolve(REPO_ROOT, "docker-compose.yml")
-  : resolve(CONFIG_DIR, "docker-compose.yml");
+// Standalone config paths (used for production Docker mode)
+const STANDALONE_CONFIG_DIR = resolve(homedir(), ".inbox-zero");
+const STANDALONE_ENV_FILE = resolve(STANDALONE_CONFIG_DIR, ".env");
+const STANDALONE_COMPOSE_FILE = resolve(
+  STANDALONE_CONFIG_DIR,
+  "docker-compose.yml",
+);
 
-// Ensure config directory exists (only needed for standalone mode)
-function ensureConfigDir() {
-  if (!IS_REPO_MODE && !existsSync(CONFIG_DIR)) {
-    mkdirSync(CONFIG_DIR, { recursive: true });
+// Ensure config directory exists
+function ensureConfigDir(configDir: string) {
+  if (!existsSync(configDir)) {
+    mkdirSync(configDir, { recursive: true });
   }
-}
-
-// Secret generation
-function generateSecret(bytes: number): string {
-  return randomBytes(bytes).toString("hex");
 }
 
 // Check if Docker is available
@@ -70,14 +63,11 @@ function checkDockerCompose(): boolean {
   return standaloneResult.status === 0;
 }
 
-// Environment variable builder
-type EnvConfig = Record<string, string | undefined>;
-
 async function main() {
   program
     .name("inbox-zero")
     .description("CLI tool for running Inbox Zero - AI email assistant")
-    .version("2.21.16");
+    .version("2.21.38");
 
   program
     .command("setup")
@@ -125,13 +115,85 @@ async function main() {
 // ═══════════════════════════════════════════════════════════════════════════
 
 async function runSetup() {
-  if (IS_REPO_MODE) {
-    p.intro("🚀 Inbox Zero Environment Setup (Repository Mode)");
-    p.log.info(`Detected repository at: ${REPO_ROOT}`);
-  } else {
-    p.intro("🚀 Inbox Zero Setup (Standalone Mode)");
+  p.intro("🚀 Inbox Zero Setup");
 
-    // Check Docker only in standalone mode
+  // Ask about environment mode
+  const envMode = await p.select({
+    message: "What environment are you setting up?",
+    options: [
+      {
+        value: "development",
+        label: "Development",
+        hint: "local dev with pnpm dev",
+      },
+      {
+        value: "production",
+        label: "Production",
+        hint: "deployed or self-hosted",
+      },
+    ],
+  });
+
+  if (p.isCancel(envMode)) {
+    p.cancel("Setup cancelled.");
+    process.exit(0);
+  }
+
+  const isDevMode = envMode === "development";
+
+  // Ask about infrastructure
+  const infraChoice = await p.select({
+    message: "How do you want to run PostgreSQL and Redis?",
+    options: [
+      {
+        value: "docker",
+        label: "Docker Compose",
+        hint: "spin up containers locally",
+      },
+      {
+        value: "external",
+        label: "External / Bring your own",
+        hint: "use existing database & Redis",
+      },
+    ],
+  });
+
+  if (p.isCancel(infraChoice)) {
+    p.cancel("Setup cancelled.");
+    process.exit(0);
+  }
+
+  const useDockerInfra = infraChoice === "docker";
+
+  // Ask if running full stack in Docker (only relevant for Docker infra)
+  let runWebInDocker = false;
+  if (useDockerInfra) {
+    const fullStackDocker = await p.select({
+      message: "Do you want to run the full stack in Docker?",
+      options: [
+        {
+          value: "no",
+          label: "No, just database & Redis",
+          hint: "I'll run Next.js separately with pnpm",
+        },
+        {
+          value: "yes",
+          label: "Yes, everything in Docker",
+          hint: "docker compose --profile all",
+        },
+      ],
+    });
+
+    if (p.isCancel(fullStackDocker)) {
+      p.cancel("Setup cancelled.");
+      process.exit(0);
+    }
+
+    runWebInDocker = fullStackDocker === "yes";
+  }
+
+  // Check Docker if needed
+  if (useDockerInfra) {
     if (!checkDocker()) {
       p.log.error(
         "Docker is not installed or not running.\n" +
@@ -149,10 +211,19 @@ async function runSetup() {
     }
   }
 
-  ensureConfigDir();
+  // Determine paths - if in repo, write to apps/web/.env, otherwise use standalone
+  const configDir = REPO_ROOT ?? STANDALONE_CONFIG_DIR;
+  const envFile = REPO_ROOT
+    ? resolve(REPO_ROOT, "apps/web/.env")
+    : STANDALONE_ENV_FILE;
+  const composeFile = REPO_ROOT
+    ? resolve(REPO_ROOT, "docker-compose.yml")
+    : STANDALONE_COMPOSE_FILE;
+
+  ensureConfigDir(configDir);
 
   // Check if already configured
-  if (existsSync(ENV_FILE)) {
+  if (existsSync(envFile)) {
     const overwrite = await p.confirm({
       message: ".env file already exists. Overwrite it?",
       initialValue: false,
@@ -167,63 +238,9 @@ async function runSetup() {
   const env: EnvConfig = {};
 
   // Default ports
-  let webPort = "3000";
-  let postgresPort = "5432";
-  let redisPort = "8079";
-
-  // ═══════════════════════════════════════════════════════════════════════════
-  // Ports Configuration (standalone mode only)
-  // ═══════════════════════════════════════════════════════════════════════════
-
-  if (!IS_REPO_MODE) {
-    p.note(
-      "Configure ports for Inbox Zero services.\nChange these if you have conflicts with existing services.",
-      "Port Configuration",
-    );
-
-    const ports = await p.group(
-      {
-        web: () =>
-          p.text({
-            message: "Web app port",
-            placeholder: "3000",
-            initialValue: "3000",
-            validate: (v) =>
-              /^\d+$/.test(v) ? undefined : "Must be a valid port number",
-          }),
-        postgres: () =>
-          p.text({
-            message: "PostgreSQL port",
-            placeholder: "5432",
-            initialValue: "5432",
-            validate: (v) =>
-              /^\d+$/.test(v) ? undefined : "Must be a valid port number",
-          }),
-        redis: () =>
-          p.text({
-            message: "Redis HTTP port",
-            placeholder: "8079",
-            initialValue: "8079",
-            validate: (v) =>
-              /^\d+$/.test(v) ? undefined : "Must be a valid port number",
-          }),
-      },
-      {
-        onCancel: () => {
-          p.cancel("Setup cancelled.");
-          process.exit(0);
-        },
-      },
-    );
-
-    webPort = ports.web;
-    postgresPort = ports.postgres;
-    redisPort = ports.redis;
-
-    env.WEB_PORT = webPort;
-    env.POSTGRES_PORT = postgresPort;
-    env.REDIS_HTTP_PORT = redisPort;
-  }
+  const webPort = "3000";
+  const postgresPort = "5432";
+  const redisPort = "8079";
 
   // ═══════════════════════════════════════════════════════════════════════════
   // OAuth Providers
@@ -303,6 +320,7 @@ Full guide: https://docs.getinboxzero.com/self-hosting/google-oauth`,
 4. Add redirect URIs:
    - http://localhost:${webPort}/api/auth/callback/microsoft
    - http://localhost:${webPort}/api/outlook/linking/callback
+   - http://localhost:${webPort}/api/outlook/calendar/callback (only required for calendar integration)
 5. Go to Certificates & secrets → New client secret
 6. Copy Application (client) ID and the secret Value
 
@@ -322,6 +340,12 @@ Full guide: https://docs.getinboxzero.com/self-hosting/microsoft-oauth`,
             message: "Microsoft Client Secret (press Enter to skip)",
             placeholder: "your-client-secret",
           }),
+        tenantId: () =>
+          p.text({
+            message: "Microsoft Tenant ID",
+            placeholder: "common",
+            initialValue: "common",
+          }),
       },
       {
         onCancel: () => {
@@ -335,7 +359,7 @@ Full guide: https://docs.getinboxzero.com/self-hosting/microsoft-oauth`,
       microsoftOAuth.clientId || "your-microsoft-client-id";
     env.MICROSOFT_CLIENT_SECRET =
       microsoftOAuth.clientSecret || "your-microsoft-client-secret";
-    env.MICROSOFT_TENANT_ID = "common";
+    env.MICROSOFT_TENANT_ID = microsoftOAuth.tenantId || "common";
     env.MICROSOFT_WEBHOOK_CLIENT_STATE = generateSecret(32);
   }
 
@@ -359,6 +383,12 @@ Full guide: https://docs.getinboxzero.com/self-hosting/microsoft-oauth`,
         label: "OpenRouter",
         hint: "access multiple models",
       },
+      {
+        value: "aigateway",
+        label: "Vercel AI Gateway",
+        hint: "access multiple models",
+      },
+      { value: "bedrock", label: "AWS Bedrock" },
       { value: "groq", label: "Groq", hint: "fast inference" },
     ],
   });
@@ -381,6 +411,14 @@ Full guide: https://docs.getinboxzero.com/self-hosting/microsoft-oauth`,
       default: "anthropic/claude-sonnet-4.5",
       economy: "anthropic/claude-haiku-4.5",
     },
+    aigateway: {
+      default: "anthropic/claude-sonnet-4.5",
+      economy: "anthropic/claude-haiku-4.5",
+    },
+    bedrock: {
+      default: "global.anthropic.claude-sonnet-4-5-20250929-v1:0",
+      economy: "global.anthropic.claude-haiku-4-5-20251001-v1:0",
+    },
     groq: {
       default: "llama-3.3-70b-versatile",
       economy: "llama-3.1-8b-instant",
@@ -391,36 +429,78 @@ Full guide: https://docs.getinboxzero.com/self-hosting/microsoft-oauth`,
   env.ECONOMY_LLM_PROVIDER = llmProvider;
   env.ECONOMY_LLM_MODEL = defaultModels[llmProvider].economy;
 
-  const llmLinks: Record<string, string> = {
-    anthropic: "https://console.anthropic.com/settings/keys",
-    openai: "https://platform.openai.com/api-keys",
-    google: "https://aistudio.google.com/apikey",
-    openrouter: "https://openrouter.ai/settings/keys",
-    groq: "https://console.groq.com/keys",
-  };
+  // Handle Bedrock separately (needs ACCESS_KEY, SECRET_KEY, REGION)
+  if (llmProvider === "bedrock") {
+    p.log.info(
+      "Get your AWS credentials from the AWS Console:\nhttps://console.aws.amazon.com/iam/",
+    );
 
-  const apiKeyEnvVar: Record<string, string> = {
-    anthropic: "ANTHROPIC_API_KEY",
-    openai: "OPENAI_API_KEY",
-    google: "GOOGLE_API_KEY",
-    openrouter: "OPENROUTER_API_KEY",
-    groq: "GROQ_API_KEY",
-  };
+    const bedrockCreds = await p.group(
+      {
+        accessKey: () =>
+          p.text({
+            message: "Bedrock Access Key",
+            placeholder: "AKIA...",
+            validate: (v) => (!v ? "Access key is required" : undefined),
+          }),
+        secretKey: () =>
+          p.text({
+            message: "Bedrock Secret Key",
+            placeholder: "your-secret-key",
+            validate: (v) => (!v ? "Secret key is required" : undefined),
+          }),
+        region: () =>
+          p.text({
+            message: "Bedrock Region",
+            placeholder: "us-west-2",
+            initialValue: "us-west-2",
+          }),
+      },
+      {
+        onCancel: () => {
+          p.cancel("Setup cancelled.");
+          process.exit(0);
+        },
+      },
+    );
 
-  p.log.info(`Get your API key at:\n${llmLinks[llmProvider]}`);
+    env.BEDROCK_ACCESS_KEY = bedrockCreds.accessKey;
+    env.BEDROCK_SECRET_KEY = bedrockCreds.secretKey;
+    env.BEDROCK_REGION = bedrockCreds.region || "us-west-2";
+  } else {
+    const llmLinks: Record<string, string> = {
+      anthropic: "https://console.anthropic.com/settings/keys",
+      openai: "https://platform.openai.com/api-keys",
+      google: "https://aistudio.google.com/apikey",
+      openrouter: "https://openrouter.ai/settings/keys",
+      aigateway: "https://vercel.com/docs/ai-gateway",
+      groq: "https://console.groq.com/keys",
+    };
 
-  const apiKey = await p.text({
-    message: `${llmProvider.charAt(0).toUpperCase() + llmProvider.slice(1)} API Key`,
-    placeholder: "sk-...",
-    validate: (v) => (!v ? "API key is required for AI features" : undefined),
-  });
+    const apiKeyEnvVar: Record<string, string> = {
+      anthropic: "ANTHROPIC_API_KEY",
+      openai: "OPENAI_API_KEY",
+      google: "GOOGLE_API_KEY",
+      openrouter: "OPENROUTER_API_KEY",
+      aigateway: "AI_GATEWAY_API_KEY",
+      groq: "GROQ_API_KEY",
+    };
 
-  if (p.isCancel(apiKey)) {
-    p.cancel("Setup cancelled.");
-    process.exit(0);
+    p.log.info(`Get your API key at:\n${llmLinks[llmProvider]}`);
+
+    const apiKey = await p.text({
+      message: `${llmProvider.charAt(0).toUpperCase() + llmProvider.slice(1)} API Key`,
+      placeholder: "sk-...",
+      validate: (v) => (!v ? "API key is required for AI features" : undefined),
+    });
+
+    if (p.isCancel(apiKey)) {
+      p.cancel("Setup cancelled.");
+      process.exit(0);
+    }
+
+    env[apiKeyEnvVar[llmProvider]] = apiKey;
   }
-
-  env[apiKeyEnvVar[llmProvider]] = apiKey;
 
   // ═══════════════════════════════════════════════════════════════════════════
   // Auto-generated values
@@ -429,26 +509,36 @@ Full guide: https://docs.getinboxzero.com/self-hosting/microsoft-oauth`,
   const spinner = p.spinner();
   spinner.start("Generating configuration...");
 
-  // Redis token
+  // Set NODE_ENV based on environment mode
+  env.NODE_ENV = isDevMode ? "development" : "production";
+
+  // Redis token (used for Docker Redis)
   const redisToken = generateSecret(32);
 
-  if (IS_REPO_MODE) {
-    // Repo mode: Use localhost URLs for local development
-    env.DATABASE_URL = `postgresql://postgres:password@localhost:${postgresPort}/inboxzero`;
-    env.UPSTASH_REDIS_URL = `http://localhost:${redisPort}`;
-    env.UPSTASH_REDIS_TOKEN = redisToken;
-    env.SRH_TOKEN = redisToken;
-    env.NODE_ENV = "development";
-  } else {
-    // Standalone mode: Use Docker network hostnames
+  if (useDockerInfra) {
+    // Using Docker Compose for Postgres/Redis
     env.POSTGRES_USER = "postgres";
-    env.POSTGRES_PASSWORD = generateSecret(16);
+    env.POSTGRES_PASSWORD = isDevMode ? "password" : generateSecret(16);
     env.POSTGRES_DB = "inboxzero";
-    env.DATABASE_URL = `postgresql://${env.POSTGRES_USER}:${env.POSTGRES_PASSWORD}@db:5432/${env.POSTGRES_DB}`;
-    env.UPSTASH_REDIS_URL = "http://serverless-redis-http:80";
     env.UPSTASH_REDIS_TOKEN = redisToken;
-    env.SRH_TOKEN = redisToken;
-    env.NODE_ENV = "production";
+
+    if (runWebInDocker) {
+      // Web app runs in Docker: use container hostnames
+      env.DATABASE_URL = `postgresql://${env.POSTGRES_USER}:${env.POSTGRES_PASSWORD}@db:5432/${env.POSTGRES_DB}`;
+      env.DIRECT_URL = env.DATABASE_URL;
+      env.UPSTASH_REDIS_URL = "http://serverless-redis-http:80";
+    } else {
+      // Web app runs on host: containers expose ports to localhost
+      env.DATABASE_URL = `postgresql://${env.POSTGRES_USER}:${env.POSTGRES_PASSWORD}@localhost:${postgresPort}/${env.POSTGRES_DB}`;
+      env.DIRECT_URL = env.DATABASE_URL;
+      env.UPSTASH_REDIS_URL = `http://localhost:${redisPort}`;
+    }
+  } else {
+    // External infrastructure - set placeholders for user to fill in
+    env.DATABASE_URL = "postgresql://user:password@your-host:5432/inboxzero";
+    env.DIRECT_URL = env.DATABASE_URL;
+    env.UPSTASH_REDIS_URL = "https://your-redis-url";
+    env.UPSTASH_REDIS_TOKEN = "your-redis-token";
   }
 
   // Secrets (same for both modes)
@@ -474,8 +564,8 @@ Full guide: https://docs.getinboxzero.com/self-hosting/microsoft-oauth`,
   // Write files
   // ═══════════════════════════════════════════════════════════════════════════
 
-  // Only fetch docker-compose.yml in standalone mode
-  if (!IS_REPO_MODE) {
+  // Fetch docker-compose.yml if using Docker infra and not in repo
+  if (useDockerInfra && !REPO_ROOT) {
     spinner.start("Fetching docker-compose.yml from repository...");
 
     let composeContent: string;
@@ -491,17 +581,34 @@ Full guide: https://docs.getinboxzero.com/self-hosting/microsoft-oauth`,
     }
 
     spinner.stop("Configuration fetched");
-    writeFileSync(COMPOSE_FILE, composeContent);
+    writeFileSync(composeFile, composeContent);
   }
 
+  spinner.start("Fetching .env template...");
+
+  let template: string;
+  try {
+    template = await getEnvTemplate();
+  } catch {
+    spinner.stop("Failed to fetch .env template");
+    p.log.error(
+      "Could not fetch .env.example template.\n" +
+        "Please check your internet connection and try again.",
+    );
+    process.exit(1);
+  }
+
+  spinner.stop("Template loaded");
   spinner.start("Writing .env file...");
 
-  // Write .env
-  const envContent = Object.entries(env)
-    .filter(([, v]) => v !== undefined)
-    .map(([k, v]) => `${k}=${v}`)
-    .join("\n");
-  writeFileSync(ENV_FILE, `${envContent}\n`);
+  // Write .env based on template with user values filled in
+  const envContent = generateEnvFile({
+    env,
+    useDockerInfra,
+    llmProvider,
+    template,
+  });
+  writeFileSync(envFile, envContent);
 
   spinner.stop(".env file created");
 
@@ -510,33 +617,68 @@ Full guide: https://docs.getinboxzero.com/self-hosting/microsoft-oauth`,
   // ═══════════════════════════════════════════════════════════════════════════
 
   const configuredFeatures = [
+    `✓ Environment: ${isDevMode ? "Development" : "Production"}`,
+    `✓ Infrastructure: ${useDockerInfra ? "Docker Compose" : "External"}`,
+    useDockerInfra
+      ? `✓ Web app: ${runWebInDocker ? "In Docker" : "On host"}`
+      : null,
     wantsGoogle ? "✓ Google OAuth" : "✗ Google OAuth (skipped)",
     wantsMicrosoft ? "✓ Microsoft OAuth" : "✗ Microsoft OAuth (skipped)",
     `✓ LLM Provider (${llmProvider})`,
-    ...(IS_REPO_MODE
-      ? []
-      : [
-          `✓ Web port: ${webPort}`,
-          `✓ PostgreSQL port: ${postgresPort}`,
-          `✓ Redis HTTP port: ${redisPort}`,
-        ]),
-  ].join("\n");
+  ]
+    .filter(Boolean)
+    .join("\n");
 
   p.note(configuredFeatures, "Configuration Summary");
 
-  p.note(`Environment file saved to:\n${ENV_FILE}`, "Output");
+  p.note(`Environment file saved to:\n${envFile}`, "Output");
 
-  if (IS_REPO_MODE) {
-    p.note(
-      "# Start Docker services (database & Redis):\ndocker compose --profile local-db --profile local-redis up -d\n\n# Run database migrations:\npnpm prisma:migrate:dev\n\n# Start the dev server:\npnpm dev\n\n# Then open:\nhttp://localhost:3000",
-      "Next Steps",
-    );
-  } else {
-    p.note(
-      `# Start Inbox Zero:\ninbox-zero start\n\n# Then open:\nhttp://localhost:${webPort}`,
-      "Next Steps",
+  if (!useDockerInfra) {
+    p.log.warn(
+      "You selected external infrastructure.\n" +
+        "Please update DATABASE_URL and UPSTASH_REDIS_URL in your .env file.",
     );
   }
+
+  // Build next steps based on configuration
+  let nextSteps: string;
+
+  // For standalone installs, include -f flag to point to the compose file
+  const composeCmd = REPO_ROOT
+    ? "docker compose"
+    : `docker compose -f ${composeFile}`;
+
+  if (runWebInDocker) {
+    // Web app runs in Docker with database & Redis
+    nextSteps = `# Start all services (web, database & Redis):
+NEXT_PUBLIC_BASE_URL=https://yourdomain.com ${composeCmd} --env-file ${envFile} --profile all up -d
+
+# View logs:
+docker logs inbox-zero-services-web-1 -f
+
+# Then open:
+https://yourdomain.com`;
+  } else {
+    // Web app runs on host (pnpm dev or pnpm start)
+    const dockerStep = useDockerInfra
+      ? `# Start Docker services (database & Redis):\n${composeCmd} --profile local-db --profile local-redis up -d\n\n`
+      : "";
+    const migrateCmd = isDevMode
+      ? "pnpm prisma:migrate:dev"
+      : "pnpm prisma:migrate:deploy";
+    const startCmd = isDevMode ? "pnpm dev" : "pnpm build && pnpm start";
+
+    nextSteps = `${dockerStep}# Run database migrations:
+${migrateCmd}
+
+# Start the server:
+${startCmd}
+
+# Then open:
+http://localhost:${webPort}`;
+  }
+
+  p.note(nextSteps, "Next Steps");
 
   p.outro("Setup complete! 🎉");
 }
@@ -546,17 +688,11 @@ Full guide: https://docs.getinboxzero.com/self-hosting/microsoft-oauth`,
 // ═══════════════════════════════════════════════════════════════════════════
 
 async function runStart(options: { detach: boolean }) {
-  if (IS_REPO_MODE) {
-    p.log.info(
-      "You're in the repository. Use these commands instead:\n\n" +
-        "  docker compose --profile all up -d   # Start all services\n" +
-        "  pnpm dev                              # Start dev server\n",
+  if (!existsSync(STANDALONE_COMPOSE_FILE)) {
+    p.log.error(
+      "Inbox Zero is not configured for production mode.\n" +
+        "Run 'inbox-zero setup' and choose Production (Docker) first.",
     );
-    process.exit(0);
-  }
-
-  if (!existsSync(COMPOSE_FILE)) {
-    p.log.error("Inbox Zero is not configured.\nRun 'inbox-zero setup' first.");
     process.exit(1);
   }
 
@@ -567,7 +703,7 @@ async function runStart(options: { detach: boolean }) {
 
   const pullResult = spawnSync(
     "docker",
-    ["compose", "-f", COMPOSE_FILE, "pull"],
+    ["compose", "-f", STANDALONE_COMPOSE_FILE, "pull"],
     { stdio: "pipe" },
   );
 
@@ -585,7 +721,7 @@ async function runStart(options: { detach: boolean }) {
     spinner.stop("Starting containers in foreground...");
   }
 
-  const args = ["compose", "-f", COMPOSE_FILE, "up"];
+  const args = ["compose", "-f", STANDALONE_COMPOSE_FILE, "up"];
   if (options.detach) {
     args.push("-d");
   }
@@ -609,9 +745,9 @@ async function runStart(options: { detach: boolean }) {
 
     // Get web port from env (with safe reading)
     let webPort = "3000";
-    if (existsSync(ENV_FILE)) {
+    if (existsSync(STANDALONE_ENV_FILE)) {
       try {
-        const envContent = readFileSync(ENV_FILE, "utf-8");
+        const envContent = readFileSync(STANDALONE_ENV_FILE, "utf-8");
         webPort = envContent.match(/WEB_PORT=(\d+)/)?.[1] || webPort;
       } catch {
         // Use default port if env file can't be read
@@ -632,12 +768,7 @@ async function runStart(options: { detach: boolean }) {
 // ═══════════════════════════════════════════════════════════════════════════
 
 async function runStop() {
-  if (IS_REPO_MODE) {
-    p.log.info("You're in the repository. Use: docker compose down");
-    process.exit(0);
-  }
-
-  if (!existsSync(COMPOSE_FILE)) {
+  if (!existsSync(STANDALONE_COMPOSE_FILE)) {
     p.log.error("Inbox Zero is not configured.");
     process.exit(1);
   }
@@ -647,9 +778,11 @@ async function runStop() {
   const spinner = p.spinner();
   spinner.start("Stopping containers...");
 
-  const result = spawnSync("docker", ["compose", "-f", COMPOSE_FILE, "down"], {
-    stdio: "pipe",
-  });
+  const result = spawnSync(
+    "docker",
+    ["compose", "-f", STANDALONE_COMPOSE_FILE, "down"],
+    { stdio: "pipe" },
+  );
 
   if (result.status !== 0) {
     spinner.stop("Failed to stop");
@@ -666,17 +799,19 @@ async function runStop() {
 // ═══════════════════════════════════════════════════════════════════════════
 
 async function runLogs(options: { follow: boolean; tail: string }) {
-  if (IS_REPO_MODE) {
-    p.log.info("You're in the repository. Use: docker compose logs");
-    process.exit(0);
-  }
-
-  if (!existsSync(COMPOSE_FILE)) {
+  if (!existsSync(STANDALONE_COMPOSE_FILE)) {
     p.log.error("Inbox Zero is not configured.");
     process.exit(1);
   }
 
-  const args = ["compose", "-f", COMPOSE_FILE, "logs", "--tail", options.tail];
+  const args = [
+    "compose",
+    "-f",
+    STANDALONE_COMPOSE_FILE,
+    "logs",
+    "--tail",
+    options.tail,
+  ];
   if (options.follow) {
     args.push("-f");
   }
@@ -700,17 +835,12 @@ async function runLogs(options: { follow: boolean; tail: string }) {
 // ═══════════════════════════════════════════════════════════════════════════
 
 async function runStatus() {
-  if (IS_REPO_MODE) {
-    p.log.info("You're in the repository. Use: docker compose ps");
-    process.exit(0);
-  }
-
-  if (!existsSync(COMPOSE_FILE)) {
+  if (!existsSync(STANDALONE_COMPOSE_FILE)) {
     p.log.error("Inbox Zero is not configured.\nRun 'inbox-zero setup' first.");
     process.exit(1);
   }
 
-  spawnSync("docker", ["compose", "-f", COMPOSE_FILE, "ps"], {
+  spawnSync("docker", ["compose", "-f", STANDALONE_COMPOSE_FILE, "ps"], {
     stdio: "inherit",
   });
 }
@@ -720,12 +850,7 @@ async function runStatus() {
 // ═══════════════════════════════════════════════════════════════════════════
 
 async function runUpdate() {
-  if (IS_REPO_MODE) {
-    p.log.info("You're in the repository. Use: git pull");
-    process.exit(0);
-  }
-
-  if (!existsSync(COMPOSE_FILE)) {
+  if (!existsSync(STANDALONE_COMPOSE_FILE)) {
     p.log.error("Inbox Zero is not configured.");
     process.exit(1);
   }
@@ -737,7 +862,7 @@ async function runUpdate() {
 
   const pullResult = spawnSync(
     "docker",
-    ["compose", "-f", COMPOSE_FILE, "pull"],
+    ["compose", "-f", STANDALONE_COMPOSE_FILE, "pull"],
     { stdio: "pipe" },
   );
 
@@ -762,17 +887,46 @@ async function runUpdate() {
   if (restart) {
     spinner.start("Restarting...");
 
-    spawnSync("docker", ["compose", "-f", COMPOSE_FILE, "down"], {
+    spawnSync("docker", ["compose", "-f", STANDALONE_COMPOSE_FILE, "down"], {
       stdio: "pipe",
     });
-    spawnSync("docker", ["compose", "-f", COMPOSE_FILE, "up", "-d"], {
-      stdio: "pipe",
-    });
+    spawnSync(
+      "docker",
+      ["compose", "-f", STANDALONE_COMPOSE_FILE, "up", "-d"],
+      {
+        stdio: "pipe",
+      },
+    );
 
     spinner.stop("Restarted");
   }
 
   p.outro("Update complete! 🎉");
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Env File Generator (template-based)
+// ═══════════════════════════════════════════════════════════════════════════
+
+const ENV_EXAMPLE_URL =
+  "https://raw.githubusercontent.com/elie222/inbox-zero/main/apps/web/.env.example";
+
+async function fetchEnvExample(): Promise<string> {
+  const response = await fetch(ENV_EXAMPLE_URL);
+  if (!response.ok) {
+    throw new Error(`Failed to fetch .env.example: ${response.statusText}`);
+  }
+  return response.text();
+}
+
+async function getEnvTemplate(): Promise<string> {
+  if (REPO_ROOT) {
+    const templatePath = resolve(REPO_ROOT, "apps/web/.env.example");
+    if (existsSync(templatePath)) {
+      return readFileSync(templatePath, "utf-8");
+    }
+  }
+  return fetchEnvExample();
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -792,7 +946,16 @@ async function fetchDockerCompose(): Promise<string> {
   return response.text();
 }
 
-main().catch((error) => {
-  p.log.error(String(error));
-  process.exit(1);
-});
+// Only run main() when executed directly, not when imported for testing
+const isMainModule =
+  process.argv[1] &&
+  (process.argv[1].endsWith("main.ts") ||
+    process.argv[1].endsWith("inbox-zero.js") ||
+    process.argv[1].endsWith("inbox-zero"));
+
+if (isMainModule) {
+  main().catch((error) => {
+    p.log.error(String(error));
+    process.exit(1);
+  });
+}

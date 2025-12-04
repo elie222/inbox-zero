@@ -96,10 +96,15 @@ export function DatePickerWithRange({
               className="min-w-32"
               onSelect={({ label, value }) => {
                 onSetDateDropdown({ label, value });
-                onSetDateRange({
-                  from: subDays(now, Number.parseInt(value)),
-                  to: now,
-                });
+                // When "All" is selected (value "0"), pass undefined to skip date filtering
+                if (value === "0") {
+                  onSetDateRange(undefined);
+                } else {
+                  onSetDateRange({
+                    from: subDays(now, Number.parseInt(value)),
+                    to: now,
+                  });
+                }
               }}
             />
           }

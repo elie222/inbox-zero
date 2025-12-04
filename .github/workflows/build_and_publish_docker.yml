@@ -10,10 +10,12 @@ on:
 permissions:
   contents: write # Needed to commit version bump and push tags
   packages: write # Needed to push Docker image to GHCR
+  id-token: write # Needed for Depot OIDC token authentication
 
 env:
   DOCKER_IMAGE_REGISTRY: "ghcr.io"
   DOCKER_USERNAME: "elie222"
+  DEPOT_PROJECT_ID: "2s1sh2pjrf"
 
 jobs:
   fetch-version:
@@ -109,19 +111,26 @@ jobs:
           username: ${{ env.DOCKER_USERNAME }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v2
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ env.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Set up Depot
+        uses: depot/setup-action@v1
 
       - name: Build and Push Docker Image
-        uses: docker/build-push-action@v4
+        uses: depot/build-push-action@v1
         with:
+          project: ${{ env.DEPOT_PROJECT_ID }}
           context: .
           file: docker/Dockerfile.prod
-          platforms: linux/amd64
+          platforms: linux/amd64,linux/arm64
           push: true
-          cache-from: type=gha
-          cache-to: type=gha, mode=max
           tags: |
             ghcr.io/${{ env.DOCKER_USERNAME }}/inbox-zero:latest
             ghcr.io/${{ env.DOCKER_USERNAME }}/inbox-zero:${{ needs.fetch-version.outputs.version }}
+            ${{ env.DOCKER_USERNAME }}/inbox-zero:latest
+            ${{ env.DOCKER_USERNAME }}/inbox-zero:${{ needs.fetch-version.outputs.version }}
 

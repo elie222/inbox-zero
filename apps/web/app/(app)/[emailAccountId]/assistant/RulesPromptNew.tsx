@@ -23,7 +23,6 @@ import { RuleDialog } from "@/app/(app)/[emailAccountId]/assistant/RuleDialog";
 import { useDialogState } from "@/hooks/useDialogState";
 import { useRules } from "@/hooks/useRules";
 import { ExamplesGrid } from "@/app/(app)/[emailAccountId]/assistant/ExamplesList";
-import { AssistantOnboarding } from "@/app/(app)/[emailAccountId]/assistant/AssistantOnboarding";
 import { CreatedRulesModal } from "@/app/(app)/[emailAccountId]/assistant/CreatedRulesModal";
 import type { CreateRuleResult } from "@/utils/rule/types";
 import { toastError } from "@/components/Toast";

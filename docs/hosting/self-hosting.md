@@ -14,7 +14,10 @@ This guide will walk you through self-hosting the Inbox Zero application on a VP
 
 ### 1. Prepare Your VPS
 
-Connect to your VPS and install Docker Engine by following the [the official guide](https://docs.docker.com/engine/install) and the [Post installation steps](https://docs.docker.com/engine/install/linux-postinstall/#manage-docker-as-a-non-root-user)
+Connect to your VPS and install:
+
+1. **Docker Engine**: Follow [the official guide](https://docs.docker.com/engine/install) and the [Post installation steps](https://docs.docker.com/engine/install/linux-postinstall/#manage-docker-as-a-non-root-user)
+2. **Node.js**: Follow [the official guide](https://nodejs.org/en/download) (required for the setup CLI)
 
 ### 2. Setup Docker Compose
 
@@ -27,37 +30,32 @@ cd inbox-zero
 
 ### 3. Configure
 
-Run the setup script to create your environment file with auto-generated secrets:
+Install dependencies and run the setup CLI to create your environment file with auto-generated secrets:
 
 ```bash
-./docker/scripts/setup-env.sh
+npm install
+npm run setup
 ```
 
-This will:
-- Copy `.env.example` to `.env`
-- Auto-generate all required secrets (AUTH_SECRET, encryption keys, etc.)
+You can also copy `.env.example` to `.env` and set the values yourself.
 
-Then edit the file to add your credentials:
-
-```bash
-nano apps/web/.env
-```
-
-You'll need to configure:
+If doing this manually edit then you'll need to configure:
 - **Google OAuth**: `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET`
 - **LLM Provider**: Uncomment one provider block and add your API key
 - **Optional**: Microsoft OAuth, external Redis, etc.
 
 For detailed configuration instructions, see the [Environment Variables Reference](./environment-variables.md).
 
-**Note**: The first section of `.env.example` contains Docker auto-configured variables that are commented out. Leave them commented - Docker Compose sets these automatically with the correct internal hostnames.
+**Note**: If you only want to use Microsoft and not Google OAuth then add skipped for the the Google client id and secret.
+
+**Note**: The first section of `.env.example` variables that are commented out. If you're using Docker Compose leave them commented - Docker Compose sets these automatically with the correct internal hostnames.
 
 ### 4. Deploy
 
 Pull and start the services with your domain:
 
 ```bash
-NEXT_PUBLIC_BASE_URL=https://yourdomain.com docker compose --profile all up -d
+NEXT_PUBLIC_BASE_URL=https://yourdomain.com docker compose --env-file apps/web/.env --profile all up -d
 ```
 
 The pre-built Docker image is hosted at `ghcr.io/elie222/inbox-zero:latest` and will be automatically pulled.
@@ -79,21 +77,16 @@ For external services, set the appropriate environment variables in `apps/web/.e
 - **External Postgres**: Set `DATABASE_URL` and `DIRECT_URL`
 - **External Redis**: Set `UPSTASH_REDIS_URL` and `UPSTASH_REDIS_TOKEN`
 
-### 5. Run Database Migrations
+### 5. Check Logs
 
 Wait for the containers to start, then run the database migrations:
 
 ```bash
 # Check that containers are running (STATUS should show "Up")
 docker ps
-
-# Run migrations (prisma is pre-installed in the container)
-docker compose exec web prisma migrate deploy --schema=apps/web/prisma/schema.prisma
+# Check logs. This can take 30 seconds to complete
+docker logs inbox-zero-services-web-1 -f
 ```
-
-**Note:** You'll need to run this command again after pulling updates to apply any new database schema changes.
-
-**Troubleshooting:** If you see `npx` trying to install a different Prisma version, run `docker compose pull web` to get the latest image which has Prisma pre-installed.
 
 ### 6. Access Your Application
 
@@ -112,11 +105,9 @@ To update to the latest version:
 docker compose pull web
 
 # Restart with the new image
-NEXT_PUBLIC_BASE_URL=https://yourdomain.com docker compose up -d
-
-# Run any new database migrations
-docker compose exec web prisma migrate deploy --schema=apps/web/prisma/schema.prisma
+NEXT_PUBLIC_BASE_URL=https://yourdomain.com docker compose --env-file apps/web/.env --profile all up -d
 ```
+
 ## Monitoring
 
 ```bash
@@ -146,13 +137,14 @@ If you prefer to build the image yourself instead of using the pre-built one:
 git clone https://github.com/elie222/inbox-zero.git
 cd inbox-zero
 
-# Configure environment (auto-generates secrets)
-./docker/scripts/setup-env.sh
+# Install dependencies and configure environment (auto-generates secrets)
+npm install
+npm run setup
 nano apps/web/.env
 
 # Build and start
 docker compose build
-NEXT_PUBLIC_BASE_URL=https://yourdomain.com docker compose up -d
+NEXT_PUBLIC_BASE_URL=https://yourdomain.com docker compose --env-file apps/web/.env --profile all up -d
 ```
 
 **Note**: Building from source requires significantly more resources (4GB+ RAM recommended) and takes longer than pulling the pre-built image.
