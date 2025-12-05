@@ -1,6 +1,6 @@
 import chunk from "lodash/chunk";
 import { deleteQueue, listQueues, publishToQstashQueue } from "@/utils/upstash";
-import { env } from "@/env";
+import { getInternalApiUrl } from "@/utils/internal-api";
 import type { AiCategorizeSenders } from "@/app/api/user/categorize/senders/batch/handle-batch-validation";
 import { createScopedLogger } from "@/utils/logger";
 
@@ -21,7 +21,7 @@ const getCategorizeSendersQueueName = ({
 export async function publishToAiCategorizeSendersQueue(
   body: AiCategorizeSenders,
 ) {
-  const url = `${env.WEBHOOK_URL || env.NEXT_PUBLIC_BASE_URL}/api/user/categorize/senders/batch`;
+  const url = `${getInternalApiUrl()}/api/user/categorize/senders/batch`;
 
   // Split senders into smaller chunks to process in batches
   const BATCH_SIZE = 50;

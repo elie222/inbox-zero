@@ -527,11 +527,13 @@ Full guide: https://docs.getinboxzero.com/self-hosting/microsoft-oauth`,
       env.DATABASE_URL = `postgresql://${env.POSTGRES_USER}:${env.POSTGRES_PASSWORD}@db:5432/${env.POSTGRES_DB}`;
       env.DIRECT_URL = env.DATABASE_URL;
       env.UPSTASH_REDIS_URL = "http://serverless-redis-http:80";
+      env.INTERNAL_API_URL = "http://web:3000";
     } else {
       // Web app runs on host: containers expose ports to localhost
       env.DATABASE_URL = `postgresql://${env.POSTGRES_USER}:${env.POSTGRES_PASSWORD}@localhost:${postgresPort}/${env.POSTGRES_DB}`;
       env.DIRECT_URL = env.DATABASE_URL;
       env.UPSTASH_REDIS_URL = `http://localhost:${redisPort}`;
+      env.INTERNAL_API_URL = `http://localhost:${webPort}`;
     }
   } else {
     // External infrastructure - set placeholders for user to fill in
