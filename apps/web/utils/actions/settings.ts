@@ -18,6 +18,7 @@ import type { Prisma } from "@/generated/prisma/client";
 import { getModel } from "@/utils/llms/model";
 import type { UserAIFields } from "@/utils/llms/types";
 import { SafeError } from "@/utils/error";
+import { sleep } from "@/utils/sleep";
 
 export const updateEmailSettingsAction = actionClient
   .metadata({ name: "updateEmailSettings" })
@@ -77,22 +78,43 @@ export const testAiSettingsAction = actionClientUser
     try {
       const userAi = toUserAiFields(parsedInput);
       const modelOptions = getModel(userAi);
+      const maxRetries = 1;
+      let lastError: unknown;
 
-      await generateText({
-        model: modelOptions.model,
-        prompt: "Inbox Zero AI connection test",
-        temperature: 0,
-        maxOutputTokens: 5,
-        ...(modelOptions.providerOptions
-          ? { providerOptions: modelOptions.providerOptions }
-          : {}),
-      });
+      for (let attempt = 0; attempt <= maxRetries; attempt++) {
+        try {
+          await generateText({
+            model: modelOptions.model,
+            prompt: "Inbox Zero AI connection test",
+            temperature: 0,
+            maxOutputTokens: 5,
+            maxRetries: 0, // manual retry control below
+            ...(modelOptions.providerOptions
+              ? { providerOptions: modelOptions.providerOptions }
+              : {}),
+          });
 
-      return {
-        success: true,
-        provider: modelOptions.provider,
-        model: modelOptions.modelName,
-      };
+          return {
+            success: true,
+            provider: modelOptions.provider,
+            model: modelOptions.modelName,
+          };
+        } catch (error) {
+          lastError = error;
+          if (attempt < maxRetries) {
+            ctx.logger.warn("AI connection test failed, retrying", {
+              attempt,
+              maxRetries,
+              error,
+            });
+            await sleep(5000);
+            continue;
+          }
+          throw error;
+        }
+      }
+
+      throw lastError;
     } catch (error) {
       ctx.logger.error("AI connection test failed", {
         provider: parsedInput.aiProvider,
@@ -100,10 +122,12 @@ export const testAiSettingsAction = actionClientUser
         error,
       });
 
-      const message =
+      const message = redactUrls(
         error instanceof Error && error.message
           ? error.message
-          : "Unable to reach the selected AI provider. Please verify your settings.";
+          : "Unable to reach the selected AI provider. Please verify your settings.",
+        !parsedInput.aiBaseUrl,
+      );
       throw new SafeError(message);
     }
   });
@@ -209,4 +233,17 @@ function toUserAiFields(input: SaveAiSettingsBody): UserAIFields {
         ? input.aiBaseUrl || null
         : null,
   };
+}
+
+function redactUrls(message: string, shouldRedact: boolean) {
+  if (!shouldRedact) return message;
+  const removed = message
+    .replace(/https?:\/\/[^\s)]+/gi, "")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  return (
+    removed ||
+    "Unable to reach the selected AI provider. Please verify your settings."
+  );
 }

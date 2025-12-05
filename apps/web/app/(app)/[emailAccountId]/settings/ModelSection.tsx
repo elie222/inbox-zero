@@ -37,12 +37,15 @@ export function ModelSection() {
   const allowUserAiProviderUrl = data?.allowUserAiProviderUrl ?? false;
   const providerOptions = getProviderOptions(supportsOllama);
 
-  const { data: dataModels, isLoading: isLoadingModels } =
-    useSWR<OpenAiModelsResponse>(
-      data?.aiApiKey && data?.aiProvider === Provider.OPEN_AI
-        ? "/api/ai/models"
-        : null,
-    );
+  const {
+    data: dataModels,
+    isLoading: isLoadingModels,
+    error: modelsError,
+  } = useSWR<OpenAiModelsResponse>(
+    data?.aiApiKey && data?.aiProvider === Provider.OPEN_AI
+      ? "/api/ai/models"
+      : null,
+  );
 
   return (
     <FormSection>
@@ -59,6 +62,8 @@ export function ModelSection() {
             aiApiKey={data.aiApiKey}
             aiBaseUrl={data.aiBaseUrl}
             models={dataModels}
+            modelsError={modelsError}
+            modelsLoading={isLoadingModels}
             refetchUser={mutate}
             providerOptions={providerOptions}
             allowUserAiProviderUrl={allowUserAiProviderUrl}
@@ -76,6 +81,8 @@ function ModelSectionForm(props: {
   aiApiKey: SaveAiSettingsBody["aiApiKey"] | null;
   aiBaseUrl: string | null;
   models?: OpenAiModelsResponse;
+  modelsError?: any;
+  modelsLoading?: boolean;
   refetchUser: () => void;
   providerOptions: { label: string; value: string }[];
   allowUserAiProviderUrl: boolean;
@@ -116,6 +123,7 @@ function ModelSectionForm(props: {
   });
 
   const [isTesting, setIsTesting] = useState(false);
+  const [testingMessage, setTestingMessage] = useState<string | null>(null);
   const aiProvider = watch("aiProvider");
   const aiBaseUrl = watch("aiBaseUrl");
 
@@ -153,30 +161,62 @@ function ModelSectionForm(props: {
     [refetchUser],
   );
 
+  const runTestOnce = useCallback(async (data: SaveAiSettingsBody) => {
+    const res = await testAiSettingsAction(data);
+
+    if (res?.serverError) {
+      throw new Error(res.serverError);
+    }
+
+    if (res?.validationErrors) {
+      toastError({
+        description: "Please fix the highlighted errors before testing.",
+      });
+      return "validation" as const;
+    }
+
+    if (res?.data?.success) {
+      const descriptor =
+        res.data.model ?? res.data.provider ?? "your AI settings";
+      toastSuccess({
+        description: `Connection successful for ${descriptor}.`,
+      });
+      return "success" as const;
+    }
+
+    throw new Error("Unable to test the AI connection.");
+  }, []);
+
   const handleTestConnection = useCallback(
     () =>
       handleSubmit(async (data) => {
         setIsTesting(true);
+        setTestingMessage("Testing connection...");
 
         try {
-          const res = await testAiSettingsAction(data);
+          let lastError: unknown;
 
-          if (res?.serverError) {
-            toastError({ description: res.serverError });
-          } else if (res?.validationErrors) {
-            toastError({
-              description: "Please fix the highlighted errors before testing.",
-            });
-          } else if (res?.data?.success) {
-            const descriptor =
-              res.data.model ?? res.data.provider ?? "your AI settings";
-            toastSuccess({
-              description: `Connection successful for ${descriptor}.`,
-            });
-          } else {
-            toastError({
-              description: "Unable to test the AI connection.",
-            });
+          for (let attempt = 0; attempt < 2; attempt++) {
+            if (attempt === 1) {
+              setTestingMessage("Retrying in 5 seconds...");
+              await new Promise((resolve) => setTimeout(resolve, 5000));
+            }
+
+            try {
+              const result = await runTestOnce(data);
+              if (result !== "validation") {
+                return;
+              }
+              return;
+            } catch (error) {
+              lastError = error;
+              if (attempt === 0) continue;
+              throw error;
+            }
+          }
+
+          if (lastError) {
+            throw lastError;
           }
         } catch (error) {
           toastError({
@@ -187,9 +227,10 @@ function ModelSectionForm(props: {
           });
         } finally {
           setIsTesting(false);
+          setTestingMessage(null);
         }
       })(),
-    [handleSubmit],
+    [handleSubmit, runTestOnce],
   );
 
   const globalError = (errors as any)[""];
@@ -201,6 +242,13 @@ function ModelSectionForm(props: {
           value: m.id,
         })) || []
       : [];
+
+  const showInvalidOpenAiKey =
+    aiProvider === Provider.OPEN_AI &&
+    watch("aiApiKey") &&
+    openAiModelOptions.length === 0 &&
+    !props.modelsLoading &&
+    !!props.modelsError;
 
   const ollamaModelOptions =
     aiProvider === Provider.OLLAMA
@@ -301,7 +349,7 @@ function ModelSectionForm(props: {
       {watch("aiProvider") === Provider.OPEN_AI &&
         watch("aiApiKey") &&
         openAiModelOptions.length === 0 &&
-        (props.aiApiKey ? (
+        (showInvalidOpenAiKey ? (
           <AlertError
             title="Invalid API Key"
             description="We couldn't validate your API key. Please try again."
@@ -321,7 +369,7 @@ function ModelSectionForm(props: {
           />
         )}
 
-      <div className="flex gap-2">
+      <div className="flex flex-wrap items-center gap-2">
         <Button type="submit" loading={isSubmitting}>
           Save
         </Button>
@@ -334,6 +382,11 @@ function ModelSectionForm(props: {
         >
           Test connection
         </Button>
+        {testingMessage && (
+          <span className="text-sm text-muted-foreground">
+            {testingMessage}
+          </span>
+        )}
       </div>
     </form>
   );
