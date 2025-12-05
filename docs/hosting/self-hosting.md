@@ -146,7 +146,7 @@ Replace `YOUR_CRON_SECRET` with the value of `CRON_SECRET` from your `.env` file
 **Cost**: QStash has a generous free tier and scales to zero when not in use. See [QStash pricing](https://upstash.com/pricing/qstash).
 
 **Setup**: Add your QStash credentials to `.env`:
-```
+```bash
 QSTASH_TOKEN=your-qstash-token
 QSTASH_CURRENT_SIGNING_KEY=your-signing-key
 QSTASH_NEXT_SIGNING_KEY=your-next-signing-key
