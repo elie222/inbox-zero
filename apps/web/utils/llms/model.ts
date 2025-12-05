@@ -442,7 +442,7 @@ function getProviderApiKey(provider: string) {
 }
 
 function providerRequiresApiKey(provider: string) {
-  return provider !== Provider.OLLAMA;
+  return provider !== Provider.OLLAMA && provider !== Provider.LM_STUDIO;
 }
 
 function getBackupModel(userApiKey: string | null): LanguageModelV2 | null {
