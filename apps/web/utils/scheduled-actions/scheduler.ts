@@ -5,6 +5,7 @@ import { createScopedLogger } from "@/utils/logger";
 import { canActionBeDelayed } from "@/utils/delayed-actions";
 import { env } from "@/env";
 import { getCronSecretHeader } from "@/utils/cron";
+import { getInternalApiUrl } from "@/utils/internal-api";
 import { Client } from "@upstash/qstash";
 import { addMinutes, getUnixTime } from "date-fns";
 
@@ -263,7 +264,7 @@ async function scheduleMessage({
   deduplicationId: string;
 }) {
   const client = getQstashClient();
-  const url = `${env.WEBHOOK_URL || env.NEXT_PUBLIC_BASE_URL}/api/scheduled-actions/execute`;
+  const url = `${getInternalApiUrl()}/api/scheduled-actions/execute`;
 
   const notBefore = getUnixTime(addMinutes(new Date(), delayInMinutes));
 

@@ -1,6 +1,9 @@
 import { Client, type FlowControl, type HeadersInit } from "@upstash/qstash";
 import { env } from "@/env";
-import { INTERNAL_API_KEY_HEADER } from "@/utils/internal-api";
+import {
+  INTERNAL_API_KEY_HEADER,
+  getInternalApiUrl,
+} from "@/utils/internal-api";
 import { sleep } from "@/utils/sleep";
 import { createScopedLogger } from "@/utils/logger";
 
@@ -17,7 +20,7 @@ export async function publishToQstash<T>(
   flowControl?: FlowControl,
 ) {
   const client = getQstashClient();
-  const url = `${env.WEBHOOK_URL || env.NEXT_PUBLIC_BASE_URL}${path}`;
+  const url = `${getInternalApiUrl()}${path}`;
 
   if (client) {
     return client.publishJSON({

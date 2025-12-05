@@ -1,5 +1,8 @@
 import type { AnalyzeSenderPatternBody } from "@/app/api/ai/analyze-sender-pattern/route";
-import { INTERNAL_API_KEY_HEADER } from "@/utils/internal-api";
+import {
+  INTERNAL_API_KEY_HEADER,
+  getInternalApiUrl,
+} from "@/utils/internal-api";
 import { env } from "@/env";
 import { createScopedLogger } from "@/utils/logger";
 
@@ -8,7 +11,7 @@ const logger = createScopedLogger("sender-pattern-analysis");
 export async function analyzeSenderPattern(body: AnalyzeSenderPatternBody) {
   try {
     const response = await fetch(
-      `${env.NEXT_PUBLIC_BASE_URL}/api/ai/analyze-sender-pattern`,
+      `${getInternalApiUrl()}/api/ai/analyze-sender-pattern`,
       {
         method: "POST",
         body: JSON.stringify(body),

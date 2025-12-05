@@ -2,8 +2,8 @@ import { NextResponse } from "next/server";
 import { subDays } from "date-fns/subDays";
 import prisma from "@/utils/prisma";
 import { withError } from "@/utils/middleware";
-import { env } from "@/env";
 import { hasCronSecret, hasPostCronSecret } from "@/utils/cron";
+import { getInternalApiUrl } from "@/utils/internal-api";
 import { captureException } from "@/utils/error";
 import { createScopedLogger } from "@/utils/logger";
 import { publishToQstashQueue } from "@/utils/upstash";
@@ -40,7 +40,7 @@ async function sendDigestAllUpdate() {
     eligibleAccounts: emailAccounts.length,
   });
 
-  const url = `${env.NEXT_PUBLIC_BASE_URL}/api/resend/digest`;
+  const url = `${getInternalApiUrl()}/api/resend/digest`;
 
   for (const emailAccount of emailAccounts) {
     try {
