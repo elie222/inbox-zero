@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { createOpenAI } from "@ai-sdk/openai";
 import { getModel } from "./model";
 import { Provider } from "./config";
 import { env } from "@/env";
@@ -66,6 +67,7 @@ vi.mock("./config", async () => {
   const actual = await vi.importActual("./config");
   return {
     ...actual,
+    allowUserAiProviderUrl: true,
     supportsOllama: true,
   };
 });
@@ -147,6 +149,22 @@ describe("Models", () => {
       expect(result.provider).toBe(Provider.GROQ);
       expect(result.modelName).toBe("llama-3.3-70b-versatile");
       expect(result.model).toBeDefined();
+    });
+
+    it("normalizes OpenAI base URLs to include /v1 for responses endpoint", () => {
+      const userAi: UserAIFields = {
+        aiApiKey: "user-api-key",
+        aiProvider: Provider.OPEN_AI,
+        aiModel: "gpt-4o-mini",
+        aiBaseUrl: "http://localhost:1234/",
+      };
+
+      getModel(userAi);
+
+      expect(createOpenAI).toHaveBeenCalledWith({
+        apiKey: "user-api-key",
+        baseURL: "http://localhost:1234/v1",
+      });
     });
 
     it("should configure OpenRouter model correctly", () => {

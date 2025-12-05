@@ -1,13 +1,28 @@
 import { NextResponse } from "next/server";
 import OpenAI from "openai";
+import { env } from "@/env";
 import prisma from "@/utils/prisma";
 import { withEmailAccount } from "@/utils/middleware";
-import { Provider } from "@/utils/llms/config";
+import { Provider, allowUserAiProviderUrl } from "@/utils/llms/config";
+import { normalizeOpenAiBaseUrl } from "@/utils/llms/model";
 
 export type OpenAiModelsResponse = Awaited<ReturnType<typeof getOpenAiModels>>;
 
-async function getOpenAiModels({ apiKey }: { apiKey: string }) {
-  const openai = new OpenAI({ apiKey });
+async function getOpenAiModels({
+  apiKey,
+  baseUrl,
+}: {
+  apiKey: string;
+  baseUrl?: string | null;
+}) {
+  const baseURL = normalizeOpenAiBaseUrl(
+    (allowUserAiProviderUrl && baseUrl) || env.OPENAI_BASE_URL,
+  );
+
+  const openai = new OpenAI({
+    apiKey,
+    ...(baseURL ? { baseURL } : {}),
+  });
 
   const models = await openai.models.list();
 
@@ -19,7 +34,9 @@ export const GET = withEmailAccount("api/ai/models", async (req) => {
 
   const emailAccount = await prisma.emailAccount.findUnique({
     where: { id: emailAccountId },
-    select: { user: { select: { aiApiKey: true, aiProvider: true } } },
+    select: {
+      user: { select: { aiApiKey: true, aiProvider: true, aiBaseUrl: true } },
+    },
   });
 
   if (
@@ -32,6 +49,7 @@ export const GET = withEmailAccount("api/ai/models", async (req) => {
   try {
     const result = await getOpenAiModels({
       apiKey: emailAccount.user.aiApiKey,
+      baseUrl: emailAccount.user.aiBaseUrl,
     });
     return NextResponse.json(result);
   } catch (error) {
