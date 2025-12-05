@@ -217,9 +217,7 @@ export async function processHistoryItem(
       }
     }
 
-    logger.error("Error processing message", {
-      error: error instanceof Error ? error.message : String(error),
-    });
+    logger.error("Error processing message", { error });
     throw error;
   }
 }

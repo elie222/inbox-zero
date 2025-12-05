@@ -1437,7 +1437,7 @@ export class OutlookProvider implements EmailProvider {
       return [];
     } catch (error) {
       this.logger.error("Failed to extract signature from sent emails", {
-        error: error instanceof Error ? error.message : String(error),
+        error,
       });
       return [];
     }

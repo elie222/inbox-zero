@@ -108,7 +108,7 @@ export async function createMcpToolsForAgent(
         });
       } catch (error) {
         logger.error("Failed to create MCP client for integration", {
-          error: error instanceof Error ? error.message : String(error),
+          error,
           integration: integration.name,
         });
         // Continue with other integrations
