@@ -128,6 +128,32 @@ Gmail and Outlook push notification subscriptions expire periodically and must b
 
 Replace `YOUR_CRON_SECRET` with the value of `CRON_SECRET` from your `.env` file.
 
+## Optional: QStash for Advanced Features
+
+[Upstash QStash](https://upstash.com/docs/qstash/overall/getstarted) is a serverless message queue that enables scheduled and delayed actions. It's optional but recommended for the full feature set.
+
+**Features that require QStash:**
+
+| Feature | Without QStash | With QStash |
+|---------|---------------|-------------|
+| **Email digest** | ❌ Not available | ✅ Full support |
+| **Delayed/scheduled email actions** | ❌ Not available | ✅ Full support |
+| **AI categorization of senders*** | ✅ Works (sync) | ✅ Works (async with retries) |
+| **Bulk inbox cleaning*** | ❌ Not available | ✅ Full support |
+
+*Early access features - available on the Early Access page.
+
+**Cost**: QStash has a generous free tier and scales to zero when not in use. See [QStash pricing](https://upstash.com/pricing/qstash).
+
+**Setup**: Add your QStash credentials to `.env`:
+```
+QSTASH_TOKEN=your-qstash-token
+QSTASH_CURRENT_SIGNING_KEY=your-signing-key
+QSTASH_NEXT_SIGNING_KEY=your-next-signing-key
+```
+
+Adding alternative scheduling backends (like Redis-based scheduling) for self-hosted users is on our roadmap.
+
 ## Building from Source (Optional)
 
 If you prefer to build the image yourself instead of using the pre-built one:
