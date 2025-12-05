@@ -408,7 +408,7 @@ export const saveRulesPromptAction = actionClient
           } else {
             logger.error("Failed to create rule", {
               ruleName: rule.name,
-              error: error instanceof Error ? error.message : String(error),
+              error,
             });
           }
         }
@@ -500,7 +500,7 @@ export const createRulesAction = actionClient
               error instanceof Error ? error.message : String(error);
             logger.error("Failed to create rule", {
               ruleName: rule.name,
-              error: errorMessage,
+              error,
             });
             errors.push({
               ruleName: rule.name,

@@ -211,7 +211,7 @@ export async function transferPremiumDuringMerge({
     logger.error("Failed to transfer premium during user merge", {
       sourceUserId,
       targetUserId,
-      error: error instanceof Error ? error.message : String(error),
+      error,
     });
     // Don't rethrow - we want the merge to continue even if premium transfer fails
   }

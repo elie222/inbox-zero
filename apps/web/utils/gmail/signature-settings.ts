@@ -49,9 +49,7 @@ export async function getGmailSignatures(
 
     return signatures;
   } catch (error) {
-    logger.error("Failed to fetch Gmail signatures", {
-      error: error instanceof Error ? error.message : String(error),
-    });
+    logger.error("Failed to fetch Gmail signatures", { error });
     throw error;
   }
 }

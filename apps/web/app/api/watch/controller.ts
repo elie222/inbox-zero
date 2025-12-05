@@ -58,7 +58,7 @@ export async function watchEmails({
       logger.warn("Auth failure while watching inbox - cleaning up tokens", {
         emailAccountId,
         providerName: provider.name,
-        error: errorMessage,
+        error,
       });
       await cleanupInvalidTokens({
         emailAccountId,

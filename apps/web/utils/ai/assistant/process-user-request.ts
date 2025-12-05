@@ -145,7 +145,7 @@ ${stringifyEmailSimple(getEmailForLLM(originalEmail))}
       logger.error("Error while updating rule", {
         ruleName,
         keys: Object.keys(rule),
-        error: message,
+        error,
       });
 
       return {
@@ -274,7 +274,7 @@ ${stringifyEmailSimple(getEmailForLLM(originalEmail))}
       //         groupId,
       //         type: groupItemType,
       //         value,
-      //         error: message,
+      //         error,
       //       });
       //       return {
       //         error: "Failed to add pattern",
@@ -339,7 +339,7 @@ ${stringifyEmailSimple(getEmailForLLM(originalEmail))}
                     groupItemId: groupItem.id,
                     type: groupItemType,
                     value,
-                    error: message,
+                    error,
                   });
 
                   return {

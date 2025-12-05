@@ -146,7 +146,7 @@ export class OutlookSubscriptionManager {
             "Failed to cancel existing subscription (may already be expired)",
             {
               existingSubscriptionId,
-              error: error instanceof Error ? error.message : String(error),
+              error,
             },
           );
         }

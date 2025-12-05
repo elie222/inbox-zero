@@ -230,7 +230,7 @@ const createRuleTool = ({
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
 
-        logger.error("Failed to create rule", { error: message });
+        logger.error("Failed to create rule", { error });
 
         return { error: "Failed to create rule", message };
       }

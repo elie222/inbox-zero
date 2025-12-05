@@ -197,7 +197,7 @@ async function fetchGmailLabels(
           } catch (error) {
             logger.warn("Failed to get details for label", {
               labelName: label.name,
-              error: error instanceof Error ? error.message : String(error),
+              error,
             });
             return {
               ...label,
@@ -216,9 +216,7 @@ async function fetchGmailLabels(
 
     return sortedLabels;
   } catch (error) {
-    logger.warn("Failed to fetch Gmail labels", {
-      error: error instanceof Error ? error.message : String(error),
-    });
+    logger.warn("Failed to fetch Gmail labels", { error });
     return [];
   }
 }
@@ -234,9 +232,7 @@ async function fetchGmailSignature(
 
     return defaultSignature?.signature || "";
   } catch (error) {
-    logger.warn("Failed to fetch Gmail signature", {
-      error: error instanceof Error ? error.message : String(error),
-    });
+    logger.warn("Failed to fetch Gmail signature", { error });
     return "";
   }
 }
