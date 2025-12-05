@@ -60,10 +60,11 @@ export const updateAiSettingsAction = actionClientUser
                 aiProvider,
                 aiModel,
                 aiApiKey,
-                // Only store aiBaseUrl for Ollama and OpenAI providers
+                // Only store aiBaseUrl for Ollama, OpenAI, and LM Studio providers
                 aiBaseUrl:
                   aiProvider === Provider.OLLAMA ||
-                  aiProvider === Provider.OPEN_AI
+                  aiProvider === Provider.OPEN_AI ||
+                  aiProvider === Provider.LM_STUDIO
                     ? aiBaseUrl || null
                     : null,
               },
@@ -225,11 +226,15 @@ function toUserAiFields(input: SaveAiSettingsBody): UserAIFields {
     aiProvider: input.aiProvider,
     aiModel: input.aiModel || null,
     aiApiKey:
-      input.aiProvider === Provider.OLLAMA ? null : (input.aiApiKey ?? null),
+      input.aiProvider === Provider.OLLAMA ||
+      input.aiProvider === Provider.LM_STUDIO
+        ? null
+        : (input.aiApiKey ?? null),
     // Only use aiBaseUrl for providers that support custom URLs
     aiBaseUrl:
       input.aiProvider === Provider.OLLAMA ||
-      input.aiProvider === Provider.OPEN_AI
+      input.aiProvider === Provider.OPEN_AI ||
+      input.aiProvider === Provider.LM_STUDIO
         ? input.aiBaseUrl || null
         : null,
   };

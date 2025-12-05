@@ -34,8 +34,12 @@ export function ModelSection() {
 
   // Get server-side config from API response
   const supportsOllama = data?.supportsOllama ?? false;
+  const supportsLmStudio = data?.supportsLmStudio ?? false;
   const allowUserAiProviderUrl = data?.allowUserAiProviderUrl ?? false;
-  const providerOptions = getProviderOptions(supportsOllama);
+  const providerOptions = getProviderOptions({
+    ollamaSupported: supportsOllama,
+    lmStudioSupported: supportsLmStudio,
+  });
 
   const {
     data: dataModels,
@@ -289,7 +293,9 @@ function ModelSectionForm(props: {
               placeholder={
                 aiProvider === Provider.OLLAMA
                   ? "e.g., llama3, mistral"
-                  : undefined
+                  : aiProvider === Provider.LM_STUDIO
+                    ? "e.g., llama-3.2-1b, mistral-7b"
+                    : undefined
               }
             />
           )}
@@ -326,19 +332,32 @@ function ModelSectionForm(props: {
               registerProps={register("aiBaseUrl")}
               error={errors.aiBaseUrl}
               placeholder="http://localhost:1234/v1"
-              explainText="Custom OpenAI-compatible server URL (e.g., LM Studio, LocalAI, vLLM). Leave empty to use OpenAI."
+              explainText="Custom OpenAI-compatible server URL (e.g., LocalAI, vLLM). Leave empty to use OpenAI."
             />
           )}
 
-          {aiProvider !== Provider.OLLAMA && (
+          {aiProvider === Provider.LM_STUDIO && (
             <Input
-              type="password"
-              name="aiApiKey"
-              label="API Key"
-              registerProps={register("aiApiKey")}
-              error={errors.aiApiKey}
+              type="text"
+              name="aiBaseUrl"
+              label="Server URL"
+              registerProps={register("aiBaseUrl")}
+              error={errors.aiBaseUrl}
+              placeholder="http://localhost:1234"
+              explainText="Your LM Studio server URL. Start the server in LM Studio's 'Local Server' tab."
             />
           )}
+
+          {aiProvider !== Provider.OLLAMA &&
+            aiProvider !== Provider.LM_STUDIO && (
+              <Input
+                type="password"
+                name="aiApiKey"
+                label="API Key"
+                registerProps={register("aiApiKey")}
+                error={errors.aiApiKey}
+              />
+            )}
         </>
       )}
 
@@ -368,6 +387,13 @@ function ModelSectionForm(props: {
             description="Make sure Ollama is running and has models installed. You can also type the model name manually above."
           />
         )}
+
+      {watch("aiProvider") === Provider.LM_STUDIO && (
+        <AlertBasic
+          title="LM Studio Setup"
+          description="Make sure LM Studio is running with a model loaded. Start the server from the 'Local Server' tab in LM Studio (default port: 1234). Enter the model name exactly as shown in LM Studio."
+        />
+      )}
 
       <div className="flex flex-wrap items-center gap-2">
         <Button type="submit" loading={isSubmitting}>

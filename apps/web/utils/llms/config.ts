@@ -19,8 +19,15 @@ export const allowUserAiProviderUrl = env.ALLOW_USER_AI_PROVIDER_URL ?? false;
 // 2. User AI provider URL is enabled (users can set their own URL)
 export const supportsOllama = !!env.OLLAMA_BASE_URL || allowUserAiProviderUrl;
 
-// Only include Ollama in provider options if it's supported
+// LM Studio is only available if user AI provider URL is enabled
+// (requires users to set their own URL since LM Studio runs locally)
+export const supportsLmStudio = allowUserAiProviderUrl;
+
+// Only include local providers in provider options if they're supported
 // NOTE: This static export should only be used on server-side code.
-// For client components, use getProviderOptions() with supportsOllama from API.
+// For client components, use getProviderOptions() with support flags from API.
 export const providerOptions: { label: string; value: string }[] =
-  getProviderOptions(supportsOllama);
+  getProviderOptions({
+    ollamaSupported: supportsOllama,
+    lmStudioSupported: supportsLmStudio,
+  });

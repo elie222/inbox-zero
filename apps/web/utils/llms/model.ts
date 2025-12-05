@@ -7,11 +7,13 @@ import { createGroq } from "@ai-sdk/groq";
 import { createOpenRouter } from "@openrouter/ai-sdk-provider";
 import { createGateway } from "@ai-sdk/gateway";
 import { createOllama } from "ollama-ai-provider-v2";
+import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
 import { env } from "@/env";
 import {
   Provider,
   allowUserAiProviderUrl,
   supportsOllama,
+  supportsLmStudio,
 } from "@/utils/llms/config";
 import type { UserAIFields } from "@/utils/llms/types";
 import { createScopedLogger } from "@/utils/logger";
@@ -201,6 +203,35 @@ function selectModel(
       };
     }
 
+    case Provider.LM_STUDIO: {
+      const modelName = aiModel;
+
+      if (!modelName) {
+        throw new Error("LM Studio model must be specified");
+      }
+
+      if (!aiBaseUrl) {
+        throw new Error(
+          "LM Studio requires a base URL (e.g., http://localhost:1234)",
+        );
+      }
+
+      // Normalize URL to ensure it ends with /v1
+      const baseURL = normalizeOpenAiBaseUrl(aiBaseUrl);
+
+      const lmstudio = createOpenAICompatible({
+        name: "lmstudio",
+        baseURL: baseURL!,
+      });
+
+      return {
+        provider: Provider.LM_STUDIO,
+        modelName,
+        model: lmstudio(modelName),
+        backupModel: null,
+      };
+    }
+
     case Provider.BEDROCK: {
       const modelName =
         aiModel || "global.anthropic.claude-sonnet-4-5-20250929-v1:0";
@@ -345,14 +376,17 @@ function selectDefaultModel(userAi: UserAIFields): SelectModel {
   const providerOptions: Record<string, any> = {};
 
   // Check if user's selected provider is still valid
-  // (e.g., Ollama may have been disabled after user selected it)
+  // (e.g., Ollama/LM Studio may have been disabled after user selected it)
   const isUserProviderValid =
-    userAi.aiProvider !== Provider.OLLAMA || supportsOllama;
+    (userAi.aiProvider !== Provider.OLLAMA || supportsOllama) &&
+    (userAi.aiProvider !== Provider.LM_STUDIO || supportsLmStudio);
 
-  // If user has an API key set, or has Ollama (which doesn't need API key),
+  // If user has an API key set, or has a local provider (which doesn't need API key),
   // and their provider is still valid, use their settings
   if (
-    (aiApiKey || userAi.aiProvider === Provider.OLLAMA) &&
+    (aiApiKey ||
+      userAi.aiProvider === Provider.OLLAMA ||
+      userAi.aiProvider === Provider.LM_STUDIO) &&
     isUserProviderValid
   ) {
     aiProvider = userAi.aiProvider || env.DEFAULT_LLM_PROVIDER;
