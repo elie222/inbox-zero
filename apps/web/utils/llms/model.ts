@@ -28,6 +28,7 @@ type SelectModel = {
   model: LanguageModelV2;
   providerOptions?: Record<string, any>;
   backupModel: LanguageModelV2 | null;
+  baseURL?: string | null;
 };
 
 // Ensure OpenAI-compatible URLs include the /v1 prefix so the Responses API resolves correctly
@@ -68,6 +69,7 @@ export function getModel(
     modelType,
     provider: data.provider,
     model: data.modelName,
+    baseURL: data.baseURL,
     providerOptions: data.providerOptions,
   });
 
@@ -193,6 +195,14 @@ function selectModel(
           ? aiBaseUrl
           : env.OLLAMA_BASE_URL || "http://localhost:11434";
       const baseURL = `${rawUrl.replace(/\/api\/?$/, "")}/api`;
+
+      logger.info("Creating Ollama model", {
+        originalBaseUrl: aiBaseUrl,
+        envBaseUrl: env.OLLAMA_BASE_URL,
+        normalizedBaseUrl: baseURL,
+        modelName,
+      });
+
       const ollama = createOllama({ baseURL });
 
       return {
@@ -200,6 +210,7 @@ function selectModel(
         modelName,
         model: ollama(modelName),
         backupModel: null,
+        baseURL,
       };
     }
 
@@ -219,6 +230,12 @@ function selectModel(
       // Normalize URL to ensure it ends with /v1
       const baseURL = normalizeOpenAiBaseUrl(aiBaseUrl);
 
+      logger.info("Creating LM Studio model", {
+        originalBaseUrl: aiBaseUrl,
+        normalizedBaseUrl: baseURL,
+        modelName,
+      });
+
       const lmstudio = createOpenAICompatible({
         name: "lmstudio",
         baseURL: baseURL!,
@@ -229,6 +246,7 @@ function selectModel(
         modelName,
         model: lmstudio(modelName),
         backupModel: null,
+        baseURL,
       };
     }
 
