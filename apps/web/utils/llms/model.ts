@@ -1,4 +1,4 @@
-import type { LanguageModelV2 } from "@ai-sdk/provider";
+import type { LanguageModelV2, JSONValue } from "@ai-sdk/provider";
 import { createOpenAI } from "@ai-sdk/openai";
 import { createAnthropic } from "@ai-sdk/anthropic";
 import { createAmazonBedrock } from "@ai-sdk/amazon-bedrock";
@@ -84,11 +84,13 @@ function createLmStudioFetch() {
 
 export type ModelType = "default" | "economy" | "chat";
 
+export type ProviderOptions = Record<string, Record<string, JSONValue>>;
+
 type SelectModel = {
   provider: string;
   modelName: string;
   model: LanguageModelV2;
-  providerOptions?: Record<string, unknown>;
+  providerOptions?: ProviderOptions;
   backupModel: LanguageModelV2 | null;
   baseURL?: string | null;
 };
@@ -163,7 +165,7 @@ function selectModel(
     aiApiKey: string | null;
     aiBaseUrl?: string | null;
   },
-  providerOptions?: Record<string, unknown>,
+  providerOptions?: ProviderOptions,
 ): SelectModel {
   switch (aiProvider) {
     case Provider.OPEN_AI: {
@@ -175,13 +177,13 @@ function selectModel(
       // When Zero Data Retention is enabled, set store: false to avoid
       // "Items are not persisted for Zero Data Retention organizations" errors
       // See: https://github.com/vercel/ai/issues/10060
-      const baseOptions = providerOptions ?? {};
-      const openAiProviderOptions = env.OPENAI_ZERO_DATA_RETENTION
-        ? {
-            ...baseOptions,
-            openai: { ...(baseOptions.openai ?? {}), store: false },
-          }
-        : providerOptions;
+      const openAiProviderOptions: ProviderOptions | undefined =
+        env.OPENAI_ZERO_DATA_RETENTION
+          ? {
+              ...providerOptions,
+              openai: { ...(providerOptions?.openai ?? {}), store: false },
+            }
+          : providerOptions;
       return {
         provider: Provider.OPEN_AI,
         modelName,
@@ -356,9 +358,7 @@ function selectModel(
 /**
  * Creates OpenRouter provider options from a comma-separated string
  */
-function createOpenRouterProviderOptions(
-  providers: string,
-): Record<string, unknown> {
+function createOpenRouterProviderOptions(providers: string): ProviderOptions {
   const order = providers
     .split(",")
     .map((p: string) => p.trim())
@@ -366,7 +366,7 @@ function createOpenRouterProviderOptions(
 
   return {
     openrouter: {
-      provider: order.length > 0 ? { order } : undefined,
+      provider: order.length > 0 ? { order } : null,
       reasoning: { max_tokens: 20 },
     },
   };
@@ -393,7 +393,7 @@ function selectEconomyModel(userAi: UserAIFields): SelectModel {
     }
 
     // Configure OpenRouter provider options if using OpenRouter for economy
-    let providerOptions: Record<string, unknown> | undefined;
+    let providerOptions: ProviderOptions | undefined;
     if (
       env.ECONOMY_LLM_PROVIDER === Provider.OPENROUTER &&
       env.ECONOMY_OPENROUTER_PROVIDERS
@@ -430,7 +430,7 @@ function selectChatModel(userAi: UserAIFields): SelectModel {
     }
 
     // Configure OpenRouter provider options if using OpenRouter for chat
-    let providerOptions: Record<string, unknown> | undefined;
+    let providerOptions: ProviderOptions | undefined;
     if (
       env.CHAT_LLM_PROVIDER === Provider.OPENROUTER &&
       env.CHAT_OPENROUTER_PROVIDERS
@@ -458,7 +458,7 @@ function selectDefaultModel(userAi: UserAIFields): SelectModel {
   let aiModel: string | null = null;
   const aiApiKey = userAi.aiApiKey;
 
-  const providerOptions: Record<string, unknown> = {};
+  let providerOptions: ProviderOptions | undefined;
 
   // Check if user's selected provider is still valid
   // (e.g., Ollama/LM Studio may have been disabled after user selected it)
@@ -482,20 +482,9 @@ function selectDefaultModel(userAi: UserAIFields): SelectModel {
   }
 
   if (aiProvider === Provider.OPENROUTER) {
-    const openRouterOptions = createOpenRouterProviderOptions(
+    providerOptions = createOpenRouterProviderOptions(
       env.DEFAULT_OPENROUTER_PROVIDERS || "",
     );
-
-    // Preserve any custom options set earlier; always ensure reasoning exists.
-    const existingOpenRouterOptions = providerOptions.openrouter || {};
-    providerOptions.openrouter = {
-      ...openRouterOptions.openrouter,
-      ...existingOpenRouterOptions,
-      reasoning: {
-        ...openRouterOptions.openrouter.reasoning,
-        ...(existingOpenRouterOptions.reasoning ?? {}),
-      },
-    };
   }
 
   return selectModel(
