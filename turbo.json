@@ -42,6 +42,7 @@
         "OPENROUTER_API_KEY",
         "AI_GATEWAY_API_KEY",
         "OLLAMA_BASE_URL",
+        "LM_STUDIO_BASE_URL",
 
         "UPSTASH_REDIS_URL",
         "UPSTASH_REDIS_TOKEN",

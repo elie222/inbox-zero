@@ -149,10 +149,15 @@ function ModelSectionForm(props: {
     mutate: refetchOllamaModels,
   } = useSWR<OllamaModel[]>(ollamaModelsUrl);
 
-  // Fetch LM Studio models when LM Studio is selected and a base URL is provided
+  // Fetch LM Studio models when LM Studio is selected
+  // If user can provide URL, require it; otherwise use admin-configured URL via API
   const lmStudioModelsUrl =
-    supportsLmStudio && aiProvider === Provider.LM_STUDIO && aiBaseUrl
-      ? `/api/ai/lmstudio-models?baseUrl=${encodeURIComponent(aiBaseUrl)}`
+    supportsLmStudio && aiProvider === Provider.LM_STUDIO
+      ? aiBaseUrl
+        ? `/api/ai/lmstudio-models?baseUrl=${encodeURIComponent(aiBaseUrl)}`
+        : !allowUserAiProviderUrl
+          ? "/api/ai/lmstudio-models"
+          : null
       : null;
 
   const {
@@ -366,27 +371,32 @@ function ModelSectionForm(props: {
 
           {aiProvider === Provider.LM_STUDIO && (
             <div className="space-y-2">
-              <Input
-                type="text"
-                name="aiBaseUrl"
-                label="Server URL"
-                registerProps={register("aiBaseUrl")}
-                error={errors.aiBaseUrl}
-                placeholder="http://localhost:1234"
-                explainText="Your LM Studio server URL. Start the server in LM Studio's 'Local Server' tab."
-              />
-              {aiBaseUrl && (
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => refetchLmStudioModels()}
-                  disabled={isLoadingLmStudioModels}
-                >
-                  <RefreshCwIcon className="mr-2 size-4" />
-                  {isLoadingLmStudioModels ? "Loading..." : "Refresh models"}
-                </Button>
+              {allowUserAiProviderUrl ? (
+                <Input
+                  type="text"
+                  name="aiBaseUrl"
+                  label="Server URL"
+                  registerProps={register("aiBaseUrl")}
+                  error={errors.aiBaseUrl}
+                  placeholder="http://localhost:1234"
+                  explainText="Your LM Studio server URL. Start the server in LM Studio's 'Local Server' tab."
+                />
+              ) : (
+                <AlertBasic
+                  title="Server configured by admin"
+                  description="Your LM Studio server URL has been pre-configured. Select a model below."
+                />
               )}
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => refetchLmStudioModels()}
+                disabled={isLoadingLmStudioModels}
+              >
+                <RefreshCwIcon className="mr-2 size-4" />
+                {isLoadingLmStudioModels ? "Loading..." : "Refresh models"}
+              </Button>
             </div>
           )}
 
@@ -435,7 +445,7 @@ function ModelSectionForm(props: {
           <AlertBasic
             title="LM Studio Setup"
             description={
-              aiBaseUrl
+              aiBaseUrl || !allowUserAiProviderUrl
                 ? "No models found. Make sure LM Studio is running with a model downloaded. Click 'Refresh models' to load available models."
                 : "Enter your LM Studio server URL above (default: http://localhost:1234), then click 'Refresh models' to see available models."
             }

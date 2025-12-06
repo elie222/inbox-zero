@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
-import { allowUserAiProviderUrl } from "@/utils/llms/config";
+import { allowUserAiProviderUrl, supportsLmStudio } from "@/utils/llms/config";
 import { withEmailAccount } from "@/utils/middleware";
+import { env } from "@/env";
 
 export type LmStudioModel = {
   id: string;
@@ -42,8 +43,8 @@ async function getLmStudioModels(baseUrl: string): Promise<LmStudioModel[]> {
 }
 
 export const GET = withEmailAccount("api/ai/lmstudio-models", async (req) => {
-  // LM Studio requires user to provide their own URL
-  if (!allowUserAiProviderUrl) {
+  // LM Studio is available if admin configured LM_STUDIO_BASE_URL or if user AI provider URL is enabled
+  if (!supportsLmStudio) {
     return NextResponse.json(
       { error: "LM Studio is not enabled on this server" },
       { status: 403 },
@@ -51,11 +52,20 @@ export const GET = withEmailAccount("api/ai/lmstudio-models", async (req) => {
   }
 
   const { searchParams } = new URL(req.url);
-  const baseUrl = searchParams.get("baseUrl");
+  const userProvidedUrl = searchParams.get("baseUrl");
+
+  // Use user-provided URL if allowed and provided, otherwise fall back to env
+  const baseUrl =
+    allowUserAiProviderUrl && userProvidedUrl
+      ? userProvidedUrl
+      : env.LM_STUDIO_BASE_URL;
 
   if (!baseUrl) {
     return NextResponse.json(
-      { error: "baseUrl parameter is required for LM Studio" },
+      {
+        error:
+          "LM Studio base URL is required. Set LM_STUDIO_BASE_URL or provide a baseUrl parameter.",
+      },
       { status: 400 },
     );
   }

@@ -33,17 +33,33 @@ function createLmStudioFetch() {
       try {
         const parsedBody = JSON.parse(init.body) as Record<string, unknown>;
 
+        const hasResponseFormat = !!parsedBody.response_format;
+        const hasTools =
+          Array.isArray(parsedBody.tools) && parsedBody.tools.length > 0;
+
         requestMetadata = {
-          hasResponseFormat: !!parsedBody.response_format,
-          hasTools:
-            Array.isArray(parsedBody.tools) && parsedBody.tools.length > 0,
+          hasResponseFormat,
+          hasTools,
           model:
             typeof parsedBody.model === "string" ? parsedBody.model : undefined,
         };
 
-        if (parsedBody.response_format) {
+        // Warn about unsupported features
+        if (hasResponseFormat) {
+          logger.warn(
+            "LM Studio: Stripping response_format (JSON mode not supported by most local models)",
+            { model: requestMetadata.model },
+          );
           const { response_format: _omit, ...rest } = parsedBody;
           sanitizedInit = { ...init, body: JSON.stringify(rest) };
+        }
+
+        if (hasTools) {
+          const tools = parsedBody.tools as unknown[];
+          logger.warn(
+            "LM Studio: Request contains tools/function calling - this may not be supported by all models",
+            { model: requestMetadata.model, toolCount: tools.length },
+          );
         }
       } catch (error) {
         logger.warn("Failed to parse LM Studio request body", { error });
@@ -287,17 +303,25 @@ function selectModel(
         throw new Error("LM Studio model must be specified");
       }
 
-      if (!aiBaseUrl) {
+      // Use user's URL if allowed and provided, otherwise fall back to env
+      const rawUrl =
+        allowUserAiProviderUrl && aiBaseUrl
+          ? aiBaseUrl
+          : env.LM_STUDIO_BASE_URL;
+
+      if (!rawUrl) {
         throw new Error(
-          "LM Studio requires a base URL (e.g., http://localhost:1234)",
+          "LM Studio requires a base URL. Set LM_STUDIO_BASE_URL or enable ALLOW_USER_AI_PROVIDER_URL.",
         );
       }
 
       // Normalize URL to ensure it ends with /v1
-      const baseURL = normalizeOpenAiBaseUrl(aiBaseUrl);
+      const baseURL = normalizeOpenAiBaseUrl(rawUrl);
 
       logger.info("Creating LM Studio model", {
-        originalBaseUrl: aiBaseUrl,
+        userProvidedBaseUrl: aiBaseUrl,
+        envBaseUrl: env.LM_STUDIO_BASE_URL,
+        selectedRawUrl: rawUrl,
         normalizedBaseUrl: baseURL,
         modelName,
       });

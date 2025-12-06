@@ -60,6 +60,7 @@ export const env = createEnv({
     OPENROUTER_API_KEY: z.string().optional(),
     AI_GATEWAY_API_KEY: z.string().optional(),
     OLLAMA_BASE_URL: z.string().optional(),
+    LM_STUDIO_BASE_URL: z.string().optional(),
 
     OPENAI_ZERO_DATA_RETENTION: z.coerce.boolean().optional().default(false),
 

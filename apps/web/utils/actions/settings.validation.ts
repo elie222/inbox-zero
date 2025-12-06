@@ -54,14 +54,8 @@ export const saveAiSettingsBody = z
       });
     }
 
-    // aiBaseUrl is required for LM Studio
-    if (val.aiProvider === Provider.LM_STUDIO && !val.aiBaseUrl) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: "Server URL is required for LM Studio",
-        path: ["aiBaseUrl"],
-      });
-    }
+    // Note: aiBaseUrl validation for LM Studio is handled server-side
+    // because the server may have LM_STUDIO_BASE_URL configured
 
     // aiBaseUrl is only valid for Ollama, OpenAI, and LM Studio providers
     if (

@@ -37,6 +37,10 @@ vi.mock("ollama-ai-provider-v2", () => ({
   createOllama: vi.fn(() => (model: string) => ({ model })),
 }));
 
+vi.mock("@ai-sdk/openai-compatible", () => ({
+  createOpenAICompatible: vi.fn(() => (model: string) => ({ model })),
+}));
+
 vi.mock("@/env", () => ({
   env: {
     DEFAULT_LLM_PROVIDER: "openai",
@@ -54,6 +58,7 @@ vi.mock("@/env", () => ({
     OPENROUTER_API_KEY: "test-openrouter-key",
     OPENROUTER_BACKUP_MODEL: "google/gemini-2.5-flash",
     OLLAMA_BASE_URL: "http://localhost:11434",
+    LM_STUDIO_BASE_URL: "http://localhost:1234",
     NEXT_PUBLIC_OLLAMA_MODEL: "llama3",
     BEDROCK_REGION: "us-west-2",
     BEDROCK_ACCESS_KEY: "",
@@ -69,6 +74,7 @@ vi.mock("./config", async () => {
     ...actual,
     allowUserAiProviderUrl: true,
     supportsOllama: true,
+    supportsLmStudio: true,
   };
 });
 
@@ -81,6 +87,7 @@ describe("Models", () => {
     vi.mocked(env).BEDROCK_SECRET_KEY = "";
     vi.mocked(env).NEXT_PUBLIC_OLLAMA_MODEL = "llama3";
     vi.mocked(env).OLLAMA_BASE_URL = "http://localhost:11434";
+    vi.mocked(env).LM_STUDIO_BASE_URL = "http://localhost:1234";
   });
 
   describe("getModel", () => {
@@ -225,6 +232,76 @@ describe("Models", () => {
       expect(createOllama).toHaveBeenCalledWith({
         baseURL: "http://localhost:11434/api",
       });
+    });
+
+    it("should configure LM Studio model correctly with env base URL", () => {
+      const userAi: UserAIFields = {
+        aiApiKey: null,
+        aiProvider: Provider.LM_STUDIO,
+        aiModel: "llama-3.2-1b",
+        aiBaseUrl: null,
+      };
+
+      const result = getModel(userAi);
+      expect(result.provider).toBe(Provider.LM_STUDIO);
+      expect(result.modelName).toBe("llama-3.2-1b");
+      expect(result.model).toBeDefined();
+      expect(result.baseURL).toBe("http://localhost:1234/v1");
+      expect(result.backupModel).toBeNull();
+    });
+
+    it("should configure LM Studio with user-provided base URL when allowed", () => {
+      const userAi: UserAIFields = {
+        aiApiKey: null,
+        aiProvider: Provider.LM_STUDIO,
+        aiModel: "mistral-7b",
+        aiBaseUrl: "http://192.168.1.100:1234",
+      };
+
+      const result = getModel(userAi);
+      expect(result.provider).toBe(Provider.LM_STUDIO);
+      expect(result.modelName).toBe("mistral-7b");
+      expect(result.baseURL).toBe("http://192.168.1.100:1234/v1");
+    });
+
+    it("should throw when LM Studio model is missing", () => {
+      const userAi: UserAIFields = {
+        aiApiKey: null,
+        aiProvider: Provider.LM_STUDIO,
+        aiModel: null,
+        aiBaseUrl: null,
+      };
+
+      expect(() => getModel(userAi)).toThrow(
+        "LM Studio model must be specified",
+      );
+    });
+
+    it("should throw when LM Studio base URL is missing and env not set", () => {
+      vi.mocked(env).LM_STUDIO_BASE_URL = undefined as any;
+
+      const userAi: UserAIFields = {
+        aiApiKey: null,
+        aiProvider: Provider.LM_STUDIO,
+        aiModel: "llama-3.2-1b",
+        aiBaseUrl: null,
+      };
+
+      expect(() => getModel(userAi)).toThrow(
+        "LM Studio requires a base URL. Set LM_STUDIO_BASE_URL or enable ALLOW_USER_AI_PROVIDER_URL.",
+      );
+    });
+
+    it("should normalize LM Studio URL to include /v1", () => {
+      const userAi: UserAIFields = {
+        aiApiKey: null,
+        aiProvider: Provider.LM_STUDIO,
+        aiModel: "llama-3.2-1b",
+        aiBaseUrl: "http://localhost:1234/",
+      };
+
+      const result = getModel(userAi);
+      expect(result.baseURL).toBe("http://localhost:1234/v1");
     });
 
     it("should configure Anthropic model correctly without Bedrock credentials", () => {
