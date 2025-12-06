@@ -338,6 +338,12 @@ async function handleError(
   });
 
   if (APICallError.isInstance(error)) {
+    logger.error("LLM provider response", {
+      statusCode: error.statusCode,
+      url: error.url,
+      responseBody: error.responseBody?.slice(0, MAX_LOG_LENGTH),
+    });
+
     if (isIncorrectOpenAIAPIKeyError(error)) {
       return await addUserErrorMessage(
         userEmail,

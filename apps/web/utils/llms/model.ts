@@ -20,13 +20,75 @@ import { createScopedLogger } from "@/utils/logger";
 
 const logger = createScopedLogger("llms/model");
 
+function createLmStudioFetch() {
+  return async (input: RequestInfo | URL, init?: RequestInit) => {
+    let sanitizedInit = init;
+    let requestMetadata: {
+      hasResponseFormat?: boolean;
+      hasTools?: boolean;
+      model?: string;
+    } = {};
+
+    if (init?.body && typeof init.body === "string") {
+      try {
+        const parsedBody = JSON.parse(init.body) as Record<string, unknown>;
+
+        requestMetadata = {
+          hasResponseFormat: !!parsedBody.response_format,
+          hasTools:
+            Array.isArray(parsedBody.tools) && parsedBody.tools.length > 0,
+          model:
+            typeof parsedBody.model === "string" ? parsedBody.model : undefined,
+        };
+
+        if (parsedBody.response_format) {
+          const { response_format: _omit, ...rest } = parsedBody;
+          sanitizedInit = { ...init, body: JSON.stringify(rest) };
+        }
+      } catch (error) {
+        logger.warn("Failed to parse LM Studio request body", { error });
+      }
+    }
+
+    const response = await fetch(input, sanitizedInit);
+
+    if (!response.ok) {
+      let responseBody: string | undefined;
+      try {
+        responseBody = await response.text();
+      } catch (readError) {
+        logger.warn("Failed to read LM Studio error response", {
+          error: readError,
+        });
+      }
+
+      logger.error("LM Studio request failed", {
+        status: response.status,
+        statusText: response.statusText,
+        responseBody,
+        ...requestMetadata,
+      });
+
+      if (responseBody !== undefined) {
+        return new Response(responseBody, {
+          status: response.status,
+          statusText: response.statusText,
+          headers: response.headers,
+        });
+      }
+    }
+
+    return response;
+  };
+}
+
 export type ModelType = "default" | "economy" | "chat";
 
 type SelectModel = {
   provider: string;
   modelName: string;
   model: LanguageModelV2;
-  providerOptions?: Record<string, any>;
+  providerOptions?: Record<string, unknown>;
   backupModel: LanguageModelV2 | null;
   baseURL?: string | null;
 };
@@ -101,7 +163,7 @@ function selectModel(
     aiApiKey: string | null;
     aiBaseUrl?: string | null;
   },
-  providerOptions?: Record<string, any>,
+  providerOptions?: Record<string, unknown>,
 ): SelectModel {
   switch (aiProvider) {
     case Provider.OPEN_AI: {
@@ -238,9 +300,12 @@ function selectModel(
         modelName,
       });
 
+      const lmStudioFetch = createLmStudioFetch();
       const lmstudio = createOpenAICompatible({
         name: "lmstudio",
         baseURL: baseURL!,
+        supportsStructuredOutputs: false,
+        fetch: lmStudioFetch,
       });
 
       return {
@@ -293,7 +358,7 @@ function selectModel(
  */
 function createOpenRouterProviderOptions(
   providers: string,
-): Record<string, any> {
+): Record<string, unknown> {
   const order = providers
     .split(",")
     .map((p: string) => p.trim())
@@ -328,7 +393,7 @@ function selectEconomyModel(userAi: UserAIFields): SelectModel {
     }
 
     // Configure OpenRouter provider options if using OpenRouter for economy
-    let providerOptions: Record<string, any> | undefined;
+    let providerOptions: Record<string, unknown> | undefined;
     if (
       env.ECONOMY_LLM_PROVIDER === Provider.OPENROUTER &&
       env.ECONOMY_OPENROUTER_PROVIDERS
@@ -365,7 +430,7 @@ function selectChatModel(userAi: UserAIFields): SelectModel {
     }
 
     // Configure OpenRouter provider options if using OpenRouter for chat
-    let providerOptions: Record<string, any> | undefined;
+    let providerOptions: Record<string, unknown> | undefined;
     if (
       env.CHAT_LLM_PROVIDER === Provider.OPENROUTER &&
       env.CHAT_OPENROUTER_PROVIDERS
@@ -393,7 +458,7 @@ function selectDefaultModel(userAi: UserAIFields): SelectModel {
   let aiModel: string | null = null;
   const aiApiKey = userAi.aiApiKey;
 
-  const providerOptions: Record<string, any> = {};
+  const providerOptions: Record<string, unknown> = {};
 
   // Check if user's selected provider is still valid
   // (e.g., Ollama/LM Studio may have been disabled after user selected it)
