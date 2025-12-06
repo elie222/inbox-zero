@@ -129,6 +129,7 @@ function selectModel(
         })(modelName),
         providerOptions: openAiProviderOptions,
         backupModel: getBackupModel(aiApiKey),
+        baseURL,
       };
     }
     case Provider.GOOGLE: {
@@ -197,8 +198,9 @@ function selectModel(
       const baseURL = `${rawUrl.replace(/\/api\/?$/, "")}/api`;
 
       logger.info("Creating Ollama model", {
-        originalBaseUrl: aiBaseUrl,
+        userProvidedBaseUrl: aiBaseUrl,
         envBaseUrl: env.OLLAMA_BASE_URL,
+        selectedRawUrl: rawUrl,
         normalizedBaseUrl: baseURL,
         modelName,
       });

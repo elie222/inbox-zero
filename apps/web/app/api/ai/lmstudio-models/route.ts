@@ -60,6 +60,16 @@ export const GET = withEmailAccount("api/ai/lmstudio-models", async (req) => {
     );
   }
 
+  // Validate URL format (defense-in-depth, frontend also validates)
+  try {
+    new URL(baseUrl);
+  } catch {
+    return NextResponse.json(
+      { error: "Invalid URL format for baseUrl parameter" },
+      { status: 400 },
+    );
+  }
+
   try {
     const models = await getLmStudioModels(baseUrl);
     return NextResponse.json(models);
