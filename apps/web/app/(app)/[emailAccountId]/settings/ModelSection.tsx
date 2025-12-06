@@ -17,6 +17,7 @@ import {
 import { Select } from "@/components/Select";
 import type { OpenAiModelsResponse } from "@/app/api/ai/models/route";
 import type { OllamaModel } from "@/app/api/ai/ollama-models/route";
+import type { LmStudioModel } from "@/app/api/ai/lmstudio-models/route";
 import { AlertBasic, AlertError } from "@/components/Alert";
 import {
   DEFAULT_PROVIDER,
@@ -72,6 +73,7 @@ export function ModelSection() {
             providerOptions={providerOptions}
             allowUserAiProviderUrl={allowUserAiProviderUrl}
             supportsOllama={supportsOllama}
+            supportsLmStudio={supportsLmStudio}
           />
         )}
       </LoadingContent>
@@ -91,12 +93,14 @@ function ModelSectionForm(props: {
   providerOptions: { label: string; value: string }[];
   allowUserAiProviderUrl: boolean;
   supportsOllama: boolean;
+  supportsLmStudio: boolean;
 }) {
   const {
     refetchUser,
     providerOptions,
     allowUserAiProviderUrl,
     supportsOllama,
+    supportsLmStudio,
   } = props;
 
   // If user's saved provider is no longer available (e.g., Ollama disabled), reset to default
@@ -144,6 +148,18 @@ function ModelSectionForm(props: {
     isLoading: isLoadingOllamaModels,
     mutate: refetchOllamaModels,
   } = useSWR<OllamaModel[]>(ollamaModelsUrl);
+
+  // Fetch LM Studio models when LM Studio is selected and a base URL is provided
+  const lmStudioModelsUrl =
+    supportsLmStudio && aiProvider === Provider.LM_STUDIO && aiBaseUrl
+      ? `/api/ai/lmstudio-models?baseUrl=${encodeURIComponent(aiBaseUrl)}`
+      : null;
+
+  const {
+    data: lmStudioModels,
+    isLoading: isLoadingLmStudioModels,
+    mutate: refetchLmStudioModels,
+  } = useSWR<LmStudioModel[]>(lmStudioModelsUrl);
 
   const onSubmit: SubmitHandler<SaveAiSettingsBody> = useCallback(
     async (data) => {
@@ -262,8 +278,20 @@ function ModelSectionForm(props: {
         })) || []
       : [];
 
+  const lmStudioModelOptions =
+    aiProvider === Provider.LM_STUDIO
+      ? lmStudioModels?.map((m) => ({
+          label: `${m.id} (${m.quantization || "unknown"})`,
+          value: m.id,
+        })) || []
+      : [];
+
   const modelSelectOptions =
-    aiProvider === Provider.OLLAMA ? ollamaModelOptions : openAiModelOptions;
+    aiProvider === Provider.OLLAMA
+      ? ollamaModelOptions
+      : aiProvider === Provider.LM_STUDIO
+        ? lmStudioModelOptions
+        : openAiModelOptions;
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
@@ -337,15 +365,29 @@ function ModelSectionForm(props: {
           )}
 
           {aiProvider === Provider.LM_STUDIO && (
-            <Input
-              type="text"
-              name="aiBaseUrl"
-              label="Server URL"
-              registerProps={register("aiBaseUrl")}
-              error={errors.aiBaseUrl}
-              placeholder="http://localhost:1234"
-              explainText="Your LM Studio server URL. Start the server in LM Studio's 'Local Server' tab."
-            />
+            <div className="space-y-2">
+              <Input
+                type="text"
+                name="aiBaseUrl"
+                label="Server URL"
+                registerProps={register("aiBaseUrl")}
+                error={errors.aiBaseUrl}
+                placeholder="http://localhost:1234"
+                explainText="Your LM Studio server URL. Start the server in LM Studio's 'Local Server' tab."
+              />
+              {aiBaseUrl && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => refetchLmStudioModels()}
+                  disabled={isLoadingLmStudioModels}
+                >
+                  <RefreshCwIcon className="mr-2 size-4" />
+                  {isLoadingLmStudioModels ? "Loading..." : "Refresh models"}
+                </Button>
+              )}
+            </div>
           )}
 
           {aiProvider !== Provider.OLLAMA &&
@@ -388,12 +430,17 @@ function ModelSectionForm(props: {
           />
         )}
 
-      {watch("aiProvider") === Provider.LM_STUDIO && (
-        <AlertBasic
-          title="LM Studio Setup"
-          description="Make sure LM Studio is running with a model loaded. Start the server from the 'Local Server' tab in LM Studio (default port: 1234). Enter the model name exactly as shown in LM Studio."
-        />
-      )}
+      {watch("aiProvider") === Provider.LM_STUDIO &&
+        lmStudioModelOptions.length === 0 && (
+          <AlertBasic
+            title="LM Studio Setup"
+            description={
+              aiBaseUrl
+                ? "No models found. Make sure LM Studio is running with a model downloaded. Click 'Refresh models' to load available models."
+                : "Enter your LM Studio server URL above (default: http://localhost:1234), then click 'Refresh models' to see available models."
+            }
+          />
+        )}
 
       <div className="flex flex-wrap items-center gap-2">
         <Button type="submit" loading={isSubmitting}>
