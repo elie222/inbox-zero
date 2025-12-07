@@ -10,7 +10,7 @@ import {
   type LucideIcon,
   ChromeIcon,
   CalendarIcon,
-  TargetIcon,
+  PenIcon,
 } from "lucide-react";
 import { useLocalStorage } from "usehooks-ts";
 import { PageHeading, SectionDescription } from "@/components/Typography";
@@ -331,8 +331,7 @@ export function SetupContent() {
           totalSteps={data.total}
           isSetupComplete={data.isComplete}
           emailsProcessed={data.emailsProcessed}
-          rulesExecuted={data.rulesExecuted}
-          inboxCoverage={data.inboxCoverage ?? 0}
+          draftedEmails={data.draftedEmails}
         />
       )}
     </LoadingContent>
@@ -349,8 +348,7 @@ function SetupPageContent({
   totalSteps,
   isSetupComplete,
   emailsProcessed,
-  rulesExecuted,
-  inboxCoverage,
+  draftedEmails,
 }: {
   emailAccountId: string;
   provider: string;
@@ -361,8 +359,7 @@ function SetupPageContent({
   totalSteps: number;
   isSetupComplete: boolean;
   emailsProcessed: number;
-  rulesExecuted: number;
-  inboxCoverage: number;
+  draftedEmails: number;
 }) {
   const progressPercentage = (completedCount / totalSteps) * 100;
 
@@ -375,18 +372,11 @@ function SetupPageContent({
       tooltip: "Total emails that have been processed so far.",
     },
     {
-      icon: BotIcon,
+      icon: PenIcon,
       variant: "green",
-      value: formatStat(rulesExecuted),
-      title: "Rules executed",
-      tooltip: "Total automation actions that have been executed so far.",
-    },
-    {
-      icon: TargetIcon,
-      variant: "orange",
-      value: inboxCoverage != null ? `${inboxCoverage}%` : "0%",
-      title: "Inbox coverage",
-      tooltip: "Percentage of emails that have been processed and handled.",
+      value: formatStat(draftedEmails),
+      title: "Drafted emails",
+      tooltip: "Total AI-drafted email replies created so far.",
     },
   ];
 
