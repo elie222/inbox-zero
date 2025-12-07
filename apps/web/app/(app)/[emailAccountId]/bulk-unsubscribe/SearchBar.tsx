@@ -49,7 +49,7 @@ export function SearchBar({
         <SearchIcon className="size-5" />
       </Button>
       {showSearch && (
-        <form>
+        <form onSubmit={(e) => e.preventDefault()}>
           <Input
             type="text"
             name="search"

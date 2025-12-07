@@ -1,7 +1,7 @@
-import { env } from "@/env";
 import { publishToQstashQueue } from "@/utils/upstash";
 import { createScopedLogger } from "@/utils/logger";
 import { emailToContent } from "@/utils/mail";
+import { getInternalApiUrl } from "@/utils/internal-api";
 import type { DigestBody } from "@/app/api/ai/digest/validation";
 import type { ParsedMessage } from "@/utils/types";
 import type { EmailForAction } from "@/utils/ai/types";
@@ -19,7 +19,7 @@ export async function enqueueDigestItem({
   actionId?: string;
   coldEmailId?: string;
 }) {
-  const url = `${env.NEXT_PUBLIC_BASE_URL}/api/ai/digest`;
+  const url = `${getInternalApiUrl()}/api/ai/digest`;
   try {
     await publishToQstashQueue<DigestBody>({
       queueName: "digest-item-summarize",

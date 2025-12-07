@@ -1,5 +1,5 @@
 import groupBy from "lodash/groupBy";
-import subDays from "date-fns/subDays";
+import { subDays } from "date-fns/subDays";
 import prisma from "@/utils/prisma";
 import { ActionType } from "@/generated/prisma/enums";
 import { createScopedLogger } from "@/utils/logger";

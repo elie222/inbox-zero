@@ -77,6 +77,7 @@
 
         "ADMINS",
         "WEBHOOK_URL",
+        "INTERNAL_API_URL",
         "INTERNAL_API_KEY",
         "USE_BACKUP_MODEL",
         "WHITELIST_FROM",

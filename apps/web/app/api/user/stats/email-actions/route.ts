@@ -1,12 +1,16 @@
 import { NextResponse } from "next/server";
 import { withEmailAccount } from "@/utils/middleware";
-import { getEmailActionsByDay } from "@inboxzero/tinybird";
+import { getEmailActionsByDay, isTinybirdEnabled } from "@inboxzero/tinybird";
 
 export type EmailActionStatsResponse = Awaited<
   ReturnType<typeof getEmailActionStats>
 >;
 
 async function getEmailActionStats({ userEmail }: { userEmail: string }) {
+  if (!isTinybirdEnabled()) {
+    return { result: [], disabled: true as const };
+  }
+
   const result = (
     await getEmailActionsByDay({ ownerEmail: userEmail })
   ).data.map((d) => ({
@@ -15,7 +19,7 @@ async function getEmailActionStats({ userEmail }: { userEmail: string }) {
     Deleted: d.delete_count,
   }));
 
-  return { result };
+  return { result, disabled: false as const };
 }
 
 export const GET = withEmailAccount(

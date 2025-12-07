@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
-import subDays from "date-fns/subDays";
+import { subDays } from "date-fns/subDays";
 import prisma from "@/utils/prisma";
 import { withError } from "@/utils/middleware";
-import { env } from "@/env";
+import { getInternalApiUrl } from "@/utils/internal-api";
 import {
   getCronSecretHeader,
   hasCronSecret,
@@ -38,7 +38,7 @@ async function sendSummaryAllUpdate() {
 
   logger.info("Sending summary to users", { count: emailAccounts.length });
 
-  const url = `${env.NEXT_PUBLIC_BASE_URL}/api/resend/summary`;
+  const url = `${getInternalApiUrl()}/api/resend/summary`;
 
   for (const emailAccount of emailAccounts) {
     try {

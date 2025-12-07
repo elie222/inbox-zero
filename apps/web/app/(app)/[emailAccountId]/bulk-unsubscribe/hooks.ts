@@ -656,27 +656,31 @@ export function useBulkUnsubscribeShortcuts<T extends Row>({
   ]);
 }
 
+export type NewsletterFilterType =
+  | "all"
+  | "unhandled"
+  | "unsubscribed"
+  | "autoArchived"
+  | "approved";
+
 export function useNewsletterFilter() {
-  const [filters, setFilters] = useState<
-    Record<"unhandled" | "unsubscribed" | "autoArchived" | "approved", boolean>
-  >({
-    unhandled: true,
-    unsubscribed: true,
-    autoArchived: true,
-    approved: true,
-  });
+  const [filter, setFilter] = useState<NewsletterFilterType>("all");
+
+  // Convert single filter to array format for API compatibility
+  const filtersArray: (
+    | "unhandled"
+    | "unsubscribed"
+    | "autoArchived"
+    | "approved"
+  )[] =
+    filter === "all"
+      ? ["unhandled", "unsubscribed", "autoArchived", "approved"]
+      : [filter];
 
   return {
-    filters,
-    filtersArray: Object.entries(filters)
-      .filter(([, selected]) => selected)
-      .map(([key]) => key) as (
-      | "unhandled"
-      | "unsubscribed"
-      | "autoArchived"
-      | "approved"
-    )[],
-    setFilters,
+    filter,
+    filtersArray,
+    setFilter,
   };
 }
 

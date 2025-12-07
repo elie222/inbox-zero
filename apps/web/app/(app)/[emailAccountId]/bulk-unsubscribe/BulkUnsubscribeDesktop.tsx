@@ -25,13 +25,15 @@ import {
 export function BulkUnsubscribeDesktop({
   tableRows,
   sortColumn,
-  setSortColumn,
+  sortDirection,
+  onSort,
   isAllSelected,
   onToggleSelectAll,
 }: {
   tableRows?: React.ReactNode;
   sortColumn: "emails" | "unread" | "unarchived";
-  setSortColumn: (sortColumn: "emails" | "unread" | "unarchived") => void;
+  sortDirection: "asc" | "desc";
+  onSort: (column: "emails" | "unread" | "unarchived") => void;
   isAllSelected: boolean;
   onToggleSelectAll: () => void;
 }) {
@@ -48,7 +50,10 @@ export function BulkUnsubscribeDesktop({
           <TableHead>
             <HeaderButton
               sorted={sortColumn === "emails"}
-              onClick={() => setSortColumn("emails")}
+              sortDirection={
+                sortColumn === "emails" ? sortDirection : undefined
+              }
+              onClick={() => onSort("emails")}
             >
               Emails
             </HeaderButton>
@@ -56,7 +61,10 @@ export function BulkUnsubscribeDesktop({
           <TableHead>
             <HeaderButton
               sorted={sortColumn === "unread"}
-              onClick={() => setSortColumn("unread")}
+              sortDirection={
+                sortColumn === "unread" ? sortDirection : undefined
+              }
+              onClick={() => onSort("unread")}
             >
               Read
             </HeaderButton>
@@ -64,7 +72,10 @@ export function BulkUnsubscribeDesktop({
           <TableHead>
             <HeaderButton
               sorted={sortColumn === "unarchived"}
-              onClick={() => setSortColumn("unarchived")}
+              sortDirection={
+                sortColumn === "unarchived" ? sortDirection : undefined
+              }
+              onClick={() => onSort("unarchived")}
             >
               Archived
             </HeaderButton>
@@ -111,7 +122,7 @@ export function BulkUnsubscribeRowDesktop({
           onChange={() => onToggleSelect?.(item.name)}
         />
       </TableCell>
-      <TableCell className="max-w-[250px] truncate min-[1550px]:max-w-[300px] py-3">
+      <TableCell className="max-w-[250px] truncate py-3">
         <div className="flex flex-col">
           <span className="font-medium">{item.fromName || item.name}</span>
           {item.fromName && (
