@@ -16,6 +16,8 @@ import { slugify } from "@/utils/string";
 import { useUser } from "@/hooks/useUser";
 import { LoadingContent } from "@/components/LoadingContent";
 import { useAccount } from "@/providers/EmailAccountProvider";
+import { PageHeader } from "@/components/PageHeader";
+import { PageWrapper } from "@/components/PageWrapper";
 
 export default function CreateOrganizationPage() {
   const router = useRouter();
@@ -61,47 +63,36 @@ export default function CreateOrganizationPage() {
   );
 
   return (
-    <LoadingContent loading={isLoading} error={error}>
-      <div className="container mx-auto py-8">
-        <div className="max-w-2xl mx-auto">
-          <div className="mb-8">
-            <h1 className="text-3xl font-bold mb-2">Create Organization</h1>
-            <p className="text-muted-foreground">
-              Set up your organization to collaborate with your team and manage
-              shared resources.
-            </p>
-          </div>
+    <PageWrapper className="max-w-2xl mx-auto">
+      <PageHeader title="Create Organization" />
+      <LoadingContent loading={isLoading} error={error}>
+        <form
+          className="max-w-sm space-y-4 mt-4"
+          onSubmit={handleSubmit(onSubmit)}
+        >
+          <Input
+            type="text"
+            name="name"
+            label="Organization Name"
+            placeholder="Apple Inc."
+            registerProps={register("name")}
+            error={errors.name}
+          />
 
-          <form
-            className="max-w-sm space-y-4"
-            onSubmit={handleSubmit(onSubmit)}
-          >
-            <Input
-              type="text"
-              name="name"
-              label="Organization Name"
-              placeholder="Apple Inc."
-              registerProps={register("name")}
-              error={errors.name}
-            />
+          <Input
+            type="text"
+            name="slug"
+            label="URL Slug"
+            placeholder="apple-inc"
+            registerProps={register("slug")}
+            error={errors.slug}
+          />
 
-            <Input
-              type="text"
-              name="slug"
-              label="URL Slug"
-              placeholder="apple-inc"
-              registerProps={register("slug")}
-              error={errors.slug}
-            />
-
-            <div className="flex gap-4 pt-4">
-              <Button type="submit" loading={isSubmitting}>
-                Create Organization
-              </Button>
-            </div>
-          </form>
-        </div>
-      </div>
-    </LoadingContent>
+          <Button type="submit" loading={isSubmitting}>
+            Create Organization
+          </Button>
+        </form>
+      </LoadingContent>
+    </PageWrapper>
   );
 }
