@@ -134,3 +134,12 @@ jobs:
             ${{ env.DOCKER_USERNAME }}/inbox-zero:latest
             ${{ env.DOCKER_USERNAME }}/inbox-zero:${{ needs.fetch-version.outputs.version }}
 
+      - name: Update Docker Hub Description
+        uses: peter-evans/dockerhub-description@v4
+        with:
+          username: ${{ env.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+          repository: ${{ env.DOCKER_USERNAME }}/inbox-zero
+          short-description: "Inbox Zero - AI email assistant for Gmail and Outlook to reach inbox zero fast"
+          readme-filepath: ./README.md
+
