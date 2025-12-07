@@ -9,16 +9,16 @@
     "@react-email/components": "0.5.7",
     "@react-email/render": "1.4.0",
     "nanoid": "5.1.6",
-    "react": "19.2.0",
-    "react-dom": "19.2.0",
+    "react": "19.2.1",
+    "react-dom": "19.2.1",
     "react-email": "4.3.1",
     "resend": "6.2.1"
   },
   "devDependencies": {
-    "@types/node": "24.9.1",
-    "@types/react": "19.2.2",
-    "@types/react-dom": "19.2.2",
-    "prettier": "3.6.2",
+    "@types/node": "24.10.1",
+    "@types/react": "19.2.7",
+    "@types/react-dom": "19.2.3",
+    "prettier": "3.7.4",
     "tsconfig": "workspace:*",
     "typescript": "5.9.3"
   }

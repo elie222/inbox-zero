@@ -13,15 +13,18 @@
     "build:binary:macos-arm64": "bun build src/main.ts --compile --target=bun-darwin-arm64 --outfile dist/inbox-zero-darwin-arm64",
     "build:binary:macos-x64": "bun build src/main.ts --compile --target=bun-darwin-x64 --outfile dist/inbox-zero-darwin-x64",
     "build:binary:linux-x64": "bun build src/main.ts --compile --target=bun-linux-x64 --outfile dist/inbox-zero-linux-x64",
-    "dev": "bun run src/main.ts"
+    "dev": "bun run src/main.ts",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "dependencies": {
     "@clack/prompts": "0.11.0",
     "commander": "14.0.2"
   },
   "devDependencies": {
-    "@types/node": "22.15.18",
-    "typescript": "5.7.3"
+    "@types/node": "24.10.1",
+    "typescript": "5.9.3",
+    "vitest": "4.0.15"
   },
   "files": [
     "dist"

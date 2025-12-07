@@ -7,8 +7,8 @@ import {
   ArchiveIcon,
   ArchiveXIcon,
   BadgeCheckIcon,
-  ChevronDown,
   ChevronDownIcon,
+  ChevronUpIcon,
   ChevronsUpDownIcon,
   ExpandIcon,
   ExternalLinkIcon,
@@ -510,6 +510,7 @@ export function MoreDropdown<T extends Row>({
 export function HeaderButton(props: {
   children: React.ReactNode;
   sorted: boolean;
+  sortDirection?: "asc" | "desc";
   onClick: () => void;
 }) {
   return (
@@ -521,7 +522,11 @@ export function HeaderButton(props: {
     >
       <span>{props.children}</span>
       {props.sorted ? (
-        <ChevronDown className="ml-2 size-4" />
+        props.sortDirection === "asc" ? (
+          <ChevronUpIcon className="ml-2 size-4" />
+        ) : (
+          <ChevronDownIcon className="ml-2 size-4" />
+        )
       ) : (
         <ChevronsUpDownIcon className="ml-2 size-4" />
       )}

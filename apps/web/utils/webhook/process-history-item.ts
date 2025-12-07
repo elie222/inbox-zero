@@ -201,8 +201,14 @@ export async function processHistoryItem(
     if (error instanceof Error) {
       const isGoogleNotFound =
         error.message === "Requested entity was not found.";
+
+      // Outlook can return ErrorItemNotFound code or "not found in the store" message
+      const err = error as { code?: string };
       const isOutlookNotFound =
+        err?.code === "ErrorItemNotFound" ||
+        err?.code === "itemNotFound" ||
         error.message.includes("ItemNotFound") ||
+        error.message.includes("not found in the store") ||
         error.message.includes("ResourceNotFound");
 
       if (isGoogleNotFound || isOutlookNotFound) {
@@ -211,9 +217,7 @@ export async function processHistoryItem(
       }
     }
 
-    logger.error("Error processing message", {
-      error: error instanceof Error ? error.message : String(error),
-    });
+    logger.error("Error processing message", { error });
     throw error;
   }
 }

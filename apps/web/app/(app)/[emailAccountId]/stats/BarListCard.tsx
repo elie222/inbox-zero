@@ -32,21 +32,25 @@ export function BarListCard({ tabs, icon, title }: BarListCardProps) {
   const selectedTabData = tabs.find((d) => d.id === selected)?.data || [];
 
   return (
-    <Card className="h-full bg-background relative">
-      <CardHeader className="p-0">
-        <div className="px-5 flex items-center justify-between border-b border-neutral-200">
-          <TabSelect
-            options={tabs.map((d) => ({ id: d.id, label: d.label }))}
-            onSelect={(id: string) => setSelected(id)}
-            selected={selected}
-          />
-          <div className="flex items-center gap-2">
+    <Card className="h-full bg-background relative overflow-x-hidden w-full max-w-full">
+      <CardHeader className="p-0 overflow-x-hidden">
+        <div className="px-3 sm:px-5 flex items-center justify-between border-b border-neutral-200 min-w-0 gap-2">
+          <div className="min-w-0 flex-1">
+            <TabSelect
+              options={tabs.map((d) => ({ id: d.id, label: d.label }))}
+              onSelect={(id: string) => setSelected(id)}
+              selected={selected}
+            />
+          </div>
+          <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
             {icon}
-            <p className="text-xs text-neutral-500">{title.toUpperCase()}</p>
+            <p className="text-xs text-neutral-500 whitespace-nowrap">
+              {title.toUpperCase()}
+            </p>
           </div>
         </div>
       </CardHeader>
-      <CardContent className="pt-5 pb-0 px-5 overflow-hidden h-[330px]">
+      <CardContent className="pt-5 pb-0 px-3 sm:px-5 overflow-hidden overflow-x-hidden h-[330px] max-w-full w-full">
         <div
           className={cn(
             "pointer-events-none absolute bottom-0 left-0 w-full h-1/2 z-20 rounded-[0.44rem]",
@@ -66,9 +70,11 @@ export function BarListCard({ tabs, icon, title }: BarListCardProps) {
           </div>
         ) : (
           <>
-            <HorizontalBarChart data={selectedTabData} />
-            <div className="absolute w-full left-0 bottom-0 pb-6 z-30">
-              <div className="flex justify-center">
+            <div className="w-full min-w-0 max-w-full overflow-x-hidden">
+              <HorizontalBarChart data={selectedTabData} />
+            </div>
+            <div className="absolute w-full left-0 bottom-0 pb-6 z-30 px-3 sm:px-5">
+              <div className="flex justify-center max-w-full">
                 <Dialog>
                   <DialogTrigger asChild>
                     <Button variant="outline" size="xs-2">

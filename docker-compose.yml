@@ -44,6 +44,7 @@ services:
       - ./apps/web/.env
     environment:
       SRH_MODE: env
+      SRH_TOKEN: ${UPSTASH_REDIS_TOKEN}
       SRH_CONNECTION_STRING: "redis://redis:6379" # Using `redis` hostname since they're in the same Docker network.
     networks:
       - inbox-zero-network
@@ -54,12 +55,6 @@ services:
 
   web:
     image: ghcr.io/elie222/inbox-zero:latest
-    pull_policy: if_not_present
-    # The pre-built image will be used by default. For local development,
-    # use 'docker compose build web' to build from source instead.
-    build:
-      context: .
-      dockerfile: ./docker/Dockerfile.prod
     env_file:
       - ./apps/web/.env
     depends_on:
@@ -80,6 +75,7 @@ services:
       DATABASE_URL: ${DATABASE_URL:-postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-password}@db:5432/${POSTGRES_DB:-inboxzero}?schema=public}
       DIRECT_URL: ${DIRECT_URL:-postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-password}@db:5432/${POSTGRES_DB:-inboxzero}?schema=public}
       UPSTASH_REDIS_URL: ${UPSTASH_REDIS_URL:-http://serverless-redis-http:80}
+      INTERNAL_API_URL: ${INTERNAL_API_URL:-http://web:3000}
     restart: always
 
   cron:
@@ -88,9 +84,9 @@ services:
       sh -c "
         apk add --no-cache curl &&
         while true; do
-          echo \"[cron] Renewing email watches...\" &&
-          curl -s -X GET 'http://web:3000/api/watch/all' -H \"Authorization: Bearer $${CRON_SECRET}\" &&
-          echo \"[cron] Done. Sleeping for 6 hours...\" &&
+          echo \"[cron] Renewing email watches...\"
+          curl -s -X GET 'http://web:3000/api/watch/all' -H \"Authorization: Bearer $${CRON_SECRET}\" || echo \"[cron] Warning: curl request failed\"
+          echo \"[cron] Done. Sleeping for 6 hours...\"
           sleep 21600
         done
       "

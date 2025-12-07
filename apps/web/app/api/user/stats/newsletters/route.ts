@@ -18,6 +18,7 @@ const newsletterStatsQuery = z.object({
   fromDate: z.coerce.number().nullish(),
   toDate: z.coerce.number().nullish(),
   orderBy: z.enum(["emails", "unread", "unarchived"]).optional(),
+  orderDirection: z.enum(["asc", "desc"]).optional(),
   types: z
     .array(z.enum(["read", "unread", "archived", "unarchived", ""]))
     .transform((arr) => arr?.filter(Boolean)),
@@ -28,6 +29,7 @@ const newsletterStatsQuery = z.object({
     .optional()
     .transform((arr) => arr?.filter(Boolean)),
   includeMissingUnsubscribe: z.boolean().optional(),
+  search: z.string().optional(),
 });
 
 export type NewsletterStatsQuery = z.infer<typeof newsletterStatsQuery>;
@@ -178,6 +180,14 @@ async function getNewsletterCounts(
     Prisma.sql`"emailAccountId" = ${options.emailAccountId}`,
   );
 
+  // Add search filter if provided - search both from (email) and fromName fields
+  if (options.search) {
+    const searchTerm = options.search.toLowerCase();
+    whereConditions.push(
+      Prisma.sql`(position(${searchTerm} in LOWER("from")) > 0 OR position(${searchTerm} in LOWER(COALESCE("fromName", ''))) > 0)`,
+    );
+  }
+
   // Join conditions with AND
   const whereClause =
     whereConditions.length > 0
@@ -186,7 +196,7 @@ async function getNewsletterCounts(
 
   // Build order by clause (safe, no user input)
   const orderByClause = options.orderBy
-    ? getOrderByClause(options.orderBy)
+    ? getOrderByClause(options.orderBy, options.orderDirection)
     : '"count" DESC';
 
   // Build limit clause (safe, validated number)
@@ -226,23 +236,29 @@ async function getNewsletterCounts(
   } catch (error) {
     logger.error("getNewsletterCounts error", {
       error,
-      errorMessage: error instanceof Error ? error.message : String(error),
       errorStack: error instanceof Error ? error.stack : undefined,
     });
     return [];
   }
 }
 
-function getOrderByClause(orderBy: string): string {
+function getOrderByClause(
+  orderBy: string,
+  orderDirection?: "asc" | "desc",
+): string {
+  const direction = orderDirection?.toUpperCase() || "DESC";
+
   switch (orderBy) {
     case "emails":
-      return '"count" DESC';
+      return `"count" ${direction}`;
     case "unread":
-      return '"count" - "readEmails" DESC';
+      // Sort by read percentage (lower = more unread)
+      return `"readEmails"::float / NULLIF("count", 0) ${direction}`;
     case "unarchived":
-      return '"inboxEmails" DESC';
+      // Sort by archived percentage (lower = more in inbox)
+      return `("count" - "inboxEmails")::float / NULLIF("count", 0) ${direction}`;
     default:
-      return '"count" DESC';
+      return `"count" ${direction}`;
   }
 }
 
@@ -258,10 +274,12 @@ export const GET = withEmailProvider(
       fromDate: searchParams.get("fromDate"),
       toDate: searchParams.get("toDate"),
       orderBy: searchParams.get("orderBy"),
+      orderDirection: searchParams.get("orderDirection") || undefined,
       types: searchParams.get("types")?.split(",") || [],
       filters: searchParams.get("filters")?.split(",") || [],
       includeMissingUnsubscribe:
         searchParams.get("includeMissingUnsubscribe") === "true",
+      search: searchParams.get("search") || undefined,
     });
 
     const result = await getEmailMessages({

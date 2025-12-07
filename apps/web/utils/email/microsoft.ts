@@ -1009,70 +1009,85 @@ export class OutlookProvider implements EmailProvider {
 
     const client = this.client.getClient();
 
-    // Determine endpoint and build filters based on query type
-    let endpoint = "/me/messages";
-    const filters: string[] = [];
+    type GraphMessage = {
+      conversationId: string;
+      conversationIndex?: string;
+      id: string;
+      bodyPreview: string;
+      body: { content: string };
+      from: { emailAddress: { address: string } };
+      toRecipients: { emailAddress: { address: string } }[];
+      receivedDateTime: string;
+      subject: string;
+    };
 
-    // Route to appropriate endpoint based on type
-    if (type === "sent") {
-      endpoint = "/me/mailFolders('sentitems')/messages";
-    } else if (type === "all") {
-      // For "all" type, use default messages endpoint with folder filter
-      filters.push(
-        "(parentFolderId eq 'inbox' or parentFolderId eq 'archive')",
-      );
-    } else if (labelId) {
-      // Use labelId as parentFolderId (should be lowercase for Outlook)
-      filters.push(`parentFolderId eq '${labelId.toLowerCase()}'`);
+    let response: { value: GraphMessage[]; "@odata.nextLink"?: string };
+
+    // If pageToken is a URL, fetch directly (per MS docs, don't extract $skiptoken)
+    if (options.pageToken?.startsWith("http")) {
+      response = await client.api(options.pageToken).get();
     } else {
-      // Default to inbox only
-      filters.push("parentFolderId eq 'inbox'");
+      // Determine endpoint and build filters based on query type
+      let endpoint = "/me/messages";
+      const filters: string[] = [];
+
+      // Route to appropriate endpoint based on type
+      if (type === "sent") {
+        endpoint = "/me/mailFolders('sentitems')/messages";
+      } else if (type === "all") {
+        // For "all" type, use default messages endpoint with folder filter
+        filters.push(
+          "(parentFolderId eq 'inbox' or parentFolderId eq 'archive')",
+        );
+      } else if (labelId) {
+        // Use labelId as parentFolderId (should be lowercase for Outlook)
+        filters.push(`parentFolderId eq '${labelId.toLowerCase()}'`);
+      } else {
+        // Default to inbox only
+        filters.push("parentFolderId eq 'inbox'");
+      }
+
+      // Add other filters
+      if (fromEmail) {
+        // Escape single quotes in email address
+        const escapedEmail = escapeODataString(fromEmail);
+        filters.push(`from/emailAddress/address eq '${escapedEmail}'`);
+      }
+
+      // Handle structured date options
+      if (after) {
+        const afterISO = after.toISOString();
+        filters.push(`receivedDateTime gt ${afterISO}`);
+      }
+
+      if (before) {
+        const beforeISO = before.toISOString();
+        filters.push(`receivedDateTime lt ${beforeISO}`);
+      }
+
+      if (isUnread) {
+        filters.push("isRead eq false");
+      }
+
+      const filter = filters.length > 0 ? filters.join(" and ") : undefined;
+
+      // Build the request
+      let request = client
+        .api(endpoint)
+        .select(MESSAGE_SELECT_FIELDS)
+        .top(options.maxResults || 50);
+
+      if (filter) {
+        request = request.filter(filter);
+      }
+
+      // Only add ordering if we don't have a fromEmail filter to avoid complexity
+      if (!fromEmail) {
+        request = request.orderby("receivedDateTime DESC");
+      }
+
+      response = await request.get();
     }
-
-    // Add other filters
-    if (fromEmail) {
-      // Escape single quotes in email address
-      const escapedEmail = escapeODataString(fromEmail);
-      filters.push(`from/emailAddress/address eq '${escapedEmail}'`);
-    }
-
-    // Handle structured date options
-    if (after) {
-      const afterISO = after.toISOString();
-      filters.push(`receivedDateTime gt ${afterISO}`);
-    }
-
-    if (before) {
-      const beforeISO = before.toISOString();
-      filters.push(`receivedDateTime lt ${beforeISO}`);
-    }
-
-    if (isUnread) {
-      filters.push("isRead eq false");
-    }
-
-    const filter = filters.length > 0 ? filters.join(" and ") : undefined;
-
-    // Build the request
-    let request = client
-      .api(endpoint)
-      .select(MESSAGE_SELECT_FIELDS)
-      .top(options.maxResults || 50);
-
-    if (filter) {
-      request = request.filter(filter);
-    }
-
-    // Only add ordering if we don't have a fromEmail filter to avoid complexity
-    if (!fromEmail) {
-      request = request.orderby("receivedDateTime DESC");
-    }
-
-    if (options.pageToken) {
-      request = request.skipToken(options.pageToken);
-    }
-
-    const response = await request.get();
 
     // Sort messages by receivedDateTime if we filtered by fromEmail (since we couldn't use orderby)
     let sortedMessages = response.value;
@@ -1169,10 +1184,7 @@ export class OutlookProvider implements EmailProvider {
 
     return {
       threads,
-      nextPageToken: response["@odata.nextLink"]
-        ? new URL(response["@odata.nextLink"]).searchParams.get("$skiptoken") ||
-          undefined
-        : undefined,
+      nextPageToken: response["@odata.nextLink"],
     };
   }
 
@@ -1425,7 +1437,7 @@ export class OutlookProvider implements EmailProvider {
       return [];
     } catch (error) {
       this.logger.error("Failed to extract signature from sent emails", {
-        error: error instanceof Error ? error.message : String(error),
+        error,
       });
       return [];
     }

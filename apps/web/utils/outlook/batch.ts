@@ -135,7 +135,7 @@ async function moveMessagesInBatches({
   await batch({
     client,
     requests,
-    stopOnError: true,
+    stopOnError: false,
     context: {
       action,
       destinationId,
@@ -188,25 +188,35 @@ export async function moveMessagesForSenders({
       action === "archive"
         ? `${fromFilter} and parentFolderId eq 'inbox'`
         : fromFilter;
-    let skipToken: string | undefined;
 
+    // Use @odata.nextLink directly for pagination instead of extracting $skiptoken
+    // This is more reliable as Microsoft Graph may use different token formats
+    // See: https://learn.microsoft.com/en-us/graph/paging
+    let nextLink: string | undefined;
+
+    // Helper to fetch a page of messages
+    const fetchPage = async (url?: string) => {
+      if (url) {
+        // Use the full @odata.nextLink URL for subsequent pages
+        return client.getClient().api(url).get();
+      }
+      // First page: use fluent API
+      return client
+        .getClient()
+        .api("/me/messages")
+        .filter(filterExpression)
+        .top(100)
+        .select("id,conversationId")
+        .get();
+    };
+
+    // Process all pages
     do {
       try {
-        let request = client
-          .getClient()
-          .api("/me/messages")
-          .filter(filterExpression)
-          .top(100)
-          .select("id,conversationId");
-
-        if (skipToken) {
-          request = request.skipToken(skipToken);
-        }
-
         const response: {
           value?: Array<{ id?: string | null; conversationId?: string | null }>;
           "@odata.nextLink"?: string;
-        } = await request.get();
+        } = await fetchPage(nextLink);
 
         const allMessages = (response.value ?? []).filter(
           (message): message is { id: string; conversationId: string } =>
@@ -272,21 +282,19 @@ export async function moveMessagesForSenders({
           }
         }
 
-        const nextLink = response["@odata.nextLink"];
-        if (nextLink) {
-          const url = new URL(nextLink);
-          skipToken = url.searchParams.get("$skiptoken") ?? undefined;
-        } else {
-          skipToken = undefined;
-        }
+        nextLink = response["@odata.nextLink"];
+        logger.info("Pagination status", {
+          processedCount: processedMessageIds.size,
+          hasNextLink: !!nextLink,
+        });
       } catch (error) {
         logger.error("Failed to fetch messages from sender", {
           sender,
           action,
           error: error instanceof Error ? error.message : error,
         });
-        skipToken = undefined;
+        nextLink = undefined;
       }
-    } while (skipToken);
+    } while (nextLink);
   }
 }

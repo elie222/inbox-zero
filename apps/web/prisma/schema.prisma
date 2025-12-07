@@ -702,6 +702,7 @@ model EmailMessage {
   @@index([emailAccountId, threadId])
   @@index([emailAccountId, date])
   @@index([emailAccountId, from])
+  @@index([emailAccountId, fromName])
 }
 
 model ThreadTracker {

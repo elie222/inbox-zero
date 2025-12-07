@@ -59,6 +59,7 @@ import { ReferralDialog } from "@/components/ReferralDialog";
 import { isGoogleProvider } from "@/utils/email/provider-types";
 import { NavUser } from "@/components/NavUser";
 import { PremiumCard } from "@/components/PremiumCard";
+import { env } from "@/env";
 
 type NavItem = {
   name: string;
@@ -241,9 +242,11 @@ export function SideNav({ ...props }: React.ComponentProps<typeof Sidebar>) {
       <PremiumCard isCollapsed={!state.includes("left-sidebar")} />
 
       <SidebarFooter className="pb-4">
-        <ClientOnly>
-          <ReferralDialog />
-        </ClientOnly>
+        {!env.NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS && (
+          <ClientOnly>
+            <ReferralDialog />
+          </ClientOnly>
+        )}
 
         <SidebarMenuButton asChild>
           <Link href="https://docs.getinboxzero.com" target="_blank">

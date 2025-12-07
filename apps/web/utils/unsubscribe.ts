@@ -1,4 +1,4 @@
-import addDays from "date-fns/addDays";
+import { addDays } from "date-fns/addDays";
 import prisma from "./prisma";
 import { generateSecureToken } from "./api-key";
 

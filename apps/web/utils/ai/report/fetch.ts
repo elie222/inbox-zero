@@ -119,17 +119,13 @@ export async function fetchEmailTemplates(
 
         if (templates.length >= 10) break;
       } catch (error) {
-        logger.warn("Failed to process draft:", {
-          error: error instanceof Error ? error.message : String(error),
-        });
+        logger.warn("Failed to process draft:", { error });
       }
     }
 
     return templates;
   } catch (error) {
-    logger.warn("Failed to fetch email templates:", {
-      error: error instanceof Error ? error.message : String(error),
-    });
+    logger.warn("Failed to fetch email templates:", { error });
     return [];
   }
 }

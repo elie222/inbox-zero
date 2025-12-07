@@ -62,36 +62,34 @@ export function MainStatChart(props: {
   );
 
   return (
-    <Card className="py-4 sm:py-0">
-      <div className="flex flex-col items-stretch border-b sm:flex-row">
-        <div className="flex w-full">
-          {(["received", "sent", "read", "archived"] as const).map((key) => {
-            const chart = key as keyof typeof chartConfig;
-            const isActive = activeChart === chart;
-            return (
-              <button
-                type="button"
-                key={chart}
-                data-active={isActive}
-                className="data-[active=true]:bg-muted/50 flex flex-1 min-w-0 flex-col justify-center gap-1 border-t px-6 py-4 text-left [&:not(:first-child)]:border-l sm:border-t-0 sm:px-8 sm:py-6"
-                onClick={() => setActiveChart(chart)}
-              >
-                <span className="text-muted-foreground text-xs flex items-center gap-1.5">
-                  <span
-                    className="h-2 w-2 rounded-full"
-                    style={{ backgroundColor: chartConfig[chart].color }}
-                  />
-                  {chartConfig[chart].label}
-                </span>
-                <span className="text-lg leading-none font-bold sm:text-3xl">
-                  {total[key].toLocaleString()}
-                </span>
-              </button>
-            );
-          })}
-        </div>
+    <Card className="py-0">
+      <div className="grid grid-cols-2 border-b sm:flex sm:flex-row">
+        {(["received", "sent", "read", "archived"] as const).map((key) => {
+          const chart = key as keyof typeof chartConfig;
+          const isActive = activeChart === chart;
+          return (
+            <button
+              type="button"
+              key={chart}
+              data-active={isActive}
+              className="data-[active=true]:bg-muted/50 flex flex-1 min-w-0 flex-col justify-center gap-1 px-6 py-4 text-left sm:px-8 sm:py-6 [&:nth-child(even)]:border-l [&:nth-child(n+3)]:border-t sm:[&:nth-child(n+3)]:border-t-0 sm:[&:nth-child(2)]:border-l sm:[&:nth-child(3)]:border-l sm:[&:nth-child(4)]:border-l"
+              onClick={() => setActiveChart(chart)}
+            >
+              <span className="text-muted-foreground text-xs flex items-center gap-1.5">
+                <span
+                  className="h-2 w-2 rounded-full"
+                  style={{ backgroundColor: chartConfig[chart].color }}
+                />
+                {chartConfig[chart].label}
+              </span>
+              <span className="text-lg leading-none font-bold sm:text-3xl">
+                {total[key].toLocaleString()}
+              </span>
+            </button>
+          );
+        })}
       </div>
-      <CardContent className="px-2 sm:p-6">
+      <CardContent className="p-6 pl-0 sm:px-2">
         <BarChart
           data={chartData}
           config={chartConfig}

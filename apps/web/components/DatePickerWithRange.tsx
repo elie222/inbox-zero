@@ -1,7 +1,7 @@
 "use client";
 
 import type * as React from "react";
-import format from "date-fns/format";
+import { format } from "date-fns/format";
 import { CalendarIcon, ChevronDown } from "lucide-react";
 import type { DateRange } from "react-day-picker";
 import { cn } from "@/utils";
@@ -96,10 +96,15 @@ export function DatePickerWithRange({
               className="min-w-32"
               onSelect={({ label, value }) => {
                 onSetDateDropdown({ label, value });
-                onSetDateRange({
-                  from: subDays(now, Number.parseInt(value)),
-                  to: now,
-                });
+                // When "All" is selected (value "0"), pass undefined to skip date filtering
+                if (value === "0") {
+                  onSetDateRange(undefined);
+                } else {
+                  onSetDateRange({
+                    from: subDays(now, Number.parseInt(value)),
+                    to: now,
+                  });
+                }
               }}
             />
           }
