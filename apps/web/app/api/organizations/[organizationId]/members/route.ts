@@ -33,23 +33,47 @@ async function getOrganizationMembers({
 }: {
   organizationId: string;
 }) {
-  const members = await prisma.member.findMany({
-    where: { organizationId },
-    select: {
-      id: true,
-      role: true,
-      createdAt: true,
-      emailAccount: {
-        select: {
-          id: true,
-          name: true,
-          email: true,
-          image: true,
+  const [members, pendingInvitations] = await Promise.all([
+    prisma.member.findMany({
+      where: { organizationId },
+      select: {
+        id: true,
+        role: true,
+        createdAt: true,
+        emailAccount: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            image: true,
+          },
         },
       },
-    },
-    orderBy: [{ role: "asc" }, { createdAt: "asc" }],
-  });
+      orderBy: [{ role: "asc" }, { createdAt: "asc" }],
+    }),
+    prisma.invitation.findMany({
+      where: {
+        organizationId,
+        status: "pending",
+        expiresAt: { gt: new Date() },
+      },
+      select: {
+        id: true,
+        email: true,
+        role: true,
+        expiresAt: true,
+        inviter: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            image: true,
+          },
+        },
+      },
+      orderBy: { expiresAt: "asc" },
+    }),
+  ]);
 
-  return { members };
+  return { members, pendingInvitations };
 }
