@@ -2,7 +2,8 @@ import { stepCountIs, tool } from "ai";
 import { z } from "zod";
 import { createGenerateText } from "@/utils/llms";
 import { createScopedLogger } from "@/utils/logger";
-import { GroupItemType, LogicalOperator, type Rule } from "@prisma/client";
+import { GroupItemType, LogicalOperator } from "@/generated/prisma/enums";
+import type { Rule } from "@/generated/prisma/client";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import type { RuleWithRelations } from "@/utils/rule/types";
 import type { ParsedMessage } from "@/utils/types";
@@ -144,7 +145,7 @@ ${stringifyEmailSimple(getEmailForLLM(originalEmail))}
       logger.error("Error while updating rule", {
         ruleName,
         keys: Object.keys(rule),
-        error: message,
+        error,
       });
 
       return {
@@ -273,7 +274,7 @@ ${stringifyEmailSimple(getEmailForLLM(originalEmail))}
       //         groupId,
       //         type: groupItemType,
       //         value,
-      //         error: message,
+      //         error,
       //       });
       //       return {
       //         error: "Failed to add pattern",
@@ -338,7 +339,7 @@ ${stringifyEmailSimple(getEmailForLLM(originalEmail))}
                     groupItemId: groupItem.id,
                     type: groupItemType,
                     value,
-                    error: message,
+                    error,
                   });
 
                   return {

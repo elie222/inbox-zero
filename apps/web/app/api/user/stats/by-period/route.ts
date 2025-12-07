@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server";
-import format from "date-fns/format";
+import { format } from "date-fns/format";
 import { z } from "zod";
 import sumBy from "lodash/sumBy";
 import { zodPeriod } from "@inboxzero/tinybird";
 import { withEmailAccount } from "@/utils/middleware";
 import prisma from "@/utils/prisma";
-import { Prisma } from "@prisma/client";
+import { Prisma } from "@/generated/prisma/client";
 
 const statsByWeekParams = z.object({
   period: zodPeriod,
@@ -29,18 +29,8 @@ async function getEmailStatsByPeriod(
     dateConditions.push(Prisma.sql`date <= ${new Date(toDate)}`);
   }
 
-  const dateFormat =
-    period === "day"
-      ? "YYYY-MM-DD"
-      : period === "week"
-        ? "YYYY-WW"
-        : period === "month"
-          ? "YYYY-MM"
-          : "YYYY";
-
   // Using raw query with properly typed parameters
   type StatsResult = {
-    period_group: string;
     startOfPeriod: Date;
     totalCount: bigint;
     inboxCount: bigint;
@@ -59,31 +49,18 @@ async function getEmailStatsByPeriod(
 
   // Convert period and dateFormat to string literals in PostgreSQL
   return prisma.$queryRaw<StatsResult[]>`
-    WITH stats AS (
-      SELECT
-        TO_CHAR(date, ${Prisma.raw(`'${dateFormat}'`)}) AS period_group,
-        DATE_TRUNC(${Prisma.raw(`'${period}'`)}, date) AS start_of_period,
-        COUNT(*) AS total_count,
-        SUM(CASE WHEN inbox = true THEN 1 ELSE 0 END) AS inbox_count,
-        SUM(CASE WHEN inbox = false THEN 1 ELSE 0 END) AS not_inbox,
-        SUM(CASE WHEN read = true THEN 1 ELSE 0 END) AS read_count,
-        SUM(CASE WHEN read = false THEN 1 ELSE 0 END) AS unread,
-        SUM(CASE WHEN sent = true THEN 1 ELSE 0 END) AS sent_count
-      FROM "EmailMessage"
-      ${whereClause}${dateClause}
-      GROUP BY period_group, start_of_period
-      ORDER BY start_of_period
-    )
-    SELECT 
-      period_group,
-      start_of_period AS "startOfPeriod",
-      total_count AS "totalCount",
-      inbox_count AS "inboxCount",
-      not_inbox AS "notInbox",
-      read_count AS "readCount",
-      unread,
-      sent_count AS "sentCount"
-    FROM stats
+    SELECT
+      DATE_TRUNC(${Prisma.raw(`'${period}'`)}, date) AS "startOfPeriod",
+      COUNT(*) AS "totalCount",
+      SUM(CASE WHEN inbox = true THEN 1 ELSE 0 END) AS "inboxCount",
+      SUM(CASE WHEN inbox = false THEN 1 ELSE 0 END) AS "notInbox",
+      SUM(CASE WHEN read = true THEN 1 ELSE 0 END) AS "readCount",
+      SUM(CASE WHEN read = false THEN 1 ELSE 0 END) AS unread,
+      SUM(CASE WHEN sent = true THEN 1 ELSE 0 END) AS "sentCount"
+    FROM "EmailMessage"
+    ${whereClause}${dateClause}
+    GROUP BY "startOfPeriod"
+    ORDER BY "startOfPeriod"
   `;
 }
 

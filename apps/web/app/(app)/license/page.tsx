@@ -23,7 +23,7 @@ export default function LicensePage(props: {
 
   return (
     <PageWrapper>
-      <PageHeader title="Activate your license" description="" />
+      <PageHeader title="Activate your license" />
 
       <div className="max-w-2xl py-4">
         {premium?.lemonLicenseKey && (

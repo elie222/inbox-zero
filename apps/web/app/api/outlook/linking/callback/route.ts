@@ -69,7 +69,7 @@ export const GET = withError("outlook/linking/callback", async (request) => {
   try {
     // Exchange code for tokens
     const tokenResponse = await fetch(
-      "https://login.microsoftonline.com/common/oauth2/v2.0/token",
+      `https://login.microsoftonline.com/${env.MICROSOFT_TENANT_ID}/oauth2/v2.0/token`,
       {
         method: "POST",
         headers: {
@@ -273,6 +273,51 @@ export const GET = withError("outlook/linking/callback", async (request) => {
 
       const successUrl = new URL("/accounts", env.NEXT_PUBLIC_BASE_URL);
       successUrl.searchParams.set("success", "account_created_and_linked");
+      const successResponse = NextResponse.redirect(successUrl);
+      successResponse.cookies.delete(OUTLOOK_LINKING_STATE_COOKIE_NAME);
+
+      return successResponse;
+    }
+
+    if (linkingResult.type === "update_tokens") {
+      logger.info("Updating tokens for existing Microsoft account", {
+        email: providerEmail,
+        targetUserId,
+        accountId: linkingResult.existingAccountId,
+      });
+
+      let expiresAt: Date | null = null;
+      if (tokens.expires_at) {
+        expiresAt = new Date(tokens.expires_at * 1000);
+      } else if (tokens.expires_in) {
+        const expiresInSeconds =
+          typeof tokens.expires_in === "string"
+            ? Number.parseInt(tokens.expires_in, 10)
+            : tokens.expires_in;
+        expiresAt = new Date(Date.now() + expiresInSeconds * 1000);
+      }
+
+      await prisma.account.update({
+        where: { id: linkingResult.existingAccountId },
+        data: {
+          access_token: tokens.access_token,
+          refresh_token: tokens.refresh_token,
+          expires_at: expiresAt,
+          scope: tokens.scope,
+          token_type: tokens.token_type,
+        },
+      });
+
+      logger.info("Successfully updated tokens for Microsoft account", {
+        email: providerEmail,
+        targetUserId,
+        accountId: linkingResult.existingAccountId,
+      });
+
+      await setOAuthCodeResult(code, { success: "tokens_updated" });
+
+      const successUrl = new URL("/accounts", env.NEXT_PUBLIC_BASE_URL);
+      successUrl.searchParams.set("success", "tokens_updated");
       const successResponse = NextResponse.redirect(successUrl);
       successResponse.cookies.delete(OUTLOOK_LINKING_STATE_COOKIE_NAME);
 

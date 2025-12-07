@@ -2,10 +2,19 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import useSWR from "swr";
-import subDays from "date-fns/subDays";
+import { subDays } from "date-fns/subDays";
+import { ChevronDown } from "lucide-react";
 import { usePostHog } from "posthog-js/react";
-import { ArchiveIcon, FilterIcon } from "lucide-react";
-import sortBy from "lodash/sortBy";
+import {
+  ArchiveIcon,
+  BadgeCheckIcon,
+  CheckIcon,
+  ChevronsDownIcon,
+  ChevronsUpIcon,
+  InboxIcon,
+  ListIcon,
+  MailMinusIcon,
+} from "lucide-react";
 import type { DateRange } from "react-day-picker";
 import { LoadingContent } from "@/components/LoadingContent";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -13,15 +22,14 @@ import type {
   NewsletterStatsQuery,
   NewsletterStatsResponse,
 } from "@/app/api/user/stats/newsletters/route";
-import { useExpanded } from "@/app/(app)/[emailAccountId]/stats/useExpanded";
 import { getDateRangeParams } from "@/app/(app)/[emailAccountId]/stats/params";
 import { NewsletterModal } from "@/app/(app)/[emailAccountId]/stats/NewsletterModal";
 import { useEmailsToIncludeFilter } from "@/app/(app)/[emailAccountId]/stats/EmailsToIncludeFilter";
-import { DetailedStatsFilter } from "@/app/(app)/[emailAccountId]/stats/DetailedStatsFilter";
 import { usePremium } from "@/components/PremiumAlert";
 import {
   useNewsletterFilter,
   useBulkUnsubscribeShortcuts,
+  type NewsletterFilterType,
 } from "@/app/(app)/[emailAccountId]/bulk-unsubscribe/hooks";
 import { useStatLoader } from "@/providers/StatLoaderProvider";
 import { usePremiumModal } from "@/app/(app)/premium/PremiumModal";
@@ -40,15 +48,55 @@ import { useToggleSelect } from "@/hooks/useToggleSelect";
 import { BulkActions } from "@/app/(app)/[emailAccountId]/bulk-unsubscribe/BulkActions";
 import { ArchiveProgress } from "@/app/(app)/[emailAccountId]/bulk-unsubscribe/ArchiveProgress";
 import { ClientOnly } from "@/components/ClientOnly";
-import { Toggle } from "@/components/Toggle";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { useWindowSize } from "usehooks-ts";
-import { ActionBar } from "@/app/(app)/[emailAccountId]/stats/ActionBar";
 import { LoadStatsButton } from "@/app/(app)/[emailAccountId]/stats/LoadStatsButton";
 import { PageWrapper } from "@/components/PageWrapper";
 import { PageHeader } from "@/components/PageHeader";
 import { TextLink } from "@/components/Typography";
 import { DismissibleVideoCard } from "@/components/VideoCard";
+import { ActionBar } from "@/app/(app)/[emailAccountId]/stats/ActionBar";
+import { DatePickerWithRange } from "@/components/DatePickerWithRange";
+import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+
+type Newsletter = NewsletterStatsResponse["newsletters"][number];
+
+const filterOptions: {
+  label: string;
+  value: NewsletterFilterType;
+  icon: React.ReactNode;
+  separatorAfter?: boolean;
+}[] = [
+  { label: "All", value: "all", icon: <ListIcon className="size-4" /> },
+  {
+    label: "Unhandled",
+    value: "unhandled",
+    icon: <InboxIcon className="size-4" />,
+    separatorAfter: true,
+  },
+  {
+    label: "Unsubscribed",
+    value: "unsubscribed",
+    icon: <MailMinusIcon className="size-4" />,
+  },
+  {
+    label: "Skip Inbox",
+    value: "autoArchived",
+    icon: <ArchiveIcon className="size-4" />,
+  },
+  {
+    label: "Approved",
+    value: "approved",
+    icon: <BadgeCheckIcon className="size-4" />,
+  },
+];
 
 const selectOptions = [
   { label: "Last week", value: "7" },
@@ -59,8 +107,6 @@ const selectOptions = [
 ];
 const defaultSelected = selectOptions[2];
 
-type Newsletter = NewsletterStatsResponse["newsletters"][number];
-
 export function BulkUnsubscribe() {
   const windowSize = useWindowSize();
   const isMobile = windowSize.width < 768;
@@ -69,15 +115,25 @@ export function BulkUnsubscribe() {
     defaultSelected.label,
   );
 
+  const now = useMemo(() => new Date(), []);
+
   const onSetDateDropdown = useCallback(
     (option: { label: string; value: string }) => {
-      const { label } = option;
+      const { label, value } = option;
       setDateDropdown(label);
+      // When "All" is selected (value "0"), set dateRange to undefined to skip date filtering
+      if (value === "0") {
+        setDateRange(undefined);
+      } else {
+        setDateRange({
+          from: subDays(now, Number.parseInt(value)),
+          to: now,
+        });
+      }
     },
-    [],
+    [now],
   );
 
-  const now = useMemo(() => new Date(), []);
   const [dateRange, setDateRange] = useState<DateRange | undefined>({
     from: subDays(now, Number.parseInt(defaultSelected.value)),
     to: now,
@@ -94,18 +150,39 @@ export function BulkUnsubscribe() {
   const [sortColumn, setSortColumn] = useState<
     "emails" | "unread" | "unarchived"
   >("emails");
+  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
+
+  const handleSort = useCallback(
+    (column: "emails" | "unread" | "unarchived") => {
+      if (sortColumn === column) {
+        // Toggle direction if clicking the same column
+        setSortDirection((prev) => (prev === "desc" ? "asc" : "desc"));
+      } else {
+        // Set new column with default desc direction
+        setSortColumn(column);
+        setSortDirection("desc");
+      }
+    },
+    [sortColumn],
+  );
 
   const { typesArray } = useEmailsToIncludeFilter();
-  const { filtersArray, filters, setFilters } = useNewsletterFilter();
+  const { filtersArray, filter, setFilter } = useNewsletterFilter();
   const posthog = usePostHog();
+
+  const [search, setSearch] = useState("");
+
+  const [expanded, setExpanded] = useState(false);
 
   const params: NewsletterStatsQuery = {
     types: typesArray,
     filters: filtersArray,
     orderBy: sortColumn,
-    limit: 100,
+    orderDirection: sortDirection,
+    limit: expanded ? 500 : 50,
     includeMissingUnsubscribe: true,
     ...getDateRangeParams(dateRange),
+    ...(search ? { search } : {}),
   };
   // biome-ignore lint/suspicious/noExplicitAny: simplest
   const urlParams = new URLSearchParams(params as any);
@@ -119,7 +196,6 @@ export function BulkUnsubscribe() {
 
   const { hasUnsubscribeAccess, mutate: refetchPremium } = usePremium();
 
-  const { expanded, extra } = useExpanded();
   const [openedNewsletter, setOpenedNewsletter] = useState<Newsletter>();
 
   const onOpenNewsletter = (newsletter: Newsletter) => {
@@ -141,8 +217,6 @@ export function BulkUnsubscribe() {
     emailAccountId,
   });
 
-  const [search, setSearch] = useState("");
-
   const { isLoading: isStatsLoading } = useStatLoader();
 
   const { userLabels } = useLabels();
@@ -153,25 +227,21 @@ export function BulkUnsubscribe() {
     ? BulkUnsubscribeRowMobile
     : BulkUnsubscribeRowDesktop;
 
-  const rows = data?.newsletters
-    ?.filter(
-      search
-        ? (item) =>
-            item.name.toLowerCase().includes(search.toLowerCase()) ||
-            item.unsubscribeLink?.toLowerCase().includes(search.toLowerCase())
-        : Boolean,
-    )
-    .slice(0, expanded ? undefined : 50);
+  // Data is now filtered, sorted, and limited by the backend
+  const rows = data?.newsletters;
 
   const { selected, isAllSelected, onToggleSelect, onToggleSelectAll } =
     useToggleSelect(rows?.map((item) => ({ id: item.name })) || []);
 
-  const unsortedTableRows = rows?.map((item) => {
-    const readPercentage = (item.readEmails / item.value) * 100;
+  // Backend now handles sorting, so we just map the rows in order
+  const tableRows = rows?.map((item) => {
+    const readPercentage =
+      item.value > 0 ? (item.readEmails / item.value) * 100 : 0;
     const archivedEmails = item.value - item.inboxEmails;
-    const archivedPercentage = (archivedEmails / item.value) * 100;
+    const archivedPercentage =
+      item.value > 0 ? (archivedEmails / item.value) * 100 : 0;
 
-    const row = (
+    return (
       <RowComponent
         key={item.name}
         item={item}
@@ -193,26 +263,14 @@ export function BulkUnsubscribe() {
         archivedPercentage={archivedPercentage}
       />
     );
-
-    return { row, readPercentage, archivedEmails, archivedPercentage };
   });
 
-  const tableRows = sortBy(unsortedTableRows, (row) => {
-    if (sortColumn === "unread") return row.readPercentage;
-    if (sortColumn === "unarchived") return row.archivedPercentage;
-  });
-
-  const onlyUnhandled =
-    filters.unhandled &&
-    !filters.autoArchived &&
-    !filters.unsubscribed &&
-    !filters.approved;
+  const selectedFilter = filterOptions.find((opt) => opt.value === filter);
 
   return (
     <PageWrapper>
       <PageHeader
         title="Bulk Unsubscriber"
-        description="Unsubscribe from and archive emails you don't want to receive."
         video={{
           title: "Getting started with Bulk Unsubscribe",
           description: (
@@ -246,103 +304,44 @@ export function BulkUnsubscribe() {
       />
 
       <div className="items-center justify-between flex mt-4 flex-wrap">
-        <div className="flex items-center justify-end gap-1">
-          <div className="">
-            <Toggle
-              name="show-unhandled"
-              label="Only unhandled"
-              enabled={onlyUnhandled}
-              onChange={() =>
-                setFilters(
-                  onlyUnhandled
-                    ? {
-                        unhandled: true,
-                        autoArchived: true,
-                        unsubscribed: true,
-                        approved: true,
-                      }
-                    : {
-                        unhandled: true,
-                        autoArchived: false,
-                        unsubscribed: false,
-                        approved: false,
-                      },
-                )
-              }
-            />
-          </div>
-
-          <SearchBar onSearch={setSearch} />
-
-          <DetailedStatsFilter
-            label="Filter"
-            icon={<FilterIcon className="mr-2 h-4 w-4" />}
-            keepOpenOnSelect
-            columns={[
-              {
-                label: "All",
-                separatorAfter: true,
-                checked:
-                  filters.approved &&
-                  filters.autoArchived &&
-                  filters.unsubscribed &&
-                  filters.unhandled,
-                setChecked: () =>
-                  setFilters({
-                    approved: true,
-                    autoArchived: true,
-                    unsubscribed: true,
-                    unhandled: true,
-                  }),
-              },
-              {
-                label: "Unhandled",
-                checked: filters.unhandled,
-                setChecked: () =>
-                  setFilters({
-                    ...filters,
-                    unhandled: !filters.unhandled,
-                  }),
-              },
-              {
-                label: "Unsubscribed",
-                checked: filters.unsubscribed,
-                setChecked: () =>
-                  setFilters({
-                    ...filters,
-                    unsubscribed: !filters.unsubscribed,
-                  }),
-              },
-              {
-                label: "Skip Inbox",
-                checked: filters.autoArchived,
-                setChecked: () =>
-                  setFilters({
-                    ...filters,
-                    autoArchived: !filters.autoArchived,
-                  }),
-              },
-              {
-                label: "Approved",
-                checked: filters.approved,
-                setChecked: () =>
-                  setFilters({ ...filters, approved: !filters.approved }),
-              },
-            ]}
-          />
-        </div>
-
-        <div className="flex flex-wrap gap-1">
-          <ActionBar
+        <ActionBar rightContent={<LoadStatsButton />}>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm" className="h-10">
+                {selectedFilter?.icon}
+                <span className="ml-2">{selectedFilter?.label ?? "All"}</span>
+                <ChevronDown className="ml-2 h-4 w-4 text-gray-400" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-[170px]">
+              {filterOptions.map((option) => (
+                <div key={option.value}>
+                  <DropdownMenuItem
+                    onClick={() => setFilter(option.value)}
+                    className="flex items-center justify-between"
+                  >
+                    <span className="flex items-center gap-2">
+                      {option.icon}
+                      {option.label}
+                    </span>
+                    {filter === option.value && (
+                      <CheckIcon className="h-4 w-4 text-primary" />
+                    )}
+                  </DropdownMenuItem>
+                  {option.separatorAfter && <DropdownMenuSeparator />}
+                </div>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+          <DatePickerWithRange
+            dateRange={dateRange}
+            onSetDateRange={setDateRange}
             selectOptions={selectOptions}
             dateDropdown={dateDropdown}
-            setDateDropdown={onSetDateDropdown}
-            dateRange={dateRange}
-            setDateRange={setDateRange}
-            isMobile={isMobile}
+            onSetDateDropdown={onSetDateDropdown}
           />
-          <LoadStatsButton />
-        </div>
+          <SearchBar onSearch={setSearch} />
+        </ActionBar>
       </div>
 
       <ClientOnly>
@@ -371,24 +370,44 @@ export function BulkUnsubscribe() {
             {tableRows?.length ? (
               <>
                 {isMobile ? (
-                  <BulkUnsubscribeMobile
-                    tableRows={tableRows.map((row) => row.row)}
-                  />
+                  <BulkUnsubscribeMobile tableRows={tableRows} />
                 ) : (
                   <BulkUnsubscribeDesktop
                     sortColumn={sortColumn}
-                    setSortColumn={setSortColumn}
-                    tableRows={tableRows.map((row) => row.row)}
+                    sortDirection={sortDirection}
+                    onSort={handleSort}
+                    tableRows={tableRows}
                     isAllSelected={isAllSelected}
                     onToggleSelectAll={onToggleSelectAll}
                   />
                 )}
-                <div className="mt-2 px-6 pb-6">{extra}</div>
+                {/* Only show expand/collapse when there might be more results */}
+                {(expanded || (rows && rows.length >= 50)) && (
+                  <div className="mt-2 px-6 pb-6">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setExpanded(!expanded)}
+                      className="w-full"
+                    >
+                      {expanded ? (
+                        <>
+                          <ChevronsUpIcon className="h-4 w-4" />
+                          <span className="ml-2">Show less</span>
+                        </>
+                      ) : (
+                        <>
+                          <ChevronsDownIcon className="h-4 w-4" />
+                          <span className="ml-2">Show more</span>
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                )}
               </>
             ) : (
-              <p className="max-w-prose space-y-4 p-4 text-muted-foreground">
-                No emails found. To see more, adjust the filter options or click
-                the "Load More" button.
+              <p className="space-y-4 p-4 text-muted-foreground">
+                No emails found. Adjust the filters, or click "Load More".
               </p>
             )}
           </LoadingContent>

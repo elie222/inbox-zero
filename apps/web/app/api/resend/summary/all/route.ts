@@ -1,17 +1,18 @@
 import { NextResponse } from "next/server";
-import subDays from "date-fns/subDays";
+import { subDays } from "date-fns/subDays";
 import prisma from "@/utils/prisma";
 import { withError } from "@/utils/middleware";
-import { env } from "@/env";
+import { getInternalApiUrl } from "@/utils/internal-api";
 import {
   getCronSecretHeader,
   hasCronSecret,
   hasPostCronSecret,
 } from "@/utils/cron";
-import { Frequency } from "@prisma/client";
+import { Frequency } from "@/generated/prisma/enums";
 import { captureException } from "@/utils/error";
 import { createScopedLogger } from "@/utils/logger";
 import { publishToQstashQueue } from "@/utils/upstash";
+import { getPremiumUserFilter } from "@/utils/premium";
 
 const logger = createScopedLogger("cron/resend/summary/all");
 
@@ -27,15 +28,7 @@ async function sendSummaryAllUpdate() {
       summaryEmailFrequency: {
         not: Frequency.NEVER,
       },
-      // Only send to premium users
-      user: {
-        premium: {
-          OR: [
-            { lemonSqueezyRenewsAt: { gt: new Date() } },
-            { stripeSubscriptionStatus: { in: ["active", "trialing"] } },
-          ],
-        },
-      },
+      ...getPremiumUserFilter(),
       // User at least 4 days old
       createdAt: {
         lt: subDays(new Date(), 4),
@@ -45,7 +38,7 @@ async function sendSummaryAllUpdate() {
 
   logger.info("Sending summary to users", { count: emailAccounts.length });
 
-  const url = `${env.NEXT_PUBLIC_BASE_URL}/api/resend/summary`;
+  const url = `${getInternalApiUrl()}/api/resend/summary`;
 
   for (const emailAccount of emailAccounts) {
     try {

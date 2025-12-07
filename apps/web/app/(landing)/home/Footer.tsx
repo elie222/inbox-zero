@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { EXTENSION_URL } from "@/utils/config";
 
-const navigation = {
+export const footerNavigation = {
   main: [
     {
       name: "Inbox Zero Tabs (Chrome Extension)",
@@ -14,6 +14,7 @@ const navigation = {
     { name: "Clean your inbox", href: "/clean-inbox" },
     { name: "Cold Email Blocker", href: "/block-cold-emails" },
     { name: "Email Analytics", href: "/email-analytics" },
+    { name: "Auto Forward Emails", href: "/auto-forward-emails" },
     { name: "Open Source", href: "/github", target: "_blank" },
   ],
   useCases: [
@@ -99,12 +100,9 @@ const navigation = {
       href: "/discord",
       target: "_blank",
       icon: (props: any) => (
-        <svg width="100" height="100" viewBox="0 0 48 48" {...props}>
+        <svg fill="currentColor" viewBox="0 0 48 48" {...props}>
           <title>Discord</title>
-          <path
-            fill="currentColor"
-            d="M40,12c0,0-4.585-3.588-10-4l-0.488,0.976C34.408,10.174,36.654,11.891,39,14c-4.045-2.065-8.039-4-15-4s-10.955,1.935-15,4c2.346-2.109,5.018-4.015,9.488-5.024L18,8c-5.681,0.537-10,4-10,4s-5.121,7.425-6,22c5.162,5.953,13,6,13,6l1.639-2.185C13.857,36.848,10.715,35.121,8,32c3.238,2.45,8.125,5,16,5s12.762-2.55,16-5c-2.715,3.121-5.857,4.848-8.639,5.815L33,40c0,0,7.838-0.047,13-6C45.121,19.425,40,12,40,12z M17.5,30c-1.933,0-3.5-1.791-3.5-4c0-2.209,1.567-4,3.5-4s3.5,1.791,3.5,4C21,28.209,19.433,30,17.5,30z M30.5,30c-1.933,0-3.5-1.791-3.5-4c0-2.209,1.567-4,3.5-4s3.5,1.791,3.5,4C34,28.209,32.433,30,30.5,30z"
-          />
+          <path d="M40,12c0,0-4.585-3.588-10-4l-0.488,0.976C34.408,10.174,36.654,11.891,39,14c-4.045-2.065-8.039-4-15-4s-10.955,1.935-15,4c2.346-2.109,5.018-4.015,9.488-5.024L18,8c-5.681,0.537-10,4-10,4s-5.121,7.425-6,22c5.162,5.953,13,6,13,6l1.639-2.185C13.857,36.848,10.715,35.121,8,32c3.238,2.45,8.125,5,16,5s12.762-2.55,16-5c-2.715,3.121-5.857,4.848-8.639,5.815L33,40c0,0,7.838-0.047,13-6C45.121,19.425,40,12,40,12z M17.5,30c-1.933,0-3.5-1.791-3.5-4c0-2.209,1.567-4,3.5-4s3.5,1.791,3.5,4C21,28.209,19.433,30,17.5,30z M30.5,30c-1.933,0-3.5-1.791-3.5-4c0-2.209,1.567-4,3.5-4s3.5,1.791,3.5,4C34,28.209,32.433,30,30.5,30z" />
         </svg>
       ),
     },
@@ -113,32 +111,32 @@ const navigation = {
 
 export function Footer() {
   return (
-    <footer className="relative z-50">
+    <footer className="relative">
       <div className="mx-auto max-w-7xl overflow-hidden px-6 py-20 sm:py-24 lg:px-8">
         <div className="mt-16 grid grid-cols-2 gap-8 lg:grid-cols-5 xl:col-span-2 xl:mt-0">
           <div>
-            <FooterList title="Product" items={navigation.main} />
+            <FooterList title="Product" items={footerNavigation.main} />
           </div>
           <div>
-            <FooterList title="Use Cases" items={navigation.useCases} />
+            <FooterList title="Use Cases" items={footerNavigation.useCases} />
 
             <div className="mt-6">
-              <FooterList title="Compare" items={navigation.compare} />
+              <FooterList title="Compare" items={footerNavigation.compare} />
             </div>
           </div>
           <div>
-            <FooterList title="Support" items={navigation.support} />
+            <FooterList title="Support" items={footerNavigation.support} />
           </div>
           <div>
-            <FooterList title="Company" items={navigation.company} />
+            <FooterList title="Company" items={footerNavigation.company} />
           </div>
           <div>
-            <FooterList title="Legal" items={navigation.legal} />
+            <FooterList title="Legal" items={footerNavigation.legal} />
           </div>
         </div>
 
         <div className="mt-16 flex justify-center space-x-10">
-          {navigation.social.map((item) => (
+          {footerNavigation.social.map((item) => (
             <Link
               key={item.name}
               href={item.href}

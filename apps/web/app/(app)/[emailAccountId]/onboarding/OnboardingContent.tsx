@@ -10,6 +10,7 @@ import { analyzePersonaAction } from "@/utils/actions/email-account";
 import { StepFeatures } from "@/app/(app)/[emailAccountId]/onboarding/StepFeatures";
 import { StepDraft } from "@/app/(app)/[emailAccountId]/onboarding/StepDraft";
 import { StepCustomRules } from "@/app/(app)/[emailAccountId]/onboarding/StepCustomRules";
+import { StepInboxProcessed } from "@/app/(app)/[emailAccountId]/onboarding/StepInboxProcessed";
 import {
   ASSISTANT_ONBOARDING_COOKIE,
   markOnboardingAsCompleted,
@@ -22,33 +23,10 @@ import { useSignUpEvent } from "@/hooks/useSignupEvent";
 import { isDefined } from "@/utils/types";
 import { StepCompanySize } from "@/app/(app)/[emailAccountId]/onboarding/StepCompanySize";
 import { usePremium } from "@/components/PremiumAlert";
-
-export const STEP_KEYS = {
-  INTRO: "intro",
-  FEATURES: "features",
-  WHO: "who",
-  COMPANY_SIZE: "companySize",
-  LABELS: "labels",
-  DRAFT: "draft",
-  CUSTOM_RULES: "customRules",
-} as const;
-
-const STEP_ORDER = [
-  STEP_KEYS.INTRO,
-  STEP_KEYS.FEATURES,
-  STEP_KEYS.WHO,
-  STEP_KEYS.COMPANY_SIZE,
-  STEP_KEYS.LABELS,
-  STEP_KEYS.DRAFT,
-  STEP_KEYS.CUSTOM_RULES,
-] as const;
-
-export function getStepNumber(
-  stepKey: (typeof STEP_KEYS)[keyof typeof STEP_KEYS],
-): number {
-  const index = STEP_ORDER.indexOf(stepKey);
-  return index === -1 ? 1 : index + 1;
-}
+import {
+  STEP_KEYS,
+  STEP_ORDER,
+} from "@/app/(app)/[emailAccountId]/onboarding/steps";
 
 interface OnboardingContentProps {
   step: number;
@@ -88,6 +66,7 @@ export function OnboardingContent({ step }: OnboardingContentProps) {
     [STEP_KEYS.CUSTOM_RULES]: () => (
       <StepCustomRules provider={provider} onNext={onNext} />
     ),
+    [STEP_KEYS.INBOX_PROCESSED]: () => <StepInboxProcessed onNext={onNext} />,
   };
 
   const steps = STEP_ORDER.map((key) => stepMap[key]).filter(isDefined);

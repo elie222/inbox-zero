@@ -1,6 +1,7 @@
 /* eslint-disable no-process-env */
 import { createEnv } from "@t3-oss/env-nextjs";
 import { z } from "zod";
+import { booleanString } from "@/utils/zod";
 
 const llmProviderEnum = z.enum([
   "anthropic",
@@ -24,6 +25,7 @@ export const env = createEnv({
     GOOGLE_CLIENT_SECRET: z.string().min(1),
     MICROSOFT_CLIENT_ID: z.string().optional(),
     MICROSOFT_CLIENT_SECRET: z.string().optional(),
+    MICROSOFT_TENANT_ID: z.string().optional().default("common"),
     EMAIL_ENCRYPT_SECRET: z.string(),
     EMAIL_ENCRYPT_SALT: z.string(),
 
@@ -57,6 +59,8 @@ export const env = createEnv({
     OPENROUTER_API_KEY: z.string().optional(),
     AI_GATEWAY_API_KEY: z.string().optional(),
     OLLAMA_BASE_URL: z.string().optional(),
+
+    OPENAI_ZERO_DATA_RETENTION: z.coerce.boolean().optional().default(false),
 
     UPSTASH_REDIS_URL: z.string().optional(),
     UPSTASH_REDIS_TOKEN: z.string().optional(),
@@ -111,6 +115,7 @@ export const env = createEnv({
       .optional()
       .transform((value) => value?.split(",")),
     WEBHOOK_URL: z.string().optional(),
+    INTERNAL_API_URL: z.string().optional(),
     INTERNAL_API_KEY: z.string(),
     WHITELIST_FROM: z.string().optional(),
     USE_BACKUP_MODEL: z.coerce.boolean().optional().default(false),
@@ -152,7 +157,7 @@ export const env = createEnv({
     NEXT_PUBLIC_POSTHOG_ONBOARDING_SURVEY_ID: z.string().optional(),
     NEXT_PUBLIC_BASE_URL: z.string(),
     NEXT_PUBLIC_CONTACTS_ENABLED: z.coerce.boolean().optional().default(false),
-    NEXT_PUBLIC_EMAIL_SEND_ENABLED: z.coerce.boolean().optional().default(true),
+    NEXT_PUBLIC_EMAIL_SEND_ENABLED: booleanString.default(true),
     NEXT_PUBLIC_SENTRY_DSN: z.string().optional(),
     NEXT_PUBLIC_SUPPORT_EMAIL: z
       .string()
@@ -173,11 +178,7 @@ export const env = createEnv({
         if (!value) return;
         return value.split(",");
       }),
-    NEXT_PUBLIC_BEDROCK_SONNET_MODEL: z
-      .string()
-      .default("us.anthropic.claude-3-7-sonnet-20250219-v1:0"),
     NEXT_PUBLIC_OLLAMA_MODEL: z.string().optional(),
-    NEXT_PUBLIC_APP_HOME_PATH: z.string().default("/setup"),
     NEXT_PUBLIC_DUB_REFER_DOMAIN: z.string().optional(),
     NEXT_PUBLIC_DISABLE_REFERRAL_SIGNATURE: z.coerce
       .boolean()
@@ -235,10 +236,7 @@ export const env = createEnv({
     NEXT_PUBLIC_AXIOM_DATASET: process.env.NEXT_PUBLIC_AXIOM_DATASET,
     NEXT_PUBLIC_AXIOM_TOKEN: process.env.NEXT_PUBLIC_AXIOM_TOKEN,
     NEXT_PUBLIC_LOG_SCOPES: process.env.NEXT_PUBLIC_LOG_SCOPES,
-    NEXT_PUBLIC_BEDROCK_SONNET_MODEL:
-      process.env.NEXT_PUBLIC_BEDROCK_SONNET_MODEL,
     NEXT_PUBLIC_OLLAMA_MODEL: process.env.NEXT_PUBLIC_OLLAMA_MODEL,
-    NEXT_PUBLIC_APP_HOME_PATH: process.env.NEXT_PUBLIC_APP_HOME_PATH,
     NEXT_PUBLIC_DUB_REFER_DOMAIN: process.env.NEXT_PUBLIC_DUB_REFER_DOMAIN,
     NEXT_PUBLIC_DISABLE_REFERRAL_SIGNATURE:
       process.env.NEXT_PUBLIC_DISABLE_REFERRAL_SIGNATURE,

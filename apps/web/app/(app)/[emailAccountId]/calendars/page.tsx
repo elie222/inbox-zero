@@ -10,10 +10,7 @@ export default function CalendarsPage() {
     <PageWrapper>
       <TimezoneDetector />
       <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3 lg:gap-4">
-        <PageHeader
-          title="Calendars"
-          description="Connect your calendar to allow our AI to suggest meeting times based on your availability when drafting replies."
-        />
+        <PageHeader title="Calendars" />
         <ConnectCalendar />
       </div>
       <div className="mt-6 space-y-4">

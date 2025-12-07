@@ -162,7 +162,16 @@ async function processHistory(options: ProcessHistoryOptions, logger: Logger) {
 
     const allEvents = [
       ...(h.messagesAdded || [])
-        .filter(isInboxOrSentMessage)
+        .filter((m) => {
+          const isRelevant = isInboxOrSentMessage(m);
+          if (!isRelevant) {
+            logger.info("Skipping message not in inbox or sent", {
+              messageId: m.message?.id,
+              labelIds: m.message?.labelIds,
+            });
+          }
+          return isRelevant;
+        })
         .map((m) => ({ type: HistoryEventType.MESSAGE_ADDED, item: m })),
       ...(h.labelsAdded || []).map((m) => ({
         type: HistoryEventType.LABEL_ADDED,

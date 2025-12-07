@@ -9,7 +9,11 @@ import {
   partialUpdateRule,
   updateRuleActions,
 } from "@/utils/rule/rule";
-import { ActionType, GroupItemType, LogicalOperator } from "@prisma/client";
+import {
+  ActionType,
+  GroupItemType,
+  LogicalOperator,
+} from "@/generated/prisma/enums";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import { saveLearnedPatterns } from "@/utils/rule/learned-patterns";
 import { posthogCaptureEvent } from "@/utils/posthog";
@@ -226,7 +230,7 @@ const createRuleTool = ({
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
 
-        logger.error("Failed to create rule", { error: message });
+        logger.error("Failed to create rule", { error });
 
         return { error: "Failed to create rule", message };
       }

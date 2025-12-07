@@ -7,7 +7,7 @@ import type { PostHog } from "posthog-js/react";
 import { onAutoArchive, onDeleteFilter } from "@/utils/actions/client";
 import { setNewsletterStatusAction } from "@/utils/actions/unsubscriber";
 import { decrementUnsubscribeCreditAction } from "@/utils/actions/premium";
-import { NewsletterStatus } from "@prisma/client";
+import { NewsletterStatus } from "@/generated/prisma/enums";
 import { cleanUnsubscribeLink } from "@/utils/parse/parseHtml.client";
 import { captureException } from "@/utils/error";
 import { addToArchiveSenderQueue } from "@/store/archive-sender-queue";
@@ -656,27 +656,31 @@ export function useBulkUnsubscribeShortcuts<T extends Row>({
   ]);
 }
 
+export type NewsletterFilterType =
+  | "all"
+  | "unhandled"
+  | "unsubscribed"
+  | "autoArchived"
+  | "approved";
+
 export function useNewsletterFilter() {
-  const [filters, setFilters] = useState<
-    Record<"unhandled" | "unsubscribed" | "autoArchived" | "approved", boolean>
-  >({
-    unhandled: true,
-    unsubscribed: true,
-    autoArchived: true,
-    approved: true,
-  });
+  const [filter, setFilter] = useState<NewsletterFilterType>("all");
+
+  // Convert single filter to array format for API compatibility
+  const filtersArray: (
+    | "unhandled"
+    | "unsubscribed"
+    | "autoArchived"
+    | "approved"
+  )[] =
+    filter === "all"
+      ? ["unhandled", "unsubscribed", "autoArchived", "approved"]
+      : [filter];
 
   return {
-    filters,
-    filtersArray: Object.entries(filters)
-      .filter(([, selected]) => selected)
-      .map(([key]) => key) as (
-      | "unhandled"
-      | "unsubscribed"
-      | "autoArchived"
-      | "approved"
-    )[],
-    setFilters,
+    filter,
+    filtersArray,
+    setFilter,
   };
 }
 

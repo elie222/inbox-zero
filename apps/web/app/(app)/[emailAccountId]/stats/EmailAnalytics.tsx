@@ -2,15 +2,15 @@
 
 import useSWR from "swr";
 import type { DateRange } from "react-day-picker";
-import { useExpanded } from "@/app/(app)/[emailAccountId]/stats/useExpanded";
 import type { RecipientsResponse } from "@/app/api/user/stats/recipients/route";
 import type { SendersResponse } from "@/app/api/user/stats/senders/route";
 import { LoadingContent } from "@/components/LoadingContent";
 import { Skeleton } from "@/components/ui/skeleton";
-import { BarList } from "@/components/charts/BarList";
 import { getDateRangeParams } from "@/app/(app)/[emailAccountId]/stats/params";
 import { getGmailSearchUrl } from "@/utils/url";
 import { useAccount } from "@/providers/EmailAccountProvider";
+import { BarListCard } from "@/app/(app)/[emailAccountId]/stats/BarListCard";
+import { Mail, Send } from "lucide-react";
 
 export function EmailAnalytics(props: {
   dateRange?: DateRange | undefined;
@@ -38,72 +38,61 @@ export function EmailAnalytics(props: {
     },
   );
 
-  const { expanded, extra } = useExpanded();
+  function formatEmailItem(item: { name: string; value: number }) {
+    return {
+      ...item,
+      href: getGmailSearchUrl(item.name, userEmail),
+      target: "_blank",
+    };
+  }
 
   return (
-    <div className="grid gap-2 sm:gap-4 sm:grid-cols-3">
+    <div className="grid gap-2 sm:gap-4 sm:grid-cols-2">
       <LoadingContent
         loading={isLoading}
         error={error}
-        loadingComponent={<Skeleton className="h-64 w-full rounded" />}
+        loadingComponent={<Skeleton className="h-[377px] rounded" />}
       >
         {data && (
-          <BarList
-            title="Who emails you most"
-            col1="Sender"
-            col2="Emails"
-            data={data.mostActiveSenderEmails
-              ?.slice(0, expanded ? undefined : 5)
-              .map((d) => ({
-                ...d,
-                href: getGmailSearchUrl(d.name, userEmail),
-                target: "_blank",
-              }))}
-            extra={extra}
-          />
-        )}
-      </LoadingContent>
-      <LoadingContent
-        loading={isLoading}
-        error={error}
-        loadingComponent={<Skeleton className="h-64 w-full rounded" />}
-      >
-        {data && (
-          <BarList
-            title="Domains that email you most"
-            col1="Domain"
-            col2="Emails"
-            data={data.mostActiveSenderDomains
-              ?.slice(0, expanded ? undefined : 5)
-              .map((d) => ({
-                ...d,
-                href: getGmailSearchUrl(d.name, userEmail),
-                target: "_blank",
-              }))}
-            extra={extra}
+          <BarListCard
+            icon={
+              <Mail className="size-4 text-neutral-500 translate-y-[-0.5px]" />
+            }
+            title="Received"
+            tabs={[
+              {
+                id: "emailAddress",
+                label: "Email address",
+                data: data.mostActiveSenderEmails.map(formatEmailItem),
+              },
+              {
+                id: "domain",
+                label: "Domain",
+                data: data.mostActiveSenderDomains.map(formatEmailItem),
+              },
+            ]}
           />
         )}
       </LoadingContent>
       <LoadingContent
         loading={isLoadingRecipients}
         error={errorRecipients}
-        loadingComponent={<Skeleton className="h-64 w-full rounded" />}
+        loadingComponent={<Skeleton className="h-[377px] w-full rounded" />}
       >
         {dataRecipients && (
-          <BarList
-            title="Who you email the most"
-            col1="Recipient"
-            col2="Emails"
-            data={
-              dataRecipients.mostActiveRecipientEmails
-                ?.slice(0, expanded ? undefined : 5)
-                .map((d) => ({
-                  ...d,
-                  href: getGmailSearchUrl(d.name, userEmail),
-                  target: "_blank",
-                })) || []
-            }
-            extra={extra}
+          <BarListCard
+            icon={<Send className="size-4 text-neutral-500" />}
+            title="Sent"
+            tabs={[
+              {
+                id: "emailAddress",
+                label: "Email address",
+                data:
+                  dataRecipients.mostActiveRecipientEmails.map(
+                    formatEmailItem,
+                  ) || [],
+              },
+            ]}
           />
         )}
       </LoadingContent>

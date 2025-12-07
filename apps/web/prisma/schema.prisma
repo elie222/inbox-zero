@@ -5,7 +5,11 @@ datasource db {
 }
 
 generator client {
-  provider = "prisma-client-js"
+  provider               = "prisma-client"
+  output                 = "../generated/prisma"
+  engineType             = "client"
+  generatedFileExtension = "ts"
+  importFileExtension    = "ts"
 }
 
 // Account, User, Session, and VerificationToken based on: https://authjs.dev/reference/adapter/prisma
@@ -698,6 +702,7 @@ model EmailMessage {
   @@index([emailAccountId, threadId])
   @@index([emailAccountId, date])
   @@index([emailAccountId, from])
+  @@index([emailAccountId, fromName])
 }
 
 model ThreadTracker {

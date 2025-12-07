@@ -12,7 +12,6 @@ import {
   type ChangePremiumStatusOptions,
 } from "@/app/(app)/admin/validation";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { PremiumTier } from "@prisma/client";
 import { toastError, toastSuccess } from "@/components/Toast";
 
 export const AdminUpgradeUserForm = () => {
@@ -39,7 +38,7 @@ export const AdminUpgradeUserForm = () => {
   } = useForm<ChangePremiumStatusOptions>({
     resolver: zodResolver(changePremiumStatusSchema),
     defaultValues: {
-      period: PremiumTier.BUSINESS_ANNUALLY,
+      period: "BUSINESS_ANNUALLY",
     },
   });
 
@@ -84,44 +83,44 @@ export const AdminUpgradeUserForm = () => {
         label="Plan"
         options={[
           {
-            label: PremiumTier.BUSINESS_ANNUALLY,
-            value: PremiumTier.BUSINESS_ANNUALLY,
+            label: "BUSINESS_ANNUALLY",
+            value: "BUSINESS_ANNUALLY",
           },
           {
-            label: PremiumTier.BUSINESS_MONTHLY,
-            value: PremiumTier.BUSINESS_MONTHLY,
+            label: "BUSINESS_MONTHLY",
+            value: "BUSINESS_MONTHLY",
           },
           {
-            label: PremiumTier.BUSINESS_PLUS_ANNUALLY,
-            value: PremiumTier.BUSINESS_PLUS_ANNUALLY,
+            label: "BUSINESS_PLUS_ANNUALLY",
+            value: "BUSINESS_PLUS_ANNUALLY",
           },
           {
-            label: PremiumTier.BUSINESS_PLUS_MONTHLY,
-            value: PremiumTier.BUSINESS_PLUS_MONTHLY,
+            label: "BUSINESS_PLUS_MONTHLY",
+            value: "BUSINESS_PLUS_MONTHLY",
           },
           {
-            label: PremiumTier.PRO_ANNUALLY,
-            value: PremiumTier.PRO_ANNUALLY,
+            label: "PRO_ANNUALLY",
+            value: "PRO_ANNUALLY",
           },
           {
-            label: PremiumTier.PRO_MONTHLY,
-            value: PremiumTier.PRO_MONTHLY,
+            label: "PRO_MONTHLY",
+            value: "PRO_MONTHLY",
           },
           {
-            label: PremiumTier.BASIC_ANNUALLY,
-            value: PremiumTier.BASIC_ANNUALLY,
+            label: "BASIC_ANNUALLY",
+            value: "BASIC_ANNUALLY",
           },
           {
-            label: PremiumTier.BASIC_MONTHLY,
-            value: PremiumTier.BASIC_MONTHLY,
+            label: "BASIC_MONTHLY",
+            value: "BASIC_MONTHLY",
           },
           {
-            label: PremiumTier.COPILOT_MONTHLY,
-            value: PremiumTier.COPILOT_MONTHLY,
+            label: "COPILOT_MONTHLY",
+            value: "COPILOT_MONTHLY",
           },
           {
-            label: PremiumTier.LIFETIME,
-            value: PremiumTier.LIFETIME,
+            label: "LIFETIME",
+            value: "LIFETIME",
           },
         ]}
         {...register("period")}

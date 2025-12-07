@@ -2,23 +2,21 @@
 
 import { useState, useMemo, useCallback, useEffect } from "react";
 import type { DateRange } from "react-day-picker";
-import subDays from "date-fns/subDays";
-import { DetailedStats } from "@/app/(app)/[emailAccountId]/stats/DetailedStats";
-import { LoadStatsButton } from "@/app/(app)/[emailAccountId]/stats/LoadStatsButton";
+import { subDays } from "date-fns/subDays";
 import { EmailAnalytics } from "@/app/(app)/[emailAccountId]/stats/EmailAnalytics";
 import { StatsSummary } from "@/app/(app)/[emailAccountId]/stats/StatsSummary";
 import { StatsOnboarding } from "@/app/(app)/[emailAccountId]/stats/StatsOnboarding";
-import { ActionBar } from "@/app/(app)/[emailAccountId]/stats/ActionBar";
-import { LoadProgress } from "@/app/(app)/[emailAccountId]/stats/LoadProgress";
 import { useStatLoader } from "@/providers/StatLoaderProvider";
 import { EmailActionsAnalytics } from "@/app/(app)/[emailAccountId]/stats/EmailActionsAnalytics";
-import { BulkUnsubscribeSummary } from "@/app/(app)/[emailAccountId]/bulk-unsubscribe/BulkUnsubscribeSummary";
 import { RuleStatsChart } from "./RuleStatsChart";
-import { CardBasic } from "@/components/ui/card";
-import { Title } from "@tremor/react";
 import { PageHeading } from "@/components/Typography";
 import { PageWrapper } from "@/components/PageWrapper";
 import { useOrgAccess } from "@/hooks/useOrgAccess";
+import { LoadStatsButton } from "@/app/(app)/[emailAccountId]/stats/LoadStatsButton";
+import { ActionBar } from "@/app/(app)/[emailAccountId]/stats/ActionBar";
+import { DetailedStatsFilter } from "@/app/(app)/[emailAccountId]/stats/DetailedStatsFilter";
+import { LayoutGrid } from "lucide-react";
+import { DatePickerWithRange } from "@/components/DatePickerWithRange";
 
 const selectOptions = [
   { label: "Last week", value: "7" },
@@ -71,63 +69,65 @@ export function Stats() {
     }
   }, [onLoad, isAccountOwner]);
 
+  const title =
+    !isAccountOwner && accountInfo?.name
+      ? `Analytics for ${accountInfo.name}`
+      : "Analytics";
+
   return (
     <PageWrapper>
-      <PageHeading>
-        {!isAccountOwner && accountInfo?.name
-          ? `Analytics for ${accountInfo.name}`
-          : "Analytics"}
-      </PageHeading>
-      <div className="flex items-center justify-between mt-2 sm:mt-0">
-        {isLoading ? <LoadProgress /> : <div />}
-        <div className="flex flex-wrap gap-1">
-          <ActionBar
-            selectOptions={selectOptions}
-            dateDropdown={dateDropdown}
-            setDateDropdown={onSetDateDropdown}
-            dateRange={dateRange}
-            setDateRange={setDateRange}
-            period={period}
-            setPeriod={setPeriod}
-            isMobile={false}
-          />
-          <LoadStatsButton />
-        </div>
-      </div>
-
+      <PageHeading>{title}</PageHeading>
+      <ActionBar className="mt-6" rightContent={<LoadStatsButton />}>
+        <DatePickerWithRange
+          dateRange={dateRange}
+          onSetDateRange={setDateRange}
+          selectOptions={selectOptions}
+          dateDropdown={dateDropdown}
+          onSetDateDropdown={onSetDateDropdown}
+        />
+        <DetailedStatsFilter
+          label={`Group by ${period}`}
+          icon={<LayoutGrid className="mr-2 h-4 w-4" />}
+          columns={[
+            {
+              label: "Day",
+              checked: period === "day",
+              setChecked: () => setPeriod("day"),
+            },
+            {
+              label: "Week",
+              checked: period === "week",
+              setChecked: () => setPeriod("week"),
+            },
+            {
+              label: "Month",
+              checked: period === "month",
+              setChecked: () => setPeriod("month"),
+            },
+            {
+              label: "Year",
+              checked: period === "year",
+              setChecked: () => setPeriod("year"),
+            },
+          ]}
+        />
+      </ActionBar>
       <div className="grid gap-2 sm:gap-4 mt-2 sm:mt-4">
-        <StatsSummary dateRange={dateRange} refreshInterval={refreshInterval} />
-
-        {isAccountOwner && (
-          <EmailAnalytics
-            dateRange={dateRange}
-            refreshInterval={refreshInterval}
-          />
-        )}
-
+        <StatsSummary
+          dateRange={dateRange}
+          refreshInterval={refreshInterval}
+          period={period}
+        />
+        <EmailAnalytics
+          dateRange={dateRange}
+          refreshInterval={refreshInterval}
+        />
         <RuleStatsChart
           dateRange={dateRange}
           title="Assistant processed emails"
         />
-
-        <DetailedStats
-          dateRange={dateRange}
-          period={period}
-          refreshInterval={refreshInterval}
-        />
-
-        <CardBasic>
-          <Title>
-            How many emailers you've handled with Inbox Zero bulk unsubscribe
-          </Title>
-          <div className="mt-2">
-            <BulkUnsubscribeSummary />
-          </div>
-        </CardBasic>
-
         {isAccountOwner && <EmailActionsAnalytics />}
       </div>
-
       <StatsOnboarding />
     </PageWrapper>
   );

@@ -2,7 +2,7 @@ import { describe, expect, test, vi } from "vitest";
 import type { ParsedMessage } from "@/utils/types";
 import { getActionItemsWithAiArgs } from "@/utils/ai/choose-rule/choose-args";
 import { getEmailAccount, getAction, getRule } from "@/__tests__/helpers";
-import { ActionType } from "@prisma/client";
+import { ActionType } from "@/generated/prisma/enums";
 import { createScopedLogger } from "@/utils/logger";
 
 // pnpm test-ai ai-choose-args

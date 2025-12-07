@@ -1,7 +1,8 @@
 import prisma from "@/utils/prisma";
 import { generalizeSubject } from "@/utils/string";
 import type { ParsedMessage } from "@/utils/types";
-import { type GroupItem, GroupItemType } from "@prisma/client";
+import { GroupItemType } from "@/generated/prisma/enums";
+import type { GroupItem } from "@/generated/prisma/client";
 
 export type GroupsWithRules = Awaited<ReturnType<typeof getGroupsWithRules>>;
 

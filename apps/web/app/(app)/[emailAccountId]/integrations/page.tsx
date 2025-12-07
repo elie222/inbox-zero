@@ -8,10 +8,7 @@ export default function IntegrationsPage() {
   return (
     <PageWrapper>
       <div className="flex items-center justify-between">
-        <PageHeader
-          title="Integrations"
-          description="Manage your integrations."
-        />
+        <PageHeader title="Integrations" />
         <RequestAccessDialog
           trigger={<Button variant="outline">Request an Integration</Button>}
         />

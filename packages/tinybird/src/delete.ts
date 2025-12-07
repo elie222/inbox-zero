@@ -1,4 +1,5 @@
 import pRetry, { AbortError } from "p-retry";
+import { isTinybirdEnabled } from "./client";
 
 const TINYBIRD_BASE_URL = process.env.TINYBIRD_BASE_URL;
 const TINYBIRD_TOKEN = process.env.TINYBIRD_TOKEN;
@@ -7,6 +8,8 @@ async function deleteFromDatasource(
   datasource: string,
   deleteCondition: string, // e.g. "email='abc@example.com'"
 ): Promise<unknown> {
+  if (!isTinybirdEnabled()) return;
+
   const url = new URL(
     `/v0/datasources/${datasource}/delete`,
     TINYBIRD_BASE_URL,

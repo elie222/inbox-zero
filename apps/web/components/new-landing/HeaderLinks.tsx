@@ -22,7 +22,6 @@ import {
 
 const navigation = [
   { name: "Enterprise", href: "/enterprise" },
-  { name: "Open Source", href: "/github", target: "_blank" as const },
   { name: "Pricing", href: "/#pricing" },
 ];
 
@@ -32,60 +31,60 @@ const useCases = [
     href: "/founders",
     description: "Scale your startup while AI handles your inbox",
     icon: RocketIcon,
-    iconColor: "text-[#6410FF]",
-    borderColor: "from-[#E1D5FC] to-[#D7C3FC]",
-    gradient: "from-[#F3EAFE] to-[#E7DAFF]",
-    hoverBg: "hover:bg-[#F3EAFE70]",
+    iconColor: "text-new-purple-600",
+    borderColor: "from-new-purple-200 to-new-purple-300",
+    gradient: "from-new-purple-50 to-new-purple-100",
+    hoverBg: "hover:bg-new-purple-50/[0.44]",
   },
   {
     title: "Small Business",
     href: "/small-business",
     description: "Grow your business with automated email management",
     icon: BuildingIcon,
-    iconColor: "text-[#30A24B]",
-    borderColor: "from-[#DDF4D3] to-[#CFF4C0]",
-    gradient: "from-[#F3FFEF] to-[#E1FFD8]",
-    hoverBg: "hover:bg-[#F3FFEF]",
+    iconColor: "text-new-green-500",
+    borderColor: "from-new-green-150 to-new-green-200",
+    gradient: "from-new-green-50 to-new-green-100",
+    hoverBg: "hover:bg-new-green-50",
   },
   {
     title: "Content Creators",
     href: "/creator",
     description: "Streamline brand partnerships and collaborations",
     icon: UserIcon,
-    iconColor: "text-[#006EFF]",
-    borderColor: "from-[#D6E8FC] to-[#C3DEFC]",
-    gradient: "from-[#EFF6FF] to-[#D8E9FF]",
-    hoverBg: "hover:bg-[#EFF6FF80]",
+    iconColor: "text-new-blue-600",
+    borderColor: "from-new-blue-150 to-new-blue-200",
+    gradient: "from-new-blue-50 to-new-blue-100",
+    hoverBg: "hover:bg-new-blue-50/50",
   },
   {
     title: "Real Estate",
     href: "/real-estate",
     description: "AI email management for real estate professionals",
     icon: HomeIcon,
-    iconColor: "text-[#C942B2]",
-    borderColor: "from-[#FDD3EB] to-[#FDBFE0]",
-    gradient: "from-[#FFEEF8] to-[#FFDAEC]",
-    hoverBg: "hover:bg-[#FFEEF870]",
+    iconColor: "text-new-pink-500",
+    borderColor: "from-new-pink-150 to-new-pink-200",
+    gradient: "from-new-pink-50 to-new-pink-100",
+    hoverBg: "hover:bg-new-pink-50/[0.44]",
   },
   {
     title: "Customer Support",
     href: "/support",
     description: "Deliver faster support with AI-powered responses",
     icon: HeadphonesIcon,
-    iconColor: "text-[#E65707]",
-    borderColor: "from-[#FCE2D5] to-[#FCD6C2]",
-    gradient: "from-[#FFF5EF] to-[#FFE7DA]",
-    hoverBg: "hover:bg-[#FFF5EF80]",
+    iconColor: "text-new-orange-600",
+    borderColor: "from-new-orange-150 to-new-orange-200",
+    gradient: "from-new-orange-50 to-new-orange-100",
+    hoverBg: "hover:bg-new-orange-50/50",
   },
   {
     title: "E-commerce",
     href: "/ecommerce",
     description: "Automate order updates and customer communications",
     icon: ShoppingCartIcon,
-    iconColor: "text-[#124DFF]",
-    borderColor: "from-[#D5DEFC] to-[#C2D0FC]",
-    gradient: "from-[#EFF3FF] to-[#D9E2FF]",
-    hoverBg: "hover:bg-[#EFF3FF80]",
+    iconColor: "text-new-indigo-600",
+    borderColor: "from-new-indigo-150 to-new-indigo-200",
+    gradient: "from-new-indigo-50 to-new-indigo-100",
+    hoverBg: "hover:bg-new-indigo-50/50",
   },
 ];
 
@@ -128,8 +127,6 @@ export function HeaderLinks() {
               >
                 <Link
                   href={item.href}
-                  target={item.target}
-                  prefetch={item.target !== "_blank"}
                   className="text-sm font-semibold font-geist leading-6 text-gray-900"
                 >
                   {item.name}

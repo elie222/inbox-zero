@@ -10,6 +10,7 @@ import { getEmailAccount } from "@/utils/redis/account-validation";
 import { getCallerEmailAccount } from "@/utils/organizations/access";
 import {
   EMAIL_ACCOUNT_HEADER,
+  MICROSOFT_AUTH_EXPIRED_ERROR_CODE,
   NO_REFRESH_TOKEN_ERROR_CODE,
 } from "@/utils/config";
 import prisma from "@/utils/prisma";
@@ -108,6 +109,17 @@ function withMiddleware<T extends NextRequest>(
             { status: 401 },
           );
         }
+
+        if (error.message.includes("Microsoft authorization has expired")) {
+          return NextResponse.json(
+            {
+              error: error.safeMessage,
+              errorCode: MICROSOFT_AUTH_EXPIRED_ERROR_CODE,
+              isKnownError: true,
+            },
+            { status: 401 },
+          );
+        }
       }
 
       const reqLogger = getLogger(reqWithLogger);
@@ -151,6 +163,13 @@ function withMiddleware<T extends NextRequest>(
 
       reqLogger.error("Unhandled error", {
         error: error instanceof Error ? error.message : error,
+        cause:
+          error instanceof Error && error.cause
+            ? error.cause instanceof Error
+              ? error.cause.message
+              : error.cause
+            : undefined,
+        stack: error instanceof Error ? error.stack : undefined,
       });
       captureException(error, { extra: { url: req.url } });
 
@@ -305,6 +324,12 @@ async function emailProviderMiddleware(
       emailAccountId,
       userId,
     });
+
+    // Re-throw SafeError so it gets handled with the user-friendly message
+    if (error instanceof SafeError) {
+      throw error;
+    }
+
     return NextResponse.json(
       { error: "Failed to initialize email provider" },
       { status: 500 },

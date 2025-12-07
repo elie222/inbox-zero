@@ -1,5 +1,5 @@
 import type { EmailProvider } from "@/utils/email/types";
-import { createScopedLogger } from "@/utils/logger";
+import type { Logger } from "@/utils/logger";
 import prisma from "@/utils/prisma";
 
 /**
@@ -16,20 +16,16 @@ export async function labelMessageAndSync({
   labelId,
   labelName,
   emailAccountId,
+  logger: log,
 }: {
   provider: EmailProvider;
   messageId: string;
   labelId: string;
   labelName: string | null;
   emailAccountId: string;
+  logger: Logger;
 }): Promise<void> {
-  const logger = createScopedLogger("label.server").with({
-    provider: provider.name,
-    messageId,
-    labelId,
-    labelName,
-    emailAccountId,
-  });
+  const logger = log.with({ labelId, labelName });
 
   const result = await provider.labelMessage({
     messageId,

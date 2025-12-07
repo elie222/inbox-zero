@@ -1,14 +1,11 @@
 import type { Client } from "@microsoft/microsoft-graph-client";
 import type { Subscription } from "@microsoft/microsoft-graph-types";
-import addDays from "date-fns/addDays";
+import { addDays } from "date-fns/addDays";
 import { env } from "@/env";
 import { withOutlookRetry } from "@/utils/outlook/retry";
 
 export async function watchOutlook(client: Client) {
-  const base =
-    env.NODE_ENV === "development"
-      ? env.WEBHOOK_URL || env.NEXT_PUBLIC_BASE_URL
-      : env.NEXT_PUBLIC_BASE_URL;
+  const base = env.WEBHOOK_URL || env.NEXT_PUBLIC_BASE_URL;
 
   // must be https
   const notificationUrl = new URL("/api/outlook/webhook", base);

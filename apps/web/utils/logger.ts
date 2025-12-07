@@ -126,13 +126,7 @@ function formatError(args?: Record<string, unknown>) {
   if (!args?.error) return args;
 
   const error = args.error;
-  const errorMessage =
-    error instanceof Error
-      ? error.message
-      : typeof error === "object" && error !== null && "message" in error
-        ? (error as { message: unknown }).message
-        : error;
-
+  const errorMessage = getSimpleErrorMessage(error) ?? "Unknown error";
   const errorFull = serializeError(error);
 
   return {
@@ -144,21 +138,12 @@ function formatError(args?: Record<string, unknown>) {
 
 function serializeError(error: unknown): unknown {
   if (error instanceof Error) {
-    // Convert Error instance to plain object so hashSensitiveFields can process it
-    const serialized: Record<string, unknown> = {
+    return {
+      ...error,
       name: error.name,
       message: error.message,
       stack: error.stack,
     };
-
-    // Copy all enumerable properties
-    for (const key in error) {
-      if (Object.hasOwn(error, key)) {
-        serialized[key] = (error as any)[key];
-      }
-    }
-
-    return serialized;
   }
 
   return error;
@@ -182,6 +167,41 @@ function processErrorsInObject(obj: unknown): unknown {
   }
 
   return obj;
+}
+
+function getSimpleErrorMessage(error: unknown): string | undefined {
+  if (typeof error === "string") {
+    return error;
+  }
+
+  if (error instanceof Error) {
+    return error.message;
+  }
+
+  if (!hasMessageField(error) && !hasNestedErrorField(error)) {
+    return undefined;
+  }
+
+  if (hasMessageField(error) && typeof error.message === "string") {
+    return error.message;
+  }
+
+  if (hasNestedErrorField(error)) {
+    const nested = error.error;
+    if (hasMessageField(nested) && typeof nested.message === "string") {
+      return nested.message;
+    }
+  }
+
+  return undefined;
+}
+
+function hasMessageField(value: unknown): value is { message?: unknown } {
+  return typeof value === "object" && value !== null && "message" in value;
+}
+
+function hasNestedErrorField(value: unknown): value is { error: unknown } {
+  return typeof value === "object" && value !== null && "error" in value;
 }
 
 // Field names that contain PII and should be hashed in production

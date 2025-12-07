@@ -5,8 +5,8 @@ import {
   ActionType,
   ExecutedRuleStatus,
   SystemType,
-  type Rule,
-} from "@prisma/client";
+} from "@/generated/prisma/enums";
+import type { Rule } from "@/generated/prisma/client";
 import type { ActionItem } from "@/utils/ai/types";
 import { findMatchingRules } from "@/utils/ai/choose-rule/match-rules";
 import { getActionItemsWithAiArgs } from "@/utils/ai/choose-rule/choose-args";
@@ -72,6 +72,7 @@ export async function runRules({
   isTest,
   modelType,
   logger,
+  skipArchive,
 }: {
   provider: EmailProvider;
   message: ParsedMessage;
@@ -80,6 +81,7 @@ export async function runRules({
   isTest: boolean;
   modelType: ModelType;
   logger: Logger;
+  skipArchive?: boolean;
 }): Promise<RunRulesResult[]> {
   const batchTimestamp = new Date(); // Single timestamp for this batch execution
   const { regularRules, conversationRules } = prepareRulesWithMetaRule(rules);
@@ -187,6 +189,7 @@ export async function runRules({
       modelType,
       batchTimestamp,
       logger,
+      skipArchive,
     );
 
     executedRules.push({
@@ -253,8 +256,9 @@ async function executeMatchedRule(
   modelType: ModelType,
   batchTimestamp: Date,
   logger: Logger,
+  skipArchive?: boolean,
 ) {
-  const actionItems = await getActionItemsWithAiArgs({
+  let actionItems = await getActionItemsWithAiArgs({
     message,
     emailAccount,
     selectedRule: rule,
@@ -263,6 +267,12 @@ async function executeMatchedRule(
     logger,
     isTest,
   });
+
+  if (skipArchive) {
+    actionItems = actionItems.filter(
+      (item) => item.type !== ActionType.ARCHIVE,
+    );
+  }
 
   const { immediateActions, delayedActions } = groupBy(actionItems, (item) =>
     item.delayInMinutes != null && item.delayInMinutes > 0
@@ -328,6 +338,7 @@ async function executeMatchedRule(
         threadId: message.threadId,
         systemType: rule.systemType,
         provider: client,
+        logger,
       }),
       updateThreadTrackers({
         emailAccountId: emailAccount.id,

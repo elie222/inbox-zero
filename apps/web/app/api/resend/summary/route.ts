@@ -1,13 +1,13 @@
 import { z } from "zod";
 import { NextResponse } from "next/server";
-import subHours from "date-fns/subHours";
+import { subHours } from "date-fns/subHours";
 import { sendSummaryEmail } from "@inboxzero/resend";
 import { withEmailAccount, withError } from "@/utils/middleware";
 import { env } from "@/env";
 import { hasCronSecret } from "@/utils/cron";
 import { captureException } from "@/utils/error";
 import prisma from "@/utils/prisma";
-import { ThreadTrackerType } from "@prisma/client";
+import { ThreadTrackerType } from "@/generated/prisma/enums";
 import { createScopedLogger } from "@/utils/logger";
 import { getMessagesBatch } from "@/utils/gmail/message";
 import { decodeSnippet } from "@/utils/gmail/decode";

@@ -21,7 +21,7 @@ import { DismissibleVideoCard } from "@/components/VideoCard";
 import {
   STEP_KEYS,
   getStepNumber,
-} from "@/app/(app)/[emailAccountId]/onboarding/OnboardingContent";
+} from "@/app/(app)/[emailAccountId]/onboarding/steps";
 
 export const maxDuration = 300; // Applies to the actions
 
@@ -90,7 +90,6 @@ export default async function AutomationPage({
             <div>
               <PageHeader
                 title="AI Assistant"
-                description="Personalized AI to help you manage emails faster."
                 video={{
                   title: "Getting started with AI Personal Assistant",
                   description:

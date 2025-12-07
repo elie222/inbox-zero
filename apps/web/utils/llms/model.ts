@@ -8,7 +8,7 @@ import { createOpenRouter } from "@openrouter/ai-sdk-provider";
 import { createGateway } from "@ai-sdk/gateway";
 // import { createOllama } from "ollama-ai-provider";
 import { env } from "@/env";
-import { Model, Provider } from "@/utils/llms/config";
+import { Provider } from "@/utils/llms/config";
 import type { UserAIFields } from "@/utils/llms/types";
 import { createScopedLogger } from "@/utils/logger";
 
@@ -67,18 +67,29 @@ function selectModel(
 ): SelectModel {
   switch (aiProvider) {
     case Provider.OPEN_AI: {
-      const modelName = aiModel || Model.GPT_4O;
+      const modelName = aiModel || "gpt-5.1";
+      // When Zero Data Retention is enabled, set store: false to avoid
+      // "Items are not persisted for Zero Data Retention organizations" errors
+      // See: https://github.com/vercel/ai/issues/10060
+      const baseOptions = providerOptions ?? {};
+      const openAiProviderOptions = env.OPENAI_ZERO_DATA_RETENTION
+        ? {
+            ...baseOptions,
+            openai: { ...(baseOptions.openai ?? {}), store: false },
+          }
+        : providerOptions;
       return {
         provider: Provider.OPEN_AI,
         modelName,
         model: createOpenAI({ apiKey: aiApiKey || env.OPENAI_API_KEY })(
           modelName,
         ),
+        providerOptions: openAiProviderOptions,
         backupModel: getBackupModel(aiApiKey),
       };
     }
     case Provider.GOOGLE: {
-      const mod = aiModel || Model.GEMINI_2_0_FLASH;
+      const mod = aiModel || "gemini-2.0-flash";
       return {
         provider: Provider.GOOGLE,
         modelName: mod,
@@ -89,7 +100,7 @@ function selectModel(
       };
     }
     case Provider.GROQ: {
-      const modelName = aiModel || Model.GROQ_LLAMA_3_3_70B;
+      const modelName = aiModel || "llama-3.3-70b-versatile";
       return {
         provider: Provider.GROQ,
         modelName,
@@ -98,7 +109,7 @@ function selectModel(
       };
     }
     case Provider.OPENROUTER: {
-      const modelName = aiModel || Model.CLAUDE_4_5_SONNET_OPENROUTER;
+      const modelName = aiModel || "anthropic/claude-sonnet-4.5";
       const openrouter = createOpenRouter({
         apiKey: aiApiKey || env.OPENROUTER_API_KEY,
         headers: {
@@ -117,7 +128,7 @@ function selectModel(
       };
     }
     case Provider.AI_GATEWAY: {
-      const modelName = aiModel || Model.GEMINI_2_5_PRO_OPENROUTER;
+      const modelName = aiModel || "google/gemini-2.5-pro";
       const aiGatewayApiKey = aiApiKey || env.AI_GATEWAY_API_KEY;
       const gateway = createGateway({ apiKey: aiGatewayApiKey });
       return {
@@ -140,38 +151,34 @@ function selectModel(
       // };
     }
 
-    // this is messy. better to have two providers. one for bedrock and one for anthropic
+    case Provider.BEDROCK: {
+      const modelName =
+        aiModel || "global.anthropic.claude-sonnet-4-5-20250929-v1:0";
+      return {
+        provider: Provider.BEDROCK,
+        modelName,
+        // Based on: https://github.com/vercel/ai/issues/4996#issuecomment-2751630936
+        model: createAmazonBedrock({
+          region: env.BEDROCK_REGION,
+          credentialProvider: async () => ({
+            accessKeyId: env.BEDROCK_ACCESS_KEY!,
+            secretAccessKey: env.BEDROCK_SECRET_KEY!,
+            sessionToken: undefined,
+          }),
+        })(modelName),
+        backupModel: getBackupModel(aiApiKey),
+      };
+    }
     case Provider.ANTHROPIC: {
-      if (env.BEDROCK_ACCESS_KEY && env.BEDROCK_SECRET_KEY && !aiApiKey) {
-        const modelName = aiModel || Model.CLAUDE_3_7_SONNET_BEDROCK;
-        return {
-          provider: Provider.ANTHROPIC,
-          modelName,
-          // Based on: https://github.com/vercel/ai/issues/4996#issuecomment-2751630936
-          model: createAmazonBedrock({
-            // accessKeyId: env.BEDROCK_ACCESS_KEY,
-            // secretAccessKey: env.BEDROCK_SECRET_KEY,
-            // sessionToken: undefined,
-            region: env.BEDROCK_REGION,
-            credentialProvider: async () => ({
-              accessKeyId: env.BEDROCK_ACCESS_KEY!,
-              secretAccessKey: env.BEDROCK_SECRET_KEY!,
-              sessionToken: undefined,
-            }),
-          })(modelName),
-          backupModel: getBackupModel(aiApiKey),
-        };
-      } else {
-        const modelName = aiModel || Model.CLAUDE_3_7_SONNET_ANTHROPIC;
-        return {
-          provider: Provider.ANTHROPIC,
-          modelName,
-          model: createAnthropic({
-            apiKey: aiApiKey || env.ANTHROPIC_API_KEY,
-          })(modelName),
-          backupModel: getBackupModel(aiApiKey),
-        };
-      }
+      const modelName = aiModel || "claude-sonnet-4-5-20250929";
+      return {
+        provider: Provider.ANTHROPIC,
+        modelName,
+        model: createAnthropic({
+          apiKey: aiApiKey || env.ANTHROPIC_API_KEY,
+        })(modelName),
+        backupModel: getBackupModel(aiApiKey),
+      };
     }
     default: {
       logger.error("LLM provider not supported", { aiProvider });
@@ -327,6 +334,10 @@ function selectDefaultModel(userAi: UserAIFields): SelectModel {
 function getProviderApiKey(provider: string) {
   const providerApiKeys: Record<string, string | undefined> = {
     [Provider.ANTHROPIC]: env.ANTHROPIC_API_KEY,
+    [Provider.BEDROCK]:
+      env.BEDROCK_ACCESS_KEY && env.BEDROCK_SECRET_KEY
+        ? "bedrock-credentials"
+        : undefined,
     [Provider.OPEN_AI]: env.OPENAI_API_KEY,
     [Provider.GOOGLE]: env.GOOGLE_API_KEY,
     [Provider.GROQ]: env.GROQ_API_KEY,

@@ -4,9 +4,31 @@ import type { ReadonlyRequestCookies } from "next/dist/server/web/spec-extension
 
 const logger = createScopedLogger("utms");
 
+type UtmValues = {
+  utmCampaign?: string;
+  utmMedium?: string;
+  utmSource?: string;
+  utmTerm?: string;
+  affiliate?: string;
+};
+
+// Extract UTM values from cookies before passing to after() callback
+// This is required because request APIs (cookies/headers) cannot be used
+// inside after() in Server Components - only in Server Actions and Route Handlers
+// See: https://nextjs.org/docs/app/api-reference/functions/after
+export function extractUtmValues(cookies: ReadonlyRequestCookies): UtmValues {
+  return {
+    utmCampaign: cookies.get("utm_campaign")?.value,
+    utmMedium: cookies.get("utm_medium")?.value,
+    utmSource: cookies.get("utm_source")?.value,
+    utmTerm: cookies.get("utm_term")?.value,
+    affiliate: cookies.get("affiliate")?.value,
+  };
+}
+
 export async function fetchUserAndStoreUtms(
   userId: string,
-  cookies: ReadonlyRequestCookies,
+  utmValues: UtmValues,
 ) {
   const user = await prisma.user
     .findUnique({
@@ -19,26 +41,19 @@ export async function fetchUserAndStoreUtms(
     });
 
   if (user && !user.utms) {
-    await storeUtms(userId, cookies);
+    await storeUtms(userId, utmValues);
   }
 }
 
-// `cookies` passed in as we can't do await cookies() in the `after` hook
-async function storeUtms(userId: string, cookies: ReadonlyRequestCookies) {
+async function storeUtms(userId: string, utmValues: UtmValues) {
   logger.info("Storing utms", { userId });
 
-  const utmCampaign = cookies.get("utm_campaign");
-  const utmMedium = cookies.get("utm_medium");
-  const utmSource = cookies.get("utm_source");
-  const utmTerm = cookies.get("utm_term");
-  const affiliate = cookies.get("affiliate");
-
   const utms = {
-    utmCampaign: utmCampaign?.value,
-    utmMedium: utmMedium?.value,
-    utmSource: utmSource?.value,
-    utmTerm: utmTerm?.value,
-    affiliate: affiliate?.value,
+    utmCampaign: utmValues.utmCampaign,
+    utmMedium: utmValues.utmMedium,
+    utmSource: utmValues.utmSource,
+    utmTerm: utmValues.utmTerm,
+    affiliate: utmValues.affiliate,
   };
 
   try {

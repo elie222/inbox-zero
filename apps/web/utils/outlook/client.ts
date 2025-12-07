@@ -8,6 +8,9 @@ import { SafeError } from "@/utils/error";
 
 const logger = createScopedLogger("outlook/client");
 
+// Add buffer time to prevent token expiry during long-running operations
+const TOKEN_REFRESH_BUFFER_MS = 10 * 60 * 1000; // 10 minutes
+
 // Wrapper class to hold both the Microsoft Graph client and its access token
 export class OutlookClient {
   private readonly client: Client;
@@ -97,7 +100,11 @@ export const getOutlookClientWithRefresh = async ({
 
   // Check if token needs refresh
   const expiryDate = expiresAt ? expiresAt : null;
-  if (accessToken && expiryDate && expiryDate > Date.now()) {
+  if (
+    accessToken &&
+    expiryDate &&
+    expiryDate > Date.now() + TOKEN_REFRESH_BUFFER_MS
+  ) {
     return createOutlookClient(accessToken);
   }
 
@@ -108,7 +115,7 @@ export const getOutlookClientWithRefresh = async ({
     }
 
     const response = await fetch(
-      "https://login.microsoftonline.com/common/oauth2/v2.0/token",
+      `https://login.microsoftonline.com/${env.MICROSOFT_TENANT_ID}/oauth2/v2.0/token`,
       {
         method: "POST",
         headers: {
@@ -119,7 +126,6 @@ export const getOutlookClientWithRefresh = async ({
           client_secret: env.MICROSOFT_CLIENT_SECRET,
           refresh_token: refreshToken,
           grant_type: "refresh_token",
-          scope: SCOPES.join(" "),
         }),
       },
     );
@@ -140,6 +146,46 @@ export const getOutlookClientWithRefresh = async ({
           {
             emailAccountId,
           },
+        );
+      }
+
+      // Microsoft identity platform errors that require user re-authentication:
+      // AADSTS70000 = Scopes unauthorized or expired
+      // AADSTS70008 = Refresh token expired due to inactivity
+      // AADSTS70011 = Invalid scope
+      // AADSTS700082 = Refresh token expired
+      // AADSTS50173 = Invalid grant (refresh token revoked)
+      // AADSTS65001 = User hasn't consented to permissions
+      // AADSTS500011 = Resource principal not found (scope issue)
+      // AADSTS54005 = Authorization code already redeemed
+      // AADSTS50076 = MFA required (Conditional Access policy)
+      // AADSTS50079 = MFA registration required
+      // AADSTS50158 = External security challenge not satisfied
+      // invalid_grant = General token refresh failure
+      const requiresReauth =
+        errorMessage.includes("AADSTS70000") ||
+        errorMessage.includes("AADSTS70008") ||
+        errorMessage.includes("AADSTS70011") ||
+        errorMessage.includes("AADSTS700082") ||
+        errorMessage.includes("AADSTS50173") ||
+        errorMessage.includes("AADSTS65001") ||
+        errorMessage.includes("AADSTS500011") ||
+        errorMessage.includes("AADSTS54005") ||
+        errorMessage.includes("AADSTS50076") ||
+        errorMessage.includes("AADSTS50079") ||
+        errorMessage.includes("AADSTS50158") ||
+        errorMessage.includes("invalid_grant");
+
+      if (requiresReauth) {
+        logger.warn(
+          "Microsoft authorization expired - user needs to reconnect",
+          {
+            emailAccountId,
+            errorMessage,
+          },
+        );
+        throw new SafeError(
+          "Your Microsoft authorization has expired. Please sign out and log in again to reconnect your account.",
         );
       }
 
@@ -182,8 +228,7 @@ export function getLinkingOAuth2Url() {
     throw new Error("Microsoft login not enabled - missing client ID");
   }
 
-  const baseUrl =
-    "https://login.microsoftonline.com/common/oauth2/v2.0/authorize";
+  const baseUrl = `https://login.microsoftonline.com/${env.MICROSOFT_TENANT_ID}/oauth2/v2.0/authorize`;
   const params = new URLSearchParams({
     client_id: env.MICROSOFT_CLIENT_ID,
     response_type: "code",

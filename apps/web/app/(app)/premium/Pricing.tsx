@@ -19,7 +19,7 @@ import {
   generateCheckoutSessionAction,
   getBillingPortalUrlAction,
 } from "@/utils/actions/premium";
-import { PremiumTier } from "@prisma/client";
+import type { PremiumTier } from "@/generated/prisma/enums";
 import { LoadingMiniSpinner } from "@/components/Loading";
 import { cn } from "@/utils";
 import { ManageSubscription } from "@/app/(app)/premium/ManageSubscription";
@@ -91,14 +91,14 @@ export default function Pricing(props: PricingProps) {
             {userPremiumTier && (
               <>
                 <Button className="ml-2" asChild>
-                  <Link href={env.NEXT_PUBLIC_APP_HOME_PATH}>
+                  <Link href="/setup">
                     <SparklesIcon className="mr-2 h-4 w-4" />
                     Go to app
                   </Link>
                 </Button>
                 <div className="mx-auto mt-4 max-w-md">
-                  {userPremiumTier === PremiumTier.BUSINESS_MONTHLY ||
-                  userPremiumTier === PremiumTier.BUSINESS_ANNUALLY ? (
+                  {userPremiumTier === "BUSINESS_MONTHLY" ||
+                  userPremiumTier === "BUSINESS_ANNUALLY" ? (
                     <AlertWithButton
                       className="bg-background"
                       variant="blue"

@@ -33,6 +33,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { EXTENSION_URL } from "@/utils/config";
 import { useUser } from "@/hooks/useUser";
 import { isOrganizationAdmin } from "@/utils/organizations/roles";
+import { env } from "@/env";
 
 export function NavUser() {
   const { emailAccountId, emailAccount, provider } = useAccount();
@@ -176,12 +177,14 @@ export function NavUser() {
             </Link>
           </DropdownMenuItem>
 
-          <DropdownMenuItem asChild>
-            <Link href="/premium">
-              <CrownIcon className="mr-2 size-4" />
-              Premium
-            </Link>
-          </DropdownMenuItem>
+          {!env.NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS && (
+            <DropdownMenuItem asChild>
+              <Link href="/premium">
+                <CrownIcon className="mr-2 size-4" />
+                Premium
+              </Link>
+            </DropdownMenuItem>
+          )}
         </DropdownMenuGroup>
 
         <DropdownMenuSeparator />

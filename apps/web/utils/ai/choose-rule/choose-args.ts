@@ -1,7 +1,8 @@
 import { z } from "zod";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import type { ModelType } from "@/utils/llms/model";
-import { ActionType, type Action } from "@prisma/client";
+import { ActionType } from "@/generated/prisma/enums";
+import type { Action } from "@/generated/prisma/client";
 import {
   type RuleWithActions,
   isDefined,

@@ -1,0 +1,57 @@
+# The manifest for the "inbox-zero-ecs" service.
+# Read the full specification for the "Load Balanced Web Service" type at:
+#  https://aws.github.io/copilot-cli/docs/manifest/lb-web-service/
+
+name: inbox-zero-ecs
+type: Load Balanced Web Service
+
+http:
+  path: '/'
+  alias: # YOUR_DOMAIN, e.g. getinboxzero.com (without http or https)
+  redirect_to_https: true
+  healthcheck:
+    path: '/'
+    grace_period: 320s # Grace period for the container to start before failing health checks (until migrations are completed)
+    interval: 30s
+    timeout: 5s
+    retries: 3
+
+
+image:
+  location: ghcr.io/elie222/inbox-zero:latest
+  # Alternatively, build the image from the Dockerfile.prod
+  #build:
+  #  dockerfile: docker/Dockerfile.prod
+  #  context: .
+  port: 3000
+
+cpu: 1024
+memory: 2048
+platform: linux/x86_64
+count: 1
+exec: true
+network:
+  connect: true
+
+
+variables:                    # Pass environment variables as key value pairs.
+  HOSTNAME: 0.0.0.0
+  NEXT_PUBLIC_BASE_URL: # YOUR_DOMAIN, e.g. https://www.getinboxzero.com (with http or https)
+  DEFAULT_LLM_PROVIDER: 
+
+# Set these secrets at AWS Systems Manager (SSM) Parameter Store for extra security.
+# Alternatively, you can set them as environment variables in the section above.
+secrets:
+  AUTH_SECRET: #
+  EMAIL_ENCRYPT_SECRET: #
+  EMAIL_ENCRYPT_SALT: #
+  INTERNAL_API_KEY: #
+  UPSTASH_REDIS_URL: #
+  UPSTASH_REDIS_TOKEN: #
+  DATABASE_URL: # DATABASE_URL
+  DIRECT_URL: # DATABASE_URL
+  CRON_SECRET: #
+  GOOGLE_CLIENT_ID: #
+  GOOGLE_CLIENT_SECRET: #
+  GOOGLE_PUBSUB_TOPIC_NAME: #
+  # SET HERE ONE LLM PROVIDER API KEY

@@ -7,7 +7,7 @@ import {
   changeKeepToDoneSchema,
 } from "@/utils/actions/clean.validation";
 import { bulkPublishToQstash } from "@/utils/upstash";
-import { env } from "@/env";
+import { getInternalApiUrl } from "@/utils/internal-api";
 import {
   getLabel,
   getOrCreateInboxZeroLabel,
@@ -18,7 +18,7 @@ import type { CleanThreadBody } from "@/app/api/clean/route";
 import { isDefined } from "@/utils/types";
 import { inboxZeroLabels } from "@/utils/label";
 import prisma from "@/utils/prisma";
-import { CleanAction } from "@prisma/client";
+import { CleanAction } from "@/generated/prisma/enums";
 import { updateThread } from "@/utils/redis/clean";
 import { getUnhandledCount } from "@/utils/assess";
 import { getGmailClientForEmail } from "@/utils/account";
@@ -139,7 +139,7 @@ export const cleanInboxAction = actionClient
 
           if (threads.length === 0) break;
 
-          const url = `${env.WEBHOOK_URL || env.NEXT_PUBLIC_BASE_URL}/api/clean`;
+          const url = `${getInternalApiUrl()}/api/clean`;
 
           logger.info("Pushing to Qstash", {
             threadCount: threads.length,

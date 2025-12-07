@@ -31,15 +31,6 @@ export async function validateOAuthCallback(
   const receivedState = searchParams.get("state");
   const storedState = request.cookies.get(CALENDAR_STATE_COOKIE_NAME)?.value;
 
-  const expectedOrigin = new URL(env.NEXT_PUBLIC_BASE_URL).origin;
-  if (request.nextUrl.origin !== expectedOrigin) {
-    logger.error("Invalid origin in OAuth callback", {
-      received: request.nextUrl.origin,
-      expected: expectedOrigin,
-    });
-    throw new Error("Invalid redirect origin");
-  }
-
   const redirectUrl = new URL("/calendars", env.NEXT_PUBLIC_BASE_URL);
   const response = NextResponse.redirect(redirectUrl);
 

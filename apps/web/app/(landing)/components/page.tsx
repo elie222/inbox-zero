@@ -28,12 +28,8 @@ import {
 import { TooltipExplanation } from "@/components/TooltipExplanation";
 import { Suspense } from "react";
 import { PremiumAiAssistantAlert } from "@/components/PremiumAlert";
-import {
-  ActionType,
-  ExecutedRuleStatus,
-  PremiumTier,
-  type Rule,
-} from "@prisma/client";
+import { ActionType, ExecutedRuleStatus } from "@/generated/prisma/enums";
+import type { Rule } from "@/generated/prisma/client";
 import { SettingCard } from "@/components/SettingCard";
 import { IconCircle } from "@/app/(app)/[emailAccountId]/onboarding/IconCircle";
 import { ActionBadges } from "@/app/(app)/[emailAccountId]/assistant/Rules";
@@ -211,7 +207,7 @@ export default function Components() {
               </p>
               <PremiumAiAssistantAlert
                 showSetApiKey={false}
-                tier={PremiumTier.BASIC_MONTHLY}
+                tier={"BASIC_MONTHLY"}
               />
             </div>
             <div>
@@ -220,7 +216,7 @@ export default function Components() {
               </p>
               <PremiumAiAssistantAlert
                 showSetApiKey={true}
-                tier={PremiumTier.PRO_MONTHLY}
+                tier={"PRO_MONTHLY"}
               />
             </div>
             <div>

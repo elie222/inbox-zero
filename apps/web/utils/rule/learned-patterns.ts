@@ -1,6 +1,6 @@
 import prisma from "@/utils/prisma";
 import { createScopedLogger } from "@/utils/logger";
-import { GroupItemType } from "@prisma/client";
+import { GroupItemType } from "@/generated/prisma/enums";
 import { isDuplicateError } from "@/utils/prisma-helpers";
 
 const logger = createScopedLogger("rule/learned-patterns");

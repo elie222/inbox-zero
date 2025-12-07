@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { env } from "@/env";
 import { hasAiAccess, isPremium } from "@/utils/premium";
 import { unwatchEmails } from "@/app/api/watch/controller";
 import { createEmailProvider } from "@/utils/email/provider";
@@ -122,12 +123,14 @@ export async function validateWebhookAccount(
     return { success: false, response: NextResponse.json({ ok: true }) };
   }
 
-  const premium = isPremium(
-    emailAccount.user.premium?.lemonSqueezyRenewsAt || null,
-    emailAccount.user.premium?.stripeSubscriptionStatus || null,
-  )
-    ? emailAccount.user.premium
-    : undefined;
+  const premium = env.NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS
+    ? { tier: "BUSINESS_PLUS_ANNUALLY" as const }
+    : isPremium(
+          emailAccount.user.premium?.lemonSqueezyRenewsAt || null,
+          emailAccount.user.premium?.stripeSubscriptionStatus || null,
+        )
+      ? emailAccount.user.premium
+      : undefined;
 
   const provider = await createEmailProvider({
     emailAccountId: emailAccount.id,

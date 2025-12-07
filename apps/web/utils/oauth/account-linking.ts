@@ -26,6 +26,7 @@ export async function handleAccountLinking({
   | { type: "continue_create" }
   | { type: "redirect"; response: NextResponse }
   | { type: "merge"; sourceAccountId: string; sourceUserId: string }
+  | { type: "update_tokens"; existingAccountId: string }
 > {
   const redirectUrl = new URL("/accounts", env.NEXT_PUBLIC_BASE_URL);
 
@@ -67,14 +68,17 @@ export async function handleAccountLinking({
   }
 
   if (existingUserId === targetUserId) {
-    logger.warn(`${provider} account is already linked to the correct user.`, {
-      email: providerEmail,
-      targetUserId,
-    });
-    redirectUrl.searchParams.set("error", "already_linked_to_self");
+    logger.info(
+      `${provider} account is already linked to the correct user. Updating tokens.`,
+      {
+        email: providerEmail,
+        targetUserId,
+        existingAccountId,
+      },
+    );
     return {
-      type: "redirect",
-      response: NextResponse.redirect(redirectUrl),
+      type: "update_tokens",
+      existingAccountId,
     };
   }
 

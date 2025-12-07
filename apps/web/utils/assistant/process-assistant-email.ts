@@ -270,6 +270,7 @@ async function withProcessingLabels<T>(
       labelId: labels[0].id,
       labelName: labels[0].name,
       emailAccountId,
+      logger,
     }).catch((error) => {
       logger.error("Error labeling message", { error });
     });
