@@ -142,7 +142,7 @@ export function Rules({
                 <TableRow>
                   <TableHead className="w-16 px-2 sm:px-4">Enabled</TableHead>
                   <TableHead className="px-2 sm:px-4">Name</TableHead>
-                  <TableHead className="text-right px-2 sm:px-4">
+                  <TableHead className="text-left px-2 sm:px-4">
                     Action
                   </TableHead>
                   <TableHead className="w-fit whitespace-nowrap px-1">
@@ -228,7 +228,7 @@ export function Rules({
                       <TableCell className="font-medium p-2 sm:p-4">
                         {rule.name}
                       </TableCell>
-                      <TableCell className="text-right p-2 sm:p-4">
+                      <TableCell className="text-left p-2 sm:p-4">
                         <ActionBadges
                           actions={rule.actions}
                           provider={provider}
@@ -398,7 +398,7 @@ export function ActionBadges({
   labels: Array<{ id: string; name: string }>;
 }) {
   return (
-    <div className="flex gap-2 flex-wrap min-w-0 justify-end">
+    <div className="flex gap-2 flex-wrap min-w-0 justify-start">
       {sortActionsByPriority(actions).map((action) => {
         const Icon = getActionIcon(action.type);
 
