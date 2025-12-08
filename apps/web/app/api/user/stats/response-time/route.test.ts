@@ -6,10 +6,7 @@ import {
   calculateResponseTimes,
   calculateSummaryStats,
   calculateDistribution,
-  calculateTrend,
 } from "./route";
-import { getMockMessage } from "@/utils/test/helpers";
-import type { EmailProvider } from "@/utils/email/types";
 import type { Logger } from "@/utils/logger";
 
 // Mock helpers if they aren't exported from the main helpers file or if we need specific ones
@@ -38,11 +35,7 @@ describe("Response Time Stats", () => {
 
     it("should calculate response time for simple reply", async () => {
       const threadId = "t1";
-      const sentMsg = {
-        threadId,
-        id: "s1",
-        headers: { to: "other@example.com" },
-      };
+      const sentMsg = getMockMessageHelper({ threadId, id: "s1" });
 
       const receivedTime = new Date("2024-01-01T10:00:00Z");
       const sentTime = new Date("2024-01-01T10:30:00Z"); // 30 mins later
@@ -73,14 +66,17 @@ describe("Response Time Stats", () => {
         mockLogger,
       );
 
-      expect(result).toHaveLength(1);
-      expect(result[0].responseTimeMinutes).toBe(30);
-      expect(result[0].threadId).toBe(threadId);
+      expect(result.responseTimes).toHaveLength(1);
+      expect(result.responseTimes[0].responseTimeMs).toBe(30 * 60 * 1000); // 30 mins in ms
+      expect(result.responseTimes[0].threadId).toBe(threadId);
+      expect(result.responseTimes[0].sentMessageId).toBe("s1");
+      expect(result.responseTimes[0].receivedMessageId).toBe("r1");
+      expect(result.processedThreadsCount).toBe(1);
     });
 
     it("should handle sequence: Received -> Sent -> Received -> Sent", async () => {
       const threadId = "t1";
-      const sentMsg = { threadId, id: "s1" };
+      const sentMsg = getMockMessageHelper({ threadId, id: "s1" });
 
       // T0: Received
       // T1: Sent (Response to T0) -> 30 mins
@@ -114,7 +110,7 @@ describe("Response Time Stats", () => {
       ]);
 
       const result = await calculateResponseTimes(
-        [sentMsg, { threadId, id: "s2" }], // pass both sent messages to trigger processing
+        [sentMsg, getMockMessageHelper({ threadId, id: "s2" })],
         mockEmailProvider,
         mockLogger,
       );
@@ -123,14 +119,15 @@ describe("Response Time Stats", () => {
       // Since both sent messages share the same threadId, it processes the thread once.
       // The internal logic finds ALL pairs in that thread.
 
-      expect(result).toHaveLength(2);
-      expect(result[0].responseTimeMinutes).toBe(30);
-      expect(result[1].responseTimeMinutes).toBe(15);
+      expect(result.responseTimes).toHaveLength(2);
+      expect(result.responseTimes[0].responseTimeMs).toBe(30 * 60 * 1000); // 30 mins
+      expect(result.responseTimes[1].responseTimeMs).toBe(15 * 60 * 1000); // 15 mins
+      expect(result.processedThreadsCount).toBe(1);
     });
 
     it("should ignore multiple sent messages without intervening received message", async () => {
       const threadId = "t1";
-      const sentMsg = { threadId, id: "s1" };
+      const sentMsg = getMockMessageHelper({ threadId, id: "s1" });
 
       const t0 = new Date("2024-01-01T10:00:00Z");
       const t1 = new Date("2024-01-01T10:30:00Z");
@@ -159,14 +156,14 @@ describe("Response Time Stats", () => {
         mockLogger,
       );
 
-      expect(result).toHaveLength(1);
-      expect(result[0].responseTimeMinutes).toBe(30);
-      // T2 is ignored because lastReceivedDate is nullified after T1
+      expect(result.responseTimes).toHaveLength(1);
+      expect(result.responseTimes[0].responseTimeMs).toBe(30 * 60 * 1000); // 30 mins
+      // T2 is ignored because lastReceivedMessage is nullified after T1
     });
 
     it("should fallback to id check if SENT label not found", async () => {
       const threadId = "t1";
-      const sentMsg = { threadId, id: "s1" };
+      const sentMsg = getMockMessageHelper({ threadId, id: "s1" });
 
       const t0 = new Date("2024-01-01T10:00:00Z");
       const t1 = new Date("2024-01-01T10:30:00Z");
@@ -189,8 +186,8 @@ describe("Response Time Stats", () => {
         mockLogger,
       );
 
-      expect(result).toHaveLength(1);
-      expect(result[0].responseTimeMinutes).toBe(30);
+      expect(result.responseTimes).toHaveLength(1);
+      expect(result.responseTimes[0].responseTimeMs).toBe(30 * 60 * 1000); // 30 mins
     });
   });
 
@@ -198,19 +195,14 @@ describe("Response Time Stats", () => {
     const mockProvider = {} as any;
 
     it("should calculate correct stats", async () => {
+      // responseTimeMs: 30min, 90min, 60min in milliseconds
       const responseTimes = [
-        { responseTimeMinutes: 30 },
-        { responseTimeMinutes: 90 },
-        { responseTimeMinutes: 60 },
+        { threadId: "t1", responseTimeMs: 30 * 60 * 1000 },
+        { threadId: "t2", responseTimeMs: 90 * 60 * 1000 },
+        { threadId: "t3", responseTimeMs: 60 * 60 * 1000 },
       ] as any[];
 
-      const result = await calculateSummaryStats(
-        responseTimes,
-        null,
-        null,
-        mockProvider,
-        mockLogger,
-      );
+      const result = calculateSummaryStats(responseTimes);
 
       expect(result.averageResponseTime).toBe(60); // (30+90+60)/3
       expect(result.medianResponseTime).toBe(60); // Sorted: 30, 60, 90 -> 60
@@ -220,11 +212,12 @@ describe("Response Time Stats", () => {
 
   describe("calculateDistribution", () => {
     it("should bucket correctly", () => {
+      // responseTimeMs in milliseconds
       const responseTimes = [
-        { responseTimeMinutes: 30 }, // < 1h
-        { responseTimeMinutes: 120 }, // 1-4h
-        { responseTimeMinutes: 300 }, // 4-24h
-        { responseTimeMinutes: 2000 }, // 1-3d
+        { responseTimeMs: 30 * 60 * 1000 }, // 30min -> < 1h
+        { responseTimeMs: 120 * 60 * 1000 }, // 2h -> 1-4h
+        { responseTimeMs: 300 * 60 * 1000 }, // 5h -> 4-24h
+        { responseTimeMs: 2000 * 60 * 1000 }, // ~33h -> 1-3d
       ] as any[];
 
       const result = calculateDistribution(responseTimes);

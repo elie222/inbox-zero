@@ -2,12 +2,12 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { withEmailProvider } from "@/utils/middleware";
 import type { EmailProvider } from "@/utils/email/types";
-import format from "date-fns/format";
-import subDays from "date-fns/subDays";
-import differenceInDays from "date-fns/differenceInDays";
-import startOfWeek from "date-fns/startOfWeek";
+import { format } from "date-fns/format";
+import { startOfWeek } from "date-fns/startOfWeek";
 import type { Logger } from "@/utils/logger";
 import type { ParsedMessage } from "@/utils/types";
+import type { ResponseTime } from "@/generated/prisma/client";
+import prisma from "@/utils/prisma";
 
 const responseTimeSchema = z.object({
   fromDate: z.coerce.number().nullish(),
@@ -15,17 +15,22 @@ const responseTimeSchema = z.object({
 });
 export type ResponseTimeParams = z.infer<typeof responseTimeSchema>;
 
-interface ResponseTimeEntry {
-  threadId: string;
-  receivedDate: Date;
-  sentDate: Date;
-  responseTimeMinutes: number;
-}
+const MAX_SENT_MESSAGES = 50;
+const MAX_RESPONSE_TIME_MS = 2_147_483_647; // Max Int32, ~24 days
+
+type ResponseTimeEntry = Pick<
+  ResponseTime,
+  | "threadId"
+  | "sentMessageId"
+  | "receivedMessageId"
+  | "receivedAt"
+  | "sentAt"
+  | "responseTimeMs"
+>;
 
 interface SummaryStats {
   medianResponseTime: number;
   averageResponseTime: number;
-  responseRate: number;
   within1Hour: number;
   previousPeriodComparison: {
     medianResponseTime: number;
@@ -49,6 +54,10 @@ interface TrendEntry {
   count: number;
 }
 
+export type GetResponseTimeResponse = Awaited<
+  ReturnType<typeof getResponseTimeStats>
+>;
+
 export const GET = withEmailProvider("response-time-stats", async (request) => {
   const { searchParams } = new URL(request.url);
   const params = responseTimeSchema.parse({
@@ -58,6 +67,7 @@ export const GET = withEmailProvider("response-time-stats", async (request) => {
 
   const result = await getResponseTimeStats({
     ...params,
+    emailAccountId: request.auth.emailAccountId,
     emailProvider: request.emailProvider,
     logger: request.logger,
   });
@@ -68,54 +78,119 @@ export const GET = withEmailProvider("response-time-stats", async (request) => {
 async function getResponseTimeStats({
   fromDate,
   toDate,
+  emailAccountId,
   emailProvider,
   logger,
 }: ResponseTimeParams & {
+  emailAccountId: string;
   emailProvider: EmailProvider;
   logger: Logger;
 }): Promise<{
   summary: SummaryStats;
   distribution: DistributionStats;
   trend: TrendEntry[];
+  emailsAnalyzed: number;
+  maxEmailsCap: number;
 }> {
-  // 1. Fetch sent messages to initiate the search
+  // 1. Fetch sent messages from email provider
   const sentMessagesResult = await emailProvider.getMessagesByFields({
     type: "sent",
     ...(fromDate ? { after: new Date(fromDate) } : {}),
     ...(toDate ? { before: new Date(toDate) } : {}),
-    maxResults: 100,
+    maxResults: MAX_SENT_MESSAGES,
   });
 
   if (!sentMessagesResult.messages.length) {
     return getEmptyStats();
   }
 
-  // 2. Calculate raw response times
-  const responseTimes = await calculateResponseTimes(
-    sentMessagesResult.messages,
-    emailProvider,
-    logger,
+  const sentMessageIds = sentMessagesResult.messages.map((m) => m.id);
+
+  // 2. Check which sent messages are already cached
+  const cachedEntries = await prisma.responseTime.findMany({
+    where: {
+      emailAccountId,
+      sentMessageId: { in: sentMessageIds },
+    },
+    select: {
+      threadId: true,
+      sentMessageId: true,
+      receivedMessageId: true,
+      receivedAt: true,
+      sentAt: true,
+      responseTimeMs: true,
+    },
+  });
+
+  const cachedSentMessageIds = new Set(
+    cachedEntries.map((e) => e.sentMessageId),
   );
 
-  if (responseTimes.length === 0) {
+  // 3. Filter to uncached sent messages
+  const uncachedMessages = sentMessagesResult.messages.filter(
+    (m) => !cachedSentMessageIds.has(m.id),
+  );
+
+  // 4. Calculate response times only for uncached messages
+  let newEntries: ResponseTimeEntry[] = [];
+  if (uncachedMessages.length > 0) {
+    const { responseTimes: calculated } = await calculateResponseTimes(
+      uncachedMessages,
+      emailProvider,
+      logger,
+    );
+
+    // 5. Store new calculations to DB
+    if (calculated.length > 0) {
+      await prisma.responseTime.createMany({
+        data: calculated.map((rt) => ({
+          emailAccountId,
+          threadId: rt.threadId,
+          sentMessageId: rt.sentMessageId,
+          receivedMessageId: rt.receivedMessageId,
+          receivedAt: rt.receivedAt,
+          sentAt: rt.sentAt,
+          responseTimeMs: Math.min(
+            Number(rt.responseTimeMs),
+            MAX_RESPONSE_TIME_MS,
+          ),
+        })),
+        skipDuplicates: true,
+      });
+      newEntries = calculated;
+    }
+  }
+
+  // 6. Combine cached + new and filter to date range
+  const combinedEntries: ResponseTimeEntry[] = [
+    ...cachedEntries,
+    ...newEntries,
+  ];
+
+  // Filter to only include response times within the requested date range
+  const allEntries = combinedEntries.filter((entry) => {
+    const sentTime = entry.sentAt.getTime();
+    if (fromDate && sentTime < fromDate) return false;
+    if (toDate && sentTime > toDate) return false;
+    return true;
+  });
+
+  if (allEntries.length === 0) {
     return getEmptyStats();
   }
 
-  // 3. Calculate derived statistics
-  const summary = await calculateSummaryStats(
-    responseTimes,
-    fromDate,
-    toDate,
-    emailProvider,
-    logger,
-  );
-  const distribution = calculateDistribution(responseTimes);
-  const trend = calculateTrend(responseTimes);
+  // 7. Calculate derived statistics
+  const summary = calculateSummaryStats(allEntries);
+
+  const distribution = calculateDistribution(allEntries);
+  const trend = calculateTrend(allEntries);
 
   return {
     summary,
     distribution,
     trend,
+    emailsAnalyzed: allEntries.length,
+    maxEmailsCap: MAX_SENT_MESSAGES,
   };
 }
 
@@ -123,7 +198,10 @@ export async function calculateResponseTimes(
   sentMessages: ParsedMessage[],
   emailProvider: EmailProvider,
   logger: Logger,
-): Promise<ResponseTimeEntry[]> {
+): Promise<{
+  responseTimes: ResponseTimeEntry[];
+  processedThreadsCount: number;
+}> {
   const responseTimes: ResponseTimeEntry[] = [];
   const processedThreads = new Set<string>();
   const sentMessageIds = new Set(sentMessages.map((m) => m.id));
@@ -146,7 +224,7 @@ export async function calculateResponseTimes(
         return dateA - dateB;
       });
 
-      let lastReceivedDate: Date | null = null;
+      let lastReceivedMessage: { id: string; date: Date } | null = null;
 
       for (const message of sortedMessages) {
         if (!message.internalDate) continue;
@@ -166,23 +244,26 @@ export async function calculateResponseTimes(
 
         if (isSent) {
           // Message is SENT
-          if (lastReceivedDate) {
-            const diff = messageDate.getTime() - lastReceivedDate.getTime();
+          if (lastReceivedMessage) {
+            const diff =
+              messageDate.getTime() - lastReceivedMessage.date.getTime();
             // Check bounds - only if valid positive diff
             if (diff > 0) {
               responseTimes.push({
                 threadId: sentMsg.threadId,
-                receivedDate: lastReceivedDate,
-                sentDate: messageDate,
-                responseTimeMinutes: diff / (1000 * 60),
+                sentMessageId: message.id,
+                receivedMessageId: lastReceivedMessage.id,
+                receivedAt: lastReceivedMessage.date,
+                sentAt: messageDate,
+                responseTimeMs: diff,
               });
             }
-            // Reset lastReceivedDate because this sent message has now "responded" to the previous received message.
-            lastReceivedDate = null;
+            // Reset because this sent message has now "responded" to the previous received message.
+            lastReceivedMessage = null;
           }
         } else {
           // Message is RECEIVED
-          lastReceivedDate = messageDate;
+          lastReceivedMessage = { id: message.id, date: messageDate };
         }
       }
     } catch (error) {
@@ -190,7 +271,7 @@ export async function calculateResponseTimes(
     }
   }
 
-  return responseTimes;
+  return { responseTimes, processedThreadsCount: processedThreads.size };
 }
 
 function calculateMedian(values: number[]): number {
@@ -214,62 +295,24 @@ function calculateWithin1Hour(values: number[]): number {
   return (within1HourCount / values.length) * 100;
 }
 
-async function calculatePreviousPeriodComparison(
-  fromDate: number | null | undefined,
-  toDate: number | null | undefined,
-  currentMedian: number,
-  emailProvider: EmailProvider,
-  logger: Logger,
-): Promise<SummaryStats["previousPeriodComparison"]> {
-  if (!fromDate || !toDate) return null;
+// Helper to convert ms to minutes (handles bigint from Prisma until regenerated)
+const msToMinutes = (ms: number | bigint) => Number(ms) / (1000 * 60);
 
-  const currentDays = differenceInDays(new Date(toDate), new Date(fromDate));
-  const prevFrom = subDays(new Date(fromDate), currentDays);
-  const prevTo = new Date(fromDate);
-
-  const prevStats = await getResponseTimeStats({
-    fromDate: prevFrom.getTime(),
-    toDate: prevTo.getTime(),
-    emailProvider,
-    logger,
-  });
-
-  if (prevStats.summary.medianResponseTime > 0) {
-    const prevMedian = prevStats.summary.medianResponseTime;
-    const change = ((currentMedian - prevMedian) / prevMedian) * 100;
-    return {
-      medianResponseTime: prevMedian,
-      percentChange: Math.round(change),
-    };
-  }
-  return null;
-}
-
-export async function calculateSummaryStats(
+export function calculateSummaryStats(
   responseTimes: ResponseTimeEntry[],
-  fromDate: number | null | undefined,
-  toDate: number | null | undefined,
-  emailProvider: EmailProvider,
-  logger: Logger,
-): Promise<SummaryStats> {
-  const values = responseTimes.map((r) => r.responseTimeMinutes);
+): SummaryStats {
+  const values = responseTimes.map((r) => msToMinutes(r.responseTimeMs));
 
   const medianResponseTime = calculateMedian(values);
   const averageResponseTime = calculateAverage(values);
   const within1Hour = calculateWithin1Hour(values);
 
-  const previousPeriodComparison = await calculatePreviousPeriodComparison(
-    fromDate,
-    toDate,
-    medianResponseTime,
-    emailProvider,
-    logger,
-  );
+  // TODO: Re-enable previous period comparison with non-recursive implementation
+  const previousPeriodComparison = null;
 
   return {
     medianResponseTime: Math.round(medianResponseTime),
     averageResponseTime: Math.round(averageResponseTime),
-    responseRate: 100,
     within1Hour: Math.round(within1Hour),
     previousPeriodComparison,
   };
@@ -278,7 +321,7 @@ export async function calculateSummaryStats(
 export function calculateDistribution(
   responseTimes: ResponseTimeEntry[],
 ): DistributionStats {
-  const values = responseTimes.map((r) => r.responseTimeMinutes);
+  const values = responseTimes.map((r) => msToMinutes(r.responseTimeMs));
 
   const distribution: DistributionStats = {
     lessThan1Hour: 0,
@@ -307,13 +350,13 @@ export function calculateTrend(
   const trendMap = new Map<string, { values: number[]; date: Date }>();
 
   for (const rt of responseTimes) {
-    const weekStart = startOfWeek(rt.sentDate);
+    const weekStart = startOfWeek(rt.sentAt);
     const key = format(weekStart, "yyyy-MM-dd");
 
     if (!trendMap.has(key)) {
       trendMap.set(key, { values: [], date: weekStart });
     }
-    trendMap.get(key)!.values.push(rt.responseTimeMinutes);
+    trendMap.get(key)!.values.push(msToMinutes(rt.responseTimeMs));
   }
 
   return Array.from(trendMap.entries())
@@ -335,7 +378,6 @@ function getEmptyStats() {
     summary: {
       medianResponseTime: 0,
       averageResponseTime: 0,
-      responseRate: 0,
       within1Hour: 0,
       previousPeriodComparison: null,
     },
@@ -348,5 +390,7 @@ function getEmptyStats() {
       moreThan7Days: 0,
     },
     trend: [],
+    emailsAnalyzed: 0,
+    maxEmailsCap: MAX_SENT_MESSAGES,
   };
 }

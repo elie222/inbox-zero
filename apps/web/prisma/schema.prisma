@@ -164,6 +164,7 @@ model EmailAccount {
   chats            Chat[]
   digests          Digest[]
   scheduledActions ScheduledAction[]
+  responseTimes    ResponseTime[]
 
   members             Member[]
   invitations         Invitation[]
@@ -703,6 +704,23 @@ model EmailMessage {
   @@index([emailAccountId, date])
   @@index([emailAccountId, from])
   @@index([emailAccountId, fromName])
+}
+
+model ResponseTime {
+  id                String   @id @default(cuid())
+  createdAt         DateTime @default(now())
+  threadId          String
+  sentMessageId     String
+  receivedMessageId String
+  responseTimeMs    Int // Denormalized: sentAt - receivedAt
+  receivedAt        DateTime
+  sentAt            DateTime
+
+  emailAccountId String
+  emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
+
+  @@unique([emailAccountId, sentMessageId])
+  @@index([emailAccountId, sentAt])
 }
 
 model ThreadTracker {
