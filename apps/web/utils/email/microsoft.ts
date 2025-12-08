@@ -65,6 +65,7 @@ import {
 } from "@/utils/outlook/folders";
 import { extractSignatureFromHtml } from "@/utils/email/signature-extraction";
 import { moveMessagesForSenders } from "@/utils/outlook/batch";
+import { withOutlookRetry } from "@/utils/outlook/retry";
 
 export class OutlookProvider implements EmailProvider {
   readonly name = "microsoft";
@@ -233,6 +234,45 @@ export class OutlookProvider implements EmailProvider {
     });
 
     return response.messages || [];
+  }
+
+  async getSentMessageIds(options: {
+    maxResults: number;
+    after?: Date;
+    before?: Date;
+  }): Promise<{ id: string; threadId: string }[]> {
+    const { maxResults, after, before } = options;
+
+    const filters: string[] = ["parentFolderId eq 'sentitems'"];
+    if (after) {
+      filters.push(`receivedDateTime ge ${after.toISOString()}`);
+    }
+    if (before) {
+      filters.push(`receivedDateTime le ${before.toISOString()}`);
+    }
+
+    const response = await withOutlookRetry(() =>
+      this.client
+        .getClient()
+        .api("/me/messages")
+        .select("id,conversationId")
+        .filter(filters.join(" and "))
+        .top(maxResults)
+        .orderby("receivedDateTime desc")
+        .get(),
+    );
+
+    return (
+      response.value
+        ?.filter(
+          (m: { id?: string; conversationId?: string }) =>
+            m.id && m.conversationId,
+        )
+        .map((m: { id: string; conversationId: string }) => ({
+          id: m.id,
+          threadId: m.conversationId,
+        })) || []
+    );
   }
 
   async getSentThreadsExcluding(options: {

@@ -5,7 +5,6 @@ import type { EmailProvider } from "@/utils/email/types";
 import { format } from "date-fns/format";
 import { startOfWeek } from "date-fns/startOfWeek";
 import type { Logger } from "@/utils/logger";
-import type { ParsedMessage } from "@/utils/types";
 import type { ResponseTime } from "@/generated/prisma/client";
 import prisma from "@/utils/prisma";
 
@@ -92,19 +91,18 @@ async function getResponseTimeStats({
   emailsAnalyzed: number;
   maxEmailsCap: number;
 }> {
-  // 1. Fetch sent messages from email provider
-  const sentMessagesResult = await emailProvider.getMessagesByFields({
-    type: "sent",
+  // 1. Fetch sent message IDs (lightweight - just id and threadId)
+  const sentMessages = await emailProvider.getSentMessageIds({
+    maxResults: MAX_SENT_MESSAGES,
     ...(fromDate ? { after: new Date(fromDate) } : {}),
     ...(toDate ? { before: new Date(toDate) } : {}),
-    maxResults: MAX_SENT_MESSAGES,
   });
 
-  if (!sentMessagesResult.messages.length) {
+  if (!sentMessages.length) {
     return getEmptyStats();
   }
 
-  const sentMessageIds = sentMessagesResult.messages.map((m) => m.id);
+  const sentMessageIds = sentMessages.map((m) => m.id);
 
   // 2. Check which sent messages are already cached
   const cachedEntries = await prisma.responseTime.findMany({
@@ -127,7 +125,7 @@ async function getResponseTimeStats({
   );
 
   // 3. Filter to uncached sent messages
-  const uncachedMessages = sentMessagesResult.messages.filter(
+  const uncachedMessages = sentMessages.filter(
     (m) => !cachedSentMessageIds.has(m.id),
   );
 
@@ -195,7 +193,7 @@ async function getResponseTimeStats({
 }
 
 export async function calculateResponseTimes(
-  sentMessages: ParsedMessage[],
+  sentMessages: { id: string; threadId: string }[],
   emailProvider: EmailProvider,
   logger: Logger,
 ): Promise<{

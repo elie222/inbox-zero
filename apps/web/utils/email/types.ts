@@ -71,6 +71,11 @@ export interface EmailProvider {
     nextPageToken?: string;
   }>;
   getSentMessages(maxResults?: number): Promise<ParsedMessage[]>;
+  getSentMessageIds(options: {
+    maxResults: number;
+    after?: Date;
+    before?: Date;
+  }): Promise<{ id: string; threadId: string }[]>;
   getSentThreadsExcluding(options: {
     excludeToEmails?: string[];
     excludeFromEmails?: string[];

@@ -1,26 +1,15 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-
-vi.mock("server-only", () => ({}));
-
 import {
   calculateResponseTimes,
   calculateSummaryStats,
   calculateDistribution,
 } from "./route";
-import type { Logger } from "@/utils/logger";
-
-// Mock helpers if they aren't exported from the main helpers file or if we need specific ones
-// The user provided a helpers file content in previous turn, I'll assume it's at apps/web/__tests__/helpers.ts
-// But I will mock what I need here to be self-contained or import if accessible.
-// The path provided in the prompt was apps/web/__tests__/helpers.ts.
-// I'll use relative import if possible or alias.
+import { createScopedLogger } from "@/utils/logger";
 import { getMockMessage as getMockMessageHelper } from "../../../../../__tests__/helpers";
 
-const mockLogger = {
-  error: vi.fn(),
-  warn: vi.fn(),
-  info: vi.fn(),
-} as unknown as Logger;
+vi.mock("server-only", () => ({}));
+
+const logger = createScopedLogger("test");
 
 describe("Response Time Stats", () => {
   describe("calculateResponseTimes", () => {
@@ -63,7 +52,7 @@ describe("Response Time Stats", () => {
       const result = await calculateResponseTimes(
         [sentMsg],
         mockEmailProvider,
-        mockLogger,
+        logger,
       );
 
       expect(result.responseTimes).toHaveLength(1);
@@ -112,7 +101,7 @@ describe("Response Time Stats", () => {
       const result = await calculateResponseTimes(
         [sentMsg, getMockMessageHelper({ threadId, id: "s2" })],
         mockEmailProvider,
-        mockLogger,
+        logger,
       );
 
       // calculateResponseTimes processes unique threads from the input list.
@@ -153,7 +142,7 @@ describe("Response Time Stats", () => {
       const result = await calculateResponseTimes(
         [sentMsg],
         mockEmailProvider,
-        mockLogger,
+        logger,
       );
 
       expect(result.responseTimes).toHaveLength(1);
@@ -183,7 +172,7 @@ describe("Response Time Stats", () => {
       const result = await calculateResponseTimes(
         [sentMsg], // s1 is in the list
         mockEmailProvider,
-        mockLogger,
+        logger,
       );
 
       expect(result.responseTimes).toHaveLength(1);
@@ -192,10 +181,7 @@ describe("Response Time Stats", () => {
   });
 
   describe("calculateSummaryStats", () => {
-    const mockProvider = {} as any;
-
     it("should calculate correct stats", async () => {
-      // responseTimeMs: 30min, 90min, 60min in milliseconds
       const responseTimes = [
         { threadId: "t1", responseTimeMs: 30 * 60 * 1000 },
         { threadId: "t2", responseTimeMs: 90 * 60 * 1000 },

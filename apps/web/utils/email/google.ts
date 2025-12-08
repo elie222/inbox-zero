@@ -184,6 +184,30 @@ export class GmailProvider implements EmailProvider {
     return getSentMessages(this.client, maxResults);
   }
 
+  async getSentMessageIds(options: {
+    maxResults: number;
+    after?: Date;
+    before?: Date;
+  }): Promise<{ id: string; threadId: string }[]> {
+    const { maxResults, after, before } = options;
+
+    let query = `label:${GmailLabel.SENT}`;
+    if (after) {
+      query += ` after:${Math.floor(after.getTime() / 1000) - 1}`;
+    }
+    if (before) {
+      query += ` before:${Math.floor(before.getTime() / 1000) + 1}`;
+    }
+
+    const response = await getMessages(this.client, { query, maxResults });
+
+    return (
+      response.messages
+        ?.filter((m) => m.id && m.threadId)
+        .map((m) => ({ id: m.id!, threadId: m.threadId! })) || []
+    );
+  }
+
   async getSentThreadsExcluding(options: {
     excludeToEmails?: string[];
     excludeFromEmails?: string[];

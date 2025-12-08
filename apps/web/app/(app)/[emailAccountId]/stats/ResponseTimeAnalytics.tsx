@@ -18,6 +18,7 @@ import type {
   ResponseTimeParams,
 } from "@/app/api/user/stats/response-time/route";
 import { isDefined } from "@/utils/types";
+import { pluralize } from "@/utils/string";
 
 interface ResponseTimeAnalyticsProps {
   dateRange?: DateRange;
@@ -78,8 +79,8 @@ export function ResponseTimeAnalytics({
         <div className="space-y-4">
           {data.emailsAnalyzed > 0 && (
             <p className="text-muted-foreground text-sm">
-              Respone time data based on last {data.emailsAnalyzed} email
-              {data.emailsAnalyzed !== 1 ? "s" : ""}
+              Response time data based on last{" "}
+              {pluralize(data.emailsAnalyzed, "email")}
             </p>
           )}
 
