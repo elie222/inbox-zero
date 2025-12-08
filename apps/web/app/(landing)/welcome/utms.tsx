@@ -10,6 +10,7 @@ type UtmValues = {
   utmSource?: string;
   utmTerm?: string;
   affiliate?: string;
+  referralCode?: string;
 };
 
 // Extract UTM values from cookies before passing to after() callback
@@ -23,6 +24,7 @@ export function extractUtmValues(cookies: ReadonlyRequestCookies): UtmValues {
     utmSource: cookies.get("utm_source")?.value,
     utmTerm: cookies.get("utm_term")?.value,
     affiliate: cookies.get("affiliate")?.value,
+    referralCode: cookies.get("referral_code")?.value,
   };
 }
 
@@ -54,6 +56,7 @@ async function storeUtms(userId: string, utmValues: UtmValues) {
     utmSource: utmValues.utmSource,
     utmTerm: utmValues.utmTerm,
     affiliate: utmValues.affiliate,
+    referralCode: utmValues.referralCode,
   };
 
   try {
