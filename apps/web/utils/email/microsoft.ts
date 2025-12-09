@@ -313,7 +313,7 @@ export class OutlookProvider implements EmailProvider {
       .api("/me/mailFolders('sentitems')/messages")
       .select(MESSAGE_SELECT_FIELDS)
       .top(maxResults)
-      .orderby("receivedDateTime desc");
+      .orderby("sentDateTime desc");
 
     if (filter) {
       request = request.filter(filter);
