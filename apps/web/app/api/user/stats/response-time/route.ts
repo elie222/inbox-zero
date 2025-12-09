@@ -192,7 +192,7 @@ async function getResponseTimeStats({
   };
 }
 
-export async function calculateResponseTimes(
+async function calculateResponseTimes(
   sentMessages: { id: string; threadId: string }[],
   emailProvider: EmailProvider,
   logger: Logger,
@@ -296,7 +296,7 @@ function calculateWithin1Hour(values: number[]): number {
 // Helper to convert ms to minutes (handles bigint from Prisma until regenerated)
 const msToMinutes = (ms: number | bigint) => Number(ms) / (1000 * 60);
 
-export function calculateSummaryStats(
+function calculateSummaryStats(
   responseTimes: ResponseTimeEntry[],
 ): SummaryStats {
   const values = responseTimes.map((r) => msToMinutes(r.responseTimeMs));
@@ -316,7 +316,7 @@ export function calculateSummaryStats(
   };
 }
 
-export function calculateDistribution(
+function calculateDistribution(
   responseTimes: ResponseTimeEntry[],
 ): DistributionStats {
   const values = responseTimes.map((r) => msToMinutes(r.responseTimeMs));
@@ -342,9 +342,7 @@ export function calculateDistribution(
   return distribution;
 }
 
-export function calculateTrend(
-  responseTimes: ResponseTimeEntry[],
-): TrendEntry[] {
+function calculateTrend(responseTimes: ResponseTimeEntry[]): TrendEntry[] {
   const trendMap = new Map<string, { values: number[]; date: Date }>();
 
   for (const rt of responseTimes) {
