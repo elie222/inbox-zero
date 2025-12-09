@@ -1,15 +1,17 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import prisma from "@/utils/__mocks__/prisma";
-vi.mock("@/utils/prisma");
+import {
+  handleInvitationAction,
+  inviteMemberAction,
+} from "@/utils/actions/organization";
 
+vi.mock("server-only", () => ({}));
+vi.mock("@/utils/prisma");
 vi.mock("@/utils/auth", () => ({
   auth: vi.fn(async () => ({ user: { id: "u1", email: "test@test.com" } })),
 }));
 
-import { inviteMemberAction } from "@/utils/actions/invite-member";
-import { handleInvitationAction } from "@/utils/actions/invitation";
-
-describe("invitation actions", () => {
+describe("createInvitationAction", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     (prisma.emailAccount.findUnique as any).mockResolvedValue({

@@ -1,5 +1,5 @@
 import { OnboardingDialogContent } from "@/components/OnboardingModal";
-import { PageHeading, PageSubHeading } from "@/components/Typography";
+import { PageHeading } from "@/components/Typography";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogTrigger } from "@/components/ui/dialog";
 import { PlayIcon } from "lucide-react";
