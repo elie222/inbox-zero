@@ -1,7 +1,15 @@
 import { NextResponse } from "next/server";
+import { z } from "zod";
 import prisma from "@/utils/prisma";
 import { withAuth } from "@/utils/middleware";
 import { fetchAndCheckIsAdmin } from "@/utils/organizations/access";
+import { Prisma } from "@/generated/prisma/client";
+
+const orgStatsParams = z.object({
+  fromDate: z.coerce.number().nullish(),
+  toDate: z.coerce.number().nullish(),
+});
+export type OrgStatsParams = z.infer<typeof orgStatsParams>;
 
 export type OrgStatsResponse = Awaited<ReturnType<typeof getOrgStats>>;
 
@@ -31,17 +39,33 @@ export const GET = withAuth(
 
     await fetchAndCheckIsAdmin({ organizationId, userId });
 
-    const result = await getOrgStats({ organizationId });
+    const { searchParams } = new URL(request.url);
+    const queryParams = orgStatsParams.parse({
+      fromDate: searchParams.get("fromDate"),
+      toDate: searchParams.get("toDate"),
+    });
+
+    const result = await getOrgStats({
+      organizationId,
+      fromDate: queryParams.fromDate ?? undefined,
+      toDate: queryParams.toDate ?? undefined,
+    });
 
     return NextResponse.json(result);
   },
 );
 
-async function getOrgStats({ organizationId }: { organizationId: string }) {
+interface GetOrgStatsOptions {
+  organizationId: string;
+  fromDate?: number;
+  toDate?: number;
+}
+
+async function getOrgStats(options: GetOrgStatsOptions) {
   const [emailBuckets, rulesBuckets, totals] = await Promise.all([
-    getEmailVolumeBuckets(organizationId),
-    getExecutedRulesBuckets(organizationId),
-    getTotals(organizationId),
+    getEmailVolumeBuckets(options),
+    getExecutedRulesBuckets(options),
+    getTotals(options),
   ]);
 
   return {
@@ -51,15 +75,32 @@ async function getOrgStats({ organizationId }: { organizationId: string }) {
   };
 }
 
-async function getEmailVolumeBuckets(organizationId: string) {
+async function getEmailVolumeBuckets({
+  organizationId,
+  fromDate,
+  toDate,
+}: GetOrgStatsOptions) {
   // Get email count per member using raw SQL for efficiency
   type MemberEmailCount = { emailAccountId: string; email_count: bigint };
+
+  // Build date conditions
+  const dateConditions: Prisma.Sql[] = [];
+  if (fromDate) {
+    dateConditions.push(Prisma.sql`em.date >= ${new Date(fromDate)}`);
+  }
+  if (toDate) {
+    dateConditions.push(Prisma.sql`em.date <= ${new Date(toDate)}`);
+  }
+  const dateClause =
+    dateConditions.length > 0
+      ? Prisma.sql` AND ${Prisma.join(dateConditions, " AND ")}`
+      : Prisma.sql``;
 
   const memberCounts = await prisma.$queryRaw<MemberEmailCount[]>`
     SELECT em."emailAccountId", COUNT(*) as email_count
     FROM "EmailMessage" em
     JOIN "Member" m ON m."emailAccountId" = em."emailAccountId"
-    WHERE m."organizationId" = ${organizationId} AND em.sent = false
+    WHERE m."organizationId" = ${organizationId} AND em.sent = false${dateClause}
     GROUP BY em."emailAccountId"
   `;
 
@@ -86,15 +127,32 @@ async function getEmailVolumeBuckets(organizationId: string) {
   return bucketCounts;
 }
 
-async function getExecutedRulesBuckets(organizationId: string) {
+async function getExecutedRulesBuckets({
+  organizationId,
+  fromDate,
+  toDate,
+}: GetOrgStatsOptions) {
   // Get executed rules count per member
   type MemberRulesCount = { emailAccountId: string; rules_count: bigint };
+
+  // Build date conditions
+  const dateConditions: Prisma.Sql[] = [];
+  if (fromDate) {
+    dateConditions.push(Prisma.sql`er."createdAt" >= ${new Date(fromDate)}`);
+  }
+  if (toDate) {
+    dateConditions.push(Prisma.sql`er."createdAt" <= ${new Date(toDate)}`);
+  }
+  const dateClause =
+    dateConditions.length > 0
+      ? Prisma.sql` AND ${Prisma.join(dateConditions, " AND ")}`
+      : Prisma.sql``;
 
   const memberCounts = await prisma.$queryRaw<MemberRulesCount[]>`
     SELECT er."emailAccountId", COUNT(*) as rules_count
     FROM "ExecutedRule" er
     JOIN "Member" m ON m."emailAccountId" = er."emailAccountId"
-    WHERE m."organizationId" = ${organizationId}
+    WHERE m."organizationId" = ${organizationId}${dateClause}
     GROUP BY er."emailAccountId"
   `;
 
@@ -121,12 +179,44 @@ async function getExecutedRulesBuckets(organizationId: string) {
   return bucketCounts;
 }
 
-async function getTotals(organizationId: string) {
+async function getTotals({
+  organizationId,
+  fromDate,
+  toDate,
+}: GetOrgStatsOptions) {
   type TotalsResult = {
     total_emails: bigint;
     total_rules: bigint;
     active_members: bigint;
   };
+
+  // Build date conditions for emails
+  const emailDateConditions: Prisma.Sql[] = [];
+  if (fromDate) {
+    emailDateConditions.push(Prisma.sql`em.date >= ${new Date(fromDate)}`);
+  }
+  if (toDate) {
+    emailDateConditions.push(Prisma.sql`em.date <= ${new Date(toDate)}`);
+  }
+  const emailDateClause =
+    emailDateConditions.length > 0
+      ? Prisma.sql` AND ${Prisma.join(emailDateConditions, " AND ")}`
+      : Prisma.sql``;
+
+  // Build date conditions for rules
+  const rulesDateConditions: Prisma.Sql[] = [];
+  if (fromDate) {
+    rulesDateConditions.push(
+      Prisma.sql`er."createdAt" >= ${new Date(fromDate)}`,
+    );
+  }
+  if (toDate) {
+    rulesDateConditions.push(Prisma.sql`er."createdAt" <= ${new Date(toDate)}`);
+  }
+  const rulesDateClause =
+    rulesDateConditions.length > 0
+      ? Prisma.sql` AND ${Prisma.join(rulesDateConditions, " AND ")}`
+      : Prisma.sql``;
 
   const result = await prisma.$queryRaw<TotalsResult[]>`
     SELECT
@@ -134,13 +224,13 @@ async function getTotals(organizationId: string) {
         SELECT COUNT(*)
         FROM "EmailMessage" em
         JOIN "Member" m ON m."emailAccountId" = em."emailAccountId"
-        WHERE m."organizationId" = ${organizationId} AND em.sent = false
+        WHERE m."organizationId" = ${organizationId} AND em.sent = false${emailDateClause}
       ) as total_emails,
       (
         SELECT COUNT(*)
         FROM "ExecutedRule" er
         JOIN "Member" m ON m."emailAccountId" = er."emailAccountId"
-        WHERE m."organizationId" = ${organizationId}
+        WHERE m."organizationId" = ${organizationId}${rulesDateClause}
       ) as total_rules,
       (
         SELECT COUNT(DISTINCT m."emailAccountId")

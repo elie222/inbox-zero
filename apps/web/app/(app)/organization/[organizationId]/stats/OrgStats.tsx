@@ -1,74 +1,129 @@
 "use client";
 
+import { useState, useMemo, useCallback } from "react";
 import useSWR from "swr";
+import type { DateRange } from "react-day-picker";
+import { subDays } from "date-fns/subDays";
 import { Mail, Sparkles, Users } from "lucide-react";
 import { LoadingContent } from "@/components/LoadingContent";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { DatePickerWithRange } from "@/components/DatePickerWithRange";
 import type { OrgStatsResponse } from "@/app/api/organizations/[organizationId]/stats/route";
 
+const selectOptions = [
+  { label: "Last week", value: "7" },
+  { label: "Last month", value: "30" },
+  { label: "Last 3 months", value: "90" },
+  { label: "All time", value: "0" },
+];
+const defaultSelected = selectOptions[1];
+
 export function OrgStats({ organizationId }: { organizationId: string }) {
+  const [dateDropdown, setDateDropdown] = useState<string>(
+    defaultSelected.label,
+  );
+
+  const now = useMemo(() => new Date(), []);
+  const [dateRange, setDateRange] = useState<DateRange | undefined>({
+    from: subDays(now, Number.parseInt(defaultSelected.value)),
+    to: now,
+  });
+
+  const onSetDateDropdown = useCallback(
+    (option: { label: string; value: string }) => {
+      setDateDropdown(option.label);
+    },
+    [],
+  );
+
+  // Build query params for the API
+  const params = useMemo(() => {
+    const p = new URLSearchParams();
+    if (dateRange?.from) {
+      p.set("fromDate", dateRange.from.getTime().toString());
+    }
+    if (dateRange?.to) {
+      p.set("toDate", dateRange.to.getTime().toString());
+    }
+    return p.toString();
+  }, [dateRange]);
+
   const { data, isLoading, error } = useSWR<OrgStatsResponse>(
-    `/api/organizations/${organizationId}/stats`,
+    `/api/organizations/${organizationId}/stats?${params}`,
   );
 
   return (
-    <LoadingContent
-      loading={isLoading}
-      error={error}
-      loadingComponent={
-        <div className="space-y-6">
-          <div className="grid gap-4 md:grid-cols-3">
-            <Skeleton className="h-24" />
-            <Skeleton className="h-24" />
-            <Skeleton className="h-24" />
-          </div>
-          <div className="grid gap-4 md:grid-cols-2">
-            <Skeleton className="h-64" />
-            <Skeleton className="h-64" />
-          </div>
-        </div>
-      }
-    >
-      {data && (
-        <div className="space-y-6">
-          {/* Summary Cards */}
-          <div className="grid gap-4 md:grid-cols-3">
-            <StatCard
-              title="Total Emails Received"
-              value={data.totals.totalEmails.toLocaleString()}
-              icon={<Mail className="h-4 w-4 text-muted-foreground" />}
-            />
-            <StatCard
-              title="Rules Executed"
-              value={data.totals.totalRules.toLocaleString()}
-              icon={<Sparkles className="h-4 w-4 text-muted-foreground" />}
-            />
-            <StatCard
-              title="Active Members"
-              value={data.totals.activeMembers.toLocaleString()}
-              icon={<Users className="h-4 w-4 text-muted-foreground" />}
-            />
-          </div>
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <DatePickerWithRange
+          dateRange={dateRange}
+          onSetDateRange={setDateRange}
+          selectOptions={selectOptions}
+          dateDropdown={dateDropdown}
+          onSetDateDropdown={onSetDateDropdown}
+        />
+      </div>
 
-          {/* Distribution Charts */}
-          <div className="grid gap-4 md:grid-cols-2">
-            <BucketChart
-              title="Email Volume Distribution"
-              description="Number of users by emails received"
-              data={data.emailBuckets}
-              emptyMessage="No email data available. Users need to load their stats first."
-            />
-            <BucketChart
-              title="Automation Usage Distribution"
-              description="Number of users by rules executed"
-              data={data.rulesBuckets}
-              emptyMessage="No automation data yet."
-            />
+      <LoadingContent
+        loading={isLoading}
+        error={error}
+        loadingComponent={
+          <div className="space-y-6">
+            <div className="grid gap-4 md:grid-cols-3">
+              <Skeleton className="h-24" />
+              <Skeleton className="h-24" />
+              <Skeleton className="h-24" />
+            </div>
+            <div className="grid gap-4 md:grid-cols-2">
+              <Skeleton className="h-64" />
+              <Skeleton className="h-64" />
+            </div>
           </div>
-        </div>
-      )}
-    </LoadingContent>
+        }
+      >
+        {data && (
+          <div className="space-y-6">
+            {/* Summary Cards */}
+            <div className="grid gap-4 md:grid-cols-3">
+              <StatCard
+                title="Emails Received"
+                value={data.totals.totalEmails.toLocaleString()}
+                icon={<Mail className="h-4 w-4 text-muted-foreground" />}
+              />
+              <StatCard
+                title="Rules Executed"
+                value={data.totals.totalRules.toLocaleString()}
+                icon={<Sparkles className="h-4 w-4 text-muted-foreground" />}
+              />
+              <StatCard
+                title="Active Members"
+                value={data.totals.activeMembers.toLocaleString()}
+                icon={<Users className="h-4 w-4 text-muted-foreground" />}
+              />
+            </div>
+
+            {/* Distribution Charts */}
+            <div className="grid gap-4 md:grid-cols-2">
+              <BucketChart
+                title="Email Volume Distribution"
+                description="Number of users by emails received in selected period"
+                data={data.emailBuckets}
+                emptyMessage="No email data available. Users need to load their stats first."
+                unit="emails"
+              />
+              <BucketChart
+                title="Automation Usage Distribution"
+                description="Number of users by rules executed in selected period"
+                data={data.rulesBuckets}
+                emptyMessage="No automation data yet."
+                unit="rules"
+              />
+            </div>
+          </div>
+        )}
+      </LoadingContent>
+    </div>
   );
 }
 
@@ -99,11 +154,13 @@ function BucketChart({
   description,
   data,
   emptyMessage,
+  unit = "emails",
 }: {
   title: string;
   description: string;
   data: { label: string; userCount: number }[];
   emptyMessage: string;
+  unit?: string;
 }) {
   const hasData = data.some((bucket) => bucket.userCount > 0);
   const maxValue = Math.max(...data.map((d) => d.userCount), 1);
@@ -127,7 +184,7 @@ function BucketChart({
               <div key={bucket.label} className="space-y-1">
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-muted-foreground">
-                    {bucket.label} emails
+                    {bucket.label} {unit}
                   </span>
                   <span className="font-medium">
                     {bucket.userCount}{" "}
