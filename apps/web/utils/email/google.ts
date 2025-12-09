@@ -5,6 +5,7 @@ import {
   getMessage,
   getMessages,
   getSentMessages,
+  queryBatchMessages,
   hasPreviousCommunicationsWithSenderOrDomain,
 } from "@/utils/gmail/message";
 import {
@@ -182,6 +183,14 @@ export class GmailProvider implements EmailProvider {
 
   async getSentMessages(maxResults = 20): Promise<ParsedMessage[]> {
     return getSentMessages(this.client, maxResults);
+  }
+
+  async getInboxMessages(maxResults = 20): Promise<ParsedMessage[]> {
+    const messages = await queryBatchMessages(this.client, {
+      query: "in:inbox",
+      maxResults,
+    });
+    return messages.messages;
   }
 
   async getSentMessageIds(options: {
@@ -905,9 +914,6 @@ export class GmailProvider implements EmailProvider {
     subjects?: string[];
     before?: Date;
     after?: Date;
-    type?: "inbox" | "sent" | "all";
-    excludeSent?: boolean;
-    excludeInbox?: boolean;
     maxResults?: number;
     pageToken?: string;
   }): Promise<{
@@ -936,19 +942,6 @@ export class GmailProvider implements EmailProvider {
     if (subjects.length > 0) {
       const subjectGroup = subjects.map((s) => `"${s}"`).join(" OR ");
       parts.push(`subject:(${subjectGroup})`);
-    }
-
-    // Scope by type/exclusion
-    if (options.type === "inbox") {
-      parts.push(`in:${GmailLabel.INBOX}`);
-    } else if (options.type === "sent") {
-      parts.push(`in:${GmailLabel.SENT}`);
-    }
-    if (options.excludeSent) {
-      parts.push(`-in:${GmailLabel.SENT}`);
-    }
-    if (options.excludeInbox) {
-      parts.push(`-in:${GmailLabel.INBOX}`);
     }
 
     const query = parts.join(" ") || undefined;

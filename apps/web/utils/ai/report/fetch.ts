@@ -42,48 +42,12 @@ async function fetchReceivedEmails(
   emailProvider: EmailProvider,
   targetCount: number,
 ): Promise<ParsedMessage[]> {
-  const emails: ParsedMessage[] = [];
-
-  // Fetch from different sources in priority order
-  const sources = [
-    { name: "inbox", type: "inbox" as const },
-    {
-      name: "archived",
-      type: "all" as const,
-      excludeInbox: true,
-      excludeSent: true,
-    },
-  ];
-
-  for (const source of sources) {
-    if (emails.length >= targetCount) break;
-
-    try {
-      const response = await emailProvider.getMessagesByFields({
-        type: source.type,
-        excludeInbox: source.excludeInbox,
-        excludeSent: source.excludeSent,
-        maxResults: targetCount - emails.length,
-      });
-
-      emails.push(...response.messages);
-
-      logger.info("Fetched emails", {
-        sourceName: source.name,
-        count: response.messages.length,
-        totalSoFar: emails.length,
-        targetCount,
-      });
-    } catch (error) {
-      logger.error("Error fetching emails", {
-        sourceName: source.name,
-        error,
-        sourceConfig: source,
-      });
-    }
+  try {
+    return await emailProvider.getInboxMessages(targetCount);
+  } catch (error) {
+    logger.error("Error fetching inbox emails", { error });
+    return [];
   }
-
-  return emails;
 }
 
 async function fetchSentEmails(
@@ -91,12 +55,7 @@ async function fetchSentEmails(
   targetCount: number,
 ): Promise<ParsedMessage[]> {
   try {
-    const response = await emailProvider.getMessagesByFields({
-      type: "sent",
-      maxResults: targetCount,
-    });
-
-    return response.messages;
+    return await emailProvider.getSentMessages(targetCount);
   } catch (error) {
     logger.error("Error fetching sent emails", { error });
     return [];

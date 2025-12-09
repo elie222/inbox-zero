@@ -3,7 +3,7 @@ import {
   calculateResponseTimes,
   calculateSummaryStats,
   calculateDistribution,
-} from "./route";
+} from "./calculate";
 import { createScopedLogger } from "@/utils/logger";
 import { getMockMessage as getMockMessageHelper } from "../../../../../__tests__/helpers";
 

@@ -221,19 +221,38 @@ export class OutlookProvider implements EmailProvider {
 
   async getSentMessages(maxResults = 20): Promise<ParsedMessage[]> {
     const folderIds = await getFolderIds(this.client);
-    const sentItemsFolderId = folderIds.sentitems;
 
-    if (!sentItemsFolderId) {
-      this.logger.warn("Could not find sent items folder");
-      return [];
-    }
+    const response: { value: Message[] } = await withOutlookRetry(() =>
+      this.client
+        .getClient()
+        .api("/me/mailFolders('sentitems')/messages")
+        .select(MESSAGE_SELECT_FIELDS)
+        .top(maxResults)
+        .orderby("sentDateTime desc")
+        .get(),
+    );
 
-    const response = await queryBatchMessages(this.client, {
-      maxResults,
-      folderId: sentItemsFolderId,
-    });
+    return (response.value || [])
+      .filter((message: Message) => !message.isDraft)
+      .map((message: Message) => convertMessage(message, folderIds));
+  }
 
-    return response.messages || [];
+  async getInboxMessages(maxResults = 20): Promise<ParsedMessage[]> {
+    const folderIds = await getFolderIds(this.client);
+
+    const response: { value: Message[] } = await withOutlookRetry(() =>
+      this.client
+        .getClient()
+        .api("/me/mailFolders('inbox')/messages")
+        .select(MESSAGE_SELECT_FIELDS)
+        .top(maxResults)
+        .orderby("receivedDateTime desc")
+        .get(),
+    );
+
+    return (response.value || [])
+      .filter((message: Message) => !message.isDraft)
+      .map((message: Message) => convertMessage(message, folderIds));
   }
 
   async getSentMessageIds(options: {
@@ -853,9 +872,6 @@ export class OutlookProvider implements EmailProvider {
     subjects?: string[];
     before?: Date;
     after?: Date;
-    type?: "inbox" | "sent" | "all";
-    excludeSent?: boolean;
-    excludeInbox?: boolean;
     maxResults?: number;
     pageToken?: string;
   }): Promise<{
@@ -863,27 +879,6 @@ export class OutlookProvider implements EmailProvider {
     nextPageToken?: string;
   }> {
     const filters: string[] = [];
-
-    // Scope by folder(s)
-    if (options.type === "sent") {
-      // Limit to sent folder
-      filters.push("parentFolderId eq 'sentitems'");
-    } else if (options.type === "inbox") {
-      filters.push("parentFolderId eq 'inbox'");
-    } else {
-      // Default/all -> include inbox and archive
-      filters.push(
-        "(parentFolderId eq 'inbox' or parentFolderId eq 'archive')",
-      );
-    }
-
-    if (options.excludeSent) {
-      filters.push("parentFolderId ne 'sentitems'");
-    }
-
-    if (options.excludeInbox) {
-      filters.push("parentFolderId ne 'inbox'");
-    }
 
     const froms = (options.froms || [])
       .map((f) => extractEmailAddress(f) || f)
@@ -918,6 +913,21 @@ export class OutlookProvider implements EmailProvider {
     }
 
     const query = filters.join(" and ") || undefined;
+
+    // #region agent log
+    fetch("http://127.0.0.1:7242/ingest/5ca63b5c-1278-4094-99fa-898452ba3df5", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        location: "microsoft.ts:getMessagesByFields:query",
+        message: "H1: Built query with folder filters",
+        data: { query, filterCount: filters.length, filters },
+        timestamp: Date.now(),
+        sessionId: "debug-session",
+        hypothesisId: "H1",
+      }),
+    }).catch(() => {});
+    // #endregion
 
     return this.getMessagesWithPagination({
       query,
