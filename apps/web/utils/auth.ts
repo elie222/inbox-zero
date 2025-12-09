@@ -21,7 +21,10 @@ import { SCOPES as GMAIL_SCOPES } from "@/utils/gmail/scopes";
 import { createScopedLogger } from "@/utils/logger";
 import { createOutlookClient } from "@/utils/outlook/client";
 import { SCOPES as OUTLOOK_SCOPES } from "@/utils/outlook/scopes";
-import { updateAccountSeats } from "@/utils/premium/server";
+import {
+  claimPendingPremiumInvite,
+  updateAccountSeats,
+} from "@/utils/premium/server";
 import prisma from "@/utils/prisma";
 
 const logger = createScopedLogger("auth");
@@ -226,10 +229,8 @@ async function handlePendingPremiumInvite({ email }: { email: string }) {
       where: { pendingInvites: { has: email } },
       select: {
         id: true,
-        pendingInvites: true,
         lemonSqueezySubscriptionItemId: true,
         stripeSubscriptionId: true,
-        _count: { select: { users: true } },
       },
     });
 
@@ -237,18 +238,19 @@ async function handlePendingPremiumInvite({ email }: { email: string }) {
       premium?.lemonSqueezySubscriptionItemId ||
       premium?.stripeSubscriptionId
     ) {
-      // Add user to premium and remove from pending invites
-      await prisma.premium.update({
-        where: { id: premium.id },
-        data: {
-          users: { connect: { email } },
-          pendingInvites: {
-            set: premium.pendingInvites.filter((e: string) => e !== email),
-          },
-        },
+      const user = await prisma.user.findUnique({
+        where: { email },
+        select: { id: true },
       });
 
-      logger.info("Added user to premium from invite", { email });
+      if (user) {
+        await claimPendingPremiumInvite({
+          visitorId: user.id,
+          premiumId: premium.id,
+          email,
+        });
+        logger.info("Added user to premium from invite", { email });
+      }
     }
   } catch (error) {
     logger.error("Error handling pending premium invite", { error, email });

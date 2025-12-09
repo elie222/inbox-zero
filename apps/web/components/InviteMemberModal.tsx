@@ -24,17 +24,19 @@ import {
 } from "@/components/ui/select";
 import { TooltipExplanation } from "@/components/TooltipExplanation";
 import { toastSuccess, toastError } from "@/components/Toast";
-import { inviteMemberAction } from "@/utils/actions/invite-member";
+import { inviteMemberAction } from "@/utils/actions/organization";
 import {
   inviteMemberBody,
   type InviteMemberBody,
-} from "@/utils/actions/invite-member.validation";
+} from "@/utils/actions/organization.validation";
 import { useDialogState } from "@/hooks/useDialogState";
 
 export function InviteMemberModal({
   organizationId,
+  onSuccess,
 }: {
   organizationId: string;
+  onSuccess?: () => void;
 }) {
   const {
     register,
@@ -70,9 +72,10 @@ export function InviteMemberModal({
         });
         reset();
         onClose();
+        onSuccess?.();
       }
     },
-    [reset, onClose],
+    [reset, onClose, onSuccess],
   );
 
   return (

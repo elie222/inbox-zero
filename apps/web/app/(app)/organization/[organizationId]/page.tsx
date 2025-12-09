@@ -13,7 +13,7 @@ export default async function MembersPage({
     <PageWrapper>
       <PageHeader title="Organization Members" />
 
-      <div className="mt-8">
+      <div className="mt-4">
         <Members organizationId={organizationId} />
       </div>
     </PageWrapper>

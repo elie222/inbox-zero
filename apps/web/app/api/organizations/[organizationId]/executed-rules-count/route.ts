@@ -37,14 +37,12 @@ async function getExecutedRulesCount({
         },
       },
     },
-    _count: {
-      id: true,
-    },
+    _count: true,
   });
 
   const result = memberCounts.map(({ emailAccountId, _count }) => ({
     emailAccountId,
-    executedRulesCount: _count.id,
+    executedRulesCount: _count,
   }));
 
   return { memberCounts: result };
