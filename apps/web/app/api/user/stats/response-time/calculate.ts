@@ -9,7 +9,7 @@ export type ResponseTimeEntry = Pick<
   | "receivedMessageId"
   | "receivedAt"
   | "sentAt"
-  | "responseTimeMs"
+  | "responseTimeMins"
 >;
 
 export interface SummaryStats {
@@ -30,9 +30,6 @@ export interface DistributionStats {
   threeToSevenDays: number;
   moreThan7Days: number;
 }
-
-// Helper to convert ms to minutes (handles bigint from Prisma until regenerated)
-const msToMinutes = (ms: number | bigint) => Number(ms) / (1000 * 60);
 
 function calculateMedian(values: number[]): number {
   const sorted = [...values].sort((a, b) => a - b);
@@ -116,7 +113,7 @@ export async function calculateResponseTimes(
                 receivedMessageId: lastReceivedMessage.id,
                 receivedAt: lastReceivedMessage.date,
                 sentAt: messageDate,
-                responseTimeMs: diff,
+                responseTimeMins: Math.floor(diff / (1000 * 60)),
               });
             }
             // Reset because this sent message has now "responded" to the previous received message.
@@ -138,7 +135,7 @@ export async function calculateResponseTimes(
 export function calculateSummaryStats(
   responseTimes: ResponseTimeEntry[],
 ): SummaryStats {
-  const values = responseTimes.map((r) => msToMinutes(r.responseTimeMs));
+  const values = responseTimes.map((r) => r.responseTimeMins);
 
   const medianResponseTime = calculateMedian(values);
   const averageResponseTime = calculateAverage(values);
@@ -158,7 +155,7 @@ export function calculateSummaryStats(
 export function calculateDistribution(
   responseTimes: ResponseTimeEntry[],
 ): DistributionStats {
-  const values = responseTimes.map((r) => msToMinutes(r.responseTimeMs));
+  const values = responseTimes.map((r) => r.responseTimeMins);
 
   const distribution: DistributionStats = {
     lessThan1Hour: 0,

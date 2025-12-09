@@ -56,7 +56,7 @@ describe("Response Time Stats", () => {
       );
 
       expect(result.responseTimes).toHaveLength(1);
-      expect(result.responseTimes[0].responseTimeMs).toBe(30 * 60 * 1000); // 30 mins in ms
+      expect(result.responseTimes[0].responseTimeMins).toBe(30); // 30 mins
       expect(result.responseTimes[0].threadId).toBe(threadId);
       expect(result.responseTimes[0].sentMessageId).toBe("s1");
       expect(result.responseTimes[0].receivedMessageId).toBe("r1");
@@ -109,8 +109,8 @@ describe("Response Time Stats", () => {
       // The internal logic finds ALL pairs in that thread.
 
       expect(result.responseTimes).toHaveLength(2);
-      expect(result.responseTimes[0].responseTimeMs).toBe(30 * 60 * 1000); // 30 mins
-      expect(result.responseTimes[1].responseTimeMs).toBe(15 * 60 * 1000); // 15 mins
+      expect(result.responseTimes[0].responseTimeMins).toBe(30); // 30 mins
+      expect(result.responseTimes[1].responseTimeMins).toBe(15); // 15 mins
       expect(result.processedThreadsCount).toBe(1);
     });
 
@@ -146,7 +146,7 @@ describe("Response Time Stats", () => {
       );
 
       expect(result.responseTimes).toHaveLength(1);
-      expect(result.responseTimes[0].responseTimeMs).toBe(30 * 60 * 1000); // 30 mins
+      expect(result.responseTimes[0].responseTimeMins).toBe(30); // 30 mins
       // T2 is ignored because lastReceivedMessage is nullified after T1
     });
 
@@ -176,16 +176,16 @@ describe("Response Time Stats", () => {
       );
 
       expect(result.responseTimes).toHaveLength(1);
-      expect(result.responseTimes[0].responseTimeMs).toBe(30 * 60 * 1000); // 30 mins
+      expect(result.responseTimes[0].responseTimeMins).toBe(30); // 30 mins
     });
   });
 
   describe("calculateSummaryStats", () => {
     it("should calculate correct stats", async () => {
       const responseTimes = [
-        { threadId: "t1", responseTimeMs: 30 * 60 * 1000 },
-        { threadId: "t2", responseTimeMs: 90 * 60 * 1000 },
-        { threadId: "t3", responseTimeMs: 60 * 60 * 1000 },
+        { threadId: "t1", responseTimeMins: 30 },
+        { threadId: "t2", responseTimeMins: 90 },
+        { threadId: "t3", responseTimeMins: 60 },
       ] as any[];
 
       const result = calculateSummaryStats(responseTimes);
@@ -198,12 +198,12 @@ describe("Response Time Stats", () => {
 
   describe("calculateDistribution", () => {
     it("should bucket correctly", () => {
-      // responseTimeMs in milliseconds
+      // responseTimeMins in minutes
       const responseTimes = [
-        { responseTimeMs: 30 * 60 * 1000 }, // 30min -> < 1h
-        { responseTimeMs: 120 * 60 * 1000 }, // 2h -> 1-4h
-        { responseTimeMs: 300 * 60 * 1000 }, // 5h -> 4-24h
-        { responseTimeMs: 2000 * 60 * 1000 }, // ~33h -> 1-3d
+        { responseTimeMins: 30 }, // 30min -> < 1h
+        { responseTimeMins: 120 }, // 2h -> 1-4h
+        { responseTimeMins: 300 }, // 5h -> 4-24h
+        { responseTimeMins: 2000 }, // ~33h -> 1-3d
       ] as any[];
 
       const result = calculateDistribution(responseTimes);

@@ -23,7 +23,6 @@ const responseTimeSchema = z.object({
 export type ResponseTimeParams = z.infer<typeof responseTimeSchema>;
 
 const MAX_SENT_MESSAGES = 50;
-const MAX_RESPONSE_TIME_MS = 2_147_483_647; // Max Int32, ~24 days
 
 interface TrendEntry {
   period: string;
@@ -95,7 +94,7 @@ async function getResponseTimeStats({
       receivedMessageId: true,
       receivedAt: true,
       sentAt: true,
-      responseTimeMs: true,
+      responseTimeMins: true,
     },
   });
 
@@ -127,10 +126,7 @@ async function getResponseTimeStats({
           receivedMessageId: rt.receivedMessageId,
           receivedAt: rt.receivedAt,
           sentAt: rt.sentAt,
-          responseTimeMs: Math.min(
-            Number(rt.responseTimeMs),
-            MAX_RESPONSE_TIME_MS,
-          ),
+          responseTimeMins: rt.responseTimeMins,
         })),
         skipDuplicates: true,
       });
@@ -171,9 +167,6 @@ async function getResponseTimeStats({
   };
 }
 
-// Helper to convert ms to minutes (handles bigint from Prisma until regenerated)
-const msToMinutes = (ms: number | bigint) => Number(ms) / (1000 * 60);
-
 function calculateTrend(responseTimes: ResponseTimeEntry[]): TrendEntry[] {
   const trendMap = new Map<string, { values: number[]; date: Date }>();
 
@@ -184,7 +177,7 @@ function calculateTrend(responseTimes: ResponseTimeEntry[]): TrendEntry[] {
     if (!trendMap.has(key)) {
       trendMap.set(key, { values: [], date: weekStart });
     }
-    trendMap.get(key)!.values.push(msToMinutes(rt.responseTimeMs));
+    trendMap.get(key)!.values.push(rt.responseTimeMins);
   }
 
   return Array.from(trendMap.entries())

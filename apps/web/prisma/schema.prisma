@@ -712,7 +712,7 @@ model ResponseTime {
   threadId          String
   sentMessageId     String
   receivedMessageId String
-  responseTimeMs    Int // Denormalized: sentAt - receivedAt
+  responseTimeMins  Int // Denormalized: (sentAt - receivedAt) in minutes
   receivedAt        DateTime
   sentAt            DateTime
 
