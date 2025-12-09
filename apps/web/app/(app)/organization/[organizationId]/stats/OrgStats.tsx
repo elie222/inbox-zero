@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useMemo, useCallback } from "react";
-import useSWR from "swr";
 import type { DateRange } from "react-day-picker";
 import { subDays } from "date-fns/subDays";
 import { Mail, Sparkles, Users } from "lucide-react";
@@ -9,7 +8,9 @@ import { LoadingContent } from "@/components/LoadingContent";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DatePickerWithRange } from "@/components/DatePickerWithRange";
-import type { OrgStatsResponse } from "@/app/api/organizations/[organizationId]/stats/route";
+import { useOrgStatsTotals } from "@/hooks/useOrgStatsTotals";
+import { useOrgStatsEmailBuckets } from "@/hooks/useOrgStatsEmailBuckets";
+import { useOrgStatsRulesBuckets } from "@/hooks/useOrgStatsRulesBuckets";
 
 const selectOptions = [
   { label: "Last week", value: "7" },
@@ -37,21 +38,31 @@ export function OrgStats({ organizationId }: { organizationId: string }) {
     [],
   );
 
-  // Build query params for the API
-  const params = useMemo(() => {
-    const p = new URLSearchParams();
-    if (dateRange?.from) {
-      p.set("fromDate", dateRange.from.getTime().toString());
-    }
-    if (dateRange?.to) {
-      p.set("toDate", dateRange.to.getTime().toString());
-    }
-    return p.toString();
-  }, [dateRange]);
-
-  const { data, isLoading, error } = useSWR<OrgStatsResponse>(
-    `/api/organizations/${organizationId}/stats?${params}`,
+  const options = useMemo(
+    () => ({
+      fromDate: dateRange?.from?.getTime(),
+      toDate: dateRange?.to?.getTime(),
+    }),
+    [dateRange],
   );
+
+  const {
+    data: totalsData,
+    isLoading: totalsLoading,
+    error: totalsError,
+  } = useOrgStatsTotals(organizationId, options);
+
+  const {
+    data: emailBucketsData,
+    isLoading: emailBucketsLoading,
+    error: emailBucketsError,
+  } = useOrgStatsEmailBuckets(organizationId, options);
+
+  const {
+    data: rulesBucketsData,
+    isLoading: rulesBucketsLoading,
+    error: rulesBucketsError,
+  } = useOrgStatsRulesBuckets(organizationId, options);
 
   return (
     <div className="space-y-6">
@@ -65,64 +76,73 @@ export function OrgStats({ organizationId }: { organizationId: string }) {
         />
       </div>
 
-      <LoadingContent
-        loading={isLoading}
-        error={error}
-        loadingComponent={
-          <div className="space-y-6">
+      <div className="space-y-6">
+        <LoadingContent
+          loading={totalsLoading}
+          error={totalsError}
+          loadingComponent={
             <div className="grid gap-4 md:grid-cols-3">
               <Skeleton className="h-24" />
               <Skeleton className="h-24" />
               <Skeleton className="h-24" />
             </div>
-            <div className="grid gap-4 md:grid-cols-2">
-              <Skeleton className="h-64" />
-              <Skeleton className="h-64" />
-            </div>
-          </div>
-        }
-      >
-        {data && (
-          <div className="space-y-6">
-            {/* Summary Cards */}
+          }
+        >
+          {totalsData && (
             <div className="grid gap-4 md:grid-cols-3">
               <StatCard
                 title="Emails Received"
-                value={data.totals.totalEmails.toLocaleString()}
+                value={totalsData.totalEmails.toLocaleString()}
                 icon={<Mail className="h-4 w-4 text-muted-foreground" />}
               />
               <StatCard
                 title="Rules Executed"
-                value={data.totals.totalRules.toLocaleString()}
+                value={totalsData.totalRules.toLocaleString()}
                 icon={<Sparkles className="h-4 w-4 text-muted-foreground" />}
               />
               <StatCard
                 title="Active Members"
-                value={data.totals.activeMembers.toLocaleString()}
+                value={totalsData.activeMembers.toLocaleString()}
                 icon={<Users className="h-4 w-4 text-muted-foreground" />}
               />
             </div>
+          )}
+        </LoadingContent>
 
-            {/* Distribution Charts */}
-            <div className="grid gap-4 md:grid-cols-2">
+        <div className="grid gap-4 md:grid-cols-2">
+          <LoadingContent
+            loading={emailBucketsLoading}
+            error={emailBucketsError}
+            loadingComponent={<Skeleton className="h-64" />}
+          >
+            {emailBucketsData && (
               <BucketChart
                 title="Email Volume Distribution"
                 description="Number of users by emails received in selected period"
-                data={data.emailBuckets}
+                data={emailBucketsData}
                 emptyMessage="No email data available. Users need to load their stats first."
                 unit="emails"
               />
+            )}
+          </LoadingContent>
+
+          <LoadingContent
+            loading={rulesBucketsLoading}
+            error={rulesBucketsError}
+            loadingComponent={<Skeleton className="h-64" />}
+          >
+            {rulesBucketsData && (
               <BucketChart
                 title="Automation Usage Distribution"
                 description="Number of users by rules executed in selected period"
-                data={data.rulesBuckets}
+                data={rulesBucketsData}
                 emptyMessage="No automation data yet."
                 unit="rules"
               />
-            </div>
-          </div>
-        )}
-      </LoadingContent>
+            )}
+          </LoadingContent>
+        </div>
+      </div>
     </div>
   );
 }
