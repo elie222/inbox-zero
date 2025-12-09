@@ -145,7 +145,7 @@ function selectModel(
         provider: Provider.AZURE,
         modelName,
         model: createAzure({
-          resourceName: env.AZURE_RESOURCE_NAME,
+          baseURL: env.AZURE_BASE_URL,
           apiKey: aiApiKey || env.AZURE_API_KEY,
         })(modelName),
         backupModel: getBackupModel(aiApiKey),

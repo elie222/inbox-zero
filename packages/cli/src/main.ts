@@ -388,6 +388,7 @@ Full guide: https://docs.getinboxzero.com/self-hosting/microsoft-oauth`,
         label: "Vercel AI Gateway",
         hint: "access multiple models",
       },
+      { value: "azure", label: "Azure OpenAI" },
       { value: "bedrock", label: "AWS Bedrock" },
       { value: "groq", label: "Groq", hint: "fast inference" },
     ],
@@ -415,6 +416,7 @@ Full guide: https://docs.getinboxzero.com/self-hosting/microsoft-oauth`,
       default: "anthropic/claude-sonnet-4.5",
       economy: "anthropic/claude-haiku-4.5",
     },
+    azure: { default: "gpt-5.1", economy: "gpt-5.1-mini" },
     bedrock: {
       default: "global.anthropic.claude-sonnet-4-5-20250929-v1:0",
       economy: "global.anthropic.claude-haiku-4-5-20251001-v1:0",
@@ -467,6 +469,37 @@ Full guide: https://docs.getinboxzero.com/self-hosting/microsoft-oauth`,
     env.BEDROCK_ACCESS_KEY = bedrockCreds.accessKey;
     env.BEDROCK_SECRET_KEY = bedrockCreds.secretKey;
     env.BEDROCK_REGION = bedrockCreds.region || "us-west-2";
+  } else if (llmProvider === "azure") {
+    // Handle Azure separately (needs BASE_URL + API_KEY)
+    p.log.info(
+      "Get your Azure OpenAI credentials from the Azure Portal:\nhttps://portal.azure.com/",
+    );
+
+    const azureCreds = await p.group(
+      {
+        baseUrl: () =>
+          p.text({
+            message: "Azure Base URL",
+            placeholder: "https://your-resource.openai.azure.com/openai/v1/",
+            validate: (v) => (!v ? "Base URL is required" : undefined),
+          }),
+        apiKey: () =>
+          p.text({
+            message: "Azure API Key",
+            placeholder: "your-api-key",
+            validate: (v) => (!v ? "API key is required" : undefined),
+          }),
+      },
+      {
+        onCancel: () => {
+          p.cancel("Setup cancelled.");
+          process.exit(0);
+        },
+      },
+    );
+
+    env.AZURE_BASE_URL = azureCreds.baseUrl;
+    env.AZURE_API_KEY = azureCreds.apiKey;
   } else {
     const llmLinks: Record<string, string> = {
       anthropic: "https://console.anthropic.com/settings/keys",

@@ -59,7 +59,7 @@ export const env = createEnv({
     GROQ_API_KEY: z.string().optional(),
     OPENROUTER_API_KEY: z.string().optional(),
     AI_GATEWAY_API_KEY: z.string().optional(),
-    AZURE_RESOURCE_NAME: z.string().optional(),
+    AZURE_BASE_URL: z.string().optional(),
     AZURE_API_KEY: z.string().optional(),
     OLLAMA_BASE_URL: z.string().optional(),
 

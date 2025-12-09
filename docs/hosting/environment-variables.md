@@ -55,7 +55,7 @@ cp apps/web/.env.example apps/web/.env
 | `OPENROUTER_API_KEY` | No | OpenRouter API key | — |
 | `AI_GATEWAY_API_KEY` | No | AI Gateway API key | — |
 | **Azure OpenAI** ||||
-| `AZURE_RESOURCE_NAME` | No | Azure OpenAI resource name | — |
+| `AZURE_BASE_URL` | No | Azure OpenAI base URL (e.g., `https://your-resource.openai.azure.com/openai/v1/`) | — |
 | `AZURE_API_KEY` | No | Azure OpenAI API key | — |
 | **AWS Bedrock** ||||
 | `BEDROCK_ACCESS_KEY` | No | AWS access key for Bedrock. See [AI SDK Bedrock documentation](https://ai-sdk.dev/providers/ai-sdk-providers/amazon-bedrock). | — |
