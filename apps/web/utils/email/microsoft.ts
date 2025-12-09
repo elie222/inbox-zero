@@ -912,14 +912,21 @@ export class OutlookProvider implements EmailProvider {
       filters.push(`(${subjectFilter})`);
     }
 
-    const query = filters.join(" and ") || undefined;
+    // Build date filters
+    const dateFilters: string[] = [];
+    if (options.before) {
+      dateFilters.push(`receivedDateTime lt ${options.before.toISOString()}`);
+    }
+    if (options.after) {
+      dateFilters.push(`receivedDateTime gt ${options.after.toISOString()}`);
+    }
 
-    return this.getMessagesWithPagination({
-      query,
+    // Use queryMessagesWithFilters (OData $filter) instead of getMessagesWithPagination (KQL $search)
+    return queryMessagesWithFilters(this.client, {
+      filters,
+      dateFilters,
       maxResults: options.maxResults,
       pageToken: options.pageToken,
-      before: options.before,
-      after: options.after,
     });
   }
 
