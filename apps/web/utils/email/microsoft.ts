@@ -243,7 +243,7 @@ export class OutlookProvider implements EmailProvider {
   }): Promise<{ id: string; threadId: string }[]> {
     const { maxResults, after, before } = options;
 
-    const filters: string[] = ["parentFolderId eq 'sentitems'"];
+    const filters: string[] = [];
     if (after) {
       filters.push(`sentDateTime ge ${after.toISOString()}`);
     }
@@ -251,16 +251,18 @@ export class OutlookProvider implements EmailProvider {
       filters.push(`sentDateTime le ${before.toISOString()}`);
     }
 
-    const response = await withOutlookRetry(() =>
-      this.client
-        .getClient()
-        .api("/me/messages")
-        .select("id,conversationId")
-        .filter(filters.join(" and "))
-        .top(maxResults)
-        .orderby("sentDateTime desc")
-        .get(),
-    );
+    let request = this.client
+      .getClient()
+      .api("/me/mailFolders('sentitems')/messages")
+      .select("id,conversationId")
+      .top(maxResults)
+      .orderby("sentDateTime desc");
+
+    if (filters.length) {
+      request = request.filter(filters.join(" and "));
+    }
+
+    const response = await withOutlookRetry(() => request.get());
 
     return (
       response.value
