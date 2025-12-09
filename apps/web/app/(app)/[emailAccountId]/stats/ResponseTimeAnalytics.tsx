@@ -75,7 +75,7 @@ export function ResponseTimeAnalytics({
       error={error}
       loadingComponent={<Skeleton className="h-[400px] rounded" />}
     >
-      {data && (
+      {data?.summary && (
         <div className="space-y-4">
           {data.emailsAnalyzed > 0 && (
             <p className="text-muted-foreground text-sm">
