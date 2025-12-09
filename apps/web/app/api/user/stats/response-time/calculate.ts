@@ -62,6 +62,8 @@ export async function calculateResponseTimes(
 }> {
   const responseTimes: ResponseTimeEntry[] = [];
   const processedThreads = new Set<string>();
+  const sentMessageIds = new Set(sentMessages.map((m) => m.id));
+
   for (const sentMsg of sentMessages) {
     if (!sentMsg.threadId || processedThreads.has(sentMsg.threadId)) continue;
     processedThreads.add(sentMsg.threadId);
@@ -84,7 +86,10 @@ export async function calculateResponseTimes(
         if (!message.internalDate) continue;
         const messageDate = new Date(message.internalDate);
 
-        const isSent = emailProvider.isSentMessage(message);
+        // Check SENT label first, fallback to checking if message ID is in sent messages list
+        const isSent =
+          emailProvider.isSentMessage(message) ||
+          sentMessageIds.has(message.id);
 
         if (isSent) {
           // Message is SENT

@@ -18,6 +18,8 @@ describe("Response Time Stats", () => {
     beforeEach(() => {
       mockEmailProvider = {
         getThreadMessages: vi.fn(),
+        isSentMessage: (message: any) =>
+          message.labelIds?.includes("SENT") || false,
         name: "google",
       };
     });
