@@ -233,6 +233,10 @@ async function acceptInvitation({
   });
 
   if (existingMembership) {
+    await prisma.invitation.update({
+      where: { id: invitationId },
+      data: { status: "accepted" },
+    });
     return {
       organizationId: invitation.organizationId,
       memberId: existingMembership.id,
@@ -398,7 +402,12 @@ export const cancelInvitationAction = actionClientUser
       });
     }
 
-    await prisma.invitation.delete({ where: { id: invitationId } });
+    const result = await prisma.invitation.deleteMany({
+      where: { id: invitationId, status: "pending" },
+    });
+    if (result.count === 0) {
+      throw new SafeError("Invitation no longer pending.");
+    }
   });
 
 async function getOrganizationPremium(organizationId: string) {
