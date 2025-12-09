@@ -79,7 +79,7 @@ export function ResponseTimeAnalytics({
         <div className="space-y-4">
           {data.emailsAnalyzed > 0 && (
             <p className="text-muted-foreground text-sm">
-              Response time data based on last{" "}
+              Response time data based on last {data.emailsAnalyzed}{" "}
               {pluralize(data.emailsAnalyzed, "email")}
             </p>
           )}
