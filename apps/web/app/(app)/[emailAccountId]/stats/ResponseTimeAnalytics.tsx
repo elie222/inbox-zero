@@ -209,12 +209,22 @@ function formatTime(minutes: number): string {
   if (minutes === 0) return "0m";
   if (minutes < 60) return `${Math.round(minutes)}m`;
   if (minutes < 1440) {
-    const hours = Math.floor(minutes / 60);
-    const mins = Math.round(minutes % 60);
+    let hours = Math.floor(minutes / 60);
+    let mins = Math.round(minutes % 60);
+    // Carry over if rounded minutes equals 60
+    if (mins === 60) {
+      hours += 1;
+      mins = 0;
+    }
     return mins > 0 ? `${hours}h ${mins}m` : `${hours}h`;
   }
-  const days = Math.floor(minutes / 1440);
-  const hours = Math.round((minutes % 1440) / 60);
+  let days = Math.floor(minutes / 1440);
+  let hours = Math.round((minutes % 1440) / 60);
+  // Carry over if rounded hours equals 24
+  if (hours === 24) {
+    days += 1;
+    hours = 0;
+  }
   return hours > 0 ? `${days}d ${hours}h` : `${days}d`;
 }
 

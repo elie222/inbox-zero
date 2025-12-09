@@ -245,10 +245,10 @@ export class OutlookProvider implements EmailProvider {
 
     const filters: string[] = ["parentFolderId eq 'sentitems'"];
     if (after) {
-      filters.push(`receivedDateTime ge ${after.toISOString()}`);
+      filters.push(`sentDateTime ge ${after.toISOString()}`);
     }
     if (before) {
-      filters.push(`receivedDateTime le ${before.toISOString()}`);
+      filters.push(`sentDateTime le ${before.toISOString()}`);
     }
 
     const response = await withOutlookRetry(() =>
@@ -258,7 +258,7 @@ export class OutlookProvider implements EmailProvider {
         .select("id,conversationId")
         .filter(filters.join(" and "))
         .top(maxResults)
-        .orderby("receivedDateTime desc")
+        .orderby("sentDateTime desc")
         .get(),
     );
 
