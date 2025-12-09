@@ -18,6 +18,8 @@ import { ActionBar } from "@/app/(app)/[emailAccountId]/stats/ActionBar";
 import { DetailedStatsFilter } from "@/app/(app)/[emailAccountId]/stats/DetailedStatsFilter";
 import { LayoutGrid } from "lucide-react";
 import { DatePickerWithRange } from "@/components/DatePickerWithRange";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { CardBasic } from "@/components/ui/card";
 
 const selectOptions = [
   { label: "Last week", value: "7" },
@@ -114,26 +116,48 @@ export function Stats() {
         />
       </ActionBar>
       <div className="grid gap-2 sm:gap-4 mt-2 sm:mt-4">
-        <StatsSummary
-          dateRange={dateRange}
-          refreshInterval={refreshInterval}
-          period={period}
-        />
-        <EmailAnalytics
-          dateRange={dateRange}
-          refreshInterval={refreshInterval}
-        />
-        <ResponseTimeAnalytics
-          dateRange={dateRange}
-          refreshInterval={refreshInterval}
-        />
-        <RuleStatsChart
-          dateRange={dateRange}
-          title="Assistant processed emails"
-        />
-        {isAccountOwner && <EmailActionsAnalytics />}
+        <ErrorBoundary fallback={<SectionError title="Summary" />}>
+          <StatsSummary
+            dateRange={dateRange}
+            refreshInterval={refreshInterval}
+            period={period}
+          />
+        </ErrorBoundary>
+        <ErrorBoundary fallback={<SectionError title="Email Analytics" />}>
+          <EmailAnalytics
+            dateRange={dateRange}
+            refreshInterval={refreshInterval}
+          />
+        </ErrorBoundary>
+        <ErrorBoundary fallback={<SectionError title="Response Time" />}>
+          <ResponseTimeAnalytics
+            dateRange={dateRange}
+            refreshInterval={refreshInterval}
+          />
+        </ErrorBoundary>
+        <ErrorBoundary fallback={<SectionError title="Rule Stats" />}>
+          <RuleStatsChart
+            dateRange={dateRange}
+            title="Assistant processed emails"
+          />
+        </ErrorBoundary>
+        {isAccountOwner && (
+          <ErrorBoundary fallback={<SectionError title="Email Actions" />}>
+            <EmailActionsAnalytics />
+          </ErrorBoundary>
+        )}
       </div>
       <StatsOnboarding />
     </PageWrapper>
+  );
+}
+
+function SectionError({ title }: { title: string }) {
+  return (
+    <CardBasic>
+      <p className="text-muted-foreground">
+        Unable to load {title}. Please try refreshing the page.
+      </p>
+    </CardBasic>
   );
 }
