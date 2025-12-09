@@ -9,6 +9,7 @@ import { StatsOnboarding } from "@/app/(app)/[emailAccountId]/stats/StatsOnboard
 import { useStatLoader } from "@/providers/StatLoaderProvider";
 import { EmailActionsAnalytics } from "@/app/(app)/[emailAccountId]/stats/EmailActionsAnalytics";
 import { RuleStatsChart } from "./RuleStatsChart";
+import { ResponseTimeAnalytics } from "./ResponseTimeAnalytics";
 import { PageHeading } from "@/components/Typography";
 import { PageWrapper } from "@/components/PageWrapper";
 import { useOrgAccess } from "@/hooks/useOrgAccess";
@@ -119,6 +120,10 @@ export function Stats() {
           period={period}
         />
         <EmailAnalytics
+          dateRange={dateRange}
+          refreshInterval={refreshInterval}
+        />
+        <ResponseTimeAnalytics
           dateRange={dateRange}
           refreshInterval={refreshInterval}
         />

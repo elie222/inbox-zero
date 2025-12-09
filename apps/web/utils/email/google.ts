@@ -5,6 +5,7 @@ import {
   getMessage,
   getMessages,
   getSentMessages,
+  queryBatchMessages,
   hasPreviousCommunicationsWithSenderOrDomain,
 } from "@/utils/gmail/message";
 import {
@@ -182,6 +183,38 @@ export class GmailProvider implements EmailProvider {
 
   async getSentMessages(maxResults = 20): Promise<ParsedMessage[]> {
     return getSentMessages(this.client, maxResults);
+  }
+
+  async getInboxMessages(maxResults = 20): Promise<ParsedMessage[]> {
+    const messages = await queryBatchMessages(this.client, {
+      query: "in:inbox",
+      maxResults,
+    });
+    return messages.messages;
+  }
+
+  async getSentMessageIds(options: {
+    maxResults: number;
+    after?: Date;
+    before?: Date;
+  }): Promise<{ id: string; threadId: string }[]> {
+    const { maxResults, after, before } = options;
+
+    let query = `label:${GmailLabel.SENT}`;
+    if (after) {
+      query += ` after:${Math.floor(after.getTime() / 1000) - 1}`;
+    }
+    if (before) {
+      query += ` before:${Math.floor(before.getTime() / 1000) + 1}`;
+    }
+
+    const response = await getMessages(this.client, { query, maxResults });
+
+    return (
+      response.messages
+        ?.filter((m) => m.id && m.threadId)
+        .map((m) => ({ id: m.id!, threadId: m.threadId! })) || []
+    );
   }
 
   async getSentThreadsExcluding(options: {
@@ -881,9 +914,6 @@ export class GmailProvider implements EmailProvider {
     subjects?: string[];
     before?: Date;
     after?: Date;
-    type?: "inbox" | "sent" | "all";
-    excludeSent?: boolean;
-    excludeInbox?: boolean;
     maxResults?: number;
     pageToken?: string;
   }): Promise<{
@@ -912,19 +942,6 @@ export class GmailProvider implements EmailProvider {
     if (subjects.length > 0) {
       const subjectGroup = subjects.map((s) => `"${s}"`).join(" OR ");
       parts.push(`subject:(${subjectGroup})`);
-    }
-
-    // Scope by type/exclusion
-    if (options.type === "inbox") {
-      parts.push(`in:${GmailLabel.INBOX}`);
-    } else if (options.type === "sent") {
-      parts.push(`in:${GmailLabel.SENT}`);
-    }
-    if (options.excludeSent) {
-      parts.push(`-in:${GmailLabel.SENT}`);
-    }
-    if (options.excludeInbox) {
-      parts.push(`-in:${GmailLabel.INBOX}`);
     }
 
     const query = parts.join(" ") || undefined;
