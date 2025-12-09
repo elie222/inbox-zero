@@ -6,7 +6,7 @@ import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import { createGroq } from "@ai-sdk/groq";
 import { createOpenRouter } from "@openrouter/ai-sdk-provider";
 import { createGateway } from "@ai-sdk/gateway";
-// import { createOllama } from "ollama-ai-provider";
+import { createOllama } from "ollama-ai-provider-v2";
 import { env } from "@/env";
 import { Provider } from "@/utils/llms/config";
 import type { UserAIFields } from "@/utils/llms/types";
@@ -139,16 +139,17 @@ function selectModel(
       };
     }
     case Provider.OLLAMA: {
-      throw new Error(
-        "Ollama is not supported. Revert to version v1.7.28 or older to use it.",
-      );
-      // const modelName = aiModel || env.NEXT_PUBLIC_OLLAMA_MODEL;
-      // if (!modelName) throw new Error("Ollama model is not set");
-      // return {
-      //   provider: Provider.OLLAMA!,
-      //   modelName,
-      //   model: createOllama({ baseURL: env.OLLAMA_BASE_URL })(model),
-      // };
+      const modelName = env.OLLAMA_MODEL;
+      const provider = Provider.OLLAMA;
+      if (!modelName)
+        throw new Error("OLLAMA_MODEL environment variable is not set");
+      if (!provider) throw new Error("Provider.OLLAMA is not defined");
+      return {
+        provider,
+        modelName,
+        model: createOllama({ baseURL: env.OLLAMA_BASE_URL })(modelName),
+        backupModel: null,
+      };
     }
 
     case Provider.BEDROCK: {
@@ -343,6 +344,7 @@ function getProviderApiKey(provider: string) {
     [Provider.GROQ]: env.GROQ_API_KEY,
     [Provider.OPENROUTER]: env.OPENROUTER_API_KEY,
     [Provider.AI_GATEWAY]: env.AI_GATEWAY_API_KEY,
+    ...(Provider.OLLAMA ? { [Provider.OLLAMA]: "ollama-local" } : {}),
   };
 
   return providerApiKeys[provider];

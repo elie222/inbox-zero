@@ -451,6 +451,9 @@ importers:
       ollama-ai-provider:
         specifier: 1.2.0
         version: 1.2.0(zod@3.25.46)
+      ollama-ai-provider-v2:
+        specifier: 1.5.5
+        version: 1.5.5(zod@3.25.46)
       openai:
         specifier: 6.9.1
         version: 6.9.1(ws@8.18.3)(zod@3.25.46)
@@ -9682,6 +9685,12 @@ packages:
 
   ohash@2.0.11:
     resolution: {integrity: sha512-RdR9FQrFwNBNXAr4GixM8YaRZRJ5PUWbKYbE5eOsrwAjJW0q2REGcf79oYPsLyskQCZG1PLN+S/K1V00joZAoQ==}
+
+  ollama-ai-provider-v2@1.5.5:
+    resolution: {integrity: sha512-1YwTFdPjhPNHny/DrOHO+s8oVGGIE5Jib61/KnnjPRNWQhVVimrJJdaAX3e6nNRRDXrY5zbb9cfm2+yVvgsrqw==}
+    engines: {node: '>=18'}
+    peerDependencies:
+      zod: ^4.0.16
 
   ollama-ai-provider@1.2.0:
     resolution: {integrity: sha512-jTNFruwe3O/ruJeppI/quoOUxG7NA6blG3ZyQj3lei4+NnJo7bi3eIRWqlVpRlu/mbzbFXeJSBuYQWF6pzGKww==}
@@ -23095,6 +23104,12 @@ snapshots:
   obug@2.1.1: {}
 
   ohash@2.0.11: {}
+
+  ollama-ai-provider-v2@1.5.5(zod@3.25.46):
+    dependencies:
+      '@ai-sdk/provider': 2.0.0
+      '@ai-sdk/provider-utils': 3.0.18(zod@3.25.46)
+      zod: 3.25.46
 
   ollama-ai-provider@1.2.0(zod@3.25.46):
     dependencies:

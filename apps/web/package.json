@@ -133,7 +133,7 @@
     "next-themes": "0.4.6",
     "nodemailer": "7.0.11",
     "nuqs": "2.8.2",
-    "ollama-ai-provider": "1.2.0",
+    "ollama-ai-provider-v2": "1.5.5",
     "openai": "6.9.1",
     "p-queue": "9.0.1",
     "p-retry": "7.1.0",
