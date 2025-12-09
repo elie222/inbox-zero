@@ -18,6 +18,7 @@ import { SidebarMenuButton } from "@/components/ui/sidebar";
 import type { GetReferralCodeResponse } from "@/app/api/referrals/code/route";
 import { ErrorDisplay } from "@/components/ErrorDisplay";
 import { generateReferralLink } from "@/utils/referral/referral-link";
+import { PageHeading, PageSubHeading } from "@/components/Typography";
 
 export function ReferralDialog() {
   return (
@@ -98,16 +99,13 @@ export function Referrals() {
   return (
     <div className="space-y-6 sm:space-y-8">
       <div className="text-center">
-        <h1 className="font-title text-2xl sm:text-3xl font-bold text-primary dark:text-foreground">
-          Refer Friends, Get Rewards
-        </h1>
-        <p className="mt-3 sm:mt-4 text-sm sm:text-base px-2 text-muted-foreground">
+        <PageHeading>Refer Friends, Get Rewards</PageHeading>
+        <PageSubHeading className="mt-2">
           Share Inbox Zero with friends and get a free month for each friend who
           completes their trial
-        </p>
+        </PageSubHeading>
       </div>
 
-      {/* Referral Code Card */}
       <Card>
         <CardHeader>
           <CardTitle>Your Referral Code</CardTitle>
