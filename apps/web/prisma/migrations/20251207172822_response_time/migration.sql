@@ -5,7 +5,7 @@ CREATE TABLE "ResponseTime" (
     "threadId" TEXT NOT NULL,
     "sentMessageId" TEXT NOT NULL,
     "receivedMessageId" TEXT NOT NULL,
-    "responseTimeMs" BIGINT NOT NULL,
+    "responseTimeMs" INTEGER NOT NULL,
     "receivedAt" TIMESTAMP(3) NOT NULL,
     "sentAt" TIMESTAMP(3) NOT NULL,
     "emailAccountId" TEXT NOT NULL,
