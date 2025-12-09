@@ -62,10 +62,6 @@ export async function calculateResponseTimes(
 }> {
   const responseTimes: ResponseTimeEntry[] = [];
   const processedThreads = new Set<string>();
-  const sentMessageIds = new Set(sentMessages.map((m) => m.id));
-
-  const sentLabelId = "SENT";
-
   for (const sentMsg of sentMessages) {
     if (!sentMsg.threadId || processedThreads.has(sentMsg.threadId)) continue;
     processedThreads.add(sentMsg.threadId);
@@ -88,17 +84,7 @@ export async function calculateResponseTimes(
         if (!message.internalDate) continue;
         const messageDate = new Date(message.internalDate);
 
-        // Determine if message is sent or received
-        let isSent = false;
-        if (message.labelIds?.includes(sentLabelId)) {
-          isSent = true;
-        }
-
-        // If we still haven't matched, fallback to checking if this specific message is in our known sent list
-        // (Only efficient if sentMessages is small, but we capped it at 100)
-        if (!isSent && sentMessageIds.has(message.id)) {
-          isSent = true;
-        }
+        const isSent = emailProvider.isSentMessage(message);
 
         if (isSent) {
           // Message is SENT

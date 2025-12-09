@@ -914,21 +914,6 @@ export class OutlookProvider implements EmailProvider {
 
     const query = filters.join(" and ") || undefined;
 
-    // #region agent log
-    fetch("http://127.0.0.1:7242/ingest/5ca63b5c-1278-4094-99fa-898452ba3df5", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        location: "microsoft.ts:getMessagesByFields:query",
-        message: "H1: Built query with folder filters",
-        data: { query, filterCount: filters.length, filters },
-        timestamp: Date.now(),
-        sessionId: "debug-session",
-        hypothesisId: "H1",
-      }),
-    }).catch(() => {});
-    // #endregion
-
     return this.getMessagesWithPagination({
       query,
       maxResults: options.maxResults,
