@@ -9,6 +9,14 @@ import {
   groupEmailsQuerySchema,
   groupEmailsResponseSchema,
 } from "@/app/api/v1/group/[groupId]/emails/validation";
+import {
+  statsByPeriodQuerySchema,
+  statsByPeriodResponseSchema,
+} from "@/app/api/v1/stats/by-period/validation";
+import {
+  responseTimeQuerySchema,
+  responseTimeResponseSchema,
+} from "@/app/api/v1/stats/response-time/validation";
 import { API_KEY_HEADER } from "@/utils/api-auth";
 
 extendZodWithOpenApi(z);
@@ -42,6 +50,48 @@ registry.registerPath({
       content: {
         "application/json": {
           schema: groupEmailsResponseSchema,
+        },
+      },
+    },
+  },
+});
+
+registry.registerPath({
+  method: "get",
+  path: "/stats/by-period",
+  description:
+    "Get email statistics grouped by time period. Returns counts of emails by status (all, sent, read, unread, archived, unarchived) for each period.",
+  security: [{ ApiKeyAuth: [] }],
+  request: {
+    query: statsByPeriodQuerySchema,
+  },
+  responses: {
+    200: {
+      description: "Successful response",
+      content: {
+        "application/json": {
+          schema: statsByPeriodResponseSchema,
+        },
+      },
+    },
+  },
+});
+
+registry.registerPath({
+  method: "get",
+  path: "/stats/response-time",
+  description:
+    "Get email response time statistics. Returns summary stats, distribution, and trend data showing how quickly you respond to emails.",
+  security: [{ ApiKeyAuth: [] }],
+  request: {
+    query: responseTimeQuerySchema,
+  },
+  responses: {
+    200: {
+      description: "Successful response",
+      content: {
+        "application/json": {
+          schema: responseTimeResponseSchema,
         },
       },
     },
