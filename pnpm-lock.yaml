@@ -103,6 +103,9 @@ importers:
       '@ai-sdk/anthropic':
         specifier: 2.0.53
         version: 2.0.53(zod@3.25.46)
+      '@ai-sdk/azure':
+        specifier: 2.0.82
+        version: 2.0.82(zod@3.25.46)
       '@ai-sdk/gateway':
         specifier: 2.0.18
         version: 2.0.18(zod@3.25.46)
@@ -823,6 +826,12 @@ packages:
     peerDependencies:
       zod: ^3.25.76 || ^4.1.8
 
+  '@ai-sdk/azure@2.0.82':
+    resolution: {integrity: sha512-Bpab51ETBB4adZC1xGMYsryL/CB8j1sA+t5aDqhRv3t3WRLTxhaBDcFKtQTIuxiEQTFosz9Q2xQqdfBvQm5jHw==}
+    engines: {node: '>=18'}
+    peerDependencies:
+      zod: ^3.25.76 || ^4.1.8
+
   '@ai-sdk/gateway@2.0.18':
     resolution: {integrity: sha512-sDQcW+6ck2m0pTIHW6BPHD7S125WD3qNkx/B8sEzJp/hurocmJ5Cni0ybExg6sQMGo+fr/GWOwpHF1cmCdg5rQ==}
     engines: {node: '>=18'}
@@ -849,6 +858,12 @@ packages:
 
   '@ai-sdk/openai@2.0.77':
     resolution: {integrity: sha512-lEJ9vyWSU5VLo+6Msr6r32RnABf4SRxPSV3Hz1Yb5yt43bWYxbBzwaDNYGhJaDL6rCgfUVvcIf5TKiiEuVd4EQ==}
+    engines: {node: '>=18'}
+    peerDependencies:
+      zod: ^3.25.76 || ^4.1.8
+
+  '@ai-sdk/openai@2.0.80':
+    resolution: {integrity: sha512-tNHuraF11db+8xJEDBoU9E3vMcpnHFKRhnLQ3DQX2LnEzfPB9DksZ8rE+yVuDN1WRW9cm2OWAhgHFgVKs7ICuw==}
     engines: {node: '>=18'}
     peerDependencies:
       zod: ^3.25.76 || ^4.1.8
@@ -12613,6 +12628,13 @@ snapshots:
       '@ai-sdk/provider-utils': 3.0.18(zod@3.25.46)
       zod: 3.25.46
 
+  '@ai-sdk/azure@2.0.82(zod@3.25.46)':
+    dependencies:
+      '@ai-sdk/openai': 2.0.80(zod@3.25.46)
+      '@ai-sdk/provider': 2.0.0
+      '@ai-sdk/provider-utils': 3.0.18(zod@3.25.46)
+      zod: 3.25.46
+
   '@ai-sdk/gateway@2.0.18(zod@3.25.46)':
     dependencies:
       '@ai-sdk/provider': 2.0.0
@@ -12640,6 +12662,12 @@ snapshots:
       zod: 3.25.46
 
   '@ai-sdk/openai@2.0.77(zod@3.25.46)':
+    dependencies:
+      '@ai-sdk/provider': 2.0.0
+      '@ai-sdk/provider-utils': 3.0.18(zod@3.25.46)
+      zod: 3.25.46
+
+  '@ai-sdk/openai@2.0.80(zod@3.25.46)':
     dependencies:
       '@ai-sdk/provider': 2.0.0
       '@ai-sdk/provider-utils': 3.0.18(zod@3.25.46)

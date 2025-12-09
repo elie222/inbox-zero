@@ -36,7 +36,7 @@ cp apps/web/.env.example apps/web/.env
 | `UPSTASH_REDIS_TOKEN` | No* | Upstash Redis token (*required if not using Docker Compose) | — |
 | `REDIS_URL` | No | Alternative Redis URL (for subscriptions) | — |
 | **LLM Provider Selection** ||||
-| `DEFAULT_LLM_PROVIDER` | No | Primary LLM provider (`anthropic`, `google`, `openai`, `bedrock`, `openrouter`, `groq`, `aigateway`, `ollama`) | `anthropic` |
+| `DEFAULT_LLM_PROVIDER` | No | Primary LLM provider (`anthropic`, `google`, `openai`, `bedrock`, `openrouter`, `groq`, `aigateway`, `azure`, `ollama`) | `anthropic` |
 | `DEFAULT_LLM_MODEL` | No | Model to use with default provider | Provider default |
 | `DEFAULT_OPENROUTER_PROVIDERS` | No | Comma-separated list of OpenRouter providers | — |
 | `ECONOMY_LLM_PROVIDER` | No | Provider for cheaper operations | — |
@@ -54,6 +54,9 @@ cp apps/web/.env.example apps/web/.env
 | `GROQ_API_KEY` | No | Groq API key | — |
 | `OPENROUTER_API_KEY` | No | OpenRouter API key | — |
 | `AI_GATEWAY_API_KEY` | No | AI Gateway API key | — |
+| **Azure OpenAI** ||||
+| `AZURE_RESOURCE_NAME` | No | Azure OpenAI resource name | — |
+| `AZURE_API_KEY` | No | Azure OpenAI API key | — |
 | **AWS Bedrock** ||||
 | `BEDROCK_ACCESS_KEY` | No | AWS access key for Bedrock. See [AI SDK Bedrock documentation](https://ai-sdk.dev/providers/ai-sdk-providers/amazon-bedrock). | — |
 | `BEDROCK_SECRET_KEY` | No | AWS secret key for Bedrock | — |

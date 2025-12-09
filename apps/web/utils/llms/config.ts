@@ -12,6 +12,7 @@ export const Provider = {
   GROQ: "groq",
   OPENROUTER: "openrouter",
   AI_GATEWAY: "aigateway",
+  AZURE: "azure",
   ...(supportsOllama ? { OLLAMA: "ollama" } : {}),
 };
 
@@ -20,6 +21,7 @@ export const providerOptions: { label: string; value: string }[] = [
   { label: "Anthropic", value: Provider.ANTHROPIC },
   { label: "OpenAI", value: Provider.OPEN_AI },
   { label: "Google", value: Provider.GOOGLE },
+  { label: "Azure", value: Provider.AZURE },
   { label: "Groq", value: Provider.GROQ },
   { label: "OpenRouter", value: Provider.OPENROUTER },
   { label: "AI Gateway", value: Provider.AI_GATEWAY },

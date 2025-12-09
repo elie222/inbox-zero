@@ -6,6 +6,7 @@ import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import { createGroq } from "@ai-sdk/groq";
 import { createOpenRouter } from "@openrouter/ai-sdk-provider";
 import { createGateway } from "@ai-sdk/gateway";
+import { createAzure } from "@ai-sdk/azure";
 // import { createOllama } from "ollama-ai-provider";
 import { env } from "@/env";
 import { Provider } from "@/utils/llms/config";
@@ -135,6 +136,18 @@ function selectModel(
         provider: Provider.AI_GATEWAY,
         modelName,
         model: gateway(modelName),
+        backupModel: getBackupModel(aiApiKey),
+      };
+    }
+    case Provider.AZURE: {
+      const modelName = aiModel || "gpt-5.1";
+      return {
+        provider: Provider.AZURE,
+        modelName,
+        model: createAzure({
+          resourceName: env.AZURE_RESOURCE_NAME,
+          apiKey: aiApiKey || env.AZURE_API_KEY,
+        })(modelName),
         backupModel: getBackupModel(aiApiKey),
       };
     }
@@ -343,6 +356,7 @@ function getProviderApiKey(provider: string) {
     [Provider.GROQ]: env.GROQ_API_KEY,
     [Provider.OPENROUTER]: env.OPENROUTER_API_KEY,
     [Provider.AI_GATEWAY]: env.AI_GATEWAY_API_KEY,
+    [Provider.AZURE]: env.AZURE_API_KEY,
   };
 
   return providerApiKeys[provider];
