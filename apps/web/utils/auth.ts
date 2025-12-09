@@ -6,7 +6,6 @@ import { createContact as createResendContact } from "@inboxzero/resend";
 import type { Account, AuthContext } from "better-auth";
 import { betterAuth } from "better-auth";
 import { prismaAdapter } from "better-auth/adapters/prisma";
-import { createAuthMiddleware } from "better-auth/api";
 import { nextCookies } from "better-auth/next-js";
 import { cookies, headers } from "next/headers";
 import { env } from "@/env";
@@ -112,6 +111,21 @@ export const betterAuthConfig = betterAuth({
     },
   },
   databaseHooks: {
+    user: {
+      create: {
+        after: async (user) => {
+          await postSignUp({
+            id: user.id,
+            email: user.email,
+            name: user.name,
+            image: user.image,
+          }).catch((error) => {
+            logger.error("Error posting sign up", { error, user });
+            captureException(error, { extra: { user } });
+          });
+        },
+      },
+    },
     account: {
       create: {
         after: async (account: Account) => {
@@ -131,22 +145,6 @@ export const betterAuthConfig = betterAuth({
       logger.error("Auth API encountered an error", { error, ctx });
     },
     errorURL: "/login/error",
-  },
-  hooks: {
-    after: createAuthMiddleware(async (ctx) => {
-      // Handle sign-up: call postSignUp when a new user is created
-      if (ctx.path.startsWith("/sign-up")) {
-        const newSession = ctx.context.newSession;
-        if (newSession) {
-          await postSignUp({
-            id: newSession.user.id,
-            email: newSession.user.email,
-            name: newSession.user.name,
-            image: newSession.user.image,
-          });
-        }
-      }
-    }),
   },
 });
 
