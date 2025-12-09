@@ -3,7 +3,7 @@
 import { sso } from "@better-auth/sso";
 import { createContact as createLoopsContact } from "@inboxzero/loops";
 import { createContact as createResendContact } from "@inboxzero/resend";
-import type { Account, AuthContext, User } from "better-auth";
+import type { Account, AuthContext } from "better-auth";
 import { betterAuth } from "better-auth";
 import { prismaAdapter } from "better-auth/adapters/prisma";
 import { nextCookies } from "better-auth/next-js";
@@ -110,10 +110,22 @@ export const betterAuthConfig = betterAuth({
       disableIdTokenSignIn: true,
     },
   },
-  events: {
-    signIn: handleSignIn,
-  },
   databaseHooks: {
+    user: {
+      create: {
+        after: async (user) => {
+          await postSignUp({
+            id: user.id,
+            email: user.email,
+            name: user.name,
+            image: user.image,
+          }).catch((error) => {
+            logger.error("Error posting sign up", { error, user });
+            captureException(error, { extra: { user } });
+          });
+        },
+      },
+    },
     account: {
       create: {
         after: async (account: Account) => {
@@ -136,106 +148,114 @@ export const betterAuthConfig = betterAuth({
   },
 });
 
-async function handleSignIn({
-  user,
-  isNewUser,
+async function postSignUp({
+  id: userId,
+  email,
+  name,
+  image,
 }: {
-  user: User;
-  isNewUser: boolean;
+  id: string;
+  email: string;
+  name?: string | null;
+  image?: string | null;
 }) {
-  if (isNewUser && user.email) {
-    const loops = async () => {
-      const account = await prisma.account
-        .findFirst({
-          where: { userId: user.id },
-          select: { provider: true },
-        })
-        .catch((error) => {
-          logger.error("Error finding account", {
-            userId: user.id,
-            error,
-          });
-          captureException(error, undefined, user.email);
+  const loops = async () => {
+    const account = await prisma.account
+      .findFirst({
+        where: { userId },
+        select: { provider: true },
+      })
+      .catch((error) => {
+        logger.error("Error finding account", {
+          userId,
+          error,
         });
-
-      await createLoopsContact(
-        user.email,
-        user.name?.split(" ")?.[0],
-        account?.provider,
-      ).catch((error) => {
-        const alreadyExists =
-          error instanceof Error && error.message.includes("409");
-        if (!alreadyExists) {
-          logger.error("Error creating Loops contact", {
-            email: user.email,
-            error,
-          });
-          captureException(error, undefined, user.email);
-        }
+        captureException(error, undefined, email);
       });
-    };
 
-    const resend = createResendContact({ email: user.email }).catch((error) => {
-      logger.error("Error creating Resend contact", {
-        email: user.email,
-        error,
-      });
-      captureException(error, undefined, user.email);
+    await createLoopsContact(
+      email,
+      name?.split(" ")?.[0],
+      account?.provider,
+    ).catch((error) => {
+      const alreadyExists =
+        error instanceof Error && error.message.includes("409");
+      if (!alreadyExists) {
+        logger.error("Error creating Loops contact", {
+          email,
+          error,
+        });
+        captureException(error, undefined, email);
+      }
     });
+  };
 
-    const dub = trackDubSignUp(user).catch((error) => {
-      logger.error("Error tracking Dub sign up", {
-        email: user.email,
-        error,
-      });
-      captureException(error, undefined, user.email);
+  const resend = createResendContact({ email }).catch((error) => {
+    logger.error("Error creating Resend contact", {
+      email,
+      error,
     });
-
-    await Promise.all([loops(), resend, dub]);
-  }
-
-  if (isNewUser && user.email && user.id) {
-    await Promise.all([
-      handlePendingPremiumInvite({ email: user.email }),
-      handleReferralOnSignUp({
-        userId: user.id,
-        email: user.email,
-      }),
-    ]);
-  }
-}
-async function handlePendingPremiumInvite({ email }: { email: string }) {
-  logger.info("Handling pending premium invite", { email });
-
-  // Check for pending invite
-  const premium = await prisma.premium.findFirst({
-    where: { pendingInvites: { has: email } },
-    select: {
-      id: true,
-      pendingInvites: true,
-      lemonSqueezySubscriptionItemId: true,
-      stripeSubscriptionId: true,
-      _count: { select: { users: true } },
-    },
+    captureException(error, undefined, email);
   });
 
-  if (
-    premium?.lemonSqueezySubscriptionItemId ||
-    premium?.stripeSubscriptionId
-  ) {
-    // Add user to premium and remove from pending invites
-    await prisma.premium.update({
-      where: { id: premium.id },
-      data: {
-        users: { connect: { email } },
-        pendingInvites: {
-          set: premium.pendingInvites.filter((e: string) => e !== email),
-        },
+  const dub = trackDubSignUp({ id: userId, email, name, image }).catch(
+    (error) => {
+      logger.error("Error tracking Dub sign up", {
+        email,
+        error,
+      });
+      captureException(error, undefined, email);
+    },
+  );
+
+  await Promise.all([
+    loops(),
+    resend,
+    dub,
+    handlePendingPremiumInvite({ email }),
+    handleReferralOnSignUp({ userId, email }),
+  ]);
+}
+
+async function handlePendingPremiumInvite({ email }: { email: string }) {
+  try {
+    logger.info("Handling pending premium invite", { email });
+
+    // Check for pending invite
+    const premium = await prisma.premium.findFirst({
+      where: { pendingInvites: { has: email } },
+      select: {
+        id: true,
+        pendingInvites: true,
+        lemonSqueezySubscriptionItemId: true,
+        stripeSubscriptionId: true,
+        _count: { select: { users: true } },
       },
     });
-  }
 
-  logger.info("Added user to premium from invite", { email });
+    if (
+      premium?.lemonSqueezySubscriptionItemId ||
+      premium?.stripeSubscriptionId
+    ) {
+      // Add user to premium and remove from pending invites
+      await prisma.premium.update({
+        where: { id: premium.id },
+        data: {
+          users: { connect: { email } },
+          pendingInvites: {
+            set: premium.pendingInvites.filter((e: string) => e !== email),
+          },
+        },
+      });
+
+      logger.info("Added user to premium from invite", { email });
+    }
+  } catch (error) {
+    logger.error("Error handling pending premium invite", { error, email });
+    captureException(error, {
+      extra: { email, location: "handlePendingPremiumInvite" },
+    });
+  }
 }
 
 export async function handleReferralOnSignUp({
