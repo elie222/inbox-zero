@@ -4,7 +4,9 @@ import { validateApiKeyAndGetEmailProvider } from "@/utils/api-auth";
 import { getEmailAccountId } from "@/app/api/v1/helpers";
 import { getResponseTimeStats } from "@/app/api/user/stats/response-time/controller";
 import { responseTimeQuerySchema } from "./validation";
-import { createLogger } from "@/utils/logger";
+import { createScopedLogger } from "@/utils/logger";
+
+const logger = createScopedLogger("api/v1/stats/response-time");
 
 export const GET = withError(async (request) => {
   const { emailProvider, userId, accountId } =
@@ -36,8 +38,6 @@ export const GET = withError(async (request) => {
       { status: 400 },
     );
   }
-
-  const logger = createLogger({ apiRoute: "v1/stats/response-time" });
 
   const result = await getResponseTimeStats({
     fromDate,
