@@ -7,10 +7,10 @@ import { orgStatsParams, type GetOrgStatsOptions } from "../types";
 
 const EMAIL_BUCKETS = [
   { min: 500, label: "500+" },
-  { min: 200, max: 500, label: "200-500" },
-  { min: 100, max: 200, label: "100-200" },
-  { min: 50, max: 100, label: "50-100" },
-  { min: 0, max: 50, label: "<50" },
+  { min: 200, max: 499, label: "200-499" },
+  { min: 100, max: 199, label: "100-199" },
+  { min: 50, max: 99, label: "50-99" },
+  { min: 0, max: 49, label: "<50" },
 ];
 
 export type OrgEmailBucketsResponse = Awaited<
@@ -82,7 +82,7 @@ async function getEmailVolumeBuckets({
       const bucket = EMAIL_BUCKETS[i];
       if (
         count >= bucket.min &&
-        (bucket.max === undefined || count < bucket.max)
+        (bucket.max === undefined || count <= bucket.max)
       ) {
         bucketCounts[i].userCount++;
         break;

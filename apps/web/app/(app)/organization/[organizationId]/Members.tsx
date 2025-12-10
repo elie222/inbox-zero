@@ -26,7 +26,6 @@ import {
   BarChart3,
   BarChartIcon,
   XIcon,
-  PieChartIcon,
 } from "lucide-react";
 import { InviteMemberModal } from "@/components/InviteMemberModal";
 import {
