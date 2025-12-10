@@ -81,7 +81,7 @@ export function InviteMemberModal({
   return (
     <Dialog open={isOpen} onOpenChange={onToggle}>
       <DialogTrigger asChild>
-        <Button>Invite Member</Button>
+        <Button size="sm">Invite Member</Button>
       </DialogTrigger>
 
       <DialogContent className="sm:max-w-md">
