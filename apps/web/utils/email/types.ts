@@ -61,9 +61,6 @@ export interface EmailProvider {
     subjects?: string[];
     before?: Date;
     after?: Date;
-    type?: "inbox" | "sent" | "all";
-    excludeSent?: boolean;
-    excludeInbox?: boolean;
     maxResults?: number;
     pageToken?: string;
   }): Promise<{
@@ -71,6 +68,12 @@ export interface EmailProvider {
     nextPageToken?: string;
   }>;
   getSentMessages(maxResults?: number): Promise<ParsedMessage[]>;
+  getInboxMessages(maxResults?: number): Promise<ParsedMessage[]>;
+  getSentMessageIds(options: {
+    maxResults: number;
+    after?: Date;
+    before?: Date;
+  }): Promise<{ id: string; threadId: string }[]>;
   getSentThreadsExcluding(options: {
     excludeToEmails?: string[];
     excludeFromEmails?: string[];

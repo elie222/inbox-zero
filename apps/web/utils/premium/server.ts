@@ -113,34 +113,106 @@ export async function cancelPremiumLemon({
 export async function updateAccountSeats({ userId }: { userId: string }) {
   const user = await prisma.user.findUnique({
     where: { id: userId },
-    select: {
-      premium: {
-        select: {
-          lemonSqueezySubscriptionItemId: true,
-          stripeSubscriptionItemId: true,
-          users: {
-            select: {
-              _count: { select: { emailAccounts: true } },
-            },
-          },
-        },
-      },
-    },
+    select: { premium: { select: { id: true } } },
   });
 
   if (!user) throw new Error(`User not found for id ${userId}`);
 
-  const { premium } = user;
-
-  if (!premium) {
+  if (!user.premium) {
     logger.warn("User has no premium", { userId });
     return;
   }
 
-  // Count all email accounts for all users
-  const totalSeats = sumBy(premium.users, (user) => user._count.emailAccounts);
+  await syncPremiumSeats(user.premium.id);
+}
 
+export async function syncPremiumSeats(premiumId: string) {
+  const premium = await prisma.premium.findUnique({
+    where: { id: premiumId },
+    select: {
+      lemonSqueezySubscriptionItemId: true,
+      stripeSubscriptionItemId: true,
+      users: {
+        select: { _count: { select: { emailAccounts: true } } },
+      },
+    },
+  });
+
+  if (!premium) {
+    logger.warn("Premium not found", { premiumId });
+    return;
+  }
+
+  const totalSeats = sumBy(premium.users, (user) => user._count.emailAccounts);
   await updateAccountSeatsForPremium(premium, totalSeats);
+}
+
+export async function addUserToPremium({
+  visitorId,
+  premiumId,
+}: {
+  visitorId: string;
+  premiumId: string;
+}) {
+  await prisma.premium.update({
+    where: { id: premiumId },
+    data: { users: { connect: { id: visitorId } } },
+  });
+  await syncPremiumSeats(premiumId);
+}
+
+export async function removeUserFromPremium({
+  visitorId,
+  premiumId,
+}: {
+  visitorId: string;
+  premiumId: string;
+}) {
+  await prisma.premium.update({
+    where: { id: premiumId },
+    data: { users: { disconnect: { id: visitorId } } },
+  });
+  await syncPremiumSeats(premiumId);
+}
+
+export async function removeFromPendingInvites({
+  email,
+  premiumId,
+}: {
+  email: string;
+  premiumId: string;
+}) {
+  const premium = await prisma.premium.findUnique({
+    where: { id: premiumId },
+    select: { pendingInvites: true },
+  });
+
+  if (!premium) return;
+
+  const currentPendingInvites = premium.pendingInvites || [];
+  const updatedPendingInvites = currentPendingInvites.filter(
+    (e) => e !== email,
+  );
+
+  if (currentPendingInvites.length !== updatedPendingInvites.length) {
+    await prisma.premium.update({
+      where: { id: premiumId },
+      data: { pendingInvites: { set: updatedPendingInvites } },
+    });
+  }
+}
+
+export async function claimPendingPremiumInvite({
+  visitorId,
+  email,
+  premiumId,
+}: {
+  visitorId: string;
+  email: string;
+  premiumId: string;
+}) {
+  await removeFromPendingInvites({ email, premiumId });
+  await addUserToPremium({ visitorId, premiumId });
 }
 
 export async function updateAccountSeatsForPremium(

@@ -1,13 +1,11 @@
 import { after } from "next/server";
-import sumBy from "lodash/sumBy";
 import prisma from "@/utils/prisma";
 import { createScopedLogger } from "@/utils/logger";
 import { getStripe } from "@/ee/billing/stripe";
 import { getStripeSubscriptionTier } from "@/app/(app)/premium/config";
 import { handleLoopsEvents } from "@/ee/billing/stripe/loops-events";
-import { updateAccountSeatsForPremium } from "@/utils/premium/server";
+import { syncPremiumSeats } from "@/utils/premium/server";
 import { ensureEmailAccountsWatched } from "@/utils/email/watch-manager";
-import type { Prisma } from "@/generated/prisma/client";
 
 const logger = createScopedLogger("stripe/syncStripeDataToDb");
 
@@ -120,15 +118,8 @@ export async function syncStripeDataToDb({
           : null,
       },
       select: {
-        stripeSubscriptionItemId: true,
-        pendingInvites: true,
-        users: {
-          select: {
-            id: true,
-            email: true,
-            _count: { select: { emailAccounts: true } },
-          },
-        },
+        id: true,
+        users: { select: { id: true } },
       },
     });
 
@@ -143,7 +134,7 @@ export async function syncStripeDataToDb({
       customerId,
     });
 
-    await syncSeats(updatedPremium);
+    await syncPremiumSeats(updatedPremium.id);
 
     after(() => {
       const userIds = updatedPremium.users.map((user) => user.id);
@@ -165,39 +156,5 @@ export async function syncStripeDataToDb({
   } catch (error) {
     logger.error("Error syncing Stripe data to DB", { customerId, error });
     throw error;
-  }
-}
-
-async function syncSeats(
-  premium: Prisma.PremiumGetPayload<{
-    select: {
-      users: {
-        select: { email: true; _count: { select: { emailAccounts: true } } };
-      };
-      pendingInvites: true;
-      stripeSubscriptionItemId: true;
-    };
-  }>,
-) {
-  try {
-    // Get all connected user emails
-    const connectedUserEmails = new Set(premium.users.map((u) => u.email));
-
-    // Filter out pending invites that are already connected users to avoid double counting
-    const uniquePendingInvites = (premium.pendingInvites || []).filter(
-      (email) => !connectedUserEmails.has(email),
-    );
-
-    // total seats = premium users + unique pending invites (excluding duplicates)
-    const totalSeats =
-      sumBy(premium.users, (u) => u._count.emailAccounts) +
-      uniquePendingInvites.length;
-
-    await updateAccountSeatsForPremium(premium, totalSeats);
-  } catch (error) {
-    logger.error("Error updating account seats for premium", {
-      stripeSubscriptionItemId: premium.stripeSubscriptionItemId,
-      error,
-    });
   }
 }

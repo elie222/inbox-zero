@@ -234,6 +234,7 @@ export function getLinkingOAuth2Url() {
     response_type: "code",
     redirect_uri: `${env.NEXT_PUBLIC_BASE_URL}/api/outlook/linking/callback`,
     scope: SCOPES.join(" "),
+    prompt: "select_account",
   });
 
   return `${baseUrl}?${params.toString()}`;

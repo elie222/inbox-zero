@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/card";
 import { Loading } from "@/components/Loading";
 import { useUser } from "@/hooks/useUser";
-import { handleInvitationAction } from "@/utils/actions/invitation";
+import { handleInvitationAction } from "@/utils/actions/organization";
 import { setInvitationCookie, clearInvitationCookie } from "@/utils/cookies";
 
 export default function AcceptInvitationPage() {

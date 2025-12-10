@@ -120,7 +120,7 @@ model EmailAccount {
   about                          String?
   writingStyle                   String?
   signature                      String? // User's email signature from provider or manually set
-  includeReferralSignature       Boolean   @default(true)
+  includeReferralSignature       Boolean   @default(false)
   watchEmailsExpirationDate      DateTime?
   watchEmailsSubscriptionId      String? // For Outlook subscription ID
   watchEmailsSubscriptionHistory Json? // Historical Outlook subscription IDs: [{ subscriptionId, createdAt, replacedAt }]
@@ -164,6 +164,7 @@ model EmailAccount {
   chats            Chat[]
   digests          Digest[]
   scheduledActions ScheduledAction[]
+  responseTimes    ResponseTime[]
 
   members             Member[]
   invitations         Invitation[]
@@ -703,6 +704,23 @@ model EmailMessage {
   @@index([emailAccountId, date])
   @@index([emailAccountId, from])
   @@index([emailAccountId, fromName])
+}
+
+model ResponseTime {
+  id                String   @id @default(cuid())
+  createdAt         DateTime @default(now())
+  threadId          String
+  sentMessageId     String
+  receivedMessageId String
+  responseTimeMins  Int // Denormalized: (sentAt - receivedAt) in minutes
+  receivedAt        DateTime
+  sentAt            DateTime
+
+  emailAccountId String
+  emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
+
+  @@unique([emailAccountId, sentMessageId])
+  @@index([emailAccountId, sentAt])
 }
 
 model ThreadTracker {

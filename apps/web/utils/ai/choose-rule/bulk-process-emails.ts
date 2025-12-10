@@ -29,11 +29,8 @@ export async function bulkProcessInboxEmails({
       logger,
     });
 
-    const [{ messages }, rules] = await Promise.all([
-      emailProvider.getMessagesByFields({
-        type: "inbox",
-        maxResults: maxEmails,
-      }),
+    const [messages, rules] = await Promise.all([
+      emailProvider.getInboxMessages(maxEmails),
       prisma.rule.findMany({
         where: {
           emailAccountId: emailAccount.id,

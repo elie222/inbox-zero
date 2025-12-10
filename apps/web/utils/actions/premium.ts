@@ -9,7 +9,7 @@ import { env } from "@/env";
 import { isAdminForPremium, isOnHigherTier, isPremium } from "@/utils/premium";
 import {
   cancelPremiumLemon,
-  updateAccountSeatsForPremium,
+  syncPremiumSeats,
   upgradeToPremiumLemon,
 } from "@/utils/premium/server";
 import { changePremiumStatusSchema } from "@/app/(app)/admin/validation";
@@ -192,38 +192,16 @@ export const updateMultiAccountPremiumAction = actionClientUser
       (email) =>
         !users.some((u) => u.email === email) && !userEmailAccounts.has(email),
     );
-    const updatedPremium = await prisma.premium.update({
+    await prisma.premium.update({
       where: { id: premium.id },
       data: {
         pendingInvites: {
           set: nonExistingUsers,
         },
       },
-      select: {
-        users: {
-          select: {
-            email: true,
-            _count: { select: { emailAccounts: true } },
-          },
-        },
-        pendingInvites: true,
-      },
     });
 
-    const connectedUserEmails = new Set(
-      updatedPremium.users.map((u) => u.email),
-    );
-
-    const uniquePendingInvites = (updatedPremium.pendingInvites || []).filter(
-      (email) => !connectedUserEmails.has(email),
-    );
-
-    // total seats = premium users + unique pending invites
-    const totalSeats =
-      sumBy(updatedPremium.users, (u) => u._count.emailAccounts) +
-      uniquePendingInvites.length;
-
-    await updateAccountSeatsForPremium(premium, totalSeats);
+    await syncPremiumSeats(premium.id);
   });
 
 // export const switchLemonPremiumPlanAction = actionClientUser
