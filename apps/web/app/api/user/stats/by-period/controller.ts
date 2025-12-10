@@ -1,16 +1,9 @@
 import { format } from "date-fns/format";
-import { z } from "zod";
 import sumBy from "lodash/sumBy";
-import { zodPeriod } from "@inboxzero/tinybird";
 import prisma from "@/utils/prisma";
 import { Prisma } from "@/generated/prisma/client";
+import type { StatsByPeriodQuery } from "@/app/api/user/stats/by-period/validation";
 
-export const statsByPeriodQuerySchema = z.object({
-  period: zodPeriod,
-  fromDate: z.coerce.number().nullish(),
-  toDate: z.coerce.number().nullish(),
-});
-export type StatsByPeriodQuery = z.infer<typeof statsByPeriodQuerySchema>;
 export type StatsByPeriodResponse = Awaited<
   ReturnType<typeof getStatsByPeriod>
 >;

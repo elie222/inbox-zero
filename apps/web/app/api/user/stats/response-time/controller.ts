@@ -1,4 +1,3 @@
-import { z } from "zod";
 import type { EmailProvider } from "@/utils/email/types";
 import { format } from "date-fns/format";
 import { startOfWeek } from "date-fns/startOfWeek";
@@ -13,12 +12,7 @@ import {
   type SummaryStats,
   type DistributionStats,
 } from "./calculate";
-
-export const responseTimeQuerySchema = z.object({
-  fromDate: z.coerce.number().nullish(),
-  toDate: z.coerce.number().nullish(),
-});
-export type ResponseTimeQuery = z.infer<typeof responseTimeQuerySchema>;
+import type { ResponseTimeQuery } from "@/app/api/user/stats/response-time/validation";
 
 const MAX_SENT_MESSAGES = 50;
 

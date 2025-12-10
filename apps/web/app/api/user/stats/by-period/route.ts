@@ -1,10 +1,7 @@
 import { NextResponse } from "next/server";
 import { withEmailAccount } from "@/utils/middleware";
-import { statsByPeriodQuerySchema, getStatsByPeriod } from "./controller";
-
-// Re-export types for backwards compatibility
-export type { StatsByPeriodQuery as StatsByWeekParams } from "./controller";
-export type { StatsByPeriodResponse as StatsByWeekResponse } from "./controller";
+import { getStatsByPeriod } from "./controller";
+import { statsByPeriodQuerySchema } from "@/app/api/user/stats/by-period/validation";
 
 export const GET = withEmailAccount(
   async (request) => {
