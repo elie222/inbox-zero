@@ -23,6 +23,7 @@ import {
 } from "@/components/ui/dialog";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { fetchWithAccount } from "@/utils/fetch";
+import { Switch } from "@/components/ui/switch";
 
 export function BulkRunRules() {
   const { emailAccountId } = useAccount();
@@ -42,6 +43,7 @@ export function BulkRunRules() {
 
   const [startDate, setStartDate] = useState<Date | undefined>();
   const [endDate, setEndDate] = useState<Date | undefined>();
+  const [includeRead, setIncludeRead] = useState(false);
   const [runResult, setRunResult] = useState<{
     count: number;
   } | null>(null);
@@ -69,8 +71,19 @@ export function BulkRunRules() {
             {data && (
               <>
                 <SectionDescription>
-                  This runs your rules on unread emails currently in your inbox
-                  (that have not been previously processed).
+                  Run your rules on inbox emails that have not been previously
+                  processed. Use the toggle below to include read emails or keep
+                  the run to unread messages.
+                </SectionDescription>
+                <SectionDescription className="mt-0">
+                  Currently set to process
+                  {" "}
+                  <span className="font-medium">
+                    {includeRead
+                      ? "both read and unread emails"
+                      : "unread emails only"}
+                  </span>{" "}
+                  in the selected date range.
                 </SectionDescription>
 
                 {processedThreadIds.size > 0 && (
@@ -85,6 +98,31 @@ export function BulkRunRules() {
                 <LoadingContent loading={isLoadingPremium}>
                   {hasAiAccess ? (
                     <div className="flex flex-col space-y-2">
+                      <div className="flex items-start space-x-3 rounded-md border border-border px-3 py-2">
+                        <Switch
+                          id="include-read"
+                          checked={includeRead}
+                          disabled={running}
+                          onCheckedChange={(checked) => {
+                            setIncludeRead(checked);
+                            setRunResult(null);
+                            setProcessedThreadIds(new Set());
+                          }}
+                        />
+                        <div className="space-y-1">
+                          <label
+                            htmlFor="include-read"
+                            className="text-sm font-medium leading-none"
+                          >
+                            Include read emails
+                          </label>
+                          <p className="text-sm text-muted-foreground">
+                            {includeRead
+                              ? "Runs rules on both read and unread inbox emails that have not been processed yet."
+                              : "Limits the run to unread inbox emails that have not been processed yet."}
+                          </p>
+                        </div>
+                      </div>
                       <div className="grid grid-cols-2 gap-2">
                         <SetDateDropdown
                           onChange={(date) => {
@@ -131,7 +169,7 @@ export function BulkRunRules() {
                           setRunning(true);
                           abortRef.current = await onRun(
                             emailAccountId,
-                            { startDate, endDate },
+                            { startDate, endDate, includeRead },
                             (ids) => {
                               setProcessedThreadIds((prev) => {
                                 const next = new Set(prev);
@@ -163,7 +201,9 @@ export function BulkRunRules() {
 
                       {runResult && runResult.count === 0 && (
                         <div className="mt-4 rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-800 dark:border-blue-800 dark:bg-blue-950 dark:text-blue-200">
-                          No unread emails found in the selected date range.
+                          No
+                          {includeRead ? " emails" : " unread emails"} found in
+                          the selected date range.
                         </div>
                       )}
                     </div>
@@ -183,7 +223,11 @@ export function BulkRunRules() {
 // fetch batches of messages and add them to the ai queue
 async function onRun(
   emailAccountId: string,
-  { startDate, endDate }: { startDate: Date; endDate?: Date },
+  {
+    startDate,
+    endDate,
+    includeRead,
+  }: { startDate: Date; endDate?: Date; includeRead: boolean },
   onThreadsQueued: (threadIds: string[]) => void,
   onComplete: (
     status: "success" | "error" | "cancelled",
@@ -207,7 +251,7 @@ async function onRun(
         limit: LIMIT,
         after: startDate,
         ...(endDate ? { before: endDate } : {}),
-        isUnread: true,
+        ...(includeRead ? {} : { isUnread: true }),
         ...(nextPageToken ? { nextPageToken } : {}),
       };
 
