@@ -5,7 +5,7 @@ import { fetchAndCheckIsAdmin } from "@/utils/organizations/access";
 import { Prisma } from "@/generated/prisma/client";
 import { type OrgStatsParams, orgStatsParams } from "../types";
 
-export const RULES_BUCKETS = [
+const RULES_BUCKETS = [
   { min: 500, label: "500+" },
   { min: 200, max: 499, label: "200-499" },
   { min: 100, max: 199, label: "100-199" },
