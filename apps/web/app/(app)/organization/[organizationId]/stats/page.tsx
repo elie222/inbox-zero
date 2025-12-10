@@ -1,8 +1,8 @@
-import { Members } from "@/app/(app)/organization/[organizationId]/Members";
-import { OrganizationTabs } from "@/app/(app)/organization/[organizationId]/OrganizationTabs";
 import { PageWrapper } from "@/components/PageWrapper";
+import { OrgStats } from "@/app/(app)/organization/[organizationId]/stats/OrgStats";
+import { OrganizationTabs } from "@/app/(app)/organization/[organizationId]/OrganizationTabs";
 
-export default async function MembersPage({
+export default async function OrgStatsPage({
   params,
 }: {
   params: Promise<{ organizationId: string }>;
@@ -14,7 +14,7 @@ export default async function MembersPage({
       <OrganizationTabs organizationId={organizationId} />
 
       <div className="mt-6">
-        <Members organizationId={organizationId} />
+        <OrgStats organizationId={organizationId} />
       </div>
     </PageWrapper>
   );
