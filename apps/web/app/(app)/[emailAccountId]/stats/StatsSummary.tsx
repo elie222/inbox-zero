@@ -4,10 +4,8 @@ import type { DateRange } from "react-day-picker";
 import { useOrgSWR } from "@/hooks/useOrgSWR";
 import { LoadingContent } from "@/components/LoadingContent";
 import { Skeleton } from "@/components/ui/skeleton";
-import type {
-  StatsByWeekParams,
-  StatsByWeekResponse,
-} from "@/app/api/user/stats/by-period/route";
+import type { StatsByPeriodQuery } from "@/app/api/user/stats/by-period/validation";
+import type { StatsByPeriodResponse } from "@/app/api/user/stats/by-period/controller";
 import { getDateRangeParams } from "./params";
 import { MainStatChart } from "@/app/(app)/[emailAccountId]/stats/MainStatChart";
 
@@ -18,13 +16,13 @@ export function StatsSummary(props: {
 }) {
   const { dateRange, period } = props;
 
-  const params: StatsByWeekParams = {
+  const params: StatsByPeriodQuery = {
     period,
     ...getDateRangeParams(dateRange),
   };
 
   const { data, isLoading, error } = useOrgSWR<
-    StatsByWeekResponse,
+    StatsByPeriodResponse,
     { error: string }
   >(
     `/api/user/stats/by-period?${new URLSearchParams(
