@@ -138,7 +138,7 @@ function selectModel(
         backupModel: getBackupModel(aiApiKey),
       };
     }
-    case Provider.OLLAMA: {
+    case "ollama": {
       const modelName = env.OLLAMA_MODEL;
       const provider = Provider.OLLAMA;
       if (!modelName)
