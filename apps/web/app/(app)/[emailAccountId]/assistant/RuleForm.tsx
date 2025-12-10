@@ -94,7 +94,7 @@ function getConditionSectionTitle(
   if (systemType === SystemType.ACTIONED) {
     return "When an email thread is resolved";
   }
-  return "When an email is received";
+  return "When";
 }
 
 function getConditionSectionDescription(
