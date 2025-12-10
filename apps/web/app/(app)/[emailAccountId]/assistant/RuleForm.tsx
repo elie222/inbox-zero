@@ -79,24 +79,6 @@ import { ActionSteps } from "@/app/(app)/[emailAccountId]/assistant/ActionSteps"
 import { RuleStep } from "@/app/(app)/[emailAccountId]/assistant/RuleStep";
 import { Card } from "@/components/ui/card";
 
-function getConditionSectionTitle(
-  systemType: SystemType | null | undefined,
-): string {
-  if (systemType === SystemType.TO_REPLY) {
-    return "When an email needs a reply";
-  }
-  if (systemType === SystemType.FYI) {
-    return "When an email is important";
-  }
-  if (systemType === SystemType.AWAITING_REPLY) {
-    return "When an email is expecting a reply";
-  }
-  if (systemType === SystemType.ACTIONED) {
-    return "When an email thread is resolved";
-  }
-  return "When";
-}
-
 function getConditionSectionDescription(
   systemType: SystemType | null | undefined,
 ): string {
@@ -449,7 +431,7 @@ export function RuleForm({
           icon={MailIcon}
           iconBg="bg-blue-100 dark:bg-blue-900/30"
           iconColor="text-blue-600 dark:text-blue-400"
-          title={getConditionSectionTitle(rule.systemType)}
+          title="When"
           description={getConditionSectionDescription(rule.systemType)}
           headerActions={undefined}
           errors={
