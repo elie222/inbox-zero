@@ -208,6 +208,17 @@ export async function draftEmail(
     },
   }));
 
+  // Get the original message's isRead status before creating the draft
+  // Microsoft Graph's createReplyAll automatically marks the original as read
+  const originalMessage: Message = await withOutlookRetry(() =>
+    client
+      .getClient()
+      .api(`/me/messages/${originalEmail.id}`)
+      .select("isRead")
+      .get(),
+  );
+  const wasUnread = originalMessage.isRead === false;
+
   // Use createReplyAll endpoint to create a proper reply draft
   // This ensures the draft is linked to the original message as a reply all
   const replyDraft: Message = await withOutlookRetry(() =>
@@ -237,6 +248,17 @@ export async function draftEmail(
       ...(ccRecipients.length > 0 ? { ccRecipients } : {}),
     }),
   );
+
+  // Restore the original message's unread status if it was unread before
+  // createReplyAll automatically marks the original message as read
+  if (wasUnread) {
+    await withOutlookRetry(() =>
+      client
+        .getClient()
+        .api(`/me/messages/${originalEmail.id}`)
+        .patch({ isRead: false }),
+    );
+  }
 
   // Use the original replyDraft.id since that's the stable ID
   // The PATCH response might not always include the full object?
