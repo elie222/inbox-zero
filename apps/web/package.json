@@ -18,6 +18,7 @@
   "dependencies": {
     "@ai-sdk/amazon-bedrock": "3.0.67",
     "@ai-sdk/anthropic": "2.0.53",
+    "@ai-sdk/azure": "2.0.82",
     "@ai-sdk/gateway": "2.0.18",
     "@ai-sdk/google": "2.0.44",
     "@ai-sdk/groq": "2.0.32",

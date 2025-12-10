@@ -12,6 +12,7 @@ export const Provider = {
   GROQ: "groq",
   OPENROUTER: "openrouter",
   AI_GATEWAY: "aigateway",
+  AZURE: "azure",
   ...(supportsOllama ? { OLLAMA: "ollama" } : {}),
 };
 
