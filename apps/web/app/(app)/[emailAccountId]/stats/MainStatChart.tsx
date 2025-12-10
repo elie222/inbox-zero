@@ -4,7 +4,7 @@ import * as React from "react";
 import { parse, format } from "date-fns";
 import { Card, CardContent } from "@/components/ui/card";
 import type { ChartConfig } from "@/components/ui/chart";
-import type { StatsByWeekResponse } from "@/app/api/user/stats/by-period/route";
+import type { StatsByPeriodResponse } from "@/app/api/user/stats/by-period/controller";
 import { BarChart } from "@/app/(app)/[emailAccountId]/stats/BarChart";
 import { COLORS } from "@/utils/colors";
 
@@ -26,7 +26,7 @@ function getActiveChart(activChart: keyof typeof chartConfig): string[] {
 }
 
 export function MainStatChart(props: {
-  data: StatsByWeekResponse;
+  data: StatsByPeriodResponse;
   period: "day" | "week" | "month" | "year";
 }) {
   const [activeChart, setActiveChart] =
