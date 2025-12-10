@@ -13,10 +13,8 @@ import { BarChart } from "./BarChart";
 import type { ChartConfig } from "@/components/ui/chart";
 import { COLORS } from "@/utils/colors";
 import { cn } from "@/utils";
-import type {
-  GetResponseTimeResponse,
-  ResponseTimeParams,
-} from "@/app/api/user/stats/response-time/route";
+import type { ResponseTimeQuery } from "@/app/api/user/stats/response-time/validation";
+import type { ResponseTimeResponse } from "@/app/api/user/stats/response-time/controller";
 import { isDefined } from "@/utils/types";
 import { pluralize } from "@/utils/string";
 
@@ -29,9 +27,9 @@ export function ResponseTimeAnalytics({
   dateRange,
   refreshInterval,
 }: ResponseTimeAnalyticsProps) {
-  const params: ResponseTimeParams = getDateRangeParams(dateRange);
+  const params: ResponseTimeQuery = getDateRangeParams(dateRange);
 
-  const { data, isLoading, error } = useOrgSWR<GetResponseTimeResponse>(
+  const { data, isLoading, error } = useOrgSWR<ResponseTimeResponse>(
     `/api/user/stats/response-time?${new URLSearchParams(params as Record<string, string>)}`,
     { refreshInterval },
   );
