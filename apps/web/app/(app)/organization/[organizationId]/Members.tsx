@@ -26,7 +26,6 @@ import {
   BarChart3,
   BarChartIcon,
   XIcon,
-  PieChartIcon,
 } from "lucide-react";
 import { InviteMemberModal } from "@/components/InviteMemberModal";
 import {
@@ -115,18 +114,10 @@ export function Members({ organizationId }: { organizationId: string }) {
       <div>
         <div className="flex justify-between items-center">
           <TypographyH3>Members ({data?.members.length || 0})</TypographyH3>
-          <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" asChild>
-              <Link href={`/organization/${organizationId}/stats`}>
-                <PieChartIcon className="mr-2 size-4" />
-                Analytics
-              </Link>
-            </Button>
-            <InviteMemberModal
-              organizationId={organizationId}
-              onSuccess={mutate}
-            />
-          </div>
+          <InviteMemberModal
+            organizationId={organizationId}
+            onSuccess={mutate}
+          />
         </div>
 
         <div className="space-y-4 mt-4">
