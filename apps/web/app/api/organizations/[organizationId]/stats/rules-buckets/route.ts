@@ -3,7 +3,7 @@ import prisma from "@/utils/prisma";
 import { withAuth } from "@/utils/middleware";
 import { fetchAndCheckIsAdmin } from "@/utils/organizations/access";
 import { Prisma } from "@/generated/prisma/client";
-import { orgStatsParams, type GetOrgStatsOptions } from "../types";
+import { type OrgStatsParams, orgStatsParams } from "../types";
 
 export const RULES_BUCKETS = [
   { min: 500, label: "500+" },
@@ -45,7 +45,7 @@ async function getExecutedRulesBuckets({
   organizationId,
   fromDate,
   toDate,
-}: GetOrgStatsOptions) {
+}: OrgStatsParams & { organizationId: string }) {
   // Get executed rules count per member
   type MemberRulesCount = { emailAccountId: string; rules_count: bigint };
 

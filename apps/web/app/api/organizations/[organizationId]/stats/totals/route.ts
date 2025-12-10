@@ -3,7 +3,7 @@ import prisma from "@/utils/prisma";
 import { withAuth } from "@/utils/middleware";
 import { fetchAndCheckIsAdmin } from "@/utils/organizations/access";
 import { Prisma } from "@/generated/prisma/client";
-import { orgStatsParams, type GetOrgStatsOptions } from "../types";
+import { type OrgStatsParams, orgStatsParams } from "../types";
 
 export type OrgTotalsResponse = Awaited<ReturnType<typeof getTotals>>;
 
@@ -35,7 +35,7 @@ async function getTotals({
   organizationId,
   fromDate,
   toDate,
-}: GetOrgStatsOptions) {
+}: OrgStatsParams & { organizationId: string }) {
   type TotalsResult = {
     total_emails: bigint;
     total_rules: bigint;

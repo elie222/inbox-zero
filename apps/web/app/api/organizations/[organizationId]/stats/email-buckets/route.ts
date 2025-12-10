@@ -3,7 +3,7 @@ import prisma from "@/utils/prisma";
 import { withAuth } from "@/utils/middleware";
 import { fetchAndCheckIsAdmin } from "@/utils/organizations/access";
 import { Prisma } from "@/generated/prisma/client";
-import { orgStatsParams, type GetOrgStatsOptions } from "../types";
+import { type OrgStatsParams, orgStatsParams } from "../types";
 
 const EMAIL_BUCKETS = [
   { min: 500, label: "500+" },
@@ -45,7 +45,7 @@ async function getEmailVolumeBuckets({
   organizationId,
   fromDate,
   toDate,
-}: GetOrgStatsOptions) {
+}: OrgStatsParams & { organizationId: string }) {
   // Get email count per member using raw SQL for efficiency
   type MemberEmailCount = { emailAccountId: string; email_count: bigint };
 

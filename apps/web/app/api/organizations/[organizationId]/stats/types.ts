@@ -5,9 +5,3 @@ export const orgStatsParams = z.object({
   toDate: z.coerce.number().nullish(),
 });
 export type OrgStatsParams = z.infer<typeof orgStatsParams>;
-
-export interface GetOrgStatsOptions {
-  organizationId: string;
-  fromDate?: number;
-  toDate?: number;
-}
