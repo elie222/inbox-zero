@@ -94,7 +94,7 @@ function CardLayoutRight({
   className?: string;
 }) {
   return (
-    <div className={cn("space-y-4 mx-auto w-full", className)}>{children}</div>
+    <div className={cn("space-y-2 mx-auto w-full", className)}>{children}</div>
   );
 }
 
