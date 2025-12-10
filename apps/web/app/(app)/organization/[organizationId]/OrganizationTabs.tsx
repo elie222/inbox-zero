@@ -3,17 +3,21 @@
 import { usePathname } from "next/navigation";
 import { TabSelect } from "@/components/TabSelect";
 import { PageHeading } from "@/components/Typography";
+import { LoadingContent } from "@/components/LoadingContent";
+import { Skeleton } from "@/components/ui/skeleton";
+import { useOrganization } from "@/hooks/useOrganization";
 
 interface OrganizationTabsProps {
   organizationId: string;
-  organizationName?: string;
 }
 
-export function OrganizationTabs({
-  organizationId,
-  organizationName,
-}: OrganizationTabsProps) {
+export function OrganizationTabs({ organizationId }: OrganizationTabsProps) {
   const pathname = usePathname();
+  const {
+    data: organization,
+    isLoading,
+    error,
+  } = useOrganization(organizationId);
 
   const tabs = [
     {
@@ -33,9 +37,15 @@ export function OrganizationTabs({
 
   return (
     <div>
-      {organizationName && (
-        <PageHeading className="mb-2">{organizationName}</PageHeading>
-      )}
+      <LoadingContent
+        loading={isLoading}
+        error={error}
+        loadingComponent={<Skeleton className="mb-2 h-8 w-48" />}
+      >
+        {organization?.name && (
+          <PageHeading className="mb-2">{organization.name}</PageHeading>
+        )}
+      </LoadingContent>
       <div className="border-b border-neutral-200">
         <TabSelect options={tabs} selected={selected} />
       </div>
