@@ -1,5 +1,3 @@
-import { env } from "@/env";
-
 export const DEFAULT_PROVIDER = "DEFAULT";
 
 export const Provider = {
@@ -10,7 +8,7 @@ export const Provider = {
   GROQ: "groq",
   OPENROUTER: "openrouter",
   AI_GATEWAY: "aigateway",
-  ...(env.OLLAMA_MODEL ? { OLLAMA: "ollama" } : {}),
+  OLLAMA: "ollama",
 };
 
 export const providerOptions: { label: string; value: string }[] = [

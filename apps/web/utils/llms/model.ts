@@ -140,12 +140,10 @@ function selectModel(
     }
     case "ollama": {
       const modelName = env.OLLAMA_MODEL;
-      const provider = Provider.OLLAMA;
       if (!modelName)
         throw new Error("OLLAMA_MODEL environment variable is not set");
-      if (!provider) throw new Error("Provider.OLLAMA is not defined");
       return {
-        provider,
+        provider: Provider.OLLAMA,
         modelName,
         model: createOllama({ baseURL: env.OLLAMA_BASE_URL })(modelName),
         backupModel: null,
@@ -344,7 +342,7 @@ function getProviderApiKey(provider: string) {
     [Provider.GROQ]: env.GROQ_API_KEY,
     [Provider.OPENROUTER]: env.OPENROUTER_API_KEY,
     [Provider.AI_GATEWAY]: env.AI_GATEWAY_API_KEY,
-    ...(Provider.OLLAMA ? { [Provider.OLLAMA]: "ollama-local" } : {}),
+    [Provider.OLLAMA]: "ollama-local",
   };
 
   return providerApiKeys[provider];
