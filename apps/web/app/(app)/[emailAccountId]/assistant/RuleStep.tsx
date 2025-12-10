@@ -1,24 +1,80 @@
 import { Button } from "@/components/ui/button";
-import { TrashIcon } from "lucide-react";
+import {
+  TrashIcon,
+  MoreHorizontalIcon,
+  ClockIcon,
+  SparklesIcon,
+} from "lucide-react";
 import { cn } from "@/utils";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 function RemoveButton({
   onClick,
   ariaLabel,
+  onAddDelay,
+  onRemoveDelay,
+  hasDelay,
+  onUsePrompt,
+  onUseLabel,
+  isPromptMode,
 }: {
   onClick: () => void;
   ariaLabel: string;
+  onAddDelay?: () => void;
+  onRemoveDelay?: () => void;
+  hasDelay?: boolean;
+  onUsePrompt?: () => void;
+  onUseLabel?: () => void;
+  isPromptMode?: boolean;
 }) {
   return (
-    <Button
-      size="icon"
-      variant="ghost"
-      className="size-8 mt-1"
-      onClick={onClick}
-      aria-label={ariaLabel}
-    >
-      <TrashIcon className="size-4 text-muted-foreground" />
-    </Button>
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button
+          size="icon"
+          variant="ghost"
+          className="size-8 mt-1"
+          aria-label={ariaLabel}
+        >
+          <MoreHorizontalIcon className="size-4 text-muted-foreground" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
+        {onUsePrompt && !isPromptMode && (
+          <DropdownMenuItem onClick={onUsePrompt}>
+            <SparklesIcon className="mr-2 size-4" />
+            Use prompt
+          </DropdownMenuItem>
+        )}
+        {onUseLabel && isPromptMode && (
+          <DropdownMenuItem onClick={onUseLabel}>
+            <SparklesIcon className="mr-2 size-4" />
+            Use label
+          </DropdownMenuItem>
+        )}
+        {onAddDelay && !hasDelay && (
+          <DropdownMenuItem onClick={onAddDelay}>
+            <ClockIcon className="mr-2 size-4" />
+            Add delay
+          </DropdownMenuItem>
+        )}
+        {onRemoveDelay && hasDelay && (
+          <DropdownMenuItem onClick={onRemoveDelay}>
+            <ClockIcon className="mr-2 size-4" />
+            Remove delay
+          </DropdownMenuItem>
+        )}
+        <DropdownMenuItem onClick={onClick}>
+          <TrashIcon className="mr-2 size-4" />
+          Delete
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }
 
@@ -47,19 +103,40 @@ export function RuleStep({
   leftContent,
   rightContent,
   removeAriaLabel,
+  onAddDelay,
+  onRemoveDelay,
+  hasDelay,
+  onUsePrompt,
+  onUseLabel,
+  isPromptMode,
 }: {
   onRemove: () => void;
-  leftContent: React.ReactNode;
+  leftContent: React.ReactNode | null;
   rightContent: React.ReactNode;
   removeAriaLabel: string;
+  onAddDelay?: () => void;
+  onRemoveDelay?: () => void;
+  hasDelay?: boolean;
+  onUsePrompt?: () => void;
+  onUseLabel?: () => void;
+  isPromptMode?: boolean;
 }) {
   return (
     <div className="flex items-start gap-3">
       <div className="relative flex-1">
         <CardLayout>
-          <CardLayoutLeft>{leftContent}</CardLayoutLeft>
+          {leftContent && <CardLayoutLeft>{leftContent}</CardLayoutLeft>}
           <CardLayoutRight>{rightContent}</CardLayoutRight>
-          <RemoveButton onClick={onRemove} ariaLabel={removeAriaLabel} />
+          <RemoveButton
+            onClick={onRemove}
+            ariaLabel={removeAriaLabel}
+            onAddDelay={onAddDelay}
+            onRemoveDelay={onRemoveDelay}
+            hasDelay={hasDelay}
+            onUsePrompt={onUsePrompt}
+            onUseLabel={onUseLabel}
+            isPromptMode={isPromptMode}
+          />
         </CardLayout>
       </div>
     </div>

@@ -771,10 +771,6 @@ export function ActionCard({
         );
         const SelectedIcon = selectedOption?.icon;
 
-        const isLabelAction = field.value === ActionType.LABEL;
-        const labelIdValue = watch(`actions.${index}.labelId`);
-        const isAiGenerated = !!labelIdValue?.ai;
-
         return (
           <FormItem>
             <div className="flex items-center gap-2">
@@ -806,11 +802,6 @@ export function ActionCard({
                   })}
                 </SelectContent>
               </Select>
-              {isLabelAction && (
-                <p className="text-muted-foreground whitespace-nowrap">
-                  {isAiGenerated ? "using" : "as"}
-                </p>
-              )}
             </div>
           </FormItem>
         );
@@ -855,25 +846,6 @@ export function ActionCard({
           {field.name === "labelId" && actionType === ActionType.LABEL ? (
             <div>
               <div className="flex items-center gap-2">
-                <Select
-                  value={isAiGenerated ? "prompt" : "label"}
-                  onValueChange={(value) => {
-                    setValue(`actions.${index}.labelId`, {
-                      value: "",
-                      ai: value === "prompt",
-                    });
-                  }}
-                >
-                  <FormControl>
-                    <SelectTrigger className="w-[100px]">
-                      <SelectValue />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    <SelectItem value="label">Label</SelectItem>
-                    <SelectItem value="prompt">Prompt</SelectItem>
-                  </SelectContent>
-                </Select>
                 {isAiGenerated ? (
                   <div className="relative flex-1 min-w-[200px]">
                     <Input
@@ -915,64 +887,17 @@ export function ActionCard({
                 )}
                 {actionCanBeDelayed &&
                   actionType === ActionType.LABEL &&
-                  !delayEnabled && (
-                    <Select
-                      value="immediately"
-                      onValueChange={(value) => {
-                        if (value === "after") {
-                          setValue(`actions.${index}.delayInMinutes`, 60, {
-                            shouldValidate: true,
-                          });
-                        } else {
-                          setValue(`actions.${index}.delayInMinutes`, null, {
-                            shouldValidate: true,
-                          });
-                        }
-                      }}
-                    >
-                      <SelectTrigger className="w-[140px]">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="immediately">Immediately</SelectItem>
-                        <SelectItem value="after">After</SelectItem>
-                      </SelectContent>
-                    </Select>
+                  delayEnabled && (
+                    <>
+                      <span className="text-muted-foreground">after</span>
+                      <DelayInputControls
+                        index={index}
+                        delayInMinutes={delayValue}
+                        setValue={setValue}
+                      />
+                    </>
                   )}
               </div>
-              {actionCanBeDelayed &&
-                actionType === ActionType.LABEL &&
-                delayEnabled && (
-                  <div className="flex items-center gap-2 mt-2">
-                    <Select
-                      value="after"
-                      onValueChange={(value) => {
-                        if (value === "after") {
-                          setValue(`actions.${index}.delayInMinutes`, 60, {
-                            shouldValidate: true,
-                          });
-                        } else {
-                          setValue(`actions.${index}.delayInMinutes`, null, {
-                            shouldValidate: true,
-                          });
-                        }
-                      }}
-                    >
-                      <SelectTrigger className="w-[140px]">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="immediately">Immediately</SelectItem>
-                        <SelectItem value="after">After</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <DelayInputControls
-                      index={index}
-                      delayInMinutes={delayValue}
-                      setValue={setValue}
-                    />
-                  </div>
-                )}
             </div>
           ) : field.name === "folderName" &&
             actionType === ActionType.MOVE_FOLDER ? (
@@ -1153,97 +1078,27 @@ export function ActionCard({
   );
 
   const delayControls =
-    actionCanBeDelayed && actionType !== ActionType.LABEL ? (
-      <div className="">
-        {actionType === ActionType.ARCHIVE ||
-        actionType === ActionType.MARK_READ ? (
-          <div className="space-y-2">
-            <div className="flex items-center space-x-2">
-              <Select
-                value={delayEnabled ? "after" : "immediately"}
-                onValueChange={(value) => {
-                  if (value === "after") {
-                    setValue(`actions.${index}.delayInMinutes`, 60, {
-                      shouldValidate: true,
-                    });
-                  } else {
-                    setValue(`actions.${index}.delayInMinutes`, null, {
-                      shouldValidate: true,
-                    });
-                  }
-                }}
-              >
-                <SelectTrigger className="w-[140px]">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="immediately">Immediately</SelectItem>
-                  <SelectItem value="after">After</SelectItem>
-                </SelectContent>
-              </Select>
-              {delayEnabled && (
-                <DelayInputControls
-                  index={index}
-                  delayInMinutes={delayValue}
-                  setValue={setValue}
-                />
-              )}
-            </div>
+    actionCanBeDelayed && actionType !== ActionType.LABEL && delayEnabled ? (
+      <div className="space-y-2">
+        <div className="flex items-center space-x-2">
+          <span className="text-muted-foreground">after</span>
+          <DelayInputControls
+            index={index}
+            delayInMinutes={delayValue}
+            setValue={setValue}
+          />
+        </div>
 
-            {errors?.actions?.[index]?.delayInMinutes && (
-              <div className="mt-2">
-                <ErrorMessage
-                  message={
-                    errors.actions?.[index]?.delayInMinutes?.message ||
-                    "Invalid delay value"
-                  }
-                />
-              </div>
-            )}
-          </div>
-        ) : (
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-2">
-              <Toggle
-                name={`actions.${index}.delayEnabled`}
-                labelRight="Delay"
-                enabled={delayEnabled}
-                onChange={(enabled: boolean) => {
-                  const newValue = enabled ? 60 : null;
-                  setValue(`actions.${index}.delayInMinutes`, newValue, {
-                    shouldValidate: true,
-                  });
-                }}
-              />
-              <TooltipExplanation
-                text="Delay this action to run later. Perfect for auto-archiving newsletters after you've had time to read them, or cleaning up notifications after a few days."
-                side="right"
-                className="text-gray-400"
-              />
-            </div>
-
-            {delayEnabled && (
-              <DelayInputControls
-                index={index}
-                delayInMinutes={delayValue}
-                setValue={setValue}
-              />
-            )}
+        {errors?.actions?.[index]?.delayInMinutes && (
+          <div className="mt-2">
+            <ErrorMessage
+              message={
+                errors.actions?.[index]?.delayInMinutes?.message ||
+                "Invalid delay value"
+              }
+            />
           </div>
         )}
-
-        {actionType !== ActionType.ARCHIVE &&
-          actionType !== ActionType.MARK_READ &&
-          errors?.actions?.[index]?.delayInMinutes && (
-            <div className="mt-2">
-              <ErrorMessage
-                message={
-                  errors.actions?.[index]?.delayInMinutes?.message ||
-                  "Invalid delay value"
-                }
-              />
-            </div>
-          )}
       </div>
     ) : null;
 
@@ -1265,12 +1120,48 @@ export function ActionCard({
     </>
   );
 
+  const handleAddDelay = useCallback(() => {
+    setValue(`actions.${index}.delayInMinutes`, 60, {
+      shouldValidate: true,
+    });
+  }, [index, setValue]);
+
+  const handleRemoveDelay = useCallback(() => {
+    setValue(`actions.${index}.delayInMinutes`, null, {
+      shouldValidate: true,
+    });
+  }, [index, setValue]);
+
+  const handleUsePrompt = useCallback(() => {
+    setValue(`actions.${index}.labelId`, {
+      value: "",
+      ai: true,
+    });
+  }, [index, setValue]);
+
+  const handleUseLabel = useCallback(() => {
+    setValue(`actions.${index}.labelId`, {
+      value: "",
+      ai: false,
+    });
+  }, [index, setValue]);
+
+  const isLabelAction = actionType === ActionType.LABEL;
+  const labelIdValue = watch(`actions.${index}.labelId`);
+  const isPromptMode = !!labelIdValue?.ai;
+
   return (
     <RuleStep
       onRemove={() => remove(index)}
       removeAriaLabel="Remove action"
       leftContent={leftContent}
       rightContent={rightContent}
+      onAddDelay={actionCanBeDelayed ? handleAddDelay : undefined}
+      onRemoveDelay={actionCanBeDelayed ? handleRemoveDelay : undefined}
+      hasDelay={delayEnabled}
+      onUsePrompt={isLabelAction ? handleUsePrompt : undefined}
+      onUseLabel={isLabelAction ? handleUseLabel : undefined}
+      isPromptMode={isPromptMode}
     />
   );
 }
