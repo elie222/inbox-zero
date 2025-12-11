@@ -120,20 +120,15 @@ export function getEmptyCondition(type: CoreConditionType): ZodCondition {
       return {
         type: ConditionType.AI,
         instructions: "",
-        from: null,
-        to: null,
-        subject: null,
-        body: null,
       };
     case ConditionType.STATIC:
       // Default to "from" field for new STATIC conditions
       return {
         type: ConditionType.STATIC,
-        from: "",
+        from: null,
         to: null,
         subject: null,
         body: null,
-        instructions: null,
       };
     default:
       // biome-ignore lint/correctness/noSwitchDeclarations: intentional exhaustive check
