@@ -74,13 +74,12 @@ type NavItem = {
 };
 
 export const useNavigation = () => {
-  // When we have features in early access, we can filter the navigation items
   const showCleaner = useCleanerEnabled();
   const showMeetingBriefs = useMeetingBriefsEnabled();
+
   const { emailAccountId, emailAccount, provider } = useAccount();
   const currentEmailAccountId = emailAccount?.id || emailAccountId;
 
-  // Assistant category items
   const navItems: NavItem[] = useMemo(
     () => [
       {
