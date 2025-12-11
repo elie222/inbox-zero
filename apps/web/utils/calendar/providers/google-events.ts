@@ -75,22 +75,22 @@ export class GoogleCalendarEventProvider implements CalendarEventProvider {
       }));
   }
 
-  async fetchUpcomingEvents({
-    timeMin,
+  async fetchEvents({
+    timeMin = new Date(),
     timeMax,
     maxResults,
   }: {
-    timeMin: Date;
-    timeMax: Date;
-    maxResults: number;
+    timeMin?: Date;
+    timeMax?: Date;
+    maxResults?: number;
   }): Promise<CalendarEvent[]> {
     const client = await this.getClient();
 
     const response = await client.events.list({
       calendarId: "primary",
-      timeMin: timeMin.toISOString(),
-      timeMax: timeMax.toISOString(),
-      maxResults,
+      timeMin: timeMin?.toISOString(),
+      timeMax: timeMax?.toISOString(),
+      maxResults: maxResults || 10,
       singleEvents: true,
       orderBy: "startTime",
     });

@@ -87,23 +87,26 @@ export class MicrosoftCalendarEventProvider implements CalendarEventProvider {
       }));
   }
 
-  async fetchUpcomingEvents({
-    timeMin,
+  async fetchEvents({
+    timeMin = new Date(),
     timeMax,
     maxResults,
   }: {
-    timeMin: Date;
-    timeMax: Date;
-    maxResults: number;
+    timeMin?: Date;
+    timeMax?: Date;
+    maxResults?: number;
   }): Promise<CalendarEvent[]> {
     const client = await this.getClient();
 
+    const filterParts = [
+      timeMin ? `start/dateTime ge '${timeMin.toISOString()}'` : "",
+      timeMax ? `end/dateTime le '${timeMax.toISOString()}'` : "",
+    ].filter(Boolean);
+
     const response = await client
       .api("/me/calendar/events")
-      .filter(
-        `start/dateTime ge '${timeMin.toISOString()}' and end/dateTime le '${timeMax.toISOString()}'`,
-      )
-      .top(maxResults)
+      .filter(filterParts.join(" and "))
+      .top(maxResults || 100)
       .orderby("start/dateTime")
       .get();
 
