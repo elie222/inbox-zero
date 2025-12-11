@@ -80,7 +80,7 @@ export const useNavigation = () => {
   const navItems: NavItem[] = useMemo(
     () => [
       {
-        name: "Home",
+        name: "Dashboard",
         href: prefixPath(currentEmailAccountId, "/setup"),
         icon: HomeIcon,
       },
