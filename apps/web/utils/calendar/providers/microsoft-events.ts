@@ -86,4 +86,51 @@ export class MicrosoftCalendarEventProvider implements CalendarEventProvider {
           ) || [],
       }));
   }
+
+  async fetchUpcomingEvents({
+    timeMin,
+    timeMax,
+    maxResults,
+  }: {
+    timeMin: Date;
+    timeMax: Date;
+    maxResults: number;
+  }): Promise<CalendarEvent[]> {
+    const client = await this.getClient();
+
+    const response = await client
+      .api("/me/calendar/events")
+      .filter(
+        `start/dateTime ge '${timeMin.toISOString()}' and end/dateTime le '${timeMax.toISOString()}'`,
+      )
+      .top(maxResults)
+      .orderby("start/dateTime")
+      .get();
+
+    const events = response.value || [];
+
+    type MicrosoftEvent = {
+      id?: string;
+      subject?: string;
+      start?: { dateTime?: string };
+      end?: { dateTime?: string };
+      attendees?: Array<{
+        emailAddress?: { address?: string; name?: string };
+      }>;
+    };
+
+    return events.map((event: MicrosoftEvent) => ({
+      id: event.id || "",
+      title: event.subject || "Untitled",
+      startTime: new Date(event.start?.dateTime || Date.now()),
+      endTime: new Date(event.end?.dateTime || Date.now()),
+      attendees:
+        event.attendees?.map(
+          (a: { emailAddress?: { address?: string; name?: string } }) => ({
+            email: a.emailAddress?.address || "",
+            name: a.emailAddress?.name ?? undefined,
+          }),
+        ) || [],
+    }));
+  }
 }

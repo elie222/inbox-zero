@@ -142,39 +142,38 @@ export default function MeetingBriefsPage() {
               </div>
             </LoadingContent>
 
-            {briefsData?.recentBriefings &&
-              briefsData.recentBriefings.length > 0 && (
-                <div className="mt-8">
-                  <h3 className="text-lg font-medium mb-4">Recent Briefings</h3>
-                  <ItemGroup className="gap-2">
-                    {briefsData.recentBriefings.map((briefing) => (
-                      <Item key={briefing.id} variant="outline">
-                        <ItemContent>
-                          <ItemTitle>{briefing.eventTitle}</ItemTitle>
-                          <ItemDescription>
-                            {briefing.guestCount} guest
-                            {briefing.guestCount !== 1 ? "s" : ""} •{" "}
-                            {formatDistanceToNow(new Date(briefing.createdAt), {
-                              addSuffix: true,
-                            })}
-                          </ItemDescription>
-                        </ItemContent>
-                        <ItemActions>
-                          <span
-                            className={`text-xs px-2 py-1 rounded ${
-                              briefing.status === "SENT"
-                                ? "bg-green-100 text-green-800"
-                                : "bg-red-100 text-red-800"
-                            }`}
-                          >
-                            {briefing.status}
-                          </span>
-                        </ItemActions>
-                      </Item>
-                    ))}
-                  </ItemGroup>
-                </div>
-              )}
+            {!!briefsData?.recentBriefings.length && (
+              <div className="mt-8">
+                <h3 className="text-lg font-medium mb-4">Recent Briefings</h3>
+                <ItemGroup className="gap-2">
+                  {briefsData.recentBriefings.map((briefing) => (
+                    <Item key={briefing.id} variant="outline">
+                      <ItemContent>
+                        <ItemTitle>{briefing.eventTitle}</ItemTitle>
+                        <ItemDescription>
+                          {briefing.guestCount} guest
+                          {briefing.guestCount !== 1 ? "s" : ""} •{" "}
+                          {formatDistanceToNow(new Date(briefing.createdAt), {
+                            addSuffix: true,
+                          })}
+                        </ItemDescription>
+                      </ItemContent>
+                      <ItemActions>
+                        <span
+                          className={`text-xs px-2 py-1 rounded ${
+                            briefing.status === "SENT"
+                              ? "bg-green-100 text-green-800"
+                              : "bg-red-100 text-red-800"
+                          }`}
+                        >
+                          {briefing.status}
+                        </span>
+                      </ItemActions>
+                    </Item>
+                  ))}
+                </ItemGroup>
+              </div>
+            )}
           </>
         )}
       </div>

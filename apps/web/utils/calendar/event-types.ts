@@ -18,4 +18,10 @@ export interface CalendarEventProvider {
     timeMax: Date;
     maxResults: number;
   }): Promise<CalendarEvent[]>;
+
+  fetchUpcomingEvents(options: {
+    timeMin?: Date;
+    timeMax?: Date;
+    maxResults?: number;
+  }): Promise<CalendarEvent[]>;
 }

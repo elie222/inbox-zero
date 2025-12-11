@@ -74,4 +74,41 @@ export class GoogleCalendarEventProvider implements CalendarEventProvider {
           })) || [],
       }));
   }
+
+  async fetchUpcomingEvents({
+    timeMin,
+    timeMax,
+    maxResults,
+  }: {
+    timeMin: Date;
+    timeMax: Date;
+    maxResults: number;
+  }): Promise<CalendarEvent[]> {
+    const client = await this.getClient();
+
+    const response = await client.events.list({
+      calendarId: "primary",
+      timeMin: timeMin.toISOString(),
+      timeMax: timeMax.toISOString(),
+      maxResults,
+      singleEvents: true,
+      orderBy: "startTime",
+    });
+
+    const events = response.data.items || [];
+
+    return events.map((event) => ({
+      id: event.id || "",
+      title: event.summary || "Untitled",
+      startTime: new Date(
+        event.start?.dateTime || event.start?.date || Date.now(),
+      ),
+      endTime: new Date(event.end?.dateTime || event.end?.date || Date.now()),
+      attendees:
+        event.attendees?.map((a) => ({
+          email: a.email || "",
+          name: a.displayName ?? undefined,
+        })) || [],
+    }));
+  }
 }
