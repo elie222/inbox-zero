@@ -154,12 +154,10 @@ export const flattenConditions = (
         acc.instructions = condition.instructions;
         break;
       case ConditionType.STATIC:
-        // Merge fields from multiple STATIC conditions instead of overwriting
-        // Only set fields that have values (not null/empty)
-        if (condition.from) acc.from = condition.from;
-        if (condition.to) acc.to = condition.to;
-        if (condition.subject) acc.subject = condition.subject;
-        if (condition.body) acc.body = condition.body;
+        acc.to = condition.to;
+        acc.from = condition.from;
+        acc.subject = condition.subject;
+        acc.body = condition.body;
         break;
       default:
         logger.warn("Unknown condition type", { condition });
