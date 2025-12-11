@@ -866,6 +866,55 @@ export class OutlookProvider implements EmailProvider {
     });
   }
 
+  async getThreadsWithParticipant(options: {
+    participantEmail: string;
+    maxThreads?: number;
+  }): Promise<EmailThread[]> {
+    const { participantEmail, maxThreads = 5 } = options;
+
+    const escapedEmail = escapeODataString(participantEmail);
+    const filter = `from/emailAddress/address eq '${escapedEmail}' or toRecipients/any(r: r/emailAddress/address eq '${escapedEmail}')`;
+
+    // Query messages to find unique conversationIds
+    const response = await this.client
+      .getClient()
+      .api("/me/messages")
+      .filter(filter)
+      .select("conversationId")
+      .top(maxThreads * 3) // Get more messages to find unique threads
+      .orderby("receivedDateTime desc")
+      .get();
+
+    // Extract unique conversationIds
+    const conversationIds: string[] = [];
+    for (const message of response.value || []) {
+      if (
+        message.conversationId &&
+        !conversationIds.includes(message.conversationId) &&
+        conversationIds.length < maxThreads
+      ) {
+        conversationIds.push(message.conversationId);
+      }
+    }
+
+    if (conversationIds.length === 0) {
+      return [];
+    }
+
+    // Fetch full thread messages for each conversation
+    const threads: EmailThread[] = [];
+    for (const conversationId of conversationIds) {
+      const messages = await this.getThreadMessages(conversationId);
+      threads.push({
+        id: conversationId,
+        messages,
+        snippet: messages[0]?.snippet || "",
+      });
+    }
+
+    return threads;
+  }
+
   async getMessagesByFields(options: {
     froms?: string[];
     tos?: string[];
