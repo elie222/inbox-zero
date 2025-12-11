@@ -7,9 +7,11 @@ export function AddRuleDialog() {
   return (
     <Dialog>
       <DialogTrigger asChild>
-        <Button size="sm" Icon={PlusIcon}>
-          Add Rule
-        </Button>
+        <div className="w-full flex justify-end">
+          <Button size="sm" Icon={PlusIcon}>
+            Add Rule
+          </Button>
+        </div>
       </DialogTrigger>
       <DialogContent className="max-w-5xl">
         <RulesPrompt />
