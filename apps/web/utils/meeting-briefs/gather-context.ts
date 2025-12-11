@@ -1,9 +1,12 @@
 import { createEmailProvider } from "@/utils/email/provider";
 import type { EmailProvider, EmailThread } from "@/utils/email/types";
 import { createScopedLogger } from "@/utils/logger";
-import { getUnifiedEventsWithAttendee } from "@/utils/calendar/unified-events";
-import type { CalendarEvent } from "@/utils/calendar/calendar-types";
-import { getExternalAttendees } from "./fetch-upcoming-events";
+import { createCalendarEventProviders } from "@/utils/calendar/event-provider";
+import type {
+  CalendarEvent,
+  CalendarEventAttendee,
+  CalendarEventProvider,
+} from "@/utils/calendar/event-types";
 
 const logger = createScopedLogger("meeting-briefs/gather-context");
 
@@ -11,6 +14,9 @@ const MAX_THREADS = 10;
 const MAX_MESSAGES_PER_THREAD = 10;
 const MAX_MEETINGS = 10;
 const THREADS_PER_PARTICIPANT = 3;
+const MEETINGS_PER_PARTICIPANT = 3;
+
+export type { CalendarEvent, CalendarEventAttendee };
 
 export interface ExternalGuest {
   email: string;
@@ -22,6 +28,20 @@ export interface MeetingBriefingData {
   externalGuests: ExternalGuest[];
   emailThreads: EmailThread[];
   pastMeetings: CalendarEvent[];
+}
+
+/**
+ * Get external attendees (not from the user's domain)
+ */
+function getExternalAttendees(
+  event: CalendarEvent,
+  userEmail: string,
+): CalendarEventAttendee[] {
+  const userDomain = userEmail.split("@")[1];
+  return event.attendees.filter((attendee) => {
+    const attendeeDomain = attendee.email.split("@")[1];
+    return attendeeDomain !== userDomain && attendee.email !== userEmail;
+  });
 }
 
 export async function gatherContextForEvent({
@@ -44,10 +64,11 @@ export async function gatherContextForEvent({
     guestCount: externalAttendees.length,
   });
 
-  const emailProvider = await createEmailProvider({
-    emailAccountId,
-    provider,
-  });
+  // Create providers once
+  const [emailProvider, calendarProviders] = await Promise.all([
+    createEmailProvider({ emailAccountId, provider }),
+    createCalendarEventProviders(emailAccountId),
+  ]);
 
   // Fetch email threads and past meetings in parallel
   const [emailThreads, pastMeetings] = await Promise.all([
@@ -59,7 +80,7 @@ export async function gatherContextForEvent({
       log,
     }),
     fetchPastMeetingsWithParticipants({
-      emailAccountId,
+      calendarProviders,
       participantEmails,
       maxMeetings: MAX_MEETINGS,
       log,
@@ -137,17 +158,17 @@ async function fetchEmailThreadsWithParticipants({
 }
 
 async function fetchPastMeetingsWithParticipants({
-  emailAccountId,
+  calendarProviders,
   participantEmails,
   maxMeetings,
   log,
 }: {
-  emailAccountId: string;
+  calendarProviders: CalendarEventProvider[];
   participantEmails: string[];
   maxMeetings: number;
   log: ReturnType<typeof logger.with>;
 }): Promise<CalendarEvent[]> {
-  if (participantEmails.length === 0) {
+  if (participantEmails.length === 0 || calendarProviders.length === 0) {
     return [];
   }
 
@@ -156,36 +177,35 @@ async function fetchPastMeetingsWithParticipants({
 
   const fetchedEventIds = new Set<string>();
   const allMeetings: CalendarEvent[] = [];
-  const meetingsPerParticipant = Math.max(
-    1,
-    Math.ceil(maxMeetings / participantEmails.length),
-  );
 
   for (const email of participantEmails) {
     if (allMeetings.length >= maxMeetings) break;
 
-    try {
-      const meetings = await getUnifiedEventsWithAttendee({
-        emailAccountId,
-        attendeeEmail: email,
-        timeMin: sixMonthsAgo,
-        timeMax: new Date(),
-        maxResults: meetingsPerParticipant,
-      });
+    for (const provider of calendarProviders) {
+      if (allMeetings.length >= maxMeetings) break;
 
-      // Add only new meetings (dedupe by event ID)
-      for (const meeting of meetings) {
-        if (allMeetings.length >= maxMeetings) break;
-        if (!fetchedEventIds.has(meeting.id)) {
-          fetchedEventIds.add(meeting.id);
-          allMeetings.push(meeting);
+      try {
+        const events = await provider.fetchEventsWithAttendee({
+          attendeeEmail: email,
+          timeMin: sixMonthsAgo,
+          timeMax: new Date(),
+          maxResults: MEETINGS_PER_PARTICIPANT,
+        });
+
+        // Add only new events (dedupe by event ID)
+        for (const event of events) {
+          if (allMeetings.length >= maxMeetings) break;
+          if (!fetchedEventIds.has(event.id)) {
+            fetchedEventIds.add(event.id);
+            allMeetings.push(event);
+          }
         }
+      } catch (error) {
+        log.error("Failed to fetch events for participant", {
+          participantEmail: email,
+          error,
+        });
       }
-    } catch (error) {
-      log.error("Failed to fetch meetings for participant", {
-        participantEmail: email,
-        error,
-      });
     }
   }
 
