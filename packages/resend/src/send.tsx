@@ -10,6 +10,10 @@ import DigestEmail, {
 import InvitationEmail, {
   type InvitationEmailProps,
 } from "../emails/invitation";
+import MeetingBriefingEmail, {
+  type MeetingBriefingEmailProps,
+  generateMeetingBriefingSubject,
+} from "../emails/meeting-briefing";
 
 const sendEmail = async ({
   from,
@@ -163,6 +167,33 @@ export const sendInvitationEmail = async ({
       {
         name: "category",
         value: "invitation",
+      },
+    ],
+  });
+};
+
+export const sendMeetingBriefingEmail = async ({
+  from,
+  to,
+  test,
+  emailProps,
+}: {
+  from: string;
+  to: string;
+  test?: boolean;
+  emailProps: MeetingBriefingEmailProps;
+}) => {
+  return sendEmail({
+    from,
+    to,
+    subject: generateMeetingBriefingSubject(emailProps),
+    react: <MeetingBriefingEmail {...emailProps} />,
+    test,
+    unsubscribeToken: emailProps.unsubscribeToken,
+    tags: [
+      {
+        name: "category",
+        value: "meeting-briefing",
       },
     ],
   });
