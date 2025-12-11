@@ -31,7 +31,7 @@ vi.mock("@openrouter/ai-sdk-provider", () => ({
   })),
 }));
 
-vi.mock("ollama-ai-provider", () => ({
+vi.mock("ollama-ai-provider-v2", () => ({
   createOllama: vi.fn(() => (model: string) => ({ model })),
 }));
 
@@ -50,8 +50,8 @@ vi.mock("@/env", () => ({
     ANTHROPIC_API_KEY: "test-anthropic-key",
     GROQ_API_KEY: "test-groq-key",
     OPENROUTER_API_KEY: "test-openrouter-key",
-    OLLAMA_BASE_URL: "http://localhost:11434",
-    NEXT_PUBLIC_OLLAMA_MODEL: "llama3",
+    OLLAMA_BASE_URL: "http://localhost:11434/api",
+    OLLAMA_MODEL: "llama3",
     BEDROCK_REGION: "us-west-2",
     BEDROCK_ACCESS_KEY: "",
     BEDROCK_SECRET_KEY: "",
@@ -153,18 +153,23 @@ describe("Models", () => {
       expect(result.model).toBeDefined();
     });
 
-    // it("should configure Ollama model correctly", () => {
-    //   const userAi: UserAIFields = {
-    //     aiApiKey: "user-api-key",
-    //     aiProvider: Provider.OLLAMA!,
-    //     aiModel: "llama3",
-    //   };
+    it("should configure Ollama model correctly via env vars", () => {
+      const userAi: UserAIFields = {
+        aiApiKey: null,
+        aiProvider: null,
+        aiModel: null,
+      };
 
-    //   const result = getModel(userAi);
-    //   expect(result.provider).toBe(Provider.OLLAMA);
-    //   expect(result.modelName).toBe("llama3");
-    //   expect(result.model).toBeDefined();
-    // });
+      vi.mocked(env).DEFAULT_LLM_PROVIDER = "ollama";
+      vi.mocked(env).OLLAMA_MODEL = "llama3";
+      vi.mocked(env).OLLAMA_BASE_URL = "http://localhost:11434/api";
+
+      const result = getModel(userAi);
+      expect(result.provider).toBe(Provider.OLLAMA);
+      expect(result.modelName).toBe("llama3");
+      expect(result.model).toBeDefined();
+      expect(result.backupModel).toBeNull(); // No backup for local Ollama
+    });
 
     it("should configure Anthropic model correctly without Bedrock credentials", () => {
       const userAi: UserAIFields = {

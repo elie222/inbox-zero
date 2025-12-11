@@ -60,7 +60,7 @@ cp apps/web/.env.example apps/web/.env
 | `BEDROCK_REGION` | No | AWS region for Bedrock | `us-west-2` |
 | **Ollama (Local LLM)** ||||
 | `OLLAMA_BASE_URL` | No | Ollama API endpoint (e.g., `http://localhost:11434/api`) | — |
-| `NEXT_PUBLIC_OLLAMA_MODEL` | No | Model to use with Ollama | — |
+| `OLLAMA_MODEL` | No | Model to use with Ollama (e.g., `llama3`) | — |
 | **Background Jobs (QStash)** ||||
 | `QSTASH_TOKEN` | No | QStash API token | — |
 | `QSTASH_CURRENT_SIGNING_KEY` | No | Current signing key for webhooks | — |

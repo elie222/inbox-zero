@@ -1,7 +1,3 @@
-import { env } from "@/env";
-
-export const supportsOllama = !!env.NEXT_PUBLIC_OLLAMA_MODEL;
-
 export const DEFAULT_PROVIDER = "DEFAULT";
 
 export const Provider = {
@@ -12,7 +8,7 @@ export const Provider = {
   GROQ: "groq",
   OPENROUTER: "openrouter",
   AI_GATEWAY: "aigateway",
-  ...(supportsOllama ? { OLLAMA: "ollama" } : {}),
+  OLLAMA: "ollama",
 };
 
 export const providerOptions: { label: string; value: string }[] = [
@@ -23,7 +19,4 @@ export const providerOptions: { label: string; value: string }[] = [
   { label: "Groq", value: Provider.GROQ },
   { label: "OpenRouter", value: Provider.OPENROUTER },
   { label: "AI Gateway", value: Provider.AI_GATEWAY },
-  ...(supportsOllama && Provider.OLLAMA
-    ? [{ label: "Ollama", value: Provider.OLLAMA }]
-    : []),
 ];
