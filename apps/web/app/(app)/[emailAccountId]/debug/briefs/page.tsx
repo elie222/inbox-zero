@@ -60,8 +60,7 @@ export default function BriefsPage() {
                     <ItemTitle>{event.title}</ItemTitle>
                     <ItemDescription>
                       {event.attendees.map((a) => a.email).join(", ")} -{" "}
-                      {new Date(event.startTime).toLocaleString()} -{" "}
-                      {new Date(event.endTime).toLocaleString()}
+                      {new Date(event.startTime).toLocaleString()}
                     </ItemDescription>
                   </ItemContent>
                   <ItemActions>

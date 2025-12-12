@@ -9,8 +9,7 @@ import MeetingBriefingEmail, {
 } from "@inboxzero/resend/emails/meeting-briefing";
 import type { CalendarEvent } from "@/utils/calendar/event-types";
 import type { Logger } from "@/utils/logger";
-
-const FROM_EMAIL = "Inbox Zero <briefs@mail.getinboxzero.com>";
+import { createUnsubscribeToken } from "@/utils/unsubscribe";
 
 export async function sendBriefingEmail({
   event,
@@ -34,6 +33,8 @@ export async function sendBriefingEmail({
   const formattedDate = format(event.startTime, "EEEE, MMMM d");
   const formattedTime = format(event.startTime, "h:mm a");
 
+  const unsubscribeToken = await createUnsubscribeToken({ emailAccountId });
+
   const emailProps: MeetingBriefingEmailProps = {
     baseUrl: env.NEXT_PUBLIC_BASE_URL,
     emailAccountId,
@@ -44,6 +45,7 @@ export async function sendBriefingEmail({
     eventUrl: event.eventUrl ?? "",
     briefingContent,
     guestCount,
+    unsubscribeToken,
   };
 
   // Try Resend first if configured
@@ -51,7 +53,7 @@ export async function sendBriefingEmail({
     log.info("Sending briefing via Resend");
     try {
       await sendMeetingBriefingEmail({
-        from: FROM_EMAIL,
+        from: env.RESEND_FROM_EMAIL,
         to: userEmail,
         emailProps,
       });

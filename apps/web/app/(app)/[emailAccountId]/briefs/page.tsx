@@ -2,6 +2,8 @@
 
 import { useCallback, useState, useEffect } from "react";
 import Link from "next/link";
+import { formatDistanceToNow } from "date-fns";
+import { AlertCircleIcon } from "lucide-react";
 import { PageWrapper } from "@/components/PageWrapper";
 import { PageHeader } from "@/components/PageHeader";
 import { SettingCard } from "@/components/SettingCard";
@@ -13,9 +15,8 @@ import { PremiumAlertWithData, usePremium } from "@/components/PremiumAlert";
 import { useCalendars } from "@/hooks/useCalendars";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { useAction } from "next-safe-action/hooks";
-import { updateMeetingBriefsSettingsAction } from "@/utils/actions/meeting-briefs";
+import { updateMeetingBriefsEnabledAction } from "@/utils/actions/meeting-briefs";
 import { useMeetingBriefs } from "@/hooks/useMeetingBriefs";
-import { AlertCircleIcon } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import {
   Item,
@@ -25,8 +26,7 @@ import {
   ItemActions,
   ItemGroup,
 } from "@/components/ui/item";
-import { formatDistanceToNow } from "date-fns";
-import { SectionDescription } from "@/components/Typography";
+import { TypographyH3 } from "@/components/Typography";
 import { TimeDurationSetting } from "@/app/(app)/[emailAccountId]/briefs/TimeDurationSetting";
 
 export default function MeetingBriefsPage() {
@@ -53,7 +53,7 @@ export default function MeetingBriefsPage() {
   }, [briefsData]);
 
   const { execute, isExecuting } = useAction(
-    updateMeetingBriefsSettingsAction.bind(null, emailAccountId),
+    updateMeetingBriefsEnabledAction.bind(null, emailAccountId),
     {
       onSuccess: () => {
         toastSuccess({ description: "Settings saved!" });
@@ -68,10 +68,9 @@ export default function MeetingBriefsPage() {
   const handleToggle = useCallback(
     (newEnabled: boolean) => {
       setEnabled(newEnabled);
-      const minutesBefore = briefsData?.minutesBefore ?? 240;
-      execute({ enabled: newEnabled, minutesBefore });
+      execute({ enabled: newEnabled });
     },
-    [execute, briefsData?.minutesBefore],
+    [execute],
   );
 
   const isLoading = isLoadingPremium || isLoadingCalendars || isLoadingBriefs;
@@ -79,10 +78,6 @@ export default function MeetingBriefsPage() {
   return (
     <PageWrapper>
       <PageHeader title="Meeting Briefs" />
-      <SectionDescription className="mt-2">
-        Get AI-powered briefings before your meetings with context from past
-        emails and calendar events.
-      </SectionDescription>
 
       <div className="mt-6 space-y-4">
         <PremiumAlertWithData />
@@ -133,7 +128,6 @@ export default function MeetingBriefsPage() {
                     right={
                       <TimeDurationSetting
                         initialMinutes={briefsData?.minutesBefore ?? 240}
-                        enabled={enabled}
                         onSaved={mutate}
                       />
                     }
@@ -144,8 +138,8 @@ export default function MeetingBriefsPage() {
 
             {!!briefsData?.recentBriefings.length && (
               <div className="mt-8">
-                <h3 className="text-lg font-medium mb-4">Recent Briefings</h3>
-                <ItemGroup className="gap-2">
+                <TypographyH3>Recent Briefings</TypographyH3>
+                <ItemGroup className="mt-2">
                   {briefsData.recentBriefings.map((briefing) => (
                     <Item key={briefing.id} variant="outline">
                       <ItemContent>
