@@ -2,10 +2,8 @@ import {
   Body,
   Container,
   Head,
-  Heading,
   Hr,
   Html,
-  Img,
   Link,
   Section,
   Tailwind,
@@ -16,128 +14,123 @@ export type MeetingBriefingEmailProps = {
   baseUrl: string;
   emailAccountId: string;
   meetingTitle: string;
-  formattedDate: string; // e.g., "Friday, March 15"
   formattedTime: string; // e.g., "2:00 PM"
   videoConferenceLink?: string;
   eventUrl: string;
   briefingContent: string;
-  guestCount: number;
   unsubscribeToken: string;
 };
+
+// Helper function to parse content and render with formatting
+function renderFormattedContent(content: string) {
+  const lines = content.split("\n");
+
+  return lines.map((line, index) => {
+    // Check if line contains **bold** markdown
+    const parts: (string | React.ReactElement)[] = [];
+    let lastIndex = 0;
+    const boldRegex = /\*\*(.+?)\*\*/g;
+
+    let match = boldRegex.exec(line);
+    while (match !== null) {
+      // Add text before the match
+      if (match.index > lastIndex) {
+        parts.push(line.substring(lastIndex, match.index));
+      }
+      // Add the bold text
+      parts.push(
+        <strong key={`bold-${index}-${match.index}`}>{match[1]}</strong>,
+      );
+      lastIndex = match.index + match[0].length;
+      match = boldRegex.exec(line);
+    }
+
+    // Add remaining text
+    if (lastIndex < line.length) {
+      parts.push(line.substring(lastIndex));
+    }
+
+    // If no bold formatting was found, just return the line
+    if (parts.length === 0) {
+      parts.push(line);
+    }
+
+    return (
+      <span key={`line-${index}`}>
+        {parts}
+        {index < lines.length - 1 && <br />}
+      </span>
+    );
+  });
+}
 
 export default function MeetingBriefingEmail({
   baseUrl = "https://www.getinboxzero.com",
   emailAccountId,
   meetingTitle,
-  formattedDate,
   formattedTime,
   videoConferenceLink,
   eventUrl,
   briefingContent,
-  guestCount,
 }: MeetingBriefingEmailProps) {
-  // Convert briefing content to bullet points
-  const briefingLines = briefingContent
-    .split("\n")
-    .filter((line) => line.trim())
-    .map((line) => line.trim().replace(/^[-•*]\s*/, ""));
-
   return (
     <Html>
       <Head />
       <Tailwind>
         <Body className="bg-white font-sans">
           <Container className="mx-auto w-full max-w-[600px] p-0">
-            <Section className="p-4 text-center">
-              <Link href={baseUrl} className="text-[15px]">
-                <Img
-                  src={"https://www.getinboxzero.com/icon.png"}
-                  width="40"
-                  height="40"
-                  alt="Inbox Zero"
-                  className="mx-auto my-0"
-                />
-              </Link>
-
-              <Text className="mx-0 mb-8 mt-4 p-0 text-center text-2xl font-normal">
-                <span className="font-semibold tracking-tighter">
-                  Inbox Zero
-                </span>
+            <Section className="px-8 pt-6 pb-2">
+              <Text className="text-base text-gray-900 mt-0 mb-0">
+                Briefing for <strong>{meetingTitle}</strong>
               </Text>
-
-              <Heading className="my-4 text-3xl font-medium leading-tight">
-                Meeting Briefing
-              </Heading>
+              <Text className="text-base text-gray-900 mt-0 mb-0">
+                Starting at <strong>{formattedTime}</strong>
+              </Text>
             </Section>
 
-            {/* Meeting Details Card */}
-            <Section className="px-4 mb-6">
-              <div className="border border-solid border-gray-200 rounded-lg p-6 bg-gray-50">
-                <Text className="text-xl font-semibold text-gray-900 mt-0 mb-2">
-                  {meetingTitle}
-                </Text>
-                <Text className="text-base text-gray-600 mt-0 mb-4">
-                  {formattedDate} at {formattedTime}
-                </Text>
-                <Text className="text-sm text-gray-500 mt-0 mb-0">
-                  {guestCount} external guest{guestCount !== 1 ? "s" : ""}
-                </Text>
-
-                {/* Action Links */}
-                <div className="mt-4 flex gap-4">
-                  {videoConferenceLink && (
-                    <Link
-                      href={videoConferenceLink}
-                      className="inline-block bg-blue-600 text-white px-4 py-2 rounded-md text-sm font-medium no-underline"
-                    >
-                      Join Meeting
-                    </Link>
-                  )}
+            <Section className="px-8 pt-2 pb-6">
+              {videoConferenceLink && (
+                <Text className="text-sm text-gray-700 mt-0 mb-2">
+                  - Join link:{" "}
                   <Link
-                    href={eventUrl}
-                    className="inline-block bg-gray-200 text-gray-800 px-4 py-2 rounded-md text-sm font-medium no-underline"
+                    href={videoConferenceLink}
+                    className="text-blue-600 underline"
                   >
-                    View Event
+                    {videoConferenceLink}
                   </Link>
-                </div>
+                </Text>
+              )}
+              {eventUrl && (
+                <Text className="text-sm text-gray-700 mt-0 mb-0">
+                  - Event link:{" "}
+                  <Link href={eventUrl} className="text-blue-600 underline">
+                    {eventUrl}
+                  </Link>
+                </Text>
+              )}
+            </Section>
+
+            <Section className="px-8 pb-6">
+              <div className="text-sm text-gray-800 leading-relaxed">
+                {renderFormattedContent(briefingContent)}
               </div>
             </Section>
 
-            {/* Briefing Content */}
-            <Section className="px-4 mb-6">
-              <Text className="text-lg font-semibold text-gray-900 mb-3">
-                What you should know
-              </Text>
-              <div className="border-l-4 border-solid border-blue-400 bg-blue-50 rounded-r-lg p-4">
-                <ul className="m-0 pl-4">
-                  {briefingLines.map((line, index) => (
-                    <li
-                      key={index}
-                      className="text-sm text-gray-800 mb-2 leading-relaxed"
-                    >
-                      {line}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            </Section>
+            <Hr className="border-solid border-gray-300 my-6 mx-8" />
 
-            <Hr className="border-solid border-gray-200 my-6" />
-
-            {/* Footer */}
-            <Section className="mt-4 text-center text-sm text-gray-500 px-4 pb-8">
-              <Text className="m-0">
+            <Section className="px-8 pb-8">
+              <Text className="text-xs text-gray-500 mt-0 mb-2">
                 You're receiving this briefing because you enabled Meeting
                 Briefs in your Inbox Zero settings.
               </Text>
-              <div className="mt-2">
+              <Text className="text-xs text-gray-500 mt-0 mb-0">
                 <Link
                   href={`${baseUrl}/${emailAccountId}/briefs`}
-                  className="text-gray-500 underline"
+                  className="text-gray-600 underline"
                 >
                   Manage settings
                 </Link>
-              </div>
+              </Text>
             </Section>
           </Container>
         </Body>
@@ -170,22 +163,9 @@ MeetingBriefingEmail.PreviewProps = {
 };
 
 export function generateMeetingBriefingSubject(
-  props: Pick<
-    MeetingBriefingEmailProps,
-    "meetingTitle" | "formattedTime" | "videoConferenceLink" | "eventUrl"
-  >,
+  props: Pick<MeetingBriefingEmailProps, "meetingTitle" | "formattedTime">,
 ): string {
-  const { meetingTitle, formattedTime, videoConferenceLink, eventUrl } = props;
+  const { meetingTitle, formattedTime } = props;
 
-  let subject = `Briefing for ${meetingTitle}, starting at ${formattedTime}`;
-
-  if (videoConferenceLink) {
-    subject += ` - Join: ${videoConferenceLink}`;
-  }
-
-  if (eventUrl) {
-    subject += ` - Event: ${eventUrl}`;
-  }
-
-  return subject;
+  return `Briefing for ${meetingTitle}, starting at ${formattedTime}`;
 }

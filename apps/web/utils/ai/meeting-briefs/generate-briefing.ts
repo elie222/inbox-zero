@@ -29,7 +29,6 @@ Your task is to prepare a briefing that includes:
 Guidelines:
 - Keep it short and use <10 bullets per meeting guest (max 10 words per bullet)
 - Don't include details about the meeting itself (time, date, location, etc.) - the user already has that
-- Don't use emoji
 - Focus on information that would be helpful to know before the meeting
 - Include any recent topics discussed, pending items, or relationship context
 - If there's no meaningful context for a guest, briefly note that this appears to be a new contact
