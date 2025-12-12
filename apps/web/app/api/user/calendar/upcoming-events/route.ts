@@ -21,7 +21,9 @@ async function getData({ emailAccountId }: { emailAccountId: string }) {
 
   const providerEvents = await Promise.all(
     providers.map(async (provider) => {
-      return provider.fetchEvents({});
+      return provider.fetchEvents({
+        maxResults: 5,
+      });
     }),
   );
 

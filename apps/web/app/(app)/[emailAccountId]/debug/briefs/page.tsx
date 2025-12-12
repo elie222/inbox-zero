@@ -50,49 +50,51 @@ export default function BriefsPage() {
     <PageWrapper>
       <PageHeader title="Meeting Briefs" />
 
-      <LoadingContent loading={isLoading} error={error}>
-        {data && (
-          <ItemGroup className="gap-2">
-            {data.events.map((event) => (
-              <Item key={event.id} variant="outline">
-                <ItemContent>
-                  <ItemTitle>{event.title}</ItemTitle>
-                  <ItemDescription>
-                    {event.attendees.map((a) => a.email).join(", ")} -{" "}
-                    {new Date(event.startTime).toLocaleString()} -{" "}
-                    {new Date(event.endTime).toLocaleString()}
-                  </ItemDescription>
-                </ItemContent>
-                <ItemActions>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      setSendingEventId(event.id);
-                      execute({
-                        event: {
-                          id: event.id,
-                          title: event.title,
-                          description: event.description,
-                          location: event.location,
-                          eventUrl: event.eventUrl,
-                          videoConferenceLink: event.videoConferenceLink,
-                          startTime: new Date(event.startTime).toISOString(),
-                          endTime: new Date(event.endTime).toISOString(),
-                          attendees: event.attendees,
-                        },
-                      });
-                    }}
-                    loading={sendingEventId === event.id}
-                  >
-                    Send brief
-                  </Button>
-                </ItemActions>
-              </Item>
-            ))}
-          </ItemGroup>
-        )}
-      </LoadingContent>
+      <div className="mt-4">
+        <LoadingContent loading={isLoading} error={error}>
+          {data && (
+            <ItemGroup className="gap-2">
+              {data.events.map((event) => (
+                <Item key={event.id} variant="outline">
+                  <ItemContent>
+                    <ItemTitle>{event.title}</ItemTitle>
+                    <ItemDescription>
+                      {event.attendees.map((a) => a.email).join(", ")} -{" "}
+                      {new Date(event.startTime).toLocaleString()} -{" "}
+                      {new Date(event.endTime).toLocaleString()}
+                    </ItemDescription>
+                  </ItemContent>
+                  <ItemActions>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setSendingEventId(event.id);
+                        execute({
+                          event: {
+                            id: event.id,
+                            title: event.title,
+                            description: event.description,
+                            location: event.location,
+                            eventUrl: event.eventUrl,
+                            videoConferenceLink: event.videoConferenceLink,
+                            startTime: new Date(event.startTime).toISOString(),
+                            endTime: new Date(event.endTime).toISOString(),
+                            attendees: event.attendees,
+                          },
+                        });
+                      }}
+                      loading={sendingEventId === event.id}
+                    >
+                      Send brief
+                    </Button>
+                  </ItemActions>
+                </Item>
+              ))}
+            </ItemGroup>
+          )}
+        </LoadingContent>
+      </div>
     </PageWrapper>
   );
 }

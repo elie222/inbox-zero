@@ -3,13 +3,11 @@ import { format } from "date-fns";
 import { getModel } from "@/utils/llms/model";
 import { createGenerateObject } from "@/utils/llms";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
-import type { CalendarEvent } from "@/utils/calendar/calendar-types";
-import type {
-  MeetingBriefingData,
-  GuestContext,
-} from "@/utils/meeting-briefs/gather-context";
+import type { CalendarEvent } from "@/utils/calendar/event-types";
+import type { MeetingBriefingData } from "@/utils/meeting-briefs/gather-context";
 import { stringifyEmailSimple } from "@/utils/stringify-email";
 import { getEmailForLLM } from "@/utils/get-email-from-message";
+import type { ParsedMessage } from "@/utils/types";
 
 const briefingSchema = z.object({
   briefing: z.string().describe("The meeting briefing content"),
@@ -60,7 +58,18 @@ Group information by guest if there are multiple external guests.`;
 }
 
 function buildPrompt(briefingData: MeetingBriefingData): string {
-  const { event, externalGuests } = briefingData;
+  const { event, externalGuests, emailThreads, pastMeetings } = briefingData;
+
+  const allMessages = emailThreads.flatMap((t) => t.messages);
+
+  const guestContexts: GuestContextForPrompt[] = externalGuests.map(
+    (guest) => ({
+      email: guest.email,
+      name: guest.name,
+      recentEmails: selectRecentEmailsForGuest(allMessages, guest.email),
+      recentMeetings: selectRecentMeetingsForGuest(pastMeetings, guest.email),
+    }),
+  );
 
   const prompt = `Please prepare a concise briefing for this meeting.
 
@@ -70,7 +79,7 @@ ${event.description ? `Description: ${event.description}` : ""}
 </upcoming_meeting>
 
 <guest_context>
-${externalGuests.map((guest) => formatGuestContext(guest))}
+${guestContexts.map((guest) => formatGuestContext(guest)).join("\n")}
 </guest_context>
 
 Return the briefing as JSON with a "briefing" field containing the formatted text.`;
@@ -78,11 +87,21 @@ Return the briefing as JSON with a "briefing" field containing the formatted tex
   return prompt;
 }
 
-function formatGuestContext(guest: GuestContext): string {
+type GuestContextForPrompt = {
+  email: string;
+  name?: string;
+  recentEmails: ParsedMessage[];
+  recentMeetings: CalendarEvent[];
+};
+
+function formatGuestContext(guest: GuestContextForPrompt): string {
+  const recentEmails = guest.recentEmails ?? [];
+  const recentMeetings = guest.recentMeetings ?? [];
+
   const recentEmailsSection =
-    guest.recentEmails.length > 0
-      ? `<recent_emails count="${guest.recentEmails.length}">
-${guest.recentEmails
+    recentEmails.length > 0
+      ? `<recent_emails count="${recentEmails.length}">
+${recentEmails
   .map(
     (email) =>
       `<email>\n${stringifyEmailSimple(getEmailForLLM(email))}\n</email>`,
@@ -92,9 +111,9 @@ ${guest.recentEmails
       : "<recent_emails>No recent emails found with this contact.</recent_emails>";
 
   const recentMeetingsSection =
-    guest.recentMeetings.length > 0
-      ? `<recent_meetings count="${guest.recentMeetings.length}">
-${guest.recentMeetings.map(formatMeetingForContext).join("\n")}
+    recentMeetings.length > 0
+      ? `<recent_meetings count="${recentMeetings.length}">
+${recentMeetings.map(formatMeetingForContext).join("\n")}
 </recent_meetings>`
       : "<recent_meetings>No recent meetings found with this contact.</recent_meetings>";
 
@@ -103,6 +122,54 @@ ${recentEmailsSection}
 ${recentMeetingsSection}
 </guest>
 `;
+}
+
+function selectRecentMeetingsForGuest(
+  pastMeetings: CalendarEvent[],
+  guestEmail: string,
+): CalendarEvent[] {
+  const email = guestEmail.toLowerCase();
+
+  return pastMeetings
+    .filter((m) => m.attendees.some((a) => a.email.toLowerCase() === email))
+    .sort((a, b) => b.startTime.getTime() - a.startTime.getTime())
+    .slice(0, 10);
+}
+
+function selectRecentEmailsForGuest(
+  messages: ParsedMessage[],
+  guestEmail: string,
+): ParsedMessage[] {
+  const email = guestEmail.toLowerCase();
+
+  return messages
+    .filter((m) => messageIncludesEmail(m, email))
+    .sort((a, b) => getMessageTimestampMs(b) - getMessageTimestampMs(a))
+    .slice(0, 10);
+}
+
+function messageIncludesEmail(
+  message: ParsedMessage,
+  emailLower: string,
+): boolean {
+  const headers = message.headers;
+  return (
+    headers.from.toLowerCase().includes(emailLower) ||
+    headers.to.toLowerCase().includes(emailLower) ||
+    (headers.cc?.toLowerCase().includes(emailLower) ?? false) ||
+    (headers.bcc?.toLowerCase().includes(emailLower) ?? false)
+  );
+}
+
+function getMessageTimestampMs(message: ParsedMessage): number {
+  const internal = message.internalDate;
+  if (internal && /^\d+$/.test(internal)) {
+    const ms = Number(internal);
+    return Number.isFinite(ms) ? ms : 0;
+  }
+
+  const parsed = Date.parse(message.date);
+  return Number.isFinite(parsed) ? parsed : 0;
 }
 
 function formatMeetingForContext(meeting: CalendarEvent): string {
