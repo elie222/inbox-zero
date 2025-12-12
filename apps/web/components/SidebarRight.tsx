@@ -24,7 +24,7 @@ export function SidebarRight({
       )}
     >
       <div className="flex h-full w-full flex-col overflow-hidden">
-        <Chat />
+        <Chat open={isOpen} />
       </div>
     </div>
   );

@@ -25,7 +25,7 @@ import { useLocalStorage } from "usehooks-ts";
 
 const MAX_MESSAGES = 20;
 
-export function Chat() {
+export function Chat({ open }: { open: boolean }) {
   const {
     chat,
     chatId,
@@ -43,10 +43,10 @@ export function Chat() {
   );
 
   useEffect(() => {
-    if (!chatId) {
+    if (open && !chatId) {
       setNewChat();
     }
-  }, [chatId, setNewChat]);
+  }, [open, chatId, setNewChat]);
 
   // Sync input with localStorage
   useEffect(() => {
