@@ -1,6 +1,5 @@
 import prisma from "@/utils/prisma";
 import { MeetingBriefingStatus } from "@/generated/prisma/enums";
-import { extractDomainFromEmail } from "@/utils/email";
 import {
   fetchUpcomingEvents,
   filterEventsWithExternalGuests,
@@ -9,17 +8,34 @@ import { gatherContextForEvent } from "./gather-context";
 import { aiGenerateMeetingBriefing } from "@/utils/ai/meeting-briefs/generate-briefing";
 import { sendBriefingEmail } from "./send-briefing";
 import type { Logger } from "@/utils/logger";
+import type { CalendarEvent } from "@/utils/calendar/event-types";
+
+export type EmailAccountForBrief = {
+  id: string;
+  userId: string;
+  email: string;
+  about: string | null;
+  multiRuleSelectionEnabled: boolean;
+  timezone: string | null;
+  calendarBookingLink: string | null;
+  user: {
+    aiProvider: string | null;
+    aiModel: string | null;
+    aiApiKey: string | null;
+  };
+  account: {
+    provider: string;
+  };
+};
 
 export async function processMeetingBriefings({
   emailAccountId,
   userEmail,
-  provider,
   minutesBefore,
   logger,
 }: {
   emailAccountId: string;
   userEmail: string;
-  provider: string;
   minutesBefore: number;
   logger: Logger;
 }): Promise<void> {
@@ -59,7 +75,7 @@ export async function processMeetingBriefings({
     existingBriefings.map((b) => b.calendarEventId),
   );
   const eventsToProcess = eventsWithExternalGuests.filter(
-    (e) => !briefedEventIds.has(e.id),
+    (event) => !briefedEventIds.has(event.id),
   );
 
   if (eventsToProcess.length === 0) {
@@ -98,74 +114,96 @@ export async function processMeetingBriefings({
     return;
   }
 
-  const userDomain = extractDomainFromEmail(userEmail);
-
   // 4. Process each event
   for (const event of eventsToProcess) {
-    const eventLog = logger.with({
-      eventId: event.id,
-      eventTitle: event.title,
+    await runMeetingBrief({
+      event,
+      emailAccount,
+      emailAccountId,
+      logger,
     });
-
-    try {
-      // Gather context for all external guests
-      const briefingData = await gatherContextForEvent({
-        event,
-        emailAccountId,
-        userEmail,
-        provider,
-      });
-
-      if (briefingData.externalGuests.length === 0) {
-        eventLog.info("No external guests found for event, skipping");
-        continue;
-      }
-
-      // Generate AI briefing
-      const briefingContent = await aiGenerateMeetingBriefing({
-        briefingData,
-        emailAccount,
-        userDomain,
-      });
-
-      // Send the briefing email
-      await sendBriefingEmail({
-        event,
-        briefingContent,
-        guestCount: briefingData.externalGuests.length,
-        emailAccountId,
-        userEmail,
-        provider,
-        logger: eventLog,
-      });
-
-      await prisma.meetingBriefing.create({
-        data: {
-          calendarEventId: event.id,
-          eventTitle: event.title,
-          eventStartTime: event.startTime,
-          guestCount: briefingData.externalGuests.length,
-          status: MeetingBriefingStatus.SENT,
-          emailAccountId,
-        },
-      });
-
-      eventLog.info("Meeting briefing sent successfully");
-    } catch (error) {
-      eventLog.error("Failed to process meeting briefing", { error });
-
-      await prisma.meetingBriefing.create({
-        data: {
-          calendarEventId: event.id,
-          eventTitle: event.title,
-          eventStartTime: event.startTime,
-          guestCount: event.attendees.length,
-          status: MeetingBriefingStatus.FAILED,
-          emailAccountId,
-        },
-      });
-    }
   }
 
   logger.info("Finished processing meeting briefings");
+}
+
+export async function runMeetingBrief({
+  event,
+  emailAccount,
+  emailAccountId,
+  logger,
+}: {
+  event: CalendarEvent;
+  emailAccount: EmailAccountForBrief;
+  emailAccountId: string;
+  logger: Logger;
+}): Promise<{ success: boolean; message?: string }> {
+  const userEmail = emailAccount.email;
+  const provider = emailAccount.account.provider;
+
+  const eventLog = logger.with({
+    eventId: event.id,
+    eventTitle: event.title,
+  });
+
+  try {
+    // Gather context for all external guests
+    const briefingData = await gatherContextForEvent({
+      event,
+      emailAccountId,
+      userEmail,
+      provider,
+    });
+
+    if (briefingData.externalGuests.length === 0) {
+      eventLog.info("No external guests found for event, skipping");
+      return { success: false, message: "No external guests found" };
+    }
+
+    // Generate AI briefing
+    const briefingContent = await aiGenerateMeetingBriefing({
+      briefingData,
+      emailAccount,
+    });
+
+    // Send the briefing email
+    await sendBriefingEmail({
+      event,
+      briefingContent,
+      guestCount: briefingData.externalGuests.length,
+      emailAccountId,
+      userEmail,
+      provider,
+      logger: eventLog,
+    });
+
+    await prisma.meetingBriefing.create({
+      data: {
+        calendarEventId: event.id,
+        eventTitle: event.title,
+        eventStartTime: event.startTime,
+        guestCount: briefingData.externalGuests.length,
+        status: MeetingBriefingStatus.SENT,
+        emailAccountId,
+      },
+    });
+
+    eventLog.info("Meeting briefing sent successfully");
+    return { success: true, message: "Brief sent successfully" };
+  } catch (error) {
+    eventLog.error("Failed to process meeting briefing", { error });
+
+    await prisma.meetingBriefing.create({
+      data: {
+        calendarEventId: event.id,
+        eventTitle: event.title,
+        eventStartTime: event.startTime,
+        guestCount: event.attendees.length,
+        status: MeetingBriefingStatus.FAILED,
+        emailAccountId,
+      },
+    });
+
+    throw error;
+  }
 }

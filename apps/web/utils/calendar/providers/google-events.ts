@@ -60,19 +60,7 @@ export class GoogleCalendarEventProvider implements CalendarEventProvider {
           (a) => a.email?.toLowerCase() === attendeeEmail.toLowerCase(),
         ),
       )
-      .map((event) => ({
-        id: event.id || "",
-        title: event.summary || "Untitled",
-        startTime: new Date(
-          event.start?.dateTime || event.start?.date || Date.now(),
-        ),
-        endTime: new Date(event.end?.dateTime || event.end?.date || Date.now()),
-        attendees:
-          event.attendees?.map((a) => ({
-            email: a.email || "",
-            name: a.displayName ?? undefined,
-          })) || [],
-      }));
+      .map((event) => this.parseEvent(event));
   }
 
   async fetchEvents({
@@ -97,18 +85,39 @@ export class GoogleCalendarEventProvider implements CalendarEventProvider {
 
     const events = response.data.items || [];
 
-    return events.map((event) => ({
+    return events.map((event) => this.parseEvent(event));
+  }
+
+  private parseEvent(event: calendar_v3.Schema$Event) {
+    const startTime = new Date(
+      event.start?.dateTime || event.start?.date || Date.now(),
+    );
+    const endTime = new Date(
+      event.end?.dateTime || event.end?.date || Date.now(),
+    );
+
+    let videoConferenceLink = event.hangoutLink ?? undefined;
+    if (event.conferenceData?.entryPoints) {
+      const videoEntry = event.conferenceData.entryPoints.find(
+        (entry) => entry.entryPointType === "video",
+      );
+      videoConferenceLink = videoEntry?.uri ?? videoConferenceLink;
+    }
+
+    return {
       id: event.id || "",
       title: event.summary || "Untitled",
-      startTime: new Date(
-        event.start?.dateTime || event.start?.date || Date.now(),
-      ),
-      endTime: new Date(event.end?.dateTime || event.end?.date || Date.now()),
+      description: event.description || undefined,
+      location: event.location || undefined,
+      eventUrl: event.htmlLink || undefined,
+      videoConferenceLink,
+      startTime,
+      endTime,
       attendees:
-        event.attendees?.map((a) => ({
-          email: a.email || "",
-          name: a.displayName ?? undefined,
+        event.attendees?.map((attendee) => ({
+          email: attendee.email || "",
+          name: attendee.displayName ?? undefined,
         })) || [],
-    }));
+    };
   }
 }

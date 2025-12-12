@@ -6,6 +6,10 @@ export interface CalendarEventAttendee {
 export interface CalendarEvent {
   id: string;
   title: string;
+  description?: string;
+  location?: string;
+  eventUrl?: string;
+  videoConferenceLink?: string;
   startTime: Date;
   endTime: Date;
   attendees: CalendarEventAttendee[];

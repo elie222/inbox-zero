@@ -54,7 +54,6 @@ async function processAllMeetingBriefings() {
       await processMeetingBriefings({
         emailAccountId: emailAccount.id,
         userEmail: emailAccount.email,
-        provider: emailAccount.account.provider,
         minutesBefore: emailAccount.meetingBriefingsMinutesBefore,
         logger: log,
       });

@@ -72,19 +72,7 @@ export class MicrosoftCalendarEventProvider implements CalendarEventProvider {
         ),
       )
       .slice(0, maxResults)
-      .map((event: MicrosoftEvent) => ({
-        id: event.id || "",
-        title: event.subject || "Untitled",
-        startTime: new Date(event.start?.dateTime || Date.now()),
-        endTime: new Date(event.end?.dateTime || Date.now()),
-        attendees:
-          event.attendees?.map(
-            (a: { emailAddress?: { address?: string; name?: string } }) => ({
-              email: a.emailAddress?.address || "",
-              name: a.emailAddress?.name ?? undefined,
-            }),
-          ) || [],
-      }));
+      .map((event: MicrosoftEvent) => this.parseEvent(event));
   }
 
   async fetchEvents({
@@ -115,25 +103,50 @@ export class MicrosoftCalendarEventProvider implements CalendarEventProvider {
     type MicrosoftEvent = {
       id?: string;
       subject?: string;
+      bodyPreview?: string;
       start?: { dateTime?: string };
       end?: { dateTime?: string };
       attendees?: Array<{
         emailAddress?: { address?: string; name?: string };
       }>;
+      location?: { displayName?: string };
+      webLink?: string;
+      onlineMeeting?: { joinUrl?: string };
+      onlineMeetingUrl?: string;
     };
 
-    return events.map((event: MicrosoftEvent) => ({
+    return events.map((event: MicrosoftEvent) => this.parseEvent(event));
+  }
+
+  private parseEvent(event: {
+    id?: string;
+    subject?: string;
+    bodyPreview?: string;
+    start?: { dateTime?: string };
+    end?: { dateTime?: string };
+    attendees?: Array<{
+      emailAddress?: { address?: string; name?: string };
+    }>;
+    location?: { displayName?: string };
+    webLink?: string;
+    onlineMeeting?: { joinUrl?: string };
+    onlineMeetingUrl?: string;
+  }) {
+    return {
       id: event.id || "",
       title: event.subject || "Untitled",
+      description: event.bodyPreview || undefined,
+      location: event.location?.displayName || undefined,
+      eventUrl: event.webLink || undefined,
+      videoConferenceLink:
+        event.onlineMeeting?.joinUrl || event.onlineMeetingUrl || undefined,
       startTime: new Date(event.start?.dateTime || Date.now()),
       endTime: new Date(event.end?.dateTime || Date.now()),
       attendees:
-        event.attendees?.map(
-          (a: { emailAddress?: { address?: string; name?: string } }) => ({
-            email: a.emailAddress?.address || "",
-            name: a.emailAddress?.name ?? undefined,
-          }),
-        ) || [],
-    }));
+        event.attendees?.map((attendee) => ({
+          email: attendee.emailAddress?.address || "",
+          name: attendee.emailAddress?.name ?? undefined,
+        })) || [],
+    };
   }
 }

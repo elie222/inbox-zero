@@ -7,7 +7,7 @@ import MeetingBriefingEmail, {
   generateMeetingBriefingSubject,
   type MeetingBriefingEmailProps,
 } from "@inboxzero/resend/emails/meeting-briefing";
-import type { CalendarEvent } from "@/utils/calendar/calendar-types";
+import type { CalendarEvent } from "@/utils/calendar/event-types";
 import type { Logger } from "@/utils/logger";
 
 const FROM_EMAIL = "Inbox Zero <briefs@mail.getinboxzero.com>";
@@ -40,8 +40,8 @@ export async function sendBriefingEmail({
     meetingTitle: event.title,
     formattedDate,
     formattedTime,
-    videoConferenceLink: event.videoConferenceLink,
-    eventUrl: event.eventUrl,
+    videoConferenceLink: event.videoConferenceLink ?? "",
+    eventUrl: event.eventUrl ?? "",
     briefingContent,
     guestCount,
   };
