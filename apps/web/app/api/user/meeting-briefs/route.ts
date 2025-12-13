@@ -2,7 +2,9 @@ import { NextResponse } from "next/server";
 import { withEmailAccount } from "@/utils/middleware";
 import prisma from "@/utils/prisma";
 
-export type GetMeetingBriefsResponse = Awaited<ReturnType<typeof getData>>;
+export type GetMeetingBriefsSettingsResponse = Awaited<
+  ReturnType<typeof getData>
+>;
 
 export const GET = withEmailAccount("user/meeting-briefs", async (request) => {
   const emailAccountId = request.auth.emailAccountId;
@@ -16,24 +18,11 @@ async function getData({ emailAccountId }: { emailAccountId: string }) {
     select: {
       meetingBriefingsEnabled: true,
       meetingBriefingsMinutesBefore: true,
-      meetingBriefings: {
-        orderBy: { createdAt: "desc" },
-        take: 10,
-        select: {
-          id: true,
-          createdAt: true,
-          eventTitle: true,
-          eventStartTime: true,
-          guestCount: true,
-          status: true,
-        },
-      },
     },
   });
 
   return {
     enabled: emailAccount?.meetingBriefingsEnabled ?? false,
     minutesBefore: emailAccount?.meetingBriefingsMinutesBefore,
-    recentBriefings: emailAccount?.meetingBriefings ?? [],
   };
 }
