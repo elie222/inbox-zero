@@ -1,5 +1,39 @@
 {
   "buildCommand": "cd ../.. && turbo run build --filter={apps/web}...",
   "installCommand": "cd ../.. && corepack enable && bash clone-marketing.sh && pnpm install --no-frozen-lockfile",
-  "ignoreCommand": ""
+  "ignoreCommand": "",
+  "env": {
+    "AUTH_SECRET": {
+      "description": "Secret used for authentication (NextAuth)",
+      "generate": "secret"
+    },
+    "EMAIL_ENCRYPT_SECRET": {
+      "description": "Secret used for email encryption",
+      "generate": "secret"
+    },
+    "EMAIL_ENCRYPT_SALT": {
+      "description": "Salt used for email encryption",
+      "generate": "secret"
+    },
+    "INTERNAL_API_KEY": {
+      "description": "Secret key for internal API calls",
+      "generate": "secret"
+    },
+    "API_KEY_SALT": {
+      "description": "Salt used for API key hashing",
+      "generate": "secret"
+    },
+    "CRON_SECRET": {
+      "description": "Secret for authenticating cron job requests",
+      "generate": "secret"
+    },
+    "GOOGLE_PUBSUB_VERIFICATION_TOKEN": {
+      "description": "Token for verifying Google PubSub webhook requests",
+      "generate": "secret"
+    },
+    "MICROSOFT_WEBHOOK_CLIENT_STATE": {
+      "description": "Secret for verifying Microsoft webhook requests",
+      "generate": "secret"
+    }
+  }
 }
