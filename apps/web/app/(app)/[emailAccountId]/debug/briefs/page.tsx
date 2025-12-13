@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useAction } from "next-safe-action/hooks";
+import { CalendarIcon } from "lucide-react";
 import { LoadingContent } from "@/components/LoadingContent";
 import { PageHeader } from "@/components/PageHeader";
 import { PageWrapper } from "@/components/PageWrapper";
@@ -13,6 +14,7 @@ import {
   ItemActions,
   ItemGroup,
   ItemTitle,
+  ItemMedia,
 } from "@/components/ui/item";
 import { useCalendarUpcomingEvents } from "@/hooks/useCalendarUpcomingEvents";
 import { sendBriefAction } from "@/utils/actions/meeting-briefs";
@@ -52,46 +54,60 @@ export default function BriefsPage() {
 
       <div className="mt-4">
         <LoadingContent loading={isLoading} error={error}>
-          {data && (
-            <ItemGroup className="gap-2">
-              {data.events.map((event) => (
-                <Item key={event.id} variant="outline">
+          {data &&
+            (data.events.length === 0 ? (
+              <ItemGroup className="gap-2">
+                <Item key="no-events" variant="outline">
+                  <ItemMedia>
+                    <CalendarIcon className="size-4" />
+                  </ItemMedia>
                   <ItemContent>
-                    <ItemTitle>{event.title}</ItemTitle>
-                    <ItemDescription>
-                      {event.attendees.map((a) => a.email).join(", ")} -{" "}
-                      {new Date(event.startTime).toLocaleString()}
-                    </ItemDescription>
+                    <ItemTitle>No upcoming calendar events found</ItemTitle>
                   </ItemContent>
-                  <ItemActions>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        setSendingEventId(event.id);
-                        execute({
-                          event: {
-                            id: event.id,
-                            title: event.title,
-                            description: event.description,
-                            location: event.location,
-                            eventUrl: event.eventUrl,
-                            videoConferenceLink: event.videoConferenceLink,
-                            startTime: new Date(event.startTime).toISOString(),
-                            endTime: new Date(event.endTime).toISOString(),
-                            attendees: event.attendees,
-                          },
-                        });
-                      }}
-                      loading={sendingEventId === event.id}
-                    >
-                      Send brief
-                    </Button>
-                  </ItemActions>
                 </Item>
-              ))}
-            </ItemGroup>
-          )}
+              </ItemGroup>
+            ) : (
+              <ItemGroup className="gap-2">
+                {data.events.map((event) => (
+                  <Item key={event.id} variant="outline">
+                    <ItemContent>
+                      <ItemTitle>{event.title}</ItemTitle>
+                      <ItemDescription>
+                        {event.attendees.map((a) => a.email).join(", ")} -{" "}
+                        {new Date(event.startTime).toLocaleString()}
+                      </ItemDescription>
+                    </ItemContent>
+                    <ItemActions>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setSendingEventId(event.id);
+                          execute({
+                            event: {
+                              id: event.id,
+                              title: event.title,
+                              description: event.description,
+                              location: event.location,
+                              eventUrl: event.eventUrl,
+                              videoConferenceLink: event.videoConferenceLink,
+                              startTime: new Date(
+                                event.startTime,
+                              ).toISOString(),
+                              endTime: new Date(event.endTime).toISOString(),
+                              attendees: event.attendees,
+                            },
+                          });
+                        }}
+                        loading={sendingEventId === event.id}
+                      >
+                        Send brief
+                      </Button>
+                    </ItemActions>
+                  </Item>
+                ))}
+              </ItemGroup>
+            ))}
         </LoadingContent>
       </div>
     </PageWrapper>

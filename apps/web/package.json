@@ -34,7 +34,7 @@
     "@googleapis/gmail": "16.1.0",
     "@googleapis/people": "6.0.0",
     "@headlessui/react": "2.2.9",
-    "@hookform/resolvers": "5.2.2",
+    "@hookform/resolvers": "3.9.1",
     "@inboxzero/loops": "workspace:*",
     "@inboxzero/resend": "workspace:*",
     "@inboxzero/tinybird": "workspace:*",
