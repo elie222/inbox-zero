@@ -147,7 +147,6 @@ export async function runMeetingBrief({
   });
 
   try {
-    // Gather context for all external guests
     const briefingData = await gatherContextForEvent({
       event,
       emailAccountId,
@@ -160,17 +159,14 @@ export async function runMeetingBrief({
       return { success: false, message: "No external guests found" };
     }
 
-    // Generate AI briefing
     const briefingContent = await aiGenerateMeetingBriefing({
       briefingData,
       emailAccount,
     });
 
-    // Send the briefing email
     await sendBriefingEmail({
       event,
       briefingContent,
-      guestCount: briefingData.externalGuests.length,
       emailAccountId,
       userEmail,
       provider,

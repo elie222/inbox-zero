@@ -14,7 +14,6 @@ import { createUnsubscribeToken } from "@/utils/unsubscribe";
 export async function sendBriefingEmail({
   event,
   briefingContent,
-  guestCount,
   emailAccountId,
   userEmail,
   provider,
@@ -22,7 +21,6 @@ export async function sendBriefingEmail({
 }: {
   event: CalendarEvent;
   briefingContent: string;
-  guestCount: number;
   emailAccountId: string;
   userEmail: string;
   provider: string;
@@ -30,7 +28,6 @@ export async function sendBriefingEmail({
 }): Promise<void> {
   const log = logger.with({ emailAccountId, eventId: event.id, userEmail });
 
-  const formattedDate = format(event.startTime, "EEEE, MMMM d");
   const formattedTime = format(event.startTime, "h:mm a");
 
   const unsubscribeToken = await createUnsubscribeToken({ emailAccountId });
@@ -39,12 +36,10 @@ export async function sendBriefingEmail({
     baseUrl: env.NEXT_PUBLIC_BASE_URL,
     emailAccountId,
     meetingTitle: event.title,
-    formattedDate,
     formattedTime,
     videoConferenceLink: event.videoConferenceLink ?? "",
     eventUrl: event.eventUrl ?? "",
     briefingContent,
-    guestCount,
     unsubscribeToken,
   };
 
