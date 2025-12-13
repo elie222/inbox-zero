@@ -1,3 +1,6 @@
+import { subDays } from "date-fns/subDays";
+import { subMonths } from "date-fns/subMonths";
+
 export type TimeRange = "all" | "3d" | "1w" | "2w" | "1m";
 
 export function getDateFilter(timeRange: TimeRange) {
@@ -6,17 +9,12 @@ export function getDateFilter(timeRange: TimeRange) {
     case "all":
       return undefined;
     case "3d":
-      now.setDate(now.getDate() - 3);
-      break;
+      return { lte: subDays(now, 3) };
     case "1w":
-      now.setDate(now.getDate() - 7);
-      break;
+      return { lte: subDays(now, 7) };
     case "2w":
-      now.setDate(now.getDate() - 14);
-      break;
+      return { lte: subDays(now, 14) };
     case "1m":
-      now.setMonth(now.getMonth() - 1);
-      break;
+      return { lte: subMonths(now, 1) };
   }
-  return { lte: now };
 }

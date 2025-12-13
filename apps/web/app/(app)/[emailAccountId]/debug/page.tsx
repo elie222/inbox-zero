@@ -2,6 +2,7 @@ import Link from "next/link";
 import { PageHeading } from "@/components/Typography";
 import { Button } from "@/components/ui/button";
 import { prefixPath } from "@/utils/path";
+import { PageWrapper } from "@/components/PageWrapper";
 
 export default async function DebugPage(props: {
   params: Promise<{ emailAccountId: string }>;
@@ -9,7 +10,7 @@ export default async function DebugPage(props: {
   const { emailAccountId } = await props.params;
 
   return (
-    <div className="container mx-auto p-4">
+    <PageWrapper>
       <PageHeading>Debug</PageHeading>
 
       <div className="mt-4 flex gap-2">
@@ -25,6 +26,6 @@ export default async function DebugPage(props: {
           <Link href={prefixPath(emailAccountId, "/debug/report")}>Report</Link>
         </Button>
       </div>
-    </div>
+    </PageWrapper>
   );
 }

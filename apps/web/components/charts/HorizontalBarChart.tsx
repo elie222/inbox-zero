@@ -2,6 +2,7 @@
 
 import { DomainIcon } from "@/components/charts/DomainIcon";
 import { cn } from "@/utils";
+import { extractDomainFromEmail } from "@/utils/email";
 
 interface HorizontalBarChartProps {
   data: Array<{
@@ -23,9 +24,7 @@ export function HorizontalBarChart({
     <div className={cn("space-y-2", className)}>
       {data.map((item) => {
         const widthPercentage = (item.value / maxValue) * 100;
-        const domain = item.name.includes("@")
-          ? item.name.split("@")[1]
-          : item.name;
+        const domain = extractDomainFromEmail(item.name) || item.name;
 
         return (
           <div

@@ -7,6 +7,10 @@ export function useCleanerEnabled() {
   return useFeatureFlagEnabled("inbox-cleaner");
 }
 
+export function useMeetingBriefsEnabled() {
+  return useFeatureFlagEnabled("meeting-briefs");
+}
+
 const HERO_FLAG_NAME = "hero-copy-7";
 
 export type HeroVariant = "control" | "clean-up-in-minutes";
