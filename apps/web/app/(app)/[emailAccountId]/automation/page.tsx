@@ -85,58 +85,61 @@ export default async function AutomationPage({
       <Suspense>
         <PermissionsCheck />
 
-        <PageWrapper>
-          <div className="flex items-center justify-between">
-            <div>
-              <PageHeader
-                title="AI Assistant"
-                video={{
-                  title: "Getting started with AI Personal Assistant",
-                  description:
-                    "Learn how to use the AI Personal Assistant to automatically label, archive, and more.",
-                  muxPlaybackId: "VwIP7UAw4MXDjkvmLjJzGsY00ee9jxIZVI952DoBBfp8",
-                }}
+        <div className="h-full overflow-y-auto">
+          <PageWrapper>
+            <div className="flex items-center justify-between">
+              <div>
+                <PageHeader
+                  title="AI Assistant"
+                  video={{
+                    title: "Getting started with AI Personal Assistant",
+                    description:
+                      "Learn how to use the AI Personal Assistant to automatically label, archive, and more.",
+                    muxPlaybackId:
+                      "VwIP7UAw4MXDjkvmLjJzGsY00ee9jxIZVI952DoBBfp8",
+                  }}
+                />
+              </div>
+
+              <div className="ml-4">
+                <AIChatButton />
+              </div>
+            </div>
+
+            <div className="border-b border-neutral-200 pt-2">
+              <TabSelect
+                options={tabOptions(emailAccountId)}
+                selected={tab ?? "rules"}
               />
             </div>
 
-            <div className="ml-4">
-              <AIChatButton />
-            </div>
-          </div>
-
-          <div className="border-b border-neutral-200 pt-2">
-            <TabSelect
-              options={tabOptions(emailAccountId)}
-              selected={tab ?? "rules"}
+            <DismissibleVideoCard
+              className="my-4"
+              icon={<SparklesIcon className="h-5 w-5" />}
+              title="Getting started with AI Assistant"
+              description={
+                "Learn how to use the AI Assistant to automatically label, archive, and more."
+              }
+              muxPlaybackId="VwIP7UAw4MXDjkvmLjJzGsY00ee9jxIZVI952DoBBfp8"
+              storageKey="ai-assistant-onboarding-video"
             />
-          </div>
 
-          <DismissibleVideoCard
-            className="my-4"
-            icon={<SparklesIcon className="h-5 w-5" />}
-            title="Getting started with AI Assistant"
-            description={
-              "Learn how to use the AI Assistant to automatically label, archive, and more."
-            }
-            muxPlaybackId="VwIP7UAw4MXDjkvmLjJzGsY00ee9jxIZVI952DoBBfp8"
-            storageKey="ai-assistant-onboarding-video"
-          />
-
-          <Tabs defaultValue="rules">
-            <TabsContent value="rules" className="mb-10">
-              <RulesTab />
-            </TabsContent>
-            <TabsContent value="settings" className="mb-10">
-              <SettingsTab />
-            </TabsContent>
-            <TabsContent value="test" className="mb-10">
-              <Process />
-            </TabsContent>
-            <TabsContent value="history" className="mb-10">
-              <History />
-            </TabsContent>
-          </Tabs>
-        </PageWrapper>
+            <Tabs defaultValue="rules">
+              <TabsContent value="rules" className="mb-10">
+                <RulesTab />
+              </TabsContent>
+              <TabsContent value="settings" className="mb-10">
+                <SettingsTab />
+              </TabsContent>
+              <TabsContent value="test" className="mb-10">
+                <Process />
+              </TabsContent>
+              <TabsContent value="history" className="mb-10">
+                <History />
+              </TabsContent>
+            </Tabs>
+          </PageWrapper>
+        </div>
       </Suspense>
     </EmailProvider>
   );

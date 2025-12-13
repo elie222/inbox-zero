@@ -27,7 +27,7 @@ function ContentWrapper({ children }: { children: React.ReactNode }) {
         isRightSidebarOpen && "lg:mr-[450px]",
       )}
     >
-      <SidebarInset className="overflow-y-auto bg-background pt-9 max-w-full h-[calc(100svh-36px)] md:h-svh">
+      <SidebarInset className="overflow-hidden bg-background pt-9 max-w-full">
         {children}
         <div
           className="md:hidden md:pt-0"

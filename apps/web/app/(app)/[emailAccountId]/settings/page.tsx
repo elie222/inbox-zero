@@ -19,7 +19,7 @@ export default function SettingsPage() {
   const { emailAccount } = useAccount();
 
   return (
-    <div>
+    <div className="h-full overflow-y-auto">
       <div className="content-container mb-4">
         <PageHeader title="Settings" />
       </div>
