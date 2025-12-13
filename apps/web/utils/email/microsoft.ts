@@ -892,8 +892,7 @@ export class OutlookProvider implements EmailProvider {
       return (
         h.from.toLowerCase().includes(participantLower) ||
         h.to.toLowerCase().includes(participantLower) ||
-        (h.cc?.toLowerCase().includes(participantLower) ?? false) ||
-        (h.bcc?.toLowerCase().includes(participantLower) ?? false)
+        (h.cc?.toLowerCase().includes(participantLower) ?? false)
       );
     });
 

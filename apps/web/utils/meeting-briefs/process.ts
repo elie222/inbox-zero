@@ -9,6 +9,7 @@ import { aiGenerateMeetingBriefing } from "@/utils/ai/meeting-briefs/generate-br
 import { sendBriefingEmail } from "./send-briefing";
 import type { Logger } from "@/utils/logger";
 import type { CalendarEvent } from "@/utils/calendar/event-types";
+import { extractDomainFromEmail } from "@/utils/email";
 
 export type EmailAccountForBrief = {
   id: string;
@@ -116,13 +117,17 @@ export async function processMeetingBriefings({
 
   // 4. Process each event
   for (const event of eventsToProcess) {
-    await runMeetingBrief({
-      event,
-      emailAccount,
-      emailAccountId,
-      isTestSend: false,
-      logger,
-    });
+    try {
+      await runMeetingBrief({
+        event,
+        emailAccount,
+        emailAccountId,
+        isTestSend: false,
+        logger,
+      });
+    } catch {
+      // Error already logged and saved by runMeetingBrief
+    }
   }
 
   logger.info("Finished processing meeting briefings");
@@ -149,11 +154,19 @@ export async function runMeetingBrief({
     eventTitle: event.title,
   });
 
+  // Compute external guest count upfront for consistent tracking
+  const userDomain = extractDomainFromEmail(userEmail);
+  const externalGuestCount = event.attendees.filter((attendee) => {
+    const attendeeDomain = extractDomainFromEmail(attendee.email ?? "");
+    return attendeeDomain && attendeeDomain !== userDomain;
+  }).length;
+
   try {
     const briefingData = await gatherContextForEvent({
       event,
       emailAccountId,
       userEmail,
+      userDomain,
       provider,
     });
 
@@ -183,7 +196,7 @@ export async function runMeetingBrief({
             calendarEventId: event.id,
             eventTitle: event.title,
             eventStartTime: event.startTime,
-            guestCount: briefingData.externalGuests.length,
+            guestCount: externalGuestCount,
             status: MeetingBriefingStatus.SENT,
             emailAccountId,
           },
@@ -207,7 +220,7 @@ export async function runMeetingBrief({
             calendarEventId: event.id,
             eventTitle: event.title,
             eventStartTime: event.startTime,
-            guestCount: event.attendees.length,
+            guestCount: externalGuestCount,
             status: MeetingBriefingStatus.FAILED,
             emailAccountId,
           },

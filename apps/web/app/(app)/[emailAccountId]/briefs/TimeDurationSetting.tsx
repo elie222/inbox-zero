@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useForm, type FieldErrors } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { useDebounceCallback } from "usehooks-ts";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -89,15 +90,12 @@ export function TimeDurationSetting({
     [],
   );
 
-  const updateAndSubmit = useCallback(
-    (nextMinutesBefore: number) => {
-      setFormValue("minutesBefore", nextMinutesBefore, {
-        shouldValidate: true,
-      });
-      handleSubmit(onSubmit, onError)();
-    },
-    [handleSubmit, onError, onSubmit, setFormValue],
-  );
+  const updateAndSubmit = useDebounceCallback((nextMinutesBefore: number) => {
+    setFormValue("minutesBefore", nextMinutesBefore, {
+      shouldValidate: true,
+    });
+    handleSubmit(onSubmit, onError)();
+  }, 500);
 
   // Keep local UI in sync if the server value changes (e.g. after revalidation)
   useEffect(() => {

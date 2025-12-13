@@ -144,7 +144,6 @@ MeetingBriefingEmail.PreviewProps = {
   unsubscribeToken: "test-token",
   emailAccountId: "test-account",
   meetingTitle: "Product Strategy Review with Acme Corp",
-  formattedDate: "Friday, March 15",
   formattedTime: "2:00 PM",
   videoConferenceLink: "https://meet.google.com/abc-defg-hij",
   eventUrl: "https://calendar.google.com/event/123",

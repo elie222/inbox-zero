@@ -1,3 +1,4 @@
+import { subMonths } from "date-fns/subMonths";
 import { createEmailProvider } from "@/utils/email/provider";
 import type { EmailProvider, EmailThread } from "@/utils/email/types";
 import { createScopedLogger } from "@/utils/logger";
@@ -7,6 +8,7 @@ import type {
   CalendarEventAttendee,
   CalendarEventProvider,
 } from "@/utils/calendar/event-types";
+import { extractDomainFromEmail } from "@/utils/email";
 
 const logger = createScopedLogger("meeting-briefs/gather-context");
 
@@ -36,10 +38,10 @@ export interface MeetingBriefingData {
 function getExternalAttendees(
   event: CalendarEvent,
   userEmail: string,
+  userDomain: string,
 ): CalendarEventAttendee[] {
-  const userDomain = userEmail.split("@")[1];
   return event.attendees.filter((attendee) => {
-    const attendeeDomain = attendee.email.split("@")[1];
+    const attendeeDomain = extractDomainFromEmail(attendee.email);
     return attendeeDomain !== userDomain && attendee.email !== userEmail;
   });
 }
@@ -48,16 +50,18 @@ export async function gatherContextForEvent({
   event,
   emailAccountId,
   userEmail,
+  userDomain,
   provider,
 }: {
   event: CalendarEvent;
   emailAccountId: string;
   userEmail: string;
+  userDomain: string;
   provider: string;
 }): Promise<MeetingBriefingData> {
   const log = logger.with({ emailAccountId, eventId: event.id });
 
-  const externalAttendees = getExternalAttendees(event, userEmail);
+  const externalAttendees = getExternalAttendees(event, userEmail, userDomain);
   const participantEmails = externalAttendees.map((a) => a.email);
 
   log.info("Gathering context for external guests", {
@@ -172,8 +176,7 @@ async function fetchPastMeetingsWithParticipants({
     return [];
   }
 
-  const sixMonthsAgo = new Date();
-  sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+  const sixMonthsAgo = subMonths(new Date(), 6);
 
   const fetchedEventIds = new Set<string>();
   const allMeetings: CalendarEvent[] = [];
