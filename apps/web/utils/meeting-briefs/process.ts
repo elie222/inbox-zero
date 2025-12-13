@@ -120,6 +120,7 @@ export async function processMeetingBriefings({
       event,
       emailAccount,
       emailAccountId,
+      isTestSend: false,
       logger,
     });
   }
@@ -132,11 +133,13 @@ export async function runMeetingBrief({
   emailAccount,
   emailAccountId,
   logger,
+  isTestSend,
 }: {
   event: CalendarEvent;
   emailAccount: EmailAccountForBrief;
   emailAccountId: string;
   logger: Logger;
+  isTestSend: boolean;
 }): Promise<{ success: boolean; message?: string }> {
   const userEmail = emailAccount.email;
   const provider = emailAccount.account.provider;
@@ -173,32 +176,48 @@ export async function runMeetingBrief({
       logger: eventLog,
     });
 
-    await prisma.meetingBriefing.create({
-      data: {
-        calendarEventId: event.id,
-        eventTitle: event.title,
-        eventStartTime: event.startTime,
-        guestCount: briefingData.externalGuests.length,
-        status: MeetingBriefingStatus.SENT,
-        emailAccountId,
-      },
-    });
+    if (!isTestSend) {
+      await prisma.meetingBriefing
+        .create({
+          data: {
+            calendarEventId: event.id,
+            eventTitle: event.title,
+            eventStartTime: event.startTime,
+            guestCount: briefingData.externalGuests.length,
+            status: MeetingBriefingStatus.SENT,
+            emailAccountId,
+          },
+        })
+        .catch((error) => {
+          eventLog.error("Failed to save successful briefing to database", {
+            error,
+          });
+        });
+    }
 
     eventLog.info("Meeting briefing sent successfully");
     return { success: true, message: "Brief sent successfully" };
   } catch (error) {
     eventLog.error("Failed to process meeting briefing", { error });
 
-    await prisma.meetingBriefing.create({
-      data: {
-        calendarEventId: event.id,
-        eventTitle: event.title,
-        eventStartTime: event.startTime,
-        guestCount: event.attendees.length,
-        status: MeetingBriefingStatus.FAILED,
-        emailAccountId,
-      },
-    });
+    if (!isTestSend) {
+      await prisma.meetingBriefing
+        .create({
+          data: {
+            calendarEventId: event.id,
+            eventTitle: event.title,
+            eventStartTime: event.startTime,
+            guestCount: event.attendees.length,
+            status: MeetingBriefingStatus.FAILED,
+            emailAccountId,
+          },
+        })
+        .catch((error) => {
+          eventLog.error("Failed to save failed briefing to database", {
+            error,
+          });
+        });
+    }
 
     throw error;
   }

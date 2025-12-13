@@ -86,6 +86,7 @@ export const sendBriefAction = actionClient
         event: calendarEvent,
         emailAccount,
         emailAccountId,
+        isTestSend: true,
         logger,
       });
     },
