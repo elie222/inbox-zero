@@ -32,7 +32,7 @@ To help you spend less time in your inbox, so you can focus on what matters.
 
 <br />
 
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Felie222%2Finbox-zero&env=GOOGLE_CLIENT_ID,GOOGLE_CLIENT_SECRET,MICROSOFT_CLIENT_ID,MICROSOFT_CLIENT_SECRET,UPSTASH_REDIS_URL,UPSTASH_REDIS_TOKEN,GOOGLE_PUBSUB_TOPIC_NAME,DATABASE_URL,NEXT_PUBLIC_BASE_URL)
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Felie222%2Finbox-zero&env=GOOGLE_CLIENT_ID,GOOGLE_CLIENT_SECRET,GOOGLE_PUBSUB_TOPIC_NAME,MICROSOFT_CLIENT_ID,MICROSOFT_CLIENT_SECRET,UPSTASH_REDIS_URL,UPSTASH_REDIS_TOKEN,DATABASE_URL,NEXT_PUBLIC_BASE_URL)
 
 ## Features
 
