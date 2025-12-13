@@ -352,9 +352,9 @@ export function EmailList({
   const isEmpty = threads.length === 0;
 
   return (
-    <>
+    <div className="flex h-full flex-col overflow-hidden">
       {!(isEmpty && hideActionBarWhenEmpty) && (
-        <div className="flex items-center border-b border-l-4 border-border bg-background px-4 py-1">
+        <div className="flex shrink-0 items-center border-b border-l-4 border-border bg-background px-4 py-1">
           <div className="pl-1">
             <Checkbox checked={isAllSelected} onChange={onToggleSelectAll} />
           </div>
@@ -392,98 +392,100 @@ export function EmailList({
         </div>
       )}
 
-      {isEmpty ? (
-        <div className="py-2">
-          {typeof emptyMessage === "string" ? (
-            <MessageText>{emptyMessage}</MessageText>
-          ) : (
-            emptyMessage
-          )}
-        </div>
-      ) : (
-        <ResizeGroup
-          left={
-            <ul
-              className="divide-y divide-border overflow-y-auto scroll-smooth"
-              ref={listRef}
-            >
-              {threads.map((thread) => {
-                const onOpen = () => {
-                  const alreadyOpen = !!openThreadId;
-                  setOpenThreadId(thread.id);
+      <div className="flex-1 overflow-hidden">
+        {isEmpty ? (
+          <div className="py-2">
+            {typeof emptyMessage === "string" ? (
+              <MessageText>{emptyMessage}</MessageText>
+            ) : (
+              emptyMessage
+            )}
+          </div>
+        ) : (
+          <ResizeGroup
+            left={
+              <ul
+                className="divide-y divide-border overflow-y-auto overflow-x-hidden scroll-smooth"
+                ref={listRef}
+              >
+                {threads.map((thread) => {
+                  const onOpen = () => {
+                    const alreadyOpen = !!openThreadId;
+                    setOpenThreadId(thread.id);
 
-                  if (!alreadyOpen) scrollToId(thread.id);
+                    if (!alreadyOpen) scrollToId(thread.id);
 
-                  markReadThreads({
-                    threadIds: [thread.id],
-                    onSuccess: () => refetch(),
-                    emailAccountId,
-                  });
-                };
+                    markReadThreads({
+                      threadIds: [thread.id],
+                      onSuccess: () => refetch(),
+                      emailAccountId,
+                    });
+                  };
 
-                return (
-                  <EmailListItem
-                    key={thread.id}
-                    ref={(node) => {
-                      const map = getMap();
-                      if (node) {
-                        map.set(thread.id, node);
-                      } else {
-                        map.delete(thread.id);
-                      }
-                    }}
-                    userEmail={userEmail}
-                    provider={provider}
-                    thread={thread}
-                    opened={openThreadId === thread.id}
-                    closePanel={closePanel}
-                    selected={selectedRows[thread.id]}
-                    onSelected={onSetSelectedRow}
-                    splitView={!!openThreadId}
-                    onClick={onOpen}
-                    onPlanAiAction={onPlanAiAction}
-                    onArchive={onArchive}
-                    refetch={refetch}
-                  />
-                );
-              })}
-              {showLoadMore && (
-                <Button
-                  variant="outline"
-                  className="mb-2 w-full"
-                  size={"sm"}
-                  onClick={handleLoadMore}
-                  disabled={isLoadingMore}
-                >
-                  {
-                    <>
-                      {isLoadingMore ? (
-                        <ButtonLoader />
-                      ) : (
-                        <ChevronsDownIcon className="mr-2 h-4 w-4" />
-                      )}
-                      <span>Load more</span>
-                    </>
-                  }
-                </Button>
-              )}
-            </ul>
-          }
-          right={
-            !!(openThreadId && openedRow) && (
-              <EmailPanel
-                row={openedRow}
-                onPlanAiAction={onPlanAiAction}
-                onArchive={onArchive}
-                advanceToAdjacentThread={advanceToAdjacentThread}
-                close={closePanel}
-                refetch={refetch}
-              />
-            )
-          }
-        />
-      )}
-    </>
+                  return (
+                    <EmailListItem
+                      key={thread.id}
+                      ref={(node) => {
+                        const map = getMap();
+                        if (node) {
+                          map.set(thread.id, node);
+                        } else {
+                          map.delete(thread.id);
+                        }
+                      }}
+                      userEmail={userEmail}
+                      provider={provider}
+                      thread={thread}
+                      opened={openThreadId === thread.id}
+                      closePanel={closePanel}
+                      selected={selectedRows[thread.id]}
+                      onSelected={onSetSelectedRow}
+                      splitView={!!openThreadId}
+                      onClick={onOpen}
+                      onPlanAiAction={onPlanAiAction}
+                      onArchive={onArchive}
+                      refetch={refetch}
+                    />
+                  );
+                })}
+                {showLoadMore && (
+                  <Button
+                    variant="outline"
+                    className="mb-2 w-full"
+                    size={"sm"}
+                    onClick={handleLoadMore}
+                    disabled={isLoadingMore}
+                  >
+                    {
+                      <>
+                        {isLoadingMore ? (
+                          <ButtonLoader />
+                        ) : (
+                          <ChevronsDownIcon className="mr-2 h-4 w-4" />
+                        )}
+                        <span>Load more</span>
+                      </>
+                    }
+                  </Button>
+                )}
+              </ul>
+            }
+            right={
+              !!(openThreadId && openedRow) && (
+                <EmailPanel
+                  row={openedRow}
+                  onPlanAiAction={onPlanAiAction}
+                  onArchive={onArchive}
+                  advanceToAdjacentThread={advanceToAdjacentThread}
+                  close={closePanel}
+                  refetch={refetch}
+                />
+              )
+            }
+          />
+        )}
+      </div>
+    </div>
   );
 }
 
@@ -499,12 +501,25 @@ function ResizeGroup({
   if (!right) return left;
 
   return (
-    <ResizablePanelGroup direction={isMobile ? "vertical" : "horizontal"}>
-      <ResizablePanel style={{ overflow: "auto" }} defaultSize={50} minSize={0}>
-        {left}
+    <ResizablePanelGroup
+      direction={isMobile ? "vertical" : "horizontal"}
+      style={{ overflow: "hidden" }}
+    >
+      <ResizablePanel
+        style={{ overflow: "hidden" }}
+        defaultSize={50}
+        minSize={0}
+      >
+        <div style={{ height: "100%", overflowY: "auto", overflowX: "hidden" }}>
+          {left}
+        </div>
       </ResizablePanel>
       <ResizableHandle withHandle />
-      <ResizablePanel defaultSize={50} minSize={0}>
+      <ResizablePanel
+        style={{ overflow: "hidden" }}
+        defaultSize={50}
+        minSize={0}
+      >
         {right}
       </ResizablePanel>
     </ResizablePanelGroup>

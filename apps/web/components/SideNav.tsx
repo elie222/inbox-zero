@@ -79,6 +79,11 @@ export const useNavigation = () => {
   const navItems: NavItem[] = useMemo(
     () => [
       {
+        name: "Mail",
+        href: prefixPath(currentEmailAccountId, "/mail"),
+        icon: InboxIcon,
+      },
+      {
         name: "Assistant",
         href: prefixPath(currentEmailAccountId, "/automation"),
         icon: SparklesIcon,

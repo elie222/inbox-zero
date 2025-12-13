@@ -22,7 +22,7 @@ export function HtmlEmail({ html }: { html: string }) {
   const iframeHeight = useIframeHeight(iframeRef);
 
   return (
-    <div className="relative">
+    <div className="relative overflow-hidden">
       <iframe
         ref={iframeRef}
         srcDoc={srcDoc}
@@ -90,9 +90,28 @@ function getIframeHtml(html: string, isDarkMode: boolean) {
       // Single style attribute is ok (probably just a link)
       styleAttributeCount === 1);
 
+  // Common styles to prevent horizontal overflow
+  const overflowStyles = `
+    html, body {
+      max-width: 100% !important;
+      overflow-x: hidden !important;
+    }
+    img, table, td, div {
+      max-width: 100% !important;
+    }
+    table {
+      table-layout: fixed !important;
+    }
+    pre, code {
+      white-space: pre-wrap !important;
+      word-wrap: break-word !important;
+    }
+  `;
+
   const defaultFontStyles = hasHeavyStyling
     ? `
     <style>
+      ${overflowStyles}
       :root {
         color-scheme: light;
         background-color: white;
@@ -104,6 +123,8 @@ function getIframeHtml(html: string, isDarkMode: boolean) {
   `
     : `
     <style>
+      ${overflowStyles}
+
       :root {
         color-scheme: light;
         --foreground: 222.2 47.4% 11.2%;

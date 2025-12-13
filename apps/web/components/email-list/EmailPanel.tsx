@@ -31,7 +31,7 @@ export function EmailPanel({
   const plan = row.plan;
 
   return (
-    <div className="flex h-full flex-col overflow-y-hidden border-l border-border">
+    <div className="flex h-full flex-col overflow-hidden border-l border-border">
       <div className="sticky border-b border-border p-4 md:flex md:items-center md:justify-between">
         <div className="md:w-0 md:flex-1">
           <h1
@@ -64,7 +64,7 @@ export function EmailPanel({
           </Tooltip>
         </div>
       </div>
-      <div className="flex flex-1 flex-col overflow-y-auto">
+      <div className="flex flex-1 flex-col overflow-y-auto overflow-x-hidden">
         {plan?.rule && <PlanExplanation thread={row} provider={provider} />}
         <EmailThread
           key={row.id}

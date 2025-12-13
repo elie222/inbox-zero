@@ -17,7 +17,6 @@ export default async function WelcomeRedirectPage(props: {
 
   // Session exists but user doesn't - invalid state, log out
   if (!user) redirect("/logout");
-  if (searchParams.force) redirect("/onboarding");
-  if (user.completedOnboardingAt) redirect("/setup");
-  redirect("/onboarding");
+  // Skip onboarding - go directly to setup
+  redirect("/setup");
 }

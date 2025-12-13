@@ -269,39 +269,7 @@ export function BulkUnsubscribe() {
 
   return (
     <PageWrapper>
-      <PageHeader
-        title="Bulk Unsubscriber"
-        video={{
-          title: "Getting started with Bulk Unsubscribe",
-          description: (
-            <>
-              Learn how to quickly bulk unsubscribe from and archive unwanted
-              emails. You can read more in our{" "}
-              <TextLink
-                href="https://docs.getinboxzero.com/essentials/bulk-email-unsubscriber"
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                help center
-              </TextLink>
-              .
-            </>
-          ),
-          youtubeVideoId: "T1rnooV4OYc",
-        }}
-      />
-
-      <DismissibleVideoCard
-        className="my-4"
-        icon={<ArchiveIcon className="size-5" />}
-        title="Getting started with Bulk Unsubscribe"
-        description={
-          "Learn how to use the Bulk Unsubscribe to unsubscribe from and archive unwanted emails."
-        }
-        videoSrc="https://www.youtube.com/embed/T1rnooV4OYc"
-        thumbnailSrc="https://img.youtube.com/vi/T1rnooV4OYc/0.jpg"
-        storageKey="bulk-unsubscribe-onboarding-video"
-      />
+      <PageHeader title="Bulk Unsubscriber" />
 
       <div className="items-center justify-between flex mt-4 flex-wrap">
         <ActionBar rightContent={<LoadStatsButton />}>

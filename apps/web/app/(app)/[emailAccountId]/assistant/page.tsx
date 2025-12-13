@@ -19,21 +19,21 @@ export default async function AssistantPage({
   const { emailAccountId } = await params;
   await checkUserOwnsEmailAccount({ emailAccountId });
 
-  // onboarding redirect
-  const cookieStore = await cookies();
-  const viewedOnboarding =
-    cookieStore.get(ASSISTANT_ONBOARDING_COOKIE)?.value === "true";
+  // onboarding redirect - disabled
+  // const cookieStore = await cookies();
+  // const viewedOnboarding =
+  //   cookieStore.get(ASSISTANT_ONBOARDING_COOKIE)?.value === "true";
 
-  if (!viewedOnboarding) {
-    const hasRule = await prisma.rule.findFirst({
-      where: { emailAccountId },
-      select: { id: true },
-    });
+  // if (!viewedOnboarding) {
+  //   const hasRule = await prisma.rule.findFirst({
+  //     where: { emailAccountId },
+  //     select: { id: true },
+  //   });
 
-    if (!hasRule) {
-      redirect(prefixPath(emailAccountId, "/assistant?onboarding=true"));
-    }
-  }
+  //   if (!hasRule) {
+  //     redirect(prefixPath(emailAccountId, "/assistant?onboarding=true"));
+  //   }
+  // }
 
   return (
     <EmailProvider>
