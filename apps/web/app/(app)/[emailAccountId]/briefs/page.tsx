@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Toggle } from "@/components/Toggle";
 import { toastSuccess, toastError } from "@/components/Toast";
 import { LoadingContent } from "@/components/LoadingContent";
-import { PremiumAlertWithData, usePremium } from "@/components/PremiumAlert";
+import { PremiumAlertWithData } from "@/components/PremiumAlert";
 import { useCalendars } from "@/hooks/useCalendars";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { useAction } from "next-safe-action/hooks";
@@ -24,7 +24,6 @@ import {
   useMeetingBriefsHistory,
 } from "@/hooks/useMeetingBriefs";
 import { useCalendarUpcomingEvents } from "@/hooks/useCalendarUpcomingEvents";
-import { Card, CardContent } from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -48,7 +47,6 @@ import { Skeleton } from "@/components/ui/skeleton";
 
 export default function MeetingBriefsPage() {
   const { emailAccountId } = useAccount();
-  const { hasAiAccess, isLoading: isLoadingPremium } = usePremium();
   const { data: calendarsData, isLoading: isLoadingCalendars } = useCalendars();
   const { data, isLoading, error, mutate } = useMeetingBriefSettings();
 
@@ -68,75 +66,69 @@ export default function MeetingBriefsPage() {
     },
   );
 
-  const loading = isLoadingPremium || isLoadingCalendars || isLoading;
-
   return (
     <PageWrapper>
       <PageHeader title="Meeting Briefs" />
 
-      <div className="mt-6 space-y-4">
+      <div className="mt-4 space-y-4">
         <PremiumAlertWithData />
 
-        {!isLoadingPremium && hasAiAccess && (
-          <>
-            {!isLoadingCalendars && !hasCalendarConnected && (
-              <Card>
-                <CardContent className="p-4">
-                  <div className="flex items-center gap-3">
-                    <AlertCircleIcon className="h-5 w-5 text-amber-500" />
-                    <div className="flex-1">
-                      <p className="font-medium">Calendar Required</p>
-                      <p className="text-sm text-muted-foreground">
-                        Connect a calendar to enable meeting briefings.
-                      </p>
-                    </div>
-                    <Button asChild variant="outline">
-                      <Link href={`/${emailAccountId}/calendars`}>
-                        Connect Calendar
-                      </Link>
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
+        {!isLoadingCalendars && !hasCalendarConnected && (
+          <Item variant="muted">
+            <ItemMedia>
+              <AlertCircleIcon className="size-4 text-amber-500" />
+            </ItemMedia>
+            <ItemContent>
+              <ItemTitle>Calendar Required</ItemTitle>
+              <ItemDescription>
+                Connect a calendar to enable meeting briefings.
+              </ItemDescription>
+            </ItemContent>
+            <ItemActions>
+              <Button asChild variant="outline" size="sm">
+                <Link href={`/${emailAccountId}/calendars`}>
+                  Connect Calendar
+                </Link>
+              </Button>
+            </ItemActions>
+          </Item>
+        )}
 
-            <LoadingContent loading={loading} error={error}>
-              <div className="space-y-2">
-                <SettingCard
-                  title="Enable Meeting Briefs"
-                  description="Receive email briefings before meetings with external guests"
-                  right={
-                    <Toggle
-                      name="enabled"
-                      enabled={!!data?.enabled}
-                      onChange={(enabled) => execute({ enabled })}
-                      disabled={!hasCalendarConnected}
-                    />
-                  }
+        <LoadingContent loading={isLoading} error={error}>
+          <div className="space-y-2">
+            <SettingCard
+              title="Enable Meeting Briefs"
+              description="Receive email briefings before meetings with external guests"
+              right={
+                <Toggle
+                  name="enabled"
+                  enabled={!!data?.enabled}
+                  onChange={(enabled) => execute({ enabled })}
+                  disabled={!hasCalendarConnected}
                 />
+              }
+            />
 
-                {!!data?.enabled && (
-                  <SettingCard
-                    title="Send briefing before meeting"
-                    description="How long before the meeting to send the briefing"
-                    collapseOnMobile
-                    right={
-                      <TimeDurationSetting
-                        initialMinutes={data?.minutesBefore ?? 240}
-                        onSaved={mutate}
-                      />
-                    }
+            {!!data?.enabled && (
+              <SettingCard
+                title="Send briefing before meeting"
+                description="How long before the meeting to send the briefing"
+                collapseOnMobile
+                right={
+                  <TimeDurationSetting
+                    initialMinutes={data?.minutesBefore ?? 240}
+                    onSaved={mutate}
                   />
-                )}
-              </div>
-            </LoadingContent>
-
-            {!!data?.enabled && hasCalendarConnected && (
-              <div className="mt-8">
-                <UpcomingMeetings emailAccountId={emailAccountId} />
-              </div>
+                }
+              />
             )}
-          </>
+          </div>
+        </LoadingContent>
+
+        {!!data?.enabled && hasCalendarConnected && (
+          <div className="mt-8">
+            <UpcomingMeetings emailAccountId={emailAccountId} />
+          </div>
         )}
       </div>
     </PageWrapper>
@@ -269,33 +261,44 @@ function SendHistoryLink() {
           error={error}
           loadingComponent={<Skeleton className="h-10 w-full" />}
         >
-          <ItemGroup className="mt-2 gap-2">
-            {data?.briefings.map((briefing) => (
-              <Item key={briefing.id} variant="outline">
-                <ItemContent>
-                  <ItemTitle>{briefing.eventTitle}</ItemTitle>
-                  <ItemDescription>
-                    {briefing.guestCount} guest
-                    {briefing.guestCount !== 1 ? "s" : ""} •{" "}
-                    {formatDistanceToNow(new Date(briefing.createdAt), {
-                      addSuffix: true,
-                    })}
-                  </ItemDescription>
-                </ItemContent>
-                <ItemActions>
-                  <span
-                    className={`text-xs px-2 py-1 rounded ${
-                      briefing.status === "SENT"
-                        ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
-                        : "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200"
-                    }`}
-                  >
-                    {briefing.status}
-                  </span>
-                </ItemActions>
-              </Item>
-            ))}
-          </ItemGroup>
+          {!data?.briefings.length ? (
+            <Item variant="outline" className="mt-4">
+              <ItemMedia>
+                <CalendarIcon className="size-4" />
+              </ItemMedia>
+              <ItemContent>
+                <ItemTitle>No briefings have been sent yet</ItemTitle>
+              </ItemContent>
+            </Item>
+          ) : (
+            <ItemGroup className="mt-2 gap-2">
+              {data?.briefings.map((briefing) => (
+                <Item key={briefing.id} variant="outline">
+                  <ItemContent>
+                    <ItemTitle>{briefing.eventTitle}</ItemTitle>
+                    <ItemDescription>
+                      {briefing.guestCount} guest
+                      {briefing.guestCount !== 1 ? "s" : ""} •{" "}
+                      {formatDistanceToNow(new Date(briefing.createdAt), {
+                        addSuffix: true,
+                      })}
+                    </ItemDescription>
+                  </ItemContent>
+                  <ItemActions>
+                    <span
+                      className={`text-xs px-2 py-1 rounded ${
+                        briefing.status === "SENT"
+                          ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
+                          : "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200"
+                      }`}
+                    >
+                      {briefing.status}
+                    </span>
+                  </ItemActions>
+                </Item>
+              ))}
+            </ItemGroup>
+          )}
         </LoadingContent>
       </DialogContent>
     </Dialog>
