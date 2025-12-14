@@ -25,7 +25,7 @@ export function ActionButtons({
   shadow?: boolean;
   onPlanAiAction: () => void;
   onArchive: () => void;
-  refetch: (threadId?: string) => void;
+  refetch: (options?: { removedThreadIds?: string[] }) => void;
 }) {
   const { emailAccountId, userEmail, provider } = useAccount();
 
@@ -38,11 +38,10 @@ export function ActionButtons({
   const [isTrashing, setIsTrashing] = useState(false);
 
   // TODO lift this up to the parent component to be consistent / to support bulk trash
-  // TODO show loading toast
   const onTrash = useCallback(async () => {
     setIsTrashing(true);
     await onTrashThread({ emailAccountId, threadId });
-    refetch(threadId);
+    refetch({ removedThreadIds: [threadId] });
     setIsTrashing(false);
   }, [threadId, refetch, emailAccountId]);
 
