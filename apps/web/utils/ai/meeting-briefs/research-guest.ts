@@ -4,6 +4,10 @@ import { env } from "@/env";
 import { createGenerateText } from "@/utils/llms";
 import type { Logger } from "@/utils/logger";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
+import {
+  getCachedPerplexityResearch,
+  setCachedPerplexityResearch,
+} from "@/utils/redis/perplexity-research";
 
 export async function researchGuestWithPerplexity({
   name,
@@ -19,6 +23,12 @@ export async function researchGuestWithPerplexity({
   if (!env.PERPLEXITY_API_KEY) {
     logger.info("Perplexity API key not configured, skipping guest research");
     return null;
+  }
+
+  const cached = await getCachedPerplexityResearch(email);
+  if (cached) {
+    logger.info("Using cached Perplexity research");
+    return cached;
   }
 
   try {
@@ -48,6 +58,8 @@ Tell me about what they do, their current role, company, and work history. If yo
       prompt,
       model,
     });
+
+    await setCachedPerplexityResearch(email, result.text);
 
     return result.text;
   } catch (error) {
