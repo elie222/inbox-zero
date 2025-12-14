@@ -35,23 +35,25 @@ export function ModelSection() {
     );
 
   return (
-    <FormSection>
+    <FormSection id="ai-model">
       <FormSectionLeft
         title="AI Model"
         description="Use the default model at no cost, or choose a custom model with your own API key."
       />
 
-      <LoadingContent loading={isLoading || isLoadingModels} error={error}>
-        {data && (
-          <ModelSectionForm
-            aiProvider={data.aiProvider}
-            aiModel={data.aiModel}
-            aiApiKey={data.aiApiKey}
-            models={dataModels}
-            refetchUser={mutate}
-          />
-        )}
-      </LoadingContent>
+      <div className="md:col-span-2">
+        <LoadingContent loading={isLoading || isLoadingModels} error={error}>
+          {data && (
+            <ModelSectionForm
+              aiProvider={data.aiProvider}
+              aiModel={data.aiModel}
+              aiApiKey={data.aiApiKey}
+              models={dataModels}
+              refetchUser={mutate}
+            />
+          )}
+        </LoadingContent>
+      </div>
     </FormSection>
   );
 }

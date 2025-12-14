@@ -12,6 +12,7 @@ import { PageHeader } from "@/components/PageHeader";
 import { TabsToolbar } from "@/components/TabsToolbar";
 import { SectionDescription } from "@/components/Typography";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Card, CardContent } from "@/components/ui/card";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { env } from "@/env";
 
@@ -20,53 +21,59 @@ export default function SettingsPage() {
 
   return (
     <div className="h-full overflow-y-auto">
-      <div className="content-container mb-4">
+      <div className="content-container mb-6">
         <PageHeader title="Settings" />
       </div>
 
       <Tabs defaultValue="user">
         <TabsToolbar>
           <div className="w-full overflow-x-auto">
-            <TabsList>
-              <TabsTrigger value="user">User</TabsTrigger>
+            <TabsList className="bg-muted/50">
+              <TabsTrigger value="user">User Settings</TabsTrigger>
               <TabsTrigger value="email">Email Account</TabsTrigger>
             </TabsList>
           </div>
         </TabsToolbar>
 
-        <TabsContent value="user">
-          <FormWrapper>
-            {!env.NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS && (
-              <>
-                <MultiAccountSection />
-                <BillingSection />
-              </>
-            )}
-            <ModelSection />
-            <WebhookSection />
-            <ApiKeysSection />
-            <DeleteSection />
-          </FormWrapper>
+        <TabsContent value="user" className="mt-6">
+          <div className="content-container">
+            <Card className="border-none bg-card/50 shadow-sm">
+              <CardContent className="p-0">
+                <FormWrapper>
+                  {!env.NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS && (
+                    <>
+                      <MultiAccountSection />
+                      <BillingSection />
+                    </>
+                  )}
+                  <ModelSection />
+                  <WebhookSection />
+                  <ApiKeysSection />
+                  <DeleteSection />
+                </FormWrapper>
+              </CardContent>
+            </Card>
+          </div>
         </TabsContent>
 
-        <TabsContent value="email" className="content-container mb-10">
+        <TabsContent value="email" className="content-container mt-6 mb-10">
           {emailAccount && (
-            <FormWrapper>
-              <FormSection className="py-4">
-                <SectionDescription>
-                  Settings for {emailAccount?.email}
-                </SectionDescription>
-              </FormSection>
+            <Card className="border-none bg-card/50 shadow-sm">
+              <CardContent className="p-0">
+                <FormWrapper>
+                  <FormSection className="py-6">
+                    <div className="flex items-center gap-2">
+                      <div className="h-2 w-2 rounded-full bg-green-500" />
+                      <SectionDescription className="text-foreground font-medium">
+                        {emailAccount?.email}
+                      </SectionDescription>
+                    </div>
+                  </FormSection>
 
-              <ResetAnalyticsSection />
-
-              {/* this is only used in Gmail when sending a new message. disabling for now. */}
-              {/* <SignatureSectionForm signature={user.signature} /> */}
-              {/* <EmailUpdatesSection
-                summaryEmailFrequency={data?.summaryEmailFrequency}
-                mutate={mutate}
-              /> */}
-            </FormWrapper>
+                  <ResetAnalyticsSection />
+                </FormWrapper>
+              </CardContent>
+            </Card>
           )}
         </TabsContent>
       </Tabs>
