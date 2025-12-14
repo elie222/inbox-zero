@@ -25,7 +25,7 @@ export async function researchGuestWithPerplexity({
     return null;
   }
 
-  const cached = await getCachedPerplexityResearch(email);
+  const cached = await getCachedPerplexityResearch(email, name);
   if (cached) {
     logger.info("Using cached Perplexity research");
     return cached;
@@ -59,7 +59,7 @@ Tell me about what they do, their current role, company, and work history. If yo
       model,
     });
 
-    await setCachedPerplexityResearch(email, result.text);
+    await setCachedPerplexityResearch(email, name, result.text);
 
     return result.text;
   } catch (error) {
