@@ -1,17 +1,22 @@
 import { Loader2Icon } from "lucide-react";
+import { cn } from "@/utils";
 
-export function Loading() {
+export function Loading({ className }: { className?: string }) {
   return (
-    <div className="p-8">
-      <Loader2Icon className="mx-auto size-8 animate-spin" />
+    <div className={cn("flex items-center justify-center p-8", className)}>
+      <Loader2Icon className="size-8 animate-spin text-muted-foreground" />
     </div>
   );
 }
 
-export function LoadingMiniSpinner() {
-  return <Loader2Icon className="size-4 animate-spin" />;
+export function LoadingMiniSpinner({ className }: { className?: string }) {
+  return (
+    <Loader2Icon
+      className={cn("size-4 animate-spin text-muted-foreground", className)}
+    />
+  );
 }
 
-export function ButtonLoader() {
-  return <Loader2Icon className="mr-2 size-4 animate-spin" />;
+export function ButtonLoader({ className }: { className?: string }) {
+  return <Loader2Icon className={cn("mr-2 size-4 animate-spin", className)} />;
 }
