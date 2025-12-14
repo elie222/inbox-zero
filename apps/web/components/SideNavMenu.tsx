@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import type { LucideIcon } from "lucide-react";
 import {
   SidebarMenu,
@@ -25,10 +26,35 @@ export function SideNavMenu({
   items: NavItem[];
   activeHref: string;
 }) {
+  const searchParams = useSearchParams();
+  const currentType = searchParams.get("type");
+
   return (
     <SidebarMenu>
       {items.map((item) => {
-        const isActive = item.active || activeHref === item.href;
+        // For query-based navigation (e.g., ?type=inbox), compare the type param
+        const isQueryBased = item.href.startsWith("?");
+        let isActive = false;
+
+        if (item.active) {
+          isActive = true;
+        } else if (isQueryBased) {
+          // Extract type from item.href (e.g., "?type=inbox" -> "inbox")
+          const itemParams = new URLSearchParams(item.href.slice(1));
+          const itemType = itemParams.get("type");
+          const itemLabelId = itemParams.get("labelId");
+
+          if (itemLabelId) {
+            // Label-based matching
+            isActive = searchParams.get("labelId") === itemLabelId;
+          } else if (itemType) {
+            // Type-based matching
+            isActive = currentType === itemType;
+          }
+        } else {
+          // Path-based matching
+          isActive = activeHref === item.href || activeHref.endsWith(item.href);
+        }
         return (
           <SidebarMenuItem key={item.name}>
             <SidebarMenuButton

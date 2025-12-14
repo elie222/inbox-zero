@@ -435,9 +435,7 @@ function ResizeGroup({
         defaultSize={50}
         minSize={0}
       >
-        <div style={{ height: "100%", overflowY: "auto", overflowX: "hidden" }}>
-          {left}
-        </div>
+        <div style={{ height: "100%", overflow: "hidden" }}>{left}</div>
       </ResizablePanel>
       <ResizableHandle withHandle />
       <ResizablePanel
@@ -590,20 +588,11 @@ const VirtualEmailList = memo(function VirtualEmailList({
   );
 
   return (
-    <div className="flex h-full flex-col">
-      <VList
-        ref={vListRef}
-        data={threads}
-        bufferSize={400}
-        itemSize={72}
-        className={cn(
-          "flex-1 divide-y divide-border overflow-x-hidden",
-          "style-scrollbar",
-        )}
-        onScroll={handleScroll}
-      >
-        {renderItem}
-      </VList>
+    <div className="flex h-full flex-col overflow-hidden">
+      {/* Standard scrollable list */}
+      <ul className="flex-1 divide-y divide-border overflow-y-auto overflow-x-hidden style-scrollbar">
+        {threads.map((thread, index) => renderItem(thread, index))}
+      </ul>
 
       {/* Load more indicator */}
       {showLoadMore && (

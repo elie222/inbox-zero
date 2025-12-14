@@ -366,6 +366,8 @@ function MailNav({ path }: { path: string }) {
                 type="button"
                 onClick={() => setShowHiddenLabels(!showHiddenLabels)}
                 className="flex w-full items-center rounded-md px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground"
+                aria-expanded={showHiddenLabels}
+                aria-label={`${showHiddenLabels ? "Hide" : "Show"} ${hiddenLabels.length} more ${terminology.label.plural}`}
               >
                 {showHiddenLabels ? (
                   <ChevronDownIcon className="mr-1.5 size-4 transition-transform" />

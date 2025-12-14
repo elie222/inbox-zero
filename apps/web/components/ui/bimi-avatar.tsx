@@ -22,26 +22,26 @@ const getDomainFromEmail = (email: string): string => {
 };
 
 /**
- * Get company logo URL from email domain using Clearbit's logo API
- * Falls back to Google's favicon service for smaller domains
+ * Get company logo URL from email domain using Google's favicon service
+ * This is free and reliable, returns high-quality favicons
  */
 export const getEmailLogo = (email: string): string => {
   const domain = getDomainFromEmail(email);
   if (!domain) return "";
 
-  // Use Clearbit's logo API (free tier) - returns company logos
-  return `https://logo.clearbit.com/${domain}`;
+  // Google's favicon service - free and reliable
+  return `https://www.google.com/s2/favicons?domain=${domain}&sz=128`;
 };
 
 /**
- * Get fallback favicon URL using Google's favicon service
+ * Get fallback favicon URL using DuckDuckGo's icon service
  */
 export const getFaviconUrl = (email: string): string => {
   const domain = getDomainFromEmail(email);
   if (!domain) return "";
 
-  // Google's favicon service as a fallback
-  return `https://www.google.com/s2/favicons?domain=${domain}&sz=128`;
+  // DuckDuckGo's icon service as a fallback
+  return `https://icons.duckduckgo.com/ip3/${domain}.ico`;
 };
 
 interface BimiAvatarProps {
@@ -147,7 +147,7 @@ export function BimiAvatar({
         className,
       )}
     >
-      {/* Try Clearbit logo first */}
+      {/* Try Google favicon first */}
       {!logoLoadFailed && logoUrl && (
         <AvatarImage
           className="rounded-full bg-white object-contain p-0.5 dark:bg-zinc-800"
@@ -157,7 +157,7 @@ export function BimiAvatar({
         />
       )}
 
-      {/* Try favicon as second fallback */}
+      {/* Try DuckDuckGo icon as second fallback */}
       {logoLoadFailed && !faviconLoadFailed && faviconUrl && (
         <AvatarImage
           className="rounded-full bg-white object-contain p-1 dark:bg-zinc-800"
