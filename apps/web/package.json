@@ -23,6 +23,7 @@
     "@ai-sdk/groq": "2.0.32",
     "@ai-sdk/mcp": "0.0.11",
     "@ai-sdk/openai": "2.0.77",
+    "@ai-sdk/perplexity": "2.0.22",
     "@ai-sdk/provider": "2.0.0",
     "@ai-sdk/react": "2.0.106",
     "@asteasolutions/zod-to-openapi": "7.3.4",

@@ -25,12 +25,14 @@ export async function aiGenerateMeetingBriefing({
 Your task is to prepare a briefing that includes:
 (1) Key details about the external guests the user is meeting with
 (2) Any relevant context from past email exchanges and meetings with them
+(3) AI-researched background information (LinkedIn, current role, company, work history) when available
 
 Guidelines:
 - Keep it short and use <10 bullets per meeting guest (max 10 words per bullet)
 - Don't include details about the meeting itself (time, date, location, etc.) - the user already has that
 - Focus on information that would be helpful to know before the meeting
 - Include any recent topics discussed, pending items, or relationship context
+- When AI research is available (LinkedIn, role, company), include it to help the user understand who they're meeting
 - If there's no meaningful context for a guest, briefly note that this appears to be a new contact
 
 Output the briefing as plain text with bullet points using "-" for each point.
@@ -65,6 +67,7 @@ function buildPrompt(briefingData: MeetingBriefingData): string {
     (guest) => ({
       email: guest.email,
       name: guest.name,
+      aiResearch: guest.aiResearch ?? undefined,
       recentEmails: selectRecentEmailsForGuest(allMessages, guest.email),
       recentMeetings: selectRecentMeetingsForGuest(pastMeetings, guest.email),
     }),
@@ -91,11 +94,19 @@ type GuestContextForPrompt = {
   name?: string;
   recentEmails: ParsedMessage[];
   recentMeetings: CalendarEvent[];
+  aiResearch?: string;
 };
 
 function formatGuestContext(guest: GuestContextForPrompt): string {
   const recentEmails = guest.recentEmails ?? [];
   const recentMeetings = guest.recentMeetings ?? [];
+  const aiResearch = guest.aiResearch;
+
+  const aiResearchSection = aiResearch
+    ? `<ai_research>
+${aiResearch}
+</ai_research>`
+    : "<ai_research>No AI research found for this contact.</ai_research>";
 
   const recentEmailsSection =
     recentEmails.length > 0
@@ -117,6 +128,7 @@ ${recentMeetings.map(formatMeetingForContext).join("\n")}
       : "<recent_meetings>No recent meetings found with this contact.</recent_meetings>";
 
   return `<guest email="${guest.email}"${guest.name ? ` name="${guest.name}"` : ""}>
+${aiResearchSection}
 ${recentEmailsSection}
 ${recentMeetingsSection}
 </guest>

@@ -1,7 +1,7 @@
 import { subMonths } from "date-fns/subMonths";
 import { createEmailProvider } from "@/utils/email/provider";
 import type { EmailProvider, EmailThread } from "@/utils/email/types";
-import { createScopedLogger } from "@/utils/logger";
+import type { Logger } from "@/utils/logger";
 import { createCalendarEventProviders } from "@/utils/calendar/event-provider";
 import type {
   CalendarEvent,
@@ -9,8 +9,9 @@ import type {
   CalendarEventProvider,
 } from "@/utils/calendar/event-types";
 import { extractDomainFromEmail } from "@/utils/email";
-
-const logger = createScopedLogger("meeting-briefs/gather-context");
+import { researchGuestWithPerplexity } from "@/utils/ai/meeting-briefs/research-guest";
+import { getEmailAccountWithAi } from "@/utils/user/get";
+import { SafeError } from "@/utils/error";
 
 const MAX_THREADS = 10;
 const MAX_MESSAGES_PER_THREAD = 10;
@@ -23,6 +24,7 @@ export type { CalendarEvent, CalendarEventAttendee };
 export interface ExternalGuest {
   email: string;
   name?: string;
+  aiResearch?: string | null;
 }
 
 export interface MeetingBriefingData {
@@ -32,43 +34,28 @@ export interface MeetingBriefingData {
   pastMeetings: CalendarEvent[];
 }
 
-/**
- * Get external attendees (not from the user's domain)
- */
-function getExternalAttendees(
-  event: CalendarEvent,
-  userEmail: string,
-  userDomain: string,
-): CalendarEventAttendee[] {
-  return event.attendees.filter((attendee) => {
-    const attendeeDomain = extractDomainFromEmail(attendee.email);
-    return attendeeDomain !== userDomain && attendee.email !== userEmail;
-  });
-}
-
 export async function gatherContextForEvent({
   event,
   emailAccountId,
   userEmail,
   userDomain,
   provider,
+  logger,
 }: {
   event: CalendarEvent;
   emailAccountId: string;
   userEmail: string;
   userDomain: string;
   provider: string;
+  logger: Logger;
 }): Promise<MeetingBriefingData> {
-  const log = logger.with({ emailAccountId, eventId: event.id });
-
   const externalAttendees = getExternalAttendees(event, userEmail, userDomain);
   const participantEmails = externalAttendees.map((a) => a.email);
 
-  log.info("Gathering context for external guests", {
+  logger.info("Gathering context for external guests", {
     guestCount: externalAttendees.length,
   });
 
-  // Create providers once
   const [emailProvider, calendarProviders] = await Promise.all([
     createEmailProvider({ emailAccountId, provider }),
     createCalendarEventProviders(emailAccountId),
@@ -81,13 +68,13 @@ export async function gatherContextForEvent({
       participantEmails,
       maxThreads: MAX_THREADS,
       threadsPerParticipant: THREADS_PER_PARTICIPANT,
-      log,
+      logger,
     }),
     fetchPastMeetingsWithParticipants({
       calendarProviders,
       participantEmails,
       maxMeetings: MAX_MEETINGS,
-      log,
+      logger,
     }),
   ]);
 
@@ -97,16 +84,44 @@ export async function gatherContextForEvent({
     messages: thread.messages.slice(-MAX_MESSAGES_PER_THREAD),
   }));
 
-  log.info("Gathered context for meeting", {
+  const emailAccount = await getEmailAccountWithAi({
+    emailAccountId,
+  });
+
+  if (!emailAccount) {
+    logger.error("Email account not found");
+    throw new SafeError("Email account not found");
+  }
+
+  const guestResearchPromises = externalAttendees.map((attendee) =>
+    researchGuestWithPerplexity({
+      name: attendee.name,
+      email: attendee.email,
+      emailAccount,
+      logger,
+    }).catch((error) => {
+      logger.warn("Failed to research guest", {
+        email: attendee.email,
+        error,
+      });
+      return null;
+    }),
+  );
+
+  const aiResearchResults = await Promise.all(guestResearchPromises);
+
+  logger.info("Gathered context for meeting", {
     threadCount: cappedThreads.length,
     meetingCount: pastMeetings.length,
+    researchedGuests: aiResearchResults.filter((c) => c !== null).length,
   });
 
   return {
     event,
-    externalGuests: externalAttendees.map((a) => ({
+    externalGuests: externalAttendees.map((a, index) => ({
       email: a.email,
       name: a.name,
+      aiResearch: aiResearchResults[index] ?? null,
     })),
     emailThreads: cappedThreads,
     pastMeetings,
@@ -118,13 +133,13 @@ async function fetchEmailThreadsWithParticipants({
   participantEmails,
   maxThreads,
   threadsPerParticipant,
-  log,
+  logger,
 }: {
   emailProvider: EmailProvider;
   participantEmails: string[];
   maxThreads: number;
   threadsPerParticipant: number;
-  log: ReturnType<typeof logger.with>;
+  logger: Logger;
 }): Promise<EmailThread[]> {
   if (participantEmails.length === 0) {
     return [];
@@ -151,7 +166,7 @@ async function fetchEmailThreadsWithParticipants({
         }
       }
     } catch (error) {
-      log.error("Failed to fetch threads for participant", {
+      logger.error("Failed to fetch threads for participant", {
         participantEmail: email,
         error,
       });
@@ -161,16 +176,27 @@ async function fetchEmailThreadsWithParticipants({
   return allThreads;
 }
 
+function getExternalAttendees(
+  event: CalendarEvent,
+  userEmail: string,
+  userDomain: string,
+): CalendarEventAttendee[] {
+  return event.attendees.filter((attendee) => {
+    const attendeeDomain = extractDomainFromEmail(attendee.email);
+    return attendeeDomain !== userDomain && attendee.email !== userEmail;
+  });
+}
+
 async function fetchPastMeetingsWithParticipants({
   calendarProviders,
   participantEmails,
   maxMeetings,
-  log,
+  logger,
 }: {
   calendarProviders: CalendarEventProvider[];
   participantEmails: string[];
   maxMeetings: number;
-  log: ReturnType<typeof logger.with>;
+  logger: Logger;
 }): Promise<CalendarEvent[]> {
   if (participantEmails.length === 0 || calendarProviders.length === 0) {
     return [];
@@ -204,7 +230,7 @@ async function fetchPastMeetingsWithParticipants({
           }
         }
       } catch (error) {
-        log.error("Failed to fetch events for participant", {
+        logger.error("Failed to fetch events for participant", {
           participantEmail: email,
           error,
         });

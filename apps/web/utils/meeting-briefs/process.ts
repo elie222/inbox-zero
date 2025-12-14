@@ -149,10 +149,7 @@ export async function runMeetingBrief({
   const userEmail = emailAccount.email;
   const provider = emailAccount.account.provider;
 
-  const eventLog = logger.with({
-    eventId: event.id,
-    eventTitle: event.title,
-  });
+  const eventLog = logger.with({ eventId: event.id });
 
   // Compute external guest count upfront for consistent tracking
   const userDomain = extractDomainFromEmail(userEmail);
@@ -168,6 +165,7 @@ export async function runMeetingBrief({
       userEmail,
       userDomain,
       provider,
+      logger: eventLog,
     });
 
     if (briefingData.externalGuests.length === 0) {
