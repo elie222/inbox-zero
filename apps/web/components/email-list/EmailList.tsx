@@ -197,12 +197,20 @@ export function EmailList({
 
   const onPlanAiAction = useCallback(
     (thread: Thread) => {
-      toast.promise(() => runAiRules(emailAccountId, [thread], true), {
-        success: "Running...",
-        error: "There was an error running the AI rules :(",
-      });
+      toast.promise(
+        async () => {
+          await runAiRules(emailAccountId, [thread], true);
+          // Refetch to show updated plan in UI
+          refetch();
+        },
+        {
+          loading: "Processing with AI...",
+          success: "AI rules applied!",
+          error: "There was an error running the AI rules :(",
+        },
+      );
     },
-    [emailAccountId],
+    [emailAccountId, refetch],
   );
 
   const onArchive = useCallback(
@@ -312,15 +320,17 @@ export function EmailList({
           .filter(([, selected]) => selected)
           .map(([id]) => threads.find((t) => t.id === id)!);
 
-        runAiRules(emailAccountId, selectedThreads, false);
-        // runAiRules(threadIds, () => refetch(threadIds));
+        await runAiRules(emailAccountId, selectedThreads, false);
+        // Refetch to show updated plans in UI
+        refetch();
       },
       {
-        success: "Running AI rules...",
+        loading: "Processing emails with AI...",
+        success: "AI rules applied to selected emails!",
         error: "There was an error running the AI rules :(",
       },
     );
-  }, [emailAccountId, selectedRows, threads]);
+  }, [emailAccountId, selectedRows, threads, refetch]);
 
   const isEmpty = threads.length === 0;
 
