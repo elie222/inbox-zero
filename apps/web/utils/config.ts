@@ -21,7 +21,7 @@ export const ConditionType = {
 export type ConditionType = (typeof ConditionType)[keyof typeof ConditionType];
 export type CoreConditionType = Extract<ConditionType, "AI" | "STATIC">;
 
-export const WELCOME_PATH = "/welcome-redirect";
+export const WELCOME_PATH = "/mail";
 
 export const EXTENSION_URL = "https://go.getinboxzero.com/extension";
 
