@@ -56,20 +56,31 @@ export function List({
     return emails.filter((email) => email.plan?.rule);
   }, [emails]);
 
+  // Build tab href while preserving current type parameter
+  const buildTabHref = useCallback(
+    (tab: string) => {
+      const params = new URLSearchParams();
+      if (type) params.set("type", type);
+      params.set("tab", tab);
+      return `/mail?${params.toString()}`;
+    },
+    [type],
+  );
+
   const tabs = useMemo(
     () => [
       {
         label: "All",
         value: "all",
-        href: "/mail?tab=all",
+        href: buildTabHref("all"),
       },
       {
         label: `Planned${planned.length ? ` (${planned.length})` : ""}`,
         value: "planned",
-        href: "/mail?tab=planned",
+        href: buildTabHref("planned"),
       },
     ],
-    [planned],
+    [planned, buildTabHref],
   );
 
   // only show tabs if there are planned emails or categorized emails
