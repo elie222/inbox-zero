@@ -142,7 +142,7 @@ export function Rules({
 
   return (
     <div className="space-y-6">
-      <Card>
+      <Card className="border-none bg-card/50 shadow-sm overflow-hidden">
         <LoadingContent loading={isLoading} error={error}>
           {hasRules ? (
             <Table>
@@ -180,7 +180,7 @@ export function Rules({
                   return (
                     <TableRow
                       key={rule.id}
-                      className={`${!rule.enabled ? "bg-muted opacity-60" : ""} ${
+                      className={`transition-colors ${!rule.enabled ? "bg-muted/50 opacity-60" : "hover:bg-muted/30"} ${
                         isPlaceholder ? "cursor-default" : "cursor-pointer"
                       }`}
                       onClick={() => {

@@ -2,11 +2,12 @@
 
 import { useCallback, useMemo } from "react";
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+  Credenza,
+  CredenzaContent,
+  CredenzaHeader,
+  CredenzaTitle,
+  CredenzaBody,
+} from "@/components/ui/responsive-modal";
 import { RuleForm } from "./RuleForm";
 import { LoadingContent } from "@/components/LoadingContent";
 import { useRule } from "@/hooks/useRule";
@@ -69,12 +70,12 @@ export function RuleDialog({
   const finalInitialRule = duplicateInitialRule || initialRule;
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-h-[90vh] max-w-4xl overflow-y-auto">
-        <DialogHeader className={ruleId ? "sr-only" : ""}>
-          <DialogTitle>{ruleId ? "Edit Rule" : "Create Rule"}</DialogTitle>
-        </DialogHeader>
-        <div>
+    <Credenza open={isOpen} onOpenChange={onClose}>
+      <CredenzaContent className="max-h-[90vh] max-w-4xl overflow-y-auto">
+        <CredenzaHeader className={ruleId ? "sr-only" : ""}>
+          <CredenzaTitle>{ruleId ? "Edit Rule" : "Create Rule"}</CredenzaTitle>
+        </CredenzaHeader>
+        <CredenzaBody>
           {ruleId ? (
             <LoadingContent loading={isLoading} error={error}>
               {data && (
@@ -112,9 +113,9 @@ export function RuleDialog({
               onCancel={onClose}
             />
           )}
-        </div>
-      </DialogContent>
-    </Dialog>
+        </CredenzaBody>
+      </CredenzaContent>
+    </Credenza>
   );
 }
 
