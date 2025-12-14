@@ -171,6 +171,7 @@
     "typescript": "5.9.3",
     "use-stick-to-bottom": "1.1.1",
     "usehooks-ts": "3.1.1",
+    "vaul": "^1.1.2",
     "zod": "3.25.46"
   },
   "devDependencies": {
