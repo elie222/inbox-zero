@@ -210,14 +210,20 @@ export function SideNav({ ...props }: React.ComponentProps<typeof Sidebar>) {
       <SidebarHeader className="gap-0 pb-0">
         {state.includes("left-sidebar") ? (
           <div className="flex items-center rounded-md pl-2 pr-0.5 py-3 text-foreground justify-between">
-            <Link href="/setup">
+            <Link href="/setup" className="transition-opacity hover:opacity-80">
               <Logo className="h-3.5" />
             </Link>
-            <SidebarTrigger name="left-sidebar" />
+            <SidebarTrigger
+              name="left-sidebar"
+              className="text-muted-foreground transition-colors hover:text-foreground"
+            />
           </div>
         ) : (
-          <div className="pb-2">
-            <SidebarTrigger name="left-sidebar" />
+          <div className="flex items-center justify-center py-2">
+            <SidebarTrigger
+              name="left-sidebar"
+              className="text-muted-foreground transition-colors hover:text-foreground"
+            />
           </div>
         )}
         <AccountSwitcher />
@@ -240,24 +246,30 @@ export function SideNav({ ...props }: React.ComponentProps<typeof Sidebar>) {
 
       <PremiumCard isCollapsed={!state.includes("left-sidebar")} />
 
-      <SidebarFooter className="pb-4">
+      <SidebarFooter className="pb-4 space-y-1">
         {!env.NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS && (
           <ClientOnly>
             <ReferralDialog />
           </ClientOnly>
         )}
 
-        <SidebarMenuButton asChild>
+        <SidebarMenuButton
+          asChild
+          className="transition-colors hover:bg-muted/50"
+        >
           <Link href="https://docs.getinboxzero.com" target="_blank">
-            <BookIcon className="size-4" />
-            <span className="font-semibold">Help Center</span>
+            <BookIcon className="size-4 text-muted-foreground" />
+            <span className="font-medium">Help Center</span>
           </Link>
         </SidebarMenuButton>
 
-        <SidebarMenuButton asChild>
+        <SidebarMenuButton
+          asChild
+          className="transition-colors hover:bg-muted/50"
+        >
           <Link href={prefixPath(currentEmailAccountId, "/settings")}>
-            <SettingsIcon className="size-4" />
-            <span className="font-semibold">Settings</span>
+            <SettingsIcon className="size-4 text-muted-foreground" />
+            <span className="font-medium">Settings</span>
           </Link>
         </SidebarMenuButton>
 
@@ -310,13 +322,15 @@ function MailNav({ path }: { path: string }) {
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton
-              className="h-9 data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
+              className="h-9 bg-primary/10 text-primary hover:bg-primary/20 transition-colors data-[state=open]:bg-primary/20"
               onClick={onOpen}
               sidebarName="left-sidebar"
             >
               <PenIcon className="size-4" />
               <span className="truncate font-semibold">Compose</span>
-              <CommandShortcut>C</CommandShortcut>
+              <CommandShortcut className="bg-primary/10 border-primary/20">
+                C
+              </CommandShortcut>
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>
@@ -349,14 +363,14 @@ function MailNav({ path }: { path: string }) {
               <button
                 type="button"
                 onClick={() => setShowHiddenLabels(!showHiddenLabels)}
-                className="flex w-full items-center px-3 py-2 text-sm text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+                className="flex w-full items-center rounded-md px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground"
               >
                 {showHiddenLabels ? (
-                  <ChevronDownIcon className="mr-1 size-4" />
+                  <ChevronDownIcon className="mr-1.5 size-4 transition-transform" />
                 ) : (
-                  <ChevronRightIcon className="mr-1 size-4" />
+                  <ChevronRightIcon className="mr-1.5 size-4 transition-transform" />
                 )}
-                <span>More</span>
+                <span>More ({hiddenLabels.length})</span>
               </button>
 
               {showHiddenLabels && (
