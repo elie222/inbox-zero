@@ -1,10 +1,11 @@
 "use client";
 
-import { useCallback, useRef, useState, useMemo } from "react";
+import { useCallback, useRef, useState, useMemo, memo } from "react";
 import { useQueryState } from "nuqs";
 import Link from "next/link";
 import { toast } from "sonner";
 import { ChevronsDownIcon } from "lucide-react";
+import { VList, type VListHandle } from "virtua";
 import { ActionButtonsBulk } from "@/components/ActionButtonsBulk";
 import { Celebration } from "@/components/Celebration";
 import { EmailPanel } from "@/components/email-list/EmailPanel";
@@ -31,6 +32,7 @@ import {
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { prefixPath } from "@/utils/path";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { cn } from "@/utils";
 
 export function List({
   emails,
@@ -230,35 +232,6 @@ export function EmailList({
     [refetch, emailAccountId],
   );
 
-  const listRef = useRef<HTMLUListElement>(null);
-  const itemsRef = useRef<Map<string, HTMLLIElement> | null>(null);
-
-  // https://react.dev/learn/manipulating-the-dom-with-refs#how-to-manage-a-list-of-refs-using-a-ref-callback
-  function getMap() {
-    if (!itemsRef.current) {
-      // Initialize the Map on first usage.
-      itemsRef.current = new Map();
-    }
-    return itemsRef.current;
-  }
-
-  // to scroll to a row when the side panel is opened
-  function scrollToId(threadId: string) {
-    const map = getMap();
-    const node = map.get(threadId);
-
-    // let the panel open first
-    setTimeout(() => {
-      if (listRef.current && node) {
-        // Calculate the position of the item relative to the container
-        const topPos = node.offsetTop - 117;
-
-        // Scroll the container to the item
-        listRef.current.scrollTop = topPos;
-      }
-    }, 100);
-  }
-
   function advanceToAdjacentThread() {
     const openedRowIndex = threads.findIndex(
       (thread) => thread.id === openThreadId,
@@ -404,71 +377,23 @@ export function EmailList({
         ) : (
           <ResizeGroup
             left={
-              <ul
-                className="divide-y divide-border overflow-y-auto overflow-x-hidden scroll-smooth"
-                ref={listRef}
-              >
-                {threads.map((thread) => {
-                  const onOpen = () => {
-                    const alreadyOpen = !!openThreadId;
-                    setOpenThreadId(thread.id);
-
-                    if (!alreadyOpen) scrollToId(thread.id);
-
-                    markReadThreads({
-                      threadIds: [thread.id],
-                      onSuccess: () => refetch(),
-                      emailAccountId,
-                    });
-                  };
-
-                  return (
-                    <EmailListItem
-                      key={thread.id}
-                      ref={(node) => {
-                        const map = getMap();
-                        if (node) {
-                          map.set(thread.id, node);
-                        } else {
-                          map.delete(thread.id);
-                        }
-                      }}
-                      userEmail={userEmail}
-                      provider={provider}
-                      thread={thread}
-                      opened={openThreadId === thread.id}
-                      closePanel={closePanel}
-                      selected={selectedRows[thread.id]}
-                      onSelected={onSetSelectedRow}
-                      splitView={!!openThreadId}
-                      onClick={onOpen}
-                      onPlanAiAction={onPlanAiAction}
-                      onArchive={onArchive}
-                      refetch={refetch}
-                    />
-                  );
-                })}
-                {showLoadMore && (
-                  <Button
-                    variant="outline"
-                    className="mb-2 w-full"
-                    size={"sm"}
-                    onClick={handleLoadMore}
-                    disabled={isLoadingMore}
-                  >
-                    {
-                      <>
-                        {isLoadingMore ? (
-                          <ButtonLoader />
-                        ) : (
-                          <ChevronsDownIcon className="mr-2 h-4 w-4" />
-                        )}
-                        <span>Load more</span>
-                      </>
-                    }
-                  </Button>
-                )}
-              </ul>
+              <VirtualEmailList
+                threads={threads}
+                openThreadId={openThreadId}
+                setOpenThreadId={setOpenThreadId}
+                selectedRows={selectedRows}
+                onSetSelectedRow={onSetSelectedRow}
+                onPlanAiAction={onPlanAiAction}
+                onArchive={onArchive}
+                refetch={refetch}
+                showLoadMore={showLoadMore}
+                isLoadingMore={isLoadingMore}
+                handleLoadMore={handleLoadMore}
+                userEmail={userEmail}
+                provider={provider}
+                emailAccountId={emailAccountId}
+                closePanel={closePanel}
+              />
             }
             right={
               !!(openThreadId && openedRow) && (
@@ -525,3 +450,187 @@ function ResizeGroup({
     </ResizablePanelGroup>
   );
 }
+
+/**
+ * VirtualEmailList - High-performance email list using Virtua for virtual scrolling
+ * Renders only visible items for 60fps performance with large email lists
+ */
+const VirtualEmailList = memo(function VirtualEmailList({
+  threads,
+  openThreadId,
+  setOpenThreadId,
+  selectedRows,
+  onSetSelectedRow,
+  onPlanAiAction,
+  onArchive,
+  refetch,
+  showLoadMore,
+  isLoadingMore,
+  handleLoadMore,
+  userEmail,
+  provider,
+  emailAccountId,
+  closePanel,
+}: {
+  threads: Thread[];
+  openThreadId: string | null;
+  setOpenThreadId: (id: string | null) => void;
+  selectedRows: Record<string, boolean>;
+  onSetSelectedRow: (id: string) => void;
+  onPlanAiAction: (thread: Thread) => void;
+  onArchive: (thread: Thread) => void;
+  refetch: (options?: { removedThreadIds?: string[] }) => void;
+  showLoadMore?: boolean;
+  isLoadingMore?: boolean;
+  handleLoadMore?: () => void;
+  userEmail: string;
+  provider?: string;
+  emailAccountId: string;
+  closePanel: () => void;
+}) {
+  const vListRef = useRef<VListHandle>(null);
+  const itemsRef = useRef<Map<string, HTMLLIElement> | null>(null);
+
+  function getMap() {
+    if (!itemsRef.current) {
+      itemsRef.current = new Map();
+    }
+    return itemsRef.current;
+  }
+
+  // Handle scroll to load more when near the end
+  const handleScroll = useCallback(
+    (offset: number) => {
+      if (
+        !vListRef.current ||
+        !handleLoadMore ||
+        isLoadingMore ||
+        !showLoadMore
+      )
+        return;
+
+      // Calculate end index using offset + viewportSize
+      const { viewportSize } = vListRef.current;
+      const endIndex = vListRef.current.findItemIndex(offset + viewportSize);
+
+      // Load more when we're within 5 items of the end
+      if (threads.length - 1 - endIndex < 5) {
+        handleLoadMore();
+      }
+    },
+    [handleLoadMore, isLoadingMore, showLoadMore, threads.length],
+  );
+
+  // Scroll to a specific thread
+  const scrollToIndex = useCallback((index: number) => {
+    if (vListRef.current) {
+      vListRef.current.scrollToIndex(index, { align: "start" });
+    }
+  }, []);
+
+  // Render each email item - receives (thread, index) from VList data prop
+  const renderItem = useCallback(
+    (thread: Thread, index: number): React.ReactElement => {
+      const onOpen = () => {
+        const alreadyOpen = !!openThreadId;
+        setOpenThreadId(thread.id);
+
+        if (!alreadyOpen) {
+          // Scroll to the item after a short delay to allow panel to open
+          setTimeout(() => scrollToIndex(index), 100);
+        }
+
+        markReadThreads({
+          threadIds: [thread.id],
+          onSuccess: () => refetch(),
+          emailAccountId,
+        });
+      };
+
+      return (
+        <EmailListItem
+          key={thread.id}
+          ref={(node) => {
+            const map = getMap();
+            if (node) {
+              map.set(thread.id, node);
+            } else {
+              map.delete(thread.id);
+            }
+          }}
+          userEmail={userEmail}
+          provider={provider ?? ""}
+          thread={thread}
+          opened={openThreadId === thread.id}
+          closePanel={closePanel}
+          selected={selectedRows[thread.id]}
+          onSelected={onSetSelectedRow}
+          splitView={!!openThreadId}
+          onClick={onOpen}
+          onPlanAiAction={onPlanAiAction}
+          onArchive={onArchive}
+          refetch={refetch}
+        />
+      );
+    },
+    [
+      openThreadId,
+      setOpenThreadId,
+      selectedRows,
+      onSetSelectedRow,
+      onPlanAiAction,
+      onArchive,
+      refetch,
+      userEmail,
+      provider,
+      emailAccountId,
+      closePanel,
+      scrollToIndex,
+    ],
+  );
+
+  return (
+    <div className="flex h-full flex-col">
+      <VList
+        ref={vListRef}
+        data={threads}
+        bufferSize={400}
+        itemSize={72}
+        className={cn(
+          "flex-1 divide-y divide-border overflow-x-hidden",
+          "style-scrollbar",
+        )}
+        onScroll={handleScroll}
+      >
+        {renderItem}
+      </VList>
+
+      {/* Load more indicator */}
+      {showLoadMore && (
+        <div className="flex-shrink-0 border-t border-border p-2">
+          <Button
+            variant="outline"
+            className="w-full"
+            size="sm"
+            onClick={handleLoadMore}
+            disabled={isLoadingMore}
+          >
+            {isLoadingMore ? (
+              <ButtonLoader />
+            ) : (
+              <ChevronsDownIcon className="mr-2 h-4 w-4" />
+            )}
+            <span>Load more</span>
+          </Button>
+        </div>
+      )}
+
+      {/* Loading indicator at bottom */}
+      {isLoadingMore && (
+        <div className="flex justify-center py-2">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+        </div>
+      )}
+    </div>
+  );
+});

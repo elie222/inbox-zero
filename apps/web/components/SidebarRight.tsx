@@ -17,9 +17,11 @@ export function SidebarRight({
   return (
     <div
       className={cn(
-        "fixed right-0 top-0 z-50 h-screen border-l bg-background transition-transform duration-200 ease-linear",
+        "fixed right-0 top-0 z-50 h-screen border-l border-border/50 bg-background/95 backdrop-blur-sm",
+        "transition-all duration-300 ease-out",
         "w-full lg:w-[450px]",
-        isOpen ? "translate-x-0" : "translate-x-full",
+        "shadow-[-4px_0_24px_-12px_rgba(0,0,0,0.1)] dark:shadow-[-4px_0_24px_-12px_rgba(0,0,0,0.4)]",
+        isOpen ? "translate-x-0 opacity-100" : "translate-x-full opacity-0",
         className,
       )}
     >

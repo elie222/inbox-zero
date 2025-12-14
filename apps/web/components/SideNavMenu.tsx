@@ -34,19 +34,23 @@ export function SideNavMenu({
             <SidebarMenuButton
               asChild
               isActive={isActive}
-              className="h-9 transition-colors hover:bg-muted/50"
+              className={`h-9 transition-all duration-150 ${
+                isActive ? "bg-accent font-medium" : "hover:bg-accent/50"
+              }`}
               tooltip={item.name}
               sidebarName="left-sidebar"
             >
               <Link href={item.href}>
                 <item.icon
-                  className={
+                  className={`size-4 transition-colors ${
                     isActive ? "text-primary" : "text-muted-foreground"
-                  }
+                  }`}
                 />
-                <span className="font-medium">{item.name}</span>
+                <span className={isActive ? "font-semibold" : "font-medium"}>
+                  {item.name}
+                </span>
                 {item.count !== undefined && item.count > 0 && (
-                  <span className="ml-auto rounded-full bg-muted px-2 py-0.5 text-xs font-medium tabular-nums">
+                  <span className="ml-auto rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium tabular-nums text-primary">
                     {item.count}
                   </span>
                 )}

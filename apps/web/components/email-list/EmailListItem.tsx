@@ -19,6 +19,7 @@ import { Button } from "@/components/ui/button";
 import { findCtaLink } from "@/utils/parse/parseHtml.client";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { internalDateToDate } from "@/utils/date";
+import { BimiAvatar } from "@/components/ui/bimi-avatar";
 
 export const EmailListItem = forwardRef(
   (
@@ -64,18 +65,25 @@ export const EmailListItem = forwardRef(
 
     const cta = findCtaLink(lastMessage.textHtml);
 
+    // Get sender info for avatar
+    const senderEmail = participant(lastMessage, props.userEmail);
+    const senderName = extractNameFromEmail(senderEmail);
+
     return (
       <ErrorBoundary extra={{ props, cta, decodedSnippet }}>
         <li
           ref={ref}
-          className={clsx("group relative cursor-pointer border-l-4 py-3", {
-            "hover:bg-slate-50 dark:hover:bg-slate-950":
-              !props.selected && !props.opened,
-            "bg-blue-50 dark:bg-blue-950": props.selected,
-            "bg-blue-100 dark:bg-blue-900": props.opened,
-            "bg-slate-100 dark:bg-background":
-              !isUnread && !props.selected && !props.opened,
-          })}
+          className={clsx(
+            "group relative cursor-pointer border-l-4 py-3 transition-colors duration-150",
+            {
+              "hover:bg-accent/50": !props.selected && !props.opened,
+              "bg-primary/10 border-l-primary": props.selected,
+              "bg-accent border-l-primary": props.opened,
+              "bg-muted/30 border-l-transparent":
+                !isUnread && !props.selected && !props.opened,
+              "border-l-transparent": !props.selected && !props.opened,
+            },
+          )}
           onClick={props.onClick}
           onKeyDown={(e) => {
             if (e.key === "Enter" || e.key === " ") {
@@ -106,12 +114,15 @@ export const EmailListItem = forwardRef(
                   />
                 </div>
 
-                <div className="ml-4 w-48 min-w-0 overflow-hidden truncate text-foreground">
-                  {extractNameFromEmail(
-                    participant(lastMessage, props.userEmail),
-                  )}{" "}
+                {/* BIMI Avatar */}
+                <div className="ml-3 flex-shrink-0">
+                  <BimiAvatar email={senderEmail} name={senderName} size="md" />
+                </div>
+
+                <div className="ml-3 w-40 min-w-0 overflow-hidden truncate text-foreground">
+                  {senderName}{" "}
                   {thread.messages.length > 1 ? (
-                    <span className="font-normal">
+                    <span className="font-normal text-muted-foreground">
                       ({thread.messages.length})
                     </span>
                   ) : null}

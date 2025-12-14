@@ -322,13 +322,15 @@ function MailNav({ path }: { path: string }) {
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton
-              className="h-9 bg-primary/10 text-primary hover:bg-primary/20 transition-colors data-[state=open]:bg-primary/20"
+              className="h-10 compose-gradient-animated text-gray-900 hover:opacity-90 transition-all rounded-lg group-data-[collapsible=icon]:size-10 group-data-[collapsible=icon]:p-0 group-data-[collapsible=icon]:justify-center"
               onClick={onOpen}
               sidebarName="left-sidebar"
             >
               <PenIcon className="size-4" />
-              <span className="truncate font-semibold">Compose</span>
-              <CommandShortcut className="bg-primary/10 border-primary/20">
+              <span className="truncate font-semibold group-data-[collapsible=icon]:hidden">
+                Compose
+              </span>
+              <CommandShortcut className="bg-white/50 text-gray-700 group-data-[collapsible=icon]:hidden">
                 C
               </CommandShortcut>
             </SidebarMenuButton>

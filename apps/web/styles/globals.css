@@ -68,6 +68,9 @@
     --color-subtle-black: #1f1f1f;
     --color-sky-blue: #0066ff;
     --color-shiny-gray: #a1a1a1;
+
+    /* Icon color */
+    --icon-color: currentColor;
   }
 
   .dark {
@@ -204,4 +207,165 @@
 .no-scrollbar {
   -ms-overflow-style: none;
   scrollbar-width: none;
+}
+
+/* Gradient Compose Button - Modern animated button from Mail-0 */
+.compose-loading {
+  background: #016ffe;
+  animation: none;
+}
+
+.compose-gradient-animated {
+  background: linear-gradient(
+    90deg,
+    rgba(255, 213, 208, 1),
+    rgba(219, 255, 228, 1),
+    rgba(226, 214, 255, 1),
+    rgba(255, 213, 208, 1)
+  );
+  background-size: 300% 100%;
+  animation: gradient-animation 8s ease infinite;
+  box-shadow:
+    0 10px 25px -5px rgba(0, 0, 0, 0.1),
+    0 8px 10px -6px rgba(0, 0, 0, 0.1);
+  transition: transform 0.3s ease;
+}
+
+@keyframes gradient-animation {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+.compose-gradient-text {
+  background: linear-gradient(
+    90deg,
+    rgba(255, 213, 208, 1) 0%,
+    rgba(219, 255, 228, 1) 50%,
+    rgba(226, 214, 255, 1) 100%
+  );
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  display: inline-block;
+}
+
+.compose-gradient-text-shiny {
+  background: linear-gradient(
+    90deg,
+    rgba(255, 213, 208, 1) 0%,
+    rgba(255, 255, 255, 1) 25%,
+    rgba(219, 255, 228, 1) 50%,
+    rgba(255, 255, 255, 1) 75%,
+    rgba(226, 214, 255, 1) 100%
+  );
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  display: inline-block;
+  text-shadow: 0 0 2px rgba(255, 255, 255, 0.3);
+}
+
+.compose-gradient-inner {
+  background-color: hsl(var(--background));
+  border-radius: 0.5rem;
+  padding: 0.5rem;
+}
+
+/* TipTap Editor Styles */
+.ProseMirror {
+  @apply outline-none;
+}
+
+.ProseMirror p {
+  margin-bottom: 0.3rem;
+}
+
+/* Shimmer animation for text effects */
+@keyframes shimmer {
+  from {
+    background-position: 200% 0;
+  }
+  to {
+    background-position: -200% 0;
+  }
+}
+
+.animate-shimmer {
+  animation: shimmer 3s linear infinite;
+  background: linear-gradient(
+    90deg,
+    hsl(var(--foreground)) 0%,
+    hsl(var(--muted-foreground)) 50%,
+    hsl(var(--foreground)) 100%
+  );
+  background-size: 200% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* Fade animations */
+@keyframes fade-up {
+  0% {
+    transform: translateY(10px);
+    opacity: 0;
+  }
+  100% {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes move-up {
+  0% {
+    transform: translateY(90px);
+    opacity: 0;
+  }
+  100% {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.animate-fade-up {
+  animation: fade-up 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-move-up {
+  animation: move-up 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* Scrollbar styling */
+.style-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: hsl(var(--accent) / 0.4) transparent;
+}
+
+.style-scrollbar::-webkit-scrollbar {
+  width: 6px;
+}
+
+.style-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.style-scrollbar::-webkit-scrollbar-thumb {
+  background-color: hsl(var(--accent) / 0.4);
+  border-radius: 9999px;
+}
+
+.style-scrollbar:hover::-webkit-scrollbar-thumb {
+  background-color: hsl(var(--accent));
+}
+
+/* Suggestion highlight for editor */
+.suggestion-highlight {
+  @apply bg-blue-200 hover:bg-blue-300 dark:bg-blue-500/40 dark:text-blue-50 dark:hover:bg-blue-400/50;
 }

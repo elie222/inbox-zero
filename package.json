@@ -39,5 +39,10 @@
       "@types/react": "19.0.10",
       "@types/react-dom": "19.0.4"
     }
+  },
+  "dependencies": {
+    "@fontsource-variable/geist": "^5.2.8",
+    "@fontsource-variable/geist-mono": "^5.2.7",
+    "virtua": "^0.48.2"
   }
 }
