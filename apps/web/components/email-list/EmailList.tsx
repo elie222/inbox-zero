@@ -50,21 +50,21 @@ export function List({
   handleLoadMore?: () => void;
 }) {
   const { emailAccountId } = useAccount();
-  const [selectedTab] = useQueryState("tab", { defaultValue: "all" });
+  const [selectedTab, setSelectedTab] = useQueryState("tab", {
+    defaultValue: "all",
+    shallow: true, // Prevent page reload
+  });
 
   const planned = useMemo(() => {
     return emails.filter((email) => email.plan?.rule);
   }, [emails]);
 
-  // Build tab href while preserving current type parameter
-  const buildTabHref = useCallback(
-    (tab: string) => {
-      const params = new URLSearchParams();
-      if (type) params.set("type", type);
-      params.set("tab", tab);
-      return `/mail?${params.toString()}`;
+  // Handle tab change without page reload
+  const handleTabClick = useCallback(
+    (tab: { value: string }) => {
+      setSelectedTab(tab.value);
     },
-    [type],
+    [setSelectedTab],
   );
 
   const tabs = useMemo(
@@ -72,15 +72,13 @@ export function List({
       {
         label: "All",
         value: "all",
-        href: buildTabHref("all"),
       },
       {
         label: `Planned${planned.length ? ` (${planned.length})` : ""}`,
         value: "planned",
-        href: buildTabHref("planned"),
       },
     ],
-    [planned, buildTabHref],
+    [planned],
   );
 
   // only show tabs if there are planned emails or categorized emails
@@ -101,7 +99,12 @@ export function List({
           <GroupHeading
             leftContent={
               <div className="overflow-x-auto py-2 md:max-w-lg lg:max-w-xl xl:max-w-3xl 2xl:max-w-4xl">
-                <Tabs selected={selectedTab} tabs={tabs} breakpoint="xs" />
+                <Tabs
+                  selected={selectedTab}
+                  tabs={tabs}
+                  breakpoint="xs"
+                  onClickTab={handleTabClick}
+                />
               </div>
             }
           />
