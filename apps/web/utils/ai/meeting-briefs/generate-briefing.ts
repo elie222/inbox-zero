@@ -33,7 +33,9 @@ Guidelines:
 - Focus on information that would be helpful to know before the meeting
 - Include any recent topics discussed, pending items, or relationship context
 - When AI research is available (LinkedIn, role, company), include it to help the user understand who they're meeting
-- If there's no meaningful context for a guest, briefly note that this appears to be a new contact
+- If a guest has <no_prior_context>, simply note they are a new contact (one bullet point only, don't repeat this in multiple ways)
+- ONLY include information about the specific guests listed in <guest_context>. Do NOT mention other meeting attendees, organizers, or colleagues.
+- AI research may be inaccurate for common names or generic email addresses
 
 Output the briefing as plain text with bullet points using "-" for each point.
 Group information by guest if there are multiple external guests.`;
@@ -102,35 +104,44 @@ function formatGuestContext(guest: GuestContextForPrompt): string {
   const recentMeetings = guest.recentMeetings ?? [];
   const aiResearch = guest.aiResearch;
 
-  const aiResearchSection = aiResearch
-    ? `<ai_research>
-${aiResearch}
-</ai_research>`
-    : "<ai_research>No AI research found for this contact.</ai_research>";
+  const hasAiResearch = Boolean(aiResearch);
+  const hasEmails = recentEmails.length > 0;
+  const hasMeetings = recentMeetings.length > 0;
 
-  const recentEmailsSection =
-    recentEmails.length > 0
-      ? `<recent_emails count="${recentEmails.length}">
+  if (!hasAiResearch && !hasEmails && !hasMeetings) {
+    return `<guest email="${guest.email}"${guest.name ? ` name="${guest.name}"` : ""}>
+<no_prior_context>This appears to be a new contact with no prior email, meeting, or public profile history.</no_prior_context>
+</guest>
+`;
+  }
+
+  const sections: string[] = [];
+
+  if (hasAiResearch) {
+    sections.push(`<ai_research>
+${aiResearch}
+</ai_research>`);
+  }
+
+  if (hasEmails) {
+    sections.push(`<recent_emails count="${recentEmails.length}">
 ${recentEmails
   .map(
     (email) =>
       `<email>\n${stringifyEmailSimple(getEmailForLLM(email))}\n</email>`,
   )
   .join("\n")}
-</recent_emails>`
-      : "<recent_emails>No recent emails found with this contact.</recent_emails>";
+</recent_emails>`);
+  }
 
-  const recentMeetingsSection =
-    recentMeetings.length > 0
-      ? `<recent_meetings count="${recentMeetings.length}">
+  if (hasMeetings) {
+    sections.push(`<recent_meetings count="${recentMeetings.length}">
 ${recentMeetings.map(formatMeetingForContext).join("\n")}
-</recent_meetings>`
-      : "<recent_meetings>No recent meetings found with this contact.</recent_meetings>";
+</recent_meetings>`);
+  }
 
   return `<guest email="${guest.email}"${guest.name ? ` name="${guest.name}"` : ""}>
-${aiResearchSection}
-${recentEmailsSection}
-${recentMeetingsSection}
+${sections.join("\n")}
 </guest>
 `;
 }

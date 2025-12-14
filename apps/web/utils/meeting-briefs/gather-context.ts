@@ -95,6 +95,7 @@ export async function gatherContextForEvent({
 
   const guestResearchPromises = externalAttendees.map((attendee) =>
     researchGuestWithPerplexity({
+      event,
       name: attendee.name,
       email: attendee.email,
       emailAccount,
