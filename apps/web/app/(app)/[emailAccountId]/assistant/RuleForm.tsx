@@ -459,7 +459,7 @@ export function RuleForm({
           />
         </RuleSectionCard>
 
-        <div className="flex justify-between items-center pt-3">
+        <div className="flex justify-between items-center">
           <Dialog>
             <DialogTrigger asChild>
               <Button variant="outline" size="sm" Icon={SettingsIcon}>
