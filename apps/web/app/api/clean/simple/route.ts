@@ -25,7 +25,6 @@ import type { ParsedMessage } from "@/utils/types";
 import { isActivePremium } from "@/utils/premium";
 import { env } from "@/env";
 import { isValidInternalApiKey } from "@/utils/internal-api";
-import { sleep } from "@/utils/sleep";
 
 const cleanThreadBody = z.object({
   emailAccountId: z.string(),
@@ -300,13 +299,6 @@ function getPublish({
         },
       }),
     ]);
-
-    // Rate limiting for fallback path (when QStash is not configured).
-    // QStash handles rate limiting server-side; fallback needs explicit delay.
-    // ~167ms = 6 operations/second to stay within Gmail API quotas.
-    if (!env.QSTASH_TOKEN) {
-      await sleep(167);
-    }
 
     logger.info("Published to Qstash", { emailAccountId, threadId });
   };
