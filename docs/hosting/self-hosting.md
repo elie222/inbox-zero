@@ -118,12 +118,21 @@ docker compose logs -f db
 
 ## Scheduled Tasks
 
-Gmail and Outlook push notification subscriptions expire periodically and must be renewed. The Docker Compose setup includes a `cron` container that handles this automatically.
+The Docker Compose setup includes a `cron` container that handles scheduled tasks automatically:
 
-**If you're not using Docker Compose** (e.g., running directly, Kubernetes, etc.), you need to set up a cron job to call the watch renewal endpoint every 6 hours:
+| Task | Frequency | Endpoint | Description |
+|------|-----------|----------|-------------|
+| **Email watch renewal** | Every 6 hours | `/api/watch/all` | Renews Gmail/Outlook push notification subscriptions |
+| **Meeting briefs** | Every 15 minutes | `/api/meeting-briefs` | Sends pre-meeting briefings to users with the feature enabled |
+
+**If you're not using Docker Compose** you need to set up cron jobs manually:
 
 ```bash
+# Email watch renewal - every 6 hours
 0 */6 * * * curl -s -X GET "https://yourdomain.com/api/watch/all" -H "Authorization: Bearer YOUR_CRON_SECRET"
+
+# Meeting briefs - every 15 minutes (optional, only if using meeting briefs feature)
+*/15 * * * * curl -s -X GET "https://yourdomain.com/api/meeting-briefs" -H "Authorization: Bearer YOUR_CRON_SECRET"
 ```
 
 Replace `YOUR_CRON_SECRET` with the value of `CRON_SECRET` from your `.env` file.
