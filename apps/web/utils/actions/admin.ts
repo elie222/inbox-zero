@@ -76,7 +76,7 @@ export const adminDeleteAccountAction = adminActionClient
       const userToDelete = await prisma.user.findUnique({ where: { email } });
       if (!userToDelete) throw new SafeError("User not found");
 
-      await deleteUser({ userId: userToDelete.id });
+      await deleteUser({ userId: userToDelete.id, logger });
     } catch (error) {
       logger.error("Failed to delete user", { email, error });
       throw new SafeError(

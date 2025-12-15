@@ -70,7 +70,7 @@ export function normalizeEmailAddress(email: string) {
 }
 
 // Converts "Name <hey@domain.com>" to "domain.com"
-export function extractDomainFromEmail(email: string) {
+export function extractDomainFromEmail(email: string): string {
   if (!email) return "";
 
   // Extract clean email address from formatted strings like "Name <email@domain.com>"

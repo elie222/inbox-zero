@@ -54,6 +54,7 @@ cp apps/web/.env.example apps/web/.env
 | `GROQ_API_KEY` | No | Groq API key | — |
 | `OPENROUTER_API_KEY` | No | OpenRouter API key | — |
 | `AI_GATEWAY_API_KEY` | No | AI Gateway API key | — |
+| `PERPLEXITY_API_KEY` | No | Perplexity API key for guest research for meeting briefs | — |
 | **AWS Bedrock** ||||
 | `BEDROCK_ACCESS_KEY` | No | AWS access key for Bedrock. See [AI SDK Bedrock documentation](https://ai-sdk.dev/providers/ai-sdk-providers/amazon-bedrock). | — |
 | `BEDROCK_SECRET_KEY` | No | AWS secret key for Bedrock | — |

@@ -41,8 +41,8 @@ export const runRulesAction = actionClient
 
       const emailAccount = await getEmailAccountWithAi({ emailAccountId });
 
-      if (!emailAccount) throw new Error("Email account not found");
-      if (!provider) throw new Error("Provider not found");
+      if (!emailAccount) throw new SafeError("Email account not found");
+      if (!provider) throw new SafeError("Provider not found");
 
       const emailProvider = await createEmailProvider({
         emailAccountId,

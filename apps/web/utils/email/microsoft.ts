@@ -8,6 +8,7 @@ import {
   getFolderIds,
   convertMessage,
   MESSAGE_SELECT_FIELDS,
+  sanitizeKqlValue,
 } from "@/utils/outlook/message";
 import {
   getLabels,
@@ -864,6 +865,81 @@ export class OutlookProvider implements EmailProvider {
       maxResults: options.maxResults,
       pageToken: options.pageToken,
     });
+  }
+
+  async getThreadsWithParticipant(options: {
+    participantEmail: string;
+    maxThreads?: number;
+  }): Promise<EmailThread[]> {
+    const { participantEmail, maxThreads = 5 } = options;
+
+    // IMPORTANT:
+    // Microsoft Graph does not reliably support filtering Messages by recipient collections
+    // (e.g. `toRecipients/any(...)`) and will error with:
+    // "The query filter contains one or more invalid nodes."
+    //
+    const sanitizedEmail = sanitizeKqlValue(participantEmail);
+    const searchQuery = `participants:${sanitizedEmail}`;
+
+    const { messages } = await queryBatchMessages(this.client, {
+      searchQuery,
+      maxResults: Math.min(20, Math.max(10, maxThreads * 4)),
+    });
+
+    const participantLower = participantEmail.toLowerCase().trim();
+
+    const relevant = messages.filter((m) => {
+      const h = m.headers;
+
+      const fromEmail = extractEmailAddress(h.from || "").toLowerCase();
+      if (fromEmail === participantLower) return true;
+
+      const toAddresses = (h.to || "")
+        .split(",")
+        .map((addr) => extractEmailAddress(addr.trim()).toLowerCase())
+        .filter(Boolean);
+      if (toAddresses.includes(participantLower)) return true;
+
+      const ccAddresses = (h.cc || "")
+        .split(",")
+        .map((addr) => extractEmailAddress(addr.trim()).toLowerCase())
+        .filter(Boolean);
+      if (ccAddresses.includes(participantLower)) return true;
+
+      return false;
+    });
+
+    // Extract unique conversationIds (thread IDs) from parsed messages
+    const conversationIds = Array.from(
+      new Set(relevant.map((m) => m.threadId).filter(Boolean)),
+    ).slice(0, maxThreads);
+
+    if (conversationIds.length === 0) {
+      return [];
+    }
+
+    // Fetch full thread messages for each conversation
+    const threads: EmailThread[] = [];
+    for (const conversationId of conversationIds) {
+      try {
+        const messages = await this.getThreadMessages(conversationId);
+        threads.push({
+          id: conversationId,
+          messages,
+          snippet: messages[0]?.snippet || "",
+        });
+      } catch (error) {
+        this.logger.warn("Failed to fetch thread messages for conversationId", {
+          conversationId,
+          participantEmail,
+          error: error instanceof Error ? error.message : error,
+          errorCode: (error as any)?.code,
+          errorStatusCode: (error as any)?.statusCode,
+        });
+      }
+    }
+
+    return threads;
   }
 
   async getMessagesByFields(options: {

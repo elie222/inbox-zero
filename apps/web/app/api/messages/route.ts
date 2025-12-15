@@ -5,6 +5,7 @@ import { isAssistantEmail } from "@/utils/assistant/is-assistant-email";
 import { GmailLabel } from "@/utils/gmail/label";
 import type { EmailProvider } from "@/utils/email/types";
 import { isGoogleProvider } from "@/utils/email/provider-types";
+import type { Logger } from "@/utils/logger";
 
 export type MessagesResponse = Awaited<ReturnType<typeof getMessages>>;
 
@@ -42,7 +43,7 @@ async function getMessages({
   emailAccountId: string;
   emailProvider: EmailProvider;
   email: string;
-  logger: any;
+  logger: Logger;
 }) {
   try {
     const { messages, nextPageToken } =

@@ -15,6 +15,7 @@
     "resend": "6.2.1"
   },
   "devDependencies": {
+    "@react-email/preview-server": "4.3.1",
     "@types/node": "24.10.1",
     "@types/react": "19.2.7",
     "@types/react-dom": "19.2.3",
