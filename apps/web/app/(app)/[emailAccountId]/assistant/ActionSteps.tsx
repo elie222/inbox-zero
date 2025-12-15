@@ -277,7 +277,12 @@ function ActionCard({
     const setManually = !!watch(`actions.${index}.${field.name}.setManually`);
 
     // Show field if it's not expandable, or it's expanded, or it has a value
-    const showField = !field.expandable || expandedFields || !!value;
+    // For Draft Email, always show expandable fields (no expand/collapse)
+    const showField =
+      !field.expandable ||
+      actionType === ActionType.DRAFT_EMAIL ||
+      expandedFields ||
+      !!value;
 
     if (!showField) return null;
 
@@ -286,7 +291,10 @@ function ActionCard({
         key={field.name}
         className={cn(
           "space-y-4 mx-auto w-full",
-          field.expandable && !value ? "opacity-80" : "",
+          field.expandable &&
+            !value &&
+            actionType !== ActionType.DRAFT_EMAIL &&
+            "opacity-80",
         )}
       >
         <div>
@@ -373,24 +381,7 @@ function ActionCard({
             </div>
           ) : field.name === "content" &&
             actionType === ActionType.DRAFT_EMAIL &&
-            !setManually ? (
-            <div className="flex h-full flex-col items-center justify-center gap-2 p-4 border rounded">
-              <div className="max-w-sm text-center text-sm text-muted-foreground">
-                Our AI will generate a reply based on your email history and
-                knowledge base
-              </div>
-
-              <Button
-                variant="link"
-                size="xs"
-                onClick={() => {
-                  setValue(`actions.${index}.content.setManually`, true);
-                }}
-              >
-                Set manually
-              </Button>
-            </div>
-          ) : field.textArea ? (
+            !setManually ? null : field.textArea ? (
             <div>
               {isEmailAction && (
                 <Label
@@ -406,20 +397,6 @@ function ActionCard({
                 rows={3}
                 {...register(`actions.${index}.${field.name}.value`)}
               />
-
-              {field.name === "content" &&
-                actionType === ActionType.DRAFT_EMAIL &&
-                setManually && (
-                  <Button
-                    variant="link"
-                    size="xs"
-                    onClick={() => {
-                      setValue(`actions.${index}.content.setManually`, false);
-                    }}
-                  >
-                    Auto draft
-                  </Button>
-                )}
             </div>
           ) : (
             <div>
@@ -496,31 +473,35 @@ function ActionCard({
   const fieldsContent = (
     <>
       {nonExpandableFields.map((field) => renderField(field))}
-      {hasExpandableFields && expandableFields.length > 0 && (
-        <>
-          <div className="mt-2 flex">
-            <Button
-              size="xs"
-              variant="ghost"
-              className="flex items-center gap-1 text-xs text-muted-foreground"
-              onClick={() => setExpandedFields(!expandedFields)}
-            >
-              {expandedFields ? (
-                <>
-                  <ChevronDownIcon className="h-3.5 w-3.5" />
-                  Hide extra fields
-                </>
-              ) : (
-                <>
-                  <ChevronRightIcon className="h-3.5 w-3.5" />
-                  Show all fields
-                </>
-              )}
-            </Button>
-          </div>
-          {expandableFields.map((field) => renderField(field))}
-        </>
-      )}
+      {actionType === ActionType.DRAFT_EMAIL
+        ? // For Draft Email, show all fields directly without expand/collapse
+          expandableFields.map((field) => renderField(field))
+        : hasExpandableFields &&
+          expandableFields.length > 0 && (
+            <>
+              <div className="mt-2 flex">
+                <Button
+                  size="xs"
+                  variant="ghost"
+                  className="flex items-center gap-1 text-xs text-muted-foreground"
+                  onClick={() => setExpandedFields(!expandedFields)}
+                >
+                  {expandedFields ? (
+                    <>
+                      <ChevronDownIcon className="h-3.5 w-3.5" />
+                      Hide extra fields
+                    </>
+                  ) : (
+                    <>
+                      <ChevronRightIcon className="h-3.5 w-3.5" />
+                      Show all fields
+                    </>
+                  )}
+                </Button>
+              </div>
+              {expandableFields.map((field) => renderField(field))}
+            </>
+          )}
     </>
   );
 
@@ -549,9 +530,16 @@ function ActionCard({
       </div>
     ) : null;
 
+  const isDraftEmailWithoutManualContent =
+    actionType === ActionType.DRAFT_EMAIL && !contentSetManually;
+
   const rightContent = (
     <>
-      {isEmailAction || actionType === ActionType.CALL_WEBHOOK ? (
+      {isDraftEmailWithoutManualContent ? (
+        <div className="px-1 h-full flex items-center text-sm text-muted-foreground">
+          Our AI generates a reply from your email history and knowledge base.
+        </div>
+      ) : isEmailAction || actionType === ActionType.CALL_WEBHOOK ? (
         <Card className="p-4 space-y-4">
           {fieldsContent}
           {shouldShowProTip && <VariableProTip />}
@@ -593,9 +581,18 @@ function ActionCard({
     });
   }, [index, setValue]);
 
+  const handleSetManually = useCallback(() => {
+    setValue(`actions.${index}.content.setManually`, true);
+  }, [index, setValue]);
+
+  const handleUseAiDraft = useCallback(() => {
+    setValue(`actions.${index}.content.setManually`, false);
+  }, [index, setValue]);
+
   const isLabelAction = actionType === ActionType.LABEL;
   const labelIdValue = watch(`actions.${index}.labelId`);
   const isPromptMode = !!labelIdValue?.ai;
+  const isDraftEmailAction = actionType === ActionType.DRAFT_EMAIL;
 
   return (
     <RuleStep
@@ -609,6 +606,9 @@ function ActionCard({
       onUsePrompt={isLabelAction ? handleUsePrompt : undefined}
       onUseLabel={isLabelAction ? handleUseLabel : undefined}
       isPromptMode={isPromptMode}
+      onSetManually={isDraftEmailAction ? handleSetManually : undefined}
+      onUseAiDraft={isDraftEmailAction ? handleUseAiDraft : undefined}
+      isManualMode={contentSetManually}
     />
   );
 }

@@ -4,6 +4,7 @@ import {
   MoreHorizontalIcon,
   ClockIcon,
   SparklesIcon,
+  PenLineIcon,
 } from "lucide-react";
 import { cn } from "@/utils";
 import {
@@ -22,6 +23,9 @@ function RemoveButton({
   onUsePrompt,
   onUseLabel,
   isPromptMode,
+  onSetManually,
+  onUseAiDraft,
+  isManualMode,
 }: {
   onClick: () => void;
   ariaLabel: string;
@@ -31,6 +35,9 @@ function RemoveButton({
   onUsePrompt?: () => void;
   onUseLabel?: () => void;
   isPromptMode?: boolean;
+  onSetManually?: () => void;
+  onUseAiDraft?: () => void;
+  isManualMode?: boolean;
 }) {
   return (
     <DropdownMenu>
@@ -55,6 +62,18 @@ function RemoveButton({
           <DropdownMenuItem onClick={onUseLabel}>
             <SparklesIcon className="mr-2 size-4" />
             Use label
+          </DropdownMenuItem>
+        )}
+        {onSetManually && !isManualMode && (
+          <DropdownMenuItem onClick={onSetManually}>
+            <PenLineIcon className="mr-2 size-4" />
+            Set content manually
+          </DropdownMenuItem>
+        )}
+        {onUseAiDraft && isManualMode && (
+          <DropdownMenuItem onClick={onUseAiDraft}>
+            <SparklesIcon className="mr-2 size-4" />
+            Use AI draft
           </DropdownMenuItem>
         )}
         {onAddDelay && !hasDelay && (
@@ -109,6 +128,9 @@ export function RuleStep({
   onUsePrompt,
   onUseLabel,
   isPromptMode,
+  onSetManually,
+  onUseAiDraft,
+  isManualMode,
 }: {
   onRemove: () => void;
   leftContent: React.ReactNode | null;
@@ -120,6 +142,9 @@ export function RuleStep({
   onUsePrompt?: () => void;
   onUseLabel?: () => void;
   isPromptMode?: boolean;
+  onSetManually?: () => void;
+  onUseAiDraft?: () => void;
+  isManualMode?: boolean;
 }) {
   return (
     <div className="flex items-start gap-3">
@@ -136,6 +161,9 @@ export function RuleStep({
             onUsePrompt={onUsePrompt}
             onUseLabel={onUseLabel}
             isPromptMode={isPromptMode}
+            onSetManually={onSetManually}
+            onUseAiDraft={onUseAiDraft}
+            isManualMode={isManualMode}
           />
         </CardLayout>
       </div>

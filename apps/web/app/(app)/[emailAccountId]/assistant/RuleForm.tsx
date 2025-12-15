@@ -48,6 +48,7 @@ import { Form } from "@/components/ui/form";
 import { getActionIcon } from "@/utils/action-display";
 import { useFolders } from "@/hooks/useFolders";
 import { isConversationStatusType } from "@/utils/reply-tracker/conversation-status-config";
+import { getRuleConfig } from "@/utils/rule/consts";
 import { RuleSectionCard } from "@/app/(app)/[emailAccountId]/assistant/RuleSectionCard";
 import { ConditionSteps } from "@/app/(app)/[emailAccountId]/assistant/ConditionSteps";
 import { ActionSteps } from "@/app/(app)/[emailAccountId]/assistant/ActionSteps";
@@ -276,11 +277,6 @@ export function RuleForm({
       icon: React.ElementType;
     }[] = [
       {
-        label: "Archive",
-        value: ActionType.ARCHIVE,
-        icon: getActionIcon(ActionType.ARCHIVE),
-      },
-      {
         label: terminology.label.action,
         value: ActionType.LABEL,
         icon: getActionIcon(ActionType.LABEL),
@@ -300,6 +296,16 @@ export function RuleForm({
         icon: getActionIcon(ActionType.DRAFT_EMAIL),
       },
       {
+        label: "Archive",
+        value: ActionType.ARCHIVE,
+        icon: getActionIcon(ActionType.ARCHIVE),
+      },
+      {
+        label: "Mark read",
+        value: ActionType.MARK_READ,
+        icon: getActionIcon(ActionType.MARK_READ),
+      },
+      {
         label: "Reply",
         value: ActionType.REPLY,
         icon: getActionIcon(ActionType.REPLY),
@@ -313,11 +319,6 @@ export function RuleForm({
         label: "Forward",
         value: ActionType.FORWARD,
         icon: getActionIcon(ActionType.FORWARD),
-      },
-      {
-        label: "Mark read",
-        value: ActionType.MARK_READ,
-        icon: getActionIcon(ActionType.MARK_READ),
       },
       {
         label: "Mark spam",
@@ -399,7 +400,14 @@ export function RuleForm({
           }
           footerActions={undefined}
         >
-          {isConversationStatusType(rule.systemType) ? null : (
+          {isConversationStatusType(rule.systemType) ? (
+            <div className="flex items-center gap-2 px-4 py-2 bg-gray-50 dark:bg-gray-900">
+              <p className="text-muted-foreground">
+                {getRuleConfig(rule.systemType).instructions}
+              </p>
+              <TooltipExplanation text="Instructions for this rule can't be customized as it's a special preset rule." />
+            </div>
+          ) : (
             <ConditionSteps
               conditionFields={conditionFields}
               conditionalOperator={conditionalOperator}
@@ -558,7 +566,7 @@ export function RuleForm({
                       }
                     }}
                   >
-                    Delete
+                    Delete rule
                   </Button>
                 )}
               </div>

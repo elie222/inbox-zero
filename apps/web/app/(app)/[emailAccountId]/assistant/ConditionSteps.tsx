@@ -344,7 +344,6 @@ export function ConditionSteps({
                           <Label
                             name={`conditions.${index}.instructions`}
                             label="Emails that are:"
-                            tooltipText="e.g. Newsletters, regular content from publications, blogs, or services I've subscribed to"
                           />
                         </div>
                       )}
