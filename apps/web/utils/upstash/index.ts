@@ -4,7 +4,7 @@ import {
   INTERNAL_API_KEY_HEADER,
   getInternalApiUrl,
 } from "@/utils/internal-api";
-import { sleep } from "@/utils/sleep";
+import { acquireRateLimitToken } from "@/utils/redis/rate-limit";
 import { createScopedLogger } from "@/utils/logger";
 
 const logger = createScopedLogger("upstash");
@@ -80,11 +80,27 @@ export async function publishToQstashQueue<T>({
   return fallbackPublishToQstash<T>(url, body);
 }
 
+/**
+ * Fallback HTTP publisher for when QStash is unavailable.
+ *
+ * Applies rate limiting using emailAccountId from the body to prevent
+ * overwhelming downstream services. Uses fire-and-forget pattern with
+ * error logging.
+ *
+ * @param url - Target URL (will have `/simple` appended)
+ * @param body - Request body, optionally containing emailAccountId for rate limiting
+ */
 async function fallbackPublishToQstash<T>(url: string, body: T) {
-  // Fallback to fetch if Qstash client is not found
-  logger.warn("Qstash client not found");
+  logger.warn("Qstash client not found, using fallback");
 
-  // Don't await. Run in background
+  // Rate limit at the source to prevent overwhelming downstream services.
+  // Extract emailAccountId from body if available, otherwise use global key.
+  // Note: Use || instead of ?? to handle empty strings as falsy
+  const rateLimitKey =
+    (body as { emailAccountId?: string }).emailAccountId || "global";
+  await acquireRateLimitToken(rateLimitKey);
+
+  // Fire-and-forget with error logging
   fetch(`${url}/simple`, {
     method: "POST",
     headers: {
@@ -92,9 +108,13 @@ async function fallbackPublishToQstash<T>(url: string, body: T) {
       [INTERNAL_API_KEY_HEADER]: env.INTERNAL_API_KEY,
     },
     body: JSON.stringify(body),
+  }).catch((error) => {
+    logger.error("Fallback fetch failed", {
+      url: `${url}/simple`,
+      error: error instanceof Error ? error.message : String(error),
+      rateLimitKey,
+    });
   });
-  // Wait for 100ms to ensure the request is sent
-  await sleep(100);
 }
 
 export async function listQueues() {
