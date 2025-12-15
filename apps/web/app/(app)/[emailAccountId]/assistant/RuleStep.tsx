@@ -14,9 +14,27 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
-function RemoveButton({
+function DeleteButton({
   onClick,
   ariaLabel,
+}: {
+  onClick: () => void;
+  ariaLabel: string;
+}) {
+  return (
+    <Button
+      size="icon"
+      variant="ghost"
+      className="size-8 mt-1"
+      aria-label={ariaLabel}
+      onClick={onClick}
+    >
+      <TrashIcon className="size-4 text-muted-foreground" />
+    </Button>
+  );
+}
+
+function OptionsMenu({
   onAddDelay,
   onRemoveDelay,
   hasDelay,
@@ -27,8 +45,6 @@ function RemoveButton({
   onUseAiDraft,
   isManualMode,
 }: {
-  onClick: () => void;
-  ariaLabel: string;
   onAddDelay?: () => void;
   onRemoveDelay?: () => void;
   hasDelay?: boolean;
@@ -39,6 +55,16 @@ function RemoveButton({
   onUseAiDraft?: () => void;
   isManualMode?: boolean;
 }) {
+  const hasOptions =
+    onAddDelay ||
+    onRemoveDelay ||
+    onUsePrompt ||
+    onUseLabel ||
+    onSetManually ||
+    onUseAiDraft;
+
+  if (!hasOptions) return null;
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -46,7 +72,7 @@ function RemoveButton({
           size="icon"
           variant="ghost"
           className="size-8 mt-1"
-          aria-label={ariaLabel}
+          aria-label="More options"
         >
           <MoreHorizontalIcon className="size-4 text-muted-foreground" />
         </Button>
@@ -88,12 +114,51 @@ function RemoveButton({
             Remove delay
           </DropdownMenuItem>
         )}
-        <DropdownMenuItem onClick={onClick}>
-          <TrashIcon className="mr-2 size-4" />
-          Delete
-        </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
+  );
+}
+
+function ActionButtons({
+  onRemove,
+  removeAriaLabel,
+  onAddDelay,
+  onRemoveDelay,
+  hasDelay,
+  onUsePrompt,
+  onUseLabel,
+  isPromptMode,
+  onSetManually,
+  onUseAiDraft,
+  isManualMode,
+}: {
+  onRemove: () => void;
+  removeAriaLabel: string;
+  onAddDelay?: () => void;
+  onRemoveDelay?: () => void;
+  hasDelay?: boolean;
+  onUsePrompt?: () => void;
+  onUseLabel?: () => void;
+  isPromptMode?: boolean;
+  onSetManually?: () => void;
+  onUseAiDraft?: () => void;
+  isManualMode?: boolean;
+}) {
+  return (
+    <div className="flex items-start">
+      <OptionsMenu
+        onAddDelay={onAddDelay}
+        onRemoveDelay={onRemoveDelay}
+        hasDelay={hasDelay}
+        onUsePrompt={onUsePrompt}
+        onUseLabel={onUseLabel}
+        isPromptMode={isPromptMode}
+        onSetManually={onSetManually}
+        onUseAiDraft={onUseAiDraft}
+        isManualMode={isManualMode}
+      />
+      <DeleteButton onClick={onRemove} ariaLabel={removeAriaLabel} />
+    </div>
   );
 }
 
@@ -152,9 +217,9 @@ export function RuleStep({
         <CardLayout>
           {leftContent && <CardLayoutLeft>{leftContent}</CardLayoutLeft>}
           <CardLayoutRight>{rightContent}</CardLayoutRight>
-          <RemoveButton
-            onClick={onRemove}
-            ariaLabel={removeAriaLabel}
+          <ActionButtons
+            onRemove={onRemove}
+            removeAriaLabel={removeAriaLabel}
             onAddDelay={onAddDelay}
             onRemoveDelay={onRemoveDelay}
             hasDelay={hasDelay}

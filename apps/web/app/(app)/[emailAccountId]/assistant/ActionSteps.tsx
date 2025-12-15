@@ -537,7 +537,8 @@ function ActionCard({
     <>
       {isDraftEmailWithoutManualContent ? (
         <div className="px-1 h-full flex items-center text-sm text-muted-foreground">
-          Our AI generates a reply from your email history and knowledge base.
+          Our AI generates a draft reply from your email history and knowledge
+          base.
         </div>
       ) : isEmailAction || actionType === ActionType.CALL_WEBHOOK ? (
         <Card className="p-4 space-y-4">
