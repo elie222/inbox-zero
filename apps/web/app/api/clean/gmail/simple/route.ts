@@ -8,13 +8,10 @@ import { SafeError } from "@/utils/error";
 import prisma from "@/utils/prisma";
 import { isDefined } from "@/utils/types";
 import type { Logger } from "@/utils/logger";
-import { createScopedLogger } from "@/utils/logger";
 import { CleanAction } from "@/generated/prisma/enums";
 import { updateThread } from "@/utils/redis/clean";
 import { env } from "@/env";
 import { isValidInternalApiKey } from "@/utils/internal-api";
-
-const logger = createScopedLogger("api/clean/gmail/simple");
 
 const cleanGmailSchema = z.object({
   emailAccountId: z.string(),
@@ -162,7 +159,9 @@ export const POST = withError(
       );
     }
 
-    if (!isValidInternalApiKey(await headers(), logger)) {
+    const requestLogger = (request as RequestWithLogger).logger;
+
+    if (!isValidInternalApiKey(await headers(), requestLogger)) {
       return NextResponse.json({ error: "Invalid API key" }, { status: 401 });
     }
 
@@ -171,7 +170,7 @@ export const POST = withError(
 
     await performGmailAction({
       ...body,
-      logger: (request as RequestWithLogger).logger,
+      logger: requestLogger,
     });
 
     return NextResponse.json({ success: true });

@@ -7,7 +7,6 @@ import { getThreadMessages } from "@/utils/gmail/thread";
 import { getGmailClientWithRefresh } from "@/utils/gmail/client";
 import { SafeError } from "@/utils/error";
 import type { Logger } from "@/utils/logger";
-import { createScopedLogger } from "@/utils/logger";
 import { aiClean } from "@/utils/ai/clean/ai-clean";
 import { getEmailForLLM } from "@/utils/get-email-from-message";
 import {
@@ -27,8 +26,6 @@ import { isActivePremium } from "@/utils/premium";
 import { env } from "@/env";
 import { isValidInternalApiKey } from "@/utils/internal-api";
 import { sleep } from "@/utils/sleep";
-
-const logger = createScopedLogger("api/clean/simple");
 
 const cleanThreadBody = z.object({
   emailAccountId: z.string(),
@@ -326,7 +323,9 @@ export const POST = withError("clean/simple", async (request: Request) => {
     );
   }
 
-  if (!isValidInternalApiKey(await headers(), logger)) {
+  const requestLogger = (request as RequestWithLogger).logger;
+
+  if (!isValidInternalApiKey(await headers(), requestLogger)) {
     return NextResponse.json({ error: "Invalid API key" }, { status: 401 });
   }
 
@@ -335,7 +334,7 @@ export const POST = withError("clean/simple", async (request: Request) => {
 
   await cleanThread({
     ...body,
-    logger: (request as RequestWithLogger).logger,
+    logger: requestLogger,
   });
 
   return NextResponse.json({ success: true });
