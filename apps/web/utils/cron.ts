@@ -4,6 +4,11 @@ import { createScopedLogger } from "@/utils/logger";
 const logger = createScopedLogger("cron");
 
 export function hasCronSecret(request: Request) {
+  if (!env.CRON_SECRET) {
+    logger.error("No cron secret set, unauthorized cron request");
+    return false;
+  }
+
   const authHeader = request.headers.get("authorization");
   const valid = authHeader === `Bearer ${env.CRON_SECRET}`;
 
