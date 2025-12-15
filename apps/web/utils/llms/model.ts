@@ -16,7 +16,7 @@ const logger = createScopedLogger("llms/model");
 
 export type ModelType = "default" | "economy" | "chat";
 
-type SelectModel = {
+export type SelectModel = {
   provider: string;
   modelName: string;
   model: LanguageModelV2;
@@ -27,8 +27,9 @@ type SelectModel = {
 export function getModel(
   userAi: UserAIFields,
   modelType: ModelType = "default",
+  online = false,
 ): SelectModel {
-  const data = selectModelByType(userAi, modelType);
+  const data = selectModelByType(userAi, modelType, online);
 
   logger.info("Using model", {
     modelType,
@@ -40,16 +41,20 @@ export function getModel(
   return data;
 }
 
-function selectModelByType(userAi: UserAIFields, modelType: ModelType) {
-  if (userAi.aiApiKey) return selectDefaultModel(userAi);
+function selectModelByType(
+  userAi: UserAIFields,
+  modelType: ModelType,
+  online = false,
+) {
+  if (userAi.aiApiKey) return selectDefaultModel(userAi, online);
 
   switch (modelType) {
     case "economy":
-      return selectEconomyModel(userAi);
+      return selectEconomyModel(userAi, online);
     case "chat":
-      return selectChatModel(userAi);
+      return selectChatModel(userAi, online);
     default:
-      return selectDefaultModel(userAi);
+      return selectDefaultModel(userAi, online);
   }
 }
 
@@ -64,6 +69,7 @@ function selectModel(
     aiApiKey: string | null;
   },
   providerOptions?: Record<string, any>,
+  online = false,
 ): SelectModel {
   switch (aiProvider) {
     case Provider.OPEN_AI: {
@@ -109,7 +115,9 @@ function selectModel(
       };
     }
     case Provider.OPENROUTER: {
-      const modelName = aiModel || "anthropic/claude-sonnet-4.5";
+      let modelName = aiModel || "anthropic/claude-sonnet-4.5";
+      if (online) modelName += ":online";
+
       const openrouter = createOpenRouter({
         apiKey: aiApiKey || env.OPENROUTER_API_KEY,
         headers: {
@@ -215,7 +223,7 @@ function createOpenRouterProviderOptions(
  * - Bulk processing emails
  * - Any task with large context windows where cost efficiency matters
  */
-function selectEconomyModel(userAi: UserAIFields): SelectModel {
+function selectEconomyModel(userAi: UserAIFields, online = false): SelectModel {
   if (env.ECONOMY_LLM_PROVIDER && env.ECONOMY_LLM_MODEL) {
     const apiKey = getProviderApiKey(env.ECONOMY_LLM_PROVIDER);
     if (!apiKey) {
@@ -243,6 +251,7 @@ function selectEconomyModel(userAi: UserAIFields): SelectModel {
         aiApiKey: apiKey,
       },
       providerOptions,
+      online,
     );
   }
 
@@ -252,7 +261,7 @@ function selectEconomyModel(userAi: UserAIFields): SelectModel {
 /**
  * Selects the appropriate chat model for fast conversational tasks
  */
-function selectChatModel(userAi: UserAIFields): SelectModel {
+function selectChatModel(userAi: UserAIFields, online = false): SelectModel {
   if (env.CHAT_LLM_PROVIDER && env.CHAT_LLM_MODEL) {
     const apiKey = getProviderApiKey(env.CHAT_LLM_PROVIDER);
     if (!apiKey) {
@@ -280,13 +289,14 @@ function selectChatModel(userAi: UserAIFields): SelectModel {
         aiApiKey: apiKey,
       },
       providerOptions,
+      online,
     );
   }
 
   return selectDefaultModel(userAi);
 }
 
-function selectDefaultModel(userAi: UserAIFields): SelectModel {
+function selectDefaultModel(userAi: UserAIFields, online = false): SelectModel {
   let aiProvider: string;
   let aiModel: string | null = null;
   const aiApiKey = userAi.aiApiKey;
@@ -327,6 +337,7 @@ function selectDefaultModel(userAi: UserAIFields): SelectModel {
       aiApiKey,
     },
     providerOptions,
+    online,
   );
 }
 

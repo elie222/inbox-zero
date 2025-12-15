@@ -1,14 +1,18 @@
-import type { LanguageModelV2 } from "@ai-sdk/provider";
 import { createPerplexity } from "@ai-sdk/perplexity";
+import { openai } from "@ai-sdk/openai";
+import { google } from "@ai-sdk/google";
+import type { ToolSet } from "ai";
 import { env } from "@/env";
 import { createGenerateText } from "@/utils/llms";
 import type { Logger } from "@/utils/logger";
-import type { EmailAccountWithAI } from "@/utils/llms/types";
+import type { EmailAccountWithAI, UserAIFields } from "@/utils/llms/types";
 import {
   getCachedPerplexityResearch,
   setCachedPerplexityResearch,
 } from "@/utils/redis/perplexity-research";
 import type { CalendarEvent } from "@/utils/calendar/event-types";
+import { getModel, type SelectModel } from "@/utils/llms/model";
+import { Provider } from "@/utils/llms/config";
 
 export async function researchGuestWithPerplexity({
   name,
@@ -23,8 +27,10 @@ export async function researchGuestWithPerplexity({
   emailAccount: EmailAccountWithAI;
   logger: Logger;
 }): Promise<string | null> {
-  if (!env.PERPLEXITY_API_KEY) {
-    logger.info("Perplexity API key not configured, skipping guest research");
+  const modelOptions = getLlmModel(emailAccount.user);
+
+  if (!modelOptions) {
+    logger.error("No LLM model available for guest research", { emailAccount });
     return null;
   }
 
@@ -63,27 +69,16 @@ Include any relevant profile URLs you find (LinkedIn, company page, personal sit
 
 IMPORTANT: Report back all searches you made in order to come up with the information you provided me.`;
 
-    const perplexityProvider = createPerplexity({
-      apiKey: env.PERPLEXITY_API_KEY,
-    });
-
-    const modelName = "sonar-pro";
-    const model: LanguageModelV2 = perplexityProvider(modelName);
-
     const generateText = createGenerateText({
       emailAccount,
       label: "Guest Research",
-      modelOptions: {
-        provider: "perplexity",
-        modelName,
-        model,
-        backupModel: null,
-      },
+      modelOptions,
     });
 
     const result = await generateText({
       prompt,
-      model,
+      model: modelOptions.model,
+      tools: modelOptions.tools,
     });
 
     // Fire-and-forget: cache write should never block or lose the result
@@ -101,4 +96,47 @@ IMPORTANT: Report back all searches you made in order to come up with the inform
     logger.error("Failed to research guest with Perplexity", { error });
     return null;
   }
+}
+
+function getLlmModel(userAi: UserAIFields): SelectModel & { tools: ToolSet } {
+  if (env.PERPLEXITY_API_KEY) {
+    const perplexityProvider = createPerplexity({
+      apiKey: env.PERPLEXITY_API_KEY,
+    });
+
+    const modelName = "sonar-pro";
+    const model = perplexityProvider(modelName);
+
+    return {
+      modelName,
+      model,
+      provider: "perplexity",
+      backupModel: null,
+      tools: {},
+    };
+  }
+
+  if (env.DEFAULT_LLM_PROVIDER === Provider.OPENROUTER) {
+    return { ...getModel(userAi, "economy", true), tools: {} };
+  }
+
+  if (env.DEFAULT_LLM_PROVIDER === Provider.OPEN_AI) {
+    return {
+      ...getModel(userAi, "economy"),
+      tools: {
+        web_search: openai.tools.webSearch({}),
+      },
+    };
+  }
+
+  if (env.DEFAULT_LLM_PROVIDER === Provider.GOOGLE) {
+    return {
+      ...getModel(userAi, "economy"),
+      tools: {
+        google_search: google.tools.googleSearch({}),
+      },
+    };
+  }
+
+  throw new Error(`Unsupported LLM provider: ${env.DEFAULT_LLM_PROVIDER}`);
 }
