@@ -4,7 +4,7 @@ import { AddRuleDialog } from "@/app/(app)/[emailAccountId]/assistant/AddRuleDia
 export function RulesTab() {
   return (
     <div>
-      <div className="flex items-center mb-2">
+      <div className="flex items-center mb-2 justify-end">
         <AddRuleDialog />
       </div>
       <Rules showAddRuleButton={false} />
