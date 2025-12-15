@@ -18,7 +18,7 @@ export function RuleSteps({
   addButtonTooltip?: string;
 }) {
   return (
-    <Card className="p-4 space-y-2 border-none shadow-none bg-gray-50">
+    <Card className="p-4 space-y-2 border-none shadow-none bg-gray-50 dark:bg-gray-900">
       {children}
       <div>
         <Tooltip hide={!addButtonTooltip} content={addButtonTooltip || ""}>
