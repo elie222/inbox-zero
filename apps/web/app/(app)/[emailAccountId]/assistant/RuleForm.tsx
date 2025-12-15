@@ -388,7 +388,7 @@ export function RuleForm({
           iconBg="bg-blue-100 dark:bg-blue-900/30"
           iconColor="text-blue-600 dark:text-blue-400"
           title="When"
-          description="When a new email is received into your inbox"
+          description="When a new email is received in your inbox"
           headerActions={undefined}
           errors={
             errors.conditions?.root?.message ? (
@@ -429,7 +429,7 @@ export function RuleForm({
           iconBg="bg-green-100 dark:bg-green-900/30"
           iconColor="text-green-600 dark:text-green-400"
           title="Then"
-          description="Choose actions for your assistant to perform"
+          description="Your assistant will perform these actions"
           errors={
             actionErrors.length > 0 ? (
               <AlertError
