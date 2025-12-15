@@ -102,7 +102,7 @@ const defaultContextValue = {
   resetCache: () => {},
 };
 
-const SWRContext = createContext<Context>(defaultContextValue);
+export const SWRContext = createContext<Context>(defaultContextValue);
 
 export const SWRProvider = (props: { children: React.ReactNode }) => {
   const [provider, setProvider] = useState(new Map());
@@ -146,6 +146,7 @@ export const SWRProvider = (props: { children: React.ReactNode }) => {
           provider: () => provider,
           // TODO: Send to Sentry
           onError: (error) => console.log("SWR error:", error),
+          ...getDevOnlySWRConfig(),
         }}
       >
         {props.children}
@@ -154,4 +155,28 @@ export const SWRProvider = (props: { children: React.ReactNode }) => {
   );
 };
 
-export { SWRContext };
+// Dev-only config to handle transient 404s during HMR
+function getDevOnlySWRConfig() {
+  if (process.env.NODE_ENV !== "development") return {};
+
+  return {
+    keepPreviousData: true,
+    onErrorRetry: (
+      error: Error & { status?: number },
+      _key: string,
+      _config: unknown,
+      revalidate: (opts: { retryCount: number }) => void,
+      { retryCount }: { retryCount: number },
+    ) => {
+      // Retry 404s quickly (likely HMR transient errors)
+      if (error.status === 404) {
+        setTimeout(() => revalidate({ retryCount }), 500);
+        return;
+      }
+      // Don't retry on other client errors (4xx)
+      if (error.status && error.status >= 400 && error.status < 500) return;
+      // Default exponential backoff for server errors
+      setTimeout(() => revalidate({ retryCount }), 5000 * 2 ** retryCount);
+    },
+  };
+}
