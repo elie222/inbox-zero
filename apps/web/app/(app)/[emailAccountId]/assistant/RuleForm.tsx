@@ -270,6 +270,12 @@ export function RuleForm({
   const conditionalOperator = watch("conditionalOperator");
   const terminology = getEmailTerminology(provider);
 
+  const formErrors = useMemo(() => {
+    return Object.values(errors)
+      .filter((error): error is { message: string } => Boolean(error.message))
+      .map((error) => error.message);
+  }, [errors]);
+
   const typeOptions = useMemo(() => {
     const options: {
       label: string;
@@ -347,14 +353,14 @@ export function RuleForm({
   return (
     <Form {...form}>
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
-        {isSubmitted && Object.keys(errors).length > 0 && (
+        {isSubmitted && formErrors.length > 0 && (
           <div className="mt-4">
             <AlertError
               title="Error"
               description={
                 <ul className="list-disc">
-                  {Object.values(errors).map((error) => (
-                    <li key={error.message}>{error.message}</li>
+                  {formErrors.map((message) => (
+                    <li key={message}>{message}</li>
                   ))}
                 </ul>
               }

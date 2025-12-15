@@ -163,12 +163,23 @@ export const createRuleBody = z.object({
         const staticConditions = conditions.filter(
           (c) => c.type === ConditionType.STATIC,
         );
-        if (staticConditions.length <= 1) {
+
+        // Filter out empty static conditions (where the active field has no value)
+        const nonEmptyStaticConditions = staticConditions.filter((c) => {
+          return (
+            c.from?.trim() ||
+            c.to?.trim() ||
+            c.subject?.trim() ||
+            c.body?.trim()
+          );
+        });
+
+        if (nonEmptyStaticConditions.length <= 1) {
           return true; // No duplicates possible
         }
 
-        // Create a signature for each static condition based on which fields are populated
-        const staticSignatures = staticConditions.map((c) => {
+        // Create a signature for each non-empty static condition based on which fields are populated
+        const staticSignatures = nonEmptyStaticConditions.map((c) => {
           const fields = [];
           if (c.from) fields.push("from");
           if (c.to) fields.push("to");

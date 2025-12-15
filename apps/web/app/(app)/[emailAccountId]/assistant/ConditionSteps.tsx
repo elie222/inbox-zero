@@ -338,7 +338,7 @@ export function ConditionSteps({
                         </p>
                       )}
                       <FormControl>
-                        <SelectTrigger className="w-[180px]">
+                        <SelectTrigger className="w-[120px]">
                           {uiType ? (
                             conditionTypeLabel
                           ) : (
@@ -377,7 +377,7 @@ export function ConditionSteps({
 
         return (
           <div
-            className={`pl-3 ${shouldIndent ? "ml-10" : ""}`}
+            className={`pl-3 ${shouldIndent ? "ml-14" : ""}`}
             key={condition.id}
           >
             <RuleStep

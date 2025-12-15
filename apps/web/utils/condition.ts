@@ -129,6 +129,7 @@ export function getEmptyCondition(type: CoreConditionType): ZodCondition {
         to: null,
         subject: null,
         body: null,
+        instructions: null,
       };
     default:
       // biome-ignore lint/correctness/noSwitchDeclarations: intentional exhaustive check

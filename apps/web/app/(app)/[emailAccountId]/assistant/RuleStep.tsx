@@ -166,10 +166,6 @@ function CardLayout({ children }: { children: React.ReactNode }) {
   return <div className="flex flex-col sm:flex-row gap-2">{children}</div>;
 }
 
-function CardLayoutLeft({ children }: { children: React.ReactNode }) {
-  return <div className="w-[200px]">{children}</div>;
-}
-
 function CardLayoutRight({
   children,
   className,
@@ -215,7 +211,7 @@ export function RuleStep({
     <div className="flex items-start gap-3">
       <div className="relative flex-1">
         <CardLayout>
-          {leftContent && <CardLayoutLeft>{leftContent}</CardLayoutLeft>}
+          {leftContent && <div className="shrink-0">{leftContent}</div>}
           <CardLayoutRight>{rightContent}</CardLayoutRight>
           <ActionButtons
             onRemove={onRemove}
