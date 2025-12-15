@@ -27,6 +27,11 @@ const cleanGmailSchema = z.object({
 });
 type CleanGmailBody = z.infer<typeof cleanGmailSchema>;
 
+/**
+ * Applies Gmail label changes to a thread based on the clean decision.
+ * Handles archive (remove INBOX) or mark-read (remove UNREAD) actions,
+ * adds processed/done labels, and persists the result.
+ */
 async function performGmailAction({
   emailAccountId,
   threadId,
@@ -90,6 +95,9 @@ async function performGmailAction({
   });
 }
 
+/**
+ * Saves the clean result to both Redis (for real-time status) and the database.
+ */
 async function saveCleanResult({
   emailAccountId,
   threadId,
@@ -117,6 +125,9 @@ async function saveCleanResult({
   ]);
 }
 
+/**
+ * Persists the cleanup thread record to the database for history tracking.
+ */
 async function saveToDatabase({
   emailAccountId,
   threadId,

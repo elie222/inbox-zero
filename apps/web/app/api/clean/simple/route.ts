@@ -58,6 +58,11 @@ type CleanGmailBody = {
   jobId: string;
 };
 
+/**
+ * Processes a Gmail thread for the Deep Clean feature.
+ * Applies static rules (starred, attachments, receipts, calendar, newsletters)
+ * before falling back to LLM-based decision making.
+ */
 async function cleanThread({
   emailAccountId,
   threadId,
@@ -235,6 +240,11 @@ async function cleanThread({
   await publish({ markDone: aiResult.archive });
 }
 
+/**
+ * Creates a publish function that enqueues Gmail label changes.
+ * Uses publishToQstash which has built-in fallback to /simple routes
+ * when QStash is not configured.
+ */
 function getPublish({
   emailAccountId,
   threadId,
