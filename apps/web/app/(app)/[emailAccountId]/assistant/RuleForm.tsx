@@ -567,7 +567,7 @@ export function RuleForm({
 
           <div className="flex space-x-2">
             {onCancel && (
-              <Button variant="outline" onClick={onCancel}>
+              <Button variant="outline" size="sm" onClick={onCancel}>
                 Cancel
               </Button>
             )}
@@ -575,13 +575,14 @@ export function RuleForm({
             {rule.id ? (
               <Button
                 type="submit"
+                size="sm"
                 loading={isSubmitting}
                 disabled={isDeleting}
               >
                 Save
               </Button>
             ) : (
-              <Button type="submit" loading={isSubmitting}>
+              <Button type="submit" size="sm" loading={isSubmitting}>
                 Create
               </Button>
             )}
