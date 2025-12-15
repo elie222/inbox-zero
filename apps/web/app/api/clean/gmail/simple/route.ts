@@ -149,6 +149,10 @@ async function saveToDatabase({
 // Alternative endpoint for self-hosted deployments without Qstash.
 // Disabled when QSTASH_TOKEN is set (returns 403).
 // Authenticates via internal API key instead of Qstash signature verification.
+//
+// Security note: The internal API key provides blanket access to all email accounts.
+// This mirrors the QStash routes which trust signed requests without per-account validation.
+// The internal API key is a trusted service credential for self-hosted deployments.
 export const POST = withError(
   "clean/gmail/simple",
   async (request: Request) => {
