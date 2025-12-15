@@ -9,6 +9,7 @@ import {
 import prisma from "@/utils/prisma";
 import { runMeetingBrief } from "@/utils/meeting-briefs/process";
 import type { CalendarEvent } from "@/utils/calendar/event-types";
+import { SafeError } from "@/utils/error";
 
 export const updateMeetingBriefsEnabledAction = actionClient
   .metadata({ name: "updateMeetingBriefsEnabled" })
@@ -67,7 +68,7 @@ export const sendBriefAction = actionClient
       });
 
       if (!emailAccount) {
-        throw new Error("Email account not found");
+        throw new SafeError("Email account not found");
       }
 
       const calendarEvent: CalendarEvent = {

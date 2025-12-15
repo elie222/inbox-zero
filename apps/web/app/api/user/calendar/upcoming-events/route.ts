@@ -26,6 +26,8 @@ async function getData({ emailAccountId }: { emailAccountId: string }) {
   );
 
   return {
-    events: providerEvents.flat(),
+    events: providerEvents
+      .flat()
+      .sort((a, b) => a.startTime.getTime() - b.startTime.getTime()),
   };
 }
