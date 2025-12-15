@@ -412,7 +412,7 @@ export function ConditionSteps({
                         <div className="mb-2">
                           <Label
                             name={`conditions.${index}.instructions`}
-                            label="Emails that are:"
+                            label="Matching:"
                           />
                         </div>
                       )}

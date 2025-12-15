@@ -4,54 +4,33 @@ import { cn } from "@/utils";
 
 export function RuleSectionCard({
   icon: Icon,
-  iconBg,
-  iconColor,
+  color,
   title,
-  description,
-  headerActions,
   errors,
   children,
-  footerActions,
 }: {
   icon: React.ComponentType<{ className?: string }>;
-  iconBg: string;
-  iconColor: string;
+  color: "blue" | "green";
   title: string;
-  description: string;
-  headerActions?: React.ReactNode;
   errors?: React.ReactNode;
   children: React.ReactNode;
-  footerActions?: React.ReactNode;
 }) {
   return (
     <Card className="rounded-lg p-4">
       <div>
-        <div className="flex items-center gap-4">
-          <div
-            className={cn(
-              "flex size-10 shrink-0 items-center justify-center rounded-md",
-              iconBg,
-            )}
-          >
-            <Icon className={cn("size-5", iconColor)} />
-          </div>
-          <div className="flex-1">
-            <TypographyH3 className="text-base">{title}</TypographyH3>
-            <p className="text-sm text-muted-foreground">{description}</p>
-          </div>
+        <div className="flex items-center gap-3">
+          <Icon
+            className={cn("size-5", {
+              "text-blue-600 dark:text-blue-400": color === "blue",
+              "text-green-600 dark:text-green-400": color === "green",
+            })}
+          />
+          <TypographyH3 className="text-base">{title}</TypographyH3>
         </div>
-
-        {headerActions && (
-          <div className="mt-4 flex items-center justify-end gap-1.5">
-            {headerActions}
-          </div>
-        )}
 
         {errors && <div className="mt-2">{errors}</div>}
 
         {children && <div className="mt-4 space-y-2">{children}</div>}
-
-        {footerActions && <div className="mt-4">{footerActions}</div>}
       </div>
     </Card>
   );

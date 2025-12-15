@@ -385,11 +385,8 @@ export function RuleForm({
 
         <RuleSectionCard
           icon={MailIcon}
-          iconBg="bg-blue-100 dark:bg-blue-900/30"
-          iconColor="text-blue-600 dark:text-blue-400"
-          title="When"
-          description="When a new email is received in your inbox"
-          headerActions={undefined}
+          color="blue"
+          title="When a new email is received in your inbox"
           errors={
             errors.conditions?.root?.message ? (
               <AlertError
@@ -398,7 +395,6 @@ export function RuleForm({
               />
             ) : undefined
           }
-          footerActions={undefined}
         >
           {isConversationStatusType(rule.systemType) ? (
             <div className="flex items-center gap-2 px-4 py-2 bg-gray-50 dark:bg-gray-900">
@@ -426,10 +422,8 @@ export function RuleForm({
 
         <RuleSectionCard
           icon={BotIcon}
-          iconBg="bg-green-100 dark:bg-green-900/30"
-          iconColor="text-green-600 dark:text-green-400"
-          title="Then"
-          description="Your assistant will perform these actions"
+          color="green"
+          title="Then your assistant will perform these actions"
           errors={
             actionErrors.length > 0 ? (
               <AlertError
@@ -444,7 +438,6 @@ export function RuleForm({
               />
             ) : undefined
           }
-          footerActions={undefined}
         >
           <ActionSteps
             actionFields={actionFields}
