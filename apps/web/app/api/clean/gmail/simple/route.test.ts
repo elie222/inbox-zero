@@ -68,6 +68,9 @@ import { NextRequest } from "next/server";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 import { isValidInternalApiKey } from "@/utils/internal-api";
 import { env } from "@/env";
+import prisma from "@/utils/prisma";
+import { getGmailClientWithRefresh } from "@/utils/gmail/client";
+import { labelThread } from "@/utils/gmail/label";
 import { POST } from "./route";
 
 const mockIsValidInternalApiKey = vi.mocked(isValidInternalApiKey);
@@ -190,6 +193,60 @@ describe("/api/clean/gmail/simple", () => {
 
       expect(response.status).toBe(400);
       expect(responseBody.error).toBeDefined();
+    });
+  });
+
+  describe("Archived flag logic", () => {
+    const mockAccount = {
+      account: {
+        access_token: "test-access-token",
+        refresh_token: "test-refresh-token",
+        expires_at: new Date(Date.now() + 3_600_000),
+      },
+    };
+
+    beforeEach(() => {
+      mockIsValidInternalApiKey.mockReturnValue(true);
+      vi.mocked(prisma.emailAccount.findUnique).mockResolvedValue(
+        mockAccount as never,
+      );
+      vi.mocked(getGmailClientWithRefresh).mockResolvedValue({} as never);
+      vi.mocked(labelThread).mockResolvedValue(undefined);
+      vi.mocked(prisma.cleanupThread.create).mockResolvedValue({} as never);
+    });
+
+    test("should set archived=true when action is ARCHIVE and markDone=true", async () => {
+      const request = createMockRequest({
+        ...validBody,
+        action: "ARCHIVE",
+        markDone: true,
+      });
+      await POST(request);
+
+      expect(prisma.cleanupThread.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            archived: true,
+          }),
+        }),
+      );
+    });
+
+    test("should set archived=false when action is MARK_READ and markDone=true", async () => {
+      const request = createMockRequest({
+        ...validBody,
+        action: "MARK_READ",
+        markDone: true,
+      });
+      await POST(request);
+
+      expect(prisma.cleanupThread.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            archived: false,
+          }),
+        }),
+      );
     });
   });
 });

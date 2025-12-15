@@ -90,7 +90,7 @@ async function performGmailAction({
   await saveCleanResult({
     emailAccountId,
     threadId,
-    markDone,
+    archived: shouldArchive,
     jobId,
   });
 }
@@ -101,12 +101,12 @@ async function performGmailAction({
 async function saveCleanResult({
   emailAccountId,
   threadId,
-  markDone,
+  archived,
   jobId,
 }: {
   emailAccountId: string;
   threadId: string;
-  markDone: boolean;
+  archived: boolean;
   jobId: string;
 }) {
   await Promise.all([
@@ -119,7 +119,7 @@ async function saveCleanResult({
     saveToDatabase({
       emailAccountId,
       threadId,
-      archive: markDone,
+      archive: archived,
       jobId,
     }),
   ]);
