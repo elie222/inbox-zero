@@ -99,11 +99,12 @@ export function TimeDurationSetting({
 
   // Keep local UI in sync if the server value changes (e.g. after revalidation)
   useEffect(() => {
+    if (isExecuting) return;
     const parsed = minutesToValueAndUnit(initialMinutes);
     setValue(parsed.value);
     setUnit(parsed.unit);
     reset({ minutesBefore: initialMinutes });
-  }, [initialMinutes, reset]);
+  }, [initialMinutes, reset, isExecuting]);
 
   return (
     <form
