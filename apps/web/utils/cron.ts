@@ -13,6 +13,11 @@ export function hasCronSecret(request: Request) {
 }
 
 export async function hasPostCronSecret(request: Request) {
+  if (!env.CRON_SECRET) {
+    logger.error("No cron secret set, unauthorized cron request");
+    return false;
+  }
+
   // Clone the request before consuming the body
   const clonedRequest = request.clone();
   const body = await clonedRequest.json();
