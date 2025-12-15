@@ -16,6 +16,7 @@ import {
   ChevronRightIcon,
   FileIcon,
   HomeIcon,
+  FileTextIcon,
   InboxIcon,
   type LucideIcon,
   MailsIcon,
@@ -50,7 +51,10 @@ import { SideNavMenu } from "@/components/SideNavMenu";
 import { CommandShortcut } from "@/components/ui/command";
 import { useSplitLabels } from "@/hooks/useLabels";
 import { LoadingContent } from "@/components/LoadingContent";
-import { useCleanerEnabled } from "@/hooks/useFeatureFlags";
+import {
+  useCleanerEnabled,
+  useMeetingBriefsEnabled,
+} from "@/hooks/useFeatureFlags";
 import { ClientOnly } from "@/components/ClientOnly";
 import { AccountSwitcher } from "@/components/AccountSwitcher";
 import { useAccount } from "@/providers/EmailAccountProvider";
@@ -71,12 +75,12 @@ type NavItem = {
 };
 
 export const useNavigation = () => {
-  // When we have features in early access, we can filter the navigation items
   const showCleaner = useCleanerEnabled();
+  const showMeetingBriefs = useMeetingBriefsEnabled();
+
   const { emailAccountId, emailAccount, provider } = useAccount();
   const currentEmailAccountId = emailAccount?.id || emailAccountId;
 
-  // Assistant category items
   const navItems: NavItem[] = useMemo(
     () => [
       {
@@ -113,8 +117,17 @@ export const useNavigation = () => {
         href: prefixPath(currentEmailAccountId, "/calendars"),
         icon: CalendarIcon,
       },
+      ...(showMeetingBriefs
+        ? [
+            {
+              name: "Meeting Briefs",
+              href: prefixPath(currentEmailAccountId, "/briefs"),
+              icon: FileTextIcon,
+            },
+          ]
+        : []),
     ],
-    [currentEmailAccountId, provider],
+    [currentEmailAccountId, provider, showMeetingBriefs],
   );
 
   const navItemsFiltered = useMemo(

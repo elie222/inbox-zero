@@ -210,7 +210,7 @@ ngrok http 3000
 
 Then update the webhook endpoint in the [Google PubSub subscriptions dashboard](https://console.cloud.google.com/cloudpubsub/subscription/list).
 
-**Email watch renewal:** Gmail watch subscriptions expire periodically and must be renewed. If using Docker Compose, this is handled automatically by the cron container every 6 hours. Otherwise, set up a cron job to call `/api/watch/all` (see [Self-Hosting Guide](docs/hosting/self-hosting.md#scheduled-tasks)).
+**Scheduled tasks:** Gmail/Outlook watch subscriptions and meeting briefs require periodic execution. If using Docker Compose, this is handled automatically by the cron container. Otherwise, set up cron jobs for `/api/watch/all` (every 6 hours) and `/api/meeting-briefs` (every 15 minutes). See [Self-Hosting Guide](docs/hosting/self-hosting.md#scheduled-tasks).
 
 ### Microsoft OAuth Setup
 

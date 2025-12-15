@@ -141,6 +141,9 @@ model EmailAccount {
   autoCategorizeSenders     Boolean           @default(false)
   multiRuleSelectionEnabled Boolean           @default(false)
 
+  meetingBriefingsEnabled       Boolean @default(false)
+  meetingBriefingsMinutesBefore Int     @default(240) // 4 hours in minutes
+
   digestSchedule Schedule?
 
   userId    String
@@ -171,6 +174,7 @@ model EmailAccount {
   ssoproviders        SsoProvider[]
   calendarConnections CalendarConnection[]
   mcpConnections      McpConnection[]
+  meetingBriefings    MeetingBriefing[]
 
   @@index([userId])
   @@index([lastSummaryEmailAt])
@@ -930,6 +934,23 @@ model Calendar {
   @@unique([connectionId, calendarId])
 }
 
+model MeetingBriefing {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+
+  calendarEventId String // External event ID from Google/Microsoft
+  eventTitle      String
+  eventStartTime  DateTime
+  guestCount      Int
+  status          MeetingBriefingStatus
+
+  emailAccountId String
+  emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
+
+  @@unique([emailAccountId, calendarEventId]) // Prevent duplicate briefings
+  @@index([emailAccountId])
+}
+
 model Referral {
   id        String   @id @default(cuid())
   createdAt DateTime @default(now())
@@ -1158,4 +1179,11 @@ enum SchedulingStatus {
   PENDING
   SCHEDULED
   FAILED
+}
+
+enum MeetingBriefingStatus {
+  PENDING
+  SENT
+  FAILED
+  SKIPPED
 }

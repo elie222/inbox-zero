@@ -8,7 +8,7 @@ import { ensureEmailAccountsWatched } from "@/utils/email/watch-manager";
 const logger = createScopedLogger("api/watch/all");
 
 export const dynamic = "force-dynamic";
-export const maxDuration = 300;
+export const maxDuration = 800;
 
 async function watchAllEmails() {
   try {

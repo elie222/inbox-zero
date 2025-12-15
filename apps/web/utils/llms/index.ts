@@ -81,7 +81,7 @@ export function createGenerateText({
         });
       }
 
-      if (args[0].tools) {
+      if (options.tools) {
         const toolCallInput = result.toolCalls?.[0]?.input;
         logger.trace("Result", {
           label,
