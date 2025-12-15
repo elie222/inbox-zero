@@ -52,24 +52,6 @@ import { RuleSectionCard } from "@/app/(app)/[emailAccountId]/assistant/RuleSect
 import { ConditionSteps } from "@/app/(app)/[emailAccountId]/assistant/ConditionSteps";
 import { ActionSteps } from "@/app/(app)/[emailAccountId]/assistant/ActionSteps";
 
-function getConditionSectionDescription(
-  systemType: SystemType | null | undefined,
-): string {
-  if (systemType === SystemType.TO_REPLY) {
-    return "Emails that you need to respond to";
-  }
-  if (systemType === SystemType.FYI) {
-    return "Emails that don't require your response, but are important";
-  }
-  if (systemType === SystemType.AWAITING_REPLY) {
-    return "Emails you're expecting a reply to";
-  }
-  if (systemType === SystemType.ACTIONED) {
-    return "Email threads that have been resolved";
-  }
-  return "When a new email is received into your inbox";
-}
-
 export function Rule({
   ruleId,
   alwaysEditMode = false,
@@ -405,7 +387,7 @@ export function RuleForm({
           iconBg="bg-blue-100 dark:bg-blue-900/30"
           iconColor="text-blue-600 dark:text-blue-400"
           title="When"
-          description={getConditionSectionDescription(rule.systemType)}
+          description="When a new email is received into your inbox"
           headerActions={undefined}
           errors={
             errors.conditions?.root?.message ? (

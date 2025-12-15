@@ -30,29 +30,8 @@ import TextareaAutosize from "react-textarea-autosize";
 import { RuleSteps } from "@/app/(app)/[emailAccountId]/assistant/RuleSteps";
 import { TooltipExplanation } from "@/components/TooltipExplanation";
 
-const getFilterTooltipText = (filterType: "from" | "to") =>
-  `Only apply this rule ${filterType} emails from this address. Supports multiple addresses separated by comma, pipe, or OR. e.g. "@company.com", "hello@example.com OR support@test.com"`;
-
 // UI-level condition types
 type UIConditionType = "from" | "to" | "subject" | "prompt";
-
-const getConditionTypeTooltip = (
-  uiType: UIConditionType | undefined,
-): string => {
-  if (uiType === "from") {
-    return getFilterTooltipText("from");
-  }
-  if (uiType === "to") {
-    return getFilterTooltipText("to");
-  }
-  if (uiType === "subject") {
-    return "Only apply this rule to emails with this subject. e.g. Receipt for your purchase";
-  }
-  if (uiType === "prompt") {
-    return "e.g. Newsletters, regular content from publications, blogs, or services I've subscribed to";
-  }
-  return "";
-};
 
 // Convert backend condition to UI type
 function getUIConditionType(
@@ -364,8 +343,8 @@ export function ConditionSteps({
                         <div className="mb-2">
                           <Label
                             name={`conditions.${index}.instructions`}
-                            label="Describe"
-                            tooltipText={getConditionTypeTooltip("prompt")}
+                            label="Emails that are:"
+                            tooltipText="e.g. Newsletters, regular content from publications, blogs, or services I've subscribed to"
                           />
                         </div>
                       )}
@@ -418,7 +397,7 @@ export function ConditionSteps({
                       />
                       <div className="absolute right-2 top-1/2 -translate-y-1/2">
                         <TooltipExplanation
-                          text={getConditionTypeTooltip("from")}
+                          text={getFilterTooltipText("from")}
                           side="right"
                           size="sm"
                           className="text-gray-400"
@@ -447,7 +426,7 @@ export function ConditionSteps({
                       />
                       <div className="absolute right-2 top-1/2 -translate-y-1/2">
                         <TooltipExplanation
-                          text={getConditionTypeTooltip("to")}
+                          text={getFilterTooltipText("to")}
                           side="right"
                           size="sm"
                           className="text-gray-400"
@@ -476,7 +455,7 @@ export function ConditionSteps({
                       />
                       <div className="absolute right-2 top-1/2 -translate-y-1/2">
                         <TooltipExplanation
-                          text={getConditionTypeTooltip("subject")}
+                          text="Only apply this rule to emails with this subject. e.g. Receipt for your purchase"
                           side="right"
                           size="sm"
                           className="text-gray-400"
@@ -495,3 +474,6 @@ export function ConditionSteps({
     </RuleSteps>
   );
 }
+
+const getFilterTooltipText = (filterType: "from" | "to") =>
+  `Only apply this rule ${filterType} emails from this address. Supports multiple addresses separated by comma, pipe, or OR. e.g. "@company.com", "hello@example.com OR support@test.com"`;

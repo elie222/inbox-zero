@@ -223,36 +223,33 @@ function ActionCard({
 
         return (
           <FormItem>
-            <div className="flex items-center gap-2">
-              {index ? <p className="text-muted-foreground">and</p> : null}
-              <Select value={field.value} onValueChange={field.onChange}>
-                <FormControl>
-                  <SelectTrigger className="w-[180px]">
-                    {selectedOption ? (
+            <Select value={field.value} onValueChange={field.onChange}>
+              <FormControl>
+                <SelectTrigger className="w-[180px]">
+                  {selectedOption ? (
+                    <div className="flex items-center gap-2">
+                      {SelectedIcon && <SelectedIcon className="size-4" />}
+                      <span>{selectedOption.label}</span>
+                    </div>
+                  ) : (
+                    <SelectValue placeholder="Select action" />
+                  )}
+                </SelectTrigger>
+              </FormControl>
+              <SelectContent>
+                {typeOptions.map((option) => {
+                  const Icon = option.icon;
+                  return (
+                    <SelectItem key={option.value} value={option.value}>
                       <div className="flex items-center gap-2">
-                        {SelectedIcon && <SelectedIcon className="size-4" />}
-                        <span>{selectedOption.label}</span>
+                        {Icon && <Icon className="size-4" />}
+                        {option.label}
                       </div>
-                    ) : (
-                      <SelectValue placeholder="Select action" />
-                    )}
-                  </SelectTrigger>
-                </FormControl>
-                <SelectContent>
-                  {typeOptions.map((option) => {
-                    const Icon = option.icon;
-                    return (
-                      <SelectItem key={option.value} value={option.value}>
-                        <div className="flex items-center gap-2">
-                          {Icon && <Icon className="size-4" />}
-                          {option.label}
-                        </div>
-                      </SelectItem>
-                    );
-                  })}
-                </SelectContent>
-              </Select>
-            </div>
+                    </SelectItem>
+                  );
+                })}
+              </SelectContent>
+            </Select>
           </FormItem>
         );
       }}
