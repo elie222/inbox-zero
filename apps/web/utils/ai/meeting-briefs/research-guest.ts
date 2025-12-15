@@ -30,7 +30,7 @@ export async function researchGuestWithPerplexity({
   const modelOptions = getLlmModel(emailAccount.user);
 
   if (!modelOptions) {
-    logger.error("No LLM model available for guest research", { emailAccount });
+    logger.warn("No LLM model available for guest research, skipping research");
     return null;
   }
 
@@ -98,7 +98,9 @@ IMPORTANT: Report back all searches you made in order to come up with the inform
   }
 }
 
-function getLlmModel(userAi: UserAIFields): SelectModel & { tools: ToolSet } {
+function getLlmModel(
+  userAi: UserAIFields,
+): (SelectModel & { tools: ToolSet }) | null {
   if (env.PERPLEXITY_API_KEY) {
     const perplexityProvider = createPerplexity({
       apiKey: env.PERPLEXITY_API_KEY,
@@ -138,5 +140,5 @@ function getLlmModel(userAi: UserAIFields): SelectModel & { tools: ToolSet } {
     };
   }
 
-  throw new Error(`Unsupported LLM provider: ${env.DEFAULT_LLM_PROVIDER}`);
+  return null;
 }
