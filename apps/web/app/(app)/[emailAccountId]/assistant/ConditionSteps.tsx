@@ -33,6 +33,14 @@ import { TooltipExplanation } from "@/components/TooltipExplanation";
 // UI-level condition types
 type UIConditionType = "from" | "to" | "subject" | "prompt";
 
+const CONDITION_TYPE_OPTIONS: { label: string; value: UIConditionType }[] = [
+  { label: "AI Prompt", value: "prompt" },
+  { label: "From", value: "from" },
+  { label: "To", value: "to" },
+  { label: "Subject", value: "subject" },
+];
+const MAX_CONDITIONS = CONDITION_TYPE_OPTIONS.length;
+
 // Convert backend condition to UI type
 function getUIConditionType(
   condition: ZodCondition,
@@ -143,16 +151,24 @@ export function ConditionSteps({
   ruleSystemType: SystemType | null | undefined;
   appendCondition: (condition: ZodCondition) => void;
 }) {
+  // Check if we can add more conditions
+  // Max 4 conditions possible (prompt, from, to, subject)
+  const maxConditionsReached = conditions.length >= MAX_CONDITIONS;
+
   const canAddMoreConditions =
     !(ruleSystemType && isConversationStatusType(ruleSystemType)) &&
-    allowMultipleConditions(ruleSystemType);
+    allowMultipleConditions(ruleSystemType) &&
+    !maxConditionsReached;
 
-  // Ensure first condition is always prompt type
+  // Set first condition to prompt type only if it's empty/unconfigured
+  // This preserves existing static conditions when loading a rule
   useEffect(() => {
     if (conditions.length > 0) {
       const firstCondition = conditions[0];
       const uiType = getUIConditionType(firstCondition);
-      if (uiType !== "prompt") {
+      // Only set to prompt if the condition is empty (undefined type)
+      // Don't replace existing static conditions (from/to/subject)
+      if (uiType === undefined) {
         const promptCondition = getConditionFromUIType("prompt");
         setValue("conditions.0", promptCondition);
       }
@@ -169,17 +185,22 @@ export function ConditionSteps({
       addButtonLabel="Add Condition"
       addButtonDisabled={!canAddMoreConditions}
       addButtonTooltip={
-        !canAddMoreConditions
-          ? "You can only set one condition for this rule."
-          : undefined
+        maxConditionsReached
+          ? "Maximum number of conditions reached."
+          : !canAddMoreConditions
+            ? "You can only set one condition for this rule."
+            : undefined
       }
     >
       {conditionFields.map((condition, index) => {
         const currentCondition = watch(`conditions.${index}`);
         const uiType = getUIConditionType(currentCondition);
         const isFirstCondition = index === 0;
+        const isFirstConditionPrompt = isFirstCondition && uiType === "prompt";
 
-        const leftContent = isFirstCondition ? null : (
+        // Hide leftContent only for first condition when it's a prompt type
+        // Static conditions always need the label shown
+        const leftContent = isFirstConditionPrompt ? null : (
           <FormField
             control={control}
             name={`conditions.${index}`}
@@ -188,13 +209,15 @@ export function ConditionSteps({
               const uiType = getUIConditionType(currentCondition);
 
               const conditionTypeLabel =
-                uiType === "from"
-                  ? "From"
-                  : uiType === "to"
-                    ? "To"
-                    : uiType === "subject"
-                      ? "Subject"
-                      : "Select";
+                uiType === "prompt"
+                  ? "AI Prompt"
+                  : uiType === "from"
+                    ? "From"
+                    : uiType === "to"
+                      ? "To"
+                      : uiType === "subject"
+                        ? "Subject"
+                        : "Select";
 
               // Get UI types already used in other conditions (excluding current)
               const usedUITypes = new Set(
@@ -207,6 +230,23 @@ export function ConditionSteps({
                       type !== undefined && type !== null,
                   ),
               );
+
+              // Determine operator display logic:
+              // - AND/OR selector only between AI condition and first static condition
+              // - Static conditions always show "and" between each other
+              const previousConditionType =
+                index > 0
+                  ? getUIConditionType(conditions[index - 1])
+                  : undefined;
+
+              // Static following static: both current and previous are not prompt
+              // (includes undefined/empty conditions as they will become static)
+              const isStaticFollowingStatic =
+                uiType !== "prompt" && previousConditionType !== "prompt";
+
+              // Show AND/OR selector only at boundary between AI (prompt) and static conditions
+              const showOperatorSelector =
+                index === 1 && previousConditionType === "prompt";
 
               return (
                 <FormItem>
@@ -231,12 +271,38 @@ export function ConditionSteps({
                       }
 
                       const newCondition = getConditionFromUIType(value);
-                      setValue(`conditions.${index}`, newCondition);
+
+                      // If AI Prompt is selected at a non-first position,
+                      // insert it at position 0 and shift other conditions
+                      if (value === "prompt" && index !== 0) {
+                        const currentConditionAtIndex = conditions[index];
+                        const currentConditionType = getUIConditionType(
+                          currentConditionAtIndex,
+                        );
+
+                        // Build new conditions array with AI Prompt at position 0
+                        const newConditions = [newCondition];
+
+                        // Add all existing conditions except the one being changed
+                        for (let i = 0; i < conditions.length; i++) {
+                          if (i !== index) {
+                            newConditions.push(conditions[i]);
+                          } else if (currentConditionType !== undefined) {
+                            // If the condition being changed had data, keep it
+                            newConditions.push(currentConditionAtIndex);
+                          }
+                          // If it was empty (undefined type), just skip it
+                        }
+
+                        setValue("conditions", newConditions);
+                      } else {
+                        setValue(`conditions.${index}`, newCondition);
+                      }
                     }}
                     value={uiType || undefined}
                   >
                     <div className="flex items-center gap-2">
-                      {index === 1 ? (
+                      {index === 0 ? null : showOperatorSelector ? (
                         <Select
                           value={
                             conditionalOperator === LogicalOperator.OR
@@ -264,9 +330,11 @@ export function ConditionSteps({
                         </Select>
                       ) : (
                         <p className="text-muted-foreground">
-                          {conditionalOperator === LogicalOperator.OR
-                            ? "or"
-                            : "and"}
+                          {isStaticFollowingStatic
+                            ? "and"
+                            : conditionalOperator === LogicalOperator.OR
+                              ? "or"
+                              : "and"}
                         </p>
                       )}
                       <FormControl>
@@ -280,27 +348,15 @@ export function ConditionSteps({
                       </FormControl>
                     </div>
                     <SelectContent>
-                      {[
-                        { label: "From", value: "from" as UIConditionType },
-                        { label: "To", value: "to" as UIConditionType },
-                        {
-                          label: "Subject",
-                          value: "subject" as UIConditionType,
-                        },
-                      ].map((option) => {
-                        const isDisabled =
-                          usedUITypes.has(option.value) &&
-                          option.value !== uiType;
-                        return (
-                          <SelectItem
-                            key={option.value}
-                            value={option.value}
-                            disabled={isDisabled}
-                          >
-                            {option.label}
-                          </SelectItem>
-                        );
-                      })}
+                      {CONDITION_TYPE_OPTIONS.filter(
+                        (option) =>
+                          !usedUITypes.has(option.value) ||
+                          option.value === uiType,
+                      ).map((option) => (
+                        <SelectItem key={option.value} value={option.value}>
+                          {option.label}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </FormItem>
@@ -309,8 +365,21 @@ export function ConditionSteps({
           />
         );
 
+        // Check if this static condition should be indented
+        // Only indent static conditions that follow another static condition (the AND'd group)
+        // The first static after AI prompt should NOT be indented (it shows the and/or boundary)
+        const firstConditionIsPrompt =
+          getUIConditionType(conditions[0]) === "prompt";
+        const isStaticOrEmpty = uiType !== "prompt";
+        const isSecondOrLaterStaticAfterPrompt =
+          firstConditionIsPrompt && isStaticOrEmpty && index > 1;
+        const shouldIndent = isSecondOrLaterStaticAfterPrompt;
+
         return (
-          <div className="pl-3" key={condition.id}>
+          <div
+            className={`pl-3 ${shouldIndent ? "ml-10" : ""}`}
+            key={condition.id}
+          >
             <RuleStep
               onRemove={() => removeCondition(index)}
               removeAriaLabel="Remove condition"
