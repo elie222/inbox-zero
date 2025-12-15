@@ -71,7 +71,7 @@ export const deleteAccountAction = actionClientUser
       .catch((error) => {
         logger.error("Failed to sign out", { error });
       });
-    await deleteUser({ userId });
+    await deleteUser({ userId, logger });
   });
 
 export const deleteEmailAccountAction = actionClientUser

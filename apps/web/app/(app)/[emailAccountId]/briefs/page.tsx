@@ -141,15 +141,9 @@ function UpcomingMeetings({ emailAccountId }: { emailAccountId: string }) {
 
   const { execute } = useAction(sendBriefAction.bind(null, emailAccountId), {
     onSuccess: ({ data: result }) => {
-      if (result?.success) {
-        toastSuccess({
-          description: result.message || "Test brief sent!",
-        });
-      } else {
-        toastError({
-          description: result?.message || "Failed to send brief",
-        });
-      }
+      toastSuccess({
+        description: result.message || "Test brief sent!",
+      });
     },
     onError: ({ error }) => {
       toastError({

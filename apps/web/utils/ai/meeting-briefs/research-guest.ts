@@ -86,12 +86,15 @@ IMPORTANT: Report back all searches you made in order to come up with the inform
       model,
     });
 
-    await setCachedPerplexityResearch(
+    // Fire-and-forget: cache write should never block or lose the result
+    setCachedPerplexityResearch(
       emailAccount.userId,
       email,
       name,
       result.text,
-    );
+    ).catch((error) => {
+      logger.error("Failed to cache Perplexity research", { error });
+    });
 
     return result.text;
   } catch (error) {
