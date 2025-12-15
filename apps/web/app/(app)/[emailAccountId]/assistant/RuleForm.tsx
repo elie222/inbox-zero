@@ -240,7 +240,7 @@ export function RuleForm({
             router.replace(
               prefixPath(emailAccountId, `/assistant/rule/${res.data.rule.id}`),
             );
-            router.push(prefixPath(emailAccountId, "/assistant?tab=rules"));
+            router.push(prefixPath(emailAccountId, "/automation?tab=rules"));
           }
         }
       }
