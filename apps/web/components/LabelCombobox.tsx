@@ -14,7 +14,6 @@ export function LabelCombobox({
   isLoading,
   mutate,
   emailAccountId,
-  footer,
 }: {
   value: {
     id: string | null;
@@ -25,7 +24,6 @@ export function LabelCombobox({
   isLoading: boolean;
   mutate: () => Promise<unknown>;
   emailAccountId: string;
-  footer?: React.ReactNode;
 }) {
   const [search, setSearch] = useState("");
 
@@ -87,7 +85,6 @@ export function LabelCombobox({
         </div>
       }
       loading={isLoading}
-      footer={footer}
     />
   );
 }

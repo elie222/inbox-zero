@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import prisma from "@/utils/prisma";
 import { withEmailAccount } from "@/utils/middleware";
-import { ActionType } from "@/generated/prisma/enums";
 
 export type GetSetupProgressResponse = Awaited<
   ReturnType<typeof getSetupProgress>
@@ -19,28 +18,17 @@ async function getSetupProgress({
 }: {
   emailAccountId: string;
 }) {
-  const [emailAccount, emailCount, draftedEmailsCount] = await Promise.all([
-    prisma.emailAccount.findUnique({
-      where: { id: emailAccountId },
-      select: {
-        rules: { select: { id: true }, take: 1 },
-        newsletters: {
-          where: { status: { not: null } },
-          take: 1,
-        },
-        calendarConnections: { select: { id: true }, take: 1 },
+  const emailAccount = await prisma.emailAccount.findUnique({
+    where: { id: emailAccountId },
+    select: {
+      rules: { select: { id: true }, take: 1 },
+      newsletters: {
+        where: { status: { not: null } },
+        take: 1,
       },
-    }),
-    prisma.emailMessage.count({
-      where: { emailAccountId },
-    }),
-    prisma.executedAction.count({
-      where: {
-        executedRule: { emailAccountId },
-        type: ActionType.DRAFT_EMAIL,
-      },
-    }),
-  ]);
+      calendarConnections: { select: { id: true }, take: 1 },
+    },
+  });
 
   if (!emailAccount) {
     throw new Error("Email account not found");
@@ -60,7 +48,5 @@ async function getSetupProgress({
     completed,
     total,
     isComplete: completed === total,
-    emailsProcessed: emailCount,
-    draftedEmails: draftedEmailsCount,
   };
 }

@@ -1,13 +1,14 @@
 "use client";
 
 import type { LucideIcon } from "lucide-react";
-import { InfoIcon } from "lucide-react";
+import { InfoIcon, MailIcon, PenIcon } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { formatStat } from "@/utils/stats";
 
 const variants = {
   blue: {
@@ -48,7 +49,27 @@ export type StatItem = {
   iconColor?: string;
 };
 
-export function StatsCardGrid({ items }: { items: StatItem[] }) {
+export function StatsCardGrid() {
+  const emailsProcessed = 0;
+  const draftedEmails = 0;
+
+  const items: StatItem[] = [
+    {
+      icon: MailIcon,
+      variant: "blue",
+      value: formatStat(emailsProcessed),
+      title: "Emails processed",
+      tooltip: "Total emails that have been processed so far.",
+    },
+    {
+      icon: PenIcon,
+      variant: "green",
+      value: formatStat(draftedEmails),
+      title: "Drafted emails",
+      tooltip: "Total AI-drafted email replies created so far.",
+    },
+  ];
+
   return (
     <Card className="mb-6">
       <div className="flex flex-col divide-y divide-border sm:flex-row sm:divide-x sm:divide-y-0">
