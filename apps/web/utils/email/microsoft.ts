@@ -8,6 +8,7 @@ import {
   getFolderIds,
   convertMessage,
   MESSAGE_SELECT_FIELDS,
+  sanitizeKqlValue,
 } from "@/utils/outlook/message";
 import {
   getLabels,
@@ -877,23 +878,35 @@ export class OutlookProvider implements EmailProvider {
     // (e.g. `toRecipients/any(...)`) and will error with:
     // "The query filter contains one or more invalid nodes."
     //
-    // Instead, use $search for the participant email address, then post-filter locally
-    // to reduce false positives (body mentions, etc).
-    const searchQuery = participantEmail;
+    const sanitizedEmail = sanitizeKqlValue(participantEmail);
+    const searchQuery = `participants:${sanitizedEmail}`;
 
     const { messages } = await queryBatchMessages(this.client, {
       searchQuery,
       maxResults: Math.min(20, Math.max(10, maxThreads * 4)),
     });
 
-    const participantLower = participantEmail.toLowerCase();
+    const participantLower = participantEmail.toLowerCase().trim();
+
     const relevant = messages.filter((m) => {
       const h = m.headers;
-      return (
-        h.from.toLowerCase().includes(participantLower) ||
-        h.to.toLowerCase().includes(participantLower) ||
-        (h.cc?.toLowerCase().includes(participantLower) ?? false)
-      );
+
+      const fromEmail = extractEmailAddress(h.from || "").toLowerCase();
+      if (fromEmail === participantLower) return true;
+
+      const toAddresses = (h.to || "")
+        .split(",")
+        .map((addr) => extractEmailAddress(addr.trim()).toLowerCase())
+        .filter(Boolean);
+      if (toAddresses.includes(participantLower)) return true;
+
+      const ccAddresses = (h.cc || "")
+        .split(",")
+        .map((addr) => extractEmailAddress(addr.trim()).toLowerCase())
+        .filter(Boolean);
+      if (ccAddresses.includes(participantLower)) return true;
+
+      return false;
     });
 
     // Extract unique conversationIds (thread IDs) from parsed messages

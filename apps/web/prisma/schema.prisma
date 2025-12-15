@@ -1182,6 +1182,8 @@ enum SchedulingStatus {
 }
 
 enum MeetingBriefingStatus {
+  PENDING
   SENT
   FAILED
+  SKIPPED
 }

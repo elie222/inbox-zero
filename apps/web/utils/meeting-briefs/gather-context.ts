@@ -182,9 +182,19 @@ function getExternalAttendees(
   userEmail: string,
   userDomain: string,
 ): CalendarEventAttendee[] {
+  const normalizedUserEmail = userEmail.trim().toLowerCase();
+  const normalizedUserDomain = userDomain.trim().toLowerCase();
+
   return event.attendees.filter((attendee) => {
-    const attendeeDomain = extractDomainFromEmail(attendee.email);
-    return attendeeDomain !== userDomain && attendee.email !== userEmail;
+    const normalizedAttendeeEmail = attendee.email.trim().toLowerCase();
+    const attendeeDomain = extractDomainFromEmail(normalizedAttendeeEmail);
+
+    if (!attendeeDomain) return false;
+
+    return (
+      attendeeDomain !== normalizedUserDomain &&
+      normalizedAttendeeEmail !== normalizedUserEmail
+    );
   });
 }
 

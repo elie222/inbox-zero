@@ -18,7 +18,9 @@ function getPerplexityResearchKey(
   email: string,
   name: string | undefined,
 ) {
-  const input = `${email.toLowerCase()}:${name ?? ""}`;
+  const normalizedEmail = email.trim().toLowerCase();
+  const normalizedName = name?.trim().toLowerCase() ?? "";
+  const input = `${normalizedEmail}:${normalizedName}`;
   const hash = createHash("sha256").update(input).digest("hex");
   return `${CACHE_KEY_PREFIX}:${userId}:${hash}`;
 }

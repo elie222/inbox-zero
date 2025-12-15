@@ -1,3 +1,4 @@
+import { addMinutes } from "date-fns/addMinutes";
 import { createCalendarEventProviders } from "@/utils/calendar/event-provider";
 import type { CalendarEvent } from "@/utils/calendar/event-types";
 import { extractDomainFromEmail } from "@/utils/email";
@@ -17,9 +18,9 @@ export async function fetchUpcomingEvents({
   }
 
   const timeMin = new Date();
-  const timeMax = new Date(timeMin.getTime() + minutesBefore * 60 * 1000);
+  const timeMax = addMinutes(timeMin, minutesBefore);
 
-  const providerEvents = await Promise.all(
+  const results = await Promise.allSettled(
     providers.map((provider) =>
       provider.fetchEvents({
         timeMin,
@@ -29,8 +30,12 @@ export async function fetchUpcomingEvents({
     ),
   );
 
-  return providerEvents
-    .flat()
+  return results
+    .filter(
+      (result): result is PromiseFulfilledResult<CalendarEvent[]> =>
+        result.status === "fulfilled",
+    )
+    .flatMap((result) => result.value)
     .sort((a, b) => a.startTime.getTime() - b.startTime.getTime());
 }
 

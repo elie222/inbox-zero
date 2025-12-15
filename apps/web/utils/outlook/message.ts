@@ -112,6 +112,25 @@ function getOutlookLabels(
 
 const OUTLOOK_SEARCH_DISALLOWED_CHARS = /[?]/g;
 
+// Pattern to detect KQL field syntax: fieldname:value (e.g., participants:email@example.com)
+const KQL_FIELD_PATTERN = /^(\w+):.+$/;
+
+/**
+ * Sanitizes a value for use in KQL queries.
+ * Removes disallowed characters and escapes special characters.
+ */
+export function sanitizeKqlValue(value: string): string {
+  const normalized = value.trim();
+  if (!normalized) return "";
+
+  return normalized
+    .replace(OUTLOOK_SEARCH_DISALLOWED_CHARS, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .replace(/\\/g, "\\\\")
+    .replace(/"/g, '\\"');
+}
+
 function sanitizeOutlookSearchQuery(query: string): {
   sanitized: string;
   wasSanitized: boolean;
@@ -119,6 +138,15 @@ function sanitizeOutlookSearchQuery(query: string): {
   const normalized = query.trim();
   if (!normalized) {
     return { sanitized: "", wasSanitized: false };
+  }
+
+  // Check if this is a KQL field syntax query (e.g., participants:email@example.com)
+  // If so, preserve the field structure and don't wrap in quotes
+  if (KQL_FIELD_PATTERN.test(normalized)) {
+    return {
+      sanitized: normalized,
+      wasSanitized: false,
+    };
   }
 
   // Remove disallowed characters

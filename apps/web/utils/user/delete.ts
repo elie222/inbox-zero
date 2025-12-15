@@ -141,7 +141,7 @@ async function deleteResources({
     logger.error("Error during database user deletion process", {
       error,
     });
-    captureException(error, { extra: { emailAccountId } }, emailAccountId);
+    captureException(error, { extra: { emailAccountId } }, email);
     throw error;
   }
 

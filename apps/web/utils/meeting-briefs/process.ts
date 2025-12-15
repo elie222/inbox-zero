@@ -1,4 +1,5 @@
 import prisma from "@/utils/prisma";
+import { isDuplicateError } from "@/utils/prisma-helpers";
 import { MeetingBriefingStatus } from "@/generated/prisma/enums";
 import {
   fetchUpcomingEvents,
@@ -151,12 +152,26 @@ export async function runMeetingBrief({
 
   const eventLog = logger.with({ eventId: event.id });
 
-  // Compute external guest count upfront for consistent tracking
   const userDomain = extractDomainFromEmail(userEmail);
   const externalGuestCount = event.attendees.filter((attendee) => {
     const attendeeDomain = extractDomainFromEmail(attendee.email ?? "");
     return attendeeDomain && attendeeDomain !== userDomain;
   }).length;
+
+  if (!isTestSend) {
+    const claimed = await claimMeetingBriefing({
+      emailAccountId,
+      calendarEventId: event.id,
+      eventTitle: event.title,
+      eventStartTime: event.startTime,
+      guestCount: externalGuestCount,
+    });
+
+    if (!claimed) {
+      eventLog.info("Event already claimed by another process, skipping");
+      return { success: false, message: "Already being processed" };
+    }
+  }
 
   try {
     const briefingData = await gatherContextForEvent({
@@ -170,6 +185,17 @@ export async function runMeetingBrief({
 
     if (briefingData.externalGuests.length === 0) {
       eventLog.info("No external guests found for event, skipping");
+      if (!isTestSend) {
+        await upsertMeetingBriefingStatus({
+          emailAccountId,
+          calendarEventId: event.id,
+          eventTitle: event.title,
+          eventStartTime: event.startTime,
+          guestCount: externalGuestCount,
+          status: MeetingBriefingStatus.SKIPPED,
+          logger: eventLog,
+        });
+      }
       return { success: false, message: "No external guests found" };
     }
 
@@ -188,22 +214,15 @@ export async function runMeetingBrief({
     });
 
     if (!isTestSend) {
-      await prisma.meetingBriefing
-        .create({
-          data: {
-            calendarEventId: event.id,
-            eventTitle: event.title,
-            eventStartTime: event.startTime,
-            guestCount: externalGuestCount,
-            status: MeetingBriefingStatus.SENT,
-            emailAccountId,
-          },
-        })
-        .catch((error) => {
-          eventLog.error("Failed to save successful briefing to database", {
-            error,
-          });
-        });
+      await upsertMeetingBriefingStatus({
+        emailAccountId,
+        calendarEventId: event.id,
+        eventTitle: event.title,
+        eventStartTime: event.startTime,
+        guestCount: externalGuestCount,
+        status: MeetingBriefingStatus.SENT,
+        logger: eventLog,
+      });
     }
 
     eventLog.info("Meeting briefing sent successfully");
@@ -212,24 +231,90 @@ export async function runMeetingBrief({
     eventLog.error("Failed to process meeting briefing", { error });
 
     if (!isTestSend) {
-      await prisma.meetingBriefing
-        .create({
-          data: {
-            calendarEventId: event.id,
-            eventTitle: event.title,
-            eventStartTime: event.startTime,
-            guestCount: externalGuestCount,
-            status: MeetingBriefingStatus.FAILED,
-            emailAccountId,
-          },
-        })
-        .catch((error) => {
-          eventLog.error("Failed to save failed briefing to database", {
-            error,
-          });
-        });
+      await upsertMeetingBriefingStatus({
+        emailAccountId,
+        calendarEventId: event.id,
+        eventTitle: event.title,
+        eventStartTime: event.startTime,
+        guestCount: externalGuestCount,
+        status: MeetingBriefingStatus.FAILED,
+        logger: eventLog,
+      });
     }
 
     throw error;
+  }
+}
+
+async function claimMeetingBriefing({
+  emailAccountId,
+  calendarEventId,
+  eventTitle,
+  eventStartTime,
+  guestCount,
+}: {
+  emailAccountId: string;
+  calendarEventId: string;
+  eventTitle: string;
+  eventStartTime: Date;
+  guestCount: number;
+}): Promise<boolean> {
+  try {
+    await prisma.meetingBriefing.create({
+      data: {
+        emailAccountId,
+        calendarEventId,
+        eventTitle,
+        eventStartTime,
+        guestCount,
+        status: MeetingBriefingStatus.PENDING,
+      },
+    });
+    return true;
+  } catch (error) {
+    if (isDuplicateError(error)) {
+      return false;
+    }
+    throw error;
+  }
+}
+
+async function upsertMeetingBriefingStatus({
+  emailAccountId,
+  calendarEventId,
+  eventTitle,
+  eventStartTime,
+  guestCount,
+  status,
+  logger,
+}: {
+  emailAccountId: string;
+  calendarEventId: string;
+  eventTitle: string;
+  eventStartTime: Date;
+  guestCount: number;
+  status: MeetingBriefingStatus;
+  logger: Logger;
+}): Promise<void> {
+  try {
+    await prisma.meetingBriefing.upsert({
+      where: {
+        emailAccountId_calendarEventId: {
+          emailAccountId,
+          calendarEventId,
+        },
+      },
+      create: {
+        emailAccountId,
+        calendarEventId,
+        eventTitle,
+        eventStartTime,
+        guestCount,
+        status,
+      },
+      update: { status },
+    });
+  } catch (error) {
+    logger.error("Failed to upsert meeting briefing status", { error, status });
   }
 }
