@@ -120,12 +120,18 @@ services:
       - "${CLAUDE_CODE_PORT:-3100}:3100"
     networks:
       - inbox-zero-network
+    env_file:
+      - ./apps/web/.env
     environment:
       PORT: 3100
       API_KEY: ${CLAUDE_CODE_API_KEY:-}
-      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+      # For API key auth: set ANTHROPIC_API_KEY in .env
+      # For Max subscription: mount ~/.claude with long-lived token
     volumes:
+      # Use named volume for isolated container auth
       - claude-code-data:/root/.claude
+      # Or bind mount host's Claude config for Max subscription:
+      # - ~/.claude:/root/.claude:ro
     restart: always
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3100/health"]
