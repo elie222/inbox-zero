@@ -32,9 +32,12 @@ router.post("/stream", async (req: Request, res: Response) => {
   res.setHeader("Cache-Control", "no-cache");
   res.setHeader("Connection", "keep-alive");
   res.setHeader("X-Accel-Buffering", "no");
+  res.flushHeaders(); // Important: send headers immediately for SSE
 
   // Build CLI arguments
   const args = buildStreamArgs({ prompt, system, sessionId, maxTokens, model });
+
+  logger.info("Spawning Claude CLI for stream", { args });
 
   const claude = spawn("claude", args, {
     stdio: ["pipe", "pipe", "pipe"],
@@ -45,6 +48,9 @@ router.post("/stream", async (req: Request, res: Response) => {
 
   // Send initial event with session info
   sendEvent(res, "session", { sessionId: currentSessionId });
+
+  // Debug: collect stderr for better error reporting
+  let stderrOutput = "";
 
   claude.stdout.on("data", (data: Buffer) => {
     const chunk = data.toString();
@@ -85,17 +91,21 @@ router.post("/stream", async (req: Request, res: Response) => {
   });
 
   claude.stderr.on("data", (data: Buffer) => {
-    sendEvent(res, "error", { error: data.toString() });
+    const stderrChunk = data.toString();
+    stderrOutput += stderrChunk;
+    logger.warn("Claude CLI stderr", { stderr: stderrChunk });
+    sendEvent(res, "error", { error: stderrChunk });
   });
 
-  claude.on("close", (code) => {
+  claude.on("close", (code, signal) => {
+    logger.info("Claude CLI closed", { code, signal, stderrOutput });
     if (code !== 0) {
       sendEvent(res, "error", {
-        error: `CLI exited with code ${code}`,
+        error: `CLI exited with code ${code}${signal ? ` (signal: ${signal})` : ""}${stderrOutput ? `: ${stderrOutput}` : ""}`,
         code: "CLI_EXIT_ERROR",
       });
     }
-    sendEvent(res, "done", { code });
+    sendEvent(res, "done", { code, signal });
     res.end();
   });
 
@@ -107,9 +117,16 @@ router.post("/stream", async (req: Request, res: Response) => {
     res.end();
   });
 
-  // Handle client disconnect
-  req.on("close", () => {
-    claude.kill();
+  // Handle client disconnect - use res.on("close") for SSE
+  // Note: req.on("close") fires immediately in some Express configurations
+  res.on("close", () => {
+    logger.info("Response closed event fired", {
+      cliExitCode: claude.exitCode,
+      cliKilled: claude.killed,
+    });
+    if (claude.exitCode === null && !claude.killed) {
+      claude.kill();
+    }
   });
 
   claude.stdin.end();
