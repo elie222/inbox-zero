@@ -1,3 +1,4 @@
+import { timingSafeEqual } from "node:crypto";
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { env } from "@/env";
@@ -21,8 +22,14 @@ import { isMicrosoftProvider } from "@/utils/email/provider-types";
 import { isDuplicateError } from "@/utils/prisma-helpers";
 import {
   invokeToolRequestSchema,
+  getLearnedPatternsInputSchema,
+  updateAboutInputSchema,
+  addToKnowledgeBaseInputSchema,
   type ToolName,
   type InvokeToolResponse,
+  type GetLearnedPatternsInput,
+  type UpdateAboutInput,
+  type AddToKnowledgeBaseInput,
 } from "./validation";
 
 const logger = createScopedLogger("api/llm-tools/invoke");
@@ -72,7 +79,13 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   }
 
   // Use timing-safe comparison to prevent timing attacks
-  if (token !== env.LLM_TOOL_PROXY_TOKEN) {
+  const tokenBuffer = Buffer.from(token);
+  const envTokenBuffer = Buffer.from(env.LLM_TOOL_PROXY_TOKEN);
+  const isValidToken =
+    tokenBuffer.length === envTokenBuffer.length &&
+    timingSafeEqual(tokenBuffer, envTokenBuffer);
+
+  if (!isValidToken) {
     return NextResponse.json(
       {
         success: false,
@@ -195,8 +208,13 @@ async function executeToolByName(
     case "getUserRulesAndSettings":
       return executeGetUserRulesAndSettings(ctx);
 
-    case "getLearnedPatterns":
-      return executeGetLearnedPatterns(input as { ruleName: string }, ctx);
+    case "getLearnedPatterns": {
+      const parseResult = getLearnedPatternsInputSchema.safeParse(input);
+      if (!parseResult.success) {
+        return { error: `Invalid input: ${parseResult.error.message}` };
+      }
+      return executeGetLearnedPatterns(parseResult.data, ctx);
+    }
 
     case "createRule":
       return executeCreateRule(input, ctx);
@@ -210,14 +228,21 @@ async function executeToolByName(
     case "updateLearnedPatterns":
       return executeUpdateLearnedPatterns(input, ctx);
 
-    case "updateAbout":
-      return executeUpdateAbout(input as { about: string }, ctx);
+    case "updateAbout": {
+      const parseResult = updateAboutInputSchema.safeParse(input);
+      if (!parseResult.success) {
+        return { error: `Invalid input: ${parseResult.error.message}` };
+      }
+      return executeUpdateAbout(parseResult.data, ctx);
+    }
 
-    case "addToKnowledgeBase":
-      return executeAddToKnowledgeBase(
-        input as { title: string; content: string },
-        ctx,
-      );
+    case "addToKnowledgeBase": {
+      const parseResult = addToKnowledgeBaseInputSchema.safeParse(input);
+      if (!parseResult.success) {
+        return { error: `Invalid input: ${parseResult.error.message}` };
+      }
+      return executeAddToKnowledgeBase(parseResult.data, ctx);
+    }
 
     default:
       throw new Error(`Unknown tool: ${toolName}`);
@@ -305,7 +330,7 @@ async function executeGetUserRulesAndSettings(ctx: ToolContext) {
 }
 
 async function executeGetLearnedPatterns(
-  input: { ruleName: string },
+  input: GetLearnedPatternsInput,
   ctx: ToolContext,
 ) {
   const rule = await prisma.rule.findUnique({
@@ -458,16 +483,25 @@ async function executeUpdateRuleConditions(
     conditionalOperator: rule.conditionalOperator,
   };
 
-  await partialUpdateRule({
-    ruleId: rule.id,
-    data: {
-      instructions: condition.aiInstructions,
-      from: condition.static?.from,
-      to: condition.static?.to,
-      subject: condition.static?.subject,
-      conditionalOperator: condition.conditionalOperator ?? undefined,
-    },
-  });
+  try {
+    await partialUpdateRule({
+      ruleId: rule.id,
+      data: {
+        instructions: condition.aiInstructions,
+        from: condition.static?.from,
+        to: condition.static?.to,
+        subject: condition.static?.subject,
+        conditionalOperator: condition.conditionalOperator ?? undefined,
+      },
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    logger.error("Failed to update rule conditions", {
+      ruleId: rule.id,
+      error,
+    });
+    return { success: false, ruleId: rule.id, error: message };
+  }
 
   const updatedConditions = {
     aiInstructions: condition.aiInstructions,
@@ -582,27 +616,33 @@ async function executeUpdateRuleActions(
     }),
   }));
 
-  await updateRuleActions({
-    ruleId: rule.id,
-    actions: actions.map((action) => ({
-      type: action.type,
-      fields: {
-        label: action.fields?.label ?? null,
-        to: action.fields?.to ?? null,
-        cc: action.fields?.cc ?? null,
-        bcc: action.fields?.bcc ?? null,
-        subject: action.fields?.subject ?? null,
-        content: action.fields?.content ?? null,
-        webhookUrl: action.fields?.webhookUrl ?? null,
-        ...(isMicrosoftProvider(ctx.provider) && {
-          folderName: action.fields?.folderName ?? null,
-        }),
-      },
-      delayInMinutes: action.delayInMinutes ?? null,
-    })),
-    provider: ctx.provider,
-    emailAccountId: ctx.emailAccountId,
-  });
+  try {
+    await updateRuleActions({
+      ruleId: rule.id,
+      actions: actions.map((action) => ({
+        type: action.type,
+        fields: {
+          label: action.fields?.label ?? null,
+          to: action.fields?.to ?? null,
+          cc: action.fields?.cc ?? null,
+          bcc: action.fields?.bcc ?? null,
+          subject: action.fields?.subject ?? null,
+          content: action.fields?.content ?? null,
+          webhookUrl: action.fields?.webhookUrl ?? null,
+          ...(isMicrosoftProvider(ctx.provider) && {
+            folderName: action.fields?.folderName ?? null,
+          }),
+        },
+        delayInMinutes: action.delayInMinutes ?? null,
+      })),
+      provider: ctx.provider,
+      emailAccountId: ctx.emailAccountId,
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    logger.error("Failed to update rule actions", { ruleId: rule.id, error });
+    return { success: false, ruleId: rule.id, error: message };
+  }
 
   return {
     success: true,
@@ -701,17 +741,26 @@ async function executeUpdateLearnedPatterns(
   }
 
   if (patternsToSave.length > 0) {
-    await saveLearnedPatterns({
-      emailAccountId: ctx.emailAccountId,
-      ruleName: rule.name,
-      patterns: patternsToSave,
-    });
+    try {
+      await saveLearnedPatterns({
+        emailAccountId: ctx.emailAccountId,
+        ruleName: rule.name,
+        patterns: patternsToSave,
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      logger.error("Failed to save learned patterns", {
+        ruleId: rule.id,
+        error,
+      });
+      return { success: false, ruleId: rule.id, error: message };
+    }
   }
 
   return { success: true, ruleId: rule.id };
 }
 
-async function executeUpdateAbout(input: { about: string }, ctx: ToolContext) {
+async function executeUpdateAbout(input: UpdateAboutInput, ctx: ToolContext) {
   const existing = await prisma.emailAccount.findUnique({
     where: { id: ctx.emailAccountId },
     select: { about: true },
@@ -734,7 +783,7 @@ async function executeUpdateAbout(input: { about: string }, ctx: ToolContext) {
 }
 
 async function executeAddToKnowledgeBase(
-  input: { title: string; content: string },
+  input: AddToKnowledgeBaseInput,
   ctx: ToolContext,
 ) {
   try {

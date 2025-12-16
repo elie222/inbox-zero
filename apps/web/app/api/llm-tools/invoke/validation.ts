@@ -54,3 +54,26 @@ export interface InvokeToolErrorResponse {
 export type InvokeToolResponse =
   | InvokeToolSuccessResponse
   | InvokeToolErrorResponse;
+
+/**
+ * Input schemas for tools that don't have inline validation.
+ */
+export const getLearnedPatternsInputSchema = z.object({
+  ruleName: z.string().min(1, "Rule name is required"),
+});
+export type GetLearnedPatternsInput = z.infer<
+  typeof getLearnedPatternsInputSchema
+>;
+
+export const updateAboutInputSchema = z.object({
+  about: z.string().min(1, "About content is required"),
+});
+export type UpdateAboutInput = z.infer<typeof updateAboutInputSchema>;
+
+export const addToKnowledgeBaseInputSchema = z.object({
+  title: z.string().min(1, "Title is required"),
+  content: z.string().min(1, "Content is required"),
+});
+export type AddToKnowledgeBaseInput = z.infer<
+  typeof addToKnowledgeBaseInputSchema
+>;
