@@ -2,6 +2,7 @@ import { Router, type Request, type Response } from "express";
 import { spawn } from "node:child_process";
 import { v4 as uuidv4 } from "uuid";
 import { streamRequestSchema } from "../types.js";
+import { buildClaudeEnv } from "../cli.js";
 
 const router = Router();
 
@@ -36,7 +37,7 @@ router.post("/stream", async (req: Request, res: Response) => {
 
   const claude = spawn("claude", args, {
     stdio: ["pipe", "pipe", "pipe"],
-    env: { ...process.env },
+    env: buildClaudeEnv(),
   });
 
   const currentSessionId = sessionId || uuidv4();

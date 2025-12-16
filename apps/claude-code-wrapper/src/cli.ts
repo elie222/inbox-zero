@@ -2,6 +2,21 @@ import { spawn } from "node:child_process";
 import { v4 as uuidv4 } from "uuid";
 import type { ClaudeCliOutput, UsageInfo } from "./types.js";
 
+/**
+ * Builds environment variables for Claude CLI with auth precedence.
+ * Prefers OAuth token (Max subscription) over API key when both are present.
+ */
+export function buildClaudeEnv(): NodeJS.ProcessEnv {
+  const env = { ...process.env };
+
+  // Prefer OAuth token for Max subscribers over API key
+  if (env.CLAUDE_CODE_OAUTH_TOKEN) {
+    env.ANTHROPIC_API_KEY = undefined;
+  }
+
+  return env;
+}
+
 export interface ClaudeCliOptions {
   prompt: string;
   system?: string;
@@ -31,7 +46,7 @@ export async function executeClaudeCli(
   return new Promise((resolve, reject) => {
     const claude = spawn("claude", args, {
       stdio: ["pipe", "pipe", "pipe"],
-      env: { ...process.env },
+      env: buildClaudeEnv(),
     });
 
     let stdout = "";
