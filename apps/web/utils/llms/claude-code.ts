@@ -104,6 +104,7 @@ export async function claudeCodeGenerateText(
       system: options.system,
       prompt: options.prompt,
       sessionId: options.sessionId,
+      model: config.model,
     }),
     signal: AbortSignal.timeout(config.timeout),
   });
@@ -129,6 +130,7 @@ export async function claudeCodeGenerateText(
     textLength: result.text.length,
     usage: result.usage,
     sessionId: result.sessionId,
+    model: config.model,
   });
 
   return {
@@ -179,6 +181,7 @@ export async function claudeCodeGenerateObject<T>(
       prompt: options.prompt,
       schema: jsonSchema,
       sessionId: options.sessionId,
+      model: config.model,
     }),
     signal: AbortSignal.timeout(config.timeout),
   });

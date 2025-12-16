@@ -27,6 +27,8 @@ export interface ClaudeCodeConfig {
   timeout: number;
   /** Authentication key for the wrapper service (required) */
   authKey: string;
+  /** Model alias (e.g., 'sonnet', 'haiku') or full model name */
+  model?: string;
 }
 
 export type SelectModel = {
@@ -213,9 +215,11 @@ function selectModel(
           "CLAUDE_CODE_WRAPPER_AUTH_KEY is required for Claude Code provider",
         );
       }
+      // Use provided model, env var, or default name for display
+      const claudeModel = aiModel || env.CLAUDE_CODE_MODEL;
       return {
         provider: Provider.CLAUDE_CODE,
-        modelName: "claude-code-cli",
+        modelName: claudeModel || "claude-code-cli",
         // Claude Code doesn't use Vercel AI SDK's LanguageModelV2
         // The model field is set to null and claudeCodeConfig is used instead
         model: null as unknown as LanguageModelV2,
@@ -224,6 +228,7 @@ function selectModel(
           baseUrl: env.CLAUDE_CODE_BASE_URL,
           timeout: env.CLAUDE_CODE_TIMEOUT,
           authKey: env.CLAUDE_CODE_WRAPPER_AUTH_KEY,
+          model: claudeModel,
         },
       };
     }
@@ -264,6 +269,20 @@ function createOpenRouterProviderOptions(
  * - Any task with large context windows where cost efficiency matters
  */
 function selectEconomyModel(userAi: UserAIFields, online = false): SelectModel {
+  // Handle Claude Code economy model when it's the default provider
+  if (env.DEFAULT_LLM_PROVIDER === Provider.CLAUDE_CODE) {
+    const economyModel = env.CLAUDE_CODE_ECONOMY_MODEL || env.CLAUDE_CODE_MODEL;
+    return selectModel(
+      {
+        aiProvider: Provider.CLAUDE_CODE,
+        aiModel: economyModel || null,
+        aiApiKey: null,
+      },
+      undefined,
+      online,
+    );
+  }
+
   if (env.ECONOMY_LLM_PROVIDER && env.ECONOMY_LLM_MODEL) {
     const apiKey = getProviderApiKey(env.ECONOMY_LLM_PROVIDER);
     if (!apiKey) {

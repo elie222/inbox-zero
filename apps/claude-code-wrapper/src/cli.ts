@@ -29,6 +29,8 @@ export interface ClaudeCliOptions {
   outputFormat?: "json" | "text" | "stream-json";
   /** Timeout in milliseconds. Default: 5 minutes */
   timeoutMs?: number;
+  /** Model alias (e.g., 'sonnet', 'haiku') or full name */
+  model?: string;
 }
 
 export interface ClaudeCliResult {
@@ -147,6 +149,11 @@ export async function executeClaudeCli(
  */
 function buildCliArgs(options: ClaudeCliOptions): string[] {
   const args: string[] = ["--print", "--output-format", "json"];
+
+  // Model selection (alias like 'sonnet' or full name)
+  if (options.model) {
+    args.push("--model", options.model);
+  }
 
   // System prompt
   if (options.system) {

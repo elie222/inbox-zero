@@ -53,6 +53,8 @@ vi.mock("@/env", () => ({
     CLAUDE_CODE_BASE_URL: "http://localhost:3100",
     CLAUDE_CODE_TIMEOUT: 120_000,
     CLAUDE_CODE_WRAPPER_AUTH_KEY: "test-auth-key-12345",
+    CLAUDE_CODE_MODEL: undefined as string | undefined,
+    CLAUDE_CODE_ECONOMY_MODEL: undefined as string | undefined,
     // Minimal other env vars needed by the module
     OPENAI_API_KEY: "test-key",
     ANTHROPIC_API_KEY: "test-key",
@@ -74,6 +76,8 @@ describe("Claude Code Provider", () => {
     vi.mocked(env).CLAUDE_CODE_BASE_URL = "http://localhost:3100";
     vi.mocked(env).CLAUDE_CODE_TIMEOUT = 120_000;
     vi.mocked(env).CLAUDE_CODE_WRAPPER_AUTH_KEY = "test-auth-key-12345";
+    vi.mocked(env).CLAUDE_CODE_MODEL = undefined;
+    vi.mocked(env).CLAUDE_CODE_ECONOMY_MODEL = undefined;
   });
 
   describe("getModel with Claude Code", () => {
@@ -91,8 +95,53 @@ describe("Claude Code Provider", () => {
         baseUrl: "http://localhost:3100",
         timeout: 120_000,
         authKey: "test-auth-key-12345",
+        model: undefined,
       });
       expect(result.backupModel).toBeNull();
+    });
+
+    it("should use CLAUDE_CODE_MODEL when configured", () => {
+      vi.mocked(env).CLAUDE_CODE_MODEL = "sonnet";
+
+      const userAi: UserAIFields = {
+        aiApiKey: null,
+        aiProvider: null,
+        aiModel: null,
+      };
+
+      const result = getModel(userAi);
+      expect(result.modelName).toBe("sonnet");
+      expect(result.claudeCodeConfig?.model).toBe("sonnet");
+    });
+
+    it("should use economy model for economy modelType", () => {
+      vi.mocked(env).CLAUDE_CODE_MODEL = "sonnet";
+      vi.mocked(env).CLAUDE_CODE_ECONOMY_MODEL = "haiku";
+
+      const userAi: UserAIFields = {
+        aiApiKey: null,
+        aiProvider: null,
+        aiModel: null,
+      };
+
+      const result = getModel(userAi, "economy");
+      expect(result.modelName).toBe("haiku");
+      expect(result.claudeCodeConfig?.model).toBe("haiku");
+    });
+
+    it("should fall back to default model when economy model not set", () => {
+      vi.mocked(env).CLAUDE_CODE_MODEL = "sonnet";
+      // CLAUDE_CODE_ECONOMY_MODEL is undefined
+
+      const userAi: UserAIFields = {
+        aiApiKey: null,
+        aiProvider: null,
+        aiModel: null,
+      };
+
+      const result = getModel(userAi, "economy");
+      expect(result.modelName).toBe("sonnet");
+      expect(result.claudeCodeConfig?.model).toBe("sonnet");
     });
 
     it("should throw error when Claude Code provider is used without base URL", () => {

@@ -29,7 +29,7 @@ router.post(
       return;
     }
 
-    const { prompt, system, sessionId, maxTokens } = parseResult.data;
+    const { prompt, system, sessionId, maxTokens, model } = parseResult.data;
 
     try {
       const result = await executeClaudeCli({
@@ -37,6 +37,7 @@ router.post(
         system,
         sessionId,
         maxTokens,
+        model,
       });
 
       res.json({
@@ -73,7 +74,8 @@ router.post(
       return;
     }
 
-    const { prompt, system, schema, sessionId, maxTokens } = parseResult.data;
+    const { prompt, system, schema, sessionId, maxTokens, model } =
+      parseResult.data;
 
     // Build enhanced prompt that instructs Claude to output JSON matching schema
     const schemaString = JSON.stringify(schema, null, 2);
@@ -94,6 +96,7 @@ ${schemaString}`;
         system: enhancedSystem,
         sessionId,
         maxTokens,
+        model,
       });
 
       // Parse the JSON response

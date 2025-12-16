@@ -6,6 +6,7 @@ export const generateTextRequestSchema = z.object({
   prompt: z.string(),
   sessionId: z.string().optional(),
   maxTokens: z.number().optional(),
+  model: z.string().optional(),
 });
 
 export const generateObjectRequestSchema = z.object({
@@ -14,6 +15,7 @@ export const generateObjectRequestSchema = z.object({
   schema: z.record(z.unknown()),
   sessionId: z.string().optional(),
   maxTokens: z.number().optional(),
+  model: z.string().optional(),
 });
 
 export const streamRequestSchema = z.object({
@@ -21,6 +23,7 @@ export const streamRequestSchema = z.object({
   prompt: z.string(),
   sessionId: z.string().optional(),
   maxTokens: z.number().optional(),
+  model: z.string().optional(),
 });
 
 // Inferred types
