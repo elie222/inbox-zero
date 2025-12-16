@@ -423,3 +423,147 @@ describe("Validation Schema", () => {
     }
   });
 });
+
+describe("Edge Cases", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  test("should return 401 for empty Bearer token", async () => {
+    const request = new NextRequest("http://localhost/api/llm-tools/invoke", {
+      method: "POST",
+      headers: {
+        Authorization: "Bearer ",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        tool: "getUserRulesAndSettings",
+        input: {},
+        userEmail: "test@example.com",
+      }),
+    });
+
+    const response = await POST(request);
+    const body = await response.json();
+
+    expect(response.status).toBe(401);
+    expect(body.success).toBe(false);
+    expect(body.code).toBe("UNAUTHORIZED");
+  });
+
+  test("should return error when getLearnedPatterns rule not found", async () => {
+    // First call for email lookup succeeds
+    vi.mocked(prisma.emailAccount.findUnique).mockResolvedValueOnce({
+      id: "account-123",
+      email: "test@example.com",
+      account: { provider: "google" },
+    } as any);
+
+    // Rule lookup returns null
+    vi.mocked(prisma.rule.findUnique).mockResolvedValueOnce(null);
+
+    const request = new NextRequest("http://localhost/api/llm-tools/invoke", {
+      method: "POST",
+      headers: {
+        Authorization: "Bearer test-token-12345",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        tool: "getLearnedPatterns",
+        input: { ruleName: "NonExistentRule" },
+        userEmail: "test@example.com",
+      }),
+    });
+
+    const response = await POST(request);
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.success).toBe(true);
+    expect(body.result.error).toContain("Rule not found");
+  });
+
+  test("should validate getLearnedPatterns input with missing ruleName", async () => {
+    vi.mocked(prisma.emailAccount.findUnique).mockResolvedValueOnce({
+      id: "account-123",
+      email: "test@example.com",
+      account: { provider: "google" },
+    } as any);
+
+    const request = new NextRequest("http://localhost/api/llm-tools/invoke", {
+      method: "POST",
+      headers: {
+        Authorization: "Bearer test-token-12345",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        tool: "getLearnedPatterns",
+        input: {}, // Missing ruleName
+        userEmail: "test@example.com",
+      }),
+    });
+
+    const response = await POST(request);
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.success).toBe(true);
+    expect(body.result.error).toContain("Invalid input");
+  });
+
+  test("should validate updateAbout input with missing about field", async () => {
+    vi.mocked(prisma.emailAccount.findUnique).mockResolvedValueOnce({
+      id: "account-123",
+      email: "test@example.com",
+      account: { provider: "google" },
+    } as any);
+
+    const request = new NextRequest("http://localhost/api/llm-tools/invoke", {
+      method: "POST",
+      headers: {
+        Authorization: "Bearer test-token-12345",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        tool: "updateAbout",
+        input: {}, // Missing about
+        userEmail: "test@example.com",
+      }),
+    });
+
+    const response = await POST(request);
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.success).toBe(true);
+    expect(body.result.error).toContain("Invalid input");
+  });
+
+  test("should validate addToKnowledgeBase input with missing fields", async () => {
+    vi.mocked(prisma.emailAccount.findUnique).mockResolvedValueOnce({
+      id: "account-123",
+      email: "test@example.com",
+      account: { provider: "google" },
+    } as any);
+
+    const request = new NextRequest("http://localhost/api/llm-tools/invoke", {
+      method: "POST",
+      headers: {
+        Authorization: "Bearer test-token-12345",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        tool: "addToKnowledgeBase",
+        input: { title: "Test" }, // Missing content
+        userEmail: "test@example.com",
+      }),
+    });
+
+    const response = await POST(request);
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.success).toBe(true);
+    expect(body.result.error).toContain("Invalid input");
+  });
+});
