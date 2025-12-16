@@ -52,6 +52,7 @@ vi.mock("@/env", () => ({
     DEFAULT_LLM_PROVIDER: "claudecode",
     CLAUDE_CODE_BASE_URL: "http://localhost:3100",
     CLAUDE_CODE_TIMEOUT: 120_000,
+    CLAUDE_CODE_WRAPPER_AUTH_KEY: "test-auth-key-12345",
     // Minimal other env vars needed by the module
     OPENAI_API_KEY: "test-key",
     ANTHROPIC_API_KEY: "test-key",
@@ -72,6 +73,7 @@ describe("Claude Code Provider", () => {
     vi.mocked(env).DEFAULT_LLM_PROVIDER = "claudecode";
     vi.mocked(env).CLAUDE_CODE_BASE_URL = "http://localhost:3100";
     vi.mocked(env).CLAUDE_CODE_TIMEOUT = 120_000;
+    vi.mocked(env).CLAUDE_CODE_WRAPPER_AUTH_KEY = "test-auth-key-12345";
   });
 
   describe("getModel with Claude Code", () => {
@@ -88,6 +90,7 @@ describe("Claude Code Provider", () => {
       expect(result.claudeCodeConfig).toEqual({
         baseUrl: "http://localhost:3100",
         timeout: 120_000,
+        authKey: "test-auth-key-12345",
       });
       expect(result.backupModel).toBeNull();
     });
@@ -103,6 +106,20 @@ describe("Claude Code Provider", () => {
 
       expect(() => getModel(userAi)).toThrow(
         "CLAUDE_CODE_BASE_URL is required for Claude Code provider",
+      );
+    });
+
+    it("should throw error when Claude Code provider is used without auth key", () => {
+      const userAi: UserAIFields = {
+        aiApiKey: null,
+        aiProvider: null,
+        aiModel: null,
+      };
+
+      vi.mocked(env).CLAUDE_CODE_WRAPPER_AUTH_KEY = "";
+
+      expect(() => getModel(userAi)).toThrow(
+        "CLAUDE_CODE_WRAPPER_AUTH_KEY is required for Claude Code provider",
       );
     });
 

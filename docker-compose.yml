@@ -124,8 +124,9 @@ services:
       - ./apps/web/.env
     environment:
       PORT: 3100
-      # Auth key for wrapper service endpoints (not Claude auth)
-      API_KEY: ${CLAUDE_WRAPPER_AUTH_KEY:-}
+      # Auth key for wrapper service endpoints (required when using claude-code profile)
+      # Generate with: openssl rand -hex 32
+      API_KEY: ${CLAUDE_CODE_WRAPPER_AUTH_KEY:-}
       # Explicitly unset API key to test OAuth-only auth
       ANTHROPIC_API_KEY: ""
     volumes:

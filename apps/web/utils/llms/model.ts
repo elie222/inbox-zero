@@ -21,8 +21,12 @@ export type ModelType = "default" | "economy" | "chat";
  * Used when Claude Code is selected as the LLM provider.
  */
 export interface ClaudeCodeConfig {
+  /** Base URL of the Claude Code wrapper service (e.g., "http://claude-code-wrapper:3100") */
   baseUrl: string;
+  /** Request timeout in milliseconds */
   timeout: number;
+  /** Authentication key for the wrapper service (required) */
+  authKey: string;
 }
 
 export type SelectModel = {
@@ -204,6 +208,11 @@ function selectModel(
           "CLAUDE_CODE_BASE_URL is required for Claude Code provider",
         );
       }
+      if (!env.CLAUDE_CODE_WRAPPER_AUTH_KEY) {
+        throw new Error(
+          "CLAUDE_CODE_WRAPPER_AUTH_KEY is required for Claude Code provider",
+        );
+      }
       return {
         provider: Provider.CLAUDE_CODE,
         modelName: "claude-code-cli",
@@ -214,6 +223,7 @@ function selectModel(
         claudeCodeConfig: {
           baseUrl: env.CLAUDE_CODE_BASE_URL,
           timeout: env.CLAUDE_CODE_TIMEOUT,
+          authKey: env.CLAUDE_CODE_WRAPPER_AUTH_KEY,
         },
       };
     }

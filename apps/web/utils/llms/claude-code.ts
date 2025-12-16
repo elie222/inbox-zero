@@ -98,6 +98,7 @@ export async function claudeCodeGenerateText(
     method: "POST",
     headers: {
       "Content-Type": "application/json",
+      Authorization: `Bearer ${config.authKey}`,
     },
     body: JSON.stringify({
       system: options.system,
@@ -171,6 +172,7 @@ export async function claudeCodeGenerateObject<T>(
     method: "POST",
     headers: {
       "Content-Type": "application/json",
+      Authorization: `Bearer ${config.authKey}`,
     },
     body: JSON.stringify({
       system: options.system,
