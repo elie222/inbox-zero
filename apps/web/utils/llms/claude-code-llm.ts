@@ -418,23 +418,18 @@ function extractMessagesContent(messages: ModelMessage[]): {
 
   for (const message of messages) {
     if (message.role === "system") {
-      // Extract system message content
-      if (typeof message.content === "string") {
-        system = message.content;
-      } else if (Array.isArray(message.content)) {
-        system = message.content
-          .filter((part) => part.type === "text")
-          .map((part) => (part as { type: "text"; text: string }).text)
-          .join("\n");
-      }
+      // System messages are always strings in ModelMessage type
+      system = message.content;
     } else if (message.role === "user") {
-      // Extract user message content
-      if (typeof message.content === "string") {
-        userParts.push(message.content);
-      } else if (Array.isArray(message.content)) {
-        const textContent = message.content
-          .filter((part) => part.type === "text")
-          .map((part) => (part as { type: "text"; text: string }).text)
+      // Extract user message content - can be string or content parts array
+      const content = message.content;
+      if (typeof content === "string") {
+        userParts.push(content);
+      } else if (Array.isArray(content)) {
+        // Content parts array - extract text parts
+        const textContent = (content as Array<{ type: string; text?: string }>)
+          .filter((part) => part.type === "text" && part.text)
+          .map((part) => part.text as string)
           .join("\n");
         if (textContent) {
           userParts.push(textContent);
@@ -442,8 +437,9 @@ function extractMessagesContent(messages: ModelMessage[]): {
       }
     } else if (message.role === "assistant") {
       // Include assistant messages as context if present
-      if (typeof message.content === "string") {
-        userParts.push(`Assistant: ${message.content}`);
+      const content = message.content;
+      if (typeof content === "string") {
+        userParts.push(`Assistant: ${content}`);
       }
     }
   }
