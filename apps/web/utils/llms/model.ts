@@ -16,12 +16,23 @@ const logger = createScopedLogger("llms/model");
 
 export type ModelType = "default" | "economy" | "chat";
 
+/**
+ * Configuration for Claude Code CLI wrapper service.
+ * Used when Claude Code is selected as the LLM provider.
+ */
+export interface ClaudeCodeConfig {
+  baseUrl: string;
+  timeout: number;
+}
+
 export type SelectModel = {
   provider: string;
   modelName: string;
   model: LanguageModelV2;
   providerOptions?: Record<string, any>;
   backupModel: LanguageModelV2 | null;
+  /** Configuration for Claude Code provider (only set when provider is CLAUDE_CODE) */
+  claudeCodeConfig?: ClaudeCodeConfig;
 };
 
 export function getModel(
@@ -185,6 +196,25 @@ function selectModel(
           apiKey: aiApiKey || env.ANTHROPIC_API_KEY,
         })(modelName),
         backupModel: getBackupModel(aiApiKey),
+      };
+    }
+    case Provider.CLAUDE_CODE: {
+      if (!env.CLAUDE_CODE_BASE_URL) {
+        throw new Error(
+          "CLAUDE_CODE_BASE_URL is required for Claude Code provider",
+        );
+      }
+      return {
+        provider: Provider.CLAUDE_CODE,
+        modelName: "claude-code-cli",
+        // Claude Code doesn't use Vercel AI SDK's LanguageModelV2
+        // The model field is set to null and claudeCodeConfig is used instead
+        model: null as unknown as LanguageModelV2,
+        backupModel: null,
+        claudeCodeConfig: {
+          baseUrl: env.CLAUDE_CODE_BASE_URL,
+          timeout: env.CLAUDE_CODE_TIMEOUT,
+        },
       };
     }
     default: {
@@ -354,6 +384,10 @@ function getProviderApiKey(provider: string) {
     [Provider.OPENROUTER]: env.OPENROUTER_API_KEY,
     [Provider.AI_GATEWAY]: env.AI_GATEWAY_API_KEY,
     [Provider.OLLAMA]: "ollama-local",
+    // Claude Code uses HTTP calls to wrapper service, not an API key
+    [Provider.CLAUDE_CODE]: env.CLAUDE_CODE_BASE_URL
+      ? "claude-code-wrapper"
+      : undefined,
   };
 
   return providerApiKeys[provider];

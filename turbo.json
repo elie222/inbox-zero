@@ -44,6 +44,9 @@
         "OLLAMA_BASE_URL",
         "OLLAMA_MODEL",
 
+        "CLAUDE_CODE_BASE_URL",
+        "CLAUDE_CODE_TIMEOUT",
+
         "UPSTASH_REDIS_URL",
         "UPSTASH_REDIS_TOKEN",
         "REDIS_URL",
