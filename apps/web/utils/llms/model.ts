@@ -440,9 +440,11 @@ function getProviderApiKey(provider: string) {
     [Provider.AI_GATEWAY]: env.AI_GATEWAY_API_KEY,
     [Provider.OLLAMA]: "ollama-local",
     // Claude Code uses HTTP calls to wrapper service, not an API key
-    [Provider.CLAUDE_CODE]: env.CLAUDE_CODE_BASE_URL
-      ? "claude-code-wrapper"
-      : undefined,
+    // Both BASE_URL and WRAPPER_API_KEY required (consistent with isClaudeCodeAvailable)
+    [Provider.CLAUDE_CODE]:
+      env.CLAUDE_CODE_BASE_URL && env.CLAUDE_CODE_WRAPPER_API_KEY
+        ? "claude-code-wrapper"
+        : undefined,
   };
 
   return providerApiKeys[provider];
