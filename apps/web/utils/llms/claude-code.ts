@@ -182,10 +182,12 @@ function createSSEParser(): TransformStream<
   { event: string; data: string }
 > {
   let buffer = "";
+  // Reuse decoder with stream mode to correctly handle multi-byte UTF-8 chars spanning chunks
+  const decoder = new TextDecoder();
 
   return new TransformStream({
     transform(chunk, controller) {
-      buffer += new TextDecoder().decode(chunk);
+      buffer += decoder.decode(chunk, { stream: true });
 
       // SSE events are separated by double newlines
       const events = buffer.split("\n\n");
