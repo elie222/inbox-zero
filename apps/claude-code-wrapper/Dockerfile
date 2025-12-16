@@ -63,6 +63,10 @@ COPY --from=builder --chown=bun:bun /app/dist ./dist
 # Create Claude CLI data directory for the bun user
 RUN mkdir -p /home/bun/.claude && chown -R bun:bun /home/bun/.claude
 
+# Copy Claude skills/commands to the Claude CLI config directory
+# These enable Claude Code to use custom tools like inbox-zero-tools
+COPY --chown=bun:bun apps/claude-code-wrapper/.claude /home/bun/.claude
+
 # Switch to non-root user
 USER bun
 

@@ -131,6 +131,9 @@ services:
       HOME: /home/bun
       # Claude auth: set CLAUDE_CODE_OAUTH_TOKEN for Max subscription, or ANTHROPIC_API_KEY for API auth
       # If both are set, OAuth token takes precedence (see cli.ts buildClaudeEnv)
+      # LLM Tool Proxy: enables Claude skills to invoke Inbox Zero tools
+      INBOX_ZERO_API_URL: ${INBOX_ZERO_API_URL:-http://web:3000}
+      LLM_TOOL_PROXY_TOKEN: ${LLM_TOOL_PROXY_TOKEN:-}
     volumes:
       # Named volume for Claude CLI data (updated path for non-root bun user)
       - claude-code-data:/home/bun/.claude
