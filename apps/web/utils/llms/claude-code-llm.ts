@@ -33,6 +33,68 @@ const logger = createScopedLogger("llms/claude-code-llm");
 
 const MAX_LOG_LENGTH = 200;
 
+/**
+ * Retrieves existing session ID for conversation continuity.
+ * Returns undefined on error (graceful degradation).
+ */
+async function retrieveSessionId({
+  emailAccountId,
+  label,
+}: {
+  emailAccountId: string;
+  label: string;
+}): Promise<{ sessionId: string | undefined; workflowGroup: string }> {
+  const workflowGroup = getWorkflowGroupFromLabel(label);
+  let sessionId: string | undefined;
+
+  try {
+    const existingSession = await getClaudeCodeSession({
+      emailAccountId,
+      workflowGroup,
+    });
+    sessionId = existingSession?.sessionId;
+  } catch (error) {
+    logger.warn("Failed to retrieve Claude Code session", {
+      error,
+      label,
+      workflowGroup,
+    });
+  }
+
+  return { sessionId, workflowGroup };
+}
+
+/**
+ * Persists session ID for future calls in the same workflow.
+ * Logs warning on error (graceful degradation).
+ */
+async function persistSessionId({
+  emailAccountId,
+  workflowGroup,
+  sessionId,
+  label,
+}: {
+  emailAccountId: string;
+  workflowGroup: string;
+  sessionId: string;
+  label: string;
+}): Promise<void> {
+  try {
+    await saveClaudeCodeSession({
+      emailAccountId,
+      workflowGroup: workflowGroup as "report" | "rules" | "clean" | "default",
+      sessionId,
+    });
+  } catch (error) {
+    logger.warn("Failed to save Claude Code session", {
+      error,
+      label,
+      workflowGroup,
+      sessionId,
+    });
+  }
+}
+
 interface ClaudeCodeLLMOptions {
   emailAccount: Pick<EmailAccountWithAI, "email" | "id">;
   label: string;
@@ -68,24 +130,11 @@ export function createClaudeCodeGenerateText(
           ? callOptions.prompt
           : JSON.stringify(callOptions.prompt);
 
-      // Determine workflow group for session scoping
-      const workflowGroup = getWorkflowGroupFromLabel(label);
-
-      // Try to retrieve existing session for conversation continuity
-      let sessionId: string | undefined;
-      try {
-        const existingSession = await getClaudeCodeSession({
-          emailAccountId: emailAccount.id,
-          workflowGroup,
-        });
-        sessionId = existingSession?.sessionId;
-      } catch (error) {
-        logger.warn("Failed to retrieve Claude Code session", {
-          error,
-          label,
-          workflowGroup,
-        });
-      }
+      // Retrieve existing session for conversation continuity
+      const { sessionId, workflowGroup } = await retrieveSessionId({
+        emailAccountId: emailAccount.id,
+        label,
+      });
 
       const result = await claudeCodeGenerateText(config, {
         system: callOptions.system,
@@ -94,19 +143,12 @@ export function createClaudeCodeGenerateText(
       });
 
       // Save the returned sessionId for future calls in this workflow
-      try {
-        await saveClaudeCodeSession({
-          emailAccountId: emailAccount.id,
-          workflowGroup,
-          sessionId: result.sessionId,
-        });
-      } catch (error) {
-        logger.warn("Failed to save Claude Code session", {
-          error,
-          label,
-          workflowGroup,
-        });
-      }
+      await persistSessionId({
+        emailAccountId: emailAccount.id,
+        workflowGroup,
+        sessionId: result.sessionId,
+        label,
+      });
 
       const usage: LanguageModelUsage = {
         inputTokens: result.usage.inputTokens,
@@ -202,24 +244,11 @@ export function createClaudeCodeGenerateObject(
         throw new Error("Schema is required for generateObject");
       }
 
-      // Determine workflow group for session scoping
-      const workflowGroup = getWorkflowGroupFromLabel(label);
-
-      // Try to retrieve existing session for conversation continuity
-      let sessionId: string | undefined;
-      try {
-        const existingSession = await getClaudeCodeSession({
-          emailAccountId: emailAccount.id,
-          workflowGroup,
-        });
-        sessionId = existingSession?.sessionId;
-      } catch (error) {
-        logger.warn("Failed to retrieve Claude Code session", {
-          error,
-          label,
-          workflowGroup,
-        });
-      }
+      // Retrieve existing session for conversation continuity
+      const { sessionId, workflowGroup } = await retrieveSessionId({
+        emailAccountId: emailAccount.id,
+        label,
+      });
 
       const result = await claudeCodeGenerateObject(config, {
         system: callOptions.system,
@@ -229,19 +258,12 @@ export function createClaudeCodeGenerateObject(
       });
 
       // Save the returned sessionId for future calls in this workflow
-      try {
-        await saveClaudeCodeSession({
-          emailAccountId: emailAccount.id,
-          workflowGroup,
-          sessionId: result.sessionId,
-        });
-      } catch (error) {
-        logger.warn("Failed to save Claude Code session", {
-          error,
-          label,
-          workflowGroup,
-        });
-      }
+      await persistSessionId({
+        emailAccountId: emailAccount.id,
+        workflowGroup,
+        sessionId: result.sessionId,
+        label,
+      });
 
       const usage: LanguageModelUsage = {
         inputTokens: result.usage.inputTokens,

@@ -8,6 +8,8 @@
  * so that related operations share conversational context.
  */
 
+import "server-only";
+
 import { redis } from "@/utils/redis";
 
 // Session TTL: 30 minutes (refreshed on each access)

@@ -7,6 +7,9 @@ const { mockGet, mockSet, mockDel } = vi.hoisted(() => ({
   mockDel: vi.fn(),
 }));
 
+// Mock server-only (no-op in tests)
+vi.mock("server-only", () => ({}));
+
 // Mock redis before importing the module
 vi.mock("@/utils/redis", () => ({
   redis: {
@@ -239,6 +242,45 @@ describe("Claude Code Session Management", () => {
       expect(mockGet).toHaveBeenCalledWith(
         "claude-session:user@example.com:report",
       );
+    });
+  });
+
+  describe("Error propagation", () => {
+    it("should propagate Redis get errors to caller", async () => {
+      const redisError = new Error("Redis connection failed");
+      mockGet.mockRejectedValue(redisError);
+
+      await expect(
+        getClaudeCodeSession({
+          emailAccountId: "acc-123",
+          workflowGroup: "report",
+        }),
+      ).rejects.toThrow("Redis connection failed");
+    });
+
+    it("should propagate Redis set errors to caller", async () => {
+      const redisError = new Error("Redis write failed");
+      mockSet.mockRejectedValue(redisError);
+
+      await expect(
+        saveClaudeCodeSession({
+          emailAccountId: "acc-123",
+          workflowGroup: "report",
+          sessionId: "session-123",
+        }),
+      ).rejects.toThrow("Redis write failed");
+    });
+
+    it("should propagate Redis del errors to caller", async () => {
+      const redisError = new Error("Redis delete failed");
+      mockDel.mockRejectedValue(redisError);
+
+      await expect(
+        deleteClaudeCodeSession({
+          emailAccountId: "acc-123",
+          workflowGroup: "report",
+        }),
+      ).rejects.toThrow("Redis delete failed");
     });
   });
 });
