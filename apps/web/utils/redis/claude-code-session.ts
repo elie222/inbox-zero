@@ -64,13 +64,13 @@ export function getWorkflowGroupFromLabel(label: string): WorkflowGroup {
 
 /**
  * Generate Redis key for a session.
- * Format: claude-session:{emailAccountId}:{workflowGroup}
+ * Format: claude-session:{userEmail}:{workflowGroup}
  */
 function getSessionKey(
-  emailAccountId: string,
+  userEmail: string,
   workflowGroup: WorkflowGroup,
 ): string {
-  return `claude-session:${emailAccountId}:${workflowGroup}`;
+  return `claude-session:${userEmail}:${workflowGroup}`;
 }
 
 /**
@@ -78,13 +78,13 @@ function getSessionKey(
  * Returns null if the session doesn't exist or has expired.
  */
 export async function getClaudeCodeSession({
-  emailAccountId,
+  userEmail,
   workflowGroup,
 }: {
-  emailAccountId: string;
+  userEmail: string;
   workflowGroup: WorkflowGroup;
 }): Promise<ClaudeCodeSessionData | null> {
-  const key = getSessionKey(emailAccountId, workflowGroup);
+  const key = getSessionKey(userEmail, workflowGroup);
   const session = await redis.get<ClaudeCodeSessionData>(key);
   return session ?? null;
 }
@@ -94,15 +94,15 @@ export async function getClaudeCodeSession({
  * Creates a new session or updates an existing one.
  */
 export async function saveClaudeCodeSession({
-  emailAccountId,
+  userEmail,
   workflowGroup,
   sessionId,
 }: {
-  emailAccountId: string;
+  userEmail: string;
   workflowGroup: WorkflowGroup;
   sessionId: string;
 }): Promise<void> {
-  const key = getSessionKey(emailAccountId, workflowGroup);
+  const key = getSessionKey(userEmail, workflowGroup);
   const sessionData: ClaudeCodeSessionData = {
     sessionId,
     lastUsedAt: new Date().toISOString(),
@@ -116,12 +116,12 @@ export async function saveClaudeCodeSession({
  * Useful for explicit cleanup if needed.
  */
 export async function deleteClaudeCodeSession({
-  emailAccountId,
+  userEmail,
   workflowGroup,
 }: {
-  emailAccountId: string;
+  userEmail: string;
   workflowGroup: WorkflowGroup;
 }): Promise<void> {
-  const key = getSessionKey(emailAccountId, workflowGroup);
+  const key = getSessionKey(userEmail, workflowGroup);
   await redis.del(key);
 }

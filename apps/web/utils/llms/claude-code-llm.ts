@@ -7,7 +7,7 @@
  * Kept separate from index.ts to minimize upstream merge conflicts.
  */
 
-import type { LanguageModelUsage } from "ai";
+import type { LanguageModelUsage, ModelMessage } from "ai";
 import { saveAiUsage } from "@/utils/usage";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import type { ClaudeCodeConfig } from "@/utils/llms/model";
@@ -15,7 +15,9 @@ import { createScopedLogger } from "@/utils/logger";
 import {
   claudeCodeGenerateText,
   claudeCodeGenerateObject,
+  claudeCodeStreamText,
   ClaudeCodeError,
+  type ClaudeCodeStreamResult,
 } from "@/utils/llms/claude-code";
 import {
   getClaudeCodeSession,
@@ -64,10 +66,10 @@ function getModelForLabel(label: string, defaultModel?: string): string {
  * Returns undefined on error (graceful degradation).
  */
 async function retrieveSessionId({
-  emailAccountId,
+  userEmail,
   label,
 }: {
-  emailAccountId: string;
+  userEmail: string;
   label: string;
 }): Promise<{ sessionId: string | undefined; workflowGroup: string }> {
   const workflowGroup = getWorkflowGroupFromLabel(label);
@@ -75,7 +77,7 @@ async function retrieveSessionId({
 
   try {
     const existingSession = await getClaudeCodeSession({
-      emailAccountId,
+      userEmail,
       workflowGroup,
     });
     sessionId = existingSession?.sessionId;
@@ -95,19 +97,19 @@ async function retrieveSessionId({
  * Logs warning on error (graceful degradation).
  */
 async function persistSessionId({
-  emailAccountId,
+  userEmail,
   workflowGroup,
   sessionId,
   label,
 }: {
-  emailAccountId: string;
+  userEmail: string;
   workflowGroup: string;
   sessionId: string;
   label: string;
 }): Promise<void> {
   try {
     await saveClaudeCodeSession({
-      emailAccountId,
+      userEmail,
       workflowGroup: workflowGroup as "report" | "rules" | "clean" | "default",
       sessionId,
     });
@@ -163,7 +165,7 @@ export function createClaudeCodeGenerateText(
 
       // Retrieve existing session for conversation continuity
       const { sessionId, workflowGroup } = await retrieveSessionId({
-        emailAccountId: emailAccount.id,
+        userEmail: emailAccount.email,
         label,
       });
 
@@ -175,7 +177,7 @@ export function createClaudeCodeGenerateText(
 
       // Save the returned sessionId for future calls in this workflow
       await persistSessionId({
-        emailAccountId: emailAccount.id,
+        userEmail: emailAccount.email,
         workflowGroup,
         sessionId: result.sessionId,
         label,
@@ -282,7 +284,7 @@ export function createClaudeCodeGenerateObject(
 
       // Retrieve existing session for conversation continuity
       const { sessionId, workflowGroup } = await retrieveSessionId({
-        emailAccountId: emailAccount.id,
+        userEmail: emailAccount.email,
         label,
       });
 
@@ -295,7 +297,7 @@ export function createClaudeCodeGenerateObject(
 
       // Save the returned sessionId for future calls in this workflow
       await persistSessionId({
-        emailAccountId: emailAccount.id,
+        userEmail: emailAccount.email,
         workflowGroup,
         sessionId: result.sessionId,
         label,
@@ -357,5 +359,212 @@ export function createClaudeCodeGenerateObject(
       }
       throw error;
     }
+  };
+}
+
+/**
+ * Result type for Claude Code streaming that's compatible with Vercel AI SDK usage.
+ * Provides the essential methods used by API routes (toTextStreamResponse).
+ */
+export interface ClaudeCodeStreamTextResult {
+  /** AsyncIterable of text chunks for manual consumption */
+  textStream: AsyncIterable<string>;
+  /** Promise that resolves to the full accumulated text */
+  text: Promise<string>;
+  /** Promise that resolves to usage statistics */
+  usage: Promise<LanguageModelUsage>;
+  /** Convert stream to HTTP Response for API routes */
+  toTextStreamResponse(): Response;
+}
+
+/**
+ * Extracts system message and user prompt from ModelMessage array.
+ */
+function extractMessagesContent(messages: ModelMessage[]): {
+  system: string | undefined;
+  prompt: string;
+} {
+  let system: string | undefined;
+  const userParts: string[] = [];
+
+  for (const message of messages) {
+    if (message.role === "system") {
+      // Extract system message content
+      if (typeof message.content === "string") {
+        system = message.content;
+      } else if (Array.isArray(message.content)) {
+        system = message.content
+          .filter((part) => part.type === "text")
+          .map((part) => (part as { type: "text"; text: string }).text)
+          .join("\n");
+      }
+    } else if (message.role === "user") {
+      // Extract user message content
+      if (typeof message.content === "string") {
+        userParts.push(message.content);
+      } else if (Array.isArray(message.content)) {
+        const textContent = message.content
+          .filter((part) => part.type === "text")
+          .map((part) => (part as { type: "text"; text: string }).text)
+          .join("\n");
+        if (textContent) {
+          userParts.push(textContent);
+        }
+      }
+    } else if (message.role === "assistant") {
+      // Include assistant messages as context if present
+      if (typeof message.content === "string") {
+        userParts.push(`Assistant: ${message.content}`);
+      }
+    }
+  }
+
+  return {
+    system,
+    prompt: userParts.join("\n\n"),
+  };
+}
+
+/**
+ * Creates a streaming text function that uses Claude Code CLI.
+ * Returns a result compatible with how Vercel AI SDK streams are used in API routes.
+ */
+export async function createClaudeCodeStreamText({
+  emailAccount,
+  label,
+  config,
+  modelName,
+  provider,
+  messages,
+  onFinish,
+}: {
+  emailAccount: Pick<EmailAccountWithAI, "email" | "id">;
+  label: string;
+  config: ClaudeCodeConfig;
+  modelName: string;
+  provider: string;
+  messages: ModelMessage[];
+  onFinish?: (result: {
+    text: string;
+    usage: LanguageModelUsage;
+  }) => Promise<void>;
+}): Promise<ClaudeCodeStreamTextResult> {
+  // Select model based on task label (allows faster models for simple tasks)
+  const effectiveModel = getModelForLabel(label, config.model);
+  const effectiveConfig = { ...config, model: effectiveModel };
+
+  // Extract system and prompt from messages
+  const { system, prompt } = extractMessagesContent(messages);
+
+  logger.trace("Starting Claude Code stream", {
+    label,
+    model: effectiveModel,
+    hasSystem: !!system,
+    promptLength: prompt.length,
+  });
+
+  // Retrieve existing session for conversation continuity
+  const { sessionId, workflowGroup } = await retrieveSessionId({
+    userEmail: emailAccount.email,
+    label,
+  });
+
+  // Start the stream
+  const streamResult = await claudeCodeStreamText(effectiveConfig, {
+    system,
+    prompt,
+    sessionId,
+  });
+
+  // Create an async iterable from the ReadableStream
+  const textStream: AsyncIterable<string> = {
+    [Symbol.asyncIterator]() {
+      const reader = streamResult.textStream.getReader();
+      return {
+        async next() {
+          const { done, value } = await reader.read();
+          if (done) {
+            return { done: true, value: undefined };
+          }
+          return { done: false, value };
+        },
+      };
+    },
+  };
+
+  // Transform usage to LanguageModelUsage format
+  const usagePromise = streamResult.usage.then((usage) => ({
+    inputTokens: usage.inputTokens,
+    outputTokens: usage.outputTokens,
+    totalTokens: usage.totalTokens,
+  }));
+
+  // Handle session persistence and usage tracking when stream completes
+  const textPromise = streamResult.text.then(async (text) => {
+    // Persist session
+    const resolvedSessionId = await streamResult.sessionId;
+    await persistSessionId({
+      userEmail: emailAccount.email,
+      workflowGroup,
+      sessionId: resolvedSessionId,
+      label,
+    });
+
+    // Track usage
+    try {
+      const usage = await usagePromise;
+      await saveAiUsage({
+        email: emailAccount.email,
+        usage,
+        provider,
+        model: modelName,
+        label,
+      });
+
+      // Call onFinish callback if provided
+      if (onFinish) {
+        await onFinish({ text, usage });
+      }
+    } catch (error) {
+      logger.error("Error saving usage or calling onFinish", {
+        label,
+        error,
+      });
+    }
+
+    return text;
+  });
+
+  return {
+    textStream,
+    text: textPromise,
+    usage: usagePromise,
+    toTextStreamResponse(): Response {
+      // Create a new ReadableStream that encodes text chunks for HTTP response
+      const encoder = new TextEncoder();
+      const responseStream = new ReadableStream<Uint8Array>({
+        async start(controller) {
+          try {
+            const reader = streamResult.textStream.getReader();
+            while (true) {
+              const { done, value } = await reader.read();
+              if (done) break;
+              controller.enqueue(encoder.encode(value));
+            }
+            controller.close();
+          } catch (error) {
+            controller.error(error);
+          }
+        },
+      });
+
+      return new Response(responseStream, {
+        headers: {
+          "Content-Type": "text/plain; charset=utf-8",
+          "Transfer-Encoding": "chunked",
+          "X-Content-Type-Options": "nosniff",
+        },
+      });
+    },
   };
 }

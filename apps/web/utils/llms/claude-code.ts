@@ -141,6 +141,256 @@ export async function claudeCodeGenerateText(
 }
 
 /**
+ * Result from streaming text generation.
+ */
+export interface ClaudeCodeStreamResult {
+  /** ReadableStream of text chunks as they arrive */
+  textStream: ReadableStream<string>;
+  /** Session ID for conversation continuity (available immediately) */
+  sessionId: Promise<string>;
+  /** Usage stats (resolves when stream completes) */
+  usage: Promise<ClaudeCodeUsage>;
+  /** Full accumulated text (resolves when stream completes) */
+  text: Promise<string>;
+}
+
+/**
+ * SSE event types from Claude Code wrapper /stream endpoint.
+ */
+interface SSETextEvent {
+  text: string;
+}
+
+interface SSEResultEvent {
+  sessionId: string;
+  usage: ClaudeCodeUsage;
+}
+
+interface SSEErrorEvent {
+  error: string;
+  code?: string;
+}
+
+/**
+ * Parses SSE events from a ReadableStream.
+ * SSE format: "event: name\ndata: {...}\n\n"
+ */
+function createSSEParser(): TransformStream<
+  Uint8Array,
+  { event: string; data: string }
+> {
+  let buffer = "";
+
+  return new TransformStream({
+    transform(chunk, controller) {
+      buffer += new TextDecoder().decode(chunk);
+
+      // SSE events are separated by double newlines
+      const events = buffer.split("\n\n");
+      // Keep the last potentially incomplete event in the buffer
+      buffer = events.pop() || "";
+
+      for (const eventStr of events) {
+        if (!eventStr.trim()) continue;
+
+        const lines = eventStr.split("\n");
+        let eventType = "";
+        let data = "";
+
+        for (const line of lines) {
+          if (line.startsWith("event: ")) {
+            eventType = line.slice(7);
+          } else if (line.startsWith("data: ")) {
+            data = line.slice(6);
+          }
+        }
+
+        if (eventType && data) {
+          controller.enqueue({ event: eventType, data });
+        }
+      }
+    },
+    flush(controller) {
+      // Process any remaining data in buffer
+      if (buffer.trim()) {
+        const lines = buffer.split("\n");
+        let eventType = "";
+        let data = "";
+
+        for (const line of lines) {
+          if (line.startsWith("event: ")) {
+            eventType = line.slice(7);
+          } else if (line.startsWith("data: ")) {
+            data = line.slice(6);
+          }
+        }
+
+        if (eventType && data) {
+          controller.enqueue({ event: eventType, data });
+        }
+      }
+    },
+  });
+}
+
+/**
+ * Streams text response from Claude Code wrapper service.
+ * Returns a ReadableStream of text chunks that can be consumed as they arrive.
+ */
+export async function claudeCodeStreamText(
+  config: ClaudeCodeConfig,
+  options: {
+    system?: string;
+    prompt: string;
+    sessionId?: string;
+  },
+): Promise<ClaudeCodeStreamResult> {
+  logger.trace("Starting text stream via Claude Code", {
+    baseUrl: config.baseUrl,
+    hasSystem: !!options.system,
+    promptLength: options.prompt.length,
+  });
+
+  const response = await fetch(`${config.baseUrl}/stream`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${config.authKey}`,
+    },
+    body: JSON.stringify({
+      system: options.system,
+      prompt: options.prompt,
+      sessionId: options.sessionId,
+      model: config.model,
+    }),
+    signal: AbortSignal.timeout(config.timeout),
+  });
+
+  if (!response.ok) {
+    const errorBody = await safeJsonParse<ErrorResponse>(response);
+    throw new ClaudeCodeError(
+      errorBody?.error || `HTTP ${response.status} ${response.statusText}`,
+      errorBody?.code || "HTTP_ERROR",
+      errorBody?.rawText,
+    );
+  }
+
+  if (!response.body) {
+    throw new ClaudeCodeError(
+      "No response body from Claude Code wrapper",
+      "NO_RESPONSE_BODY",
+    );
+  }
+
+  // Set up promises for session, usage, and accumulated text
+  let resolveSessionId: (value: string) => void;
+  let rejectSessionId: (error: Error) => void;
+  const sessionIdPromise = new Promise<string>((resolve, reject) => {
+    resolveSessionId = resolve;
+    rejectSessionId = reject;
+  });
+
+  let resolveUsage: (value: ClaudeCodeUsage) => void;
+  let rejectUsage: (error: Error) => void;
+  const usagePromise = new Promise<ClaudeCodeUsage>((resolve, reject) => {
+    resolveUsage = resolve;
+    rejectUsage = reject;
+  });
+
+  let resolveText: (value: string) => void;
+  let rejectText: (error: Error) => void;
+  const textPromise = new Promise<string>((resolve, reject) => {
+    resolveText = resolve;
+    rejectText = reject;
+  });
+
+  let accumulatedText = "";
+  let sessionIdReceived = false;
+
+  // Transform SSE events into text chunks
+  const textStream = response.body.pipeThrough(createSSEParser()).pipeThrough(
+    new TransformStream<{ event: string; data: string }, string>({
+      transform(sseEvent, controller) {
+        try {
+          switch (sseEvent.event) {
+            case "session": {
+              const parsed = JSON.parse(sseEvent.data) as { sessionId: string };
+              if (!sessionIdReceived) {
+                sessionIdReceived = true;
+                resolveSessionId(parsed.sessionId);
+              }
+              break;
+            }
+            case "text": {
+              const parsed = JSON.parse(sseEvent.data) as SSETextEvent;
+              accumulatedText += parsed.text;
+              controller.enqueue(parsed.text);
+              break;
+            }
+            case "result": {
+              const parsed = JSON.parse(sseEvent.data) as SSEResultEvent;
+              resolveUsage(parsed.usage);
+              if (!sessionIdReceived) {
+                sessionIdReceived = true;
+                resolveSessionId(parsed.sessionId);
+              }
+              break;
+            }
+            case "error": {
+              const parsed = JSON.parse(sseEvent.data) as SSEErrorEvent;
+              const error = new ClaudeCodeError(
+                parsed.error,
+                parsed.code || "STREAM_ERROR",
+              );
+              rejectUsage(error);
+              rejectText(error);
+              if (!sessionIdReceived) {
+                rejectSessionId(error);
+              }
+              controller.error(error);
+              break;
+            }
+            case "done": {
+              // Stream complete, resolve the text promise
+              resolveText(accumulatedText);
+              logger.trace("Claude Code stream complete", {
+                textLength: accumulatedText.length,
+              });
+              break;
+            }
+          }
+        } catch (parseError) {
+          logger.warn("Failed to parse SSE event", {
+            event: sseEvent.event,
+            data: sseEvent.data.slice(0, 100),
+            error: parseError,
+          });
+        }
+      },
+      flush() {
+        // If we never got a result event, resolve with default values
+        if (!sessionIdReceived) {
+          rejectSessionId(
+            new ClaudeCodeError(
+              "Stream ended without session ID",
+              "NO_SESSION",
+            ),
+          );
+        }
+        resolveText(accumulatedText);
+      },
+    }),
+  );
+
+  return {
+    textStream,
+    sessionId: sessionIdPromise,
+    usage: usagePromise,
+    text: textPromise,
+  };
+}
+
+/**
  * Generates structured JSON response from Claude Code wrapper service.
  * Converts Zod schema to JSON Schema for the wrapper service.
  */

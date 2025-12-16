@@ -95,7 +95,7 @@ describe("Claude Code Session Management", () => {
       mockGet.mockResolvedValue(mockSession);
 
       const result = await getClaudeCodeSession({
-        emailAccountId: "acc-123",
+        userEmail: "acc-123",
         workflowGroup: "report",
       });
 
@@ -107,7 +107,7 @@ describe("Claude Code Session Management", () => {
       mockGet.mockResolvedValue(null);
 
       const result = await getClaudeCodeSession({
-        emailAccountId: "acc-123",
+        userEmail: "acc-123",
         workflowGroup: "rules",
       });
 
@@ -119,7 +119,7 @@ describe("Claude Code Session Management", () => {
       mockGet.mockResolvedValue(undefined);
 
       const result = await getClaudeCodeSession({
-        emailAccountId: "acc-456",
+        userEmail: "acc-456",
         workflowGroup: "clean",
       });
 
@@ -138,7 +138,7 @@ describe("Claude Code Session Management", () => {
 
       for (const group of workflowGroups) {
         await getClaudeCodeSession({
-          emailAccountId: "test-acc",
+          userEmail: "test-acc",
           workflowGroup: group,
         });
       }
@@ -155,7 +155,7 @@ describe("Claude Code Session Management", () => {
       mockSet.mockResolvedValue("OK");
 
       await saveClaudeCodeSession({
-        emailAccountId: "acc-123",
+        userEmail: "acc-123",
         workflowGroup: "report",
         sessionId: "session-xyz-789",
       });
@@ -173,7 +173,7 @@ describe("Claude Code Session Management", () => {
       mockSet.mockResolvedValue("OK");
 
       await saveClaudeCodeSession({
-        emailAccountId: "acc-123",
+        userEmail: "acc-123",
         workflowGroup: "rules",
         sessionId: "session-123",
       });
@@ -188,7 +188,7 @@ describe("Claude Code Session Management", () => {
       mockSet.mockResolvedValue("OK");
 
       await saveClaudeCodeSession({
-        emailAccountId: "acc-789",
+        userEmail: "acc-789",
         workflowGroup: "clean",
         sessionId: "session-clean",
       });
@@ -196,7 +196,7 @@ describe("Claude Code Session Management", () => {
       expect(mockSet.mock.calls[0][0]).toBe("claude-session:acc-789:clean");
 
       await saveClaudeCodeSession({
-        emailAccountId: "acc-789",
+        userEmail: "acc-789",
         workflowGroup: "default",
         sessionId: "session-default",
       });
@@ -210,7 +210,7 @@ describe("Claude Code Session Management", () => {
       mockDel.mockResolvedValue(1);
 
       await deleteClaudeCodeSession({
-        emailAccountId: "acc-123",
+        userEmail: "acc-123",
         workflowGroup: "report",
       });
 
@@ -222,7 +222,7 @@ describe("Claude Code Session Management", () => {
 
       await expect(
         deleteClaudeCodeSession({
-          emailAccountId: "nonexistent",
+          userEmail: "nonexistent",
           workflowGroup: "rules",
         }),
       ).resolves.toBeUndefined();
@@ -230,11 +230,11 @@ describe("Claude Code Session Management", () => {
   });
 
   describe("Redis key format", () => {
-    it("should handle special characters in emailAccountId", async () => {
+    it("should handle special characters in userEmail", async () => {
       mockGet.mockResolvedValue(null);
 
       await getClaudeCodeSession({
-        emailAccountId: "user@example.com",
+        userEmail: "user@example.com",
         workflowGroup: "report",
       });
 
@@ -252,7 +252,7 @@ describe("Claude Code Session Management", () => {
 
       await expect(
         getClaudeCodeSession({
-          emailAccountId: "acc-123",
+          userEmail: "acc-123",
           workflowGroup: "report",
         }),
       ).rejects.toThrow("Redis connection failed");
@@ -264,7 +264,7 @@ describe("Claude Code Session Management", () => {
 
       await expect(
         saveClaudeCodeSession({
-          emailAccountId: "acc-123",
+          userEmail: "acc-123",
           workflowGroup: "report",
           sessionId: "session-123",
         }),
@@ -277,7 +277,7 @@ describe("Claude Code Session Management", () => {
 
       await expect(
         deleteClaudeCodeSession({
-          emailAccountId: "acc-123",
+          userEmail: "acc-123",
           workflowGroup: "report",
         }),
       ).rejects.toThrow("Redis delete failed");
