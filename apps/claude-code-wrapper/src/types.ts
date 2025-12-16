@@ -58,7 +58,14 @@ export interface GenerateObjectResponse {
 
 export interface ErrorResponse {
   error: string;
-  code: string;
+  code:
+    | "VALIDATION_ERROR"
+    | "INTERNAL_ERROR"
+    | "UNKNOWN_ERROR"
+    | "TIMEOUT_ERROR"
+    | "CLI_EXIT_ERROR"
+    | "SPAWN_ERROR"
+    | "PARSE_ERROR";
   rawText?: string;
 }
 

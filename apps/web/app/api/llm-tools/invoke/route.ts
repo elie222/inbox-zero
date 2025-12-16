@@ -1,6 +1,5 @@
 import { timingSafeEqual } from "node:crypto";
 import { NextResponse, type NextRequest } from "next/server";
-import { z } from "zod";
 import { env } from "@/env";
 import { createScopedLogger } from "@/utils/logger";
 import prisma from "@/utils/prisma";
@@ -10,14 +9,9 @@ import {
   partialUpdateRule,
   updateRuleActions,
 } from "@/utils/rule/rule";
-import {
-  ActionType,
-  GroupItemType,
-  LogicalOperator,
-} from "@/generated/prisma/enums";
+import { GroupItemType } from "@/generated/prisma/enums";
 import { saveLearnedPatterns } from "@/utils/rule/learned-patterns";
 import { filterNullProperties } from "@/utils";
-import { delayInMinutesSchema } from "@/utils/actions/rule.validation";
 import { isMicrosoftProvider } from "@/utils/email/provider-types";
 import { isDuplicateError } from "@/utils/prisma-helpers";
 import {
@@ -25,6 +19,9 @@ import {
   getLearnedPatternsInputSchema,
   updateAboutInputSchema,
   addToKnowledgeBaseInputSchema,
+  updateRuleConditionsInputSchema,
+  updateRuleActionsInputSchema,
+  updateLearnedPatternsInputSchema,
   type ToolName,
   type InvokeToolResponse,
   type GetLearnedPatternsInput,
@@ -414,7 +411,7 @@ async function executeCreateRule(
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     logger.error("Failed to create rule", { error });
-    return { error: "Failed to create rule", message };
+    return { error: `Failed to create rule: ${message}` };
   }
 }
 
@@ -422,24 +419,7 @@ async function executeUpdateRuleConditions(
   input: Record<string, unknown>,
   ctx: ToolContext,
 ) {
-  const schema = z.object({
-    ruleName: z.string(),
-    condition: z.object({
-      aiInstructions: z.string().optional(),
-      static: z
-        .object({
-          from: z.string().nullish(),
-          to: z.string().nullish(),
-          subject: z.string().nullish(),
-        })
-        .nullish(),
-      conditionalOperator: z
-        .enum([LogicalOperator.AND, LogicalOperator.OR])
-        .nullish(),
-    }),
-  });
-
-  const parseResult = schema.safeParse(input);
+  const parseResult = updateRuleConditionsInputSchema.safeParse(input);
   if (!parseResult.success) {
     return { error: `Invalid input: ${parseResult.error.message}` };
   }
@@ -527,38 +507,7 @@ async function executeUpdateRuleActions(
   input: Record<string, unknown>,
   ctx: ToolContext,
 ) {
-  const schema = z.object({
-    ruleName: z.string(),
-    actions: z.array(
-      z.object({
-        type: z.enum([
-          ActionType.ARCHIVE,
-          ActionType.LABEL,
-          ActionType.DRAFT_EMAIL,
-          ActionType.FORWARD,
-          ActionType.REPLY,
-          ActionType.SEND_EMAIL,
-          ActionType.MARK_READ,
-          ActionType.MARK_SPAM,
-          ActionType.CALL_WEBHOOK,
-          ActionType.DIGEST,
-        ]),
-        fields: z.object({
-          label: z.string().nullish(),
-          content: z.string().nullish(),
-          webhookUrl: z.string().nullish(),
-          to: z.string().nullish(),
-          cc: z.string().nullish(),
-          bcc: z.string().nullish(),
-          subject: z.string().nullish(),
-          folderName: z.string().nullish(),
-        }),
-        delayInMinutes: delayInMinutesSchema,
-      }),
-    ),
-  });
-
-  const parseResult = schema.safeParse(input);
+  const parseResult = updateRuleActionsInputSchema.safeParse(input);
   if (!parseResult.success) {
     return { error: `Invalid input: ${parseResult.error.message}` };
   }
@@ -656,29 +605,7 @@ async function executeUpdateLearnedPatterns(
   input: Record<string, unknown>,
   ctx: ToolContext,
 ) {
-  const schema = z.object({
-    ruleName: z.string(),
-    learnedPatterns: z
-      .array(
-        z.object({
-          include: z
-            .object({
-              from: z.string().optional(),
-              subject: z.string().optional(),
-            })
-            .optional(),
-          exclude: z
-            .object({
-              from: z.string().optional(),
-              subject: z.string().optional(),
-            })
-            .optional(),
-        }),
-      )
-      .min(1, "At least one learned pattern is required"),
-  });
-
-  const parseResult = schema.safeParse(input);
+  const parseResult = updateLearnedPatternsInputSchema.safeParse(input);
   if (!parseResult.success) {
     return { error: `Invalid input: ${parseResult.error.message}` };
   }

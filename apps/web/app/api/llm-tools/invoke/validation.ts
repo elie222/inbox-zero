@@ -1,4 +1,6 @@
 import { z } from "zod";
+import { ActionType, LogicalOperator } from "@/generated/prisma/enums";
+import { delayInMinutesSchema } from "@/utils/actions/rule.validation";
 
 /**
  * Available tools that can be invoked via the LLM tool proxy.
@@ -76,4 +78,92 @@ export const addToKnowledgeBaseInputSchema = z.object({
 });
 export type AddToKnowledgeBaseInput = z.infer<
   typeof addToKnowledgeBaseInputSchema
+>;
+
+/**
+ * Input schema for updateRuleConditions tool.
+ */
+export const updateRuleConditionsInputSchema = z.object({
+  ruleName: z.string(),
+  condition: z.object({
+    aiInstructions: z.string().optional(),
+    static: z
+      .object({
+        from: z.string().nullish(),
+        to: z.string().nullish(),
+        subject: z.string().nullish(),
+      })
+      .nullish(),
+    conditionalOperator: z
+      .enum([LogicalOperator.AND, LogicalOperator.OR])
+      .nullish(),
+  }),
+});
+export type UpdateRuleConditionsInput = z.infer<
+  typeof updateRuleConditionsInputSchema
+>;
+
+/**
+ * Input schema for updateRuleActions tool.
+ */
+export const updateRuleActionsInputSchema = z.object({
+  ruleName: z.string(),
+  actions: z.array(
+    z.object({
+      type: z.enum([
+        ActionType.ARCHIVE,
+        ActionType.LABEL,
+        ActionType.DRAFT_EMAIL,
+        ActionType.FORWARD,
+        ActionType.REPLY,
+        ActionType.SEND_EMAIL,
+        ActionType.MARK_READ,
+        ActionType.MARK_SPAM,
+        ActionType.CALL_WEBHOOK,
+        ActionType.DIGEST,
+      ]),
+      fields: z.object({
+        label: z.string().nullish(),
+        content: z.string().nullish(),
+        webhookUrl: z.string().nullish(),
+        to: z.string().nullish(),
+        cc: z.string().nullish(),
+        bcc: z.string().nullish(),
+        subject: z.string().nullish(),
+        folderName: z.string().nullish(),
+      }),
+      delayInMinutes: delayInMinutesSchema,
+    }),
+  ),
+});
+export type UpdateRuleActionsInput = z.infer<
+  typeof updateRuleActionsInputSchema
+>;
+
+/**
+ * Input schema for updateLearnedPatterns tool.
+ */
+export const updateLearnedPatternsInputSchema = z.object({
+  ruleName: z.string(),
+  learnedPatterns: z
+    .array(
+      z.object({
+        include: z
+          .object({
+            from: z.string().optional(),
+            subject: z.string().optional(),
+          })
+          .optional(),
+        exclude: z
+          .object({
+            from: z.string().optional(),
+            subject: z.string().optional(),
+          })
+          .optional(),
+      }),
+    )
+    .min(1, "At least one learned pattern is required"),
+});
+export type UpdateLearnedPatternsInput = z.infer<
+  typeof updateLearnedPatternsInputSchema
 >;
