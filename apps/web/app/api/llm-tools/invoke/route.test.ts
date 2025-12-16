@@ -566,4 +566,70 @@ describe("Edge Cases", () => {
     expect(body.success).toBe(true);
     expect(body.result.error).toContain("Invalid input");
   });
+
+  test("should return 500 with EXECUTION_ERROR when tool throws", async () => {
+    // First call succeeds for email lookup
+    vi.mocked(prisma.emailAccount.findUnique)
+      .mockResolvedValueOnce({
+        id: "account-123",
+        email: "test@example.com",
+        account: { provider: "google" },
+      } as any)
+      // Second call throws an error
+      .mockRejectedValueOnce(new Error("Database connection failed"));
+
+    const request = new NextRequest("http://localhost/api/llm-tools/invoke", {
+      method: "POST",
+      headers: {
+        Authorization: "Bearer test-token-12345",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        tool: "getUserRulesAndSettings",
+        input: {},
+        userEmail: "test@example.com",
+      }),
+    });
+
+    const response = await POST(request);
+    const body = await response.json();
+
+    expect(response.status).toBe(500);
+    expect(body.success).toBe(false);
+    expect(body.code).toBe("EXECUTION_ERROR");
+    expect(body.error).toBe("Database connection failed");
+  });
+
+  test("should handle addToKnowledgeBase database error gracefully", async () => {
+    vi.mocked(prisma.emailAccount.findUnique).mockResolvedValueOnce({
+      id: "account-123",
+      email: "test@example.com",
+      account: { provider: "google" },
+    } as any);
+
+    // Simulate a generic database error
+    vi.mocked(prisma.knowledge.create).mockRejectedValueOnce(
+      new Error("Database connection lost"),
+    );
+
+    const request = new NextRequest("http://localhost/api/llm-tools/invoke", {
+      method: "POST",
+      headers: {
+        Authorization: "Bearer test-token-12345",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        tool: "addToKnowledgeBase",
+        input: { title: "Test Title", content: "Some content" },
+        userEmail: "test@example.com",
+      }),
+    });
+
+    const response = await POST(request);
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.success).toBe(true);
+    expect(body.result.error).toBe("Failed to add to knowledge base");
+  });
 });
