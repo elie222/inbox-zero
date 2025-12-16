@@ -3,6 +3,7 @@ import { spawn } from "node:child_process";
 import { v4 as uuidv4 } from "uuid";
 import { streamRequestSchema } from "../types.js";
 import { buildClaudeEnv } from "../cli.js";
+import { logger } from "../logger.js";
 
 const router = Router();
 
@@ -72,8 +73,12 @@ router.post("/stream", async (req: Request, res: Response) => {
             },
           });
         }
-      } catch {
-        // For non-JSON output, send as raw text
+      } catch (error) {
+        // For non-JSON output, send as raw text but log the parse attempt
+        logger.warn("Stream: non-JSON line received, sending as raw text", {
+          linePreview: line.slice(0, 100),
+          error: error instanceof Error ? error.message : "Unknown error",
+        });
         sendEvent(res, "text", { text: line });
       }
     }

@@ -58,6 +58,22 @@ export class ClaudeCodeError extends Error {
 }
 
 /**
+ * Safely parses JSON from a response, handling non-JSON bodies gracefully.
+ */
+async function safeJsonParse<T>(response: Response): Promise<T | null> {
+  const text = await response.text();
+  try {
+    return JSON.parse(text) as T;
+  } catch {
+    logger.warn("Failed to parse response as JSON", {
+      status: response.status,
+      bodyPreview: text.slice(0, 200),
+    });
+    return null;
+  }
+}
+
+/**
  * Generates plain text response from Claude Code wrapper service.
  */
 export async function claudeCodeGenerateText(
@@ -92,15 +108,21 @@ export async function claudeCodeGenerateText(
   });
 
   if (!response.ok) {
-    const errorBody = (await response.json()) as ErrorResponse;
+    const errorBody = await safeJsonParse<ErrorResponse>(response);
     throw new ClaudeCodeError(
-      errorBody.error || `HTTP ${response.status}`,
-      errorBody.code || "HTTP_ERROR",
-      errorBody.rawText,
+      errorBody?.error || `HTTP ${response.status} ${response.statusText}`,
+      errorBody?.code || "HTTP_ERROR",
+      errorBody?.rawText,
     );
   }
 
-  const result = (await response.json()) as GenerateTextResponse;
+  const result = await safeJsonParse<GenerateTextResponse>(response);
+  if (!result) {
+    throw new ClaudeCodeError(
+      "Invalid response from Claude Code wrapper: expected JSON",
+      "INVALID_RESPONSE",
+    );
+  }
 
   logger.trace("Claude Code text generation complete", {
     textLength: result.text.length,
@@ -160,15 +182,21 @@ export async function claudeCodeGenerateObject<T>(
   });
 
   if (!response.ok) {
-    const errorBody = (await response.json()) as ErrorResponse;
+    const errorBody = await safeJsonParse<ErrorResponse>(response);
     throw new ClaudeCodeError(
-      errorBody.error || `HTTP ${response.status}`,
-      errorBody.code || "HTTP_ERROR",
-      errorBody.rawText,
+      errorBody?.error || `HTTP ${response.status} ${response.statusText}`,
+      errorBody?.code || "HTTP_ERROR",
+      errorBody?.rawText,
     );
   }
 
-  const result = (await response.json()) as GenerateObjectResponse;
+  const result = await safeJsonParse<GenerateObjectResponse>(response);
+  if (!result) {
+    throw new ClaudeCodeError(
+      "Invalid response from Claude Code wrapper: expected JSON",
+      "INVALID_RESPONSE",
+    );
+  }
 
   // Validate the response against the Zod schema
   const parseResult = options.schema.safeParse(result.object);

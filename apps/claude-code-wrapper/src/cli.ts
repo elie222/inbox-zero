@@ -1,6 +1,7 @@
 import { spawn } from "node:child_process";
 import { v4 as uuidv4 } from "uuid";
 import type { ClaudeCliOutput, UsageInfo } from "./types.js";
+import { logger } from "./logger.js";
 
 /**
  * Builds environment variables for Claude CLI with auth precedence.
@@ -17,12 +18,17 @@ export function buildClaudeEnv(): NodeJS.ProcessEnv {
   return env;
 }
 
+/** Default CLI execution timeout: 5 minutes */
+const DEFAULT_CLI_TIMEOUT_MS = 5 * 60 * 1000;
+
 export interface ClaudeCliOptions {
   prompt: string;
   system?: string;
   sessionId?: string;
   maxTokens?: number;
   outputFormat?: "json" | "text" | "stream-json";
+  /** Timeout in milliseconds. Default: 5 minutes */
+  timeoutMs?: number;
 }
 
 export interface ClaudeCliResult {
@@ -37,17 +43,45 @@ export interface ClaudeCliResult {
  *
  * Uses `claude --print` for non-interactive execution with JSON output format
  * for structured parsing of results including token usage.
+ *
+ * Includes a configurable timeout (default: 5 minutes) to prevent hung processes.
  */
 export async function executeClaudeCli(
   options: ClaudeCliOptions,
 ): Promise<ClaudeCliResult> {
   const args = buildCliArgs(options);
+  const timeoutMs = options.timeoutMs ?? DEFAULT_CLI_TIMEOUT_MS;
 
   return new Promise((resolve, reject) => {
+    let isSettled = false;
+    let timeoutId: NodeJS.Timeout | undefined;
+
     const claude = spawn("claude", args, {
       stdio: ["pipe", "pipe", "pipe"],
       env: buildClaudeEnv(),
     });
+
+    // Set up execution timeout
+    if (timeoutMs > 0) {
+      timeoutId = setTimeout(() => {
+        if (!isSettled) {
+          isSettled = true;
+          logger.error("Claude CLI execution timed out", {
+            timeoutMs,
+            prompt: options.prompt.slice(0, 100),
+          });
+          claude.kill("SIGTERM");
+          // Give it a moment to clean up, then force kill
+          setTimeout(() => claude.kill("SIGKILL"), 1000);
+          reject(
+            new ClaudeCliError(
+              `Claude CLI execution timed out after ${timeoutMs}ms`,
+              "TIMEOUT_ERROR",
+            ),
+          );
+        }
+      }, timeoutMs);
+    }
 
     let stdout = "";
     let stderr = "";
@@ -61,6 +95,10 @@ export async function executeClaudeCli(
     });
 
     claude.on("close", (code) => {
+      if (isSettled) return; // Already handled by timeout
+      isSettled = true;
+      if (timeoutId) clearTimeout(timeoutId);
+
       if (code !== 0) {
         reject(
           new ClaudeCliError(
@@ -87,6 +125,10 @@ export async function executeClaudeCli(
     });
 
     claude.on("error", (error) => {
+      if (isSettled) return; // Already handled by timeout
+      isSettled = true;
+      if (timeoutId) clearTimeout(timeoutId);
+
       reject(
         new ClaudeCliError(
           `Failed to spawn Claude CLI: ${error.message}`,
@@ -128,6 +170,8 @@ function buildCliArgs(options: ClaudeCliOptions): string[] {
 
 /**
  * Parses JSON output from Claude CLI into structured result.
+ * Throws an error if no valid result is found - callers should handle this
+ * rather than receiving fabricated usage data.
  */
 function parseCliOutput(
   stdout: string,
@@ -138,6 +182,7 @@ function parseCliOutput(
 
   // Find the final result object
   let resultOutput: ClaudeCliOutput | null = null;
+  let parseErrorCount = 0;
 
   for (const line of lines) {
     try {
@@ -145,17 +190,27 @@ function parseCliOutput(
       if (parsed.type === "result") {
         resultOutput = parsed;
       }
-    } catch {}
+    } catch (error) {
+      parseErrorCount++;
+      // Log at debug level since non-JSON lines are expected in some outputs
+      logger.warn("Failed to parse CLI output line as JSON", {
+        line: line.slice(0, 200),
+        error: error instanceof Error ? error.message : "Unknown error",
+      });
+    }
   }
 
   if (!resultOutput) {
-    // Fallback: treat entire stdout as plain text result
-    return {
-      text: stdout.trim(),
-      usage: { inputTokens: 0, outputTokens: 0, totalTokens: 0 },
-      sessionId: existingSessionId || uuidv4(),
-      rawOutput: null,
-    };
+    // Don't silently return fabricated data - throw so callers know something's wrong
+    logger.error("No result object found in Claude CLI output", {
+      lineCount: lines.length,
+      parseErrorCount,
+      stdoutPreview: stdout.slice(0, 500),
+    });
+    throw new Error(
+      `No valid result found in CLI output (${lines.length} lines, ${parseErrorCount} parse errors). ` +
+        `Output preview: ${stdout.slice(0, 200)}`,
+    );
   }
 
   return {
