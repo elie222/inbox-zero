@@ -13,7 +13,7 @@ interface ErrorInfo {
 
 /**
  * Retries a Microsoft Graph API operation when rate limits or temporary server errors are encountered
- * - Rate limits: 429, "TooManyRequests" code
+ * - Rate limits: 429, "TooManyRequests", "ApplicationThrottled", "MailboxConcurrency"
  * - Server errors: 502, 503, 504, "ServiceNotAvailable", "ServerBusy"
  */
 export async function withOutlookRetry<T>(
@@ -121,12 +121,13 @@ export function isRetryableError(errorInfo: ErrorInfo): {
 } {
   const { status, code, errorMessage } = errorInfo;
 
-  // Rate limit detection: 429 status or "TooManyRequests" code
+  // Rate limit detection: 429 status, throttling codes, or rate limit messages
   const isRateLimit =
     status === 429 ||
     code === "TooManyRequests" ||
+    code === "ApplicationThrottled" ||
     /rate limit/i.test(errorMessage) ||
-    /quota exceeded/i.test(errorMessage);
+    /MailboxConcurrency/i.test(errorMessage);
 
   // Temporary server errors that should be retried (502, 503, 504)
   const isServerError =
