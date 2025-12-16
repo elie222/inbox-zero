@@ -25,7 +25,7 @@ router.post("/stream", async (req: Request, res: Response) => {
     return;
   }
 
-  const { prompt, system, sessionId, maxTokens } = parseResult.data;
+  const { prompt, system, sessionId, maxTokens, model } = parseResult.data;
 
   // Set up SSE headers
   res.setHeader("Content-Type", "text/event-stream");
@@ -34,7 +34,7 @@ router.post("/stream", async (req: Request, res: Response) => {
   res.setHeader("X-Accel-Buffering", "no");
 
   // Build CLI arguments
-  const args = buildStreamArgs({ prompt, system, sessionId, maxTokens });
+  const args = buildStreamArgs({ prompt, system, sessionId, maxTokens, model });
 
   const claude = spawn("claude", args, {
     stdio: ["pipe", "pipe", "pipe"],
@@ -117,14 +117,27 @@ router.post("/stream", async (req: Request, res: Response) => {
 
 /**
  * Builds CLI arguments for streaming mode.
+ * Note: --verbose is required when using --output-format stream-json with --print
  */
 function buildStreamArgs(options: {
   prompt: string;
   system?: string;
   sessionId?: string;
   maxTokens?: number;
+  model?: string;
 }): string[] {
-  const args: string[] = ["--print", "--output-format", "stream-json"];
+  // --verbose is required for stream-json output with --print
+  const args: string[] = [
+    "--print",
+    "--verbose",
+    "--output-format",
+    "stream-json",
+  ];
+
+  // Model selection (alias like 'sonnet' or full name)
+  if (options.model) {
+    args.push("--model", options.model);
+  }
 
   if (options.system) {
     args.push("--system-prompt", options.system);
