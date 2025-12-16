@@ -17,6 +17,11 @@ import {
   claudeCodeGenerateObject,
   ClaudeCodeError,
 } from "@/utils/llms/claude-code";
+import {
+  getClaudeCodeSession,
+  saveClaudeCodeSession,
+  getWorkflowGroupFromLabel,
+} from "@/utils/redis/claude-code-session";
 
 // Simplified types for Claude Code results - compatible with how callers use generateText/generateObject
 // biome-ignore lint/suspicious/noExplicitAny: Complex AI SDK types require flexibility
@@ -63,10 +68,45 @@ export function createClaudeCodeGenerateText(
           ? callOptions.prompt
           : JSON.stringify(callOptions.prompt);
 
+      // Determine workflow group for session scoping
+      const workflowGroup = getWorkflowGroupFromLabel(label);
+
+      // Try to retrieve existing session for conversation continuity
+      let sessionId: string | undefined;
+      try {
+        const existingSession = await getClaudeCodeSession({
+          emailAccountId: emailAccount.id,
+          workflowGroup,
+        });
+        sessionId = existingSession?.sessionId;
+      } catch (error) {
+        logger.warn("Failed to retrieve Claude Code session", {
+          error,
+          label,
+          workflowGroup,
+        });
+      }
+
       const result = await claudeCodeGenerateText(config, {
         system: callOptions.system,
         prompt,
+        sessionId,
       });
+
+      // Save the returned sessionId for future calls in this workflow
+      try {
+        await saveClaudeCodeSession({
+          emailAccountId: emailAccount.id,
+          workflowGroup,
+          sessionId: result.sessionId,
+        });
+      } catch (error) {
+        logger.warn("Failed to save Claude Code session", {
+          error,
+          label,
+          workflowGroup,
+        });
+      }
 
       const usage: LanguageModelUsage = {
         inputTokens: result.usage.inputTokens,
@@ -162,11 +202,46 @@ export function createClaudeCodeGenerateObject(
         throw new Error("Schema is required for generateObject");
       }
 
+      // Determine workflow group for session scoping
+      const workflowGroup = getWorkflowGroupFromLabel(label);
+
+      // Try to retrieve existing session for conversation continuity
+      let sessionId: string | undefined;
+      try {
+        const existingSession = await getClaudeCodeSession({
+          emailAccountId: emailAccount.id,
+          workflowGroup,
+        });
+        sessionId = existingSession?.sessionId;
+      } catch (error) {
+        logger.warn("Failed to retrieve Claude Code session", {
+          error,
+          label,
+          workflowGroup,
+        });
+      }
+
       const result = await claudeCodeGenerateObject(config, {
         system: callOptions.system,
         prompt,
         schema: callOptions.schema,
+        sessionId,
       });
+
+      // Save the returned sessionId for future calls in this workflow
+      try {
+        await saveClaudeCodeSession({
+          emailAccountId: emailAccount.id,
+          workflowGroup,
+          sessionId: result.sessionId,
+        });
+      } catch (error) {
+        logger.warn("Failed to save Claude Code session", {
+          error,
+          label,
+          workflowGroup,
+        });
+      }
 
       const usage: LanguageModelUsage = {
         inputTokens: result.usage.inputTokens,
