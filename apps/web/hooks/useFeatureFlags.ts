@@ -2,13 +2,18 @@ import {
   useFeatureFlagEnabled,
   useFeatureFlagVariantKey,
 } from "posthog-js/react";
+import { env } from "@/env";
 
 export function useCleanerEnabled() {
   return useFeatureFlagEnabled("inbox-cleaner");
 }
 
 export function useMeetingBriefsEnabled() {
-  return useFeatureFlagEnabled("meeting-briefs");
+  return env.NEXT_PUBLIC_MEETING_BRIEFS_ENABLED;
+}
+
+export function useIntegrationsEnabled() {
+  return env.NEXT_PUBLIC_INTEGRATIONS_ENABLED;
 }
 
 const HERO_FLAG_NAME = "hero-copy-7";

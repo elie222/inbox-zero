@@ -7,6 +7,7 @@ import { LearnedPatternsSetting } from "@/app/(app)/[emailAccountId]/assistant/s
 import { PersonalSignatureSetting } from "@/app/(app)/[emailAccountId]/assistant/settings/PersonalSignatureSetting";
 import { MultiRuleSetting } from "@/app/(app)/[emailAccountId]/assistant/settings/MultiRuleSetting";
 import { WritingStyleSetting } from "@/app/(app)/[emailAccountId]/assistant/settings/WritingStyleSetting";
+import { env } from "@/env";
 
 export function SettingsTab() {
   return (
@@ -16,7 +17,7 @@ export function SettingsTab() {
       <DraftKnowledgeSetting />
       <MultiRuleSetting />
       <AboutSetting />
-      <DigestSetting />
+      {env.NEXT_PUBLIC_DIGEST_ENABLED && <DigestSetting />}
       <PersonalSignatureSetting />
       <ReferralSignatureSetting />
       <LearnedPatternsSetting />
