@@ -9,9 +9,22 @@ import { stringifyEmailSimple } from "@/utils/stringify-email";
 import { getEmailForLLM } from "@/utils/get-email-from-message";
 import type { ParsedMessage } from "@/utils/types";
 
-const briefingSchema = z.object({
-  briefing: z.string().describe("The meeting briefing content"),
+const guestBriefingSchema = z.object({
+  name: z.string().describe("The guest's name"),
+  email: z.string().describe("The guest's email address"),
+  bullets: z
+    .array(z.string())
+    .describe("Brief bullet points about this guest (max 10 words each)"),
 });
+
+const briefingSchema = z.object({
+  guests: z
+    .array(guestBriefingSchema)
+    .describe("Briefing information for each meeting guest"),
+});
+
+export type GuestBriefing = z.infer<typeof guestBriefingSchema>;
+export type BriefingContent = z.infer<typeof briefingSchema>;
 
 export async function aiGenerateMeetingBriefing({
   briefingData,
@@ -19,7 +32,7 @@ export async function aiGenerateMeetingBriefing({
 }: {
   briefingData: MeetingBriefingData;
   emailAccount: EmailAccountWithAI;
-}): Promise<string> {
+}): Promise<BriefingContent> {
   const system = `You are an AI assistant that prepares concise meeting briefings.
 
 Your task is to prepare a briefing that includes:
@@ -37,8 +50,10 @@ Guidelines:
 - ONLY include information about the specific guests listed in <guest_context>. Do NOT mention other meeting attendees, organizers, or colleagues.
 - AI research may be inaccurate for common names or generic email addresses
 
-Output the briefing as plain text with bullet points using "-" for each point.
-Group information by guest if there are multiple external guests.`;
+Return a structured JSON object with a "guests" array. Each guest should have:
+- "name": The guest's display name
+- "email": The guest's email address
+- "bullets": An array of brief bullet points about them (max 10 words each)`;
 
   const prompt = buildPrompt(briefingData);
 
@@ -57,7 +72,7 @@ Group information by guest if there are multiple external guests.`;
     schema: briefingSchema,
   });
 
-  return result.object.briefing;
+  return result.object;
 }
 
 function buildPrompt(briefingData: MeetingBriefingData): string {
@@ -86,7 +101,7 @@ ${event.description ? `Description: ${event.description}` : ""}
 ${guestContexts.map((guest) => formatGuestContext(guest)).join("\n")}
 </guest_context>
 
-Return the briefing as JSON with a "briefing" field containing the formatted text.`;
+Return the briefing as a JSON object with a "guests" array containing structured information for each guest.`;
 
   return prompt;
 }

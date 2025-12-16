@@ -6,6 +6,7 @@ import { sendMeetingBriefingEmail } from "@inboxzero/resend";
 import MeetingBriefingEmail, {
   generateMeetingBriefingSubject,
   type MeetingBriefingEmailProps,
+  type BriefingContent,
 } from "@inboxzero/resend/emails/meeting-briefing";
 import type { CalendarEvent } from "@/utils/calendar/event-types";
 import type { Logger } from "@/utils/logger";
@@ -20,7 +21,7 @@ export async function sendBriefingEmail({
   logger,
 }: {
   event: CalendarEvent;
-  briefingContent: string;
+  briefingContent: BriefingContent;
   emailAccountId: string;
   userEmail: string;
   provider: string;
