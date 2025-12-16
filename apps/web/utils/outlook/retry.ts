@@ -127,7 +127,6 @@ export function isRetryableError(errorInfo: ErrorInfo): {
     code === "TooManyRequests" ||
     code === "ApplicationThrottled" ||
     /rate limit/i.test(errorMessage) ||
-    /quota exceeded/i.test(errorMessage) ||
     /MailboxConcurrency/i.test(errorMessage);
 
   // Temporary server errors that should be retried (502, 503, 504)
