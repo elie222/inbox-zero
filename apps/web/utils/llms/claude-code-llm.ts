@@ -408,6 +408,23 @@ export interface TextStreamResult {
 export type ClaudeCodeStreamTextResult = TextStreamResult;
 
 /**
+ * Type guard to validate content part structure.
+ * Ensures the part has the expected shape before accessing properties.
+ */
+function isTextContentPart(
+  part: unknown,
+): part is { type: "text"; text: string } {
+  return (
+    typeof part === "object" &&
+    part !== null &&
+    "type" in part &&
+    part.type === "text" &&
+    "text" in part &&
+    typeof part.text === "string"
+  );
+}
+
+/**
  * Extracts system message and user prompt from ModelMessage array.
  */
 function extractMessagesContent(messages: ModelMessage[]): {
@@ -427,10 +444,10 @@ function extractMessagesContent(messages: ModelMessage[]): {
       if (typeof content === "string") {
         userParts.push(content);
       } else if (Array.isArray(content)) {
-        // Content parts array - extract text parts
-        const textContent = (content as Array<{ type: string; text?: string }>)
-          .filter((part) => part.type === "text" && part.text)
-          .map((part) => part.text as string)
+        // Content parts array - extract text parts with runtime validation
+        const textContent = content
+          .filter(isTextContentPart)
+          .map((part) => part.text)
           .join("\n");
         if (textContent) {
           userParts.push(textContent);
