@@ -37,7 +37,7 @@ export async function trashThread(options: {
           logger.warn("Failed to move message to trash", {
             messageId: message.id,
             threadId,
-            error: error instanceof Error ? error.message : error,
+            error,
           });
           return null;
         }

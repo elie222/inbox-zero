@@ -294,7 +294,7 @@ export class GmailProvider implements EmailProvider {
       log.info("Message archived successfully");
     } catch (error) {
       log.error("Failed to archive message", {
-        error: error instanceof Error ? error.message : error,
+        error,
       });
       throw error;
     }
@@ -315,9 +315,7 @@ export class GmailProvider implements EmailProvider {
         },
       });
     } catch (error) {
-      log.error("Failed to archive messages bulk", {
-        error: error instanceof Error ? error.message : error,
-      });
+      log.error("Failed to archive messages bulk", { error });
       throw error;
     }
   }
@@ -394,7 +392,7 @@ export class GmailProvider implements EmailProvider {
         } catch (error) {
           log.error("Failed to archive messages from sender", {
             sender,
-            error: error instanceof Error ? error.message : error,
+            error,
           });
           // continue processing remaining pages
           nextPageToken = undefined;
@@ -452,7 +450,7 @@ export class GmailProvider implements EmailProvider {
         } catch (error) {
           log.error("Failed to get messages from sender", {
             sender,
-            error: error instanceof Error ? error.message : error,
+            error,
           });
           // continue processing remaining senders
           nextPageToken = undefined;
@@ -471,7 +469,7 @@ export class GmailProvider implements EmailProvider {
             log.error("Failed to trash thread for sender", {
               sender,
               threadId,
-              error: error instanceof Error ? error.message : error,
+              error,
             });
             // Continue processing remaining threads
           }
@@ -508,7 +506,7 @@ export class GmailProvider implements EmailProvider {
           } catch (error) {
             log.error("Failed to track trash operation for sender", {
               sender,
-              error: error instanceof Error ? error.message : error,
+              error,
             });
           }
         }
