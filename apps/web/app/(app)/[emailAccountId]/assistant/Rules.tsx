@@ -11,6 +11,7 @@ import {
   SparklesIcon,
   CopyIcon,
   FilterIcon,
+  BotIcon,
 } from "lucide-react";
 import { useMemo } from "react";
 import { LoadingContent } from "@/components/LoadingContent";
@@ -408,7 +409,7 @@ export function ActionBadges({
   labels: Array<{ id: string; name: string }>;
 }) {
   return (
-    <div className="flex gap-2 flex-wrap min-w-0 justify-start">
+    <div className="flex gap-1 sm:gap-2 flex-wrap min-w-0 justify-start">
       {sortActionsByPriority(actions).map((action) => {
         const Icon = getActionIcon(action.type);
 
@@ -451,16 +452,25 @@ function NoRules() {
   );
 }
 
+function hasAiConditions(rule: RulesResponse[number]) {
+  return !!rule.instructions;
+}
+
 function hasStaticConditions(rule: RulesResponse[number]) {
   return !!(rule.from || rule.to || rule.subject || rule.body);
 }
 
 function StaticConditionsIcon({ rule }: { rule: RulesResponse[number] }) {
-  if (!hasStaticConditions(rule)) return null;
-
   return (
     <Tooltip content={conditionsToString(rule)}>
-      <FilterIcon className="size-4 text-muted-foreground" />
+      <div className="flex items-center gap-2">
+        {hasAiConditions(rule) && (
+          <BotIcon className="size-4 text-muted-foreground" />
+        )}
+        {hasStaticConditions(rule) && (
+          <FilterIcon className="size-4 text-muted-foreground" />
+        )}
+      </div>
     </Tooltip>
   );
 }
