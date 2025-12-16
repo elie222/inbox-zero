@@ -10,6 +10,16 @@ import {
   Text,
 } from "@react-email/components";
 
+export type GuestBriefing = {
+  name: string;
+  email: string;
+  bullets: string[];
+};
+
+export type BriefingContent = {
+  guests: GuestBriefing[];
+};
+
 export type MeetingBriefingEmailProps = {
   baseUrl: string;
   emailAccountId: string;
@@ -17,51 +27,28 @@ export type MeetingBriefingEmailProps = {
   formattedTime: string; // e.g., "2:00 PM"
   videoConferenceLink?: string;
   eventUrl: string;
-  briefingContent: string;
+  briefingContent: BriefingContent;
   unsubscribeToken: string;
 };
 
-// Helper function to parse content and render with formatting
-function renderFormattedContent(content: string) {
-  const lines = content.split("\n");
-
-  return lines.map((line, index) => {
-    // Check if line contains **bold** markdown
-    const parts: (string | React.ReactElement)[] = [];
-    let lastIndex = 0;
-    const boldRegex = /\*\*(.+?)\*\*/g;
-
-    let match = boldRegex.exec(line);
-    while (match !== null) {
-      // Add text before the match
-      if (match.index > lastIndex) {
-        parts.push(line.substring(lastIndex, match.index));
-      }
-      // Add the bold text
-      parts.push(
-        <strong key={`bold-${index}-${match.index}`}>{match[1]}</strong>,
-      );
-      lastIndex = match.index + match[0].length;
-      match = boldRegex.exec(line);
-    }
-
-    // Add remaining text
-    if (lastIndex < line.length) {
-      parts.push(line.substring(lastIndex));
-    }
-
-    // If no bold formatting was found, just return the line
-    if (parts.length === 0) {
-      parts.push(line);
-    }
-
-    return (
-      <span key={`line-${index}`}>
-        {parts}
-        {index < lines.length - 1 && <br />}
-      </span>
-    );
-  });
+function renderGuestBriefings(guests: GuestBriefing[]) {
+  return guests.map((guest, guestIndex) => (
+    <div key={`guest-${guestIndex}`} className={guestIndex > 0 ? "mt-4" : ""}>
+      <Text className="text-sm text-gray-800 mt-0 mb-1">
+        <strong>
+          {guest.name} ({guest.email})
+        </strong>
+      </Text>
+      {guest.bullets.map((bullet, bulletIndex) => (
+        <Text
+          key={`bullet-${guestIndex}-${bulletIndex}`}
+          className="text-sm text-gray-800 mt-0 mb-0 pl-2"
+        >
+          - {bullet}
+        </Text>
+      ))}
+    </div>
+  ));
 }
 
 export default function MeetingBriefingEmail({
@@ -102,7 +89,7 @@ export default function MeetingBriefingEmail({
               )}
               {eventUrl && (
                 <Text className="text-sm text-gray-700 mt-0 mb-0">
-                  - Event link:{" "}
+                  - Calendar link:{" "}
                   <Link href={eventUrl} className="text-blue-600 underline">
                     {eventUrl}
                   </Link>
@@ -111,9 +98,7 @@ export default function MeetingBriefingEmail({
             </Section>
 
             <Section className="px-8 pb-6">
-              <div className="text-sm text-gray-800 leading-relaxed">
-                {renderFormattedContent(briefingContent)}
-              </div>
+              {renderGuestBriefings(briefingContent.guests)}
             </Section>
 
             <Hr className="border-solid border-gray-300 my-6 mx-8" />
@@ -147,18 +132,30 @@ MeetingBriefingEmail.PreviewProps = {
   formattedTime: "2:00 PM",
   videoConferenceLink: "https://meet.google.com/abc-defg-hij",
   eventUrl: "https://calendar.google.com/event/123",
-  guestCount: 2,
-  briefingContent: `**John Smith (john@acmecorp.com)**
-- CEO of Acme Corp, joined 2019
-- Last met 3 weeks ago for quarterly review
-- Recent email: Discussed pricing for enterprise tier
-- Interested in API integrations
-- Decision maker for their team of 50+
-
-**Sarah Johnson (sarah@acmecorp.com)**
-- VP of Engineering at Acme Corp
-- First time meeting this contact
-- Technical evaluator for the deal`,
+  briefingContent: {
+    guests: [
+      {
+        name: "John Smith",
+        email: "john@acmecorp.com",
+        bullets: [
+          "CEO of Acme Corp, joined 2019",
+          "Last met 3 weeks ago for quarterly review",
+          "Recent email: Discussed pricing for enterprise tier",
+          "Interested in API integrations",
+          "Decision maker for their team of 50+",
+        ],
+      },
+      {
+        name: "Sarah Johnson",
+        email: "sarah@acmecorp.com",
+        bullets: [
+          "VP of Engineering at Acme Corp",
+          "First time meeting this contact",
+          "Technical evaluator for the deal",
+        ],
+      },
+    ],
+  },
 };
 
 export function generateMeetingBriefingSubject(

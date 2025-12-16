@@ -150,11 +150,50 @@ export const createRuleBody = z.object({
     .min(1, "You must have at least one condition")
     .refine(
       (conditions) => {
-        const types = conditions.map((condition) => condition.type);
-        return new Set(types).size === types.length;
+        // Allow multiple STATIC conditions if they have different fields populated
+        // But only allow one AI condition
+        const aiConditions = conditions.filter(
+          (c) => c.type === ConditionType.AI,
+        );
+        if (aiConditions.length > 1) {
+          return false;
+        }
+
+        // For STATIC conditions, check if they have different fields
+        const staticConditions = conditions.filter(
+          (c) => c.type === ConditionType.STATIC,
+        );
+
+        // Filter out empty static conditions (where the active field has no value)
+        const nonEmptyStaticConditions = staticConditions.filter((c) => {
+          return (
+            c.from?.trim() ||
+            c.to?.trim() ||
+            c.subject?.trim() ||
+            c.body?.trim()
+          );
+        });
+
+        if (nonEmptyStaticConditions.length <= 1) {
+          return true; // No duplicates possible
+        }
+
+        // Create a signature for each non-empty static condition based on which fields are populated
+        const staticSignatures = nonEmptyStaticConditions.map((c) => {
+          const fields = [];
+          if (c.from) fields.push("from");
+          if (c.to) fields.push("to");
+          if (c.subject) fields.push("subject");
+          if (c.body) fields.push("body");
+          return fields.sort().join(",");
+        });
+
+        // Check for duplicates
+        const uniqueSignatures = new Set(staticSignatures);
+        return uniqueSignatures.size === staticSignatures.length;
       },
       {
-        message: "You can't have two conditions with the same type.",
+        message: "You can't have duplicate conditions.",
       },
     ),
   conditionalOperator: z

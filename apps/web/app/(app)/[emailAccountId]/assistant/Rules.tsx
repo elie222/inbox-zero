@@ -9,8 +9,9 @@ import {
   HistoryIcon,
   Trash2Icon,
   SparklesIcon,
-  InfoIcon,
   CopyIcon,
+  FilterIcon,
+  BotIcon,
 } from "lucide-react";
 import { useMemo } from "react";
 import { LoadingContent } from "@/components/LoadingContent";
@@ -31,13 +32,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Switch } from "@/components/ui/switch";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
 import { deleteRuleAction, toggleRuleAction } from "@/utils/actions/rule";
-import { conditionsToString } from "@/utils/condition";
 import { Badge } from "@/components/Badge";
 import { getActionColor } from "@/components/PlanBadge";
 import { toastError } from "@/components/Toast";
@@ -47,7 +42,6 @@ import type { ActionType } from "@/generated/prisma/client";
 import { useAction } from "next-safe-action/hooks";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { prefixPath } from "@/utils/path";
-import { ExpandableText } from "@/components/ExpandableText";
 import type { RulesResponse } from "@/app/api/user/rules/route";
 import { sortActionsByPriority } from "@/utils/action-sort";
 import { getActionDisplay, getActionIcon } from "@/utils/action-display";
@@ -57,12 +51,13 @@ import { useChat } from "@/providers/ChatProvider";
 import { useSidebar } from "@/components/ui/sidebar";
 import { useLabels } from "@/hooks/useLabels";
 import { isConversationStatusType } from "@/utils/reply-tracker/conversation-status-config";
+import { Tooltip } from "@/components/Tooltip";
+import { conditionsToString } from "@/utils/condition";
 import {
   getRuleConfig,
   SYSTEM_RULE_ORDER,
   getDefaultActions,
 } from "@/utils/rule/consts";
-import { DEFAULT_COLD_EMAIL_PROMPT } from "@/utils/cold-email/prompt";
 import {
   STEP_KEYS,
   getStepNumber,
@@ -150,11 +145,10 @@ export function Rules({
                 <TableRow>
                   <TableHead className="w-16 px-2 sm:px-4">Enabled</TableHead>
                   <TableHead className="px-2 sm:px-4">Name</TableHead>
-                  <TableHead className="hidden sm:table-cell px-2 sm:px-4">
-                    Condition
+                  <TableHead className="text-left px-2 sm:px-4">
+                    Action
                   </TableHead>
-                  <TableHead className="px-2 sm:px-4">Action</TableHead>
-                  <TableHead className="px-2 sm:px-4">
+                  <TableHead className="w-fit whitespace-nowrap px-1">
                     {showAddRuleButton && (
                       <div className="flex justify-end">
                         <div className="my-2">
@@ -237,167 +231,139 @@ export function Rules({
                       <TableCell className="font-medium p-2 sm:p-4">
                         {rule.name}
                       </TableCell>
-                      <TableCell className="hidden sm:table-cell p-2 sm:p-4">
-                        {(() => {
-                          const systemRuleDesc = getSystemRuleDescription(
-                            rule.systemType,
-                          );
-                          if (isConversationStatus) {
-                            return (
-                              <div className="flex items-center gap-2">
-                                <span className="text-sm text-muted-foreground">
-                                  {systemRuleDesc?.condition || ""}
-                                </span>
-                                <Tooltip>
-                                  <TooltipTrigger asChild>
-                                    <InfoIcon className="size-3.5 text-green-600 dark:text-green-500 flex-shrink-0 cursor-help" />
-                                  </TooltipTrigger>
-                                  <TooltipContent
-                                    side="right"
-                                    className="max-w-xs"
-                                  >
-                                    <p>
-                                      System rule to track conversation status.
-                                      Conditions cannot be edited.
-                                    </p>
-                                  </TooltipContent>
-                                </Tooltip>
-                              </div>
-                            );
-                          }
-                          return (
-                            <ExpandableText
-                              text={conditionsToString(rule)}
-                              className="max-w-xs"
-                            />
-                          );
-                        })()}
-                      </TableCell>
-                      <TableCell className="p-2 sm:p-4">
+                      <TableCell className="text-left p-2 sm:p-4">
                         <ActionBadges
                           actions={rule.actions}
                           provider={provider}
                           labels={userLabels}
                         />
                       </TableCell>
-                      <TableCell className="text-center p-2 sm:p-4">
-                        {!isPlaceholder && (
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button
-                                aria-haspopup="true"
-                                size="icon"
-                                variant="ghost"
+                      <TableCell className="w-fit whitespace-nowrap text-center px-1 py-2">
+                        <div className="flex items-center justify-end gap-1">
+                          <StaticConditionsIcon rule={rule} />
+                          {!isPlaceholder && (
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button
+                                  aria-haspopup="true"
+                                  size="icon"
+                                  variant="ghost"
+                                  onClick={(e) => e.stopPropagation()}
+                                >
+                                  <MoreHorizontalIcon className="size-4" />
+                                  <span className="sr-only">Toggle menu</span>
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent
+                                align="end"
                                 onClick={(e) => e.stopPropagation()}
                               >
-                                <MoreHorizontalIcon className="size-4" />
-                                <span className="sr-only">Toggle menu</span>
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent
-                              align="end"
-                              onClick={(e) => e.stopPropagation()}
-                            >
-                              <DropdownMenuItem
-                                onClick={() => {
-                                  ruleDialog.onOpen({
-                                    ruleId: rule.id,
-                                    editMode: true,
-                                  });
-                                }}
-                              >
-                                <PenIcon className="mr-2 size-4" />
-                                Edit manually
-                              </DropdownMenuItem>
-                              {!isColdEmailBlocker && !isConversationStatus && (
                                 <DropdownMenuItem
                                   onClick={() => {
-                                    setInput(
-                                      `I'd like to edit the "${rule.name}" rule:\n`,
-                                    );
-                                    setOpen((arr) => [...arr, "chat-sidebar"]);
+                                    ruleDialog.onOpen({
+                                      ruleId: rule.id,
+                                      editMode: true,
+                                    });
                                   }}
                                 >
-                                  <SparklesIcon className="mr-2 size-4" />
-                                  Edit via AI
+                                  <PenIcon className="mr-2 size-4" />
+                                  Edit manually
                                 </DropdownMenuItem>
-                              )}
-                              <DropdownMenuItem
-                                onClick={() => {
-                                  ruleDialog.onOpen({
-                                    duplicateRule: rule,
-                                  });
-                                }}
-                              >
-                                <CopyIcon className="mr-2 size-4" />
-                                Duplicate
-                              </DropdownMenuItem>
-                              <DropdownMenuItem asChild>
-                                <Link
-                                  href={
-                                    isColdEmailBlocker
-                                      ? prefixPath(
-                                          emailAccountId,
-                                          "/cold-email-blocker",
-                                        )
-                                      : prefixPath(
-                                          emailAccountId,
-                                          `/automation?tab=history&ruleId=${rule.id}`,
-                                        )
-                                  }
-                                  target={
-                                    isColdEmailBlocker ? "_blank" : undefined
-                                  }
-                                >
-                                  <HistoryIcon className="mr-2 size-4" />
-                                  History
-                                </Link>
-                              </DropdownMenuItem>
-                              {!isColdEmailBlocker && !isConversationStatus && (
+                                {!isColdEmailBlocker &&
+                                  !isConversationStatus && (
+                                    <DropdownMenuItem
+                                      onClick={() => {
+                                        setInput(
+                                          `I'd like to edit the "${rule.name}" rule:\n`,
+                                        );
+                                        setOpen((arr) => [
+                                          ...arr,
+                                          "chat-sidebar",
+                                        ]);
+                                      }}
+                                    >
+                                      <SparklesIcon className="mr-2 size-4" />
+                                      Edit via AI
+                                    </DropdownMenuItem>
+                                  )}
                                 <DropdownMenuItem
-                                  onClick={async () => {
-                                    const yes = confirm(
-                                      `Are you sure you want to delete the rule "${rule.name}"?`,
-                                    );
-                                    if (yes) {
-                                      toast.promise(
-                                        async () => {
-                                          const res = await deleteRule({
-                                            id: rule.id,
-                                          });
-
-                                          if (
-                                            res?.serverError ||
-                                            res?.validationErrors
-                                          ) {
-                                            throw new Error(
-                                              res?.serverError ||
-                                                "There was an error deleting your rule",
-                                            );
-                                          }
-
-                                          mutate();
-                                        },
-                                        {
-                                          loading: "Deleting rule...",
-                                          success: "Rule deleted",
-                                          error: (error) =>
-                                            `Error deleting rule. ${error.message}`,
-                                          finally: () => {
-                                            mutate();
-                                          },
-                                        },
-                                      );
-                                    }
+                                  onClick={() => {
+                                    ruleDialog.onOpen({
+                                      duplicateRule: rule,
+                                    });
                                   }}
                                 >
-                                  <Trash2Icon className="mr-2 size-4" />
-                                  Delete
+                                  <CopyIcon className="mr-2 size-4" />
+                                  Duplicate
                                 </DropdownMenuItem>
-                              )}
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        )}
+                                <DropdownMenuItem asChild>
+                                  <Link
+                                    href={
+                                      isColdEmailBlocker
+                                        ? prefixPath(
+                                            emailAccountId,
+                                            "/cold-email-blocker",
+                                          )
+                                        : prefixPath(
+                                            emailAccountId,
+                                            `/automation?tab=history&ruleId=${rule.id}`,
+                                          )
+                                    }
+                                    target={
+                                      isColdEmailBlocker ? "_blank" : undefined
+                                    }
+                                  >
+                                    <HistoryIcon className="mr-2 size-4" />
+                                    History
+                                  </Link>
+                                </DropdownMenuItem>
+                                {!isColdEmailBlocker &&
+                                  !isConversationStatus && (
+                                    <DropdownMenuItem
+                                      onClick={async () => {
+                                        const yes = confirm(
+                                          `Are you sure you want to delete the rule "${rule.name}"?`,
+                                        );
+                                        if (yes) {
+                                          toast.promise(
+                                            async () => {
+                                              const res = await deleteRule({
+                                                id: rule.id,
+                                              });
+
+                                              if (
+                                                res?.serverError ||
+                                                res?.validationErrors
+                                              ) {
+                                                throw new Error(
+                                                  res?.serverError ||
+                                                    "There was an error deleting your rule",
+                                                );
+                                              }
+
+                                              mutate();
+                                            },
+                                            {
+                                              loading: "Deleting rule...",
+                                              success: "Rule deleted",
+                                              error: (error) =>
+                                                `Error deleting rule. ${error.message}`,
+                                              finally: () => {
+                                                mutate();
+                                              },
+                                            },
+                                          );
+                                        }
+                                      }}
+                                    >
+                                      <Trash2Icon className="mr-2 size-4" />
+                                      Delete
+                                    </DropdownMenuItem>
+                                  )}
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          )}
+                        </div>
                       </TableCell>
                     </TableRow>
                   );
@@ -443,7 +409,7 @@ export function ActionBadges({
   labels: Array<{ id: string; name: string }>;
 }) {
   return (
-    <div className="flex gap-2 flex-wrap min-w-0">
+    <div className="flex gap-1 sm:gap-2 flex-wrap min-w-0 justify-start">
       {sortActionsByPriority(actions).map((action) => {
         const Icon = getActionIcon(action.type);
 
@@ -486,29 +452,25 @@ function NoRules() {
   );
 }
 
-function getSystemRuleDescription(systemType: SystemType | null) {
-  switch (systemType) {
-    case SystemType.TO_REPLY:
-      return {
-        condition: "Emails needing your direct response",
-      };
-    case SystemType.FYI:
-      return {
-        condition: "Important emails that don't need a response",
-      };
-    case SystemType.AWAITING_REPLY:
-      return {
-        condition: "Emails you're expecting a reply to",
-      };
-    case SystemType.ACTIONED:
-      return {
-        condition: "Resolved email threads",
-      };
-    case SystemType.COLD_EMAIL:
-      return {
-        condition: DEFAULT_COLD_EMAIL_PROMPT,
-      };
-    default:
-      return null;
-  }
+function hasAiConditions(rule: RulesResponse[number]) {
+  return !!rule.instructions;
+}
+
+function hasStaticConditions(rule: RulesResponse[number]) {
+  return !!(rule.from || rule.to || rule.subject || rule.body);
+}
+
+function StaticConditionsIcon({ rule }: { rule: RulesResponse[number] }) {
+  return (
+    <Tooltip content={conditionsToString(rule)}>
+      <div className="flex items-center gap-2">
+        {hasAiConditions(rule) && (
+          <BotIcon className="size-4 text-muted-foreground" />
+        )}
+        {hasStaticConditions(rule) && (
+          <FilterIcon className="size-4 text-muted-foreground" />
+        )}
+      </div>
+    </Tooltip>
+  );
 }

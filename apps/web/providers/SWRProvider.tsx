@@ -35,7 +35,20 @@ const fetcher = async (
   const res = await fetch(url, newInit);
 
   if (!res.ok) {
-    const errorData = await res.json();
+    // Try to parse JSON, but handle cases where response isn't JSON (e.g. HMR 404s)
+    let errorData: Record<string, unknown> = {};
+    try {
+      errorData = await res.json();
+    } catch {
+      // Response wasn't JSON - common during dev HMR, unexpected in production
+      if (process.env.NODE_ENV !== "development") {
+        console.error("Failed to parse error response as JSON", {
+          url,
+          status: res.status,
+          statusText: res.statusText,
+        });
+      }
+    }
 
     if (
       errorData.errorCode === NO_REFRESH_TOKEN_ERROR_CODE ||
@@ -65,10 +78,10 @@ const fetcher = async (
     }
 
     const errorMessage =
-      errorData.message || "An error occurred while fetching the data.";
-    const error: Error & { info?: any; status?: number } = new Error(
-      errorMessage,
-    );
+      (errorData.message as string) ||
+      "An error occurred while fetching the data.";
+    const error: Error & { info?: Record<string, unknown>; status?: number } =
+      new Error(errorMessage);
 
     // Attach extra info to the error object.
     error.info = errorData;
@@ -102,7 +115,7 @@ const defaultContextValue = {
   resetCache: () => {},
 };
 
-const SWRContext = createContext<Context>(defaultContextValue);
+export const SWRContext = createContext<Context>(defaultContextValue);
 
 export const SWRProvider = (props: { children: React.ReactNode }) => {
   const [provider, setProvider] = useState(new Map());
@@ -146,6 +159,7 @@ export const SWRProvider = (props: { children: React.ReactNode }) => {
           provider: () => provider,
           // TODO: Send to Sentry
           onError: (error) => console.log("SWR error:", error),
+          ...getDevOnlySWRConfig(),
         }}
       >
         {props.children}
@@ -154,4 +168,28 @@ export const SWRProvider = (props: { children: React.ReactNode }) => {
   );
 };
 
-export { SWRContext };
+// Dev-only config to handle transient 404s during HMR
+function getDevOnlySWRConfig() {
+  if (process.env.NODE_ENV !== "development") return {};
+
+  return {
+    keepPreviousData: true,
+    onErrorRetry: (
+      error: Error & { status?: number },
+      _key: string,
+      _config: unknown,
+      revalidate: (opts: { retryCount: number }) => void,
+      { retryCount }: { retryCount: number },
+    ) => {
+      // Retry 404s quickly (likely HMR transient errors)
+      if (error.status === 404) {
+        setTimeout(() => revalidate({ retryCount }), 500);
+        return;
+      }
+      // Don't retry on other client errors (4xx)
+      if (error.status && error.status >= 400 && error.status < 500) return;
+      // Default exponential backoff for server errors
+      setTimeout(() => revalidate({ retryCount }), 5000 * 2 ** retryCount);
+    },
+  };
+}

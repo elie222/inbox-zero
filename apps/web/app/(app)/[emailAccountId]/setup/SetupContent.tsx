@@ -365,6 +365,8 @@ function SetupPageContent({
         </SectionDescription>
       </div>
 
+      {/* <StatsCardGrid /> */}
+
       {isSetupComplete ? (
         <FeatureGrid emailAccountId={emailAccountId} provider={provider} />
       ) : (
