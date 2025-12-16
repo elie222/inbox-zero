@@ -34,7 +34,7 @@ export async function analyzeSenderPattern(body: AnalyzeSenderPatternBody) {
     logger.error("Error in sender pattern analysis", {
       emailAccountId: body.emailAccountId,
       from: body.from,
-      error: error instanceof Error ? error.message : error,
+      error,
     });
   }
 }

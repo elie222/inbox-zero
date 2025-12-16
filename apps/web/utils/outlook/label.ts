@@ -280,7 +280,7 @@ export async function removeThreadLabel({
             messageId: message.id,
             threadId,
             categoryName,
-            error: error instanceof Error ? error.message : error,
+            error,
           });
         }
       },
@@ -351,7 +351,7 @@ export async function archiveThread({
             folderId,
             messageId: message.id,
             threadId,
-            error: error instanceof Error ? error.message : error,
+            error,
           });
           return null;
         }

@@ -88,7 +88,7 @@ export async function updateEmailMessagesForSender(options: {
       sender,
       emailAccountId,
       action,
-      error: error instanceof Error ? error.message : error,
+      error,
     });
     // Don't throw - this is analytics, shouldn't break the main flow
   }

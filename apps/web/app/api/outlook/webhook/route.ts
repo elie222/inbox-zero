@@ -95,9 +95,7 @@ async function processNotificationsAsync(
         { watchEmailsSubscriptionId: subscriptionId },
         logger,
       ).catch((error) => {
-        logger.error("Error getting email account", {
-          error: error instanceof Error ? error.message : error,
-        });
+        logger.error("Error getting email account", { error });
         return null;
       });
 
@@ -110,7 +108,7 @@ async function processNotificationsAsync(
         });
       } else {
         logger.error("Error processing notification (no email account found)", {
-          error: error instanceof Error ? error.message : error,
+          error,
         });
       }
     }

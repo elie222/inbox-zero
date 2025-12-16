@@ -92,7 +92,7 @@ async function batch<TRequestBody = unknown, TResponseBody = unknown>({
       logger.error("Graph batch request failed", {
         ...context,
         chunkSize: chunk.length,
-        error: error instanceof Error ? error.message : error,
+        error,
       });
       throw error;
     }
@@ -275,7 +275,7 @@ export async function moveMessagesForSenders({
               ownerEmail,
               destinationId,
               messageIds,
-              error: error instanceof Error ? error.message : error,
+              error,
             });
           } finally {
             messageIds.forEach((id) => processedMessageIds.add(id));
@@ -291,7 +291,7 @@ export async function moveMessagesForSenders({
         logger.error("Failed to fetch messages from sender", {
           sender,
           action,
-          error: error instanceof Error ? error.message : error,
+          error,
         });
         nextLink = undefined;
       }

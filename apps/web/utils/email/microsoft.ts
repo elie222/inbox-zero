@@ -115,7 +115,7 @@ export class OutlookProvider implements EmailProvider {
     } catch (error) {
       this.logger.error("getThread failed", {
         threadId,
-        error: error instanceof Error ? error.message : error,
+        error,
         errorCode: (error as any)?.code,
       });
       throw error;
@@ -154,7 +154,7 @@ export class OutlookProvider implements EmailProvider {
       const err = error as any;
       this.logger.error("getMessage failed", {
         messageId,
-        error: error instanceof Error ? error.message : error,
+        error,
         errorCode: err?.code,
       });
       throw error;
@@ -558,7 +558,7 @@ export class OutlookProvider implements EmailProvider {
       const err = error as any;
       this.logger.error("getThreadMessages failed", {
         threadId,
-        error: error instanceof Error ? error.message : error,
+        error,
         errorCode: err?.code,
       });
       throw error;
@@ -932,7 +932,7 @@ export class OutlookProvider implements EmailProvider {
         this.logger.warn("Failed to fetch thread messages for conversationId", {
           conversationId,
           participantEmail,
-          error: error instanceof Error ? error.message : error,
+          error,
           errorCode: (error as any)?.code,
           errorStatusCode: (error as any)?.statusCode,
         });
@@ -1484,7 +1484,7 @@ export class OutlookProvider implements EmailProvider {
     } catch (error) {
       this.logger.error("Failed to archive message", {
         messageId,
-        error: error instanceof Error ? error.message : error,
+        error,
       });
       throw error;
     }
