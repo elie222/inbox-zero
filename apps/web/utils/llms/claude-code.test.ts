@@ -50,6 +50,7 @@ vi.mock("ollama-ai-provider-v2", () => ({
 vi.mock("@/env", () => ({
   env: {
     DEFAULT_LLM_PROVIDER: "claudecode",
+    ECONOMY_LLM_PROVIDER: undefined as string | undefined,
     CLAUDE_CODE_BASE_URL: "http://localhost:3100",
     CLAUDE_CODE_TIMEOUT: 120_000,
     CLAUDE_CODE_WRAPPER_AUTH_KEY: "test-auth-key-12345",
@@ -73,6 +74,7 @@ describe("Claude Code Provider", () => {
   beforeEach(() => {
     vi.resetAllMocks();
     vi.mocked(env).DEFAULT_LLM_PROVIDER = "claudecode";
+    vi.mocked(env).ECONOMY_LLM_PROVIDER = undefined;
     vi.mocked(env).CLAUDE_CODE_BASE_URL = "http://localhost:3100";
     vi.mocked(env).CLAUDE_CODE_TIMEOUT = 120_000;
     vi.mocked(env).CLAUDE_CODE_WRAPPER_AUTH_KEY = "test-auth-key-12345";
@@ -114,7 +116,8 @@ describe("Claude Code Provider", () => {
       expect(result.claudeCodeConfig?.model).toBe("sonnet");
     });
 
-    it("should use economy model for economy modelType", () => {
+    it("should use economy model when ECONOMY_LLM_PROVIDER is claudecode", () => {
+      vi.mocked(env).ECONOMY_LLM_PROVIDER = "claudecode";
       vi.mocked(env).CLAUDE_CODE_MODEL = "sonnet";
       vi.mocked(env).CLAUDE_CODE_ECONOMY_MODEL = "haiku";
 
@@ -129,7 +132,8 @@ describe("Claude Code Provider", () => {
       expect(result.claudeCodeConfig?.model).toBe("haiku");
     });
 
-    it("should fall back to default model when economy model not set", () => {
+    it("should fall back to CLAUDE_CODE_MODEL when economy model not set", () => {
+      vi.mocked(env).ECONOMY_LLM_PROVIDER = "claudecode";
       vi.mocked(env).CLAUDE_CODE_MODEL = "sonnet";
       // CLAUDE_CODE_ECONOMY_MODEL is undefined
 

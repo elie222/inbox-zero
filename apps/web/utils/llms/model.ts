@@ -269,8 +269,8 @@ function createOpenRouterProviderOptions(
  * - Any task with large context windows where cost efficiency matters
  */
 function selectEconomyModel(userAi: UserAIFields, online = false): SelectModel {
-  // Handle Claude Code economy model when it's the default provider
-  if (env.DEFAULT_LLM_PROVIDER === Provider.CLAUDE_CODE) {
+  // Handle Claude Code economy model explicitly via ECONOMY_LLM_PROVIDER
+  if (env.ECONOMY_LLM_PROVIDER === Provider.CLAUDE_CODE) {
     const economyModel = env.CLAUDE_CODE_ECONOMY_MODEL || env.CLAUDE_CODE_MODEL;
     return selectModel(
       {
