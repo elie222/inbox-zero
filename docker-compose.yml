@@ -124,9 +124,10 @@ services:
       - ./apps/web/.env
     environment:
       PORT: 3100
-      API_KEY: ${CLAUDE_CODE_API_KEY:-}
-      # For API key auth: set ANTHROPIC_API_KEY in .env
-      # For Max subscription: mount ~/.claude with long-lived token
+      # Auth key for wrapper service endpoints (not Claude auth)
+      API_KEY: ${CLAUDE_WRAPPER_AUTH_KEY:-}
+      # Explicitly unset API key to test OAuth-only auth
+      ANTHROPIC_API_KEY: ""
     volumes:
       # Use named volume for isolated container auth
       - claude-code-data:/root/.claude
