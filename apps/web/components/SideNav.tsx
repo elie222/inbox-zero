@@ -15,6 +15,7 @@ import {
   ChevronDownIcon,
   ChevronRightIcon,
   FileIcon,
+  HomeIcon,
   FileTextIcon,
   InboxIcon,
   type LucideIcon,
@@ -82,6 +83,11 @@ export const useNavigation = () => {
 
   const navItems: NavItem[] = useMemo(
     () => [
+      // {
+      //   name: "Dashboard",
+      //   href: prefixPath(currentEmailAccountId, "/setup"),
+      //   icon: HomeIcon,
+      // },
       {
         name: "Assistant",
         href: prefixPath(currentEmailAccountId, "/automation"),

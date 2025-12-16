@@ -35,7 +35,20 @@ const fetcher = async (
   const res = await fetch(url, newInit);
 
   if (!res.ok) {
-    const errorData = await res.json();
+    // Try to parse JSON, but handle cases where response isn't JSON (e.g. HMR 404s)
+    let errorData: Record<string, unknown> = {};
+    try {
+      errorData = await res.json();
+    } catch {
+      // Response wasn't JSON - common during dev HMR, unexpected in production
+      if (process.env.NODE_ENV !== "development") {
+        console.error("Failed to parse error response as JSON", {
+          url,
+          status: res.status,
+          statusText: res.statusText,
+        });
+      }
+    }
 
     if (
       errorData.errorCode === NO_REFRESH_TOKEN_ERROR_CODE ||
@@ -65,10 +78,10 @@ const fetcher = async (
     }
 
     const errorMessage =
-      errorData.message || "An error occurred while fetching the data.";
-    const error: Error & { info?: any; status?: number } = new Error(
-      errorMessage,
-    );
+      (errorData.message as string) ||
+      "An error occurred while fetching the data.";
+    const error: Error & { info?: Record<string, unknown>; status?: number } =
+      new Error(errorMessage);
 
     // Attach extra info to the error object.
     error.info = errorData;

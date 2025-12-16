@@ -47,17 +47,56 @@ export function getConditions(rule: RuleConditions) {
     conditions.push({
       type: ConditionType.AI,
       instructions: rule.instructions,
+      from: null,
+      to: null,
+      subject: null,
+      body: null,
     });
   }
 
   if (isStaticRule(rule)) {
-    conditions.push({
-      type: ConditionType.STATIC,
-      from: rule.from,
-      to: rule.to,
-      subject: rule.subject,
-      body: rule.body,
-    });
+    // Split static conditions into separate conditions for each populated field
+    // This matches the new UI where each condition has only one field
+    if (rule.from) {
+      conditions.push({
+        type: ConditionType.STATIC,
+        from: rule.from,
+        to: null,
+        subject: null,
+        body: null,
+        instructions: null,
+      });
+    }
+    if (rule.to) {
+      conditions.push({
+        type: ConditionType.STATIC,
+        from: null,
+        to: rule.to,
+        subject: null,
+        body: null,
+        instructions: null,
+      });
+    }
+    if (rule.subject) {
+      conditions.push({
+        type: ConditionType.STATIC,
+        from: null,
+        to: null,
+        subject: rule.subject,
+        body: null,
+        instructions: null,
+      });
+    }
+    if (rule.body) {
+      conditions.push({
+        type: ConditionType.STATIC,
+        from: null,
+        to: null,
+        subject: null,
+        body: rule.body,
+        instructions: null,
+      });
+    }
   }
 
   return conditions;
@@ -83,12 +122,14 @@ export function getEmptyCondition(type: CoreConditionType): ZodCondition {
         instructions: "",
       };
     case ConditionType.STATIC:
+      // Default to "from" field for new STATIC conditions
       return {
         type: ConditionType.STATIC,
         from: null,
         to: null,
         subject: null,
         body: null,
+        instructions: null,
       };
     default:
       // biome-ignore lint/correctness/noSwitchDeclarations: intentional exhaustive check

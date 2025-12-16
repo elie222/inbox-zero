@@ -140,11 +140,7 @@ export const ExplainText = (props: { children: React.ReactNode }) => {
 };
 
 export const ErrorMessage = (props: { message: string }) => {
-  return (
-    <div className="mt-0.5 text-sm font-semibold leading-snug text-red-400">
-      {props.message}
-    </div>
-  );
+  return <div className="mt-0.5 text-sm text-red-400">{props.message}</div>;
 };
 
 const InputWithLeftFixedText = (props: {
