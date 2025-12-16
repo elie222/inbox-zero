@@ -47,9 +47,9 @@ ANTHROPIC_API_KEY=
     MICROSOFT_CLIENT_ID: "microsoft-id",
     MICROSOFT_CLIENT_SECRET: "microsoft-secret",
     DEFAULT_LLM_PROVIDER: "anthropic",
-    DEFAULT_LLM_MODEL: "claude-sonnet-4-5-20250514",
+    DEFAULT_LLM_MODEL: "claude-sonnet-4-5-20250929",
     ECONOMY_LLM_PROVIDER: "anthropic",
-    ECONOMY_LLM_MODEL: "claude-haiku-4-5-20250514",
+    ECONOMY_LLM_MODEL: "claude-haiku-4-5-20251001",
     ANTHROPIC_API_KEY: "sk-ant-xxx",
   };
 
@@ -316,9 +316,9 @@ UPSTASH_REDIS_TOKEN=
       MICROSOFT_WEBHOOK_CLIENT_STATE: "webhook-state-hex",
       // LLM
       DEFAULT_LLM_PROVIDER: "anthropic",
-      DEFAULT_LLM_MODEL: "claude-sonnet-4-5-20250514",
+      DEFAULT_LLM_MODEL: "claude-sonnet-4-5-20250929",
       ECONOMY_LLM_PROVIDER: "anthropic",
-      ECONOMY_LLM_MODEL: "claude-haiku-4-5-20250514",
+      ECONOMY_LLM_MODEL: "claude-haiku-4-5-20251001",
       ANTHROPIC_API_KEY: "sk-ant-api-key-value",
     };
 
@@ -374,9 +374,9 @@ MICROSOFT_WEBHOOK_CLIENT_STATE=webhook-state-hex
 # LLM Configuration
 # =============================================================================
 DEFAULT_LLM_PROVIDER=anthropic
-DEFAULT_LLM_MODEL=claude-sonnet-4-5-20250514
+DEFAULT_LLM_MODEL=claude-sonnet-4-5-20250929
 ECONOMY_LLM_PROVIDER=anthropic
-ECONOMY_LLM_MODEL=claude-haiku-4-5-20250514
+ECONOMY_LLM_MODEL=claude-haiku-4-5-20251001
 ANTHROPIC_API_KEY=sk-ant-api-key-value
 
 # =============================================================================

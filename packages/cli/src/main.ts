@@ -402,8 +402,8 @@ Full guide: https://docs.getinboxzero.com/self-hosting/microsoft-oauth`,
 
   const defaultModels: Record<string, { default: string; economy: string }> = {
     anthropic: {
-      default: "claude-sonnet-4-5-20250514",
-      economy: "claude-haiku-4-5-20250514",
+      default: "claude-sonnet-4-5-20250929",
+      economy: "claude-haiku-4-5-20251001",
     },
     openai: { default: "gpt-4.1", economy: "gpt-4.1-mini" },
     google: { default: "gemini-2.5-pro", economy: "gemini-2.5-flash" },
