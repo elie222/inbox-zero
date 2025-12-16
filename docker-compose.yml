@@ -127,8 +127,8 @@ services:
       # Auth key for wrapper service endpoints (required when using claude-code profile)
       # Generate with: openssl rand -hex 32
       API_KEY: ${CLAUDE_CODE_WRAPPER_AUTH_KEY:-}
-      # Explicitly unset API key to test OAuth-only auth
-      ANTHROPIC_API_KEY: ""
+      # Claude auth: set CLAUDE_CODE_OAUTH_TOKEN for Max subscription, or ANTHROPIC_API_KEY for API auth
+      # If both are set, OAuth token takes precedence (see cli.ts buildClaudeEnv)
     volumes:
       # Use named volume for isolated container auth
       - claude-code-data:/root/.claude
