@@ -140,7 +140,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     return NextResponse.json(
       {
         success: false,
-        error: `Email account not found for: ${userEmail}`,
+        error: "Email account not found",
         code: "EMAIL_NOT_FOUND",
       } satisfies InvokeToolResponse,
       { status: 404 },
@@ -155,7 +155,6 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
   logger.info("Invoking tool", {
     tool: toolName,
-    userEmail,
     emailAccountId: emailAccount.id,
     inputKeys: Object.keys(input),
   });
