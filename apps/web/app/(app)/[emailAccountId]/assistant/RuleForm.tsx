@@ -125,9 +125,11 @@ export function RuleForm({
     watch,
     setValue,
     control,
-    formState: { errors, isSubmitting, isSubmitted },
+    formState,
     trigger,
   } = form;
+
+  const { errors, isSubmitting, isSubmitted } = formState;
 
   const {
     fields: conditionFields,
@@ -259,22 +261,22 @@ export function RuleForm({
     const actionErrors: string[] = [];
     watch("actions")?.forEach((_, index) => {
       const actionError =
-        errors?.actions?.[index]?.url?.root?.message ||
-        errors?.actions?.[index]?.labelId?.root?.message ||
-        errors?.actions?.[index]?.to?.root?.message;
+        formState.errors?.actions?.[index]?.url?.root?.message ||
+        formState.errors?.actions?.[index]?.labelId?.root?.message ||
+        formState.errors?.actions?.[index]?.to?.root?.message;
       if (actionError) actionErrors.push(actionError);
     });
     return actionErrors;
-  }, [errors, watch]);
+  }, [formState, watch]);
 
   const conditionalOperator = watch("conditionalOperator");
   const terminology = getEmailTerminology(provider);
 
   const formErrors = useMemo(() => {
-    return Object.values(errors)
+    return Object.values(formState.errors)
       .filter((error): error is { message: string } => Boolean(error.message))
       .map((error) => error.message);
-  }, [errors]);
+  }, [formState]);
 
   const typeOptions = useMemo(() => {
     const options: {
