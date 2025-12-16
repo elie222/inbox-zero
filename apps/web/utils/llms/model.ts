@@ -215,11 +215,11 @@ function selectModel(
           "CLAUDE_CODE_WRAPPER_AUTH_KEY is required for Claude Code provider",
         );
       }
-      // Use provided model, env var, or default name for display
-      const claudeModel = aiModel || env.CLAUDE_CODE_MODEL;
+      // Default to "sonnet" for complex tasks (env var override available)
+      const claudeModel = aiModel || env.CLAUDE_CODE_MODEL || "sonnet";
       return {
         provider: Provider.CLAUDE_CODE,
-        modelName: claudeModel || "claude-code-cli",
+        modelName: claudeModel,
         // Claude Code doesn't use Vercel AI SDK's LanguageModelV2
         // The model field is set to null and claudeCodeConfig is used instead
         model: null as unknown as LanguageModelV2,
@@ -271,11 +271,12 @@ function createOpenRouterProviderOptions(
 function selectEconomyModel(userAi: UserAIFields, online = false): SelectModel {
   // Handle Claude Code economy model explicitly via ECONOMY_LLM_PROVIDER
   if (env.ECONOMY_LLM_PROVIDER === Provider.CLAUDE_CODE) {
-    const economyModel = env.CLAUDE_CODE_ECONOMY_MODEL || env.CLAUDE_CODE_MODEL;
+    // Default to "haiku" for high-volume/economy tasks (env var override available)
+    const economyModel = env.CLAUDE_CODE_ECONOMY_MODEL || "haiku";
     return selectModel(
       {
         aiProvider: Provider.CLAUDE_CODE,
-        aiModel: economyModel || null,
+        aiModel: economyModel,
         aiApiKey: null,
       },
       undefined,

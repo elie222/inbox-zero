@@ -85,7 +85,7 @@ describe("Claude Code Provider", () => {
   });
 
   describe("getModel with Claude Code", () => {
-    it("should configure Claude Code provider correctly via env vars", () => {
+    it("should configure Claude Code provider with default model (sonnet)", () => {
       const userAi: UserAIFields = {
         aiApiKey: null,
         aiProvider: null,
@@ -94,18 +94,18 @@ describe("Claude Code Provider", () => {
 
       const result = getModel(userAi);
       expect(result.provider).toBe(Provider.CLAUDE_CODE);
-      expect(result.modelName).toBe("claude-code-cli");
+      expect(result.modelName).toBe("sonnet");
       expect(result.claudeCodeConfig).toEqual({
         baseUrl: "http://localhost:3100",
         timeout: 120_000,
         authKey: "test-auth-key-12345",
-        model: undefined,
+        model: "sonnet",
       });
       expect(result.backupModel).toBeNull();
     });
 
-    it("should use CLAUDE_CODE_MODEL when configured", () => {
-      vi.mocked(env).CLAUDE_CODE_MODEL = "sonnet";
+    it("should allow overriding default model via CLAUDE_CODE_MODEL", () => {
+      vi.mocked(env).CLAUDE_CODE_MODEL = "opus";
 
       const userAi: UserAIFields = {
         aiApiKey: null,
@@ -114,8 +114,8 @@ describe("Claude Code Provider", () => {
       };
 
       const result = getModel(userAi);
-      expect(result.modelName).toBe("sonnet");
-      expect(result.claudeCodeConfig?.model).toBe("sonnet");
+      expect(result.modelName).toBe("opus");
+      expect(result.claudeCodeConfig?.model).toBe("opus");
     });
 
     it("should use economy model when ECONOMY_LLM_PROVIDER is claudecode", () => {
@@ -134,10 +134,9 @@ describe("Claude Code Provider", () => {
       expect(result.claudeCodeConfig?.model).toBe("haiku");
     });
 
-    it("should fall back to CLAUDE_CODE_MODEL when economy model not set", () => {
+    it("should default to haiku for economy when CLAUDE_CODE_ECONOMY_MODEL not set", () => {
       vi.mocked(env).ECONOMY_LLM_PROVIDER = "claudecode";
-      vi.mocked(env).CLAUDE_CODE_MODEL = "sonnet";
-      // CLAUDE_CODE_ECONOMY_MODEL is undefined
+      // CLAUDE_CODE_ECONOMY_MODEL is undefined - should default to "haiku"
 
       const userAi: UserAIFields = {
         aiApiKey: null,
@@ -146,8 +145,8 @@ describe("Claude Code Provider", () => {
       };
 
       const result = getModel(userAi, "economy");
-      expect(result.modelName).toBe("sonnet");
-      expect(result.claudeCodeConfig?.model).toBe("sonnet");
+      expect(result.modelName).toBe("haiku");
+      expect(result.claudeCodeConfig?.model).toBe("haiku");
     });
 
     it("should use different provider for economy when ECONOMY_LLM_PROVIDER differs from DEFAULT", () => {
