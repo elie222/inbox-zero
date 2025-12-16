@@ -1,6 +1,6 @@
 import { spawn } from "node:child_process";
 import { v4 as uuidv4 } from "uuid";
-import type { ClaudeCliOutput, UsageInfo } from "./types.js";
+import type { ClaudeCliOutput, ErrorCode, UsageInfo } from "./types.js";
 import { logger } from "./logger.js";
 
 /**
@@ -257,10 +257,10 @@ function parseCliOutput(
  * Custom error class for Claude CLI errors with additional context.
  */
 export class ClaudeCliError extends Error {
-  code: string;
+  code: ErrorCode;
   rawOutput?: string;
 
-  constructor(message: string, code: string, rawOutput?: string) {
+  constructor(message: string, code: ErrorCode, rawOutput?: string) {
     super(message);
     this.name = "ClaudeCliError";
     this.code = code;

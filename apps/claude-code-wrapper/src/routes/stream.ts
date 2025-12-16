@@ -221,10 +221,13 @@ router.post("/stream", async (req: Request, res: Response) => {
       } catch {
         // Log but don't fail - incomplete JSON in final buffer is expected
         // when the CLI exits mid-stream (e.g., user cancellation)
-        logger.debug("Final buffer parse failed (expected during interrupts)", {
-          bufferLength: lineBuffer.length,
-          bufferPreview: lineBuffer.slice(0, 100),
-        });
+        logger.info(
+          "Final buffer parse incomplete (expected during interrupts)",
+          {
+            bufferLength: lineBuffer.length,
+            bufferPreview: lineBuffer.slice(0, 100),
+          },
+        );
       }
     }
 

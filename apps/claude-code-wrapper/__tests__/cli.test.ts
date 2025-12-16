@@ -268,10 +268,14 @@ describe("CLI Module", () => {
 
   describe("ClaudeCliError", () => {
     it("preserves error code and raw output", () => {
-      const error = new ClaudeCliError("Test error", "TEST_CODE", "raw output");
+      const error = new ClaudeCliError(
+        "Test error",
+        "INTERNAL_ERROR",
+        "raw output",
+      );
 
       expect(error.message).toBe("Test error");
-      expect(error.code).toBe("TEST_CODE");
+      expect(error.code).toBe("INTERNAL_ERROR");
       expect(error.rawOutput).toBe("raw output");
       expect(error.name).toBe("ClaudeCliError");
     });

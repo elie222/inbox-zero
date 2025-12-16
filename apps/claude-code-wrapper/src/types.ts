@@ -56,16 +56,22 @@ export interface GenerateObjectResponse {
   sessionId: string;
 }
 
+/**
+ * Error codes used by the Claude Code wrapper.
+ * Shared between ErrorResponse and ClaudeCliError for type safety.
+ */
+export type ErrorCode =
+  | "VALIDATION_ERROR"
+  | "INTERNAL_ERROR"
+  | "UNKNOWN_ERROR"
+  | "TIMEOUT_ERROR"
+  | "CLI_EXIT_ERROR"
+  | "SPAWN_ERROR"
+  | "PARSE_ERROR";
+
 export interface ErrorResponse {
   error: string;
-  code:
-    | "VALIDATION_ERROR"
-    | "INTERNAL_ERROR"
-    | "UNKNOWN_ERROR"
-    | "TIMEOUT_ERROR"
-    | "CLI_EXIT_ERROR"
-    | "SPAWN_ERROR"
-    | "PARSE_ERROR";
+  code: ErrorCode;
   rawText?: string;
 }
 
