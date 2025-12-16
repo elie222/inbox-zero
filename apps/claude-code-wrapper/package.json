@@ -1,0 +1,28 @@
+{
+  "name": "@inboxzero/claude-code-wrapper",
+  "version": "1.0.0",
+  "private": true,
+  "description": "HTTP wrapper service for Claude Code CLI",
+  "main": "dist/index.js",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "lint": "biome check ."
+  },
+  "dependencies": {
+    "express": "^4.21.2",
+    "uuid": "^11.1.0",
+    "zod": "^3.24.5"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.3",
+    "@types/node": "^22.15.29",
+    "@types/uuid": "^10.0.0",
+    "tsx": "^4.19.4",
+    "typescript": "^5.8.3"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

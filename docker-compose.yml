@@ -112,8 +112,33 @@ services:
       - inbox-zero-network
     restart: always
 
+  claude-code-wrapper:
+    build:
+      context: .
+      dockerfile: apps/claude-code-wrapper/Dockerfile
+    ports:
+      - "${CLAUDE_CODE_PORT:-3100}:3100"
+    networks:
+      - inbox-zero-network
+    environment:
+      PORT: 3100
+      API_KEY: ${CLAUDE_CODE_API_KEY:-}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+    volumes:
+      - claude-code-data:/root/.claude
+    restart: always
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3100/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    profiles:
+      - claude-code
+      - all
+
 volumes:
   database-data:
+  claude-code-data:
 
 networks:
   inbox-zero-network:
