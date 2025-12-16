@@ -22,7 +22,6 @@ export const streamRequestSchema = z.object({
   system: z.string().optional(),
   prompt: z.string(),
   sessionId: z.string().optional(),
-  maxTokens: z.number().optional(),
   model: z.string().optional(),
 });
 
