@@ -32,6 +32,11 @@ import {
 import { sleep } from "@/utils/sleep";
 import { getModel, type ModelType } from "@/utils/llms/model";
 import { createScopedLogger } from "@/utils/logger";
+import { Provider } from "@/utils/llms/config";
+import {
+  createClaudeCodeGenerateText,
+  createClaudeCodeGenerateObject,
+} from "@/utils/llms/claude-code-llm";
 
 const logger = createScopedLogger("llms");
 
@@ -52,6 +57,20 @@ export function createGenerateText({
   label: string;
   modelOptions: ReturnType<typeof getModel>;
 }): typeof generateText {
+  // Claude Code provider - delegate to separate module to minimize upstream changes
+  if (
+    modelOptions.provider === Provider.CLAUDE_CODE &&
+    modelOptions.claudeCodeConfig
+  ) {
+    return createClaudeCodeGenerateText({
+      emailAccount,
+      label,
+      config: modelOptions.claudeCodeConfig,
+      modelName: modelOptions.modelName,
+      provider: modelOptions.provider,
+    });
+  }
+
   return async (...args) => {
     const [options, ...restArgs] = args;
 
@@ -139,6 +158,20 @@ export function createGenerateObject({
   label: string;
   modelOptions: ReturnType<typeof getModel>;
 }): typeof generateObject {
+  // Claude Code provider - delegate to separate module to minimize upstream changes
+  if (
+    modelOptions.provider === Provider.CLAUDE_CODE &&
+    modelOptions.claudeCodeConfig
+  ) {
+    return createClaudeCodeGenerateObject({
+      emailAccount,
+      label,
+      config: modelOptions.claudeCodeConfig,
+      modelName: modelOptions.modelName,
+      provider: modelOptions.provider,
+    });
+  }
+
   return async (...args) => {
     const maxRetries = 2;
     let lastError: unknown;
