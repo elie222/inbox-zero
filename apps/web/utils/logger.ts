@@ -252,7 +252,7 @@ function hashSensitiveFields<T>(obj: T, depth = 0): T {
         processed[key] = !!value;
       }
       // Redact content fields in production (unless debug logs enabled)
-      else if (CONTENT_FIELD_NAMES.has(key) && !env.ENABLE_DEBUG_LOGS) {
+      else if (CONTENT_FIELD_NAMES.has(key) && env.NODE_ENV === "production" && !env.ENABLE_DEBUG_LOGS) {
         processed[key] = !!value;
       }
       // Hash emails in production only (server-side only)
