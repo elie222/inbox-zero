@@ -23,6 +23,7 @@ import {
   getClaudeCodeSession,
   saveClaudeCodeSession,
   getWorkflowGroupFromLabel,
+  type WorkflowGroup,
 } from "@/utils/redis/claude-code-session";
 
 // Simplified types for Claude Code results - compatible with how callers use generateText/generateObject
@@ -71,7 +72,7 @@ async function retrieveSessionId({
 }: {
   userEmail: string;
   label: string;
-}): Promise<{ sessionId: string | undefined; workflowGroup: string }> {
+}): Promise<{ sessionId: string | undefined; workflowGroup: WorkflowGroup }> {
   const workflowGroup = getWorkflowGroupFromLabel(label);
   let sessionId: string | undefined;
 
@@ -107,14 +108,14 @@ async function persistSessionId({
   label,
 }: {
   userEmail: string;
-  workflowGroup: string;
+  workflowGroup: WorkflowGroup;
   sessionId: string;
   label: string;
 }): Promise<void> {
   try {
     await saveClaudeCodeSession({
       userEmail,
-      workflowGroup: workflowGroup as "report" | "rules" | "clean" | "default",
+      workflowGroup,
       sessionId,
     });
   } catch (error) {
