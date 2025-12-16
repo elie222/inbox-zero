@@ -68,6 +68,26 @@ describe("isRetryableError", () => {
     expect(result.retryable).toBe(true);
   });
 
+  it("identifies ApplicationThrottled code as rate limit", () => {
+    const errorInfo = {
+      code: "ApplicationThrottled",
+      errorMessage: "Application is over its MailboxConcurrency limit.",
+    };
+    const result = isRetryableError(errorInfo);
+    expect(result.isRateLimit).toBe(true);
+    expect(result.retryable).toBe(true);
+  });
+
+  it("identifies MailboxConcurrency message as rate limit", () => {
+    const errorInfo = {
+      status: 429,
+      errorMessage: "MailboxConcurrency limit exceeded",
+    };
+    const result = isRetryableError(errorInfo);
+    expect(result.isRateLimit).toBe(true);
+    expect(result.retryable).toBe(true);
+  });
+
   it("identifies server errors", () => {
     for (const status of [502, 503, 504]) {
       const errorInfo = { status, errorMessage: "Server error" };
