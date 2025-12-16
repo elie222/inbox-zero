@@ -144,7 +144,6 @@ services:
       retries: 3
     profiles:
       - claude-code
-      - all
 
 volumes:
   database-data:
