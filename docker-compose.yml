@@ -132,7 +132,9 @@ services:
     volumes:
       # Use named volume for isolated container auth
       - claude-code-data:/root/.claude
-      # Or bind mount host's Claude config for Max subscription:
+      # WARNING: Bind-mounting ~/.claude exposes your local Claude credentials to the container.
+      # This is NOT SAFE for production - only use for local development/testing.
+      # For production, set CLAUDE_CODE_OAUTH_TOKEN or ANTHROPIC_API_KEY in .env instead.
       # - ~/.claude:/root/.claude:ro
     restart: always
     healthcheck:
