@@ -152,23 +152,28 @@ function parseJsonResponse(text: string): unknown {
     }
   }
 
-  // Try to find JSON object in the response
-  const objectMatch = text.match(/\{[\s\S]*\}/);
-  if (objectMatch) {
-    try {
-      return JSON.parse(objectMatch[0]);
-    } catch {
-      // Fall through to error
+  // Try to find JSON object in the response using non-greedy global match
+  // Iterate through candidates to handle cases like `{"a":1} text {"b":2}`
+  const objectMatches = text.match(/\{[\s\S]*?\}/g);
+  if (objectMatches) {
+    for (const match of objectMatches) {
+      try {
+        return JSON.parse(match);
+      } catch {
+        // Try next candidate
+      }
     }
   }
 
-  // Try to find JSON array in the response
-  const arrayMatch = text.match(/\[[\s\S]*\]/);
-  if (arrayMatch) {
-    try {
-      return JSON.parse(arrayMatch[0]);
-    } catch {
-      // Fall through to error
+  // Try to find JSON array in the response using non-greedy global match
+  const arrayMatches = text.match(/\[[\s\S]*?\]/g);
+  if (arrayMatches) {
+    for (const match of arrayMatches) {
+      try {
+        return JSON.parse(match);
+      } catch {
+        // Try next candidate
+      }
     }
   }
 
