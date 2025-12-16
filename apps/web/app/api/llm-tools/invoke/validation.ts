@@ -84,7 +84,7 @@ export type AddToKnowledgeBaseInput = z.infer<
  * Input schema for updateRuleConditions tool.
  */
 export const updateRuleConditionsInputSchema = z.object({
-  ruleName: z.string(),
+  ruleName: z.string().min(1, "Rule name is required"),
   condition: z.object({
     aiInstructions: z.string().optional(),
     static: z
@@ -107,7 +107,7 @@ export type UpdateRuleConditionsInput = z.infer<
  * Input schema for updateRuleActions tool.
  */
 export const updateRuleActionsInputSchema = z.object({
-  ruleName: z.string(),
+  ruleName: z.string().min(1, "Rule name is required"),
   actions: z.array(
     z.object({
       type: z.enum([
@@ -144,7 +144,7 @@ export type UpdateRuleActionsInput = z.infer<
  * Input schema for updateLearnedPatterns tool.
  */
 export const updateLearnedPatternsInputSchema = z.object({
-  ruleName: z.string(),
+  ruleName: z.string().min(1, "Rule name is required"),
   learnedPatterns: z
     .array(
       z.object({
