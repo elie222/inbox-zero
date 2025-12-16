@@ -53,7 +53,7 @@ router.post("/stream", async (req: Request, res: Response) => {
     return;
   }
 
-  const { prompt, system, sessionId, model } = parseResult.data;
+  const { prompt, system, sessionId, model, userEmail } = parseResult.data;
 
   // Set up SSE headers
   res.setHeader("Content-Type", "text/event-stream");
@@ -73,7 +73,7 @@ router.post("/stream", async (req: Request, res: Response) => {
 
   const claude = spawn("claude", args, {
     stdio: ["pipe", "pipe", "pipe"],
-    env: buildClaudeEnv(),
+    env: buildClaudeEnv({ userEmail }),
   });
 
   const currentSessionId = sessionId || uuidv4();

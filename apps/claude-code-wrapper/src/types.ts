@@ -7,6 +7,8 @@ export const generateTextRequestSchema = z.object({
   sessionId: z.string().optional(),
   maxTokens: z.number().optional(),
   model: z.string().optional(),
+  /** User email for tool proxy access (enables Claude skills to call Inbox Zero tools) */
+  userEmail: z.string().email().optional(),
 });
 
 export const generateObjectRequestSchema = z.object({
@@ -16,6 +18,8 @@ export const generateObjectRequestSchema = z.object({
   sessionId: z.string().optional(),
   maxTokens: z.number().optional(),
   model: z.string().optional(),
+  /** User email for tool proxy access (enables Claude skills to call Inbox Zero tools) */
+  userEmail: z.string().email().optional(),
 });
 
 export const streamRequestSchema = z.object({
@@ -23,6 +27,8 @@ export const streamRequestSchema = z.object({
   prompt: z.string(),
   sessionId: z.string().optional(),
   model: z.string().optional(),
+  /** User email for tool proxy access (enables Claude skills to call Inbox Zero tools) */
+  userEmail: z.string().email().optional(),
 });
 
 // Inferred types
