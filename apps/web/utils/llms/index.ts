@@ -81,7 +81,8 @@ export function createGenerateText({
       emailAccount,
       label,
       config: claudeCodeConfig,
-      modelName: claudeCodeConfig.model!,
+      // Fallback chain matches buildClaudeCodeConfig() logic
+      modelName: claudeCodeConfig.model || env.CLAUDE_CODE_MODEL || "sonnet",
       provider: Provider.CLAUDE_CODE,
     });
   }
