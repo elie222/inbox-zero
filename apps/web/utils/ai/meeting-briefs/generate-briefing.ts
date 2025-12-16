@@ -22,9 +22,7 @@ const briefingSchema = z.object({
     .array(guestBriefingSchema)
     .describe("Briefing information for each meeting guest"),
 });
-
-export type GuestBriefing = z.infer<typeof guestBriefingSchema>;
-export type BriefingContent = z.infer<typeof briefingSchema>;
+type BriefingContent = z.infer<typeof briefingSchema>;
 
 export async function aiGenerateMeetingBriefing({
   briefingData,
