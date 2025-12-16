@@ -4,7 +4,7 @@
  * Tests the /health endpoint that verifies service status and Claude CLI availability.
  */
 
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { spawn } from "node:child_process";
 import request from "supertest";
 import express from "express";
@@ -28,6 +28,10 @@ function createTestApp() {
 describe("Health Route", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   describe("GET /health", () => {
@@ -133,10 +137,12 @@ describe("Health Route", () => {
         const res = await responsePromise;
 
         expect(res.status).toBe(503);
-        expect(res.body.status).toBe("unhealthy");
+        expect(res.body).toMatchObject({
+          status: "unhealthy",
+          claudeCli: "unavailable",
+          error: "Claude CLI not found or not accessible",
+        });
         expect(mockProc.kill).toHaveBeenCalled();
-
-        vi.useRealTimers();
       },
       { timeout: 10_000 },
     );
