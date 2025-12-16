@@ -78,7 +78,10 @@ function ResultDisplay({
   }
 
   return (
-    <HoverCard content={<ResultDisplayContent result={result} />}>
+    <HoverCard
+      content={<ResultDisplayContent result={result} />}
+      className="w-80"
+    >
       <Badge color={rule ? "green" : "red"} className="whitespace-nowrap">
         {rule
           ? rule.name
@@ -136,7 +139,9 @@ export function ResultDisplayContent({ result }: { result: RunRulesResult }) {
                   type: action.type,
                   label: action.label,
                   folderName: action.folderName,
-                  content: action.content,
+                  content:
+                    action.content +
+                    "https://www.google.comasdjhgaghjdsghjasdgjasdjhasd",
                   to: action.to,
                   subject: action.subject,
                   cc: action.cc,

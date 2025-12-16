@@ -57,7 +57,7 @@ When searching, use natural language queries that would find relevant emails. Th
 Search Tips:
 - The search looks for EXACT text matches in emails
 - IMPORTANT: Try simpler queries if you don't get results for your first search
-- Try the subject line first if it contains the main topic
+- Do NOT use field prefixes like subject:, from:, to:, or label: - just use plain text queries
 
 Example search queries:
 - "order status" OR "shipment arrival" OR "tracking number"

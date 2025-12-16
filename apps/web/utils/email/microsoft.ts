@@ -807,7 +807,11 @@ export class OutlookProvider implements EmailProvider {
 
     // For Outlook, separate search queries from date filters
     // Microsoft Graph API handles these differently
-    const originalQuery = options.query || "";
+    // Strip Gmail-style prefixes that don't work with Microsoft Graph
+    const originalQuery = (options.query || "").replace(
+      /\b(subject|label):/gi,
+      "",
+    );
 
     // Build date filter for Outlook (no quotes for DateTimeOffset comparison)
     const dateFilters: string[] = [];
