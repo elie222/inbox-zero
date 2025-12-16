@@ -146,5 +146,27 @@ describe("Health Route", () => {
       },
       { timeout: 10_000 },
     );
+
+    it("cancels timeout when CLI completes successfully", async () => {
+      const mockProc = createMockChildProcess();
+      mockSpawn.mockReturnValue(mockProc as never);
+
+      const app = createTestApp();
+      const responsePromise = request(app).get("/health");
+
+      // CLI completes successfully - this should cancel the 5s timeout
+      setTimeout(() => {
+        mockProc.exitCode = 0;
+        mockProc.emit("close", 0, null);
+      }, 10);
+
+      const res = await responsePromise;
+
+      // Should get healthy response
+      expect(res.status).toBe(200);
+      expect(res.body.status).toBe("healthy");
+      // Process should NOT have been killed (it completed naturally)
+      expect(mockProc.kill).not.toHaveBeenCalled();
+    });
   });
 });
