@@ -121,6 +121,7 @@ export const updateRuleActionsInputSchema = z.object({
         ActionType.MARK_SPAM,
         ActionType.CALL_WEBHOOK,
         ActionType.DIGEST,
+        ActionType.MOVE_FOLDER,
       ]),
       fields: z.object({
         label: z.string().nullish(),
