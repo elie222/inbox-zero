@@ -18,7 +18,10 @@ import { chatCompletionStream as baseChatCompletionStream } from "@/utils/llms/i
 import { getModel, type ModelType } from "@/utils/llms/model";
 import { Provider } from "@/utils/llms/config";
 import type { UserAIFields } from "@/utils/llms/types";
-import { createClaudeCodeStreamText } from "@/utils/llms/claude-code-llm";
+import {
+  createClaudeCodeStreamText,
+  type TextStreamResult,
+} from "@/utils/llms/claude-code-llm";
 import { createScopedLogger } from "@/utils/logger";
 
 const logger = createScopedLogger("llms/chat-completion-stream");
@@ -45,6 +48,16 @@ interface ChatCompletionStreamOptions {
  *
  * For all other providers:
  * - Delegates to the standard Vercel AI SDK implementation
+ *
+ * Returns a TextStreamResult, which is the minimal common interface
+ * satisfied by both implementations. Callers should only rely on:
+ * - textStream: AsyncIterable<string>
+ * - text: Promise<string>
+ * - usage: Promise<LanguageModelUsage>
+ * - toTextStreamResponse(): Response
+ *
+ * The AI SDK implementation may have additional properties (tools, steps, etc.)
+ * but those are not guaranteed and should not be used through this wrapper.
  */
 export async function chatCompletionStream({
   userAi,
@@ -56,7 +69,7 @@ export async function chatCompletionStream({
   usageLabel: label,
   onFinish,
   onStepFinish,
-}: ChatCompletionStreamOptions) {
+}: ChatCompletionStreamOptions): Promise<TextStreamResult> {
   const { provider, modelName, claudeCodeConfig } = getModel(userAi, modelType);
 
   // Claude Code provider - use dedicated streaming implementation

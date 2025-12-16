@@ -64,10 +64,12 @@ async function safeJsonParse<T>(response: Response): Promise<T | null> {
   const text = await response.text();
   try {
     return JSON.parse(text) as T;
-  } catch {
+  } catch (parseError) {
     logger.warn("Failed to parse response as JSON", {
       status: response.status,
       bodyPreview: text.slice(0, 200),
+      parseError:
+        parseError instanceof Error ? parseError.message : String(parseError),
     });
     return null;
   }
@@ -146,9 +148,9 @@ export async function claudeCodeGenerateText(
 export interface ClaudeCodeStreamResult {
   /** ReadableStream of text chunks as they arrive */
   textStream: ReadableStream<string>;
-  /** Session ID for conversation continuity (available immediately) */
+  /** Session ID for conversation continuity (resolves early in stream, after session event) */
   sessionId: Promise<string>;
-  /** Usage stats (resolves when stream completes) */
+  /** Usage stats (resolves when stream completes via result event) */
   usage: Promise<ClaudeCodeUsage>;
   /** Full accumulated text (resolves when stream completes) */
   text: Promise<string>;
@@ -306,11 +308,18 @@ export async function claudeCodeStreamText(
 
   let accumulatedText = "";
   let sessionIdReceived = false;
+  let usageReceived = false;
 
   // Transform SSE events into text chunks
   const textStream = response.body.pipeThrough(createSSEParser()).pipeThrough(
     new TransformStream<{ event: string; data: string }, string>({
       transform(sseEvent, controller) {
+        // Critical events (session, result, error, done) must propagate parse errors
+        // Text events can log and continue - degraded content is better than total failure
+        const isCriticalEvent = ["session", "result", "error", "done"].includes(
+          sseEvent.event,
+        );
+
         try {
           switch (sseEvent.event) {
             case "session": {
@@ -329,6 +338,7 @@ export async function claudeCodeStreamText(
             }
             case "result": {
               const parsed = JSON.parse(sseEvent.data) as SSEResultEvent;
+              usageReceived = true;
               resolveUsage(parsed.usage);
               if (!sessionIdReceived) {
                 sessionIdReceived = true;
@@ -338,10 +348,17 @@ export async function claudeCodeStreamText(
             }
             case "error": {
               const parsed = JSON.parse(sseEvent.data) as SSEErrorEvent;
+              if (!parsed.code) {
+                logger.warn(
+                  "SSE error event missing error code - using generic STREAM_ERROR",
+                  { errorMessage: parsed.error },
+                );
+              }
               const error = new ClaudeCodeError(
                 parsed.error,
                 parsed.code || "STREAM_ERROR",
               );
+              usageReceived = true; // Prevent double rejection in flush
               rejectUsage(error);
               rejectText(error);
               if (!sessionIdReceived) {
@@ -360,20 +377,54 @@ export async function claudeCodeStreamText(
             }
           }
         } catch (parseError) {
-          logger.warn("Failed to parse SSE event", {
-            event: sseEvent.event,
-            data: sseEvent.data.slice(0, 100),
-            error: parseError,
-          });
+          if (isCriticalEvent) {
+            // Critical event parse failure - propagate error
+            logger.error(
+              "Failed to parse critical SSE event - stream integrity compromised",
+              {
+                event: sseEvent.event,
+                data: sseEvent.data.slice(0, 100),
+                error: parseError,
+              },
+            );
+            const error = new ClaudeCodeError(
+              `Failed to parse critical SSE event: ${sseEvent.event}`,
+              "SSE_PARSE_ERROR",
+            );
+            if (!usageReceived) {
+              usageReceived = true;
+              rejectUsage(error);
+            }
+            rejectText(error);
+            if (!sessionIdReceived) {
+              rejectSessionId(error);
+            }
+            controller.error(error);
+          } else {
+            // Non-critical event (text) - log and continue
+            logger.warn("Failed to parse SSE text event - continuing stream", {
+              event: sseEvent.event,
+              data: sseEvent.data.slice(0, 100),
+              error: parseError,
+            });
+          }
         }
       },
       flush() {
-        // If we never got a result event, resolve with default values
+        // Handle promises that were never resolved/rejected during stream
         if (!sessionIdReceived) {
           rejectSessionId(
             new ClaudeCodeError(
               "Stream ended without session ID",
               "NO_SESSION",
+            ),
+          );
+        }
+        if (!usageReceived) {
+          rejectUsage(
+            new ClaudeCodeError(
+              "Stream ended without usage information",
+              "NO_USAGE",
             ),
           );
         }
