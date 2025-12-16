@@ -34,6 +34,32 @@ const logger = createScopedLogger("llms/claude-code-llm");
 const MAX_LOG_LENGTH = 200;
 
 /**
+ * Label-to-model overrides for Claude Code provider.
+ * Allows specific tasks to use faster/cheaper models (e.g., haiku for classification).
+ * Labels not listed here use the default model from config.
+ *
+ * This enables performance optimization without modifying upstream code -
+ * the model selection happens at the provider level based on the task label.
+ */
+const LABEL_MODEL_OVERRIDES: Record<string, string> = {
+  // Classification/extraction tasks - fast model is sufficient
+  "Choose rule": "haiku",
+  "Args for rule": "haiku",
+  "Categorize sender": "haiku",
+  "Categorize senders bulk": "haiku",
+  "Summarize email": "haiku",
+  // Complex/creative tasks use default (sonnet) - no override needed
+};
+
+/**
+ * Selects the appropriate model based on the task label.
+ * Returns label-specific override if defined, otherwise the default model.
+ */
+function getModelForLabel(label: string, defaultModel?: string): string {
+  return LABEL_MODEL_OVERRIDES[label] ?? defaultModel ?? "sonnet";
+}
+
+/**
  * Retrieves existing session ID for conversation continuity.
  * Returns undefined on error (graceful degradation).
  */
@@ -115,8 +141,13 @@ export function createClaudeCodeGenerateText(
   return async (...args) => {
     const [callOptions] = args;
 
+    // Select model based on task label (allows faster models for simple tasks)
+    const effectiveModel = getModelForLabel(label, config.model);
+    const effectiveConfig = { ...config, model: effectiveModel };
+
     logger.trace("Generating text via Claude Code", {
       label,
+      model: effectiveModel,
       system: callOptions.system?.slice(0, MAX_LOG_LENGTH),
       prompt:
         typeof callOptions.prompt === "string"
@@ -136,7 +167,7 @@ export function createClaudeCodeGenerateText(
         label,
       });
 
-      const result = await claudeCodeGenerateText(config, {
+      const result = await claudeCodeGenerateText(effectiveConfig, {
         system: callOptions.system,
         prompt,
         sessionId,
@@ -224,8 +255,13 @@ export function createClaudeCodeGenerateObject(
   return async (...args) => {
     const [callOptions] = args;
 
+    // Select model based on task label (allows faster models for simple tasks)
+    const effectiveModel = getModelForLabel(label, config.model);
+    const effectiveConfig = { ...config, model: effectiveModel };
+
     logger.trace("Generating object via Claude Code", {
       label,
+      model: effectiveModel,
       system: callOptions.system?.slice(0, MAX_LOG_LENGTH),
       prompt:
         typeof callOptions.prompt === "string"
@@ -250,7 +286,7 @@ export function createClaudeCodeGenerateObject(
         label,
       });
 
-      const result = await claudeCodeGenerateObject(config, {
+      const result = await claudeCodeGenerateObject(effectiveConfig, {
         system: callOptions.system,
         prompt,
         schema: callOptions.schema,

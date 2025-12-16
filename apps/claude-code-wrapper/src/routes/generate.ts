@@ -1,5 +1,6 @@
 import { Router, type Request, type Response } from "express";
 import { executeClaudeCli, ClaudeCliError } from "../cli.js";
+import { logger } from "../logger.js";
 import {
   generateTextRequestSchema,
   generateObjectRequestSchema,
@@ -30,6 +31,12 @@ router.post(
     }
 
     const { prompt, system, sessionId, maxTokens, model } = parseResult.data;
+
+    logger.info("generate-text", {
+      model: model || "default",
+      hasSystem: !!system,
+      promptLength: prompt.length,
+    });
 
     try {
       const result = await executeClaudeCli({
@@ -76,6 +83,12 @@ router.post(
 
     const { prompt, system, schema, sessionId, maxTokens, model } =
       parseResult.data;
+
+    logger.info("generate-object", {
+      model: model || "default",
+      hasSystem: !!system,
+      promptLength: prompt.length,
+    });
 
     // Build enhanced prompt that instructs Claude to output JSON matching schema
     const schemaString = JSON.stringify(schema, null, 2);
