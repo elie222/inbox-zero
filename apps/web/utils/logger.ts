@@ -219,9 +219,13 @@ const REDACTED_FIELD_NAMES = new Set([
   "authorization",
 ]);
 
+// Fields containing email/message content - redacted in production unless debug logs enabled
+const CONTENT_FIELD_NAMES = new Set(["text", "body"]);
+
 /**
  * Recursively processes an object to protect sensitive data:
  * - REDACTED_FIELD_NAMES: Replaced with boolean (never logged)
+ * - CONTENT_FIELD_NAMES: Replaced with boolean in production (unless debug logs enabled)
  * - SENSITIVE_FIELD_NAMES: Hashed in production (raw in dev/test)
  *
  * Only works server-side - client-side logs are visible in browser anyway.
@@ -245,6 +249,10 @@ function hashSensitiveFields<T>(obj: T, depth = 0): T {
     for (const [key, value] of Object.entries(obj)) {
       // Always redact tokens - never log them
       if (REDACTED_FIELD_NAMES.has(key)) {
+        processed[key] = !!value;
+      }
+      // Redact content fields in production (unless debug logs enabled)
+      else if (CONTENT_FIELD_NAMES.has(key) && env.NODE_ENV === "production" && !env.ENABLE_DEBUG_LOGS) {
         processed[key] = !!value;
       }
       // Hash emails in production only (server-side only)
