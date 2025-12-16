@@ -121,6 +121,14 @@ export async function executeClaudeCli(
       if (timeoutId) clearTimeout(timeoutId);
 
       if (code !== 0) {
+        // Log the full error details for debugging
+        logger.error("Claude CLI exited with non-zero code", {
+          code,
+          stderr: stderr.slice(0, 1000),
+          stdout: stdout.slice(0, 1000),
+          prompt: options.prompt.slice(0, 100),
+          model: options.model,
+        });
         reject(
           new ClaudeCliError(
             `Claude CLI exited with code ${code}`,

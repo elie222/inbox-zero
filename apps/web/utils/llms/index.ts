@@ -14,6 +14,7 @@ import {
   NoObjectGeneratedError,
   TypeValidationError,
 } from "ai";
+import { env } from "@/env";
 import { jsonrepair } from "jsonrepair";
 import type { LanguageModelV2 } from "@ai-sdk/provider";
 import { saveAiUsage } from "@/utils/usage";
@@ -30,7 +31,12 @@ import {
   isServiceUnavailableError,
 } from "@/utils/error";
 import { sleep } from "@/utils/sleep";
-import { getModel, type ModelType } from "@/utils/llms/model";
+import {
+  getModel,
+  type ModelType,
+  buildClaudeCodeConfig,
+  isClaudeCodeAvailable,
+} from "@/utils/llms/model";
 import { createScopedLogger } from "@/utils/logger";
 import { Provider } from "@/utils/llms/config";
 import {
@@ -58,16 +64,25 @@ export function createGenerateText({
   modelOptions: ReturnType<typeof getModel>;
 }): typeof generateText {
   // Claude Code provider - delegate to separate module to minimize upstream changes
-  if (
-    modelOptions.provider === Provider.CLAUDE_CODE &&
-    modelOptions.claudeCodeConfig
-  ) {
+  // If Claude Code is the DEFAULT provider, use it for all generateText calls
+  // regardless of what modelOptions.provider says (enables override at wrapper layer)
+  const shouldUseClaudeCode =
+    (modelOptions.provider === Provider.CLAUDE_CODE &&
+      modelOptions.claudeCodeConfig) ||
+    (env.DEFAULT_LLM_PROVIDER === Provider.CLAUDE_CODE &&
+      isClaudeCodeAvailable());
+
+  if (shouldUseClaudeCode) {
+    // Use existing config from modelOptions, or build from env vars
+    const claudeCodeConfig =
+      modelOptions.claudeCodeConfig || buildClaudeCodeConfig();
+
     return createClaudeCodeGenerateText({
       emailAccount,
       label,
-      config: modelOptions.claudeCodeConfig,
-      modelName: modelOptions.modelName,
-      provider: modelOptions.provider,
+      config: claudeCodeConfig,
+      modelName: claudeCodeConfig.model!,
+      provider: Provider.CLAUDE_CODE,
     });
   }
 
@@ -159,16 +174,27 @@ export function createGenerateObject({
   modelOptions: ReturnType<typeof getModel>;
 }): typeof generateObject {
   // Claude Code provider - delegate to separate module to minimize upstream changes
-  if (
-    modelOptions.provider === Provider.CLAUDE_CODE &&
-    modelOptions.claudeCodeConfig
-  ) {
+  // If Claude Code is the DEFAULT provider, use it for all generateObject calls
+  // regardless of what modelOptions.provider says (e.g., even if "chat" type selected anthropic)
+  // This is because generateObject doesn't need streaming with tools, which is the only
+  // reason we'd need a different provider
+  const shouldUseClaudeCode =
+    (modelOptions.provider === Provider.CLAUDE_CODE &&
+      modelOptions.claudeCodeConfig) ||
+    (env.DEFAULT_LLM_PROVIDER === Provider.CLAUDE_CODE &&
+      isClaudeCodeAvailable());
+
+  if (shouldUseClaudeCode) {
+    // Use existing config from modelOptions, or build from env vars
+    const claudeCodeConfig =
+      modelOptions.claudeCodeConfig || buildClaudeCodeConfig();
+
     return createClaudeCodeGenerateObject({
       emailAccount,
       label,
-      config: modelOptions.claudeCodeConfig,
-      modelName: modelOptions.modelName,
-      provider: modelOptions.provider,
+      config: claudeCodeConfig,
+      modelName: claudeCodeConfig.model!,
+      provider: Provider.CLAUDE_CODE,
     });
   }
 

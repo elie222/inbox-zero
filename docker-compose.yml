@@ -124,11 +124,9 @@ services:
       - ./apps/web/.env
     environment:
       PORT: 3100
-      # Auth key for wrapper service endpoints (required when using claude-code profile)
-      # Generate with: openssl rand -hex 32
-      API_KEY: ${CLAUDE_CODE_WRAPPER_AUTH_KEY:-}
       # HOME required for Claude CLI to find its config directory
       HOME: /home/bun
+      # CLAUDE_CODE_WRAPPER_API_KEY is read from env_file (apps/web/.env)
       # Claude auth: set CLAUDE_CODE_OAUTH_TOKEN for Max subscription, or ANTHROPIC_API_KEY for API auth
       # If both are set, OAuth token takes precedence (see cli.ts buildClaudeEnv)
       # LLM Tool Proxy: enables Claude skills to invoke Inbox Zero tools
@@ -148,7 +146,9 @@ services:
       - no-new-privileges:true
     cap_drop:
       - ALL
-    read_only: true
+    # Note: read_only disabled because Claude CLI needs to write to /home/bun/.claude.json
+    # Other security hardening (no-new-privileges, cap_drop) remains in place
+    read_only: false
     tmpfs:
       - /tmp:mode=1777,size=100m
     restart: always

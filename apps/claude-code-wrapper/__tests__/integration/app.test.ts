@@ -14,7 +14,7 @@ import { createMockChildProcess, createCliResultJson } from "../helpers.js";
 // Using vi.hoisted to ensure this runs at the earliest possible time
 const TEST_API_KEY = vi.hoisted(() => {
   const key = "test-api-key-12345";
-  process.env.API_KEY = key;
+  process.env.CLAUDE_CODE_WRAPPER_API_KEY = key;
   return key;
 });
 

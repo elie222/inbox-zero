@@ -7,12 +7,12 @@ import { logger } from "./logger.js";
 
 const app = express();
 const PORT = process.env.PORT || 3100;
-const API_KEY = process.env.API_KEY;
+const WRAPPER_API_KEY = process.env.CLAUDE_CODE_WRAPPER_API_KEY;
 
 // Require API key for security - prevents accidental exposure of wrapper service
-if (!API_KEY) {
+if (!WRAPPER_API_KEY) {
   logger.error(
-    "API_KEY environment variable is required. " +
+    "CLAUDE_CODE_WRAPPER_API_KEY environment variable is required. " +
       "Generate one with: openssl rand -hex 32",
   );
   process.exit(1);
@@ -39,7 +39,7 @@ app.use((req, res, next) => {
 
   // Use timing-safe comparison to prevent timing attacks
   const tokenBuffer = Buffer.from(token);
-  const apiKeyBuffer = Buffer.from(API_KEY);
+  const apiKeyBuffer = Buffer.from(WRAPPER_API_KEY);
   const isValid =
     tokenBuffer.length === apiKeyBuffer.length &&
     timingSafeEqual(tokenBuffer, apiKeyBuffer);
@@ -87,7 +87,7 @@ app.use(
 // Start server
 app.listen(PORT, () => {
   logger.info(`Claude Code Wrapper listening on port ${PORT}`);
-  logger.info("API Key authentication: enabled (required)");
+  logger.info("API key authentication: enabled (required)");
 });
 
 export default app;

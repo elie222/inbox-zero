@@ -31,6 +31,46 @@ export interface ClaudeCodeConfig {
   model?: string;
 }
 
+/**
+ * Builds Claude Code configuration from environment variables.
+ * Validates that required env vars are present and returns a complete config object.
+ *
+ * @param modelOverride - Optional model name to use instead of env default
+ * @returns ClaudeCodeConfig object ready for use
+ * @throws Error if required environment variables are missing
+ */
+export function buildClaudeCodeConfig(
+  modelOverride?: string,
+): ClaudeCodeConfig {
+  if (!env.CLAUDE_CODE_BASE_URL) {
+    throw new Error(
+      "CLAUDE_CODE_BASE_URL is required for Claude Code provider",
+    );
+  }
+  if (!env.CLAUDE_CODE_WRAPPER_API_KEY) {
+    throw new Error(
+      "CLAUDE_CODE_WRAPPER_API_KEY is required for Claude Code provider",
+    );
+  }
+
+  const model = modelOverride || env.CLAUDE_CODE_MODEL || "sonnet";
+
+  return {
+    baseUrl: env.CLAUDE_CODE_BASE_URL,
+    timeout: env.CLAUDE_CODE_TIMEOUT,
+    authKey: env.CLAUDE_CODE_WRAPPER_API_KEY,
+    model,
+  };
+}
+
+/**
+ * Checks if Claude Code provider can be used based on environment configuration.
+ * Does NOT throw - returns false if env vars are missing.
+ */
+export function isClaudeCodeAvailable(): boolean {
+  return Boolean(env.CLAUDE_CODE_BASE_URL && env.CLAUDE_CODE_WRAPPER_API_KEY);
+}
+
 export type SelectModel = {
   provider: string;
   modelName: string;
@@ -205,31 +245,16 @@ function selectModel(
       };
     }
     case Provider.CLAUDE_CODE: {
-      if (!env.CLAUDE_CODE_BASE_URL) {
-        throw new Error(
-          "CLAUDE_CODE_BASE_URL is required for Claude Code provider",
-        );
-      }
-      if (!env.CLAUDE_CODE_WRAPPER_AUTH_KEY) {
-        throw new Error(
-          "CLAUDE_CODE_WRAPPER_AUTH_KEY is required for Claude Code provider",
-        );
-      }
-      // Default to "sonnet" for complex tasks (env var override available)
-      const claudeModel = aiModel || env.CLAUDE_CODE_MODEL || "sonnet";
+      // Build config using shared helper (validates env vars, applies defaults)
+      const claudeCodeConfig = buildClaudeCodeConfig(aiModel || undefined);
       return {
         provider: Provider.CLAUDE_CODE,
-        modelName: claudeModel,
+        modelName: claudeCodeConfig.model!,
         // Claude Code doesn't use Vercel AI SDK's LanguageModelV2
         // The model field is set to null and claudeCodeConfig is used instead
         model: null as unknown as LanguageModelV2,
         backupModel: null,
-        claudeCodeConfig: {
-          baseUrl: env.CLAUDE_CODE_BASE_URL,
-          timeout: env.CLAUDE_CODE_TIMEOUT,
-          authKey: env.CLAUDE_CODE_WRAPPER_AUTH_KEY,
-          model: claudeModel,
-        },
+        claudeCodeConfig,
       };
     }
     default: {
