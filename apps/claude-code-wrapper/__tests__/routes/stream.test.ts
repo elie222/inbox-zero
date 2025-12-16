@@ -356,5 +356,85 @@ describe("Stream Route", () => {
 
       expect(mockProc.stdin.end).toHaveBeenCalled();
     });
+
+    it("emits error event on spawn failure", async () => {
+      const mockProc = createMockChildProcess();
+      mockSpawn.mockReturnValue(mockProc as never);
+
+      const app = createTestApp();
+      const responsePromise = request(app)
+        .post("/stream")
+        .send({ prompt: "Hello" });
+
+      setTimeout(() => {
+        // Simulate spawn error (e.g., command not found)
+        mockProc.emit("error", new Error("ENOENT: command not found"));
+      }, 50);
+
+      const res = await responsePromise;
+      const events = parseSSEResponse(res.text);
+
+      const errorEvent = events.find((e) => e.event === "error");
+      expect(errorEvent).toBeDefined();
+      expect((errorEvent?.data as { code: string }).code).toBe("SPAWN_ERROR");
+      expect((errorEvent?.data as { error: string }).error).toContain("ENOENT");
+
+      const doneEvent = events.find((e) => e.event === "done");
+      expect(doneEvent).toBeDefined();
+    });
+
+    it("processes remaining buffer on close", async () => {
+      const mockProc = createMockChildProcess();
+      mockSpawn.mockReturnValue(mockProc as never);
+
+      const app = createTestApp();
+      const responsePromise = request(app)
+        .post("/stream")
+        .send({ prompt: "Hello" });
+
+      setTimeout(() => {
+        // Send a result message without trailing newline (remains in buffer)
+        const resultMsg = JSON.stringify({
+          type: "result",
+          session_id: "buffered-session",
+          total_tokens_in: 5,
+          total_tokens_out: 10,
+        });
+        mockProc.stdout.emit("data", Buffer.from(resultMsg));
+        // Close without newline - buffer should be processed in close handler
+        mockProc.emit("close", 0, null);
+      }, 50);
+
+      const res = await responsePromise;
+      const events = parseSSEResponse(res.text);
+
+      const resultEvent = events.find((e) => e.event === "result");
+      expect(resultEvent).toBeDefined();
+      expect((resultEvent?.data as { sessionId: string }).sessionId).toBe(
+        "buffered-session",
+      );
+    });
+
+    it("includes system prompt when provided", async () => {
+      const mockProc = createMockChildProcess();
+      mockSpawn.mockReturnValue(mockProc as never);
+
+      const app = createTestApp();
+      const responsePromise = request(app)
+        .post("/stream")
+        .send({ prompt: "Hello", system: "Be helpful" });
+
+      setTimeout(() => {
+        mockProc.emit("close", 0, null);
+      }, 50);
+
+      await responsePromise;
+
+      expect(mockSpawn).toHaveBeenCalledWith(
+        "claude",
+        expect.arrayContaining(["--system-prompt", "Be helpful"]),
+        expect.any(Object),
+      );
+    });
   });
 });
