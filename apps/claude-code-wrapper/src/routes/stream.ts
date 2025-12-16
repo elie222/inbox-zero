@@ -219,7 +219,12 @@ router.post("/stream", async (req: Request, res: Response) => {
           });
         }
       } catch {
-        // Final buffer wasn't valid JSON, ignore
+        // Log but don't fail - incomplete JSON in final buffer is expected
+        // when the CLI exits mid-stream (e.g., user cancellation)
+        logger.debug("Final buffer parse failed (expected during interrupts)", {
+          bufferLength: lineBuffer.length,
+          bufferPreview: lineBuffer.slice(0, 100),
+        });
       }
     }
 
