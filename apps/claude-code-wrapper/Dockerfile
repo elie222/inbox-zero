@@ -9,7 +9,8 @@
 
 # ----- Stage 1: Build -----
 # Pin to specific Bun version for reproducible builds
-FROM oven/bun:1.1.45-slim AS builder
+# Bun 1.2+ uses lockfile v1 format; any 1.2+ version can read it
+FROM oven/bun:1.3.3-slim AS builder
 
 WORKDIR /app
 
@@ -32,7 +33,7 @@ RUN bun run build
 RUN rm -rf node_modules && bun install --production
 
 # ----- Stage 2: Runtime -----
-FROM oven/bun:1.1.45-slim
+FROM oven/bun:1.3.3-slim
 
 # Install runtime dependencies (as root, before USER switch)
 # - curl: required for healthcheck
