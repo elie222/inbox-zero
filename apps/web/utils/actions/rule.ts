@@ -14,6 +14,7 @@ import {
   type CategoryConfig,
   type CategoryAction,
   toggleRuleBody,
+  toggleAllRulesBody,
 } from "@/utils/actions/rule.validation";
 import prisma from "@/utils/prisma";
 import { isDuplicateError, isNotFoundError } from "@/utils/prisma-helpers";
@@ -442,6 +443,18 @@ export const toggleRuleAction = actionClient
       });
     },
   );
+
+export const toggleAllRulesAction = actionClient
+  .metadata({ name: "toggleAllRules" })
+  .inputSchema(toggleAllRulesBody)
+  .action(async ({ ctx: { emailAccountId }, parsedInput: { enabled } }) => {
+    await prisma.rule.updateMany({
+      where: { emailAccountId },
+      data: { enabled },
+    });
+
+    return { success: true };
+  });
 
 async function toggleRule({
   ruleId,
