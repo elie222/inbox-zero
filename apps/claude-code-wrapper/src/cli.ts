@@ -96,15 +96,14 @@ function buildCliArgs(options: ClaudeCliOptions): string[] {
     args.push("--system-prompt", options.system);
   }
 
-  // Continue existing session
+  // Resume specific session by ID
+  // Note: --continue resumes the most recent session, --resume <id> resumes a specific session
   if (options.sessionId) {
-    args.push("--continue", options.sessionId);
+    args.push("--resume", options.sessionId);
   }
 
-  // Max tokens (if supported by CLI)
-  if (options.maxTokens) {
-    args.push("--max-tokens", options.maxTokens.toString());
-  }
+  // Note: --max-tokens is not supported by Claude CLI
+  // Use --max-budget-usd for budget control if needed in future
 
   // The prompt itself
   args.push(options.prompt);

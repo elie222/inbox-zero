@@ -16,12 +16,12 @@ RUN npm install -g @anthropic-ai/claude-code
 # Create app directory
 WORKDIR /app
 
-# Copy package files
+# Copy package files (using npm for this standalone service)
 COPY apps/claude-code-wrapper/package.json ./
-COPY apps/claude-code-wrapper/pnpm-lock.yaml* ./
+COPY apps/claude-code-wrapper/package-lock.json* ./
 
 # Install dependencies
-RUN npm install --production=false
+RUN npm install
 
 # Copy source code
 COPY apps/claude-code-wrapper/tsconfig.json ./

@@ -124,13 +124,12 @@ function buildStreamArgs(options: {
     args.push("--system-prompt", options.system);
   }
 
+  // Resume specific session by ID
   if (options.sessionId) {
-    args.push("--continue", options.sessionId);
+    args.push("--resume", options.sessionId);
   }
 
-  if (options.maxTokens) {
-    args.push("--max-tokens", options.maxTokens.toString());
-  }
+  // Note: --max-tokens is not supported by Claude CLI
 
   args.push(options.prompt);
 

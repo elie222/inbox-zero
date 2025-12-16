@@ -1,3 +1,4 @@
+import { timingSafeEqual } from "node:crypto";
 import express from "express";
 import healthRouter from "./routes/health.js";
 import generateRouter from "./routes/generate.js";
@@ -27,7 +28,15 @@ if (API_KEY) {
     }
 
     const token = authHeader.slice(7);
-    if (token !== API_KEY) {
+
+    // Use timing-safe comparison to prevent timing attacks
+    const tokenBuffer = Buffer.from(token);
+    const apiKeyBuffer = Buffer.from(API_KEY);
+    const isValid =
+      tokenBuffer.length === apiKeyBuffer.length &&
+      timingSafeEqual(tokenBuffer, apiKeyBuffer);
+
+    if (!isValid) {
       res.status(403).json({ error: "Invalid API key" });
       return;
     }

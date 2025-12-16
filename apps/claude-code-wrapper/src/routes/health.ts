@@ -32,22 +32,33 @@ router.get("/health", async (_req, res) => {
  */
 async function checkClaudeCliAvailable(): Promise<boolean> {
   return new Promise((resolve) => {
+    let resolved = false;
+
+    const safeResolve = (value: boolean) => {
+      if (!resolved) {
+        resolved = true;
+        resolve(value);
+      }
+    };
+
     const proc = spawn("claude", ["--version"], {
       stdio: ["ignore", "pipe", "pipe"],
     });
 
     proc.on("close", (code) => {
-      resolve(code === 0);
+      safeResolve(code === 0);
     });
 
     proc.on("error", () => {
-      resolve(false);
+      safeResolve(false);
     });
 
     // Timeout after 5 seconds
     setTimeout(() => {
-      proc.kill();
-      resolve(false);
+      if (!resolved) {
+        proc.kill();
+        safeResolve(false);
+      }
     }, 5000);
   });
 }
