@@ -70,6 +70,9 @@ export const env = createEnv({
     CLAUDE_CODE_MODEL: z.string().optional(), // Model for default tasks (e.g., 'sonnet')
     CLAUDE_CODE_ECONOMY_MODEL: z.string().optional(), // Model for economy tasks (e.g., 'haiku')
 
+    // LLM Tool Proxy - allows Claude Code CLI skill to invoke app tools
+    LLM_TOOL_PROXY_TOKEN: z.string().optional(), // Required when using Claude skill with tool invocation
+
     OPENAI_ZERO_DATA_RETENTION: z.coerce.boolean().optional().default(false),
 
     UPSTASH_REDIS_URL: z.string().optional(),
