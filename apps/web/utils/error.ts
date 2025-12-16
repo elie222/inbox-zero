@@ -117,6 +117,19 @@ export function isAWSThrottlingError(error: unknown): error is Error {
   );
 }
 
+export function isOutlookThrottlingError(error: unknown): boolean {
+  const err = error as Record<string, unknown>;
+  const code = err?.code as string | undefined;
+  const statusCode = err?.statusCode as number | undefined;
+  const message = err?.message as string | undefined;
+  return (
+    statusCode === 429 ||
+    code === "ApplicationThrottled" ||
+    code === "TooManyRequests" ||
+    (typeof message === "string" && message.includes("MailboxConcurrency"))
+  );
+}
+
 export function isAICallError(error: unknown): error is APICallError {
   return APICallError.isInstance(error);
 }
@@ -131,6 +144,7 @@ export function isKnownApiError(error: unknown): boolean {
     isGmailInsufficientPermissionsError(error) ||
     isGmailRateLimitExceededError(error) ||
     isGmailQuotaExceededError(error) ||
+    isOutlookThrottlingError(error) ||
     (APICallError.isInstance(error) &&
       (isIncorrectOpenAIAPIKeyError(error) ||
         isInvalidOpenAIModelError(error) ||
@@ -170,6 +184,16 @@ export function checkCommonErrors(
     return {
       type: "Gmail Quota Exceeded",
       message: "You have exceeded the Gmail quota. Please try again later.",
+      code: 429,
+    };
+  }
+
+  if (isOutlookThrottlingError(error)) {
+    logger.warn("Outlook throttling error for url", { url });
+    return {
+      type: "Outlook Rate Limit",
+      message:
+        "Microsoft is temporarily limiting requests. Please try again shortly.",
       code: 429,
     };
   }
