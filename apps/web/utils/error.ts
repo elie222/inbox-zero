@@ -3,7 +3,6 @@ import {
   setUser,
 } from "@sentry/nextjs";
 import { APICallError, RetryError } from "ai";
-import type { z } from "zod";
 import { createScopedLogger } from "@/utils/logger";
 
 const logger = createScopedLogger("error");
@@ -126,7 +125,7 @@ export function isOutlookThrottlingError(error: unknown): boolean {
     statusCode === 429 ||
     code === "ApplicationThrottled" ||
     code === "TooManyRequests" ||
-    (typeof message === "string" && message.includes("MailboxConcurrency"))
+    (typeof message === "string" && /MailboxConcurrency/i.test(message))
   );
 }
 
