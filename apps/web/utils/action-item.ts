@@ -110,13 +110,13 @@ export const actionInputs: Record<
   [ActionType.FORWARD]: {
     fields: [
       {
+        name: "to",
+        label: "To",
+      },
+      {
         name: "content",
         label: "Extra Content",
         textArea: true,
-      },
-      {
-        name: "to",
-        label: "To",
       },
       {
         name: "cc",

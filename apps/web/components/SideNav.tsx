@@ -15,7 +15,6 @@ import {
   ChevronDownIcon,
   ChevronRightIcon,
   FileIcon,
-  HomeIcon,
   FileTextIcon,
   InboxIcon,
   type LucideIcon,
@@ -29,6 +28,7 @@ import {
   SparklesIcon,
   TagIcon,
   Users2Icon,
+  ZapIcon,
 } from "lucide-react";
 import { Logo } from "@/components/Logo";
 import { useComposeModal } from "@/providers/ComposeModalProvider";
@@ -53,6 +53,7 @@ import { useSplitLabels } from "@/hooks/useLabels";
 import { LoadingContent } from "@/components/LoadingContent";
 import {
   useCleanerEnabled,
+  useIntegrationsEnabled,
   useMeetingBriefsEnabled,
 } from "@/hooks/useFeatureFlags";
 import { ClientOnly } from "@/components/ClientOnly";
@@ -72,22 +73,19 @@ type NavItem = {
   target?: "_blank";
   count?: number;
   hideInMail?: boolean;
+  beta?: boolean;
 };
 
 export const useNavigation = () => {
   const showCleaner = useCleanerEnabled();
   const showMeetingBriefs = useMeetingBriefsEnabled();
+  const showIntegrations = useIntegrationsEnabled();
 
   const { emailAccountId, emailAccount, provider } = useAccount();
   const currentEmailAccountId = emailAccount?.id || emailAccountId;
 
   const navItems: NavItem[] = useMemo(
     () => [
-      // {
-      //   name: "Dashboard",
-      //   href: prefixPath(currentEmailAccountId, "/setup"),
-      //   icon: HomeIcon,
-      // },
       {
         name: "Assistant",
         href: prefixPath(currentEmailAccountId, "/automation"),
@@ -117,17 +115,28 @@ export const useNavigation = () => {
         href: prefixPath(currentEmailAccountId, "/calendars"),
         icon: CalendarIcon,
       },
+      ...(showIntegrations
+        ? [
+            {
+              name: "Integrations",
+              href: prefixPath(currentEmailAccountId, "/integrations"),
+              icon: ZapIcon,
+              beta: true,
+            },
+          ]
+        : []),
       ...(showMeetingBriefs
         ? [
             {
               name: "Meeting Briefs",
               href: prefixPath(currentEmailAccountId, "/briefs"),
               icon: FileTextIcon,
+              beta: true,
             },
           ]
         : []),
     ],
-    [currentEmailAccountId, provider, showMeetingBriefs],
+    [currentEmailAccountId, provider, showMeetingBriefs, showIntegrations],
   );
 
   const navItemsFiltered = useMemo(

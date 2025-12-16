@@ -52,6 +52,7 @@ import { getRuleConfig } from "@/utils/rule/consts";
 import { RuleSectionCard } from "@/app/(app)/[emailAccountId]/assistant/RuleSectionCard";
 import { ConditionSteps } from "@/app/(app)/[emailAccountId]/assistant/ConditionSteps";
 import { ActionSteps } from "@/app/(app)/[emailAccountId]/assistant/ActionSteps";
+import { env } from "@/env";
 
 export function Rule({
   ruleId,
@@ -493,22 +494,24 @@ export function RuleForm({
                   <ThreadsExplanation size="md" />
                 </div>
 
-                <div className="flex items-center space-x-2">
-                  <Toggle
-                    name="digest"
-                    labelRight="Include in daily digest"
-                    enabled={watch("digest") || false}
-                    onChange={(enabled) => {
-                      setValue("digest", enabled);
-                    }}
-                  />
+                {env.NEXT_PUBLIC_DIGEST_ENABLED && (
+                  <div className="flex items-center space-x-2">
+                    <Toggle
+                      name="digest"
+                      labelRight="Include in daily digest"
+                      enabled={watch("digest") || false}
+                      onChange={(enabled) => {
+                        setValue("digest", enabled);
+                      }}
+                    />
 
-                  <TooltipExplanation
-                    size="md"
-                    side="right"
-                    text="When enabled you will receive a summary of the emails that match this rule in your digest email."
-                  />
-                </div>
+                    <TooltipExplanation
+                      size="md"
+                      side="right"
+                      text="When enabled you will receive a summary of the emails that match this rule in your digest email."
+                    />
+                  </div>
+                )}
 
                 {!!rule.id && (
                   <div className="flex">
