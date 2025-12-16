@@ -127,15 +127,27 @@ services:
       # Auth key for wrapper service endpoints (required when using claude-code profile)
       # Generate with: openssl rand -hex 32
       API_KEY: ${CLAUDE_CODE_WRAPPER_AUTH_KEY:-}
+      # HOME required for Claude CLI to find its config directory
+      HOME: /home/bun
       # Claude auth: set CLAUDE_CODE_OAUTH_TOKEN for Max subscription, or ANTHROPIC_API_KEY for API auth
       # If both are set, OAuth token takes precedence (see cli.ts buildClaudeEnv)
     volumes:
-      # Use named volume for isolated container auth
-      - claude-code-data:/root/.claude
-      # WARNING: Bind-mounting ~/.claude exposes your local Claude credentials to the container.
-      # This is NOT SAFE for production - only use for local development/testing.
-      # For production, set CLAUDE_CODE_OAUTH_TOKEN or ANTHROPIC_API_KEY in .env instead.
-      # - ~/.claude:/root/.claude:ro
+      # Named volume for Claude CLI data (updated path for non-root bun user)
+      - claude-code-data:/home/bun/.claude
+      # WARNING: Bind-mounting ~/.claude is NOT SAFE for production.
+      # It exposes credentials AND links all user-scoped Claude Code config
+      # (slash commands, skills, MCP servers, etc.) which may be inappropriate.
+      # Only use for local development/testing. For production:
+      # - Set CLAUDE_CODE_OAUTH_TOKEN or ANTHROPIC_API_KEY in .env
+      # - Use project-scoped assets only (future: build-time asset mounting)
+    # Security hardening
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    read_only: true
+    tmpfs:
+      - /tmp:mode=1777,size=100m
     restart: always
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3100/health"]

@@ -1,40 +1,70 @@
-# Claude Code Wrapper Service
-# Provides HTTP interface to Claude Code CLI for container-to-container communication
+# ==================================================
+# Claude Code Wrapper Service - Hardened Dockerfile
+# ==================================================
+# Security features:
+# - Multi-stage build (smaller attack surface)
+# - Non-root user execution (bun user, UID 1000)
+# - Bun runtime (~100MB smaller than node:20-slim)
+# ==================================================
 
-FROM node:20-slim
+# ----- Stage 1: Build -----
+# Pin to specific Bun version for reproducible builds
+FROM oven/bun:1.1.45-slim AS builder
 
-# Install required system dependencies
-RUN apt-get update && apt-get install -y \
-    curl \
-    ca-certificates \
-    && rm -rf /var/lib/apt/lists/*
-
-# Install Claude Code CLI globally
-# Note: This requires ANTHROPIC_API_KEY to be set at runtime
-RUN npm install -g @anthropic-ai/claude-code
-
-# Create app directory
 WORKDIR /app
 
-# Copy package files (using npm for this standalone service)
+# Copy package files
 COPY apps/claude-code-wrapper/package.json ./
-COPY apps/claude-code-wrapper/package-lock.json* ./
+COPY apps/claude-code-wrapper/bun.lock* ./
 
-# Install dependencies
-RUN npm install
+# Install dependencies (including dev deps for build)
+# Falls back to non-frozen install if no lockfile exists
+RUN bun install --frozen-lockfile || bun install
 
 # Copy source code
 COPY apps/claude-code-wrapper/tsconfig.json ./
 COPY apps/claude-code-wrapper/src ./src
 
-# Build TypeScript
-RUN npm run build
+# Build TypeScript using tsc (preserves module structure for Express compatibility)
+RUN bun run build
 
-# Remove dev dependencies for smaller image
-RUN npm prune --production
+# Re-install with production deps only
+RUN rm -rf node_modules && bun install --production
 
-# Create directory for Claude CLI data persistence
-RUN mkdir -p /root/.claude
+# ----- Stage 2: Runtime -----
+FROM oven/bun:1.1.45-slim
+
+# Install runtime dependencies (as root, before USER switch)
+# - curl: required for healthcheck
+# - ca-certificates: required for HTTPS API calls
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl \
+    ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create node symlink pointing to bun (Bun is Node-compatible)
+# Required because Claude CLI shebang uses #!/usr/bin/env node
+RUN ln -s /usr/local/bin/bun /usr/local/bin/node
+
+# Install Claude Code CLI globally to a shared location accessible by all users
+# BUN_INSTALL sets the root for both packages and binaries
+ENV BUN_INSTALL="/usr/local/share/bun"
+ENV PATH="/usr/local/share/bun/bin:$PATH"
+RUN bun install -g @anthropic-ai/claude-code
+
+# Create app directory
+WORKDIR /app
+
+# Copy built artifacts with bun user ownership
+COPY --from=builder --chown=bun:bun /app/package.json ./
+COPY --from=builder --chown=bun:bun /app/node_modules ./node_modules
+COPY --from=builder --chown=bun:bun /app/dist ./dist
+
+# Create Claude CLI data directory for the bun user
+RUN mkdir -p /home/bun/.claude && chown -R bun:bun /home/bun/.claude
+
+# Switch to non-root user
+USER bun
 
 # Expose the service port
 EXPOSE 3100
@@ -44,4 +74,4 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
     CMD curl -f http://localhost:3100/health || exit 1
 
 # Start the service
-CMD ["node", "dist/index.js"]
+CMD ["bun", "run", "dist/index.js"]
