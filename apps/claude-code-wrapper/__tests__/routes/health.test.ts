@@ -116,5 +116,29 @@ describe("Health Route", () => {
         expect.objectContaining({ stdio: ["ignore", "pipe", "pipe"] }),
       );
     });
+
+    it(
+      "returns unhealthy status when CLI check times out",
+      async () => {
+        vi.useFakeTimers({ shouldAdvanceTime: true });
+        const mockProc = createMockChildProcess();
+        mockSpawn.mockReturnValue(mockProc as never);
+
+        const app = createTestApp();
+        const responsePromise = request(app).get("/health");
+
+        // Advance past the 5 second timeout without closing the process
+        await vi.advanceTimersByTimeAsync(5001);
+
+        const res = await responsePromise;
+
+        expect(res.status).toBe(503);
+        expect(res.body.status).toBe("unhealthy");
+        expect(mockProc.kill).toHaveBeenCalled();
+
+        vi.useRealTimers();
+      },
+      { timeout: 10_000 },
+    );
   });
 });

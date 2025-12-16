@@ -436,5 +436,17 @@ describe("Stream Route", () => {
         expect.any(Object),
       );
     });
+
+    // NOTE: Stream timeout (10 min) cannot be tested with supertest + fake timers.
+    // Supertest creates real TCP connections that don't respect fake timers.
+    // The health check timeout test (5s) works because shouldAdvanceTime can
+    // accelerate short durations, but 10 minutes is too long.
+    // The timeout logic (stream.ts:120-133) is straightforward - it sends an
+    // error event, kills the process, and closes the response.
+    // biome-ignore lint/suspicious/noSkippedTests: Requires E2E or configurable timeout
+    it.skip("times out and sends error event after 10 minutes", () => {
+      // See NOTE above - this test requires E2E testing or refactoring
+      // the timeout to be configurable for testing.
+    });
   });
 });
