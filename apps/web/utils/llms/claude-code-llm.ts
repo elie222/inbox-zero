@@ -82,8 +82,18 @@ export function createClaudeCodeGenerateText(
         label,
       });
 
-      // Return a compatible result shape
-      // Note: Claude Code doesn't support tools in this phase
+      // Return a result shape compatible with Vercel AI SDK's GenerateTextResult.
+      //
+      // Stub values explanation:
+      // - toolCalls/toolResults: Empty because Claude Code CLI wrapper doesn't
+      //   support tool use in this integration phase. Callers expect arrays.
+      // - steps: Empty because we make single-turn requests to the wrapper.
+      //   Multi-step agentic loops aren't supported via this provider.
+      // - reasoning/reasoningDetails: Claude Code doesn't expose chain-of-thought.
+      // - sources/files: Not applicable for this text generation use case.
+      //
+      // These stubs ensure callers can safely access these properties without
+      // null checks, matching how they'd work with other AI SDK providers.
       return {
         text: result.text,
         reasoning: undefined,
@@ -177,7 +187,15 @@ export function createClaudeCodeGenerateObject(
         result: result.object,
       });
 
-      // Return a compatible result shape
+      // Return a result shape compatible with Vercel AI SDK's GenerateObjectResult.
+      //
+      // Stub values explanation:
+      // - rawResponse: Empty headers object; actual HTTP details are abstracted
+      //   by the wrapper service and not meaningful to callers.
+      // - providerMetadata: Not available from Claude Code CLI wrapper.
+      // - toJsonResponse: Convenience method for API routes returning the object.
+      //
+      // The primary value is `object` which contains the validated, typed result.
       return {
         object: result.object,
         finishReason: "stop" as const,
