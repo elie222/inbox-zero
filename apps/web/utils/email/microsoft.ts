@@ -420,6 +420,7 @@ export class OutlookProvider implements EmailProvider {
     }
 
     if (!category) {
+      this.logger.error("Category not found", { labelId });
       throw new Error(
         `Category with ID ${labelId}${labelName ? ` or name ${labelName}` : ""} not found`,
       );
@@ -441,6 +442,11 @@ export class OutlookProvider implements EmailProvider {
         client: this.client,
         messageId,
         categories: updatedCategories,
+      });
+      this.logger.info("Label applied", { labelId: category.id });
+    } else {
+      this.logger.info("Label already present, skipped", {
+        labelId: category.id,
       });
     }
 
@@ -474,9 +480,11 @@ export class OutlookProvider implements EmailProvider {
           logger: this.logger,
         }),
       ]);
+      this.logger.info("Draft created", { draftId: result.id });
       return { draftId: result.id || "" };
     } else {
       const result = await draftEmail(this.client, email, args, userEmail);
+      this.logger.info("Draft created", { draftId: result.id });
       return { draftId: result.id || "" };
     }
   }
@@ -788,11 +796,13 @@ export class OutlookProvider implements EmailProvider {
     nextPageToken?: string;
   }> {
     this.logger.info("getMessagesWithPagination called", {
-      query: options.query,
       maxResults: options.maxResults,
       pageToken: options.pageToken,
       before: options.before?.toISOString(),
       after: options.after?.toISOString(),
+    });
+    this.logger.trace("getMessagesWithPagination query", {
+      query: options.query,
     });
 
     // For Outlook, separate search queries from date filters
@@ -808,18 +818,13 @@ export class OutlookProvider implements EmailProvider {
       dateFilters.push(`receivedDateTime gt ${options.after.toISOString()}`);
     }
 
-    this.logger.info("Query parameters separated", {
-      originalQuery,
-      dateFilters,
-      hasSearchQuery: !!originalQuery.trim(),
-      hasDateFilters: dateFilters.length > 0,
-    });
-
     this.logger.info("Calling queryBatchMessages with separated parameters", {
-      searchQuery: originalQuery.trim() || undefined,
       dateFilters,
       maxResults: options.maxResults || 20,
       pageToken: options.pageToken,
+    });
+    this.logger.trace("Search query", {
+      searchQuery: originalQuery.trim() || undefined,
     });
 
     // Don't pass folderId - let the API return all folders except Junk/Deleted (auto-excluded)
