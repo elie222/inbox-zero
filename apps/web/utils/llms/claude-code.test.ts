@@ -51,6 +51,7 @@ vi.mock("@/env", () => ({
   env: {
     DEFAULT_LLM_PROVIDER: "claudecode",
     ECONOMY_LLM_PROVIDER: undefined as string | undefined,
+    ECONOMY_LLM_MODEL: undefined as string | undefined,
     CLAUDE_CODE_BASE_URL: "http://localhost:3100",
     CLAUDE_CODE_TIMEOUT: 120_000,
     CLAUDE_CODE_WRAPPER_AUTH_KEY: "test-auth-key-12345",
@@ -75,6 +76,7 @@ describe("Claude Code Provider", () => {
     vi.resetAllMocks();
     vi.mocked(env).DEFAULT_LLM_PROVIDER = "claudecode";
     vi.mocked(env).ECONOMY_LLM_PROVIDER = undefined;
+    vi.mocked(env).ECONOMY_LLM_MODEL = undefined;
     vi.mocked(env).CLAUDE_CODE_BASE_URL = "http://localhost:3100";
     vi.mocked(env).CLAUDE_CODE_TIMEOUT = 120_000;
     vi.mocked(env).CLAUDE_CODE_WRAPPER_AUTH_KEY = "test-auth-key-12345";
@@ -146,6 +148,51 @@ describe("Claude Code Provider", () => {
       const result = getModel(userAi, "economy");
       expect(result.modelName).toBe("sonnet");
       expect(result.claudeCodeConfig?.model).toBe("sonnet");
+    });
+
+    it("should use different provider for economy when ECONOMY_LLM_PROVIDER differs from DEFAULT", () => {
+      // Scenario: Claude Code for complex tasks, Anthropic API for bulk/economy tasks
+      vi.mocked(env).DEFAULT_LLM_PROVIDER = "claudecode";
+      vi.mocked(env).ECONOMY_LLM_PROVIDER = "anthropic";
+      vi.mocked(env).ECONOMY_LLM_MODEL = "claude-3-5-haiku-20241022";
+      vi.mocked(env).ANTHROPIC_API_KEY = "test-anthropic-key";
+      vi.mocked(env).CLAUDE_CODE_MODEL = "sonnet";
+
+      const userAi: UserAIFields = {
+        aiApiKey: null,
+        aiProvider: null,
+        aiModel: null,
+      };
+
+      // Default should use Claude Code
+      const defaultResult = getModel(userAi, "default");
+      expect(defaultResult.provider).toBe(Provider.CLAUDE_CODE);
+      expect(defaultResult.modelName).toBe("sonnet");
+      expect(defaultResult.claudeCodeConfig).toBeDefined();
+
+      // Economy should use Anthropic (different provider)
+      const economyResult = getModel(userAi, "economy");
+      expect(economyResult.provider).toBe(Provider.ANTHROPIC);
+      expect(economyResult.modelName).toBe("claude-3-5-haiku-20241022");
+      expect(economyResult.claudeCodeConfig).toBeUndefined();
+    });
+
+    it("should fall back to default model when economy provider not configured", () => {
+      // When no ECONOMY_LLM_PROVIDER is set, economy requests fall back to default
+      vi.mocked(env).DEFAULT_LLM_PROVIDER = "claudecode";
+      vi.mocked(env).ECONOMY_LLM_PROVIDER = undefined;
+      vi.mocked(env).CLAUDE_CODE_MODEL = "sonnet";
+
+      const userAi: UserAIFields = {
+        aiApiKey: null,
+        aiProvider: null,
+        aiModel: null,
+      };
+
+      const result = getModel(userAi, "economy");
+      // Falls back to default (Claude Code) since no economy provider configured
+      expect(result.provider).toBe(Provider.CLAUDE_CODE);
+      expect(result.modelName).toBe("sonnet");
     });
 
     it("should throw error when Claude Code provider is used without base URL", () => {
