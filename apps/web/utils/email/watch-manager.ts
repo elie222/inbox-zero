@@ -139,7 +139,7 @@ async function watchEmailAccount(
       watchEmailsExpirationDate &&
       new Date(watchEmailsExpirationDate) < new Date()
     ) {
-      await prisma.emailAccount.update({
+      await prisma.emailAccount.updateMany({
         where: { id: emailAccount.id },
         data: {
           watchEmailsExpirationDate: null,
@@ -273,15 +273,14 @@ export async function unwatchEmails({
   } catch (error) {
     if (error instanceof Error && error.message.includes("invalid_grant")) {
       logger.warn("Error unwatching emails, invalid grant");
-      return;
+    } else {
+      logger.error("Error unwatching emails", { error });
+      captureException(error);
     }
-
-    logger.error("Error unwatching emails", { error });
-    captureException(error);
   }
 
   // Clear the watch data regardless of provider
-  await prisma.emailAccount.update({
+  await prisma.emailAccount.updateMany({
     where: { id: emailAccountId },
     data: {
       watchEmailsExpirationDate: null,
