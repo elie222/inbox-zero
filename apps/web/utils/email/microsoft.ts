@@ -1283,22 +1283,74 @@ export class OutlookProvider implements EmailProvider {
       const searchTerm = getSearchTermForSender(options.from);
       const isFullEmail = searchTerm.includes("@");
 
-      const escapedSearchTerm = escapeODataString(searchTerm);
       const dateString = options.date.toISOString();
 
-      // Build filter based on whether we're searching by email or domain
-      const receivedFilter = isFullEmail
-        ? `from/emailAddress/address eq '${escapedSearchTerm}' and receivedDateTime lt ${dateString}`
-        : `endsWith(from/emailAddress/address, '@${escapedSearchTerm}') and receivedDateTime lt ${dateString}`;
+      // For domain matching, use $search instead of $filter since endsWith has limitations
+      // For exact email matching, use $filter with eq (case-insensitive for email addresses)
+      if (!isFullEmail) {
+        // Domain-based search - use $search for both sent and received
+        const escapedKqlDomain = searchTerm
+          .replace(/\\/g, "\\\\")
+          .replace(/"/g, '\\"');
+
+        const [sentResponse, receivedResponse] = await Promise.all([
+          this.client
+            .getClient()
+            .api("/me/messages")
+            .search(`"to:@${escapedKqlDomain}"`)
+            .top(5)
+            .select("id,sentDateTime")
+            .get()
+            .catch((error) => {
+              this.logger.error("Error checking sent messages (domain)", {
+                error,
+              });
+              return { value: [] };
+            }),
+
+          this.client
+            .getClient()
+            .api("/me/messages")
+            .search(`"from:@${escapedKqlDomain}"`)
+            .top(5)
+            .select("id,receivedDateTime")
+            .get()
+            .catch((error) => {
+              this.logger.error("Error checking received messages (domain)", {
+                error,
+              });
+              return { value: [] };
+            }),
+        ]);
+
+        // Filter by date since $search doesn't support date filtering well
+        const validSentMessages = (sentResponse.value || []).filter(
+          (msg: Message) => {
+            if (!msg.sentDateTime) return false;
+            return new Date(msg.sentDateTime) < options.date;
+          },
+        );
+
+        const validReceivedMessages = (receivedResponse.value || []).filter(
+          (msg: Message) => {
+            if (!msg.receivedDateTime) return false;
+            return new Date(msg.receivedDateTime) < options.date;
+          },
+        );
+
+        const messages = [...validSentMessages, ...validReceivedMessages];
+        return messages.some((message) => message.id !== options.messageId);
+      }
+
+      // Full email search - use $filter for received, $search for sent
+      const escapedSearchTerm = escapeODataString(searchTerm);
+      const receivedFilter = `from/emailAddress/address eq '${escapedSearchTerm}' and receivedDateTime lt ${dateString}`;
 
       // Use $search for sent messages as $filter on toRecipients is unreliable
-      // We escape double quotes for the KQL search query
       const escapedKqlSearchTerm = searchTerm
         .replace(/\\/g, "\\\\")
         .replace(/"/g, '\\"');
-      const sentSearch = isFullEmail
-        ? `"to:${escapedKqlSearchTerm}"`
-        : `"to:@${escapedKqlSearchTerm}"`;
+      const sentSearch = `"to:${escapedKqlSearchTerm}"`;
 
       const [sentResponse, receivedResponse] = await Promise.all([
         this.client
