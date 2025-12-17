@@ -101,7 +101,7 @@ describe.skipIf(!RUN_E2E_TESTS)("Google Gmail Labeling E2E Tests", () => {
     console.log(`   Account ID: ${emailAccount.id}`);
     console.log(`   Test thread ID: ${getTestThreadId()}`);
     console.log(`   Test message ID: ${getTestMessageId()}\n`);
-  });
+  }, 30_000);
 
   afterAll(async () => {
     // Clean up all test labels created during the test suite
@@ -134,7 +134,7 @@ describe.skipIf(!RUN_E2E_TESTS)("Google Gmail Labeling E2E Tests", () => {
 
   describe("Label Creation and Retrieval", () => {
     test("should create a new label and retrieve it by name", async () => {
-      const testLabelName = `E2E Test ${Date.now()}`;
+      const testLabelName = `Gmail-Label Test ${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
       createdTestLabels.push(testLabelName);
 
       // Create the label
@@ -158,7 +158,7 @@ describe.skipIf(!RUN_E2E_TESTS)("Google Gmail Labeling E2E Tests", () => {
     });
 
     test("should retrieve label by ID", async () => {
-      const testLabelName = `E2E Test ID ${Date.now()}`;
+      const testLabelName = `Gmail-Label ID ${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
       createdTestLabels.push(testLabelName);
 
       // Create the label
@@ -201,7 +201,7 @@ describe.skipIf(!RUN_E2E_TESTS)("Google Gmail Labeling E2E Tests", () => {
     });
 
     test("should handle duplicate label creation gracefully", async () => {
-      const testLabelName = `E2E Duplicate ${Date.now()}`;
+      const testLabelName = `Gmail-Label Dup ${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
       createdTestLabels.push(testLabelName);
 
       // Create the label first time
@@ -220,7 +220,7 @@ describe.skipIf(!RUN_E2E_TESTS)("Google Gmail Labeling E2E Tests", () => {
     });
 
     test("should create nested labels with parent/child hierarchy", async () => {
-      const parentName = `E2E Parent ${Date.now()}`;
+      const parentName = `Gmail-Label Parent ${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
       const nestedLabelName = `${parentName}/Child`;
       createdTestLabels.push(parentName, nestedLabelName);
 
@@ -256,7 +256,7 @@ describe.skipIf(!RUN_E2E_TESTS)("Google Gmail Labeling E2E Tests", () => {
     });
 
     test("should create deeply nested labels", async () => {
-      const level1 = `E2E Deep ${Date.now()}`;
+      const level1 = `Gmail-Label Deep ${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
       const level2 = `${level1}/Level2`;
       const level3 = `${level2}/Level3`;
       createdTestLabels.push(level1, level2, level3);
@@ -287,7 +287,7 @@ describe.skipIf(!RUN_E2E_TESTS)("Google Gmail Labeling E2E Tests", () => {
 
   describe("Label Application to Messages", () => {
     test("should apply label to a single message", async () => {
-      const testLabelName = `E2E Apply ${Date.now()}`;
+      const testLabelName = `Gmail-Label Apply ${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
       createdTestLabels.push(testLabelName);
 
       // Create the label
@@ -318,8 +318,8 @@ describe.skipIf(!RUN_E2E_TESTS)("Google Gmail Labeling E2E Tests", () => {
     });
 
     test("should apply multiple labels to a message", async () => {
-      const testLabel1Name = `E2E Multi 1 ${Date.now()}`;
-      const testLabel2Name = `E2E Multi 2 ${Date.now()}`;
+      const testLabel1Name = `Gmail-Label Multi1 ${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+      const testLabel2Name = `Gmail-Label Multi2 ${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
       createdTestLabels.push(testLabel1Name, testLabel2Name);
 
       // Create two labels
@@ -363,7 +363,7 @@ describe.skipIf(!RUN_E2E_TESTS)("Google Gmail Labeling E2E Tests", () => {
     });
 
     test("should handle applying label to non-existent message", async () => {
-      const testLabelName = `E2E Invalid ${Date.now()}`;
+      const testLabelName = `Gmail-Label Invalid ${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
       createdTestLabels.push(testLabelName);
 
       const label = await provider.createLabel(testLabelName);
@@ -384,7 +384,7 @@ describe.skipIf(!RUN_E2E_TESTS)("Google Gmail Labeling E2E Tests", () => {
 
   describe("Label Removal from Threads", () => {
     test("should remove label from all messages in a thread", async () => {
-      const testLabelName = `E2E Remove ${Date.now()}`;
+      const testLabelName = `Gmail-Label Remove ${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
       createdTestLabels.push(testLabelName);
 
       // Create and apply label
@@ -426,7 +426,7 @@ describe.skipIf(!RUN_E2E_TESTS)("Google Gmail Labeling E2E Tests", () => {
     });
 
     test("should handle removing label from thread with multiple messages", async () => {
-      const testLabelName = `E2E Thread ${Date.now()}`;
+      const testLabelName = `Gmail-Label Thread ${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
       createdTestLabels.push(testLabelName);
 
       // Create label
@@ -478,7 +478,7 @@ describe.skipIf(!RUN_E2E_TESTS)("Google Gmail Labeling E2E Tests", () => {
 
   describe("Complete Label Lifecycle", () => {
     test("should complete full label lifecycle: create, apply, verify, remove, verify", async () => {
-      const testLabelName = `E2E Lifecycle ${Date.now()}`;
+      const testLabelName = `Gmail-Label Lifecycle ${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
       createdTestLabels.push(testLabelName);
 
       console.log(`\n   🔄 Starting full lifecycle test for: ${testLabelName}`);
@@ -531,8 +531,8 @@ describe.skipIf(!RUN_E2E_TESTS)("Google Gmail Labeling E2E Tests", () => {
 
   describe("Label State Consistency", () => {
     test("should maintain label state across multiple operations", async () => {
-      const label1Name = `E2E State 1 ${Date.now()}`;
-      const label2Name = `E2E State 2 ${Date.now()}`;
+      const label1Name = `Gmail-Label State1 ${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+      const label2Name = `Gmail-Label State2 ${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
       createdTestLabels.push(label1Name, label2Name);
 
       // Create two labels
@@ -552,7 +552,6 @@ describe.skipIf(!RUN_E2E_TESTS)("Google Gmail Labeling E2E Tests", () => {
       let message = await provider.getMessage(getTestMessageId());
       expect(message.labelIds).toContain(label1.id);
       expect(message.labelIds).not.toContain(label2.id);
-      console.log("   ✅ State check 1: Only label1 present");
 
       // Apply label2
       await provider.labelMessage({
@@ -565,7 +564,6 @@ describe.skipIf(!RUN_E2E_TESTS)("Google Gmail Labeling E2E Tests", () => {
       message = await provider.getMessage(getTestMessageId());
       expect(message.labelIds).toContain(label1.id);
       expect(message.labelIds).toContain(label2.id);
-      console.log("   ✅ State check 2: Both labels present");
 
       // Remove label1
       await provider.removeThreadLabel(message.threadId, label1.id);
@@ -574,7 +572,6 @@ describe.skipIf(!RUN_E2E_TESTS)("Google Gmail Labeling E2E Tests", () => {
       message = await provider.getMessage(getTestMessageId());
       expect(message.labelIds).not.toContain(label1.id);
       expect(message.labelIds).toContain(label2.id);
-      console.log("   ✅ State check 3: Only label2 present");
 
       // Remove label2
       await provider.removeThreadLabel(message.threadId, label2.id);
@@ -583,7 +580,6 @@ describe.skipIf(!RUN_E2E_TESTS)("Google Gmail Labeling E2E Tests", () => {
       message = await provider.getMessage(getTestMessageId());
       expect(message.labelIds).not.toContain(label1.id);
       expect(message.labelIds).not.toContain(label2.id);
-      console.log("   ✅ State check 4: No test labels present");
 
       console.log("   ✅ Label state consistency maintained!");
     });

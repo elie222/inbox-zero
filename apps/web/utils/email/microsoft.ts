@@ -59,7 +59,7 @@ import type {
 } from "@/utils/email/types";
 import { unwatchOutlook, watchOutlook } from "@/utils/outlook/watch";
 import { escapeODataString } from "@/utils/outlook/odata-escape";
-import { extractEmailAddress } from "@/utils/email";
+import { extractEmailAddress, getSearchTermForSender } from "@/utils/email";
 import {
   getOrCreateOutlookFolderIdByName,
   getOutlookFolderTree,
@@ -805,9 +805,30 @@ export class OutlookProvider implements EmailProvider {
       query: options.query,
     });
 
-    // For Outlook, separate search queries from date filters
-    // Microsoft Graph API handles these differently
-    const originalQuery = options.query || "";
+    // IMPORTANT: This is intentionally lossy!
+    // Gmail-style prefixes like "subject:" can't be translated to Microsoft Graph because:
+    // 1. $filter with contains(subject, ...) can't be combined with $search or date filters
+    //    (causes "InefficientFilter" error)
+    // 2. $search doesn't support field-specific syntax like "subject:term"
+    //
+    // We strip the prefixes and use plain $search which searches subject AND body.
+    // This is broader than intended but still finds relevant messages.
+    // If subject-specific search is needed in the future, add a dedicated method
+    // that uses only $filter without $search or date filters.
+    function stripGmailPrefixes(query: string): string {
+      return query
+        .replace(/\b(subject|from|to|label):(?:"[^"]*"|\S+)/gi, (match) => {
+          // Extract the value without the prefix for searching
+          const colonIndex = match.indexOf(":");
+          const value = match.slice(colonIndex + 1);
+          // Remove quotes if present
+          return value.replace(/^"|"$/g, "");
+        })
+        .replace(/\s+/g, " ")
+        .trim();
+    }
+
+    const searchQuery = stripGmailPrefixes(options.query || "");
 
     // Build date filter for Outlook (no quotes for DateTimeOffset comparison)
     const dateFilters: string[] = [];
@@ -818,19 +839,19 @@ export class OutlookProvider implements EmailProvider {
       dateFilters.push(`receivedDateTime gt ${options.after.toISOString()}`);
     }
 
-    this.logger.info("Calling queryBatchMessages with separated parameters", {
+    this.logger.info("Calling queryBatchMessages", {
       dateFilters,
       maxResults: options.maxResults || 20,
       pageToken: options.pageToken,
     });
     this.logger.trace("Search query", {
-      searchQuery: originalQuery.trim() || undefined,
+      searchQuery: searchQuery || undefined,
     });
 
     // Don't pass folderId - let the API return all folders except Junk/Deleted (auto-excluded)
     // Drafts are filtered out in convertMessages
     const response = await queryBatchMessages(this.client, {
-      searchQuery: originalQuery.trim() || undefined,
+      searchQuery: searchQuery || undefined,
       dateFilters,
       maxResults: options.maxResults || 20,
       pageToken: options.pageToken,
@@ -947,76 +968,15 @@ export class OutlookProvider implements EmailProvider {
     return threads;
   }
 
-  async getMessagesByFields(options: {
-    froms?: string[];
-    tos?: string[];
-    subjects?: string[];
-    before?: Date;
-    after?: Date;
-    maxResults?: number;
-    pageToken?: string;
-  }): Promise<{
-    messages: ParsedMessage[];
-    nextPageToken?: string;
-  }> {
-    const filters: string[] = [];
-
-    const froms = (options.froms || [])
-      .map((f) => extractEmailAddress(f) || f)
-      .filter((f) => !!f);
-    if (froms.length > 0) {
-      const fromFilter = froms
-        .map((f) => `from/emailAddress/address eq '${escapeODataString(f)}'`)
-        .join(" or ");
-      filters.push(`(${fromFilter})`);
-    }
-
-    const tos = (options.tos || [])
-      .map((t) => extractEmailAddress(t) || t)
-      .filter((t) => !!t);
-    if (tos.length > 0) {
-      const toFilter = tos
-        .map(
-          (t) =>
-            `toRecipients/any(r: r/emailAddress/address eq '${escapeODataString(t)}')`,
-        )
-        .join(" or ");
-      filters.push(`(${toFilter})`);
-    }
-
-    const subjects = (options.subjects || []).filter((s) => !!s);
-    if (subjects.length > 0) {
-      // Use contains to match subject substrings; exact eq would be too strict
-      const subjectFilter = subjects
-        .map((s) => `contains(subject,'${escapeODataString(s)}')`)
-        .join(" or ");
-      filters.push(`(${subjectFilter})`);
-    }
-
-    // Build date filters
-    const dateFilters: string[] = [];
-    if (options.before) {
-      dateFilters.push(`receivedDateTime lt ${options.before.toISOString()}`);
-    }
-    if (options.after) {
-      dateFilters.push(`receivedDateTime gt ${options.after.toISOString()}`);
-    }
-
-    // Use queryMessagesWithFilters (OData $filter) instead of getMessagesWithPagination (KQL $search)
-    return queryMessagesWithFilters(this.client, {
-      filters,
-      dateFilters,
-      maxResults: options.maxResults,
-      pageToken: options.pageToken,
-    });
-  }
-
   async getDrafts(options?: { maxResults?: number }): Promise<ParsedMessage[]> {
-    const response = await this.getMessagesWithPagination({
-      query: "isDraft eq true",
-      maxResults: options?.maxResults || 50,
-    });
-    return response.messages;
+    const response: { value: Message[] } = await this.client
+      .getClient()
+      .api("/me/mailFolders/drafts/messages")
+      .select(MESSAGE_SELECT_FIELDS)
+      .top(options?.maxResults || 50)
+      .get();
+
+    return response.value.map((msg) => convertMessage(msg));
   }
 
   async getMessagesBatch(messageIds: string[]): Promise<ParsedMessage[]> {
@@ -1319,19 +1279,78 @@ export class OutlookProvider implements EmailProvider {
     messageId: string;
   }): Promise<boolean> {
     try {
-      const escapedFrom = escapeODataString(options.from);
+      // Use shared logic: for public domains search by full email, for company domains search by domain
+      const searchTerm = getSearchTermForSender(options.from);
+      const isFullEmail = searchTerm.includes("@");
+
       const dateString = options.date.toISOString();
 
-      // Split into two parallel queries to avoid OData "invalid nodes" error
-      // when combining any() lambda with other filters.
-      const receivedFilter = `from/emailAddress/address eq '${escapedFrom}' and receivedDateTime lt ${dateString}`;
+      // For domain matching, use $search instead of $filter since endsWith has limitations
+      // For exact email matching, use $filter with eq (case-insensitive for email addresses)
+      if (!isFullEmail) {
+        // Domain-based search - use $search for both sent and received
+        const escapedKqlDomain = searchTerm
+          .replace(/\\/g, "\\\\")
+          .replace(/"/g, '\\"');
+
+        const [sentResponse, receivedResponse] = await Promise.all([
+          this.client
+            .getClient()
+            .api("/me/messages")
+            .search(`"to:@${escapedKqlDomain}"`)
+            .top(5)
+            .select("id,sentDateTime")
+            .get()
+            .catch((error) => {
+              this.logger.error("Error checking sent messages (domain)", {
+                error,
+              });
+              return { value: [] };
+            }),
+
+          this.client
+            .getClient()
+            .api("/me/messages")
+            .search(`"from:@${escapedKqlDomain}"`)
+            .top(5)
+            .select("id,receivedDateTime")
+            .get()
+            .catch((error) => {
+              this.logger.error("Error checking received messages (domain)", {
+                error,
+              });
+              return { value: [] };
+            }),
+        ]);
+
+        // Filter by date since $search doesn't support date filtering well
+        const validSentMessages = (sentResponse.value || []).filter(
+          (msg: Message) => {
+            if (!msg.sentDateTime) return false;
+            return new Date(msg.sentDateTime) < options.date;
+          },
+        );
+
+        const validReceivedMessages = (receivedResponse.value || []).filter(
+          (msg: Message) => {
+            if (!msg.receivedDateTime) return false;
+            return new Date(msg.receivedDateTime) < options.date;
+          },
+        );
+
+        const messages = [...validSentMessages, ...validReceivedMessages];
+        return messages.some((message) => message.id !== options.messageId);
+      }
+
+      // Full email search - use $filter for received, $search for sent
+      const escapedSearchTerm = escapeODataString(searchTerm);
+      const receivedFilter = `from/emailAddress/address eq '${escapedSearchTerm}' and receivedDateTime lt ${dateString}`;
 
       // Use $search for sent messages as $filter on toRecipients is unreliable
-      // We escape double quotes for the KQL search query
-      const escapedSearchFrom = options.from
+      const escapedKqlSearchTerm = searchTerm
         .replace(/\\/g, "\\\\")
         .replace(/"/g, '\\"');
-      const sentSearch = `"to:${escapedSearchFrom}"`;
+      const sentSearch = `"to:${escapedKqlSearchTerm}"`;
 
       const [sentResponse, receivedResponse] = await Promise.all([
         this.client

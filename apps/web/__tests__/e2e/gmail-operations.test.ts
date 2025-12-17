@@ -15,7 +15,11 @@ import { NextRequest } from "next/server";
 import prisma from "@/utils/prisma";
 import { createEmailProvider } from "@/utils/email/provider";
 import type { GmailProvider } from "@/utils/email/google";
-import { findOldMessage } from "@/__tests__/e2e/helpers";
+import {
+  ensureCatchAllTestRule,
+  ensureTestPremiumAccount,
+  findOldMessage,
+} from "@/__tests__/e2e/helpers";
 
 // ============================================
 // TEST DATA - SET VIA ENVIRONMENT VARIABLES
@@ -93,6 +97,9 @@ describe.skipIf(!RUN_E2E_TESTS)("Gmail Webhook Payload", () => {
     const emailAccount = await prisma.emailAccount.findUniqueOrThrow({
       where: { email: TEST_GMAIL_EMAIL },
     });
+
+    await ensureTestPremiumAccount(emailAccount.userId);
+    await ensureCatchAllTestRule(emailAccount.id);
 
     await prisma.executedRule.deleteMany({
       where: {

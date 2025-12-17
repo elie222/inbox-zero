@@ -112,3 +112,33 @@ export function formatEmailWithName(
   if (!name || name === address) return address;
   return `${name} <${address}>`;
 }
+
+// Public email providers where we should search by full email address
+// For company domains, we search by domain to catch emails from different people at same company
+export const PUBLIC_EMAIL_DOMAINS = new Set([
+  "gmail.com",
+  "yahoo.com",
+  "hotmail.com",
+  "outlook.com",
+  "aol.com",
+  "icloud.com",
+  "me.com",
+  "protonmail.com",
+  "zoho.com",
+  "yandex.com",
+  "fastmail.com",
+  "gmx.com",
+  "hey.com",
+]);
+
+// Returns the search term to use when checking for previous communications
+// For public email providers (gmail, yahoo, etc), returns the full email address
+// For company domains, returns just the domain to catch emails from different people at same company
+export function getSearchTermForSender(email: string): string {
+  const domain = extractDomainFromEmail(email);
+  if (!domain) return email;
+
+  return PUBLIC_EMAIL_DOMAINS.has(domain.toLowerCase())
+    ? extractEmailAddress(email) || email
+    : domain;
+}

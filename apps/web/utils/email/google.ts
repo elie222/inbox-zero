@@ -71,7 +71,6 @@ import type {
   EmailSignature,
 } from "@/utils/email/types";
 import { createScopedLogger, type Logger } from "@/utils/logger";
-import { extractEmailAddress } from "@/utils/email";
 import { getGmailSignatures } from "@/utils/gmail/signature-settings";
 
 export class GmailProvider implements EmailProvider {
@@ -944,60 +943,18 @@ export class GmailProvider implements EmailProvider {
       }));
   }
 
-  async getMessagesByFields(options: {
-    froms?: string[];
-    tos?: string[];
-    subjects?: string[];
-    before?: Date;
-    after?: Date;
-    maxResults?: number;
-    pageToken?: string;
-  }): Promise<{
-    messages: ParsedMessage[];
-    nextPageToken?: string;
-  }> {
-    const parts: string[] = [];
-
-    const froms = (options.froms || [])
-      .map((f) => extractEmailAddress(f) || f)
-      .filter((f) => !!f);
-    if (froms.length > 0) {
-      const fromGroup = froms.map((f) => `"${f}"`).join(" OR ");
-      parts.push(`from:(${fromGroup})`);
-    }
-
-    const tos = (options.tos || [])
-      .map((t) => extractEmailAddress(t) || t)
-      .filter((t) => !!t);
-    if (tos.length > 0) {
-      const toGroup = tos.map((t) => `"${t}"`).join(" OR ");
-      parts.push(`to:(${toGroup})`);
-    }
-
-    const subjects = (options.subjects || []).filter((s) => !!s);
-    if (subjects.length > 0) {
-      const subjectGroup = subjects.map((s) => `"${s}"`).join(" OR ");
-      parts.push(`subject:(${subjectGroup})`);
-    }
-
-    const query = parts.join(" ") || undefined;
-
-    return this.getMessagesWithPagination({
-      query,
-      maxResults: options.maxResults,
-      pageToken: options.pageToken,
-      before: options.before,
-      after: options.after,
-    });
-  }
-
   async getDrafts(options?: { maxResults?: number }): Promise<ParsedMessage[]> {
-    const response = await this.getMessagesWithPagination({
-      query: "in:draft",
+    const response = await this.client.users.drafts.list({
+      userId: "me",
       maxResults: options?.maxResults || 50,
     });
 
-    return response.messages;
+    const drafts = response.data.drafts || [];
+    const messagePromises = drafts
+      .filter((draft) => draft.message?.id)
+      .map((draft) => this.getMessage(draft.message!.id!));
+
+    return Promise.all(messagePromises);
   }
 
   async getMessagesBatch(messageIds: string[]): Promise<ParsedMessage[]> {
@@ -1217,7 +1174,7 @@ export class GmailProvider implements EmailProvider {
     date: Date;
     messageId: string;
   }): Promise<boolean> {
-    return hasPreviousCommunicationsWithSenderOrDomain(this, options);
+    return hasPreviousCommunicationsWithSenderOrDomain(this.client, options);
   }
 
   async getThreadsFromSenderWithSubject(

@@ -2,7 +2,7 @@ import type { OutlookClient } from "@/utils/outlook/client";
 import { createScopedLogger } from "@/utils/logger";
 import { publishArchive, type TinybirdEmailAction } from "@inboxzero/tinybird";
 import { WELL_KNOWN_FOLDERS } from "./message";
-import { withOutlookRetry } from "@/utils/outlook/retry";
+import { extractErrorInfo, withOutlookRetry } from "@/utils/outlook/retry";
 
 import { inboxZeroLabels, type InboxZeroLabel } from "@/utils/label";
 import type {
@@ -101,8 +101,8 @@ export async function createLabel({
     );
     return response;
   } catch (error) {
-    const errorMessage =
-      error instanceof Error ? error.message : "Unknown error";
+    let { errorMessage } = extractErrorInfo(error);
+    if (!errorMessage) errorMessage = (error as any)?.message || "Unknown error";
     if (
       errorMessage.includes("already exists") ||
       errorMessage.includes("conflict with the current state")

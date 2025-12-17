@@ -93,7 +93,7 @@ describe.skipIf(!RUN_E2E_TESTS)("Microsoft Outlook Labeling E2E Tests", () => {
     console.log(`   Account ID: ${emailAccount.id}`);
     console.log(`   Test conversation ID: ${TEST_CONVERSATION_ID}`);
     console.log(`   Test message ID: ${TEST_OUTLOOK_MESSAGE_ID}\n`);
-  });
+  }, 30_000);
 
   afterAll(async () => {
     // Clean up all test labels created during the test suite
@@ -126,7 +126,7 @@ describe.skipIf(!RUN_E2E_TESTS)("Microsoft Outlook Labeling E2E Tests", () => {
 
   describe("Label Creation and Retrieval", () => {
     test("should create a new label and retrieve it by name", async () => {
-      const testLabelName = `E2E Test ${Date.now()}`;
+      const testLabelName = `MS-Label Test ${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
       createdTestLabels.push(testLabelName);
 
       // Create the label
@@ -150,7 +150,7 @@ describe.skipIf(!RUN_E2E_TESTS)("Microsoft Outlook Labeling E2E Tests", () => {
     });
 
     test("should retrieve label by ID", async () => {
-      const testLabelName = `E2E Test ID ${Date.now()}`;
+      const testLabelName = `MS-Label ID ${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
       createdTestLabels.push(testLabelName);
 
       // Create the label
@@ -193,7 +193,7 @@ describe.skipIf(!RUN_E2E_TESTS)("Microsoft Outlook Labeling E2E Tests", () => {
     });
 
     test("should handle duplicate label creation gracefully", async () => {
-      const testLabelName = `E2E Duplicate ${Date.now()}`;
+      const testLabelName = `MS-Label Dup ${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
       createdTestLabels.push(testLabelName);
 
       // Create the label first time
@@ -218,7 +218,7 @@ describe.skipIf(!RUN_E2E_TESTS)("Microsoft Outlook Labeling E2E Tests", () => {
 
   describe("Label Application to Messages", () => {
     test("should apply label to a single message", async () => {
-      const testLabelName = `E2E Apply ${Date.now()}`;
+      const testLabelName = `MS-Label Apply ${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
       createdTestLabels.push(testLabelName);
 
       // Create the label
@@ -249,8 +249,8 @@ describe.skipIf(!RUN_E2E_TESTS)("Microsoft Outlook Labeling E2E Tests", () => {
     });
 
     test("should apply multiple labels to a message", async () => {
-      const testLabel1Name = `E2E Multi 1 ${Date.now()}`;
-      const testLabel2Name = `E2E Multi 2 ${Date.now()}`;
+      const testLabel1Name = `MS-Label Multi1 ${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+      const testLabel2Name = `MS-Label Multi2 ${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
       createdTestLabels.push(testLabel1Name, testLabel2Name);
 
       // Create two labels
@@ -294,7 +294,7 @@ describe.skipIf(!RUN_E2E_TESTS)("Microsoft Outlook Labeling E2E Tests", () => {
     });
 
     test("should handle applying label to non-existent message", async () => {
-      const testLabelName = `E2E Invalid ${Date.now()}`;
+      const testLabelName = `MS-Label Invalid ${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
       createdTestLabels.push(testLabelName);
 
       const label = await provider.createLabel(testLabelName);
@@ -315,7 +315,7 @@ describe.skipIf(!RUN_E2E_TESTS)("Microsoft Outlook Labeling E2E Tests", () => {
 
   describe("Label Removal from Threads", () => {
     test("should remove label from all messages in a thread", async () => {
-      const testLabelName = `E2E Remove ${Date.now()}`;
+      const testLabelName = `MS-Label Remove ${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
       createdTestLabels.push(testLabelName);
 
       // Create and apply label
@@ -357,7 +357,7 @@ describe.skipIf(!RUN_E2E_TESTS)("Microsoft Outlook Labeling E2E Tests", () => {
     });
 
     test("should handle removing label from thread with multiple messages", async () => {
-      const testLabelName = `E2E Thread ${Date.now()}`;
+      const testLabelName = `MS-Label Thread ${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
       createdTestLabels.push(testLabelName);
 
       // Create label
@@ -408,7 +408,7 @@ describe.skipIf(!RUN_E2E_TESTS)("Microsoft Outlook Labeling E2E Tests", () => {
 
   describe("Complete Label Lifecycle", () => {
     test("should complete full label lifecycle: create, apply, verify, remove, verify", async () => {
-      const testLabelName = `E2E Lifecycle ${Date.now()}`;
+      const testLabelName = `MS-Label Lifecycle ${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
       createdTestLabels.push(testLabelName);
 
       console.log(`\n   🔄 Starting full lifecycle test for: ${testLabelName}`);
@@ -465,8 +465,8 @@ describe.skipIf(!RUN_E2E_TESTS)("Microsoft Outlook Labeling E2E Tests", () => {
 
   describe("Label State Consistency", () => {
     test("should maintain label state across multiple operations", async () => {
-      const label1Name = `E2E State 1 ${Date.now()}`;
-      const label2Name = `E2E State 2 ${Date.now()}`;
+      const label1Name = `MS-Label State1 ${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+      const label2Name = `MS-Label State2 ${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
       createdTestLabels.push(label1Name, label2Name);
 
       // Create two labels
