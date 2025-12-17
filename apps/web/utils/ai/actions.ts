@@ -1,6 +1,7 @@
+import { after } from "next/server";
 import { ActionType } from "@/generated/prisma/enums";
 import type { ExecutedRule } from "@/generated/prisma/client";
-import { createScopedLogger, type Logger } from "@/utils/logger";
+import type { Logger } from "@/utils/logger";
 import { callWebhook } from "@/utils/webhook";
 import type { ActionItem, EmailForAction } from "@/utils/ai/types";
 import type { EmailProvider } from "@/utils/email/types";
@@ -8,6 +9,7 @@ import { enqueueDigestItem } from "@/utils/digest/index";
 import { filterNullProperties } from "@/utils";
 import { labelMessageAndSync } from "@/utils/label.server";
 import { hasVariables } from "@/utils/template";
+import prisma from "@/utils/prisma";
 
 const MODULE = "ai-actions";
 
@@ -88,9 +90,9 @@ const label: ActionFunction<{
   label?: string | null;
   labelId?: string | null;
 }> = async ({ client, email, args, emailAccountId, logger }) => {
-  let labelIdToUse = args.labelId;
+  const originalLabelId = args.labelId;
+  let labelIdToUse = originalLabelId;
 
-  // Lazy migration: If no labelId but label name exists, look it up
   if (!labelIdToUse && args.label) {
     if (hasVariables(args.label)) {
       logger.error("Template label not processed by AI", { label: args.label });
@@ -101,8 +103,6 @@ const label: ActionFunction<{
 
     if (matchingLabel) {
       labelIdToUse = matchingLabel.id;
-      // Note: We don't update the Action here to avoid race conditions
-      // The Action will be migrated when the rule is next updated
     } else {
       logger.info("Label not found, creating it", { labelName: args.label });
       const createdLabel = await client.createLabel(args.label);
@@ -125,6 +125,17 @@ const label: ActionFunction<{
     emailAccountId,
     logger,
   });
+
+  if (!originalLabelId && labelIdToUse && args.label) {
+    after(() =>
+      lazyUpdateActionLabelId({
+        labelName: args.label!,
+        labelId: labelIdToUse!,
+        emailAccountId,
+        logger,
+      }),
+    );
+  }
 };
 
 const draft: ActionFunction<{
@@ -301,3 +312,38 @@ const move_folder: ActionFunction<{ folderId?: string | null }> = async ({
   if (!args.folderId) return;
   await client.moveThreadToFolder(email.threadId, userEmail, args.folderId);
 };
+
+async function lazyUpdateActionLabelId({
+  labelName,
+  labelId,
+  emailAccountId,
+  logger,
+}: {
+  labelName: string;
+  labelId: string;
+  emailAccountId: string;
+  logger: Logger;
+}) {
+  try {
+    const result = await prisma.action.updateMany({
+      where: {
+        label: labelName,
+        labelId: null,
+        rule: { emailAccountId },
+      },
+      data: { labelId },
+    });
+
+    if (result.count > 0) {
+      logger.info("Lazy-updated Action labelId", {
+        labelId,
+        updatedCount: result.count,
+      });
+    }
+  } catch (error) {
+    logger.warn("Failed to lazy-update Action labelId", {
+      labelId,
+      error,
+    });
+  }
+}

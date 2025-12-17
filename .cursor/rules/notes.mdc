@@ -5,3 +5,4 @@ alwaysApply: true
 ---
 - Do not try and run the project via `dev` or `build` command unless I explicitly ask you to.
 - Prefer self-documenting code over comments; use descriptive variable and function names instead of explaining intent with comments.
+- Add helper functions to the bottom of files, not the top!

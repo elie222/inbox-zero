@@ -150,12 +150,15 @@ export function isRetryableError(errorInfo: ErrorInfo & { code?: string }): {
     /(^|[\s-])rate limit exceeded/i.test(errorMessage) ||
     /quota exceeded/i.test(errorMessage);
 
-  // Temporary server errors that should be retried (502, 503, 504)
+  // Temporary server errors that should be retried
   const isServerError =
+    status === 500 ||
     status === 502 ||
     status === 503 ||
     status === 504 ||
-    /502|503|504|server error|temporarily unavailable/i.test(errorMessage);
+    /500|502|503|504|internal error|server error|temporarily unavailable/i.test(
+      errorMessage,
+    );
 
   const isFailedPrecondition =
     status === 400 &&
