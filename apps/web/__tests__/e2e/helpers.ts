@@ -12,19 +12,33 @@ export async function findOldMessage(
   const cutoffDate = new Date();
   cutoffDate.setDate(cutoffDate.getDate() - daysOld);
 
-  const response = await provider.getMessagesWithPagination({
-    maxResults: 1,
-    before: cutoffDate,
+  // Get messages from INBOX to ensure they have proper folder labels for processing
+  const inboxMessages = await provider.getInboxMessages(20);
+
+  // First try to find an old message (preferred to avoid interfering with recent activity)
+  let selectedMessage = inboxMessages.find((msg) => {
+    const messageDate = msg.headers.date ? new Date(msg.headers.date) : null;
+    return messageDate && messageDate < cutoffDate;
   });
 
-  const message = response.messages[0];
-  if (!message?.id || !message?.threadId) {
-    throw new Error("No old message found for testing");
+  // If no old message found, fall back to any inbox message (pick the oldest available)
+  if (!selectedMessage && inboxMessages.length > 0) {
+    // Sort by date ascending (oldest first) and pick the oldest
+    const sortedByDate = [...inboxMessages].sort((a, b) => {
+      const dateA = a.headers.date ? new Date(a.headers.date).getTime() : 0;
+      const dateB = b.headers.date ? new Date(b.headers.date).getTime() : 0;
+      return dateA - dateB;
+    });
+    selectedMessage = sortedByDate[0];
+  }
+
+  if (!selectedMessage?.id || !selectedMessage?.threadId) {
+    throw new Error("No message found in inbox for testing");
   }
 
   return {
-    threadId: message.threadId,
-    messageId: message.id,
+    threadId: selectedMessage.threadId,
+    messageId: selectedMessage.id,
   };
 }
 

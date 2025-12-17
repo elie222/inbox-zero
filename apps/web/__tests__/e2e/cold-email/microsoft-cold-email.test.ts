@@ -132,9 +132,11 @@ describe.skipIf(!RUN_E2E_TESTS || !TEST_OUTLOOK_EMAIL)(
         expect(result).toBe(false);
       });
 
-      test("returns TRUE for colleague at same company domain", async () => {
+      test("returns TRUE for colleague at same company domain", async ({
+        skip,
+      }) => {
         if (!companyDomain) {
-          // No company domain in inbox - skip
+          skip();
           return;
         }
 
