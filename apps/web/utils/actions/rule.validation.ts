@@ -266,3 +266,8 @@ export const toggleRuleBody = z
   .refine((data) => data.ruleId || data.systemType, {
     message: "Either ruleId or systemType must be provided",
   });
+
+export const toggleAllRulesBody = z.object({
+  enabled: z.boolean(),
+});
+export type ToggleAllRulesBody = z.infer<typeof toggleAllRulesBody>;
