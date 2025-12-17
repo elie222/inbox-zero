@@ -3,16 +3,38 @@ import prisma from "@/utils/prisma";
 import { withError } from "@/utils/middleware";
 import { hasCronSecret, hasPostCronSecret } from "@/utils/cron";
 import { captureException } from "@/utils/error";
-import { createScopedLogger } from "@/utils/logger";
+import type { Logger } from "@/utils/logger";
 import { getPremiumUserFilter } from "@/utils/premium";
 import { processMeetingBriefings } from "@/utils/meeting-briefs/process";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 800;
 
-async function processAllMeetingBriefings() {
-  const logger = createScopedLogger("cron/meeting-briefs");
+export const GET = withError("meeting-briefs", async (request) => {
+  if (!hasCronSecret(request)) {
+    captureException(new Error("Unauthorized request: api/meeting-briefs"));
+    return new Response("Unauthorized", { status: 401 });
+  }
 
+  const result = await processAllMeetingBriefings(request.logger);
+
+  return NextResponse.json(result);
+});
+
+export const POST = withError("meeting-briefs", async (request) => {
+  if (!(await hasPostCronSecret(request))) {
+    captureException(
+      new Error("Unauthorized cron request: api/meeting-briefs"),
+    );
+    return new Response("Unauthorized", { status: 401 });
+  }
+
+  const result = await processAllMeetingBriefings(request.logger);
+
+  return NextResponse.json(result);
+});
+
+async function processAllMeetingBriefings(logger: Logger) {
   logger.info("Processing meeting briefings for all users");
 
   // Get all email accounts with meeting briefings enabled
@@ -77,27 +99,3 @@ async function processAllMeetingBriefings() {
     errors: errorCount,
   };
 }
-
-export const GET = withError(async (request) => {
-  if (!hasCronSecret(request)) {
-    captureException(new Error("Unauthorized request: api/meeting-briefs"));
-    return new Response("Unauthorized", { status: 401 });
-  }
-
-  const result = await processAllMeetingBriefings();
-
-  return NextResponse.json(result);
-});
-
-export const POST = withError(async (request) => {
-  if (!(await hasPostCronSecret(request))) {
-    captureException(
-      new Error("Unauthorized cron request: api/meeting-briefs"),
-    );
-    return new Response("Unauthorized", { status: 401 });
-  }
-
-  const result = await processAllMeetingBriefings();
-
-  return NextResponse.json(result);
-});

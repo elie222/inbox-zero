@@ -7,8 +7,8 @@ export const GET = withError("unsubscribe", async (request) => {
   return unsubscribe(request);
 });
 
-export const POST = withError(async (request) => {
-  return unsubscribe(request as RequestWithLogger);
+export const POST = withError("unsubscribe", async (request) => {
+  return unsubscribe(request);
 });
 
 async function unsubscribe(request: RequestWithLogger) {

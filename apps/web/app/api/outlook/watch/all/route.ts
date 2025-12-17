@@ -4,15 +4,35 @@ import { hasCronSecret, hasPostCronSecret } from "@/utils/cron";
 import { withError } from "@/utils/middleware";
 import { captureException } from "@/utils/error";
 import { hasAiAccess, getPremiumUserFilter } from "@/utils/premium";
-import { createScopedLogger } from "@/utils/logger";
 import { createManagedOutlookSubscription } from "@/utils/outlook/subscription-manager";
-
-const logger = createScopedLogger("api/outlook/watch/all");
+import type { Logger } from "@/utils/logger";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
 
-async function watchAllEmails() {
+export const GET = withError("outlook/watch/all", async (request) => {
+  if (!hasCronSecret(request)) {
+    captureException(
+      new Error("Unauthorized cron request: api/outlook/watch/all"),
+    );
+    return new Response("Unauthorized", { status: 401 });
+  }
+
+  return watchAllEmails(request.logger);
+});
+
+export const POST = withError("outlook/watch/all", async (request) => {
+  if (!(await hasPostCronSecret(request))) {
+    captureException(
+      new Error("Unauthorized cron request: api/outlook/watch/all"),
+    );
+    return new Response("Unauthorized", { status: 401 });
+  }
+
+  return watchAllEmails(request.logger);
+});
+
+async function watchAllEmails(logger: Logger) {
   const emailAccounts = await prisma.emailAccount.findMany({
     where: {
       account: {
@@ -111,25 +131,3 @@ async function watchAllEmails() {
 
   return NextResponse.json({ success: true });
 }
-
-export const GET = withError(async (request) => {
-  if (!hasCronSecret(request)) {
-    captureException(
-      new Error("Unauthorized cron request: api/outlook/watch/all"),
-    );
-    return new Response("Unauthorized", { status: 401 });
-  }
-
-  return watchAllEmails();
-});
-
-export const POST = withError(async (request) => {
-  if (!(await hasPostCronSecret(request))) {
-    captureException(
-      new Error("Unauthorized cron request: api/outlook/watch/all"),
-    );
-    return new Response("Unauthorized", { status: 401 });
-  }
-
-  return watchAllEmails();
-});

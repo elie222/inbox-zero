@@ -6,12 +6,11 @@ import { sendCompleteRegistrationEvent } from "@/utils/fb";
 import { trackUserSignedUp } from "@/utils/posthog";
 import prisma from "@/utils/prisma";
 import { ONE_HOUR_MS } from "@/utils/date";
-import { createScopedLogger } from "@/utils/logger";
 import type { ReadonlyHeaders } from "next/dist/server/web/spec-extension/adapters/headers";
+import type { Logger } from "@/utils/logger";
 
-const logger = createScopedLogger("complete-registration");
-
-export const POST = withError(async () => {
+export const POST = withError("complete-registration", async (request) => {
+  const logger = request.logger;
   const session = await auth();
   if (!session?.user.email)
     return NextResponse.json({ error: "Not authenticated" });
@@ -38,6 +37,7 @@ export const POST = withError(async () => {
   const posthogPromise = storePosthogSignupEvent(
     session.user.id,
     session.user.email,
+    logger,
   );
 
   const [fbResult, posthogResult] = await Promise.allSettled([
@@ -73,7 +73,11 @@ function getIp(headersList: ReadonlyHeaders) {
   return headersList.get("x-real-ip") ?? FALLBACK_IP_ADDRESS;
 }
 
-async function storePosthogSignupEvent(userId: string, email: string) {
+async function storePosthogSignupEvent(
+  userId: string,
+  email: string,
+  logger: Logger,
+) {
   const userCreatedAt = await prisma.user.findUnique({
     where: { id: userId },
     select: { createdAt: true },

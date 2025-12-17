@@ -20,11 +20,10 @@ import type { Payload } from "@/app/api/lemon-squeezy/webhook/types";
 import { switchedPremiumPlan, startedTrial } from "@inboxzero/loops";
 import { SafeError } from "@/utils/error";
 import { getLemonSubscriptionTier } from "@/app/(app)/premium/config";
-import { createScopedLogger } from "@/utils/logger";
+import type { Logger } from "@/utils/logger";
 
-const logger = createScopedLogger("Lemon Squeezy Webhook");
-
-export const POST = withError(async (request) => {
+export const POST = withError("lemon-squeezy/webhook", async (request) => {
+  const logger = request.logger;
   const payload = await getPayload(request);
   const userId = payload.meta.custom_data?.user_id;
 
@@ -45,7 +44,7 @@ export const POST = withError(async (request) => {
   // monthly/annual subscription
   if (payload.meta.event_name === "subscription_created") {
     if (!userId) throw new SafeError("No userId provided");
-    return await subscriptionCreated({ payload, userId });
+    return await subscriptionCreated({ payload, userId, logger });
   }
 
   const lemonSqueezyCustomerId = payload.data.attributes.customer_id;
@@ -63,7 +62,7 @@ export const POST = withError(async (request) => {
 
   // renewal
   if (payload.meta.event_name === "subscription_updated") {
-    return await subscriptionUpdated({ payload, premiumId });
+    return await subscriptionUpdated({ payload, premiumId, logger });
   }
 
   // changed plan
@@ -75,7 +74,7 @@ export const POST = withError(async (request) => {
       });
       throw new SafeError("No userId provided");
     }
-    return await subscriptionPlanChanged({ payload, userId });
+    return await subscriptionPlanChanged({ payload, userId, logger });
   }
 
   // payment failed
@@ -85,12 +84,13 @@ export const POST = withError(async (request) => {
       premiumId,
       endsAt: new Date().toISOString(),
       variantId: payload.data.attributes.variant_id,
+      logger,
     });
   }
 
   // payment success
   if (payload.meta.event_name === "subscription_payment_success") {
-    return await subscriptionPaymentSuccess({ payload, premiumId });
+    return await subscriptionPaymentSuccess({ payload, premiumId, logger });
   }
 
   // cancelled or expired
@@ -100,6 +100,7 @@ export const POST = withError(async (request) => {
       premiumId,
       endsAt: payload.data.attributes.ends_at,
       variantId: payload.data.attributes.variant_id,
+      logger,
     });
   }
 
@@ -131,9 +132,11 @@ async function getPayload(request: Request): Promise<Payload> {
 async function subscriptionCreated({
   payload,
   userId,
+  logger,
 }: {
   payload: Payload;
   userId: string;
+  logger: Logger;
 }) {
   logger.info("Subscription created", {
     lemonSqueezyRenewsAt:
@@ -145,6 +148,7 @@ async function subscriptionCreated({
   const { updatedPremium, tier } = await handleSubscriptionCreated(
     payload,
     userId,
+    logger,
   );
 
   const email = getEmailFromPremium(updatedPremium);
@@ -171,9 +175,11 @@ async function subscriptionCreated({
 async function subscriptionPlanChanged({
   payload,
   userId,
+  logger,
 }: {
   payload: Payload;
   userId: string;
+  logger: Logger;
 }) {
   logger.info("Subscription plan changed", {
     lemonSqueezyRenewsAt:
@@ -185,6 +191,7 @@ async function subscriptionPlanChanged({
   const { updatedPremium, tier } = await handleSubscriptionCreated(
     payload,
     userId,
+    logger,
   );
 
   const email = getEmailFromPremium(updatedPremium);
@@ -210,7 +217,11 @@ async function subscriptionPlanChanged({
   return NextResponse.json({ ok: true });
 }
 
-async function handleSubscriptionCreated(payload: Payload, userId: string) {
+async function handleSubscriptionCreated(
+  payload: Payload,
+  userId: string,
+  logger: Logger,
+) {
   if (!payload.data.attributes.renews_at)
     throw new Error("No renews_at provided");
 
@@ -251,9 +262,11 @@ async function handleSubscriptionCreated(payload: Payload, userId: string) {
 async function subscriptionUpdated({
   payload,
   premiumId,
+  logger,
 }: {
   payload: Payload;
   premiumId: string;
+  logger: Logger;
 }) {
   if (!payload.data.attributes.renews_at)
     throw new Error("No renews_at provided");
@@ -290,11 +303,13 @@ async function subscriptionCancelled({
   premiumId,
   endsAt,
   variantId,
+  logger,
 }: {
   payload: Payload;
   premiumId: string;
   endsAt: NonNullable<Payload["data"]["attributes"]["ends_at"]>;
   variantId: NonNullable<Payload["data"]["attributes"]["variant_id"]>;
+  logger: Logger;
 }) {
   logger.info("Subscription cancelled", {
     endsAt: new Date(endsAt),
@@ -328,9 +343,11 @@ async function subscriptionCancelled({
 async function subscriptionPaymentSuccess({
   payload,
   premiumId,
+  logger,
 }: {
   payload: Payload;
   premiumId: string;
+  logger: Logger;
 }) {
   logger.info("Subscription payment success", {
     premiumId,

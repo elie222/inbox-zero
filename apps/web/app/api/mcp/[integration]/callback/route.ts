@@ -1,5 +1,4 @@
-import { type NextRequest, NextResponse } from "next/server";
-import { createScopedLogger } from "@/utils/logger";
+import { NextResponse } from "next/server";
 import { withError } from "@/utils/middleware";
 import { SafeError } from "@/utils/error";
 import {
@@ -15,9 +14,8 @@ import { syncMcpTools } from "@/utils/mcp/sync-tools";
 import { handleOAuthCallback } from "@/utils/mcp/oauth";
 import { env } from "@/env";
 
-const logger = createScopedLogger("mcp/callback");
-
-export const GET = withError(async (request: NextRequest, { params }) => {
+export const GET = withError("mcp/callback", async (request, { params }) => {
+  const logger = request.logger;
   const { integration } = await params;
 
   const integrationConfig = getIntegration(integration);

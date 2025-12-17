@@ -2,7 +2,7 @@ import type { z } from "zod";
 import { after, NextResponse } from "next/server";
 import { withError } from "@/utils/middleware";
 import { processHistoryForUser } from "@/app/api/outlook/webhook/process-history";
-import { createScopedLogger, type Logger } from "@/utils/logger";
+import type { Logger } from "@/utils/logger";
 import { env } from "@/env";
 import { webhookBodySchema } from "@/app/api/outlook/webhook/types";
 import { handleWebhookError } from "@/utils/webhook/error-handler";
@@ -10,11 +10,11 @@ import { getWebhookEmailAccount } from "@/utils/webhook/validate-webhook-account
 
 export const maxDuration = 300;
 
-export const POST = withError(async (request) => {
+export const POST = withError("outlook/webhook", async (request) => {
   const searchParams = new URL(request.url).searchParams;
   const validationToken = searchParams.get("validationToken");
 
-  const logger = createScopedLogger("outlook/webhook");
+  const logger = request.logger;
 
   if (validationToken) {
     logger.info("Received validation request", { validationToken });

@@ -2,17 +2,17 @@ import { after, NextResponse } from "next/server";
 import { withError } from "@/utils/middleware";
 import { env } from "@/env";
 import { processHistoryForUser } from "@/app/api/google/webhook/process-history";
-import { createScopedLogger, type Logger } from "@/utils/logger";
+import type { Logger } from "@/utils/logger";
 import { handleWebhookError } from "@/utils/webhook/error-handler";
 
 export const maxDuration = 300;
 
 // Google PubSub calls this endpoint each time a user recieves an email. We subscribe for updates via `api/google/watch`
-export const POST = withError(async (request) => {
+export const POST = withError("google/webhook", async (request) => {
   const searchParams = new URL(request.url).searchParams;
   const token = searchParams.get("token");
 
-  let logger = createScopedLogger("google/webhook");
+  let logger = request.logger;
 
   if (
     env.GOOGLE_PUBSUB_VERIFICATION_TOKEN &&
