@@ -273,11 +273,10 @@ export async function unwatchEmails({
   } catch (error) {
     if (error instanceof Error && error.message.includes("invalid_grant")) {
       logger.warn("Error unwatching emails, invalid grant");
-      return;
+    } else {
+      logger.error("Error unwatching emails", { error });
+      captureException(error);
     }
-
-    logger.error("Error unwatching emails", { error });
-    captureException(error);
   }
 
   // Clear the watch data regardless of provider

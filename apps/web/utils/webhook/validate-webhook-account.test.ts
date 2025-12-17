@@ -40,6 +40,8 @@ describe("validateWebhookAccount", () => {
       autoCategorizeSenders: false,
       watchEmailsSubscriptionId: "subscription-id",
       multiRuleSelectionEnabled: false,
+      timezone: null,
+      calendarBookingLink: null,
       watchEmailsSubscriptionHistory: [],
       account: {
         provider: "google",
