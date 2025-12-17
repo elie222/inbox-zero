@@ -15,7 +15,7 @@ vi.mock("server-only", () => ({}));
 
 // Import mocked functions
 import { isPremium, hasAiAccess } from "@/utils/premium";
-import { unwatchEmails } from "@/app/api/watch/controller";
+import { unwatchEmails } from "@/utils/email/watch-manager";
 import { createEmailProvider } from "@/utils/email/provider";
 
 describe("validateWebhookAccount", () => {

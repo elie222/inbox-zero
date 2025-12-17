@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { env } from "@/env";
 import { hasAiAccess, isPremium } from "@/utils/premium";
-import { unwatchEmails } from "@/app/api/watch/controller";
+import { unwatchEmails } from "@/utils/email/watch-manager";
 import { createEmailProvider } from "@/utils/email/provider";
 import prisma from "@/utils/prisma";
 import type { Logger } from "@/utils/logger";
@@ -147,6 +147,7 @@ export async function validateWebhookAccount(
       emailAccountId: emailAccount.id,
       provider,
       subscriptionId: emailAccount.watchEmailsSubscriptionId,
+      logger,
     });
     return { success: false, response: NextResponse.json({ ok: true }) };
   }
@@ -162,6 +163,7 @@ export async function validateWebhookAccount(
       emailAccountId: emailAccount.id,
       provider,
       subscriptionId: emailAccount.watchEmailsSubscriptionId,
+      logger,
     });
     return { success: false, response: NextResponse.json({ ok: true }) };
   }
