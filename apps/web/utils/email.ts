@@ -138,5 +138,7 @@ export function getSearchTermForSender(email: string): string {
   const domain = extractDomainFromEmail(email);
   if (!domain) return email;
 
-  return PUBLIC_EMAIL_DOMAINS.has(domain.toLowerCase()) ? email : domain;
+  return PUBLIC_EMAIL_DOMAINS.has(domain.toLowerCase())
+    ? extractEmailAddress(email)
+    : domain;
 }
