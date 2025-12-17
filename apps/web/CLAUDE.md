@@ -20,6 +20,8 @@
 - Use proper error handling with try/catch blocks
 - Format code with Prettier
 - Consult .cursor/rules for environment variable management
+- Prefer self-documenting code over comments; use descriptive variable and function names instead of explaining intent with comments.
+- Add helper functions to the bottom of files, not the top!
 
 ## Component Guidelines
 
