@@ -2,17 +2,15 @@ import groupBy from "lodash/groupBy";
 import { subDays } from "date-fns/subDays";
 import prisma from "@/utils/prisma";
 import { ActionType } from "@/generated/prisma/enums";
-import { createScopedLogger } from "@/utils/logger";
+import type { Logger } from "@/utils/logger";
 
 const MAX_DRAFTS_TO_CHECK = 10;
-
-const logger = createScopedLogger("auto-draft/disable-unused");
 
 /**
  * Disables auto-draft feature for users who haven't used their last 10 drafts
  * Only checks drafts that are more than a day old to give users time to use them
  */
-export async function disableUnusedAutoDrafts() {
+export async function disableUnusedAutoDrafts(logger: Logger) {
   logger.info("Starting to check for unused auto-drafts");
 
   // Find all users who have the auto-draft feature enabled (have an Action of type DRAFT_EMAIL)

@@ -16,7 +16,7 @@ export const POST = withError(
       return new Response("Unauthorized", { status: 401 });
     }
 
-    const results = await disableUnusedAutoDrafts();
+    const results = await disableUnusedAutoDrafts(request.logger);
     return NextResponse.json(results);
   },
 );

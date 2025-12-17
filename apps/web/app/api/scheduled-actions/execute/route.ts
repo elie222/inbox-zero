@@ -87,6 +87,15 @@ export const POST = verifySignatureAppRouter(
         return new Response("Action already being processed", { status: 200 });
       }
 
+      if (!scheduledAction.emailAccount?.account?.provider) {
+        logger.error("Email account or provider missing", {
+          scheduledActionId: scheduledAction.id,
+        });
+        return new Response("Email account or provider missing", {
+          status: 500,
+        });
+      }
+
       const provider = await createEmailProvider({
         emailAccountId: scheduledAction.emailAccountId,
         provider: scheduledAction.emailAccount.account.provider,
