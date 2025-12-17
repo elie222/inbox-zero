@@ -177,7 +177,8 @@ function parseJsonResponse(text: string): unknown {
     }
   }
 
-  throw new Error(`Failed to parse JSON from response: ${text.slice(0, 200)}`);
+  // Don't include raw response text in error - may contain sensitive data
+  throw new Error("Failed to parse JSON from response");
 }
 
 /**
@@ -185,10 +186,10 @@ function parseJsonResponse(text: string): unknown {
  */
 function handleCliError(error: unknown, res: Response<ErrorResponse>): void {
   if (error instanceof ClaudeCliError) {
+    // Don't include rawOutput in response - may contain sensitive data
     res.status(500).json({
       error: error.message,
       code: error.code,
-      rawText: error.rawOutput,
     });
     return;
   }
