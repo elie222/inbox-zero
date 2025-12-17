@@ -22,26 +22,22 @@ export async function withRetry<T>(
     delayMs: number;
   },
 ): Promise<T> {
-  let attempts = 0;
   let lastError: unknown;
 
-  while (attempts < maxRetries) {
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
     try {
       return await fn();
     } catch (error) {
-      attempts++;
       lastError = error;
 
-      if (retryIf(error)) {
+      if (retryIf(error) && attempt < maxRetries) {
         logger.warn("Operation failed. Retrying...", {
-          attempts,
+          attempt,
+          maxRetries,
           error,
         });
-
-        if (attempts < maxRetries) {
-          await sleep(delayMs);
-          continue;
-        }
+        await sleep(delayMs);
+        continue;
       }
 
       throw error;
@@ -59,12 +55,18 @@ export async function withRetry<T>(
 export function isTransientNetworkError(error: unknown): boolean {
   // JSON.stringify doesn't capture Error's non-enumerable properties (message, name),
   // so we need to extract text from Error objects explicitly
-  const errorText =
-    typeof error === "string"
-      ? error
-      : error instanceof Error
-        ? `${error.name}: ${error.message} ${String((error as NodeJS.ErrnoException).code ?? "")}`
-        : JSON.stringify(error);
+  let errorText: string;
+  if (typeof error === "string") {
+    errorText = error;
+  } else if (error instanceof Error) {
+    errorText = `${error.name}: ${error.message} ${String((error as NodeJS.ErrnoException).code ?? "")}`;
+  } else {
+    try {
+      errorText = JSON.stringify(error);
+    } catch {
+      errorText = String(error);
+    }
+  }
 
   const networkErrorCodes = ["ECONNRESET", "ETIMEDOUT", "ECONNREFUSED"];
   const networkErrorMessages = ["fetch failed", "terminated"];
