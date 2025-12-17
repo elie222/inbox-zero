@@ -2,6 +2,9 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import prisma from "@/utils/__mocks__/prisma";
 import { disableUnusedAutoDrafts } from "./disable-unused-auto-drafts";
 import { ActionType } from "@/generated/prisma/enums";
+import { createScopedLogger } from "@/utils/logger";
+
+const logger = createScopedLogger("test");
 
 vi.mock("@/utils/prisma");
 vi.mock("server-only", () => ({}));
@@ -25,7 +28,7 @@ describe("disableUnusedAutoDrafts", () => {
     }));
     (prisma.executedAction.findMany as any).mockResolvedValueOnce(mockDrafts);
 
-    const result = await disableUnusedAutoDrafts();
+    const result = await disableUnusedAutoDrafts(logger);
 
     expect(prisma.action.deleteMany).toHaveBeenCalledWith({
       where: {
@@ -51,7 +54,7 @@ describe("disableUnusedAutoDrafts", () => {
     }));
     (prisma.executedAction.findMany as any).mockResolvedValueOnce(mockDrafts);
 
-    const result = await disableUnusedAutoDrafts();
+    const result = await disableUnusedAutoDrafts(logger);
 
     expect(prisma.action.deleteMany).not.toHaveBeenCalled();
     expect(result).toEqual({ usersChecked: 1, usersDisabled: 0, errors: 0 });
@@ -69,7 +72,7 @@ describe("disableUnusedAutoDrafts", () => {
       { id: "exec-1", wasDraftSent: false },
     ]);
 
-    const result = await disableUnusedAutoDrafts();
+    const result = await disableUnusedAutoDrafts(logger);
 
     expect(prisma.action.deleteMany).not.toHaveBeenCalled();
     expect(result).toEqual({ usersChecked: 1, usersDisabled: 0, errors: 0 });
@@ -78,7 +81,7 @@ describe("disableUnusedAutoDrafts", () => {
   it("should do nothing if no users have auto-draft enabled", async () => {
     (prisma.action.findMany as any).mockResolvedValueOnce([]);
 
-    const result = await disableUnusedAutoDrafts();
+    const result = await disableUnusedAutoDrafts(logger);
 
     expect(prisma.executedAction.findMany).not.toHaveBeenCalled();
     expect(prisma.action.deleteMany).not.toHaveBeenCalled();
@@ -119,7 +122,7 @@ describe("disableUnusedAutoDrafts", () => {
       },
     );
 
-    const result = await disableUnusedAutoDrafts();
+    const result = await disableUnusedAutoDrafts(logger);
 
     expect(prisma.action.deleteMany).toHaveBeenCalledTimes(1);
     expect(prisma.action.deleteMany).toHaveBeenCalledWith({
@@ -145,7 +148,7 @@ describe("disableUnusedAutoDrafts", () => {
       })),
     );
 
-    const result = await disableUnusedAutoDrafts();
+    const result = await disableUnusedAutoDrafts(logger);
 
     expect(prisma.executedAction.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
