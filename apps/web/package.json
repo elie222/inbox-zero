@@ -46,8 +46,8 @@
     "@microsoft/microsoft-graph-client": "3.0.7",
     "@modelcontextprotocol/sdk": "1.24.3",
     "@mux/mux-player-react": "3.6.1",
-    "@next/mdx": "15.5.7",
-    "@next/third-parties": "15.5.7",
+    "@next/mdx": "16.0.10",
+    "@next/third-parties": "16.0.10",
     "@openrouter/ai-sdk-provider": "1.4.0",
     "@portabletext/react": "4.0.3",
     "@prisma/adapter-pg": "7.1.0",
@@ -128,7 +128,7 @@
     "lodash": "4.17.21",
     "lucide-react": "0.555.0",
     "motion": "12.23.25",
-    "next": "15.5.9",
+    "next": "16.0.10",
     "next-axiom": "1.9.3",
     "next-safe-action": "8.0.11",
     "next-themes": "0.4.6",
@@ -142,9 +142,9 @@
     "posthog-js": "1.301.1",
     "posthog-node": "5.17.0",
     "prisma": "6.16.3",
-    "react": "19.2.1",
+    "react": "19.2.3",
     "react-day-picker": "8.10.1",
-    "react-dom": "19.2.1",
+    "react-dom": "19.2.3",
     "react-dom-confetti": "0.2.0",
     "react-hook-form": "7.68.0",
     "react-hotkeys-hook": "5.2.1",
@@ -214,5 +214,11 @@
     "@sanity/vision": "4",
     "next-sanity": "11",
     "sanity": "4.20.3"
+  },
+  "pnpm": {
+    "overrides": {
+      "@types/react": "19.2.7",
+      "@types/react-dom": "19.2.3"
+    }
   }
 }
