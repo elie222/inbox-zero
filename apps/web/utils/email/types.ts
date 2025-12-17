@@ -55,18 +55,6 @@ export interface EmailProvider {
   getMessageByRfc822MessageId(
     rfc822MessageId: string,
   ): Promise<ParsedMessage | null>;
-  getMessagesByFields(options: {
-    froms?: string[];
-    tos?: string[];
-    subjects?: string[];
-    before?: Date;
-    after?: Date;
-    maxResults?: number;
-    pageToken?: string;
-  }): Promise<{
-    messages: ParsedMessage[];
-    nextPageToken?: string;
-  }>;
   getSentMessages(maxResults?: number): Promise<ParsedMessage[]>;
   getInboxMessages(maxResults?: number): Promise<ParsedMessage[]>;
   getSentMessageIds(options: {

@@ -58,8 +58,11 @@ import type {
   EmailSignature,
 } from "@/utils/email/types";
 import { unwatchOutlook, watchOutlook } from "@/utils/outlook/watch";
-import { escapeODataString } from "@/utils/outlook/odata-escape";
-import { extractEmailAddress } from "@/utils/email";
+import {
+  escapeODataString,
+  parseGmailQueryToOData,
+} from "@/utils/outlook/odata-escape";
+import { extractEmailAddress, getSearchTermForSender } from "@/utils/email";
 import {
   getOrCreateOutlookFolderIdByName,
   getOutlookFolderTree,
@@ -805,9 +808,65 @@ export class OutlookProvider implements EmailProvider {
       query: options.query,
     });
 
-    // For Outlook, separate search queries from date filters
-    // Microsoft Graph API handles these differently
-    const originalQuery = options.query || "";
+    /**
+     * Parses Gmail-style query syntax and converts to Outlook OData filters.
+     * Supports: subject:"term", from:email, to:email
+     * Plain text terms are returned as remainingText for $search.
+     */
+    function parseGmailQueryToOData(query: string): {
+      filters: string[];
+      remainingText: string;
+    } {
+      const filters: string[] = [];
+      let remainingText = query;
+
+      // Parse subject:"term" or subject:term patterns
+      const subjectRegex = /\bsubject:(?:"([^"]+)"|(\S+))/gi;
+      for (const match of remainingText.matchAll(subjectRegex)) {
+        const term = match[1] || match[2]; // quoted or unquoted
+        if (term) {
+          filters.push(`contains(subject, '${escapeODataString(term)}')`);
+        }
+      }
+      remainingText = remainingText.replace(subjectRegex, "");
+
+      // Parse from:email patterns
+      const fromRegex = /\bfrom:(?:"([^"]+)"|(\S+))/gi;
+      for (const match of remainingText.matchAll(fromRegex)) {
+        const email = match[1] || match[2];
+        if (email) {
+          filters.push(
+            `from/emailAddress/address eq '${escapeODataString(email)}'`,
+          );
+        }
+      }
+      remainingText = remainingText.replace(fromRegex, "");
+
+      // Parse to:email patterns
+      const toRegex = /\bto:(?:"([^"]+)"|(\S+))/gi;
+      for (const match of remainingText.matchAll(toRegex)) {
+        const email = match[1] || match[2];
+        if (email) {
+          filters.push(
+            `toRecipients/any(r: r/emailAddress/address eq '${escapeODataString(email)}')`,
+          );
+        }
+      }
+      remainingText = remainingText.replace(toRegex, "");
+
+      // Strip unsupported prefixes (label:, etc.) - these don't translate to OData
+      remainingText = remainingText.replace(/\blabel:\S+/gi, "");
+
+      // Clean up remaining text
+      remainingText = remainingText.replace(/\s+/g, " ").trim();
+
+      return { filters, remainingText };
+    }
+
+    // Parse Gmail-style query and translate to Outlook OData filters
+    const { filters: queryFilters, remainingText } = parseGmailQueryToOData(
+      options.query || "",
+    );
 
     // Build date filter for Outlook (no quotes for DateTimeOffset comparison)
     const dateFilters: string[] = [];
@@ -818,20 +877,23 @@ export class OutlookProvider implements EmailProvider {
       dateFilters.push(`receivedDateTime gt ${options.after.toISOString()}`);
     }
 
-    this.logger.info("Calling queryBatchMessages with separated parameters", {
-      dateFilters,
+    // Combine query filters with date filters
+    const allFilters = [...queryFilters, ...dateFilters];
+
+    this.logger.info("Calling queryBatchMessages", {
+      filters: allFilters,
       maxResults: options.maxResults || 20,
       pageToken: options.pageToken,
     });
     this.logger.trace("Search query", {
-      searchQuery: originalQuery.trim() || undefined,
+      searchQuery: remainingText || undefined,
     });
 
     // Don't pass folderId - let the API return all folders except Junk/Deleted (auto-excluded)
     // Drafts are filtered out in convertMessages
     const response = await queryBatchMessages(this.client, {
-      searchQuery: originalQuery.trim() || undefined,
-      dateFilters,
+      searchQuery: remainingText || undefined,
+      dateFilters: allFilters,
       maxResults: options.maxResults || 20,
       pageToken: options.pageToken,
     });
@@ -947,76 +1009,15 @@ export class OutlookProvider implements EmailProvider {
     return threads;
   }
 
-  async getMessagesByFields(options: {
-    froms?: string[];
-    tos?: string[];
-    subjects?: string[];
-    before?: Date;
-    after?: Date;
-    maxResults?: number;
-    pageToken?: string;
-  }): Promise<{
-    messages: ParsedMessage[];
-    nextPageToken?: string;
-  }> {
-    const filters: string[] = [];
-
-    const froms = (options.froms || [])
-      .map((f) => extractEmailAddress(f) || f)
-      .filter((f) => !!f);
-    if (froms.length > 0) {
-      const fromFilter = froms
-        .map((f) => `from/emailAddress/address eq '${escapeODataString(f)}'`)
-        .join(" or ");
-      filters.push(`(${fromFilter})`);
-    }
-
-    const tos = (options.tos || [])
-      .map((t) => extractEmailAddress(t) || t)
-      .filter((t) => !!t);
-    if (tos.length > 0) {
-      const toFilter = tos
-        .map(
-          (t) =>
-            `toRecipients/any(r: r/emailAddress/address eq '${escapeODataString(t)}')`,
-        )
-        .join(" or ");
-      filters.push(`(${toFilter})`);
-    }
-
-    const subjects = (options.subjects || []).filter((s) => !!s);
-    if (subjects.length > 0) {
-      // Use contains to match subject substrings; exact eq would be too strict
-      const subjectFilter = subjects
-        .map((s) => `contains(subject,'${escapeODataString(s)}')`)
-        .join(" or ");
-      filters.push(`(${subjectFilter})`);
-    }
-
-    // Build date filters
-    const dateFilters: string[] = [];
-    if (options.before) {
-      dateFilters.push(`receivedDateTime lt ${options.before.toISOString()}`);
-    }
-    if (options.after) {
-      dateFilters.push(`receivedDateTime gt ${options.after.toISOString()}`);
-    }
-
-    // Use queryMessagesWithFilters (OData $filter) instead of getMessagesWithPagination (KQL $search)
-    return queryMessagesWithFilters(this.client, {
-      filters,
-      dateFilters,
-      maxResults: options.maxResults,
-      pageToken: options.pageToken,
-    });
-  }
-
   async getDrafts(options?: { maxResults?: number }): Promise<ParsedMessage[]> {
-    const response = await this.getMessagesWithPagination({
-      query: "isDraft eq true",
-      maxResults: options?.maxResults || 50,
-    });
-    return response.messages;
+    const response: { value: Message[] } = await this.client
+      .getClient()
+      .api("/me/mailFolders/drafts/messages")
+      .select(MESSAGE_SELECT_FIELDS)
+      .top(options?.maxResults || 50)
+      .get();
+
+    return response.value.map((msg) => convertMessage(msg));
   }
 
   async getMessagesBatch(messageIds: string[]): Promise<ParsedMessage[]> {
@@ -1319,19 +1320,26 @@ export class OutlookProvider implements EmailProvider {
     messageId: string;
   }): Promise<boolean> {
     try {
-      const escapedFrom = escapeODataString(options.from);
+      // Use shared logic: for public domains search by full email, for company domains search by domain
+      const searchTerm = getSearchTermForSender(options.from);
+      const isFullEmail = searchTerm.includes("@");
+
+      const escapedSearchTerm = escapeODataString(searchTerm);
       const dateString = options.date.toISOString();
 
-      // Split into two parallel queries to avoid OData "invalid nodes" error
-      // when combining any() lambda with other filters.
-      const receivedFilter = `from/emailAddress/address eq '${escapedFrom}' and receivedDateTime lt ${dateString}`;
+      // Build filter based on whether we're searching by email or domain
+      const receivedFilter = isFullEmail
+        ? `from/emailAddress/address eq '${escapedSearchTerm}' and receivedDateTime lt ${dateString}`
+        : `endsWith(from/emailAddress/address, '@${escapedSearchTerm}') and receivedDateTime lt ${dateString}`;
 
       // Use $search for sent messages as $filter on toRecipients is unreliable
       // We escape double quotes for the KQL search query
-      const escapedSearchFrom = options.from
+      const escapedKqlSearchTerm = searchTerm
         .replace(/\\/g, "\\\\")
         .replace(/"/g, '\\"');
-      const sentSearch = `"to:${escapedSearchFrom}"`;
+      const sentSearch = isFullEmail
+        ? `"to:${escapedKqlSearchTerm}"`
+        : `"to:@${escapedKqlSearchTerm}"`;
 
       const [sentResponse, receivedResponse] = await Promise.all([
         this.client

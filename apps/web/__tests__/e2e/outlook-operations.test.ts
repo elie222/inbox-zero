@@ -236,23 +236,20 @@ describe.skipIf(!RUN_E2E_TESTS)("Outlook Operations Integration Tests", () => {
 
   describe("Search queries", () => {
     test("should handle search queries with colons", async () => {
-      // Known issue: Outlook search doesn't support "field:" syntax like Gmail
-      // The query "subject:lunch tomorrow?" causes:
-      // "Syntax error: character ':' is not valid at position 7"
-      // Instead, Outlook uses KQL syntax or plain text search
-
-      const invalidQuery = "subject:lunch tomorrow?";
+      // getMessagesWithPagination parses Gmail-style prefixes and translates to OData
+      // subject:term -> contains(subject, 'term') filter
+      const queryWithPrefix = "subject:lunch tomorrow?";
       const validQuery = "lunch tomorrow"; // Plain text search
 
-      // Test that invalid query throws an error
-      await expect(
-        provider.getMessagesWithPagination({
-          query: invalidQuery,
-          maxResults: 10,
-        }),
-      ).rejects.toThrow();
+      // Test that query with prefix works (prefix gets translated to OData filter)
+      const resultWithPrefix = await provider.getMessagesWithPagination({
+        query: queryWithPrefix,
+        maxResults: 10,
+      });
+      expect(resultWithPrefix.messages).toBeDefined();
+      expect(Array.isArray(resultWithPrefix.messages)).toBe(true);
 
-      // Test that valid query works
+      // Test that plain query works
       const result = await provider.getMessagesWithPagination({
         query: validQuery,
         maxResults: 10,
@@ -266,15 +263,12 @@ describe.skipIf(!RUN_E2E_TESTS)("Outlook Operations Integration Tests", () => {
 
     test("should handle special characters in search queries", async () => {
       // Test various special characters
-      // Note: Outlook KQL has restrictions - some chars like : cause syntax errors
+      // Note: getMessagesWithPagination parses Gmail-style prefixes and translates to OData
       const validQueries = [
         "lunch tomorrow", // Plain text (should work)
         "test example", // Multiple words (should work)
         "can we meet tomorrow?", // Question mark should be sanitized
-      ];
-
-      const invalidQueries = [
-        "test:query", // Colon causes syntax error
+        "subject:test query", // Gmail prefix gets translated to OData filter
       ];
 
       // Test valid queries
@@ -288,17 +282,6 @@ describe.skipIf(!RUN_E2E_TESTS)("Outlook Operations Integration Tests", () => {
         console.log(
           `   ✅ Query "${query}" returned ${result.messages.length} messages`,
         );
-      }
-
-      // Test that invalid queries throw errors
-      for (const query of invalidQueries) {
-        await expect(
-          provider.getMessagesWithPagination({
-            query,
-            maxResults: 5,
-          }),
-        ).rejects.toThrow();
-        console.log(`   ✅ Query "${query}" correctly threw an error`);
       }
     });
   });
