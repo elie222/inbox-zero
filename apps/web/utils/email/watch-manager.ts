@@ -139,7 +139,7 @@ async function watchEmailAccount(
       watchEmailsExpirationDate &&
       new Date(watchEmailsExpirationDate) < new Date()
     ) {
-      await prisma.emailAccount.update({
+      await prisma.emailAccount.updateMany({
         where: { id: emailAccount.id },
         data: {
           watchEmailsExpirationDate: null,
@@ -280,7 +280,7 @@ export async function unwatchEmails({
   }
 
   // Clear the watch data regardless of provider
-  await prisma.emailAccount.update({
+  await prisma.emailAccount.updateMany({
     where: { id: emailAccountId },
     data: {
       watchEmailsExpirationDate: null,
