@@ -805,9 +805,16 @@ export class OutlookProvider implements EmailProvider {
       query: options.query,
     });
 
-    // Strip Gmail-style prefixes that don't work with Microsoft Graph $search
-    // Microsoft Graph $search searches subject and body by default,
-    // so stripping these prefixes still finds relevant results
+    // IMPORTANT: This is intentionally lossy!
+    // Gmail-style prefixes like "subject:" can't be translated to Microsoft Graph because:
+    // 1. $filter with contains(subject, ...) can't be combined with $search or date filters
+    //    (causes "InefficientFilter" error)
+    // 2. $search doesn't support field-specific syntax like "subject:term"
+    //
+    // We strip the prefixes and use plain $search which searches subject AND body.
+    // This is broader than intended but still finds relevant messages.
+    // If subject-specific search is needed in the future, add a dedicated method
+    // that uses only $filter without $search or date filters.
     function stripGmailPrefixes(query: string): string {
       return query
         .replace(/\b(subject|from|to|label):(?:"[^"]*"|\S+)/gi, (match) => {
