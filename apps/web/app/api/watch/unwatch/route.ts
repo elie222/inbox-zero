@@ -1,22 +1,15 @@
 import { NextResponse } from "next/server";
 import { withEmailProvider } from "@/utils/middleware";
-import { createScopedLogger } from "@/utils/logger";
 import prisma from "@/utils/prisma";
-import { unwatchEmails } from "../controller";
-
-export const dynamic = "force-dynamic";
-
-const logger = createScopedLogger("api/watch/unwatch");
+import { unwatchEmails } from "@/utils/email/watch-manager";
 
 export const POST = withEmailProvider(async (request) => {
+  const logger = request.logger;
   const emailAccountId = request.auth.emailAccountId;
 
-  // Get the subscription ID for this account
   const emailAccount = await prisma.emailAccount.findUnique({
     where: { id: emailAccountId },
-    select: {
-      watchEmailsSubscriptionId: true,
-    },
+    select: { watchEmailsSubscriptionId: true },
   });
 
   try {
@@ -24,6 +17,7 @@ export const POST = withEmailProvider(async (request) => {
       emailAccountId,
       provider: request.emailProvider,
       subscriptionId: emailAccount?.watchEmailsSubscriptionId,
+      logger,
     });
 
     return NextResponse.json({
@@ -31,10 +25,7 @@ export const POST = withEmailProvider(async (request) => {
       message: "Successfully unwatched emails for this account.",
     });
   } catch (error) {
-    logger.error("Exception while unwatching emails for account", {
-      emailAccountId,
-      error,
-    });
+    logger.error("Exception while unwatching emails for account", { error });
     return NextResponse.json(
       {
         status: "error",

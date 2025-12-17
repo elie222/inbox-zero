@@ -3,7 +3,7 @@ import { headers } from "next/headers";
 import { z } from "zod";
 import { withError } from "@/utils/middleware";
 import prisma from "@/utils/prisma";
-import { createScopedLogger, type Logger } from "@/utils/logger";
+import type { Logger } from "@/utils/logger";
 import type { ParsedMessage } from "@/utils/types";
 import { aiDetectRecurringPattern } from "@/utils/ai/choose-rule/ai-detect-recurring-pattern";
 import { isValidInternalApiKey } from "@/utils/internal-api";
@@ -25,28 +25,31 @@ const schema = z.object({
 });
 export type AnalyzeSenderPatternBody = z.infer<typeof schema>;
 
-export const POST = withError(async (request) => {
-  const json = await request.json();
+export const POST = withError(
+  "api/ai/analyze-sender-pattern",
+  async (request) => {
+    const json = await request.json();
 
-  let logger = createScopedLogger("api/ai/pattern-match");
+    let logger = request.logger;
 
-  if (!isValidInternalApiKey(await headers(), logger)) {
-    logger.error("Invalid API key for sender pattern analysis", json);
-    return NextResponse.json({ error: "Invalid API key" });
-  }
+    if (!isValidInternalApiKey(await headers(), logger)) {
+      logger.error("Invalid API key for sender pattern analysis", json);
+      return NextResponse.json({ error: "Invalid API key" });
+    }
 
-  const data = schema.parse(json);
-  const { emailAccountId } = data;
-  const from = extractEmailAddress(data.from);
+    const data = schema.parse(json);
+    const { emailAccountId } = data;
+    const from = extractEmailAddress(data.from);
 
-  logger = logger.with({ emailAccountId, from });
+    logger = logger.with({ from });
 
-  logger.trace("Analyzing sender pattern");
+    logger.trace("Analyzing sender pattern");
 
-  // return immediately and process in background
-  after(() => process({ emailAccountId, from, logger }));
-  return NextResponse.json({ processing: true });
-});
+    // return immediately and process in background
+    after(() => process({ emailAccountId, from, logger }));
+    return NextResponse.json({ processing: true });
+  },
+);
 
 /**
  * Main background process function that:
