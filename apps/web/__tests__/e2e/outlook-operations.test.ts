@@ -17,7 +17,11 @@ import { NextRequest } from "next/server";
 import prisma from "@/utils/prisma";
 import { createEmailProvider } from "@/utils/email/provider";
 import { webhookBodySchema } from "@/app/api/outlook/webhook/types";
-import { findOldMessage } from "@/__tests__/e2e/helpers";
+import {
+  ensureCatchAllTestRule,
+  ensureTestPremiumAccount,
+  findOldMessage,
+} from "@/__tests__/e2e/helpers";
 import { sleep } from "@/utils/sleep";
 import type { EmailProvider } from "@/utils/email/types";
 
@@ -109,7 +113,7 @@ describe.skipIf(!RUN_E2E_TESTS)("Outlook Operations Integration Tests", () => {
           "   ℹ️  No messages found (may be expected if conversationId is old)",
         );
       }
-    });
+    }, 30_000);
 
     test("should handle conversationId with special characters", async () => {
       // Conversation IDs can contain base64-like characters including -, _, and sometimes =
@@ -193,7 +197,7 @@ describe.skipIf(!RUN_E2E_TESTS)("Outlook Operations Integration Tests", () => {
     });
 
     test("should create a new label", async () => {
-      const testLabelName = `Test Label ${Date.now()}`;
+      const testLabelName = `Outlook-Ops Label ${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
       const newLabel = await provider.createLabel(testLabelName);
 
       expect(newLabel).toBeDefined();
@@ -338,39 +342,9 @@ describe.skipIf(!RUN_E2E_TESTS)("Outlook Webhook Payload", () => {
       data: { watchEmailsSubscriptionId: MOCK_SUBSCRIPTION_ID },
     });
 
-    // Make the account premium for testing
-    const user = await prisma.user.findUniqueOrThrow({
-      where: { id: emailAccount.userId },
-      include: { premium: true },
-    });
-
-    // Clear any existing aiApiKey to use env defaults
-    await prisma.user.update({
-      where: { id: user.id },
-      data: { aiApiKey: null },
-    });
-
-    if (!user.premium) {
-      const premium = await prisma.premium.create({
-        data: {
-          tier: "BUSINESS_MONTHLY",
-          stripeSubscriptionStatus: "active",
-        },
-      });
-
-      await prisma.user.update({
-        where: { id: user.id },
-        data: { premiumId: premium.id },
-      });
-    } else {
-      await prisma.premium.update({
-        where: { id: user.premium.id },
-        data: {
-          stripeSubscriptionStatus: "active",
-          tier: "BUSINESS_MONTHLY",
-        },
-      });
-    }
+    // Set up premium and test rule
+    await ensureTestPremiumAccount(emailAccount.userId);
+    await ensureCatchAllTestRule(emailAccount.id);
 
     await prisma.executedRule.deleteMany({
       where: {
@@ -378,32 +352,6 @@ describe.skipIf(!RUN_E2E_TESTS)("Outlook Webhook Payload", () => {
         messageId: testMessage.messageId,
       },
     });
-
-    // Ensure the user has at least one enabled rule for automation
-    const existingRule = await prisma.rule.findFirst({
-      where: {
-        emailAccountId: emailAccount.id,
-        enabled: true,
-      },
-    });
-
-    if (!existingRule) {
-      await prisma.rule.create({
-        data: {
-          name: "Test Rule for Webhook",
-          emailAccountId: emailAccount.id,
-          enabled: true,
-          automate: true,
-          instructions: "Reply to emails about testing",
-          actions: {
-            create: {
-              type: "DRAFT_EMAIL",
-              content: "Test reply",
-            },
-          },
-        },
-      });
-    }
 
     // This test requires a real Outlook account
     const { POST } = await import("@/app/api/outlook/webhook/route");
@@ -526,7 +474,7 @@ describe.skipIf(!RUN_E2E_TESTS)("Outlook Webhook Payload", () => {
     } else {
       console.log("   ℹ️  No draft action found");
     }
-  }, 30_000);
+  }, 60_000);
 
   test("should verify draft ID can be fetched immediately after creation", async () => {
     const emailAccount = await prisma.emailAccount.findUniqueOrThrow({

@@ -239,7 +239,7 @@ export async function createLabel({
     );
     return createdLabel.data;
   } catch (error) {
-    const errorMessage: string | undefined = (error as any).message;
+    const { errorMessage } = extractErrorInfo(error);
 
     if (errorMessage?.includes("Label name exists or conflicts")) {
       logger.warn("Label already exists", { name });

@@ -92,7 +92,7 @@ describe.skipIf(!RUN_E2E_TESTS || !TEST_OUTLOOK_EMAIL)(
         const senderEmail = extractEmailAddress(companyMessage.headers.from)!;
         companyDomain = extractDomainFromEmail(senderEmail) || undefined;
       }
-    });
+    }, 30_000);
 
     describe("hasPreviousCommunicationsWithSenderOrDomain", () => {
       test("returns TRUE for a sender we have received email from", async () => {
