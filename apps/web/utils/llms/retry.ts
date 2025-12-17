@@ -8,19 +8,70 @@ const logger = createScopedLogger("llms");
 const MAX_RETRIES = 2;
 
 /**
+ * General-purpose retry utility with custom retry condition.
+ */
+export async function withRetry<T>(
+  fn: () => Promise<T>,
+  {
+    retryIf,
+    maxRetries,
+    delayMs,
+  }: {
+    retryIf: (error: unknown) => boolean;
+    maxRetries: number;
+    delayMs: number;
+  },
+): Promise<T> {
+  let attempts = 0;
+  let lastError: unknown;
+
+  while (attempts < maxRetries) {
+    try {
+      return await fn();
+    } catch (error) {
+      attempts++;
+      lastError = error;
+
+      if (retryIf(error)) {
+        logger.warn("Operation failed. Retrying...", {
+          attempts,
+          error,
+        });
+
+        if (attempts < maxRetries) {
+          await sleep(delayMs);
+          continue;
+        }
+      }
+
+      throw error;
+    }
+  }
+
+  throw lastError;
+}
+
+/**
  * Checks if an error is a transient network error that should be retried.
  * The AI SDK incorrectly marks these as non-retryable when they occur during
  * response body parsing (after HTTP 200).
- * See: https://github.com/vercel/ai/issues/XXXXX
  */
 export function isTransientNetworkError(error: unknown): boolean {
-  const errorString = JSON.stringify(error);
+  // JSON.stringify doesn't capture Error's non-enumerable properties (message, name),
+  // so we need to extract text from Error objects explicitly
+  const errorText =
+    typeof error === "string"
+      ? error
+      : error instanceof Error
+        ? `${error.name}: ${error.message} ${String((error as NodeJS.ErrnoException).code ?? "")}`
+        : JSON.stringify(error);
+
   const networkErrorCodes = ["ECONNRESET", "ETIMEDOUT", "ECONNREFUSED"];
   const networkErrorMessages = ["fetch failed", "terminated"];
 
   return (
-    networkErrorCodes.some((code) => errorString.includes(code)) ||
-    networkErrorMessages.some((msg) => errorString.includes(msg))
+    networkErrorCodes.some((code) => errorText.includes(code)) ||
+    networkErrorMessages.some((msg) => errorText.includes(msg))
   );
 }
 
