@@ -18,6 +18,7 @@ import { getRuleLabel } from "@/utils/rule/consts";
 import { SystemType } from "@/generated/prisma/enums";
 import { removeConflictingThreadStatusLabels } from "@/utils/reply-tracker/label-helpers";
 import { createScopedLogger } from "@/utils/logger";
+import { findThreadWithMultipleMessages } from "./helpers";
 
 const RUN_E2E_TESTS = process.env.RUN_E2E_TESTS;
 const TEST_GMAIL_EMAIL = process.env.TEST_GMAIL_EMAIL;
@@ -181,9 +182,17 @@ describe.skipIf(!RUN_E2E_TESTS)("Gmail Thread Label Removal E2E Tests", () => {
         labelName: toReplyLabel.name,
       });
 
-      // Verify label is applied
+      // Apply "Awaiting Reply" label to thread
+      await provider.labelMessage({
+        messageId: testMessages[0].id,
+        labelId: awaitingReplyLabel.id,
+        labelName: awaitingReplyLabel.name,
+      });
+
+      // Verify labels are applied
       const msgBefore = await provider.getMessage(testMessages[0].id);
       expect(msgBefore.labelIds).toContain(toReplyLabel.id);
+      expect(msgBefore.labelIds).toContain(awaitingReplyLabel.id);
 
       // Call removeConflictingThreadStatusLabels with FYI status
       // This should remove TO_REPLY and AWAITING_REPLY labels from the thread
@@ -195,35 +204,10 @@ describe.skipIf(!RUN_E2E_TESTS)("Gmail Thread Label Removal E2E Tests", () => {
         logger,
       });
 
-      // Verify conflicting label is removed
+      // Verify conflicting labels are removed
       const msgAfter = await provider.getMessage(testMessages[0].id);
       expect(msgAfter.labelIds).not.toContain(toReplyLabel.id);
+      expect(msgAfter.labelIds).not.toContain(awaitingReplyLabel.id);
     }, 60_000);
   });
 });
-
-/**
- * Finds a thread with at least minMessages messages from the inbox.
- * Looks through recent inbox messages and finds one with multiple messages in thread.
- */
-async function findThreadWithMultipleMessages(
-  provider: EmailProvider,
-  minMessages = 2,
-): Promise<{ threadId: string; messages: ParsedMessage[] }> {
-  const inboxMessages = await provider.getInboxMessages(50);
-
-  // Group by threadId and find one with enough messages
-  const threadIds = [...new Set(inboxMessages.map((m) => m.threadId))];
-
-  for (const threadId of threadIds) {
-    const messages = await provider.getThreadMessages(threadId);
-    if (messages.length >= minMessages) {
-      return { threadId, messages };
-    }
-  }
-
-  throw new Error(
-    `TEST PREREQUISITE NOT MET: No thread found with ${minMessages}+ messages. ` +
-      "Send an email to the test account and reply to it to create a multi-message thread.",
-  );
-}
