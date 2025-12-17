@@ -6,10 +6,6 @@ import {
   extendZodWithOpenApi,
 } from "@asteasolutions/zod-to-openapi";
 import {
-  groupEmailsQuerySchema,
-  groupEmailsResponseSchema,
-} from "@/app/api/v1/group/[groupId]/emails/validation";
-import {
   statsByPeriodQuerySchema,
   statsByPeriodResponseSchema,
 } from "@/app/api/v1/stats/by-period/validation";
@@ -27,33 +23,6 @@ registry.registerComponent("securitySchemes", "ApiKeyAuth", {
   type: "apiKey",
   in: "header",
   name: API_KEY_HEADER,
-});
-
-registry.registerPath({
-  method: "get",
-  path: "/group/{groupId}/emails",
-  description: "Get group emails",
-  security: [{ ApiKeyAuth: [] }],
-  request: {
-    params: z.object({
-      groupId: z
-        .string()
-        .describe(
-          "You can find the group id by going to `https://www.getinboxzero.com/automation?tab=groups`, clicking `Matching Emails`, and then copying the id from the URL.",
-        ),
-    }),
-    query: groupEmailsQuerySchema,
-  },
-  responses: {
-    200: {
-      description: "Successful response",
-      content: {
-        "application/json": {
-          schema: groupEmailsResponseSchema,
-        },
-      },
-    },
-  },
 });
 
 registry.registerPath({
