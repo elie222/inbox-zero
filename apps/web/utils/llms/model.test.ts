@@ -55,6 +55,8 @@ vi.mock("@/env", () => ({
     BEDROCK_REGION: "us-west-2",
     BEDROCK_ACCESS_KEY: "",
     BEDROCK_SECRET_KEY: "",
+    CLAUDE_CODE_BASE_URL: "",
+    CLAUDE_CODE_TIMEOUT: 120_000,
   },
 }));
 

@@ -16,12 +16,69 @@ const logger = createScopedLogger("llms/model");
 
 export type ModelType = "default" | "economy" | "chat";
 
+/**
+ * Configuration for Claude Code CLI wrapper service.
+ * Used when Claude Code is selected as the LLM provider.
+ */
+export interface ClaudeCodeConfig {
+  /** Base URL of the Claude Code wrapper service (e.g., "http://claude-code-wrapper:3100") */
+  baseUrl: string;
+  /** Request timeout in milliseconds */
+  timeout: number;
+  /** Authentication key for the wrapper service (required) */
+  authKey: string;
+  /** Model alias (e.g., 'sonnet', 'haiku') or full model name */
+  model?: string;
+}
+
+/**
+ * Builds Claude Code configuration from environment variables.
+ * Validates that required env vars are present and returns a complete config object.
+ *
+ * @param modelOverride - Optional model name to use instead of env default
+ * @returns ClaudeCodeConfig object ready for use
+ * @throws Error if required environment variables are missing
+ */
+export function buildClaudeCodeConfig(
+  modelOverride?: string,
+): ClaudeCodeConfig {
+  if (!env.CLAUDE_CODE_BASE_URL) {
+    throw new Error(
+      "CLAUDE_CODE_BASE_URL is required for Claude Code provider",
+    );
+  }
+  if (!env.CLAUDE_CODE_WRAPPER_API_KEY) {
+    throw new Error(
+      "CLAUDE_CODE_WRAPPER_API_KEY is required for Claude Code provider",
+    );
+  }
+
+  const model = modelOverride || env.CLAUDE_CODE_MODEL || "sonnet";
+
+  return {
+    baseUrl: env.CLAUDE_CODE_BASE_URL,
+    timeout: env.CLAUDE_CODE_TIMEOUT,
+    authKey: env.CLAUDE_CODE_WRAPPER_API_KEY,
+    model,
+  };
+}
+
+/**
+ * Checks if Claude Code provider can be used based on environment configuration.
+ * Does NOT throw - returns false if env vars are missing.
+ */
+export function isClaudeCodeAvailable(): boolean {
+  return Boolean(env.CLAUDE_CODE_BASE_URL && env.CLAUDE_CODE_WRAPPER_API_KEY);
+}
+
 export type SelectModel = {
   provider: string;
   modelName: string;
   model: LanguageModelV2;
   providerOptions?: Record<string, any>;
   backupModel: LanguageModelV2 | null;
+  /** Configuration for Claude Code provider (only set when provider is CLAUDE_CODE) */
+  claudeCodeConfig?: ClaudeCodeConfig;
 };
 
 export function getModel(
@@ -187,6 +244,19 @@ function selectModel(
         backupModel: getBackupModel(aiApiKey),
       };
     }
+    case Provider.CLAUDE_CODE: {
+      // Build config using shared helper (validates env vars, applies defaults)
+      const claudeCodeConfig = buildClaudeCodeConfig(aiModel || undefined);
+      return {
+        provider: Provider.CLAUDE_CODE,
+        modelName: claudeCodeConfig.model!,
+        // Claude Code doesn't use Vercel AI SDK's LanguageModelV2
+        // The model field is set to null and claudeCodeConfig is used instead
+        model: null as unknown as LanguageModelV2,
+        backupModel: null,
+        claudeCodeConfig,
+      };
+    }
     default: {
       logger.error("LLM provider not supported", { aiProvider });
       throw new Error(`LLM provider not supported: ${aiProvider}`);
@@ -224,6 +294,21 @@ function createOpenRouterProviderOptions(
  * - Any task with large context windows where cost efficiency matters
  */
 function selectEconomyModel(userAi: UserAIFields, online = false): SelectModel {
+  // Handle Claude Code economy model explicitly via ECONOMY_LLM_PROVIDER
+  if (env.ECONOMY_LLM_PROVIDER === Provider.CLAUDE_CODE) {
+    // Default to "haiku" for high-volume/economy tasks (env var override available)
+    const economyModel = env.CLAUDE_CODE_ECONOMY_MODEL || "haiku";
+    return selectModel(
+      {
+        aiProvider: Provider.CLAUDE_CODE,
+        aiModel: economyModel,
+        aiApiKey: null,
+      },
+      undefined,
+      online,
+    );
+  }
+
   if (env.ECONOMY_LLM_PROVIDER && env.ECONOMY_LLM_MODEL) {
     const apiKey = getProviderApiKey(env.ECONOMY_LLM_PROVIDER);
     if (!apiKey) {
@@ -354,6 +439,12 @@ function getProviderApiKey(provider: string) {
     [Provider.OPENROUTER]: env.OPENROUTER_API_KEY,
     [Provider.AI_GATEWAY]: env.AI_GATEWAY_API_KEY,
     [Provider.OLLAMA]: "ollama-local",
+    // Claude Code uses HTTP calls to wrapper service, not an API key
+    // Both BASE_URL and WRAPPER_API_KEY required (consistent with isClaudeCodeAvailable)
+    [Provider.CLAUDE_CODE]:
+      env.CLAUDE_CODE_BASE_URL && env.CLAUDE_CODE_WRAPPER_API_KEY
+        ? "claude-code-wrapper"
+        : undefined,
   };
 
   return providerApiKeys[provider];

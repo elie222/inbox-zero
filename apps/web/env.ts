@@ -12,6 +12,7 @@ const llmProviderEnum = z.enum([
   "groq",
   "aigateway",
   "ollama",
+  "claudecode",
 ]);
 
 export const env = createEnv({
@@ -61,6 +62,16 @@ export const env = createEnv({
     PERPLEXITY_API_KEY: z.string().optional(),
     OLLAMA_BASE_URL: z.string().optional(),
     OLLAMA_MODEL: z.string().optional(),
+
+    // Claude Code CLI wrapper service
+    CLAUDE_CODE_BASE_URL: z.string().url().optional(),
+    CLAUDE_CODE_TIMEOUT: z.coerce.number().optional().default(120_000),
+    CLAUDE_CODE_WRAPPER_API_KEY: z.string().optional(), // Required when using Claude Code provider
+    CLAUDE_CODE_MODEL: z.string().optional(), // Model for default tasks (e.g., 'sonnet')
+    CLAUDE_CODE_ECONOMY_MODEL: z.string().optional(), // Model for economy tasks (e.g., 'haiku')
+
+    // LLM Tool Proxy - allows Claude Code CLI skill to invoke app tools
+    LLM_TOOL_PROXY_TOKEN: z.string().optional(), // Required when using Claude skill with tool invocation
 
     OPENAI_ZERO_DATA_RETENTION: z.coerce.boolean().optional().default(false),
 

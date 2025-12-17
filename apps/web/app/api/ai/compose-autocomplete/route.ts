@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { withEmailAccount } from "@/utils/middleware";
 import { composeAutocompleteBody } from "@/app/api/ai/compose-autocomplete/validation";
-import { chatCompletionStream } from "@/utils/llms";
+import { chatCompletionStream } from "@/utils/llms/chat-completion-stream";
 import { getEmailAccountWithAi } from "@/utils/user/get";
 
 export const POST = withEmailAccount(async (request) => {
