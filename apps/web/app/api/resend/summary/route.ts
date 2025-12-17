@@ -8,7 +8,7 @@ import { hasCronSecret } from "@/utils/cron";
 import { captureException } from "@/utils/error";
 import prisma from "@/utils/prisma";
 import { ThreadTrackerType } from "@/generated/prisma/enums";
-import { createScopedLogger } from "@/utils/logger";
+import type { Logger } from "@/utils/logger";
 import { getMessagesBatch } from "@/utils/gmail/message";
 import { decodeSnippet } from "@/utils/gmail/decode";
 import { createUnsubscribeToken } from "@/utils/unsubscribe";
@@ -17,17 +17,66 @@ export const maxDuration = 60;
 
 const sendSummaryEmailBody = z.object({ emailAccountId: z.string() });
 
+export const GET = withEmailAccount("resend/summary", async (request) => {
+  // send to self
+  const emailAccountId = request.auth.emailAccountId;
+
+  request.logger.info("Sending summary email to user GET", { emailAccountId });
+
+  const result = await sendEmail({
+    emailAccountId,
+    force: true,
+    logger: request.logger,
+  });
+
+  return NextResponse.json(result);
+});
+
+export const POST = withError("resend/summary", async (request) => {
+  const logger = request.logger;
+  if (!hasCronSecret(request)) {
+    logger.error("Unauthorized cron request");
+    captureException(new Error("Unauthorized cron request: resend"));
+    return new Response("Unauthorized", { status: 401 });
+  }
+
+  const json = await request.json();
+  const { success, data, error } = sendSummaryEmailBody.safeParse(json);
+
+  if (!success) {
+    logger.error("Invalid request body", { error });
+    return NextResponse.json(
+      { error: "Invalid request body" },
+      { status: 400 },
+    );
+  }
+  const { emailAccountId } = data;
+
+  logger.info("Sending summary email to user POST", { emailAccountId });
+
+  try {
+    await sendEmail({ emailAccountId, logger });
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    logger.error("Error sending summary email", { error });
+    captureException(error);
+    return NextResponse.json(
+      { success: false, error: "Error sending summary email" },
+      { status: 500 },
+    );
+  }
+});
+
 async function sendEmail({
   emailAccountId,
   force,
+  logger,
 }: {
   emailAccountId: string;
   force?: boolean;
+  logger: Logger;
 }) {
-  const logger = createScopedLogger("resend/summary").with({
-    emailAccountId,
-    force,
-  });
+  logger = logger.with({ emailAccountId, force });
 
   logger.info("Sending summary email");
 
@@ -250,50 +299,3 @@ async function sendEmail({
 
   return { success: true };
 }
-
-export const GET = withEmailAccount("resend/summary", async (request) => {
-  // send to self
-  const emailAccountId = request.auth.emailAccountId;
-
-  request.logger.info("Sending summary email to user GET", { emailAccountId });
-
-  const result = await sendEmail({ emailAccountId, force: true });
-
-  return NextResponse.json(result);
-});
-
-export const POST = withError(async (request) => {
-  const logger = createScopedLogger("resend/summary");
-
-  if (!hasCronSecret(request)) {
-    logger.error("Unauthorized cron request");
-    captureException(new Error("Unauthorized cron request: resend"));
-    return new Response("Unauthorized", { status: 401 });
-  }
-
-  const json = await request.json();
-  const { success, data, error } = sendSummaryEmailBody.safeParse(json);
-
-  if (!success) {
-    logger.error("Invalid request body", { error });
-    return NextResponse.json(
-      { error: "Invalid request body" },
-      { status: 400 },
-    );
-  }
-  const { emailAccountId } = data;
-
-  logger.info("Sending summary email to user POST", { emailAccountId });
-
-  try {
-    await sendEmail({ emailAccountId });
-    return NextResponse.json({ success: true });
-  } catch (error) {
-    logger.error("Error sending summary email", { error });
-    captureException(error);
-    return NextResponse.json(
-      { success: false, error: "Error sending summary email" },
-      { status: 500 },
-    );
-  }
-});

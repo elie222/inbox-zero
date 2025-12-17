@@ -5,7 +5,7 @@ import { getEmailAccountId } from "@/app/api/v1/helpers";
 import { getStatsByPeriod } from "@/app/api/user/stats/by-period/controller";
 import { statsByPeriodQuerySchema } from "./validation";
 
-export const GET = withError(async (request) => {
+export const GET = withError("v1/stats/by-period", async (request) => {
   const { userId, accountId } =
     await validateApiKeyAndGetEmailProvider(request);
 

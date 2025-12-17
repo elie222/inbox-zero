@@ -10,16 +10,38 @@ import {
 } from "@/utils/cron";
 import { Frequency } from "@/generated/prisma/enums";
 import { captureException } from "@/utils/error";
-import { createScopedLogger } from "@/utils/logger";
+import type { Logger } from "@/utils/logger";
 import { publishToQstashQueue } from "@/utils/upstash";
 import { getPremiumUserFilter } from "@/utils/premium";
-
-const logger = createScopedLogger("cron/resend/summary/all");
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
 
-async function sendSummaryAllUpdate() {
+export const GET = withError("cron/resend/summary/all", async (request) => {
+  if (!hasCronSecret(request)) {
+    captureException(new Error("Unauthorized request: api/resend/summary/all"));
+    return new Response("Unauthorized", { status: 401 });
+  }
+
+  const result = await sendSummaryAllUpdate(request.logger);
+
+  return NextResponse.json(result);
+});
+
+export const POST = withError("cron/resend/summary/all", async (request) => {
+  if (!(await hasPostCronSecret(request))) {
+    captureException(
+      new Error("Unauthorized cron request: api/resend/summary/all"),
+    );
+    return new Response("Unauthorized", { status: 401 });
+  }
+
+  const result = await sendSummaryAllUpdate(request.logger);
+
+  return NextResponse.json(result);
+});
+
+async function sendSummaryAllUpdate(logger: Logger) {
   logger.info("Sending summary all update");
 
   const emailAccounts = await prisma.emailAccount.findMany({
@@ -60,27 +82,3 @@ async function sendSummaryAllUpdate() {
   logger.info("All requests initiated", { count: emailAccounts.length });
   return { count: emailAccounts.length };
 }
-
-export const GET = withError(async (request) => {
-  if (!hasCronSecret(request)) {
-    captureException(new Error("Unauthorized request: api/resend/summary/all"));
-    return new Response("Unauthorized", { status: 401 });
-  }
-
-  const result = await sendSummaryAllUpdate();
-
-  return NextResponse.json(result);
-});
-
-export const POST = withError(async (request) => {
-  if (!(await hasPostCronSecret(request))) {
-    captureException(
-      new Error("Unauthorized cron request: api/resend/summary/all"),
-    );
-    return new Response("Unauthorized", { status: 401 });
-  }
-
-  const result = await sendSummaryAllUpdate();
-
-  return NextResponse.json(result);
-});

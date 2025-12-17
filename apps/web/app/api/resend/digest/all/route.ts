@@ -5,16 +5,38 @@ import { withError } from "@/utils/middleware";
 import { hasCronSecret, hasPostCronSecret } from "@/utils/cron";
 import { getInternalApiUrl } from "@/utils/internal-api";
 import { captureException } from "@/utils/error";
-import { createScopedLogger } from "@/utils/logger";
+import type { Logger } from "@/utils/logger";
 import { publishToQstashQueue } from "@/utils/upstash";
 import { getPremiumUserFilter } from "@/utils/premium";
-
-const logger = createScopedLogger("cron/resend/digest/all");
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
 
-async function sendDigestAllUpdate() {
+export const GET = withError("cron/resend/digest/all", async (request) => {
+  if (!hasCronSecret(request)) {
+    captureException(new Error("Unauthorized request: api/resend/digest/all"));
+    return new Response("Unauthorized", { status: 401 });
+  }
+
+  const result = await sendDigestAllUpdate(request.logger);
+
+  return NextResponse.json(result);
+});
+
+export const POST = withError("cron/resend/digest/all", async (request) => {
+  if (!(await hasPostCronSecret(request))) {
+    captureException(
+      new Error("Unauthorized cron request: api/resend/digest/all"),
+    );
+    return new Response("Unauthorized", { status: 401 });
+  }
+
+  const result = await sendDigestAllUpdate(request.logger);
+
+  return NextResponse.json(result);
+});
+
+async function sendDigestAllUpdate(logger: Logger) {
   logger.info("Sending digest all update");
 
   const now = new Date();
@@ -61,27 +83,3 @@ async function sendDigestAllUpdate() {
   logger.info("All requests initiated", { count: emailAccounts.length });
   return { count: emailAccounts.length };
 }
-
-export const GET = withError(async (request) => {
-  if (!hasCronSecret(request)) {
-    captureException(new Error("Unauthorized request: api/resend/digest/all"));
-    return new Response("Unauthorized", { status: 401 });
-  }
-
-  const result = await sendDigestAllUpdate();
-
-  return NextResponse.json(result);
-});
-
-export const POST = withError(async (request) => {
-  if (!(await hasPostCronSecret(request))) {
-    captureException(
-      new Error("Unauthorized cron request: api/resend/digest/all"),
-    );
-    return new Response("Unauthorized", { status: 401 });
-  }
-
-  const result = await sendDigestAllUpdate();
-
-  return NextResponse.json(result);
-});

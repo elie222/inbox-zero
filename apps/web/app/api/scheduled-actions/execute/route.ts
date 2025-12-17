@@ -1,15 +1,11 @@
 import { verifySignatureAppRouter } from "@upstash/qstash/nextjs";
-import type { NextRequest } from "next/server";
 import { z } from "zod";
 import { withError } from "@/utils/middleware";
-import { createScopedLogger } from "@/utils/logger";
 import { markQStashActionAsExecuting } from "@/utils/scheduled-actions/scheduler";
 import { executeScheduledAction } from "@/utils/scheduled-actions/executor";
 import prisma from "@/utils/prisma";
 import { ScheduledActionStatus } from "@/generated/prisma/enums";
 import { createEmailProvider } from "@/utils/email/provider";
-
-const logger = createScopedLogger("scheduled-actions-executor");
 
 export const maxDuration = 300; // 5 minutes
 
@@ -18,7 +14,8 @@ const scheduledActionBody = z.object({
 });
 
 export const POST = verifySignatureAppRouter(
-  withError(async (request: NextRequest) => {
+  withError("scheduled-actions/execute", async (request) => {
+    const logger = request.logger;
     try {
       logger.info("QStash request received", {
         url: request.url,
@@ -88,6 +85,15 @@ export const POST = verifySignatureAppRouter(
           scheduledActionId: scheduledAction.id,
         });
         return new Response("Action already being processed", { status: 200 });
+      }
+
+      if (!scheduledAction.emailAccount?.account?.provider) {
+        logger.error("Email account or provider missing", {
+          scheduledActionId: scheduledAction.id,
+        });
+        return new Response("Email account or provider missing", {
+          status: 500,
+        });
       }
 
       const provider = await createEmailProvider({

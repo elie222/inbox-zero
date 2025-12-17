@@ -4,11 +4,8 @@ import { validateApiKeyAndGetEmailProvider } from "@/utils/api-auth";
 import { getEmailAccountId } from "@/app/api/v1/helpers";
 import { getResponseTimeStats } from "@/app/api/user/stats/response-time/controller";
 import { responseTimeQuerySchema } from "./validation";
-import { createScopedLogger } from "@/utils/logger";
 
-const logger = createScopedLogger("api/v1/stats/response-time");
-
-export const GET = withError(async (request) => {
+export const GET = withError("v1/stats/response-time", async (request) => {
   const { emailProvider, userId, accountId } =
     await validateApiKeyAndGetEmailProvider(request);
 
@@ -44,7 +41,7 @@ export const GET = withError(async (request) => {
     toDate,
     emailAccountId,
     emailProvider,
-    logger,
+    logger: request.logger,
   });
 
   return NextResponse.json(result);

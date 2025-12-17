@@ -346,7 +346,7 @@ export function withError(
   options?: MiddlewareOptions,
 ): NextHandler;
 export function withError(
-  handler: NextHandler,
+  handler: NextHandler<RequestWithLogger>,
   options?: MiddlewareOptions,
 ): NextHandler;
 export function withError(
