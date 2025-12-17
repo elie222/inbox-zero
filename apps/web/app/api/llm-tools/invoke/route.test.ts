@@ -260,7 +260,7 @@ describe("LLM Tools Invoke Route", () => {
       expect(response.status).toBe(404);
       expect(body.success).toBe(false);
       expect(body.code).toBe("EMAIL_NOT_FOUND");
-      expect(body.error).toContain("notfound@example.com");
+      expect(body.error).toBe("Email account not found");
     });
 
     test("should look up email account by userEmail", async () => {
