@@ -58,10 +58,7 @@ import type {
   EmailSignature,
 } from "@/utils/email/types";
 import { unwatchOutlook, watchOutlook } from "@/utils/outlook/watch";
-import {
-  escapeODataString,
-  parseGmailQueryToOData,
-} from "@/utils/outlook/odata-escape";
+import { escapeODataString } from "@/utils/outlook/odata-escape";
 import { extractEmailAddress, getSearchTermForSender } from "@/utils/email";
 import {
   getOrCreateOutlookFolderIdByName,
@@ -808,65 +805,23 @@ export class OutlookProvider implements EmailProvider {
       query: options.query,
     });
 
-    /**
-     * Parses Gmail-style query syntax and converts to Outlook OData filters.
-     * Supports: subject:"term", from:email, to:email
-     * Plain text terms are returned as remainingText for $search.
-     */
-    function parseGmailQueryToOData(query: string): {
-      filters: string[];
-      remainingText: string;
-    } {
-      const filters: string[] = [];
-      let remainingText = query;
-
-      // Parse subject:"term" or subject:term patterns
-      const subjectRegex = /\bsubject:(?:"([^"]+)"|(\S+))/gi;
-      for (const match of remainingText.matchAll(subjectRegex)) {
-        const term = match[1] || match[2]; // quoted or unquoted
-        if (term) {
-          filters.push(`contains(subject, '${escapeODataString(term)}')`);
-        }
-      }
-      remainingText = remainingText.replace(subjectRegex, "");
-
-      // Parse from:email patterns
-      const fromRegex = /\bfrom:(?:"([^"]+)"|(\S+))/gi;
-      for (const match of remainingText.matchAll(fromRegex)) {
-        const email = match[1] || match[2];
-        if (email) {
-          filters.push(
-            `from/emailAddress/address eq '${escapeODataString(email)}'`,
-          );
-        }
-      }
-      remainingText = remainingText.replace(fromRegex, "");
-
-      // Parse to:email patterns
-      const toRegex = /\bto:(?:"([^"]+)"|(\S+))/gi;
-      for (const match of remainingText.matchAll(toRegex)) {
-        const email = match[1] || match[2];
-        if (email) {
-          filters.push(
-            `toRecipients/any(r: r/emailAddress/address eq '${escapeODataString(email)}')`,
-          );
-        }
-      }
-      remainingText = remainingText.replace(toRegex, "");
-
-      // Strip unsupported prefixes (label:, etc.) - these don't translate to OData
-      remainingText = remainingText.replace(/\blabel:\S+/gi, "");
-
-      // Clean up remaining text
-      remainingText = remainingText.replace(/\s+/g, " ").trim();
-
-      return { filters, remainingText };
+    // Strip Gmail-style prefixes that don't work with Microsoft Graph $search
+    // Microsoft Graph $search searches subject and body by default,
+    // so stripping these prefixes still finds relevant results
+    function stripGmailPrefixes(query: string): string {
+      return query
+        .replace(/\b(subject|from|to|label):(?:"[^"]*"|\S+)/gi, (match) => {
+          // Extract the value without the prefix for searching
+          const colonIndex = match.indexOf(":");
+          const value = match.slice(colonIndex + 1);
+          // Remove quotes if present
+          return value.replace(/^"|"$/g, "");
+        })
+        .replace(/\s+/g, " ")
+        .trim();
     }
 
-    // Parse Gmail-style query and translate to Outlook OData filters
-    const { filters: queryFilters, remainingText } = parseGmailQueryToOData(
-      options.query || "",
-    );
+    const searchQuery = stripGmailPrefixes(options.query || "");
 
     // Build date filter for Outlook (no quotes for DateTimeOffset comparison)
     const dateFilters: string[] = [];
@@ -877,23 +832,20 @@ export class OutlookProvider implements EmailProvider {
       dateFilters.push(`receivedDateTime gt ${options.after.toISOString()}`);
     }
 
-    // Combine query filters with date filters
-    const allFilters = [...queryFilters, ...dateFilters];
-
     this.logger.info("Calling queryBatchMessages", {
-      filters: allFilters,
+      dateFilters,
       maxResults: options.maxResults || 20,
       pageToken: options.pageToken,
     });
     this.logger.trace("Search query", {
-      searchQuery: remainingText || undefined,
+      searchQuery: searchQuery || undefined,
     });
 
     // Don't pass folderId - let the API return all folders except Junk/Deleted (auto-excluded)
     // Drafts are filtered out in convertMessages
     const response = await queryBatchMessages(this.client, {
-      searchQuery: remainingText || undefined,
-      dateFilters: allFilters,
+      searchQuery: searchQuery || undefined,
+      dateFilters,
       maxResults: options.maxResults || 20,
       pageToken: options.pageToken,
     });

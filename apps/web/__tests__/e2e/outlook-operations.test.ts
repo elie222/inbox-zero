@@ -236,12 +236,12 @@ describe.skipIf(!RUN_E2E_TESTS)("Outlook Operations Integration Tests", () => {
 
   describe("Search queries", () => {
     test("should handle search queries with colons", async () => {
-      // getMessagesWithPagination parses Gmail-style prefixes and translates to OData
-      // subject:term -> contains(subject, 'term') filter
+      // getMessagesWithPagination strips Gmail-style prefixes and uses plain $search
+      // subject:lunch -> "lunch" for $search (searches subject and body)
       const queryWithPrefix = "subject:lunch tomorrow?";
       const validQuery = "lunch tomorrow"; // Plain text search
 
-      // Test that query with prefix works (prefix gets translated to OData filter)
+      // Test that query with prefix works (prefix gets stripped)
       const resultWithPrefix = await provider.getMessagesWithPagination({
         query: queryWithPrefix,
         maxResults: 10,
@@ -263,12 +263,12 @@ describe.skipIf(!RUN_E2E_TESTS)("Outlook Operations Integration Tests", () => {
 
     test("should handle special characters in search queries", async () => {
       // Test various special characters
-      // Note: getMessagesWithPagination parses Gmail-style prefixes and translates to OData
+      // Note: getMessagesWithPagination strips Gmail-style prefixes for $search
       const validQueries = [
         "lunch tomorrow", // Plain text (should work)
         "test example", // Multiple words (should work)
         "can we meet tomorrow?", // Question mark should be sanitized
-        "subject:test query", // Gmail prefix gets translated to OData filter
+        "subject:test query", // Gmail prefix gets stripped, searches "test query"
       ];
 
       // Test valid queries
