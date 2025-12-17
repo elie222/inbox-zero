@@ -10,6 +10,7 @@ const logger = createScopedLogger("test");
 vi.mock("@/utils/premium");
 vi.mock("@/app/api/watch/controller");
 vi.mock("@/utils/email/provider");
+vi.mock("@/utils/email/watch-manager");
 vi.mock("@/utils/prisma");
 vi.mock("server-only", () => ({}));
 
@@ -24,6 +25,7 @@ describe("validateWebhookAccount", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(createEmailProvider).mockResolvedValue(mockEmailProvider as any);
+    vi.mocked(unwatchEmails).mockResolvedValue(undefined);
   });
 
   function createMockEmailAccount(
@@ -113,11 +115,13 @@ describe("validateWebhookAccount", () => {
         emailAccountId: "account-id",
         provider: "google",
       });
-      expect(unwatchEmails).toHaveBeenCalledWith({
-        emailAccountId: "account-id",
-        provider: mockEmailProvider,
-        subscriptionId: "subscription-id",
-      });
+      expect(unwatchEmails).toHaveBeenCalledWith(
+        expect.objectContaining({
+          emailAccountId: "account-id",
+          provider: mockEmailProvider,
+          subscriptionId: "subscription-id",
+        }),
+      );
       if (!result.success) {
         expect(await result.response.json()).toEqual({ ok: true });
       }
@@ -134,11 +138,13 @@ describe("validateWebhookAccount", () => {
       const result = await validateWebhookAccount(emailAccount, logger);
 
       expect(result.success).toBe(false);
-      expect(unwatchEmails).toHaveBeenCalledWith({
-        emailAccountId: "account-id",
-        provider: mockEmailProvider,
-        subscriptionId: "subscription-id",
-      });
+      expect(unwatchEmails).toHaveBeenCalledWith(
+        expect.objectContaining({
+          emailAccountId: "account-id",
+          provider: mockEmailProvider,
+          subscriptionId: "subscription-id",
+        }),
+      );
       if (!result.success) {
         expect(await result.response.json()).toEqual({ ok: true });
       }
