@@ -40,11 +40,23 @@ export async function removeConflictingThreadStatusLabels({
   ]);
 
   const removeLabelIds: string[] = [];
+  const providerLabelIds = new Set(providerLabels.map((l) => l.id));
 
   for (const type of CONVERSATION_STATUS_TYPES) {
     if (type === systemType) continue;
 
     let label = dbLabels[type as ConversationStatus];
+
+    // If DB has a label ID, verify it still exists in the provider
+    // If not, fall back to looking up by name (label may have been recreated)
+    if (label.labelId && !providerLabelIds.has(label.labelId)) {
+      logger.warn("DB label ID not found in provider, looking up by name", {
+        type,
+        staleId: label.labelId,
+      });
+      label = { labelId: null, label: null };
+    }
+
     if (!label.labelId && !label.label) {
       const l = providerLabels.find((l) => l.name === getRuleLabel(type));
       if (!l?.id) {
