@@ -14,7 +14,6 @@ const withMDX = nextMdx({
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   output: process.env.DOCKER_BUILD === "true" ? "standalone" : undefined,
-  eslint: { ignoreDuringBuilds: true },
   serverExternalPackages: ["@sentry/nextjs", "@sentry/node"],
   turbopack: {
     rules: {
