@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { toastError } from "@/components/Toast";
 import Image from "next/image";
@@ -31,8 +30,8 @@ export function AddAccount() {
   };
 
   return (
-    <Card className="flex items-center justify-center">
-      <CardContent className="flex flex-col items-center gap-4 p-6">
+    <div className="flex flex-col items-center justify-center gap-3">
+      <div className="flex items-center gap-2">
         <Button
           variant="outline"
           className="w-full"
@@ -47,7 +46,7 @@ export function AddAccount() {
             height={24}
             unoptimized
           />
-          <span className="ml-2">Add Google Account</span>
+          <span className="ml-2">Add Google</span>
         </Button>
         <Button
           variant="outline"
@@ -63,13 +62,13 @@ export function AddAccount() {
             height={24}
             unoptimized
           />
-          <span className="ml-2">Add Microsoft Account</span>
+          <span className="ml-2">Add Microsoft</span>
         </Button>
+      </div>
 
-        <TypographyP className="text-sm text-muted-foreground">
-          You will be billed for each account.
-        </TypographyP>
-      </CardContent>
-    </Card>
+      <TypographyP className="text-sm text-muted-foreground">
+        You will be billed for each account.
+      </TypographyP>
+    </div>
   );
 }

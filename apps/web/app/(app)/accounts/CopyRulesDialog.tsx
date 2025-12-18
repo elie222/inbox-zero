@@ -175,7 +175,10 @@ export function CopyRulesDialog({
             <span className="text-sm font-medium">Transfer from</span>
             <Select
               value={selectedSourceId}
-              onValueChange={setSelectedSourceId}
+              onValueChange={(value) => {
+                setSelectedSourceId(value);
+                setSelectedRuleIds(new Set());
+              }}
             >
               <SelectTrigger className="mt-1.5">
                 <SelectValue placeholder="Select source account" />

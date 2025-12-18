@@ -12,7 +12,6 @@ import {
   Card,
   CardTitle,
   CardHeader,
-  CardContent,
   CardDescription,
 } from "@/components/ui/card";
 import {
@@ -80,25 +79,38 @@ function AccountItem({
   onAccountDeleted: () => void;
 }) {
   return (
-    <Card>
-      <AccountHeader emailAccount={emailAccount} />
-      <AccountActions
-        emailAccount={emailAccount}
-        allAccounts={allAccounts}
-        onAccountDeleted={onAccountDeleted}
-      />
-    </Card>
+    <Link href={prefixPath(emailAccount.id, "/automation")} className="block">
+      <Card className="cursor-pointer transition-colors hover:bg-slate-50 dark:hover:bg-slate-900">
+        <AccountHeader
+          emailAccount={emailAccount}
+          allAccounts={allAccounts}
+          onAccountDeleted={onAccountDeleted}
+        />
+      </Card>
+    </Link>
   );
 }
 
 function AccountHeader({
   emailAccount,
+  allAccounts,
+  onAccountDeleted,
 }: {
   emailAccount: {
+    id: string;
     name: string | null;
     email: string;
     image: string | null;
+    isPrimary: boolean;
   };
+  allAccounts: Array<{
+    id: string;
+    name: string | null;
+    email: string;
+    image: string | null;
+    isPrimary: boolean;
+  }>;
+  onAccountDeleted: () => void;
 }) {
   return (
     <CardHeader className="flex flex-row items-center gap-3 space-y-0">
@@ -108,42 +120,25 @@ function AccountHeader({
           {emailAccount.name?.[0] || emailAccount.email?.[0]}
         </AvatarFallback>
       </Avatar>
-      <div className="flex flex-col space-y-1.5">
+      <div className="flex flex-col space-y-1.5 flex-1">
         <CardTitle>{emailAccount.name}</CardTitle>
         <CardDescription>{emailAccount.email}</CardDescription>
       </div>
+      <div
+        onMouseDown={(e) => e.stopPropagation()}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.stopPropagation();
+          }
+        }}
+      >
+        <AccountOptionsDropdown
+          emailAccount={emailAccount}
+          allAccounts={allAccounts}
+          onAccountDeleted={onAccountDeleted}
+        />
+      </div>
     </CardHeader>
-  );
-}
-
-function AccountActions({
-  emailAccount,
-  allAccounts,
-  onAccountDeleted,
-}: {
-  emailAccount: {
-    id: string;
-    email: string;
-    isPrimary: boolean;
-  };
-  allAccounts: Array<{
-    id: string;
-    name: string | null;
-    email: string;
-  }>;
-  onAccountDeleted: () => void;
-}) {
-  return (
-    <CardContent className="flex justify-between items-center gap-2 flex-wrap">
-      <Button variant="outline" size="sm" asChild>
-        <Link href={prefixPath(emailAccount.id, "/automation")}>View</Link>
-      </Button>
-      <AccountOptionsDropdown
-        emailAccount={emailAccount}
-        allAccounts={allAccounts}
-        onAccountDeleted={onAccountDeleted}
-      />
-    </CardContent>
   );
 }
 
@@ -161,6 +156,8 @@ function AccountOptionsDropdown({
     id: string;
     name: string | null;
     email: string;
+    image: string | null;
+    isPrimary: boolean;
   }>;
   onAccountDeleted: () => void;
 }) {
