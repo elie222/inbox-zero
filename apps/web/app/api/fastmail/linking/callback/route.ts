@@ -114,6 +114,15 @@ export const GET = withError("fastmail/linking/callback", async (request) => {
       throw new Error("Missing access_token from Fastmail response");
     }
 
+    if (!tokens.refresh_token) {
+      logger.error(
+        "Missing refresh_token from Fastmail OAuth response. Account will not be able to refresh tokens.",
+      );
+      throw new Error(
+        "Missing refresh_token from Fastmail response. Please ensure offline_access scope is granted.",
+      );
+    }
+
     // Get user info from Fastmail
     let userInfo: { sub: string; email: string; name?: string };
     try {

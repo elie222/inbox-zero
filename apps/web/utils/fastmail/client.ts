@@ -41,11 +41,21 @@ async function fetchWithRetry(
 
       lastResponse = response;
 
-      // Check for Retry-After header
+      // Check for Retry-After header (can be seconds or HTTP-date per RFC 7231)
       const retryAfter = response.headers.get("Retry-After");
-      const delay = retryAfter
-        ? Number.parseInt(retryAfter, 10) * 1000
-        : BASE_RETRY_DELAY * 2 ** attempt;
+      let delay = BASE_RETRY_DELAY * 2 ** attempt;
+      if (retryAfter) {
+        const parsedSeconds = Number.parseInt(retryAfter, 10);
+        if (!Number.isNaN(parsedSeconds)) {
+          delay = parsedSeconds * 1000;
+        } else {
+          // Try parsing as HTTP-date
+          const retryDate = Date.parse(retryAfter);
+          if (!Number.isNaN(retryDate)) {
+            delay = Math.max(0, retryDate - Date.now());
+          }
+        }
+      }
 
       if (attempt < retries) {
         logger.warn("Transient error, retrying", {

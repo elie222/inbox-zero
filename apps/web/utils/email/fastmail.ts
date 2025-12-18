@@ -1778,11 +1778,11 @@ export class FastmailProvider implements EmailProvider {
 
     if (emailIds.length === 0) return;
 
-    // Update $seen keyword
-    const update: Record<string, { keywords: Record<string, boolean> }> = {};
+    // Update $seen keyword using path notation to preserve other keywords (e.g., $flagged)
+    const update: Record<string, Record<string, boolean>> = {};
     for (const emailId of emailIds) {
       update[emailId] = {
-        keywords: { $seen: read },
+        "keywords/$seen": read,
       };
     }
 
