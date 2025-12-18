@@ -6,17 +6,31 @@ import { SafeError } from "@/utils/error";
 
 const logger = createScopedLogger("fastmail/client");
 
-// Fastmail JMAP API endpoints
+/**
+ * Fastmail JMAP API endpoints
+ * @see https://www.fastmail.com/dev/
+ */
+
+/** JMAP session endpoint for initializing API access */
 export const FASTMAIL_JMAP_SESSION_URL =
   "https://api.fastmail.com/jmap/session";
+
+/** OAuth authorization endpoint for user consent */
 export const FASTMAIL_OAUTH_AUTHORIZE_URL =
   "https://www.fastmail.com/dev/oidc/authorize";
+
+/** OAuth token exchange endpoint */
 export const FASTMAIL_OAUTH_TOKEN_URL =
   "https://www.fastmail.com/dev/oidc/token";
+
+/** OpenID Connect userinfo endpoint */
 export const FASTMAIL_OAUTH_USERINFO_URL =
   "https://www.fastmail.com/dev/oidc/userinfo";
 
-// JMAP method response types
+/**
+ * JMAP Session response containing API URLs and account information
+ * @see https://jmap.io/spec-core.html#the-jmap-session-resource
+ */
 export interface JMAPSession {
   username: string;
   apiUrl: string;
@@ -37,28 +51,50 @@ export interface JMAPSession {
   capabilities: Record<string, unknown>;
 }
 
+/**
+ * JMAP API request structure
+ * @see https://jmap.io/spec-core.html#the-request-object
+ */
 export interface JMAPRequest {
   using: string[];
   methodCalls: JMAPMethodCall[];
 }
 
+/** JMAP method call tuple: [methodName, arguments, callId] */
 export type JMAPMethodCall = [string, Record<string, unknown>, string];
 
+/**
+ * JMAP API response structure
+ * @see https://jmap.io/spec-core.html#the-response-object
+ */
 export interface JMAPResponse {
   methodResponses: JMAPMethodResponse[];
   sessionState: string;
 }
 
+/** JMAP method response tuple: [methodName, result, callId] */
 export type JMAPMethodResponse = [string, Record<string, unknown>, string];
 
+/**
+ * Fastmail client interface for making JMAP API calls
+ */
 export interface FastmailClient {
+  /** The JMAP session containing API endpoints and capabilities */
   session: JMAPSession;
+  /** OAuth access token for authentication */
   accessToken: string;
+  /** Primary mail account ID */
   accountId: string;
+  /** Execute JMAP method calls */
   request: (methodCalls: JMAPMethodCall[]) => Promise<JMAPResponse>;
+  /** Get the current access token */
   getAccessToken: () => string;
 }
 
+/**
+ * Returns OAuth2 configuration for Fastmail account linking
+ * @returns OAuth2 config with client credentials and redirect URI
+ */
 export function getLinkingOAuth2Config() {
   return {
     clientId: env.FASTMAIL_CLIENT_ID || "",
@@ -124,6 +160,12 @@ async function makeJMAPRequest(
   return response.json();
 }
 
+/**
+ * Creates a new Fastmail client with the given access token
+ * @param accessToken - Valid OAuth access token
+ * @returns Initialized FastmailClient ready for JMAP API calls
+ * @throws SafeError if no mail account found in session
+ */
 export async function createFastmailClient(
   accessToken: string,
 ): Promise<FastmailClient> {
@@ -145,6 +187,16 @@ export async function createFastmailClient(
   };
 }
 
+/**
+ * Gets a Fastmail client, automatically refreshing the access token if expired
+ * @param options - Token and account information
+ * @param options.accessToken - Current access token (may be expired)
+ * @param options.refreshToken - OAuth refresh token for getting new access token
+ * @param options.expiresAt - Expiration timestamp of current access token
+ * @param options.emailAccountId - Email account ID for saving refreshed tokens
+ * @returns Initialized FastmailClient with valid access token
+ * @throws SafeError if no refresh token provided or refresh fails
+ */
 export async function getFastmailClientWithRefresh({
   accessToken,
   refreshToken,
@@ -212,6 +264,12 @@ export async function getFastmailClientWithRefresh({
   return createFastmailClient(newAccessToken);
 }
 
+/**
+ * Fetches user information from Fastmail's OpenID Connect userinfo endpoint
+ * @param accessToken - Valid OAuth access token with openid scope
+ * @returns User info including sub (subject ID), email, and optional name
+ * @throws SafeError if the request fails
+ */
 export async function getUserInfo(
   accessToken: string,
 ): Promise<{ sub: string; email: string; name?: string }> {
@@ -233,6 +291,11 @@ export async function getUserInfo(
   return response.json();
 }
 
+/**
+ * Extracts the access token from a Fastmail client instance
+ * @param client - Initialized Fastmail client
+ * @returns The OAuth access token
+ */
 export function getAccessTokenFromClient(client: FastmailClient): string {
   return client.getAccessToken();
 }

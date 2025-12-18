@@ -136,6 +136,21 @@ function getResponseData<T>(response: JMAPMethodResponse): T {
   return response[1] as T;
 }
 
+/**
+ * Fastmail email provider implementation using the JMAP protocol.
+ *
+ * JMAP (JSON Meta Application Protocol) is a modern, efficient protocol for
+ * accessing mail, calendars, and contacts. Fastmail helped create the JMAP
+ * specification and uses it as their primary API.
+ *
+ * Key differences from Gmail:
+ * - Uses mailboxes (folders) instead of labels - messages can be in multiple mailboxes
+ * - No built-in filter/rules API - Fastmail uses Sieve for server-side filtering
+ * - Push notifications use EventSource instead of Pub/Sub webhooks
+ *
+ * @see https://jmap.io/spec-mail.html for JMAP Mail specification
+ * @see https://www.fastmail.com/dev/ for Fastmail API documentation
+ */
 export class FastmailProvider implements EmailProvider {
   readonly name = "fastmail" as const;
   private readonly client: FastmailClient;
@@ -143,6 +158,11 @@ export class FastmailProvider implements EmailProvider {
   private mailboxCache: MailboxCache | null = null;
   private readonly inboxZeroLabels: Map<string, string> = new Map();
 
+  /**
+   * Creates a new FastmailProvider instance
+   * @param client - Initialized Fastmail JMAP client
+   * @param logger - Optional logger instance for debugging
+   */
   constructor(client: FastmailClient, logger?: Logger) {
     this.client = client;
     this.logger = (logger || createScopedLogger("fastmail-provider")).with({
@@ -150,10 +170,19 @@ export class FastmailProvider implements EmailProvider {
     });
   }
 
+  /**
+   * Returns a JSON representation of this provider for logging purposes
+   * @returns Object with provider name and type
+   */
   toJSON() {
     return { name: this.name, type: "FastmailProvider" };
   }
 
+  /**
+   * Ensures the mailbox cache is populated and returns it.
+   * The cache stores mailboxes indexed by ID, role, and name for fast lookups.
+   * @returns The populated mailbox cache
+   */
   private async ensureMailboxCache(): Promise<MailboxCache> {
     if (this.mailboxCache) return this.mailboxCache;
 
@@ -280,6 +309,11 @@ export class FastmailProvider implements EmailProvider {
     };
   }
 
+  /**
+   * Retrieves email threads from a specific folder or the inbox.
+   * @param folderId - Optional mailbox ID to fetch threads from. Defaults to inbox.
+   * @returns Array of email threads with their messages
+   */
   async getThreads(folderId?: string): Promise<EmailThread[]> {
     const log = this.logger.with({ action: "getThreads", folderId });
 
@@ -374,6 +408,11 @@ export class FastmailProvider implements EmailProvider {
     }));
   }
 
+  /**
+   * Retrieves a single email thread with all its messages.
+   * @param threadId - The JMAP thread ID
+   * @returns The email thread with all messages sorted by received date
+   */
   async getThread(threadId: string): Promise<EmailThread> {
     const log = this.logger.with({ action: "getThread", threadId });
 
@@ -439,6 +478,10 @@ export class FastmailProvider implements EmailProvider {
     };
   }
 
+  /**
+   * Retrieves all mailboxes (labels/folders) from the account.
+   * @returns Array of email labels representing mailboxes
+   */
   async getLabels(): Promise<EmailLabel[]> {
     const cache = await this.ensureMailboxCache();
 
@@ -476,6 +519,12 @@ export class FastmailProvider implements EmailProvider {
     };
   }
 
+  /**
+   * Retrieves a single email message by its ID.
+   * @param messageId - The JMAP email ID
+   * @returns The parsed email message
+   * @throws Error if the message is not found
+   */
   async getMessage(messageId: string): Promise<ParsedMessage> {
     const response = await this.client.request([
       [
@@ -827,6 +876,12 @@ export class FastmailProvider implements EmailProvider {
     }));
   }
 
+  /**
+   * Archives an email thread by removing it from inbox and moving to archive.
+   * Uses JSON Pointer notation to patch mailbox flags without replacing other labels.
+   * @param threadId - The thread ID to archive
+   * @param _ownerEmail - The owner email (unused, for interface compatibility)
+   */
   async archiveThread(threadId: string, _ownerEmail: string): Promise<void> {
     const log = this.logger.with({ action: "archiveThread", threadId });
 
@@ -856,18 +911,16 @@ export class FastmailProvider implements EmailProvider {
 
     if (emailIds.length === 0) return;
 
-    // Build update object to remove from inbox
-    const update: Record<string, { mailboxIds: Record<string, boolean> }> = {};
+    // Build update object to remove from inbox using JSON Pointer notation
+    // This patches individual mailbox flags instead of replacing all mailboxIds
+    const update: Record<string, Record<string, boolean>> = {};
     for (const emailId of emailIds) {
-      const mailboxIds: Record<string, boolean> = {
-        [inbox.id]: false,
+      update[emailId] = {
+        [`mailboxIds/${inbox.id}`]: false,
       };
       if (archive) {
-        mailboxIds[archive.id] = true;
+        update[emailId][`mailboxIds/${archive.id}`] = true;
       }
-      update[emailId] = {
-        mailboxIds,
-      };
     }
 
     await this.client.request([
@@ -914,11 +967,13 @@ export class FastmailProvider implements EmailProvider {
       return;
     }
 
-    const mailboxIds: Record<string, boolean> = {
-      [inbox.id]: false,
+    // Use JSON Pointer notation to patch individual mailbox flags
+    // This preserves other mailbox memberships instead of replacing all mailboxIds
+    const updatePatch: Record<string, boolean> = {
+      [`mailboxIds/${inbox.id}`]: false,
     };
     if (archive) {
-      mailboxIds[archive.id] = true;
+      updatePatch[`mailboxIds/${archive.id}`] = true;
     }
 
     await this.client.request([
@@ -927,7 +982,7 @@ export class FastmailProvider implements EmailProvider {
         {
           accountId: this.client.accountId,
           update: {
-            [messageId]: { mailboxIds },
+            [messageId]: updatePatch,
           },
         },
         "0",
@@ -972,19 +1027,17 @@ export class FastmailProvider implements EmailProvider {
       ).ids;
 
       if (emailIds.length > 0) {
-        // Archive all emails
+        // Archive all emails using JSON Pointer notation to patch mailbox flags
         const archive = await this.getMailboxByRole(FastmailMailbox.ARCHIVE);
-        const update: Record<string, { mailboxIds: Record<string, boolean> }> =
-          {};
+        const update: Record<string, Record<string, boolean>> = {};
 
         for (const emailId of emailIds) {
-          const mailboxIds: Record<string, boolean> = {
-            [inbox.id]: false,
+          update[emailId] = {
+            [`mailboxIds/${inbox.id}`]: false,
           };
           if (archive) {
-            mailboxIds[archive.id] = true;
+            update[emailId][`mailboxIds/${archive.id}`] = true;
           }
-          update[emailId] = { mailboxIds };
         }
 
         await this.client.request([
@@ -1038,12 +1091,11 @@ export class FastmailProvider implements EmailProvider {
       ).ids;
 
       if (emailIds.length > 0) {
-        // Move all to trash
-        const update: Record<string, { mailboxIds: Record<string, boolean> }> =
-          {};
+        // Move all to trash using JSON Pointer notation to patch mailbox flags
+        const update: Record<string, Record<string, boolean>> = {};
         for (const emailId of emailIds) {
           update[emailId] = {
-            mailboxIds: { [trash.id]: true },
+            [`mailboxIds/${trash.id}`]: true,
           };
         }
 
@@ -1094,11 +1146,11 @@ export class FastmailProvider implements EmailProvider {
 
     if (emailIds.length === 0) return;
 
-    // Move all to trash
-    const update: Record<string, { mailboxIds: Record<string, boolean> }> = {};
+    // Move all to trash using JSON Pointer notation to patch mailbox flags
+    const update: Record<string, Record<string, boolean>> = {};
     for (const emailId of emailIds) {
       update[emailId] = {
-        mailboxIds: { [trash.id]: true },
+        [`mailboxIds/${trash.id}`]: true,
       };
     }
 
@@ -1322,6 +1374,15 @@ export class FastmailProvider implements EmailProvider {
     ]);
   }
 
+  /**
+   * Sends a plain text email using JMAP EmailSubmission.
+   * @param args - Email composition arguments
+   * @param args.to - Comma-separated recipient email addresses
+   * @param args.cc - Optional comma-separated CC addresses
+   * @param args.bcc - Optional comma-separated BCC addresses
+   * @param args.subject - Email subject line
+   * @param args.messageText - Plain text message body
+   */
   async sendEmail(args: {
     to: string;
     cc?: string;
@@ -1399,6 +1460,19 @@ export class FastmailProvider implements EmailProvider {
     ]);
   }
 
+  /**
+   * Sends an HTML email with optional attachments using JMAP EmailSubmission.
+   * @param body - Email composition options
+   * @param body.replyToEmail - Optional reply context with thread info
+   * @param body.to - Comma-separated recipient email addresses
+   * @param body.cc - Optional comma-separated CC addresses
+   * @param body.bcc - Optional comma-separated BCC addresses
+   * @param body.replyTo - Optional reply-to address
+   * @param body.subject - Email subject line
+   * @param body.messageHtml - HTML message body
+   * @param body.attachments - Optional array of attachments
+   * @returns Object containing the created message ID and thread ID
+   */
   async sendEmailWithHtml(body: {
     replyToEmail?: {
       threadId: string;
@@ -1553,11 +1627,11 @@ export class FastmailProvider implements EmailProvider {
 
     if (emailIds.length === 0) return;
 
-    // Move all to junk
-    const update: Record<string, { mailboxIds: Record<string, boolean> }> = {};
+    // Move all to junk using JSON Pointer notation to patch mailbox flags
+    const update: Record<string, Record<string, boolean>> = {};
     for (const emailId of emailIds) {
       update[emailId] = {
-        mailboxIds: { [junk.id]: true },
+        [`mailboxIds/${junk.id}`]: true,
       };
     }
 
@@ -1690,6 +1764,12 @@ export class FastmailProvider implements EmailProvider {
     }
   }
 
+  /**
+   * Creates a new mailbox (label/folder) in the Fastmail account.
+   * @param name - Display name for the new mailbox
+   * @param _description - Unused, for interface compatibility
+   * @returns The created email label
+   */
   async createLabel(name: string, _description?: string): Promise<EmailLabel> {
     const response = await this.client.request([
       [
@@ -2251,6 +2331,12 @@ export class FastmailProvider implements EmailProvider {
     }
   }
 
+  /**
+   * Downloads an email attachment by its blob ID.
+   * @param messageId - The email message ID (unused, for interface compatibility)
+   * @param attachmentId - The JMAP blob ID of the attachment
+   * @returns Object with base64-encoded data and size in bytes
+   */
   async getAttachment(
     messageId: string,
     attachmentId: string,
@@ -2625,11 +2711,11 @@ export class FastmailProvider implements EmailProvider {
 
     if (emailIds.length === 0) return;
 
-    // Move all to target mailbox
-    const update: Record<string, { mailboxIds: Record<string, boolean> }> = {};
+    // Move all to target mailbox using JSON Pointer notation to patch mailbox flags
+    const update: Record<string, Record<string, boolean>> = {};
     for (const emailId of emailIds) {
       update[emailId] = {
-        mailboxIds: { [mailbox.id]: true },
+        [`mailboxIds/${mailbox.id}`]: true,
       };
     }
 
