@@ -3,9 +3,7 @@ import {
   setUser,
 } from "@sentry/nextjs";
 import { APICallError, RetryError } from "ai";
-import { createScopedLogger } from "@/utils/logger";
-
-const logger = createScopedLogger("error");
+import { createScopedLogger, type Logger } from "@/utils/logger";
 
 export type ErrorMessage = { error: string; data?: any };
 export type ZodError = {
@@ -38,6 +36,7 @@ export function captureException(
   userEmail?: string,
 ) {
   if (isKnownApiError(error)) {
+    const logger = createScopedLogger("captureException");
     logger.warn("Known API error", { error, additionalInfo });
     return;
   }
@@ -156,6 +155,7 @@ export function isKnownApiError(error: unknown): boolean {
 export function checkCommonErrors(
   error: unknown,
   url: string,
+  logger: Logger,
 ): ApiErrorType | null {
   if (isGmailInsufficientPermissionsError(error)) {
     logger.warn("Gmail insufficient permissions error for url", { url });

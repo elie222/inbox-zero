@@ -201,7 +201,7 @@ async function postSignUp({
     captureException(error, undefined, email);
   });
 
-  const dub = trackDubSignUp({ id: userId, email, name, image }).catch(
+  const dub = trackDubSignUp({ id: userId, email, name, image }, logger).catch(
     (error) => {
       logger.error("Error tracking Dub sign up", {
         email,

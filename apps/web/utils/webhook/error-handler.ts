@@ -17,7 +17,7 @@ export async function handleWebhookError(
 ) {
   const { email, emailAccountId, url, logger } = options;
 
-  const apiError = checkCommonErrors(error, url);
+  const apiError = checkCommonErrors(error, url, logger);
   if (apiError) {
     await trackError({
       email,

@@ -1,21 +1,22 @@
 import { Dub } from "dub";
 import { env } from "@/env";
 import { cookies } from "next/headers";
-import { createScopedLogger } from "@/utils/logger";
-
-const logger = createScopedLogger("dub");
+import type { Logger } from "@/utils/logger";
 
 function getDub() {
   if (!env.DUB_API_KEY) return null;
   return new Dub({ token: env.DUB_API_KEY });
 }
 
-export async function trackDubSignUp(user: {
-  id?: string;
-  name?: string | null;
-  email?: string | null;
-  image?: string | null;
-}) {
+export async function trackDubSignUp(
+  user: {
+    id?: string;
+    name?: string | null;
+    email?: string | null;
+    image?: string | null;
+  },
+  logger: Logger,
+) {
   const dub = getDub();
   if (!dub) return;
 
