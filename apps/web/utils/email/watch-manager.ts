@@ -211,7 +211,10 @@ async function watchEmails({
 
   try {
     if (isMicrosoftProvider(provider.name)) {
-      const result = await createManagedOutlookSubscription(emailAccountId);
+      const result = await createManagedOutlookSubscription({
+        emailAccountId,
+        logger,
+      });
 
       if (result) return { success: true, expirationDate: result };
     } else {

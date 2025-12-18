@@ -19,6 +19,7 @@ export async function fetchEmailsForReport({
   const emailProvider = await createEmailProvider({
     emailAccountId: emailAccount.id,
     provider: emailAccount.account.provider,
+    logger,
   });
 
   const receivedEmails = await fetchReceivedEmails(emailProvider, 200);

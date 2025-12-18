@@ -322,7 +322,7 @@ async function getProfileData(providerId: string, accessToken: string) {
   }
 
   if (isMicrosoftProvider(providerId)) {
-    const client = createOutlookClient(accessToken);
+    const client = createOutlookClient(accessToken, logger);
     try {
       const profileResponse = await client.getUserProfile();
 

@@ -200,7 +200,7 @@ export const undoCleanInboxAction = actionClient
       ctx: { emailAccountId, logger },
       parsedInput: { threadId, markedDone, action },
     }) => {
-      const gmail = await getGmailClientForEmail({ emailAccountId });
+      const gmail = await getGmailClientForEmail({ emailAccountId, logger });
 
       // nothing to do atm if wasn't marked done
       if (!markedDone) return { success: true };
@@ -265,7 +265,7 @@ export const changeKeepToDoneAction = actionClient
       ctx: { emailAccountId, logger },
       parsedInput: { threadId, action },
     }) => {
-      const gmail = await getGmailClientForEmail({ emailAccountId });
+      const gmail = await getGmailClientForEmail({ emailAccountId, logger });
 
       // Get the label to add (archived or marked_read)
       const actionLabel = await getOrCreateInboxZeroLabel({

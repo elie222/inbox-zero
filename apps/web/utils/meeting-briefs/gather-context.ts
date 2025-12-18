@@ -57,7 +57,7 @@ export async function gatherContextForEvent({
   });
 
   const [emailProvider, calendarProviders] = await Promise.all([
-    createEmailProvider({ emailAccountId, provider }),
+    createEmailProvider({ emailAccountId, provider, logger }),
     createCalendarEventProviders(emailAccountId),
   ]);
 

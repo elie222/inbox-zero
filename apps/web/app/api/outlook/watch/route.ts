@@ -51,8 +51,10 @@ export const GET = withAuth("outlook/watch", async (request) => {
         continue;
       }
 
-      const expirationDate =
-        await createManagedOutlookSubscription(emailAccountId);
+      const expirationDate = await createManagedOutlookSubscription({
+        emailAccountId,
+        logger: request.logger,
+      });
 
       if (expirationDate) {
         results.push({

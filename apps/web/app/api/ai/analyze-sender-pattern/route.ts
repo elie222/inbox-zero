@@ -100,6 +100,7 @@ async function process({
     const provider = await createEmailProvider({
       emailAccountId,
       provider: account.provider,
+      logger,
     });
 
     const { threads: threadsWithMessages, conversationDetected } =
@@ -180,6 +181,7 @@ async function process({
           emailAccountId,
           from,
           ruleName: patternResult.matchedRule,
+          logger,
         });
       } else {
         logger.warn("AI suggested different rule than historical data", {

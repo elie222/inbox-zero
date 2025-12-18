@@ -66,6 +66,7 @@ async function getEmailReportData({
 
   const gmail = await getGmailClientForEmail({
     emailAccountId: emailAccount.id,
+    logger,
   });
 
   const gmailLabels = await fetchGmailLabels(gmail, logger);

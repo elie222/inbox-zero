@@ -50,6 +50,7 @@ export async function createRule({
       result.actions,
       provider,
       emailAccountId,
+      logger,
     );
 
     const rule = await prisma.rule.create({
@@ -123,6 +124,7 @@ export async function updateRule({
               result.actions,
               provider,
               emailAccountId,
+              logger,
             ),
           },
         },
@@ -222,11 +224,13 @@ export async function updateRuleActions({
   actions,
   provider,
   emailAccountId,
+  logger,
 }: {
   ruleId: string;
   actions: CreateOrUpdateRuleSchema["actions"];
   provider: string;
   emailAccountId: string;
+  logger: Logger;
 }) {
   return prisma.rule.update({
     where: { id: ruleId },
@@ -234,7 +238,12 @@ export async function updateRuleActions({
       actions: {
         deleteMany: {},
         createMany: {
-          data: await mapActionFields(actions, provider, emailAccountId),
+          data: await mapActionFields(
+            actions,
+            provider,
+            emailAccountId,
+            logger,
+          ),
         },
       },
     },
@@ -291,6 +300,7 @@ async function mapActionFields(
   })[],
   provider: string,
   emailAccountId: string,
+  logger: Logger,
 ) {
   const actionPromises = actions.map(
     async (a): Promise<Prisma.ActionCreateManyRuleInput> => {
@@ -304,6 +314,7 @@ async function mapActionFields(
         const emailProvider = await createEmailProvider({
           emailAccountId,
           provider,
+          logger,
         });
 
         const resolved = await resolveLabelNameAndId({
@@ -324,6 +335,7 @@ async function mapActionFields(
         const emailProvider = await createEmailProvider({
           emailAccountId,
           provider,
+          logger,
         });
 
         folderId =

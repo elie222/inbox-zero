@@ -18,13 +18,13 @@ export async function createEmailProvider({
 }: {
   emailAccountId: string;
   provider: string;
-  logger?: Logger;
+  logger: Logger;
 }): Promise<EmailProvider> {
   if (isGoogleProvider(provider)) {
-    const client = await getGmailClientForEmail({ emailAccountId });
+    const client = await getGmailClientForEmail({ emailAccountId, logger });
     return new GmailProvider(client, logger);
   } else if (isMicrosoftProvider(provider)) {
-    const client = await getOutlookClientForEmail({ emailAccountId });
+    const client = await getOutlookClientForEmail({ emailAccountId, logger });
     return new OutlookProvider(client, logger);
   }
 

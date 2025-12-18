@@ -533,7 +533,7 @@ export const createRulesAction = actionClient
 export const generateRulesPromptAction = actionClient
   .metadata({ name: "generateRulesPrompt" })
   .inputSchema(z.object({}))
-  .action(async ({ ctx: { emailAccountId, provider } }) => {
+  .action(async ({ ctx: { emailAccountId, provider, logger } }) => {
     const emailAccount = await getEmailAccountWithAi({ emailAccountId });
 
     if (!emailAccount) throw new SafeError("Email account not found");
@@ -541,6 +541,7 @@ export const generateRulesPromptAction = actionClient
     const emailProvider = await createEmailProvider({
       emailAccountId,
       provider,
+      logger,
     });
     const lastSentMessages = await emailProvider.getSentMessages(50);
 

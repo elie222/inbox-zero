@@ -65,6 +65,7 @@ export const createRuleAction = actionClient
         actions || [],
         emailAccountId,
         provider,
+        logger,
       );
 
       try {
@@ -116,6 +117,7 @@ export const updateRuleAction = actionClient
         actions,
         emailAccountId,
         provider,
+        logger,
       );
 
       try {
@@ -503,6 +505,7 @@ async function toggleRule({
   const emailProvider = await createEmailProvider({
     emailAccountId,
     provider,
+    logger,
   });
 
   const ruleConfig = getRuleConfig(systemType);
@@ -640,10 +643,11 @@ async function resolveActionLabels<
       value?: string | null;
     } | null;
   },
->(actions: T[], emailAccountId: string, provider: string) {
+>(actions: T[], emailAccountId: string, provider: string, logger: Logger) {
   const emailProvider = await createEmailProvider({
     emailAccountId,
     provider,
+    logger,
   });
 
   return Promise.all(

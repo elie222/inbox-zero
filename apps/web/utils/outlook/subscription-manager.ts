@@ -240,12 +240,17 @@ export class OutlookSubscriptionManager {
   }
 }
 
-export async function createManagedOutlookSubscription(
-  emailAccountId: string,
-): Promise<Date | null> {
+export async function createManagedOutlookSubscription({
+  emailAccountId,
+  logger,
+}: {
+  emailAccountId: string;
+  logger: Logger;
+}): Promise<Date | null> {
   const provider = await createEmailProvider({
     emailAccountId,
     provider: "microsoft",
+    logger,
   });
   const manager = new OutlookSubscriptionManager(provider, emailAccountId);
 
