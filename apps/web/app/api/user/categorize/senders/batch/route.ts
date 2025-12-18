@@ -4,4 +4,6 @@ import { handleBatchRequest } from "@/app/api/user/categorize/senders/batch/hand
 
 export const maxDuration = 300;
 
-export const POST = withError(verifySignatureAppRouter(handleBatchRequest));
+export const POST = verifySignatureAppRouter(
+  withError("user/categorize/senders/batch", handleBatchRequest),
+);

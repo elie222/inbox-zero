@@ -5,9 +5,7 @@ import {
   getCustomer,
   activateLicense,
 } from "@lemonsqueezy/lemonsqueezy.js";
-import { createScopedLogger } from "@/utils/logger";
-
-const logger = createScopedLogger("Lemon Squeezy");
+import type { Logger } from "@/utils/logger";
 
 let isSetUp = false;
 
@@ -21,7 +19,9 @@ function setUpLemon() {
 export async function updateSubscriptionItemQuantity(options: {
   id: number;
   quantity: number;
+  logger: Logger;
 }) {
+  const { logger } = options;
   setUpLemon();
   logger.info("Updating subscription item quantity", options);
   return updateSubscriptionItem(options.id, {
@@ -38,6 +38,7 @@ export async function getLemonCustomer(customerId: string) {
 export async function activateLemonLicenseKey(
   licenseKey: string,
   name: string,
+  logger: Logger,
 ) {
   setUpLemon();
   logger.info("Activating license key", { licenseKey, name });

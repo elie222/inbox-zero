@@ -3,11 +3,12 @@ import { extractEmailAddress } from "@/utils/email";
 import prisma from "@/utils/prisma";
 import { NewsletterStatus } from "@/generated/prisma/enums";
 import { GmailLabel } from "@/utils/gmail/label";
-import { createScopedLogger } from "@/utils/logger";
+import type { Logger } from "@/utils/logger";
 
-const logger = createScopedLogger("newsletter-helpers");
-
-export async function getAutoArchiveFilters(emailProvider: EmailProvider) {
+export async function getAutoArchiveFilters(
+  emailProvider: EmailProvider,
+  logger: Logger,
+) {
   try {
     const filters = await emailProvider.getFiltersList();
 

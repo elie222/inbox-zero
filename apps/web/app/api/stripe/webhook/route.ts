@@ -76,7 +76,7 @@ async function processEvent(event: Stripe.Event) {
   }
 
   return await Promise.allSettled([
-    syncStripeDataToDb({ customerId }),
+    syncStripeDataToDb({ customerId, logger }),
     trackEvent(customerId, event),
     handleReferralCompletion(customerId, event),
   ]);

@@ -226,11 +226,13 @@ export async function updateAccountSeatsForPremium(
     await updateStripeSubscriptionItemQuantity({
       subscriptionItemId: premium.stripeSubscriptionItemId,
       quantity: totalSeats,
+      logger,
     });
   } else if (premium.lemonSqueezySubscriptionItemId) {
     await updateSubscriptionItemQuantity({
       id: premium.lemonSqueezySubscriptionItemId,
       quantity: totalSeats,
+      logger,
     });
   }
 }
