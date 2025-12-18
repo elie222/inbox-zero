@@ -16,6 +16,7 @@ import type { EmailForAction } from "@/utils/ai/types";
 import { createScopedLogger } from "@/utils/logger";
 import { withGmailRetry } from "@/utils/gmail/retry";
 import { buildReplyAllRecipients, formatCcList } from "@/utils/email/reply-all";
+import { formatReplySubject } from "@/utils/email/subject";
 import { ensureEmailSendingEnabled } from "@/utils/mail";
 
 const logger = createScopedLogger("gmail/mail");
@@ -319,13 +320,4 @@ function convertTextToHtmlParagraphs(text?: string | null): string {
     .join("");
 
   return `<html><body>${htmlContent}</body></html>`;
-}
-
-function formatReplySubject(subject: string): string {
-  const trimmed = subject.trim();
-  // Avoid duplicate "Re:" prefix (case-insensitive check)
-  if (/^re:/i.test(trimmed)) {
-    return trimmed;
-  }
-  return `Re: ${trimmed}`;
 }

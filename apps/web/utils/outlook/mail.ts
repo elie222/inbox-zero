@@ -7,6 +7,7 @@ import type { EmailForAction } from "@/utils/ai/types";
 import { createOutlookReplyContent } from "@/utils/outlook/reply";
 import { forwardEmailHtml, forwardEmailSubject } from "@/utils/gmail/forward";
 import { buildReplyAllRecipients } from "@/utils/email/reply-all";
+import { formatReplySubject } from "@/utils/email/subject";
 import { withOutlookRetry } from "@/utils/outlook/retry";
 import { extractEmailAddress, extractNameFromEmail } from "@/utils/email";
 import { ensureEmailSendingEnabled } from "@/utils/mail";
@@ -84,7 +85,7 @@ export async function replyToEmail(
 
   // Only replying to the original sender
   const replyMessage = {
-    subject: `Re: ${message.headers.subject}`,
+    subject: formatReplySubject(message.headers.subject),
     body: {
       contentType: "html",
       content: html,
