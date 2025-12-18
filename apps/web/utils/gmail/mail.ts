@@ -16,6 +16,7 @@ import type { EmailForAction } from "@/utils/ai/types";
 import { createScopedLogger } from "@/utils/logger";
 import { withGmailRetry } from "@/utils/gmail/retry";
 import { buildReplyAllRecipients, formatCcList } from "@/utils/email/reply-all";
+import { formatReplySubject } from "@/utils/email/subject";
 import { ensureEmailSendingEnabled } from "@/utils/mail";
 
 const logger = createScopedLogger("gmail/mail");
@@ -155,7 +156,7 @@ export async function replyToEmail(
   const raw = await createRawMailMessage(
     {
       to: message.headers["reply-to"] || message.headers.from,
-      subject: message.headers.subject,
+      subject: formatReplySubject(message.headers.subject),
       messageText: text,
       messageHtml: html,
       replyToEmail: {

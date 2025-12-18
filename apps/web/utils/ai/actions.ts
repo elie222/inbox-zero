@@ -192,6 +192,8 @@ const reply: ActionFunction<{
       inline: [],
       subject: email.headers.subject,
       date: email.headers.date,
+      textPlain: email.textPlain,
+      textHtml: email.textHtml,
     },
     args.content,
   );
