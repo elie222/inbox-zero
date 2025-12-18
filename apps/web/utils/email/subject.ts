@@ -4,7 +4,7 @@
  * Per RFC 5322, replies should use a single "Re:" prefix, not stacked.
  */
 export function formatReplySubject(subject: string): string {
-  const trimmed = subject.trim();
+  const trimmed = (subject ?? "").trim();
   // Avoid duplicate "Re:" prefix (case-insensitive check)
   if (/^re:/i.test(trimmed)) {
     return trimmed;
