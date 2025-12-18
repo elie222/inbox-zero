@@ -214,7 +214,8 @@ export async function getFastmailClientWithRefresh({
   }
 
   // Check if token is still valid
-  if (accessToken && expiresAt && expiresAt > Date.now()) {
+  // expiresAt is stored in seconds (Unix timestamp), Date.now() returns milliseconds
+  if (accessToken && expiresAt && expiresAt * 1000 > Date.now()) {
     return createFastmailClient(accessToken);
   }
 

@@ -2713,14 +2713,20 @@ export class FastmailProvider implements EmailProvider {
   }
 
   isSentMessage(message: ParsedMessage): boolean {
-    // Check if the message is in the sent mailbox
-    // This would need to be checked against actual mailbox IDs
-    return (
-      message.labelIds?.some(async (id) => {
-        const mailbox = await this.getMailboxById(id);
-        return mailbox?.role === FastmailMailbox.SENT;
-      }) || false
-    );
+    // Check if the message is in the sent mailbox by checking the cached mailbox roles
+    // Note: This requires the mailbox cache to be populated beforehand
+    if (!this.mailboxCache || !message.labelIds) {
+      return false;
+    }
+
+    // Check if any of the message's labelIds (mailbox IDs) correspond to the sent mailbox
+    for (const id of message.labelIds) {
+      const mailbox = this.mailboxCache.byId.get(id);
+      if (mailbox?.role === FastmailMailbox.SENT) {
+        return true;
+      }
+    }
+    return false;
   }
 
   async getFolders(): Promise<OutlookFolder[]> {

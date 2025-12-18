@@ -23,6 +23,17 @@ import { isDuplicateError } from "@/utils/prisma-helpers";
 export const GET = withError("fastmail/linking/callback", async (request) => {
   const logger = request.logger;
 
+  // Validate required environment variables before proceeding
+  const config = getLinkingOAuth2Config();
+  if (!config.clientId || !config.clientSecret) {
+    logger.error(
+      "Fastmail OAuth not configured: missing FASTMAIL_CLIENT_ID or FASTMAIL_CLIENT_SECRET",
+    );
+    const errorUrl = new URL("/accounts", env.NEXT_PUBLIC_BASE_URL);
+    errorUrl.searchParams.set("error", "fastmail_not_configured");
+    return NextResponse.redirect(errorUrl);
+  }
+
   const searchParams = request.nextUrl.searchParams;
   const storedState = request.cookies.get(
     FASTMAIL_LINKING_STATE_COOKIE_NAME,
@@ -66,8 +77,6 @@ export const GET = withError("fastmail/linking/callback", async (request) => {
     response.cookies.delete(FASTMAIL_LINKING_STATE_COOKIE_NAME);
     return response;
   }
-
-  const config = getLinkingOAuth2Config();
 
   try {
     // Exchange code for tokens

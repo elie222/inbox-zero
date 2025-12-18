@@ -18,14 +18,15 @@ const getAuthUrl = ({ userId }: { userId: string }) => {
   const state = generateOAuthState({ userId });
 
   // Build OAuth authorization URL
+  // Use offline_access scope (OIDC standard) to get refresh token - access_type is Google-specific
   const params = new URLSearchParams({
     client_id: config.clientId,
     redirect_uri: config.redirectUri,
     response_type: "code",
-    scope: [...new Set([...SCOPES, "openid", "email", "profile"])].join(" "),
+    scope: [
+      ...new Set([...SCOPES, "openid", "email", "profile", "offline_access"]),
+    ].join(" "),
     state,
-    // Request offline access to get refresh token
-    access_type: "offline",
     prompt: "consent",
   });
 
