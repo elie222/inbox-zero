@@ -40,12 +40,15 @@ export async function createCalendarEventProviders(
     try {
       if (connection.provider === "google") {
         providers.push(
-          new GoogleCalendarEventProvider({
-            accessToken: connection.accessToken,
-            refreshToken: connection.refreshToken,
-            expiresAt: connection.expiresAt?.getTime() ?? null,
-            emailAccountId,
-          }),
+          new GoogleCalendarEventProvider(
+            {
+              accessToken: connection.accessToken,
+              refreshToken: connection.refreshToken,
+              expiresAt: connection.expiresAt?.getTime() ?? null,
+              emailAccountId,
+            },
+            logger,
+          ),
         );
       } else if (connection.provider === "microsoft") {
         providers.push(

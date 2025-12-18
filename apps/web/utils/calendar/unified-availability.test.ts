@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { getUnifiedCalendarAvailability } from "./unified-availability";
 import prisma from "@/utils/prisma";
-import { googleAvailabilityProvider } from "./providers/google-availability";
+import { createGoogleAvailabilityProvider } from "./providers/google-availability";
 import { microsoftAvailabilityProvider } from "./providers/microsoft-availability";
 import type { BusyPeriod } from "./availability-types";
 import { getCalendarConnection } from "@/__tests__/helpers";
@@ -32,8 +32,11 @@ describe("getUnifiedCalendarAvailability", () => {
         },
       ];
 
-      vi.mocked(googleAvailabilityProvider.fetchBusyPeriods).mockResolvedValue(
-        mockBusyPeriods,
+      const mockGoogleProvider = {
+        fetchBusyPeriods: vi.fn().mockResolvedValue(mockBusyPeriods),
+      };
+      vi.mocked(createGoogleAvailabilityProvider).mockReturnValue(
+        mockGoogleProvider as any,
       );
 
       const result = await getUnifiedCalendarAvailability({
@@ -64,8 +67,11 @@ describe("getUnifiedCalendarAvailability", () => {
         },
       ];
 
-      vi.mocked(googleAvailabilityProvider.fetchBusyPeriods).mockResolvedValue(
-        mockBusyPeriods,
+      const mockGoogleProvider = {
+        fetchBusyPeriods: vi.fn().mockResolvedValue(mockBusyPeriods),
+      };
+      vi.mocked(createGoogleAvailabilityProvider).mockReturnValue(
+        mockGoogleProvider as any,
       );
 
       const result = await getUnifiedCalendarAvailability({
@@ -95,8 +101,11 @@ describe("getUnifiedCalendarAvailability", () => {
         },
       ];
 
-      vi.mocked(googleAvailabilityProvider.fetchBusyPeriods).mockResolvedValue(
-        mockBusyPeriods,
+      const mockGoogleProvider = {
+        fetchBusyPeriods: vi.fn().mockResolvedValue(mockBusyPeriods),
+      };
+      vi.mocked(createGoogleAvailabilityProvider).mockReturnValue(
+        mockGoogleProvider as any,
       );
 
       const result = await getUnifiedCalendarAvailability({
@@ -125,12 +134,17 @@ describe("getUnifiedCalendarAvailability", () => {
         }),
       ]);
 
-      vi.mocked(googleAvailabilityProvider.fetchBusyPeriods).mockResolvedValue([
-        {
-          start: "2025-11-17T14:00:00Z",
-          end: "2025-11-17T15:00:00Z",
-        },
-      ]);
+      const mockGoogleProvider = {
+        fetchBusyPeriods: vi.fn().mockResolvedValue([
+          {
+            start: "2025-11-17T14:00:00Z",
+            end: "2025-11-17T15:00:00Z",
+          },
+        ]),
+      };
+      vi.mocked(createGoogleAvailabilityProvider).mockReturnValue(
+        mockGoogleProvider as any,
+      );
 
       vi.mocked(
         microsoftAvailabilityProvider.fetchBusyPeriods,

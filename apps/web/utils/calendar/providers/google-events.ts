@@ -4,6 +4,7 @@ import type {
   CalendarEvent,
   CalendarEventProvider,
 } from "@/utils/calendar/event-types";
+import type { Logger } from "@/utils/logger";
 
 export interface GoogleCalendarConnectionParams {
   accessToken: string | null;
@@ -14,9 +15,11 @@ export interface GoogleCalendarConnectionParams {
 
 export class GoogleCalendarEventProvider implements CalendarEventProvider {
   private readonly connection: GoogleCalendarConnectionParams;
+  private readonly logger: Logger;
 
-  constructor(connection: GoogleCalendarConnectionParams) {
+  constructor(connection: GoogleCalendarConnectionParams, logger: Logger) {
     this.connection = connection;
+    this.logger = logger;
   }
 
   private async getClient(): Promise<calendar_v3.Calendar> {
@@ -25,6 +28,7 @@ export class GoogleCalendarEventProvider implements CalendarEventProvider {
       refreshToken: this.connection.refreshToken,
       expiresAt: this.connection.expiresAt,
       emailAccountId: this.connection.emailAccountId,
+      logger: this.logger,
     });
   }
 

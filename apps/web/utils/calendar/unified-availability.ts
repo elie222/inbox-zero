@@ -3,7 +3,7 @@ import { startOfDay, endOfDay, format } from "date-fns";
 import { createScopedLogger } from "@/utils/logger";
 import prisma from "@/utils/prisma";
 import type { BusyPeriod } from "./availability-types";
-import { googleAvailabilityProvider } from "./providers/google-availability";
+import { createGoogleAvailabilityProvider } from "./providers/google-availability";
 import { microsoftAvailabilityProvider } from "./providers/microsoft-availability";
 
 const logger = createScopedLogger("calendar/unified-availability");
@@ -73,6 +73,8 @@ export async function getUnifiedCalendarAvailability({
   for (const connection of googleConnections) {
     const calendarIds = connection.calendars.map((cal) => cal.calendarId);
     if (!calendarIds.length) continue;
+
+    const googleAvailabilityProvider = createGoogleAvailabilityProvider(logger);
 
     promises.push(
       googleAvailabilityProvider
