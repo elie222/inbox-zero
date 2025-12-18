@@ -177,6 +177,7 @@ model EmailAccount {
   meetingBriefings    MeetingBriefing[]
 
   @@index([userId])
+  @@index([userId, watchEmailsExpirationDate])
   @@index([lastSummaryEmailAt])
 }
 
