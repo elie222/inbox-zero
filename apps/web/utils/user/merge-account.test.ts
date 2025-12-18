@@ -154,6 +154,7 @@ describe("mergeAccount", () => {
       expect(transferPremiumDuringMerge).toHaveBeenCalledWith({
         sourceUserId,
         targetUserId,
+        logger,
       });
       expect(prisma.$transaction).toHaveBeenCalledWith(
         expect.arrayContaining([

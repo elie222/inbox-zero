@@ -19,12 +19,10 @@ export class OutlookSubscriptionManager {
   private readonly emailAccountId: string;
   private readonly logger: Logger;
 
-  constructor(client: EmailProvider, emailAccountId: string) {
+  constructor(client: EmailProvider, emailAccountId: string, logger: Logger) {
     this.client = client;
     this.emailAccountId = emailAccountId;
-    this.logger = createScopedLogger("outlook/subscription-manager").with({
-      emailAccountId,
-    });
+    this.logger = logger.with({ emailAccountId });
   }
 
   async createSubscription(): Promise<{
@@ -252,7 +250,11 @@ export async function createManagedOutlookSubscription({
     provider: "microsoft",
     logger,
   });
-  const manager = new OutlookSubscriptionManager(provider, emailAccountId);
+  const manager = new OutlookSubscriptionManager(
+    provider,
+    emailAccountId,
+    logger,
+  );
 
   return await manager.ensureSubscription();
 }

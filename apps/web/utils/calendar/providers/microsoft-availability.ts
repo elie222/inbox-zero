@@ -92,6 +92,7 @@ export const microsoftAvailabilityProvider: CalendarAvailabilityProvider = {
       refreshToken,
       expiresAt,
       emailAccountId,
+      logger,
     });
 
     return await fetchMicrosoftCalendarBusyPeriods({

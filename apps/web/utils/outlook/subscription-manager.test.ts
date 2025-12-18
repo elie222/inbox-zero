@@ -3,6 +3,9 @@ import { OutlookSubscriptionManager } from "@/utils/outlook/subscription-manager
 import prisma from "@/utils/prisma";
 import type { EmailProvider } from "@/utils/email/types";
 import type { SubscriptionHistoryEntry } from "@/utils/outlook/subscription-history";
+import { createScopedLogger } from "@/utils/logger";
+
+const logger = createScopedLogger("test");
 
 // Mock dependencies
 vi.mock("server-only", () => ({}));
@@ -30,7 +33,11 @@ describe("OutlookSubscriptionManager", () => {
       watchEmails: vi.fn(),
       unwatchEmails: vi.fn(),
     } as unknown as EmailProvider;
-    manager = new OutlookSubscriptionManager(mockProvider, emailAccountId);
+    manager = new OutlookSubscriptionManager(
+      mockProvider,
+      emailAccountId,
+      logger,
+    );
   });
 
   describe("createSubscription", () => {

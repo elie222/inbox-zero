@@ -49,12 +49,15 @@ export async function createCalendarEventProviders(
         );
       } else if (connection.provider === "microsoft") {
         providers.push(
-          new MicrosoftCalendarEventProvider({
-            accessToken: connection.accessToken,
-            refreshToken: connection.refreshToken,
-            expiresAt: connection.expiresAt?.getTime() ?? null,
-            emailAccountId,
-          }),
+          new MicrosoftCalendarEventProvider(
+            {
+              accessToken: connection.accessToken,
+              refreshToken: connection.refreshToken,
+              expiresAt: connection.expiresAt?.getTime() ?? null,
+              emailAccountId,
+            },
+            logger,
+          ),
         );
       }
     } catch (error) {
