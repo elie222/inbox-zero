@@ -7,6 +7,7 @@ import Image from "next/image";
 import { TypographyP } from "@/components/Typography";
 import { getAccountLinkingUrl } from "@/utils/account-linking";
 import { MailIcon } from "lucide-react";
+import { FastmailAppTokenModal } from "./FastmailAppTokenModal";
 
 type Provider = "google" | "microsoft" | "fastmail";
 
@@ -20,6 +21,7 @@ export function AddAccount() {
   const [isLoadingGoogle, setIsLoadingGoogle] = useState(false);
   const [isLoadingMicrosoft, setIsLoadingMicrosoft] = useState(false);
   const [isLoadingFastmail, setIsLoadingFastmail] = useState(false);
+  const [showAppTokenModal, setShowAppTokenModal] = useState(false);
 
   const isAnyLoading =
     isLoadingGoogle || isLoadingMicrosoft || isLoadingFastmail;
@@ -81,21 +83,36 @@ export function AddAccount() {
           />
           <span className="ml-2">Add Microsoft</span>
         </Button>
-        <Button
-          variant="outline"
-          className="w-full"
-          onClick={() => handleAddAccount("fastmail")}
-          loading={isLoadingFastmail}
-          disabled={isAnyLoading}
-        >
-          <MailIcon className="size-6 text-[#5c2d91]" />
-          <span className="ml-2">Add Fastmail</span>
-        </Button>
+        <div className="flex flex-col items-center gap-1">
+          <Button
+            variant="outline"
+            className="w-full"
+            onClick={() => handleAddAccount("fastmail")}
+            loading={isLoadingFastmail}
+            disabled={isAnyLoading}
+          >
+            <MailIcon className="size-6 text-[#5c2d91]" />
+            <span className="ml-2">Add Fastmail</span>
+          </Button>
+          <button
+            type="button"
+            onClick={() => setShowAppTokenModal(true)}
+            className="text-xs text-muted-foreground underline hover:text-foreground"
+            disabled={isAnyLoading}
+          >
+            Use App Token instead
+          </button>
+        </div>
       </div>
 
       <TypographyP className="text-sm text-muted-foreground">
         You will be billed for each account.
       </TypographyP>
+
+      <FastmailAppTokenModal
+        open={showAppTokenModal}
+        onOpenChange={setShowAppTokenModal}
+      />
     </div>
   );
 }

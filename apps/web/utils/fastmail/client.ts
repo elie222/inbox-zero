@@ -325,12 +325,12 @@ export async function createFastmailClient(
 /**
  * Gets a Fastmail client, automatically refreshing the access token if expired
  * @param options - Token and account information
- * @param options.accessToken - Current access token (may be expired)
- * @param options.refreshToken - OAuth refresh token for getting new access token
- * @param options.expiresAt - Expiration timestamp of current access token
+ * @param options.accessToken - Current access token (may be expired for OAuth, never expires for app tokens)
+ * @param options.refreshToken - OAuth refresh token for getting new access token (null for app token accounts)
+ * @param options.expiresAt - Expiration timestamp of current access token (null for app tokens)
  * @param options.emailAccountId - Email account ID for saving refreshed tokens
  * @returns Initialized FastmailClient with valid access token
- * @throws SafeError if no refresh token provided or refresh fails
+ * @throws SafeError if no access token or refresh fails
  */
 export async function getFastmailClientWithRefresh({
   accessToken,
@@ -343,8 +343,14 @@ export async function getFastmailClientWithRefresh({
   expiresAt: number | null;
   emailAccountId: string;
 }): Promise<FastmailClient> {
+  // App token accounts: no refresh token but access token exists
+  // App tokens don't expire, so we can use them directly
+  if (!refreshToken && accessToken) {
+    return createFastmailClient(accessToken);
+  }
+
   if (!refreshToken) {
-    logger.error("No refresh token", { emailAccountId });
+    logger.error("No refresh token and no access token", { emailAccountId });
     throw new SafeError("No refresh token");
   }
 
