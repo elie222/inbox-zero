@@ -156,7 +156,7 @@ export async function getOutlookFolderTree(
   for (const folder of folders) {
     // Expand root folder itself if it has unfetched children
     expandPromises.push(
-      expandFolderChildren(client, folder, 1, maxDepth || 6, logger),
+      expandFolderChildren(client, folder, 1, maxDepth ?? 6, logger),
     );
   }
 

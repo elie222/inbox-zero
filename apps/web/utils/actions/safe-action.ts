@@ -154,13 +154,17 @@ export const actionClientUser = baseClient.use(
   },
 );
 
-export const adminActionClient = baseClient.use(async ({ next, metadata }) => {
-  const session = await auth();
-  if (!session?.user) throw new SafeError("Unauthorized");
-  if (!isAdmin({ email: session.user.email }))
-    throw new SafeError("Unauthorized");
+export const adminActionClient = baseClient.use(
+  async ({ next, metadata, ctx }) => {
+    const session = await auth();
+    if (!session?.user) throw new SafeError("Unauthorized");
+    if (!isAdmin({ email: session.user.email }))
+      throw new SafeError("Unauthorized");
 
-  return withServerActionInstrumentation(metadata?.name, async () => {
-    return next({ ctx: {} });
-  });
-});
+    const logger = ctx.logger.with({ admin: true });
+
+    return withServerActionInstrumentation(metadata?.name, async () => {
+      return next({ ctx: { logger } });
+    });
+  },
+);
