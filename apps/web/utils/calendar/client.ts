@@ -1,11 +1,9 @@
 import { auth, calendar, type calendar_v3 } from "@googleapis/calendar";
 import { env } from "@/env";
-import { createScopedLogger } from "@/utils/logger";
+import type { Logger } from "@/utils/logger";
 import { CALENDAR_SCOPES as GOOGLE_CALENDAR_SCOPES } from "@/utils/gmail/scopes";
 import { SafeError } from "@/utils/error";
 import prisma from "@/utils/prisma";
-
-const logger = createScopedLogger("calendar/client");
 
 type AuthOptions = {
   accessToken?: string | null;
@@ -41,11 +39,13 @@ export const getCalendarClientWithRefresh = async ({
   refreshToken,
   expiresAt,
   emailAccountId,
+  logger,
 }: {
   accessToken?: string | null;
   refreshToken: string | null;
   expiresAt: number | null;
   emailAccountId: string;
+  logger: Logger;
 }): Promise<calendar_v3.Calendar> => {
   if (!refreshToken) {
     logger.error("No refresh token", { emailAccountId });
@@ -86,6 +86,7 @@ export const getCalendarClientWithRefresh = async ({
           expires_at: newExpiresAt,
         },
         connectionId: calendarConnection.id,
+        logger,
       });
     } else {
       logger.warn("No calendar connection found to update tokens", {
@@ -116,6 +117,7 @@ export const getCalendarClientWithRefresh = async ({
 
 export async function fetchGoogleCalendars(
   calendarClient: calendar_v3.Calendar,
+  logger: Logger,
 ) {
   try {
     const response = await calendarClient.calendarList.list();
@@ -129,6 +131,7 @@ export async function fetchGoogleCalendars(
 async function saveCalendarTokens({
   tokens,
   connectionId,
+  logger,
 }: {
   tokens: {
     access_token?: string;
@@ -136,6 +139,7 @@ async function saveCalendarTokens({
     expires_at?: number; // milliseconds
   };
   connectionId: string;
+  logger: Logger;
 }) {
   if (!tokens.access_token) {
     logger.warn("No access token to save for calendar connection", {

@@ -9,21 +9,19 @@ import {
 import { validateUserAndAiAccess } from "@/utils/user/validate";
 import { getGmailClientWithRefresh } from "@/utils/gmail/client";
 import { UNKNOWN_CATEGORY } from "@/utils/ai/categorize-sender/ai-categorize-senders";
-import { createScopedLogger } from "@/utils/logger";
 import prisma from "@/utils/prisma";
 import { saveCategorizationProgress } from "@/utils/redis/categorization-progress";
 import { SafeError } from "@/utils/error";
-
-const logger = createScopedLogger("api/user/categorize/senders/batch");
+import type { RequestWithLogger } from "@/utils/middleware";
 
 export async function handleBatchRequest(
-  request: Request,
+  request: RequestWithLogger,
 ): Promise<NextResponse> {
   try {
     await handleBatchInternal(request);
     return NextResponse.json({ ok: true });
   } catch (error) {
-    logger.error("Handle batch request error", { error });
+    request.logger.error("Handle batch request error", { error });
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 },
@@ -31,15 +29,12 @@ export async function handleBatchRequest(
   }
 }
 
-async function handleBatchInternal(request: Request) {
+async function handleBatchInternal(request: RequestWithLogger) {
   const json = await request.json();
   const body = aiCategorizeSendersSchema.parse(json);
   const { emailAccountId, senders } = body;
 
-  logger.trace("Handle batch request", {
-    emailAccountId,
-    senders: senders.length,
-  });
+  request.logger.info("Handle batch request", { senders: senders.length });
 
   const userResult = await validateUserAndAiAccess({ emailAccountId });
   const { emailAccount } = userResult;
@@ -72,6 +67,7 @@ async function handleBatchInternal(request: Request) {
     refreshToken: account.refresh_token,
     expiresAt: account.expires_at?.getTime() || null,
     emailAccountId,
+    logger: request.logger,
   });
 
   const sendersWithEmails: Map<string, { subject: string; snippet: string }[]> =

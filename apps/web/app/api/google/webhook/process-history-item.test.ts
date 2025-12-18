@@ -186,6 +186,7 @@ describe("processHistoryItem", () => {
       userEmail: "user@test.com",
       emailAccountId: "email-account-id",
       provider: expect.any(Object),
+      logger,
     });
   });
 

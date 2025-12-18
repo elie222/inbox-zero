@@ -43,6 +43,7 @@ export async function deleteUser({
       ? await createEmailProvider({
           emailAccountId: account.emailAccount.id,
           provider: account.provider,
+          logger,
         })
       : null;
 

@@ -26,7 +26,7 @@ export const assessAction = actionClient
 
     if (emailAccount?.behaviorProfile) return { success: true, skipped: true };
 
-    const result = await assessUser({ client: emailProvider });
+    const result = await assessUser({ client: emailProvider, logger });
     await prisma.emailAccount.update({
       where: { id: emailAccountId },
       data: { behaviorProfile: result },

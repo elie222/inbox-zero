@@ -84,6 +84,7 @@ export async function mergeAccount({
   await transferPremiumDuringMerge({
     sourceUserId,
     targetUserId,
+    logger,
   });
 
   await prisma.$transaction([

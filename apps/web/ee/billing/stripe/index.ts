@@ -1,10 +1,8 @@
 import Stripe from "stripe";
 import { env } from "@/env";
-import { createScopedLogger } from "@/utils/logger";
+import type { Logger } from "@/utils/logger";
 
 let stripe: Stripe | null = null;
-
-const logger = createScopedLogger("ee/billing/stripe/index");
 
 export const getStripe = () => {
   if (!env.STRIPE_SECRET_KEY) throw new Error("STRIPE_SECRET_KEY is not set");
@@ -24,9 +22,11 @@ export const getStripe = () => {
 export const updateStripeSubscriptionItemQuantity = async ({
   subscriptionItemId,
   quantity,
+  logger,
 }: {
   subscriptionItemId: string;
   quantity: number;
+  logger: Logger;
 }) => {
   const quantityToSet = Math.max(1, quantity);
 

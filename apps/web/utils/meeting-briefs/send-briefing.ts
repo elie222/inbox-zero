@@ -27,7 +27,7 @@ export async function sendBriefingEmail({
   provider: string;
   logger: Logger;
 }): Promise<void> {
-  const log = logger.with({ emailAccountId, eventId: event.id, userEmail });
+  logger = logger.with({ emailAccountId, eventId: event.id, userEmail });
 
   const formattedTime = format(event.startTime, "h:mm a");
 
@@ -46,30 +46,30 @@ export async function sendBriefingEmail({
 
   // Try Resend first if configured
   if (env.RESEND_API_KEY) {
-    log.info("Sending briefing via Resend");
+    logger.info("Sending briefing via Resend");
     try {
       await sendMeetingBriefingEmail({
         from: env.RESEND_FROM_EMAIL,
         to: userEmail,
         emailProps,
       });
-      log.info("Briefing sent successfully via Resend");
+      logger.info("Briefing sent successfully via Resend");
       return;
     } catch (error) {
-      log.error("Failed to send via Resend, falling back to self-send", {
+      logger.error("Failed to send via Resend, falling back to self-send", {
         error,
       });
     }
   }
 
   // Fallback: Send via user's own email provider
-  log.info("Sending briefing via user's email provider");
+  logger.info("Sending briefing via user's email provider");
   await sendViaSelfEmail({
     emailProps,
     emailAccountId,
     userEmail,
     provider,
-    log,
+    logger,
   });
 }
 
@@ -78,18 +78,19 @@ async function sendViaSelfEmail({
   emailAccountId,
   userEmail,
   provider,
-  log,
+  logger,
 }: {
   emailProps: MeetingBriefingEmailProps;
   emailAccountId: string;
   userEmail: string;
   provider: string;
-  log: Logger;
+  logger: Logger;
 }): Promise<void> {
   try {
     const emailProvider = await createEmailProvider({
       emailAccountId,
       provider,
+      logger,
     });
 
     const subject = generateMeetingBriefingSubject(emailProps);
@@ -101,9 +102,9 @@ async function sendViaSelfEmail({
       messageHtml: htmlContent,
     });
 
-    log.info("Briefing sent successfully via self-email");
+    logger.info("Briefing sent successfully via self-email");
   } catch (error) {
-    log.error("Failed to send briefing via self-email", { error });
+    logger.error("Failed to send briefing via self-email", { error });
     throw error;
   }
 }

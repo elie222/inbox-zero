@@ -1,23 +1,23 @@
 import type { calendar_v3 } from "@googleapis/calendar";
-import { createScopedLogger } from "@/utils/logger";
+import type { Logger } from "@/utils/logger";
 import { getCalendarClientWithRefresh } from "../client";
 import type {
   CalendarAvailabilityProvider,
   BusyPeriod,
 } from "../availability-types";
 
-const logger = createScopedLogger("calendar/google-availability");
-
 async function fetchGoogleCalendarBusyPeriods({
   calendarClient,
   calendarIds,
   timeMin,
   timeMax,
+  logger,
 }: {
   calendarClient: calendar_v3.Calendar;
   calendarIds: string[];
   timeMin: string;
   timeMax: string;
+  logger: Logger;
 }): Promise<BusyPeriod[]> {
   try {
     const response = await calendarClient.freebusy.query({
@@ -60,30 +60,36 @@ async function fetchGoogleCalendarBusyPeriods({
   }
 }
 
-export const googleAvailabilityProvider: CalendarAvailabilityProvider = {
-  name: "google",
+export function createGoogleAvailabilityProvider(
+  logger: Logger,
+): CalendarAvailabilityProvider {
+  return {
+    name: "google",
 
-  async fetchBusyPeriods({
-    accessToken,
-    refreshToken,
-    expiresAt,
-    emailAccountId,
-    calendarIds,
-    timeMin,
-    timeMax,
-  }) {
-    const calendarClient = await getCalendarClientWithRefresh({
+    async fetchBusyPeriods({
       accessToken,
       refreshToken,
       expiresAt,
       emailAccountId,
-    });
-
-    return await fetchGoogleCalendarBusyPeriods({
-      calendarClient,
       calendarIds,
       timeMin,
       timeMax,
-    });
-  },
-};
+    }) {
+      const calendarClient = await getCalendarClientWithRefresh({
+        accessToken,
+        refreshToken,
+        expiresAt,
+        emailAccountId,
+        logger,
+      });
+
+      return await fetchGoogleCalendarBusyPeriods({
+        calendarClient,
+        calendarIds,
+        timeMin,
+        timeMax,
+        logger,
+      });
+    },
+  };
+}

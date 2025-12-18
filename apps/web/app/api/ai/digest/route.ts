@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { verifySignatureAppRouter } from "@upstash/qstash/nextjs";
 import { digestBody } from "./validation";
 import { DigestStatus } from "@/generated/prisma/enums";
-import { createScopedLogger } from "@/utils/logger";
+import type { Logger } from "@/utils/logger";
 import prisma from "@/utils/prisma";
 import { aiSummarizeEmailForDigest } from "@/utils/ai/digest/summarize-email-for-digest";
 import { getEmailAccountWithAi } from "@/utils/user/get";
@@ -11,19 +11,17 @@ import { withError } from "@/utils/middleware";
 import { isAssistantEmail } from "@/utils/assistant/is-assistant-email";
 import { env } from "@/env";
 
-export const POST = withError(
-  verifySignatureAppRouter(async (request: Request) => {
-    const logger = createScopedLogger("digest");
+export const POST = verifySignatureAppRouter(
+  withError("digest", async (request) => {
+    let logger = request.logger;
 
     try {
       const body = digestBody.parse(await request.json());
       const { emailAccountId, coldEmailId, actionId, message } = body;
 
-      logger.with({ emailAccountId, messageId: message.id });
+      logger = logger.with({ emailAccountId, messageId: message.id });
 
-      const emailAccount = await getEmailAccountWithAi({
-        emailAccountId,
-      });
+      const emailAccount = await getEmailAccountWithAi({ emailAccountId });
       if (!emailAccount) {
         throw new Error("Email account not found");
       }
@@ -74,6 +72,7 @@ export const POST = withError(
         actionId,
         coldEmailId,
         content: summary,
+        logger,
       });
 
       return new NextResponse("OK", { status: 200 });
@@ -173,6 +172,7 @@ async function upsertDigest({
   actionId,
   coldEmailId,
   content,
+  logger,
 }: {
   messageId: string;
   threadId: string;
@@ -180,15 +180,8 @@ async function upsertDigest({
   actionId?: string;
   coldEmailId?: string;
   content: StoredDigestContent;
+  logger: Logger;
 }) {
-  const logger = createScopedLogger("digest").with({
-    messageId,
-    threadId,
-    emailAccountId,
-    actionId,
-    coldEmailId,
-  });
-
   try {
     const digest = await findOrCreateDigest(
       emailAccountId,

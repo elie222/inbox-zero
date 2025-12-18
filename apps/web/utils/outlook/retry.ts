@@ -1,9 +1,7 @@
 import pRetry from "p-retry";
-import { createScopedLogger } from "@/utils/logger";
+import type { Logger } from "@/utils/logger";
 import { sleep } from "@/utils/sleep";
 import { isFetchError } from "@/utils/retry/is-fetch-error";
-
-const logger = createScopedLogger("outlook-retry");
 
 interface ErrorInfo {
   status?: number;
@@ -18,6 +16,7 @@ interface ErrorInfo {
  */
 export async function withOutlookRetry<T>(
   operation: () => Promise<T>,
+  logger: Logger,
   maxRetries = 5,
 ): Promise<T> {
   return pRetry(operation, {

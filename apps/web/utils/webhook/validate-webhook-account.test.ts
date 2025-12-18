@@ -116,6 +116,7 @@ describe("validateWebhookAccount", () => {
       expect(createEmailProvider).toHaveBeenCalledWith({
         emailAccountId: "account-id",
         provider: "google",
+        logger,
       });
       expect(unwatchEmails).toHaveBeenCalledWith(
         expect.objectContaining({

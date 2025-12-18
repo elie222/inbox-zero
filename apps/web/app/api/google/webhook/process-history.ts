@@ -66,6 +66,7 @@ export async function processHistoryForUser(
       refreshToken: accountRefreshToken,
       expiresAt: validatedEmailAccount.account.expires_at?.getTime() || null,
       emailAccountId: validatedEmailAccount.id,
+      logger,
     });
 
     const startHistoryId =

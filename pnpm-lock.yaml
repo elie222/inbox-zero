@@ -412,9 +412,6 @@ importers:
       jsdom:
         specifier: 26.1.0
         version: 26.1.0
-      json5:
-        specifier: 2.2.3
-        version: 2.2.3
       jsonrepair:
         specifier: 3.13.1
         version: 3.13.1

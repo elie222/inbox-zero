@@ -4,6 +4,7 @@ import type {
   CalendarEvent,
   CalendarEventProvider,
 } from "@/utils/calendar/event-types";
+import type { Logger } from "@/utils/logger";
 
 export interface MicrosoftCalendarConnectionParams {
   accessToken: string | null;
@@ -14,9 +15,11 @@ export interface MicrosoftCalendarConnectionParams {
 
 export class MicrosoftCalendarEventProvider implements CalendarEventProvider {
   private readonly connection: MicrosoftCalendarConnectionParams;
+  private readonly logger: Logger;
 
-  constructor(connection: MicrosoftCalendarConnectionParams) {
+  constructor(connection: MicrosoftCalendarConnectionParams, logger: Logger) {
     this.connection = connection;
+    this.logger = logger;
   }
 
   private async getClient(): Promise<Client> {
@@ -25,6 +28,7 @@ export class MicrosoftCalendarEventProvider implements CalendarEventProvider {
       refreshToken: this.connection.refreshToken,
       expiresAt: this.connection.expiresAt,
       emailAccountId: this.connection.emailAccountId,
+      logger: this.logger,
     });
   }
 

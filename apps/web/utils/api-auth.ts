@@ -3,6 +3,7 @@ import prisma from "@/utils/prisma";
 import { hashApiKey } from "@/utils/api-key";
 import { SafeError } from "@/utils/error";
 import { createEmailProvider } from "@/utils/email/provider";
+import type { RequestWithLogger } from "@/utils/middleware";
 
 export const API_KEY_HEADER = "API-Key";
 
@@ -63,7 +64,9 @@ export async function getUserFromApiKey(secretKey: string) {
  * @returns The Gmail client and user ID
  * @throws SafeError if authentication fails
  */
-export async function validateApiKeyAndGetEmailProvider(request: NextRequest) {
+export async function validateApiKeyAndGetEmailProvider(
+  request: RequestWithLogger,
+) {
   const { user } = await validateApiKey(request);
 
   // TODO: support API For multiple accounts
@@ -77,6 +80,7 @@ export async function validateApiKeyAndGetEmailProvider(request: NextRequest) {
   const emailProvider = await createEmailProvider({
     emailAccountId: account.id,
     provider: account.provider,
+    logger: request.logger,
   });
 
   return {

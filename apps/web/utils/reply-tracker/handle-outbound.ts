@@ -1,7 +1,7 @@
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import type { ParsedMessage } from "@/utils/types";
 import type { EmailProvider } from "@/utils/email/types";
-import { createScopedLogger } from "@/utils/logger";
+import type { Logger } from "@/utils/logger";
 import { handleOutboundReply } from "./outbound";
 import { trackSentDraftStatus, cleanupThreadAIDrafts } from "./draft-tracking";
 
@@ -9,12 +9,14 @@ export async function handleOutboundMessage({
   emailAccount,
   message,
   provider,
+  logger,
 }: {
   emailAccount: EmailAccountWithAI;
   message: ParsedMessage;
   provider: EmailProvider;
+  logger: Logger;
 }) {
-  const logger = createScopedLogger("handle-outbound").with({
+  logger = logger.with({
     email: emailAccount.email,
     messageId: message.id,
     threadId: message.threadId,
@@ -35,6 +37,7 @@ export async function handleOutboundMessage({
       emailAccount,
       message,
       provider,
+      logger,
     }).catch((error) => {
       logger.error("Error handling outbound reply", { error });
     }),

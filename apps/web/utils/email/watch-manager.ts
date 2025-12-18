@@ -1,6 +1,6 @@
 import prisma from "@/utils/prisma";
 import { hasAiAccess, getPremiumUserFilter } from "@/utils/premium";
-import { createScopedLogger, type Logger } from "@/utils/logger";
+import type { Logger } from "@/utils/logger";
 import { createEmailProvider } from "@/utils/email/provider";
 import { captureException } from "@/utils/error";
 import { cleanupInvalidTokens } from "@/utils/auth/cleanup-invalid-tokens";
@@ -23,11 +23,13 @@ export type WatchEmailAccountResult =
 
 export async function ensureEmailAccountsWatched({
   userIds,
+  logger,
 }: {
   userIds: string[] | null;
+  logger: Logger;
 }): Promise<WatchEmailAccountResult[]> {
   const emailAccounts = await getEmailAccountsToWatch(userIds);
-  return await watchEmailAccounts(emailAccounts);
+  return await watchEmailAccounts(emailAccounts, logger);
 }
 
 async function getEmailAccountsToWatch(userIds: string[] | null) {
@@ -71,10 +73,9 @@ async function getEmailAccountsToWatch(userIds: string[] | null) {
 
 async function watchEmailAccounts(
   emailAccounts: Awaited<ReturnType<typeof getEmailAccountsToWatch>>,
+  logger: Logger,
 ): Promise<WatchEmailAccountResult[]> {
   if (!emailAccounts.length) return [];
-
-  const logger = createScopedLogger("email/watch-manager");
 
   logger.info("Watching email accounts", { count: emailAccounts.length });
 
@@ -211,7 +212,10 @@ async function watchEmails({
 
   try {
     if (isMicrosoftProvider(provider.name)) {
-      const result = await createManagedOutlookSubscription(emailAccountId);
+      const result = await createManagedOutlookSubscription({
+        emailAccountId,
+        logger,
+      });
 
       if (result) return { success: true, expirationDate: result };
     } else {

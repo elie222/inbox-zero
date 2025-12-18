@@ -5,9 +5,7 @@ import type {
   CreateRuleBody,
   ZodCondition,
 } from "@/utils/actions/rule.validation";
-import { createScopedLogger } from "@/utils/logger";
-
-const logger = createScopedLogger("condition");
+import type { Logger } from "@/utils/logger";
 
 export type RuleConditions = Partial<
   Pick<
@@ -148,6 +146,7 @@ type FlattenedConditions = {
 
 export const flattenConditions = (
   conditions: ZodCondition[],
+  logger: Logger,
 ): FlattenedConditions => {
   return conditions.reduce((acc, condition) => {
     switch (condition.type) {

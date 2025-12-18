@@ -1,9 +1,7 @@
 import prisma from "@/utils/prisma";
-import { createScopedLogger } from "@/utils/logger";
+import type { Logger } from "@/utils/logger";
 import { getStripe } from "@/ee/billing/stripe";
 import { ReferralStatus } from "@/generated/prisma/enums";
-
-const logger = createScopedLogger("referral-tracking");
 
 const REWARD_AMOUNT_CENTS = 2000; // $20 credit
 
@@ -11,7 +9,10 @@ const REWARD_AMOUNT_CENTS = 2000; // $20 credit
  * Mark a referral as completed and grant the reward via Stripe balance transaction
  * Called when the referred user completes their 7-day trial
  */
-export async function completeReferralAndGrantReward(userId: string) {
+export async function completeReferralAndGrantReward(
+  userId: string,
+  logger: Logger,
+) {
   try {
     const referral = await prisma.referral.findUnique({
       where: { referredUserId: userId },

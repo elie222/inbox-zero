@@ -229,10 +229,11 @@ export const updateMultiAccountPremiumAction = actionClientUser
 export const activateLicenseKeyAction = actionClientUser
   .metadata({ name: "activateLicenseKey" })
   .inputSchema(activateLicenseKeySchema)
-  .action(async ({ ctx: { userId }, parsedInput: { licenseKey } }) => {
+  .action(async ({ ctx: { userId, logger }, parsedInput: { licenseKey } }) => {
     const lemonSqueezyLicense = await activateLemonLicenseKey(
       licenseKey,
       `License for ${userId}`,
+      logger,
     );
 
     if (lemonSqueezyLicense.error) {

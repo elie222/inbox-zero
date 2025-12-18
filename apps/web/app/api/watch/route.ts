@@ -18,7 +18,10 @@ export const GET = withAuth("watch", async (request) => {
     );
   }
 
-  const results = await ensureEmailAccountsWatched({ userIds: [userId] });
+  const results = await ensureEmailAccountsWatched({
+    userIds: [userId],
+    logger: request.logger,
+  });
 
   return NextResponse.json({ results });
 });

@@ -1,10 +1,8 @@
 import prisma from "@/utils/prisma";
-import { createScopedLogger } from "@/utils/logger";
+import type { Logger } from "@/utils/logger";
 import type { CalendarEventProvider } from "@/utils/calendar/event-types";
 import { GoogleCalendarEventProvider } from "@/utils/calendar/providers/google-events";
 import { MicrosoftCalendarEventProvider } from "@/utils/calendar/providers/microsoft-events";
-
-const logger = createScopedLogger("calendar/event-provider");
 
 /**
  * Create calendar event providers for all connected calendars.
@@ -12,6 +10,7 @@ const logger = createScopedLogger("calendar/event-provider");
  */
 export async function createCalendarEventProviders(
   emailAccountId: string,
+  logger: Logger,
 ): Promise<CalendarEventProvider[]> {
   const connections = await prisma.calendarConnection.findMany({
     where: {
@@ -40,21 +39,27 @@ export async function createCalendarEventProviders(
     try {
       if (connection.provider === "google") {
         providers.push(
-          new GoogleCalendarEventProvider({
-            accessToken: connection.accessToken,
-            refreshToken: connection.refreshToken,
-            expiresAt: connection.expiresAt?.getTime() ?? null,
-            emailAccountId,
-          }),
+          new GoogleCalendarEventProvider(
+            {
+              accessToken: connection.accessToken,
+              refreshToken: connection.refreshToken,
+              expiresAt: connection.expiresAt?.getTime() ?? null,
+              emailAccountId,
+            },
+            logger,
+          ),
         );
       } else if (connection.provider === "microsoft") {
         providers.push(
-          new MicrosoftCalendarEventProvider({
-            accessToken: connection.accessToken,
-            refreshToken: connection.refreshToken,
-            expiresAt: connection.expiresAt?.getTime() ?? null,
-            emailAccountId,
-          }),
+          new MicrosoftCalendarEventProvider(
+            {
+              accessToken: connection.accessToken,
+              refreshToken: connection.refreshToken,
+              expiresAt: connection.expiresAt?.getTime() ?? null,
+              emailAccountId,
+            },
+            logger,
+          ),
         );
       }
     } catch (error) {

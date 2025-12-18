@@ -59,12 +59,13 @@ export const createRuleAction = actionClient
         conditionalOperator,
       },
     }) => {
-      const conditions = flattenConditions(conditionsInput);
+      const conditions = flattenConditions(conditionsInput, logger);
 
       const resolvedActions = await resolveActionLabels(
         actions || [],
         emailAccountId,
         provider,
+        logger,
       );
 
       try {
@@ -110,12 +111,13 @@ export const updateRuleAction = actionClient
         conditionalOperator,
       },
     }) => {
-      const conditions = flattenConditions(conditionsInput);
+      const conditions = flattenConditions(conditionsInput, logger);
 
       const resolvedActions = await resolveActionLabels(
         actions,
         emailAccountId,
         provider,
+        logger,
       );
 
       try {
@@ -503,6 +505,7 @@ async function toggleRule({
   const emailProvider = await createEmailProvider({
     emailAccountId,
     provider,
+    logger,
   });
 
   const ruleConfig = getRuleConfig(systemType);
@@ -640,10 +643,11 @@ async function resolveActionLabels<
       value?: string | null;
     } | null;
   },
->(actions: T[], emailAccountId: string, provider: string) {
+>(actions: T[], emailAccountId: string, provider: string, logger: Logger) {
   const emailProvider = await createEmailProvider({
     emailAccountId,
     provider,
+    logger,
   });
 
   return Promise.all(

@@ -60,6 +60,17 @@ export function isTransientNetworkError(error: unknown): boolean {
     errorText = error;
   } else if (error instanceof Error) {
     errorText = `${error.name}: ${error.message} ${String((error as NodeJS.ErrnoException).code ?? "")}`;
+    // Check nested cause chain (AI SDK error structure)
+    if (error.cause) {
+      const cause = error.cause as {
+        message?: string;
+        code?: string;
+        cause?: { code?: string };
+      };
+      if (cause.message) errorText += ` ${cause.message}`;
+      if (cause.code) errorText += ` ${cause.code}`;
+      if (cause.cause?.code) errorText += ` ${cause.cause.code}`;
+    }
   } else {
     try {
       errorText = JSON.stringify(error);

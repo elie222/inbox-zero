@@ -2,10 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { mergeAccount } from "./merge-account";
 import prisma from "@/utils/__mocks__/prisma";
 import { createScopedLogger } from "@/utils/logger";
-import {
-  getMockEmailAccountSelect,
-  getMockUserSelect,
-} from "@/__tests__/helpers";
+import { getMockUserSelect } from "@/__tests__/helpers";
 
 vi.mock("@/utils/prisma");
 vi.mock("@/utils/user/merge-premium");
@@ -24,20 +21,20 @@ describe("mergeAccount", () => {
       const accountId = "account-id";
 
       prisma.emailAccount.findMany.mockResolvedValue([
-        getMockEmailAccountSelect({
+        {
           id: "email-1",
           email: "primary@test.com",
           accountId,
-        }),
-        getMockEmailAccountSelect({
+        },
+        {
           id: "email-2",
           email: "secondary@test.com",
           accountId: "other-account",
-        }),
-      ]);
+        },
+      ] as any);
 
       prisma.user.findUnique.mockResolvedValue(
-        getMockUserSelect({ email: "primary@test.com" }),
+        getMockUserSelect({ email: "primary@test.com" }) as any,
       );
 
       prisma.account.update.mockResolvedValue({} as any);
@@ -71,20 +68,20 @@ describe("mergeAccount", () => {
       const accountId = "account-id";
 
       prisma.emailAccount.findMany.mockResolvedValue([
-        getMockEmailAccountSelect({
+        {
           id: "email-1",
           email: "primary@test.com",
           accountId: "other-account",
-        }),
-        getMockEmailAccountSelect({
+        },
+        {
           id: "email-2",
           email: "secondary@test.com",
           accountId,
-        }),
-      ]);
+        },
+      ] as any);
 
       prisma.user.findUnique.mockResolvedValue(
-        getMockUserSelect({ email: "primary@test.com" }),
+        getMockUserSelect({ email: "primary@test.com" }) as any,
       );
 
       prisma.account.update.mockResolvedValue({} as any);
@@ -123,15 +120,15 @@ describe("mergeAccount", () => {
       const accountId = "account-id";
 
       prisma.emailAccount.findMany.mockResolvedValue([
-        getMockEmailAccountSelect({
+        {
           id: "email-1",
           email: "only@test.com",
           accountId,
-        }),
-      ]);
+        },
+      ] as any);
 
       prisma.user.findUnique.mockResolvedValue(
-        getMockUserSelect({ email: "only@test.com" }),
+        getMockUserSelect({ email: "only@test.com" }) as any,
       );
 
       prisma.account.update.mockResolvedValue({} as any);
@@ -157,6 +154,7 @@ describe("mergeAccount", () => {
       expect(transferPremiumDuringMerge).toHaveBeenCalledWith({
         sourceUserId,
         targetUserId,
+        logger,
       });
       expect(prisma.$transaction).toHaveBeenCalledWith(
         expect.arrayContaining([

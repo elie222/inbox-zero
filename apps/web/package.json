@@ -121,7 +121,6 @@
     "ioredis": "5.8.2",
     "jotai": "2.15.2",
     "jsdom": "26.1.0",
-    "json5": "2.2.3",
     "jsonrepair": "3.13.1",
     "linkify-react": "4.3.2",
     "linkifyjs": "4.3.2",

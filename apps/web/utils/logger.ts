@@ -205,7 +205,7 @@ function hasNestedErrorField(value: unknown): value is { error: unknown } {
 }
 
 // Field names that contain PII and should be hashed in production
-const SENSITIVE_FIELD_NAMES = new Set(["from", "sender", "to"]);
+const SENSITIVE_FIELD_NAMES = new Set(["from", "sender", "to", "replyTo"]);
 
 // Field names that should NEVER be logged - replaced with boolean
 const REDACTED_FIELD_NAMES = new Set([
@@ -220,7 +220,7 @@ const REDACTED_FIELD_NAMES = new Set([
 ]);
 
 // Fields containing email/message content - redacted in production unless debug logs enabled
-const CONTENT_FIELD_NAMES = new Set(["text", "body"]);
+const CONTENT_FIELD_NAMES = new Set(["text", "body", "content"]);
 
 /**
  * Recursively processes an object to protect sensitive data:

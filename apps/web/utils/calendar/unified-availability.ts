@@ -1,12 +1,10 @@
 import { TZDate } from "@date-fns/tz";
 import { startOfDay, endOfDay, format } from "date-fns";
-import { createScopedLogger } from "@/utils/logger";
+import type { Logger } from "@/utils/logger";
 import prisma from "@/utils/prisma";
 import type { BusyPeriod } from "./availability-types";
-import { googleAvailabilityProvider } from "./providers/google-availability";
-import { microsoftAvailabilityProvider } from "./providers/microsoft-availability";
-
-const logger = createScopedLogger("calendar/unified-availability");
+import { createGoogleAvailabilityProvider } from "./providers/google-availability";
+import { createMicrosoftAvailabilityProvider } from "./providers/microsoft-availability";
 
 /**
  * Fetch calendar availability across all connected calendars (Google and Microsoft)
@@ -16,11 +14,13 @@ export async function getUnifiedCalendarAvailability({
   startDate,
   endDate,
   timezone = "UTC",
+  logger,
 }: {
   emailAccountId: string;
   startDate: Date;
   endDate: Date;
   timezone?: string;
+  logger: Logger;
 }): Promise<BusyPeriod[]> {
   // Compute day boundaries in the user's timezone
   const startDateInTZ = new TZDate(startDate, timezone);
@@ -74,6 +74,8 @@ export async function getUnifiedCalendarAvailability({
     const calendarIds = connection.calendars.map((cal) => cal.calendarId);
     if (!calendarIds.length) continue;
 
+    const googleAvailabilityProvider = createGoogleAvailabilityProvider(logger);
+
     promises.push(
       googleAvailabilityProvider
         .fetchBusyPeriods({
@@ -105,6 +107,9 @@ export async function getUnifiedCalendarAvailability({
       });
       continue;
     }
+
+    const microsoftAvailabilityProvider =
+      createMicrosoftAvailabilityProvider(logger);
 
     promises.push(
       microsoftAvailabilityProvider

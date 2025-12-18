@@ -1,16 +1,13 @@
 import type { OutlookClient } from "@/utils/outlook/client";
-import { createScopedLogger } from "@/utils/logger";
+import type { Logger } from "@/utils/logger";
 import { publishArchive, type TinybirdEmailAction } from "@inboxzero/tinybird";
 import { WELL_KNOWN_FOLDERS } from "./message";
 import { extractErrorInfo, withOutlookRetry } from "@/utils/outlook/retry";
-
 import { inboxZeroLabels, type InboxZeroLabel } from "@/utils/label";
 import type {
   OutlookCategory,
   Message,
 } from "@microsoft/microsoft-graph-types";
-
-const logger = createScopedLogger("outlook/label");
 
 // Outlook doesn't have system labels like Gmail, but we map common categories
 // Using same format as Gmail for consistency
@@ -81,10 +78,12 @@ export async function createLabel({
   client,
   name,
   color,
+  logger,
 }: {
   client: OutlookClient;
   name: string;
   color?: string;
+  logger: Logger;
 }) {
   try {
     // Use a random preset color if none provided or if the provided color is not supported
@@ -93,11 +92,13 @@ export async function createLabel({
         ? color
         : OUTLOOK_COLORS[Math.floor(Math.random() * OUTLOOK_COLORS.length)];
 
-    const response: OutlookCategory = await withOutlookRetry(() =>
-      client.getClient().api("/me/outlook/masterCategories").post({
-        displayName: name,
-        color: outlookColor,
-      }),
+    const response: OutlookCategory = await withOutlookRetry(
+      () =>
+        client.getClient().api("/me/outlook/masterCategories").post({
+          displayName: name,
+          color: outlookColor,
+        }),
+      logger,
     );
     return response;
   } catch (error) {
@@ -146,23 +147,27 @@ export async function getLabel(options: {
 export async function getOrCreateLabel({
   client,
   name,
+  logger,
 }: {
   client: OutlookClient;
   name: string;
+  logger: Logger;
 }) {
   if (!name?.trim()) throw new Error("Label name cannot be empty");
   const label = await getLabel({ client, name });
   if (label) return label;
-  const createdLabel = await createLabel({ client, name });
+  const createdLabel = await createLabel({ client, name, logger });
   return createdLabel;
 }
 
 export async function getOrCreateLabels({
   client,
   names,
+  logger,
 }: {
   client: OutlookClient;
   names: string[];
+  logger: Logger;
 }): Promise<OutlookCategory[]> {
   if (!names.length) return [];
 
@@ -184,7 +189,7 @@ export async function getOrCreateLabels({
       const existingLabel = labelMap.get(normalizedName);
       if (existingLabel) return existingLabel;
 
-      return createLabel({ client, name: names[index] });
+      return createLabel({ client, name: names[index], logger });
     }),
   );
 
@@ -196,15 +201,19 @@ export async function labelMessage({
   client,
   messageId,
   categories,
+  logger,
 }: {
   client: OutlookClient;
   messageId: string;
   categories: string[];
+  logger: Logger;
 }) {
-  return withOutlookRetry(() =>
-    client.getClient().api(`/me/messages/${messageId}`).patch({
-      categories,
-    }),
+  return withOutlookRetry(
+    () =>
+      client.getClient().api(`/me/messages/${messageId}`).patch({
+        categories,
+      }),
+    logger,
   );
 }
 
@@ -212,10 +221,12 @@ export async function labelThread({
   client,
   threadId,
   categories,
+  logger,
 }: {
   client: OutlookClient;
   threadId: string;
   categories: string[];
+  logger: Logger;
 }) {
   // In Outlook, we need to update each message in the thread
   // Escape single quotes in threadId for the filter
@@ -228,7 +239,7 @@ export async function labelThread({
 
   await Promise.all(
     messages.value.map((message) =>
-      labelMessage({ client, messageId: message.id!, categories }),
+      labelMessage({ client, messageId: message.id!, categories, logger }),
     ),
   );
 }
@@ -238,10 +249,12 @@ export async function removeThreadLabel({
   client,
   threadId,
   categoryName,
+  logger,
 }: {
   client: OutlookClient;
   threadId: string;
   categoryName: string;
+  logger: Logger;
 }) {
   if (!categoryName) {
     logger.warn("Category name is empty, skipping removal", { threadId });
@@ -270,11 +283,13 @@ export async function removeThreadLabel({
         );
 
         try {
-          await withOutlookRetry(() =>
-            client
-              .getClient()
-              .api(`/me/messages/${message.id}`)
-              .patch({ categories: updatedCategories }),
+          await withOutlookRetry(
+            () =>
+              client
+                .getClient()
+                .api(`/me/messages/${message.id}`)
+                .patch({ categories: updatedCategories }),
+            logger,
           );
         } catch (error) {
           logger.warn("Failed to remove category from message", {
@@ -295,12 +310,14 @@ export async function archiveThread({
   ownerEmail,
   actionSource,
   folderId = "archive",
+  logger,
 }: {
   client: OutlookClient;
   threadId: string;
   ownerEmail: string;
   actionSource: TinybirdEmailAction["actionSource"];
   folderId?: string;
+  logger: Logger;
 }) {
   if (!folderId) {
     logger.warn("No folderId provided, skipping archive operation", {
@@ -342,10 +359,12 @@ export async function archiveThread({
     const archivePromise = Promise.all(
       messages.value.map(async (message: { id: string }) => {
         try {
-          return await withOutlookRetry(() =>
-            client.getClient().api(`/me/messages/${message.id}/move`).post({
-              destinationId: folderId,
-            }),
+          return await withOutlookRetry(
+            () =>
+              client.getClient().api(`/me/messages/${message.id}/move`).post({
+                destinationId: folderId,
+              }),
+            logger,
           );
         } catch (error) {
           logger.warn("Failed to move message to folder", {
@@ -422,10 +441,15 @@ export async function archiveThread({
         const movePromises = threadMessages.map(
           async (message: { id: string }) => {
             try {
-              return await withOutlookRetry(() =>
-                client.getClient().api(`/me/messages/${message.id}/move`).post({
-                  destinationId: folderId,
-                }),
+              return await withOutlookRetry(
+                () =>
+                  client
+                    .getClient()
+                    .api(`/me/messages/${message.id}/move`)
+                    .post({
+                      destinationId: folderId,
+                    }),
+                logger,
               );
             } catch (moveError) {
               // Log the error but don't fail the entire operation
@@ -444,10 +468,12 @@ export async function archiveThread({
         await Promise.allSettled(movePromises);
       } else {
         // If no messages found, try treating threadId as a messageId
-        await withOutlookRetry(() =>
-          client.getClient().api(`/me/messages/${threadId}/move`).post({
-            destinationId: folderId,
-          }),
+        await withOutlookRetry(
+          () =>
+            client.getClient().api(`/me/messages/${threadId}/move`).post({
+              destinationId: folderId,
+            }),
+          logger,
         );
       }
 
@@ -484,10 +510,12 @@ export async function markReadThread({
   client,
   threadId,
   read,
+  logger,
 }: {
   client: OutlookClient;
   threadId: string;
   read: boolean;
+  logger: Logger;
 }) {
   try {
     // In Outlook, we need to mark each message in the thread as read
@@ -502,10 +530,12 @@ export async function markReadThread({
     // Update each message in the thread
     await Promise.all(
       messages.value.map((message: { id: string }) =>
-        withOutlookRetry(() =>
-          client.getClient().api(`/me/messages/${message.id}`).patch({
-            isRead: read,
-          }),
+        withOutlookRetry(
+          () =>
+            client.getClient().api(`/me/messages/${message.id}`).patch({
+              isRead: read,
+            }),
+          logger,
         ),
       ),
     );
@@ -534,19 +564,23 @@ export async function markReadThread({
         // Update each message in the thread
         await Promise.all(
           threadMessages.map((message: { id: string }) =>
-            withOutlookRetry(() =>
-              client.getClient().api(`/me/messages/${message.id}`).patch({
-                isRead: read,
-              }),
+            withOutlookRetry(
+              () =>
+                client.getClient().api(`/me/messages/${message.id}`).patch({
+                  isRead: read,
+                }),
+              logger,
             ),
           ),
         );
       } else {
         // If no messages found, try treating threadId as a messageId
-        await withOutlookRetry(() =>
-          client.getClient().api(`/me/messages/${threadId}`).patch({
-            isRead: read,
-          }),
+        await withOutlookRetry(
+          () =>
+            client.getClient().api(`/me/messages/${threadId}`).patch({
+              isRead: read,
+            }),
+          logger,
         );
       }
     } catch (directError) {
@@ -563,28 +597,34 @@ export async function markImportantMessage({
   client,
   messageId,
   important,
+  logger,
 }: {
   client: OutlookClient;
   messageId: string;
   important: boolean;
+  logger: Logger;
 }) {
   // In Outlook, we use the "Important" flag
-  await withOutlookRetry(() =>
-    client
-      .getClient()
-      .api(`/me/messages/${messageId}`)
-      .patch({
-        importance: important ? "high" : "normal",
-      }),
+  await withOutlookRetry(
+    () =>
+      client
+        .getClient()
+        .api(`/me/messages/${messageId}`)
+        .patch({
+          importance: important ? "high" : "normal",
+        }),
+    logger,
   );
 }
 
 export async function getOrCreateInboxZeroLabel({
   client,
   key,
+  logger,
 }: {
   client: OutlookClient;
   key: InboxZeroLabel;
+  logger: Logger;
 }) {
   const { name } = inboxZeroLabels[key];
   const labels = await getLabels(client);
@@ -594,6 +634,6 @@ export async function getOrCreateInboxZeroLabel({
   if (label) return label;
 
   // Create label if it doesn't exist
-  const createdLabel = await createLabel({ client, name });
+  const createdLabel = await createLabel({ client, name, logger });
   return createdLabel;
 }

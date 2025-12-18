@@ -1,5 +1,5 @@
 import { isDefined, type ParsedMessage } from "@/utils/types";
-import { createScopedLogger, type Logger } from "@/utils/logger";
+import type { Logger } from "@/utils/logger";
 import { processUserRequest } from "@/utils/ai/assistant/process-user-request";
 import { extractEmailAddress } from "@/utils/email";
 import prisma from "@/utils/prisma";
@@ -14,6 +14,7 @@ type ProcessAssistantEmailArgs = {
   userEmail: string;
   message: ParsedMessage;
   provider: EmailProvider;
+  logger: Logger;
 };
 
 export async function processAssistantEmail({
@@ -21,8 +22,9 @@ export async function processAssistantEmail({
   userEmail,
   message,
   provider,
+  logger,
 }: ProcessAssistantEmailArgs) {
-  const logger = createScopedLogger("process-assistant-email").with({
+  logger = logger.with({
     emailAccountId,
     threadId: message.threadId,
     messageId: message.id,
@@ -206,6 +208,7 @@ async function processAssistantEmailInternal({
     originalEmail: originalMessage,
     messages,
     matchedRule: executedRules?.length ? executedRules[0].rule : null, // TODO: support multiple rule matching
+    logger,
   });
 
   const toolCalls = result.steps.flatMap((step) => step.toolCalls);

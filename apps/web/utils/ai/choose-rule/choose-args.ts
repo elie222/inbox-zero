@@ -58,6 +58,7 @@ export async function getActionItemsWithAiArgs({
         message.threadId,
         client,
         isTest ? message : undefined,
+        logger,
       );
 
       log.info("Draft generated", {
@@ -85,6 +86,7 @@ export async function getActionItemsWithAiArgs({
     selectedRule,
     parameters,
     modelType,
+    logger,
   });
 
   return combineActionsWithAiArgs(selectedRule.actions, result, draft);

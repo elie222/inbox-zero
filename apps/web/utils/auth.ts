@@ -201,7 +201,7 @@ async function postSignUp({
     captureException(error, undefined, email);
   });
 
-  const dub = trackDubSignUp({ id: userId, email, name, image }).catch(
+  const dub = trackDubSignUp({ id: userId, email, name, image }, logger).catch(
     (error) => {
       logger.error("Error tracking Dub sign up", {
         email,
@@ -322,7 +322,7 @@ async function getProfileData(providerId: string, accessToken: string) {
   }
 
   if (isMicrosoftProvider(providerId)) {
-    const client = createOutlookClient(accessToken);
+    const client = createOutlookClient(accessToken, logger);
     try {
       const profileResponse = await client.getUserProfile();
 

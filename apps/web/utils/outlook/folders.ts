@@ -1,9 +1,7 @@
 import type { MailFolder } from "@microsoft/microsoft-graph-types";
 import type { OutlookClient } from "./client";
-import { createScopedLogger } from "@/utils/logger";
+import type { Logger } from "@/utils/logger";
 import { withOutlookRetry } from "@/utils/outlook/retry";
-
-const logger = createScopedLogger("outlook/folders");
 
 // Should not use a common separator like "/|\>" as it may be used in the folder name.
 // Using U+2999 as it is unlikely to appear in normal text
@@ -28,18 +26,21 @@ function convertMailFolderToOutlookFolder(folder: MailFolder): OutlookFolder {
 
 export async function getOutlookRootFolders(
   client: OutlookClient,
+  logger: Logger,
 ): Promise<OutlookFolder[]> {
   const fields = "id,displayName,childFolderCount";
-  const response: { value: MailFolder[] } = await withOutlookRetry(() =>
-    client
-      .getClient()
-      .api("/me/mailFolders")
-      .select(fields)
-      .top(999)
-      .expand(
-        `childFolders($select=${fields};$top=999;$expand=childFolders($select=${fields};$top=999))`,
-      )
-      .get(),
+  const response: { value: MailFolder[] } = await withOutlookRetry(
+    () =>
+      client
+        .getClient()
+        .api("/me/mailFolders")
+        .select(fields)
+        .top(999)
+        .expand(
+          `childFolders($select=${fields};$top=999;$expand=childFolders($select=${fields};$top=999))`,
+        )
+        .get(),
+    logger,
   );
 
   return response.value.map(convertMailFolderToOutlookFolder);
@@ -48,18 +49,21 @@ export async function getOutlookRootFolders(
 export async function getOutlookChildFolders(
   client: OutlookClient,
   folderId: string,
+  logger: Logger,
 ): Promise<OutlookFolder[]> {
   const fields = "id,displayName,childFolderCount";
-  const response: { value: MailFolder[] } = await withOutlookRetry(() =>
-    client
-      .getClient()
-      .api(`/me/mailFolders/${folderId}/childFolders`)
-      .select(fields)
-      .top(999)
-      .expand(
-        `childFolders($select=${fields};$top=999;$expand=childFolders($select=${fields};$top=999))`,
-      )
-      .get(),
+  const response: { value: MailFolder[] } = await withOutlookRetry(
+    () =>
+      client
+        .getClient()
+        .api(`/me/mailFolders/${folderId}/childFolders`)
+        .select(fields)
+        .top(999)
+        .expand(
+          `childFolders($select=${fields};$top=999;$expand=childFolders($select=${fields};$top=999))`,
+        )
+        .get(),
+    logger,
   );
 
   return response.value.map(convertMailFolderToOutlookFolder);
@@ -68,16 +72,19 @@ export async function getOutlookChildFolders(
 async function findOutlookFolderByName(
   client: OutlookClient,
   folderName: string,
+  logger: Logger,
 ): Promise<OutlookFolder | undefined> {
   try {
-    const response: { value: MailFolder[] } = await withOutlookRetry(() =>
-      client
-        .getClient()
-        .api("/me/mailFolders")
-        .filter(`displayName eq '${folderName.replace(/'/g, "''")}'`)
-        .select("id,displayName")
-        .top(1)
-        .get(),
+    const response: { value: MailFolder[] } = await withOutlookRetry(
+      () =>
+        client
+          .getClient()
+          .api("/me/mailFolders")
+          .filter(`displayName eq '${folderName.replace(/'/g, "''")}'`)
+          .select("id,displayName")
+          .top(1)
+          .get(),
+      logger,
     );
 
     if (response.value && response.value.length > 0) {
@@ -95,6 +102,7 @@ async function expandFolderChildren(
   folder: OutlookFolder,
   currentDepth: number,
   maxDepth: number,
+  logger: Logger,
 ): Promise<void> {
   if (currentDepth >= maxDepth) {
     return;
@@ -107,7 +115,11 @@ async function expandFolderChildren(
 
   if (hasUnfetchedChildren) {
     try {
-      folder.childFolders = await getOutlookChildFolders(client, folder.id);
+      folder.childFolders = await getOutlookChildFolders(
+        client,
+        folder.id,
+        logger,
+      );
     } catch (error) {
       logger.warn("Failed to fetch folder children", {
         folderId: folder.id,
@@ -120,15 +132,22 @@ async function expandFolderChildren(
 
   // Recursively expand children
   for (const child of folder.childFolders || []) {
-    await expandFolderChildren(client, child, currentDepth + 1, maxDepth);
+    await expandFolderChildren(
+      client,
+      child,
+      currentDepth + 1,
+      maxDepth,
+      logger,
+    );
   }
 }
 
 export async function getOutlookFolderTree(
   client: OutlookClient,
-  maxDepth = 6,
+  maxDepth: number | undefined,
+  logger: Logger,
 ): Promise<OutlookFolder[]> {
-  const folders = await getOutlookRootFolders(client);
+  const folders = await getOutlookRootFolders(client, logger);
 
   // Recursively expand folders that have children
   // Process in parallel batches for better performance
@@ -136,7 +155,9 @@ export async function getOutlookFolderTree(
 
   for (const folder of folders) {
     // Expand root folder itself if it has unfetched children
-    expandPromises.push(expandFolderChildren(client, folder, 1, maxDepth));
+    expandPromises.push(
+      expandFolderChildren(client, folder, 1, maxDepth ?? 6, logger),
+    );
   }
 
   await Promise.all(expandPromises);
@@ -147,18 +168,25 @@ export async function getOutlookFolderTree(
 export async function getOrCreateOutlookFolderIdByName(
   client: OutlookClient,
   folderName: string,
+  logger: Logger,
 ): Promise<string> {
-  const existingFolder = await findOutlookFolderByName(client, folderName);
+  const existingFolder = await findOutlookFolderByName(
+    client,
+    folderName,
+    logger,
+  );
 
   if (existingFolder) {
     return existingFolder.id;
   }
 
   try {
-    const response = await withOutlookRetry(() =>
-      client.getClient().api("/me/mailFolders").post({
-        displayName: folderName,
-      }),
+    const response = await withOutlookRetry(
+      () =>
+        client.getClient().api("/me/mailFolders").post({
+          displayName: folderName,
+        }),
+      logger,
     );
 
     return response.id;
@@ -171,7 +199,7 @@ export async function getOrCreateOutlookFolderIdByName(
       logger.info("Folder already exists, fetching existing folder", {
         folderName,
       });
-      const folder = await findOutlookFolderByName(client, folderName);
+      const folder = await findOutlookFolderByName(client, folderName, logger);
       if (folder) {
         return folder.id;
       }

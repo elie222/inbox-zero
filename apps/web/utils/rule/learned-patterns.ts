@@ -1,9 +1,7 @@
 import prisma from "@/utils/prisma";
-import { createScopedLogger } from "@/utils/logger";
+import type { Logger } from "@/utils/logger";
 import { GroupItemType } from "@/generated/prisma/enums";
 import { isDuplicateError } from "@/utils/prisma-helpers";
-
-const logger = createScopedLogger("rule/learned-patterns");
 
 /**
  * Saves a learned pattern for a rule
@@ -14,10 +12,12 @@ export async function saveLearnedPattern({
   emailAccountId,
   from,
   ruleName,
+  logger,
 }: {
   emailAccountId: string;
   from: string;
   ruleName: string;
+  logger: Logger;
 }) {
   const rule = await prisma.rule.findUnique({
     where: {
@@ -74,6 +74,7 @@ export async function saveLearnedPatterns({
   emailAccountId,
   ruleName,
   patterns,
+  logger,
 }: {
   emailAccountId: string;
   ruleName: string;
@@ -82,6 +83,7 @@ export async function saveLearnedPatterns({
     value: string;
     exclude?: boolean;
   }>;
+  logger: Logger;
 }) {
   const rule = await prisma.rule.findUnique({
     where: {

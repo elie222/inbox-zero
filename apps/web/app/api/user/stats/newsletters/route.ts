@@ -83,7 +83,7 @@ async function getEmailMessages(
       ...types,
       logger,
     }),
-    getAutoArchiveFilters(emailProvider),
+    getAutoArchiveFilters(emailProvider, logger),
     findNewsletterStatus({ emailAccountId }),
   ]);
 

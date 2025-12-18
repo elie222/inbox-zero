@@ -148,7 +148,7 @@ export class OutlookProvider implements EmailProvider {
 
   async getMessage(messageId: string): Promise<ParsedMessage> {
     try {
-      const message = await getMessage(messageId, this.client);
+      const message = await getMessage(messageId, this.client, this.logger);
       return message;
     } catch (error) {
       const err = error as any;
@@ -181,7 +181,7 @@ export class OutlookProvider implements EmailProvider {
       return null;
     }
 
-    const folderIds = await getFolderIds(this.client);
+    const folderIds = await getFolderIds(this.client, this.logger);
     return convertMessage(message, folderIds);
   }
 
@@ -199,12 +199,16 @@ export class OutlookProvider implements EmailProvider {
     const pageSize = 20; // Outlook API limit
 
     while (allMessages.length < maxResults) {
-      const response = await queryBatchMessages(this.client, {
-        searchQuery,
-        folderId,
-        maxResults: Math.min(pageSize, maxResults - allMessages.length),
-        pageToken,
-      });
+      const response = await queryBatchMessages(
+        this.client,
+        {
+          searchQuery,
+          folderId,
+          maxResults: Math.min(pageSize, maxResults - allMessages.length),
+          pageToken,
+        },
+        this.logger,
+      );
 
       const messages = response.messages || [];
       allMessages.push(...messages);
@@ -221,16 +225,18 @@ export class OutlookProvider implements EmailProvider {
   }
 
   async getSentMessages(maxResults = 20): Promise<ParsedMessage[]> {
-    const folderIds = await getFolderIds(this.client);
+    const folderIds = await getFolderIds(this.client, this.logger);
 
-    const response: { value: Message[] } = await withOutlookRetry(() =>
-      this.client
-        .getClient()
-        .api("/me/mailFolders('sentitems')/messages")
-        .select(MESSAGE_SELECT_FIELDS)
-        .top(maxResults)
-        .orderby("sentDateTime desc")
-        .get(),
+    const response: { value: Message[] } = await withOutlookRetry(
+      () =>
+        this.client
+          .getClient()
+          .api("/me/mailFolders('sentitems')/messages")
+          .select(MESSAGE_SELECT_FIELDS)
+          .top(maxResults)
+          .orderby("sentDateTime desc")
+          .get(),
+      this.logger,
     );
 
     return (response.value || [])
@@ -239,16 +245,18 @@ export class OutlookProvider implements EmailProvider {
   }
 
   async getInboxMessages(maxResults = 20): Promise<ParsedMessage[]> {
-    const folderIds = await getFolderIds(this.client);
+    const folderIds = await getFolderIds(this.client, this.logger);
 
-    const response: { value: Message[] } = await withOutlookRetry(() =>
-      this.client
-        .getClient()
-        .api("/me/mailFolders('inbox')/messages")
-        .select(MESSAGE_SELECT_FIELDS)
-        .top(maxResults)
-        .orderby("receivedDateTime desc")
-        .get(),
+    const response: { value: Message[] } = await withOutlookRetry(
+      () =>
+        this.client
+          .getClient()
+          .api("/me/mailFolders('inbox')/messages")
+          .select(MESSAGE_SELECT_FIELDS)
+          .top(maxResults)
+          .orderby("receivedDateTime desc")
+          .get(),
+      this.logger,
     );
 
     return (response.value || [])
@@ -282,7 +290,7 @@ export class OutlookProvider implements EmailProvider {
       request = request.filter(filters.join(" and "));
     }
 
-    const response = await withOutlookRetry(() => request.get());
+    const response = await withOutlookRetry(() => request.get(), this.logger);
 
     return (
       response.value
@@ -369,6 +377,7 @@ export class OutlookProvider implements EmailProvider {
       ownerEmail,
       actionSource: "automation",
       folderId: "archive",
+      logger: this.logger,
     });
   }
 
@@ -382,6 +391,7 @@ export class OutlookProvider implements EmailProvider {
       ownerEmail,
       actionSource: "user",
       folderId: "archive",
+      logger: this.logger,
     });
   }
 
@@ -395,6 +405,7 @@ export class OutlookProvider implements EmailProvider {
       threadId,
       ownerEmail,
       actionSource,
+      logger: this.logger,
     });
   }
 
@@ -442,6 +453,7 @@ export class OutlookProvider implements EmailProvider {
         client: this.client,
         messageId,
         categories: updatedCategories,
+        logger: this.logger,
       });
       this.logger.info("Label applied", { labelId: category.id });
     } else {
@@ -457,11 +469,11 @@ export class OutlookProvider implements EmailProvider {
   }
 
   async getDraft(draftId: string): Promise<ParsedMessage | null> {
-    return getDraft(draftId, this.client);
+    return getDraft({ client: this.client, draftId, logger: this.logger });
   }
 
   async deleteDraft(draftId: string): Promise<void> {
-    await deleteDraft(this.client, draftId);
+    await deleteDraft({ client: this.client, draftId, logger: this.logger });
   }
 
   async draftEmail(
@@ -473,7 +485,7 @@ export class OutlookProvider implements EmailProvider {
     if (executedRule) {
       // Run draft creation and previous draft deletion in parallel
       const [result] = await Promise.all([
-        draftEmail(this.client, email, args, userEmail),
+        draftEmail(this.client, email, args, userEmail, this.logger),
         handlePreviousDraftDeletion({
           client: this,
           executedRule,
@@ -483,14 +495,20 @@ export class OutlookProvider implements EmailProvider {
       this.logger.info("Draft created", { draftId: result.id });
       return { draftId: result.id || "" };
     } else {
-      const result = await draftEmail(this.client, email, args, userEmail);
+      const result = await draftEmail(
+        this.client,
+        email,
+        args,
+        userEmail,
+        this.logger,
+      );
       this.logger.info("Draft created", { draftId: result.id });
       return { draftId: result.id || "" };
     }
   }
 
   async replyToEmail(email: ParsedMessage, content: string): Promise<void> {
-    await replyToEmail(this.client, email, content);
+    await replyToEmail(this.client, email, content, this.logger);
   }
 
   async sendEmail(args: {
@@ -500,7 +518,7 @@ export class OutlookProvider implements EmailProvider {
     subject: string;
     messageText: string;
   }): Promise<void> {
-    await sendEmailWithPlainText(this.client, args);
+    await sendEmailWithPlainText(this.client, args, this.logger);
   }
 
   async sendEmailWithHtml(body: {
@@ -521,7 +539,7 @@ export class OutlookProvider implements EmailProvider {
       contentType: string;
     }>;
   }) {
-    const result = await sendEmailWithHtml(this.client, body);
+    const result = await sendEmailWithHtml(this.client, body, this.logger);
     return {
       messageId: result.id || "",
       threadId: result.conversationId || "",
@@ -532,11 +550,15 @@ export class OutlookProvider implements EmailProvider {
     email: ParsedMessage,
     args: { to: string; cc?: string; bcc?: string; content?: string },
   ): Promise<void> {
-    await forwardEmail(this.client, { messageId: email.id, ...args });
+    await forwardEmail(
+      this.client,
+      { messageId: email.id, ...args },
+      this.logger,
+    );
   }
 
   async markSpam(threadId: string): Promise<void> {
-    await markSpam(this.client, threadId);
+    await markSpam(this.client, threadId, this.logger);
   }
 
   async markRead(threadId: string): Promise<void> {
@@ -544,6 +566,7 @@ export class OutlookProvider implements EmailProvider {
       client: this.client,
       threadId,
       read: true,
+      logger: this.logger,
     });
   }
 
@@ -560,7 +583,11 @@ export class OutlookProvider implements EmailProvider {
 
   async getThreadMessages(threadId: string): Promise<ParsedMessage[]> {
     try {
-      const messages = await getThreadMessages(threadId, this.client);
+      const messages = await getThreadMessages(
+        threadId,
+        this.client,
+        this.logger,
+      );
       return messages;
     } catch (error) {
       const err = error as any;
@@ -593,7 +620,11 @@ export class OutlookProvider implements EmailProvider {
       for (const message of response.value) {
         try {
           // Use the existing getMessage function to properly parse each message
-          const parsedMessage = await getMessage(message.id, this.client);
+          const parsedMessage = await getMessage(
+            message.id,
+            this.client,
+            this.logger,
+          );
           messages.push(parsedMessage);
         } catch (error) {
           this.logger.warn("Failed to parse message in inbox thread", {
@@ -636,6 +667,7 @@ export class OutlookProvider implements EmailProvider {
         client: this.client,
         threadId,
         categoryName,
+        logger: this.logger,
       });
     } catch (error) {
       // If label doesn't exist (404), that's okay - nothing to remove
@@ -691,6 +723,7 @@ export class OutlookProvider implements EmailProvider {
         client: this.client,
         messageId: message.id,
         categories: newCategories,
+        logger: this.logger,
       });
     }
   }
@@ -699,6 +732,7 @@ export class OutlookProvider implements EmailProvider {
     const label = await createLabel({
       client: this.client,
       name,
+      logger: this.logger,
     });
 
     return {
@@ -719,6 +753,7 @@ export class OutlookProvider implements EmailProvider {
     const label = await getOrCreateInboxZeroLabel({
       client: this.client,
       key,
+      logger: this.logger,
     });
     return {
       id: label.id || "",
@@ -740,7 +775,10 @@ export class OutlookProvider implements EmailProvider {
 
   async getFiltersList(): Promise<EmailFilter[]> {
     try {
-      const response = await getFiltersList({ client: this.client });
+      const response = await getFiltersList({
+        client: this.client,
+        logger: this.logger,
+      });
 
       const mappedFilters = (response.value || []).map((filter) => {
         const mappedFilter = {
@@ -770,7 +808,11 @@ export class OutlookProvider implements EmailProvider {
     addLabelIds?: string[];
     removeLabelIds?: string[];
   }) {
-    return createFilter({ client: this.client, ...options });
+    return createFilter({
+      client: this.client,
+      ...options,
+      logger: this.logger,
+    });
   }
 
   async createAutoArchiveFilter(options: { from: string; labelName?: string }) {
@@ -778,11 +820,12 @@ export class OutlookProvider implements EmailProvider {
       client: this.client,
       from: options.from,
       labelName: options.labelName,
+      logger: this.logger,
     });
   }
 
   async deleteFilter(id: string) {
-    return deleteFilter({ client: this.client, id });
+    return deleteFilter({ client: this.client, id, logger: this.logger });
   }
 
   async getMessagesWithPagination(options: {
@@ -850,12 +893,16 @@ export class OutlookProvider implements EmailProvider {
 
     // Don't pass folderId - let the API return all folders except Junk/Deleted (auto-excluded)
     // Drafts are filtered out in convertMessages
-    const response = await queryBatchMessages(this.client, {
-      searchQuery: searchQuery || undefined,
-      dateFilters,
-      maxResults: options.maxResults || 20,
-      pageToken: options.pageToken,
-    });
+    const response = await queryBatchMessages(
+      this.client,
+      {
+        searchQuery: searchQuery || undefined,
+        dateFilters,
+        maxResults: options.maxResults || 20,
+        pageToken: options.pageToken,
+      },
+      this.logger,
+    );
 
     return {
       messages: response.messages || [],
@@ -885,12 +932,16 @@ export class OutlookProvider implements EmailProvider {
       dateFilters.push(`receivedDateTime gt ${options.after.toISOString()}`);
     }
 
-    return queryMessagesWithFilters(this.client, {
-      filters,
-      dateFilters,
-      maxResults: options.maxResults,
-      pageToken: options.pageToken,
-    });
+    return queryMessagesWithFilters(
+      this.client,
+      {
+        filters,
+        dateFilters,
+        maxResults: options.maxResults,
+        pageToken: options.pageToken,
+      },
+      this.logger,
+    );
   }
 
   async getThreadsWithParticipant(options: {
@@ -907,10 +958,14 @@ export class OutlookProvider implements EmailProvider {
     const sanitizedEmail = sanitizeKqlValue(participantEmail);
     const searchQuery = `participants:${sanitizedEmail}`;
 
-    const { messages } = await queryBatchMessages(this.client, {
-      searchQuery,
-      maxResults: Math.min(20, Math.max(10, maxThreads * 4)),
-    });
+    const { messages } = await queryBatchMessages(
+      this.client,
+      {
+        searchQuery,
+        maxResults: Math.min(20, Math.max(10, maxThreads * 4)),
+      },
+      this.logger,
+    );
 
     const participantLower = participantEmail.toLowerCase().trim();
 
@@ -996,15 +1051,20 @@ export class OutlookProvider implements EmailProvider {
       client: this.client,
       threadId,
       read,
+      logger: this.logger,
     });
   }
   async checkIfReplySent(senderEmail: string): Promise<boolean> {
     try {
       const query = `from:me to:${senderEmail}`;
-      const response = await getMessages(this.client, {
-        query,
-        maxResults: 1,
-      });
+      const response = await getMessages(
+        this.client,
+        {
+          query,
+          maxResults: 1,
+        },
+        this.logger,
+      );
       const sent = (response.messages?.length ?? 0) > 0;
       this.logger.info("Checked for sent reply", { senderEmail, sent });
       return sent;
@@ -1029,10 +1089,14 @@ export class OutlookProvider implements EmailProvider {
       });
 
       // Fetch up to the threshold number of messages
-      const response = await getMessages(this.client, {
-        query,
-        maxResults: threshold,
-      });
+      const response = await getMessages(
+        this.client,
+        {
+          query,
+          maxResults: threshold,
+        },
+        this.logger,
+      );
       const count = response.messages?.length ?? 0;
 
       this.logger.info("Received message count check result", {
@@ -1411,7 +1475,12 @@ export class OutlookProvider implements EmailProvider {
     sender: string,
     limit: number,
   ): Promise<Array<{ id: string; snippet: string; subject: string }>> {
-    return getThreadsFromSenderWithSubject(this.client, sender, limit);
+    return getThreadsFromSenderWithSubject(
+      this.client,
+      sender,
+      limit,
+      this.logger,
+    );
   }
 
   async processHistory(options: {
@@ -1445,7 +1514,10 @@ export class OutlookProvider implements EmailProvider {
     expirationDate: Date;
     subscriptionId?: string;
   } | null> {
-    const subscription = await watchOutlook(this.client.getClient());
+    const subscription = await watchOutlook(
+      this.client.getClient(),
+      this.logger,
+    );
 
     if (subscription.expirationDateTime) {
       const expirationDate = new Date(subscription.expirationDateTime);
@@ -1462,7 +1534,7 @@ export class OutlookProvider implements EmailProvider {
       this.logger.warn("No subscription ID provided for Outlook unwatch");
       return;
     }
-    await unwatchOutlook(this.client.getClient(), subscriptionId);
+    await unwatchOutlook(this.client.getClient(), subscriptionId, this.logger);
   }
 
   isReplyInThread(message: ParsedMessage): boolean {
@@ -1493,6 +1565,7 @@ export class OutlookProvider implements EmailProvider {
       ownerEmail,
       actionSource: "automation",
       folderId,
+      logger: this.logger,
     });
   }
 
@@ -1526,6 +1599,7 @@ export class OutlookProvider implements EmailProvider {
       action: "archive",
       ownerEmail,
       emailAccountId,
+      logger: this.logger,
     });
   }
 
@@ -1541,15 +1615,20 @@ export class OutlookProvider implements EmailProvider {
       action: "trash",
       ownerEmail,
       emailAccountId,
+      logger: this.logger,
     });
   }
 
   async getOrCreateOutlookFolderIdByName(folderName: string): Promise<string> {
-    return await getOrCreateOutlookFolderIdByName(this.client, folderName);
+    return await getOrCreateOutlookFolderIdByName(
+      this.client,
+      folderName,
+      this.logger,
+    );
   }
 
   async getFolders() {
-    return await getOutlookFolderTree(this.client);
+    return await getOutlookFolderTree(this.client, undefined, this.logger);
   }
 
   async getSignatures(): Promise<EmailSignature[]> {

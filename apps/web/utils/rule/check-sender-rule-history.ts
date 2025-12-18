@@ -1,6 +1,6 @@
 import sumBy from "lodash/sumBy";
 import prisma from "@/utils/prisma";
-import { createScopedLogger } from "@/utils/logger";
+import type { Logger } from "@/utils/logger";
 import type { EmailProvider } from "@/utils/email/types";
 import { extractEmailAddress } from "@/utils/email";
 import { ExecutedRuleStatus } from "@/generated/prisma/enums";
@@ -20,15 +20,14 @@ export async function checkSenderRuleHistory({
   emailAccountId,
   from,
   provider,
+  logger,
 }: {
   emailAccountId: string;
   from: string;
   provider: EmailProvider;
+  logger: Logger;
 }): Promise<SenderRuleHistory> {
-  const logger = createScopedLogger("checkSenderRuleHistory").with({
-    emailAccountId,
-    from,
-  });
+  logger = logger.with({ emailAccountId, from });
   const senderEmail = extractEmailAddress(from);
 
   logger.info("Checking sender rule history");

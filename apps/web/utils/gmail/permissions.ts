@@ -104,6 +104,7 @@ export async function handleGmailPermissionsCheck({
           // force refresh even if existing expiry suggests it's valid
           expiresAt: null,
           emailAccountId,
+          logger,
         });
 
         // re-check permissions with the new access token

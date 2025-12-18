@@ -1,18 +1,18 @@
 import { after } from "next/server";
 import prisma from "@/utils/prisma";
-import { createScopedLogger } from "@/utils/logger";
+import type { Logger } from "@/utils/logger";
 import { getStripe } from "@/ee/billing/stripe";
 import { getStripeSubscriptionTier } from "@/app/(app)/premium/config";
 import { handleLoopsEvents } from "@/ee/billing/stripe/loops-events";
 import { syncPremiumSeats } from "@/utils/premium/server";
 import { ensureEmailAccountsWatched } from "@/utils/email/watch-manager";
 
-const logger = createScopedLogger("stripe/syncStripeDataToDb");
-
 export async function syncStripeDataToDb({
   customerId,
+  logger,
 }: {
   customerId: string;
+  logger: Logger;
 }) {
   try {
     const stripe = getStripe();
@@ -128,6 +128,7 @@ export async function syncStripeDataToDb({
       currentPremium,
       newSubscription: subscription,
       newTier: tier,
+      logger,
     });
 
     logger.info("Successfully updated Premium record from Stripe data", {
@@ -144,7 +145,7 @@ export async function syncStripeDataToDb({
       const tierChanged = currentPremium?.tier !== tier;
 
       if (userIds.length && (!currentPremium || statusChanged || tierChanged)) {
-        ensureEmailAccountsWatched({ userIds }).catch((error) => {
+        ensureEmailAccountsWatched({ userIds, logger }).catch((error) => {
           logger.error("Failed to ensure email watches after Stripe sync", {
             customerId,
             userIds,

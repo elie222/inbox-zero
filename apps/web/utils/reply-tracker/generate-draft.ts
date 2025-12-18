@@ -5,7 +5,7 @@ import { aiDraftWithKnowledge } from "@/utils/ai/reply/draft-with-knowledge";
 import { getReply, saveReply } from "@/utils/redis/reply";
 import { getWritingStyle } from "@/utils/user/get";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
-import { createScopedLogger } from "@/utils/logger";
+import type { Logger } from "@/utils/logger";
 import prisma from "@/utils/prisma";
 import { aiExtractRelevantKnowledge } from "@/utils/ai/knowledge/extract";
 import { stringifyEmail } from "@/utils/stringify-email";
@@ -18,8 +18,6 @@ import { aiGetCalendarAvailability } from "@/utils/ai/calendar/availability";
 import { env } from "@/env";
 import { mcpAgent } from "@/utils/ai/mcp/mcp-agent";
 
-const logger = createScopedLogger("generate-reply");
-
 /**
  * Fetches thread messages and generates draft content in one step
  */
@@ -27,7 +25,8 @@ export async function fetchMessagesAndGenerateDraft(
   emailAccount: EmailAccountWithAI,
   threadId: string,
   client: EmailProvider,
-  testMessage?: ParsedMessage,
+  testMessage: ParsedMessage | undefined,
+  logger: Logger,
 ): Promise<string> {
   const { threadMessages, previousConversationMessages } = testMessage
     ? { threadMessages: [testMessage], previousConversationMessages: null }
@@ -38,6 +37,7 @@ export async function fetchMessagesAndGenerateDraft(
     threadMessages,
     previousConversationMessages,
     client,
+    logger,
   );
 
   if (typeof result !== "string") {
@@ -100,6 +100,7 @@ async function generateDraftContent(
   threadMessages: ParsedMessage[],
   previousConversationMessages: ParsedMessage[] | null,
   emailProvider: EmailProvider,
+  logger: Logger,
 ) {
   const lastMessage = threadMessages.at(-1);
 
@@ -146,13 +147,14 @@ async function generateDraftContent(
       knowledgeBase,
       emailContent: lastMessageContent,
       emailAccount,
+      logger,
     }),
     aiCollectReplyContext({
       currentThread: messages,
       emailAccount,
       emailProvider,
     }),
-    aiGetCalendarAvailability({ emailAccount, messages }),
+    aiGetCalendarAvailability({ emailAccount, messages, logger }),
     getWritingStyle({ emailAccountId: emailAccount.id }),
     mcpAgent({ emailAccount, messages }),
   ]);
@@ -178,6 +180,7 @@ async function generateDraftContent(
         currentThreadMessages: messages,
         historicalMessages: historicalMessagesForLLM,
         emailAccount,
+        logger,
       })
     : null;
 

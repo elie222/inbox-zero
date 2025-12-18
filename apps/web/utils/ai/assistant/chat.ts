@@ -1,6 +1,6 @@
 import { type InferUITool, tool, type ModelMessage } from "ai";
 import { z } from "zod";
-import { createScopedLogger } from "@/utils/logger";
+import type { Logger } from "@/utils/logger";
 import { createRuleSchema } from "@/utils/ai/rule/create-rule-schema";
 import prisma from "@/utils/prisma";
 import { isDuplicateError } from "@/utils/prisma-helpers";
@@ -26,17 +26,17 @@ import { stringifyEmail } from "@/utils/stringify-email";
 import { getEmailForLLM } from "@/utils/get-email-from-message";
 import type { ParsedMessage } from "@/utils/types";
 
-const logger = createScopedLogger("ai/assistant/chat");
-
 export const maxDuration = 120;
 
 // tools
 const getUserRulesAndSettingsTool = ({
   email,
   emailAccountId,
+  logger,
 }: {
   email: string;
   emailAccountId: string;
+  logger: Logger;
 }) =>
   tool({
     name: "getUserRulesAndSettings",
@@ -47,6 +47,7 @@ const getUserRulesAndSettingsTool = ({
       trackToolCall({
         tool: "get_user_rules_and_settings",
         email,
+        logger,
       });
 
       const emailAccount = await prisma.emailAccount.findUnique({
@@ -132,9 +133,11 @@ export type GetUserRulesAndSettingsTool = InferUITool<
 const getLearnedPatternsTool = ({
   email,
   emailAccountId,
+  logger,
 }: {
   email: string;
   emailAccountId: string;
+  logger: Logger;
 }) =>
   tool({
     name: "getLearnedPatterns",
@@ -145,7 +148,7 @@ const getLearnedPatternsTool = ({
         .describe("The name of the rule to get the learned patterns for"),
     }),
     execute: async ({ ruleName }) => {
-      trackToolCall({ tool: "get_learned_patterns", email });
+      trackToolCall({ tool: "get_learned_patterns", email, logger });
 
       const rule = await prisma.rule.findUnique({
         where: { name_emailAccountId: { name: ruleName, emailAccountId } },
@@ -185,17 +188,19 @@ const createRuleTool = ({
   email,
   emailAccountId,
   provider,
+  logger,
 }: {
   email: string;
   emailAccountId: string;
   provider: string;
+  logger: Logger;
 }) =>
   tool({
     name: "createRule",
     description: "Create a new rule",
     inputSchema: createRuleSchema(provider),
     execute: async ({ name, condition, actions }) => {
-      trackToolCall({ tool: "create_rule", email });
+      trackToolCall({ tool: "create_rule", email, logger });
 
       try {
         const rule = await createRule({
@@ -262,16 +267,18 @@ export type UpdateRuleConditionSchema = z.infer<
 const updateRuleConditionsTool = ({
   email,
   emailAccountId,
+  logger,
 }: {
   email: string;
   emailAccountId: string;
+  logger: Logger;
 }) =>
   tool({
     name: "updateRuleConditions",
     description: "Update the conditions of an existing rule",
     inputSchema: updateRuleConditionSchema,
     execute: async ({ ruleName, condition }) => {
-      trackToolCall({ tool: "update_rule_conditions", email });
+      trackToolCall({ tool: "update_rule_conditions", email, logger });
 
       const rule = await prisma.rule.findUnique({
         where: { name_emailAccountId: { name: ruleName, emailAccountId } },
@@ -347,10 +354,12 @@ const updateRuleActionsTool = ({
   email,
   emailAccountId,
   provider,
+  logger,
 }: {
   email: string;
   emailAccountId: string;
   provider: string;
+  logger: Logger;
 }) =>
   tool({
     name: "updateRuleActions",
@@ -387,7 +396,7 @@ const updateRuleActionsTool = ({
       ),
     }),
     execute: async ({ ruleName, actions }) => {
-      trackToolCall({ tool: "update_rule_actions", email });
+      trackToolCall({ tool: "update_rule_actions", email, logger });
       const rule = await prisma.rule.findUnique({
         where: { name_emailAccountId: { name: ruleName, emailAccountId } },
         select: {
@@ -455,6 +464,7 @@ const updateRuleActionsTool = ({
         })),
         provider,
         emailAccountId,
+        logger,
       });
 
       return {
@@ -473,9 +483,11 @@ export type UpdateRuleActionsTool = InferUITool<
 const updateLearnedPatternsTool = ({
   email,
   emailAccountId,
+  logger,
 }: {
   email: string;
   emailAccountId: string;
+  logger: Logger;
 }) =>
   tool({
     name: "updateLearnedPatterns",
@@ -502,7 +514,7 @@ const updateLearnedPatternsTool = ({
         .min(1, "At least one learned pattern is required"),
     }),
     execute: async ({ ruleName, learnedPatterns }) => {
-      trackToolCall({ tool: "update_learned_patterns", email });
+      trackToolCall({ tool: "update_learned_patterns", email, logger });
 
       const rule = await prisma.rule.findUnique({
         where: { name_emailAccountId: { name: ruleName, emailAccountId } },
@@ -563,6 +575,7 @@ const updateLearnedPatternsTool = ({
           emailAccountId,
           ruleName: rule.name,
           patterns: patternsToSave,
+          logger,
         });
       }
 
@@ -577,9 +590,11 @@ export type UpdateLearnedPatternsTool = InferUITool<
 const updateAboutTool = ({
   email,
   emailAccountId,
+  logger,
 }: {
   email: string;
   emailAccountId: string;
+  logger: Logger;
 }) =>
   tool({
     name: "updateAbout",
@@ -587,7 +602,7 @@ const updateAboutTool = ({
       "Update the user's about information. Read the user's about information first as this replaces the existing information.",
     inputSchema: z.object({ about: z.string() }),
     execute: async ({ about }) => {
-      trackToolCall({ tool: "update_about", email });
+      trackToolCall({ tool: "update_about", email, logger });
       const existing = await prisma.emailAccount.findUnique({
         where: { id: emailAccountId },
         select: { about: true },
@@ -613,9 +628,11 @@ export type UpdateAboutTool = InferUITool<ReturnType<typeof updateAboutTool>>;
 const addToKnowledgeBaseTool = ({
   email,
   emailAccountId,
+  logger,
 }: {
   email: string;
   emailAccountId: string;
+  logger: Logger;
 }) =>
   tool({
     name: "addToKnowledgeBase",
@@ -625,7 +642,7 @@ const addToKnowledgeBaseTool = ({
       content: z.string(),
     }),
     execute: async ({ title, content }) => {
-      trackToolCall({ tool: "add_to_knowledge_base", email });
+      trackToolCall({ tool: "add_to_knowledge_base", email, logger });
 
       try {
         await prisma.knowledge.create({
@@ -659,11 +676,13 @@ export async function aiProcessAssistantChat({
   emailAccountId,
   user,
   context,
+  logger,
 }: {
   messages: ModelMessage[];
   emailAccountId: string;
   user: EmailAccountWithAI;
   context?: MessageContext;
+  logger: Logger;
 }) {
   const system = `You are an assistant that helps create and update rules to manage a user's inbox. Our platform is called Inbox Zero.
   
@@ -916,6 +935,7 @@ Examples:
     email: user.email,
     emailAccountId,
     provider: user.account.provider,
+    logger,
   };
 
   const hiddenContextMessage =
@@ -977,7 +997,15 @@ Examples:
   return result;
 }
 
-async function trackToolCall({ tool, email }: { tool: string; email: string }) {
+async function trackToolCall({
+  tool,
+  email,
+  logger,
+}: {
+  tool: string;
+  email: string;
+  logger: Logger;
+}) {
   logger.info("Tracking tool call", { tool, email });
   return posthogCaptureEvent(email, "AI Assistant Chat Tool Call", { tool });
 }

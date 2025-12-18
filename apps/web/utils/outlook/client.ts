@@ -2,11 +2,9 @@ import { Client } from "@microsoft/microsoft-graph-client";
 import type { User } from "@microsoft/microsoft-graph-types";
 import { saveTokens } from "@/utils/auth";
 import { env } from "@/env";
-import { createScopedLogger } from "@/utils/logger";
+import type { Logger } from "@/utils/logger";
 import { SCOPES } from "@/utils/outlook/scopes";
 import { SafeError } from "@/utils/error";
-
-const logger = createScopedLogger("outlook/client");
 
 // Add buffer time to prevent token expiry during long-running operations
 const TOKEN_REFRESH_BUFFER_MS = 10 * 60 * 1000; // 10 minutes
@@ -15,10 +13,12 @@ const TOKEN_REFRESH_BUFFER_MS = 10 * 60 * 1000; // 10 minutes
 export class OutlookClient {
   private readonly client: Client;
   private readonly accessToken: string;
+  private readonly logger: Logger;
   private folderIdCache: Record<string, string> | null = null;
 
-  constructor(accessToken: string) {
+  constructor(accessToken: string, logger: Logger) {
     this.accessToken = accessToken;
+    this.logger = logger;
     this.client = Client.init({
       authProvider: (done) => {
         done(null, this.accessToken);
@@ -69,16 +69,16 @@ export class OutlookClient {
       }
       return null;
     } catch {
-      logger.warn("Error getting user photo");
+      this.logger.warn("Error getting user photo");
       return null;
     }
   }
 }
 
 // Helper to create OutlookClient instance
-export const createOutlookClient = (accessToken: string) => {
+export const createOutlookClient = (accessToken: string, logger: Logger) => {
   if (!accessToken) throw new SafeError("No access token provided");
-  return new OutlookClient(accessToken);
+  return new OutlookClient(accessToken, logger);
 };
 
 // Similar to Gmail's getGmailClientWithRefresh
@@ -87,11 +87,13 @@ export const getOutlookClientWithRefresh = async ({
   refreshToken,
   expiresAt,
   emailAccountId,
+  logger,
 }: {
   accessToken?: string | null;
   refreshToken: string | null;
   expiresAt: number | null;
   emailAccountId: string;
+  logger: Logger;
 }): Promise<OutlookClient> => {
   if (!refreshToken) {
     logger.error("No refresh token", { emailAccountId });
@@ -105,7 +107,7 @@ export const getOutlookClientWithRefresh = async ({
     expiryDate &&
     expiryDate > Date.now() + TOKEN_REFRESH_BUFFER_MS
   ) {
-    return createOutlookClient(accessToken);
+    return createOutlookClient(accessToken, logger);
   }
 
   // Refresh token
@@ -203,7 +205,7 @@ export const getOutlookClientWithRefresh = async ({
       provider: "microsoft",
     });
 
-    return createOutlookClient(tokens.access_token);
+    return createOutlookClient(tokens.access_token, logger);
   } catch (error) {
     const isInvalidGrantError =
       error instanceof Error &&

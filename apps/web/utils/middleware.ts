@@ -134,9 +134,15 @@ function withMiddleware<T extends NextRequest>(
         );
       }
 
-      const apiError = checkCommonErrors(error, req.url);
+      const apiError = checkCommonErrors(error, req.url, reqLogger);
       if (apiError) {
-        await logErrorToPosthog("api", req.url, apiError.type, "unknown"); // TODO: add emailAccountId
+        await logErrorToPosthog(
+          "api",
+          req.url,
+          apiError.type,
+          "unknown",
+          reqLogger,
+        ); // TODO: add emailAccountId
 
         return NextResponse.json(
           { error: apiError.message, isKnownError: true },

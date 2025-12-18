@@ -10,6 +10,7 @@ import { CleanAction } from "@/generated/prisma/enums";
 import { createEmailProvider } from "@/utils/email/provider";
 import { checkUserOwnsEmailAccount } from "@/utils/email-account";
 import prisma from "@/utils/prisma";
+import { createScopedLogger } from "@/utils/logger";
 
 export default async function CleanPage(props: {
   params: Promise<{ emailAccountId: string }>;
@@ -42,6 +43,7 @@ export default async function CleanPage(props: {
   const emailProvider = await createEmailProvider({
     emailAccountId,
     provider: emailAccount.account.provider,
+    logger: createScopedLogger("clean-onboarding").with({ emailAccountId }),
   });
   const { unhandledCount } = await getUnhandledCount(emailProvider);
 

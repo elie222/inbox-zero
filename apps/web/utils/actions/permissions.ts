@@ -19,6 +19,7 @@ export const checkPermissionsAction = actionClient
     try {
       const { accessToken, tokens } = await getGmailAndAccessTokenForEmail({
         emailAccountId,
+        logger,
       });
 
       if (!tokens.refreshToken || !accessToken)
@@ -63,6 +64,7 @@ export const adminCheckPermissionsAction = adminActionClient
 
       const { accessToken, tokens } = await getGmailAndAccessTokenForEmail({
         emailAccountId,
+        logger,
       });
       if (!accessToken) throw new SafeError("No Gmail access token");
 

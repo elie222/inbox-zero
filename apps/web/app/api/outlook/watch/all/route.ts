@@ -107,7 +107,10 @@ async function watchAllEmails(logger: Logger) {
         continue;
       }
 
-      await createManagedOutlookSubscription(emailAccount.id);
+      await createManagedOutlookSubscription({
+        emailAccountId: emailAccount.id,
+        logger,
+      });
     } catch (error) {
       if (error instanceof Error) {
         const warn = [

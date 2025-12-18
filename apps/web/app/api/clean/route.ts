@@ -79,6 +79,7 @@ async function cleanThread({
     refreshToken: emailAccount.tokens.refresh_token,
     expiresAt: emailAccount.tokens.expires_at,
     emailAccountId,
+    logger,
   });
 
   const messages = await getThreadMessages(threadId, gmail);

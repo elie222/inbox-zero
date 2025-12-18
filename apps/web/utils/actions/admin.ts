@@ -26,7 +26,10 @@ export const adminProcessHistoryAction = adminActionClient
     }),
   )
   .action(
-    async ({ parsedInput: { emailAddress, historyId, startHistoryId } }) => {
+    async ({
+      parsedInput: { emailAddress, historyId, startHistoryId },
+      ctx: { logger },
+    }) => {
       const emailAccount = await prisma.emailAccount.findUnique({
         where: { email: emailAddress.toLowerCase() },
         select: {
@@ -53,6 +56,7 @@ export const adminProcessHistoryAction = adminActionClient
       const emailProvider = await createEmailProvider({
         emailAccountId: emailAccount.id,
         provider,
+        logger,
       });
 
       await emailProvider.processHistory({
@@ -100,7 +104,10 @@ export const adminSyncStripeForAllUsersAction = adminActionClient
       logger.info("Syncing Stripe", {
         stripeCustomerId: premium.stripeCustomerId,
       });
-      await syncStripeDataToDb({ customerId: premium.stripeCustomerId });
+      await syncStripeDataToDb({
+        customerId: premium.stripeCustomerId,
+        logger,
+      });
     }
   });
 
@@ -204,67 +211,70 @@ export const adminHashEmailAction = adminActionClient
 export const adminConvertGmailUrlAction = adminActionClient
   .metadata({ name: "adminConvertGmailUrl" })
   .inputSchema(convertGmailUrlBody)
-  .action(async ({ parsedInput: { rfc822MessageId, email } }) => {
-    // Clean up Message-ID (remove < > if present)
-    const cleanMessageId = rfc822MessageId.trim().replace(/^<|>$/g, "");
+  .action(
+    async ({ parsedInput: { rfc822MessageId, email }, ctx: { logger } }) => {
+      // Clean up Message-ID (remove < > if present)
+      const cleanMessageId = rfc822MessageId.trim().replace(/^<|>$/g, "");
 
-    const emailAccount = await prisma.emailAccount.findUnique({
-      where: { email: email.toLowerCase() },
-      select: {
-        id: true,
-        account: {
-          select: {
-            provider: true,
+      const emailAccount = await prisma.emailAccount.findUnique({
+        where: { email: email.toLowerCase() },
+        select: {
+          id: true,
+          account: {
+            select: {
+              provider: true,
+            },
           },
         },
-      },
-    });
+      });
 
-    if (!emailAccount) {
-      throw new SafeError("Email account not found");
-    }
+      if (!emailAccount) {
+        throw new SafeError("Email account not found");
+      }
 
-    const emailProvider = await createEmailProvider({
-      emailAccountId: emailAccount.id,
-      provider: emailAccount.account.provider,
-    });
+      const emailProvider = await createEmailProvider({
+        emailAccountId: emailAccount.id,
+        provider: emailAccount.account.provider,
+        logger,
+      });
 
-    const message =
-      await emailProvider.getMessageByRfc822MessageId(cleanMessageId);
+      const message =
+        await emailProvider.getMessageByRfc822MessageId(cleanMessageId);
 
-    if (!message) {
-      throw new SafeError(
-        `Could not find message with RFC822 Message-ID: ${cleanMessageId}`,
-      );
-    }
+      if (!message) {
+        throw new SafeError(
+          `Could not find message with RFC822 Message-ID: ${cleanMessageId}`,
+        );
+      }
 
-    if (!message.threadId) {
-      throw new SafeError("Message does not have a thread ID");
-    }
+      if (!message.threadId) {
+        throw new SafeError("Message does not have a thread ID");
+      }
 
-    const thread = await emailProvider.getThread(message.threadId);
+      const thread = await emailProvider.getThread(message.threadId);
 
-    if (!thread) {
-      throw new SafeError("Could not find thread for message");
-    }
+      if (!thread) {
+        throw new SafeError("Could not find thread for message");
+      }
 
-    const messages =
-      thread.messages?.map((m) => ({
-        id: m.id,
-        date: m.internalDate || null,
-      })) || [];
+      const messages =
+        thread.messages?.map((m) => ({
+          id: m.id,
+          date: m.internalDate || null,
+        })) || [];
 
-    return {
-      threadId: thread.id,
-      messages: messages,
-      rfc822MessageId: cleanMessageId,
-    };
-  });
+      return {
+        threadId: thread.id,
+        messages: messages,
+        rfc822MessageId: cleanMessageId,
+      };
+    },
+  );
 
 export const adminGetLabelsAction = adminActionClient
   .metadata({ name: "adminGetLabels" })
   .inputSchema(getLabelsBody)
-  .action(async ({ parsedInput: { emailAccountId } }) => {
+  .action(async ({ parsedInput: { emailAccountId }, ctx: { logger } }) => {
     const emailAccount = await prisma.emailAccount.findUnique({
       where: { id: emailAccountId },
       select: {
@@ -284,6 +294,7 @@ export const adminGetLabelsAction = adminActionClient
     const emailProvider = await createEmailProvider({
       emailAccountId: emailAccount.id,
       provider: emailAccount.account.provider,
+      logger,
     });
 
     const labels = await emailProvider.getLabels();

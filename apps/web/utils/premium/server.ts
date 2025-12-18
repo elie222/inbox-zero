@@ -55,7 +55,7 @@ export async function upgradeToPremiumLemon(options: {
 
   after(() => {
     const userIds = premiumRecord.users.map((premiumUser) => premiumUser.id);
-    ensureEmailAccountsWatched({ userIds }).catch((error) => {
+    ensureEmailAccountsWatched({ userIds, logger }).catch((error) => {
       logger.error("Failed to ensure email watches after premium upgrade", {
         userIds,
         error,
@@ -226,11 +226,13 @@ export async function updateAccountSeatsForPremium(
     await updateStripeSubscriptionItemQuantity({
       subscriptionItemId: premium.stripeSubscriptionItemId,
       quantity: totalSeats,
+      logger,
     });
   } else if (premium.lemonSqueezySubscriptionItemId) {
     await updateSubscriptionItemQuantity({
       id: premium.lemonSqueezySubscriptionItemId,
       quantity: totalSeats,
+      logger,
     });
   }
 }

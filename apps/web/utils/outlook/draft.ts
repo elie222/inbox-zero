@@ -1,15 +1,22 @@
 import type { Message } from "@microsoft/microsoft-graph-types";
 import type { OutlookClient } from "@/utils/outlook/client";
-import { createScopedLogger } from "@/utils/logger";
+import type { Logger } from "@/utils/logger";
 import { convertMessage } from "@/utils/outlook/message";
 import { withOutlookRetry } from "@/utils/outlook/retry";
 
-const logger = createScopedLogger("outlook/draft");
-
-export async function getDraft(draftId: string, client: OutlookClient) {
+export async function getDraft({
+  client,
+  draftId,
+  logger,
+}: {
+  client: OutlookClient;
+  draftId: string;
+  logger: Logger;
+}) {
   try {
-    const response: Message = await withOutlookRetry(() =>
-      client.getClient().api(`/me/messages/${draftId}`).get(),
+    const response: Message = await withOutlookRetry(
+      () => client.getClient().api(`/me/messages/${draftId}`).get(),
+      logger,
     );
     const message = convertMessage(response);
     return message;
@@ -30,11 +37,20 @@ export async function getDraft(draftId: string, client: OutlookClient) {
   }
 }
 
-export async function deleteDraft(client: OutlookClient, draftId: string) {
+export async function deleteDraft({
+  client,
+  draftId,
+  logger,
+}: {
+  client: OutlookClient;
+  draftId: string;
+  logger: Logger;
+}) {
   try {
     logger.info("Deleting draft", { draftId });
-    await withOutlookRetry(() =>
-      client.getClient().api(`/me/messages/${draftId}`).delete(),
+    await withOutlookRetry(
+      () => client.getClient().api(`/me/messages/${draftId}`).delete(),
+      logger,
     );
     logger.info("Successfully deleted draft", { draftId });
   } catch (error) {
