@@ -6,14 +6,31 @@ import { toastError } from "@/components/Toast";
 import Image from "next/image";
 import { TypographyP } from "@/components/Typography";
 import { getAccountLinkingUrl } from "@/utils/account-linking";
+import { MailIcon } from "lucide-react";
+
+type Provider = "google" | "microsoft" | "fastmail";
+
+const PROVIDER_DISPLAY_NAMES: Record<Provider, string> = {
+  google: "Google",
+  microsoft: "Microsoft",
+  fastmail: "Fastmail",
+};
 
 export function AddAccount() {
   const [isLoadingGoogle, setIsLoadingGoogle] = useState(false);
   const [isLoadingMicrosoft, setIsLoadingMicrosoft] = useState(false);
+  const [isLoadingFastmail, setIsLoadingFastmail] = useState(false);
 
-  const handleAddAccount = async (provider: "google" | "microsoft") => {
-    const setLoading =
-      provider === "google" ? setIsLoadingGoogle : setIsLoadingMicrosoft;
+  const isAnyLoading =
+    isLoadingGoogle || isLoadingMicrosoft || isLoadingFastmail;
+
+  const handleAddAccount = async (provider: Provider) => {
+    const setLoadingMap: Record<Provider, (loading: boolean) => void> = {
+      google: setIsLoadingGoogle,
+      microsoft: setIsLoadingMicrosoft,
+      fastmail: setIsLoadingFastmail,
+    };
+    const setLoading = setLoadingMap[provider];
     setLoading(true);
 
     try {
@@ -22,7 +39,7 @@ export function AddAccount() {
     } catch (error) {
       console.error(`Error initiating ${provider} link:`, error);
       toastError({
-        title: `Error initiating ${provider === "google" ? "Google" : "Microsoft"} link`,
+        title: `Error initiating ${PROVIDER_DISPLAY_NAMES[provider]} link`,
         description: "Please try again or contact support",
       });
       setLoading(false);
@@ -37,7 +54,7 @@ export function AddAccount() {
           className="w-full"
           onClick={() => handleAddAccount("google")}
           loading={isLoadingGoogle}
-          disabled={isLoadingGoogle || isLoadingMicrosoft}
+          disabled={isAnyLoading}
         >
           <Image
             src="/images/google.svg"
@@ -53,7 +70,7 @@ export function AddAccount() {
           className="w-full"
           onClick={() => handleAddAccount("microsoft")}
           loading={isLoadingMicrosoft}
-          disabled={isLoadingGoogle || isLoadingMicrosoft}
+          disabled={isAnyLoading}
         >
           <Image
             src="/images/microsoft.svg"
@@ -63,6 +80,16 @@ export function AddAccount() {
             unoptimized
           />
           <span className="ml-2">Add Microsoft</span>
+        </Button>
+        <Button
+          variant="outline"
+          className="w-full"
+          onClick={() => handleAddAccount("fastmail")}
+          loading={isLoadingFastmail}
+          disabled={isAnyLoading}
+        >
+          <MailIcon className="size-6 text-[#5c2d91]" />
+          <span className="ml-2">Add Fastmail</span>
         </Button>
       </div>
 

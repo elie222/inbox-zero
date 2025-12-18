@@ -13,7 +13,9 @@ import { trackDubSignUp } from "@/utils/dub";
 import {
   isGoogleProvider,
   isMicrosoftProvider,
+  isFastmailProvider,
 } from "@/utils/email/provider-types";
+import { getUserInfo as getFastmailUserInfo } from "@/utils/fastmail/client";
 import { encryptToken } from "@/utils/encryption";
 import { captureException } from "@/utils/error";
 import { getContactsClient as getGoogleContactsClient } from "@/utils/gmail/client";
@@ -346,6 +348,20 @@ async function getProfileData(providerId: string, accessToken: string) {
       };
     } catch (error) {
       logger.error("Error fetching Microsoft profile data", { error });
+      throw error;
+    }
+  }
+
+  if (isFastmailProvider(providerId)) {
+    try {
+      const userInfo = await getFastmailUserInfo(accessToken);
+      return {
+        email: userInfo.email?.toLowerCase(),
+        name: userInfo.name,
+        image: undefined, // Fastmail doesn't provide profile photos via OIDC
+      };
+    } catch (error) {
+      logger.error("Error fetching Fastmail profile data", { error });
       throw error;
     }
   }
