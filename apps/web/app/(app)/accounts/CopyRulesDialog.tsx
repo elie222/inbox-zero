@@ -3,6 +3,8 @@
 import { useState, useMemo } from "react";
 import useSWR from "swr";
 import { useAction } from "next-safe-action/hooks";
+import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 import {
   Dialog,
   DialogContent,
@@ -29,10 +31,11 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { LoadingContent } from "@/components/LoadingContent";
-import { toastSuccess, toastError } from "@/components/Toast";
+import { toastError } from "@/components/Toast";
 import { copyRulesFromAccountAction } from "@/utils/actions/rule";
 import type { RulesResponse } from "@/app/api/user/rules/route";
 import { EMAIL_ACCOUNT_HEADER } from "@/utils/config";
+import { prefixPath } from "@/utils/path";
 
 type SourceAccount = {
   id: string;
@@ -55,6 +58,7 @@ export function CopyRulesDialog({
   targetAccountEmail,
   sourceAccounts,
 }: CopyRulesDialogProps) {
+  const router = useRouter();
   const [selectedSourceId, setSelectedSourceId] = useState<string>("");
   const [selectedRuleIds, setSelectedRuleIds] = useState<Set<string>>(
     new Set(),
@@ -76,9 +80,14 @@ export function CopyRulesDialog({
   const { execute, isExecuting } = useAction(copyRulesFromAccountAction, {
     onSuccess: (result) => {
       const { copiedCount, replacedCount } = result.data || {};
-      toastSuccess({
-        title: "Rules transferred successfully",
+      toast.success("Rules transferred successfully", {
         description: `${copiedCount || 0} rules transferred, ${replacedCount || 0} rules updated.`,
+        action: {
+          label: "View rules",
+          onClick: () => {
+            router.push(prefixPath(targetAccountId, "/automation"));
+          },
+        },
       });
       onOpenChange(false);
       resetState();
