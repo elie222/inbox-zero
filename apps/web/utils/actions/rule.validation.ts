@@ -271,3 +271,10 @@ export const toggleAllRulesBody = z.object({
   enabled: z.boolean(),
 });
 export type ToggleAllRulesBody = z.infer<typeof toggleAllRulesBody>;
+
+export const copyRulesFromAccountBody = z.object({
+  sourceEmailAccountId: z.string().min(1, "Source account is required"),
+  targetEmailAccountId: z.string().min(1, "Target account is required"),
+  ruleIds: z.array(z.string()).min(1, "Select at least one rule to copy"),
+});
+export type CopyRulesFromAccountBody = z.infer<typeof copyRulesFromAccountBody>;

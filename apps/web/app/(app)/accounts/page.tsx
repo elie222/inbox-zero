@@ -2,8 +2,8 @@
 
 import { useAction } from "next-safe-action/hooks";
 import Link from "next/link";
-import { Trash2, ArrowRight, BotIcon } from "lucide-react";
-import { useEffect } from "react";
+import { Trash2, MoreVertical, Settings, ArrowLeftRight } from "lucide-react";
+import { useEffect, useState } from "react";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { LoadingContent } from "@/components/LoadingContent";
@@ -12,9 +12,14 @@ import {
   Card,
   CardTitle,
   CardHeader,
-  CardContent,
   CardDescription,
 } from "@/components/ui/card";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { useAccounts } from "@/hooks/useAccounts";
 import { deleteEmailAccountAction } from "@/utils/actions/user";
 import { toastSuccess, toastError } from "@/components/Toast";
@@ -25,6 +30,7 @@ import { PageHeader } from "@/components/PageHeader";
 import { PageWrapper } from "@/components/PageWrapper";
 import { logOut } from "@/utils/user";
 import { getAndClearAuthErrorCookie } from "@/utils/auth-cookies";
+import { CopyRulesDialog } from "@/app/(app)/accounts/CopyRulesDialog";
 
 export default function AccountsPage() {
   const { data, isLoading, error, mutate } = useAccounts();
@@ -40,6 +46,7 @@ export default function AccountsPage() {
             <AccountItem
               key={emailAccount.id}
               emailAccount={emailAccount}
+              allAccounts={data.emailAccounts}
               onAccountDeleted={mutate}
             />
           ))}
@@ -52,6 +59,7 @@ export default function AccountsPage() {
 
 function AccountItem({
   emailAccount,
+  allAccounts,
   onAccountDeleted,
 }: {
   emailAccount: {
@@ -61,8 +69,100 @@ function AccountItem({
     image: string | null;
     isPrimary: boolean;
   };
+  allAccounts: Array<{
+    id: string;
+    name: string | null;
+    email: string;
+    image: string | null;
+    isPrimary: boolean;
+  }>;
   onAccountDeleted: () => void;
 }) {
+  return (
+    <Link href={prefixPath(emailAccount.id, "/automation")} className="block">
+      <Card className="cursor-pointer transition-colors hover:bg-slate-50 dark:hover:bg-slate-900">
+        <AccountHeader
+          emailAccount={emailAccount}
+          allAccounts={allAccounts}
+          onAccountDeleted={onAccountDeleted}
+        />
+      </Card>
+    </Link>
+  );
+}
+
+function AccountHeader({
+  emailAccount,
+  allAccounts,
+  onAccountDeleted,
+}: {
+  emailAccount: {
+    id: string;
+    name: string | null;
+    email: string;
+    image: string | null;
+    isPrimary: boolean;
+  };
+  allAccounts: Array<{
+    id: string;
+    name: string | null;
+    email: string;
+    image: string | null;
+    isPrimary: boolean;
+  }>;
+  onAccountDeleted: () => void;
+}) {
+  return (
+    <CardHeader className="flex flex-row items-center gap-3 space-y-0">
+      <Avatar>
+        <AvatarImage src={emailAccount.image || undefined} />
+        <AvatarFallback>
+          {emailAccount.name?.[0] || emailAccount.email?.[0]}
+        </AvatarFallback>
+      </Avatar>
+      <div className="flex flex-col space-y-1.5 flex-1">
+        <CardTitle>{emailAccount.name}</CardTitle>
+        <CardDescription>{emailAccount.email}</CardDescription>
+      </div>
+      <div
+        onMouseDown={(e) => e.stopPropagation()}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.stopPropagation();
+          }
+        }}
+      >
+        <AccountOptionsDropdown
+          emailAccount={emailAccount}
+          allAccounts={allAccounts}
+          onAccountDeleted={onAccountDeleted}
+        />
+      </div>
+    </CardHeader>
+  );
+}
+
+function AccountOptionsDropdown({
+  emailAccount,
+  allAccounts,
+  onAccountDeleted,
+}: {
+  emailAccount: {
+    id: string;
+    email: string;
+    isPrimary: boolean;
+  };
+  allAccounts: Array<{
+    id: string;
+    name: string | null;
+    email: string;
+    image: string | null;
+    isPrimary: boolean;
+  }>;
+  onAccountDeleted: () => void;
+}) {
+  const [copyRulesDialogOpen, setCopyRulesDialogOpen] = useState(false);
+
   const { execute, isExecuting } = useAction(deleteEmailAccountAction, {
     onSuccess: async () => {
       toastSuccess({
@@ -83,53 +183,67 @@ function AccountItem({
     },
   });
 
+  const sourceAccounts = allAccounts.filter(
+    (account) => account.id !== emailAccount.id,
+  );
+
   return (
-    <Card>
-      <CardHeader className="flex flex-row items-center gap-3 space-y-0">
-        <Avatar>
-          <AvatarImage src={emailAccount.image || undefined} />
-          <AvatarFallback>
-            {emailAccount.name?.[0] || emailAccount.email?.[0]}
-          </AvatarFallback>
-        </Avatar>
-        <div className="flex flex-col space-y-1.5">
-          <CardTitle>{emailAccount.name}</CardTitle>
-          <CardDescription>{emailAccount.email}</CardDescription>
-        </div>
-      </CardHeader>
-      <CardContent className="flex justify-end gap-2 flex-wrap">
-        <Button variant="outline" size="sm" Icon={BotIcon}>
-          <Link href={prefixPath(emailAccount.id, "/automation")}>
-            Assistant
-          </Link>
-        </Button>
-        <Button variant="outline" size="sm" Icon={ArrowRight}>
-          <Link href={prefixPath(emailAccount.id, "/setup")}>Setup</Link>
-        </Button>
-        <ConfirmDialog
-          trigger={
-            <Button
-              variant="destructiveSoft"
-              size="sm"
-              loading={isExecuting}
-              Icon={Trash2}
+    <>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="ghost" size="icon">
+            <MoreVertical className="h-4 w-4" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          <DropdownMenuItem asChild>
+            <Link
+              href={prefixPath(emailAccount.id, "/setup")}
+              className="flex items-center gap-2"
             >
-              Delete
-            </Button>
-          }
-          title="Delete Account"
-          description={
-            emailAccount.isPrimary
-              ? `Are you sure you want to delete "${emailAccount.email}"? This is your primary account. You will be logged out and need to log in again. Your oldest remaining account will become your new primary account. All data for "${emailAccount.email}" will be permanently deleted from Inbox Zero.`
-              : `Are you sure you want to delete "${emailAccount.email}"? This will delete all data for it on Inbox Zero.`
-          }
-          confirmText="Delete"
-          onConfirm={() => {
-            execute({ emailAccountId: emailAccount.id });
-          }}
-        />
-      </CardContent>
-    </Card>
+              <Settings className="h-4 w-4" />
+              Setup
+            </Link>
+          </DropdownMenuItem>
+          {sourceAccounts.length > 0 && (
+            <DropdownMenuItem onSelect={() => setCopyRulesDialogOpen(true)}>
+              <ArrowLeftRight className="mr-2 h-4 w-4" />
+              Transfer rules to...
+            </DropdownMenuItem>
+          )}
+          <ConfirmDialog
+            trigger={
+              <DropdownMenuItem
+                onSelect={(e) => e.preventDefault()}
+                className="flex items-center gap-2 text-destructive focus:text-destructive"
+                disabled={isExecuting}
+              >
+                <Trash2 className="h-4 w-4" />
+                Delete
+              </DropdownMenuItem>
+            }
+            title="Delete Account"
+            description={
+              emailAccount.isPrimary
+                ? `Are you sure you want to delete "${emailAccount.email}"? This is your primary account. You will be logged out and need to log in again. Your oldest remaining account will become your new primary account. All data for "${emailAccount.email}" will be permanently deleted from Inbox Zero.`
+                : `Are you sure you want to delete "${emailAccount.email}"? This will delete all data for it on Inbox Zero.`
+            }
+            confirmText="Delete"
+            onConfirm={() => {
+              execute({ emailAccountId: emailAccount.id });
+            }}
+          />
+        </DropdownMenuContent>
+      </DropdownMenu>
+
+      <CopyRulesDialog
+        open={copyRulesDialogOpen}
+        onOpenChange={setCopyRulesDialogOpen}
+        targetAccountId={emailAccount.id}
+        targetAccountEmail={emailAccount.email}
+        sourceAccounts={sourceAccounts}
+      />
+    </>
   );
 }
 

@@ -242,6 +242,24 @@ export function getMockAccountWithEmailAccount(
   };
 }
 
+export function getMockEmailAccountWithAccount({
+  id = "email-account-id",
+  email = "test@example.com",
+  userId = "user1",
+  provider = "google",
+}: {
+  id?: string;
+  email?: string;
+  userId?: string;
+  provider?: string;
+} = {}) {
+  return {
+    id,
+    email,
+    account: { userId, provider },
+  };
+}
+
 export function getCalendarConnection({
   provider = "google",
   calendarIds = ["cal-1"],
