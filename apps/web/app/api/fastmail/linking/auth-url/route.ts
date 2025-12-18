@@ -36,6 +36,15 @@ const getAuthUrl = ({ userId }: { userId: string }) => {
 };
 
 export const GET = withAuth("fastmail/linking/auth-url", async (request) => {
+  // Validate configuration before generating OAuth URL
+  const config = getLinkingOAuth2Config();
+  if (!config.clientId || !config.clientSecret) {
+    return NextResponse.json(
+      { error: "Fastmail OAuth not configured" },
+      { status: 501 },
+    );
+  }
+
   const userId = request.auth.userId;
   const { url: authUrl, state } = getAuthUrl({ userId });
 

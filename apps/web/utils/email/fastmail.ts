@@ -3,8 +3,13 @@ import type {
   FastmailClient,
   JMAPMethodCall,
   JMAPMethodResponse,
+  JMAPError,
 } from "@/utils/fastmail/client";
-import { getAccessTokenFromClient } from "@/utils/fastmail/client";
+import {
+  getAccessTokenFromClient,
+  getJMAPError,
+  isJMAPError,
+} from "@/utils/fastmail/client";
 import { FastmailMailbox } from "@/utils/fastmail/constants";
 import type { InboxZeroLabel } from "@/utils/label";
 import type { ThreadsQuery } from "@/app/api/threads/validation";
@@ -17,6 +22,35 @@ import type {
   EmailSignature,
 } from "@/utils/email/types";
 import { createScopedLogger, type Logger } from "@/utils/logger";
+
+/**
+ * Standard properties to fetch for Email/get requests
+ * Extracted as constant to avoid duplication and ensure consistency
+ */
+const EMAIL_PROPERTIES = [
+  "id",
+  "threadId",
+  "mailboxIds",
+  "keywords",
+  "from",
+  "to",
+  "cc",
+  "bcc",
+  "subject",
+  "receivedAt",
+  "sentAt",
+  "preview",
+  "hasAttachment",
+  "messageId",
+  "inReplyTo",
+  "references",
+  "replyTo",
+  "bodyStructure",
+  "bodyValues",
+  "textBody",
+  "htmlBody",
+  "attachments",
+] as const;
 
 // JMAP Email type
 interface JMAPEmail {
@@ -137,6 +171,20 @@ function getResponseData<T>(response: JMAPMethodResponse): T {
 }
 
 /**
+ * Checks if an error is a JMAP error of a specific type
+ * Used to determine if we should retry with a different approach
+ */
+function isJMAPErrorType(error: unknown, errorType: string): boolean {
+  if (
+    error instanceof Error &&
+    error.message.includes(`JMAP error: ${errorType}`)
+  ) {
+    return true;
+  }
+  return false;
+}
+
+/**
  * Fastmail email provider implementation using the JMAP protocol.
  *
  * JMAP (JSON Meta Application Protocol) is a modern, efficient protocol for
@@ -234,39 +282,46 @@ export class FastmailProvider implements EmailProvider {
   private async ensureMailboxCache(): Promise<MailboxCache> {
     if (this.mailboxCache) return this.mailboxCache;
 
-    const response = await this.client.request([
-      [
-        "Mailbox/get",
-        {
-          accountId: this.client.accountId,
-          properties: [
-            "id",
-            "name",
-            "parentId",
-            "role",
-            "sortOrder",
-            "totalEmails",
-            "unreadEmails",
-            "totalThreads",
-            "unreadThreads",
-            "isSubscribed",
-          ],
-        },
-        "0",
-      ],
-    ]);
+    try {
+      const response = await this.client.request([
+        [
+          "Mailbox/get",
+          {
+            accountId: this.client.accountId,
+            properties: [
+              "id",
+              "name",
+              "parentId",
+              "role",
+              "sortOrder",
+              "totalEmails",
+              "unreadEmails",
+              "totalThreads",
+              "unreadThreads",
+              "isSubscribed",
+            ],
+          },
+          "0",
+        ],
+      ]);
 
-    const mailboxes = getResponseData<JMAPGetResponse<JMAPMailbox>>(
-      response.methodResponses[0],
-    ).list;
+      const mailboxes = getResponseData<JMAPGetResponse<JMAPMailbox>>(
+        response.methodResponses[0],
+      ).list;
 
-    this.mailboxCache = {
-      byId: new Map(mailboxes.map((m) => [m.id, m])),
-      byRole: new Map(mailboxes.filter((m) => m.role).map((m) => [m.role!, m])),
-      byName: new Map(mailboxes.map((m) => [m.name.toLowerCase(), m])),
-    };
+      this.mailboxCache = {
+        byId: new Map(mailboxes.map((m) => [m.id, m])),
+        byRole: new Map(
+          mailboxes.filter((m) => m.role).map((m) => [m.role!, m]),
+        ),
+        byName: new Map(mailboxes.map((m) => [m.name.toLowerCase(), m])),
+      };
 
-    return this.mailboxCache;
+      return this.mailboxCache;
+    } catch (error) {
+      this.logger.error("Failed to fetch mailbox cache", { error });
+      throw error;
+    }
   }
 
   private async getMailboxByRole(role: string): Promise<JMAPMailbox | null> {
@@ -305,7 +360,9 @@ export class FastmailProvider implements EmailProvider {
     const labelIds = Object.keys(email.mailboxIds || {});
 
     // Add keyword-based labels
-    if (email.keywords?.$seen === false || !email.keywords?.$seen) {
+    // Only mark as UNREAD if keywords exist and $seen is explicitly false or missing
+    // If keywords object doesn't exist, we don't have read state information
+    if (email.keywords && !email.keywords.$seen) {
       labelIds.push("UNREAD");
     }
     if (email.keywords?.$flagged) {
@@ -365,95 +422,77 @@ export class FastmailProvider implements EmailProvider {
   async getThreads(folderId?: string): Promise<EmailThread[]> {
     const log = this.logger.with({ action: "getThreads", folderId });
 
-    let mailboxId = folderId;
-    if (!mailboxId) {
-      const inbox = await this.getMailboxByRole(FastmailMailbox.INBOX);
-      mailboxId = inbox?.id;
+    try {
+      let mailboxId = folderId;
+      if (!mailboxId) {
+        const inbox = await this.getMailboxByRole(FastmailMailbox.INBOX);
+        mailboxId = inbox?.id;
+      }
+
+      if (!mailboxId) {
+        log.warn("No mailbox found");
+        return [];
+      }
+
+      // First, query for threads
+      const threadResponse = await this.client.request([
+        [
+          "Email/query",
+          {
+            accountId: this.client.accountId,
+            filter: { inMailbox: mailboxId },
+            sort: [{ property: "receivedAt", isAscending: false }],
+            limit: 50,
+            collapseThreads: true,
+          },
+          "0",
+        ],
+      ]);
+
+      const emailIds = getResponseData<JMAPQueryResponse>(
+        threadResponse.methodResponses[0],
+      ).ids;
+
+      if (emailIds.length === 0) {
+        return [];
+      }
+
+      // Get full email data
+      const emailResponse = await this.client.request([
+        [
+          "Email/get",
+          {
+            accountId: this.client.accountId,
+            ids: emailIds,
+            properties: [...EMAIL_PROPERTIES],
+            fetchAllBodyValues: true,
+          },
+          "1",
+        ],
+      ]);
+
+      const emails = getResponseData<JMAPGetResponse<JMAPEmail>>(
+        emailResponse.methodResponses[0],
+      ).list;
+
+      // Group emails by thread
+      const threadMap = new Map<string, ParsedMessage[]>();
+      for (const email of emails) {
+        const parsed = this.parseJMAPEmail(email);
+        const existing = threadMap.get(email.threadId) || [];
+        existing.push(parsed);
+        threadMap.set(email.threadId, existing);
+      }
+
+      return Array.from(threadMap.entries()).map(([threadId, messages]) => ({
+        id: threadId,
+        messages,
+        snippet: messages[0]?.snippet || "",
+      }));
+    } catch (error) {
+      log.error("Failed to get threads", { error });
+      throw error;
     }
-
-    if (!mailboxId) {
-      log.warn("No mailbox found");
-      return [];
-    }
-
-    // First, query for threads
-    const threadResponse = await this.client.request([
-      [
-        "Email/query",
-        {
-          accountId: this.client.accountId,
-          filter: { inMailbox: mailboxId },
-          sort: [{ property: "receivedAt", isAscending: false }],
-          limit: 50,
-          collapseThreads: true,
-        },
-        "0",
-      ],
-    ]);
-
-    const emailIds = getResponseData<JMAPQueryResponse>(
-      threadResponse.methodResponses[0],
-    ).ids;
-
-    if (emailIds.length === 0) {
-      return [];
-    }
-
-    // Get full email data
-    const emailResponse = await this.client.request([
-      [
-        "Email/get",
-        {
-          accountId: this.client.accountId,
-          ids: emailIds,
-          properties: [
-            "id",
-            "threadId",
-            "mailboxIds",
-            "keywords",
-            "from",
-            "to",
-            "cc",
-            "bcc",
-            "subject",
-            "receivedAt",
-            "sentAt",
-            "preview",
-            "hasAttachment",
-            "messageId",
-            "inReplyTo",
-            "references",
-            "replyTo",
-            "bodyStructure",
-            "bodyValues",
-            "textBody",
-            "htmlBody",
-            "attachments",
-          ],
-          fetchAllBodyValues: true,
-        },
-        "1",
-      ],
-    ]);
-
-    const emails = getResponseData<JMAPGetResponse<JMAPEmail>>(
-      emailResponse.methodResponses[0],
-    ).list;
-
-    // Group emails by thread
-    const threadMap = new Map<string, ParsedMessage[]>();
-    for (const email of emails) {
-      const parsed = this.parseJMAPEmail(email);
-      const existing = threadMap.get(email.threadId) || [];
-      existing.push(parsed);
-      threadMap.set(email.threadId, existing);
-    }
-
-    return Array.from(threadMap.entries()).map(([threadId, messages]) => ({
-      id: threadId,
-      messages,
-      snippet: messages[0]?.snippet || "",
-    }));
   }
 
   /**
@@ -464,66 +503,48 @@ export class FastmailProvider implements EmailProvider {
   async getThread(threadId: string): Promise<EmailThread> {
     const log = this.logger.with({ action: "getThread", threadId });
 
-    // Get all emails in the thread
-    const response = await this.client.request([
-      [
-        "Email/query",
-        {
-          accountId: this.client.accountId,
-          filter: { inThread: threadId },
-          sort: [{ property: "receivedAt", isAscending: true }],
-        },
-        "0",
-      ],
-      [
-        "Email/get",
-        {
-          accountId: this.client.accountId,
-          "#ids": {
-            resultOf: "0",
-            name: "Email/query",
-            path: "/ids",
+    try {
+      // Get all emails in the thread
+      const response = await this.client.request([
+        [
+          "Email/query",
+          {
+            accountId: this.client.accountId,
+            filter: { inThread: threadId },
+            sort: [{ property: "receivedAt", isAscending: true }],
           },
-          properties: [
-            "id",
-            "threadId",
-            "mailboxIds",
-            "keywords",
-            "from",
-            "to",
-            "cc",
-            "bcc",
-            "subject",
-            "receivedAt",
-            "sentAt",
-            "preview",
-            "hasAttachment",
-            "messageId",
-            "inReplyTo",
-            "references",
-            "replyTo",
-            "bodyStructure",
-            "bodyValues",
-            "textBody",
-            "htmlBody",
-            "attachments",
-          ],
-          fetchAllBodyValues: true,
-        },
-        "1",
-      ],
-    ]);
+          "0",
+        ],
+        [
+          "Email/get",
+          {
+            accountId: this.client.accountId,
+            "#ids": {
+              resultOf: "0",
+              name: "Email/query",
+              path: "/ids",
+            },
+            properties: [...EMAIL_PROPERTIES],
+            fetchAllBodyValues: true,
+          },
+          "1",
+        ],
+      ]);
 
-    const emails = getResponseData<JMAPGetResponse<JMAPEmail>>(
-      response.methodResponses[1],
-    ).list;
-    const messages = emails.map((e) => this.parseJMAPEmail(e));
+      const emails = getResponseData<JMAPGetResponse<JMAPEmail>>(
+        response.methodResponses[1],
+      ).list;
+      const messages = emails.map((e) => this.parseJMAPEmail(e));
 
-    return {
-      id: threadId,
-      messages,
-      snippet: messages[0]?.snippet || "",
-    };
+      return {
+        id: threadId,
+        messages,
+        snippet: messages[0]?.snippet || "",
+      };
+    } catch (error) {
+      log.error("Failed to get thread", { error });
+      throw error;
+    }
   }
 
   /**
@@ -1251,9 +1272,17 @@ export class FastmailProvider implements EmailProvider {
 
       return {};
     } catch (error) {
-      // If label not found by ID, try by name
-      if (labelName) {
-        log.warn("Label not found by ID, trying by name");
+      // Only retry with labelName if the error is specifically about invalid/unknown label ID
+      // Don't retry on network errors, permission errors, etc.
+      const isInvalidLabelError =
+        isJMAPErrorType(error, "invalidArguments") ||
+        isJMAPErrorType(error, "notFound");
+
+      if (labelName && isInvalidLabelError) {
+        log.warn("Label not found by ID, trying by name", {
+          labelId,
+          labelName,
+        });
         const mailbox = await this.getMailboxByName(labelName);
         if (mailbox) {
           await this.client.request([
@@ -1574,8 +1603,8 @@ export class FastmailProvider implements EmailProvider {
       ? [{ email: body.replyTo }]
       : undefined;
 
-    // Upload attachments if provided
-    const uploadedAttachments: Array<{
+    // Upload attachments in parallel if provided
+    let uploadedAttachments: Array<{
       blobId: string;
       type: string;
       name: string;
@@ -1584,19 +1613,20 @@ export class FastmailProvider implements EmailProvider {
     }> = [];
 
     if (body.attachments && body.attachments.length > 0) {
-      for (const attachment of body.attachments) {
+      const uploadPromises = body.attachments.map(async (attachment) => {
         const uploaded = await this.uploadBlob(
           attachment.content,
           attachment.contentType,
         );
-        uploadedAttachments.push({
+        return {
           blobId: uploaded.blobId,
           type: attachment.contentType,
           name: attachment.filename,
           size: uploaded.size,
-          disposition: "attachment",
-        });
-      }
+          disposition: "attachment" as const,
+        };
+      });
+      uploadedAttachments = await Promise.all(uploadPromises);
     }
 
     const emailCreate: Record<string, unknown> = {
@@ -2370,7 +2400,7 @@ export class FastmailProvider implements EmailProvider {
       return hasSent;
     } catch (error) {
       log.error("Error checking if reply was sent", { error });
-      return true; // Default to true on error
+      return false; // Default to false on error to avoid silently skipping replies
     }
   }
 
@@ -2602,6 +2632,15 @@ export class FastmailProvider implements EmailProvider {
     const emailMatch = from.match(/<([^>]+)>/) || [null, from];
     const email = emailMatch[1] || from;
     const domain = email.split("@")[1];
+
+    // Validate domain exists to avoid invalid JMAP filter
+    if (!domain) {
+      this.logger.warn("Could not extract domain from email address", {
+        from,
+        email,
+      });
+      return false;
+    }
 
     // Check for previous emails from this sender before this date
     const response = await this.client.request([

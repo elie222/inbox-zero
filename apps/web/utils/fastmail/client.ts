@@ -6,6 +6,79 @@ import { SafeError } from "@/utils/error";
 
 const logger = createScopedLogger("fastmail/client");
 
+/** Maximum number of retries for transient errors */
+const MAX_RETRIES = 3;
+
+/** Base delay in ms for exponential backoff */
+const BASE_RETRY_DELAY = 1000;
+
+/**
+ * Determines if an HTTP status code indicates a transient error worth retrying
+ */
+function isTransientError(status: number): boolean {
+  return status === 429 || status === 503 || status === 502 || status === 504;
+}
+
+/**
+ * Executes a fetch request with exponential backoff retry for transient errors
+ */
+async function fetchWithRetry(
+  url: string,
+  options: RequestInit,
+  retries = MAX_RETRIES,
+): Promise<Response> {
+  let lastError: Error | null = null;
+  let lastResponse: Response | null = null;
+
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      const response = await fetch(url, options);
+
+      // If success or non-transient error, return immediately
+      if (response.ok || !isTransientError(response.status)) {
+        return response;
+      }
+
+      lastResponse = response;
+
+      // Check for Retry-After header
+      const retryAfter = response.headers.get("Retry-After");
+      const delay = retryAfter
+        ? Number.parseInt(retryAfter, 10) * 1000
+        : BASE_RETRY_DELAY * 2 ** attempt;
+
+      if (attempt < retries) {
+        logger.warn("Transient error, retrying", {
+          status: response.status,
+          attempt: attempt + 1,
+          maxRetries: retries,
+          delayMs: delay,
+        });
+        await new Promise((resolve) => setTimeout(resolve, delay));
+      }
+    } catch (error) {
+      lastError = error instanceof Error ? error : new Error(String(error));
+
+      if (attempt < retries) {
+        const delay = BASE_RETRY_DELAY * 2 ** attempt;
+        logger.warn("Network error, retrying", {
+          error: lastError.message,
+          attempt: attempt + 1,
+          maxRetries: retries,
+          delayMs: delay,
+        });
+        await new Promise((resolve) => setTimeout(resolve, delay));
+      }
+    }
+  }
+
+  // All retries exhausted
+  if (lastResponse) {
+    return lastResponse;
+  }
+  throw lastError || new Error("Request failed after retries");
+}
+
 /**
  * Fastmail JMAP API endpoints
  * @see https://www.fastmail.com/dev/
@@ -76,6 +149,51 @@ export interface JMAPResponse {
 export type JMAPMethodResponse = [string, Record<string, unknown>, string];
 
 /**
+ * JMAP error types that can appear in method responses
+ * @see https://jmap.io/spec-core.html#errors
+ */
+export interface JMAPError {
+  type: string;
+  description?: string;
+}
+
+/**
+ * Checks if a JMAP method response is an error response
+ * JMAP can return HTTP 200 with errors in the methodResponses array
+ */
+export function isJMAPError(response: JMAPMethodResponse): boolean {
+  return response[0] === "error";
+}
+
+/**
+ * Extracts error information from a JMAP error response
+ */
+export function getJMAPError(response: JMAPMethodResponse): JMAPError | null {
+  if (!isJMAPError(response)) return null;
+  const data = response[1];
+  return {
+    type: (data.type as string) || "unknown",
+    description: data.description as string | undefined,
+  };
+}
+
+/**
+ * Checks all method responses for errors and throws if any found
+ * @param response - The JMAP response to check
+ * @throws SafeError if any method response is an error
+ */
+export function checkJMAPErrors(response: JMAPResponse): void {
+  for (const methodResponse of response.methodResponses) {
+    if (isJMAPError(methodResponse)) {
+      const error = getJMAPError(methodResponse);
+      throw new SafeError(
+        `JMAP error: ${error?.type || "unknown"} - ${error?.description || "No description"}`,
+      );
+    }
+  }
+}
+
+/**
  * Fastmail client interface for making JMAP API calls
  */
 export interface FastmailClient {
@@ -107,7 +225,7 @@ export function getLinkingOAuth2Config() {
 }
 
 async function getJMAPSession(accessToken: string): Promise<JMAPSession> {
-  const response = await fetch(FASTMAIL_JMAP_SESSION_URL, {
+  const response = await fetchWithRetry(FASTMAIL_JMAP_SESSION_URL, {
     headers: {
       Authorization: `Bearer ${accessToken}`,
     },
@@ -139,7 +257,7 @@ async function makeJMAPRequest(
     methodCalls,
   };
 
-  const response = await fetch(apiUrl, {
+  const response = await fetchWithRetry(apiUrl, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${accessToken}`,
@@ -157,7 +275,12 @@ async function makeJMAPRequest(
     throw new SafeError(`JMAP request failed: ${response.status}`);
   }
 
-  return response.json();
+  const jmapResponse: JMAPResponse = await response.json();
+
+  // Check for JMAP method-level errors (HTTP 200 but method failed)
+  checkJMAPErrors(jmapResponse);
+
+  return jmapResponse;
 }
 
 /**
@@ -170,6 +293,18 @@ export async function createFastmailClient(
   accessToken: string,
 ): Promise<FastmailClient> {
   const session = await getJMAPSession(accessToken);
+
+  // Validate required JMAP capabilities
+  const requiredCapabilities = [
+    "urn:ietf:params:jmap:core",
+    "urn:ietf:params:jmap:mail",
+  ];
+  for (const capability of requiredCapabilities) {
+    if (!session.capabilities[capability]) {
+      logger.error("Missing required JMAP capability", { capability });
+      throw new SafeError(`Missing required JMAP capability: ${capability}`);
+    }
+  }
 
   // Get the primary mail account ID
   const accountId = session.primaryAccounts["urn:ietf:params:jmap:mail"];
@@ -214,8 +349,16 @@ export async function getFastmailClientWithRefresh({
   }
 
   // Check if token is still valid
-  // expiresAt is stored in seconds (Unix timestamp), Date.now() returns milliseconds
-  if (accessToken && expiresAt && expiresAt * 1000 > Date.now()) {
+  // expiresAt can be stored as either:
+  // - Unix timestamp in seconds (legacy from auth.ts)
+  // - Date timestamp in milliseconds (from callback route)
+  // Handle both by checking if value is reasonable (< year 3000 in seconds = ~32503680000)
+  const expiresAtMs =
+    expiresAt && expiresAt < 32_503_680_000
+      ? expiresAt * 1000 // Unix timestamp in seconds
+      : expiresAt; // Already milliseconds or Date timestamp
+
+  if (accessToken && expiresAtMs && expiresAtMs > Date.now()) {
     return createFastmailClient(accessToken);
   }
 
@@ -246,21 +389,25 @@ export async function getFastmailClientWithRefresh({
 
   const tokens = await response.json();
   const newAccessToken = tokens.access_token;
+  const newRefreshToken = tokens.refresh_token;
 
-  if (newAccessToken !== accessToken) {
-    await saveTokens({
-      tokens: {
-        access_token: newAccessToken,
-        refresh_token: tokens.refresh_token,
-        expires_at: tokens.expires_in
-          ? Math.floor(Date.now() / 1000) + tokens.expires_in
-          : undefined,
-      },
-      accountRefreshToken: refreshToken,
-      emailAccountId,
-      provider: "fastmail",
-    });
-  }
+  // Always save tokens after successful refresh to handle:
+  // 1. New access token
+  // 2. Rotated refresh token (some OAuth servers rotate refresh tokens)
+  // 3. Updated expiration time
+  await saveTokens({
+    tokens: {
+      access_token: newAccessToken,
+      refresh_token: newRefreshToken || refreshToken, // Keep old if not rotated
+      // saveTokens expects expires_at as Unix timestamp in seconds
+      expires_at: tokens.expires_in
+        ? Math.floor(Date.now() / 1000) + tokens.expires_in
+        : undefined,
+    },
+    accountRefreshToken: refreshToken,
+    emailAccountId,
+    provider: "fastmail",
+  });
 
   return createFastmailClient(newAccessToken);
 }

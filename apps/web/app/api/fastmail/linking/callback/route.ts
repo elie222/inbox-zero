@@ -19,6 +19,7 @@ import {
   clearOAuthCode,
 } from "@/utils/redis/oauth-code";
 import { isDuplicateError } from "@/utils/prisma-helpers";
+import { captureException } from "@/utils/error";
 
 export const GET = withError("fastmail/linking/callback", async (request) => {
   const logger = request.logger;
@@ -100,9 +101,11 @@ export const GET = withError("fastmail/linking/callback", async (request) => {
         status: tokenResponse.status,
         error: errorText,
       });
-      throw new Error(
+      const tokenError = new Error(
         `Failed to exchange code for tokens: ${tokenResponse.status}`,
       );
+      captureException(tokenError);
+      throw tokenError;
     }
 
     const tokens = await tokenResponse.json();
@@ -112,7 +115,15 @@ export const GET = withError("fastmail/linking/callback", async (request) => {
     }
 
     // Get user info from Fastmail
-    const userInfo = await getUserInfo(tokens.access_token);
+    let userInfo: { sub: string; email: string; name?: string };
+    try {
+      userInfo = await getUserInfo(tokens.access_token);
+    } catch (userInfoError) {
+      logger.error("Failed to fetch user info from Fastmail", {
+        error: userInfoError,
+      });
+      throw userInfoError;
+    }
 
     const providerAccountId = userInfo.sub;
     const providerEmail = userInfo.email;
@@ -168,8 +179,8 @@ export const GET = withError("fastmail/linking/callback", async (request) => {
             expires_at: tokens.expires_in
               ? new Date(Date.now() + tokens.expires_in * 1000)
               : null,
-            scope: tokens.scope,
-            token_type: tokens.token_type,
+            scope: tokens.scope || "",
+            token_type: tokens.token_type || "Bearer",
             id_token: tokens.id_token,
             emailAccount: {
               create: {
@@ -240,8 +251,8 @@ export const GET = withError("fastmail/linking/callback", async (request) => {
           expires_at: tokens.expires_in
             ? new Date(Date.now() + tokens.expires_in * 1000)
             : null,
-          scope: tokens.scope,
-          token_type: tokens.token_type,
+          scope: tokens.scope || "",
+          token_type: tokens.token_type || "Bearer",
           id_token: tokens.id_token,
         },
       });
