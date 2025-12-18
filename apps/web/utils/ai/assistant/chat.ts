@@ -464,6 +464,7 @@ const updateRuleActionsTool = ({
         })),
         provider,
         emailAccountId,
+        logger,
       });
 
       return {
