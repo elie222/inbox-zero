@@ -1,16 +1,13 @@
 import type { OutlookClient } from "@/utils/outlook/client";
-import { createScopedLogger } from "@/utils/logger";
+import type { Logger } from "@/utils/logger";
 import { publishArchive, type TinybirdEmailAction } from "@inboxzero/tinybird";
 import { WELL_KNOWN_FOLDERS } from "./message";
 import { extractErrorInfo, withOutlookRetry } from "@/utils/outlook/retry";
-
 import { inboxZeroLabels, type InboxZeroLabel } from "@/utils/label";
 import type {
   OutlookCategory,
   Message,
 } from "@microsoft/microsoft-graph-types";
-
-const logger = createScopedLogger("outlook/label");
 
 // Outlook doesn't have system labels like Gmail, but we map common categories
 // Using same format as Gmail for consistency
@@ -81,10 +78,12 @@ export async function createLabel({
   client,
   name,
   color,
+  logger,
 }: {
   client: OutlookClient;
   name: string;
   color?: string;
+  logger: Logger;
 }) {
   try {
     // Use a random preset color if none provided or if the provided color is not supported
@@ -146,23 +145,27 @@ export async function getLabel(options: {
 export async function getOrCreateLabel({
   client,
   name,
+  logger,
 }: {
   client: OutlookClient;
   name: string;
+  logger: Logger;
 }) {
   if (!name?.trim()) throw new Error("Label name cannot be empty");
   const label = await getLabel({ client, name });
   if (label) return label;
-  const createdLabel = await createLabel({ client, name });
+  const createdLabel = await createLabel({ client, name, logger });
   return createdLabel;
 }
 
 export async function getOrCreateLabels({
   client,
   names,
+  logger,
 }: {
   client: OutlookClient;
   names: string[];
+  logger: Logger;
 }): Promise<OutlookCategory[]> {
   if (!names.length) return [];
 
@@ -184,7 +187,7 @@ export async function getOrCreateLabels({
       const existingLabel = labelMap.get(normalizedName);
       if (existingLabel) return existingLabel;
 
-      return createLabel({ client, name: names[index] });
+      return createLabel({ client, name: names[index], logger });
     }),
   );
 
@@ -238,10 +241,12 @@ export async function removeThreadLabel({
   client,
   threadId,
   categoryName,
+  logger,
 }: {
   client: OutlookClient;
   threadId: string;
   categoryName: string;
+  logger: Logger;
 }) {
   if (!categoryName) {
     logger.warn("Category name is empty, skipping removal", { threadId });
@@ -295,12 +300,14 @@ export async function archiveThread({
   ownerEmail,
   actionSource,
   folderId = "archive",
+  logger,
 }: {
   client: OutlookClient;
   threadId: string;
   ownerEmail: string;
   actionSource: TinybirdEmailAction["actionSource"];
   folderId?: string;
+  logger: Logger;
 }) {
   if (!folderId) {
     logger.warn("No folderId provided, skipping archive operation", {
@@ -484,10 +491,12 @@ export async function markReadThread({
   client,
   threadId,
   read,
+  logger,
 }: {
   client: OutlookClient;
   threadId: string;
   read: boolean;
+  logger: Logger;
 }) {
   try {
     // In Outlook, we need to mark each message in the thread as read
@@ -582,9 +591,11 @@ export async function markImportantMessage({
 export async function getOrCreateInboxZeroLabel({
   client,
   key,
+  logger,
 }: {
   client: OutlookClient;
   key: InboxZeroLabel;
+  logger: Logger;
 }) {
   const { name } = inboxZeroLabels[key];
   const labels = await getLabels(client);
@@ -594,6 +605,6 @@ export async function getOrCreateInboxZeroLabel({
   if (label) return label;
 
   // Create label if it doesn't exist
-  const createdLabel = await createLabel({ client, name });
+  const createdLabel = await createLabel({ client, name, logger });
   return createdLabel;
 }

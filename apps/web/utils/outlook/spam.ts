@@ -1,10 +1,12 @@
 import type { OutlookClient } from "@/utils/outlook/client";
-import { createScopedLogger } from "@/utils/logger";
 import { withOutlookRetry } from "@/utils/outlook/retry";
+import type { Logger } from "@/utils/logger";
 
-const logger = createScopedLogger("outlook/spam");
-
-export async function markSpam(client: OutlookClient, threadId: string) {
+export async function markSpam(
+  client: OutlookClient,
+  threadId: string,
+  logger: Logger,
+) {
   try {
     // In Outlook, marking as spam is moving to the Junk Email folder
     // We need to move each message in the thread individually

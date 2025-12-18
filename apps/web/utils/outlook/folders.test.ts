@@ -3,9 +3,11 @@ import {
   getOutlookFolderTree,
   getOutlookRootFolders,
   getOutlookChildFolders,
-  type OutlookFolder,
 } from "./folders";
 import type { OutlookClient } from "./client";
+import { createScopedLogger } from "@/utils/logger";
+
+const logger = createScopedLogger("outlook/folders");
 
 vi.mock("server-only", () => ({}));
 
@@ -76,7 +78,7 @@ describe("getOutlookFolderTree", () => {
       },
     });
 
-    const result = await getOutlookFolderTree(mockClient, 2);
+    const result = await getOutlookFolderTree(mockClient, 2, logger);
 
     expect(result).toHaveLength(1);
     expect(result[0].displayName).toBe("Inbox");
@@ -125,7 +127,7 @@ describe("getOutlookFolderTree", () => {
       },
     });
 
-    const result = await getOutlookFolderTree(mockClient, 6);
+    const result = await getOutlookFolderTree(mockClient, 6, logger);
 
     expect(result).toHaveLength(1);
     expect(result[0].displayName).toBe("Inbox");
@@ -177,7 +179,7 @@ describe("getOutlookFolderTree", () => {
       },
     });
 
-    const result = await getOutlookFolderTree(mockClient, 6);
+    const result = await getOutlookFolderTree(mockClient, 6, logger);
 
     expect(result).toHaveLength(2);
 
@@ -265,7 +267,7 @@ describe("getOutlookFolderTree", () => {
 
     // With maxDepth=3, should fetch root (1), level1's children (2),
     // but NOT level2's children (would be depth 3)
-    await getOutlookFolderTree(mockClient, 3);
+    await getOutlookFolderTree(mockClient, 3, logger);
 
     // Should NOT have called the API for level2's children
     const level2ChildCalls = apiCallTracker.filter((call) =>
@@ -288,7 +290,7 @@ describe("getOutlookFolderTree", () => {
       },
     });
 
-    const result = await getOutlookFolderTree(mockClient, 6);
+    const result = await getOutlookFolderTree(mockClient, 6, logger);
 
     expect(result).toHaveLength(1);
     expect(result[0].displayName).toBe("EmptyFolder");
@@ -353,7 +355,7 @@ describe("getOutlookFolderTree", () => {
       }),
     } as unknown as OutlookClient;
 
-    await getOutlookFolderTree(mockClient, 6);
+    await getOutlookFolderTree(mockClient, 6, logger);
 
     // Should NOT have fetched children for no-children-id
     const noChildrenCalls = apiCallTracker.filter((call) =>

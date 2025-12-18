@@ -123,7 +123,7 @@ async function handleReferralCompletion(
 
   // Complete the referral
   for (const userId of userIds) {
-    await completeReferralAndGrantReward(userId);
+    await completeReferralAndGrantReward(userId, logger);
   }
 }
 

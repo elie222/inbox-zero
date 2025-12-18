@@ -78,6 +78,7 @@ export const POST = withEmailAccount("chat", async (request) => {
       emailAccountId,
       user,
       context,
+      logger: request.logger,
     });
 
     return result.toUIMessageStreamResponse({

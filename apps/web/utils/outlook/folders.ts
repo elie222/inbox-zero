@@ -1,9 +1,7 @@
 import type { MailFolder } from "@microsoft/microsoft-graph-types";
 import type { OutlookClient } from "./client";
-import { createScopedLogger } from "@/utils/logger";
+import type { Logger } from "@/utils/logger";
 import { withOutlookRetry } from "@/utils/outlook/retry";
-
-const logger = createScopedLogger("outlook/folders");
 
 // Should not use a common separator like "/|\>" as it may be used in the folder name.
 // Using U+2999 as it is unlikely to appear in normal text
@@ -68,6 +66,7 @@ export async function getOutlookChildFolders(
 async function findOutlookFolderByName(
   client: OutlookClient,
   folderName: string,
+  logger: Logger,
 ): Promise<OutlookFolder | undefined> {
   try {
     const response: { value: MailFolder[] } = await withOutlookRetry(() =>
@@ -95,6 +94,7 @@ async function expandFolderChildren(
   folder: OutlookFolder,
   currentDepth: number,
   maxDepth: number,
+  logger: Logger,
 ): Promise<void> {
   if (currentDepth >= maxDepth) {
     return;
@@ -120,13 +120,20 @@ async function expandFolderChildren(
 
   // Recursively expand children
   for (const child of folder.childFolders || []) {
-    await expandFolderChildren(client, child, currentDepth + 1, maxDepth);
+    await expandFolderChildren(
+      client,
+      child,
+      currentDepth + 1,
+      maxDepth,
+      logger,
+    );
   }
 }
 
 export async function getOutlookFolderTree(
   client: OutlookClient,
-  maxDepth = 6,
+  maxDepth: number | undefined,
+  logger: Logger,
 ): Promise<OutlookFolder[]> {
   const folders = await getOutlookRootFolders(client);
 
@@ -136,7 +143,9 @@ export async function getOutlookFolderTree(
 
   for (const folder of folders) {
     // Expand root folder itself if it has unfetched children
-    expandPromises.push(expandFolderChildren(client, folder, 1, maxDepth));
+    expandPromises.push(
+      expandFolderChildren(client, folder, 1, maxDepth || 6, logger),
+    );
   }
 
   await Promise.all(expandPromises);
@@ -147,8 +156,13 @@ export async function getOutlookFolderTree(
 export async function getOrCreateOutlookFolderIdByName(
   client: OutlookClient,
   folderName: string,
+  logger: Logger,
 ): Promise<string> {
-  const existingFolder = await findOutlookFolderByName(client, folderName);
+  const existingFolder = await findOutlookFolderByName(
+    client,
+    folderName,
+    logger,
+  );
 
   if (existingFolder) {
     return existingFolder.id;
@@ -171,7 +185,7 @@ export async function getOrCreateOutlookFolderIdByName(
       logger.info("Folder already exists, fetching existing folder", {
         folderName,
       });
-      const folder = await findOutlookFolderByName(client, folderName);
+      const folder = await findOutlookFolderByName(client, folderName, logger);
       if (folder) {
         return folder.id;
       }

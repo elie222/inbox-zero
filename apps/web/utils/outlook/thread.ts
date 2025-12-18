@@ -2,15 +2,14 @@ import type { OutlookClient } from "@/utils/outlook/client";
 import type { Message } from "@microsoft/microsoft-graph-types";
 import type { ParsedMessage } from "@/utils/types";
 import { escapeODataString } from "@/utils/outlook/odata-escape";
-import { createScopedLogger } from "@/utils/logger";
+import type { Logger } from "@/utils/logger";
 import { convertMessage, createMessagesRequest } from "@/utils/outlook/message";
 import { withOutlookRetry } from "@/utils/outlook/retry";
-
-const logger = createScopedLogger("outlook/thread");
 
 export async function getThread(
   threadId: string,
   client: OutlookClient,
+  logger: Logger,
 ): Promise<Message[]> {
   const escapedThreadId = escapeODataString(threadId);
   const filter = `conversationId eq '${escapedThreadId}'`;
@@ -192,8 +191,9 @@ export async function getThreadsFromSenderWithSubject(
 export async function getThreadMessages(
   threadId: string,
   client: OutlookClient,
+  logger: Logger,
 ): Promise<ParsedMessage[]> {
-  const messages: Message[] = await getThread(threadId, client);
+  const messages: Message[] = await getThread(threadId, client, logger);
 
   return messages
     .filter((msg) => !msg.isDraft)

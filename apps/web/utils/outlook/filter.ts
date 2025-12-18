@@ -3,12 +3,10 @@ import type {
   MessageRule,
   OutlookCategory,
 } from "@microsoft/microsoft-graph-types";
-import { createScopedLogger } from "@/utils/logger";
+import type { Logger } from "@/utils/logger";
 import { isAlreadyExistsError } from "./errors";
 import { withOutlookRetry } from "@/utils/outlook/retry";
 import { getLabelById } from "@/utils/outlook/label";
-
-const logger = createScopedLogger("outlook/filter");
 
 // Microsoft Graph API doesn't have a direct equivalent to Gmail filters
 // Instead, we can work with mail rules which are more complex but provide similar functionality
@@ -19,8 +17,9 @@ export async function createFilter(options: {
   from: string;
   addLabelIds?: string[];
   removeLabelIds?: string[];
+  logger: Logger;
 }) {
-  const { client, from, addLabelIds, removeLabelIds } = options;
+  const { client, from, addLabelIds, removeLabelIds, logger } = options;
 
   try {
     const actions = await buildFilterActions({
@@ -28,6 +27,7 @@ export async function createFilter(options: {
       addLabelIds,
       removeLabelIds,
       context: { from },
+      logger,
     });
 
     const rule: MessageRule = {
@@ -58,10 +58,12 @@ export async function createAutoArchiveFilter({
   client,
   from,
   labelName,
+  logger,
 }: {
   client: OutlookClient;
   from: string;
   labelName?: string;
+  logger: Logger;
 }) {
   try {
     // For Outlook, we'll create a rule that moves messages to archive
@@ -93,12 +95,15 @@ export async function createAutoArchiveFilter({
   }
 }
 
-export async function deleteFilter(options: {
+export async function deleteFilter({
+  client,
+  id,
+  logger,
+}: {
   client: OutlookClient;
   id: string;
+  logger: Logger;
 }) {
-  const { client, id } = options;
-
   try {
     await withOutlookRetry(() =>
       client
@@ -114,9 +119,15 @@ export async function deleteFilter(options: {
   }
 }
 
-export async function getFiltersList(options: { client: OutlookClient }) {
+export async function getFiltersList({
+  client,
+  logger,
+}: {
+  client: OutlookClient;
+  logger: Logger;
+}) {
   try {
-    const response: { value: MessageRule[] } = await options.client
+    const response: { value: MessageRule[] } = await client
       .getClient()
       .api("/me/mailFolders/inbox/messageRules")
       .get();
@@ -138,10 +149,12 @@ export async function createCategoryFilter({
   client,
   from,
   categoryName,
+  logger,
 }: {
   client: OutlookClient;
   from: string;
   categoryName: string;
+  logger: Logger;
 }) {
   try {
     // First, ensure the category exists
@@ -195,12 +208,14 @@ export async function updateFilter({
   from,
   addLabelIds,
   removeLabelIds,
+  logger,
 }: {
   client: OutlookClient;
   id: string;
   from: string;
   addLabelIds?: string[];
   removeLabelIds?: string[];
+  logger: Logger;
 }) {
   try {
     const actions = await buildFilterActions({
@@ -208,6 +223,7 @@ export async function updateFilter({
       addLabelIds,
       removeLabelIds,
       context: { id, from },
+      logger,
     });
 
     const rule: MessageRule = {
@@ -243,6 +259,7 @@ export async function updateFilter({
 async function resolveCategoryNames(
   client: OutlookClient,
   labelIds: string[],
+  logger: Logger,
 ): Promise<string[]> {
   const categoryNames: string[] = [];
 
@@ -274,12 +291,13 @@ async function buildFilterActions(options: {
   addLabelIds?: string[];
   removeLabelIds?: string[];
   context?: Record<string, unknown>;
+  logger: Logger;
 }): Promise<{
   moveToFolder?: string;
   markAsRead?: boolean;
   assignCategories?: string[];
 }> {
-  const { client, addLabelIds, removeLabelIds, context = {} } = options;
+  const { client, addLabelIds, removeLabelIds, context = {}, logger } = options;
   const actions: {
     moveToFolder?: string;
     markAsRead?: boolean;
@@ -288,7 +306,11 @@ async function buildFilterActions(options: {
 
   // Handle label additions (categories in Outlook)
   if (addLabelIds && addLabelIds.length > 0) {
-    const categoryNames = await resolveCategoryNames(client, addLabelIds);
+    const categoryNames = await resolveCategoryNames(
+      client,
+      addLabelIds,
+      logger,
+    );
     if (categoryNames.length > 0) {
       actions.assignCategories = categoryNames;
     }

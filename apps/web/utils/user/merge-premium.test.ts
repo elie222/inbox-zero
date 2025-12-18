@@ -2,6 +2,9 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { PremiumTier } from "@/generated/prisma/enums";
 import { transferPremiumDuringMerge } from "./merge-premium";
 import prisma from "@/utils/__mocks__/prisma";
+import { createScopedLogger } from "@/utils/logger";
+
+const logger = createScopedLogger("test");
 
 vi.mock("@/utils/prisma");
 vi.mock("server-only", () => ({}));
@@ -46,7 +49,7 @@ describe("transferPremiumDuringMerge", () => {
 
       prisma.user.update.mockResolvedValue({} as any);
 
-      await transferPremiumDuringMerge({ sourceUserId, targetUserId });
+      await transferPremiumDuringMerge({ sourceUserId, targetUserId, logger });
 
       // Should not call premium.update since we use atomic user.update
       expect(prisma.premium.update).not.toHaveBeenCalled();
@@ -90,7 +93,7 @@ describe("transferPremiumDuringMerge", () => {
           },
         } as any);
 
-      await transferPremiumDuringMerge({ sourceUserId, targetUserId });
+      await transferPremiumDuringMerge({ sourceUserId, targetUserId, logger });
 
       // Should not make any premium updates since target has higher tier
       expect(prisma.premium.update).not.toHaveBeenCalled();
@@ -131,7 +134,7 @@ describe("transferPremiumDuringMerge", () => {
 
       prisma.user.update.mockResolvedValue({} as any);
 
-      await transferPremiumDuringMerge({ sourceUserId, targetUserId });
+      await transferPremiumDuringMerge({ sourceUserId, targetUserId, logger });
 
       // Should not call premium.update since we use atomic user.update
       expect(prisma.premium.update).not.toHaveBeenCalled();
@@ -177,7 +180,7 @@ describe("transferPremiumDuringMerge", () => {
           },
         } as any);
 
-      await transferPremiumDuringMerge({ sourceUserId, targetUserId });
+      await transferPremiumDuringMerge({ sourceUserId, targetUserId, logger });
 
       // Should not make any updates since they share the same premium
       expect(prisma.premium.update).not.toHaveBeenCalled();
@@ -215,7 +218,7 @@ describe("transferPremiumDuringMerge", () => {
 
       prisma.user.update.mockResolvedValue({} as any);
 
-      await transferPremiumDuringMerge({ sourceUserId, targetUserId });
+      await transferPremiumDuringMerge({ sourceUserId, targetUserId, logger });
 
       // Should update target user to use source's premium
       expect(prisma.user.update).toHaveBeenCalledWith({
@@ -251,7 +254,7 @@ describe("transferPremiumDuringMerge", () => {
           },
         } as any);
 
-      await transferPremiumDuringMerge({ sourceUserId, targetUserId });
+      await transferPremiumDuringMerge({ sourceUserId, targetUserId, logger });
 
       // Should not make any updates since target already has premium
       expect(prisma.premium.update).not.toHaveBeenCalled();
@@ -281,7 +284,7 @@ describe("transferPremiumDuringMerge", () => {
           premium: null,
         } as any);
 
-      await transferPremiumDuringMerge({ sourceUserId, targetUserId });
+      await transferPremiumDuringMerge({ sourceUserId, targetUserId, logger });
 
       // Should not make any updates since neither has premium
       expect(prisma.premium.update).not.toHaveBeenCalled();
@@ -319,7 +322,7 @@ describe("transferPremiumDuringMerge", () => {
       prisma.premium.update.mockResolvedValue({} as any);
       prisma.user.update.mockResolvedValue({} as any);
 
-      await transferPremiumDuringMerge({ sourceUserId, targetUserId });
+      await transferPremiumDuringMerge({ sourceUserId, targetUserId, logger });
 
       // Should connect target user as admin
       expect(prisma.premium.update).toHaveBeenCalledWith({
@@ -367,7 +370,7 @@ describe("transferPremiumDuringMerge", () => {
 
       prisma.premium.update.mockResolvedValue({} as any);
 
-      await transferPremiumDuringMerge({ sourceUserId, targetUserId });
+      await transferPremiumDuringMerge({ sourceUserId, targetUserId, logger });
 
       // Should connect target user as admin
       expect(prisma.premium.update).toHaveBeenCalledWith({
@@ -397,7 +400,7 @@ describe("transferPremiumDuringMerge", () => {
         premium: null,
       } as any);
 
-      await transferPremiumDuringMerge({ sourceUserId, targetUserId });
+      await transferPremiumDuringMerge({ sourceUserId, targetUserId, logger });
 
       // Should not make any updates when source user is not found
       expect(prisma.premium.update).not.toHaveBeenCalled();
@@ -421,7 +424,7 @@ describe("transferPremiumDuringMerge", () => {
 
       // Should not throw an error, but should complete gracefully
       await expect(
-        transferPremiumDuringMerge({ sourceUserId, targetUserId }),
+        transferPremiumDuringMerge({ sourceUserId, targetUserId, logger }),
       ).resolves.toBeUndefined();
 
       // Should not make any updates when target user is not found
@@ -463,7 +466,7 @@ describe("transferPremiumDuringMerge", () => {
 
       // Should not throw an error, but should complete gracefully
       await expect(
-        transferPremiumDuringMerge({ sourceUserId, targetUserId }),
+        transferPremiumDuringMerge({ sourceUserId, targetUserId, logger }),
       ).resolves.toBeUndefined();
     });
   });
