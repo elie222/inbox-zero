@@ -179,6 +179,54 @@ export class FastmailProvider implements EmailProvider {
   }
 
   /**
+   * Uploads a blob (file content) to Fastmail for use as an attachment.
+   * @param content - Base64-encoded file content
+   * @param contentType - MIME type of the file
+   * @returns The blob ID and size for use in email attachments
+   */
+  private async uploadBlob(
+    content: string,
+    contentType: string,
+  ): Promise<{ blobId: string; size: number }> {
+    // Decode base64 content to binary
+    const binaryString = atob(content);
+    const bytes = new Uint8Array(binaryString.length);
+    for (let i = 0; i < binaryString.length; i++) {
+      bytes[i] = binaryString.charCodeAt(i);
+    }
+
+    // Build upload URL with account ID
+    const uploadUrl = this.client.session.uploadUrl.replace(
+      "{accountId}",
+      this.client.accountId,
+    );
+
+    const response = await fetch(uploadUrl, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${this.client.accessToken}`,
+        "Content-Type": contentType,
+      },
+      body: bytes,
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      this.logger.error("Failed to upload blob", {
+        status: response.status,
+        error: errorText,
+      });
+      throw new Error(`Failed to upload blob: ${response.status}`);
+    }
+
+    const result = await response.json();
+    return {
+      blobId: result.blobId,
+      size: result.size,
+    };
+  }
+
+  /**
    * Ensures the mailbox cache is populated and returns it.
    * The cache stores mailboxes indexed by ID, role, and name for fast lookups.
    * @returns The populated mailbox cache
@@ -1526,6 +1574,31 @@ export class FastmailProvider implements EmailProvider {
       ? [{ email: body.replyTo }]
       : undefined;
 
+    // Upload attachments if provided
+    const uploadedAttachments: Array<{
+      blobId: string;
+      type: string;
+      name: string;
+      size: number;
+      disposition: string;
+    }> = [];
+
+    if (body.attachments && body.attachments.length > 0) {
+      for (const attachment of body.attachments) {
+        const uploaded = await this.uploadBlob(
+          attachment.content,
+          attachment.contentType,
+        );
+        uploadedAttachments.push({
+          blobId: uploaded.blobId,
+          type: attachment.contentType,
+          name: attachment.filename,
+          size: uploaded.size,
+          disposition: "attachment",
+        });
+      }
+    }
+
     const emailCreate: Record<string, unknown> = {
       mailboxIds: { [sent.id]: true },
       from: [{ email: identity.email, name: identity.name }],
@@ -1539,6 +1612,11 @@ export class FastmailProvider implements EmailProvider {
       },
       htmlBody: [{ partId: "body", type: "text/html" }],
     };
+
+    // Add attachments to the email if any were uploaded
+    if (uploadedAttachments.length > 0) {
+      emailCreate.attachments = uploadedAttachments;
+    }
 
     if (body.replyToEmail) {
       emailCreate.inReplyTo = [body.replyToEmail.headerMessageId];
