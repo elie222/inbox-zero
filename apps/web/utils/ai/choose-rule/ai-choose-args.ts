@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { InvalidArgumentError } from "ai";
-import { createGenerateObject, withRetry } from "@/utils/llms";
+import { createGenerateObject } from "@/utils/llms";
+import { withRetry } from "@/utils/llms/retry";
 import { stringifyEmail } from "@/utils/stringify-email";
 import { createScopedLogger } from "@/utils/logger";
 import type { EmailAccountWithAI } from "@/utils/llms/types";

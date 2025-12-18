@@ -29,9 +29,9 @@ import {
   isOpenAIRetryError,
   isServiceUnavailableError,
 } from "@/utils/error";
-import { sleep } from "@/utils/sleep";
 import { getModel, type ModelType } from "@/utils/llms/model";
 import { createScopedLogger } from "@/utils/logger";
+import { withNetworkRetry } from "./retry";
 
 const logger = createScopedLogger("llms");
 
@@ -93,8 +93,11 @@ export function createGenerateText({
     };
 
     try {
-      return await generate(modelOptions.model);
+      return await withNetworkRetry(() => generate(modelOptions.model), {
+        label,
+      });
     } catch (error) {
+      // Try backup model for service unavailable or throttling errors
       if (
         modelOptions.backupModel &&
         (isServiceUnavailableError(error) || isAWSThrottlingError(error))
@@ -106,15 +109,15 @@ export function createGenerateText({
 
         try {
           return await generate(modelOptions.backupModel);
-        } catch (error) {
+        } catch (backupError) {
           await handleError(
-            error,
+            backupError,
             emailAccount.email,
             emailAccount.id,
             label,
             modelOptions.modelName,
           );
-          throw error;
+          throw backupError;
         }
       }
 
@@ -140,102 +143,72 @@ export function createGenerateObject({
   modelOptions: ReturnType<typeof getModel>;
 }): typeof generateObject {
   return async (...args) => {
-    const maxRetries = 2;
-    let lastError: unknown;
+    const [options, ...restArgs] = args;
 
-    for (let attempt = 0; attempt <= maxRetries; attempt++) {
-      try {
-        const [options, ...restArgs] = args;
+    const generate = async () => {
+      logger.trace("Generating object", {
+        label,
+        system: options.system?.slice(0, MAX_LOG_LENGTH),
+        prompt: options.prompt?.slice(0, MAX_LOG_LENGTH),
+      });
 
-        if (attempt > 0) {
-          logger.info("Retrying generateObject after validation error", {
-            label,
-            attempt,
-            maxRetries,
-          });
-        }
-
-        logger.trace("Generating object", {
-          label,
-          system: options.system?.slice(0, MAX_LOG_LENGTH),
-          prompt: options.prompt?.slice(0, MAX_LOG_LENGTH),
-          attempt,
-        });
-
-        if (
-          !options.system?.includes("JSON") &&
-          typeof options.prompt === "string" &&
-          !options.prompt?.includes("JSON")
-        ) {
-          logger.warn("Missing JSON in prompt", { label });
-        }
-
-        const result = await generateObject(
-          {
-            experimental_repairText: async ({ text }) => {
-              logger.info("Repairing text", { label, attempt });
-              const fixed = jsonrepair(text);
-              return fixed;
-            },
-            ...options,
-            ...commonOptions,
-          },
-          ...restArgs,
-        );
-
-        if (result.usage) {
-          await saveAiUsage({
-            email: emailAccount.email,
-            usage: result.usage,
-            provider: modelOptions.provider,
-            model: modelOptions.modelName,
-            label,
-          });
-        }
-
-        logger.trace("Generated object", {
-          label,
-          result: result.object,
-          attempt,
-        });
-
-        return result;
-      } catch (error) {
-        lastError = error;
-
-        // Check if this is a validation error that we should retry
-        const isValidationError =
-          NoObjectGeneratedError.isInstance(error) ||
-          TypeValidationError.isInstance(error);
-
-        if (isValidationError && attempt < maxRetries) {
-          logger.warn("Validation error, will retry", {
-            label,
-            attempt,
-            maxRetries,
-            errorName: error.name,
-            errorMessage: error.message,
-          });
-
-          // Wait a bit before retrying
-          await sleep(1000);
-          continue;
-        }
-
-        // Not a validation error or out of retries
-        await handleError(
-          error,
-          emailAccount.email,
-          emailAccount.id,
-          label,
-          modelOptions.modelName,
-        );
-        throw error;
+      if (
+        !options.system?.includes("JSON") &&
+        typeof options.prompt === "string" &&
+        !options.prompt?.includes("JSON")
+      ) {
+        logger.warn("Missing JSON in prompt", { label });
       }
-    }
 
-    // Should never reach here, but TypeScript needs it
-    throw lastError;
+      const result = await generateObject(
+        {
+          experimental_repairText: async ({ text }) => {
+            logger.info("Repairing text", { label });
+            const fixed = jsonrepair(text);
+            return fixed;
+          },
+          ...options,
+          ...commonOptions,
+        },
+        ...restArgs,
+      );
+
+      if (result.usage) {
+        await saveAiUsage({
+          email: emailAccount.email,
+          usage: result.usage,
+          provider: modelOptions.provider,
+          model: modelOptions.modelName,
+          label,
+        });
+      }
+
+      logger.trace("Generated object", {
+        label,
+        result: result.object,
+      });
+
+      return result;
+    };
+
+    try {
+      return await withNetworkRetry(generate, {
+        label,
+        // Also retry on validation errors for generateObject
+        shouldRetry: (error) =>
+          NoObjectGeneratedError.isInstance(error) ||
+          TypeValidationError.isInstance(error),
+      });
+    } catch (error) {
+      await handleError(
+        error,
+        emailAccount.email,
+        emailAccount.id,
+        label,
+        modelOptions.modelName,
+      );
+      throw error;
+    }
   };
 }
 
@@ -378,46 +351,4 @@ async function handleError(
       );
     }
   }
-}
-
-// NOTE: Think we can just switch this out for p-retry that we already use in the project
-export async function withRetry<T>(
-  fn: () => Promise<T>,
-  {
-    retryIf,
-    maxRetries,
-    delayMs,
-  }: {
-    retryIf: (error: unknown) => boolean;
-    maxRetries: number;
-    delayMs: number;
-  },
-): Promise<T> {
-  let attempts = 0;
-  let lastError: unknown;
-
-  while (attempts < maxRetries) {
-    try {
-      return await fn();
-    } catch (error) {
-      attempts++;
-      lastError = error;
-
-      if (retryIf(error)) {
-        logger.warn("Operation failed. Retrying...", {
-          attempts,
-          error,
-        });
-
-        if (attempts < maxRetries) {
-          await sleep(delayMs);
-          continue;
-        }
-      }
-
-      throw error;
-    }
-  }
-
-  throw lastError;
 }
