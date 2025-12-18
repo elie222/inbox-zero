@@ -54,21 +54,18 @@ describe("isTransientNetworkError", () => {
     expect(isTransientNetworkError(error)).toBe(true);
   });
 
-  it("should return true for nested network error (AI SDK format)", () => {
-    // This is the actual format from the AI SDK
-    const error = {
-      name: "AI_APICallError",
-      message: "Failed to process successful response",
-      statusCode: 200,
-      cause: {
-        message: "terminated",
-        name: "TypeError",
-        cause: {
-          code: "ECONNRESET",
-          message: "read ECONNRESET",
-        },
-      },
-    };
+  it("should return true for nested network error (AI SDK format with Error instances)", () => {
+    // This is the actual format from the AI SDK - using real Error instances
+    const innerCause = new Error("read ECONNRESET");
+    (innerCause as NodeJS.ErrnoException).code = "ECONNRESET";
+
+    const middleCause = new TypeError("terminated");
+    middleCause.cause = innerCause;
+
+    const error = new Error("Failed to process successful response");
+    error.name = "AI_APICallError";
+    error.cause = middleCause;
+
     expect(isTransientNetworkError(error)).toBe(true);
   });
 
