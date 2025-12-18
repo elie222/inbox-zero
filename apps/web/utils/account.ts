@@ -30,6 +30,7 @@ export async function getGmailClientForEmail({
     refreshToken: tokens.refreshToken || "",
     expiresAt: tokens.expiresAt,
     emailAccountId,
+    logger,
   });
   return gmail;
 }
@@ -47,6 +48,7 @@ export async function getGmailAndAccessTokenForEmail({
     refreshToken: tokens.refreshToken || "",
     expiresAt: tokens.expiresAt,
     emailAccountId,
+    logger,
   });
   const accessToken = getAccessTokenFromClient(gmail);
   return { gmail, accessToken, tokens };

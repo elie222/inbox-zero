@@ -2,11 +2,9 @@ import { auth, gmail, type gmail_v1 } from "@googleapis/gmail";
 import { people } from "@googleapis/people";
 import { saveTokens } from "@/utils/auth";
 import { env } from "@/env";
-import { createScopedLogger } from "@/utils/logger";
+import type { Logger } from "@/utils/logger";
 import { SCOPES } from "@/utils/gmail/scopes";
 import { SafeError } from "@/utils/error";
-
-const logger = createScopedLogger("gmail/client");
 
 type AuthOptions = {
   accessToken?: string | null;
@@ -51,11 +49,13 @@ export const getGmailClientWithRefresh = async ({
   refreshToken,
   expiresAt,
   emailAccountId,
+  logger,
 }: {
   accessToken?: string | null;
   refreshToken: string | null;
   expiresAt: number | null;
   emailAccountId: string;
+  logger: Logger;
 }): Promise<gmail_v1.Gmail> => {
   if (!refreshToken) {
     logger.error("No refresh token", { emailAccountId });
