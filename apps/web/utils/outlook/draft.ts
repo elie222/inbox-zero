@@ -22,14 +22,7 @@ export async function getDraft({
     return message;
   } catch (error) {
     if (isNotFoundError(error)) {
-      return null;
-    }
-
-    // Handle Outlook's "object not found in the store" error
-    if (
-      error instanceof Error &&
-      error.message.includes("not found in the store")
-    ) {
+      logger.info("Draft not found, returning null.", { draftId });
       return null;
     }
 
@@ -67,11 +60,28 @@ export async function deleteDraft({
 }
 
 function isNotFoundError(error: unknown): boolean {
-  const err = error as { statusCode?: number; code?: number | string };
-  return (
+  const err = error as {
+    statusCode?: number;
+    code?: number | string;
+    message?: string;
+  };
+
+  // Check error code
+  if (
     err?.statusCode === 404 ||
     err?.code === 404 ||
     err?.code === "ErrorItemNotFound" ||
     err?.code === "itemNotFound"
-  );
+  ) {
+    return true;
+  }
+
+  if (
+    err?.message?.includes("not found in the store") ||
+    err?.message?.includes("ErrorItemNotFound")
+  ) {
+    return true;
+  }
+
+  return false;
 }
