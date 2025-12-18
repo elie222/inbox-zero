@@ -3,14 +3,12 @@ import type { EmailAccountWithAI } from "@/utils/llms/types";
 import type { EmailForLLM } from "@/utils/types";
 import { getModel } from "@/utils/llms/model";
 import { createGenerateObject } from "@/utils/llms";
-import { createScopedLogger } from "@/utils/logger";
+import type { Logger } from "@/utils/logger";
 import {
   getEmailListPrompt,
   getUserInfoPrompt,
   getUserRulesPrompt,
 } from "@/utils/ai/helpers";
-
-const logger = createScopedLogger("ai-detect-recurring-pattern");
 
 // const braintrust = new Braintrust("recurring-pattern-detection");
 
@@ -25,6 +23,7 @@ export async function aiDetectRecurringPattern({
   emailAccount,
   rules,
   consistentRuleName,
+  logger,
 }: {
   emails: EmailForLLM[];
   emailAccount: EmailAccountWithAI;
@@ -33,6 +32,7 @@ export async function aiDetectRecurringPattern({
     instructions: string;
   }[];
   consistentRuleName?: string;
+  logger: Logger;
 }): Promise<DetectPatternResult | null> {
   // Extract the sender email from the first email
   // All emails should be from the same sender

@@ -139,6 +139,7 @@ async function process({
       emailAccountId,
       from,
       provider,
+      logger,
     });
 
     if (!senderHistory.hasConsistentRule) {
@@ -169,6 +170,7 @@ async function process({
         instructions: rule.instructions || "",
       })),
       consistentRuleName: senderHistory.consistentRuleName,
+      logger,
     });
 
     if (patternResult?.matchedRule) {

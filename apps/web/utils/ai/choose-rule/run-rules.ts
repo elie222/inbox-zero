@@ -175,6 +175,7 @@ export async function runRules({
         result,
         message,
         emailAccountId: emailAccount.id,
+        logger,
       });
     }
 
@@ -406,20 +407,25 @@ async function analyzeSenderPatternIfAiMatch({
   result,
   message,
   emailAccountId,
+  logger,
 }: {
   isTest: boolean;
   result: { rule?: Rule | null; matchReasons?: MatchReason[] };
   message: ParsedMessage;
   emailAccountId: string;
+  logger: Logger;
 }) {
   if (shouldAnalyzeSenderPattern({ isTest, result })) {
     const fromAddress = extractEmailAddress(message.headers.from);
     if (fromAddress) {
       after(() =>
-        analyzeSenderPattern({
-          emailAccountId,
-          from: fromAddress,
-        }),
+        analyzeSenderPattern(
+          {
+            emailAccountId,
+            from: fromAddress,
+          },
+          logger,
+        ),
       );
     }
   }

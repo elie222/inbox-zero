@@ -108,7 +108,10 @@ export function createGenerateText({
         });
 
         try {
-          return await generate(modelOptions.backupModel);
+          return await withNetworkRetry(
+            () => generate(modelOptions.backupModel!),
+            { label },
+          );
         } catch (backupError) {
           await handleError(
             backupError,
@@ -169,6 +172,7 @@ export function createGenerateObject({
           },
           ...options,
           ...commonOptions,
+          model: modelOptions.model,
         },
         ...restArgs,
       );

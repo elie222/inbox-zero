@@ -4,11 +4,12 @@ import {
   getInternalApiUrl,
 } from "@/utils/internal-api";
 import { env } from "@/env";
-import { createScopedLogger } from "@/utils/logger";
+import type { Logger } from "@/utils/logger";
 
-const logger = createScopedLogger("sender-pattern-analysis");
-
-export async function analyzeSenderPattern(body: AnalyzeSenderPatternBody) {
+export async function analyzeSenderPattern(
+  body: AnalyzeSenderPatternBody,
+  logger: Logger,
+) {
   try {
     const response = await fetch(
       `${getInternalApiUrl()}/api/ai/analyze-sender-pattern`,
