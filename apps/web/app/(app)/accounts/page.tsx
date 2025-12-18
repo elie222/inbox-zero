@@ -2,7 +2,7 @@
 
 import { useAction } from "next-safe-action/hooks";
 import Link from "next/link";
-import { Trash2, ArrowRight, BotIcon } from "lucide-react";
+import { Trash2, MoreVertical, Settings } from "lucide-react";
 import { useEffect } from "react";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
@@ -15,6 +15,12 @@ import {
   CardContent,
   CardDescription,
 } from "@/components/ui/card";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { useAccounts } from "@/hooks/useAccounts";
 import { deleteEmailAccountAction } from "@/utils/actions/user";
 import { toastSuccess, toastError } from "@/components/Toast";
@@ -63,6 +69,77 @@ function AccountItem({
   };
   onAccountDeleted: () => void;
 }) {
+  return (
+    <Card>
+      <AccountHeader emailAccount={emailAccount} />
+      <AccountActions
+        emailAccount={emailAccount}
+        onAccountDeleted={onAccountDeleted}
+      />
+    </Card>
+  );
+}
+
+function AccountHeader({
+  emailAccount,
+}: {
+  emailAccount: {
+    name: string | null;
+    email: string;
+    image: string | null;
+  };
+}) {
+  return (
+    <CardHeader className="flex flex-row items-center gap-3 space-y-0">
+      <Avatar>
+        <AvatarImage src={emailAccount.image || undefined} />
+        <AvatarFallback>
+          {emailAccount.name?.[0] || emailAccount.email?.[0]}
+        </AvatarFallback>
+      </Avatar>
+      <div className="flex flex-col space-y-1.5">
+        <CardTitle>{emailAccount.name}</CardTitle>
+        <CardDescription>{emailAccount.email}</CardDescription>
+      </div>
+    </CardHeader>
+  );
+}
+
+function AccountActions({
+  emailAccount,
+  onAccountDeleted,
+}: {
+  emailAccount: {
+    id: string;
+    email: string;
+    isPrimary: boolean;
+  };
+  onAccountDeleted: () => void;
+}) {
+  return (
+    <CardContent className="flex justify-between items-center gap-2 flex-wrap">
+      <Button variant="outline" size="sm">
+        <Link href={prefixPath(emailAccount.id, "/automation")}>View</Link>
+      </Button>
+      <AccountOptionsDropdown
+        emailAccount={emailAccount}
+        onAccountDeleted={onAccountDeleted}
+      />
+    </CardContent>
+  );
+}
+
+function AccountOptionsDropdown({
+  emailAccount,
+  onAccountDeleted,
+}: {
+  emailAccount: {
+    id: string;
+    email: string;
+    isPrimary: boolean;
+  };
+  onAccountDeleted: () => void;
+}) {
   const { execute, isExecuting } = useAction(deleteEmailAccountAction, {
     onSuccess: async () => {
       toastSuccess({
@@ -84,38 +161,32 @@ function AccountItem({
   });
 
   return (
-    <Card>
-      <CardHeader className="flex flex-row items-center gap-3 space-y-0">
-        <Avatar>
-          <AvatarImage src={emailAccount.image || undefined} />
-          <AvatarFallback>
-            {emailAccount.name?.[0] || emailAccount.email?.[0]}
-          </AvatarFallback>
-        </Avatar>
-        <div className="flex flex-col space-y-1.5">
-          <CardTitle>{emailAccount.name}</CardTitle>
-          <CardDescription>{emailAccount.email}</CardDescription>
-        </div>
-      </CardHeader>
-      <CardContent className="flex justify-end gap-2 flex-wrap">
-        <Button variant="outline" size="sm" Icon={BotIcon}>
-          <Link href={prefixPath(emailAccount.id, "/automation")}>
-            Assistant
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button variant="ghost" size="icon">
+          <MoreVertical className="h-4 w-4" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
+        <DropdownMenuItem asChild>
+          <Link
+            href={prefixPath(emailAccount.id, "/setup")}
+            className="flex items-center gap-2"
+          >
+            <Settings className="h-4 w-4" />
+            Setup
           </Link>
-        </Button>
-        <Button variant="outline" size="sm" Icon={ArrowRight}>
-          <Link href={prefixPath(emailAccount.id, "/setup")}>Setup</Link>
-        </Button>
+        </DropdownMenuItem>
         <ConfirmDialog
           trigger={
-            <Button
-              variant="destructiveSoft"
-              size="sm"
-              loading={isExecuting}
-              Icon={Trash2}
+            <DropdownMenuItem
+              onSelect={(e) => e.preventDefault()}
+              className="flex items-center gap-2 text-destructive focus:text-destructive"
+              disabled={isExecuting}
             >
+              <Trash2 className="h-4 w-4" />
               Delete
-            </Button>
+            </DropdownMenuItem>
           }
           title="Delete Account"
           description={
@@ -128,8 +199,8 @@ function AccountItem({
             execute({ emailAccountId: emailAccount.id });
           }}
         />
-      </CardContent>
-    </Card>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }
 
