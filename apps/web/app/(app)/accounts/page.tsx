@@ -135,7 +135,7 @@ function AccountActions({
 }) {
   return (
     <CardContent className="flex justify-between items-center gap-2 flex-wrap">
-      <Button variant="outline" size="sm">
+      <Button variant="outline" size="sm" asChild>
         <Link href={prefixPath(emailAccount.id, "/automation")}>View</Link>
       </Button>
       <AccountOptionsDropdown
