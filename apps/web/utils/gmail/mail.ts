@@ -155,7 +155,7 @@ export async function replyToEmail(
   const raw = await createRawMailMessage(
     {
       to: message.headers["reply-to"] || message.headers.from,
-      subject: message.headers.subject,
+      subject: formatReplySubject(message.headers.subject),
       messageText: text,
       messageHtml: html,
       replyToEmail: {
@@ -319,4 +319,13 @@ function convertTextToHtmlParagraphs(text?: string | null): string {
     .join("");
 
   return `<html><body>${htmlContent}</body></html>`;
+}
+
+function formatReplySubject(subject: string): string {
+  const trimmed = subject.trim();
+  // Avoid duplicate "Re:" prefix (case-insensitive check)
+  if (/^re:/i.test(trimmed)) {
+    return trimmed;
+  }
+  return `Re: ${trimmed}`;
 }
