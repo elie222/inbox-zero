@@ -58,7 +58,7 @@ export async function gatherContextForEvent({
 
   const [emailProvider, calendarProviders] = await Promise.all([
     createEmailProvider({ emailAccountId, provider, logger }),
-    createCalendarEventProviders(emailAccountId),
+    createCalendarEventProviders(emailAccountId, logger),
   ]);
 
   // Fetch email threads and past meetings in parallel

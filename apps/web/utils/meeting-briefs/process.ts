@@ -47,6 +47,7 @@ export async function processMeetingBriefings({
   const allEvents = await fetchUpcomingEvents({
     emailAccountId,
     minutesBefore,
+    logger,
   });
 
   logger.info("Fetched upcoming events", { count: allEvents.length });

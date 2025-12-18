@@ -150,6 +150,7 @@ ${threadContent}
               startDate,
               endDate,
               timezone: userTimezone,
+              logger,
             });
 
             logger.trace("Unified calendar availability data", {

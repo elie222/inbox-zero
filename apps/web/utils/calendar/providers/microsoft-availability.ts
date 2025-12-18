@@ -1,23 +1,23 @@
 import type { Client } from "@microsoft/microsoft-graph-client";
-import { createScopedLogger } from "@/utils/logger";
+import type { Logger } from "@/utils/logger";
 import { getCalendarClientWithRefresh } from "@/utils/outlook/calendar-client";
 import type {
   CalendarAvailabilityProvider,
   BusyPeriod,
 } from "../availability-types";
 
-const logger = createScopedLogger("calendar/microsoft-availability");
-
 async function fetchMicrosoftCalendarBusyPeriods({
   calendarClient,
   calendarIds,
   timeMin,
   timeMax,
+  logger,
 }: {
   calendarClient: Client;
   calendarIds: string[];
   timeMin: string;
   timeMax: string;
+  logger: Logger;
 }): Promise<BusyPeriod[]> {
   try {
     const allBusyPeriods: BusyPeriod[] = [];
@@ -75,31 +75,36 @@ async function fetchMicrosoftCalendarBusyPeriods({
   }
 }
 
-export const microsoftAvailabilityProvider: CalendarAvailabilityProvider = {
-  name: "microsoft",
+export function createMicrosoftAvailabilityProvider(
+  logger: Logger,
+): CalendarAvailabilityProvider {
+  return {
+    name: "microsoft",
 
-  async fetchBusyPeriods({
-    accessToken,
-    refreshToken,
-    expiresAt,
-    emailAccountId,
-    calendarIds,
-    timeMin,
-    timeMax,
-  }) {
-    const calendarClient = await getCalendarClientWithRefresh({
+    async fetchBusyPeriods({
       accessToken,
       refreshToken,
       expiresAt,
       emailAccountId,
-      logger,
-    });
-
-    return await fetchMicrosoftCalendarBusyPeriods({
-      calendarClient,
       calendarIds,
       timeMin,
       timeMax,
-    });
-  },
-};
+    }) {
+      const calendarClient = await getCalendarClientWithRefresh({
+        accessToken,
+        refreshToken,
+        expiresAt,
+        emailAccountId,
+        logger,
+      });
+
+      return await fetchMicrosoftCalendarBusyPeriods({
+        calendarClient,
+        calendarIds,
+        timeMin,
+        timeMax,
+        logger,
+      });
+    },
+  };
+}

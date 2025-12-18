@@ -1,16 +1,15 @@
 import { NextResponse } from "next/server";
 import prisma from "@/utils/prisma";
 import { ExecutedRuleStatus } from "@/generated/prisma/enums";
-import { createScopedLogger } from "@/utils/logger";
+import { withError } from "@/utils/middleware";
 import { env } from "@/env";
-
-const logger = createScopedLogger("health");
 
 export const dynamic = "force-dynamic";
 
 const HEALTH_CHECK_WINDOW_MINUTES = 5;
 
-export async function GET(request: Request) {
+export const GET = withError("health", async (request) => {
+  const logger = request.logger;
   // Check for health check API key
   const healthApiKey = request.headers.get("x-health-api-key");
   const expectedKey = env.HEALTH_API_KEY;
@@ -62,4 +61,4 @@ export async function GET(request: Request) {
       { status: 503 },
     );
   }
-}
+});

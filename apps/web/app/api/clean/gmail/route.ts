@@ -56,6 +56,7 @@ async function performGmailAction({
     refreshToken: account.account.refresh_token,
     expiresAt: account.account.expires_at?.getTime() || null,
     emailAccountId,
+    logger,
   });
 
   const shouldArchive = markDone && action === CleanAction.ARCHIVE;

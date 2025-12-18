@@ -2,17 +2,17 @@ import type Stripe from "stripe";
 import { headers } from "next/headers";
 import { after, NextResponse } from "next/server";
 import { getStripe } from "@/ee/billing/stripe";
-import { createScopedLogger } from "@/utils/logger";
+import { withError } from "@/utils/middleware";
+import type { Logger } from "@/utils/logger";
 import { syncStripeDataToDb } from "@/ee/billing/stripe/sync-stripe";
 import { env } from "@/env";
 import { trackStripeEvent } from "@/utils/posthog";
 import prisma from "@/utils/prisma";
 import { completeReferralAndGrantReward } from "@/utils/referral/referral-tracking";
 
-const logger = createScopedLogger("stripe/webhook");
-
-export async function POST(req: Request) {
-  const body = await req.text();
+export const POST = withError("stripe/webhook", async (request) => {
+  const logger = request.logger;
+  const body = await request.text();
   const signature = (await headers()).get("Stripe-Signature");
 
   if (!signature) return NextResponse.json({}, { status: 400 });
@@ -29,7 +29,7 @@ export async function POST(req: Request) {
       env.STRIPE_WEBHOOK_SECRET,
     );
 
-    after(() => processEvent(event));
+    after(() => processEvent(event, logger));
   }
 
   try {
@@ -39,7 +39,7 @@ export async function POST(req: Request) {
   }
 
   return NextResponse.json({ received: true });
-}
+});
 
 const allowedEvents: Stripe.Event.Type[] = [
   "checkout.session.completed",
@@ -63,7 +63,7 @@ const allowedEvents: Stripe.Event.Type[] = [
   "payment_intent.canceled",
 ];
 
-async function processEvent(event: Stripe.Event) {
+async function processEvent(event: Stripe.Event, logger: Logger) {
   if (!allowedEvents.includes(event.type)) return;
 
   // All the events we track have a customerId
@@ -78,13 +78,14 @@ async function processEvent(event: Stripe.Event) {
   return await Promise.allSettled([
     syncStripeDataToDb({ customerId, logger }),
     trackEvent(customerId, event),
-    handleReferralCompletion(customerId, event),
+    handleReferralCompletion(customerId, event, logger),
   ]);
 }
 
 async function handleReferralCompletion(
   customerId: string,
   event: Stripe.Event,
+  logger: Logger,
 ) {
   // Only process subscription updates
   if (event.type !== "customer.subscription.updated") return;

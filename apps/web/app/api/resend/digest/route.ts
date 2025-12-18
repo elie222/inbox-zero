@@ -1,10 +1,10 @@
-import { type NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { sendDigestEmail } from "@inboxzero/resend";
 import { withEmailAccount, withError } from "@/utils/middleware";
 import { env } from "@/env";
 import { captureException, SafeError } from "@/utils/error";
 import prisma from "@/utils/prisma";
-import { createScopedLogger, type Logger } from "@/utils/logger";
+import type { Logger } from "@/utils/logger";
 import { createUnsubscribeToken } from "@/utils/unsubscribe";
 import { calculateNextScheduleDate } from "@/utils/schedule";
 import type { ParsedMessage } from "@/utils/types";
@@ -43,12 +43,11 @@ export const GET = withEmailAccount("resend/digest", async (request) => {
   return NextResponse.json(result);
 });
 
-export const POST = withError(
-  verifySignatureAppRouter(async (request: NextRequest) => {
+export const POST = verifySignatureAppRouter(
+  withError("resend/digest", async (request) => {
+    const logger = request.logger;
     const json = await request.json();
     const { success, data, error } = sendDigestEmailBody.safeParse(json);
-
-    let logger = createScopedLogger("resend/digest");
 
     if (!success) {
       logger.error("Invalid request body", { error });
@@ -59,9 +58,9 @@ export const POST = withError(
     }
     const { emailAccountId } = data;
 
-    logger = logger.with({ emailAccountId });
+    const scopedLogger = logger.with({ emailAccountId });
 
-    logger.info("Sending digest email to user POST");
+    scopedLogger.info("Sending digest email to user POST");
 
     try {
       const result = await sendEmail({ emailAccountId, logger });

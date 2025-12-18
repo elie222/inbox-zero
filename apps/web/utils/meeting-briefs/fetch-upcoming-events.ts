@@ -2,17 +2,20 @@ import { addMinutes } from "date-fns/addMinutes";
 import { createCalendarEventProviders } from "@/utils/calendar/event-provider";
 import type { CalendarEvent } from "@/utils/calendar/event-types";
 import { extractDomainFromEmail } from "@/utils/email";
+import type { Logger } from "@/utils/logger";
 
 const MAX_EVENTS_PER_PROVIDER = 20;
 
 export async function fetchUpcomingEvents({
   emailAccountId,
   minutesBefore,
+  logger,
 }: {
   emailAccountId: string;
   minutesBefore: number;
+  logger: Logger;
 }): Promise<CalendarEvent[]> {
-  const providers = await createCalendarEventProviders(emailAccountId);
+  const providers = await createCalendarEventProviders(emailAccountId, logger);
   if (providers.length === 0) {
     return [];
   }

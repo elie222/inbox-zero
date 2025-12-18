@@ -10,7 +10,8 @@
 
 import { describe, test, expect, beforeAll, vi } from "vitest";
 import prisma from "@/utils/prisma";
-import { microsoftAvailabilityProvider } from "@/utils/calendar/providers/microsoft-availability";
+import { createMicrosoftAvailabilityProvider } from "@/utils/calendar/providers/microsoft-availability";
+import { createScopedLogger } from "@/utils/logger";
 
 // ============================================
 // TEST DATA - SET VIA ENVIRONMENT VARIABLES
@@ -136,6 +137,10 @@ describe.skipIf(!RUN_E2E_TESTS)("Outlook Calendar Integration Tests", () => {
       );
 
       // Use the Microsoft availability provider
+      const logger = createScopedLogger("test/microsoft-calendar");
+      const microsoftAvailabilityProvider =
+        createMicrosoftAvailabilityProvider(logger);
+
       const busyPeriods = await microsoftAvailabilityProvider.fetchBusyPeriods({
         accessToken: calendarConnection.accessToken,
         refreshToken: calendarConnection.refreshToken,
