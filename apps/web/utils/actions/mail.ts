@@ -7,7 +7,6 @@ import { actionClient } from "@/utils/actions/safe-action";
 import { SafeError } from "@/utils/error";
 import { createEmailProvider } from "@/utils/email/provider";
 
-// do not return functions to the client or we'll get an error
 const isStatusOk = (status: number) => status >= 200 && status < 300;
 
 export const archiveThreadAction = actionClient
@@ -117,10 +116,14 @@ export const createFilterAction = actionClient
         addLabelIds: [gmailLabelId],
       });
 
-      if (!isStatusOk(res.status))
+      if (!isStatusOk(res.status)) {
+        logger.error("Failed to create filter", {
+          from,
+          gmailLabelId,
+          status: res.status,
+        });
         throw new SafeError("Failed to create filter");
-
-      return res;
+      }
     },
   );
 
@@ -140,8 +143,13 @@ export const deleteFilterAction = actionClient
 
       const res = await emailProvider.deleteFilter(id);
 
-      if (!isStatusOk(res.status))
+      if (!isStatusOk(res.status)) {
+        logger.error("Failed to delete filter", {
+          filterId: id,
+          status: res.status,
+        });
         throw new SafeError("Failed to delete filter");
+      }
     },
   );
 
