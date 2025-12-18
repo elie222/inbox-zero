@@ -1,7 +1,7 @@
 import { stepCountIs, tool } from "ai";
 import { z } from "zod";
 import { createGenerateText } from "@/utils/llms";
-import { createScopedLogger } from "@/utils/logger";
+import type { Logger } from "@/utils/logger";
 import { GroupItemType, LogicalOperator } from "@/generated/prisma/enums";
 import type { Rule } from "@/generated/prisma/client";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
@@ -23,17 +23,16 @@ export async function processUserRequest({
   originalEmail,
   messages,
   matchedRule,
+  logger,
 }: {
   emailAccount: EmailAccountWithAI;
   rules: RuleWithRelations[];
   originalEmail: ParsedMessage | null;
   messages: { role: "assistant" | "user"; content: string }[];
   matchedRule: RuleWithRelations | null;
+  logger: Logger;
 }) {
-  const logger = createScopedLogger("ai-fix-rules").with({
-    emailAccountId: emailAccount.id,
-    userId: emailAccount.userId,
-    email: emailAccount.email,
+  logger = logger.with({
     messageId: originalEmail?.id,
     threadId: originalEmail?.threadId,
   });

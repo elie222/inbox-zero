@@ -92,11 +92,13 @@ export async function createLabel({
         ? color
         : OUTLOOK_COLORS[Math.floor(Math.random() * OUTLOOK_COLORS.length)];
 
-    const response: OutlookCategory = await withOutlookRetry(() =>
-      client.getClient().api("/me/outlook/masterCategories").post({
-        displayName: name,
-        color: outlookColor,
-      }),
+    const response: OutlookCategory = await withOutlookRetry(
+      () =>
+        client.getClient().api("/me/outlook/masterCategories").post({
+          displayName: name,
+          color: outlookColor,
+        }),
+      logger,
     );
     return response;
   } catch (error) {
@@ -199,15 +201,19 @@ export async function labelMessage({
   client,
   messageId,
   categories,
+  logger,
 }: {
   client: OutlookClient;
   messageId: string;
   categories: string[];
+  logger: Logger;
 }) {
-  return withOutlookRetry(() =>
-    client.getClient().api(`/me/messages/${messageId}`).patch({
-      categories,
-    }),
+  return withOutlookRetry(
+    () =>
+      client.getClient().api(`/me/messages/${messageId}`).patch({
+        categories,
+      }),
+    logger,
   );
 }
 
@@ -215,10 +221,12 @@ export async function labelThread({
   client,
   threadId,
   categories,
+  logger,
 }: {
   client: OutlookClient;
   threadId: string;
   categories: string[];
+  logger: Logger;
 }) {
   // In Outlook, we need to update each message in the thread
   // Escape single quotes in threadId for the filter
@@ -231,7 +239,7 @@ export async function labelThread({
 
   await Promise.all(
     messages.value.map((message) =>
-      labelMessage({ client, messageId: message.id!, categories }),
+      labelMessage({ client, messageId: message.id!, categories, logger }),
     ),
   );
 }
@@ -275,11 +283,13 @@ export async function removeThreadLabel({
         );
 
         try {
-          await withOutlookRetry(() =>
-            client
-              .getClient()
-              .api(`/me/messages/${message.id}`)
-              .patch({ categories: updatedCategories }),
+          await withOutlookRetry(
+            () =>
+              client
+                .getClient()
+                .api(`/me/messages/${message.id}`)
+                .patch({ categories: updatedCategories }),
+            logger,
           );
         } catch (error) {
           logger.warn("Failed to remove category from message", {
@@ -349,10 +359,12 @@ export async function archiveThread({
     const archivePromise = Promise.all(
       messages.value.map(async (message: { id: string }) => {
         try {
-          return await withOutlookRetry(() =>
-            client.getClient().api(`/me/messages/${message.id}/move`).post({
-              destinationId: folderId,
-            }),
+          return await withOutlookRetry(
+            () =>
+              client.getClient().api(`/me/messages/${message.id}/move`).post({
+                destinationId: folderId,
+              }),
+            logger,
           );
         } catch (error) {
           logger.warn("Failed to move message to folder", {
@@ -429,10 +441,15 @@ export async function archiveThread({
         const movePromises = threadMessages.map(
           async (message: { id: string }) => {
             try {
-              return await withOutlookRetry(() =>
-                client.getClient().api(`/me/messages/${message.id}/move`).post({
-                  destinationId: folderId,
-                }),
+              return await withOutlookRetry(
+                () =>
+                  client
+                    .getClient()
+                    .api(`/me/messages/${message.id}/move`)
+                    .post({
+                      destinationId: folderId,
+                    }),
+                logger,
               );
             } catch (moveError) {
               // Log the error but don't fail the entire operation
@@ -451,10 +468,12 @@ export async function archiveThread({
         await Promise.allSettled(movePromises);
       } else {
         // If no messages found, try treating threadId as a messageId
-        await withOutlookRetry(() =>
-          client.getClient().api(`/me/messages/${threadId}/move`).post({
-            destinationId: folderId,
-          }),
+        await withOutlookRetry(
+          () =>
+            client.getClient().api(`/me/messages/${threadId}/move`).post({
+              destinationId: folderId,
+            }),
+          logger,
         );
       }
 
@@ -511,10 +530,12 @@ export async function markReadThread({
     // Update each message in the thread
     await Promise.all(
       messages.value.map((message: { id: string }) =>
-        withOutlookRetry(() =>
-          client.getClient().api(`/me/messages/${message.id}`).patch({
-            isRead: read,
-          }),
+        withOutlookRetry(
+          () =>
+            client.getClient().api(`/me/messages/${message.id}`).patch({
+              isRead: read,
+            }),
+          logger,
         ),
       ),
     );
@@ -543,19 +564,23 @@ export async function markReadThread({
         // Update each message in the thread
         await Promise.all(
           threadMessages.map((message: { id: string }) =>
-            withOutlookRetry(() =>
-              client.getClient().api(`/me/messages/${message.id}`).patch({
-                isRead: read,
-              }),
+            withOutlookRetry(
+              () =>
+                client.getClient().api(`/me/messages/${message.id}`).patch({
+                  isRead: read,
+                }),
+              logger,
             ),
           ),
         );
       } else {
         // If no messages found, try treating threadId as a messageId
-        await withOutlookRetry(() =>
-          client.getClient().api(`/me/messages/${threadId}`).patch({
-            isRead: read,
-          }),
+        await withOutlookRetry(
+          () =>
+            client.getClient().api(`/me/messages/${threadId}`).patch({
+              isRead: read,
+            }),
+          logger,
         );
       }
     } catch (directError) {
@@ -572,19 +597,23 @@ export async function markImportantMessage({
   client,
   messageId,
   important,
+  logger,
 }: {
   client: OutlookClient;
   messageId: string;
   important: boolean;
+  logger: Logger;
 }) {
   // In Outlook, we use the "Important" flag
-  await withOutlookRetry(() =>
-    client
-      .getClient()
-      .api(`/me/messages/${messageId}`)
-      .patch({
-        importance: important ? "high" : "normal",
-      }),
+  await withOutlookRetry(
+    () =>
+      client
+        .getClient()
+        .api(`/me/messages/${messageId}`)
+        .patch({
+          importance: important ? "high" : "normal",
+        }),
+    logger,
   );
 }
 

@@ -26,18 +26,21 @@ function convertMailFolderToOutlookFolder(folder: MailFolder): OutlookFolder {
 
 export async function getOutlookRootFolders(
   client: OutlookClient,
+  logger: Logger,
 ): Promise<OutlookFolder[]> {
   const fields = "id,displayName,childFolderCount";
-  const response: { value: MailFolder[] } = await withOutlookRetry(() =>
-    client
-      .getClient()
-      .api("/me/mailFolders")
-      .select(fields)
-      .top(999)
-      .expand(
-        `childFolders($select=${fields};$top=999;$expand=childFolders($select=${fields};$top=999))`,
-      )
-      .get(),
+  const response: { value: MailFolder[] } = await withOutlookRetry(
+    () =>
+      client
+        .getClient()
+        .api("/me/mailFolders")
+        .select(fields)
+        .top(999)
+        .expand(
+          `childFolders($select=${fields};$top=999;$expand=childFolders($select=${fields};$top=999))`,
+        )
+        .get(),
+    logger,
   );
 
   return response.value.map(convertMailFolderToOutlookFolder);
@@ -46,18 +49,21 @@ export async function getOutlookRootFolders(
 export async function getOutlookChildFolders(
   client: OutlookClient,
   folderId: string,
+  logger: Logger,
 ): Promise<OutlookFolder[]> {
   const fields = "id,displayName,childFolderCount";
-  const response: { value: MailFolder[] } = await withOutlookRetry(() =>
-    client
-      .getClient()
-      .api(`/me/mailFolders/${folderId}/childFolders`)
-      .select(fields)
-      .top(999)
-      .expand(
-        `childFolders($select=${fields};$top=999;$expand=childFolders($select=${fields};$top=999))`,
-      )
-      .get(),
+  const response: { value: MailFolder[] } = await withOutlookRetry(
+    () =>
+      client
+        .getClient()
+        .api(`/me/mailFolders/${folderId}/childFolders`)
+        .select(fields)
+        .top(999)
+        .expand(
+          `childFolders($select=${fields};$top=999;$expand=childFolders($select=${fields};$top=999))`,
+        )
+        .get(),
+    logger,
   );
 
   return response.value.map(convertMailFolderToOutlookFolder);
@@ -69,14 +75,16 @@ async function findOutlookFolderByName(
   logger: Logger,
 ): Promise<OutlookFolder | undefined> {
   try {
-    const response: { value: MailFolder[] } = await withOutlookRetry(() =>
-      client
-        .getClient()
-        .api("/me/mailFolders")
-        .filter(`displayName eq '${folderName.replace(/'/g, "''")}'`)
-        .select("id,displayName")
-        .top(1)
-        .get(),
+    const response: { value: MailFolder[] } = await withOutlookRetry(
+      () =>
+        client
+          .getClient()
+          .api("/me/mailFolders")
+          .filter(`displayName eq '${folderName.replace(/'/g, "''")}'`)
+          .select("id,displayName")
+          .top(1)
+          .get(),
+      logger,
     );
 
     if (response.value && response.value.length > 0) {
@@ -107,7 +115,11 @@ async function expandFolderChildren(
 
   if (hasUnfetchedChildren) {
     try {
-      folder.childFolders = await getOutlookChildFolders(client, folder.id);
+      folder.childFolders = await getOutlookChildFolders(
+        client,
+        folder.id,
+        logger,
+      );
     } catch (error) {
       logger.warn("Failed to fetch folder children", {
         folderId: folder.id,
@@ -135,7 +147,7 @@ export async function getOutlookFolderTree(
   maxDepth: number | undefined,
   logger: Logger,
 ): Promise<OutlookFolder[]> {
-  const folders = await getOutlookRootFolders(client);
+  const folders = await getOutlookRootFolders(client, logger);
 
   // Recursively expand folders that have children
   // Process in parallel batches for better performance
@@ -169,10 +181,12 @@ export async function getOrCreateOutlookFolderIdByName(
   }
 
   try {
-    const response = await withOutlookRetry(() =>
-      client.getClient().api("/me/mailFolders").post({
-        displayName: folderName,
-      }),
+    const response = await withOutlookRetry(
+      () =>
+        client.getClient().api("/me/mailFolders").post({
+          displayName: folderName,
+        }),
+      logger,
     );
 
     return response.id;

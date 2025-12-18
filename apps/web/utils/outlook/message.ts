@@ -198,7 +198,10 @@ export async function queryBatchMessages(
   // If pageToken is a URL, fetch directly (per MS docs, don't extract $skiptoken)
   if (pageToken?.startsWith("http")) {
     const response: { value: Message[]; "@odata.nextLink"?: string } =
-      await withOutlookRetry(() => client.getClient().api(pageToken).get());
+      await withOutlookRetry(
+        () => client.getClient().api(pageToken).get(),
+        logger,
+      );
 
     const filteredMessages = folderId
       ? response.value.filter((message) => message.parentFolderId === folderId)
@@ -249,7 +252,7 @@ export async function queryBatchMessages(
     request = request.search(effectiveSearchQuery!);
 
     const response: { value: Message[]; "@odata.nextLink"?: string } =
-      await withOutlookRetry(() => request.get());
+      await withOutlookRetry(() => request.get(), logger);
 
     // Filter to specific folder if requested, otherwise get all
     const filteredMessages = folderId
@@ -299,7 +302,7 @@ export async function queryBatchMessages(
     request = request.orderby("receivedDateTime DESC");
 
     const response: { value: Message[]; "@odata.nextLink"?: string } =
-      await withOutlookRetry(() => request.get());
+      await withOutlookRetry(() => request.get(), logger);
     const messages = await convertMessages(response.value, folderIds);
 
     nextPageToken = response["@odata.nextLink"];
@@ -343,7 +346,10 @@ export async function queryMessagesWithFilters(
   // If pageToken is a URL, fetch directly (per MS docs, don't extract $skiptoken)
   if (pageToken?.startsWith("http")) {
     const response: { value: Message[]; "@odata.nextLink"?: string } =
-      await withOutlookRetry(() => client.getClient().api(pageToken).get());
+      await withOutlookRetry(
+        () => client.getClient().api(pageToken).get(),
+        logger,
+      );
 
     const messages = await convertMessages(response.value, folderIds);
     return { messages, nextPageToken: response["@odata.nextLink"] };
@@ -392,7 +398,7 @@ export async function queryMessagesWithFilters(
   }
 
   const response: { value: Message[]; "@odata.nextLink"?: string } =
-    await withOutlookRetry(() => request.get());
+    await withOutlookRetry(() => request.get(), logger);
 
   const messages = await convertMessages(response.value, folderIds);
 
@@ -414,8 +420,9 @@ export async function getMessage(
   client: OutlookClient,
   logger: Logger,
 ): Promise<ParsedMessage> {
-  const message = await withOutlookRetry(() =>
-    createMessageRequest(client, messageId).get(),
+  const message = await withOutlookRetry(
+    () => createMessageRequest(client, messageId).get(),
+    logger,
   );
 
   const folderIds = await getFolderIds(client, logger);
@@ -442,7 +449,7 @@ export async function getMessages(
   }
 
   const response: { value: Message[]; "@odata.nextLink"?: string } =
-    await withOutlookRetry(() => request.get());
+    await withOutlookRetry(() => request.get(), logger);
 
   // Get folder IDs to properly map labels
   const folderIds = await getFolderIds(client, logger);

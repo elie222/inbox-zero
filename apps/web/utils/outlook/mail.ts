@@ -10,6 +10,7 @@ import { buildReplyAllRecipients } from "@/utils/email/reply-all";
 import { withOutlookRetry } from "@/utils/outlook/retry";
 import { extractEmailAddress, extractNameFromEmail } from "@/utils/email";
 import { ensureEmailSendingEnabled } from "@/utils/mail";
+import type { Logger } from "@/utils/logger";
 
 interface OutlookMessageRequest {
   subject: string;
@@ -28,6 +29,7 @@ interface OutlookMessageRequest {
 export async function sendEmailWithHtml(
   client: OutlookClient,
   body: SendEmailBody,
+  logger: Logger,
 ) {
   ensureEmailSendingEnabled();
 
@@ -53,8 +55,9 @@ export async function sendEmailWithHtml(
     message.conversationId = body.replyToEmail.threadId;
   }
 
-  const result: Message = await withOutlookRetry(() =>
-    client.getClient().api("/me/messages").post(message),
+  const result: Message = await withOutlookRetry(
+    () => client.getClient().api("/me/messages").post(message),
+    logger,
   );
   return result;
 }
@@ -62,15 +65,17 @@ export async function sendEmailWithHtml(
 export async function sendEmailWithPlainText(
   client: OutlookClient,
   body: Omit<SendEmailBody, "messageHtml"> & { messageText: string },
+  logger: Logger,
 ) {
   const messageHtml = convertTextToHtmlParagraphs(body.messageText);
-  return sendEmailWithHtml(client, { ...body, messageHtml });
+  return sendEmailWithHtml(client, { ...body, messageHtml }, logger);
 }
 
 export async function replyToEmail(
   client: OutlookClient,
   message: EmailForAction,
   reply: string,
+  logger: Logger,
 ) {
   const { html } = createOutlookReplyContent({
     textContent: reply,
@@ -97,11 +102,13 @@ export async function replyToEmail(
   ensureEmailSendingEnabled();
 
   // Send the email immediately using the sendMail endpoint
-  const result = await withOutlookRetry(() =>
-    client.getClient().api("/me/sendMail").post({
-      message: replyMessage,
-      saveToSentItems: true,
-    }),
+  const result = await withOutlookRetry(
+    () =>
+      client.getClient().api("/me/sendMail").post({
+        message: replyMessage,
+        saveToSentItems: true,
+      }),
+    logger,
   );
   return result;
 }
@@ -115,14 +122,16 @@ export async function forwardEmail(
     bcc?: string;
     content?: string;
   },
+  logger: Logger,
 ) {
   ensureEmailSendingEnabled();
 
   if (!options.to.trim()) throw new Error("Recipient address is required");
 
   // Get the original message
-  const originalMessage: Message = await withOutlookRetry(() =>
-    client.getClient().api(`/me/messages/${options.messageId}`).get(),
+  const originalMessage: Message = await withOutlookRetry(
+    () => client.getClient().api(`/me/messages/${options.messageId}`).get(),
+    logger,
   );
 
   const message: ParsedMessage = {
@@ -160,11 +169,13 @@ export async function forwardEmail(
     },
   };
 
-  const result = await withOutlookRetry(() =>
-    client
-      .getClient()
-      .api(`/me/messages/${options.messageId}/forward`)
-      .post({ message: forwardMessage }),
+  const result = await withOutlookRetry(
+    () =>
+      client
+        .getClient()
+        .api(`/me/messages/${options.messageId}/forward`)
+        .post({ message: forwardMessage }),
+    logger,
   );
 
   return result;
@@ -180,6 +191,7 @@ export async function draftEmail(
     attachments?: Attachment[];
   },
   userEmail: string,
+  logger: Logger,
 ) {
   const { html } = createOutlookReplyContent({
     textContent: args.content,
@@ -210,22 +222,26 @@ export async function draftEmail(
 
   // Get the original message's isRead status before creating the draft
   // Microsoft Graph's createReplyAll automatically marks the original as read
-  const originalMessage: Message = await withOutlookRetry(() =>
-    client
-      .getClient()
-      .api(`/me/messages/${originalEmail.id}`)
-      .select("isRead")
-      .get(),
+  const originalMessage: Message = await withOutlookRetry(
+    () =>
+      client
+        .getClient()
+        .api(`/me/messages/${originalEmail.id}`)
+        .select("isRead")
+        .get(),
+    logger,
   );
   const wasUnread = originalMessage.isRead === false;
 
   // Use createReplyAll endpoint to create a proper reply draft
   // This ensures the draft is linked to the original message as a reply all
-  const replyDraft: Message = await withOutlookRetry(() =>
-    client
-      .getClient()
-      .api(`/me/messages/${originalEmail.id}/createReplyAll`)
-      .post({}),
+  const replyDraft: Message = await withOutlookRetry(
+    () =>
+      client
+        .getClient()
+        .api(`/me/messages/${originalEmail.id}/createReplyAll`)
+        .post({}),
+    logger,
   );
 
   // Update the draft with our content
@@ -237,26 +253,30 @@ export async function draftEmail(
     updateRequest.header("If-Match", etag);
   }
 
-  const updatedDraft: Message = await withOutlookRetry(() =>
-    updateRequest.patch({
-      subject: args.subject || originalEmail.headers.subject,
-      body: {
-        contentType: "html",
-        content: html,
-      },
-      toRecipients: [toRecipient],
-      ...(ccRecipients.length > 0 ? { ccRecipients } : {}),
-    }),
+  const updatedDraft: Message = await withOutlookRetry(
+    () =>
+      updateRequest.patch({
+        subject: args.subject || originalEmail.headers.subject,
+        body: {
+          contentType: "html",
+          content: html,
+        },
+        toRecipients: [toRecipient],
+        ...(ccRecipients.length > 0 ? { ccRecipients } : {}),
+      }),
+    logger,
   );
 
   // Restore the original message's unread status if it was unread before
   // createReplyAll automatically marks the original message as read
   if (wasUnread) {
-    await withOutlookRetry(() =>
-      client
-        .getClient()
-        .api(`/me/messages/${originalEmail.id}`)
-        .patch({ isRead: false }),
+    await withOutlookRetry(
+      () =>
+        client
+          .getClient()
+          .api(`/me/messages/${originalEmail.id}`)
+          .patch({ isRead: false }),
+      logger,
     );
   }
 

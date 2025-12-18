@@ -227,14 +227,16 @@ export class OutlookProvider implements EmailProvider {
   async getSentMessages(maxResults = 20): Promise<ParsedMessage[]> {
     const folderIds = await getFolderIds(this.client, this.logger);
 
-    const response: { value: Message[] } = await withOutlookRetry(() =>
-      this.client
-        .getClient()
-        .api("/me/mailFolders('sentitems')/messages")
-        .select(MESSAGE_SELECT_FIELDS)
-        .top(maxResults)
-        .orderby("sentDateTime desc")
-        .get(),
+    const response: { value: Message[] } = await withOutlookRetry(
+      () =>
+        this.client
+          .getClient()
+          .api("/me/mailFolders('sentitems')/messages")
+          .select(MESSAGE_SELECT_FIELDS)
+          .top(maxResults)
+          .orderby("sentDateTime desc")
+          .get(),
+      this.logger,
     );
 
     return (response.value || [])
@@ -245,14 +247,16 @@ export class OutlookProvider implements EmailProvider {
   async getInboxMessages(maxResults = 20): Promise<ParsedMessage[]> {
     const folderIds = await getFolderIds(this.client, this.logger);
 
-    const response: { value: Message[] } = await withOutlookRetry(() =>
-      this.client
-        .getClient()
-        .api("/me/mailFolders('inbox')/messages")
-        .select(MESSAGE_SELECT_FIELDS)
-        .top(maxResults)
-        .orderby("receivedDateTime desc")
-        .get(),
+    const response: { value: Message[] } = await withOutlookRetry(
+      () =>
+        this.client
+          .getClient()
+          .api("/me/mailFolders('inbox')/messages")
+          .select(MESSAGE_SELECT_FIELDS)
+          .top(maxResults)
+          .orderby("receivedDateTime desc")
+          .get(),
+      this.logger,
     );
 
     return (response.value || [])
@@ -286,7 +290,7 @@ export class OutlookProvider implements EmailProvider {
       request = request.filter(filters.join(" and "));
     }
 
-    const response = await withOutlookRetry(() => request.get());
+    const response = await withOutlookRetry(() => request.get(), this.logger);
 
     return (
       response.value
@@ -449,6 +453,7 @@ export class OutlookProvider implements EmailProvider {
         client: this.client,
         messageId,
         categories: updatedCategories,
+        logger: this.logger,
       });
       this.logger.info("Label applied", { labelId: category.id });
     } else {
@@ -464,7 +469,7 @@ export class OutlookProvider implements EmailProvider {
   }
 
   async getDraft(draftId: string): Promise<ParsedMessage | null> {
-    return getDraft({ client: this.client, draftId });
+    return getDraft({ client: this.client, draftId, logger: this.logger });
   }
 
   async deleteDraft(draftId: string): Promise<void> {
@@ -480,7 +485,7 @@ export class OutlookProvider implements EmailProvider {
     if (executedRule) {
       // Run draft creation and previous draft deletion in parallel
       const [result] = await Promise.all([
-        draftEmail(this.client, email, args, userEmail),
+        draftEmail(this.client, email, args, userEmail, this.logger),
         handlePreviousDraftDeletion({
           client: this,
           executedRule,
@@ -490,14 +495,20 @@ export class OutlookProvider implements EmailProvider {
       this.logger.info("Draft created", { draftId: result.id });
       return { draftId: result.id || "" };
     } else {
-      const result = await draftEmail(this.client, email, args, userEmail);
+      const result = await draftEmail(
+        this.client,
+        email,
+        args,
+        userEmail,
+        this.logger,
+      );
       this.logger.info("Draft created", { draftId: result.id });
       return { draftId: result.id || "" };
     }
   }
 
   async replyToEmail(email: ParsedMessage, content: string): Promise<void> {
-    await replyToEmail(this.client, email, content);
+    await replyToEmail(this.client, email, content, this.logger);
   }
 
   async sendEmail(args: {
@@ -507,7 +518,7 @@ export class OutlookProvider implements EmailProvider {
     subject: string;
     messageText: string;
   }): Promise<void> {
-    await sendEmailWithPlainText(this.client, args);
+    await sendEmailWithPlainText(this.client, args, this.logger);
   }
 
   async sendEmailWithHtml(body: {
@@ -528,7 +539,7 @@ export class OutlookProvider implements EmailProvider {
       contentType: string;
     }>;
   }) {
-    const result = await sendEmailWithHtml(this.client, body);
+    const result = await sendEmailWithHtml(this.client, body, this.logger);
     return {
       messageId: result.id || "",
       threadId: result.conversationId || "",
@@ -539,7 +550,11 @@ export class OutlookProvider implements EmailProvider {
     email: ParsedMessage,
     args: { to: string; cc?: string; bcc?: string; content?: string },
   ): Promise<void> {
-    await forwardEmail(this.client, { messageId: email.id, ...args });
+    await forwardEmail(
+      this.client,
+      { messageId: email.id, ...args },
+      this.logger,
+    );
   }
 
   async markSpam(threadId: string): Promise<void> {
@@ -708,6 +723,7 @@ export class OutlookProvider implements EmailProvider {
         client: this.client,
         messageId: message.id,
         categories: newCategories,
+        logger: this.logger,
       });
     }
   }
@@ -1459,7 +1475,12 @@ export class OutlookProvider implements EmailProvider {
     sender: string,
     limit: number,
   ): Promise<Array<{ id: string; snippet: string; subject: string }>> {
-    return getThreadsFromSenderWithSubject(this.client, sender, limit);
+    return getThreadsFromSenderWithSubject(
+      this.client,
+      sender,
+      limit,
+      this.logger,
+    );
   }
 
   async processHistory(options: {
@@ -1493,7 +1514,10 @@ export class OutlookProvider implements EmailProvider {
     expirationDate: Date;
     subscriptionId?: string;
   } | null> {
-    const subscription = await watchOutlook(this.client.getClient());
+    const subscription = await watchOutlook(
+      this.client.getClient(),
+      this.logger,
+    );
 
     if (subscription.expirationDateTime) {
       const expirationDate = new Date(subscription.expirationDateTime);
@@ -1510,7 +1534,7 @@ export class OutlookProvider implements EmailProvider {
       this.logger.warn("No subscription ID provided for Outlook unwatch");
       return;
     }
-    await unwatchOutlook(this.client.getClient(), subscriptionId);
+    await unwatchOutlook(this.client.getClient(), subscriptionId, this.logger);
   }
 
   isReplyInThread(message: ParsedMessage): boolean {
@@ -1575,6 +1599,7 @@ export class OutlookProvider implements EmailProvider {
       action: "archive",
       ownerEmail,
       emailAccountId,
+      logger: this.logger,
     });
   }
 
@@ -1590,6 +1615,7 @@ export class OutlookProvider implements EmailProvider {
       action: "trash",
       ownerEmail,
       emailAccountId,
+      logger: this.logger,
     });
   }
 

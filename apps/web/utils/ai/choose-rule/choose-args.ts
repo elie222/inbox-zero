@@ -86,6 +86,7 @@ export async function getActionItemsWithAiArgs({
     selectedRule,
     parameters,
     modelType,
+    logger,
   });
 
   return combineActionsWithAiArgs(selectedRule.actions, result, draft);

@@ -1,12 +1,10 @@
 import { z } from "zod";
-import { createScopedLogger } from "@/utils/logger";
+import type { Logger } from "@/utils/logger";
 import type { Knowledge } from "@/generated/prisma/client";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import { getModel } from "@/utils/llms/model";
 import { createGenerateObject } from "@/utils/llms";
 import { getUserInfoPrompt } from "@/utils/ai/helpers";
-
-const logger = createScopedLogger("ai/knowledge/extract");
 
 const system = `You are a knowledge extraction agent. Your task is to analyze the provided knowledge base entries and extract the most relevant information for drafting an email response, based ONLY on the provided knowledge base entries.
 
@@ -78,10 +76,12 @@ export async function aiExtractRelevantKnowledge({
   knowledgeBase,
   emailContent,
   emailAccount,
+  logger,
 }: {
   knowledgeBase: Knowledge[];
   emailContent: string;
   emailAccount: EmailAccountWithAI;
+  logger: Logger;
 }): Promise<ExtractedKnowledge | null> {
   try {
     if (!knowledgeBase.length) return null;

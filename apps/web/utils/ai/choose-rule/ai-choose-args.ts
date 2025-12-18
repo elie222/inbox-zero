@@ -3,7 +3,7 @@ import { InvalidArgumentError } from "ai";
 import { createGenerateObject } from "@/utils/llms";
 import { withRetry } from "@/utils/llms/retry";
 import { stringifyEmail } from "@/utils/stringify-email";
-import { createScopedLogger } from "@/utils/logger";
+import type { Logger } from "@/utils/logger";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import type { EmailForLLM, RuleWithActions } from "@/utils/types";
 import { LogicalOperator } from "@/generated/prisma/enums";
@@ -50,6 +50,7 @@ export async function aiGenerateArgs({
   selectedRule,
   parameters,
   modelType,
+  logger,
 }: {
   email: EmailForLLM;
   emailAccount: EmailAccountWithAI;
@@ -62,13 +63,8 @@ export async function aiGenerateArgs({
     >;
   }[];
   modelType: ModelType;
+  logger: Logger;
 }): Promise<ActionArgResponse | undefined> {
-  const logger = createScopedLogger("AI Choose Args").with({
-    email: emailAccount.email,
-    ruleId: selectedRule.id,
-    ruleName: selectedRule.name,
-  });
-
   logger.info("Generating args for rule");
 
   // If no parameters, skip

@@ -2,12 +2,16 @@ import { describe, expect, test, vi } from "vitest";
 import stripIndent from "strip-indent";
 import { processUserRequest } from "@/utils/ai/assistant/process-user-request";
 import type { ParsedMessage, ParsedMessageHeaders } from "@/utils/types";
-import type { RuleWithRelations } from "@/utils/ai/rule/create-prompt-from-rule";
-import type { Category, GroupItem, Prisma } from "@/generated/prisma/client";
+import type { GroupItem, Prisma } from "@/generated/prisma/client";
 import { GroupItemType, LogicalOperator } from "@/generated/prisma/enums";
 import { getEmailAccount } from "@/__tests__/helpers";
+import { createScopedLogger } from "@/utils/logger";
+import type { RuleWithRelations } from "@/utils/rule/types";
 
 // pnpm test-ai ai-process-user-request
+
+const logger: ReturnType<typeof createScopedLogger> =
+  createScopedLogger("test");
 
 const isAiTest = process.env.RUN_AI_TESTS === "true";
 
@@ -56,21 +60,20 @@ describe(
         ],
         originalEmail,
         matchedRule: rule,
-        categories: null,
-        senderCategory: null,
+        logger,
       });
 
       expect(result).toBeDefined();
 
       const toolCalls = result.steps.flatMap((step) => step.toolCalls);
       const updateInstructionsToolCall = toolCalls.find(
-        (toolCall) => toolCall.toolName === "update_ai_instructions",
+        (toolCall) => toolCall?.toolName === "update_ai_instructions",
       );
 
       expect(updateInstructionsToolCall).toBeDefined();
-      expect(updateInstructionsToolCall?.args.ruleName).toBe(
-        "Partnership Rule",
-      );
+      expect(
+        (updateInstructionsToolCall!.input as { ruleName: string }).ruleName,
+      ).toBe("Partnership Rule");
     });
 
     test("should handle request to refine ai rule instructions", async () => {
@@ -109,8 +112,7 @@ describe(
         ],
         originalEmail,
         matchedRule: ruleUrgent,
-        categories: null,
-        senderCategory: null,
+        logger,
       });
 
       expect(result).toBeDefined();
@@ -118,10 +120,11 @@ describe(
       const toolCalls = result.steps.flatMap((step) => step.toolCalls);
 
       const toolCall = toolCalls.find(
-        (toolCall) => toolCall.toolName === "update_ai_instructions",
+        (toolCall) => toolCall?.toolName === "update_ai_instructions",
       );
 
       expect(toolCall).toBeDefined();
+      expect(toolCall).toBeTruthy();
     });
 
     test("should fix static conditions when user indicates incorrect matching", async () => {
@@ -154,26 +157,23 @@ describe(
         ],
         originalEmail,
         matchedRule: rule,
-        categories: null,
-        senderCategory: null,
+        logger,
       });
 
       const toolCalls = result.steps.flatMap((step) => step.toolCalls);
       const updateStaticConditionsToolCall = toolCalls.find(
-        (toolCall) => toolCall.toolName === "update_static_conditions",
+        (toolCall) => toolCall?.toolName === "update_static_conditions",
       );
 
       expect(updateStaticConditionsToolCall).toBeDefined();
-      expect(updateStaticConditionsToolCall?.args.ruleName).toBe(
-        "Receipt Rule",
-      );
+      const staticConditionsInput = updateStaticConditionsToolCall!.input as {
+        ruleName: string;
+        staticConditions?: { subject?: string };
+      };
+      expect(staticConditionsInput.ruleName).toBe("Receipt Rule");
       expect(
-        updateStaticConditionsToolCall?.args.staticConditions?.subject?.includes(
-          "shipping",
-        ) ||
-          updateStaticConditionsToolCall?.args.staticConditions?.subject?.includes(
-            "Shipped",
-          ),
+        staticConditionsInput.staticConditions?.subject?.includes("shipping") ||
+          staticConditionsInput.staticConditions?.subject?.includes("Shipped"),
       ).toBe(true);
     });
 
@@ -229,17 +229,18 @@ describe(
         ],
         originalEmail,
         matchedRule: rule,
-        categories: null,
-        senderCategory: null,
+        logger,
       });
 
       const toolCalls = result.steps.flatMap((step) => step.toolCalls);
       const removeFromGroupToolCall = toolCalls.find(
-        (toolCall) => toolCall.toolName === "remove_from_group",
+        (toolCall) => toolCall?.toolName === "remove_from_group",
       );
 
       expect(removeFromGroupToolCall).toBeDefined();
-      expect(removeFromGroupToolCall?.args.value).toBe("david@hello.com");
+      expect((removeFromGroupToolCall!.input as { value: string }).value).toBe(
+        "david@hello.com",
+      );
     });
 
     test("should suggest adding sender to group when identified as missing", async () => {
@@ -291,30 +292,27 @@ describe(
         ],
         originalEmail,
         matchedRule: null, // Important: rule didn't match initially
-        categories: null,
-        senderCategory: null,
+        logger,
       });
 
       const toolCalls = result.steps.flatMap((step) => step.toolCalls);
       const addToGroupToolCall = toolCalls.find(
-        (toolCall) => toolCall.toolName === "add_to_group",
+        (toolCall) => toolCall?.toolName === "add_to_group",
       );
 
       expect(addToGroupToolCall).toBeDefined();
-      expect(addToGroupToolCall?.args.type).toBe("from");
-      expect(addToGroupToolCall?.args.value).toContain("convertkit.com");
+      const addToGroupInput = addToGroupToolCall!.input as {
+        type: string;
+        value: string;
+      };
+      expect(addToGroupInput.type).toBe("from");
+      expect(addToGroupInput.value).toContain("convertkit.com");
     });
 
     test("should fix category filters when user indicates wrong categorization", async () => {
-      const marketingCategory = getCategory({
-        name: "Marketing",
-        description: "Marketing related emails",
-      });
-
       const rule = getRule({
         name: "Marketing Rule",
         categoryFilterType: "INCLUDE",
-        categoryFilters: [marketingCategory],
       });
 
       const originalEmail = getParsedMessage({
@@ -336,35 +334,26 @@ describe(
         ],
         originalEmail,
         matchedRule: rule,
-        categories: [
-          { id: "1", name: "Marketing" },
-          { id: "2", name: "Sales" },
-          { id: "3", name: "Newsletter" },
-        ],
-        senderCategory: "Marketing",
+        logger,
       });
 
       const toolCalls = result.steps.flatMap((step) => step.toolCalls);
       const updateSenderCategoryToolCall = toolCalls.find(
-        (toolCall) => toolCall.toolName === "update_sender_category",
+        (toolCall) => toolCall?.toolName === "update_sender_category",
       );
 
       expect(updateSenderCategoryToolCall).toBeDefined();
-      expect(updateSenderCategoryToolCall?.args.category).toBe("Sales");
+      expect(
+        (updateSenderCategoryToolCall!.input as { category: string }).category,
+      ).toBe("Sales");
     });
 
     test("should handle complex rule fixes with multiple condition types", async () => {
-      const salesCategory = getCategory({
-        name: "Sales",
-        description: "Sales related emails",
-      });
-
       const rule = getRule({
         name: "Sales Rule",
         instructions: "Match sales opportunities",
         from: "@enterprise.com",
         subject: "Business opportunity",
-        categoryFilters: [salesCategory],
         categoryFilterType: "INCLUDE",
       });
 
@@ -388,31 +377,31 @@ describe(
         ],
         originalEmail,
         matchedRule: rule,
-        categories: [
-          { id: "1", name: "Marketing" },
-          { id: "2", name: "Sales" },
-          { id: "3", name: "Newsletter" },
-        ],
-        senderCategory: "Marketing",
+        logger,
       });
 
       const toolCalls = result.steps.flatMap((step) => step.toolCalls);
 
       const updateStaticConditionsToolCall = toolCalls.find(
-        (toolCall) => toolCall.toolName === "update_static_conditions",
+        (toolCall) => toolCall?.toolName === "update_static_conditions",
       );
       const updateAiInstructionsToolCall = toolCalls.find(
-        (toolCall) => toolCall.toolName === "update_ai_instructions",
+        (toolCall) => toolCall?.toolName === "update_ai_instructions",
       );
 
       expect(
         updateStaticConditionsToolCall || updateAiInstructionsToolCall,
       ).toBeDefined();
       if (updateStaticConditionsToolCall) {
-        expect(updateStaticConditionsToolCall.args.ruleName).toBe("Sales Rule");
+        expect(
+          (updateStaticConditionsToolCall.input as { ruleName: string })
+            .ruleName,
+        ).toBe("Sales Rule");
       }
       if (updateAiInstructionsToolCall) {
-        expect(updateAiInstructionsToolCall.args.ruleName).toBe("Sales Rule");
+        expect(
+          (updateAiInstructionsToolCall.input as { ruleName: string }).ruleName,
+        ).toBe("Sales Rule");
       }
     });
   },
@@ -436,7 +425,6 @@ function getRule(rule: Partial<RuleWithRelations>): RuleWithRelations {
     group: null,
     groupId: null,
     // category conditions
-    categoryFilters: [],
     categoryFilterType: null,
 
     // other
@@ -447,6 +435,7 @@ function getRule(rule: Partial<RuleWithRelations>): RuleWithRelations {
     createdAt: new Date(),
     updatedAt: new Date(),
     systemType: null,
+    promptText: null,
     ...rule,
   };
 }
@@ -456,26 +445,35 @@ function getParsedMessage(
     headers?: Partial<ParsedMessageHeaders>;
   },
 ): ParsedMessage {
+  const defaultHeaders: ParsedMessageHeaders = {
+    from: "test@example.com",
+    to: "recipient@example.com",
+    subject: "",
+    date: new Date().toISOString(),
+    references: "",
+    "message-id": "message-id",
+  };
+
+  const mergedHeaders: ParsedMessageHeaders = {
+    ...defaultHeaders,
+    ...message.headers,
+    date: (message.headers?.date ?? defaultHeaders.date) as string,
+    subject: (message.headers?.subject ?? defaultHeaders.subject) as string,
+  };
+
   return {
     id: "id",
     threadId: "thread-id",
     snippet: "",
     attachments: [],
     historyId: "history-id",
-    sizeEstimate: 100,
     internalDate: new Date().toISOString(),
     inline: [],
     textPlain: "",
     ...message,
-    headers: {
-      from: "test@example.com",
-      to: "recipient@example.com",
-      subject: "",
-      date: new Date().toISOString(),
-      references: "",
-      "message-id": "message-id",
-      ...message.headers,
-    },
+    headers: mergedHeaders,
+    subject: mergedHeaders.subject,
+    date: mergedHeaders.date,
   };
 }
 
@@ -504,18 +502,7 @@ function getGroupItem(item: Partial<GroupItem>): GroupItem {
     createdAt: new Date(),
     updatedAt: new Date(),
     groupId: "group1",
+    exclude: false,
     ...item,
-  };
-}
-
-function getCategory(category: Partial<Category>): Category {
-  return {
-    id: "id",
-    name: "",
-    description: null,
-    createdAt: new Date(),
-    updatedAt: new Date(),
-    emailAccountId: "user1",
-    ...category,
   };
 }

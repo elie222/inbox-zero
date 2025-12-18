@@ -1,12 +1,10 @@
-import { createScopedLogger } from "@/utils/logger";
+import type { Logger } from "@/utils/logger";
 import type { OutlookClient } from "@/utils/outlook/client";
 import { escapeODataString } from "@/utils/outlook/odata-escape";
 import {
   publishBulkActionToTinybird,
   updateEmailMessagesForSender,
 } from "@/utils/email/bulk-action-tracking";
-
-const logger = createScopedLogger("outlook/batch");
 
 const GRAPH_JSON_BATCH_LIMIT = 20; // Microsoft Graph JSON batching limit
 
@@ -35,6 +33,7 @@ async function batch<TRequestBody = unknown, TResponseBody = unknown>({
   stopOnError = false,
   onFailure,
   context,
+  logger,
 }: {
   client: OutlookClient;
   requests: GraphBatchRequestItem<TRequestBody>[];
@@ -44,6 +43,7 @@ async function batch<TRequestBody = unknown, TResponseBody = unknown>({
     response: GraphBatchResponseItem<TResponseBody>;
   }) => void;
   context?: Record<string, unknown>;
+  logger: Logger;
 }): Promise<GraphBatchResponseItem<TResponseBody>[]> {
   if (requests.length === 0) return [];
 
@@ -106,11 +106,13 @@ async function moveMessagesInBatches({
   messageIds,
   destinationId,
   action,
+  logger,
 }: {
   client: OutlookClient;
   messageIds: string[];
   destinationId: string;
   action: "archive" | "trash";
+  logger: Logger;
 }): Promise<void> {
   if (messageIds.length === 0) return;
 
@@ -141,6 +143,7 @@ async function moveMessagesInBatches({
       destinationId,
       messageCount: messageIds.length,
     },
+    logger,
     onFailure: ({ request, response }) => {
       const messageId = request ? requestIdToMessageId.get(request.id) : null;
       const body = response.body;
@@ -168,6 +171,7 @@ export async function moveMessagesForSenders({
   action,
   ownerEmail,
   emailAccountId,
+  logger,
 }: {
   client: OutlookClient;
   senders: string[];
@@ -175,6 +179,7 @@ export async function moveMessagesForSenders({
   action: "archive" | "trash";
   ownerEmail: string;
   emailAccountId: string;
+  logger: Logger;
 }): Promise<void> {
   if (senders.length === 0) return;
 
@@ -234,6 +239,7 @@ export async function moveMessagesForSenders({
               messageIds,
               destinationId,
               action,
+              logger,
             });
 
             const batchThreadIds = new Set(

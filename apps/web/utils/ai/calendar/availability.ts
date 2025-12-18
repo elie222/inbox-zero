@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { tool } from "ai";
-import { createScopedLogger } from "@/utils/logger";
+import type { Logger } from "@/utils/logger";
 import { createGenerateText } from "@/utils/llms";
 import { getModel } from "@/utils/llms/model";
 import { getUnifiedCalendarAvailability } from "@/utils/calendar/unified-availability";
@@ -8,8 +8,6 @@ import type { EmailAccountWithAI } from "@/utils/llms/types";
 import type { EmailForLLM } from "@/utils/types";
 import prisma from "@/utils/prisma";
 import { getUserInfoPrompt } from "@/utils/ai/helpers";
-
-const logger = createScopedLogger("calendar-availability");
 
 const timeSlotSchema = z.object({
   start: z.string().describe("Start time in format YYYY-MM-DD HH:MM"),
@@ -35,9 +33,11 @@ export type CalendarAvailabilityContext = z.infer<typeof schema>;
 export async function aiGetCalendarAvailability({
   emailAccount,
   messages,
+  logger,
 }: {
   emailAccount: EmailAccountWithAI;
   messages: EmailForLLM[];
+  logger: Logger;
 }): Promise<CalendarAvailabilityContext | null> {
   if (!messages?.length) {
     logger.warn("No messages provided for calendar availability check");

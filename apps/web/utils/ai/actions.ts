@@ -297,10 +297,11 @@ const digest: ActionFunction<{ id?: string }> = async ({
   email,
   emailAccountId,
   args,
+  logger,
 }) => {
   if (!args.id) return;
   const actionId = args.id;
-  await enqueueDigestItem({ email, emailAccountId, actionId });
+  await enqueueDigestItem({ email, emailAccountId, actionId, logger });
 };
 
 const move_folder: ActionFunction<{ folderId?: string | null }> = async ({

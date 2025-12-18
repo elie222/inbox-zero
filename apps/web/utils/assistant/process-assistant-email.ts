@@ -206,6 +206,7 @@ async function processAssistantEmailInternal({
     originalEmail: originalMessage,
     messages,
     matchedRule: executedRules?.length ? executedRules[0].rule : null, // TODO: support multiple rule matching
+    logger,
   });
 
   const toolCalls = result.steps.flatMap((step) => step.toolCalls);

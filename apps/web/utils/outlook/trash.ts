@@ -26,10 +26,12 @@ export async function trashThread(options: {
     const trashPromise = Promise.all(
       messages.value.map(async (message: { id: string }) => {
         try {
-          return await withOutlookRetry(() =>
-            client.getClient().api(`/me/messages/${message.id}/move`).post({
-              destinationId: "deleteditems",
-            }),
+          return await withOutlookRetry(
+            () =>
+              client.getClient().api(`/me/messages/${message.id}/move`).post({
+                destinationId: "deleteditems",
+              }),
+            logger,
           );
         } catch (error) {
           // Log the error but don't fail the entire operation
@@ -110,10 +112,15 @@ export async function trashThread(options: {
         const movePromises = threadMessages.map(
           async (message: { id: string }) => {
             try {
-              return await withOutlookRetry(() =>
-                client.getClient().api(`/me/messages/${message.id}/move`).post({
-                  destinationId: "deleteditems",
-                }),
+              return await withOutlookRetry(
+                () =>
+                  client
+                    .getClient()
+                    .api(`/me/messages/${message.id}/move`)
+                    .post({
+                      destinationId: "deleteditems",
+                    }),
+                logger,
               );
             } catch (moveError) {
               // Log the error but don't fail the entire operation
@@ -131,10 +138,12 @@ export async function trashThread(options: {
         await Promise.allSettled(movePromises);
       } else {
         // If no messages found, try treating threadId as a messageId
-        await withOutlookRetry(() =>
-          client.getClient().api(`/me/messages/${threadId}/move`).post({
-            destinationId: "deleteditems",
-          }),
+        await withOutlookRetry(
+          () =>
+            client.getClient().api(`/me/messages/${threadId}/move`).post({
+              destinationId: "deleteditems",
+            }),
+          logger,
         );
       }
 

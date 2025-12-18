@@ -147,13 +147,14 @@ async function generateDraftContent(
       knowledgeBase,
       emailContent: lastMessageContent,
       emailAccount,
+      logger,
     }),
     aiCollectReplyContext({
       currentThread: messages,
       emailAccount,
       emailProvider,
     }),
-    aiGetCalendarAvailability({ emailAccount, messages }),
+    aiGetCalendarAvailability({ emailAccount, messages, logger }),
     getWritingStyle({ emailAccountId: emailAccount.id }),
     mcpAgent({ emailAccount, messages }),
   ]);
@@ -179,6 +180,7 @@ async function generateDraftContent(
         currentThreadMessages: messages,
         historicalMessages: historicalMessagesForLLM,
         emailAccount,
+        logger,
       })
     : null;
 

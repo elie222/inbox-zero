@@ -1,23 +1,23 @@
 import { publishToQstashQueue } from "@/utils/upstash";
-import { createScopedLogger } from "@/utils/logger";
+import type { Logger } from "@/utils/logger";
 import { emailToContent } from "@/utils/mail";
 import { getInternalApiUrl } from "@/utils/internal-api";
 import type { DigestBody } from "@/app/api/ai/digest/validation";
 import type { ParsedMessage } from "@/utils/types";
 import type { EmailForAction } from "@/utils/ai/types";
 
-const logger = createScopedLogger("digest");
-
 export async function enqueueDigestItem({
   email,
   emailAccountId,
   actionId,
   coldEmailId,
+  logger,
 }: {
   email: ParsedMessage | EmailForAction;
   emailAccountId: string;
   actionId?: string;
   coldEmailId?: string;
+  logger: Logger;
 }) {
   const url = `${getInternalApiUrl()}/api/ai/digest`;
   try {
@@ -40,9 +40,6 @@ export async function enqueueDigestItem({
       },
     });
   } catch (error) {
-    logger.error("Failed to publish to Qstash", {
-      emailAccountId,
-      error,
-    });
+    logger.error("Failed to publish to Qstash", { error });
   }
 }

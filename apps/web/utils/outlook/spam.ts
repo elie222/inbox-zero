@@ -21,10 +21,12 @@ export async function markSpam(
     // Move each message in the thread to the junk email folder
     const movePromises = messages.value.map(async (message: { id: string }) => {
       try {
-        return await withOutlookRetry(() =>
-          client.getClient().api(`/me/messages/${message.id}/move`).post({
-            destinationId: "junkemail",
-          }),
+        return await withOutlookRetry(
+          () =>
+            client.getClient().api(`/me/messages/${message.id}/move`).post({
+              destinationId: "junkemail",
+            }),
+          logger,
         );
       } catch (error) {
         // Log the error but don't fail the entire operation
@@ -64,10 +66,15 @@ export async function markSpam(
         const movePromises = threadMessages.map(
           async (message: { id: string }) => {
             try {
-              return await withOutlookRetry(() =>
-                client.getClient().api(`/me/messages/${message.id}/move`).post({
-                  destinationId: "junkemail",
-                }),
+              return await withOutlookRetry(
+                () =>
+                  client
+                    .getClient()
+                    .api(`/me/messages/${message.id}/move`)
+                    .post({
+                      destinationId: "junkemail",
+                    }),
+                logger,
               );
             } catch (moveError) {
               // Log the error but don't fail the entire operation
@@ -85,10 +92,12 @@ export async function markSpam(
         await Promise.allSettled(movePromises);
       } else {
         // If no messages found, try treating threadId as a messageId
-        await withOutlookRetry(() =>
-          client.getClient().api(`/me/messages/${threadId}/move`).post({
-            destinationId: "junkemail",
-          }),
+        await withOutlookRetry(
+          () =>
+            client.getClient().api(`/me/messages/${threadId}/move`).post({
+              destinationId: "junkemail",
+            }),
+          logger,
         );
       }
     } catch (directError) {
