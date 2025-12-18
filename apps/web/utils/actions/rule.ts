@@ -15,6 +15,7 @@ import {
   type CategoryAction,
   toggleRuleBody,
   toggleAllRulesBody,
+  copyRulesFromAccountBody,
 } from "@/utils/actions/rule.validation";
 import prisma from "@/utils/prisma";
 import { isDuplicateError, isNotFoundError } from "@/utils/prisma-helpers";
@@ -34,7 +35,7 @@ import {
   getSystemRuleActionTypes,
   getCategoryAction,
 } from "@/utils/rule/consts";
-import { actionClient } from "@/utils/actions/safe-action";
+import { actionClient, actionClientUser } from "@/utils/actions/safe-action";
 import { prefixPath } from "@/utils/path";
 import { ONE_WEEK_MINUTES } from "@/utils/date";
 import { createEmailProvider } from "@/utils/email/provider";
@@ -457,6 +458,156 @@ export const toggleAllRulesAction = actionClient
 
     return { success: true };
   });
+
+export const copyRulesFromAccountAction = actionClientUser
+  .metadata({ name: "copyRulesFromAccount" })
+  .inputSchema(copyRulesFromAccountBody)
+  .action(
+    async ({
+      ctx: { userId, logger },
+      parsedInput: { sourceEmailAccountId, targetEmailAccountId, ruleIds },
+    }) => {
+      if (sourceEmailAccountId === targetEmailAccountId) {
+        throw new SafeError("Source and target accounts must be different");
+      }
+
+      // Validate user owns both accounts
+      const [sourceAccount, targetAccount] = await Promise.all([
+        prisma.emailAccount.findUnique({
+          where: { id: sourceEmailAccountId },
+          select: {
+            id: true,
+            email: true,
+            account: { select: { userId: true, provider: true } },
+          },
+        }),
+        prisma.emailAccount.findUnique({
+          where: { id: targetEmailAccountId },
+          select: {
+            id: true,
+            email: true,
+            account: { select: { userId: true, provider: true } },
+          },
+        }),
+      ]);
+
+      if (!sourceAccount || sourceAccount.account.userId !== userId) {
+        throw new SafeError("Source account not found or unauthorized");
+      }
+      if (!targetAccount || targetAccount.account.userId !== userId) {
+        throw new SafeError("Target account not found or unauthorized");
+      }
+
+      // Fetch selected rules from source account
+      const sourceRules = await prisma.rule.findMany({
+        where: {
+          emailAccountId: sourceEmailAccountId,
+          id: { in: ruleIds },
+        },
+        include: { actions: true },
+      });
+
+      if (sourceRules.length === 0) {
+        return { copiedCount: 0, replacedCount: 0 };
+      }
+
+      // Fetch existing rules in target account to check for duplicates
+      const targetRules = await prisma.rule.findMany({
+        where: { emailAccountId: targetEmailAccountId },
+        select: { id: true, name: true, systemType: true },
+      });
+
+      // Build lookup maps for matching existing rules
+      const targetRulesByName = new Map(
+        targetRules.map((r) => [r.name.toLowerCase(), r.id]),
+      );
+      const targetRulesBySystemType = new Map(
+        targetRules
+          .filter((r) => r.systemType)
+          .map((r) => [r.systemType!, r.id]),
+      );
+
+      let copiedCount = 0;
+      let replacedCount = 0;
+
+      for (const sourceRule of sourceRules) {
+        // For system rules, match by systemType; for regular rules, match by name
+        const existingRuleId = sourceRule.systemType
+          ? targetRulesBySystemType.get(sourceRule.systemType)
+          : targetRulesByName.get(sourceRule.name.toLowerCase());
+
+        // Map actions - keep label names but clear IDs (they'll be resolved when rule executes)
+        const mappedActions = sourceRule.actions.map((action) => ({
+          type: action.type,
+          label: action.label, // Keep the label name
+          labelId: null, // Clear the ID - it's account-specific
+          subject: action.subject,
+          content: action.content,
+          to: action.to,
+          cc: action.cc,
+          bcc: action.bcc,
+          url: action.url,
+          folderName: action.folderName, // Keep folder name
+          folderId: null, // Clear the ID - it's account-specific
+          delayInMinutes: action.delayInMinutes,
+        }));
+
+        if (existingRuleId) {
+          // Update existing rule
+          await prisma.rule.update({
+            where: { id: existingRuleId },
+            data: {
+              instructions: sourceRule.instructions,
+              enabled: sourceRule.enabled,
+              runOnThreads: sourceRule.runOnThreads,
+              conditionalOperator: sourceRule.conditionalOperator,
+              from: sourceRule.from,
+              to: sourceRule.to,
+              subject: sourceRule.subject,
+              body: sourceRule.body,
+              // Drop groupId - it's account-specific
+              groupId: null,
+              actions: {
+                deleteMany: {},
+                createMany: { data: mappedActions },
+              },
+            },
+          });
+          replacedCount++;
+        } else {
+          // Create new rule
+          await prisma.rule.create({
+            data: {
+              emailAccountId: targetEmailAccountId,
+              name: sourceRule.name,
+              systemType: sourceRule.systemType,
+              instructions: sourceRule.instructions,
+              enabled: sourceRule.enabled,
+              runOnThreads: sourceRule.runOnThreads,
+              conditionalOperator: sourceRule.conditionalOperator,
+              from: sourceRule.from,
+              to: sourceRule.to,
+              subject: sourceRule.subject,
+              body: sourceRule.body,
+              // Drop groupId - it's account-specific
+              groupId: null,
+              actions: { createMany: { data: mappedActions } },
+            },
+          });
+          copiedCount++;
+        }
+      }
+
+      logger.info("Copied rules between accounts", {
+        sourceEmailAccountId,
+        targetEmailAccountId,
+        copiedCount,
+        replacedCount,
+      });
+
+      return { copiedCount, replacedCount };
+    },
+  );
 
 async function toggleRule({
   ruleId,
