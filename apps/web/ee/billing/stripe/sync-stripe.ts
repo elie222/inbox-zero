@@ -145,7 +145,7 @@ export async function syncStripeDataToDb({
       const tierChanged = currentPremium?.tier !== tier;
 
       if (userIds.length && (!currentPremium || statusChanged || tierChanged)) {
-        ensureEmailAccountsWatched({ userIds }).catch((error) => {
+        ensureEmailAccountsWatched({ userIds, logger }).catch((error) => {
           logger.error("Failed to ensure email watches after Stripe sync", {
             customerId,
             userIds,

@@ -2,7 +2,7 @@ import type { EmailAccountWithAI } from "@/utils/llms/types";
 import type { ParsedMessage } from "@/utils/types";
 import { aiDetermineThreadStatus } from "@/utils/ai/reply/determine-thread-status";
 import prisma from "@/utils/prisma";
-import { createScopedLogger, type Logger } from "@/utils/logger";
+import type { Logger } from "@/utils/logger";
 import { getEmailForLLM } from "@/utils/get-email-from-message";
 import { internalDateToDate, sortByInternalDate } from "@/utils/date";
 import type { EmailProvider } from "@/utils/email/types";
@@ -14,12 +14,14 @@ export async function handleOutboundReply({
   emailAccount,
   message,
   provider,
+  logger,
 }: {
   emailAccount: EmailAccountWithAI;
   message: ParsedMessage;
   provider: EmailProvider;
+  logger: Logger;
 }) {
-  const logger = createScopedLogger("reply-tracker/outbound").with({
+  logger = logger.with({
     email: emailAccount.email,
     messageId: message.id,
     threadId: message.threadId,

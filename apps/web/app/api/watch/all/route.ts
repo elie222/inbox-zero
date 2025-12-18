@@ -28,7 +28,7 @@ export const POST = withError("watch/all", async (request) => {
 
 async function watchAllEmails(logger: Logger) {
   try {
-    const results = await ensureEmailAccountsWatched({ userIds: null });
+    const results = await ensureEmailAccountsWatched({ userIds: null, logger });
     return NextResponse.json({ success: true, results });
   } catch (error) {
     logger.error("Failed to watch all emails", { error });

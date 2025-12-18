@@ -67,6 +67,7 @@ async function handleBatchInternal(request: RequestWithLogger) {
     refreshToken: account.refresh_token,
     expiresAt: account.expires_at?.getTime() || null,
     emailAccountId,
+    logger: request.logger,
   });
 
   const sendersWithEmails: Map<string, { subject: string; snippet: string }[]> =

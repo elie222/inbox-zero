@@ -45,12 +45,11 @@ export const GET = withEmailAccount("resend/digest", async (request) => {
 
 export const POST = verifySignatureAppRouter(
   withError("resend/digest", async (request) => {
-    const logger = request.logger;
     const json = await request.json();
     const { success, data, error } = sendDigestEmailBody.safeParse(json);
 
     if (!success) {
-      logger.error("Invalid request body", { error });
+      request.logger.error("Invalid request body", { error });
       return NextResponse.json(
         { error: "Invalid request body" },
         { status: 400 },
@@ -58,9 +57,9 @@ export const POST = verifySignatureAppRouter(
     }
     const { emailAccountId } = data;
 
-    const scopedLogger = logger.with({ emailAccountId });
+    const logger = request.logger.with({ emailAccountId });
 
-    scopedLogger.info("Sending digest email to user POST");
+    logger.info("Sending digest email to user POST");
 
     try {
       const result = await sendEmail({ emailAccountId, logger });
