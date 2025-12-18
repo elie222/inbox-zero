@@ -4,14 +4,13 @@ import {
   startedTrial,
   cancelledPremium,
 } from "@inboxzero/loops";
-import { createScopedLogger } from "@/utils/logger";
-
-const logger = createScopedLogger("stripe/syncStripeDataToDb");
+import type { Logger } from "@/utils/logger";
 
 export async function handleLoopsEvents({
   currentPremium,
   newSubscription,
   newTier,
+  logger,
 }: {
   currentPremium: {
     stripeSubscriptionStatus: string | null;
@@ -22,6 +21,7 @@ export async function handleLoopsEvents({
   } | null;
   newSubscription: any;
   newTier: string | null;
+  logger: Logger;
 }) {
   try {
     if (!currentPremium) return;

@@ -1,24 +1,21 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { handleLoopsEvents } from "./loops-events";
 import { createScopedLogger } from "@/utils/logger";
-
-const logger = createScopedLogger("test");
-
-// Mock the logger
-vi.mock("@/utils/logger", () => ({
-  createScopedLogger: () => ({
-    info: vi.fn(),
-    warn: vi.fn(),
-    error: vi.fn(),
-  }),
-}));
-
 import {
   createContact,
   completedTrial,
   startedTrial,
   cancelledPremium,
 } from "@inboxzero/loops";
+
+const logger = createScopedLogger("test");
+
+vi.mock("@inboxzero/loops", () => ({
+  createContact: vi.fn().mockResolvedValue({ success: true }),
+  completedTrial: vi.fn().mockResolvedValue(undefined),
+  startedTrial: vi.fn().mockResolvedValue(undefined),
+  cancelledPremium: vi.fn().mockResolvedValue(undefined),
+}));
 
 describe("handleLoopsEvents", () => {
   beforeEach(() => {

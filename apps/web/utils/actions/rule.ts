@@ -59,7 +59,7 @@ export const createRuleAction = actionClient
         conditionalOperator,
       },
     }) => {
-      const conditions = flattenConditions(conditionsInput);
+      const conditions = flattenConditions(conditionsInput, logger);
 
       const resolvedActions = await resolveActionLabels(
         actions || [],
@@ -110,7 +110,7 @@ export const updateRuleAction = actionClient
         conditionalOperator,
       },
     }) => {
-      const conditions = flattenConditions(conditionsInput);
+      const conditions = flattenConditions(conditionsInput, logger);
 
       const resolvedActions = await resolveActionLabels(
         actions,
