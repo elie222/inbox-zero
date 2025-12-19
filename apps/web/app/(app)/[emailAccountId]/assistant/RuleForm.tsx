@@ -406,7 +406,7 @@ export function RuleForm({
           }
         >
           {isConversationStatusType(rule.systemType) ? (
-            <div className="flex items-center gap-2 px-4 py-2 bg-gray-50 dark:bg-gray-900">
+            <div className="flex items-center gap-2 px-4 pb-4">
               Matching:
               <span className="text-muted-foreground">
                 {getRuleConfig(rule.systemType).instructions}

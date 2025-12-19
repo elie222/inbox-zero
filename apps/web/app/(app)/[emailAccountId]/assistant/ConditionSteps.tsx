@@ -376,10 +376,7 @@ export function ConditionSteps({
         const shouldIndent = isSecondOrLaterStaticAfterPrompt;
 
         return (
-          <div
-            className={`pl-3 ${shouldIndent ? "ml-14" : ""}`}
-            key={condition.id}
-          >
+          <div className={shouldIndent ? "ml-14" : ""} key={condition.id}>
             <RuleStep
               onRemove={() => removeCondition(index)}
               removeAriaLabel="Remove condition"
