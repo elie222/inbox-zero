@@ -2,21 +2,36 @@ import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import prisma from "@/utils/prisma";
-import { CALENDAR_STATE_COOKIE_NAME } from "@/utils/calendar/constants";
+import { DRIVE_STATE_COOKIE_NAME } from "@/utils/drive/constants";
 import { parseOAuthState } from "@/utils/oauth/state";
 import { prefixPath } from "@/utils/path";
 import { env } from "@/env";
 import type { Logger } from "@/utils/logger";
-import type {
-  OAuthCallbackValidation,
-  CalendarOAuthState,
-} from "./oauth-types";
-
 import { RedirectError } from "@/utils/oauth/redirect";
 
-const calendarOAuthStateSchema = z.object({
+// ============================================================================
+// Types
+// ============================================================================
+
+export interface DriveOAuthState {
+  emailAccountId: string;
+  type: "drive";
+  nonce: string;
+}
+
+export interface OAuthCallbackValidation {
+  code: string;
+  redirectUrl: URL;
+  response: NextResponse;
+}
+
+// ============================================================================
+// State Validation
+// ============================================================================
+
+const driveOAuthStateSchema = z.object({
   emailAccountId: z.string().min(1).max(64),
-  type: z.literal("calendar"),
+  type: z.literal("drive"),
   nonce: z.string().min(8).max(128),
 });
 
@@ -30,21 +45,21 @@ export async function validateOAuthCallback(
   const searchParams = request.nextUrl.searchParams;
   const code = searchParams.get("code");
   const receivedState = searchParams.get("state");
-  const storedState = request.cookies.get(CALENDAR_STATE_COOKIE_NAME)?.value;
+  const storedState = request.cookies.get(DRIVE_STATE_COOKIE_NAME)?.value;
 
-  const redirectUrl = new URL("/calendars", env.NEXT_PUBLIC_BASE_URL);
+  const redirectUrl = new URL("/drive", env.NEXT_PUBLIC_BASE_URL);
   const response = NextResponse.redirect(redirectUrl);
 
-  response.cookies.delete(CALENDAR_STATE_COOKIE_NAME);
+  response.cookies.delete(DRIVE_STATE_COOKIE_NAME);
 
   if (!code || code.length < 10) {
-    logger.warn("Missing or invalid code in calendar callback");
+    logger.warn("Missing or invalid code in drive callback");
     redirectUrl.searchParams.set("error", "missing_code");
     throw new RedirectError(redirectUrl, response.headers);
   }
 
   if (!storedState || !receivedState || storedState !== receivedState) {
-    logger.warn("Invalid state during calendar callback", {
+    logger.warn("Invalid state during drive callback", {
       receivedState,
       hasStoredState: !!storedState,
     });
@@ -58,22 +73,22 @@ export async function validateOAuthCallback(
 /**
  * Parse and validate the OAuth state
  */
-export function parseAndValidateCalendarState(
+export function parseAndValidateDriveState(
   storedState: string,
   logger: Logger,
   redirectUrl: URL,
   responseHeaders: Headers,
-): CalendarOAuthState {
+): DriveOAuthState {
   let rawState: unknown;
   try {
-    rawState = parseOAuthState<Omit<CalendarOAuthState, "nonce">>(storedState);
+    rawState = parseOAuthState<Omit<DriveOAuthState, "nonce">>(storedState);
   } catch (error) {
     logger.error("Failed to decode state", { error });
     redirectUrl.searchParams.set("error", "invalid_state_format");
     throw new RedirectError(redirectUrl, responseHeaders);
   }
 
-  const validationResult = calendarOAuthStateSchema.safeParse(rawState);
+  const validationResult = driveOAuthStateSchema.safeParse(rawState);
   if (!validationResult.success) {
     logger.error("State validation failed", {
       errors: validationResult.error.errors,
@@ -85,37 +100,43 @@ export function parseAndValidateCalendarState(
   return validationResult.data;
 }
 
+// ============================================================================
+// Redirect URL Building
+// ============================================================================
+
 /**
  * Build redirect URL with emailAccountId
  */
-export function buildCalendarRedirectUrl(emailAccountId: string): URL {
+export function buildDriveRedirectUrl(emailAccountId: string): URL {
   return new URL(
-    prefixPath(emailAccountId, "/calendars"),
+    prefixPath(emailAccountId, "/drive"),
     env.NEXT_PUBLIC_BASE_URL,
   );
 }
 
+// ============================================================================
+// Database Operations
+// ============================================================================
+
 /**
- * Check if calendar connection already exists
+ * Check if drive connection already exists for this provider
  */
 export async function checkExistingConnection(
   emailAccountId: string,
   provider: "google" | "microsoft",
-  email: string,
 ) {
-  return await prisma.calendarConnection.findFirst({
+  return await prisma.driveConnection.findFirst({
     where: {
       emailAccountId,
       provider,
-      email,
     },
   });
 }
 
 /**
- * Create a calendar connection record
+ * Create or update a drive connection record
  */
-export async function createCalendarConnection(params: {
+export async function upsertDriveConnection(params: {
   provider: "google" | "microsoft";
   email: string;
   emailAccountId: string;
@@ -123,7 +144,30 @@ export async function createCalendarConnection(params: {
   refreshToken: string;
   expiresAt: Date | null;
 }) {
-  return await prisma.calendarConnection.create({
+  // Check if connection exists for this provider
+  const existing = await prisma.driveConnection.findFirst({
+    where: {
+      emailAccountId: params.emailAccountId,
+      provider: params.provider,
+    },
+  });
+
+  if (existing) {
+    // Update existing connection
+    return await prisma.driveConnection.update({
+      where: { id: existing.id },
+      data: {
+        email: params.email,
+        accessToken: params.accessToken,
+        refreshToken: params.refreshToken,
+        expiresAt: params.expiresAt,
+        isConnected: true,
+      },
+    });
+  }
+
+  // Create new connection
+  return await prisma.driveConnection.create({
     data: {
       provider: params.provider,
       email: params.email,

@@ -1,13 +1,12 @@
 import type { NextRequest, NextResponse } from "next/server";
 import { env } from "@/env";
 import type { Logger } from "@/utils/logger";
-import type { CalendarOAuthProvider } from "./oauth-types";
+import type { DriveTokens } from "./types";
 import {
   validateOAuthCallback,
-  parseAndValidateCalendarState,
-  buildCalendarRedirectUrl,
-  checkExistingConnection,
-  createCalendarConnection,
+  parseAndValidateDriveState,
+  buildDriveRedirectUrl,
+  upsertDriveConnection,
 } from "./oauth-callback-helpers";
 import {
   RedirectError,
@@ -21,14 +20,19 @@ import {
   setOAuthCodeResult,
   clearOAuthCode,
 } from "@/utils/redis/oauth-code";
-import { CALENDAR_STATE_COOKIE_NAME } from "./constants";
+import { DRIVE_STATE_COOKIE_NAME } from "./constants";
+
+export interface DriveOAuthProvider {
+  name: "google" | "microsoft";
+  exchangeCodeForTokens(code: string): Promise<DriveTokens>;
+}
 
 /**
- * Unified handler for calendar OAuth callbacks
+ * Unified handler for drive OAuth callbacks
  */
-export async function handleCalendarCallback(
+export async function handleDriveCallback(
   request: NextRequest,
-  provider: CalendarOAuthProvider,
+  provider: DriveOAuthProvider,
   logger: Logger,
 ): Promise<NextResponse> {
   let redirectHeaders = new Headers();
@@ -45,14 +49,14 @@ export async function handleCalendarCallback(
     const cachedResult = await getOAuthCodeResult(code);
     if (cachedResult) {
       logger.info("OAuth code already processed, returning cached result");
-      const cachedRedirectUrl = new URL("/calendars", env.NEXT_PUBLIC_BASE_URL);
+      const cachedRedirectUrl = new URL("/drive", env.NEXT_PUBLIC_BASE_URL);
       for (const [key, value] of Object.entries(cachedResult.params)) {
         cachedRedirectUrl.searchParams.set(key, value);
       }
-      response.cookies.delete(CALENDAR_STATE_COOKIE_NAME);
+      response.cookies.delete(DRIVE_STATE_COOKIE_NAME);
       return redirectWithMessage(
         cachedRedirectUrl,
-        cachedResult.params.message || "calendar_connected",
+        cachedResult.params.message || "drive_connected",
         redirectHeaders,
       );
     }
@@ -60,8 +64,8 @@ export async function handleCalendarCallback(
     const acquiredLock = await acquireOAuthCodeLock(code);
     if (!acquiredLock) {
       logger.info("OAuth code is being processed by another request");
-      const lockRedirectUrl = new URL("/calendars", env.NEXT_PUBLIC_BASE_URL);
-      response.cookies.delete(CALENDAR_STATE_COOKIE_NAME);
+      const lockRedirectUrl = new URL("/drive", env.NEXT_PUBLIC_BASE_URL);
+      response.cookies.delete(DRIVE_STATE_COOKIE_NAME);
       return redirectWithMessage(
         lockRedirectUrl,
         "processing",
@@ -69,14 +73,14 @@ export async function handleCalendarCallback(
       );
     }
 
-    // The validated state is in the request query params (already validated by validateOAuthCallback)
+    // The validated state is in the request query params
     const receivedState = request.nextUrl.searchParams.get("state");
     if (!receivedState) {
       throw new Error("Missing validated state");
     }
 
     // Step 2: Parse and validate the OAuth state
-    const decodedState = parseAndValidateCalendarState(
+    const decodedState = parseAndValidateDriveState(
       receivedState,
       logger,
       redirectUrl,
@@ -86,7 +90,7 @@ export async function handleCalendarCallback(
     const { emailAccountId } = decodedState;
 
     // Step 3: Update redirect URL to include emailAccountId
-    const finalRedirectUrl = buildCalendarRedirectUrl(emailAccountId);
+    const finalRedirectUrl = buildDriveRedirectUrl(emailAccountId);
 
     // Step 4: Verify user owns this email account
     await verifyEmailAccountAccess(
@@ -100,30 +104,8 @@ export async function handleCalendarCallback(
     const { accessToken, refreshToken, expiresAt, email } =
       await provider.exchangeCodeForTokens(code);
 
-    // Step 6: Check if connection already exists
-    const existingConnection = await checkExistingConnection(
-      emailAccountId,
-      provider.name,
-      email,
-    );
-
-    if (existingConnection) {
-      logger.info("Calendar connection already exists", {
-        emailAccountId,
-        email,
-        provider: provider.name,
-      });
-      // Cache the result for duplicate requests
-      await setOAuthCodeResult(code, { message: "calendar_already_connected" });
-      return redirectWithMessage(
-        finalRedirectUrl,
-        "calendar_already_connected",
-        redirectHeaders,
-      );
-    }
-
-    // Step 7: Create calendar connection
-    const connection = await createCalendarConnection({
+    // Step 6: Create or update drive connection
+    const connection = await upsertDriveConnection({
       provider: provider.name,
       email,
       emailAccountId,
@@ -132,16 +114,7 @@ export async function handleCalendarCallback(
       expiresAt,
     });
 
-    // Step 8: Sync calendars
-    await provider.syncCalendars(
-      connection.id,
-      accessToken,
-      refreshToken,
-      emailAccountId,
-      expiresAt,
-    );
-
-    logger.info("Calendar connected successfully", {
+    logger.info("Drive connected successfully", {
       emailAccountId,
       email,
       provider: provider.name,
@@ -149,11 +122,11 @@ export async function handleCalendarCallback(
     });
 
     // Cache the successful result
-    await setOAuthCodeResult(code, { message: "calendar_connected" });
+    await setOAuthCodeResult(code, { message: "drive_connected" });
 
     return redirectWithMessage(
       finalRedirectUrl,
-      "calendar_connected",
+      "drive_connected",
       redirectHeaders,
     );
   } catch (error) {
@@ -163,6 +136,7 @@ export async function handleCalendarCallback(
     if (code) {
       await clearOAuthCode(code);
     }
+
     // Handle redirect errors
     if (error instanceof RedirectError) {
       return redirectWithError(
@@ -173,10 +147,10 @@ export async function handleCalendarCallback(
     }
 
     // Handle all other errors
-    logger.error("Error in calendar callback", { error });
+    logger.error("Error in drive callback", { error });
 
-    // Try to build a redirect URL, fallback to /calendars
-    const errorRedirectUrl = new URL("/calendars", env.NEXT_PUBLIC_BASE_URL);
+    // Try to build a redirect URL, fallback to /drive
+    const errorRedirectUrl = new URL("/drive", env.NEXT_PUBLIC_BASE_URL);
     return redirectWithError(
       errorRedirectUrl,
       "connection_failed",
