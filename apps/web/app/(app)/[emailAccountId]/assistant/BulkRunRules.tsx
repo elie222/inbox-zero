@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useReducer, useRef, useState } from "react";
+import { useReducer, useRef, useState } from "react";
 import Link from "next/link";
 import { HistoryIcon, PauseIcon, PlayIcon, SquareIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -19,6 +19,7 @@ import { toastError } from "@/components/Toast";
 import { PremiumAlertWithData, usePremium } from "@/components/PremiumAlert";
 import { SetDateDropdown } from "@/app/(app)/[emailAccountId]/assistant/SetDateDropdown";
 import { useThreads } from "@/hooks/useThreads";
+import { useBeforeUnload } from "@/hooks/useBeforeUnload";
 import { useAiQueueState, clearAiQueueAtom } from "@/store/ai-queue";
 import {
   Dialog,
@@ -70,22 +71,11 @@ export function BulkRunRules() {
   ).size;
   const completed = state.processedThreadIds.size - remaining;
   const isActive = state.status === "processing" || state.status === "paused";
-  const isProcessing = isActive || queue.size > 0;
+  const isProcessing = queue.size > 0;
   const isPaused = state.status === "paused";
 
   // Warn user before leaving page during processing
-  useEffect(() => {
-    if (!isActive) return;
-
-    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
-      e.preventDefault();
-      // Modern browsers ignore custom messages, but this triggers the native dialog
-      return "";
-    };
-
-    window.addEventListener("beforeunload", handleBeforeUnload);
-    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
-  }, [isActive]);
+  useBeforeUnload(isActive || isProcessing);
 
   const handleStart = async () => {
     dispatch({ type: "START" });
@@ -102,6 +92,9 @@ export function BulkRunRules() {
       dispatch({ type: "RESET" });
       return;
     }
+
+    // Ensure queue is not paused from a previous run
+    resumeAiQueue();
 
     abortRef.current = await onRun(
       emailAccountId,
