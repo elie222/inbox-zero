@@ -1,20 +1,25 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useReducer, useRef, useState } from "react";
 import Link from "next/link";
-import { HistoryIcon } from "lucide-react";
+import { HistoryIcon, PauseIcon, PlayIcon, SquareIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { SectionDescription } from "@/components/Typography";
 import type { ThreadsResponse } from "@/app/api/threads/route";
 import type { ThreadsQuery } from "@/app/api/threads/validation";
 import { LoadingContent } from "@/components/LoadingContent";
 import { runAiRules } from "@/utils/queue/email-actions";
+import {
+  pauseAiQueue,
+  resumeAiQueue,
+  clearAiQueue,
+} from "@/utils/queue/ai-queue";
 import { sleep } from "@/utils/sleep";
 import { toastError } from "@/components/Toast";
 import { PremiumAlertWithData, usePremium } from "@/components/PremiumAlert";
 import { SetDateDropdown } from "@/app/(app)/[emailAccountId]/assistant/SetDateDropdown";
 import { useThreads } from "@/hooks/useThreads";
-import { useAiQueueState } from "@/store/ai-queue";
+import { useAiQueueState, clearAiQueueAtom } from "@/store/ai-queue";
 import {
   Dialog,
   DialogContent,
@@ -28,14 +33,18 @@ import { fetchWithAccount } from "@/utils/fetch";
 import { Toggle } from "@/components/Toggle";
 import { hasTierAccess } from "@/utils/premium";
 import { usePremiumModal } from "@/app/(app)/premium/PremiumModal";
+import { BulkProcessActivityLog } from "@/app/(app)/[emailAccountId]/assistant/BulkProcessActivityLog";
+import {
+  bulkRunReducer,
+  getProgressMessage,
+  initialBulkRunState,
+} from "@/app/(app)/[emailAccountId]/assistant/bulk-run-rules-reducer";
 
 export function BulkRunRules() {
   const { emailAccountId } = useAccount();
 
   const [isOpen, setIsOpen] = useState(false);
-  const [processedThreadIds, setProcessedThreadIds] = useState<Set<string>>(
-    new Set(),
-  );
+  const [state, dispatch] = useReducer(bulkRunReducer, initialBulkRunState);
 
   const { data, isLoading, error } = useThreads({ type: "inbox" });
 
@@ -49,21 +58,67 @@ export function BulkRunRules() {
     minimumTier: "BUSINESS_PLUS_MONTHLY",
   });
 
-  const [running, setRunning] = useState(false);
-
   const [startDate, setStartDate] = useState<Date | undefined>();
   const [endDate, setEndDate] = useState<Date | undefined>();
   const [includeRead, setIncludeRead] = useState(false);
-  const [runResult, setRunResult] = useState<{
-    count: number;
-  } | null>(null);
 
   const abortRef = useRef<() => void>(undefined);
 
+  // Derived state
   const remaining = new Set(
-    [...processedThreadIds].filter((id) => queue.has(id)),
+    [...state.processedThreadIds].filter((id) => queue.has(id)),
   ).size;
-  const completed = processedThreadIds.size - remaining;
+  const completed = state.processedThreadIds.size - remaining;
+  const isActive = state.status === "processing" || state.status === "paused";
+  const isProcessing = isActive || queue.size > 0;
+  const isPaused = state.status === "paused";
+
+  const handleStart = async () => {
+    dispatch({ type: "START" });
+
+    if (!startDate) {
+      toastError({ description: "Please select a start date" });
+      dispatch({ type: "RESET" });
+      return;
+    }
+    if (!emailAccountId) {
+      toastError({
+        description: "Email account ID is missing. Please refresh the page.",
+      });
+      dispatch({ type: "RESET" });
+      return;
+    }
+
+    abortRef.current = await onRun(
+      emailAccountId,
+      { startDate, endDate, includeRead },
+      (ids) => {
+        dispatch({ type: "THREADS_QUEUED", ids });
+      },
+      (_completionStatus, count) => {
+        dispatch({ type: "COMPLETE", count });
+      },
+    );
+  };
+
+  const handlePauseResume = () => {
+    if (isPaused) {
+      resumeAiQueue();
+      dispatch({ type: "RESUME" });
+    } else {
+      pauseAiQueue();
+      dispatch({ type: "PAUSE" });
+    }
+  };
+
+  const handleStop = () => {
+    dispatch({ type: "STOP", completedCount: completed });
+    clearAiQueue();
+    clearAiQueueAtom();
+    abortRef.current?.();
+  };
+
+  const progressMessage = getProgressMessage(state, remaining);
 
   return (
     <div>
@@ -73,22 +128,21 @@ export function BulkRunRules() {
             Bulk Process Emails
           </Button>
         </DialogTrigger>
-        <DialogContent>
+        <DialogContent className="max-w-3xl">
           <DialogHeader>
             <DialogTitle>Bulk Process Emails</DialogTitle>
             <DialogDescription>
-              Run your rules on inbox emails that haven't been handled yet.
+              Run your rules on emails in your inbox that haven't been handled
+              yet.
             </DialogDescription>
           </DialogHeader>
           <LoadingContent loading={isLoading} error={error}>
             {data && (
               <>
-                {processedThreadIds.size > 0 && (
+                {progressMessage && (
                   <div className="rounded-md border border-green-200 bg-green-50 px-2 py-1.5 dark:border-green-800 dark:bg-green-950">
                     <SectionDescription className="mt-0">
-                      {remaining > 0
-                        ? `Progress: ${completed}/${processedThreadIds.size} emails completed`
-                        : `Success: Processed ${processedThreadIds.size} emails`}
+                      {progressMessage}
                     </SectionDescription>
                   </div>
                 )}
@@ -99,22 +153,20 @@ export function BulkRunRules() {
                         <SetDateDropdown
                           onChange={(date) => {
                             setStartDate(date);
-                            setRunResult(null);
-                            setProcessedThreadIds(new Set());
+                            dispatch({ type: "RESET" });
                           }}
                           value={startDate}
                           placeholder="Set start date"
-                          disabled={running}
+                          disabled={isActive}
                         />
                         <SetDateDropdown
                           onChange={(date) => {
                             setEndDate(date);
-                            setRunResult(null);
-                            setProcessedThreadIds(new Set());
+                            dispatch({ type: "RESET" });
                           }}
                           value={endDate}
                           placeholder="Set end date (optional)"
-                          disabled={running}
+                          disabled={isActive}
                         />
                       </div>
 
@@ -124,7 +176,7 @@ export function BulkRunRules() {
                           label="Include read emails"
                           enabled={includeRead}
                           onChange={(enabled) => setIncludeRead(enabled)}
-                          disabled={running || !isBusinessPlusTier}
+                          disabled={isActive || !isBusinessPlusTier}
                         />
                         {!isBusinessPlusTier && (
                           <Link
@@ -140,60 +192,54 @@ export function BulkRunRules() {
                         )}
                       </div>
 
-                      <Button
-                        type="button"
-                        disabled={running || !startDate || !emailAccountId}
-                        loading={running}
-                        onClick={async () => {
-                          setRunResult(null);
-                          setProcessedThreadIds(new Set());
-                          if (!startDate) {
-                            toastError({
-                              description: "Please select a start date",
-                            });
-                            return;
+                      {(isActive || state.processedThreadIds.size > 0) && (
+                        <BulkProcessActivityLog
+                          threads={data.threads}
+                          processedThreadIds={state.processedThreadIds}
+                          aiQueue={queue}
+                          paused={isPaused}
+                          loading={
+                            isActive && state.processedThreadIds.size === 0
                           }
-                          if (!emailAccountId) {
-                            toastError({
-                              description:
-                                "Email account ID is missing. Please refresh the page.",
-                            });
-                            return;
-                          }
-                          setRunning(true);
-                          abortRef.current = await onRun(
-                            emailAccountId,
-                            { startDate, endDate, includeRead },
-                            (ids) => {
-                              setProcessedThreadIds((prev) => {
-                                const next = new Set(prev);
-                                for (const id of ids) {
-                                  next.add(id);
-                                }
-                                return next;
-                              });
-                            },
-                            (status, count) => {
-                              setRunning(false);
-                              if (status === "success" && count === 0) {
-                                setRunResult({ count });
-                              }
-                            },
-                          );
-                        }}
-                      >
-                        Process Emails
-                      </Button>
-                      {running && (
-                        <Button
-                          variant="outline"
-                          onClick={() => abortRef.current?.()}
-                        >
-                          Cancel
-                        </Button>
+                        />
                       )}
 
-                      {runResult && runResult.count === 0 && (
+                      {!isProcessing && (
+                        <Button
+                          type="button"
+                          disabled={!startDate || !emailAccountId}
+                          onClick={handleStart}
+                        >
+                          Process Emails
+                        </Button>
+                      )}
+                      {isProcessing && (
+                        <div className="flex justify-end gap-2">
+                          <Button size="sm" onClick={handlePauseResume}>
+                            {isPaused ? (
+                              <>
+                                <PlayIcon className="mr-1.5 h-3.5 w-3.5" />
+                                Resume
+                              </>
+                            ) : (
+                              <>
+                                <PauseIcon className="mr-1.5 h-3.5 w-3.5" />
+                                Pause
+                              </>
+                            )}
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={handleStop}
+                          >
+                            <SquareIcon className="mr-1.5 h-3.5 w-3.5" />
+                            Stop
+                          </Button>
+                        </div>
+                      )}
+
+                      {state.runResult && state.runResult.count === 0 && (
                         <div className="mt-4 rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-800 dark:border-blue-800 dark:bg-blue-950 dark:text-blue-200">
                           No {includeRead ? "" : "unread "}emails found in the
                           selected date range.
