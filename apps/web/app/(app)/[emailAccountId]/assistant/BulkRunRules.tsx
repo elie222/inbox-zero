@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
+import Link from "next/link";
 import { HistoryIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { SectionDescription } from "@/components/Typography";
@@ -23,6 +24,9 @@ import {
 } from "@/components/ui/dialog";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { fetchWithAccount } from "@/utils/fetch";
+import { Toggle } from "@/components/Toggle";
+import { hasTierAccess } from "@/utils/premium";
+import { usePremiumModal } from "@/app/(app)/premium/PremiumModal";
 
 export function BulkRunRules() {
   const { emailAccountId } = useAccount();
@@ -36,12 +40,19 @@ export function BulkRunRules() {
 
   const queue = useAiQueueState();
 
-  const { hasAiAccess, isLoading: isLoadingPremium } = usePremium();
+  const { hasAiAccess, isLoading: isLoadingPremium, tier } = usePremium();
+  const { PremiumModal, openModal } = usePremiumModal();
+
+  const isBusinessPlusTier = hasTierAccess({
+    tier: tier || null,
+    minimumTier: "BUSINESS_PLUS_MONTHLY",
+  });
 
   const [running, setRunning] = useState(false);
 
   const [startDate, setStartDate] = useState<Date | undefined>();
   const [endDate, setEndDate] = useState<Date | undefined>();
+  const [includeRead, setIncludeRead] = useState(false);
   const [runResult, setRunResult] = useState<{
     count: number;
   } | null>(null);
@@ -69,8 +80,9 @@ export function BulkRunRules() {
             {data && (
               <>
                 <SectionDescription>
-                  This runs your rules on unread emails currently in your inbox
-                  (that have not been previously processed).
+                  This runs your rules on {includeRead ? "all" : "unread"}{" "}
+                  emails currently in your inbox (that have not been previously
+                  processed).
                 </SectionDescription>
 
                 {processedThreadIds.size > 0 && (
@@ -84,7 +96,7 @@ export function BulkRunRules() {
                 )}
                 <LoadingContent loading={isLoadingPremium}>
                   {hasAiAccess ? (
-                    <div className="flex flex-col space-y-2">
+                    <div className="flex flex-col space-y-4">
                       <div className="grid grid-cols-2 gap-2">
                         <SetDateDropdown
                           onChange={(date) => {
@@ -106,6 +118,28 @@ export function BulkRunRules() {
                           placeholder="Set end date (optional)"
                           disabled={running}
                         />
+                      </div>
+
+                      <div className="flex items-center justify-between gap-4">
+                        <Toggle
+                          name="include-read"
+                          label="Include read emails"
+                          enabled={includeRead}
+                          onChange={(enabled) => setIncludeRead(enabled)}
+                          disabled={running || !isBusinessPlusTier}
+                        />
+                        {!isBusinessPlusTier && (
+                          <Link
+                            href="/premium"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              openModal();
+                            }}
+                            className="text-sm text-primary hover:underline whitespace-nowrap"
+                          >
+                            Upgrade to Professional to enable
+                          </Link>
+                        )}
                       </div>
 
                       <Button
@@ -131,7 +165,7 @@ export function BulkRunRules() {
                           setRunning(true);
                           abortRef.current = await onRun(
                             emailAccountId,
-                            { startDate, endDate },
+                            { startDate, endDate, includeRead },
                             (ids) => {
                               setProcessedThreadIds((prev) => {
                                 const next = new Set(prev);
@@ -163,7 +197,8 @@ export function BulkRunRules() {
 
                       {runResult && runResult.count === 0 && (
                         <div className="mt-4 rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-800 dark:border-blue-800 dark:bg-blue-950 dark:text-blue-200">
-                          No unread emails found in the selected date range.
+                          No {includeRead ? "" : "unread "}emails found in the
+                          selected date range.
                         </div>
                       )}
                     </div>
@@ -176,6 +211,7 @@ export function BulkRunRules() {
           </LoadingContent>
         </DialogContent>
       </Dialog>
+      <PremiumModal />
     </div>
   );
 }
@@ -183,7 +219,11 @@ export function BulkRunRules() {
 // fetch batches of messages and add them to the ai queue
 async function onRun(
   emailAccountId: string,
-  { startDate, endDate }: { startDate: Date; endDate?: Date },
+  {
+    startDate,
+    endDate,
+    includeRead,
+  }: { startDate: Date; endDate?: Date; includeRead?: boolean },
   onThreadsQueued: (threadIds: string[]) => void,
   onComplete: (
     status: "success" | "error" | "cancelled",
@@ -207,7 +247,7 @@ async function onRun(
         limit: LIMIT,
         after: startDate,
         ...(endDate ? { before: endDate } : {}),
-        isUnread: true,
+        ...(!includeRead ? { isUnread: true } : {}),
         ...(nextPageToken ? { nextPageToken } : {}),
       };
 
