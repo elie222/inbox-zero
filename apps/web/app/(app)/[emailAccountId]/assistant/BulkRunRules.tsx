@@ -141,7 +141,6 @@ export function BulkRunRules() {
                           </Link>
                         )}
                       </div>
-                      <PremiumModal />
 
                       <Button
                         type="button"
@@ -212,6 +211,7 @@ export function BulkRunRules() {
           </LoadingContent>
         </DialogContent>
       </Dialog>
+      <PremiumModal />
     </div>
   );
 }
