@@ -31,7 +31,7 @@ export function ActivityLog({
   if (entries.length === 0 && !loading) return null;
 
   return (
-    <div className="rounded-lg border bg-muted">
+    <div className="w-full min-w-0 rounded-lg border bg-muted overflow-hidden">
       <div className="flex items-center justify-between border-b px-3 py-2">
         <h3 className="text-sm font-medium">{title}</h3>
         {processingCount > 0 && !paused && (
@@ -68,7 +68,7 @@ function ActivityLogRow({
   const showSpinner = entry.status === "processing" && !paused;
 
   return (
-    <div className="flex items-start gap-2 rounded px-2 py-1.5 text-xs w-full">
+    <div className="flex items-start gap-2 rounded px-2 py-1.5 text-xs">
       {isCompleted ? (
         <CheckCircle2Icon className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-green-600" />
       ) : showSpinner ? (
@@ -76,12 +76,12 @@ function ActivityLogRow({
       ) : (
         <div className="mt-0.5 h-3.5 w-3.5 flex-shrink-0" />
       )}
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2 min-w-0">
-          <div className="truncate font-medium text-foreground min-w-0 flex-1">
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center justify-between gap-2">
+          <span className="min-w-0 flex-1 truncate font-medium text-foreground">
             {entry.from}
-          </div>
-          <div className="flex-shrink-0">
+          </span>
+          <span className="flex-shrink-0">
             {entry.ruleName && (
               <Badge color={isCompleted ? "green" : "gray"}>
                 {entry.ruleName}
@@ -90,9 +90,11 @@ function ActivityLogRow({
             {!entry.ruleName && isCompleted && (
               <Badge color="yellow">No match</Badge>
             )}
-          </div>
+          </span>
         </div>
-        <p className="truncate text-muted-foreground mt-0.5">{entry.subject}</p>
+        <div className="truncate text-muted-foreground mt-0.5">
+          {entry.subject}
+        </div>
       </div>
     </div>
   );

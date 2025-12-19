@@ -1,6 +1,6 @@
 "use client";
 
-import { useReducer, useRef, useState } from "react";
+import { useEffect, useReducer, useRef, useState } from "react";
 import Link from "next/link";
 import { HistoryIcon, PauseIcon, PlayIcon, SquareIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -72,6 +72,20 @@ export function BulkRunRules() {
   const isActive = state.status === "processing" || state.status === "paused";
   const isProcessing = isActive || queue.size > 0;
   const isPaused = state.status === "paused";
+
+  // Warn user before leaving page during processing
+  useEffect(() => {
+    if (!isActive) return;
+
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      // Modern browsers ignore custom messages, but this triggers the native dialog
+      return "";
+    };
+
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, [isActive]);
 
   const handleStart = async () => {
     dispatch({ type: "START" });
@@ -148,7 +162,7 @@ export function BulkRunRules() {
                 )}
                 <LoadingContent loading={isLoadingPremium}>
                   {hasAiAccess ? (
-                    <div className="flex flex-col space-y-4">
+                    <div className="flex min-w-0 flex-col space-y-4 overflow-hidden">
                       <div className="grid grid-cols-2 gap-2">
                         <SetDateDropdown
                           onChange={(date) => {
