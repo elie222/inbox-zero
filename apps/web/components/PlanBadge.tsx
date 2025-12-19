@@ -179,6 +179,8 @@ function getActionLabel(type: ActionType, provider: string) {
       return "Mark as spam";
     case ActionType.MARK_READ:
       return "Mark as read";
+    case ActionType.NOTIFY_SENDER:
+      return "Notify Sender";
     default:
       return capitalCase(type);
   }
@@ -222,6 +224,8 @@ export function getActionColor(actionType: ActionType): Color {
       return "red";
     case ActionType.CALL_WEBHOOK:
     case ActionType.DIGEST:
+      return "purple";
+    case ActionType.NOTIFY_SENDER:
       return "purple";
     default: {
       const exhaustiveCheck: never = actionType;

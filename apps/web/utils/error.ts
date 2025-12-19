@@ -32,12 +32,21 @@ export function isGmailError(
 
 export function captureException(
   error: unknown,
-  additionalInfo?: { extra?: Record<string, any> },
+  additionalInfo?: { extra?: Record<string, any>; sampleRate?: number },
   userEmail?: string,
 ) {
   if (isKnownApiError(error)) {
     const logger = createScopedLogger("captureException");
     logger.warn("Known API error", { error, additionalInfo });
+    return;
+  }
+
+  const sampleRate = additionalInfo?.sampleRate;
+  if (
+    Number.isFinite(sampleRate) &&
+    process.env.NODE_ENV === "production" &&
+    Math.random() >= (sampleRate as number)
+  ) {
     return;
   }
 
@@ -207,4 +216,34 @@ export function checkCommonErrors(
   }
 
   return null;
+}
+
+export function getErrorMessage(error: unknown): string | undefined {
+  if (typeof error === "string") return error;
+  if (error instanceof Error) return error.message;
+
+  const outer = asRecord(error);
+  if (!outer) return undefined;
+
+  const directMessage = getStringProp(outer, "message");
+  if (directMessage) return directMessage;
+
+  const nested = asRecord(outer.error);
+  if (!nested) return undefined;
+
+  return getStringProp(nested, "message");
+}
+
+function asRecord(value: unknown): Record<string, unknown> | null {
+  return typeof value === "object" && value !== null
+    ? (value as Record<string, unknown>)
+    : null;
+}
+
+function getStringProp(
+  obj: Record<string, unknown>,
+  key: string,
+): string | undefined {
+  const value = obj[key];
+  return typeof value === "string" ? value : undefined;
 }
