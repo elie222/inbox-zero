@@ -1,6 +1,7 @@
 // based on: https://github.com/vercel/platforms/blob/main/lib/auth.ts
 
 import { sso } from "@better-auth/sso";
+import { genericOAuth } from "better-auth/plugins";
 import { createContact as createLoopsContact } from "@inboxzero/loops";
 import { createContact as createResendContact } from "@inboxzero/resend";
 import type { Account, AuthContext } from "better-auth";
@@ -65,6 +66,25 @@ export const betterAuthConfig = betterAuth({
       disableImplicitSignUp: false,
       organizationProvisioning: { disabled: true },
     }),
+    // Authelia OIDC provider for local development
+    ...(env.AUTHELIA_CLIENT_ID &&
+    env.AUTHELIA_CLIENT_SECRET &&
+    env.AUTHELIA_ISSUER_URL
+      ? [
+          genericOAuth({
+            config: [
+              {
+                providerId: "authelia",
+                clientId: env.AUTHELIA_CLIENT_ID,
+                clientSecret: env.AUTHELIA_CLIENT_SECRET,
+                discoveryUrl: `${env.AUTHELIA_ISSUER_URL}/.well-known/openid-configuration`,
+                scopes: ["openid", "profile", "email"],
+                pkce: false,
+              },
+            ],
+          }),
+        ]
+      : []),
   ],
   session: {
     modelName: "Session",
@@ -352,6 +372,30 @@ async function getProfileData(providerId: string, accessToken: string) {
     }
   }
 
+  // Authelia OIDC provider
+  if (providerId === "authelia") {
+    try {
+      const userinfoUrl = `${env.AUTHELIA_ISSUER_URL}/api/oidc/userinfo`;
+      const response = await fetch(userinfoUrl, {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      });
+      if (!response.ok) {
+        throw new Error(`Authelia userinfo failed: ${response.status}`);
+      }
+      const userInfo = await response.json();
+      return {
+        email: userInfo.email?.toLowerCase(),
+        name: userInfo.name || userInfo.preferred_username,
+        image: undefined,
+      };
+    } catch (error) {
+      logger.error("Error fetching Authelia profile data", { error });
+      throw error;
+    }
+  }
+
   if (isFastmailProvider(providerId)) {
     try {
       const userInfo = await getFastmailUserInfo(accessToken);
@@ -368,6 +412,16 @@ async function getProfileData(providerId: string, accessToken: string) {
 }
 
 async function handleLinkAccount(account: Account) {
+  // Skip EmailAccount creation for auth-only providers (like Authelia)
+  // These are just for authentication, not email access
+  if (account.providerId === "authelia") {
+    logger.info("[linkAccount] Skipping EmailAccount for auth-only provider", {
+      providerId: account.providerId,
+      userId: account.userId,
+    });
+    return;
+  }
+
   let primaryEmail: string | null | undefined;
   let primaryName: string | null | undefined;
   let primaryPhotoUrl: string | null | undefined;
