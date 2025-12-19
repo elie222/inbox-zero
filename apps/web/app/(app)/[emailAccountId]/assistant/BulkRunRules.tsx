@@ -70,12 +70,11 @@ export function BulkRunRules() {
     [...state.processedThreadIds].filter((id) => queue.has(id)),
   ).size;
   const completed = state.processedThreadIds.size - remaining;
-  const isActive = state.status === "processing" || state.status === "paused";
   const isProcessing = queue.size > 0;
   const isPaused = state.status === "paused";
 
   // Warn user before leaving page during processing
-  useBeforeUnload(isActive || isProcessing);
+  useBeforeUnload(isProcessing);
 
   const handleStart = async () => {
     dispatch({ type: "START" });
@@ -164,7 +163,7 @@ export function BulkRunRules() {
                           }}
                           value={startDate}
                           placeholder="Set start date"
-                          disabled={isActive}
+                          disabled={isProcessing}
                         />
                         <SetDateDropdown
                           onChange={(date) => {
@@ -173,7 +172,7 @@ export function BulkRunRules() {
                           }}
                           value={endDate}
                           placeholder="Set end date (optional)"
-                          disabled={isActive}
+                          disabled={isProcessing}
                         />
                       </div>
 
@@ -183,7 +182,7 @@ export function BulkRunRules() {
                           label="Include read emails"
                           enabled={includeRead}
                           onChange={(enabled) => setIncludeRead(enabled)}
-                          disabled={isActive || !isBusinessPlusTier}
+                          disabled={isProcessing || !isBusinessPlusTier}
                         />
                         {!isBusinessPlusTier && (
                           <Link
@@ -199,14 +198,16 @@ export function BulkRunRules() {
                         )}
                       </div>
 
-                      {(isActive || state.processedThreadIds.size > 0) && (
+                      {(state.status !== "idle" ||
+                        state.processedThreadIds.size > 0) && (
                         <BulkProcessActivityLog
                           threads={data.threads}
                           processedThreadIds={state.processedThreadIds}
                           aiQueue={queue}
                           paused={isPaused}
                           loading={
-                            isActive && state.processedThreadIds.size === 0
+                            state.status === "processing" &&
+                            state.processedThreadIds.size === 0
                           }
                         />
                       )}
