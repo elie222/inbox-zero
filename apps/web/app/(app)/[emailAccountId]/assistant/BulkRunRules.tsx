@@ -18,6 +18,7 @@ import { useAiQueueState } from "@/store/ai-queue";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
@@ -74,17 +75,14 @@ export function BulkRunRules() {
         </DialogTrigger>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Process Existing Inbox Emails</DialogTitle>
+            <DialogTitle>Bulk Process Emails</DialogTitle>
+            <DialogDescription>
+              Run your rules on inbox emails that haven't been handled yet.
+            </DialogDescription>
           </DialogHeader>
           <LoadingContent loading={isLoading} error={error}>
             {data && (
               <>
-                <SectionDescription>
-                  This runs your rules on {includeRead ? "all" : "unread"}{" "}
-                  emails currently in your inbox (that have not been previously
-                  processed).
-                </SectionDescription>
-
                 {processedThreadIds.size > 0 && (
                   <div className="rounded-md border border-green-200 bg-green-50 px-2 py-1.5 dark:border-green-800 dark:bg-green-950">
                     <SectionDescription className="mt-0">
