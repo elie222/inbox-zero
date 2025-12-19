@@ -17,6 +17,7 @@ import {
 import { signIn } from "@/utils/auth-client";
 import { WELCOME_PATH } from "@/utils/config";
 import { toastError } from "@/components/Toast";
+import { ShieldCheckIcon } from "lucide-react";
 
 export function LoginForm() {
   const searchParams = useSearchParams();
@@ -24,6 +25,7 @@ export function LoginForm() {
 
   const [loadingGoogle, setLoadingGoogle] = useState(false);
   const [loadingMicrosoft, setLoadingMicrosoft] = useState(false);
+  const [loadingAuthelia, setLoadingAuthelia] = useState(false);
 
   const handleGoogleSignIn = async () => {
     setLoadingGoogle(true);
@@ -60,6 +62,25 @@ export function LoginForm() {
       });
     } finally {
       setLoadingMicrosoft(false);
+    }
+  };
+
+  const handleAutheliaSignIn = async () => {
+    setLoadingAuthelia(true);
+    try {
+      await signIn.oauth2({
+        providerId: "authelia",
+        errorCallbackURL: "/login/error",
+        callbackURL: next && next.length > 0 ? next : WELCOME_PATH,
+      });
+    } catch (error) {
+      console.error("Error signing in with Authelia:", error);
+      toastError({
+        title: "Error signing in with Authelia",
+        description: "Please try again or contact support",
+      });
+    } finally {
+      setLoadingAuthelia(false);
     }
   };
 
@@ -119,6 +140,20 @@ export function LoginForm() {
           <span className="ml-2">Sign in with Microsoft</span>
         </span>
       </Button>
+
+      {/* Authelia SSO - only shown when configured (local dev) */}
+      {process.env.NEXT_PUBLIC_AUTHELIA_ENABLED === "true" && (
+        <Button
+          size="2xl"
+          loading={loadingAuthelia}
+          onClick={handleAutheliaSignIn}
+        >
+          <span className="flex items-center justify-center">
+            <ShieldCheckIcon className="h-6 w-6" />
+            <span className="ml-2">Sign in with Authelia</span>
+          </span>
+        </Button>
+      )}
 
       <UIButton
         variant="ghost"

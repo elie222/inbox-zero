@@ -17,6 +17,17 @@ export default async function WelcomeRedirectPage(props: {
 
   // Session exists but user doesn't - invalid state, log out
   if (!user) redirect("/logout");
+
+  // Check if user has any email accounts
+  // Users who logged in with auth-only providers (like Authelia) won't have one yet
+  const emailAccount = await prisma.emailAccount.findFirst({
+    where: { userId: session.user.id },
+    select: { id: true },
+  });
+
+  // No email account yet - redirect to accounts page to add one
+  if (!emailAccount) redirect("/accounts");
+
   if (searchParams.force) redirect("/onboarding");
   if (user.completedOnboardingAt) redirect("/setup");
   redirect("/onboarding");

@@ -7,6 +7,7 @@ import { OUTLOOK_COLOR_MAP } from "@/utils/outlook/label";
 import {
   isGoogleProvider,
   isMicrosoftProvider,
+  isFastmailProvider,
 } from "@/utils/email/provider-types";
 
 export type EmailLabel = {
@@ -52,6 +53,9 @@ function mapLabelColor(provider: string, label: any): EmailLabel["color"] {
       backgroundColor,
       textColor: null,
     };
+  } else if (isFastmailProvider(provider)) {
+    // JMAP mailboxes don't have color support
+    return undefined;
   }
 
   throw new Error(`Unsupported provider: ${provider}`);

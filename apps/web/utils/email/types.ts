@@ -43,7 +43,7 @@ export interface EmailSignature {
 }
 
 export interface EmailProvider {
-  readonly name: "google" | "microsoft";
+  readonly name: "google" | "microsoft" | "fastmail";
   toJSON(): { name: string; type: string };
   getThreads(folderId?: string): Promise<EmailThread[]>;
   getThread(threadId: string): Promise<EmailThread>;

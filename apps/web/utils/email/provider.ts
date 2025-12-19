@@ -1,12 +1,15 @@
 import {
   getGmailClientForEmail,
   getOutlookClientForEmail,
+  getFastmailClientForEmail,
 } from "@/utils/account";
 import { GmailProvider } from "@/utils/email/google";
 import { OutlookProvider } from "@/utils/email/microsoft";
+import { FastmailProvider } from "@/utils/email/fastmail";
 import {
   isGoogleProvider,
   isMicrosoftProvider,
+  isFastmailProvider,
 } from "@/utils/email/provider-types";
 import type { EmailProvider } from "@/utils/email/types";
 import type { Logger } from "@/utils/logger";
@@ -26,6 +29,9 @@ export async function createEmailProvider({
   } else if (isMicrosoftProvider(provider)) {
     const client = await getOutlookClientForEmail({ emailAccountId, logger });
     return new OutlookProvider(client, logger);
+  } else if (isFastmailProvider(provider)) {
+    const client = await getFastmailClientForEmail({ emailAccountId });
+    return new FastmailProvider(client, logger);
   }
 
   throw new Error(`Unsupported provider: ${provider}`);

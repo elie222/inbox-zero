@@ -26,6 +26,11 @@ export const env = createEnv({
     MICROSOFT_CLIENT_ID: z.string().optional(),
     MICROSOFT_CLIENT_SECRET: z.string().optional(),
     MICROSOFT_TENANT_ID: z.string().optional().default("common"),
+    FASTMAIL_CLIENT_ID: z.string().optional(),
+    FASTMAIL_CLIENT_SECRET: z.string().optional(),
+    AUTHELIA_CLIENT_ID: z.string().optional(),
+    AUTHELIA_CLIENT_SECRET: z.string().optional(),
+    AUTHELIA_ISSUER_URL: z.string().optional(), // e.g., https://auth.yourdomain.com
     EMAIL_ENCRYPT_SECRET: z.string(),
     EMAIL_ENCRYPT_SALT: z.string(),
 
@@ -190,6 +195,8 @@ export const env = createEnv({
     NEXT_PUBLIC_DIGEST_ENABLED: z.coerce.boolean().optional(),
     NEXT_PUBLIC_MEETING_BRIEFS_ENABLED: z.coerce.boolean().optional(),
     NEXT_PUBLIC_INTEGRATIONS_ENABLED: z.coerce.boolean().optional(),
+    NEXT_PUBLIC_AUTHELIA_ENABLED: z.coerce.boolean().optional(),
+    NEXT_PUBLIC_FASTMAIL_ENABLED: z.coerce.boolean().optional().default(false),
   },
   // For Next.js >= 13.4.4, you only need to destructure client variables:
   experimental__runtimeEnv: {
@@ -251,5 +258,7 @@ export const env = createEnv({
       process.env.NEXT_PUBLIC_MEETING_BRIEFS_ENABLED,
     NEXT_PUBLIC_INTEGRATIONS_ENABLED:
       process.env.NEXT_PUBLIC_INTEGRATIONS_ENABLED,
+    NEXT_PUBLIC_AUTHELIA_ENABLED: process.env.NEXT_PUBLIC_AUTHELIA_ENABLED,
+    NEXT_PUBLIC_FASTMAIL_ENABLED: process.env.NEXT_PUBLIC_FASTMAIL_ENABLED,
   },
 });
