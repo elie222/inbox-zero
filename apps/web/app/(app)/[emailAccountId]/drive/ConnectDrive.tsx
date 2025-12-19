@@ -6,14 +6,12 @@ import { useAccount } from "@/providers/EmailAccountProvider";
 import { toastError } from "@/components/Toast";
 import type { GetDriveAuthUrlResponse } from "@/app/api/google/drive/auth-url/route";
 import { fetchWithAccount } from "@/utils/fetch";
-import { createScopedLogger } from "@/utils/logger";
 import Image from "next/image";
 
 export function ConnectDrive() {
   const { emailAccountId } = useAccount();
   const [isConnectingGoogle, setIsConnectingGoogle] = useState(false);
   const [isConnectingMicrosoft, setIsConnectingMicrosoft] = useState(false);
-  const logger = createScopedLogger("drive-connection");
 
   const handleConnectGoogle = async () => {
     setIsConnectingGoogle(true);
@@ -31,11 +29,7 @@ export function ConnectDrive() {
       const data: GetDriveAuthUrlResponse = await response.json();
       window.location.href = data.url;
     } catch (error) {
-      logger.error("Error initiating Google Drive connection", {
-        error,
-        emailAccountId,
-        provider: "google",
-      });
+      console.error("Error initiating Google Drive connection", error);
       toastError({
         title: "Error initiating Google Drive connection",
         description: "Please try again or contact support",
@@ -60,11 +54,7 @@ export function ConnectDrive() {
       const data: GetDriveAuthUrlResponse = await response.json();
       window.location.href = data.url;
     } catch (error) {
-      logger.error("Error initiating OneDrive connection", {
-        error,
-        emailAccountId,
-        provider: "microsoft",
-      });
+      console.error("Error initiating OneDrive connection", error);
       toastError({
         title: "Error initiating OneDrive connection",
         description: "Please try again or contact support",

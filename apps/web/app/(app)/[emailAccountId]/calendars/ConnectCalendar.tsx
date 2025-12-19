@@ -6,14 +6,12 @@ import { useAccount } from "@/providers/EmailAccountProvider";
 import { toastError } from "@/components/Toast";
 import type { GetCalendarAuthUrlResponse } from "@/app/api/google/calendar/auth-url/route";
 import { fetchWithAccount } from "@/utils/fetch";
-import { createScopedLogger } from "@/utils/logger";
 import Image from "next/image";
 
 export function ConnectCalendar() {
   const { emailAccountId } = useAccount();
   const [isConnectingGoogle, setIsConnectingGoogle] = useState(false);
   const [isConnectingMicrosoft, setIsConnectingMicrosoft] = useState(false);
-  const logger = createScopedLogger("calendar-connection");
 
   const handleConnectGoogle = async () => {
     setIsConnectingGoogle(true);
@@ -31,11 +29,7 @@ export function ConnectCalendar() {
       const data: GetCalendarAuthUrlResponse = await response.json();
       window.location.href = data.url;
     } catch (error) {
-      logger.error("Error initiating Google calendar connection", {
-        error,
-        emailAccountId,
-        provider: "google",
-      });
+      console.error("Error initiating Google calendar connection", error);
       toastError({
         title: "Error initiating Google calendar connection",
         description: "Please try again or contact support",
@@ -60,11 +54,7 @@ export function ConnectCalendar() {
       const data: GetCalendarAuthUrlResponse = await response.json();
       window.location.href = data.url;
     } catch (error) {
-      logger.error("Error initiating Microsoft calendar connection", {
-        error,
-        emailAccountId,
-        provider: "microsoft",
-      });
+      console.error("Error initiating Microsoft calendar connection", error);
       toastError({
         title: "Error initiating Microsoft calendar connection",
         description: "Please try again or contact support",
