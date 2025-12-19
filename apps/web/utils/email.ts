@@ -51,7 +51,7 @@ export function extractEmailAddress(email: string): string {
   return "";
 }
 
-function isValidEmail(email: string): boolean {
+export function isValidEmail(email: string): boolean {
   return emailSchema.safeParse(email).success;
 }
 

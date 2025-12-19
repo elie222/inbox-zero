@@ -22,6 +22,7 @@ import type {
   EmailSignature,
 } from "@/utils/email/types";
 import { createScopedLogger, type Logger } from "@/utils/logger";
+import { isValidEmail } from "@/utils/email";
 
 /**
  * Standard properties to fetch for Email/get requests
@@ -1021,10 +1022,11 @@ export class FastmailProvider implements EmailProvider {
 
     // Build update object to remove from inbox using JSON Pointer notation
     // This patches individual mailbox flags instead of replacing all mailboxIds
-    const update: Record<string, Record<string, boolean>> = {};
+    // JMAP requires null to remove from mailbox, true to add
+    const update: Record<string, Record<string, boolean | null>> = {};
     for (const emailId of emailIds) {
       update[emailId] = {
-        [`mailboxIds/${inbox.id}`]: false,
+        [`mailboxIds/${inbox.id}`]: null,
       };
       if (archive) {
         update[emailId][`mailboxIds/${archive.id}`] = true;
@@ -1077,8 +1079,9 @@ export class FastmailProvider implements EmailProvider {
 
     // Use JSON Pointer notation to patch individual mailbox flags
     // This preserves other mailbox memberships instead of replacing all mailboxIds
-    const updatePatch: Record<string, boolean> = {
-      [`mailboxIds/${inbox.id}`]: false,
+    // JMAP requires null to remove from mailbox, true to add
+    const updatePatch: Record<string, boolean | null> = {
+      [`mailboxIds/${inbox.id}`]: null,
     };
     if (archive) {
       updatePatch[`mailboxIds/${archive.id}`] = true;
@@ -1111,6 +1114,12 @@ export class FastmailProvider implements EmailProvider {
     });
 
     for (const sender of fromEmails) {
+      // Safety check: only process valid email addresses to prevent accidental bulk operations
+      if (!isValidEmail(sender)) {
+        log.warn("Skipping invalid sender email for bulk archive", { sender });
+        continue;
+      }
+
       const inbox = await this.getMailboxByRole(FastmailMailbox.INBOX);
       if (!inbox) continue;
 
@@ -1134,14 +1143,17 @@ export class FastmailProvider implements EmailProvider {
         response.methodResponses[0],
       ).ids;
 
+      log.info("Found emails to archive", { sender, count: emailIds.length });
+
       if (emailIds.length > 0) {
         // Archive all emails using JSON Pointer notation to patch mailbox flags
+        // JMAP requires null to remove from mailbox, true to add
         const archive = await this.getMailboxByRole(FastmailMailbox.ARCHIVE);
-        const update: Record<string, Record<string, boolean>> = {};
+        const update: Record<string, Record<string, boolean | null>> = {};
 
         for (const emailId of emailIds) {
           update[emailId] = {
-            [`mailboxIds/${inbox.id}`]: false,
+            [`mailboxIds/${inbox.id}`]: null,
           };
           if (archive) {
             update[emailId][`mailboxIds/${archive.id}`] = true;
@@ -1180,14 +1192,29 @@ export class FastmailProvider implements EmailProvider {
       return;
     }
 
+    const inbox = await this.getMailboxByRole(FastmailMailbox.INBOX);
+    if (!inbox) {
+      log.warn("Inbox mailbox not found");
+      return;
+    }
+
     for (const sender of fromEmails) {
-      // Query for all emails from this sender
+      // Safety check: only process valid email addresses to prevent accidental bulk operations
+      if (!isValidEmail(sender)) {
+        log.warn("Skipping invalid sender email for bulk trash", { sender });
+        continue;
+      }
+
+      // Query for all emails from this sender in inbox
       const response = await this.client.request([
         [
           "Email/query",
           {
             accountId: this.client.accountId,
-            filter: { from: sender },
+            filter: {
+              inMailbox: inbox.id,
+              from: sender,
+            },
             limit: 500,
           },
           "0",
@@ -1198,11 +1225,16 @@ export class FastmailProvider implements EmailProvider {
         response.methodResponses[0],
       ).ids;
 
+      log.info("Found emails to trash", { sender, count: emailIds.length });
+
       if (emailIds.length > 0) {
         // Move all to trash using JSON Pointer notation to patch mailbox flags
-        const update: Record<string, Record<string, boolean>> = {};
+        // Must remove from inbox AND add to trash (JMAP allows emails in multiple mailboxes)
+        // JMAP requires null to remove from mailbox, true to add
+        const update: Record<string, Record<string, boolean | null>> = {};
         for (const emailId of emailIds) {
           update[emailId] = {
+            [`mailboxIds/${inbox.id}`]: null,
             [`mailboxIds/${trash.id}`]: true,
           };
         }
@@ -1236,6 +1268,8 @@ export class FastmailProvider implements EmailProvider {
       return;
     }
 
+    const inbox = await this.getMailboxByRole(FastmailMailbox.INBOX);
+
     // Get all emails in the thread
     const threadResponse = await this.client.request([
       [
@@ -1255,11 +1289,16 @@ export class FastmailProvider implements EmailProvider {
     if (emailIds.length === 0) return;
 
     // Move all to trash using JSON Pointer notation to patch mailbox flags
-    const update: Record<string, Record<string, boolean>> = {};
+    // Must remove from inbox AND add to trash (JMAP allows emails in multiple mailboxes)
+    // JMAP requires null to remove from mailbox, true to add
+    const update: Record<string, Record<string, boolean | null>> = {};
     for (const emailId of emailIds) {
       update[emailId] = {
         [`mailboxIds/${trash.id}`]: true,
       };
+      if (inbox) {
+        update[emailId][`mailboxIds/${inbox.id}`] = null;
+      }
     }
 
     await this.client.request([
@@ -1881,10 +1920,11 @@ export class FastmailProvider implements EmailProvider {
     if (emailIds.length === 0) return;
 
     // Remove label from all emails
-    const update: Record<string, Record<string, boolean>> = {};
+    // JMAP requires null to remove from mailbox
+    const update: Record<string, Record<string, boolean | null>> = {};
     for (const emailId of emailIds) {
       update[emailId] = {
-        [`mailboxIds/${labelId}`]: false,
+        [`mailboxIds/${labelId}`]: null,
       };
     }
 
