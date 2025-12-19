@@ -149,6 +149,9 @@ export const actionInputs: Record<
       },
     ],
   },
+  [ActionType.NOTIFY_SENDER]: {
+    fields: [],
+  },
 };
 
 export function getActionFields(fields: Action | ExecutedAction | undefined) {
@@ -274,6 +277,9 @@ export function sanitizeActionFields(
         ...base,
         url: action.url ?? null,
       };
+    }
+    case ActionType.NOTIFY_SENDER: {
+      return base;
     }
     default:
       // biome-ignore lint/correctness/noSwitchDeclarations: intentional exhaustive check

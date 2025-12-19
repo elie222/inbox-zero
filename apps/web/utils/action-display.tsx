@@ -2,6 +2,7 @@ import { ActionType } from "@/generated/prisma/enums";
 import { getEmailTerminology } from "@/utils/terminology";
 import {
   ArchiveIcon,
+  BellIcon,
   FolderInputIcon,
   ForwardIcon,
   ReplyIcon,
@@ -76,6 +77,8 @@ export function getActionDisplay(
       return "Digest";
     case ActionType.CALL_WEBHOOK:
       return "Call Webhook";
+    case ActionType.NOTIFY_SENDER:
+      return "Notify Sender";
     default: {
       const exhaustiveCheck: never = action.type;
       return exhaustiveCheck;
@@ -107,6 +110,8 @@ export function getActionIcon(actionType: ActionType) {
       return WebhookIcon;
     case ActionType.DIGEST:
       return NewspaperIcon;
+    case ActionType.NOTIFY_SENDER:
+      return BellIcon;
     default: {
       const exhaustiveCheck: never = actionType;
       return exhaustiveCheck;

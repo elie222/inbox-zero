@@ -339,6 +339,16 @@ export function RuleForm({
         value: ActionType.CALL_WEBHOOK,
         icon: getActionIcon(ActionType.CALL_WEBHOOK),
       },
+      // NOTIFY_SENDER is only available for cold email rules
+      ...(rule.systemType === SystemType.COLD_EMAIL
+        ? [
+            {
+              label: "Notify sender",
+              value: ActionType.NOTIFY_SENDER,
+              icon: getActionIcon(ActionType.NOTIFY_SENDER),
+            },
+          ]
+        : []),
     ];
 
     return options;

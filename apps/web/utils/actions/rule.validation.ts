@@ -26,6 +26,7 @@ const zodActionType = z.enum([
   ActionType.MARK_READ,
   ActionType.DIGEST,
   ActionType.MOVE_FOLDER,
+  ActionType.NOTIFY_SENDER,
 ]);
 
 const zodConditionType = z.enum([ConditionType.AI, ConditionType.STATIC]);

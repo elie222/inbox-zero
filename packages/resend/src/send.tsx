@@ -14,6 +14,12 @@ import MeetingBriefingEmail, {
   type MeetingBriefingEmailProps,
   generateMeetingBriefingSubject,
 } from "../emails/meeting-briefing";
+import ColdEmailNotification, {
+  type ColdEmailNotificationProps,
+} from "../emails/cold-email-notification";
+
+const RESEND_NOT_CONFIGURED_MESSAGE =
+  "Resend is not configured. You need to add a RESEND_API_KEY in your .env file for emails to work.";
 
 const sendEmail = async ({
   from,
@@ -34,9 +40,7 @@ const sendEmail = async ({
   unsubscribeToken: string;
 }) => {
   if (!resend) {
-    console.log(
-      "Resend is not configured. You need to add a RESEND_API_KEY in your .env file for emails to work.",
-    );
+    console.log(RESEND_NOT_CONFIGURED_MESSAGE);
     return Promise.resolve();
   }
 
@@ -197,4 +201,52 @@ export const sendMeetingBriefingEmail = async ({
       },
     ],
   });
+};
+
+/**
+ * Send a notification to a cold emailer informing them their email was filtered.
+ * This is different from other emails - it goes to an external sender, not our user,
+ * so it doesn't have an unsubscribe token.
+ */
+export const sendColdEmailNotification = async ({
+  from,
+  to,
+  replyTo,
+  subject,
+  emailProps,
+}: {
+  from: string;
+  to: string; // The cold emailer we're notifying
+  replyTo: string; // The user who received the cold email
+  subject: string;
+  emailProps: ColdEmailNotificationProps;
+}) => {
+  if (!resend) {
+    console.log(RESEND_NOT_CONFIGURED_MESSAGE);
+    return { data: null, error: null };
+  }
+
+  const react = <ColdEmailNotification {...emailProps} />;
+  const text = await render(react, { plainText: true });
+
+  const result = await resend.emails.send({
+    from,
+    to,
+    replyTo,
+    subject,
+    react,
+    text,
+    tags: [
+      {
+        name: "category",
+        value: "cold-email-notification",
+      },
+    ],
+  });
+
+  if (result.error) {
+    console.error("Error sending cold email notification", result.error);
+  }
+
+  return result;
 };

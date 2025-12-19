@@ -10,6 +10,8 @@ import { filterNullProperties } from "@/utils";
 import { labelMessageAndSync } from "@/utils/label.server";
 import { hasVariables } from "@/utils/template";
 import prisma from "@/utils/prisma";
+import { sendColdEmailNotification } from "@/utils/cold-email/send-notification";
+import { extractEmailAddress } from "@/utils/email";
 
 const MODULE = "ai-actions";
 
@@ -73,6 +75,8 @@ export const runActionFunction = async (options: {
       return digest(opts);
     case ActionType.MOVE_FOLDER:
       return move_folder(opts);
+    case ActionType.NOTIFY_SENDER:
+      return notify_sender(opts);
     default:
       throw new Error(`Unknown action: ${action}`);
   }
@@ -319,6 +323,25 @@ const move_folder: ActionFunction<{ folderId?: string | null }> = async ({
 }) => {
   if (!args.folderId) return;
   await client.moveThreadToFolder(email.threadId, userEmail, args.folderId);
+};
+
+const notify_sender: ActionFunction<Record<string, unknown>> = async ({
+  email,
+  userEmail,
+  logger,
+}) => {
+  const senderEmail = extractEmailAddress(email.headers.from);
+  if (!senderEmail) {
+    logger.error("Could not extract sender email for notify_sender action");
+    return;
+  }
+
+  await sendColdEmailNotification({
+    senderEmail,
+    recipientEmail: userEmail,
+    originalSubject: email.headers.subject,
+    logger,
+  });
 };
 
 async function lazyUpdateActionLabelId({

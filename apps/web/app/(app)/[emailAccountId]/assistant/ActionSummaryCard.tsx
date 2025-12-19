@@ -203,6 +203,12 @@ export function ActionSummaryCard({
       summaryContent = `Folder: ${action.folderName?.value || "unset"}`;
       break;
 
+    case ActionType.NOTIFY_SENDER:
+      summaryContent = "Notify sender";
+      tooltipText =
+        "Sends an automated notification from Inbox Zero (not from your email) informing the sender their email was filtered as cold outreach.";
+      break;
+
     default:
       summaryContent = actionTypeLabel;
   }

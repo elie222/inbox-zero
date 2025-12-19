@@ -533,9 +533,16 @@ function ActionCard({
   const isDraftEmailWithoutManualContent =
     actionType === ActionType.DRAFT_EMAIL && !contentSetManually;
 
+  const isNotifySender = actionType === ActionType.NOTIFY_SENDER;
+
   const rightContent = (
     <>
-      {isDraftEmailWithoutManualContent ? (
+      {isNotifySender ? (
+        <div className="px-1 h-full flex items-center text-sm text-muted-foreground">
+          Sends an automated notification from Inbox Zero informing the sender
+          their email was filtered as cold outreach.
+        </div>
+      ) : isDraftEmailWithoutManualContent ? (
         <div className="px-1 h-full flex items-center text-sm text-muted-foreground">
           Our AI generates a draft reply from your email history and knowledge
           base.

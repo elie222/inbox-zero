@@ -1051,6 +1051,7 @@ enum ActionType {
   // TRACK_THREAD // @deprecated - No longer used. We rely on rule SystemType instead to run this.
   DIGEST
   MOVE_FOLDER
+  NOTIFY_SENDER // Sends notification from Inbox Zero (not user's email). Only for cold email rules.
   // SUMMARIZE
   // SNOOZE
   // ADD_TO_DO

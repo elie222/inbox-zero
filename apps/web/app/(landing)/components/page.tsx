@@ -330,6 +330,11 @@ export default function Components() {
                   label: "Digest",
                   id: "digest",
                 },
+                {
+                  type: ActionType.NOTIFY_SENDER,
+                  label: "Notify sender",
+                  id: "notify_sender",
+                },
               ]}
               provider="gmail"
               labels={[{ id: "label", name: "Label" }]}
