@@ -36,17 +36,6 @@ export async function sendColdEmailNotification({
       },
     });
 
-    if (result.error) {
-      const errorMessage =
-        getErrorMessage(result.error) ??
-        "Failed to send cold email notification";
-      logger.error("Failed to send cold email notification", {
-        error: result.error,
-        senderEmail,
-      });
-      return { success: false, error: errorMessage };
-    }
-
     logger.info("Cold email notification sent", {
       senderEmail,
       messageId: result.data?.id,
