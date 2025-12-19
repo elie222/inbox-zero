@@ -291,6 +291,8 @@ async function createDraft(
   threadId: string,
   raw: string,
 ) {
+  logger.info("Calling Gmail API to create draft");
+
   const result = await withGmailRetry(async () =>
     gmail.users.drafts.create({
       userId: "me",
@@ -302,6 +304,11 @@ async function createDraft(
       },
     }),
   );
+
+  logger.info("Gmail API draft.create response received", {
+    draftId: result.data.id,
+    messageId: result.data.message?.id,
+  });
 
   return result;
 }

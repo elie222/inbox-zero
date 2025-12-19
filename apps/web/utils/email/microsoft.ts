@@ -489,6 +489,11 @@ export class OutlookProvider implements EmailProvider {
     userEmail: string,
     executedRule?: { id: string; threadId: string; emailAccountId: string },
   ): Promise<{ draftId: string }> {
+    this.logger.info("Creating Outlook draft", {
+      hasExecutedRule: Boolean(executedRule),
+      contentLength: args.content?.length,
+    });
+
     if (executedRule) {
       // Run draft creation and previous draft deletion in parallel
       const [result] = await Promise.all([
@@ -499,7 +504,10 @@ export class OutlookProvider implements EmailProvider {
           logger: this.logger,
         }),
       ]);
-      this.logger.info("Draft created", { draftId: result.id });
+
+      this.logger.info("Outlook draft created successfully", {
+        draftId: result.id,
+      });
       return { draftId: result.id || "" };
     } else {
       const result = await draftEmail(
@@ -509,7 +517,10 @@ export class OutlookProvider implements EmailProvider {
         userEmail,
         this.logger,
       );
-      this.logger.info("Draft created", { draftId: result.id });
+
+      this.logger.info("Outlook draft created successfully", {
+        draftId: result.id,
+      });
       return { draftId: result.id || "" };
     }
   }
