@@ -12,6 +12,7 @@ import { hasVariables } from "@/utils/template";
 import prisma from "@/utils/prisma";
 import { sendColdEmailNotification } from "@/utils/cold-email/send-notification";
 import { extractEmailAddress } from "@/utils/email";
+import { captureException } from "@/utils/error";
 
 const MODULE = "ai-actions";
 
@@ -336,13 +337,31 @@ const notify_sender: ActionFunction<Record<string, unknown>> = async ({
     return;
   }
 
-  await sendColdEmailNotification({
+  const result = await sendColdEmailNotification({
     senderEmail,
     recipientEmail: userEmail,
     originalSubject: email.headers.subject,
     originalMessageId: email.headers["message-id"],
     logger,
   });
+
+  if (!result.success) {
+    // Best-effort: don't fail the whole rule run if notification can't be sent.
+    logger.error("Cold email notification failed", {
+      senderEmail,
+      error: result.error,
+    });
+
+    captureException(
+      new Error(result.error ?? "Cold email notification failed"),
+      {
+        extra: { actionType: ActionType.NOTIFY_SENDER, senderEmail },
+        sampleRate: 0.01,
+      },
+      userEmail,
+    );
+    return;
+  }
 };
 
 async function lazyUpdateActionLabelId({

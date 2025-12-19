@@ -1,5 +1,6 @@
 import { sendColdEmailNotification as sendColdEmailNotificationViaResend } from "@inboxzero/resend";
 import { env } from "@/env";
+import { getErrorMessage } from "@/utils/error";
 import type { Logger } from "@/utils/logger";
 import { formatReplySubject } from "@/utils/email/subject";
 
@@ -36,11 +37,14 @@ export async function sendColdEmailNotification({
     });
 
     if (result.error) {
+      const errorMessage =
+        getErrorMessage(result.error) ??
+        "Failed to send cold email notification";
       logger.error("Failed to send cold email notification", {
         error: result.error,
         senderEmail,
       });
-      return { success: false, error: result.error.message };
+      return { success: false, error: errorMessage };
     }
 
     logger.info("Cold email notification sent", {

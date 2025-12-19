@@ -63,6 +63,9 @@ export const ACTION_TYPE_ICONS = {
 export function getActionTypeColor(example: string): string {
   const lowerExample = example.toLowerCase();
 
+  if (lowerExample.includes("notify") || lowerExample.includes("sender")) {
+    return ACTION_TYPE_COLORS[ActionType.NOTIFY_SENDER];
+  }
   if (lowerExample.includes("forward")) {
     return ACTION_TYPE_COLORS[ActionType.FORWARD];
   }

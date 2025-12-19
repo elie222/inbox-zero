@@ -252,6 +252,9 @@ export const sendColdEmailNotification = async ({
 
   if (result.error) {
     console.error("Error sending cold email notification", result.error);
+    throw new Error(
+      `Error sending cold email notification: ${result.error.message}`,
+    );
   }
 
   return result;
