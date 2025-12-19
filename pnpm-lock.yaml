@@ -145,6 +145,9 @@ importers:
       '@googleapis/calendar':
         specifier: ^14.0.0
         version: 14.0.0
+      '@googleapis/drive':
+        specifier: 20.0.0
+        version: 20.0.0
       '@googleapis/gmail':
         specifier: 16.1.0
         version: 16.1.0
@@ -2783,6 +2786,10 @@ packages:
 
   '@googleapis/calendar@14.0.0':
     resolution: {integrity: sha512-/5DtvL4jInnJzEOcfloHbDV8s6TwVziwbsf4NTKl55EluDKwRFTm2ymKfMie5dyXsuUf0VKrrTYWufcEjD2xaQ==}
+    engines: {node: '>=12.0.0'}
+
+  '@googleapis/drive@20.0.0':
+    resolution: {integrity: sha512-qLi5ypZn0zYY2FcGjdlHQsv1DAFNRwCWFiE5kq23J0yTdUSZynh/mDph9NBaiQ9ybajrmttySR/rSaNfm8S/bA==}
     engines: {node: '>=12.0.0'}
 
   '@googleapis/gmail@16.1.0':
@@ -15268,6 +15275,12 @@ snapshots:
   '@formkit/auto-animate@0.9.0': {}
 
   '@googleapis/calendar@14.0.0':
+    dependencies:
+      googleapis-common: 8.0.0
+    transitivePeerDependencies:
+      - supports-color
+
+  '@googleapis/drive@20.0.0':
     dependencies:
       googleapis-common: 8.0.0
     transitivePeerDependencies:

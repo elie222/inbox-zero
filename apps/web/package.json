@@ -32,6 +32,7 @@
     "@dub/analytics": "0.0.32",
     "@formkit/auto-animate": "0.9.0",
     "@googleapis/calendar": "^14.0.0",
+    "@googleapis/drive": "20.0.0",
     "@googleapis/gmail": "16.1.0",
     "@googleapis/people": "6.0.0",
     "@headlessui/react": "2.2.9",

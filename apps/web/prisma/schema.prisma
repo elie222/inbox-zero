@@ -175,6 +175,8 @@ model EmailAccount {
   calendarConnections CalendarConnection[]
   mcpConnections      McpConnection[]
   meetingBriefings    MeetingBriefing[]
+  driveConnections    DriveConnection[]
+  documentFilings     DocumentFiling[]
 
   @@index([userId])
   @@index([lastSummaryEmailAt])
@@ -951,6 +953,78 @@ model MeetingBriefing {
   @@index([emailAccountId])
 }
 
+// Drive connection for document auto-organization (Google Drive or OneDrive/SharePoint)
+// One connection per provider - through that connection, user can access all their folders including shared ones
+model DriveConnection {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  provider     String // "google" or "microsoft"
+  email        String // Account email used to connect
+  accessToken  String?
+  refreshToken String?
+  expiresAt    DateTime?
+  isConnected  Boolean @default(true)
+
+  emailAccountId String
+  emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
+
+  filingDestinations FilingDestination[]
+  documentFilings    DocumentFiling[]
+
+  @@unique([emailAccountId, provider]) // One Google Drive, one OneDrive per email account
+  @@index([emailAccountId])
+}
+
+// Maps document types to specific folders (like Label maps to folder)
+model FilingDestination {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  documentType String // "contract", "financial", "due_diligence", "correspondence", etc.
+  folderId     String // Drive folder ID (Google Drive or OneDrive)
+  folderName   String // Display name for the folder
+  folderPath   String? // Full path for display (e.g., "/Projects/Acme Corp/Contracts")
+
+  driveConnectionId String
+  driveConnection   DriveConnection @relation(fields: [driveConnectionId], references: [id], onDelete: Cascade)
+
+  @@unique([driveConnectionId, documentType]) // One folder per document type per connection
+  @@index([driveConnectionId])
+}
+
+// Tracks documents that have been filed or are pending confirmation
+model DocumentFiling {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+
+  // Source email attachment
+  messageId    String
+  attachmentId String
+  filename     String
+
+  // Filing decision
+  documentType String? // AI-determined document type
+  confidence   Float   // 0-1 confidence score
+  status       DocumentFilingStatus @default(PENDING)
+
+  // Result (after filing)
+  folderId    String? // Where it was filed
+  driveFileId String? // File ID in drive (for undo)
+
+  driveConnectionId String
+  driveConnection   DriveConnection @relation(fields: [driveConnectionId], references: [id], onDelete: Cascade)
+
+  emailAccountId String
+  emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
+
+  @@index([emailAccountId, status])
+  @@index([driveConnectionId])
+  @@index([messageId])
+}
+
 model Referral {
   id        String   @id @default(cuid())
   createdAt DateTime @default(now())
@@ -1075,6 +1149,14 @@ enum NewsletterStatus {
 enum ColdEmailStatus {
   AI_LABELED_COLD
   USER_REJECTED_COLD
+}
+
+enum DocumentFilingStatus {
+  PENDING   // Awaiting user confirmation (low confidence)
+  FILED     // Auto-filed with high confidence
+  CONFIRMED // User confirmed a pending filing
+  REJECTED  // User rejected the filing suggestion
+  ERROR     // Filing failed due to an error
 }
 
 // @deprecated - No longer used
