@@ -22,7 +22,11 @@ import type {
   EmailSignature,
 } from "@/utils/email/types";
 import { createScopedLogger, type Logger } from "@/utils/logger";
-import { isValidEmail } from "@/utils/email";
+import {
+  isValidEmail,
+  extractEmailAddress,
+  extractNameFromEmail,
+} from "@/utils/email";
 
 /**
  * Standard properties to fetch for Email/get requests
@@ -1417,7 +1421,12 @@ export class FastmailProvider implements EmailProvider {
       throw new Error("Drafts mailbox not found");
     }
 
-    const to = args.to || email.headers.from;
+    const toRaw = args.to || email.headers.from;
+    const toEmail = extractEmailAddress(toRaw);
+    const toName = extractNameFromEmail(toRaw);
+    if (!toEmail) {
+      throw new Error("Could not extract email address from recipient");
+    }
     const subject = args.subject || `Re: ${email.subject}`;
 
     const response = await this.client.request([
@@ -1430,7 +1439,7 @@ export class FastmailProvider implements EmailProvider {
               mailboxIds: { [drafts.id]: true },
               keywords: { $draft: true },
               from: [{ email: userEmail }],
-              to: [{ email: to }],
+              to: [{ email: toEmail, name: toName || undefined }],
               subject,
               bodyValues: {
                 body: { value: args.content, charset: "utf-8" },
@@ -1485,7 +1494,12 @@ export class FastmailProvider implements EmailProvider {
       throw new Error("No identity found for sending");
     }
 
-    const to = email.headers.from;
+    const toRaw = email.headers.from;
+    const toEmail = extractEmailAddress(toRaw);
+    const toName = extractNameFromEmail(toRaw);
+    if (!toEmail) {
+      throw new Error("Could not extract email address from recipient");
+    }
 
     await this.client.request([
       [
@@ -1496,7 +1510,7 @@ export class FastmailProvider implements EmailProvider {
             reply: {
               mailboxIds: { [sent.id]: true },
               from: [{ email: identity.email, name: identity.name }],
-              to: [{ email: to }],
+              to: [{ email: toEmail, name: toName || undefined }],
               subject: `Re: ${email.subject}`,
               bodyValues: {
                 body: { value: content, charset: "utf-8" },
@@ -2558,13 +2572,8 @@ export class FastmailProvider implements EmailProvider {
     }
 
     const buffer = await response.arrayBuffer();
-    // Convert ArrayBuffer to base64 using Web APIs
-    const bytes = new Uint8Array(buffer);
-    let binary = "";
-    for (let i = 0; i < bytes.byteLength; i++) {
-      binary += String.fromCharCode(bytes[i]);
-    }
-    const base64 = btoa(binary);
+    // Convert ArrayBuffer to base64 using Buffer (efficient O(n) encoding)
+    const base64 = Buffer.from(buffer).toString("base64");
 
     return {
       data: base64,
