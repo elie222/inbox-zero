@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { type SubmitHandler, useFieldArray, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { usePostHog } from "posthog-js/react";
+import { env } from "@/env";
 import {
   PencilIcon,
   TrashIcon,
@@ -52,7 +53,6 @@ import { getRuleConfig } from "@/utils/rule/consts";
 import { RuleSectionCard } from "@/app/(app)/[emailAccountId]/assistant/RuleSectionCard";
 import { ConditionSteps } from "@/app/(app)/[emailAccountId]/assistant/ConditionSteps";
 import { ActionSteps } from "@/app/(app)/[emailAccountId]/assistant/ActionSteps";
-import { env } from "@/env";
 
 export function Rule({
   ruleId,
@@ -340,7 +340,8 @@ export function RuleForm({
         icon: getActionIcon(ActionType.CALL_WEBHOOK),
       },
       // NOTIFY_SENDER is only available for cold email rules
-      ...(rule.systemType === SystemType.COLD_EMAIL
+      ...(rule.systemType === SystemType.COLD_EMAIL &&
+      env.NEXT_PUBLIC_IS_RESEND_CONFIGURED
         ? [
             {
               label: "Notify sender",
@@ -352,7 +353,7 @@ export function RuleForm({
     ];
 
     return options;
-  }, [provider, terminology.label.action]);
+  }, [provider, terminology.label.action, rule.systemType]);
 
   const [isNameEditMode, setIsNameEditMode] = useState(alwaysEditMode);
   const [isDeleting, setIsDeleting] = useState(false);
