@@ -271,13 +271,10 @@ export async function chatCompletionStream({
           error,
         });
         logger.trace("Result", { result });
-        captureException(
-          error,
-          {
-            extra: { label },
-          },
+        captureException(error, {
           userEmail,
-        );
+          extra: { label },
+        });
       }
     },
     onError: (error) => {
@@ -286,13 +283,10 @@ export async function chatCompletionStream({
         userEmail,
         error,
       });
-      captureException(
-        error,
-        {
-          extra: { label },
-        },
+      captureException(error, {
         userEmail,
-      );
+        extra: { label },
+      });
     },
   });
 

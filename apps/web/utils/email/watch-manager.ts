@@ -252,7 +252,7 @@ async function watchEmails({
       });
     } else {
       logger.error("Error watching inbox", { error });
-      captureException(error);
+      captureException(error, { emailAccountId });
     }
 
     return { success: false, error };
@@ -279,7 +279,7 @@ export async function unwatchEmails({
       logger.warn("Error unwatching emails, invalid grant");
     } else {
       logger.error("Error unwatching emails", { error });
-      captureException(error);
+      captureException(error, { emailAccountId });
     }
   }
 

@@ -30,18 +30,30 @@ export function isGmailError(
   );
 }
 
+export type CaptureExceptionContext = {
+  // emailAccountId is set automatically via:
+  // - Frontend: SentryIdentify component
+  // - API routes: emailAccountMiddleware
+  // - Server actions: actionClient
+  // Only pass explicitly for code outside these contexts (e.g., cron jobs).
+  emailAccountId?: string | null;
+  userId?: string | null;
+  userEmail?: string;
+  extra?: Record<string, any>;
+  sampleRate?: number;
+};
+
 export function captureException(
   error: unknown,
-  additionalInfo?: { extra?: Record<string, any>; sampleRate?: number },
-  userEmail?: string,
+  context: CaptureExceptionContext = {},
 ) {
   if (isKnownApiError(error)) {
     const logger = createScopedLogger("captureException");
-    logger.warn("Known API error", { error, additionalInfo });
+    logger.warn("Known API error", { error, context });
     return;
   }
 
-  const sampleRate = additionalInfo?.sampleRate;
+  const { sampleRate, userEmail, emailAccountId, userId, extra } = context;
   if (
     Number.isFinite(sampleRate) &&
     process.env.NODE_ENV === "production" &&
@@ -51,7 +63,16 @@ export function captureException(
   }
 
   if (userEmail) setUser({ email: userEmail });
-  sentryCaptureException(error, additionalInfo);
+
+  const sentryExtra = {
+    ...extra,
+    ...(emailAccountId && { emailAccountId }),
+    ...(userId && { userId }),
+  };
+
+  sentryCaptureException(error, {
+    extra: Object.keys(sentryExtra).length > 0 ? sentryExtra : undefined,
+  });
 }
 
 export type ActionError<E extends object = Record<string, unknown>> = {

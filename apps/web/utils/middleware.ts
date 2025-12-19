@@ -1,6 +1,7 @@
 import { ZodError } from "zod";
 import { type NextRequest, NextResponse, after } from "next/server";
 import { randomUUID } from "node:crypto";
+import * as Sentry from "@sentry/nextjs";
 import { captureException, checkCommonErrors, SafeError } from "@/utils/error";
 import { env } from "@/env";
 import { logErrorToPosthog } from "@/utils/error.server";
@@ -272,6 +273,9 @@ async function emailAccountMiddleware(
       { status: 403 },
     );
   }
+
+  Sentry.setTag("emailAccountId", emailAccountId);
+  Sentry.setUser({ id: userId, email });
 
   // Create a new request with email account info
   const emailAccountReq = req.clone() as RequestWithEmailAccount;

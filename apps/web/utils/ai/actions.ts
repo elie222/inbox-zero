@@ -328,6 +328,7 @@ const move_folder: ActionFunction<{ folderId?: string | null }> = async ({
 
 const notify_sender: ActionFunction<Record<string, unknown>> = async ({
   email,
+  emailAccountId,
   userEmail,
   logger,
 }) => {
@@ -355,10 +356,10 @@ const notify_sender: ActionFunction<Record<string, unknown>> = async ({
     captureException(
       new Error(result.error ?? "Cold email notification failed"),
       {
-        extra: { actionType: ActionType.NOTIFY_SENDER, senderEmail },
+        emailAccountId,
+        extra: { actionType: ActionType.NOTIFY_SENDER },
         sampleRate: 0.01,
       },
-      userEmail,
     );
     return;
   }
