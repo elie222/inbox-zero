@@ -60,7 +60,7 @@ export async function deleteDraft(gmail: gmail_v1.Gmail, draftId: string) {
     }
     logger.info("Successfully deleted draft", { draftId });
   } catch (error) {
-    if (error instanceof Error && "code" in error && error.code === 404) {
+    if (isNotFoundError(error)) {
       logger.warn("Draft not found or already deleted, skipping deletion.", {
         draftId,
       });
