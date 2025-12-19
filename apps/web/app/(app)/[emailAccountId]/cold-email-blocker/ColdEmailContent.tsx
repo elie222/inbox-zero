@@ -15,11 +15,11 @@ export function ColdEmailContent({ searchParam }: { searchParam?: string }) {
   const { emailAccountId } = useAccount();
 
   return (
-    <Tabs defaultValue="test" searchParam={searchParam}>
+    <Tabs defaultValue="cold-emails" searchParam={searchParam}>
       <TabsList>
-        <TabsTrigger value="test">Test</TabsTrigger>
         <TabsTrigger value="cold-emails">Cold Emails</TabsTrigger>
         <TabsTrigger value="rejected">Marked Not Cold</TabsTrigger>
+        <TabsTrigger value="test">Test</TabsTrigger>
         <TabsTrigger value="settings">Settings</TabsTrigger>
       </TabsList>
 
