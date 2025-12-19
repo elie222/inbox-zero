@@ -185,6 +185,31 @@ function isJMAPErrorType(error: unknown, errorType: string): boolean {
 }
 
 /**
+ * Calculates the next page token for JMAP position-based pagination
+ * @param position - Current position in the result set
+ * @param returnedCount - Number of items returned in this page
+ * @param limit - Requested page size
+ * @param total - Total count from server (may be undefined if not requested/supported)
+ * @returns Next page token or undefined if no more pages
+ */
+function calculateNextPageToken(
+  position: number,
+  returnedCount: number,
+  limit: number,
+  total: number | undefined,
+): string | undefined {
+  const nextPosition = position + returnedCount;
+
+  if (total !== undefined) {
+    // Server provided total - use it definitively
+    return nextPosition < total ? String(nextPosition) : undefined;
+  }
+
+  // No total provided - use heuristic: full page means more may exist
+  return returnedCount >= limit ? String(nextPosition) : undefined;
+}
+
+/**
  * Fastmail email provider implementation using the JMAP protocol.
  *
  * JMAP (JSON Meta Application Protocol) is a modern, efficient protocol for
@@ -358,6 +383,20 @@ export class FastmailProvider implements EmailProvider {
 
     // Convert mailboxIds to labelIds
     const labelIds = Object.keys(email.mailboxIds || {});
+
+    // Add mailbox role-based labels (SENT, INBOX) using cached mailbox data
+    // This ensures compatibility with Gmail-style label checks
+    if (this.mailboxCache) {
+      for (const mailboxId of Object.keys(email.mailboxIds || {})) {
+        const mailbox = this.mailboxCache.byId.get(mailboxId);
+        if (mailbox?.role === FastmailMailbox.SENT) {
+          labelIds.push("SENT");
+        }
+        if (mailbox?.role === FastmailMailbox.INBOX) {
+          labelIds.push("INBOX");
+        }
+      }
+    }
 
     // Add keyword-based labels
     // Only mark as UNREAD if keywords exist and $seen is explicitly false or missing
@@ -1998,6 +2037,9 @@ export class FastmailProvider implements EmailProvider {
     messages: ParsedMessage[];
     nextPageToken?: string;
   }> {
+    // Ensure mailbox cache is populated for SENT/INBOX label detection in parseJMAPEmail
+    await this.ensureMailboxCache();
+
     const filter: Record<string, unknown> = {};
 
     if (options.query) {
@@ -2024,6 +2066,7 @@ export class FastmailProvider implements EmailProvider {
           sort: [{ property: "receivedAt", isAscending: false }],
           position,
           limit,
+          calculateTotal: true,
         },
         "0",
       ],
@@ -2074,10 +2117,12 @@ export class FastmailProvider implements EmailProvider {
     ).list;
     const messages = emails.map((e) => this.parseJMAPEmail(e));
 
-    const total = queryResult.total || 0;
-    const nextPosition = position + emails.length;
-    const nextPageToken =
-      nextPosition < total ? String(nextPosition) : undefined;
+    const nextPageToken = calculateNextPageToken(
+      position,
+      emails.length,
+      limit,
+      queryResult.total,
+    );
 
     return { messages, nextPageToken };
   }
@@ -2092,6 +2137,9 @@ export class FastmailProvider implements EmailProvider {
     messages: ParsedMessage[];
     nextPageToken?: string;
   }> {
+    // Ensure mailbox cache is populated for SENT/INBOX label detection in parseJMAPEmail
+    await this.ensureMailboxCache();
+
     const filter: Record<string, unknown> = {
       from: options.senderEmail,
     };
@@ -2117,6 +2165,7 @@ export class FastmailProvider implements EmailProvider {
           sort: [{ property: "receivedAt", isAscending: false }],
           position,
           limit,
+          calculateTotal: true,
         },
         "0",
       ],
@@ -2167,10 +2216,12 @@ export class FastmailProvider implements EmailProvider {
     ).list;
     const messages = emails.map((e) => this.parseJMAPEmail(e));
 
-    const total = queryResult.total || 0;
-    const nextPosition = position + emails.length;
-    const nextPageToken =
-      nextPosition < total ? String(nextPosition) : undefined;
+    const nextPageToken = calculateNextPageToken(
+      position,
+      emails.length,
+      limit,
+      queryResult.total,
+    );
 
     return { messages, nextPageToken };
   }
@@ -2489,6 +2540,9 @@ export class FastmailProvider implements EmailProvider {
     threads: EmailThread[];
     nextPageToken?: string;
   }> {
+    // Ensure mailbox cache is populated for SENT/INBOX label detection in parseJMAPEmail
+    await this.ensureMailboxCache();
+
     const { fromEmail, after, before, isUnread, type, labelId } =
       options.query || {};
 
@@ -2547,6 +2601,7 @@ export class FastmailProvider implements EmailProvider {
           position,
           limit,
           collapseThreads: true,
+          calculateTotal: true,
         },
         "0",
       ],
@@ -2613,10 +2668,12 @@ export class FastmailProvider implements EmailProvider {
       }),
     );
 
-    const total = queryResult.total || 0;
-    const nextPosition = position + emails.length;
-    const nextPageToken =
-      nextPosition < total ? String(nextPosition) : undefined;
+    const nextPageToken = calculateNextPageToken(
+      position,
+      emails.length,
+      limit,
+      queryResult.total,
+    );
 
     return { threads, nextPageToken };
   }
