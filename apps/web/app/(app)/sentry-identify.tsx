@@ -14,6 +14,8 @@ export function SentryIdentify({ email }: { email: string }) {
   useEffect(() => {
     if (emailAccountId) {
       Sentry.setTag("emailAccountId", emailAccountId);
+    } else {
+      Sentry.setTag("emailAccountId", undefined);
     }
   }, [emailAccountId]);
 
