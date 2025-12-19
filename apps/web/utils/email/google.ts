@@ -576,12 +576,17 @@ export class GmailProvider implements EmailProvider {
       const errorMessage =
         error instanceof Error ? error.message : String(error);
 
-      // Only use fallback for "label not found" errors
-      if (
-        (errorMessage.includes("Requested entity was not found") ||
-          errorMessage.includes("labelId not found")) &&
-        labelName
-      ) {
+      const isLabelNotFound =
+        errorMessage.includes("Requested entity was not found") ||
+        errorMessage.includes("labelId not found");
+
+      log.info("Label operation failed, checking fallback", {
+        errorMessage,
+        isLabelNotFound,
+        hasLabelName: Boolean(labelName),
+      });
+
+      if (isLabelNotFound && labelName) {
         log.warn("Label not found by ID, trying to get or create by name");
 
         const label = await getOrCreateLabel({
@@ -600,7 +605,15 @@ export class GmailProvider implements EmailProvider {
         };
       }
 
-      // Re-throw if not a "not found" error or fallback didn't work
+      // Handle case where label was deleted but we don't have the name to recreate it
+      if (isLabelNotFound && !labelName) {
+        log.warn(
+          "Label was deleted but labelName is not available for recreation. Skipping label action.",
+        );
+        return {};
+      }
+
+      // Re-throw if not a "not found" error
       throw error;
     }
   }

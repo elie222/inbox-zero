@@ -18,6 +18,7 @@ export type ActionItem = {
   id: ExecutedAction["id"];
   type: ExecutedAction["type"];
   label?: ExecutedAction["label"];
+  labelId?: ExecutedAction["labelId"];
   subject?: ExecutedAction["subject"];
   content?: ExecutedAction["content"];
   to?: ExecutedAction["to"];

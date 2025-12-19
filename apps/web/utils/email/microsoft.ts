@@ -431,6 +431,13 @@ export class OutlookProvider implements EmailProvider {
     }
 
     if (!category) {
+      if (!labelName) {
+        this.logger.warn(
+          "Category was deleted but labelName is not available for recreation. Skipping label action.",
+          { labelId },
+        );
+        return {};
+      }
       this.logger.error("Category not found", { labelId });
       throw new Error(
         `Category with ID ${labelId}${labelName ? ` or name ${labelName}` : ""} not found`,

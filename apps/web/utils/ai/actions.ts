@@ -90,6 +90,11 @@ const label: ActionFunction<{
   label?: string | null;
   labelId?: string | null;
 }> = async ({ client, email, args, emailAccountId, logger }) => {
+  logger.info("Label action started", {
+    label: args.label,
+    labelId: args.labelId,
+  });
+
   const originalLabelId = args.labelId;
   let labelIdToUse = originalLabelId;
 
