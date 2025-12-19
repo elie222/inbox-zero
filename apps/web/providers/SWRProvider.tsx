@@ -157,7 +157,6 @@ export const SWRProvider = (props: { children: React.ReactNode }) => {
         value={{
           fetcher: enhancedFetcher,
           provider: () => provider,
-          // TODO: Send to Sentry
           onError: (error) => console.log("SWR error:", error),
           ...getDevOnlySWRConfig(),
         }}
