@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { toastError } from "@/components/Toast";
+import { captureException } from "@/utils/error";
 import type { GetCalendarAuthUrlResponse } from "@/app/api/google/calendar/auth-url/route";
 import { fetchWithAccount } from "@/utils/fetch";
 import Image from "next/image";
@@ -29,7 +30,9 @@ export function ConnectCalendar() {
       const data: GetCalendarAuthUrlResponse = await response.json();
       window.location.href = data.url;
     } catch (error) {
-      console.error("Error initiating Google calendar connection", error);
+      captureException(error, {
+        extra: { context: "Google Calendar OAuth initiation" },
+      });
       toastError({
         title: "Error initiating Google calendar connection",
         description: "Please try again or contact support",
@@ -54,7 +57,9 @@ export function ConnectCalendar() {
       const data: GetCalendarAuthUrlResponse = await response.json();
       window.location.href = data.url;
     } catch (error) {
-      console.error("Error initiating Microsoft calendar connection", error);
+      captureException(error, {
+        extra: { context: "Microsoft Calendar OAuth initiation" },
+      });
       toastError({
         title: "Error initiating Microsoft calendar connection",
         description: "Please try again or contact support",

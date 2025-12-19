@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { toastError } from "@/components/Toast";
+import { captureException } from "@/utils/error";
 import type { GetDriveAuthUrlResponse } from "@/app/api/google/drive/auth-url/route";
 import { fetchWithAccount } from "@/utils/fetch";
 import Image from "next/image";
@@ -29,7 +30,9 @@ export function ConnectDrive() {
       const data: GetDriveAuthUrlResponse = await response.json();
       window.location.href = data.url;
     } catch (error) {
-      console.error("Error initiating Google Drive connection", error);
+      captureException(error, {
+        extra: { context: "Google Drive OAuth initiation" },
+      });
       toastError({
         title: "Error initiating Google Drive connection",
         description: "Please try again or contact support",
@@ -54,7 +57,9 @@ export function ConnectDrive() {
       const data: GetDriveAuthUrlResponse = await response.json();
       window.location.href = data.url;
     } catch (error) {
-      console.error("Error initiating OneDrive connection", error);
+      captureException(error, {
+        extra: { context: "OneDrive OAuth initiation" },
+      });
       toastError({
         title: "Error initiating OneDrive connection",
         description: "Please try again or contact support",
