@@ -71,6 +71,7 @@
 
         "RESEND_API_KEY",
         "RESEND_AUDIENCE_ID",
+        "NEXT_PUBLIC_IS_RESEND_CONFIGURED",
 
         "LOOPS_API_SECRET",
 
