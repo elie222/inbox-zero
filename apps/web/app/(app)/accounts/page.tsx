@@ -125,6 +125,7 @@ function AccountHeader({
         <CardDescription>{emailAccount.email}</CardDescription>
       </div>
       <div
+        onClick={(e) => e.stopPropagation()}
         onMouseDown={(e) => e.stopPropagation()}
         onKeyDown={(e) => {
           if (e.key === "Enter" || e.key === " ") {
@@ -195,18 +196,25 @@ function AccountOptionsDropdown({
             <MoreVertical className="h-4 w-4" />
           </Button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="end">
+        <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
           <DropdownMenuItem asChild>
             <Link
               href={prefixPath(emailAccount.id, "/setup")}
               className="flex items-center gap-2"
+              onClick={(e) => e.stopPropagation()}
             >
               <Settings className="h-4 w-4" />
               Setup
             </Link>
           </DropdownMenuItem>
           {sourceAccounts.length > 0 && (
-            <DropdownMenuItem onSelect={() => setCopyRulesDialogOpen(true)}>
+            <DropdownMenuItem
+              onSelect={(e) => {
+                e?.stopPropagation?.();
+                setCopyRulesDialogOpen(true);
+              }}
+              onClick={(e) => e.stopPropagation()}
+            >
               <ArrowLeftRight className="mr-2 h-4 w-4" />
               Transfer rules to...
             </DropdownMenuItem>
@@ -214,7 +222,11 @@ function AccountOptionsDropdown({
           <ConfirmDialog
             trigger={
               <DropdownMenuItem
-                onSelect={(e) => e.preventDefault()}
+                onSelect={(e) => {
+                  e?.preventDefault();
+                  e?.stopPropagation?.();
+                }}
+                onClick={(e) => e.stopPropagation()}
                 className="flex items-center gap-2 text-destructive focus:text-destructive"
                 disabled={isExecuting}
               >
