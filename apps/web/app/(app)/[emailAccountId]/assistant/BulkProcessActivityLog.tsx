@@ -131,6 +131,13 @@ export function BulkProcessActivityLog({
     [],
   );
 
+  // Clear activity log when a new run starts
+  useEffect(() => {
+    if (loading) {
+      setActivityLog([]);
+    }
+  }, [loading]);
+
   // Get message IDs from processed threads
   const messageIds = Array.from(processedThreadIds)
     .map((threadId) => {

@@ -72,9 +72,10 @@ export function BulkRunRules() {
   const completed = state.processedThreadIds.size - remaining;
   const isProcessing = queue.size > 0;
   const isPaused = state.status === "paused";
+  const isBusy = isProcessing || state.status === "processing";
 
-  // Warn user before leaving page during processing
-  useBeforeUnload(isProcessing);
+  // Warn user before leaving page during processing (includes initial fetch)
+  useBeforeUnload(isBusy);
 
   const handleStart = async () => {
     dispatch({ type: "START" });
@@ -95,16 +96,25 @@ export function BulkRunRules() {
     // Ensure queue is not paused from a previous run
     resumeAiQueue();
 
-    abortRef.current = await onRun(
-      emailAccountId,
-      { startDate, endDate, includeRead },
-      (ids) => {
-        dispatch({ type: "THREADS_QUEUED", ids });
-      },
-      (_completionStatus, count) => {
-        dispatch({ type: "COMPLETE", count });
-      },
-    );
+    try {
+      abortRef.current = await onRun(
+        emailAccountId,
+        { startDate, endDate, includeRead },
+        (ids) => {
+          dispatch({ type: "THREADS_QUEUED", ids });
+        },
+        (_completionStatus, count) => {
+          dispatch({ type: "COMPLETE", count });
+        },
+      );
+    } catch (error) {
+      console.error("Failed to start bulk processing:", error);
+      toastError({
+        title: "Failed to start",
+        description: "An error occurred. Please try again.",
+      });
+      dispatch({ type: "RESET" });
+    }
   };
 
   const handlePauseResume = () => {
@@ -212,7 +222,7 @@ export function BulkRunRules() {
                         />
                       )}
 
-                      {!isProcessing && (
+                      {state.status === "idle" && !isProcessing && (
                         <Button
                           type="button"
                           disabled={!startDate || !emailAccountId}
@@ -221,7 +231,7 @@ export function BulkRunRules() {
                           Process Emails
                         </Button>
                       )}
-                      {isProcessing && (
+                      {isBusy && (
                         <div className="flex justify-end gap-2">
                           <Button size="sm" onClick={handlePauseResume}>
                             {isPaused ? (

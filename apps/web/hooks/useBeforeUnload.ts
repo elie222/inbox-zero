@@ -10,7 +10,8 @@ export function useBeforeUnload(enabled: boolean) {
 
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
       e.preventDefault();
-      // Modern browsers ignore custom messages, but this triggers the native dialog
+      // Required for cross-browser compatibility (Safari needs returnValue set)
+      e.returnValue = "";
       return "";
     };
 
