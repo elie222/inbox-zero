@@ -1,16 +1,19 @@
 import { sendColdEmailNotification as sendColdEmailNotificationViaResend } from "@inboxzero/resend";
 import { env } from "@/env";
 import type { Logger } from "@/utils/logger";
+import { formatReplySubject } from "@/utils/email/subject";
 
 export async function sendColdEmailNotification({
   senderEmail,
   recipientEmail,
   originalSubject,
+  originalMessageId,
   logger,
 }: {
   senderEmail: string; // The cold emailer we're notifying
   recipientEmail: string; // The user who received the cold email
   originalSubject: string;
+  originalMessageId?: string; // Message-ID of the original email for threading
   logger: Logger;
 }): Promise<{ success: boolean; error?: string }> {
   if (!env.RESEND_API_KEY) {
@@ -18,7 +21,7 @@ export async function sendColdEmailNotification({
     return { success: false, error: "Resend not configured" };
   }
 
-  const subject = `Re: ${originalSubject}`;
+  const subject = formatReplySubject(originalSubject);
 
   try {
     const result = await sendColdEmailNotificationViaResend({
@@ -26,6 +29,7 @@ export async function sendColdEmailNotification({
       to: senderEmail,
       replyTo: recipientEmail,
       subject,
+      inReplyTo: originalMessageId,
       emailProps: {
         baseUrl: env.NEXT_PUBLIC_BASE_URL,
       },

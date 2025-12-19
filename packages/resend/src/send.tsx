@@ -213,12 +213,14 @@ export const sendColdEmailNotification = async ({
   to,
   replyTo,
   subject,
+  inReplyTo,
   emailProps,
 }: {
   from: string;
   to: string; // The cold emailer we're notifying
   replyTo: string; // The user who received the cold email
   subject: string;
+  inReplyTo?: string; // Message-ID of original email for threading
   emailProps: ColdEmailNotificationProps;
 }) => {
   if (!resend) {
@@ -236,6 +238,10 @@ export const sendColdEmailNotification = async ({
     subject,
     react,
     text,
+    // Threading headers - In-Reply-To and References make the reply appear in the same thread
+    headers: inReplyTo
+      ? { "In-Reply-To": inReplyTo, References: inReplyTo }
+      : undefined,
     tags: [
       {
         name: "category",

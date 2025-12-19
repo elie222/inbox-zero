@@ -25,6 +25,7 @@ import { EmailAttachments } from "@/components/email-list/EmailAttachments";
 import { Loading } from "@/components/Loading";
 import { MessageText } from "@/components/Typography";
 import { useAccount } from "@/providers/EmailAccountProvider";
+import { formatReplySubject } from "@/utils/email/subject";
 
 export function EmailMessage({
   message,
@@ -328,7 +329,7 @@ const prepareReplyingToEmail = (
     // If following an email from yourself, don't add "Re:" prefix
     subject: sentFromUser
       ? message.headers.subject
-      : `Re: ${message.headers.subject}`,
+      : formatReplySubject(message.headers.subject),
     headerMessageId: message.headers["message-id"]!,
     threadId: message.threadId!,
     // Keep original CC

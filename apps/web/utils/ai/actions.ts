@@ -340,6 +340,7 @@ const notify_sender: ActionFunction<Record<string, unknown>> = async ({
     senderEmail,
     recipientEmail: userEmail,
     originalSubject: email.headers.subject,
+    originalMessageId: email.headers["message-id"],
     logger,
   });
 };
