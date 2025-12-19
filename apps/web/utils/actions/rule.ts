@@ -34,6 +34,7 @@ import {
   getRuleConfig,
   getSystemRuleActionTypes,
   getCategoryAction,
+  getActionTypesForCategoryAction,
 } from "@/utils/rule/consts";
 import { actionClient, actionClientUser } from "@/utils/actions/safe-action";
 import { prefixPath } from "@/utils/path";
@@ -294,10 +295,14 @@ export const createRulesOnboardingAction = actionClient
         | "move_folder"
         | "move_folder_delayed" => value !== "none" && value !== undefined;
 
-      async function createSystemRuleForOnboarding(systemType: SystemType) {
+      async function createSystemRuleForOnboarding(
+        systemType: SystemType,
+        userSelectedAction?: CategoryAction,
+      ) {
         const ruleConfiguration = getRuleConfig(systemType);
         const { name, instructions, label, runOnThreads } = ruleConfiguration;
-        const categoryAction = getCategoryAction(systemType, provider);
+        const categoryAction =
+          userSelectedAction || getCategoryAction(systemType, provider);
 
         const promise = (async () => {
           const actions = await getActionsFromCategoryAction({
@@ -309,6 +314,7 @@ export const createRulesOnboardingAction = actionClient
             draftReply: !!ruleConfiguration.draftReply,
             provider,
             logger,
+            systemType,
           });
 
           return upsertSystemRule({
@@ -355,7 +361,7 @@ export const createRulesOnboardingAction = actionClient
       for (const type of systemRules) {
         const config = systemCategoryMap.get(type);
         if (config && isSet(config.action)) {
-          createSystemRuleForOnboarding(type);
+          createSystemRuleForOnboarding(type, config.action);
         } else {
           deleteRule(type, emailAccountId);
         }
@@ -388,6 +394,7 @@ export const createRulesOnboardingAction = actionClient
             draftReply: false,
             provider,
             logger,
+            systemType: undefined,
           });
 
           const promise = prisma.rule
@@ -858,6 +865,7 @@ async function getActionsFromCategoryAction({
   hasDigest,
   provider,
   logger,
+  systemType,
 }: {
   emailAccountId: string;
   ruleName: string;
@@ -867,6 +875,7 @@ async function getActionsFromCategoryAction({
   draftReply: boolean;
   provider: string;
   logger: Logger;
+  systemType?: SystemType;
 }): Promise<Prisma.ActionCreateManyRuleInput[]> {
   const emailProvider = await createEmailProvider({
     emailAccountId,
@@ -874,67 +883,80 @@ async function getActionsFromCategoryAction({
     logger,
   });
 
-  const { label: labelName, labelId } = await resolveLabelNameAndId({
-    emailProvider,
-    label,
-    labelId: null,
-  });
-
-  logger.info("Resolved label ID during onboarding", {
-    requestedLabel: label,
-    resolvedLabelName: labelName,
-    resolvedLabelId: labelId,
-    ruleName,
-  });
-
-  let actions: Prisma.ActionCreateManyRuleInput[] = [
-    { type: ActionType.LABEL, label: labelName, labelId },
-  ];
-
-  switch (categoryAction) {
-    case "label_archive":
-    case "label_archive_delayed": {
-      actions.push({
-        type: ActionType.ARCHIVE,
-        delayInMinutes:
-          categoryAction === "label_archive_delayed"
-            ? ONE_WEEK_MINUTES
-            : undefined,
-      });
-      break;
+  function normalizeCategory(action: CategoryAction) {
+    switch (action) {
+      case "label_archive_delayed":
+        return { base: "label_archive" as const, isDelayed: true };
+      case "move_folder_delayed":
+        return { base: "move_folder" as const, isDelayed: true };
+      default:
+        return {
+          base: action as "label" | "label_archive" | "move_folder",
+          isDelayed: false,
+        };
     }
-    case "move_folder":
-    case "move_folder_delayed": {
-      const folderId =
-        await emailProvider.getOrCreateOutlookFolderIdByName(ruleName);
+  }
 
-      logger.info("Resolved folder ID during onboarding", {
-        folderName: ruleName,
-        resolvedFolderId: folderId,
-        categoryAction,
-      });
+  const { base: baseCategoryAction, isDelayed } =
+    normalizeCategory(categoryAction);
 
-      actions = [
-        {
+  const actionTypes = getActionTypesForCategoryAction({
+    categoryAction: baseCategoryAction,
+    systemType,
+    draftReply,
+    hasDigest,
+  });
+
+  const actions: Prisma.ActionCreateManyRuleInput[] = [];
+
+  for (const actionType of actionTypes) {
+    switch (actionType.type) {
+      case ActionType.LABEL: {
+        const { label: labelName, labelId } = await resolveLabelNameAndId({
+          emailProvider,
+          label,
+          labelId: null,
+        });
+
+        logger.info("Resolved label ID during onboarding", {
+          requestedLabel: label,
+          resolvedLabelName: labelName,
+          resolvedLabelId: labelId,
+          ruleName,
+        });
+
+        actions.push({ type: ActionType.LABEL, label: labelName, labelId });
+        break;
+      }
+      case ActionType.MOVE_FOLDER: {
+        const folderId =
+          await emailProvider.getOrCreateOutlookFolderIdByName(ruleName);
+
+        logger.info("Resolved folder ID during onboarding", {
+          folderName: ruleName,
+          resolvedFolderId: folderId,
+          categoryAction,
+        });
+
+        actions.push({
           type: ActionType.MOVE_FOLDER,
           folderId,
           folderName: ruleName,
-          delayInMinutes:
-            categoryAction === "move_folder_delayed"
-              ? ONE_WEEK_MINUTES
-              : undefined,
-        },
-      ];
-      break;
+          delayInMinutes: isDelayed ? ONE_WEEK_MINUTES : undefined,
+        });
+        break;
+      }
+      case ActionType.ARCHIVE: {
+        actions.push({
+          type: ActionType.ARCHIVE,
+          delayInMinutes: isDelayed ? ONE_WEEK_MINUTES : undefined,
+        });
+        break;
+      }
+      default: {
+        actions.push({ type: actionType.type });
+      }
     }
-  }
-
-  if (draftReply) {
-    actions.push({ type: ActionType.DRAFT_EMAIL });
-  }
-
-  if (hasDigest) {
-    actions.push({ type: ActionType.DIGEST });
   }
 
   return actions;

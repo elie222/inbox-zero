@@ -274,21 +274,24 @@ export function getDefaultActions(
   return actions;
 }
 
-export function getSystemRuleActionTypes(
-  systemType: SystemType,
-  provider: string,
-): Array<{
+type ActionTypeConfig = {
   type: ActionType;
   includeLabel?: boolean;
   includeFolder?: boolean;
-}> {
-  const config = getRuleConfig(systemType);
-  const categoryAction = getCategoryAction(systemType, provider);
-  const actionTypes: Array<{
-    type: ActionType;
-    includeLabel?: boolean;
-    includeFolder?: boolean;
-  }> = [];
+};
+
+export function getActionTypesForCategoryAction({
+  categoryAction,
+  systemType,
+  draftReply = false,
+  hasDigest = false,
+}: {
+  categoryAction: "label" | "label_archive" | "move_folder";
+  systemType?: SystemType;
+  draftReply?: boolean;
+  hasDigest?: boolean;
+}): ActionTypeConfig[] {
+  const actionTypes: ActionTypeConfig[] = [];
 
   if (categoryAction === "move_folder") {
     actionTypes.push({ type: ActionType.MOVE_FOLDER, includeFolder: true });
@@ -298,11 +301,33 @@ export function getSystemRuleActionTypes(
 
   if (categoryAction === "label_archive") {
     actionTypes.push({ type: ActionType.ARCHIVE });
+
+    if (systemType === SystemType.COLD_EMAIL) {
+      actionTypes.push({ type: ActionType.NOTIFY_SENDER });
+    }
   }
 
-  if (config.draftReply) {
+  if (draftReply) {
     actionTypes.push({ type: ActionType.DRAFT_EMAIL });
   }
 
+  if (hasDigest) {
+    actionTypes.push({ type: ActionType.DIGEST });
+  }
+
   return actionTypes;
+}
+
+export function getSystemRuleActionTypes(
+  systemType: SystemType,
+  provider: string,
+): ActionTypeConfig[] {
+  const config = getRuleConfig(systemType);
+  const categoryAction = getCategoryAction(systemType, provider);
+
+  return getActionTypesForCategoryAction({
+    categoryAction,
+    systemType,
+    draftReply: config.draftReply,
+  });
 }
