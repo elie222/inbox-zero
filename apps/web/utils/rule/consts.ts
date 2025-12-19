@@ -1,6 +1,7 @@
 import { DEFAULT_COLD_EMAIL_PROMPT } from "@/utils/cold-email/prompt";
 import { isMicrosoftProvider } from "@/utils/email/provider-types";
 import { ActionType, SystemType } from "@/generated/prisma/enums";
+import { env } from "@/env";
 
 const ruleConfig: Record<
   SystemType,
@@ -302,7 +303,10 @@ export function getActionTypesForCategoryAction({
   if (categoryAction === "label_archive") {
     actionTypes.push({ type: ActionType.ARCHIVE });
 
-    if (systemType === SystemType.COLD_EMAIL) {
+    if (
+      systemType === SystemType.COLD_EMAIL &&
+      env.NEXT_PUBLIC_IS_RESEND_CONFIGURED
+    ) {
       actionTypes.push({ type: ActionType.NOTIFY_SENDER });
     }
   }

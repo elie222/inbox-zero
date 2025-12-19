@@ -75,6 +75,7 @@ cp apps/web/.env.example apps/web/.env
 | `RESEND_API_KEY` | No | API key for transactional emails | — |
 | `RESEND_AUDIENCE_ID` | No | Audience ID for contacts | — |
 | `RESEND_FROM_EMAIL` | No | From email address | `Inbox Zero <updates@transactional.getinboxzero.com>` |
+| `NEXT_PUBLIC_IS_RESEND_CONFIGURED` | No | Client-side flag indicating if Resend is configured | — |
 | **Other** ||||
 | `CRON_SECRET` | No | Secret for cron job authentication | — |
 | `HEALTH_API_KEY` | No | API key for health checks | — |

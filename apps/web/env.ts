@@ -190,8 +190,7 @@ export const env = createEnv({
     NEXT_PUBLIC_DIGEST_ENABLED: z.coerce.boolean().optional(),
     NEXT_PUBLIC_MEETING_BRIEFS_ENABLED: z.coerce.boolean().optional(),
     NEXT_PUBLIC_INTEGRATIONS_ENABLED: z.coerce.boolean().optional(),
-    // Derived from presence of RESEND_API_KEY
-    NEXT_PUBLIC_IS_RESEND_CONFIGURED: z.boolean().optional(),
+    NEXT_PUBLIC_IS_RESEND_CONFIGURED: z.coerce.boolean().optional(),
   },
   // For Next.js >= 13.4.4, you only need to destructure client variables:
   experimental__runtimeEnv: {
@@ -253,6 +252,7 @@ export const env = createEnv({
       process.env.NEXT_PUBLIC_MEETING_BRIEFS_ENABLED,
     NEXT_PUBLIC_INTEGRATIONS_ENABLED:
       process.env.NEXT_PUBLIC_INTEGRATIONS_ENABLED,
-    NEXT_PUBLIC_IS_RESEND_CONFIGURED: !!process.env.RESEND_API_KEY,
+    NEXT_PUBLIC_IS_RESEND_CONFIGURED:
+      process.env.NEXT_PUBLIC_IS_RESEND_CONFIGURED,
   },
 });
