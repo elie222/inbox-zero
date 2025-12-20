@@ -22,6 +22,8 @@
 - Consult .cursor/rules for environment variable management
 - Prefer self-documenting code over comments; use descriptive variable and function names instead of explaining intent with comments.
 - Add helper functions to the bottom of files, not the top!
+- All imports go at the top of files, no mid-file dynamic imports.
+- Co-locate test files next to source files (e.g., `utils/example.test.ts`). Only E2E and AI tests go in `__tests__/`.
 
 ## Component Guidelines
 
