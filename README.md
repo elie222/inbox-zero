@@ -313,3 +313,9 @@ You can view open tasks in our [GitHub Issues](https://github.com/elie222/inbox-
 Join our [Discord](https://www.getinboxzero.com/discord) to discuss tasks and check what's being worked on.
 
 [ARCHITECTURE.md](./ARCHITECTURE.md) explains the architecture of the project (LLM generated).
+
+### Releases
+
+Docker images are automatically built on every push to `main` and tagged with the commit SHA (e.g., `elie222/inbox-zero:abc1234`). The `latest` tag always points to the most recent main build.
+
+For formal releases, we create GitHub Releases with version tags (e.g., `v2.26.0`) which also trigger Docker builds with that version tag.
