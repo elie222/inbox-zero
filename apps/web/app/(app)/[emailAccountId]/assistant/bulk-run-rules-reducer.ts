@@ -1,15 +1,22 @@
+import type { ThreadsResponse } from "@/app/api/threads/route";
+
+type Thread = ThreadsResponse["threads"][number];
+
 export type ProcessingStatus = "idle" | "processing" | "paused" | "stopped";
 
 export type BulkRunState = {
   status: ProcessingStatus;
   processedThreadIds: Set<string>;
+  // Stores fetched threads to ensure activity log can find them
+  // (the global inbox cache may not contain all fetched threads)
+  fetchedThreads: Map<string, Thread>;
   stoppedCount: number | null;
   runResult: { count: number } | null;
 };
 
 export type BulkRunAction =
   | { type: "START" }
-  | { type: "THREADS_QUEUED"; ids: string[] }
+  | { type: "THREADS_QUEUED"; threads: Thread[] }
   | { type: "COMPLETE"; count: number }
   | { type: "PAUSE" }
   | { type: "RESUME" }
@@ -19,6 +26,7 @@ export type BulkRunAction =
 export const initialBulkRunState: BulkRunState = {
   status: "idle",
   processedThreadIds: new Set(),
+  fetchedThreads: new Map(),
   stoppedCount: null,
   runResult: null,
 };
@@ -33,18 +41,22 @@ export function bulkRunReducer(
         ...state,
         status: "processing",
         processedThreadIds: new Set(),
+        fetchedThreads: new Map(),
         stoppedCount: null,
         runResult: null,
       };
 
     case "THREADS_QUEUED": {
-      const next = new Set(state.processedThreadIds);
-      for (const id of action.ids) {
-        next.add(id);
+      const nextIds = new Set(state.processedThreadIds);
+      const nextThreads = new Map(state.fetchedThreads);
+      for (const thread of action.threads) {
+        nextIds.add(thread.id);
+        nextThreads.set(thread.id, thread);
       }
       return {
         ...state,
-        processedThreadIds: next,
+        processedThreadIds: nextIds,
+        fetchedThreads: nextThreads,
       };
     }
 

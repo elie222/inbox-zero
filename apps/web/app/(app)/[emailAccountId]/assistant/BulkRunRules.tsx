@@ -100,8 +100,8 @@ export function BulkRunRules() {
       abortRef.current = await onRun(
         emailAccountId,
         { startDate, endDate, includeRead },
-        (ids) => {
-          dispatch({ type: "THREADS_QUEUED", ids });
+        (threads) => {
+          dispatch({ type: "THREADS_QUEUED", threads });
         },
         (_completionStatus, count) => {
           dispatch({ type: "COMPLETE", count });
@@ -211,7 +211,7 @@ export function BulkRunRules() {
                       {(state.status !== "idle" ||
                         state.processedThreadIds.size > 0) && (
                         <BulkProcessActivityLog
-                          threads={data.threads}
+                          threads={Array.from(state.fetchedThreads.values())}
                           processedThreadIds={state.processedThreadIds}
                           aiQueue={queue}
                           paused={isPaused}
@@ -286,7 +286,7 @@ async function onRun(
     endDate,
     includeRead,
   }: { startDate: Date; endDate?: Date; includeRead?: boolean },
-  onThreadsQueued: (threadIds: string[]) => void,
+  onThreadsQueued: (threads: ThreadsResponse["threads"]) => void,
   onComplete: (
     status: "success" | "error" | "cancelled",
     count: number,
@@ -351,7 +351,7 @@ async function onRun(
 
       const threadsWithoutPlan = data.threads.filter((t) => !t.plan);
 
-      onThreadsQueued(threadsWithoutPlan.map((t) => t.id));
+      onThreadsQueued(threadsWithoutPlan);
       totalProcessed += threadsWithoutPlan.length;
 
       runAiRules(emailAccountId, threadsWithoutPlan, false);

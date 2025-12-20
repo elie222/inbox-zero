@@ -5,6 +5,37 @@ import {
   initialBulkRunState,
   type BulkRunState,
 } from "./bulk-run-rules-reducer";
+import type { ThreadsResponse } from "@/app/api/threads/route";
+
+// Helper to create mock threads
+function createMockThread(id: string): ThreadsResponse["threads"][number] {
+  return {
+    id,
+    snippet: "Test snippet",
+    messages: [
+      {
+        id: `${id}-msg`,
+        historyId: "123",
+        threadId: id,
+        labelIds: ["INBOX"],
+        headers: {
+          from: "test@test.com",
+          to: "recipient@test.com",
+          subject: "Test",
+          date: "2024-01-01",
+        },
+        textPlain: "",
+        textHtml: "",
+        snippet: "",
+        inline: [],
+        internalDate: "123",
+        subject: "Test",
+        date: "2024-01-01",
+      },
+    ],
+    plan: undefined,
+  };
+}
 
 describe("bulkRunReducer", () => {
   describe("START action", () => {
@@ -13,14 +44,17 @@ describe("bulkRunReducer", () => {
 
       expect(result.status).toBe("processing");
       expect(result.processedThreadIds.size).toBe(0);
+      expect(result.fetchedThreads.size).toBe(0);
       expect(result.stoppedCount).toBeNull();
       expect(result.runResult).toBeNull();
     });
 
     it("clears previous state when starting again", () => {
+      const thread = createMockThread("thread1");
       const stateWithData: BulkRunState = {
         status: "stopped",
         processedThreadIds: new Set(["thread1", "thread2"]),
+        fetchedThreads: new Map([["thread1", thread]]),
         stoppedCount: 2,
         runResult: { count: 5 },
       };
@@ -29,61 +63,118 @@ describe("bulkRunReducer", () => {
 
       expect(result.status).toBe("processing");
       expect(result.processedThreadIds.size).toBe(0);
+      expect(result.fetchedThreads.size).toBe(0);
       expect(result.stoppedCount).toBeNull();
       expect(result.runResult).toBeNull();
     });
   });
 
   describe("THREADS_QUEUED action", () => {
-    it("adds thread IDs to the set", () => {
+    it("adds thread IDs and threads to state", () => {
       const state: BulkRunState = {
         ...initialBulkRunState,
         status: "processing",
       };
+      const threads = [
+        createMockThread("thread1"),
+        createMockThread("thread2"),
+      ];
 
       const result = bulkRunReducer(state, {
         type: "THREADS_QUEUED",
-        ids: ["thread1", "thread2"],
+        threads,
       });
 
       expect(result.processedThreadIds.size).toBe(2);
       expect(result.processedThreadIds.has("thread1")).toBe(true);
       expect(result.processedThreadIds.has("thread2")).toBe(true);
+      expect(result.fetchedThreads.size).toBe(2);
+      expect(result.fetchedThreads.get("thread1")).toBe(threads[0]);
+      expect(result.fetchedThreads.get("thread2")).toBe(threads[1]);
     });
 
-    it("accumulates thread IDs across multiple calls", () => {
+    it("accumulates threads across multiple calls", () => {
       let state: BulkRunState = {
         ...initialBulkRunState,
         status: "processing",
       };
+      const threads1 = [
+        createMockThread("thread1"),
+        createMockThread("thread2"),
+      ];
+      const threads2 = [createMockThread("thread3")];
 
       state = bulkRunReducer(state, {
         type: "THREADS_QUEUED",
-        ids: ["thread1", "thread2"],
+        threads: threads1,
       });
       state = bulkRunReducer(state, {
         type: "THREADS_QUEUED",
-        ids: ["thread3"],
+        threads: threads2,
       });
 
       expect(state.processedThreadIds.size).toBe(3);
       expect(state.processedThreadIds.has("thread1")).toBe(true);
       expect(state.processedThreadIds.has("thread3")).toBe(true);
+      expect(state.fetchedThreads.size).toBe(3);
     });
 
     it("does not duplicate existing thread IDs", () => {
+      const existingThread = createMockThread("thread1");
       const state: BulkRunState = {
         ...initialBulkRunState,
         status: "processing",
         processedThreadIds: new Set(["thread1"]),
+        fetchedThreads: new Map([["thread1", existingThread]]),
       };
+      const newThreads = [
+        createMockThread("thread1"),
+        createMockThread("thread2"),
+      ];
 
       const result = bulkRunReducer(state, {
         type: "THREADS_QUEUED",
-        ids: ["thread1", "thread2"],
+        threads: newThreads,
       });
 
       expect(result.processedThreadIds.size).toBe(2);
+      expect(result.fetchedThreads.size).toBe(2);
+    });
+
+    it("allows lookup of any queued thread by ID (fixes inbox cache mismatch)", () => {
+      // This test validates the fix for the bug where threads fetched during
+      // bulk processing might not exist in the global inbox cache, causing
+      // activity log entries to be silently skipped.
+      let state: BulkRunState = {
+        ...initialBulkRunState,
+        status: "processing",
+      };
+
+      // Simulate multiple batches of threads being fetched (paginated)
+      const batch1 = [createMockThread("old-thread-1")];
+      const batch2 = [createMockThread("old-thread-2")];
+      const batch3 = [createMockThread("recent-thread")];
+
+      state = bulkRunReducer(state, {
+        type: "THREADS_QUEUED",
+        threads: batch1,
+      });
+      state = bulkRunReducer(state, {
+        type: "THREADS_QUEUED",
+        threads: batch2,
+      });
+      state = bulkRunReducer(state, {
+        type: "THREADS_QUEUED",
+        threads: batch3,
+      });
+
+      // All threads should be retrievable by ID, even old ones
+      // that wouldn't be in a typical inbox cache
+      for (const threadId of state.processedThreadIds) {
+        const thread = state.fetchedThreads.get(threadId);
+        expect(thread).toBeDefined();
+        expect(thread?.id).toBe(threadId);
+      }
     });
   });
 
@@ -248,9 +339,11 @@ describe("bulkRunReducer", () => {
 
   describe("RESET action", () => {
     it("resets all state to initial values", () => {
+      const thread = createMockThread("t1");
       const state: BulkRunState = {
         status: "stopped",
         processedThreadIds: new Set(["t1", "t2"]),
+        fetchedThreads: new Map([["t1", thread]]),
         stoppedCount: 5,
         runResult: { count: 10 },
       };
@@ -259,6 +352,7 @@ describe("bulkRunReducer", () => {
 
       expect(result.status).toBe("idle");
       expect(result.processedThreadIds.size).toBe(0);
+      expect(result.fetchedThreads.size).toBe(0);
       expect(result.stoppedCount).toBeNull();
       expect(result.runResult).toBeNull();
     });
