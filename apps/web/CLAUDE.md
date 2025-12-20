@@ -24,6 +24,8 @@
 - Add helper functions to the bottom of files, not the top!
 - All imports go at the top of files, no mid-file dynamic imports.
 - Co-locate test files next to source files (e.g., `utils/example.test.ts`). Only E2E and AI tests go in `__tests__/`.
+- Do not export types/interfaces that are only used within the same file. Export later if needed.
+- Infer types from Zod schemas using `z.infer<typeof schema>` instead of duplicating as separate interfaces.
 
 ## Component Guidelines
 
