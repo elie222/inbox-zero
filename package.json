@@ -8,8 +8,8 @@
     "lint": "turbo lint",
     "prepare": "husky install",
     "ncu": "ncu -u -ws",
-    "format-and-lint": "biome check .",
-    "format-and-lint:fix": "biome check . --write",
+    "check": "ultracite check",
+    "fix": "ultracite fix",
     "setup": "tsx packages/cli/src/main.ts setup"
   },
   "devDependencies": {
@@ -28,7 +28,7 @@
   "packageManager": "pnpm@10.24.0",
   "lint-staged": {
     "*.{js,jsx,ts,tsx,json,jsonc,css,scss,md,mdx}": [
-      "npx ultracite fix"
+      "ultracite fix"
     ]
   },
   "engines": {
