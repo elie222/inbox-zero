@@ -28,7 +28,7 @@
   "packageManager": "pnpm@10.24.0",
   "lint-staged": {
     "*.{js,jsx,ts,tsx,json,jsonc,css,scss,md,mdx}": [
-      "npx ultracite fix"
+      "ultracite fix"
     ]
   },
   "engines": {
