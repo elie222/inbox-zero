@@ -39,6 +39,10 @@ import {
   ResultsDisplay,
   ResultDisplayContent,
 } from "@/app/(app)/[emailAccountId]/assistant/ResultDisplay";
+import {
+  ActivityLog,
+  type ActivityLogEntry,
+} from "@/app/(app)/[emailAccountId]/assistant/BulkProcessActivityLog";
 
 export const maxDuration = 3;
 
@@ -554,6 +558,76 @@ export default function Components() {
         </div>
 
         <div>
+          <div className="underline">ActivityLog</div>
+          <div className="mt-4 space-y-4">
+            <p className="text-sm text-muted-foreground">
+              Default with mixed states:
+            </p>
+            <ActivityLog
+              entries={getActivityLogEntries()}
+              processingCount={2}
+            />
+
+            <p className="text-sm text-muted-foreground">Paused state:</p>
+            <ActivityLog
+              entries={getActivityLogEntries()}
+              processingCount={2}
+              paused={true}
+            />
+
+            <p className="text-sm text-muted-foreground">
+              Long text truncation test:
+            </p>
+            <ActivityLog
+              entries={[
+                {
+                  id: "long-1",
+                  from: '"Very Long Sender Name That Should Definitely Be Truncated" <extremely-long-email-address-that-goes-on-forever@really-long-domain-name.com>',
+                  subject:
+                    "This is an extremely long subject line that should definitely truncate properly when displayed in the activity log component - it just keeps going and going with more text",
+                  status: "completed",
+                  ruleName: "Newsletter",
+                },
+                {
+                  id: "long-2",
+                  from: "Short <short@test.com>",
+                  subject: "Short subject",
+                  status: "processing",
+                },
+              ]}
+              processingCount={1}
+            />
+
+            <p className="text-sm text-muted-foreground">All completed:</p>
+            <ActivityLog
+              entries={[
+                {
+                  id: "done-1",
+                  from: "Alice <alice@example.com>",
+                  subject: "Meeting notes",
+                  status: "completed",
+                  ruleName: "Work",
+                },
+                {
+                  id: "done-2",
+                  from: "Bob <bob@example.com>",
+                  subject: "Project update",
+                  status: "completed",
+                  ruleName: "FYI",
+                },
+                {
+                  id: "done-3",
+                  from: "Newsletter <news@company.com>",
+                  subject: "Weekly digest",
+                  status: "completed",
+                },
+              ]}
+              processingCount={0}
+            />
+          </div>
+        </div>
+
+        <div>
           <div className="underline">MultiSelectFilter</div>
           <div className="mt-4">
             <MultiSelectFilter
@@ -713,4 +787,42 @@ function getRuleWithName(name: string): Rule {
     id: name.toLowerCase().replace(/\s+/g, "-"),
     name,
   };
+}
+
+function getActivityLogEntries(): ActivityLogEntry[] {
+  return [
+    {
+      id: "1",
+      from: "Lenny's Newsletter <lenny@substack.com>",
+      subject: "How Zapier's EA built an army of AI interns",
+      status: "completed",
+      ruleName: "Newsletter",
+    },
+    {
+      id: "2",
+      from: "ZenDaily <zendaily@substack.com>",
+      subject: "🔮 ZenDaily - 15th Dec 2025 🔮",
+      status: "processing",
+      ruleName: "Newsletter",
+    },
+    {
+      id: "3",
+      from: "Elie Steinbock <elie@getinboxzero.com>",
+      subject: "talk tomorrow",
+      status: "processing",
+    },
+    {
+      id: "4",
+      from: "Morning Brew <crew@morningbrew.com>",
+      subject: "☕ Gathering storm",
+      status: "waiting",
+    },
+    {
+      id: "5",
+      from: "GitHub <notifications@github.com>",
+      subject: "PR review requested",
+      status: "completed",
+      ruleName: "To Review",
+    },
+  ];
 }
