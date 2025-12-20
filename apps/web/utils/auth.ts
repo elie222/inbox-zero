@@ -173,7 +173,7 @@ async function postSignUp({
           userId,
           error,
         });
-        captureException(error, undefined, email);
+        captureException(error, { userEmail: email });
       });
 
     await createLoopsContact(
@@ -188,7 +188,7 @@ async function postSignUp({
           email,
           error,
         });
-        captureException(error, undefined, email);
+        captureException(error, { userEmail: email });
       }
     });
   };
@@ -198,7 +198,7 @@ async function postSignUp({
       email,
       error,
     });
-    captureException(error, undefined, email);
+    captureException(error, { userEmail: email });
   });
 
   const dub = trackDubSignUp({ id: userId, email, name, image }, logger).catch(
@@ -207,7 +207,7 @@ async function postSignUp({
         email,
         error,
       });
-      captureException(error, undefined, email);
+      captureException(error, { userEmail: email });
     },
   );
 

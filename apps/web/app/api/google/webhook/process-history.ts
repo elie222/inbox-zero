@@ -1,5 +1,6 @@
 import uniqBy from "lodash/uniqBy";
 import { NextResponse } from "next/server";
+import * as Sentry from "@sentry/nextjs";
 import { getGmailClientWithRefresh } from "@/utils/gmail/client";
 import { GmailLabel } from "@/utils/gmail/label";
 import { captureException } from "@/utils/error";
@@ -47,6 +48,12 @@ export async function processHistoryForUser(
     hasAutomationRules,
     hasAiAccess: userHasAiAccess,
   } = validation.data;
+
+  Sentry.setTag("emailAccountId", validatedEmailAccount.id);
+  Sentry.setUser({
+    id: validatedEmailAccount.userId,
+    email: validatedEmailAccount.email,
+  });
 
   if (
     !validatedEmailAccount.account?.access_token ||
@@ -130,7 +137,7 @@ export async function processHistoryForUser(
       return NextResponse.json({ ok: true });
     }
 
-    captureException(error, { extra: { decodedData } }, email);
+    captureException(error, { userEmail: email, extra: { decodedData } });
     logger.error("Error processing webhook", {
       error:
         error instanceof Error
@@ -198,11 +205,10 @@ async function processHistory(options: ProcessHistoryOptions, logger: Logger) {
       try {
         await processHistoryItem(event, options, log);
       } catch (error) {
-        captureException(
-          error,
-          { extra: { userEmail, messageId: event.item.message?.id } },
+        captureException(error, {
           userEmail,
-        );
+          extra: { messageId: event.item.message?.id },
+        });
         logger.error("Error processing history item", { error });
       }
     }

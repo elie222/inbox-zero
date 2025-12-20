@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import * as Sentry from "@sentry/nextjs";
 import { captureException } from "@/utils/error";
 import { createEmailProvider } from "@/utils/email/provider";
 import type { OutlookResourceData } from "@/app/api/outlook/webhook/types";
@@ -43,6 +44,12 @@ export async function processHistoryForUser({
     hasAiAccess: userHasAiAccess,
   } = validation.data;
 
+  Sentry.setTag("emailAccountId", validatedEmailAccount.id);
+  Sentry.setUser({
+    id: validatedEmailAccount.userId,
+    email: validatedEmailAccount.email,
+  });
+
   const accountProvider =
     validatedEmailAccount.account?.provider || "microsoft";
 
@@ -75,11 +82,11 @@ export async function processHistoryForUser({
       return NextResponse.json({ ok: true });
     }
 
-    captureException(
-      error,
-      { extra: { subscriptionId, resourceData } },
-      validatedEmailAccount.email,
-    );
+    captureException(error, {
+      emailAccountId: validatedEmailAccount.id,
+      userEmail: validatedEmailAccount.email,
+      extra: { subscriptionId, resourceData },
+    });
     logger.error("Error processing webhook", {
       resourceData,
       email: validatedEmailAccount.email,

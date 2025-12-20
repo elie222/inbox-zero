@@ -76,7 +76,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     },
     onError: (error) => {
       console.error(error);
-      captureException(error, { extra: { emailAccountId } });
+      captureException(error);
       toastError({
         title: "An error occured!",
         description: error.message || "",

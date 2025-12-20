@@ -1,4 +1,5 @@
 import { createSafeActionClient } from "next-safe-action";
+import * as Sentry from "@sentry/nextjs";
 import { withServerActionInstrumentation } from "@sentry/nextjs";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
@@ -35,20 +36,16 @@ const baseClient = createSafeActionClient({
     }
     if (error instanceof SafeError) return error.message;
 
-    captureException(
-      error,
-      {
-        extra: {
-          metadata,
-          userId: context?.userId,
-          userEmail: context?.userEmail,
-          emailAccountId: context?.emailAccountId,
-          bindArgsClientInputs,
-          error: error.message,
-        },
+    captureException(error, {
+      userId: context?.userId,
+      userEmail: context?.userEmail,
+      emailAccountId: context?.emailAccountId,
+      extra: {
+        metadata,
+        bindArgsClientInputs,
+        error: error.message,
       },
-      context?.userEmail,
-    );
+    });
 
     return "An unknown error occurred.";
   },
@@ -103,6 +100,10 @@ export const actionClient = baseClient
       ctx.logger.error("Unauthorized", metadata);
       throw new SafeError("Unauthorized");
     }
+
+    // Set Sentry context for this action
+    Sentry.setTag("emailAccountId", emailAccountId);
+    Sentry.setUser({ id: userId, email: userEmail });
 
     const logger = ctx.logger.with({
       userId,
