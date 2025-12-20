@@ -78,7 +78,7 @@ export class OutlookSubscriptionManager {
         : null;
     } catch (error) {
       this.logger.error("Failed to create subscription", { error });
-      captureException(error);
+      captureException(error, { emailAccountId: this.emailAccountId });
       return null;
     }
   }
@@ -115,7 +115,7 @@ export class OutlookSubscriptionManager {
           });
         }
 
-        captureException(error);
+        captureException(error, { emailAccountId: this.emailAccountId });
         return null;
       }
     }

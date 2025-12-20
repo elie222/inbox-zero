@@ -66,7 +66,7 @@ export const POST = verifySignatureAppRouter(
       return NextResponse.json(result);
     } catch (error) {
       logger.error("Error sending digest email", { error });
-      captureException(error);
+      captureException(error, { emailAccountId });
       return NextResponse.json(
         { success: false, error: "Error sending digest email" },
         { status: 500 },

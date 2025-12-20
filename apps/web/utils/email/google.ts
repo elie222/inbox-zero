@@ -632,12 +632,9 @@ export class GmailProvider implements EmailProvider {
     userEmail: string,
     executedRule?: { id: string; threadId: string; emailAccountId: string },
   ): Promise<{ draftId: string }> {
-    const log = this.logger.with({
-      action: "draftEmail",
-      email: userEmail,
-      executedRuleId: executedRule?.id,
-      threadId: executedRule?.threadId,
-      messageId: email.id,
+    this.logger.info("Creating Gmail draft", {
+      hasExecutedRule: Boolean(executedRule),
+      contentLength: args.content?.length,
     });
 
     if (executedRule) {
@@ -647,13 +644,27 @@ export class GmailProvider implements EmailProvider {
         handlePreviousDraftDeletion({
           client: this,
           executedRule,
-          logger: log,
+          logger: this.logger,
         }),
       ]);
-      return { draftId: result.data.id || "" };
+
+      const draftId = result.data.id || "";
+      this.logger.info("Gmail draft created successfully", {
+        draftId,
+        gmailMessageId: result.data.message?.id,
+      });
+
+      return { draftId };
     } else {
       const result = await draftEmail(this.client, email, args, userEmail);
-      return { draftId: result.data.id || "" };
+
+      const draftId = result.data.id || "";
+      this.logger.info("Gmail draft created successfully", {
+        draftId,
+        gmailMessageId: result.data.message?.id,
+      });
+
+      return { draftId };
     }
   }
 

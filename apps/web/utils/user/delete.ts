@@ -65,12 +65,12 @@ export async function deleteUser({
         error,
         userId,
       });
-      captureException(error, { extra: { userId } }, userId);
+      captureException(error);
     });
 
     clearCachedPerplexityResearchForUser(userId).catch((error) => {
       logger.error("Error clearing cached Perplexity research", { error });
-      captureException(error, { extra: { userId } }, userId);
+      captureException(error);
     });
 
     // Then proceed with the regular deletion process
@@ -89,13 +89,13 @@ export async function deleteUser({
       const customError = new Error("User deletion error");
       customError.cause = originalError;
 
-      captureException(customError, { extra: { failures, userId } });
+      captureException(customError, { extra: { failures } });
     }
   } catch (error) {
     logger.error("Error during user resources deletion process", {
       error,
     });
-    captureException(error, { extra: { userId } }, userId);
+    captureException(error);
   }
 }
 
@@ -143,7 +143,7 @@ async function deleteResources({
     logger.error("Error during database user deletion process", {
       error,
     });
-    captureException(error, { extra: { emailAccountId } }, email);
+    captureException(error, { emailAccountId, userEmail: email });
     throw error;
   }
 

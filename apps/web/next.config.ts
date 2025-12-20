@@ -326,7 +326,7 @@ if (env.MICROSOFT_CLIENT_ID && !env.MICROSOFT_WEBHOOK_CLIENT_STATE) {
 const withSerwist = withSerwistInit({
   swSrc: "app/sw.ts",
   swDest: "public/sw.js",
-  disable: env.NODE_ENV !== "production",
+  disable: process.env.NODE_ENV !== "production",
   maximumFileSizeToCacheInBytes: 3 * 1024 * 1024, // 3MB
 });
 

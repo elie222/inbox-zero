@@ -62,7 +62,7 @@ export default async function AppLayout({
       });
     } catch (error) {
       logger.error("Failed to update last login", { email, error });
-      captureException(error, {}, email);
+      captureException(error, { userEmail: email });
     }
   });
 
