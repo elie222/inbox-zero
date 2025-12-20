@@ -127,6 +127,7 @@
     "linkifyjs": "4.3.2",
     "lodash": "4.17.21",
     "lucide-react": "0.555.0",
+    "mammoth": "1.11.0",
     "motion": "12.23.25",
     "next": "16.0.10",
     "next-axiom": "1.9.3",
@@ -170,6 +171,7 @@
     "tiptap-markdown": "0.8.10",
     "tldts": "^7.0.19",
     "typescript": "5.9.3",
+    "unpdf": "1.4.0",
     "use-stick-to-bottom": "1.1.1",
     "usehooks-ts": "3.1.1",
     "zod": "3.25.46"
