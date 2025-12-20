@@ -146,8 +146,8 @@
       "cache": false,
       "persistent": true
     },
-    "//#format-and-lint": {},
-    "//#format-and-lint:fix": {
+    "//#check": {},
+    "//#fix": {
       "cache": false
     }
   }
