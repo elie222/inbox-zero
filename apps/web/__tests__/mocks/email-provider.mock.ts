@@ -144,12 +144,10 @@ export function createMockEmailProvider(
 
     // Watch/webhooks
     processHistory: vi.fn().mockResolvedValue(undefined),
-    watchEmails: vi
-      .fn()
-      .mockResolvedValue({
-        expirationDate: new Date(),
-        subscriptionId: "sub-123",
-      }),
+    watchEmails: vi.fn().mockResolvedValue({
+      expirationDate: new Date(),
+      subscriptionId: "sub-123",
+    }),
     unwatchEmails: vi.fn().mockResolvedValue(undefined),
   };
 
