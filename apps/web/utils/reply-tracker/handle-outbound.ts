@@ -2,6 +2,7 @@ import type { EmailAccountWithAI } from "@/utils/llms/types";
 import type { ParsedMessage } from "@/utils/types";
 import type { EmailProvider } from "@/utils/email/types";
 import type { Logger } from "@/utils/logger";
+import { captureException } from "@/utils/error";
 import { handleOutboundReply } from "./outbound";
 import { trackSentDraftStatus, cleanupThreadAIDrafts } from "./draft-tracking";
 
@@ -32,6 +33,7 @@ export async function handleOutboundMessage({
       logger,
     }).catch((error) => {
       logger.error("Error tracking sent draft status", { error });
+      captureException(error, { emailAccountId: emailAccount.id });
     }),
     handleOutboundReply({
       emailAccount,
@@ -40,6 +42,7 @@ export async function handleOutboundMessage({
       logger,
     }).catch((error) => {
       logger.error("Error handling outbound reply", { error });
+      captureException(error, { emailAccountId: emailAccount.id });
     }),
   ]);
 
@@ -52,5 +55,6 @@ export async function handleOutboundMessage({
     });
   } catch (error) {
     logger.error("Error during thread draft cleanup", { error });
+    captureException(error, { emailAccountId: emailAccount.id });
   }
 }

@@ -4,6 +4,7 @@ import { env } from "@/env";
 import { processHistoryForUser } from "@/app/api/google/webhook/process-history";
 import type { Logger } from "@/utils/logger";
 import { handleWebhookError } from "@/utils/webhook/error-handler";
+import { getWebhookEmailAccount } from "@/utils/webhook/validate-webhook-account";
 
 export const maxDuration = 300;
 
@@ -51,9 +52,20 @@ async function processWebhookAsync(
   try {
     await processHistoryForUser(decodedData, {}, logger);
   } catch (error) {
+    // Look up email account to get emailAccountId for error tracking
+    const emailAccount = await getWebhookEmailAccount(
+      { email: decodedData.emailAddress.toLowerCase() },
+      logger,
+    ).catch((lookupError) => {
+      logger.error("Error getting email account for error handling", {
+        lookupError,
+      });
+      return null;
+    });
+
     await handleWebhookError(error, {
       email: decodedData.emailAddress,
-      emailAccountId: "unknown", // TODO: add emailAccountId
+      emailAccountId: emailAccount?.id || "unknown",
       url: "/api/google/webhook",
       logger,
     });

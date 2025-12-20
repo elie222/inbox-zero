@@ -26,6 +26,10 @@ export const removeFromAiQueueAtom = (removeId: string) => {
   });
 };
 
+export const clearAiQueueAtom = () => {
+  jotaiStore.set(aiQueueAtom, new Set([]));
+};
+
 const isInAiQueueAtom = atom((get) => {
   const ids = get(aiQueueAtom);
   return (id: string) => ids.has(id);
