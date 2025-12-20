@@ -144,6 +144,9 @@ model EmailAccount {
   meetingBriefingsEnabled       Boolean @default(false)
   meetingBriefingsMinutesBefore Int     @default(240) // 4 hours in minutes
 
+  filingEnabled Boolean @default(false)
+  filingPrompt  String?
+
   digestSchedule Schedule?
 
   userId    String
@@ -954,75 +957,64 @@ model MeetingBriefing {
 }
 
 // Drive connection for document auto-organization (Google Drive or OneDrive/SharePoint)
-// One connection per provider - through that connection, user can access all their folders including shared ones
+// One connection per provider. But we can remove unique constraint in the future if we want
 model DriveConnection {
   id        String   @id @default(cuid())
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   provider     String // "google" or "microsoft"
-  email        String // Account email used to connect
+  email        String // can differ from emailAccount - e.g. connect work Drive to personal email
   accessToken  String?
   refreshToken String?
   expiresAt    DateTime?
-  isConnected  Boolean @default(true)
+  isConnected  Boolean   @default(true)
 
   emailAccountId String
   emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
 
-  filingDestinations FilingDestination[]
-  documentFilings    DocumentFiling[]
+  documentFilings DocumentFiling[]
 
-  @@unique([emailAccountId, provider]) // One Google Drive, one OneDrive per email account
+  @@unique([emailAccountId, provider])
   @@index([emailAccountId])
 }
 
-// Maps document types to specific folders (like Label maps to folder)
-model FilingDestination {
-  id        String   @id @default(cuid())
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  documentType String // "contract", "financial", "due_diligence", "correspondence", etc.
-  folderId     String // Drive folder ID (Google Drive or OneDrive)
-  folderName   String // Display name for the folder
-  folderPath   String? // Full path for display (e.g., "/Projects/Acme Corp/Contracts")
-
-  driveConnectionId String
-  driveConnection   DriveConnection @relation(fields: [driveConnectionId], references: [id], onDelete: Cascade)
-
-  @@unique([driveConnectionId, documentType]) // One folder per document type per connection
-  @@index([driveConnectionId])
-}
-
-// Tracks documents that have been filed or are pending confirmation
 model DocumentFiling {
   id        String   @id @default(cuid())
   createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   // Source email attachment
   messageId    String
   attachmentId String
   filename     String
 
-  // Filing decision
-  documentType String? // AI-determined document type
-  confidence   Float   // 0-1 confidence score
-  status       DocumentFilingStatus @default(PENDING)
-
   // Result (after filing)
-  folderId    String? // Where it was filed
-  driveFileId String? // File ID in drive (for undo)
+  folderId   String
+  folderPath String
+  fileId     String?
+  reasoning  String?
+  confidence Float?
+
+  status DocumentFilingStatus @default(FILED)
+
+  wasAsked     Boolean   @default(false)
+  wasCorrected Boolean   @default(false)
+  originalPath String?
+  correctedAt  DateTime?
+
+  notificationToken  String    @unique
+  notificationSentAt DateTime?
 
   driveConnectionId String
   driveConnection   DriveConnection @relation(fields: [driveConnectionId], references: [id], onDelete: Cascade)
-
-  emailAccountId String
-  emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
+  emailAccountId    String
+  emailAccount      EmailAccount    @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
 
   @@index([emailAccountId, status])
   @@index([driveConnectionId])
   @@index([messageId])
+  @@index([notificationToken])
 }
 
 model Referral {
@@ -1152,11 +1144,10 @@ enum ColdEmailStatus {
 }
 
 enum DocumentFilingStatus {
-  PENDING   // Awaiting user confirmation (low confidence)
-  FILED     // Auto-filed with high confidence
-  CONFIRMED // User confirmed a pending filing
-  REJECTED  // User rejected the filing suggestion
-  ERROR     // Filing failed due to an error
+  PENDING // Waiting for user input
+  FILED // Document is filed (auto or after user confirmation)
+  REJECTED // User said skip
+  ERROR // Filing failed
 }
 
 // @deprecated - No longer used

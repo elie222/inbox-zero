@@ -23,15 +23,6 @@ async function getData({ emailAccountId }: { emailAccountId: string }) {
       provider: true,
       isConnected: true,
       createdAt: true,
-      filingDestinations: {
-        select: {
-          id: true,
-          documentType: true,
-          folderName: true,
-          folderPath: true,
-        },
-        orderBy: { documentType: "asc" },
-      },
     },
     orderBy: { createdAt: "desc" },
   });
