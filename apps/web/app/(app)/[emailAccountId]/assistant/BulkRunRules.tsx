@@ -222,15 +222,17 @@ export function BulkRunRules() {
                         />
                       )}
 
-                      {state.status === "idle" && !isProcessing && (
-                        <Button
-                          type="button"
-                          disabled={!startDate || !emailAccountId}
-                          onClick={handleStart}
-                        >
-                          Process Emails
-                        </Button>
-                      )}
+                      {(state.status === "idle" ||
+                        state.status === "stopped") &&
+                        !isProcessing && (
+                          <Button
+                            type="button"
+                            disabled={!startDate || !emailAccountId}
+                            onClick={handleStart}
+                          >
+                            Process Emails
+                          </Button>
+                        )}
                       {isBusy && (
                         <div className="flex justify-end gap-2">
                           <Button size="sm" onClick={handlePauseResume}>
