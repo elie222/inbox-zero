@@ -199,7 +199,7 @@ function FilingPreferencesForm({
   return (
     <div className="space-y-4">
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-        <Card>
+        <Card size="sm">
           <CardHeader className="pb-3">
             <CardTitle>Allowed folders</CardTitle>
             <CardDescription>
@@ -235,7 +235,7 @@ function FilingPreferencesForm({
                 })}
               </div>
             ) : (
-              <Empty className="border border-dashed">
+              <Empty>
                 <EmptyHeader>
                   <EmptyMedia variant="icon">
                     <FolderIcon />
@@ -250,7 +250,7 @@ function FilingPreferencesForm({
           </CardContent>
         </Card>
 
-        <Card>
+        <Card size="sm">
           <CardHeader className="pb-3">
             <CardTitle>Filing rules</CardTitle>
             <CardDescription>

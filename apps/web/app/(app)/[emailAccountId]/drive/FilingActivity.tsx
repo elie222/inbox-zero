@@ -36,7 +36,7 @@ export function FilingActivity() {
   const { data, isLoading, error } = useFilingActivity(10);
 
   return (
-    <Card>
+    <Card size="sm">
       <CardHeader>
         <CardTitle>Recent Activity</CardTitle>
         <CardDescription>Documents filed from your emails</CardDescription>

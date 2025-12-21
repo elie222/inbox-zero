@@ -1,7 +1,15 @@
 "use client";
 
 import { SparklesIcon } from "lucide-react";
-import { CardBasic } from "@/components/ui/card";
+import {
+  Card,
+  CardBasic,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Container } from "@/components/Container";
 import {
   PageHeading,
@@ -71,6 +79,48 @@ export default function Components() {
         <div className="space-y-6">
           <div className="underline">Card</div>
           <CardBasic>This is a basic card.</CardBasic>
+
+          <div className="grid gap-6 md:grid-cols-2">
+            <Card>
+              <CardHeader>
+                <CardTitle>Default Card</CardTitle>
+                <CardDescription>
+                  This card uses the default size.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <p>
+                  The default card has larger padding and text for better
+                  readability in standard layouts.
+                </p>
+              </CardContent>
+              <CardFooter>
+                <ShadButton variant="outline" className="w-full">
+                  Action
+                </ShadButton>
+              </CardFooter>
+            </Card>
+
+            <Card size="sm">
+              <CardHeader>
+                <CardTitle>Small Card</CardTitle>
+                <CardDescription>
+                  This card uses the small size variant.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <p>
+                  The card component supports a size prop that can be set to
+                  &quot;sm&quot; for a more compact appearance.
+                </p>
+              </CardContent>
+              <CardFooter>
+                <ShadButton variant="outline" size="sm" className="w-full">
+                  Action
+                </ShadButton>
+              </CardFooter>
+            </Card>
+          </div>
         </div>
 
         <div className="space-y-6">
