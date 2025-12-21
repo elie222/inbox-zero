@@ -18,10 +18,6 @@ const BRANDS = {
     alt: "Resend",
     src: "/images/new-landing/logos/resend.svg",
   },
-  zendesk: {
-    alt: "Zendesk",
-    src: "/images/new-landing/logos/zendesk.svg",
-  },
   compass: {
     alt: "Compass",
     src: "/images/new-landing/logos/compass.svg",
@@ -55,7 +51,6 @@ const BRANDS_LIST = {
     BRANDS.doac,
     BRANDS.netflix,
     BRANDS.resend,
-    BRANDS.zendesk,
     BRANDS.compass,
     BRANDS.alta,
     BRANDS.bytedance,
@@ -69,7 +64,6 @@ const BRANDS_LIST = {
     BRANDS.wix,
     BRANDS.kw,
     BRANDS.compass,
-    BRANDS.zendesk,
     BRANDS.bytedance,
   ],
 } satisfies Record<string, Brand[]>;
