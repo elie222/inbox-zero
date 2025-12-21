@@ -13,15 +13,7 @@ import {
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Switch } from "@/components/ui/switch";
 import { Checkbox } from "@/components/ui/checkbox";
-import {
-  Item,
-  ItemContent,
-  ItemTitle,
-  ItemDescription,
-  ItemActions,
-} from "@/components/ui/item";
 import { LoadingContent } from "@/components/LoadingContent";
 import { toastSuccess, toastError } from "@/components/Toast";
 import { useAccount } from "@/providers/EmailAccountProvider";
@@ -62,7 +54,6 @@ export function FilingPreferences() {
       {emailAccount && foldersData && (
         <FilingPreferencesForm
           emailAccountId={emailAccountId}
-          initialEnabled={emailAccount.filingEnabled}
           initialPrompt={emailAccount.filingPrompt || ""}
           availableFolders={foldersData.availableFolders}
           savedFolders={foldersData.savedFolders}
@@ -93,7 +84,6 @@ interface SavedFolder {
 
 function FilingPreferencesForm({
   emailAccountId,
-  initialEnabled,
   initialPrompt,
   availableFolders,
   savedFolders,
@@ -101,7 +91,6 @@ function FilingPreferencesForm({
   mutateFolders,
 }: {
   emailAccountId: string;
-  initialEnabled: boolean;
   initialPrompt: string;
   availableFolders: FolderItem[];
   savedFolders: SavedFolder[];
@@ -119,12 +108,10 @@ function FilingPreferencesForm({
   } = useForm<UpdateFilingPreferencesBody>({
     resolver: zodResolver(updateFilingPreferencesBody),
     defaultValues: {
-      filingEnabled: initialEnabled,
       filingPrompt: initialPrompt,
     },
   });
 
-  const filingEnabled = watch("filingEnabled");
   const filingPrompt = watch("filingPrompt");
 
   const { execute: savePreferences } = useAction(
@@ -206,7 +193,7 @@ function FilingPreferencesForm({
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
         {availableFolders.length > 0 && (
           <Card>
-            <CardHeader>
+            <CardHeader className="pb-3">
               <CardTitle>Allowed folders</CardTitle>
               <CardDescription>
                 Select which folders the AI can file to
@@ -244,7 +231,7 @@ function FilingPreferencesForm({
         )}
 
         <Card>
-          <CardHeader>
+          <CardHeader className="pb-3">
             <CardTitle>Filing rules</CardTitle>
             <CardDescription>
               How should we organize your attachments?
@@ -256,7 +243,8 @@ function FilingPreferencesForm({
                 <Textarea
                   id="filing-prompt"
                   placeholder="Receipts go to Expenses by month. Contracts go to Legal."
-                  className="min-h-[120px]"
+                  className="min-h-[60px]"
+                  rows={2}
                   autoFocus
                   {...register("filingPrompt")}
                 />
@@ -301,28 +289,6 @@ function FilingPreferencesForm({
             )}
           </CardContent>
         </Card>
-
-        <Item variant="outline">
-          <ItemContent>
-            <ItemTitle>Auto-filing</ItemTitle>
-            <ItemDescription>
-              Automatically file attachments based on your rules
-            </ItemDescription>
-          </ItemContent>
-          <ItemActions>
-            <Switch
-              checked={filingEnabled}
-              onCheckedChange={(checked) => {
-                setValue("filingEnabled", checked);
-                if (checked && !filingPrompt) {
-                  setIsEditingPrompt(true);
-                } else {
-                  handleSubmit(onSubmit)();
-                }
-              }}
-            />
-          </ItemActions>
-        </Item>
       </form>
     </div>
   );
