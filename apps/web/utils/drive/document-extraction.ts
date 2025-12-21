@@ -113,9 +113,6 @@ async function extractFromPdf(
   maxPages: number,
   logger?: Logger,
 ): Promise<ExtractionResult> {
-  // Dynamic import for unpdf (serverless/edge compatible)
-  // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-  // @ts-expect-error - unpdf types available after install: pnpm add unpdf --filter web
   const { getDocumentProxy } = await import("unpdf");
 
   const pdf = await getDocumentProxy(new Uint8Array(buffer));
@@ -177,8 +174,6 @@ async function extractFromDocx(
   logger?: Logger,
 ): Promise<ExtractionResult> {
   // Dynamic import to avoid loading the library if not needed
-  // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-  // @ts-expect-error - mammoth types available after install: pnpm add mammoth --filter web
   const mammoth = await import("mammoth");
 
   const result = await mammoth.extractRawText({ buffer });
