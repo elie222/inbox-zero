@@ -1,5 +1,6 @@
 /** biome-ignore-all lint/suspicious/noConsole: we use console.log for development logs */
 import { log } from "next-axiom";
+import { serializeError } from "serialize-error";
 import { env } from "@/env";
 
 export type Logger = ReturnType<typeof createScopedLogger>;
@@ -134,19 +135,6 @@ function formatError(args?: Record<string, unknown>) {
     error: errorMessage,
     errorFull,
   };
-}
-
-function serializeError(error: unknown): unknown {
-  if (error instanceof Error) {
-    return {
-      ...error,
-      name: error.name,
-      message: error.message,
-      stack: error.stack,
-    };
-  }
-
-  return error;
 }
 
 function processErrorsInObject(obj: unknown): unknown {
