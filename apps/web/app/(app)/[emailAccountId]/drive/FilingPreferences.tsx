@@ -16,6 +16,14 @@ import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { LoadingContent } from "@/components/LoadingContent";
 import { toastSuccess, toastError } from "@/components/Toast";
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@/components/ui/empty";
+import { FolderIcon } from "lucide-react";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { useEmailAccountFull } from "@/hooks/useEmailAccountFull";
 import { useDriveFolders } from "@/hooks/useDriveFolders";
@@ -191,15 +199,15 @@ function FilingPreferencesForm({
   return (
     <div className="space-y-4">
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-        {availableFolders.length > 0 && (
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle>Allowed folders</CardTitle>
-              <CardDescription>
-                Select which folders the AI can file to
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle>Allowed folders</CardTitle>
+            <CardDescription>
+              Select which folders the AI can file to
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {availableFolders.length > 0 ? (
               <div className="space-y-2">
                 {availableFolders.map((folder) => {
                   const isSelected = savedFolderIds.has(folder.id);
@@ -226,9 +234,21 @@ function FilingPreferencesForm({
                   );
                 })}
               </div>
-            </CardContent>
-          </Card>
-        )}
+            ) : (
+              <Empty className="border border-dashed">
+                <EmptyHeader>
+                  <EmptyMedia variant="icon">
+                    <FolderIcon />
+                  </EmptyMedia>
+                  <EmptyTitle>No folders found</EmptyTitle>
+                  <EmptyDescription>
+                    Create a folder in your drive to get started.
+                  </EmptyDescription>
+                </EmptyHeader>
+              </Empty>
+            )}
+          </CardContent>
+        </Card>
 
         <Card>
           <CardHeader className="pb-3">
