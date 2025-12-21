@@ -14,6 +14,7 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { LoadingContent } from "@/components/LoadingContent";
 import { useFilingActivity } from "@/hooks/useFilingActivity";
+import { isGoogleProvider } from "@/utils/email/provider-types";
 import type { GetFilingsResponse } from "@/app/api/user/drive/filings/route";
 
 type Filing = GetFilingsResponse["filings"][number];
@@ -97,7 +98,7 @@ function FilingItem({ filing }: { filing: Filing }) {
           </span>
           <span className="text-xs text-muted-foreground">•</span>
           <span className="text-xs text-muted-foreground">
-            {filing.driveConnection.provider === "google"
+            {isGoogleProvider(filing.driveConnection.provider)
               ? "Google Drive"
               : "OneDrive"}
           </span>
