@@ -406,7 +406,7 @@ Full guide: https://docs.getinboxzero.com/self-hosting/microsoft-oauth`,
       economy: "claude-haiku-4-5-20251001",
     },
     openai: { default: "gpt-5.1", economy: "gpt-5.1-mini" },
-    google: { default: "gemini-3-flash-preview", economy: "gemini-2-5-flash" },
+    google: { default: "gemini-3-flash", economy: "gemini-2-5-flash" },
     openrouter: {
       default: "anthropic/claude-sonnet-4.5",
       economy: "anthropic/claude-haiku-4.5",
