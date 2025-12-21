@@ -189,7 +189,7 @@ function FilingPreferencesForm({
   );
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
         {availableFolders.length > 0 && (
           <Card>

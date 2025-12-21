@@ -16,6 +16,7 @@
     "ui": "@/components/ui/"
   },
   "registries": {
-    "@ai-elements": "https://registry.ai-sdk.dev/{name}.json"
+    "@ai-elements": "https://registry.ai-sdk.dev/{name}.json",
+    "@kibo-ui": "https://www.kibo-ui.com/r/{name}.json"
   }
 }
