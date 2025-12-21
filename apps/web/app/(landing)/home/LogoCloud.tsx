@@ -23,13 +23,6 @@ export function LogoCloud() {
           height={48}
         />
         <Image
-          className="order-2 max-h-12 w-full object-contain lg:order-none"
-          src="/images/logos/zendesk.svg"
-          alt="ZenDesk"
-          width={158}
-          height={48}
-        />
-        <Image
           className="order-1 max-h-12 w-full object-contain lg:order-none"
           src="/images/logos/netflix.svg"
           alt="Netflix"
