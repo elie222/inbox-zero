@@ -59,6 +59,16 @@ const gemini2_5pro = {
   output: 10 / 1_000_000,
 };
 
+const gemini3_0flash = {
+  input: 0.5 / 1_000_000,
+  output: 3 / 1_000_000,
+};
+
+const gemini3_0pro = {
+  input: 2 / 1_000_000,
+  output: 12 / 1_000_000,
+};
+
 const costs: Record<
   string,
   {
@@ -131,16 +141,21 @@ const costs: Record<
     output: 0.3 / 1_000_000,
   },
   "gemini-2.0-flash": gemini2_5flash,
+  "gemini-2.5-flash": gemini2_5flash,
+  "gemini-3-flash": gemini3_0flash,
+  "gemini-3-flash-preview": gemini3_0flash,
+  "gemini-3-pro": gemini3_0pro,
+  "gemini-3-pro-preview": gemini3_0pro,
   "google/gemini-2.0-flash-001": gemini2_5flash,
   "google/gemini-2.5-flash-preview-05-20": gemini2_5flash,
   "google/gemini-2.5-pro-preview-03-25": gemini2_5pro,
   "google/gemini-2.5-pro-preview-06-05": gemini2_5pro,
   "google/gemini-2.5-pro-preview": gemini2_5pro,
   "google/gemini-2.5-pro": gemini2_5pro,
-  "google/gemini-3-pro-preview": {
-    input: 2 / 1_000_000,
-    output: 12 / 1_000_000,
-  },
+  "google/gemini-3-flash": gemini3_0flash,
+  "google/gemini-3-flash-preview": gemini3_0flash,
+  "google/gemini-3-pro": gemini3_0pro,
+  "google/gemini-3-pro-preview": gemini3_0pro,
   "meta-llama/llama-4-maverick": {
     input: 0.2 / 1_000_000,
     output: 0.85 / 1_000_000,
