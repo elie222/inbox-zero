@@ -1,9 +1,10 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useState, useMemo } from "react";
 import { useForm, type SubmitHandler } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useAction } from "next-safe-action/hooks";
+import useSWR from "swr";
 import {
   Card,
   CardContent,
@@ -23,10 +24,22 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@/components/ui/empty";
-import { FolderIcon } from "lucide-react";
+import {
+  TreeProvider,
+  TreeView,
+  TreeNode,
+  TreeNodeTrigger,
+  TreeNodeContent,
+  TreeExpander,
+  TreeIcon,
+  TreeLabel,
+  useTree,
+} from "@/components/kibo-ui/tree";
+import { FolderIcon, Loader2Icon } from "lucide-react";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { useEmailAccountFull } from "@/hooks/useEmailAccountFull";
 import { useDriveFolders } from "@/hooks/useDriveFolders";
+import type { GetSubfoldersResponse } from "@/app/api/user/drive/folders/[folderId]/route";
 import {
   updateFilingPreferencesAction,
   addFilingFolderAction,
@@ -76,7 +89,8 @@ export function FilingPreferences() {
 interface FolderItem {
   id: string;
   name: string;
-  path: string;
+  parentId?: string;
+  path?: string;
   driveConnectionId: string;
   provider: string;
 }
@@ -173,21 +187,27 @@ function FilingPreferencesForm({
 
   const savedFolderIds = new Set(savedFolders.map((f) => f.folderId));
 
-  const handleFolderToggle = (folder: FolderItem, isChecked: boolean) => {
-    if (isChecked) {
-      addFolder({
-        folderId: folder.id,
-        folderName: folder.name,
-        folderPath: folder.path,
-        driveConnectionId: folder.driveConnectionId,
-      });
-    } else {
-      const saved = savedFolders.find((f) => f.folderId === folder.id);
-      if (saved) {
-        removeFolder({ id: saved.id });
+  const handleFolderToggle = useCallback(
+    (folder: FolderItem, isChecked: boolean) => {
+      // Calculate full path if not present (required for filing)
+      const folderPath = folder.path || folder.name;
+
+      if (isChecked) {
+        addFolder({
+          folderId: folder.id,
+          folderName: folder.name,
+          folderPath,
+          driveConnectionId: folder.driveConnectionId,
+        });
+      } else {
+        const saved = savedFolders.find((f) => f.folderId === folder.id);
+        if (saved) {
+          removeFolder({ id: saved.id });
+        }
       }
-    }
-  };
+    },
+    [addFolder, removeFolder, savedFolders],
+  );
 
   const onSubmit: SubmitHandler<UpdateFilingPreferencesBody> = useCallback(
     async (data) => {
@@ -195,6 +215,38 @@ function FilingPreferencesForm({
     },
     [savePreferences],
   );
+
+  // Build the tree structure from flat list of folders
+  // Some folders might have parentId set if the provider returned multiple levels
+  const rootFolders = useMemo(() => {
+    const folderMap = new Map<string, FolderItem>();
+    const roots: FolderItem[] = [];
+
+    // First map everything
+    for (const folder of availableFolders) {
+      folderMap.set(folder.id, folder);
+    }
+
+    // Then find roots (those whose parent is not in our list)
+    for (const folder of availableFolders) {
+      if (!folder.parentId || !folderMap.has(folder.parentId)) {
+        roots.push(folder);
+      }
+    }
+
+    return roots;
+  }, [availableFolders]);
+
+  const folderChildrenMap = useMemo(() => {
+    const map = new Map<string, FolderItem[]>();
+    for (const folder of availableFolders) {
+      if (folder.parentId) {
+        if (!map.has(folder.parentId)) map.set(folder.parentId, []);
+        map.get(folder.parentId)!.push(folder);
+      }
+    }
+    return map;
+  }, [availableFolders]);
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
@@ -206,33 +258,30 @@ function FilingPreferencesForm({
           </CardDescription>
         </CardHeader>
         <CardContent>
-          {availableFolders.length > 0 ? (
-            <div className="space-y-2">
-              {availableFolders.map((folder) => {
-                const isSelected = savedFolderIds.has(folder.id);
-                return (
-                  <div
+          {rootFolders.length > 0 ? (
+            <TreeProvider
+              showLines
+              showIcons
+              selectable={false}
+              animateExpand
+              indent={16}
+            >
+              <TreeView className="p-0">
+                {rootFolders.map((folder, index) => (
+                  <FolderNode
                     key={folder.id}
-                    className="flex items-center space-x-2 py-1"
-                  >
-                    <Checkbox
-                      id={folder.id}
-                      checked={isSelected}
-                      onCheckedChange={(checked) =>
-                        handleFolderToggle(folder, checked === true)
-                      }
-                      disabled={isAddingFolder || isRemovingFolder}
-                    />
-                    <label
-                      htmlFor={folder.id}
-                      className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
-                    >
-                      {folder.name}/
-                    </label>
-                  </div>
-                );
-              })}
-            </div>
+                    folder={folder}
+                    isLast={index === rootFolders.length - 1}
+                    savedFolderIds={savedFolderIds}
+                    onToggle={handleFolderToggle}
+                    isDisabled={isAddingFolder || isRemovingFolder}
+                    level={0}
+                    parentPath=""
+                    knownChildren={folderChildrenMap.get(folder.id)}
+                  />
+                ))}
+              </TreeView>
+            </TreeProvider>
           ) : (
             <Empty>
               <EmptyHeader>
@@ -309,5 +358,102 @@ function FilingPreferencesForm({
         </CardContent>
       </Card>
     </form>
+  );
+}
+
+function FolderNode({
+  folder,
+  isLast,
+  savedFolderIds,
+  onToggle,
+  isDisabled,
+  level,
+  parentPath,
+  knownChildren,
+}: {
+  folder: FolderItem;
+  isLast: boolean;
+  savedFolderIds: Set<string>;
+  onToggle: (folder: FolderItem, isChecked: boolean) => void;
+  isDisabled: boolean;
+  level: number;
+  parentPath: string;
+  knownChildren?: FolderItem[];
+}) {
+  const { expandedIds } = useTree();
+  const isExpanded = expandedIds.has(folder.id);
+  const isSelected = savedFolderIds.has(folder.id);
+  const currentPath = parentPath ? `${parentPath}/${folder.name}` : folder.name;
+
+  // Only fetch subfolders when expanded AND we don't have known children already
+  const { data: subfoldersData, isLoading: isLoadingSubfolders } =
+    useSWR<GetSubfoldersResponse>(
+      isExpanded && !knownChildren
+        ? `/api/user/drive/folders/${folder.id}?driveConnectionId=${folder.driveConnectionId}`
+        : null,
+    );
+
+  const subfolders = subfoldersData?.folders ?? knownChildren ?? [];
+  const hasLoadedChildren = subfolders.length > 0;
+
+  // If it's expanded but we haven't loaded yet AND no known children, it "has children" (to show content/loader)
+  const showContent = isExpanded && (hasLoadedChildren || isLoadingSubfolders);
+
+  return (
+    <TreeNode nodeId={folder.id} level={level} isLast={isLast}>
+      <TreeNodeTrigger className="py-1">
+        {isLoadingSubfolders ? (
+          <div className="mr-1 flex h-4 w-4 items-center justify-center">
+            <Loader2Icon className="h-3 w-3 animate-spin text-muted-foreground" />
+          </div>
+        ) : (
+          <TreeExpander hasChildren={true} />
+        )}
+        <TreeIcon hasChildren />
+        <div className="flex flex-1 items-center gap-2">
+          <Checkbox
+            id={`folder-${folder.id}`}
+            checked={isSelected}
+            onCheckedChange={(checked) =>
+              onToggle({ ...folder, path: currentPath }, checked === true)
+            }
+            disabled={isDisabled}
+            onClick={(e) => e.stopPropagation()}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.stopPropagation();
+              }
+            }}
+          />
+          <TreeLabel>{folder.name}</TreeLabel>
+        </div>
+      </TreeNodeTrigger>
+      <TreeNodeContent hasChildren={showContent}>
+        {hasLoadedChildren ? (
+          subfolders.map((subfolder, index) => (
+            <FolderNode
+              key={subfolder.id}
+              folder={{
+                ...subfolder,
+                path: `${currentPath}/${subfolder.name}`,
+              }}
+              isLast={index === subfolders.length - 1}
+              savedFolderIds={savedFolderIds}
+              onToggle={onToggle}
+              isDisabled={isDisabled}
+              level={level + 1}
+              parentPath={currentPath}
+            />
+          ))
+        ) : isExpanded && !isLoadingSubfolders ? (
+          <div
+            className="py-1 text-xs text-muted-foreground italic"
+            style={{ paddingLeft: (level + 1) * 16 + 28 }}
+          >
+            No subfolders
+          </div>
+        ) : null}
+      </TreeNodeContent>
+    </TreeNode>
   );
 }

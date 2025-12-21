@@ -56,15 +56,16 @@ export class GoogleDriveProvider implements DriveProvider {
     this.logger.trace("Listing folders", { parentId });
 
     try {
-      // Query for folders only
-      // 'root' is the special ID for the root folder
-      const parent = parentId || "root";
-      const query = `'${parent}' in parents and mimeType = 'application/vnd.google-apps.folder' and trashed = false`;
+      // If no parentId, fetch ALL folders for better initial experience
+      const parent = parentId || null;
+      const query = parent
+        ? `'${parent}' in parents and mimeType = 'application/vnd.google-apps.folder' and trashed = false`
+        : "mimeType = 'application/vnd.google-apps.folder' and trashed = false";
 
       const response = await this.client.files.list({
         q: query,
-        fields: "files(id, name, parents, webViewLink)",
-        pageSize: 100,
+        fields: "nextPageToken, files(id, name, parents, webViewLink)",
+        pageSize: parent ? 100 : 1000,
         orderBy: "name",
       });
 

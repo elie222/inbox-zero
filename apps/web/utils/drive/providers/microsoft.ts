@@ -57,7 +57,7 @@ export class OneDriveProvider implements DriveProvider {
         .api(endpoint)
         .filter("folder ne null") // Only get folders, not files
         .select("id,name,parentReference,webUrl")
-        .top(100) // Reasonable limit
+        .top(200) // Increase limit for better visibility
         .get();
 
       const items: DriveItem[] = response.value || [];
