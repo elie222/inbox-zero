@@ -9,10 +9,10 @@ export default function DrivePage() {
   return (
     <PageWrapper>
       <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3 lg:gap-4">
-        <PageHeader title="Drive Connections" />
+        <PageHeader title="Auto-file attachments" />
         <ConnectDrive />
       </div>
-      <div className="mt-6 space-y-6">
+      <div className="mt-6 space-y-4">
         <DriveConnections />
         <FilingPreferences />
         <FilingActivity />

@@ -1,6 +1,14 @@
 "use client";
 
+import { HardDriveIcon } from "lucide-react";
 import { LoadingContent } from "@/components/LoadingContent";
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@/components/ui/empty";
 import { useDriveConnections } from "@/hooks/useDriveConnections";
 import { DriveConnectionCard } from "./DriveConnectionCard";
 
@@ -12,10 +20,18 @@ export function DriveConnections() {
     <LoadingContent loading={isLoading} error={error}>
       <div className="space-y-6">
         {connections.length === 0 ? (
-          <div className="text-center text-muted-foreground py-10">
-            <p>No drive connections found.</p>
-            <p>Connect your Google Drive or OneDrive to get started.</p>
-          </div>
+          <Empty>
+            <EmptyHeader>
+              <EmptyMedia variant="icon">
+                <HardDriveIcon />
+              </EmptyMedia>
+              <EmptyTitle>No drives connected</EmptyTitle>
+              <EmptyDescription>
+                Connect your Google Drive or OneDrive to auto-file attachments
+                from your emails.
+              </EmptyDescription>
+            </EmptyHeader>
+          </Empty>
         ) : (
           <div className="grid gap-4">
             {connections.map((connection) => (

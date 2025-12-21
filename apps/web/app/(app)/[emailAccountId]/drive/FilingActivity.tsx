@@ -10,7 +10,20 @@ import {
   ArrowRightIcon,
   CornerDownRightIcon,
 } from "lucide-react";
-import { Card } from "@/components/ui/card";
+import {
+  Card,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+  CardContent,
+} from "@/components/ui/card";
+import {
+  Empty,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+  EmptyDescription,
+} from "@/components/ui/empty";
 import { Badge } from "@/components/ui/badge";
 import { LoadingContent } from "@/components/LoadingContent";
 import { useFilingActivity } from "@/hooks/useFilingActivity";
@@ -23,24 +36,25 @@ export function FilingActivity() {
   const { data, isLoading, error } = useFilingActivity(10);
 
   return (
-    <Card className="p-6">
-      <div className="space-y-4">
-        <div>
-          <h3 className="text-lg font-medium">Recent Activity</h3>
-          <p className="text-sm text-muted-foreground">
-            Documents filed from your emails
-          </p>
-        </div>
-
+    <Card>
+      <CardHeader>
+        <CardTitle>Recent Activity</CardTitle>
+        <CardDescription>Documents filed from your emails</CardDescription>
+      </CardHeader>
+      <CardContent>
         <LoadingContent loading={isLoading} error={error}>
           {data && data.filings.length === 0 ? (
-            <div className="py-8 text-center text-muted-foreground">
-              <FileIcon className="mx-auto h-8 w-8 mb-2 opacity-50" />
-              <p>No documents filed yet</p>
-              <p className="text-sm">
-                When attachments are filed, they&apos;ll appear here
-              </p>
-            </div>
+            <Empty>
+              <EmptyHeader>
+                <EmptyMedia variant="icon">
+                  <FileIcon className="opacity-50" />
+                </EmptyMedia>
+                <EmptyTitle>No documents filed yet</EmptyTitle>
+                <EmptyDescription>
+                  When attachments are filed, they&apos;ll appear here
+                </EmptyDescription>
+              </EmptyHeader>
+            </Empty>
           ) : (
             <div className="space-y-3">
               {data?.filings.map((filing) => (
@@ -55,7 +69,7 @@ export function FilingActivity() {
             Showing {data.filings.length} of {data.total} filings
           </p>
         )}
-      </div>
+      </CardContent>
     </Card>
   );
 }

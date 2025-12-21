@@ -10,6 +10,13 @@ import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Item,
+  ItemContent,
+  ItemTitle,
+  ItemDescription,
+  ItemActions,
+} from "@/components/ui/item";
 import { LoadingContent } from "@/components/LoadingContent";
 import { toastSuccess, toastError } from "@/components/Toast";
 import { useAccount } from "@/providers/EmailAccountProvider";
@@ -196,25 +203,27 @@ function FilingPreferencesForm({
   const hasEnabledChanges = filingEnabled !== initialEnabled;
 
   return (
-    <Card className="p-6">
+    <div>
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h3 className="text-lg font-medium">Document Auto-Filing</h3>
-            <p className="text-sm text-muted-foreground">
+        <Item variant="outline">
+          <ItemContent>
+            <ItemTitle>Document Auto-Filing</ItemTitle>
+            <ItemDescription>
               Automatically organize email attachments in your connected drives
-            </p>
-          </div>
-          <Switch
-            checked={filingEnabled}
-            onCheckedChange={(checked) => {
-              setValue("filingEnabled", checked);
-              if (checked && !filingPrompt) {
-                setIsEditingPrompt(true);
-              }
-            }}
-          />
-        </div>
+            </ItemDescription>
+          </ItemContent>
+          <ItemActions>
+            <Switch
+              checked={filingEnabled}
+              onCheckedChange={(checked) => {
+                setValue("filingEnabled", checked);
+                if (checked && !filingPrompt) {
+                  setIsEditingPrompt(true);
+                }
+              }}
+            />
+          </ItemActions>
+        </Item>
 
         {filingEnabled && (
           <>
@@ -282,9 +291,9 @@ function FilingPreferencesForm({
                   {availableFolders.map((folder) => {
                     const isSelected = savedFolderIds.has(folder.id);
                     return (
-                      <div
+                      <Item
                         key={folder.id}
-                        className="flex items-center gap-3 rounded-md border p-3 cursor-pointer hover:bg-muted/50"
+                        variant="outline"
                         onClick={() =>
                           handleFolderToggle(
                             folder,
@@ -302,22 +311,24 @@ function FilingPreferencesForm({
                           }
                         }}
                       >
-                        <Checkbox
-                          checked={isSelected}
-                          onCheckedChange={(checked) =>
-                            handleFolderToggle(folder, checked === true)
-                          }
-                          disabled={isAddingFolder || isRemovingFolder}
-                        />
-                        <div className="flex-1">
-                          <div className="font-medium">{folder.name}</div>
-                          <div className="text-xs text-muted-foreground">
+                        <ItemContent>
+                          <ItemTitle>{folder.name}</ItemTitle>
+                          <ItemDescription>
                             {folder.provider === "google"
                               ? "Google Drive"
                               : "OneDrive"}
-                          </div>
-                        </div>
-                      </div>
+                          </ItemDescription>
+                        </ItemContent>
+                        <ItemActions>
+                          <Checkbox
+                            checked={isSelected}
+                            onCheckedChange={(checked) =>
+                              handleFolderToggle(folder, checked === true)
+                            }
+                            disabled={isAddingFolder || isRemovingFolder}
+                          />
+                        </ItemActions>
+                      </Item>
                     );
                   })}
                 </div>
@@ -348,6 +359,6 @@ function FilingPreferencesForm({
           </div>
         )}
       </form>
-    </Card>
+    </div>
   );
 }
