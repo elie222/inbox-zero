@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import prisma from "@/utils/prisma";
 import { withEmailAccount } from "@/utils/middleware";
 import { createDriveProvider } from "@/utils/drive/provider";
+import { SafeError } from "@/utils/error";
 import type { Logger } from "@/utils/logger";
 
 export type GetDriveFoldersResponse = Awaited<ReturnType<typeof getData>>;
@@ -54,6 +55,8 @@ async function getData({
     provider: string;
   }> = [];
 
+  const connectionErrors: Array<{ provider: string; error: unknown }> = [];
+
   for (const connection of driveConnections) {
     try {
       const provider = createDriveProvider(connection, logger);
@@ -74,7 +77,18 @@ async function getData({
         provider: connection.provider,
         error,
       });
+      connectionErrors.push({ provider: connection.provider, error });
     }
+  }
+
+  // If we have connections but all failed, throw an error
+  if (
+    driveConnections.length > 0 &&
+    connectionErrors.length === driveConnections.length
+  ) {
+    throw new SafeError(
+      "Unable to access your drive. Please reconnect your drive and try again.",
+    );
   }
 
   return {
