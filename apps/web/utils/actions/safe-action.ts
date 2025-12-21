@@ -27,9 +27,9 @@ const baseClient = createSafeActionClient({
       userEmail: context?.userEmail,
       emailAccountId: context?.emailAccountId,
       bindArgsClientInputs,
-      error: error.message,
+      error,
     });
-    // Need a better way to handle this within logger itself
+
     if (env.NODE_ENV !== "production") {
       // biome-ignore lint/suspicious/noConsole: helpful for debugging
       console.error("Error in server action", error);
