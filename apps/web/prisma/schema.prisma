@@ -180,6 +180,7 @@ model EmailAccount {
   meetingBriefings    MeetingBriefing[]
   driveConnections    DriveConnection[]
   documentFilings     DocumentFiling[]
+  filingFolders       FilingFolder[]
 
   @@index([userId])
   @@index([lastSummaryEmailAt])
@@ -974,9 +975,28 @@ model DriveConnection {
   emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
 
   documentFilings DocumentFiling[]
+  filingFolders   FilingFolder[]
 
   @@unique([emailAccountId, provider])
   @@index([emailAccountId])
+}
+
+model FilingFolder {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  folderId   String
+  folderName String
+  folderPath String
+
+  driveConnectionId String
+  driveConnection   DriveConnection @relation(fields: [driveConnectionId], references: [id], onDelete: Cascade)
+  emailAccountId    String
+  emailAccount      EmailAccount    @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
+
+  @@unique([emailAccountId, folderId])
+  @@index([driveConnectionId])
 }
 
 model DocumentFiling {

@@ -1,0 +1,88 @@
+import { NextResponse } from "next/server";
+import prisma from "@/utils/prisma";
+import { withEmailAccount } from "@/utils/middleware";
+import { createDriveProvider } from "@/utils/drive/provider";
+import type { Logger } from "@/utils/logger";
+
+export type GetDriveFoldersResponse = Awaited<ReturnType<typeof getData>>;
+
+export const GET = withEmailAccount(async (request) => {
+  const logger = request.logger;
+  const { emailAccountId } = request.auth;
+
+  const result = await getData({ emailAccountId, logger });
+  return NextResponse.json(result);
+});
+
+async function getData({
+  emailAccountId,
+  logger,
+}: {
+  emailAccountId: string;
+  logger: Logger;
+}) {
+  const emailAccount = await prisma.emailAccount.findUnique({
+    where: { id: emailAccountId },
+    select: {
+      driveConnections: {
+        where: { isConnected: true },
+      },
+      filingFolders: {
+        select: {
+          id: true,
+          folderId: true,
+          folderName: true,
+          folderPath: true,
+          driveConnectionId: true,
+          driveConnection: {
+            select: { provider: true },
+          },
+        },
+      },
+    },
+  });
+
+  const driveConnections = emailAccount?.driveConnections ?? [];
+  const savedFolders = emailAccount?.filingFolders ?? [];
+
+  // Fetch top-level folders from each drive (depth 1 only)
+  const availableFolders: Array<{
+    id: string;
+    name: string;
+    path: string;
+    driveConnectionId: string;
+    provider: string;
+  }> = [];
+
+  for (const connection of driveConnections) {
+    try {
+      const provider = createDriveProvider(connection, logger);
+      const folders = await provider.listFolders(undefined);
+
+      for (const folder of folders) {
+        availableFolders.push({
+          id: folder.id,
+          name: folder.name,
+          path: folder.name,
+          driveConnectionId: connection.id,
+          provider: connection.provider,
+        });
+      }
+    } catch (error) {
+      logger.warn("Error fetching folders from drive", {
+        connectionId: connection.id,
+        provider: connection.provider,
+        error,
+      });
+    }
+  }
+
+  return {
+    savedFolders: savedFolders.map(({ driveConnection, ...f }) => ({
+      ...f,
+      provider: driveConnection.provider,
+    })),
+    availableFolders,
+    hasConnectedDrives: driveConnections.length > 0,
+  };
+}

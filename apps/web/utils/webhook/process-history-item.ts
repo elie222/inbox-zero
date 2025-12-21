@@ -4,6 +4,8 @@ import { categorizeSender } from "@/utils/categorize/senders/categorize";
 import { markMessageAsProcessing } from "@/utils/redis/message-processing";
 import { isAssistantEmail } from "@/utils/assistant/is-assistant-email";
 import { processAssistantEmail } from "@/utils/assistant/process-assistant-email";
+import { isFilebotEmail } from "@/utils/filebot/is-filebot-email";
+import { processFilingReply } from "@/utils/drive/handle-filing-reply";
 import { handleOutboundMessage } from "@/utils/reply-tracker/handle-outbound";
 import { NewsletterStatus } from "@/generated/prisma/enums";
 import type { EmailAccount } from "@/generated/prisma/client";
@@ -135,6 +137,22 @@ export async function processHistoryItem(
     if (isFromAssistant) {
       logger.info("Skipping. Assistant email.");
       return;
+    }
+
+    const isForFilebot = isFilebotEmail({
+      userEmail,
+      emailToCheck: parsedMessage.headers.to,
+    });
+
+    if (isForFilebot) {
+      logger.info("Processing filebot reply.");
+      return processFilingReply({
+        message: parsedMessage,
+        emailAccountId,
+        userEmail,
+        emailProvider: provider,
+        logger,
+      });
     }
 
     const isOutbound = provider.isSentMessage(parsedMessage);
