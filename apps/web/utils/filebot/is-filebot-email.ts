@@ -19,7 +19,11 @@ export function isFilebotEmail({
   if (!emailToCheck) return false;
 
   const [localPart, domain] = userEmail.split("@");
+  if (!localPart || !domain) return false;
+
   const extractedEmailToCheck = extractEmailAddress(emailToCheck);
+  if (!extractedEmailToCheck) return false;
+
   const pattern = new RegExp(
     `^${escapeRegex(localPart)}\\+${FILEBOT_PREFIX}-[a-zA-Z0-9]+@${escapeRegex(domain)}$`,
   );
@@ -38,6 +42,9 @@ export function getFilebotEmail({
   token: string;
 }): string {
   const [localPart, domain] = userEmail.split("@");
+  if (!localPart || !domain) {
+    throw new Error("Invalid email format");
+  }
   return `${localPart}+${FILEBOT_PREFIX}-${token}@${domain}`;
 }
 
@@ -55,7 +62,11 @@ export function extractFilebotToken({
   if (!emailToCheck) return null;
 
   const [localPart, domain] = userEmail.split("@");
+  if (!localPart || !domain) return null;
+
   const extractedEmailToCheck = extractEmailAddress(emailToCheck);
+  if (!extractedEmailToCheck) return null;
+
   const pattern = new RegExp(
     `^${escapeRegex(localPart)}\\+${FILEBOT_PREFIX}-([a-zA-Z0-9]+)@${escapeRegex(domain)}$`,
   );

@@ -69,6 +69,14 @@ describe("isFilebotEmail", () => {
     });
     expect(result).toBe(false);
   });
+
+  it("should handle invalid userEmail format gracefully", () => {
+    const result = isFilebotEmail({
+      userEmail: "notanemail",
+      emailToCheck: "john+filebot-abc123@example.com",
+    });
+    expect(result).toBe(false);
+  });
 });
 
 describe("getFilebotEmail", () => {
@@ -86,6 +94,15 @@ describe("getFilebotEmail", () => {
       token: "xyz789",
     });
     expect(result).toBe("john.doe+filebot-xyz789@sub.example.com");
+  });
+
+  it("should throw for invalid userEmail format", () => {
+    expect(() =>
+      getFilebotEmail({
+        userEmail: "notanemail",
+        token: "abc123",
+      }),
+    ).toThrow("Invalid email format");
   });
 });
 
@@ -126,6 +143,14 @@ describe("extractFilebotToken", () => {
     const result = extractFilebotToken({
       userEmail: "john@example.com",
       emailToCheck: "",
+    });
+    expect(result).toBeNull();
+  });
+
+  it("should return null for invalid userEmail format", () => {
+    const result = extractFilebotToken({
+      userEmail: "notanemail",
+      emailToCheck: "john+filebot-abc123@example.com",
     });
     expect(result).toBeNull();
   });

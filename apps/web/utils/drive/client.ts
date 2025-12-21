@@ -114,11 +114,12 @@ export async function exchangeMicrosoftDriveCode(code: string) {
     },
   );
 
-  const tokens = await response.json();
-
   if (!response.ok) {
-    throw new Error(tokens.error_description || "Failed to exchange code");
+    const errorBody = await response.json().catch(() => ({}));
+    throw new Error(errorBody.error_description || "Failed to exchange code");
   }
+
+  const tokens = await response.json();
 
   if (!tokens.access_token || !tokens.refresh_token) {
     throw new Error("No access or refresh token returned from Microsoft");

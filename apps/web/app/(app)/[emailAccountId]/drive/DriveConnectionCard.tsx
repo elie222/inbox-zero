@@ -49,7 +49,7 @@ export function DriveConnectionCard({ connection }: DriveConnectionCardProps) {
 
   const handleDisconnect = async () => {
     if (confirm("Are you sure you want to disconnect this drive?")) {
-      executeDisconnect({ connectionId: connection.id });
+      await executeDisconnect({ connectionId: connection.id });
       mutate();
     }
   };

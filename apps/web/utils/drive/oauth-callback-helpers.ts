@@ -144,31 +144,21 @@ export async function upsertDriveConnection(params: {
   refreshToken: string;
   expiresAt: Date | null;
 }) {
-  // Check if connection exists for this provider
-  const existing = await prisma.driveConnection.findFirst({
+  return await prisma.driveConnection.upsert({
     where: {
-      emailAccountId: params.emailAccountId,
-      provider: params.provider,
-    },
-  });
-
-  if (existing) {
-    // Update existing connection
-    return await prisma.driveConnection.update({
-      where: { id: existing.id },
-      data: {
-        email: params.email,
-        accessToken: params.accessToken,
-        refreshToken: params.refreshToken,
-        expiresAt: params.expiresAt,
-        isConnected: true,
+      emailAccountId_provider: {
+        emailAccountId: params.emailAccountId,
+        provider: params.provider,
       },
-    });
-  }
-
-  // Create new connection
-  return await prisma.driveConnection.create({
-    data: {
+    },
+    update: {
+      email: params.email,
+      accessToken: params.accessToken,
+      refreshToken: params.refreshToken,
+      expiresAt: params.expiresAt,
+      isConnected: true,
+    },
+    create: {
       provider: params.provider,
       email: params.email,
       emailAccountId: params.emailAccountId,

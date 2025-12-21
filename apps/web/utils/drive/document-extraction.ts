@@ -37,7 +37,6 @@ export interface ExtractionOptions {
 export const EXTRACTABLE_MIME_TYPES = [
   "application/pdf",
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document", // .docx
-  "application/msword", // .doc (limited support)
   "text/plain",
 ] as const;
 
