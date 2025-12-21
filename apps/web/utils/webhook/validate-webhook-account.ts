@@ -21,6 +21,8 @@ export async function getWebhookEmailAccount(
       calendarBookingLink: true,
       lastSyncedHistoryId: true,
       autoCategorizeSenders: true,
+      filingEnabled: true,
+      filingPrompt: true,
       watchEmailsSubscriptionId: true,
       watchEmailsSubscriptionHistory: true,
       account: {
@@ -170,8 +172,11 @@ export async function validateWebhookAccount(
   }
 
   const hasAutomationRules = emailAccount.rules.length > 0;
-  if (!hasAutomationRules) {
-    logger.info("Has no rules enabled");
+  const hasFilingEnabled =
+    emailAccount.filingEnabled && !!emailAccount.filingPrompt;
+
+  if (!hasAutomationRules && !hasFilingEnabled) {
+    logger.info("Has no rules enabled and filing not configured");
     return { success: false, response: NextResponse.json({ ok: true }) };
   }
 

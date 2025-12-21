@@ -6,6 +6,10 @@ import { isAssistantEmail } from "@/utils/assistant/is-assistant-email";
 import { processAssistantEmail } from "@/utils/assistant/process-assistant-email";
 import { isFilebotEmail } from "@/utils/filebot/is-filebot-email";
 import { processFilingReply } from "@/utils/drive/handle-filing-reply";
+import {
+  processAttachment,
+  getExtractableAttachments,
+} from "@/utils/drive/filing-engine";
 import { handleOutboundMessage } from "@/utils/reply-tracker/handle-outbound";
 import { NewsletterStatus } from "@/generated/prisma/enums";
 import type { EmailAccount } from "@/generated/prisma/client";
@@ -22,7 +26,10 @@ export type SharedProcessHistoryOptions = {
   hasAutomationRules: boolean;
   hasAiAccess: boolean;
   emailAccount: EmailAccountWithAI &
-    Pick<EmailAccount, "autoCategorizeSenders">;
+    Pick<
+      EmailAccount,
+      "autoCategorizeSenders" | "filingEnabled" | "filingPrompt" | "email"
+    >;
   logger: Logger;
 };
 
@@ -215,6 +222,42 @@ export async function processHistoryItem(
         modelType: "default",
         logger,
       });
+    }
+
+    // Process attachments for document filing (runs in parallel with rules if both enabled)
+    if (
+      emailAccount.filingEnabled &&
+      emailAccount.filingPrompt &&
+      hasAiAccess
+    ) {
+      const extractableAttachments = getExtractableAttachments(parsedMessage);
+
+      if (extractableAttachments.length > 0) {
+        logger.info("Processing attachments for filing", {
+          count: extractableAttachments.length,
+        });
+
+        // Process each attachment (don't await all - let them run in background)
+        for (const attachment of extractableAttachments) {
+          processAttachment({
+            emailAccount: {
+              ...emailAccount,
+              filingEnabled: emailAccount.filingEnabled,
+              filingPrompt: emailAccount.filingPrompt,
+              email: emailAccount.email,
+            },
+            message: parsedMessage,
+            attachment,
+            emailProvider: provider,
+            logger,
+          }).catch((error) => {
+            logger.error("Failed to process attachment", {
+              filename: attachment.filename,
+              error,
+            });
+          });
+        }
+      }
     }
   } catch (error: unknown) {
     // Handle provider-specific "not found" errors

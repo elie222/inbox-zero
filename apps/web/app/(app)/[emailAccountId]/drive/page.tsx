@@ -3,6 +3,7 @@ import { PageHeader } from "@/components/PageHeader";
 import { DriveConnections } from "./DriveConnections";
 import { ConnectDrive } from "./ConnectDrive";
 import { FilingPreferences } from "./FilingPreferences";
+import { FilingActivity } from "./FilingActivity";
 
 export default function DrivePage() {
   return (
@@ -14,6 +15,7 @@ export default function DrivePage() {
       <div className="mt-6 space-y-6">
         <DriveConnections />
         <FilingPreferences />
+        <FilingActivity />
       </div>
     </PageWrapper>
   );
