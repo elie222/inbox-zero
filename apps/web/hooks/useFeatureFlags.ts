@@ -16,6 +16,10 @@ export function useIntegrationsEnabled() {
   return env.NEXT_PUBLIC_INTEGRATIONS_ENABLED;
 }
 
+export function useAutoFileEnabled() {
+  return env.NEXT_PUBLIC_AUTO_FILE_ENABLED;
+}
+
 const HERO_FLAG_NAME = "hero-copy-7";
 
 export type HeroVariant = "control" | "clean-up-in-minutes";
