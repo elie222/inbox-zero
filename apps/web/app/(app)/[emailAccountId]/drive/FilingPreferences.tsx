@@ -4,11 +4,16 @@ import { useCallback, useState } from "react";
 import { useForm, type SubmitHandler } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useAction } from "next-safe-action/hooks";
-import { Card } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
-import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   Item,
@@ -59,9 +64,8 @@ export function FilingPreferences() {
           emailAccountId={emailAccountId}
           initialEnabled={emailAccount.filingEnabled}
           initialPrompt={emailAccount.filingPrompt || ""}
-          savedFolders={foldersData.savedFolders}
           availableFolders={foldersData.availableFolders}
-          hasConnectedDrives={foldersData.hasConnectedDrives}
+          savedFolders={foldersData.savedFolders}
           mutateEmail={mutateEmail}
           mutateFolders={mutateFolders}
         />
@@ -91,18 +95,16 @@ function FilingPreferencesForm({
   emailAccountId,
   initialEnabled,
   initialPrompt,
-  savedFolders,
   availableFolders,
-  hasConnectedDrives,
+  savedFolders,
   mutateEmail,
   mutateFolders,
 }: {
   emailAccountId: string;
   initialEnabled: boolean;
   initialPrompt: string;
-  savedFolders: SavedFolder[];
   availableFolders: FolderItem[];
-  hasConnectedDrives: boolean;
+  savedFolders: SavedFolder[];
   mutateEmail: () => void;
   mutateFolders: () => void;
 }) {
@@ -174,13 +176,6 @@ function FilingPreferencesForm({
     },
   );
 
-  const onSubmit: SubmitHandler<UpdateFilingPreferencesBody> = useCallback(
-    async (data) => {
-      savePreferences(data);
-    },
-    [savePreferences],
-  );
-
   const savedFolderIds = new Set(savedFolders.map((f) => f.folderId));
 
   const handleFolderToggle = (folder: FolderItem, isChecked: boolean) => {
@@ -199,17 +194,119 @@ function FilingPreferencesForm({
     }
   };
 
-  const hasPromptChanges = filingPrompt !== initialPrompt;
-  const hasEnabledChanges = filingEnabled !== initialEnabled;
+  const onSubmit: SubmitHandler<UpdateFilingPreferencesBody> = useCallback(
+    async (data) => {
+      savePreferences(data);
+    },
+    [savePreferences],
+  );
 
   return (
-    <div>
+    <div className="space-y-6">
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+        {availableFolders.length > 0 && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Allowed folders</CardTitle>
+              <CardDescription>
+                Select which folders the AI can file to
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2">
+                {availableFolders.map((folder) => {
+                  const isSelected = savedFolderIds.has(folder.id);
+                  return (
+                    <div
+                      key={folder.id}
+                      className="flex items-center space-x-2 py-1"
+                    >
+                      <Checkbox
+                        id={folder.id}
+                        checked={isSelected}
+                        onCheckedChange={(checked) =>
+                          handleFolderToggle(folder, checked === true)
+                        }
+                        disabled={isAddingFolder || isRemovingFolder}
+                      />
+                      <label
+                        htmlFor={folder.id}
+                        className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                      >
+                        {folder.name}/
+                      </label>
+                    </div>
+                  );
+                })}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Filing rules</CardTitle>
+            <CardDescription>
+              How should we organize your attachments?
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {isEditingPrompt ? (
+              <>
+                <Textarea
+                  id="filing-prompt"
+                  placeholder="Receipts go to Expenses by month. Contracts go to Legal."
+                  className="min-h-[120px]"
+                  autoFocus
+                  {...register("filingPrompt")}
+                />
+                {errors.filingPrompt && (
+                  <p className="text-sm text-red-500">
+                    {errors.filingPrompt.message}
+                  </p>
+                )}
+                <div className="flex justify-end gap-2">
+                  {initialPrompt && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => {
+                        setValue("filingPrompt", initialPrompt);
+                        setIsEditingPrompt(false);
+                      }}
+                      disabled={isSubmitting}
+                    >
+                      Cancel
+                    </Button>
+                  )}
+                  <Button type="submit" disabled={isSubmitting}>
+                    {isSubmitting ? "Saving..." : "Save"}
+                  </Button>
+                </div>
+              </>
+            ) : (
+              <div className="space-y-2">
+                <div className="rounded-md border bg-muted/50 p-4 text-sm whitespace-pre-wrap">
+                  {filingPrompt || "No preferences set"}
+                </div>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setIsEditingPrompt(true)}
+                >
+                  {filingPrompt ? "Edit" : "Add rules"}
+                </Button>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
         <Item variant="outline">
           <ItemContent>
-            <ItemTitle>Document Auto-Filing</ItemTitle>
+            <ItemTitle>Auto-filing</ItemTitle>
             <ItemDescription>
-              Automatically organize email attachments in your connected drives
+              Automatically file attachments based on your rules
             </ItemDescription>
           </ItemContent>
           <ItemActions>
@@ -219,145 +316,13 @@ function FilingPreferencesForm({
                 setValue("filingEnabled", checked);
                 if (checked && !filingPrompt) {
                   setIsEditingPrompt(true);
+                } else {
+                  handleSubmit(onSubmit)();
                 }
               }}
             />
           </ItemActions>
         </Item>
-
-        {filingEnabled && (
-          <>
-            {!hasConnectedDrives && (
-              <div className="rounded-md border border-yellow-200 bg-yellow-50 p-4 text-sm text-yellow-800">
-                Connect a drive above to start auto-filing documents.
-              </div>
-            )}
-
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <Label htmlFor="filing-prompt">
-                    How should I organize your documents?
-                  </Label>
-                  {!isEditingPrompt && initialPrompt && (
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setIsEditingPrompt(true)}
-                    >
-                      Edit
-                    </Button>
-                  )}
-                </div>
-                {isEditingPrompt ? (
-                  <Textarea
-                    id="filing-prompt"
-                    placeholder="Describe how you want your documents organized..."
-                    className="min-h-[120px]"
-                    autoFocus
-                    {...register("filingPrompt")}
-                  />
-                ) : (
-                  <div className="rounded-md border bg-muted/50 p-4 text-sm whitespace-pre-wrap">
-                    {filingPrompt || "No preferences set"}
-                  </div>
-                )}
-                {errors.filingPrompt && (
-                  <p className="text-sm text-red-500">
-                    {errors.filingPrompt.message}
-                  </p>
-                )}
-              </div>
-
-              {isEditingPrompt && (
-                <div className="text-sm text-muted-foreground space-y-1">
-                  <p className="font-medium">Examples:</p>
-                  <ul className="list-disc list-inside space-y-1">
-                    <li>
-                      Put receipts in my Receipts folder organized by month
-                    </li>
-                    <li>File invoices by vendor name</li>
-                    <li>Contracts go to Projects folder by client name</li>
-                  </ul>
-                </div>
-              )}
-            </div>
-
-            {hasConnectedDrives && availableFolders.length > 0 && (
-              <div className="space-y-3">
-                <Label>Which folders should I use for filing?</Label>
-                <div className="grid gap-2">
-                  {availableFolders.map((folder) => {
-                    const isSelected = savedFolderIds.has(folder.id);
-                    return (
-                      <Item
-                        key={folder.id}
-                        variant="outline"
-                        onClick={() =>
-                          handleFolderToggle(
-                            folder,
-                            !savedFolderIds.has(folder.id),
-                          )
-                        }
-                        role="button"
-                        tabIndex={0}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter" || e.key === " ") {
-                            handleFolderToggle(
-                              folder,
-                              !savedFolderIds.has(folder.id),
-                            );
-                          }
-                        }}
-                      >
-                        <ItemContent>
-                          <ItemTitle>{folder.name}</ItemTitle>
-                          <ItemDescription>
-                            {folder.provider === "google"
-                              ? "Google Drive"
-                              : "OneDrive"}
-                          </ItemDescription>
-                        </ItemContent>
-                        <ItemActions>
-                          <Checkbox
-                            checked={isSelected}
-                            onCheckedChange={(checked) =>
-                              handleFolderToggle(folder, checked === true)
-                            }
-                            disabled={isAddingFolder || isRemovingFolder}
-                          />
-                        </ItemActions>
-                      </Item>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-          </>
-        )}
-
-        {(hasPromptChanges || hasEnabledChanges) && (
-          <div className="flex justify-end gap-2">
-            {isEditingPrompt && initialPrompt && (
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => {
-                  setValue("filingPrompt", initialPrompt);
-                  setValue("filingEnabled", initialEnabled);
-                  setIsEditingPrompt(false);
-                }}
-                disabled={isSubmitting}
-              >
-                Cancel
-              </Button>
-            )}
-            <Button type="submit" disabled={isSubmitting}>
-              {isSubmitting ? "Saving..." : "Save"}
-            </Button>
-          </div>
-        )}
       </form>
     </div>
   );

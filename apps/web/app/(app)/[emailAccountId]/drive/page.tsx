@@ -19,11 +19,8 @@ export default function DrivePage() {
       <LoadingContent loading={isLoading} error={error}>
         {hasConnections ? (
           <>
-            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3 lg:gap-4">
-              <PageHeader title="Auto-file attachments" />
-              <ConnectDrive />
-            </div>
-            <div className="mt-6 space-y-4">
+            <PageHeader title="Auto-file attachments" />
+            <div className="mt-6 space-y-6">
               <DriveConnections />
               <FilingPreferences />
               <FilingActivity />

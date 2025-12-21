@@ -1,18 +1,18 @@
 "use client";
 
-import {
-  Card,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Trash2, XCircle } from "lucide-react";
+import { MoreVertical, Trash2 } from "lucide-react";
 import { useAction } from "next-safe-action/hooks";
+import type { GetDriveConnectionsResponse } from "@/app/api/user/drive/connections/route";
 import { disconnectDriveAction } from "@/utils/actions/drive";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { useDriveConnections } from "@/hooks/useDriveConnections";
-import type { GetDriveConnectionsResponse } from "@/app/api/user/drive/connections/route";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Button } from "@/components/ui/button";
 import Image from "next/image";
 
 type DriveConnection = GetDriveConnectionsResponse["connections"][0];
@@ -41,7 +41,6 @@ const getProviderInfo = (provider: string) => {
 export function DriveConnectionCard({ connection }: DriveConnectionCardProps) {
   const { emailAccountId } = useAccount();
   const { mutate } = useDriveConnections();
-
   const providerInfo = getProviderInfo(connection.provider);
 
   const { execute: executeDisconnect, isExecuting: isDisconnecting } =
@@ -55,42 +54,34 @@ export function DriveConnectionCard({ connection }: DriveConnectionCardProps) {
   };
 
   return (
-    <Card>
-      <CardHeader>
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <Image
-              src={providerInfo.icon}
-              alt={providerInfo.alt}
-              width={32}
-              height={32}
-              unoptimized
-            />
-            <div>
-              <CardTitle className="text-lg">{providerInfo.name}</CardTitle>
-              <CardDescription className="flex items-center gap-2">
-                {connection.email}
-                {!connection.isConnected && (
-                  <div className="flex items-center gap-1 text-red-600">
-                    <XCircle className="h-3 w-3" />
-                    <span className="text-xs">Disconnected</span>
-                  </div>
-                )}
-              </CardDescription>
-            </div>
-          </div>
-          <Button
-            variant="destructiveSoft"
-            size="sm"
+    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+      <Image
+        src={providerInfo.icon}
+        alt={providerInfo.alt}
+        width={16}
+        height={16}
+        unoptimized
+      />
+      <span className="font-medium text-foreground">{providerInfo.name}</span>
+      <span>·</span>
+      <span>{connection.email}</span>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
+            <MoreVertical className="h-4 w-4" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          <DropdownMenuItem
             onClick={handleDisconnect}
             disabled={isDisconnecting}
-            Icon={Trash2}
-            loading={isDisconnecting}
+            className="text-red-600 focus:text-red-600"
           >
+            <Trash2 className="mr-2 h-4 w-4" />
             Disconnect
-          </Button>
-        </div>
-      </CardHeader>
-    </Card>
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </div>
   );
 }
