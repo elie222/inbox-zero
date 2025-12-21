@@ -43,6 +43,9 @@ To help you spend less time in your inbox, so you can focus on what matters.
 - **Bulk Unsubscriber:** One-click unsubscribe and archive emails you never read.
 - **Cold Email Blocker:** Auto‑block cold emails.
 - **Email Analytics:** Track your activity and trends over time.
+- **Auto File (Beta):** Automatically save email attachments to Google Drive or OneDrive.
+- **Meeting Briefs (Early Access):** Get personalized briefings before every meeting, pulling context from your email and calendar.
+
 
 Learn more in our [docs](https://docs.getinboxzero.com).
 
@@ -155,6 +158,7 @@ Create [new credentials](https://console.cloud.google.com/apis/credentials):
       - `http://localhost:3000/api/auth/callback/google`
       - `http://localhost:3000/api/google/linking/callback`
       - `http://localhost:3000/api/google/calendar/callback` (only required for calendar integration)
+      - `http://localhost:3000/api/google/drive/callback` (only required for Google Drive integration)
     6. Click `Create`.
     7. A popup will show up with the new credentials, including the Client ID and secret.
 3.  Update .env file:
@@ -173,6 +177,7 @@ Create [new credentials](https://console.cloud.google.com/apis/credentials):
     https://www.googleapis.com/auth/gmail.settings.basic
     https://www.googleapis.com/auth/contacts
     https://www.googleapis.com/auth/calendar (only required for calendar integration)
+    https://www.googleapis.com/auth/drive.file (only required for Google Drive integration)
     ```
 
     4. Click `Update`
@@ -186,6 +191,7 @@ Create [new credentials](https://console.cloud.google.com/apis/credentials):
 6.  Enable required APIs in [Google Cloud Console](https://console.cloud.google.com/apis/library):
     - [Google People API](https://console.cloud.google.com/marketplace/product/google/people.googleapis.com) (required)
     - [Google Calendar API](https://console.cloud.google.com/marketplace/product/google/calendar-json.googleapis.com) (only required for calendar integration)
+    - [Google Drive API](https://console.cloud.google.com/marketplace/product/google/drive.googleapis.com) (only required for Google Drive integration)
 
 ### Google PubSub Setup
 
@@ -232,6 +238,7 @@ Go to [Microsoft Azure Portal](https://portal.azure.com/) and create a new Azure
    6. Add the following Redirect URIs (replace `localhost:3000` with your domain in production):
       - `http://localhost:3000/api/outlook/linking/callback`
       - `http://localhost:3000/api/outlook/calendar/callback` (only required for calendar integration)
+      - `http://localhost:3000/api/outlook/drive/callback` (only required for OneDrive integration)
 
 4. Get your credentials from the `Overview` tab:
 
@@ -261,6 +268,7 @@ Go to [Microsoft Azure Portal](https://portal.azure.com/) and create a new Azure
       - MailboxSettings.ReadWrite
       - Calendars.Read (only required for calendar integration)
       - Calendars.ReadWrite (only required for calendar integration)
+      - Files.ReadWrite (only required for OneDrive integration)
 
    6. Click "Add permissions"
    7. Click "Grant admin consent" if you're an admin
