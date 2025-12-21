@@ -5,7 +5,7 @@ import type { Logger } from "@/utils/logger";
 import { extractFilebotToken } from "@/utils/filebot/is-filebot-email";
 import { extractEmailAddress } from "@/utils/email";
 import { emailToContent } from "@/utils/mail";
-import { createDriveProvider } from "@/utils/drive/provider";
+import { createDriveProviderWithRefresh } from "@/utils/drive/provider";
 import { createFolderPath } from "@/utils/drive/folder-utils";
 import { sendCorrectionConfirmation } from "@/utils/drive/filing-notifications";
 
@@ -109,7 +109,10 @@ export async function processFilingReply({
 
   // Get or create the folder and move/upload the file
   try {
-    const driveProvider = createDriveProvider(filing.driveConnection, logger);
+    const driveProvider = await createDriveProviderWithRefresh(
+      filing.driveConnection,
+      logger,
+    );
 
     // Create the folder path if needed
     const targetFolder = await createFolderPath(

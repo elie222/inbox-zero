@@ -197,119 +197,117 @@ function FilingPreferencesForm({
   );
 
   return (
-    <div className="space-y-4">
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-        <Card size="sm">
-          <CardHeader className="pb-3">
-            <CardTitle>Allowed folders</CardTitle>
-            <CardDescription>
-              Select which folders the AI can file to
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            {availableFolders.length > 0 ? (
-              <div className="space-y-2">
-                {availableFolders.map((folder) => {
-                  const isSelected = savedFolderIds.has(folder.id);
-                  return (
-                    <div
-                      key={folder.id}
-                      className="flex items-center space-x-2 py-1"
+    <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+      <Card size="sm">
+        <CardHeader className="pb-3">
+          <CardTitle>Allowed folders</CardTitle>
+          <CardDescription>
+            Select which folders the AI can file to
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {availableFolders.length > 0 ? (
+            <div className="space-y-2">
+              {availableFolders.map((folder) => {
+                const isSelected = savedFolderIds.has(folder.id);
+                return (
+                  <div
+                    key={folder.id}
+                    className="flex items-center space-x-2 py-1"
+                  >
+                    <Checkbox
+                      id={folder.id}
+                      checked={isSelected}
+                      onCheckedChange={(checked) =>
+                        handleFolderToggle(folder, checked === true)
+                      }
+                      disabled={isAddingFolder || isRemovingFolder}
+                    />
+                    <label
+                      htmlFor={folder.id}
+                      className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
                     >
-                      <Checkbox
-                        id={folder.id}
-                        checked={isSelected}
-                        onCheckedChange={(checked) =>
-                          handleFolderToggle(folder, checked === true)
-                        }
-                        disabled={isAddingFolder || isRemovingFolder}
-                      />
-                      <label
-                        htmlFor={folder.id}
-                        className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
-                      >
-                        {folder.name}/
-                      </label>
-                    </div>
-                  );
-                })}
-              </div>
-            ) : (
-              <Empty>
-                <EmptyHeader>
-                  <EmptyMedia variant="icon">
-                    <FolderIcon />
-                  </EmptyMedia>
-                  <EmptyTitle>No folders found</EmptyTitle>
-                  <EmptyDescription>
-                    Create a folder in your drive to get started.
-                  </EmptyDescription>
-                </EmptyHeader>
-              </Empty>
-            )}
-          </CardContent>
-        </Card>
+                      {folder.name}/
+                    </label>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <Empty>
+              <EmptyHeader>
+                <EmptyMedia variant="icon">
+                  <FolderIcon />
+                </EmptyMedia>
+                <EmptyTitle>No folders found</EmptyTitle>
+                <EmptyDescription>
+                  Create a folder in your drive to get started.
+                </EmptyDescription>
+              </EmptyHeader>
+            </Empty>
+          )}
+        </CardContent>
+      </Card>
 
-        <Card size="sm">
-          <CardHeader className="pb-3">
-            <CardTitle>Filing rules</CardTitle>
-            <CardDescription>
-              How should we organize your attachments?
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {isEditingPrompt ? (
-              <>
-                <Textarea
-                  id="filing-prompt"
-                  placeholder="Receipts go to Expenses by month. Contracts go to Legal."
-                  className="min-h-[60px]"
-                  rows={2}
-                  autoFocus
-                  {...register("filingPrompt")}
-                />
-                {errors.filingPrompt && (
-                  <p className="text-sm text-red-500">
-                    {errors.filingPrompt.message}
-                  </p>
-                )}
-                <div className="flex justify-end gap-2">
-                  {initialPrompt && (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() => {
-                        setValue("filingPrompt", initialPrompt);
-                        setIsEditingPrompt(false);
-                      }}
-                      disabled={isSubmitting}
-                    >
-                      Cancel
-                    </Button>
-                  )}
-                  <Button type="submit" disabled={isSubmitting}>
-                    {isSubmitting ? "Saving..." : "Save"}
+      <Card size="sm">
+        <CardHeader className="pb-3">
+          <CardTitle>Filing rules</CardTitle>
+          <CardDescription>
+            How should we organize your attachments?
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {isEditingPrompt ? (
+            <>
+              <Textarea
+                id="filing-prompt"
+                placeholder="Receipts go to Expenses by month. Contracts go to Legal."
+                className="min-h-[60px]"
+                rows={2}
+                autoFocus
+                {...register("filingPrompt")}
+              />
+              {errors.filingPrompt && (
+                <p className="text-sm text-red-500">
+                  {errors.filingPrompt.message}
+                </p>
+              )}
+              <div className="flex justify-end gap-2">
+                {initialPrompt && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => {
+                      setValue("filingPrompt", initialPrompt);
+                      setIsEditingPrompt(false);
+                    }}
+                    disabled={isSubmitting}
+                  >
+                    Cancel
                   </Button>
-                </div>
-              </>
-            ) : (
-              <div className="space-y-2">
-                <div className="rounded-md border bg-muted/50 p-4 text-sm whitespace-pre-wrap">
-                  {filingPrompt || "No preferences set"}
-                </div>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setIsEditingPrompt(true)}
-                >
-                  {filingPrompt ? "Edit" : "Add rules"}
+                )}
+                <Button type="submit" disabled={isSubmitting}>
+                  {isSubmitting ? "Saving..." : "Save"}
                 </Button>
               </div>
-            )}
-          </CardContent>
-        </Card>
-      </form>
-    </div>
+            </>
+          ) : (
+            <div className="space-y-2">
+              <div className="rounded-md border bg-muted/50 p-4 text-sm whitespace-pre-wrap">
+                {filingPrompt || "No preferences set"}
+              </div>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => setIsEditingPrompt(true)}
+              >
+                {filingPrompt ? "Edit" : "Add rules"}
+              </Button>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </form>
   );
 }

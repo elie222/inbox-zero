@@ -73,7 +73,7 @@ export default function DrivePage() {
 
             <div
               className={cn(
-                "mt-6 space-y-6 transition-opacity duration-200",
+                "mt-6 space-y-4 transition-opacity duration-200",
                 !filingEnabled && "opacity-50 pointer-events-none",
               )}
             >

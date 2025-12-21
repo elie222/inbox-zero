@@ -5,7 +5,7 @@ import type { EmailProvider } from "@/utils/email/types";
 import type { ParsedMessage, Attachment } from "@/utils/types";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import type { Logger } from "@/utils/logger";
-import { createDriveProvider } from "@/utils/drive/provider";
+import { createDriveProviderWithRefresh } from "@/utils/drive/provider";
 import { createFolderPath } from "@/utils/drive/folder-utils";
 import {
   extractTextFromDocument,
@@ -164,7 +164,10 @@ export async function processAttachment({
       resolveFolderTarget(analysis, allFolders, driveConnections, log);
 
     // Step 6: Create folder if needed
-    const driveProvider = createDriveProvider(driveConnection, log);
+    const driveProvider = await createDriveProviderWithRefresh(
+      driveConnection,
+      log,
+    );
     let targetFolderId = folderId;
     let targetFolderPath = folderPath;
 

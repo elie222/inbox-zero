@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import prisma from "@/utils/prisma";
 import { withEmailAccount } from "@/utils/middleware";
-import { createDriveProvider } from "@/utils/drive/provider";
+import { createDriveProviderWithRefresh } from "@/utils/drive/provider";
 import { SafeError } from "@/utils/error";
 import type { Logger } from "@/utils/logger";
 
@@ -59,7 +59,7 @@ async function getData({
 
   for (const connection of driveConnections) {
     try {
-      const provider = createDriveProvider(connection, logger);
+      const provider = await createDriveProviderWithRefresh(connection, logger);
       const folders = await provider.listFolders(undefined);
 
       for (const folder of folders) {
