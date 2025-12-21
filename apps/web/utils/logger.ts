@@ -217,6 +217,9 @@ const REDACTED_FIELD_NAMES = new Set([
   "id_token",
   "headers",
   "authorization",
+  "requestBodyValues",
+  "systemInstruction",
+  "contents",
 ]);
 
 // Fields containing email/message content - redacted in production unless debug logs enabled
