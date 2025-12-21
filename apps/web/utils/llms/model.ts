@@ -136,7 +136,7 @@ function selectModel(
       };
     }
     case Provider.AI_GATEWAY: {
-      const modelName = aiModel || "google/gemini-2.5-pro";
+      const modelName = aiModel || "google/gemini-3-flash-preview";
       const aiGatewayApiKey = aiApiKey || env.AI_GATEWAY_API_KEY;
       const gateway = createGateway({ apiKey: aiGatewayApiKey });
       return {
