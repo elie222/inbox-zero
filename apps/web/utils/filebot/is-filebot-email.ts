@@ -24,9 +24,7 @@ export function isFilebotEmail({
   const extractedEmailToCheck = extractEmailAddress(emailToCheck);
   if (!extractedEmailToCheck) return false;
 
-  const pattern = new RegExp(
-    `^${escapeRegex(localPart)}\\+${FILEBOT_PREFIX}-[a-zA-Z0-9]+@${escapeRegex(domain)}$`,
-  );
+  const pattern = buildFilebotPattern(localPart, domain, false);
   return pattern.test(extractedEmailToCheck);
 }
 
@@ -67,11 +65,25 @@ export function extractFilebotToken({
   const extractedEmailToCheck = extractEmailAddress(emailToCheck);
   if (!extractedEmailToCheck) return null;
 
-  const pattern = new RegExp(
-    `^${escapeRegex(localPart)}\\+${FILEBOT_PREFIX}-([a-zA-Z0-9]+)@${escapeRegex(domain)}$`,
-  );
+  const pattern = buildFilebotPattern(localPart, domain, true);
   const match = extractedEmailToCheck.match(pattern);
   return match ? match[1] : null;
+}
+
+/**
+ * Build a case-insensitive regex pattern for filebot emails.
+ * Case-insensitive to handle email domains like Example.COM vs example.com
+ */
+function buildFilebotPattern(
+  localPart: string,
+  domain: string,
+  captureToken: boolean,
+): RegExp {
+  const tokenPattern = captureToken ? "([a-zA-Z0-9]+)" : "[a-zA-Z0-9]+";
+  return new RegExp(
+    `^${escapeRegex(localPart)}\\+${FILEBOT_PREFIX}-${tokenPattern}@${escapeRegex(domain)}$`,
+    "i",
+  );
 }
 
 function escapeRegex(str: string): string {

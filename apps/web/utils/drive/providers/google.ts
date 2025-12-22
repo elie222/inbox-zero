@@ -58,8 +58,10 @@ export class GoogleDriveProvider implements DriveProvider {
     try {
       // If no parentId, fetch ALL folders for better initial experience
       const parent = parentId || null;
-      const query = parent
-        ? `'${parent}' in parents and mimeType = 'application/vnd.google-apps.folder' and trashed = false`
+      // Escape single quotes in parentId to prevent query injection
+      const escapedParent = parent?.replace(/'/g, "\\'");
+      const query = escapedParent
+        ? `'${escapedParent}' in parents and mimeType = 'application/vnd.google-apps.folder' and trashed = false`
         : "mimeType = 'application/vnd.google-apps.folder' and trashed = false";
 
       const response = await this.client.files.list({

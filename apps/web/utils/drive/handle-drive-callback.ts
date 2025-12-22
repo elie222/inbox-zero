@@ -121,8 +121,14 @@ export async function handleDriveCallback(
       connectionId: connection.id,
     });
 
-    // Cache the successful result
-    await setOAuthCodeResult(code, { message: "drive_connected" });
+    // Cache the successful result (best-effort, don't fail if cache write fails)
+    try {
+      await setOAuthCodeResult(code, { message: "drive_connected" });
+    } catch (cacheError) {
+      logger.warn("Failed to cache OAuth code result; continuing", {
+        error: cacheError,
+      });
+    }
 
     return redirectWithMessage(
       finalRedirectUrl,
@@ -130,11 +136,15 @@ export async function handleDriveCallback(
       redirectHeaders,
     );
   } catch (error) {
-    // Clear the OAuth code lock on error
+    // Clear the OAuth code lock on error (best-effort, don't mask original error)
     const searchParams = request.nextUrl.searchParams;
     const code = searchParams.get("code");
     if (code) {
-      await clearOAuthCode(code);
+      await clearOAuthCode(code).catch((clearError) => {
+        logger.warn("Failed to clear OAuth code on error; continuing", {
+          error: clearError,
+        });
+      });
     }
 
     // Handle redirect errors

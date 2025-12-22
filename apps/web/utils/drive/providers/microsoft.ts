@@ -2,6 +2,7 @@ import { Client } from "@microsoft/microsoft-graph-client";
 import type { DriveItem } from "@microsoft/microsoft-graph-types";
 import type { Logger } from "@/utils/logger";
 import { createScopedLogger } from "@/utils/logger";
+import { isNotFoundError } from "@/utils/outlook/errors";
 import type {
   DriveProvider,
   DriveFolder,
@@ -86,7 +87,7 @@ export class OneDriveProvider implements DriveProvider {
       return this.convertToFolder(item);
     } catch (error) {
       // Handle not found
-      if (this.isNotFoundError(error)) {
+      if (isNotFoundError(error)) {
         this.logger.trace("Folder not found", { folderId });
         return null;
       }
@@ -178,7 +179,7 @@ export class OneDriveProvider implements DriveProvider {
 
       return this.convertToFile(item);
     } catch (error) {
-      if (this.isNotFoundError(error)) {
+      if (isNotFoundError(error)) {
         this.logger.trace("File not found", { fileId });
         return null;
       }
@@ -208,20 +209,27 @@ export class OneDriveProvider implements DriveProvider {
   // -------------------------------------------------------------------------
 
   private convertToFolder(item: DriveItem): DriveFolder {
+    if (!item.id) {
+      throw new Error("Drive item is missing `id`");
+    }
+    const name = item.name || "Untitled";
     return {
-      id: item.id!,
-      name: item.name || "Untitled",
+      id: item.id ?? "",
+      name,
       parentId: item.parentReference?.id ?? undefined,
       path: item.parentReference?.path
-        ? `${item.parentReference.path}/${item.name}`
+        ? `${item.parentReference.path}/${name}`
         : undefined,
       webUrl: item.webUrl ?? undefined,
     };
   }
 
   private convertToFile(item: DriveItem): DriveFile {
+    if (!item.id) {
+      throw new Error("Drive item is missing `id`");
+    }
     return {
-      id: item.id!,
+      id: item.id,
       name: item.name || "Untitled",
       mimeType: item.file?.mimeType ?? "application/octet-stream",
       size: item.size ?? undefined,
@@ -231,15 +239,5 @@ export class OneDriveProvider implements DriveProvider {
         ? new Date(item.createdDateTime)
         : undefined,
     };
-  }
-
-  private isNotFoundError(error: unknown): boolean {
-    if (error && typeof error === "object" && "statusCode" in error) {
-      return (error as { statusCode: number }).statusCode === 404;
-    }
-    if (error && typeof error === "object" && "code" in error) {
-      return (error as { code: string }).code === "itemNotFound";
-    }
-    return false;
   }
 }
