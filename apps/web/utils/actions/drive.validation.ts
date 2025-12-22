@@ -13,15 +13,22 @@ export type UpdateFilingPreferencesBody = z.infer<
   typeof updateFilingPreferencesBody
 >;
 
-export const addFilingFolderBody = z.object({
+const filingFolderSchema = z.object({
   folderId: z.string(),
   folderName: z.string(),
   folderPath: z.string(),
   driveConnectionId: z.string(),
 });
+
+export const updateFilingFoldersBody = z.object({
+  folders: z.array(filingFolderSchema),
+});
+export type UpdateFilingFoldersBody = z.infer<typeof updateFilingFoldersBody>;
+
+export const addFilingFolderBody = filingFolderSchema;
 export type AddFilingFolderBody = z.infer<typeof addFilingFolderBody>;
 
 export const removeFilingFolderBody = z.object({
-  id: z.string(),
+  folderId: z.string(),
 });
 export type RemoveFilingFolderBody = z.infer<typeof removeFilingFolderBody>;

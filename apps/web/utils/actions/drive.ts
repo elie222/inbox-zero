@@ -94,20 +94,11 @@ export const addFilingFolderAction = actionClient
       return folder;
     },
   );
-
 export const removeFilingFolderAction = actionClient
   .metadata({ name: "removeFilingFolder" })
   .inputSchema(removeFilingFolderBody)
-  .action(async ({ ctx: { emailAccountId }, parsedInput: { id } }) => {
-    const folder = await prisma.filingFolder.findUnique({
-      where: { id },
-    });
-
-    if (!folder || folder.emailAccountId !== emailAccountId) {
-      throw new SafeError("Filing folder not found");
-    }
-
-    await prisma.filingFolder.delete({
-      where: { id },
+  .action(async ({ ctx: { emailAccountId }, parsedInput: { folderId } }) => {
+    await prisma.filingFolder.deleteMany({
+      where: { emailAccountId, folderId },
     });
   });

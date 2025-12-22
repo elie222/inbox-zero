@@ -1,9 +1,8 @@
 "use client";
 
-import { useCallback, useState, useMemo } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { useForm, type SubmitHandler } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useAction } from "next-safe-action/hooks";
 import useSWR from "swr";
 import {
   Card,
@@ -18,13 +17,6 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { LoadingContent } from "@/components/LoadingContent";
 import { toastSuccess, toastError } from "@/components/Toast";
 import {
-  Empty,
-  EmptyDescription,
-  EmptyHeader,
-  EmptyMedia,
-  EmptyTitle,
-} from "@/components/ui/empty";
-import {
   TreeProvider,
   TreeView,
   TreeNode,
@@ -35,7 +27,7 @@ import {
   TreeLabel,
   useTree,
 } from "@/components/kibo-ui/tree";
-import { FolderIcon, Loader2Icon } from "lucide-react";
+import { Loader2Icon } from "lucide-react";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { useEmailAccountFull } from "@/hooks/useEmailAccountFull";
 import { useDriveFolders } from "@/hooks/useDriveFolders";
@@ -119,14 +111,10 @@ function FilingPreferencesForm({
   mutateEmail: () => void;
   mutateFolders: () => void;
 }) {
-  const [isEditingPrompt, setIsEditingPrompt] = useState(!initialPrompt);
-
   const {
     register,
     handleSubmit,
-    watch,
-    setValue,
-    formState: { errors, isSubmitting },
+    formState: { errors, isDirty },
   } = useForm<UpdateFilingPreferencesBody>({
     resolver: zodResolver(updateFilingPreferencesBody),
     defaultValues: {
@@ -134,100 +122,81 @@ function FilingPreferencesForm({
     },
   });
 
-  const filingPrompt = watch("filingPrompt");
-
-  const { execute: savePreferences } = useAction(
-    updateFilingPreferencesAction.bind(null, emailAccountId),
-    {
-      onSuccess: () => {
-        toastSuccess({ description: "Filing preferences saved" });
-        setIsEditingPrompt(false);
-        mutateEmail();
-      },
-      onError: (error) => {
-        toastError({
-          title: "Error saving preferences",
-          description: error.error.serverError || "Failed to save preferences",
-        });
-      },
-    },
-  );
-
-  const { execute: addFolder, isExecuting: isAddingFolder } = useAction(
-    addFilingFolderAction.bind(null, emailAccountId),
-    {
-      onSuccess: () => {
-        toastSuccess({ description: "Folder added" });
-        mutateFolders();
-      },
-      onError: (error) => {
-        toastError({
-          title: "Error adding folder",
-          description: error.error.serverError || "Failed to add folder",
-        });
-      },
-    },
-  );
-
-  const { execute: removeFolder, isExecuting: isRemovingFolder } = useAction(
-    removeFilingFolderAction.bind(null, emailAccountId),
-    {
-      onSuccess: () => {
-        toastSuccess({ description: "Folder removed" });
-        mutateFolders();
-      },
-      onError: (error) => {
-        toastError({
-          title: "Error removing folder",
-          description: error.error.serverError || "Failed to remove folder",
-        });
-      },
-    },
-  );
-
-  const savedFolderIds = new Set(savedFolders.map((f) => f.folderId));
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isFolderBusy, setIsFolderBusy] = useState(false);
 
   const handleFolderToggle = useCallback(
-    (folder: FolderItem, isChecked: boolean) => {
-      // Calculate full path if not present (required for filing)
+    async (folder: FolderItem, isChecked: boolean) => {
       const folderPath = folder.path || folder.name;
+      setIsFolderBusy(true);
 
-      if (isChecked) {
-        addFolder({
-          folderId: folder.id,
-          folderName: folder.name,
-          folderPath,
-          driveConnectionId: folder.driveConnectionId,
-        });
-      } else {
-        const saved = savedFolders.find((f) => f.folderId === folder.id);
-        if (saved) {
-          removeFolder({ id: saved.id });
+      try {
+        if (isChecked) {
+          const result = await addFilingFolderAction(emailAccountId, {
+            folderId: folder.id,
+            folderName: folder.name,
+            folderPath,
+            driveConnectionId: folder.driveConnectionId,
+          });
+
+          if (result?.serverError) {
+            toastError({
+              title: "Error adding folder",
+              description: result.serverError,
+            });
+          } else {
+            mutateFolders();
+          }
+        } else {
+          const result = await removeFilingFolderAction(emailAccountId, {
+            folderId: folder.id,
+          });
+
+          if (result?.serverError) {
+            toastError({
+              title: "Error removing folder",
+              description: result.serverError,
+            });
+          } else {
+            mutateFolders();
+          }
         }
+      } finally {
+        setIsFolderBusy(false);
       }
     },
-    [addFolder, removeFolder, savedFolders],
+    [emailAccountId, mutateFolders],
   );
 
   const onSubmit: SubmitHandler<UpdateFilingPreferencesBody> = useCallback(
     async (data) => {
-      savePreferences(data);
+      setIsSubmitting(true);
+
+      const result = await updateFilingPreferencesAction(emailAccountId, data);
+
+      if (result?.serverError) {
+        toastError({
+          title: "Error saving rules",
+          description: result.serverError,
+        });
+      } else {
+        toastSuccess({ description: "Filing rules saved" });
+        mutateEmail();
+      }
+
+      setIsSubmitting(false);
     },
-    [savePreferences],
+    [emailAccountId, mutateEmail],
   );
 
-  // Build the tree structure from flat list of folders
-  // Some folders might have parentId set if the provider returned multiple levels
   const rootFolders = useMemo(() => {
     const folderMap = new Map<string, FolderItem>();
     const roots: FolderItem[] = [];
 
-    // First map everything
     for (const folder of availableFolders) {
       folderMap.set(folder.id, folder);
     }
 
-    // Then find roots (those whose parent is not in our list)
     for (const folder of availableFolders) {
       if (!folder.parentId || !folderMap.has(folder.parentId)) {
         roots.push(folder);
@@ -248,14 +217,14 @@ function FilingPreferencesForm({
     return map;
   }, [availableFolders]);
 
+  const savedFolderIds = new Set(savedFolders.map((f) => f.folderId));
+
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+    <div className="grid gap-4 md:grid-cols-2">
       <Card size="sm">
         <CardHeader className="pb-3">
           <CardTitle>Allowed folders</CardTitle>
-          <CardDescription>
-            Select which folders the AI can file to
-          </CardDescription>
+          <CardDescription>AI can only file to these folders</CardDescription>
         </CardHeader>
         <CardContent>
           {rootFolders.length > 0 ? (
@@ -272,9 +241,9 @@ function FilingPreferencesForm({
                     key={folder.id}
                     folder={folder}
                     isLast={index === rootFolders.length - 1}
-                    savedFolderIds={savedFolderIds}
+                    selectedFolderIds={savedFolderIds}
                     onToggle={handleFolderToggle}
-                    isDisabled={isAddingFolder || isRemovingFolder}
+                    isDisabled={isFolderBusy}
                     level={0}
                     parentPath=""
                     knownChildren={folderChildrenMap.get(folder.id)}
@@ -283,17 +252,9 @@ function FilingPreferencesForm({
               </TreeView>
             </TreeProvider>
           ) : (
-            <Empty>
-              <EmptyHeader>
-                <EmptyMedia variant="icon">
-                  <FolderIcon />
-                </EmptyMedia>
-                <EmptyTitle>No folders found</EmptyTitle>
-                <EmptyDescription>
-                  Create a folder in your drive to get started.
-                </EmptyDescription>
-              </EmptyHeader>
-            </Empty>
+            <p className="text-sm text-muted-foreground italic">
+              No folders found. Create a folder in your drive.
+            </p>
           )}
         </CardContent>
       </Card>
@@ -301,70 +262,41 @@ function FilingPreferencesForm({
       <Card size="sm">
         <CardHeader className="pb-3">
           <CardTitle>Filing rules</CardTitle>
-          <CardDescription>
-            How should we organize your attachments?
-          </CardDescription>
+          <CardDescription>How should we organize your files?</CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
-          {isEditingPrompt ? (
-            <>
-              <Textarea
-                id="filing-prompt"
-                placeholder="Receipts go to Expenses by month. Contracts go to Legal."
-                className="min-h-[60px]"
-                rows={2}
-                autoFocus
-                {...register("filingPrompt")}
-              />
-              {errors.filingPrompt && (
-                <p className="text-sm text-red-500">
-                  {errors.filingPrompt.message}
-                </p>
-              )}
-              <div className="flex justify-end gap-2">
-                {initialPrompt && (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => {
-                      setValue("filingPrompt", initialPrompt);
-                      setIsEditingPrompt(false);
-                    }}
-                    disabled={isSubmitting}
-                  >
-                    Cancel
-                  </Button>
-                )}
-                <Button type="submit" disabled={isSubmitting}>
-                  {isSubmitting ? "Saving..." : "Save"}
-                </Button>
-              </div>
-            </>
-          ) : (
-            <div className="space-y-2">
-              <div className="rounded-md border bg-muted/50 p-4 text-sm whitespace-pre-wrap">
-                {filingPrompt || "No preferences set"}
-              </div>
+        <CardContent>
+          <form onSubmit={handleSubmit(onSubmit)} className="space-y-3">
+            <Textarea
+              placeholder="Receipts go to Expenses by month. Contracts go to Legal."
+              className="min-h-[80px]"
+              rows={3}
+              {...register("filingPrompt")}
+            />
+            {errors.filingPrompt && (
+              <p className="text-sm text-red-500">
+                {errors.filingPrompt.message}
+              </p>
+            )}
+            <div className="flex justify-end">
               <Button
-                type="button"
-                variant="ghost"
+                type="submit"
                 size="sm"
-                onClick={() => setIsEditingPrompt(true)}
+                disabled={!isDirty || isSubmitting}
               >
-                {filingPrompt ? "Edit" : "Add rules"}
+                {isSubmitting ? "Saving..." : "Save"}
               </Button>
             </div>
-          )}
+          </form>
         </CardContent>
       </Card>
-    </form>
+    </div>
   );
 }
 
 function FolderNode({
   folder,
   isLast,
-  savedFolderIds,
+  selectedFolderIds,
   onToggle,
   isDisabled,
   level,
@@ -373,7 +305,7 @@ function FolderNode({
 }: {
   folder: FolderItem;
   isLast: boolean;
-  savedFolderIds: Set<string>;
+  selectedFolderIds: Set<string>;
   onToggle: (folder: FolderItem, isChecked: boolean) => void;
   isDisabled: boolean;
   level: number;
@@ -382,10 +314,9 @@ function FolderNode({
 }) {
   const { expandedIds } = useTree();
   const isExpanded = expandedIds.has(folder.id);
-  const isSelected = savedFolderIds.has(folder.id);
+  const isSelected = selectedFolderIds.has(folder.id);
   const currentPath = parentPath ? `${parentPath}/${folder.name}` : folder.name;
 
-  // Only fetch subfolders when expanded AND we don't have known children already
   const { data: subfoldersData, isLoading: isLoadingSubfolders } =
     useSWR<GetSubfoldersResponse>(
       isExpanded && !knownChildren
@@ -395,8 +326,6 @@ function FolderNode({
 
   const subfolders = subfoldersData?.folders ?? knownChildren ?? [];
   const hasLoadedChildren = subfolders.length > 0;
-
-  // If it's expanded but we haven't loaded yet AND no known children, it "has children" (to show content/loader)
   const showContent = isExpanded && (hasLoadedChildren || isLoadingSubfolders);
 
   return (
@@ -438,7 +367,7 @@ function FolderNode({
                 path: `${currentPath}/${subfolder.name}`,
               }}
               isLast={index === subfolders.length - 1}
-              savedFolderIds={savedFolderIds}
+              selectedFolderIds={selectedFolderIds}
               onToggle={onToggle}
               isDisabled={isDisabled}
               level={level + 1}

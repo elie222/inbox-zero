@@ -10,22 +10,9 @@ import {
   ArrowRightIcon,
   CornerDownRightIcon,
 } from "lucide-react";
-import {
-  Card,
-  CardHeader,
-  CardTitle,
-  CardDescription,
-  CardContent,
-} from "@/components/ui/card";
-import {
-  Empty,
-  EmptyHeader,
-  EmptyMedia,
-  EmptyTitle,
-  EmptyDescription,
-} from "@/components/ui/empty";
 import { Badge } from "@/components/ui/badge";
 import { LoadingContent } from "@/components/LoadingContent";
+import { SectionHeader } from "@/components/Typography";
 import { useFilingActivity } from "@/hooks/useFilingActivity";
 import { isGoogleProvider } from "@/utils/email/provider-types";
 import type { GetFilingsResponse } from "@/app/api/user/drive/filings/route";
@@ -36,41 +23,27 @@ export function FilingActivity() {
   const { data, isLoading, error } = useFilingActivity(10);
 
   return (
-    <Card size="sm">
-      <CardHeader>
-        <CardTitle>Recent Activity</CardTitle>
-        <CardDescription>Documents filed from your emails</CardDescription>
-      </CardHeader>
-      <CardContent>
-        <LoadingContent loading={isLoading} error={error}>
-          {data && data.filings.length === 0 ? (
-            <Empty>
-              <EmptyHeader>
-                <EmptyMedia variant="icon">
-                  <FileIcon className="opacity-50" />
-                </EmptyMedia>
-                <EmptyTitle>No documents filed yet</EmptyTitle>
-                <EmptyDescription>
-                  When attachments are filed, they&apos;ll appear here
-                </EmptyDescription>
-              </EmptyHeader>
-            </Empty>
-          ) : (
-            <div className="space-y-3">
-              {data?.filings.map((filing) => (
-                <FilingItem key={filing.id} filing={filing} />
-              ))}
-            </div>
-          )}
-        </LoadingContent>
-
-        {data && data.total > 10 && (
-          <p className="text-sm text-muted-foreground text-center">
-            Showing {data.filings.length} of {data.total} filings
+    <div>
+      <SectionHeader className="mb-3">Recent Activity</SectionHeader>
+      <LoadingContent loading={isLoading} error={error}>
+        {data && data.filings.length === 0 ? (
+          <p className="text-sm text-muted-foreground italic">
+            No recently filed documents.
           </p>
+        ) : (
+          <div className="space-y-3">
+            {data?.filings.map((filing) => (
+              <FilingItem key={filing.id} filing={filing} />
+            ))}
+            {data && data.total > 10 && (
+              <p className="text-sm text-muted-foreground">
+                Showing {data.filings.length} of {data.total} filings
+              </p>
+            )}
+          </div>
         )}
-      </CardContent>
-    </Card>
+      </LoadingContent>
+    </div>
   );
 }
 
