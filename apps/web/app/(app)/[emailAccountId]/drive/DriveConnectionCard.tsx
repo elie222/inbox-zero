@@ -21,7 +21,7 @@ interface DriveConnectionCardProps {
   connection: DriveConnection;
 }
 
-const getProviderInfo = (provider: string) => {
+export function getProviderInfo(provider: string) {
   const providers = {
     microsoft: {
       name: "OneDrive",
@@ -36,14 +36,14 @@ const getProviderInfo = (provider: string) => {
   };
 
   return providers[provider as keyof typeof providers] || providers.google;
-};
+}
 
 export function DriveConnectionCard({ connection }: DriveConnectionCardProps) {
   const { emailAccountId } = useAccount();
   const { mutate } = useDriveConnections();
   const providerInfo = getProviderInfo(connection.provider);
 
-  const { execute: executeDisconnect, isExecuting: isDisconnecting } =
+  const { executeAsync: executeDisconnect, isExecuting: isDisconnecting } =
     useAction(disconnectDriveAction.bind(null, emailAccountId));
 
   const handleDisconnect = async () => {

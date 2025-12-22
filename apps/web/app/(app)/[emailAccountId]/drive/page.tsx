@@ -10,6 +10,7 @@ import { DriveConnections } from "./DriveConnections";
 import { FilingPreferences } from "./FilingPreferences";
 import { FilingActivity } from "./FilingActivity";
 import { DriveOnboarding } from "./DriveOnboarding";
+import { DriveSetupStep } from "./DriveSetupStep";
 import { Switch } from "@/components/ui/switch";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { useEmailAccountFull } from "@/hooks/useEmailAccountFull";
@@ -17,6 +18,8 @@ import { updateFilingEnabledAction } from "@/utils/actions/drive";
 import { toastError, toastSuccess } from "@/components/Toast";
 import { cn } from "@/utils";
 import { Badge } from "@/components/ui/badge";
+
+type DriveView = "onboarding" | "setup" | "settings";
 
 export default function DrivePage() {
   const { emailAccountId } = useAccount();
@@ -27,11 +30,17 @@ export default function DrivePage() {
     mutate: mutateEmail,
   } = useEmailAccountFull();
   const [forceOnboarding] = useQueryState("onboarding", parseAsBoolean);
+  const [forceSetup] = useQueryState("setup", parseAsBoolean);
 
   const hasConnections = (data?.connections?.length ?? 0) > 0;
   const filingEnabled = emailAccount?.filingEnabled ?? false;
   const [isSaving, setIsSaving] = useState(false);
-  const showOnboarding = !hasConnections || forceOnboarding === true;
+  const view = getDriveView(
+    hasConnections,
+    filingEnabled,
+    forceOnboarding,
+    forceSetup,
+  );
 
   const handleToggle = useCallback(
     async (checked: boolean) => {
@@ -59,9 +68,9 @@ export default function DrivePage() {
   return (
     <PageWrapper>
       <LoadingContent loading={isLoading || emailLoading} error={error}>
-        {showOnboarding ? (
-          <DriveOnboarding />
-        ) : (
+        {view === "onboarding" && <DriveOnboarding />}
+        {view === "setup" && <DriveSetupStep />}
+        {view === "settings" && (
           <>
             <div className="flex items-center justify-between">
               <PageHeader title="Auto-file attachments" />
@@ -90,4 +99,21 @@ export default function DrivePage() {
       </LoadingContent>
     </PageWrapper>
   );
+}
+
+function getDriveView(
+  hasConnections: boolean,
+  filingEnabled: boolean,
+  forceOnboarding: boolean | null,
+  forceSetup: boolean | null,
+): DriveView {
+  if (forceOnboarding === true || !hasConnections) {
+    return "onboarding";
+  }
+
+  if (forceSetup === true || (hasConnections && !filingEnabled)) {
+    return "setup";
+  }
+
+  return "settings";
 }

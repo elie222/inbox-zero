@@ -29,7 +29,7 @@ import {
   removeFilingFolderAction,
 } from "@/utils/actions/drive";
 
-interface FolderItem {
+export interface FolderItem {
   id: string;
   name: string;
   parentId?: string;
@@ -38,7 +38,7 @@ interface FolderItem {
   provider: string;
 }
 
-interface SavedFolder {
+export interface SavedFolder {
   id: string;
   folderId: string;
   folderName: string;
@@ -174,7 +174,7 @@ export function AllowedFolders({
   );
 }
 
-function FolderNode({
+export function FolderNode({
   folder,
   isLast,
   selectedFolderIds,
