@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useState } from "react";
+import { parseAsBoolean, useQueryState } from "nuqs";
 import { PageWrapper } from "@/components/PageWrapper";
 import { PageHeader } from "@/components/PageHeader";
 import { LoadingContent } from "@/components/LoadingContent";
@@ -25,10 +26,12 @@ export default function DrivePage() {
     isLoading: emailLoading,
     mutate: mutateEmail,
   } = useEmailAccountFull();
+  const [forceOnboarding] = useQueryState("onboarding", parseAsBoolean);
 
   const hasConnections = (data?.connections?.length ?? 0) > 0;
   const filingEnabled = emailAccount?.filingEnabled ?? false;
   const [isSaving, setIsSaving] = useState(false);
+  const showOnboarding = !hasConnections || forceOnboarding === true;
 
   const handleToggle = useCallback(
     async (checked: boolean) => {
@@ -56,7 +59,9 @@ export default function DrivePage() {
   return (
     <PageWrapper>
       <LoadingContent loading={isLoading || emailLoading} error={error}>
-        {hasConnections ? (
+        {showOnboarding ? (
+          <DriveOnboarding />
+        ) : (
           <>
             <div className="flex items-center justify-between">
               <PageHeader title="Auto-file attachments" />
@@ -81,8 +86,6 @@ export default function DrivePage() {
               <FilingActivity />
             </div>
           </>
-        ) : (
-          <DriveOnboarding />
         )}
       </LoadingContent>
     </PageWrapper>
