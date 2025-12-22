@@ -1009,8 +1009,8 @@ model DocumentFiling {
   attachmentId String
   filename     String
 
-  // Result (after filing)
-  folderId   String
+  // Result (after filing or prediction)
+  folderId   String?  // null if AI suggests creating a new folder
   folderPath String
   fileId     String?
   reasoning  String?
@@ -1023,7 +1023,11 @@ model DocumentFiling {
   originalPath String?
   correctedAt  DateTime?
 
-  notificationToken  String    @unique
+  // Feedback (for preview and corrections)
+  feedbackPositive Boolean?
+  feedbackAt       DateTime?
+
+  notificationToken  String?   @unique
   notificationSentAt DateTime?
 
   driveConnectionId String
@@ -1168,6 +1172,7 @@ enum DocumentFilingStatus {
   FILED // Document is filed (auto or after user confirmation)
   REJECTED // User said skip
   ERROR // Filing failed
+  PREVIEW // Preview feedback only (not filed)
 }
 
 // @deprecated - No longer used

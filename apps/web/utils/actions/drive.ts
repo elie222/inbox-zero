@@ -7,6 +7,7 @@ import {
   updateFilingEnabledBody,
   addFilingFolderBody,
   removeFilingFolderBody,
+  submitPreviewFeedbackBody,
 } from "@/utils/actions/drive.validation";
 import prisma from "@/utils/prisma";
 import { SafeError } from "@/utils/error";
@@ -111,3 +112,21 @@ export const removeFilingFolderAction = actionClient
       where: { emailAccountId, folderId },
     });
   });
+
+export const submitPreviewFeedbackAction = actionClient
+  .metadata({ name: "submitPreviewFeedback" })
+  .inputSchema(submitPreviewFeedbackBody)
+  .action(
+    async ({
+      ctx: { emailAccountId },
+      parsedInput: { filingId, feedbackPositive },
+    }) => {
+      await prisma.documentFiling.update({
+        where: { id: filingId, emailAccountId },
+        data: {
+          feedbackPositive,
+          feedbackAt: new Date(),
+        },
+      });
+    },
+  );

@@ -34,3 +34,11 @@ export const removeFilingFolderBody = z.object({
   folderId: z.string(),
 });
 export type RemoveFilingFolderBody = z.infer<typeof removeFilingFolderBody>;
+
+export const submitPreviewFeedbackBody = z.object({
+  filingId: z.string(),
+  feedbackPositive: z.boolean(),
+});
+export type SubmitPreviewFeedbackBody = z.infer<
+  typeof submitPreviewFeedbackBody
+>;
