@@ -1,5 +1,6 @@
 "use client";
 
+import { useCallback, useState } from "react";
 import { PageWrapper } from "@/components/PageWrapper";
 import { PageHeader } from "@/components/PageHeader";
 import { LoadingContent } from "@/components/LoadingContent";
@@ -11,9 +12,8 @@ import { DriveOnboarding } from "./DriveOnboarding";
 import { Switch } from "@/components/ui/switch";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { useEmailAccountFull } from "@/hooks/useEmailAccountFull";
-import { useAction } from "next-safe-action/hooks";
-import { updateFilingPreferencesAction } from "@/utils/actions/drive";
-import { toastError } from "@/components/Toast";
+import { updateFilingEnabledAction } from "@/utils/actions/drive";
+import { toastError, toastSuccess } from "@/components/Toast";
 import { cn } from "@/utils";
 import { Badge } from "@/components/ui/badge";
 
@@ -28,28 +28,30 @@ export default function DrivePage() {
 
   const hasConnections = (data?.connections?.length ?? 0) > 0;
   const filingEnabled = emailAccount?.filingEnabled ?? false;
+  const [isSaving, setIsSaving] = useState(false);
 
-  const { execute: savePreferences, isExecuting: isSaving } = useAction(
-    updateFilingPreferencesAction.bind(null, emailAccountId),
-    {
-      onSuccess: () => {
-        mutateEmail();
-      },
-      onError: (error) => {
+  const handleToggle = useCallback(
+    async (checked: boolean) => {
+      setIsSaving(true);
+
+      const result = await updateFilingEnabledAction(emailAccountId, {
+        filingEnabled: checked,
+      });
+
+      if (result?.serverError) {
         toastError({
           title: "Error saving preferences",
-          description: error.error.serverError || "Failed to save preferences",
+          description: result.serverError,
         });
-      },
-    },
-  );
+      } else {
+        toastSuccess({ description: "Preferences saved" });
+        mutateEmail();
+      }
 
-  const handleToggle = (checked: boolean) => {
-    savePreferences({
-      filingEnabled: checked,
-      filingPrompt: emailAccount?.filingPrompt,
-    });
-  };
+      setIsSaving(false);
+    },
+    [emailAccountId, mutateEmail],
+  );
 
   return (
     <PageWrapper>

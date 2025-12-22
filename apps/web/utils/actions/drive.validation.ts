@@ -5,13 +5,15 @@ export const disconnectDriveBody = z.object({
 });
 export type DisconnectDriveBody = z.infer<typeof disconnectDriveBody>;
 
-export const updateFilingPreferencesBody = z.object({
-  filingEnabled: z.boolean(),
+export const updateFilingPromptBody = z.object({
   filingPrompt: z.string().optional().nullable(),
 });
-export type UpdateFilingPreferencesBody = z.infer<
-  typeof updateFilingPreferencesBody
->;
+export type UpdateFilingPromptBody = z.infer<typeof updateFilingPromptBody>;
+
+export const updateFilingEnabledBody = z.object({
+  filingEnabled: z.boolean(),
+});
+export type UpdateFilingEnabledBody = z.infer<typeof updateFilingEnabledBody>;
 
 const filingFolderSchema = z.object({
   folderId: z.string(),

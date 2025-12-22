@@ -3,7 +3,8 @@
 import { actionClient } from "@/utils/actions/safe-action";
 import {
   disconnectDriveBody,
-  updateFilingPreferencesBody,
+  updateFilingPromptBody,
+  updateFilingEnabledBody,
   addFilingFolderBody,
   removeFilingFolderBody,
 } from "@/utils/actions/drive.validation";
@@ -32,20 +33,28 @@ export const disconnectDriveAction = actionClient
     },
   );
 
-export const updateFilingPreferencesAction = actionClient
-  .metadata({ name: "updateFilingPreferences" })
-  .inputSchema(updateFilingPreferencesBody)
+export const updateFilingPromptAction = actionClient
+  .metadata({ name: "updateFilingPrompt" })
+  .inputSchema(updateFilingPromptBody)
   .action(
-    async ({
-      ctx: { emailAccountId },
-      parsedInput: { filingEnabled, filingPrompt },
-    }) => {
+    async ({ ctx: { emailAccountId }, parsedInput: { filingPrompt } }) => {
       await prisma.emailAccount.update({
         where: { id: emailAccountId },
         data: {
-          filingEnabled,
           filingPrompt: filingPrompt || null,
         },
+      });
+    },
+  );
+
+export const updateFilingEnabledAction = actionClient
+  .metadata({ name: "updateFilingEnabled" })
+  .inputSchema(updateFilingEnabledBody)
+  .action(
+    async ({ ctx: { emailAccountId }, parsedInput: { filingEnabled } }) => {
+      await prisma.emailAccount.update({
+        where: { id: emailAccountId },
+        data: { filingEnabled },
       });
     },
   );

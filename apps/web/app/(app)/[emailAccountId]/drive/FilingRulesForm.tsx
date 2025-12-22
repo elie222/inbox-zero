@@ -13,10 +13,10 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/Input";
 import { toastSuccess, toastError } from "@/components/Toast";
-import { updateFilingPreferencesAction } from "@/utils/actions/drive";
+import { updateFilingPromptAction } from "@/utils/actions/drive";
 import {
-  updateFilingPreferencesBody,
-  type UpdateFilingPreferencesBody,
+  updateFilingPromptBody,
+  type UpdateFilingPromptBody,
 } from "@/utils/actions/drive.validation";
 
 export function FilingRulesForm({
@@ -32,8 +32,8 @@ export function FilingRulesForm({
     register,
     handleSubmit,
     formState: { errors },
-  } = useForm<UpdateFilingPreferencesBody>({
-    resolver: zodResolver(updateFilingPreferencesBody),
+  } = useForm<UpdateFilingPromptBody>({
+    resolver: zodResolver(updateFilingPromptBody),
     defaultValues: {
       filingPrompt: initialPrompt,
     },
@@ -41,11 +41,11 @@ export function FilingRulesForm({
 
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const onSubmit: SubmitHandler<UpdateFilingPreferencesBody> = useCallback(
+  const onSubmit: SubmitHandler<UpdateFilingPromptBody> = useCallback(
     async (data) => {
       setIsSubmitting(true);
 
-      const result = await updateFilingPreferencesAction(emailAccountId, data);
+      const result = await updateFilingPromptAction(emailAccountId, data);
 
       if (result?.serverError) {
         toastError({
