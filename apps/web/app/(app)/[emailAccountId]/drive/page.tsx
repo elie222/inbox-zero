@@ -15,6 +15,7 @@ import { useAction } from "next-safe-action/hooks";
 import { updateFilingPreferencesAction } from "@/utils/actions/drive";
 import { toastError } from "@/components/Toast";
 import { cn } from "@/utils";
+import { Badge } from "@/components/ui/badge";
 
 export default function DrivePage() {
   const { emailAccountId } = useAccount();
@@ -58,11 +59,7 @@ export default function DrivePage() {
             <div className="flex items-center justify-between">
               <PageHeader title="Auto-file attachments" />
               <div className="flex items-center gap-3">
-                {!filingEnabled && (
-                  <span className="text-sm text-orange-600 font-medium">
-                    Paused
-                  </span>
-                )}
+                {!filingEnabled && <Badge variant="destructive">Paused</Badge>}
                 <Switch
                   checked={filingEnabled}
                   onCheckedChange={handleToggle}
