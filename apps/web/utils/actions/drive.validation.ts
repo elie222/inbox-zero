@@ -42,3 +42,10 @@ export const submitPreviewFeedbackBody = z.object({
 export type SubmitPreviewFeedbackBody = z.infer<
   typeof submitPreviewFeedbackBody
 >;
+
+export const moveFilingBody = z.object({
+  filingId: z.string(),
+  targetFolderId: z.string(),
+  targetFolderPath: z.string(),
+});
+export type MoveFilingBody = z.infer<typeof moveFilingBody>;

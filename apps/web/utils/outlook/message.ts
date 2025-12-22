@@ -9,7 +9,7 @@ import type { Logger } from "@/utils/logger";
 
 // Standard fields to select when fetching messages from Microsoft Graph API
 export const MESSAGE_SELECT_FIELDS =
-  "id,conversationId,conversationIndex,subject,bodyPreview,from,sender,toRecipients,ccRecipients,receivedDateTime,isDraft,isRead,body,categories,parentFolderId";
+  "id,conversationId,conversationIndex,subject,bodyPreview,from,sender,toRecipients,ccRecipients,receivedDateTime,isDraft,isRead,body,categories,parentFolderId,hasAttachments";
 
 // Well-known folder names in Outlook that are consistent across all languages
 export const WELL_KNOWN_FOLDERS = {
@@ -466,7 +466,11 @@ export async function getMessages(
  * Returns a typed request builder that can be chained with .filter(), .top(), etc.
  */
 export function createMessagesRequest(client: OutlookClient) {
-  return client.getClient().api("/me/messages").select(MESSAGE_SELECT_FIELDS);
+  return client
+    .getClient()
+    .api("/me/messages")
+    .select(MESSAGE_SELECT_FIELDS)
+    .expand("attachments($select=id,name,contentType,size)");
 }
 
 /**
@@ -507,7 +511,7 @@ function formatRecipientsList(
 }
 
 export function convertMessage(
-  message: Message,
+  message: Message & { attachments?: OutlookAttachment[] },
   folderIds: Record<string, string> = {},
 ): ParsedMessage {
   const bodyContent = message.body?.content || "";
@@ -515,6 +519,19 @@ export function convertMessage(
     | "text"
     | "html"
     | undefined;
+
+  const attachments = (message.attachments || [])
+    .filter((att) => att["@odata.type"] === "#microsoft.graph.fileAttachment")
+    .map((att) => ({
+      filename: att.name || "unknown",
+      mimeType: att.contentType || "application/octet-stream",
+      size: att.size || 0,
+      attachmentId: att.id || "",
+      headers: {
+        "content-type": att.contentType || "",
+        "content-description": att.name || "",
+      },
+    }));
 
   return {
     id: message.id || "",
@@ -540,6 +557,7 @@ export function convertMessage(
     internalDate: message.receivedDateTime || new Date().toISOString(),
     historyId: "",
     inline: [],
+    attachments: attachments.length > 0 ? attachments : undefined,
     conversationIndex: message.conversationIndex,
     rawRecipients: {
       from: message.from,
@@ -548,3 +566,11 @@ export function convertMessage(
     },
   };
 }
+
+type OutlookAttachment = {
+  "@odata.type"?: string;
+  id?: string;
+  name?: string;
+  contentType?: string;
+  size?: number;
+};

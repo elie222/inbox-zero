@@ -190,6 +190,34 @@ export class GoogleDriveProvider implements DriveProvider {
     }
   }
 
+  async moveFile(fileId: string, targetFolderId: string): Promise<DriveFile> {
+    this.logger.info("Moving file", { fileId, targetFolderId });
+
+    try {
+      // First get current parents
+      const file = await this.client.files.get({
+        fileId,
+        fields: "parents",
+      });
+
+      const previousParents = file.data.parents?.join(",") || "";
+
+      // Move by updating parents
+      const response = await this.client.files.update({
+        fileId,
+        addParents: targetFolderId,
+        removeParents: previousParents,
+        fields: "id, name, mimeType, size, parents, webViewLink, createdTime",
+      });
+
+      this.logger.info("File moved", { fileId, targetFolderId });
+      return this.convertToFile(response.data);
+    } catch (error) {
+      this.logger.error("Error moving file", { error, fileId, targetFolderId });
+      throw error;
+    }
+  }
+
   // -------------------------------------------------------------------------
   // Helpers
   // -------------------------------------------------------------------------

@@ -2,18 +2,22 @@ import { NextResponse } from "next/server";
 import prisma from "@/utils/prisma";
 import { withEmailProvider } from "@/utils/middleware";
 import { SafeError } from "@/utils/error";
-import { getExtractableAttachments } from "@/utils/drive/filing-engine";
-import { extractTextFromDocument } from "@/utils/drive/document-extraction";
-import { analyzeDocument } from "@/utils/ai/document-filing/analyze-document";
+import {
+  getExtractableAttachments,
+  processAttachment,
+} from "@/utils/drive/filing-engine";
 import type { ParsedMessage, Attachment } from "@/utils/types";
 import type { EmailProvider } from "@/utils/email/types";
 import type { Logger } from "@/utils/logger";
+import type { DriveProviderType } from "@/utils/drive/types";
 
-export type FilingPreviewPrediction = {
+export type FilingPreviewResult = {
   filingId: string;
   filename: string;
-  emailSubject: string;
-  predictedFolder: string;
+  folderPath: string;
+  fileId: string | null;
+  filedAt: string;
+  provider: DriveProviderType;
 };
 
 export type GetFilingPreviewResponse = Awaited<
@@ -21,7 +25,7 @@ export type GetFilingPreviewResponse = Awaited<
 >;
 
 const MAX_MESSAGES_TO_FETCH = 20;
-const MAX_PREDICTIONS = 3;
+const MAX_FILINGS = 3;
 
 export const GET = withEmailProvider(async (request) => {
   const { emailAccountId } = request.auth;
@@ -54,6 +58,7 @@ async function getPreviewData({
       multiRuleSelectionEnabled: true,
       timezone: true,
       calendarBookingLink: true,
+      filingEnabled: true,
       filingPrompt: true,
       user: {
         select: {
@@ -110,7 +115,7 @@ async function getPreviewData({
 
   const messagesWithAttachments = findMessagesWithExtractableAttachments(
     messages,
-    MAX_PREDICTIONS,
+    MAX_FILINGS,
   );
 
   logger.info("Extractable attachments found", {
@@ -122,31 +127,27 @@ async function getPreviewData({
 
   if (messagesWithAttachments.length === 0) {
     logger.info("No extractable attachments found - returning empty");
-    return { predictions: [], noAttachmentsFound: true };
+    return { filings: [], noAttachmentsFound: true };
   }
 
-  const folders = emailAccount.filingFolders.map((f) => ({
-    id: f.folderId,
-    name: f.folderName,
-    path: f.folderPath,
-    driveProvider: f.driveConnection.provider,
-  }));
+  const driveProvider = emailAccount.driveConnections[0]
+    .provider as DriveProviderType;
 
-  const driveConnectionId = emailAccount.driveConnections[0].id;
-
-  const predictions = await generatePredictions({
+  const filings = await fileAttachments({
     messagesWithAttachments,
-    emailAccount: { ...emailAccount, filingPrompt: emailAccount.filingPrompt },
-    folders,
+    emailAccount: {
+      ...emailAccount,
+      filingEnabled: true,
+      filingPrompt: emailAccount.filingPrompt,
+    },
     emailProvider,
-    emailAccountId,
-    driveConnectionId,
+    driveProvider,
     logger,
   });
 
   return {
-    predictions,
-    noAttachmentsFound: predictions.length === 0,
+    filings,
+    noAttachmentsFound: filings.length === 0,
   };
 }
 
@@ -168,121 +169,69 @@ function findMessagesWithExtractableAttachments(
   return result;
 }
 
-async function generatePredictions({
+async function fileAttachments({
   messagesWithAttachments,
   emailAccount,
-  folders,
   emailProvider,
-  emailAccountId,
-  driveConnectionId,
+  driveProvider,
   logger,
 }: {
   messagesWithAttachments: Array<{
     message: ParsedMessage;
     attachments: Attachment[];
   }>;
-  emailAccount: Parameters<typeof analyzeDocument>[0]["emailAccount"];
-  folders: Array<{
-    id: string;
-    name: string;
-    path: string;
-    driveProvider: string;
-  }>;
+  emailAccount: Parameters<typeof processAttachment>[0]["emailAccount"];
   emailProvider: EmailProvider;
-  emailAccountId: string;
-  driveConnectionId: string;
+  driveProvider: DriveProviderType;
   logger: Logger;
-}): Promise<FilingPreviewPrediction[]> {
-  const predictions: FilingPreviewPrediction[] = [];
+}): Promise<FilingPreviewResult[]> {
+  const filings: FilingPreviewResult[] = [];
 
   for (const { message, attachments } of messagesWithAttachments) {
     const attachment = attachments[0];
 
     try {
-      logger.info("Processing attachment for preview", {
+      logger.info("Filing attachment for preview", {
         messageId: message.id,
         filename: attachment.filename,
       });
 
-      const attachmentData = await emailProvider.getAttachment(
-        message.id,
-        attachment.attachmentId,
-      );
-      const buffer = Buffer.from(attachmentData.data, "base64");
-
-      const extraction = await extractTextFromDocument(
-        buffer,
-        attachment.mimeType,
-        { logger },
-      );
-
-      if (!extraction) {
-        logger.warn("Could not extract text from attachment", {
-          filename: attachment.filename,
-        });
-        continue;
-      }
-
-      const analysis = await analyzeDocument({
+      const result = await processAttachment({
         emailAccount,
-        email: {
-          subject: message.headers.subject || message.subject,
-          sender: message.headers.from,
-        },
-        attachment: {
-          filename: attachment.filename,
-          content: extraction.text,
-        },
-        folders,
+        message,
+        attachment,
+        emailProvider,
+        logger,
+        sendNotification: false,
       });
 
-      let predictedFolder = analysis.folderPath || "Unknown";
-      let folderId: string | null = null;
+      if (result.success && result.filing) {
+        filings.push({
+          filingId: result.filing.id,
+          filename: result.filing.filename,
+          folderPath: result.filing.folderPath,
+          fileId: result.filing.fileId,
+          filedAt: new Date().toISOString(),
+          provider: driveProvider,
+        });
 
-      if (analysis.action === "use_existing" && analysis.folderId) {
-        const folder = folders.find((f) => f.id === analysis.folderId);
-        if (folder) {
-          predictedFolder = folder.path;
-          folderId = folder.id;
-        }
+        logger.info("Preview filing complete", { filingId: result.filing.id });
+        logger.trace("Preview filing complete", {
+          filename: result.filing.filename,
+          folderPath: result.filing.folderPath,
+        });
+      } else {
+        logger.warn("Failed to file attachment for preview", {
+          error: result.error,
+        });
       }
-
-      const filing = await prisma.documentFiling.create({
-        data: {
-          messageId: message.id,
-          attachmentId: attachment.attachmentId,
-          filename: attachment.filename,
-          folderId,
-          folderPath: predictedFolder,
-          confidence: analysis.confidence,
-          reasoning: analysis.reasoning,
-          status: "PREVIEW",
-          driveConnectionId,
-          emailAccountId,
-        },
-      });
-
-      predictions.push({
-        filingId: filing.id,
-        filename: attachment.filename,
-        emailSubject: message.headers.subject || message.subject,
-        predictedFolder,
-      });
-
-      logger.info("Preview prediction complete", {
-        filingId: filing.id,
-        filename: attachment.filename,
-        predictedFolder,
-        confidence: analysis.confidence,
-      });
     } catch (attachmentError) {
-      logger.error("Error processing attachment for preview", {
+      logger.error("Error filing attachment for preview", {
         messageId: message.id,
-        filename: attachment.filename,
         error: attachmentError,
       });
     }
   }
 
-  return predictions;
+  return filings;
 }

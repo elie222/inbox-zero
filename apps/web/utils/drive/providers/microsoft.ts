@@ -187,6 +187,22 @@ export class OneDriveProvider implements DriveProvider {
     }
   }
 
+  async moveFile(fileId: string, targetFolderId: string): Promise<DriveFile> {
+    this.logger.info("Moving file", { fileId, targetFolderId });
+
+    try {
+      const item: DriveItem = await this.client
+        .api(`/me/drive/items/${fileId}`)
+        .patch({ parentReference: { id: targetFolderId } });
+
+      this.logger.info("File moved", { fileId, targetFolderId });
+      return this.convertToFile(item);
+    } catch (error) {
+      this.logger.error("Error moving file", { error, fileId, targetFolderId });
+      throw error;
+    }
+  }
+
   // -------------------------------------------------------------------------
   // Helpers
   // -------------------------------------------------------------------------

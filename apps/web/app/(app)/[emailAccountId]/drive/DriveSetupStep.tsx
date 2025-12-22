@@ -6,6 +6,14 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { CheckIcon, XIcon } from "lucide-react";
 import { TypographyH3, SectionDescription } from "@/components/Typography";
 import { Button } from "@/components/ui/button";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { Input } from "@/components/Input";
 import { toastSuccess, toastError } from "@/components/Toast";
 import { TreeProvider, TreeView } from "@/components/kibo-ui/tree";
@@ -19,7 +27,7 @@ import {
   removeFilingFolderAction,
   updateFilingPromptAction,
   updateFilingEnabledAction,
-  submitPreviewFeedbackAction,
+  moveFilingAction,
 } from "@/utils/actions/drive";
 import {
   updateFilingPromptBody,
@@ -31,7 +39,7 @@ import {
   type SavedFolder,
 } from "./AllowedFolders";
 import { DriveConnectionCard, getProviderInfo } from "./DriveConnectionCard";
-import type { FilingPreviewPrediction } from "@/app/api/user/drive/preview/route";
+import type { FilingPreviewResult } from "@/app/api/user/drive/preview/route";
 
 type SetupPhase = "setup" | "loading-preview" | "preview" | "starting";
 
@@ -136,6 +144,7 @@ export function DriveSetupStep() {
             <PreviewContent
               emailAccountId={emailAccountId}
               data={previewData}
+              availableFolders={foldersData?.availableFolders || []}
               onStartFiling={handleStartFiling}
               isStarting={displayPhase === "starting"}
             />
@@ -194,11 +203,13 @@ function SetupActions({
 function PreviewContent({
   emailAccountId,
   data,
+  availableFolders,
   onStartFiling,
   isStarting,
 }: {
   emailAccountId: string;
-  data: { predictions: FilingPreviewPrediction[]; noAttachmentsFound: boolean };
+  data: { filings: FilingPreviewResult[]; noAttachmentsFound: boolean };
+  availableFolders: FolderItem[];
   onStartFiling: () => void;
   isStarting: boolean;
 }) {
@@ -211,7 +222,8 @@ function PreviewContent({
   return (
     <PreviewResults
       emailAccountId={emailAccountId}
-      predictions={data.predictions}
+      filings={data.filings}
+      availableFolders={availableFolders}
       onStartFiling={onStartFiling}
       isStarting={isStarting}
     />
@@ -239,57 +251,49 @@ function NoAttachmentsMessage({
 
 function PreviewResults({
   emailAccountId,
-  predictions,
+  filings,
+  availableFolders,
   onStartFiling,
   isStarting,
 }: {
   emailAccountId: string;
-  predictions: FilingPreviewPrediction[];
+  filings: FilingPreviewResult[];
+  availableFolders: FolderItem[];
   onStartFiling: () => void;
   isStarting: boolean;
 }) {
-  const [feedback, setFeedback] = useState<Record<string, boolean | null>>({});
-
-  const handleVote = useCallback(
-    async (filingId: string, isPositive: boolean) => {
-      setFeedback((prev) => ({ ...prev, [filingId]: isPositive }));
-      await submitPreviewFeedbackAction(emailAccountId, {
-        filingId,
-        feedbackPositive: isPositive,
-      });
-    },
-    [emailAccountId],
-  );
+  const [correctingId, setCorrectingId] = useState<string | null>(null);
 
   return (
     <div>
       <h3 className="text-lg font-semibold">3. See it in action</h3>
       <p className="mt-1 text-sm text-muted-foreground">
-        Here's how we'd file your recent attachments
+        We filed your {filings.length} most recent attachments:
       </p>
 
-      <div className="mt-4 overflow-hidden rounded-lg border">
-        <table className="w-full">
-          <thead className="bg-muted/50">
-            <tr>
-              <th className="px-4 py-3 text-left text-sm font-medium">File</th>
-              <th className="px-4 py-3 text-left text-sm font-medium">
-                Destination
-              </th>
-              <th className="px-4 py-3 text-right text-sm font-medium">Vote</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y">
-            {predictions.map((prediction) => (
-              <PredictionRow
-                key={prediction.filingId}
-                prediction={prediction}
-                vote={feedback[prediction.filingId]}
-                onVote={handleVote}
+      <div className="mt-4 rounded-lg border">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>File</TableHead>
+              <TableHead>Folder</TableHead>
+              <TableHead className="w-[100px] text-right">Correct?</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {filings.map((filing) => (
+              <FilingRow
+                key={filing.filingId}
+                emailAccountId={emailAccountId}
+                filing={filing}
+                availableFolders={availableFolders}
+                isCorrectingThis={correctingId === filing.filingId}
+                onCorrectClick={() => setCorrectingId(filing.filingId)}
+                onCancelCorrect={() => setCorrectingId(null)}
               />
             ))}
-          </tbody>
-        </table>
+          </TableBody>
+        </Table>
       </div>
 
       <p className="mt-3 text-center text-xs text-muted-foreground">
@@ -297,7 +301,7 @@ function PreviewResults({
       </p>
 
       <div className="mt-6 flex flex-col items-center gap-2">
-        <Button onClick={onStartFiling} loading={isStarting} size="lg">
+        <Button onClick={onStartFiling} loading={isStarting}>
           Looks good, start auto-filing
         </Button>
         <p className="text-xs text-muted-foreground">
@@ -308,62 +312,135 @@ function PreviewResults({
   );
 }
 
-function PredictionRow({
-  prediction,
-  vote,
-  onVote,
+function FilingRow({
+  emailAccountId,
+  filing,
+  availableFolders,
+  isCorrectingThis,
+  onCorrectClick,
+  onCancelCorrect,
 }: {
-  prediction: FilingPreviewPrediction;
-  vote: boolean | null | undefined;
-  onVote: (filingId: string, isPositive: boolean) => void;
+  emailAccountId: string;
+  filing: FilingPreviewResult;
+  availableFolders: FolderItem[];
+  isCorrectingThis: boolean;
+  onCorrectClick: () => void;
+  onCancelCorrect: () => void;
 }) {
+  const [folderPath, setFolderPath] = useState(filing.folderPath);
+  const [isMoving, setIsMoving] = useState(false);
+  const [vote, setVote] = useState<boolean | null>(null);
+
+  const handleMoveToFolder = useCallback(
+    async (folder: FolderItem) => {
+      const newPath = folder.path || folder.name;
+      setIsMoving(true);
+
+      try {
+        await moveFilingAction(emailAccountId, {
+          filingId: filing.filingId,
+          targetFolderId: folder.id,
+          targetFolderPath: newPath,
+        });
+        setFolderPath(newPath);
+        setVote(true);
+        toastSuccess({ description: `Moved to ${folder.name}` });
+      } catch {
+        toastError({ description: "Failed to move file" });
+      } finally {
+        setIsMoving(false);
+        onCancelCorrect();
+      }
+    },
+    [emailAccountId, filing.filingId, onCancelCorrect],
+  );
+
+  const handleCorrectClick = useCallback(() => {
+    setVote(true);
+  }, []);
+
+  const handleWrongClick = useCallback(() => {
+    setVote(false);
+    onCorrectClick();
+  }, [onCorrectClick]);
+
+  if (isCorrectingThis) {
+    return (
+      <TableRow>
+        <TableCell colSpan={3}>
+          <div className="space-y-3">
+            <p className="text-sm font-medium">{filing.filename}</p>
+            <p className="text-sm text-muted-foreground">
+              Select the correct folder:
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {availableFolders.slice(0, 10).map((folder) => (
+                <Button
+                  key={folder.id}
+                  variant={folder.path === folderPath ? "default" : "outline"}
+                  size="sm"
+                  disabled={isMoving}
+                  onClick={() => handleMoveToFolder(folder)}
+                >
+                  {folder.name}
+                </Button>
+              ))}
+            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onCancelCorrect}
+              disabled={isMoving}
+            >
+              Cancel
+            </Button>
+          </div>
+        </TableCell>
+      </TableRow>
+    );
+  }
+
   return (
-    <tr className="bg-background">
-      <td className="px-4 py-3">
-        <div className="font-medium text-sm truncate max-w-[200px]">
-          {prediction.filename}
-        </div>
-        <div className="text-xs text-muted-foreground truncate max-w-[200px]">
-          {prediction.emailSubject}
-        </div>
-      </td>
-      <td className="px-4 py-3">
-        <div className="flex items-center gap-1.5 text-sm">
-          <span className="text-muted-foreground">→</span>
-          <span className="truncate max-w-[180px]">
-            {prediction.predictedFolder}
-          </span>
-        </div>
-      </td>
-      <td className="px-4 py-3">
+    <TableRow>
+      <TableCell>
+        <span className="font-medium truncate max-w-[200px] block">
+          {filing.filename}
+        </span>
+      </TableCell>
+      <TableCell>
+        <span className="text-muted-foreground truncate max-w-[200px] block">
+          {folderPath}
+        </span>
+      </TableCell>
+      <TableCell>
         <div className="flex items-center justify-end gap-1">
           <button
             type="button"
-            onClick={() => onVote(prediction.filingId, true)}
+            onClick={handleCorrectClick}
             className={`rounded-full p-1.5 transition-colors ${
               vote === true
                 ? "bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400"
                 : "text-muted-foreground hover:bg-muted hover:text-foreground"
             }`}
-            aria-label="Correct prediction"
+            aria-label="Correct"
           >
             <CheckIcon className="size-4" />
           </button>
           <button
             type="button"
-            onClick={() => onVote(prediction.filingId, false)}
+            onClick={handleWrongClick}
             className={`rounded-full p-1.5 transition-colors ${
               vote === false
                 ? "bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400"
                 : "text-muted-foreground hover:bg-muted hover:text-foreground"
             }`}
-            aria-label="Wrong prediction"
+            aria-label="Wrong"
           >
             <XIcon className="size-4" />
           </button>
         </div>
-      </td>
-    </tr>
+      </TableCell>
+    </TableRow>
   );
 }
 

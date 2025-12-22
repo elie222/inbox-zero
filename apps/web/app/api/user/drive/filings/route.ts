@@ -43,6 +43,7 @@ async function getFilings({
         id: true,
         filename: true,
         folderPath: true,
+        fileId: true,
         status: true,
         confidence: true,
         reasoning: true,

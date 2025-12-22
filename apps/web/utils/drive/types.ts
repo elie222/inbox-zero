@@ -2,6 +2,8 @@
 // Core Drive Types
 // ============================================================================
 
+export type DriveProviderType = "google" | "microsoft";
+
 export interface DriveFolder {
   id: string;
   name: string;
@@ -40,7 +42,7 @@ export interface UploadFileParams {
  * the filing as rejected in our database - the file stays in their drive.
  */
 export interface DriveProvider {
-  readonly name: "google" | "microsoft";
+  readonly name: DriveProviderType;
 
   /**
    * For serialization/debugging
@@ -79,6 +81,11 @@ export interface DriveProvider {
    * Get file metadata by ID
    */
   getFile(fileId: string): Promise<DriveFile | null>;
+
+  /**
+   * Move a file to a different folder
+   */
+  moveFile(fileId: string, targetFolderId: string): Promise<DriveFile>;
 
   // -------------------------------------------------------------------------
   // Token Management

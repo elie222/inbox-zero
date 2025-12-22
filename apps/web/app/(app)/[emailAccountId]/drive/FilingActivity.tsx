@@ -1,20 +1,19 @@
 "use client";
 
 import { formatDistanceToNow } from "date-fns";
-import {
-  FileIcon,
-  CheckCircle2Icon,
-  XCircleIcon,
-  ClockIcon,
-  AlertCircleIcon,
-  ArrowRightIcon,
-  CornerDownRightIcon,
-} from "lucide-react";
-import { Badge } from "@/components/ui/badge";
+import { ExternalLinkIcon } from "lucide-react";
 import { LoadingContent } from "@/components/LoadingContent";
 import { SectionHeader } from "@/components/Typography";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { useFilingActivity } from "@/hooks/useFilingActivity";
-import { isGoogleProvider } from "@/utils/email/provider-types";
+import { getDriveFileUrl } from "@/utils/drive/url";
 import type { GetFilingsResponse } from "@/app/api/user/drive/filings/route";
 
 type Filing = GetFilingsResponse["filings"][number];
@@ -31,12 +30,24 @@ export function FilingActivity() {
             No recently filed documents.
           </p>
         ) : (
-          <div className="space-y-3">
-            {data?.filings.map((filing) => (
-              <FilingItem key={filing.id} filing={filing} />
-            ))}
+          <div className="rounded-lg border">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>File</TableHead>
+                  <TableHead>Folder</TableHead>
+                  <TableHead className="w-[100px]">When</TableHead>
+                  <TableHead className="w-[50px]" />
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {data?.filings.map((filing) => (
+                  <FilingRow key={filing.id} filing={filing} />
+                ))}
+              </TableBody>
+            </Table>
             {data && data.total > 10 && (
-              <p className="text-sm text-muted-foreground">
+              <p className="p-3 text-sm text-muted-foreground border-t">
                 Showing {data.filings.length} of {data.total} filings
               </p>
             )}
@@ -47,73 +58,40 @@ export function FilingActivity() {
   );
 }
 
-function FilingItem({ filing }: { filing: Filing }) {
-  return (
-    <div className="flex items-start gap-3 rounded-lg border p-3">
-      <div className="mt-0.5">
-        <StatusIcon status={filing.status} />
-      </div>
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2">
-          <span className="font-medium truncate">{filing.filename}</span>
-          {filing.wasCorrected && (
-            <Badge variant="outline" className="text-xs">
-              Corrected
-            </Badge>
-          )}
-          {filing.wasAsked && filing.status === "PENDING" && (
-            <Badge variant="secondary" className="text-xs">
-              Waiting
-            </Badge>
-          )}
-        </div>
-        <div className="flex items-center gap-1 text-sm text-muted-foreground mt-1">
-          <ArrowRightIcon className="h-3 w-3" />
-          <span className="truncate">{filing.folderPath}</span>
-        </div>
-        {filing.wasCorrected && filing.originalPath && (
-          <div className="flex items-center gap-1 text-xs text-muted-foreground mt-0.5">
-            <CornerDownRightIcon className="h-3 w-3" />
-            <span className="line-through truncate">{filing.originalPath}</span>
-          </div>
-        )}
-        <div className="flex items-center gap-2 mt-1.5">
-          <span className="text-xs text-muted-foreground">
-            {formatDistanceToNow(new Date(filing.createdAt), {
-              addSuffix: true,
-            })}
-          </span>
-          <span className="text-xs text-muted-foreground">•</span>
-          <span className="text-xs text-muted-foreground">
-            {isGoogleProvider(filing.driveConnection.provider)
-              ? "Google Drive"
-              : "OneDrive"}
-          </span>
-          {filing.confidence !== null && (
-            <>
-              <span className="text-xs text-muted-foreground">•</span>
-              <span className="text-xs text-muted-foreground">
-                {Math.round(filing.confidence * 100)}% confidence
-              </span>
-            </>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
+function FilingRow({ filing }: { filing: Filing }) {
+  const driveUrl = filing.fileId
+    ? getDriveFileUrl(filing.fileId, filing.driveConnection.provider)
+    : null;
 
-function StatusIcon({ status }: { status: Filing["status"] }) {
-  switch (status) {
-    case "FILED":
-      return <CheckCircle2Icon className="h-5 w-5 text-green-500" />;
-    case "PENDING":
-      return <ClockIcon className="h-5 w-5 text-yellow-500" />;
-    case "REJECTED":
-      return <XCircleIcon className="h-5 w-5 text-gray-400" />;
-    case "ERROR":
-      return <AlertCircleIcon className="h-5 w-5 text-red-500" />;
-    default:
-      return <FileIcon className="h-5 w-5 text-gray-400" />;
-  }
+  return (
+    <TableRow>
+      <TableCell>
+        <span className="font-medium truncate max-w-[200px] block">
+          {filing.filename}
+        </span>
+      </TableCell>
+      <TableCell>
+        <span className="text-muted-foreground truncate max-w-[200px] block">
+          {filing.folderPath}
+        </span>
+      </TableCell>
+      <TableCell>
+        <span className="text-muted-foreground text-xs">
+          {formatDistanceToNow(new Date(filing.createdAt), { addSuffix: true })}
+        </span>
+      </TableCell>
+      <TableCell>
+        {driveUrl && (
+          <a
+            href={driveUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-muted-foreground hover:text-foreground"
+          >
+            <ExternalLinkIcon className="size-4" />
+          </a>
+        )}
+      </TableCell>
+    </TableRow>
+  );
 }
