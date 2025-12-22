@@ -1,46 +1,11 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
-import { useForm, type SubmitHandler } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import useSWR from "swr";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
-import { Checkbox } from "@/components/ui/checkbox";
 import { LoadingContent } from "@/components/LoadingContent";
-import { toastSuccess, toastError } from "@/components/Toast";
-import {
-  TreeProvider,
-  TreeView,
-  TreeNode,
-  TreeNodeTrigger,
-  TreeNodeContent,
-  TreeExpander,
-  TreeIcon,
-  TreeLabel,
-  useTree,
-} from "@/components/kibo-ui/tree";
-import { Loader2Icon } from "lucide-react";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { useEmailAccountFull } from "@/hooks/useEmailAccountFull";
 import { useDriveFolders } from "@/hooks/useDriveFolders";
-import type { GetSubfoldersResponse } from "@/app/api/user/drive/folders/[folderId]/route";
-import {
-  updateFilingPreferencesAction,
-  addFilingFolderAction,
-  removeFilingFolderAction,
-} from "@/utils/actions/drive";
-import {
-  updateFilingPreferencesBody,
-  type UpdateFilingPreferencesBody,
-} from "@/utils/actions/drive.validation";
+import { FilingRulesForm } from "./FilingRulesForm";
+import { AllowedFolders } from "./AllowedFolders";
 
 export function FilingPreferences() {
   const { emailAccountId } = useAccount();
@@ -59,330 +24,27 @@ export function FilingPreferences() {
     mutate: mutateFolders,
   } = useDriveFolders();
 
-  const isLoading = emailLoading || foldersLoading;
-  const error = emailError || foldersError;
-
-  return (
-    <LoadingContent loading={isLoading} error={error}>
-      {emailAccount && foldersData && (
-        <FilingPreferencesForm
-          emailAccountId={emailAccountId}
-          initialPrompt={emailAccount.filingPrompt || ""}
-          availableFolders={foldersData.availableFolders}
-          savedFolders={foldersData.savedFolders}
-          mutateEmail={mutateEmail}
-          mutateFolders={mutateFolders}
-        />
-      )}
-    </LoadingContent>
-  );
-}
-
-interface FolderItem {
-  id: string;
-  name: string;
-  parentId?: string;
-  path?: string;
-  driveConnectionId: string;
-  provider: string;
-}
-
-interface SavedFolder {
-  id: string;
-  folderId: string;
-  folderName: string;
-  folderPath: string;
-  driveConnectionId: string;
-  provider: string;
-}
-
-function FilingPreferencesForm({
-  emailAccountId,
-  initialPrompt,
-  availableFolders,
-  savedFolders,
-  mutateEmail,
-  mutateFolders,
-}: {
-  emailAccountId: string;
-  initialPrompt: string;
-  availableFolders: FolderItem[];
-  savedFolders: SavedFolder[];
-  mutateEmail: () => void;
-  mutateFolders: () => void;
-}) {
-  const {
-    register,
-    handleSubmit,
-    formState: { errors, isDirty },
-  } = useForm<UpdateFilingPreferencesBody>({
-    resolver: zodResolver(updateFilingPreferencesBody),
-    defaultValues: {
-      filingPrompt: initialPrompt,
-    },
-  });
-
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isFolderBusy, setIsFolderBusy] = useState(false);
-
-  const handleFolderToggle = useCallback(
-    async (folder: FolderItem, isChecked: boolean) => {
-      const folderPath = folder.path || folder.name;
-      setIsFolderBusy(true);
-
-      try {
-        if (isChecked) {
-          const result = await addFilingFolderAction(emailAccountId, {
-            folderId: folder.id,
-            folderName: folder.name,
-            folderPath,
-            driveConnectionId: folder.driveConnectionId,
-          });
-
-          if (result?.serverError) {
-            toastError({
-              title: "Error adding folder",
-              description: result.serverError,
-            });
-          } else {
-            mutateFolders();
-          }
-        } else {
-          const result = await removeFilingFolderAction(emailAccountId, {
-            folderId: folder.id,
-          });
-
-          if (result?.serverError) {
-            toastError({
-              title: "Error removing folder",
-              description: result.serverError,
-            });
-          } else {
-            mutateFolders();
-          }
-        }
-      } finally {
-        setIsFolderBusy(false);
-      }
-    },
-    [emailAccountId, mutateFolders],
-  );
-
-  const onSubmit: SubmitHandler<UpdateFilingPreferencesBody> = useCallback(
-    async (data) => {
-      setIsSubmitting(true);
-
-      const result = await updateFilingPreferencesAction(emailAccountId, data);
-
-      if (result?.serverError) {
-        toastError({
-          title: "Error saving rules",
-          description: result.serverError,
-        });
-      } else {
-        toastSuccess({ description: "Filing rules saved" });
-        mutateEmail();
-      }
-
-      setIsSubmitting(false);
-    },
-    [emailAccountId, mutateEmail],
-  );
-
-  const rootFolders = useMemo(() => {
-    const folderMap = new Map<string, FolderItem>();
-    const roots: FolderItem[] = [];
-
-    for (const folder of availableFolders) {
-      folderMap.set(folder.id, folder);
-    }
-
-    for (const folder of availableFolders) {
-      if (!folder.parentId || !folderMap.has(folder.parentId)) {
-        roots.push(folder);
-      }
-    }
-
-    return roots;
-  }, [availableFolders]);
-
-  const folderChildrenMap = useMemo(() => {
-    const map = new Map<string, FolderItem[]>();
-    for (const folder of availableFolders) {
-      if (folder.parentId) {
-        if (!map.has(folder.parentId)) map.set(folder.parentId, []);
-        map.get(folder.parentId)!.push(folder);
-      }
-    }
-    return map;
-  }, [availableFolders]);
-
-  const savedFolderIds = new Set(savedFolders.map((f) => f.folderId));
-
   return (
     <div className="grid gap-4 md:grid-cols-2">
-      <Card size="sm">
-        <CardHeader className="pb-3">
-          <CardTitle>Allowed folders</CardTitle>
-          <CardDescription>AI can only file to these folders</CardDescription>
-        </CardHeader>
-        <CardContent>
-          {rootFolders.length > 0 ? (
-            <TreeProvider
-              showLines
-              showIcons
-              selectable={false}
-              animateExpand
-              indent={16}
-            >
-              <TreeView className="p-0">
-                {rootFolders.map((folder, index) => (
-                  <FolderNode
-                    key={folder.id}
-                    folder={folder}
-                    isLast={index === rootFolders.length - 1}
-                    selectedFolderIds={savedFolderIds}
-                    onToggle={handleFolderToggle}
-                    isDisabled={isFolderBusy}
-                    level={0}
-                    parentPath=""
-                    knownChildren={folderChildrenMap.get(folder.id)}
-                  />
-                ))}
-              </TreeView>
-            </TreeProvider>
-          ) : (
-            <p className="text-sm text-muted-foreground italic">
-              No folders found. Create a folder in your drive.
-            </p>
-          )}
-        </CardContent>
-      </Card>
-
-      <Card size="sm">
-        <CardHeader className="pb-3">
-          <CardTitle>Filing rules</CardTitle>
-          <CardDescription>How should we organize your files?</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit(onSubmit)} className="space-y-3">
-            <Textarea
-              placeholder="Receipts go to Expenses by month. Contracts go to Legal."
-              className="min-h-[80px]"
-              rows={3}
-              {...register("filingPrompt")}
-            />
-            {errors.filingPrompt && (
-              <p className="text-sm text-red-500">
-                {errors.filingPrompt.message}
-              </p>
-            )}
-            <div className="flex justify-end">
-              <Button
-                type="submit"
-                size="sm"
-                disabled={!isDirty || isSubmitting}
-              >
-                {isSubmitting ? "Saving..." : "Save"}
-              </Button>
-            </div>
-          </form>
-        </CardContent>
-      </Card>
-    </div>
-  );
-}
-
-function FolderNode({
-  folder,
-  isLast,
-  selectedFolderIds,
-  onToggle,
-  isDisabled,
-  level,
-  parentPath,
-  knownChildren,
-}: {
-  folder: FolderItem;
-  isLast: boolean;
-  selectedFolderIds: Set<string>;
-  onToggle: (folder: FolderItem, isChecked: boolean) => void;
-  isDisabled: boolean;
-  level: number;
-  parentPath: string;
-  knownChildren?: FolderItem[];
-}) {
-  const { expandedIds } = useTree();
-  const isExpanded = expandedIds.has(folder.id);
-  const isSelected = selectedFolderIds.has(folder.id);
-  const currentPath = parentPath ? `${parentPath}/${folder.name}` : folder.name;
-
-  const { data: subfoldersData, isLoading: isLoadingSubfolders } =
-    useSWR<GetSubfoldersResponse>(
-      isExpanded && !knownChildren
-        ? `/api/user/drive/folders/${folder.id}?driveConnectionId=${folder.driveConnectionId}`
-        : null,
-    );
-
-  const subfolders = subfoldersData?.folders ?? knownChildren ?? [];
-  const hasLoadedChildren = subfolders.length > 0;
-  const showContent = isExpanded && (hasLoadedChildren || isLoadingSubfolders);
-
-  return (
-    <TreeNode nodeId={folder.id} level={level} isLast={isLast}>
-      <TreeNodeTrigger className="py-1">
-        {isLoadingSubfolders ? (
-          <div className="mr-1 flex h-4 w-4 items-center justify-center">
-            <Loader2Icon className="h-3 w-3 animate-spin text-muted-foreground" />
-          </div>
-        ) : (
-          <TreeExpander hasChildren={true} />
-        )}
-        <TreeIcon hasChildren />
-        <div className="flex flex-1 items-center gap-2">
-          <Checkbox
-            id={`folder-${folder.id}`}
-            checked={isSelected}
-            onCheckedChange={(checked) =>
-              onToggle({ ...folder, path: currentPath }, checked === true)
-            }
-            disabled={isDisabled}
-            onClick={(e) => e.stopPropagation()}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" || e.key === " ") {
-                e.stopPropagation();
-              }
-            }}
+      <LoadingContent loading={foldersLoading} error={foldersError}>
+        {foldersData && (
+          <AllowedFolders
+            emailAccountId={emailAccountId}
+            availableFolders={foldersData.availableFolders}
+            savedFolders={foldersData.savedFolders}
+            mutateFolders={mutateFolders}
           />
-          <TreeLabel>{folder.name}</TreeLabel>
-        </div>
-      </TreeNodeTrigger>
-      <TreeNodeContent hasChildren={showContent}>
-        {hasLoadedChildren ? (
-          subfolders.map((subfolder, index) => (
-            <FolderNode
-              key={subfolder.id}
-              folder={{
-                ...subfolder,
-                path: `${currentPath}/${subfolder.name}`,
-              }}
-              isLast={index === subfolders.length - 1}
-              selectedFolderIds={selectedFolderIds}
-              onToggle={onToggle}
-              isDisabled={isDisabled}
-              level={level + 1}
-              parentPath={currentPath}
-            />
-          ))
-        ) : isExpanded && !isLoadingSubfolders ? (
-          <div
-            className="py-1 text-xs text-muted-foreground italic"
-            style={{ paddingLeft: (level + 1) * 16 + 28 }}
-          >
-            No subfolders
-          </div>
-        ) : null}
-      </TreeNodeContent>
-    </TreeNode>
+        )}
+      </LoadingContent>
+      <LoadingContent loading={emailLoading} error={emailError}>
+        {emailAccount && (
+          <FilingRulesForm
+            emailAccountId={emailAccountId}
+            initialPrompt={emailAccount.filingPrompt || ""}
+            mutateEmail={mutateEmail}
+          />
+        )}
+      </LoadingContent>
+    </div>
   );
 }
