@@ -42,6 +42,11 @@ export async function sendFiledNotification({
     return;
   }
 
+  if (!filing.notificationToken) {
+    log.error("Filing has no notification token");
+    return;
+  }
+
   const replyToEmail = getFilebotEmail({
     userEmail,
     token: filing.notificationToken,

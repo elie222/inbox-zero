@@ -71,8 +71,8 @@ export function extractFilebotToken({
 }
 
 /**
- * Build a case-insensitive regex pattern for filebot emails.
- * Case-insensitive to handle email domains like Example.COM vs example.com
+ * Build a regex pattern for filebot emails.
+ * Domain is case-insensitive (per email standards), but the filebot prefix is case-sensitive for security.
  */
 function buildFilebotPattern(
   localPart: string,
@@ -80,9 +80,18 @@ function buildFilebotPattern(
   captureToken: boolean,
 ): RegExp {
   const tokenPattern = captureToken ? "([a-zA-Z0-9]+)" : "[a-zA-Z0-9]+";
+  // Make domain case-insensitive by matching either case for each letter
+  const caseInsensitiveDomain = domain
+    .split("")
+    .map((char) => {
+      if (/[a-zA-Z]/.test(char)) {
+        return `[${char.toLowerCase()}${char.toUpperCase()}]`;
+      }
+      return escapeRegex(char);
+    })
+    .join("");
   return new RegExp(
-    `^${escapeRegex(localPart)}\\+${FILEBOT_PREFIX}-${tokenPattern}@${escapeRegex(domain)}$`,
-    "i",
+    `^${escapeRegex(localPart)}\\+${FILEBOT_PREFIX}-${tokenPattern}@${caseInsensitiveDomain}$`,
   );
 }
 
