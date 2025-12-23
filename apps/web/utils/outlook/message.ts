@@ -511,7 +511,7 @@ function formatRecipientsList(
 }
 
 export function convertMessage(
-  message: Message & { attachments?: OutlookAttachment[] },
+  message: Message,
   folderIds: Record<string, string> = {},
 ): ParsedMessage {
   const bodyContent = message.body?.content || "";
@@ -520,7 +520,7 @@ export function convertMessage(
     | "html"
     | undefined;
 
-  const attachments = (message.attachments || [])
+  const attachments = ((message.attachments || []) as OutlookAttachment[])
     .filter((att) => att["@odata.type"] === "#microsoft.graph.fileAttachment")
     .map((att) => ({
       filename: att.name || "unknown",
@@ -530,6 +530,8 @@ export function convertMessage(
       headers: {
         "content-type": att.contentType || "",
         "content-description": att.name || "",
+        "content-transfer-encoding": "",
+        "content-id": "",
       },
     }));
 

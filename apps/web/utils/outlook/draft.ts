@@ -1,4 +1,3 @@
-import type { Message } from "@microsoft/microsoft-graph-types";
 import type { OutlookClient } from "@/utils/outlook/client";
 import type { Logger } from "@/utils/logger";
 import { isNotFoundError } from "@/utils/outlook/errors";
@@ -15,7 +14,7 @@ export async function getDraft({
   logger: Logger;
 }) {
   try {
-    const response: Message = await withOutlookRetry(
+    const response = await withOutlookRetry(
       () => client.getClient().api(`/me/messages/${draftId}`).get(),
       logger,
     );
