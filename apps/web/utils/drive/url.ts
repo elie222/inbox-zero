@@ -1,3 +1,4 @@
+import { captureException } from "@/utils/error";
 import type { DriveProviderType } from "./types";
 
 export function getDriveFileUrl(
@@ -10,5 +11,6 @@ export function getDriveFileUrl(
   if (provider === "microsoft") {
     return `https://onedrive.live.com/?id=${fileId}`;
   }
-  return `https://drive.google.com/file/d/${fileId}/view`;
+  captureException(new Error("Invalid provider"), { extra: { provider } });
+  return "";
 }

@@ -1027,8 +1027,8 @@ model DocumentFiling {
   feedbackPositive Boolean?
   feedbackAt       DateTime?
 
-  notificationToken  String?   @unique
-  notificationSentAt DateTime?
+  notificationMessageId String?   @unique
+  notificationSentAt    DateTime?
 
   driveConnectionId String
   driveConnection   DriveConnection @relation(fields: [driveConnectionId], references: [id], onDelete: Cascade)
@@ -1038,7 +1038,7 @@ model DocumentFiling {
   @@index([emailAccountId, status])
   @@index([driveConnectionId])
   @@index([messageId])
-  @@index([notificationToken])
+  @@index([notificationMessageId])
 }
 
 model Referral {

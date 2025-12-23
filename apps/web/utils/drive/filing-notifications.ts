@@ -7,10 +7,17 @@ import { getFilebotEmail } from "@/utils/filebot/is-filebot-email";
 // Types
 // ============================================================================
 
+interface SourceMessageInfo {
+  threadId: string;
+  headerMessageId: string;
+  references?: string;
+}
+
 interface FilingNotificationParams {
   emailProvider: EmailProvider;
   userEmail: string;
   filingId: string;
+  sourceMessage: SourceMessageInfo;
   logger: Logger;
 }
 
@@ -21,11 +28,13 @@ interface FilingNotificationParams {
 /**
  * Send a notification email for a successful filing.
  * "✓ Filed Receipt.pdf to Receipts/2024/December"
+ * Sent as a reply to the source email thread.
  */
 export async function sendFiledNotification({
   emailProvider,
   userEmail,
   filingId,
+  sourceMessage,
   logger,
 }: FilingNotificationParams): Promise<void> {
   const log = logger.with({ action: "sendFiledNotification", filingId });
@@ -42,15 +51,7 @@ export async function sendFiledNotification({
     return;
   }
 
-  if (!filing.notificationToken) {
-    log.error("Filing has no notification token");
-    return;
-  }
-
-  const replyToEmail = getFilebotEmail({
-    userEmail,
-    token: filing.notificationToken,
-  });
+  const replyToAddress = getFilebotEmail({ userEmail });
 
   const subject = `✓ Filed ${filing.filename}`;
   const messageHtml = buildFiledEmailHtml({
@@ -60,19 +61,23 @@ export async function sendFiledNotification({
   });
 
   try {
-    await emailProvider.sendEmailWithHtml({
+    const result = await emailProvider.sendEmailWithHtml({
+      replyToEmail: sourceMessage,
       to: userEmail,
-      replyTo: replyToEmail,
+      replyTo: replyToAddress,
       subject,
       messageHtml,
     });
 
     await prisma.documentFiling.update({
       where: { id: filingId },
-      data: { notificationSentAt: new Date() },
+      data: {
+        notificationMessageId: result.messageId,
+        notificationSentAt: new Date(),
+      },
     });
 
-    log.info("Filed notification sent");
+    log.info("Filed notification sent", { messageId: result.messageId });
   } catch (error) {
     log.error("Failed to send filed notification", { error });
     throw error;
@@ -82,11 +87,13 @@ export async function sendFiledNotification({
 /**
  * Send a notification email asking where to file a document.
  * "📄 Where should I file Contract.pdf?"
+ * Sent as a reply to the source email thread.
  */
 export async function sendAskNotification({
   emailProvider,
   userEmail,
   filingId,
+  sourceMessage,
   logger,
 }: FilingNotificationParams): Promise<void> {
   const log = logger.with({ action: "sendAskNotification", filingId });
@@ -100,15 +107,7 @@ export async function sendAskNotification({
     return;
   }
 
-  if (!filing.notificationToken) {
-    log.error("Filing has no notification token");
-    return;
-  }
-
-  const replyToEmail = getFilebotEmail({
-    userEmail,
-    token: filing.notificationToken,
-  });
+  const replyToAddress = getFilebotEmail({ userEmail });
 
   const subject = `📄 Where should I file ${filing.filename}?`;
   const messageHtml = buildAskEmailHtml({
@@ -117,19 +116,23 @@ export async function sendAskNotification({
   });
 
   try {
-    await emailProvider.sendEmailWithHtml({
+    const result = await emailProvider.sendEmailWithHtml({
+      replyToEmail: sourceMessage,
       to: userEmail,
-      replyTo: replyToEmail,
+      replyTo: replyToAddress,
       subject,
       messageHtml,
     });
 
     await prisma.documentFiling.update({
       where: { id: filingId },
-      data: { notificationSentAt: new Date() },
+      data: {
+        notificationMessageId: result.messageId,
+        notificationSentAt: new Date(),
+      },
     });
 
-    log.info("Ask notification sent");
+    log.info("Ask notification sent", { messageId: result.messageId });
   } catch (error) {
     log.error("Failed to send ask notification", { error });
     throw error;
@@ -139,11 +142,13 @@ export async function sendAskNotification({
 /**
  * Send a confirmation email after a correction.
  * "Done! Moved to Business/Expenses"
+ * Sent as a reply to the source email thread.
  */
 export async function sendCorrectionConfirmation({
   emailProvider,
   userEmail,
   filingId,
+  sourceMessage,
   newFolderPath,
   logger,
 }: FilingNotificationParams & { newFolderPath: string }): Promise<void> {
@@ -158,15 +163,7 @@ export async function sendCorrectionConfirmation({
     return;
   }
 
-  if (!filing.notificationToken) {
-    log.error("Filing has no notification token");
-    return;
-  }
-
-  const replyToEmail = getFilebotEmail({
-    userEmail,
-    token: filing.notificationToken,
-  });
+  const replyToAddress = getFilebotEmail({ userEmail });
 
   const subject = `Re: ✓ Filed ${filing.filename}`;
   const messageHtml = buildCorrectionConfirmationHtml({
@@ -176,8 +173,9 @@ export async function sendCorrectionConfirmation({
 
   try {
     await emailProvider.sendEmailWithHtml({
+      replyToEmail: sourceMessage,
       to: userEmail,
-      replyTo: replyToEmail,
+      replyTo: replyToAddress,
       subject,
       messageHtml,
     });

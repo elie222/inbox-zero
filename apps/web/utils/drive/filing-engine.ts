@@ -1,4 +1,3 @@
-import { randomBytes } from "node:crypto";
 import prisma from "@/utils/prisma";
 import type { DriveConnection } from "@/generated/prisma/client";
 import type { EmailProvider } from "@/utils/email/types";
@@ -28,7 +27,6 @@ export interface FilingResult {
     filename: string;
     folderPath: string;
     fileId: string | null;
-    notificationToken: string;
     wasAsked: boolean;
     confidence: number | null;
   };
@@ -202,8 +200,6 @@ export async function processAttachment({
     }
 
     // Step 9: Create DocumentFiling record
-    const notificationToken = randomBytes(8).toString("base64url");
-
     const filing = await prisma.documentFiling.create({
       data: {
         messageId: message.id,
@@ -216,7 +212,6 @@ export async function processAttachment({
         confidence: analysis.confidence,
         status: shouldAsk ? "PENDING" : "FILED",
         wasAsked: shouldAsk,
-        notificationToken,
         driveConnectionId: driveConnection.id,
         emailAccountId: emailAccount.id,
       },
@@ -228,14 +223,21 @@ export async function processAttachment({
       wasAsked: shouldAsk,
     });
 
-    // Step 10: Send notification email
+    // Step 10: Send notification email as a reply to the source email
     if (sendNotification) {
+      const sourceMessage = {
+        threadId: message.threadId,
+        headerMessageId: message.headers["message-id"] || "",
+        references: message.headers.references,
+      };
+
       try {
         if (shouldAsk) {
           await sendAskNotification({
             emailProvider,
             userEmail: emailAccount.email,
             filingId: filing.id,
+            sourceMessage,
             logger: log,
           });
         } else {
@@ -243,6 +245,7 @@ export async function processAttachment({
             emailProvider,
             userEmail: emailAccount.email,
             filingId: filing.id,
+            sourceMessage,
             logger: log,
           });
         }
@@ -259,7 +262,6 @@ export async function processAttachment({
         filename: attachment.filename,
         folderPath: targetFolderPath,
         fileId,
-        notificationToken,
         wasAsked: shouldAsk,
         confidence: analysis.confidence,
       },

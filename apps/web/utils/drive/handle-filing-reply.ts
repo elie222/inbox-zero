@@ -2,7 +2,6 @@ import prisma from "@/utils/prisma";
 import type { ParsedMessage } from "@/utils/types";
 import type { EmailProvider } from "@/utils/email/types";
 import type { Logger } from "@/utils/logger";
-import { extractFilebotToken } from "@/utils/filebot/is-filebot-email";
 import { extractEmailAddress } from "@/utils/email";
 import { emailToContent } from "@/utils/mail";
 import { createDriveProviderWithRefresh } from "@/utils/drive/provider";
@@ -27,7 +26,8 @@ interface ProcessFilingReplyArgs {
 
 /**
  * Process a reply to a filebot notification email.
- * Extracts the token, looks up the filing, and handles the user's response.
+ * Uses the In-Reply-To header to find which notification was replied to,
+ * then looks up the filing by notificationMessageId.
  */
 export async function processFilingReply({
   emailAccountId,
@@ -49,22 +49,18 @@ export async function processFilingReply({
     return;
   }
 
-  // Extract token from To: address
-  const token = extractFilebotToken({
-    userEmail,
-    emailToCheck: message.headers.to,
-  });
+  // Get the In-Reply-To header to find which notification this is replying to
+  const inReplyTo = message.headers["in-reply-to"];
 
-  if (!token) {
-    logger.error("Could not extract filebot token from To address");
+  if (!inReplyTo) {
+    logger.error("No In-Reply-To header found");
     return;
   }
 
-  logger = logger.with({ token });
-
-  // Look up the filing
+  // The In-Reply-To header contains the Message-ID of the notification email
+  // Look up the filing by notificationMessageId
   const filing = await prisma.documentFiling.findUnique({
-    where: { notificationToken: token },
+    where: { notificationMessageId: inReplyTo },
     include: {
       driveConnection: true,
       emailAccount: true,
@@ -72,7 +68,7 @@ export async function processFilingReply({
   });
 
   if (!filing) {
-    logger.error("Filing not found for token");
+    logger.error("Filing not found for In-Reply-To message", { inReplyTo });
     return;
   }
 
@@ -147,11 +143,19 @@ export async function processFilingReply({
       // This requires storing the attachment content or re-fetching it
     }
 
+    // Build source message info for threading the confirmation
+    const sourceMessage = {
+      threadId: message.threadId,
+      headerMessageId: message.headers["message-id"] || "",
+      references: message.headers.references,
+    };
+
     // Send confirmation
     await sendCorrectionConfirmation({
       emailProvider,
       userEmail,
       filingId: filing.id,
+      sourceMessage,
       newFolderPath: folderPath,
       logger,
     });

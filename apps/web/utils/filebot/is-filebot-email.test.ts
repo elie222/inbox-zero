@@ -1,15 +1,11 @@
 import { describe, it, expect } from "vitest";
-import {
-  isFilebotEmail,
-  getFilebotEmail,
-  extractFilebotToken,
-} from "./is-filebot-email";
+import { isFilebotEmail, getFilebotEmail } from "./is-filebot-email";
 
 describe("isFilebotEmail", () => {
-  it("should return true for valid filebot email with token", () => {
+  it("should return true for valid filebot email", () => {
     const result = isFilebotEmail({
       userEmail: "john@example.com",
-      emailToCheck: "john+filebot-abc123@example.com",
+      emailToCheck: "john+filebot@example.com",
     });
     expect(result).toBe(true);
   });
@@ -17,7 +13,7 @@ describe("isFilebotEmail", () => {
   it("should return false when recipient is different user", () => {
     const result = isFilebotEmail({
       userEmail: "john@example.com",
-      emailToCheck: "jane+filebot-abc123@example.com",
+      emailToCheck: "jane+filebot@example.com",
     });
     expect(result).toBe(false);
   });
@@ -30,10 +26,10 @@ describe("isFilebotEmail", () => {
     expect(result).toBe(false);
   });
 
-  it("should return false for filebot without token", () => {
+  it("should return false for email with token suffix (old format)", () => {
     const result = isFilebotEmail({
       userEmail: "john@example.com",
-      emailToCheck: "john+filebot@example.com",
+      emailToCheck: "john+filebot-abc123@example.com",
     });
     expect(result).toBe(false);
   });
@@ -41,7 +37,7 @@ describe("isFilebotEmail", () => {
   it("should handle email addresses with dots", () => {
     const result = isFilebotEmail({
       userEmail: "john.doe@sub.example.com",
-      emailToCheck: "john.doe+filebot-token123@sub.example.com",
+      emailToCheck: "john.doe+filebot@sub.example.com",
     });
     expect(result).toBe(true);
   });
@@ -49,7 +45,7 @@ describe("isFilebotEmail", () => {
   it("should handle display name with angle brackets", () => {
     const result = isFilebotEmail({
       userEmail: "john@example.com",
-      emailToCheck: "John Doe <john+filebot-xyz789@example.com>",
+      emailToCheck: "John Doe <john+filebot@example.com>",
     });
     expect(result).toBe(true);
   });
@@ -57,7 +53,7 @@ describe("isFilebotEmail", () => {
   it("should reject malicious domain injection", () => {
     const result = isFilebotEmail({
       userEmail: "john@example.com",
-      emailToCheck: "john+filebot-abc@evil.com+filebot-abc@example.com",
+      emailToCheck: "john+filebot@evil.com+filebot@example.com",
     });
     expect(result).toBe(false);
   });
@@ -65,7 +61,7 @@ describe("isFilebotEmail", () => {
   it("should reject case manipulation", () => {
     const result = isFilebotEmail({
       userEmail: "john@example.com",
-      emailToCheck: "john+FILEBOT-abc123@example.com",
+      emailToCheck: "john+FILEBOT@example.com",
     });
     expect(result).toBe(false);
   });
@@ -73,85 +69,40 @@ describe("isFilebotEmail", () => {
   it("should handle invalid userEmail format gracefully", () => {
     const result = isFilebotEmail({
       userEmail: "notanemail",
-      emailToCheck: "john+filebot-abc123@example.com",
+      emailToCheck: "john+filebot@example.com",
     });
     expect(result).toBe(false);
+  });
+
+  it("should handle domain case insensitivity", () => {
+    const result = isFilebotEmail({
+      userEmail: "john@example.com",
+      emailToCheck: "john+filebot@EXAMPLE.COM",
+    });
+    expect(result).toBe(true);
   });
 });
 
 describe("getFilebotEmail", () => {
-  it("should generate correct filebot email with token", () => {
+  it("should generate correct filebot email", () => {
     const result = getFilebotEmail({
       userEmail: "john@example.com",
-      token: "abc123",
     });
-    expect(result).toBe("john+filebot-abc123@example.com");
+    expect(result).toBe("john+filebot@example.com");
   });
 
   it("should handle email with dots", () => {
     const result = getFilebotEmail({
       userEmail: "john.doe@sub.example.com",
-      token: "xyz789",
     });
-    expect(result).toBe("john.doe+filebot-xyz789@sub.example.com");
+    expect(result).toBe("john.doe+filebot@sub.example.com");
   });
 
   it("should throw for invalid userEmail format", () => {
     expect(() =>
       getFilebotEmail({
         userEmail: "notanemail",
-        token: "abc123",
       }),
     ).toThrow("Invalid email format");
-  });
-});
-
-describe("extractFilebotToken", () => {
-  it("should extract token from valid filebot email", () => {
-    const result = extractFilebotToken({
-      userEmail: "john@example.com",
-      emailToCheck: "john+filebot-abc123@example.com",
-    });
-    expect(result).toBe("abc123");
-  });
-
-  it("should return null for non-filebot email", () => {
-    const result = extractFilebotToken({
-      userEmail: "john@example.com",
-      emailToCheck: "john@example.com",
-    });
-    expect(result).toBeNull();
-  });
-
-  it("should return null for different user", () => {
-    const result = extractFilebotToken({
-      userEmail: "john@example.com",
-      emailToCheck: "jane+filebot-abc123@example.com",
-    });
-    expect(result).toBeNull();
-  });
-
-  it("should extract token from email with display name", () => {
-    const result = extractFilebotToken({
-      userEmail: "john@example.com",
-      emailToCheck: "John <john+filebot-mytoken@example.com>",
-    });
-    expect(result).toBe("mytoken");
-  });
-
-  it("should return null for empty email", () => {
-    const result = extractFilebotToken({
-      userEmail: "john@example.com",
-      emailToCheck: "",
-    });
-    expect(result).toBeNull();
-  });
-
-  it("should return null for invalid userEmail format", () => {
-    const result = extractFilebotToken({
-      userEmail: "notanemail",
-      emailToCheck: "john+filebot-abc123@example.com",
-    });
-    expect(result).toBeNull();
   });
 });

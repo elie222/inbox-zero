@@ -43,8 +43,8 @@ To help you spend less time in your inbox, so you can focus on what matters.
 - **Bulk Unsubscriber:** One-click unsubscribe and archive emails you never read.
 - **Cold Email Blocker:** Auto‑block cold emails.
 - **Email Analytics:** Track your activity and trends over time.
-- **Auto File (Beta):** Automatically save email attachments to Google Drive or OneDrive.
-- **Meeting Briefs (Early Access):** Get personalized briefings before every meeting, pulling context from your email and calendar.
+- **Meeting Briefs (Beta):** Get personalized briefings before every meeting, pulling context from your email and calendar.
+- **Auto File (Early Access):** Automatically save email attachments to Google Drive or OneDrive.
 
 
 Learn more in our [docs](https://docs.getinboxzero.com).
