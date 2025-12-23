@@ -100,6 +100,11 @@ export async function sendAskNotification({
     return;
   }
 
+  if (!filing.notificationToken) {
+    log.error("Filing has no notification token");
+    return;
+  }
+
   const replyToEmail = getFilebotEmail({
     userEmail,
     token: filing.notificationToken,
@@ -150,6 +155,11 @@ export async function sendCorrectionConfirmation({
 
   if (!filing) {
     log.error("Filing not found");
+    return;
+  }
+
+  if (!filing.notificationToken) {
+    log.error("Filing has no notification token");
     return;
   }
 
