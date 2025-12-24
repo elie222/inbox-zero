@@ -58,8 +58,7 @@ export class GoogleDriveProvider implements DriveProvider {
     try {
       // If no parentId, fetch ALL folders for better initial experience
       const parent = parentId || null;
-      // Escape single quotes in parentId to prevent query injection
-      const escapedParent = parent?.replace(/'/g, "\\'");
+      const escapedParent = parent ? this.escapeDriveQueryValue(parent) : null;
       const query = escapedParent
         ? `'${escapedParent}' in parents and mimeType = 'application/vnd.google-apps.folder' and trashed = false`
         : "mimeType = 'application/vnd.google-apps.folder' and trashed = false";
@@ -255,5 +254,13 @@ export class GoogleDriveProvider implements DriveProvider {
       return (error as { status: number }).status === 404;
     }
     return false;
+  }
+
+  /**
+   * Escapes a value for use in Google Drive query syntax.
+   * Must escape backslashes first, then single quotes.
+   */
+  private escapeDriveQueryValue(value: string): string {
+    return value.replace(/\\/g, "\\\\").replace(/'/g, "\\'");
   }
 }

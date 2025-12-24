@@ -6,8 +6,9 @@ import { extractEmailAddress } from "@/utils/email";
 const FILEBOT_SUFFIX = `filebot${env.NODE_ENV === "development" ? "-test" : ""}`;
 
 /**
- * Check if an email address is a filebot reply address.
+ * Check if any recipient in the email is a filebot reply address.
  * Pattern: user+filebot@domain.com (or user+filebot-test@domain.com in dev)
+ * Handles multiple recipients in the To field (comma-separated).
  */
 export function isFilebotEmail({
   userEmail,
@@ -21,11 +22,19 @@ export function isFilebotEmail({
   const [localPart, domain] = userEmail.split("@");
   if (!localPart || !domain) return false;
 
-  const extractedEmailToCheck = extractEmailAddress(emailToCheck);
-  if (!extractedEmailToCheck) return false;
-
   const pattern = buildFilebotPattern(localPart, domain);
-  return pattern.test(extractedEmailToCheck);
+
+  // Split by comma to handle multiple recipients in To field
+  const recipients = emailToCheck.split(",");
+
+  for (const recipient of recipients) {
+    const extractedEmail = extractEmailAddress(recipient.trim());
+    if (extractedEmail && pattern.test(extractedEmail)) {
+      return true;
+    }
+  }
+
+  return false;
 }
 
 /**

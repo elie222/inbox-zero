@@ -130,9 +130,6 @@ async function getPreviewData({
     return { filings: [], noAttachmentsFound: true };
   }
 
-  const driveProvider = emailAccount.driveConnections[0]
-    .provider as DriveProviderType;
-
   const filings = await fileAttachments({
     messagesWithAttachments,
     emailAccount: {
@@ -141,7 +138,6 @@ async function getPreviewData({
       filingPrompt: emailAccount.filingPrompt,
     },
     emailProvider,
-    driveProvider,
     logger,
   });
 
@@ -173,7 +169,6 @@ async function fileAttachments({
   messagesWithAttachments,
   emailAccount,
   emailProvider,
-  driveProvider,
   logger,
 }: {
   messagesWithAttachments: Array<{
@@ -182,7 +177,6 @@ async function fileAttachments({
   }>;
   emailAccount: Parameters<typeof processAttachment>[0]["emailAccount"];
   emailProvider: EmailProvider;
-  driveProvider: DriveProviderType;
   logger: Logger;
 }): Promise<FilingPreviewResult[]> {
   const filings: FilingPreviewResult[] = [];
@@ -212,7 +206,7 @@ async function fileAttachments({
           folderPath: result.filing.folderPath,
           fileId: result.filing.fileId,
           filedAt: new Date().toISOString(),
-          provider: driveProvider,
+          provider: result.filing.provider as DriveProviderType,
         });
 
         logger.info("Preview filing complete", { filingId: result.filing.id });

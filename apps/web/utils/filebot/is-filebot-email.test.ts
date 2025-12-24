@@ -81,6 +81,32 @@ describe("isFilebotEmail", () => {
     });
     expect(result).toBe(true);
   });
+
+  it("should detect filebot email when not first in multiple recipients", () => {
+    const result = isFilebotEmail({
+      userEmail: "john@example.com",
+      emailToCheck: "alice@example.com, john+filebot@example.com",
+    });
+    expect(result).toBe(true);
+  });
+
+  it("should detect filebot email in middle of multiple recipients", () => {
+    const result = isFilebotEmail({
+      userEmail: "john@example.com",
+      emailToCheck:
+        "alice@example.com, john+filebot@example.com, bob@example.com",
+    });
+    expect(result).toBe(true);
+  });
+
+  it("should detect filebot email with display names in multiple recipients", () => {
+    const result = isFilebotEmail({
+      userEmail: "john@example.com",
+      emailToCheck:
+        "Alice <alice@example.com>, John Doe <john+filebot@example.com>",
+    });
+    expect(result).toBe(true);
+  });
 });
 
 describe("getFilebotEmail", () => {

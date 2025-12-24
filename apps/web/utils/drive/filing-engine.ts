@@ -29,6 +29,7 @@ export interface FilingResult {
     fileId: string | null;
     wasAsked: boolean;
     confidence: number | null;
+    provider: string;
   };
   error?: string;
 }
@@ -264,6 +265,7 @@ export async function processAttachment({
         fileId,
         wasAsked: shouldAsk,
         confidence: analysis.confidence,
+        provider: driveConnection.provider,
       },
     };
   } catch (error) {

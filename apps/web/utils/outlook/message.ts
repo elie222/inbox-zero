@@ -521,12 +521,15 @@ export function convertMessage(
     | undefined;
 
   const attachments = ((message.attachments || []) as OutlookAttachment[])
-    .filter((att) => att["@odata.type"] === "#microsoft.graph.fileAttachment")
+    .filter(
+      (att): att is OutlookAttachment & { id: string } =>
+        att["@odata.type"] === "#microsoft.graph.fileAttachment" && !!att.id,
+    )
     .map((att) => ({
       filename: att.name || "unknown",
       mimeType: att.contentType || "application/octet-stream",
       size: att.size || 0,
-      attachmentId: att.id || "",
+      attachmentId: att.id,
       headers: {
         "content-type": att.contentType || "",
         "content-description": att.name || "",
