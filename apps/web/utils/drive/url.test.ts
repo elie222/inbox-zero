@@ -14,10 +14,8 @@ describe("getDriveFileUrl", () => {
     );
   });
 
-  it("should default to Google Drive URL for unknown provider", () => {
-    expect(getDriveFileUrl("file789", "unknown")).toBe(
-      "https://drive.google.com/file/d/file789/view",
-    );
+  it("should return empty string for unknown provider", () => {
+    expect(getDriveFileUrl("file789", "unknown")).toBe("");
   });
 
   it("should handle file IDs with special characters", () => {
