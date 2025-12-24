@@ -27,6 +27,9 @@ export function parseMessage(
     ...parsed,
     subject: parsed.headers?.subject || "",
     date: parsed.headers?.date || "",
+    // gmail-api-parse-message converts internalDate to a number, but our type expects string
+    internalDate:
+      parsed.internalDate != null ? String(parsed.internalDate) : null,
   };
 }
 
