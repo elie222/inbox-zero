@@ -37,6 +37,8 @@ export function MessagePart({
   const key = `${messageId}-${partIndex}`;
 
   if (part.type === "reasoning") {
+    // Skip rendering if reasoning is redacted (limited token output from provider)
+    if (!part.text || part.text === "[REDACTED]") return null;
     return (
       <Reasoning key={key} isStreaming={isStreaming} className="w-full">
         <ReasoningTrigger />

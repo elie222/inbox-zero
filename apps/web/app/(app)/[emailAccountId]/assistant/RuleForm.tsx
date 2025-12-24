@@ -49,7 +49,6 @@ import { Form } from "@/components/ui/form";
 import { getActionIcon } from "@/utils/action-display";
 import { useFolders } from "@/hooks/useFolders";
 import { isConversationStatusType } from "@/utils/reply-tracker/conversation-status-config";
-import { getRuleConfig } from "@/utils/rule/consts";
 import { RuleSectionCard } from "@/app/(app)/[emailAccountId]/assistant/RuleSectionCard";
 import { ConditionSteps } from "@/app/(app)/[emailAccountId]/assistant/ConditionSteps";
 import { ActionSteps } from "@/app/(app)/[emailAccountId]/assistant/ActionSteps";
@@ -416,29 +415,19 @@ export function RuleForm({
             ) : undefined
           }
         >
-          {isConversationStatusType(rule.systemType) ? (
-            <div className="flex items-center gap-2 px-4 py-2 bg-gray-50 dark:bg-gray-900">
-              Matching:
-              <span className="text-muted-foreground">
-                {getRuleConfig(rule.systemType).instructions}
-              </span>
-              <TooltipExplanation text="Instructions for this rule can't be customized as it's a special preset rule." />
-            </div>
-          ) : (
-            <ConditionSteps
-              conditionFields={conditionFields}
-              conditionalOperator={conditionalOperator}
-              removeCondition={removeCondition}
-              control={control}
-              watch={watch}
-              setValue={setValue}
-              register={register}
-              errors={errors}
-              conditions={conditions}
-              ruleSystemType={rule.systemType}
-              appendCondition={appendCondition}
-            />
-          )}
+          <ConditionSteps
+            conditionFields={conditionFields}
+            conditionalOperator={conditionalOperator}
+            removeCondition={removeCondition}
+            control={control}
+            watch={watch}
+            setValue={setValue}
+            register={register}
+            errors={errors}
+            conditions={conditions}
+            ruleSystemType={rule.systemType}
+            appendCondition={appendCondition}
+          />
         </RuleSectionCard>
 
         <RuleSectionCard
