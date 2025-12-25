@@ -1,7 +1,6 @@
 import type { gmail_v1 } from "@googleapis/gmail";
-import { GaxiosError } from "gaxios";
 import { GmailLabel } from "@/utils/gmail/label";
-import { withGmailRetry } from "@/utils/gmail/retry";
+import { extractErrorInfo, withGmailRetry } from "@/utils/gmail/retry";
 
 export async function createFilter(options: {
   gmail: gmail_v1.Gmail;
@@ -69,9 +68,7 @@ export async function getFiltersList(options: { gmail: gmail_v1.Gmail }) {
   );
 }
 
-function isFilterExistsError(error: unknown): error is GaxiosError {
-  return (
-    error instanceof GaxiosError &&
-    error.message.includes("Filter already exists")
-  );
+function isFilterExistsError(error: unknown): boolean {
+  const { errorMessage } = extractErrorInfo(error);
+  return errorMessage.includes("Filter already exists");
 }
