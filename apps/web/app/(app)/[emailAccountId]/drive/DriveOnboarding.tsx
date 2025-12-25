@@ -25,11 +25,9 @@ const steps = [
 export function DriveOnboarding() {
   return (
     <div className="mx-auto max-w-xl py-8">
-      <div className="text-center">
-        <TypographyH3>
-          Attachments filed automatically while you work
-        </TypographyH3>
-      </div>
+      <TypographyH3 className="text-center">
+        Attachments filed automatically while you work
+      </TypographyH3>
 
       <div className="mt-10 space-y-6">
         {steps.map((step) => (

@@ -118,6 +118,7 @@ async function refreshMicrosoftDriveToken(
       connectionId,
       error: errorMessage,
     });
+    await markDriveConnectionAsDisconnected(connectionId);
     throw new SafeError(
       "Unable to access your drive. Please reconnect your drive and try again.",
     );
@@ -174,6 +175,7 @@ async function refreshGoogleDriveToken(
       connectionId,
       error: errorMessage,
     });
+    await markDriveConnectionAsDisconnected(connectionId);
     throw new SafeError(
       "Unable to access your drive. Please reconnect your drive and try again.",
     );
@@ -221,6 +223,7 @@ async function saveDriveTokens({
         expiresAt: tokens.expires_at
           ? new Date(tokens.expires_at * 1000)
           : null,
+        isConnected: true,
       },
     });
 
@@ -229,4 +232,11 @@ async function saveDriveTokens({
     logger.error("Failed to save drive tokens", { error, connectionId });
     throw error;
   }
+}
+
+async function markDriveConnectionAsDisconnected(connectionId: string) {
+  await prisma.driveConnection.update({
+    where: { id: connectionId },
+    data: { isConnected: false },
+  });
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { MoreVertical, Trash2 } from "lucide-react";
+import { MoreVertical, Trash2, XCircle } from "lucide-react";
 import { useAction } from "next-safe-action/hooks";
 import type { GetDriveConnectionsResponse } from "@/app/api/user/drive/connections/route";
 import { disconnectDriveAction } from "@/utils/actions/drive";
@@ -16,10 +16,6 @@ import { Button } from "@/components/ui/button";
 import Image from "next/image";
 
 type DriveConnection = GetDriveConnectionsResponse["connections"][0];
-
-interface DriveConnectionCardProps {
-  connection: DriveConnection;
-}
 
 export function getProviderInfo(provider: string) {
   const providers = {
@@ -38,7 +34,11 @@ export function getProviderInfo(provider: string) {
   return providers[provider as keyof typeof providers] || providers.google;
 }
 
-export function DriveConnectionCard({ connection }: DriveConnectionCardProps) {
+export function DriveConnectionCard({
+  connection,
+}: {
+  connection: DriveConnection;
+}) {
   const { emailAccountId } = useAccount();
   const { mutate } = useDriveConnections();
   const providerInfo = getProviderInfo(connection.provider);
@@ -65,6 +65,12 @@ export function DriveConnectionCard({ connection }: DriveConnectionCardProps) {
       <span className="font-medium text-foreground">{providerInfo.name}</span>
       <span>·</span>
       <span>{connection.email}</span>
+      {!connection.isConnected && (
+        <div className="flex items-center gap-1 text-red-600">
+          <XCircle className="h-3 w-3" />
+          <span className="text-xs">Disconnected</span>
+        </div>
+      )}
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button variant="ghost" size="sm" className="h-6 w-6 p-0">

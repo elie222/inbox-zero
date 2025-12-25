@@ -1,13 +1,13 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { toastError } from "@/components/Toast";
 import { captureException } from "@/utils/error";
 import type { GetDriveAuthUrlResponse } from "@/app/api/google/drive/auth-url/route";
 import { fetchWithAccount } from "@/utils/fetch";
-import Image from "next/image";
 
 export function ConnectDrive() {
   const { emailAccountId } = useAccount();
@@ -28,6 +28,9 @@ export function ConnectDrive() {
       }
 
       const data: GetDriveAuthUrlResponse = await response.json();
+
+      if (!data?.url) throw new Error("Invalid auth URL");
+
       window.location.href = data.url;
     } catch (error) {
       captureException(error, {
@@ -55,6 +58,9 @@ export function ConnectDrive() {
       }
 
       const data: GetDriveAuthUrlResponse = await response.json();
+
+      if (!data?.url) throw new Error("Invalid auth URL");
+
       window.location.href = data.url;
     } catch (error) {
       captureException(error, {
@@ -73,6 +79,7 @@ export function ConnectDrive() {
       <Button
         onClick={handleConnectGoogle}
         disabled={isConnectingGoogle || isConnectingMicrosoft}
+        loading={isConnectingGoogle}
         variant="outline"
         className="flex items-center gap-2 w-full md:w-auto"
       >
@@ -89,6 +96,7 @@ export function ConnectDrive() {
       <Button
         onClick={handleConnectMicrosoft}
         disabled={isConnectingGoogle || isConnectingMicrosoft}
+        loading={isConnectingMicrosoft}
         variant="outline"
         className="flex items-center gap-2 w-full md:w-auto"
       >
