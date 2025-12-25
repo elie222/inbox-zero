@@ -399,7 +399,7 @@ export function ConditionSteps({
                         <div className="mb-2">
                           <Label
                             name={`conditions.${index}.instructions`}
-                            label="Matching:"
+                            label="Matching the prompt:"
                           />
                         </div>
                       )}
