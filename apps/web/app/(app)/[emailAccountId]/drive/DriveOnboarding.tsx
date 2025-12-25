@@ -1,7 +1,11 @@
 "use client";
 
 import { Card } from "@/components/ui/card";
-import { TypographyH3, TypographyH4 } from "@/components/Typography";
+import {
+  PageSubHeading,
+  TypographyH3,
+  TypographyH4,
+} from "@/components/Typography";
 import { ConnectDrive } from "./ConnectDrive";
 
 const steps = [
@@ -36,21 +40,21 @@ export function DriveOnboarding() {
               {step.number}
             </div>
             <div>
-              <p className="font-medium">{step.title}</p>
-              <p className="mt-1 text-sm text-muted-foreground">
+              <TypographyH4>{step.title}</TypographyH4>
+              <PageSubHeading className="mt-1">
                 {step.description}
-              </p>
+              </PageSubHeading>
             </div>
           </div>
         ))}
       </div>
 
       <Card className="mt-10 p-6">
-        <div className="text-center">
-          <TypographyH4>Where should we file your attachments?</TypographyH4>
-          <div className="mt-4 flex justify-center">
-            <ConnectDrive />
-          </div>
+        <TypographyH4 className="text-center">
+          Where should we file your attachments?
+        </TypographyH4>
+        <div className="mt-4 flex justify-center">
+          <ConnectDrive />
         </div>
       </Card>
     </div>

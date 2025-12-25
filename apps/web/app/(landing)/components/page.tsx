@@ -13,6 +13,7 @@ import {
 import { Container } from "@/components/Container";
 import {
   PageHeading,
+  PageSubHeading,
   SectionDescription,
   SectionHeader,
   MessageText,
@@ -70,6 +71,7 @@ export default function Components() {
           <TypographyH3>TypographyH3</TypographyH3>
           <TypographyH4>TypographyH4</TypographyH4>
           <SectionHeader>SectionHeader</SectionHeader>
+          <PageSubHeading>PageSubHeading</PageSubHeading>
           <SectionDescription>SectionDescription</SectionDescription>
           <MessageText>MessageText</MessageText>
           <TypographyP>TypographyP</TypographyP>
