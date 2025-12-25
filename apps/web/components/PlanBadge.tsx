@@ -218,8 +218,9 @@ export function getActionColor(actionType: ActionType): Color {
     case ActionType.MARK_READ:
       return "yellow";
     case ActionType.LABEL:
-    case ActionType.MOVE_FOLDER:
       return "blue";
+    case ActionType.MOVE_FOLDER:
+      return "pink";
     case ActionType.MARK_SPAM:
       return "red";
     case ActionType.CALL_WEBHOOK:
