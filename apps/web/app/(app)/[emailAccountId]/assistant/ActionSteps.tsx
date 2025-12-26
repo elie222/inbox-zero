@@ -356,7 +356,7 @@ function ActionCard({
             </div>
           ) : field.name === "folderName" &&
             actionType === ActionType.MOVE_FOLDER ? (
-            <div className="mt-2">
+            <div>
               <FolderSelector
                 folders={folders}
                 isLoading={foldersLoading}

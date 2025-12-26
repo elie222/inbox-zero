@@ -43,6 +43,7 @@
         "AI_GATEWAY_API_KEY",
         "OLLAMA_BASE_URL",
         "OLLAMA_MODEL",
+        "PERPLEXITY_API_KEY",
 
         "UPSTASH_REDIS_URL",
         "UPSTASH_REDIS_TOKEN",
