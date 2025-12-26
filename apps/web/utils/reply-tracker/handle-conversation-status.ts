@@ -69,6 +69,13 @@ export async function determineConversationStatus({
     ? provider.isSentMessage(lastMessage)
     : false;
 
+  const aiStartTime = Date.now();
+  logger.info("AI conversation status call starting", {
+    messageId: message.id,
+    threadId: message.threadId,
+    threadMessagesCount: threadMessagesForLLM.length,
+  });
+
   const { status, rationale } = await aiDetermineThreadStatus({
     emailAccount,
     threadMessages: threadMessagesForLLM,
@@ -76,10 +83,13 @@ export async function determineConversationStatus({
     userSentLastEmail,
   });
 
+  const aiDuration = Date.now() - aiStartTime;
   logger.info("AI determined thread status", {
     status,
     rationale,
     messageId: message.id,
+    durationMs: aiDuration,
+    durationSec: (aiDuration / 1000).toFixed(2),
   });
 
   const rule = conversationRules.find(

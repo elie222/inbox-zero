@@ -12,6 +12,7 @@ const llmProviderEnum = z.enum([
   "groq",
   "aigateway",
   "ollama",
+  "azure-foundry",
 ]);
 
 export const env = createEnv({
@@ -61,6 +62,11 @@ export const env = createEnv({
     PERPLEXITY_API_KEY: z.string().optional(),
     OLLAMA_BASE_URL: z.string().optional(),
     OLLAMA_MODEL: z.string().optional(),
+
+    // Azure AI Foundry
+    AZURE_FOUNDRY_RESOURCE_NAME: z.string().optional(),
+    AZURE_FOUNDRY_API_KEY: z.string().optional(),
+    AZURE_FOUNDRY_API_VERSION: z.string().default("2024-12-01-preview"),
 
     OPENAI_ZERO_DATA_RETENTION: z.coerce.boolean().optional().default(false),
 

@@ -7,6 +7,8 @@ export type ProcessingStatus = "idle" | "processing" | "paused" | "stopped";
 export type BulkRunState = {
   status: ProcessingStatus;
   processedThreadIds: Set<string>;
+  // Track completed threads directly to avoid race conditions
+  completedThreadIds: Set<string>;
   // Stores fetched threads to ensure activity log can find them
   // (the global inbox cache may not contain all fetched threads)
   fetchedThreads: Map<string, Thread>;
@@ -17,6 +19,7 @@ export type BulkRunState = {
 export type BulkRunAction =
   | { type: "START" }
   | { type: "THREADS_QUEUED"; threads: Thread[] }
+  | { type: "THREAD_COMPLETED"; threadId: string }
   | { type: "COMPLETE"; count: number }
   | { type: "PAUSE" }
   | { type: "RESUME" }
@@ -26,6 +29,7 @@ export type BulkRunAction =
 export const initialBulkRunState: BulkRunState = {
   status: "idle",
   processedThreadIds: new Set(),
+  completedThreadIds: new Set(),
   fetchedThreads: new Map(),
   stoppedCount: null,
   runResult: null,
@@ -41,6 +45,7 @@ export function bulkRunReducer(
         ...state,
         status: "processing",
         processedThreadIds: new Set(),
+        completedThreadIds: new Set(),
         fetchedThreads: new Map(),
         stoppedCount: null,
         runResult: null,
@@ -57,6 +62,16 @@ export function bulkRunReducer(
         ...state,
         processedThreadIds: nextIds,
         fetchedThreads: nextThreads,
+      };
+    }
+
+    case "THREAD_COMPLETED": {
+      // Track completions directly to avoid race conditions with Jotai atom
+      const nextCompleted = new Set(state.completedThreadIds);
+      nextCompleted.add(action.threadId);
+      return {
+        ...state,
+        completedThreadIds: nextCompleted,
       };
     }
 
@@ -107,13 +122,12 @@ export function bulkRunReducer(
   }
 }
 
-export function getProgressMessage(
-  state: BulkRunState,
-  remaining: number,
-): string | null {
+export function getProgressMessage(state: BulkRunState): string | null {
   if (state.processedThreadIds.size === 0) return null;
 
-  const completed = state.processedThreadIds.size - remaining;
+  // Use completedThreadIds directly to avoid race conditions with Jotai atom
+  const completed = state.completedThreadIds.size;
+  const remaining = state.processedThreadIds.size - completed;
 
   if (remaining > 0) {
     return `Progress: ${completed}/${state.processedThreadIds.size} emails completed`;

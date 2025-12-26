@@ -5,6 +5,9 @@ import { isDefined, type EmailForLLM } from "@/utils/types";
 import { getModel, type ModelType } from "@/utils/llms/model";
 import { createGenerateObject } from "@/utils/llms";
 import { getUserInfoPrompt, getUserRulesPrompt } from "@/utils/ai/helpers";
+import { createScopedLogger } from "@/utils/logger";
+
+const logger = createScopedLogger("ai-choose-rule");
 
 type GetAiResponseOptions = {
   email: EmailForLLM;
@@ -154,6 +157,12 @@ Example response format:
 ${stringifyEmail(email, 500)}
 </email>`;
 
+  const startTime = Date.now();
+  logger.info("AI call starting (single rule)", {
+    rulesCount: rules.length,
+    model: modelOptions.model,
+  });
+
   const aiResponse = await generateObject({
     ...modelOptions,
     system,
@@ -170,6 +179,14 @@ ${stringifyEmail(email, 500)}
         .boolean()
         .describe("True if no match was found, false otherwise"),
     }),
+  });
+
+  const duration = Date.now() - startTime;
+  logger.info("AI call completed (single rule)", {
+    durationMs: duration,
+    durationSec: (duration / 1000).toFixed(2),
+    model: modelOptions.model,
+    ruleName: aiResponse.object?.ruleName,
   });
 
   const hasRuleName = !!aiResponse.object?.ruleName;
@@ -261,6 +278,12 @@ Example response format (multiple rules):
 ${stringifyEmail(email, 500)}
 </email>`;
 
+  const startTime = Date.now();
+  logger.info("AI call starting (multi rule)", {
+    rulesCount: rules.length,
+    model: modelOptions.model,
+  });
+
   const aiResponse = await generateObject({
     ...modelOptions,
     system,
@@ -287,6 +310,14 @@ ${stringifyEmail(email, 500)}
         .boolean()
         .describe("True if no match was found, false otherwise"),
     }),
+  });
+
+  const duration = Date.now() - startTime;
+  logger.info("AI call completed (multi rule)", {
+    durationMs: duration,
+    durationSec: (duration / 1000).toFixed(2),
+    model: modelOptions.model,
+    matchedRulesCount: aiResponse.object.matchedRules?.length ?? 0,
   });
 
   return {

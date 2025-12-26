@@ -9,6 +9,7 @@ export const Provider = {
   OPENROUTER: "openrouter",
   AI_GATEWAY: "aigateway",
   OLLAMA: "ollama",
+  AZURE_FOUNDRY: "azure-foundry",
 };
 
 export const providerOptions: { label: string; value: string }[] = [
@@ -19,4 +20,5 @@ export const providerOptions: { label: string; value: string }[] = [
   { label: "Groq", value: Provider.GROQ },
   { label: "OpenRouter", value: Provider.OPENROUTER },
   { label: "AI Gateway", value: Provider.AI_GATEWAY },
+  { label: "Azure AI Foundry", value: Provider.AZURE_FOUNDRY },
 ];

@@ -65,11 +65,7 @@ export function BulkRunRules() {
 
   const abortRef = useRef<() => void>(undefined);
 
-  // Derived state
-  const remaining = new Set(
-    [...state.processedThreadIds].filter((id) => queue.has(id)),
-  ).size;
-  const completed = state.processedThreadIds.size - remaining;
+  // Derived state - use completedThreadIds from reducer for stable progress
   const isProcessing = queue.size > 0;
   const isPaused = state.status === "paused";
   const isBusy = isProcessing || state.status === "processing";
@@ -103,6 +99,9 @@ export function BulkRunRules() {
         (threads) => {
           dispatch({ type: "THREADS_QUEUED", threads });
         },
+        (threadId) => {
+          dispatch({ type: "THREAD_COMPLETED", threadId });
+        },
         (_completionStatus, count) => {
           dispatch({ type: "COMPLETE", count });
         },
@@ -128,13 +127,13 @@ export function BulkRunRules() {
   };
 
   const handleStop = () => {
-    dispatch({ type: "STOP", completedCount: completed });
+    dispatch({ type: "STOP", completedCount: state.completedThreadIds.size });
     clearAiQueue();
     clearAiQueueAtom();
     abortRef.current?.();
   };
 
-  const progressMessage = getProgressMessage(state, remaining);
+  const progressMessage = getProgressMessage(state);
 
   return (
     <div>
@@ -289,6 +288,7 @@ async function onRun(
     includeRead,
   }: { startDate: Date; endDate?: Date; includeRead?: boolean },
   onThreadsQueued: (threads: ThreadsResponse["threads"]) => void,
+  onThreadCompleted: (threadId: string) => void,
   onComplete: (
     status: "success" | "error" | "cancelled",
     count: number,
@@ -356,7 +356,7 @@ async function onRun(
       onThreadsQueued(threadsWithoutPlan);
       totalProcessed += threadsWithoutPlan.length;
 
-      runAiRules(emailAccountId, threadsWithoutPlan, false);
+      runAiRules(emailAccountId, threadsWithoutPlan, false, onThreadCompleted);
 
       if (aborted) {
         onComplete("cancelled", totalProcessed);
@@ -365,9 +365,8 @@ async function onRun(
 
       if (!nextPageToken) break;
 
-      // avoid gmail api rate limits
-      // ai takes longer anyway
-      await sleep(threadsWithoutPlan.length ? 5000 : 2000);
+      // Small delay between batch fetches - AI queue handles parallelism
+      await sleep(threadsWithoutPlan.length ? 500 : 200);
     }
 
     onComplete("success", totalProcessed);

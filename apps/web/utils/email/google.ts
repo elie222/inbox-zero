@@ -6,6 +6,7 @@ import {
   getMessages,
   getSentMessages,
   queryBatchMessages,
+  queryBatchMessagesPages,
   hasPreviousCommunicationsWithSenderOrDomain,
 } from "@/utils/gmail/message";
 import {
@@ -184,12 +185,28 @@ export class GmailProvider implements EmailProvider {
     return getSentMessages(this.client, maxResults);
   }
 
-  async getInboxMessages(maxResults = 20): Promise<ParsedMessage[]> {
-    const messages = await queryBatchMessages(this.client, {
-      query: "in:inbox",
+  async getInboxMessages(options?: {
+    maxResults?: number;
+    after?: Date;
+    before?: Date;
+  }): Promise<ParsedMessage[]> {
+    const { maxResults, after, before } = options || {};
+
+    // Build Gmail query with date filters
+    let query = "in:inbox";
+    if (after) {
+      query += ` after:${Math.floor(after.getTime() / 1000) - 1}`;
+    }
+    if (before) {
+      query += ` before:${Math.floor(before.getTime() / 1000) + 1}`;
+    }
+
+    // Use paginated version for bulk processing
+    // When maxResults is undefined, fetch all matching emails
+    return queryBatchMessagesPages(this.client, {
+      query,
       maxResults,
     });
-    return messages.messages;
   }
 
   async getSentMessageIds(options: {

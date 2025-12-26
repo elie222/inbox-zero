@@ -291,6 +291,7 @@ export async function queryBatchMessages(
 }
 
 // loops through multiple pages of messages
+// When maxResults is undefined, fetches ALL matching messages (use with caution)
 export async function queryBatchMessagesPages(
   gmail: gmail_v1.Gmail,
   {
@@ -298,7 +299,7 @@ export async function queryBatchMessagesPages(
     maxResults,
   }: {
     query: string;
-    maxResults: number;
+    maxResults?: number;
   },
 ) {
   const messages: ParsedMessage[] = [];
@@ -311,7 +312,12 @@ export async function queryBatchMessagesPages(
       });
     messages.push(...pageMessages);
     nextPageToken = nextToken || undefined;
-  } while (nextPageToken && messages.length < maxResults);
+    // If maxResults is undefined, continue until no more pages
+    // If maxResults is set, stop when we have enough
+  } while (
+    nextPageToken &&
+    (maxResults === undefined || messages.length < maxResults)
+  );
 
   return messages;
 }

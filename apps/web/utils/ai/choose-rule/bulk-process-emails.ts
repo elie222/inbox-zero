@@ -4,6 +4,14 @@ import { runRules } from "@/utils/ai/choose-rule/run-rules";
 import type { Logger } from "@/utils/logger";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import type { ParsedMessage } from "@/utils/types";
+import type { Rule, Action } from "@prisma/client";
+
+// Parallel processing concurrency - adjust based on your LLM endpoint capacity
+// Azure AI Foundry typically handles 5-10 concurrent requests well
+const DEFAULT_CONCURRENCY = 5;
+
+// Page size for fetching emails - balances API calls vs memory
+const PAGE_SIZE = 100;
 
 export async function bulkProcessInboxEmails({
   emailAccount,
@@ -11,16 +19,34 @@ export async function bulkProcessInboxEmails({
   maxEmails,
   skipArchive,
   logger: log,
+  concurrency = DEFAULT_CONCURRENCY,
+  after,
+  before,
+  skipAlreadyProcessed = true,
+  processOldestFirst = true,
 }: {
   emailAccount: EmailAccountWithAI;
   provider: string;
-  maxEmails: number;
+  maxEmails?: number;
   skipArchive: boolean;
   logger: Logger;
+  concurrency?: number;
+  after?: Date;
+  before?: Date;
+  skipAlreadyProcessed?: boolean;
+  processOldestFirst?: boolean;
 }) {
   const logger = log.with({ module: "bulk-process-emails" });
 
-  logger.info("Starting bulk inbox email processing");
+  logger.info("Starting bulk inbox email processing (streaming mode)", {
+    concurrency,
+    maxEmails: maxEmails || "unlimited",
+    pageSize: PAGE_SIZE,
+    after: after?.toISOString(),
+    before: before?.toISOString(),
+    skipAlreadyProcessed,
+    processOldestFirst,
+  });
 
   try {
     const emailProvider = await createEmailProvider({
@@ -29,41 +55,180 @@ export async function bulkProcessInboxEmails({
       logger,
     });
 
-    const [messages, rules] = await Promise.all([
-      emailProvider.getInboxMessages(maxEmails),
-      prisma.rule.findMany({
-        where: {
-          emailAccountId: emailAccount.id,
-          enabled: true,
-        },
-        include: { actions: true },
-      }),
-    ]);
-
-    if (messages.length === 0) {
-      logger.info("No inbox emails to process");
-      return;
-    }
+    // Fetch rules once upfront
+    const rules = await prisma.rule.findMany({
+      where: {
+        emailAccountId: emailAccount.id,
+        enabled: true,
+      },
+      include: { actions: true },
+    });
 
     if (rules.length === 0) {
       logger.info("No rules found");
       return;
     }
 
-    const uniqueMessages = getLatestMessagePerThread(messages);
+    logger.info("Rules loaded", { ruleCount: rules.length });
 
-    logger.info("Processing emails with rules", {
-      ruleCount: rules.length,
-      emailCount: uniqueMessages.length,
-      totalFetched: messages.length,
-    });
+    // Build Gmail query
+    let query = "in:inbox";
+    if (after) {
+      query += ` after:${Math.floor(after.getTime() / 1000) - 1}`;
+    }
+    if (before) {
+      query += ` before:${Math.floor(before.getTime() / 1000) + 1}`;
+    }
 
     let processedCount = 0;
     let errorCount = 0;
+    let totalFetched = 0;
+    let pageNum = 0;
+    let nextPageToken: string | undefined;
+    const processedThreadIds = new Set<string>();
 
-    for (const message of uniqueMessages) {
-      try {
-        await runRules({
+    // Stream pages of emails and process each page immediately
+    do {
+      pageNum++;
+      logger.info(`Fetching page ${pageNum}...`, {
+        pageToken: nextPageToken ? "has token" : "first page",
+      });
+
+      const { messages, nextPageToken: newToken } =
+        await emailProvider.getMessagesWithPagination({
+          query,
+          maxResults: PAGE_SIZE,
+          pageToken: nextPageToken,
+          after,
+          before,
+        });
+
+      nextPageToken = newToken;
+      totalFetched += messages.length;
+
+      if (messages.length === 0) {
+        logger.info("No more messages to process");
+        break;
+      }
+
+      // Get unique messages per thread (only process latest message in each thread)
+      let uniqueMessages = getLatestMessagePerThread(
+        messages,
+        processedThreadIds,
+      );
+
+      // Track processed thread IDs to avoid duplicates across pages
+      for (const msg of uniqueMessages) {
+        processedThreadIds.add(msg.threadId);
+      }
+
+      // Filter out messages that have already been processed (have ExecutedRule records)
+      let skippedCount = 0;
+      if (skipAlreadyProcessed && uniqueMessages.length > 0) {
+        const messageIds = uniqueMessages.map((m) => m.id);
+        const alreadyProcessed = await prisma.executedRule.findMany({
+          where: {
+            emailAccountId: emailAccount.id,
+            messageId: { in: messageIds },
+          },
+          select: { messageId: true },
+        });
+        const alreadyProcessedIds = new Set(
+          alreadyProcessed.map((r) => r.messageId),
+        );
+        const beforeCount = uniqueMessages.length;
+        uniqueMessages = uniqueMessages.filter(
+          (m) => !alreadyProcessedIds.has(m.id),
+        );
+        skippedCount = beforeCount - uniqueMessages.length;
+      }
+
+      // Sort messages by date: oldest first if processOldestFirst is true
+      if (processOldestFirst && uniqueMessages.length > 0) {
+        uniqueMessages.sort((a, b) => {
+          const dateA = new Date(a.date || 0).getTime();
+          const dateB = new Date(b.date || 0).getTime();
+          return dateA - dateB; // Ascending = oldest first
+        });
+      }
+
+      logger.info(`Processing page ${pageNum}`, {
+        pageMessages: messages.length,
+        uniqueInPage: uniqueMessages.length + skippedCount,
+        skippedAlreadyProcessed: skippedCount,
+        toProcess: uniqueMessages.length,
+        totalFetched,
+        totalProcessed: processedCount,
+        hasMorePages: !!nextPageToken,
+      });
+
+      // Skip if all messages in this page were already processed
+      if (uniqueMessages.length === 0) {
+        continue;
+      }
+
+      // Process this page's messages in parallel batches
+      const { processed, errors } = await processMessageBatch({
+        messages: uniqueMessages,
+        rules,
+        emailProvider,
+        emailAccount,
+        skipArchive,
+        concurrency,
+        logger,
+      });
+
+      processedCount += processed;
+      errorCount += errors;
+
+      // Check if we've hit the max emails limit
+      if (maxEmails && processedCount >= maxEmails) {
+        logger.info("Reached max emails limit", { maxEmails, processedCount });
+        break;
+      }
+    } while (nextPageToken);
+
+    logger.info("Completed bulk email processing", {
+      processedCount,
+      errorCount,
+      totalFetched,
+      uniqueThreads: processedThreadIds.size,
+      pages: pageNum,
+    });
+  } catch (error) {
+    logger.error("Failed to process emails", { error });
+  }
+}
+
+async function processMessageBatch({
+  messages,
+  rules,
+  emailProvider,
+  emailAccount,
+  skipArchive,
+  concurrency,
+  logger,
+}: {
+  messages: ParsedMessage[];
+  rules: (Rule & { actions: Action[] })[];
+  emailProvider: Awaited<
+    ReturnType<typeof import("@/utils/email/provider").createEmailProvider>
+  >;
+  emailAccount: EmailAccountWithAI;
+  skipArchive: boolean;
+  concurrency: number;
+  logger: Logger;
+}): Promise<{ processed: number; errors: number }> {
+  let processed = 0;
+  let errors = 0;
+
+  // Process in batches of concurrency
+  for (let i = 0; i < messages.length; i += concurrency) {
+    const batch = messages.slice(i, i + concurrency);
+
+    const results = await Promise.allSettled(
+      batch.map((message) =>
+        runRules({
           provider: emailProvider,
           message,
           rules,
@@ -72,32 +237,38 @@ export async function bulkProcessInboxEmails({
           modelType: "economy",
           logger,
           skipArchive,
-        });
-        processedCount++;
-      } catch (error) {
-        errorCount++;
-        logger.error("Error processing email", {
-          messageId: message.id,
-          error,
-        });
-        // Continue processing other emails even if one fails
-      }
-    }
+        }),
+      ),
+    );
 
-    logger.info("Completed bulk email processing", {
-      processedCount,
-      errorCount,
-      totalEmails: uniqueMessages.length,
+    results.forEach((result, index) => {
+      if (result.status === "fulfilled") {
+        processed++;
+      } else {
+        errors++;
+        logger.error("Error processing email", {
+          messageId: batch[index].id,
+          error: result.reason,
+        });
+      }
     });
-  } catch (error) {
-    logger.error("Failed to process emails", { error });
   }
+
+  return { processed, errors };
 }
 
-function getLatestMessagePerThread(messages: ParsedMessage[]): ParsedMessage[] {
+function getLatestMessagePerThread(
+  messages: ParsedMessage[],
+  alreadyProcessedThreadIds?: Set<string>,
+): ParsedMessage[] {
   const latestByThread = new Map<string, ParsedMessage>();
 
   for (const message of messages) {
+    // Skip threads we've already processed in previous pages
+    if (alreadyProcessedThreadIds?.has(message.threadId)) {
+      continue;
+    }
+
     const existing = latestByThread.get(message.threadId);
     if (
       !existing ||

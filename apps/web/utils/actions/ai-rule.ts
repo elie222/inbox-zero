@@ -11,6 +11,7 @@ import { emailToContent } from "@/utils/mail";
 import {
   runRulesBody,
   testAiCustomContentBody,
+  bulkProcessRulesBody,
 } from "@/utils/actions/ai-rule.validation";
 import {
   createRulesBody,
@@ -24,6 +25,7 @@ import { aiFindSnippets } from "@/utils/ai/snippets/find-snippets";
 import { createRule, updateRule, deleteRule } from "@/utils/rule/rule";
 import { actionClient } from "@/utils/actions/safe-action";
 import { getEmailAccountWithAi } from "@/utils/user/get";
+import { bulkProcessInboxEmails } from "@/utils/ai/choose-rule/bulk-process-emails";
 import { SafeError } from "@/utils/error";
 import { createEmailProvider } from "@/utils/email/provider";
 import { aiPromptToRulesOld } from "@/utils/ai/rule/prompt-to-rules-old";
@@ -579,3 +581,73 @@ export const generateRulesPromptAction = actionClient
 
     return { rulesPrompt: result.join("\n\n") };
   });
+
+/**
+ * Bulk process inbox emails using server-side parallelism.
+ * This bypasses browser HTTP connection limits by running all AI calls
+ * on the server with proper concurrency control.
+ */
+export const bulkProcessRulesAction = actionClient
+  .metadata({ name: "bulkProcessRules" })
+  .inputSchema(bulkProcessRulesBody)
+  .action(
+    async ({
+      ctx: { emailAccountId, provider, logger },
+      parsedInput: {
+        maxEmails,
+        concurrency,
+        daysBack,
+        startDate,
+        endDate,
+        skipAlreadyProcessed,
+        processOldestFirst,
+      },
+    }) => {
+      const emailAccount = await getEmailAccountWithAi({ emailAccountId });
+
+      if (!emailAccount) throw new SafeError("Email account not found");
+      if (!provider) throw new SafeError("Provider not found");
+
+      // Calculate date filters
+      let after: Date | undefined;
+      let before: Date | undefined;
+
+      if (daysBack) {
+        // daysBack takes precedence - process emails from last N days
+        after = new Date();
+        after.setDate(after.getDate() - daysBack);
+      } else {
+        // Use explicit date range if provided
+        after = startDate;
+        before = endDate;
+      }
+
+      logger.info("Starting bulk rule processing", {
+        maxEmails: maxEmails || "unlimited",
+        concurrency,
+        daysBack,
+        startDate: startDate?.toISOString(),
+        endDate: endDate?.toISOString(),
+        computedAfter: after?.toISOString(),
+        computedBefore: before?.toISOString(),
+        skipAlreadyProcessed,
+        processOldestFirst,
+        emailAccountId,
+      });
+
+      await bulkProcessInboxEmails({
+        emailAccount,
+        provider,
+        maxEmails,
+        skipArchive: false,
+        logger,
+        concurrency,
+        after,
+        before,
+        skipAlreadyProcessed,
+        processOldestFirst,
+      });
+
+      return { success: true };
+    },
+  );

@@ -83,9 +83,18 @@ export async function runRules({
   logger: Logger;
   skipArchive?: boolean;
 }): Promise<RunRulesResult[]> {
+  const overallStartTime = Date.now();
+  logger.info("runRules starting", {
+    module: MODULE,
+    messageId: message.id,
+    threadId: message.threadId,
+    rulesCount: rules.length,
+  });
+
   const batchTimestamp = new Date(); // Single timestamp for this batch execution
   const { regularRules, conversationRules } = prepareRulesWithMetaRule(rules);
 
+  const findMatchStartTime = Date.now();
   const results = await findMatchingRules({
     rules: regularRules,
     message,
@@ -93,6 +102,13 @@ export async function runRules({
     provider,
     modelType,
     logger,
+  });
+  const findMatchDuration = Date.now() - findMatchStartTime;
+  logger.info("findMatchingRules completed", {
+    module: MODULE,
+    durationMs: findMatchDuration,
+    durationSec: (findMatchDuration / 1000).toFixed(2),
+    matchesCount: results.matches.length,
   });
 
   // Auto-reapply conversation tracking for thread continuity
@@ -198,6 +214,15 @@ export async function runRules({
       status: executedRule.executedRule?.status || ExecutedRuleStatus.APPLIED,
     });
   }
+
+  const totalDuration = Date.now() - overallStartTime;
+  logger.info("runRules completed", {
+    module: MODULE,
+    messageId: message.id,
+    totalDurationMs: totalDuration,
+    totalDurationSec: (totalDuration / 1000).toFixed(2),
+    executedRulesCount: executedRules.length,
+  });
 
   return executedRules;
 }

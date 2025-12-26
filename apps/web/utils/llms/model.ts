@@ -7,6 +7,7 @@ import { createGroq } from "@ai-sdk/groq";
 import { createOpenRouter } from "@openrouter/ai-sdk-provider";
 import { createGateway } from "@ai-sdk/gateway";
 import { createOllama } from "ollama-ai-provider-v2";
+// Note: @ai-sdk/azure not needed - Azure AI Foundry uses Anthropic-compatible API
 import { env } from "@/env";
 import { Provider } from "@/utils/llms/config";
 import type { UserAIFields } from "@/utils/llms/types";
@@ -187,6 +188,29 @@ function selectModel(
         backupModel: getBackupModel(aiApiKey),
       };
     }
+    case Provider.AZURE_FOUNDRY: {
+      // Azure AI Foundry hosts Claude models via Anthropic-compatible API
+      // Endpoint: https://{resource}.services.ai.azure.com/anthropic/v1/messages
+      // See: https://learn.microsoft.com/en-us/azure/ai-foundry/foundry-models/how-to/use-foundry-models-claude
+      const modelName = aiModel || "claude-opus-4-5";
+      const resourceName = env.AZURE_FOUNDRY_RESOURCE_NAME;
+      if (!resourceName) {
+        throw new Error(
+          "AZURE_FOUNDRY_RESOURCE_NAME environment variable is required for Azure AI Foundry",
+        );
+      }
+      // Azure Foundry uses /anthropic path, SDK appends /messages
+      const baseURL = `https://${resourceName}.services.ai.azure.com/anthropic/v1`;
+      return {
+        provider: Provider.AZURE_FOUNDRY,
+        modelName,
+        model: createAnthropic({
+          baseURL,
+          apiKey: aiApiKey || env.AZURE_FOUNDRY_API_KEY || "",
+        })(modelName),
+        backupModel: getBackupModel(aiApiKey),
+      };
+    }
     default: {
       logger.error("LLM provider not supported", { aiProvider });
       throw new Error(`LLM provider not supported: ${aiProvider}`);
@@ -354,6 +378,7 @@ function getProviderApiKey(provider: string) {
     [Provider.OPENROUTER]: env.OPENROUTER_API_KEY,
     [Provider.AI_GATEWAY]: env.AI_GATEWAY_API_KEY,
     [Provider.OLLAMA]: "ollama-local",
+    [Provider.AZURE_FOUNDRY]: env.AZURE_FOUNDRY_API_KEY,
   };
 
   return providerApiKeys[provider];

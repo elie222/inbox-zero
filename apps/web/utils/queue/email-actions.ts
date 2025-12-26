@@ -10,6 +10,7 @@ export const runAiRules = async (
   emailAccountId: string,
   threadsArray: ThreadsResponse["threads"],
   rerun: boolean,
+  onThreadCompleted?: (threadId: string) => void,
 ) => {
   const threads = threadsArray.filter(isDefined);
   const threadIds = threads.map((t) => t.id);
@@ -18,14 +19,25 @@ export const runAiRules = async (
   aiQueue.addAll(
     threads.map((thread) => async () => {
       const message = thread.messages?.[thread.messages.length - 1];
-      if (!message) return;
-      await runRulesAction(emailAccountId, {
-        messageId: message.id,
-        threadId: thread.id,
-        rerun,
-        isTest: false,
-      });
-      removeFromAiQueueAtom(thread.id);
+      if (!message) {
+        removeFromAiQueueAtom(thread.id);
+        onThreadCompleted?.(thread.id);
+        return;
+      }
+      try {
+        await runRulesAction(emailAccountId, {
+          messageId: message.id,
+          threadId: thread.id,
+          rerun,
+          isTest: false,
+        });
+      } catch (error) {
+        console.error(`Failed to process thread ${thread.id}:`, error);
+      } finally {
+        // Always remove from queue, even on error, to prevent stuck items
+        removeFromAiQueueAtom(thread.id);
+        onThreadCompleted?.(thread.id);
+      }
     }),
   );
 };

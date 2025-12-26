@@ -56,7 +56,11 @@ export interface EmailProvider {
     rfc822MessageId: string,
   ): Promise<ParsedMessage | null>;
   getSentMessages(maxResults?: number): Promise<ParsedMessage[]>;
-  getInboxMessages(maxResults?: number): Promise<ParsedMessage[]>;
+  getInboxMessages(options?: {
+    maxResults?: number;
+    after?: Date;
+    before?: Date;
+  }): Promise<ParsedMessage[]>;
   getSentMessageIds(options: {
     maxResults: number;
     after?: Date;

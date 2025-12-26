@@ -29,6 +29,7 @@ import { isGoogleProvider } from "@/utils/email/provider-types";
 import { getUserPremium } from "@/utils/user/get";
 import { isActivePremium } from "@/utils/premium";
 import { ONE_DAY_MS } from "@/utils/date";
+import { env } from "@/env";
 
 export const cleanInboxAction = actionClient
   .metadata({ name: "cleanInbox" })
@@ -44,9 +45,13 @@ export const cleanInboxAction = actionClient
         );
       }
 
-      const premium = await getUserPremium({ userId });
-      if (!premium) throw new SafeError("User not premium");
-      if (!isActivePremium(premium)) throw new SafeError("Premium not active");
+      // Check premium status (bypassed for self-hosted instances)
+      if (!env.NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS) {
+        const premium = await getUserPremium({ userId });
+        if (!premium) throw new SafeError("User not premium");
+        if (!isActivePremium(premium))
+          throw new SafeError("Premium not active");
+      }
 
       const emailProvider = await createEmailProvider({
         emailAccountId,
