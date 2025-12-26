@@ -4,22 +4,19 @@ run-name: "Build Inbox Zero Docker Image"
 on:
   push:
     branches: ["main"]
-    tags: ["v*"] # Also build on version tags for releases
-  workflow_dispatch: # Allow manual trigger
+    tags: ["v*"]
+  workflow_dispatch:
 
 permissions:
   contents: read
   packages: write
-  id-token: write
 
 env:
-  DOCKER_IMAGE_REGISTRY: "ghcr.io"
-  DOCKER_USERNAME: "elie222"
-  DEPOT_PROJECT_ID: "2s1sh2pjrf"
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
 
 jobs:
   build-docker:
-    if: github.repository == 'elie222/inbox-zero'
     name: "Build Docker Image"
     runs-on: ubuntu-latest
 
@@ -29,54 +26,43 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
       - name: Generate Docker tags
         id: meta
         uses: docker/metadata-action@v5
         with:
           images: |
-            ghcr.io/${{ env.DOCKER_USERNAME }}/inbox-zero
-            ${{ env.DOCKER_USERNAME }}/inbox-zero
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
-            # Always tag with short SHA
             type=sha,prefix=
-            # Tag 'latest' on main branch
             type=raw,value=latest,enable={{is_default_branch}}
-            # Tag with version on v* tags (e.g., v2.26.0)
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
+            type=ref,event=branch
 
       - name: Login to GHCR
         uses: docker/login-action@v3
         with:
-          registry: ${{ env.DOCKER_IMAGE_REGISTRY }}
-          username: ${{ env.DOCKER_USERNAME }}
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Login to Docker Hub
-        uses: docker/login-action@v3
-        with:
-          username: ${{ env.DOCKER_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
-
-      - name: Set up Depot
-        uses: depot/setup-action@v1
-
       - name: Build and Push Docker Image
-        uses: depot/build-push-action@v1
+        uses: docker/build-push-action@v5
         with:
-          project: ${{ env.DEPOT_PROJECT_ID }}
           context: .
           file: docker/Dockerfile.prod
           platforms: linux/amd64,linux/arm64
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-
-      - name: Update Docker Hub Description
-        uses: peter-evans/dockerhub-description@v4
-        with:
-          username: ${{ env.DOCKER_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
-          repository: ${{ env.DOCKER_USERNAME }}/inbox-zero
-          short-description: "Inbox Zero - AI email assistant for Gmail and Outlook to reach inbox zero fast"
-          readme-filepath: ./README.md
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          build-args: |
+            NEXT_PUBLIC_BASE_URL=https://inbox.donaldscott.com:444
+            NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS=true
