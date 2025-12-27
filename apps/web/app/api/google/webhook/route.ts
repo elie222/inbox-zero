@@ -15,10 +15,19 @@ export const POST = withError("google/webhook", async (request) => {
 
   let logger = request.logger;
 
-  if (
-    env.GOOGLE_PUBSUB_VERIFICATION_TOKEN &&
-    token !== env.GOOGLE_PUBSUB_VERIFICATION_TOKEN
-  ) {
+  if (!env.GOOGLE_PUBSUB_VERIFICATION_TOKEN) {
+    logger.error(
+      "GOOGLE_PUBSUB_VERIFICATION_TOKEN is not configured - rejecting webhook for security",
+    );
+    return NextResponse.json(
+      {
+        message: "Webhook verification not configured",
+      },
+      { status: 500 },
+    );
+  }
+
+  if (token !== env.GOOGLE_PUBSUB_VERIFICATION_TOKEN) {
     logger.error("Invalid verification token", { token });
     return NextResponse.json(
       {
