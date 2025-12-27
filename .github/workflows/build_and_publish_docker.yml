@@ -64,5 +64,5 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
           build-args: |
-            NEXT_PUBLIC_BASE_URL=https://inbox.donaldscott.com:444
+            NEXT_PUBLIC_BASE_URL=https://inbox.donaldscott.com
             NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS=true
