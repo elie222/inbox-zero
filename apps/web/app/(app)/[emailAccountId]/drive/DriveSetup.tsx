@@ -3,7 +3,8 @@
 import { useCallback, useMemo, useRef, useState } from "react";
 import { useForm, type SubmitHandler } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { CheckIcon, XIcon, LoaderIcon } from "lucide-react";
+import Link from "next/link";
+import { CheckIcon, XIcon, LoaderIcon, ExternalLinkIcon } from "lucide-react";
 import {
   TypographyH3,
   SectionDescription,
@@ -44,7 +45,7 @@ import {
   moveFilingAction,
   fileAttachmentAction,
   submitPreviewFeedbackAction,
-  type FileAttachmentResult,
+  type FileAttachmentFiled,
 } from "@/utils/actions/drive";
 import {
   updateFilingPromptBody,
@@ -58,6 +59,7 @@ import type {
 import { DriveConnectionCard, getProviderInfo } from "./DriveConnectionCard";
 import type { AttachmentPreviewItem } from "@/app/api/user/drive/preview/attachments/route";
 import { LoadingContent } from "@/components/LoadingContent";
+import { getEmailUrlForMessage } from "@/utils/url";
 
 type SetupPhase = "setup" | "loading-attachments" | "preview" | "starting";
 
@@ -272,9 +274,10 @@ function NoAttachmentsMessage({
 }
 
 type FilingState = {
-  status: "pending" | "filing" | "filed" | "error";
-  result?: FileAttachmentResult;
+  status: "pending" | "filing" | "filed" | "skipped" | "error";
+  result?: FileAttachmentFiled;
   error?: string;
+  skipReason?: string;
 };
 
 function PreviewResults({
@@ -290,6 +293,7 @@ function PreviewResults({
   onStartFiling: () => void;
   isStarting: boolean;
 }) {
+  const { userEmail, provider } = useAccount();
   const [filingStates, setFilingStates] = useState<Record<string, FilingState>>(
     () => {
       // Initialize all as "filing" and trigger requests immediately
@@ -312,15 +316,21 @@ function PreviewResults({
         messageId: att.messageId,
         filename: att.filename,
       }).then((result) => {
+        const data = result?.data;
         if (result?.serverError) {
           setFilingStates((prev) => ({
             ...prev,
             [key]: { status: "error", error: result.serverError },
           }));
-        } else if (result?.data) {
+        } else if (data?.skipped) {
           setFilingStates((prev) => ({
             ...prev,
-            [key]: { status: "filed", result: result.data },
+            [key]: { status: "skipped", skipReason: data.skipReason },
+          }));
+        } else if (data) {
+          setFilingStates((prev) => ({
+            ...prev,
+            [key]: { status: "filed", result: data },
           }));
         } else {
           setFilingStates((prev) => ({
@@ -332,9 +342,10 @@ function PreviewResults({
     }
   }
 
-  const allFiled = attachments.every((att) => {
+  const allComplete = attachments.every((att) => {
     const key = `${att.messageId}-${att.filename}`;
-    return filingStates[key]?.status === "filed";
+    const status = filingStates[key]?.status;
+    return status === "filed" || status === "skipped" || status === "error";
   });
 
   const anyFiling = attachments.some((att) => {
@@ -342,14 +353,26 @@ function PreviewResults({
     return filingStates[key]?.status === "filing" || !filingStates[key];
   });
 
+  const filedCount = attachments.filter((att) => {
+    const key = `${att.messageId}-${att.filename}`;
+    return filingStates[key]?.status === "filed";
+  }).length;
+
+  const skippedCount = attachments.filter((att) => {
+    const key = `${att.messageId}-${att.filename}`;
+    return filingStates[key]?.status === "skipped";
+  }).length;
+
+  const statusMessage = allComplete
+    ? filedCount > 0
+      ? `Filed ${filedCount} attachment${filedCount !== 1 ? "s" : ""}${skippedCount > 0 ? `, skipped ${skippedCount}` : ""}:`
+      : `Skipped ${skippedCount} attachment${skippedCount !== 1 ? "s" : ""} (didn't match your filing preferences):`
+    : `Filing your ${attachments.length} most recent attachments...`;
+
   return (
     <div>
       <TypographyH4>3. See it in action</TypographyH4>
-      <MutedText className="mt-1">
-        {allFiled
-          ? `We filed your ${attachments.length} most recent attachments:`
-          : `Filing your ${attachments.length} most recent attachments...`}
-      </MutedText>
+      <MutedText className="mt-1">{statusMessage}</MutedText>
 
       <div className="mt-4 rounded-lg border">
         <Table>
@@ -373,6 +396,8 @@ function PreviewResults({
                   isCorrectingThis={correctingId === key}
                   onCorrectClick={() => setCorrectingId(key)}
                   onCancelCorrect={() => setCorrectingId(null)}
+                  userEmail={userEmail}
+                  provider={provider}
                 />
               );
             })}
@@ -388,9 +413,13 @@ function PreviewResults({
         <Button
           onClick={onStartFiling}
           loading={isStarting}
-          disabled={anyFiling}
+          disabled={anyFiling || filedCount === 0}
         >
-          {anyFiling ? "Processing..." : "Looks good, start auto-filing"}
+          {anyFiling
+            ? "Processing..."
+            : filedCount === 0
+              ? "No attachments to file"
+              : "Looks good, start auto-filing"}
         </Button>
         <p className="text-xs text-muted-foreground">
           You'll get an email each time we file something. Reply to correct us.
@@ -408,6 +437,8 @@ function FilingRow({
   isCorrectingThis,
   onCorrectClick,
   onCancelCorrect,
+  userEmail,
+  provider,
 }: {
   emailAccountId: string;
   attachment: AttachmentPreviewItem;
@@ -416,6 +447,8 @@ function FilingRow({
   isCorrectingThis: boolean;
   onCorrectClick: () => void;
   onCancelCorrect: () => void;
+  userEmail: string;
+  provider: string;
 }) {
   const [correctedPath, setCorrectedPath] = useState<string | null>(null);
   const [isMoving, setIsMoving] = useState(false);
@@ -468,6 +501,7 @@ function FilingRow({
 
   const isFiling = filingState.status === "filing";
   const isFiled = filingState.status === "filed";
+  const isSkipped = filingState.status === "skipped";
   const hasError = filingState.status === "error";
 
   if (isCorrectingThis && isFiled) {
@@ -497,18 +531,39 @@ function FilingRow({
     );
   }
 
+  const emailUrl = getEmailUrlForMessage(
+    attachment.messageId,
+    attachment.threadId,
+    userEmail,
+    provider,
+  );
+
   return (
     <TableRow>
       <TableCell>
-        <span className="font-medium truncate max-w-[200px] block">
-          {attachment.filename}
-        </span>
+        <div className="flex items-center gap-1.5">
+          <span className="font-medium truncate max-w-[200px]">
+            {attachment.filename}
+          </span>
+          <Link
+            href={emailUrl}
+            target="_blank"
+            className="text-muted-foreground hover:text-foreground flex-shrink-0"
+            title="Open email"
+          >
+            <ExternalLinkIcon className="size-3.5" />
+          </Link>
+        </div>
       </TableCell>
       <TableCell>
         {isFiling ? (
           <span className="flex items-center gap-2 text-muted-foreground">
             <LoaderIcon className="size-4 animate-spin" />
             <span>Analyzing...</span>
+          </span>
+        ) : isSkipped ? (
+          <span className="text-muted-foreground italic truncate max-w-[200px] block">
+            Skipped — {filingState.skipReason || "Doesn't match preferences"}
           </span>
         ) : hasError ? (
           <span className="text-destructive truncate max-w-[200px] block">
@@ -548,8 +603,10 @@ function FilingRow({
               <XIcon className="size-4" />
             </button>
           </div>
+        ) : isSkipped ? (
+          <span className="text-xs text-muted-foreground">—</span>
         ) : (
-          <div className="h-8" /> // Placeholder to maintain row height
+          <div className="h-8" />
         )}
       </TableCell>
     </TableRow>

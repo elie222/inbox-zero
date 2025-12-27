@@ -22,6 +22,8 @@ import {
 
 export interface FilingResult {
   success: boolean;
+  skipped?: boolean;
+  skipReason?: string;
   filing?: {
     id: string;
     filename: string;
@@ -158,7 +160,17 @@ export async function processAttachment({
       reasoning: analysis.reasoning,
     });
 
-    // Step 5: Determine target folder and drive connection
+    // Step 5: Handle skip action
+    if (analysis.action === "skip") {
+      log.info("AI decided to skip this document");
+      return {
+        success: false,
+        skipped: true,
+        skipReason: analysis.reasoning,
+      };
+    }
+
+    // Step 6: Determine target folder and drive connection
     const { driveConnection, folderId, folderPath, needsToCreateFolder } =
       resolveFolderTarget(analysis, allFolders, driveConnections, log);
 

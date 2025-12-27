@@ -214,14 +214,22 @@ export const createDriveFolderAction = actionClient
     },
   );
 
-export type FileAttachmentResult = {
+export type FileAttachmentFiled = {
   filingId: string;
   filename: string;
   folderPath: string;
   fileId: string | null;
   filedAt: string;
   provider: DriveProviderType;
+  skipped?: false;
 };
+
+export type FileAttachmentResult =
+  | FileAttachmentFiled
+  | {
+      skipped: true;
+      skipReason: string;
+    };
 
 export const fileAttachmentAction = actionClient
   .metadata({ name: "fileAttachment" })
@@ -301,6 +309,14 @@ export const fileAttachmentAction = actionClient
         logger,
         sendNotification: false,
       });
+
+      if (result.skipped) {
+        return {
+          skipped: true,
+          skipReason:
+            result.skipReason || "Document doesn't match filing preferences",
+        };
+      }
 
       if (!result.success || !result.filing) {
         throw new SafeError(result.error || "Failed to file attachment");

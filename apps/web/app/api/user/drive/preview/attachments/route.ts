@@ -10,6 +10,7 @@ import type { Logger } from "@/utils/logger";
 
 export type AttachmentPreviewItem = {
   messageId: string;
+  threadId: string;
   attachmentId: string;
   filename: string;
   mimeType: string;
@@ -104,6 +105,7 @@ function extractAttachmentPreviews(
     for (const attachment of extractable) {
       result.push({
         messageId: message.id,
+        threadId: message.threadId,
         attachmentId: attachment.attachmentId,
         filename: attachment.filename,
         mimeType: attachment.mimeType,

@@ -7,8 +7,10 @@ import { cleanExtractedText } from "@/utils/drive/document-extraction";
 const documentAnalysisSchema = z
   .object({
     action: z
-      .enum(["use_existing", "create_new"])
-      .describe("Whether to use an existing folder or create a new one."),
+      .enum(["use_existing", "create_new", "skip"])
+      .describe(
+        "Whether to use an existing folder, create a new one, or skip this document.",
+      ),
     folderId: z
       .string()
       .optional()
@@ -30,7 +32,9 @@ const documentAnalysisSchema = z
       ),
     reasoning: z
       .string()
-      .describe("Brief explanation for why this folder was chosen."),
+      .describe(
+        "Brief explanation for why this folder was chosen or why the document was skipped.",
+      ),
   })
   .refine(
     (data) => {
@@ -90,16 +94,24 @@ function buildSystem(filingPrompt: string): string {
 ${filingPrompt}
 </user_filing_preferences>
 
-Follow these preferences to decide where each document should go.
+Choose one of:
+1. action: "use_existing" + folderId - Use an existing folder from the list (requires folder ID)
+2. action: "create_new" + folderPath - Create a new folder ONLY if:
+   - The document clearly matches the user's preferences, AND
+   - No existing folder fits, AND
+   - The new folder makes sense for the user's stated filing goals
+3. action: "skip" - Skip this document if:
+   - It doesn't match the user's filing preferences
+   - It's unrelated to what the user wants to organize
+   - You're unsure whether it fits
 
-IMPORTANT - You must choose one of:
-1. action: "use_existing" + folderId - Pick an existing folder from the provided list (use the folder's ID)
-2. action: "create_new" + folderPath - Suggest a new folder path if no existing folder fits
+Examples:
+- User wants "file receipts" → Receipt PDF arrives → File it
+- User wants "file receipts" → CV PDF arrives → SKIP (not a receipt)
+- User wants "organize invoices by vendor" → Invoice arrives but no vendor folder exists → Create new folder for that vendor
 
-Prefer existing folders when possible. Only suggest creating new folders when necessary.
-Be conservative with confidence scores - only use 0.9+ when very certain.
-
-Return your response in JSON format.`;
+Prefer existing folders. Only create folders that align with user preferences. When in doubt, skip.
+Be conservative with confidence scores - only use 0.9+ when very certain.`;
 }
 
 function buildPrompt({
