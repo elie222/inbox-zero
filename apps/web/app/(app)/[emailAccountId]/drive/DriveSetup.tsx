@@ -22,7 +22,15 @@ import {
 } from "@/components/ui/table";
 import { Input } from "@/components/Input";
 import { toastSuccess, toastError } from "@/components/Toast";
-import { TreeProvider, TreeView } from "@/components/kibo-ui/tree";
+import {
+  TreeProvider,
+  TreeView,
+  TreeNode,
+  TreeNodeTrigger,
+  TreeNodeContent,
+  TreeExpander,
+  TreeIcon,
+} from "@/components/kibo-ui/tree";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { useEmailAccountFull } from "@/hooks/useEmailAccountFull";
 import { useDriveConnections } from "@/hooks/useDriveConnections";
@@ -469,19 +477,12 @@ function FilingRow({
           <div className="space-y-3">
             <p className="text-sm font-medium">{attachment.filename}</p>
             <MutedText>Select the correct folder:</MutedText>
-            <div className="flex flex-wrap gap-2">
-              {availableFolders.slice(0, 10).map((folder) => (
-                <Button
-                  key={folder.id}
-                  variant={folder.path === folderPath ? "default" : "outline"}
-                  size="sm"
-                  disabled={isMoving}
-                  onClick={() => handleMoveToFolder(folder)}
-                >
-                  {folder.name}
-                </Button>
-              ))}
-            </div>
+            <SelectableFolderTree
+              folders={availableFolders}
+              selectedPath={folderPath}
+              onSelect={handleMoveToFolder}
+              disabled={isMoving}
+            />
             <Button
               variant="ghost"
               size="sm"
@@ -762,5 +763,131 @@ Receipts go to Receipts by month.`}
         )}
       </form>
     </div>
+  );
+}
+
+function SelectableFolderTree({
+  folders,
+  selectedPath,
+  onSelect,
+  disabled,
+}: {
+  folders: FolderItem[];
+  selectedPath: string | null;
+  onSelect: (folder: FolderItem) => void;
+  disabled: boolean;
+}) {
+  const { rootFolders, folderChildrenMap } = useMemo(() => {
+    const folderMap = new Map<string, FolderItem>();
+    const roots: FolderItem[] = [];
+    const childrenMap = new Map<string, FolderItem[]>();
+
+    for (const folder of folders) {
+      folderMap.set(folder.id, folder);
+    }
+
+    for (const folder of folders) {
+      if (!folder.parentId || !folderMap.has(folder.parentId)) {
+        roots.push(folder);
+      } else {
+        if (!childrenMap.has(folder.parentId)) {
+          childrenMap.set(folder.parentId, []);
+        }
+        childrenMap.get(folder.parentId)!.push(folder);
+      }
+    }
+
+    return { rootFolders: roots, folderChildrenMap: childrenMap };
+  }, [folders]);
+
+  return (
+    <TreeProvider
+      showLines
+      showIcons
+      selectable={false}
+      animateExpand
+      indent={16}
+    >
+      <TreeView className="max-h-48 overflow-y-auto p-0">
+        {rootFolders.map((folder, index) => (
+          <SelectableFolderNode
+            key={folder.id}
+            folder={folder}
+            isLast={index === rootFolders.length - 1}
+            selectedPath={selectedPath}
+            onSelect={onSelect}
+            disabled={disabled}
+            level={0}
+            parentPath=""
+            childrenMap={folderChildrenMap}
+          />
+        ))}
+      </TreeView>
+    </TreeProvider>
+  );
+}
+
+function SelectableFolderNode({
+  folder,
+  isLast,
+  selectedPath,
+  onSelect,
+  disabled,
+  level,
+  parentPath,
+  childrenMap,
+}: {
+  folder: FolderItem;
+  isLast: boolean;
+  selectedPath: string | null;
+  onSelect: (folder: FolderItem) => void;
+  disabled: boolean;
+  level: number;
+  parentPath: string;
+  childrenMap: Map<string, FolderItem[]>;
+}) {
+  const currentPath = parentPath ? `${parentPath}/${folder.name}` : folder.name;
+  const isSelected =
+    selectedPath === currentPath || selectedPath === folder.path;
+  const children = childrenMap.get(folder.id) || [];
+  const hasChildren = children.length > 0;
+
+  return (
+    <TreeNode nodeId={folder.id} level={level} isLast={isLast}>
+      <TreeNodeTrigger className="py-1">
+        <TreeExpander hasChildren={hasChildren} />
+        <TreeIcon hasChildren={hasChildren} />
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            onSelect({ ...folder, path: currentPath });
+          }}
+          disabled={disabled}
+          className={`flex-1 text-left rounded px-1 py-0.5 text-sm transition-colors ${
+            isSelected ? "bg-primary text-primary-foreground" : "hover:bg-muted"
+          } ${disabled ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}
+        >
+          {folder.name}
+        </button>
+      </TreeNodeTrigger>
+      {hasChildren && (
+        <TreeNodeContent hasChildren>
+          {children.map((child, index) => (
+            <SelectableFolderNode
+              key={child.id}
+              folder={child}
+              isLast={index === children.length - 1}
+              selectedPath={selectedPath}
+              onSelect={onSelect}
+              disabled={disabled}
+              level={level + 1}
+              parentPath={currentPath}
+              childrenMap={childrenMap}
+            />
+          ))}
+        </TreeNodeContent>
+      )}
+    </TreeNode>
   );
 }
