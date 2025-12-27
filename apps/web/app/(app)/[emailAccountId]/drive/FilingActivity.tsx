@@ -3,7 +3,7 @@
 import { formatDistanceToNow } from "date-fns";
 import { ExternalLinkIcon } from "lucide-react";
 import { LoadingContent } from "@/components/LoadingContent";
-import { SectionHeader } from "@/components/Typography";
+import { MutedText, SectionHeader } from "@/components/Typography";
 import {
   Table,
   TableBody,
@@ -19,16 +19,17 @@ import type { GetFilingsResponse } from "@/app/api/user/drive/filings/route";
 type Filing = GetFilingsResponse["filings"][number];
 
 export function FilingActivity() {
-  const { data, isLoading, error } = useFilingActivity(10);
+  const { data, isLoading, error } = useFilingActivity({
+    limit: 10,
+    offset: 0,
+  });
 
   return (
     <div>
       <SectionHeader className="mb-3">Recent Activity</SectionHeader>
       <LoadingContent loading={isLoading} error={error}>
-        {data && data.filings.length === 0 ? (
-          <p className="text-sm text-muted-foreground italic">
-            No recently filed documents.
-          </p>
+        {data?.filings.length === 0 ? (
+          <MutedText className="italic">No recently filed documents.</MutedText>
         ) : (
           <div className="rounded-lg border">
             <Table>
@@ -47,9 +48,9 @@ export function FilingActivity() {
               </TableBody>
             </Table>
             {data && data.total > 10 && (
-              <p className="p-3 text-sm text-muted-foreground border-t">
+              <MutedText className="p-3 border-t">
                 Showing {data.filings.length} of {data.total} filings
-              </p>
+              </MutedText>
             )}
           </div>
         )}
@@ -87,6 +88,7 @@ function FilingRow({ filing }: { filing: Filing }) {
             target="_blank"
             rel="noopener noreferrer"
             className="text-muted-foreground hover:text-foreground"
+            aria-label={`Open ${filing.filename} in drive`}
           >
             <ExternalLinkIcon className="size-4" />
           </a>

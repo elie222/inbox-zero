@@ -34,6 +34,7 @@ import { ResultsDisplay } from "@/app/(app)/[emailAccountId]/assistant/ResultDis
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { FixWithChat } from "@/app/(app)/[emailAccountId]/assistant/FixWithChat";
 import { useChat } from "@/providers/ChatProvider";
+import { MutedText } from "@/components/Typography";
 
 type Message = MessagesResponse["messages"][number];
 
@@ -287,9 +288,7 @@ export function ProcessRulesContent({ testMode }: { testMode: boolean }) {
 
       <LoadingContent loading={isLoading} error={error}>
         {messages.length === 0 ? (
-          <div className="p-4 text-center text-sm text-muted-foreground">
-            No emails found
-          </div>
+          <MutedText className="p-4 text-center">No emails found</MutedText>
         ) : (
           <Card>
             <Table>

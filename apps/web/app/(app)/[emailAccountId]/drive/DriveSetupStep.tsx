@@ -4,7 +4,13 @@ import { useCallback, useMemo, useState } from "react";
 import { useForm, type SubmitHandler } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { CheckIcon, XIcon } from "lucide-react";
-import { TypographyH3, SectionDescription } from "@/components/Typography";
+import {
+  TypographyH3,
+  SectionDescription,
+  TypographyP,
+  TypographyH4,
+  MutedText,
+} from "@/components/Typography";
 import { Button } from "@/components/ui/button";
 import {
   Table,
@@ -33,13 +39,14 @@ import {
   updateFilingPromptBody,
   type UpdateFilingPromptBody,
 } from "@/utils/actions/drive.validation";
-import {
-  FolderNode,
-  type FolderItem,
-  type SavedFolder,
-} from "./AllowedFolders";
+import { FolderNode } from "./AllowedFolders";
+import type {
+  FolderItem,
+  SavedFolder,
+} from "@/app/api/user/drive/folders/route";
 import { DriveConnectionCard, getProviderInfo } from "./DriveConnectionCard";
 import type { FilingPreviewResult } from "@/app/api/user/drive/preview/route";
+import { LoadingContent } from "@/components/LoadingContent";
 
 type SetupPhase = "setup" | "loading-preview" | "preview" | "starting";
 
@@ -116,13 +123,24 @@ export function DriveSetupStep() {
 
   return (
     <div className="mx-auto max-w-2xl py-8">
-      <SetupHeader providerName={providerInfo?.name} />
+      <div className="text-center">
+        <TypographyH3>Let's set up auto-filing</TypographyH3>
+        <SectionDescription className="mx-auto mt-3 max-w-xl">
+          We'll file attachments from your emails into your{" "}
+          {providerInfo?.name || "drive"}. Just tell us where and how.
+        </SectionDescription>
+      </div>
 
-      {connection && (
-        <div className="mt-6 flex justify-center">
+      <div className="mt-6 flex justify-center">
+        {connection ? (
           <DriveConnectionCard connection={connection} />
-        </div>
-      )}
+        ) : (
+          <TypographyP>
+            No drive connection found. Please connect your drive to continue
+            setup.
+          </TypographyP>
+        )}
+      </div>
 
       <div className="mt-10 space-y-8">
         <SetupFolderSelection
@@ -156,18 +174,6 @@ export function DriveSetupStep() {
         canPreview={!!canPreview}
         onPreviewClick={handlePreviewClick}
       />
-    </div>
-  );
-}
-
-function SetupHeader({ providerName }: { providerName?: string }) {
-  return (
-    <div className="text-center">
-      <TypographyH3>Let's set up auto-filing</TypographyH3>
-      <SectionDescription className="mx-auto mt-3 max-w-xl">
-        We'll file attachments from your emails into your{" "}
-        {providerName || "drive"}. Just tell us where and how.
-      </SectionDescription>
     </div>
   );
 }
@@ -239,9 +245,9 @@ function NoAttachmentsMessage({
 }) {
   return (
     <div className="text-center">
-      <p className="mb-4 text-sm text-muted-foreground">
+      <MutedText className="mb-4">
         We couldn't find recent attachments to preview.
-      </p>
+      </MutedText>
       <Button onClick={onSkip} loading={isStarting}>
         Start auto-filing anyway
       </Button>
@@ -266,10 +272,10 @@ function PreviewResults({
 
   return (
     <div>
-      <h3 className="text-lg font-semibold">3. See it in action</h3>
-      <p className="mt-1 text-sm text-muted-foreground">
+      <TypographyH4>3. See it in action</TypographyH4>
+      <MutedText className="mt-1">
         We filed your {filings.length} most recent attachments:
-      </p>
+      </MutedText>
 
       <div className="mt-4 rounded-lg border">
         <Table>
@@ -370,9 +376,7 @@ function FilingRow({
         <TableCell colSpan={3}>
           <div className="space-y-3">
             <p className="text-sm font-medium">{filing.filename}</p>
-            <p className="text-sm text-muted-foreground">
-              Select the correct folder:
-            </p>
+            <MutedText>Select the correct folder:</MutedText>
             <div className="flex flex-wrap gap-2">
               {availableFolders.slice(0, 10).map((folder) => (
                 <Button
@@ -532,60 +536,49 @@ function SetupFolderSelection({
 
   const savedFolderIds = new Set(savedFolders.map((f) => f.folderId));
 
-  if (isLoading) {
-    return (
-      <div>
-        <h3 className="text-lg font-semibold">1. Pick your folders</h3>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Which folders can we file to?
-        </p>
-        <p className="mt-4 text-sm text-muted-foreground">Loading folders...</p>
-      </div>
-    );
-  }
-
   return (
     <div>
-      <h3 className="text-lg font-semibold">1. Pick your folders</h3>
-      <p className="mt-1 text-sm text-muted-foreground">
-        Which folders can we file to?
-      </p>
-      {rootFolders.length > 0 ? (
-        <>
-          <div className="mt-4">
-            <TreeProvider
-              showLines
-              showIcons
-              selectable={false}
-              animateExpand
-              indent={16}
-            >
-              <TreeView className="p-0">
-                {rootFolders.map((folder, index) => (
-                  <FolderNode
-                    key={folder.id}
-                    folder={folder}
-                    isLast={index === rootFolders.length - 1}
-                    selectedFolderIds={savedFolderIds}
-                    onToggle={handleFolderToggle}
-                    isDisabled={isFolderBusy}
-                    level={0}
-                    parentPath=""
-                    knownChildren={folderChildrenMap.get(folder.id)}
-                  />
-                ))}
-              </TreeView>
-            </TreeProvider>
-          </div>
-          <p className="mt-3 text-xs text-muted-foreground">
-            We'll only ever put files in folders you select
-          </p>
-        </>
-      ) : (
-        <p className="mt-4 text-sm text-muted-foreground italic">
-          No folders found. Create a folder in your drive.
-        </p>
-      )}
+      <TypographyH4>1. Pick your folders</TypographyH4>
+      <MutedText className="mt-1">Which folders can we file to?</MutedText>
+
+      <LoadingContent loading={isLoading} error={undefined}>
+        {rootFolders.length > 0 ? (
+          <>
+            <div className="mt-4">
+              <TreeProvider
+                showLines
+                showIcons
+                selectable={false}
+                animateExpand
+                indent={16}
+              >
+                <TreeView className="p-0">
+                  {rootFolders.map((folder, index) => (
+                    <FolderNode
+                      key={folder.id}
+                      folder={folder}
+                      isLast={index === rootFolders.length - 1}
+                      selectedFolderIds={savedFolderIds}
+                      onToggle={handleFolderToggle}
+                      isDisabled={isFolderBusy}
+                      level={0}
+                      parentPath=""
+                      knownChildren={folderChildrenMap.get(folder.id)}
+                    />
+                  ))}
+                </TreeView>
+              </TreeProvider>
+            </div>
+            <p className="mt-3 text-xs text-muted-foreground">
+              We'll only ever put files in folders you select
+            </p>
+          </>
+        ) : (
+          <MutedText className="mt-4 italic">
+            No folders found. Create a folder in your drive.
+          </MutedText>
+        )}
+      </LoadingContent>
     </div>
   );
 }
@@ -638,9 +631,7 @@ function SetupRulesForm({
   return (
     <div>
       <h3 className="text-lg font-semibold">2. Describe how you organize</h3>
-      <p className="mt-1 text-sm text-muted-foreground">
-        Tell us in plain English
-      </p>
+      <MutedText className="mt-1">Tell us in plain English</MutedText>
       <form onSubmit={handleSubmit(onSubmit)} className="mt-4 space-y-3">
         <Input
           type="textarea"

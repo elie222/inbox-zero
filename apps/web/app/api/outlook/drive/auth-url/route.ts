@@ -9,17 +9,6 @@ import {
 
 export type GetDriveAuthUrlResponse = { url: string };
 
-const getAuthUrl = ({ emailAccountId }: { emailAccountId: string }) => {
-  const state = generateOAuthState({
-    emailAccountId,
-    type: "drive",
-  });
-
-  const url = getMicrosoftDriveOAuth2Url(state);
-
-  return { url, state };
-};
-
 export const GET = withEmailAccount(async (request) => {
   const { emailAccountId } = request.auth;
   const { url, state } = getAuthUrl({ emailAccountId });
@@ -31,3 +20,14 @@ export const GET = withEmailAccount(async (request) => {
 
   return response;
 });
+
+const getAuthUrl = ({ emailAccountId }: { emailAccountId: string }) => {
+  const state = generateOAuthState({
+    emailAccountId,
+    type: "drive",
+  });
+
+  const url = getMicrosoftDriveOAuth2Url(state);
+
+  return { url, state };
+};

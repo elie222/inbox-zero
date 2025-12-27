@@ -1,13 +1,15 @@
 import useSWR from "swr";
-import type { GetSubfoldersResponse } from "@/app/api/user/drive/folders/[folderId]/route";
+import type {
+  GetSubfoldersQuery,
+  GetSubfoldersResponse,
+} from "@/app/api/user/drive/folders/[folderId]/route";
 
 export function useDriveSubfolders(
-  folderId: string | null,
-  driveConnectionId: string | null,
+  params: (GetSubfoldersQuery & { folderId: string }) | null,
 ) {
   return useSWR<GetSubfoldersResponse>(
-    folderId && driveConnectionId
-      ? `/api/user/drive/folders/${folderId}?driveConnectionId=${driveConnectionId}`
+    params
+      ? `/api/user/drive/folders/${params.folderId}?driveConnectionId=${params.driveConnectionId}`
       : null,
   );
 }

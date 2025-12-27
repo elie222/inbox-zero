@@ -7,8 +7,8 @@ export const querySchema = z.object({
   limit: z.coerce.number().min(1).max(100).default(20),
   offset: z.coerce.number().min(0).default(0),
 });
-
 export type GetFilingsQuery = z.infer<typeof querySchema>;
+
 export type GetFilingsResponse = Awaited<ReturnType<typeof getFilings>>;
 
 export const GET = withEmailAccount(async (request) => {
@@ -36,9 +36,6 @@ async function getFilings({
   const [filings, total] = await Promise.all([
     prisma.documentFiling.findMany({
       where: { emailAccountId },
-      orderBy: { createdAt: "desc" },
-      take: limit,
-      skip: offset,
       select: {
         id: true,
         filename: true,
@@ -51,16 +48,13 @@ async function getFilings({
         wasCorrected: true,
         originalPath: true,
         createdAt: true,
-        driveConnection: {
-          select: {
-            provider: true,
-          },
-        },
+        driveConnection: { select: { provider: true } },
       },
+      orderBy: { createdAt: "desc" },
+      take: limit,
+      skip: offset,
     }),
-    prisma.documentFiling.count({
-      where: { emailAccountId },
-    }),
+    prisma.documentFiling.count({ where: { emailAccountId } }),
   ]);
 
   return {

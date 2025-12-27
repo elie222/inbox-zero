@@ -35,6 +35,7 @@ export default function DrivePage() {
   const hasConnections = (data?.connections?.length ?? 0) > 0;
   const filingEnabled = emailAccount?.filingEnabled ?? false;
   const [isSaving, setIsSaving] = useState(false);
+
   const view = getDriveView(
     hasConnections,
     filingEnabled,
@@ -107,13 +108,7 @@ function getDriveView(
   forceOnboarding: boolean | null,
   forceSetup: boolean | null,
 ): DriveView {
-  if (forceOnboarding === true || !hasConnections) {
-    return "onboarding";
-  }
-
-  if (forceSetup === true || (hasConnections && !filingEnabled)) {
-    return "setup";
-  }
-
+  if (forceOnboarding === true || !hasConnections) return "onboarding";
+  if (forceSetup === true || (hasConnections && !filingEnabled)) return "setup";
   return "settings";
 }

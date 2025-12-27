@@ -1,33 +1,47 @@
+import { z } from "zod";
 import { NextResponse } from "next/server";
 import prisma from "@/utils/prisma";
 import { withEmailAccount } from "@/utils/middleware";
 import { createDriveProviderWithRefresh } from "@/utils/drive/provider";
 import { SafeError } from "@/utils/error";
+import type { Logger } from "@/utils/logger";
 
-export type GetSubfoldersResponse = {
-  folders: Array<{
-    id: string;
-    name: string;
-    path: string;
-    driveConnectionId: string;
-    provider: string;
-  }>;
-};
+const querySchema = z.object({ driveConnectionId: z.string() });
+export type GetSubfoldersQuery = z.infer<typeof querySchema>;
+
+export type GetSubfoldersResponse = Awaited<ReturnType<typeof getData>>;
 
 export const GET = withEmailAccount(async (request, context) => {
-  const logger = request.logger;
   const { emailAccountId } = request.auth;
-  const { folderId } = (await context.params) as { folderId: string };
+  const { folderId } = await context.params;
 
-  // Get the drive connection ID from the query params
   const { searchParams } = new URL(request.url);
-  const driveConnectionId = searchParams.get("driveConnectionId");
 
-  if (!driveConnectionId) {
-    throw new SafeError("Drive connection ID is required");
-  }
+  const { driveConnectionId } = querySchema.parse({
+    driveConnectionId: searchParams.get("driveConnectionId"),
+  });
 
-  // Get the drive connection
+  const result = await getData({
+    driveConnectionId,
+    emailAccountId,
+    folderId,
+    logger: request.logger,
+  });
+
+  return NextResponse.json(result);
+});
+
+async function getData({
+  driveConnectionId,
+  emailAccountId,
+  folderId,
+  logger,
+}: {
+  driveConnectionId: string;
+  emailAccountId: string;
+  folderId: string;
+  logger: Logger;
+}) {
   const driveConnection = await prisma.driveConnection.findFirst({
     where: {
       id: driveConnectionId,
@@ -36,18 +50,15 @@ export const GET = withEmailAccount(async (request, context) => {
     },
   });
 
-  if (!driveConnection) {
-    throw new SafeError("Drive connection not found");
-  }
+  if (!driveConnection) throw new SafeError("Drive connection not found");
 
-  // Fetch subfolders
   const provider = await createDriveProviderWithRefresh(
     driveConnection,
     logger,
   );
   const subfolders = await provider.listFolders(folderId);
 
-  return NextResponse.json({
+  return {
     folders: subfolders.map((folder) => ({
       id: folder.id,
       name: folder.name,
@@ -55,5 +66,5 @@ export const GET = withEmailAccount(async (request, context) => {
       driveConnectionId: driveConnection.id,
       provider: driveConnection.provider,
     })),
-  } satisfies GetSubfoldersResponse);
-});
+  };
+}

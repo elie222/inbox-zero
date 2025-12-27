@@ -26,7 +26,7 @@ import {
   TableHeader,
   TableHead,
 } from "@/components/ui/table";
-import { MessageText } from "@/components/Typography";
+import { MessageText, MutedText } from "@/components/Typography";
 import {
   addGroupItemAction,
   deleteGroupItemAction,
@@ -324,9 +324,9 @@ function GroupItemList({
               </TableCell>
               <TableCell className="flex items-center justify-end gap-4 py-2 text-right">
                 <Tooltip content="Date added">
-                  <span className="text-sm text-muted-foreground">
+                  <MutedText>
                     {formatShortDate(new Date(item.createdAt))}
-                  </span>
+                  </MutedText>
                 </Tooltip>
 
                 <Button

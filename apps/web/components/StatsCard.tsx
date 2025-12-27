@@ -1,3 +1,4 @@
+import { MutedText } from "@/components/Typography";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { cn } from "@/utils";
 
@@ -26,9 +27,7 @@ export function StatsCards(props: {
             <CardContent>
               <div className="">
                 <span className="text-2xl font-bold">{stat.value}</span>
-                <span className="ml-2 text-sm text-muted-foreground">
-                  {stat.subvalue}
-                </span>
+                <MutedText className="ml-2">{stat.subvalue}</MutedText>
               </div>
               {/* <p className="text-muted-foreground text-xs">{stat.subvalue}</p> */}
             </CardContent>

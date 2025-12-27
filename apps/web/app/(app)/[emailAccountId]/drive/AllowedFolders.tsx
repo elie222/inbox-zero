@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useMemo, useState } from "react";
-import useSWR from "swr";
+import { Loader2Icon } from "lucide-react";
 import {
   Card,
   CardContent,
@@ -22,32 +22,37 @@ import {
   TreeLabel,
   useTree,
 } from "@/components/kibo-ui/tree";
-import { Loader2Icon } from "lucide-react";
-import type { GetSubfoldersResponse } from "@/app/api/user/drive/folders/[folderId]/route";
 import {
   addFilingFolderAction,
   removeFilingFolderAction,
 } from "@/utils/actions/drive";
+import { useDriveFolders } from "@/hooks/useDriveFolders";
+import { LoadingContent } from "@/components/LoadingContent";
+import { useDriveSubfolders } from "@/hooks/useDriveSubfolders";
+import { MutedText } from "@/components/Typography";
+import type {
+  FolderItem,
+  SavedFolder,
+} from "@/app/api/user/drive/folders/route";
 
-export interface FolderItem {
-  id: string;
-  name: string;
-  parentId?: string;
-  path?: string;
-  driveConnectionId: string;
-  provider: string;
+export function AllowedFolders({ emailAccountId }: { emailAccountId: string }) {
+  const { data, isLoading, error, mutate } = useDriveFolders();
+
+  return (
+    <LoadingContent loading={isLoading} error={error}>
+      {data && (
+        <AllowedFoldersContent
+          emailAccountId={emailAccountId}
+          availableFolders={data.availableFolders}
+          savedFolders={data.savedFolders}
+          mutateFolders={mutate}
+        />
+      )}
+    </LoadingContent>
+  );
 }
 
-export interface SavedFolder {
-  id: string;
-  folderId: string;
-  folderName: string;
-  folderPath: string;
-  driveConnectionId: string;
-  provider: string;
-}
-
-export function AllowedFolders({
+function AllowedFoldersContent({
   emailAccountId,
   availableFolders,
   savedFolders,
@@ -131,11 +136,14 @@ export function AllowedFolders({
     return map;
   }, [availableFolders]);
 
-  const savedFolderIds = new Set(savedFolders.map((f) => f.folderId));
+  const savedFolderIds = useMemo(
+    () => new Set(savedFolders.map((f) => f.folderId)),
+    [savedFolders],
+  );
 
   return (
     <Card size="sm">
-      <CardHeader className="pb-3">
+      <CardHeader>
         <CardTitle>Allowed folders</CardTitle>
         <CardDescription>AI can only file to these folders</CardDescription>
       </CardHeader>
@@ -165,9 +173,9 @@ export function AllowedFolders({
             </TreeView>
           </TreeProvider>
         ) : (
-          <p className="text-sm text-muted-foreground italic">
+          <MutedText className="italic">
             No folders found. Create a folder in your drive.
-          </p>
+          </MutedText>
         )}
       </CardContent>
     </Card>
@@ -199,9 +207,12 @@ export function FolderNode({
   const currentPath = parentPath ? `${parentPath}/${folder.name}` : folder.name;
 
   const { data: subfoldersData, isLoading: isLoadingSubfolders } =
-    useSWR<GetSubfoldersResponse>(
+    useDriveSubfolders(
       isExpanded && !knownChildren
-        ? `/api/user/drive/folders/${folder.id}?driveConnectionId=${folder.driveConnectionId}`
+        ? {
+            folderId: folder.id,
+            driveConnectionId: folder.driveConnectionId,
+          }
         : null,
     );
 

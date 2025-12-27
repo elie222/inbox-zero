@@ -6,6 +6,10 @@ import { SafeError } from "@/utils/error";
 import type { Logger } from "@/utils/logger";
 
 export type GetDriveFoldersResponse = Awaited<ReturnType<typeof getData>>;
+export type FolderItem = GetDriveFoldersResponse["availableFolders"][number] & {
+  parentId?: string;
+};
+export type SavedFolder = GetDriveFoldersResponse["savedFolders"][number];
 
 export const GET = withEmailAccount(async (request) => {
   const logger = request.logger;
@@ -43,9 +47,6 @@ async function getData({
     },
   });
 
-  const driveConnections = emailAccount?.driveConnections ?? [];
-  const savedFolders = emailAccount?.filingFolders ?? [];
-
   // Fetch top-level folders from each drive (depth 1 only)
   const availableFolders: Array<{
     id: string;
@@ -56,6 +57,8 @@ async function getData({
   }> = [];
 
   const connectionErrors: Array<{ provider: string; error: unknown }> = [];
+
+  const driveConnections = emailAccount?.driveConnections ?? [];
 
   for (const connection of driveConnections) {
     try {
@@ -92,11 +95,7 @@ async function getData({
   }
 
   return {
-    savedFolders: savedFolders.map(({ driveConnection, ...f }) => ({
-      ...f,
-      provider: driveConnection.provider,
-    })),
+    savedFolders: emailAccount?.filingFolders ?? [],
     availableFolders,
-    hasConnectedDrives: driveConnections.length > 0,
   };
 }

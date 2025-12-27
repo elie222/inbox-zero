@@ -42,6 +42,7 @@ import { WebhookDocumentationLink } from "@/components/WebhookDocumentation";
 import { LabelCombobox } from "@/components/LabelCombobox";
 import { RuleStep } from "@/app/(app)/[emailAccountId]/assistant/RuleStep";
 import { Card } from "@/components/ui/card";
+import { MutedText } from "@/components/Typography";
 
 export function ActionSteps({
   actionFields,
@@ -538,15 +539,15 @@ function ActionCard({
   const rightContent = (
     <>
       {isNotifySender ? (
-        <div className="px-1 h-full flex items-center text-sm text-muted-foreground">
+        <MutedText className="px-1 h-full flex items-center">
           Sends an automated notification from Inbox Zero informing the sender
           their email was filtered as cold outreach.
-        </div>
+        </MutedText>
       ) : isDraftEmailWithoutManualContent ? (
-        <div className="px-1 h-full flex items-center text-sm text-muted-foreground">
+        <MutedText className="px-1 h-full flex items-center">
           Our AI generates a draft reply from your email history and knowledge
           base.
-        </div>
+        </MutedText>
       ) : isEmailAction || actionType === ActionType.CALL_WEBHOOK ? (
         <Card className="p-4 space-y-4">
           {fieldsContent}

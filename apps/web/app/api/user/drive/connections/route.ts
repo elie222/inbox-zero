@@ -15,7 +15,7 @@ export const GET = withEmailAccount(
 );
 
 async function getData({ emailAccountId }: { emailAccountId: string }) {
-  const driveConnections = await prisma.driveConnection.findMany({
+  const connections = await prisma.driveConnection.findMany({
     where: { emailAccountId },
     select: {
       id: true,
@@ -27,7 +27,5 @@ async function getData({ emailAccountId }: { emailAccountId: string }) {
     orderBy: { createdAt: "desc" },
   });
 
-  return {
-    connections: driveConnections,
-  };
+  return { connections };
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback } from "react";
 import { useForm, type SubmitHandler } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
@@ -18,8 +18,30 @@ import {
   updateFilingPromptBody,
   type UpdateFilingPromptBody,
 } from "@/utils/actions/drive.validation";
+import { LoadingContent } from "@/components/LoadingContent";
+import { useEmailAccountFull } from "@/hooks/useEmailAccountFull";
 
 export function FilingRulesForm({
+  emailAccountId,
+}: {
+  emailAccountId: string;
+}) {
+  const { data, isLoading, error, mutate } = useEmailAccountFull();
+
+  return (
+    <LoadingContent loading={isLoading} error={error}>
+      {data && (
+        <FilingRulesFormContent
+          emailAccountId={emailAccountId}
+          initialPrompt={data.filingPrompt || ""}
+          mutateEmail={mutate}
+        />
+      )}
+    </LoadingContent>
+  );
+}
+
+function FilingRulesFormContent({
   emailAccountId,
   initialPrompt,
   mutateEmail,
@@ -31,7 +53,7 @@ export function FilingRulesForm({
   const {
     register,
     handleSubmit,
-    formState: { errors },
+    formState: { errors, isSubmitting },
   } = useForm<UpdateFilingPromptBody>({
     resolver: zodResolver(updateFilingPromptBody),
     defaultValues: {
@@ -39,12 +61,8 @@ export function FilingRulesForm({
     },
   });
 
-  const [isSubmitting, setIsSubmitting] = useState(false);
-
   const onSubmit: SubmitHandler<UpdateFilingPromptBody> = useCallback(
     async (data) => {
-      setIsSubmitting(true);
-
       const result = await updateFilingPromptAction(emailAccountId, data);
 
       if (result?.serverError) {
@@ -56,15 +74,13 @@ export function FilingRulesForm({
         toastSuccess({ description: "Filing rules saved" });
         mutateEmail();
       }
-
-      setIsSubmitting(false);
     },
     [emailAccountId, mutateEmail],
   );
 
   return (
     <Card size="sm">
-      <CardHeader className="pb-3">
+      <CardHeader>
         <CardTitle>Filing rules</CardTitle>
         <CardDescription>How should we organize your files?</CardDescription>
       </CardHeader>

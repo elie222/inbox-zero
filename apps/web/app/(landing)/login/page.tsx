@@ -9,6 +9,7 @@ import { env } from "@/env";
 import { Button } from "@/components/ui/button";
 import { WELCOME_PATH } from "@/utils/config";
 import { CrispChatLoggedOutVisible } from "@/components/CrispChat";
+import { MutedText } from "@/components/Typography";
 
 export const metadata: Metadata = {
   title: "Log in | Inbox Zero",
@@ -46,7 +47,7 @@ export default async function AuthenticationPage(props: {
 
         {searchParams?.error && <ErrorAlert error={searchParams?.error} />}
 
-        <p className="px-8 pt-10 text-center text-sm text-muted-foreground">
+        <MutedText className="px-8 pt-10 text-center">
           By clicking continue, you agree to our{" "}
           <Link
             href="/terms"
@@ -62,9 +63,9 @@ export default async function AuthenticationPage(props: {
             Privacy Policy
           </Link>
           .
-        </p>
+        </MutedText>
 
-        <p className="px-4 pt-4 text-center text-sm text-muted-foreground">
+        <MutedText className="px-4 pt-4 text-center">
           Inbox Zero{"'"}s use and transfer of information received from Google
           APIs to any other app will adhere to{" "}
           <a
@@ -74,7 +75,7 @@ export default async function AuthenticationPage(props: {
             Google API Services User Data
           </a>{" "}
           Policy, including the Limited Use requirements.
-        </p>
+        </MutedText>
       </div>
     </div>
   );
