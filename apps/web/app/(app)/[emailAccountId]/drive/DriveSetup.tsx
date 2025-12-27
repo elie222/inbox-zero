@@ -35,6 +35,7 @@ import {
   updateFilingEnabledAction,
   moveFilingAction,
   fileAttachmentAction,
+  submitPreviewFeedbackAction,
   type FileAttachmentResult,
 } from "@/utils/actions/drive";
 import {
@@ -441,10 +442,16 @@ function FilingRow({
     [emailAccountId, filingState.result?.filingId, onCancelCorrect],
   );
 
-  // TODO: Implement correct click
-  const handleCorrectClick = useCallback(() => {
+  const handleCorrectClick = useCallback(async () => {
+    const filingId = filingState.result?.filingId;
+    if (!filingId) return;
+
     setVote(true);
-  }, []);
+    await submitPreviewFeedbackAction(emailAccountId, {
+      filingId,
+      feedbackPositive: true,
+    });
+  }, [emailAccountId, filingState.result?.filingId]);
 
   const handleWrongClick = useCallback(() => {
     setVote(false);
