@@ -366,7 +366,7 @@ describe("getProgressMessage", () => {
       status: "processing",
     };
 
-    const result = getProgressMessage(state, 0);
+    const result = getProgressMessage(state);
 
     expect(result).toBeNull();
   });
@@ -376,9 +376,10 @@ describe("getProgressMessage", () => {
       ...initialBulkRunState,
       status: "processing",
       processedThreadIds: new Set(["t1", "t2", "t3", "t4", "t5"]),
+      completedThreadIds: new Set(["t1", "t2"]), // 2 completed out of 5
     };
 
-    const result = getProgressMessage(state, 3);
+    const result = getProgressMessage(state);
 
     expect(result).toBe("Progress: 2/5 emails completed");
   });
@@ -388,10 +389,11 @@ describe("getProgressMessage", () => {
       ...initialBulkRunState,
       status: "stopped",
       processedThreadIds: new Set(["t1", "t2", "t3", "t4", "t5"]),
+      completedThreadIds: new Set(["t1", "t2", "t3", "t4", "t5"]), // All completed
       stoppedCount: 3,
     };
 
-    const result = getProgressMessage(state, 0);
+    const result = getProgressMessage(state);
 
     expect(result).toBe("Processed 3 emails");
   });
@@ -401,9 +403,10 @@ describe("getProgressMessage", () => {
       ...initialBulkRunState,
       status: "idle",
       processedThreadIds: new Set(["t1", "t2", "t3", "t4", "t5"]),
+      completedThreadIds: new Set(["t1", "t2", "t3", "t4", "t5"]), // All completed
     };
 
-    const result = getProgressMessage(state, 0);
+    const result = getProgressMessage(state);
 
     expect(result).toBe("Processed 5 emails");
   });
@@ -413,9 +416,10 @@ describe("getProgressMessage", () => {
       ...initialBulkRunState,
       status: "paused",
       processedThreadIds: new Set(["t1", "t2", "t3", "t4"]),
+      completedThreadIds: new Set(["t1", "t2"]), // 2 completed out of 4
     };
 
-    const result = getProgressMessage(state, 2);
+    const result = getProgressMessage(state);
 
     expect(result).toBe("Progress: 2/4 emails completed");
   });
