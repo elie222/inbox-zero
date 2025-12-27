@@ -7,6 +7,7 @@ import { LoadingContent } from "@/components/LoadingContent";
 import { formatDateSimple } from "@/utils/date";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { prefixPath } from "@/utils/path";
+import { MutedText } from "@/components/Typography";
 
 export function CleanHistory() {
   const { emailAccountId } = useAccount();
@@ -29,17 +30,13 @@ export function CleanHistory() {
                     {formatDateSimple(new Date(job.createdAt))}
                   </h4>
                 </div>
-                <p className="text-sm text-muted-foreground">
-                  {job._count.threads} emails processed
-                </p>
+                <MutedText>{job._count.threads} emails processed</MutedText>
               </div>
             </Link>
           ))}
         </div>
       ) : (
-        <div className="p-4 text-center text-sm text-muted-foreground">
-          No history yet
-        </div>
+        <MutedText className="p-4 text-center">No history yet</MutedText>
       )}
     </LoadingContent>
   );

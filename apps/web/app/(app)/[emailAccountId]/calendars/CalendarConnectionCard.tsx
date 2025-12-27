@@ -20,7 +20,7 @@ import { useCalendars } from "@/hooks/useCalendars";
 import { useState } from "react";
 import type { GetCalendarsResponse } from "@/app/api/user/calendars/route";
 import Image from "next/image";
-import { TypographyP } from "@/components/Typography";
+import { MutedText, TypographyP } from "@/components/Typography";
 
 type CalendarConnection = GetCalendarsResponse["connections"][0];
 
@@ -174,10 +174,10 @@ export function CalendarConnectionCard({
               onToggleCalendar={handleToggleCalendar}
             />
           ) : (
-            <p className="text-sm text-muted-foreground">
+            <MutedText>
               No calendars available. Calendar details will be synced
               automatically.
-            </p>
+            </MutedText>
           )}
         </div>
       </CardContent>

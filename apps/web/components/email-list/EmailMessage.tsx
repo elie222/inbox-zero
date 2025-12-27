@@ -23,7 +23,7 @@ import { EmailDetails } from "@/components/email-list/EmailDetails";
 import { HtmlEmail, PlainEmail } from "@/components/email-list/EmailContents";
 import { EmailAttachments } from "@/components/email-list/EmailAttachments";
 import { Loading } from "@/components/Loading";
-import { MessageText } from "@/components/Typography";
+import { MessageText, MutedText } from "@/components/Typography";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { formatReplySubject } from "@/utils/email/subject";
 
@@ -160,11 +160,11 @@ function TopBar({
         )}
       </div>
       <div className="flex items-center space-x-2">
-        <p className="mt-1 whitespace-nowrap text-sm text-muted-foreground sm:ml-3 sm:mt-0">
+        <MutedText className="mt-1 whitespace-nowrap sm:ml-3 sm:mt-0">
           <time dateTime={message.headers.date}>
             {formatShortDate(new Date(message.headers.date))}
           </time>
-        </p>
+        </MutedText>
         {showReplyButton && (
           <div className="relative flex items-center">
             <Tooltip content="Reply">

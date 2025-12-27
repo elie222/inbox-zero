@@ -100,6 +100,18 @@ const TypographyP = forwardRef<
 ));
 TypographyP.displayName = "TypographyP";
 
+const MutedText = forwardRef<
+  HTMLParagraphElement,
+  React.HTMLAttributes<HTMLParagraphElement>
+>(({ className, ...props }, ref) => (
+  <p
+    ref={ref}
+    className={cn("text-sm text-muted-foreground", className)}
+    {...props}
+  />
+));
+MutedText.displayName = "MutedText";
+
 type LinkProps = React.ComponentProps<typeof Link>;
 const TextLink = forwardRef<HTMLAnchorElement, LinkProps>(
   ({ className, ...props }, ref) => {
@@ -127,5 +139,6 @@ export {
   SectionDescription,
   MessageText,
   TypographyP,
+  MutedText,
   TextLink,
 };

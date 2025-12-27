@@ -68,6 +68,7 @@ import {
   STEP_KEYS,
   getStepNumber,
 } from "@/app/(app)/[emailAccountId]/onboarding/steps";
+import { MutedText } from "@/components/Typography";
 
 export function Rules({
   showAddRuleButton = true,
@@ -246,9 +247,9 @@ export function Rules({
                           if (isConversationStatus) {
                             return (
                               <div className="flex items-center gap-2">
-                                <span className="text-sm text-muted-foreground">
+                                <MutedText>
                                   {systemRuleDesc?.condition || ""}
-                                </span>
+                                </MutedText>
                                 <Tooltip>
                                   <TooltipTrigger asChild>
                                     <InfoIcon className="size-3.5 text-green-600 dark:text-green-500 flex-shrink-0 cursor-help" />
