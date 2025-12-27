@@ -48,7 +48,7 @@ async function getFilings({
         wasCorrected: true,
         originalPath: true,
         createdAt: true,
-        driveConnection: { select: { provider: true } },
+        driveConnectionId: true,
       },
       orderBy: { createdAt: "desc" },
       take: limit,

@@ -15,14 +15,15 @@ import {
 import { useFilingActivity } from "@/hooks/useFilingActivity";
 import { getDriveFileUrl } from "@/utils/drive/url";
 import type { GetFilingsResponse } from "@/app/api/user/drive/filings/route";
-
-type Filing = GetFilingsResponse["filings"][number];
+import { useDriveConnections } from "@/hooks/useDriveConnections";
+import type { GetDriveConnectionsResponse } from "@/app/api/user/drive/connections/route";
 
 export function FilingActivity() {
   const { data, isLoading, error } = useFilingActivity({
     limit: 10,
     offset: 0,
   });
+  const { data: connectionsData } = useDriveConnections();
 
   return (
     <div>
@@ -43,7 +44,11 @@ export function FilingActivity() {
               </TableHeader>
               <TableBody>
                 {data?.filings.map((filing) => (
-                  <FilingRow key={filing.id} filing={filing} />
+                  <FilingRow
+                    key={filing.id}
+                    filing={filing}
+                    connections={connectionsData?.connections || []}
+                  />
                 ))}
               </TableBody>
             </Table>
@@ -59,9 +64,17 @@ export function FilingActivity() {
   );
 }
 
-function FilingRow({ filing }: { filing: Filing }) {
+function FilingRow({
+  filing,
+  connections,
+}: {
+  filing: GetFilingsResponse["filings"][number];
+  connections: GetDriveConnectionsResponse["connections"];
+}) {
+  const connection = connections.find((c) => c.id === filing.driveConnectionId);
+
   const driveUrl = filing.fileId
-    ? getDriveFileUrl(filing.fileId, filing.driveConnection.provider)
+    ? getDriveFileUrl(filing.fileId, connection?.provider || "")
     : null;
 
   return (
