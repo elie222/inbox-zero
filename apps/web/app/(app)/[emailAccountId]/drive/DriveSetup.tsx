@@ -248,7 +248,7 @@ function NoAttachmentsMessage({
   return (
     <div className="text-center">
       <MutedText className="mb-4">
-        We couldn't find recent attachments to preview.
+        We couldn't find recent emails with attachments to preview.
       </MutedText>
       <Button onClick={onSkip} loading={isStarting}>
         Start auto-filing anyway

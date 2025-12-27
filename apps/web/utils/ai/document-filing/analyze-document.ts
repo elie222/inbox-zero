@@ -97,7 +97,9 @@ IMPORTANT - You must choose one of:
 2. action: "create_new" + folderPath - Suggest a new folder path if no existing folder fits
 
 Prefer existing folders when possible. Only suggest creating new folders when necessary.
-Be conservative with confidence scores - only use 0.9+ when very certain.`;
+Be conservative with confidence scores - only use 0.9+ when very certain.
+
+Return your response in JSON format.`;
 }
 
 function buildPrompt({

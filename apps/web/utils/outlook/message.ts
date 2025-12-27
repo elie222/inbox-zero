@@ -415,6 +415,54 @@ async function convertMessages(
     .map((message: Message) => convertMessage(message, folderIds));
 }
 
+export async function queryMessagesWithAttachments(
+  client: OutlookClient,
+  options: {
+    maxResults?: number;
+    pageToken?: string;
+  },
+  logger: Logger,
+): Promise<{
+  messages: ParsedMessage[];
+  nextPageToken?: string;
+}> {
+  const MAX_RESULTS = 20;
+  const maxResults = Math.min(options.maxResults || MAX_RESULTS, MAX_RESULTS);
+
+  // If pageToken is a URL, fetch directly (per MS docs, don't extract $skiptoken)
+  if (options.pageToken?.startsWith("http")) {
+    const response: { value: Message[]; "@odata.nextLink"?: string } =
+      await withOutlookRetry(
+        () => client.getClient().api(options.pageToken!).get(),
+        logger,
+      );
+
+    const messages = await convertMessages(response.value, {});
+    return { messages, nextPageToken: response["@odata.nextLink"] };
+  }
+
+  // Build request with hasAttachments filter
+  const request = createMessagesRequest(client)
+    .top(maxResults)
+    .filter("hasAttachments eq true")
+    .orderby("receivedDateTime DESC");
+
+  const response: { value: Message[]; "@odata.nextLink"?: string } =
+    await withOutlookRetry(() => request.get(), logger);
+
+  const messages = await convertMessages(response.value, {});
+
+  logger.info("Messages with attachments fetched", {
+    messageCount: messages.length,
+    hasNextPageToken: !!response["@odata.nextLink"],
+  });
+
+  return {
+    messages,
+    nextPageToken: response["@odata.nextLink"],
+  };
+}
+
 export async function getMessage(
   messageId: string,
   client: OutlookClient,

@@ -5,6 +5,7 @@ import {
   getMessage,
   getMessages,
   queryBatchMessages,
+  queryMessagesWithAttachments,
   getFolderIds,
   convertMessage,
   MESSAGE_SELECT_FIELDS,
@@ -926,6 +927,20 @@ export class OutlookProvider implements EmailProvider {
       messages: response.messages || [],
       nextPageToken: response.nextPageToken,
     };
+  }
+
+  async getMessagesWithAttachments(options: {
+    maxResults?: number;
+    pageToken?: string;
+  }): Promise<{ messages: ParsedMessage[]; nextPageToken?: string }> {
+    return queryMessagesWithAttachments(
+      this.client,
+      {
+        maxResults: options.maxResults,
+        pageToken: options.pageToken,
+      },
+      this.logger,
+    );
   }
 
   async getMessagesFromSender(options: {

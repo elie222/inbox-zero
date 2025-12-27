@@ -100,7 +100,7 @@ async function getPreviewData({
   }
 
   logger.info("Fetching recent messages");
-  const { messages } = await emailProvider.getMessagesWithPagination({
+  const { messages } = await emailProvider.getMessagesWithAttachments({
     maxResults: MAX_MESSAGES_TO_FETCH,
   });
 
