@@ -55,3 +55,9 @@ export const createDriveFolderBody = z.object({
   driveConnectionId: z.string(),
 });
 export type CreateDriveFolderBody = z.infer<typeof createDriveFolderBody>;
+
+export const fileAttachmentBody = z.object({
+  messageId: z.string(),
+  filename: z.string(),
+});
+export type FileAttachmentBody = z.infer<typeof fileAttachmentBody>;
