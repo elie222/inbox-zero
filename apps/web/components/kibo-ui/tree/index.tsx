@@ -441,5 +441,5 @@ export const TreeIcon = ({
 export type TreeLabelProps = HTMLAttributes<HTMLSpanElement>;
 
 export const TreeLabel = ({ className, ...props }: TreeLabelProps) => (
-  <span className={cn("font flex-1 truncate text-sm", className)} {...props} />
+  <span className={cn("flex-1 truncate text-sm", className)} {...props} />
 );

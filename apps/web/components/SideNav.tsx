@@ -131,7 +131,7 @@ export const useNavigation = () => {
       ...(showAutoFile
         ? [
             {
-              name: "Auto File",
+              name: "Smart Filing",
               href: prefixPath(currentEmailAccountId, "/drive"),
               icon: HardDriveIcon,
               beta: true,

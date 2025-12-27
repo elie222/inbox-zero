@@ -13,11 +13,13 @@ export function useMeetingBriefsEnabled() {
 }
 
 export function useIntegrationsEnabled() {
-  return env.NEXT_PUBLIC_INTEGRATIONS_ENABLED;
+  const posthogEnabled = useFeatureFlagEnabled("integrations");
+  return posthogEnabled || env.NEXT_PUBLIC_INTEGRATIONS_ENABLED;
 }
 
 export function useAutoFileEnabled() {
-  return env.NEXT_PUBLIC_AUTO_FILE_ENABLED;
+  const posthogEnabled = useFeatureFlagEnabled("smart-filing");
+  return posthogEnabled || env.NEXT_PUBLIC_SMART_FILING_ENABLED;
 }
 
 const HERO_FLAG_NAME = "hero-copy-7";

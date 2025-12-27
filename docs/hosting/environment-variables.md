@@ -89,7 +89,7 @@ cp apps/web/.env.example apps/web/.env
 | `NEXT_PUBLIC_DIGEST_ENABLED` | No | Enable email digest feature, which sends periodic summaries of emails. Requires QStash to be configured. | `false` |
 | `NEXT_PUBLIC_MEETING_BRIEFS_ENABLED` | No | Enable meeting briefs, which automatically sends pre-meeting briefings to users. Requires the meeting briefs cron job to be running. | `false` |
 | `NEXT_PUBLIC_INTEGRATIONS_ENABLED` | No | Enable the integrations feature, allowing users to connect external services. | `false` |
-| `NEXT_PUBLIC_AUTO_FILE_ENABLED` | No | Enable the Auto File feature for automatic document organization from email attachments. | `false` |
+| `NEXT_PUBLIC_SMART_FILING_ENABLED` | No | Enable the Smart Filing feature for automatic document organization from email attachments. | `false` |
 | **Debugging** ||||
 | `LOG_ZOD_ERRORS` | No | Log Zod validation errors | — |
 | `ENABLE_DEBUG_LOGS` | No | Enable debug logging | `false` |

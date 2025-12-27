@@ -44,7 +44,7 @@ To help you spend less time in your inbox, so you can focus on what matters.
 - **Cold Email Blocker:** Auto‑block cold emails.
 - **Email Analytics:** Track your activity and trends over time.
 - **Meeting Briefs (Beta):** Get personalized briefings before every meeting, pulling context from your email and calendar.
-- **Auto File (Early Access):** Automatically save email attachments to Google Drive or OneDrive.
+- **Smart Filing (Early Access):** Automatically save email attachments to Google Drive or OneDrive.
 
 
 Learn more in our [docs](https://docs.getinboxzero.com).
