@@ -53,7 +53,7 @@ import { CommandShortcut } from "@/components/ui/command";
 import { useSplitLabels } from "@/hooks/useLabels";
 import { LoadingContent } from "@/components/LoadingContent";
 import {
-  useAutoFileEnabled,
+  useSmartFilingEnabled,
   useCleanerEnabled,
   useIntegrationsEnabled,
   useMeetingBriefsEnabled,
@@ -79,7 +79,7 @@ type NavItem = {
 };
 
 export const useNavigation = () => {
-  const showAutoFile = useAutoFileEnabled();
+  const showSmartFiling = useSmartFilingEnabled();
   const showCleaner = useCleanerEnabled();
   const showMeetingBriefs = useMeetingBriefsEnabled();
   const showIntegrations = useIntegrationsEnabled();
@@ -128,7 +128,7 @@ export const useNavigation = () => {
             },
           ]
         : []),
-      ...(showAutoFile
+      ...(showSmartFiling
         ? [
             {
               name: "Smart Filing",
@@ -152,7 +152,7 @@ export const useNavigation = () => {
     [
       currentEmailAccountId,
       provider,
-      showAutoFile,
+      showSmartFiling,
       showMeetingBriefs,
       showIntegrations,
     ],

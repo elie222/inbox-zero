@@ -17,7 +17,7 @@ export function useIntegrationsEnabled() {
   return posthogEnabled || env.NEXT_PUBLIC_INTEGRATIONS_ENABLED;
 }
 
-export function useAutoFileEnabled() {
+export function useSmartFilingEnabled() {
   const posthogEnabled = useFeatureFlagEnabled("smart-filing");
   return posthogEnabled || env.NEXT_PUBLIC_SMART_FILING_ENABLED;
 }
