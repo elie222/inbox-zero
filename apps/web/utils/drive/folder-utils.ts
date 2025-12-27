@@ -1,5 +1,6 @@
 import type { DriveProvider, DriveFolder } from "@/utils/drive/types";
 import type { Logger } from "@/utils/logger";
+import prisma from "@/utils/prisma";
 
 /**
  * Create a folder path in the drive, creating intermediate folders as needed.
@@ -35,4 +36,45 @@ export async function createFolderPath(
   }
 
   return currentFolder;
+}
+
+/**
+ * Create a folder path and save it as a filing folder for future use.
+ * This ensures the AI will reuse this folder instead of creating duplicates.
+ */
+export async function createAndSaveFilingFolder({
+  driveProvider,
+  folderPath,
+  emailAccountId,
+  driveConnectionId,
+  logger,
+}: {
+  driveProvider: DriveProvider;
+  folderPath: string;
+  emailAccountId: string;
+  driveConnectionId: string;
+  logger: Logger;
+}): Promise<DriveFolder> {
+  const folder = await createFolderPath(driveProvider, folderPath, logger);
+
+  await prisma.filingFolder.upsert({
+    where: {
+      emailAccountId_folderId: { emailAccountId, folderId: folder.id },
+    },
+    update: {},
+    create: {
+      folderId: folder.id,
+      folderName: folder.name,
+      folderPath,
+      driveConnectionId,
+      emailAccountId,
+    },
+  });
+
+  logger.info("Saved folder as filing folder", {
+    folderId: folder.id,
+    folderPath,
+  });
+
+  return folder;
 }

@@ -571,46 +571,75 @@ function SetupFolderSelection({
   mutateFolders: () => void;
   isLoading: boolean;
 }) {
-  const [isFolderBusy, setIsFolderBusy] = useState(false);
+  // Optimistic state for folder selection
+  const [optimisticFolderIds, setOptimisticFolderIds] = useState<Set<string>>(
+    () => new Set(savedFolders.map((f) => f.folderId)),
+  );
+
+  // Sync optimistic state when server data changes
+  const serverFolderIds = savedFolders.map((f) => f.folderId).join(",");
+  const prevServerFolderIds = useRef(serverFolderIds);
+  if (serverFolderIds !== prevServerFolderIds.current) {
+    prevServerFolderIds.current = serverFolderIds;
+    setOptimisticFolderIds(new Set(savedFolders.map((f) => f.folderId)));
+  }
 
   const handleFolderToggle = useCallback(
     async (folder: FolderItem, isChecked: boolean) => {
       const folderPath = folder.path || folder.name;
-      setIsFolderBusy(true);
 
-      try {
+      // Optimistic update
+      setOptimisticFolderIds((prev) => {
+        const next = new Set(prev);
         if (isChecked) {
-          const result = await addFilingFolderAction(emailAccountId, {
-            folderId: folder.id,
-            folderName: folder.name,
-            folderPath,
-            driveConnectionId: folder.driveConnectionId,
-          });
-
-          if (result?.serverError) {
-            toastError({
-              title: "Error adding folder",
-              description: result.serverError,
-            });
-          } else {
-            mutateFolders();
-          }
+          next.add(folder.id);
         } else {
-          const result = await removeFilingFolderAction(emailAccountId, {
-            folderId: folder.id,
-          });
-
-          if (result?.serverError) {
-            toastError({
-              title: "Error removing folder",
-              description: result.serverError,
-            });
-          } else {
-            mutateFolders();
-          }
+          next.delete(folder.id);
         }
-      } finally {
-        setIsFolderBusy(false);
+        return next;
+      });
+
+      if (isChecked) {
+        const result = await addFilingFolderAction(emailAccountId, {
+          folderId: folder.id,
+          folderName: folder.name,
+          folderPath,
+          driveConnectionId: folder.driveConnectionId,
+        });
+
+        if (result?.serverError) {
+          // Revert on error
+          setOptimisticFolderIds((prev) => {
+            const next = new Set(prev);
+            next.delete(folder.id);
+            return next;
+          });
+          toastError({
+            title: "Error adding folder",
+            description: result.serverError,
+          });
+        } else {
+          mutateFolders();
+        }
+      } else {
+        const result = await removeFilingFolderAction(emailAccountId, {
+          folderId: folder.id,
+        });
+
+        if (result?.serverError) {
+          // Revert on error
+          setOptimisticFolderIds((prev) => {
+            const next = new Set(prev);
+            next.add(folder.id);
+            return next;
+          });
+          toastError({
+            title: "Error removing folder",
+            description: result.serverError,
+          });
+        } else {
+          mutateFolders();
+        }
       }
     },
     [emailAccountId, mutateFolders],
@@ -644,8 +673,6 @@ function SetupFolderSelection({
     return map;
   }, [availableFolders]);
 
-  const savedFolderIds = new Set(savedFolders.map((f) => f.folderId));
-
   return (
     <div>
       <TypographyH4>1. Pick your folders</TypographyH4>
@@ -668,9 +695,9 @@ function SetupFolderSelection({
                       key={folder.id}
                       folder={folder}
                       isLast={index === rootFolders.length - 1}
-                      selectedFolderIds={savedFolderIds}
+                      selectedFolderIds={optimisticFolderIds}
                       onToggle={handleFolderToggle}
-                      isDisabled={isFolderBusy}
+                      isDisabled={false}
                       level={0}
                       parentPath=""
                       knownChildren={folderChildrenMap.get(folder.id)}

@@ -5,7 +5,7 @@ import type { Logger } from "@/utils/logger";
 import { extractEmailAddress } from "@/utils/email";
 import { emailToContent } from "@/utils/mail";
 import { createDriveProviderWithRefresh } from "@/utils/drive/provider";
-import { createFolderPath } from "@/utils/drive/folder-utils";
+import { createAndSaveFilingFolder } from "@/utils/drive/folder-utils";
 import { sendCorrectionConfirmation } from "@/utils/drive/filing-notifications";
 
 // ============================================================================
@@ -110,12 +110,13 @@ export async function processFilingReply({
       logger,
     );
 
-    // Create the folder path if needed
-    const targetFolder = await createFolderPath(
+    const targetFolder = await createAndSaveFilingFolder({
       driveProvider,
       folderPath,
+      emailAccountId: filing.emailAccountId,
+      driveConnectionId: filing.driveConnectionId,
       logger,
-    );
+    });
 
     // If the file was already uploaded, we need to move it
     // For now, we'll just update the record (moving files requires additional API calls)

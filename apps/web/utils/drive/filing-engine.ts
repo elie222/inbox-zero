@@ -5,7 +5,7 @@ import type { ParsedMessage, Attachment } from "@/utils/types";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import type { Logger } from "@/utils/logger";
 import { createDriveProviderWithRefresh } from "@/utils/drive/provider";
-import { createFolderPath } from "@/utils/drive/folder-utils";
+import { createAndSaveFilingFolder } from "@/utils/drive/folder-utils";
 import {
   extractTextFromDocument,
   isExtractableMimeType,
@@ -172,11 +172,13 @@ export async function processAttachment({
 
     if (needsToCreateFolder && analysis.folderPath) {
       log.info("Creating new folder", { path: analysis.folderPath });
-      const newFolder = await createFolderPath(
+      const newFolder = await createAndSaveFilingFolder({
         driveProvider,
-        analysis.folderPath,
-        log,
-      );
+        folderPath: analysis.folderPath,
+        emailAccountId: emailAccount.id,
+        driveConnectionId: driveConnection.id,
+        logger: log,
+      });
       targetFolderId = newFolder.id;
       targetFolderPath = analysis.folderPath;
     }
