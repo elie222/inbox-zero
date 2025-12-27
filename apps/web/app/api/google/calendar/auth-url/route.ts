@@ -22,7 +22,7 @@ const getAuthUrl = ({ emailAccountId }: { emailAccountId: string }) => {
     access_type: "offline",
     scope: CALENDAR_SCOPES,
     state,
-    prompt: "consent",
+    prompt: "select_account",
   });
 
   return { url, state };
