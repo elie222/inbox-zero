@@ -19,7 +19,7 @@ export const disconnectDriveAction = actionClient
   .inputSchema(disconnectDriveBody)
   .action(
     async ({ ctx: { emailAccountId }, parsedInput: { connectionId } }) => {
-      const connection = await prisma.driveConnection.findFirst({
+      const connection = await prisma.driveConnection.findUnique({
         where: {
           id: connectionId,
           emailAccountId,
@@ -31,7 +31,7 @@ export const disconnectDriveAction = actionClient
       }
 
       await prisma.driveConnection.delete({
-        where: { id: connectionId },
+        where: { id: connectionId, emailAccountId },
       });
     },
   );
@@ -70,7 +70,6 @@ export const addFilingFolderAction = actionClient
       ctx: { emailAccountId },
       parsedInput: { folderId, folderName, folderPath, driveConnectionId },
     }) => {
-      // Verify the drive connection belongs to this email account
       const connection = await prisma.driveConnection.findUnique({
         where: {
           id: driveConnectionId,
@@ -106,6 +105,7 @@ export const addFilingFolderAction = actionClient
       return folder;
     },
   );
+
 export const removeFilingFolderAction = actionClient
   .metadata({ name: "removeFilingFolder" })
   .inputSchema(removeFilingFolderBody)
