@@ -10,7 +10,7 @@ import { DriveConnections } from "./DriveConnections";
 import { FilingPreferences } from "./FilingPreferences";
 import { FilingActivity } from "./FilingActivity";
 import { DriveOnboarding } from "./DriveOnboarding";
-import { DriveSetupStep } from "./DriveSetupStep";
+import { DriveSetup } from "./DriveSetup";
 import { Switch } from "@/components/ui/switch";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { useEmailAccountFull } from "@/hooks/useEmailAccountFull";
@@ -70,7 +70,7 @@ export default function DrivePage() {
     <PageWrapper>
       <LoadingContent loading={isLoading || emailLoading} error={error}>
         {view === "onboarding" && <DriveOnboarding />}
-        {view === "setup" && <DriveSetupStep />}
+        {view === "setup" && <DriveSetup />}
         {view === "settings" && (
           <>
             <div className="flex items-center justify-between">

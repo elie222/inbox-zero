@@ -39,7 +39,7 @@ import {
   updateFilingPromptBody,
   type UpdateFilingPromptBody,
 } from "@/utils/actions/drive.validation";
-import { FolderNode } from "./AllowedFolders";
+import { FolderNode, NoFoldersFound } from "./AllowedFolders";
 import type {
   FolderItem,
   SavedFolder,
@@ -50,7 +50,7 @@ import { LoadingContent } from "@/components/LoadingContent";
 
 type SetupPhase = "setup" | "loading-preview" | "preview" | "starting";
 
-export function DriveSetupStep() {
+export function DriveSetup() {
   const { emailAccountId } = useAccount();
   const { data: connectionsData } = useDriveConnections();
   const {
@@ -127,7 +127,8 @@ export function DriveSetupStep() {
         <TypographyH3>Let's set up auto-filing</TypographyH3>
         <SectionDescription className="mx-auto mt-3 max-w-xl">
           We'll file attachments from your emails into your{" "}
-          {providerInfo?.name || "drive"}. Just tell us where and how.
+          {providerInfo?.name || "drive"}.<br />
+          Just tell us where and how.
         </SectionDescription>
       </div>
 
@@ -147,6 +148,7 @@ export function DriveSetupStep() {
           emailAccountId={emailAccountId}
           availableFolders={foldersData?.availableFolders || []}
           savedFolders={foldersData?.savedFolders || []}
+          connections={connections}
           mutateFolders={mutateFolders}
           isLoading={foldersLoading}
         />
@@ -452,12 +454,14 @@ function SetupFolderSelection({
   emailAccountId,
   availableFolders,
   savedFolders,
+  connections,
   mutateFolders,
   isLoading,
 }: {
   emailAccountId: string;
   availableFolders: FolderItem[];
   savedFolders: SavedFolder[];
+  connections: Array<{ id: string; provider: string }>;
   mutateFolders: () => void;
   isLoading: boolean;
 }) {
@@ -574,9 +578,11 @@ function SetupFolderSelection({
             </p>
           </>
         ) : (
-          <MutedText className="mt-4 italic">
-            No folders found. Create a folder in your drive.
-          </MutedText>
+          <NoFoldersFound
+            emailAccountId={emailAccountId}
+            driveConnectionId={connections[0]?.id}
+            onFolderCreated={mutateFolders}
+          />
         )}
       </LoadingContent>
     </div>

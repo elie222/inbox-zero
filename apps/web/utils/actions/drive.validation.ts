@@ -49,3 +49,9 @@ export const moveFilingBody = z.object({
   targetFolderPath: z.string(),
 });
 export type MoveFilingBody = z.infer<typeof moveFilingBody>;
+
+export const createDriveFolderBody = z.object({
+  folderName: z.string().min(1, "Folder name is required"),
+  driveConnectionId: z.string(),
+});
+export type CreateDriveFolderBody = z.infer<typeof createDriveFolderBody>;

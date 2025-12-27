@@ -9,6 +9,7 @@ import {
   removeFilingFolderBody,
   submitPreviewFeedbackBody,
   moveFilingBody,
+  createDriveFolderBody,
 } from "@/utils/actions/drive.validation";
 import prisma from "@/utils/prisma";
 import { SafeError } from "@/utils/error";
@@ -172,5 +173,36 @@ export const moveFilingAction = actionClient
           feedbackAt: new Date(),
         },
       });
+    },
+  );
+
+export const createDriveFolderAction = actionClient
+  .metadata({ name: "createDriveFolder" })
+  .inputSchema(createDriveFolderBody)
+  .action(
+    async ({
+      ctx: { emailAccountId, logger },
+      parsedInput: { folderName, driveConnectionId },
+    }) => {
+      const connection = await prisma.driveConnection.findUnique({
+        where: {
+          id: driveConnectionId,
+          emailAccountId,
+        },
+      });
+
+      if (!connection) {
+        logger.error("Drive connection not found", { driveConnectionId });
+        throw new SafeError("Drive connection not found");
+      }
+
+      const driveProvider = await createDriveProviderWithRefresh(
+        connection,
+        logger,
+      );
+
+      const folder = await driveProvider.createFolder(folderName);
+
+      return folder;
     },
   );

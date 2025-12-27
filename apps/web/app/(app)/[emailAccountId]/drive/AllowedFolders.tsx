@@ -1,7 +1,9 @@
 "use client";
 
 import { useCallback, useMemo, useState } from "react";
-import { Loader2Icon } from "lucide-react";
+import { useForm, type SubmitHandler } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { FolderIcon, Loader2Icon } from "lucide-react";
 import {
   Card,
   CardContent,
@@ -10,7 +12,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
-import { toastError } from "@/components/Toast";
+import { toastError, toastSuccess } from "@/components/Toast";
 import {
   TreeProvider,
   TreeView,
@@ -25,18 +27,44 @@ import {
 import {
   addFilingFolderAction,
   removeFilingFolderAction,
+  createDriveFolderAction,
 } from "@/utils/actions/drive";
+import {
+  createDriveFolderBody,
+  type CreateDriveFolderBody,
+} from "@/utils/actions/drive.validation";
 import { useDriveFolders } from "@/hooks/useDriveFolders";
 import { LoadingContent } from "@/components/LoadingContent";
 import { useDriveSubfolders } from "@/hooks/useDriveSubfolders";
-import { MutedText } from "@/components/Typography";
 import type {
   FolderItem,
   SavedFolder,
 } from "@/app/api/user/drive/folders/route";
+import {
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@/components/ui/empty";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/Input";
+import { useDialogState } from "@/hooks/useDialogState";
+import { useDriveConnections } from "@/hooks/useDriveConnections";
 
 export function AllowedFolders({ emailAccountId }: { emailAccountId: string }) {
   const { data, isLoading, error, mutate } = useDriveFolders();
+  const { data: connectionsData } = useDriveConnections();
+  const driveConnectionId = connectionsData?.connections[0]?.id;
 
   return (
     <LoadingContent loading={isLoading} error={error}>
@@ -46,6 +74,7 @@ export function AllowedFolders({ emailAccountId }: { emailAccountId: string }) {
           availableFolders={data.availableFolders}
           savedFolders={data.savedFolders}
           mutateFolders={mutate}
+          driveConnectionId={driveConnectionId ?? null}
         />
       )}
     </LoadingContent>
@@ -54,11 +83,13 @@ export function AllowedFolders({ emailAccountId }: { emailAccountId: string }) {
 
 function AllowedFoldersContent({
   emailAccountId,
+  driveConnectionId,
   availableFolders,
   savedFolders,
   mutateFolders,
 }: {
   emailAccountId: string;
+  driveConnectionId: string | null;
   availableFolders: FolderItem[];
   savedFolders: SavedFolder[];
   mutateFolders: () => void;
@@ -173,9 +204,11 @@ function AllowedFoldersContent({
             </TreeView>
           </TreeProvider>
         ) : (
-          <MutedText className="italic">
-            No folders found. Create a folder in your drive.
-          </MutedText>
+          <NoFoldersFound
+            emailAccountId={emailAccountId}
+            driveConnectionId={driveConnectionId}
+            onFolderCreated={mutateFolders}
+          />
         )}
       </CardContent>
     </Card>
@@ -276,5 +309,99 @@ export function FolderNode({
         ) : null}
       </TreeNodeContent>
     </TreeNode>
+  );
+}
+
+export function NoFoldersFound({
+  emailAccountId,
+  driveConnectionId,
+  onFolderCreated,
+}: {
+  emailAccountId: string;
+  driveConnectionId: string | null;
+  onFolderCreated?: () => void;
+}) {
+  const { isOpen, onClose, onToggle } = useDialogState();
+
+  const {
+    register,
+    handleSubmit,
+    formState: { errors, isSubmitting },
+    reset,
+  } = useForm<CreateDriveFolderBody>({
+    resolver: zodResolver(createDriveFolderBody),
+    defaultValues: { driveConnectionId: "" },
+  });
+
+  const onSubmit: SubmitHandler<CreateDriveFolderBody> = useCallback(
+    async (data) => {
+      if (!driveConnectionId) {
+        toastError({
+          title: "Error creating folder",
+          description: "No drive connection found",
+        });
+        return;
+      }
+
+      const result = await createDriveFolderAction(emailAccountId, {
+        ...data,
+        driveConnectionId,
+      });
+
+      if (result?.serverError) {
+        toastError({
+          title: "Error creating folder",
+          description: result.serverError,
+        });
+      } else {
+        toastSuccess({ description: "Folder created!" });
+        reset();
+        onClose();
+        onFolderCreated?.();
+      }
+    },
+    [emailAccountId, reset, onClose, onFolderCreated, driveConnectionId],
+  );
+
+  return (
+    <Empty>
+      <EmptyHeader>
+        <EmptyMedia variant="icon">
+          <FolderIcon />
+        </EmptyMedia>
+        <EmptyTitle>No folders found</EmptyTitle>
+        <EmptyDescription>
+          Create a folder in your drive to get started.
+        </EmptyDescription>
+      </EmptyHeader>
+      <EmptyContent>
+        <Dialog open={isOpen} onOpenChange={onToggle}>
+          <DialogTrigger asChild>
+            <Button disabled={!driveConnectionId}>Create folder</Button>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Create folder</DialogTitle>
+              <DialogDescription>
+                Create a new folder in your drive to organize your files.
+              </DialogDescription>
+            </DialogHeader>
+            <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+              <Input
+                type="text"
+                name="folderName"
+                label="Folder name"
+                placeholder="e.g. Receipts"
+                registerProps={register("folderName")}
+                error={errors.folderName}
+              />
+              <Button type="submit" loading={isSubmitting}>
+                Create folder
+              </Button>
+            </form>
+          </DialogContent>
+        </Dialog>
+      </EmptyContent>
+    </Empty>
   );
 }
