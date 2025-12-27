@@ -1,72 +1,18 @@
 import Link from "next/link";
-import { EXTENSION_URL } from "@/utils/config";
 
 export const footerNavigation = {
   main: [
-    {
-      name: "Inbox Zero Tabs (Chrome Extension)",
-      href: EXTENSION_URL,
-      target: "_blank",
-    },
-    { name: "AI Email Assistant", href: "/ai-automation" },
-    { name: "Reply Zero", href: "/reply-zero-ai" },
-    { name: "Bulk Email Unsubscriber", href: "/bulk-email-unsubscriber" },
-    { name: "Clean your inbox", href: "/clean-inbox" },
-    { name: "Cold Email Blocker", href: "/block-cold-emails" },
-    { name: "Email Analytics", href: "/email-analytics" },
-    { name: "Auto Forward Emails", href: "/auto-forward-emails" },
-    { name: "Open Source", href: "/github", target: "_blank" },
-  ],
-  useCases: [
-    { name: "Founder", href: "/founders" },
-    { name: "Small Business", href: "/small-business" },
-    { name: "Content Creator", href: "/creator" },
-    { name: "Realtor", href: "/real-estate" },
-    { name: "Customer Support", href: "/support" },
-    { name: "E-commerce", href: "/ecommerce" },
-  ],
-  compare: [
-    { name: "vs Fyxer.ai", href: "/best-fyxer-alternative" },
-    {
-      name: "vs Perplexity Email Assistant",
-      href: "/best-perplexity-email-assistant-alternative",
-    },
-  ],
-  support: [
-    { name: "Pricing", href: "/#pricing" },
-    { name: "Contact", href: "mailto:elie@getinboxzero.com", target: "_blank" },
     {
       name: "Documentation",
       href: "https://docs.getinboxzero.com",
       target: "_blank",
     },
-    { name: "Feature Requests", href: "/feature-requests", target: "_blank" },
-    { name: "Changelog", href: "/changelog", target: "_blank" },
-    {
-      name: "Status",
-      href: "https://inbox-zero.openstatus.dev/",
-      target: "_blank",
-    },
-  ],
-  company: [
-    { name: "Affiliates", href: "/affiliates", target: "_blank" },
-    { name: "Blog", href: "/blog" },
-    { name: "Case Studies", href: "/case-studies" },
-    { name: "Twitter", href: "/twitter", target: "_blank" },
     { name: "GitHub", href: "/github", target: "_blank" },
     { name: "Discord", href: "/discord", target: "_blank" },
-    { name: "OSS Friends", href: "/oss-friends" },
-    { name: "Email Blaster", href: "/game" },
   ],
   legal: [
     { name: "Terms", href: "/terms" },
     { name: "Privacy", href: "/privacy" },
-    {
-      name: "SOC2 Compliant",
-      href: "https://security.getinboxzero.com",
-      target: "_blank",
-    },
-    { name: "Sitemap", href: "/sitemap.xml" },
   ],
   social: [
     {
@@ -113,71 +59,48 @@ export function Footer() {
   return (
     <footer className="relative">
       <div className="mx-auto max-w-7xl overflow-hidden px-6 py-20 sm:py-24 lg:px-8">
-        <div className="mt-16 grid grid-cols-2 gap-8 lg:grid-cols-5 xl:col-span-2 xl:mt-0">
-          <div>
-            <FooterList title="Product" items={footerNavigation.main} />
+        <div className="flex flex-col items-center gap-8">
+          <div className="flex flex-wrap justify-center gap-x-8 gap-y-4">
+            {footerNavigation.main.map((item) => (
+              <Link
+                key={item.name}
+                href={item.href}
+                target={item.target}
+                prefetch={item.target !== "_blank"}
+                className="text-sm leading-6 text-gray-600 hover:text-gray-900"
+              >
+                {item.name}
+              </Link>
+            ))}
+            {footerNavigation.legal.map((item) => (
+              <Link
+                key={item.name}
+                href={item.href}
+                className="text-sm leading-6 text-gray-600 hover:text-gray-900"
+              >
+                {item.name}
+              </Link>
+            ))}
           </div>
-          <div>
-            <FooterList title="Use Cases" items={footerNavigation.useCases} />
 
-            <div className="mt-6">
-              <FooterList title="Compare" items={footerNavigation.compare} />
-            </div>
+          <div className="flex justify-center space-x-10">
+            {footerNavigation.social.map((item) => (
+              <Link
+                key={item.name}
+                href={item.href}
+                className="text-gray-400 hover:text-gray-500"
+              >
+                <span className="sr-only">{item.name}</span>
+                <item.icon className="h-6 w-6" aria-hidden="true" />
+              </Link>
+            ))}
           </div>
-          <div>
-            <FooterList title="Support" items={footerNavigation.support} />
-          </div>
-          <div>
-            <FooterList title="Company" items={footerNavigation.company} />
-          </div>
-          <div>
-            <FooterList title="Legal" items={footerNavigation.legal} />
-          </div>
-        </div>
 
-        <div className="mt-16 flex justify-center space-x-10">
-          {footerNavigation.social.map((item) => (
-            <Link
-              key={item.name}
-              href={item.href}
-              className="text-gray-400 hover:text-gray-500"
-            >
-              <span className="sr-only">{item.name}</span>
-              <item.icon className="h-6 w-6" aria-hidden="true" />
-            </Link>
-          ))}
+          <p className="text-center text-xs leading-5 text-gray-500">
+            &copy; {new Date().getFullYear()} Inbox Zero. Self-hosted instance.
+          </p>
         </div>
-        <p className="mt-10 text-center text-xs leading-5 text-gray-500">
-          &copy; {new Date().getFullYear()} Inbox Zero Inc. All rights reserved.
-        </p>
       </div>
     </footer>
-  );
-}
-
-function FooterList(props: {
-  title: string;
-  items: { name: string; href: string; target?: string }[];
-}) {
-  return (
-    <>
-      <h3 className="text-sm font-semibold leading-6 text-gray-900">
-        {props.title}
-      </h3>
-      <ul className="mt-6 space-y-4">
-        {props.items.map((item) => (
-          <li key={item.name}>
-            <Link
-              href={item.href}
-              target={item.target}
-              prefetch={item.target !== "_blank"}
-              className="text-sm leading-6 text-gray-600 hover:text-gray-900"
-            >
-              {item.name}
-            </Link>
-          </li>
-        ))}
-      </ul>
-    </>
   );
 }
