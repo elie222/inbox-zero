@@ -445,6 +445,7 @@ export async function queryMessagesWithAttachments(
   const request = createMessagesRequest(client)
     .top(maxResults)
     .filter("hasAttachments eq true")
+    .expand("attachments($select=id,name,contentType,size)")
     .orderby("receivedDateTime DESC");
 
   const response: { value: Message[]; "@odata.nextLink"?: string } =
@@ -514,11 +515,7 @@ export async function getMessages(
  * Returns a typed request builder that can be chained with .filter(), .top(), etc.
  */
 export function createMessagesRequest(client: OutlookClient) {
-  return client
-    .getClient()
-    .api("/me/messages")
-    .select(MESSAGE_SELECT_FIELDS)
-    .expand("attachments($select=id,name,contentType,size)");
+  return client.getClient().api("/me/messages").select(MESSAGE_SELECT_FIELDS);
 }
 
 /**
