@@ -43,6 +43,12 @@ function createMockProvider(
       webUrl: "https://drive.example.com/file-1",
     })),
     getFile: vi.fn(async () => null),
+    moveFile: vi.fn(async (fileId: string, targetFolderId: string) => ({
+      id: fileId,
+      name: "moved-file",
+      mimeType: "application/pdf",
+      folderId: targetFolderId,
+    })),
   };
 }
 

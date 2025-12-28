@@ -38,10 +38,6 @@ export async function createFolderPath(
   return currentFolder;
 }
 
-/**
- * Create a folder path and save it as a filing folder for future use.
- * This ensures the AI will reuse this folder instead of creating duplicates.
- */
 export async function createAndSaveFilingFolder({
   driveProvider,
   folderPath,

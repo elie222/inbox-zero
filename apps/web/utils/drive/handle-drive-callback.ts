@@ -251,10 +251,6 @@ function buildDriveRedirectUrl(emailAccountId: string): URL {
   );
 }
 
-// ============================================================================
-// Database Operations
-// ============================================================================
-
 async function upsertDriveConnection(params: {
   provider: "google" | "microsoft";
   email: string;
