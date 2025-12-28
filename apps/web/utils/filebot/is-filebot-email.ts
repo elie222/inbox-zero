@@ -1,13 +1,13 @@
 import { env } from "@/env";
 import { extractEmailAddress } from "@/utils/email";
 
-// In prod: hello+filebot@example.com
-// In dev: hello+filebot-test@example.com
-const FILEBOT_SUFFIX = `filebot${env.NODE_ENV === "development" ? "-test" : ""}`;
+// In prod: hello+ai@example.com
+// In dev: hello+ai-test@example.com
+const FILEBOT_SUFFIX = `ai${env.NODE_ENV === "development" ? "-test" : ""}`;
 
 /**
  * Check if any recipient in the email is a filebot reply address.
- * Pattern: user+filebot@domain.com (or user+filebot-test@domain.com in dev)
+ * Pattern: user+ai@domain.com (or user+ai-test@domain.com in dev)
  * Handles multiple recipients in the To field (comma-separated).
  */
 export function isFilebotEmail({
