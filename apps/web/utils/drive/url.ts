@@ -3,14 +3,17 @@ import type { DriveProviderType } from "./types";
 
 export function getDriveFileUrl(
   fileId: string,
-  provider: DriveProviderType | string,
+  provider: DriveProviderType,
 ): string {
-  if (provider === "google") {
-    return `https://drive.google.com/file/d/${fileId}/view`;
+  switch (provider) {
+    case "google":
+      return `https://drive.google.com/file/d/${fileId}/view`;
+    case "microsoft":
+      return `https://onedrive.live.com/?id=${fileId}`;
+    default: {
+      captureException(new Error("Invalid provider"), { extra: { provider } });
+      const exhaustiveCheck: never = provider;
+      return exhaustiveCheck;
+    }
   }
-  if (provider === "microsoft") {
-    return `https://onedrive.live.com/?id=${fileId}`;
-  }
-  captureException(new Error("Invalid provider"), { extra: { provider } });
-  return "";
 }
