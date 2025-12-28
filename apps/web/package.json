@@ -93,6 +93,7 @@
     "@upstash/redis": "1.35.7",
     "@vercel/analytics": "1.6.1",
     "@vercel/speed-insights": "1.3.1",
+    "@workflow/next": "4.0.1-beta.36",
     "ai": "5.0.106",
     "better-auth": "1.4.5",
     "braintrust": "0.4.10",

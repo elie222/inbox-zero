@@ -175,6 +175,7 @@ model EmailAccount {
   calendarConnections CalendarConnection[]
   mcpConnections      McpConnection[]
   meetingBriefings    MeetingBriefing[]
+  wrappedReports      EmailWrapped[]
 
   @@index([userId])
   @@index([lastSummaryEmailAt])
@@ -1187,4 +1188,27 @@ enum MeetingBriefingStatus {
   SENT
   FAILED
   SKIPPED
+}
+
+model EmailWrapped {
+  id        String        @id @default(cuid())
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+
+  year   Int
+  data   Json? // WrappedData JSON - null until complete
+  status WrappedStatus @default(PENDING)
+
+  emailAccountId String
+  emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
+
+  @@unique([emailAccountId, year])
+  @@index([emailAccountId])
+}
+
+enum WrappedStatus {
+  PENDING
+  PROCESSING
+  COMPLETE
+  ERROR
 }

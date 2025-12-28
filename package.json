@@ -39,5 +39,8 @@
       "@types/react": "19.0.10",
       "@types/react-dom": "19.0.4"
     }
+  },
+  "dependencies": {
+    "@workflow/next": "4.0.1-beta.36"
   }
 }
