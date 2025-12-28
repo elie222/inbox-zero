@@ -65,6 +65,13 @@ import { getEmailUrlForMessage } from "@/utils/url";
 
 type SetupPhase = "setup" | "loading-attachments" | "preview" | "starting";
 
+type FilingState = {
+  status: "pending" | "filing" | "filed" | "skipped" | "error";
+  result?: FileAttachmentFiled;
+  error?: string;
+  skipReason?: string;
+};
+
 export function DriveSetup() {
   const { emailAccountId } = useAccount();
   const { data: connectionsData } = useDriveConnections();
@@ -82,11 +89,54 @@ export function DriveSetup() {
   const [userPhase, setUserPhase] = useState<
     "setup" | "previewing" | "starting"
   >("setup");
+  const [filingStates, setFilingStates] = useState<Record<string, FilingState>>(
+    {},
+  );
 
   const shouldFetchAttachments =
     userPhase === "previewing" || userPhase === "starting";
   const { data: attachmentsData, isLoading: attachmentsLoading } =
     useFilingPreviewAttachments(shouldFetchAttachments, {
+      onSuccess: (data) => {
+        // Initialize states and trigger filing for each attachment
+        const initial: Record<string, FilingState> = {};
+        for (const att of data.attachments) {
+          const key = `${att.messageId}-${att.filename}`;
+          initial[key] = { status: "filing" };
+
+          fileAttachmentAction(emailAccountId, {
+            messageId: att.messageId,
+            filename: att.filename,
+          }).then((result) => {
+            const resultData = result?.data;
+            if (result?.serverError) {
+              setFilingStates((prev) => ({
+                ...prev,
+                [key]: { status: "error", error: result.serverError },
+              }));
+            } else if (resultData?.skipped) {
+              setFilingStates((prev) => ({
+                ...prev,
+                [key]: {
+                  status: "skipped",
+                  skipReason: resultData.skipReason,
+                },
+              }));
+            } else if (resultData) {
+              setFilingStates((prev) => ({
+                ...prev,
+                [key]: { status: "filed", result: resultData },
+              }));
+            } else {
+              setFilingStates((prev) => ({
+                ...prev,
+                [key]: { status: "error", error: "Unknown error" },
+              }));
+            }
+          });
+        }
+        setFilingStates(initial);
+      },
       onError: (err) => {
         toastError({
           title: "Error fetching preview",
@@ -178,6 +228,7 @@ export function DriveSetup() {
               attachments={attachmentsData.attachments}
               noAttachmentsFound={attachmentsData.noAttachmentsFound}
               availableFolders={foldersData?.availableFolders || []}
+              filingStates={filingStates}
               onStartFiling={handleStartFiling}
               isStarting={displayPhase === "starting"}
             />
@@ -192,6 +243,7 @@ function PreviewContent({
   attachments,
   noAttachmentsFound,
   availableFolders,
+  filingStates,
   onStartFiling,
   isStarting,
 }: {
@@ -199,6 +251,7 @@ function PreviewContent({
   attachments: AttachmentPreviewItem[];
   noAttachmentsFound: boolean;
   availableFolders: FolderItem[];
+  filingStates: Record<string, FilingState>;
   onStartFiling: () => void;
   isStarting: boolean;
 }) {
@@ -213,6 +266,7 @@ function PreviewContent({
       emailAccountId={emailAccountId}
       attachments={attachments}
       availableFolders={availableFolders}
+      filingStates={filingStates}
       onStartFiling={onStartFiling}
       isStarting={isStarting}
     />
@@ -238,74 +292,23 @@ function NoAttachmentsMessage({
   );
 }
 
-type FilingState = {
-  status: "pending" | "filing" | "filed" | "skipped" | "error";
-  result?: FileAttachmentFiled;
-  error?: string;
-  skipReason?: string;
-};
-
 function PreviewResults({
   emailAccountId,
   attachments,
   availableFolders,
+  filingStates,
   onStartFiling,
   isStarting,
 }: {
   emailAccountId: string;
   attachments: AttachmentPreviewItem[];
   availableFolders: FolderItem[];
+  filingStates: Record<string, FilingState>;
   onStartFiling: () => void;
   isStarting: boolean;
 }) {
   const { userEmail, provider } = useAccount();
-  const [filingStates, setFilingStates] = useState<Record<string, FilingState>>(
-    () => {
-      // Initialize all as "filing" and trigger requests immediately
-      const initial: Record<string, FilingState> = {};
-      for (const att of attachments) {
-        initial[`${att.messageId}-${att.filename}`] = { status: "filing" };
-      }
-      return initial;
-    },
-  );
   const [correctingId, setCorrectingId] = useState<string | null>(null);
-  const hasStartedFiling = useRef(false);
-
-  // Trigger all filings once on mount
-  if (!hasStartedFiling.current) {
-    hasStartedFiling.current = true;
-    for (const att of attachments) {
-      const key = `${att.messageId}-${att.filename}`;
-      fileAttachmentAction(emailAccountId, {
-        messageId: att.messageId,
-        filename: att.filename,
-      }).then((result) => {
-        const data = result?.data;
-        if (result?.serverError) {
-          setFilingStates((prev) => ({
-            ...prev,
-            [key]: { status: "error", error: result.serverError },
-          }));
-        } else if (data?.skipped) {
-          setFilingStates((prev) => ({
-            ...prev,
-            [key]: { status: "skipped", skipReason: data.skipReason },
-          }));
-        } else if (data) {
-          setFilingStates((prev) => ({
-            ...prev,
-            [key]: { status: "filed", result: data },
-          }));
-        } else {
-          setFilingStates((prev) => ({
-            ...prev,
-            [key]: { status: "error", error: "Unknown error" },
-          }));
-        }
-      });
-    }
-  }
 
   const allComplete = attachments.every((att) => {
     const key = `${att.messageId}-${att.filename}`;
