@@ -49,6 +49,7 @@ async function getFilings({
         originalPath: true,
         createdAt: true,
         driveConnectionId: true,
+        feedbackPositive: true,
       },
       orderBy: { createdAt: "desc" },
       take: limit,

@@ -17,6 +17,8 @@ import { getDriveFileUrl } from "@/utils/drive/url";
 import type { GetFilingsResponse } from "@/app/api/user/drive/filings/route";
 import { useDriveConnections } from "@/hooks/useDriveConnections";
 import type { GetDriveConnectionsResponse } from "@/app/api/user/drive/connections/route";
+import { TableCellWithTooltip } from "@/components/drive/TableCellWithTooltip";
+import { YesNoIndicator } from "@/components/drive/YesNoIndicator";
 
 export function FilingActivity() {
   const { data, isLoading, error } = useFilingActivity({
@@ -39,6 +41,9 @@ export function FilingActivity() {
                   <TableHead>File</TableHead>
                   <TableHead>Folder</TableHead>
                   <TableHead className="w-[100px]">When</TableHead>
+                  <TableHead className="w-[80px] text-center">
+                    Correct?
+                  </TableHead>
                   <TableHead className="w-[50px]" />
                 </TableRow>
               </TableHeader>
@@ -84,15 +89,22 @@ function FilingRow({
           {filing.filename}
         </span>
       </TableCell>
-      <TableCell>
-        <span className="text-muted-foreground truncate max-w-[200px] block">
-          {filing.folderPath}
-        </span>
+      <TableCell className="break-words max-w-[200px]">
+        <TableCellWithTooltip
+          text={filing.folderPath}
+          tooltipContent={filing.folderPath}
+          className="text-muted-foreground"
+        />
       </TableCell>
       <TableCell>
         <span className="text-muted-foreground text-xs">
           {formatDistanceToNow(new Date(filing.createdAt), { addSuffix: true })}
         </span>
+      </TableCell>
+      <TableCell>
+        <div className="flex items-center justify-center">
+          <YesNoIndicator value={filing.feedbackPositive} />
+        </div>
       </TableCell>
       <TableCell>
         {driveUrl && (

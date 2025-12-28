@@ -4,13 +4,7 @@ import { useCallback, useMemo, useRef, useState } from "react";
 import { useForm, type SubmitHandler } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import Link from "next/link";
-import {
-  CheckIcon,
-  XIcon,
-  LoaderIcon,
-  ExternalLinkIcon,
-  InfoIcon,
-} from "lucide-react";
+import { ExternalLinkIcon } from "lucide-react";
 import {
   TypographyH3,
   SectionDescription,
@@ -29,7 +23,8 @@ import {
 } from "@/components/ui/table";
 import { Input } from "@/components/Input";
 import { toastSuccess, toastError } from "@/components/Toast";
-import { Tooltip } from "@/components/Tooltip";
+import { FilingStatusCell } from "@/components/drive/FilingStatusCell";
+import { YesNoIndicator } from "@/components/drive/YesNoIndicator";
 import {
   TreeProvider,
   TreeView,
@@ -462,10 +457,8 @@ function FilingRow({
     onCorrectClick();
   }, [onCorrectClick]);
 
-  const isFiling = filingState.status === "filing";
   const isFiled = filingState.status === "filed";
   const isSkipped = filingState.status === "skipped";
-  const hasError = filingState.status === "error";
 
   if (isCorrectingThis && isFiled) {
     return (
@@ -519,63 +512,26 @@ function FilingRow({
         </div>
       </TableCell>
       <TableCell className="break-words max-w-[200px]">
-        {isFiling ? (
-          <span className="flex items-center gap-2 text-muted-foreground">
-            <LoaderIcon className="size-4 animate-spin" />
-            <span>Analyzing...</span>
-          </span>
-        ) : isSkipped ? (
-          <Tooltip
-            content={`Skipped — ${filingState.skipReason || "Doesn't match preferences"}`}
-          >
-            <span className="flex items-center gap-1.5 text-muted-foreground italic">
-              Skipped
-              <InfoIcon className="size-3.5 flex-shrink-0" />
-            </span>
-          </Tooltip>
-        ) : hasError ? (
-          <Tooltip content={filingState.error || "Failed to file"}>
-            <span className="flex items-center gap-1.5 text-destructive">
-              {filingState.error || "Failed to file"}
-              <InfoIcon className="size-3.5 flex-shrink-0" />
-            </span>
-          </Tooltip>
-        ) : (
-          <Tooltip content={folderPath || "—"}>
-            <span className="flex items-center gap-1.5 text-muted-foreground truncate">
-              <span className="truncate">{folderPath || "—"}</span>
-              <InfoIcon className="size-3.5 flex-shrink-0" />
-            </span>
-          </Tooltip>
-        )}
+        <FilingStatusCell
+          status={filingState.status}
+          skipReason={filingState.skipReason}
+          error={filingState.error}
+          folderPath={folderPath}
+        />
       </TableCell>
       <TableCell>
         {isFiled ? (
-          <div className="flex items-center justify-end gap-1">
-            <button
-              type="button"
-              onClick={handleCorrectClick}
-              className={`rounded-full p-1.5 transition-colors ${
-                vote === true
-                  ? "bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400"
-                  : "text-muted-foreground hover:bg-muted hover:text-foreground"
-              }`}
-              aria-label="Correct"
-            >
-              <CheckIcon className="size-4" />
-            </button>
-            <button
-              type="button"
-              onClick={handleWrongClick}
-              className={`rounded-full p-1.5 transition-colors ${
-                vote === false
-                  ? "bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400"
-                  : "text-muted-foreground hover:bg-muted hover:text-foreground"
-              }`}
-              aria-label="Wrong"
-            >
-              <XIcon className="size-4" />
-            </button>
+          <div className="flex items-center justify-end">
+            <YesNoIndicator
+              value={vote}
+              onClick={(value) => {
+                if (value) {
+                  handleCorrectClick();
+                } else {
+                  handleWrongClick();
+                }
+              }}
+            />
           </div>
         ) : isSkipped ? (
           <span className="text-xs text-muted-foreground">—</span>
