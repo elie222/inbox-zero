@@ -63,16 +63,24 @@ export class GoogleDriveProvider implements DriveProvider {
         ? `'${escapedParent}' in parents and mimeType = 'application/vnd.google-apps.folder' and trashed = false`
         : "mimeType = 'application/vnd.google-apps.folder' and trashed = false";
 
-      const response = await this.client.files.list({
-        q: query,
-        fields: "nextPageToken, files(id, name, parents, webViewLink)",
-        pageSize: parent ? 100 : 1000,
-        orderBy: "name",
-      });
+      const allFiles: drive_v3.Schema$File[] = [];
+      let pageToken: string | undefined;
 
-      const files = response.data.files || [];
+      do {
+        const response = await this.client.files.list({
+          q: query,
+          fields: "nextPageToken, files(id, name, parents, webViewLink)",
+          pageSize: parent ? 100 : 1000,
+          orderBy: "name",
+          pageToken,
+        });
 
-      return files.map((file) => this.convertToFolder(file));
+        const files = response.data.files || [];
+        allFiles.push(...files);
+        pageToken = response.data.nextPageToken ?? undefined;
+      } while (pageToken);
+
+      return allFiles.map((file) => this.convertToFolder(file));
     } catch (error) {
       this.logger.error("Error listing folders", { error, parentId });
       throw error;
