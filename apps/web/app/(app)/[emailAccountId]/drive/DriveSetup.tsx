@@ -85,20 +85,27 @@ export function DriveSetup() {
 
   const shouldFetchAttachments =
     userPhase === "previewing" || userPhase === "starting";
-  const {
-    data: attachmentsData,
-    error: attachmentsError,
-    isLoading: attachmentsLoading,
-  } = useFilingPreviewAttachments(shouldFetchAttachments);
+  const { data: attachmentsData, isLoading: attachmentsLoading } =
+    useFilingPreviewAttachments(shouldFetchAttachments, {
+      onError: (err) => {
+        toastError({
+          title: "Error fetching preview",
+          description:
+            err instanceof Error
+              ? err.message
+              : "Failed to load recent attachments. Please try again.",
+        });
+        setUserPhase("setup");
+      },
+    });
 
   const displayPhase = useMemo((): SetupPhase => {
     if (userPhase === "setup") return "setup";
     if (userPhase === "starting") return "starting";
     if (attachmentsLoading) return "loading-attachments";
-    if (attachmentsError) return "setup";
     if (attachmentsData) return "preview";
     return "loading-attachments";
-  }, [userPhase, attachmentsLoading, attachmentsError, attachmentsData]);
+  }, [userPhase, attachmentsLoading, attachmentsData]);
 
   const handlePreviewClick = useCallback(() => {
     setUserPhase("previewing");
