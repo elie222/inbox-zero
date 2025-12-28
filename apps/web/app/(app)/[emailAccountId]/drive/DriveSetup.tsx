@@ -4,7 +4,13 @@ import { useCallback, useMemo, useRef, useState } from "react";
 import { useForm, type SubmitHandler } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import Link from "next/link";
-import { CheckIcon, XIcon, LoaderIcon, ExternalLinkIcon } from "lucide-react";
+import {
+  CheckIcon,
+  XIcon,
+  LoaderIcon,
+  ExternalLinkIcon,
+  InfoIcon,
+} from "lucide-react";
 import {
   TypographyH3,
   SectionDescription,
@@ -23,6 +29,7 @@ import {
 } from "@/components/ui/table";
 import { Input } from "@/components/Input";
 import { toastSuccess, toastError } from "@/components/Toast";
+import { Tooltip } from "@/components/Tooltip";
 import {
   TreeProvider,
   TreeView,
@@ -518,17 +525,28 @@ function FilingRow({
             <span>Analyzing...</span>
           </span>
         ) : isSkipped ? (
-          <span className="text-muted-foreground italic block">
-            Skipped — {filingState.skipReason || "Doesn't match preferences"}
-          </span>
+          <Tooltip
+            content={`Skipped — ${filingState.skipReason || "Doesn't match preferences"}`}
+          >
+            <span className="flex items-center gap-1.5 text-muted-foreground italic">
+              Skipped
+              <InfoIcon className="size-3.5 flex-shrink-0" />
+            </span>
+          </Tooltip>
         ) : hasError ? (
-          <span className="text-destructive block">
-            {filingState.error || "Failed to file"}
-          </span>
+          <Tooltip content={filingState.error || "Failed to file"}>
+            <span className="flex items-center gap-1.5 text-destructive">
+              {filingState.error || "Failed to file"}
+              <InfoIcon className="size-3.5 flex-shrink-0" />
+            </span>
+          </Tooltip>
         ) : (
-          <span className="text-muted-foreground block">
-            {folderPath || "—"}
-          </span>
+          <Tooltip content={folderPath || "—"}>
+            <span className="flex items-center gap-1.5 text-muted-foreground truncate">
+              <span className="truncate">{folderPath || "—"}</span>
+              <InfoIcon className="size-3.5 flex-shrink-0" />
+            </span>
+          </Tooltip>
         )}
       </TableCell>
       <TableCell>
