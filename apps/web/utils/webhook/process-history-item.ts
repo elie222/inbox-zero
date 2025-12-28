@@ -1,3 +1,4 @@
+import { after } from "next/server";
 import prisma from "@/utils/prisma";
 import { runRules } from "@/utils/ai/choose-rule/run-rules";
 import { categorizeSender } from "@/utils/categorize/senders/categorize";
@@ -230,34 +231,36 @@ export async function processHistoryItem(
       emailAccount.filingPrompt &&
       hasAiAccess
     ) {
-      const extractableAttachments = getExtractableAttachments(parsedMessage);
+      after(async () => {
+        const extractableAttachments = getExtractableAttachments(parsedMessage);
 
-      if (extractableAttachments.length > 0) {
-        logger.info("Processing attachments for filing", {
-          count: extractableAttachments.length,
-        });
-
-        // Process each attachment (don't await all - let them run in background)
-        for (const attachment of extractableAttachments) {
-          processAttachment({
-            emailAccount: {
-              ...emailAccount,
-              filingEnabled: emailAccount.filingEnabled,
-              filingPrompt: emailAccount.filingPrompt,
-              email: emailAccount.email,
-            },
-            message: parsedMessage,
-            attachment,
-            emailProvider: provider,
-            logger,
-          }).catch((error) => {
-            logger.error("Failed to process attachment", {
-              filename: attachment.filename,
-              error,
-            });
+        if (extractableAttachments.length > 0) {
+          logger.info("Processing attachments for filing", {
+            count: extractableAttachments.length,
           });
+
+          // Process each attachment (don't await all - let them run in background)
+          for (const attachment of extractableAttachments) {
+            await processAttachment({
+              emailAccount: {
+                ...emailAccount,
+                filingEnabled: emailAccount.filingEnabled,
+                filingPrompt: emailAccount.filingPrompt,
+                email: emailAccount.email,
+              },
+              message: parsedMessage,
+              attachment,
+              emailProvider: provider,
+              logger,
+            }).catch((error) => {
+              logger.error("Failed to process attachment", {
+                filename: attachment.filename,
+                error,
+              });
+            });
+          }
         }
-      }
+      });
     }
   } catch (error: unknown) {
     // Handle provider-specific "not found" errors
