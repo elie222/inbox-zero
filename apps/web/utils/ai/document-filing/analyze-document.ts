@@ -94,6 +94,10 @@ function buildSystem(filingPrompt: string): string {
 ${filingPrompt}
 </user_filing_preferences>
 
+<output_format>
+Your response must be in valid JSON format.
+</output_format>
+
 Choose one of:
 1. action: "use_existing" + folderId - Use an existing folder from the list (requires folder ID)
 2. action: "create_new" + folderPath - Create a new folder ONLY if:

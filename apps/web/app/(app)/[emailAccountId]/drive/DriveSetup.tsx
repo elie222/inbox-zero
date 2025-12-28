@@ -98,22 +98,9 @@ export function DriveSetup() {
     return "loading-attachments";
   }, [userPhase, attachmentsLoading, attachmentsError, attachmentsData]);
 
-  const canPreview =
-    foldersData &&
-    foldersData.savedFolders.length > 0 &&
-    (emailAccount?.filingPrompt || "").trim().length > 0;
-
   const handlePreviewClick = useCallback(() => {
-    if (!canPreview) {
-      toastError({
-        title: "Setup incomplete",
-        description:
-          "Please select at least one folder and describe how you organize files.",
-      });
-      return;
-    }
     setUserPhase("previewing");
-  }, [canPreview]);
+  }, []);
 
   const handleStartFiling = useCallback(async () => {
     setUserPhase("starting");
@@ -170,6 +157,9 @@ export function DriveSetup() {
           emailAccountId={emailAccountId}
           initialPrompt={emailAccount?.filingPrompt || ""}
           mutateEmail={mutateEmail}
+          hasFolders={foldersData ? foldersData.savedFolders.length > 0 : false}
+          phase={displayPhase}
+          onPreviewClick={handlePreviewClick}
         />
 
         {(displayPhase === "preview" || displayPhase === "starting") &&
@@ -184,40 +174,6 @@ export function DriveSetup() {
             />
           )}
       </div>
-
-      <SetupActions
-        phase={displayPhase}
-        canPreview={!!canPreview}
-        onPreviewClick={handlePreviewClick}
-      />
-    </div>
-  );
-}
-
-function SetupActions({
-  phase,
-  canPreview,
-  onPreviewClick,
-}: {
-  phase: SetupPhase;
-  canPreview: boolean;
-  onPreviewClick: () => void;
-}) {
-  if (phase !== "setup" && phase !== "loading-attachments") return null;
-
-  const isLoading = phase === "loading-attachments";
-
-  return (
-    <div className="mt-10 flex flex-col items-center gap-3">
-      <Button
-        onClick={onPreviewClick}
-        disabled={!canPreview || isLoading}
-        loading={isLoading}
-      >
-        {isLoading
-          ? "Finding recent attachments..."
-          : "Preview with my recent emails"}
-      </Button>
     </div>
   );
 }
@@ -555,22 +511,22 @@ function FilingRow({
           </Link>
         </div>
       </TableCell>
-      <TableCell>
+      <TableCell className="break-words max-w-[200px]">
         {isFiling ? (
           <span className="flex items-center gap-2 text-muted-foreground">
             <LoaderIcon className="size-4 animate-spin" />
             <span>Analyzing...</span>
           </span>
         ) : isSkipped ? (
-          <span className="text-muted-foreground italic truncate max-w-[200px] block">
+          <span className="text-muted-foreground italic block">
             Skipped — {filingState.skipReason || "Doesn't match preferences"}
           </span>
         ) : hasError ? (
-          <span className="text-destructive truncate max-w-[200px] block">
+          <span className="text-destructive block">
             {filingState.error || "Failed to file"}
           </span>
         ) : (
-          <span className="text-muted-foreground truncate max-w-[200px] block">
+          <span className="text-muted-foreground block">
             {folderPath || "—"}
           </span>
         )}
@@ -783,10 +739,16 @@ function SetupRulesForm({
   emailAccountId,
   initialPrompt,
   mutateEmail,
+  hasFolders,
+  phase,
+  onPreviewClick,
 }: {
   emailAccountId: string;
   initialPrompt: string;
   mutateEmail: () => void;
+  hasFolders: boolean;
+  phase: SetupPhase;
+  onPreviewClick: () => void;
 }) {
   const {
     register,
@@ -801,9 +763,22 @@ function SetupRulesForm({
   });
 
   const filingPrompt = watch("filingPrompt");
+  const canPreview = (filingPrompt || "").trim().length > 0 && hasFolders;
+  const isLoading = phase === "loading-attachments";
+  const showPreviewButton =
+    phase === "setup" || phase === "loading-attachments";
 
   const onSubmit: SubmitHandler<UpdateFilingPromptBody> = useCallback(
     async (data) => {
+      if (!canPreview) {
+        toastError({
+          title: "Setup incomplete",
+          description:
+            "Please select at least one folder and describe how you organize files.",
+        });
+        return;
+      }
+
       const result = await updateFilingPromptAction(emailAccountId, data);
 
       if (result?.serverError) {
@@ -813,16 +788,12 @@ function SetupRulesForm({
         });
       } else {
         mutateEmail();
+        // Trigger preview after successful save
+        onPreviewClick();
       }
     },
-    [emailAccountId, mutateEmail],
+    [canPreview, emailAccountId, mutateEmail, onPreviewClick],
   );
-
-  const handleBlur = useCallback(() => {
-    if (filingPrompt !== initialPrompt) {
-      handleSubmit(onSubmit)();
-    }
-  }, [filingPrompt, initialPrompt, handleSubmit, onSubmit]);
 
   return (
     <div>
@@ -834,16 +805,26 @@ function SetupRulesForm({
           name="filingPrompt"
           placeholder={`Contracts go to Transactions by property address.
 Receipts go to Receipts by month.`}
-          registerProps={{
-            ...register("filingPrompt"),
-            onBlur: handleBlur,
-          }}
+          registerProps={register("filingPrompt")}
           error={errors.filingPrompt}
           autosizeTextarea
           rows={3}
         />
         {errors.filingPrompt && (
           <p className="text-sm text-red-500">{errors.filingPrompt.message}</p>
+        )}
+        {showPreviewButton && (
+          <div className="mt-10 text-center">
+            <Button
+              type="submit"
+              disabled={!canPreview || isLoading}
+              loading={isLoading}
+            >
+              {isLoading
+                ? "Finding recent attachments..."
+                : "Preview with my recent emails"}
+            </Button>
+          </div>
         )}
       </form>
     </div>
