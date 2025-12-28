@@ -89,6 +89,12 @@ export const addFilingFolderAction = actionClient
         throw new SafeError("Drive connection not found");
       }
 
+      const data = {
+        folderName,
+        folderPath,
+        driveConnectionId,
+      };
+
       const folder = await prisma.filingFolder.upsert({
         where: {
           emailAccountId_folderId: {
@@ -97,17 +103,11 @@ export const addFilingFolderAction = actionClient
           },
         },
         create: {
+          ...data,
           folderId,
-          folderName,
-          folderPath,
-          driveConnectionId,
           emailAccountId,
         },
-        update: {
-          folderName,
-          folderPath,
-          driveConnectionId,
-        },
+        update: data,
       });
 
       return folder;
