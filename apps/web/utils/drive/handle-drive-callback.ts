@@ -1,13 +1,8 @@
-import type { NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
+import { type NextRequest, NextResponse } from "next/server";
 import { env } from "@/env";
 import type { Logger } from "@/utils/logger";
 import type { DriveTokens } from "./types";
-import {
-  validateOAuthCallback,
-  parseAndValidateDriveState,
-  buildDriveRedirectUrl,
-  upsertDriveConnection,
-} from "./oauth-callback-helpers";
 import {
   RedirectError,
   redirectWithMessage,
@@ -21,18 +16,25 @@ import {
   clearOAuthCode,
 } from "@/utils/redis/oauth-code";
 import { DRIVE_STATE_COOKIE_NAME } from "./constants";
+import prisma from "@/utils/prisma";
+import { parseOAuthState } from "@/utils/oauth/state";
+import { prefixPath } from "@/utils/path";
 
-export interface DriveOAuthProvider {
-  name: "google" | "microsoft";
-  exchangeCodeForTokens(code: string): Promise<DriveTokens>;
-}
+const driveOAuthStateSchema = z.object({
+  emailAccountId: z.string().min(1).max(64),
+  type: z.literal("drive"),
+  nonce: z.string().min(8).max(128),
+});
 
 /**
  * Unified handler for drive OAuth callbacks
  */
 export async function handleDriveCallback(
   request: NextRequest,
-  provider: DriveOAuthProvider,
+  provider: {
+    name: "google" | "microsoft";
+    exchangeCodeForTokens(code: string): Promise<DriveTokens>;
+  },
   logger: Logger,
 ): Promise<NextResponse> {
   let redirectHeaders = new Headers();
@@ -167,4 +169,122 @@ export async function handleDriveCallback(
       redirectHeaders,
     );
   }
+}
+
+/**
+ * Validate OAuth callback parameters and setup redirect
+ */
+async function validateOAuthCallback(
+  request: NextRequest,
+  logger: Logger,
+): Promise<{
+  code: string;
+  redirectUrl: URL;
+  response: NextResponse;
+}> {
+  const searchParams = request.nextUrl.searchParams;
+  const code = searchParams.get("code");
+  const receivedState = searchParams.get("state");
+  const storedState = request.cookies.get(DRIVE_STATE_COOKIE_NAME)?.value;
+
+  const redirectUrl = new URL("/drive", env.NEXT_PUBLIC_BASE_URL);
+  const response = NextResponse.redirect(redirectUrl);
+
+  response.cookies.delete(DRIVE_STATE_COOKIE_NAME);
+
+  if (!code || code.length < 10) {
+    logger.warn("Missing or invalid code in drive callback");
+    redirectUrl.searchParams.set("error", "missing_code");
+    throw new RedirectError(redirectUrl, response.headers);
+  }
+
+  if (!storedState || !receivedState || storedState !== receivedState) {
+    logger.warn("Invalid state during drive callback", {
+      receivedState,
+      hasStoredState: !!storedState,
+    });
+    redirectUrl.searchParams.set("error", "invalid_state");
+    throw new RedirectError(redirectUrl, response.headers);
+  }
+
+  return { code, redirectUrl, response };
+}
+
+function parseAndValidateDriveState(
+  storedState: string,
+  logger: Logger,
+  redirectUrl: URL,
+  responseHeaders: Headers,
+): {
+  emailAccountId: string;
+  type: "drive";
+  nonce: string;
+} {
+  let rawState: unknown;
+  try {
+    rawState = parseOAuthState<{
+      emailAccountId: string;
+      type: "drive";
+    }>(storedState);
+  } catch (error) {
+    logger.error("Failed to decode state", { error });
+    redirectUrl.searchParams.set("error", "invalid_state_format");
+    throw new RedirectError(redirectUrl, responseHeaders);
+  }
+
+  const validationResult = driveOAuthStateSchema.safeParse(rawState);
+  if (!validationResult.success) {
+    logger.error("State validation failed", {
+      errors: validationResult.error.errors,
+    });
+    redirectUrl.searchParams.set("error", "invalid_state_format");
+    throw new RedirectError(redirectUrl, responseHeaders);
+  }
+
+  return validationResult.data;
+}
+
+function buildDriveRedirectUrl(emailAccountId: string): URL {
+  return new URL(
+    prefixPath(emailAccountId, "/drive"),
+    env.NEXT_PUBLIC_BASE_URL,
+  );
+}
+
+// ============================================================================
+// Database Operations
+// ============================================================================
+
+async function upsertDriveConnection(params: {
+  provider: "google" | "microsoft";
+  email: string;
+  emailAccountId: string;
+  accessToken: string;
+  refreshToken: string;
+  expiresAt: Date | null;
+}) {
+  return await prisma.driveConnection.upsert({
+    where: {
+      emailAccountId_provider: {
+        emailAccountId: params.emailAccountId,
+        provider: params.provider,
+      },
+    },
+    update: {
+      email: params.email,
+      accessToken: params.accessToken,
+      refreshToken: params.refreshToken,
+      expiresAt: params.expiresAt,
+      isConnected: true,
+    },
+    create: {
+      provider: params.provider,
+      email: params.email,
+      emailAccountId: params.emailAccountId,
+      accessToken: params.accessToken,
+      refreshToken: params.refreshToken,
+      expiresAt: params.expiresAt,
+      isConnected: true,
+    },
+  });
 }
