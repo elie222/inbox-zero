@@ -229,9 +229,11 @@ export const TreeNodeTrigger = ({
   onClick,
   ...props
 }: TreeNodeTriggerProps) => {
-  const { selectedIds, toggleExpanded, handleSelection, indent } = useTree();
+  const { selectedIds, expandedIds, toggleExpanded, handleSelection, indent } =
+    useTree();
   const { nodeId, level } = useTreeNode();
   const isSelected = selectedIds.includes(nodeId);
+  const isExpanded = expandedIds.has(nodeId);
 
   return (
     <motion.div
@@ -246,6 +248,17 @@ export const TreeNodeTrigger = ({
         handleSelection(nodeId, e.ctrlKey || e.metaKey);
         onClick?.(e);
       }}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          toggleExpanded(nodeId);
+          handleSelection(nodeId, e.ctrlKey || e.metaKey);
+        }
+      }}
+      role="treeitem"
+      tabIndex={0}
+      aria-selected={isSelected}
+      aria-expanded={isExpanded}
       style={{ paddingLeft: level * (indent ?? 0) + 8 }}
       whileTap={{ scale: 0.98, transition: { duration: 0.1 } }}
       {...props}
@@ -385,6 +398,16 @@ export const TreeExpander = ({
         toggleExpanded(nodeId);
         onClick?.(e);
       }}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          e.stopPropagation();
+          toggleExpanded(nodeId);
+        }
+      }}
+      role="button"
+      tabIndex={0}
+      aria-label={isExpanded ? "Collapse" : "Expand"}
       transition={{ duration: 0.2, ease: "easeInOut" }}
       {...props}
     >

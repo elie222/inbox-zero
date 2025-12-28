@@ -116,52 +116,58 @@ async function extractFromPdf(
   const { getDocumentProxy } = await import("unpdf");
 
   const pdf = await getDocumentProxy(new Uint8Array(buffer));
-  const pageCount = pdf.numPages;
-  const pagesToProcess = Math.min(pageCount, maxPages);
 
-  const textParts: string[] = [];
-  let totalLength = 0;
-  let truncated = false;
+  try {
+    const pageCount = pdf.numPages;
+    const pagesToProcess = Math.min(pageCount, maxPages);
 
-  for (let i = 1; i <= pagesToProcess && !truncated; i++) {
-    const page = await pdf.getPage(i);
-    const textContent = await page.getTextContent();
+    const textParts: string[] = [];
+    let totalLength = 0;
+    let truncated = false;
 
-    // Extract text items and join them
-    const pageText = (textContent.items as Array<{ str?: string }>)
-      .map((item) => item.str ?? "")
-      .join(" ");
+    for (let i = 1; i <= pagesToProcess && !truncated; i++) {
+      const page = await pdf.getPage(i);
+      const textContent = await page.getTextContent();
 
-    if (totalLength + pageText.length > maxLength) {
-      // Truncate to fit within maxLength
-      const remaining = maxLength - totalLength;
-      textParts.push(pageText.slice(0, remaining));
-      truncated = true;
-    } else {
-      textParts.push(pageText);
-      totalLength += pageText.length;
+      // Extract text items and join them
+      const pageText = (textContent.items as Array<{ str?: string }>)
+        .map((item) => item.str ?? "")
+        .join(" ");
+
+      if (totalLength + pageText.length > maxLength) {
+        // Truncate to fit within maxLength
+        const remaining = maxLength - totalLength;
+        textParts.push(pageText.slice(0, remaining));
+        truncated = true;
+      } else {
+        textParts.push(pageText);
+        totalLength += pageText.length;
+      }
     }
+
+    // Check if we hit page limit
+    if (pagesToProcess < pageCount) {
+      truncated = true;
+    }
+
+    const text = textParts.join("\n\n");
+
+    logger?.info("PDF extraction complete", {
+      pageCount,
+      pagesProcessed: pagesToProcess,
+      textLength: text.length,
+      truncated,
+    });
+
+    return {
+      text,
+      pageCount,
+      truncated,
+    };
+  } finally {
+    // Clean up PDF resources
+    pdf.cleanup?.();
   }
-
-  // Check if we hit page limit
-  if (pagesToProcess < pageCount) {
-    truncated = true;
-  }
-
-  const text = textParts.join("\n\n");
-
-  logger?.info("PDF extraction complete", {
-    pageCount,
-    pagesProcessed: pagesToProcess,
-    textLength: text.length,
-    truncated,
-  });
-
-  return {
-    text,
-    pageCount,
-    truncated,
-  };
 }
 
 // ============================================================================
@@ -183,7 +189,7 @@ async function extractFromDocx(
   logger?.info("DOCX extraction complete", {
     textLength: text.length,
     truncated,
-    messages: result.messages,
+    messageCount: result.messages?.length ?? 0,
   });
 
   return {

@@ -19,6 +19,7 @@ import { useDriveConnections } from "@/hooks/useDriveConnections";
 import type { GetDriveConnectionsResponse } from "@/app/api/user/drive/connections/route";
 import { TableCellWithTooltip } from "@/components/drive/TableCellWithTooltip";
 import { YesNoIndicator } from "@/components/drive/YesNoIndicator";
+import type { DriveProviderType } from "@/utils/drive/types";
 
 export function FilingActivity() {
   const { data, isLoading, error } = useFilingActivity({
@@ -79,7 +80,7 @@ function FilingRow({
   const connection = connections.find((c) => c.id === filing.driveConnectionId);
 
   const driveUrl = filing.fileId
-    ? getDriveFileUrl(filing.fileId, connection?.provider || "")
+    ? getDriveFileUrl(filing.fileId, connection?.provider as DriveProviderType)
     : null;
 
   return (

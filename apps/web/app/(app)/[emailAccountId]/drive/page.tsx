@@ -27,6 +27,7 @@ export default function DrivePage() {
   const {
     data: emailAccount,
     isLoading: emailLoading,
+    error: emailError,
     mutate: mutateEmail,
   } = useEmailAccountFull();
   const [forceOnboarding] = useQueryState("onboarding", parseAsBoolean);
@@ -68,7 +69,10 @@ export default function DrivePage() {
 
   return (
     <PageWrapper>
-      <LoadingContent loading={isLoading || emailLoading} error={error}>
+      <LoadingContent
+        loading={isLoading || emailLoading}
+        error={error || emailError}
+      >
         {view === "onboarding" && <DriveOnboarding />}
         {view === "setup" && <DriveSetup />}
         {view === "settings" && (

@@ -251,7 +251,6 @@ export function FolderNode({
 
   const subfolders = subfoldersData?.folders ?? knownChildren ?? [];
   const hasLoadedChildren = subfolders.length > 0;
-  const showContent = isExpanded && (hasLoadedChildren || isLoadingSubfolders);
 
   return (
     <TreeNode nodeId={folder.id} level={level} isLast={isLast}>
@@ -282,7 +281,7 @@ export function FolderNode({
           <TreeLabel>{folder.name}</TreeLabel>
         </div>
       </TreeNodeTrigger>
-      <TreeNodeContent hasChildren={showContent}>
+      <TreeNodeContent hasChildren={isExpanded}>
         {hasLoadedChildren ? (
           subfolders.map((subfolder, index) => (
             <FolderNode

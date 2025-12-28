@@ -12,6 +12,14 @@ import { SafeError } from "@/utils/error";
 import { env } from "@/env";
 import prisma from "@/utils/prisma";
 
+type OAuthTokenResponse = {
+  access_token?: string;
+  refresh_token?: string;
+  expires_in?: number;
+  error?: string;
+  error_description?: string;
+};
+
 /**
  * Internal factory function to create the appropriate DriveProvider based on connection type.
  * External code should use createDriveProviderWithRefresh to handle token expiration.
@@ -110,7 +118,19 @@ async function refreshMicrosoftDriveToken(
     },
   );
 
-  const tokens = await response.json();
+  let tokens: OAuthTokenResponse;
+  try {
+    tokens = await response.json();
+  } catch {
+    logger.warn("Microsoft drive token refresh returned non-JSON response", {
+      connectionId,
+      status: response.status,
+    });
+    await markDriveConnectionAsDisconnected(connectionId);
+    throw new SafeError(
+      "Unable to access your drive. Please reconnect your drive and try again.",
+    );
+  }
 
   if (!response.ok) {
     const errorMessage = tokens.error_description || "Failed to refresh token";
@@ -124,12 +144,25 @@ async function refreshMicrosoftDriveToken(
     );
   }
 
+  if (!tokens.access_token) {
+    logger.warn("Microsoft token refresh did not return access_token", {
+      connectionId,
+    });
+    await markDriveConnectionAsDisconnected(connectionId);
+    throw new SafeError(
+      "Unable to access your drive. Please reconnect your drive and try again.",
+    );
+  }
+
   // Save new tokens
+  const expiresIn = Number(tokens.expires_in);
   await saveDriveTokens({
     tokens: {
       access_token: tokens.access_token,
       refresh_token: tokens.refresh_token,
-      expires_at: Math.floor(Date.now() / 1000 + Number(tokens.expires_in)),
+      expires_at: Number.isFinite(expiresIn)
+        ? Math.floor(Date.now() / 1000 + expiresIn)
+        : undefined,
     },
     connectionId,
     logger,
@@ -167,7 +200,19 @@ async function refreshGoogleDriveToken(
     }),
   });
 
-  const tokens = await response.json();
+  let tokens: OAuthTokenResponse;
+  try {
+    tokens = await response.json();
+  } catch {
+    logger.warn("Google drive token refresh returned non-JSON response", {
+      connectionId,
+      status: response.status,
+    });
+    await markDriveConnectionAsDisconnected(connectionId);
+    throw new SafeError(
+      "Unable to access your drive. Please reconnect your drive and try again.",
+    );
+  }
 
   if (!response.ok) {
     const errorMessage = tokens.error_description || "Failed to refresh token";
@@ -181,11 +226,24 @@ async function refreshGoogleDriveToken(
     );
   }
 
+  if (!tokens.access_token) {
+    logger.warn("Google token refresh did not return access_token", {
+      connectionId,
+    });
+    await markDriveConnectionAsDisconnected(connectionId);
+    throw new SafeError(
+      "Unable to access your drive. Please reconnect your drive and try again.",
+    );
+  }
+
   // Save new tokens (Google doesn't return a new refresh_token)
+  const expiresIn = Number(tokens.expires_in);
   await saveDriveTokens({
     tokens: {
       access_token: tokens.access_token,
-      expires_at: Math.floor(Date.now() / 1000 + Number(tokens.expires_in)),
+      expires_at: Number.isFinite(expiresIn)
+        ? Math.floor(Date.now() / 1000 + expiresIn)
+        : undefined,
     },
     connectionId,
     logger,

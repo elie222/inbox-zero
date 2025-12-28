@@ -183,10 +183,8 @@ function verifyUserSentEmail({
   message: ParsedMessage;
   userEmail: string;
 }): boolean {
-  return (
-    extractEmailAddress(message.headers.from).toLowerCase() ===
-    userEmail.toLowerCase()
-  );
+  const fromEmail = extractEmailAddress(message.headers.from)?.toLowerCase();
+  return fromEmail === userEmail.toLowerCase();
 }
 
 function isSkipCommand(content: string): boolean {

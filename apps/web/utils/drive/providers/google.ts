@@ -225,8 +225,11 @@ export class GoogleDriveProvider implements DriveProvider {
   // -------------------------------------------------------------------------
 
   private convertToFolder(file: drive_v3.Schema$File): DriveFolder {
+    if (!file.id) {
+      throw new Error("Drive folder is missing id");
+    }
     return {
-      id: file.id!,
+      id: file.id,
       name: file.name || "Untitled",
       parentId: file.parents?.[0] ?? undefined,
       // Google Drive doesn't provide full path directly, would need recursive calls
@@ -236,8 +239,11 @@ export class GoogleDriveProvider implements DriveProvider {
   }
 
   private convertToFile(file: drive_v3.Schema$File): DriveFile {
+    if (!file.id) {
+      throw new Error("Drive file is missing id");
+    }
     return {
-      id: file.id!,
+      id: file.id,
       name: file.name || "Untitled",
       mimeType: file.mimeType || "application/octet-stream",
       size: file.size ? Number.parseInt(file.size) : undefined,
@@ -248,11 +254,12 @@ export class GoogleDriveProvider implements DriveProvider {
   }
 
   private isNotFoundError(error: unknown): boolean {
-    if (error && typeof error === "object" && "code" in error) {
-      return (error as { code: number }).code === 404;
-    }
+    // Check status first as @googleapis/drive sets code to strings like "ENOTFOUND"
     if (error && typeof error === "object" && "status" in error) {
       return (error as { status: number }).status === 404;
+    }
+    if (error && typeof error === "object" && "code" in error) {
+      return (error as { code: number }).code === 404;
     }
     return false;
   }
