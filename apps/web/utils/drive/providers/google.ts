@@ -10,13 +10,6 @@ import type {
   UploadFileParams,
 } from "@/utils/drive/types";
 
-/**
- * Google Drive provider using Google Drive API v3
- * Implements DriveProvider interface for consistent abstraction
- *
- * Note: Requires @googleapis/drive package to be installed:
- * pnpm add @googleapis/drive --filter web
- */
 export class GoogleDriveProvider implements DriveProvider {
   readonly name = "google" as const;
   private readonly client: drive_v3.Drive;

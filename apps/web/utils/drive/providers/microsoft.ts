@@ -10,10 +10,6 @@ import type {
   UploadFileParams,
 } from "@/utils/drive/types";
 
-/**
- * OneDrive/SharePoint provider using Microsoft Graph API
- * Implements DriveProvider interface for consistent abstraction
- */
 export class OneDriveProvider implements DriveProvider {
   readonly name = "microsoft" as const;
   private readonly client: Client;
