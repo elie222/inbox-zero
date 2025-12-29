@@ -1,19 +1,30 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { toastError } from "@/components/Toast";
 import type { GetCalendarAuthUrlResponse } from "@/app/api/google/calendar/auth-url/route";
 import { fetchWithAccount } from "@/utils/fetch";
 import { createScopedLogger } from "@/utils/logger";
-import Image from "next/image";
+import { CALENDAR_ONBOARDING_RETURN_COOKIE } from "@/utils/calendar/constants";
 
-export function ConnectCalendar() {
+export function ConnectCalendar({
+  onboardingReturnPath,
+}: {
+  onboardingReturnPath?: string;
+}) {
   const { emailAccountId } = useAccount();
   const [isConnectingGoogle, setIsConnectingGoogle] = useState(false);
   const [isConnectingMicrosoft, setIsConnectingMicrosoft] = useState(false);
   const logger = createScopedLogger("calendar-connection");
+
+  const setOnboardingReturnCookie = () => {
+    if (onboardingReturnPath) {
+      document.cookie = `${CALENDAR_ONBOARDING_RETURN_COOKIE}=${encodeURIComponent(onboardingReturnPath)}; path=/; max-age=600`;
+    }
+  };
 
   const handleConnectGoogle = async () => {
     setIsConnectingGoogle(true);
@@ -29,6 +40,7 @@ export function ConnectCalendar() {
       }
 
       const data: GetCalendarAuthUrlResponse = await response.json();
+      setOnboardingReturnCookie();
       window.location.href = data.url;
     } catch (error) {
       logger.error("Error initiating Google calendar connection", {
@@ -58,6 +70,7 @@ export function ConnectCalendar() {
       }
 
       const data: GetCalendarAuthUrlResponse = await response.json();
+      setOnboardingReturnCookie();
       window.location.href = data.url;
     } catch (error) {
       logger.error("Error initiating Microsoft calendar connection", {

@@ -1,29 +1,20 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import { Calendar, CheckIcon } from "lucide-react";
 import { PageHeading, TypographyP } from "@/components/Typography";
 import { useCalendars } from "@/hooks/useCalendars";
 import { IconCircle } from "@/app/(app)/[emailAccountId]/onboarding/IconCircle";
 import { ConnectCalendar } from "@/app/(app)/[emailAccountId]/calendars/ConnectCalendar";
 import { Button } from "@/components/ui/button";
+import { useAccount } from "@/providers/EmailAccountProvider";
+import { prefixPath } from "@/utils/path";
 
 export function StepConnectCalendar({ onNext }: { onNext: () => void }) {
+  const { emailAccountId } = useAccount();
   const { data: calendarsData } = useCalendars();
-  const [hasAdvanced, setHasAdvanced] = useState(false);
 
   const hasCalendarConnected =
     calendarsData?.connections && calendarsData.connections.length > 0;
-
-  useEffect(() => {
-    if (hasCalendarConnected && !hasAdvanced) {
-      setHasAdvanced(true);
-      const timer = setTimeout(() => {
-        onNext();
-      }, 1000);
-      return () => clearTimeout(timer);
-    }
-  }, [hasCalendarConnected, hasAdvanced, onNext]);
 
   return (
     <>
@@ -53,7 +44,12 @@ export function StepConnectCalendar({ onNext }: { onNext: () => void }) {
             </Button>
           </>
         ) : (
-          <ConnectCalendar />
+          <ConnectCalendar
+            onboardingReturnPath={prefixPath(
+              emailAccountId,
+              "/onboarding-brief?step=2",
+            )}
+          />
         )}
       </div>
     </>
