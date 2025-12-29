@@ -727,6 +727,7 @@ export async function cleanupExpiredEmails(logger: Logger) {
     try {
       const result = await cleanupExpiredEmailsForAccount({
         emailAccountId: account.emailAccountId,
+        ownerEmail: account.emailAccount.email,
         applyLabel: account.applyLabel,
         logger,
       });
@@ -747,10 +748,12 @@ export async function cleanupExpiredEmails(logger: Logger) {
 
 async function cleanupExpiredEmailsForAccount({
   emailAccountId,
+  ownerEmail,
   applyLabel,
   logger,
 }: {
   emailAccountId: string;
+  ownerEmail: string;
   applyLabel: boolean;
   logger: Logger;
 }) {
@@ -800,14 +803,13 @@ async function cleanupExpiredEmailsForAccount({
 
   for (const email of expiredEmails) {
     try {
-      // Archive the email and optionally apply label
-      const addLabelIds = expiredLabel?.id ? [expiredLabel.id] : [];
-      const removeLabelIds = [GmailLabel.INBOX];
-
-      await provider.modifyThread(email.threadId, {
-        addLabelIds,
-        removeLabelIds,
-      });
+      // Archive the email using existing provider method
+      // archiveThreadWithLabel removes INBOX and optionally adds a label
+      await provider.archiveThreadWithLabel(
+        email.threadId,
+        ownerEmail,
+        expiredLabel?.id,
+      );
 
       // Update the record
       await prisma.emailMessage.update({
