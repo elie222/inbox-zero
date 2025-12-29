@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { toast } from "sonner";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { CheckIcon, SparklesIcon } from "lucide-react";
 import Link from "next/link";
 import { env } from "@/env";
@@ -38,22 +38,10 @@ export type PricingProps = {
 
 export default function Pricing(props: PricingProps) {
   const { premium, isLoading, error, data } = usePremium();
-  const searchParams = useSearchParams();
-  const initialFrequency = searchParams.get("frequency");
 
   const isLoggedIn = !!data?.id;
 
-  const [frequency, setFrequency] = useState(
-    initialFrequency === "monthly" ? frequencies[0] : frequencies[1],
-  );
-
-  useEffect(() => {
-    if (initialFrequency === "monthly") {
-      setFrequency(frequencies[0]);
-    } else if (initialFrequency === "annually") {
-      setFrequency(frequencies[1]);
-    }
-  }, [initialFrequency]);
+  const [frequency, setFrequency] = useState(frequencies[1]);
 
   const userPremiumTier = getUserTier(premium);
 
