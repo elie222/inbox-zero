@@ -55,7 +55,7 @@ export function SideNavWithTopNav({
   if (!pathname) return null;
 
   // Ugly code. May change the onboarding path later so we don't need to do this.
-  // Only return children for the main onboarding page: /[emailAccountId]/onboarding
+  // Only return children for the onboarding or onboarding-brief pages: /[emailAccountId]/onboarding or /[emailAccountId]/onboarding-brief
   const segments = pathname.split("/").filter(Boolean);
   if (
     segments.length === 2 &&
