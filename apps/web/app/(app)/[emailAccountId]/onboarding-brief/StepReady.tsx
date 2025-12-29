@@ -20,6 +20,12 @@ import {
   frequencies,
   DiscountBadge,
 } from "@/app/(app)/premium/PricingFrequencyToggle";
+import {
+  BRIEF_MY_MEETING_PRICE_ID_MONTHLY,
+  BRIEF_MY_MEETING_PRICE_ID_ANNUALLY,
+} from "@/app/(app)/premium/config";
+import { generateCheckoutSessionAction } from "@/utils/actions/premium";
+import { toastError } from "@/components/Toast";
 
 const PRICING_FEATURES = [
   "Briefs for every external meeting",
@@ -28,9 +34,37 @@ const PRICING_FEATURES = [
   "Sent 1-24 hours before (you choose)",
 ];
 
-export function StepReady({ onNext }: { onNext: () => void }) {
+export function StepReady() {
   const { emailAccount } = useAccount();
   const [frequency, setFrequency] = useState(frequencies[1]);
+  const [loading, setLoading] = useState(false);
+
+  async function handleCheckout() {
+    setLoading(true);
+    try {
+      const tier =
+        frequency.value === "annually"
+          ? "BUSINESS_ANNUALLY"
+          : "BUSINESS_MONTHLY";
+      const priceId =
+        frequency.value === "annually"
+          ? BRIEF_MY_MEETING_PRICE_ID_ANNUALLY
+          : BRIEF_MY_MEETING_PRICE_ID_MONTHLY;
+
+      const result = await generateCheckoutSessionAction({ tier, priceId });
+
+      if (!result?.data?.url) {
+        toastError({ description: "Error creating checkout session" });
+        return;
+      }
+
+      window.location.href = result.data.url;
+    } catch {
+      toastError({ description: "Error creating checkout session" });
+    } finally {
+      setLoading(false);
+    }
+  }
 
   return (
     <>
@@ -66,13 +100,13 @@ export function StepReady({ onNext }: { onNext: () => void }) {
               <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                 Meeting Briefs Pro
               </p>
-              <p className="text-2xl font-bold text-foreground mt-1">
+              <p className="text-3xl font-bold text-foreground mt-1">
                 ${frequency.value === "annually" ? "7.50" : "9"}
                 <span className="text-base font-normal text-muted-foreground">
                   /month
                 </span>
               </p>
-              <p className="text-xs text-muted-foreground mt-1">
+              <p className="text-sm text-muted-foreground mt-1">
                 {frequency.value === "annually"
                   ? "billed annually ($90/year)"
                   : "billed monthly"}
@@ -97,7 +131,12 @@ export function StepReady({ onNext }: { onNext: () => void }) {
       </div>
 
       <div className="flex flex-col gap-3 mt-8">
-        <Button size="lg" className="w-full">
+        <Button
+          size="lg"
+          className="w-full"
+          onClick={handleCheckout}
+          loading={loading}
+        >
           Start Free Trial
           <ChevronRightIcon className="ml-2 h-4 w-4" />
         </Button>

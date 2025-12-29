@@ -36,7 +36,7 @@ export function MeetingBriefsOnboardingContent({
     <OnboardingWrapper>
       {clampedStep === 1 && <StepConnectCalendar onNext={onNext} />}
       {clampedStep === 2 && <StepSendTestBrief onNext={onNext} />}
-      {clampedStep === 3 && <StepReady onNext={onNext} />}
+      {clampedStep === 3 && <StepReady />}
     </OnboardingWrapper>
   );
 }

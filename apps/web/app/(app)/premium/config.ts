@@ -39,6 +39,11 @@ const variantIdToTier: Record<number, PremiumTier> = {
   [env.NEXT_PUBLIC_COPILOT_MONTHLY_VARIANT_ID]: "COPILOT_MONTHLY",
 };
 
+export const BRIEF_MY_MEETING_PRICE_ID_MONTHLY =
+  "price_1SjoaXKGf8mwZWHnOdyaf2IN";
+export const BRIEF_MY_MEETING_PRICE_ID_ANNUALLY =
+  "price_1SjoawKGf8mwZWHnfAeShYhb";
+
 const STRIPE_PRICE_ID_CONFIG: Record<
   PremiumTier,
   {
@@ -64,7 +69,7 @@ const STRIPE_PRICE_ID_CONFIG: Record<
       "price_1Rg0LEKGf8mwZWHndYXYg7ie",
       "price_1Rg03pKGf8mwZWHnWMNeQzLc",
       // brief my meeting
-      "price_1SjoaXKGf8mwZWHnOdyaf2IN",
+      BRIEF_MY_MEETING_PRICE_ID_MONTHLY,
     ],
   },
   BUSINESS_ANNUALLY: {
@@ -75,7 +80,7 @@ const STRIPE_PRICE_ID_CONFIG: Record<
       "price_1RMSnIKGf8mwZWHnymtuW2s0",
       "price_1RfSoxKGf8mwZWHngHcug4YM",
       // brief my meeting
-      "price_1SjoawKGf8mwZWHnfAeShYhb",
+      BRIEF_MY_MEETING_PRICE_ID_ANNUALLY,
     ],
   },
   BUSINESS_PLUS_MONTHLY: {

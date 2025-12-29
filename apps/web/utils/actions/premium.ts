@@ -456,83 +456,94 @@ export const getBillingPortalUrlAction = actionClientUser
 
 export const generateCheckoutSessionAction = actionClientUser
   .metadata({ name: "generateCheckoutSession" })
-  .inputSchema(z.object({ tier: z.nativeEnum(PremiumTier) }))
-  .action(async ({ ctx: { userId, logger }, parsedInput: { tier } }) => {
-    const priceId = getStripePriceId({ tier });
+  .inputSchema(
+    z.object({
+      tier: z.nativeEnum(PremiumTier),
+      priceId: z.string().optional(),
+    }),
+  )
+  .action(
+    async ({
+      ctx: { userId, logger },
+      parsedInput: { tier, priceId: inputPriceId },
+    }) => {
+      const priceId = inputPriceId || getStripePriceId({ tier });
 
-    if (!priceId) throw new SafeError("Unknown tier. Contact support.");
+      if (!priceId) throw new SafeError("Unknown tier. Contact support.");
 
-    const stripe = getStripe();
+      const stripe = getStripe();
 
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
-      select: {
-        email: true,
-        premium: {
-          select: {
-            id: true,
-            stripeCustomerId: true,
-            users: {
-              select: {
-                _count: { select: { emailAccounts: true } },
+      const user = await prisma.user.findUnique({
+        where: { id: userId },
+        select: {
+          email: true,
+          premium: {
+            select: {
+              id: true,
+              stripeCustomerId: true,
+              users: {
+                select: {
+                  _count: { select: { emailAccounts: true } },
+                },
               },
             },
           },
         },
-      },
-    });
-    if (!user) {
-      logger.error("User not found");
-      throw new SafeError("User not found");
-    }
-
-    // Get the stripeCustomerId from your KV store
-    let stripeCustomerId = user.premium?.stripeCustomerId;
-
-    // Create a new Stripe customer if this user doesn't have one
-    if (!stripeCustomerId) {
-      const newCustomer = await stripe.customers.create(
-        {
-          email: user.email,
-          metadata: { userId },
-        },
-        // prevent race conditions of creating 2 customers in stripe for on user
-        // https://github.com/stripe/stripe-node/issues/476#issuecomment-402541143
-        { idempotencyKey: userId },
-      );
-
-      after(() => trackStripeCustomerCreated(user.email, newCustomer.id));
-
-      // Store the relation between userId and stripeCustomerId
-      const premium = user.premium || (await createPremiumForUser({ userId }));
-
-      stripeCustomerId = newCustomer.id;
-
-      await prisma.premium.update({
-        where: { id: premium.id },
-        data: { stripeCustomerId },
       });
-    }
+      if (!user) {
+        logger.error("User not found");
+        throw new SafeError("User not found");
+      }
 
-    const quantity =
-      sumBy(user.premium?.users || [], (u) => u._count.emailAccounts) || 1;
+      // Get the stripeCustomerId from your KV store
+      let stripeCustomerId = user.premium?.stripeCustomerId;
 
-    // ALWAYS create a checkout with a stripeCustomerId
-    const checkout = await stripe.checkout.sessions.create({
-      customer: stripeCustomerId,
-      success_url: `${env.NEXT_PUBLIC_BASE_URL}/api/stripe/success`,
-      cancel_url: `${env.NEXT_PUBLIC_BASE_URL}/premium`,
-      mode: "subscription",
-      subscription_data: { trial_period_days: 7 },
-      line_items: [{ price: priceId, quantity }],
-      allow_promotion_codes: true,
-      payment_method_collection: "if_required",
-      metadata: {
-        dubCustomerId: userId,
-      },
-    });
+      // Create a new Stripe customer if this user doesn't have one
+      if (!stripeCustomerId) {
+        const newCustomer = await stripe.customers.create(
+          {
+            email: user.email,
+            metadata: { userId },
+          },
+          // prevent race conditions of creating 2 customers in stripe for on user
+          // https://github.com/stripe/stripe-node/issues/476#issuecomment-402541143
+          { idempotencyKey: userId },
+        );
 
-    after(() => trackStripeCheckoutCreated(user.email));
+        after(() => trackStripeCustomerCreated(user.email, newCustomer.id));
 
-    return { url: checkout.url };
-  });
+        // Store the relation between userId and stripeCustomerId
+        const premium =
+          user.premium || (await createPremiumForUser({ userId }));
+
+        stripeCustomerId = newCustomer.id;
+
+        await prisma.premium.update({
+          where: { id: premium.id },
+          data: { stripeCustomerId },
+        });
+      }
+
+      const quantity =
+        sumBy(user.premium?.users || [], (u) => u._count.emailAccounts) || 1;
+
+      // ALWAYS create a checkout with a stripeCustomerId
+      const checkout = await stripe.checkout.sessions.create({
+        customer: stripeCustomerId,
+        success_url: `${env.NEXT_PUBLIC_BASE_URL}/api/stripe/success`,
+        cancel_url: `${env.NEXT_PUBLIC_BASE_URL}/premium`,
+        mode: "subscription",
+        subscription_data: { trial_period_days: 7 },
+        line_items: [{ price: priceId, quantity }],
+        allow_promotion_codes: true,
+        payment_method_collection: "if_required",
+        metadata: {
+          dubCustomerId: userId,
+        },
+      });
+
+      after(() => trackStripeCheckoutCreated(user.email));
+
+      return { url: checkout.url };
+    },
+  );
