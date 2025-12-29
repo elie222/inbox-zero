@@ -57,7 +57,11 @@ export function SideNavWithTopNav({
   // Ugly code. May change the onboarding path later so we don't need to do this.
   // Only return children for the main onboarding page: /[emailAccountId]/onboarding
   const segments = pathname.split("/").filter(Boolean);
-  if (segments.length === 2 && segments[1] === "onboarding") return children;
+  if (
+    segments.length === 2 &&
+    (segments[1] === "onboarding" || segments[1] === "onboarding-brief")
+  )
+    return children;
 
   return (
     <SidebarProvider
