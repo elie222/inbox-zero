@@ -495,10 +495,8 @@ export const generateCheckoutSessionAction = actionClientUser
         throw new SafeError("User not found");
       }
 
-      // Get the stripeCustomerId from your KV store
       let stripeCustomerId = user.premium?.stripeCustomerId;
 
-      // Create a new Stripe customer if this user doesn't have one
       if (!stripeCustomerId) {
         const newCustomer = await stripe.customers.create(
           {
@@ -512,7 +510,6 @@ export const generateCheckoutSessionAction = actionClientUser
 
         after(() => trackStripeCustomerCreated(user.email, newCustomer.id));
 
-        // Store the relation between userId and stripeCustomerId
         const premium =
           user.premium || (await createPremiumForUser({ userId }));
 
