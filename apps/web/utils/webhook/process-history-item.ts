@@ -1,3 +1,4 @@
+import { after } from "next/server";
 import prisma from "@/utils/prisma";
 import { runRules } from "@/utils/ai/choose-rule/run-rules";
 import { categorizeSender } from "@/utils/categorize/senders/categorize";
@@ -13,6 +14,7 @@ import type { EmailProvider } from "@/utils/email/types";
 import type { RuleWithActions } from "@/utils/types";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import type { Logger } from "@/utils/logger";
+import { analyzeAndSetExpiration } from "@/utils/expiration/analyze-expiration";
 
 export type SharedProcessHistoryOptions = {
   provider: EmailProvider;
@@ -197,6 +199,20 @@ export async function processHistoryItem(
         modelType: "default",
         logger,
       });
+    }
+
+    // Analyze expiration for emails (runs in background)
+    // Only for inbox messages with AI access
+    if (hasAiAccess && isInInbox) {
+      after(() =>
+        analyzeAndSetExpiration({
+          emailAccount,
+          message: parsedMessage,
+          logger,
+        }).catch((error) =>
+          logger.error("Failed to analyze expiration", { error, messageId }),
+        ),
+      );
     }
   } catch (error: unknown) {
     // Handle provider-specific "not found" errors

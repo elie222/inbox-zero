@@ -5,6 +5,7 @@ import type { Logger } from "@/utils/logger";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import type { ParsedMessage } from "@/utils/types";
 import type { Rule, Action } from "@prisma/client";
+import { analyzeAndSetExpiration } from "@/utils/expiration/analyze-expiration";
 
 // Parallel processing concurrency - adjust based on your LLM endpoint capacity
 // Azure AI Foundry typically handles 5-10 concurrent requests well
@@ -227,8 +228,9 @@ async function processMessageBatch({
     const batch = messages.slice(i, i + concurrency);
 
     const results = await Promise.allSettled(
-      batch.map((message) =>
-        runRules({
+      batch.map(async (message) => {
+        // Run rules first
+        await runRules({
           provider: emailProvider,
           message,
           rules,
@@ -237,8 +239,21 @@ async function processMessageBatch({
           modelType: "economy",
           logger,
           skipArchive,
-        }),
-      ),
+        });
+
+        // Then analyze expiration (reuses already-fetched message, graceful on error)
+        await analyzeAndSetExpiration({
+          emailAccount,
+          message,
+          logger,
+        }).catch((error) => {
+          logger.warn("Failed to analyze expiration", {
+            messageId: message.id,
+            error,
+          });
+          // Don't fail the whole batch for expiration errors
+        });
+      }),
     );
 
     results.forEach((result, index) => {
