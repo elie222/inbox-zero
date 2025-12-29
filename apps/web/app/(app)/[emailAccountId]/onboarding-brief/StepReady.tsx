@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import {
   Sparkles,
@@ -14,6 +15,11 @@ import { IconCircle } from "@/app/(app)/[emailAccountId]/onboarding/IconCircle";
 import { getGmailBasicSearchUrl } from "@/utils/url";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { isGoogleProvider } from "@/utils/email/provider-types";
+import {
+  PricingFrequencyToggle,
+  frequencies,
+  DiscountBadge,
+} from "@/app/(app)/premium/PricingFrequencyToggle";
 
 const PRICING_FEATURES = [
   "Briefs for every external meeting",
@@ -24,6 +30,8 @@ const PRICING_FEATURES = [
 
 export function StepReady({ onNext }: { onNext: () => void }) {
   const { emailAccount } = useAccount();
+  const [frequency, setFrequency] = useState(frequencies[1]);
+
   return (
     <>
       <div className="flex justify-center">
@@ -42,38 +50,54 @@ export function StepReady({ onNext }: { onNext: () => void }) {
         </TypographyP>
       </div>
 
-      <CardBasic className="mt-8 p-6">
-        <div className="flex items-center justify-between mb-5">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              Meeting Briefs Pro
-            </p>
-            <p className="text-2xl font-bold text-foreground mt-1">
-              $9
-              <span className="text-base font-normal text-muted-foreground">
-                /month
-              </span>
-            </p>
+      <div className="mt-8 flex flex-col items-center">
+        <PricingFrequencyToggle
+          frequency={frequency}
+          setFrequency={setFrequency}
+        >
+          <div className="ml-1">
+            <DiscountBadge>2 months free!</DiscountBadge>
           </div>
-          <div className="rounded-full border border-green-200 bg-green-50 px-3 py-1.5 text-sm font-semibold text-green-700">
-            7-day free trial
-          </div>
-        </div>
+        </PricingFrequencyToggle>
 
-        <div className="flex flex-col gap-2.5">
-          {PRICING_FEATURES.map((feature) => (
-            <div key={feature} className="flex items-center gap-2.5">
-              <div className="flex h-5 w-5 items-center justify-center rounded-full bg-green-50">
-                <CheckIcon className="h-3 w-3 text-green-600" />
-              </div>
-              <span className="text-foreground">{feature}</span>
+        <CardBasic className="mt-4 p-6 w-full">
+          <div className="flex items-center justify-between mb-5">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                Meeting Briefs Pro
+              </p>
+              <p className="text-2xl font-bold text-foreground mt-1">
+                ${frequency.value === "annually" ? "7.50" : "9"}
+                <span className="text-base font-normal text-muted-foreground">
+                  /month
+                </span>
+              </p>
+              <p className="text-xs text-muted-foreground mt-1">
+                {frequency.value === "annually"
+                  ? "billed annually ($90/year)"
+                  : "billed monthly"}
+              </p>
             </div>
-          ))}
-        </div>
-      </CardBasic>
+            <div className="rounded-full border border-green-200 bg-green-50 px-3 py-1.5 text-sm font-semibold text-green-700">
+              7-day free trial
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-2.5">
+            {PRICING_FEATURES.map((feature) => (
+              <div key={feature} className="flex items-center gap-2.5">
+                <div className="flex h-5 w-5 items-center justify-center rounded-full bg-green-50">
+                  <CheckIcon className="h-3 w-3 text-green-600" />
+                </div>
+                <span className="text-foreground">{feature}</span>
+              </div>
+            ))}
+          </div>
+        </CardBasic>
+      </div>
 
       <div className="flex flex-col gap-3 mt-8">
-        <Button onClick={onNext} size="lg" className="w-full">
+        <Button size="lg" className="w-full">
           Start Free Trial
           <ChevronRightIcon className="ml-2 h-4 w-4" />
         </Button>

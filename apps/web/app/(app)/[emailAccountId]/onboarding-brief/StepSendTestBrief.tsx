@@ -15,11 +15,7 @@ import { sendBriefAction } from "@/utils/actions/meeting-briefs";
 import { cn } from "@/utils";
 import { extractDomainFromEmail } from "@/utils/email";
 
-interface StepSendTestBriefProps {
-  onNext: () => void;
-}
-
-export function StepSendTestBrief({ onNext }: StepSendTestBriefProps) {
+export function StepSendTestBrief({ onNext }: { onNext: () => void }) {
   const { emailAccountId } = useAccount();
   const { data, isLoading, error } = useCalendarUpcomingEvents();
   const [selectedEventId, setSelectedEventId] = useState<string | null>(null);

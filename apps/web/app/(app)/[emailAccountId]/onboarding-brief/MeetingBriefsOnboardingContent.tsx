@@ -7,7 +7,6 @@ import { StepSendTestBrief } from "./StepSendTestBrief";
 import { StepReady } from "./StepReady";
 import { prefixPath } from "@/utils/path";
 import { useAccount } from "@/providers/EmailAccountProvider";
-import { completedOnboardingAction } from "@/utils/actions/onboarding";
 import { OnboardingWrapper } from "@/app/(app)/[emailAccountId]/onboarding/OnboardingWrapper";
 
 const TOTAL_STEPS = 3;
@@ -30,9 +29,6 @@ export function MeetingBriefsOnboardingContent({
       router.push(
         prefixPath(emailAccountId, `/onboarding-brief?step=${nextStep}`),
       );
-    } else {
-      await completedOnboardingAction();
-      router.push("/welcome-upgrade");
     }
   }, [router, emailAccountId, clampedStep]);
 

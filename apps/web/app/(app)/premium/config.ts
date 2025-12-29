@@ -63,6 +63,8 @@ const STRIPE_PRICE_ID_CONFIG: Record<
       "price_1Rg0QfKGf8mwZWHnDsiocBVD",
       "price_1Rg0LEKGf8mwZWHndYXYg7ie",
       "price_1Rg03pKGf8mwZWHnWMNeQzLc",
+      // brief my meeting
+      "price_1SjoaXKGf8mwZWHnOdyaf2IN",
     ],
   },
   BUSINESS_ANNUALLY: {
@@ -72,6 +74,8 @@ const STRIPE_PRICE_ID_CONFIG: Record<
       "price_1S1QGGKGf8mwZWHnYpUcqNua",
       "price_1RMSnIKGf8mwZWHnymtuW2s0",
       "price_1RfSoxKGf8mwZWHngHcug4YM",
+      // brief my meeting
+      "price_1SjoawKGf8mwZWHnfAeShYhb",
     ],
   },
   BUSINESS_PLUS_MONTHLY: {
