@@ -203,7 +203,7 @@ function AccountOptionsDropdown({
               className="flex items-center gap-2"
               onClick={(e) => e.stopPropagation()}
             >
-              <Settings className="h-4 w-4" />
+              <Settings className="size-4" />
               Setup
             </Link>
           </DropdownMenuItem>
@@ -215,8 +215,8 @@ function AccountOptionsDropdown({
               }}
               onClick={(e) => e.stopPropagation()}
             >
-              <ArrowLeftRight className="mr-2 h-4 w-4" />
-              Transfer rules to...
+              <ArrowLeftRight className="size-4" />
+              Copy rules to...
             </DropdownMenuItem>
           )}
           <ConfirmDialog
@@ -230,7 +230,7 @@ function AccountOptionsDropdown({
                 className="flex items-center gap-2 text-destructive focus:text-destructive"
                 disabled={isExecuting}
               >
-                <Trash2 className="h-4 w-4" />
+                <Trash2 className="size-4" />
                 Delete
               </DropdownMenuItem>
             }
