@@ -14,6 +14,7 @@ import { useCalendarUpcomingEvents } from "@/hooks/useCalendarUpcomingEvents";
 import { sendBriefAction } from "@/utils/actions/meeting-briefs";
 import { cn } from "@/utils";
 import { extractDomainFromEmail } from "@/utils/email";
+import { sleep } from "@/utils/sleep";
 
 export function StepSendTestBrief({ onNext }: { onNext: () => void }) {
   const { emailAccountId } = useAccount();
@@ -24,11 +25,13 @@ export function StepSendTestBrief({ onNext }: { onNext: () => void }) {
   const { execute, isExecuting } = useAction(
     sendBriefAction.bind(null, emailAccountId),
     {
-      onSuccess: ({ data: result }) => {
+      onSuccess: async ({ data: result }) => {
         toastSuccess({
           description: result.message || "Test brief sent! Check your inbox.",
         });
         setBriefSent(true);
+        await sleep(1000);
+        onNext();
       },
       onError: ({ error: err }) => {
         toastError({
@@ -37,15 +40,6 @@ export function StepSendTestBrief({ onNext }: { onNext: () => void }) {
       },
     },
   );
-
-  useEffect(() => {
-    if (briefSent) {
-      const timer = setTimeout(() => {
-        onNext();
-      }, 1000);
-      return () => clearTimeout(timer);
-    }
-  }, [briefSent, onNext]);
 
   const handleSendTestBrief = useCallback(() => {
     const event = data?.events.find((e) => e.id === selectedEventId);
