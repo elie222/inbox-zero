@@ -71,37 +71,33 @@ PATH 1: REAL-TIME (New Emails)
                                               │ EmailMessage record   │
                                               └───────────────────────┘
 
-PATH 2: BATCH BACKFILL (Existing Emails)
+PATH 2: BATCH BACKFILL (Existing Emails via Bulk Process Button)
 ═══════════════════════════════════════════════════════════════════════
-  Cron Job (hooks into existing /api/watch/all pattern)
+  User clicks "Run on all emails" button (BulkRunRulesServerSide.tsx)
          │
          ▼
   ┌───────────────────────────────────────────────────────────────────┐
-  │ /api/cron/expiration/backfill                                      │
-  │ Find emails where:                                                 │
-  │   - inbox = true                                                   │
-  │   - expiresAt IS NULL                                              │
-  │   - Matches expirable categories (notification, newsletter, etc.)  │
-  │   - Older than 1 day (give real-time a chance first)               │
+  │ bulkProcessInboxEmails() - MODIFY to include expiration           │
+  │ After runRules() for each email:                                  │
+  │   → analyzeAndSetExpiration() (reuses same message, no extra API) │
   └───────────────────────────────────────────────────────────────────┘
-         │
-         ▼
-  For each email → analyzeExpiration() → set expiresAt
 
-PATH 3: CLEANUP (Expired Emails)
+PATH 3: CLEANUP (Hook into existing /api/watch/all cron)
 ═══════════════════════════════════════════════════════════════════════
-  Cron Job (daily, hooks into existing pattern)
+  Existing Cron (runs every 6 hours)
          │
          ▼
   ┌───────────────────────────────────────────────────────────────────┐
-  │ /api/cron/expiration/cleanup                                       │
-  │ Find emails where:                                                 │
-  │   - inbox = true                                                   │
-  │   - expiresAt <= NOW()                                             │
+  │ /api/watch/all - MODIFY to add expiration cleanup                  │
+  │                                                                    │
+  │ async function watchAllEmails(logger) {                            │
+  │   await ensureEmailAccountsWatched(...);  // existing              │
+  │   await cleanupExpiredEmails(logger);      // NEW                  │
+  │ }                                                                  │
   └───────────────────────────────────────────────────────────────────┘
          │
          ▼
-  Archive + Apply "Inbox Zero/Expired" label
+  Find emails where expiresAt <= NOW() → Archive + Apply label
 ```
 
 ---
@@ -219,34 +215,42 @@ model EmailAccount {
 
 ## File Structure
 
+**New Files:**
 ```
 apps/web/
 ├── app/
 │   ├── api/
-│   │   ├── cron/
-│   │   │   └── expiration/
-│   │   │       ├── cleanup/
-│   │   │       │   └── route.ts          # Cleanup expired emails (hooks into existing cron)
-│   │   │       └── backfill/
-│   │   │           └── route.ts          # Backfill missing expiration dates
 │   │   └── expiration-settings/
 │   │       └── route.ts                  # CRUD for user settings
 │   └── (app)/
 │       └── [emailAccountId]/
 │           └── settings/
 │               └── ExpirationSettings.tsx  # Settings UI component
+└── utils/
+    └── expiration/
+        ├── index.ts                      # Main expiration logic exports
+        ├── analyze-expiration.ts         # LLM-based expiration date extraction
+        ├── process-expired.ts            # Cleanup logic (called from /api/watch/all)
+        └── categories.ts                 # Category detection helpers
+```
+
+**Files to Modify:**
+```
+apps/web/
+├── app/
+│   └── api/
+│       └── watch/
+│           └── all/
+│               └── route.ts              # MODIFY: Add cleanupExpiredEmails() call
 ├── utils/
-│   ├── expiration/
-│   │   ├── index.ts                      # Main expiration logic exports
-│   │   ├── analyze-expiration.ts         # LLM-based expiration date extraction
-│   │   ├── process-expired.ts            # Cleanup logic
-│   │   ├── backfill.ts                   # Batch backfill logic
-│   │   └── categories.ts                 # Category detection helpers
+│   ├── ai/
+│   │   └── choose-rule/
+│   │       └── bulk-process-emails.ts    # MODIFY: Add expiration analysis in batch
 │   ├── webhook/
 │   │   └── process-history-item.ts       # MODIFY: Add expiration hook after runRules
-│   └── label.ts                          # Add "expired" to inboxZeroLabels
+│   └── label.ts                          # MODIFY: Add "expired" to inboxZeroLabels
 └── prisma/
-    └── schema.prisma                     # Schema updates
+    └── schema.prisma                     # MODIFY: Add expiresAt fields and new models
 ```
 
 ---
@@ -599,321 +603,287 @@ function extractDomain(email: string): string {
 }
 ```
 
-### Phase 3: Batch Backfill (For Existing Emails)
+### Phase 3: Batch Backfill (Modify Existing Bulk Process)
 
-This cron job processes emails that weren't analyzed in real-time (e.g., emails received before the feature was enabled).
-
-```typescript
-// apps/web/app/api/cron/expiration/backfill/route.ts
-
-import { NextResponse } from "next/server";
-import { hasCronSecret } from "@/utils/cron";
-import { withError } from "@/utils/middleware";
-import prisma from "@/utils/prisma";
-import { publishToQstashQueue } from "@/utils/upstash";
-
-export const dynamic = "force-dynamic";
-export const maxDuration = 300;
-
-const QUEUE_NAME = "expiration-backfill";
-const PARALLELISM = 3;
-const BATCH_SIZE = 50;
-
-export const GET = withError("expiration/backfill", async (request) => {
-  if (!hasCronSecret(request)) {
-    return new Response("Unauthorized", { status: 401 });
-  }
-
-  // Find accounts with expiration enabled
-  const accounts = await prisma.emailExpirationSettings.findMany({
-    where: { enabled: true },
-    select: { emailAccountId: true },
-  });
-
-  if (accounts.length === 0) {
-    return NextResponse.json({ message: "No accounts with expiration enabled" });
-  }
-
-  // For each account, find emails needing expiration analysis
-  let totalQueued = 0;
-  for (const { emailAccountId } of accounts) {
-    // Find inbox emails without expiresAt, older than 1 day
-    const emailsToProcess = await prisma.emailMessage.findMany({
-      where: {
-        emailAccountId,
-        inbox: true,
-        expiresAt: null,
-        date: {
-          lt: new Date(Date.now() - 24 * 60 * 60 * 1000), // Older than 1 day
-        },
-      },
-      select: {
-        messageId: true,
-        threadId: true,
-      },
-      take: BATCH_SIZE,
-    });
-
-    if (emailsToProcess.length > 0) {
-      await publishToQstashQueue({
-        queueName: QUEUE_NAME,
-        parallelism: PARALLELISM,
-        url: "/api/cron/expiration/backfill/process",
-        body: {
-          emailAccountId,
-          emails: emailsToProcess,
-        },
-      });
-      totalQueued += emailsToProcess.length;
-    }
-  }
-
-  return NextResponse.json({
-    message: `Queued ${totalQueued} emails for expiration backfill`,
-  });
-});
-
-export const POST = GET;
-```
+Instead of a new cron, we modify `bulkProcessInboxEmails()` to also analyze expiration when processing emails.
 
 ```typescript
-// apps/web/app/api/cron/expiration/backfill/process/route.ts
+// apps/web/utils/ai/choose-rule/bulk-process-emails.ts - MODIFY
 
-import { NextResponse } from "next/server";
-import { verifySignatureAppRouter } from "@upstash/qstash/nextjs";
-import { z } from "zod";
-import { withError, type RequestWithLogger } from "@/utils/middleware";
-import { getEmailAccountWithAiAndTokens } from "@/utils/user/get";
-import { createEmailProvider } from "@/utils/email/provider";
 import { analyzeAndSetExpiration } from "@/utils/expiration";
 
-const processSchema = z.object({
-  emailAccountId: z.string(),
-  emails: z.array(z.object({
-    messageId: z.string(),
-    threadId: z.string(),
-  })),
-});
+async function processMessageBatch({
+  messages,
+  rules,
+  emailProvider,
+  emailAccount,
+  skipArchive,
+  concurrency,
+  logger,
+  analyzeExpiration = true,  // NEW: Optional flag, default true
+}: {
+  // ... existing params ...
+  analyzeExpiration?: boolean;
+}): Promise<{ processed: number; errors: number }> {
+  let processed = 0;
+  let errors = 0;
 
-export const POST = withError(
-  "expiration/backfill/process",
-  verifySignatureAppRouter(async (request: Request) => {
-    const json = await request.json();
-    const { emailAccountId, emails } = processSchema.parse(json);
-    const logger = (request as RequestWithLogger).logger;
+  for (let i = 0; i < messages.length; i += concurrency) {
+    const batch = messages.slice(i, i + concurrency);
 
-    const emailAccount = await getEmailAccountWithAiAndTokens({ emailAccountId });
-    if (!emailAccount) {
-      return NextResponse.json({ error: "Account not found" }, { status: 404 });
-    }
+    const results = await Promise.allSettled(
+      batch.map(async (message) => {
+        // Run rules (existing)
+        await runRules({
+          provider: emailProvider,
+          message,
+          rules,
+          emailAccount,
+          isTest: false,
+          modelType: "economy",
+          logger,
+          skipArchive,
+        });
 
-    const provider = await createEmailProvider({
-      emailAccountId,
-      provider: "google",
-      logger,
-    });
-
-    let processed = 0;
-    let errors = 0;
-
-    for (const { messageId } of emails) {
-      try {
-        const message = await provider.getMessage(messageId);
-        if (message) {
+        // NEW: Also analyze expiration (reuses same message, no extra API call)
+        if (analyzeExpiration) {
           await analyzeAndSetExpiration({
             emailAccount,
             message,
             logger,
+          }).catch((error) => {
+            logger.warn("Failed to analyze expiration", { messageId: message.id, error });
+            // Don't fail the whole batch for expiration errors
           });
-          processed++;
         }
-      } catch (error) {
-        logger.error("Failed to process email for expiration", { messageId, error });
+      }),
+    );
+
+    results.forEach((result, index) => {
+      if (result.status === "fulfilled") {
+        processed++;
+      } else {
         errors++;
+        logger.error("Error processing email", {
+          messageId: batch[index].id,
+          error: result.reason,
+        });
       }
-    }
-
-    return NextResponse.json({ processed, errors });
-  })
-);
-```
-
-### Phase 4: Cleanup Cron (Archive Expired Emails)
-
-This cron job finds emails past their expiration date and archives them.
-
-```typescript
-// apps/web/app/api/cron/expiration/cleanup/route.ts
-
-import { NextResponse } from "next/server";
-import { hasCronSecret } from "@/utils/cron";
-import { withError } from "@/utils/middleware";
-import prisma from "@/utils/prisma";
-import { publishToQstashQueue } from "@/utils/upstash";
-
-export const dynamic = "force-dynamic";
-export const maxDuration = 300;
-
-const QUEUE_NAME = "expiration-cleanup";
-const PARALLELISM = 3;
-
-export const GET = withError("expiration/cleanup", async (request) => {
-  if (!hasCronSecret(request)) {
-    return new Response("Unauthorized", { status: 401 });
+    });
   }
 
+  return { processed, errors };
+}
+```
+
+This approach:
+- **No new cron** - uses existing bulk process button
+- **No extra API calls** - reuses the already-fetched message
+- **Graceful degradation** - expiration errors don't fail rule processing
+- **Opt-in** - `analyzeExpiration` flag can be exposed in UI if needed
+
+### Phase 4: Cleanup (Hook into Existing /api/watch/all Cron)
+
+Instead of creating new cron endpoints, we hook into the existing `/api/watch/all` cron that runs every 6 hours.
+
+#### Step 4.1: Create Cleanup Utility Function
+
+```typescript
+// apps/web/utils/expiration/process-expired.ts
+
+import prisma from "@/utils/prisma";
+import { createEmailProvider } from "@/utils/email/provider";
+import { GmailLabel } from "@/utils/gmail/label";
+import type { Logger } from "@/utils/logger";
+
+const BATCH_SIZE = 50; // Process in smaller batches to avoid timeouts
+
+/**
+ * Find and archive expired emails for all accounts with expiration enabled.
+ * Called from the existing /api/watch/all cron job.
+ */
+export async function cleanupExpiredEmails(logger: Logger) {
   // Find accounts with expiration enabled
   const accounts = await prisma.emailExpirationSettings.findMany({
     where: { enabled: true },
     select: {
       emailAccountId: true,
       applyLabel: true,
+      emailAccount: {
+        select: { email: true },
+      },
     },
   });
 
   if (accounts.length === 0) {
-    return NextResponse.json({ message: "No accounts with expiration enabled" });
+    logger.info("No accounts with expiration enabled");
+    return { totalArchived: 0, totalErrors: 0 };
   }
 
-  // For each account, find expired emails
-  let totalQueued = 0;
-  for (const account of accounts) {
-    const expiredEmails = await prisma.emailMessage.findMany({
-      where: {
-        emailAccountId: account.emailAccountId,
-        inbox: true,
-        expiredAt: null, // Not yet processed
-        expiresAt: {
-          lte: new Date(), // Expiration date has passed
-        },
-      },
-      select: {
-        id: true,
-        messageId: true,
-        threadId: true,
-        expiresAt: true,
-        expirationReason: true,
-      },
-      take: 100, // Process in batches
-    });
+  let totalArchived = 0;
+  let totalErrors = 0;
 
-    if (expiredEmails.length > 0) {
-      await publishToQstashQueue({
-        queueName: QUEUE_NAME,
-        parallelism: PARALLELISM,
-        url: "/api/cron/expiration/cleanup/process",
-        body: {
-          emailAccountId: account.emailAccountId,
-          applyLabel: account.applyLabel,
-          emails: expiredEmails,
+  for (const account of accounts) {
+    try {
+      const result = await cleanupExpiredEmailsForAccount({
+        emailAccountId: account.emailAccountId,
+        applyLabel: account.applyLabel,
+        logger,
+      });
+      totalArchived += result.archived;
+      totalErrors += result.errors;
+    } catch (error) {
+      logger.error("Failed to cleanup expired emails for account", {
+        emailAccountId: account.emailAccountId,
+        error,
+      });
+      totalErrors++;
+    }
+  }
+
+  logger.info("Expiration cleanup completed", { totalArchived, totalErrors });
+  return { totalArchived, totalErrors };
+}
+
+async function cleanupExpiredEmailsForAccount({
+  emailAccountId,
+  applyLabel,
+  logger,
+}: {
+  emailAccountId: string;
+  applyLabel: boolean;
+  logger: Logger;
+}) {
+  // Find expired emails that haven't been processed yet
+  const expiredEmails = await prisma.emailMessage.findMany({
+    where: {
+      emailAccountId,
+      inbox: true,
+      expiredAt: null, // Not yet processed
+      expiresAt: {
+        lte: new Date(), // Expiration date has passed
+      },
+    },
+    select: {
+      id: true,
+      messageId: true,
+      threadId: true,
+      from: true,
+      expiresAt: true,
+      expirationReason: true,
+    },
+    take: BATCH_SIZE,
+  });
+
+  if (expiredEmails.length === 0) {
+    return { archived: 0, errors: 0 };
+  }
+
+  logger.info("Found expired emails to archive", {
+    emailAccountId,
+    count: expiredEmails.length,
+  });
+
+  const provider = await createEmailProvider({
+    emailAccountId,
+    provider: "google",
+    logger,
+  });
+
+  // Get or create expired label if needed
+  const expiredLabel = applyLabel
+    ? await provider.getOrCreateInboxZeroLabel("expired")
+    : null;
+
+  let archived = 0;
+  let errors = 0;
+
+  for (const email of expiredEmails) {
+    try {
+      // Archive the email and optionally apply label
+      const addLabelIds = expiredLabel?.id ? [expiredLabel.id] : [];
+      const removeLabelIds = [GmailLabel.INBOX];
+
+      await provider.modifyThread(email.threadId, {
+        addLabelIds,
+        removeLabelIds,
+      });
+
+      // Update the record
+      await prisma.emailMessage.update({
+        where: { id: email.id },
+        data: {
+          inbox: false,
+          expiredAt: new Date(),
         },
       });
-      totalQueued += expiredEmails.length;
+
+      // Log for audit
+      await prisma.expiredEmailLog.create({
+        data: {
+          emailAccountId,
+          threadId: email.threadId,
+          messageId: email.messageId,
+          subject: null, // Could extract from message if needed
+          from: email.from,
+          expiresAt: email.expiresAt!,
+          expiredAt: new Date(),
+          reason: email.expirationReason,
+        },
+      });
+
+      archived++;
+      logger.info("Archived expired email", {
+        threadId: email.threadId,
+        reason: email.expirationReason,
+      });
+    } catch (error) {
+      logger.error("Failed to archive expired email", {
+        threadId: email.threadId,
+        error,
+      });
+      errors++;
     }
   }
 
-  return NextResponse.json({
-    message: `Queued ${totalQueued} expired emails for cleanup`,
-  });
-});
-
-export const POST = GET;
+  return { archived, errors };
+}
 ```
+
+#### Step 4.2: Modify Existing /api/watch/all Cron
 
 ```typescript
-// apps/web/app/api/cron/expiration/cleanup/process/route.ts
+// apps/web/app/api/watch/all/route.ts - MODIFY to add expiration cleanup
 
-import { NextResponse } from "next/server";
-import { verifySignatureAppRouter } from "@upstash/qstash/nextjs";
-import { z } from "zod";
-import { withError, type RequestWithLogger } from "@/utils/middleware";
-import prisma from "@/utils/prisma";
-import { createEmailProvider } from "@/utils/email/provider";
-import { GmailLabel } from "@/utils/gmail/label";
+import { cleanupExpiredEmails } from "@/utils/expiration/process-expired";
 
-const processSchema = z.object({
-  emailAccountId: z.string(),
-  applyLabel: z.boolean(),
-  emails: z.array(z.object({
-    id: z.string(),
-    messageId: z.string(),
-    threadId: z.string(),
-    expiresAt: z.string(),
-    expirationReason: z.string().nullable(),
-  })),
-});
+// Inside the existing handler, add cleanup after watch logic:
 
-export const POST = withError(
-  "expiration/cleanup/process",
-  verifySignatureAppRouter(async (request: Request) => {
-    const json = await request.json();
-    const { emailAccountId, applyLabel, emails } = processSchema.parse(json);
-    const logger = (request as RequestWithLogger).logger;
+async function watchAllEmails(logger: Logger) {
+  try {
+    // Existing: Ensure email accounts are watched
+    const watchResults = await ensureEmailAccountsWatched({ userIds: null, logger });
 
-    const provider = await createEmailProvider({
-      emailAccountId,
-      provider: "google",
-      logger,
+    // NEW: Run expiration cleanup (every 6 hours is fine for this)
+    const cleanupResults = await cleanupExpiredEmails(logger);
+
+    return NextResponse.json({
+      success: true,
+      watch: watchResults,
+      expirationCleanup: cleanupResults,  // NEW
     });
-
-    // Get or create expired label if needed
-    const expiredLabel = applyLabel
-      ? await provider.getOrCreateInboxZeroLabel("expired")
-      : null;
-
-    let archived = 0;
-    let errors = 0;
-
-    for (const email of emails) {
-      try {
-        // Archive the email and optionally apply label
-        const addLabelIds = expiredLabel?.id ? [expiredLabel.id] : [];
-        const removeLabelIds = [GmailLabel.INBOX];
-
-        await provider.modifyThread(email.threadId, {
-          addLabelIds,
-          removeLabelIds,
-        });
-
-        // Update the record
-        await prisma.emailMessage.update({
-          where: { id: email.id },
-          data: {
-            inbox: false,
-            expiredAt: new Date(),
-          },
-        });
-
-        // Log for audit
-        await prisma.expiredEmailLog.create({
-          data: {
-            emailAccountId,
-            threadId: email.threadId,
-            messageId: email.messageId,
-            expiresAt: new Date(email.expiresAt),
-            expiredAt: new Date(),
-            reason: email.expirationReason,
-          },
-        });
-
-        archived++;
-        logger.info("Archived expired email", {
-          threadId: email.threadId,
-          reason: email.expirationReason,
-        });
-      } catch (error) {
-        logger.error("Failed to archive expired email", {
-          threadId: email.threadId,
-          error,
-        });
-        errors++;
-      }
-    }
-
-    return NextResponse.json({ archived, errors });
-  })
-);
+  } catch (error) {
+    logger.error("Failed to watch all emails", { error });
+    throw error;
+  }
+}
 ```
+
+This approach:
+- **No new cron endpoints** - reuses existing `/api/watch/all` that already runs every 6 hours
+- **Simple integration** - just adds one function call to existing cron
+- **Graceful failure** - cleanup errors don't break the watch functionality
+- **Batched processing** - processes 50 emails per account per run to avoid timeouts
 
 ### Phase 5: API Endpoints for Configuration
 
@@ -1129,50 +1099,15 @@ function CategoryConfig({ category, config, onUpdate }) {
 }
 ```
 
-### Phase 7: Cron Scheduling (Hook into Existing Cron)
+### Note: No New Crons Required
 
-The expiration cron jobs follow the same pattern as existing crons (`/api/watch/all`, `/api/resend/digest/all`).
+This implementation **does not require any new cron jobs or schedules**:
 
-#### Option A: External Scheduler (Recommended - matches existing pattern)
+1. **Cleanup**: Runs as part of existing `/api/watch/all` cron (every 6 hours)
+2. **Backfill**: Runs when user clicks the existing "Run on all emails" button
+3. **Real-time**: Runs inline with webhook processing (no cron needed)
 
-Since the codebase uses an external scheduler that calls these endpoints with CRON_SECRET, add these to your external scheduler configuration:
-
-```
-# Daily cleanup of expired emails (2 AM UTC)
-0 2 * * * curl -H "Authorization: Bearer $CRON_SECRET" https://your-app.com/api/cron/expiration/cleanup
-
-# Backfill missing expiration dates (3 AM UTC, less frequent)
-0 3 * * * curl -H "Authorization: Bearer $CRON_SECRET" https://your-app.com/api/cron/expiration/backfill
-```
-
-#### Option B: QStash Schedules
-```typescript
-// apps/web/utils/expiration/schedule.ts
-
-import { Client } from "@upstash/qstash";
-
-const qstash = new Client({ token: process.env.QSTASH_TOKEN });
-
-export async function createExpirationSchedules() {
-  // Cleanup expired emails daily at 2 AM
-  await qstash.schedules.create({
-    destination: `${process.env.NEXT_PUBLIC_BASE_URL}/api/cron/expiration/cleanup`,
-    cron: "0 2 * * *",
-    headers: {
-      Authorization: `Bearer ${process.env.CRON_SECRET}`,
-    },
-  });
-
-  // Backfill missing expirations daily at 3 AM
-  await qstash.schedules.create({
-    destination: `${process.env.NEXT_PUBLIC_BASE_URL}/api/cron/expiration/backfill`,
-    cron: "0 3 * * *",
-    headers: {
-      Authorization: `Bearer ${process.env.CRON_SECRET}`,
-    },
-  });
-}
-```
+This constraint keeps the system simple and avoids operational overhead.
 
 ---
 
@@ -1247,11 +1182,11 @@ describe("processExpiredEmails", () => {
 
 ## Migration & Rollout Plan
 
-1. **Phase 1**: Deploy schema changes, API endpoints (feature flagged)
-2. **Phase 2**: Add settings UI, allow configuration
-3. **Phase 3**: Enable cron job for opt-in users
-4. **Phase 4**: Gradual rollout with monitoring
-5. **Phase 5**: Full availability
+1. **Phase 1**: Deploy schema changes (add expiresAt to EmailMessage, new models)
+2. **Phase 2**: Add settings UI and API endpoint for configuration
+3. **Phase 3**: Deploy expiration analysis (real-time webhook + bulk button)
+4. **Phase 4**: Enable cleanup in /api/watch/all for opt-in users
+5. **Phase 5**: Full availability with monitoring
 
 ---
 
@@ -1275,11 +1210,12 @@ logger.info("Expiration job completed", {
 
 This implementation:
 
-1. **Leverages existing infrastructure**: QStash, Gmail API, label utilities
-2. **Is configurable**: Per-category settings with custom expiration periods
-3. **Is safe**: Applies labels for audit trail, doesn't delete by default
-4. **Is observable**: Logs all actions with LLM reasoning for review
-5. **Has two processing paths**: Real-time (webhook) and batch (cron backfill)
+1. **No new crons**: Hooks into existing `/api/watch/all` for cleanup, uses existing bulk button for backfill
+2. **Leverages existing infrastructure**: QStash, Gmail API, label utilities
+3. **Is configurable**: Per-category settings with custom expiration periods
+4. **Is safe**: Applies labels for audit trail, doesn't delete by default
+5. **Is observable**: Logs all actions with LLM reasoning for review
+6. **Three processing paths**: Real-time (webhook), backfill (bulk button), cleanup (existing cron)
 
 ### Key Innovation: LLM-Driven Dynamic Expiration
 
