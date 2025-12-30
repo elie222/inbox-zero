@@ -18,6 +18,9 @@
         "../node_modules/sanity/*"
       ]
     },
+    "types": [
+      "@serwist/next/typings"
+    ],
     "target": "ES2017",
     "strictNullChecks": true
   },

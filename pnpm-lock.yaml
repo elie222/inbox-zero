@@ -636,8 +636,8 @@ importers:
         specifier: 8.5.6
         version: 8.5.6
       serwist:
-        specifier: 9.2.3
-        version: 9.2.3(typescript@5.9.3)
+        specifier: 9.4.2
+        version: 9.4.2(typescript@5.9.3)
       tailwindcss:
         specifier: 3.4.17
         version: 3.4.17(ts-node@10.9.2(@types/node@24.10.1)(typescript@5.9.3))
@@ -11481,6 +11481,14 @@ packages:
       typescript:
         optional: true
 
+  serwist@9.4.2:
+    resolution: {integrity: sha512-IHbZjUTAOdUstD/ZWRxgG4aCaxyZtQVLxkvVIGHJh3u0+uIMXweBSDaOOXZCP8luXYdbpfb5AdSU8oQiFKlHCQ==}
+    peerDependencies:
+      typescript: '>=5.0.0'
+    peerDependenciesMeta:
+      typescript:
+        optional: true
+
   set-cookie-parser@2.7.2:
     resolution: {integrity: sha512-oeM1lpU/UvhTxw+g3cIfxXHyJRc/uidd3yK1P242gzHds0udQBYzs3y8j4gCCW+ZJ7ad0yctld8RYO+bdurlvw==}
 
@@ -12804,6 +12812,7 @@ packages:
   whatwg-encoding@3.1.1:
     resolution: {integrity: sha512-6qN4hJdMwfYBtE3YBTTHhoeuUrDBPZmbQaxWAqSALV/MeEnR5z1xd8UKud2RAkFoPkmB+hli1TZSnyi84xz1vQ==}
     engines: {node: '>=18'}
+    deprecated: Use @exodus/bytes instead for a more spec-conformant and faster implementation
 
   whatwg-fetch@3.6.20:
     resolution: {integrity: sha512-EqhiFU6daOA8kpjOWTL0olhVOF3i7OrFzSYiGsEMB8GcXS+RrzauAERX65xMeNWVqxA6HXH2m69Z9LaKKdisfg==}
@@ -26143,6 +26152,12 @@ snapshots:
   server-only@0.0.1: {}
 
   serwist@9.2.3(typescript@5.9.3):
+    dependencies:
+      idb: 8.0.3
+    optionalDependencies:
+      typescript: 5.9.3
+
+  serwist@9.4.2(typescript@5.9.3):
     dependencies:
       idb: 8.0.3
     optionalDependencies:
