@@ -16,6 +16,8 @@ import {
   toggleRuleBody,
   toggleAllRulesBody,
   copyRulesFromAccountBody,
+  importRulesBody,
+  type ImportedRule,
 } from "@/utils/actions/rule.validation";
 import prisma from "@/utils/prisma";
 import { isDuplicateError, isNotFoundError } from "@/utils/prisma-helpers";
@@ -961,3 +963,110 @@ async function getActionsFromCategoryAction({
 
   return actions;
 }
+
+export const importRulesAction = actionClient
+  .metadata({ name: "importRules" })
+  .inputSchema(importRulesBody)
+  .action(
+    async ({ ctx: { emailAccountId, logger }, parsedInput: { rules } }) => {
+      logger.info("Importing rules", { count: rules.length });
+
+      // Fetch existing rules to check for duplicates by name or systemType
+      const existingRules = await prisma.rule.findMany({
+        where: { emailAccountId },
+        select: { id: true, name: true, systemType: true },
+      });
+
+      const rulesByName = new Map(
+        existingRules.map((r) => [r.name.toLowerCase(), r.id]),
+      );
+      const rulesBySystemType = new Map(
+        existingRules
+          .filter((r) => r.systemType)
+          .map((r) => [r.systemType!, r.id]),
+      );
+
+      let createdCount = 0;
+      let updatedCount = 0;
+      let skippedCount = 0;
+
+      for (const rule of rules) {
+        try {
+          // Match by systemType first, then by name
+          const existingRuleId = rule.systemType
+            ? rulesBySystemType.get(rule.systemType)
+            : rulesByName.get(rule.name.toLowerCase());
+
+          // Map actions - keep label names but clear IDs
+          const mappedActions = rule.actions.map((action) => ({
+            type: action.type,
+            label: action.label,
+            labelId: null,
+            subject: action.subject,
+            content: action.content,
+            to: action.to,
+            cc: action.cc,
+            bcc: action.bcc,
+            folderName: action.folderName,
+            folderId: null,
+          }));
+
+          if (existingRuleId) {
+            // Update existing rule
+            await prisma.rule.update({
+              where: { id: existingRuleId },
+              data: {
+                instructions: rule.instructions,
+                enabled: rule.enabled ?? true,
+                automate: rule.automate ?? true,
+                runOnThreads: rule.runOnThreads ?? false,
+                conditionalOperator: rule.conditionalOperator,
+                from: rule.from,
+                to: rule.to,
+                subject: rule.subject,
+                body: rule.body,
+                groupId: null,
+                actions: {
+                  deleteMany: {},
+                  createMany: { data: mappedActions },
+                },
+              },
+            });
+            updatedCount++;
+          } else {
+            // Create new rule
+            await prisma.rule.create({
+              data: {
+                emailAccountId,
+                name: rule.name,
+                systemType: rule.systemType,
+                instructions: rule.instructions,
+                enabled: rule.enabled ?? true,
+                automate: rule.automate ?? true,
+                runOnThreads: rule.runOnThreads ?? false,
+                conditionalOperator: rule.conditionalOperator,
+                from: rule.from,
+                to: rule.to,
+                subject: rule.subject,
+                body: rule.body,
+                groupId: null,
+                actions: { createMany: { data: mappedActions } },
+              },
+            });
+            createdCount++;
+          }
+        } catch (error) {
+          logger.error("Failed to import rule", { ruleName: rule.name, error });
+          skippedCount++;
+        }
+      }
+
+      logger.info("Import complete", {
+        createdCount,
+        updatedCount,
+        skippedCount,
+      });
+
+      return { createdCount, updatedCount, skippedCount };
+    },
+  );

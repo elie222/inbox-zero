@@ -11,8 +11,10 @@ import {
   SparklesIcon,
   InfoIcon,
   CopyIcon,
+  DownloadIcon,
+  UploadIcon,
 } from "lucide-react";
-import { useMemo } from "react";
+import { useMemo, useCallback, useRef } from "react";
 import { LoadingContent } from "@/components/LoadingContent";
 import { Button } from "@/components/ui/button";
 import { Card, CardDescription, CardHeader } from "@/components/ui/card";
@@ -32,7 +34,11 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Switch } from "@/components/ui/switch";
-import { deleteRuleAction, toggleRuleAction } from "@/utils/actions/rule";
+import {
+  deleteRuleAction,
+  toggleRuleAction,
+  importRulesAction,
+} from "@/utils/actions/rule";
 import { Badge } from "@/components/Badge";
 import { getActionColor } from "@/components/PlanBadge";
 import { toastError } from "@/components/Toast";
@@ -85,6 +91,7 @@ export function Rules({
     duplicateRule?: RulesResponse[number];
   }>();
   const onCreateRule = () => ruleDialog.onOpen();
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const { emailAccountId, provider } = useAccount();
   const { executeAsync: toggleRule } = useAction(
@@ -141,6 +148,103 @@ export function Rules({
 
   const hasRules = !!rules?.length;
 
+  const exportRules = useCallback(() => {
+    if (!data) return;
+
+    // Filter out placeholder rules and prepare export data
+    const exportData = data.map((rule) => ({
+      name: rule.name,
+      instructions: rule.instructions,
+      enabled: rule.enabled,
+      automate: rule.automate,
+      runOnThreads: rule.runOnThreads,
+      systemType: rule.systemType,
+      conditionalOperator: rule.conditionalOperator,
+      // Conditions
+      from: rule.from,
+      to: rule.to,
+      subject: rule.subject,
+      body: rule.body,
+      categoryFilterType: rule.categoryFilterType,
+      // Actions
+      actions: rule.actions.map((action) => ({
+        type: action.type,
+        label: action.label,
+        to: action.to,
+        cc: action.cc,
+        bcc: action.bcc,
+        subject: action.subject,
+        content: action.content,
+        folderName: action.folderName,
+      })),
+      // Group info
+      group: rule.group?.name || null,
+    }));
+
+    const blob = new Blob([JSON.stringify(exportData, null, 2)], {
+      type: "application/json",
+    });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `inbox-zero-rules-${new Date().toISOString().split("T")[0]}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+
+    toast.success("Rules exported successfully");
+  }, [data]);
+
+  const importRules = useCallback(
+    async (event: React.ChangeEvent<HTMLInputElement>) => {
+      const file = event.target.files?.[0];
+      if (!file) return;
+
+      try {
+        const text = await file.text();
+        const rules = JSON.parse(text);
+
+        // Handle both array format and object with rules property
+        const rulesArray = Array.isArray(rules) ? rules : rules.rules;
+
+        if (!Array.isArray(rulesArray) || rulesArray.length === 0) {
+          toastError({ description: "Invalid rules file format" });
+          return;
+        }
+
+        const result = await importRulesAction(emailAccountId, {
+          rules: rulesArray,
+        });
+
+        if (result?.serverError) {
+          toastError({
+            title: "Import failed",
+            description: result.serverError,
+          });
+        } else if (result?.data) {
+          const { createdCount, updatedCount, skippedCount } = result.data;
+          toast.success(
+            `Imported ${createdCount} new, updated ${updatedCount} existing${skippedCount > 0 ? `, skipped ${skippedCount}` : ""}`,
+          );
+          mutate();
+        }
+      } catch (error) {
+        toastError({
+          title: "Import failed",
+          description:
+            error instanceof Error ? error.message : "Failed to parse file",
+        });
+      }
+
+      // Reset file input
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+    },
+    [emailAccountId, mutate],
+  );
+
   return (
     <div className="space-y-6">
       <Card>
@@ -156,16 +260,44 @@ export function Rules({
                   </TableHead>
                   <TableHead className="px-2 sm:px-4">Action</TableHead>
                   <TableHead className="w-fit whitespace-nowrap px-1">
-                    {showAddRuleButton && (
-                      <div className="flex justify-end">
+                    <div className="flex justify-end gap-2">
+                      <input
+                        type="file"
+                        ref={fileInputRef}
+                        accept=".json"
+                        onChange={importRules}
+                        className="hidden"
+                      />
+                      <div className="my-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => fileInputRef.current?.click()}
+                        >
+                          <UploadIcon className="mr-2 hidden size-4 md:block" />
+                          Import
+                        </Button>
+                      </div>
+                      <div className="my-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={exportRules}
+                          disabled={!data?.length}
+                        >
+                          <DownloadIcon className="mr-2 hidden size-4 md:block" />
+                          Export
+                        </Button>
+                      </div>
+                      {showAddRuleButton && (
                         <div className="my-2">
                           <Button size="sm" onClick={onCreateRule}>
                             <PlusIcon className="mr-2 hidden size-4 md:block" />
                             Add Rule
                           </Button>
                         </div>
-                      </div>
-                    )}
+                      )}
+                    </div>
                   </TableHead>
                 </TableRow>
               </TableHeader>
