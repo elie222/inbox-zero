@@ -203,15 +203,9 @@ export function CalendarConnectionCard({
             </CollapsibleContent>
           </Collapsible>
         ) : (
-          <div className="space-y-4">
-            <TypographyP className="text-sm">
-              Select calendars to check for availability.
-            </TypographyP>
-            <p className="text-sm text-muted-foreground">
-              No calendars available. Calendar details will be synced
-              automatically.
-            </p>
-          </div>
+          <TypographyP className="text-sm">
+            No calendars found. Your calendars will be synced automatically.
+          </TypographyP>
         )}
       </CardContent>
     </Card>
