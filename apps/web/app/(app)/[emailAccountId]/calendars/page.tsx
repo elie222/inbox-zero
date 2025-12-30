@@ -4,7 +4,6 @@ import { PageWrapper } from "@/components/PageWrapper";
 import { PageHeader } from "@/components/PageHeader";
 import { CalendarConnections } from "./CalendarConnections";
 import { CalendarSettings } from "./CalendarSettings";
-import { ConnectCalendar } from "@/app/(app)/[emailAccountId]/calendars/ConnectCalendar";
 import { TimezoneDetector } from "./TimezoneDetector";
 import { CALENDAR_ONBOARDING_RETURN_COOKIE } from "@/utils/calendar/constants";
 
@@ -24,13 +23,10 @@ export default async function CalendarsPage() {
   return (
     <PageWrapper>
       <TimezoneDetector />
-      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3 lg:gap-4">
-        <PageHeader title="Calendars" />
-        <ConnectCalendar />
-      </div>
+      <PageHeader title="Calendars" />
       <div className="mt-6 space-y-4">
-        <CalendarSettings />
         <CalendarConnections />
+        <CalendarSettings />
       </div>
     </PageWrapper>
   );
