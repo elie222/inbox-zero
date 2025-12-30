@@ -14,8 +14,11 @@ export default async function CalendarsPage() {
 
   if (returnPathCookie?.value) {
     const returnPath = decodeURIComponent(returnPathCookie.value);
-    cookieStore.delete(CALENDAR_ONBOARDING_RETURN_COOKIE);
-    redirect(returnPath);
+    const isInternalPath =
+      returnPath.startsWith("/") && !returnPath.startsWith("//");
+    if (isInternalPath) {
+      redirect(returnPath);
+    }
   }
 
   return (

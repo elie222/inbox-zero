@@ -22,7 +22,7 @@ export function ConnectCalendar({
 
   const setOnboardingReturnCookie = () => {
     if (onboardingReturnPath) {
-      document.cookie = `${CALENDAR_ONBOARDING_RETURN_COOKIE}=${encodeURIComponent(onboardingReturnPath)}; path=/; max-age=600`;
+      document.cookie = `${CALENDAR_ONBOARDING_RETURN_COOKIE}=${encodeURIComponent(onboardingReturnPath)}; path=/; max-age=180`;
     }
   };
 
