@@ -294,25 +294,39 @@ const importedAction = z.object({
   delayInMinutes: delayInMinutesSchema,
 });
 
-const importedRule = z.object({
-  name: z.string().min(1),
-  instructions: z.string().nullish(),
-  enabled: z.boolean().optional().default(true),
-  automate: z.boolean().optional().default(true),
-  runOnThreads: z.boolean().optional().default(false),
-  systemType: zodSystemRule.nullish(),
-  conditionalOperator: z
-    .enum([LogicalOperator.AND, LogicalOperator.OR])
-    .optional()
-    .default(LogicalOperator.AND),
-  from: z.string().nullish(),
-  to: z.string().nullish(),
-  subject: z.string().nullish(),
-  body: z.string().nullish(),
-  categoryFilterType: z.string().nullish(),
-  actions: z.array(importedAction).min(1),
-  group: z.string().nullish(),
-});
+const importedRule = z
+  .object({
+    name: z.string().min(1),
+    instructions: z.string().nullish(),
+    enabled: z.boolean().optional().default(true),
+    automate: z.boolean().optional().default(true),
+    runOnThreads: z.boolean().optional().default(false),
+    systemType: zodSystemRule.nullish(),
+    conditionalOperator: z
+      .enum([LogicalOperator.AND, LogicalOperator.OR])
+      .optional()
+      .default(LogicalOperator.AND),
+    from: z.string().nullish(),
+    to: z.string().nullish(),
+    subject: z.string().nullish(),
+    body: z.string().nullish(),
+    categoryFilterType: z.string().nullish(),
+    actions: z.array(importedAction).min(1),
+    group: z.string().nullish(),
+  })
+  .refine(
+    (data) =>
+      data.systemType ||
+      data.from ||
+      data.to ||
+      data.subject ||
+      data.body ||
+      data.instructions,
+    {
+      message:
+        "At least one condition (from, to, subject, body, or instructions) must be provided",
+    },
+  );
 
 export const importRulesBody = z.object({
   rules: z.array(importedRule).min(1, "No rules to import"),
