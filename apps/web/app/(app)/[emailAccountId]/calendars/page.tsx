@@ -23,7 +23,10 @@ export default async function CalendarsPage() {
   return (
     <PageWrapper>
       <TimezoneDetector />
-      <PageHeader title="Calendars" />
+      <PageHeader
+        title="Calendars"
+        description="Powering AI scheduling and meeting briefs."
+      />
       <div className="mt-6 space-y-4">
         <CalendarConnections />
         <CalendarSettings />

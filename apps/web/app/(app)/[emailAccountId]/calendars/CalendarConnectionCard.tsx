@@ -158,8 +158,7 @@ export function CalendarConnectionCard({
       <CardContent>
         <div className="space-y-4">
           <TypographyP className="text-sm">
-            Toggle the calendars you want to check for conflicts to prevent
-            double bookings.
+            Select calendars to check for availability.
           </TypographyP>
 
           {connection.calendars && connection.calendars.length > 0 ? (

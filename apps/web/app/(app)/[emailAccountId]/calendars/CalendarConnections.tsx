@@ -49,6 +49,8 @@ export function CalendarConnections() {
           </Card>
         ) : (
           <div className="grid gap-4">
+            <ConnectCalendar />
+
             {connections.map((connection) => (
               <CalendarConnectionCard
                 key={connection.id}
