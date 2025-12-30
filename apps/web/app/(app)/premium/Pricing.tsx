@@ -3,13 +3,18 @@
 import { useState } from "react";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
-import { Label, Radio, RadioGroup } from "@headlessui/react";
 import { CheckIcon, SparklesIcon } from "lucide-react";
 import Link from "next/link";
 import { env } from "@/env";
 import { LoadingContent } from "@/components/LoadingContent";
 import { usePremium } from "@/components/PremiumAlert";
 import { Button } from "@/components/ui/button";
+import {
+  PricingFrequencyToggle,
+  frequencies,
+  DiscountBadge,
+  type Frequency,
+} from "@/app/(app)/premium/PricingFrequencyToggle";
 import { getUserTier } from "@/utils/premium";
 import { type Tier, tiers } from "@/app/(app)/premium/config";
 import { AlertWithButton } from "@/components/Alert";
@@ -24,19 +29,6 @@ import { LoadingMiniSpinner } from "@/components/Loading";
 import { cn } from "@/utils";
 import { ManageSubscription } from "@/app/(app)/premium/ManageSubscription";
 import { captureException } from "@/utils/error";
-
-const frequencies = [
-  {
-    value: "monthly" as const,
-    label: "Monthly",
-    priceSuffix: "/month, billed monthly",
-  },
-  {
-    value: "annually" as const,
-    label: "Annually",
-    priceSuffix: "/month, billed annually",
-  },
-];
 
 export type PricingProps = {
   header?: React.ReactNode;
@@ -120,33 +112,14 @@ export default function Pricing(props: PricingProps) {
           </div>
         )}
 
-        <div className="flex items-center justify-center">
-          <RadioGroup
-            value={frequency}
-            onChange={setFrequency}
-            className="grid grid-cols-2 gap-x-1 rounded-full p-1 text-center text-xs font-semibold leading-5 ring-1 ring-inset ring-gray-200"
-          >
-            <Label className="sr-only">Payment frequency</Label>
-            {frequencies.map((option) => (
-              <Radio
-                key={option.value}
-                value={option}
-                className={({ checked }) =>
-                  cn(
-                    checked ? "bg-black text-white" : "text-gray-500",
-                    "cursor-pointer rounded-full px-2.5 py-1",
-                  )
-                }
-              >
-                <span>{option.label}</span>
-              </Radio>
-            ))}
-          </RadioGroup>
-
+        <PricingFrequencyToggle
+          frequency={frequency}
+          setFrequency={setFrequency}
+        >
           <div className="ml-1">
-            <Badge>Save up to 16%</Badge>
+            <DiscountBadge>Save up to 16%</DiscountBadge>
           </div>
-        </div>
+        </PricingFrequencyToggle>
 
         <div className="isolate mx-auto mt-10 grid max-w-7xl grid-cols-1 gap-y-8 lg:mx-0 lg:max-w-none lg:grid-cols-3 gap-4">
           {tiers.map((tier) => {
@@ -182,7 +155,7 @@ function PriceTier({
 }: {
   tier: Tier;
   userPremiumTier: PremiumTier | null;
-  frequency: (typeof frequencies)[number];
+  frequency: Frequency;
   stripeSubscriptionId: string | null | undefined;
   stripeSubscriptionStatus: string | null | undefined;
   isLoggedIn: boolean;
@@ -215,7 +188,7 @@ function PriceTier({
           >
             {tier.name}
           </h3>
-          {tier.mostPopular ? <Badge>Popular</Badge> : null}
+          {tier.mostPopular ? <DiscountBadge>Popular</DiscountBadge> : null}
         </div>
         <p className="mt-4 text-sm leading-6 text-gray-600">
           {tier.description}
@@ -237,11 +210,11 @@ function PriceTier({
           )}
 
           {!!tier.discount?.[frequency.value] && (
-            <Badge>
+            <DiscountBadge>
               <span className="tracking-wide">
                 SAVE {tier.discount[frequency.value].toFixed(0)}%
               </span>
-            </Badge>
+            </DiscountBadge>
           )}
         </p>
 
@@ -379,12 +352,4 @@ function ThreeColItem({
   className?: string;
 }) {
   return <div className={cn(className)}>{children}</div>;
-}
-
-function Badge({ children }: { children: React.ReactNode }) {
-  return (
-    <span className="rounded-full bg-blue-600/10 px-2.5 py-1 text-xs font-semibold leading-5 text-blue-600">
-      {children}
-    </span>
-  );
 }

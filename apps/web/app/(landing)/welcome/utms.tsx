@@ -1,6 +1,8 @@
+import { after } from "next/server";
 import prisma from "@/utils/prisma";
 import { createScopedLogger } from "@/utils/logger";
 import type { ReadonlyRequestCookies } from "next/dist/server/web/spec-extension/adapters/request-cookies";
+import type { auth } from "@/utils/auth";
 
 const logger = createScopedLogger("utms");
 
@@ -12,6 +14,24 @@ type UtmValues = {
   affiliate?: string;
   referralCode?: string;
 };
+
+export function registerUtmTracking({
+  authPromise,
+  cookieStore,
+}: {
+  authPromise: ReturnType<typeof auth>;
+  cookieStore: ReadonlyRequestCookies;
+}) {
+  const utmValues = extractUtmValues(cookieStore);
+
+  after(async () => {
+    const user = await authPromise;
+    if (!user?.user) return;
+    await fetchUserAndStoreUtms(user.user.id, utmValues);
+  });
+
+  return utmValues;
+}
 
 // Extract UTM values from cookies before passing to after() callback
 // This is required because request APIs (cookies/headers) cannot be used
