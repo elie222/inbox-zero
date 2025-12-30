@@ -176,6 +176,8 @@ export function Rules({
         subject: action.subject,
         content: action.content,
         folderName: action.folderName,
+        url: action.url,
+        delayInMinutes: action.delayInMinutes,
       })),
       // Group info
       group: rule.group?.name || null,

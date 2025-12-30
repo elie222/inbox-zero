@@ -1009,6 +1009,8 @@ export const importRulesAction = actionClient
             bcc: action.bcc,
             folderName: action.folderName,
             folderId: null,
+            url: action.url,
+            delayInMinutes: action.delayInMinutes,
           }));
 
           if (existingRuleId) {
