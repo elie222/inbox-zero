@@ -26,6 +26,7 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
+import { Separator } from "@/components/ui/separator";
 
 type CalendarConnection = GetCalendarsResponse["connections"][0];
 
@@ -128,9 +129,10 @@ export function CalendarConnectionCard({
     }
   };
 
+  // TODO: use card - sm variant once we merge the big pr
   return (
     <Card>
-      <CardHeader>
+      <CardHeader className="p-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <Image
@@ -167,7 +169,8 @@ export function CalendarConnectionCard({
           </div>
         </div>
       </CardHeader>
-      <CardContent>
+      <Separator className="mb-4" />
+      <CardContent className="p-4 pt-0">
         {calendars.length > 0 ? (
           <Collapsible open={isOpen} onOpenChange={setIsOpen}>
             <CollapsibleTrigger asChild>
