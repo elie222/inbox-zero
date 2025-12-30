@@ -5,7 +5,7 @@ import {
 import { env } from "@/env";
 
 export function useCleanerEnabled() {
-  return useFeatureFlagEnabled("inbox-cleaner");
+  return env.NEXT_PUBLIC_CLEANER_ENABLED;
 }
 
 export function useMeetingBriefsEnabled() {

@@ -279,3 +279,41 @@ export const copyRulesFromAccountBody = z.object({
   ruleIds: z.array(z.string()).min(1, "Select at least one rule to copy"),
 });
 export type CopyRulesFromAccountBody = z.infer<typeof copyRulesFromAccountBody>;
+
+// Schema for importing rules from JSON export
+const importedAction = z.object({
+  type: zodActionType,
+  label: z.string().nullish(),
+  to: z.string().nullish(),
+  cc: z.string().nullish(),
+  bcc: z.string().nullish(),
+  subject: z.string().nullish(),
+  content: z.string().nullish(),
+  folderName: z.string().nullish(),
+});
+
+const importedRule = z.object({
+  name: z.string().min(1),
+  instructions: z.string().nullish(),
+  enabled: z.boolean().optional().default(true),
+  automate: z.boolean().optional().default(true),
+  runOnThreads: z.boolean().optional().default(false),
+  systemType: zodSystemRule.nullish(),
+  conditionalOperator: z
+    .enum([LogicalOperator.AND, LogicalOperator.OR])
+    .optional()
+    .default(LogicalOperator.AND),
+  from: z.string().nullish(),
+  to: z.string().nullish(),
+  subject: z.string().nullish(),
+  body: z.string().nullish(),
+  categoryFilterType: z.string().nullish(),
+  actions: z.array(importedAction).min(1),
+  group: z.string().nullish(),
+});
+
+export const importRulesBody = z.object({
+  rules: z.array(importedRule).min(1, "No rules to import"),
+});
+export type ImportRulesBody = z.infer<typeof importRulesBody>;
+export type ImportedRule = z.infer<typeof importedRule>;
