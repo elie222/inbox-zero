@@ -74,6 +74,7 @@ type NavItem = {
   count?: number;
   hideInMail?: boolean;
   beta?: boolean;
+  new?: boolean;
 };
 
 export const useNavigation = () => {
@@ -131,6 +132,7 @@ export const useNavigation = () => {
               name: "Meeting Briefs",
               href: prefixPath(currentEmailAccountId, "/briefs"),
               icon: FileTextIcon,
+              new: true,
             },
           ]
         : []),
