@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState, useEffect } from "react";
+import { useCallback, useState } from "react";
 import { format } from "date-fns";
 import { Send, CheckIcon, CalendarIcon, Building2 } from "lucide-react";
 import { useAction } from "next-safe-action/hooks";
