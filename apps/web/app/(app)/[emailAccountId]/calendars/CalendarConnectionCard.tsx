@@ -8,7 +8,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Trash2, XCircle } from "lucide-react";
+import { Trash2, XCircle, ChevronDown } from "lucide-react";
 import { CalendarList } from "./CalendarList";
 import { useAction } from "next-safe-action/hooks";
 import {
@@ -21,6 +21,12 @@ import { useState } from "react";
 import type { GetCalendarsResponse } from "@/app/api/user/calendars/route";
 import Image from "next/image";
 import { TypographyP } from "@/components/Typography";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
+import { Separator } from "@/components/ui/separator";
 
 type CalendarConnection = GetCalendarsResponse["connections"][0];
 
@@ -53,8 +59,15 @@ export function CalendarConnectionCard({
   const [optimisticUpdates, setOptimisticUpdates] = useState<
     Record<string, boolean>
   >({});
+  const [isOpen, setIsOpen] = useState(false);
 
   const providerInfo = getProviderInfo(connection.provider);
+
+  const calendars = connection.calendars || [];
+  const enabledCalendars = calendars.filter((cal) => {
+    const optimisticValue = optimisticUpdates[cal.id];
+    return optimisticValue !== undefined ? optimisticValue : cal.isEnabled;
+  });
 
   const { execute: executeDisconnect, isExecuting: isDisconnecting } =
     useAction(disconnectCalendarAction.bind(null, emailAccountId));
@@ -116,9 +129,10 @@ export function CalendarConnectionCard({
     }
   };
 
+  // TODO: use card - sm variant once we merge the big pr
   return (
     <Card>
-      <CardHeader>
+      <CardHeader className="p-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <Image
@@ -155,31 +169,44 @@ export function CalendarConnectionCard({
           </div>
         </div>
       </CardHeader>
-      <CardContent>
-        <div className="space-y-4">
+      <Separator className="mb-4" />
+      <CardContent className="p-4 pt-0">
+        {calendars.length > 0 ? (
+          <Collapsible open={isOpen} onOpenChange={setIsOpen}>
+            <CollapsibleTrigger asChild>
+              <button
+                type="button"
+                className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors w-full text-left"
+              >
+                <span>
+                  {enabledCalendars.length} of {calendars.length} calendars
+                  selected for availability
+                </span>
+                <ChevronDown
+                  className={`h-4 w-4 transition-transform ${
+                    isOpen ? "rotate-180" : ""
+                  }`}
+                />
+              </button>
+            </CollapsibleTrigger>
+            <CollapsibleContent className="mt-4 space-y-4">
+              <CalendarList
+                calendars={calendars.map((cal) => ({
+                  ...cal,
+                  isEnabled:
+                    optimisticUpdates[cal.id] !== undefined
+                      ? optimisticUpdates[cal.id]
+                      : cal.isEnabled,
+                }))}
+                onToggleCalendar={handleToggleCalendar}
+              />
+            </CollapsibleContent>
+          </Collapsible>
+        ) : (
           <TypographyP className="text-sm">
-            Toggle the calendars you want to check for conflicts to prevent
-            double bookings.
+            No calendars found. Your calendars will be synced automatically.
           </TypographyP>
-
-          {connection.calendars && connection.calendars.length > 0 ? (
-            <CalendarList
-              calendars={connection.calendars.map((cal) => ({
-                ...cal,
-                isEnabled:
-                  optimisticUpdates[cal.id] !== undefined
-                    ? optimisticUpdates[cal.id]
-                    : cal.isEnabled,
-              }))}
-              onToggleCalendar={handleToggleCalendar}
-            />
-          ) : (
-            <p className="text-sm text-muted-foreground">
-              No calendars available. Calendar details will be synced
-              automatically.
-            </p>
-          )}
-        </div>
+        )}
       </CardContent>
     </Card>
   );
