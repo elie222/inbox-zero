@@ -290,6 +290,8 @@ const importedAction = z.object({
   subject: z.string().nullish(),
   content: z.string().nullish(),
   folderName: z.string().nullish(),
+  url: z.string().nullish(),
+  delayInMinutes: delayInMinutesSchema,
 });
 
 const importedRule = z.object({
