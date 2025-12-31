@@ -252,6 +252,8 @@ export async function draftEmail(
     to?: string;
     subject?: string;
     content: string;
+    cc?: string;
+    bcc?: string;
     attachments?: Attachment[];
   },
   userEmail: string,
@@ -267,9 +269,21 @@ export async function draftEmail(
     userEmail,
   );
 
+  // Merge CC from reply-all with CC from args
+  const ccList = [...recipients.cc];
+  if (args.cc) {
+    const manualCc = args.cc.split(",").map((s) => s.trim());
+    for (const email of manualCc) {
+      if (!ccList.includes(email)) {
+        ccList.push(email);
+      }
+    }
+  }
+
   const raw = await createRawMailMessage({
     to: recipients.to,
-    cc: formatCcList(recipients.cc),
+    cc: formatCcList(ccList),
+    bcc: args.bcc ?? undefined,
     subject: args.subject || originalEmail.headers.subject,
     messageHtml: html,
     messageText: text,

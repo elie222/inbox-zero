@@ -189,6 +189,8 @@ export async function draftEmail(
     to?: string;
     subject?: string;
     content: string;
+    cc?: string;
+    bcc?: string;
     attachments?: Attachment[];
   },
   userEmail: string,
@@ -213,13 +215,34 @@ export async function draftEmail(
     },
   };
 
+  // Build CC list from reply-all and args
+  const ccAddresses = [...recipients.cc];
+  if (args.cc) {
+    const manualCc = args.cc.split(",").map((s) => s.trim());
+    for (const email of manualCc) {
+      if (!ccAddresses.includes(email)) {
+        ccAddresses.push(email);
+      }
+    }
+  }
+
   // Convert CC addresses to Outlook format
-  const ccRecipients = recipients.cc.map((addr) => ({
+  const ccRecipients = ccAddresses.map((addr) => ({
     emailAddress: {
       address: extractEmailAddress(addr),
       name: extractNameFromEmail(addr),
     },
   }));
+
+  // Handle BCC if provided
+  const bccRecipients = args.bcc
+    ? args.bcc.split(",").map((addr) => ({
+        emailAddress: {
+          address: extractEmailAddress(addr.trim()),
+          name: extractNameFromEmail(addr.trim()),
+        },
+      }))
+    : [];
 
   // Get the original message's isRead status before creating the draft
   // Microsoft Graph's createReplyAll automatically marks the original as read
@@ -264,6 +287,7 @@ export async function draftEmail(
         },
         toRecipients: [toRecipient],
         ...(ccRecipients.length > 0 ? { ccRecipients } : {}),
+        ...(bccRecipients.length > 0 ? { bccRecipients } : {}),
       }),
     logger,
   );
