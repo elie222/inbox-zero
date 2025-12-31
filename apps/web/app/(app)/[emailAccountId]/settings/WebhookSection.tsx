@@ -13,6 +13,7 @@ export function WebhookSection() {
   const {
     data: secrets,
     isLoading: isLoadingSecrets,
+    error: secretsError,
     mutate: mutateSecrets,
   } = useUserSecrets();
 
@@ -30,7 +31,10 @@ export function WebhookSection() {
 
       <div className="col-span-2">
         <Card className="p-6">
-          <LoadingContent loading={isLoading || isLoadingSecrets} error={error}>
+          <LoadingContent
+            loading={isLoading || isLoadingSecrets}
+            error={error || secretsError}
+          >
             {data && (
               <div className="space-y-4">
                 {!!secrets?.webhookSecret && (

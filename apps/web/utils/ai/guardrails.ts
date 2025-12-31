@@ -38,6 +38,7 @@ You must:
  */
 interface ContentValidationResult {
   isClean: boolean;
+  validated: boolean;
   content: string;
   warnings: string[];
 }
@@ -55,7 +56,7 @@ export async function validateContentForPrompt(
   fieldName?: string,
 ): Promise<ContentValidationResult> {
   if (!content) {
-    return { isClean: true, content: "", warnings: [] };
+    return { isClean: true, validated: true, content: "", warnings: [] };
   }
 
   try {
@@ -87,11 +88,16 @@ export async function validateContentForPrompt(
 
     // Return the original content with warnings - we don't block, just log
     // The prompt hardening instructions provide defense-in-depth
-    return { isClean, content, warnings };
+    return { isClean, validated: true, content, warnings };
   } catch (error) {
     logger.error("Error running guardrails", { error, field: fieldName });
-    // On error, return content as-is to avoid blocking operations
-    return { isClean: true, content, warnings: [] };
+    // On error, indicate validation failed - callers can decide how to handle
+    return {
+      isClean: false,
+      validated: false,
+      content,
+      warnings: ["Validation failed due to guardrails error"],
+    };
   }
 }
 

@@ -29,6 +29,7 @@ export function ModelSection() {
   const {
     data: secrets,
     isLoading: isLoadingSecrets,
+    error: secretsError,
     mutate: mutateSecrets,
   } = useUserSecrets();
 
@@ -53,7 +54,7 @@ export function ModelSection() {
 
       <LoadingContent
         loading={isLoading || isLoadingSecrets || isLoadingModels}
-        error={error}
+        error={error || secretsError}
       >
         {data && (
           <ModelSectionForm

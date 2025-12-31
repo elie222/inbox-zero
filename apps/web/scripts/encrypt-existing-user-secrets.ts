@@ -3,6 +3,10 @@
 //
 // This script encrypts existing plaintext aiApiKey and webhookSecret values.
 // It's safe to run multiple times - already encrypted values are skipped.
+//
+// NOTE: Legacy format detection (64+ hex chars) may false-positive on plaintext.
+// Values with `enc:` prefix are reliably detected as encrypted.
+// Run this script after deployment to encrypt any remaining plaintext values.
 
 import { PrismaClient } from "@/generated/prisma/client";
 import { encryptToken } from "@/utils/encryption";
@@ -31,6 +35,7 @@ async function main() {
   let aiApiKeyEncrypted = 0;
   let webhookSecretEncrypted = 0;
   let skipped = 0;
+  let encryptionFailures = 0;
 
   while (true) {
     const users = await prisma.user.findMany({
@@ -56,6 +61,9 @@ async function main() {
         if (encrypted) {
           updates.aiApiKey = encrypted;
           aiApiKeyEncrypted++;
+        } else {
+          console.error(`Failed to encrypt aiApiKey for user ${user.id}`);
+          encryptionFailures++;
         }
       } else if (user.aiApiKey) {
         skipped++;
@@ -66,6 +74,9 @@ async function main() {
         if (encrypted) {
           updates.webhookSecret = encrypted;
           webhookSecretEncrypted++;
+        } else {
+          console.error(`Failed to encrypt webhookSecret for user ${user.id}`);
+          encryptionFailures++;
         }
       } else if (user.webhookSecret) {
         skipped++;
@@ -91,6 +102,13 @@ async function main() {
   console.log(`aiApiKey values encrypted: ${aiApiKeyEncrypted}`);
   console.log(`webhookSecret values encrypted: ${webhookSecretEncrypted}`);
   console.log(`Already encrypted (skipped): ${skipped}`);
+  console.log(`Encryption failures: ${encryptionFailures}`);
+
+  if (encryptionFailures > 0) {
+    console.error(
+      `\nWARNING: ${encryptionFailures} encryption failures occurred. Check logs above for details.`,
+    );
+  }
 }
 
 main()

@@ -45,6 +45,15 @@ export const POST = withError("outlook/webhook", async (request) => {
 
   // Validate clientState for security (verify webhook is from Microsoft)
   if (!env.MICROSOFT_WEBHOOK_CLIENT_STATE) {
+    if (env.NODE_ENV === "production") {
+      logger.error(
+        "MICROSOFT_WEBHOOK_CLIENT_STATE not set - rejecting webhook in production",
+      );
+      return NextResponse.json(
+        { error: "Webhook verification not configured" },
+        { status: 500 },
+      );
+    }
     logger.warn(
       "MICROSOFT_WEBHOOK_CLIENT_STATE not set - webhook requests are not verified. Set this in production for security.",
     );

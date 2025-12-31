@@ -97,25 +97,28 @@ export function decryptToken(encryptedText: string | null): string | null {
 }
 
 /**
- * Checks if a string is in encrypted format.
- * New format: starts with "enc:" prefix
- * Legacy format: hex string with minimum length (for backward compat with OAuth tokens)
+ * Checks if a string is in the new encrypted format (enc: prefix).
+ * Only the prefix is reliable - legacy hex detection may false-positive.
  */
 function isEncryptedFormat(text: string): boolean {
-  // New format with prefix - reliable detection
-  if (text.startsWith(ENCRYPTION_PREFIX)) {
-    return true;
-  }
+  return text.startsWith(ENCRYPTION_PREFIX);
+}
 
-  // Legacy format check (for existing OAuth tokens without prefix)
+/**
+ * Checks if a string MIGHT be legacy encrypted (hex format without prefix).
+ * WARNING: This can false-positive on plaintext that happens to be 64+ hex chars.
+ * Used only for migration/fallback - prefer enc: prefix for reliable detection.
+ */
+function mightBeLegacyEncrypted(text: string): boolean {
   if (text.length < MIN_ENCRYPTED_HEX_LENGTH) return false;
   return /^[0-9a-f]+$/i.test(text);
 }
 
 /**
  * Decrypts a token with graceful degradation for plaintext values.
- * If decryption fails and value doesn't look encrypted, returns original value.
- * This allows gradual migration from plaintext to encrypted values.
+ * - New format (enc: prefix): decrypt, return null if corrupted
+ * - Legacy format (64+ hex chars): try decrypt, return original if fails (likely plaintext)
+ * - Other: treat as plaintext, return as-is with warning
  */
 export function decryptTokenWithFallback(
   encryptedText: string | null,
@@ -123,26 +126,38 @@ export function decryptTokenWithFallback(
 ): string | null {
   if (encryptedText === null || encryptedText === undefined) return null;
 
-  // If it doesn't look like encrypted format, return as-is with warning
-  if (!isEncryptedFormat(encryptedText)) {
-    if (fieldName) {
-      logger.warn(
-        `${fieldName} appears to be plaintext - run migration script to encrypt`,
+  // New prefixed format - reliable detection
+  if (isEncryptedFormat(encryptedText)) {
+    const decrypted = decryptToken(encryptedText);
+    if (decrypted === null) {
+      logger.error(
+        `Failed to decrypt ${fieldName || "value"} - may be corrupted`,
       );
     }
+    return decrypted;
+  }
+
+  // Might be legacy encrypted (hex-only, 64+ chars) - try decryption
+  if (mightBeLegacyEncrypted(encryptedText)) {
+    const decrypted = decryptToken(encryptedText);
+    if (decrypted !== null) {
+      logger.info(
+        `${fieldName || "value"} using legacy encryption format - will be re-encrypted on next save`,
+      );
+      return decrypted;
+    }
+    // Decryption failed - was actually plaintext that looked like hex
+    logger.warn(
+      `${fieldName || "value"} matched legacy format but failed decryption - treating as plaintext`,
+    );
     return encryptedText;
   }
 
-  // Try to decrypt
-  const decrypted = decryptToken(encryptedText);
-
-  // If decryption failed but format looked valid, could be corrupted or wrong key
-  if (decrypted === null) {
-    logger.error(
-      `Failed to decrypt ${fieldName || "value"} - may be corrupted`,
+  // Plaintext - return with warning
+  if (fieldName) {
+    logger.warn(
+      `${fieldName} appears to be plaintext - will be encrypted on next save`,
     );
-    return null;
   }
-
-  return decrypted;
+  return encryptedText;
 }
