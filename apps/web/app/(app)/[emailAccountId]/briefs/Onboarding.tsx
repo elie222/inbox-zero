@@ -6,6 +6,7 @@ import {
   CardFooter,
   CardTitle,
   CardDescription,
+  Card,
 } from "@/components/ui/card";
 import { MessageText } from "@/components/Typography";
 import { ConnectCalendar } from "@/app/(app)/[emailAccountId]/calendars/ConnectCalendar";
@@ -32,7 +33,7 @@ export function BriefsOnboarding({
   isEnabling?: boolean;
 }) {
   return (
-    <div className="mx-4 mt-10 max-w-2xl md:mx-auto">
+    <Card className="mx-4 mt-10 max-w-2xl md:mx-auto">
       <CardHeader>
         <CardTitle>Meeting Briefs</CardTitle>
         <CardDescription>
@@ -43,8 +44,11 @@ export function BriefsOnboarding({
       <CardContent>
         <ItemGroup className="grid gap-2">
           <Item variant="outline">
-            <ItemMedia variant="icon" className="bg-blue-50">
-              <UserIcon className="text-blue-600" />
+            <ItemMedia
+              variant="icon"
+              className="bg-gradient-to-b from-blue-50 to-blue-100 border-blue-50"
+            >
+              <UserIcon className="text-blue-500" />
             </ItemMedia>
             <ItemContent>
               <ItemTitle>Attendee research</ItemTitle>
@@ -54,8 +58,11 @@ export function BriefsOnboarding({
             </ItemContent>
           </Item>
           <Item variant="outline">
-            <ItemMedia variant="icon" className="bg-blue-50">
-              <MailIcon className="text-blue-600" />
+            <ItemMedia
+              variant="icon"
+              className="bg-gradient-to-b from-blue-50 to-blue-100 border-blue-50"
+            >
+              <MailIcon className="text-blue-500" />
             </ItemMedia>
             <ItemContent>
               <ItemTitle>Email history</ItemTitle>
@@ -65,8 +72,11 @@ export function BriefsOnboarding({
             </ItemContent>
           </Item>
           <Item variant="outline">
-            <ItemMedia variant="icon" className="bg-blue-50">
-              <LightbulbIcon className="text-blue-600" />
+            <ItemMedia
+              variant="icon"
+              className="bg-gradient-to-b from-blue-50 to-blue-100 border-blue-50"
+            >
+              <LightbulbIcon className="text-blue-500" />
             </ItemMedia>
             <ItemContent>
               <ItemTitle>Key context</ItemTitle>
@@ -97,6 +107,6 @@ export function BriefsOnboarding({
           </>
         )}
       </CardFooter>
-    </div>
+    </Card>
   );
 }
