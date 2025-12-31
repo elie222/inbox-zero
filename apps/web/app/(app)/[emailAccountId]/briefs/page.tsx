@@ -1,11 +1,8 @@
 "use client";
 
-import Link from "next/link";
-import { AlertCircleIcon } from "lucide-react";
 import { PageWrapper } from "@/components/PageWrapper";
 import { PageHeader } from "@/components/PageHeader";
 import { SettingCard } from "@/components/SettingCard";
-import { Button } from "@/components/ui/button";
 import { Toggle } from "@/components/Toggle";
 import { toastSuccess, toastError } from "@/components/Toast";
 import { LoadingContent } from "@/components/LoadingContent";
@@ -15,17 +12,8 @@ import { useAccount } from "@/providers/EmailAccountProvider";
 import { useAction } from "next-safe-action/hooks";
 import { updateMeetingBriefsEnabledAction } from "@/utils/actions/meeting-briefs";
 import { useMeetingBriefSettings } from "@/hooks/useMeetingBriefs";
-import {
-  Item,
-  ItemContent,
-  ItemTitle,
-  ItemDescription,
-  ItemActions,
-  ItemMedia,
-} from "@/components/ui/item";
 import { TimeDurationSetting } from "@/app/(app)/[emailAccountId]/briefs/TimeDurationSetting";
 import { UpcomingMeetings } from "@/app/(app)/[emailAccountId]/briefs/UpcomingMeetings";
-import { EnableReplyTracker } from "@/app/(app)/[emailAccountId]/reply-zero/EnableReplyTracker";
 import { BriefsOnboarding } from "@/app/(app)/[emailAccountId]/briefs/Onboarding";
 
 export default function MeetingBriefsPage() {
@@ -36,7 +24,7 @@ export default function MeetingBriefsPage() {
   const hasCalendarConnected =
     calendarsData?.connections && calendarsData.connections.length > 0;
 
-  const { execute } = useAction(
+  const { execute, status } = useAction(
     updateMeetingBriefsEnabledAction.bind(null, emailAccountId),
     {
       onSuccess: () => {
@@ -49,8 +37,25 @@ export default function MeetingBriefsPage() {
     },
   );
 
-  if (!isLoadingCalendars && !hasCalendarConnected) {
-    return <BriefsOnboarding emailAccountId={emailAccountId} />;
+  if (isLoadingCalendars || isLoading || error) {
+    return (
+      <PageWrapper>
+        <LoadingContent loading={isLoadingCalendars || isLoading} error={error}>
+          <div />
+        </LoadingContent>
+      </PageWrapper>
+    );
+  }
+
+  if (!hasCalendarConnected || !data?.enabled) {
+    return (
+      <BriefsOnboarding
+        emailAccountId={emailAccountId}
+        hasCalendarConnected={hasCalendarConnected}
+        onEnable={() => execute({ enabled: true })}
+        isEnabling={status === "executing"}
+      />
+    );
   }
 
   return (
