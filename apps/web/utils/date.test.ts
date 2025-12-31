@@ -136,4 +136,27 @@ describe("timezone formatting", () => {
       expect(formattedDateTime).toBe("Dec 30, 2024 at 10:00 AM");
     });
   });
+
+  describe("invalid timezone handling", () => {
+    it("should fall back to UTC for invalid timezone strings", () => {
+      const result = formatTimeInUserTimezone(utcDate, "Invalid/Timezone");
+      // Should not throw, and should fall back to UTC (7:00 PM)
+      expect(result).toBe("7:00 PM");
+    });
+
+    it("should handle legacy timezone abbreviations that TZDate supports", () => {
+      const result = formatTimeInUserTimezone(utcDate, "EST");
+      // TZDate supports some legacy abbreviations like "EST" (UTC-5)
+      // 7 PM UTC = 2 PM EST
+      expect(result).toBe("2:00 PM");
+    });
+
+    it("should fall back to UTC for corrupted timezone data", () => {
+      const result = formatDateTimeInUserTimezone(
+        utcDate,
+        "corrupted_data_123",
+      );
+      expect(result).toBe("Dec 30, 2024 at 7:00 PM");
+    });
+  });
 });
