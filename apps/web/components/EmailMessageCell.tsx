@@ -123,8 +123,8 @@ export function EmailMessageCell({
           </span>
         )}
       </MessageText>
-      <MessageText className="mt-1 font-bold">{subject}</MessageText>
-      <MessageText className="mt-1">
+      <MessageText className="mt-1 truncate font-bold">{subject}</MessageText>
+      <MessageText className="mt-1 line-clamp-2 break-all">
         {snippetRemoveReply(decodeSnippet(snippet)).trim()}
       </MessageText>
     </div>
