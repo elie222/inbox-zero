@@ -1,33 +1,18 @@
 "use client";
 
 import {
-  Card,
   CardContent,
   CardHeader,
   CardFooter,
   CardTitle,
   CardDescription,
 } from "@/components/ui/card";
-import {
-  SectionHeader,
-  SectionDescription,
-  MessageText,
-} from "@/components/Typography";
+import { MessageText } from "@/components/Typography";
 import { ConnectCalendar } from "@/app/(app)/[emailAccountId]/calendars/ConnectCalendar";
-import { IconCircle } from "@/app/(app)/[emailAccountId]/onboarding/IconCircle";
-import {
-  User,
-  Mail,
-  Lightbulb,
-  UserIcon,
-  MailIcon,
-  LightbulbIcon,
-  InboxIcon,
-} from "lucide-react";
+import { UserIcon, MailIcon, LightbulbIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Item,
-  ItemActions,
   ItemContent,
   ItemDescription,
   ItemGroup,
