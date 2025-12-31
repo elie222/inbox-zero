@@ -1,9 +1,8 @@
 import { addDays } from "date-fns/addDays";
 import { createCalendarEventProviders } from "@/utils/calendar/event-provider";
 import type { CalendarEvent } from "@/utils/calendar/event-types";
-import { createScopedLogger } from "@/utils/logger";
-
-const logger = createScopedLogger("RecipientMeetingContext");
+import type { Logger } from "@/utils/logger";
+import { formatInUserTimezone } from "@/utils/date";
 
 const UPCOMING_DAYS = 7;
 const MAX_MEETINGS = 3;
@@ -22,9 +21,11 @@ export interface MeetingContext {
 export async function getUpcomingMeetingContext({
   emailAccountId,
   recipientEmail,
+  logger,
 }: {
   emailAccountId: string;
   recipientEmail: string;
+  logger: Logger;
 }): Promise<MeetingContext[]> {
   try {
     const calendarProviders = await createCalendarEventProviders(
@@ -80,6 +81,7 @@ export async function getUpcomingMeetingContext({
  */
 export function formatMeetingContextForPrompt(
   meetings: MeetingContext[],
+  timezone?: string | null,
 ): string | null {
   if (meetings.length === 0) {
     return null;
@@ -87,17 +89,13 @@ export function formatMeetingContextForPrompt(
 
   const meetingList = meetings
     .map((meeting) => {
-      const date = meeting.eventTime.toLocaleDateString("en-US", {
-        weekday: "long",
-        month: "long",
-        day: "numeric",
-      });
-      const time = meeting.eventTime.toLocaleTimeString("en-US", {
-        hour: "numeric",
-        minute: "2-digit",
-      });
+      const dateTime = formatInUserTimezone(
+        meeting.eventTime,
+        timezone,
+        "EEEE, MMMM d 'at' h:mm a",
+      );
 
-      let details = `- "${meeting.eventTitle}" on ${date} at ${time}`;
+      let details = `- "${meeting.eventTitle}" on ${dateTime}`;
       if (meeting.eventLocation) {
         details += ` (${meeting.eventLocation})`;
       }

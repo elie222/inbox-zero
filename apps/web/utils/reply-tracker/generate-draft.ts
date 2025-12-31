@@ -1,6 +1,7 @@
 import type { ParsedMessage } from "@/utils/types";
 import { internalDateToDate } from "@/utils/date";
 import { getEmailForLLM } from "@/utils/get-email-from-message";
+import { extractEmailAddress } from "@/utils/email";
 import { aiDraftWithKnowledge } from "@/utils/ai/reply/draft-with-knowledge";
 import { getReply, saveReply } from "@/utils/redis/reply";
 import { getWritingStyle } from "@/utils/user/get";
@@ -164,7 +165,8 @@ async function generateDraftContent(
     mcpAgent({ emailAccount, messages }),
     getUpcomingMeetingContext({
       emailAccountId: emailAccount.id,
-      recipientEmail: lastMessage.headers.from,
+      recipientEmail: extractEmailAddress(lastMessage.headers.from),
+      logger,
     }),
   ]);
 
@@ -194,7 +196,10 @@ async function generateDraftContent(
     : null;
 
   // 3. Draft with extracted knowledge
-  const meetingContext = formatMeetingContextForPrompt(upcomingMeetings);
+  const meetingContext = formatMeetingContextForPrompt(
+    upcomingMeetings,
+    emailAccount.timezone,
+  );
 
   const text = await aiDraftWithKnowledge({
     messages,
