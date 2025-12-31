@@ -1,13 +1,11 @@
 "use client";
 
+import { CardFooter, Card } from "@/components/ui/card";
 import {
-  CardContent,
-  CardHeader,
-  CardFooter,
-  CardTitle,
-  CardDescription,
-} from "@/components/ui/card";
-import { MessageText } from "@/components/Typography";
+  MessageText,
+  SectionDescription,
+  TypographyH3,
+} from "@/components/Typography";
 import { ConnectCalendar } from "@/app/(app)/[emailAccountId]/calendars/ConnectCalendar";
 import { UserIcon, MailIcon, LightbulbIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -16,9 +14,9 @@ import {
   ItemContent,
   ItemDescription,
   ItemGroup,
-  ItemMedia,
   ItemTitle,
 } from "@/components/ui/item";
+import Image from "next/image";
 
 export function BriefsOnboarding({
   emailAccountId,
@@ -32,53 +30,54 @@ export function BriefsOnboarding({
   isEnabling?: boolean;
 }) {
   return (
-    <div className="mx-4 mt-10 max-w-2xl md:mx-auto">
-      <CardHeader>
-        <CardTitle>Meeting Briefs</CardTitle>
-        <CardDescription>
+    <Card className="mx-4 mt-10 max-w-2xl p-6 md:mx-auto">
+      <Image
+        src="/images/illustrations/communication.svg"
+        alt="Meeting Briefs"
+        width={200}
+        height={200}
+        className="mx-auto dark:brightness-90 dark:invert"
+        unoptimized
+      />
+
+      <div className="text-center">
+        <TypographyH3 className="mt-2">Meeting Briefs</TypographyH3>
+        <SectionDescription className="mx-auto mt-2 max-w-prose">
           Receive email briefings before meetings with external guests.
-        </CardDescription>
-      </CardHeader>
+        </SectionDescription>
+      </div>
 
-      <CardContent>
-        <ItemGroup className="grid gap-2">
-          <Item variant="outline">
-            <ItemMedia variant="icon" className="bg-blue-50">
-              <UserIcon className="text-blue-600" />
-            </ItemMedia>
-            <ItemContent>
-              <ItemTitle>Attendee research</ItemTitle>
-              <ItemDescription>
-                Who they are, their company, and role
-              </ItemDescription>
-            </ItemContent>
-          </Item>
-          <Item variant="outline">
-            <ItemMedia variant="icon" className="bg-blue-50">
-              <MailIcon className="text-blue-600" />
-            </ItemMedia>
-            <ItemContent>
-              <ItemTitle>Email history</ItemTitle>
-              <ItemDescription>
-                Recent conversations with this person
-              </ItemDescription>
-            </ItemContent>
-          </Item>
-          <Item variant="outline">
-            <ItemMedia variant="icon" className="bg-blue-50">
-              <LightbulbIcon className="text-blue-600" />
-            </ItemMedia>
-            <ItemContent>
-              <ItemTitle>Key context</ItemTitle>
-              <ItemDescription>
-                Important details from past discussions
-              </ItemDescription>
-            </ItemContent>
-          </Item>
-        </ItemGroup>
-      </CardContent>
+      <ItemGroup className="grid mt-6">
+        <Item>
+          <UserIcon className="text-blue-500" />
+          <ItemContent>
+            <ItemTitle>Attendee research</ItemTitle>
+            <ItemDescription>
+              Who they are, their company, and role
+            </ItemDescription>
+          </ItemContent>
+        </Item>
+        <Item>
+          <MailIcon className="text-blue-500" />
+          <ItemContent>
+            <ItemTitle>Email history</ItemTitle>
+            <ItemDescription>
+              Recent conversations with this person
+            </ItemDescription>
+          </ItemContent>
+        </Item>
+        <Item>
+          <LightbulbIcon className="text-blue-500" />
+          <ItemContent>
+            <ItemTitle>Key context</ItemTitle>
+            <ItemDescription>
+              Important details from past discussions
+            </ItemDescription>
+          </ItemContent>
+        </Item>
+      </ItemGroup>
 
-      <CardFooter className="flex flex-col items-center gap-4">
+      <CardFooter className="flex flex-col items-center gap-4 mt-6">
         {hasCalendarConnected ? (
           <>
             <MessageText>
@@ -97,6 +96,6 @@ export function BriefsOnboarding({
           </>
         )}
       </CardFooter>
-    </div>
+    </Card>
   );
 }
