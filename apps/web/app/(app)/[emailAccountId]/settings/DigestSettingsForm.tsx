@@ -58,7 +58,7 @@ const daysOfWeek = [
   { value: "6", label: "Saturday" },
 ];
 
-export function DigestSettingsForm() {
+export function DigestSettingsForm({ onSuccess }: { onSuccess?: () => void }) {
   const { emailAccountId } = useAccount();
   const {
     data: rules,
@@ -224,6 +224,7 @@ export function DigestSettingsForm() {
         toastSuccess({
           description: "Your digest settings have been updated!",
         });
+        onSuccess?.();
       } catch {
         toastError({
           title: "Error updating digest settings",
@@ -231,7 +232,7 @@ export function DigestSettingsForm() {
         });
       }
     },
-    [rules, executeItems, executeSchedule],
+    [rules, executeItems, executeSchedule, onSuccess],
   );
 
   // Create options for MultiSelectFilter

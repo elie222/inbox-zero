@@ -1,5 +1,4 @@
 import { render } from "@react-email/render";
-import { format } from "date-fns";
 import { env } from "@/env";
 import { createEmailProvider } from "@/utils/email/provider";
 import { sendMeetingBriefingEmail } from "@inboxzero/resend";
@@ -11,6 +10,7 @@ import MeetingBriefingEmail, {
 import type { CalendarEvent } from "@/utils/calendar/event-types";
 import type { Logger } from "@/utils/logger";
 import { createUnsubscribeToken } from "@/utils/unsubscribe";
+import { formatTimeInUserTimezone } from "@/utils/date";
 
 export async function sendBriefingEmail({
   event,
@@ -18,6 +18,7 @@ export async function sendBriefingEmail({
   emailAccountId,
   userEmail,
   provider,
+  userTimezone,
   logger,
 }: {
   event: CalendarEvent;
@@ -25,11 +26,12 @@ export async function sendBriefingEmail({
   emailAccountId: string;
   userEmail: string;
   provider: string;
+  userTimezone: string | null;
   logger: Logger;
 }): Promise<void> {
   logger = logger.with({ emailAccountId, eventId: event.id, userEmail });
 
-  const formattedTime = format(event.startTime, "h:mm a");
+  const formattedTime = formatTimeInUserTimezone(event.startTime, userTimezone);
 
   const unsubscribeToken = await createUnsubscribeToken({ emailAccountId });
 

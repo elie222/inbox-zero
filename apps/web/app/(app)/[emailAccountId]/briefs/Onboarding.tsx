@@ -7,7 +7,7 @@ import {
   TypographyH3,
 } from "@/components/Typography";
 import { ConnectCalendar } from "@/app/(app)/[emailAccountId]/calendars/ConnectCalendar";
-import { UserIcon, MailIcon, LightbulbIcon } from "lucide-react";
+import { MailIcon, LightbulbIcon, UserSearchIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Item,
@@ -47,9 +47,9 @@ export function BriefsOnboarding({
         </SectionDescription>
       </div>
 
-      <ItemGroup className="grid mt-6">
+      <ItemGroup className="mt-6">
         <Item>
-          <UserIcon className="text-blue-500" />
+          <UserSearchIcon className="text-blue-500 size-4" />
           <ItemContent>
             <ItemTitle>Attendee research</ItemTitle>
             <ItemDescription>
@@ -58,7 +58,7 @@ export function BriefsOnboarding({
           </ItemContent>
         </Item>
         <Item>
-          <MailIcon className="text-blue-500" />
+          <MailIcon className="text-blue-500 size-4" />
           <ItemContent>
             <ItemTitle>Email history</ItemTitle>
             <ItemDescription>
@@ -67,7 +67,7 @@ export function BriefsOnboarding({
           </ItemContent>
         </Item>
         <Item>
-          <LightbulbIcon className="text-blue-500" />
+          <LightbulbIcon className="text-blue-500 size-4" />
           <ItemContent>
             <ItemTitle>Key context</ItemTitle>
             <ItemDescription>
