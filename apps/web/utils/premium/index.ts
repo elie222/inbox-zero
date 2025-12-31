@@ -98,7 +98,7 @@ export const hasUnsubscribeAccess = (
 
 export const hasAiAccess = (
   tier: PremiumTier | null,
-  aiApiKey?: string | null,
+  aiApiKey?: string | boolean | null,
 ) => {
   if (env.NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS) return true;
 

@@ -17,7 +17,8 @@ export function usePremium() {
   const { data } = swrResponse;
 
   const premium = data?.premium;
-  const aiApiKey = data?.aiApiKey;
+  // Use hasAiApiKey boolean instead of actual key value for security
+  const userHasAiApiKey = data?.hasAiApiKey ?? false;
 
   if (env.NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS) {
     return {
@@ -38,7 +39,7 @@ export function usePremium() {
 
   const isProPlanWithoutApiKey =
     (premium?.tier === "PRO_MONTHLY" || premium?.tier === "PRO_ANNUALLY") &&
-    !aiApiKey;
+    !userHasAiApiKey;
 
   return {
     ...swrResponse,
@@ -47,7 +48,7 @@ export function usePremium() {
     hasUnsubscribeAccess:
       isUserPremium ||
       hasUnsubscribeAccess(premium?.tier || null, premium?.unsubscribeCredits),
-    hasAiAccess: hasAiAccess(premium?.tier || null, aiApiKey),
+    hasAiAccess: hasAiAccess(premium?.tier || null, userHasAiApiKey || null),
     isProPlanWithoutApiKey,
     tier: premium?.tier,
   };
