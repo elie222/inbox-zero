@@ -175,6 +175,11 @@ model EmailAccount {
   calendarConnections CalendarConnection[]
   mcpConnections      McpConnection[]
   meetingBriefings    MeetingBriefing[]
+  preDrafts           PreDraft[]
+
+  // pre-draft settings
+  preDraftsEnabled    Boolean @default(false)
+  preDraftsMaxPerDay  Int     @default(10) // cost control
 
   @@index([userId])
   @@index([lastSummaryEmailAt])
@@ -744,6 +749,31 @@ model ThreadTracker {
   @@index([emailAccountId, resolved])
   @@index([emailAccountId, resolved, sentAt, type])
   @@index([emailAccountId, type, resolved, sentAt])
+}
+
+// Tracks pre-generated drafts created for threads needing reply
+model PreDraft {
+  id             String          @id @default(cuid())
+  emailAccountId String
+  emailAccount   EmailAccount    @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
+  threadId       String
+  messageId      String // The message this draft is replying to
+  draftId        String? // Gmail/Outlook draft ID (null if generation failed)
+  status         PreDraftStatus  @default(PENDING)
+  errorMessage   String?
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  @@unique([emailAccountId, threadId])
+  @@index([emailAccountId, status])
+}
+
+enum PreDraftStatus {
+  PENDING // Draft generation queued
+  CREATED // Draft successfully created in email provider
+  SENT // User sent the draft
+  DELETED // User deleted the draft or we cleaned it up
+  FAILED // Draft generation failed
 }
 
 model CleanupJob {
