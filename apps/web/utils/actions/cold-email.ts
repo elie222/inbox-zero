@@ -14,6 +14,7 @@ import { createEmailProvider } from "@/utils/email/provider";
 import type { EmailProvider } from "@/utils/email/types";
 import { getColdEmailRule } from "@/utils/cold-email/cold-email-rule";
 import { getRuleLabel } from "@/utils/rule/consts";
+import { internalDateToDate } from "@/utils/date";
 
 export const markNotColdEmailAction = actionClient
   .metadata({ name: "markNotColdEmail" })
@@ -143,7 +144,7 @@ export const testColdEmailAction = actionClient
           to: "",
           subject,
           content,
-          date: date ? new Date(date) : undefined,
+          date: date ? internalDateToDate(String(date)) : undefined,
           threadId: threadId || undefined,
           id: messageId || "",
         },
