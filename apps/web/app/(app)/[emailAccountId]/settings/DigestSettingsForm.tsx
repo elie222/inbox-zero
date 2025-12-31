@@ -232,7 +232,7 @@ export function DigestSettingsForm({ onSuccess }: { onSuccess?: () => void }) {
         });
       }
     },
-    [rules, executeItems, executeSchedule],
+    [rules, executeItems, executeSchedule, onSuccess],
   );
 
   // Create options for MultiSelectFilter
