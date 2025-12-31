@@ -1,7 +1,7 @@
 import type { ParsedMessage } from "@/utils/types";
 import { internalDateToDate } from "@/utils/date";
 import { getEmailForLLM } from "@/utils/get-email-from-message";
-import { extractEmailAddress } from "@/utils/email";
+import { extractEmailAddress, extractEmailAddresses } from "@/utils/email";
 import { aiDraftWithKnowledge } from "@/utils/ai/reply/draft-with-knowledge";
 import { getReply, saveReply } from "@/utils/redis/reply";
 import { getWritingStyle } from "@/utils/user/get";
@@ -19,7 +19,7 @@ import { aiGetCalendarAvailability } from "@/utils/ai/calendar/availability";
 import { env } from "@/env";
 import { mcpAgent } from "@/utils/ai/mcp/mcp-agent";
 import {
-  getUpcomingMeetingContext,
+  getMeetingContext,
   formatMeetingContextForPrompt,
 } from "@/utils/meeting-briefs/recipient-context";
 
@@ -163,9 +163,17 @@ async function generateDraftContent(
     aiGetCalendarAvailability({ emailAccount, messages, logger }),
     getWritingStyle({ emailAccountId: emailAccount.id }),
     mcpAgent({ emailAccount, messages }),
-    getUpcomingMeetingContext({
+    getMeetingContext({
       emailAccountId: emailAccount.id,
       recipientEmail: extractEmailAddress(lastMessage.headers.from),
+      // extract all other recipients (To, CC) for privacy filtering
+      // only meetings where ALL recipients were attendees will be included
+      additionalRecipients: [
+        ...extractEmailAddresses(lastMessage.headers.to),
+        ...extractEmailAddresses(lastMessage.headers.cc ?? ""),
+      ].filter(
+        (email) => email.toLowerCase() !== emailAccount.email.toLowerCase(),
+      ),
       logger,
     }),
   ]);
