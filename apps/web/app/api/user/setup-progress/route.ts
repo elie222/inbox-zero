@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import prisma from "@/utils/prisma";
 import { withEmailAccount } from "@/utils/middleware";
-import { CONVERSATION_STATUS_TYPES } from "@/utils/reply-tracker/conversation-status-config";
+import { SystemType } from "@/generated/prisma/enums";
 
 export type GetSetupProgressResponse = Awaited<
   ReturnType<typeof getSetupProgress>
@@ -19,43 +19,38 @@ async function getSetupProgress({
 }: {
   emailAccountId: string;
 }) {
-  const [emailAccount, enabledConversationStatusRulesCount] = await Promise.all(
-    [
-      prisma.emailAccount.findUnique({
-        where: { id: emailAccountId },
-        select: {
-          rules: { select: { id: true }, take: 1 },
-          newsletters: {
-            where: { status: { not: null } },
-            take: 1,
-          },
-          calendarConnections: { select: { id: true }, take: 1 },
+  const [emailAccount, replyZeroRule] = await Promise.all([
+    prisma.emailAccount.findUnique({
+      where: { id: emailAccountId },
+      select: {
+        rules: { select: { id: true }, take: 1 },
+        newsletters: {
+          where: { status: { not: null } },
+          take: 1,
         },
-      }),
-      // Reply Zero requires ALL conversation status rules (TO_REPLY, FYI,
-      // AWAITING_REPLY, ACTIONED) to be enabled. ReplyZeroSection toggles
-      // all four in parallel, so we verify all are present and enabled.
-      prisma.rule.count({
-        where: {
-          emailAccountId,
-          systemType: { in: CONVERSATION_STATUS_TYPES },
-          enabled: true,
-        },
-      }),
-    ],
-  );
+        calendarConnections: { select: { id: true }, take: 1 },
+      },
+    }),
+    // TO_REPLY is the canonical indicator for Reply Zero status.
+    // ReplyZeroSection toggles all 4 CONVERSATION_STATUS_TYPES together,
+    // but TO_REPLY represents the core "needs reply" tracking functionality.
+    prisma.rule.findFirst({
+      where: {
+        emailAccountId,
+        systemType: SystemType.TO_REPLY,
+        enabled: true,
+      },
+      select: { id: true },
+    }),
+  ]);
 
   if (!emailAccount) {
     throw new Error("Email account not found");
   }
 
-  // Reply Zero is only fully enabled when all 4 conversation status rules exist and are enabled
-  const isReplyZeroEnabled =
-    enabledConversationStatusRulesCount === CONVERSATION_STATUS_TYPES.length;
-
   const steps = {
     aiAssistant: emailAccount.rules.length > 0,
-    replyZero: isReplyZeroEnabled,
+    replyZero: !!replyZeroRule,
     bulkUnsubscribe: emailAccount.newsletters.length > 0,
     calendarConnected: emailAccount.calendarConnections.length > 0,
   };
