@@ -11,6 +11,7 @@ import {
   SparklesIcon,
   InfoIcon,
   CopyIcon,
+  AlertTriangleIcon,
 } from "lucide-react";
 import { useMemo } from "react";
 import { LoadingContent } from "@/components/LoadingContent";
@@ -50,7 +51,11 @@ import { useDialogState } from "@/hooks/useDialogState";
 import { useChat } from "@/providers/ChatProvider";
 import { useSidebar } from "@/components/ui/sidebar";
 import { useLabels } from "@/hooks/useLabels";
-import { isConversationStatusType } from "@/utils/reply-tracker/conversation-status-config";
+import {
+  CONVERSATION_STATUS_TYPES,
+  isConversationStatusType,
+} from "@/utils/reply-tracker/conversation-status-config";
+import { isGoogleProvider } from "@/utils/email/provider-types";
 import {
   Tooltip,
   TooltipContent,
@@ -141,8 +146,46 @@ export function Rules({
 
   const hasRules = !!rules?.length;
 
+  // Check if Reply Zero is disabled (all conversation status rules are disabled or don't exist)
+  const isReplyZeroDisabled = useMemo(() => {
+    if (!isGoogleProvider(provider)) return false;
+
+    const conversationStatusRules = (data || []).filter(
+      (rule) =>
+        rule.systemType && CONVERSATION_STATUS_TYPES.includes(rule.systemType),
+    );
+
+    // If no conversation status rules exist, Reply Zero is not enabled
+    if (conversationStatusRules.length === 0) return true;
+
+    // If all conversation status rules are disabled, Reply Zero is effectively disabled
+    return conversationStatusRules.every((rule) => !rule.enabled);
+  }, [data, provider]);
+
   return (
     <div className="space-y-6">
+      {isReplyZeroDisabled && (
+        <div className="flex items-center gap-3 rounded-lg border border-amber-200 bg-amber-50 p-4 dark:border-amber-900 dark:bg-amber-950">
+          <AlertTriangleIcon className="size-5 flex-shrink-0 text-amber-600 dark:text-amber-500" />
+          <div className="flex-1">
+            <p className="text-sm font-medium text-amber-800 dark:text-amber-200">
+              Reply Zero is disabled
+            </p>
+            <p className="text-sm text-amber-700 dark:text-amber-300">
+              Conversation tracking rules (To Reply, Awaiting Reply, etc.) are
+              not active.{" "}
+              <Link
+                href={prefixPath(emailAccountId, "/reply-zero")}
+                className="font-medium underline hover:no-underline"
+              >
+                Enable Reply Zero
+              </Link>{" "}
+              to track emails needing your response.
+            </p>
+          </div>
+        </div>
+      )}
+
       <Card>
         <LoadingContent loading={isLoading} error={error}>
           {hasRules ? (
