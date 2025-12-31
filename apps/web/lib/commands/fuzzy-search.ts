@@ -1,5 +1,16 @@
 import type { Command } from "./types";
 
+/**
+ * Fuzzy search for commands with weighted scoring.
+ *
+ * Scoring weights (higher = better match):
+ * - 100: Exact label match
+ * - 90:  Label starts with query
+ * - 70:  Label contains query
+ * - 50:  Description contains query
+ * - 40:  Keywords contain query
+ * - 30:  Fuzzy match (characters appear in order)
+ */
 export function fuzzySearch(query: string, commands: Command[]): Command[] {
   if (!query.trim()) return commands;
 
@@ -12,18 +23,13 @@ export function fuzzySearch(query: string, commands: Command[]): Command[] {
 
     let score = 0;
 
-    // exact match in label
     if (label === lowerQuery) score = 100;
-    // starts with query
     else if (label.startsWith(lowerQuery)) score = 90;
-    // contains query in label
     else if (label.includes(lowerQuery)) score = 70;
-    // contains in description
     else if (description.includes(lowerQuery)) score = 50;
-    // contains in keywords
     else if (keywords.includes(lowerQuery)) score = 40;
-    // fuzzy match - all characters present in order
     else {
+      // fuzzy match: all query characters appear in order within label
       let queryIdx = 0;
       for (const char of label) {
         if (char === lowerQuery[queryIdx]) {

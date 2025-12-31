@@ -23,6 +23,9 @@ import { useCommandPaletteEnabled } from "@/hooks/useFeatureFlags";
 import { fuzzySearch } from "@/lib/commands/fuzzy-search";
 import type { Command, CommandSection } from "@/lib/commands/types";
 
+// custom event name for opening command palette from other components
+export const COMMAND_PALETTE_EVENT = "open-command-palette";
+
 const SECTION_ORDER: CommandSection[] = [
   "actions",
   "navigation",
@@ -134,6 +137,23 @@ export function CommandK() {
     command.action();
   }, []);
 
+  // memoized handlers to avoid re-renders
+  const handleOpenChange = React.useCallback((isOpen: boolean) => {
+    setOpen(isOpen);
+    if (!isOpen) setSearch("");
+  }, []);
+
+  const commandProps = React.useMemo(
+    () => ({
+      onKeyDown: (e: React.KeyboardEvent) => {
+        if (e.key !== "Escape") {
+          e.stopPropagation();
+        }
+      },
+    }),
+    [],
+  );
+
   // keyboard shortcuts
   React.useEffect(() => {
     const down = (e: KeyboardEvent) => {
@@ -178,11 +198,11 @@ export function CommandK() {
     const openFromEvent = () => setOpen(true);
 
     document.addEventListener("keydown", down);
-    window.addEventListener("open-command-palette", openFromEvent);
+    window.addEventListener(COMMAND_PALETTE_EVENT, openFromEvent);
 
     return () => {
       document.removeEventListener("keydown", down);
-      window.removeEventListener("open-command-palette", openFromEvent);
+      window.removeEventListener(COMMAND_PALETTE_EVENT, openFromEvent);
     };
   }, [open, onArchive, onOpenComposeModal, threadId, showEmail]);
 
@@ -194,17 +214,8 @@ export function CommandK() {
   return (
     <CommandDialog
       open={open}
-      onOpenChange={(isOpen) => {
-        setOpen(isOpen);
-        if (!isOpen) setSearch("");
-      }}
-      commandProps={{
-        onKeyDown: (e) => {
-          if (e.key !== "Escape") {
-            e.stopPropagation();
-          }
-        },
-      }}
+      onOpenChange={handleOpenChange}
+      commandProps={commandProps}
     >
       <CommandInput
         placeholder="Type a command or search..."

@@ -18,8 +18,3 @@ export interface Command {
   priority?: number;
   action: () => void | Promise<void>;
 }
-
-export interface CommandGroup {
-  heading: string;
-  commands: Command[];
-}

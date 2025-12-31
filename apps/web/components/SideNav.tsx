@@ -58,6 +58,7 @@ import {
   useIntegrationsEnabled,
   useMeetingBriefsEnabled,
 } from "@/hooks/useFeatureFlags";
+import { COMMAND_PALETTE_EVENT } from "@/components/CommandK";
 import { ClientOnly } from "@/components/ClientOnly";
 import { AccountSwitcher } from "@/components/AccountSwitcher";
 import { useAccount } from "@/providers/EmailAccountProvider";
@@ -277,7 +278,7 @@ export function SideNav({ ...props }: React.ComponentProps<typeof Sidebar>) {
         {showCommandPalette && (
           <SidebarMenuButton
             onClick={() => {
-              window.dispatchEvent(new CustomEvent("open-command-palette"));
+              window.dispatchEvent(new CustomEvent(COMMAND_PALETTE_EVENT));
             }}
           >
             <SearchIcon className="size-4" />
