@@ -1,5 +1,4 @@
 import { z } from "zod";
-import { format } from "date-fns";
 import { getModel } from "@/utils/llms/model";
 import { createGenerateObject } from "@/utils/llms";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
@@ -8,6 +7,7 @@ import type { MeetingBriefingData } from "@/utils/meeting-briefs/gather-context"
 import { stringifyEmailSimple } from "@/utils/stringify-email";
 import { getEmailForLLM } from "@/utils/get-email-from-message";
 import type { ParsedMessage } from "@/utils/types";
+import { formatDateTimeInUserTimezone } from "@/utils/date";
 
 const guestBriefingSchema = z.object({
   name: z.string().describe("The guest's name"),
@@ -53,7 +53,7 @@ Return a structured JSON object with a "guests" array. Each guest should have:
 - "email": The guest's email address
 - "bullets": An array of brief bullet points about them (max 10 words each)`;
 
-  const prompt = buildPrompt(briefingData);
+  const prompt = buildPrompt(briefingData, emailAccount.timezone);
 
   const modelOptions = getModel(emailAccount.user);
 
@@ -73,7 +73,11 @@ Return a structured JSON object with a "guests" array. Each guest should have:
   return result.object;
 }
 
-function buildPrompt(briefingData: MeetingBriefingData): string {
+// Exported for testing
+export function buildPrompt(
+  briefingData: MeetingBriefingData,
+  timezone: string | null,
+): string {
   const { event, externalGuests, emailThreads, pastMeetings } = briefingData;
 
   const allMessages = emailThreads.flatMap((t) => t.messages);
@@ -85,6 +89,7 @@ function buildPrompt(briefingData: MeetingBriefingData): string {
       aiResearch: guest.aiResearch ?? undefined,
       recentEmails: selectRecentEmailsForGuest(allMessages, guest.email),
       recentMeetings: selectRecentMeetingsForGuest(pastMeetings, guest.email),
+      timezone,
     }),
   );
 
@@ -110,6 +115,7 @@ type GuestContextForPrompt = {
   recentEmails: ParsedMessage[];
   recentMeetings: CalendarEvent[];
   aiResearch?: string;
+  timezone: string | null;
 };
 
 function formatGuestContext(guest: GuestContextForPrompt): string {
@@ -149,7 +155,7 @@ ${recentEmails
 
   if (hasMeetings) {
     sections.push(`<recent_meetings count="${recentMeetings.length}">
-${recentMeetings.map(formatMeetingForContext).join("\n")}
+${recentMeetings.map((meeting) => formatMeetingForContext(meeting, guest.timezone)).join("\n")}
 </recent_meetings>`);
   }
 
@@ -207,8 +213,12 @@ function getMessageTimestampMs(message: ParsedMessage): number {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
-function formatMeetingForContext(meeting: CalendarEvent): string {
-  const dateStr = format(meeting.startTime, "MMM d, yyyy 'at' h:mm a");
+// Exported for testing
+export function formatMeetingForContext(
+  meeting: CalendarEvent,
+  timezone: string | null,
+): string {
+  const dateStr = formatDateTimeInUserTimezone(meeting.startTime, timezone);
   return `<meeting>
 Title: ${meeting.title}
 Date: ${dateStr}
