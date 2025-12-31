@@ -127,8 +127,12 @@ function formatGuestContext(guest: GuestContextForPrompt): string {
   const hasEmails = recentEmails.length > 0;
   const hasMeetings = recentMeetings.length > 0;
 
+  const guestHeader = `${guest.name ? `Name: ${guest.name}\n` : ""}Email: ${guest.email}`;
+
   if (!hasAiResearch && !hasEmails && !hasMeetings) {
-    return `<guest email="${guest.email}"${guest.name ? ` name="${guest.name}"` : ""}>
+    return `<guest>
+${guestHeader}
+
 <no_prior_context>This appears to be a new contact with no prior email, meeting, or public profile history.</no_prior_context>
 </guest>
 `;
@@ -143,7 +147,7 @@ ${aiResearch}
   }
 
   if (hasEmails) {
-    sections.push(`<recent_emails count="${recentEmails.length}">
+    sections.push(`<recent_emails>
 ${recentEmails
   .map(
     (email) =>
@@ -154,12 +158,14 @@ ${recentEmails
   }
 
   if (hasMeetings) {
-    sections.push(`<recent_meetings count="${recentMeetings.length}">
+    sections.push(`<recent_meetings>
 ${recentMeetings.map((meeting) => formatMeetingForContext(meeting, guest.timezone)).join("\n")}
 </recent_meetings>`);
   }
 
-  return `<guest email="${guest.email}"${guest.name ? ` name="${guest.name}"` : ""}>
+  return `<guest>
+${guestHeader}
+
 ${sections.join("\n")}
 </guest>
 `;

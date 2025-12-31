@@ -1,5 +1,4 @@
 import { describe, it, expect, vi } from "vitest";
-import type { CalendarEvent } from "@/utils/calendar/event-types";
 import type { MeetingBriefingData } from "@/utils/meeting-briefs/gather-context";
 
 vi.mock("server-only", () => ({}));
@@ -70,8 +69,11 @@ describe("buildPrompt timezone handling", () => {
       </upcoming_meeting>
 
       <guest_context>
-      <guest email="client@acme.com" name="John Smith">
-      <recent_meetings count="1">
+      <guest>
+      Name: John Smith
+      Email: client@acme.com
+
+      <recent_meetings>
       <meeting>
       Title: Previous Call
       Date: Dec 30, 2024 at 4:00 PM
@@ -115,7 +117,10 @@ describe("buildPrompt timezone handling", () => {
       </upcoming_meeting>
 
       <guest_context>
-      <guest email="newcontact@other.com" name="New Person">
+      <guest>
+      Name: New Person
+      Email: newcontact@other.com
+
       <no_prior_context>This appears to be a new contact with no prior email, meeting, or public profile history.</no_prior_context>
       </guest>
 
