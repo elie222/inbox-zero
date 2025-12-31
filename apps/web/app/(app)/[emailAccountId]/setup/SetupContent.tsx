@@ -10,6 +10,7 @@ import {
   type LucideIcon,
   ChromeIcon,
   CalendarIcon,
+  MessageCircleReplyIcon,
 } from "lucide-react";
 import { useLocalStorage } from "usehooks-ts";
 import { PageHeading, SectionDescription } from "@/components/Typography";
@@ -217,6 +218,7 @@ function Checklist({
   progressPercentage,
   isBulkUnsubscribeConfigured,
   isAiAssistantConfigured,
+  isReplyZeroConfigured,
   isCalendarConnected,
 }: {
   emailAccountId: string;
@@ -226,6 +228,7 @@ function Checklist({
   progressPercentage: number;
   isBulkUnsubscribeConfigured: boolean;
   isAiAssistantConfigured: boolean;
+  isReplyZeroConfigured: boolean;
   isCalendarConnected: boolean;
 }) {
   const [isExtensionInstalled, setIsExtensionInstalled] = useLocalStorage(
@@ -269,6 +272,19 @@ function Checklist({
         completed={isAiAssistantConfigured}
         actionText="Set up"
       />
+
+      {isGoogleProvider(provider) && (
+        <StepItem
+          href={prefixPath(emailAccountId, "/reply-zero")}
+          icon={<MessageCircleReplyIcon size={20} />}
+          iconBg="bg-blue-100 dark:bg-blue-900/50"
+          iconColor="text-blue-500 dark:text-blue-400"
+          title="Enable Reply Zero"
+          timeEstimate="1 minute"
+          completed={isReplyZeroConfigured}
+          actionText="Enable"
+        />
+      )}
 
       <StepItem
         href={prefixPath(emailAccountId, "/bulk-unsubscribe")}
@@ -322,6 +338,7 @@ export function SetupContent() {
           emailAccountId={emailAccountId}
           provider={provider}
           isAiAssistantConfigured={data.steps.aiAssistant}
+          isReplyZeroConfigured={data.steps.replyZero}
           isBulkUnsubscribeConfigured={data.steps.bulkUnsubscribe}
           isCalendarConnected={data.steps.calendarConnected}
           completedCount={data.completed}
@@ -338,6 +355,7 @@ function SetupPageContent({
   provider,
   isBulkUnsubscribeConfigured,
   isAiAssistantConfigured,
+  isReplyZeroConfigured,
   isCalendarConnected,
   completedCount,
   totalSteps,
@@ -347,6 +365,7 @@ function SetupPageContent({
   provider: string;
   isBulkUnsubscribeConfigured: boolean;
   isAiAssistantConfigured: boolean;
+  isReplyZeroConfigured: boolean;
   isCalendarConnected: boolean;
   completedCount: number;
   totalSteps: number;
@@ -375,6 +394,7 @@ function SetupPageContent({
           provider={provider}
           isBulkUnsubscribeConfigured={isBulkUnsubscribeConfigured}
           isAiAssistantConfigured={isAiAssistantConfigured}
+          isReplyZeroConfigured={isReplyZeroConfigured}
           isCalendarConnected={isCalendarConnected}
           completedCount={completedCount}
           totalSteps={totalSteps}

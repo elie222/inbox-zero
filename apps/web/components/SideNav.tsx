@@ -19,6 +19,7 @@ import {
   InboxIcon,
   type LucideIcon,
   MailsIcon,
+  MessageCircleReplyIcon,
   MessagesSquareIcon,
   PenIcon,
   PersonStandingIcon,
@@ -92,6 +93,15 @@ export const useNavigation = () => {
         href: prefixPath(currentEmailAccountId, "/automation"),
         icon: SparklesIcon,
       },
+      ...(isGoogleProvider(provider)
+        ? [
+            {
+              name: "Reply Zero",
+              href: prefixPath(currentEmailAccountId, "/reply-zero"),
+              icon: MessageCircleReplyIcon,
+            },
+          ]
+        : []),
       {
         name: "Bulk Unsubscribe",
         href: prefixPath(currentEmailAccountId, "/bulk-unsubscribe"),
