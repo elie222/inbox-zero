@@ -75,7 +75,7 @@
     "@radix-ui/react-use-controllable-state": "1.2.2",
     "@react-email/render": "1.4.0",
     "@sentry/nextjs": "10.28.0",
-    "@serwist/next": "9.2.3",
+    "@serwist/next": "9.4.2",
     "@stripe/stripe-js": "8.5.3",
     "@t3-oss/env-nextjs": "0.13.8",
     "@tailwindcss/forms": "0.5.10",
