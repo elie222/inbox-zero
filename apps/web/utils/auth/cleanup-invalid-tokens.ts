@@ -48,8 +48,8 @@ export async function cleanupInvalidTokens({
     return;
   }
 
-  await prisma.account.update({
-    where: { id: emailAccount.accountId },
+  const updated = await prisma.account.updateMany({
+    where: { id: emailAccount.accountId, disconnectedAt: null },
     data: {
       access_token: null,
       refresh_token: null,
@@ -58,8 +58,17 @@ export async function cleanupInvalidTokens({
     },
   });
 
+  if (updated.count === 0) {
+    logger.info(
+      "Account already marked as disconnected (via concurrent update)",
+    );
+    return;
+  }
+
   if (reason === "invalid_grant") {
-    const isWatched = !!emailAccount.watchEmailsExpirationDate;
+    const isWatched =
+      !!emailAccount.watchEmailsExpirationDate &&
+      emailAccount.watchEmailsExpirationDate > new Date();
 
     if (isWatched) {
       try {

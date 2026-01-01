@@ -37,6 +37,7 @@ describe("cleanupInvalidTokens", () => {
 
   it("marks account as disconnected and sends email on invalid_grant when account is watched", async () => {
     prisma.emailAccount.findUnique.mockResolvedValue(mockEmailAccount as any);
+    prisma.account.updateMany.mockResolvedValue({ count: 1 });
 
     await cleanupInvalidTokens({
       emailAccountId: "ea_1",
@@ -44,9 +45,9 @@ describe("cleanupInvalidTokens", () => {
       logger,
     });
 
-    expect(prisma.account.update).toHaveBeenCalledWith(
+    expect(prisma.account.updateMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { id: "acc_1" },
+        where: { id: "acc_1", disconnectedAt: null },
         data: expect.objectContaining({
           disconnectedAt: expect.any(Date),
         }),
@@ -65,6 +66,7 @@ describe("cleanupInvalidTokens", () => {
       ...mockEmailAccount,
       watchEmailsExpirationDate: null,
     } as any);
+    prisma.account.updateMany.mockResolvedValue({ count: 1 });
 
     await cleanupInvalidTokens({
       emailAccountId: "ea_1",
@@ -72,7 +74,7 @@ describe("cleanupInvalidTokens", () => {
       logger,
     });
 
-    expect(prisma.account.update).toHaveBeenCalled();
+    expect(prisma.account.updateMany).toHaveBeenCalled();
     expect(sendReconnectionEmail).not.toHaveBeenCalled();
     expect(addUserErrorMessage).toHaveBeenCalledWith(
       "user_1",
@@ -93,12 +95,13 @@ describe("cleanupInvalidTokens", () => {
       logger,
     });
 
-    expect(prisma.account.update).not.toHaveBeenCalled();
+    expect(prisma.account.updateMany).not.toHaveBeenCalled();
     expect(sendReconnectionEmail).not.toHaveBeenCalled();
   });
 
   it("does not send email for insufficient_permissions", async () => {
     prisma.emailAccount.findUnique.mockResolvedValue(mockEmailAccount as any);
+    prisma.account.updateMany.mockResolvedValue({ count: 1 });
 
     await cleanupInvalidTokens({
       emailAccountId: "ea_1",
@@ -106,7 +109,7 @@ describe("cleanupInvalidTokens", () => {
       logger,
     });
 
-    expect(prisma.account.update).toHaveBeenCalled();
+    expect(prisma.account.updateMany).toHaveBeenCalled();
     expect(sendReconnectionEmail).not.toHaveBeenCalled();
     expect(addUserErrorMessage).not.toHaveBeenCalled();
   });
