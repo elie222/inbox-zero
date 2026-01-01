@@ -628,7 +628,13 @@ export class GmailProvider implements EmailProvider {
 
   async draftEmail(
     email: ParsedMessage,
-    args: { to?: string; subject?: string; content: string },
+    args: {
+      to?: string;
+      subject?: string;
+      content: string;
+      cc?: string;
+      bcc?: string;
+    },
     userEmail: string,
     executedRule?: { id: string; threadId: string; emailAccountId: string },
   ): Promise<{ draftId: string }> {

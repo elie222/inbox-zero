@@ -1,5 +1,7 @@
 # Open a PR
 
+Important: don't use sandbox mode as the commands won't work in sandbox.
+
 ## Step 1: Check state (ONE command)
 
 ```bash

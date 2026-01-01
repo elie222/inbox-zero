@@ -29,16 +29,26 @@ export function buildReplyAllRecipients(
 
   // Build CC list for reply-all behavior
   const ccSet = new Set<string>();
+  const seenEmails = new Set<string>();
 
   // Add original CC recipients if they exist
   if (headers.cc) {
     const originalCcAddresses = headers.cc
       .split(",")
-      .map((addr) => extractEmailAddress(addr.trim()))
-      .filter((addr) => addr && addr !== replyTo && addr !== currentUser);
+      .map((addr) => ({
+        raw: addr.trim(),
+        email: extractEmailAddress(addr.trim()),
+      }))
+      .filter(
+        ({ email }) => email && email !== replyTo && email !== currentUser,
+      );
 
-    for (const addr of originalCcAddresses) {
-      ccSet.add(addr);
+    for (const { raw, email } of originalCcAddresses) {
+      const key = email.toLowerCase();
+      if (!seenEmails.has(key)) {
+        seenEmails.add(key);
+        ccSet.add(email);
+      }
     }
   }
 
@@ -46,11 +56,20 @@ export function buildReplyAllRecipients(
   if (headers.to) {
     const originalToAddresses = headers.to
       .split(",")
-      .map((addr) => extractEmailAddress(addr.trim()))
-      .filter((addr) => addr && addr !== replyTo && addr !== currentUser);
+      .map((addr) => ({
+        raw: addr.trim(),
+        email: extractEmailAddress(addr.trim()),
+      }))
+      .filter(
+        ({ email }) => email && email !== replyTo && email !== currentUser,
+      );
 
-    for (const addr of originalToAddresses) {
-      ccSet.add(addr);
+    for (const { raw, email } of originalToAddresses) {
+      const key = email.toLowerCase();
+      if (!seenEmails.has(key)) {
+        seenEmails.add(key);
+        ccSet.add(email);
+      }
     }
   }
 
@@ -66,4 +85,36 @@ export function buildReplyAllRecipients(
  */
 export function formatCcList(ccList: string[]): string | undefined {
   return ccList.length > 0 ? ccList.join(", ") : undefined;
+}
+
+/**
+ * Merges manual CC/BCC recipients with existing recipients,
+ * ensuring deduplication and sanitization.
+ */
+export function mergeAndDedupeRecipients(
+  existing: string[],
+  manual: string | undefined,
+): string[] {
+  const result = [...existing];
+  const seen = new Set(existing.map((e) => extractEmailAddress(e).toLowerCase()));
+
+  if (manual) {
+    const manualEntries = manual
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean);
+
+    for (const entry of manualEntries) {
+      const email = extractEmailAddress(entry);
+      if (email) {
+        const key = email.toLowerCase();
+        if (!seen.has(key)) {
+          seen.add(key);
+          result.push(entry);
+        }
+      }
+    }
+  }
+
+  return result;
 }
