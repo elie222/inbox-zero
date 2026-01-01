@@ -1,6 +1,8 @@
 # Open a PR
 
-Important: don't use sandbox mode as the commands won't work in sandbox.
+Important: Steps 2 and 3 require `required_permissions: ['all']` because:
+- Pre-commit hooks need access to global npm/node paths outside the workspace
+- `gh` CLI has TLS certificate issues in sandboxed mode
 
 ## Step 1: Check state (ONE command)
 
@@ -18,7 +20,9 @@ git branch --show-current && git status -s && git diff HEAD --stat
 git checkout -b feat/<description>
 ```
 
-## Step 2: Commit + Push
+Note: `git checkout -b` requires `required_permissions: ['git_write']`
+
+## Step 2: Commit + Push (`required_permissions: ['all']`)
 
 If uncommitted changes exist:
 
@@ -32,7 +36,7 @@ git commit -m "<msg>" && git push
 git add <file1> <file2> ... && git commit -m "<msg>" && git push
 ```
 
-## Step 3: Create PR
+## Step 3: Create PR (`required_permissions: ['all']`)
 
 **Format:**
 ```
