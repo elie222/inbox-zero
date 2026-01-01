@@ -46,10 +46,10 @@ Your task is to prepare a briefing about the external guests the user is meeting
 
 WORKFLOW:
 1. Review the provided context (email history, past meetings) for each guest
-2. Use search tools to research each guest's professional background
+2. If search tools are available, use them to research each guest's professional background
 3. Once you have gathered all information, call finalizeBriefing
 
-SEARCH TIPS:
+SEARCH TIPS (if search tools are available):
 - Use the guest's email domain to identify their company (e.g., john@acme.com likely works at Acme)
 - Include company name in searches to disambiguate common names
 - Look for LinkedIn profiles, current role, and company info
@@ -60,7 +60,7 @@ BRIEFING GUIDELINES:
 - Keep it concise: <10 bullet points per guest, max 10 words per bullet
 - Focus on what's helpful before the meeting: role, company, recent discussions, pending items
 - Don't repeat meeting details (time, date, location) - the user already has those
-- If a guest has no prior context and research returns nothing useful, note they are a new contact (one bullet only)
+- If a guest has no prior context and no search tools are available, note they are a new contact
 - ONLY include information about the specific guests listed. Do NOT mention other attendees or colleagues.
 - Note any uncertainty about identity (common names, conflicting info)
 
@@ -86,14 +86,12 @@ export async function aiGenerateMeetingBriefing({
   }
 
   // Build tools based on what's configured
-  const tools = buildSearchTools({ emailAccount, logger });
+  const searchTools = buildSearchTools({ emailAccount, logger });
 
-  // If no search tools are available, skip the agentic approach
-  if (Object.keys(tools).length === 0) {
+  if (Object.keys(searchTools).length === 0) {
     logger.info(
-      "No search tools configured, skipping agentic briefing generation",
+      "No search tools configured - will use existing email/meeting context only",
     );
-    return generateFallbackBriefing(briefingData.externalGuests);
   }
 
   const prompt = buildPrompt(briefingData, emailAccount.timezone);
@@ -116,7 +114,7 @@ export async function aiGenerateMeetingBriefing({
         step.toolCalls?.some((call) => call.toolName === "finalizeBriefing"),
       ) || stepResult.steps.length > MAX_AGENT_STEPS,
     tools: {
-      ...tools,
+      ...searchTools,
       finalizeBriefing: tool({
         description:
           "Submit the final meeting briefing. Call this when you have gathered all information about all guests.",
