@@ -142,6 +142,7 @@ export const PUBLIC_EMAIL_DOMAINS = new Set([
   "fastmail.com",
   "gmx.com",
   "hey.com",
+  "mail.com",
 ]);
 
 // Returns the search term to use when checking for previous communications
