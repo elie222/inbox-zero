@@ -176,6 +176,10 @@ model EmailAccount {
   mcpConnections      McpConnection[]
   meetingBriefings    MeetingBriefing[]
 
+  // Email expiration
+  expirationSettings EmailExpirationSettings?
+  expiredEmailLogs   ExpiredEmailLog[]
+
   @@index([userId])
   @@index([lastSummaryEmailAt])
 }
@@ -700,6 +704,11 @@ model EmailMessage {
   draft           Boolean
   inbox           Boolean
 
+  // Expiration tracking
+  expiresAt        DateTime? // When this email should be archived
+  expiredAt        DateTime? // When it was actually archived (for audit)
+  expirationReason String? // Why this expiration date was set (LLM reasoning)
+
   emailAccountId String
   emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
 
@@ -708,6 +717,7 @@ model EmailMessage {
   @@index([emailAccountId, date])
   @@index([emailAccountId, from])
   @@index([emailAccountId, fromName])
+  @@index([emailAccountId, inbox, expiresAt]) // For expiration queries
 }
 
 model ResponseTime {
@@ -949,6 +959,52 @@ model MeetingBriefing {
 
   @@unique([emailAccountId, calendarEventId]) // Prevent duplicate briefings
   @@index([emailAccountId])
+}
+
+// Email expiration settings - user configuration for auto-cleanup
+model EmailExpirationSettings {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  enabled Boolean @default(false) // Master toggle
+
+  // Default expiration periods (days) - used as suggestions to LLM
+  notificationDays Int @default(7) // Package tracking, alerts
+  newsletterDays   Int @default(30) // Subscribed newsletters
+  marketingDays    Int @default(14) // Promotions
+  socialDays       Int @default(7) // Social media notifications
+  calendarDays     Int @default(1) // Days after event
+
+  // Action settings
+  applyLabel Boolean @default(true) // Apply "Expired" label when archiving
+
+  // Categories to analyze (stored as JSON array of strings)
+  enabledCategories String[] @default(["NOTIFICATION", "NEWSLETTER", "MARKETING", "SOCIAL", "CALENDAR"])
+
+  emailAccountId String       @unique
+  emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
+}
+
+// Audit log for expired emails
+model ExpiredEmailLog {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+
+  threadId  String
+  messageId String
+  subject   String?
+  from      String?
+
+  // Expiration details
+  expiresAt DateTime // When it was set to expire
+  expiredAt DateTime // When cleanup ran
+  reason    String? // LLM's reasoning for expiration date
+
+  emailAccountId String
+  emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
+
+  @@index([emailAccountId, createdAt])
 }
 
 model Referral {

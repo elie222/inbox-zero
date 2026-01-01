@@ -58,6 +58,11 @@ export const inboxZeroLabels = {
     color: purple,
     messageListVisibility: messageVisibility.show,
   },
+  expired: {
+    name: `${PARENT_LABEL}/Expired`,
+    color: orange,
+    messageListVisibility: messageVisibility.hide,
+  },
 } as const;
 
 export type InboxZeroLabel = keyof typeof inboxZeroLabels;
