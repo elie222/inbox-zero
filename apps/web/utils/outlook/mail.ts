@@ -6,7 +6,10 @@ import type { ParsedMessage } from "@/utils/types";
 import type { EmailForAction } from "@/utils/ai/types";
 import { createOutlookReplyContent } from "@/utils/outlook/reply";
 import { forwardEmailHtml, forwardEmailSubject } from "@/utils/gmail/forward";
-import { buildReplyAllRecipients } from "@/utils/email/reply-all";
+import {
+  buildReplyAllRecipients,
+  mergeAndDedupeRecipients,
+} from "@/utils/email/reply-all";
 import { formatReplySubject } from "@/utils/email/subject";
 import { withOutlookRetry } from "@/utils/outlook/retry";
 import { extractEmailAddress, extractNameFromEmail } from "@/utils/email";
@@ -216,15 +219,7 @@ export async function draftEmail(
   };
 
   // Build CC list from reply-all and args
-  const ccAddresses = [...recipients.cc];
-  if (args.cc) {
-    const manualCc = args.cc.split(",").map((s) => s.trim());
-    for (const email of manualCc) {
-      if (!ccAddresses.includes(email)) {
-        ccAddresses.push(email);
-      }
-    }
-  }
+  const ccAddresses = mergeAndDedupeRecipients(recipients.cc, args.cc);
 
   // Convert CC addresses to Outlook format
   const ccRecipients = ccAddresses.map((addr) => ({
@@ -235,14 +230,13 @@ export async function draftEmail(
   }));
 
   // Handle BCC if provided
-  const bccRecipients = args.bcc
-    ? args.bcc.split(",").map((addr) => ({
-        emailAddress: {
-          address: extractEmailAddress(addr.trim()),
-          name: extractNameFromEmail(addr.trim()),
-        },
-      }))
-    : [];
+  const bccAddresses = mergeAndDedupeRecipients([], args.bcc);
+  const bccRecipients = bccAddresses.map((addr) => ({
+    emailAddress: {
+      address: extractEmailAddress(addr),
+      name: extractNameFromEmail(addr),
+    },
+  }));
 
   // Get the original message's isRead status before creating the draft
   // Microsoft Graph's createReplyAll automatically marks the original as read

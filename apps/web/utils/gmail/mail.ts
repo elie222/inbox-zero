@@ -15,7 +15,11 @@ import { createReplyContent } from "@/utils/gmail/reply";
 import type { EmailForAction } from "@/utils/ai/types";
 import { createScopedLogger } from "@/utils/logger";
 import { withGmailRetry } from "@/utils/gmail/retry";
-import { buildReplyAllRecipients, formatCcList } from "@/utils/email/reply-all";
+import {
+  buildReplyAllRecipients,
+  formatCcList,
+  mergeAndDedupeRecipients,
+} from "@/utils/email/reply-all";
 import { formatReplySubject } from "@/utils/email/subject";
 import { ensureEmailSendingEnabled } from "@/utils/mail";
 
@@ -270,20 +274,15 @@ export async function draftEmail(
   );
 
   // Merge CC from reply-all with CC from args
-  const ccList = [...recipients.cc];
-  if (args.cc) {
-    const manualCc = args.cc.split(",").map((s) => s.trim());
-    for (const email of manualCc) {
-      if (!ccList.includes(email)) {
-        ccList.push(email);
-      }
-    }
-  }
+  const ccList = mergeAndDedupeRecipients(recipients.cc, args.cc);
+
+  // Sanitize BCC
+  const bccList = mergeAndDedupeRecipients([], args.bcc);
 
   const raw = await createRawMailMessage({
     to: recipients.to,
     cc: formatCcList(ccList),
-    bcc: args.bcc ?? undefined,
+    bcc: formatCcList(bccList),
     subject: args.subject || originalEmail.headers.subject,
     messageHtml: html,
     messageText: text,
