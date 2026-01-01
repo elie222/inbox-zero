@@ -1,4 +1,4 @@
-import { describe, expect, test, vi } from "vitest";
+import { beforeEach, describe, expect, test, vi } from "vitest";
 import {
   aiGenerateMeetingBriefing,
   buildPrompt,
@@ -192,6 +192,10 @@ describe("formatMeetingForContext", () => {
 describe.runIf(isAiTest)(
   "aiGenerateMeetingBriefing",
   () => {
+    beforeEach(() => {
+      vi.clearAllMocks();
+    });
+
     test("generates briefing for single guest with no prior context", async () => {
       // Add minimal email context so test doesn't rely solely on research API
       const mockMessage = getMockMessage({
