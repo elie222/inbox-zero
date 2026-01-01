@@ -54,7 +54,6 @@ import { useSplitLabels } from "@/hooks/useLabels";
 import { LoadingContent } from "@/components/LoadingContent";
 import {
   useCleanerEnabled,
-  useCommandPaletteEnabled,
   useIntegrationsEnabled,
   useMeetingBriefsEnabled,
 } from "@/hooks/useFeatureFlags";
@@ -213,7 +212,6 @@ export function SideNav({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const currentEmailAccountId = emailAccount?.id || emailAccountId;
   const path = usePathname();
   const showMailNav = path.includes("/mail") || path.includes("/compose");
-  const showCommandPalette = useCommandPaletteEnabled();
 
   const visibleBottomLinks = useMemo(
     () =>
@@ -273,17 +271,15 @@ export function SideNav({ ...props }: React.ComponentProps<typeof Sidebar>) {
           </ClientOnly>
         )}
 
-        {showCommandPalette && (
-          <SidebarMenuButton
-            onClick={() => {
-              window.dispatchEvent(new CustomEvent(COMMAND_PALETTE_EVENT));
-            }}
-          >
-            <SearchIcon className="size-4" />
-            <span className="font-semibold">Search</span>
-            <CommandShortcut className="ml-auto">⌘K</CommandShortcut>
-          </SidebarMenuButton>
-        )}
+        <SidebarMenuButton
+          onClick={() => {
+            window.dispatchEvent(new CustomEvent(COMMAND_PALETTE_EVENT));
+          }}
+        >
+          <SearchIcon className="size-4" />
+          <span className="font-semibold">Search</span>
+          <CommandShortcut className="ml-auto">⌘K</CommandShortcut>
+        </SidebarMenuButton>
 
         <SidebarMenuButton asChild>
           <Link href="https://docs.getinboxzero.com" target="_blank">

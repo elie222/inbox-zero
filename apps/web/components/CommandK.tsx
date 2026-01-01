@@ -19,7 +19,6 @@ import { archiveEmails } from "@/store/archive-queue";
 import { useDisplayedEmail } from "@/hooks/useDisplayedEmail";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { useCommandPaletteCommands } from "@/hooks/useCommandPaletteCommands";
-import { useCommandPaletteEnabled } from "@/hooks/useFeatureFlags";
 import { fuzzySearch } from "@/lib/commands/fuzzy-search";
 import type { Command, CommandSection } from "@/lib/commands/types";
 
@@ -51,7 +50,6 @@ export function CommandK() {
   const refreshEmailList = useAtomValue(refetchEmailListAtom);
   const { onOpen: onOpenComposeModal } = useComposeModal();
   const { commands, isLoading } = useCommandPaletteCommands();
-  const isEnabled = useCommandPaletteEnabled();
 
   const onArchive = React.useCallback(() => {
     if (threadId) {
@@ -207,11 +205,6 @@ export function CommandK() {
       window.removeEventListener(COMMAND_PALETTE_EVENT, openFromEvent);
     };
   }, [open, onArchive, onOpenComposeModal, threadId, showEmail]);
-
-  // don't render if feature disabled
-  if (!isEnabled) {
-    return null;
-  }
 
   return (
     <CommandDialog

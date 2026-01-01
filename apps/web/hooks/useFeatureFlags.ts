@@ -56,7 +56,3 @@ export function useTestimonialsVariant() {
     "control"
   );
 }
-
-export function useCommandPaletteEnabled() {
-  return env.NEXT_PUBLIC_COMMAND_PALETTE_ENABLED ?? true;
-}
