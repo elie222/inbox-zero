@@ -48,7 +48,7 @@ export function createGenerateText({
   label,
   modelOptions,
 }: {
-  emailAccount: Pick<EmailAccountWithAI, "email" | "id">;
+  emailAccount: Pick<EmailAccountWithAI, "email" | "id" | "userId">;
   label: string;
   modelOptions: ReturnType<typeof getModel>;
 }): typeof generateText {
@@ -115,6 +115,7 @@ export function createGenerateText({
         } catch (backupError) {
           await handleError(
             backupError,
+            emailAccount.userId,
             emailAccount.email,
             emailAccount.id,
             label,
@@ -126,6 +127,7 @@ export function createGenerateText({
 
       await handleError(
         error,
+        emailAccount.userId,
         emailAccount.email,
         emailAccount.id,
         label,
@@ -141,7 +143,7 @@ export function createGenerateObject({
   label,
   modelOptions,
 }: {
-  emailAccount: Pick<EmailAccountWithAI, "email" | "id">;
+  emailAccount: Pick<EmailAccountWithAI, "email" | "id" | "userId">;
   label: string;
   modelOptions: ReturnType<typeof getModel>;
 }): typeof generateObject {
@@ -206,6 +208,7 @@ export function createGenerateObject({
     } catch (error) {
       await handleError(
         error,
+        emailAccount.userId,
         emailAccount.email,
         emailAccount.id,
         label,
@@ -295,6 +298,7 @@ export async function chatCompletionStream({
 
 async function handleError(
   error: unknown,
+  userId: string,
   userEmail: string,
   emailAccountId: string,
   label: string,
@@ -302,6 +306,7 @@ async function handleError(
 ) {
   logger.error("Error in LLM call", {
     error,
+    userId,
     userEmail,
     emailAccountId,
     label,
@@ -311,7 +316,7 @@ async function handleError(
   if (APICallError.isInstance(error)) {
     if (isIncorrectOpenAIAPIKeyError(error)) {
       return await addUserErrorMessage(
-        userEmail,
+        userId,
         ErrorType.INCORRECT_OPENAI_API_KEY,
         error.message,
       );
@@ -319,7 +324,7 @@ async function handleError(
 
     if (isInvalidOpenAIModelError(error)) {
       return await addUserErrorMessage(
-        userEmail,
+        userId,
         ErrorType.INVALID_OPENAI_MODEL,
         error.message,
       );
@@ -327,7 +332,7 @@ async function handleError(
 
     if (isOpenAIAPIKeyDeactivatedError(error)) {
       return await addUserErrorMessage(
-        userEmail,
+        userId,
         ErrorType.OPENAI_API_KEY_DEACTIVATED,
         error.message,
       );
@@ -335,7 +340,7 @@ async function handleError(
 
     if (RetryError.isInstance(error) && isOpenAIRetryError(error)) {
       return await addUserErrorMessage(
-        userEmail,
+        userId,
         ErrorType.OPENAI_RETRY_ERROR,
         error.message,
       );
@@ -343,7 +348,7 @@ async function handleError(
 
     if (isAnthropicInsufficientBalanceError(error)) {
       return await addUserErrorMessage(
-        userEmail,
+        userId,
         ErrorType.ANTHROPIC_INSUFFICIENT_BALANCE,
         error.message,
       );
