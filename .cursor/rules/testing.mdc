@@ -7,7 +7,7 @@ alwaysApply: false
 
 ## Testing Framework
 - `vitest` is used for testing
-- Run tests using `pnpm test` (not `npx vitest`)
+- Run tests using `cd apps/web && pnpm test --run` (not `npx vitest`). Don't use sandbox or the test won't run.
 - Tests are colocated next to the tested file
   - Example: `dir/format.ts` and `dir/format.test.ts`
 - AI tests are placed in the `__tests__` directory and are not run by default (they use a real LLM)
