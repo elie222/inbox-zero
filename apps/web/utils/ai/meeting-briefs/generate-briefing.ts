@@ -1,6 +1,7 @@
+import { tool } from "ai";
 import { z } from "zod";
 import { getModel } from "@/utils/llms/model";
-import { createGenerateObject } from "@/utils/llms";
+import { createGenerateText } from "@/utils/llms";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import type { CalendarEvent } from "@/utils/calendar/event-types";
 import type { MeetingBriefingData } from "@/utils/meeting-briefs/gather-context";
@@ -8,6 +9,8 @@ import { stringifyEmailSimple } from "@/utils/stringify-email";
 import { getEmailForLLM } from "@/utils/get-email-from-message";
 import type { ParsedMessage } from "@/utils/types";
 import { formatDateTimeInUserTimezone } from "@/utils/date";
+import { researchGuestWithPerplexity } from "@/utils/ai/meeting-briefs/research-guest";
+import type { Logger } from "@/utils/logger";
 
 const guestBriefingSchema = z.object({
   name: z.string().describe("The guest's name"),
@@ -22,55 +25,107 @@ const briefingSchema = z.object({
     .array(guestBriefingSchema)
     .describe("Briefing information for each meeting guest"),
 });
-type BriefingContent = z.infer<typeof briefingSchema>;
+export type BriefingContent = z.infer<typeof briefingSchema>;
+
+const AGENTIC_SYSTEM_PROMPT = `You are an AI assistant that prepares concise meeting briefings.
+
+Your task is to prepare a briefing about the external guests the user is meeting with.
+
+WORKFLOW:
+1. Review the provided context (email history, past meetings) for each guest
+2. For each guest, use the researchGuest tool to find their LinkedIn profile, current role, company, and background
+3. Once you have gathered all information, call finalizeBriefing with the complete briefing
+
+TOOLS AVAILABLE:
+- researchGuest: Research a guest's professional background (LinkedIn, role, company, work history)
+- finalizeBriefing: Submit the final briefing (MUST be called when done)
+
+BRIEFING GUIDELINES:
+- Keep it concise: <10 bullet points per guest, max 10 words per bullet
+- Focus on what's helpful before the meeting: role, company, recent discussions, pending items
+- Don't repeat meeting details (time, date, location) - the user already has those
+- If a guest has no prior context and research returns nothing useful, note they are a new contact (one bullet only)
+- ONLY include information about the specific guests listed. Do NOT mention other attendees or colleagues.
+- Research may be inaccurate for common names - note any uncertainty
+
+IMPORTANT: You MUST call finalizeBriefing when you are done to submit your briefing. If research fails or returns nothing, still call finalizeBriefing with the information you have.`;
 
 export async function aiGenerateMeetingBriefing({
   briefingData,
   emailAccount,
+  logger,
 }: {
   briefingData: MeetingBriefingData;
   emailAccount: EmailAccountWithAI;
+  logger: Logger;
 }): Promise<BriefingContent> {
-  const system = `You are an AI assistant that prepares concise meeting briefings.
-
-Your task is to prepare a briefing that includes:
-(1) Key details about the external guests the user is meeting with
-(2) Any relevant context from past email exchanges and meetings with them
-(3) AI-researched background information (LinkedIn, current role, company, work history) when available
-
-Guidelines:
-- Keep it short and use <10 bullets per meeting guest (max 10 words per bullet)
-- Don't include details about the meeting itself (time, date, location, etc.) - the user already has that
-- Focus on information that would be helpful to know before the meeting
-- Include any recent topics discussed, pending items, or relationship context
-- When AI research is available (LinkedIn, role, company), include it to help the user understand who they're meeting
-- If a guest has <no_prior_context>, simply note they are a new contact (one bullet point only, don't repeat this in multiple ways)
-- ONLY include information about the specific guests listed in <guest_context>. Do NOT mention other meeting attendees, organizers, or colleagues.
-- AI research may be inaccurate for common names or generic email addresses
-
-Return a structured JSON object with a "guests" array. Each guest should have:
-- "name": The guest's display name
-- "email": The guest's email address
-- "bullets": An array of brief bullet points about them (max 10 words each)`;
+  if (briefingData.externalGuests.length === 0) {
+    return { guests: [] };
+  }
 
   const prompt = buildPrompt(briefingData, emailAccount.timezone);
-
   const modelOptions = getModel(emailAccount.user);
 
-  const generateObject = createGenerateObject({
+  const generateText = createGenerateText({
     emailAccount,
     label: "Meeting Briefing",
     modelOptions,
   });
 
-  const result = await generateObject({
+  let result: BriefingContent | null = null;
+
+  await generateText({
     ...modelOptions,
-    system,
+    system: AGENTIC_SYSTEM_PROMPT,
     prompt,
-    schema: briefingSchema,
+    stopWhen: (stepResult) =>
+      stepResult.steps.some((step) =>
+        step.toolCalls?.some((call) => call.toolName === "finalizeBriefing"),
+      ) || stepResult.steps.length > 15,
+    tools: {
+      researchGuest: tool({
+        description:
+          "Research a meeting guest to find their LinkedIn profile, current role, company, and professional background",
+        inputSchema: z.object({
+          email: z.string().describe("The guest's email address"),
+          name: z.string().optional().describe("The guest's name if known"),
+        }),
+        execute: async ({ email, name }) => {
+          logger.info("Researching guest", { email, name });
+          const research = await researchGuestWithPerplexity({
+            email,
+            name,
+            event: briefingData.event,
+            emailAccount,
+            logger,
+          });
+          if (!research) {
+            return { found: false, message: "No research results available" };
+          }
+          return { found: true, research };
+        },
+      }),
+      finalizeBriefing: tool({
+        description:
+          "Submit the final meeting briefing. Call this when you have gathered all information about all guests.",
+        inputSchema: briefingSchema,
+        execute: async (briefing) => {
+          logger.info("Finalizing briefing", {
+            guestCount: briefing.guests.length,
+          });
+          result = briefing;
+          return { success: true };
+        },
+      }),
+    },
   });
 
-  return result.object;
+  if (!result) {
+    logger.warn("No briefing result captured, returning empty briefing");
+    return { guests: [] };
+  }
+
+  return result;
 }
 
 // Exported for testing
@@ -86,14 +141,13 @@ export function buildPrompt(
     (guest) => ({
       email: guest.email,
       name: guest.name,
-      aiResearch: guest.aiResearch ?? undefined,
       recentEmails: selectRecentEmailsForGuest(allMessages, guest.email),
       recentMeetings: selectRecentMeetingsForGuest(pastMeetings, guest.email),
       timezone,
     }),
   );
 
-  const prompt = `Please prepare a concise briefing for this meeting.
+  const prompt = `Prepare a concise briefing for this upcoming meeting.
 
 <upcoming_meeting>
 Title: ${event.title}
@@ -104,7 +158,10 @@ ${event.description ? `Description: ${event.description}` : ""}
 ${guestContexts.map((guest) => formatGuestContext(guest)).join("\n")}
 </guest_context>
 
-Return the briefing as a JSON object with a "guests" array containing structured information for each guest.`;
+For each guest listed above:
+1. Review their email and meeting history provided
+2. Use the researchGuest tool to find their professional background
+3. Once you have all information, call finalizeBriefing with the complete briefing`;
 
   return prompt;
 }
@@ -114,37 +171,28 @@ type GuestContextForPrompt = {
   name?: string;
   recentEmails: ParsedMessage[];
   recentMeetings: CalendarEvent[];
-  aiResearch?: string;
   timezone: string | null;
 };
 
 function formatGuestContext(guest: GuestContextForPrompt): string {
   const recentEmails = guest.recentEmails ?? [];
   const recentMeetings = guest.recentMeetings ?? [];
-  const aiResearch = guest.aiResearch;
 
-  const hasAiResearch = Boolean(aiResearch);
   const hasEmails = recentEmails.length > 0;
   const hasMeetings = recentMeetings.length > 0;
 
   const guestHeader = `${guest.name ? `Name: ${guest.name}\n` : ""}Email: ${guest.email}`;
 
-  if (!hasAiResearch && !hasEmails && !hasMeetings) {
+  if (!hasEmails && !hasMeetings) {
     return `<guest>
 ${guestHeader}
 
-<no_prior_context>This appears to be a new contact with no prior email, meeting, or public profile history.</no_prior_context>
+<no_prior_context>This appears to be a new contact with no prior email or meeting history. Use the researchGuest tool to find information about them.</no_prior_context>
 </guest>
 `;
   }
 
   const sections: string[] = [];
-
-  if (hasAiResearch) {
-    sections.push(`<ai_research>
-${aiResearch}
-</ai_research>`);
-  }
 
   if (hasEmails) {
     sections.push(`<recent_emails>
