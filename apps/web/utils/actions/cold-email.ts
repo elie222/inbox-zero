@@ -149,7 +149,6 @@ export const testColdEmailAction = actionClient
         },
         emailAccount,
         provider: emailProvider,
-        modelType: "chat",
         coldEmailRule,
       });
 

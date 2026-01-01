@@ -796,7 +796,6 @@ describe("findMatchingRule", () => {
       message,
       emailAccount,
       provider,
-      modelType: "default",
       logger,
     });
 
@@ -819,7 +818,6 @@ describe("findMatchingRule", () => {
       message,
       emailAccount,
       provider,
-      modelType: "default",
       logger,
     });
 
@@ -842,7 +840,6 @@ describe("findMatchingRule", () => {
       message,
       emailAccount,
       provider,
-      modelType: "default",
       logger,
     });
 
@@ -874,7 +871,6 @@ describe("findMatchingRule", () => {
       message,
       emailAccount,
       provider,
-      modelType: "default",
       logger,
     });
 
@@ -925,7 +921,6 @@ describe("findMatchingRule", () => {
       message,
       emailAccount,
       provider,
-      modelType: "default",
       logger,
     });
 
@@ -972,7 +967,6 @@ describe("findMatchingRule", () => {
       message,
       emailAccount,
       provider,
-      modelType: "default",
       logger,
     });
 
@@ -1020,7 +1014,6 @@ describe("findMatchingRule", () => {
       message,
       emailAccount,
       provider,
-      modelType: "default",
       logger,
     });
 
@@ -1115,7 +1108,6 @@ describe("findMatchingRule", () => {
       message,
       emailAccount,
       provider,
-      modelType: "default",
       logger,
     });
 
@@ -1163,7 +1155,6 @@ describe("findMatchingRule", () => {
       message,
       emailAccount,
       provider,
-      modelType: "default",
       logger,
     });
 
@@ -1205,7 +1196,6 @@ describe("findMatchingRule", () => {
       message,
       emailAccount,
       provider,
-      modelType: "default",
       logger,
     });
 
@@ -1248,7 +1238,6 @@ describe("findMatchingRule", () => {
       message,
       emailAccount,
       provider,
-      modelType: "default",
       logger,
     });
 
@@ -1291,7 +1280,6 @@ describe("findMatchingRule", () => {
       message,
       emailAccount,
       provider,
-      modelType: "default",
       logger,
     });
 
@@ -1348,7 +1336,6 @@ describe("findMatchingRule", () => {
       message,
       emailAccount,
       provider,
-      modelType: "default",
       logger,
     });
 
@@ -1744,7 +1731,6 @@ describe("findMatchingRules - Integration Tests", () => {
       message,
       emailAccount,
       provider,
-      modelType: "default",
       logger,
     });
 
@@ -1754,7 +1740,6 @@ describe("findMatchingRules - Integration Tests", () => {
       email: expect.any(Object),
       emailAccount,
       provider,
-      modelType: "default",
       coldEmailRule,
     });
 
@@ -1787,7 +1772,6 @@ describe("findMatchingRules - Integration Tests", () => {
       message,
       emailAccount,
       provider,
-      modelType: "default",
       logger,
     });
 
@@ -1828,7 +1812,6 @@ describe("findMatchingRules - Integration Tests", () => {
       message,
       emailAccount,
       provider,
-      modelType: "default",
       logger,
     });
 
@@ -1869,7 +1852,6 @@ describe("findMatchingRules - Integration Tests", () => {
       message,
       emailAccount,
       provider,
-      modelType: "default",
       logger,
     });
 
@@ -1903,7 +1885,6 @@ describe("findMatchingRules - Integration Tests", () => {
       message,
       emailAccount,
       provider,
-      modelType: "default",
       logger,
     });
 
@@ -1911,7 +1892,6 @@ describe("findMatchingRules - Integration Tests", () => {
       expect.objectContaining({
         email: expect.any(Object),
         emailAccount,
-        modelType: "default",
         rules: expect.arrayContaining([
           expect.objectContaining({
             id: "ai-rule",
@@ -1960,7 +1940,6 @@ describe("findMatchingRules - Integration Tests", () => {
       message,
       emailAccount,
       provider,
-      modelType: "default",
       logger,
     });
 
@@ -2000,7 +1979,6 @@ describe("findMatchingRules - Integration Tests", () => {
       message,
       emailAccount,
       provider: threadProvider,
-      modelType: "default",
       logger,
     });
 
@@ -2114,7 +2092,6 @@ describe("findMatchingRules - Integration Tests", () => {
         message,
         emailAccount,
         provider: providerNoThread,
-        modelType: "default",
         logger,
       });
 
@@ -2152,7 +2129,6 @@ describe("findMatchingRules - Integration Tests", () => {
         message,
         emailAccount,
         provider: threadProvider,
-        modelType: "default",
         logger,
       });
 
@@ -2193,7 +2169,6 @@ describe("findMatchingRules - Integration Tests", () => {
         message,
         emailAccount,
         provider: threadProvider,
-        modelType: "default",
         logger,
       });
 
@@ -2226,7 +2201,6 @@ describe("findMatchingRules - Integration Tests", () => {
         message,
         emailAccount,
         provider: providerNotThread,
-        modelType: "default",
         logger,
       });
 
@@ -2258,7 +2232,6 @@ describe("findMatchingRules - Integration Tests", () => {
         message,
         emailAccount,
         provider: threadProvider,
-        modelType: "default",
         logger,
       });
 
@@ -2307,7 +2280,6 @@ describe("findMatchingRules - Integration Tests", () => {
       message,
       emailAccount,
       provider,
-      modelType: "default",
       logger,
     });
 
@@ -2340,7 +2312,6 @@ describe("findMatchingRules - Integration Tests", () => {
       message,
       emailAccount,
       provider,
-      modelType: "default",
       logger,
     });
 
@@ -2401,7 +2372,6 @@ describe("findMatchingRules - Integration Tests", () => {
       message,
       emailAccount,
       provider,
-      modelType: "default",
       logger,
     });
 
@@ -2435,7 +2405,6 @@ describe("findMatchingRules - Integration Tests", () => {
         message,
         emailAccount,
         provider,
-        modelType: "default",
         logger,
       });
 

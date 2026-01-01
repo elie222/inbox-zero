@@ -24,7 +24,6 @@ import { extractEmailAddress } from "@/utils/email";
 import { hasIcsAttachment } from "@/utils/parse/calender-event";
 import { checkSenderReplyHistory } from "@/utils/reply-tracker/check-sender-reply-history";
 import type { EmailProvider } from "@/utils/email/types";
-import type { ModelType } from "@/utils/llms/model";
 import {
   getColdEmailRule,
   isColdEmailRuleEnabled,
@@ -49,14 +48,12 @@ export async function findMatchingRules({
   message,
   emailAccount,
   provider,
-  modelType,
   logger: log,
 }: {
   rules: RuleWithActions[];
   message: ParsedMessage;
   emailAccount: EmailAccountWithAI;
   provider: EmailProvider;
-  modelType: ModelType;
   logger: Logger;
 }): Promise<MatchingRulesResult> {
   const logger = log.with({ module: MODULE });
@@ -67,7 +64,6 @@ export async function findMatchingRules({
       email: getEmailForLLM(message),
       emailAccount,
       provider,
-      modelType,
       coldEmailRule,
     });
 
@@ -99,7 +95,6 @@ export async function findMatchingRules({
     message,
     emailAccount,
     provider,
-    modelType,
     logger,
   );
 
@@ -372,7 +367,6 @@ async function findMatchingRulesWithReasons(
   message: ParsedMessage,
   emailAccount: EmailAccountWithAI,
   provider: EmailProvider,
-  modelType: ModelType,
   logger: Logger,
 ): Promise<MatchingRulesResult> {
   const isThread = provider.isReplyInThread(message);
@@ -391,7 +385,6 @@ async function findMatchingRulesWithReasons(
       email: getEmailForLLM(message),
       rules: potentialAiMatches,
       emailAccount,
-      modelType,
     });
 
     const result = {

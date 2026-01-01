@@ -20,6 +20,7 @@ Limit your response to no more than 200 characters, but make sure to construct c
 
   const response = await chatCompletionStream({
     userAi: user.user,
+    operationId: "assistant.chat",
     messages: [
       {
         role: "system",
