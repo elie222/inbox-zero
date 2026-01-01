@@ -18,7 +18,7 @@ import {
 } from "lucide-react";
 import type { Command } from "@/lib/commands/types";
 import { useRules } from "@/hooks/useRules";
-import { useUser } from "@/providers/UserProvider";
+import { useUser } from "@/hooks/useUser";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { prefixPath } from "@/utils/path";
 
