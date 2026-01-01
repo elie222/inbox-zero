@@ -105,7 +105,45 @@ export async function runRules({
     logger,
   });
 
-  const finalMatches = limitDraftEmailActions(conversationAwareMatches, logger);
+  // Separate regular matches from conversation meta-rule
+  const regularMatches = conversationAwareMatches.filter(
+    (m) => !isConversationRule(m.rule.id),
+  );
+  const conversationMatch = conversationAwareMatches.find((m) =>
+    isConversationRule(m.rule.id),
+  );
+
+  // Resolve conversation meta-rule to actual rule (e.g., TO_REPLY)
+  const matchesWithFlags: {
+    rule: RuleWithActions;
+    matchReasons?: MatchReason[];
+    resolvedReason?: string;
+    isConversationRule: boolean;
+  }[] = regularMatches.map((m) => ({
+    ...m,
+    isConversationRule: false,
+  }));
+
+  if (conversationMatch) {
+    const { rule, reason } = await determineConversationStatus({
+      conversationRules,
+      message,
+      emailAccount,
+      provider,
+      modelType,
+      isTest,
+    });
+    if (rule) {
+      matchesWithFlags.push({
+        rule,
+        matchReasons: conversationMatch.matchReasons,
+        resolvedReason: reason,
+        isConversationRule: true,
+      });
+    }
+  }
+
+  const finalMatches = limitDraftEmailActions(matchesWithFlags, logger);
 
   logger.trace("Matching rule", () => ({
     module: MODULE,
@@ -141,35 +179,10 @@ export async function runRules({
   const executedRules: RunRulesResult[] = [];
 
   for (const result of finalMatches) {
-    let ruleToExecute = result.rule;
-    let reasonToUse = results.reasoning;
+    const ruleToExecute = result.rule;
+    const reasonToUse = result.resolvedReason || results.reasoning;
 
-    if (result.rule && isConversationRule(result.rule.id)) {
-      const { rule: statusRule, reason: statusReason } =
-        await determineConversationStatus({
-          conversationRules,
-          message,
-          emailAccount,
-          provider,
-          modelType,
-          isTest,
-        });
-
-      if (!statusRule) {
-        const executedRule: RunRulesResult = {
-          rule: null,
-          reason: statusReason || "No enabled conversation status rule found",
-          createdAt: batchTimestamp,
-          status: ExecutedRuleStatus.SKIPPED,
-        };
-
-        executedRules.push(executedRule);
-        continue;
-      }
-
-      ruleToExecute = statusRule;
-      reasonToUse = statusReason;
-    } else {
+    if (!result.isConversationRule) {
       analyzeSenderPatternIfAiMatch({
         isTest,
         result,
@@ -571,16 +584,9 @@ function isConversationRule(ruleId: string): boolean {
  * If there are no draft email actions, we return the matches as is.
  * If there is only one draft email action, we return the matches as is.
  */
-export function limitDraftEmailActions(
-  matches: {
-    rule: RuleWithActions;
-    matchReasons?: MatchReason[];
-  }[],
-  logger: Logger,
-): {
-  rule: RuleWithActions;
-  matchReasons?: MatchReason[];
-}[] {
+export function limitDraftEmailActions<
+  T extends { rule: RuleWithActions; matchReasons?: MatchReason[] },
+>(matches: T[], logger: Logger): T[] {
   const draftCandidates = matches.flatMap((match) =>
     match.rule.actions
       .filter((action) => action.type === ActionType.DRAFT_EMAIL)
