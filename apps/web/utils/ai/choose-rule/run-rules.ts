@@ -124,6 +124,8 @@ export async function runRules({
     isConversationRule: false,
   }));
 
+  let skippedConversationReason: string | undefined;
+
   if (conversationMatch) {
     const { rule, reason } = await determineConversationStatus({
       conversationRules,
@@ -140,6 +142,9 @@ export async function runRules({
         resolvedReason: reason,
         isConversationRule: true,
       });
+    } else {
+      // Track why conversation rule was skipped (e.g., determined FYI but rule disabled)
+      skippedConversationReason = reason;
     }
   }
 
@@ -151,7 +156,8 @@ export async function runRules({
   }));
 
   if (!finalMatches.length) {
-    const reason = results.reasoning || "No rules matched";
+    const reason =
+      skippedConversationReason || results.reasoning || "No rules matched";
     if (!isTest) {
       await prisma.executedRule.create({
         data: {
