@@ -42,7 +42,7 @@ export async function aiAnalyzeRecipientProfile(options: {
   const { sentEmails, recipientEmail, emailAccount } = options;
 
   if (sentEmails.length < 2) {
-    logger.debug("Insufficient emails for recipient profile analysis", {
+    logger.trace("Insufficient emails for recipient profile analysis", {
       recipientEmail,
       emailCount: sentEmails.length,
     });
