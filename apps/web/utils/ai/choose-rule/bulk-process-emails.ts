@@ -4,7 +4,7 @@ import { runRules } from "@/utils/ai/choose-rule/run-rules";
 import type { Logger } from "@/utils/logger";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import type { ParsedMessage } from "@/utils/types";
-import type { Rule, Action } from "@prisma/client";
+import type { Rule, Action } from "@/generated/prisma/client";
 import { analyzeAndSetExpiration } from "@/utils/expiration/analyze-expiration";
 
 // Parallel processing concurrency - adjust based on your LLM endpoint capacity

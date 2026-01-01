@@ -244,18 +244,35 @@ export class OutlookProvider implements EmailProvider {
       .map((message: Message) => convertMessage(message, folderIds));
   }
 
-  async getInboxMessages(maxResults = 20): Promise<ParsedMessage[]> {
+  async getInboxMessages(options?: {
+    maxResults?: number;
+    after?: Date;
+    before?: Date;
+  }): Promise<ParsedMessage[]> {
+    const { maxResults = 20, after, before } = options || {};
     const folderIds = await getFolderIds(this.client, this.logger);
 
+    const filters: string[] = [];
+    if (after) {
+      filters.push(`receivedDateTime ge ${after.toISOString()}`);
+    }
+    if (before) {
+      filters.push(`receivedDateTime le ${before.toISOString()}`);
+    }
+
+    let request = this.client
+      .getClient()
+      .api("/me/mailFolders('inbox')/messages")
+      .select(MESSAGE_SELECT_FIELDS)
+      .top(maxResults)
+      .orderby("receivedDateTime desc");
+
+    if (filters.length > 0) {
+      request = request.filter(filters.join(" and "));
+    }
+
     const response: { value: Message[] } = await withOutlookRetry(
-      () =>
-        this.client
-          .getClient()
-          .api("/me/mailFolders('inbox')/messages")
-          .select(MESSAGE_SELECT_FIELDS)
-          .top(maxResults)
-          .orderby("receivedDateTime desc")
-          .get(),
+      () => request.get(),
       this.logger,
     );
 

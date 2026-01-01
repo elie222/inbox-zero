@@ -44,7 +44,7 @@ async function fetchReceivedEmails(
   targetCount: number,
 ): Promise<ParsedMessage[]> {
   try {
-    return await emailProvider.getInboxMessages(targetCount);
+    return await emailProvider.getInboxMessages({ maxResults: targetCount });
   } catch (error) {
     logger.error("Error fetching inbox emails", { error });
     return [];
