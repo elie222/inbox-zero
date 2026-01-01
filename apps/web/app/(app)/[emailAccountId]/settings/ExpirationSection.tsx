@@ -11,7 +11,6 @@ import { Input } from "@/components/Input";
 import { Toggle } from "@/components/Toggle";
 import { toastError, toastSuccess } from "@/components/Toast";
 import { useAccount } from "@/providers/EmailAccountProvider";
-import { postRequest } from "@/utils/api";
 import type { ExpirationSettingsResponse } from "@/app/api/user/expiration-settings/route";
 import { LoadingContent } from "@/components/LoadingContent";
 
@@ -118,18 +117,25 @@ export function ExpirationSection() {
 
   const onSubmit: SubmitHandler<FormValues> = useCallback(
     async (formData) => {
-      const res = await postRequest<
-        ExpirationSettingsResponse,
-        Partial<FormValues>
-      >("/api/user/expiration-settings", formData);
+      try {
+        const res = await fetch("/api/user/expiration-settings", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(formData),
+        });
 
-      if ("error" in res) {
+        if (!res.ok) {
+          toastError({
+            description: "There was an error saving settings.",
+          });
+        } else {
+          toastSuccess({ description: "Expiration settings saved!" });
+          mutate();
+        }
+      } catch {
         toastError({
           description: "There was an error saving settings.",
         });
-      } else {
-        toastSuccess({ description: "Expiration settings saved!" });
-        mutate();
       }
     },
     [mutate],
@@ -215,11 +221,12 @@ export function ExpirationSection() {
                           <div className="flex items-center gap-2">
                             <Input
                               type="number"
+                              name={category.field}
                               className="w-20"
                               min={1}
                               max={category.id === "CALENDAR" ? 30 : 365}
                               disabled={!isEnabled}
-                              {...register(category.field, {
+                              registerProps={register(category.field, {
                                 valueAsNumber: true,
                               })}
                             />
