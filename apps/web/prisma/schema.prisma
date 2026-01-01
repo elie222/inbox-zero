@@ -25,6 +25,7 @@ model Account {
   refreshTokenExpiresAt DateTime?
   access_token          String?       @db.Text
   expires_at            DateTime?     @default(now())
+  disconnectedAt        DateTime? // When OAuth tokens were invalidated (password change, revoked access)
   token_type            String?
   scope                 String?
   id_token              String?       @db.Text

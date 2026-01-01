@@ -1,7 +1,13 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 import type { MeetingBriefingData } from "@/utils/meeting-briefs/gather-context";
 
 vi.mock("server-only", () => ({}));
+vi.mock("@/env", () => ({
+  env: {
+    PERPLEXITY_API_KEY: "test-key",
+    DEFAULT_LLM_PROVIDER: "openai",
+  },
+}));
 vi.mock("@/utils/llms/model", () => ({ getModel: vi.fn() }));
 vi.mock("@/utils/llms", () => ({ createGenerateObject: vi.fn() }));
 vi.mock("@/utils/stringify-email", () => ({
@@ -21,6 +27,10 @@ vi.mock("@/utils/get-email-from-message", () => ({
 vi.doUnmock("@/utils/date");
 
 import { buildPrompt } from "./generate-briefing";
+
+beforeEach(() => {
+  vi.clearAllMocks();
+});
 
 describe("buildPrompt timezone handling", () => {
   it("formats past meeting times in the user's timezone (not UTC)", () => {

@@ -96,7 +96,9 @@ export function mergeAndDedupeRecipients(
   manual: string | undefined,
 ): string[] {
   const result = [...existing];
-  const seen = new Set(existing.map((e) => extractEmailAddress(e).toLowerCase()));
+  const seen = new Set(
+    existing.map((e) => extractEmailAddress(e).toLowerCase()),
+  );
 
   if (manual) {
     const manualEntries = manual

@@ -6,7 +6,6 @@ import { createScopedLogger } from "@/utils/logger";
 
 const logger = createScopedLogger("test");
 
-// Mock dependencies
 vi.mock("@/utils/premium");
 vi.mock("@/app/api/watch/controller");
 vi.mock("@/utils/email/provider");
@@ -14,7 +13,6 @@ vi.mock("@/utils/email/watch-manager");
 vi.mock("@/utils/prisma");
 vi.mock("server-only", () => ({}));
 
-// Import mocked functions
 import { isPremium, hasAiAccess } from "@/utils/premium";
 import { unwatchEmails } from "@/utils/email/watch-manager";
 import { createEmailProvider } from "@/utils/email/provider";
@@ -48,6 +46,7 @@ describe("validateWebhookAccount", () => {
         access_token: "access-token",
         refresh_token: "refresh-token",
         expires_at: new Date(),
+        disconnectedAt: null,
       },
       rules: [
         {
@@ -89,6 +88,27 @@ describe("validateWebhookAccount", () => {
   describe("when emailAccount is null", () => {
     it("should return failure with error logged", async () => {
       const result = await validateWebhookAccount(null, logger);
+
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(await result.response.json()).toEqual({ ok: true });
+      }
+    });
+  });
+
+  describe("when account is disconnected", () => {
+    it("should return failure with 200 OK early", async () => {
+      const emailAccount = createMockEmailAccount({
+        account: {
+          provider: "google",
+          access_token: "access-token",
+          refresh_token: "refresh-token",
+          expires_at: new Date(),
+          disconnectedAt: new Date(),
+        },
+      });
+
+      const result = await validateWebhookAccount(emailAccount, logger);
 
       expect(result.success).toBe(false);
       if (!result.success) {
@@ -181,6 +201,7 @@ describe("validateWebhookAccount", () => {
           access_token: null,
           refresh_token: "refresh-token",
           expires_at: new Date(),
+          disconnectedAt: null,
         },
       });
 
@@ -204,6 +225,7 @@ describe("validateWebhookAccount", () => {
           access_token: "access-token",
           refresh_token: null,
           expires_at: new Date(),
+          disconnectedAt: null,
         },
       });
 

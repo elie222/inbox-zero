@@ -1,5 +1,9 @@
 import { describe, it, expect } from "vitest";
-import { buildReplyAllRecipients, formatCcList, mergeAndDedupeRecipients } from "./reply-all";
+import {
+  buildReplyAllRecipients,
+  formatCcList,
+  mergeAndDedupeRecipients,
+} from "./reply-all";
 import type { ParsedMessageHeaders } from "@/utils/types";
 
 describe("buildReplyAllRecipients", () => {
