@@ -77,7 +77,7 @@ describe("buildPrompt", () => {
     const prompt = buildPrompt(data, null);
 
     expect(prompt).toContain("<no_prior_context>");
-    expect(prompt).toContain("new contact");
+    expect(prompt).toContain("New Contact");
   });
 
   test("includes recent emails for guest with email history", () => {
@@ -472,21 +472,21 @@ describe.runIf(isAiTest)(
 );
 
 function prettyPrintBriefing(result: BriefingContent, meetingTitle: string) {
-  console.log(`\n${"=".repeat(80)}`);
-  console.log("BRIEFING OUTPUT (The bits for the email):");
-  console.log("=".repeat(80));
-  console.log(JSON.stringify(result, null, 2));
+  console.debug(`\n${"=".repeat(80)}`);
+  console.debug("BRIEFING OUTPUT (The bits for the email):");
+  console.debug("=".repeat(80));
+  console.debug(JSON.stringify(result, null, 2));
 
-  console.log(`\n${"=".repeat(80)}`);
-  console.log("HUMAN READABLE VIEW:");
-  console.log("=".repeat(80));
-  console.log(`Meeting: ${meetingTitle}`);
-  console.log("\nGuests:");
+  console.debug(`\n${"=".repeat(80)}`);
+  console.debug("HUMAN READABLE VIEW:");
+  console.debug("=".repeat(80));
+  console.debug(`Meeting: ${meetingTitle}`);
+  console.debug("\nGuests:");
   for (const guest of result.guests) {
-    console.log(`\n  ${guest.name} (${guest.email})`);
+    console.debug(`\n  ${guest.name} (${guest.email})`);
     for (const bullet of guest.bullets) {
-      console.log(`    - ${bullet}`);
+      console.debug(`    - ${bullet}`);
     }
   }
-  console.log(`${"=".repeat(80)}\n`);
+  console.debug(`${"=".repeat(80)}\n`);
 }
