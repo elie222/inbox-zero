@@ -2,7 +2,7 @@ import { z } from "zod";
 import { createGenerateObject } from "@/utils/llms";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import type { EmailSummary } from "@/utils/ai/report/summarize-emails";
-import { getModel } from "@/utils/llms/model";
+import { getModelForOperation } from "@/utils/llms/resolve-model";
 
 const userPersonaSchema = z.object({
   professionalIdentity: z.object({
@@ -34,7 +34,7 @@ Focus on understanding the user's role and what they're currently focused on pro
 
   const prompt = `### Input Data
 
-**Received Email Summaries:**  
+**Received Email Summaries:**
 ${emailSummaries.map((summary, index) => `Email ${index + 1} Summary: ${summary.summary} (Category: ${summary.category})`).join("\n")}
 
 ${
@@ -46,7 +46,7 @@ ${sentEmailSummaries.map((summary, index) => `Sent ${index + 1} Summary: ${summa
     : ""
 }
 
-**User's Signature:**  
+**User's Signature:**
 ${gmailSignature || "[No signature data available – analyze based on email content only]"}
 
 ${
@@ -64,7 +64,10 @@ Analyze the data and identify:
 1. **Professional Identity**: What is their role and what evidence supports this?
 2. **Current Priorities**: What are they focused on professionally based on email content?`;
 
-  const modelOptions = getModel(emailAccount.user);
+  const modelOptions = getModelForOperation(
+    emailAccount.user,
+    "report.build-persona",
+  );
 
   const generateObject = createGenerateObject({
     emailAccount,

@@ -2,7 +2,7 @@ import { stepCountIs, type ToolSet } from "ai";
 import { createGenerateText } from "@/utils/llms";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import { createMcpToolsForAgent } from "@/utils/ai/mcp/mcp-tools";
-import { getModel } from "@/utils/llms/model";
+import { getModelForOperation } from "@/utils/llms/resolve-model";
 import type { EmailForLLM } from "@/utils/types";
 import { getEmailListPrompt, getUserInfoPrompt } from "@/utils/ai/helpers";
 import { createScopedLogger } from "@/utils/logger";
@@ -34,7 +34,7 @@ async function runMcpAgent(
   const system = `You are a research assistant. Use your tools to search for relevant information about the email sender and topic.
 
 SEARCH FOR:
-- Sender's name, email, company in CRM/customer databases  
+- Sender's name, email, company in CRM/customer databases
 - Technical documentation if it's a technical question
 - Billing information if it's about payments/subscriptions
 - Product information if about features/services
@@ -55,7 +55,7 @@ The last emails in the thread are:
 ${getEmailListPrompt({ messages, messageMaxLength: 1000, maxMessages: 5 })}
 </thread>`;
 
-  const modelOptions = getModel(emailAccount.user, "economy");
+  const modelOptions = getModelForOperation(emailAccount.user, "mcp.agent");
 
   const generateText = createGenerateText({
     emailAccount,

@@ -8,7 +8,7 @@ import type { EmailAccountWithAI } from "@/utils/llms/types";
 import type { EmailForLLM, RuleWithActions } from "@/utils/types";
 import { LogicalOperator } from "@/generated/prisma/enums";
 import type { ActionType } from "@/generated/prisma/enums";
-import { getModel, type ModelType } from "@/utils/llms/model";
+import { getModelForOperation } from "@/utils/llms/resolve-model";
 import { getUserInfoPrompt } from "@/utils/ai/helpers";
 
 /**
@@ -49,7 +49,6 @@ export async function aiGenerateArgs({
   emailAccount,
   selectedRule,
   parameters,
-  modelType,
   logger,
 }: {
   email: EmailForLLM;
@@ -62,7 +61,6 @@ export async function aiGenerateArgs({
       Record<string, z.ZodObject<Record<string, z.ZodString>>>
     >;
   }[];
-  modelType: ModelType;
   logger: Logger;
 }): Promise<ActionArgResponse | undefined> {
   logger.info("Generating args for rule");
@@ -79,7 +77,10 @@ export async function aiGenerateArgs({
   logger.info("Calling chat completion tools");
   // logger.trace("Parameters:", zodToJsonSchema(parameters));
 
-  const modelOptions = getModel(emailAccount.user, modelType);
+  const modelOptions = getModelForOperation(
+    emailAccount.user,
+    "rule.choose-args",
+  );
 
   const generateObject = createGenerateObject({
     label: "Args for rule",

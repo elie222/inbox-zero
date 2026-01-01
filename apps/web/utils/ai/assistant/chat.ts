@@ -685,7 +685,7 @@ export async function aiProcessAssistantChat({
   logger: Logger;
 }) {
   const system = `You are an assistant that helps create and update rules to manage a user's inbox. Our platform is called Inbox Zero.
-  
+
 You can't perform any actions on their inbox.
 You can only adjust the rules that manage the inbox.
 
@@ -968,7 +968,7 @@ Examples:
   const result = chatCompletionStream({
     userAi: user.user,
     userEmail: user.email,
-    modelType: "chat",
+    operationId: "assistant.chat",
     usageLabel: "assistant-chat",
     messages: [
       {

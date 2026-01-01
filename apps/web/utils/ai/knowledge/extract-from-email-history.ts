@@ -4,7 +4,7 @@ import type { EmailAccountWithAI } from "@/utils/llms/types";
 import type { EmailForLLM } from "@/utils/types";
 import { getEmailListPrompt, getTodayForLLM } from "@/utils/ai/helpers";
 import { preprocessBooleanLike } from "@/utils/zod";
-import { getModel } from "@/utils/llms/model";
+import { getModelForOperation } from "@/utils/llms/resolve-model";
 import { createGenerateObject } from "@/utils/llms";
 import { getUserInfoPrompt } from "@/utils/ai/helpers";
 
@@ -87,7 +87,10 @@ export async function aiExtractFromEmailHistory({
       emailAccount,
     });
 
-    const modelOptions = getModel(emailAccount.user, "economy");
+    const modelOptions = getModelForOperation(
+      emailAccount.user,
+      "knowledge.extract-from-history",
+    );
 
     const generateObject = createGenerateObject({
       emailAccount,

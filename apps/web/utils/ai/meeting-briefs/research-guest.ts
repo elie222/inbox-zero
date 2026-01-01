@@ -11,7 +11,8 @@ import {
   setCachedPerplexityResearch,
 } from "@/utils/redis/perplexity-research";
 import type { CalendarEvent } from "@/utils/calendar/event-types";
-import { getModel, type SelectModel } from "@/utils/llms/model";
+import { getModelForOperation } from "@/utils/llms/resolve-model";
+import type { SelectModel } from "@/utils/llms/model";
 import { Provider } from "@/utils/llms/config";
 
 export async function researchGuestWithPerplexity({
@@ -119,12 +120,15 @@ function getLlmModel(
   }
 
   if (env.DEFAULT_LLM_PROVIDER === Provider.OPENROUTER) {
-    return { ...getModel(userAi, "economy", true), tools: {} };
+    return {
+      ...getModelForOperation(userAi, "meeting.research-guest", true),
+      tools: {},
+    };
   }
 
   if (env.DEFAULT_LLM_PROVIDER === Provider.OPEN_AI) {
     return {
-      ...getModel(userAi, "economy"),
+      ...getModelForOperation(userAi, "meeting.research-guest"),
       tools: {
         web_search: openai.tools.webSearch({}),
       },
@@ -133,7 +137,7 @@ function getLlmModel(
 
   if (env.DEFAULT_LLM_PROVIDER === Provider.GOOGLE) {
     return {
-      ...getModel(userAi, "economy"),
+      ...getModelForOperation(userAi, "meeting.research-guest"),
       tools: {
         google_search: google.tools.googleSearch({}),
       },

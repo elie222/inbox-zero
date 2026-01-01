@@ -4,7 +4,7 @@ import { createGenerateObject } from "@/utils/llms";
 import type { EmailForLLM } from "@/utils/types";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import { sleep } from "@/utils/sleep";
-import { getModel } from "@/utils/llms/model";
+import { getModelForOperation } from "@/utils/llms/resolve-model";
 import { getEmailListPrompt } from "@/utils/ai/helpers";
 
 const logger = createScopedLogger("email-report-summarize-emails");
@@ -61,9 +61,9 @@ async function processEmailBatch(
   const system = `You are an assistant that processes user emails to extract their core meaning for later analysis.
 
 For each email, write a **factual summary of 3–5 sentences** that clearly describes:
-- The main topic or purpose of the email  
-- What the sender wants, requests, or informs  
-- Any relevant secondary detail (e.g., urgency, timing, sender role, or context)  
+- The main topic or purpose of the email
+- What the sender wants, requests, or informs
+- Any relevant secondary detail (e.g., urgency, timing, sender role, or context)
 - Optional: mention tools, platforms, or projects if they help clarify the email's purpose
 
 **Important Rules:**
@@ -80,7 +80,10 @@ ${getEmailListPrompt({ messages: emails, messageMaxLength: 2000 })}
 
 Return the analysis as a JSON array of objects.`;
 
-  const modelOptions = getModel(emailAccount.user, "economy");
+  const modelOptions = getModelForOperation(
+    emailAccount.user,
+    "report.summarize-emails",
+  );
 
   const generateObject = createGenerateObject({
     emailAccount,

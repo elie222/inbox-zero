@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { createGenerateObject } from "@/utils/llms";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
-import { getModel } from "@/utils/llms/model";
+import { getModelForOperation } from "@/utils/llms/resolve-model";
 import { getUserInfoPrompt } from "@/utils/ai/helpers";
 
 const parameters = z.object({
@@ -103,7 +103,10 @@ Your response should only include the list of general rules. Aim for 3-10 broadl
 
 IMPORTANT: Do not create overly specific rules that only occur on a one off basis.`;
 
-  const modelOptions = getModel(emailAccount.user, "chat");
+  const modelOptions = getModelForOperation(
+    emailAccount.user,
+    "rule.generate-prompt",
+  );
 
   const generateObject = createGenerateObject({
     emailAccount,

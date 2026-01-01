@@ -4,9 +4,9 @@ import type { gmail_v1 } from "@googleapis/gmail";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import type { EmailSummary } from "@/utils/ai/report/summarize-emails";
 import { createScopedLogger } from "@/utils/logger";
-import { getModel } from "@/utils/llms/model";
+import { getModelForOperation } from "@/utils/llms/resolve-model";
 
-const logger = createScopedLogger("email-report-executive-summary");
+const _logger = createScopedLogger("email-report-executive-summary");
 
 const executiveSummarySchema = z.object({
   userProfile: z.object({
@@ -61,7 +61,7 @@ CRITICAL: The persona must be a specific, recognizable professional role that cl
 
 Examples of GOOD personas:
 - "Startup Founder"
-- "Software Developer" 
+- "Software Developer"
 - "Real Estate Agent"
 - "Marketing Manager"
 - "Sales Executive"
@@ -137,7 +137,10 @@ Generate:
 3. **Top insights** about their email behavior
 4. **Quick actions** for immediate improvement`;
 
-  const modelOptions = getModel(emailAccount.user);
+  const modelOptions = getModelForOperation(
+    emailAccount.user,
+    "report.generate-summary",
+  );
 
   const generateObject = createGenerateObject({
     emailAccount,

@@ -2,7 +2,7 @@ import { z } from "zod";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import type { Category } from "@/generated/prisma/client";
 import { formatCategoriesForPrompt } from "@/utils/ai/categorize-sender/format-categories";
-import { getModel } from "@/utils/llms/model";
+import { getModelForOperation } from "@/utils/llms/resolve-model";
 import { createGenerateObject } from "@/utils/llms";
 
 export async function aiCategorizeSender({
@@ -46,7 +46,10 @@ ${formatCategoriesForPrompt(categories)}
 6. Return your response in JSON format.
 </instructions>`;
 
-  const modelOptions = getModel(emailAccount.user);
+  const modelOptions = getModelForOperation(
+    emailAccount.user,
+    "categorize.sender-single",
+  );
 
   const generateObject = createGenerateObject({
     emailAccount,

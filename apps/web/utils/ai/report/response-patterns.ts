@@ -3,9 +3,9 @@ import { createGenerateObject } from "@/utils/llms";
 import type { EmailSummary } from "@/utils/ai/report/summarize-emails";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import { createScopedLogger } from "@/utils/logger";
-import { getModel } from "@/utils/llms/model";
+import { getModelForOperation } from "@/utils/llms/resolve-model";
 
-const logger = createScopedLogger("email-report-response-patterns");
+const _logger = createScopedLogger("email-report-response-patterns");
 
 const responsePatternsSchema = z.object({
   commonResponses: z.array(
@@ -62,7 +62,7 @@ Only suggest categories that are meaningful and provide clear organizational val
 
   const prompt = `### Input Data
 
-**Received Email Summaries:**  
+**Received Email Summaries:**
 ${emailSummaries.map((summary, index) => `Email ${index + 1}: ${summary.summary} (Category: ${summary.category})`).join("\n")}
 
 ${
@@ -88,7 +88,10 @@ For email categorization, create simple, practical categories based on actual em
 
 Only suggest categories that are meaningful and provide clear organizational value. If emails don't fit into meaningful categories, don't create categories for them.`;
 
-  const modelOptions = getModel(emailAccount.user);
+  const modelOptions = getModelForOperation(
+    emailAccount.user,
+    "report.analyze-response-patterns",
+  );
 
   const generateObject = createGenerateObject({
     emailAccount,

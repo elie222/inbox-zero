@@ -1,7 +1,7 @@
 import z from "zod";
 import { createPatch } from "diff";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
-import { getModel } from "@/utils/llms/model";
+import { getModelForOperation } from "@/utils/llms/resolve-model";
 import { createGenerateObject } from "@/utils/llms";
 
 export async function aiDiffRules({
@@ -57,7 +57,7 @@ Return the result in JSON format. Do not include any other text in your response
 </example>
 `;
 
-  const modelOptions = getModel(emailAccount.user, "chat");
+  const modelOptions = getModelForOperation(emailAccount.user, "rule.diff");
 
   const generateObject = createGenerateObject({
     emailAccount,

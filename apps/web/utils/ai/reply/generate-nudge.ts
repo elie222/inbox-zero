@@ -2,7 +2,7 @@ import { createGenerateText } from "@/utils/llms";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import type { EmailForLLM } from "@/utils/types";
 import { getEmailListPrompt, getTodayForLLM } from "@/utils/ai/helpers";
-import { getModel } from "@/utils/llms/model";
+import { getModelForOperation } from "@/utils/llms/resolve-model";
 
 export async function aiGenerateNudge({
   messages,
@@ -22,13 +22,16 @@ Keep it short.`;
 
   const prompt = `Here is the context of the email thread (from oldest to newest):
 ${getEmailListPrompt({ messages, messageMaxLength: 3000 })}
-     
+
 Write a brief follow-up email to politely nudge for a response.
 
 ${getTodayForLLM()}
 IMPORTANT: The person you're writing an email for is: ${messages.at(-1)?.from}.`;
 
-  const modelOptions = getModel(emailAccount.user, "chat");
+  const modelOptions = getModelForOperation(
+    emailAccount.user,
+    "reply.generate-nudge",
+  );
 
   const generateText = createGenerateText({
     label: "Reply",

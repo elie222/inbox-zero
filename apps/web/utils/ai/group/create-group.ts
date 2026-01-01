@@ -6,7 +6,7 @@ import type { Group } from "@/generated/prisma/client";
 import { queryBatchMessages } from "@/utils/gmail/message";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import { createScopedLogger } from "@/utils/logger";
-import { getModel } from "@/utils/llms/model";
+import { getModelForOperation } from "@/utils/llms/resolve-model";
 
 const logger = createScopedLogger("aiCreateGroup");
 
@@ -69,7 +69,7 @@ Both arrays can be empty if no reliable patterns are found.`;
 
   const prompt = `Create an email group named "${group.name}".
 The prompt is: "${group.prompt}".
-  
+
 Key guidelines:
 1. Carefully analyze and follow ALL aspects of the user's prompt, including any specific inclusions or exclusions.
 2. Base suggestions on the user's actual email history.
@@ -81,7 +81,7 @@ Key guidelines:
 8. It's better to suggest fewer, more reliable criteria than to risk overgeneralization.
 9. If the user explicitly excludes certain types of emails, ensure your suggestions do not include them.`;
 
-  const modelOptions = getModel(emailAccount.user);
+  const modelOptions = getModelForOperation(emailAccount.user, "group.create");
 
   const generateText = createGenerateText({
     emailAccount,
@@ -151,7 +151,7 @@ Guidelines:
 5. If all items are correct and specific, you can return empty arrays for removedSenders and removedSubjects.
 6. When using listEmails, make separate calls for each sender and subject. Do not combine them in a single query.`;
 
-  const modelOptions = getModel(emailAccount.user);
+  const modelOptions = getModelForOperation(emailAccount.user, "group.create");
 
   const generateText = createGenerateText({
     emailAccount,

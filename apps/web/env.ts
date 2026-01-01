@@ -43,6 +43,63 @@ export const env = createEnv({
     CHAT_LLM_PROVIDER: llmProviderEnum.optional(),
     CHAT_LLM_MODEL: z.string().optional(),
     CHAT_OPENROUTER_PROVIDERS: z.string().optional(), // Comma-separated list of OpenRouter providers for chat (e.g., "Google Vertex,Anthropic")
+    // Per-operation LLM tier overrides as JSON (e.g., {"rule.match-email":"reasoning","digest.summarize-email":"economy"})
+    // Valid tiers: "reasoning", "fast", "economy"
+    LLM_OPERATION_OVERRIDES: z
+      .string()
+      .optional()
+      .transform(
+        (
+          value,
+        ): Record<string, "reasoning" | "fast" | "economy"> | undefined => {
+          if (!value) return undefined;
+
+          // parse JSON
+          let parsed: unknown;
+          try {
+            parsed = JSON.parse(value);
+          } catch (error) {
+            // biome-ignore lint/suspicious/noConsole: logger not initialized during env parsing
+            console.warn(
+              `[env] Invalid JSON in LLM_OPERATION_OVERRIDES: ${error instanceof Error ? error.message : "Parse error"}. Overrides will not be applied.`,
+            );
+            return undefined;
+          }
+
+          // validate shape is Record<string, string>
+          const recordSchema = z.record(z.string(), z.string());
+          const shapeResult = recordSchema.safeParse(parsed);
+          if (!shapeResult.success) {
+            // biome-ignore lint/suspicious/noConsole: logger not initialized during env parsing
+            console.warn(
+              `[env] LLM_OPERATION_OVERRIDES must be a JSON object with string values. Errors: ${shapeResult.error.errors.map((e) => e.message).join(", ")}. Overrides will not be applied.`,
+            );
+            return undefined;
+          }
+
+          // filter to valid tiers only, warn about invalid entries
+          const validTiers = ["reasoning", "fast", "economy"] as const;
+          const result: Record<string, "reasoning" | "fast" | "economy"> = {};
+          const invalidEntries: string[] = [];
+
+          for (const [key, tier] of Object.entries(shapeResult.data)) {
+            if (validTiers.includes(tier as (typeof validTiers)[number])) {
+              result[key] = tier as "reasoning" | "fast" | "economy";
+            } else {
+              invalidEntries.push(`${key}=${tier}`);
+            }
+          }
+
+          if (invalidEntries.length > 0) {
+            // biome-ignore lint/suspicious/noConsole: logger not initialized during env parsing
+            console.warn(
+              `[env] LLM_OPERATION_OVERRIDES contains invalid tiers (valid: reasoning, fast, economy): ${invalidEntries.join(", ")}. These entries will be ignored.`,
+            );
+          }
+
+          return Object.keys(result).length > 0 ? result : undefined;
+        },
+      ),
 
     OPENROUTER_BACKUP_MODEL: z
       .string()

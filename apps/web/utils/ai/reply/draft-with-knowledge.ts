@@ -4,7 +4,7 @@ import { createGenerateObject } from "@/utils/llms/index";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import type { EmailForLLM } from "@/utils/types";
 import { getEmailListPrompt, getTodayForLLM } from "@/utils/ai/helpers";
-import { getModel } from "@/utils/llms/model";
+import { getModelForOperation } from "@/utils/llms/resolve-model";
 import type { ReplyContextCollectorResult } from "@/utils/ai/reply/reply-context-collector";
 import type { CalendarAvailabilityContext } from "@/utils/ai/calendar/availability";
 
@@ -50,7 +50,7 @@ const getUserPrompt = ({
 }) => {
   const userAbout = emailAccount.about
     ? `Context about the user:
-    
+
 <userAbout>
 ${emailAccount.about}
 </userAbout>
@@ -59,7 +59,7 @@ ${emailAccount.about}
 
   const relevantKnowledge = knowledgeBaseContent
     ? `Relevant knowledge base content:
-    
+
 <knowledge_base>
 ${knowledgeBaseContent}
 </knowledge_base>
@@ -68,7 +68,7 @@ ${knowledgeBaseContent}
 
   const historicalContext = emailHistorySummary
     ? `Historical email context with this sender:
-    
+
 <sender_history>
 ${emailHistorySummary}
 </sender_history>
@@ -77,7 +77,7 @@ ${emailHistorySummary}
 
   const precedentHistoryContext = emailHistoryContext?.relevantEmails.length
     ? `Information from similar email threads that may be relevant to the current conversation to draft a reply.
-    
+
 <email_history>
 ${emailHistoryContext.relevantEmails
   .map(
@@ -96,7 +96,7 @@ ${emailHistoryContext.notes || "No notes"}
 
   const writingStylePrompt = writingStyle
     ? `Writing style:
-    
+
 <writing_style>
 ${writingStyle}
 </writing_style>
@@ -114,7 +114,7 @@ IMPORTANT: The user is NOT available. Do NOT suggest specific times. You may ack
 `
     : calendarAvailability?.suggestedTimes.length
       ? `Calendar availability information:
-    
+
 <calendar_availability>
 Suggested time slots:
 ${calendarAvailability.suggestedTimes.map((slot) => `- ${slot.start} to ${slot.end}`).join("\n")}
@@ -137,7 +137,7 @@ You can suggest this booking link if it helps with scheduling (e.g., "Feel free 
 
   const mcpToolsContext = mcpContext
     ? `Additional context fetched from external tools (such as CRM systems, task managers, or other integrations) that may help draft a response:
-    
+
 <external_tools_context>
 ${mcpContext}
 </external_tools_context>
@@ -155,7 +155,7 @@ ${mcpToolsContext}
 
 Here is the context of the email thread (from oldest to newest):
 ${getEmailListPrompt({ messages, messageMaxLength: 3000 })}
-     
+
 Please write a reply to the email.
 ${getTodayForLLM()}
 IMPORTANT: You are writing an email as ${emailAccount.email}. Write the reply from their perspective.`;
@@ -213,7 +213,7 @@ export async function aiDraftWithKnowledge({
       mcpContext,
     });
 
-    const modelOptions = getModel(emailAccount.user);
+    const modelOptions = getModelForOperation(emailAccount.user, "reply.draft");
 
     const generateObject = createGenerateObject({
       emailAccount,

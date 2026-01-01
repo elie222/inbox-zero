@@ -1,6 +1,6 @@
 import { z } from "zod";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
-import { getModel } from "@/utils/llms/model";
+import { getModelForOperation } from "@/utils/llms/resolve-model";
 import { createGenerateObject } from "@/utils/llms";
 
 const schema = z.object({ labels: z.array(z.string()).optional() });
@@ -27,7 +27,10 @@ Return the labels as an array of strings in JSON format.`;
 ${instructions}
 </instructions>`.trim();
 
-  const modelOptions = getModel(emailAccount.user);
+  const modelOptions = getModelForOperation(
+    emailAccount.user,
+    "clean.select-labels",
+  );
 
   const generateObject = createGenerateObject({
     emailAccount,

@@ -4,7 +4,7 @@ import type { EmailAccountWithAI } from "@/utils/llms/types";
 import type { EmailForLLM } from "@/utils/types";
 import { truncate } from "@/utils/string";
 import { removeExcessiveWhitespace } from "@/utils/string";
-import { getModel } from "@/utils/llms/model";
+import { getModelForOperation } from "@/utils/llms/resolve-model";
 import { createGenerateObject } from "@/utils/llms";
 import { getUserInfoPrompt } from "@/utils/ai/helpers";
 
@@ -65,7 +65,10 @@ ${emails
 
 ${getUserInfoPrompt({ emailAccount })}`;
 
-  const modelOptions = getModel(emailAccount.user);
+  const modelOptions = getModelForOperation(
+    emailAccount.user,
+    "knowledge.extract-writing-style",
+  );
 
   const generateObject = createGenerateObject({
     emailAccount,

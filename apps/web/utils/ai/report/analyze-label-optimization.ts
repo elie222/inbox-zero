@@ -4,9 +4,9 @@ import type { gmail_v1 } from "@googleapis/gmail";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import type { EmailSummary } from "@/utils/ai/report/summarize-emails";
 import { createScopedLogger } from "@/utils/logger";
-import { getModel } from "@/utils/llms/model";
+import { getModelForOperation } from "@/utils/llms/resolve-model";
 
-const logger = createScopedLogger("email-report-label-analysis");
+const _logger = createScopedLogger("email-report-label-analysis");
 
 const labelAnalysisSchema = z.object({
   optimizationSuggestions: z.array(
@@ -52,7 +52,10 @@ Based on the current labels and email content, suggest specific optimizations:
 
 Each suggestion should include the reason and expected impact.`;
 
-  const modelOptions = getModel(emailAccount.user, "economy");
+  const modelOptions = getModelForOperation(
+    emailAccount.user,
+    "report.analyze-labels",
+  );
 
   const generateObject = createGenerateObject({
     emailAccount,

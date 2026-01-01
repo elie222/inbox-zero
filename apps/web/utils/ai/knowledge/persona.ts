@@ -2,7 +2,7 @@ import { z } from "zod";
 import { createScopedLogger } from "@/utils/logger";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import type { EmailForLLM } from "@/utils/types";
-import { getModel } from "@/utils/llms/model";
+import { getModelForOperation } from "@/utils/llms/resolve-model";
 import { createGenerateObject } from "@/utils/llms";
 import { USER_ROLES } from "@/utils/constants/user-roles";
 import { getEmailListPrompt } from "@/utils/ai/helpers";
@@ -93,7 +93,10 @@ Here are the emails they've sent:
 ${getEmailListPrompt({ messages: emails, messageMaxLength: 1000 })}
 </emails>`;
 
-  const modelOptions = getModel(emailAccount.user, "economy");
+  const modelOptions = getModelForOperation(
+    emailAccount.user,
+    "knowledge.build-persona",
+  );
 
   const generateObject = createGenerateObject({
     emailAccount,

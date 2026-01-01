@@ -2,7 +2,7 @@ import { z } from "zod";
 import { tool } from "ai";
 import type { Logger } from "@/utils/logger";
 import { createGenerateText } from "@/utils/llms";
-import { getModel } from "@/utils/llms/model";
+import { getModelForOperation } from "@/utils/llms/resolve-model";
 import { getUnifiedCalendarAvailability } from "@/utils/calendar/unified-availability";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import type { EmailForLLM } from "@/utils/types";
@@ -99,7 +99,7 @@ If email mentions timezone (e.g., "5pm PST"), convert to ${userTimezone}.
 Call "returnSuggestedTimes" only once.`;
 
   const prompt = `${getUserInfoPrompt({ emailAccount })}
-  
+
 <current_time>
 ${new Date().toISOString()}
 </current_time>
@@ -108,7 +108,10 @@ ${new Date().toISOString()}
 ${threadContent}
 </thread>`.trim();
 
-  const modelOptions = getModel(emailAccount.user);
+  const modelOptions = getModelForOperation(
+    emailAccount.user,
+    "calendar.parse-availability",
+  );
 
   const generateText = createGenerateText({
     emailAccount,

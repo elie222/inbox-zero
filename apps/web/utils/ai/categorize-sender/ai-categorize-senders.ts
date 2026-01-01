@@ -4,7 +4,7 @@ import type { EmailAccountWithAI } from "@/utils/llms/types";
 import type { Category } from "@/generated/prisma/client";
 import { formatCategoriesForPrompt } from "@/utils/ai/categorize-sender/format-categories";
 import { extractEmailAddress } from "@/utils/email";
-import { getModel } from "@/utils/llms/model";
+import { getModelForOperation } from "@/utils/llms/resolve-model";
 import { createGenerateObject } from "@/utils/llms";
 
 export const REQUEST_MORE_INFORMATION_CATEGORY = "RequestMoreInformation";
@@ -86,7 +86,10 @@ ${formatCategoriesForPrompt(categories)}
 - Return your response in JSON format
 </important>`;
 
-  const modelOptions = getModel(emailAccount.user, "economy");
+  const modelOptions = getModelForOperation(
+    emailAccount.user,
+    "categorize.sender-bulk",
+  );
 
   const generateObject = createGenerateObject({
     emailAccount,

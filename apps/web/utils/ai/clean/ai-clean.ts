@@ -4,7 +4,7 @@ import type { EmailForLLM } from "@/utils/types";
 import { stringifyEmailSimple } from "@/utils/stringify-email";
 import { formatDateForLLM, formatRelativeTimeForLLM } from "@/utils/date";
 import { preprocessBooleanLike } from "@/utils/zod";
-import { getModel } from "@/utils/llms/model";
+import { getModelForOperation } from "@/utils/llms/resolve-model";
 import { createGenerateObject } from "@/utils/llms";
 // import { Braintrust } from "@/utils/braintrust";
 
@@ -40,7 +40,7 @@ export async function aiClean({
 
   const system =
     `You are an AI assistant designed to help users achieve inbox zero by analyzing emails and deciding whether they should be archived or not.
-  
+
 Examples of emails to archive:
 - Newsletters
 - Marketing
@@ -90,7 +90,10 @@ The current date is ${currentDate}.
 
   // ${user.about ? `<user_background_information>${user.about}</user_background_information>` : ""}
 
-  const modelOptions = getModel(emailAccount.user);
+  const modelOptions = getModelForOperation(
+    emailAccount.user,
+    "clean.decide-archive",
+  );
 
   const generateObject = createGenerateObject({
     emailAccount,

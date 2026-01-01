@@ -1,7 +1,7 @@
 import { z } from "zod";
 import type { EmailForLLM } from "@/utils/types";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
-import { getModel } from "@/utils/llms/model";
+import { getModelForOperation } from "@/utils/llms/resolve-model";
 import { createGenerateObject } from "@/utils/llms";
 import { getEmailListPrompt } from "@/utils/ai/helpers";
 
@@ -48,7 +48,10 @@ Return the snippets in the following JSON format:
 
 ${getEmailListPrompt({ messages: sentEmails, messageMaxLength: 2000 })}`;
 
-  const modelOptions = getModel(emailAccount.user, "chat");
+  const modelOptions = getModelForOperation(
+    emailAccount.user,
+    "assistant.find-snippets",
+  );
 
   const generateObject = createGenerateObject({
     emailAccount,

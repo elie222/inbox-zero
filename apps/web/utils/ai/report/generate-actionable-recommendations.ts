@@ -4,9 +4,9 @@ import type { EmailAccountWithAI } from "@/utils/llms/types";
 import type { UserPersona } from "@/utils/ai/report/build-user-persona";
 import type { EmailSummary } from "@/utils/ai/report/summarize-emails";
 import { createScopedLogger } from "@/utils/logger";
-import { getModel } from "@/utils/llms/model";
+import { getModelForOperation } from "@/utils/llms/resolve-model";
 
-const logger = createScopedLogger("email-report-actionable-recommendations");
+const _logger = createScopedLogger("email-report-actionable-recommendations");
 
 const actionableRecommendationsSchema = z.object({
   immediateActions: z.array(
@@ -54,12 +54,15 @@ Organize recommendations by timeline (immediate, short-term, long-term) and incl
 
 Create actionable recommendations in three categories:
 1. **Immediate Actions** (can be done today): 4-6 specific actions with time requirements
-2. **Short-term Improvements** (this week): 3-4 improvements with timelines and benefits  
+2. **Short-term Improvements** (this week): 3-4 improvements with timelines and benefits
 3. **Long-term Strategy** (ongoing): 2-3 strategic initiatives with success metrics
 
 Focus on practical, implementable solutions that improve email organization and workflow efficiency.`;
 
-  const modelOptions = getModel(emailAccount.user);
+  const modelOptions = getModelForOperation(
+    emailAccount.user,
+    "report.generate-recommendations",
+  );
 
   const generateObject = createGenerateObject({
     emailAccount,

@@ -187,7 +187,6 @@ export async function runRules({
       reasonToUse,
       result.matchReasons,
       isTest,
-      modelType,
       batchTimestamp,
       logger,
       skipArchive,
@@ -254,7 +253,6 @@ async function executeMatchedRule(
   reason: string | undefined,
   matchReasons: MatchReason[] | undefined,
   isTest: boolean,
-  modelType: ModelType,
   batchTimestamp: Date,
   logger: Logger,
   skipArchive?: boolean,
@@ -264,7 +262,6 @@ async function executeMatchedRule(
     emailAccount,
     selectedRule: rule,
     client,
-    modelType,
     logger,
     isTest,
   });

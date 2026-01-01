@@ -3,7 +3,7 @@ import type { EmailAccountWithAI } from "@/utils/llms/types";
 import { createScopedLogger } from "@/utils/logger";
 import type { EmailForLLM } from "@/utils/types";
 import { stringifyEmailSimple } from "@/utils/stringify-email";
-import { getModel } from "@/utils/llms/model";
+import { getModelForOperation } from "@/utils/llms/resolve-model";
 import { createGenerateObject } from "@/utils/llms";
 import { getUserInfoPrompt } from "@/utils/ai/helpers";
 
@@ -78,7 +78,10 @@ ${getUserInfoPrompt({ emailAccount })}`;
   logger.info("Summarizing email for digest");
 
   try {
-    const modelOptions = getModel(emailAccount.user);
+    const modelOptions = getModelForOperation(
+      emailAccount.user,
+      "digest.summarize-email",
+    );
 
     const generateObject = createGenerateObject({
       emailAccount,

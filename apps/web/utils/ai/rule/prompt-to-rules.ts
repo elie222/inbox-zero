@@ -7,7 +7,7 @@ import {
 } from "@/utils/ai/rule/create-rule-schema";
 import { createScopedLogger } from "@/utils/logger";
 import { convertMentionsToLabels } from "@/utils/mention";
-import { getModel } from "@/utils/llms/model";
+import { getModelForOperation } from "@/utils/llms/resolve-model";
 
 const logger = createScopedLogger("ai-prompt-to-rules");
 
@@ -23,12 +23,15 @@ export async function aiPromptToRules({
   const cleanedPromptFile = convertMentionsToLabels(promptFile);
 
   const prompt = `Convert the following prompt file into rules:
-  
+
 <prompt>
 ${cleanedPromptFile}
 </prompt>`;
 
-  const modelOptions = getModel(emailAccount.user, "chat");
+  const modelOptions = getModelForOperation(
+    emailAccount.user,
+    "rule.create-from-prompt",
+  );
 
   const generateObject = createGenerateObject({
     emailAccount,
@@ -157,7 +160,7 @@ IMPORTANT: You must return a JSON object.
   <example>
     <input>
       If someone asks to set up a call, draft a reply with my calendar link: https://cal.com/example using the following format:
-      
+
       """
       Hi [name],
       Thank you for your message. I'll respond within 2 hours.

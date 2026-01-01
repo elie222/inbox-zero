@@ -29,7 +29,9 @@ import {
   isOpenAIRetryError,
   isServiceUnavailableError,
 } from "@/utils/error";
-import { getModel, type ModelType } from "@/utils/llms/model";
+import type { getModel } from "@/utils/llms/model";
+import { getModelForOperation } from "@/utils/llms/resolve-model";
+import type { LLMOperationId } from "@/utils/llms/operations";
 import { createScopedLogger } from "@/utils/logger";
 import { withNetworkRetry } from "./retry";
 
@@ -218,7 +220,7 @@ export function createGenerateObject({
 
 export async function chatCompletionStream({
   userAi,
-  modelType,
+  operationId,
   messages,
   tools,
   maxSteps,
@@ -228,7 +230,7 @@ export async function chatCompletionStream({
   onStepFinish,
 }: {
   userAi: UserAIFields;
-  modelType?: ModelType;
+  operationId: LLMOperationId;
   messages: ModelMessage[];
   tools?: Record<string, Tool>;
   maxSteps?: number;
@@ -237,9 +239,9 @@ export async function chatCompletionStream({
   onFinish?: StreamTextOnFinishCallback<Record<string, Tool>>;
   onStepFinish?: StreamTextOnStepFinishCallback<Record<string, Tool>>;
 }) {
-  const { provider, model, modelName, providerOptions } = getModel(
+  const { provider, model, modelName, providerOptions } = getModelForOperation(
     userAi,
-    modelType,
+    operationId,
   );
 
   const result = streamText({

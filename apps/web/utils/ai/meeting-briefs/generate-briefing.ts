@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { getModel } from "@/utils/llms/model";
+import { getModelForOperation } from "@/utils/llms/resolve-model";
 import { createGenerateObject } from "@/utils/llms";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import type { CalendarEvent } from "@/utils/calendar/event-types";
@@ -55,7 +55,10 @@ Return a structured JSON object with a "guests" array. Each guest should have:
 
   const prompt = buildPrompt(briefingData, emailAccount.timezone);
 
-  const modelOptions = getModel(emailAccount.user);
+  const modelOptions = getModelForOperation(
+    emailAccount.user,
+    "meeting.generate-briefing",
+  );
 
   const generateObject = createGenerateObject({
     emailAccount,

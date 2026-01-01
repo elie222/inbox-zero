@@ -1,7 +1,7 @@
 import { z } from "zod";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import type { Action, Rule } from "@/generated/prisma/client";
-import { getModel } from "@/utils/llms/model";
+import { getModelForOperation } from "@/utils/llms/resolve-model";
 import { createGenerateObject } from "@/utils/llms";
 
 export async function aiFindExistingRules({
@@ -44,7 +44,10 @@ Please return the existing rules that match the prompt rules in JSON format.
 </example>
 `;
 
-  const modelOptions = getModel(emailAccount.user, "chat");
+  const modelOptions = getModelForOperation(
+    emailAccount.user,
+    "rule.find-existing",
+  );
 
   const generateObject = createGenerateObject({
     emailAccount,

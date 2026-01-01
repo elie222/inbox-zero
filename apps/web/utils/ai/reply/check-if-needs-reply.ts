@@ -7,7 +7,7 @@ import {
   stringifyEmailSimple,
 } from "@/utils/stringify-email";
 import { preprocessBooleanLike } from "@/utils/zod";
-import { getModel } from "@/utils/llms/model";
+import { getModelForOperation } from "@/utils/llms/resolve-model";
 import { getUserInfoPrompt } from "@/utils/ai/helpers";
 
 export async function aiCheckIfNeedsReply({
@@ -52,7 +52,10 @@ Decide if the message we are sending needs a reply. Respond with a JSON object w
 - needsReply: Whether a reply is needed.
 `.trim();
 
-  const modelOptions = getModel(emailAccount.user);
+  const modelOptions = getModelForOperation(
+    emailAccount.user,
+    "reply.check-needs-reply",
+  );
 
   const generateObject = createGenerateObject({
     emailAccount,

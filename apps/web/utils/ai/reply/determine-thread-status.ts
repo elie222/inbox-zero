@@ -2,7 +2,7 @@ import { z } from "zod";
 import { createGenerateObject } from "@/utils/llms";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import type { EmailForLLM } from "@/utils/types";
-import { getModel, type ModelType } from "@/utils/llms/model";
+import { getModelForOperation } from "@/utils/llms/resolve-model";
 import { getUserInfoPrompt, getEmailListPrompt } from "@/utils/ai/helpers";
 import type { ConversationStatus } from "@/utils/reply-tracker/conversation-status-config";
 import { SystemType } from "@/generated/prisma/enums";
@@ -10,12 +10,10 @@ import { SystemType } from "@/generated/prisma/enums";
 export async function aiDetermineThreadStatus({
   emailAccount,
   threadMessages,
-  modelType,
   userSentLastEmail = false,
 }: {
   emailAccount: EmailAccountWithAI;
   threadMessages: EmailForLLM[];
-  modelType?: ModelType;
   userSentLastEmail?: boolean;
 }): Promise<{ status: ConversationStatus; rationale: string }> {
   const system = `You are an AI assistant that analyzes email threads to determine their current status.
@@ -68,7 +66,7 @@ DETAILED CRITERIA:
 CRITICAL RULES - READ CAREFULLY:
 1. **CHECK EVERY MESSAGE**: Don't just look at the latest message. Scan the ENTIRE thread for unanswered questions or pending requests
 2. **Unanswered questions persist**: If an earlier message contains an unanswered question or request, and a later message contains only informational content, the status is still determined by the unanswered question/request
-3. **Promises from different perspectives**: 
+3. **Promises from different perspectives**:
    - If SOMEONE ELSE promised to do something → AWAITING_REPLY (waiting for them)
    - If YOU promised to do something → TO_REPLY (you need to follow through)
 4. **Multi-person threads**: In threads with multiple participants, focus ONLY on what the user (the perspective being analyzed) needs to do. Ignore conversations between other people that don't involve the user's commitments.
@@ -104,7 +102,10 @@ ${getEmailListPrompt({
 
 Based on the full thread context above, determine the current status of this thread.`.trim();
 
-  const modelOptions = getModel(emailAccount.user, modelType);
+  const modelOptions = getModelForOperation(
+    emailAccount.user,
+    "reply.determine-thread-status",
+  );
 
   const generateObject = createGenerateObject({
     emailAccount,

@@ -8,7 +8,7 @@ import { stringifyEmail } from "@/utils/stringify-email";
 import { createScopedLogger } from "@/utils/logger";
 import type { EmailForLLM } from "@/utils/types";
 import type { EmailProvider } from "@/utils/email/types";
-import { getModel, type ModelType } from "@/utils/llms/model";
+import { getModelForOperation } from "@/utils/llms/resolve-model";
 import { createGenerateObject } from "@/utils/llms";
 import { extractEmailAddress } from "@/utils/email";
 
@@ -20,13 +20,11 @@ export async function isColdEmail({
   email,
   emailAccount,
   provider,
-  modelType,
   coldEmailRule,
 }: {
   email: EmailForLLM & { threadId?: string };
   emailAccount: EmailAccountWithAI;
   provider: EmailProvider;
-  modelType?: ModelType;
   coldEmailRule: Pick<Rule, "instructions"> | null;
 }): Promise<{
   isColdEmail: boolean;
@@ -74,7 +72,6 @@ export async function isColdEmail({
     email,
     emailAccount,
     coldEmailRule?.instructions || DEFAULT_COLD_EMAIL_PROMPT,
-    modelType,
   );
 
   logger.info("AI is cold email?", {
@@ -114,7 +111,6 @@ async function aiIsColdEmail(
   email: EmailForLLM,
   emailAccount: EmailAccountWithAI,
   coldEmailPrompt: string,
-  modelType?: ModelType,
 ) {
   const system = `You are an assistant that decides if an email is a cold email or not.
 
@@ -141,7 +137,10 @@ Determine if the email is a cold email or not.`;
 ${stringifyEmail(email, 500)}
 </email>`;
 
-  const modelOptions = getModel(emailAccount.user, modelType);
+  const modelOptions = getModelForOperation(
+    emailAccount.user,
+    "categorize.cold-email",
+  );
 
   const generateObject = createGenerateObject({
     emailAccount,

@@ -2,7 +2,8 @@ import { z } from "zod";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import { stringifyEmail } from "@/utils/stringify-email";
 import { isDefined, type EmailForLLM } from "@/utils/types";
-import { getModel, type ModelType } from "@/utils/llms/model";
+import { getModelForOperation } from "@/utils/llms/resolve-model";
+import type { getModel } from "@/utils/llms/model";
 import { createGenerateObject } from "@/utils/llms";
 import { getUserInfoPrompt, getUserRulesPrompt } from "@/utils/ai/helpers";
 
@@ -10,7 +11,6 @@ type GetAiResponseOptions = {
   email: EmailForLLM;
   emailAccount: EmailAccountWithAI;
   rules: { name: string; instructions: string; systemType?: string | null }[];
-  modelType?: ModelType;
 };
 
 export async function aiChooseRule<
@@ -19,12 +19,10 @@ export async function aiChooseRule<
   email,
   rules,
   emailAccount,
-  modelType,
 }: {
   email: EmailForLLM;
   rules: T[];
   emailAccount: EmailAccountWithAI;
-  modelType?: ModelType;
 }): Promise<{
   rules: { rule: T; isPrimary?: boolean }[];
   reason: string;
@@ -35,7 +33,6 @@ export async function aiChooseRule<
     email,
     rules,
     emailAccount,
-    modelType,
   });
 
   if (aiResponse.noMatchFound) {
@@ -69,9 +66,12 @@ async function getAiResponse(options: GetAiResponseOptions): Promise<{
   };
   modelOptions: ReturnType<typeof getModel>;
 }> {
-  const { email, emailAccount, rules, modelType = "default" } = options;
+  const { email, emailAccount, rules } = options;
 
-  const modelOptions = getModel(emailAccount.user, modelType);
+  const modelOptions = getModelForOperation(
+    emailAccount.user,
+    "rule.match-email",
+  );
 
   const generateObject = createGenerateObject({
     emailAccount,

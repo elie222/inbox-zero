@@ -14,7 +14,7 @@ import { getEmailForLLM } from "@/utils/get-email-from-message";
 import { stringifyEmailSimple } from "@/utils/stringify-email";
 import { env } from "@/env";
 import { posthogCaptureEvent } from "@/utils/posthog";
-import { getModel } from "@/utils/llms/model";
+import { getModelForOperation } from "@/utils/llms/resolve-model";
 import { getUserInfoPrompt } from "@/utils/ai/helpers";
 
 export async function processUserRequest({
@@ -154,7 +154,10 @@ ${stringifyEmailSimple(getEmailForLLM(originalEmail))}
     }
   }
 
-  const modelOptions = getModel(emailAccount.user, "chat");
+  const modelOptions = getModelForOperation(
+    emailAccount.user,
+    "assistant.process-request",
+  );
 
   const generateText = createGenerateText({
     emailAccount,

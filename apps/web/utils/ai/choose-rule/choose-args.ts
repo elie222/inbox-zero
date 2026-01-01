@@ -1,6 +1,5 @@
 import { z } from "zod";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
-import type { ModelType } from "@/utils/llms/model";
 import { ActionType } from "@/generated/prisma/enums";
 import type { Action } from "@/generated/prisma/client";
 import {
@@ -24,7 +23,6 @@ export async function getActionItemsWithAiArgs({
   emailAccount,
   selectedRule,
   client,
-  modelType,
   logger,
   isTest = false,
 }: {
@@ -32,7 +30,6 @@ export async function getActionItemsWithAiArgs({
   emailAccount: EmailAccountWithAI;
   selectedRule: RuleWithActions;
   client: EmailProvider;
-  modelType: ModelType;
   logger: Logger;
   isTest?: boolean;
 }): Promise<Action[]> {
@@ -85,7 +82,6 @@ export async function getActionItemsWithAiArgs({
     emailAccount,
     selectedRule,
     parameters,
-    modelType,
     logger,
   });
 
