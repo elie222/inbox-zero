@@ -35,9 +35,14 @@ export function detectExpirableCategory(
   if (labels.includes(GmailLabel.UPDATES)) return "NOTIFICATION";
   if (labels.includes(GmailLabel.FORUMS)) return "NEWSLETTER";
 
-  // Check for calendar invites
-  const contentType = message.headers?.["content-type"] || "";
-  if (contentType.includes("calendar")) return "CALENDAR";
+  // Check for calendar invites (via attachments)
+  const hasCalendarAttachment = message.attachments?.some(
+    (att) =>
+      att.mimeType?.includes("calendar") ||
+      att.filename?.endsWith(".ics") ||
+      att.filename?.endsWith(".ical"),
+  );
+  if (hasCalendarAttachment) return "CALENDAR";
 
   // Check for unsubscribe link (newsletter indicator)
   const listUnsubscribe = message.headers?.["list-unsubscribe"];
