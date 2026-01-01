@@ -220,9 +220,21 @@ ${upcomingList}
 
   const meetingsSection = sections.join("\n\n");
 
+  const instructions: string[] = [];
+  if (pastMeetings.length > 0) {
+    instructions.push(
+      "For past meetings, you might reference topics discussed.",
+    );
+  }
+  if (upcomingMeetings.length > 0) {
+    instructions.push(
+      'For upcoming meetings, you might say "Looking forward to our call" or "We can discuss this further in our upcoming meeting."',
+    );
+  }
+
   return `You have meeting history with this person:
 
 ${meetingsSection}
 
-Use this context naturally if relevant. For past meetings, you might reference topics discussed. For upcoming meetings, you might say "Looking forward to our call" or "We can discuss this further in our upcoming meeting."`;
+Use this context naturally if relevant. ${instructions.join(" ")}`;
 }
