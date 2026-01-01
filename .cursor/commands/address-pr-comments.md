@@ -1,6 +1,6 @@
 Resolve all active PR comments (conversation + code review). Use `gh` CLI.
 
-Important: don't use sandbox mode as the commands won't work in sandbox.
+Important: All `gh` CLI commands require `required_permissions: ['all']` due to TLS certificate issues in sandboxed mode.
 
 ## Critical Rules
 
