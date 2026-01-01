@@ -53,4 +53,4 @@ gh pr create --title "<title>" --body "<body>"
 gh pr create --title "<title>" --body "<body>" && gh pr comment $(gh pr view --json number -q .number) --body "#skipreview"
 ```
 
-Display the returned PR URL on its own line so it's clickable.
+Display the returned PR URL as a markdown link on its own line, formatted as: `[PR #<number>](<url>)` so it's clickable.
