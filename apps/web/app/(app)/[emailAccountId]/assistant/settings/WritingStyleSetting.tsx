@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { useAction } from "next-safe-action/hooks";
 import { Button } from "@/components/ui/button";
@@ -58,6 +59,7 @@ function WritingStyleDialog({
   children: React.ReactNode;
   currentWritingStyle: string;
 }) {
+  const [open, setOpen] = useState(false);
   const { emailAccountId } = useAccount();
   const { mutate } = useEmailAccountFull();
 
@@ -77,6 +79,7 @@ function WritingStyleDialog({
         toastSuccess({
           description: "Writing style saved!",
         });
+        setOpen(false);
       },
       onError: (error) => {
         toastError({
@@ -92,7 +95,7 @@ function WritingStyleDialog({
   );
 
   return (
-    <Dialog>
+    <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>{children}</DialogTrigger>
       <DialogContent className="max-w-2xl">
         <DialogHeader>

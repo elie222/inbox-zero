@@ -54,6 +54,10 @@ const nextConfig: NextConfig = {
         protocol: "https",
         hostname: "t1.gstatic.com",
       },
+      {
+        protocol: "https",
+        hostname: "cdn.outrank.so",
+      },
     ],
   },
   async redirects() {
