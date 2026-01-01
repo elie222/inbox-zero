@@ -2,6 +2,12 @@ import { describe, it, expect, vi } from "vitest";
 import type { MeetingBriefingData } from "@/utils/meeting-briefs/gather-context";
 
 vi.mock("server-only", () => ({}));
+vi.mock("@/env", () => ({
+  env: {
+    PERPLEXITY_API_KEY: "test-key",
+    DEFAULT_LLM_PROVIDER: "openai",
+  },
+}));
 vi.mock("@/utils/llms/model", () => ({ getModel: vi.fn() }));
 vi.mock("@/utils/llms", () => ({ createGenerateObject: vi.fn() }));
 vi.mock("@/utils/stringify-email", () => ({

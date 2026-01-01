@@ -1,5 +1,6 @@
 import prisma from "@/utils/prisma";
 import { createScopedLogger } from "@/utils/logger";
+import { captureException } from "@/utils/error";
 
 const logger = createScopedLogger("error-messages");
 
@@ -23,13 +24,13 @@ export async function getUserErrorMessages(
 }
 
 export async function addUserErrorMessage(
-  userEmail: string,
+  userId: string,
   errorType: (typeof ErrorType)[keyof typeof ErrorType],
   errorMessage: string,
 ): Promise<void> {
-  const user = await prisma.user.findUnique({ where: { email: userEmail } });
+  const user = await prisma.user.findUnique({ where: { id: userId } });
   if (!user) {
-    logger.warn("User not found", { userEmail });
+    logger.warn("User not found", { userId });
     return;
   }
 
@@ -54,10 +55,18 @@ export async function clearUserErrorMessages({
 }: {
   userId: string;
 }): Promise<void> {
-  await prisma.user.update({
-    where: { id: userId },
-    data: { errorMessages: {} },
-  });
+  try {
+    await prisma.user.update({
+      where: { id: userId },
+      data: { errorMessages: {} },
+    });
+  } catch (error) {
+    logger.error("Error clearing user error messages:", {
+      userId,
+      error,
+    });
+    captureException(error, { extra: { userId } });
+  }
 }
 
 export const ErrorType = {

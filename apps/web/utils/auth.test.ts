@@ -9,8 +9,8 @@ import { clearUserErrorMessages } from "@/utils/error-messages";
 vi.mock("server-only", () => ({}));
 vi.mock("@/utils/prisma");
 vi.mock("@/utils/error-messages", () => ({
-  addUserErrorMessage: vi.fn(),
-  clearUserErrorMessages: vi.fn(),
+  addUserErrorMessage: vi.fn().mockResolvedValue(undefined),
+  clearUserErrorMessages: vi.fn().mockResolvedValue(undefined),
   ErrorType: {
     ACCOUNT_DISCONNECTED: "Account disconnected",
   },

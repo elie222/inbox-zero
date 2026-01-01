@@ -10,7 +10,7 @@ vi.mock("@inboxzero/resend", () => ({
   sendReconnectionEmail: vi.fn(),
 }));
 vi.mock("@/utils/error-messages", () => ({
-  addUserErrorMessage: vi.fn(),
+  addUserErrorMessage: vi.fn().mockResolvedValue(undefined),
   ErrorType: {
     ACCOUNT_DISCONNECTED: "Account disconnected",
   },
@@ -30,6 +30,7 @@ describe("cleanupInvalidTokens", () => {
     id: "ea_1",
     email: "test@example.com",
     accountId: "acc_1",
+    userId: "user_1",
     account: { disconnectedAt: null },
     watchEmailsExpirationDate: new Date(Date.now() + 1000 * 60 * 60), // Valid expiration
   };
@@ -52,7 +53,11 @@ describe("cleanupInvalidTokens", () => {
       }),
     );
     expect(sendReconnectionEmail).toHaveBeenCalled();
-    expect(addUserErrorMessage).toHaveBeenCalled();
+    expect(addUserErrorMessage).toHaveBeenCalledWith(
+      "user_1",
+      "Account disconnected",
+      expect.stringContaining("test@example.com"),
+    );
   });
 
   it("marks as disconnected but skips email if account is not watched", async () => {
@@ -69,7 +74,11 @@ describe("cleanupInvalidTokens", () => {
 
     expect(prisma.account.update).toHaveBeenCalled();
     expect(sendReconnectionEmail).not.toHaveBeenCalled();
-    expect(addUserErrorMessage).toHaveBeenCalled();
+    expect(addUserErrorMessage).toHaveBeenCalledWith(
+      "user_1",
+      "Account disconnected",
+      expect.stringContaining("test@example.com"),
+    );
   });
 
   it("returns early if account is already disconnected", async () => {

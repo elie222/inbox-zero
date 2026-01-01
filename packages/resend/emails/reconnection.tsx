@@ -119,7 +119,7 @@ function Footer({
       </Text>
       <div className="mt-2">
         <Link
-          href={`${baseUrl}/api/unsubscribe?token=${unsubscribeToken}`}
+          href={`${baseUrl}/api/unsubscribe?token=${encodeURIComponent(unsubscribeToken)}`}
           className="text-gray-500 underline mr-4"
         >
           Unsubscribe

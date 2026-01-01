@@ -12,7 +12,7 @@ import type { Logger } from "@/utils/logger";
 vi.mock("@/utils/calendar/event-provider");
 vi.mock("@/utils/date", () => ({
   formatInUserTimezone: vi.fn((date: Date) => {
-    // Simple mock that returns a predictable format for testing
+    // Simple mock that returns a predictable format for testing in UTC
     const d = new Date(date);
     const dayNames = [
       "Sunday",
@@ -37,11 +37,11 @@ vi.mock("@/utils/date", () => ({
       "November",
       "December",
     ];
-    const dayName = dayNames[d.getDay()];
-    const month = monthNames[d.getMonth()];
-    const day = d.getDate();
-    const hours = d.getHours();
-    const minutes = d.getMinutes();
+    const dayName = dayNames[d.getUTCDay()];
+    const month = monthNames[d.getUTCMonth()];
+    const day = d.getUTCDate();
+    const hours = d.getUTCHours();
+    const minutes = d.getUTCMinutes();
     const ampm = hours >= 12 ? "PM" : "AM";
     const displayHours = hours % 12 || 12;
     const displayMinutes = minutes.toString().padStart(2, "0");
@@ -100,9 +100,9 @@ describe("recipient-context", () => {
       expect(result).toBe(`You have meeting history with this person:
 
 <recent_meetings>
-- "Q1 Planning Meeting" on Monday, January 15 at 12:00 PM (Conference Room A)
+- "Q1 Planning Meeting" on Monday, January 15 at 10:00 AM (Conference Room A)
   Description: Discuss Q1 goals and objectives
-- "Team Standup" on Wednesday, January 10 at 11:00 AM
+- "Team Standup" on Wednesday, January 10 at 9:00 AM
 </recent_meetings>
 
 Use this context naturally if relevant. For past meetings, you might reference topics discussed.`);
@@ -128,7 +128,7 @@ Use this context naturally if relevant. For past meetings, you might reference t
       expect(result).toBe(`You have meeting history with this person:
 
 <upcoming_meetings>
-- "Product Review" on Thursday, February 1 at 4:00 PM (Zoom)
+- "Product Review" on Thursday, February 1 at 2:00 PM (Zoom)
   Description: Review product roadmap and features
 </upcoming_meetings>
 
@@ -160,12 +160,12 @@ Use this context naturally if relevant. For upcoming meetings, you might say "Lo
       expect(result).toBe(`You have meeting history with this person:
 
 <recent_meetings>
-- "Past Meeting" on Monday, January 15 at 12:00 PM
+- "Past Meeting" on Monday, January 15 at 10:00 AM
   Description: This is a past meeting description
 </recent_meetings>
 
 <upcoming_meetings>
-- "Upcoming Meeting" on Thursday, February 1 at 4:00 PM (Office)
+- "Upcoming Meeting" on Thursday, February 1 at 2:00 PM (Office)
   Description: This is an upcoming meeting description
 </upcoming_meetings>
 
@@ -231,7 +231,7 @@ Use this context naturally if relevant. For past meetings, you might reference t
       expect(result).toBe(`You have meeting history with this person:
 
 <recent_meetings>
-- "Simple Meeting" on Monday, January 15 at 12:00 PM
+- "Simple Meeting" on Monday, January 15 at 10:00 AM
 </recent_meetings>
 
 Use this context naturally if relevant. For past meetings, you might reference topics discussed.`);

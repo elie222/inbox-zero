@@ -28,6 +28,7 @@ export async function cleanupInvalidTokens({
       id: true,
       email: true,
       accountId: true,
+      userId: true,
       watchEmailsExpirationDate: true,
       account: {
         select: {
@@ -89,7 +90,7 @@ export async function cleanupInvalidTokens({
     }
 
     await addUserErrorMessage(
-      emailAccount.email,
+      emailAccount.userId,
       ErrorType.ACCOUNT_DISCONNECTED,
       `The connection for ${emailAccount.email} was disconnected. Please reconnect your account to resume automation.`,
     );
