@@ -155,11 +155,6 @@ export async function getMeetingContext({
   }
 }
 
-/**
- * @deprecated Use getMeetingContext instead
- */
-export const getUpcomingMeetingContext = getMeetingContext;
-
 function truncateDescription(
   description: string | undefined,
 ): string | undefined {
