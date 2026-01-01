@@ -66,4 +66,5 @@ export const ErrorType = {
   OPENAI_API_KEY_DEACTIVATED: "OpenAI API key deactivated",
   OPENAI_RETRY_ERROR: "OpenAI retry error",
   ANTHROPIC_INSUFFICIENT_BALANCE: "Anthropic insufficient balance",
+  ACCOUNT_DISCONNECTED: "Account disconnected",
 };
