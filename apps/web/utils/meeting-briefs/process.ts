@@ -203,6 +203,7 @@ export async function runMeetingBrief({
     const briefingContent = await aiGenerateMeetingBriefing({
       briefingData,
       emailAccount,
+      logger: eventLog,
     });
 
     await sendBriefingEmail({
