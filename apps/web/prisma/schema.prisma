@@ -175,9 +175,36 @@ model EmailAccount {
   calendarConnections CalendarConnection[]
   mcpConnections      McpConnection[]
   meetingBriefings    MeetingBriefing[]
+  recipientProfiles   RecipientProfile[]
 
   @@index([userId])
   @@index([lastSummaryEmailAt])
+}
+
+// Stores detected communication patterns for each recipient
+// Used to adapt draft tone based on how the user typically communicates with each person
+model RecipientProfile {
+  id             String   @id @default(cuid())
+  emailAccountId String
+  emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
+  recipientEmail String
+
+  // detected patterns from analyzing sent emails
+  detectedFormality     String? // formal | neutral | casual
+  typicalGreeting       String? // "Hi", "Dear", "Hey", etc.
+  typicalSignoff        String? // "Best", "Thanks", "Cheers", etc.
+  averageResponseLength Int? // approximate word count
+  communicationFrequency Int? // emails per month to this recipient
+
+  // metadata
+  sampleCount    Int       @default(0) // number of emails analyzed
+  lastAnalyzedAt DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@unique([emailAccountId, recipientEmail])
+  @@index([emailAccountId])
+  @@index([recipientEmail])
 }
 
 model Organization {

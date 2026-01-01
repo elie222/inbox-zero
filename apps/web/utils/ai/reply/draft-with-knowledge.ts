@@ -38,6 +38,7 @@ const getUserPrompt = ({
   calendarAvailability,
   writingStyle,
   mcpContext,
+  recipientProfileContext,
 }: {
   messages: (EmailForLLM & { to: string })[];
   emailAccount: EmailAccountWithAI;
@@ -47,6 +48,7 @@ const getUserPrompt = ({
   calendarAvailability: CalendarAvailabilityContext | null;
   writingStyle: string | null;
   mcpContext: string | null;
+  recipientProfileContext: string | null;
 }) => {
   const userAbout = emailAccount.about
     ? `Context about the user:
@@ -137,18 +139,21 @@ You can suggest this booking link if it helps with scheduling (e.g., "Feel free 
 
   const mcpToolsContext = mcpContext
     ? `Additional context fetched from external tools (such as CRM systems, task managers, or other integrations) that may help draft a response:
-    
+
 <external_tools_context>
 ${mcpContext}
 </external_tools_context>
 `
     : "";
 
+  const recipientStyleContext = recipientProfileContext || "";
+
   return `${userAbout}
 ${relevantKnowledge}
 ${historicalContext}
 ${precedentHistoryContext}
 ${writingStylePrompt}
+${recipientStyleContext}
 ${calendarContext}
 ${bookingLinkContext}
 ${mcpToolsContext}
@@ -178,6 +183,7 @@ export async function aiDraftWithKnowledge({
   calendarAvailability,
   writingStyle,
   mcpContext,
+  recipientProfileContext,
 }: {
   messages: (EmailForLLM & { to: string })[];
   emailAccount: EmailAccountWithAI;
@@ -187,6 +193,7 @@ export async function aiDraftWithKnowledge({
   calendarAvailability: CalendarAvailabilityContext | null;
   writingStyle: string | null;
   mcpContext: string | null;
+  recipientProfileContext: string | null;
 }) {
   try {
     logger.info("Drafting email with knowledge base", {
@@ -211,6 +218,7 @@ export async function aiDraftWithKnowledge({
       calendarAvailability,
       writingStyle,
       mcpContext,
+      recipientProfileContext,
     });
 
     const modelOptions = getModel(emailAccount.user);
