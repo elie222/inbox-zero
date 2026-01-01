@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { buildReplyAllRecipients, formatCcList } from "./reply-all";
+import { buildReplyAllRecipients, formatCcList, mergeAndDedupeRecipients } from "./reply-all";
 import type { ParsedMessageHeaders } from "@/utils/types";
 
 describe("buildReplyAllRecipients", () => {
@@ -406,5 +406,28 @@ describe("formatCcList", () => {
   it("should handle single address", () => {
     const result = formatCcList(["user@example.com"]);
     expect(result).toBe("user@example.com");
+  });
+});
+
+describe("mergeAndDedupeRecipients", () => {
+  it("should handle display names correctly", () => {
+    const existing = ["john@example.com"];
+    const manual = "John Doe <john@example.com>, jane@example.com";
+    const result = mergeAndDedupeRecipients(existing, manual);
+    expect(result).toEqual(["john@example.com", "jane@example.com"]);
+  });
+
+  it("should be case-insensitive", () => {
+    const existing = ["john@example.com"];
+    const manual = "JOHN@example.com";
+    const result = mergeAndDedupeRecipients(existing, manual);
+    expect(result).toEqual(["john@example.com"]);
+  });
+
+  it("should sanitize empty and invalid entries", () => {
+    const existing = ["john@example.com"];
+    const manual = " , , invalid-email, jane@example.com";
+    const result = mergeAndDedupeRecipients(existing, manual);
+    expect(result).toEqual(["john@example.com", "jane@example.com"]);
   });
 });

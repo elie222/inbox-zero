@@ -1,5 +1,8 @@
 import { format } from "date-fns/format";
 import { formatDistanceToNow } from "date-fns/formatDistanceToNow";
+import { TZDate } from "@date-fns/tz";
+import { createScopedLogger } from "@/utils/logger";
+import { captureException } from "@/utils/error";
 
 export const ONE_MINUTE_MS = 1000 * 60;
 export const ONE_HOUR_MS = ONE_MINUTE_MS * 60;
@@ -103,4 +106,60 @@ export function sortByInternalDate<T extends { internalDate?: string | null }>(
       : 0;
     return direction === "asc" ? aTime - bTime : bTime - aTime;
   };
+}
+
+const DEFAULT_TIMEZONE = "UTC";
+const logger = createScopedLogger("date-utils");
+
+/**
+ * Formats a date/time in the user's timezone.
+ * Falls back to UTC if the timezone is invalid (corrupted/legacy/non-IANA values).
+ * @param date - The date to format (typically from a calendar event)
+ * @param timezone - The user's timezone (e.g., "America/Sao_Paulo", "America/New_York")
+ * @param formatString - The date-fns format string (e.g., "h:mm a", "MMM d, yyyy 'at' h:mm a")
+ * @returns The formatted date string in the user's timezone
+ */
+export function formatInUserTimezone(
+  date: Date,
+  timezone: string | null | undefined,
+  formatString: string,
+): string {
+  const tz = timezone || DEFAULT_TIMEZONE;
+  try {
+    const dateInTZ = new TZDate(date, tz);
+    return format(dateInTZ, formatString);
+  } catch (error) {
+    // Invalid timezone (corrupted/legacy/non-IANA) - log and fall back to UTC
+    logger.error("Invalid timezone, falling back to UTC", {
+      timezone: tz,
+      error,
+    });
+    captureException(error, {
+      extra: { timezone: tz, context: "formatInUserTimezone" },
+    });
+    const dateInUTC = new TZDate(date, DEFAULT_TIMEZONE);
+    return format(dateInUTC, formatString);
+  }
+}
+
+/**
+ * Formats a time (without date) in the user's timezone.
+ * Example output: "4:00 PM"
+ */
+export function formatTimeInUserTimezone(
+  date: Date,
+  timezone: string | null | undefined,
+): string {
+  return formatInUserTimezone(date, timezone, "h:mm a");
+}
+
+/**
+ * Formats a date and time in the user's timezone.
+ * Example output: "Dec 30, 2024 at 4:00 PM"
+ */
+export function formatDateTimeInUserTimezone(
+  date: Date,
+  timezone: string | null | undefined,
+): string {
+  return formatInUserTimezone(date, timezone, "MMM d, yyyy 'at' h:mm a");
 }

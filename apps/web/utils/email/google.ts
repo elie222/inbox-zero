@@ -55,6 +55,7 @@ import {
 } from "@/utils/gmail/thread";
 import { decodeSnippet } from "@/utils/gmail/decode";
 import { getDraft, deleteDraft } from "@/utils/gmail/draft";
+import { extractErrorInfo } from "@/utils/gmail/retry";
 import {
   getFiltersList,
   createFilter,
@@ -573,8 +574,7 @@ export class GmailProvider implements EmailProvider {
 
       return {};
     } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : String(error);
+      const { errorMessage } = extractErrorInfo(error);
 
       const isLabelNotFound =
         errorMessage.includes("Requested entity was not found") ||
@@ -628,7 +628,13 @@ export class GmailProvider implements EmailProvider {
 
   async draftEmail(
     email: ParsedMessage,
-    args: { to?: string; subject?: string; content: string },
+    args: {
+      to?: string;
+      subject?: string;
+      content: string;
+      cc?: string;
+      bcc?: string;
+    },
     userEmail: string,
     executedRule?: { id: string; threadId: string; emailAccountId: string },
   ): Promise<{ draftId: string }> {

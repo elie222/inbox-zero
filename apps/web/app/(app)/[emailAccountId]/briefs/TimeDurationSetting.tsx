@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 import { useForm, type FieldErrors } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useDebounceCallback } from "usehooks-ts";
@@ -47,14 +47,11 @@ export function TimeDurationSetting({
 }) {
   const { emailAccountId } = useAccount();
 
-  const {
-    handleSubmit,
-    setValue: setFormValue,
-    reset,
-  } = useForm<UpdateMeetingBriefsMinutesBeforeBody>({
-    resolver: zodResolver(updateMeetingBriefsMinutesBeforeBody),
-    defaultValues: { minutesBefore: initialMinutes },
-  });
+  const { handleSubmit, setValue: setFormValue } =
+    useForm<UpdateMeetingBriefsMinutesBeforeBody>({
+      resolver: zodResolver(updateMeetingBriefsMinutesBeforeBody),
+      defaultValues: { minutesBefore: initialMinutes },
+    });
 
   const [value, setValue] = useState(
     () => minutesToValueAndUnit(initialMinutes).value,
@@ -76,7 +73,10 @@ export function TimeDurationSetting({
         return;
       }
 
-      toastSuccess({ description: "Settings saved!" });
+      toastSuccess({
+        description: "Settings saved!",
+        id: "time-duration-saved",
+      });
       onSaved();
     },
     [executeAsync, onSaved],
@@ -91,26 +91,18 @@ export function TimeDurationSetting({
   );
 
   const updateAndSubmit = useDebounceCallback((nextMinutesBefore: number) => {
-    setFormValue("minutesBefore", nextMinutesBefore, {
-      shouldValidate: true,
-    });
+    setFormValue("minutesBefore", nextMinutesBefore, { shouldValidate: true });
     handleSubmit(onSubmit, onError)();
   }, 500);
-
-  // Keep local UI in sync if the server value changes (e.g. after revalidation)
-  useEffect(() => {
-    if (isExecuting) return;
-    const parsed = minutesToValueAndUnit(initialMinutes);
-    setValue(parsed.value);
-    setUnit(parsed.unit);
-    reset({ minutesBefore: initialMinutes });
-  }, [initialMinutes, reset, isExecuting]);
 
   return (
     <form
       className="flex items-center gap-1"
       onSubmit={handleSubmit(onSubmit, onError)}
     >
+      <div className="flex w-5 items-center justify-center">
+        {isExecuting && <LoadingMiniSpinner />}
+      </div>
       <Input
         type="number"
         min={1}
@@ -138,7 +130,6 @@ export function TimeDurationSetting({
           <SelectItem value="hours">hours</SelectItem>
         </SelectContent>
       </Select>
-      {isExecuting && <LoadingMiniSpinner />}
     </form>
   );
 }

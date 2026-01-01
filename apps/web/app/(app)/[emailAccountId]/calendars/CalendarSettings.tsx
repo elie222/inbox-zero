@@ -164,40 +164,6 @@ export function CalendarSettings() {
   return (
     <div className="space-y-2">
       <SettingCard
-        title="Timezone"
-        description="Your timezone for calendar scheduling suggestions"
-        collapseOnMobile
-        right={
-          <LoadingContent
-            loading={isLoading}
-            error={error}
-            loadingComponent={<Skeleton className="h-10 w-64" />}
-          >
-            <form
-              onSubmit={handleSubmitTimezone(onSubmitTimezone)}
-              className="flex flex-col gap-2 sm:flex-row sm:items-center w-full md:w-auto"
-            >
-              <div className="w-full sm:w-64">
-                <Select
-                  options={timezoneOptions}
-                  {...registerTimezone("timezone")}
-                  error={timezoneErrors.timezone}
-                />
-              </div>
-              <Button
-                type="submit"
-                loading={isUpdatingTimezone}
-                size="sm"
-                className="w-full sm:w-auto"
-              >
-                Save
-              </Button>
-            </form>
-          </LoadingContent>
-        }
-      />
-
-      <SettingCard
         title="Calendar Booking Link"
         description="Your booking link for the AI to share when scheduling meetings"
         collapseOnMobile
@@ -223,6 +189,40 @@ export function CalendarSettings() {
               <Button
                 type="submit"
                 loading={isUpdatingBookingLink}
+                size="sm"
+                className="w-full sm:w-auto"
+              >
+                Save
+              </Button>
+            </form>
+          </LoadingContent>
+        }
+      />
+
+      <SettingCard
+        title="Timezone"
+        description="Your timezone for calendar scheduling suggestions"
+        collapseOnMobile
+        right={
+          <LoadingContent
+            loading={isLoading}
+            error={error}
+            loadingComponent={<Skeleton className="h-10 w-64" />}
+          >
+            <form
+              onSubmit={handleSubmitTimezone(onSubmitTimezone)}
+              className="flex flex-col gap-2 sm:flex-row sm:items-center w-full md:w-auto"
+            >
+              <div className="w-full sm:w-64">
+                <Select
+                  options={timezoneOptions}
+                  {...registerTimezone("timezone")}
+                  error={timezoneErrors.timezone}
+                />
+              </div>
+              <Button
+                type="submit"
+                loading={isUpdatingTimezone}
                 size="sm"
                 className="w-full sm:w-auto"
               >

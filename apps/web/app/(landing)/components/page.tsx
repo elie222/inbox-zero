@@ -17,6 +17,7 @@ import { Button } from "@/components/Button";
 import { Button as ShadButton } from "@/components/ui/button";
 import { Badge } from "@/components/Badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Table, TableBody, TableRow, TableCell } from "@/components/ui/table";
 import { AlertBasic } from "@/components/Alert";
 import { Notice } from "@/components/Notice";
 import { TestErrorButton } from "@/app/(landing)/components/TestError";
@@ -749,6 +750,13 @@ export default function Components() {
           </div>
         </div>
 
+        <div>
+          <div className="underline">Email Row Truncation</div>
+          <div className="mt-4">
+            <EmailRowExample />
+          </div>
+        </div>
+
         <div className="flex gap-2">
           <TestErrorButton />
           <TestActionButton />
@@ -825,4 +833,40 @@ function getActivityLogEntries(): ActivityLogEntry[] {
       ruleName: "To Review",
     },
   ];
+}
+
+function EmailRowExample() {
+  return (
+    <div className="border rounded-md overflow-hidden">
+      <Table>
+        <TableBody>
+          <TableRow>
+            <TableCell>
+              <div className="flex items-center justify-between gap-4">
+                <div className="min-w-0 flex-1">
+                  <MessageText className="flex items-center">
+                    <span className="max-w-[300px] truncate">
+                      Extremely Long Sender Name That Should Definitely Be
+                      Truncated
+                    </span>
+                  </MessageText>
+                  <MessageText className="mt-1 truncate font-bold">
+                    This is an extremely long subject line that used to cause
+                    the table to grow horizontally
+                  </MessageText>
+                  <MessageText className="mt-1 line-clamp-2 break-all">
+                    This snippet contains a very long URL that does not break:
+                    https://www.this-is-a-very-long-url-that-goes-on-and-on-and-on-and-on-and-on-and-on-and-on-and-on-and-on-and-on.com/test
+                  </MessageText>
+                </div>
+                <div className="ml-4 shrink-0">
+                  <ShadButton size="sm">Test</ShadButton>
+                </div>
+              </div>
+            </TableCell>
+          </TableRow>
+        </TableBody>
+      </Table>
+    </div>
+  );
 }

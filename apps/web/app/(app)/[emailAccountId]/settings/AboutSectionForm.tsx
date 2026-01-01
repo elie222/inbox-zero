@@ -39,7 +39,7 @@ export function AboutSectionFull() {
   );
 }
 
-export function AboutSection() {
+export function AboutSection({ onSuccess }: { onSuccess?: () => void }) {
   const { data, isLoading, error, mutate } = useEmailAccountFull();
 
   return (
@@ -48,7 +48,11 @@ export function AboutSection() {
       error={error}
       loadingComponent={<Skeleton className="h-32 w-full" />}
     >
-      <AboutSectionForm about={data?.about ?? null} mutate={mutate} />
+      <AboutSectionForm
+        about={data?.about ?? null}
+        mutate={mutate}
+        onSuccess={onSuccess}
+      />
     </LoadingContent>
   );
 }
@@ -56,9 +60,11 @@ export function AboutSection() {
 const AboutSectionForm = ({
   about,
   mutate,
+  onSuccess,
 }: {
   about: string | null;
   mutate: () => void;
+  onSuccess?: () => void;
 }) => {
   const {
     register,
@@ -78,6 +84,7 @@ const AboutSectionForm = ({
         toastSuccess({
           description: "Your profile has been updated!",
         });
+        onSuccess?.();
       },
       onError: (error) => {
         toastError({

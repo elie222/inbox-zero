@@ -210,7 +210,9 @@ function RulesPromptForm({
           </form>
         </div>
 
-        <AvailableActionsPanel />
+        <div className="pr-4">
+          <AvailableActionsPanel />
+        </div>
       </div>
 
       {examples && (

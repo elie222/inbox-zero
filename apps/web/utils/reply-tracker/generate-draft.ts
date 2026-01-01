@@ -1,6 +1,7 @@
 import type { ParsedMessage } from "@/utils/types";
 import { internalDateToDate } from "@/utils/date";
 import { getEmailForLLM } from "@/utils/get-email-from-message";
+import { extractEmailAddress, extractEmailAddresses } from "@/utils/email";
 import { aiDraftWithKnowledge } from "@/utils/ai/reply/draft-with-knowledge";
 import { getReply, saveReply } from "@/utils/redis/reply";
 import { getWritingStyle } from "@/utils/user/get";
@@ -17,6 +18,10 @@ import { generateReferralLink } from "@/utils/referral/referral-link";
 import { aiGetCalendarAvailability } from "@/utils/ai/calendar/availability";
 import { env } from "@/env";
 import { mcpAgent } from "@/utils/ai/mcp/mcp-agent";
+import {
+  getMeetingContext,
+  formatMeetingContextForPrompt,
+} from "@/utils/meeting-briefs/recipient-context";
 
 /**
  * Fetches thread messages and generates draft content in one step
@@ -142,6 +147,7 @@ async function generateDraftContent(
     calendarAvailability,
     writingStyle,
     mcpResult,
+    upcomingMeetings,
   ] = await Promise.all([
     aiExtractRelevantKnowledge({
       knowledgeBase,
@@ -157,6 +163,19 @@ async function generateDraftContent(
     aiGetCalendarAvailability({ emailAccount, messages, logger }),
     getWritingStyle({ emailAccountId: emailAccount.id }),
     mcpAgent({ emailAccount, messages }),
+    getMeetingContext({
+      emailAccountId: emailAccount.id,
+      recipientEmail: extractEmailAddress(lastMessage.headers.from),
+      // extract all other recipients (To, CC) for privacy filtering
+      // only meetings where ALL recipients were attendees will be included
+      additionalRecipients: [
+        ...extractEmailAddresses(lastMessage.headers.to),
+        ...extractEmailAddresses(lastMessage.headers.cc ?? ""),
+      ].filter(
+        (email) => email.toLowerCase() !== emailAccount.email.toLowerCase(),
+      ),
+      logger,
+    }),
   ]);
 
   // 2b. Extract email history context
@@ -185,6 +204,11 @@ async function generateDraftContent(
     : null;
 
   // 3. Draft with extracted knowledge
+  const meetingContext = formatMeetingContextForPrompt(
+    upcomingMeetings,
+    emailAccount.timezone,
+  );
+
   const text = await aiDraftWithKnowledge({
     messages,
     emailAccount,
@@ -194,6 +218,7 @@ async function generateDraftContent(
     calendarAvailability,
     writingStyle,
     mcpContext: mcpResult?.response || null,
+    meetingContext,
   });
 
   if (typeof text === "string") {

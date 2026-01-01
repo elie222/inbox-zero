@@ -9,7 +9,10 @@ export type UpdateMeetingBriefsEnabledBody = z.infer<
 >;
 
 export const updateMeetingBriefsMinutesBeforeBody = z.object({
-  minutesBefore: z.number().min(1).max(2880), // 1 minute to 48 hours
+  minutesBefore: z
+    .number()
+    .min(1, "Number must be at least 1 minute")
+    .max(2880, "Number must be at most 2880 minutes (48 hours)"),
 });
 
 export type UpdateMeetingBriefsMinutesBeforeBody = z.infer<

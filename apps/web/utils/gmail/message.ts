@@ -15,7 +15,7 @@ import { getAccessTokenFromClient } from "@/utils/gmail/client";
 import { GmailLabel } from "@/utils/gmail/label";
 import { isIgnoredSender } from "@/utils/filter-ignored-senders";
 import parse from "gmail-api-parse-message";
-import { withGmailRetry } from "@/utils/gmail/retry";
+import { isRetryableError, withGmailRetry } from "@/utils/gmail/retry";
 
 const logger = createScopedLogger("gmail/message");
 
@@ -142,9 +142,29 @@ export async function getMessagesBatch({
   const messages = batch
     .map((message, i) => {
       if (isBatchError(message)) {
-        logger.error("Error fetching message", {
-          code: message.error.code,
-          error: message.error.message,
+        const { code, message: errorMessage, errors } = message.error;
+        const reason = (errors?.[0] as any)?.reason;
+
+        const { retryable } = isRetryableError({
+          status: code,
+          reason,
+          errorMessage,
+        });
+
+        if (!retryable) {
+          logger.warn("Skipping message due to non-retryable error", {
+            messageId: messageIds[i],
+            code,
+            reason,
+            errorMessage,
+          });
+          return;
+        }
+
+        logger.error("Error fetching message, adding to retry queue", {
+          code,
+          error: errorMessage,
+          reason,
         });
         missingMessageIds.add(messageIds[i]);
         return;

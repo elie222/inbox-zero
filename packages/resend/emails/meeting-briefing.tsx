@@ -97,8 +97,15 @@ export default function MeetingBriefingEmail({
               )}
             </Section>
 
-            <Section className="px-8 pb-6">
+            <Section className="px-8 pb-4">
               {renderGuestBriefings(briefingContent.guests)}
+            </Section>
+
+            <Section className="px-8 pb-6">
+              <Text className="text-xs text-gray-400 mt-0 mb-0 italic">
+                Note: This briefing is AI-generated and may be inaccurate,
+                especially for common names.
+              </Text>
             </Section>
 
             <Hr className="border-solid border-gray-300 my-6 mx-8" />

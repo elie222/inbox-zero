@@ -9,9 +9,6 @@ import type {
   CalendarEventProvider,
 } from "@/utils/calendar/event-types";
 import { extractDomainFromEmail } from "@/utils/email";
-import { researchGuestWithPerplexity } from "@/utils/ai/meeting-briefs/research-guest";
-import { getEmailAccountWithAi } from "@/utils/user/get";
-import { SafeError } from "@/utils/error";
 
 const MAX_THREADS = 10;
 const MAX_MESSAGES_PER_THREAD = 10;
@@ -24,7 +21,6 @@ export type { CalendarEvent, CalendarEventAttendee };
 export interface ExternalGuest {
   email: string;
   name?: string;
-  aiResearch?: string | null;
 }
 
 export interface MeetingBriefingData {
@@ -84,45 +80,16 @@ export async function gatherContextForEvent({
     messages: thread.messages.slice(-MAX_MESSAGES_PER_THREAD),
   }));
 
-  const emailAccount = await getEmailAccountWithAi({
-    emailAccountId,
-  });
-
-  if (!emailAccount) {
-    logger.error("Email account not found");
-    throw new SafeError("Email account not found");
-  }
-
-  const guestResearchPromises = externalAttendees.map((attendee) =>
-    researchGuestWithPerplexity({
-      event,
-      name: attendee.name,
-      email: attendee.email,
-      emailAccount,
-      logger,
-    }).catch((error) => {
-      logger.warn("Failed to research guest", {
-        email: attendee.email,
-        error,
-      });
-      return null;
-    }),
-  );
-
-  const aiResearchResults = await Promise.all(guestResearchPromises);
-
   logger.info("Gathered context for meeting", {
     threadCount: cappedThreads.length,
     meetingCount: pastMeetings.length,
-    researchedGuests: aiResearchResults.filter((c) => c !== null).length,
   });
 
   return {
     event,
-    externalGuests: externalAttendees.map((a, index) => ({
+    externalGuests: externalAttendees.map((a) => ({
       email: a.email,
       name: a.name,
-      aiResearch: aiResearchResults[index] ?? null,
     })),
     emailThreads: cappedThreads,
     pastMeetings,

@@ -66,6 +66,7 @@ Learn more in our [docs](https://docs.getinboxzero.com).
 - [Prisma](https://www.prisma.io/)
 - [Upstash](https://upstash.com/)
 - [Turborepo](https://turbo.build/)
+- [Popsy Illustrations](https://popsy.co/)
 
 ## Star History
 

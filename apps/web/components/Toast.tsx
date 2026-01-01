@@ -1,8 +1,13 @@
 import { Toaster as SonnerToaster, toast } from "sonner";
 
-export function toastSuccess(options: { title?: string; description: string }) {
+export function toastSuccess(options: {
+  title?: string;
+  description: string;
+  id?: string;
+}) {
   return toast.success(options.title || "Success", {
     description: options.description,
+    id: options.id,
   });
 }
 

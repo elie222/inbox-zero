@@ -15,6 +15,19 @@ export function extractNameFromEmail(email: string) {
   return email;
 }
 
+// Extracts all email addresses from a comma-separated header string
+// e.g., "John <john@example.com>, Jane <jane@example.com>" -> ["john@example.com", "jane@example.com"]
+export function extractEmailAddresses(header: string): string[] {
+  if (!header) return [];
+
+  // split by comma, but be careful about commas inside quoted names
+  const parts = header.split(/,(?=(?:[^"]*"[^"]*")*[^"]*$)/);
+
+  return parts
+    .map((part) => extractEmailAddress(part.trim()))
+    .filter((email) => email.length > 0);
+}
+
 // Converts "John Doe <john.doe@gmail>" to "john.doe@gmail"
 export function extractEmailAddress(email: string): string {
   if (!email) return "";
@@ -129,6 +142,7 @@ export const PUBLIC_EMAIL_DOMAINS = new Set([
   "fastmail.com",
   "gmx.com",
   "hey.com",
+  "mail.com",
 ]);
 
 // Returns the search term to use when checking for previous communications

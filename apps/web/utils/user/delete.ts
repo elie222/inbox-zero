@@ -9,7 +9,7 @@ import { createEmailProvider } from "@/utils/email/provider";
 import type { EmailProvider } from "@/utils/email/types";
 import type { Logger } from "@/utils/logger";
 import { sleep } from "@/utils/sleep";
-import { clearCachedPerplexityResearchForUser } from "@/utils/redis/perplexity-research";
+import { clearCachedResearchForUser } from "@/utils/redis/research-cache";
 
 export async function deleteUser({
   userId,
@@ -68,8 +68,8 @@ export async function deleteUser({
       captureException(error);
     });
 
-    clearCachedPerplexityResearchForUser(userId).catch((error) => {
-      logger.error("Error clearing cached Perplexity research", { error });
+    clearCachedResearchForUser(userId).catch((error) => {
+      logger.error("Error clearing cached research", { error });
       captureException(error);
     });
 

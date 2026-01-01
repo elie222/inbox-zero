@@ -159,6 +159,8 @@ const draft: ActionFunction<{
     to: args.to ?? undefined,
     subject: args.subject ?? undefined,
     content: args.content ?? "",
+    cc: args.cc ?? undefined,
+    bcc: args.bcc ?? undefined,
   };
 
   const result = await client.draftEmail(
