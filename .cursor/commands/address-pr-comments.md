@@ -1,5 +1,7 @@
 Resolve all active PR comments (conversation + code review). Use `gh` CLI.
 
+Important: don't use sandbox mode as the commands won't work in sandbox.
+
 ## Critical Rules
 
 1. **ALWAYS reply to the specific comment** - use replies API, not new PR comment
