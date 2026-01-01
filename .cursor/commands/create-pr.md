@@ -8,7 +8,8 @@ Important: don't use sandbox mode as the commands won't work in sandbox.
 git branch --show-current && git status -s && git diff HEAD --stat
 ```
 
-- If on `main`: create a branch using the appropriate prefix:
+- **Always create a new branch for each PR** unless you're already on the correct branch for the current changes.
+- If on `main` OR if the current branch doesn't match the work you're committing: create a branch using the appropriate prefix:
   - `feat/<description>` - new features
   - `fix/<description>` - bug fixes
   - `chore/<description>` - maintenance, refactoring, etc.
@@ -53,4 +54,4 @@ gh pr create --title "<title>" --body "<body>"
 gh pr create --title "<title>" --body "<body>" && gh pr comment $(gh pr view --json number -q .number) --body "#skipreview"
 ```
 
-Display the returned PR URL on its own line so it's clickable.
+Display the returned PR URL as a markdown link on its own line, formatted as: `[PR #<number>](<url>)` so it's clickable.

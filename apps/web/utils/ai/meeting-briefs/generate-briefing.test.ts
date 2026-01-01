@@ -85,9 +85,11 @@ describe("buildPrompt timezone handling", () => {
 
       </guest_context>
 
+      Available search tools: perplexitySearch, webSearch
+
       For each guest listed above:
       1. Review their email and meeting history provided
-      2. Use the researchGuest tool to find their professional background
+      2. Use search tools to find their professional background
       3. Once you have all information, call finalizeBriefing with the complete briefing"
     `);
   });
@@ -124,14 +126,16 @@ describe("buildPrompt timezone handling", () => {
       Name: New Person
       Email: newcontact@other.com
 
-      <no_prior_context>This appears to be a new contact with no prior email or meeting history. Use the researchGuest tool to find information about them.</no_prior_context>
+      <no_prior_context>This appears to be a new contact with no prior email or meeting history. Use search tools to find information about them.</no_prior_context>
       </guest>
 
       </guest_context>
 
+      Available search tools: perplexitySearch, webSearch
+
       For each guest listed above:
       1. Review their email and meeting history provided
-      2. Use the researchGuest tool to find their professional background
+      2. Use search tools to find their professional background
       3. Once you have all information, call finalizeBriefing with the complete briefing"
     `);
   });
