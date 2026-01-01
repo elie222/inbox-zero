@@ -6,7 +6,10 @@ import type { ParsedMessage } from "@/utils/types";
 import type { EmailForAction } from "@/utils/ai/types";
 import { createOutlookReplyContent } from "@/utils/outlook/reply";
 import { forwardEmailHtml, forwardEmailSubject } from "@/utils/gmail/forward";
-import { buildReplyAllRecipients } from "@/utils/email/reply-all";
+import {
+  buildReplyAllRecipients,
+  mergeAndDedupeRecipients,
+} from "@/utils/email/reply-all";
 import { formatReplySubject } from "@/utils/email/subject";
 import { withOutlookRetry } from "@/utils/outlook/retry";
 import { extractEmailAddress, extractNameFromEmail } from "@/utils/email";
@@ -189,6 +192,8 @@ export async function draftEmail(
     to?: string;
     subject?: string;
     content: string;
+    cc?: string;
+    bcc?: string;
     attachments?: Attachment[];
   },
   userEmail: string,
@@ -213,8 +218,20 @@ export async function draftEmail(
     },
   };
 
+  // Build CC list from reply-all and args
+  const ccAddresses = mergeAndDedupeRecipients(recipients.cc, args.cc);
+
   // Convert CC addresses to Outlook format
-  const ccRecipients = recipients.cc.map((addr) => ({
+  const ccRecipients = ccAddresses.map((addr) => ({
+    emailAddress: {
+      address: extractEmailAddress(addr),
+      name: extractNameFromEmail(addr),
+    },
+  }));
+
+  // Handle BCC if provided
+  const bccAddresses = mergeAndDedupeRecipients([], args.bcc);
+  const bccRecipients = bccAddresses.map((addr) => ({
     emailAddress: {
       address: extractEmailAddress(addr),
       name: extractNameFromEmail(addr),
@@ -264,6 +281,7 @@ export async function draftEmail(
         },
         toRecipients: [toRecipient],
         ...(ccRecipients.length > 0 ? { ccRecipients } : {}),
+        ...(bccRecipients.length > 0 ? { bccRecipients } : {}),
       }),
     logger,
   );

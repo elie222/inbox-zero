@@ -211,6 +211,7 @@ export async function runMeetingBrief({
       emailAccountId,
       userEmail,
       provider,
+      userTimezone: emailAccount.timezone,
       logger: eventLog,
     });
 
