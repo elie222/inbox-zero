@@ -4,6 +4,22 @@
 
 import prisma from "@/utils/prisma";
 import type { EmailProvider } from "@/utils/email/types";
+import type { Logger } from "@/utils/logger";
+
+/**
+ * Creates a mock logger for testing that silently ignores all log calls.
+ */
+export function createTestLogger(): Logger {
+  const mockLogger: Logger = {
+    info: () => {},
+    error: () => {},
+    warn: () => {},
+    trace: () => {},
+    with: () => mockLogger,
+    flush: () => Promise.resolve(),
+  };
+  return mockLogger;
+}
 
 export async function findOldMessage(
   provider: EmailProvider,
@@ -13,7 +29,7 @@ export async function findOldMessage(
   cutoffDate.setDate(cutoffDate.getDate() - daysOld);
 
   // Get messages from INBOX to ensure they have proper folder labels for processing
-  const inboxMessages = await provider.getInboxMessages(20);
+  const inboxMessages = await provider.getInboxMessages({ maxResults: 20 });
 
   // First try to find an old message (preferred to avoid interfering with recent activity)
   let selectedMessage = inboxMessages.find((msg) => {

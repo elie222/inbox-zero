@@ -9,7 +9,7 @@ export async function findThreadWithMultipleMessages(
   provider: EmailProvider,
   minMessages = 2,
 ): Promise<{ threadId: string; messages: ParsedMessage[] }> {
-  const inboxMessages = await provider.getInboxMessages(50);
+  const inboxMessages = await provider.getInboxMessages({ maxResults: 50 });
 
   // Group by threadId and find one with enough messages
   const threadIds = [...new Set(inboxMessages.map((m) => m.threadId))];

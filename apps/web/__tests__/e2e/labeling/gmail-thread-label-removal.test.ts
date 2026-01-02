@@ -19,6 +19,7 @@ import { SystemType } from "@/generated/prisma/enums";
 import { removeConflictingThreadStatusLabels } from "@/utils/reply-tracker/label-helpers";
 import { createScopedLogger } from "@/utils/logger";
 import { findThreadWithMultipleMessages } from "./helpers";
+import { createTestLogger } from "../helpers";
 
 const RUN_E2E_TESTS = process.env.RUN_E2E_TESTS;
 const TEST_GMAIL_EMAIL = process.env.TEST_GMAIL_EMAIL;
@@ -54,6 +55,7 @@ describe.skipIf(!RUN_E2E_TESTS)("Gmail Thread Label Removal E2E Tests", () => {
     provider = await createEmailProvider({
       emailAccountId: emailAccount.id,
       provider: "google",
+      logger: createTestLogger(),
     });
 
     // Find a suitable test thread with 2+ messages

@@ -12,7 +12,7 @@
 import { beforeAll, describe, expect, test, vi } from "vitest";
 import prisma from "@/utils/prisma";
 import { createEmailProvider } from "@/utils/email/provider";
-import { findOldMessage } from "@/__tests__/e2e/helpers";
+import { findOldMessage, createTestLogger } from "@/__tests__/e2e/helpers";
 import type { EmailProvider } from "@/utils/email/types";
 
 const RUN_E2E_TESTS = process.env.RUN_E2E_TESTS;
@@ -47,6 +47,7 @@ describe.skipIf(!RUN_E2E_TESTS)(
       provider = await createEmailProvider({
         emailAccountId: emailAccount.id,
         provider: "microsoft",
+        logger: createTestLogger(),
       });
 
       emailAccountEmail = emailAccount.email;

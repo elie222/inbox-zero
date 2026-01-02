@@ -21,6 +21,7 @@ import {
   ensureCatchAllTestRule,
   ensureTestPremiumAccount,
   findOldMessage,
+  createTestLogger,
 } from "@/__tests__/e2e/helpers";
 import { sleep } from "@/utils/sleep";
 import type { EmailProvider } from "@/utils/email/types";
@@ -87,6 +88,7 @@ describe.skipIf(!RUN_E2E_TESTS)("Outlook Operations Integration Tests", () => {
     provider = await createEmailProvider({
       emailAccountId: emailAccount.id,
       provider: "microsoft",
+      logger: createTestLogger(),
     });
 
     console.log(`\n✅ Using account: ${emailAccount.email}`);
@@ -331,6 +333,7 @@ describe.skipIf(!RUN_E2E_TESTS)("Outlook Webhook Payload", () => {
     const provider = await createEmailProvider({
       emailAccountId: emailAccount.id,
       provider: "microsoft",
+      logger: createTestLogger(),
     });
 
     const testMessage = await findOldMessage(provider, 7);
@@ -450,6 +453,7 @@ describe.skipIf(!RUN_E2E_TESTS)("Outlook Webhook Payload", () => {
       const provider = await createEmailProvider({
         emailAccountId: emailAccount.id,
         provider: "microsoft",
+        logger: createTestLogger(),
       });
 
       const draft = await provider.getDraft(draftAction.draftId);
@@ -484,6 +488,7 @@ describe.skipIf(!RUN_E2E_TESTS)("Outlook Webhook Payload", () => {
     const provider = await createEmailProvider({
       emailAccountId: emailAccount.id,
       provider: "microsoft",
+      logger: createTestLogger(),
     });
 
     const testMessage = await findOldMessage(provider, 7);

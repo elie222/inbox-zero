@@ -19,6 +19,7 @@ import { SystemType } from "@/generated/prisma/enums";
 import { removeConflictingThreadStatusLabels } from "@/utils/reply-tracker/label-helpers";
 import { createScopedLogger } from "@/utils/logger";
 import { findThreadWithMultipleMessages } from "./helpers";
+import { createTestLogger } from "../helpers";
 
 const RUN_E2E_TESTS = process.env.RUN_E2E_TESTS;
 const TEST_OUTLOOK_EMAIL = process.env.TEST_OUTLOOK_EMAIL;
@@ -56,6 +57,7 @@ describe.skipIf(!RUN_E2E_TESTS)(
       provider = await createEmailProvider({
         emailAccountId: emailAccount.id,
         provider: "microsoft",
+        logger: createTestLogger(),
       });
 
       // Find a suitable test thread with 2+ messages

@@ -18,6 +18,7 @@ import { createEmailProvider } from "@/utils/email/provider";
 import { extractEmailAddress, extractDomainFromEmail } from "@/utils/email";
 import type { EmailProvider } from "@/utils/email/types";
 import type { ParsedMessage } from "@/utils/types";
+import { createTestLogger } from "../helpers";
 
 const RUN_E2E_TESTS = process.env.RUN_E2E_TESTS;
 const TEST_GMAIL_EMAIL = process.env.TEST_GMAIL_EMAIL;
@@ -50,6 +51,7 @@ describe.skipIf(!RUN_E2E_TESTS || !TEST_GMAIL_EMAIL)(
       provider = await createEmailProvider({
         emailAccountId: emailAccount.id,
         provider: "google",
+        logger: createTestLogger(),
       });
 
       userEmail = emailAccount.email;
