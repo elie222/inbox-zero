@@ -1,5 +1,4 @@
 import prisma from "@/utils/prisma";
-import { createScopedLogger } from "@/utils/logger";
 import { captureException } from "@/utils/error";
 import type { EmailProvider } from "@/utils/email/types";
 import { createEmailProvider } from "@/utils/email/provider";
@@ -235,6 +234,53 @@ export class OutlookSubscriptionManager {
       expirationDate,
       historyEntries: updatedHistory.length,
     });
+
+    // Check if we were immediately overwritten by a concurrent call
+    const current = await this.getExistingSubscription();
+    if (current?.subscriptionId !== subscription.subscriptionId) {
+      this.logger.warn(
+        "Detected concurrent subscription update, ensuring our subscription is in history",
+        {
+          ourSubscriptionId: subscription.subscriptionId,
+          currentSubscriptionId: current?.subscriptionId,
+        },
+      );
+      await this.addSubscriptionToHistoryIfMissing(
+        subscription.subscriptionId,
+        now,
+        existing?.accountCreatedAt || now,
+      );
+    }
+  }
+
+  /**
+   * Atomically adds a subscription to the history array if it's not already the current one
+   * and not already in the history. This handles the case where we were overwritten
+   * by a concurrent call before we could finish our update.
+   */
+  private async addSubscriptionToHistoryIfMissing(
+    subscriptionId: string,
+    replacedAt: Date,
+    accountCreatedAt: Date,
+  ): Promise<void> {
+    const historyEntry = {
+      subscriptionId,
+      createdAt: accountCreatedAt.toISOString(),
+      replacedAt: replacedAt.toISOString(),
+    };
+
+    // Use a raw query to atomically append to the JSONB array only if the subscriptionId
+    // isn't already the main one AND isn't already in the history array.
+    await prisma.$executeRaw`
+      UPDATE "EmailAccount"
+      SET "watchEmailsSubscriptionHistory" = 
+        COALESCE("watchEmailsSubscriptionHistory", '[]'::jsonb) || ${JSON.stringify([historyEntry])}::jsonb
+      WHERE id = ${this.emailAccountId}
+        AND "watchEmailsSubscriptionId" != ${subscriptionId}
+        AND NOT (
+          COALESCE("watchEmailsSubscriptionHistory", '[]'::jsonb) @> ${JSON.stringify([{ subscriptionId }])}::jsonb
+        )
+    `;
   }
 }
 
