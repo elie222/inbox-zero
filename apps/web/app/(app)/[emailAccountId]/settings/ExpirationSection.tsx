@@ -11,6 +11,7 @@ import { Input } from "@/components/Input";
 import { Toggle } from "@/components/Toggle";
 import { toastError, toastSuccess } from "@/components/Toast";
 import { useAccount } from "@/providers/EmailAccountProvider";
+import { EMAIL_ACCOUNT_HEADER } from "@/utils/config";
 import type { ExpirationSettingsResponse } from "@/app/api/user/expiration-settings/route";
 import { LoadingContent } from "@/components/LoadingContent";
 
@@ -120,7 +121,10 @@ export function ExpirationSection() {
       try {
         const res = await fetch("/api/user/expiration-settings", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+            [EMAIL_ACCOUNT_HEADER]: emailAccountId,
+          },
           body: JSON.stringify(formData),
         });
 
@@ -138,7 +142,7 @@ export function ExpirationSection() {
         });
       }
     },
-    [mutate],
+    [mutate, emailAccountId],
   );
 
   return (
