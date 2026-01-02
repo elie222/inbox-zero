@@ -68,25 +68,28 @@ const mockLogger = {
 function createMockMessage(
   overrides: Partial<ParsedMessage> & { labelIds?: string[] } = {},
 ): ParsedMessage {
+  const { headers: headerOverrides, ...restOverrides } = overrides;
+  const defaultHeaders = {
+    from: "sender@example.com",
+    to: "user@example.com",
+    subject: "Test Subject",
+    date: new Date().toISOString(),
+  };
+  const headers = { ...defaultHeaders, ...headerOverrides };
+
   return {
-    id: overrides.id || "msg-1",
+    id: restOverrides.id || "msg-1",
     threadId: "thread-1",
     historyId: "12345",
     snippet: "Test snippet",
-    subject: overrides.headers?.subject || "Test Subject",
+    subject: headers.subject,
     date: new Date().toISOString(),
     internalDate: String(Date.now()),
     inline: [],
-    headers: {
-      from: "sender@example.com",
-      to: "user@example.com",
-      subject: "Test Subject",
-      date: new Date().toISOString(),
-      ...overrides.headers,
-    },
-    labelIds: overrides.labelIds || [],
-    attachments: overrides.attachments || [],
-    ...overrides,
+    headers,
+    labelIds: restOverrides.labelIds || [],
+    attachments: restOverrides.attachments || [],
+    ...restOverrides,
   };
 }
 
