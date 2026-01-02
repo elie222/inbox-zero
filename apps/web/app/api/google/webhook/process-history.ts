@@ -13,9 +13,11 @@ import { getHistory } from "@/utils/gmail/history";
 import {
   validateWebhookAccount,
   getWebhookEmailAccount,
+  type ValidatedWebhookAccountData,
 } from "@/utils/webhook/validate-webhook-account";
 import prisma from "@/utils/prisma";
 import type { Logger } from "@/utils/logger";
+import type { gmail_v1 } from "@googleapis/gmail";
 
 export async function processHistoryForUser(
   decodedData: {
@@ -76,29 +78,28 @@ export async function processHistoryForUser(
       logger,
     });
 
-    const startHistoryId =
-      options?.startHistoryId ||
-      Math.max(
-        Number.parseInt(emailAccount?.lastSyncedHistoryId || "0"),
-        historyId - 500, // avoid going too far back
-      ).toString();
-
-    logger.info("Listing history", {
-      startHistoryId,
-      lastSyncedHistoryId: emailAccount?.lastSyncedHistoryId,
-      gmailHistoryId: startHistoryId,
+    const historyResult = await fetchGmailHistoryResilient({
+      gmail,
+      emailAccount,
+      webhookHistoryId: historyId,
+      options,
+      logger,
     });
 
-    const history = await getHistory(gmail, {
-      // NOTE this can cause problems if we're way behind
-      // NOTE this doesn't include startHistoryId in the results
-      startHistoryId,
-      historyTypes: ["messageAdded", "labelAdded", "labelRemoved"],
-      maxResults: 500,
-    });
+    if (historyResult.status === "expired") {
+      await updateLastSyncedHistoryId({
+        emailAccountId: validatedEmailAccount.id,
+        lastSyncedHistoryId: historyId.toString(),
+      });
+      return NextResponse.json({ ok: true });
+    }
+
+    const history = historyResult.data;
 
     if (history.history) {
-      logger.info("Processing history", { startHistoryId });
+      logger.info("Processing history", {
+        startHistoryId: historyResult.startHistoryId,
+      });
 
       await processHistory(
         {
@@ -118,7 +119,9 @@ export async function processHistoryForUser(
         logger,
       );
     } else {
-      logger.info("No history", { startHistoryId });
+      logger.info("No history", {
+        startHistoryId: historyResult.startHistoryId,
+      });
 
       // important to save this or we can get into a loop with never receiving history
       await updateLastSyncedHistoryId({
@@ -250,3 +253,90 @@ const isInboxOrSentMessage = (message: {
 
   return false;
 };
+
+function isHistoryIdExpiredError(error: unknown): boolean {
+  // biome-ignore lint/suspicious/noExplicitAny: simple
+  const err = error as any;
+  const statusCode =
+    err.response?.data?.error?.code ??
+    err.response?.status ??
+    err.status ??
+    err.code;
+
+  return statusCode === 404;
+}
+
+/**
+ * Fetches history from Gmail with resilience:
+ * 1. Limits how far back we go to avoid processing massive gaps (e.g. if a user is disconnected for months).
+ * 2. Handles expired history IDs (404s) by resetting the sync point.
+ */
+async function fetchGmailHistoryResilient({
+  gmail,
+  emailAccount,
+  webhookHistoryId,
+  options,
+  logger,
+}: {
+  gmail: gmail_v1.Gmail;
+  emailAccount: ValidatedWebhookAccountData;
+  webhookHistoryId: number;
+  options: { startHistoryId?: string };
+  logger: Logger;
+}): Promise<
+  | {
+      status: "success";
+      data: Awaited<ReturnType<typeof getHistory>>;
+      startHistoryId: string;
+    }
+  | { status: "expired" }
+> {
+  const lastSyncedHistoryId = Number.parseInt(
+    emailAccount?.lastSyncedHistoryId || "0",
+  );
+
+  // If the gap is too large (e.g. > 500 items), we start from currentHistoryId - 500.
+  // This prevents timeouts and runaway processing costs if the system falls way behind.
+  const startHistoryIdNum = Math.max(
+    lastSyncedHistoryId,
+    webhookHistoryId - 500,
+  );
+  const startHistoryId =
+    options?.startHistoryId || startHistoryIdNum.toString();
+
+  // Log if we are intentionally skipping emails to keep the system stable
+  if (startHistoryIdNum > lastSyncedHistoryId && !options?.startHistoryId) {
+    logger.warn("Skipping history items due to large gap", {
+      lastSyncedHistoryId,
+      webhookHistoryId,
+      effectiveStartHistoryId: startHistoryIdNum,
+      skippedHistoryItems: startHistoryIdNum - lastSyncedHistoryId,
+    });
+  }
+
+  logger.info("Listing history", {
+    startHistoryId,
+    lastSyncedHistoryId: emailAccount?.lastSyncedHistoryId,
+    gmailHistoryId: startHistoryId,
+  });
+
+  try {
+    const data = await getHistory(gmail, {
+      startHistoryId,
+      historyTypes: ["messageAdded", "labelAdded", "labelRemoved"],
+      maxResults: 500,
+    });
+    return { status: "success", data, startHistoryId };
+  } catch (error) {
+    // Gmail history IDs are typically valid for ~1 week. If older, Gmail returns a 404.
+    // In this case, we reset the sync point to the current history ID.
+    if (isHistoryIdExpiredError(error)) {
+      logger.warn("HistoryId expired, resetting to current", {
+        expiredHistoryId: startHistoryId,
+        newHistoryId: webhookHistoryId,
+      });
+      return { status: "expired" };
+    }
+    throw error;
+  }
+}
