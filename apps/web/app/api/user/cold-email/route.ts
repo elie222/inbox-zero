@@ -29,7 +29,34 @@ async function getColdEmails(
   });
 
   if (!coldEmailRule?.groupId) {
-    return { coldEmails: [], totalPages: 0 };
+    // Fallback to old ColdEmail table for users who haven't migrated yet
+    const where = {
+      emailAccountId,
+      status,
+    };
+
+    const [oldColdEmails, count] = await Promise.all([
+      prisma.coldEmail.findMany({
+        where,
+        take: LIMIT,
+        skip: (page - 1) * LIMIT,
+        orderBy: { createdAt: "desc" },
+      }),
+      prisma.coldEmail.count({ where }),
+    ]);
+
+    return {
+      coldEmails: oldColdEmails.map((c) => ({
+        id: c.id,
+        fromEmail: c.fromEmail,
+        status: c.status as ColdEmailStatus,
+        createdAt: c.createdAt,
+        reason: c.reason || undefined,
+        threadId: c.threadId || undefined,
+        messageId: c.messageId || undefined,
+      })),
+      totalPages: Math.ceil(count / LIMIT),
+    };
   }
 
   const where = {

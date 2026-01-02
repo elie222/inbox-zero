@@ -25,23 +25,35 @@ export const markNotColdEmailAction = actionClient
       ctx: { emailAccountId, provider, logger },
       parsedInput: { sender },
     }) => {
-      const emailProvider = await createEmailProvider({
-        emailAccountId,
-        provider,
-        logger,
-      });
+      const [emailProvider, coldEmailRule] = await Promise.all([
+        createEmailProvider({
+          emailAccountId,
+          provider,
+          logger,
+        }),
+        getColdEmailRule(emailAccountId),
+      ]);
+
+      if (!coldEmailRule) {
+        throw new SafeError("Cold email rule not found");
+      }
 
       await Promise.all([
         // Mark as excluded so AI doesn't match it again
         saveLearnedPattern({
           emailAccountId,
           from: sender,
-          ruleName: "Cold Email",
+          ruleId: coldEmailRule.id,
           exclude: true,
           logger,
           source: GroupItemSource.USER,
         }),
-        removeColdEmailLabelFromSender(emailAccountId, emailProvider, sender),
+        removeColdEmailLabelFromSender(
+          emailAccountId,
+          emailProvider,
+          sender,
+          coldEmailRule,
+        ),
       ]);
     },
   );
@@ -69,13 +81,11 @@ async function removeColdEmailLabelFromSender(
   emailAccountId: string,
   emailProvider: EmailProvider,
   sender: string,
+  coldEmailRule: { actions: { labelId: string | null }[] },
 ) {
   // 1. find cold email label
   // 2. find emails from sender
   // 3. remove cold email label from emails
-
-  const coldEmailRule = await getColdEmailRule(emailAccountId);
-  if (!coldEmailRule) return;
 
   const labels = await emailProvider.getLabels();
 

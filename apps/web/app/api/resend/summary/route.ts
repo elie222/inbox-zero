@@ -68,7 +68,7 @@ export const POST = withError("resend/summary", async (request) => {
   }
 });
 
-function extractFromEmail(matchMetadata: any): string | null {
+function extractFromEmail(matchMetadata: unknown): string | null {
   if (!matchMetadata || !Array.isArray(matchMetadata)) return null;
 
   const reasons = matchMetadata as SerializedMatchReason[];
@@ -77,8 +77,17 @@ function extractFromEmail(matchMetadata: any): string | null {
     if (reason.type === "AI" && reason.from) {
       return reason.from;
     }
-    if (reason.type === "LEARNED_PATTERN" && reason.groupItem?.value) {
-      return reason.groupItem.value;
+    if (reason.type === "LEARNED_PATTERN") {
+      const serializedReason = reason as SerializedMatchReason & {
+        from?: string;
+        groupItem?: { value: string };
+      };
+      if (serializedReason.groupItem?.value) {
+        return serializedReason.groupItem.value;
+      }
+      if (serializedReason.from) {
+        return serializedReason.from;
+      }
     }
   }
 

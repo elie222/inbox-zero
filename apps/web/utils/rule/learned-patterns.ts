@@ -59,15 +59,58 @@ export async function saveLearnedPattern({
 
   if (!groupId) {
     // Create a new group for this rule if one doesn't exist
-    const newGroup = await prisma.group.create({
-      data: {
-        emailAccountId,
-        name: rule.name,
-        rule: { connect: { id: rule.id } },
-      },
-    });
+    try {
+      const newGroup = await prisma.group.create({
+        data: {
+          emailAccountId,
+          name: rule.name,
+          rule: { connect: { id: rule.id } },
+        },
+      });
 
-    groupId = newGroup.id;
+      groupId = newGroup.id;
+    } catch (error) {
+      if (isDuplicateError(error)) {
+        // If it's a duplicate, it means either:
+        // 1. The rule already has a group (concurrently created)
+        // 2. A group with the same name already exists for this account
+        const updatedRule = await prisma.rule.findUnique({
+          where: { id: rule.id },
+          select: { groupId: true },
+        });
+
+        if (updatedRule?.groupId) {
+          groupId = updatedRule.groupId;
+        } else {
+          // Check if a group with the same name exists
+          const existingGroup = await prisma.group.findUnique({
+            where: {
+              name_emailAccountId: {
+                name: rule.name,
+                emailAccountId,
+              },
+            },
+            select: { id: true },
+          });
+
+          if (existingGroup) {
+            groupId = existingGroup.id;
+            // Attempt to link it, but ignore if it fails (e.g. already linked to another rule)
+            await prisma.rule
+              .update({
+                where: { id: rule.id },
+                data: { groupId },
+              })
+              .catch(() => {});
+          } else {
+            // If we still don't have a groupId, rethrow
+            throw error;
+          }
+        }
+      } else {
+        throw error;
+      }
+    }
   }
 
   await prisma.groupItem.upsert({

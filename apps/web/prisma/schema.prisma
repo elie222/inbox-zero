@@ -670,25 +670,25 @@ model Newsletter {
   @@index([categoryId])
 }
 
-// model ColdEmail {
-//   id        String           @id @default(cuid())
-//   createdAt DateTime         @default(now())
-//   updatedAt DateTime         @updatedAt
-//   fromEmail String
-//   messageId String?
-//   threadId  String?
-//   status    ColdEmailStatus?
-//   reason    String?
-//
-//   emailAccountId String
-//   emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
-//
-//   digestItems DigestItem[]
-//
-//   @@unique([emailAccountId, fromEmail])
-//   @@index([emailAccountId, status])
-//   @@index([emailAccountId, createdAt])
-// }
+model ColdEmail {
+  id        String           @id @default(cuid())
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+  fromEmail String
+  messageId String?
+  threadId  String?
+  status    ColdEmailStatus?
+  reason    String?
+
+  emailAccountId String
+  emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
+
+  digestItems DigestItem[]
+
+  @@unique([emailAccountId, fromEmail])
+  @@index([emailAccountId, status])
+  @@index([emailAccountId, createdAt])
+}
 
 model EmailMessage {
   id              String   @id @default(cuid())

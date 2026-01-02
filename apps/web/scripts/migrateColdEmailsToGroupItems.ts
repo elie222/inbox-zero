@@ -71,6 +71,13 @@ async function main() {
           : GroupItemSource.AI;
 
       // 5. Upsert GroupItem to avoid duplicates and preserve context
+      if (!coldEmail.fromEmail) {
+        console.warn(
+          `Missing sender email for account ${emailAccountId}. Skipping record.`,
+        );
+        continue;
+      }
+
       await prisma.groupItem.upsert({
         where: {
           groupId_type_value: {

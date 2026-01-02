@@ -60,7 +60,7 @@ export async function isColdEmail({
     logger.info("Sender explicitly excluded from cold email blocker", {
       from: email.from,
     });
-    return { isColdEmail: false, reason: "hasPreviousEmail" };
+    return { isColdEmail: false, reason: "excluded" };
   }
 
   const hasPreviousEmail =
