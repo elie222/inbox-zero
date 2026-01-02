@@ -348,6 +348,7 @@ async function executeMatchedRule(
       },
       emailAccount,
       aiReason: reason ?? null,
+      logger,
     });
   }
 

@@ -7,11 +7,12 @@ import { env } from "@/env";
 import { hasCronSecret } from "@/utils/cron";
 import { captureException } from "@/utils/error";
 import prisma from "@/utils/prisma";
-import { ThreadTrackerType } from "@/generated/prisma/enums";
+import { SystemType, ThreadTrackerType } from "@/generated/prisma/enums";
 import type { Logger } from "@/utils/logger";
 import { getMessagesBatch } from "@/utils/gmail/message";
 import { decodeSnippet } from "@/utils/gmail/decode";
 import { createUnsubscribeToken } from "@/utils/unsubscribe";
+import type { SerializedMatchReason } from "@/utils/ai/choose-rule/types";
 
 export const maxDuration = 60;
 
@@ -67,6 +68,23 @@ export const POST = withError("resend/summary", async (request) => {
   }
 });
 
+function extractFromEmail(matchMetadata: any): string | null {
+  if (!matchMetadata || !Array.isArray(matchMetadata)) return null;
+
+  const reasons = matchMetadata as SerializedMatchReason[];
+
+  for (const reason of reasons) {
+    if (reason.type === "AI" && reason.from) {
+      return reason.from;
+    }
+    if (reason.type === "LEARNED_PATTERN" && reason.groupItem?.value) {
+      return reason.groupItem.value;
+    }
+  }
+
+  return null;
+}
+
 async function sendEmail({
   emailAccountId,
   force,
@@ -110,7 +128,6 @@ async function sendEmail({
     where: { id: emailAccountId },
     select: {
       email: true,
-      coldEmails: { where: { createdAt: { gt: cutOffDate } } },
       account: {
         select: {
           access_token: true,
@@ -124,84 +141,89 @@ async function sendEmail({
     return { success: false };
   }
 
-  if (emailAccount) {
-    logger.info("Email account found");
-  } else {
-    logger.error("Email account not found or cutoff date is in the future", {
-      cutOffDate,
-    });
-    return { success: true };
-  }
+  // Find cold email rule
+  const coldEmailRule = await prisma.rule.findUnique({
+    where: {
+      emailAccountId_systemType: {
+        emailAccountId,
+        systemType: SystemType.COLD_EMAIL,
+      },
+    },
+    select: { id: true },
+  });
 
   // Get counts and recent threads for each type
-  const [
-    counts,
-    needsReply,
-    awaitingReply,
-    // needsAction
-  ] = await Promise.all([
-    // total count
-    // NOTE: should really be distinct by threadId. this will cause a mismatch in some cases
-    prisma.threadTracker.groupBy({
-      by: ["type"],
-      where: {
-        emailAccountId,
-        resolved: false,
-      },
-      _count: true,
-    }),
-    // needs reply
-    prisma.threadTracker.findMany({
-      where: {
-        emailAccountId,
-        type: ThreadTrackerType.NEEDS_REPLY,
-        resolved: false,
-      },
-      orderBy: { sentAt: "desc" },
-      take: 20,
-      distinct: ["threadId"],
-    }),
-    // awaiting reply
-    prisma.threadTracker.findMany({
-      where: {
-        emailAccountId,
-        type: ThreadTrackerType.AWAITING,
-        resolved: false,
-        // only show emails that are more than 3 days overdue
-        sentAt: { lt: subHours(new Date(), 24 * 3) },
-      },
-      orderBy: { sentAt: "desc" },
-      take: 20,
-      distinct: ["threadId"],
-    }),
-    // needs action - currently not used
-    // prisma.threadTracker.findMany({
-    //   where: {
-    //     userId: user.id,
-    //     type: ThreadTrackerType.NEEDS_ACTION,
-    //     resolved: false,
-    //   },
-    //   orderBy: { sentAt: "desc" },
-    //   take: 20,
-    //   distinct: ["threadId"],
-    // }),
-  ]);
+  const [counts, needsReply, awaitingReply, coldExecutedRules] =
+    await Promise.all([
+      // total count
+      prisma.threadTracker.groupBy({
+        by: ["type"],
+        where: {
+          emailAccountId,
+          resolved: false,
+        },
+        _count: true,
+      }),
+      // needs reply
+      prisma.threadTracker.findMany({
+        where: {
+          emailAccountId,
+          type: ThreadTrackerType.NEEDS_REPLY,
+          resolved: false,
+        },
+        orderBy: { sentAt: "desc" },
+        take: 20,
+        distinct: ["threadId"],
+      }),
+      // awaiting reply
+      prisma.threadTracker.findMany({
+        where: {
+          emailAccountId,
+          type: ThreadTrackerType.AWAITING,
+          resolved: false,
+          // only show emails that are more than 3 days overdue
+          sentAt: { lt: subHours(new Date(), 24 * 3) },
+        },
+        orderBy: { sentAt: "desc" },
+        take: 20,
+        distinct: ["threadId"],
+      }),
+      // cold emails
+      coldEmailRule
+        ? prisma.executedRule.findMany({
+            where: {
+              ruleId: coldEmailRule.id,
+              automated: true,
+              createdAt: { gt: cutOffDate },
+            },
+            select: {
+              createdAt: true,
+              matchMetadata: true,
+            },
+          })
+        : Promise.resolve([]),
+    ]);
 
   const typeCounts = Object.fromEntries(
     counts.map((count) => [count.type, count._count]),
   );
 
-  const coldEmailers = emailAccount.coldEmails.map((e) => ({
-    from: e.fromEmail,
-    subject: "",
-    sentAt: e.createdAt,
-  }));
+  const coldEmailers = coldExecutedRules
+    .map((rule) => {
+      const from = extractFromEmail(rule.matchMetadata);
+      if (!from) return null;
+      return {
+        from,
+        subject: "",
+        sentAt: rule.createdAt,
+      };
+    })
+    .filter((c): c is NonNullable<typeof c> => c !== null);
 
   // get messages
   const messageIds = [
     ...needsReply.map((m) => m.messageId),
     ...awaitingReply.map((m) => m.messageId),
-    // ...needsAction.map((m) => m.messageId),
   ];
 
   logger.info("Getting messages", {
@@ -237,15 +259,6 @@ async function sendEmail({
     };
   });
 
-  // const recentNeedsAction = needsAction.map((t) => {
-  //   const message = messageMap[t.messageId];
-  //   return {
-  //     from: message?.headers.from || "Unknown",
-  //     subject: decodeSnippet(message?.snippet) || "",
-  //     sentAt: t.sentAt,
-  //   };
-  // });
-
   const shouldSendEmail = !!(
     coldEmailers.length ||
     typeCounts[ThreadTrackerType.NEEDS_REPLY] ||
@@ -261,7 +274,7 @@ async function sendEmail({
     needsActionCount: typeCounts[ThreadTrackerType.NEEDS_ACTION],
   });
 
-  async function sendEmail({
+  async function sendEmailNotification({
     emailAccountId,
     userEmail,
   }: {
@@ -281,7 +294,6 @@ async function sendEmail({
         needsActionCount: typeCounts[ThreadTrackerType.NEEDS_ACTION],
         needsReply: recentNeedsReply,
         awaitingReply: recentAwaitingReply,
-        // needsAction: recentNeedsAction,
         unsubscribeToken: token,
       },
     });
@@ -289,7 +301,7 @@ async function sendEmail({
 
   await Promise.all([
     shouldSendEmail
-      ? sendEmail({ emailAccountId, userEmail: emailAccount.email })
+      ? sendEmailNotification({ emailAccountId, userEmail: emailAccount.email })
       : Promise.resolve(),
     prisma.emailAccount.update({
       where: { id: emailAccountId },

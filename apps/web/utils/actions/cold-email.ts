@@ -1,7 +1,7 @@
 "use server";
 
 import prisma from "@/utils/prisma";
-import { ColdEmailStatus, SystemType } from "@/generated/prisma/enums";
+import { SystemType, GroupItemSource } from "@/generated/prisma/enums";
 import { emailToContent } from "@/utils/mail";
 import { isColdEmail } from "@/utils/cold-email/is-cold-email";
 import {
@@ -15,6 +15,7 @@ import type { EmailProvider } from "@/utils/email/types";
 import { getColdEmailRule } from "@/utils/cold-email/cold-email-rule";
 import { getRuleLabel } from "@/utils/rule/consts";
 import { internalDateToDate } from "@/utils/date";
+import { saveLearnedPattern } from "@/utils/rule/learned-patterns";
 
 export const markNotColdEmailAction = actionClient
   .metadata({ name: "markNotColdEmail" })
@@ -31,16 +32,14 @@ export const markNotColdEmailAction = actionClient
       });
 
       await Promise.all([
-        prisma.coldEmail.update({
-          where: {
-            emailAccountId_fromEmail: {
-              emailAccountId,
-              fromEmail: sender,
-            },
-          },
-          data: {
-            status: ColdEmailStatus.USER_REJECTED_COLD,
-          },
+        // Mark as excluded so AI doesn't match it again
+        saveLearnedPattern({
+          emailAccountId,
+          from: sender,
+          ruleName: "Cold Email",
+          exclude: true,
+          logger,
+          source: GroupItemSource.USER,
         }),
         removeColdEmailLabelFromSender(emailAccountId, emailProvider, sender),
       ]);

@@ -1,36 +1,57 @@
 import prisma from "@/utils/prisma";
 import type { Logger } from "@/utils/logger";
-import { GroupItemType } from "@/generated/prisma/enums";
+import { GroupItemType, type GroupItemSource } from "@/generated/prisma/enums";
 import { isDuplicateError } from "@/utils/prisma-helpers";
 
 /**
  * Saves a learned pattern for a rule
  * - Creates a group for the rule if one doesn't exist
  * - Adds the from pattern to the group
+ *
+ * @param ruleId - The rule ID (preferred) OR ruleName to look up the rule
  */
 export async function saveLearnedPattern({
   emailAccountId,
   from,
+  ruleId,
   ruleName,
+  exclude = false,
   logger,
+  reason,
+  threadId,
+  messageId,
+  source,
 }: {
   emailAccountId: string;
   from: string;
-  ruleName: string;
+  ruleId?: string;
+  ruleName?: string;
+  exclude?: boolean;
   logger: Logger;
+  reason?: string | null;
+  threadId?: string | null;
+  messageId?: string | null;
+  source?: GroupItemSource | null;
 }) {
-  const rule = await prisma.rule.findUnique({
-    where: {
-      name_emailAccountId: {
-        name: ruleName,
-        emailAccountId,
-      },
-    },
-    select: { id: true, groupId: true },
-  });
+  const rule = ruleId
+    ? await prisma.rule.findUnique({
+        where: { id: ruleId },
+        select: { id: true, name: true, groupId: true },
+      })
+    : ruleName
+      ? await prisma.rule.findUnique({
+          where: {
+            name_emailAccountId: {
+              name: ruleName,
+              emailAccountId,
+            },
+          },
+          select: { id: true, name: true, groupId: true },
+        })
+      : null;
 
   if (!rule) {
-    logger.error("Rule not found", { emailAccountId, ruleName });
+    logger.error("Rule not found", { emailAccountId, ruleId, ruleName });
     return;
   }
 
@@ -41,7 +62,7 @@ export async function saveLearnedPattern({
     const newGroup = await prisma.group.create({
       data: {
         emailAccountId,
-        name: ruleName,
+        name: rule.name,
         rule: { connect: { id: rule.id } },
       },
     });
@@ -57,11 +78,22 @@ export async function saveLearnedPattern({
         value: from,
       },
     },
-    update: {},
+    update: {
+      exclude,
+      reason,
+      threadId,
+      messageId,
+      source,
+    },
     create: {
       groupId,
       type: GroupItemType.FROM,
       value: from,
+      exclude,
+      reason,
+      threadId,
+      messageId,
+      source,
     },
   });
 }
@@ -135,8 +167,6 @@ export async function saveLearnedPatterns({
 
   // Process all patterns in a single function
   for (const pattern of patterns) {
-    // Store pattern with the exclude flag properly set in the database
-    // This maps directly to the new exclude field in the GroupItem model
     try {
       await prisma.groupItem.upsert({
         where: {

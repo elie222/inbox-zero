@@ -81,10 +81,18 @@ export async function findMatchingRules({
         matches: [
           {
             rule: coldRule,
-            matchReasons: [{ type: ConditionType.AI }],
+            matchReasons: [
+              {
+                type:
+                  coldEmailResult.reason === "ai-already-labeled"
+                    ? ConditionType.LEARNED_PATTERN
+                    : ConditionType.AI,
+                from: message.headers.from,
+              },
+            ],
           },
         ],
-        reasoning: coldEmailResult.reason,
+        reasoning: coldEmailResult.aiReason || coldEmailResult.reason,
       };
     }
   }

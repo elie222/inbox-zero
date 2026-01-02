@@ -1,16 +1,18 @@
 import { z } from "zod";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
-import type { ColdEmail, Rule } from "@/generated/prisma/client";
-import { ColdEmailStatus } from "@/generated/prisma/enums";
+import type { Rule } from "@/generated/prisma/client";
+import { GroupItemType, GroupItemSource } from "@/generated/prisma/enums";
 import prisma from "@/utils/prisma";
 import { DEFAULT_COLD_EMAIL_PROMPT } from "@/utils/cold-email/prompt";
 import { stringifyEmail } from "@/utils/stringify-email";
-import { createScopedLogger } from "@/utils/logger";
+import { createScopedLogger, type Logger } from "@/utils/logger";
 import type { EmailForLLM } from "@/utils/types";
 import type { EmailProvider } from "@/utils/email/types";
 import { getModel, type ModelType } from "@/utils/llms/model";
 import { createGenerateObject } from "@/utils/llms";
 import { extractEmailAddress } from "@/utils/email";
+import { getColdEmailRule } from "@/utils/cold-email/cold-email-rule";
+import { saveLearnedPattern } from "@/utils/rule/learned-patterns";
 
 export const COLD_EMAIL_FOLDER_NAME = "Cold Emails";
 
@@ -27,7 +29,7 @@ export async function isColdEmail({
   emailAccount: EmailAccountWithAI;
   provider: EmailProvider;
   modelType?: ModelType;
-  coldEmailRule: Pick<Rule, "instructions"> | null;
+  coldEmailRule: Pick<Rule, "instructions" | "groupId"> | null;
 }): Promise<{
   isColdEmail: boolean;
   reason: ColdEmailBlockerReason;
@@ -43,16 +45,22 @@ export async function isColdEmail({
   logger.info("Checking is cold email");
 
   // Check if we marked it as a cold email already
-  const isColdEmailer = await isKnownColdEmailSender({
+  const patternMatch = await checkColdEmailPattern({
     from: email.from,
     emailAccountId: emailAccount.id,
+    groupId: coldEmailRule?.groupId ?? undefined,
   });
 
-  if (isColdEmailer) {
-    logger.info("Known cold email sender", {
+  if (patternMatch === "include") {
+    logger.info("Known cold email sender", { from: email.from });
+    return { isColdEmail: true, reason: "ai-already-labeled" };
+  }
+
+  if (patternMatch === "exclude") {
+    logger.info("Sender explicitly excluded from cold email blocker", {
       from: email.from,
     });
-    return { isColdEmail: true, reason: "ai-already-labeled" };
+    return { isColdEmail: false, reason: "hasPreviousEmail" };
   }
 
   const hasPreviousEmail =
@@ -88,26 +96,36 @@ export async function isColdEmail({
   };
 }
 
-async function isKnownColdEmailSender({
+async function checkColdEmailPattern({
   from,
   emailAccountId,
+  groupId: passedGroupId,
 }: {
   from: string;
   emailAccountId: string;
-}) {
+  groupId?: string;
+}): Promise<"include" | "exclude" | "none"> {
   const normalizedFrom = extractEmailAddress(from) || from;
 
-  const coldEmail = await prisma.coldEmail.findUnique({
+  let groupId = passedGroupId;
+  if (!groupId) {
+    const coldEmailRule = await getColdEmailRule(emailAccountId);
+    groupId = coldEmailRule?.groupId ?? undefined;
+  }
+
+  if (!groupId) return "none";
+
+  const match = await prisma.groupItem.findFirst({
     where: {
-      emailAccountId_fromEmail: {
-        emailAccountId,
-        fromEmail: normalizedFrom,
-      },
-      status: ColdEmailStatus.AI_LABELED_COLD,
+      groupId,
+      type: GroupItemType.FROM,
+      value: normalizedFrom,
     },
-    select: { id: true },
+    select: { exclude: true },
   });
-  return !!coldEmail;
+
+  if (!match) return "none";
+  return match.exclude ? "exclude" : "include";
 }
 
 async function aiIsColdEmail(
@@ -166,28 +184,23 @@ export async function saveColdEmail({
   email,
   emailAccount,
   aiReason,
+  logger,
 }: {
   email: { from: string; id: string; threadId: string };
   emailAccount: EmailAccountWithAI;
   aiReason: string | null;
-}): Promise<ColdEmail> {
+  logger: Logger;
+}): Promise<void> {
   const from = extractEmailAddress(email.from) || email.from;
 
-  return await prisma.coldEmail.upsert({
-    where: {
-      emailAccountId_fromEmail: {
-        emailAccountId: emailAccount.id,
-        fromEmail: from,
-      },
-    },
-    update: { status: ColdEmailStatus.AI_LABELED_COLD },
-    create: {
-      status: ColdEmailStatus.AI_LABELED_COLD,
-      fromEmail: from,
-      emailAccountId: emailAccount.id,
-      reason: aiReason,
-      messageId: email.id,
-      threadId: email.threadId,
-    },
+  await saveLearnedPattern({
+    emailAccountId: emailAccount.id,
+    from,
+    ruleName: "Cold Email",
+    logger,
+    reason: aiReason,
+    messageId: email.id,
+    threadId: email.threadId,
+    source: GroupItemSource.AI,
   });
 }

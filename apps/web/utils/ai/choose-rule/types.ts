@@ -15,6 +15,7 @@ export type LearnedPatternMatch = {
 
 export type AiMatch = {
   type: Extract<ConditionType, "AI">;
+  from?: string;
 };
 
 export type PresetMatch = {
@@ -53,7 +54,7 @@ export type SerializedMatchReason =
         exclude: boolean;
       };
     }
-  | { type: "AI" }
+  | { type: "AI"; from?: string }
   | { type: "PRESET"; systemType: string };
 
 /**
@@ -83,7 +84,7 @@ export function serializeMatchReasons(
           },
         };
       case "AI":
-        return { type: "AI" };
+        return { type: "AI", from: reason.from };
       case "PRESET":
         return { type: "PRESET", systemType: reason.systemType };
     }

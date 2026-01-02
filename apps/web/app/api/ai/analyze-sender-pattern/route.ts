@@ -10,6 +10,7 @@ import { isValidInternalApiKey } from "@/utils/internal-api";
 import { extractEmailAddress } from "@/utils/email";
 import { getEmailForLLM } from "@/utils/get-email-from-message";
 import { saveLearnedPattern } from "@/utils/rule/learned-patterns";
+import { GroupItemSource } from "@/generated/prisma/enums";
 import { checkSenderRuleHistory } from "@/utils/rule/check-sender-rule-history";
 import { createEmailProvider } from "@/utils/email/provider";
 import type { EmailProvider } from "@/utils/email/types";
@@ -182,6 +183,7 @@ async function process({
           from,
           ruleName: patternResult.matchedRule,
           logger,
+          source: GroupItemSource.AI,
         });
       } else {
         logger.warn("AI suggested different rule than historical data", {

@@ -1,6 +1,6 @@
 import type { gmail_v1 } from "@googleapis/gmail";
-import prisma from "@/utils/prisma";
-import { ColdEmailStatus, SystemType } from "@/generated/prisma/enums";
+import { SystemType, GroupItemSource } from "@/generated/prisma/enums";
+import { saveLearnedPattern } from "@/utils/rule/learned-patterns";
 import { extractEmailAddress } from "@/utils/email";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import type { EmailProvider } from "@/utils/email/types";
@@ -173,23 +173,17 @@ async function learnFromRemovedLabel({
   if (labelName === getRuleLabel(SystemType.COLD_EMAIL)) {
     logger.info("Processing Cold Email label removal");
 
-    await prisma.coldEmail.upsert({
-      where: {
-        emailAccountId_fromEmail: {
-          emailAccountId,
-          fromEmail: sender,
-        },
-      },
-      update: {
-        status: ColdEmailStatus.USER_REJECTED_COLD,
-      },
-      create: {
-        status: ColdEmailStatus.USER_REJECTED_COLD,
-        fromEmail: sender,
-        emailAccountId,
-        messageId,
-        threadId,
-      },
+    // Mark as excluded so AI doesn't match it again
+    await saveLearnedPattern({
+      emailAccountId,
+      from: sender,
+      ruleName: "Cold Email",
+      exclude: true,
+      logger,
+      messageId,
+      threadId,
+      reason: "Label removed",
+      source: GroupItemSource.USER,
     });
 
     return;
