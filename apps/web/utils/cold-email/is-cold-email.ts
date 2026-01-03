@@ -11,7 +11,6 @@ import type { EmailProvider } from "@/utils/email/types";
 import { getModel, type ModelType } from "@/utils/llms/model";
 import { createGenerateObject } from "@/utils/llms";
 import { extractEmailAddress } from "@/utils/email";
-import { getColdEmailRule } from "@/utils/cold-email/cold-email-rule";
 import { saveLearnedPattern } from "@/utils/rule/learned-patterns";
 
 export const COLD_EMAIL_FOLDER_NAME = "Cold Emails";
@@ -51,7 +50,6 @@ export async function isColdEmail({
   // Check if we marked it as a cold email already
   const patternMatch = await checkColdEmailPattern({
     from: email.from,
-    emailAccountId: emailAccount.id,
     groupId: coldEmailRule?.groupId || undefined,
   });
 
@@ -102,22 +100,14 @@ export async function isColdEmail({
 
 async function checkColdEmailPattern({
   from,
-  emailAccountId,
-  groupId: passedGroupId,
+  groupId,
 }: {
   from: string;
-  emailAccountId: string;
   groupId?: string;
 }): Promise<"include" | "exclude" | "none"> {
-  const normalizedFrom = extractEmailAddress(from) || from;
-
-  let groupId = passedGroupId;
-  if (!groupId) {
-    const coldEmailRule = await getColdEmailRule(emailAccountId);
-    groupId = coldEmailRule?.groupId ?? undefined;
-  }
-
   if (!groupId) return "none";
+
+  const normalizedFrom = extractEmailAddress(from) || from;
 
   const match = await prisma.groupItem.findFirst({
     where: {
