@@ -7,7 +7,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { Form } from "@/components/ui/form";
 import { Input } from "@/components/Input";
 import { saveOnboardingAnswersAction } from "@/utils/actions/onboarding";
-import { PageHeading, TypographyP } from "@/components/Typography";
+import { MutedText, PageHeading, TypographyP } from "@/components/Typography";
 import { usersRolesInfo } from "@/app/(app)/[emailAccountId]/onboarding/config";
 import { USER_ROLES } from "@/utils/constants/user-roles";
 import { cn } from "@/utils";
@@ -155,9 +155,7 @@ export function StepWho({
 
                   <div>
                     <div className="font-medium">{roleName}</div>
-                    <div className="text-sm text-muted-foreground">
-                      {description}
-                    </div>
+                    <MutedText>{description}</MutedText>
                   </div>
                 </button>
               );

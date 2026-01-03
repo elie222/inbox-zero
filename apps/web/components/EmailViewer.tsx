@@ -9,6 +9,7 @@ import { LoadingContent } from "@/components/LoadingContent";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { isGoogleProvider } from "@/utils/email/provider-types";
+import { MutedText } from "@/components/Typography";
 
 export function EmailViewer() {
   const { provider } = useAccount();
@@ -36,9 +37,7 @@ export function EmailViewer() {
           )
         ) : (
           <div className="flex h-full items-center justify-center">
-            <p className="text-sm text-muted-foreground">
-              This feature isn't enabled for Outlook.
-            </p>
+            <MutedText>This feature isn't enabled for Outlook.</MutedText>
           </div>
         )}
       </SheetContent>

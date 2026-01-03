@@ -9,7 +9,7 @@ import type { Logger } from "@/utils/logger";
 
 // Standard fields to select when fetching messages from Microsoft Graph API
 export const MESSAGE_SELECT_FIELDS =
-  "id,conversationId,conversationIndex,subject,bodyPreview,from,sender,toRecipients,ccRecipients,receivedDateTime,isDraft,isRead,body,categories,parentFolderId";
+  "id,conversationId,conversationIndex,subject,bodyPreview,from,sender,toRecipients,ccRecipients,receivedDateTime,isDraft,isRead,body,categories,parentFolderId,hasAttachments";
 
 // Well-known folder names in Outlook that are consistent across all languages
 export const WELL_KNOWN_FOLDERS = {
@@ -415,6 +415,55 @@ async function convertMessages(
     .map((message: Message) => convertMessage(message, folderIds));
 }
 
+export async function queryMessagesWithAttachments(
+  client: OutlookClient,
+  options: {
+    maxResults?: number;
+    pageToken?: string;
+  },
+  logger: Logger,
+): Promise<{
+  messages: ParsedMessage[];
+  nextPageToken?: string;
+}> {
+  const MAX_RESULTS = 20;
+  const maxResults = Math.min(options.maxResults || MAX_RESULTS, MAX_RESULTS);
+
+  // If pageToken is a URL, fetch directly (per MS docs, don't extract $skiptoken)
+  if (options.pageToken?.startsWith("http")) {
+    const response: { value: Message[]; "@odata.nextLink"?: string } =
+      await withOutlookRetry(
+        () => client.getClient().api(options.pageToken!).get(),
+        logger,
+      );
+
+    const messages = await convertMessages(response.value, {});
+    return { messages, nextPageToken: response["@odata.nextLink"] };
+  }
+
+  // Build request with hasAttachments filter
+  const request = createMessagesRequest(client)
+    .top(maxResults)
+    .filter("hasAttachments eq true")
+    .expand("attachments($select=id,name,contentType,size)")
+    .orderby("receivedDateTime DESC");
+
+  const response: { value: Message[]; "@odata.nextLink"?: string } =
+    await withOutlookRetry(() => request.get(), logger);
+
+  const messages = await convertMessages(response.value, {});
+
+  logger.info("Messages with attachments fetched", {
+    messageCount: messages.length,
+    hasNextPageToken: !!response["@odata.nextLink"],
+  });
+
+  return {
+    messages,
+    nextPageToken: response["@odata.nextLink"],
+  };
+}
+
 export async function getMessage(
   messageId: string,
   client: OutlookClient,
@@ -516,6 +565,24 @@ export function convertMessage(
     | "html"
     | undefined;
 
+  const attachments = ((message.attachments || []) as OutlookAttachment[])
+    .filter(
+      (att): att is OutlookAttachment & { id: string } =>
+        att["@odata.type"] === "#microsoft.graph.fileAttachment" && !!att.id,
+    )
+    .map((att) => ({
+      filename: att.name || "unknown",
+      mimeType: att.contentType || "application/octet-stream",
+      size: att.size || 0,
+      attachmentId: att.id,
+      headers: {
+        "content-type": att.contentType || "",
+        "content-description": att.name || "",
+        "content-transfer-encoding": "",
+        "content-id": "",
+      },
+    }));
+
   return {
     id: message.id || "",
     threadId: message.conversationId || "",
@@ -540,6 +607,7 @@ export function convertMessage(
     internalDate: message.receivedDateTime || new Date().toISOString(),
     historyId: "",
     inline: [],
+    attachments: attachments.length > 0 ? attachments : undefined,
     conversationIndex: message.conversationIndex,
     rawRecipients: {
       from: message.from,
@@ -548,3 +616,11 @@ export function convertMessage(
     },
   };
 }
+
+type OutlookAttachment = {
+  "@odata.type"?: string;
+  id?: string;
+  name?: string;
+  contentType?: string;
+  size?: number;
+};

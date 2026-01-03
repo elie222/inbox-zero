@@ -3,7 +3,7 @@
 import Image from "next/image";
 import { MailIcon } from "lucide-react";
 import { CardBasic } from "@/components/ui/card";
-import { PageHeading, TypographyP } from "@/components/Typography";
+import { MutedText, PageHeading, TypographyP } from "@/components/Typography";
 import { IconCircle } from "@/app/(app)/[emailAccountId]/onboarding/IconCircle";
 import { OnboardingWrapper } from "@/app/(app)/[emailAccountId]/onboarding/OnboardingWrapper";
 import { ContinueButton } from "@/app/(app)/[emailAccountId]/onboarding/ContinueButton";
@@ -74,9 +74,7 @@ function Benefit({
         <IconCircle>{index}</IconCircle>
         <div>
           <div className="font-semibold text-lg sm:text-xl">{title}</div>
-          <div className="text-sm text-muted-foreground mt-1 leading-6">
-            <p>{description}</p>
-          </div>
+          <MutedText className="mt-1 leading-6">{description}</MutedText>
         </div>
       </div>
       <div className="col-span-3 text-sm text-muted-foreground rounded-tl-2xl pl-4 pt-4 bg-slate-50 border-t border-l border-slate-200 overflow-hidden">

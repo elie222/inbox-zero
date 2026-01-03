@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { cn } from "@/utils";
 import { HoverCard } from "@/components/HoverCard";
+import { MutedText } from "@/components/Typography";
 
 interface PremiumData {
   lemonSqueezyRenewsAt?: Date | string | null;
@@ -132,7 +133,7 @@ export function PremiumExpiredCardContent({
             <p className="text-sm font-semibold text-orange-800 dark:text-orange-200">
               {title}
             </p>
-            <p className="text-sm text-muted-foreground">{description}</p>
+            <MutedText>{description}</MutedText>
             <Button
               asChild
               size="sm"

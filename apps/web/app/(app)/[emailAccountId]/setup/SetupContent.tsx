@@ -12,7 +12,11 @@ import {
   CalendarIcon,
 } from "lucide-react";
 import { useLocalStorage } from "usehooks-ts";
-import { PageHeading, SectionDescription } from "@/components/Typography";
+import {
+  MutedText,
+  PageHeading,
+  SectionDescription,
+} from "@/components/Typography";
 import { Card } from "@/components/ui/card";
 import { prefixPath } from "@/utils/path";
 import { useSetupProgress } from "@/hooks/useSetupProgress";
@@ -51,7 +55,7 @@ function FeatureCard({
           <Icon className={`h-5 w-5 ${iconColor}`} />
         </div>
         <h3 className="mb-2 text-lg font-medium text-foreground">{title}</h3>
-        <p className="text-sm text-muted-foreground">{description}</p>
+        <MutedText>{description}</MutedText>
       </div>
     </Link>
   );

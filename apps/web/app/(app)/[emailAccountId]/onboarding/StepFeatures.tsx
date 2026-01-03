@@ -10,7 +10,7 @@ import {
   SparklesIcon,
   ZapIcon,
 } from "lucide-react";
-import { PageHeading, TypographyP } from "@/components/Typography";
+import { MutedText, PageHeading, TypographyP } from "@/components/Typography";
 import { IconCircle } from "@/app/(app)/[emailAccountId]/onboarding/IconCircle";
 import { OnboardingWrapper } from "@/app/(app)/[emailAccountId]/onboarding/OnboardingWrapper";
 import { cn } from "@/utils";
@@ -91,9 +91,7 @@ export function StepFeatures({ onNext }: { onNext: () => void }) {
 
               <div>
                 <div className="font-medium">{choice.label}</div>
-                <div className="text-sm text-muted-foreground">
-                  {choice.description}
-                </div>
+                <MutedText>{choice.description}</MutedText>
               </div>
             </button>
           ))}
