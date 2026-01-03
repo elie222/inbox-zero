@@ -38,8 +38,9 @@ vi.mock("@/utils/ai/choose-rule/execute", () => ({
 vi.mock("@/utils/reply-tracker/label-helpers", () => ({
   removeConflictingThreadStatusLabels: vi.fn(),
 }));
-vi.mock("@/utils/cold-email/is-cold-email", () => ({
-  saveColdEmail: vi.fn(),
+vi.mock("@/utils/rule/learned-patterns", () => ({
+  saveLearnedPattern: vi.fn(),
+  saveLearnedPatterns: vi.fn(),
 }));
 vi.mock("@/utils/scheduled-actions/scheduler", () => ({
   scheduleDelayedActions: vi.fn(),

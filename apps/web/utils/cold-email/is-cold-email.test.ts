@@ -1,11 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { isColdEmail, saveColdEmail } from "./is-cold-email";
+import { isColdEmail } from "./is-cold-email";
 import { getEmailAccount } from "@/__tests__/helpers";
 import type { EmailForLLM } from "@/utils/types";
-import { GroupItemType, GroupItemSource } from "@/generated/prisma/enums";
+import { GroupItemType } from "@/generated/prisma/enums";
 import prisma from "@/utils/prisma";
 import { extractEmailAddress } from "@/utils/email";
-import { saveLearnedPattern } from "@/utils/rule/learned-patterns";
 
 vi.mock("server-only", () => ({}));
 
@@ -22,10 +21,6 @@ vi.mock("@/utils/prisma", () => ({
 
 vi.mock("./cold-email-rule", () => ({
   getColdEmailRule: vi.fn(),
-}));
-
-vi.mock("@/utils/rule/learned-patterns", () => ({
-  saveLearnedPattern: vi.fn(),
 }));
 
 vi.mock("@/utils/email", async () => {
@@ -145,33 +140,5 @@ describe("isColdEmail", () => {
         select: { exclude: true },
       });
     }
-  });
-});
-
-describe("saveColdEmail", () => {
-  it("should call saveLearnedPattern with correct parameters", async () => {
-    const emailAccount = getEmailAccount({ id: "test-account-id" });
-    const from = "test@example.com";
-    const ruleId = "test-rule-id";
-    const logger = { info: vi.fn() } as any;
-
-    await saveColdEmail({
-      email: { from, id: "msg1", threadId: "thread1" },
-      emailAccount,
-      ruleId,
-      aiReason: "test reason",
-      logger,
-    });
-
-    expect(saveLearnedPattern).toHaveBeenCalledWith({
-      emailAccountId: emailAccount.id,
-      from,
-      ruleId,
-      logger,
-      reason: "test reason",
-      messageId: "msg1",
-      threadId: "thread1",
-      source: GroupItemSource.AI,
-    });
   });
 });

@@ -1,17 +1,16 @@
 import { z } from "zod";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import type { Rule } from "@/generated/prisma/client";
-import { GroupItemType, GroupItemSource } from "@/generated/prisma/enums";
+import { GroupItemType } from "@/generated/prisma/enums";
 import prisma from "@/utils/prisma";
 import { DEFAULT_COLD_EMAIL_PROMPT } from "@/utils/cold-email/prompt";
 import { stringifyEmail } from "@/utils/stringify-email";
-import { createScopedLogger, type Logger } from "@/utils/logger";
+import { createScopedLogger } from "@/utils/logger";
 import type { EmailForLLM } from "@/utils/types";
 import type { EmailProvider } from "@/utils/email/types";
 import { getModel, type ModelType } from "@/utils/llms/model";
 import { createGenerateObject } from "@/utils/llms";
 import { extractEmailAddress } from "@/utils/email";
-import { saveLearnedPattern } from "@/utils/rule/learned-patterns";
 
 export const COLD_EMAIL_FOLDER_NAME = "Cold Emails";
 
@@ -158,31 +157,4 @@ ${stringifyEmail(email, 500)}
   });
 
   return response.object;
-}
-
-export async function saveColdEmail({
-  email,
-  emailAccount,
-  ruleId,
-  aiReason,
-  logger,
-}: {
-  email: { from: string; id: string; threadId: string };
-  emailAccount: EmailAccountWithAI;
-  ruleId: string;
-  aiReason: string | null;
-  logger: Logger;
-}): Promise<void> {
-  const from = extractEmailAddress(email.from) || email.from;
-
-  await saveLearnedPattern({
-    emailAccountId: emailAccount.id,
-    from,
-    ruleId,
-    logger,
-    reason: aiReason,
-    messageId: email.id,
-    threadId: email.threadId,
-    source: GroupItemSource.AI,
-  });
 }
