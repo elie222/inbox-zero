@@ -12,7 +12,7 @@ ADD COLUMN     "threadId" TEXT;
 -- to the unified GroupItem table (learned patterns system)
 
 -- Step 1: Create Groups for Cold Email rules that don't have one yet
--- We append a unique suffix to handle potential name conflicts
+-- If a group with the same name and emailAccountId already exists, reuse it; otherwise create a new group
 DO $$
 DECLARE
   rule_record RECORD;
