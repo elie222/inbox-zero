@@ -7,8 +7,6 @@ import { isDuplicateError } from "@/utils/prisma-helpers";
  * Saves a learned pattern for a rule
  * - Creates a group for the rule if one doesn't exist
  * - Adds the from pattern to the group
- *
- * @param ruleId - The rule ID (preferred) OR ruleName to look up the rule
  */
 export async function saveLearnedPattern({
   emailAccountId,

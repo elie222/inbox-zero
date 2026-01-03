@@ -12,7 +12,6 @@ import type { Logger } from "@/utils/logger";
 import { getMessagesBatch } from "@/utils/gmail/message";
 import { decodeSnippet } from "@/utils/gmail/decode";
 import { createUnsubscribeToken } from "@/utils/unsubscribe";
-import type { SerializedMatchReason } from "@/utils/ai/choose-rule/types";
 
 export const maxDuration = 60;
 
@@ -67,32 +66,6 @@ export const POST = withError("resend/summary", async (request) => {
     );
   }
 });
-
-function extractFromEmail(matchMetadata: unknown): string | null {
-  if (!matchMetadata || !Array.isArray(matchMetadata)) return null;
-
-  const reasons = matchMetadata as SerializedMatchReason[];
-
-  for (const reason of reasons) {
-    if (reason.type === "AI" && reason.from) {
-      return reason.from;
-    }
-    if (reason.type === "LEARNED_PATTERN") {
-      const serializedReason = reason as SerializedMatchReason & {
-        from?: string;
-        groupItem?: { value: string };
-      };
-      if (serializedReason.groupItem?.value) {
-        return serializedReason.groupItem.value;
-      }
-      if (serializedReason.from) {
-        return serializedReason.from;
-      }
-    }
-  }
-
-  return null;
-}
 
 async function sendEmail({
   emailAccountId,
@@ -150,7 +123,6 @@ async function sendEmail({
     return { success: false };
   }
 
-  // Find cold email rule
   const coldEmailRule = await prisma.rule.findUnique({
     where: {
       emailAccountId_systemType: {
@@ -165,6 +137,7 @@ async function sendEmail({
   const [counts, needsReply, awaitingReply, coldExecutedRules] =
     await Promise.all([
       // total count
+      // NOTE: should really be distinct by threadId. this will cause a mismatch in some cases
       prisma.threadTracker.groupBy({
         by: ["type"],
         where: {
@@ -206,8 +179,8 @@ async function sendEmail({
               createdAt: { gt: cutOffDate },
             },
             select: {
+              messageId: true,
               createdAt: true,
-              matchMetadata: true,
             },
           })
         : Promise.resolve([]),
@@ -217,22 +190,11 @@ async function sendEmail({
     counts.map((count) => [count.type, count._count]),
   );
 
-  const coldEmailers = coldExecutedRules
-    .map((rule) => {
-      const from = extractFromEmail(rule.matchMetadata);
-      if (!from) return null;
-      return {
-        from,
-        subject: "",
-        sentAt: rule.createdAt,
-      };
-    })
-    .filter((c): c is NonNullable<typeof c> => c !== null);
-
   // get messages
   const messageIds = [
     ...needsReply.map((m) => m.messageId),
     ...awaitingReply.map((m) => m.messageId),
+    ...coldExecutedRules.map((r) => r.messageId),
   ];
 
   logger.info("Getting messages", {
@@ -268,6 +230,15 @@ async function sendEmail({
     };
   });
 
+  const coldEmailers = coldExecutedRules.map((r) => {
+    const message = messageMap[r.messageId];
+    return {
+      from: message?.headers.from || "Unknown",
+      subject: decodeSnippet(message?.snippet) || "",
+      sentAt: r.createdAt,
+    };
+  });
+
   const shouldSendEmail = !!(
     coldEmailers.length ||
     typeCounts[ThreadTrackerType.NEEDS_REPLY] ||
@@ -283,7 +254,7 @@ async function sendEmail({
     needsActionCount: typeCounts[ThreadTrackerType.NEEDS_ACTION],
   });
 
-  async function sendEmailNotification({
+  async function sendEmail({
     emailAccountId,
     userEmail,
   }: {
@@ -310,7 +281,7 @@ async function sendEmail({
 
   await Promise.all([
     shouldSendEmail
-      ? sendEmailNotification({ emailAccountId, userEmail: emailAccount.email })
+      ? sendEmail({ emailAccountId, userEmail: emailAccount.email })
       : Promise.resolve(),
     prisma.emailAccount.update({
       where: { id: emailAccountId },

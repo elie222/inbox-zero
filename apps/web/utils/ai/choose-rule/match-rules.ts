@@ -81,12 +81,7 @@ export async function findMatchingRules({
         matches: [
           {
             rule: coldRule,
-            matchReasons: [
-              {
-                type: ConditionType.AI,
-                from: message.headers.from,
-              },
-            ],
+            matchReasons: [{ type: ConditionType.AI }],
           },
         ],
         reasoning: coldEmailResult.aiReason || coldEmailResult.reason,
