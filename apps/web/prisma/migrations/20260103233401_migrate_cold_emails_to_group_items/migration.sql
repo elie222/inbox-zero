@@ -1,11 +1,11 @@
 -- CreateEnum
-CREATE TYPE "GroupItemSource" AS ENUM ('AI', 'USER');
+CREATE TYPE "GroupItemSource" AS ENUM ('AI', 'USER', 'LABEL_REMOVED');
 
 -- AlterTable
-ALTER TABLE "GroupItem" ADD COLUMN "messageId" TEXT;
-ALTER TABLE "GroupItem" ADD COLUMN "reason" TEXT;
-ALTER TABLE "GroupItem" ADD COLUMN "source" "GroupItemSource";
-ALTER TABLE "GroupItem" ADD COLUMN "threadId" TEXT;
+ALTER TABLE "GroupItem" ADD COLUMN     "messageId" TEXT,
+ADD COLUMN     "reason" TEXT,
+ADD COLUMN     "source" "GroupItemSource",
+ADD COLUMN     "threadId" TEXT;
 
 -- Migrate ColdEmail data to GroupItem
 -- This migration moves historical cold email data from the deprecated ColdEmail table
