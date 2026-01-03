@@ -83,10 +83,7 @@ export async function findMatchingRules({
             rule: coldRule,
             matchReasons: [
               {
-                type:
-                  coldEmailResult.reason === "ai-already-labeled"
-                    ? ConditionType.LEARNED_PATTERN
-                    : ConditionType.AI,
+                type: ConditionType.AI,
                 from: message.headers.from,
               },
             ],
