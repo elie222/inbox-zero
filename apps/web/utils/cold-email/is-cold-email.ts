@@ -16,7 +16,11 @@ import { saveLearnedPattern } from "@/utils/rule/learned-patterns";
 
 export const COLD_EMAIL_FOLDER_NAME = "Cold Emails";
 
-type ColdEmailBlockerReason = "hasPreviousEmail" | "ai" | "ai-already-labeled";
+type ColdEmailBlockerReason =
+  | "hasPreviousEmail"
+  | "ai"
+  | "ai-already-labeled"
+  | "excluded";
 
 export async function isColdEmail({
   email,
@@ -48,7 +52,7 @@ export async function isColdEmail({
   const patternMatch = await checkColdEmailPattern({
     from: email.from,
     emailAccountId: emailAccount.id,
-    groupId: coldEmailRule?.groupId ?? undefined,
+    groupId: coldEmailRule?.groupId || undefined,
   });
 
   if (patternMatch === "include") {
@@ -183,11 +187,13 @@ ${stringifyEmail(email, 500)}
 export async function saveColdEmail({
   email,
   emailAccount,
+  ruleId,
   aiReason,
   logger,
 }: {
   email: { from: string; id: string; threadId: string };
   emailAccount: EmailAccountWithAI;
+  ruleId: string;
   aiReason: string | null;
   logger: Logger;
 }): Promise<void> {
@@ -196,7 +202,7 @@ export async function saveColdEmail({
   await saveLearnedPattern({
     emailAccountId: emailAccount.id,
     from,
-    ruleName: "Cold Email",
+    ruleId,
     logger,
     reason: aiReason,
     messageId: email.id,

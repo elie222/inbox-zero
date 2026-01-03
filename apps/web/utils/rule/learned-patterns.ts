@@ -14,7 +14,6 @@ export async function saveLearnedPattern({
   emailAccountId,
   from,
   ruleId,
-  ruleName,
   exclude = false,
   logger,
   reason,
@@ -24,8 +23,7 @@ export async function saveLearnedPattern({
 }: {
   emailAccountId: string;
   from: string;
-  ruleId?: string;
-  ruleName?: string;
+  ruleId: string;
   exclude?: boolean;
   logger: Logger;
   reason?: string | null;
@@ -33,25 +31,13 @@ export async function saveLearnedPattern({
   messageId?: string | null;
   source?: GroupItemSource | null;
 }) {
-  const rule = ruleId
-    ? await prisma.rule.findUnique({
-        where: { id: ruleId },
-        select: { id: true, name: true, groupId: true },
-      })
-    : ruleName
-      ? await prisma.rule.findUnique({
-          where: {
-            name_emailAccountId: {
-              name: ruleName,
-              emailAccountId,
-            },
-          },
-          select: { id: true, name: true, groupId: true },
-        })
-      : null;
+  const rule = await prisma.rule.findUnique({
+    where: { id: ruleId, emailAccountId },
+    select: { id: true, name: true, groupId: true },
+  });
 
   if (!rule) {
-    logger.error("Rule not found", { emailAccountId, ruleId, ruleName });
+    logger.error("Rule not found", { ruleId });
     return;
   }
 

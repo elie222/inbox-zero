@@ -346,6 +346,7 @@ async function executeMatchedRule(
         threadId: message.threadId,
         from: message.headers.from,
       },
+      ruleId: rule.id,
       emailAccount,
       aiReason: reason ?? null,
       logger,
