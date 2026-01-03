@@ -114,22 +114,16 @@ describe("cleanThread", () => {
       const messages = [
         getMockMessage({
           id: "msg-1",
-          headers: {
-            from: "store@example.com",
-            to: "user@example.com",
-            subject: "Payment confirmation",
-            date: new Date().toISOString(),
-          },
+          from: "store@example.com",
+          to: "user@example.com",
+          subject: "Payment confirmation",
           labelIds: [],
         }),
         getMockMessage({
           id: "msg-2",
-          headers: {
-            from: "user@example.com",
-            to: "store@example.com",
-            subject: "Re: Payment confirmation",
-            date: new Date().toISOString(),
-          },
+          from: "user@example.com",
+          to: "store@example.com",
+          subject: "Re: Payment confirmation",
           labelIds: [GmailLabel.STARRED],
         }),
       ];
@@ -150,22 +144,16 @@ describe("cleanThread", () => {
       const messages = [
         getMockMessage({
           id: "msg-1",
-          headers: {
-            from: "store@example.com",
-            to: "user@example.com",
-            subject: "Payment confirmation",
-            date: new Date().toISOString(),
-          },
+          from: "store@example.com",
+          to: "user@example.com",
+          subject: "Payment confirmation",
           labelIds: [],
         }),
         getMockMessage({
           id: "msg-2",
-          headers: {
-            from: "user@example.com",
-            to: "store@example.com",
-            subject: "Re: Payment confirmation",
-            date: new Date().toISOString(),
-          },
+          from: "user@example.com",
+          to: "store@example.com",
+          subject: "Re: Payment confirmation",
           labelIds: [GmailLabel.SENT],
         }),
       ];
@@ -186,22 +174,16 @@ describe("cleanThread", () => {
       const messages = [
         getMockMessage({
           id: "msg-1",
-          headers: {
-            from: "store@example.com",
-            to: "user@example.com",
-            subject: "Payment confirmation",
-            date: new Date().toISOString(),
-          },
+          from: "store@example.com",
+          to: "user@example.com",
+          subject: "Payment confirmation",
           labelIds: [],
         }),
         getMockMessage({
           id: "msg-2",
-          headers: {
-            from: "store@example.com",
-            to: "user@example.com",
-            subject: "Invoice attached",
-            date: new Date().toISOString(),
-          },
+          from: "store@example.com",
+          to: "user@example.com",
+          subject: "Invoice attached",
           labelIds: [],
           attachments: [
             {
@@ -236,22 +218,16 @@ describe("cleanThread", () => {
       const messages = [
         getMockMessage({
           id: "msg-1",
-          headers: {
-            from: "store@example.com",
-            to: "user@example.com",
-            subject: "Payment confirmation",
-            date: new Date().toISOString(),
-          },
+          from: "store@example.com",
+          to: "user@example.com",
+          subject: "Payment confirmation",
           labelIds: [],
         }),
         getMockMessage({
           id: "msg-2",
-          headers: {
-            from: "store@example.com",
-            to: "user@example.com",
-            subject: "Shipping update",
-            date: new Date().toISOString(),
-          },
+          from: "store@example.com",
+          to: "user@example.com",
+          subject: "Shipping update",
           labelIds: [],
         }),
       ];
