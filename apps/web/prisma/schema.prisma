@@ -1202,4 +1202,5 @@ enum MeetingBriefingStatus {
 enum GroupItemSource {
   AI
   USER
+  LABEL_REMOVED
 }
