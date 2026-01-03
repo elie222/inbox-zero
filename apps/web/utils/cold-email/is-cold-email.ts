@@ -48,17 +48,27 @@ export async function isColdEmail({
   logger.info("Checking is cold email");
 
   // Check if we marked it as a cold email already
-  const patternMatch = await checkColdEmailPattern({
-    from: email.from,
-    groupId: coldEmailRule?.groupId || undefined,
-  });
+  const groupId = coldEmailRule?.groupId;
+  let patternMatch: { exclude: boolean } | null = null;
 
-  if (patternMatch === "include") {
+  if (groupId) {
+    const normalizedFrom = extractEmailAddress(email.from) || email.from;
+    patternMatch = await prisma.groupItem.findFirst({
+      where: {
+        groupId,
+        type: GroupItemType.FROM,
+        value: normalizedFrom,
+      },
+      select: { exclude: true },
+    });
+  }
+
+  if (patternMatch && !patternMatch.exclude) {
     logger.info("Known cold email sender", { from: email.from });
     return { isColdEmail: true, reason: "ai-already-labeled" };
   }
 
-  if (patternMatch === "exclude") {
+  if (patternMatch?.exclude) {
     logger.info("Sender explicitly excluded from cold email blocker", {
       from: email.from,
     });
@@ -96,30 +106,6 @@ export async function isColdEmail({
     reason: "ai",
     aiReason: res.reason,
   };
-}
-
-async function checkColdEmailPattern({
-  from,
-  groupId,
-}: {
-  from: string;
-  groupId?: string;
-}): Promise<"include" | "exclude" | "none"> {
-  if (!groupId) return "none";
-
-  const normalizedFrom = extractEmailAddress(from) || from;
-
-  const match = await prisma.groupItem.findFirst({
-    where: {
-      groupId,
-      type: GroupItemType.FROM,
-      value: normalizedFrom,
-    },
-    select: { exclude: true },
-  });
-
-  if (!match) return "none";
-  return match.exclude ? "exclude" : "include";
 }
 
 async function aiIsColdEmail(
