@@ -3,6 +3,7 @@ import { cleanThread } from "./route";
 import { GmailLabel } from "@/utils/gmail/label";
 import type { ParsedMessage } from "@/utils/types";
 import { CleanAction } from "@/generated/prisma/enums";
+import { getMockMessage } from "@/__tests__/helpers";
 
 vi.mock("server-only", () => ({}));
 
@@ -65,31 +66,6 @@ const mockLogger = {
   trace: vi.fn(),
 };
 
-function createMockMessage(
-  overrides: Partial<ParsedMessage> & { labelIds?: string[] } = {},
-): ParsedMessage {
-  return {
-    id: overrides.id || "msg-1",
-    threadId: "thread-1",
-    historyId: "12345",
-    snippet: "Test snippet",
-    subject: overrides.headers?.subject || "Test Subject",
-    date: new Date().toISOString(),
-    internalDate: String(Date.now()),
-    inline: [],
-    headers: {
-      from: "sender@example.com",
-      to: "user@example.com",
-      subject: "Test Subject",
-      date: new Date().toISOString(),
-      ...overrides.headers,
-    },
-    labelIds: overrides.labelIds || [],
-    attachments: overrides.attachments || [],
-    ...overrides,
-  };
-}
-
 function getDefaultParams() {
   return {
     emailAccountId: "email-account-id",
@@ -136,7 +112,7 @@ describe("cleanThread", () => {
   describe("maybe-receipt should not break loop early", () => {
     it("should skip thread when message 1 is maybe-receipt but message 2 is starred", async () => {
       const messages = [
-        createMockMessage({
+        getMockMessage({
           id: "msg-1",
           headers: {
             from: "store@example.com",
@@ -146,7 +122,7 @@ describe("cleanThread", () => {
           },
           labelIds: [],
         }),
-        createMockMessage({
+        getMockMessage({
           id: "msg-2",
           headers: {
             from: "user@example.com",
@@ -172,7 +148,7 @@ describe("cleanThread", () => {
 
     it("should skip thread when message 1 is maybe-receipt but message 2 is user's reply (conversation)", async () => {
       const messages = [
-        createMockMessage({
+        getMockMessage({
           id: "msg-1",
           headers: {
             from: "store@example.com",
@@ -182,7 +158,7 @@ describe("cleanThread", () => {
           },
           labelIds: [],
         }),
-        createMockMessage({
+        getMockMessage({
           id: "msg-2",
           headers: {
             from: "user@example.com",
@@ -208,7 +184,7 @@ describe("cleanThread", () => {
 
     it("should skip thread when message 1 is maybe-receipt but message 2 has attachments", async () => {
       const messages = [
-        createMockMessage({
+        getMockMessage({
           id: "msg-1",
           headers: {
             from: "store@example.com",
@@ -218,7 +194,7 @@ describe("cleanThread", () => {
           },
           labelIds: [],
         }),
-        createMockMessage({
+        getMockMessage({
           id: "msg-2",
           headers: {
             from: "store@example.com",
@@ -258,7 +234,7 @@ describe("cleanThread", () => {
 
     it("should call LLM when maybe-receipt found and no skip conditions in other messages", async () => {
       const messages = [
-        createMockMessage({
+        getMockMessage({
           id: "msg-1",
           headers: {
             from: "store@example.com",
@@ -268,7 +244,7 @@ describe("cleanThread", () => {
           },
           labelIds: [],
         }),
-        createMockMessage({
+        getMockMessage({
           id: "msg-2",
           headers: {
             from: "store@example.com",
