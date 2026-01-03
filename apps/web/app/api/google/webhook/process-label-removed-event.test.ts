@@ -4,7 +4,8 @@ import { handleLabelRemovedEvent } from "./process-label-removed-event";
 import type { gmail_v1 } from "@googleapis/gmail";
 import { saveLearnedPattern } from "@/utils/rule/learned-patterns";
 import { createScopedLogger } from "@/utils/logger";
-import { GroupItemSource } from "@/generated/prisma/enums";
+import { GroupItemSource, SystemType } from "@/generated/prisma/enums";
+import prisma from "@/utils/prisma";
 
 const logger = createScopedLogger("test");
 
@@ -14,10 +15,7 @@ vi.mock("server-only", () => ({}));
 vi.mock("@/utils/prisma", () => ({
   default: {
     rule: {
-      findUnique: vi.fn(),
-    },
-    groupItem: {
-      deleteMany: vi.fn(),
+      findFirst: vi.fn(),
     },
   },
 }));
@@ -99,6 +97,11 @@ describe("process-label-removed-event", () => {
 
   describe("handleLabelRemovedEvent", () => {
     it("should process Cold Email label removal and call saveLearnedPattern with exclude: true", async () => {
+      vi.mocked(prisma.rule.findFirst).mockResolvedValue({
+        id: "rule-123",
+        systemType: SystemType.COLD_EMAIL,
+      } as any);
+
       const historyItem = createLabelRemovedHistoryItem();
 
       await handleLabelRemovedEvent(historyItem.item, defaultOptions, logger);
@@ -106,19 +109,24 @@ describe("process-label-removed-event", () => {
       expect(saveLearnedPattern).toHaveBeenCalledWith({
         emailAccountId: "email-account-id",
         from: "sender@example.com",
-        ruleName: "Cold Email",
+        ruleId: "rule-123",
         exclude: true,
         logger: expect.anything(),
         messageId: "123",
         threadId: "thread-123",
         reason: "Label removed",
-        source: GroupItemSource.USER,
+        source: GroupItemSource.LABEL_REMOVED,
       });
     });
 
-    it("should skip learning when Newsletter label is removed (only Cold Email is supported)", async () => {
+    it("should skip learning when To Reply label is removed (not a learnable rule)", async () => {
+      vi.mocked(prisma.rule.findFirst).mockResolvedValue({
+        id: "rule-456",
+        systemType: SystemType.TO_REPLY,
+      } as any);
+
       const historyItem = createLabelRemovedHistoryItem("123", "thread-123", [
-        "label-2",
+        "label-4",
       ]);
 
       await handleLabelRemovedEvent(historyItem.item, defaultOptions, logger);
@@ -139,6 +147,18 @@ describe("process-label-removed-event", () => {
       expect(saveLearnedPattern).not.toHaveBeenCalled();
     });
 
+    it("should skip processing when DRAFT label is removed (prevents 404 errors)", async () => {
+      const historyItem = {
+        message: { id: "draft-123", threadId: "thread-123" },
+        labelIds: ["DRAFT"], // Draft was sent - message no longer exists
+      } as gmail_v1.Schema$HistoryLabelRemoved;
+
+      await handleLabelRemovedEvent(historyItem, defaultOptions, logger);
+
+      expect(mockProvider.getMessage).not.toHaveBeenCalled();
+      expect(saveLearnedPattern).not.toHaveBeenCalled();
+    });
+
     it("should skip processing when messageId is missing", async () => {
       const historyItem = {
         message: { threadId: "thread-123" }, // Missing messageId
@@ -146,6 +166,56 @@ describe("process-label-removed-event", () => {
       } as gmail_v1.Schema$HistoryLabelRemoved;
 
       await handleLabelRemovedEvent(historyItem, defaultOptions, logger);
+
+      expect(saveLearnedPattern).not.toHaveBeenCalled();
+    });
+
+    it("should skip processing when threadId is missing", async () => {
+      const historyItem = {
+        message: { id: "123" }, // Missing threadId
+        labelIds: ["label-1"],
+      } as gmail_v1.Schema$HistoryLabelRemoved;
+
+      await handleLabelRemovedEvent(historyItem, defaultOptions, logger);
+
+      expect(saveLearnedPattern).not.toHaveBeenCalled();
+    });
+
+    it("should handle multiple label removals in a single event", async () => {
+      vi.mocked(prisma.rule.findFirst)
+        .mockResolvedValueOnce({
+          id: "rule-1",
+          systemType: SystemType.COLD_EMAIL,
+        } as any)
+        .mockResolvedValueOnce({
+          id: "rule-2",
+          systemType: SystemType.NEWSLETTER,
+        } as any);
+
+      const historyItem = createLabelRemovedHistoryItem("123", "thread-123", [
+        "label-1",
+        "label-2",
+      ]);
+
+      await handleLabelRemovedEvent(historyItem.item, defaultOptions, logger);
+
+      expect(saveLearnedPattern).toHaveBeenCalledTimes(2);
+      expect(saveLearnedPattern).toHaveBeenCalledWith(
+        expect.objectContaining({ ruleId: "rule-1" }),
+      );
+      expect(saveLearnedPattern).toHaveBeenCalledWith(
+        expect.objectContaining({ ruleId: "rule-2" }),
+      );
+    });
+
+    it("should skip learning when no rule is found for the removed label", async () => {
+      vi.mocked(prisma.rule.findFirst).mockResolvedValue(null);
+
+      const historyItem = createLabelRemovedHistoryItem("123", "thread-123", [
+        "unknown-label",
+      ]);
+
+      await handleLabelRemovedEvent(historyItem.item, defaultOptions, logger);
 
       expect(saveLearnedPattern).not.toHaveBeenCalled();
     });

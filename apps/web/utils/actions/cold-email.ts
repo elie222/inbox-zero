@@ -48,12 +48,7 @@ export const markNotColdEmailAction = actionClient
           logger,
           source: GroupItemSource.USER,
         }),
-        removeColdEmailLabelFromSender(
-          emailAccountId,
-          emailProvider,
-          sender,
-          coldEmailRule,
-        ),
+        removeColdEmailLabelFromSender(emailProvider, sender, coldEmailRule),
       ]);
     },
   );
@@ -78,7 +73,6 @@ async function getThreadsFromSender(
 }
 
 async function removeColdEmailLabelFromSender(
-  emailAccountId: string,
   emailProvider: EmailProvider,
   sender: string,
   coldEmailRule: { actions: { labelId: string | null }[] },
