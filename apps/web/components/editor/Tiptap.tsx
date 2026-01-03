@@ -20,9 +20,17 @@ export const Tiptap = forwardRef<
     className?: string;
     autofocus?: boolean;
     onMoreClick?: () => void;
+    preservePastedLineBreaks?: boolean;
   }
 >(function Tiptap(
-  { initialContent = "", onChange, className, autofocus = true, onMoreClick },
+  {
+    initialContent = "",
+    onChange,
+    className,
+    autofocus = true,
+    onMoreClick,
+    preservePastedLineBreaks = false,
+  },
   ref,
 ) {
   const editor = useEditor({
@@ -39,7 +47,16 @@ export const Tiptap = forwardRef<
         },
       }),
       EnterHandler,
-      Markdown,
+      preservePastedLineBreaks
+        ? Markdown.configure({
+            html: false,
+            transformPastedText: true,
+            transformCopiedText: true,
+            breaks: true,
+            linkify: false,
+            bulletListMarker: "-",
+          })
+        : Markdown,
     ],
     content: initialContent,
     onUpdate: useCallback(

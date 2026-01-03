@@ -1,10 +1,9 @@
 "use client";
 
-import { useState } from "react";
-import { useForm } from "react-hook-form";
+import { useState, useRef } from "react";
+import { useForm, Controller } from "react-hook-form";
 import { useAction } from "next-safe-action/hooks";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/Input";
 import { SettingCard } from "@/components/SettingCard";
 import {
   Dialog,
@@ -25,6 +24,7 @@ import {
   saveWritingStyleBody,
 } from "@/utils/actions/user.validation";
 import { saveWritingStyleAction } from "@/utils/actions/user";
+import { Tiptap, type TiptapHandle } from "@/components/editor/Tiptap";
 
 export function WritingStyleSetting() {
   const { data, isLoading, error } = useEmailAccountFull();
@@ -62,9 +62,10 @@ function WritingStyleDialog({
   const [open, setOpen] = useState(false);
   const { emailAccountId } = useAccount();
   const { mutate } = useEmailAccountFull();
+  const editorRef = useRef<TiptapHandle>(null);
 
   const {
-    register,
+    control,
     formState: { errors },
     handleSubmit,
   } = useForm<SaveWritingStyleBody>({
@@ -94,6 +95,11 @@ function WritingStyleDialog({
     },
   );
 
+  const onSubmit = (data: SaveWritingStyleBody) => {
+    const markdownContent = editorRef.current?.getMarkdown();
+    execute({ writingStyle: markdownContent ?? data.writingStyle });
+  };
+
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>{children}</DialogTrigger>
@@ -105,24 +111,28 @@ function WritingStyleDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit(execute)}>
-          <Input
-            type="text"
-            autosizeTextarea
-            rows={8}
+        <form onSubmit={handleSubmit(onSubmit)}>
+          <Controller
             name="writingStyle"
-            label=""
-            registerProps={register("writingStyle")}
-            error={errors.writingStyle}
-            placeholder="Typical Length: 2-3 sentences
-Formality: Informal but professional
-Common Greeting: Hey,
-Notable Traits:
-- Uses contractions frequently
-- Concise and direct responses
-- Minimal closings"
+            control={control}
+            render={({ field }) => (
+              <div className="max-h-[400px] overflow-y-auto">
+                <Tiptap
+                  ref={editorRef}
+                  initialContent={field.value ?? ""}
+                  className="prose prose-sm dark:prose-invert max-w-none"
+                  autofocus={false}
+                  preservePastedLineBreaks
+                />
+              </div>
+            )}
           />
-          <Button type="submit" className="mt-8" loading={isExecuting}>
+          {errors.writingStyle && (
+            <p className="mt-1 text-sm text-destructive">
+              {errors.writingStyle.message}
+            </p>
+          )}
+          <Button type="submit" className="mt-4" loading={isExecuting}>
             Save
           </Button>
         </form>
