@@ -19,7 +19,7 @@ export async function trackSentDraftStatus({
   provider: EmailProvider;
   logger: Logger;
 }) {
-  const { threadId, id: sentMessageId, textPlain: sentTextPlain } = message;
+  const { threadId, id: sentMessageId } = message;
 
   logger.info("Checking if sent message corresponds to an AI draft");
 
@@ -79,10 +79,8 @@ export async function trackSentDraftStatus({
 
   const executedActionId = executedAction.id;
 
-  const similarityScore = calculateSimilarity(
-    executedAction.content,
-    sentTextPlain,
-  );
+  // Pass full message to properly handle Outlook HTML content
+  const similarityScore = calculateSimilarity(executedAction.content, message);
 
   logger.info("Calculated similarity score", {
     executedActionId,
@@ -168,10 +166,10 @@ export async function cleanupThreadAIDrafts({
 
         if (draftDetails?.textPlain) {
           // Draft exists, check if modified
-          // Using calculateSimilarity == 1.0 as the check for "unmodified"
+          // Pass full draftDetails to properly handle Outlook HTML content
           const similarityScore = calculateSimilarity(
             action.content,
-            draftDetails.textPlain,
+            draftDetails,
           );
           const isUnmodified = similarityScore === 1.0;
 
