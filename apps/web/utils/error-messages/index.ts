@@ -67,7 +67,7 @@ export async function clearUserErrorMessages({
     });
   } catch (error) {
     logger.error("Error clearing user error messages:", { error });
-    captureException(error);
+    captureException(error, { extra: { userId } });
   }
 }
 
