@@ -6,7 +6,7 @@ import { actionClientUser } from "@/utils/actions/safe-action";
 
 export const clearUserErrorMessagesAction = actionClientUser
   .metadata({ name: "clearUserErrorMessages" })
-  .action(async ({ ctx: { userId } }) => {
-    await clearUserErrorMessages({ userId });
+  .action(async ({ ctx: { userId, logger } }) => {
+    await clearUserErrorMessages({ userId, logger });
     revalidatePath("/(app)", "layout");
   });

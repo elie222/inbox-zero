@@ -1,6 +1,7 @@
 import { Client } from "@microsoft/microsoft-graph-client";
 import type { User } from "@microsoft/microsoft-graph-types";
 import { saveTokens } from "@/utils/auth";
+import { cleanupInvalidTokens } from "@/utils/auth/cleanup-invalid-tokens";
 import { env } from "@/env";
 import type { Logger } from "@/utils/logger";
 import { SCOPES } from "@/utils/outlook/scopes";
@@ -186,6 +187,13 @@ export const getOutlookClientWithRefresh = async ({
             errorMessage,
           },
         );
+
+        await cleanupInvalidTokens({
+          emailAccountId,
+          reason: "invalid_grant",
+          logger,
+        });
+
         throw new SafeError(
           "Your Microsoft authorization has expired. Please sign out and log in again to reconnect your account.",
         );
