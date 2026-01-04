@@ -5,8 +5,10 @@ import { BillingSection } from "@/app/(app)/[emailAccountId]/settings/BillingSec
 import { DeleteSection } from "@/app/(app)/[emailAccountId]/settings/DeleteSection";
 import { ModelSection } from "@/app/(app)/[emailAccountId]/settings/ModelSection";
 import { MultiAccountSection } from "@/app/(app)/[emailAccountId]/settings/MultiAccountSection";
+import { ReplyZeroSection } from "@/app/(app)/[emailAccountId]/settings/ReplyZeroSection";
 import { ResetAnalyticsSection } from "@/app/(app)/[emailAccountId]/settings/ResetAnalyticsSection";
 import { WebhookSection } from "@/app/(app)/[emailAccountId]/settings/WebhookSection";
+import { isGoogleProvider } from "@/utils/email/provider-types";
 import { FormSection, FormWrapper } from "@/components/Form";
 import { PageHeader } from "@/components/PageHeader";
 import { TabsToolbar } from "@/components/TabsToolbar";
@@ -57,6 +59,8 @@ export default function SettingsPage() {
                   Settings for {emailAccount?.email}
                 </SectionDescription>
               </FormSection>
+
+              {isGoogleProvider(emailAccount.provider) && <ReplyZeroSection />}
 
               <ResetAnalyticsSection />
 
