@@ -12,9 +12,10 @@ import type { Command } from "./types";
  * - 30:  Fuzzy match (characters appear in order)
  */
 export function fuzzySearch(query: string, commands: Command[]): Command[] {
-  if (!query.trim()) return commands;
+  const trimmedQuery = query.trim();
+  if (!trimmedQuery) return commands;
 
-  const lowerQuery = query.toLowerCase();
+  const lowerQuery = trimmedQuery.toLowerCase();
 
   const scored = commands.map((cmd) => {
     const label = cmd.label.toLowerCase();

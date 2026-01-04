@@ -145,6 +145,8 @@ export function CommandK() {
 
   const commandProps = React.useMemo(
     () => ({
+      // disable cmdk's built-in filter since we use custom fuzzy search
+      shouldFilter: false,
       onKeyDown: (e: React.KeyboardEvent) => {
         if (e.key !== "Escape") {
           e.stopPropagation();
