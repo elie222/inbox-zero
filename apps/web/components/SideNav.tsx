@@ -23,7 +23,6 @@ import {
   PenIcon,
   PersonStandingIcon,
   RatioIcon,
-  SearchIcon,
   SendIcon,
   SettingsIcon,
   SparklesIcon,
@@ -57,7 +56,6 @@ import {
   useIntegrationsEnabled,
   useMeetingBriefsEnabled,
 } from "@/hooks/useFeatureFlags";
-import { COMMAND_PALETTE_EVENT } from "@/components/CommandK";
 import { ClientOnly } from "@/components/ClientOnly";
 import { AccountSwitcher } from "@/components/AccountSwitcher";
 import { useAccount } from "@/providers/EmailAccountProvider";
@@ -272,16 +270,6 @@ export function SideNav({ ...props }: React.ComponentProps<typeof Sidebar>) {
             <ReferralDialog />
           </ClientOnly>
         )}
-
-        <SidebarMenuButton
-          onClick={() => {
-            window.dispatchEvent(new CustomEvent(COMMAND_PALETTE_EVENT));
-          }}
-        >
-          <SearchIcon className="size-4" />
-          <span className="font-semibold">Search</span>
-          <CommandShortcut className="ml-auto">⌘K</CommandShortcut>
-        </SidebarMenuButton>
 
         <SidebarMenuButton asChild>
           <Link href="https://docs.getinboxzero.com" target="_blank">

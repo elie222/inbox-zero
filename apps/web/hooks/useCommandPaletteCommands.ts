@@ -4,23 +4,30 @@ import { useMemo } from "react";
 import { useRouter } from "next/navigation";
 import {
   SparklesIcon,
-  MailsIcon,
   BarChartBigIcon,
   SettingsIcon,
   UserIcon,
   ScrollTextIcon,
   UsersIcon,
-  ArchiveIcon,
-  PenLineIcon,
-  BrushIcon,
   ShieldCheckIcon,
   type LucideIcon,
+  CalendarIcon,
+  FileTextIcon,
+  BrushIcon,
+  ZapIcon,
+  MailsIcon,
 } from "lucide-react";
 import type { Command } from "@/lib/commands/types";
 import { useRules } from "@/hooks/useRules";
 import { useUser } from "@/hooks/useUser";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { prefixPath } from "@/utils/path";
+import {
+  useCleanerEnabled,
+  useIntegrationsEnabled,
+  useMeetingBriefsEnabled,
+} from "@/hooks/useFeatureFlags";
+import { isGoogleProvider } from "@/utils/email/provider-types";
 
 interface NavigationItem {
   name: string;
@@ -30,18 +37,15 @@ interface NavigationItem {
 }
 
 function useNavigationItems(): NavigationItem[] {
-  const { emailAccountId } = useAccount();
+  const { emailAccountId, provider } = useAccount();
+  const showCleaner = useCleanerEnabled();
+  const showMeetingBriefs = useMeetingBriefsEnabled();
+  const showIntegrations = useIntegrationsEnabled();
 
   return useMemo(
     () => [
       {
-        name: "Mail",
-        href: prefixPath(emailAccountId, "/mail"),
-        icon: MailsIcon,
-        keywords: ["inbox", "emails", "messages"],
-      },
-      {
-        name: "Automation",
+        name: "Assistant",
         href: prefixPath(emailAccountId, "/automation"),
         icon: SparklesIcon,
         keywords: ["ai", "assistant", "rules", "auto"],
@@ -49,35 +53,65 @@ function useNavigationItems(): NavigationItem[] {
       {
         name: "Bulk Unsubscribe",
         href: prefixPath(emailAccountId, "/bulk-unsubscribe"),
-        icon: ArchiveIcon,
+        icon: MailsIcon,
         keywords: ["unsubscribe", "newsletters", "spam"],
       },
-      {
-        name: "Cold Email Blocker",
-        href: prefixPath(emailAccountId, "/cold-email-blocker"),
-        icon: ShieldCheckIcon,
-        keywords: ["block", "cold", "spam", "filter"],
-      },
-      {
-        name: "Compose",
-        href: prefixPath(emailAccountId, "/compose"),
-        icon: PenLineIcon,
-        keywords: ["write", "new", "draft", "send"],
-      },
-      {
-        name: "Email Cleaner",
-        href: prefixPath(emailAccountId, "/clean"),
-        icon: BrushIcon,
-        keywords: ["clean", "organize", "tidy"],
-      },
+      ...(isGoogleProvider(provider) && showCleaner
+        ? [
+            {
+              name: "Deep Clean",
+              href: prefixPath(emailAccountId, "/clean"),
+              icon: BrushIcon,
+              keywords: ["clean", "organize", "tidy"],
+            },
+          ]
+        : []),
       {
         name: "Analytics",
         href: prefixPath(emailAccountId, "/stats"),
         icon: BarChartBigIcon,
         keywords: ["statistics", "charts", "data"],
       },
+      {
+        name: "Calendars",
+        href: prefixPath(emailAccountId, "/calendars"),
+        icon: CalendarIcon,
+        keywords: ["calendar", "scheduling", "meetings"],
+      },
+      ...(showIntegrations
+        ? [
+            {
+              name: "Integrations",
+              href: prefixPath(emailAccountId, "/integrations"),
+              icon: ZapIcon,
+              keywords: ["integrations", "apps", "connect"],
+            },
+          ]
+        : []),
+      ...(showMeetingBriefs
+        ? [
+            {
+              name: "Meeting Briefs",
+              href: prefixPath(emailAccountId, "/briefs"),
+              icon: FileTextIcon,
+              keywords: ["briefs", "meeting", "summaries"],
+            },
+          ]
+        : []),
+      {
+        name: "Cold Email Blocker",
+        href: prefixPath(emailAccountId, "/cold-email-blocker"),
+        icon: ShieldCheckIcon,
+        keywords: ["block", "cold", "spam", "filter"],
+      },
     ],
-    [emailAccountId],
+    [
+      emailAccountId,
+      provider,
+      showCleaner,
+      showMeetingBriefs,
+      showIntegrations,
+    ],
   );
 }
 
@@ -85,7 +119,7 @@ export function useCommandPaletteCommands() {
   const router = useRouter();
   const { emailAccountId } = useAccount();
   const { data: rulesData, isLoading: rulesLoading } = useRules();
-  const { user, isLoading: userLoading } = useUser();
+  const { data: user, isLoading: userLoading } = useUser();
   const navigationItems = useNavigationItems();
 
   const navigationCommands = useMemo<Command[]>(() => {
@@ -158,9 +192,9 @@ export function useCommandPaletteCommands() {
   );
 
   const ruleCommands = useMemo<Command[]>(() => {
-    if (!rulesData?.rules) return [];
+    if (!rulesData) return [];
 
-    return rulesData.rules.map((rule, index) => ({
+    return rulesData.map((rule, index) => ({
       id: `rule-${rule.id}`,
       label: rule.name,
       description: rule.instructions || "View rule",
@@ -171,7 +205,7 @@ export function useCommandPaletteCommands() {
       action: () =>
         router.push(prefixPath(emailAccountId, `/assistant/rule/${rule.id}`)),
     }));
-  }, [rulesData?.rules, router, emailAccountId]);
+  }, [rulesData, router, emailAccountId]);
 
   const accountCommands = useMemo<Command[]>(() => {
     if (!user?.emailAccounts) return [];

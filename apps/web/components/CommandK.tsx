@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { ArchiveIcon, Loader2Icon, PenLineIcon } from "lucide-react";
+import { ArchiveIcon, Loader2Icon } from "lucide-react";
 import { useAtomValue } from "jotai";
 import {
   CommandDialog,
@@ -21,9 +21,6 @@ import { useAccount } from "@/providers/EmailAccountProvider";
 import { useCommandPaletteCommands } from "@/hooks/useCommandPaletteCommands";
 import { fuzzySearch } from "@/lib/commands/fuzzy-search";
 import type { Command, CommandSection } from "@/lib/commands/types";
-
-// custom event name for opening command palette from other components
-export const COMMAND_PALETTE_EVENT = "open-command-palette";
 
 const SECTION_ORDER: CommandSection[] = [
   "actions",
@@ -67,19 +64,7 @@ export function CommandK() {
 
   // build action commands that include archive and compose
   const actionCommands = React.useMemo<Command[]>(() => {
-    const actions: Command[] = [
-      {
-        id: "compose",
-        label: "Compose",
-        description: "Write a new email",
-        icon: PenLineIcon,
-        shortcut: "C",
-        section: "actions",
-        priority: 1,
-        keywords: ["write", "new", "email", "draft"],
-        action: () => onOpenComposeModal(),
-      },
-    ];
+    const actions: Command[] = [];
 
     if (threadId) {
       actions.unshift({
@@ -96,7 +81,7 @@ export function CommandK() {
     }
 
     return actions;
-  }, [threadId, onArchive, onOpenComposeModal]);
+  }, [threadId, onArchive]);
 
   // combine action commands with dynamic commands
   const allCommands = React.useMemo(() => {
@@ -194,15 +179,10 @@ export function CommandK() {
       }
     };
 
-    // listen for custom event from search button
-    const openFromEvent = () => setOpen(true);
-
     document.addEventListener("keydown", down);
-    window.addEventListener(COMMAND_PALETTE_EVENT, openFromEvent);
 
     return () => {
       document.removeEventListener("keydown", down);
-      window.removeEventListener(COMMAND_PALETTE_EVENT, openFromEvent);
     };
   }, [open, onArchive, onOpenComposeModal, threadId, showEmail]);
 
