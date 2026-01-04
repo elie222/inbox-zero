@@ -67,19 +67,7 @@ export function CommandK() {
 
   // build action commands that include archive and compose
   const actionCommands = React.useMemo<Command[]>(() => {
-    const actions: Command[] = [
-      {
-        id: "compose",
-        label: "Compose",
-        description: "Write a new email",
-        icon: PenLineIcon,
-        shortcut: "C",
-        section: "actions",
-        priority: 1,
-        keywords: ["write", "new", "email", "draft"],
-        action: () => onOpenComposeModal(),
-      },
-    ];
+    const actions: Command[] = [];
 
     if (threadId) {
       actions.unshift({

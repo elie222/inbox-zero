@@ -1,6 +1,7 @@
 import { auth } from "@/utils/auth";
 import { redirect } from "next/navigation";
 import prisma from "@/utils/prisma";
+import { prefixPath } from "@/utils/path";
 
 export default async function OrganizationPage({
   params,
@@ -19,7 +20,7 @@ export default async function OrganizationPage({
   });
 
   if (!member) {
-    redirect("/organization/create");
+    redirect(prefixPath(emailAccountId, "/organization/create"));
   }
 
   const redirectUrl = `/organization/${member.organizationId}`;
