@@ -13,6 +13,7 @@ import { captureException } from "@/utils/error";
 import type { Logger } from "@/utils/logger";
 import { publishToQstashQueue } from "@/utils/upstash";
 import { getPremiumUserFilter } from "@/utils/premium";
+import type { SendSummaryEmailBody } from "../validation";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
@@ -45,7 +46,7 @@ async function sendSummaryAllUpdate(logger: Logger) {
   logger.info("Sending summary all update");
 
   const emailAccounts = await prisma.emailAccount.findMany({
-    select: { email: true },
+    select: { id: true },
     where: {
       summaryEmailFrequency: {
         not: Frequency.NEVER,
@@ -64,16 +65,16 @@ async function sendSummaryAllUpdate(logger: Logger) {
 
   for (const emailAccount of emailAccounts) {
     try {
-      await publishToQstashQueue({
+      await publishToQstashQueue<SendSummaryEmailBody>({
         queueName: "email-summary-all",
         parallelism: 3, // Allow up to 3 concurrent jobs from this queue
         url,
-        body: { email: emailAccount.email },
+        body: { emailAccountId: emailAccount.id },
         headers: getCronSecretHeader(),
       });
     } catch (error) {
       logger.error("Failed to publish to Qstash", {
-        email: emailAccount.email,
+        emailAccountId: emailAccount.id,
         error,
       });
     }
