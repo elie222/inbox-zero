@@ -1,4 +1,3 @@
-import { z } from "zod";
 import { NextResponse } from "next/server";
 import { subHours } from "date-fns/subHours";
 import { sendSummaryEmail } from "@inboxzero/resend";
@@ -12,10 +11,9 @@ import type { Logger } from "@/utils/logger";
 import { getMessagesBatch } from "@/utils/gmail/message";
 import { decodeSnippet } from "@/utils/gmail/decode";
 import { createUnsubscribeToken } from "@/utils/unsubscribe";
+import { sendSummaryEmailBody } from "./validation";
 
 export const maxDuration = 60;
-
-const sendSummaryEmailBody = z.object({ emailAccountId: z.string() });
 
 export const GET = withEmailAccount("resend/summary", async (request) => {
   // send to self
