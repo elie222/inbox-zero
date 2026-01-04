@@ -96,8 +96,7 @@ function WritingStyleDialog({
   );
 
   const onSubmit = (data: SaveWritingStyleBody) => {
-    const markdownContent = editorRef.current?.getMarkdown();
-    execute({ writingStyle: markdownContent ?? data.writingStyle });
+    execute(data);
   };
 
   return (
@@ -120,9 +119,21 @@ function WritingStyleDialog({
                 <Tiptap
                   ref={editorRef}
                   initialContent={field.value ?? ""}
-                  className="prose prose-sm dark:prose-invert max-w-none"
+                  onChange={field.onChange}
+                  output="markdown"
+                  className="prose prose-sm dark:prose-invert max-w-none [&_p.is-editor-empty:first-child::before]:pointer-events-none [&_p.is-editor-empty:first-child::before]:float-left [&_p.is-editor-empty:first-child::before]:h-0 [&_p.is-editor-empty:first-child::before]:text-muted-foreground [&_p.is-editor-empty:first-child::before]:content-[attr(data-placeholder)]"
                   autofocus={false}
                   preservePastedLineBreaks
+                  placeholder={`Typical Length: 2-3 sentences
+
+Formality: Informal but professional
+
+Common Greeting: Hey,
+
+Notable Traits:
+- Uses contractions frequently
+- Concise and direct responses
+- Minimal closings`}
                 />
               </div>
             )}

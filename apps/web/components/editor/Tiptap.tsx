@@ -3,6 +3,7 @@
 import { useEditor, EditorContent, type Editor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import { Markdown } from "tiptap-markdown";
+import { Placeholder } from "@tiptap/extension-placeholder";
 import { useCallback, forwardRef, useImperativeHandle } from "react";
 import { cn } from "@/utils";
 import { EnterHandler } from "@/components/editor/extensions";
@@ -16,11 +17,13 @@ export const Tiptap = forwardRef<
   TiptapHandle,
   {
     initialContent?: string;
-    onChange?: (html: string) => void;
+    onChange?: (content: string) => void;
     className?: string;
     autofocus?: boolean;
     onMoreClick?: () => void;
     preservePastedLineBreaks?: boolean;
+    placeholder?: string;
+    output?: "html" | "markdown";
   }
 >(function Tiptap(
   {
@@ -30,6 +33,8 @@ export const Tiptap = forwardRef<
     autofocus = true,
     onMoreClick,
     preservePastedLineBreaks = false,
+    placeholder,
+    output = "html",
   },
   ref,
 ) {
@@ -57,14 +62,21 @@ export const Tiptap = forwardRef<
             bulletListMarker: "-",
           })
         : Markdown,
+      Placeholder.configure({
+        placeholder: placeholder || "",
+        showOnlyWhenEditable: true,
+      }),
     ],
     content: initialContent,
     onUpdate: useCallback(
       ({ editor }: { editor: Editor }) => {
-        const html = editor.getHTML();
-        onChange?.(html);
+        const content =
+          output === "markdown"
+            ? editor.storage.markdown.getMarkdown()
+            : editor.getHTML();
+        onChange?.(content);
       },
-      [onChange],
+      [onChange, output],
     ),
     autofocus,
     editorProps: {
@@ -73,6 +85,7 @@ export const Tiptap = forwardRef<
           "px-3 py-2 max-w-none focus:outline-none min-h-[120px]",
           className,
         ),
+        ...(placeholder && { "data-placeholder": placeholder }),
       },
     },
   });
