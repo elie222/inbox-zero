@@ -113,17 +113,18 @@ export const GET = withError("outlook/linking/callback", async (request) => {
     }
 
     const profile = await profileResponse.json();
+    const providerAccountId = profile.id;
     const providerEmail = profile.mail || profile.userPrincipalName;
 
-    if (!providerEmail) {
-      throw new Error("Profile missing required email");
+    if (!providerAccountId || !providerEmail) {
+      throw new Error("Profile missing required id or email");
     }
 
-    const existingAccountByProviderId = await prisma.account.findUnique({
+    const existingAccount = await prisma.account.findUnique({
       where: {
         provider_providerAccountId: {
           provider: "microsoft",
-          providerAccountId: profile.id || providerEmail,
+          providerAccountId,
         },
       },
       select: {
@@ -133,24 +134,6 @@ export const GET = withError("outlook/linking/callback", async (request) => {
         emailAccount: true,
       },
     });
-
-    const existingAccountByEmail = await prisma.account.findFirst({
-      where: {
-        provider: "microsoft",
-        user: {
-          email: providerEmail.trim().toLowerCase(),
-        },
-      },
-      select: {
-        id: true,
-        userId: true,
-        user: { select: { name: true, email: true } },
-        emailAccount: true,
-      },
-    });
-
-    const existingAccount =
-      existingAccountByProviderId || existingAccountByEmail;
 
     const linkingResult = await handleAccountLinking({
       existingAccountId: existingAccount?.id || null,
@@ -207,15 +190,13 @@ export const GET = withError("outlook/linking/callback", async (request) => {
         logger.warn("Failed to fetch profile picture", { error });
       }
 
-      const microsoftProviderAccountId = profile.id || providerEmail;
-
       try {
         const newAccount = await prisma.account.create({
           data: {
             userId: targetUserId,
             type: "oidc",
             provider: "microsoft",
-            providerAccountId: microsoftProviderAccountId,
+            providerAccountId,
             access_token: tokens.access_token,
             refresh_token: tokens.refresh_token,
             expires_at: expiresAt,
@@ -247,7 +228,7 @@ export const GET = withError("outlook/linking/callback", async (request) => {
             where: {
               provider_providerAccountId: {
                 provider: "microsoft",
-                providerAccountId: microsoftProviderAccountId,
+                providerAccountId,
               },
             },
             select: { userId: true },
@@ -258,7 +239,7 @@ export const GET = withError("outlook/linking/callback", async (request) => {
               "Account was created by concurrent request, continuing",
               {
                 targetUserId,
-                providerAccountId: microsoftProviderAccountId,
+                providerAccountId,
               },
             );
           } else {
