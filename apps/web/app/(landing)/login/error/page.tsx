@@ -20,6 +20,11 @@ const errorMessages: Record<string, { title: string; description: string }> = {
     description:
       "Your account is not authorized to access this application. This may be because your email is not part of the allowed organization. Please contact your administrator or try signing in with a different account.",
   },
+  email_already_linked: {
+    title: "Email Already Linked",
+    description:
+      "This email address is already linked to another Inbox Zero account. Please sign in with the original account, or use a different email address.",
+  },
 };
 
 function LoginErrorContent() {

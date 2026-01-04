@@ -101,6 +101,16 @@ function ErrorAlert({ error }: { error: string }) {
     );
   }
 
+  if (error === "email_already_linked") {
+    return (
+      <AlertBasic
+        variant="destructive"
+        title="Email Already Linked"
+        description={`This email address is already linked to another Inbox Zero account. Please sign in with the original account, or use a different email address. If this error persists please contact support at ${env.NEXT_PUBLIC_SUPPORT_EMAIL}`}
+      />
+    );
+  }
+
   return (
     <>
       <AlertBasic
