@@ -33,6 +33,8 @@ async function getUser({ userId }: { userId: string }) {
       emailAccounts: {
         select: {
           id: true,
+          email: true,
+          name: true,
           members: {
             select: {
               organizationId: true,
