@@ -316,6 +316,18 @@ async function handleError(
     modelName,
   });
 
+  if (RetryError.isInstance(error) && isOpenAIRetryError(error)) {
+    return await addUserErrorMessageWithNotification({
+      userId,
+      userEmail,
+      emailAccountId,
+      errorType: ErrorType.OPENAI_RETRY_ERROR,
+      errorMessage:
+        "You have exceeded your OpenAI API quota. Please check your OpenAI account.",
+      logger,
+    });
+  }
+
   if (APICallError.isInstance(error)) {
     if (isIncorrectOpenAIAPIKeyError(error)) {
       return await addUserErrorMessageWithNotification({
@@ -349,18 +361,6 @@ async function handleError(
         errorType: ErrorType.OPENAI_API_KEY_DEACTIVATED,
         errorMessage:
           "Your OpenAI API key has been deactivated. Please update it in your settings.",
-        logger,
-      });
-    }
-
-    if (RetryError.isInstance(error) && isOpenAIRetryError(error)) {
-      return await addUserErrorMessageWithNotification({
-        userId,
-        userEmail,
-        emailAccountId,
-        errorType: ErrorType.OPENAI_RETRY_ERROR,
-        errorMessage:
-          "You have exceeded your OpenAI API quota. Please check your OpenAI account.",
         logger,
       });
     }
