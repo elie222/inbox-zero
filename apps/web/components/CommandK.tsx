@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { ArchiveIcon, Loader2Icon, PenLineIcon } from "lucide-react";
+import { ArchiveIcon, Loader2Icon } from "lucide-react";
 import { useAtomValue } from "jotai";
 import {
   CommandDialog,
@@ -84,7 +84,7 @@ export function CommandK() {
     }
 
     return actions;
-  }, [threadId, onArchive, onOpenComposeModal]);
+  }, [threadId, onArchive]);
 
   // combine action commands with dynamic commands
   const allCommands = React.useMemo(() => {
