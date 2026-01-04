@@ -13,27 +13,23 @@ export async function ErrorMessages() {
   if (!errorMessages || Object.keys(errorMessages).length === 0) return null;
 
   return (
-    <div className="p-2">
+    <div className="mx-auto max-w-screen-xl w-full px-4 mt-6 mb-2 space-y-2">
       <AlertError
-        title="We encountered some errors in your account that need to be fixed:"
+        title="Action Required"
         description={
-          <>
-            <ul className="list-inside list-disc">
+          <div className="flex flex-col gap-3 mt-2">
+            <ul className="list-disc pl-5 space-y-1">
               {Object.values(errorMessages).map((error) => (
                 <li key={error.message}>{error.message}</li>
               ))}
             </ul>
 
-            {/* Avoids onClick. So it works in server components */}
-            <form
-              action={clearUserErrorMessagesAction as () => void}
-              className="mt-2"
-            >
+            <form action={clearUserErrorMessagesAction as () => void}>
               <Button type="submit" variant="red" size="sm">
                 I've fixed them
               </Button>
             </form>
-          </>
+          </div>
         }
       />
     </div>
