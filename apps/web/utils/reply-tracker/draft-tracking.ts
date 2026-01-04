@@ -164,7 +164,7 @@ export async function cleanupThreadAIDrafts({
       try {
         const draftDetails = await provider.getDraft(action.draftId);
 
-        if (draftDetails?.textPlain) {
+        if (draftDetails?.textPlain || draftDetails?.textHtml) {
           // Draft exists, check if modified
           // Pass full draftDetails to properly handle Outlook HTML content
           const similarityScore = calculateSimilarity(

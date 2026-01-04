@@ -1,9 +1,6 @@
 import * as stringSimilarity from "string-similarity";
 import { convertEmailHtmlToText, parseReply } from "@/utils/mail";
-import {
-  extractDraftPlainText,
-  stripQuotedContent,
-} from "@/utils/ai/choose-rule/draft-management";
+import { stripQuotedContent } from "@/utils/ai/choose-rule/draft-management";
 import type { ParsedMessage } from "@/utils/types";
 
 /**
@@ -63,11 +60,12 @@ export function calculateSimilarity(
     normalized2 = reply.toLowerCase().trim();
   } else {
     // ParsedMessage - use proper normalization with bodyContentType
-    const text = providerMessage.textPlain || "";
-    normalized2 = normalizeProviderContent(
-      text,
-      providerMessage.bodyContentType,
-    );
+    // Fall back to textHtml if textPlain is empty (some emails only have HTML)
+    const text = providerMessage.textPlain || providerMessage.textHtml || "";
+    const contentType = providerMessage.textPlain
+      ? providerMessage.bodyContentType
+      : "html";
+    normalized2 = normalizeProviderContent(text, contentType);
   }
 
   if (!normalized1 || !normalized2) {
