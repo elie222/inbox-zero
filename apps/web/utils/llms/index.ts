@@ -18,7 +18,10 @@ import { jsonrepair } from "jsonrepair";
 import type { LanguageModelV2 } from "@ai-sdk/provider";
 import { saveAiUsage } from "@/utils/usage";
 import type { EmailAccountWithAI, UserAIFields } from "@/utils/llms/types";
-import { addUserErrorMessage, ErrorType } from "@/utils/error-messages";
+import {
+  addUserErrorMessageWithNotification,
+  ErrorType,
+} from "@/utils/error-messages";
 import {
   captureException,
   isAnthropicInsufficientBalanceError,
@@ -315,43 +318,58 @@ async function handleError(
 
   if (APICallError.isInstance(error)) {
     if (isIncorrectOpenAIAPIKeyError(error)) {
-      return await addUserErrorMessage(
+      return await addUserErrorMessageWithNotification({
         userId,
-        ErrorType.INCORRECT_OPENAI_API_KEY,
-        error.message,
-      );
+        userEmail,
+        emailAccountId,
+        errorType: ErrorType.INCORRECT_OPENAI_API_KEY,
+        errorMessage:
+          "Your OpenAI API key is invalid. Please update it in your settings.",
+      });
     }
 
     if (isInvalidOpenAIModelError(error)) {
-      return await addUserErrorMessage(
+      return await addUserErrorMessageWithNotification({
         userId,
-        ErrorType.INVALID_OPENAI_MODEL,
-        error.message,
-      );
+        userEmail,
+        emailAccountId,
+        errorType: ErrorType.INVALID_OPENAI_MODEL,
+        errorMessage:
+          "The AI model you specified does not exist. Please check your settings.",
+      });
     }
 
     if (isOpenAIAPIKeyDeactivatedError(error)) {
-      return await addUserErrorMessage(
+      return await addUserErrorMessageWithNotification({
         userId,
-        ErrorType.OPENAI_API_KEY_DEACTIVATED,
-        error.message,
-      );
+        userEmail,
+        emailAccountId,
+        errorType: ErrorType.OPENAI_API_KEY_DEACTIVATED,
+        errorMessage:
+          "Your OpenAI API key has been deactivated. Please update it in your settings.",
+      });
     }
 
     if (RetryError.isInstance(error) && isOpenAIRetryError(error)) {
-      return await addUserErrorMessage(
+      return await addUserErrorMessageWithNotification({
         userId,
-        ErrorType.OPENAI_RETRY_ERROR,
-        error.message,
-      );
+        userEmail,
+        emailAccountId,
+        errorType: ErrorType.OPENAI_RETRY_ERROR,
+        errorMessage:
+          "You have exceeded your OpenAI API quota. Please check your OpenAI account.",
+      });
     }
 
     if (isAnthropicInsufficientBalanceError(error)) {
-      return await addUserErrorMessage(
+      return await addUserErrorMessageWithNotification({
         userId,
-        ErrorType.ANTHROPIC_INSUFFICIENT_BALANCE,
-        error.message,
-      );
+        userEmail,
+        emailAccountId,
+        errorType: ErrorType.ANTHROPIC_INSUFFICIENT_BALANCE,
+        errorMessage:
+          "Your Anthropic account has insufficient credits. Please add credits or update your settings.",
+      });
     }
   }
 }

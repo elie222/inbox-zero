@@ -13,6 +13,7 @@ import { calculateNextScheduleDate } from "@/utils/schedule";
 import { actionClientUser } from "@/utils/actions/safe-action";
 import { ActionType } from "@/generated/prisma/enums";
 import type { Prisma } from "@/generated/prisma/client";
+import { clearSpecificErrorMessages, ErrorType } from "@/utils/error-messages";
 
 export const updateEmailSettingsAction = actionClient
   .metadata({ name: "updateEmailSettings" })
@@ -46,6 +47,19 @@ export const updateAiSettingsAction = actionClientUser
           aiProvider === DEFAULT_PROVIDER
             ? { aiProvider: null, aiModel: null, aiApiKey: null }
             : { aiProvider, aiModel, aiApiKey },
+      });
+
+      // Clear AI-related error messages when user updates their settings
+      // This allows them to be notified again if the new settings are also invalid
+      await clearSpecificErrorMessages({
+        userId,
+        errorTypes: [
+          ErrorType.INCORRECT_OPENAI_API_KEY,
+          ErrorType.INVALID_OPENAI_MODEL,
+          ErrorType.OPENAI_API_KEY_DEACTIVATED,
+          ErrorType.OPENAI_RETRY_ERROR,
+          ErrorType.ANTHROPIC_INSUFFICIENT_BALANCE,
+        ],
       });
     },
   );
