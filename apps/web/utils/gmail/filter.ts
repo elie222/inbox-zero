@@ -39,7 +39,12 @@ export async function createFilter(options: {
     });
 
     // Check if it might be a filter limit issue
-    if (errorInfo.status === 500) {
+    // Documentation says 400/403, but we've seen 500 in production
+    if (
+      errorInfo.status === 500 ||
+      errorInfo.status === 403 ||
+      errorInfo.status === 400
+    ) {
       try {
         const filters = await getFiltersList({ gmail });
         const filterCount = filters.data?.filter?.length ?? 0;
