@@ -41,7 +41,7 @@ export type MatchingRuleResult = {
 /**
  * Serializable version of MatchReason for database storage
  */
-export type SerializedMatchReason =
+type SerializedMatchReason =
   | { type: "STATIC" }
   | {
       type: "LEARNED_PATTERN";

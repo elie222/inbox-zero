@@ -146,6 +146,8 @@ export function getMockMessage({
   snippet = "Test message",
   textPlain = "Test content",
   textHtml = "<p>Test content</p>",
+  labelIds = [],
+  attachments = [],
 }: {
   id?: string;
   threadId?: string;
@@ -156,6 +158,8 @@ export function getMockMessage({
   snippet?: string;
   textPlain?: string;
   textHtml?: string;
+  labelIds?: string[];
+  attachments?: any[];
 } = {}) {
   return {
     id,
@@ -170,9 +174,9 @@ export function getMockMessage({
     snippet,
     textPlain,
     textHtml,
-    attachments: [],
+    attachments,
     inline: [],
-    labelIds: [],
+    labelIds,
     subject,
     date: new Date().toISOString(),
   };

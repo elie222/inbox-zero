@@ -1,5 +1,7 @@
 Resolve all active PR comments (conversation + code review). Use `gh` CLI.
 
+Important: All `gh` CLI commands require `required_permissions: ['all']` due to TLS certificate issues in sandboxed mode.
+
 ## Critical Rules
 
 1. **ALWAYS reply to the specific comment** - use replies API, not new PR comment

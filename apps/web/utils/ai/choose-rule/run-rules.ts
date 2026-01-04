@@ -4,6 +4,7 @@ import type { EmailAccountWithAI } from "@/utils/llms/types";
 import {
   ActionType,
   ExecutedRuleStatus,
+  GroupItemSource,
   SystemType,
 } from "@/generated/prisma/enums";
 import type { Rule } from "@/generated/prisma/client";
@@ -34,7 +35,7 @@ import {
   updateThreadTrackers,
 } from "@/utils/reply-tracker/handle-conversation-status";
 import { removeConflictingThreadStatusLabels } from "@/utils/reply-tracker/label-helpers";
-import { saveColdEmail } from "@/utils/cold-email/is-cold-email";
+import { saveLearnedPattern } from "@/utils/rule/learned-patterns";
 import { internalDateToDate } from "@/utils/date";
 import { ConditionType } from "@/utils/config";
 import type { Logger } from "@/utils/logger";
@@ -105,7 +106,50 @@ export async function runRules({
     logger,
   });
 
-  const finalMatches = limitDraftEmailActions(conversationAwareMatches, logger);
+  // Separate regular matches from conversation meta-rule
+  const regularMatches = conversationAwareMatches.filter(
+    (m) => !isConversationRule(m.rule.id),
+  );
+  const conversationMatch = conversationAwareMatches.find((m) =>
+    isConversationRule(m.rule.id),
+  );
+
+  // Resolve conversation meta-rule to actual rule (e.g., TO_REPLY)
+  const matchesWithFlags: {
+    rule: RuleWithActions;
+    matchReasons?: MatchReason[];
+    resolvedReason?: string;
+    isConversationRule: boolean;
+  }[] = regularMatches.map((m) => ({
+    ...m,
+    isConversationRule: false,
+  }));
+
+  let skippedConversationReason: string | undefined;
+
+  if (conversationMatch) {
+    const { rule, reason } = await determineConversationStatus({
+      conversationRules,
+      message,
+      emailAccount,
+      provider,
+      modelType,
+      isTest,
+    });
+    if (rule) {
+      matchesWithFlags.push({
+        rule,
+        matchReasons: conversationMatch.matchReasons,
+        resolvedReason: reason,
+        isConversationRule: true,
+      });
+    } else {
+      // Track why conversation rule was skipped (e.g., determined FYI but rule disabled)
+      skippedConversationReason = reason;
+    }
+  }
+
+  const finalMatches = limitDraftEmailActions(matchesWithFlags, logger);
 
   logger.trace("Matching rule", () => ({
     module: MODULE,
@@ -113,7 +157,8 @@ export async function runRules({
   }));
 
   if (!finalMatches.length) {
-    const reason = results.reasoning || "No rules matched";
+    const reason =
+      skippedConversationReason || results.reasoning || "No rules matched";
     if (!isTest) {
       await prisma.executedRule.create({
         data: {
@@ -141,35 +186,10 @@ export async function runRules({
   const executedRules: RunRulesResult[] = [];
 
   for (const result of finalMatches) {
-    let ruleToExecute = result.rule;
-    let reasonToUse = results.reasoning;
+    const ruleToExecute = result.rule;
+    const reasonToUse = result.resolvedReason || results.reasoning;
 
-    if (result.rule && isConversationRule(result.rule.id)) {
-      const { rule: statusRule, reason: statusReason } =
-        await determineConversationStatus({
-          conversationRules,
-          message,
-          emailAccount,
-          provider,
-          modelType,
-          isTest,
-        });
-
-      if (!statusRule) {
-        const executedRule: RunRulesResult = {
-          rule: null,
-          reason: statusReason || "No enabled conversation status rule found",
-          createdAt: batchTimestamp,
-          status: ExecutedRuleStatus.SKIPPED,
-        };
-
-        executedRules.push(executedRule);
-        continue;
-      }
-
-      ruleToExecute = statusRule;
-      reasonToUse = statusReason;
-    } else {
+    if (!result.isConversationRule) {
       analyzeSenderPatternIfAiMatch({
         isTest,
         result,
@@ -321,14 +341,17 @@ async function executeMatchedRule(
   });
 
   if (rule.systemType === SystemType.COLD_EMAIL) {
-    await saveColdEmail({
-      email: {
-        id: message.id,
-        threadId: message.threadId,
-        from: message.headers.from,
-      },
-      emailAccount,
-      aiReason: reason ?? null,
+    const from =
+      extractEmailAddress(message.headers.from) || message.headers.from;
+    await saveLearnedPattern({
+      emailAccountId: emailAccount.id,
+      from,
+      ruleId: rule.id,
+      logger,
+      reason,
+      messageId: message.id,
+      threadId: message.threadId,
+      source: GroupItemSource.AI,
     });
   }
 
@@ -571,16 +594,9 @@ function isConversationRule(ruleId: string): boolean {
  * If there are no draft email actions, we return the matches as is.
  * If there is only one draft email action, we return the matches as is.
  */
-export function limitDraftEmailActions(
-  matches: {
-    rule: RuleWithActions;
-    matchReasons?: MatchReason[];
-  }[],
-  logger: Logger,
-): {
-  rule: RuleWithActions;
-  matchReasons?: MatchReason[];
-}[] {
+export function limitDraftEmailActions<
+  T extends { rule: RuleWithActions; matchReasons?: MatchReason[] },
+>(matches: T[], logger: Logger): T[] {
   const draftCandidates = matches.flatMap((match) =>
     match.rule.actions
       .filter((action) => action.type === ActionType.DRAFT_EMAIL)

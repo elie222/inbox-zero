@@ -9,6 +9,7 @@ import { env } from "@/env";
 import { Button } from "@/components/ui/button";
 import { WELCOME_PATH } from "@/utils/config";
 import { CrispChatLoggedOutVisible } from "@/components/CrispChat";
+import { isInternalPath } from "@/utils/path";
 
 export const metadata: Metadata = {
   title: "Log in | Inbox Zero",
@@ -22,8 +23,8 @@ export default async function AuthenticationPage(props: {
   const searchParams = await props.searchParams;
   const session = await auth();
   if (session?.user && !searchParams?.error) {
-    if (searchParams?.next) {
-      redirect(searchParams?.next);
+    if (searchParams?.next && isInternalPath(searchParams.next)) {
+      redirect(searchParams.next);
     } else {
       redirect(WELCOME_PATH);
     }

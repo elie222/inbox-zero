@@ -1,7 +1,13 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 import type { MeetingBriefingData } from "@/utils/meeting-briefs/gather-context";
 
 vi.mock("server-only", () => ({}));
+vi.mock("@/env", () => ({
+  env: {
+    PERPLEXITY_API_KEY: "test-key",
+    DEFAULT_LLM_PROVIDER: "openai",
+  },
+}));
 vi.mock("@/utils/llms/model", () => ({ getModel: vi.fn() }));
 vi.mock("@/utils/llms", () => ({ createGenerateObject: vi.fn() }));
 vi.mock("@/utils/stringify-email", () => ({
@@ -21,6 +27,10 @@ vi.mock("@/utils/get-email-from-message", () => ({
 vi.doUnmock("@/utils/date");
 
 import { buildPrompt } from "./generate-briefing";
+
+beforeEach(() => {
+  vi.clearAllMocks();
+});
 
 describe("buildPrompt timezone handling", () => {
   it("formats past meeting times in the user's timezone (not UTC)", () => {
@@ -61,7 +71,7 @@ describe("buildPrompt timezone handling", () => {
 
     // The past meeting should show "4:00 PM" (Brazil time), NOT "7:00 PM" (UTC)
     expect(prompt).toMatchInlineSnapshot(`
-      "Please prepare a concise briefing for this meeting.
+      "Prepare a concise briefing for this upcoming meeting.
 
       <upcoming_meeting>
       Title: Strategy Review
@@ -85,7 +95,12 @@ describe("buildPrompt timezone handling", () => {
 
       </guest_context>
 
-      Return the briefing as a JSON object with a "guests" array containing structured information for each guest."
+      Available search tools: perplexitySearch, webSearch
+
+      For each guest listed above:
+      1. Review their email and meeting history provided
+      2. Use search tools to find their professional background
+      3. Once you have all information, call finalizeBriefing with the complete briefing"
     `);
   });
 
@@ -109,7 +124,7 @@ describe("buildPrompt timezone handling", () => {
     const prompt = buildPrompt(briefingData, "America/Sao_Paulo");
 
     expect(prompt).toMatchInlineSnapshot(`
-      "Please prepare a concise briefing for this meeting.
+      "Prepare a concise briefing for this upcoming meeting.
 
       <upcoming_meeting>
       Title: Intro Meeting
@@ -121,12 +136,17 @@ describe("buildPrompt timezone handling", () => {
       Name: New Person
       Email: newcontact@other.com
 
-      <no_prior_context>This appears to be a new contact with no prior email, meeting, or public profile history.</no_prior_context>
+      <no_prior_context>This appears to be a new contact with no prior email or meeting history. Use search tools to find information about them.</no_prior_context>
       </guest>
 
       </guest_context>
 
-      Return the briefing as a JSON object with a "guests" array containing structured information for each guest."
+      Available search tools: perplexitySearch, webSearch
+
+      For each guest listed above:
+      1. Review their email and meeting history provided
+      2. Use search tools to find their professional background
+      3. Once you have all information, call finalizeBriefing with the complete briefing"
     `);
   });
 });
