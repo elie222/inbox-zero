@@ -15,5 +15,6 @@
   "emmet.showExpandedAbbreviation": "never",
   "[prisma]": {
     "editor.defaultFormatter": "Prisma.prisma"
-  }
+  },
+  "prisma.pinToPrisma6": true
 }
