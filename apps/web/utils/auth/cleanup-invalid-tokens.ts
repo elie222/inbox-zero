@@ -102,6 +102,7 @@ export async function cleanupInvalidTokens({
       emailAccount.userId,
       ErrorType.ACCOUNT_DISCONNECTED,
       `The connection for ${emailAccount.email} was disconnected. Please reconnect your account to resume automation.`,
+      logger,
     );
   }
 

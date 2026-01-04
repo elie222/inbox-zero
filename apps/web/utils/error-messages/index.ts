@@ -1,11 +1,9 @@
 import prisma from "@/utils/prisma";
-import { createScopedLogger } from "@/utils/logger";
+import type { Logger } from "@/utils/logger";
 import { captureException } from "@/utils/error";
 import { sendActionRequiredEmail } from "@inboxzero/resend";
 import { env } from "@/env";
 import { createUnsubscribeToken } from "@/utils/unsubscribe";
-
-const logger = createScopedLogger("error-messages");
 
 // Used to store error messages for a user which we display in the UI
 
@@ -31,10 +29,11 @@ export async function addUserErrorMessage(
   userId: string,
   errorType: (typeof ErrorType)[keyof typeof ErrorType],
   errorMessage: string,
+  logger: Logger,
 ): Promise<void> {
   const user = await prisma.user.findUnique({ where: { id: userId } });
   if (!user) {
-    logger.warn("User not found", { userId });
+    logger.warn("User not found");
     return;
   }
 
@@ -56,8 +55,10 @@ export async function addUserErrorMessage(
 
 export async function clearUserErrorMessages({
   userId,
+  logger,
 }: {
   userId: string;
+  logger: Logger;
 }): Promise<void> {
   try {
     await prisma.user.update({
@@ -65,20 +66,19 @@ export async function clearUserErrorMessages({
       data: { errorMessages: {} },
     });
   } catch (error) {
-    logger.error("Error clearing user error messages:", {
-      userId,
-      error,
-    });
-    captureException(error, { extra: { userId } });
+    logger.error("Error clearing user error messages:", { error });
+    captureException(error);
   }
 }
 
 export async function clearSpecificErrorMessages({
   userId,
   errorTypes,
+  logger,
 }: {
   userId: string;
   errorTypes: (typeof ErrorType)[keyof typeof ErrorType][];
+  logger: Logger;
 }): Promise<void> {
   try {
     const user = await prisma.user.findUnique({
@@ -160,12 +160,14 @@ export async function addUserErrorMessageWithNotification({
   emailAccountId,
   errorType,
   errorMessage,
+  logger,
 }: {
   userId: string;
   userEmail: string;
   emailAccountId: string;
   errorType: (typeof ErrorType)[keyof typeof ErrorType];
   errorMessage: string;
+  logger: Logger;
 }): Promise<void> {
   try {
     const user = await prisma.user.findUnique({
@@ -174,7 +176,7 @@ export async function addUserErrorMessageWithNotification({
     });
 
     if (!user) {
-      logger.warn("User not found", { userId });
+      logger.warn("User not found");
       return;
     }
 
@@ -210,16 +212,9 @@ export async function addUserErrorMessageWithNotification({
         });
 
         newEntry.emailSentAt = new Date().toISOString();
-        logger.info("Sent action required email", {
-          userId,
-          userEmail,
-          errorType,
-        });
+        logger.info("Sent action required email", { errorType });
       } catch (emailError) {
         logger.error("Failed to send action required email", {
-          userId,
-          userEmail,
-          errorType,
           error: emailError,
         });
         // Continue to save the error message even if email fails
@@ -236,11 +231,7 @@ export async function addUserErrorMessageWithNotification({
       data: { errorMessages: newErrorMessages },
     });
   } catch (error) {
-    logger.error("Error in addUserErrorMessageWithNotification", {
-      userId,
-      errorType,
-      error,
-    });
+    logger.error("Error in addUserErrorMessageWithNotification", { error });
     captureException(error, { extra: { userId, errorType } });
   }
 }
