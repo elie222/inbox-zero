@@ -1,5 +1,5 @@
 -- CreateEnum
-CREATE TYPE "GroupItemSource" AS ENUM ('AI', 'USER', 'LABEL_REMOVED');
+CREATE TYPE "GroupItemSource" AS ENUM ('AI', 'USER');
 
 -- AlterTable
 ALTER TABLE "GroupItem" ADD COLUMN     "messageId" TEXT,
