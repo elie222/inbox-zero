@@ -88,13 +88,13 @@ export function MultiAccountSection() {
                   <ExtraSeatsAlert
                     premiumTier={premiumTier}
                     emailAccountsAccess={premium?.emailAccountsAccess || 0}
-                    seatsUsed={data.users.length}
+                    seatsUsed={data.emailAccounts.length}
                   />
                 )}
 
                 <div className="mt-4">
                   <MultiAccountForm
-                    emailAddresses={data.users as { email: string }[]}
+                    emailAddresses={data.emailAccounts}
                     isLifetime={premium?.tier === "LIFETIME"}
                     emailAccountsAccess={premium?.emailAccountsAccess || 0}
                     pendingInvites={premium?.pendingInvites || []}
