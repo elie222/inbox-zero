@@ -1,20 +1,27 @@
 import { vi, describe, it, expect, beforeEach } from "vitest";
-import { ColdEmailStatus } from "@/generated/prisma/enums";
 import { HistoryEventType } from "./types";
 import { handleLabelRemovedEvent } from "./process-label-removed-event";
 import type { gmail_v1 } from "@googleapis/gmail";
-import { saveLearnedPatterns } from "@/utils/rule/learned-patterns";
-import prisma from "@/utils/__mocks__/prisma";
+import { saveLearnedPattern } from "@/utils/rule/learned-patterns";
 import { createScopedLogger } from "@/utils/logger";
+import { GroupItemSource, SystemType } from "@/generated/prisma/enums";
+import prisma from "@/utils/prisma";
 
 const logger = createScopedLogger("test");
 
 vi.mock("server-only", () => ({}));
 
 // Mock dependencies
-vi.mock("@/utils/prisma");
+vi.mock("@/utils/prisma", () => ({
+  default: {
+    rule: {
+      findFirst: vi.fn(),
+    },
+  },
+}));
+
 vi.mock("@/utils/rule/learned-patterns", () => ({
-  saveLearnedPatterns: vi.fn().mockResolvedValue(undefined),
+  saveLearnedPattern: vi.fn().mockResolvedValue(undefined),
 }));
 
 vi.mock("@/utils/gmail/label", () => ({
@@ -89,88 +96,42 @@ describe("process-label-removed-event", () => {
   };
 
   describe("handleLabelRemovedEvent", () => {
-    it("should process Cold Email label removal and update ColdEmail status", async () => {
-      prisma.coldEmail.upsert.mockResolvedValue({} as any);
+    it("should process Cold Email label removal and call saveLearnedPattern with exclude: true", async () => {
+      vi.mocked(prisma.rule.findFirst).mockResolvedValue({
+        id: "rule-123",
+        systemType: SystemType.COLD_EMAIL,
+      } as any);
 
       const historyItem = createLabelRemovedHistoryItem();
 
-      console.log("Test data:", JSON.stringify(historyItem.item, null, 2));
+      await handleLabelRemovedEvent(historyItem.item, defaultOptions, logger);
 
-      try {
-        await handleLabelRemovedEvent(historyItem.item, defaultOptions, logger);
-      } catch (error) {
-        console.error("Function error:", error);
-        throw error;
-      }
-
-      expect(prisma.coldEmail.upsert).toHaveBeenCalledWith({
-        where: {
-          emailAccountId_fromEmail: {
-            emailAccountId: "email-account-id",
-            fromEmail: "sender@example.com",
-          },
-        },
-        update: {
-          status: ColdEmailStatus.USER_REJECTED_COLD,
-        },
-        create: {
-          status: ColdEmailStatus.USER_REJECTED_COLD,
-          fromEmail: "sender@example.com",
-          emailAccountId: "email-account-id",
-          messageId: "123",
-          threadId: "thread-123",
-        },
+      expect(saveLearnedPattern).toHaveBeenCalledWith({
+        emailAccountId: "email-account-id",
+        from: "sender@example.com",
+        ruleId: "rule-123",
+        exclude: true,
+        logger: expect.anything(),
+        messageId: "123",
+        threadId: "thread-123",
+        reason: "Label removed",
+        source: GroupItemSource.LABEL_REMOVED,
       });
     });
 
-    it("should skip learning when Newsletter label is removed (only Cold Email is supported)", async () => {
-      const historyItem = createLabelRemovedHistoryItem("123", "thread-123", [
-        "label-2",
-      ]);
+    it("should skip learning when To Reply label is removed (not a learnable rule)", async () => {
+      vi.mocked(prisma.rule.findFirst).mockResolvedValue({
+        id: "rule-456",
+        systemType: SystemType.TO_REPLY,
+      } as any);
 
-      await handleLabelRemovedEvent(historyItem.item, defaultOptions, logger);
-
-      expect(saveLearnedPatterns).not.toHaveBeenCalled();
-    });
-
-    it("should skip learning when To Reply label is removed (only Cold Email is supported)", async () => {
       const historyItem = createLabelRemovedHistoryItem("123", "thread-123", [
         "label-4",
       ]);
 
       await handleLabelRemovedEvent(historyItem.item, defaultOptions, logger);
 
-      expect(saveLearnedPatterns).not.toHaveBeenCalled();
-    });
-
-    it("should skip learning when no executed rule exists (only Cold Email is supported)", async () => {
-      const historyItem = createLabelRemovedHistoryItem("123", "thread-123", [
-        "label-2",
-      ]);
-
-      await handleLabelRemovedEvent(historyItem.item, defaultOptions, logger);
-
-      expect(saveLearnedPatterns).not.toHaveBeenCalled();
-    });
-
-    it("should skip learning when no matching LABEL action is found (only Cold Email is supported)", async () => {
-      const historyItem = createLabelRemovedHistoryItem("123", "thread-123", [
-        "label-2",
-      ]);
-
-      await handleLabelRemovedEvent(historyItem.item, defaultOptions, logger);
-
-      expect(saveLearnedPatterns).not.toHaveBeenCalled();
-    });
-
-    it("should handle multiple label removals in a single event (only Cold Email is supported)", async () => {
-      const historyItem = createLabelRemovedHistoryItem("123", "thread-123", [
-        "label-3",
-      ]);
-
-      await handleLabelRemovedEvent(historyItem.item, defaultOptions, logger);
-
-      expect(saveLearnedPatterns).not.toHaveBeenCalled();
+      expect(saveLearnedPattern).not.toHaveBeenCalled();
     });
 
     it("should skip processing when only system labels are removed", async () => {
@@ -183,7 +144,7 @@ describe("process-label-removed-event", () => {
 
       // Should not try to fetch the message when only system labels removed
       expect(mockProvider.getMessage).not.toHaveBeenCalled();
-      expect(prisma.coldEmail.upsert).not.toHaveBeenCalled();
+      expect(saveLearnedPattern).not.toHaveBeenCalled();
     });
 
     it("should skip processing when DRAFT label is removed (prevents 404 errors)", async () => {
@@ -194,9 +155,8 @@ describe("process-label-removed-event", () => {
 
       await handleLabelRemovedEvent(historyItem, defaultOptions, logger);
 
-      // Should not try to fetch the message (which would fail with 404)
       expect(mockProvider.getMessage).not.toHaveBeenCalled();
-      expect(prisma.coldEmail.upsert).not.toHaveBeenCalled();
+      expect(saveLearnedPattern).not.toHaveBeenCalled();
     });
 
     it("should skip processing when messageId is missing", async () => {
@@ -207,7 +167,7 @@ describe("process-label-removed-event", () => {
 
       await handleLabelRemovedEvent(historyItem, defaultOptions, logger);
 
-      expect(prisma.coldEmail.upsert).not.toHaveBeenCalled();
+      expect(saveLearnedPattern).not.toHaveBeenCalled();
     });
 
     it("should skip processing when threadId is missing", async () => {
@@ -218,7 +178,46 @@ describe("process-label-removed-event", () => {
 
       await handleLabelRemovedEvent(historyItem, defaultOptions, logger);
 
-      expect(prisma.coldEmail.upsert).not.toHaveBeenCalled();
+      expect(saveLearnedPattern).not.toHaveBeenCalled();
+    });
+
+    it("should handle multiple label removals in a single event", async () => {
+      vi.mocked(prisma.rule.findFirst)
+        .mockResolvedValueOnce({
+          id: "rule-1",
+          systemType: SystemType.COLD_EMAIL,
+        } as any)
+        .mockResolvedValueOnce({
+          id: "rule-2",
+          systemType: SystemType.NEWSLETTER,
+        } as any);
+
+      const historyItem = createLabelRemovedHistoryItem("123", "thread-123", [
+        "label-1",
+        "label-2",
+      ]);
+
+      await handleLabelRemovedEvent(historyItem.item, defaultOptions, logger);
+
+      expect(saveLearnedPattern).toHaveBeenCalledTimes(2);
+      expect(saveLearnedPattern).toHaveBeenCalledWith(
+        expect.objectContaining({ ruleId: "rule-1" }),
+      );
+      expect(saveLearnedPattern).toHaveBeenCalledWith(
+        expect.objectContaining({ ruleId: "rule-2" }),
+      );
+    });
+
+    it("should skip learning when no rule is found for the removed label", async () => {
+      vi.mocked(prisma.rule.findFirst).mockResolvedValue(null);
+
+      const historyItem = createLabelRemovedHistoryItem("123", "thread-123", [
+        "unknown-label",
+      ]);
+
+      await handleLabelRemovedEvent(historyItem.item, defaultOptions, logger);
+
+      expect(saveLearnedPattern).not.toHaveBeenCalled();
     });
   });
 });

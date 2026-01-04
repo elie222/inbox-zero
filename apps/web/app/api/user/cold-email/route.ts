@@ -1,7 +1,11 @@
 import { NextResponse } from "next/server";
 import prisma from "@/utils/prisma";
 import { withEmailAccount } from "@/utils/middleware";
-import { ColdEmailStatus } from "@/generated/prisma/enums";
+import {
+  ColdEmailStatus,
+  GroupItemType,
+  SystemType,
+} from "@/generated/prisma/enums";
 
 const LIMIT = 50;
 
@@ -14,29 +18,53 @@ async function getColdEmails(
   }: { emailAccountId: string; status: ColdEmailStatus },
   page: number,
 ) {
+  const coldEmailRule = await prisma.rule.findUnique({
+    where: {
+      emailAccountId_systemType: {
+        emailAccountId,
+        systemType: SystemType.COLD_EMAIL,
+      },
+    },
+    select: { id: true, groupId: true },
+  });
+
+  if (!coldEmailRule?.groupId) {
+    return { coldEmails: [], totalPages: 0 };
+  }
+
   const where = {
-    emailAccountId,
-    status,
+    groupId: coldEmailRule.groupId,
+    type: GroupItemType.FROM,
+    exclude: status === ColdEmailStatus.USER_REJECTED_COLD,
   };
 
-  const [coldEmails, count] = await Promise.all([
-    prisma.coldEmail.findMany({
+  const [groupItems, count] = await Promise.all([
+    prisma.groupItem.findMany({
       where,
       take: LIMIT,
       skip: (page - 1) * LIMIT,
       orderBy: { createdAt: "desc" },
       select: {
         id: true,
-        fromEmail: true,
-        status: true,
+        value: true,
         createdAt: true,
         reason: true,
         threadId: true,
         messageId: true,
       },
     }),
-    prisma.coldEmail.count({ where }),
+    prisma.groupItem.count({ where }),
   ]);
+
+  const coldEmails = groupItems.map((item) => ({
+    id: item.id,
+    fromEmail: item.value,
+    status: status,
+    createdAt: item.createdAt,
+    reason: item.reason,
+    threadId: item.threadId,
+    messageId: item.messageId,
+  }));
 
   return { coldEmails, totalPages: Math.ceil(count / LIMIT) };
 }

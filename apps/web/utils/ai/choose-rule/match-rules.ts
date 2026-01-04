@@ -84,7 +84,7 @@ export async function findMatchingRules({
             matchReasons: [{ type: ConditionType.AI }],
           },
         ],
-        reasoning: coldEmailResult.reason,
+        reasoning: coldEmailResult.aiReason || coldEmailResult.reason,
       };
     }
   }

@@ -29,6 +29,14 @@ export async function syncStripeDataToDb({
       },
     });
 
+    if (!currentPremium) {
+      // This should theoretically never happen as we always create customer IDs for users before Stripe.
+      // We log an error and upsert to catch and self-heal from any such issues.
+      logger.error("No Premium record found for Stripe customer during sync", {
+        customerId,
+      });
+    }
+
     // Fetch latest subscription data from Stripe, expanding necessary fields
     const subscriptions = await stripe.subscriptions.list({
       customer: customerId,
@@ -43,21 +51,27 @@ export async function syncStripeDataToDb({
     // Case: No active or past subscription found for the customer
     if (subscriptions.data.length === 0) {
       logger.info("No Stripe subscription found for customer", { customerId });
-      // Update the corresponding Premium record to reflect no active subscription
-      await prisma.premium.update({
+
+      const subscriptionData = {
+        stripeSubscriptionId: null,
+        stripeSubscriptionItemId: null,
+        stripePriceId: null,
+        stripeProductId: null,
+        stripeSubscriptionStatus: null,
+        stripeCancelAtPeriodEnd: null,
+        stripeRenewsAt: null,
+        stripeTrialEnd: null,
+      };
+
+      await prisma.premium.upsert({
         where: { stripeCustomerId: customerId },
-        data: {
-          stripeSubscriptionId: null,
-          stripeSubscriptionItemId: null,
-          stripePriceId: null,
-          stripeProductId: null,
-          stripeSubscriptionStatus: null, // Or 'none', 'canceled' depending on desired state
-          stripeCancelAtPeriodEnd: null,
-          stripeRenewsAt: null,
-          stripeTrialEnd: null,
-          // Keep stripeCanceledAt and stripeEndedAt as they might be relevant if it *was* canceled/ended previously
+        update: subscriptionData,
+        create: {
+          ...subscriptionData,
+          stripeCustomerId: customerId,
         },
       });
+
       logger.info("Updated Premium record for customer with no subscription", {
         customerId,
       });
@@ -96,26 +110,32 @@ export async function syncStripeDataToDb({
       ? new Date(subscription.trial_end * 1000)
       : null;
 
-    const updatedPremium = await prisma.premium.update({
+    const subscriptionData = {
+      tier,
+      stripeSubscriptionId: subscription.id,
+      stripeSubscriptionItemId: subscriptionItem.id,
+      stripePriceId: price.id,
+      stripeProductId: typeof product === "string" ? product : product.id,
+      stripeSubscriptionStatus: subscription.status,
+      stripeRenewsAt: subscriptionItem.current_period_end
+        ? new Date(subscriptionItem.current_period_end * 1000)
+        : null,
+      stripeCancelAtPeriodEnd: subscription.cancel_at_period_end,
+      stripeTrialEnd: newTrialEnd,
+      stripeCanceledAt: subscription.canceled_at
+        ? new Date(subscription.canceled_at * 1000)
+        : null,
+      stripeEndedAt: subscription.ended_at
+        ? new Date(subscription.ended_at * 1000)
+        : null,
+    };
+
+    const updatedPremium = await prisma.premium.upsert({
       where: { stripeCustomerId: customerId },
-      data: {
-        tier,
-        stripeSubscriptionId: subscription.id,
-        stripeSubscriptionItemId: subscriptionItem.id,
-        stripePriceId: price.id,
-        stripeProductId: typeof product === "string" ? product : product.id, // Handle expanded product object
-        stripeSubscriptionStatus: subscription.status,
-        stripeRenewsAt: subscriptionItem.current_period_end // RenewsAt uses the item's period end
-          ? new Date(subscriptionItem.current_period_end * 1000)
-          : null,
-        stripeCancelAtPeriodEnd: subscription.cancel_at_period_end,
-        stripeTrialEnd: newTrialEnd,
-        stripeCanceledAt: subscription.canceled_at
-          ? new Date(subscription.canceled_at * 1000)
-          : null,
-        stripeEndedAt: subscription.ended_at
-          ? new Date(subscription.ended_at * 1000)
-          : null,
+      update: subscriptionData,
+      create: {
+        ...subscriptionData,
+        stripeCustomerId: customerId,
       },
       select: {
         id: true,

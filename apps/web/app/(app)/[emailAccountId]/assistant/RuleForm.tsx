@@ -518,7 +518,7 @@ export function RuleForm({
                     <LearnedPatternsDialog
                       ruleId={rule.id}
                       groupId={rule.groupId || null}
-                      disabled={!allowMultipleConditions(rule.systemType)}
+                      disabled={isConversationStatusType(rule.systemType)}
                     />
                   </div>
                 )}

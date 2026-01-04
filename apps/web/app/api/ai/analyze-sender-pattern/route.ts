@@ -10,6 +10,7 @@ import { isValidInternalApiKey } from "@/utils/internal-api";
 import { extractEmailAddress } from "@/utils/email";
 import { getEmailForLLM } from "@/utils/get-email-from-message";
 import { saveLearnedPattern } from "@/utils/rule/learned-patterns";
+import { GroupItemSource } from "@/generated/prisma/enums";
 import { checkSenderRuleHistory } from "@/utils/rule/check-sender-rule-history";
 import { createEmailProvider } from "@/utils/email/provider";
 import type { EmailProvider } from "@/utils/email/types";
@@ -177,12 +178,24 @@ async function process({
     if (patternResult?.matchedRule) {
       // Verify the AI matched the same rule as the historical data
       if (patternResult.matchedRule === senderHistory.consistentRuleName) {
-        await saveLearnedPattern({
-          emailAccountId,
-          from,
-          ruleName: patternResult.matchedRule,
-          logger,
-        });
+        const matchedRule = emailAccount.rules.find(
+          (rule) => rule.name === patternResult.matchedRule,
+        );
+
+        if (matchedRule) {
+          await saveLearnedPattern({
+            emailAccountId,
+            from,
+            ruleId: matchedRule.id,
+            logger,
+            source: GroupItemSource.AI,
+          });
+        } else {
+          logger.error("Matched rule not found in email account rules", {
+            ruleName: patternResult.matchedRule,
+            availableRules: emailAccount.rules.map((r) => r.name),
+          });
+        }
       } else {
         logger.warn("AI suggested different rule than historical data", {
           aiRule: patternResult.matchedRule,

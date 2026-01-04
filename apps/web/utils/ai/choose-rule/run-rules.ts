@@ -4,6 +4,7 @@ import type { EmailAccountWithAI } from "@/utils/llms/types";
 import {
   ActionType,
   ExecutedRuleStatus,
+  GroupItemSource,
   SystemType,
 } from "@/generated/prisma/enums";
 import type { Rule } from "@/generated/prisma/client";
@@ -34,7 +35,7 @@ import {
   updateThreadTrackers,
 } from "@/utils/reply-tracker/handle-conversation-status";
 import { removeConflictingThreadStatusLabels } from "@/utils/reply-tracker/label-helpers";
-import { saveColdEmail } from "@/utils/cold-email/is-cold-email";
+import { saveLearnedPattern } from "@/utils/rule/learned-patterns";
 import { internalDateToDate } from "@/utils/date";
 import { ConditionType } from "@/utils/config";
 import type { Logger } from "@/utils/logger";
@@ -340,14 +341,17 @@ async function executeMatchedRule(
   });
 
   if (rule.systemType === SystemType.COLD_EMAIL) {
-    await saveColdEmail({
-      email: {
-        id: message.id,
-        threadId: message.threadId,
-        from: message.headers.from,
-      },
-      emailAccount,
-      aiReason: reason ?? null,
+    const from =
+      extractEmailAddress(message.headers.from) || message.headers.from;
+    await saveLearnedPattern({
+      emailAccountId: emailAccount.id,
+      from,
+      ruleId: rule.id,
+      logger,
+      reason,
+      messageId: message.id,
+      threadId: message.threadId,
+      source: GroupItemSource.AI,
     });
   }
 

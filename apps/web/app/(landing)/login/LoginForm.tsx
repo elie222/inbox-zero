@@ -17,6 +17,7 @@ import {
 import { signIn } from "@/utils/auth-client";
 import { WELCOME_PATH } from "@/utils/config";
 import { toastError } from "@/components/Toast";
+import { isInternalPath } from "@/utils/path";
 
 export function LoginForm() {
   const searchParams = useSearchParams();
@@ -27,11 +28,12 @@ export function LoginForm() {
 
   const handleGoogleSignIn = async () => {
     setLoadingGoogle(true);
+    const callbackURL = next && isInternalPath(next) ? next : WELCOME_PATH;
     try {
       await signIn.social({
         provider: "google",
         errorCallbackURL: "/login/error",
-        callbackURL: next && next.length > 0 ? next : WELCOME_PATH,
+        callbackURL,
       });
     } catch (error) {
       console.error("Error signing in with Google:", error);
@@ -46,11 +48,12 @@ export function LoginForm() {
 
   const handleMicrosoftSignIn = async () => {
     setLoadingMicrosoft(true);
+    const callbackURL = next && isInternalPath(next) ? next : WELCOME_PATH;
     try {
       await signIn.social({
         provider: "microsoft",
         errorCallbackURL: "/login/error",
-        callbackURL: next && next.length > 0 ? next : WELCOME_PATH,
+        callbackURL,
       });
     } catch (error) {
       console.error("Error signing in with Microsoft:", error);

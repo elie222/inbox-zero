@@ -144,7 +144,8 @@ export function EmailMessageCellWithData({
 }) {
   const { data, isLoading, error } = useThread({ id: threadId });
 
-  const firstMessage = data?.thread.messages?.[0];
+  const firstMessage = data?.thread?.messages?.[0];
+  const emailNotFound = !isLoading && !error && !firstMessage;
 
   return (
     <EmailMessageCell
@@ -155,12 +156,21 @@ export function EmailMessageCellWithData({
           ? "Error loading email"
           : isLoading
             ? "Loading email..."
-            : firstMessage?.headers.subject || ""
+            : emailNotFound
+              ? "Email not found"
+              : firstMessage?.headers.subject || ""
       }
-      snippet={error ? "" : isLoading ? "" : firstMessage?.snippet || ""}
+      snippet={
+        error || emailNotFound
+          ? ""
+          : isLoading
+            ? ""
+            : firstMessage?.snippet || ""
+      }
       threadId={threadId}
       messageId={messageId}
       labelIds={firstMessage?.labelIds}
+      hideViewEmailButton={emailNotFound || !!error}
     />
   );
 }
