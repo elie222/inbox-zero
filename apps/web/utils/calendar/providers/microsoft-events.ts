@@ -13,6 +13,21 @@ export interface MicrosoftCalendarConnectionParams {
   emailAccountId: string;
 }
 
+type MicrosoftEvent = {
+  id?: string;
+  subject?: string;
+  bodyPreview?: string;
+  start?: { dateTime?: string };
+  end?: { dateTime?: string };
+  attendees?: Array<{
+    emailAddress?: { address?: string; name?: string };
+  }>;
+  location?: { displayName?: string };
+  webLink?: string;
+  onlineMeeting?: { joinUrl?: string };
+  onlineMeetingUrl?: string;
+};
+
 export class MicrosoftCalendarEventProvider implements CalendarEventProvider {
   private readonly connection: MicrosoftCalendarConnectionParams;
   private readonly logger: Logger;
@@ -45,30 +60,22 @@ export class MicrosoftCalendarEventProvider implements CalendarEventProvider {
   }): Promise<CalendarEvent[]> {
     const client = await this.getClient();
 
+    // Use calendarView endpoint which correctly returns events overlapping the time range
     const response = await client
-      .api("/me/calendar/events")
-      .filter(
-        `start/dateTime ge '${timeMin.toISOString()}' and end/dateTime le '${timeMax.toISOString()}'`,
-      )
+      .api("/me/calendar/calendarView")
+      .query({
+        startDateTime: timeMin.toISOString(),
+        endDateTime: timeMax.toISOString(),
+      })
       .top(maxResults * 3) // Fetch more to filter by attendee
       .orderby("start/dateTime")
       .get();
 
-    const events = response.value || [];
-
-    type MicrosoftEvent = {
-      id?: string;
-      subject?: string;
-      start?: { dateTime?: string };
-      end?: { dateTime?: string };
-      attendees?: Array<{
-        emailAddress?: { address?: string; name?: string };
-      }>;
-    };
+    const events: MicrosoftEvent[] = response.value || [];
 
     // Filter to events that have this attendee
     return events
-      .filter((event: MicrosoftEvent) =>
+      .filter((event) =>
         event.attendees?.some(
           (a) =>
             a.emailAddress?.address?.toLowerCase() ===
@@ -76,7 +83,7 @@ export class MicrosoftCalendarEventProvider implements CalendarEventProvider {
         ),
       )
       .slice(0, maxResults)
-      .map((event: MicrosoftEvent) => this.parseEvent(event));
+      .map((event) => this.parseEvent(event));
   }
 
   async fetchEvents({
@@ -90,52 +97,27 @@ export class MicrosoftCalendarEventProvider implements CalendarEventProvider {
   }): Promise<CalendarEvent[]> {
     const client = await this.getClient();
 
-    const filterParts = [
-      timeMin ? `start/dateTime ge '${timeMin.toISOString()}'` : "",
-      timeMax ? `end/dateTime le '${timeMax.toISOString()}'` : "",
-    ].filter(Boolean);
+    // calendarView requires both start and end times, default to 30 days from timeMin
+    const effectiveTimeMax =
+      timeMax ?? new Date(timeMin.getTime() + 30 * 24 * 60 * 60 * 1000);
 
+    // Use calendarView endpoint which correctly returns events overlapping the time range
     const response = await client
-      .api("/me/calendar/events")
-      .filter(filterParts.join(" and "))
+      .api("/me/calendar/calendarView")
+      .query({
+        startDateTime: timeMin.toISOString(),
+        endDateTime: effectiveTimeMax.toISOString(),
+      })
       .top(maxResults || 100)
       .orderby("start/dateTime")
       .get();
 
-    const events = response.value || [];
+    const events: MicrosoftEvent[] = response.value || [];
 
-    type MicrosoftEvent = {
-      id?: string;
-      subject?: string;
-      bodyPreview?: string;
-      start?: { dateTime?: string };
-      end?: { dateTime?: string };
-      attendees?: Array<{
-        emailAddress?: { address?: string; name?: string };
-      }>;
-      location?: { displayName?: string };
-      webLink?: string;
-      onlineMeeting?: { joinUrl?: string };
-      onlineMeetingUrl?: string;
-    };
-
-    return events.map((event: MicrosoftEvent) => this.parseEvent(event));
+    return events.map((event) => this.parseEvent(event));
   }
 
-  private parseEvent(event: {
-    id?: string;
-    subject?: string;
-    bodyPreview?: string;
-    start?: { dateTime?: string };
-    end?: { dateTime?: string };
-    attendees?: Array<{
-      emailAddress?: { address?: string; name?: string };
-    }>;
-    location?: { displayName?: string };
-    webLink?: string;
-    onlineMeeting?: { joinUrl?: string };
-    onlineMeetingUrl?: string;
-  }) {
+  private parseEvent(event: MicrosoftEvent) {
     return {
       id: event.id || "",
       title: event.subject || "Untitled",

@@ -73,7 +73,7 @@ export function LearnedPatternsDialog({
         </Button>
       </DialogTrigger>
 
-      <DialogContent>
+      <DialogContent className="max-w-2xl">
         <DialogHeader>
           <DialogTitle>Learned Patterns</DialogTitle>
           <DialogDescription>

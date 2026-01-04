@@ -25,6 +25,7 @@ import {
   claimPendingPremiumInvite,
   updateAccountSeats,
 } from "@/utils/premium/server";
+import { clearUserErrorMessages } from "@/utils/error-messages";
 import prisma from "@/utils/prisma";
 
 const logger = createScopedLogger("auth");
@@ -402,14 +403,22 @@ async function handleLinkAccount(account: Account) {
       image: primaryPhotoUrl,
     };
 
-    await prisma.emailAccount.upsert({
-      where: { email: profileData?.email },
-      update: data,
-      create: {
-        ...data,
-        email: primaryEmail,
-      },
-    });
+    await prisma.$transaction([
+      prisma.emailAccount.upsert({
+        where: { email: profileData?.email },
+        update: data,
+        create: {
+          ...data,
+          email: primaryEmail,
+        },
+      }),
+      prisma.account.update({
+        where: { id: account.id },
+        data: { disconnectedAt: null },
+      }),
+    ]);
+
+    await clearUserErrorMessages({ userId: account.userId, logger });
 
     // Handle premium account seats
     await updateAccountSeats({ userId: account.userId }).catch((error) => {
@@ -475,6 +484,7 @@ export async function saveTokens({
     access_token: tokens.access_token,
     expires_at: tokens.expires_at ? new Date(tokens.expires_at * 1000) : null,
     refresh_token: refreshToken,
+    disconnectedAt: null,
   };
 
   if (emailAccountId) {
@@ -486,10 +496,13 @@ export async function saveTokens({
     if (data.refresh_token)
       data.refresh_token = encryptToken(data.refresh_token) || "";
 
-    await prisma.emailAccount.update({
+    const emailAccount = await prisma.emailAccount.update({
       where: { id: emailAccountId },
       data: { account: { update: data } },
+      select: { userId: true },
     });
+
+    await clearUserErrorMessages({ userId: emailAccount.userId, logger });
   } else {
     if (!providerAccountId) {
       logger.error("No providerAccountId found in database", {
@@ -501,7 +514,7 @@ export async function saveTokens({
       return;
     }
 
-    return await prisma.account.update({
+    const account = await prisma.account.update({
       where: {
         provider_providerAccountId: {
           provider,
@@ -510,6 +523,10 @@ export async function saveTokens({
       },
       data,
     });
+
+    await clearUserErrorMessages({ userId: account.userId, logger });
+
+    return account;
   }
 }
 

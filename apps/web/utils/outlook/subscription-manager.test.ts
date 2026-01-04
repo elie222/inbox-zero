@@ -15,6 +15,7 @@ vi.mock("@/utils/prisma", () => ({
       findUnique: vi.fn(),
       update: vi.fn(),
     },
+    $executeRaw: vi.fn(),
   },
 }));
 

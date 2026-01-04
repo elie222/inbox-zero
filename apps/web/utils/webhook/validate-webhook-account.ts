@@ -31,6 +31,7 @@ export async function getWebhookEmailAccount(
           access_token: true,
           refresh_token: true,
           expires_at: true,
+          disconnectedAt: true,
         },
       },
       rules: {
@@ -122,6 +123,11 @@ export async function validateWebhookAccount(
 ): Promise<ValidationResult> {
   if (!emailAccount) {
     logger.error("Account not found");
+    return { success: false, response: NextResponse.json({ ok: true }) };
+  }
+
+  if (emailAccount.account?.disconnectedAt) {
+    logger.info("Skipping disconnected account");
     return { success: false, response: NextResponse.json({ ok: true }) };
   }
 

@@ -49,16 +49,21 @@ function matchesPattern<T extends Pick<GroupItem, "type" | "value">>(
 
   // from check
   if (item.type === GroupItemType.FROM && from) {
-    return item.value.includes(from) || from.includes(item.value);
+    const lowerValue = item.value.toLowerCase();
+    const lowerFrom = from.toLowerCase();
+    return lowerValue.includes(lowerFrom) || lowerFrom.includes(lowerValue);
   }
 
   // subject check
   if (item.type === GroupItemType.SUBJECT && subject) {
-    const subjectWithoutNumbers = generalizeSubject(subject);
-    const valueWithoutNumbers = generalizeSubject(item.value);
+    const lowerSubject = subject.toLowerCase();
+    const lowerItemValue = item.value.toLowerCase();
+
+    const subjectWithoutNumbers = generalizeSubject(lowerSubject);
+    const valueWithoutNumbers = generalizeSubject(lowerItemValue);
 
     return (
-      subject.includes(item.value) ||
+      lowerSubject.includes(lowerItemValue) ||
       subjectWithoutNumbers.includes(valueWithoutNumbers)
     );
   }

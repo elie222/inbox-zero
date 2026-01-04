@@ -2,10 +2,30 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { cookies } from "next/headers";
 import { createReferral } from "@/utils/referral/referral-code";
 import { captureException } from "@/utils/error";
-import { handleReferralOnSignUp } from "@/utils/auth";
+import { handleReferralOnSignUp, saveTokens } from "@/utils/auth";
+import prisma from "@/utils/__mocks__/prisma";
+import { clearUserErrorMessages } from "@/utils/error-messages";
 
-// Mock the dependencies
 vi.mock("server-only", () => ({}));
+vi.mock("@/utils/prisma");
+vi.mock("@/utils/error-messages", () => ({
+  addUserErrorMessage: vi.fn().mockResolvedValue(undefined),
+  clearUserErrorMessages: vi.fn().mockResolvedValue(undefined),
+  ErrorType: {
+    ACCOUNT_DISCONNECTED: "Account disconnected",
+  },
+}));
+vi.mock("@googleapis/people", () => ({
+  people: vi.fn(),
+}));
+vi.mock("@googleapis/gmail", () => ({
+  auth: {
+    OAuth2: vi.fn(),
+  },
+}));
+vi.mock("@/utils/encryption", () => ({
+  encryptToken: vi.fn((t) => t),
+}));
 
 vi.mock("next/headers", () => ({
   cookies: vi.fn(),
@@ -18,8 +38,6 @@ vi.mock("@/utils/referral/referral-code", () => ({
 vi.mock("@/utils/error", () => ({
   captureException: vi.fn(),
 }));
-
-// Import the real function from auth.ts for testing
 
 describe("handleReferralOnSignUp", () => {
   const mockCookies = vi.mocked(cookies);
@@ -92,5 +110,74 @@ describe("handleReferralOnSignUp", () => {
     await handleReferralOnSignUp({ userId, email });
 
     expect(mockCreateReferral).not.toHaveBeenCalled();
+  });
+});
+
+describe("saveTokens", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("clears disconnectedAt and error messages when saving tokens via emailAccountId", async () => {
+    prisma.emailAccount.update.mockResolvedValue({ userId: "user_1" } as any);
+
+    await saveTokens({
+      emailAccountId: "ea_1",
+      tokens: {
+        access_token: "new-access",
+        refresh_token: "new-refresh",
+        expires_at: 123_456_789,
+      },
+      accountRefreshToken: null,
+      provider: "google",
+    });
+
+    expect(prisma.emailAccount.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: "ea_1" },
+        data: expect.objectContaining({
+          account: {
+            update: expect.objectContaining({
+              disconnectedAt: null,
+            }),
+          },
+        }),
+      }),
+    );
+    expect(clearUserErrorMessages).toHaveBeenCalledWith(
+      expect.objectContaining({ userId: "user_1" }),
+    );
+  });
+
+  it("clears disconnectedAt and error messages when saving tokens via providerAccountId", async () => {
+    prisma.account.update.mockResolvedValue({ userId: "user_1" } as any);
+
+    await saveTokens({
+      providerAccountId: "pa_1",
+      tokens: {
+        access_token: "new-access",
+        refresh_token: "new-refresh",
+        expires_at: 123_456_789,
+      },
+      accountRefreshToken: null,
+      provider: "google",
+    });
+
+    expect(prisma.account.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          provider_providerAccountId: {
+            provider: "google",
+            providerAccountId: "pa_1",
+          },
+        }),
+        data: expect.objectContaining({
+          disconnectedAt: null,
+        }),
+      }),
+    );
+    expect(clearUserErrorMessages).toHaveBeenCalledWith(
+      expect.objectContaining({ userId: "user_1" }),
+    );
   });
 });
