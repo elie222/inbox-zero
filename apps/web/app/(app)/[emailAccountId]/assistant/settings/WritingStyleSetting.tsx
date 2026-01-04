@@ -115,8 +115,11 @@ function WritingStyleDialog({
             registerProps={register("writingStyle")}
             error={errors.writingStyle}
             placeholder="Typical Length: 2-3 sentences
+
 Formality: Informal but professional
+
 Common Greeting: Hey,
+
 Notable Traits:
 - Uses contractions frequently
 - Concise and direct responses

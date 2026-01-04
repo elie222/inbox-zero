@@ -96,21 +96,6 @@ function ViewGroupInner({ groupId }: { groupId: string }) {
                 <PlusIcon className="mr-2 h-4 w-4" />
                 Add pattern
               </Button>
-
-              {!!group?.items?.length && (
-                <Button variant="outline" size="sm" asChild>
-                  <Link
-                    href={prefixPath(
-                      emailAccountId,
-                      `/assistant/group/${groupId}/examples`,
-                    )}
-                    target="_blank"
-                  >
-                    <ExternalLinkIcon className="mr-2 size-4" />
-                    Matches
-                  </Link>
-                </Button>
-              )}
             </div>
           </div>
         )}

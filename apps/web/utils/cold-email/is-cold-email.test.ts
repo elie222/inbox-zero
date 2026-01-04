@@ -1,20 +1,16 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { isColdEmail, saveColdEmail } from "./is-cold-email";
+import { isColdEmail } from "./is-cold-email";
 import { getEmailAccount } from "@/__tests__/helpers";
 import type { EmailForLLM } from "@/utils/types";
-import { ColdEmailStatus } from "@/generated/prisma/enums";
-import prisma from "@/utils/prisma";
+import { GroupItemType } from "@/generated/prisma/enums";
+import prisma from "@/utils/__mocks__/prisma";
 import { extractEmailAddress } from "@/utils/email";
 
 vi.mock("server-only", () => ({}));
+vi.mock("@/utils/prisma");
 
-vi.mock("@/utils/prisma", () => ({
-  default: {
-    coldEmail: {
-      findUnique: vi.fn(),
-      upsert: vi.fn(),
-    },
-  },
+vi.mock("./cold-email-rule", () => ({
+  getColdEmailRule: vi.fn(),
 }));
 
 vi.mock("@/utils/email", async () => {
@@ -41,34 +37,15 @@ describe("isColdEmail", () => {
   it("should recognize a known cold email sender even when from field format differs", async () => {
     const emailAccount = getEmailAccount({ id: "test-account-id" });
     const normalizedEmail = "cold.sender@example.com";
+    const groupId = "test-group-id";
 
-    // First, simulate saving a cold email with normalized email address
-    // This is what saveColdEmail does - it extracts just the email address
-    vi.mocked(prisma.coldEmail.upsert).mockResolvedValue({
-      id: "cold-email-id",
-      emailAccountId: emailAccount.id,
-      fromEmail: normalizedEmail,
-      status: ColdEmailStatus.AI_LABELED_COLD,
-      reason: "Test reason",
-      messageId: "msg1",
-      threadId: "thread1",
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    });
+    // Mock groupItem lookup
+    vi.mocked(prisma.groupItem.findFirst).mockResolvedValue({
+      id: "group-item-id",
+      exclude: false,
+    } as any);
 
-    await saveColdEmail({
-      email: {
-        from: normalizedEmail,
-        id: "msg1",
-        threadId: "thread1",
-      },
-      emailAccount,
-      aiReason: "Test reason",
-    });
-
-    // Now simulate a second email from the same sender but with a different format
-    // This is the bug scenario: the from field has a display name
-    const secondEmail: EmailForLLM = {
+    const email: EmailForLLM = {
       id: "msg2",
       from: `"Cold Sender" <${normalizedEmail}>`,
       to: emailAccount.email,
@@ -77,93 +54,91 @@ describe("isColdEmail", () => {
       date: new Date(),
     };
 
-    // Mock Prisma to return the cold email record when queried with normalized email
-    vi.mocked(prisma.coldEmail.findUnique).mockResolvedValue({
-      id: "cold-email-id",
-      emailAccountId: emailAccount.id,
-      fromEmail: normalizedEmail,
-      status: ColdEmailStatus.AI_LABELED_COLD,
-      reason: "Test reason",
-      messageId: "msg1",
-      threadId: "thread1",
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    });
-
     const result = await isColdEmail({
-      email: secondEmail,
+      email,
       emailAccount,
       provider: mockProvider as never,
-      coldEmailRule: null,
+      coldEmailRule: { instructions: "test instructions", groupId },
     });
 
-    // This test should pass after the fix - the sender should be recognized as cold
     expect(result.isColdEmail).toBe(true);
     expect(result.reason).toBe("ai-already-labeled");
 
-    // Verify that findUnique was called with the normalized email address
-    expect(prisma.coldEmail.findUnique).toHaveBeenCalledWith({
+    // Verify that findFirst was called with the normalized email address
+    expect(prisma.groupItem.findFirst).toHaveBeenCalledWith({
       where: {
-        emailAccountId_fromEmail: {
-          emailAccountId: emailAccount.id,
-          fromEmail: normalizedEmail,
-        },
-        status: ColdEmailStatus.AI_LABELED_COLD,
+        groupId,
+        type: GroupItemType.FROM,
+        value: normalizedEmail,
       },
-      select: { id: true },
+      select: { exclude: true },
+    });
+  });
+
+  it("should return excluded when sender is explicitly excluded from cold email blocker", async () => {
+    const emailAccount = getEmailAccount({ id: "test-account-id" });
+    const normalizedEmail = "excluded.sender@example.com";
+    const groupId = "test-group-id";
+
+    // Mock groupItem lookup with exclude: true
+    vi.mocked(prisma.groupItem.findFirst).mockResolvedValue({
+      id: "group-item-id",
+      exclude: true,
+    } as any);
+
+    const email: EmailForLLM = {
+      id: "msg-excluded",
+      from: `"Excluded Sender" <${normalizedEmail}>`,
+      to: emailAccount.email,
+      subject: "Not a cold email",
+      content: "This sender was explicitly excluded",
+      date: new Date(),
+    };
+
+    const result = await isColdEmail({
+      email,
+      emailAccount,
+      provider: mockProvider as never,
+      coldEmailRule: { instructions: "test instructions", groupId },
+    });
+
+    expect(result.isColdEmail).toBe(false);
+    expect(result.reason).toBe("excluded");
+
+    expect(prisma.groupItem.findFirst).toHaveBeenCalledWith({
+      where: {
+        groupId,
+        type: GroupItemType.FROM,
+        value: normalizedEmail,
+      },
+      select: { exclude: true },
     });
   });
 
   it("should handle various email formats consistently", async () => {
     const emailAccount = getEmailAccount({ id: "test-account-id" });
     const normalizedEmail = "sender@example.com";
+    const groupId = "test-group-id";
 
-    // Test different from field formats that should all resolve to the same normalized email
+    vi.mocked(prisma.groupItem.findFirst).mockResolvedValue({
+      id: "group-item-id",
+      exclude: false,
+    } as any);
+
     const emailFormats = [
       normalizedEmail,
       `<${normalizedEmail}>`,
       `"Display Name" <${normalizedEmail}>`,
       `Display Name <${normalizedEmail}>`,
-      `  ${normalizedEmail}  `, // with spaces
+      `  ${normalizedEmail}  `,
     ];
-
-    // Mock Prisma to return cold email for normalized email
-    vi.mocked(prisma.coldEmail.findUnique).mockImplementation(
-      (args) =>
-        new Promise((resolve) => {
-          const where = args?.where as
-            | {
-                emailAccountId_fromEmail: {
-                  emailAccountId: string;
-                  fromEmail: string;
-                };
-                status: ColdEmailStatus;
-              }
-            | undefined;
-
-          if (
-            where?.emailAccountId_fromEmail.fromEmail === normalizedEmail &&
-            where.status === ColdEmailStatus.AI_LABELED_COLD
-          ) {
-            resolve({
-              id: "cold-email-id",
-              emailAccountId: emailAccount.id,
-              fromEmail: normalizedEmail,
-              status: ColdEmailStatus.AI_LABELED_COLD,
-              reason: "Test reason",
-              messageId: "msg1",
-              threadId: "thread1",
-              createdAt: new Date(),
-              updatedAt: new Date(),
-            } as never);
-          } else {
-            resolve(null as never);
-          }
-        }) as never,
-    );
 
     for (const fromFormat of emailFormats) {
       vi.clearAllMocks();
+      vi.mocked(prisma.groupItem.findFirst).mockResolvedValue({
+        id: "group-item-id",
+        exclude: false,
+      } as any);
 
       const email: EmailForLLM = {
         id: "msg-test",
@@ -178,23 +153,21 @@ describe("isColdEmail", () => {
         email,
         emailAccount,
         provider: mockProvider as never,
-        coldEmailRule: null,
+        coldEmailRule: { instructions: "test instructions", groupId },
       });
 
       expect(result.isColdEmail).toBe(true);
       expect(result.reason).toBe("ai-already-labeled");
 
-      // Verify extractEmailAddress was used to normalize
-      const expectedNormalized = extractEmailAddress(fromFormat);
-      expect(prisma.coldEmail.findUnique).toHaveBeenCalledWith({
+      const expectedNormalized =
+        extractEmailAddress(fromFormat) || fromFormat.trim();
+      expect(prisma.groupItem.findFirst).toHaveBeenCalledWith({
         where: {
-          emailAccountId_fromEmail: {
-            emailAccountId: emailAccount.id,
-            fromEmail: expectedNormalized,
-          },
-          status: ColdEmailStatus.AI_LABELED_COLD,
+          groupId,
+          type: GroupItemType.FROM,
+          value: expectedNormalized,
         },
-        select: { id: true },
+        select: { exclude: true },
       });
     }
   });
