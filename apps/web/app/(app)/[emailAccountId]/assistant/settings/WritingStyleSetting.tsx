@@ -95,10 +95,6 @@ function WritingStyleDialog({
     },
   );
 
-  const onSubmit = (data: SaveWritingStyleBody) => {
-    execute(data);
-  };
-
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>{children}</DialogTrigger>
@@ -110,7 +106,7 @@ function WritingStyleDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit(onSubmit)}>
+        <form onSubmit={handleSubmit((data) => execute(data))}>
           <Controller
             name="writingStyle"
             control={control}
