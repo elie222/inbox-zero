@@ -858,7 +858,11 @@ export class GmailProvider implements EmailProvider {
     addLabelIds?: string[];
     removeLabelIds?: string[];
   }) {
-    return createFilter({ gmail: this.client, ...options });
+    return createFilter({
+      gmail: this.client,
+      ...options,
+      logger: this.logger,
+    });
   }
 
   async createAutoArchiveFilter(options: {
@@ -869,6 +873,7 @@ export class GmailProvider implements EmailProvider {
       gmail: this.client,
       from: options.from,
       gmailLabelId: options.gmailLabelId,
+      logger: this.logger,
     });
   }
 
