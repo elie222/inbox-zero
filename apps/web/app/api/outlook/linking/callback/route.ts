@@ -119,7 +119,7 @@ export const GET = withError("outlook/linking/callback", async (request) => {
       throw new Error("Profile missing required email");
     }
 
-    const existingAccountByProviderId = await prisma.account.findUnique({
+    const existingAccount = await prisma.account.findUnique({
       where: {
         provider_providerAccountId: {
           provider: "microsoft",
@@ -133,24 +133,6 @@ export const GET = withError("outlook/linking/callback", async (request) => {
         emailAccount: true,
       },
     });
-
-    const existingAccountByEmail = await prisma.account.findFirst({
-      where: {
-        provider: "microsoft",
-        user: {
-          email: providerEmail.trim().toLowerCase(),
-        },
-      },
-      select: {
-        id: true,
-        userId: true,
-        user: { select: { name: true, email: true } },
-        emailAccount: true,
-      },
-    });
-
-    const existingAccount =
-      existingAccountByProviderId || existingAccountByEmail;
 
     const linkingResult = await handleAccountLinking({
       existingAccountId: existingAccount?.id || null,
