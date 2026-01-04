@@ -21,18 +21,29 @@ import {
   Provider,
   providerOptions,
 } from "@/utils/llms/config";
-import { useUser } from "@/hooks/useUser";
+import { useUser, useUserSecrets } from "@/hooks/useUser";
 import { updateAiSettingsAction } from "@/utils/actions/settings";
 
 export function ModelSection() {
   const { data, isLoading, error, mutate } = useUser();
+  const {
+    data: secrets,
+    isLoading: isLoadingSecrets,
+    error: secretsError,
+    mutate: mutateSecrets,
+  } = useUserSecrets();
 
   const { data: dataModels, isLoading: isLoadingModels } =
     useSWR<OpenAiModelsResponse>(
-      data?.aiApiKey && data?.aiProvider === Provider.OPEN_AI
+      secrets?.aiApiKey && data?.aiProvider === Provider.OPEN_AI
         ? "/api/ai/models"
         : null,
     );
+
+  const refetchAll = useCallback(() => {
+    mutate();
+    mutateSecrets();
+  }, [mutate, mutateSecrets]);
 
   return (
     <FormSection>
@@ -41,14 +52,17 @@ export function ModelSection() {
         description="Use the default model at no cost, or choose a custom model with your own API key."
       />
 
-      <LoadingContent loading={isLoading || isLoadingModels} error={error}>
+      <LoadingContent
+        loading={isLoading || isLoadingSecrets || isLoadingModels}
+        error={error || secretsError}
+      >
         {data && (
           <ModelSectionForm
             aiProvider={data.aiProvider}
             aiModel={data.aiModel}
-            aiApiKey={data.aiApiKey}
+            aiApiKey={secrets?.aiApiKey ?? null}
             models={dataModels}
-            refetchUser={mutate}
+            refetchUser={refetchAll}
           />
         )}
       </LoadingContent>

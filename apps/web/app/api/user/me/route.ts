@@ -58,8 +58,14 @@ async function getUser({ userId }: { userId: string }) {
     })),
   );
 
+  // Return boolean flags instead of actual secrets for security
+  // Actual values are available via /api/user/secrets
+  const { aiApiKey, webhookSecret, ...userWithoutSecrets } = user;
+
   return {
-    ...user,
+    ...userWithoutSecrets,
+    hasAiApiKey: !!aiApiKey,
+    hasWebhookSecret: !!webhookSecret,
     members,
   };
 }

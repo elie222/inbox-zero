@@ -44,17 +44,32 @@ export const POST = withError("outlook/webhook", async (request) => {
   const body = parseResult.data;
 
   // Validate clientState for security (verify webhook is from Microsoft)
-  for (const notification of body.value) {
-    if (notification.clientState !== env.MICROSOFT_WEBHOOK_CLIENT_STATE) {
-      logger.warn("Invalid or missing clientState", {
-        receivedClientState: notification.clientState,
-        hasExpectedClientState: !!env.MICROSOFT_WEBHOOK_CLIENT_STATE,
-        subscriptionId: notification.subscriptionId,
-      });
-      return NextResponse.json(
-        { error: "Unauthorized webhook request" },
-        { status: 403 },
+  if (!env.MICROSOFT_WEBHOOK_CLIENT_STATE) {
+    if (env.NODE_ENV === "production") {
+      logger.error(
+        "MICROSOFT_WEBHOOK_CLIENT_STATE not set - rejecting webhook in production",
       );
+      return NextResponse.json(
+        { error: "Webhook verification not configured" },
+        { status: 500 },
+      );
+    }
+    logger.warn(
+      "MICROSOFT_WEBHOOK_CLIENT_STATE not set - webhook requests are not verified. Set this in production for security.",
+    );
+  } else {
+    for (const notification of body.value) {
+      if (notification.clientState !== env.MICROSOFT_WEBHOOK_CLIENT_STATE) {
+        logger.warn("Invalid or missing clientState", {
+          receivedClientState: notification.clientState,
+          hasExpectedClientState: !!env.MICROSOFT_WEBHOOK_CLIENT_STATE,
+          subscriptionId: notification.subscriptionId,
+        });
+        return NextResponse.json(
+          { error: "Unauthorized webhook request" },
+          { status: 403 },
+        );
+      }
     }
   }
 

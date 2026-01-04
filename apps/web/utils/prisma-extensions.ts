@@ -1,5 +1,9 @@
 import { Prisma } from "@/generated/prisma/client";
-import { encryptToken, decryptToken } from "@/utils/encryption";
+import {
+  encryptToken,
+  decryptToken,
+  decryptTokenWithFallback,
+} from "@/utils/encryption";
 
 export const encryptedTokens = Prisma.defineExtension((client) => {
   return client.$extends({
@@ -49,6 +53,23 @@ export const encryptedTokens = Prisma.defineExtension((client) => {
           needs: { apiKey: true },
           compute(connection) {
             return decryptToken(connection.apiKey);
+          },
+        },
+      },
+      user: {
+        aiApiKey: {
+          needs: { aiApiKey: true },
+          compute(user) {
+            return decryptTokenWithFallback(user.aiApiKey, "User.aiApiKey");
+          },
+        },
+        webhookSecret: {
+          needs: { webhookSecret: true },
+          compute(user) {
+            return decryptTokenWithFallback(
+              user.webhookSecret,
+              "User.webhookSecret",
+            );
           },
         },
       },
@@ -318,6 +339,82 @@ export const encryptedTokens = Prisma.defineExtension((client) => {
               args.update.apiKey = encryptToken(args.update.apiKey);
             } else if (args.update.apiKey.set) {
               args.update.apiKey.set = encryptToken(args.update.apiKey.set);
+            }
+          }
+          return query(args);
+        },
+      },
+      user: {
+        async create({ args, query }) {
+          if (args.data.aiApiKey) {
+            args.data.aiApiKey = encryptToken(args.data.aiApiKey);
+          }
+          if (args.data.webhookSecret) {
+            args.data.webhookSecret = encryptToken(args.data.webhookSecret);
+          }
+          return query(args);
+        },
+        async update({ args, query }) {
+          if (args.data.aiApiKey) {
+            if (typeof args.data.aiApiKey === "string") {
+              args.data.aiApiKey = encryptToken(args.data.aiApiKey);
+            } else if (args.data.aiApiKey.set) {
+              args.data.aiApiKey.set = encryptToken(args.data.aiApiKey.set);
+            }
+          }
+          if (args.data.webhookSecret) {
+            if (typeof args.data.webhookSecret === "string") {
+              args.data.webhookSecret = encryptToken(args.data.webhookSecret);
+            } else if (args.data.webhookSecret.set) {
+              args.data.webhookSecret.set = encryptToken(
+                args.data.webhookSecret.set,
+              );
+            }
+          }
+          return query(args);
+        },
+        async updateMany({ args, query }) {
+          if (args.data.aiApiKey) {
+            if (typeof args.data.aiApiKey === "string") {
+              args.data.aiApiKey = encryptToken(args.data.aiApiKey);
+            } else if (args.data.aiApiKey.set) {
+              args.data.aiApiKey.set = encryptToken(args.data.aiApiKey.set);
+            }
+          }
+          if (args.data.webhookSecret) {
+            if (typeof args.data.webhookSecret === "string") {
+              args.data.webhookSecret = encryptToken(args.data.webhookSecret);
+            } else if (args.data.webhookSecret.set) {
+              args.data.webhookSecret.set = encryptToken(
+                args.data.webhookSecret.set,
+              );
+            }
+          }
+          return query(args);
+        },
+        async upsert({ args, query }) {
+          if (args.create.aiApiKey) {
+            args.create.aiApiKey = encryptToken(args.create.aiApiKey);
+          }
+          if (args.create.webhookSecret) {
+            args.create.webhookSecret = encryptToken(args.create.webhookSecret);
+          }
+          if (args.update.aiApiKey) {
+            if (typeof args.update.aiApiKey === "string") {
+              args.update.aiApiKey = encryptToken(args.update.aiApiKey);
+            } else if (args.update.aiApiKey.set) {
+              args.update.aiApiKey.set = encryptToken(args.update.aiApiKey.set);
+            }
+          }
+          if (args.update.webhookSecret) {
+            if (typeof args.update.webhookSecret === "string") {
+              args.update.webhookSecret = encryptToken(
+                args.update.webhookSecret,
+              );
+            } else if (args.update.webhookSecret.set) {
+              args.update.webhookSecret.set = encryptToken(
+                args.update.webhookSecret.set,
+              );
             }
           }
           return query(args);

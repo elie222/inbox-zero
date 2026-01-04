@@ -1,14 +1,26 @@
 "use client";
 
+import { useCallback } from "react";
 import { FormSection, FormSectionLeft } from "@/components/Form";
 import { Card } from "@/components/ui/card";
 import { CopyInput } from "@/components/CopyInput";
 import { RegenerateSecretButton } from "@/app/(app)/[emailAccountId]/settings/WebhookGenerate";
-import { useUser } from "@/hooks/useUser";
+import { useUser, useUserSecrets } from "@/hooks/useUser";
 import { LoadingContent } from "@/components/LoadingContent";
 
 export function WebhookSection() {
   const { data, isLoading, error, mutate } = useUser();
+  const {
+    data: secrets,
+    isLoading: isLoadingSecrets,
+    error: secretsError,
+    mutate: mutateSecrets,
+  } = useUserSecrets();
+
+  const refetchAll = useCallback(() => {
+    mutate();
+    mutateSecrets();
+  }, [mutate, mutateSecrets]);
 
   return (
     <FormSection>
@@ -19,17 +31,20 @@ export function WebhookSection() {
 
       <div className="col-span-2">
         <Card className="p-6">
-          <LoadingContent loading={isLoading} error={error}>
+          <LoadingContent
+            loading={isLoading || isLoadingSecrets}
+            error={error || secretsError}
+          >
             {data && (
               <div className="space-y-4">
-                {!!data.webhookSecret && (
-                  <CopyInput value={data.webhookSecret} />
+                {!!secrets?.webhookSecret && (
+                  <CopyInput value={secrets.webhookSecret} />
                 )}
 
                 <div className="flex items-center gap-3">
                   <RegenerateSecretButton
-                    hasSecret={!!data.webhookSecret}
-                    mutate={mutate}
+                    hasSecret={!!secrets?.webhookSecret}
+                    mutate={refetchAll}
                   />
                 </div>
               </div>

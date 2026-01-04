@@ -20,6 +20,22 @@ if [ -n "$NEXT_PUBLIC_EMAIL_SEND_ENABLED" ]; then
     /app/docker/scripts/replace-placeholder.sh "NEXT_PUBLIC_EMAIL_SEND_ENABLED_PLACEHOLDER" "$NEXT_PUBLIC_EMAIL_SEND_ENABLED"
 fi
 
+if [ -n "$NEXT_PUBLIC_CLEANER_ENABLED" ]; then
+    /app/docker/scripts/replace-placeholder.sh "NEXT_PUBLIC_CLEANER_ENABLED_PLACEHOLDER" "$NEXT_PUBLIC_CLEANER_ENABLED"
+fi
+
+if [ -n "$NEXT_PUBLIC_MEETING_BRIEFS_ENABLED" ]; then
+    /app/docker/scripts/replace-placeholder.sh "NEXT_PUBLIC_MEETING_BRIEFS_ENABLED_PLACEHOLDER" "$NEXT_PUBLIC_MEETING_BRIEFS_ENABLED"
+fi
+
+if [ -n "$NEXT_PUBLIC_INTEGRATIONS_ENABLED" ]; then
+    /app/docker/scripts/replace-placeholder.sh "NEXT_PUBLIC_INTEGRATIONS_ENABLED_PLACEHOLDER" "$NEXT_PUBLIC_INTEGRATIONS_ENABLED"
+fi
+
+if [ -n "$NEXT_PUBLIC_DIGEST_ENABLED" ]; then
+    /app/docker/scripts/replace-placeholder.sh "NEXT_PUBLIC_DIGEST_ENABLED_PLACEHOLDER" "$NEXT_PUBLIC_DIGEST_ENABLED"
+fi
+
 if [ -n "$DATABASE_URL" ]; then
     echo "🔄 Running database migrations..."
     if timeout 320 prisma migrate deploy --schema=./apps/web/prisma/schema.prisma; then
