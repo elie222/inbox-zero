@@ -46,13 +46,15 @@ export async function handleOutboundReply({
   const { isLatest, sortedMessages } = isMessageLatestInThread(
     message,
     threadMessages,
-    logger,
   );
   if (!isLatest) {
     logger.info(
-      "Skipping outbound check: message is not the latest in the thread",
+      "Outbound message is not the latest in the thread, proceeding anyway.",
+      {
+        processingMessageId: message.id,
+        actualLatestMessageId: sortedMessages.at(-1)?.id,
+      },
     );
-    return; // Stop processing if not the latest
   }
 
   // Prepare thread messages for AI analysis (chronological order, oldest to newest)
@@ -114,22 +116,14 @@ async function isOutboundTrackingEnabled({
 function isMessageLatestInThread(
   message: ParsedMessage,
   threadMessages: ParsedMessage[],
-  logger: Logger,
 ): { isLatest: boolean; sortedMessages: ParsedMessage[] } {
   if (!threadMessages.length) return { isLatest: false, sortedMessages: [] }; // Should not happen if called correctly
 
   const sortedMessages = [...threadMessages].sort(sortByInternalDate());
-  const actualLatestMessage = sortedMessages[sortedMessages.length - 1];
+  const actualLatestMessage = sortedMessages.at(-1);
 
-  if (actualLatestMessage?.id !== message.id) {
-    logger.warn(
-      "Skipping outbound reply check: message is not the latest in the thread",
-      {
-        processingMessageId: message.id,
-        actualLatestMessageId: actualLatestMessage?.id,
-      },
-    );
-    return { isLatest: false, sortedMessages };
-  }
-  return { isLatest: true, sortedMessages };
+  return {
+    isLatest: actualLatestMessage?.id === message.id,
+    sortedMessages,
+  };
 }
