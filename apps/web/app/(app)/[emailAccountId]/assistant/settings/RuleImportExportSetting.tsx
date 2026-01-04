@@ -43,7 +43,7 @@ export function RuleImportExportSetting() {
         url: action.url,
         delayInMinutes: action.delayInMinutes,
       })),
-      group: rule.group?.name || null,
+      // note: group associations are not exported as they require matching group IDs
     }));
 
     const blob = new Blob([JSON.stringify(exportData, null, 2)], {
