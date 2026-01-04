@@ -26,7 +26,7 @@ async function getMultiAccountEmails({ userId }: { userId: string }) {
   });
 
   const emailAccounts =
-    user?.premium?.users.flatMap((u) => u.emailAccounts) || [];
+    user?.premium?.users?.flatMap((u) => u.emailAccounts) || [];
 
   return {
     emailAccounts,
