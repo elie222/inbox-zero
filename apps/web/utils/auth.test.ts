@@ -144,7 +144,9 @@ describe("saveTokens", () => {
         }),
       }),
     );
-    expect(clearUserErrorMessages).toHaveBeenCalledWith({ userId: "user_1" });
+    expect(clearUserErrorMessages).toHaveBeenCalledWith(
+      expect.objectContaining({ userId: "user_1" }),
+    );
   });
 
   it("clears disconnectedAt and error messages when saving tokens via providerAccountId", async () => {
@@ -174,6 +176,8 @@ describe("saveTokens", () => {
         }),
       }),
     );
-    expect(clearUserErrorMessages).toHaveBeenCalledWith({ userId: "user_1" });
+    expect(clearUserErrorMessages).toHaveBeenCalledWith(
+      expect.objectContaining({ userId: "user_1" }),
+    );
   });
 });

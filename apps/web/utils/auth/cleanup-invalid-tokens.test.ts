@@ -5,6 +5,8 @@ import { sendReconnectionEmail } from "@inboxzero/resend";
 import { createScopedLogger } from "@/utils/logger";
 import { addUserErrorMessage } from "@/utils/error-messages";
 
+const logger = createScopedLogger("test");
+
 vi.mock("@/utils/prisma");
 vi.mock("@inboxzero/resend", () => ({
   sendReconnectionEmail: vi.fn(),
@@ -20,8 +22,6 @@ vi.mock("@/utils/unsubscribe", () => ({
 }));
 
 describe("cleanupInvalidTokens", () => {
-  const logger = createScopedLogger("test");
-
   beforeEach(() => {
     vi.clearAllMocks();
   });
@@ -58,6 +58,7 @@ describe("cleanupInvalidTokens", () => {
       "user_1",
       "Account disconnected",
       expect.stringContaining("test@example.com"),
+      logger,
     );
   });
 
@@ -80,6 +81,7 @@ describe("cleanupInvalidTokens", () => {
       "user_1",
       "Account disconnected",
       expect.stringContaining("test@example.com"),
+      logger,
     );
   });
 

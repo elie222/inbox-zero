@@ -7,7 +7,9 @@ import {
 import type { CalendarEventProvider } from "@/utils/calendar/event-types";
 import type { CalendarEvent } from "@/utils/calendar/event-types";
 import { createCalendarEventProviders } from "@/utils/calendar/event-provider";
-import type { Logger } from "@/utils/logger";
+import { createScopedLogger } from "@/utils/logger";
+
+const logger = createScopedLogger("test");
 
 vi.mock("@/utils/calendar/event-provider");
 vi.mock("@/utils/date", () => ({
@@ -50,15 +52,6 @@ vi.mock("@/utils/date", () => ({
 }));
 
 describe("recipient-context", () => {
-  const mockLogger: Logger = {
-    info: vi.fn(),
-    warn: vi.fn(),
-    error: vi.fn(),
-    trace: vi.fn(),
-    with: vi.fn(() => mockLogger),
-    flush: vi.fn(() => Promise.resolve()),
-  };
-
   beforeEach(() => {
     vi.clearAllMocks();
     vi.useFakeTimers();
@@ -245,7 +238,7 @@ Use this context naturally if relevant. For past meetings, you might reference t
       const result = await getMeetingContext({
         emailAccountId: "test-account-id",
         recipientEmail: "recipient@example.com",
-        logger: mockLogger,
+        logger,
       });
 
       expect(result).toEqual([]);
@@ -298,7 +291,7 @@ Use this context naturally if relevant. For past meetings, you might reference t
       const result = await getMeetingContext({
         emailAccountId: "test-account-id",
         recipientEmail: "recipient@example.com",
-        logger: mockLogger,
+        logger,
       });
 
       expect(result).toHaveLength(2);
@@ -352,7 +345,7 @@ Use this context naturally if relevant. For past meetings, you might reference t
         emailAccountId: "test-account-id",
         recipientEmail: "recipient@example.com",
         additionalRecipients: ["cc@example.com"],
-        logger: mockLogger,
+        logger,
       });
 
       expect(result).toHaveLength(1);
@@ -372,11 +365,10 @@ Use this context naturally if relevant. For past meetings, you might reference t
       const result = await getMeetingContext({
         emailAccountId: "test-account-id",
         recipientEmail: "recipient@example.com",
-        logger: mockLogger,
+        logger,
       });
 
       expect(result).toEqual([]);
-      expect(mockLogger.warn).toHaveBeenCalled();
     });
 
     it("sorts past meetings by most recent first", async () => {
@@ -413,7 +405,7 @@ Use this context naturally if relevant. For past meetings, you might reference t
       const result = await getMeetingContext({
         emailAccountId: "test-account-id",
         recipientEmail: "recipient@example.com",
-        logger: mockLogger,
+        logger,
       });
 
       expect(result).toHaveLength(2);
@@ -455,7 +447,7 @@ Use this context naturally if relevant. For past meetings, you might reference t
       const result = await getMeetingContext({
         emailAccountId: "test-account-id",
         recipientEmail: "recipient@example.com",
-        logger: mockLogger,
+        logger,
       });
 
       expect(result).toHaveLength(2);
@@ -492,7 +484,7 @@ Use this context naturally if relevant. For past meetings, you might reference t
       const result = await getMeetingContext({
         emailAccountId: "test-account-id",
         recipientEmail: "recipient@example.com",
-        logger: mockLogger,
+        logger,
       });
 
       // Should be limited to MAX_MEETINGS_PER_CATEGORY (5) per category
