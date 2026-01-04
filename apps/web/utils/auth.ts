@@ -384,6 +384,24 @@ async function handleLinkAccount(account: Account) {
       throw new Error("Primary email not found for linked account.");
     }
 
+    // Check if email already belongs to a different user
+    const existingEmailAccount = await prisma.emailAccount.findUnique({
+      where: { email: primaryEmail.trim().toLowerCase() },
+      select: { userId: true },
+    });
+
+    if (
+      existingEmailAccount &&
+      existingEmailAccount.userId !== account.userId
+    ) {
+      logger.error("[linkAccount] Email already linked to a different user", {
+        email: primaryEmail,
+        existingUserId: existingEmailAccount.userId,
+        newUserId: account.userId,
+      });
+      throw new Error("email_already_linked");
+    }
+
     const user = await prisma.user.findUnique({
       where: { id: account.userId },
       select: { email: true, name: true, image: true },
