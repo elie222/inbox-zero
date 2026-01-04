@@ -325,6 +325,7 @@ async function handleError(
         errorType: ErrorType.INCORRECT_OPENAI_API_KEY,
         errorMessage:
           "Your OpenAI API key is invalid. Please update it in your settings.",
+        logger,
       });
     }
 
@@ -336,6 +337,7 @@ async function handleError(
         errorType: ErrorType.INVALID_OPENAI_MODEL,
         errorMessage:
           "The AI model you specified does not exist. Please check your settings.",
+        logger,
       });
     }
 
@@ -347,6 +349,7 @@ async function handleError(
         errorType: ErrorType.OPENAI_API_KEY_DEACTIVATED,
         errorMessage:
           "Your OpenAI API key has been deactivated. Please update it in your settings.",
+        logger,
       });
     }
 
@@ -358,6 +361,7 @@ async function handleError(
         errorType: ErrorType.OPENAI_RETRY_ERROR,
         errorMessage:
           "You have exceeded your OpenAI API quota. Please check your OpenAI account.",
+        logger,
       });
     }
 
@@ -369,6 +373,7 @@ async function handleError(
         errorType: ErrorType.ANTHROPIC_INSUFFICIENT_BALANCE,
         errorMessage:
           "Your Anthropic account has insufficient credits. Please add credits or update your settings.",
+        logger,
       });
     }
   }

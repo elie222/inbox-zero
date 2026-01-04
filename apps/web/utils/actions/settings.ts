@@ -38,7 +38,7 @@ export const updateAiSettingsAction = actionClientUser
   .inputSchema(saveAiSettingsBody)
   .action(
     async ({
-      ctx: { userId },
+      ctx: { userId, logger },
       parsedInput: { aiProvider, aiModel, aiApiKey },
     }) => {
       await prisma.user.update({
@@ -60,6 +60,7 @@ export const updateAiSettingsAction = actionClientUser
           ErrorType.OPENAI_RETRY_ERROR,
           ErrorType.ANTHROPIC_INSUFFICIENT_BALANCE,
         ],
+        logger,
       });
     },
   );

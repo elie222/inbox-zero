@@ -418,7 +418,7 @@ async function handleLinkAccount(account: Account) {
       }),
     ]);
 
-    await clearUserErrorMessages({ userId: account.userId });
+    await clearUserErrorMessages({ userId: account.userId, logger });
 
     // Handle premium account seats
     await updateAccountSeats({ userId: account.userId }).catch((error) => {
@@ -502,7 +502,7 @@ export async function saveTokens({
       select: { userId: true },
     });
 
-    await clearUserErrorMessages({ userId: emailAccount.userId });
+    await clearUserErrorMessages({ userId: emailAccount.userId, logger });
   } else {
     if (!providerAccountId) {
       logger.error("No providerAccountId found in database", {
@@ -524,7 +524,7 @@ export async function saveTokens({
       data,
     });
 
-    await clearUserErrorMessages({ userId: account.userId });
+    await clearUserErrorMessages({ userId: account.userId, logger });
 
     return account;
   }
