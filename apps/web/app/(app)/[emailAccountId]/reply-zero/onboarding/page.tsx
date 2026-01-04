@@ -13,6 +13,7 @@ export default async function OnboardingReplyTracker(props: {
     where: {
       emailAccountId,
       systemType: { in: CONVERSATION_STATUS_TYPES },
+      enabled: true,
     },
     select: { id: true },
   });

@@ -47,6 +47,7 @@ export default async function ReplyTrackerPage(props: {
           systemType: {
             in: CONVERSATION_STATUS_TYPES,
           },
+          enabled: true,
         },
         select: { id: true },
       },
