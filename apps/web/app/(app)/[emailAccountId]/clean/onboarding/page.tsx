@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { Card, CardTitle } from "@/components/ui/card";
 import { IntroStep } from "@/app/(app)/[emailAccountId]/clean/IntroStep";
 import { ActionSelectionStep } from "@/app/(app)/[emailAccountId]/clean/ActionSelectionStep";
@@ -27,6 +28,8 @@ export default async function CleanPage(props: {
   }>;
 }) {
   const { emailAccountId } = await props.params;
+  const searchParams = await props.searchParams;
+
   await checkUserOwnsEmailAccount({ emailAccountId });
 
   const emailAccount = await prisma.emailAccount.findUnique({
@@ -47,10 +50,7 @@ export default async function CleanPage(props: {
   });
   const { unhandledCount } = await getUnhandledCount(emailProvider);
 
-  const searchParams = await props.searchParams;
-  const step = searchParams.step
-    ? Number.parseInt(searchParams.step)
-    : CleanStep.INTRO;
+  const step = Number.parseInt(searchParams.step || "") || CleanStep.INTRO;
 
   const renderStepContent = () => {
     switch (step) {
@@ -96,7 +96,16 @@ export default async function CleanPage(props: {
   return (
     <div>
       <Card className="my-4 max-w-2xl p-6 sm:mx-4 md:mx-auto">
-        {renderStepContent()}
+        <Suspense
+          key={step}
+          fallback={
+            <div className="flex h-[400px] items-center justify-center">
+              Loading...
+            </div>
+          }
+        >
+          {renderStepContent()}
+        </Suspense>
       </Card>
     </div>
   );
