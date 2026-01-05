@@ -25,7 +25,7 @@ import {
   claimPendingPremiumInvite,
   updateAccountSeats,
 } from "@/utils/premium/server";
-import { clearUserErrorMessages } from "@/utils/error-messages";
+import { clearSpecificErrorMessages, ErrorType } from "@/utils/error-messages";
 import prisma from "@/utils/prisma";
 
 const logger = createScopedLogger("auth");
@@ -436,7 +436,11 @@ async function handleLinkAccount(account: Account) {
       }),
     ]);
 
-    await clearUserErrorMessages({ userId: account.userId, logger });
+    await clearSpecificErrorMessages({
+      userId: account.userId,
+      errorTypes: [ErrorType.ACCOUNT_DISCONNECTED],
+      logger,
+    });
 
     // Handle premium account seats
     await updateAccountSeats({ userId: account.userId }).catch((error) => {
@@ -520,7 +524,11 @@ export async function saveTokens({
       select: { userId: true },
     });
 
-    await clearUserErrorMessages({ userId: emailAccount.userId, logger });
+    await clearSpecificErrorMessages({
+      userId: emailAccount.userId,
+      errorTypes: [ErrorType.ACCOUNT_DISCONNECTED],
+      logger,
+    });
   } else {
     if (!providerAccountId) {
       logger.error("No providerAccountId found in database", {
@@ -542,7 +550,11 @@ export async function saveTokens({
       data,
     });
 
-    await clearUserErrorMessages({ userId: account.userId, logger });
+    await clearSpecificErrorMessages({
+      userId: account.userId,
+      errorTypes: [ErrorType.ACCOUNT_DISCONNECTED],
+      logger,
+    });
 
     return account;
   }
