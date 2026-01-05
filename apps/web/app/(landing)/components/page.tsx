@@ -87,6 +87,13 @@ export default function Components() {
               description="This is the blue variant of the ActionCard component."
               action={<ShadButton variant="primaryBlack">Click Me</ShadButton>}
             />
+            <ActionCard
+              variant="destructive"
+              icon={<SparklesIcon className="size-5" />}
+              title="Action Card (Destructive)"
+              description="This is the destructive variant of the ActionCard component."
+              action={<ShadButton variant="primaryBlack">Click Me</ShadButton>}
+            />
           </div>
         </div>
 
