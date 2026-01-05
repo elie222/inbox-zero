@@ -174,6 +174,7 @@ export function BulkRunRules() {
                         }}
                         value={startDate}
                         placeholder="Set start date"
+                        disabled={isProcessing}
                       />
                       <SetDateDropdown
                         onChange={(date) => {
@@ -182,6 +183,7 @@ export function BulkRunRules() {
                         }}
                         value={endDate}
                         placeholder="Set end date (optional)"
+                        disabled={isProcessing}
                       />
                     </div>
 
