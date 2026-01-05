@@ -130,10 +130,16 @@ export function isAnthropicInsufficientBalanceError(
   );
 }
 
-// Handling OpenAI retry errors on their own because this will be related to the user's own API quota,
-// rather than an error on our side (as we default to Anthropic atm).
-export function isOpenAIRetryError(error: RetryError): boolean {
-  return error.message.includes("You exceeded your current quota");
+// Handling AI quota/retry errors. This can be related to the user's own API quota or the system's quota.
+export function isAiQuotaExceededError(error: RetryError): boolean {
+  const message = error.message.toLowerCase();
+  return (
+    message.includes("exceeded your current quota") ||
+    message.includes("quota exceeded") ||
+    message.includes("rate limit reached") ||
+    message.includes("rate_limit_reached") ||
+    message.includes("too many requests")
+  );
 }
 
 export function isAWSThrottlingError(error: unknown): error is Error {
@@ -178,7 +184,7 @@ export function isKnownApiError(error: unknown): boolean {
         isInvalidOpenAIModelError(error) ||
         isOpenAIAPIKeyDeactivatedError(error) ||
         isAnthropicInsufficientBalanceError(error))) ||
-    (RetryError.isInstance(error) && isOpenAIRetryError(error))
+    (RetryError.isInstance(error) && isAiQuotaExceededError(error))
   );
 }
 
@@ -227,11 +233,11 @@ export function checkCommonErrors(
     };
   }
 
-  if (RetryError.isInstance(error) && isOpenAIRetryError(error)) {
-    logger.warn("OpenAI quota exceeded for url", { url });
+  if (RetryError.isInstance(error) && isAiQuotaExceededError(error)) {
+    logger.warn("AI quota exceeded for url", { url });
     return {
-      type: "OpenAI Quota Exceeded",
-      message: `OpenAI error: ${error.message}`,
+      type: "AI Quota Exceeded",
+      message: `AI error: ${error.message}`,
       code: 429,
     };
   }
