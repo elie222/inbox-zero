@@ -4,10 +4,10 @@ import { stripQuotedContent } from "@/utils/ai/choose-rule/draft-management";
 import type { ParsedMessage } from "@/utils/types";
 
 /**
- * Normalizes stored draft content for comparison.
- * Converts \n to <br> and then to plain text (same as isDraftUnmodified).
+ * Normalizes content for Outlook (HTML) comparison.
+ * Converts \n to <br> and then to plain text, strips quoted content.
  */
-function normalizeStoredContent(content: string): string {
+function normalizeForOutlook(content: string): string {
   const withBr = content.replace(/\n/g, "<br>");
   const plainText = convertEmailHtmlToText({
     htmlText: withBr,
@@ -17,20 +17,12 @@ function normalizeStoredContent(content: string): string {
 }
 
 /**
- * Normalizes email provider response for comparison.
- * Handles Outlook HTML (bodyContentType='html') and strips quoted content.
+ * Normalizes content for Gmail (plain text) comparison.
+ * Uses parseReply to extract the reply and strips quoted content.
  */
-function normalizeProviderContent(
-  text: string,
-  bodyContentType?: "html" | "text",
-): string {
-  // If the provider returns HTML (Outlook case), convert to plain text
-  const plainText =
-    bodyContentType === "html"
-      ? convertEmailHtmlToText({ htmlText: text, includeLinks: false })
-      : text;
-
-  return stripQuotedContent(plainText).toLowerCase().trim();
+function normalizeForGmail(content: string): string {
+  const reply = parseReply(content);
+  return reply.toLowerCase().trim();
 }
 
 /**
@@ -49,23 +41,27 @@ export function calculateSimilarity(
     return 0.0;
   }
 
-  // Normalize stored content
-  const normalized1 = normalizeStoredContent(storedContent);
-
-  // Handle both ParsedMessage and plain string
+  let normalized1: string;
   let normalized2: string;
+
   if (typeof providerMessage === "string") {
-    // Legacy: plain string - use parseReply for backwards compatibility with Gmail
-    const reply = parseReply(providerMessage);
-    normalized2 = reply.toLowerCase().trim();
+    // Legacy: plain string - use Gmail normalization (parseReply) for both
+    normalized1 = normalizeForGmail(storedContent);
+    normalized2 = normalizeForGmail(providerMessage);
   } else {
-    // ParsedMessage - use proper normalization with bodyContentType
-    // Fall back to textHtml if textPlain is empty (some emails only have HTML)
+    // ParsedMessage - check bodyContentType to determine normalization strategy
+    const isOutlook = providerMessage.bodyContentType === "html";
     const text = providerMessage.textPlain || providerMessage.textHtml || "";
-    const contentType = providerMessage.textPlain
-      ? providerMessage.bodyContentType
-      : "html";
-    normalized2 = normalizeProviderContent(text, contentType);
+
+    if (isOutlook) {
+      // Outlook: use HTML-aware normalization for both
+      normalized1 = normalizeForOutlook(storedContent);
+      normalized2 = normalizeForOutlook(text);
+    } else {
+      // Gmail: use parseReply normalization for both
+      normalized1 = normalizeForGmail(storedContent);
+      normalized2 = normalizeForGmail(text);
+    }
   }
 
   if (!normalized1 || !normalized2) {

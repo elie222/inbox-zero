@@ -43,6 +43,7 @@ function getMeetingBriefingData(
   return {
     event: getCalendarEvent(),
     externalGuests: [{ email: "alice@external.com", name: "Alice External" }],
+    internalTeamMembers: [],
     emailThreads: [],
     pastMeetings: [],
     ...overrides,
