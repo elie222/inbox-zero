@@ -193,6 +193,7 @@ export function BulkRunRules() {
                         label="Include read emails"
                         enabled={includeRead}
                         onChange={(enabled) => setIncludeRead(enabled)}
+                        disabled={isProcessing || !isBusinessPlusTier}
                       />
                       {!isBusinessPlusTier && hasAiAccess && (
                         <Link
