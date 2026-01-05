@@ -119,8 +119,9 @@ export default function MeetingBriefingEmail({
 
             <Section className="px-8 pb-4">
               {renderGuestBriefings(briefingContent.guests)}
-              {briefingContent.internalTeamMembers &&
-                renderInternalTeamNote(briefingContent.internalTeamMembers)}
+              {renderInternalTeamNote(
+                briefingContent.internalTeamMembers ?? [],
+              )}
             </Section>
 
             <Section className="px-8 pb-6">

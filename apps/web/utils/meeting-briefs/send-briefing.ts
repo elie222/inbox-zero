@@ -38,7 +38,9 @@ export async function sendBriefingEmail({
 
   const unsubscribeToken = await createUnsubscribeToken({ emailAccountId });
 
-  // Merge internal team members into briefing content for the email
+  // Merge internal team members into briefing content for the email.
+  // The AI generates only {guests}, while internalTeamMembers comes from
+  // gather-context.ts (domain-based filtering, not AI-researched).
   const briefingContentWithTeam: BriefingContent = {
     ...briefingContent,
     internalTeamMembers,

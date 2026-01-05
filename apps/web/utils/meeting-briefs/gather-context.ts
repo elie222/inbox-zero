@@ -193,10 +193,9 @@ function getInternalTeamMembers(
     const normalizedAttendeeEmail = attendee.email.trim().toLowerCase();
     const attendeeDomain = extractDomainFromEmail(normalizedAttendeeEmail);
 
-    if (!attendeeDomain) return false;
-
     // Internal team members share the same domain but are not the user themselves
     return (
+      attendeeDomain &&
       attendeeDomain === normalizedUserDomain &&
       normalizedAttendeeEmail !== normalizedUserEmail
     );
