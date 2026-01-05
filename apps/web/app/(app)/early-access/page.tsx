@@ -37,7 +37,7 @@ export default function RequestAccessPage() {
                 </Button>
               </CardContent>
             </Card>
-            <Card>
+            {/* <Card>
               <CardHeader>
                 <CardTitle>Bulk Archive</CardTitle>
                 <CardDescription>
@@ -50,8 +50,8 @@ export default function RequestAccessPage() {
                   <Link href="/bulk-archive">Bulk Archive</Link>
                 </Button>
               </CardContent>
-            </Card>
-            <Card>
+            </Card> */}
+            {/* <Card>
               <CardHeader>
                 <CardTitle>Quick Bulk Archive</CardTitle>
                 <CardDescription>
@@ -64,7 +64,7 @@ export default function RequestAccessPage() {
                   <Link href="/quick-bulk-archive">Quick Bulk Archive</Link>
                 </Button>
               </CardContent>
-            </Card>
+            </Card> */}
           </>
         )}
         <Card>
