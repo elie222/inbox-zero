@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import type { PortableTextBlock } from "@portabletext/react";
 import { extractTextFromPortableTextBlock, slugify } from "@/utils/text";
 
@@ -10,9 +10,9 @@ interface TableOfContentsProps {
 
 export function TableOfContents({ body }: TableOfContentsProps) {
   const [activeId, setActiveId] = useState<string | null>(null);
-  const headings = body.filter(
-    (block) => block.style === "h2",
-    // (block) => block.style === "h2" || block.style === "h3",
+  const headings = useMemo(
+    () => body.filter((block) => block.style === "h2"),
+    [body],
   );
 
   useEffect(() => {

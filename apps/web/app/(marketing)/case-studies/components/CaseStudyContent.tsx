@@ -51,6 +51,7 @@ export function CaseStudyContent({
                     <Link
                       href={companyUrl}
                       target="_blank"
+                      rel="noopener"
                       className="text-blue-600 hover:underline"
                     >
                       {company}
