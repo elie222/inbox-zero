@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { BasicLayout } from "@/components/layouts/BasicLayout";
 import { Hero, HeroVideoPlayer } from "@/app/(landing)/home/Hero";
 import { FinalCTA } from "@/app/(landing)/home/FinalCTA";
@@ -50,9 +51,9 @@ export default function CreatorPage() {
           <ABTestimonial />
         </div>
         <div className="mt-8 flex justify-center">
-          <a href="/case-studies/study/clicks-talent-saves-60-hours-weekly">
+          <Link href="/case-studies/study/clicks-talent-saves-60-hours-weekly">
             <Button size="lg">Read their success story →</Button>
-          </a>
+          </Link>
         </div>
       </Banner>
       <CreatorFeatures />

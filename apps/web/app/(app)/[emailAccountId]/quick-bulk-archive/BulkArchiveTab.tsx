@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
+import { toast } from "sonner";
 import Link from "next/link";
 import {
   ArchiveIcon,
@@ -122,12 +123,7 @@ const confidenceConfig = {
   },
 };
 
-export function BulkArchiveTab({
-  emailGroups,
-}: {
-  emailGroups: EmailGroup[];
-  categories: CategoryWithRules[];
-}) {
+export function BulkArchiveTab({ emailGroups }: { emailGroups: EmailGroup[] }) {
   const { emailAccountId, userEmail } = useAccount();
   const [expandedSenders, setExpandedSenders] = useState<
     Record<string, boolean>
@@ -227,15 +223,19 @@ export function BulkArchiveTab({
     setIsArchiving(true);
     const toArchive = candidates.filter((c) => selectedSenders[c.address]);
 
-    for (const candidate of toArchive) {
-      await addToArchiveSenderQueue({
-        sender: candidate.address,
-        emailAccountId,
-      });
+    try {
+      for (const candidate of toArchive) {
+        await addToArchiveSenderQueue({
+          sender: candidate.address,
+          emailAccountId,
+        });
+      }
+      setArchiveComplete(true);
+    } catch {
+      toast.error("Failed to archive some senders. Please try again.");
+    } finally {
+      setIsArchiving(false);
     }
-
-    setArchiveComplete(true);
-    setIsArchiving(false);
   };
 
   if (archiveComplete) {
@@ -617,14 +617,12 @@ function ExpandedEmails({
     );
   }
 
-  const totalCount = data.threads.length;
-  const displayedCount = Math.min(5, totalCount);
-
   return (
     <div className="border-t bg-muted/30">
       <div className="py-2">
         {data.threads.slice(0, 5).map((thread) => {
           const firstMessage = thread.messages[0];
+          if (!firstMessage) return null;
           const subject = firstMessage.subject;
           const date = firstMessage.date;
           const snippet = thread.snippet || firstMessage.snippet;
@@ -669,13 +667,6 @@ function ExpandedEmails({
           );
         })}
       </div>
-      {totalCount > displayedCount && (
-        <div className="border-t px-4 py-2">
-          <span className="text-sm text-muted-foreground">
-            +{totalCount - displayedCount} more emails
-          </span>
-        </div>
-      )}
     </div>
   );
 }

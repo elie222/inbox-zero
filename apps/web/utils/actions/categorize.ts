@@ -299,12 +299,12 @@ export const createAllDefaultCategoriesAction = actionClient
         description: c.description,
       }));
 
-    await prisma.category.createMany({
+    const result = await prisma.category.createMany({
       data: categoriesToCreate,
       skipDuplicates: true,
     });
 
     revalidatePath(prefixPath(emailAccountId, "/bulk-archive"));
 
-    return { created: categoriesToCreate.length };
+    return { created: result.count };
   });

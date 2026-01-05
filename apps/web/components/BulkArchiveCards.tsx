@@ -592,14 +592,12 @@ function ExpandedEmails({
     );
   }
 
-  const totalCount = data.threads.length;
-  const displayedCount = Math.min(5, totalCount);
-
   return (
     <div className="border-t bg-muted/30">
       <div className="py-2">
         {data.threads.slice(0, 5).map((thread) => {
           const firstMessage = thread.messages[0];
+          if (!firstMessage) return null;
           const subject = firstMessage.subject;
           const date = firstMessage.date;
           const snippet = thread.snippet || firstMessage.snippet;
@@ -645,16 +643,6 @@ function ExpandedEmails({
           );
         })}
       </div>
-      {totalCount > displayedCount && (
-        <div className="border-t px-4 py-2">
-          <button
-            type="button"
-            className="text-sm text-muted-foreground hover:text-foreground"
-          >
-            +{totalCount - displayedCount} more emails
-          </button>
-        </div>
-      )}
     </div>
   );
 }

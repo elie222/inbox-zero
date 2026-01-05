@@ -57,7 +57,6 @@ export default async function QuickBulkArchivePage({
                 ) || null,
             }),
           )}
-          categories={categories}
         />
       </ClientOnly>
     </>
