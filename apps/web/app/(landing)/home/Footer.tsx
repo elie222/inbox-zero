@@ -9,6 +9,7 @@ export const footerNavigation = {
       target: "_blank",
     },
     { name: "AI Email Assistant", href: "/ai-automation" },
+    { name: "Brief My Meeting", href: "/brief-my-meeting" },
     { name: "Reply Zero", href: "/reply-zero-ai" },
     { name: "Bulk Email Unsubscriber", href: "/bulk-email-unsubscriber" },
     { name: "Clean your inbox", href: "/clean-inbox" },
