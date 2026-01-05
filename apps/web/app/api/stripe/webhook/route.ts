@@ -17,26 +17,21 @@ export const POST = withError("stripe/webhook", async (request) => {
 
   if (!signature) return NextResponse.json({}, { status: 400 });
 
-  async function doEventProcessing() {
-    if (typeof signature !== "string") throw new Error("Header isn't a string");
-
-    if (!env.STRIPE_WEBHOOK_SECRET)
-      throw new Error("STRIPE_WEBHOOK_SECRET is not set");
-
-    const event = getStripe().webhooks.constructEvent(
-      body,
-      signature,
-      env.STRIPE_WEBHOOK_SECRET,
-    );
-
-    after(() => processEvent(event, logger));
+  if (typeof signature !== "string") {
+    throw new Error("Header isn't a string");
   }
 
-  try {
-    await doEventProcessing();
-  } catch (error) {
-    logger.error("Error processing event", { error });
+  if (!env.STRIPE_WEBHOOK_SECRET) {
+    throw new Error("STRIPE_WEBHOOK_SECRET is not set");
   }
+
+  const event = getStripe().webhooks.constructEvent(
+    body,
+    signature,
+    env.STRIPE_WEBHOOK_SECRET,
+  );
+
+  after(() => processEvent(event, logger));
 
   return NextResponse.json({ received: true });
 });
