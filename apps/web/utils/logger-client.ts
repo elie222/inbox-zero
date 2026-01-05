@@ -1,5 +1,6 @@
 /** biome-ignore-all lint/suspicious/noConsole: we use console.log for development logs */
 import { log } from "next-axiom";
+import { env } from "@/env";
 
 /**
  * Client-safe logger that doesn't access server-side env vars.
@@ -7,7 +8,7 @@ import { log } from "next-axiom";
  * and falls back to console otherwise.
  */
 export function createClientLogger(scope: string) {
-  const hasAxiom = !!process.env.NEXT_PUBLIC_AXIOM_TOKEN;
+  const hasAxiom = !!env.NEXT_PUBLIC_AXIOM_TOKEN;
 
   if (hasAxiom) {
     return {
