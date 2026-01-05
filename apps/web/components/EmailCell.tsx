@@ -14,10 +14,13 @@ export const EmailCell = memo(function EmailCell({
   const name = emailAddress.split("<")[0].trim();
   const email = parseEmail(emailAddress);
 
+  // Only show subtitle if name and email are different
+  const showSubtitle = name !== email;
+
   return (
     <div className={className}>
       <div>{name}</div>
-      <div className="text-muted-foreground">{email}</div>
+      {showSubtitle && <div className="text-muted-foreground">{email}</div>}
     </div>
   );
 });
