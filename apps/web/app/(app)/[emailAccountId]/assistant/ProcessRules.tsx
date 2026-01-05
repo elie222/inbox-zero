@@ -27,7 +27,6 @@ import type { RunRulesResult } from "@/utils/ai/choose-rule/run-rules";
 import { SearchForm } from "@/components/SearchForm";
 import type { BatchExecutedRulesResponse } from "@/app/api/user/executed-rules/batch/route";
 import { isAIRule, isGroupRule, isStaticRule } from "@/utils/condition";
-import { BulkRunRules } from "@/app/(app)/[emailAccountId]/assistant/BulkRunRules";
 import { cn } from "@/utils";
 import { TestCustomEmailForm } from "@/app/(app)/[emailAccountId]/assistant/TestCustomEmailForm";
 import { ResultsDisplay } from "@/app/(app)/[emailAccountId]/assistant/ResultDisplay";
@@ -249,8 +248,6 @@ export function ProcessRulesContent({ testMode }: { testMode: boolean }) {
               {testMode ? "Test All" : "Run on All"}
             </Button>
           )}
-
-          {!testMode && <BulkRunRules />}
         </div>
 
         <div className="flex items-center gap-2">
