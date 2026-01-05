@@ -13,11 +13,11 @@ export function createClientLogger(scope: string) {
   if (hasAxiom) {
     return {
       info: (message: string, args?: Record<string, unknown>) =>
-        log.info(message, { scope, ...args }),
+        log.info(message, { scope, ...(args ?? {}) }),
       error: (message: string, args?: Record<string, unknown>) =>
-        log.error(message, { scope, ...args }),
+        log.error(message, { scope, ...(args ?? {}) }),
       warn: (message: string, args?: Record<string, unknown>) =>
-        log.warn(message, { scope, ...args }),
+        log.warn(message, { scope, ...(args ?? {}) }),
       flush: () => log.flush(),
     };
   }
