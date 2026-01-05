@@ -23,7 +23,5 @@ export default async function OrganizationPage({
     redirect(prefixPath(emailAccountId, "/organization/create"));
   }
 
-  redirect(
-    prefixPath(emailAccountId, `/organization/${member.organizationId}`),
-  );
+  redirect(`/organization/${member.organizationId}`);
 }
