@@ -182,9 +182,9 @@ const ActionCard = React.forwardRef<
             )}
             <div>
               <h3 className="text-lg font-semibold">{title}</h3>
-              <p className="mt-1 text-sm text-muted-foreground">
+              <div className="mt-1 text-sm text-muted-foreground">
                 {description}
-              </p>
+              </div>
             </div>
           </div>
           {action && <div className="flex-shrink-0">{action}</div>}
