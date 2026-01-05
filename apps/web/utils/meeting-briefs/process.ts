@@ -209,6 +209,7 @@ export async function runMeetingBrief({
     await sendBriefingEmail({
       event,
       briefingContent,
+      internalTeamMembers: briefingData.internalTeamMembers,
       emailAccountId,
       userEmail,
       provider,

@@ -16,8 +16,14 @@ export type GuestBriefing = {
   bullets: string[];
 };
 
+export type InternalTeamMember = {
+  name?: string;
+  email: string;
+};
+
 export type BriefingContent = {
   guests: GuestBriefing[];
+  internalTeamMembers?: InternalTeamMember[];
 };
 
 export type MeetingBriefingEmailProps = {
@@ -49,6 +55,20 @@ function renderGuestBriefings(guests: GuestBriefing[]) {
       ))}
     </div>
   ));
+}
+
+function renderInternalTeamNote(internalTeamMembers: InternalTeamMember[]) {
+  if (internalTeamMembers.length === 0) return null;
+
+  const names = internalTeamMembers
+    .map((member) => member.name || member.email)
+    .join(", ");
+
+  return (
+    <Text className="text-xs text-gray-500 mt-4 mb-0 italic">
+      Also attending: {names} (internal team members - no briefing included)
+    </Text>
+  );
 }
 
 export default function MeetingBriefingEmail({
@@ -99,6 +119,8 @@ export default function MeetingBriefingEmail({
 
             <Section className="px-8 pb-4">
               {renderGuestBriefings(briefingContent.guests)}
+              {briefingContent.internalTeamMembers &&
+                renderInternalTeamNote(briefingContent.internalTeamMembers)}
             </Section>
 
             <Section className="px-8 pb-6">
@@ -161,6 +183,10 @@ MeetingBriefingEmail.PreviewProps = {
           "Technical evaluator for the deal",
         ],
       },
+    ],
+    internalTeamMembers: [
+      { name: "Alice Chen", email: "alice@mycompany.com" },
+      { name: "Bob Williams", email: "bob@mycompany.com" },
     ],
   },
 };
