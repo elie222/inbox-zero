@@ -19,6 +19,7 @@ import {
 } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Uncategorized } from "@/app/(app)/[emailAccountId]/smart-categories/Uncategorized";
+import { BulkArchiveTab } from "@/app/(app)/[emailAccountId]/smart-categories/BulkArchiveTab";
 import { PermissionsCheck } from "@/app/(app)/[emailAccountId]/PermissionsCheck";
 import { ArchiveProgress } from "@/app/(app)/[emailAccountId]/bulk-unsubscribe/ArchiveProgress";
 import { PremiumAlertWithData } from "@/components/PremiumAlert";
@@ -76,6 +77,7 @@ export default async function CategoriesPage({
             <TabsList>
               <TabsTrigger value="categories">Categories</TabsTrigger>
               <TabsTrigger value="uncategorized">Uncategorized</TabsTrigger>
+              <TabsTrigger value="bulk-archive">Bulk Archive</TabsTrigger>
             </TabsList>
 
             <div className="flex items-center gap-2">
@@ -142,6 +144,24 @@ export default async function CategoriesPage({
                 emailAccount?.autoCategorizeSenders || false
               }
             />
+          </TabsContent>
+
+          <TabsContent value="bulk-archive" className="m-0">
+            <ClientOnly>
+              <BulkArchiveTab
+                emailGroups={sortBy(
+                  senders,
+                  (sender) => sender.category?.name,
+                ).map((sender) => ({
+                  address: sender.email,
+                  category:
+                    categories.find(
+                      (category) => category.id === sender.category?.id,
+                    ) || null,
+                }))}
+                categories={categories}
+              />
+            </ClientOnly>
           </TabsContent>
         </Tabs>
       </Suspense>
