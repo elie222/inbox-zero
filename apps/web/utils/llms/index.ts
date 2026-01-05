@@ -29,7 +29,7 @@ import {
   isIncorrectOpenAIAPIKeyError,
   isInvalidOpenAIModelError,
   isOpenAIAPIKeyDeactivatedError,
-  isOpenAIRetryError,
+  isAiQuotaExceededError,
   isServiceUnavailableError,
 } from "@/utils/error";
 import { getModel, type ModelType } from "@/utils/llms/model";
@@ -316,14 +316,14 @@ async function handleError(
     modelName,
   });
 
-  if (RetryError.isInstance(error) && isOpenAIRetryError(error)) {
+  if (RetryError.isInstance(error) && isAiQuotaExceededError(error)) {
     return await addUserErrorMessageWithNotification({
       userId,
       userEmail,
       emailAccountId,
-      errorType: ErrorType.OPENAI_RETRY_ERROR,
+      errorType: ErrorType.AI_QUOTA_ERROR,
       errorMessage:
-        "You have exceeded your OpenAI API quota. Please check your OpenAI account.",
+        "Your AI provider is rate-limiting your requests. This may temporarily degrade performance.",
       logger,
     });
   }
