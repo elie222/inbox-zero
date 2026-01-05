@@ -1,4 +1,3 @@
-import sortBy from "lodash/sortBy";
 import prisma from "@/utils/prisma";
 import { ClientOnly } from "@/components/ClientOnly";
 import { TopBar } from "@/components/TopBar";
@@ -7,7 +6,7 @@ import { PermissionsCheck } from "@/app/(app)/[emailAccountId]/PermissionsCheck"
 import { ArchiveProgress } from "@/app/(app)/[emailAccountId]/bulk-unsubscribe/ArchiveProgress";
 import { PremiumAlertWithData } from "@/components/PremiumAlert";
 import { checkUserOwnsEmailAccount } from "@/utils/email-account";
-import { BulkArchiveCards } from "@/components/BulkArchiveCards";
+import { BulkArchiveContent } from "@/app/(app)/[emailAccountId]/bulk-archive/BulkArchiveContent";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
@@ -47,17 +46,9 @@ export default async function BulkArchivePage({
       </TopBar>
 
       <ClientOnly>
-        <BulkArchiveCards
-          emailGroups={sortBy(senders, (sender) => sender.category?.name).map(
-            (sender) => ({
-              address: sender.email,
-              category:
-                categories.find(
-                  (category) => category.id === sender.category?.id,
-                ) || null,
-            }),
-          )}
-          categories={categories}
+        <BulkArchiveContent
+          initialSenders={senders}
+          initialCategories={categories}
         />
       </ClientOnly>
     </>

@@ -287,3 +287,24 @@ export const removeAllFromCategoryAction = actionClient
       revalidatePath(prefixPath(emailAccountId, "/smart-categories"));
     },
   );
+
+export const createAllDefaultCategoriesAction = actionClient
+  .metadata({ name: "createAllDefaultCategories" })
+  .action(async ({ ctx: { emailAccountId } }) => {
+    const categoriesToCreate = Object.values(defaultCategory)
+      .filter((c) => c.enabled)
+      .map((c) => ({
+        emailAccountId,
+        name: c.name,
+        description: c.description,
+      }));
+
+    await prisma.category.createMany({
+      data: categoriesToCreate,
+      skipDuplicates: true,
+    });
+
+    revalidatePath(prefixPath(emailAccountId, "/bulk-archive"));
+
+    return { created: categoriesToCreate.length };
+  });

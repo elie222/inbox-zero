@@ -1,0 +1,87 @@
+"use client";
+
+import { useState, useCallback } from "react";
+import { toast } from "sonner";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import {
+  createAllDefaultCategoriesAction,
+  bulkCategorizeSendersAction,
+} from "@/utils/actions/categorize";
+import { useAccount } from "@/providers/EmailAccountProvider";
+import { useCategorizeProgress } from "@/app/(app)/[emailAccountId]/smart-categories/CategorizeProgress";
+
+export function AutoCategorizationSetup({
+  hasCategorizedSenders,
+}: {
+  hasCategorizedSenders: boolean;
+}) {
+  const { emailAccountId } = useAccount();
+  const { setIsBulkCategorizing } = useCategorizeProgress();
+
+  const [isEnabling, setIsEnabling] = useState(false);
+
+  const enableFeature = useCallback(async () => {
+    setIsEnabling(true);
+
+    try {
+      // Step 1: Create default categories
+      const createResult =
+        await createAllDefaultCategoriesAction(emailAccountId);
+      if (createResult?.serverError) {
+        throw new Error(createResult.serverError);
+      }
+
+      // Step 2: Start bulk categorization
+      setIsBulkCategorizing(true);
+      const categorizeResult =
+        await bulkCategorizeSendersAction(emailAccountId);
+
+      if (categorizeResult?.serverError) {
+        throw new Error(categorizeResult.serverError);
+      }
+
+      toast.success(
+        categorizeResult?.data?.totalUncategorizedSenders
+          ? `Categorizing ${categorizeResult.data.totalUncategorizedSenders} senders... This may take a few minutes.`
+          : "No uncategorized senders found.",
+      );
+    } catch (error) {
+      toast.error(
+        `Failed to enable feature: ${error instanceof Error ? error.message : "Unknown error"}`,
+      );
+      setIsBulkCategorizing(false);
+    } finally {
+      setIsEnabling(false);
+    }
+  }, [emailAccountId, setIsBulkCategorizing]);
+
+  // Don't show setup if user already has categorized senders
+  if (hasCategorizedSenders) {
+    return null;
+  }
+
+  return (
+    <Card className="m-4">
+      <CardHeader>
+        <CardTitle>Bulk Archive</CardTitle>
+        <CardDescription>
+          Archive emails in bulk by sender category. We'll first categorize your
+          senders into groups like Newsletters, Receipts, Marketing, etc. Then
+          you can quickly archive entire categories at once.
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <Button onClick={enableFeature} loading={isEnabling}>
+          Enable feature
+        </Button>
+      </CardContent>
+    </Card>
+  );
+}
