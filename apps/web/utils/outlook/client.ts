@@ -245,7 +245,6 @@ export function getLinkingOAuth2Url() {
     redirect_uri: `${env.NEXT_PUBLIC_BASE_URL}/api/outlook/linking/callback`,
     scope: SCOPES.join(" "),
     // we can't use select_account because we need a new refresh token if the users is stale
-    // select_account would be better if the user has multiple outlook accounts
     prompt: "consent",
   });
 
