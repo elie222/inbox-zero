@@ -106,6 +106,21 @@ const CardGreen = React.forwardRef<
 ));
 CardGreen.displayName = "CardGreen";
 
+const CardBlue = React.forwardRef<
+  HTMLDivElement,
+  React.HTMLAttributes<HTMLDivElement>
+>(({ className, ...props }, ref) => (
+  <Card
+    ref={ref}
+    className={cn(
+      "border-blue-100 bg-gradient-to-tr from-transparent via-blue-50/80 to-blue-500/15 dark:border-blue-900 dark:from-blue-950/50 dark:via-blue-900/20 dark:to-blue-800/10",
+      className,
+    )}
+    {...props}
+  />
+));
+CardBlue.displayName = "CardBlue";
+
 const ActionCard = React.forwardRef<
   HTMLDivElement,
   React.HTMLAttributes<HTMLDivElement> & {
@@ -113,25 +128,49 @@ const ActionCard = React.forwardRef<
     title: string;
     description: string;
     action?: React.ReactNode;
+    variant?: "green" | "blue";
   }
->(({ className, icon, title, description, action, ...props }, ref) => (
-  <CardGreen ref={ref} className={cn("max-w-2xl", className)} {...props}>
-    <div className="flex items-center justify-between gap-4 p-6">
-      <div className="flex items-start gap-3">
-        {icon && (
-          <div className="mt-0.5 flex-shrink-0 text-green-600 dark:text-green-400">
-            {icon}
+>(
+  (
+    {
+      className,
+      icon,
+      title,
+      description,
+      action,
+      variant = "green",
+      ...props
+    },
+    ref,
+  ) => {
+    const CardVariant = variant === "blue" ? CardBlue : CardGreen;
+    const iconColor =
+      variant === "blue"
+        ? "text-blue-600 dark:text-blue-400"
+        : "text-green-600 dark:text-green-400";
+
+    return (
+      <CardVariant ref={ref} className={cn("max-w-2xl", className)} {...props}>
+        <div className="flex items-center justify-between gap-4 p-6">
+          <div className="flex items-start gap-3">
+            {icon && (
+              <div className={cn("mt-0.5 flex-shrink-0", iconColor)}>
+                {icon}
+              </div>
+            )}
+            <div>
+              <h3 className="text-lg font-semibold">{title}</h3>
+              <p className="mt-1 text-sm text-muted-foreground">
+                {description}
+              </p>
+            </div>
           </div>
-        )}
-        <div>
-          <h3 className="text-lg font-semibold">{title}</h3>
-          <p className="mt-1 text-sm text-muted-foreground">{description}</p>
+          {action && <div className="flex-shrink-0">{action}</div>}
         </div>
-      </div>
-      {action && <div className="flex-shrink-0">{action}</div>}
-    </div>
-  </CardGreen>
-));
+      </CardVariant>
+    );
+  },
+);
 ActionCard.displayName = "ActionCard";
 
 export {
@@ -143,5 +182,6 @@ export {
   CardContent,
   CardBasic,
   CardGreen,
+  CardBlue,
   ActionCard,
 };
