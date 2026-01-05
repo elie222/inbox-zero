@@ -323,7 +323,7 @@ async function handleError(
       emailAccountId,
       errorType: ErrorType.AI_QUOTA_ERROR,
       errorMessage:
-        "Your AI provider is rate-limiting your requests. This may temporarily degrade performance.",
+        "Your AI provider has rejected requests due to rate limits or quota. Please check your provider account if this persists.",
       logger,
     });
   }

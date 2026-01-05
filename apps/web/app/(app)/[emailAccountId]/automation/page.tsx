@@ -15,6 +15,7 @@ import { SettingsTab } from "@/app/(app)/[emailAccountId]/assistant/settings/Set
 import { TabSelect } from "@/components/TabSelect";
 import { RulesTab } from "@/app/(app)/[emailAccountId]/assistant/RulesTabNew";
 import { AIChatButton } from "@/app/(app)/[emailAccountId]/assistant/AIChatButton";
+import { AllRulesDisabledBanner } from "@/app/(app)/[emailAccountId]/assistant/AllRulesDisabledBanner";
 import { PageWrapper } from "@/components/PageWrapper";
 import { PageHeader } from "@/components/PageHeader";
 import { DismissibleVideoCard } from "@/components/VideoCard";
@@ -103,6 +104,8 @@ export default async function AutomationPage({
               <AIChatButton />
             </div>
           </div>
+
+          <AllRulesDisabledBanner />
 
           <div className="border-b border-neutral-200 pt-2">
             <TabSelect

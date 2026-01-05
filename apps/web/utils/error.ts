@@ -133,13 +133,15 @@ export function isAnthropicInsufficientBalanceError(
 // Handling AI quota/retry errors. This can be related to the user's own API quota or the system's quota.
 export function isAiQuotaExceededError(error: RetryError): boolean {
   const message = error.message.toLowerCase();
-  return (
-    message.includes("exceeded your current quota") ||
-    message.includes("quota exceeded") ||
-    message.includes("rate limit reached") ||
-    message.includes("rate_limit_reached") ||
-    message.includes("too many requests")
-  );
+  const quotaErrorMessages = [
+    "exceeded your current quota",
+    "quota exceeded",
+    "rate limit reached",
+    "rate_limit_reached",
+    "too many requests",
+    "hit a rate limit",
+  ];
+  return quotaErrorMessages.some((substr) => message.includes(substr));
 }
 
 export function isAWSThrottlingError(error: unknown): error is Error {
