@@ -7,7 +7,7 @@ export function getAndClearAuthErrorCookie(): string | undefined {
     .join("=");
 
   if (authErrorCookie) {
-    document.cookie = "auth_error=; path=/; max-age=0";
+    document.cookie = "auth_error=; path=/; max-age=0; SameSite=Lax; Secure";
   }
 
   return authErrorCookie;

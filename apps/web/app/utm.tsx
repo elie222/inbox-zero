@@ -15,17 +15,17 @@ function setUtmCookies() {
   const expires = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toUTCString();
 
   if (utmSource)
-    document.cookie = `utm_source=${utmSource}; expires=${expires}; path=/`;
+    document.cookie = `utm_source=${utmSource}; expires=${expires}; path=/; SameSite=Lax; Secure`;
   if (utmMedium)
-    document.cookie = `utm_medium=${utmMedium}; expires=${expires}; path=/`;
+    document.cookie = `utm_medium=${utmMedium}; expires=${expires}; path=/; SameSite=Lax; Secure`;
   if (utmCampaign)
-    document.cookie = `utm_campaign=${utmCampaign}; expires=${expires}; path=/`;
+    document.cookie = `utm_campaign=${utmCampaign}; expires=${expires}; path=/; SameSite=Lax; Secure`;
   if (utmTerm)
-    document.cookie = `utm_term=${utmTerm}; expires=${expires}; path=/`;
+    document.cookie = `utm_term=${utmTerm}; expires=${expires}; path=/; SameSite=Lax; Secure`;
   if (affiliate)
-    document.cookie = `affiliate=${affiliate}; expires=${expires}; path=/`;
+    document.cookie = `affiliate=${affiliate}; expires=${expires}; path=/; SameSite=Lax; Secure`;
   if (referralCode)
-    document.cookie = `referral_code=${referralCode}; expires=${expires}; path=/`;
+    document.cookie = `referral_code=${referralCode}; expires=${expires}; path=/; SameSite=Lax; Secure`;
 }
 
 export function UTM() {
