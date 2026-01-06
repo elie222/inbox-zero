@@ -132,7 +132,7 @@ describe("getArchiveCandidates", () => {
       const result = getArchiveCandidates(groups);
 
       expect(result[0].confidence).toBe("low");
-      expect(result[0].reason).toBe("Infrequent sender");
+      expect(result[0].reason).toBe("Other category");
     });
 
     it("should classify unrecognized categories as low confidence", () => {
