@@ -31,7 +31,11 @@ export default async function OnboardingPage(props: {
     cookieStore,
   });
 
-  if (utmValues.utmSource === "briefmymeeting" && !searchParams.force) {
+  if (
+    utmValues.utmSource === "briefmymeeting" &&
+    !searchParams.force &&
+    !searchParams.step
+  ) {
     redirect(`/${emailAccountId}/onboarding-brief`);
   }
 
