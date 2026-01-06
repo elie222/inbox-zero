@@ -1,6 +1,8 @@
+import { Suspense } from "react";
 import { getThreadsByJobId } from "@/utils/redis/clean";
 import prisma from "@/utils/prisma";
 import { CardTitle } from "@/components/ui/card";
+import { Loading } from "@/components/Loading";
 import {
   getJobById,
   getLastJob,
@@ -44,12 +46,14 @@ export default async function CleanRunPage(props: {
   ]);
 
   return (
-    <CleanRun
-      isPreviewBatch={isPreviewBatch === "true"}
-      job={job}
-      threads={threads}
-      total={total}
-      done={done}
-    />
+    <Suspense fallback={<Loading />}>
+      <CleanRun
+        isPreviewBatch={isPreviewBatch === "true"}
+        job={job}
+        threads={threads}
+        total={total}
+        done={done}
+      />
+    </Suspense>
   );
 }

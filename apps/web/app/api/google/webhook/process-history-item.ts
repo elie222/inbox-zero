@@ -4,6 +4,7 @@ import { HistoryEventType } from "@/app/api/google/webhook/types";
 import { createEmailProvider } from "@/utils/email/provider";
 import { handleLabelRemovedEvent } from "@/app/api/google/webhook/process-label-removed-event";
 import { processHistoryItem as processHistoryItemShared } from "@/utils/webhook/process-history-item";
+import { markMessageAsProcessing } from "@/utils/redis/message-processing";
 import type { Logger } from "@/utils/logger";
 
 export async function processHistoryItem(
@@ -44,6 +45,16 @@ export async function processHistoryItem(
     );
   } else if (type === HistoryEventType.LABEL_ADDED) {
     logger.info("Processing label added event for learning");
+    return;
+  }
+
+  // Lock before fetching to avoid extra API calls for duplicate webhooks
+  const isFree = await markMessageAsProcessing({
+    userEmail: emailAccount.email,
+    messageId,
+  });
+  if (!isFree) {
+    logger.info("Skipping. Message already being processed.");
     return;
   }
 
