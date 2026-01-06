@@ -326,6 +326,14 @@ async function fetchGmailHistoryResilient({
       historyTypes: ["messageAdded", "labelAdded", "labelRemoved"],
       maxResults: 500,
     });
+
+    if (data.nextPageToken) {
+      logger.warn("Gmail history has more pages that were not fetched", {
+        historyItemCount: data.history?.length ?? 0,
+        startHistoryId,
+      });
+    }
+
     return { status: "success", data, startHistoryId };
   } catch (error) {
     // Gmail history IDs are typically valid for ~1 week. If older, Gmail returns a 404.
