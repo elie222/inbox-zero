@@ -1,5 +1,6 @@
 import { Suspense } from "react";
 import { Card, CardTitle } from "@/components/ui/card";
+import { Loading } from "@/components/Loading";
 import { IntroStep } from "@/app/(app)/[emailAccountId]/clean/IntroStep";
 import { ActionSelectionStep } from "@/app/(app)/[emailAccountId]/clean/ActionSelectionStep";
 import { CleanInstructionsStep } from "@/app/(app)/[emailAccountId]/clean/CleanInstructionsStep";
@@ -96,14 +97,7 @@ export default async function CleanPage(props: {
   return (
     <div>
       <Card className="my-4 max-w-2xl p-6 sm:mx-4 md:mx-auto">
-        <Suspense
-          key={step}
-          fallback={
-            <div className="flex h-[400px] items-center justify-center">
-              Loading...
-            </div>
-          }
-        >
+        <Suspense key={step} fallback={<Loading />}>
           {renderStepContent()}
         </Suspense>
       </Card>
