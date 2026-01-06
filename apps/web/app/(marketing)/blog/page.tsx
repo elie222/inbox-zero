@@ -79,7 +79,7 @@ const mdxPosts: Post[] = [
     title: "Alternatives to Skiff Mail",
     file: "alternatives-to-skiff-mail",
     description:
-      "Notion recently aqcuired Skiff Mail and is sunsetting it in six months. Here are some good alternatives to consider for your email needs.",
+      "Notion recently acquired Skiff Mail and is sunsetting it in six months. Here are some good alternatives to consider for your email needs.",
     date: "Feb 22, 2024",
     datetime: "2024-02-22",
     // category: { title: "Marketing", href: "#" },
@@ -256,7 +256,7 @@ function Posts({ posts }: { posts: SanityPost[] }) {
 
 function PostCard({ post }: { post: Post }) {
   return (
-    <Card className="overflow-hidden transition-transform duration-300 hover:scale-105">
+    <Card className="group overflow-hidden transition-transform duration-300 hover:scale-105">
       <Link href={`/blog/post/${post.file}`}>
         <div className="relative h-48 w-full">
           <Image

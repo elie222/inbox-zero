@@ -14,7 +14,7 @@ import { WordReveal } from "@/components/new-landing/common/WordReveal";
 export const metadata: Metadata = {
   title: "AI Email Assistant for Influencers & Content Creators | Inbox Zero",
   description:
-    "Get an AI virtual assistant that manages your brand emails, collaboration requests, and fan inquiries automatically. Save hours every week and focus on creating content while AI handles your inbox.",
+    "AI assistant that manages brand emails, collaborations & fan inquiries. Save hours weekly on email while focusing on content creation.",
   alternates: { canonical: "/creator" },
 };
 

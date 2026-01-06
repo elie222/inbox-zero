@@ -225,14 +225,20 @@ export function BulkArchiveCards({
       (s) => selectedSenders[s.address] !== false,
     );
 
-    for (const sender of selectedToArchive) {
-      await addToArchiveSenderQueue({
-        sender: sender.address,
-        emailAccountId,
+    try {
+      for (const sender of selectedToArchive) {
+        await addToArchiveSenderQueue({
+          sender: sender.address,
+          emailAccountId,
+        });
+      }
+
+      setArchivedCategories((prev) => ({ ...prev, [categoryName]: true }));
+    } catch (error) {
+      toastError({
+        description: "Failed to archive some senders. Please try again.",
       });
     }
-
-    setArchivedCategories((prev) => ({ ...prev, [categoryName]: true }));
   };
 
   const onEditCategory = (categoryName: string) => {

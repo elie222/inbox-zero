@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import { BasicLayout } from "@/components/layouts/BasicLayout";
 import { FAQs } from "@/app/(landing)/home/FAQs";
 import { Hero, HeroVideoPlayer } from "@/app/(landing)/home/Hero";
-import { FinalCTA } from "@/app/(landing)/home/FinalCTA";
 import { Banner } from "@/components/Banner";
 import { OrganizedInbox } from "@/components/new-landing/sections/OrganizedInbox";
 import { StartedInMinutes } from "@/components/new-landing/sections/StartedInMinutes";
