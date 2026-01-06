@@ -37,7 +37,7 @@ export function ProgressPanel({
             value={progress}
             innerClassName={isCompleted ? "bg-green-500" : "bg-blue-500"}
           />
-          <p className="mt-2 flex justify-between text-sm" aria-live="polite">
+          <div className="mt-2 flex justify-between text-sm" aria-live="polite">
             <span
               className={cn(
                 "text-muted-foreground",
@@ -56,7 +56,7 @@ export function ProgressPanel({
             <span>
               {totalProcessed} of {totalItems} {itemLabel} processed
             </span>
-          </p>
+          </div>
         </motion.div>
       </AnimatePresence>
     </div>
