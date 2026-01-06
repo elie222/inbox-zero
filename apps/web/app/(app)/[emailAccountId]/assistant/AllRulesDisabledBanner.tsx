@@ -18,8 +18,7 @@ export function AllRulesDisabledBanner() {
 
   if (isLoading || !rules) return null;
 
-  const allRulesDisabled =
-    rules.length > 0 && rules.every((rule) => !rule.enabled);
+  const allRulesDisabled = rules.every((rule) => !rule.enabled);
 
   if (!allRulesDisabled) return null;
 
