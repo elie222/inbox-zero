@@ -10,10 +10,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import {
-  createAllDefaultCategoriesAction,
-  bulkCategorizeSendersAction,
-} from "@/utils/actions/categorize";
+import { bulkCategorizeSendersAction } from "@/utils/actions/categorize";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { useCategorizeProgress } from "@/app/(app)/[emailAccountId]/smart-categories/CategorizeProgress";
 
@@ -29,27 +26,18 @@ export function AutoCategorizationSetup({
 
   const enableFeature = useCallback(async () => {
     setIsEnabling(true);
+    setIsBulkCategorizing(true);
 
     try {
-      // Step 1: Create default categories
-      const createResult =
-        await createAllDefaultCategoriesAction(emailAccountId);
-      if (createResult?.serverError) {
-        throw new Error(createResult.serverError);
-      }
+      const result = await bulkCategorizeSendersAction(emailAccountId);
 
-      // Step 2: Start bulk categorization
-      setIsBulkCategorizing(true);
-      const categorizeResult =
-        await bulkCategorizeSendersAction(emailAccountId);
-
-      if (categorizeResult?.serverError) {
-        throw new Error(categorizeResult.serverError);
+      if (result?.serverError) {
+        throw new Error(result.serverError);
       }
 
       toast.success(
-        categorizeResult?.data?.totalUncategorizedSenders
-          ? `Categorizing ${categorizeResult.data.totalUncategorizedSenders} senders... This may take a few minutes.`
+        result?.data?.totalUncategorizedSenders
+          ? `Categorizing ${result.data.totalUncategorizedSenders} senders... This may take a few minutes.`
           : "No uncategorized senders found.",
       );
     } catch (error) {

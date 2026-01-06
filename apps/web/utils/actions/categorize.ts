@@ -31,6 +31,20 @@ export const bulkCategorizeSendersAction = actionClient
   .action(async ({ ctx: { emailAccountId, logger } }) => {
     await validateUserAndAiAccess({ emailAccountId });
 
+    // Ensure default categories exist before categorizing
+    const categoriesToCreate = Object.values(defaultCategory)
+      .filter((c) => c.enabled)
+      .map((c) => ({
+        emailAccountId,
+        name: c.name,
+        description: c.description,
+      }));
+
+    await prisma.category.createMany({
+      data: categoriesToCreate,
+      skipDuplicates: true,
+    });
+
     // Delete empty queues as Qstash has a limit on how many queues we can have
     // We could run this in a cron too but simplest to do here for now
     deleteEmptyCategorizeSendersQueues({
