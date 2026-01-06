@@ -30,65 +30,12 @@ import { useAccount } from "@/providers/EmailAccountProvider";
 import { useThreads } from "@/hooks/useThreads";
 import { formatShortDate } from "@/utils/date";
 import { getEmailUrl } from "@/utils/url";
-import type { CategoryWithRules } from "@/utils/category.server";
-
-type EmailGroup = {
-  address: string;
-  category: CategoryWithRules | null;
-};
-
-type ConfidenceLevel = "high" | "medium" | "low";
-
-type ArchiveCandidate = {
-  address: string;
-  category: CategoryWithRules | null;
-  confidence: ConfidenceLevel;
-  reason: string;
-};
-
-// Placeholder function - will be replaced with actual AI-derived data
-function getArchiveCandidates(emailGroups: EmailGroup[]): ArchiveCandidate[] {
-  // For now, simulate AI confidence based on category
-  // In production, this will come from backend AI analysis
-  return emailGroups.map((group) => {
-    const categoryName = group.category?.name?.toLowerCase() || "";
-
-    // High confidence: marketing, promotions, newsletters
-    if (
-      categoryName.includes("marketing") ||
-      categoryName.includes("promotion") ||
-      categoryName.includes("newsletter") ||
-      categoryName.includes("sale")
-    ) {
-      return {
-        ...group,
-        confidence: "high" as ConfidenceLevel,
-        reason: "Marketing / Promotional",
-      };
-    }
-
-    // Medium confidence: notifications, receipts, automated
-    if (
-      categoryName.includes("notification") ||
-      categoryName.includes("alert") ||
-      categoryName.includes("receipt") ||
-      categoryName.includes("update")
-    ) {
-      return {
-        ...group,
-        confidence: "medium" as ConfidenceLevel,
-        reason: "Automated notification",
-      };
-    }
-
-    // Low confidence: everything else
-    return {
-      ...group,
-      confidence: "low" as ConfidenceLevel,
-      reason: "Infrequent sender",
-    };
-  });
-}
+import {
+  getArchiveCandidates,
+  type EmailGroup,
+  type ConfidenceLevel,
+  type ArchiveCandidate,
+} from "@/utils/bulk-archive/get-archive-candidates";
 
 const confidenceConfig = {
   high: {
