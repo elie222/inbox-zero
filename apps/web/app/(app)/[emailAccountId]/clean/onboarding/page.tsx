@@ -97,7 +97,14 @@ export default async function CleanPage(props: {
   return (
     <div>
       <Card className="my-4 max-w-2xl p-6 sm:mx-4 md:mx-auto">
-        <Suspense key={step} fallback={<Loading />}>
+        <Suspense
+          key={step}
+          fallback={
+            <div className="flex h-[400px] items-center justify-center">
+              <Loading />
+            </div>
+          }
+        >
           {renderStepContent()}
         </Suspense>
       </Card>
