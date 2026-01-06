@@ -18,7 +18,7 @@ export async function getDraft({
       () => client.getClient().api(`/me/messages/${draftId}`).get(),
       logger,
     );
-    const message = convertMessage(response, undefined, logger);
+    const message = convertMessage(response);
     return message;
   } catch (error) {
     if (isNotFoundError(error)) {

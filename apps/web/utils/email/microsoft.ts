@@ -182,7 +182,7 @@ export class OutlookProvider implements EmailProvider {
     }
 
     const folderIds = await getFolderIds(this.client, this.logger);
-    return convertMessage(message, folderIds, this.logger);
+    return convertMessage(message, folderIds);
   }
 
   private async getMessages({
@@ -241,9 +241,7 @@ export class OutlookProvider implements EmailProvider {
 
     return (response.value || [])
       .filter((message: Message) => !message.isDraft)
-      .map((message: Message) =>
-        convertMessage(message, folderIds, this.logger),
-      );
+      .map((message: Message) => convertMessage(message, folderIds));
   }
 
   async getInboxMessages(maxResults = 20): Promise<ParsedMessage[]> {
@@ -263,9 +261,7 @@ export class OutlookProvider implements EmailProvider {
 
     return (response.value || [])
       .filter((message: Message) => !message.isDraft)
-      .map((message: Message) =>
-        convertMessage(message, folderIds, this.logger),
-      );
+      .map((message: Message) => convertMessage(message, folderIds));
   }
 
   async getSentMessageIds(options: {
@@ -1059,9 +1055,7 @@ export class OutlookProvider implements EmailProvider {
       .top(options?.maxResults || 50)
       .get();
 
-    return response.value.map((msg) =>
-      convertMessage(msg, undefined, this.logger),
-    );
+    return response.value.map((msg) => convertMessage(msg));
   }
 
   async getMessagesBatch(messageIds: string[]): Promise<ParsedMessage[]> {

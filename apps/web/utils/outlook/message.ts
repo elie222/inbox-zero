@@ -216,7 +216,7 @@ export async function queryBatchMessages(
     const filteredMessages = folderId
       ? response.value.filter((message) => message.parentFolderId === folderId)
       : response.value;
-    const messages = await convertMessages(filteredMessages, folderIds, logger);
+    const messages = await convertMessages(filteredMessages, folderIds);
 
     return { messages, nextPageToken: response["@odata.nextLink"] };
   }
@@ -268,7 +268,7 @@ export async function queryBatchMessages(
     const filteredMessages = folderId
       ? response.value.filter((message) => message.parentFolderId === folderId)
       : response.value;
-    const messages = await convertMessages(filteredMessages, folderIds, logger);
+    const messages = await convertMessages(filteredMessages, folderIds);
 
     nextPageToken = response["@odata.nextLink"];
 
@@ -313,7 +313,7 @@ export async function queryBatchMessages(
 
     const response: { value: Message[]; "@odata.nextLink"?: string } =
       await withOutlookRetry(() => request.get(), logger);
-    const messages = await convertMessages(response.value, folderIds, logger);
+    const messages = await convertMessages(response.value, folderIds);
 
     nextPageToken = response["@odata.nextLink"];
 
@@ -361,7 +361,7 @@ export async function queryMessagesWithFilters(
         logger,
       );
 
-    const messages = await convertMessages(response.value, folderIds, logger);
+    const messages = await convertMessages(response.value, folderIds);
     return { messages, nextPageToken: response["@odata.nextLink"] };
   }
 
@@ -410,20 +410,18 @@ export async function queryMessagesWithFilters(
   const response: { value: Message[]; "@odata.nextLink"?: string } =
     await withOutlookRetry(() => request.get(), logger);
 
-  const messages = await convertMessages(response.value, folderIds, logger);
+  const messages = await convertMessages(response.value, folderIds);
 
   return { messages, nextPageToken: response["@odata.nextLink"] };
 }
 
-// Helper function to convert messages
 async function convertMessages(
   messages: Message[],
   folderIds: Record<string, string>,
-  logger?: Logger,
 ): Promise<ParsedMessage[]> {
   return messages
     .filter((message: Message) => !message.isDraft) // Filter out drafts
-    .map((message: Message) => convertMessage(message, folderIds, logger));
+    .map((message: Message) => convertMessage(message, folderIds));
 }
 
 export async function getMessage(
@@ -438,7 +436,7 @@ export async function getMessage(
 
   const folderIds = await getFolderIds(client, logger);
 
-  return convertMessage(message, folderIds, logger);
+  return convertMessage(message, folderIds);
 }
 
 export async function getMessages(
@@ -464,7 +462,7 @@ export async function getMessages(
 
   // Get folder IDs to properly map labels
   const folderIds = await getFolderIds(client, logger);
-  const messages = await convertMessages(response.value, folderIds, logger);
+  const messages = await convertMessages(response.value, folderIds);
 
   return {
     messages,
@@ -520,7 +518,6 @@ function formatRecipientsList(
 export function convertMessage(
   message: Message,
   folderIds: Record<string, string> = {},
-  logger?: Logger,
 ): ParsedMessage {
   const bodyContent = message.body?.content || "";
   const bodyType = message.body?.contentType?.toLowerCase() as
@@ -548,7 +545,7 @@ export function convertMessage(
     },
     subject: message.subject || "",
     date: message.receivedDateTime || new Date().toISOString(),
-    labelIds: getOutlookLabels(message, folderIds, logger),
+    labelIds: getOutlookLabels(message, folderIds),
     internalDate: message.receivedDateTime || new Date().toISOString(),
     historyId: "",
     inline: [],
