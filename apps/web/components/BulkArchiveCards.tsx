@@ -161,7 +161,7 @@ export function BulkArchiveCards({
       }
 
       setArchivedCategories((prev) => ({ ...prev, [categoryName]: true }));
-    } catch (error) {
+    } catch (_error) {
       toastError({
         description: "Failed to archive some senders. Please try again.",
       });
