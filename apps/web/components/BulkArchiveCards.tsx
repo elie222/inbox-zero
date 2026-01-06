@@ -544,6 +544,7 @@ function ExpandedEmails({
               <Link
                 href={getEmailUrl(thread.id, userEmail, provider)}
                 target="_blank"
+                rel="noopener noreferrer"
                 className="mr-2 flex flex-1 items-center gap-3 rounded-md px-2 py-2 transition-colors hover:bg-muted/50"
               >
                 <MailIcon className="size-4 shrink-0 text-muted-foreground" />
