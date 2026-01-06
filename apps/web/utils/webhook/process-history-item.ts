@@ -104,7 +104,15 @@ export async function processHistoryItem(
     const isInInbox = parsedMessage.labelIds?.includes("INBOX") || false;
     const isInSentItems = parsedMessage.labelIds?.includes("SENT") || false;
 
-    if (!isInInbox && !isInSentItems) {
+    // Fallback: If no folder label detected, check if this is a sent message by checking
+    // if the from address matches the user's email (for Outlook edge cases)
+    const isSentByUser =
+      !isInInbox &&
+      !isInSentItems &&
+      extractEmailAddress(parsedMessage.headers.from)?.toLowerCase() ===
+        userEmail.toLowerCase();
+
+    if (!isInInbox && !isInSentItems && !isSentByUser) {
       logger.info("Skipping message not in inbox or sent items", {
         labelIds: parsedMessage.labelIds,
       });
@@ -137,7 +145,7 @@ export async function processHistoryItem(
       return;
     }
 
-    const isOutbound = provider.isSentMessage(parsedMessage);
+    const isOutbound = provider.isSentMessage(parsedMessage) || isSentByUser;
 
     if (isOutbound) {
       await handleOutboundMessage({

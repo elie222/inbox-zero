@@ -61,6 +61,7 @@ export async function getFolderIds(client: OutlookClient, logger: Logger) {
 function getOutlookLabels(
   message: Message,
   folderIds: Record<string, string>,
+  logger?: Logger,
 ): string[] {
   const labels: string[] = [];
 
@@ -80,6 +81,15 @@ function getOutlookLabels(
     const folderKey = Object.entries(folderIds).find(
       ([_, id]) => id === message.parentFolderId,
     )?.[0];
+
+    // Log when folder detection fails to help diagnose missing labels in production
+    if (!folderKey && logger) {
+      logger.info("Folder ID not found in cache", {
+        parentFolderId: message.parentFolderId,
+        cachedFolderIds: Object.keys(folderIds),
+        isDraft: message.isDraft,
+      });
+    }
 
     if (folderKey) {
       const FOLDER_TO_LABEL_MAP = {
@@ -206,7 +216,7 @@ export async function queryBatchMessages(
     const filteredMessages = folderId
       ? response.value.filter((message) => message.parentFolderId === folderId)
       : response.value;
-    const messages = await convertMessages(filteredMessages, folderIds);
+    const messages = await convertMessages(filteredMessages, folderIds, logger);
 
     return { messages, nextPageToken: response["@odata.nextLink"] };
   }
@@ -258,7 +268,7 @@ export async function queryBatchMessages(
     const filteredMessages = folderId
       ? response.value.filter((message) => message.parentFolderId === folderId)
       : response.value;
-    const messages = await convertMessages(filteredMessages, folderIds);
+    const messages = await convertMessages(filteredMessages, folderIds, logger);
 
     nextPageToken = response["@odata.nextLink"];
 
@@ -303,7 +313,7 @@ export async function queryBatchMessages(
 
     const response: { value: Message[]; "@odata.nextLink"?: string } =
       await withOutlookRetry(() => request.get(), logger);
-    const messages = await convertMessages(response.value, folderIds);
+    const messages = await convertMessages(response.value, folderIds, logger);
 
     nextPageToken = response["@odata.nextLink"];
 
@@ -351,7 +361,7 @@ export async function queryMessagesWithFilters(
         logger,
       );
 
-    const messages = await convertMessages(response.value, folderIds);
+    const messages = await convertMessages(response.value, folderIds, logger);
     return { messages, nextPageToken: response["@odata.nextLink"] };
   }
 
@@ -400,7 +410,7 @@ export async function queryMessagesWithFilters(
   const response: { value: Message[]; "@odata.nextLink"?: string } =
     await withOutlookRetry(() => request.get(), logger);
 
-  const messages = await convertMessages(response.value, folderIds);
+  const messages = await convertMessages(response.value, folderIds, logger);
 
   return { messages, nextPageToken: response["@odata.nextLink"] };
 }
@@ -409,10 +419,11 @@ export async function queryMessagesWithFilters(
 async function convertMessages(
   messages: Message[],
   folderIds: Record<string, string>,
+  logger?: Logger,
 ): Promise<ParsedMessage[]> {
   return messages
     .filter((message: Message) => !message.isDraft) // Filter out drafts
-    .map((message: Message) => convertMessage(message, folderIds));
+    .map((message: Message) => convertMessage(message, folderIds, logger));
 }
 
 export async function getMessage(
@@ -427,7 +438,7 @@ export async function getMessage(
 
   const folderIds = await getFolderIds(client, logger);
 
-  return convertMessage(message, folderIds);
+  return convertMessage(message, folderIds, logger);
 }
 
 export async function getMessages(
@@ -453,7 +464,7 @@ export async function getMessages(
 
   // Get folder IDs to properly map labels
   const folderIds = await getFolderIds(client, logger);
-  const messages = await convertMessages(response.value, folderIds);
+  const messages = await convertMessages(response.value, folderIds, logger);
 
   return {
     messages,
@@ -509,6 +520,7 @@ function formatRecipientsList(
 export function convertMessage(
   message: Message,
   folderIds: Record<string, string> = {},
+  logger?: Logger,
 ): ParsedMessage {
   const bodyContent = message.body?.content || "";
   const bodyType = message.body?.contentType?.toLowerCase() as
@@ -536,7 +548,7 @@ export function convertMessage(
     },
     subject: message.subject || "",
     date: message.receivedDateTime || new Date().toISOString(),
-    labelIds: getOutlookLabels(message, folderIds),
+    labelIds: getOutlookLabels(message, folderIds, logger),
     internalDate: message.receivedDateTime || new Date().toISOString(),
     historyId: "",
     inline: [],

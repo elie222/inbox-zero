@@ -210,5 +210,5 @@ export async function getThreadMessages(
 
   return messages
     .filter((msg) => !msg.isDraft)
-    .map((msg) => convertMessage(msg));
+    .map((msg) => convertMessage(msg, undefined, logger));
 }
