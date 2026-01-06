@@ -369,7 +369,10 @@ async function updateMicrosoftAccountTokens(
     where: { id: accountId },
     data: {
       access_token: tokens.access_token,
-      refresh_token: tokens.refresh_token,
+      // Only update refresh_token if provider returned one (preserves existing token)
+      ...(tokens.refresh_token != null && {
+        refresh_token: tokens.refresh_token,
+      }),
       expires_at: parseMicrosoftExpiresAt(tokens),
       scope: tokens.scope,
       token_type: tokens.token_type,
