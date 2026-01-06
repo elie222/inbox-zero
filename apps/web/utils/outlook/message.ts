@@ -61,7 +61,6 @@ export async function getFolderIds(client: OutlookClient, logger: Logger) {
 function getOutlookLabels(
   message: Message,
   folderIds: Record<string, string>,
-  logger?: Logger,
 ): string[] {
   const labels: string[] = [];
 
@@ -81,15 +80,6 @@ function getOutlookLabels(
     const folderKey = Object.entries(folderIds).find(
       ([_, id]) => id === message.parentFolderId,
     )?.[0];
-
-    // Log when folder detection fails to help diagnose missing labels in production
-    if (!folderKey && logger) {
-      logger.info("Folder ID not found in cache", {
-        parentFolderId: message.parentFolderId,
-        cachedFolderIds: Object.keys(folderIds),
-        isDraft: message.isDraft,
-      });
-    }
 
     if (folderKey) {
       const FOLDER_TO_LABEL_MAP = {

@@ -70,7 +70,6 @@ export async function processHistoryItem(
         })
       : null;
 
-    // if the rule has already been executed, skip
     if (hasExistingRule) {
       logger.info("Skipping. Rule already exists.");
       return;
