@@ -25,13 +25,16 @@ export async function getPaginatedThreadTrackers({
 
   const [trackers, total] = await Promise.all([
     prisma.$queryRaw<ThreadTracker[]>`
-      SELECT DISTINCT ON ("threadId") *
-      FROM "ThreadTracker"
-      WHERE "emailAccountId" = ${emailAccountId}
-        AND "resolved" = false
-        AND "type" = ${type}::text::"ThreadTrackerType"
-        ${dateClause}
-      ORDER BY "threadId", "createdAt" DESC
+      SELECT * FROM (
+        SELECT DISTINCT ON ("threadId") *
+        FROM "ThreadTracker"
+        WHERE "emailAccountId" = ${emailAccountId}
+          AND "resolved" = false
+          AND "type" = ${type}::text::"ThreadTrackerType"
+          ${dateClause}
+        ORDER BY "threadId", "createdAt" DESC
+      ) AS distinct_threads
+      ORDER BY "createdAt" DESC
       LIMIT ${PAGE_SIZE}
       OFFSET ${skip}
     `,
