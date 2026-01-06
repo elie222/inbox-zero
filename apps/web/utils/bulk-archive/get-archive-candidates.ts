@@ -58,7 +58,7 @@ export function getArchiveCandidates(
     return {
       ...group,
       confidence: "low" as ConfidenceLevel,
-      reason: "Uncategorized",
+      reason: "Infrequent sender",
     };
   });
 }
