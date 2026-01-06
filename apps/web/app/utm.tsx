@@ -13,19 +13,22 @@ function setUtmCookies() {
 
   // expires in 30 days
   const expires = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toUTCString();
+  const isSecureContext =
+    typeof window !== "undefined" && window.location.protocol === "https:";
+  const secureAttr = isSecureContext ? "; Secure" : "";
 
   if (utmSource)
-    document.cookie = `utm_source=${utmSource}; expires=${expires}; path=/; SameSite=Lax; Secure`;
+    document.cookie = `utm_source=${encodeURIComponent(utmSource)}; expires=${expires}; path=/; SameSite=Lax${secureAttr}`;
   if (utmMedium)
-    document.cookie = `utm_medium=${utmMedium}; expires=${expires}; path=/; SameSite=Lax; Secure`;
+    document.cookie = `utm_medium=${encodeURIComponent(utmMedium)}; expires=${expires}; path=/; SameSite=Lax${secureAttr}`;
   if (utmCampaign)
-    document.cookie = `utm_campaign=${utmCampaign}; expires=${expires}; path=/; SameSite=Lax; Secure`;
+    document.cookie = `utm_campaign=${encodeURIComponent(utmCampaign)}; expires=${expires}; path=/; SameSite=Lax${secureAttr}`;
   if (utmTerm)
-    document.cookie = `utm_term=${utmTerm}; expires=${expires}; path=/; SameSite=Lax; Secure`;
+    document.cookie = `utm_term=${encodeURIComponent(utmTerm)}; expires=${expires}; path=/; SameSite=Lax${secureAttr}`;
   if (affiliate)
-    document.cookie = `affiliate=${affiliate}; expires=${expires}; path=/; SameSite=Lax; Secure`;
+    document.cookie = `affiliate=${encodeURIComponent(affiliate)}; expires=${expires}; path=/; SameSite=Lax${secureAttr}`;
   if (referralCode)
-    document.cookie = `referral_code=${referralCode}; expires=${expires}; path=/; SameSite=Lax; Secure`;
+    document.cookie = `referral_code=${encodeURIComponent(referralCode)}; expires=${expires}; path=/; SameSite=Lax${secureAttr}`;
 }
 
 export function UTM() {
