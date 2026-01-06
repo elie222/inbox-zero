@@ -1,5 +1,6 @@
 import { Rules } from "@/app/(app)/[emailAccountId]/assistant/Rules";
 import { AddRuleDialog } from "@/app/(app)/[emailAccountId]/assistant/AddRuleDialog";
+import { BulkRunRules } from "@/app/(app)/[emailAccountId]/assistant/BulkRunRules";
 
 export function RulesTab() {
   return (
@@ -10,7 +11,10 @@ export function RulesTab() {
           rules.
         </p>
 
-        <AddRuleDialog />
+        <div className="flex items-center gap-2">
+          <BulkRunRules />
+          <AddRuleDialog />
+        </div>
       </div>
       <Rules showAddRuleButton={false} />
     </div>

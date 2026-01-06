@@ -57,7 +57,7 @@ export const updateAiSettingsAction = actionClientUser
           ErrorType.INCORRECT_OPENAI_API_KEY,
           ErrorType.INVALID_OPENAI_MODEL,
           ErrorType.OPENAI_API_KEY_DEACTIVATED,
-          ErrorType.OPENAI_RETRY_ERROR,
+          ErrorType.AI_QUOTA_ERROR,
           ErrorType.ANTHROPIC_INSUFFICIENT_BALANCE,
         ],
         logger,

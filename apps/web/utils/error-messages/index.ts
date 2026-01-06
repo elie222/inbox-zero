@@ -113,7 +113,7 @@ export const ErrorType = {
   INCORRECT_OPENAI_API_KEY: "Incorrect OpenAI API key",
   INVALID_OPENAI_MODEL: "Invalid OpenAI model",
   OPENAI_API_KEY_DEACTIVATED: "OpenAI API key deactivated",
-  OPENAI_RETRY_ERROR: "OpenAI retry error",
+  AI_QUOTA_ERROR: "AI quota error",
   ANTHROPIC_INSUFFICIENT_BALANCE: "Anthropic insufficient balance",
   ACCOUNT_DISCONNECTED: "Account disconnected",
 };
@@ -137,8 +137,8 @@ const errorTypeConfig: Record<
     actionUrl: "/settings",
     actionLabel: "Update API Key",
   },
-  [ErrorType.OPENAI_RETRY_ERROR]: {
-    label: "API Quota Exceeded",
+  [ErrorType.AI_QUOTA_ERROR]: {
+    label: "AI Rate Limited",
     actionUrl: "/settings",
     actionLabel: "Update Settings",
   },
