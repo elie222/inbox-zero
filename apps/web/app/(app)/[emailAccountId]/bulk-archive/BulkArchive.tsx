@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useCallback, useState } from "react";
+import { useMemo, useCallback } from "react";
 import useSWR from "swr";
 import { AutoCategorizationSetup } from "@/app/(app)/[emailAccountId]/bulk-archive/AutoCategorizationSetup";
 import { BulkArchiveProgress } from "@/app/(app)/[emailAccountId]/bulk-archive/BulkArchiveProgress";
@@ -26,7 +26,6 @@ export function BulkArchive({
   initialCategories: CategoryWithRules[];
   autoCategorizeSenders: boolean;
 }) {
-  const [isEnabled, setIsEnabled] = useState(autoCategorizeSenders);
   const { isBulkCategorizing } = useCategorizeProgress();
 
   // Poll for updates while categorization is in progress
@@ -55,17 +54,12 @@ export function BulkArchive({
     mutate();
   }, [mutate]);
 
-  const handleSetupComplete = useCallback(() => {
-    setIsEnabled(true);
-    mutate();
-  }, [mutate]);
-
-  const shouldShowSetup = !isEnabled && !isBulkCategorizing;
+  const shouldShowSetup = !autoCategorizeSenders && !isBulkCategorizing;
 
   return (
     <>
       {shouldShowSetup ? (
-        <AutoCategorizationSetup onComplete={handleSetupComplete} />
+        <AutoCategorizationSetup />
       ) : (
         <PageWrapper>
           <PageHeader title="Bulk Archive" />
