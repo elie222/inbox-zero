@@ -405,7 +405,6 @@ export async function queryMessagesWithFilters(
   return { messages, nextPageToken: response["@odata.nextLink"] };
 }
 
-// Helper function to convert messages
 async function convertMessages(
   messages: Message[],
   folderIds: Record<string, string>,

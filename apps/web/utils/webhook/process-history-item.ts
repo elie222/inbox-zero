@@ -2,7 +2,6 @@ import { after } from "next/server";
 import prisma from "@/utils/prisma";
 import { runRules } from "@/utils/ai/choose-rule/run-rules";
 import { categorizeSender } from "@/utils/categorize/senders/categorize";
-import { markMessageAsProcessing } from "@/utils/redis/message-processing";
 import { isAssistantEmail } from "@/utils/assistant/is-assistant-email";
 import { processAssistantEmail } from "@/utils/assistant/process-assistant-email";
 import { isFilebotEmail } from "@/utils/filebot/is-filebot-email";
@@ -17,7 +16,7 @@ import type { EmailAccount } from "@/generated/prisma/client";
 import { extractEmailAddress } from "@/utils/email";
 import { isIgnoredSender } from "@/utils/filter-ignored-senders";
 import type { EmailProvider } from "@/utils/email/types";
-import type { RuleWithActions } from "@/utils/types";
+import type { ParsedMessage, RuleWithActions } from "@/utils/types";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import type { Logger } from "@/utils/logger";
 
@@ -38,9 +37,11 @@ export async function processHistoryItem(
   {
     messageId,
     threadId,
+    message,
   }: {
     messageId: string;
     threadId?: string;
+    message?: ParsedMessage;
   },
   options: SharedProcessHistoryOptions,
 ) {
@@ -56,68 +57,31 @@ export async function processHistoryItem(
   const emailAccountId = emailAccount.id;
   const userEmail = emailAccount.email;
 
-  const isFree = await markMessageAsProcessing({ userEmail, messageId });
-
-  if (!isFree) {
-    logger.info("Skipping. Message already being processed.");
-    return;
-  }
-
-  logger.info("Getting message");
-
   try {
-    const [parsedMessage, hasExistingRule] = await Promise.all([
-      provider.getMessage(messageId),
-      threadId
-        ? prisma.executedRule.findFirst({
-            where: {
-              emailAccountId,
-              threadId,
-              messageId,
-            },
-            select: { id: true },
-          })
-        : null,
-    ]);
-
-    // Get threadId from message if not provided
-    const actualThreadId = threadId || parsedMessage.threadId;
-
-    // Re-check with actual threadId if we didn't have it initially
-    const finalHasExistingRule =
-      hasExistingRule !== null
-        ? hasExistingRule
-        : actualThreadId
-          ? await prisma.executedRule.findFirst({
-              where: {
-                emailAccountId,
-                threadId: actualThreadId,
-                messageId,
-              },
-              select: { id: true },
-            })
-          : null;
-
-    // if the rule has already been executed, skip
-    if (finalHasExistingRule) {
-      logger.info("Skipping. Rule already exists.");
-      return;
-    }
+    // Use pre-fetched message if provided, otherwise fetch it
+    const parsedMessage = message ?? (await provider.getMessage(messageId));
 
     if (isIgnoredSender(parsedMessage.headers.from)) {
       logger.info("Skipping. Ignored sender.");
       return;
     }
 
-    // Skip messages that are not in inbox or sent items folders
-    // We want to process inbox messages (for rules/automation) and sent messages (for reply tracking)
-    const isInInbox = parsedMessage.labelIds?.includes("INBOX") || false;
-    const isInSentItems = parsedMessage.labelIds?.includes("SENT") || false;
+    // Get threadId from message if not provided
+    const actualThreadId = threadId || parsedMessage.threadId;
 
-    if (!isInInbox && !isInSentItems) {
-      logger.info("Skipping message not in inbox or sent items", {
-        labelIds: parsedMessage.labelIds,
-      });
+    const hasExistingRule = actualThreadId
+      ? await prisma.executedRule.findFirst({
+          where: {
+            emailAccountId,
+            threadId: actualThreadId,
+            messageId,
+          },
+          select: { id: true },
+        })
+      : null;
+
+    if (hasExistingRule) {
+      logger.info("Skipping. Rule already exists.");
       return;
     }
 

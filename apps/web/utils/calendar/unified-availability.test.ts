@@ -21,6 +21,133 @@ describe("getUnifiedCalendarAvailability", () => {
     vi.clearAllMocks();
   });
 
+  describe("day boundary handling", () => {
+    it("should query correct day when UTC date shifts to previous day in target timezone", async () => {
+      // This tests Bug 1: When user wants Nov 17 in LA timezone but passes UTC date,
+      // the function should still query Nov 17 in LA (not Nov 16)
+      vi.mocked(prisma.calendarConnection.findMany).mockResolvedValue([
+        getCalendarConnection({ provider: "google", calendarIds: ["cal-1"] }),
+      ]);
+
+      const mockGoogleProvider = {
+        fetchBusyPeriods: vi.fn().mockResolvedValue([]),
+      };
+      vi.mocked(createGoogleAvailabilityProvider).mockReturnValue(
+        mockGoogleProvider as any,
+      );
+
+      // User passes midnight UTC on Nov 17
+      // In LA (UTC-8), this would be Nov 16 at 4pm if naively converted
+      await getUnifiedCalendarAvailability({
+        emailAccountId,
+        startDate: new Date("2025-11-17T00:00:00Z"),
+        endDate: new Date("2025-11-17T23:59:59Z"),
+        timezone: "America/Los_Angeles",
+        logger,
+      });
+
+      // The provider should be called with timeMin/timeMax representing Nov 17 in LA
+      // TZDate.toISOString() outputs with timezone offset: 2025-11-17T00:00:00.000-08:00
+      // which is equivalent to 2025-11-17T08:00:00Z
+      expect(mockGoogleProvider.fetchBusyPeriods).toHaveBeenCalledWith(
+        expect.objectContaining({
+          timeMin: expect.stringContaining("2025-11-17T00:00:00"),
+          timeMax: expect.stringContaining("2025-11-17T23:59:59"),
+        }),
+      );
+    });
+
+    it("should query correct day when UTC date shifts to next day in target timezone", async () => {
+      // For timezones ahead of UTC (e.g., Asia/Jerusalem UTC+2)
+      vi.mocked(prisma.calendarConnection.findMany).mockResolvedValue([
+        getCalendarConnection({ provider: "google", calendarIds: ["cal-1"] }),
+      ]);
+
+      const mockGoogleProvider = {
+        fetchBusyPeriods: vi.fn().mockResolvedValue([]),
+      };
+      vi.mocked(createGoogleAvailabilityProvider).mockReturnValue(
+        mockGoogleProvider as any,
+      );
+
+      await getUnifiedCalendarAvailability({
+        emailAccountId,
+        startDate: new Date("2025-11-17T00:00:00Z"),
+        endDate: new Date("2025-11-17T23:59:59Z"),
+        timezone: "Asia/Jerusalem",
+        logger,
+      });
+
+      // TZDate.toISOString() outputs with timezone offset
+      // Start of Nov 17 in Jerusalem = 2025-11-17T00:00:00+02:00
+      // End of Nov 17 in Jerusalem = 2025-11-17T23:59:59+02:00
+      expect(mockGoogleProvider.fetchBusyPeriods).toHaveBeenCalledWith(
+        expect.objectContaining({
+          timeMin: expect.stringContaining("2025-11-17T00:00:00"),
+          timeMax: expect.stringContaining("2025-11-17T23:59:59"),
+        }),
+      );
+    });
+
+    it("should accept string dates in YYYY-MM-DD format", async () => {
+      vi.mocked(prisma.calendarConnection.findMany).mockResolvedValue([
+        getCalendarConnection({ provider: "google", calendarIds: ["cal-1"] }),
+      ]);
+
+      const mockGoogleProvider = {
+        fetchBusyPeriods: vi.fn().mockResolvedValue([]),
+      };
+      vi.mocked(createGoogleAvailabilityProvider).mockReturnValue(
+        mockGoogleProvider as any,
+      );
+
+      await getUnifiedCalendarAvailability({
+        emailAccountId,
+        startDate: "2025-11-17",
+        endDate: "2025-11-17",
+        timezone: "America/Los_Angeles",
+        logger,
+      });
+
+      expect(mockGoogleProvider.fetchBusyPeriods).toHaveBeenCalledWith(
+        expect.objectContaining({
+          timeMin: expect.stringContaining("2025-11-17T00:00:00"),
+          timeMax: expect.stringContaining("2025-11-17T23:59:59"),
+        }),
+      );
+    });
+
+    it("should accept string dates in ISO datetime format", async () => {
+      vi.mocked(prisma.calendarConnection.findMany).mockResolvedValue([
+        getCalendarConnection({ provider: "google", calendarIds: ["cal-1"] }),
+      ]);
+
+      const mockGoogleProvider = {
+        fetchBusyPeriods: vi.fn().mockResolvedValue([]),
+      };
+      vi.mocked(createGoogleAvailabilityProvider).mockReturnValue(
+        mockGoogleProvider as any,
+      );
+
+      // ISO datetime string - should extract the date part
+      await getUnifiedCalendarAvailability({
+        emailAccountId,
+        startDate: "2025-11-17T10:30:00Z",
+        endDate: "2025-11-17T15:00:00Z",
+        timezone: "America/Los_Angeles",
+        logger,
+      });
+
+      // Should still query full day Nov 17 in LA
+      expect(mockGoogleProvider.fetchBusyPeriods).toHaveBeenCalledWith(
+        expect.objectContaining({
+          timeMin: expect.stringContaining("2025-11-17T00:00:00"),
+          timeMax: expect.stringContaining("2025-11-17T23:59:59"),
+        }),
+      );
+    });
+  });
+
   describe("timezone conversion", () => {
     it("should convert UTC busy periods to America/Los_Angeles timezone", async () => {
       vi.mocked(prisma.calendarConnection.findMany).mockResolvedValue([

@@ -231,17 +231,20 @@ export const GET = withError("outlook/linking/callback", async (request) => {
                 providerAccountId,
               },
             },
-            select: { userId: true },
+            select: { id: true, userId: true },
           });
 
           if (accountNow?.userId === targetUserId) {
             logger.info(
-              "Account was created by concurrent request, continuing",
+              "Account already exists for same user, updating tokens",
               {
                 targetUserId,
                 providerAccountId,
+                accountId: accountNow.id,
               },
             );
+
+            await updateMicrosoftAccountTokens(accountNow.id, tokens);
           } else {
             throw createError;
           }
@@ -267,27 +270,10 @@ export const GET = withError("outlook/linking/callback", async (request) => {
         accountId: linkingResult.existingAccountId,
       });
 
-      let expiresAt: Date | null = null;
-      if (tokens.expires_at) {
-        expiresAt = new Date(tokens.expires_at * 1000);
-      } else if (tokens.expires_in) {
-        const expiresInSeconds =
-          typeof tokens.expires_in === "string"
-            ? Number.parseInt(tokens.expires_in, 10)
-            : tokens.expires_in;
-        expiresAt = new Date(Date.now() + expiresInSeconds * 1000);
-      }
-
-      await prisma.account.update({
-        where: { id: linkingResult.existingAccountId },
-        data: {
-          access_token: tokens.access_token,
-          refresh_token: tokens.refresh_token,
-          expires_at: expiresAt,
-          scope: tokens.scope,
-          token_type: tokens.token_type,
-        },
-      });
+      await updateMicrosoftAccountTokens(
+        linkingResult.existingAccountId,
+        tokens,
+      );
 
       logger.info("Successfully updated tokens for Microsoft account", {
         email: providerEmail,
@@ -351,3 +337,45 @@ export const GET = withError("outlook/linking/callback", async (request) => {
     });
   }
 });
+
+interface MicrosoftTokens {
+  access_token: string;
+  refresh_token?: string | null;
+  expires_at?: number;
+  expires_in?: string | number;
+  scope?: string | null;
+  token_type?: string | null;
+}
+
+function parseMicrosoftExpiresAt(tokens: MicrosoftTokens): Date | null {
+  if (tokens.expires_at) {
+    return new Date(tokens.expires_at * 1000);
+  }
+  if (tokens.expires_in) {
+    const expiresInSeconds =
+      typeof tokens.expires_in === "string"
+        ? Number.parseInt(tokens.expires_in, 10)
+        : tokens.expires_in;
+    return new Date(Date.now() + expiresInSeconds * 1000);
+  }
+  return null;
+}
+
+async function updateMicrosoftAccountTokens(
+  accountId: string,
+  tokens: MicrosoftTokens,
+) {
+  await prisma.account.update({
+    where: { id: accountId },
+    data: {
+      access_token: tokens.access_token,
+      // Only update refresh_token if provider returned one (preserves existing token)
+      ...(tokens.refresh_token != null && {
+        refresh_token: tokens.refresh_token,
+      }),
+      expires_at: parseMicrosoftExpiresAt(tokens),
+      scope: tokens.scope,
+      token_type: tokens.token_type,
+    },
+  });
+}

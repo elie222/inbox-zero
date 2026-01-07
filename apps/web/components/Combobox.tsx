@@ -20,7 +20,7 @@ import {
 } from "@/components/ui/popover";
 
 export function Combobox(props: {
-  options: { value: string; label: string }[];
+  options: { value: string; label: string; keywords?: string[] }[];
   placeholder: string;
   emptyText: React.ReactNode;
   value?: string;
@@ -75,6 +75,11 @@ export function Combobox(props: {
                   <CommandItem
                     key={options.value}
                     value={options.value}
+                    keywords={
+                      options.keywords
+                        ? [...options.keywords, options.label]
+                        : [options.label]
+                    }
                     onSelect={(currentValue) => {
                       onChangeValue(currentValue === value ? "" : currentValue);
                       setOpen(false);

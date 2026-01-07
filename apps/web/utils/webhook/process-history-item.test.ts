@@ -24,9 +24,6 @@ vi.mock("@/utils/prisma", () => ({
     },
   },
 }));
-vi.mock("@/utils/redis/message-processing", () => ({
-  markMessageAsProcessing: vi.fn().mockResolvedValue(true),
-}));
 vi.mock("@/utils/assistant/is-assistant-email", () => ({
   isAssistantEmail: vi.fn().mockReturnValue(false),
 }));
@@ -158,25 +155,6 @@ describe("Provider Edge Cases", () => {
   });
 
   describe("Message processing", () => {
-    it("skips messages not in inbox or sent", async () => {
-      const provider = createMockEmailProvider({
-        getMessage: vi.fn().mockResolvedValue(
-          getMockParsedMessage({
-            labelIds: ["TRASH"], // Not in INBOX or SENT
-          }),
-        ),
-        isSentMessage: vi.fn().mockReturnValue(false),
-      });
-
-      await processHistoryItem(
-        { messageId: "msg-123", threadId: "thread-123" },
-        { ...baseOptions, provider },
-      );
-
-      // Should return early without processing
-      expect(provider.blockUnsubscribedEmail).not.toHaveBeenCalled();
-    });
-
     it("processes inbox messages correctly", async () => {
       const provider = createMockEmailProvider({
         getMessage: vi.fn().mockResolvedValue(
@@ -266,6 +244,85 @@ describe("Provider Edge Cases", () => {
           { ...baseOptions, provider },
         ),
       ).resolves.toBeUndefined();
+    });
+  });
+
+  describe("Pre-fetched message support", () => {
+    it("uses pre-fetched message when provided instead of fetching", async () => {
+      const preFetchedMessage = getMockParsedMessage({
+        id: "pre-fetched-msg",
+        labelIds: ["INBOX"],
+      });
+
+      const provider = createMockEmailProvider({
+        getMessage: vi
+          .fn()
+          .mockResolvedValue(
+            getMockParsedMessage({ id: "should-not-be-used" }),
+          ),
+        isSentMessage: vi.fn().mockReturnValue(false),
+      });
+
+      await processHistoryItem(
+        {
+          messageId: "pre-fetched-msg",
+          threadId: "thread-123",
+          message: preFetchedMessage,
+        },
+        { ...baseOptions, provider },
+      );
+
+      // getMessage should NOT be called since we passed a pre-fetched message
+      expect(provider.getMessage).not.toHaveBeenCalled();
+    });
+
+    it("fetches message when not pre-fetched", async () => {
+      const provider = createMockEmailProvider({
+        getMessage: vi.fn().mockResolvedValue(
+          getMockParsedMessage({
+            labelIds: ["INBOX"],
+          }),
+        ),
+        isSentMessage: vi.fn().mockReturnValue(false),
+      });
+
+      await processHistoryItem(
+        { messageId: "msg-123", threadId: "thread-123" },
+        { ...baseOptions, provider },
+      );
+
+      // getMessage should be called since no message was pre-fetched
+      expect(provider.getMessage).toHaveBeenCalledWith("msg-123");
+    });
+
+    it("processes pre-fetched sent message correctly", async () => {
+      const preFetchedMessage = getMockParsedMessage({
+        id: "sent-msg",
+        labelIds: ["SENT"],
+        headers: {
+          from: "user@test.com",
+          to: "recipient@example.com",
+          subject: "Test",
+          date: "2024-01-01",
+        },
+      });
+
+      const provider = createMockEmailProvider({
+        getMessage: vi.fn(),
+        isSentMessage: vi.fn().mockReturnValue(true),
+      });
+
+      await processHistoryItem(
+        {
+          messageId: "sent-msg",
+          threadId: "thread-123",
+          message: preFetchedMessage,
+        },
+        { ...baseOptions, provider },
+      );
+
+      expect(provider.getMessage).not.toHaveBeenCalled();
+      expect(handleOutboundMessage).toHaveBeenCalled();
     });
   });
 });

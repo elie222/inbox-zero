@@ -28,6 +28,7 @@ import { Button as ShadButton } from "@/components/ui/button";
 import { Badge } from "@/components/Badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableRow, TableCell } from "@/components/ui/table";
+import { ActionCard } from "@/components/ui/card";
 import { AlertBasic } from "@/components/Alert";
 import { Notice } from "@/components/Notice";
 import { TestErrorButton } from "@/app/(landing)/components/TestError";
@@ -125,6 +126,29 @@ export default function Components() {
                 </ShadButton>
               </CardFooter>
             </Card>
+          </div>
+
+          <div className="space-y-4">
+            <ActionCard
+              icon={<SparklesIcon className="size-5" />}
+              title="Action Card (Green)"
+              description="This is the default green variant of the ActionCard component."
+              action={<ShadButton variant="primaryBlack">Click Me</ShadButton>}
+            />
+            <ActionCard
+              variant="blue"
+              icon={<SparklesIcon className="size-5" />}
+              title="Action Card (Blue)"
+              description="This is the blue variant of the ActionCard component."
+              action={<ShadButton variant="primaryBlack">Click Me</ShadButton>}
+            />
+            <ActionCard
+              variant="destructive"
+              icon={<SparklesIcon className="size-5" />}
+              title="Action Card (Destructive)"
+              description="This is the destructive variant of the ActionCard component."
+              action={<ShadButton variant="primaryBlack">Click Me</ShadButton>}
+            />
           </div>
         </div>
 

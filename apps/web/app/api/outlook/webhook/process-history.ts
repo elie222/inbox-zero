@@ -4,6 +4,7 @@ import { captureException } from "@/utils/error";
 import { createEmailProvider } from "@/utils/email/provider";
 import type { OutlookResourceData } from "@/app/api/outlook/webhook/types";
 import { processHistoryItem } from "@/utils/webhook/process-history-item";
+import { markMessageAsProcessing } from "@/utils/redis/message-processing";
 import {
   validateWebhookAccount,
   getWebhookEmailAccount,
@@ -60,8 +61,37 @@ export async function processHistoryForUser({
   });
 
   try {
+    // Outlook: Fetch message first to check folder before acquiring lock
+    // This allows draft→sent transitions to be processed (draft webhook doesn't hold lock)
+    const message = await provider.getMessage(resourceData.id);
+
+    // Skip messages not in inbox or sent items folders (e.g., drafts, trash)
+    const isInInbox = message.labelIds?.includes("INBOX") || false;
+    const isInSentItems = message.labelIds?.includes("SENT") || false;
+
+    if (!isInInbox && !isInSentItems) {
+      logger.info("Skipping message not in inbox or sent items", {
+        labelIds: message.labelIds,
+        from: message.headers.from,
+        to: message.headers.to,
+        subject: message.subject,
+      });
+      return NextResponse.json({ ok: true });
+    }
+
+    // Now acquire lock (only for INBOX/SENT messages)
+    const isFree = await markMessageAsProcessing({
+      userEmail: validatedEmailAccount.email,
+      messageId: resourceData.id,
+    });
+    if (!isFree) {
+      logger.info("Skipping. Message already being processed.");
+      return NextResponse.json({ ok: true });
+    }
+
+    // Pass pre-fetched message to avoid refetching
     await processHistoryItem(
-      { messageId: resourceData.id },
+      { messageId: resourceData.id, message },
       {
         provider,
         emailAccount: {

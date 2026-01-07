@@ -17,14 +17,15 @@ export async function getUnifiedCalendarAvailability({
   logger,
 }: {
   emailAccountId: string;
-  startDate: Date;
-  endDate: Date;
+  startDate: Date | string;
+  endDate: Date | string;
   timezone?: string;
   logger: Logger;
 }): Promise<BusyPeriod[]> {
   // Compute day boundaries in the user's timezone
-  const startDateInTZ = new TZDate(startDate, timezone);
-  const endDateInTZ = new TZDate(endDate, timezone);
+  // Parse dates as calendar dates in the target timezone to avoid UTC shift issues
+  const startDateInTZ = parseDateInTimezone(startDate, timezone);
+  const endDateInTZ = parseDateInTimezone(endDate, timezone);
 
   const timeMin = startOfDay(startDateInTZ).toISOString();
   const timeMax = endOfDay(endDateInTZ).toISOString();
@@ -32,8 +33,8 @@ export async function getUnifiedCalendarAvailability({
   logger.trace("Unified calendar availability request", {
     timezone,
     emailAccountId,
-    startDate: startDate.toISOString(),
-    endDate: endDate.toISOString(),
+    startDate: startDate instanceof Date ? startDate.toISOString() : startDate,
+    endDate: endDate instanceof Date ? endDate.toISOString() : endDate,
     timeMin,
     timeMax,
   });
@@ -169,4 +170,28 @@ function convertBusyPeriodsToTimezone(
       end: format(endInTZ, "yyyy-MM-dd'T'HH:mm:ssXXX"),
     };
   });
+}
+
+/**
+ * Parse a date string (YYYY-MM-DD) or ISO date string and create a TZDate in the target timezone.
+ * This ensures the date is interpreted as that calendar date in the target timezone,
+ * not as a UTC timestamp that gets shifted.
+ */
+function parseDateInTimezone(
+  dateInput: string | Date,
+  timezone: string,
+): TZDate {
+  if (dateInput instanceof Date) {
+    // For backwards compatibility: if a Date object is passed, use its UTC date components
+    // to construct the date in the target timezone
+    const year = dateInput.getUTCFullYear();
+    const month = dateInput.getUTCMonth();
+    const day = dateInput.getUTCDate();
+    return new TZDate(year, month, day, 0, 0, 0, 0, timezone);
+  }
+
+  // Handle ISO date strings (YYYY-MM-DD) or datetime strings
+  const dateStr = dateInput.includes("T") ? dateInput.split("T")[0] : dateInput;
+  const [year, month, day] = dateStr.split("-").map(Number);
+  return new TZDate(year, month - 1, day, 0, 0, 0, 0, timezone);
 }
