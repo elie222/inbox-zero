@@ -82,6 +82,7 @@ export function getMicrosoftDriveOAuth2Url(state: string): string {
     response_type: "code",
     redirect_uri: `${env.NEXT_PUBLIC_BASE_URL}/api/outlook/drive/callback`,
     scope: MICROSOFT_DRIVE_SCOPES.join(" "),
+    prompt: "consent", // Ensures refresh token is returned on re-auth
     state,
   });
 
