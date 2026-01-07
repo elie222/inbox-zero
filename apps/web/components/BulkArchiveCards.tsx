@@ -306,40 +306,6 @@ export function BulkArchiveCards({
               {/* Expanded sender list */}
               {isExpanded && (
                 <div className="border-t">
-                  <div className="flex items-center justify-between border-b bg-muted/50 px-4 py-2">
-                    <p className="text-xs text-muted-foreground">
-                      {category?.description || "Senders in this category"}
-                    </p>
-                    <div className="flex gap-2">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const newSelected = { ...selectedSenders };
-                          for (const s of senders) {
-                            newSelected[s.address] = true;
-                          }
-                          setSelectedSenders(newSelected);
-                        }}
-                        className="text-xs text-muted-foreground hover:text-foreground"
-                      >
-                        Select all
-                      </button>
-                      <span className="text-muted-foreground/50">·</span>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const newSelected = { ...selectedSenders };
-                          for (const s of senders) {
-                            newSelected[s.address] = false;
-                          }
-                          setSelectedSenders(newSelected);
-                        }}
-                        className="text-xs text-muted-foreground hover:text-foreground"
-                      >
-                        Deselect all
-                      </button>
-                    </div>
-                  </div>
                   <div className="divide-y">
                     {senders.length === 0 ? (
                       <div className="p-4 text-center text-sm text-muted-foreground">
