@@ -1,7 +1,6 @@
 "use client";
 
 import { useMemo, useCallback } from "react";
-import sortBy from "lodash/sortBy";
 import useSWR from "swr";
 import { AutoCategorizationSetup } from "@/app/(app)/[emailAccountId]/bulk-archive/AutoCategorizationSetup";
 import { BulkArchiveProgress } from "@/app/(app)/[emailAccountId]/bulk-archive/BulkArchiveProgress";
@@ -42,7 +41,7 @@ export function BulkArchiveContent({
 
   const emailGroups = useMemo(
     () =>
-      sortBy(senders, (sender) => sender.category?.name).map((sender) => ({
+      senders.map((sender) => ({
         address: sender.email,
         category: categories.find((c) => c.id === sender.category?.id) || null,
       })),
@@ -55,7 +54,8 @@ export function BulkArchiveContent({
   }, [mutate]);
 
   const hasCategorizedSenders = senders.length > 0;
-  const shouldShowOnboarding = showOnboarding || !hasCategorizedSenders;
+  const shouldShowOnboarding =
+    !isBulkCategorizing && (showOnboarding || !hasCategorizedSenders);
 
   return (
     <>

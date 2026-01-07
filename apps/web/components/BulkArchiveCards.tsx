@@ -27,6 +27,7 @@ import { getEmailUrl } from "@/utils/url";
 import type { CategoryWithRules } from "@/utils/category.server";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { getCategoryIcon } from "@/components/bulk-archive/categoryIcons";
+import { defaultCategory } from "@/utils/categories";
 
 type EmailGroup = {
   address: string;
@@ -79,11 +80,13 @@ export function BulkArchiveCards({
     return grouped;
   }, [emailGroups, categories, categoryMap]);
 
-  // Sort categories alphabetically, but always put Uncategorized last
+  // Sort categories alphabetically, but always put Other and Uncategorized last
   const sortedCategoryEntries = useMemo(() => {
     return Object.entries(groupedEmails).sort(([a], [b]) => {
       if (a === "Uncategorized") return 1;
       if (b === "Uncategorized") return -1;
+      if (a === defaultCategory.OTHER.name) return 1;
+      if (b === defaultCategory.OTHER.name) return -1;
       return a.localeCompare(b);
     });
   }, [groupedEmails]);

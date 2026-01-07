@@ -8,7 +8,7 @@ import { getModel } from "@/utils/llms/model";
 import { createGenerateObject } from "@/utils/llms";
 
 export const REQUEST_MORE_INFORMATION_CATEGORY = "RequestMoreInformation";
-export const UNKNOWN_CATEGORY = "Unknown";
+export const UNKNOWN_CATEGORY = "Other";
 
 const categorizeSendersSchema = z.object({
   senders: z.array(
