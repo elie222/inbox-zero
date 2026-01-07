@@ -2,6 +2,7 @@
 
 import { useMemo, useCallback } from "react";
 import useSWR from "swr";
+import { parseAsBoolean, useQueryState } from "nuqs";
 import { AutoCategorizationSetup } from "@/app/(app)/[emailAccountId]/bulk-archive/AutoCategorizationSetup";
 import { BulkArchiveProgress } from "@/app/(app)/[emailAccountId]/bulk-archive/BulkArchiveProgress";
 import { BulkArchiveCards } from "@/components/BulkArchiveCards";
@@ -27,6 +28,7 @@ export function BulkArchive({
   autoCategorizeSenders: boolean;
 }) {
   const { isBulkCategorizing } = useCategorizeProgress();
+  const [onboarding] = useQueryState("onboarding", parseAsBoolean);
 
   // Poll for updates while categorization is in progress
   const { data, mutate } = useSWR<CategorizedSendersResponse>(
@@ -54,7 +56,8 @@ export function BulkArchive({
     mutate();
   }, [mutate]);
 
-  const shouldShowSetup = !autoCategorizeSenders && !isBulkCategorizing;
+  const shouldShowSetup =
+    onboarding || (!autoCategorizeSenders && !isBulkCategorizing);
 
   return (
     <>
