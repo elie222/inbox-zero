@@ -7,6 +7,7 @@ import { env } from "@/env";
 import { getModel } from "@/utils/llms/model";
 import { createGenerateText } from "@/utils/llms";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
+import { getUserInfoPrompt } from "@/utils/ai/helpers";
 import type { CalendarEvent } from "@/utils/calendar/event-types";
 import type { MeetingBriefingData } from "@/utils/meeting-briefs/gather-context";
 import { stringifyEmailSimple } from "@/utils/stringify-email";
@@ -94,7 +95,7 @@ export async function aiGenerateMeetingBriefing({
     );
   }
 
-  const prompt = buildPrompt(briefingData, emailAccount.timezone);
+  const prompt = buildPrompt(briefingData, emailAccount);
   const modelOptions = getModel(emailAccount.user);
 
   const generateText = createGenerateText({
@@ -342,7 +343,7 @@ function createWebSearchTool({
 // Exported for testing
 export function buildPrompt(
   briefingData: MeetingBriefingData,
-  timezone: string | null,
+  emailAccount: EmailAccountWithAI,
 ): string {
   const { event, externalGuests, emailThreads, pastMeetings } = briefingData;
 
@@ -354,7 +355,7 @@ export function buildPrompt(
       name: guest.name,
       recentEmails: selectRecentEmailsForGuest(allMessages, guest.email),
       recentMeetings: selectRecentMeetingsForGuest(pastMeetings, guest.email),
-      timezone,
+      timezone: emailAccount.timezone,
     }),
   );
 
@@ -375,6 +376,8 @@ export function buildPrompt(
       : "";
 
   const prompt = `Prepare a concise briefing for this upcoming meeting.
+
+${getUserInfoPrompt({ emailAccount })}
 
 <upcoming_meeting>
 Title: ${event.title}
