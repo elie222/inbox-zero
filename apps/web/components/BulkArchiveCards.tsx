@@ -189,7 +189,7 @@ export function BulkArchiveCards({
             <Card key={categoryName} className="p-4">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <div className="flex size-10 items-center justify-center rounded-lg bg-muted text-xl opacity-50">
+                  <div className="shrink-0 flex size-10 items-center justify-center rounded-lg bg-muted text-xl opacity-50">
                     <CategoryIcon className="size-5" />
                   </div>
                   <div>
@@ -227,7 +227,7 @@ export function BulkArchiveCards({
             >
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <div className="flex size-10 items-center justify-center rounded-lg bg-muted text-xl">
+                  <div className="shrink-0 flex size-10 items-center justify-center rounded-lg bg-muted text-xl">
                     <CategoryIcon className="size-5" />
                   </div>
                   <div>
