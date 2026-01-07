@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useCallback } from "react";
+import { useMemo, useCallback, useEffect } from "react";
 import useSWR from "swr";
 import { parseAsBoolean, useQueryState } from "nuqs";
 import { AutoCategorizationSetup } from "@/app/(app)/[emailAccountId]/bulk-archive/AutoCategorizationSetup";
@@ -11,6 +11,7 @@ import type { CategorizedSendersResponse } from "@/app/api/user/categorize/sende
 import type { CategoryWithRules } from "@/utils/category.server";
 import { PageWrapper } from "@/components/PageWrapper";
 import { PageHeader } from "@/components/PageHeader";
+import { toastError } from "@/components/Toast";
 
 type Sender = {
   id: string;
@@ -31,13 +32,19 @@ export function BulkArchive({
   const [onboarding] = useQueryState("onboarding", parseAsBoolean);
 
   // Poll for updates while categorization is in progress
-  const { data, mutate } = useSWR<CategorizedSendersResponse>(
+  const { data, error, mutate } = useSWR<CategorizedSendersResponse>(
     "/api/user/categorize/senders/categorized",
     {
       refreshInterval: isBulkCategorizing ? 2000 : undefined,
       fallbackData: { senders: initialSenders, categories: initialCategories },
     },
   );
+
+  useEffect(() => {
+    if (error) {
+      toastError({ description: "Failed to load senders. Please try again." });
+    }
+  }, [error]);
 
   // Use SWR data if available, otherwise fall back to initial server data
   const senders = data?.senders ?? initialSenders;
