@@ -21,6 +21,11 @@ export const defaultCategory = {
     description:
       "Purchase confirmations, order receipts, and payment confirmations",
   },
+  NOTIFICATION: {
+    name: "Notification",
+    enabled: true,
+    description: "Automated alerts, system notifications, and status updates",
+  },
 } as const;
 
 export type SenderCategoryKey = keyof typeof defaultCategory;

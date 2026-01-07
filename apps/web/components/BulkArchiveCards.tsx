@@ -26,7 +26,7 @@ import {
 import { getEmailUrl } from "@/utils/url";
 import type { CategoryWithRules } from "@/utils/category.server";
 import { useAccount } from "@/providers/EmailAccountProvider";
-import { getCategoryIcon } from "@/components/bulk-archive/categoryIcons";
+import { getCategoryStyle } from "@/components/bulk-archive/categoryIcons";
 import { defaultCategory } from "@/utils/categories";
 import type { EmailGroup } from "@/utils/bulk-archive/get-archive-candidates";
 
@@ -166,7 +166,8 @@ export function BulkArchiveCards({
     <div className="space-y-3 py-4">
       {sortedCategoryEntries.map(([categoryName, senders]) => {
         const category = categoryMap[categoryName];
-        const CategoryIcon = getCategoryIcon(categoryName);
+        const categoryStyle = getCategoryStyle(categoryName);
+        const CategoryIcon = categoryStyle.icon;
 
         // Get default category info if no category exists
         const defaultCat = Object.values(defaultCategory).find(
@@ -185,8 +186,22 @@ export function BulkArchiveCards({
             <Card key={categoryName} className="p-4">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <div className="shrink-0 flex size-10 items-center justify-center rounded-lg bg-muted text-xl opacity-50">
-                    <CategoryIcon className="size-5" />
+                  <div
+                    className={cn(
+                      "shrink-0 p-px rounded-lg shadow-sm bg-gradient-to-b opacity-50",
+                      categoryStyle.borderColor,
+                    )}
+                  >
+                    <div
+                      className={cn(
+                        "flex size-9 items-center justify-center rounded-[7px] bg-gradient-to-b",
+                        categoryStyle.gradient,
+                      )}
+                    >
+                      <CategoryIcon
+                        className={cn("size-5", categoryStyle.iconColor)}
+                      />
+                    </div>
                   </div>
                   <div>
                     <h2 className="font-medium text-muted-foreground line-through">
@@ -223,8 +238,22 @@ export function BulkArchiveCards({
             >
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <div className="shrink-0 flex size-10 items-center justify-center rounded-lg bg-muted text-xl">
-                    <CategoryIcon className="size-5" />
+                  <div
+                    className={cn(
+                      "shrink-0 p-px rounded-lg shadow-sm bg-gradient-to-b",
+                      categoryStyle.borderColor,
+                    )}
+                  >
+                    <div
+                      className={cn(
+                        "flex size-9 items-center justify-center rounded-[7px] bg-gradient-to-b",
+                        categoryStyle.gradient,
+                      )}
+                    >
+                      <CategoryIcon
+                        className={cn("size-5", categoryStyle.iconColor)}
+                      />
+                    </div>
                   </div>
                   <div>
                     <h2 className="font-medium">{categoryName}</h2>
