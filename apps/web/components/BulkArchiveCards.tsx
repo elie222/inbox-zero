@@ -77,6 +77,15 @@ export function BulkArchiveCards({
       }
     }
 
+    // Always show default categories with 0 senders if no categories exist
+    if (categories.length === 0) {
+      for (const cat of Object.values(defaultCategory)) {
+        if (!grouped[cat.name]) {
+          grouped[cat.name] = [];
+        }
+      }
+    }
+
     return grouped;
   }, [emailGroups, categories, categoryMap]);
 
@@ -163,8 +172,14 @@ export function BulkArchiveCards({
         const category = categoryMap[categoryName];
         const CategoryIcon = getCategoryIcon(categoryName);
 
-        // Skip if no category found (but allow Uncategorized)
-        if (!category && categoryName !== "Uncategorized") return null;
+        // Get default category info if no category exists
+        const defaultCat = Object.values(defaultCategory).find(
+          (c) => c.name === categoryName,
+        );
+
+        // Skip if no category found and not a default category (but allow Uncategorized)
+        if (!category && !defaultCat && categoryName !== "Uncategorized")
+          return null;
 
         const isExpanded = expandedCategory === categoryName;
         const isArchived = archivedCategories[categoryName];
@@ -219,7 +234,8 @@ export function BulkArchiveCards({
                     <h2 className="font-medium">{categoryName}</h2>
                     <p className="text-sm text-muted-foreground">
                       {senders.length} senders
-                      {category?.description && ` · ${category.description}`}
+                      {(category?.description || defaultCat?.description) &&
+                        ` · ${category?.description || defaultCat?.description}`}
                     </p>
                   </div>
                 </div>

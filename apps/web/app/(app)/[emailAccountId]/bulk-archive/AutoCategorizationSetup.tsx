@@ -61,7 +61,7 @@ export function AutoCategorizationSetup({
       setIsBulkCategorizing(false);
     } finally {
       setIsEnabling(false);
-      onComplete?.();
+      // onComplete?.();
     }
   }, [emailAccountId, setIsBulkCategorizing]);
 

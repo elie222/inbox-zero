@@ -15,12 +15,25 @@ export function BulkArchiveProgress({
   const { isBulkCategorizing, setIsBulkCategorizing } = useCategorizeProgress();
   const [fakeProgress, setFakeProgress] = useState(0);
 
+  // Check if there's active progress (categorization in progress from server)
   const { data } = useSWR<CategorizeProgress>(
     "/api/user/categorize/senders/progress",
     {
-      refreshInterval: isBulkCategorizing ? 1000 : undefined,
+      refreshInterval: 1000, // Always poll to detect ongoing categorization
     },
   );
+
+  // Categorization is active if explicitly set OR if server shows incomplete progress
+  const hasActiveProgress =
+    data?.totalItems && data.completedItems < data.totalItems;
+  const isCategorizationActive = isBulkCategorizing || hasActiveProgress;
+
+  // Sync local state with server state
+  useEffect(() => {
+    if (hasActiveProgress && !isBulkCategorizing) {
+      setIsBulkCategorizing(true);
+    }
+  }, [hasActiveProgress, isBulkCategorizing, setIsBulkCategorizing]);
 
   // Fake progress animation to make it feel responsive
   useInterval(
@@ -38,7 +51,7 @@ export function BulkArchiveProgress({
         return prev < maxProgress ? prev + 1 : prev;
       });
     },
-    isBulkCategorizing ? 1500 : null,
+    isCategorizationActive ? 1500 : null,
   );
 
   // Handle completion
@@ -65,7 +78,7 @@ export function BulkArchiveProgress({
     onComplete,
   ]);
 
-  if (!isBulkCategorizing || !data?.totalItems) {
+  if (!isCategorizationActive || !data?.totalItems) {
     return null;
   }
 
