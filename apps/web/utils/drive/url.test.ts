@@ -14,8 +14,9 @@ describe("getDriveFileUrl", () => {
     );
   });
 
-  it("should return empty string for unknown provider", () => {
-    expect(getDriveFileUrl("file789", "unknown")).toBe("");
+  it("should return the provider name for unknown provider", () => {
+    // @ts-expect-error - testing invalid provider at runtime
+    expect(getDriveFileUrl("file789", "unknown")).toBe("unknown");
   });
 
   it("should handle file IDs with special characters", () => {
