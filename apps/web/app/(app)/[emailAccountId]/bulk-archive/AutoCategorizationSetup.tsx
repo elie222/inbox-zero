@@ -45,11 +45,14 @@ export function AutoCategorizationSetup() {
         throw new Error(result.serverError);
       }
 
-      toast.success(
-        result?.data?.totalUncategorizedSenders
-          ? `Categorizing ${result.data.totalUncategorizedSenders} senders... This may take a few minutes.`
-          : "No uncategorized senders found.",
-      );
+      if (result?.data?.totalUncategorizedSenders) {
+        toast.success(
+          `Categorizing ${result.data.totalUncategorizedSenders} senders... This may take a few minutes.`,
+        );
+      } else {
+        toast.success("No uncategorized senders found.");
+        setIsBulkCategorizing(false);
+      }
     } catch (error) {
       toast.error(
         `Failed to enable feature: ${error instanceof Error ? error.message : "Unknown error"}`,
