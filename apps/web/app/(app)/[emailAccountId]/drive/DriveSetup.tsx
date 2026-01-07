@@ -107,33 +107,43 @@ export function DriveSetup() {
           fileAttachmentAction(emailAccountId, {
             messageId: att.messageId,
             filename: att.filename,
-          }).then((result) => {
-            const resultData = result?.data;
-            if (result?.serverError) {
-              setFilingStates((prev) => ({
-                ...prev,
-                [key]: { status: "error", error: result.serverError },
-              }));
-            } else if (resultData?.skipped) {
+          })
+            .then((result) => {
+              const resultData = result?.data;
+              if (result?.serverError) {
+                setFilingStates((prev) => ({
+                  ...prev,
+                  [key]: { status: "error", error: result.serverError },
+                }));
+              } else if (resultData?.skipped) {
+                setFilingStates((prev) => ({
+                  ...prev,
+                  [key]: {
+                    status: "skipped",
+                    skipReason: resultData.skipReason,
+                  },
+                }));
+              } else if (resultData) {
+                setFilingStates((prev) => ({
+                  ...prev,
+                  [key]: { status: "filed", result: resultData },
+                }));
+              } else {
+                setFilingStates((prev) => ({
+                  ...prev,
+                  [key]: { status: "error", error: "Unknown error" },
+                }));
+              }
+            })
+            .catch((err) => {
               setFilingStates((prev) => ({
                 ...prev,
                 [key]: {
-                  status: "skipped",
-                  skipReason: resultData.skipReason,
+                  status: "error",
+                  error: err instanceof Error ? err.message : "Filing failed",
                 },
               }));
-            } else if (resultData) {
-              setFilingStates((prev) => ({
-                ...prev,
-                [key]: { status: "filed", result: resultData },
-              }));
-            } else {
-              setFilingStates((prev) => ({
-                ...prev,
-                [key]: { status: "error", error: "Unknown error" },
-              }));
-            }
-          });
+            });
         }
         setFilingStates(initial);
       },
