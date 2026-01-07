@@ -48,21 +48,23 @@ export default function DrivePage() {
     async (checked: boolean) => {
       setIsSaving(true);
 
-      const result = await updateFilingEnabledAction(emailAccountId, {
-        filingEnabled: checked,
-      });
-
-      if (result?.serverError) {
-        toastError({
-          title: "Error saving preferences",
-          description: result.serverError,
+      try {
+        const result = await updateFilingEnabledAction(emailAccountId, {
+          filingEnabled: checked,
         });
-      } else {
-        toastSuccess({ description: "Preferences saved" });
-        mutateEmail();
-      }
 
-      setIsSaving(false);
+        if (result?.serverError) {
+          toastError({
+            title: "Error saving preferences",
+            description: result.serverError,
+          });
+        } else {
+          toastSuccess({ description: "Preferences saved" });
+          mutateEmail();
+        }
+      } finally {
+        setIsSaving(false);
+      }
     },
     [emailAccountId, mutateEmail],
   );

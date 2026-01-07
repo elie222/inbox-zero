@@ -1048,7 +1048,6 @@ model DocumentFiling {
   @@index([emailAccountId, status])
   @@index([driveConnectionId])
   @@index([messageId])
-  @@index([notificationMessageId])
 }
 
 model Referral {

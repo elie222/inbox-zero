@@ -6,6 +6,7 @@ import type { GetDriveConnectionsResponse } from "@/app/api/user/drive/connectio
 import { disconnectDriveAction } from "@/utils/actions/drive";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { useDriveConnections } from "@/hooks/useDriveConnections";
+import { toastError } from "@/components/Toast";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -48,8 +49,16 @@ export function DriveConnectionCard({
 
   const handleDisconnect = async () => {
     if (confirm("Are you sure you want to disconnect this drive?")) {
-      await executeDisconnect({ connectionId: connection.id });
-      mutate();
+      const result = await executeDisconnect({ connectionId: connection.id });
+
+      if (result?.serverError) {
+        toastError({
+          title: "Error disconnecting drive",
+          description: result.serverError,
+        });
+      } else {
+        mutate();
+      }
     }
   };
 

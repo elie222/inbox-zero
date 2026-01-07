@@ -456,10 +456,15 @@ function FilingRow({
     if (!filingId) return;
 
     setVote(true);
-    await submitPreviewFeedbackAction(emailAccountId, {
+    const result = await submitPreviewFeedbackAction(emailAccountId, {
       filingId,
       feedbackPositive: true,
     });
+
+    if (result?.serverError) {
+      setVote(null);
+      toastError({ description: "Failed to submit feedback" });
+    }
   }, [emailAccountId, filingState.result?.filingId]);
 
   const handleWrongClick = useCallback(() => {

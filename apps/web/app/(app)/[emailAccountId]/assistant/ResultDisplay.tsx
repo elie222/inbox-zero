@@ -211,7 +211,7 @@ function Actions({
               {getActionDisplay(action, provider, labels)}
             </Badge>
             {fields.length > 0 && (
-              <MutedText className="ml-1 space-y-0.5">
+              <div className="ml-1 space-y-0.5 text-sm text-muted-foreground">
                 {fields.map((field) => (
                   <div
                     key={field.key}
@@ -221,7 +221,7 @@ function Actions({
                     {field.value}
                   </div>
                 ))}
-              </MutedText>
+              </div>
             )}
           </div>
         );
