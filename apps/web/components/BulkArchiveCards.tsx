@@ -6,12 +6,9 @@ import { useQueryState } from "nuqs";
 import groupBy from "lodash/groupBy";
 import {
   ArchiveIcon,
-  BookmarkXIcon,
   CheckIcon,
   ChevronDownIcon,
   MailIcon,
-  MoreVerticalIcon,
-  PencilIcon,
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -21,20 +18,12 @@ import { EmailCell } from "@/components/EmailCell";
 import { useThreads } from "@/hooks/useThreads";
 import { formatShortDate } from "@/utils/date";
 import { cn } from "@/utils";
-import { removeAllFromCategoryAction } from "@/utils/actions/categorize";
-import { toastError, toastSuccess } from "@/components/Toast";
+import { toastError } from "@/components/Toast";
 import {
   addToArchiveSenderQueue,
   useArchiveSenderStatus,
 } from "@/store/archive-sender-queue";
 import { getEmailUrl } from "@/utils/url";
-import { CreateCategoryDialog } from "@/app/(app)/[emailAccountId]/smart-categories/CreateCategoryButton";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import type { CategoryWithRules } from "@/utils/category.server";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { getCategoryIcon } from "@/components/bulk-archive/categoryIcons";
@@ -98,9 +87,6 @@ export function BulkArchiveCards({
       return a.localeCompare(b);
     });
   }, [groupedEmails]);
-
-  const [selectedCategoryName, setSelectedCategoryName] =
-    useQueryState("categoryName");
 
   const toggleCategory = (categoryName: string) => {
     if (expandedCategory !== categoryName) {
@@ -168,185 +154,122 @@ export function BulkArchiveCards({
     }
   };
 
-  const onEditCategory = (categoryName: string) => {
-    setSelectedCategoryName(categoryName);
-  };
-
-  const onRemoveAllFromCategory = async (categoryName: string) => {
-    const yes = confirm(
-      "This will remove all emails from this category. You can re-categorize them later. Do you want to continue?",
-    );
-    if (!yes) return;
-    const result = await removeAllFromCategoryAction(emailAccountId, {
-      categoryName,
-    });
-
-    if (result?.serverError) {
-      toastError({ description: result.serverError });
-    } else {
-      toastSuccess({
-        description: "All emails removed from category",
-      });
-    }
-  };
-
   return (
-    <>
-      <div className="space-y-3 py-4">
-        {sortedCategoryEntries.map(([categoryName, senders]) => {
-          const category = categoryMap[categoryName];
-          const CategoryIcon = getCategoryIcon(categoryName);
+    <div className="space-y-3 py-4">
+      {sortedCategoryEntries.map(([categoryName, senders]) => {
+        const category = categoryMap[categoryName];
+        const CategoryIcon = getCategoryIcon(categoryName);
 
-          // Skip if no category found (but allow Uncategorized)
-          if (!category && categoryName !== "Uncategorized") return null;
+        // Skip if no category found (but allow Uncategorized)
+        if (!category && categoryName !== "Uncategorized") return null;
 
-          const isExpanded = expandedCategory === categoryName;
-          const isArchived = archivedCategories[categoryName];
+        const isExpanded = expandedCategory === categoryName;
+        const isArchived = archivedCategories[categoryName];
 
-          if (isArchived) {
-            return (
-              <Card key={categoryName} className="p-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="flex size-10 items-center justify-center rounded-lg bg-muted text-xl opacity-50">
-                      <CategoryIcon className="size-5" />
-                    </div>
-                    <div>
-                      <h2 className="font-medium text-muted-foreground line-through">
-                        {categoryName}
-                      </h2>
-                      <p className="text-sm text-muted-foreground">
-                        {senders.length} senders archived
-                      </p>
-                    </div>
+        if (isArchived) {
+          return (
+            <Card key={categoryName} className="p-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="flex size-10 items-center justify-center rounded-lg bg-muted text-xl opacity-50">
+                    <CategoryIcon className="size-5" />
                   </div>
-                  <div className="flex items-center gap-2 text-green-600">
-                    <CheckIcon className="size-5" />
-                    <span className="text-sm font-medium">Archived</span>
+                  <div>
+                    <h2 className="font-medium text-muted-foreground line-through">
+                      {categoryName}
+                    </h2>
+                    <p className="text-sm text-muted-foreground">
+                      {senders.length} senders archived
+                    </p>
                   </div>
                 </div>
-              </Card>
-            );
-          }
-
-          return (
-            <Card key={categoryName} className="overflow-hidden">
-              {/* Category header - clickable to expand */}
-              <div
-                className="cursor-pointer p-4 transition-colors hover:bg-muted/50"
-                onClick={() => toggleCategory(categoryName)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" || e.key === " ") {
-                    e.preventDefault();
-                    toggleCategory(categoryName);
-                  }
-                }}
-                role="button"
-                tabIndex={0}
-              >
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="flex size-10 items-center justify-center rounded-lg bg-muted text-xl">
-                      <CategoryIcon className="size-5" />
-                    </div>
-                    <div>
-                      <h2 className="font-medium">{categoryName}</h2>
-                      <p className="text-sm text-muted-foreground">
-                        {senders.length} senders
-                        {category?.description && ` · ${category.description}`}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          <MoreVerticalIcon className="size-4" />
-                          <span className="sr-only">More</span>
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem
-                          onClick={() => onEditCategory(categoryName)}
-                        >
-                          <PencilIcon className="mr-2 size-4" />
-                          Edit
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          onClick={() => onRemoveAllFromCategory(categoryName)}
-                        >
-                          <BookmarkXIcon className="mr-2 size-4" />
-                          Remove All From Category
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                    <Button
-                      onClick={(e) => archiveCategory(categoryName, e)}
-                      size="sm"
-                    >
-                      <ArchiveIcon className="mr-2 size-4" />
-                      {isExpanded
-                        ? `Archive ${getSelectedCount(categoryName)} of ${senders.length}`
-                        : "Archive all"}
-                    </Button>
-                    <ChevronDownIcon
-                      className={cn(
-                        "size-5 text-muted-foreground transition-transform",
-                        isExpanded && "rotate-180",
-                      )}
-                    />
-                  </div>
+                <div className="flex items-center gap-2 text-green-600">
+                  <CheckIcon className="size-5" />
+                  <span className="text-sm font-medium">Archived</span>
                 </div>
               </div>
-
-              {/* Expanded sender list */}
-              {isExpanded && (
-                <div className="border-t">
-                  <div className="divide-y">
-                    {senders.length === 0 ? (
-                      <div className="p-4 text-center text-sm text-muted-foreground">
-                        No senders in this category
-                      </div>
-                    ) : (
-                      senders.map((sender) => (
-                        <SenderRow
-                          key={sender.address}
-                          sender={sender}
-                          isExpanded={!!expandedSenders[sender.address]}
-                          isSelected={selectedSenders[sender.address] !== false}
-                          onToggle={() => toggleSender(sender.address)}
-                          onToggleSelection={(e) =>
-                            toggleSenderSelection(sender.address, e)
-                          }
-                          userEmail={userEmail}
-                        />
-                      ))
-                    )}
-                  </div>
-                </div>
-              )}
             </Card>
           );
-        })}
-      </div>
+        }
 
-      <CreateCategoryDialog
-        isOpen={selectedCategoryName !== null}
-        onOpenChange={(open) =>
-          setSelectedCategoryName(open ? selectedCategoryName : null)
-        }
-        closeModal={() => setSelectedCategoryName(null)}
-        category={
-          selectedCategoryName
-            ? categories.find((c) => c.name === selectedCategoryName)
-            : undefined
-        }
-      />
-    </>
+        return (
+          <Card key={categoryName} className="overflow-hidden">
+            {/* Category header - clickable to expand */}
+            <div
+              className="cursor-pointer p-4 transition-colors hover:bg-muted/50"
+              onClick={() => toggleCategory(categoryName)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  toggleCategory(categoryName);
+                }
+              }}
+              role="button"
+              tabIndex={0}
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="flex size-10 items-center justify-center rounded-lg bg-muted text-xl">
+                    <CategoryIcon className="size-5" />
+                  </div>
+                  <div>
+                    <h2 className="font-medium">{categoryName}</h2>
+                    <p className="text-sm text-muted-foreground">
+                      {senders.length} senders
+                      {category?.description && ` · ${category.description}`}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3">
+                  <Button
+                    onClick={(e) => archiveCategory(categoryName, e)}
+                    size="sm"
+                  >
+                    <ArchiveIcon className="mr-2 size-4" />
+                    {isExpanded
+                      ? `Archive ${getSelectedCount(categoryName)} of ${senders.length}`
+                      : "Archive all"}
+                  </Button>
+                  <ChevronDownIcon
+                    className={cn(
+                      "size-5 text-muted-foreground transition-transform",
+                      isExpanded && "rotate-180",
+                    )}
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Expanded sender list */}
+            {isExpanded && (
+              <div className="border-t">
+                <div className="divide-y">
+                  {senders.length === 0 ? (
+                    <div className="p-4 text-center text-sm text-muted-foreground">
+                      No senders in this category
+                    </div>
+                  ) : (
+                    senders.map((sender) => (
+                      <SenderRow
+                        key={sender.address}
+                        sender={sender}
+                        isExpanded={!!expandedSenders[sender.address]}
+                        isSelected={selectedSenders[sender.address] !== false}
+                        onToggle={() => toggleSender(sender.address)}
+                        onToggleSelection={(e) =>
+                          toggleSenderSelection(sender.address, e)
+                        }
+                        userEmail={userEmail}
+                      />
+                    ))
+                  )}
+                </div>
+              </div>
+            )}
+          </Card>
+        );
+      })}
+    </div>
   );
 }
 
