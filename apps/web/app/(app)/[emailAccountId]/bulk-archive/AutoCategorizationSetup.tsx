@@ -2,17 +2,31 @@
 
 import { useState, useCallback } from "react";
 import { toast } from "sonner";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { ArchiveIcon, TagsIcon, ZapIcon } from "lucide-react";
+import { SetupCard } from "@/components/SetupCard";
 import { Button } from "@/components/ui/button";
 import { bulkCategorizeSendersAction } from "@/utils/actions/categorize";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { useCategorizeProgress } from "@/app/(app)/[emailAccountId]/smart-categories/CategorizeProgress";
+
+const features = [
+  {
+    icon: <TagsIcon className="size-4 text-blue-500" />,
+    title: "Smart categorization",
+    description:
+      "Automatically group senders into categories like Newsletters, Receipts, and Marketing",
+  },
+  {
+    icon: <ArchiveIcon className="size-4 text-blue-500" />,
+    title: "Bulk actions",
+    description: "Archive entire categories at once instead of email by email",
+  },
+  {
+    icon: <ZapIcon className="size-4 text-blue-500" />,
+    title: "Instant cleanup",
+    description: "Clear hundreds of emails in seconds, not hours",
+  },
+];
 
 export function AutoCategorizationSetup() {
   const { emailAccountId } = useAccount();
@@ -47,20 +61,16 @@ export function AutoCategorizationSetup() {
   }, [emailAccountId, setIsBulkCategorizing]);
 
   return (
-    <Card className="m-4">
-      <CardHeader>
-        <CardTitle>Bulk Archive</CardTitle>
-        <CardDescription>
-          Archive emails in bulk by sender category. We'll first categorize your
-          senders into groups like Newsletters, Receipts, Marketing, etc. Then
-          you can quickly archive entire categories at once.
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        <Button onClick={enableFeature} loading={isEnabling}>
-          Enable feature
-        </Button>
-      </CardContent>
-    </Card>
+    <SetupCard
+      imageSrc="/images/illustrations/working-vacation.svg"
+      imageAlt="Bulk Archive"
+      title="Bulk Archive"
+      description="Clean up your inbox by archiving emails in bulk by category."
+      features={features}
+    >
+      <Button onClick={enableFeature} loading={isEnabling}>
+        Get Started
+      </Button>
+    </SetupCard>
   );
 }

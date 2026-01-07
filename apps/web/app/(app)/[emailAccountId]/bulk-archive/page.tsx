@@ -13,10 +13,13 @@ export const maxDuration = 300;
 
 export default async function BulkArchivePage({
   params,
+  searchParams,
 }: {
   params: Promise<{ emailAccountId: string }>;
+  searchParams: Promise<{ onboarding?: string }>;
 }) {
   const { emailAccountId } = await params;
+  const { onboarding } = await searchParams;
   await checkUserOwnsEmailAccount({ emailAccountId });
 
   const [senders, categories] = await Promise.all([
@@ -31,6 +34,9 @@ export default async function BulkArchivePage({
     getUserCategoriesWithRules({ emailAccountId }),
   ]);
 
+  const hasCategorizedSenders = senders.length > 0;
+  const showOnboarding = onboarding === "true" || !hasCategorizedSenders;
+
   return (
     <>
       <PermissionsCheck />
@@ -39,16 +45,26 @@ export default async function BulkArchivePage({
         <ArchiveProgress />
       </ClientOnly>
 
-      <PageWrapper>
-        <PageHeader title="Bulk Archive" />
-
+      {showOnboarding ? (
         <ClientOnly>
           <BulkArchiveContent
             initialSenders={senders}
             initialCategories={categories}
+            showOnboarding
           />
         </ClientOnly>
-      </PageWrapper>
+      ) : (
+        <PageWrapper>
+          <PageHeader title="Bulk Archive" />
+
+          <ClientOnly>
+            <BulkArchiveContent
+              initialSenders={senders}
+              initialCategories={categories}
+            />
+          </ClientOnly>
+        </PageWrapper>
+      )}
     </>
   );
 }

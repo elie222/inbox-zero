@@ -58,6 +58,10 @@ const nextConfig: NextConfig = {
         protocol: "https",
         hostname: "cdn.outrank.so",
       },
+      {
+        protocol: "https",
+        hostname: "illustrations.popsy.co",
+      },
     ],
   },
   async redirects() {
