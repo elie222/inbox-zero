@@ -10,7 +10,7 @@ Determine their intent and always provide a reply to send back.
 Actions:
 - "approve": User is happy with the filing. We will mark it as approved in the database.
 - "move": User wants the document in a different folder. We will move the file to the path they specify.
-- "undo": User wants to reverse the filing. We will delete the file from Drive.
+- "undo": User wants to reverse the filing. We will move the file to a "To Delete" folder for them to review.
 - "none": No action needed, just answering a question or continuing conversation.
 
 Always write a helpful, concise reply.`;

@@ -98,7 +98,12 @@ export async function processFilingReply({
       await handleApprove(filing.id);
       break;
     case "undo":
-      await handleUndo(filing.id);
+      await handleUndo({
+        filingId: filing.id,
+        fileId: filing.fileId,
+        driveConnection: filing.driveConnection,
+        logger,
+      });
       break;
     case "move":
       await handleMove({
@@ -139,12 +144,45 @@ async function handleApprove(filingId: string): Promise<void> {
   });
 }
 
-async function handleUndo(filingId: string): Promise<void> {
+const TO_DELETE_FOLDER = "Inbox Zero - To Delete";
+
+async function handleUndo({
+  filingId,
+  fileId,
+  driveConnection,
+  logger,
+}: {
+  filingId: string;
+  fileId: string | null;
+  driveConnection: DriveConnection;
+  logger: Logger;
+}): Promise<void> {
+  // Move file to "To Delete" folder so user can easily find and delete
+  if (fileId) {
+    try {
+      const driveProvider = await createDriveProviderWithRefresh(
+        driveConnection,
+        logger,
+      );
+
+      // Get or create the "To Delete" folder at root
+      const folders = await driveProvider.listFolders();
+      let toDeleteFolder = folders.find((f) => f.name === TO_DELETE_FOLDER);
+
+      if (!toDeleteFolder) {
+        toDeleteFolder = await driveProvider.createFolder(TO_DELETE_FOLDER);
+      }
+
+      await driveProvider.moveFile(fileId, toDeleteFolder.id);
+    } catch (error) {
+      logger.error("Failed to move file to To Delete folder", { error });
+    }
+  }
+
   await prisma.documentFiling.update({
     where: { id: filingId },
     data: { status: "REJECTED" },
   });
-  // TODO: Delete file from Drive when driveProvider.deleteFile is implemented
 }
 
 async function handleMove({
