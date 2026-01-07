@@ -10,6 +10,16 @@ vi.mock("@/env", () => ({
 }));
 vi.mock("@/utils/llms/model", () => ({ getModel: vi.fn() }));
 vi.mock("@/utils/llms", () => ({ createGenerateObject: vi.fn() }));
+vi.mock("@/utils/ai/helpers", () => ({
+  getUserInfoPrompt: vi.fn(
+    ({ emailAccount }) =>
+      `The user you are acting on behalf of is:
+<user_info>
+<email>${emailAccount.email}</email>
+<about>${emailAccount.about}</about>
+</user_info>`,
+  ),
+}));
 vi.mock("@/utils/stringify-email", () => ({
   stringifyEmailSimple: vi.fn(
     (email) =>
@@ -27,12 +37,18 @@ vi.mock("@/utils/get-email-from-message", () => ({
 vi.doUnmock("@/utils/date");
 
 import { buildPrompt } from "./generate-briefing";
+import type { EmailAccountWithAI } from "@/utils/llms/types";
 
 beforeEach(() => {
   vi.clearAllMocks();
 });
 
 describe("buildPrompt timezone handling", () => {
+  const mockEmailAccount = {
+    email: "user@company.com",
+    timezone: "America/Sao_Paulo",
+    about: "I am a product manager at Company Inc.",
+  } as EmailAccountWithAI;
   it("formats past meeting times in the user's timezone (not UTC)", () => {
     // This test documents the timezone bug fix:
     // - Calendar API stores times in UTC
@@ -54,6 +70,7 @@ describe("buildPrompt timezone handling", () => {
         ],
       },
       externalGuests: [{ email: "client@acme.com", name: "John Smith" }],
+      internalTeamMembers: [],
       emailThreads: [],
       pastMeetings: [
         {
@@ -67,11 +84,17 @@ describe("buildPrompt timezone handling", () => {
       ],
     };
 
-    const prompt = buildPrompt(briefingData, "America/Sao_Paulo");
+    const prompt = buildPrompt(briefingData, mockEmailAccount);
 
     // The past meeting should show "4:00 PM" (Brazil time), NOT "7:00 PM" (UTC)
     expect(prompt).toMatchInlineSnapshot(`
       "Prepare a concise briefing for this upcoming meeting.
+
+      The user you are acting on behalf of is:
+      <user_info>
+      <email>user@company.com</email>
+      <about>I am a product manager at Company Inc.</about>
+      </user_info>
 
       <upcoming_meeting>
       Title: Strategy Review
@@ -117,14 +140,21 @@ describe("buildPrompt timezone handling", () => {
         ],
       },
       externalGuests: [{ email: "newcontact@other.com", name: "New Person" }],
+      internalTeamMembers: [],
       emailThreads: [],
       pastMeetings: [],
     };
 
-    const prompt = buildPrompt(briefingData, "America/Sao_Paulo");
+    const prompt = buildPrompt(briefingData, mockEmailAccount);
 
     expect(prompt).toMatchInlineSnapshot(`
       "Prepare a concise briefing for this upcoming meeting.
+
+      The user you are acting on behalf of is:
+      <user_info>
+      <email>user@company.com</email>
+      <about>I am a product manager at Company Inc.</about>
+      </user_info>
 
       <upcoming_meeting>
       Title: Intro Meeting
