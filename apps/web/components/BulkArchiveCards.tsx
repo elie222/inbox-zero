@@ -28,11 +28,7 @@ import type { CategoryWithRules } from "@/utils/category.server";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { getCategoryIcon } from "@/components/bulk-archive/categoryIcons";
 import { defaultCategory } from "@/utils/categories";
-
-type EmailGroup = {
-  address: string;
-  category: CategoryWithRules | null;
-};
+import type { EmailGroup } from "@/utils/bulk-archive/get-archive-candidates";
 
 export function BulkArchiveCards({
   emailGroups,
