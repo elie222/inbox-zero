@@ -343,12 +343,25 @@ function resolveFolderTarget(
         };
       }
     }
-    logger.warn("Could not find folder from AI response, using first drive", {
+    // Folder not found (stale reference) - fall back to creating a new folder
+    // Use the folder name from our records if available, otherwise use a default
+    const staleFolderName =
+      folders.find((f) => f.id === analysis.folderId)?.name ||
+      "Inbox Zero Filed";
+    logger.warn("Could not find folder from AI response, creating new folder", {
       folderId: analysis.folderId,
+      fallbackPath: staleFolderName,
     });
+    const connection = connections[0];
+    return {
+      driveConnection: connection,
+      folderId: "root",
+      folderPath: staleFolderName,
+      needsToCreateFolder: true,
+    };
   }
 
-  // Creating new folder or fallback - use first connection
+  // Creating new folder - use first connection
   const connection = connections[0];
   return {
     driveConnection: connection,

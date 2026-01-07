@@ -165,8 +165,7 @@ async function extractFromPdf(
       truncated,
     };
   } finally {
-    // Clean up PDF resources
-    pdf.cleanup?.();
+    await pdf.cleanup?.();
   }
 }
 

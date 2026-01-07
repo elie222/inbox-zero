@@ -123,6 +123,7 @@ export async function processHistoryItem(
         emailAccountId,
         userEmail,
         emailProvider: provider,
+        emailAccount,
         logger,
       });
     }

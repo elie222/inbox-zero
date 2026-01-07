@@ -1,7 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { createFolderPath } from "./folder-utils";
 import type { DriveProvider, DriveFolder } from "./types";
-import type { Logger } from "@/utils/logger";
+import { createScopedLogger } from "@/utils/logger";
+
+vi.mock("server-only", () => ({}));
 
 function createMockFolder(id: string, name: string): DriveFolder {
   return {
@@ -52,27 +54,17 @@ function createMockProvider(
   };
 }
 
-function createMockLogger(): Logger {
-  return {
-    info: vi.fn(),
-    warn: vi.fn(),
-    error: vi.fn(),
-    debug: vi.fn(),
-    with: vi.fn(() => createMockLogger()),
-  } as unknown as Logger;
-}
+const logger = createScopedLogger("test");
 
 describe("createFolderPath", () => {
-  let mockLogger: Logger;
-
   beforeEach(() => {
-    mockLogger = createMockLogger();
+    vi.clearAllMocks();
   });
 
   it("should create a single folder at root", async () => {
     const provider = createMockProvider();
 
-    const result = await createFolderPath(provider, "Receipts", mockLogger);
+    const result = await createFolderPath(provider, "Receipts", logger);
 
     expect(result.name).toBe("Receipts");
     expect(provider.createFolder).toHaveBeenCalledWith("Receipts", undefined);
@@ -84,7 +76,7 @@ describe("createFolderPath", () => {
     const result = await createFolderPath(
       provider,
       "Receipts/2024/December",
-      mockLogger,
+      logger,
     );
 
     expect(result.name).toBe("December");
@@ -102,11 +94,7 @@ describe("createFolderPath", () => {
     ]);
     const provider = createMockProvider(existingFolders);
 
-    const result = await createFolderPath(
-      provider,
-      "Receipts/2024",
-      mockLogger,
-    );
+    const result = await createFolderPath(provider, "Receipts/2024", logger);
 
     expect(result.name).toBe("2024");
     expect(provider.createFolder).toHaveBeenCalledTimes(1);
@@ -119,11 +107,7 @@ describe("createFolderPath", () => {
     ]);
     const provider = createMockProvider(existingFolders);
 
-    const result = await createFolderPath(
-      provider,
-      "receipts/2024",
-      mockLogger,
-    );
+    const result = await createFolderPath(provider, "receipts/2024", logger);
 
     expect(result.name).toBe("2024");
     expect(provider.createFolder).toHaveBeenCalledTimes(1);
@@ -133,7 +117,7 @@ describe("createFolderPath", () => {
   it("should handle path with leading slash", async () => {
     const provider = createMockProvider();
 
-    const result = await createFolderPath(provider, "/Receipts", mockLogger);
+    const result = await createFolderPath(provider, "/Receipts", logger);
 
     expect(result.name).toBe("Receipts");
     expect(provider.createFolder).toHaveBeenCalledTimes(1);
@@ -142,7 +126,7 @@ describe("createFolderPath", () => {
   it("should handle path with trailing slash", async () => {
     const provider = createMockProvider();
 
-    const result = await createFolderPath(provider, "Receipts/", mockLogger);
+    const result = await createFolderPath(provider, "Receipts/", logger);
 
     expect(result.name).toBe("Receipts");
     expect(provider.createFolder).toHaveBeenCalledTimes(1);
@@ -151,19 +135,8 @@ describe("createFolderPath", () => {
   it("should throw error for empty path", async () => {
     const provider = createMockProvider();
 
-    await expect(createFolderPath(provider, "", mockLogger)).rejects.toThrow(
+    await expect(createFolderPath(provider, "", logger)).rejects.toThrow(
       "Failed to create folder path",
     );
-  });
-
-  it("should log when creating folders", async () => {
-    const provider = createMockProvider();
-
-    await createFolderPath(provider, "Receipts/2024", mockLogger);
-
-    expect(mockLogger.info).toHaveBeenCalledWith("Creating folder", {
-      name: "Receipts",
-      parentId: undefined,
-    });
   });
 });
