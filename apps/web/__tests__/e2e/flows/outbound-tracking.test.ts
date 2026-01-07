@@ -164,14 +164,11 @@ describe.skipIf(!shouldRunFlowTests())("Outbound Message Tracking", () => {
       });
 
       // Outbound messages should not trigger rule execution
-      // (they might be tracked differently or not at all)
+      expect(executedRulesForSent).toHaveLength(0);
+
       logStep("ExecutedRules for outbound message", {
         count: executedRulesForSent.length,
       });
-
-      // This assertion depends on implementation -
-      // outbound messages typically shouldn't create ExecutedRules
-      // or should be marked differently
     },
     TIMEOUTS.TEST_DEFAULT,
   );
@@ -228,14 +225,14 @@ describe.skipIf(!shouldRunFlowTests())("Outbound Message Tracking", () => {
         },
       });
 
-      if (threadTracker) {
-        logStep("Reply tracking found", {
-          resolved: threadTracker.resolved,
-          type: threadTracker.type,
-        });
-      } else {
-        logStep("No thread tracker entry found (may be expected)");
-      }
+      // Thread tracker should exist and be marked as resolved after reply
+      expect(threadTracker).toBeDefined();
+      expect(threadTracker?.resolved).toBe(true);
+
+      logStep("Reply tracking found", {
+        resolved: threadTracker?.resolved,
+        type: threadTracker?.type,
+      });
     },
     TIMEOUTS.TEST_DEFAULT,
   );

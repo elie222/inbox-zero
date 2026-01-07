@@ -32,6 +32,8 @@ concurrency:
 jobs:
   check-enabled:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     outputs:
       enabled: ${{ steps.check.outputs.enabled }}
     steps:
@@ -51,6 +53,8 @@ jobs:
     if: needs.check-enabled.outputs.enabled == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    permissions:
+      contents: read
 
     steps:
       - name: Checkout repository
@@ -196,6 +200,8 @@ jobs:
     needs: check-enabled
     if: needs.check-enabled.outputs.enabled != 'true'
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - name: E2E flows disabled notice
         run: |

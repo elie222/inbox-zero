@@ -272,12 +272,10 @@ describe.skipIf(!shouldRunFlowTests())("Draft Cleanup", () => {
         (a) => a.type === "DRAFT_EMAIL" && a.draftId,
       );
 
-      if (!draftAction?.draftId) {
-        logStep("No draft created, skipping test");
-        return;
-      }
+      // This test requires a draft to be created
+      expect(draftAction?.draftId).toBeTruthy();
 
-      const aiDraftId = draftAction.draftId;
+      const aiDraftId = draftAction!.draftId!;
       logStep("AI draft created", { draftId: aiDraftId });
 
       // ========================================

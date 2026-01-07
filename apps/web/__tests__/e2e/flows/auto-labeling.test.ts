@@ -158,9 +158,10 @@ describe.skipIf(!shouldRunFlowTests())("Auto-Labeling", () => {
       );
 
       // FYI emails should NOT create drafts
-      // (depending on rule configuration)
+      expect(draftAction).toBeUndefined();
+
       logStep("Draft action result", {
-        hasDraft: !!draftAction?.draftId,
+        hasDraft: false,
       });
 
       // ========================================
@@ -225,8 +226,11 @@ describe.skipIf(!shouldRunFlowTests())("Auto-Labeling", () => {
         (a) => a.type === "DRAFT_EMAIL" && a.draftId,
       );
 
+      // Thank you emails should NOT create drafts
+      expect(draftAction).toBeUndefined();
+
       logStep("Thank you email processed", {
-        hasDraft: !!draftAction?.draftId,
+        hasDraft: false,
         actionsCount: executedRule.actionItems.length,
       });
     },

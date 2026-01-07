@@ -153,6 +153,7 @@ describe.skipIf(!shouldRunFlowTests())("Full Reply Cycle", () => {
           outlookMessage.messageId,
         );
         expect(message.labelIds).toBeDefined();
+        expect(message.labelIds).toContain(labelAction.labelId);
         logStep("Labels on message", { labels: message.labelIds });
       }
 
