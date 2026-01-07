@@ -8,6 +8,9 @@ import { BulkArchiveCards } from "@/components/BulkArchiveCards";
 import { useCategorizeProgress } from "@/app/(app)/[emailAccountId]/smart-categories/CategorizeProgress";
 import type { CategorizedSendersResponse } from "@/app/api/user/categorize/senders/categorized/route";
 import type { CategoryWithRules } from "@/utils/category.server";
+import { useSearchParams } from "next/navigation";
+import { PageWrapper } from "@/components/PageWrapper";
+import { PageHeader } from "@/components/PageHeader";
 
 type Sender = {
   id: string;
@@ -15,15 +18,18 @@ type Sender = {
   category: { id: string; description: string | null; name: string } | null;
 };
 
-export function BulkArchiveContent({
+export function BulkArchive({
   initialSenders,
   initialCategories,
-  showOnboarding = false,
 }: {
   initialSenders: Sender[];
   initialCategories: CategoryWithRules[];
-  showOnboarding?: boolean;
 }) {
+  const searchParams = useSearchParams();
+  const onboarding = searchParams.get("onboarding");
+  const hasCategorizedSenders = initialSenders.length > 0;
+  const showOnboarding = onboarding === "true" || !hasCategorizedSenders;
+
   const { isBulkCategorizing } = useCategorizeProgress();
 
   // Poll for updates while categorization is in progress
@@ -53,17 +59,19 @@ export function BulkArchiveContent({
     mutate();
   }, [mutate]);
 
-  const hasCategorizedSenders = senders.length > 0;
   const shouldShowOnboarding =
     !isBulkCategorizing && (showOnboarding || !hasCategorizedSenders);
 
   return (
     <>
-      <BulkArchiveProgress onComplete={handleProgressComplete} />
       {shouldShowOnboarding ? (
         <AutoCategorizationSetup />
       ) : (
-        <BulkArchiveCards emailGroups={emailGroups} categories={categories} />
+        <PageWrapper>
+          <PageHeader title="Bulk Archive" />
+          <BulkArchiveProgress onComplete={handleProgressComplete} />
+          <BulkArchiveCards emailGroups={emailGroups} categories={categories} />
+        </PageWrapper>
       )}
     </>
   );
