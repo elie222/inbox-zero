@@ -368,11 +368,6 @@ export function BulkArchiveCards({
         })}
       </div>
 
-      {/* Footer note */}
-      <p className="mt-6 text-center text-xs text-muted-foreground">
-        Emails are archived, not deleted. You can find them in Gmail anytime.
-      </p>
-
       <CreateCategoryDialog
         isOpen={selectedCategoryName !== null}
         onOpenChange={(open) =>

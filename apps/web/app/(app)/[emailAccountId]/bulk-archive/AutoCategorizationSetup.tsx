@@ -14,11 +14,7 @@ import { bulkCategorizeSendersAction } from "@/utils/actions/categorize";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { useCategorizeProgress } from "@/app/(app)/[emailAccountId]/smart-categories/CategorizeProgress";
 
-export function AutoCategorizationSetup({
-  hasCategorizedSenders,
-}: {
-  hasCategorizedSenders: boolean;
-}) {
+export function AutoCategorizationSetup() {
   const { emailAccountId } = useAccount();
   const { setIsBulkCategorizing } = useCategorizeProgress();
 
@@ -49,11 +45,6 @@ export function AutoCategorizationSetup({
       setIsEnabling(false);
     }
   }, [emailAccountId, setIsBulkCategorizing]);
-
-  // Don't show setup if user already has categorized senders
-  if (hasCategorizedSenders) {
-    return null;
-  }
 
   return (
     <Card className="m-4">

@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useCallback } from "react";
+import { useSearchParams } from "next/navigation";
 import sortBy from "lodash/sortBy";
 import useSWR from "swr";
 import { AutoCategorizationSetup } from "@/app/(app)/[emailAccountId]/bulk-archive/AutoCategorizationSetup";
@@ -23,6 +24,8 @@ export function BulkArchiveContent({
   initialSenders: Sender[];
   initialCategories: CategoryWithRules[];
 }) {
+  const searchParams = useSearchParams();
+  const showOnboarding = searchParams.get("onboarding") === "true";
   const { isBulkCategorizing } = useCategorizeProgress();
 
   // Poll for updates while categorization is in progress
@@ -52,11 +55,17 @@ export function BulkArchiveContent({
     mutate();
   }, [mutate]);
 
+  const hasCategorizedSenders = senders.length > 0;
+  const shouldShowOnboarding = showOnboarding || !hasCategorizedSenders;
+
   return (
     <>
       <BulkArchiveProgress onComplete={handleProgressComplete} />
-      <AutoCategorizationSetup hasCategorizedSenders={senders.length > 0} />
-      <BulkArchiveCards emailGroups={emailGroups} categories={categories} />
+      {shouldShowOnboarding ? (
+        <AutoCategorizationSetup />
+      ) : (
+        <BulkArchiveCards emailGroups={emailGroups} categories={categories} />
+      )}
     </>
   );
 }
