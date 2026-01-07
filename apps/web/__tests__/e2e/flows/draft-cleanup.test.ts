@@ -84,7 +84,9 @@ describe.skipIf(!shouldRunFlowTests())("Draft Cleanup", () => {
         (a) => a.type === "DRAFT_EMAIL" && a.draftId,
       );
 
+      expect(draftAction).toBeDefined();
       expect(draftAction?.draftId).toBeTruthy();
+      // Safe to use ! after the assertions above
       const aiDraftId = draftAction!.draftId!;
 
       logStep("AI draft created", { draftId: aiDraftId });
@@ -183,19 +185,10 @@ describe.skipIf(!shouldRunFlowTests())("Draft Cleanup", () => {
         (a) => a.type === "DRAFT_EMAIL" && a.draftId,
       );
 
-      const firstDraftId = firstDraftAction?.draftId;
+      // Assert draft was created - this test requires a draft
+      expect(firstDraftAction?.draftId).toBeTruthy();
+      const firstDraftId = firstDraftAction!.draftId!;
       logStep("First draft created", { draftId: firstDraftId });
-
-      // ========================================
-      // Send reply that triggers another draft
-      // ========================================
-      logStep("Receiving follow-up email");
-
-      // Wait a moment then send follow-up
-      await new Promise((resolve) => setTimeout(resolve, 2000));
-
-      // Note: In a real scenario, Gmail would send a follow-up
-      // For this test, we simulate by checking cleanup behavior
 
       // ========================================
       // User sends reply
@@ -215,14 +208,12 @@ describe.skipIf(!shouldRunFlowTests())("Draft Cleanup", () => {
       // ========================================
       logStep("Verifying all thread drafts cleaned up");
 
-      if (firstDraftId) {
-        await waitForDraftDeleted({
-          draftId: firstDraftId,
-          provider: outlook.emailProvider,
-          timeout: TIMEOUTS.WEBHOOK_PROCESSING,
-        });
-        logStep("First draft deleted");
-      }
+      await waitForDraftDeleted({
+        draftId: firstDraftId,
+        provider: outlook.emailProvider,
+        timeout: TIMEOUTS.WEBHOOK_PROCESSING,
+      });
+      logStep("First draft deleted");
 
       // Check for any remaining drafts for this thread
       const drafts = await outlook.emailProvider.getDrafts({ maxResults: 50 });

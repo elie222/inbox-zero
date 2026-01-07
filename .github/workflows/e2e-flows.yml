@@ -109,13 +109,19 @@ jobs:
           pnpm start &
           # Wait for server to be ready
           echo "Waiting for app server to start..."
+          SERVER_READY=false
           for i in {1..30}; do
-            if curl -s http://localhost:3000/api/health > /dev/null 2>&1; then
+            if curl -sf http://localhost:3000 > /dev/null 2>&1; then
               echo "App server is ready"
+              SERVER_READY=true
               break
             fi
             sleep 2
           done
+          if [ "$SERVER_READY" != "true" ]; then
+            echo "ERROR: App server failed to start within 60 seconds"
+            exit 1
+          fi
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           UPSTASH_REDIS_REST_URL: ${{ secrets.UPSTASH_REDIS_REST_URL }}

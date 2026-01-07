@@ -69,7 +69,7 @@ E2E_VERBOSE=true pnpm test-e2e:flows
 
 ## Test Structure
 
-```
+```text
 flows/
 ├── config.ts              # Configuration and environment
 ├── setup.ts               # Global test setup (account verification, premium check)
@@ -121,7 +121,7 @@ flows/
 
 Tests output detailed logs with the run ID:
 
-```
+```text
 [E2E-abc123] Step 1: Sending email from Gmail to Outlook
 [E2E-abc123] Email sent { messageId: "...", threadId: "..." }
 [E2E-abc123] Step 2: Waiting for Outlook to receive email
