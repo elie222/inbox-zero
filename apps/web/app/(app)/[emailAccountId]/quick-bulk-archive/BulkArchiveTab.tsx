@@ -90,8 +90,8 @@ export function BulkArchiveTab({ emailGroups }: { emailGroups: EmailGroup[] }) {
   const [expandedSections, setExpandedSections] = useState<
     Record<ConfidenceLevel, boolean>
   >({
-    high: true,
-    medium: true,
+    high: false,
+    medium: false,
     low: false,
   });
   const [isArchiving, setIsArchiving] = useState(false);
@@ -187,7 +187,7 @@ export function BulkArchiveTab({ emailGroups }: { emailGroups: EmailGroup[] }) {
 
   if (archiveComplete) {
     return (
-      <div className="p-4">
+      <div className="py-4">
         <Card className="border-green-200 bg-green-50 p-8 text-center dark:border-green-900 dark:bg-green-950/30">
           <div className="mx-auto mb-4 flex size-16 items-center justify-center rounded-full bg-green-100 dark:bg-green-900/50">
             <CheckIcon className="size-8 text-green-600" />
@@ -219,7 +219,7 @@ export function BulkArchiveTab({ emailGroups }: { emailGroups: EmailGroup[] }) {
 
   if (totalCount === 0) {
     return (
-      <div className="p-4">
+      <div className="py-4">
         <Card className="p-8 text-center">
           <div className="mx-auto mb-4 flex size-16 items-center justify-center rounded-full bg-muted">
             <InboxIcon className="size-8 text-muted-foreground" />
@@ -235,7 +235,7 @@ export function BulkArchiveTab({ emailGroups }: { emailGroups: EmailGroup[] }) {
   }
 
   return (
-    <div className="p-4">
+    <div className="py-4">
       {/* Hero Card */}
       <Card className="mb-6 overflow-hidden">
         <div className="p-6">

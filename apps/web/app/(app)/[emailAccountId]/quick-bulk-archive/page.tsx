@@ -1,11 +1,11 @@
 import sortBy from "lodash/sortBy";
 import prisma from "@/utils/prisma";
 import { ClientOnly } from "@/components/ClientOnly";
-import { TopBar } from "@/components/TopBar";
+import { PageWrapper } from "@/components/PageWrapper";
+import { PageHeader } from "@/components/PageHeader";
 import { getUserCategoriesWithRules } from "@/utils/category.server";
 import { PermissionsCheck } from "@/app/(app)/[emailAccountId]/PermissionsCheck";
 import { ArchiveProgress } from "@/app/(app)/[emailAccountId]/bulk-unsubscribe/ArchiveProgress";
-import { PremiumAlertWithData } from "@/components/PremiumAlert";
 import { checkUserOwnsEmailAccount } from "@/utils/email-account";
 import { BulkArchiveTab } from "@/app/(app)/[emailAccountId]/quick-bulk-archive/BulkArchiveTab";
 
@@ -40,25 +40,23 @@ export default async function QuickBulkArchivePage({
         <ArchiveProgress />
       </ClientOnly>
 
-      <PremiumAlertWithData className="mx-2 mt-2 sm:mx-4" />
+      <PageWrapper>
+        <PageHeader title="Quick Bulk Archive" />
 
-      <TopBar className="items-center">
-        <h1 className="text-lg font-semibold">Quick Bulk Archive</h1>
-      </TopBar>
-
-      <ClientOnly>
-        <BulkArchiveTab
-          emailGroups={sortBy(senders, (sender) => sender.category?.name).map(
-            (sender) => ({
-              address: sender.email,
-              category:
-                categories.find(
-                  (category) => category.id === sender.category?.id,
-                ) || null,
-            }),
-          )}
-        />
-      </ClientOnly>
+        <ClientOnly>
+          <BulkArchiveTab
+            emailGroups={sortBy(senders, (sender) => sender.category?.name).map(
+              (sender) => ({
+                address: sender.email,
+                category:
+                  categories.find(
+                    (category) => category.id === sender.category?.id,
+                  ) || null,
+              }),
+            )}
+          />
+        </ClientOnly>
+      </PageWrapper>
     </>
   );
 }

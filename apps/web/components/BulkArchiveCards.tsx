@@ -192,7 +192,7 @@ export function BulkArchiveCards({
 
   return (
     <>
-      <div className="space-y-3 p-4">
+      <div className="space-y-3 py-4">
         {sortedCategoryEntries.map(([categoryName, senders]) => {
           const category = categoryMap[categoryName];
           const CategoryIcon = getCategoryIcon(categoryName);

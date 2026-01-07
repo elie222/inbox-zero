@@ -1,10 +1,10 @@
 import prisma from "@/utils/prisma";
 import { ClientOnly } from "@/components/ClientOnly";
-import { TopBar } from "@/components/TopBar";
+import { PageWrapper } from "@/components/PageWrapper";
+import { PageHeader } from "@/components/PageHeader";
 import { getUserCategoriesWithRules } from "@/utils/category.server";
 import { PermissionsCheck } from "@/app/(app)/[emailAccountId]/PermissionsCheck";
 import { ArchiveProgress } from "@/app/(app)/[emailAccountId]/bulk-unsubscribe/ArchiveProgress";
-import { PremiumAlertWithData } from "@/components/PremiumAlert";
 import { checkUserOwnsEmailAccount } from "@/utils/email-account";
 import { BulkArchiveContent } from "@/app/(app)/[emailAccountId]/bulk-archive/BulkArchiveContent";
 
@@ -39,18 +39,16 @@ export default async function BulkArchivePage({
         <ArchiveProgress />
       </ClientOnly>
 
-      <PremiumAlertWithData className="mx-2 mt-2 sm:mx-4" />
+      <PageWrapper>
+        <PageHeader title="Bulk Archive" />
 
-      <TopBar className="items-center">
-        <h1 className="text-lg font-semibold">Bulk Archive</h1>
-      </TopBar>
-
-      <ClientOnly>
-        <BulkArchiveContent
-          initialSenders={senders}
-          initialCategories={categories}
-        />
-      </ClientOnly>
+        <ClientOnly>
+          <BulkArchiveContent
+            initialSenders={senders}
+            initialCategories={categories}
+          />
+        </ClientOnly>
+      </PageWrapper>
     </>
   );
 }
