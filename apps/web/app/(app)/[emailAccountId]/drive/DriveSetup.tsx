@@ -519,6 +519,7 @@ function FilingRow({
           <Link
             href={emailUrl}
             target="_blank"
+            rel="noopener noreferrer"
             className="text-muted-foreground hover:text-foreground flex-shrink-0"
             title="Open email"
           >
