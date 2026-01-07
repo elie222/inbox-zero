@@ -28,7 +28,11 @@ const features = [
   },
 ];
 
-export function AutoCategorizationSetup() {
+export function AutoCategorizationSetup({
+  onComplete,
+}: {
+  onComplete: () => void;
+}) {
   const { emailAccountId } = useAccount();
   const { setIsBulkCategorizing } = useCategorizeProgress();
 
@@ -57,6 +61,7 @@ export function AutoCategorizationSetup() {
       setIsBulkCategorizing(false);
     } finally {
       setIsEnabling(false);
+      onComplete?.();
     }
   }, [emailAccountId, setIsBulkCategorizing]);
 

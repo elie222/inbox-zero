@@ -15,7 +15,7 @@ export default async function BulkArchivePage({
   const { emailAccountId } = await params;
   await checkUserOwnsEmailAccount({ emailAccountId });
 
-  const [senders, categories] = await Promise.all([
+  const [senders, categories, emailAccount] = await Promise.all([
     prisma.newsletter.findMany({
       where: { emailAccountId, categoryId: { not: null } },
       select: {
@@ -25,12 +25,20 @@ export default async function BulkArchivePage({
       },
     }),
     getUserCategoriesWithRules({ emailAccountId }),
+    prisma.emailAccount.findUnique({
+      where: { id: emailAccountId },
+      select: { autoCategorizeSenders: true },
+    }),
   ]);
 
   return (
     <>
       <PermissionsCheck />
-      <BulkArchive initialSenders={senders} initialCategories={categories} />
+      <BulkArchive
+        initialSenders={senders}
+        initialCategories={categories}
+        autoCategorizeSenders={emailAccount?.autoCategorizeSenders ?? false}
+      />
     </>
   );
 }

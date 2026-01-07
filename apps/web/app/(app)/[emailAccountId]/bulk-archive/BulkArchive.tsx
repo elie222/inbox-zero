@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useCallback } from "react";
+import { useMemo, useCallback, useState } from "react";
 import useSWR from "swr";
 import { AutoCategorizationSetup } from "@/app/(app)/[emailAccountId]/bulk-archive/AutoCategorizationSetup";
 import { BulkArchiveProgress } from "@/app/(app)/[emailAccountId]/bulk-archive/BulkArchiveProgress";
@@ -8,7 +8,6 @@ import { BulkArchiveCards } from "@/components/BulkArchiveCards";
 import { useCategorizeProgress } from "@/app/(app)/[emailAccountId]/smart-categories/CategorizeProgress";
 import type { CategorizedSendersResponse } from "@/app/api/user/categorize/senders/categorized/route";
 import type { CategoryWithRules } from "@/utils/category.server";
-import { useSearchParams } from "next/navigation";
 import { PageWrapper } from "@/components/PageWrapper";
 import { PageHeader } from "@/components/PageHeader";
 
@@ -21,15 +20,13 @@ type Sender = {
 export function BulkArchive({
   initialSenders,
   initialCategories,
+  autoCategorizeSenders,
 }: {
   initialSenders: Sender[];
   initialCategories: CategoryWithRules[];
+  autoCategorizeSenders: boolean;
 }) {
-  const searchParams = useSearchParams();
-  const onboarding = searchParams.get("onboarding");
-  const hasCategorizedSenders = initialSenders.length > 0;
-  const showOnboarding = onboarding === "true" || !hasCategorizedSenders;
-
+  const [isEnabled, setIsEnabled] = useState(autoCategorizeSenders);
   const { isBulkCategorizing } = useCategorizeProgress();
 
   // Poll for updates while categorization is in progress
@@ -55,17 +52,20 @@ export function BulkArchive({
   );
 
   const handleProgressComplete = useCallback(() => {
-    // Refresh data when categorization completes
     mutate();
   }, [mutate]);
 
-  const shouldShowOnboarding =
-    !isBulkCategorizing && (showOnboarding || !hasCategorizedSenders);
+  const handleSetupComplete = useCallback(() => {
+    setIsEnabled(true);
+    mutate();
+  }, [mutate]);
+
+  const shouldShowSetup = !isEnabled && !isBulkCategorizing;
 
   return (
     <>
-      {shouldShowOnboarding ? (
-        <AutoCategorizationSetup />
+      {shouldShowSetup ? (
+        <AutoCategorizationSetup onComplete={handleSetupComplete} />
       ) : (
         <PageWrapper>
           <PageHeader title="Bulk Archive" />

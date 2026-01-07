@@ -45,6 +45,12 @@ export const bulkCategorizeSendersAction = actionClient
       skipDuplicates: true,
     });
 
+    // Enable auto-categorization for this email account
+    await prisma.emailAccount.update({
+      where: { id: emailAccountId },
+      data: { autoCategorizeSenders: true },
+    });
+
     // Delete empty queues as Qstash has a limit on how many queues we can have
     // We could run this in a cron too but simplest to do here for now
     deleteEmptyCategorizeSendersQueues({
