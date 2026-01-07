@@ -304,7 +304,7 @@ function SenderRow({
   isExpanded: boolean;
   isSelected: boolean;
   onToggle: () => void;
-  onToggleSelection: (e: React.MouseEvent) => void;
+  onToggleSelection: (e: React.MouseEvent<HTMLButtonElement>) => void;
   userEmail: string;
 }) {
   const status = useArchiveSenderStatus(sender.address);
@@ -328,7 +328,7 @@ function SenderRow({
           checked={isSelected}
           onClick={(e) => {
             e.stopPropagation();
-            onToggleSelection(e as unknown as React.MouseEvent);
+            onToggleSelection(e);
           }}
           className="size-5"
         />
