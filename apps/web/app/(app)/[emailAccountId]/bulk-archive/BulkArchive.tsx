@@ -12,12 +12,7 @@ import type { CategoryWithRules } from "@/utils/category.server";
 import { PageWrapper } from "@/components/PageWrapper";
 import { PageHeader } from "@/components/PageHeader";
 import { toastError } from "@/components/Toast";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
-import { InfoIcon } from "lucide-react";
+import { TooltipExplanation } from "@/components/TooltipExplanation";
 
 type Sender = {
   id: string;
@@ -81,15 +76,7 @@ export function BulkArchive({
           <PageHeader
             title="Bulk Archive"
             rightElement={
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <InfoIcon className="h-4 w-4 cursor-pointer text-gray-400 hover:text-gray-500" />
-                </TooltipTrigger>
-                <TooltipContent>
-                  Archive emails in bulk by category to quickly clean up your
-                  inbox.
-                </TooltipContent>
-              </Tooltip>
+              <TooltipExplanation text="Archive emails in bulk by category to quickly clean up your inbox." />
             }
           />
           <BulkArchiveProgress onComplete={handleProgressComplete} />
