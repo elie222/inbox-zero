@@ -19,7 +19,9 @@ Write unit tests for utility functions and backend logic. Mock all external depe
 - Complex utility functions
 - Frontend logic (reducers, state machines, pure functions extracted from components)
 
-## What NOT to Test
+## SKIP — What NOT to Test
+
+**Do NOT write tests for any of these:**
 
 | Skip | Example |
 |------|---------|
@@ -29,6 +31,7 @@ Write unit tests for utility functions and backend logic. Mock all external depe
 | Static config values | "default timeout is 5000" |
 | Simple type re-exports | Testing a type alias exists |
 | Trivial getters | `getName() { return this.name }` |
+| Simple Zod schemas | `z.object({ name: z.string() })` — only test `refine`/`superRefine` with complex logic |
 
 ## Mocking Patterns
 
