@@ -48,9 +48,9 @@ export function getCategoryStyle(categoryName: string) {
   if (name.includes("notification")) {
     return {
       icon: BellIcon,
-      iconColor: "text-new-pink-500",
-      borderColor: "from-new-pink-150 to-new-pink-200",
-      gradient: "from-new-pink-50 to-new-pink-100",
+      iconColor: "text-new-blue-600",
+      borderColor: "from-new-blue-150 to-new-blue-200",
+      gradient: "from-new-blue-50 to-new-blue-100",
     };
   }
   if (name === "uncategorized") {
@@ -64,8 +64,8 @@ export function getCategoryStyle(categoryName: string) {
   // Default for "Other" and any other category
   return {
     icon: MailIcon,
-    iconColor: "text-new-blue-600",
-    borderColor: "from-new-blue-150 to-new-blue-200",
-    gradient: "from-new-blue-50 to-new-blue-100",
+    iconColor: "text-gray-500",
+    borderColor: "from-gray-200 to-gray-300",
+    gradient: "from-gray-50 to-gray-100",
   };
 }
