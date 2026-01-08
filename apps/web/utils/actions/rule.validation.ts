@@ -281,18 +281,66 @@ export const copyRulesFromAccountBody = z.object({
 export type CopyRulesFromAccountBody = z.infer<typeof copyRulesFromAccountBody>;
 
 // Schema for importing rules from JSON export
-const importedAction = z.object({
-  type: zodActionType,
-  label: z.string().nullish(),
-  to: z.string().nullish(),
-  cc: z.string().nullish(),
-  bcc: z.string().nullish(),
-  subject: z.string().nullish(),
-  content: z.string().nullish(),
-  folderName: z.string().nullish(),
-  url: z.string().nullish(),
-  delayInMinutes: delayInMinutesSchema,
-});
+const importedAction = z
+  .object({
+    type: zodActionType,
+    label: z.string().nullish(),
+    to: z.string().nullish(),
+    cc: z.string().nullish(),
+    bcc: z.string().nullish(),
+    subject: z.string().nullish(),
+    content: z.string().nullish(),
+    folderName: z.string().nullish(),
+    url: z.string().nullish(),
+    delayInMinutes: delayInMinutesSchema,
+  })
+  .superRefine((data, ctx) => {
+    if (data.type === ActionType.LABEL) {
+      const labelValue = data.label?.trim();
+
+      if (!labelValue) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "Label action requires a label name",
+          path: ["label"],
+        });
+        return;
+      }
+
+      const validation = validateLabelNameBasic(labelValue);
+      if (!validation.valid) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: validation.error!,
+          path: ["label"],
+        });
+      }
+    }
+
+    if (data.type === ActionType.FORWARD && !data.to?.trim()) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Forward action requires a recipient email address",
+        path: ["to"],
+      });
+    }
+
+    if (data.type === ActionType.CALL_WEBHOOK && !data.url?.trim()) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Webhook action requires a URL",
+        path: ["url"],
+      });
+    }
+
+    if (data.type === ActionType.MOVE_FOLDER && !data.folderName?.trim()) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Move folder action requires a folder name",
+        path: ["folderName"],
+      });
+    }
+  });
 
 const importedRule = z
   .object({
