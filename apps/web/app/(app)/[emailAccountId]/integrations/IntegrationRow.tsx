@@ -4,7 +4,7 @@ import { useState } from "react";
 import type { GetIntegrationsResponse } from "@/app/api/mcp/integrations/route";
 import type { GetMcpAuthUrlResponse } from "@/app/api/mcp/[integration]/auth-url/route";
 import { Toggle } from "@/components/Toggle";
-import { TypographyP } from "@/components/Typography";
+import { MutedText, TypographyP } from "@/components/Typography";
 import { Button } from "@/components/ui/button";
 import { TableRow, TableCell } from "@/components/ui/table";
 import {
@@ -312,9 +312,9 @@ function ToolsList({ tools, onToggleTool }: ToolsListProps) {
                   </span>
                 </div>
                 {tool.description && (
-                  <p className="text-sm text-muted-foreground whitespace-pre-wrap">
+                  <MutedText className="whitespace-pre-wrap">
                     {truncate(tool.description, 100)}
-                  </p>
+                  </MutedText>
                 )}
               </div>
               <div className="flex-shrink-0">

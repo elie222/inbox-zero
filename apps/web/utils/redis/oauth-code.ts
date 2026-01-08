@@ -52,6 +52,15 @@ export async function setOAuthCodeResult(
   await redis.set(getCodeKey(code), result, { ex: 60 });
 }
 
+/**
+ * Clear the OAuth code from Redis.
+ * Fails silently - cleanup errors should never mask the original error in catch blocks.
+ */
 export async function clearOAuthCode(code: string): Promise<void> {
-  await redis.del(getCodeKey(code));
+  try {
+    await redis.del(getCodeKey(code));
+  } catch {
+    // Silently ignore - this is called in error handlers where we don't want
+    // cleanup failures to mask the original error
+  }
 }

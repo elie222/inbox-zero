@@ -1,5 +1,5 @@
 import prisma from "@/utils/prisma";
-import { PageHeading } from "@/components/Typography";
+import { MutedText, PageHeading } from "@/components/Typography";
 import {
   Card,
   CardContent,
@@ -80,11 +80,11 @@ export default async function RuleHistoryPage(props: {
                       {triggerTypeLabels[history.triggerType] ||
                         history.triggerType}
                     </Badge>
-                    <span className="text-sm text-muted-foreground">
+                    <MutedText>
                       {formatDistanceToNow(history.createdAt, {
                         addSuffix: true,
                       })}
-                    </span>
+                    </MutedText>
                   </div>
                 </div>
                 {history.promptText && (
