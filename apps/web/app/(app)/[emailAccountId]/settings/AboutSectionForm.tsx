@@ -15,6 +15,7 @@ import {
   type SaveAboutBody,
   saveAboutBody,
 } from "@/utils/actions/user.validation";
+import { getActionErrorMessage } from "@/utils/error";
 
 export function AboutSection({ onSuccess }: { onSuccess: () => void }) {
   const { data, isLoading, error, mutate } = useEmailAccountFull();
@@ -58,16 +59,12 @@ const AboutSectionForm = ({
     saveAboutAction.bind(null, emailAccountId),
     {
       onSuccess: () => {
-        toastSuccess({
-          description: "Your profile has been updated!",
-        });
+        toastSuccess({ description: "Your profile has been updated!" });
         onSuccess?.();
       },
       onError: (error) => {
         toastError({
-          description:
-            error.error.serverError ??
-            "An unknown error occurred while updating your profile",
+          description: getActionErrorMessage(error.error),
         });
       },
       onSettled: () => {

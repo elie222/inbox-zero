@@ -111,7 +111,7 @@ export async function clearSpecificErrorMessages({
 
 export const ErrorType = {
   INCORRECT_OPENAI_API_KEY: "Incorrect OpenAI API key",
-  INVALID_OPENAI_MODEL: "Invalid OpenAI model",
+  INVALID_AI_MODEL: "Invalid AI model",
   OPENAI_API_KEY_DEACTIVATED: "OpenAI API key deactivated",
   AI_QUOTA_ERROR: "AI quota error",
   ANTHROPIC_INSUFFICIENT_BALANCE: "Anthropic insufficient balance",
@@ -127,7 +127,7 @@ const errorTypeConfig: Record<
     actionUrl: "/settings",
     actionLabel: "Update API Key",
   },
-  [ErrorType.INVALID_OPENAI_MODEL]: {
+  [ErrorType.INVALID_AI_MODEL]: {
     label: "Invalid AI Model",
     actionUrl: "/settings",
     actionLabel: "Update Settings",

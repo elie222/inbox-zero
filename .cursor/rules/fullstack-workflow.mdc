@@ -126,14 +126,17 @@ export function useExamples() {
 
 ## 4. Form Handling
 
-Use React Hook Form with Zod validation:
+Use React Hook Form with `useAction` from `next-safe-action/hooks`:
 
 ```typescript
-import { useForm, SubmitHandler } from "react-hook-form";
+import { useCallback } from "react";
+import { useForm, type SubmitHandler } from "react-hook-form";
+import { useAction } from "next-safe-action/hooks";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Input } from "@/components/Input";
 import { Button } from "@/components/ui/button";
 import { toastSuccess, toastError } from "@/components/Toast";
+import { getActionErrorMessage } from "@/utils/error";
 import { createExampleAction } from "@/utils/actions/example";
 import { createExampleBody, type CreateExampleBody } from "@/utils/actions/example.validation";
 
@@ -141,32 +144,27 @@ export function ExampleForm({ onSuccess }: { onSuccess?: () => void }) {
   const {
     register,
     handleSubmit,
-    formState: { errors, isSubmitting },
+    formState: { errors },
     reset,
   } = useForm<CreateExampleBody>({
     resolver: zodResolver(createExampleBody),
   });
 
-  const onSubmit: SubmitHandler<CreateExampleBody> = useCallback(
-    async (data) => {
-      const result = await createExampleAction(data);
-      
-      if (result?.serverError) {
-        toastError({ 
-          title: "Error creating example", 
-          description: result.serverError 
-        });
-      } else {
-        toastSuccess({ description: "Example created!" });
-        reset();
-        onSuccess?.();
-      }
+  const { execute, isExecuting } = useAction(createExampleAction, {
+    onSuccess: () => {
+      toastSuccess({ description: "Example created!" });
+      reset();
+      onSuccess?.();
     },
-    [reset, onSuccess]
-  );
+    onError: (error) => {
+      toastError({
+        description: getActionErrorMessage(error.error),
+      });
+    },
+  });
 
   return (
-    <form className="space-y-4" onSubmit={handleSubmit(onSubmit)}>
+    <form className="space-y-4" onSubmit={handleSubmit(execute)}>
       <Input
         type="text"
         name="name"
@@ -188,7 +186,7 @@ export function ExampleForm({ onSuccess }: { onSuccess?: () => void }) {
         registerProps={register("description")}
         error={errors.description}
       />
-      <Button type="submit" loading={isSubmitting}>
+      <Button type="submit" loading={isExecuting}>
         Create Example
       </Button>
     </form>
@@ -238,8 +236,10 @@ export function Examples() {
 - Do NOT use POST API routes for mutations - use server actions instead
 
 ### Error Handling
-- Use `result?.serverError` with `toastError` and `toastSuccess`
-- `next-safe-action` provides centralized error handling
+- Use `useAction` hook with `onSuccess` and `onError` callbacks
+- Use `getActionErrorMessage(error.error)` from `@/utils/error` to extract user-friendly messages
+- For prefix + error pattern: `getActionErrorMessage(error.error, { prefix: "Failed to save" })`
+- `next-safe-action` provides centralized error handling with flattened validation errors
 - No need for try/catch in GET routes when using middleware
 
 ### Type Safety
