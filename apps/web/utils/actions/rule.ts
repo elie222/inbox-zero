@@ -675,7 +675,7 @@ async function toggleRule({
 
   for (const actionType of actionTypes) {
     if (actionType.includeFolder) {
-      const folderId = await emailProvider.getOrCreateOutlookFolderIdByName(
+      const folderId = await emailProvider.getOrCreateFolderIdByName(
         ruleConfig.name,
       );
       actions.push({
@@ -841,7 +841,7 @@ async function resolveActionLabels<
         const folderName = action.folderName?.value;
         if (folderName && !action.folderId?.value) {
           const resolvedFolderId =
-            await emailProvider.getOrCreateOutlookFolderIdByName(folderName);
+            await emailProvider.getOrCreateFolderIdByName(folderName);
           return {
             ...action,
             folderId: {
@@ -932,7 +932,7 @@ async function getActionsFromCategoryAction({
       }
       case ActionType.MOVE_FOLDER: {
         const folderId =
-          await emailProvider.getOrCreateOutlookFolderIdByName(ruleName);
+          await emailProvider.getOrCreateFolderIdByName(ruleName);
 
         logger.info("Resolved folder ID during onboarding", {
           folderName: ruleName,

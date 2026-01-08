@@ -327,10 +327,15 @@ const move_folder: ActionFunction<{
 
   // resolve folder name to ID if needed (similar to label resolution)
   if (!folderIdToUse && args.folderName) {
+    if (hasVariables(args.folderName)) {
+      logger.error("Template folder name not processed by AI", {
+        folderName: args.folderName,
+      });
+      return;
+    }
+
     logger.info("Resolving folder name to ID", { folderName: args.folderName });
-    folderIdToUse = await client.getOrCreateOutlookFolderIdByName(
-      args.folderName,
-    );
+    folderIdToUse = await client.getOrCreateFolderIdByName(args.folderName);
 
     if (!folderIdToUse) {
       logger.error("Failed to resolve folder", { folderName: args.folderName });
