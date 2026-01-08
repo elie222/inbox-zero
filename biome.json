@@ -54,7 +54,8 @@
       "performance": {
         "useTopLevelRegex": "off",
         "noNamespaceImport": "off",
-        "noAwaitInLoops": "off"
+        "noAwaitInLoops": "off",
+        "noBarrelFile": "off"
       },
       "correctness": {
         "noUnusedImports": "warn",

@@ -106,6 +106,9 @@ model User {
   // Referral relationships
   referralsMade    Referral[] @relation("ReferrerUser")
   referralReceived Referral?  @relation("ReferredUser")
+
+  // Plugin settings
+  pluginUserSettings PluginUserSettings[]
 }
 
 // Migrating over to the new settings model. Currently most settings are in the User model, but will be moved to this model in the future.
@@ -177,6 +180,9 @@ model EmailAccount {
   mcpConnections      McpConnection[]
   meetingBriefings    MeetingBriefing[]
 
+  // Plugin settings
+  pluginAccountSettings PluginAccountSettings[]
+
   @@index([userId])
   @@index([lastSummaryEmailAt])
 }
@@ -193,6 +199,9 @@ model Organization {
   SsoProvider SsoProvider[]
   sessions    Session[]
   invitations Invitation[]
+
+  // Plugin access control
+  allowedPlugins String[] @default([])
 }
 
 model Member {
@@ -1046,6 +1055,56 @@ model McpTool {
   connection   McpConnection @relation(fields: [connectionId], references: [id], onDelete: Cascade)
 
   @@unique([connectionId, name])
+}
+
+// Plugin system models
+model InstalledPlugin {
+  id            String   @id @default(cuid())
+  pluginId      String   @unique
+  version       String
+  versionType   String   @default("release") // "release" or "branch"
+  commitSha     String?
+  enabled       Boolean  @default(true)
+  installedAt   DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  catalogUrl    String?
+  repositoryUrl String?
+
+  userSettings    PluginUserSettings[]
+  accountSettings PluginAccountSettings[]
+}
+
+model PluginUserSettings {
+  id       String          @id @default(cuid())
+  pluginId String
+  plugin   InstalledPlugin @relation(fields: [pluginId], references: [id], onDelete: Cascade)
+  userId   String
+  user     User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  enabled  Boolean         @default(false)
+  settings Json            @default("{}")
+
+  @@unique([pluginId, userId])
+  @@index([userId])
+}
+
+model PluginAccountSettings {
+  id             String          @id @default(cuid())
+  pluginId       String
+  plugin         InstalledPlugin @relation(fields: [pluginId], references: [id], onDelete: Cascade)
+  emailAccountId String
+  emailAccount   EmailAccount    @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
+  settings       Json            @default("{}")
+
+  @@unique([pluginId, emailAccountId])
+  @@index([emailAccountId])
+}
+
+model PluginCatalog {
+  id       String    @id @default(cuid())
+  url      String    @unique
+  name     String?
+  enabled  Boolean   @default(true)
+  lastSync DateTime?
 }
 
 enum ActionType {

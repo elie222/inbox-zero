@@ -1,7 +1,8 @@
 /* eslint-disable no-process-env */
 import * as Sentry from "@sentry/nextjs";
+import { pluginRuntime } from "@/lib/plugin-runtime/runtime";
 
-export function register() {
+export async function register() {
   if (process.env.NEXT_RUNTIME === "nodejs") {
     // this is your Sentry.init call from `sentry.server.config.js|ts`
     Sentry.init({
@@ -13,6 +14,9 @@ export function register() {
       // uncomment the line below to enable Spotlight (https://spotlightjs.com)
       // spotlight: process.env.NODE_ENV === 'development',
     });
+
+    // initialize plugin runtime for server-side execution
+    await pluginRuntime.initialize();
   }
 
   // This is your Sentry.init call from `sentry.edge.config.js|ts`

@@ -131,6 +131,21 @@ export const env = createEnv({
     LICENSE_25_SEAT_VARIANT_ID: z.coerce.number().optional(),
 
     DUB_API_KEY: z.string().optional(),
+
+    // Plugin System
+    FEATURE_PLUGINS_ENABLED: z
+      .string()
+      .optional()
+      .transform((val) => val === "true"),
+    PLUGINS_USER_INSTALL_ENABLED: z
+      .string()
+      .optional()
+      .transform((val) => val !== "false"), // default true
+    PLUGINS_ALLOWED_LIST: z.string().optional(), // comma-separated plugin IDs
+    FEATURE_PLUGIN_ADMIN_UI: z
+      .string()
+      .optional()
+      .transform((val) => val === "true"),
   },
   client: {
     // stripe
@@ -192,6 +207,7 @@ export const env = createEnv({
     NEXT_PUBLIC_INTEGRATIONS_ENABLED: z.coerce.boolean().optional(),
     NEXT_PUBLIC_CLEANER_ENABLED: z.coerce.boolean().optional(),
     NEXT_PUBLIC_IS_RESEND_CONFIGURED: z.coerce.boolean().optional(),
+    NEXT_PUBLIC_PLUGINS_ENABLED: z.coerce.boolean().optional(),
   },
   // For Next.js >= 13.4.4, you only need to destructure client variables:
   experimental__runtimeEnv: {
@@ -256,5 +272,6 @@ export const env = createEnv({
     NEXT_PUBLIC_CLEANER_ENABLED: process.env.NEXT_PUBLIC_CLEANER_ENABLED,
     NEXT_PUBLIC_IS_RESEND_CONFIGURED:
       process.env.NEXT_PUBLIC_IS_RESEND_CONFIGURED,
+    NEXT_PUBLIC_PLUGINS_ENABLED: process.env.NEXT_PUBLIC_PLUGINS_ENABLED,
   },
 });

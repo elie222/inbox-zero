@@ -1,0 +1,11 @@
+{
+  "version": "1.0.0",
+  "lastUpdated": "2025-01-07",
+  "plugins": {},
+  "defaults": {
+    "unregistered": {
+      "level": "unverified",
+      "allowedCapabilities": ["email:classify"]
+    }
+  }
+}
