@@ -140,7 +140,7 @@ const zodAction = z
 
 export const createRuleBody = z.object({
   id: z.string().optional(),
-  name: z.string().min(1, "Please enter a name"),
+  name: z.string().trim().min(1, "Please enter a name"),
   instructions: z.string().nullish(),
   groupId: z.string().nullish(),
   runOnThreads: z.boolean().nullish(),
@@ -199,7 +199,6 @@ export const createRuleBody = z.object({
     ),
   conditionalOperator: z
     .enum([LogicalOperator.AND, LogicalOperator.OR])
-    .default(LogicalOperator.AND)
     .optional(),
   systemType: zodSystemRule.nullish(),
 });

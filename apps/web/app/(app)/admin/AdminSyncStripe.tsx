@@ -7,6 +7,7 @@ import {
 } from "@/utils/actions/admin";
 import { Button } from "@/components/ui/button";
 import { toastError, toastSuccess } from "@/components/Toast";
+import { getActionErrorMessage } from "@/utils/error";
 
 export const AdminSyncStripe = () => {
   const { execute, isExecuting } = useAction(adminSyncStripeForAllUsersAction, {
@@ -19,7 +20,7 @@ export const AdminSyncStripe = () => {
     onError: (error) => {
       toastError({
         title: "Error syncing Stripe",
-        description: error.error.serverError || "Unknown error",
+        description: getActionErrorMessage(error.error),
       });
     },
   });
@@ -45,7 +46,7 @@ export const AdminSyncStripeCustomers = () => {
       onError: (error) => {
         toastError({
           title: "Error syncing Stripe customers",
-          description: error.error.serverError || "Unknown error",
+          description: getActionErrorMessage(error.error),
         });
       },
     },

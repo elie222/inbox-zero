@@ -28,6 +28,7 @@ import { getUserTier, isAdminForPremium } from "@/utils/premium";
 import { usePremiumModal } from "@/app/(app)/premium/PremiumModal";
 import { useAction } from "next-safe-action/hooks";
 import { toastError, toastSuccess } from "@/components/Toast";
+import { getActionErrorMessage } from "@/utils/error";
 
 export function MultiAccountSection() {
   const { data: session } = useSession();
@@ -52,8 +53,9 @@ export function MultiAccountSection() {
     },
     onError: (error) => {
       toastError({
-        description:
-          `Failed to claim premium admin. ${error.error.serverError || ""}`.trim(),
+        description: getActionErrorMessage(error.error, {
+          prefix: "Failed to claim premium admin",
+        }),
       });
     },
   });
@@ -175,8 +177,9 @@ function MultiAccountForm({
       },
       onError: (error) => {
         toastError({
-          description:
-            `Failed to update users. ${error.error.serverError || ""}`.trim(),
+          description: getActionErrorMessage(error.error, {
+            prefix: "Failed to update users",
+          }),
         });
       },
     },

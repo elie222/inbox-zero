@@ -10,7 +10,10 @@
     "ncu": "ncu -u -ws",
     "check": "ultracite check",
     "fix": "ultracite fix",
-    "setup": "tsx packages/cli/src/main.ts setup"
+    "setup": "tsx packages/cli/src/main.ts setup",
+    "docker:local:build": "./docker/scripts/publish-ghcr.sh --local",
+    "docker:local:push": "./docker/scripts/publish-ghcr.sh",
+    "docker:local:run": "./docker/scripts/run-local.sh"
   },
   "devDependencies": {
     "@biomejs/biome": "2.2.2",

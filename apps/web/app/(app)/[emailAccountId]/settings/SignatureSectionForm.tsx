@@ -18,6 +18,7 @@ import { toastError, toastInfo, toastSuccess } from "@/components/Toast";
 import { ClientOnly } from "@/components/ClientOnly";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { getActionErrorMessage } from "@/utils/error";
 import { saveSignatureBody } from "@/utils/actions/user.validation";
 
 export const SignatureSectionForm = ({
@@ -45,7 +46,7 @@ export const SignatureSectionForm = ({
       },
       onError: (error) => {
         toastError({
-          description: error.error.serverError ?? "An unknown error occurred",
+          description: getActionErrorMessage(error.error),
         });
       },
     },
