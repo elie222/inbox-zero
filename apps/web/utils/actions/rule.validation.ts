@@ -348,11 +348,11 @@ const importedRule = z
   .refine(
     (data) =>
       data.systemType ||
-      data.from ||
-      data.to ||
-      data.subject ||
-      data.body ||
-      data.instructions,
+      data.from?.trim() ||
+      data.to?.trim() ||
+      data.subject?.trim() ||
+      data.body?.trim() ||
+      data.instructions?.trim(),
     {
       message:
         "At least one condition (from, to, subject, body, or instructions) must be provided",
