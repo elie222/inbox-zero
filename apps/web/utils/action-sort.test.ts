@@ -153,18 +153,18 @@ describe("sortActionsByPriority", () => {
   });
 
   describe("NOTIFY_SENDER action type", () => {
-    it("places unknown action types at the end with low priority", () => {
-      // NOTIFY_SENDER is not in the priority list, should get priority 999
+    it("places NOTIFY_SENDER before CALL_WEBHOOK", () => {
+      // NOTIFY_SENDER is in the priority list, just before CALL_WEBHOOK
       const actions = [
+        { type: ActionType.CALL_WEBHOOK },
         { type: ActionType.NOTIFY_SENDER },
         { type: ActionType.LABEL },
-        { type: ActionType.CALL_WEBHOOK },
       ];
       const sorted = sortActionsByPriority(actions);
-      // LABEL first, CALL_WEBHOOK second (last in priority list), NOTIFY_SENDER last (not in list)
+      // LABEL first, NOTIFY_SENDER second, CALL_WEBHOOK last
       expect(sorted[0].type).toBe(ActionType.LABEL);
-      expect(sorted[1].type).toBe(ActionType.CALL_WEBHOOK);
-      expect(sorted[2].type).toBe(ActionType.NOTIFY_SENDER);
+      expect(sorted[1].type).toBe(ActionType.NOTIFY_SENDER);
+      expect(sorted[2].type).toBe(ActionType.CALL_WEBHOOK);
     });
   });
 });

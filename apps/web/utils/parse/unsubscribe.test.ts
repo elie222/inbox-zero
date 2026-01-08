@@ -52,12 +52,16 @@ describe("containsUnsubscribeKeyword", () => {
       expect(containsUnsubscribeKeyword("unsubscribed")).toBe(true);
     });
 
-    it("is case sensitive - does not match uppercase", () => {
-      expect(containsUnsubscribeKeyword("UNSUBSCRIBE")).toBe(false);
+    it("is case insensitive - matches uppercase", () => {
+      expect(containsUnsubscribeKeyword("UNSUBSCRIBE")).toBe(true);
     });
 
-    it("is case sensitive - does not match mixed case", () => {
-      expect(containsUnsubscribeKeyword("Unsubscribe")).toBe(false);
+    it("is case insensitive - matches mixed case", () => {
+      expect(containsUnsubscribeKeyword("Unsubscribe")).toBe(true);
+    });
+
+    it("is case insensitive - matches 'Email Preferences'", () => {
+      expect(containsUnsubscribeKeyword("Email Preferences")).toBe(true);
     });
   });
 
