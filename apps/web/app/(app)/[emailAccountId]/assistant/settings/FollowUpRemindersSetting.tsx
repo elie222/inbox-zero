@@ -151,9 +151,12 @@ export function FollowUpRemindersSetting() {
         title="Follow-up Reminders"
         description="Get reminded when you haven't heard back or haven't replied."
         right={
-          <Button variant="outline" size="sm" disabled>
-            Configure
-          </Button>
+          <Toggle
+            name="follow-up-enabled"
+            enabled={false}
+            onChange={() => {}}
+            disabled
+          />
         }
       />
     );
@@ -164,118 +167,115 @@ export function FollowUpRemindersSetting() {
       title="Follow-up Reminders"
       description="Get reminded when you haven't heard back or haven't replied."
       right={
-        <Dialog open={open} onOpenChange={setOpen}>
-          <DialogTrigger asChild>
-            <Button variant="outline" size="sm">
-              Configure
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Follow-up Reminder Settings</DialogTitle>
-              <DialogDescription>
-                Configure when to receive follow-up reminders for your
-                conversations.
-              </DialogDescription>
-            </DialogHeader>
+        <div className="flex items-center gap-2">
+          {enabled && (
+            <Dialog open={open} onOpenChange={setOpen}>
+              <DialogTrigger asChild>
+                <Button variant="outline" size="sm">
+                  Configure
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Follow-up Reminder Settings</DialogTitle>
+                  <DialogDescription>
+                    Configure when to receive follow-up reminders for your
+                    conversations.
+                  </DialogDescription>
+                </DialogHeader>
 
-            <LoadingContent
-              loading={isLoading}
-              error={error}
-              loadingComponent={<Skeleton className="min-h-[200px] w-full" />}
-            >
-              <div className="space-y-6 py-4">
-                <div className="flex items-center justify-between">
-                  <Label htmlFor="follow-up-enabled">
-                    Enable follow-up reminders
-                  </Label>
-                  <Toggle
-                    name="follow-up-enabled"
-                    enabled={enabled}
-                    onChange={handleToggle}
-                    disabled={isExecuting}
-                  />
-                </div>
+                <LoadingContent
+                  loading={isLoading}
+                  error={error}
+                  loadingComponent={
+                    <Skeleton className="min-h-[200px] w-full" />
+                  }
+                >
+                  <div className="space-y-6 py-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="awaiting-days">
+                        Remind me when I haven't heard back
+                      </Label>
+                      <Select
+                        value={awaitingDays.toString()}
+                        onValueChange={handleAwaitingDaysChange}
+                        disabled={isExecuting}
+                      >
+                        <SelectTrigger id="awaiting-days">
+                          {dayOptions.find(
+                            (d) => d.value === awaitingDays.toString(),
+                          )?.label ?? "Select..."}
+                        </SelectTrigger>
+                        <SelectContent>
+                          {dayOptions.map((option) => (
+                            <SelectItem key={option.value} value={option.value}>
+                              {option.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <p className="text-muted-foreground text-sm">
+                        A "Follow-up" label will be added to threads where
+                        you're awaiting a reply.
+                      </p>
+                    </div>
 
-                <div className="flex items-center justify-between">
-                  <div className="space-y-1">
-                    <Label htmlFor="auto-draft-enabled">
-                      Auto-generate follow-up drafts
-                    </Label>
-                    <p className="text-muted-foreground text-sm">
-                      Automatically create draft replies for threads awaiting a
-                      response.
-                    </p>
+                    <div className="space-y-2">
+                      <Label htmlFor="needs-reply-days">
+                        Remind me when I haven't replied
+                      </Label>
+                      <Select
+                        value={needsReplyDays.toString()}
+                        onValueChange={handleNeedsReplyDaysChange}
+                        disabled={isExecuting}
+                      >
+                        <SelectTrigger id="needs-reply-days">
+                          {dayOptions.find(
+                            (d) => d.value === needsReplyDays.toString(),
+                          )?.label ?? "Select..."}
+                        </SelectTrigger>
+                        <SelectContent>
+                          {dayOptions.map((option) => (
+                            <SelectItem key={option.value} value={option.value}>
+                              {option.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <p className="text-muted-foreground text-sm">
+                        A "Follow-up" label will be added to threads where you
+                        need to reply.
+                      </p>
+                    </div>
+
+                    <div className="flex items-center justify-between">
+                      <div className="space-y-1">
+                        <Label htmlFor="auto-draft-enabled">
+                          Auto-generate follow-up drafts
+                        </Label>
+                        <p className="text-muted-foreground text-sm">
+                          Automatically create draft replies for threads
+                          awaiting a response.
+                        </p>
+                      </div>
+                      <Toggle
+                        name="auto-draft-enabled"
+                        enabled={autoDraftEnabled}
+                        onChange={handleAutoDraftToggle}
+                        disabled={isExecuting}
+                      />
+                    </div>
                   </div>
-                  <Toggle
-                    name="auto-draft-enabled"
-                    enabled={autoDraftEnabled}
-                    onChange={handleAutoDraftToggle}
-                    disabled={!enabled || isExecuting}
-                  />
-                </div>
-
-                <div className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="awaiting-days">
-                      Remind me when I haven't heard back
-                    </Label>
-                    <Select
-                      value={awaitingDays.toString()}
-                      onValueChange={handleAwaitingDaysChange}
-                      disabled={!enabled || isExecuting}
-                    >
-                      <SelectTrigger id="awaiting-days">
-                        {dayOptions.find(
-                          (d) => d.value === awaitingDays.toString(),
-                        )?.label ?? "Select..."}
-                      </SelectTrigger>
-                      <SelectContent>
-                        {dayOptions.map((option) => (
-                          <SelectItem key={option.value} value={option.value}>
-                            {option.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <p className="text-muted-foreground text-sm">
-                      A "Follow-up" label will be added to threads where you're
-                      awaiting a reply.
-                    </p>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="needs-reply-days">
-                      Remind me when I haven't replied
-                    </Label>
-                    <Select
-                      value={needsReplyDays.toString()}
-                      onValueChange={handleNeedsReplyDaysChange}
-                      disabled={!enabled || isExecuting}
-                    >
-                      <SelectTrigger id="needs-reply-days">
-                        {dayOptions.find(
-                          (d) => d.value === needsReplyDays.toString(),
-                        )?.label ?? "Select..."}
-                      </SelectTrigger>
-                      <SelectContent>
-                        {dayOptions.map((option) => (
-                          <SelectItem key={option.value} value={option.value}>
-                            {option.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <p className="text-muted-foreground text-sm">
-                      A "Follow-up" label will be added to threads where you
-                      need to reply.
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </LoadingContent>
-          </DialogContent>
-        </Dialog>
+                </LoadingContent>
+              </DialogContent>
+            </Dialog>
+          )}
+          <Toggle
+            name="follow-up-enabled"
+            enabled={enabled}
+            onChange={handleToggle}
+          />
+        </div>
       }
     />
   );
