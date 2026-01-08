@@ -6,6 +6,7 @@ import { DeleteSection } from "@/app/(app)/[emailAccountId]/settings/DeleteSecti
 import { ModelSection } from "@/app/(app)/[emailAccountId]/settings/ModelSection";
 import { MultiAccountSection } from "@/app/(app)/[emailAccountId]/settings/MultiAccountSection";
 import { ResetAnalyticsSection } from "@/app/(app)/[emailAccountId]/settings/ResetAnalyticsSection";
+import { RuleImportExportSetting } from "@/app/(app)/[emailAccountId]/assistant/settings/RuleImportExportSetting";
 import { WebhookSection } from "@/app/(app)/[emailAccountId]/settings/WebhookSection";
 import { FormSection, FormWrapper } from "@/components/Form";
 import { PageHeader } from "@/components/PageHeader";
@@ -59,6 +60,7 @@ export default function SettingsPage() {
               </FormSection>
 
               <ResetAnalyticsSection />
+              <RuleImportExportSetting />
 
               {/* this is only used in Gmail when sending a new message. disabling for now. */}
               {/* <SignatureSectionForm signature={user.signature} /> */}
