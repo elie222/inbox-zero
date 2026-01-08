@@ -1,0 +1,214 @@
+import { subDays } from "date-fns/subDays";
+import prisma from "@/utils/prisma";
+import { getPremiumUserFilter } from "@/utils/premium";
+import { createEmailProvider } from "@/utils/email/provider";
+import { applyFollowUpLabel } from "@/utils/follow-up/labels";
+import { generateFollowUpDraft } from "@/utils/follow-up/generate-draft";
+import { cleanupStaleDrafts } from "@/utils/follow-up/cleanup";
+import { ThreadTrackerType } from "@/generated/prisma/enums";
+import type { Logger } from "@/utils/logger";
+import { captureException } from "@/utils/error";
+
+export async function processAllFollowUpReminders(logger: Logger) {
+  logger.info("Processing follow-up reminders for all users");
+
+  // Get all email accounts with follow-up reminders enabled
+  const emailAccounts = await prisma.emailAccount.findMany({
+    where: {
+      followUpRemindersEnabled: true,
+      ...getPremiumUserFilter(),
+    },
+    select: {
+      id: true,
+      email: true,
+      followUpAwaitingReplyDays: true,
+      followUpNeedsReplyDays: true,
+      account: {
+        select: {
+          provider: true,
+        },
+      },
+    },
+  });
+
+  logger.info("Found eligible accounts", { count: emailAccounts.length });
+
+  let successCount = 0;
+  let errorCount = 0;
+
+  for (const emailAccount of emailAccounts) {
+    const accountLogger = logger.with({
+      emailAccountId: emailAccount.id,
+      email: emailAccount.email,
+    });
+
+    try {
+      await processAccountFollowUps({
+        emailAccount,
+        logger: accountLogger,
+      });
+      successCount++;
+    } catch (error) {
+      accountLogger.error("Failed to process follow-up reminders for user", {
+        error,
+      });
+      captureException(error);
+      errorCount++;
+    }
+  }
+
+  logger.info("Completed processing follow-up reminders", {
+    total: emailAccounts.length,
+    success: successCount,
+    errors: errorCount,
+  });
+
+  return {
+    total: emailAccounts.length,
+    success: successCount,
+    errors: errorCount,
+  };
+}
+
+async function processAccountFollowUps({
+  emailAccount,
+  logger,
+}: {
+  emailAccount: {
+    id: string;
+    email: string;
+    followUpAwaitingReplyDays: number;
+    followUpNeedsReplyDays: number;
+    account: {
+      provider: string;
+    };
+  };
+  logger: Logger;
+}) {
+  const now = new Date();
+  const emailAccountId = emailAccount.id;
+
+  logger.info("Processing follow-ups for account");
+
+  // Create email provider for this account
+  const provider = await createEmailProvider({
+    emailAccountId,
+    provider: emailAccount.account.provider,
+    logger,
+  });
+
+  // Find AWAITING threads past threshold without follow-up applied
+  const awaitingThreshold = subDays(
+    now,
+    emailAccount.followUpAwaitingReplyDays,
+  );
+  const awaitingTrackers = await prisma.threadTracker.findMany({
+    where: {
+      emailAccountId,
+      type: ThreadTrackerType.AWAITING,
+      resolved: false,
+      followUpAppliedAt: null,
+      sentAt: { lt: awaitingThreshold },
+    },
+  });
+
+  logger.info("Found awaiting trackers past threshold", {
+    count: awaitingTrackers.length,
+    thresholdDays: emailAccount.followUpAwaitingReplyDays,
+  });
+
+  // Find NEEDS_REPLY threads past threshold without follow-up applied
+  const needsReplyThreshold = subDays(now, emailAccount.followUpNeedsReplyDays);
+  const needsReplyTrackers = await prisma.threadTracker.findMany({
+    where: {
+      emailAccountId,
+      type: ThreadTrackerType.NEEDS_REPLY,
+      resolved: false,
+      followUpAppliedAt: null,
+      sentAt: { lt: needsReplyThreshold },
+    },
+  });
+
+  logger.info("Found needs-reply trackers past threshold", {
+    count: needsReplyTrackers.length,
+    thresholdDays: emailAccount.followUpNeedsReplyDays,
+  });
+
+  // Process AWAITING trackers - apply label AND generate draft
+  for (const tracker of awaitingTrackers) {
+    const trackerLogger = logger.with({
+      trackerId: tracker.id,
+      threadId: tracker.threadId,
+      type: "AWAITING",
+    });
+
+    try {
+      // Apply follow-up label
+      await applyFollowUpLabel({
+        provider,
+        threadId: tracker.threadId,
+        messageId: tracker.messageId,
+      });
+
+      // Generate follow-up draft
+      await generateFollowUpDraft({
+        emailAccountId,
+        threadId: tracker.threadId,
+        provider,
+        logger: trackerLogger,
+      });
+
+      // Mark as processed
+      await prisma.threadTracker.update({
+        where: { id: tracker.id },
+        data: { followUpAppliedAt: now },
+      });
+
+      trackerLogger.info("Processed awaiting tracker with draft");
+    } catch (error) {
+      trackerLogger.error("Failed to process awaiting tracker", { error });
+      captureException(error);
+    }
+  }
+
+  // Process NEEDS_REPLY trackers - only apply label, no draft
+  for (const tracker of needsReplyTrackers) {
+    const trackerLogger = logger.with({
+      trackerId: tracker.id,
+      threadId: tracker.threadId,
+      type: "NEEDS_REPLY",
+    });
+
+    try {
+      // Apply follow-up label only
+      await applyFollowUpLabel({
+        provider,
+        threadId: tracker.threadId,
+        messageId: tracker.messageId,
+      });
+
+      // Mark as processed
+      await prisma.threadTracker.update({
+        where: { id: tracker.id },
+        data: { followUpAppliedAt: now },
+      });
+
+      trackerLogger.info("Processed needs-reply tracker (label only)");
+    } catch (error) {
+      trackerLogger.error("Failed to process needs-reply tracker", { error });
+      captureException(error);
+    }
+  }
+
+  // Cleanup stale drafts (>7 days old)
+  await cleanupStaleDrafts({
+    emailAccountId,
+    provider,
+    logger,
+  });
+
+  logger.info("Finished processing follow-ups for account", {
+    awaitingProcessed: awaitingTrackers.length,
+    needsReplyProcessed: needsReplyTrackers.length,
+  });
+}

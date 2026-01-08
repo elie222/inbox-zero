@@ -145,6 +145,11 @@ model EmailAccount {
   meetingBriefingsEnabled       Boolean @default(false)
   meetingBriefingsMinutesBefore Int     @default(240) // 4 hours in minutes
 
+  // Follow-up reminder settings
+  followUpRemindersEnabled  Boolean @default(false)
+  followUpAwaitingReplyDays Int     @default(3) // Days before adding follow-up label when awaiting reply from others
+  followUpNeedsReplyDays    Int     @default(3) // Days before adding follow-up label when user needs to reply
+
   digestSchedule Schedule?
 
   userId    String
@@ -746,6 +751,8 @@ model ThreadTracker {
   messageId String
   resolved  Boolean           @default(false)
   type      ThreadTrackerType
+
+  followUpAppliedAt DateTime? // When the follow-up label was added (prevents re-processing)
 
   emailAccountId String
   emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
