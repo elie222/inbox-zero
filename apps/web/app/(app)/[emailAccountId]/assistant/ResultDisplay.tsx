@@ -8,7 +8,7 @@ import { ExecutedRuleStatus, LogicalOperator } from "@/generated/prisma/enums";
 import type { ActionType } from "@/generated/prisma/enums";
 import type { Rule } from "@/generated/prisma/client";
 import { Button } from "@/components/ui/button";
-import { MessageText } from "@/components/Typography";
+import { MessageText, MutedText } from "@/components/Typography";
 import { EyeIcon } from "lucide-react";
 import { useRuleDialog } from "@/app/(app)/[emailAccountId]/assistant/RuleDialog";
 import type { RunRulesResult } from "@/utils/ai/choose-rule/run-rules";
@@ -211,7 +211,7 @@ function Actions({
               {getActionDisplay(action, provider, labels)}
             </Badge>
             {fields.length > 0 && (
-              <div className="ml-1 text-sm text-muted-foreground space-y-0.5">
+              <div className="ml-1 space-y-0.5 text-sm text-muted-foreground">
                 {fields.map((field) => (
                   <div
                     key={field.key}
@@ -258,7 +258,7 @@ function PrettyConditions({
     <div className="flex flex-wrap items-center gap-1.5">
       {conditions.map((condition, index) => (
         <div key={index} className="flex items-center gap-1.5">
-          <span className="text-sm text-muted-foreground">{condition}</span>
+          <MutedText>{condition}</MutedText>
           {index < conditions.length - 1 && (
             <Badge color="purple" className="text-xs">
               {operator}

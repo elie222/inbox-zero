@@ -11,6 +11,7 @@ import { DatePickerWithRange } from "@/components/DatePickerWithRange";
 import { useOrgStatsTotals } from "@/hooks/useOrgStatsTotals";
 import { useOrgStatsEmailBuckets } from "@/hooks/useOrgStatsEmailBuckets";
 import { useOrgStatsRulesBuckets } from "@/hooks/useOrgStatsRulesBuckets";
+import { MutedText } from "@/components/Typography";
 
 const selectOptions = [
   { label: "Last week", value: "7" },
@@ -189,14 +190,12 @@ function BucketChart({
     <Card>
       <CardHeader>
         <CardTitle className="text-base">{title}</CardTitle>
-        <p className="text-sm text-muted-foreground">{description}</p>
+        <MutedText>{description}</MutedText>
       </CardHeader>
       <CardContent>
         {!hasData ? (
           <div className="flex h-40 items-center justify-center">
-            <p className="text-sm text-muted-foreground text-center">
-              {emptyMessage}
-            </p>
+            <MutedText className="text-center">{emptyMessage}</MutedText>
           </div>
         ) : (
           <div className="space-y-3">

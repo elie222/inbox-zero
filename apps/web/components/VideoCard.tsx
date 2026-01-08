@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { ClientOnly } from "@/components/ClientOnly";
+import { MutedText } from "@/components/Typography";
 
 type VideoCardProps = ComponentProps<typeof VideoCard> & {
   storageKey: string;
@@ -91,9 +92,7 @@ const VideoCard = React.forwardRef<
               )}
               <div className="flex-1">
                 <h3 className="text-lg font-semibold">{title}</h3>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  {description}
-                </p>
+                <MutedText className="mt-1">{description}</MutedText>
                 <Button
                   className="mt-3"
                   size="sm"

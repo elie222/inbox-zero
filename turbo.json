@@ -134,7 +134,8 @@
         "NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS",
         "NEXT_PUBLIC_DIGEST_ENABLED",
         "NEXT_PUBLIC_MEETING_BRIEFS_ENABLED",
-        "NEXT_PUBLIC_INTEGRATIONS_ENABLED"
+        "NEXT_PUBLIC_INTEGRATIONS_ENABLED",
+        "NEXT_PUBLIC_SMART_FILING_ENABLED"
       ],
       "outputs": [".next/**", "!.next/cache/**"]
     },
