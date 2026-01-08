@@ -295,20 +295,36 @@ const importedAction = z
     delayInMinutes: delayInMinutesSchema,
   })
   .superRefine((data, ctx) => {
-    if (data.type === ActionType.LABEL && !data.label?.trim()) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: "Label action requires a label name",
-        path: ["label"],
-      });
+    if (data.type === ActionType.LABEL) {
+      const labelValue = data.label?.trim();
+
+      if (!labelValue) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "Label action requires a label name",
+          path: ["label"],
+        });
+        return;
+      }
+
+      const validation = validateLabelNameBasic(labelValue);
+      if (!validation.valid) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: validation.error!,
+          path: ["label"],
+        });
+      }
     }
+
     if (data.type === ActionType.FORWARD && !data.to?.trim()) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        message: "Forward action requires a 'to' address",
+        message: "Forward action requires a recipient email address",
         path: ["to"],
       });
     }
+
     if (data.type === ActionType.CALL_WEBHOOK && !data.url?.trim()) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
@@ -316,6 +332,7 @@ const importedAction = z
         path: ["url"],
       });
     }
+
     if (data.type === ActionType.MOVE_FOLDER && !data.folderName?.trim()) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
