@@ -126,7 +126,7 @@ function withMiddleware<T extends NextRequest>(
       const reqLogger = getLogger(reqWithLogger);
 
       if (error instanceof ZodError) {
-        if (env.LOG_ZOD_ERRORS) {
+        if (!env.DISABLE_LOG_ZOD_ERRORS) {
           reqLogger.error("Zod validation error", { error });
         }
         return NextResponse.json(
