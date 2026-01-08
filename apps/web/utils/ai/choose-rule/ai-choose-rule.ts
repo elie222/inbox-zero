@@ -5,6 +5,11 @@ import { isDefined, type EmailForLLM } from "@/utils/types";
 import { getModel, type ModelType } from "@/utils/llms/model";
 import { createGenerateObject } from "@/utils/llms";
 import { getUserInfoPrompt, getUserRulesPrompt } from "@/utils/ai/helpers";
+import { pluginRuntime } from "@/lib/plugin-runtime/runtime";
+import type { Classification } from "@/lib/plugin-runtime/types";
+import { createScopedLogger } from "@/utils/logger";
+
+const logger = createScopedLogger("ai-choose-rule");
 
 type GetAiResponseOptions = {
   email: EmailForLLM;
@@ -28,24 +33,32 @@ export async function aiChooseRule<
 }): Promise<{
   rules: { rule: T; isPrimary?: boolean }[];
   reason: string;
+  pluginClassifications?: PluginClassificationResult[];
 }> {
   if (!rules.length) return { rules: [], reason: "No rules to evaluate" };
 
-  const { result: aiResponse } = await getAiResponse({
-    email,
-    rules,
-    emailAccount,
-    modelType,
-  });
+  // run core AI classification and plugin classifications in parallel
+  const [aiResponse, pluginResults] = await Promise.all([
+    getAiResponse({
+      email,
+      rules,
+      emailAccount,
+      modelType,
+    }),
+    getPluginClassifications(email, emailAccount, emailAccount.userId),
+  ]);
 
-  if (aiResponse.noMatchFound) {
+  const { result } = aiResponse;
+
+  if (result.noMatchFound) {
     return {
       rules: [],
-      reason: aiResponse.reasoning || "AI determined no rules matched",
+      reason: result.reasoning || "AI determined no rules matched",
+      pluginClassifications: pluginResults,
     };
   }
 
-  const rulesWithMetadata = aiResponse.matchedRules
+  const rulesWithMetadata = result.matchedRules
     .map((match) => {
       if (!match.ruleName) return undefined;
       const rule = rules.find(
@@ -57,8 +70,131 @@ export async function aiChooseRule<
 
   return {
     rules: rulesWithMetadata,
-    reason: aiResponse.reasoning,
+    reason: result.reasoning,
+    pluginClassifications: pluginResults,
   };
+}
+
+/**
+ * Result of plugin classification execution.
+ * Wraps plugin execution results with the classification data.
+ */
+export interface PluginClassificationResult {
+  pluginId: string;
+  classification: Classification | null;
+  executionTimeMs: number;
+  error?: string;
+}
+
+/**
+ * Execute plugin classifyEmail hooks and collect results.
+ * Converts EmailForLLM to the plugin runtime Email format.
+ */
+async function getPluginClassifications(
+  email: EmailForLLM,
+  emailAccount: EmailAccountWithAI,
+  userId: string,
+): Promise<PluginClassificationResult[]> {
+  try {
+    // convert EmailForLLM to plugin runtime Email format
+    const pluginEmail = {
+      id: email.id,
+      subject: email.subject,
+      from: email.from,
+      to: email.to,
+      snippet: email.content.slice(0, 200),
+      body: email.content,
+      headers: {},
+      date: email.date?.toISOString(),
+    };
+
+    // convert EmailAccountWithAI to plugin runtime EmailAccount format
+    const pluginEmailAccount = {
+      id: emailAccount.id,
+      email: emailAccount.email,
+      provider: emailAccount.account.provider as "google" | "microsoft",
+      userId: emailAccount.userId,
+      user: {
+        aiProvider: emailAccount.user.aiProvider,
+        aiModel: emailAccount.user.aiModel,
+        aiApiKey: emailAccount.user.aiApiKey,
+      },
+    };
+
+    const results = await pluginRuntime.executeClassifyEmail(
+      pluginEmail,
+      pluginEmailAccount,
+      userId,
+    );
+
+    // log plugin contributions for debugging
+    const successfulResults = results.filter(
+      (r) => r.result !== null && !r.error,
+    );
+    if (successfulResults.length > 0) {
+      logger.info("Plugin classifications received", {
+        count: successfulResults.length,
+        plugins: successfulResults.map((r) => ({
+          pluginId: r.pluginId,
+          label: r.result?.label,
+          confidence: r.result?.confidence,
+          executionTimeMs: r.executionTimeMs,
+        })),
+      });
+    }
+
+    // convert to PluginClassificationResult format
+    return results.map((r) => ({
+      pluginId: r.pluginId,
+      classification: r.result,
+      executionTimeMs: r.executionTimeMs,
+      error: r.error,
+    }));
+  } catch (error) {
+    logger.error("Plugin classification error", { error });
+    return [];
+  }
+}
+
+/**
+ * Merge plugin classifications with core AI classifications.
+ * Plugin classifications can add labels/signals, but core classification takes priority for conflicts.
+ */
+export function mergeClassifications(
+  coreLabels: string[],
+  pluginResults: PluginClassificationResult[],
+  options?: { minConfidence?: number },
+): string[] {
+  const minConfidence = options?.minConfidence ?? 0.5;
+  const mergedLabels = new Set(coreLabels);
+
+  for (const result of pluginResults) {
+    if (!result.classification || result.error) {
+      continue;
+    }
+
+    const { label, confidence } = result.classification;
+
+    // only add labels meeting confidence threshold
+    if (confidence >= minConfidence) {
+      // avoid duplicates (case-insensitive)
+      const labelLower = label.toLowerCase();
+      const hasDuplicate = Array.from(mergedLabels).some(
+        (existing) => existing.toLowerCase() === labelLower,
+      );
+
+      if (!hasDuplicate) {
+        mergedLabels.add(label);
+        logger.trace("Added plugin classification label", {
+          pluginId: result.pluginId,
+          label,
+          confidence,
+        });
+      }
+    }
+  }
+
+  return Array.from(mergedLabels);
 }
 
 async function getAiResponse(options: GetAiResponseOptions): Promise<{
