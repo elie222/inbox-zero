@@ -1,0 +1,112 @@
+# syntax=docker/dockerfile:1.4
+# Dockerfile.prod.local - Optimized for lower memory usage
+#
+# Key optimizations:
+# 1. Use --webpack flag to disable Turbopack (Next.js 16 uses Turbopack by default)
+# 2. BuildKit cache mounts for .next/cache - enables incremental builds
+# 3. Separate RUN commands - allows memory to be freed between steps
+# 4. ESLint disabled via next.config.ts (eslint.ignoreDuringBuilds)
+#
+# Memory requirement: ~3GB for webpack build + TypeScript checking
+# See: https://nextjs.org/docs/app/guides/memory-usage
+
+FROM node:22-alpine AS builder
+
+WORKDIR /app
+
+RUN apk add --no-cache openssl
+RUN npm install -g pnpm@10.27.0
+
+# Copy lockfiles/workspace manifests for better caching
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc* ./
+COPY apps/web/package.json apps/web/package.json
+COPY apps/unsubscriber/package.json apps/unsubscriber/package.json
+COPY packages/loops/package.json packages/loops/package.json
+COPY packages/resend/package.json packages/resend/package.json
+COPY packages/tinybird/package.json packages/tinybird/package.json
+COPY packages/tinybird-ai-analytics/package.json packages/tinybird-ai-analytics/package.json
+COPY packages/tsconfig/package.json packages/tsconfig/package.json
+
+# Copy Prisma schema file needed for postinstall script
+COPY apps/web/prisma/schema.prisma apps/web/prisma/schema.prisma
+
+# Install deps with BuildKit cache for pnpm store
+RUN --mount=type=cache,target=/root/.local/share/pnpm/store \
+    pnpm install --no-frozen-lockfile --shamefully-hoist
+
+# Copy the full repo
+COPY . .
+
+# === Build environment ===
+ENV NODE_ENV=production
+ENV DOCKER_BUILD=true
+
+# Standalone output for Docker deployment
+ENV NEXT_PRIVATE_STANDALONE=true
+
+# 3GB for webpack build + TypeScript checking (Turbopack needs 6-8GB+ and frequently OOMs)
+ENV NODE_OPTIONS=--max_old_space_size=3072
+
+# Feature flag placeholders
+ARG NEXT_PUBLIC_BASE_URL="http://NEXT_PUBLIC_BASE_URL_PLACEHOLDER"
+ENV NEXT_PUBLIC_BASE_URL=${NEXT_PUBLIC_BASE_URL}
+ARG NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS="NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS_PLACEHOLDER"
+ENV NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS=${NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS}
+ARG NEXT_PUBLIC_EMAIL_SEND_ENABLED="NEXT_PUBLIC_EMAIL_SEND_ENABLED_PLACEHOLDER"
+ENV NEXT_PUBLIC_EMAIL_SEND_ENABLED=${NEXT_PUBLIC_EMAIL_SEND_ENABLED}
+
+# Dummy envs for build (real values injected at runtime)
+ENV DATABASE_URL="postgresql://dummy:dummy@dummy:5432/dummy?schema=public"
+ENV DIRECT_URL="postgresql://dummy:dummy@dummy:5432/dummy?schema=public"
+ENV AUTH_SECRET="dummy_secret_for_build_only_32chars!"
+ENV BETTER_AUTH_SECRET="dummy_secret_for_build_only_32chars!"
+ENV GOOGLE_CLIENT_ID="dummy_id_for_build_only"
+ENV GOOGLE_CLIENT_SECRET="dummy_secret_for_build_only"
+ENV EMAIL_ENCRYPT_SECRET="dummy_encrypt_secret_for_build_only"
+ENV EMAIL_ENCRYPT_SALT="dummy_encrypt_salt_for_build_only"
+ENV GOOGLE_PUBSUB_TOPIC_NAME="dummy_topic_for_build_only"
+ENV GOOGLE_PUBSUB_VERIFICATION_TOKEN="dummy_pubsub_token_for_build"
+ENV INTERNAL_API_KEY="dummy_apikey_for_build_only"
+ENV API_KEY_SALT="dummy_salt_for_build_only"
+ENV UPSTASH_REDIS_URL="http://dummy-redis-for-build:6379"
+ENV UPSTASH_REDIS_TOKEN="dummy_redis_token_for_build"
+ENV REDIS_URL="redis://dummy:dummy@dummy:6379"
+ENV QSTASH_TOKEN="dummy_qstash_token_for_build"
+ENV QSTASH_CURRENT_SIGNING_KEY="dummy_qstash_curr_key_for_build"
+ENV QSTASH_NEXT_SIGNING_KEY="dummy_qstash_next_key_for_build"
+
+# Step 1: Generate Prisma client (separate step = memory freed after)
+RUN npx prisma generate --schema=apps/web/prisma/schema.prisma
+
+# Step 2: Build Next.js with webpack (not Turbopack) for lower memory usage
+# --webpack: Use webpack/SWC instead of Turbopack (Next.js 16 default)
+# Cache mount persists between builds for incremental compilation
+RUN --mount=type=cache,target=/app/apps/web/.next/cache \
+    cd apps/web && \
+    ../../node_modules/.bin/next build --webpack && \
+    cd ../..
+
+# === Production image ===
+FROM node:22-alpine AS runner
+
+WORKDIR /app
+
+RUN apk add --no-cache openssl
+RUN npm install -g prisma@6.16.3
+
+# Copy standalone build
+COPY --from=builder /app/apps/web/.next/standalone ./
+COPY --from=builder /app/apps/web/.next/static ./apps/web/.next/static
+COPY --from=builder /app/apps/web/public ./apps/web/public
+COPY --from=builder /app/apps/web/prisma ./apps/web/prisma
+
+# Copy runtime scripts
+COPY docker/scripts /app/docker/scripts
+RUN chmod +x /app/docker/scripts/*.sh
+
+EXPOSE 3000
+
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
+  CMD wget --no-verbose --tries=1 --spider http://localhost:3000/ || exit 1
+
+CMD ["/app/docker/scripts/start.sh"]

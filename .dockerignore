@@ -3,11 +3,19 @@
 
 # Node / package managers
 node_modules
+**/node_modules
 pnpm-store
+.pnpm-store
+
+# Python
+.venv
+__pycache__
 
 # Build outputs / caches
 .next
+**/.next
 .turbo
+**/.turbo
 out
 coverage
 *.log
