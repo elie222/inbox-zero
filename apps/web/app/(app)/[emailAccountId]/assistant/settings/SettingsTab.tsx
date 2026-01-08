@@ -7,6 +7,7 @@ import { LearnedPatternsSetting } from "@/app/(app)/[emailAccountId]/assistant/s
 import { PersonalSignatureSetting } from "@/app/(app)/[emailAccountId]/assistant/settings/PersonalSignatureSetting";
 import { MultiRuleSetting } from "@/app/(app)/[emailAccountId]/assistant/settings/MultiRuleSetting";
 import { WritingStyleSetting } from "@/app/(app)/[emailAccountId]/assistant/settings/WritingStyleSetting";
+import { RuleImportExportSetting } from "@/app/(app)/[emailAccountId]/assistant/settings/RuleImportExportSetting";
 import { env } from "@/env";
 
 export function SettingsTab() {
@@ -21,6 +22,7 @@ export function SettingsTab() {
       {env.NEXT_PUBLIC_DIGEST_ENABLED && <DigestSetting />}
       <ReferralSignatureSetting />
       <LearnedPatternsSetting />
+      <RuleImportExportSetting />
     </div>
   );
 }
