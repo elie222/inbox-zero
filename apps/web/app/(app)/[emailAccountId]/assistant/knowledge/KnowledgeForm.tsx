@@ -147,7 +147,7 @@ export function KnowledgeForm({
               <Tiptap
                 ref={editorRef}
                 initialContent={field.value ?? ""}
-                className="mt-1"
+                className="mt-1 prose prose-sm dark:prose-invert max-w-none"
                 autofocus={false}
               />
             </div>

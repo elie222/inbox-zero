@@ -66,6 +66,7 @@ Learn more in our [docs](https://docs.getinboxzero.com).
 - [Prisma](https://www.prisma.io/)
 - [Upstash](https://upstash.com/)
 - [Turborepo](https://turbo.build/)
+- [Popsy Illustrations](https://popsy.co/)
 
 ## Star History
 
@@ -88,6 +89,17 @@ See our **[Self-Hosting Guide](docs/hosting/self-hosting.md)** for complete inst
 ### Local Development Setup
 
 [Here's a video](https://youtu.be/hVQENQ4WT2Y) on how to set up the project. It covers the same steps mentioned in this document. But goes into greater detail on setting up the external services.
+
+#### Option A: Devcontainer (Recommended)
+
+The fastest way to get started is using [devcontainers](https://containers.dev/), supported by VS Code ([Dev Containers extension](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers)), JetBrains IDEs, and other modern editors:
+
+1. Open the project and select "Reopen in Container" when prompted
+2. Wait for container to build and `postCreateCommand` to complete
+3. Configure at least one OAuth provider in `apps/web/.env` (see [Google OAuth Setup](#google-oauth-setup) or [Microsoft OAuth Setup](#microsoft-oauth-setup) below for credentials and redirect URIs)
+4. Run `pnpm dev`
+
+#### Option B: Manual Setup
 
 #### Requirements
 

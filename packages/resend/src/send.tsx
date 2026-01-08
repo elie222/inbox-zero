@@ -10,6 +10,12 @@ import DigestEmail, {
 import InvitationEmail, {
   type InvitationEmailProps,
 } from "../emails/invitation";
+import ReconnectionEmail, {
+  type ReconnectionEmailProps,
+} from "../emails/reconnection";
+import ActionRequiredEmail, {
+  type ActionRequiredEmailProps,
+} from "../emails/action-required";
 import MeetingBriefingEmail, {
   type MeetingBriefingEmailProps,
   generateMeetingBriefingSubject,
@@ -171,6 +177,60 @@ export const sendInvitationEmail = async ({
       {
         name: "category",
         value: "invitation",
+      },
+    ],
+  });
+};
+
+export const sendReconnectionEmail = async ({
+  from,
+  to,
+  test,
+  emailProps,
+}: {
+  from: string;
+  to: string;
+  test?: boolean;
+  emailProps: ReconnectionEmailProps;
+}) => {
+  return sendEmail({
+    from,
+    to,
+    subject: `Reconnect your email account: ${emailProps.email}`,
+    react: <ReconnectionEmail {...emailProps} />,
+    test,
+    unsubscribeToken: emailProps.unsubscribeToken,
+    tags: [
+      {
+        name: "category",
+        value: "reconnection",
+      },
+    ],
+  });
+};
+
+export const sendActionRequiredEmail = async ({
+  from,
+  to,
+  test,
+  emailProps,
+}: {
+  from: string;
+  to: string;
+  test?: boolean;
+  emailProps: ActionRequiredEmailProps;
+}) => {
+  return sendEmail({
+    from,
+    to,
+    subject: `Action Required: ${emailProps.errorType}`,
+    react: <ActionRequiredEmail {...emailProps} />,
+    test,
+    unsubscribeToken: emailProps.unsubscribeToken,
+    tags: [
+      {
+        name: "category",
+        value: "action-required",
       },
     ],
   });

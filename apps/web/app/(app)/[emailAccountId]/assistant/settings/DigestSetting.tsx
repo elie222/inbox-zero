@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { SettingCard } from "@/components/SettingCard";
 import {
@@ -13,12 +14,14 @@ import {
 import { DigestSettingsForm } from "@/app/(app)/[emailAccountId]/settings/DigestSettingsForm";
 
 export function DigestSetting() {
+  const [open, setOpen] = useState(false);
+
   return (
     <SettingCard
       title="Digest"
       description="Configure your summary digest emails."
       right={
-        <Dialog>
+        <Dialog open={open} onOpenChange={setOpen}>
           <DialogTrigger asChild>
             <Button variant="outline" size="sm">
               Edit
@@ -33,7 +36,7 @@ export function DigestSetting() {
               </DialogDescription>
             </DialogHeader>
 
-            <DigestSettingsForm />
+            <DigestSettingsForm onSuccess={() => setOpen(false)} />
           </DialogContent>
         </Dialog>
       }

@@ -25,6 +25,7 @@ import {
   claimPendingPremiumInvite,
   updateAccountSeats,
 } from "@/utils/premium/server";
+import { clearSpecificErrorMessages, ErrorType } from "@/utils/error-messages";
 import prisma from "@/utils/prisma";
 
 const logger = createScopedLogger("auth");
@@ -276,7 +277,12 @@ export async function handleReferralOnSignUp({
       return;
     }
 
-    const referralCode = referralCookie.value;
+    let referralCode = referralCookie.value;
+    try {
+      referralCode = decodeURIComponent(referralCode);
+    } catch {
+      // Use original value if decoding fails
+    }
     logger.info("Processing referral for new user", {
       email,
       referralCode,
@@ -383,6 +389,24 @@ async function handleLinkAccount(account: Account) {
       throw new Error("Primary email not found for linked account.");
     }
 
+    // Check if email already belongs to a different user
+    const existingEmailAccount = await prisma.emailAccount.findUnique({
+      where: { email: primaryEmail.trim().toLowerCase() },
+      select: { userId: true },
+    });
+
+    if (
+      existingEmailAccount &&
+      existingEmailAccount.userId !== account.userId
+    ) {
+      logger.error("[linkAccount] Email already linked to a different user", {
+        email: primaryEmail,
+        existingUserId: existingEmailAccount.userId,
+        newUserId: account.userId,
+      });
+      throw new Error("email_already_linked");
+    }
+
     const user = await prisma.user.findUnique({
       where: { id: account.userId },
       select: { email: true, name: true, image: true },
@@ -402,13 +426,25 @@ async function handleLinkAccount(account: Account) {
       image: primaryPhotoUrl,
     };
 
-    await prisma.emailAccount.upsert({
-      where: { email: profileData?.email },
-      update: data,
-      create: {
-        ...data,
-        email: primaryEmail,
-      },
+    await prisma.$transaction([
+      prisma.emailAccount.upsert({
+        where: { email: profileData?.email },
+        update: data,
+        create: {
+          ...data,
+          email: primaryEmail,
+        },
+      }),
+      prisma.account.update({
+        where: { id: account.id },
+        data: { disconnectedAt: null },
+      }),
+    ]);
+
+    await clearSpecificErrorMessages({
+      userId: account.userId,
+      errorTypes: [ErrorType.ACCOUNT_DISCONNECTED],
+      logger,
     });
 
     // Handle premium account seats
@@ -475,6 +511,7 @@ export async function saveTokens({
     access_token: tokens.access_token,
     expires_at: tokens.expires_at ? new Date(tokens.expires_at * 1000) : null,
     refresh_token: refreshToken,
+    disconnectedAt: null,
   };
 
   if (emailAccountId) {
@@ -486,9 +523,16 @@ export async function saveTokens({
     if (data.refresh_token)
       data.refresh_token = encryptToken(data.refresh_token) || "";
 
-    await prisma.emailAccount.update({
+    const emailAccount = await prisma.emailAccount.update({
       where: { id: emailAccountId },
       data: { account: { update: data } },
+      select: { userId: true },
+    });
+
+    await clearSpecificErrorMessages({
+      userId: emailAccount.userId,
+      errorTypes: [ErrorType.ACCOUNT_DISCONNECTED],
+      logger,
     });
   } else {
     if (!providerAccountId) {
@@ -501,7 +545,7 @@ export async function saveTokens({
       return;
     }
 
-    return await prisma.account.update({
+    const account = await prisma.account.update({
       where: {
         provider_providerAccountId: {
           provider,
@@ -510,6 +554,14 @@ export async function saveTokens({
       },
       data,
     });
+
+    await clearSpecificErrorMessages({
+      userId: account.userId,
+      errorTypes: [ErrorType.ACCOUNT_DISCONNECTED],
+      logger,
+    });
+
+    return account;
   }
 }
 

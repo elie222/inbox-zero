@@ -1,5 +1,9 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { analyzeCalendarEvent, isCalendarEventInPast } from "./calender-event";
+import {
+  analyzeCalendarEvent,
+  isCalendarEventInPast,
+  isCalendarInvite,
+} from "./calender-event";
 import type { ParsedMessage } from "@/utils/types";
 
 vi.mock("server-only", () => ({}));
@@ -159,6 +163,164 @@ describe("Calendar Event Detection", () => {
       expect(isCalendarEventInPast(regularEmail)).toBe(false);
     });
   });
+
+  describe("isCalendarInvite", () => {
+    it("should return true for emails with .ics attachment", () => {
+      const email = createTestEmail({
+        headers: {
+          subject: "Test event",
+          from: "organizer@example.com",
+          to: "attendee@example.com",
+          date: "2024-03-06T00:26:01Z",
+        },
+        attachments: [
+          {
+            filename: "meeting.ics",
+            mimeType: "text/calendar",
+            size: 1024,
+            attachmentId: "attachment-1",
+            headers: {
+              "content-type": "text/calendar",
+              "content-description": "",
+              "content-transfer-encoding": "",
+              "content-id": "",
+            },
+          },
+        ],
+      });
+
+      expect(isCalendarInvite(email)).toBe(true);
+    });
+
+    it("should return true for emails with text/calendar MIME type attachment", () => {
+      const email = createTestEmail({
+        headers: {
+          subject: "Test event",
+          from: "organizer@example.com",
+          to: "attendee@example.com",
+          date: "2024-03-06T00:26:01Z",
+        },
+        attachments: [
+          {
+            filename: "invite",
+            mimeType: "text/calendar",
+            size: 1024,
+            attachmentId: "attachment-1",
+            headers: {
+              "content-type": "text/calendar; method=REQUEST",
+              "content-description": "",
+              "content-transfer-encoding": "",
+              "content-id": "",
+            },
+          },
+        ],
+      });
+
+      expect(isCalendarInvite(email)).toBe(true);
+    });
+
+    it("should return true for Outlook calendar invite with iCalendar content in body", () => {
+      const email = createTestEmail({
+        headers: {
+          subject: "Test event",
+          from: "demoinboxzero@outlook.com",
+          to: "user@example.com",
+          date: "2024-03-06T00:26:01Z",
+        },
+        textHtml: `
+          <html>
+          <body>
+          BEGIN:VCALENDAR
+          VERSION:2.0
+          METHOD:REQUEST
+          DTSTART:20240315T140000Z
+          DTEND:20240315T150000Z
+          SUMMARY:Test event
+          END:VCALENDAR
+          </body>
+          </html>
+        `,
+      });
+
+      expect(isCalendarInvite(email)).toBe(true);
+    });
+
+    it("should return true for iCalendar with DTSTART in body", () => {
+      const email = createTestEmail({
+        headers: {
+          subject: "Team sync",
+          from: "calendar@example.com",
+          to: "user@example.com",
+          date: "2024-03-06T00:26:01Z",
+        },
+        textPlain: `
+          BEGIN:VCALENDAR
+          DTSTART;TZID=America/New_York:20240315T090000
+          DTEND;TZID=America/New_York:20240315T100000
+          END:VCALENDAR
+        `,
+      });
+
+      expect(isCalendarInvite(email)).toBe(true);
+    });
+
+    it("should NOT return true for emails with only 'meeting' in subject (ambiguous)", () => {
+      const email = createTestEmail({
+        headers: {
+          subject: "Can we schedule a meeting?",
+          from: "colleague@example.com",
+          to: "user@example.com",
+          date: "2024-03-06T00:26:01Z",
+        },
+        textHtml: "Let me know when you're free for a meeting.",
+      });
+
+      expect(isCalendarInvite(email)).toBe(false);
+    });
+
+    it("should NOT return true for regular emails mentioning events", () => {
+      const email = createTestEmail({
+        headers: {
+          subject: "Follow up on last week's event",
+          from: "colleague@example.com",
+          to: "user@example.com",
+          date: "2024-03-06T00:26:01Z",
+        },
+        textHtml: "The event was great! Thanks for attending.",
+      });
+
+      expect(isCalendarInvite(email)).toBe(false);
+    });
+
+    it("should NOT return true for emails with BEGIN:VCALENDAR but no DTSTART or METHOD", () => {
+      const email = createTestEmail({
+        headers: {
+          subject: "Calendar discussion",
+          from: "colleague@example.com",
+          to: "user@example.com",
+          date: "2024-03-06T00:26:01Z",
+        },
+        textHtml:
+          "I noticed the format starts with BEGIN:VCALENDAR but this is just text about calendars.",
+      });
+
+      expect(isCalendarInvite(email)).toBe(false);
+    });
+
+    it("should return false for emails with no calendar indicators", () => {
+      const email = createTestEmail({
+        headers: {
+          subject: "Hello there",
+          from: "friend@example.com",
+          to: "user@example.com",
+          date: "2024-03-06T00:26:01Z",
+        },
+        textHtml: "Just wanted to say hi!",
+      });
+
+      expect(isCalendarInvite(email)).toBe(false);
+    });
+  });
 });
 
 const createTestEmail = (
@@ -168,6 +330,8 @@ const createTestEmail = (
   threadId: "test-thread-id",
   historyId: "test-history-id",
   snippet: "",
+  subject: overrides.headers?.subject || "",
+  date: overrides.headers?.date || "",
   headers: {
     subject: "",
     from: "",

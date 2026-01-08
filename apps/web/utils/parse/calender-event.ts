@@ -276,3 +276,37 @@ export function getCalendarEventStatus(
     timing: calendarEvent.eventDate < new Date() ? "past" : "future",
   };
 }
+
+/** High-confidence calendar detection for preset rule matching (bypasses AI). */
+export function isCalendarInvite(email: ParsedMessage): boolean {
+  return (
+    hasIcsAttachment(email) ||
+    hasCalendarMimeType(email) ||
+    hasICalendarContent(email)
+  );
+}
+
+function hasCalendarMimeType(email: ParsedMessage): boolean {
+  if (!email.attachments || email.attachments.length === 0) {
+    return false;
+  }
+
+  return email.attachments.some(
+    (attachment) =>
+      attachment.mimeType?.toLowerCase() === "text/calendar" ||
+      attachment.headers?.["content-type"]
+        ?.toLowerCase()
+        .includes("text/calendar"),
+  );
+}
+
+function hasICalendarContent(email: ParsedMessage): boolean {
+  const body = email.textHtml || email.textPlain || "";
+
+  if (!body.includes("BEGIN:VCALENDAR")) {
+    return false;
+  }
+
+  // Require DTSTART or METHOD to avoid false positives
+  return body.includes("DTSTART") || body.includes("METHOD:");
+}

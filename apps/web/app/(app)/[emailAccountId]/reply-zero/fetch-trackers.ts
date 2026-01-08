@@ -1,4 +1,5 @@
 import prisma from "@/utils/prisma";
+import { Prisma, type ThreadTracker } from "@/generated/prisma/client";
 import type { ThreadTrackerType } from "@/generated/prisma/enums";
 import { getDateFilter, type TimeRange } from "./date-filter";
 
@@ -18,37 +19,33 @@ export async function getPaginatedThreadTrackers({
   const skip = (page - 1) * PAGE_SIZE;
   const dateFilter = getDateFilter(timeRange);
 
+  const dateClause = dateFilter
+    ? Prisma.sql`AND "sentAt" <= ${dateFilter.lte}`
+    : Prisma.empty;
+
   const [trackers, total] = await Promise.all([
-    prisma.threadTracker.findMany({
-      where: {
-        emailAccountId,
-        resolved: false,
-        type,
-        sentAt: dateFilter,
-      },
-      orderBy: {
-        createdAt: "desc",
-      },
-      distinct: ["threadId"],
-      take: PAGE_SIZE,
-      skip,
-    }),
-    dateFilter
-      ? prisma.$queryRaw<[{ count: bigint }]>`
-          SELECT COUNT(DISTINCT "threadId") as count
-          FROM "ThreadTracker"
-          WHERE "emailAccountId" = ${emailAccountId}
-            AND "resolved" = false
-            AND "type" = ${type}::text::"ThreadTrackerType"
-            AND "sentAt" <= ${dateFilter.lte}
-        `
-      : prisma.$queryRaw<[{ count: bigint }]>`
-          SELECT COUNT(DISTINCT "threadId") as count
-          FROM "ThreadTracker"
-          WHERE "emailAccountId" = ${emailAccountId}
-            AND "resolved" = false
-            AND "type" = ${type}::text::"ThreadTrackerType"
-        `,
+    prisma.$queryRaw<ThreadTracker[]>`
+      SELECT * FROM (
+        SELECT DISTINCT ON ("threadId") *
+        FROM "ThreadTracker"
+        WHERE "emailAccountId" = ${emailAccountId}
+          AND "resolved" = false
+          AND "type" = ${type}::text::"ThreadTrackerType"
+          ${dateClause}
+        ORDER BY "threadId", "createdAt" DESC
+      ) AS distinct_threads
+      ORDER BY "createdAt" DESC
+      LIMIT ${PAGE_SIZE}
+      OFFSET ${skip}
+    `,
+    prisma.$queryRaw<[{ count: bigint }]>`
+      SELECT COUNT(DISTINCT "threadId") as count
+      FROM "ThreadTracker"
+      WHERE "emailAccountId" = ${emailAccountId}
+        AND "resolved" = false
+        AND "type" = ${type}::text::"ThreadTrackerType"
+        ${dateClause}
+    `,
   ]);
 
   const count = Number(total?.[0]?.count);

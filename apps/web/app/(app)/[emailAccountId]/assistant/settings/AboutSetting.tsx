@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { SettingCard } from "@/components/SettingCard";
 import {
@@ -13,12 +14,14 @@ import {
 import { AboutSection } from "@/app/(app)/[emailAccountId]/settings/AboutSectionForm";
 
 export function AboutSetting() {
+  const [open, setOpen] = useState(false);
+
   return (
     <SettingCard
-      title="About you"
-      description="Provide extra information that will help our AI better understand how to process your emails."
+      title="Personal Instructions"
+      description="Tell the AI about yourself and how you'd like it to handle your emails."
       right={
-        <Dialog>
+        <Dialog open={open} onOpenChange={setOpen}>
           <DialogTrigger asChild>
             <Button variant="outline" size="sm">
               Edit
@@ -26,14 +29,14 @@ export function AboutSetting() {
           </DialogTrigger>
           <DialogContent className="max-w-2xl">
             <DialogHeader>
-              <DialogTitle>About you</DialogTitle>
+              <DialogTitle>Personal Instructions</DialogTitle>
               <DialogDescription>
-                Provide extra information that will help our AI better
-                understand how to process your emails.
+                Tell the AI about yourself and how you'd like it to handle your
+                emails.
               </DialogDescription>
             </DialogHeader>
 
-            <AboutSection />
+            <AboutSection onSuccess={() => setOpen(false)} />
           </DialogContent>
         </Dialog>
       }

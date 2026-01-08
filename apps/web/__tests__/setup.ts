@@ -11,3 +11,8 @@ vi.mock("next/server", async () => {
     },
   };
 });
+
+// Mock QStash signature verification for tests
+vi.mock("@upstash/qstash/nextjs", () => ({
+  verifySignatureAppRouter: vi.fn((handler) => handler),
+}));

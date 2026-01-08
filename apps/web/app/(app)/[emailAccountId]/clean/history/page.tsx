@@ -1,7 +1,9 @@
+import { Suspense } from "react";
 import Link from "next/link";
 import { PlusIcon } from "lucide-react";
 import { CleanHistory } from "@/app/(app)/[emailAccountId]/clean/CleanHistory";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { Loading } from "@/components/Loading";
 import { PageHeading } from "@/components/Typography";
 import { Button } from "@/components/ui/button";
 import { prefixPath } from "@/utils/path";
@@ -25,7 +27,9 @@ export default async function CleanHistoryPage(props: {
         </div>
       </CardHeader>
       <CardContent>
-        <CleanHistory />
+        <Suspense fallback={<Loading />}>
+          <CleanHistory />
+        </Suspense>
       </CardContent>
     </Card>
   );

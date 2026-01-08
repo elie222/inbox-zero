@@ -203,14 +203,17 @@ export async function runMeetingBrief({
     const briefingContent = await aiGenerateMeetingBriefing({
       briefingData,
       emailAccount,
+      logger: eventLog,
     });
 
     await sendBriefingEmail({
       event,
       briefingContent,
+      internalTeamMembers: briefingData.internalTeamMembers,
       emailAccountId,
       userEmail,
       provider,
+      userTimezone: emailAccount.timezone,
       logger: eventLog,
     });
 

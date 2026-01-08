@@ -1,5 +1,8 @@
-import type { Message } from "@microsoft/microsoft-graph-types";
-import type { ParsedMessage } from "@/utils/types";
+import type {
+  Message,
+  Attachment as GraphAttachment,
+} from "@microsoft/microsoft-graph-types";
+import type { ParsedMessage, Attachment } from "@/utils/types";
 import type { OutlookClient } from "@/utils/outlook/client";
 import { OutlookLabel } from "./label";
 import { escapeODataString } from "@/utils/outlook/odata-escape";
@@ -10,6 +13,10 @@ import type { Logger } from "@/utils/logger";
 // Standard fields to select when fetching messages from Microsoft Graph API
 export const MESSAGE_SELECT_FIELDS =
   "id,conversationId,conversationIndex,subject,bodyPreview,from,sender,toRecipients,ccRecipients,receivedDateTime,isDraft,isRead,body,categories,parentFolderId";
+
+// Expand attachments to get metadata (name, type, size) without fetching content
+export const MESSAGE_EXPAND_ATTACHMENTS =
+  "attachments($select=id,name,contentType,size)";
 
 // Well-known folder names in Outlook that are consistent across all languages
 export const WELL_KNOWN_FOLDERS = {
@@ -405,7 +412,6 @@ export async function queryMessagesWithFilters(
   return { messages, nextPageToken: response["@odata.nextLink"] };
 }
 
-// Helper function to convert messages
 async function convertMessages(
   messages: Message[],
   folderIds: Record<string, string>,
@@ -466,7 +472,11 @@ export async function getMessages(
  * Returns a typed request builder that can be chained with .filter(), .top(), etc.
  */
 export function createMessagesRequest(client: OutlookClient) {
-  return client.getClient().api("/me/messages").select(MESSAGE_SELECT_FIELDS);
+  return client
+    .getClient()
+    .api("/me/messages")
+    .select(MESSAGE_SELECT_FIELDS)
+    .expand(MESSAGE_EXPAND_ATTACHMENTS);
 }
 
 /**
@@ -476,7 +486,8 @@ export function createMessageRequest(client: OutlookClient, messageId: string) {
   return client
     .getClient()
     .api(`/me/messages/${messageId}`)
-    .select(MESSAGE_SELECT_FIELDS);
+    .select(MESSAGE_SELECT_FIELDS)
+    .expand(MESSAGE_EXPAND_ATTACHMENTS);
 }
 
 /**
@@ -540,6 +551,7 @@ export function convertMessage(
     internalDate: message.receivedDateTime || new Date().toISOString(),
     historyId: "",
     inline: [],
+    attachments: convertAttachments(message.attachments),
     conversationIndex: message.conversationIndex,
     rawRecipients: {
       from: message.from,
@@ -547,4 +559,25 @@ export function convertMessage(
       ccRecipients: message.ccRecipients,
     },
   };
+}
+
+function convertAttachments(
+  graphAttachments: GraphAttachment[] | undefined | null,
+): Attachment[] | undefined {
+  if (!graphAttachments || graphAttachments.length === 0) {
+    return undefined;
+  }
+
+  return graphAttachments.map((attachment) => ({
+    filename: attachment.name || "",
+    mimeType: attachment.contentType || "application/octet-stream",
+    size: attachment.size || 0,
+    attachmentId: attachment.id || "",
+    headers: {
+      "content-type": attachment.contentType || "",
+      "content-description": "",
+      "content-transfer-encoding": "",
+      "content-id": "",
+    },
+  }));
 }

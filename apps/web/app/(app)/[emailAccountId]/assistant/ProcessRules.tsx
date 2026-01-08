@@ -27,7 +27,6 @@ import type { RunRulesResult } from "@/utils/ai/choose-rule/run-rules";
 import { SearchForm } from "@/components/SearchForm";
 import type { BatchExecutedRulesResponse } from "@/app/api/user/executed-rules/batch/route";
 import { isAIRule, isGroupRule, isStaticRule } from "@/utils/condition";
-import { BulkRunRules } from "@/app/(app)/[emailAccountId]/assistant/BulkRunRules";
 import { cn } from "@/utils";
 import { TestCustomEmailForm } from "@/app/(app)/[emailAccountId]/assistant/TestCustomEmailForm";
 import { ResultsDisplay } from "@/app/(app)/[emailAccountId]/assistant/ResultDisplay";
@@ -249,8 +248,6 @@ export function ProcessRulesContent({ testMode }: { testMode: boolean }) {
               {testMode ? "Test All" : "Run on All"}
             </Button>
           )}
-
-          {!testMode && <BulkRunRules />}
         </div>
 
         <div className="flex items-center gap-2">
@@ -356,17 +353,19 @@ function ProcessRulesRow({
       }
     >
       <TableCell>
-        <div className="flex items-center justify-between">
-          <EmailMessageCell
-            sender={message.headers.from}
-            subject={message.headers.subject}
-            snippet={message.snippet}
-            userEmail={userEmail}
-            threadId={message.threadId}
-            messageId={message.id}
-            labelIds={message.labelIds}
-          />
-          <div className="ml-4 flex items-center gap-1">
+        <div className="flex items-center justify-between gap-4">
+          <div className="min-w-0 flex-1">
+            <EmailMessageCell
+              sender={message.headers.from}
+              subject={message.headers.subject}
+              snippet={message.snippet}
+              userEmail={userEmail}
+              threadId={message.threadId}
+              messageId={message.id}
+              labelIds={message.labelIds}
+            />
+          </div>
+          <div className="ml-4 flex shrink-0 items-center gap-1">
             {results ? (
               <>
                 <ResultsDisplay results={results} />

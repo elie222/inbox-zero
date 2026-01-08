@@ -14,12 +14,12 @@ export function SettingsTab() {
   return (
     <div className="space-y-2">
       <DraftReplies />
+      <AboutSetting />
       <WritingStyleSetting />
+      <PersonalSignatureSetting />
       <DraftKnowledgeSetting />
       <MultiRuleSetting />
-      <AboutSetting />
       {env.NEXT_PUBLIC_DIGEST_ENABLED && <DigestSetting />}
-      <PersonalSignatureSetting />
       <ReferralSignatureSetting />
       <LearnedPatternsSetting />
       <RuleImportExportSetting />
