@@ -42,6 +42,12 @@ export async function cleanupStaleDrafts({
 
   logger.info("Found stale trackers", { count: staleTrackers.length });
 
+  // Fetch drafts once for the entire cleanup operation to avoid N+1 API calls
+  const allDrafts =
+    staleTrackers.length > 0
+      ? await provider.getDrafts({ maxResults: 100 })
+      : [];
+
   for (const tracker of staleTrackers) {
     const trackerLogger = logger.with({
       trackerId: tracker.id,
@@ -60,9 +66,8 @@ export async function cleanupStaleDrafts({
         continue;
       }
 
-      // Get drafts for this thread and delete any that might be stale
-      const drafts = await provider.getDrafts({ maxResults: 100 });
-      const threadDrafts = drafts.filter(
+      // Filter drafts for this thread
+      const threadDrafts = allDrafts.filter(
         (draft) => draft.threadId === tracker.threadId,
       );
 

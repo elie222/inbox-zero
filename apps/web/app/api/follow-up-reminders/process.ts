@@ -39,7 +39,6 @@ export async function processAllFollowUpReminders(logger: Logger) {
   for (const emailAccount of emailAccounts) {
     const accountLogger = logger.with({
       emailAccountId: emailAccount.id,
-      email: emailAccount.email,
     });
 
     try {
@@ -81,7 +80,7 @@ async function processAccountFollowUps({
     followUpNeedsReplyDays: number;
     account: {
       provider: string;
-    };
+    } | null;
   };
   logger: Logger;
 }) {
@@ -89,6 +88,11 @@ async function processAccountFollowUps({
   const emailAccountId = emailAccount.id;
 
   logger.info("Processing follow-ups for account");
+
+  if (!emailAccount.account?.provider) {
+    logger.warn("Skipping account with no provider");
+    return;
+  }
 
   // Create email provider for this account
   const provider = await createEmailProvider({
@@ -200,12 +204,17 @@ async function processAccountFollowUps({
     }
   }
 
-  // Cleanup stale drafts (>7 days old)
-  await cleanupStaleDrafts({
-    emailAccountId,
-    provider,
-    logger,
-  });
+  // Cleanup stale drafts (>7 days old) - wrapped in try/catch since it's non-critical
+  try {
+    await cleanupStaleDrafts({
+      emailAccountId,
+      provider,
+      logger,
+    });
+  } catch (error) {
+    logger.error("Failed to cleanup stale drafts", { error });
+    captureException(error);
+  }
 
   logger.info("Finished processing follow-ups for account", {
     awaitingProcessed: awaitingTrackers.length,

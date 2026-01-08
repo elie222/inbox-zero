@@ -37,6 +37,11 @@ export function FollowUpRemindersSetting() {
   const [open, setOpen] = useState(false);
   const { data, isLoading, error, mutate } = useEmailAccountFull();
 
+  const enabled = data?.followUpRemindersEnabled ?? false;
+  const awaitingDays = data?.followUpAwaitingReplyDays ?? 3;
+  const needsReplyDays = data?.followUpNeedsReplyDays ?? 3;
+
+  // Must define all hooks before any conditional returns to follow React hooks rules
   const { execute, isExecuting } = useAction(
     updateFollowUpSettingsAction.bind(null, data?.id ?? ""),
     {
@@ -49,15 +54,11 @@ export function FollowUpRemindersSetting() {
       onError: (error) => {
         mutate();
         toastError({
-          description: error.error.serverError ?? "Failed to update settings",
+          description: error.error?.serverError ?? "Failed to update settings",
         });
       },
     },
   );
-
-  const enabled = data?.followUpRemindersEnabled ?? false;
-  const awaitingDays = data?.followUpAwaitingReplyDays ?? 3;
-  const needsReplyDays = data?.followUpNeedsReplyDays ?? 3;
 
   const handleToggle = useCallback(
     (enable: boolean) => {
@@ -117,6 +118,21 @@ export function FollowUpRemindersSetting() {
     },
     [data, mutate, execute, enabled, awaitingDays],
   );
+
+  // Early return for loading state - action won't be called until data is available
+  if (!data) {
+    return (
+      <SettingCard
+        title="Follow-up Reminders"
+        description="Get reminded when you haven't heard back or haven't replied."
+        right={
+          <Button variant="outline" size="sm" disabled>
+            Configure
+          </Button>
+        }
+      />
+    );
+  }
 
   return (
     <SettingCard
