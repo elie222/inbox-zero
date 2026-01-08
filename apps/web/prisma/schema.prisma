@@ -149,6 +149,7 @@ model EmailAccount {
   followUpRemindersEnabled  Boolean @default(false)
   followUpAwaitingReplyDays Int     @default(3) // Days before adding follow-up label when awaiting reply from others
   followUpNeedsReplyDays    Int     @default(3) // Days before adding follow-up label when user needs to reply
+  followUpAutoDraftEnabled  Boolean @default(true) // Auto-generate follow-up draft emails when awaiting reply
 
   digestSchedule Schedule?
 

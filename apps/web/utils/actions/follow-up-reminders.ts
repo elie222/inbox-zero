@@ -14,6 +14,7 @@ export const updateFollowUpSettingsAction = actionClient
         followUpRemindersEnabled,
         followUpAwaitingReplyDays,
         followUpNeedsReplyDays,
+        followUpAutoDraftEnabled,
       },
     }) => {
       await prisma.emailAccount.update({
@@ -22,6 +23,7 @@ export const updateFollowUpSettingsAction = actionClient
           followUpRemindersEnabled,
           followUpAwaitingReplyDays,
           followUpNeedsReplyDays,
+          followUpAutoDraftEnabled,
         },
       });
 

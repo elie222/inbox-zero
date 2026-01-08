@@ -23,6 +23,7 @@ export async function processAllFollowUpReminders(logger: Logger) {
       email: true,
       followUpAwaitingReplyDays: true,
       followUpNeedsReplyDays: true,
+      followUpAutoDraftEnabled: true,
       account: {
         select: {
           provider: true,
@@ -78,6 +79,7 @@ async function processAccountFollowUps({
     email: string;
     followUpAwaitingReplyDays: number;
     followUpNeedsReplyDays: number;
+    followUpAutoDraftEnabled: boolean;
     account: {
       provider: string;
     } | null;
@@ -138,7 +140,7 @@ async function processAccountFollowUps({
     thresholdDays: emailAccount.followUpNeedsReplyDays,
   });
 
-  // Process AWAITING trackers - apply label AND generate draft
+  // Process AWAITING trackers - apply label AND optionally generate draft
   for (const tracker of awaitingTrackers) {
     const trackerLogger = logger.with({
       trackerId: tracker.id,
@@ -154,13 +156,15 @@ async function processAccountFollowUps({
         messageId: tracker.messageId,
       });
 
-      // Generate follow-up draft
-      await generateFollowUpDraft({
-        emailAccountId,
-        threadId: tracker.threadId,
-        provider,
-        logger: trackerLogger,
-      });
+      // Generate follow-up draft if enabled
+      if (emailAccount.followUpAutoDraftEnabled) {
+        await generateFollowUpDraft({
+          emailAccountId,
+          threadId: tracker.threadId,
+          provider,
+          logger: trackerLogger,
+        });
+      }
 
       // Mark as processed
       await prisma.threadTracker.update({
@@ -168,7 +172,9 @@ async function processAccountFollowUps({
         data: { followUpAppliedAt: now },
       });
 
-      trackerLogger.info("Processed awaiting tracker with draft");
+      trackerLogger.info("Processed awaiting tracker", {
+        draftGenerated: emailAccount.followUpAutoDraftEnabled,
+      });
     } catch (error) {
       trackerLogger.error("Failed to process awaiting tracker", { error });
       captureException(error);

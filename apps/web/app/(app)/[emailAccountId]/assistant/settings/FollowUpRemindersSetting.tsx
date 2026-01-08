@@ -41,6 +41,7 @@ export function FollowUpRemindersSetting() {
   const enabled = data?.followUpRemindersEnabled ?? false;
   const awaitingDays = data?.followUpAwaitingReplyDays ?? 3;
   const needsReplyDays = data?.followUpNeedsReplyDays ?? 3;
+  const autoDraftEnabled = data?.followUpAutoDraftEnabled ?? true;
 
   // Must define all hooks before any conditional returns to follow React hooks rules
   const { execute, isExecuting } = useAction(
@@ -75,9 +76,10 @@ export function FollowUpRemindersSetting() {
         followUpRemindersEnabled: enable,
         followUpAwaitingReplyDays: awaitingDays,
         followUpNeedsReplyDays: needsReplyDays,
+        followUpAutoDraftEnabled: autoDraftEnabled,
       });
     },
-    [data, mutate, execute, awaitingDays, needsReplyDays],
+    [data, mutate, execute, awaitingDays, needsReplyDays, autoDraftEnabled],
   );
 
   const handleAwaitingDaysChange = useCallback(
@@ -95,9 +97,10 @@ export function FollowUpRemindersSetting() {
         followUpRemindersEnabled: enabled,
         followUpAwaitingReplyDays: days,
         followUpNeedsReplyDays: needsReplyDays,
+        followUpAutoDraftEnabled: autoDraftEnabled,
       });
     },
-    [data, mutate, execute, enabled, needsReplyDays],
+    [data, mutate, execute, enabled, needsReplyDays, autoDraftEnabled],
   );
 
   const handleNeedsReplyDaysChange = useCallback(
@@ -115,9 +118,30 @@ export function FollowUpRemindersSetting() {
         followUpRemindersEnabled: enabled,
         followUpAwaitingReplyDays: awaitingDays,
         followUpNeedsReplyDays: days,
+        followUpAutoDraftEnabled: autoDraftEnabled,
       });
     },
-    [data, mutate, execute, enabled, awaitingDays],
+    [data, mutate, execute, enabled, awaitingDays, autoDraftEnabled],
+  );
+
+  const handleAutoDraftToggle = useCallback(
+    (enable: boolean) => {
+      if (!data) return;
+
+      const optimisticData = {
+        ...data,
+        followUpAutoDraftEnabled: enable,
+      };
+      mutate(optimisticData, false);
+
+      execute({
+        followUpRemindersEnabled: enabled,
+        followUpAwaitingReplyDays: awaitingDays,
+        followUpNeedsReplyDays: needsReplyDays,
+        followUpAutoDraftEnabled: enable,
+      });
+    },
+    [data, mutate, execute, enabled, awaitingDays, needsReplyDays],
   );
 
   // Early return for loading state - action won't be called until data is available
@@ -170,6 +194,24 @@ export function FollowUpRemindersSetting() {
                     enabled={enabled}
                     onChange={handleToggle}
                     disabled={isExecuting}
+                  />
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <div className="space-y-1">
+                    <Label htmlFor="auto-draft-enabled">
+                      Auto-generate follow-up drafts
+                    </Label>
+                    <p className="text-muted-foreground text-sm">
+                      Automatically create draft replies for threads awaiting a
+                      response.
+                    </p>
+                  </div>
+                  <Toggle
+                    name="auto-draft-enabled"
+                    enabled={autoDraftEnabled}
+                    onChange={handleAutoDraftToggle}
+                    disabled={!enabled || isExecuting}
                   />
                 </div>
 

@@ -27,6 +27,7 @@ async function getEmailAccount({ emailAccountId }: { emailAccountId: string }) {
       followUpRemindersEnabled: true,
       followUpAwaitingReplyDays: true,
       followUpNeedsReplyDays: true,
+      followUpAutoDraftEnabled: true,
     },
   });
 
