@@ -19,6 +19,10 @@
 #   ./docker/scripts/publish-ghcr.sh v1.0.0       # build and push with custom tag
 #   ./docker/scripts/publish-ghcr.sh --local      # build locally only (faster)
 #   ./docker/scripts/publish-ghcr.sh --local test # build locally with custom tag
+#   ./docker/scripts/publish-ghcr.sh --force      # skip interactive prompts (CI mode)
+#
+# Environment variables:
+#   CI=1 or NONINTERACTIVE=1                      # auto-enables --force mode
 #
 # After first publish, make package public:
 #   GitHub → Profile → Packages → inbox-zero → Settings → Change visibility → Public
@@ -33,12 +37,21 @@ MIN_MEMORY_GB=3
 
 # Parse arguments
 LOCAL_ONLY=false
+FORCE=false
 TAG=""
+
+# Respect CI/NONINTERACTIVE env vars
+if [ -n "${CI:-}" ] || [ -n "${NONINTERACTIVE:-}" ]; then
+  FORCE=true
+fi
 
 for arg in "$@"; do
   case $arg in
     --local)
       LOCAL_ONLY=true
+      ;;
+    --force|-y)
+      FORCE=true
       ;;
     *)
       TAG="$arg"
@@ -62,9 +75,18 @@ DOCKER_MEM_GB=$((DOCKER_MEM_BYTES / 1024 / 1024 / 1024))
 if [ "$DOCKER_MEM_GB" -lt "$MIN_MEMORY_GB" ]; then
   echo "⚠️  Docker has ${DOCKER_MEM_GB}GB RAM. Build needs ${MIN_MEMORY_GB}GB+."
   echo "   Increase in: Docker Desktop → Settings → Resources → Memory"
-  read -p "   Continue anyway? [y/N] " -n 1 -r
-  echo
-  if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+  if [ "$FORCE" = true ]; then
+    echo "   Continuing anyway (--force or CI mode)"
+  elif [ -t 0 ]; then
+    # Interactive mode - prompt user
+    read -p "   Continue anyway? [y/N] " -n 1 -r
+    echo
+    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+      exit 1
+    fi
+  else
+    # Non-interactive mode without --force - fail safely
+    echo "❌ Insufficient memory. Use --force to continue anyway."
     exit 1
   fi
 fi
