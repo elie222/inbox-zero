@@ -547,7 +547,7 @@ export const copyRulesFromAccountAction = actionClientUser
         // Map actions - keep label names but clear IDs (they'll be resolved when rule executes)
         const mappedActions = sourceRule.actions.map((action) => ({
           type: action.type,
-          label: action.label, // Keep the label name
+          label: action.label,
           labelId: null, // Clear the ID - it's account-specific
           subject: action.subject,
           content: action.content,
@@ -555,13 +555,12 @@ export const copyRulesFromAccountAction = actionClientUser
           cc: action.cc,
           bcc: action.bcc,
           url: action.url,
-          folderName: action.folderName, // Keep folder name
+          folderName: action.folderName,
           folderId: null, // Clear the ID - it's account-specific
           delayInMinutes: action.delayInMinutes,
         }));
 
         if (existingRuleId) {
-          // Update existing rule
           await prisma.rule.update({
             where: { id: existingRuleId },
             data: {
