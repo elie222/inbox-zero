@@ -4,6 +4,7 @@ import { useCallback } from "react";
 import { Toggle } from "@/components/Toggle";
 import { enableMultiRuleSelectionAction } from "@/utils/actions/rule";
 import { toastError } from "@/components/Toast";
+import { getActionErrorMessage } from "@/utils/error";
 import { SettingCard } from "@/components/SettingCard";
 import { useEmailAccountFull } from "@/hooks/useEmailAccountFull";
 import { useAction } from "next-safe-action/hooks";
@@ -22,7 +23,9 @@ export function MultiRuleSetting() {
       onError: (error) => {
         mutate();
         toastError({
-          description: `There was an error: ${error.error.serverError || "Unknown error"}`,
+          description: getActionErrorMessage(error.error, {
+            prefix: "There was an error",
+          }),
         });
       },
     },
