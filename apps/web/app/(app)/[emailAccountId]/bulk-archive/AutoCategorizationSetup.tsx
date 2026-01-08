@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback } from "react";
-import { toast } from "sonner";
+import { toastError, toastSuccess } from "@/components/Toast";
 import { ArchiveIcon, TagsIcon, ZapIcon } from "lucide-react";
 import { SetupCard } from "@/components/SetupCard";
 import { Button } from "@/components/ui/button";
@@ -46,17 +46,17 @@ export function AutoCategorizationSetup() {
       }
 
       if (result?.data?.totalUncategorizedSenders) {
-        toast.success(
-          `Categorizing ${result.data.totalUncategorizedSenders} senders... This may take a few minutes.`,
-        );
+        toastSuccess({
+          description: `Categorizing ${result.data.totalUncategorizedSenders} senders... This may take a few minutes.`,
+        });
       } else {
-        toast.success("No uncategorized senders found.");
+        toastSuccess({ description: "No uncategorized senders found." });
         setIsBulkCategorizing(false);
       }
     } catch (error) {
-      toast.error(
-        `Failed to enable feature: ${error instanceof Error ? error.message : "Unknown error"}`,
-      );
+      toastError({
+        description: `Failed to enable feature: ${error instanceof Error ? error.message : "Unknown error"}`,
+      });
       setIsBulkCategorizing(false);
     } finally {
       setIsEnabling(false);
