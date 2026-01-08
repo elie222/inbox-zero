@@ -27,9 +27,11 @@ export function PageHeader({
   return (
     <div>
       <div className="flex flex-col sm:flex-row items-start sm:items-center mt-1 gap-3">
-        <div className="flex items-center gap-2">
-          <PageHeading>{title}</PageHeading>
-          {rightElement}
+        <div>
+          <div className="flex items-center gap-2">
+            <PageHeading>{title}</PageHeading>
+            {rightElement}
+          </div>
           {description && (
             <PageSubHeading className="mt-1">{description}</PageSubHeading>
           )}
