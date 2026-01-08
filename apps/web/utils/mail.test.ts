@@ -227,7 +227,8 @@ On Jan 1, 2024, someone@example.com wrote:
 
     const result = parseReply(plainText);
     expect(result).toContain("New message here");
-    // The library should strip quoted content
+    expect(result).not.toContain("Old quoted content");
+    expect(result).not.toContain("More quoted stuff");
   });
 
   it("handles plain text without quotes", () => {
