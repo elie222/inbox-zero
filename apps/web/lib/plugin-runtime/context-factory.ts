@@ -411,6 +411,26 @@ export async function createInitContext(
   };
 }
 
+/**
+ * Creates a chat tool context for plugin chat tool execution.
+ * Provides access to email account, storage, and LLM.
+ */
+export async function createChatToolContext(
+  options: Omit<ContextFactoryOptions, "email">,
+): Promise<import("@/packages/plugin-sdk/src/types/chat").ChatToolContext> {
+  const { emailAccount, manifest, userId, pluginId } = options;
+
+  const pluginEmailAccount = createPluginEmailAccount(emailAccount);
+  const llm = createPluginLLM(emailAccount, manifest, pluginId);
+  const storage = createPluginStorage(pluginId, userId, emailAccount.id);
+
+  return {
+    emailAccount: pluginEmailAccount,
+    llm,
+    storage,
+  };
+}
+
 // -----------------------------------------------------------------------------
 // Permission-Gated Email Factory
 // -----------------------------------------------------------------------------
@@ -500,9 +520,10 @@ function createPluginLLM(
 ): PluginLLM {
   const label = `plugin:${pluginId}`;
 
-  const emailAccountForLLM: { email: string; id: string } = {
+  const emailAccountForLLM: { email: string; id: string; userId: string } = {
     email: emailAccount.email,
     id: emailAccount.id,
+    userId: emailAccount.userId,
   };
 
   // user AI configuration from email account

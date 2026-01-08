@@ -116,6 +116,11 @@ export type {
   PluginEmailOperations,
   LabelOperationResult,
   ModifyOperationResult,
+  // Chat types
+  ChatToolContext,
+  PluginChatTool,
+  PluginChatContext,
+  PluginChatTools,
 } from "./types";
 
 // -----------------------------------------------------------------------------

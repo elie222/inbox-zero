@@ -209,12 +209,15 @@ async function loadPlugin(pluginDir: string): Promise<PluginLoadResult> {
 
   const manifest = manifestResult.manifest;
 
-  // check version compatibility
-  if (!isVersionCompatible(manifest.inboxZero.minVersion)) {
+  // check version compatibility (only if inbox_zero.min_version is specified)
+  if (
+    manifest.inbox_zero?.min_version &&
+    !isVersionCompatible(manifest.inbox_zero.min_version)
+  ) {
     return {
       success: false,
       pluginPath: pluginDir,
-      error: `requires Inbox Zero v${manifest.inboxZero.minVersion} or later (current: v${INBOX_ZERO_VERSION})`,
+      error: `requires Inbox Zero v${manifest.inbox_zero.min_version} or later (current: v${INBOX_ZERO_VERSION})`,
     };
   }
 

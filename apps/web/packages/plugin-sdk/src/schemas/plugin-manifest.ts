@@ -24,6 +24,8 @@ export const pluginCapabilitySchema = z.enum([
   "calendar:read",
   "calendar:write",
   "calendar:list",
+  "chat:tool",
+  "chat:context",
 ]);
 
 export type PluginCapability = z.infer<typeof pluginCapabilitySchema>;
@@ -206,8 +208,8 @@ export type PluginSettings = z.infer<typeof pluginSettingsSchema>;
  */
 export const inboxZeroRequirementsSchema = z.object({
   /** Minimum Inbox Zero version required to run this plugin */
-  minVersion: z.string().regex(semverPattern, {
-    message: "minVersion must be a valid semver version",
+  min_version: z.string().regex(semverPattern, {
+    message: "min_version must be a valid semver version",
   }),
 });
 
@@ -220,19 +222,36 @@ export type InboxZeroRequirements = z.infer<typeof inboxZeroRequirementsSchema>;
  * User settings are defined in a separate settings.json file.
  * Library metadata comes from the catalog or GitHub repo.
  *
- * Controls:
- * - Plugin identity and versioning
- * - Which hooks the plugin can use (capabilities)
- * - Data access is automatically derived from capabilities
+ * Required fields: id, name, version, description, author, capabilities
+ * All other fields are optional with sensible defaults.
  *
- * @example
+ * @example Minimal manifest
  * ```json
  * {
  *   "id": "my-plugin",
  *   "name": "My Plugin",
  *   "version": "1.0.0",
- *   "inboxZero": { "minVersion": "0.1.0" },
- *   "capabilities": ["email:classify", "email:draft"]
+ *   "description": "A helpful plugin",
+ *   "author": "Your Name",
+ *   "capabilities": ["email:classify"]
+ * }
+ * ```
+ *
+ * @example Full manifest
+ * ```json
+ * {
+ *   "id": "daily-inspiration",
+ *   "name": "Daily Inspiration",
+ *   "version": "1.0.0",
+ *   "description": "AI-powered motivational quotes",
+ *   "author": "Your Name",
+ *   "homepage": "https://example.com/plugin",
+ *   "repository": "https://github.com/user/plugin",
+ *   "issues": "https://github.com/user/plugin/issues",
+ *   "license": "MIT",
+ *   "license_url": "https://opensource.org/licenses/MIT",
+ *   "inbox_zero": { "min_version": "0.14.0" },
+ *   "capabilities": ["email:send", "email:trigger", "schedule:cron"]
  * }
  * ```
  */
@@ -255,18 +274,30 @@ export const pluginManifestSchema = z.object({
   }),
 
   /** Brief description of what the plugin does */
-  description: z.string().optional(),
+  description: z.string().min(1),
 
   /** Plugin author name or organization */
-  author: z.string().optional(),
+  author: z.string().min(1),
+
+  /** Plugin homepage URL */
+  homepage: z.string().url().optional(),
+
+  /** GitHub/GitLab repository URL */
+  repository: z.string().url().optional(),
+
+  /** Issue tracker URL for bug reports */
+  issues: z.string().url().optional(),
 
   /** SPDX license identifier (e.g., MIT, Apache-2.0) */
   license: z.string().optional(),
 
-  /** Inbox Zero version requirements */
-  inboxZero: inboxZeroRequirementsSchema,
+  /** URL to full license text */
+  license_url: z.string().url().optional(),
 
-  /** Entry point file (relative to plugin directory) */
+  /** Inbox Zero version requirements. If not specified, plugin works with any version. */
+  inbox_zero: inboxZeroRequirementsSchema.optional(),
+
+  /** Entry point file (relative to plugin directory). Defaults to "index.ts" if not specified. */
   entry: z.string().min(1).default("index.ts"),
 
   /**

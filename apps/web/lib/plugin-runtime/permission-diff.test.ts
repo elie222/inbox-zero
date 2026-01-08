@@ -15,7 +15,8 @@ function createManifest(capabilities: string[] = []): PluginManifest {
     id: "test-plugin",
     name: "Test Plugin",
     version: "1.0.0",
-    inboxZero: { minVersion: "0.1.0" },
+    description: "A test plugin",
+    author: "Test Author",
     capabilities: capabilities as any,
     entry: "index.ts",
   };

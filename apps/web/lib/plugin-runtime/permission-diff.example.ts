@@ -15,7 +15,8 @@ const currentVersion: PluginManifest = {
   id: "newsletter-assistant",
   name: "Newsletter Assistant",
   version: "1.0.0",
-  inboxZero: { minVersion: "0.1.0" },
+  description: "Helps manage newsletter subscriptions",
+  author: "Example Author",
   capabilities: ["email:classify", "email:signal"],
   entry: "index.ts",
 };
@@ -24,7 +25,8 @@ const updatedVersion: PluginManifest = {
   id: "newsletter-assistant",
   name: "Newsletter Assistant",
   version: "2.0.0",
-  inboxZero: { minVersion: "0.1.0" },
+  description: "Helps manage newsletter subscriptions",
+  author: "Example Author",
   capabilities: ["email:classify", "email:signal", "email:send", "email:draft"],
   entry: "index.ts",
 };

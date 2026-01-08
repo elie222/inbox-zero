@@ -1,6 +1,5 @@
 /* eslint-disable no-process-env */
 import * as Sentry from "@sentry/nextjs";
-import { pluginRuntime } from "@/lib/plugin-runtime/runtime";
 
 export async function register() {
   if (process.env.NEXT_RUNTIME === "nodejs") {
@@ -15,7 +14,8 @@ export async function register() {
       // spotlight: process.env.NODE_ENV === 'development',
     });
 
-    // initialize plugin runtime for server-side execution
+    // dynamically import plugin runtime to avoid bundling node:crypto for Edge Runtime
+    const { pluginRuntime } = await import("@/lib/plugin-runtime/runtime");
     await pluginRuntime.initialize();
   }
 

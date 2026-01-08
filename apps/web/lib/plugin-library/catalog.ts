@@ -231,7 +231,7 @@ export async function fetchCatalogPlugins(
           category: entry.category ?? "other",
           keywords: entry.keywords ?? [],
           screenshots: entry.screenshots ?? [],
-          minInboxZeroVersion: manifest.inboxZero?.minVersion,
+          minInboxZeroVersion: manifest.inbox_zero?.min_version,
         } satisfies CatalogPlugin;
       } catch {
         // silently skip plugins that fail to load - catalog remains available
@@ -362,7 +362,7 @@ async function fetchGitHubReleases(
           repositoryUrl,
           release.tag_name,
         );
-        minInboxZeroVersion = manifest.inboxZero?.minVersion;
+        minInboxZeroVersion = manifest.inbox_zero?.min_version;
       } catch {
         // ignore - manifest might not exist at this tag
       }

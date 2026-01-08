@@ -27,7 +27,7 @@ async function getCatalog() {
       author: "Inbox Zero Team",
       trustLevel: "verified",
       repositoryUrl: "https://github.com/inbox-zero/plugin-auto-responder",
-      inboxZero: { minVersion: "1.0.0" },
+      inbox_zero: { min_version: "1.0.0" },
       entry: "index.ts",
       capabilities: ["email:trigger", "email:draft"],
       permissions: {
@@ -42,7 +42,7 @@ async function getCatalog() {
       author: "Community",
       trustLevel: "community",
       repositoryUrl: "https://github.com/community/meeting-scheduler",
-      inboxZero: { minVersion: "1.0.0" },
+      inbox_zero: { min_version: "1.0.0" },
       entry: "index.ts",
       capabilities: ["calendar:write", "email:trigger"],
       permissions: {
@@ -58,7 +58,7 @@ async function getCatalog() {
       author: "Inbox Zero Team",
       trustLevel: "verified",
       repositoryUrl: "https://github.com/inbox-zero/email-summarizer",
-      inboxZero: { minVersion: "1.0.0" },
+      inbox_zero: { min_version: "1.0.0" },
       entry: "index.ts",
       capabilities: ["email:trigger"],
       permissions: {

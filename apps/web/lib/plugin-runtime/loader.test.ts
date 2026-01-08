@@ -91,7 +91,9 @@ describe("plugin-runtime/loader", () => {
         id: "test-plugin",
         name: "Test Plugin",
         version: "1.0.0",
-        inboxZero: { minVersion: "0.1.0" },
+        description: "A test plugin",
+        author: "Test Author",
+        inbox_zero: { min_version: "0.1.0" },
         entry: "index.ts",
         capabilities: ["email:classify"],
         permissions: { email: ["subject", "from"] },
@@ -166,7 +168,9 @@ describe("plugin-runtime/loader", () => {
         id: "future-plugin",
         name: "Future Plugin",
         version: "1.0.0",
-        inboxZero: { minVersion: "99.0.0" }, // requires future version
+        description: "A plugin from the future",
+        author: "Future Author",
+        inbox_zero: { min_version: "99.0.0" }, // requires future version
         entry: "index.ts",
         capabilities: ["email:classify"],
       };
@@ -212,7 +216,8 @@ describe("plugin-runtime/loader", () => {
         id: "discovered-plugin",
         name: "Discovered Plugin",
         version: "1.0.0",
-        inboxZero: { minVersion: "0.1.0" },
+        description: "A discovered plugin",
+        author: "Discovered Author",
         entry: "index.ts",
         capabilities: ["email:classify"],
       };

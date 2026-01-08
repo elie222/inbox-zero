@@ -99,6 +99,17 @@ export interface PluginRuntimeOptions {
   hookTimeoutMs?: number;
 }
 
+/**
+ * Collected chat context from a plugin.
+ */
+export interface CollectedChatContext {
+  pluginId: string;
+  pluginName: string;
+  instructions?: string;
+  knowledge?: string[];
+  tone?: string;
+}
+
 // -----------------------------------------------------------------------------
 // Helper Functions
 // -----------------------------------------------------------------------------
@@ -1090,6 +1101,111 @@ export class PluginRuntime {
     this.registerPlugin(loaded.manifest, loaded.module);
     logger.info("Plugin reloaded", { pluginId });
     return true;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Chat Integration
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Get all chat tools from enabled plugins for a user.
+   * Returns a map of tool names to their definitions.
+   */
+  async getChatTools(
+    userId: string,
+    emailAccountId: string,
+  ): Promise<
+    Map<
+      string,
+      {
+        pluginId: string;
+        tool: NonNullable<InboxZeroPlugin["chatTools"]>[string];
+      }
+    >
+  > {
+    const tools = new Map<
+      string,
+      {
+        pluginId: string;
+        tool: NonNullable<InboxZeroPlugin["chatTools"]>[string];
+      }
+    >();
+
+    if (!env.FEATURE_PLUGINS_ENABLED) {
+      return tools;
+    }
+
+    const capability: PluginCapability = "chat:tool";
+    const pluginIds = this.getPluginsWithCapability(capability);
+
+    for (const pluginId of pluginIds) {
+      const loadedPlugin = this.plugins.get(pluginId);
+      if (!loadedPlugin) continue;
+
+      const isEnabled = await this.isPluginEnabledForUser(pluginId, userId);
+      if (!isEnabled) continue;
+
+      const { plugin, manifest } = loadedPlugin;
+
+      if (!plugin.chatTools) continue;
+
+      // prefix tool names with plugin ID to avoid collisions
+      for (const [toolName, toolDef] of Object.entries(plugin.chatTools)) {
+        const prefixedName = `plugin:${manifest.id}:${toolName}`;
+        tools.set(prefixedName, { pluginId, tool: toolDef });
+      }
+    }
+
+    logger.trace("Collected chat tools", {
+      userId,
+      toolCount: tools.size,
+      tools: Array.from(tools.keys()),
+    });
+
+    return tools;
+  }
+
+  /**
+   * Get chat context from all enabled plugins for a user.
+   * Returns array of context objects to be merged into system prompt.
+   */
+  async getChatContexts(userId: string): Promise<CollectedChatContext[]> {
+    const contexts: CollectedChatContext[] = [];
+
+    if (!env.FEATURE_PLUGINS_ENABLED) {
+      return contexts;
+    }
+
+    const capability: PluginCapability = "chat:context";
+    const pluginIds = this.getPluginsWithCapability(capability);
+
+    for (const pluginId of pluginIds) {
+      const loadedPlugin = this.plugins.get(pluginId);
+      if (!loadedPlugin) continue;
+
+      const isEnabled = await this.isPluginEnabledForUser(pluginId, userId);
+      if (!isEnabled) continue;
+
+      const { plugin, manifest } = loadedPlugin;
+
+      if (!plugin.chatContext) continue;
+
+      contexts.push({
+        pluginId,
+        pluginName: manifest.name,
+        instructions: plugin.chatContext.instructions,
+        knowledge: plugin.chatContext.knowledge,
+        tone: plugin.chatContext.tone,
+      });
+    }
+
+    logger.trace("Collected chat contexts", {
+      userId,
+      contextCount: contexts.length,
+      plugins: contexts.map((c) => c.pluginId),
+    });
+
+    return contexts;
   }
 
   /**

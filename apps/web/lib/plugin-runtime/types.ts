@@ -98,6 +98,18 @@ export interface InboxZeroPlugin {
   onCalendarEvent?(
     ctx: import("@/packages/plugin-sdk/src/types/contexts").CalendarContext,
   ): Promise<void>;
+
+  /**
+   * Chat tools that extend the main Inbox Zero assistant.
+   * These tools become available to the AI during chat conversations.
+   */
+  chatTools?: import("@/packages/plugin-sdk/src/types/chat").PluginChatTools;
+
+  /**
+   * Context to inject into the assistant's system prompt.
+   * Use this to customize assistant behavior, add knowledge, or set tone.
+   */
+  chatContext?: import("@/packages/plugin-sdk/src/types/chat").PluginChatContext;
 }
 
 /**

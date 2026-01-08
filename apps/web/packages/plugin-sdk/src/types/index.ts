@@ -88,3 +88,11 @@ export type {
   LabelOperationResult,
   ModifyOperationResult,
 } from "./email-operations";
+
+// Chat types
+export type {
+  ChatToolContext,
+  PluginChatTool,
+  PluginChatContext,
+  PluginChatTools,
+} from "./chat";

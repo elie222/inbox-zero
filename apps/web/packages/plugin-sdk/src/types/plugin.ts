@@ -16,6 +16,8 @@ import type {
   FollowupResult,
 } from "./results";
 
+import type { PluginChatTools, PluginChatContext } from "./chat";
+
 /**
  * Main plugin interface defining all available hooks.
  *
@@ -229,4 +231,42 @@ export interface InboxZeroPlugin {
    * ```
    */
   onCalendarEvent?(ctx: CalendarContext): Promise<void>;
+
+  /**
+   * Chat tools that extend the main Inbox Zero assistant.
+   * These tools become available to the AI during chat conversations.
+   *
+   * Requires capability: chat:tool
+   *
+   * @example
+   * ```typescript
+   * chatTools: {
+   *   "search-contacts": {
+   *     description: "Search CRM for contact information",
+   *     parameters: z.object({ query: z.string() }),
+   *     execute: async (params, ctx) => {
+   *       return await searchCRM(params.query);
+   *     },
+   *   },
+   * }
+   * ```
+   */
+  chatTools?: PluginChatTools;
+
+  /**
+   * Context to inject into the assistant's system prompt.
+   * Use this to customize assistant behavior, add knowledge, or set tone.
+   *
+   * Requires capability: chat:context
+   *
+   * @example
+   * ```typescript
+   * chatContext: {
+   *   instructions: "You are also a wellness coach.",
+   *   knowledge: ["User prefers brief responses"],
+   *   tone: "friendly",
+   * }
+   * ```
+   */
+  chatContext?: PluginChatContext;
 }
