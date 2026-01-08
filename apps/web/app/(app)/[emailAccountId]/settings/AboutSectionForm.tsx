@@ -60,7 +60,7 @@ const AboutSectionForm = ({
     {
       onSuccess: () => {
         toastSuccess({ description: "Your profile has been updated!" });
-        onSuccess?.();
+        onSuccess();
       },
       onError: (error) => {
         toastError({
