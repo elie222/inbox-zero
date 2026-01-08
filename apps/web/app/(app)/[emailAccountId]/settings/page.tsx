@@ -52,23 +52,21 @@ export default function SettingsPage() {
 
         <TabsContent value="email" className="content-container mb-10">
           {emailAccount && (
-            <FormWrapper>
-              <FormSection className="py-4">
-                <SectionDescription>
-                  Settings for {emailAccount?.email}
-                </SectionDescription>
-              </FormSection>
+            <div className="mt-4">
+              <SectionDescription>
+                Manage {emailAccount?.email}
+              </SectionDescription>
 
-              <ResetAnalyticsSection />
-              <RuleImportExportSetting />
+              <div className="space-y-2 mt-4">
+                <RuleImportExportSetting />
+                <ResetAnalyticsSection />
+              </div>
 
-              {/* this is only used in Gmail when sending a new message. disabling for now. */}
-              {/* <SignatureSectionForm signature={user.signature} /> */}
               {/* <EmailUpdatesSection
                 summaryEmailFrequency={data?.summaryEmailFrequency}
                 mutate={mutate}
               /> */}
-            </FormWrapper>
+            </div>
           )}
         </TabsContent>
       </Tabs>
