@@ -17,7 +17,6 @@ import {
   toggleAllRulesBody,
   copyRulesFromAccountBody,
   importRulesBody,
-  type ImportedRule,
 } from "@/utils/actions/rule.validation";
 import prisma from "@/utils/prisma";
 import { isDuplicateError, isNotFoundError } from "@/utils/prisma-helpers";
@@ -584,7 +583,6 @@ export const copyRulesFromAccountAction = actionClientUser
           });
           replacedCount++;
         } else {
-          // Create new rule
           await prisma.rule.create({
             data: {
               emailAccountId: targetEmailAccountId,

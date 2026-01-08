@@ -1,6 +1,7 @@
 import { z } from "zod";
 import {
   ActionType,
+  CategoryFilterType,
   LogicalOperator,
   SystemType,
 } from "@/generated/prisma/enums";
@@ -357,7 +358,9 @@ const importedRule = z
     to: z.string().nullish(),
     subject: z.string().nullish(),
     body: z.string().nullish(),
-    categoryFilterType: z.string().nullish(),
+    categoryFilterType: z
+      .enum([CategoryFilterType.INCLUDE, CategoryFilterType.EXCLUDE])
+      .nullish(),
     actions: z.array(importedAction).min(1),
     group: z.string().nullish(),
   })
