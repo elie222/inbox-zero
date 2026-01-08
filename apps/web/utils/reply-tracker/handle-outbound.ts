@@ -5,7 +5,7 @@ import type { Logger } from "@/utils/logger";
 import { captureException } from "@/utils/error";
 import { handleOutboundReply } from "./outbound";
 import { trackSentDraftStatus, cleanupThreadAIDrafts } from "./draft-tracking";
-import { removeFollowUpLabelIfPresent } from "@/utils/follow-up/cleanup";
+import { clearFollowUpLabel } from "@/utils/follow-up/cleanup";
 
 export async function handleOutboundMessage({
   emailAccount,
@@ -61,7 +61,7 @@ export async function handleOutboundMessage({
 
   // Remove follow-up label if present (user replied, so follow-up no longer needed)
   try {
-    await removeFollowUpLabelIfPresent({
+    await clearFollowUpLabel({
       emailAccountId: emailAccount.id,
       threadId: message.threadId,
       provider,

@@ -100,7 +100,7 @@ export async function cleanupStaleDrafts({
  * Removes follow-up label from a thread if present.
  * Called when a reply is detected (inbound or outbound).
  */
-export async function removeFollowUpLabelIfPresent({
+export async function clearFollowUpLabel({
   emailAccountId,
   threadId,
   provider,

@@ -4,7 +4,7 @@ import { categorizeSender } from "@/utils/categorize/senders/categorize";
 import { isAssistantEmail } from "@/utils/assistant/is-assistant-email";
 import { processAssistantEmail } from "@/utils/assistant/process-assistant-email";
 import { handleOutboundMessage } from "@/utils/reply-tracker/handle-outbound";
-import { removeFollowUpLabelIfPresent } from "@/utils/follow-up/cleanup";
+import { clearFollowUpLabel } from "@/utils/follow-up/cleanup";
 import { NewsletterStatus } from "@/generated/prisma/enums";
 import type { EmailAccount } from "@/generated/prisma/client";
 import { extractEmailAddress } from "@/utils/email";
@@ -168,7 +168,7 @@ export async function processHistoryItem(
     // Remove follow-up label if present (they replied, so follow-up no longer needed)
     // This handles the case where we were awaiting a reply from them
     try {
-      await removeFollowUpLabelIfPresent({
+      await clearFollowUpLabel({
         emailAccountId,
         threadId: actualThreadId,
         provider,
