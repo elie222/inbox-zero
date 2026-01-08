@@ -86,6 +86,7 @@ export const metadata: Metadata = {
     description,
     siteName: "Inbox Zero",
     type: "website",
+    url: env.NEXT_PUBLIC_BASE_URL,
   },
   twitter: {
     card: "summary_large_image",

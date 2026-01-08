@@ -1,5 +1,4 @@
 import { render } from "@react-email/render";
-import { format } from "date-fns";
 import { env } from "@/env";
 import { createEmailProvider } from "@/utils/email/provider";
 import { sendMeetingBriefingEmail } from "@inboxzero/resend";
@@ -7,31 +6,45 @@ import MeetingBriefingEmail, {
   generateMeetingBriefingSubject,
   type MeetingBriefingEmailProps,
   type BriefingContent,
+  type InternalTeamMember,
 } from "@inboxzero/resend/emails/meeting-briefing";
 import type { CalendarEvent } from "@/utils/calendar/event-types";
 import type { Logger } from "@/utils/logger";
 import { createUnsubscribeToken } from "@/utils/unsubscribe";
+import { formatTimeInUserTimezone } from "@/utils/date";
 
 export async function sendBriefingEmail({
   event,
   briefingContent,
+  internalTeamMembers,
   emailAccountId,
   userEmail,
   provider,
+  userTimezone,
   logger,
 }: {
   event: CalendarEvent;
   briefingContent: BriefingContent;
+  internalTeamMembers: InternalTeamMember[];
   emailAccountId: string;
   userEmail: string;
   provider: string;
+  userTimezone: string | null;
   logger: Logger;
 }): Promise<void> {
   logger = logger.with({ emailAccountId, eventId: event.id, userEmail });
 
-  const formattedTime = format(event.startTime, "h:mm a");
+  const formattedTime = formatTimeInUserTimezone(event.startTime, userTimezone);
 
   const unsubscribeToken = await createUnsubscribeToken({ emailAccountId });
+
+  // Merge internal team members into briefing content for the email.
+  // The AI generates only {guests}, while internalTeamMembers comes from
+  // gather-context.ts (domain-based filtering, not AI-researched).
+  const briefingContentWithTeam: BriefingContent = {
+    ...briefingContent,
+    internalTeamMembers,
+  };
 
   const emailProps: MeetingBriefingEmailProps = {
     baseUrl: env.NEXT_PUBLIC_BASE_URL,
@@ -40,7 +53,7 @@ export async function sendBriefingEmail({
     formattedTime,
     videoConferenceLink: event.videoConferenceLink ?? "",
     eventUrl: event.eventUrl ?? "",
-    briefingContent,
+    briefingContent: briefingContentWithTeam,
     unsubscribeToken,
   };
 

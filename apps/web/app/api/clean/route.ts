@@ -45,7 +45,7 @@ const cleanThreadBody = z.object({
 });
 export type CleanThreadBody = z.infer<typeof cleanThreadBody>;
 
-async function cleanThread({
+export async function cleanThread({
   emailAccountId,
   threadId,
   markedDoneLabelId,
@@ -170,7 +170,6 @@ async function cleanThread({
       if (isMaybeReceipt(message)) {
         // check with llm
         needsLLMCheck = true;
-        break;
       }
     }
 

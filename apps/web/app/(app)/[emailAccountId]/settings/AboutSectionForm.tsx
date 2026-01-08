@@ -21,25 +21,7 @@ import {
   saveAboutBody,
 } from "@/utils/actions/user.validation";
 
-export function AboutSectionFull() {
-  return (
-    <FormSection>
-      <FormSectionLeft
-        title="About you"
-        description="Provide extra information that will help our AI better understand how to process your emails."
-      />
-      <div className="md:col-span-2">
-        <FormSectionRight>
-          <div className="sm:col-span-full">
-            <AboutSection />
-          </div>
-        </FormSectionRight>
-      </div>
-    </FormSection>
-  );
-}
-
-export function AboutSection() {
+export function AboutSection({ onSuccess }: { onSuccess?: () => void }) {
   const { data, isLoading, error, mutate } = useEmailAccountFull();
 
   return (
@@ -48,7 +30,11 @@ export function AboutSection() {
       error={error}
       loadingComponent={<Skeleton className="h-32 w-full" />}
     >
-      <AboutSectionForm about={data?.about ?? null} mutate={mutate} />
+      <AboutSectionForm
+        about={data?.about ?? null}
+        mutate={mutate}
+        onSuccess={onSuccess}
+      />
     </LoadingContent>
   );
 }
@@ -56,9 +42,11 @@ export function AboutSection() {
 const AboutSectionForm = ({
   about,
   mutate,
+  onSuccess,
 }: {
   about: string | null;
   mutate: () => void;
+  onSuccess?: () => void;
 }) => {
   const {
     register,
@@ -78,6 +66,7 @@ const AboutSectionForm = ({
         toastSuccess({
           description: "Your profile has been updated!",
         });
+        onSuccess?.();
       },
       onError: (error) => {
         toastError({
@@ -102,10 +91,10 @@ const AboutSectionForm = ({
         label=""
         registerProps={register("about")}
         error={errors.about}
-        placeholder={`My name is John Doe. I'm the founder of a startup called Doe.
-Some rules to follow:
-* Be friendly, concise, and professional, but not overly formal.
-* Keep responses short and to the point.`}
+        placeholder={`My name is Alex Smith. I'm the founder of Acme.
+
+- If I'm CC'd, it's not To Reply
+- Emails from jane@accounting.com aren't Notifications`}
       />
       <Button type="submit" className="mt-8" loading={isExecuting}>
         Save

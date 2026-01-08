@@ -162,6 +162,11 @@ const businessTier: Tier = {
     {
       text: "Email analytics",
     },
+    {
+      text: "Pre-meeting briefings",
+      tooltip:
+        "Get AI briefings before every meeting with research on attendees and context from your inbox.",
+    },
   ],
   cta: "Try free for 7 days",
   mostPopular: true,

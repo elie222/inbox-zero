@@ -12,15 +12,24 @@ async function getMultiAccountEmails({ userId }: { userId: string }) {
     select: {
       premium: {
         select: {
-          users: { select: { email: true } },
+          users: {
+            select: {
+              emailAccounts: {
+                select: { email: true },
+              },
+            },
+          },
           admins: { select: { id: true } },
         },
       },
     },
   });
 
+  const emailAccounts =
+    user?.premium?.users?.flatMap((u) => u.emailAccounts) || [];
+
   return {
-    users: user?.premium?.users || [],
+    emailAccounts,
     admins: user?.premium?.admins || [],
   };
 }

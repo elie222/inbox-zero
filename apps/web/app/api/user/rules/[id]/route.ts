@@ -15,7 +15,7 @@ async function getRule({
   emailAccountId: string;
 }) {
   const rule = await prisma.rule.findUnique({
-    where: { id: ruleId, emailAccount: { id: emailAccountId } },
+    where: { id: ruleId, emailAccountId },
     include: {
       actions: true,
     },

@@ -3,6 +3,7 @@ import {
   ensureConversationRuleContinuity,
   CONVERSATION_TRACKING_META_RULE_ID,
   limitDraftEmailActions,
+  runRules,
 } from "./run-rules";
 import {
   ActionType,
@@ -13,13 +14,38 @@ import type { Action } from "@/generated/prisma/client";
 import { ConditionType } from "@/utils/config";
 import prisma from "@/utils/__mocks__/prisma";
 import type { RuleWithActions } from "@/utils/types";
-import { getAction } from "@/__tests__/helpers";
+import { getAction, getEmailAccount, getEmail } from "@/__tests__/helpers";
 import { createScopedLogger } from "@/utils/logger";
 
 const logger = createScopedLogger("test");
 
 vi.mock("@/utils/prisma");
 vi.mock("server-only", () => ({}));
+vi.mock("next/server", () => ({ after: vi.fn((fn) => fn()) }));
+vi.mock("@/utils/ai/choose-rule/match-rules", () => ({
+  findMatchingRules: vi.fn(),
+}));
+vi.mock("@/utils/reply-tracker/handle-conversation-status", () => ({
+  determineConversationStatus: vi.fn(),
+  updateThreadTrackers: vi.fn(),
+}));
+vi.mock("@/utils/ai/choose-rule/choose-args", () => ({
+  getActionItemsWithAiArgs: vi.fn(),
+}));
+vi.mock("@/utils/ai/choose-rule/execute", () => ({
+  executeAct: vi.fn(),
+}));
+vi.mock("@/utils/reply-tracker/label-helpers", () => ({
+  removeConflictingThreadStatusLabels: vi.fn(),
+}));
+vi.mock("@/utils/rule/learned-patterns", () => ({
+  saveLearnedPattern: vi.fn(),
+  saveLearnedPatterns: vi.fn(),
+}));
+vi.mock("@/utils/scheduled-actions/scheduler", () => ({
+  scheduleDelayedActions: vi.fn(),
+  cancelScheduledActions: vi.fn(),
+}));
 
 const emailAccountId = "account-1";
 const threadId = "thread-1";
@@ -424,9 +450,228 @@ describe("limitDraftEmailActions", () => {
 
     const result = limitDraftEmailActions(matches, logger);
 
-    // Should select draft-2 because it has fixed content (static), even though draft-1 came first
     expect(result[0].rule.actions).toEqual([]);
     expect(result[1].rule.actions).toHaveLength(1);
     expect(result[1].rule.actions[0].id).toBe("draft-2");
+  });
+
+  it("limits drafts when custom rule and resolved TO_REPLY both have DRAFT_EMAIL", () => {
+    const guestsRule = createRule("guests-rule", null, [
+      getAction({
+        id: "label-guest",
+        type: ActionType.LABEL,
+        label: "Guest Suggestion",
+        ruleId: "guests-rule",
+      }),
+      getAction({
+        id: "draft-guest",
+        type: ActionType.DRAFT_EMAIL,
+        content: "Hi {{name}}, Thank you for reaching out.",
+        ruleId: "guests-rule",
+      }),
+    ]);
+
+    const toReplyRuleResolved = createRule(
+      "to-reply-resolved",
+      SystemType.TO_REPLY,
+      [
+        getAction({
+          id: "label-to-reply",
+          type: ActionType.LABEL,
+          label: "To Reply",
+          ruleId: "to-reply-resolved",
+        }),
+        getAction({
+          id: "draft-to-reply",
+          type: ActionType.DRAFT_EMAIL,
+          content: null,
+          ruleId: "to-reply-resolved",
+        }),
+      ],
+    );
+
+    const resolvedMatches = [
+      {
+        rule: guestsRule,
+        matchReasons: undefined,
+        resolvedReason: undefined,
+        isConversationRule: false,
+      },
+      {
+        rule: toReplyRuleResolved,
+        matchReasons: undefined,
+        resolvedReason: "Needs reply",
+        isConversationRule: true,
+      },
+    ];
+
+    const result = limitDraftEmailActions(resolvedMatches, logger);
+
+    expect(result[0].rule.actions).toHaveLength(2);
+    expect(
+      result[0].rule.actions.find((a) => a.type === ActionType.DRAFT_EMAIL)?.id,
+    ).toBe("draft-guest");
+    expect(result[1].rule.actions).toHaveLength(1);
+    expect(result[1].rule.actions[0].type).toBe(ActionType.LABEL);
+
+    const typedResult = result as typeof resolvedMatches;
+    expect(typedResult[0].isConversationRule).toBe(false);
+    expect(typedResult[1].isConversationRule).toBe(true);
+    expect(typedResult[1].resolvedReason).toBe("Needs reply");
+  });
+
+  it("keeps first draft when both rules have AI-generated DRAFT_EMAIL", () => {
+    const guestsRule = createRule("guests-rule", null, [
+      getAction({
+        id: "draft-guest",
+        type: ActionType.DRAFT_EMAIL,
+        content: null,
+        ruleId: "guests-rule",
+      }),
+    ]);
+
+    const toReplyRuleResolved = createRule(
+      "to-reply-resolved",
+      SystemType.TO_REPLY,
+      [
+        getAction({
+          id: "draft-to-reply",
+          type: ActionType.DRAFT_EMAIL,
+          content: null,
+          ruleId: "to-reply-resolved",
+        }),
+      ],
+    );
+
+    const result = limitDraftEmailActions(
+      [{ rule: guestsRule }, { rule: toReplyRuleResolved }],
+      logger,
+    );
+
+    expect(result[0].rule.actions).toHaveLength(1);
+    expect(result[0].rule.actions[0].id).toBe("draft-guest");
+    expect(result[1].rule.actions).toEqual([]);
+  });
+});
+
+describe("runRules - double draft prevention", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("executes only one DRAFT_EMAIL when custom rule and TO_REPLY both have drafts", async () => {
+    const { findMatchingRules } = await import(
+      "@/utils/ai/choose-rule/match-rules"
+    );
+    const { determineConversationStatus } = await import(
+      "@/utils/reply-tracker/handle-conversation-status"
+    );
+    const { getActionItemsWithAiArgs } = await import(
+      "@/utils/ai/choose-rule/choose-args"
+    );
+    const { executeAct } = await import("@/utils/ai/choose-rule/execute");
+
+    const guestsRule = createRule("guests-rule", null, [
+      getAction({
+        id: "label-guest",
+        type: ActionType.LABEL,
+        label: "Guest Suggestion",
+        ruleId: "guests-rule",
+      }),
+      getAction({
+        id: "draft-guest",
+        type: ActionType.DRAFT_EMAIL,
+        content: "Hi {{name}}, Please submit via our form.",
+        ruleId: "guests-rule",
+      }),
+    ]);
+
+    const metaRule = createRule(CONVERSATION_TRACKING_META_RULE_ID, null, []);
+
+    const toReplyWithDraft = createRule("to-reply-rule", SystemType.TO_REPLY, [
+      getAction({
+        id: "label-to-reply",
+        type: ActionType.LABEL,
+        label: "To Reply",
+        ruleId: "to-reply-rule",
+      }),
+      getAction({
+        id: "draft-to-reply",
+        type: ActionType.DRAFT_EMAIL,
+        content: null,
+        ruleId: "to-reply-rule",
+      }),
+    ]);
+
+    vi.mocked(findMatchingRules).mockResolvedValue({
+      matches: [{ rule: guestsRule }, { rule: metaRule }],
+      reasoning: "Both rules matched",
+    });
+
+    vi.mocked(determineConversationStatus).mockResolvedValue({
+      rule: toReplyWithDraft,
+      reason: "Email needs a reply",
+    });
+
+    vi.mocked(getActionItemsWithAiArgs).mockImplementation(
+      async ({ selectedRule }) =>
+        selectedRule.actions.map((a) => ({ ...a, type: a.type as ActionType })),
+    );
+
+    const executedDraftContents: (string | null)[] = [];
+    vi.mocked(executeAct).mockImplementation(async ({ executedRule }) => {
+      for (const action of executedRule.actionItems) {
+        if (action.type === ActionType.DRAFT_EMAIL) {
+          executedDraftContents.push(action.content);
+        }
+      }
+    });
+
+    prisma.executedRule.findFirst.mockResolvedValue(null);
+
+    let createCallCount = 0;
+    (prisma.executedRule.create as any).mockImplementation(
+      async (args: any) => {
+        const actionItems = args.data.actionItems?.createMany?.data || [];
+        createCallCount++;
+        return {
+          id: `exec-${createCallCount}`,
+          status: ExecutedRuleStatus.APPLYING,
+          ruleId: args.data.rule?.connect?.id ?? null,
+          threadId: args.data.threadId,
+          messageId: args.data.messageId,
+          actionItems: actionItems.map((a: any, idx: number) => ({
+            ...a,
+            id: a.id || `action-${createCallCount}-${idx}`,
+            executedRuleId: `exec-${createCallCount}`,
+          })),
+        };
+      },
+    );
+
+    const message = {
+      ...getEmail(),
+      threadId,
+      snippet: "Test snippet",
+      historyId: "12345",
+      inline: [],
+      headers: { "message-id": "msg-1" },
+      attachments: [],
+    } as any;
+
+    await runRules({
+      provider: {} as any,
+      message,
+      rules: [guestsRule, toReplyWithDraft],
+      emailAccount: getEmailAccount(),
+      isTest: false,
+      modelType: "actionable" as any,
+      logger,
+    });
+
+    expect(executedDraftContents).toHaveLength(1);
+    expect(executedDraftContents[0]).toBe(
+      "Hi {{name}}, Please submit via our form.",
+    );
   });
 });

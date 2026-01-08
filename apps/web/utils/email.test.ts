@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   extractNameFromEmail,
   extractEmailAddress,
+  extractEmailAddresses,
   extractDomainFromEmail,
   participant,
   normalizeEmailAddress,
@@ -30,6 +31,124 @@ describe("email utils", () => {
 
     it("handles empty input", () => {
       expect(extractNameFromEmail("")).toBe("");
+    });
+  });
+
+  describe("extractEmailAddresses", () => {
+    it("returns empty array for empty string", () => {
+      expect(extractEmailAddresses("")).toEqual([]);
+    });
+
+    it("extracts single email address", () => {
+      expect(extractEmailAddresses("john@example.com")).toEqual([
+        "john@example.com",
+      ]);
+    });
+
+    it("extracts multiple email addresses separated by commas", () => {
+      expect(
+        extractEmailAddresses("john@example.com, jane@example.com"),
+      ).toEqual(["john@example.com", "jane@example.com"]);
+    });
+
+    it("extracts emails from format 'Name <email>'", () => {
+      expect(extractEmailAddresses("John Doe <john@example.com>")).toEqual([
+        "john@example.com",
+      ]);
+    });
+
+    it("extracts multiple emails with names", () => {
+      expect(
+        extractEmailAddresses(
+          "John Doe <john@example.com>, Jane Smith <jane@example.com>",
+        ),
+      ).toEqual(["john@example.com", "jane@example.com"]);
+    });
+
+    it("handles mixed formats (with and without names)", () => {
+      expect(
+        extractEmailAddresses("John Doe <john@example.com>, jane@example.com"),
+      ).toEqual(["john@example.com", "jane@example.com"]);
+    });
+
+    it("handles commas inside quoted names", () => {
+      expect(
+        extractEmailAddresses(
+          '"Doe, John" <john@example.com>, jane@example.com',
+        ),
+      ).toEqual(["john@example.com", "jane@example.com"]);
+    });
+
+    it("trims whitespace around email addresses", () => {
+      expect(
+        extractEmailAddresses("  john@example.com  ,  jane@example.com  "),
+      ).toEqual(["john@example.com", "jane@example.com"]);
+    });
+
+    it("filters out invalid email addresses", () => {
+      expect(extractEmailAddresses("invalid-email, valid@example.com")).toEqual(
+        ["valid@example.com"],
+      );
+    });
+
+    it("handles multiple commas and extra spaces", () => {
+      expect(
+        extractEmailAddresses(
+          "john@example.com , jane@example.com , bob@example.com",
+        ),
+      ).toEqual(["john@example.com", "jane@example.com", "bob@example.com"]);
+    });
+
+    it("handles empty parts between commas", () => {
+      expect(
+        extractEmailAddresses("john@example.com,,jane@example.com"),
+      ).toEqual(["john@example.com", "jane@example.com"]);
+    });
+
+    it("handles trailing comma", () => {
+      expect(extractEmailAddresses("john@example.com,")).toEqual([
+        "john@example.com",
+      ]);
+    });
+
+    it("handles leading comma", () => {
+      expect(extractEmailAddresses(",john@example.com")).toEqual([
+        "john@example.com",
+      ]);
+    });
+
+    it("handles complex real-world header format", () => {
+      expect(
+        extractEmailAddresses(
+          '"Smith, John" <john.smith@example.com>, "Doe, Jane" <jane.doe@example.com>, admin@example.com',
+        ),
+      ).toEqual([
+        "john.smith@example.com",
+        "jane.doe@example.com",
+        "admin@example.com",
+      ]);
+    });
+
+    it("handles emails with plus addressing", () => {
+      expect(
+        extractEmailAddresses("user+tag@example.com, user+other@example.com"),
+      ).toEqual(["user+tag@example.com", "user+other@example.com"]);
+    });
+
+    it("handles emails with hyphens", () => {
+      expect(
+        extractEmailAddresses("no-reply@example.com, support-team@example.com"),
+      ).toEqual(["no-reply@example.com", "support-team@example.com"]);
+    });
+
+    it("handles single email with angle brackets", () => {
+      expect(extractEmailAddresses("<john@example.com>")).toEqual([
+        "john@example.com",
+      ]);
+    });
+
+    it("handles all invalid emails", () => {
+      expect(extractEmailAddresses("invalid, also-invalid")).toEqual([]);
     });
   });
 

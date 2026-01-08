@@ -1,0 +1,45 @@
+{
+  "name": "Inbox Zero Dev",
+  "dockerComposeFile": "docker-compose.yml",
+  "service": "app",
+  "workspaceFolder": "/workspaces/inbox-zero",
+  "remoteUser": "node",
+  "shutdownAction": "stopCompose",
+
+  "build": {
+    "options": ["--progress=plain"]
+  },
+
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "dbaeumer.vscode-eslint",
+        "esbenp.prettier-vscode",
+        "bradlc.vscode-tailwindcss",
+        "prisma.prisma"
+      ],
+      "settings": {
+        "editor.formatOnSave": true,
+        "editor.defaultFormatter": "esbenp.prettier-vscode"
+      }
+    }
+  },
+
+  "forwardPorts": [3000, 5432, 6379, 8079],
+  "portsAttributes": {
+    "3000": { "label": "Web App" },
+    "5432": { "label": "PostgreSQL" },
+    "6379": { "label": "Redis" },
+    "8079": { "label": "Redis HTTP (Upstash)" }
+  },
+
+  "postCreateCommand": "bash .devcontainer/setup.sh",
+
+  "remoteEnv": {
+    "DATABASE_URL": "postgresql://postgres:password@db:5432/inboxzero?schema=public",
+    "DIRECT_URL": "postgresql://postgres:password@db:5432/inboxzero?schema=public",
+    "UPSTASH_REDIS_URL": "http://redis-http:80",
+    "UPSTASH_REDIS_TOKEN": "dev_token",
+    "REDIS_URL": "redis://redis:6379"
+  }
+}

@@ -9,9 +9,6 @@ import type {
   CalendarEventProvider,
 } from "@/utils/calendar/event-types";
 import { extractDomainFromEmail } from "@/utils/email";
-import { researchGuestWithPerplexity } from "@/utils/ai/meeting-briefs/research-guest";
-import { getEmailAccountWithAi } from "@/utils/user/get";
-import { SafeError } from "@/utils/error";
 
 const MAX_THREADS = 10;
 const MAX_MESSAGES_PER_THREAD = 10;
@@ -24,12 +21,17 @@ export type { CalendarEvent, CalendarEventAttendee };
 export interface ExternalGuest {
   email: string;
   name?: string;
-  aiResearch?: string | null;
+}
+
+export interface InternalTeamMember {
+  email: string;
+  name?: string;
 }
 
 export interface MeetingBriefingData {
   event: CalendarEvent;
   externalGuests: ExternalGuest[];
+  internalTeamMembers: InternalTeamMember[];
   emailThreads: EmailThread[];
   pastMeetings: CalendarEvent[];
 }
@@ -50,10 +52,16 @@ export async function gatherContextForEvent({
   logger: Logger;
 }): Promise<MeetingBriefingData> {
   const externalAttendees = getExternalAttendees(event, userEmail, userDomain);
+  const internalAttendees = getInternalTeamMembers(
+    event,
+    userEmail,
+    userDomain,
+  );
   const participantEmails = externalAttendees.map((a) => a.email);
 
   logger.info("Gathering context for external guests", {
     guestCount: externalAttendees.length,
+    internalTeamCount: internalAttendees.length,
   });
 
   const [emailProvider, calendarProviders] = await Promise.all([
@@ -84,45 +92,20 @@ export async function gatherContextForEvent({
     messages: thread.messages.slice(-MAX_MESSAGES_PER_THREAD),
   }));
 
-  const emailAccount = await getEmailAccountWithAi({
-    emailAccountId,
-  });
-
-  if (!emailAccount) {
-    logger.error("Email account not found");
-    throw new SafeError("Email account not found");
-  }
-
-  const guestResearchPromises = externalAttendees.map((attendee) =>
-    researchGuestWithPerplexity({
-      event,
-      name: attendee.name,
-      email: attendee.email,
-      emailAccount,
-      logger,
-    }).catch((error) => {
-      logger.warn("Failed to research guest", {
-        email: attendee.email,
-        error,
-      });
-      return null;
-    }),
-  );
-
-  const aiResearchResults = await Promise.all(guestResearchPromises);
-
   logger.info("Gathered context for meeting", {
     threadCount: cappedThreads.length,
     meetingCount: pastMeetings.length,
-    researchedGuests: aiResearchResults.filter((c) => c !== null).length,
   });
 
   return {
     event,
-    externalGuests: externalAttendees.map((a, index) => ({
+    externalGuests: externalAttendees.map((a) => ({
       email: a.email,
       name: a.name,
-      aiResearch: aiResearchResults[index] ?? null,
+    })),
+    internalTeamMembers: internalAttendees.map((a) => ({
+      email: a.email,
+      name: a.name,
     })),
     emailThreads: cappedThreads,
     pastMeetings,
@@ -193,6 +176,27 @@ function getExternalAttendees(
 
     return (
       attendeeDomain !== normalizedUserDomain &&
+      normalizedAttendeeEmail !== normalizedUserEmail
+    );
+  });
+}
+
+function getInternalTeamMembers(
+  event: CalendarEvent,
+  userEmail: string,
+  userDomain: string,
+): CalendarEventAttendee[] {
+  const normalizedUserEmail = userEmail.trim().toLowerCase();
+  const normalizedUserDomain = userDomain.trim().toLowerCase();
+
+  return event.attendees.filter((attendee) => {
+    const normalizedAttendeeEmail = attendee.email.trim().toLowerCase();
+    const attendeeDomain = extractDomainFromEmail(normalizedAttendeeEmail);
+
+    // Internal team members share the same domain but are not the user themselves
+    return (
+      attendeeDomain &&
+      attendeeDomain === normalizedUserDomain &&
       normalizedAttendeeEmail !== normalizedUserEmail
     );
   });
