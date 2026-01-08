@@ -1,6 +1,7 @@
 import { z } from "zod";
 import {
   ActionType,
+  CategoryFilterType,
   LogicalOperator,
   SystemType,
 } from "@/generated/prisma/enums";
@@ -278,3 +279,107 @@ export const copyRulesFromAccountBody = z.object({
   ruleIds: z.array(z.string()).min(1, "Select at least one rule to copy"),
 });
 export type CopyRulesFromAccountBody = z.infer<typeof copyRulesFromAccountBody>;
+
+// Schema for importing rules from JSON export
+const importedAction = z
+  .object({
+    type: zodActionType,
+    label: z.string().nullish(),
+    to: z.string().nullish(),
+    cc: z.string().nullish(),
+    bcc: z.string().nullish(),
+    subject: z.string().nullish(),
+    content: z.string().nullish(),
+    folderName: z.string().nullish(),
+    url: z.string().nullish(),
+    delayInMinutes: delayInMinutesSchema,
+  })
+  .superRefine((data, ctx) => {
+    if (data.type === ActionType.LABEL) {
+      const labelValue = data.label?.trim();
+
+      if (!labelValue) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "Label action requires a label name",
+          path: ["label"],
+        });
+        return;
+      }
+
+      const validation = validateLabelNameBasic(labelValue);
+      if (!validation.valid) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: validation.error!,
+          path: ["label"],
+        });
+      }
+    }
+
+    if (data.type === ActionType.FORWARD && !data.to?.trim()) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Forward action requires a recipient email address",
+        path: ["to"],
+      });
+    }
+
+    if (data.type === ActionType.CALL_WEBHOOK && !data.url?.trim()) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Webhook action requires a URL",
+        path: ["url"],
+      });
+    }
+
+    if (data.type === ActionType.MOVE_FOLDER && !data.folderName?.trim()) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Move folder action requires a folder name",
+        path: ["folderName"],
+      });
+    }
+  });
+
+const importedRule = z
+  .object({
+    name: z.string().min(1),
+    instructions: z.string().nullish(),
+    enabled: z.boolean().optional().default(true),
+    automate: z.boolean().optional().default(true),
+    runOnThreads: z.boolean().optional().default(false),
+    systemType: zodSystemRule.nullish(),
+    conditionalOperator: z
+      .enum([LogicalOperator.AND, LogicalOperator.OR])
+      .optional()
+      .default(LogicalOperator.AND),
+    from: z.string().nullish(),
+    to: z.string().nullish(),
+    subject: z.string().nullish(),
+    body: z.string().nullish(),
+    categoryFilterType: z
+      .enum([CategoryFilterType.INCLUDE, CategoryFilterType.EXCLUDE])
+      .nullish(),
+    actions: z.array(importedAction).min(1),
+    group: z.string().nullish(),
+  })
+  .refine(
+    (data) =>
+      data.systemType ||
+      data.from?.trim() ||
+      data.to?.trim() ||
+      data.subject?.trim() ||
+      data.body?.trim() ||
+      data.instructions?.trim(),
+    {
+      message:
+        "At least one condition (from, to, subject, body, or instructions) must be provided",
+    },
+  );
+
+export const importRulesBody = z.object({
+  rules: z.array(importedRule).min(1, "No rules to import"),
+});
+export type ImportRulesBody = z.infer<typeof importRulesBody>;
+export type ImportedRule = z.infer<typeof importedRule>;
