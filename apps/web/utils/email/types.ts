@@ -139,6 +139,8 @@ export interface EmailProvider {
       content: string;
       contentType: string;
     }>;
+    /** Optional sender address override (e.g., for plus-tag addresses like user+tag@domain.com) */
+    from?: string;
   }): Promise<{
     messageId: string;
     threadId: string;

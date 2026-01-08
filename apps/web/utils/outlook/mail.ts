@@ -26,6 +26,7 @@ interface OutlookMessageRequest {
   ccRecipients?: { emailAddress: { address: string } }[];
   bccRecipients?: { emailAddress: { address: string } }[];
   replyTo?: { emailAddress: { address: string } }[];
+  from?: { emailAddress: { address: string } };
   conversationId?: string;
   isDraft?: boolean;
 }
@@ -53,6 +54,8 @@ export async function sendEmailWithHtml(
     ...(body.replyTo
       ? { replyTo: [{ emailAddress: { address: body.replyTo } }] }
       : {}),
+    // send-as support: use custom from address if provided (e.g., plus-tag addresses)
+    ...(body.from ? { from: { emailAddress: { address: body.from } } } : {}),
   };
 
   if (body.replyToEmail?.threadId) {
