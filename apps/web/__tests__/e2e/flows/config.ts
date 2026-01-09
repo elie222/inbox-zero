@@ -27,7 +27,7 @@ export const E2E_AI_MODEL = process.env.E2E_AI_MODEL || "gpt-4o-mini";
 // Timeouts
 export const TIMEOUTS = {
   /** How long to wait for webhook processing to complete */
-  WEBHOOK_PROCESSING: 120_000,
+  WEBHOOK_PROCESSING: 60_000,
   /** How long to wait for email delivery between accounts */
   EMAIL_DELIVERY: 90_000,
   /** Polling interval when waiting for state changes */
