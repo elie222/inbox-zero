@@ -3,21 +3,26 @@
  *
  * Handles setting up and tearing down webhook subscriptions
  * for test accounts to receive real webhook notifications.
+ *
+ * IMPORTANT: Uses the app's existing watch-manager to ensure
+ * proper subscription history tracking for webhook lookups.
  */
 
 import prisma from "@/utils/prisma";
 import type { TestAccount } from "./accounts";
 import { logStep } from "./logging";
 import { createScopedLogger } from "@/utils/logger";
+import { createManagedOutlookSubscription } from "@/utils/outlook/subscription-manager";
 
 const logger = createScopedLogger("e2e-webhook");
 
 /**
  * Set up webhook subscription for a test account
  *
- * Note: This uses the existing watchEmails functionality which will:
+ * Note: This uses the app's existing subscription management which will:
  * - For Gmail: Register with Google Pub/Sub
- * - For Outlook: Create Microsoft Graph subscription
+ * - For Outlook: Create Microsoft Graph subscription via subscription-manager
+ *   (which properly tracks subscription history for webhook lookups)
  *
  * The webhook URL is determined by environment configuration
  * (NEXT_PUBLIC_BASE_URL or specific webhook URLs).
@@ -34,26 +39,53 @@ export async function setupTestWebhookSubscription(
   });
 
   try {
-    const result = await account.emailProvider.watchEmails();
+    let expirationDate: Date | undefined;
+    let subscriptionId: string | undefined;
 
-    if (result) {
-      logStep("Webhook subscription created", {
-        subscriptionId: result.subscriptionId,
-        expirationDate: result.expirationDate,
+    if (account.provider === "microsoft") {
+      // Use the managed subscription creator which handles history tracking
+      const result = await createManagedOutlookSubscription({
+        emailAccountId: account.id,
+        logger,
       });
 
-      // Update database with subscription info
-      await prisma.emailAccount.update({
-        where: { id: account.id },
-        data: {
-          watchEmailsExpirationDate: result.expirationDate,
-          watchEmailsSubscriptionId: result.subscriptionId,
-        },
+      if (result) {
+        expirationDate = result;
+        // Get the subscription ID from the database (set by subscription manager)
+        const emailAccount = await prisma.emailAccount.findUnique({
+          where: { id: account.id },
+          select: { watchEmailsSubscriptionId: true },
+        });
+        subscriptionId = emailAccount?.watchEmailsSubscriptionId || undefined;
+      }
+    } else {
+      // For Gmail, use the provider's watchEmails directly
+      // (Gmail uses Pub/Sub topic which doesn't need subscription ID tracking)
+      const result = await account.emailProvider.watchEmails();
+
+      if (result) {
+        expirationDate = result.expirationDate;
+        subscriptionId = result.subscriptionId;
+
+        // Update database with subscription info
+        await prisma.emailAccount.update({
+          where: { id: account.id },
+          data: {
+            watchEmailsExpirationDate: result.expirationDate,
+          },
+        });
+      }
+    }
+
+    if (expirationDate) {
+      logStep("Webhook subscription created", {
+        subscriptionId,
+        expirationDate,
       });
 
       return {
-        subscriptionId: result.subscriptionId,
-        expirationDate: result.expirationDate,
+        subscriptionId,
+        expirationDate,
       };
     }
 
