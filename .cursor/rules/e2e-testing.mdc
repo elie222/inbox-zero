@@ -23,10 +23,14 @@ The E2E repo has:
 
 ## Syncing Workflow Files
 
-The e2e repo has a GitHub Action that pulls from the main repo's main branch. To get workflow changes to the e2e repo:
+The e2e repo has a GitHub Action (`sync-upstream.yml`) that pulls from the main repo's main branch. To get code/workflow changes to the e2e repo:
 
 1. Merge your changes to `main` on `elie222/inbox-zero`
-2. The sync GH Action will automatically pull the changes to `inbox-zero/inbox-zero-e2e`
+2. Run the sync workflow:
+   ```bash
+   gh workflow run sync-upstream.yml --repo inbox-zero/inbox-zero-e2e
+   ```
+3. Wait for sync to complete, then trigger E2E tests
 
 **Do NOT manually copy files between repos** - use the sync action.
 
