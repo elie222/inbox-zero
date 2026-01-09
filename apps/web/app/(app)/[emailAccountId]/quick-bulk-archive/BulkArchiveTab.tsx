@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import useSWR from "swr";
 import sortBy from "lodash/sortBy";
 import { toast } from "sonner";
@@ -113,7 +113,7 @@ export function BulkArchiveTab() {
   );
 
   // Initialize selection when data loads
-  useMemo(() => {
+  useEffect(() => {
     if (candidates.length > 0 && !hasInitializedSelection) {
       const initial: Record<string, boolean> = {};
       for (const candidate of candidates) {
