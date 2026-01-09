@@ -150,31 +150,34 @@ E2E_VERBOSE=true pnpm test-e2e:flows
 # 1. Run setup with a named config (won't overwrite your existing .env)
 npm run setup -- --name e2e
 
-# 2. Start the app
-npm run start:cli
+# 2. Run database migrations with the E2E env
+cd apps/web
+pnpm prisma:migrate:e2e
 
-# 3. OAuth your test accounts at http://localhost:3000
+# 3. Start the dev server with E2E config
+pnpm dev:e2e
+
+# 4. OAuth your test accounts at http://localhost:3000
 #    - Sign in with your Gmail test account
 #    - Sign out and sign in with your Outlook test account
 
-# 4. Add test account emails to apps/web/.env.e2e:
+# 5. Add test account emails to apps/web/.env.e2e:
 #    E2E_GMAIL_EMAIL="your-test@gmail.com"
 #    E2E_OUTLOOK_EMAIL="your-test@outlook.com"
 
-# 5. Run the tests (loads .env.e2e automatically)
-cd apps/web
-RUN_E2E_FLOW_TESTS=true pnpm test-e2e:flows
+# 6. Run the tests (loads .env.e2e automatically)
+pnpm test-e2e:flows
 ```
 
 ## Troubleshooting
 
 ### "No account found"
 
-Test accounts aren't in the database. Run `npm run start:cli`, visit http://localhost:3000, and sign in with each account.
+Test accounts aren't in the database. Run `pnpm dev:e2e`, visit http://localhost:3000, and sign in with each account.
 
 ### Token expired
 
-OAuth tokens may expire. Sign in again at http://localhost:3000.
+OAuth tokens may expire. Run `pnpm dev:e2e` and sign in again at http://localhost:3000.
 
 ### Draft not created
 
