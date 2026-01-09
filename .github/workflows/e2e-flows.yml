@@ -1,0 +1,292 @@
+name: E2E Flow Tests
+
+# This workflow runs comprehensive E2E tests with real email accounts.
+# It's designed to run in a private fork where secrets are configured,
+# but the workflow file lives in the public repo for version control.
+#
+# To enable: Set the repository variable E2E_FLOWS_ENABLED=true
+# To disable: Remove the variable or set it to anything other than "true"
+
+on:
+  # Run on schedule (every 12 hours)
+  schedule:
+    - cron: "0 */12 * * *"
+
+  # Allow manual trigger with branch selection
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: "Branch to test"
+        required: false
+        default: "main"
+      test_file:
+        description: "Specific test file (optional, e.g., full-reply-cycle)"
+        required: false
+        default: ""
+
+# Prevent concurrent runs to avoid test account conflicts
+concurrency:
+  group: e2e-flows
+  cancel-in-progress: false
+
+jobs:
+  check-enabled:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      enabled: ${{ steps.check.outputs.enabled }}
+    steps:
+      - name: Check if E2E flows are enabled
+        id: check
+        run: |
+          if [ "${{ vars.E2E_FLOWS_ENABLED }}" = "true" ]; then
+            echo "enabled=true" >> $GITHUB_OUTPUT
+            echo "E2E flow tests are ENABLED"
+          else
+            echo "enabled=false" >> $GITHUB_OUTPUT
+            echo "E2E flow tests are DISABLED (set E2E_FLOWS_ENABLED=true to enable)"
+          fi
+
+  e2e-flows:
+    needs: check-enabled
+    if: needs.check-enabled.outputs.enabled == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.branch || github.ref }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: 8
+
+      - name: Get pnpm store directory
+        shell: bash
+        run: |
+          echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
+
+      - name: Setup pnpm cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.pnpm-store
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Install ngrok
+        run: |
+          curl -s https://ngrok-agent.s3.amazonaws.com/ngrok.asc | sudo tee /etc/apt/trusted.gpg.d/ngrok.asc >/dev/null
+          echo "deb https://ngrok-agent.s3.amazonaws.com buster main" | sudo tee /etc/apt/sources.list.d/ngrok.list
+          sudo apt-get update && sudo apt-get install ngrok
+
+      - name: Configure ngrok
+        run: ngrok config add-authtoken ${{ secrets.E2E_NGROK_AUTH_TOKEN }}
+
+      - name: Build app
+        run: pnpm -F inbox-zero-ai build
+        env:
+          # Skip TypeScript checking to save memory on CI runner
+          SKIP_TYPE_CHECK: "true"
+          # Database
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          DIRECT_URL: ${{ secrets.DIRECT_URL }}
+          # Redis
+          UPSTASH_REDIS_URL: ${{ secrets.UPSTASH_REDIS_URL }}
+          UPSTASH_REDIS_TOKEN: ${{ secrets.UPSTASH_REDIS_TOKEN }}
+          # Google OAuth
+          GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
+          GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
+          GOOGLE_PUBSUB_TOPIC_NAME: ${{ secrets.GOOGLE_PUBSUB_TOPIC_NAME }}
+          GOOGLE_PUBSUB_VERIFICATION_TOKEN: ${{ secrets.GOOGLE_PUBSUB_VERIFICATION_TOKEN }}
+          # Microsoft OAuth
+          MICROSOFT_CLIENT_ID: ${{ secrets.MICROSOFT_CLIENT_ID }}
+          MICROSOFT_CLIENT_SECRET: ${{ secrets.MICROSOFT_CLIENT_SECRET }}
+          MICROSOFT_TENANT_ID: ${{ secrets.MICROSOFT_TENANT_ID }}
+          MICROSOFT_WEBHOOK_CLIENT_STATE: ${{ secrets.MICROSOFT_WEBHOOK_CLIENT_STATE }}
+          # LLM
+          DEFAULT_LLM_PROVIDER: ${{ secrets.DEFAULT_LLM_PROVIDER }}
+          DEFAULT_LLM_MODEL: ${{ secrets.DEFAULT_LLM_MODEL }}
+          ECONOMY_LLM_PROVIDER: ${{ secrets.ECONOMY_LLM_PROVIDER }}
+          ECONOMY_LLM_MODEL: ${{ secrets.ECONOMY_LLM_MODEL }}
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          # Auth & Security
+          AUTH_SECRET: ${{ secrets.AUTH_SECRET }}
+          EMAIL_ENCRYPT_SECRET: ${{ secrets.EMAIL_ENCRYPT_SECRET }}
+          EMAIL_ENCRYPT_SALT: ${{ secrets.EMAIL_ENCRYPT_SALT }}
+          INTERNAL_API_KEY: ${{ secrets.INTERNAL_API_KEY }}
+          API_KEY_SALT: ${{ secrets.API_KEY_SALT }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          # QStash
+          QSTASH_TOKEN: ${{ secrets.QSTASH_TOKEN }}
+          QSTASH_CURRENT_SIGNING_KEY: ${{ secrets.QSTASH_CURRENT_SIGNING_KEY }}
+          QSTASH_NEXT_SIGNING_KEY: ${{ secrets.QSTASH_NEXT_SIGNING_KEY }}
+          # App config
+          NEXT_PUBLIC_BASE_URL: "http://localhost:3000"
+
+      - name: Start app server
+        run: |
+          cd apps/web
+          pnpm start &
+          # Wait for server to be ready
+          echo "Waiting for app server to start..."
+          SERVER_READY=false
+          for i in {1..30}; do
+            if curl -sf http://localhost:3000 > /dev/null 2>&1; then
+              echo "App server is ready"
+              SERVER_READY=true
+              break
+            fi
+            sleep 2
+          done
+          if [ "$SERVER_READY" != "true" ]; then
+            echo "ERROR: App server failed to start within 60 seconds"
+            exit 1
+          fi
+        env:
+          # Database
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          DIRECT_URL: ${{ secrets.DIRECT_URL }}
+          # Redis
+          UPSTASH_REDIS_URL: ${{ secrets.UPSTASH_REDIS_URL }}
+          UPSTASH_REDIS_TOKEN: ${{ secrets.UPSTASH_REDIS_TOKEN }}
+          REDIS_URL: ${{ secrets.REDIS_URL }}
+          # Google OAuth
+          GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
+          GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
+          GOOGLE_PUBSUB_TOPIC_NAME: ${{ secrets.GOOGLE_PUBSUB_TOPIC_NAME }}
+          GOOGLE_PUBSUB_VERIFICATION_TOKEN: ${{ secrets.GOOGLE_PUBSUB_VERIFICATION_TOKEN }}
+          # Microsoft OAuth
+          MICROSOFT_CLIENT_ID: ${{ secrets.MICROSOFT_CLIENT_ID }}
+          MICROSOFT_CLIENT_SECRET: ${{ secrets.MICROSOFT_CLIENT_SECRET }}
+          MICROSOFT_TENANT_ID: ${{ secrets.MICROSOFT_TENANT_ID }}
+          MICROSOFT_WEBHOOK_CLIENT_STATE: ${{ secrets.MICROSOFT_WEBHOOK_CLIENT_STATE }}
+          # LLM
+          DEFAULT_LLM_PROVIDER: ${{ secrets.DEFAULT_LLM_PROVIDER }}
+          DEFAULT_LLM_MODEL: ${{ secrets.DEFAULT_LLM_MODEL }}
+          ECONOMY_LLM_PROVIDER: ${{ secrets.ECONOMY_LLM_PROVIDER }}
+          ECONOMY_LLM_MODEL: ${{ secrets.ECONOMY_LLM_MODEL }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          # Auth & Security
+          AUTH_SECRET: ${{ secrets.AUTH_SECRET }}
+          EMAIL_ENCRYPT_SECRET: ${{ secrets.EMAIL_ENCRYPT_SECRET }}
+          EMAIL_ENCRYPT_SALT: ${{ secrets.EMAIL_ENCRYPT_SALT }}
+          INTERNAL_API_KEY: ${{ secrets.INTERNAL_API_KEY }}
+          API_KEY_SALT: ${{ secrets.API_KEY_SALT }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          # QStash
+          QSTASH_TOKEN: ${{ secrets.QSTASH_TOKEN }}
+          QSTASH_CURRENT_SIGNING_KEY: ${{ secrets.QSTASH_CURRENT_SIGNING_KEY }}
+          QSTASH_NEXT_SIGNING_KEY: ${{ secrets.QSTASH_NEXT_SIGNING_KEY }}
+          # Tinybird
+          TINYBIRD_BASE_URL: ${{ secrets.TINYBIRD_BASE_URL }}
+          TINYBIRD_ENCRYPT_SECRET: ${{ secrets.TINYBIRD_ENCRYPT_SECRET }}
+          TINYBIRD_ENCRYPT_SALT: ${{ secrets.TINYBIRD_ENCRYPT_SALT }}
+          # App config
+          NEXT_PUBLIC_BASE_URL: "http://localhost:3000"
+          NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS: ${{ secrets.NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS }}
+          NEXT_PUBLIC_IS_RESEND_CONFIGURED: ${{ secrets.NEXT_PUBLIC_IS_RESEND_CONFIGURED }}
+          LOG_ZOD_ERRORS: ${{ secrets.LOG_ZOD_ERRORS }}
+
+      - name: Start ngrok tunnel
+        run: |
+          ngrok http 3000 --log=stdout > ngrok.log 2>&1 &
+          sleep 5
+          # Extract the public URL
+          NGROK_URL=$(curl -s http://localhost:4040/api/tunnels | jq -r '.tunnels[0].public_url')
+          echo "NGROK_URL=$NGROK_URL" >> $GITHUB_ENV
+          echo "Tunnel URL: $NGROK_URL"
+
+      - name: Run E2E Flow Tests
+        run: |
+          if [ -n "${{ github.event.inputs.test_file }}" ]; then
+            pnpm -F inbox-zero-ai test-e2e:flows ${{ github.event.inputs.test_file }}
+          else
+            pnpm -F inbox-zero-ai test-e2e:flows
+          fi
+        env:
+          NEXT_PUBLIC_BASE_URL: ${{ env.NGROK_URL }}
+          # Test control
+          RUN_E2E_FLOW_TESTS: "true"
+          E2E_RUN_ID: ${{ github.run_id }}-${{ github.run_attempt }}
+
+          # E2E-specific: Test account emails
+          E2E_GMAIL_EMAIL: ${{ secrets.E2E_GMAIL_EMAIL }}
+          E2E_OUTLOOK_EMAIL: ${{ secrets.E2E_OUTLOOK_EMAIL }}
+
+          # Standard app secrets (reused from existing config)
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          UPSTASH_REDIS_REST_URL: ${{ secrets.UPSTASH_REDIS_REST_URL }}
+          UPSTASH_REDIS_REST_TOKEN: ${{ secrets.UPSTASH_REDIS_REST_TOKEN }}
+          GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
+          GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
+          GOOGLE_PUBSUB_TOPIC_NAME: ${{ secrets.GOOGLE_PUBSUB_TOPIC_NAME }}
+          GOOGLE_PUBSUB_VERIFICATION_TOKEN: ${{ secrets.GOOGLE_PUBSUB_VERIFICATION_TOKEN }}
+          MICROSOFT_CLIENT_ID: ${{ secrets.MICROSOFT_CLIENT_ID }}
+          MICROSOFT_CLIENT_SECRET: ${{ secrets.MICROSOFT_CLIENT_SECRET }}
+          MICROSOFT_WEBHOOK_CLIENT_STATE: ${{ secrets.MICROSOFT_WEBHOOK_CLIENT_STATE }}
+          # AI provider secrets - configure whichever provider you use
+          DEFAULT_LLM_PROVIDER: ${{ secrets.DEFAULT_LLM_PROVIDER }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          AUTH_SECRET: ${{ secrets.AUTH_SECRET }}
+          EMAIL_ENCRYPT_SECRET: ${{ secrets.EMAIL_ENCRYPT_SECRET }}
+          EMAIL_ENCRYPT_SALT: ${{ secrets.EMAIL_ENCRYPT_SALT }}
+          INTERNAL_API_KEY: ${{ secrets.INTERNAL_API_KEY }}
+
+      - name: Upload test logs on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-flow-logs-${{ github.run_id }}
+          path: |
+            apps/web/__tests__/e2e/flows/*.log
+            ngrok.log
+          retention-days: 7
+
+  notify-disabled:
+    needs: check-enabled
+    if: needs.check-enabled.outputs.enabled != 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: E2E flows disabled notice
+        run: |
+          echo "::notice::E2E flow tests are disabled. To enable, set the repository variable E2E_FLOWS_ENABLED=true"
+          echo ""
+          echo "Required secrets for E2E flow tests:"
+          echo ""
+          echo "E2E-specific secrets:"
+          echo "  - E2E_GMAIL_EMAIL: Gmail test account email"
+          echo "  - E2E_OUTLOOK_EMAIL: Outlook test account email"
+          echo "  - E2E_NGROK_AUTH_TOKEN: ngrok auth token for tunnel"
+          echo ""
+          echo "Standard app secrets (same as production):"
+          echo "  - DATABASE_URL, AUTH_SECRET, INTERNAL_API_KEY"
+          echo "  - EMAIL_ENCRYPT_SECRET, EMAIL_ENCRYPT_SALT"
+          echo "  - UPSTASH_REDIS_REST_URL, UPSTASH_REDIS_REST_TOKEN"
+          echo "  - GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET"
+          echo "  - GOOGLE_PUBSUB_TOPIC_NAME, GOOGLE_PUBSUB_VERIFICATION_TOKEN"
+          echo "  - MICROSOFT_CLIENT_ID, MICROSOFT_CLIENT_SECRET, MICROSOFT_WEBHOOK_CLIENT_STATE"
+          echo "  - AI provider secrets (one of: OPENAI_API_KEY, ANTHROPIC_API_KEY, GOOGLE_API_KEY, OPENROUTER_API_KEY)"
+          echo "  - DEFAULT_LLM_PROVIDER (optional, defaults to openai)"

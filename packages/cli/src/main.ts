@@ -72,6 +72,7 @@ async function main() {
   program
     .command("setup")
     .description("Interactive setup for Inbox Zero")
+    .option("-n, --name <name>", "Configuration name (creates .env.<name>)")
     .action(runSetup);
 
   program
@@ -114,8 +115,9 @@ async function main() {
 // Setup Command
 // ═══════════════════════════════════════════════════════════════════════════
 
-async function runSetup() {
-  p.intro("🚀 Inbox Zero Setup");
+async function runSetup(options: { name?: string }) {
+  const configName = options.name;
+  p.intro(`🚀 Inbox Zero Setup${configName ? ` (${configName})` : ""}`);
 
   // Ask about environment mode
   const envMode = await p.select({
@@ -213,9 +215,10 @@ async function runSetup() {
 
   // Determine paths - if in repo, write to apps/web/.env, otherwise use standalone
   const configDir = REPO_ROOT ?? STANDALONE_CONFIG_DIR;
+  const envFileName = configName ? `.env.${configName}` : ".env";
   const envFile = REPO_ROOT
-    ? resolve(REPO_ROOT, "apps/web/.env")
-    : STANDALONE_ENV_FILE;
+    ? resolve(REPO_ROOT, "apps/web", envFileName)
+    : resolve(STANDALONE_CONFIG_DIR, envFileName);
   const composeFile = REPO_ROOT
     ? resolve(REPO_ROOT, "docker-compose.yml")
     : STANDALONE_COMPOSE_FILE;
@@ -306,6 +309,44 @@ Full guide: https://docs.getinboxzero.com/self-hosting/google-oauth`,
     env.GOOGLE_CLIENT_ID = googleOAuth.clientId || "your-google-client-id";
     env.GOOGLE_CLIENT_SECRET =
       googleOAuth.clientSecret || "your-google-client-secret";
+
+    // Google Pub/Sub setup for real-time email notifications
+    p.note(
+      `To receive real-time email notifications, you need to set up Google Pub/Sub:
+
+1. Go to Google Cloud Console: https://console.cloud.google.com/cloudpubsub/topic/list
+2. Create a new topic (e.g., "inbox-zero-emails")
+3. Add the Gmail API service account as a publisher:
+   - Click on the topic → Permissions → Add Principal
+   - Add: gmail-api-push@system.gserviceaccount.com
+   - Role: Pub/Sub Publisher
+4. Create a push subscription pointing to your webhook URL:
+   - Endpoint: https://yourdomain.com/api/google/webhook
+5. Copy the full topic name (e.g., projects/my-project-123/topics/inbox-zero-emails)
+
+Full guide: https://docs.getinboxzero.com/self-hosting/google-pubsub`,
+      "Google Pub/Sub Setup (Required for Gmail)",
+    );
+
+    const pubsubTopic = await p.text({
+      message: "Google Pub/Sub Topic Name",
+      placeholder: "projects/your-project-id/topics/inbox-zero-emails",
+      validate: (v) => {
+        if (!v) return undefined; // Allow empty to skip
+        if (!v.startsWith("projects/") || !v.includes("/topics/")) {
+          return "Topic name must be in format: projects/PROJECT_ID/topics/TOPIC_NAME";
+        }
+        return undefined;
+      },
+    });
+
+    if (p.isCancel(pubsubTopic)) {
+      p.cancel("Setup cancelled.");
+      process.exit(0);
+    }
+
+    env.GOOGLE_PUBSUB_TOPIC_NAME =
+      pubsubTopic || "projects/your-project-id/topics/inbox-zero-emails";
   } else {
     env.GOOGLE_CLIENT_ID = "skipped";
     env.GOOGLE_CLIENT_SECRET = "skipped";
@@ -551,10 +592,11 @@ Full guide: https://docs.getinboxzero.com/self-hosting/microsoft-oauth`,
   env.API_KEY_SALT = generateSecret(32);
   env.CRON_SECRET = generateSecret(32);
   env.GOOGLE_PUBSUB_VERIFICATION_TOKEN = generateSecret(32);
-  // Google PubSub topic - required for Gmail push notifications
-  // Self-hosters need to set up their own topic in Google Cloud Console
-  env.GOOGLE_PUBSUB_TOPIC_NAME =
-    "projects/your-project/topics/inbox-zero-emails";
+  // Google PubSub topic - only set placeholder if not already configured during Google OAuth setup
+  if (!env.GOOGLE_PUBSUB_TOPIC_NAME) {
+    env.GOOGLE_PUBSUB_TOPIC_NAME =
+      "projects/your-project-id/topics/inbox-zero-emails";
+  }
 
   // App config
   env.NEXT_PUBLIC_BASE_URL = `http://localhost:${webPort}`;

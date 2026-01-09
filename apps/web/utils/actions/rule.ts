@@ -17,7 +17,6 @@ import {
   toggleAllRulesBody,
   copyRulesFromAccountBody,
   importRulesBody,
-  type ImportedRule,
 } from "@/utils/actions/rule.validation";
 import prisma from "@/utils/prisma";
 import { isDuplicateError, isNotFoundError } from "@/utils/prisma-helpers";
@@ -548,7 +547,7 @@ export const copyRulesFromAccountAction = actionClientUser
         // Map actions - keep label names but clear IDs (they'll be resolved when rule executes)
         const mappedActions = sourceRule.actions.map((action) => ({
           type: action.type,
-          label: action.label, // Keep the label name
+          label: action.label,
           labelId: null, // Clear the ID - it's account-specific
           subject: action.subject,
           content: action.content,
@@ -556,13 +555,12 @@ export const copyRulesFromAccountAction = actionClientUser
           cc: action.cc,
           bcc: action.bcc,
           url: action.url,
-          folderName: action.folderName, // Keep folder name
+          folderName: action.folderName,
           folderId: null, // Clear the ID - it's account-specific
           delayInMinutes: action.delayInMinutes,
         }));
 
         if (existingRuleId) {
-          // Update existing rule
           await prisma.rule.update({
             where: { id: existingRuleId },
             data: {
@@ -584,7 +582,6 @@ export const copyRulesFromAccountAction = actionClientUser
           });
           replacedCount++;
         } else {
-          // Create new rule
           await prisma.rule.create({
             data: {
               emailAccountId: targetEmailAccountId,
@@ -675,7 +672,7 @@ async function toggleRule({
 
   for (const actionType of actionTypes) {
     if (actionType.includeFolder) {
-      const folderId = await emailProvider.getOrCreateOutlookFolderIdByName(
+      const folderId = await emailProvider.getOrCreateFolderIdByName(
         ruleConfig.name,
       );
       actions.push({
@@ -841,7 +838,7 @@ async function resolveActionLabels<
         const folderName = action.folderName?.value;
         if (folderName && !action.folderId?.value) {
           const resolvedFolderId =
-            await emailProvider.getOrCreateOutlookFolderIdByName(folderName);
+            await emailProvider.getOrCreateFolderIdByName(folderName);
           return {
             ...action,
             folderId: {
@@ -932,7 +929,7 @@ async function getActionsFromCategoryAction({
       }
       case ActionType.MOVE_FOLDER: {
         const folderId =
-          await emailProvider.getOrCreateOutlookFolderIdByName(ruleName);
+          await emailProvider.getOrCreateFolderIdByName(ruleName);
 
         logger.info("Resolved folder ID during onboarding", {
           folderName: ruleName,

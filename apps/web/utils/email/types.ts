@@ -248,6 +248,6 @@ export interface EmailProvider {
     ownerEmail: string,
     folderName: string,
   ): Promise<void>;
-  getOrCreateOutlookFolderIdByName(folderName: string): Promise<string>;
+  getOrCreateFolderIdByName(folderName: string): Promise<string>;
   getSignatures(): Promise<EmailSignature[]>;
 }

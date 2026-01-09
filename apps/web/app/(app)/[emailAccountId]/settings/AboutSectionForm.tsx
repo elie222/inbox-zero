@@ -5,11 +5,6 @@ import { useAction } from "next-safe-action/hooks";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/Input";
 import { saveAboutAction } from "@/utils/actions/user";
-import {
-  FormSection,
-  FormSectionLeft,
-  FormSectionRight,
-} from "@/components/Form";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { toastError, toastSuccess } from "@/components/Toast";
 import { useEmailAccountFull } from "@/hooks/useEmailAccountFull";
@@ -20,8 +15,9 @@ import {
   type SaveAboutBody,
   saveAboutBody,
 } from "@/utils/actions/user.validation";
+import { getActionErrorMessage } from "@/utils/error";
 
-export function AboutSection({ onSuccess }: { onSuccess?: () => void }) {
+export function AboutSection({ onSuccess }: { onSuccess: () => void }) {
   const { data, isLoading, error, mutate } = useEmailAccountFull();
 
   return (
@@ -46,7 +42,7 @@ const AboutSectionForm = ({
 }: {
   about: string | null;
   mutate: () => void;
-  onSuccess?: () => void;
+  onSuccess: () => void;
 }) => {
   const {
     register,
@@ -63,16 +59,12 @@ const AboutSectionForm = ({
     saveAboutAction.bind(null, emailAccountId),
     {
       onSuccess: () => {
-        toastSuccess({
-          description: "Your profile has been updated!",
-        });
-        onSuccess?.();
+        toastSuccess({ description: "Your profile has been updated!" });
+        onSuccess();
       },
       onError: (error) => {
         toastError({
-          description:
-            error.error.serverError ??
-            "An unknown error occurred while updating your profile",
+          description: getActionErrorMessage(error.error),
         });
       },
       onSettled: () => {

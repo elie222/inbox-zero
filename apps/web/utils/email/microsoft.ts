@@ -1644,7 +1644,7 @@ export class OutlookProvider implements EmailProvider {
     });
   }
 
-  async getOrCreateOutlookFolderIdByName(folderName: string): Promise<string> {
+  async getOrCreateFolderIdByName(folderName: string): Promise<string> {
     return await getOrCreateOutlookFolderIdByName(
       this.client,
       folderName,
