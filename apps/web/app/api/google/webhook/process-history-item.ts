@@ -26,6 +26,11 @@ export async function processHistoryItem(
 
   if (!messageId || !threadId) return;
 
+  logger.info("Gmail history item received", {
+    eventType: type,
+    labelIds: item.message?.labelIds,
+  });
+
   const provider = await createEmailProvider({
     emailAccountId,
     provider: "google",
@@ -57,6 +62,8 @@ export async function processHistoryItem(
     logger.info("Skipping. Message already being processed.");
     return;
   }
+
+  logger.info("Gmail lock acquired, calling shared processor");
 
   return processHistoryItemShared(
     { messageId, threadId },

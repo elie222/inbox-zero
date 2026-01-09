@@ -48,6 +48,8 @@ export async function processHistoryItem(
   const userEmail = emailAccount.email;
 
   try {
+    logger.info("Shared processor started");
+
     // Use pre-fetched message if provided, otherwise fetch it
     const parsedMessage = message ?? (await provider.getMessage(messageId));
 
@@ -103,6 +105,8 @@ export async function processHistoryItem(
 
     const isOutbound = provider.isSentMessage(parsedMessage);
 
+    logger.info("Message direction check", { isOutbound });
+
     if (isOutbound) {
       await handleOutboundMessage({
         emailAccount,
@@ -148,6 +152,8 @@ export async function processHistoryItem(
         await categorizeSender(sender, emailAccount, provider);
       }
     }
+
+    logger.info("Pre-rules check", { hasAutomationRules, hasAiAccess });
 
     if (hasAutomationRules && hasAiAccess) {
       logger.info("Running rules...");
