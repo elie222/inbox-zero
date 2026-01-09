@@ -59,11 +59,22 @@ export async function sendEmailWithHtml(
     message.conversationId = body.replyToEmail.threadId;
   }
 
-  const result: Message = await withOutlookRetry(
-    () => client.getClient().api("/me/messages").post(message),
+  // Use sendMail endpoint to actually send the email
+  // Note: sendMail returns 202 Accepted with no body, so we can't get the sent message ID
+  await withOutlookRetry(
+    () =>
+      client.getClient().api("/me/sendMail").post({
+        message,
+        saveToSentItems: true,
+      }),
     logger,
   );
-  return result;
+
+  // Return conversationId if available (thread ID persists across send)
+  return {
+    id: "",
+    conversationId: message.conversationId,
+  } as Message;
 }
 
 export async function sendEmailWithPlainText(
