@@ -25,7 +25,7 @@ export function ProgressPanel({
   if (!totalItems) return null;
 
   return (
-    <div className="px-4 py-2">
+    <div className="pt-4 pb-2">
       <AnimatePresence mode="wait">
         <motion.div
           key="progress"
