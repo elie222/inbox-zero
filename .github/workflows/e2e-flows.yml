@@ -131,6 +131,10 @@ jobs:
           INTERNAL_API_KEY: ${{ secrets.INTERNAL_API_KEY }}
           API_KEY_SALT: ${{ secrets.API_KEY_SALT }}
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          # QStash
+          QSTASH_TOKEN: ${{ secrets.QSTASH_TOKEN }}
+          QSTASH_CURRENT_SIGNING_KEY: ${{ secrets.QSTASH_CURRENT_SIGNING_KEY }}
+          QSTASH_NEXT_SIGNING_KEY: ${{ secrets.QSTASH_NEXT_SIGNING_KEY }}
           # App config
           NEXT_PUBLIC_BASE_URL: "http://localhost:3000"
 
