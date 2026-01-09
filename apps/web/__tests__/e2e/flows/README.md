@@ -142,25 +142,40 @@ E2E_VERBOSE=true pnpm test-e2e:flows
 | Full test cycle | 300s |
 | Polling interval | 3s |
 
+## Local Setup Guide
+
+### Quick Start
+
+```bash
+# 1. Run setup with a named config (won't overwrite your existing .env)
+npm run setup -- --name e2e
+
+# 2. Start the app
+npm run start:cli
+
+# 3. OAuth your test accounts at http://localhost:3000
+#    - Sign in with your Gmail test account
+#    - Sign out and sign in with your Outlook test account
+
+# 4. Add test account emails to apps/web/.env.e2e:
+#    E2E_GMAIL_EMAIL="your-test@gmail.com"
+#    E2E_OUTLOOK_EMAIL="your-test@outlook.com"
+
+# 5. Run the tests (loads .env.e2e automatically)
+cd apps/web
+RUN_E2E_FLOW_TESTS=true pnpm test-e2e:flows
+```
+
 ## Troubleshooting
 
 ### "No account found"
 
-Ensure test accounts are logged in and tokens are stored in the test database.
+Test accounts aren't in the database. Run `npm run start:cli`, visit http://localhost:3000, and sign in with each account.
 
-### Webhook not received
+### Token expired
 
-1. Check the app server started successfully
-2. Verify ngrok tunnel is running (check ngrok.log in artifacts)
-3. Ensure webhook subscriptions point to the correct URL
+OAuth tokens may expire. Sign in again at http://localhost:3000.
 
 ### Draft not created
 
-1. Check AI API key is configured (`OPENAI_API_KEY`)
-2. Verify rules exist (setup creates them automatically)
-
-### Test timeout
-
-1. Increase timeout in `config.ts`
-2. Check network connectivity
-3. Verify email actually sent (check sent folder)
+Check AI API key is configured. Rules are created automatically by the test setup.

@@ -10,7 +10,8 @@
     "ncu": "ncu -u -ws",
     "check": "ultracite check",
     "fix": "ultracite fix",
-    "setup": "tsx packages/cli/src/main.ts setup"
+    "setup": "tsx packages/cli/src/main.ts setup",
+    "start:cli": "tsx packages/cli/src/main.ts start"
   },
   "devDependencies": {
     "@biomejs/biome": "2.2.2",
