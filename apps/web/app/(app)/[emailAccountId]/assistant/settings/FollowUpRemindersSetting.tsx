@@ -20,6 +20,7 @@ import {
 import { Label } from "@/components/ui/label";
 import { Toggle } from "@/components/Toggle";
 import { useEmailAccountFull } from "@/hooks/useEmailAccountFull";
+import { useFollowUpRemindersEnabled } from "@/hooks/useFeatureFlags";
 import { useAction } from "next-safe-action/hooks";
 import { updateFollowUpSettingsAction } from "@/utils/actions/follow-up-reminders";
 import { toastError, toastSuccess } from "@/components/Toast";
@@ -35,6 +36,14 @@ const dayOptions = [
 ];
 
 export function FollowUpRemindersSetting() {
+  const isFeatureEnabled = useFollowUpRemindersEnabled();
+
+  if (!isFeatureEnabled) return null;
+
+  return <FollowUpRemindersSettingContent />;
+}
+
+function FollowUpRemindersSettingContent() {
   const [open, setOpen] = useState(false);
   const { data, isLoading, error, mutate } = useEmailAccountFull();
 

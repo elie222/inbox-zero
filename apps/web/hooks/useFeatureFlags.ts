@@ -8,6 +8,13 @@ export function useCleanerEnabled() {
   return useFeatureFlagEnabled("inbox-cleaner");
 }
 
+export function useFollowUpRemindersEnabled() {
+  return (
+    useFeatureFlagEnabled("follow-up-reminders") ||
+    env.NEXT_PUBLIC_FOLLOW_UP_REMINDERS_ENABLED
+  );
+}
+
 export function useMeetingBriefsEnabled() {
   return env.NEXT_PUBLIC_MEETING_BRIEFS_ENABLED;
 }
