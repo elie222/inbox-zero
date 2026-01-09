@@ -181,46 +181,6 @@ export function BulkArchiveCards({
         const isExpanded = expandedCategory === categoryName;
         const isArchived = archivedCategories[categoryName];
 
-        if (isArchived) {
-          return (
-            <Card key={categoryName} className="p-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div
-                    className={cn(
-                      "shrink-0 p-px rounded-lg shadow-sm bg-gradient-to-b opacity-50",
-                      categoryStyle.borderColor,
-                    )}
-                  >
-                    <div
-                      className={cn(
-                        "flex size-9 items-center justify-center rounded-[7px] bg-gradient-to-b",
-                        categoryStyle.gradient,
-                      )}
-                    >
-                      <CategoryIcon
-                        className={cn("size-5", categoryStyle.iconColor)}
-                      />
-                    </div>
-                  </div>
-                  <div>
-                    <h2 className="font-medium text-muted-foreground line-through">
-                      {categoryName}
-                    </h2>
-                    <p className="text-sm text-muted-foreground">
-                      {senders.length} senders archived
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2 text-green-600">
-                  <CheckIcon className="size-5" />
-                  <span className="text-sm font-medium">Archived</span>
-                </div>
-              </div>
-            </Card>
-          );
-        }
-
         return (
           <Card key={categoryName} className="overflow-hidden">
             {/* Category header - clickable to expand */}
@@ -242,6 +202,7 @@ export function BulkArchiveCards({
                     className={cn(
                       "shrink-0 p-px rounded-lg shadow-sm bg-gradient-to-b",
                       categoryStyle.borderColor,
+                      isArchived && "opacity-50",
                     )}
                   >
                     <div
@@ -256,24 +217,40 @@ export function BulkArchiveCards({
                     </div>
                   </div>
                   <div>
-                    <h2 className="font-medium">{categoryName}</h2>
+                    <h2
+                      className={cn(
+                        "font-medium",
+                        isArchived && "text-muted-foreground line-through",
+                      )}
+                    >
+                      {categoryName}
+                    </h2>
                     <p className="text-sm text-muted-foreground">
                       {senders.length} senders
-                      {(category?.description || defaultCat?.description) &&
+                      {isArchived && " archived"}
+                      {!isArchived &&
+                        (category?.description || defaultCat?.description) &&
                         ` · ${category?.description || defaultCat?.description}`}
                     </p>
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
-                  <Button
-                    onClick={(e) => archiveCategory(categoryName, e)}
-                    size="sm"
-                  >
-                    <ArchiveIcon className="mr-2 size-4" />
-                    {isExpanded
-                      ? `Archive ${getSelectedCount(categoryName)} of ${senders.length}`
-                      : "Archive all"}
-                  </Button>
+                  {isArchived ? (
+                    <div className="flex items-center gap-2 text-green-600">
+                      <CheckIcon className="size-5" />
+                      <span className="text-sm font-medium">Archived</span>
+                    </div>
+                  ) : (
+                    <Button
+                      onClick={(e) => archiveCategory(categoryName, e)}
+                      size="sm"
+                    >
+                      <ArchiveIcon className="mr-2 size-4" />
+                      {isExpanded
+                        ? `Archive ${getSelectedCount(categoryName)} of ${senders.length}`
+                        : "Archive all"}
+                    </Button>
+                  )}
                   <ChevronDownIcon
                     className={cn(
                       "size-5 text-muted-foreground transition-transform",
