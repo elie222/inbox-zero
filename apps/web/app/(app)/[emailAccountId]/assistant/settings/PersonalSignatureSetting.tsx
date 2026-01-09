@@ -3,6 +3,7 @@
 import { useCallback, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { toastError, toastSuccess, toastInfo } from "@/components/Toast";
+import { getActionErrorMessage } from "@/utils/error";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { LoadingContent } from "@/components/LoadingContent";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -83,7 +84,9 @@ function SignatureDialog({
       },
       onError: (error) => {
         toastError({
-          description: error.error.serverError || "Failed to save signature",
+          description: getActionErrorMessage(error.error, {
+            prefix: "Failed to save signature",
+          }),
         });
       },
       onSettled: () => {

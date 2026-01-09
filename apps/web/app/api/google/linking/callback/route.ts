@@ -179,17 +179,20 @@ export const GET = withError("google/linking/callback", async (request) => {
                 providerAccountId,
               },
             },
-            select: { userId: true },
+            select: { id: true, userId: true },
           });
 
           if (accountNow?.userId === targetUserId) {
             logger.info(
-              "Account was created by concurrent request, continuing",
+              "Account already exists for same user, updating tokens",
               {
                 targetUserId,
                 providerAccountId,
+                accountId: accountNow.id,
               },
             );
+
+            await updateGoogleAccountTokens(accountNow.id, tokens);
           } else {
             throw createError;
           }
@@ -215,17 +218,7 @@ export const GET = withError("google/linking/callback", async (request) => {
         accountId: linkingResult.existingAccountId,
       });
 
-      await prisma.account.update({
-        where: { id: linkingResult.existingAccountId },
-        data: {
-          access_token: tokens.access_token,
-          refresh_token: tokens.refresh_token,
-          expires_at: tokens.expiry_date ? new Date(tokens.expiry_date) : null,
-          scope: tokens.scope,
-          token_type: tokens.token_type,
-          id_token: tokens.id_token,
-        },
-      });
+      await updateGoogleAccountTokens(linkingResult.existingAccountId, tokens);
 
       logger.info("Successfully updated tokens for Google account", {
         email: providerEmail,
@@ -291,3 +284,32 @@ export const GET = withError("google/linking/callback", async (request) => {
     });
   }
 });
+
+interface GoogleTokens {
+  access_token?: string | null;
+  refresh_token?: string | null;
+  expiry_date?: number | null;
+  scope?: string | null;
+  token_type?: string | null;
+  id_token?: string | null;
+}
+
+async function updateGoogleAccountTokens(
+  accountId: string,
+  tokens: GoogleTokens,
+) {
+  await prisma.account.update({
+    where: { id: accountId },
+    data: {
+      access_token: tokens.access_token,
+      // Only update refresh_token if provider returned one (preserves existing token)
+      ...(tokens.refresh_token != null && {
+        refresh_token: tokens.refresh_token,
+      }),
+      expires_at: tokens.expiry_date ? new Date(tokens.expiry_date) : null,
+      scope: tokens.scope,
+      token_type: tokens.token_type,
+      id_token: tokens.id_token,
+    },
+  });
+}

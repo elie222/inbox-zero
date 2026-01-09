@@ -39,13 +39,22 @@ export function registerUtmTracking({
 // See: https://nextjs.org/docs/app/api-reference/functions/after
 export function extractUtmValues(cookies: ReadonlyRequestCookies): UtmValues {
   return {
-    utmCampaign: cookies.get("utm_campaign")?.value,
-    utmMedium: cookies.get("utm_medium")?.value,
-    utmSource: cookies.get("utm_source")?.value,
-    utmTerm: cookies.get("utm_term")?.value,
-    affiliate: cookies.get("affiliate")?.value,
-    referralCode: cookies.get("referral_code")?.value,
+    utmCampaign: decodeCookieValue(cookies.get("utm_campaign")?.value),
+    utmMedium: decodeCookieValue(cookies.get("utm_medium")?.value),
+    utmSource: decodeCookieValue(cookies.get("utm_source")?.value),
+    utmTerm: decodeCookieValue(cookies.get("utm_term")?.value),
+    affiliate: decodeCookieValue(cookies.get("affiliate")?.value),
+    referralCode: decodeCookieValue(cookies.get("referral_code")?.value),
   };
+}
+
+function decodeCookieValue(value: string | undefined): string | undefined {
+  if (!value) return undefined;
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return value;
+  }
 }
 
 export async function fetchUserAndStoreUtms(

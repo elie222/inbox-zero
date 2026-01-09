@@ -7,6 +7,7 @@ Important: All `gh` CLI commands require `required_permissions: ['all']` due to 
 1. **ALWAYS reply to the specific comment** - use replies API, not new PR comment
 2. **NEVER post general PR comment** when addressing review comments
 3. **WAIT for user** before resolving threads
+4. **USE YOUR JUDGMENT** - comments are not guaranteed to be accurate. Evaluate each on its merits before implementing
 
 # Step 1: Fetch comments
 

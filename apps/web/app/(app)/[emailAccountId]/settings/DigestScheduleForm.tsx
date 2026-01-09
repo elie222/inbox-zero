@@ -17,6 +17,7 @@ import {
 } from "@/utils/schedule";
 import { Button } from "@/components/ui/button";
 import { toastError, toastSuccess } from "@/components/Toast";
+import { getActionErrorMessage } from "@/utils/error";
 import { updateDigestScheduleAction } from "@/utils/actions/settings";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { useAction } from "next-safe-action/hooks";
@@ -124,9 +125,7 @@ function DigestScheduleFormInner({
       },
       onError: (error) => {
         toastError({
-          description:
-            error.error.serverError ??
-            "An unknown error occurred while updating your settings",
+          description: getActionErrorMessage(error.error),
         });
       },
     },

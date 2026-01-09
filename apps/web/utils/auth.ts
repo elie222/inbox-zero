@@ -277,7 +277,12 @@ export async function handleReferralOnSignUp({
       return;
     }
 
-    const referralCode = referralCookie.value;
+    let referralCode = referralCookie.value;
+    try {
+      referralCode = decodeURIComponent(referralCode);
+    } catch {
+      // Use original value if decoding fails
+    }
     logger.info("Processing referral for new user", {
       email,
       referralCode,

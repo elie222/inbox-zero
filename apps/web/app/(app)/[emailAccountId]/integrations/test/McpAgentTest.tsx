@@ -14,6 +14,7 @@ import {
 } from "@/utils/actions/mcp.validation";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { useAction } from "next-safe-action/hooks";
+import { getActionErrorMessage } from "@/utils/error";
 
 export function McpAgentTest() {
   const { emailAccountId } = useAccount();
@@ -28,7 +29,7 @@ export function McpAgentTest() {
       },
       onError: (error) => {
         toastError({
-          description: error.error.serverError || "Unknown error",
+          description: getActionErrorMessage(error.error),
         });
       },
     },

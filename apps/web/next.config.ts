@@ -14,6 +14,10 @@ const withMDX = nextMdx({
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   output: process.env.DOCKER_BUILD === "true" ? "standalone" : undefined,
+  // Skip TypeScript checking during E2E CI builds to save memory
+  typescript: {
+    ignoreBuildErrors: process.env.SKIP_TYPE_CHECK === "true",
+  },
   serverExternalPackages: ["@sentry/nextjs", "@sentry/node"],
   turbopack: {
     rules: {

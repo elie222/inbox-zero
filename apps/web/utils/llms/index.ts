@@ -27,10 +27,11 @@ import {
   isAnthropicInsufficientBalanceError,
   isAWSThrottlingError,
   isIncorrectOpenAIAPIKeyError,
-  isInvalidOpenAIModelError,
+  isInvalidAIModelError,
   isOpenAIAPIKeyDeactivatedError,
   isAiQuotaExceededError,
   isServiceUnavailableError,
+  SafeError,
 } from "@/utils/error";
 import { getModel, type ModelType } from "@/utils/llms/model";
 import { createScopedLogger } from "@/utils/logger";
@@ -341,16 +342,19 @@ async function handleError(
       });
     }
 
-    if (isInvalidOpenAIModelError(error)) {
-      return await addUserErrorMessageWithNotification({
+    if (isInvalidAIModelError(error)) {
+      await addUserErrorMessageWithNotification({
         userId,
         userEmail,
         emailAccountId,
-        errorType: ErrorType.INVALID_OPENAI_MODEL,
+        errorType: ErrorType.INVALID_AI_MODEL,
         errorMessage:
           "The AI model you specified does not exist. Please check your settings.",
         logger,
       });
+      throw new SafeError(
+        "The AI model you specified does not exist. Please update your AI settings.",
+      );
     }
 
     if (isOpenAIAPIKeyDeactivatedError(error)) {

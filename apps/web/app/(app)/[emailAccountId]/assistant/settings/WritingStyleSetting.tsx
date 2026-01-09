@@ -25,6 +25,7 @@ import {
 } from "@/utils/actions/user.validation";
 import { saveWritingStyleAction } from "@/utils/actions/user";
 import { Tiptap, type TiptapHandle } from "@/components/editor/Tiptap";
+import { getActionErrorMessage } from "@/utils/error";
 
 export function WritingStyleSetting() {
   const { data, isLoading, error } = useEmailAccountFull();
@@ -84,9 +85,7 @@ function WritingStyleDialog({
       },
       onError: (error) => {
         toastError({
-          description:
-            error.error.serverError ??
-            "An unknown error occurred while saving your writing style",
+          description: getActionErrorMessage(error.error),
         });
       },
       onSettled: () => {

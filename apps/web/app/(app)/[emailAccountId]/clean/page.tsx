@@ -1,7 +1,9 @@
+import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { getLastJob } from "@/app/(app)/[emailAccountId]/clean/helpers";
 import { ConfirmationStep } from "@/app/(app)/[emailAccountId]/clean/ConfirmationStep";
 import { Card } from "@/components/ui/card";
+import { Loading } from "@/components/Loading";
 import { prefixPath } from "@/utils/path";
 import { checkUserOwnsEmailAccount } from "@/utils/email-account";
 
@@ -18,20 +20,22 @@ export default async function CleanPage({
 
   return (
     <Card className="my-4 max-w-2xl p-6 sm:mx-4 md:mx-auto">
-      <ConfirmationStep
-        showFooter
-        action={lastJob.action}
-        timeRange={lastJob.daysOld}
-        instructions={lastJob.instructions ?? undefined}
-        skips={{
-          reply: lastJob.skipReply ?? true,
-          starred: lastJob.skipStarred ?? true,
-          calendar: lastJob.skipCalendar ?? true,
-          receipt: lastJob.skipReceipt ?? false,
-          attachment: lastJob.skipAttachment ?? false,
-        }}
-        reuseSettings={true}
-      />
+      <Suspense fallback={<Loading />}>
+        <ConfirmationStep
+          showFooter
+          action={lastJob.action}
+          timeRange={lastJob.daysOld}
+          instructions={lastJob.instructions ?? undefined}
+          skips={{
+            reply: lastJob.skipReply ?? true,
+            starred: lastJob.skipStarred ?? true,
+            calendar: lastJob.skipCalendar ?? true,
+            receipt: lastJob.skipReceipt ?? false,
+            attachment: lastJob.skipAttachment ?? false,
+          }}
+          reuseSettings={true}
+        />
+      </Suspense>
     </Card>
   );
 }
