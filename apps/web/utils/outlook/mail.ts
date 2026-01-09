@@ -28,14 +28,19 @@ interface OutlookMessageRequest {
   replyTo?: { emailAddress: { address: string } }[];
   conversationId?: string;
   isDraft?: boolean;
+  internetMessageHeaders?: { name: string; value: string }[];
 }
+
+type SentEmailResult = Pick<Message, "id" | "conversationId">;
 
 export async function sendEmailWithHtml(
   client: OutlookClient,
   body: SendEmailBody,
   logger: Logger,
-) {
+): Promise<SentEmailResult> {
   ensureEmailSendingEnabled();
+
+  const trackingId = crypto.randomUUID();
 
   const message: OutlookMessageRequest = {
     subject: body.subject,
@@ -53,6 +58,9 @@ export async function sendEmailWithHtml(
     ...(body.replyTo
       ? { replyTo: [{ emailAddress: { address: body.replyTo } }] }
       : {}),
+    internetMessageHeaders: [
+      { name: "X-InboxZero-TrackingId", value: trackingId },
+    ],
   };
 
   if (body.replyToEmail?.threadId) {
@@ -73,8 +81,9 @@ export async function sendEmailWithHtml(
       client
         .getClient()
         .api("/me/mailFolders/SentItems/messages")
-        .filter(`subject eq '${message.subject.replace(/'/g, "''")}'`)
-        .orderby("sentDateTime desc")
+        .filter(
+          `internetMessageHeaders/any(h:h/name eq 'X-InboxZero-TrackingId' and h/value eq '${trackingId}')`,
+        )
         .top(1)
         .select("id,conversationId")
         .get(),
@@ -86,7 +95,7 @@ export async function sendEmailWithHtml(
   return {
     id: sentMessage?.id || "",
     conversationId: sentMessage?.conversationId || message.conversationId,
-  } as Message;
+  };
 }
 
 export async function sendEmailWithPlainText(
