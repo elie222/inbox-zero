@@ -101,6 +101,7 @@ jobs:
         run: pnpm -F inbox-zero-ai build
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          DIRECT_URL: ${{ secrets.DIRECT_URL }}
           SKIP_ENV_VALIDATION: "true"
 
       - name: Start app server
