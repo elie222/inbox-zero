@@ -137,11 +137,14 @@ jobs:
           QSTASH_NEXT_SIGNING_KEY: ${{ secrets.QSTASH_NEXT_SIGNING_KEY }}
           # App config
           NEXT_PUBLIC_BASE_URL: "http://localhost:3000"
+          # Axiom logging
+          NEXT_PUBLIC_AXIOM_TOKEN: ${{ secrets.NEXT_PUBLIC_AXIOM_TOKEN }}
+          NEXT_PUBLIC_AXIOM_DATASET: ${{ secrets.NEXT_PUBLIC_AXIOM_DATASET }}
 
       - name: Start app server
         run: |
           cd apps/web
-          pnpm start &
+          pnpm start > server.log 2>&1 &
           # Wait for server to be ready
           echo "Waiting for app server to start..."
           SERVER_READY=false
@@ -204,6 +207,12 @@ jobs:
           NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS: ${{ secrets.NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS }}
           NEXT_PUBLIC_IS_RESEND_CONFIGURED: ${{ secrets.NEXT_PUBLIC_IS_RESEND_CONFIGURED }}
           LOG_ZOD_ERRORS: ${{ secrets.LOG_ZOD_ERRORS }}
+          LOG_TO_CONSOLE: "true"
+          # Enable debug/trace logs for E2E diagnostics
+          ENABLE_DEBUG_LOGS: "true"
+          # Axiom logging
+          NEXT_PUBLIC_AXIOM_TOKEN: ${{ secrets.NEXT_PUBLIC_AXIOM_TOKEN }}
+          NEXT_PUBLIC_AXIOM_DATASET: ${{ secrets.NEXT_PUBLIC_AXIOM_DATASET }}
 
       - name: Start ngrok tunnel
         run: |
@@ -260,6 +269,7 @@ jobs:
           name: e2e-flow-logs-${{ github.run_id }}
           path: |
             apps/web/__tests__/e2e/flows/*.log
+            apps/web/server.log
             ngrok.log
           retention-days: 7
 
