@@ -72,6 +72,7 @@ async function main() {
   program
     .command("setup")
     .description("Interactive setup for Inbox Zero")
+    .option("-n, --name <name>", "Configuration name (creates .env.<name>)")
     .action(runSetup);
 
   program
@@ -114,8 +115,9 @@ async function main() {
 // Setup Command
 // ═══════════════════════════════════════════════════════════════════════════
 
-async function runSetup() {
-  p.intro("🚀 Inbox Zero Setup");
+async function runSetup(options: { name?: string }) {
+  const configName = options.name;
+  p.intro(`🚀 Inbox Zero Setup${configName ? ` (${configName})` : ""}`);
 
   // Ask about environment mode
   const envMode = await p.select({
@@ -213,9 +215,10 @@ async function runSetup() {
 
   // Determine paths - if in repo, write to apps/web/.env, otherwise use standalone
   const configDir = REPO_ROOT ?? STANDALONE_CONFIG_DIR;
+  const envFileName = configName ? `.env.${configName}` : ".env";
   const envFile = REPO_ROOT
-    ? resolve(REPO_ROOT, "apps/web/.env")
-    : STANDALONE_ENV_FILE;
+    ? resolve(REPO_ROOT, "apps/web", envFileName)
+    : resolve(STANDALONE_CONFIG_DIR, envFileName);
   const composeFile = REPO_ROOT
     ? resolve(REPO_ROOT, "docker-compose.yml")
     : STANDALONE_COMPOSE_FILE;
