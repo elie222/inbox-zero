@@ -143,17 +143,23 @@ export async function verifyWebhookSubscription(
 }
 
 /**
- * Ensure webhook subscription is active, creating if needed
+ * Ensure webhook subscription is active and pointing to current URL
+ *
+ * For E2E tests, we ALWAYS re-register webhooks because:
+ * - The webhook URL (ngrok) may change between runs
+ * - Existing subscriptions may point to old/invalid URLs
+ * - Re-registering is idempotent for Gmail (same topic)
+ * - Re-registering updates the URL for Outlook
  */
 export async function ensureWebhookSubscription(
   account: TestAccount,
 ): Promise<void> {
-  const isActive = await verifyWebhookSubscription(account);
+  logStep("Force re-registering webhook subscription for E2E test", {
+    email: account.email,
+    provider: account.provider,
+  });
 
-  if (!isActive) {
-    logStep("Webhook subscription not active, setting up");
-    await setupTestWebhookSubscription(account);
-  } else {
-    logStep("Webhook subscription already active");
-  }
+  // Always teardown and setup fresh to ensure correct URL
+  await teardownTestWebhookSubscription(account);
+  await setupTestWebhookSubscription(account);
 }
