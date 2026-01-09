@@ -28,7 +28,6 @@ interface OutlookMessageRequest {
   replyTo?: { emailAddress: { address: string } }[];
   conversationId?: string;
   isDraft?: boolean;
-  internetMessageHeaders?: { name: string; value: string }[];
 }
 
 type SentEmailResult = Pick<Message, "id" | "conversationId">;
@@ -39,8 +38,6 @@ export async function sendEmailWithHtml(
   logger: Logger,
 ): Promise<SentEmailResult> {
   ensureEmailSendingEnabled();
-
-  const trackingId = crypto.randomUUID();
 
   const message: OutlookMessageRequest = {
     subject: body.subject,
@@ -58,9 +55,6 @@ export async function sendEmailWithHtml(
     ...(body.replyTo
       ? { replyTo: [{ emailAddress: { address: body.replyTo } }] }
       : {}),
-    internetMessageHeaders: [
-      { name: "X-InboxZero-TrackingId", value: trackingId },
-    ],
   };
 
   if (body.replyToEmail?.threadId) {
@@ -76,25 +70,13 @@ export async function sendEmailWithHtml(
     logger,
   );
 
-  const sentMessages: { value: Message[] } = await withOutlookRetry(
-    () =>
-      client
-        .getClient()
-        .api("/me/mailFolders/SentItems/messages")
-        .filter(
-          `internetMessageHeaders/any(h:h/name eq 'X-InboxZero-TrackingId' and h/value eq '${trackingId}')`,
-        )
-        .top(1)
-        .select("id,conversationId")
-        .get(),
-    logger,
-  );
-
-  const sentMessage = sentMessages.value?.[0];
-
+  // /me/sendMail returns 202 with no body, so we can't get the sent message ID.
+  // Graph doesn't support filtering by internetMessageHeaders, so we can't query for it.
+  // conversationId (threadId) is preserved - that's what matters for reply tracking.
+  // Empty id means auto-expand won't work in EmailThread, but we don't show that for Outlook.
   return {
-    id: sentMessage?.id || "",
-    conversationId: sentMessage?.conversationId || message.conversationId,
+    id: "",
+    conversationId: message.conversationId,
   };
 }
 
