@@ -8,48 +8,26 @@ import { BulkArchiveProgress } from "@/app/(app)/[emailAccountId]/bulk-archive/B
 import { BulkArchiveCards } from "@/components/BulkArchiveCards";
 import { useCategorizeProgress } from "@/app/(app)/[emailAccountId]/smart-categories/CategorizeProgress";
 import type { CategorizedSendersResponse } from "@/app/api/user/categorize/senders/categorized/route";
-import type { CategoryWithRules } from "@/utils/category.server";
 import { PageWrapper } from "@/components/PageWrapper";
 import { PageHeader } from "@/components/PageHeader";
-import { toastError } from "@/components/Toast";
+import { LoadingContent } from "@/components/LoadingContent";
 import { TooltipExplanation } from "@/components/TooltipExplanation";
 
-type Sender = {
-  id: string;
-  email: string;
-  category: { id: string; description: string | null; name: string } | null;
-};
-
-export function BulkArchive({
-  initialSenders,
-  initialCategories,
-  autoCategorizeSenders,
-}: {
-  initialSenders: Sender[];
-  initialCategories: CategoryWithRules[];
-  autoCategorizeSenders: boolean;
-}) {
+export function BulkArchive() {
   const { isBulkCategorizing } = useCategorizeProgress();
   const [onboarding] = useQueryState("onboarding", parseAsBoolean);
 
-  // Poll for updates while categorization is in progress
-  const { data, error, mutate } = useSWR<CategorizedSendersResponse>(
+  // Fetch data with SWR and poll while categorization is in progress
+  const { data, error, isLoading, mutate } = useSWR<CategorizedSendersResponse>(
     "/api/user/categorize/senders/categorized",
     {
       refreshInterval: isBulkCategorizing ? 2000 : undefined,
-      fallbackData: { senders: initialSenders, categories: initialCategories },
     },
   );
 
-  useEffect(() => {
-    if (error) {
-      toastError({ description: "Failed to load senders. Please try again." });
-    }
-  }, [error]);
-
-  // Use SWR data if available, otherwise fall back to initial server data
-  const senders = data?.senders ?? initialSenders;
-  const categories = data?.categories ?? initialCategories;
+  const senders = data?.senders ?? [];
+  const categories = data?.categories ?? [];
+  const autoCategorizeSenders = data?.autoCategorizeSenders ?? false;
 
   const emailGroups = useMemo(
     () =>
@@ -68,7 +46,7 @@ export function BulkArchive({
     onboarding || (!autoCategorizeSenders && !isBulkCategorizing);
 
   return (
-    <>
+    <LoadingContent loading={isLoading} error={error}>
       {shouldShowSetup ? (
         <AutoCategorizationSetup />
       ) : (
@@ -83,6 +61,6 @@ export function BulkArchive({
           <BulkArchiveCards emailGroups={emailGroups} categories={categories} />
         </PageWrapper>
       )}
-    </>
+    </LoadingContent>
   );
 }

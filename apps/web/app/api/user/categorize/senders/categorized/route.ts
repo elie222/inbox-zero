@@ -12,7 +12,7 @@ async function getCategorizedSenders({
 }: {
   emailAccountId: string;
 }) {
-  const [senders, categories] = await Promise.all([
+  const [senders, categories, emailAccount] = await Promise.all([
     prisma.newsletter.findMany({
       where: { emailAccountId, categoryId: { not: null } },
       select: {
@@ -22,9 +22,17 @@ async function getCategorizedSenders({
       },
     }),
     getUserCategoriesWithRules({ emailAccountId }),
+    prisma.emailAccount.findUnique({
+      where: { id: emailAccountId },
+      select: { autoCategorizeSenders: true },
+    }),
   ]);
 
-  return { senders, categories };
+  return {
+    senders,
+    categories,
+    autoCategorizeSenders: emailAccount?.autoCategorizeSenders ?? false,
+  };
 }
 
 export const GET = withEmailAccount(

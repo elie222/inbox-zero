@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useMemo } from "react";
+import useSWR from "swr";
+import sortBy from "lodash/sortBy";
 import { toast } from "sonner";
 import Link from "next/link";
 import {
@@ -21,6 +23,7 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmailCell } from "@/components/EmailCell";
+import { LoadingContent } from "@/components/LoadingContent";
 import { cn } from "@/utils";
 import {
   addToArchiveSenderQueue,
@@ -32,10 +35,10 @@ import { formatShortDate } from "@/utils/date";
 import { getEmailUrl } from "@/utils/url";
 import {
   getArchiveCandidates,
-  type EmailGroup,
   type ConfidenceLevel,
   type ArchiveCandidate,
 } from "@/utils/bulk-archive/get-archive-candidates";
+import type { CategorizedSendersResponse } from "@/app/api/user/categorize/senders/categorized/route";
 
 const confidenceConfig = {
   high: {
@@ -70,23 +73,29 @@ const confidenceConfig = {
   },
 };
 
-export function BulkArchiveTab({ emailGroups }: { emailGroups: EmailGroup[] }) {
+export function BulkArchiveTab() {
   const { emailAccountId, userEmail } = useAccount();
+
+  const { data, error, isLoading } = useSWR<CategorizedSendersResponse>(
+    "/api/user/categorize/senders/categorized",
+  );
+
+  const emailGroups = useMemo(() => {
+    if (!data) return [];
+    const sorted = sortBy(data.senders, (sender) => sender.category?.name);
+    return sorted.map((sender) => ({
+      address: sender.email,
+      category:
+        data.categories.find((c) => c.id === sender.category?.id) || null,
+    }));
+  }, [data]);
+
   const [expandedSenders, setExpandedSenders] = useState<
     Record<string, boolean>
   >({});
   const [selectedSenders, setSelectedSenders] = useState<
     Record<string, boolean>
-  >(() => {
-    // Pre-select high and medium confidence senders
-    const initial: Record<string, boolean> = {};
-    const candidates = getArchiveCandidates(emailGroups);
-    for (const candidate of candidates) {
-      initial[candidate.address] =
-        candidate.confidence === "high" || candidate.confidence === "medium";
-    }
-    return initial;
-  });
+  >({});
   const [expandedSections, setExpandedSections] = useState<
     Record<ConfidenceLevel, boolean>
   >({
@@ -96,11 +105,25 @@ export function BulkArchiveTab({ emailGroups }: { emailGroups: EmailGroup[] }) {
   });
   const [isArchiving, setIsArchiving] = useState(false);
   const [archiveComplete, setArchiveComplete] = useState(false);
+  const [hasInitializedSelection, setHasInitializedSelection] = useState(false);
 
   const candidates = useMemo(
     () => getArchiveCandidates(emailGroups),
     [emailGroups],
   );
+
+  // Initialize selection when data loads
+  useMemo(() => {
+    if (candidates.length > 0 && !hasInitializedSelection) {
+      const initial: Record<string, boolean> = {};
+      for (const candidate of candidates) {
+        initial[candidate.address] =
+          candidate.confidence === "high" || candidate.confidence === "medium";
+      }
+      setSelectedSenders(initial);
+      setHasInitializedSelection(true);
+    }
+  }, [candidates, hasInitializedSelection]);
 
   const groupedByConfidence = useMemo(() => {
     const grouped: Record<ConfidenceLevel, ArchiveCandidate[]> = {
@@ -184,6 +207,22 @@ export function BulkArchiveTab({ emailGroups }: { emailGroups: EmailGroup[] }) {
       setIsArchiving(false);
     }
   };
+
+  if (isLoading) {
+    return (
+      <div className="py-4">
+        <Skeleton className="h-48 w-full" />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <LoadingContent loading={false} error={error}>
+        {null}
+      </LoadingContent>
+    );
+  }
 
   if (archiveComplete) {
     return (
