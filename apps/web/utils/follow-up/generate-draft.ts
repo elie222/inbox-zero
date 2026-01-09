@@ -52,7 +52,6 @@ export async function generateFollowUpDraft({
     return;
   }
 
-  // The emailAccount already matches EmailAccountWithAI type
   const emailAccountWithAI: EmailAccountWithAI = emailAccount;
 
   try {

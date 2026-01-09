@@ -174,7 +174,9 @@ export async function applyThreadStatusLabel({
   logger.info("Thread status label applied successfully");
 }
 
-async function getLabelsFromDb(emailAccountId: string): Promise<LabelIds> {
+export async function getLabelsFromDb(
+  emailAccountId: string,
+): Promise<LabelIds> {
   const rules = await prisma.rule.findMany({
     where: {
       emailAccountId,
