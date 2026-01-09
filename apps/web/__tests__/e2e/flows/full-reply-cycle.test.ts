@@ -29,7 +29,7 @@ import {
   waitForDraftDeleted,
   waitForDraftSendLog,
 } from "./helpers/polling";
-import { logStep, clearLogs } from "./helpers/logging";
+import { logStep, clearLogs, setTestStartTime } from "./helpers/logging";
 import type { TestAccount } from "./helpers/accounts";
 
 describe.skipIf(!shouldRunFlowTests())("Full Reply Cycle", () => {
@@ -58,6 +58,7 @@ describe.skipIf(!shouldRunFlowTests())("Full Reply Cycle", () => {
     "Gmail sends to Outlook, rule creates draft, user sends reply, Gmail receives",
     async () => {
       testStartTime = Date.now();
+      setTestStartTime();
       const scenario = TEST_EMAIL_SCENARIOS.NEEDS_REPLY;
 
       // ========================================
@@ -248,6 +249,7 @@ describe.skipIf(!shouldRunFlowTests())("Full Reply Cycle", () => {
     "should verify thread continuity across providers",
     async () => {
       testStartTime = Date.now();
+      setTestStartTime();
 
       // ========================================
       // Send initial email

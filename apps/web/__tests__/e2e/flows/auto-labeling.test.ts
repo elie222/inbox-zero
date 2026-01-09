@@ -16,7 +16,7 @@ import { initializeFlowTests, setupFlowTest } from "./setup";
 import { generateTestSummary } from "./teardown";
 import { sendTestEmail, TEST_EMAIL_SCENARIOS } from "./helpers/email";
 import { waitForExecutedRule, waitForMessageInInbox } from "./helpers/polling";
-import { logStep, clearLogs } from "./helpers/logging";
+import { logStep, clearLogs, setTestStartTime } from "./helpers/logging";
 import type { TestAccount } from "./helpers/accounts";
 
 describe.skipIf(!shouldRunFlowTests())("Auto-Labeling", () => {
@@ -40,6 +40,7 @@ describe.skipIf(!shouldRunFlowTests())("Auto-Labeling", () => {
     "should label email that needs reply and create draft",
     async () => {
       testStartTime = Date.now();
+      setTestStartTime();
       const scenario = TEST_EMAIL_SCENARIOS.NEEDS_REPLY;
 
       // ========================================
@@ -114,6 +115,7 @@ describe.skipIf(!shouldRunFlowTests())("Auto-Labeling", () => {
     "should label FYI email without creating draft",
     async () => {
       testStartTime = Date.now();
+      setTestStartTime();
       const scenario = TEST_EMAIL_SCENARIOS.FYI_ONLY;
 
       // ========================================
@@ -182,6 +184,7 @@ describe.skipIf(!shouldRunFlowTests())("Auto-Labeling", () => {
     "should handle thank you email appropriately",
     async () => {
       testStartTime = Date.now();
+      setTestStartTime();
       const scenario = TEST_EMAIL_SCENARIOS.THANK_YOU;
 
       // ========================================
@@ -241,6 +244,7 @@ describe.skipIf(!shouldRunFlowTests())("Auto-Labeling", () => {
     "should handle question email with draft",
     async () => {
       testStartTime = Date.now();
+      setTestStartTime();
       const scenario = TEST_EMAIL_SCENARIOS.QUESTION;
 
       // ========================================

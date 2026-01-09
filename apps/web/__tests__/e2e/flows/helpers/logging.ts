@@ -6,6 +6,19 @@
 
 import { E2E_RUN_ID } from "../config";
 
+// Track test start time for elapsed time logging
+let testStartTimestamp: number | null = null;
+
+export function setTestStartTime(): void {
+  testStartTimestamp = Date.now();
+}
+
+function getElapsedTime(): string {
+  if (!testStartTimestamp) return "";
+  const elapsed = Date.now() - testStartTimestamp;
+  return `+${(elapsed / 1000).toFixed(1)}s`;
+}
+
 interface WebhookPayload {
   timestamp: Date;
   provider: "google" | "microsoft";
@@ -95,11 +108,13 @@ export function clearLogs(): void {
 }
 
 /**
- * Log a test step with context
+ * Log a test step with context and elapsed time
  */
 export function logStep(step: string, details?: Record<string, unknown>): void {
+  const elapsed = getElapsedTime();
+  const timePrefix = elapsed ? `[${elapsed}] ` : "";
   const detailStr = details ? ` - ${JSON.stringify(details)}` : "";
-  console.log(`[E2E-${E2E_RUN_ID}] ${step}${detailStr}`);
+  console.log(`[E2E-${E2E_RUN_ID}] ${timePrefix}${step}${detailStr}`);
 }
 
 /**

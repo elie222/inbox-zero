@@ -56,8 +56,14 @@ export async function pollUntil<T>(
   );
 }
 
+// Terminal statuses that indicate rule processing is complete
+const TERMINAL_STATUSES = ["APPLIED", "SKIPPED", "ERROR"];
+
 /**
- * Wait for an ExecutedRule to be created for a message
+ * Wait for an ExecutedRule to be created AND completed for a message
+ *
+ * Note: ExecutedRule starts in "APPLYING" status while actions are being executed.
+ * This function waits until it reaches a terminal status (APPLIED, SKIPPED, or ERROR).
  */
 export async function waitForExecutedRule(options: {
   messageId: string;
@@ -104,7 +110,19 @@ export async function waitForExecutedRule(options: {
         },
       });
 
-      if (!executedRule) return null;
+      if (!executedRule) {
+        logStep("ExecutedRule not found yet", { messageId });
+        return null;
+      }
+
+      // Wait for terminal status - rule processing must complete
+      if (!TERMINAL_STATUSES.includes(executedRule.status)) {
+        logStep("ExecutedRule still processing", {
+          id: executedRule.id,
+          status: executedRule.status,
+        });
+        return null;
+      }
 
       return {
         id: executedRule.id,
@@ -120,7 +138,7 @@ export async function waitForExecutedRule(options: {
     },
     {
       timeout,
-      description: `ExecutedRule for message ${messageId}`,
+      description: `ExecutedRule for message ${messageId} to reach terminal status`,
     },
   );
 }
