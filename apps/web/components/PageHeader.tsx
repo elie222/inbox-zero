@@ -15,23 +15,14 @@ interface PageHeaderProps {
   title: string;
   video?: Video;
   description?: string;
-  rightElement?: React.ReactNode;
 }
 
-export function PageHeader({
-  title,
-  video,
-  description,
-  rightElement,
-}: PageHeaderProps) {
+export function PageHeader({ title, video, description }: PageHeaderProps) {
   return (
     <div>
       <div className="flex flex-col sm:flex-row items-start sm:items-center mt-1 gap-3">
         <div>
-          <div className="flex items-center gap-2">
-            <PageHeading>{title}</PageHeading>
-            {rightElement}
-          </div>
+          <PageHeading>{title}</PageHeading>
           {description && (
             <PageSubHeading className="mt-1">{description}</PageSubHeading>
           )}

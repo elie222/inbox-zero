@@ -70,7 +70,7 @@ export function CategorizeWithAiButton({
           {buttonProps?.children || (
             <>
               <SparklesIcon className="mr-2 size-4" />
-              Categorize Senders with AI
+              Categorize
             </>
           )}
         </Button>
