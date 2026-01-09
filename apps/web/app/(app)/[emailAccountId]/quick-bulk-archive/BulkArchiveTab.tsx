@@ -85,6 +85,7 @@ export function BulkArchiveTab() {
     const sorted = sortBy(data.senders, (sender) => sender.category?.name);
     return sorted.map((sender) => ({
       address: sender.email,
+      name: sender.name,
       category:
         data.categories.find((c) => c.id === sender.category?.id) || null,
     }));
