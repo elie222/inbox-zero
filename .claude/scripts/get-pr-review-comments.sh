@@ -15,6 +15,6 @@ LIMIT="${2:-100}"
 REPO=$(gh repo view --json nameWithOwner -q .nameWithOwner)
 
 echo "=== Code review comments for $REPO PR #$PR_NUM ==="
-gh api "repos/$REPO/pulls/$PR_NUM/comments" \
+gh api "repos/$REPO/pulls/$PR_NUM/comments?per_page=$LIMIT" \
   --jq '.[] | {id, body, author: .user.login, path, line, in_reply_to_id}' \
-  | head -"$LIMIT"
+  | head -n "$LIMIT"
