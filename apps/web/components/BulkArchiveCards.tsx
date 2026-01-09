@@ -337,6 +337,7 @@ function SenderRow({
         <div className="min-w-0 flex-1">
           <EmailCell
             emailAddress={sender.address}
+            name={sender.name}
             className={cn(
               "flex flex-col",
               !isSelected && "text-muted-foreground line-through",

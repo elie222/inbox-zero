@@ -2,6 +2,7 @@ import type { CategoryWithRules } from "@/utils/category.server";
 
 export type EmailGroup = {
   address: string;
+  name: string | null;
   category: CategoryWithRules | null;
 };
 

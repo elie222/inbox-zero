@@ -18,6 +18,7 @@ async function getCategorizedSenders({
       select: {
         id: true,
         email: true,
+        name: true,
         category: { select: { id: true, description: true, name: true } },
       },
     }),

@@ -34,6 +34,7 @@ export function BulkArchive() {
     () =>
       senders.map((sender) => ({
         address: sender.email,
+        name: sender.name ?? null,
         category: categories.find((c) => c.id === sender.category?.id) || null,
       })),
     [senders, categories],
