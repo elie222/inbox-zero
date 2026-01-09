@@ -21,7 +21,7 @@ import type {
   MatchingRuleResult,
 } from "@/utils/ai/choose-rule/types";
 import { extractEmailAddress } from "@/utils/email";
-import { hasIcsAttachment } from "@/utils/parse/calender-event";
+import { isCalendarInvite } from "@/utils/parse/calender-event";
 import { checkSenderReplyHistory } from "@/utils/reply-tracker/check-sender-reply-history";
 import type { EmailProvider } from "@/utils/email/types";
 import type { ModelType } from "@/utils/llms/model";
@@ -155,9 +155,9 @@ async function findPotentialMatchingRules({
 
   // Go through all rules and collect matches and potential AI matches
   for (const rule of rules) {
-    // Special case for calendar rules
+    // Special case for calendar rules - only match with high-confidence signals
     const calendarMatch =
-      rule.systemType === SystemType.CALENDAR && hasIcsAttachment(message);
+      rule.systemType === SystemType.CALENDAR && isCalendarInvite(message);
 
     if (calendarMatch) {
       matches.push({

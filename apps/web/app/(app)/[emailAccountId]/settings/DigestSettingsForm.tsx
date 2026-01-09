@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { TimePicker } from "@/components/TimePicker";
 import { toastError, toastSuccess } from "@/components/Toast";
+import { getActionErrorMessage } from "@/utils/error";
 import { LoadingContent } from "@/components/LoadingContent";
 import { useRules } from "@/hooks/useRules";
 import { MultiSelectFilter } from "@/components/MultiSelectFilter";
@@ -116,7 +117,7 @@ export function DigestSettingsForm({ onSuccess }: { onSuccess?: () => void }) {
       onError: (error) => {
         toastError({
           title: "Error updating digest items",
-          description: error.error.serverError || "An error occurred",
+          description: getActionErrorMessage(error.error),
         });
       },
     },
@@ -131,7 +132,7 @@ export function DigestSettingsForm({ onSuccess }: { onSuccess?: () => void }) {
       onError: (error) => {
         toastError({
           title: "Error updating digest schedule",
-          description: error.error.serverError || "An error occurred",
+          description: getActionErrorMessage(error.error),
         });
       },
     },

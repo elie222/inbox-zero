@@ -6,6 +6,7 @@ import { DeleteSection } from "@/app/(app)/[emailAccountId]/settings/DeleteSecti
 import { ModelSection } from "@/app/(app)/[emailAccountId]/settings/ModelSection";
 import { MultiAccountSection } from "@/app/(app)/[emailAccountId]/settings/MultiAccountSection";
 import { ResetAnalyticsSection } from "@/app/(app)/[emailAccountId]/settings/ResetAnalyticsSection";
+import { RuleImportExportSetting } from "@/app/(app)/[emailAccountId]/assistant/settings/RuleImportExportSetting";
 import { WebhookSection } from "@/app/(app)/[emailAccountId]/settings/WebhookSection";
 import { FormSection, FormWrapper } from "@/components/Form";
 import { PageHeader } from "@/components/PageHeader";
@@ -51,22 +52,21 @@ export default function SettingsPage() {
 
         <TabsContent value="email" className="content-container mb-10">
           {emailAccount && (
-            <FormWrapper>
-              <FormSection className="py-4">
-                <SectionDescription>
-                  Settings for {emailAccount?.email}
-                </SectionDescription>
-              </FormSection>
+            <div className="mt-4">
+              <SectionDescription>
+                Manage {emailAccount?.email}
+              </SectionDescription>
 
-              <ResetAnalyticsSection />
+              <div className="space-y-2 mt-4">
+                <RuleImportExportSetting />
+                <ResetAnalyticsSection />
+              </div>
 
-              {/* this is only used in Gmail when sending a new message. disabling for now. */}
-              {/* <SignatureSectionForm signature={user.signature} /> */}
               {/* <EmailUpdatesSection
                 summaryEmailFrequency={data?.summaryEmailFrequency}
                 mutate={mutate}
               /> */}
-            </FormWrapper>
+            </div>
           )}
         </TabsContent>
       </Tabs>

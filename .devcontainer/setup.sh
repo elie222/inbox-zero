@@ -82,7 +82,6 @@ OPENAI_API_KEY=
 
 # Dev settings
 NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS=true
-LOG_ZOD_ERRORS=true
 EOF
 else
   echo ".env already exists, skipping generation (preserving your OAuth credentials)"

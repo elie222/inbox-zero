@@ -8,6 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Rules } from "@/app/(app)/[emailAccountId]/assistant/Rules";
 import { Process } from "@/app/(app)/[emailAccountId]/assistant/Process";
 import { RulesPrompt } from "@/app/(app)/[emailAccountId]/assistant/RulesPrompt";
+import { SettingsTab } from "@/app/(app)/[emailAccountId]/assistant/settings/SettingsTab";
 import { TabsToolbar } from "@/components/TabsToolbar";
 import { TypographyP } from "@/components/Typography";
 import { RuleTab } from "@/app/(app)/[emailAccountId]/assistant/RuleTab";
@@ -24,6 +25,7 @@ export function AssistantTabs() {
               <TabsTrigger value="rules">Rules</TabsTrigger>
               <TabsTrigger value="test">Test</TabsTrigger>
               <TabsTrigger value="history">History</TabsTrigger>
+              <TabsTrigger value="settings">Settings</TabsTrigger>
             </TabsList>
           </div>
           <CloseArtifactButton />
@@ -49,6 +51,9 @@ export function AssistantTabs() {
           </TabsContent>
           <TabsContent value="history" className="content-container pb-4">
             <History />
+          </TabsContent>
+          <TabsContent value="settings" className="content-container pb-4">
+            <SettingsTab />
           </TabsContent>
           {/* Set via search params. Not a visible tab. */}
           <TabsContent value="rule" className="content-container pb-4">
