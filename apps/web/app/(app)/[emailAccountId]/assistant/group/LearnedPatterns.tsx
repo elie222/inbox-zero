@@ -16,6 +16,7 @@ import { Button } from "@/components/ui/button";
 import { createGroupAction } from "@/utils/actions/group";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { toastError } from "@/components/Toast";
+import { getActionErrorMessage } from "@/utils/error";
 import { Skeleton } from "@/components/ui/skeleton";
 
 export function LearnedPatternsDialog({
@@ -47,7 +48,7 @@ export function LearnedPatternsDialog({
       },
       onError: (error) => {
         toastError({
-          description: error.error.serverError || "Unknown error",
+          description: getActionErrorMessage(error.error),
         });
       },
     },

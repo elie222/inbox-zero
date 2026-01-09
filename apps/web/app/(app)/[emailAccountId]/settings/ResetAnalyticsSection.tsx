@@ -3,7 +3,7 @@
 import { useAction } from "next-safe-action/hooks";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { FormSection, FormSectionLeft } from "@/components/Form";
+import { SettingCard } from "@/components/SettingCard";
 import { resetAnalyticsAction } from "@/utils/actions/user";
 import { useAccount } from "@/providers/EmailAccountProvider";
 
@@ -14,14 +14,12 @@ export function ResetAnalyticsSection() {
   );
 
   return (
-    <FormSection>
-      <FormSectionLeft
-        title="Reset analytics"
-        description="Reset analytics for this account. This action is not reversible. All analytics related to this account will be deleted permanently."
-      />
-
-      <div>
+    <SettingCard
+      title="Reset Analytics"
+      description="Reset analytics for this account. This action is not reversible. All analytics related to this account will be deleted permanently."
+      right={
         <Button
+          size="sm"
           variant="outline"
           onClick={async () => {
             toast.promise(() => executeResetAnalytics(), {
@@ -37,7 +35,7 @@ export function ResetAnalyticsSection() {
         >
           Reset Analytics
         </Button>
-      </div>
-    </FormSection>
+      }
+    />
   );
 }
