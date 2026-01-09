@@ -47,20 +47,17 @@ export function BulkArchive() {
 
   return (
     <LoadingContent loading={isLoading} error={error}>
-      {shouldShowSetup ? (
-        <AutoCategorizationSetup />
-      ) : (
-        <PageWrapper>
-          <PageHeader
-            title="Bulk Archive"
-            rightElement={
-              <TooltipExplanation text="Archive emails in bulk by category to quickly clean up your inbox." />
-            }
-          />
-          <BulkArchiveProgress onComplete={handleProgressComplete} />
-          <BulkArchiveCards emailGroups={emailGroups} categories={categories} />
-        </PageWrapper>
-      )}
+      <PageWrapper>
+        <PageHeader
+          title="Bulk Archive"
+          rightElement={
+            <TooltipExplanation text="Archive emails in bulk by category to quickly clean up your inbox." />
+          }
+        />
+        <BulkArchiveProgress onComplete={handleProgressComplete} />
+        <BulkArchiveCards emailGroups={emailGroups} categories={categories} />
+      </PageWrapper>
+      <AutoCategorizationSetup open={shouldShowSetup} />
     </LoadingContent>
   );
 }

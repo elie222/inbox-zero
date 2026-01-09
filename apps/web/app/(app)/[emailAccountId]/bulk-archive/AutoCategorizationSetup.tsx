@@ -3,7 +3,7 @@
 import { useState, useCallback } from "react";
 import { toastError, toastSuccess } from "@/components/Toast";
 import { ArchiveIcon, RotateCcwIcon, TagsIcon } from "lucide-react";
-import { SetupCard } from "@/components/SetupCard";
+import { SetupDialog } from "@/components/SetupCard";
 import { Button } from "@/components/ui/button";
 import { bulkCategorizeSendersAction } from "@/utils/actions/categorize";
 import { useAccount } from "@/providers/EmailAccountProvider";
@@ -29,7 +29,7 @@ const features = [
   },
 ];
 
-export function AutoCategorizationSetup() {
+export function AutoCategorizationSetup({ open }: { open: boolean }) {
   const { emailAccountId } = useAccount();
   const { setIsBulkCategorizing } = useCategorizeProgress();
 
@@ -65,7 +65,8 @@ export function AutoCategorizationSetup() {
   }, [emailAccountId, setIsBulkCategorizing]);
 
   return (
-    <SetupCard
+    <SetupDialog
+      open={open}
       imageSrc="/images/illustrations/working-vacation.svg"
       imageAlt="Bulk Archive"
       title="Bulk Archive"
@@ -75,6 +76,6 @@ export function AutoCategorizationSetup() {
       <Button onClick={enableFeature} loading={isEnabling}>
         Get Started
       </Button>
-    </SetupCard>
+    </SetupDialog>
   );
 }

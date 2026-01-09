@@ -1,3 +1,5 @@
+"use client";
+
 import type { ReactNode } from "react";
 import Image from "next/image";
 import { Card, CardFooter } from "@/components/ui/card";
@@ -9,6 +11,13 @@ import {
   ItemGroup,
   ItemTitle,
 } from "@/components/ui/item";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 type FeatureItem = {
   icon: ReactNode;
@@ -16,23 +25,55 @@ type FeatureItem = {
   description: string;
 };
 
-export function SetupCard({
-  imageSrc,
-  imageAlt,
-  title,
-  description,
-  features,
-  children,
-}: {
+type SetupContentProps = {
   imageSrc: string;
   imageAlt: string;
   title: string;
   description: string;
   features: FeatureItem[];
   children: ReactNode;
-}) {
+};
+
+export function SetupCard(props: SetupContentProps) {
   return (
     <Card className="mx-4 mt-10 max-w-lg p-6 md:mx-auto">
+      <SetupContent {...props} />
+    </Card>
+  );
+}
+
+export function SetupDialog({
+  open,
+  ...props
+}: SetupContentProps & { open: boolean }) {
+  return (
+    <Dialog open={open}>
+      <DialogContent
+        className="max-w-lg"
+        onInteractOutside={(e) => e.preventDefault()}
+        onEscapeKeyDown={(e) => e.preventDefault()}
+        hideCloseButton
+      >
+        <DialogHeader className="sr-only">
+          <DialogTitle>{props.title}</DialogTitle>
+          <DialogDescription>{props.description}</DialogDescription>
+        </DialogHeader>
+        <SetupContent {...props} />
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function SetupContent({
+  imageSrc,
+  imageAlt,
+  title,
+  description,
+  features,
+  children,
+}: SetupContentProps) {
+  return (
+    <>
       <Image
         src={imageSrc}
         alt={imageAlt}
@@ -43,13 +84,13 @@ export function SetupCard({
       />
 
       <div className="text-center">
-        <TypographyH3 className="mt-2">{title}</TypographyH3>
+        <TypographyH3>{title}</TypographyH3>
         <SectionDescription className="mx-auto mt-2 max-w-prose">
           {description}
         </SectionDescription>
       </div>
 
-      <ItemGroup className="mt-6">
+      <ItemGroup>
         {features.map((feature) => (
           <Item key={feature.title}>
             {feature.icon}
@@ -61,9 +102,9 @@ export function SetupCard({
         ))}
       </ItemGroup>
 
-      <CardFooter className="mt-6 flex flex-col items-center gap-4">
+      <CardFooter className="flex flex-col items-center gap-4 p-0">
         {children}
       </CardFooter>
-    </Card>
+    </>
   );
 }
