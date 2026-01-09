@@ -59,11 +59,13 @@ export async function categorizeSender(
 export async function updateSenderCategory({
   emailAccountId,
   sender,
+  senderName,
   categories,
   categoryName,
 }: {
   emailAccountId: string;
   sender: string;
+  senderName?: string | null;
   categories: Pick<Category, "id" | "name">[];
   categoryName: string;
 }) {
@@ -87,9 +89,13 @@ export async function updateSenderCategory({
     where: {
       email_emailAccountId: { email: sender, emailAccountId },
     },
-    update: { categoryId: category.id },
+    update: {
+      categoryId: category.id,
+      ...(senderName && { name: senderName }),
+    },
     create: {
       email: sender,
+      name: senderName,
       emailAccountId,
       categoryId: category.id,
     },
@@ -104,18 +110,22 @@ export async function updateSenderCategory({
 export async function updateCategoryForSender({
   emailAccountId,
   sender,
+  senderName,
   categoryId,
 }: {
   emailAccountId: string;
   sender: string;
+  senderName?: string | null;
   categoryId: string;
 }) {
   const email = extractEmailAddress(sender);
+
   await prisma.newsletter.upsert({
     where: { email_emailAccountId: { email, emailAccountId } },
-    update: { categoryId },
+    update: { categoryId, ...(senderName && { name: senderName }) },
     create: {
       email,
+      name: senderName,
       emailAccountId,
       categoryId,
     },

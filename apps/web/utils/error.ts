@@ -3,6 +3,7 @@ import {
   setUser,
 } from "@sentry/nextjs";
 import { APICallError, RetryError } from "ai";
+import type { FlattenedValidationErrors } from "next-safe-action";
 import { createScopedLogger, type Logger } from "@/utils/logger";
 
 export type ErrorMessage = { error: string; data?: any };
@@ -118,6 +119,20 @@ export function isInvalidOpenAIModelError(error: APICallError): boolean {
   );
 }
 
+export function isInvalidAIModelError(error: APICallError): boolean {
+  // OpenAI: "The model `xyz` does not exist or you do not have access to it"
+  if (
+    error.message.includes("does not exist or you do not have access to it")
+  ) {
+    return true;
+  }
+  // Anthropic: 404 with "not_found_error"
+  if (error.statusCode === 404 && error.message.includes("not_found_error")) {
+    return true;
+  }
+  return false;
+}
+
 export function isOpenAIAPIKeyDeactivatedError(error: APICallError): boolean {
   return error.message.includes("this API key has been deactivated");
 }
@@ -183,7 +198,7 @@ export function isKnownApiError(error: unknown): boolean {
     isOutlookThrottlingError(error) ||
     (APICallError.isInstance(error) &&
       (isIncorrectOpenAIAPIKeyError(error) ||
-        isInvalidOpenAIModelError(error) ||
+        isInvalidAIModelError(error) ||
         isOpenAIAPIKeyDeactivatedError(error) ||
         isAnthropicInsufficientBalanceError(error))) ||
     (RetryError.isInstance(error) && isAiQuotaExceededError(error))
@@ -275,4 +290,86 @@ function getStringProp(
 ): string | undefined {
   const value = obj[key];
   return typeof value === "string" ? value : undefined;
+}
+
+// --- Safe Action Error Handling ---
+
+type FlattenedErrors = FlattenedValidationErrors<Record<string, string[]>>;
+
+type SafeActionError = {
+  serverError?: string;
+  validationErrors?: FlattenedErrors;
+  bindArgsValidationErrors?: readonly (FlattenedErrors | undefined)[];
+};
+
+type ActionErrorMessageOptions = {
+  fallback?: string;
+  prefix?: string;
+};
+
+/**
+ * Extracts a user-friendly error message from a safe-action error result.
+ * Expects flattened validation errors (defaultValidationErrorsShape: "flattened").
+ *
+ * @param error - The error object from safe-action
+ * @param fallbackOrOptions - Either a fallback string, or options object with fallback/prefix
+ *
+ * @example
+ * // Simple usage
+ * getActionErrorMessage(error.error)
+ *
+ * @example
+ * // With prefix (shows "Failed to save. <error>" or just "Failed to save" if no error)
+ * getActionErrorMessage(error.error, { prefix: "Failed to save" })
+ */
+export function getActionErrorMessage(
+  error: SafeActionError,
+  fallbackOrOptions:
+    | string
+    | ActionErrorMessageOptions = "An unknown error occurred",
+): string {
+  const { fallback, prefix } =
+    typeof fallbackOrOptions === "string"
+      ? { fallback: fallbackOrOptions, prefix: undefined }
+      : {
+          fallback: fallbackOrOptions.fallback ?? "An unknown error occurred",
+          prefix: fallbackOrOptions.prefix,
+        };
+
+  const message = extractActionErrorMessage(error);
+
+  if (prefix) {
+    return message ? `${prefix}. ${message}` : prefix;
+  }
+
+  return message || fallback;
+}
+
+function extractActionErrorMessage(error: SafeActionError): string | null {
+  if (error.serverError) {
+    return error.serverError;
+  }
+
+  const messages = getValidationMessages(error.validationErrors);
+  if (messages) return messages;
+
+  if (error.bindArgsValidationErrors) {
+    for (const ve of error.bindArgsValidationErrors) {
+      const msg = getValidationMessages(ve);
+      if (msg) return msg;
+    }
+  }
+
+  return null;
+}
+
+function getValidationMessages(
+  errors: FlattenedErrors | undefined,
+): string | null {
+  if (!errors) return null;
+
+  const { formErrors, fieldErrors } = errors;
+  const all = [...formErrors, ...Object.values(fieldErrors).flat()];
+
+  return all.length > 0 ? all.join(". ") : null;
 }

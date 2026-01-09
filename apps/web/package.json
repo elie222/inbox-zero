@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "cross-env NODE_OPTIONS=--max_old_space_size=16384 next dev --turbopack",
+    "dev:e2e": "dotenv -e .env.e2e -- cross-env NODE_OPTIONS=--max_old_space_size=16384 next dev --turbopack",
     "build": "cross-env NODE_OPTIONS=--max_old_space_size=16384 prisma migrate deploy && next build",
     "start": "next start",
     "start:standalone": "node .next/standalone/server.js",
@@ -12,6 +13,8 @@
     "test": "cross-env RUN_AI_TESTS=false vitest",
     "test-ai": "cross-env RUN_AI_TESTS=true vitest --run",
     "test-e2e": "cross-env RUN_E2E_TESTS=true vitest --run",
+    "test-e2e:flows": "cross-env RUN_E2E_FLOW_TESTS=true vitest --run --dir __tests__/e2e/flows",
+    "prisma:migrate:e2e": "dotenv -e .env.e2e -- prisma migrate deploy",
     "preinstall": "npx only-allow pnpm",
     "postinstall": "prisma generate"
   },
@@ -196,6 +199,7 @@
     "autoprefixer": "10.4.22",
     "cross-env": "10.1.0",
     "dotenv": "17.2.3",
+    "dotenv-cli": "11.0.0",
     "postcss": "8.5.6",
     "serwist": "9.4.2",
     "tailwindcss": "3.4.17",

@@ -7,5 +7,6 @@ const unsubscribeKeywords = [
 ];
 
 export function containsUnsubscribeKeyword(text: string) {
-  return unsubscribeKeywords.some((keyword) => text.includes(keyword));
+  const lowerText = text.toLowerCase();
+  return unsubscribeKeywords.some((keyword) => lowerText.includes(keyword));
 }

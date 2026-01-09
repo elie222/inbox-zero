@@ -11,6 +11,7 @@ import { useEmailAccountFull } from "@/hooks/useEmailAccountFull";
 import { useAction } from "next-safe-action/hooks";
 import { updateReferralSignatureAction } from "@/utils/actions/email-account";
 import { env } from "@/env";
+import { getActionErrorMessage } from "@/utils/error";
 
 export function ReferralSignatureSetting() {
   const { data, isLoading, error, mutate } = useEmailAccountFull();
@@ -27,9 +28,9 @@ export function ReferralSignatureSetting() {
       onError: (error) => {
         mutate();
         toastError({
-          description:
-            error.error.serverError ||
-            "Failed to update referral signature setting",
+          description: getActionErrorMessage(error.error, {
+            prefix: "Failed to update referral signature setting",
+          }),
         });
       },
       onSettled: () => {

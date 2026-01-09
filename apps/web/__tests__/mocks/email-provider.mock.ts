@@ -139,7 +139,7 @@ export function createMockEmailProvider(
       .mockResolvedValue(false),
     isReplyInThread: vi.fn().mockReturnValue(false),
     isSentMessage: vi.fn().mockReturnValue(false),
-    getOrCreateOutlookFolderIdByName: vi.fn().mockResolvedValue("folder-123"),
+    getOrCreateFolderIdByName: vi.fn().mockResolvedValue("folder-123"),
     getSignatures: vi.fn().mockResolvedValue([]),
 
     // Watch/webhooks

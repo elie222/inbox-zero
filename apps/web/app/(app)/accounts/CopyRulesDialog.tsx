@@ -36,6 +36,7 @@ import { copyRulesFromAccountAction } from "@/utils/actions/rule";
 import type { RulesResponse } from "@/app/api/user/rules/route";
 import { EMAIL_ACCOUNT_HEADER } from "@/utils/config";
 import { prefixPath } from "@/utils/path";
+import { getActionErrorMessage } from "@/utils/error";
 
 type SourceAccount = {
   id: string;
@@ -95,7 +96,7 @@ export function CopyRulesDialog({
     onError: (error) => {
       toastError({
         title: "Error transferring rules",
-        description: error.error.serverError || "An unknown error occurred",
+        description: getActionErrorMessage(error.error),
       });
     },
   });
