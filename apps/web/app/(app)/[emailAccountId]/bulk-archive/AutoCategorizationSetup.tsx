@@ -2,7 +2,7 @@
 
 import { useState, useCallback } from "react";
 import { toastError, toastSuccess } from "@/components/Toast";
-import { ArchiveIcon, TagsIcon, ZapIcon } from "lucide-react";
+import { ArchiveIcon, RotateCcwIcon, TagsIcon } from "lucide-react";
 import { SetupCard } from "@/components/SetupCard";
 import { Button } from "@/components/ui/button";
 import { bulkCategorizeSendersAction } from "@/utils/actions/categorize";
@@ -12,19 +12,20 @@ import { useCategorizeProgress } from "@/app/(app)/[emailAccountId]/smart-catego
 const features = [
   {
     icon: <TagsIcon className="size-4 text-blue-500" />,
-    title: "Smart categorization",
+    title: "Sorted automatically",
     description:
-      "Automatically group senders into categories like Newsletters, Receipts, and Marketing",
+      "We group senders into categories like Newsletters, Receipts, and Marketing",
   },
   {
     icon: <ArchiveIcon className="size-4 text-blue-500" />,
-    title: "Bulk actions",
-    description: "Archive entire categories at once instead of email by email",
+    title: "Archive by category",
+    description:
+      "Clean up an entire category at once instead of one email at a time",
   },
   {
-    icon: <ZapIcon className="size-4 text-blue-500" />,
-    title: "Instant cleanup",
-    description: "Clear hundreds of emails in seconds, not hours",
+    icon: <RotateCcwIcon className="size-4 text-blue-500" />,
+    title: "Always reversible",
+    description: "Emails are archived, not deleted — you can find them anytime",
   },
 ];
 
@@ -68,7 +69,7 @@ export function AutoCategorizationSetup() {
       imageSrc="/images/illustrations/working-vacation.svg"
       imageAlt="Bulk Archive"
       title="Bulk Archive"
-      description="Clean up your inbox by archiving emails in bulk by category."
+      description="Archive thousands of emails in a few clicks."
       features={features}
     >
       <Button onClick={enableFeature} loading={isEnabling}>
