@@ -60,9 +60,14 @@ export async function setupTestWebhookSubscription(
     logStep("Webhook subscription returned no result");
     return {};
   } catch (error) {
-    logger.error("Failed to set up webhook subscription", { error });
+    const errorMessage =
+      error instanceof Error ? error.message : JSON.stringify(error, null, 2);
+    logger.error("Failed to set up webhook subscription", {
+      error: errorMessage,
+      stack: error instanceof Error ? error.stack : undefined,
+    });
     throw new Error(
-      `Failed to set up webhook subscription for ${account.email}: ${error}`,
+      `Failed to set up webhook subscription for ${account.email}: ${errorMessage}`,
     );
   }
 }
