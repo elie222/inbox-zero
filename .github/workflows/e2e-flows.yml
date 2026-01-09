@@ -100,9 +100,37 @@ jobs:
       - name: Build app
         run: pnpm -F inbox-zero-ai build
         env:
+          # Database
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           DIRECT_URL: ${{ secrets.DIRECT_URL }}
-          SKIP_ENV_VALIDATION: "true"
+          # Redis
+          UPSTASH_REDIS_URL: ${{ secrets.UPSTASH_REDIS_URL }}
+          UPSTASH_REDIS_TOKEN: ${{ secrets.UPSTASH_REDIS_TOKEN }}
+          # Google OAuth
+          GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
+          GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
+          GOOGLE_PUBSUB_TOPIC_NAME: ${{ secrets.GOOGLE_PUBSUB_TOPIC_NAME }}
+          GOOGLE_PUBSUB_VERIFICATION_TOKEN: ${{ secrets.GOOGLE_PUBSUB_VERIFICATION_TOKEN }}
+          # Microsoft OAuth
+          MICROSOFT_CLIENT_ID: ${{ secrets.MICROSOFT_CLIENT_ID }}
+          MICROSOFT_CLIENT_SECRET: ${{ secrets.MICROSOFT_CLIENT_SECRET }}
+          MICROSOFT_TENANT_ID: ${{ secrets.MICROSOFT_TENANT_ID }}
+          MICROSOFT_WEBHOOK_CLIENT_STATE: ${{ secrets.MICROSOFT_WEBHOOK_CLIENT_STATE }}
+          # LLM
+          DEFAULT_LLM_PROVIDER: ${{ secrets.DEFAULT_LLM_PROVIDER }}
+          DEFAULT_LLM_MODEL: ${{ secrets.DEFAULT_LLM_MODEL }}
+          ECONOMY_LLM_PROVIDER: ${{ secrets.ECONOMY_LLM_PROVIDER }}
+          ECONOMY_LLM_MODEL: ${{ secrets.ECONOMY_LLM_MODEL }}
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          # Auth & Security
+          AUTH_SECRET: ${{ secrets.AUTH_SECRET }}
+          EMAIL_ENCRYPT_SECRET: ${{ secrets.EMAIL_ENCRYPT_SECRET }}
+          EMAIL_ENCRYPT_SALT: ${{ secrets.EMAIL_ENCRYPT_SALT }}
+          INTERNAL_API_KEY: ${{ secrets.INTERNAL_API_KEY }}
+          API_KEY_SALT: ${{ secrets.API_KEY_SALT }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          # App config
+          NEXT_PUBLIC_BASE_URL: "http://localhost:3000"
 
       - name: Start app server
         run: |
