@@ -152,42 +152,38 @@ export async function getTestAccounts(): Promise<{
 
 /**
  * Ensure test account has premium status for AI features
+ *
+ * Uses the app's existing premium upgrade logic to ensure consistency
+ * with how real users get upgraded.
  */
 export async function ensureTestPremium(userId: string): Promise<void> {
   logStep("Ensuring premium status", { userId });
 
-  const user = await prisma.user.findUniqueOrThrow({
-    where: { id: userId },
-    include: { premium: true },
-  });
+  // Import dynamically to avoid circular dependency issues
+  const { upgradeToPremiumLemon } = await import("@/utils/premium/server");
+  const { PremiumTier } = await import("@/generated/prisma/enums");
 
   // Clear any existing aiApiKey to use env defaults
   await prisma.user.update({
-    where: { id: user.id },
+    where: { id: userId },
     data: { aiApiKey: null },
   });
 
-  if (!user.premium) {
-    const premium = await prisma.premium.create({
-      data: {
-        tier: "BUSINESS_MONTHLY",
-        stripeSubscriptionStatus: "active",
-      },
-    });
+  // Use the app's upgrade function with a far-future expiration date for testing
+  const TEN_YEARS_MS = 10 * 365 * 24 * 60 * 60 * 1000;
 
-    await prisma.user.update({
-      where: { id: user.id },
-      data: { premiumId: premium.id },
-    });
-  } else {
-    await prisma.premium.update({
-      where: { id: user.premium.id },
-      data: {
-        stripeSubscriptionStatus: "active",
-        tier: "BUSINESS_MONTHLY",
-      },
-    });
-  }
+  await upgradeToPremiumLemon({
+    userId,
+    tier: PremiumTier.BUSINESS_PLUS_MONTHLY,
+    lemonSqueezyRenewsAt: new Date(Date.now() + TEN_YEARS_MS),
+    // These fields are null since this is a test upgrade, not a real subscription
+    lemonSqueezySubscriptionId: null,
+    lemonSqueezySubscriptionItemId: null,
+    lemonSqueezyOrderId: null,
+    lemonSqueezyCustomerId: null,
+    lemonSqueezyProductId: null,
+    lemonSqueezyVariantId: null,
+  });
 
   logStep("Premium status ensured");
 }
