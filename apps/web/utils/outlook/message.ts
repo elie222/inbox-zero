@@ -433,7 +433,7 @@ export async function getMessage(
 
   const folderIds = await getFolderIds(client, logger);
 
-  return convertMessage(message, folderIds);
+  return convertMessage(message, folderIds, logger);
 }
 
 export async function getMessages(
@@ -520,12 +520,24 @@ function formatRecipientsList(
 export function convertMessage(
   message: Message,
   folderIds: Record<string, string> = {},
+  logger?: Logger,
 ): ParsedMessage {
   const bodyContent = message.body?.content || "";
   const bodyType = message.body?.contentType?.toLowerCase() as
     | "text"
     | "html"
     | undefined;
+
+  const labelIds = getOutlookLabels(message, folderIds);
+
+  logger?.trace("Converting Outlook message", () => ({
+    messageId: message.id,
+    subject: message.subject,
+    isDraft: message.isDraft,
+    parentFolderId: message.parentFolderId,
+    folderIds,
+    labelIds,
+  }));
 
   return {
     id: message.id || "",
@@ -547,7 +559,7 @@ export function convertMessage(
     },
     subject: message.subject || "",
     date: message.receivedDateTime || new Date().toISOString(),
-    labelIds: getOutlookLabels(message, folderIds),
+    labelIds,
     internalDate: message.receivedDateTime || new Date().toISOString(),
     historyId: "",
     inline: [],
