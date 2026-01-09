@@ -21,20 +21,51 @@ export default function RequestAccessPage() {
       <div className="mx-auto max-w-2xl space-y-4 sm:space-y-8">
         <EarlyAccessFeatures />
         {isGoogleProvider(provider) && (
-          <Card>
-            <CardHeader>
-              <CardTitle>Sender Categories</CardTitle>
-              <CardDescription>
-                Sender Categories is a feature that allows you to categorize
-                emails by sender, and take bulk actions or apply rules to them.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Button asChild>
-                <Link href="/smart-categories">Sender Categories</Link>
-              </Button>
-            </CardContent>
-          </Card>
+          <>
+            <Card>
+              <CardHeader>
+                <CardTitle>Sender Categories</CardTitle>
+                <CardDescription>
+                  Sender Categories is a feature that allows you to categorize
+                  emails by sender, and take bulk actions or apply rules to
+                  them.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Button asChild>
+                  <Link href="/smart-categories">Sender Categories</Link>
+                </Button>
+              </CardContent>
+            </Card>
+            {/* <Card>
+              <CardHeader>
+                <CardTitle>Bulk Archive</CardTitle>
+                <CardDescription>
+                  Archive emails from multiple senders at once, organized by
+                  category.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Button asChild>
+                  <Link href="/bulk-archive">Bulk Archive</Link>
+                </Button>
+              </CardContent>
+            </Card> */}
+            {/* <Card>
+              <CardHeader>
+                <CardTitle>Quick Bulk Archive</CardTitle>
+                <CardDescription>
+                  Quickly archive emails from multiple senders at once, grouped
+                  by AI confidence level.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Button asChild>
+                  <Link href="/quick-bulk-archive">Quick Bulk Archive</Link>
+                </Button>
+              </CardContent>
+            </Card> */}
+          </>
         )}
         <Card>
           <CardHeader>

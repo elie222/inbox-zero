@@ -72,9 +72,18 @@ export async function publishToQstashQueue<T>({
   const client = getQstashClient();
 
   if (client) {
-    const queue = client.queue({ queueName });
-    queue.upsert({ parallelism });
-    return await queue.enqueueJSON({ url, body, headers });
+    try {
+      const queue = client.queue({ queueName });
+      await queue.upsert({ parallelism });
+      return await queue.enqueueJSON({ url, body, headers });
+    } catch (error) {
+      logger.error("Failed to publish to Qstash queue", {
+        url,
+        queueName,
+        error,
+      });
+      throw error;
+    }
   }
 
   return fallbackPublishToQstash<T>(url, body);
