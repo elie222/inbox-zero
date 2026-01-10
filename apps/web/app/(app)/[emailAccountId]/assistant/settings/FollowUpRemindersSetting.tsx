@@ -19,11 +19,14 @@ import {
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Toggle } from "@/components/Toggle";
+import { Badge } from "@/components/Badge";
 import { useEmailAccountFull } from "@/hooks/useEmailAccountFull";
 import { useFollowUpRemindersEnabled } from "@/hooks/useFeatureFlags";
+import { useAccount } from "@/providers/EmailAccountProvider";
 import { useAction } from "next-safe-action/hooks";
 import { updateFollowUpSettingsAction } from "@/utils/actions/follow-up-reminders";
 import { toastError, toastSuccess } from "@/components/Toast";
+import { getEmailTerminology } from "@/utils/terminology";
 
 const dayOptions = [
   { value: "1", label: "1 day" },
@@ -44,6 +47,8 @@ export function FollowUpRemindersSetting() {
 function FollowUpRemindersSettingContent() {
   const [open, setOpen] = useState(false);
   const { data, mutate } = useEmailAccountFull();
+  const { provider } = useAccount();
+  const terminology = getEmailTerminology(provider);
 
   const enabled = data?.followUpRemindersEnabled ?? false;
   const awaitingDays = data?.followUpAwaitingReplyDays ?? 3;
@@ -166,17 +171,19 @@ function FollowUpRemindersSettingContent() {
               </DialogTrigger>
               <DialogContent>
                 <DialogHeader>
-                  <DialogTitle>Follow-up Reminder Settings</DialogTitle>
+                  <DialogTitle>Follow-up Reminders</DialogTitle>
                   <DialogDescription>
-                    Configure when to receive follow-up reminders for your
-                    conversations.
+                    Get reminded about conversations that need attention.
+                    <br />
+                    We'll add a <Badge color="blue">Follow-up</Badge>{" "}
+                    {terminology.label.singular} so you can easily find them.
                   </DialogDescription>
                 </DialogHeader>
 
-                <div className="space-y-6 py-4">
-                  <div className="space-y-2">
+                <div className="space-y-4">
+                  <div className="space-y-1">
                     <Label htmlFor="awaiting-days">
-                      Remind me when I haven't heard back
+                      Remind me when I haven't heard back after
                     </Label>
                     <Select
                       value={awaitingDays.toString()}
@@ -196,15 +203,11 @@ function FollowUpRemindersSettingContent() {
                         ))}
                       </SelectContent>
                     </Select>
-                    <p className="text-muted-foreground text-sm">
-                      A "Follow-up" label will be added to threads where you're
-                      awaiting a reply.
-                    </p>
                   </div>
 
-                  <div className="space-y-2">
+                  <div className="space-y-1">
                     <Label htmlFor="needs-reply-days">
-                      Remind me when I haven't replied
+                      Remind me when I haven't replied after
                     </Label>
                     <Select
                       value={needsReplyDays.toString()}
@@ -224,20 +227,15 @@ function FollowUpRemindersSettingContent() {
                         ))}
                       </SelectContent>
                     </Select>
-                    <p className="text-muted-foreground text-sm">
-                      A "Follow-up" label will be added to threads where you
-                      need to reply.
-                    </p>
                   </div>
 
                   <div className="flex items-center justify-between">
-                    <div className="space-y-1">
+                    <div>
                       <Label htmlFor="auto-draft-enabled">
-                        Auto-generate follow-up drafts
+                        Auto-generate drafts
                       </Label>
                       <p className="text-muted-foreground text-sm">
-                        Automatically create draft replies for threads awaiting
-                        a response.
+                        Draft a nudge when you haven't heard back.
                       </p>
                     </div>
                     <Toggle
