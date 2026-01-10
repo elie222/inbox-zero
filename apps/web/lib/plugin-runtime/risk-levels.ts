@@ -97,6 +97,14 @@ export const CAPABILITY_RISK: Record<PluginCapability, CapabilityInfo> = {
     risk: "elevated",
     description: "Create and modify calendar events",
   },
+  "chat:tool": {
+    risk: "standard",
+    description: "Provide tools for AI chat interactions",
+  },
+  "chat:context": {
+    risk: "standard",
+    description: "Provide context for AI chat conversations",
+  },
 };
 
 /**

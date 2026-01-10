@@ -223,7 +223,7 @@ export default function PluginDetailPage() {
                         Min Inbox Zero Version
                       </dt>
                       <dd className="mt-1 text-sm text-foreground">
-                        {plugin.inboxZero.minVersion}
+                        {plugin.inbox_zero.minVersion}
                       </dd>
                     </div>
                   </dl>

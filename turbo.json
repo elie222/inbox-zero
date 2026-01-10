@@ -140,7 +140,11 @@
         "FEATURE_PLUGINS_ENABLED",
         "PLUGINS_USER_INSTALL_ENABLED",
         "PLUGINS_ALLOWED_LIST",
-        "FEATURE_PLUGIN_ADMIN_UI"
+        "FEATURE_PLUGIN_ADMIN_UI",
+
+        "FEATURE_LLM_RATE_LIMIT",
+        "LLM_RPM_CORE",
+        "LLM_TPM_CORE"
       ],
       "outputs": [".next/**", "!.next/cache/**"]
     },

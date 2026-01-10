@@ -64,6 +64,11 @@ export const env = createEnv({
 
     OPENAI_ZERO_DATA_RETENTION: z.coerce.boolean().optional().default(false),
 
+    // LLM rate limiting (requires Redis)
+    FEATURE_LLM_RATE_LIMIT: z.coerce.boolean().optional().default(false),
+    LLM_RPM_CORE: z.coerce.number().optional(), // requests per minute for core
+    LLM_TPM_CORE: z.coerce.number().optional(), // tokens per minute for core
+
     UPSTASH_REDIS_URL: z.string().optional(),
     UPSTASH_REDIS_TOKEN: z.string().optional(),
     REDIS_URL: z.string().optional(), // used for subscriptions
