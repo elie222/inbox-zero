@@ -69,15 +69,31 @@ describe.skipIf(!shouldRunFlowTests())("Draft Cleanup", () => {
         timeout: TIMEOUTS.EMAIL_DELIVERY,
       });
 
+      logStep("Email received in Outlook", {
+        messageId: receivedMessage.messageId,
+        threadId: receivedMessage.threadId,
+      });
+
       // ========================================
       // Step 2: Wait for AI draft to be created
       // ========================================
-      logStep("Step 2: Waiting for AI draft creation");
+      logStep("Step 2: Waiting for AI draft creation", {
+        threadId: receivedMessage.threadId,
+      });
 
       const executedRule = await waitForExecutedRule({
-        messageId: receivedMessage.messageId,
+        threadId: receivedMessage.threadId,
         emailAccountId: outlook.id,
         timeout: TIMEOUTS.WEBHOOK_PROCESSING,
+      });
+
+      logStep("ExecutedRule found", {
+        executedRuleId: executedRule.id,
+        executedRuleMessageId: executedRule.messageId,
+        inboxMessageId: receivedMessage.messageId,
+        messageIdMatch: executedRule.messageId === receivedMessage.messageId,
+        status: executedRule.status,
+        actionItems: executedRule.actionItems.length,
       });
 
       const draftAction = executedRule.actionItems.find(
@@ -86,7 +102,6 @@ describe.skipIf(!shouldRunFlowTests())("Draft Cleanup", () => {
 
       expect(draftAction).toBeDefined();
       expect(draftAction?.draftId).toBeTruthy();
-      // Safe to use ! after the assertions above
       const aiDraftId = draftAction!.draftId!;
 
       logStep("AI draft created", { draftId: aiDraftId });
@@ -174,18 +189,35 @@ describe.skipIf(!shouldRunFlowTests())("Draft Cleanup", () => {
         timeout: TIMEOUTS.EMAIL_DELIVERY,
       });
 
-      // Wait for first draft
-      const firstRule = await waitForExecutedRule({
+      logStep("Email received in Outlook", {
         messageId: firstReceived.messageId,
+        threadId: firstReceived.threadId,
+      });
+
+      // Wait for first draft
+      logStep("Waiting for rule execution", {
+        threadId: firstReceived.threadId,
+      });
+
+      const firstRule = await waitForExecutedRule({
+        threadId: firstReceived.threadId,
         emailAccountId: outlook.id,
         timeout: TIMEOUTS.WEBHOOK_PROCESSING,
+      });
+
+      logStep("ExecutedRule found", {
+        executedRuleId: firstRule.id,
+        executedRuleMessageId: firstRule.messageId,
+        inboxMessageId: firstReceived.messageId,
+        messageIdMatch: firstRule.messageId === firstReceived.messageId,
+        status: firstRule.status,
+        actionItems: firstRule.actionItems.length,
       });
 
       const firstDraftAction = firstRule.actionItems.find(
         (a) => a.type === "DRAFT_EMAIL" && a.draftId,
       );
 
-      // Assert draft was created - this test requires a draft
       expect(firstDraftAction?.draftId).toBeTruthy();
       const firstDraftId = firstDraftAction!.draftId!;
       logStep("First draft created", { draftId: firstDraftId });
@@ -253,17 +285,34 @@ describe.skipIf(!shouldRunFlowTests())("Draft Cleanup", () => {
         timeout: TIMEOUTS.EMAIL_DELIVERY,
       });
 
-      const executedRule = await waitForExecutedRule({
+      logStep("Email received in Outlook", {
         messageId: receivedMessage.messageId,
+        threadId: receivedMessage.threadId,
+      });
+
+      logStep("Waiting for rule execution", {
+        threadId: receivedMessage.threadId,
+      });
+
+      const executedRule = await waitForExecutedRule({
+        threadId: receivedMessage.threadId,
         emailAccountId: outlook.id,
         timeout: TIMEOUTS.WEBHOOK_PROCESSING,
+      });
+
+      logStep("ExecutedRule found", {
+        executedRuleId: executedRule.id,
+        executedRuleMessageId: executedRule.messageId,
+        inboxMessageId: receivedMessage.messageId,
+        messageIdMatch: executedRule.messageId === receivedMessage.messageId,
+        status: executedRule.status,
+        actionItems: executedRule.actionItems.length,
       });
 
       const draftAction = executedRule.actionItems.find(
         (a) => a.type === "DRAFT_EMAIL" && a.draftId,
       );
 
-      // This test requires a draft to be created
       expect(draftAction?.draftId).toBeTruthy();
 
       const aiDraftId = draftAction!.draftId!;

@@ -62,19 +62,35 @@ describe.skipIf(!shouldRunFlowTests())("Auto-Labeling", () => {
         timeout: TIMEOUTS.EMAIL_DELIVERY,
       });
 
+      logStep("Email received in Outlook", {
+        messageId: outlookMessage.messageId,
+        threadId: outlookMessage.threadId,
+      });
+
       // ========================================
       // Wait for rule execution
       // ========================================
-      logStep("Waiting for rule execution");
+      logStep("Waiting for rule execution", {
+        threadId: outlookMessage.threadId,
+      });
 
       const executedRule = await waitForExecutedRule({
-        messageId: outlookMessage.messageId,
+        threadId: outlookMessage.threadId,
         emailAccountId: outlook.id,
         timeout: TIMEOUTS.WEBHOOK_PROCESSING,
       });
 
       expect(executedRule).toBeDefined();
       expect(executedRule.status).toBe("APPLIED");
+
+      logStep("ExecutedRule found", {
+        executedRuleId: executedRule.id,
+        executedRuleMessageId: executedRule.messageId,
+        inboxMessageId: outlookMessage.messageId,
+        messageIdMatch: executedRule.messageId === outlookMessage.messageId,
+        status: executedRule.status,
+        actionItems: executedRule.actionItems.length,
+      });
 
       // ========================================
       // Verify draft was created (needs reply = should draft)
@@ -137,18 +153,34 @@ describe.skipIf(!shouldRunFlowTests())("Auto-Labeling", () => {
         timeout: TIMEOUTS.EMAIL_DELIVERY,
       });
 
+      logStep("Email received in Outlook", {
+        messageId: outlookMessage.messageId,
+        threadId: outlookMessage.threadId,
+      });
+
       // ========================================
       // Wait for rule execution
       // ========================================
-      logStep("Waiting for rule execution");
+      logStep("Waiting for rule execution", {
+        threadId: outlookMessage.threadId,
+      });
 
       const executedRule = await waitForExecutedRule({
-        messageId: outlookMessage.messageId,
+        threadId: outlookMessage.threadId,
         emailAccountId: outlook.id,
         timeout: TIMEOUTS.WEBHOOK_PROCESSING,
       });
 
       expect(executedRule).toBeDefined();
+
+      logStep("ExecutedRule found", {
+        executedRuleId: executedRule.id,
+        executedRuleMessageId: executedRule.messageId,
+        inboxMessageId: outlookMessage.messageId,
+        messageIdMatch: executedRule.messageId === outlookMessage.messageId,
+        status: executedRule.status,
+        actionItems: executedRule.actionItems.length,
+      });
 
       // ========================================
       // Verify NO draft was created for FYI email
@@ -206,18 +238,34 @@ describe.skipIf(!shouldRunFlowTests())("Auto-Labeling", () => {
         timeout: TIMEOUTS.EMAIL_DELIVERY,
       });
 
+      logStep("Email received in Outlook", {
+        messageId: outlookMessage.messageId,
+        threadId: outlookMessage.threadId,
+      });
+
       // ========================================
       // Wait for rule execution
       // ========================================
-      logStep("Waiting for rule execution");
+      logStep("Waiting for rule execution", {
+        threadId: outlookMessage.threadId,
+      });
 
       const executedRule = await waitForExecutedRule({
-        messageId: outlookMessage.messageId,
+        threadId: outlookMessage.threadId,
         emailAccountId: outlook.id,
         timeout: TIMEOUTS.WEBHOOK_PROCESSING,
       });
 
       expect(executedRule).toBeDefined();
+
+      logStep("ExecutedRule found", {
+        executedRuleId: executedRule.id,
+        executedRuleMessageId: executedRule.messageId,
+        inboxMessageId: outlookMessage.messageId,
+        messageIdMatch: executedRule.messageId === outlookMessage.messageId,
+        status: executedRule.status,
+        actionItems: executedRule.actionItems.length,
+      });
 
       // ========================================
       // Verify processing
@@ -266,18 +314,34 @@ describe.skipIf(!shouldRunFlowTests())("Auto-Labeling", () => {
         timeout: TIMEOUTS.EMAIL_DELIVERY,
       });
 
+      logStep("Email received in Outlook", {
+        messageId: outlookMessage.messageId,
+        threadId: outlookMessage.threadId,
+      });
+
       // ========================================
       // Wait for rule execution
       // ========================================
-      logStep("Waiting for rule execution");
+      logStep("Waiting for rule execution", {
+        threadId: outlookMessage.threadId,
+      });
 
       const executedRule = await waitForExecutedRule({
-        messageId: outlookMessage.messageId,
+        threadId: outlookMessage.threadId,
         emailAccountId: outlook.id,
         timeout: TIMEOUTS.WEBHOOK_PROCESSING,
       });
 
       expect(executedRule).toBeDefined();
+
+      logStep("ExecutedRule found", {
+        executedRuleId: executedRule.id,
+        executedRuleMessageId: executedRule.messageId,
+        inboxMessageId: outlookMessage.messageId,
+        messageIdMatch: executedRule.messageId === outlookMessage.messageId,
+        status: executedRule.status,
+        actionItems: executedRule.actionItems.length,
+      });
 
       // ========================================
       // Verify draft created for question

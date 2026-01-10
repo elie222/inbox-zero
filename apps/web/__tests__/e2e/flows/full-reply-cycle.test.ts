@@ -99,10 +99,12 @@ describe.skipIf(!shouldRunFlowTests())("Full Reply Cycle", () => {
       // ========================================
       // Step 3: Wait for rule execution
       // ========================================
-      logStep("Step 3: Waiting for rule execution");
+      logStep("Step 3: Waiting for rule execution", {
+        threadId: outlookMessage.threadId,
+      });
 
       const executedRule = await waitForExecutedRule({
-        messageId: outlookMessage.messageId,
+        threadId: outlookMessage.threadId,
         emailAccountId: outlook.id,
         timeout: TIMEOUTS.WEBHOOK_PROCESSING,
       });
@@ -110,7 +112,11 @@ describe.skipIf(!shouldRunFlowTests())("Full Reply Cycle", () => {
       expect(executedRule).toBeDefined();
       expect(executedRule.status).toBe("APPLIED");
 
-      logStep("Rule executed", {
+      logStep("ExecutedRule found", {
+        executedRuleId: executedRule.id,
+        executedRuleMessageId: executedRule.messageId,
+        inboxMessageId: outlookMessage.messageId,
+        messageIdMatch: executedRule.messageId === outlookMessage.messageId,
         ruleId: executedRule.ruleId,
         status: executedRule.status,
         actionItems: executedRule.actionItems.length,
