@@ -11,7 +11,7 @@
  */
 
 import { describe, test, expect, beforeAll, afterEach } from "vitest";
-import { shouldRunFlowTests, TIMEOUTS, getTestSubjectPrefix } from "./config";
+import { shouldRunFlowTests, TIMEOUTS } from "./config";
 import { initializeFlowTests, setupFlowTest } from "./setup";
 import { generateTestSummary } from "./teardown";
 import { sendTestEmail, TEST_EMAIL_SCENARIOS } from "./helpers/email";
@@ -48,17 +48,17 @@ describe.skipIf(!shouldRunFlowTests())("Auto-Labeling", () => {
       // ========================================
       logStep("Sending email that needs reply");
 
-      await sendTestEmail({
+      const sentEmail = await sendTestEmail({
         from: gmail,
         to: outlook,
         subject: scenario.subject,
         body: scenario.body,
       });
 
-      // Wait for Outlook to receive
+      // Wait for Outlook to receive - use fullSubject for unique match across tests
       const outlookMessage = await waitForMessageInInbox({
         provider: outlook.emailProvider,
-        subjectContains: getTestSubjectPrefix(),
+        subjectContains: sentEmail.fullSubject,
         timeout: TIMEOUTS.EMAIL_DELIVERY,
       });
 
@@ -123,17 +123,17 @@ describe.skipIf(!shouldRunFlowTests())("Auto-Labeling", () => {
       // ========================================
       logStep("Sending FYI email");
 
-      await sendTestEmail({
+      const sentEmail = await sendTestEmail({
         from: gmail,
         to: outlook,
         subject: scenario.subject,
         body: scenario.body,
       });
 
-      // Wait for Outlook to receive
+      // Wait for Outlook to receive - use fullSubject for unique match across tests
       const outlookMessage = await waitForMessageInInbox({
         provider: outlook.emailProvider,
-        subjectContains: getTestSubjectPrefix(),
+        subjectContains: sentEmail.fullSubject,
         timeout: TIMEOUTS.EMAIL_DELIVERY,
       });
 
@@ -192,17 +192,17 @@ describe.skipIf(!shouldRunFlowTests())("Auto-Labeling", () => {
       // ========================================
       logStep("Sending thank you email");
 
-      await sendTestEmail({
+      const sentEmail = await sendTestEmail({
         from: gmail,
         to: outlook,
         subject: scenario.subject,
         body: scenario.body,
       });
 
-      // Wait for Outlook to receive
+      // Wait for Outlook to receive - use fullSubject for unique match across tests
       const outlookMessage = await waitForMessageInInbox({
         provider: outlook.emailProvider,
-        subjectContains: getTestSubjectPrefix(),
+        subjectContains: sentEmail.fullSubject,
         timeout: TIMEOUTS.EMAIL_DELIVERY,
       });
 
@@ -252,17 +252,17 @@ describe.skipIf(!shouldRunFlowTests())("Auto-Labeling", () => {
       // ========================================
       logStep("Sending question email");
 
-      await sendTestEmail({
+      const sentEmail = await sendTestEmail({
         from: gmail,
         to: outlook,
         subject: scenario.subject,
         body: scenario.body,
       });
 
-      // Wait for Outlook to receive
+      // Wait for Outlook to receive - use fullSubject for unique match across tests
       const outlookMessage = await waitForMessageInInbox({
         provider: outlook.emailProvider,
-        subjectContains: getTestSubjectPrefix(),
+        subjectContains: sentEmail.fullSubject,
         timeout: TIMEOUTS.EMAIL_DELIVERY,
       });
 
