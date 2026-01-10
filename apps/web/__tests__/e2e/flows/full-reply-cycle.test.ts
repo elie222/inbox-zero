@@ -14,7 +14,7 @@
  */
 
 import { describe, test, expect, beforeAll, afterAll, afterEach } from "vitest";
-import { shouldRunFlowTests, TIMEOUTS, getTestSubjectPrefix } from "./config";
+import { shouldRunFlowTests, TIMEOUTS } from "./config";
 import { initializeFlowTests, setupFlowTest } from "./setup";
 import { generateTestSummary } from "./teardown";
 import {
@@ -84,10 +84,10 @@ describe.skipIf(!shouldRunFlowTests())("Full Reply Cycle", () => {
       // ========================================
       logStep("Step 2: Waiting for Outlook to receive email");
 
-      // Wait for message to appear in Outlook inbox
+      // Wait for message to appear in Outlook inbox - use fullSubject for unique match
       const outlookMessage = await waitForMessageInInbox({
         provider: outlook.emailProvider,
-        subjectContains: getTestSubjectPrefix(),
+        subjectContains: sentEmail.fullSubject,
         timeout: TIMEOUTS.EMAIL_DELIVERY,
       });
 
@@ -190,9 +190,7 @@ describe.skipIf(!shouldRunFlowTests())("Full Reply Cycle", () => {
 
       const gmailReply = await waitForMessageInInbox({
         provider: gmail.emailProvider,
-        subjectContains: sentEmail.fullSubject
-          .replace(getTestSubjectPrefix(), "")
-          .trim(),
+        subjectContains: sentEmail.fullSubject,
         timeout: TIMEOUTS.EMAIL_DELIVERY,
       });
 
@@ -263,10 +261,10 @@ describe.skipIf(!shouldRunFlowTests())("Full Reply Cycle", () => {
         body: "This is the first message in the thread.",
       });
 
-      // Wait for Outlook to receive
+      // Wait for Outlook to receive - use fullSubject for unique match
       const outlookMsg1 = await waitForMessageInInbox({
         provider: outlook.emailProvider,
-        subjectContains: getTestSubjectPrefix(),
+        subjectContains: initialEmail.fullSubject,
         timeout: TIMEOUTS.EMAIL_DELIVERY,
       });
 

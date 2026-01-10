@@ -11,7 +11,7 @@
  */
 
 import { describe, test, expect, beforeAll, afterEach } from "vitest";
-import { shouldRunFlowTests, TIMEOUTS, getTestSubjectPrefix } from "./config";
+import { shouldRunFlowTests, TIMEOUTS } from "./config";
 import { initializeFlowTests, setupFlowTest } from "./setup";
 import { generateTestSummary } from "./teardown";
 import {
@@ -56,7 +56,7 @@ describe.skipIf(!shouldRunFlowTests())("Draft Cleanup", () => {
       // ========================================
       logStep("Step 1: Sending email that needs reply");
 
-      await sendTestEmail({
+      const sentEmail = await sendTestEmail({
         from: gmail,
         to: outlook,
         subject: scenario.subject,
@@ -65,7 +65,7 @@ describe.skipIf(!shouldRunFlowTests())("Draft Cleanup", () => {
 
       const receivedMessage = await waitForMessageInInbox({
         provider: outlook.emailProvider,
-        subjectContains: getTestSubjectPrefix(),
+        subjectContains: sentEmail.fullSubject,
         timeout: TIMEOUTS.EMAIL_DELIVERY,
       });
 
@@ -161,7 +161,7 @@ describe.skipIf(!shouldRunFlowTests())("Draft Cleanup", () => {
       // ========================================
       logStep("Setting up thread with multiple messages");
 
-      await sendTestEmail({
+      const sentEmail = await sendTestEmail({
         from: gmail,
         to: outlook,
         subject: "Multi-draft cleanup test",
@@ -170,7 +170,7 @@ describe.skipIf(!shouldRunFlowTests())("Draft Cleanup", () => {
 
       const firstReceived = await waitForMessageInInbox({
         provider: outlook.emailProvider,
-        subjectContains: getTestSubjectPrefix(),
+        subjectContains: sentEmail.fullSubject,
         timeout: TIMEOUTS.EMAIL_DELIVERY,
       });
 
@@ -240,7 +240,7 @@ describe.skipIf(!shouldRunFlowTests())("Draft Cleanup", () => {
       // ========================================
       logStep("Sending email and waiting for draft");
 
-      await sendTestEmail({
+      const sentEmail = await sendTestEmail({
         from: gmail,
         to: outlook,
         subject: scenario.subject,
@@ -249,7 +249,7 @@ describe.skipIf(!shouldRunFlowTests())("Draft Cleanup", () => {
 
       const receivedMessage = await waitForMessageInInbox({
         provider: outlook.emailProvider,
-        subjectContains: getTestSubjectPrefix(),
+        subjectContains: sentEmail.fullSubject,
         timeout: TIMEOUTS.EMAIL_DELIVERY,
       });
 
