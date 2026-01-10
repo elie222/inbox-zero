@@ -1,8 +1,23 @@
 "use server";
 
 import { actionClient } from "@/utils/actions/safe-action";
-import { saveFollowUpSettingsBody } from "@/utils/actions/follow-up-reminders.validation";
+import {
+  toggleFollowUpRemindersBody,
+  saveFollowUpSettingsBody,
+} from "@/utils/actions/follow-up-reminders.validation";
 import prisma from "@/utils/prisma";
+
+export const toggleFollowUpRemindersAction = actionClient
+  .metadata({ name: "toggleFollowUpReminders" })
+  .inputSchema(toggleFollowUpRemindersBody)
+  .action(async ({ ctx: { emailAccountId }, parsedInput: { enabled } }) => {
+    await prisma.emailAccount.update({
+      where: { id: emailAccountId },
+      data: { followUpRemindersEnabled: enabled },
+    });
+
+    return { success: true };
+  });
 
 export const updateFollowUpSettingsAction = actionClient
   .metadata({ name: "updateFollowUpSettings" })
@@ -11,7 +26,6 @@ export const updateFollowUpSettingsAction = actionClient
     async ({
       ctx: { emailAccountId },
       parsedInput: {
-        followUpRemindersEnabled,
         followUpAwaitingReplyDays,
         followUpNeedsReplyDays,
         followUpAutoDraftEnabled,
@@ -20,7 +34,6 @@ export const updateFollowUpSettingsAction = actionClient
       await prisma.emailAccount.update({
         where: { id: emailAccountId },
         data: {
-          followUpRemindersEnabled,
           followUpAwaitingReplyDays,
           followUpNeedsReplyDays,
           followUpAutoDraftEnabled,
