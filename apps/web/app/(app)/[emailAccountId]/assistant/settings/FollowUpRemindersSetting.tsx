@@ -183,7 +183,7 @@ function FollowUpRemindersSettingContent() {
                 <div className="space-y-4">
                   <div className="space-y-1">
                     <Label htmlFor="awaiting-days">
-                      Remind me when I haven't heard back after
+                      Remind me when they haven't replied after
                     </Label>
                     <Select
                       value={awaitingDays.toString()}
