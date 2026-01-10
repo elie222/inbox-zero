@@ -15,8 +15,12 @@ import prisma from "@/utils/prisma";
 import { shouldRunFlowTests, TIMEOUTS } from "./config";
 import { initializeFlowTests, setupFlowTest } from "./setup";
 import { generateTestSummary } from "./teardown";
-import { sendTestEmail, sendTestReply } from "./helpers/email";
-import { waitForMessageInInbox } from "./helpers/polling";
+import {
+  sendTestEmail,
+  sendTestReply,
+  TEST_EMAIL_SCENARIOS,
+} from "./helpers/email";
+import { waitForMessageInInbox, waitForExecutedRule } from "./helpers/polling";
 import { logStep, clearLogs } from "./helpers/logging";
 import type { TestAccount } from "./helpers/accounts";
 
@@ -101,7 +105,7 @@ describe.skipIf(!shouldRunFlowTests())("Outbound Message Tracking", () => {
 
       const gmailReceived = await waitForMessageInInbox({
         provider: gmail.emailProvider,
-        subjectContains: "Outbound tracking test",
+        subjectContains: incomingEmail.fullSubject,
         timeout: TIMEOUTS.EMAIL_DELIVERY,
       });
 
@@ -178,22 +182,61 @@ describe.skipIf(!shouldRunFlowTests())("Outbound Message Tracking", () => {
     async () => {
       testStartTime = Date.now();
 
+      // Use an email that clearly needs a reply so AI classifies as "To Reply"
+      const scenario = TEST_EMAIL_SCENARIOS.NEEDS_REPLY;
+
       // ========================================
-      // Setup: Create incoming email
+      // Setup: Create incoming email that needs a reply
       // ========================================
-      logStep("Setting up incoming email");
+      logStep("Setting up incoming email that needs reply");
 
       const incomingEmail = await sendTestEmail({
         from: gmail,
         to: outlook,
-        subject: "Reply tracking update test",
-        body: "Please let me know your thoughts.",
+        subject: scenario.subject,
+        body: scenario.body,
       });
 
       const receivedMessage = await waitForMessageInInbox({
         provider: outlook.emailProvider,
         subjectContains: incomingEmail.fullSubject,
         timeout: TIMEOUTS.EMAIL_DELIVERY,
+      });
+
+      logStep("Email received", {
+        messageId: receivedMessage.messageId,
+        threadId: receivedMessage.threadId,
+      });
+
+      // ========================================
+      // Wait for AI to process and classify the email
+      // This creates the ThreadTracker with NEEDS_REPLY type
+      // ========================================
+      logStep("Waiting for rule execution to create ThreadTracker");
+
+      const executedRule = await waitForExecutedRule({
+        threadId: receivedMessage.threadId,
+        emailAccountId: outlook.id,
+        timeout: TIMEOUTS.WEBHOOK_PROCESSING,
+      });
+
+      logStep("Rule executed", {
+        executedRuleId: executedRule.id,
+        status: executedRule.status,
+      });
+
+      // Verify ThreadTracker was created (unresolved initially)
+      const trackerBeforeReply = await prisma.threadTracker.findFirst({
+        where: {
+          emailAccountId: outlook.id,
+          threadId: receivedMessage.threadId,
+        },
+      });
+
+      logStep("ThreadTracker before reply", {
+        exists: !!trackerBeforeReply,
+        resolved: trackerBeforeReply?.resolved,
+        type: trackerBeforeReply?.type,
       });
 
       // ========================================
@@ -214,7 +257,7 @@ describe.skipIf(!shouldRunFlowTests())("Outbound Message Tracking", () => {
       // ========================================
       logStep("Waiting for reply tracking update");
 
-      // Check ThreadTracker for reply tracking
+      // Wait for outbound processing to mark tracker as resolved
       await new Promise((resolve) => setTimeout(resolve, 10_000));
 
       // Verify the thread is now marked as "replied to"
@@ -234,6 +277,6 @@ describe.skipIf(!shouldRunFlowTests())("Outbound Message Tracking", () => {
         type: threadTracker?.type,
       });
     },
-    TIMEOUTS.TEST_DEFAULT,
+    TIMEOUTS.FULL_CYCLE,
   );
 });
