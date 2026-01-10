@@ -12,7 +12,7 @@
 
 import { describe, test, expect, beforeAll, afterEach } from "vitest";
 import prisma from "@/utils/prisma";
-import { shouldRunFlowTests, TIMEOUTS, getTestSubjectPrefix } from "./config";
+import { shouldRunFlowTests, TIMEOUTS } from "./config";
 import { initializeFlowTests, setupFlowTest } from "./setup";
 import { generateTestSummary } from "./teardown";
 import { sendTestEmail, sendTestReply } from "./helpers/email";
@@ -56,7 +56,7 @@ describe.skipIf(!shouldRunFlowTests())("Outbound Message Tracking", () => {
 
       const receivedMessage = await waitForMessageInInbox({
         provider: outlook.emailProvider,
-        subjectContains: getTestSubjectPrefix(),
+        subjectContains: incomingEmail.fullSubject,
         timeout: TIMEOUTS.EMAIL_DELIVERY,
       });
 
@@ -122,7 +122,7 @@ describe.skipIf(!shouldRunFlowTests())("Outbound Message Tracking", () => {
       // ========================================
       logStep("Setting up thread");
 
-      await sendTestEmail({
+      const incomingEmail = await sendTestEmail({
         from: gmail,
         to: outlook,
         subject: "No duplicate test",
@@ -131,7 +131,7 @@ describe.skipIf(!shouldRunFlowTests())("Outbound Message Tracking", () => {
 
       const receivedMessage = await waitForMessageInInbox({
         provider: outlook.emailProvider,
-        subjectContains: getTestSubjectPrefix(),
+        subjectContains: incomingEmail.fullSubject,
         timeout: TIMEOUTS.EMAIL_DELIVERY,
       });
 
@@ -183,7 +183,7 @@ describe.skipIf(!shouldRunFlowTests())("Outbound Message Tracking", () => {
       // ========================================
       logStep("Setting up incoming email");
 
-      await sendTestEmail({
+      const incomingEmail = await sendTestEmail({
         from: gmail,
         to: outlook,
         subject: "Reply tracking update test",
@@ -192,7 +192,7 @@ describe.skipIf(!shouldRunFlowTests())("Outbound Message Tracking", () => {
 
       const receivedMessage = await waitForMessageInInbox({
         provider: outlook.emailProvider,
-        subjectContains: getTestSubjectPrefix(),
+        subjectContains: incomingEmail.fullSubject,
         timeout: TIMEOUTS.EMAIL_DELIVERY,
       });
 

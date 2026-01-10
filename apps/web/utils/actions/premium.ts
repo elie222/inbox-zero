@@ -533,7 +533,7 @@ export const generateCheckoutSessionAction = actionClientUser
         subscription_data: { trial_period_days: 7 },
         line_items: [{ price: priceId, quantity }],
         allow_promotion_codes: true,
-        payment_method_collection: "if_required",
+        payment_method_collection: "always",
         metadata: {
           dubCustomerId: userId,
         },
