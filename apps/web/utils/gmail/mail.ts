@@ -32,6 +32,7 @@ export const sendEmailBody = z.object({
       threadId: z.string(),
       headerMessageId: z.string(), // this is different to the gmail message id and looks something like <123...abc@mail.example.com>
       references: z.string().optional(), // for threading
+      messageId: z.string().optional(), // platform-specific message ID (Graph ID for Outlook)
     })
     .optional(),
   to: z.string(),
