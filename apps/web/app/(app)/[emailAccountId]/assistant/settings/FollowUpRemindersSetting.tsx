@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/Input";
 import { Toggle } from "@/components/Toggle";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/Badge";
 import { useActionTiming } from "@/hooks/useActionTiming";
 import { useEmailAccountFull } from "@/hooks/useEmailAccountFull";
@@ -46,7 +47,7 @@ export function FollowUpRemindersSetting() {
 
 function FollowUpRemindersSettingContent() {
   const [open, setOpen] = useState(false);
-  const { data, mutate } = useEmailAccountFull();
+  const { data, isLoading, mutate } = useEmailAccountFull();
 
   const enabled =
     data?.followUpAwaitingReplyDays !== null ||
@@ -84,36 +85,39 @@ function FollowUpRemindersSettingContent() {
       title="Follow-up reminders"
       description="Get reminded when you haven't heard back or haven't replied."
       right={
-        <div className="flex items-center gap-2">
-          {enabled && (
-            <Dialog open={open} onOpenChange={setOpen}>
-              <DialogTrigger asChild>
-                <Button variant="outline" size="sm">
-                  Configure
-                </Button>
-              </DialogTrigger>
-              <FollowUpSettingsDialog
-                emailAccountId={data?.id ?? ""}
-                emailAddress={data?.email ?? ""}
-                followUpAwaitingReplyDays={data?.followUpAwaitingReplyDays}
-                followUpNeedsReplyDays={data?.followUpNeedsReplyDays}
-                followUpAutoDraftEnabled={
-                  data?.followUpAutoDraftEnabled ?? true
-                }
-                onSuccess={() => {
-                  mutate();
-                  setOpen(false);
-                }}
-              />
-            </Dialog>
-          )}
-          <Toggle
-            name="follow-up-enabled"
-            enabled={enabled}
-            onChange={handleToggle}
-            disabled={!data}
-          />
-        </div>
+        isLoading ? (
+          <Skeleton className="h-5 w-9" />
+        ) : (
+          <div className="flex items-center gap-2">
+            {enabled && (
+              <Dialog open={open} onOpenChange={setOpen}>
+                <DialogTrigger asChild>
+                  <Button variant="outline" size="sm">
+                    Configure
+                  </Button>
+                </DialogTrigger>
+                <FollowUpSettingsDialog
+                  emailAccountId={data?.id ?? ""}
+                  emailAddress={data?.email ?? ""}
+                  followUpAwaitingReplyDays={data?.followUpAwaitingReplyDays}
+                  followUpNeedsReplyDays={data?.followUpNeedsReplyDays}
+                  followUpAutoDraftEnabled={
+                    data?.followUpAutoDraftEnabled ?? true
+                  }
+                  onSuccess={() => {
+                    mutate();
+                    setOpen(false);
+                  }}
+                />
+              </Dialog>
+            )}
+            <Toggle
+              name="follow-up-enabled"
+              enabled={enabled}
+              onChange={handleToggle}
+            />
+          </div>
+        )
       }
     />
   );

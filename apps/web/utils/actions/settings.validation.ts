@@ -51,3 +51,8 @@ export const updateDigestItemsBody = z.object({
   ruleDigestPreferences: z.record(z.string(), z.boolean()),
 });
 export type UpdateDigestItemsBody = z.infer<typeof updateDigestItemsBody>;
+
+export const toggleDigestBody = z.object({
+  enabled: z.boolean(),
+});
+export type ToggleDigestBody = z.infer<typeof toggleDigestBody>;
