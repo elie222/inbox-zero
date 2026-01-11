@@ -172,7 +172,6 @@ export async function processHistoryItem(
     }
 
     // Remove follow-up label if present (they replied, so follow-up no longer needed)
-    // This handles the case where we were awaiting a reply from them
     try {
       await clearFollowUpLabel({
         emailAccountId,
