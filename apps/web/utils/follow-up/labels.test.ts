@@ -4,22 +4,16 @@ import {
   applyFollowUpLabel,
   removeFollowUpLabel,
   hasFollowUpLabel,
+  clearFollowUpLabel,
 } from "./labels";
-import type { EmailProvider } from "@/utils/email/types";
 import { getMockMessage } from "@/__tests__/helpers";
+import { createScopedLogger } from "@/utils/logger";
+import { createMockEmailProvider } from "@/__tests__/mocks/email-provider.mock";
+import prisma from "@/utils/__mocks__/prisma";
 
-function createMockProvider(
-  overrides: Partial<EmailProvider> = {},
-): EmailProvider {
-  return {
-    getLabelByName: vi.fn(),
-    createLabel: vi.fn(),
-    labelMessage: vi.fn(),
-    removeThreadLabel: vi.fn(),
-    getThread: vi.fn(),
-    ...overrides,
-  } as unknown as EmailProvider;
-}
+vi.mock("@/utils/prisma");
+
+const logger = createScopedLogger("test");
 
 describe("getOrCreateFollowUpLabel", () => {
   beforeEach(() => {
@@ -27,7 +21,7 @@ describe("getOrCreateFollowUpLabel", () => {
   });
 
   it("returns existing label if found", async () => {
-    const mockProvider = createMockProvider({
+    const mockProvider = createMockEmailProvider({
       getLabelByName: vi
         .fn()
         .mockResolvedValue({ id: "label-123", name: "Follow-up" }),
@@ -41,7 +35,7 @@ describe("getOrCreateFollowUpLabel", () => {
   });
 
   it("creates new label if not found", async () => {
-    const mockProvider = createMockProvider({
+    const mockProvider = createMockEmailProvider({
       getLabelByName: vi.fn().mockResolvedValue(null),
       createLabel: vi
         .fn()
@@ -62,7 +56,7 @@ describe("applyFollowUpLabel", () => {
   });
 
   it("applies label to message", async () => {
-    const mockProvider = createMockProvider({
+    const mockProvider = createMockEmailProvider({
       getLabelByName: vi
         .fn()
         .mockResolvedValue({ id: "label-123", name: "Follow-up" }),
@@ -73,6 +67,7 @@ describe("applyFollowUpLabel", () => {
       provider: mockProvider,
       threadId: "thread-1",
       messageId: "msg-1",
+      logger,
     });
 
     expect(mockProvider.labelMessage).toHaveBeenCalledWith({
@@ -83,7 +78,7 @@ describe("applyFollowUpLabel", () => {
   });
 
   it("creates label if not exists before applying", async () => {
-    const mockProvider = createMockProvider({
+    const mockProvider = createMockEmailProvider({
       getLabelByName: vi.fn().mockResolvedValue(null),
       createLabel: vi
         .fn()
@@ -95,6 +90,7 @@ describe("applyFollowUpLabel", () => {
       provider: mockProvider,
       threadId: "thread-1",
       messageId: "msg-1",
+      logger,
     });
 
     expect(mockProvider.createLabel).toHaveBeenCalledWith("Follow-up");
@@ -112,7 +108,7 @@ describe("removeFollowUpLabel", () => {
   });
 
   it("removes label from thread if exists", async () => {
-    const mockProvider = createMockProvider({
+    const mockProvider = createMockEmailProvider({
       getLabelByName: vi
         .fn()
         .mockResolvedValue({ id: "label-123", name: "Follow-up" }),
@@ -122,6 +118,7 @@ describe("removeFollowUpLabel", () => {
     await removeFollowUpLabel({
       provider: mockProvider,
       threadId: "thread-1",
+      logger,
     });
 
     expect(mockProvider.removeThreadLabel).toHaveBeenCalledWith(
@@ -131,20 +128,21 @@ describe("removeFollowUpLabel", () => {
   });
 
   it("does nothing if label does not exist", async () => {
-    const mockProvider = createMockProvider({
+    const mockProvider = createMockEmailProvider({
       getLabelByName: vi.fn().mockResolvedValue(null),
     });
 
     await removeFollowUpLabel({
       provider: mockProvider,
       threadId: "thread-1",
+      logger,
     });
 
     expect(mockProvider.removeThreadLabel).not.toHaveBeenCalled();
   });
 
   it("handles error when removing label (label not on thread)", async () => {
-    const mockProvider = createMockProvider({
+    const mockProvider = createMockEmailProvider({
       getLabelByName: vi
         .fn()
         .mockResolvedValue({ id: "label-123", name: "Follow-up" }),
@@ -157,6 +155,7 @@ describe("removeFollowUpLabel", () => {
       removeFollowUpLabel({
         provider: mockProvider,
         threadId: "thread-1",
+        logger,
       }),
     ).resolves.not.toThrow();
   });
@@ -168,7 +167,7 @@ describe("hasFollowUpLabel", () => {
   });
 
   it("returns true if any message has the label", async () => {
-    const mockProvider = createMockProvider({
+    const mockProvider = createMockEmailProvider({
       getLabelByName: vi
         .fn()
         .mockResolvedValue({ id: "label-123", name: "Follow-up" }),
@@ -184,13 +183,14 @@ describe("hasFollowUpLabel", () => {
     const result = await hasFollowUpLabel({
       provider: mockProvider,
       threadId: "thread-1",
+      logger,
     });
 
     expect(result).toBe(true);
   });
 
   it("returns false if no message has the label", async () => {
-    const mockProvider = createMockProvider({
+    const mockProvider = createMockEmailProvider({
       getLabelByName: vi
         .fn()
         .mockResolvedValue({ id: "label-123", name: "Follow-up" }),
@@ -206,19 +206,21 @@ describe("hasFollowUpLabel", () => {
     const result = await hasFollowUpLabel({
       provider: mockProvider,
       threadId: "thread-1",
+      logger,
     });
 
     expect(result).toBe(false);
   });
 
   it("returns false if label does not exist", async () => {
-    const mockProvider = createMockProvider({
+    const mockProvider = createMockEmailProvider({
       getLabelByName: vi.fn().mockResolvedValue(null),
     });
 
     const result = await hasFollowUpLabel({
       provider: mockProvider,
       threadId: "thread-1",
+      logger,
     });
 
     expect(result).toBe(false);
@@ -226,7 +228,7 @@ describe("hasFollowUpLabel", () => {
   });
 
   it("returns false if thread has no messages", async () => {
-    const mockProvider = createMockProvider({
+    const mockProvider = createMockEmailProvider({
       getLabelByName: vi
         .fn()
         .mockResolvedValue({ id: "label-123", name: "Follow-up" }),
@@ -239,13 +241,14 @@ describe("hasFollowUpLabel", () => {
     const result = await hasFollowUpLabel({
       provider: mockProvider,
       threadId: "thread-1",
+      logger,
     });
 
     expect(result).toBe(false);
   });
 
   it("returns false on error", async () => {
-    const mockProvider = createMockProvider({
+    const mockProvider = createMockEmailProvider({
       getLabelByName: vi
         .fn()
         .mockResolvedValue({ id: "label-123", name: "Follow-up" }),
@@ -255,8 +258,62 @@ describe("hasFollowUpLabel", () => {
     const result = await hasFollowUpLabel({
       provider: mockProvider,
       threadId: "thread-1",
+      logger,
     });
 
     expect(result).toBe(false);
+  });
+});
+
+describe("clearFollowUpLabel", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("removes label and clears tracker when thread has follow-up label in DB", async () => {
+    const mockProvider = createMockEmailProvider({
+      getLabelByName: vi
+        .fn()
+        .mockResolvedValue({ id: "label-123", name: "Follow-up" }),
+    });
+
+    prisma.threadTracker.updateMany.mockResolvedValue({ count: 1 });
+
+    await clearFollowUpLabel({
+      emailAccountId: "account-1",
+      threadId: "thread-1",
+      provider: mockProvider,
+      logger,
+    });
+
+    expect(prisma.threadTracker.updateMany).toHaveBeenCalledWith({
+      where: {
+        emailAccountId: "account-1",
+        threadId: "thread-1",
+        followUpAppliedAt: { not: null },
+        resolved: false,
+      },
+      data: {
+        followUpAppliedAt: null,
+      },
+    });
+    expect(mockProvider.removeThreadLabel).toHaveBeenCalledWith(
+      "thread-1",
+      "label-123",
+    );
+  });
+
+  it("does nothing when no trackers updated", async () => {
+    const mockProvider = createMockEmailProvider();
+    prisma.threadTracker.updateMany.mockResolvedValue({ count: 0 });
+
+    await clearFollowUpLabel({
+      emailAccountId: "account-1",
+      threadId: "thread-1",
+      provider: mockProvider,
+      logger,
+    });
+
+    expect(mockProvider.removeThreadLabel).not.toHaveBeenCalled();
   });
 });

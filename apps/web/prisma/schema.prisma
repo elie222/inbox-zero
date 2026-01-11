@@ -145,11 +145,10 @@ model EmailAccount {
   meetingBriefingsEnabled       Boolean @default(false)
   meetingBriefingsMinutesBefore Int     @default(240) // 4 hours in minutes
 
-  // Follow-up reminder settings
   followUpRemindersEnabled  Boolean @default(false)
-  followUpAwaitingReplyDays Int     @default(3) // Days before adding follow-up label when awaiting reply from others
-  followUpNeedsReplyDays    Int     @default(3) // Days before adding follow-up label when user needs to reply
-  followUpAutoDraftEnabled  Boolean @default(true) // Auto-generate follow-up draft emails when awaiting reply
+  followUpAwaitingReplyDays Int     @default(3)
+  followUpNeedsReplyDays    Int     @default(3)
+  followUpAutoDraftEnabled  Boolean @default(true)
 
   digestSchedule Schedule?
 
@@ -763,6 +762,7 @@ model ThreadTracker {
   @@index([emailAccountId, resolved])
   @@index([emailAccountId, resolved, sentAt, type])
   @@index([emailAccountId, type, resolved, sentAt])
+  @@index([emailAccountId, type, resolved, followUpAppliedAt, sentAt])
 }
 
 model CleanupJob {

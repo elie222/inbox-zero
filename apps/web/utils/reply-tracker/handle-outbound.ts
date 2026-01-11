@@ -5,7 +5,7 @@ import type { Logger } from "@/utils/logger";
 import { captureException } from "@/utils/error";
 import { handleOutboundReply } from "./outbound";
 import { trackSentDraftStatus, cleanupThreadAIDrafts } from "./draft-tracking";
-import { clearFollowUpLabel } from "@/utils/follow-up/cleanup";
+import { clearFollowUpLabel } from "@/utils/follow-up/labels";
 
 export async function handleOutboundMessage({
   emailAccount,

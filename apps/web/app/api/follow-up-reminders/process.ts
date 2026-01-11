@@ -2,14 +2,18 @@ import { subDays } from "date-fns/subDays";
 import prisma from "@/utils/prisma";
 import { getPremiumUserFilter } from "@/utils/premium";
 import { createEmailProvider } from "@/utils/email/provider";
-import { applyFollowUpLabel } from "@/utils/follow-up/labels";
+import {
+  applyFollowUpLabel,
+  getOrCreateFollowUpLabel,
+} from "@/utils/follow-up/labels";
 import { generateFollowUpDraft } from "@/utils/follow-up/generate-draft";
 import { cleanupStaleDrafts } from "@/utils/follow-up/cleanup";
-import { getLabelsFromDb } from "@/utils/reply-tracker/label-helpers";
 import { ThreadTrackerType } from "@/generated/prisma/enums";
-import type { EmailProvider, EmailThread } from "@/utils/email/types";
+import type { EmailProvider } from "@/utils/email/types";
 import type { Logger } from "@/utils/logger";
 import { captureException } from "@/utils/error";
+import type { ThreadTracker } from "@/generated/prisma/client";
+import type { EmailAccountWithAI } from "@/utils/llms/types";
 
 export async function processAllFollowUpReminders(logger: Logger) {
   logger.info("Processing follow-up reminders for all users");
@@ -22,9 +26,22 @@ export async function processAllFollowUpReminders(logger: Logger) {
     select: {
       id: true,
       email: true,
+      about: true,
+      userId: true,
+      multiRuleSelectionEnabled: true,
+      timezone: true,
+      calendarBookingLink: true,
+      followUpRemindersEnabled: true,
       followUpAwaitingReplyDays: true,
       followUpNeedsReplyDays: true,
       followUpAutoDraftEnabled: true,
+      user: {
+        select: {
+          aiProvider: true,
+          aiModel: true,
+          aiApiKey: true,
+        },
+      },
       account: {
         select: {
           provider: true,
@@ -75,15 +92,10 @@ export async function processAccountFollowUps({
   emailAccount,
   logger,
 }: {
-  emailAccount: {
-    id: string;
-    email: string;
+  emailAccount: EmailAccountWithAI & {
     followUpAwaitingReplyDays: number;
     followUpNeedsReplyDays: number;
     followUpAutoDraftEnabled: boolean;
-    account: {
-      provider: string;
-    } | null;
   };
   logger: Logger;
 }) {
@@ -103,72 +115,66 @@ export async function processAccountFollowUps({
     logger,
   });
 
-  const dbLabels = await getLabelsFromDb(emailAccountId);
-  const awaitingLabelId = dbLabels.AWAITING_REPLY.labelId;
-  const toReplyLabelId = dbLabels.TO_REPLY.labelId;
+  const followUpLabel = await getOrCreateFollowUpLabel(provider);
 
-  if (awaitingLabelId) {
-    const awaitingThreshold = subDays(
-      now,
-      emailAccount.followUpAwaitingReplyDays,
-    );
-
-    const { threads: awaitingThreads } = await provider.getThreadsWithQuery({
-      query: {
-        labelId: awaitingLabelId,
-        before: awaitingThreshold,
-      },
-      maxResults: 100,
-    });
-
-    logger.info("Found awaiting threads from provider", {
-      count: awaitingThreads.length,
-      thresholdDays: emailAccount.followUpAwaitingReplyDays,
-    });
-
-    await processThreads({
-      threads: awaitingThreads,
+  const awaitingThreshold = subDays(
+    now,
+    emailAccount.followUpAwaitingReplyDays,
+  );
+  const awaitingTrackers = await prisma.threadTracker.findMany({
+    where: {
       emailAccountId,
-      provider,
-      trackerType: ThreadTrackerType.AWAITING,
-      generateDraft: emailAccount.followUpAutoDraftEnabled,
-      now,
-      logger,
-    });
-  } else {
-    logger.info("No AWAITING_REPLY label configured, skipping");
-  }
+      type: ThreadTrackerType.AWAITING,
+      resolved: false,
+      followUpAppliedAt: null,
+      sentAt: { lt: awaitingThreshold },
+    },
+  });
 
-  if (toReplyLabelId) {
-    const toReplyThreshold = subDays(now, emailAccount.followUpNeedsReplyDays);
+  logger.info("Found awaiting trackers past threshold", {
+    count: awaitingTrackers.length,
+    thresholdDays: emailAccount.followUpAwaitingReplyDays,
+  });
 
-    const { threads: toReplyThreads } = await provider.getThreadsWithQuery({
-      query: {
-        labelId: toReplyLabelId,
-        before: toReplyThreshold,
-      },
-      maxResults: 100,
-    });
+  await processTrackers({
+    trackers: awaitingTrackers,
+    emailAccount,
+    provider,
+    labelId: followUpLabel.id,
+    trackerType: ThreadTrackerType.AWAITING,
+    generateDraft: emailAccount.followUpAutoDraftEnabled,
+    now,
+    logger,
+  });
 
-    logger.info("Found to-reply threads from provider", {
-      count: toReplyThreads.length,
-      thresholdDays: emailAccount.followUpNeedsReplyDays,
-    });
-
-    await processThreads({
-      threads: toReplyThreads,
+  const needsReplyThreshold = subDays(now, emailAccount.followUpNeedsReplyDays);
+  const needsReplyTrackers = await prisma.threadTracker.findMany({
+    where: {
       emailAccountId,
-      provider,
-      trackerType: ThreadTrackerType.NEEDS_REPLY,
-      generateDraft: false,
-      now,
-      logger,
-    });
-  } else {
-    logger.info("No TO_REPLY label configured, skipping");
-  }
+      type: ThreadTrackerType.NEEDS_REPLY,
+      resolved: false,
+      followUpAppliedAt: null,
+      sentAt: { lt: needsReplyThreshold },
+    },
+  });
 
-  // Cleanup stale drafts (>7 days old) - wrapped in try/catch since it's non-critical
+  logger.info("Found needs-reply trackers past threshold", {
+    count: needsReplyTrackers.length,
+    thresholdDays: emailAccount.followUpNeedsReplyDays,
+  });
+
+  await processTrackers({
+    trackers: needsReplyTrackers,
+    emailAccount,
+    provider,
+    labelId: followUpLabel.id,
+    trackerType: ThreadTrackerType.NEEDS_REPLY,
+    generateDraft: false,
+    now,
+    logger,
+  });
+
+  // Wrapped in try/catch since it's non-critical
   try {
     await cleanupStaleDrafts({
       emailAccountId,
@@ -183,97 +189,69 @@ export async function processAccountFollowUps({
   logger.info("Finished processing follow-ups for account");
 }
 
-async function processThreads({
-  threads,
-  emailAccountId,
+async function processTrackers({
+  trackers,
+  emailAccount,
   provider,
+  labelId,
   trackerType,
   generateDraft,
   now,
   logger,
 }: {
-  threads: EmailThread[];
-  emailAccountId: string;
+  trackers: ThreadTracker[];
+  emailAccount: EmailAccountWithAI;
   provider: EmailProvider;
+  labelId: string;
   trackerType: ThreadTrackerType;
   generateDraft: boolean;
   now: Date;
   logger: Logger;
 }) {
   let processedCount = 0;
-  let skippedCount = 0;
 
-  for (const thread of threads) {
-    const threadLogger = logger.with({
-      threadId: thread.id,
+  for (const tracker of trackers) {
+    const trackerLogger = logger.with({
+      threadId: tracker.threadId,
       type: trackerType,
     });
 
     try {
-      const existingTracker = await prisma.threadTracker.findFirst({
-        where: { emailAccountId, threadId: thread.id },
-      });
-
-      if (existingTracker?.followUpAppliedAt) {
-        threadLogger.trace("Thread already processed, skipping");
-        skippedCount++;
-        continue;
-      }
-
-      const messageId = thread.messages[0]?.id;
-      if (!messageId) {
-        threadLogger.warn("No messages in thread, skipping");
-        skippedCount++;
-        continue;
-      }
-
       await applyFollowUpLabel({
         provider,
-        threadId: thread.id,
-        messageId,
+        threadId: tracker.threadId,
+        messageId: tracker.messageId,
+        labelId,
+        logger: trackerLogger,
       });
 
       if (generateDraft) {
         await generateFollowUpDraft({
-          emailAccountId,
-          threadId: thread.id,
+          emailAccount,
+          threadId: tracker.threadId,
           provider,
-          logger: threadLogger,
+          logger: trackerLogger,
         });
       }
 
-      if (existingTracker) {
-        await prisma.threadTracker.update({
-          where: { id: existingTracker.id },
-          data: { followUpAppliedAt: now },
-        });
-      } else {
-        await prisma.threadTracker.create({
-          data: {
-            emailAccountId,
-            threadId: thread.id,
-            messageId,
-            type: trackerType,
-            sentAt: thread.messages[0]?.date
-              ? new Date(thread.messages[0].date)
-              : now,
-            followUpAppliedAt: now,
-          },
-        });
-        threadLogger.info("Created new tracker for manually-labeled thread");
-      }
+      await prisma.threadTracker.update({
+        where: { id: tracker.id },
+        data: { followUpAppliedAt: now },
+      });
 
-      threadLogger.info("Processed thread", { draftGenerated: generateDraft });
+      trackerLogger.info("Processed tracker", {
+        draftGenerated: generateDraft,
+      });
       processedCount++;
     } catch (error) {
-      threadLogger.error("Failed to process thread", { error });
+      trackerLogger.error("Failed to process tracker", { error });
       captureException(error);
     }
   }
 
-  logger.info("Finished processing threads", {
+  logger.info("Finished processing trackers", {
     type: trackerType,
     processed: processedCount,
-    skipped: skippedCount,
+    total: trackers.length,
   });
 }

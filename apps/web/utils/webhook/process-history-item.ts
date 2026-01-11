@@ -4,7 +4,7 @@ import { categorizeSender } from "@/utils/categorize/senders/categorize";
 import { isAssistantEmail } from "@/utils/assistant/is-assistant-email";
 import { processAssistantEmail } from "@/utils/assistant/process-assistant-email";
 import { handleOutboundMessage } from "@/utils/reply-tracker/handle-outbound";
-import { clearFollowUpLabel } from "@/utils/follow-up/cleanup";
+import { clearFollowUpLabel } from "@/utils/follow-up/labels";
 import { NewsletterStatus } from "@/generated/prisma/enums";
 import type { EmailAccount } from "@/generated/prisma/client";
 import { extractEmailAddress } from "@/utils/email";
