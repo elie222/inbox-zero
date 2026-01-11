@@ -151,7 +151,16 @@ function WritingStyleDialog({
                   className="prose prose-sm dark:prose-invert max-w-none"
                   autofocus={false}
                   preservePastedLineBreaks
-                  placeholder="Typical Length: 2-3 sentences..."
+                  placeholder={`Typical Length: 2-3 sentences
+
+Formality: Informal but professional
+
+Common Greeting: Hey,
+
+Notable Traits:
+- Uses contractions frequently
+- Concise and direct responses
+- Minimal closings`}
                 />
               </div>
             )}
