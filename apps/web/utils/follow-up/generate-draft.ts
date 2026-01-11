@@ -2,7 +2,6 @@ import prisma from "@/utils/prisma";
 import { fetchMessagesAndGenerateDraft } from "@/utils/reply-tracker/generate-draft";
 import type { EmailProvider } from "@/utils/email/types";
 import type { Logger } from "@/utils/logger";
-import type { EmailAccountWithAI } from "@/utils/llms/types";
 
 /**
  * Generates a follow-up draft for a thread that's awaiting a reply.
@@ -52,9 +51,6 @@ export async function generateFollowUpDraft({
     return;
   }
 
-  // The emailAccount already matches EmailAccountWithAI type
-  const emailAccountWithAI: EmailAccountWithAI = emailAccount;
-
   try {
     // Get the thread to find the last message
     const thread = await provider.getThread(threadId);
@@ -67,7 +63,7 @@ export async function generateFollowUpDraft({
 
     // Generate the draft content using existing infrastructure
     const draftContent = await fetchMessagesAndGenerateDraft(
-      emailAccountWithAI,
+      emailAccount,
       threadId,
       provider,
       undefined, // no test message
