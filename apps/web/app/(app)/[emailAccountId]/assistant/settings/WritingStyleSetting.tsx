@@ -96,7 +96,8 @@ function WritingStyleDialog({
           }
           toastSuccess({ description: "Writing style regenerated!" });
         } else {
-          toastSuccess({ description: "No enough data to generate style." });
+          // Fixed grammar per CodeRabbit review
+          toastSuccess({ description: "Not enough data to generate style." });
         }
       },
       onError: (error) => {
@@ -166,10 +167,7 @@ function WritingStyleDialog({
             <Button
               type="button"
               variant="outline"
-              onClick={(e) => {
-                e.preventDefault();
-                generate();
-              }}
+              onClick={() => generate()}
               disabled={isGenerating || isExecuting}
             >
               {isGenerating ? (
@@ -180,7 +178,7 @@ function WritingStyleDialog({
               {isGenerating ? "Generating..." : "Regenerate Style"}
             </Button>
 
-            <Button type="submit" loading={isExecuting}>
+            <Button type="submit" loading={isExecuting} disabled={isGenerating}>
               Save
             </Button>
           </div>
