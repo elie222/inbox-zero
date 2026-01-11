@@ -11,6 +11,7 @@ import {
   mergeAndDedupeRecipients,
 } from "@/utils/email/reply-all";
 import { formatReplySubject } from "@/utils/email/subject";
+import { buildThreadingHeaders } from "@/utils/email/threading";
 import { withOutlookRetry } from "@/utils/outlook/retry";
 import { extractEmailAddress, extractNameFromEmail } from "@/utils/email";
 import { ensureEmailSendingEnabled } from "@/utils/mail";
@@ -64,10 +65,14 @@ export async function sendEmailWithHtml(
     // Set In-Reply-To and References headers for proper threading
     // Microsoft uses these headers (not conversationId) to determine thread membership
     if (body.replyToEmail.headerMessageId) {
-      message.internetMessageHeaders = buildReplyHeaders({
+      const headers = buildThreadingHeaders({
         headerMessageId: body.replyToEmail.headerMessageId,
         references: body.replyToEmail.references,
       });
+      message.internetMessageHeaders = [
+        { name: "In-Reply-To", value: headers.inReplyTo },
+        { name: "References", value: headers.references },
+      ];
     }
   }
 
@@ -129,10 +134,16 @@ export async function replyToEmail(
     conversationId: message.threadId,
     // Set In-Reply-To and References headers for proper threading
     ...(headerMessageId && {
-      internetMessageHeaders: buildReplyHeaders({
-        headerMessageId,
-        references: message.headers.references,
-      }),
+      internetMessageHeaders: (() => {
+        const headers = buildThreadingHeaders({
+          headerMessageId,
+          references: message.headers.references,
+        });
+        return [
+          { name: "In-Reply-To", value: headers.inReplyTo },
+          { name: "References", value: headers.references },
+        ];
+      })(),
     }),
   };
 
@@ -351,24 +362,4 @@ function convertTextToHtmlParagraphs(text?: string | null): string {
     .join("");
 
   return `<html><body>${htmlContent}</body></html>`;
-}
-
-function buildReplyHeaders(options: {
-  headerMessageId: string;
-  references?: string;
-}): { name: string; value: string }[] {
-  const headers: { name: string; value: string }[] = [];
-
-  if (options.headerMessageId) {
-    headers.push({
-      name: "In-Reply-To",
-      value: options.headerMessageId,
-    });
-    headers.push({
-      name: "References",
-      value: options.references || options.headerMessageId,
-    });
-  }
-
-  return headers;
 }
