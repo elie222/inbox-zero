@@ -29,6 +29,8 @@ import { Tiptap, type TiptapHandle } from "@/components/editor/Tiptap";
 import { getActionErrorMessage } from "@/utils/error";
 import { Loader2, Sparkles } from "lucide-react";
 
+const WRITING_STYLE_MAX_LENGTH = 2000;
+
 export function WritingStyleSetting() {
   const { data, isLoading, error } = useEmailAccountFull();
 
@@ -77,25 +79,32 @@ function WritingStyleDialog({
     resolver: zodResolver(saveWritingStyleBody),
   });
 
+  // --- REGENERATE ACTION ---
   const { execute: generate, isExecuting: isGenerating } = useAction(
-    regenerateWritingStyleAction,
+    regenerateWritingStyleAction.bind(null, emailAccountId),
     {
       onSuccess: (data) => {
-        const newStyle = data?.data?.writingStyle;
+        const rawStyle = data?.data?.writingStyle;
 
-        if (newStyle) {
-          setValue("writingStyle", newStyle);
+        if (rawStyle) {
+          // Truncate to ensure it passes the save validation schema
+          const safeStyle = rawStyle.slice(0, WRITING_STYLE_MAX_LENGTH);
+
+          setValue("writingStyle", safeStyle);
           if (editorRef.current?.editor) {
-            editorRef.current.editor.commands.setContent(newStyle);
+            editorRef.current.editor.commands.setContent(safeStyle);
           }
           toastSuccess({ description: "Writing style regenerated!" });
+        } else {
+          toastSuccess({ description: "No enough data to generate style." });
         }
       },
-      onError: () => {
-        toastError({ description: "Failed to regenerate style." });
+      onError: (error) => {
+        toastError({ description: getActionErrorMessage(error.error) });
       },
     },
   );
+  // -------------------------
 
   const { execute, isExecuting } = useAction(
     saveWritingStyleAction.bind(null, emailAccountId),
@@ -159,7 +168,7 @@ function WritingStyleDialog({
               variant="outline"
               onClick={(e) => {
                 e.preventDefault();
-                generate({ emailAccountId });
+                generate();
               }}
               disabled={isGenerating || isExecuting}
             >
