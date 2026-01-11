@@ -1,7 +1,7 @@
 /**
  * Build RFC 5322 compliant email threading headers.
  * References = parent's References + parent's Message-ID
- * https://datatracker.ietf.org/doc/html/rfc2822#appendix-A.2
+ * https://datatracker.ietf.org/doc/html/rfc5322#appendix-A.2
  */
 export function buildThreadingHeaders(options: {
   headerMessageId: string;

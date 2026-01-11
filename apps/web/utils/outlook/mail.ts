@@ -73,7 +73,7 @@ export async function sendEmailWithHtml(
   // sendMail returns 202 with no body, so we can't get the sent message ID
   return {
     id: "",
-    conversationId: undefined,
+    conversationId: body.replyToEmail?.threadId,
   };
 }
 
@@ -129,8 +129,9 @@ export async function replyToEmail(
     logger,
   );
 
+  // Draft ID is no longer valid after /send; Graph doesn't return sent message ID
   return {
-    id: replyDraft.id,
+    id: "",
     conversationId: replyDraft.conversationId,
   };
 }
@@ -384,8 +385,9 @@ async function sendReplyUsingCreateReply(
     logger,
   );
 
+  // Draft ID is no longer valid after /send; Graph doesn't return sent message ID
   return {
-    id: replyDraft.id,
+    id: "",
     conversationId: replyDraft.conversationId,
   };
 }
