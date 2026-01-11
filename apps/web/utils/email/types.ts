@@ -127,6 +127,7 @@ export interface EmailProvider {
       threadId: string;
       headerMessageId: string;
       references?: string;
+      messageId?: string; // Platform-specific message ID (Graph ID for Outlook)
     };
     to: string;
     cc?: string;

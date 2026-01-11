@@ -91,6 +91,7 @@ export async function sendTestReply(options: {
       threadId,
       headerMessageId: originalMessage.headers["message-id"] || "",
       references: originalMessage.headers.references,
+      messageId: originalMessageId, // Needed for Outlook's createReply API
     },
   });
 
