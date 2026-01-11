@@ -97,3 +97,55 @@ export const analyzeWritingStyleAction = actionClient
 
     return { success: true };
   });
+
+export const regenerateWritingStyleAction = actionClient
+  .metadata({ name: "regenerateWritingStyle" })
+  .action(async ({ ctx: { emailAccountId, provider, logger } }) => {
+    const emailAccount = await prisma.emailAccount.findUnique({
+      where: { id: emailAccountId },
+      select: {
+        id: true,
+        userId: true,
+        email: true,
+        about: true,
+        multiRuleSelectionEnabled: true,
+        timezone: true,
+        calendarBookingLink: true,
+        user: { select: { aiProvider: true, aiModel: true, aiApiKey: true } },
+      },
+    });
+
+    if (!emailAccount) throw new SafeError("Email account not found");
+
+    const emailProvider = await createEmailProvider({
+      emailAccountId,
+      provider,
+      logger,
+    });
+    const sentMessages = await emailProvider.getSentMessages(20);
+
+    const style = await aiAnalyzeWritingStyle({
+      emails: sentMessages.map((email) =>
+        getEmailForLLM(email, { extractReply: true }),
+      ),
+      emailAccount: { ...emailAccount, account: { provider } },
+    });
+
+    if (!style) return { writingStyle: "" };
+
+    const writingStyle = [
+      style.typicalLength ? `Typical Length: ${style.typicalLength}` : null,
+      style.formality ? `Formality: ${style.formality}` : null,
+      style.commonGreeting ? `Common Greeting: ${style.commonGreeting}` : null,
+      style.notableTraits.length
+        ? `Notable Traits: ${formatBulletList(style.notableTraits)}`
+        : null,
+      style.examples.length
+        ? `Examples: ${formatBulletList(style.examples)}`
+        : null,
+    ]
+      .filter(Boolean)
+      .join("\n");
+
+    return { writingStyle };
+  });
