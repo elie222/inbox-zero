@@ -49,6 +49,14 @@ import { getEmail, getEmailAccount, getRule } from "@/__tests__/helpers";
 
 ## Workflow
 
+### Step 0: Determine Scope
+
+Auto-detect: staged → branch diff → specified files
+
+```bash
+git diff --cached --name-only  # or main...HEAD
+```
+
 ### Step 1: Identify Test Targets
 
 Look for functions with:

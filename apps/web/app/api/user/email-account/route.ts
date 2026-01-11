@@ -24,6 +24,10 @@ async function getEmailAccount({ emailAccountId }: { emailAccountId: string }) {
       signature: true,
       includeReferralSignature: true,
       writingStyle: true,
+      followUpRemindersEnabled: true,
+      followUpAwaitingReplyDays: true,
+      followUpNeedsReplyDays: true,
+      followUpAutoDraftEnabled: true,
     },
   });
 
