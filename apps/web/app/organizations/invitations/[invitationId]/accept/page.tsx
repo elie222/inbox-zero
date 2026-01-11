@@ -82,7 +82,7 @@ export default function AcceptInvitationPage() {
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <Card className="w-full max-w-md">
           <CardHeader>
-            <CardTitle>Invalid Invitation</CardTitle>
+            <CardTitle>Invalid invitation</CardTitle>
             <CardDescription>
               The invitation link is invalid or missing.
             </CardDescription>
@@ -109,7 +109,7 @@ export default function AcceptInvitationPage() {
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <Card className="w-full max-w-md">
           <CardHeader>
-            <CardTitle>Invitation Error</CardTitle>
+            <CardTitle>Invitation error</CardTitle>
             <CardDescription>{error}</CardDescription>
           </CardHeader>
         </Card>

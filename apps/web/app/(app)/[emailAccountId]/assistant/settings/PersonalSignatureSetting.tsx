@@ -35,8 +35,6 @@ import { isGoogleProvider } from "@/utils/email/provider-types";
 export function PersonalSignatureSetting() {
   const { data, isLoading, error } = useEmailAccountFull();
 
-  const hasSignature = !!data?.signature;
-
   return (
     <SettingCard
       title="Email signature"
@@ -49,7 +47,7 @@ export function PersonalSignatureSetting() {
         >
           <SignatureDialog currentSignature={data?.signature || ""}>
             <Button variant="outline" size="sm">
-              {hasSignature ? "Edit" : "Set"} Signature
+              Edit
             </Button>
           </SignatureDialog>
         </LoadingContent>

@@ -64,7 +64,7 @@ export const TestCustomEmailForm = () => {
       {testResults && (
         <Card className="mt-4">
           <CardHeader>
-            <CardTitle>Test Result</CardTitle>
+            <CardTitle>Test result</CardTitle>
           </CardHeader>
           <CardContent>
             <ResultsDisplay results={testResults} showFullContent={true} />

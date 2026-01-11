@@ -35,7 +35,7 @@ export function WritingStyleSetting() {
   return (
     <SettingCard
       title="Writing style"
-      description="Used to draft replies in your voice."
+      description="Define your tone and style."
       right={
         <LoadingContent
           loading={isLoading}
