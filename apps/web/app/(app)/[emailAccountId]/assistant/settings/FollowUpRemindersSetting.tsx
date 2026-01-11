@@ -115,6 +115,7 @@ function FollowUpRemindersSettingContent() {
               name="follow-up-enabled"
               enabled={enabled}
               onChange={handleToggle}
+              disabled={!data}
             />
           </div>
         )

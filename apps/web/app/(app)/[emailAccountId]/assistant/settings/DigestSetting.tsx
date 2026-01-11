@@ -23,7 +23,7 @@ export function DigestSetting() {
   const [open, setOpen] = useState(false);
   const { data, isLoading, mutate } = useEmailAccountFull();
 
-  const enabled = data?.digestSchedule !== null;
+  const enabled = data?.digestSchedule != null;
 
   const { execute: executeToggle } = useAction(
     toggleDigestAction.bind(null, data?.id ?? ""),
