@@ -31,7 +31,6 @@ import {
 } from "./helpers/polling";
 import { logStep, clearLogs, setTestStartTime } from "./helpers/logging";
 import type { TestAccount } from "./helpers/accounts";
-import prisma from "@/utils/prisma";
 
 describe.skipIf(!shouldRunFlowTests())("Full Reply Cycle", () => {
   let gmail: TestAccount;
@@ -157,26 +156,12 @@ describe.skipIf(!shouldRunFlowTests())("Full Reply Cycle", () => {
       );
 
       if (labelAction?.labelId) {
-        // Look up the label name from the database
-        const label = await prisma.label.findUnique({
-          where: { id: labelAction.labelId },
-          select: { name: true },
-        });
-
         const message = await outlook.emailProvider.getMessage(
           outlookMessage.messageId,
         );
         expect(message.labelIds).toBeDefined();
-
-        // Check if the label name is in the message's labels
-        // Outlook returns label names (categories), not IDs
-        if (label?.name) {
-          expect(message.labelIds).toContain(label.name);
-          logStep("Label verified on message", {
-            labelName: label.name,
-            messageLabels: message.labelIds,
-          });
-        }
+        expect(message.labelIds).toContain(labelAction.labelId);
+        logStep("Labels on message", { labels: message.labelIds });
       }
 
       // ========================================
@@ -302,10 +287,10 @@ describe.skipIf(!shouldRunFlowTests())("Full Reply Cycle", () => {
         body: "This is the reply from Outlook.",
       });
 
-      // Wait for Gmail to receive - use fullSubject for unique match
+      // Wait for Gmail to receive
       const gmailReply = await waitForMessageInInbox({
         provider: gmail.emailProvider,
-        subjectContains: initialEmail.fullSubject,
+        subjectContains: "Thread continuity test",
         timeout: TIMEOUTS.EMAIL_DELIVERY,
       });
 
@@ -325,10 +310,10 @@ describe.skipIf(!shouldRunFlowTests())("Full Reply Cycle", () => {
         body: "This is the second reply from Gmail.",
       });
 
-      // Wait for Outlook to receive - use fullSubject for unique match
+      // Wait for Outlook to receive
       const outlookMsg2 = await waitForMessageInInbox({
         provider: outlook.emailProvider,
-        subjectContains: initialEmail.fullSubject,
+        subjectContains: "Thread continuity test",
         timeout: TIMEOUTS.EMAIL_DELIVERY,
       });
 

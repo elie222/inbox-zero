@@ -5,6 +5,7 @@ import type { Logger } from "@/utils/logger";
 import { captureException } from "@/utils/error";
 import { handleOutboundReply } from "./outbound";
 import { trackSentDraftStatus, cleanupThreadAIDrafts } from "./draft-tracking";
+import { clearFollowUpLabel } from "@/utils/follow-up/labels";
 
 export async function handleOutboundMessage({
   emailAccount,
@@ -55,6 +56,19 @@ export async function handleOutboundMessage({
     });
   } catch (error) {
     logger.error("Error during thread draft cleanup", { error });
+    captureException(error, { emailAccountId: emailAccount.id });
+  }
+
+  // Remove follow-up label if present (user replied, so follow-up no longer needed)
+  try {
+    await clearFollowUpLabel({
+      emailAccountId: emailAccount.id,
+      threadId: message.threadId,
+      provider,
+      logger,
+    });
+  } catch (error) {
+    logger.error("Error removing follow-up label", { error });
     captureException(error, { emailAccountId: emailAccount.id });
   }
 }
