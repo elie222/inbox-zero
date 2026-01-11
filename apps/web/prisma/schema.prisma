@@ -145,9 +145,8 @@ model EmailAccount {
   meetingBriefingsEnabled       Boolean @default(false)
   meetingBriefingsMinutesBefore Int     @default(240) // 4 hours in minutes
 
-  followUpRemindersEnabled  Boolean @default(false)
-  followUpAwaitingReplyDays Int     @default(3)
-  followUpNeedsReplyDays    Int     @default(3)
+  followUpAwaitingReplyDays Int?
+  followUpNeedsReplyDays    Int?
   followUpAutoDraftEnabled  Boolean @default(true)
 
   digestSchedule Schedule?

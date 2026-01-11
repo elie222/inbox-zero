@@ -24,7 +24,10 @@ import {
   updateFollowUpSettingsAction,
   scanFollowUpRemindersAction,
 } from "@/utils/actions/follow-up-reminders";
-import type { SaveFollowUpSettingsBody } from "@/utils/actions/follow-up-reminders.validation";
+import {
+  type SaveFollowUpSettingsFormInput,
+  DEFAULT_FOLLOW_UP_DAYS,
+} from "@/utils/actions/follow-up-reminders.validation";
 import { toastError, toastSuccess } from "@/components/Toast";
 import { getEmailTerminology } from "@/utils/terminology";
 
@@ -40,7 +43,9 @@ function FollowUpRemindersSettingContent() {
   const [open, setOpen] = useState(false);
   const { data, mutate } = useEmailAccountFull();
 
-  const enabled = data?.followUpRemindersEnabled ?? false;
+  const enabled =
+    data?.followUpAwaitingReplyDays !== null ||
+    data?.followUpNeedsReplyDays !== null;
 
   const { execute: executeToggle } = useAction(
     toggleFollowUpRemindersAction.bind(null, data?.id ?? ""),
@@ -60,7 +65,8 @@ function FollowUpRemindersSettingContent() {
 
       const optimisticData = {
         ...data,
-        followUpRemindersEnabled: enable,
+        followUpAwaitingReplyDays: enable ? DEFAULT_FOLLOW_UP_DAYS : null,
+        followUpNeedsReplyDays: enable ? DEFAULT_FOLLOW_UP_DAYS : null,
       };
       mutate(optimisticData, false);
       executeToggle({ enabled: enable });
@@ -83,8 +89,8 @@ function FollowUpRemindersSettingContent() {
               </DialogTrigger>
               <FollowUpSettingsDialog
                 emailAccountId={data?.id ?? ""}
-                followUpAwaitingReplyDays={data?.followUpAwaitingReplyDays ?? 3}
-                followUpNeedsReplyDays={data?.followUpNeedsReplyDays ?? 3}
+                followUpAwaitingReplyDays={data?.followUpAwaitingReplyDays}
+                followUpNeedsReplyDays={data?.followUpNeedsReplyDays}
                 followUpAutoDraftEnabled={
                   data?.followUpAutoDraftEnabled ?? true
                 }
@@ -115,8 +121,8 @@ function FollowUpSettingsDialog({
   onSuccess,
 }: {
   emailAccountId: string;
-  followUpAwaitingReplyDays: number;
-  followUpNeedsReplyDays: number;
+  followUpAwaitingReplyDays: number | null | undefined;
+  followUpNeedsReplyDays: number | null | undefined;
   followUpAutoDraftEnabled: boolean;
   onSuccess: () => void;
 }) {
@@ -129,10 +135,10 @@ function FollowUpSettingsDialog({
     watch,
     setValue,
     formState: { errors },
-  } = useForm<SaveFollowUpSettingsBody>({
+  } = useForm<SaveFollowUpSettingsFormInput>({
     defaultValues: {
-      followUpAwaitingReplyDays,
-      followUpNeedsReplyDays,
+      followUpAwaitingReplyDays: followUpAwaitingReplyDays?.toString() ?? "",
+      followUpNeedsReplyDays: followUpNeedsReplyDays?.toString() ?? "",
       followUpAutoDraftEnabled,
     },
   });
@@ -168,8 +174,16 @@ function FollowUpSettingsDialog({
     },
   );
 
-  const onSubmit = (data: SaveFollowUpSettingsBody) => {
-    execute(data);
+  const onSubmit = (formData: SaveFollowUpSettingsFormInput) => {
+    execute({
+      followUpAwaitingReplyDays: formData.followUpAwaitingReplyDays
+        ? Number(formData.followUpAwaitingReplyDays)
+        : null,
+      followUpNeedsReplyDays: formData.followUpNeedsReplyDays
+        ? Number(formData.followUpNeedsReplyDays)
+        : null,
+      followUpAutoDraftEnabled: formData.followUpAutoDraftEnabled,
+    });
   };
 
   return (
@@ -189,9 +203,8 @@ function FollowUpSettingsDialog({
           type="number"
           name="followUpAwaitingReplyDays"
           label="Remind me when they haven't replied after"
-          registerProps={register("followUpAwaitingReplyDays", {
-            valueAsNumber: true,
-          })}
+          explainText="Leave blank to disable"
+          registerProps={register("followUpAwaitingReplyDays")}
           error={errors.followUpAwaitingReplyDays}
           min={0.001}
           max={90}
@@ -203,9 +216,8 @@ function FollowUpSettingsDialog({
           type="number"
           name="followUpNeedsReplyDays"
           label="Remind me when I haven't replied after"
-          registerProps={register("followUpNeedsReplyDays", {
-            valueAsNumber: true,
-          })}
+          explainText="Leave blank to disable"
+          registerProps={register("followUpNeedsReplyDays")}
           error={errors.followUpNeedsReplyDays}
           min={0.001}
           max={90}
