@@ -659,6 +659,7 @@ model Newsletter {
   createdAt DateTime          @default(now())
   updatedAt DateTime          @updatedAt
   email     String
+  name      String?
   status    NewsletterStatus?
 
   // For learned patterns for rules

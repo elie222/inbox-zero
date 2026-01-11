@@ -338,8 +338,7 @@ async function mapActionFields(
           logger,
         });
 
-        folderId =
-          await emailProvider.getOrCreateOutlookFolderIdByName(folderName);
+        folderId = await emailProvider.getOrCreateFolderIdByName(folderName);
       }
 
       return {

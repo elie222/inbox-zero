@@ -90,7 +90,7 @@ cp apps/web/.env.example apps/web/.env
 | `NEXT_PUBLIC_MEETING_BRIEFS_ENABLED` | No | Enable meeting briefs, which automatically sends pre-meeting briefings to users. Requires the meeting briefs cron job to be running. | `false` |
 | `NEXT_PUBLIC_INTEGRATIONS_ENABLED` | No | Enable the integrations feature, allowing users to connect external services. | `false` |
 | **Debugging** ||||
-| `LOG_ZOD_ERRORS` | No | Log Zod validation errors | — |
+| `DISABLE_LOG_ZOD_ERRORS` | No | Disable logging Zod validation errors | — |
 | `ENABLE_DEBUG_LOGS` | No | Enable debug logging | `false` |
 | `NEXT_PUBLIC_LOG_SCOPES` | No | Comma-separated log scopes | — |
 

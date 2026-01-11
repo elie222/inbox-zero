@@ -16,7 +16,6 @@ import { OnboardingWrapper } from "@/app/(app)/[emailAccountId]/onboarding/Onboa
 import { cn } from "@/utils";
 import { Button } from "@/components/ui/button";
 import { saveOnboardingFeaturesAction } from "@/utils/actions/onboarding";
-import { toastError } from "@/components/Toast";
 
 // `value` is the value that will be saved to the database
 const choices = [
@@ -57,7 +56,6 @@ export function StepFeatures({ onNext }: { onNext: () => void }) {
   const [selectedChoices, setSelectedChoices] = useState<Map<string, boolean>>(
     new Map(),
   );
-  const [isSaving, setIsSaving] = useState(false);
 
   return (
     <OnboardingWrapper className="py-0">
@@ -103,26 +101,16 @@ export function StepFeatures({ onNext }: { onNext: () => void }) {
           type="button"
           size="sm"
           className="mt-6"
-          loading={isSaving}
-          onClick={async () => {
-            setIsSaving(true);
-
+          onClick={() => {
             // Get all selected features (only the ones that are true)
             const features = Array.from(selectedChoices.entries())
               .filter(([_, isSelected]) => isSelected)
-              .map(([label, _]) => label);
+              .map(([label]) => label);
 
-            try {
-              await saveOnboardingFeaturesAction({ features });
-              onNext();
-            } catch (error) {
-              console.error("Failed to save features:", error);
-              toastError({
-                title: "Failed to save your preferences",
-                description: "Please try again.",
-              });
-              setIsSaving(false);
-            }
+            // Fire and forget - don't block navigation
+            saveOnboardingFeaturesAction({ features });
+
+            onNext();
           }}
         >
           Continue

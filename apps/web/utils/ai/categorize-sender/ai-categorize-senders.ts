@@ -8,7 +8,7 @@ import { getModel } from "@/utils/llms/model";
 import { createGenerateObject } from "@/utils/llms";
 
 export const REQUEST_MORE_INFORMATION_CATEGORY = "RequestMoreInformation";
-export const UNKNOWN_CATEGORY = "Unknown";
+export const UNKNOWN_CATEGORY = "Other";
 
 const categorizeSendersSchema = z.object({
   senders: z.array(
@@ -75,14 +75,14 @@ ${formatCategoriesForPrompt(categories)}
 <instructions>
 1. Analyze each sender's email address and their recent emails for categorization.
 2. If the sender's category is clear, assign it.
-3. Use "Unknown" if the category is unclear or multiple categories could apply.
+3. Use "${UNKNOWN_CATEGORY}" if the category is unclear or multiple categories could apply.
 4. Use "${REQUEST_MORE_INFORMATION_CATEGORY}" if more context is needed.
 </instructions>
 
 <important>
 - Accuracy is more important than completeness
 - Only use the categories provided above
-- Respond with "Unknown" if unsure
+- Respond with "${UNKNOWN_CATEGORY}" if unsure
 - Return your response in JSON format
 </important>`;
 
