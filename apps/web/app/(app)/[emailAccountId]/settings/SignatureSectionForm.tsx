@@ -20,6 +20,7 @@ import { useAccount } from "@/providers/EmailAccountProvider";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { getActionErrorMessage } from "@/utils/error";
 import { saveSignatureBody } from "@/utils/actions/user.validation";
+import { isGoogleProvider } from "@/utils/email/provider-types";
 
 export const SignatureSectionForm = ({
   signature,
@@ -36,7 +37,7 @@ export const SignatureSectionForm = ({
   const editorRef = useRef<TiptapHandle>(null);
 
   const { emailAccountId, provider } = useAccount();
-  const isGmail = provider === "google";
+  const isGmail = isGoogleProvider(provider);
 
   const { execute, isExecuting } = useAction(
     saveSignatureAction.bind(null, emailAccountId),
