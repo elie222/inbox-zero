@@ -1,4 +1,5 @@
 import prisma from "@/utils/prisma";
+import { withPrismaRetry } from "@/utils/prisma-retry";
 import type { EmailProvider } from "@/utils/email/types";
 import { FOLLOW_UP_LABEL } from "@/utils/label";
 import type { Logger } from "@/utils/logger";
@@ -115,17 +116,19 @@ export async function clearFollowUpLabel({
   if (!threadId) return;
 
   try {
-    const { count } = await prisma.threadTracker.updateMany({
-      where: {
-        emailAccountId,
-        threadId,
-        followUpAppliedAt: { not: null },
-        resolved: false,
-      },
-      data: {
-        followUpAppliedAt: null,
-      },
-    });
+    const { count } = await withPrismaRetry(() =>
+      prisma.threadTracker.updateMany({
+        where: {
+          emailAccountId,
+          threadId,
+          followUpAppliedAt: { not: null },
+          resolved: false,
+        },
+        data: {
+          followUpAppliedAt: null,
+        },
+      }),
+    );
 
     if (count === 0) {
       return;
