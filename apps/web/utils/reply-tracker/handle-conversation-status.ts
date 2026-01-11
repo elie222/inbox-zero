@@ -8,6 +8,7 @@ import { createScopedLogger } from "@/utils/logger";
 import { SystemType, ThreadTrackerType } from "@/generated/prisma/enums";
 import prisma from "@/utils/prisma";
 import { sortByInternalDate } from "@/utils/date";
+import { withPrismaRetry } from "@/utils/prisma-retry";
 
 const logger = createScopedLogger("conversation-status-handler");
 
@@ -120,16 +121,18 @@ export async function updateThreadTrackers({
   status: SystemType;
 }) {
   // Resolve all existing trackers for this thread
-  await prisma.threadTracker.updateMany({
-    where: {
-      emailAccountId,
-      threadId,
-      resolved: false,
-    },
-    data: {
-      resolved: true,
-    },
-  });
+  await withPrismaRetry(() =>
+    prisma.threadTracker.updateMany({
+      where: {
+        emailAccountId,
+        threadId,
+        resolved: false,
+      },
+      data: {
+        resolved: true,
+      },
+    }),
+  );
 
   const getTrackerType = (status: SystemType) => {
     if (status === SystemType.TO_REPLY) return ThreadTrackerType.NEEDS_REPLY;
