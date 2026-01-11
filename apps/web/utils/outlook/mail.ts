@@ -63,22 +63,11 @@ export async function sendEmailWithHtml(
 
     // Set In-Reply-To and References headers for proper threading
     // Microsoft uses these headers (not conversationId) to determine thread membership
-    const headers: Array<{ name: string; value: string }> = [];
-
     if (body.replyToEmail.headerMessageId) {
-      headers.push({
-        name: "In-Reply-To",
-        value: body.replyToEmail.headerMessageId,
+      message.internetMessageHeaders = buildReplyHeaders({
+        headerMessageId: body.replyToEmail.headerMessageId,
+        references: body.replyToEmail.references,
       });
-      headers.push({
-        name: "References",
-        value:
-          body.replyToEmail.references || body.replyToEmail.headerMessageId,
-      });
-    }
-
-    if (headers.length > 0) {
-      message.internetMessageHeaders = headers;
     }
   }
 
@@ -121,8 +110,10 @@ export async function replyToEmail(
     message,
   });
 
+  const headerMessageId = message.headers["message-id"];
+
   // Only replying to the original sender
-  const replyMessage = {
+  const replyMessage: OutlookMessageRequest = {
     subject: formatReplySubject(message.headers.subject),
     body: {
       contentType: "html",
@@ -136,6 +127,13 @@ export async function replyToEmail(
       },
     ],
     conversationId: message.threadId,
+    // Set In-Reply-To and References headers for proper threading
+    ...(headerMessageId && {
+      internetMessageHeaders: buildReplyHeaders({
+        headerMessageId,
+        references: message.headers.references,
+      }),
+    }),
   };
 
   ensureEmailSendingEnabled();
@@ -353,4 +351,24 @@ function convertTextToHtmlParagraphs(text?: string | null): string {
     .join("");
 
   return `<html><body>${htmlContent}</body></html>`;
+}
+
+function buildReplyHeaders(options: {
+  headerMessageId: string;
+  references?: string;
+}): { name: string; value: string }[] {
+  const headers: { name: string; value: string }[] = [];
+
+  if (options.headerMessageId) {
+    headers.push({
+      name: "In-Reply-To",
+      value: options.headerMessageId,
+    });
+    headers.push({
+      name: "References",
+      value: options.references || options.headerMessageId,
+    });
+  }
+
+  return headers;
 }
