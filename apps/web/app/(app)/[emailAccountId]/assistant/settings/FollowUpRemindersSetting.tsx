@@ -174,45 +174,13 @@ function FollowUpSettingsDialog({
     scanFollowUpRemindersAction.bind(null, emailAccountId),
     {
       onSuccess: () => {
-        if (isGoogleProvider(provider)) {
-          const searchUrl = getGmailBasicSearchUrl(
-            emailAddress,
-            `label:${FOLLOW_UP_LABEL}`,
-          );
-          toast.success("Scan complete!", {
-            description: "View your follow-ups in Gmail.",
-            action: {
-              label: "View",
-              onClick: () => window.open(searchUrl, "_blank"),
-            },
-          });
-        } else {
-          toast.success("Scan complete!", {
-            description: `Look for the "${FOLLOW_UP_LABEL}" category in Outlook.`,
-          });
-        }
+        showScanCompleteToast(provider, emailAddress);
       },
       onError: (error) => {
         const ranForMinutes = getScanElapsedMs() > 4 * 60 * 1000;
 
         if (ranForMinutes) {
-          if (isGoogleProvider(provider)) {
-            const searchUrl = getGmailBasicSearchUrl(
-              emailAddress,
-              `label:${FOLLOW_UP_LABEL}`,
-            );
-            toast.success("Scan finished!", {
-              description: "Check your inbox for follow-ups.",
-              action: {
-                label: "View",
-                onClick: () => window.open(searchUrl, "_blank"),
-              },
-            });
-          } else {
-            toast.success("Scan finished!", {
-              description: `Look for the "${FOLLOW_UP_LABEL}" category in Outlook.`,
-            });
-          }
+          showScanCompleteToast(provider, emailAddress);
         } else {
           toastError({
             description: error.error?.serverError ?? "Failed to scan",
@@ -314,4 +282,27 @@ function FollowUpSettingsDialog({
       </form>
     </DialogContent>
   );
+}
+
+function showScanCompleteToast(
+  provider: string | undefined,
+  emailAddress: string,
+) {
+  if (isGoogleProvider(provider)) {
+    const searchUrl = getGmailBasicSearchUrl(
+      emailAddress,
+      `label:${FOLLOW_UP_LABEL}`,
+    );
+    toast.success("Scan complete!", {
+      description: "View your follow-ups in Gmail.",
+      action: {
+        label: "View",
+        onClick: () => window.open(searchUrl, "_blank"),
+      },
+    });
+  } else {
+    toast.success("Scan complete!", {
+      description: `Look for the "${FOLLOW_UP_LABEL}" category in Outlook.`,
+    });
+  }
 }
