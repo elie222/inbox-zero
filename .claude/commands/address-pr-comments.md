@@ -1,4 +1,5 @@
-Resolve all active PR comments (conversation + code review). Use `gh` CLI.
+Resolve all active PR comments (conversation + code review). 
+Use GitHub MCP. If not available, use `gh` CLI.
 
 Important: All `gh` CLI commands require `required_permissions: ['all']` due to TLS certificate issues in sandboxed mode.
 

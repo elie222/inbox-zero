@@ -4,6 +4,13 @@ import { Prisma } from "@/generated/prisma/client";
  * Wraps a Prisma operation with retry logic for specific transient errors.
  * Primarily targets P2028 ("Transaction already closed") which occurs
  * frequently in E2E tests using Neon's connection pooler.
+ *
+ * @param operation - The Prisma operation to execute.
+ * @param options - Retry configuration.
+ * @param options.maxRetries - Maximum number of retry attempts (default: 3).
+ * @param options.delayMs - Initial delay in milliseconds for backoff (default: 100).
+ * @returns The result of the Prisma operation.
+ * @throws The original error if retries are exhausted or if a non-retriable error occurs.
  */
 export async function withPrismaRetry<T>(
   operation: () => Promise<T>,
@@ -20,7 +27,7 @@ export async function withPrismaRetry<T>(
         error.code === "P2028" &&
         attempt < maxRetries
       ) {
-        // Exponential backoff: 100ms, 200ms, 300ms...
+        // Linear backoff: 100ms, 200ms, 300ms...
         const backoff = delayMs * attempt;
         await new Promise((resolve) => setTimeout(resolve, backoff));
         continue;
@@ -28,5 +35,6 @@ export async function withPrismaRetry<T>(
       throw error;
     }
   }
-  throw new Error("Prisma retry exhausted");
+  // Unreachable: loop always exits via return (success) or throw (error)
+  throw new Error("Prisma retry exhausted (unreachable)");
 }
