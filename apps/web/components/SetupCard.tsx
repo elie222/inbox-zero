@@ -44,16 +44,15 @@ export function SetupCard(props: SetupContentProps) {
 
 export function SetupDialog({
   open,
+  onOpenChange,
   ...props
-}: SetupContentProps & { open: boolean }) {
+}: SetupContentProps & {
+  open: boolean;
+  onOpenChange?: (open: boolean) => void;
+}) {
   return (
-    <Dialog open={open}>
-      <DialogContent
-        className="max-w-lg"
-        onInteractOutside={(e) => e.preventDefault()}
-        onEscapeKeyDown={(e) => e.preventDefault()}
-        hideCloseButton
-      >
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-lg">
         <DialogHeader className="sr-only">
           <DialogTitle>{props.title}</DialogTitle>
           <DialogDescription>{props.description}</DialogDescription>

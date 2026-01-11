@@ -29,7 +29,13 @@ const features = [
   },
 ];
 
-export function AutoCategorizationSetup({ open }: { open: boolean }) {
+export function AutoCategorizationSetup({
+  open,
+  onOpenChange,
+}: {
+  open: boolean;
+  onOpenChange?: (open: boolean) => void;
+}) {
   const { emailAccountId } = useAccount();
   const { setIsBulkCategorizing } = useCategorizeProgress();
 
@@ -67,6 +73,7 @@ export function AutoCategorizationSetup({ open }: { open: boolean }) {
   return (
     <SetupDialog
       open={open}
+      onOpenChange={onOpenChange}
       imageSrc="/images/illustrations/working-vacation.svg"
       imageAlt="Bulk Archive"
       title="Bulk Archive"
