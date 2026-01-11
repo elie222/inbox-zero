@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useCallback } from "react";
+import { useMemo, useCallback, useState } from "react";
 import useSWR from "swr";
 import { parseAsBoolean, useQueryState } from "nuqs";
 import { AutoCategorizationSetup } from "@/app/(app)/[emailAccountId]/bulk-archive/AutoCategorizationSetup";
@@ -44,9 +44,12 @@ export function BulkArchive() {
     mutate();
   }, [mutate]);
 
+  const [setupDismissed, setSetupDismissed] = useState(false);
+
   // Show setup dialog for first-time setup only
   const shouldShowSetup =
-    onboarding || (!autoCategorizeSenders && !isBulkCategorizing);
+    !setupDismissed &&
+    (onboarding || (!autoCategorizeSenders && !isBulkCategorizing));
 
   return (
     <LoadingContent loading={isLoading} error={error}>
@@ -63,7 +66,12 @@ export function BulkArchive() {
         <BulkArchiveProgress onComplete={handleProgressComplete} />
         <BulkArchiveCards emailGroups={emailGroups} categories={categories} />
       </PageWrapper>
-      <AutoCategorizationSetup open={shouldShowSetup} />
+      <AutoCategorizationSetup
+        open={shouldShowSetup}
+        onOpenChange={(open) => {
+          if (!open) setSetupDismissed(true);
+        }}
+      />
     </LoadingContent>
   );
 }
