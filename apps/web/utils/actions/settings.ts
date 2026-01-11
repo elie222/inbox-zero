@@ -19,35 +19,6 @@ import { ActionType, SystemType } from "@/generated/prisma/enums";
 import type { Prisma } from "@/generated/prisma/client";
 import { clearSpecificErrorMessages, ErrorType } from "@/utils/error-messages";
 
-const DEFAULT_DIGEST_SCHEDULE = {
-  intervalDays: 1,
-  occurrences: 1,
-  daysOfWeek: 127,
-  timeOfDay: createCanonicalTimeOfDay(9, 0),
-};
-
-type ScheduleInput = {
-  intervalDays: number | null;
-  occurrences: number | null;
-  daysOfWeek: number | null;
-  timeOfDay: Date | null;
-};
-
-function buildScheduleCreateData(
-  emailAccountId: string,
-  schedule: ScheduleInput,
-): Prisma.ScheduleUpsertArgs["create"] {
-  return {
-    emailAccountId,
-    ...schedule,
-    lastOccurrenceAt: new Date(),
-    nextOccurrenceAt: calculateNextScheduleDate({
-      ...schedule,
-      lastOccurrenceAt: null,
-    }),
-  };
-}
-
 export const updateEmailSettingsAction = actionClient
   .metadata({ name: "updateEmailSettings" })
   .inputSchema(saveEmailUpdateSettingsBody)
@@ -102,7 +73,21 @@ export const updateDigestScheduleAction = actionClient
   .metadata({ name: "updateDigestSchedule" })
   .inputSchema(saveDigestScheduleBody)
   .action(async ({ ctx: { emailAccountId }, parsedInput }) => {
-    const create = buildScheduleCreateData(emailAccountId, parsedInput);
+    const { intervalDays, daysOfWeek, timeOfDay, occurrences } = parsedInput;
+
+    const create: Prisma.ScheduleUpsertArgs["create"] = {
+      emailAccountId,
+      intervalDays,
+      daysOfWeek,
+      timeOfDay,
+      occurrences,
+      lastOccurrenceAt: new Date(),
+      nextOccurrenceAt: calculateNextScheduleDate({
+        ...parsedInput,
+        lastOccurrenceAt: null,
+      }),
+    };
+
     const { emailAccountId: _emailAccountId, ...update } = create;
 
     await prisma.schedule.upsert({
@@ -172,12 +157,24 @@ export const toggleDigestAction = actionClient
   .inputSchema(toggleDigestBody)
   .action(async ({ ctx: { emailAccountId }, parsedInput: { enabled } }) => {
     if (enabled) {
+      const defaultSchedule = {
+        intervalDays: 1,
+        occurrences: 1,
+        daysOfWeek: 127,
+        timeOfDay: createCanonicalTimeOfDay(9, 0),
+      };
+
       await prisma.schedule.upsert({
         where: { emailAccountId },
-        create: buildScheduleCreateData(
+        create: {
           emailAccountId,
-          DEFAULT_DIGEST_SCHEDULE,
-        ),
+          ...defaultSchedule,
+          lastOccurrenceAt: new Date(),
+          nextOccurrenceAt: calculateNextScheduleDate({
+            ...defaultSchedule,
+            lastOccurrenceAt: null,
+          }),
+        },
         update: {},
       });
 
