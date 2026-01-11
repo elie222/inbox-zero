@@ -59,7 +59,7 @@ export function McpAgentTest() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Test MCP Integrations</CardTitle>
+        <CardTitle>Test MCP integrations</CardTitle>
         <p className="text-sm text-gray-600 mt-2">
           This tests the MCP agent's ability to research customer context from
           connected systems like CRMs, payment platforms, and documentation to

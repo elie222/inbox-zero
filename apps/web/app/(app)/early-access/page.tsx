@@ -24,7 +24,7 @@ export default function RequestAccessPage() {
           <>
             <Card>
               <CardHeader>
-                <CardTitle>Sender Categories</CardTitle>
+                <CardTitle>Sender categories</CardTitle>
                 <CardDescription>
                   Sender Categories is a feature that allows you to categorize
                   emails by sender, and take bulk actions or apply rules to
@@ -39,7 +39,7 @@ export default function RequestAccessPage() {
             </Card>
             {/* <Card>
               <CardHeader>
-                <CardTitle>Bulk Archive</CardTitle>
+                <CardTitle>Bulk archive</CardTitle>
                 <CardDescription>
                   Archive emails from multiple senders at once, organized by
                   category.
@@ -53,7 +53,7 @@ export default function RequestAccessPage() {
             </Card> */}
             {/* <Card>
               <CardHeader>
-                <CardTitle>Quick Bulk Archive</CardTitle>
+                <CardTitle>Quick bulk archive</CardTitle>
                 <CardDescription>
                   Quickly archive emails from multiple senders at once, grouped
                   by AI confidence level.
@@ -69,7 +69,7 @@ export default function RequestAccessPage() {
         )}
         <Card>
           <CardHeader>
-            <CardTitle>Early Access</CardTitle>
+            <CardTitle>Early access</CardTitle>
             <CardDescription>
               Give us feedback on what features you want to see.
             </CardDescription>

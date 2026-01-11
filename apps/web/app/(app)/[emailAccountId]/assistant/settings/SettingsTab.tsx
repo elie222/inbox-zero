@@ -21,7 +21,7 @@ export function SettingsTab() {
       </div>
 
       <div className="space-y-2">
-        <SectionHeader>Your Voice</SectionHeader>
+        <SectionHeader>Your voice</SectionHeader>
         <WritingStyleSetting />
         <AboutSetting />
         <PersonalSignatureSetting />
