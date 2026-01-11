@@ -96,7 +96,6 @@ function WritingStyleDialog({
           }
           toastSuccess({ description: "Writing style regenerated!" });
         } else {
-          // Fixed grammar per CodeRabbit review
           toastSuccess({ description: "Not enough data to generate style." });
         }
       },
