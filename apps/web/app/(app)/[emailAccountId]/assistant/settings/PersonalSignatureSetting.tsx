@@ -163,7 +163,7 @@ function SignatureDialog({
       <DialogTrigger asChild>{children}</DialogTrigger>
       <DialogContent className="max-w-4xl">
         <DialogHeader>
-          <DialogTitle>Email Signature</DialogTitle>
+          <DialogTitle>Email signature</DialogTitle>
           <DialogDescription>
             Set your email signature to include in all drafted messages.
             {isGmail &&
