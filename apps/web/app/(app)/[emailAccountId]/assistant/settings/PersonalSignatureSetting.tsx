@@ -30,6 +30,7 @@ import {
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { isGoogleProvider } from "@/utils/email/provider-types";
 
 export function PersonalSignatureSetting() {
   const { data, isLoading, error } = useEmailAccountFull();
@@ -71,7 +72,7 @@ function SignatureDialog({
   const [selectedSignature, setSelectedSignature] = useState<string>("");
   const [manualSignature, setManualSignature] = useState(currentSignature);
 
-  const isGmail = provider === "google";
+  const isGmail = isGoogleProvider(provider);
 
   const { execute: executeSave, isExecuting: isSaving } = useAction(
     saveSignatureAction.bind(null, emailAccountId),
