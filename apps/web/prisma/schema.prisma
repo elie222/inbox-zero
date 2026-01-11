@@ -145,6 +145,10 @@ model EmailAccount {
   meetingBriefingsEnabled       Boolean @default(false)
   meetingBriefingsMinutesBefore Int     @default(240) // 4 hours in minutes
 
+  followUpAwaitingReplyDays Int?
+  followUpNeedsReplyDays    Int?
+  followUpAutoDraftEnabled  Boolean @default(true)
+
   digestSchedule Schedule?
 
   userId    String
@@ -748,6 +752,8 @@ model ThreadTracker {
   resolved  Boolean           @default(false)
   type      ThreadTrackerType
 
+  followUpAppliedAt DateTime? // When the follow-up label was added (prevents re-processing)
+
   emailAccountId String
   emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
 
@@ -755,6 +761,7 @@ model ThreadTracker {
   @@index([emailAccountId, resolved])
   @@index([emailAccountId, resolved, sentAt, type])
   @@index([emailAccountId, type, resolved, sentAt])
+  @@index([emailAccountId, type, resolved, followUpAppliedAt, sentAt])
 }
 
 model CleanupJob {

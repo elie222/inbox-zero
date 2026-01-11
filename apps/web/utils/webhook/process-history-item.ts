@@ -4,6 +4,7 @@ import { categorizeSender } from "@/utils/categorize/senders/categorize";
 import { isAssistantEmail } from "@/utils/assistant/is-assistant-email";
 import { processAssistantEmail } from "@/utils/assistant/process-assistant-email";
 import { handleOutboundMessage } from "@/utils/reply-tracker/handle-outbound";
+import { clearFollowUpLabel } from "@/utils/follow-up/labels";
 import { NewsletterStatus } from "@/generated/prisma/enums";
 import type { EmailAccount } from "@/generated/prisma/client";
 import { extractEmailAddress } from "@/utils/email";
@@ -12,6 +13,7 @@ import type { EmailProvider } from "@/utils/email/types";
 import type { ParsedMessage, RuleWithActions } from "@/utils/types";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import type { Logger } from "@/utils/logger";
+import { captureException } from "@/utils/error";
 
 export type SharedProcessHistoryOptions = {
   provider: EmailProvider;
@@ -167,6 +169,20 @@ export async function processHistoryItem(
         modelType: "default",
         logger,
       });
+    }
+
+    // Remove follow-up label if present (they replied, so follow-up no longer needed)
+    // This handles the case where we were awaiting a reply from them
+    try {
+      await clearFollowUpLabel({
+        emailAccountId,
+        threadId: actualThreadId,
+        provider,
+        logger,
+      });
+    } catch (error) {
+      logger.error("Error removing follow-up label on inbound", { error });
+      captureException(error, { emailAccountId });
     }
   } catch (error: unknown) {
     // Handle provider-specific "not found" errors

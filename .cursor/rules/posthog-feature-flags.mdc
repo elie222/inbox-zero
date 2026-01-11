@@ -25,9 +25,9 @@ We use PostHog for two main purposes:
 All feature flag hooks should be defined in `apps/web/hooks/useFeatureFlags.ts`:
 
 ```typescript
-// For early access features (boolean flags)
-export function useFeatureName() {
-  return useFeatureFlagEnabled("feature-flag-key");
+// For early access features (boolean flags with env override)
+export function useFeatureNameEnabled() {
+  return useFeatureFlagEnabled("feature-flag-key") || env.NEXT_PUBLIC_FEATURE_NAME_ENABLED;
 }
 
 // For A/B test variants
@@ -39,6 +39,11 @@ export function useFeatureVariant() {
 }
 ```
 
+Early access features should support both PostHog flags AND environment variables using an OR (`||`). This allows:
+- Production users to opt-in via PostHog Early Access
+- Developers to enable features locally via `.env`
+- Self-hosted users to enable features without PostHog
+
 ### 2. Early Access Features
 
 Early access features are automatically displayed on the Early Access page (`/early-access`) through the `EarlyAccessFeatures` component. No manual configuration needed.
@@ -47,7 +52,7 @@ Early access features are automatically displayed on the Early Access page (`/ea
 ```typescript
 // In useFeatureFlags.ts
 export function useCleanerEnabled() {
-  return useFeatureFlagEnabled("inbox-cleaner");
+  return useFeatureFlagEnabled("inbox-cleaner") || env.NEXT_PUBLIC_CLEANER_ENABLED;
 }
 
 // Usage in components
@@ -61,6 +66,11 @@ function MyComponent() {
   return <CleanerFeature />;
 }
 ```
+
+When adding a new early access feature:
+1. Add the hook with PostHog flag + env override
+2. Add the env variable to `apps/web/env.ts` (schema + runtimeEnv)
+3. Gate the UI component with the hook
 
 ### 3. A/B Test Variants
 
