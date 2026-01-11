@@ -27,6 +27,7 @@ interface OutlookMessageRequest {
   bccRecipients?: { emailAddress: { address: string } }[];
   replyTo?: { emailAddress: { address: string } }[];
   conversationId?: string;
+  internetMessageHeaders?: { name: string; value: string }[];
   isDraft?: boolean;
 }
 
@@ -57,8 +58,28 @@ export async function sendEmailWithHtml(
       : {}),
   };
 
-  if (body.replyToEmail?.threadId) {
+  if (body.replyToEmail) {
     message.conversationId = body.replyToEmail.threadId;
+
+    // Set In-Reply-To and References headers for proper threading
+    // Microsoft uses these headers (not conversationId) to determine thread membership
+    const headers: Array<{ name: string; value: string }> = [];
+
+    if (body.replyToEmail.headerMessageId) {
+      headers.push({
+        name: "In-Reply-To",
+        value: body.replyToEmail.headerMessageId,
+      });
+      headers.push({
+        name: "References",
+        value:
+          body.replyToEmail.references || body.replyToEmail.headerMessageId,
+      });
+    }
+
+    if (headers.length > 0) {
+      message.internetMessageHeaders = headers;
+    }
   }
 
   await withOutlookRetry(
@@ -72,7 +93,7 @@ export async function sendEmailWithHtml(
 
   // /me/sendMail returns 202 with no body, so we can't get the sent message ID.
   // Graph doesn't support filtering by internetMessageHeaders, so we can't query for it.
-  // conversationId (threadId) is preserved - that's what matters for reply tracking.
+  // Thread continuity is maintained via In-Reply-To/References headers set above.
   // Empty id means auto-expand won't work in EmailThread, but we don't show that for Outlook.
   return {
     id: "",

@@ -230,14 +230,20 @@ describe.skipIf(!shouldRunFlowTests())("Outbound Message Tracking", () => {
         where: {
           emailAccountId: outlook.id,
           threadId: receivedMessage.threadId,
+          resolved: false,
         },
       });
 
       logStep("ThreadTracker before reply", {
+        id: trackerBeforeReply?.id,
         exists: !!trackerBeforeReply,
         resolved: trackerBeforeReply?.resolved,
         type: trackerBeforeReply?.type,
       });
+
+      // Store the tracker ID to verify it gets resolved
+      const originalTrackerId = trackerBeforeReply?.id;
+      expect(originalTrackerId).toBeDefined();
 
       // ========================================
       // Send reply
@@ -260,21 +266,20 @@ describe.skipIf(!shouldRunFlowTests())("Outbound Message Tracking", () => {
       // Wait for outbound processing to mark tracker as resolved
       await new Promise((resolve) => setTimeout(resolve, 10_000));
 
-      // Verify the thread is now marked as "replied to"
-      const threadTracker = await prisma.threadTracker.findFirst({
-        where: {
-          emailAccountId: outlook.id,
-          threadId: receivedMessage.threadId,
-        },
+      // Verify the ORIGINAL tracker is now resolved
+      // Note: A new AWAITING_REPLY tracker may be created, so we must check
+      // the specific tracker that existed before the reply
+      const resolvedTracker = await prisma.threadTracker.findUnique({
+        where: { id: originalTrackerId! },
       });
 
-      // Thread tracker should exist and be marked as resolved after reply
-      expect(threadTracker).toBeDefined();
-      expect(threadTracker?.resolved).toBe(true);
+      expect(resolvedTracker).toBeDefined();
+      expect(resolvedTracker?.resolved).toBe(true);
 
-      logStep("Reply tracking found", {
-        resolved: threadTracker?.resolved,
-        type: threadTracker?.type,
+      logStep("Original tracker now resolved", {
+        id: resolvedTracker?.id,
+        resolved: resolvedTracker?.resolved,
+        type: resolvedTracker?.type,
       });
     },
     TIMEOUTS.FULL_CYCLE,
