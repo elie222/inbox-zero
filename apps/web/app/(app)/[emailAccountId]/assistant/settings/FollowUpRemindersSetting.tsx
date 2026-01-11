@@ -15,6 +15,7 @@ import {
 import { Input } from "@/components/Input";
 import { Toggle } from "@/components/Toggle";
 import { Badge } from "@/components/Badge";
+import { useActionTiming } from "@/hooks/useActionTiming";
 import { useEmailAccountFull } from "@/hooks/useEmailAccountFull";
 import { useFollowUpRemindersEnabled } from "@/hooks/useFeatureFlags";
 import { useAccount } from "@/providers/EmailAccountProvider";
@@ -151,6 +152,8 @@ function FollowUpSettingsDialog({
   });
 
   const autoDraftValue = watch("followUpAutoDraftEnabled");
+  const { start: startScanTiming, getElapsedMs: getScanElapsedMs } =
+    useActionTiming();
 
   const { execute, isExecuting } = useAction(
     updateFollowUpSettingsAction.bind(null, emailAccountId),
@@ -190,9 +193,31 @@ function FollowUpSettingsDialog({
         }
       },
       onError: (error) => {
-        toastError({
-          description: error.error?.serverError ?? "Failed to scan",
-        });
+        const ranForMinutes = getScanElapsedMs() > 4 * 60 * 1000;
+
+        if (ranForMinutes) {
+          if (isGoogleProvider(provider)) {
+            const searchUrl = getGmailBasicSearchUrl(
+              emailAddress,
+              `label:${FOLLOW_UP_LABEL}`,
+            );
+            toast.success("Scan finished!", {
+              description: "Check your inbox for follow-ups.",
+              action: {
+                label: "View",
+                onClick: () => window.open(searchUrl, "_blank"),
+              },
+            });
+          } else {
+            toast.success("Scan finished!", {
+              description: `Look for the "${FOLLOW_UP_LABEL}" category in Outlook.`,
+            });
+          }
+        } else {
+          toastError({
+            description: error.error?.serverError ?? "Failed to scan",
+          });
+        }
       },
     },
   );
@@ -274,7 +299,14 @@ function FollowUpSettingsDialog({
             variant="outline"
             size="sm"
             loading={isScanning}
-            onClick={() => executeScan({})}
+            onClick={() => {
+              startScanTiming();
+              toast.info("Scanning your emails...", {
+                description:
+                  "This may take a few minutes depending on how many emails need to be checked.",
+              });
+              executeScan({});
+            }}
           >
             Find follow-ups
           </Button>
