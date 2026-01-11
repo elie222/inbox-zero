@@ -43,7 +43,6 @@ export function FollowUpRemindersSetting() {
   const needsReplyDays = data?.followUpNeedsReplyDays ?? 3;
   const autoDraftEnabled = data?.followUpAutoDraftEnabled ?? true;
 
-  // Must define all hooks before any conditional returns to follow React hooks rules
   const { execute, isExecuting } = useAction(
     updateFollowUpSettingsAction.bind(null, data?.id ?? ""),
     {
