@@ -28,8 +28,12 @@ import {
   type SaveFollowUpSettingsFormInput,
   DEFAULT_FOLLOW_UP_DAYS,
 } from "@/utils/actions/follow-up-reminders.validation";
+import { toast } from "sonner";
 import { toastError, toastSuccess } from "@/components/Toast";
 import { getEmailTerminology } from "@/utils/terminology";
+import { getGmailBasicSearchUrl } from "@/utils/url";
+import { FOLLOW_UP_LABEL } from "@/utils/label";
+import { isGoogleProvider } from "@/utils/email/provider-types";
 
 export function FollowUpRemindersSetting() {
   const isFeatureEnabled = useFollowUpRemindersEnabled();
@@ -89,6 +93,7 @@ function FollowUpRemindersSettingContent() {
               </DialogTrigger>
               <FollowUpSettingsDialog
                 emailAccountId={data?.id ?? ""}
+                emailAddress={data?.email ?? ""}
                 followUpAwaitingReplyDays={data?.followUpAwaitingReplyDays}
                 followUpNeedsReplyDays={data?.followUpNeedsReplyDays}
                 followUpAutoDraftEnabled={
@@ -115,12 +120,14 @@ function FollowUpRemindersSettingContent() {
 
 function FollowUpSettingsDialog({
   emailAccountId,
+  emailAddress,
   followUpAwaitingReplyDays,
   followUpNeedsReplyDays,
   followUpAutoDraftEnabled,
   onSuccess,
 }: {
   emailAccountId: string;
+  emailAddress: string;
   followUpAwaitingReplyDays: number | null | undefined;
   followUpNeedsReplyDays: number | null | undefined;
   followUpAutoDraftEnabled: boolean;
@@ -164,7 +171,23 @@ function FollowUpSettingsDialog({
     scanFollowUpRemindersAction.bind(null, emailAccountId),
     {
       onSuccess: () => {
-        toastSuccess({ description: "Scan complete!" });
+        if (isGoogleProvider(provider)) {
+          const searchUrl = getGmailBasicSearchUrl(
+            emailAddress,
+            `label:${FOLLOW_UP_LABEL}`,
+          );
+          toast.success("Scan complete!", {
+            description: "View your follow-ups in Gmail.",
+            action: {
+              label: "View",
+              onClick: () => window.open(searchUrl, "_blank"),
+            },
+          });
+        } else {
+          toast.success("Scan complete!", {
+            description: `Look for the "${FOLLOW_UP_LABEL}" category in Outlook.`,
+          });
+        }
       },
       onError: (error) => {
         toastError({
@@ -203,7 +226,6 @@ function FollowUpSettingsDialog({
           type="number"
           name="followUpAwaitingReplyDays"
           label="Remind me when they haven't replied after"
-          explainText="Leave blank to disable"
           registerProps={register("followUpAwaitingReplyDays")}
           error={errors.followUpAwaitingReplyDays}
           min={0.001}
@@ -216,7 +238,6 @@ function FollowUpSettingsDialog({
           type="number"
           name="followUpNeedsReplyDays"
           label="Remind me when I haven't replied after"
-          explainText="Leave blank to disable"
           registerProps={register("followUpNeedsReplyDays")}
           error={errors.followUpNeedsReplyDays}
           min={0.001}
@@ -255,7 +276,7 @@ function FollowUpSettingsDialog({
             loading={isScanning}
             onClick={() => executeScan({})}
           >
-            Scan now
+            Find follow-ups
           </Button>
         </div>
       </form>
