@@ -20,7 +20,7 @@ import { LoadingContent } from "@/components/LoadingContent";
 export function LearnedPatternsSetting() {
   return (
     <SettingCard
-      title="Learned Patterns"
+      title="Learned patterns"
       description="View the patterns the assistant has learned from your email history."
       right={
         <Dialog>
@@ -31,7 +31,7 @@ export function LearnedPatternsSetting() {
           </DialogTrigger>
           <DialogContent className="max-w-4xl">
             <DialogHeader>
-              <DialogTitle>Learned Patterns</DialogTitle>
+              <DialogTitle>Learned patterns</DialogTitle>
               <DialogDescription>
                 When the AI processes your emails, it learns which senders or
                 email types consistently match the same rules. For example, it

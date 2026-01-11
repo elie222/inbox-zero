@@ -29,7 +29,7 @@ export function DigestSetting() {
           </DialogTrigger>
           <DialogContent className="max-w-7xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
-              <DialogTitle>Digest Settings</DialogTitle>
+              <DialogTitle>Digest settings</DialogTitle>
               <DialogDescription>
                 Configure when your digest emails are sent and which rules are
                 included.

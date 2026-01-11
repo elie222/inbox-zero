@@ -80,7 +80,7 @@ function FollowUpRemindersSettingContent() {
 
   return (
     <SettingCard
-      title="Follow-up Reminders"
+      title="Follow-up reminders"
       description="Get reminded when you haven't heard back or haven't replied."
       right={
         <div className="flex items-center gap-2">
@@ -212,7 +212,7 @@ function FollowUpSettingsDialog({
   return (
     <DialogContent>
       <DialogHeader>
-        <DialogTitle>Follow-up Reminders</DialogTitle>
+        <DialogTitle>Follow-up reminders</DialogTitle>
         <DialogDescription>
           Get reminded about conversations that need attention.
           <br />
