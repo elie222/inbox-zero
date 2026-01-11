@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback } from "react";
-import { useForm, Controller } from "react-hook-form";
+import { useForm } from "react-hook-form";
 import { Button } from "@/components/ui/button";
 import { SettingCard } from "@/components/SettingCard";
 import {
@@ -12,13 +12,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-} from "@/components/ui/select";
-import { Label } from "@/components/ui/label";
+import { Input } from "@/components/Input";
 import { Toggle } from "@/components/Toggle";
 import { Badge } from "@/components/Badge";
 import { useEmailAccountFull } from "@/hooks/useEmailAccountFull";
@@ -28,17 +22,11 @@ import { useAction } from "next-safe-action/hooks";
 import {
   toggleFollowUpRemindersAction,
   updateFollowUpSettingsAction,
+  scanFollowUpRemindersAction,
 } from "@/utils/actions/follow-up-reminders";
+import type { SaveFollowUpSettingsBody } from "@/utils/actions/follow-up-reminders.validation";
 import { toastError, toastSuccess } from "@/components/Toast";
 import { getEmailTerminology } from "@/utils/terminology";
-
-const dayOptions = [
-  { value: "1", label: "1 day" },
-  { value: "3", label: "3 days" },
-  { value: "7", label: "7 days" },
-  { value: "14", label: "14 days" },
-  { value: "30", label: "30 days" },
-];
 
 export function FollowUpRemindersSetting() {
   const isFeatureEnabled = useFollowUpRemindersEnabled();
@@ -95,9 +83,11 @@ function FollowUpRemindersSettingContent() {
               </DialogTrigger>
               <FollowUpSettingsDialog
                 emailAccountId={data?.id ?? ""}
-                awaitingDays={data?.followUpAwaitingReplyDays ?? 3}
-                needsReplyDays={data?.followUpNeedsReplyDays ?? 3}
-                autoDraftEnabled={data?.followUpAutoDraftEnabled ?? true}
+                followUpAwaitingReplyDays={data?.followUpAwaitingReplyDays ?? 3}
+                followUpNeedsReplyDays={data?.followUpNeedsReplyDays ?? 3}
+                followUpAutoDraftEnabled={
+                  data?.followUpAutoDraftEnabled ?? true
+                }
                 onSuccess={() => {
                   mutate();
                   setOpen(false);
@@ -117,35 +107,37 @@ function FollowUpRemindersSettingContent() {
   );
 }
 
-interface FollowUpSettingsFormValues {
-  awaitingDays: number;
-  needsReplyDays: number;
-  autoDraftEnabled: boolean;
-}
-
 function FollowUpSettingsDialog({
   emailAccountId,
-  awaitingDays,
-  needsReplyDays,
-  autoDraftEnabled,
+  followUpAwaitingReplyDays,
+  followUpNeedsReplyDays,
+  followUpAutoDraftEnabled,
   onSuccess,
 }: {
   emailAccountId: string;
-  awaitingDays: number;
-  needsReplyDays: number;
-  autoDraftEnabled: boolean;
+  followUpAwaitingReplyDays: number;
+  followUpNeedsReplyDays: number;
+  followUpAutoDraftEnabled: boolean;
   onSuccess: () => void;
 }) {
   const { provider } = useAccount();
   const terminology = getEmailTerminology(provider);
 
-  const { control, handleSubmit } = useForm<FollowUpSettingsFormValues>({
+  const {
+    register,
+    handleSubmit,
+    watch,
+    setValue,
+    formState: { errors },
+  } = useForm<SaveFollowUpSettingsBody>({
     defaultValues: {
-      awaitingDays,
-      needsReplyDays,
-      autoDraftEnabled,
+      followUpAwaitingReplyDays,
+      followUpNeedsReplyDays,
+      followUpAutoDraftEnabled,
     },
   });
+
+  const autoDraftValue = watch("followUpAutoDraftEnabled");
 
   const { execute, isExecuting } = useAction(
     updateFollowUpSettingsAction.bind(null, emailAccountId),
@@ -162,12 +154,22 @@ function FollowUpSettingsDialog({
     },
   );
 
-  const onSubmit = (data: FollowUpSettingsFormValues) => {
-    execute({
-      followUpAwaitingReplyDays: data.awaitingDays,
-      followUpNeedsReplyDays: data.needsReplyDays,
-      followUpAutoDraftEnabled: data.autoDraftEnabled,
-    });
+  const { execute: executeScan, isExecuting: isScanning } = useAction(
+    scanFollowUpRemindersAction.bind(null, emailAccountId),
+    {
+      onSuccess: () => {
+        toastSuccess({ description: "Scan complete!" });
+      },
+      onError: (error) => {
+        toastError({
+          description: error.error?.serverError ?? "Failed to scan",
+        });
+      },
+    },
+  );
+
+  const onSubmit = (data: SaveFollowUpSettingsBody) => {
+    execute(data);
   };
 
   return (
@@ -183,89 +185,67 @@ function FollowUpSettingsDialog({
       </DialogHeader>
 
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-        <Controller
-          name="awaitingDays"
-          control={control}
-          render={({ field }) => (
-            <div className="space-y-1">
-              <Label htmlFor="awaiting-days">
-                Remind me when they haven't replied after
-              </Label>
-              <Select
-                value={field.value.toString()}
-                onValueChange={(value) =>
-                  field.onChange(Number.parseInt(value, 10))
-                }
-              >
-                <SelectTrigger id="awaiting-days">
-                  {dayOptions.find((d) => d.value === field.value.toString())
-                    ?.label ?? "Select..."}
-                </SelectTrigger>
-                <SelectContent>
-                  {dayOptions.map((option) => (
-                    <SelectItem key={option.value} value={option.value}>
-                      {option.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          )}
+        <Input
+          type="number"
+          name="followUpAwaitingReplyDays"
+          label="Remind me when they haven't replied after"
+          registerProps={register("followUpAwaitingReplyDays", {
+            valueAsNumber: true,
+          })}
+          error={errors.followUpAwaitingReplyDays}
+          min={0.001}
+          max={90}
+          step={0.001}
+          rightText="days"
         />
 
-        <Controller
-          name="needsReplyDays"
-          control={control}
-          render={({ field }) => (
-            <div className="space-y-1">
-              <Label htmlFor="needs-reply-days">
-                Remind me when I haven't replied after
-              </Label>
-              <Select
-                value={field.value.toString()}
-                onValueChange={(value) =>
-                  field.onChange(Number.parseInt(value, 10))
-                }
-              >
-                <SelectTrigger id="needs-reply-days">
-                  {dayOptions.find((d) => d.value === field.value.toString())
-                    ?.label ?? "Select..."}
-                </SelectTrigger>
-                <SelectContent>
-                  {dayOptions.map((option) => (
-                    <SelectItem key={option.value} value={option.value}>
-                      {option.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          )}
+        <Input
+          type="number"
+          name="followUpNeedsReplyDays"
+          label="Remind me when I haven't replied after"
+          registerProps={register("followUpNeedsReplyDays", {
+            valueAsNumber: true,
+          })}
+          error={errors.followUpNeedsReplyDays}
+          min={0.001}
+          max={90}
+          step={0.001}
+          rightText="days"
         />
 
-        <Controller
-          name="autoDraftEnabled"
-          control={control}
-          render={({ field }) => (
-            <div className="flex items-center justify-between">
-              <div>
-                <Label htmlFor="auto-draft-enabled">Auto-generate drafts</Label>
-                <p className="text-muted-foreground text-sm">
-                  Draft a nudge when you haven't heard back.
-                </p>
-              </div>
-              <Toggle
-                name="auto-draft-enabled"
-                enabled={field.value}
-                onChange={field.onChange}
-              />
-            </div>
-          )}
-        />
+        <div className="flex items-center justify-between">
+          <div>
+            <label
+              htmlFor="followUpAutoDraftEnabled"
+              className="block text-sm font-medium text-foreground"
+            >
+              Auto-generate drafts
+            </label>
+            <p className="text-muted-foreground text-sm">
+              Draft a nudge when you haven't heard back.
+            </p>
+          </div>
+          <Toggle
+            name="followUpAutoDraftEnabled"
+            enabled={autoDraftValue}
+            onChange={(value) => setValue("followUpAutoDraftEnabled", value)}
+          />
+        </div>
 
-        <Button type="submit" size="sm" loading={isExecuting}>
-          Save
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button type="submit" size="sm" loading={isExecuting}>
+            Save
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            loading={isScanning}
+            onClick={() => executeScan({})}
+          >
+            Scan now
+          </Button>
+        </div>
       </form>
     </DialogContent>
   );

@@ -1,11 +1,14 @@
 "use server";
 
+import { z } from "zod";
 import { actionClient } from "@/utils/actions/safe-action";
 import {
   toggleFollowUpRemindersBody,
   saveFollowUpSettingsBody,
 } from "@/utils/actions/follow-up-reminders.validation";
 import prisma from "@/utils/prisma";
+import { processAccountFollowUps } from "@/app/api/follow-up-reminders/process";
+import { SafeError } from "@/utils/error";
 
 export const toggleFollowUpRemindersAction = actionClient
   .metadata({ name: "toggleFollowUpReminders" })
@@ -15,8 +18,6 @@ export const toggleFollowUpRemindersAction = actionClient
       where: { id: emailAccountId },
       data: { followUpRemindersEnabled: enabled },
     });
-
-    return { success: true };
   });
 
 export const updateFollowUpSettingsAction = actionClient
@@ -39,7 +40,26 @@ export const updateFollowUpSettingsAction = actionClient
           followUpAutoDraftEnabled,
         },
       });
-
-      return { success: true };
     },
   );
+
+export const scanFollowUpRemindersAction = actionClient
+  .metadata({ name: "scanFollowUpReminders" })
+  .inputSchema(z.object({}))
+  .action(async ({ ctx: { emailAccountId, logger } }) => {
+    const emailAccount = await prisma.emailAccount.findUnique({
+      where: { id: emailAccountId },
+      select: {
+        id: true,
+        email: true,
+        followUpAwaitingReplyDays: true,
+        followUpNeedsReplyDays: true,
+        followUpAutoDraftEnabled: true,
+        account: { select: { provider: true } },
+      },
+    });
+
+    if (!emailAccount) throw new SafeError("Email account not found");
+
+    await processAccountFollowUps({ emailAccount, logger });
+  });

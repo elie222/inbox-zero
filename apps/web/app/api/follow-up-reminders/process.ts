@@ -71,7 +71,7 @@ export async function processAllFollowUpReminders(logger: Logger) {
   };
 }
 
-async function processAccountFollowUps({
+export async function processAccountFollowUps({
   emailAccount,
   logger,
 }: {
