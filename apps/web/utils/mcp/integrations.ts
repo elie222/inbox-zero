@@ -13,6 +13,7 @@ export const MCP_INTEGRATIONS: Record<
   string,
   McpIntegrationConfig & {
     displayName: string;
+    shortName?: string; // Short name for display in compact contexts (e.g. "Connected to X")
     allowedTools?: string[];
     comingSoon?: boolean;
     oauthConfig?: {
@@ -92,7 +93,8 @@ export const MCP_INTEGRATIONS: Record<
   },
   pipedream: {
     name: "pipedream",
-    displayName: "Connect to any app (via Pipedream)",
+    displayName: "HubSpot, Slack, Airtable, Todoist, and more (via Pipedream)",
+    shortName: "Pipedream",
     serverUrl: "https://mcp.pipedream.net/v2",
     authType: "oauth",
     scopes: ["mcp", "offline_access"],
@@ -104,41 +106,41 @@ export const MCP_INTEGRATIONS: Record<
     // No allowedTools - accept all tools Pipedream provides
     // OAuth endpoints auto-discovered via RFC 8414
   },
-  hubspot: {
-    name: "hubspot",
-    displayName: "HubSpot",
-    serverUrl: "https://mcp.hubspot.com/",
-    authType: "oauth",
-    scopes: [
-      // "crm.objects.contacts.read",
-      // "crm.objects.companies.read",
-      // "crm.objects.deals.read",
-      // "crm.objects.carts.read",
-      // "crm.objects.products.read",
-      // "crm.objects.orders.read",
-      // "crm.objects.line_items.read",
-      // "crm.objects.invoices.read",
-      // "crm.objects.quotes.read",
-      // "crm.objects.subscriptions.read",
-      // "crm.objects.users.read",
-      // "crm.objects.owners.read",
-      "content",
-      "crm.objects.companies.read",
-      "crm.objects.companies.write",
-      "crm.objects.contacts.read",
-      "crm.objects.contacts.write",
-      "crm.objects.deals.write",
-      "forms",
-      "oauth",
-      "timeline",
-    ],
-    oauthConfig: {
-      // authorization_endpoint: "https://mcp.hubspot.com/oauth/authorize/user",
-      authorization_endpoint: "https://app.hubspot.com/oauth/authorize",
-      token_endpoint: "https://mcp.hubspot.com/oauth/v1/token",
-    },
-    comingSoon: true,
-  },
+  // hubspot: {
+  //   name: "hubspot",
+  //   displayName: "HubSpot",
+  //   serverUrl: "https://mcp.hubspot.com/",
+  //   authType: "oauth",
+  //   scopes: [
+  //     // "crm.objects.contacts.read",
+  //     // "crm.objects.companies.read",
+  //     // "crm.objects.deals.read",
+  //     // "crm.objects.carts.read",
+  //     // "crm.objects.products.read",
+  //     // "crm.objects.orders.read",
+  //     // "crm.objects.line_items.read",
+  //     // "crm.objects.invoices.read",
+  //     // "crm.objects.quotes.read",
+  //     // "crm.objects.subscriptions.read",
+  //     // "crm.objects.users.read",
+  //     // "crm.objects.owners.read",
+  //     "content",
+  //     "crm.objects.companies.read",
+  //     "crm.objects.companies.write",
+  //     "crm.objects.contacts.read",
+  //     "crm.objects.contacts.write",
+  //     "crm.objects.deals.write",
+  //     "forms",
+  //     "oauth",
+  //     "timeline",
+  //   ],
+  //   oauthConfig: {
+  //     // authorization_endpoint: "https://mcp.hubspot.com/oauth/authorize/user",
+  //     authorization_endpoint: "https://app.hubspot.com/oauth/authorize",
+  //     token_endpoint: "https://mcp.hubspot.com/oauth/v1/token",
+  //   },
+  //   comingSoon: true,
+  // },
   // clickup: {
   //   name: "clickup",
   //   displayName: "ClickUp",

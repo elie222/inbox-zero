@@ -1,28 +1,20 @@
 import { listMcpTools } from "@/utils/mcp/list-tools";
 import { getIntegration, type IntegrationKey } from "@/utils/mcp/integrations";
 import prisma from "@/utils/prisma";
-import { createScopedLogger } from "@/utils/logger";
+import type { Logger } from "@/utils/logger";
 import type { Prisma } from "@/generated/prisma/client";
 
-/**
- * Syncs tools from an MCP integration server to the database
- * @param integration The integration name
- * @param emailAccountId The email account ID
- * @returns The number of tools synced and their details
- */
 export async function syncMcpTools(
   integration: IntegrationKey,
   emailAccountId: string,
+  log: Logger,
 ) {
   const integrationConfig = getIntegration(integration);
   if (!integrationConfig) {
     throw new Error(`Unknown integration: ${integration}`);
   }
 
-  const logger = createScopedLogger("mcp-tools-sync").with({
-    integration,
-    emailAccountId,
-  });
+  const logger = log.with({ integration });
 
   logger.info("Syncing MCP tools");
 
