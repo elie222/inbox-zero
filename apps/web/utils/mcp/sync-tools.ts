@@ -48,9 +48,20 @@ export async function syncMcpTools(
 
     // Filter to only allowed tools if specified in config
     const allowedToolNames = integrationConfig.allowedTools;
-    const tools = allowedToolNames
+    let tools = allowedToolNames
       ? allTools.filter((tool) => allowedToolNames.includes(tool.name))
       : allTools;
+
+    // Filter out write tools if enabled (keeps only get, list, find, search, etc.)
+    if (integrationConfig.filterWriteTools) {
+      const beforeCount = tools.length;
+      tools = tools.filter((tool) => isReadOnlyTool(tool.name));
+      logger.info("Filtered write tools", {
+        before: beforeCount,
+        after: tools.length,
+        filtered: beforeCount - tools.length,
+      });
+    }
 
     logger.info("Fetched and filtered tools from MCP server", {
       totalToolsAvailable: allTools.length,
@@ -98,4 +109,27 @@ export async function syncMcpTools(
       `Failed to sync tools: ${error instanceof Error ? error.message : "Unknown error"}`,
     );
   }
+}
+
+// Read-only action verbs (second segment in "app-action-target" pattern)
+const READ_ONLY_ACTIONS = [
+  "get",
+  "find",
+  "search",
+  "list",
+  "fetch",
+  "read",
+  "query",
+];
+
+/**
+ * Checks if a tool name indicates a read-only operation.
+ * Tool names follow pattern: "app-action-target" (e.g., "slack_v2-list-channels")
+ */
+export function isReadOnlyTool(toolName: string): boolean {
+  const parts = toolName.toLowerCase().split("-");
+  if (parts.length < 2) return false;
+
+  const action = parts[1];
+  return READ_ONLY_ACTIONS.includes(action);
 }
