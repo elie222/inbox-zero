@@ -3,6 +3,8 @@ type McpIntegrationConfig = {
   serverUrl?: string;
   authType: "oauth" | "api-token";
   scopes: string[];
+  skipResourceParam?: boolean; // Some OAuth servers don't support RFC 8707 resource parameter
+  defaultToolsDisabled?: boolean; // For integrations with many tools (e.g. Pipedream), disable by default
 };
 
 export const MCP_INTEGRATIONS: Record<
@@ -85,6 +87,17 @@ export const MCP_INTEGRATIONS: Record<
     ],
     // OAuth endpoints auto-discovered via RFC 8414
     comingSoon: false,
+  },
+  pipedream: {
+    name: "pipedream",
+    displayName: "Connect to any app (via Pipedream)",
+    serverUrl: "https://mcp.pipedream.net/v2",
+    authType: "oauth",
+    scopes: ["mcp", "offline_access"],
+    skipResourceParam: true, // Pipedream doesn't support RFC 8707 resource parameter
+    defaultToolsDisabled: true, // Pipedream can have 100s of tools, let users enable what they need
+    // No allowedTools - accept all tools Pipedream provides
+    // OAuth endpoints auto-discovered via RFC 8414
   },
   hubspot: {
     name: "hubspot",

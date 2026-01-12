@@ -71,7 +71,7 @@ export async function syncMcpTools(
                 name: tool.name,
                 description: tool.description,
                 schema: tool.inputSchema as Prisma.InputJsonValue,
-                isEnabled: true,
+                isEnabled: !integrationConfig.defaultToolsDisabled,
               })),
             }),
           ]

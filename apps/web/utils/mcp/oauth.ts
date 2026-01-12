@@ -63,7 +63,9 @@ export async function generateOAuthUrl({
     redirectUrl: redirectUri,
     scope: integrationConfig.scopes.join(" "),
     state,
-    resource: new URL(integrationConfig.serverUrl),
+    ...(integrationConfig.skipResourceParam
+      ? {}
+      : { resource: new URL(integrationConfig.serverUrl) }),
   });
 
   logger.info("OAuth flow started", { integration });
@@ -109,7 +111,9 @@ export async function handleOAuthCallback({
     authorizationCode: code,
     codeVerifier,
     redirectUri,
-    resource: new URL(integrationConfig.serverUrl),
+    ...(integrationConfig.skipResourceParam
+      ? {}
+      : { resource: new URL(integrationConfig.serverUrl) }),
   });
 
   const dbIntegration = await prisma.mcpIntegration.upsert({
@@ -285,7 +289,9 @@ async function refreshOAuthTokens({
     metadata,
     clientInformation: clientInfo,
     refreshToken: connection.refreshToken,
-    resource: new URL(integrationConfig.serverUrl),
+    ...(integrationConfig.skipResourceParam
+      ? {}
+      : { resource: new URL(integrationConfig.serverUrl) }),
   });
 
   const expiresAt = calculateTokenExpiration(tokens.expires_in, {
