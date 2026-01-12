@@ -63,9 +63,7 @@ export async function generateOAuthUrl({
     redirectUrl: redirectUri,
     scope: integrationConfig.scopes.join(" "),
     state,
-    ...(integrationConfig.skipResourceParam
-      ? {}
-      : { resource: new URL(integrationConfig.serverUrl) }),
+    ...getResourceParam(integrationConfig),
   });
 
   logger.info("OAuth flow started", { integration });
@@ -111,9 +109,7 @@ export async function handleOAuthCallback({
     authorizationCode: code,
     codeVerifier,
     redirectUri,
-    ...(integrationConfig.skipResourceParam
-      ? {}
-      : { resource: new URL(integrationConfig.serverUrl) }),
+    ...getResourceParam(integrationConfig),
   });
 
   const dbIntegration = await prisma.mcpIntegration.upsert({
@@ -289,9 +285,7 @@ async function refreshOAuthTokens({
     metadata,
     clientInformation: clientInfo,
     refreshToken: connection.refreshToken,
-    ...(integrationConfig.skipResourceParam
-      ? {}
-      : { resource: new URL(integrationConfig.serverUrl) }),
+    ...getResourceParam(integrationConfig),
   });
 
   const expiresAt = calculateTokenExpiration(tokens.expires_in, {
@@ -606,4 +600,17 @@ function getOAuthServerUrl(
   }
 
   return serverUrl;
+}
+
+/**
+ * Returns the resource parameter for OAuth requests if supported by the integration.
+ * Some OAuth servers (e.g., Pipedream) don't support RFC 8707 resource parameter.
+ */
+function getResourceParam(
+  integrationConfig: ReturnType<typeof getIntegration>,
+): { resource: URL } | Record<string, never> {
+  if (integrationConfig.skipResourceParam || !integrationConfig.serverUrl) {
+    return {};
+  }
+  return { resource: new URL(integrationConfig.serverUrl) };
 }
