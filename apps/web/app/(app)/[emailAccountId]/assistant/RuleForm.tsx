@@ -405,7 +405,7 @@ export function RuleForm({
         <RuleSectionCard
           icon={MailIcon}
           color="blue"
-          title="When a new email is received in your inbox"
+          title="When you get an email"
           errors={
             errors.conditions?.root?.message ? (
               <AlertError
@@ -433,7 +433,7 @@ export function RuleForm({
         <RuleSectionCard
           icon={BotIcon}
           color="green"
-          title="Then your assistant will perform these actions"
+          title="Then:"
           errors={
             actionErrors.length > 0 ? (
               <AlertError
