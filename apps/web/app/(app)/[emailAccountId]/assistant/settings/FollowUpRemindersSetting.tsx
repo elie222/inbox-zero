@@ -74,7 +74,7 @@ function FollowUpRemindersSettingContent() {
         followUpAwaitingReplyDays: enable ? DEFAULT_FOLLOW_UP_DAYS : null,
         followUpNeedsReplyDays: enable ? DEFAULT_FOLLOW_UP_DAYS : null,
       };
-      mutate(optimisticData, false);
+      mutate(optimisticData as typeof data, false);
       executeToggle({ enabled: enable });
     },
     [data, mutate, executeToggle],
