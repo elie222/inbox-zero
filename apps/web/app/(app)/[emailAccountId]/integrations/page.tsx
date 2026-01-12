@@ -8,7 +8,10 @@ export default function IntegrationsPage() {
   return (
     <PageWrapper>
       <div className="flex items-center justify-between">
-        <PageHeader title="Integrations" />
+        <PageHeader
+          title="Integrations"
+          description="Connect to external services to help the AI assistant draft better replies by accessing relevant data from your tools."
+        />
         <RequestAccessDialog
           trigger={<Button variant="outline">Request an Integration</Button>}
         />
