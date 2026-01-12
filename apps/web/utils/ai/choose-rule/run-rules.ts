@@ -161,18 +161,20 @@ export async function runRules({
     const reason =
       skippedConversationReason || results.reasoning || "No rules matched";
     if (!isTest) {
-      await withPrismaRetry(() =>
-        prisma.executedRule.create({
-          data: {
-            threadId: message.threadId,
-            messageId: message.id,
-            automated: true,
-            reason,
-            matchMetadata: undefined,
-            status: ExecutedRuleStatus.SKIPPED,
-            emailAccount: { connect: { id: emailAccount.id } },
-          },
-        }),
+      await withPrismaRetry(
+        () =>
+          prisma.executedRule.create({
+            data: {
+              threadId: message.threadId,
+              messageId: message.id,
+              automated: true,
+              reason,
+              matchMetadata: undefined,
+              status: ExecutedRuleStatus.SKIPPED,
+              emailAccount: { connect: { id: emailAccount.id } },
+            },
+          }),
+        { logger },
       );
     }
 
@@ -315,34 +317,36 @@ async function executeMatchedRule(
     };
   }
 
-  const executedRule = await withPrismaRetry(() =>
-    prisma.executedRule.create({
-      data: {
-        actionItems: {
-          createMany: {
-            data:
-              // Only save immediate actions as ExecutedActions
-              immediateActions?.map((item) => {
-                const {
-                  delayInMinutes: _delayInMinutes,
-                  ...executedActionFields
-                } = sanitizeActionFields(item);
-                return executedActionFields;
-              }) || [],
+  const executedRule = await withPrismaRetry(
+    () =>
+      prisma.executedRule.create({
+        data: {
+          actionItems: {
+            createMany: {
+              data:
+                // Only save immediate actions as ExecutedActions
+                immediateActions?.map((item) => {
+                  const {
+                    delayInMinutes: _delayInMinutes,
+                    ...executedActionFields
+                  } = sanitizeActionFields(item);
+                  return executedActionFields;
+                }) || [],
+            },
           },
+          messageId: message.id,
+          threadId: message.threadId,
+          automated: true,
+          status: ExecutedRuleStatus.APPLYING, // Changed from PENDING - rules are now always automated
+          reason,
+          matchMetadata: serializeMatchReasons(matchReasons),
+          rule: rule?.id ? { connect: { id: rule.id } } : undefined,
+          emailAccount: { connect: { id: emailAccount.id } },
+          createdAt: batchTimestamp, // Use batch timestamp for grouping
         },
-        messageId: message.id,
-        threadId: message.threadId,
-        automated: true,
-        status: ExecutedRuleStatus.APPLYING, // Changed from PENDING - rules are now always automated
-        reason,
-        matchMetadata: serializeMatchReasons(matchReasons),
-        rule: rule?.id ? { connect: { id: rule.id } } : undefined,
-        emailAccount: { connect: { id: emailAccount.id } },
-        createdAt: batchTimestamp, // Use batch timestamp for grouping
-      },
-      include: { actionItems: true },
-    }),
+        include: { actionItems: true },
+      }),
+    { logger },
   );
 
   if (rule.systemType === SystemType.COLD_EMAIL) {
@@ -411,11 +415,13 @@ async function executeMatchedRule(
       });
     } else if (!delayedActions?.length) {
       // No actions at all (neither immediate nor delayed), mark as applied
-      await withPrismaRetry(() =>
-        prisma.executedRule.update({
-          where: { id: executedRule.id },
-          data: { status: ExecutedRuleStatus.APPLIED },
-        }),
+      await withPrismaRetry(
+        () =>
+          prisma.executedRule.update({
+            where: { id: executedRule.id },
+            data: { status: ExecutedRuleStatus.APPLIED },
+          }),
+        { logger },
       );
     }
   }
