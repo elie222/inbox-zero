@@ -215,8 +215,14 @@ export function BulkUnsubscribe() {
   // Data is now filtered, sorted, and limited by the backend
   const rows = data?.newsletters;
 
-  const { selected, selectedCount, onToggleSelect, clearSelection } =
-    useToggleSelect(rows?.map((item) => ({ id: item.name })) || []);
+  const {
+    selected,
+    selectedCount,
+    isAllSelected,
+    onToggleSelect,
+    onToggleSelectAll,
+    clearSelection,
+  } = useToggleSelect(rows?.map((item) => ({ id: item.name })) || []);
 
   // Backend now handles sorting, so we just map the rows in order
   const tableRows = rows?.map((item) => {
@@ -352,6 +358,8 @@ export function BulkUnsubscribe() {
                     tableRows={tableRows}
                     selectedCount={selectedCount}
                     onClearSelection={clearSelection}
+                    isAllSelected={isAllSelected}
+                    onToggleSelectAll={onToggleSelectAll}
                   />
                 )}
                 {/* Only show expand/collapse when there might be more results */}

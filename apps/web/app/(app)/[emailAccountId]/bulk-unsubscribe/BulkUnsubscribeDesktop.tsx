@@ -19,10 +19,14 @@ export function BulkUnsubscribeDesktop({
   tableRows,
   selectedCount,
   onClearSelection,
+  isAllSelected,
+  onToggleSelectAll,
 }: {
   tableRows?: React.ReactNode;
   selectedCount: number;
   onClearSelection: () => void;
+  isAllSelected: boolean;
+  onToggleSelectAll: () => void;
 }) {
   return (
     <div className="flex flex-col">
@@ -43,7 +47,9 @@ export function BulkUnsubscribeDesktop({
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead className="w-[50px]" />
+            <TableHead className="w-[50px]">
+              <Checkbox checked={isAllSelected} onChange={onToggleSelectAll} />
+            </TableHead>
             <TableHead>Sender</TableHead>
             <TableHead className="w-[100px] text-right">Emails</TableHead>
             <TableHead className="w-[200px] text-right">Actions</TableHead>
