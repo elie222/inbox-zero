@@ -137,12 +137,19 @@ ${getTodayForLLM()}`;
             } catch (error) {
               const errorMessage =
                 error instanceof Error ? error.message : "Unknown error";
+
+              const err = error as Record<string, unknown>;
+              const responseBody =
+                typeof err?.body === "string" ? err.body : undefined;
+
               logger.error("Email search failed", {
                 error,
                 errorMessage,
                 query,
                 emailProvider: emailProvider.name,
                 afterDate: sixMonthsAgo.toISOString(),
+                responseBody,
+                responseStatus: err?.statusCode,
               });
               return {
                 success: false,
