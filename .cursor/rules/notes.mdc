@@ -10,4 +10,5 @@ alwaysApply: true
 - Co-locate test files next to source files (e.g., `utils/example.test.ts`). Only E2E and AI tests go in `__tests__/`.
 - Do not export types/interfaces that are only used within the same file. Export later if needed.
 - Infer types from Zod schemas using `z.infer<typeof schema>` instead of duplicating as separate interfaces.
+- Balance DRY vs WET: Avoid premature abstraction. Duplicating code 2-3 times is often better than creating an abstraction too early. Only extract shared code when you see a clear, stable pattern. WET (Write Everything Twice) code is easier to change than the wrong abstraction. However, obvious copy-paste of entire functions or large blocks should be refactored.
 - Do not use the sandbox terminal for npm, git and gh cli commands
