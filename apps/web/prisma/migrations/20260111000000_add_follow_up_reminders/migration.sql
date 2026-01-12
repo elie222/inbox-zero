@@ -1,2 +1,0 @@
--- This migration was superseded by 20260108072620_add_follow_up_reminders and 20260108121515_add_follow_up_auto_draft_setting
--- The columns were already added by those migrations
