@@ -35,6 +35,7 @@ import { useTableKeyboardNavigation } from "@/hooks/useTableKeyboardNavigation";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { isGoogleProvider } from "@/utils/email/provider-types";
+import { MutedText } from "@/components/Typography";
 
 export function ReplyTrackerEmails({
   trackers,
@@ -344,9 +345,9 @@ function Row({
             )}
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="mr-4 text-nowrap text-sm text-muted-foreground">
+            <MutedText className="mr-4 text-nowrap">
               {formatShortDate(internalDateToDate(message.internalDate))}
-            </div>
+            </MutedText>
 
             {isResolved ? (
               <UnresolveButton
@@ -469,9 +470,7 @@ function EmptyState({
       <div className="flex min-h-[200px] flex-col items-center justify-center rounded-md border border-dashed bg-muted p-8 text-center animate-in fade-in-50">
         {isAnalyzing ? (
           <>
-            <p className="text-sm text-muted-foreground">
-              Analyzing your emails...
-            </p>
+            <MutedText>Analyzing your emails...</MutedText>
             <Button
               className="mt-4"
               variant="outline"
@@ -488,7 +487,7 @@ function EmptyState({
             </Button>
           </>
         ) : (
-          <p className="text-sm text-muted-foreground">{message}</p>
+          <MutedText>{message}</MutedText>
         )}
       </div>
     </div>
