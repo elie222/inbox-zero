@@ -4,23 +4,11 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useQueryState } from "nuqs";
 import groupBy from "lodash/groupBy";
-import {
-  ArchiveIcon,
-  CheckIcon,
-  ChevronDownIcon,
-  MailIcon,
-  MailOpenIcon,
-} from "lucide-react";
+import { CheckIcon, ChevronDownIcon, MailIcon } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Skeleton } from "@/components/ui/skeleton";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { EmailCell } from "@/components/EmailCell";
 import { useThreads } from "@/hooks/useThreads";
 import { formatShortDate } from "@/utils/date";
@@ -34,6 +22,10 @@ import {
   addToMarkReadSenderQueue,
   useMarkReadSenderStatus,
 } from "@/store/mark-read-sender-queue";
+import {
+  type BulkActionType,
+  getActionLabels,
+} from "@/app/(app)/[emailAccountId]/bulk-archive/BulkArchiveSettingsModal";
 import { getEmailUrl } from "@/utils/url";
 import type { CategoryWithRules } from "@/utils/category.server";
 import { useAccount } from "@/providers/EmailAccountProvider";
@@ -44,9 +36,11 @@ import type { EmailGroup } from "@/utils/bulk-archive/get-archive-candidates";
 export function BulkArchiveCards({
   emailGroups,
   categories,
+  bulkAction,
 }: {
   emailGroups: EmailGroup[];
   categories: CategoryWithRules[];
+  bulkAction: BulkActionType;
 }) {
   const { emailAccountId, userEmail } = useAccount();
   const [expandedCategory, setExpandedCategory] = useQueryState("expanded");
@@ -157,29 +151,9 @@ export function BulkArchiveCards({
     return senders.filter((s) => selectedSenders[s.address] !== false).length;
   };
 
-  const archiveCategory = async (categoryName: string, e: React.MouseEvent) => {
-    e.stopPropagation();
-    const senders = groupedEmails[categoryName] || [];
-    const selectedToProcess = senders.filter(
-      (s) => selectedSenders[s.address] !== false,
-    );
+  const actionLabels = getActionLabels(bulkAction);
 
-    try {
-      for (const sender of selectedToProcess) {
-        await addToArchiveSenderQueue({
-          sender: sender.address,
-          emailAccountId,
-        });
-      }
-      setArchivedCategories((prev) => ({ ...prev, [categoryName]: true }));
-    } catch (_error) {
-      toastError({
-        description: "Failed to archive some senders. Please try again.",
-      });
-    }
-  };
-
-  const markCategoryAsRead = async (
+  const handleCategoryAction = async (
     categoryName: string,
     e: React.MouseEvent,
   ) => {
@@ -191,15 +165,22 @@ export function BulkArchiveCards({
 
     try {
       for (const sender of selectedToProcess) {
-        await addToMarkReadSenderQueue({
-          sender: sender.address,
-          emailAccountId,
-        });
+        if (bulkAction === "markRead") {
+          await addToMarkReadSenderQueue({
+            sender: sender.address,
+            emailAccountId,
+          });
+        } else {
+          await addToArchiveSenderQueue({
+            sender: sender.address,
+            emailAccountId,
+          });
+        }
       }
       setArchivedCategories((prev) => ({ ...prev, [categoryName]: true }));
     } catch (_error) {
       toastError({
-        description: "Failed to mark as read some senders. Please try again.",
+        description: `Failed to ${bulkAction === "markRead" ? "mark as read" : "archive"} some senders. Please try again.`,
       });
     }
   };
@@ -280,43 +261,23 @@ export function BulkArchiveCards({
                   {isArchived ? (
                     <div className="flex items-center gap-2 text-green-600">
                       <CheckIcon className="size-5" />
-                      <span className="text-sm font-medium">Done</span>
+                      <span className="text-sm font-medium">
+                        {actionLabels.completedLabel}
+                      </span>
                     </div>
                   ) : (
-                    <div className="inline-flex rounded-md shadow-sm">
-                      <Button
-                        onClick={(e) => archiveCategory(categoryName, e)}
-                        size="sm"
-                        className="rounded-r-none"
-                      >
-                        <ArchiveIcon className="mr-2 size-4" />
-                        {isExpanded
-                          ? `Archive ${getSelectedCount(categoryName)} of ${senders.length}`
-                          : "Archive all"}
-                      </Button>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button
-                            size="sm"
-                            className="rounded-l-none border-l border-blue-700 px-2"
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            <ChevronDownIcon className="size-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem
-                            onClick={(e) => markCategoryAsRead(categoryName, e)}
-                            className="cursor-pointer"
-                          >
-                            <MailOpenIcon className="mr-2 size-4" />
-                            {isExpanded
-                              ? `Mark ${getSelectedCount(categoryName)} as read`
-                              : "Mark all as read"}
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </div>
+                    <Button
+                      onClick={(e) => handleCategoryAction(categoryName, e)}
+                      size="sm"
+                    >
+                      <actionLabels.icon className="mr-2 size-4" />
+                      {isExpanded
+                        ? actionLabels.countLabel(
+                            getSelectedCount(categoryName),
+                            senders.length,
+                          )
+                        : actionLabels.allLabel}
+                    </Button>
                   )}
                   <ChevronDownIcon
                     className={cn(
