@@ -6,7 +6,6 @@ import Link from "next/link";
 import {
   ArchiveIcon,
   ArchiveXIcon,
-  BadgeCheckIcon,
   ChevronDownIcon,
   ChevronUpIcon,
   ChevronsUpDownIcon,
@@ -15,6 +14,7 @@ import {
   MailMinusIcon,
   MoreHorizontalIcon,
   TagIcon,
+  ThumbsUpIcon,
   TrashIcon,
 } from "lucide-react";
 import { type PostHog, usePostHog } from "posthog-js/react";
@@ -374,7 +374,7 @@ function ApproveButton<T extends Row>({
       <span className="hidden 2xl:block">Keep</span>
       <span className="block 2xl:hidden">
         <Tooltip content="Keep">
-          <BadgeCheckIcon className="size-4" />
+          <ThumbsUpIcon className="size-4" />
         </Tooltip>
       </span>
     </Button>

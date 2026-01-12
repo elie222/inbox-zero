@@ -15,12 +15,13 @@ import {
 } from "@/app/(app)/[emailAccountId]/bulk-unsubscribe/common";
 import type { RowProps } from "@/app/(app)/[emailAccountId]/bulk-unsubscribe/types";
 import { Checkbox } from "@/components/Checkbox";
-import { Progress } from "@/components/ui/progress";
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { DomainIcon } from "@/components/charts/DomainIcon";
+import { extractDomainFromEmail } from "@/utils/email";
 
 export function BulkUnsubscribeDesktop({
   tableRows,
@@ -55,7 +56,7 @@ export function BulkUnsubscribeDesktop({
               }
               onClick={() => onSort("emails")}
             >
-              Emails
+              Received
             </HeaderButton>
           </TableHead>
           <TableHead>
@@ -67,17 +68,6 @@ export function BulkUnsubscribeDesktop({
               onClick={() => onSort("unread")}
             >
               Read
-            </HeaderButton>
-          </TableHead>
-          <TableHead>
-            <HeaderButton
-              sorted={sortColumn === "unarchived"}
-              sortDirection={
-                sortColumn === "unarchived" ? sortDirection : undefined
-              }
-              onClick={() => onSort("unarchived")}
-            >
-              Archived
             </HeaderButton>
           </TableHead>
           <TableHead />
@@ -104,9 +94,9 @@ export function BulkUnsubscribeRowDesktop({
   onToggleSelect,
   checked,
   readPercentage,
-  archivedEmails,
-  archivedPercentage,
 }: RowProps) {
+  const domain = extractDomainFromEmail(item.name) || item.name;
+
   return (
     <TableRow
       key={item.name}
@@ -123,48 +113,37 @@ export function BulkUnsubscribeRowDesktop({
         />
       </TableCell>
       <TableCell className="max-w-[250px] truncate py-3">
-        <div className="flex flex-col">
-          <span className="font-medium">{item.fromName || item.name}</span>
-          {item.fromName && (
-            <span className="text-xs text-muted-foreground">{item.name}</span>
-          )}
-        </div>
-      </TableCell>
-      <TableCell>{item.value}</TableCell>
-      <TableCell>
-        <div className="hidden xl:block">
-          <div className="flex items-center gap-4">
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Progress value={readPercentage} className="h-2 w-[150px]" />
-              </TooltipTrigger>
-              <TooltipContent>
-                {item.readEmails} read. {item.value - item.readEmails} unread.
-              </TooltipContent>
-            </Tooltip>
-            <span className="text-sm">{Math.round(readPercentage)}%</span>
+        <div className="flex items-center gap-2">
+          <DomainIcon domain={domain} size={32} />
+          <div className="flex flex-col">
+            <span className="font-medium">{item.fromName || item.name}</span>
+            {item.fromName && (
+              <span className="text-xs text-muted-foreground">{item.name}</span>
+            )}
           </div>
         </div>
-        <div className="xl:hidden">{Math.round(readPercentage)}%</div>
       </TableCell>
       <TableCell>
-        <div className="hidden 2xl:block">
-          <div className="flex items-center gap-4">
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Progress
-                  value={archivedPercentage}
-                  className="h-2 w-[150px]"
-                />
-              </TooltipTrigger>
-              <TooltipContent>
-                {archivedEmails} archived. {item.inboxEmails} unarchived.
-              </TooltipContent>
-            </Tooltip>
-            <span className="text-sm">{Math.round(archivedPercentage)}%</span>
-          </div>
-        </div>
-        <div className="2xl:hidden">{Math.round(archivedPercentage)}%</div>
+        <span className="text-muted-foreground">{item.value} emails</span>
+      </TableCell>
+      <TableCell>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <div className="flex items-center gap-2">
+              <RadialProgress
+                value={readPercentage}
+                size={28}
+                strokeWidth={4}
+              />
+              <span className="text-sm text-muted-foreground">
+                {Math.round(readPercentage)}%
+              </span>
+            </div>
+          </TooltipTrigger>
+          <TooltipContent>
+            {item.readEmails} read. {item.value - item.readEmails} unread.
+          </TooltipContent>
+        </Tooltip>
       </TableCell>
       <TableCell className="p-1">
         <div className="flex justify-end items-center gap-2">
@@ -183,5 +162,45 @@ export function BulkUnsubscribeRowDesktop({
         </div>
       </TableCell>
     </TableRow>
+  );
+}
+
+function RadialProgress({
+  value,
+  size = 32,
+  strokeWidth = 3,
+}: {
+  value: number;
+  size?: number;
+  strokeWidth?: number;
+}) {
+  const radius = (size - strokeWidth) / 2;
+  const circumference = 2 * Math.PI * radius;
+  const strokeDashoffset = circumference - (value / 100) * circumference;
+
+  return (
+    <svg width={size} height={size} className="transform -rotate-90">
+      <circle
+        cx={size / 2}
+        cy={size / 2}
+        r={radius}
+        fill="none"
+        stroke="currentColor"
+        strokeWidth={strokeWidth}
+        className="text-blue-100 dark:text-blue-900"
+      />
+      <circle
+        cx={size / 2}
+        cy={size / 2}
+        r={radius}
+        fill="none"
+        stroke="currentColor"
+        strokeWidth={strokeWidth}
+        strokeDasharray={circumference}
+        strokeDashoffset={strokeDashoffset}
+        strokeLinecap="round"
+        className="text-blue-500 transition-all duration-300"
+      />
+    </svg>
   );
 }
