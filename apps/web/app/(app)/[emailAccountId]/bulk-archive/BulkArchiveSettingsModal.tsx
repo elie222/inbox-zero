@@ -36,11 +36,11 @@ export function BulkArchiveSettingsModal({
           Settings
         </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-lg">
-        <DialogHeader className="pb-4">
+      <DialogContent className="sm:max-w-xl">
+        <DialogHeader>
           <DialogTitle>Bulk Archive Settings</DialogTitle>
         </DialogHeader>
-        <div className="space-y-6 py-6">
+        <div className="space-y-6">
           <div className="flex items-center justify-between gap-8">
             <div className="space-y-2">
               <p className="font-medium">Action</p>
