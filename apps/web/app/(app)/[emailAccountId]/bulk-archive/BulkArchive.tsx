@@ -79,6 +79,7 @@ export function BulkArchive() {
           emailGroups={emailGroups}
           categories={categories}
           bulkAction={bulkAction}
+          onCategoryChange={mutate}
         />
       </PageWrapper>
       <AutoCategorizationSetup
