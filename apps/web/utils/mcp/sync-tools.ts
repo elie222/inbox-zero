@@ -103,8 +103,7 @@ export async function syncMcpTools(
   }
 }
 
-// Read-only action verbs (second segment in "app-action-target" pattern)
-// Pipedream tools use patterns like "stripe-retrieve-balance", "google-sheets-get-row"
+// Read-only action verbs - check if the second segment matches
 const READ_ONLY_ACTIONS = [
   "get",
   "retrieve",
@@ -123,20 +122,11 @@ const READ_ONLY_ACTIONS = [
 /**
  * Checks if a tool name indicates a read-only operation.
  * Tool names follow pattern: "app-action-target" (e.g., "slack_v2-list-channels")
- * Also handles multi-word actions like "list-all" by checking if any segment starts with a read-only verb
  */
 export function isReadOnlyTool(toolName: string): boolean {
   const parts = toolName.toLowerCase().split("-");
   if (parts.length < 2) return false;
 
-  // Check the action part (everything after the first segment which is typically the app name)
-  // For "slack_v2-list-channels" -> check "list"
-  // For "google-sheets-list-all-rows" -> check "sheets", "list", "all", "rows"
-  for (let i = 1; i < parts.length; i++) {
-    if (READ_ONLY_ACTIONS.includes(parts[i])) {
-      return true;
-    }
-  }
-
-  return false;
+  const action = parts[1];
+  return READ_ONLY_ACTIONS.includes(action);
 }
