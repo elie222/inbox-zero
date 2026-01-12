@@ -62,7 +62,7 @@ export default function MeetingBriefsPage() {
     <PageWrapper>
       <PageHeader title="Meeting Briefs" />
 
-      <div className="mt-4 space-y-4">
+      <div className="mt-4 space-y-4 max-w-3xl">
         <PremiumAlertWithData />
 
         <LoadingContent loading={isLoading} error={error}>
