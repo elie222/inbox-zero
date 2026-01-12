@@ -287,10 +287,10 @@ describe.skipIf(!shouldRunFlowTests())("Full Reply Cycle", () => {
         body: "This is the reply from Outlook.",
       });
 
-      // Wait for Gmail to receive
+      // Wait for Gmail to receive - use fullSubject for unique match
       const gmailReply = await waitForMessageInInbox({
         provider: gmail.emailProvider,
-        subjectContains: "Thread continuity test",
+        subjectContains: initialEmail.fullSubject,
         timeout: TIMEOUTS.EMAIL_DELIVERY,
       });
 
@@ -310,10 +310,10 @@ describe.skipIf(!shouldRunFlowTests())("Full Reply Cycle", () => {
         body: "This is the second reply from Gmail.",
       });
 
-      // Wait for Outlook to receive
+      // Wait for Outlook to receive - use fullSubject for unique match
       const outlookMsg2 = await waitForMessageInInbox({
         provider: outlook.emailProvider,
-        subjectContains: "Thread continuity test",
+        subjectContains: initialEmail.fullSubject,
         timeout: TIMEOUTS.EMAIL_DELIVERY,
       });
 
