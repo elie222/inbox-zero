@@ -5,6 +5,7 @@ type McpIntegrationConfig = {
   scopes: string[];
   skipResourceParam?: boolean; // Some OAuth servers don't support RFC 8707 resource parameter
   defaultToolsDisabled?: boolean; // For integrations with many tools (e.g. Pipedream), disable by default
+  toolsWarning?: string; // Warning message to show when user expands tools list
 };
 
 export const MCP_INTEGRATIONS: Record<
@@ -96,6 +97,8 @@ export const MCP_INTEGRATIONS: Record<
     scopes: ["mcp", "offline_access"],
     skipResourceParam: true, // Pipedream doesn't support RFC 8707 resource parameter
     defaultToolsDisabled: true, // Pipedream can have 100s of tools, let users enable what they need
+    toolsWarning:
+      "Only enable read-only tools. These tools are used during email drafting, so reading data is safe. Avoid enabling tools that create, update, or delete data.",
     // No allowedTools - accept all tools Pipedream provides
     // OAuth endpoints auto-discovered via RFC 8414
   },
