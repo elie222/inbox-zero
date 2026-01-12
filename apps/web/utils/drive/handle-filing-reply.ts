@@ -108,6 +108,7 @@ export async function processFilingReply({
     case "move":
       await handleMove({
         filingId: filing.id,
+        fileId: filing.fileId,
         filingStatus: filing.status,
         filingFolderPath: filing.folderPath,
         filingWasCorrected: filing.wasCorrected,
@@ -187,6 +188,7 @@ async function handleUndo({
 
 async function handleMove({
   filingId,
+  fileId,
   filingStatus,
   filingFolderPath,
   filingWasCorrected,
@@ -197,6 +199,7 @@ async function handleMove({
   logger,
 }: {
   filingId: string;
+  fileId: string | null;
   filingStatus: string;
   filingFolderPath: string;
   filingWasCorrected: boolean;
@@ -208,6 +211,11 @@ async function handleMove({
 }): Promise<void> {
   if (!folderPath) {
     logger.warn("Move action but no folder path provided");
+    return;
+  }
+
+  if (!fileId) {
+    logger.warn("Move action but no file ID available");
     return;
   }
 
@@ -224,6 +232,8 @@ async function handleMove({
       driveConnectionId: driveConnection.id,
       logger,
     });
+
+    await driveProvider.moveFile(fileId, targetFolder.id);
 
     await prisma.documentFiling.update({
       where: { id: filingId },

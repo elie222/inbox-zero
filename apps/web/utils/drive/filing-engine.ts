@@ -182,17 +182,17 @@ export async function processAttachment({
     let targetFolderId = folderId;
     let targetFolderPath = folderPath;
 
-    if (needsToCreateFolder && analysis.folderPath) {
-      log.info("Creating new folder", { path: analysis.folderPath });
+    if (needsToCreateFolder && folderPath) {
+      log.info("Creating new folder", { path: folderPath });
       const newFolder = await createAndSaveFilingFolder({
         driveProvider,
-        folderPath: analysis.folderPath,
+        folderPath,
         emailAccountId: emailAccount.id,
         driveConnectionId: driveConnection.id,
         logger: log,
       });
       targetFolderId = newFolder.id;
-      targetFolderPath = analysis.folderPath;
+      targetFolderPath = folderPath;
     }
 
     // Step 7: Determine if we should ask the user first
