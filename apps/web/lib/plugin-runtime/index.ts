@@ -121,6 +121,14 @@ export {
 // storage
 export { createPluginStorage, PluginStorageError } from "./storage-context";
 
+// cache utilities
+export {
+  TtlCache,
+  pluginEnabledCache,
+  invalidatePluginCache,
+  invalidateUserPluginCache,
+} from "./cache";
+
 // derived permissions (capability → data access mapping)
 export {
   derivePermissionsFromCapabilities,

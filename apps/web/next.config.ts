@@ -2,8 +2,11 @@ import { withSentryConfig } from "@sentry/nextjs";
 import { withAxiom } from "next-axiom";
 import nextMdx from "@next/mdx";
 import withSerwistInit from "@serwist/next";
+import path from "node:path";
 import { env } from "./env";
 import type { NextConfig } from "next";
+
+const isDev = process.env.NODE_ENV === "development";
 
 const withMDX = nextMdx({
   options: {
@@ -12,6 +15,9 @@ const withMDX = nextMdx({
 });
 
 const nextConfig: NextConfig = {
+  // In dev: use .next for persistent cache (faster subsequent builds)
+  // In prod/docker: use /tmp to avoid permission issues
+  distDir: isDev ? ".next" : path.join("/tmp", "next-cache", "inbox-zero-web"),
   reactStrictMode: true,
   output: process.env.DOCKER_BUILD === "true" ? "standalone" : undefined,
   // Skip TypeScript checking during E2E CI builds to save memory
@@ -19,6 +25,22 @@ const nextConfig: NextConfig = {
     ignoreBuildErrors: process.env.SKIP_TYPE_CHECK === "true",
   },
   serverExternalPackages: ["@sentry/nextjs", "@sentry/node"],
+  // Optimize imports for faster builds - tree-shake heavy packages
+  experimental: {
+    optimizePackageImports: [
+      "lucide-react",
+      "date-fns",
+      "lodash",
+      "@radix-ui/react-icons",
+      "recharts",
+      "@ai-sdk/anthropic",
+      "@ai-sdk/openai",
+      "@ai-sdk/google",
+      "@ai-sdk/amazon-bedrock",
+      "@ai-sdk/groq",
+      "@ai-sdk/perplexity",
+    ],
+  },
   turbopack: {
     rules: {
       "*.svg": {
@@ -338,4 +360,10 @@ const withSerwist = withSerwistInit({
   maximumFileSizeToCacheInBytes: 3 * 1024 * 1024, // 3MB
 });
 
-export default withAxiom(withSerwist(exportConfig));
+// In dev: skip Axiom wrapper for faster builds
+// In prod: full logging pipeline
+const finalConfig = isDev
+  ? withSerwist(exportConfig)
+  : withAxiom(withSerwist(exportConfig));
+
+export default finalConfig;

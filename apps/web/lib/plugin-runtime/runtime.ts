@@ -38,6 +38,11 @@ import {
   type TrustLevel,
 } from "./trust";
 import { loadPlugins, loadPluginById } from "./loader";
+import {
+  pluginEnabledCache,
+  getPluginEnabledCacheKey,
+  invalidatePluginCache,
+} from "./cache";
 
 const logger = createScopedLogger("plugin-runtime");
 
@@ -145,10 +150,27 @@ export class PluginRuntime {
   private readonly plugins: Map<string, RuntimeLoadedPlugin> = new Map();
   private readonly routingTable: Map<PluginCapability, string[]> = new Map();
   private initialized = false;
+  private initializing = false;
   private readonly hookTimeoutMs: number;
 
   constructor(options?: PluginRuntimeOptions) {
     this.hookTimeoutMs = options?.hookTimeoutMs ?? DEFAULT_HOOK_TIMEOUT_MS;
+  }
+
+  /**
+   * Ensure the runtime is initialized before executing hooks.
+   * In dev mode, this enables lazy initialization on first use.
+   */
+  private async ensureInitialized(): Promise<void> {
+    if (this.initialized) return;
+    if (this.initializing) {
+      // wait for ongoing initialization
+      while (this.initializing) {
+        await new Promise((resolve) => setTimeout(resolve, 50));
+      }
+      return;
+    }
+    await this.initialize();
   }
 
   /**
@@ -167,6 +189,12 @@ export class PluginRuntime {
       return;
     }
 
+    if (this.initializing) {
+      logger.warn("Plugin runtime initialization already in progress");
+      return;
+    }
+
+    this.initializing = true;
     logger.info("Initializing plugin runtime");
 
     try {
@@ -213,17 +241,28 @@ export class PluginRuntime {
     } catch (error) {
       logger.error("Failed to initialize plugin runtime", { error });
       throw error;
+    } finally {
+      this.initializing = false;
     }
   }
 
   /**
    * Check if a plugin is enabled for a specific user.
    * Checks both InstalledPlugin.enabled AND PluginUserSettings.enabled.
+   * Results are cached with TTL to reduce database queries.
    */
   private async isPluginEnabledForUser(
     pluginId: string,
     userId: string,
   ): Promise<boolean> {
+    const cacheKey = getPluginEnabledCacheKey(pluginId, userId);
+
+    // check cache first
+    const cached = pluginEnabledCache.get(cacheKey);
+    if (cached !== null) {
+      return cached;
+    }
+
     try {
       const installed = await prisma.installedPlugin.findUnique({
         where: { pluginId },
@@ -234,18 +273,18 @@ export class PluginRuntime {
         },
       });
 
-      if (!installed || !installed.enabled) {
-        return false;
+      let enabled = false;
+
+      if (installed?.enabled) {
+        // check user-specific settings if they exist
+        const userSettings = installed.userSettings[0];
+        enabled = !userSettings || userSettings.enabled;
       }
 
-      // check user-specific settings if they exist
-      // the enabled field is a direct boolean on the model
-      const userSettings = installed.userSettings[0];
-      if (userSettings && !userSettings.enabled) {
-        return false;
-      }
+      // cache the result
+      pluginEnabledCache.set(cacheKey, enabled);
 
-      return true;
+      return enabled;
     } catch (error) {
       logger.error("Error checking plugin enabled status", {
         pluginId,
@@ -254,6 +293,14 @@ export class PluginRuntime {
       });
       return false;
     }
+  }
+
+  /**
+   * Invalidate cached enabled status for a plugin.
+   * Call this when plugin settings change.
+   */
+  invalidatePluginCache(pluginId: string): void {
+    invalidatePluginCache(pluginId);
   }
 
   /**
@@ -345,6 +392,9 @@ export class PluginRuntime {
       return [];
     }
 
+    // lazy init in dev mode
+    await this.ensureInitialized();
+
     const capability: PluginCapability = "email:classify";
     const pluginIds = this.getPluginsWithCapability(capability);
     const results: PluginExecutionResult<Classification>[] = [];
@@ -418,6 +468,8 @@ export class PluginRuntime {
       return [];
     }
 
+    await this.ensureInitialized();
+
     const capability: PluginCapability = "email:draft";
     const pluginIds = this.getPluginsWithCapability(capability);
     const results: PluginExecutionResult<Draft>[] = [];
@@ -485,6 +537,8 @@ export class PluginRuntime {
       return [];
     }
 
+    await this.ensureInitialized();
+
     const capability: PluginCapability = "email:signal";
     const pluginIds = this.getPluginsWithCapability(capability);
     const results: PluginExecutionResult<EmailSignal[]>[] = [];
@@ -550,6 +604,8 @@ export class PluginRuntime {
     if (!env.FEATURE_PLUGINS_ENABLED) {
       return null;
     }
+
+    await this.ensureInitialized();
 
     // find the plugin that registered the trigger
     // triggers are stored in plugin account settings
@@ -635,6 +691,8 @@ export class PluginRuntime {
     if (!env.FEATURE_PLUGINS_ENABLED) {
       return null;
     }
+
+    await this.ensureInitialized();
 
     // find the plugin that registered the schedule
     const scheduleSettings = await prisma.pluginAccountSettings.findFirst({
@@ -723,6 +781,8 @@ export class PluginRuntime {
       return [];
     }
 
+    await this.ensureInitialized();
+
     const capability: PluginCapability = "automation:rule";
     const pluginIds = this.getPluginsWithCapability(capability);
     const results: PluginExecutionResult<RuleResult>[] = [];
@@ -789,6 +849,8 @@ export class PluginRuntime {
       return [];
     }
 
+    await this.ensureInitialized();
+
     const capability: PluginCapability = "followup:detect";
     const pluginIds = this.getPluginsWithCapability(capability);
     const results: PluginExecutionResult<FollowupResult>[] = [];
@@ -853,6 +915,8 @@ export class PluginRuntime {
     if (!env.FEATURE_PLUGINS_ENABLED) {
       return [];
     }
+
+    await this.ensureInitialized();
 
     const capability: PluginCapability = "calendar:read";
     const pluginIds = this.getPluginsWithCapability(capability);
@@ -923,6 +987,8 @@ export class PluginRuntime {
     if (!env.FEATURE_PLUGINS_ENABLED) {
       return { classifications: [], signals: [], followups: [] };
     }
+
+    await this.ensureInitialized();
 
     // run hooks in parallel for better performance
     const [classifications, signals, followups] = await Promise.all([
@@ -1017,6 +1083,8 @@ export class PluginRuntime {
       return null;
     }
 
+    await this.ensureInitialized();
+
     const loadedPlugin = this.plugins.get(pluginId);
     if (!loadedPlugin) {
       logger.warn("Plugin not loaded for onInit", { pluginId });
@@ -1077,6 +1145,8 @@ export class PluginRuntime {
       return false;
     }
 
+    await this.ensureInitialized();
+
     // unregister existing plugin
     this.unregisterPlugin(pluginId);
 
@@ -1113,7 +1183,7 @@ export class PluginRuntime {
    */
   async getChatTools(
     userId: string,
-    emailAccountId: string,
+    _emailAccountId: string,
   ): Promise<
     Map<
       string,
@@ -1134,6 +1204,8 @@ export class PluginRuntime {
     if (!env.FEATURE_PLUGINS_ENABLED) {
       return tools;
     }
+
+    await this.ensureInitialized();
 
     const capability: PluginCapability = "chat:tool";
     const pluginIds = this.getPluginsWithCapability(capability);
@@ -1176,6 +1248,8 @@ export class PluginRuntime {
       return contexts;
     }
 
+    await this.ensureInitialized();
+
     const capability: PluginCapability = "chat:context";
     const pluginIds = this.getPluginsWithCapability(capability);
 
@@ -1215,7 +1289,56 @@ export class PluginRuntime {
     this.plugins.clear();
     this.routingTable.clear();
     this.initialized = false;
+    pluginEnabledCache.clear();
     logger.info("Plugin runtime reset");
+  }
+
+  /**
+   * Cleanup expired cache entries and stale plugin data.
+   * Call periodically to prevent unbounded memory growth.
+   */
+  cleanup(): { expiredCacheEntries: number; stalePlugins: number } {
+    const expiredCacheEntries = pluginEnabledCache.cleanup();
+
+    // remove plugins that are no longer in the routing table
+    let stalePlugins = 0;
+    for (const [pluginId] of this.plugins) {
+      let hasCapability = false;
+      for (const pluginIds of this.routingTable.values()) {
+        if (pluginIds.includes(pluginId)) {
+          hasCapability = true;
+          break;
+        }
+      }
+      if (!hasCapability) {
+        this.plugins.delete(pluginId);
+        stalePlugins++;
+      }
+    }
+
+    if (expiredCacheEntries > 0 || stalePlugins > 0) {
+      logger.info("Plugin runtime cleanup completed", {
+        expiredCacheEntries,
+        stalePlugins,
+      });
+    }
+
+    return { expiredCacheEntries, stalePlugins };
+  }
+
+  /**
+   * Get current memory stats for monitoring.
+   */
+  getStats(): {
+    loadedPlugins: number;
+    capabilities: number;
+    cacheSize: number;
+  } {
+    return {
+      loadedPlugins: this.plugins.size,
+      capabilities: this.routingTable.size,
+      cacheSize: pluginEnabledCache.size,
+    };
   }
 }
 
