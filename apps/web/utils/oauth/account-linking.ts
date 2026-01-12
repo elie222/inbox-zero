@@ -45,7 +45,7 @@ export async function handleAccountLinking({
   if (!existingAccountId || !hasEmailAccount) {
     const existingEmailAccount = await prisma.emailAccount.findUnique({
       where: { email: providerEmail.trim().toLowerCase() },
-      select: { id: true, userId: true, email: true },
+      select: { userId: true, email: true },
     });
 
     if (existingEmailAccount && existingEmailAccount.userId !== targetUserId) {
