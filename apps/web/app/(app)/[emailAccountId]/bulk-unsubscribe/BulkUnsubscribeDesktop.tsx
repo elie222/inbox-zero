@@ -6,6 +6,14 @@ import type { RowProps } from "@/app/(app)/[emailAccountId]/bulk-unsubscribe/typ
 import { Checkbox } from "@/components/Checkbox";
 import { SenderIcon } from "@/components/charts/DomainIcon";
 import { extractDomainFromEmail } from "@/utils/email";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 
 export function BulkUnsubscribeDesktop({
   tableRows,
@@ -32,7 +40,17 @@ export function BulkUnsubscribeDesktop({
           </button>
         </div>
       )}
-      <div className="flex flex-col divide-y divide-border">{tableRows}</div>
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead className="w-[50px]" />
+            <TableHead>Sender</TableHead>
+            <TableHead className="w-[100px] text-right">Emails</TableHead>
+            <TableHead className="w-[200px] text-right">Actions</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>{tableRows}</TableBody>
+      </Table>
     </div>
   );
 }
@@ -56,43 +74,52 @@ export function BulkUnsubscribeRowDesktop({
   const domain = extractDomainFromEmail(item.name);
 
   return (
-    <div
-      className="flex items-center gap-4 px-5 py-4 transition-colors hover:bg-muted/50"
+    <TableRow
+      data-state={selected ? "selected" : undefined}
       onMouseEnter={onSelectRow}
       onDoubleClick={onDoubleClick}
+      className="cursor-pointer"
     >
-      <Checkbox
-        checked={checked}
-        onChange={() => onToggleSelect?.(item.name)}
-      />
-      <SenderIcon domain={domain} name={item.fromName || item.name} />
-      <div className="flex flex-col min-w-0 flex-1">
-        <span className="font-semibold text-foreground truncate">
-          {item.fromName || item.name}
-        </span>
-        {item.fromName && (
-          <span className="text-sm text-muted-foreground truncate">
-            {item.name}
-          </span>
-        )}
-      </div>
-      <span className="text-sm text-muted-foreground whitespace-nowrap">
-        {item.value} emails
-      </span>
-      <div className="flex items-center gap-2">
-        <ActionCell
-          item={item}
-          hasUnsubscribeAccess={hasUnsubscribeAccess}
-          mutate={mutate}
-          refetchPremium={refetchPremium}
-          onOpenNewsletter={onOpenNewsletter}
-          selected={selected}
-          labels={labels}
-          openPremiumModal={openPremiumModal}
-          userEmail={userEmail}
-          emailAccountId={emailAccountId}
+      <TableCell>
+        <Checkbox
+          checked={checked}
+          onChange={() => onToggleSelect?.(item.name)}
         />
-      </div>
-    </div>
+      </TableCell>
+      <TableCell>
+        <div className="flex items-center gap-3">
+          <SenderIcon domain={domain} name={item.fromName || item.name} />
+          <div className="flex flex-col min-w-0">
+            <span className="font-semibold text-foreground truncate">
+              {item.fromName || item.name}
+            </span>
+            {item.fromName && (
+              <span className="text-sm text-muted-foreground truncate">
+                {item.name}
+              </span>
+            )}
+          </div>
+        </div>
+      </TableCell>
+      <TableCell className="text-right text-muted-foreground">
+        {item.value}
+      </TableCell>
+      <TableCell className="text-right">
+        <div className="flex items-center justify-end gap-2">
+          <ActionCell
+            item={item}
+            hasUnsubscribeAccess={hasUnsubscribeAccess}
+            mutate={mutate}
+            refetchPremium={refetchPremium}
+            onOpenNewsletter={onOpenNewsletter}
+            selected={selected}
+            labels={labels}
+            openPremiumModal={openPremiumModal}
+            userEmail={userEmail}
+            emailAccountId={emailAccountId}
+          />
+        </div>
+      </TableCell>
+    </TableRow>
   );
 }
