@@ -4,25 +4,43 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useQueryState } from "nuqs";
 import groupBy from "lodash/groupBy";
-import {
-  ArchiveIcon,
-  CheckIcon,
-  ChevronDownIcon,
-  MailIcon,
-} from "lucide-react";
+import { CheckIcon, ChevronDownIcon, MailIcon, PencilIcon } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { EmailCell } from "@/components/EmailCell";
+import { changeSenderCategoryAction } from "@/utils/actions/categorize";
+import { toastError, toastSuccess } from "@/components/Toast";
+import { ButtonLoader } from "@/components/Loading";
 import { useThreads } from "@/hooks/useThreads";
 import { formatShortDate } from "@/utils/date";
 import { cn } from "@/utils";
-import { toastError } from "@/components/Toast";
 import {
   addToArchiveSenderQueue,
   useArchiveSenderStatus,
 } from "@/store/archive-sender-queue";
+import {
+  addToMarkReadSenderQueue,
+  useMarkReadSenderStatus,
+} from "@/store/mark-read-sender-queue";
+import {
+  type BulkActionType,
+  getActionLabels,
+} from "@/app/(app)/[emailAccountId]/bulk-archive/BulkArchiveSettingsModal";
 import { getEmailUrl } from "@/utils/url";
 import type { CategoryWithRules } from "@/utils/category.server";
 import { useAccount } from "@/providers/EmailAccountProvider";
@@ -33,9 +51,13 @@ import type { EmailGroup } from "@/utils/bulk-archive/get-archive-candidates";
 export function BulkArchiveCards({
   emailGroups,
   categories,
+  bulkAction,
+  onCategoryChange,
 }: {
   emailGroups: EmailGroup[];
   categories: CategoryWithRules[];
+  bulkAction: BulkActionType;
+  onCategoryChange?: () => Promise<unknown>;
 }) {
   const { emailAccountId, userEmail } = useAccount();
   const [expandedCategory, setExpandedCategory] = useQueryState("expanded");
@@ -43,6 +65,9 @@ export function BulkArchiveCards({
     Record<string, boolean>
   >({});
   const [archivedCategories, setArchivedCategories] = useState<
+    Record<string, boolean>
+  >({});
+  const [loadingCategories, setLoadingCategories] = useState<
     Record<string, boolean>
   >({});
   const [selectedSenders, setSelectedSenders] = useState<
@@ -59,31 +84,38 @@ export function BulkArchiveCards({
     );
   }, [categories]);
 
+  // Get the names of default categories to determine which categories to show as separate tabs
+  const defaultCategoryNames = useMemo(
+    () => new Set<string>(Object.values(defaultCategory).map((c) => c.name)),
+    [],
+  );
+
   const groupedEmails = useMemo(() => {
-    const grouped = groupBy(
-      emailGroups,
-      (group) =>
-        categoryMap[group.category?.name || ""]?.name || "Uncategorized",
-    );
+    const grouped = groupBy(emailGroups, (group) => {
+      const categoryName =
+        categoryMap[group.category?.name || ""]?.name || "Uncategorized";
 
-    // Add empty arrays for categories without any emails
-    for (const category of categories) {
-      if (!grouped[category.name]) {
-        grouped[category.name] = [];
+      // If the category is not one of the default categories, group it under "Other"
+      // This handles legacy categories from before the 4+Other category system
+      if (
+        categoryName !== "Uncategorized" &&
+        !defaultCategoryNames.has(categoryName)
+      ) {
+        return defaultCategory.OTHER.name;
       }
-    }
 
-    // Always show default categories with 0 senders if no categories exist
-    if (categories.length === 0) {
-      for (const cat of Object.values(defaultCategory)) {
-        if (!grouped[cat.name]) {
-          grouped[cat.name] = [];
-        }
+      return categoryName;
+    });
+
+    // Always show default categories (even with 0 senders)
+    for (const cat of Object.values(defaultCategory)) {
+      if (!grouped[cat.name]) {
+        grouped[cat.name] = [];
       }
     }
 
     return grouped;
-  }, [emailGroups, categories, categoryMap]);
+  }, [emailGroups, categoryMap, defaultCategoryNames]);
 
   // Sort categories alphabetically, but always put Other and Uncategorized last
   const sortedCategoryEntries = useMemo(() => {
@@ -139,26 +171,41 @@ export function BulkArchiveCards({
     return senders.filter((s) => selectedSenders[s.address] !== false).length;
   };
 
-  const archiveCategory = async (categoryName: string, e: React.MouseEvent) => {
+  const actionLabels = getActionLabels(bulkAction);
+
+  const handleCategoryAction = async (
+    categoryName: string,
+    e: React.MouseEvent,
+  ) => {
     e.stopPropagation();
     const senders = groupedEmails[categoryName] || [];
-    const selectedToArchive = senders.filter(
+    const selectedToProcess = senders.filter(
       (s) => selectedSenders[s.address] !== false,
     );
 
-    try {
-      for (const sender of selectedToArchive) {
-        await addToArchiveSenderQueue({
-          sender: sender.address,
-          emailAccountId,
-        });
-      }
+    setLoadingCategories((prev) => ({ ...prev, [categoryName]: true }));
 
+    try {
+      for (const sender of selectedToProcess) {
+        if (bulkAction === "markRead") {
+          await addToMarkReadSenderQueue({
+            sender: sender.address,
+            emailAccountId,
+          });
+        } else {
+          await addToArchiveSenderQueue({
+            sender: sender.address,
+            emailAccountId,
+          });
+        }
+      }
       setArchivedCategories((prev) => ({ ...prev, [categoryName]: true }));
     } catch (_error) {
       toastError({
-        description: "Failed to archive some senders. Please try again.",
+        description: `Failed to ${bulkAction === "markRead" ? "mark as read" : "archive"} some senders. Please try again.`,
       });
+    } finally {
+      setLoadingCategories((prev) => ({ ...prev, [categoryName]: false }));
     }
   };
 
@@ -180,6 +227,7 @@ export function BulkArchiveCards({
 
         const isExpanded = expandedCategory === categoryName;
         const isArchived = archivedCategories[categoryName];
+        const isLoading = loadingCategories[categoryName];
 
         return (
           <Card key={categoryName} className="overflow-hidden">
@@ -238,17 +286,27 @@ export function BulkArchiveCards({
                   {isArchived ? (
                     <div className="flex items-center gap-2 text-green-600">
                       <CheckIcon className="size-5" />
-                      <span className="text-sm font-medium">Archived</span>
+                      <span className="text-sm font-medium">
+                        {actionLabels.completedLabel}
+                      </span>
                     </div>
                   ) : (
                     <Button
-                      onClick={(e) => archiveCategory(categoryName, e)}
+                      onClick={(e) => handleCategoryAction(categoryName, e)}
                       size="sm"
+                      disabled={isLoading}
                     >
-                      <ArchiveIcon className="mr-2 size-4" />
+                      {isLoading ? (
+                        <ButtonLoader />
+                      ) : (
+                        <actionLabels.icon className="mr-2 size-4" />
+                      )}
                       {isExpanded
-                        ? `Archive ${getSelectedCount(categoryName)} of ${senders.length}`
-                        : "Archive all"}
+                        ? actionLabels.countLabel(
+                            getSelectedCount(categoryName),
+                            senders.length,
+                          )
+                        : actionLabels.allLabel}
                     </Button>
                   )}
                   <ChevronDownIcon
@@ -281,6 +339,9 @@ export function BulkArchiveCards({
                           toggleSenderSelection(sender.address, e)
                         }
                         userEmail={userEmail}
+                        categories={categories}
+                        emailAccountId={emailAccountId}
+                        onCategoryChange={onCategoryChange}
                       />
                     ))
                   )}
@@ -301,6 +362,9 @@ function SenderRow({
   onToggle,
   onToggleSelection,
   userEmail,
+  categories,
+  emailAccountId,
+  onCategoryChange,
 }: {
   sender: EmailGroup;
   isExpanded: boolean;
@@ -308,8 +372,13 @@ function SenderRow({
   onToggle: () => void;
   onToggleSelection: (e: React.MouseEvent<HTMLButtonElement>) => void;
   userEmail: string;
+  categories: CategoryWithRules[];
+  emailAccountId: string;
+  onCategoryChange?: () => Promise<unknown>;
 }) {
-  const status = useArchiveSenderStatus(sender.address);
+  const archiveStatus = useArchiveSenderStatus(sender.address);
+  const markReadStatus = useMarkReadSenderStatus(sender.address);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
 
   return (
     <div className={cn(!isSelected && "opacity-50")}>
@@ -345,8 +414,23 @@ function SenderRow({
           />
         </div>
         <div className="mr-2 text-right">
-          <ArchiveStatus status={status} />
+          <SenderStatus
+            archiveStatus={archiveStatus}
+            markReadStatus={markReadStatus}
+          />
         </div>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="size-8 text-muted-foreground hover:text-foreground"
+          onClick={(e) => {
+            e.stopPropagation();
+            setEditDialogOpen(true);
+          }}
+        >
+          <PencilIcon className="size-4" />
+          <span className="sr-only">Edit category</span>
+        </Button>
         <ChevronDownIcon
           className={cn(
             "size-5 text-muted-foreground transition-transform",
@@ -359,37 +443,166 @@ function SenderRow({
       {isExpanded && (
         <ExpandedEmails sender={sender.address} userEmail={userEmail} />
       )}
+
+      {/* Edit category dialog */}
+      <EditCategoryDialog
+        open={editDialogOpen}
+        onOpenChange={setEditDialogOpen}
+        sender={sender}
+        categories={categories}
+        emailAccountId={emailAccountId}
+        onCategoryChange={onCategoryChange}
+      />
     </div>
   );
 }
 
-function ArchiveStatus({
-  status,
+function EditCategoryDialog({
+  open,
+  onOpenChange,
+  sender,
+  categories,
+  emailAccountId,
+  onCategoryChange,
 }: {
-  status: ReturnType<typeof useArchiveSenderStatus>;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  sender: EmailGroup;
+  categories: CategoryWithRules[];
+  emailAccountId: string;
+  onCategoryChange?: () => Promise<unknown>;
 }) {
-  switch (status?.status) {
-    case "completed":
-      if (status.threadsTotal) {
+  const [selectedCategoryId, setSelectedCategoryId] = useState(
+    sender.category?.id || "",
+  );
+  const [isLoading, setIsLoading] = useState(false);
+
+  const handleSave = async () => {
+    if (!selectedCategoryId) return;
+
+    setIsLoading(true);
+    const result = await changeSenderCategoryAction(emailAccountId, {
+      sender: sender.address,
+      categoryId: selectedCategoryId,
+    });
+
+    if (result?.serverError) {
+      toastError({ description: result.serverError });
+      setIsLoading(false);
+    } else {
+      toastSuccess({ description: "Category updated" });
+      await onCategoryChange?.();
+      setIsLoading(false);
+      onOpenChange(false);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>{sender.name || sender.address}</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4">
+          <div className="flex items-center justify-between gap-8">
+            <div className="space-y-1">
+              <p className="font-medium">Category</p>
+              <p className="text-sm text-muted-foreground">
+                Choose which category this sender belongs to
+              </p>
+            </div>
+            <Select
+              value={selectedCategoryId}
+              onValueChange={setSelectedCategoryId}
+            >
+              <SelectTrigger className="w-[180px] shrink-0">
+                <SelectValue placeholder="Select category" />
+              </SelectTrigger>
+              <SelectContent>
+                {categories.map((category) => (
+                  <SelectItem key={category.id} value={category.id}>
+                    {category.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="flex justify-end gap-2">
+            <Button
+              variant="outline"
+              onClick={() => onOpenChange(false)}
+              disabled={isLoading}
+            >
+              Cancel
+            </Button>
+            <Button onClick={handleSave} disabled={isLoading}>
+              {isLoading ? "Saving..." : "Save"}
+            </Button>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function SenderStatus({
+  archiveStatus,
+  markReadStatus,
+}: {
+  archiveStatus: ReturnType<typeof useArchiveSenderStatus>;
+  markReadStatus: ReturnType<typeof useMarkReadSenderStatus>;
+}) {
+  // Show archive status if it exists
+  if (archiveStatus?.status) {
+    switch (archiveStatus.status) {
+      case "completed":
         return (
           <span className="text-sm text-green-600">
-            Archived {status.threadsTotal}!
+            {archiveStatus.threadsTotal
+              ? `Archived ${archiveStatus.threadsTotal}!`
+              : "Archived"}
           </span>
         );
-      }
-      return <span className="text-sm text-muted-foreground">Archived</span>;
-    case "processing":
-      return (
-        <span className="text-sm text-blue-600">
-          {status.threadsTotal - status.threadIds.length} /{" "}
-          {status.threadsTotal}
-        </span>
-      );
-    case "pending":
-      return <span className="text-sm text-muted-foreground">Pending...</span>;
-    default:
-      return null;
+      case "processing":
+        return (
+          <span className="text-sm text-blue-600">
+            {archiveStatus.threadsTotal - archiveStatus.threadIds.length} /{" "}
+            {archiveStatus.threadsTotal}
+          </span>
+        );
+      case "pending":
+        return (
+          <span className="text-sm text-muted-foreground">Pending...</span>
+        );
+    }
   }
+
+  // Show mark read status if it exists
+  if (markReadStatus?.status) {
+    switch (markReadStatus.status) {
+      case "completed":
+        return (
+          <span className="text-sm text-green-600">
+            {markReadStatus.threadsTotal
+              ? `Marked ${markReadStatus.threadsTotal} read!`
+              : "Marked read"}
+          </span>
+        );
+      case "processing":
+        return (
+          <span className="text-sm text-blue-600">
+            {markReadStatus.threadsTotal - markReadStatus.threadIds.length} /{" "}
+            {markReadStatus.threadsTotal}
+          </span>
+        );
+      case "pending":
+        return (
+          <span className="text-sm text-muted-foreground">Pending...</span>
+        );
+    }
+  }
+
+  return null;
 }
 
 function ExpandedEmails({
