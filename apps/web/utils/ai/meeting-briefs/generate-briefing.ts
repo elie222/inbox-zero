@@ -259,10 +259,10 @@ async function buildSearchTools({
   // MCP tools (CRM, databases, etc.)
   try {
     const mcpResult = await createMcpToolsForAgent(emailAccount.id);
+    mcpCleanup = mcpResult.cleanup; // Always assign cleanup to avoid connection leaks
     const mcpToolCount = Object.keys(mcpResult.tools).length;
     if (mcpToolCount > 0) {
       Object.assign(tools, mcpResult.tools);
-      mcpCleanup = mcpResult.cleanup;
       logger.info("MCP tools added for meeting briefs", {
         toolCount: mcpToolCount,
       });

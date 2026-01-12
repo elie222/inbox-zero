@@ -1,6 +1,5 @@
 "use client";
 
-import { notFound } from "next/navigation";
 import { PageWrapper } from "@/components/PageWrapper";
 import { PageHeader } from "@/components/PageHeader";
 import { Integrations } from "@/app/(app)/[emailAccountId]/integrations/Integrations";
@@ -20,8 +19,9 @@ export default function IntegrationsPage() {
     minimumTier: "BUSINESS_PLUS_MONTHLY",
   });
 
+  // Feature flag check - return null for client-side (notFound() is server-only)
   if (!integrationsEnabled) {
-    notFound();
+    return null;
   }
 
   return (
