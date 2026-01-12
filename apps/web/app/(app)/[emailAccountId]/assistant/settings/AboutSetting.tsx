@@ -18,7 +18,7 @@ export function AboutSetting() {
 
   return (
     <SettingCard
-      title="Personal Instructions"
+      title="Personal instructions"
       description="Tell the AI about yourself and how you'd like it to handle your emails."
       right={
         <Dialog open={open} onOpenChange={setOpen}>
@@ -29,7 +29,7 @@ export function AboutSetting() {
           </DialogTrigger>
           <DialogContent className="max-w-2xl">
             <DialogHeader>
-              <DialogTitle>Personal Instructions</DialogTitle>
+              <DialogTitle>Personal instructions</DialogTitle>
               <DialogDescription>
                 Tell the AI about yourself and how you'd like it to handle your
                 emails.

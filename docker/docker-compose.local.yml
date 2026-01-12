@@ -1,0 +1,80 @@
+# docker-compose.local.yml - Run locally built inbox-zero image with dependencies
+#
+# Usage:
+#   pnpm docker:local:run                    # uses this file automatically
+#   docker compose -f docker/docker-compose.prod.yml up
+#
+# Prerequisites:
+#   1. Build the image first: pnpm docker:local:build
+#   2. Configure apps/web/.env with your API keys
+#
+# Environment variables:
+#   GITHUB_USERNAME - Your GitHub username (auto-detected from gh CLI)
+#   FULL_IMAGE      - Full image path (auto-set by run-local.sh)
+#
+
+services:
+  app:
+    image: ${FULL_IMAGE:-ghcr.io/your-username/inbox-zero}:latest
+    ports:
+      - "3000:3000"
+    env_file:
+      - ../apps/web/.env
+    environment:
+      # Override database URLs to use local containers
+      DATABASE_URL: postgresql://postgres:password@db:5432/inboxzero?schema=public
+      DIRECT_URL: postgresql://postgres:password@db:5432/inboxzero?schema=public
+      REDIS_URL: redis://redis:6379
+      UPSTASH_REDIS_URL: http://redis-http:80
+      UPSTASH_REDIS_TOKEN: dev_token
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: inboxzero
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7
+    volumes:
+      - redis-data:/data
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # Upstash-compatible Redis HTTP interface
+  redis-http:
+    image: hiett/serverless-redis-http:latest
+    environment:
+      SRH_MODE: env
+      SRH_TOKEN: dev_token
+      SRH_CONNECTION_STRING: "redis://redis:6379"
+    ports:
+      - "8079:80"
+    depends_on:
+      redis:
+        condition: service_healthy
+
+volumes:
+  postgres-data:
+  redis-data:

@@ -1,0 +1,103 @@
+---
+description: E2E Flow Tests setup and debugging guide
+globs: ["**/__tests__/e2e/**", ".github/workflows/e2e-flows.yml"]
+---
+
+# E2E Flow Tests
+
+## Overview
+
+E2E flow tests run real email workflows using Gmail and Outlook test accounts. They test the full flow: sending emails, webhook processing, and rule execution.
+
+## Repository Setup
+
+**Important**: E2E tests run from the **inbox-zero-e2e** repo, not the main repo.
+
+- Main repo: `elie222/inbox-zero` (or `inbox-zero/inbox-zero`)
+- E2E repo: `inbox-zero/inbox-zero-e2e`
+
+The E2E repo has:
+- `E2E_FLOWS_ENABLED=true` repository variable
+- All required secrets for test accounts
+- A GitHub Action that automatically syncs workflow files from `elie222/inbox-zero` main branch
+
+## Syncing Workflow Files
+
+The e2e repo has a GitHub Action (`sync-upstream.yml`) that pulls from the main repo's main branch. To get code/workflow changes to the e2e repo:
+
+1. Merge your changes to `main` on `elie222/inbox-zero`
+2. Run the sync workflow:
+   ```bash
+   gh workflow run sync-upstream.yml --repo inbox-zero/inbox-zero-e2e
+   ```
+3. Wait for sync to complete, then trigger E2E tests
+
+**Do NOT manually copy files between repos** - use the sync action.
+
+## Triggering Tests
+
+```bash
+# Trigger from the e2e repo
+gh workflow run e2e-flows.yml --repo inbox-zero/inbox-zero-e2e --ref main
+
+# With a specific test file
+gh workflow run e2e-flows.yml --repo inbox-zero/inbox-zero-e2e --ref main -f test_file=full-reply-cycle
+
+# Check run status
+gh run list --repo inbox-zero/inbox-zero-e2e --workflow=e2e-flows.yml --limit 5
+
+# Watch a run
+gh run watch <run-id> --repo inbox-zero/inbox-zero-e2e
+```
+
+## Debugging with Logs
+
+### Two Log Sources
+
+1. **GitHub Actions logs** - inline with test output, useful for test context
+2. **Axiom logs** - structured server logs, useful for querying specific events
+
+### Axiom MCP
+
+Use the Axiom MCP to query structured logs. The E2E dataset is called **`e2e`**.
+
+```apl
+# Get recent webhook processing logs
+['e2e']
+| where _time > ago(30m)
+| where message contains "webhook" or message contains "Processing"
+| project _time, level, message, ['fields.email'], ['fields.subject']
+| order by _time desc
+| limit 50
+
+# Find ExecutedRule status updates
+['e2e']
+| where _time > ago(30m)
+| where message contains "Updating ExecutedRule status"
+| project _time, ['fields.status'], ['fields.executedRuleId'], ['fields.subject']
+| order by _time desc
+
+# Check for skipped messages (label issues)
+['e2e']
+| where _time > ago(30m)
+| where message contains "Skipping message"
+| project _time, message, ['fields.labelIds'], ['fields.subject']
+| order by _time desc
+
+# Query by email account
+['e2e']
+| where _time > ago(30m)
+| where ['fields.email'] contains "outlook" or ['fields.userEmail'] contains "outlook"
+| project _time, level, message
+| order by _time desc
+```
+
+### GitHub Actions Logs
+
+```bash
+# View logs for a specific run
+gh run view <run-id> --repo inbox-zero/inbox-zero-e2e --log
+
+# Download artifacts (includes server.log on failure)
+gh run download <run-id> --repo inbox-zero/inbox-zero-e2e
+```

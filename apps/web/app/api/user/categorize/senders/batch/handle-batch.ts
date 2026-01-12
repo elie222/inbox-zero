@@ -1,18 +1,17 @@
 import { NextResponse } from "next/server";
 import { aiCategorizeSendersSchema } from "@/app/api/user/categorize/senders/batch/handle-batch-validation";
-import { getThreadsFromSenderWithSubject } from "@/utils/gmail/thread";
 import {
   categorizeWithAi,
   getCategories,
   updateSenderCategory,
 } from "@/utils/categorize/senders/categorize";
 import { validateUserAndAiAccess } from "@/utils/user/validate";
-import { getGmailClientWithRefresh } from "@/utils/gmail/client";
 import { UNKNOWN_CATEGORY } from "@/utils/ai/categorize-sender/ai-categorize-senders";
 import prisma from "@/utils/prisma";
 import { saveCategorizationProgress } from "@/utils/redis/categorization-progress";
 import { SafeError } from "@/utils/error";
 import type { RequestWithLogger } from "@/utils/middleware";
+import { createEmailProvider } from "@/utils/email/provider";
 
 export async function handleBatchRequest(
   request: RequestWithLogger,
@@ -47,9 +46,6 @@ async function handleBatchInternal(request: RequestWithLogger) {
     select: {
       account: {
         select: {
-          access_token: true,
-          refresh_token: true,
-          expires_at: true,
           provider: true,
         },
       },
@@ -59,14 +55,10 @@ async function handleBatchInternal(request: RequestWithLogger) {
   const account = emailAccountWithAccount?.account;
 
   if (!account) throw new SafeError("No account found");
-  if (!account.access_token || !account.refresh_token)
-    throw new SafeError("No access or refresh token");
 
-  const gmail = await getGmailClientWithRefresh({
-    accessToken: account.access_token,
-    refreshToken: account.refresh_token,
-    expiresAt: account.expires_at?.getTime() || null,
+  const emailProvider = await createEmailProvider({
     emailAccountId,
+    provider: account.provider,
     logger: request.logger,
   });
 
@@ -75,12 +67,8 @@ async function handleBatchInternal(request: RequestWithLogger) {
 
   // 1. fetch 3 messages for each sender
   for (const sender of senders) {
-    const threadsFromSender = await getThreadsFromSenderWithSubject(
-      gmail,
-      account.access_token,
-      sender,
-      3,
-    );
+    const threadsFromSender =
+      await emailProvider.getThreadsFromSenderWithSubject(sender, 3);
     sendersWithEmails.set(sender, threadsFromSender);
   }
 

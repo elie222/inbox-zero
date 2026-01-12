@@ -25,6 +25,12 @@ import { toastError, toastSuccess } from "@/components/Toast";
 import { LoadingContent } from "@/components/LoadingContent";
 import { formatDateSimple } from "@/utils/date";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
+import {
+  Empty,
+  EmptyHeader,
+  EmptyTitle,
+  EmptyDescription,
+} from "@/components/ui/empty";
 import { KnowledgeForm } from "@/app/(app)/[emailAccountId]/assistant/knowledge/KnowledgeForm";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import type { GetKnowledgeResponse } from "@/app/api/knowledge/route";
@@ -85,20 +91,16 @@ export function KnowledgeBase() {
               {data?.items.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={3}>
-                    <div className="mx-auto my-8 max-w-prose text-center">
-                      <strong className="text-left">Notes:</strong>
-                      <ul className="mt-2 list-disc space-y-1 text-left">
-                        <li>
-                          Placing all knowledge in one entry is perfectly fine.
-                        </li>
-                        <li>
-                          When our AI drafts replies it also has access to
-                          previous conversations with the person you're talking
-                          to.
-                        </li>
-                        <li>This information is only used to draft replies.</li>
-                      </ul>
-                    </div>
+                    <Empty className="border-0">
+                      <EmptyHeader>
+                        <EmptyTitle>No knowledge entries yet</EmptyTitle>
+                        <EmptyDescription>
+                          Add information about your work, projects, or
+                          preferences. The assistant uses this when drafting
+                          replies.
+                        </EmptyDescription>
+                      </EmptyHeader>
+                    </Empty>
                   </TableCell>
                 </TableRow>
               ) : (

@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { regenerateWebhookSecretAction } from "@/utils/actions/webhook";
 import { toastError, toastSuccess } from "@/components/Toast";
 import { useAction } from "next-safe-action/hooks";
+import { getActionErrorMessage } from "@/utils/error";
 
 export function RegenerateSecretButton({
   hasSecret,
@@ -20,9 +21,7 @@ export function RegenerateSecretButton({
     },
     onError: (error) => {
       toastError({
-        description:
-          error.error.serverError ??
-          "An unknown error occurred while regenerating the webhook secret",
+        description: getActionErrorMessage(error.error),
       });
     },
     onSettled: () => {

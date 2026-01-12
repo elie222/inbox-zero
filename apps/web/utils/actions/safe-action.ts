@@ -13,14 +13,19 @@ import { env } from "@/env";
 
 // TODO: take functionality from `withActionInstrumentation` and move it here (apps/web/utils/actions/middleware.ts)
 
-const logger = createScopedLogger("safe-action");
-
 const baseClient = createSafeActionClient({
   defineMetadataSchema() {
     return z.object({ name: z.string() });
   },
+  defaultValidationErrorsShape: "flattened",
   handleServerError(error, { metadata, ctx, bindArgsClientInputs }) {
-    const context = ctx as any;
+    const context = ctx as {
+      userId?: string;
+      userEmail?: string;
+      emailAccountId?: string;
+    };
+
+    const logger = createScopedLogger("safe-action");
     logger.error("Server action error:", {
       metadata,
       userId: context?.userId,
@@ -64,12 +69,17 @@ const baseClient = createSafeActionClient({
     });
   });
 
-  return next({ ctx: { logger } });
+  const result = await next({ ctx: { logger } });
+
+  if (result.validationErrors) {
+    logger.warn("Action validation error", {
+      action: metadata.name,
+      validationErrors: result.validationErrors,
+    });
+  }
+
+  return result;
 });
-// .inputSchema(z.object({}), {
-//   handleValidationErrorsShape: async (ve) =>
-//     flattenValidationErrors(ve).fieldErrors,
-// });
 
 export const actionClient = baseClient
   .bindArgsSchemas<[emailAccountId: z.ZodString]>([z.string()])
@@ -101,7 +111,6 @@ export const actionClient = baseClient
       throw new SafeError("Unauthorized");
     }
 
-    // Set Sentry context for this action
     Sentry.setTag("emailAccountId", emailAccountId);
     Sentry.setUser({ id: userId, email: userEmail });
 

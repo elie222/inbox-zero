@@ -15,6 +15,7 @@ import {
 } from "@/utils/actions/admin";
 import { adminCheckPermissionsAction } from "@/utils/actions/permissions";
 import { toastError, toastSuccess } from "@/components/Toast";
+import { getActionErrorMessage } from "@/utils/error";
 
 export const AdminUserControls = () => {
   const { execute: processHistory, isExecuting: isProcessing } = useAction(
@@ -50,7 +51,7 @@ export const AdminUserControls = () => {
         console.error(error);
         toastError({
           title: "Error checking permissions",
-          description: error.error.serverError ?? "Unknown error",
+          description: getActionErrorMessage(error.error),
         });
       },
     });

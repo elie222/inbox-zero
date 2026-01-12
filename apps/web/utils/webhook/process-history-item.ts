@@ -11,6 +11,7 @@ import {
   getExtractableAttachments,
 } from "@/utils/drive/filing-engine";
 import { handleOutboundMessage } from "@/utils/reply-tracker/handle-outbound";
+import { clearFollowUpLabel } from "@/utils/follow-up/labels";
 import { NewsletterStatus } from "@/generated/prisma/enums";
 import type { EmailAccount } from "@/generated/prisma/client";
 import { extractEmailAddress } from "@/utils/email";
@@ -19,6 +20,7 @@ import type { EmailProvider } from "@/utils/email/types";
 import type { ParsedMessage, RuleWithActions } from "@/utils/types";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import type { Logger } from "@/utils/logger";
+import { captureException } from "@/utils/error";
 
 export type SharedProcessHistoryOptions = {
   provider: EmailProvider;
@@ -58,6 +60,8 @@ export async function processHistoryItem(
   const userEmail = emailAccount.email;
 
   try {
+    logger.info("Shared processor started");
+
     // Use pre-fetched message if provided, otherwise fetch it
     const parsedMessage = message ?? (await provider.getMessage(messageId));
 
@@ -130,6 +134,8 @@ export async function processHistoryItem(
 
     const isOutbound = provider.isSentMessage(parsedMessage);
 
+    logger.info("Message direction check", { isOutbound });
+
     if (isOutbound) {
       await handleOutboundMessage({
         emailAccount,
@@ -175,6 +181,8 @@ export async function processHistoryItem(
         await categorizeSender(sender, emailAccount, provider);
       }
     }
+
+    logger.info("Pre-rules check", { hasAutomationRules, hasAiAccess });
 
     if (hasAutomationRules && hasAiAccess) {
       logger.info("Running rules...");
@@ -226,6 +234,20 @@ export async function processHistoryItem(
           }
         }
       });
+    }
+
+    // Remove follow-up label if present (they replied, so follow-up no longer needed)
+    // This handles the case where we were awaiting a reply from them
+    try {
+      await clearFollowUpLabel({
+        emailAccountId,
+        threadId: actualThreadId,
+        provider,
+        logger,
+      });
+    } catch (error) {
+      logger.error("Error removing follow-up label on inbound", { error });
+      captureException(error, { emailAccountId });
     }
   } catch (error: unknown) {
     // Handle provider-specific "not found" errors

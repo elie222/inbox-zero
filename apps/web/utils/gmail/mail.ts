@@ -21,6 +21,7 @@ import {
   mergeAndDedupeRecipients,
 } from "@/utils/email/reply-all";
 import { formatReplySubject } from "@/utils/email/subject";
+import { buildThreadingHeaders } from "@/utils/email/threading";
 import { ensureEmailSendingEnabled } from "@/utils/mail";
 
 const logger = createScopedLogger("gmail/mail");
@@ -31,6 +32,7 @@ export const sendEmailBody = z.object({
       threadId: z.string(),
       headerMessageId: z.string(), // this is different to the gmail message id and looks something like <123...abc@mail.example.com>
       references: z.string().optional(), // for threading
+      messageId: z.string().optional(), // platform-specific message ID (Graph ID for Outlook)
     })
     .optional(),
   to: z.string(),
@@ -91,10 +93,10 @@ const createRawMailMessage = async (
     ],
     attachments,
     // https://datatracker.ietf.org/doc/html/rfc2822#appendix-A.2
-    references: replyToEmail
-      ? `${replyToEmail.references || ""} ${replyToEmail.headerMessageId}`.trim()
-      : "",
-    inReplyTo: replyToEmail ? replyToEmail.headerMessageId : "",
+    ...buildThreadingHeaders({
+      headerMessageId: replyToEmail?.headerMessageId || "",
+      references: replyToEmail?.references,
+    }),
     headers: {
       "X-Mailer": "Inbox Zero Web",
     },
