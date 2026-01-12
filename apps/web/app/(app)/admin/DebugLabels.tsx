@@ -51,7 +51,7 @@ export function DebugLabels() {
   return (
     <Card className="max-w-xl">
       <CardHeader>
-        <CardTitle>Debug Labels</CardTitle>
+        <CardTitle>Debug labels</CardTitle>
         <CardDescription>Get all labels for an email account</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">

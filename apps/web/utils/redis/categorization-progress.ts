@@ -61,3 +61,12 @@ export async function saveCategorizationProgress({
   await redis.set(key, updatedProgress, { ex: 2 * 60 });
   return updatedProgress;
 }
+
+export async function deleteCategorizationProgress({
+  emailAccountId,
+}: {
+  emailAccountId: string;
+}) {
+  const key = getKey({ emailAccountId });
+  await redis.del(key);
+}

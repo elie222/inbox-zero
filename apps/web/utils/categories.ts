@@ -1,9 +1,9 @@
 export const defaultCategory = {
-  UNKNOWN: {
-    name: "Unknown",
+  // Primary categories - used in rules and bulk archive UI
+  OTHER: {
+    name: "Other",
     enabled: true,
-    description:
-      "Senders that don't fit any other category or can't be classified",
+    description: "Senders that don't fit any other category",
   },
   NEWSLETTER: {
     name: "Newsletter",
@@ -22,86 +22,28 @@ export const defaultCategory = {
     description:
       "Purchase confirmations, order receipts, and payment confirmations",
   },
-  BANKING: {
-    name: "Banking",
+  NOTIFICATION: {
+    name: "Notification",
     enabled: true,
-    description:
-      "Financial institutions, banks, and payment services that send statements and alerts",
+    description: "Automated alerts, system notifications, and status updates",
   },
-  LEGAL: {
-    name: "Legal",
-    enabled: true,
-    description:
-      "Terms of service updates, legal notices, contracts, and legal communications",
-  },
-  SUPPORT: {
-    name: "Support",
-    enabled: true,
-    description: "Customer service and support",
-  },
-  PERSONAL: {
-    name: "Personal",
-    enabled: true,
-    description: "Personal communications from friends and family",
-  },
-  SOCIAL: {
-    name: "Social",
-    enabled: true,
-    description: "Social media platforms and their notification systems",
-  },
-  TRAVEL: {
-    name: "Travel",
-    enabled: true,
-    description: "Airlines, hotels, booking services, and travel agencies",
-  },
-  EVENTS: {
-    name: "Events",
-    enabled: true,
-    description:
-      "Event invitations, reminders, schedules, and registration information",
-  },
-  ACCOUNT: {
-    name: "Account",
-    enabled: true,
-    description:
-      "Account security notifications, password resets, and settings updates",
-  },
-  SHOPPING: {
-    name: "Shopping",
-    enabled: false,
-    description:
-      "Shopping updates, wishlist notifications, shipping updates, and retail communications",
-  },
-  WORK: {
-    name: "Work",
-    enabled: false,
-    description:
-      "Professional contacts, colleagues, and work-related communications",
-  },
-  EDUCATIONAL: {
-    name: "Educational",
-    enabled: false,
-    description:
-      "Educational institutions, online learning platforms, and course providers",
-  },
-  HEALTH: {
-    name: "Health",
-    enabled: false,
-    description:
-      "Healthcare providers, medical offices, and health service platforms",
-  },
-  GOVERNMENT: {
-    name: "Government",
-    enabled: false,
-    description:
-      "Government agencies, departments, and official communication channels",
-  },
-  ENTERTAINMENT: {
-    name: "Entertainment",
-    enabled: false,
-    description:
-      "Streaming services, gaming platforms, and entertainment providers",
-  },
+  // TODO: Secondary categories for future two-round categorization
+  // These would refine "Other" senders for analytics purposes.
+  // Implementation: After primary categorization, if result is "Other",
+  // make a second AI call with only secondary categories.
+  // See: aiCategorizeSendersTwoRound in ai-categorize-senders.ts (commented out)
+  //
+  // BANKING: { name: "Banking", enabled: false, description: "Financial institutions, banks, and payment services" },
+  // LEGAL: { name: "Legal", enabled: false, description: "Legal notices, contracts, and legal communications" },
+  // INVESTOR: { name: "Investor", enabled: false, description: "VCs, stock alerts, portfolio updates, cap table tools" },
+  // PERSONAL: { name: "Personal", enabled: false, description: "Personal communications from friends and family" },
+  // WORK: { name: "Work", enabled: false, description: "Professional contacts and work-related communications" },
+  // TRAVEL: { name: "Travel", enabled: false, description: "Airlines, hotels, booking services" },
+  // SUPPORT: { name: "Support", enabled: false, description: "Customer service and support" },
+  // EVENTS: { name: "Events", enabled: false, description: "Event invitations and reminders" },
+  // EDUCATIONAL: { name: "Educational", enabled: false, description: "Educational institutions and courses" },
+  // HEALTH: { name: "Health", enabled: false, description: "Healthcare providers and medical services" },
+  // GOVERNMENT: { name: "Government", enabled: false, description: "Government agencies and official communications" },
 } as const;
 
 export type SenderCategoryKey = keyof typeof defaultCategory;

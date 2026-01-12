@@ -1,28 +1,20 @@
 import { listMcpTools } from "@/utils/mcp/list-tools";
 import { getIntegration, type IntegrationKey } from "@/utils/mcp/integrations";
 import prisma from "@/utils/prisma";
-import { createScopedLogger } from "@/utils/logger";
+import type { Logger } from "@/utils/logger";
 import type { Prisma } from "@/generated/prisma/client";
 
-/**
- * Syncs tools from an MCP integration server to the database
- * @param integration The integration name
- * @param emailAccountId The email account ID
- * @returns The number of tools synced and their details
- */
 export async function syncMcpTools(
   integration: IntegrationKey,
   emailAccountId: string,
+  log: Logger,
 ) {
   const integrationConfig = getIntegration(integration);
   if (!integrationConfig) {
     throw new Error(`Unknown integration: ${integration}`);
   }
 
-  const logger = createScopedLogger("mcp-tools-sync").with({
-    integration,
-    emailAccountId,
-  });
+  const logger = log.with({ integration, emailAccountId });
 
   logger.info("Syncing MCP tools");
 
@@ -48,9 +40,20 @@ export async function syncMcpTools(
 
     // Filter to only allowed tools if specified in config
     const allowedToolNames = integrationConfig.allowedTools;
-    const tools = allowedToolNames
+    let tools = allowedToolNames
       ? allTools.filter((tool) => allowedToolNames.includes(tool.name))
       : allTools;
+
+    // Filter out write tools if enabled (keeps only get, list, find, search, etc.)
+    if (integrationConfig.filterWriteTools) {
+      const beforeCount = tools.length;
+      tools = tools.filter((tool) => isReadOnlyTool(tool.name));
+      logger.info("Filtered write tools", {
+        before: beforeCount,
+        after: tools.length,
+        filtered: beforeCount - tools.length,
+      });
+    }
 
     logger.info("Fetched and filtered tools from MCP server", {
       totalToolsAvailable: allTools.length,
@@ -71,7 +74,7 @@ export async function syncMcpTools(
                 name: tool.name,
                 description: tool.description,
                 schema: tool.inputSchema as Prisma.InputJsonValue,
-                isEnabled: true,
+                isEnabled: !integrationConfig.defaultToolsDisabled,
               })),
             }),
           ]
@@ -98,4 +101,32 @@ export async function syncMcpTools(
       `Failed to sync tools: ${error instanceof Error ? error.message : "Unknown error"}`,
     );
   }
+}
+
+// Read-only action verbs - check if the second segment matches
+const READ_ONLY_ACTIONS = [
+  "get",
+  "retrieve",
+  "find",
+  "search",
+  "list",
+  "fetch",
+  "read",
+  "query",
+  "describe",
+  "lookup",
+  "view",
+  "show",
+];
+
+/**
+ * Checks if a tool name indicates a read-only operation.
+ * Tool names follow pattern: "app-action-target" (e.g., "slack_v2-list-channels")
+ */
+export function isReadOnlyTool(toolName: string): boolean {
+  const parts = toolName.toLowerCase().split("-");
+  if (parts.length < 2) return false;
+
+  const action = parts[1];
+  return READ_ONLY_ACTIONS.includes(action);
 }

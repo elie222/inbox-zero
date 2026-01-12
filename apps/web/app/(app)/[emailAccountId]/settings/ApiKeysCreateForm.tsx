@@ -23,6 +23,7 @@ import {
   deactivateApiKeyAction,
 } from "@/utils/actions/api-key";
 import { toastError, toastSuccess } from "@/components/Toast";
+import { getActionErrorMessage } from "@/utils/error";
 import { CopyInput } from "@/components/CopyInput";
 import { SectionDescription } from "@/components/Typography";
 
@@ -64,8 +65,9 @@ function ApiKeysForm({ mutate }: { mutate: () => void }) {
     },
     onError: (error) => {
       toastError({
-        description:
-          `Failed to create API key. ${error.error.serverError || ""}`.trim(),
+        description: getActionErrorMessage(error.error, {
+          prefix: "Failed to create API key",
+        }),
       });
     },
     onSettled: () => {
@@ -120,8 +122,9 @@ export function ApiKeysDeactivateButton({
     },
     onError: (error) => {
       toastError({
-        description:
-          `Failed to deactivate API key. ${error.error.serverError || ""}`.trim(),
+        description: getActionErrorMessage(error.error, {
+          prefix: "Failed to deactivate API key",
+        }),
       });
     },
     onSettled: () => {

@@ -73,6 +73,11 @@ export async function executeAct({
       where: { id: executedRule.id },
       data: { status: ExecutedRuleStatus.APPLIED },
     })
+    .then(() => {
+      log.info("ExecutedRule status updated to APPLIED", {
+        executedRuleId: executedRule.id,
+      });
+    })
     .catch((error) => {
       log.error("Failed to update executed rule", { error });
     });

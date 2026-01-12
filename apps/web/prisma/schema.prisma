@@ -147,6 +147,9 @@ model EmailAccount {
 
   filingEnabled Boolean @default(false)
   filingPrompt  String?
+  followUpAwaitingReplyDays Int?
+  followUpNeedsReplyDays    Int?
+  followUpAutoDraftEnabled  Boolean @default(true)
 
   digestSchedule Schedule?
 
@@ -659,6 +662,7 @@ model Newsletter {
   createdAt DateTime          @default(now())
   updatedAt DateTime          @updatedAt
   email     String
+  name      String?
   status    NewsletterStatus?
 
   // For learned patterns for rules
@@ -753,6 +757,8 @@ model ThreadTracker {
   resolved  Boolean           @default(false)
   type      ThreadTrackerType
 
+  followUpAppliedAt DateTime? // When the follow-up label was added (prevents re-processing)
+
   emailAccountId String
   emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
 
@@ -760,6 +766,7 @@ model ThreadTracker {
   @@index([emailAccountId, resolved])
   @@index([emailAccountId, resolved, sentAt, type])
   @@index([emailAccountId, type, resolved, sentAt])
+  @@index([emailAccountId, type, resolved, followUpAppliedAt, sentAt])
 }
 
 model CleanupJob {

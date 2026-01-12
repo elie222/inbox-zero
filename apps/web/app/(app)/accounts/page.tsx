@@ -31,6 +31,7 @@ import { PageWrapper } from "@/components/PageWrapper";
 import { logOut } from "@/utils/user";
 import { getAndClearAuthErrorCookie } from "@/utils/auth-cookies";
 import { CopyRulesDialog } from "@/app/(app)/accounts/CopyRulesDialog";
+import { getActionErrorMessage } from "@/utils/error";
 
 export default function AccountsPage() {
   const { data, isLoading, error, mutate } = useAccounts();
@@ -178,7 +179,7 @@ function AccountOptionsDropdown({
     onError: (error) => {
       toastError({
         title: "Error deleting email account",
-        description: error.error.serverError || "An unknown error occurred",
+        description: getActionErrorMessage(error.error),
       });
       onAccountDeleted();
     },

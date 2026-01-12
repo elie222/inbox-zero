@@ -62,6 +62,8 @@ export const inboxZeroLabels = {
 
 export type InboxZeroLabel = keyof typeof inboxZeroLabels;
 
+export const FOLLOW_UP_LABEL = "Follow-up";
+
 export function getLabelColor(name: string) {
   switch (name) {
     case getRuleLabel(SystemType.TO_REPLY):
@@ -84,6 +86,8 @@ export function getLabelColor(name: string) {
       return coral;
     case getRuleLabel(SystemType.COLD_EMAIL):
       return orange;
+    case FOLLOW_UP_LABEL:
+      return yellow;
     default:
       return getRandomLabelColor();
   }

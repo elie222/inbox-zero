@@ -25,6 +25,7 @@ import { useAccount } from "@/providers/EmailAccountProvider";
 import { fetchWithAccount } from "@/utils/fetch";
 import { RequestAccessDialog } from "./RequestAccessDialog";
 import { truncate } from "@/utils/string";
+import { Notice } from "@/components/Notice";
 
 interface IntegrationRowProps {
   integration: GetIntegrationsResponse["integrations"][number];
@@ -268,7 +269,11 @@ export function IntegrationRow({
       </TableRow>
 
       {expandedTools && tools.length > 0 && (
-        <ToolsList tools={tools} onToggleTool={handleToggleTool} />
+        <ToolsList
+          tools={tools}
+          onToggleTool={handleToggleTool}
+          toolsWarning={integration.toolsWarning}
+        />
       )}
     </>
   );
@@ -279,15 +284,17 @@ interface ToolsListProps {
     GetIntegrationsResponse["integrations"][number]["connection"]
   >["tools"];
   onToggleTool: (toolId: string, isEnabled: boolean) => void;
+  toolsWarning?: string;
 }
 
-function ToolsList({ tools, onToggleTool }: ToolsListProps) {
+function ToolsList({ tools, onToggleTool, toolsWarning }: ToolsListProps) {
   const sortedTools = [...tools].sort((a, b) => a.name.localeCompare(b.name));
 
   return (
     <TableRow>
       <TableCell colSpan={5} className="bg-muted/50">
         <div className="space-y-3">
+          {toolsWarning && <Notice variant="warning">{toolsWarning}</Notice>}
           {sortedTools.map((tool) => (
             <div
               key={tool.id}

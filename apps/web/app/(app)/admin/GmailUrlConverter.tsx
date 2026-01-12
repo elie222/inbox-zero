@@ -56,7 +56,7 @@ export function GmailUrlConverter() {
   return (
     <Card className="max-w-xl">
       <CardHeader>
-        <CardTitle>Email Message Lookup</CardTitle>
+        <CardTitle>Email message lookup</CardTitle>
         <CardDescription>
           Find thread/message IDs using RFC822 Message-ID from email headers
         </CardDescription>
