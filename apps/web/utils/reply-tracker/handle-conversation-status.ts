@@ -121,17 +121,19 @@ export async function updateThreadTrackers({
   status: SystemType;
 }) {
   // Resolve all existing trackers for this thread
-  await withPrismaRetry(() =>
-    prisma.threadTracker.updateMany({
-      where: {
-        emailAccountId,
-        threadId,
-        resolved: false,
-      },
-      data: {
-        resolved: true,
-      },
-    }),
+  await withPrismaRetry(
+    () =>
+      prisma.threadTracker.updateMany({
+        where: {
+          emailAccountId,
+          threadId,
+          resolved: false,
+        },
+        data: {
+          resolved: true,
+        },
+      }),
+    { logger },
   );
 
   const getTrackerType = (status: SystemType) => {

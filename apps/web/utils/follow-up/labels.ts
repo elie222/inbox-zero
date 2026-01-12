@@ -116,18 +116,20 @@ export async function clearFollowUpLabel({
   if (!threadId) return;
 
   try {
-    const { count } = await withPrismaRetry(() =>
-      prisma.threadTracker.updateMany({
-        where: {
-          emailAccountId,
-          threadId,
-          followUpAppliedAt: { not: null },
-          resolved: false,
-        },
-        data: {
-          followUpAppliedAt: null,
-        },
-      }),
+    const { count } = await withPrismaRetry(
+      () =>
+        prisma.threadTracker.updateMany({
+          where: {
+            emailAccountId,
+            threadId,
+            followUpAppliedAt: { not: null },
+            resolved: false,
+          },
+          data: {
+            followUpAppliedAt: null,
+          },
+        }),
+      { logger },
     );
 
     if (count === 0) {
