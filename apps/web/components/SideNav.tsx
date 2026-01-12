@@ -132,7 +132,6 @@ export const useNavigation = () => {
               name: "Meeting Briefs",
               href: prefixPath(currentEmailAccountId, "/briefs"),
               icon: FileTextIcon,
-              new: true,
             },
           ]
         : []),
