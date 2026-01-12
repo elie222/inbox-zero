@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Image from "next/image";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { PageHeading, TypographyP } from "@/components/Typography";
 import { useAccount } from "@/providers/EmailAccountProvider";
@@ -49,6 +50,14 @@ export default function PermissionsConsentPage() {
       >
         Reconnect account
       </Button>
+
+      <p className="mt-4 text-center text-sm text-muted-foreground">
+        Having trouble?{" "}
+        <Link href="/api/auth/signout" className="underline hover:text-primary">
+          Sign out
+        </Link>{" "}
+        and sign back in with your email provider.
+      </p>
 
       <div className="mt-8">
         <Image
