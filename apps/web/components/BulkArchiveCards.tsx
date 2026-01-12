@@ -9,11 +9,18 @@ import {
   CheckIcon,
   ChevronDownIcon,
   MailIcon,
+  MailOpenIcon,
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { EmailCell } from "@/components/EmailCell";
 import { useThreads } from "@/hooks/useThreads";
 import { formatShortDate } from "@/utils/date";
@@ -23,6 +30,10 @@ import {
   addToArchiveSenderQueue,
   useArchiveSenderStatus,
 } from "@/store/archive-sender-queue";
+import {
+  addToMarkReadSenderQueue,
+  useMarkReadSenderStatus,
+} from "@/store/mark-read-sender-queue";
 import { getEmailUrl } from "@/utils/url";
 import type { CategoryWithRules } from "@/utils/category.server";
 import { useAccount } from "@/providers/EmailAccountProvider";
@@ -149,22 +160,46 @@ export function BulkArchiveCards({
   const archiveCategory = async (categoryName: string, e: React.MouseEvent) => {
     e.stopPropagation();
     const senders = groupedEmails[categoryName] || [];
-    const selectedToArchive = senders.filter(
+    const selectedToProcess = senders.filter(
       (s) => selectedSenders[s.address] !== false,
     );
 
     try {
-      for (const sender of selectedToArchive) {
+      for (const sender of selectedToProcess) {
         await addToArchiveSenderQueue({
           sender: sender.address,
           emailAccountId,
         });
       }
-
       setArchivedCategories((prev) => ({ ...prev, [categoryName]: true }));
     } catch (_error) {
       toastError({
         description: "Failed to archive some senders. Please try again.",
+      });
+    }
+  };
+
+  const markCategoryAsRead = async (
+    categoryName: string,
+    e: React.MouseEvent,
+  ) => {
+    e.stopPropagation();
+    const senders = groupedEmails[categoryName] || [];
+    const selectedToProcess = senders.filter(
+      (s) => selectedSenders[s.address] !== false,
+    );
+
+    try {
+      for (const sender of selectedToProcess) {
+        await addToMarkReadSenderQueue({
+          sender: sender.address,
+          emailAccountId,
+        });
+      }
+      setArchivedCategories((prev) => ({ ...prev, [categoryName]: true }));
+    } catch (_error) {
+      toastError({
+        description: "Failed to mark as read some senders. Please try again.",
       });
     }
   };
@@ -245,18 +280,43 @@ export function BulkArchiveCards({
                   {isArchived ? (
                     <div className="flex items-center gap-2 text-green-600">
                       <CheckIcon className="size-5" />
-                      <span className="text-sm font-medium">Archived</span>
+                      <span className="text-sm font-medium">Done</span>
                     </div>
                   ) : (
-                    <Button
-                      onClick={(e) => archiveCategory(categoryName, e)}
-                      size="sm"
-                    >
-                      <ArchiveIcon className="mr-2 size-4" />
-                      {isExpanded
-                        ? `Archive ${getSelectedCount(categoryName)} of ${senders.length}`
-                        : "Archive all"}
-                    </Button>
+                    <div className="inline-flex rounded-md shadow-sm">
+                      <Button
+                        onClick={(e) => archiveCategory(categoryName, e)}
+                        size="sm"
+                        className="rounded-r-none"
+                      >
+                        <ArchiveIcon className="mr-2 size-4" />
+                        {isExpanded
+                          ? `Archive ${getSelectedCount(categoryName)} of ${senders.length}`
+                          : "Archive all"}
+                      </Button>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button
+                            size="sm"
+                            className="rounded-l-none border-l border-blue-700 px-2"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <ChevronDownIcon className="size-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem
+                            onClick={(e) => markCategoryAsRead(categoryName, e)}
+                            className="cursor-pointer"
+                          >
+                            <MailOpenIcon className="mr-2 size-4" />
+                            {isExpanded
+                              ? `Mark ${getSelectedCount(categoryName)} as read`
+                              : "Mark all as read"}
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
                   )}
                   <ChevronDownIcon
                     className={cn(
@@ -316,7 +376,8 @@ function SenderRow({
   onToggleSelection: (e: React.MouseEvent<HTMLButtonElement>) => void;
   userEmail: string;
 }) {
-  const status = useArchiveSenderStatus(sender.address);
+  const archiveStatus = useArchiveSenderStatus(sender.address);
+  const markReadStatus = useMarkReadSenderStatus(sender.address);
 
   return (
     <div className={cn(!isSelected && "opacity-50")}>
@@ -352,7 +413,10 @@ function SenderRow({
           />
         </div>
         <div className="mr-2 text-right">
-          <ArchiveStatus status={status} />
+          <SenderStatus
+            archiveStatus={archiveStatus}
+            markReadStatus={markReadStatus}
+          />
         </div>
         <ChevronDownIcon
           className={cn(
@@ -370,33 +434,64 @@ function SenderRow({
   );
 }
 
-function ArchiveStatus({
-  status,
+function SenderStatus({
+  archiveStatus,
+  markReadStatus,
 }: {
-  status: ReturnType<typeof useArchiveSenderStatus>;
+  archiveStatus: ReturnType<typeof useArchiveSenderStatus>;
+  markReadStatus: ReturnType<typeof useMarkReadSenderStatus>;
 }) {
-  switch (status?.status) {
-    case "completed":
-      if (status.threadsTotal) {
+  // Show archive status if it exists
+  if (archiveStatus?.status) {
+    switch (archiveStatus.status) {
+      case "completed":
         return (
           <span className="text-sm text-green-600">
-            Archived {status.threadsTotal}!
+            {archiveStatus.threadsTotal
+              ? `Archived ${archiveStatus.threadsTotal}!`
+              : "Archived"}
           </span>
         );
-      }
-      return <span className="text-sm text-muted-foreground">Archived</span>;
-    case "processing":
-      return (
-        <span className="text-sm text-blue-600">
-          {status.threadsTotal - status.threadIds.length} /{" "}
-          {status.threadsTotal}
-        </span>
-      );
-    case "pending":
-      return <span className="text-sm text-muted-foreground">Pending...</span>;
-    default:
-      return null;
+      case "processing":
+        return (
+          <span className="text-sm text-blue-600">
+            {archiveStatus.threadsTotal - archiveStatus.threadIds.length} /{" "}
+            {archiveStatus.threadsTotal}
+          </span>
+        );
+      case "pending":
+        return (
+          <span className="text-sm text-muted-foreground">Pending...</span>
+        );
+    }
   }
+
+  // Show mark read status if it exists
+  if (markReadStatus?.status) {
+    switch (markReadStatus.status) {
+      case "completed":
+        return (
+          <span className="text-sm text-green-600">
+            {markReadStatus.threadsTotal
+              ? `Marked ${markReadStatus.threadsTotal} read!`
+              : "Marked read"}
+          </span>
+        );
+      case "processing":
+        return (
+          <span className="text-sm text-blue-600">
+            {markReadStatus.threadsTotal - markReadStatus.threadIds.length} /{" "}
+            {markReadStatus.threadsTotal}
+          </span>
+        );
+      case "pending":
+        return (
+          <span className="text-sm text-muted-foreground">Pending...</span>
+        );
+    }
+  }
+
+  return null;
 }
 
 function ExpandedEmails({
