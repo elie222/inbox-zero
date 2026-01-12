@@ -27,11 +27,6 @@ export async function handleAccountLinking({
   | { type: "redirect"; response: NextResponse }
   | { type: "merge"; sourceAccountId: string; sourceUserId: string }
   | { type: "update_tokens"; existingAccountId: string }
-  | {
-      type: "update_existing_account";
-      emailAccountId: string;
-      accountId: string;
-    }
 > {
   const redirectUrl = new URL("/accounts", env.NEXT_PUBLIC_BASE_URL);
 
@@ -50,7 +45,7 @@ export async function handleAccountLinking({
   if (!existingAccountId || !hasEmailAccount) {
     const existingEmailAccount = await prisma.emailAccount.findUnique({
       where: { email: providerEmail.trim().toLowerCase() },
-      select: { id: true, userId: true, email: true, accountId: true },
+      select: { id: true, userId: true, email: true },
     });
 
     if (existingEmailAccount && existingEmailAccount.userId !== targetUserId) {
@@ -67,24 +62,6 @@ export async function handleAccountLinking({
       return {
         type: "redirect",
         response: NextResponse.redirect(redirectUrl),
-      };
-    }
-
-    if (existingEmailAccount?.accountId) {
-      logger.info(
-        "providerAccountId changed but EmailAccount exists for same user. Updating existing account.",
-        {
-          provider,
-          email: providerEmail,
-          targetUserId,
-          emailAccountId: existingEmailAccount.id,
-          accountId: existingEmailAccount.accountId,
-        },
-      );
-      return {
-        type: "update_existing_account",
-        emailAccountId: existingEmailAccount.id,
-        accountId: existingEmailAccount.accountId,
       };
     }
 

@@ -291,42 +291,6 @@ export const GET = withError("outlook/linking/callback", async (request) => {
       return successResponse;
     }
 
-    if (linkingResult.type === "update_existing_account") {
-      logger.info(
-        "Updating existing Microsoft account with new providerAccountId",
-        {
-          email: providerEmail,
-          targetUserId,
-          accountId: linkingResult.accountId,
-          newProviderAccountId: providerAccountId,
-        },
-      );
-
-      await updateMicrosoftAccountWithNewProviderId(
-        linkingResult.accountId,
-        providerAccountId,
-        tokens,
-      );
-
-      logger.info(
-        "Successfully updated existing Microsoft account with new providerAccountId",
-        {
-          email: providerEmail,
-          targetUserId,
-          accountId: linkingResult.accountId,
-        },
-      );
-
-      await setOAuthCodeResult(code, { success: "tokens_updated" });
-
-      const successUrl = new URL("/accounts", env.NEXT_PUBLIC_BASE_URL);
-      successUrl.searchParams.set("success", "tokens_updated");
-      const successResponse = NextResponse.redirect(successUrl);
-      successResponse.cookies.delete(OUTLOOK_LINKING_STATE_COOKIE_NAME);
-
-      return successResponse;
-    }
-
     logger.info("Merging Microsoft account (user confirmed).", {
       email: providerEmail,
       targetUserId,
@@ -404,27 +368,6 @@ async function updateMicrosoftAccountTokens(
   await prisma.account.update({
     where: { id: accountId },
     data: {
-      access_token: tokens.access_token,
-      // Only update refresh_token if provider returned one (preserves existing token)
-      ...(tokens.refresh_token != null && {
-        refresh_token: tokens.refresh_token,
-      }),
-      expires_at: parseMicrosoftExpiresAt(tokens),
-      scope: tokens.scope,
-      token_type: tokens.token_type,
-    },
-  });
-}
-
-async function updateMicrosoftAccountWithNewProviderId(
-  accountId: string,
-  newProviderAccountId: string,
-  tokens: MicrosoftTokens,
-) {
-  await prisma.account.update({
-    where: { id: accountId },
-    data: {
-      providerAccountId: newProviderAccountId,
       access_token: tokens.access_token,
       // Only update refresh_token if provider returned one (preserves existing token)
       ...(tokens.refresh_token != null && {

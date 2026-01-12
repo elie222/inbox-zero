@@ -51,12 +51,12 @@ export default function PermissionsConsentPage() {
         Reconnect account
       </Button>
 
-      <p className="mt-4 text-center text-sm text-muted-foreground">
+      <p className="mt-8 text-center text-muted-foreground">
         Having trouble?{" "}
-        <Link href="/api/auth/signout" className="underline hover:text-primary">
+        <Link href="/logout" className="underline hover:text-primary">
           Sign out
         </Link>{" "}
-        and sign back in with your email provider.
+        and sign back in again.
       </p>
 
       <div className="mt-8">
