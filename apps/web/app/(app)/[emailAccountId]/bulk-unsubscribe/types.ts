@@ -17,9 +17,9 @@ export interface RowProps {
   emailAccountId: string;
   userEmail: string;
   item: Newsletter;
-  readPercentage: number;
-  archivedEmails: number;
-  archivedPercentage: number;
+  readPercentage?: number;
+  archivedEmails?: number;
+  archivedPercentage?: number;
 
   onOpenNewsletter: (row: Newsletter) => void;
   labels: EmailLabel[];
@@ -32,5 +32,5 @@ export interface RowProps {
   refetchPremium: () => Promise<UserResponse | null | undefined>;
   openPremiumModal: () => void;
   checked: boolean;
-  onToggleSelect: (id: string) => void;
+  onToggleSelect?: (id: string) => void;
 }

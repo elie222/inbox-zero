@@ -4,6 +4,8 @@ export function useToggleSelect(items: { id: string }[]) {
   const [selected, setSelected] = useState<Map<string, boolean>>(new Map());
   const isAllSelected =
     !!items.length && items.every((item) => selected.get(item.id));
+  const selectedCount = Array.from(selected.values()).filter(Boolean).length;
+
   const onToggleSelect = (id: string) => {
     setSelected((prev) => new Map(prev).set(id, !prev.get(id)));
   };
@@ -15,5 +17,16 @@ export function useToggleSelect(items: { id: string }[]) {
     }
   }, [items, selected]);
 
-  return { selected, isAllSelected, onToggleSelect, onToggleSelectAll };
+  const clearSelection = useCallback(() => {
+    setSelected(new Map());
+  }, []);
+
+  return {
+    selected,
+    selectedCount,
+    isAllSelected,
+    onToggleSelect,
+    onToggleSelectAll,
+    clearSelection,
+  };
 }

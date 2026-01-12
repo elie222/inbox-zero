@@ -147,24 +147,9 @@ export function BulkUnsubscribe() {
 
   const { emailAccountId, userEmail } = useAccount();
 
-  const [sortColumn, setSortColumn] = useState<
-    "emails" | "unread" | "unarchived"
-  >("emails");
-  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
-
-  const handleSort = useCallback(
-    (column: "emails" | "unread" | "unarchived") => {
-      if (sortColumn === column) {
-        // Toggle direction if clicking the same column
-        setSortDirection((prev) => (prev === "desc" ? "asc" : "desc"));
-      } else {
-        // Set new column with default desc direction
-        setSortColumn(column);
-        setSortDirection("desc");
-      }
-    },
-    [sortColumn],
-  );
+  // Default sort by email count descending
+  const sortColumn = "emails";
+  const sortDirection = "desc";
 
   const { typesArray } = useEmailsToIncludeFilter();
   const { filtersArray, filter, setFilter } = useNewsletterFilter();
@@ -230,17 +215,11 @@ export function BulkUnsubscribe() {
   // Data is now filtered, sorted, and limited by the backend
   const rows = data?.newsletters;
 
-  const { selected, isAllSelected, onToggleSelect, onToggleSelectAll } =
+  const { selected, selectedCount, onToggleSelect, clearSelection } =
     useToggleSelect(rows?.map((item) => ({ id: item.name })) || []);
 
   // Backend now handles sorting, so we just map the rows in order
   const tableRows = rows?.map((item) => {
-    const readPercentage =
-      item.value > 0 ? (item.readEmails / item.value) * 100 : 0;
-    const archivedEmails = item.value - item.inboxEmails;
-    const archivedPercentage =
-      item.value > 0 ? (archivedEmails / item.value) * 100 : 0;
-
     return (
       <RowComponent
         key={item.name}
@@ -258,9 +237,6 @@ export function BulkUnsubscribe() {
         openPremiumModal={openModal}
         checked={selected.get(item.name) || false}
         onToggleSelect={onToggleSelect}
-        readPercentage={readPercentage}
-        archivedEmails={archivedEmails}
-        archivedPercentage={archivedPercentage}
       />
     );
   });
@@ -373,12 +349,9 @@ export function BulkUnsubscribe() {
                   <BulkUnsubscribeMobile tableRows={tableRows} />
                 ) : (
                   <BulkUnsubscribeDesktop
-                    sortColumn={sortColumn}
-                    sortDirection={sortDirection}
-                    onSort={handleSort}
                     tableRows={tableRows}
-                    isAllSelected={isAllSelected}
-                    onToggleSelectAll={onToggleSelectAll}
+                    selectedCount={selectedCount}
+                    onClearSelection={clearSelection}
                   />
                 )}
                 {/* Only show expand/collapse when there might be more results */}

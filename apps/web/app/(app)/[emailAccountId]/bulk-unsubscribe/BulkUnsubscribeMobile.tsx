@@ -3,16 +3,10 @@
 import type React from "react";
 import Link from "next/link";
 import { usePostHog } from "posthog-js/react";
-import {
-  ArchiveIcon,
-  BadgeCheckIcon,
-  EyeIcon,
-  MailMinusIcon,
-} from "lucide-react";
+import { EyeIcon, MailMinusIcon, ThumbsUpIcon } from "lucide-react";
 import {
   useUnsubscribe,
   useApproveButton,
-  useBulkArchive,
 } from "@/app/(app)/[emailAccountId]/bulk-unsubscribe/hooks";
 import {
   Card,
@@ -21,12 +15,16 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { extractEmailAddress, extractNameFromEmail } from "@/utils/email";
+import {
+  extractDomainFromEmail,
+  extractEmailAddress,
+  extractNameFromEmail,
+} from "@/utils/email";
 import type { RowProps } from "@/app/(app)/[emailAccountId]/bulk-unsubscribe/types";
 import { Button } from "@/components/ui/button";
 import { ButtonLoader } from "@/components/Loading";
 import { NewsletterStatus } from "@/generated/prisma/enums";
-import { Badge } from "@/components/ui/badge";
+import { SenderIcon } from "@/components/charts/DomainIcon";
 
 export function BulkUnsubscribeMobile({
   tableRows,
@@ -42,12 +40,11 @@ export function BulkUnsubscribeRowMobile({
   mutate,
   hasUnsubscribeAccess,
   onOpenNewsletter,
-  readPercentage,
-  archivedPercentage,
   emailAccountId,
 }: RowProps) {
   const name = item.fromName || extractNameFromEmail(item.name);
   const email = extractEmailAddress(item.name);
+  const domain = extractDomainFromEmail(item.name);
 
   const posthog = usePostHog();
 
@@ -67,33 +64,26 @@ export function BulkUnsubscribeRowMobile({
       emailAccountId,
     },
   );
-  const { onBulkArchive, isBulkArchiving } = useBulkArchive({
-    mutate,
-    posthog,
-    emailAccountId,
-  });
   const hasUnsubscribeLink = unsubscribeLink !== "#";
 
   return (
     <Card className="overflow-hidden">
-      <CardHeader>
-        <CardTitle className="truncate">{name}</CardTitle>
-        <CardDescription className="truncate">{email}</CardDescription>
-      </CardHeader>
-      <CardContent className="flex flex-col gap-4">
-        <div className="grid grid-cols-3 gap-2 text-nowrap">
-          <Badge variant="outline" className="justify-center">
+      <CardHeader className="pb-3">
+        <div className="flex items-center gap-3">
+          <SenderIcon domain={domain} name={name} />
+          <div className="min-w-0 flex-1">
+            <CardTitle className="truncate text-base">{name}</CardTitle>
+            <CardDescription className="truncate text-sm">
+              {email}
+            </CardDescription>
+          </div>
+          <span className="text-sm text-muted-foreground whitespace-nowrap">
             {item.value} emails
-          </Badge>
-          <Badge variant="outline" className="justify-center">
-            {readPercentage.toFixed(0)}% read
-          </Badge>
-          <Badge variant="outline" className="justify-center">
-            {archivedPercentage.toFixed(0)}% archived
-          </Badge>
+          </span>
         </div>
-
-        <div className="grid grid-cols-2 gap-2">
+      </CardHeader>
+      <CardContent className="pt-0">
+        <div className="flex items-center gap-2">
           <Button
             size="sm"
             variant={
@@ -101,13 +91,14 @@ export function BulkUnsubscribeRowMobile({
             }
             onClick={onApprove}
             disabled={!hasUnsubscribeAccess}
+            className="flex-1"
           >
             {approveLoading ? (
               <ButtonLoader />
             ) : (
-              <BadgeCheckIcon className="mr-2 size-4" />
+              <ThumbsUpIcon className="mr-2 size-4" />
             )}
-            {item.status === NewsletterStatus.APPROVED ? "Approved" : "Keep"}
+            Keep
           </Button>
 
           <Button
@@ -115,6 +106,7 @@ export function BulkUnsubscribeRowMobile({
             variant={
               item.status === NewsletterStatus.UNSUBSCRIBED ? "red" : "default"
             }
+            className="flex-1"
             asChild
           >
             <Link
@@ -129,37 +121,17 @@ export function BulkUnsubscribeRowMobile({
                 ) : (
                   <MailMinusIcon className="size-4" />
                 )}
-                {item.status === NewsletterStatus.UNSUBSCRIBED
-                  ? hasUnsubscribeLink
-                    ? "Unsubscribed"
-                    : "Blocked"
-                  : hasUnsubscribeLink
-                    ? "Unsubscribe"
-                    : "Block"}
+                {hasUnsubscribeLink ? "Unsubscribe" : "Block"}
               </span>
             </Link>
           </Button>
 
           <Button
             size="sm"
-            variant="secondary"
-            onClick={() => onBulkArchive([item])}
-          >
-            {isBulkArchiving ? (
-              <ButtonLoader />
-            ) : (
-              <ArchiveIcon className="mr-2 size-4" />
-            )}
-            Archive All
-          </Button>
-
-          <Button
-            size="sm"
-            variant="secondary"
+            variant="ghost"
             onClick={() => onOpenNewsletter(item)}
           >
-            <EyeIcon className="mr-2 size-4" />
-            View
+            <EyeIcon className="size-4" />
           </Button>
         </div>
       </CardContent>
