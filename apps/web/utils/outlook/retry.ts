@@ -101,6 +101,7 @@ export function extractErrorInfo(error: unknown): ErrorInfo {
   const primaryMessage =
     (err?.message as string) ??
     ((err?.error as Record<string, unknown>)?.message as string) ??
+    (err?.body as string) ??
     "";
 
   const errorMessage = String(primaryMessage);
