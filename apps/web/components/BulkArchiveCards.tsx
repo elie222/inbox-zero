@@ -59,31 +59,38 @@ export function BulkArchiveCards({
     );
   }, [categories]);
 
+  // Get the names of default categories to determine which categories to show as separate tabs
+  const defaultCategoryNames = useMemo(
+    () => new Set<string>(Object.values(defaultCategory).map((c) => c.name)),
+    [],
+  );
+
   const groupedEmails = useMemo(() => {
-    const grouped = groupBy(
-      emailGroups,
-      (group) =>
-        categoryMap[group.category?.name || ""]?.name || "Uncategorized",
-    );
+    const grouped = groupBy(emailGroups, (group) => {
+      const categoryName =
+        categoryMap[group.category?.name || ""]?.name || "Uncategorized";
 
-    // Add empty arrays for categories without any emails
-    for (const category of categories) {
-      if (!grouped[category.name]) {
-        grouped[category.name] = [];
+      // If the category is not one of the default categories, group it under "Other"
+      // This handles legacy categories from before the 4+Other category system
+      if (
+        categoryName !== "Uncategorized" &&
+        !defaultCategoryNames.has(categoryName)
+      ) {
+        return defaultCategory.OTHER.name;
       }
-    }
 
-    // Always show default categories with 0 senders if no categories exist
-    if (categories.length === 0) {
-      for (const cat of Object.values(defaultCategory)) {
-        if (!grouped[cat.name]) {
-          grouped[cat.name] = [];
-        }
+      return categoryName;
+    });
+
+    // Always show default categories (even with 0 senders)
+    for (const cat of Object.values(defaultCategory)) {
+      if (!grouped[cat.name]) {
+        grouped[cat.name] = [];
       }
     }
 
     return grouped;
-  }, [emailGroups, categories, categoryMap]);
+  }, [emailGroups, categoryMap, defaultCategoryNames]);
 
   // Sort categories alphabetically, but always put Other and Uncategorized last
   const sortedCategoryEntries = useMemo(() => {
