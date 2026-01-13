@@ -15,6 +15,7 @@ import { useMeetingBriefSettings } from "@/hooks/useMeetingBriefs";
 import { TimeDurationSetting } from "@/app/(app)/[emailAccountId]/briefs/TimeDurationSetting";
 import { UpcomingMeetings } from "@/app/(app)/[emailAccountId]/briefs/UpcomingMeetings";
 import { BriefsOnboarding } from "@/app/(app)/[emailAccountId]/briefs/Onboarding";
+import { IntegrationsSetting } from "@/app/(app)/[emailAccountId]/briefs/IntegrationsSetting";
 
 export default function MeetingBriefsPage() {
   const { emailAccountId } = useAccount();
@@ -62,7 +63,7 @@ export default function MeetingBriefsPage() {
     <PageWrapper>
       <PageHeader title="Meeting Briefs" />
 
-      <div className="mt-4 space-y-4">
+      <div className="mt-4 space-y-4 max-w-3xl">
         <PremiumAlertWithData />
 
         <LoadingContent loading={isLoading} error={error}>
@@ -81,17 +82,21 @@ export default function MeetingBriefsPage() {
             />
 
             {!!data?.enabled && (
-              <SettingCard
-                title="Send briefing before meeting"
-                description="How long before the meeting to send the briefing"
-                collapseOnMobile
-                right={
-                  <TimeDurationSetting
-                    initialMinutes={data?.minutesBefore ?? 240}
-                    onSaved={mutate}
-                  />
-                }
-              />
+              <>
+                <SettingCard
+                  title="Send briefing before meeting"
+                  description="How long before the meeting to send the briefing"
+                  collapseOnMobile
+                  right={
+                    <TimeDurationSetting
+                      initialMinutes={data?.minutesBefore ?? 240}
+                      onSaved={mutate}
+                    />
+                  }
+                />
+
+                <IntegrationsSetting />
+              </>
             )}
           </div>
         </LoadingContent>

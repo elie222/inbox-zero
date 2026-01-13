@@ -10,6 +10,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { MutedText } from "@/components/Typography";
 
 export function WebhookDocumentationDialog({
   children,
@@ -65,10 +66,10 @@ export function WebhookPayloadDocumentation() {
 
   return (
     <div className="space-y-4">
-      <div className="text-sm text-muted-foreground">
+      <MutedText>
         When a rule with a webhook action is triggered, we'll send a POST
         request to your URL with the following payload:
-      </div>
+      </MutedText>
 
       <div className="space-y-4">
         <div className="flex items-center justify-between">
@@ -93,46 +94,46 @@ export function WebhookPayloadDocumentation() {
         <div className="grid gap-4 md:grid-cols-2">
           <div>
             <h5 className="font-medium mb-2">Email Fields</h5>
-            <div className="space-y-1 text-sm text-muted-foreground">
-              <div>
+            <div className="space-y-1">
+              <MutedText>
                 <code>threadId</code> - Gmail/Outlook thread ID
-              </div>
-              <div>
+              </MutedText>
+              <MutedText>
                 <code>messageId</code> - Unique message ID
-              </div>
-              <div>
+              </MutedText>
+              <MutedText>
                 <code>subject</code> - Email subject line
-              </div>
-              <div>
+              </MutedText>
+              <MutedText>
                 <code>from</code> - Sender's email address
-              </div>
-              <div>
+              </MutedText>
+              <MutedText>
                 <code>cc/bcc</code> - Optional CC/BCC recipients
-              </div>
-              <div>
+              </MutedText>
+              <MutedText>
                 <code>headerMessageId</code> - Email Message-ID header
-              </div>
+              </MutedText>
             </div>
           </div>
 
           <div>
             <h5 className="font-medium mb-2">Rule Execution Fields</h5>
-            <div className="space-y-1 text-sm text-muted-foreground">
-              <div>
+            <div className="space-y-1">
+              <MutedText>
                 <code>id</code> - Execution ID
-              </div>
-              <div>
+              </MutedText>
+              <MutedText>
                 <code>ruleId</code> - Rule that was triggered
-              </div>
-              <div>
+              </MutedText>
+              <MutedText>
                 <code>reason</code> - Why the rule was triggered
-              </div>
-              <div>
+              </MutedText>
+              <MutedText>
                 <code>automated</code> - Whether rule ran automatically
-              </div>
-              <div>
+              </MutedText>
+              <MutedText>
                 <code>createdAt</code> - When the rule was executed (ISO 8601)
-              </div>
+              </MutedText>
             </div>
           </div>
         </div>

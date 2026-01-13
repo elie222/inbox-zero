@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
-import { TypographyH3 } from "@/components/Typography";
+import { MutedText, TypographyH3 } from "@/components/Typography";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/Badge";
 import { cleanInboxAction } from "@/utils/actions/clean";
@@ -122,7 +122,7 @@ export function ConfirmationStep({
       </div>
 
       {showFooter && (
-        <div className="mt-6 flex items-center justify-center space-x-6 text-sm text-muted-foreground">
+        <MutedText className="mt-6 flex items-center justify-center space-x-6">
           <FooterLink
             icon={HistoryIcon}
             text="History"
@@ -133,7 +133,7 @@ export function ConfirmationStep({
             text="Edit settings"
             href={prefixPath(emailAccountId, "/clean/onboarding")}
           />
-        </div>
+        </MutedText>
       )}
     </div>
   );

@@ -7,6 +7,7 @@ interface ErrorInfo {
   status?: number;
   code?: string;
   errorMessage: string;
+  responseBody?: string;
 }
 
 /**
@@ -31,6 +32,7 @@ export async function withOutlookRetry<T>(
           error,
           status: errorInfo.status,
           code: errorInfo.code,
+          responseBody: errorInfo.responseBody,
         });
         throw error;
       }
@@ -68,6 +70,7 @@ export async function withOutlookRetry<T>(
         isServerError,
         isConflictError,
         isFetchError: isFetchError(errorInfo),
+        responseBody: errorInfo.responseBody,
       });
 
       // Apply the custom delay
@@ -84,20 +87,17 @@ export async function withOutlookRetry<T>(
 export function extractErrorInfo(error: unknown): ErrorInfo {
   const err = error as Record<string, unknown>;
 
-  // Microsoft Graph SDK errors typically have statusCode or code properties
   const status =
     (err?.statusCode as number) ??
     (err?.status as number) ??
     ((err?.response as Record<string, unknown>)?.status as number) ??
     undefined;
 
-  // Error code from Microsoft Graph (e.g., "TooManyRequests", "ServiceNotAvailable")
   const code =
     (err?.code as string) ??
     ((err?.error as Record<string, unknown>)?.code as string) ??
     undefined;
 
-  // Extract error message
   const primaryMessage =
     (err?.message as string) ??
     ((err?.error as Record<string, unknown>)?.message as string) ??
@@ -106,7 +106,10 @@ export function extractErrorInfo(error: unknown): ErrorInfo {
 
   const errorMessage = String(primaryMessage);
 
-  return { status, code, errorMessage };
+  const responseBody =
+    typeof err?.body === "string" ? (err.body as string) : undefined;
+
+  return { status, code, errorMessage, responseBody };
 }
 
 /**

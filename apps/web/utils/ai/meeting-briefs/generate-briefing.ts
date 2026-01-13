@@ -20,6 +20,7 @@ import {
 } from "@/utils/redis/research-cache";
 import type { Logger } from "@/utils/logger";
 import { Provider } from "@/utils/llms/config";
+import { createMcpToolsForAgent } from "@/utils/ai/mcp/mcp-tools";
 
 const MAX_AGENT_STEPS = 15;
 const MAX_EMAILS_PER_GUEST = 10;
@@ -87,7 +88,10 @@ export async function aiGenerateMeetingBriefing({
   }
 
   // Build tools based on what's configured
-  const searchTools = buildSearchTools({ emailAccount, logger });
+  const { tools: searchTools, cleanup } = await buildSearchTools({
+    emailAccount,
+    logger,
+  });
 
   if (Object.keys(searchTools).length === 0) {
     logger.info(
@@ -106,30 +110,41 @@ export async function aiGenerateMeetingBriefing({
 
   let result: BriefingContent | null = null;
 
-  await generateText({
-    ...modelOptions,
-    system: AGENTIC_SYSTEM_PROMPT,
-    prompt,
-    stopWhen: (stepResult) =>
-      stepResult.steps.some((step) =>
-        step.toolCalls?.some((call) => call.toolName === "finalizeBriefing"),
-      ) || stepResult.steps.length > MAX_AGENT_STEPS,
-    tools: {
-      ...searchTools,
-      finalizeBriefing: tool({
-        description:
-          "Submit the final meeting briefing. Call this when you have gathered all information about all guests.",
-        inputSchema: briefingSchema,
-        execute: async (briefing) => {
-          logger.info("Finalizing briefing", {
-            guestCount: briefing.guests.length,
+  try {
+    await generateText({
+      ...modelOptions,
+      system: AGENTIC_SYSTEM_PROMPT,
+      prompt,
+      stopWhen: (stepResult) =>
+        stepResult.steps.some((step) =>
+          step.toolCalls?.some((call) => call.toolName === "finalizeBriefing"),
+        ) || stepResult.steps.length > MAX_AGENT_STEPS,
+      onStepFinish: async ({ toolCalls }) => {
+        if (toolCalls.length > 0) {
+          logger.info("Tool calls", {
+            tools: toolCalls.map((call) => call.toolName),
           });
-          result = briefing;
-          return { success: true };
-        },
-      }),
-    },
-  });
+        }
+      },
+      tools: {
+        ...searchTools,
+        finalizeBriefing: tool({
+          description:
+            "Submit the final meeting briefing. Call this when you have gathered all information about all guests.",
+          inputSchema: briefingSchema,
+          execute: async (briefing) => {
+            logger.info("Finalizing briefing", {
+              guestCount: briefing.guests.length,
+            });
+            result = briefing;
+            return { success: true };
+          },
+        }),
+      },
+    });
+  } finally {
+    await cleanup();
+  }
 
   if (!result) {
     logger.warn(
@@ -153,14 +168,20 @@ function generateFallbackBriefing(
   };
 }
 
-function buildSearchTools({
+type SearchToolsResult = {
+  tools: ToolSet;
+  cleanup: () => Promise<void>;
+};
+
+async function buildSearchTools({
   emailAccount,
   logger,
 }: {
   emailAccount: EmailAccountWithAI;
   logger: Logger;
-}): ToolSet {
+}): Promise<SearchToolsResult> {
   const tools: ToolSet = {};
+  let mcpCleanup: (() => Promise<void>) | null = null;
 
   // Perplexity search (if configured)
   if (env.PERPLEXITY_API_KEY) {
@@ -235,7 +256,27 @@ function buildSearchTools({
     });
   }
 
-  return tools;
+  // MCP tools (CRM, databases, etc.)
+  try {
+    const mcpResult = await createMcpToolsForAgent(emailAccount.id);
+    mcpCleanup = mcpResult.cleanup; // Always assign cleanup to avoid connection leaks
+    const mcpToolCount = Object.keys(mcpResult.tools).length;
+    if (mcpToolCount > 0) {
+      Object.assign(tools, mcpResult.tools);
+      logger.info("MCP tools added for meeting briefs", {
+        toolCount: mcpToolCount,
+      });
+    }
+  } catch (error) {
+    logger.warn("Failed to load MCP tools for meeting briefs", { error });
+  }
+
+  return {
+    tools,
+    cleanup: async () => {
+      if (mcpCleanup) await mcpCleanup();
+    },
+  };
 }
 
 type WebSearchConfig = {

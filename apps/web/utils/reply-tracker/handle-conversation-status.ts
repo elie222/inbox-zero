@@ -75,6 +75,7 @@ export async function determineConversationStatus({
     threadMessages: threadMessagesForLLM,
     modelType,
     userSentLastEmail,
+    conversationRules,
   });
 
   logger.info("AI determined thread status", {
