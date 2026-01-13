@@ -148,7 +148,9 @@ function getOutlookLabels(
 const OUTLOOK_SEARCH_DISALLOWED_CHARS = /[?]/g;
 
 // Pattern to detect KQL field syntax: fieldname:value (e.g., participants:email@example.com)
+// Excludes URL schemes (http, https, ftp, mailto, file) which should be treated as text
 const KQL_FIELD_PATTERN = /^(\w+):.+$/;
+const URL_SCHEME_PATTERN = /^(https?|ftp|mailto|file):/i;
 
 /**
  * Sanitizes a value for use in KQL queries.
@@ -166,7 +168,54 @@ export function sanitizeKqlValue(value: string): string {
     .replace(/"/g, '\\"');
 }
 
-function sanitizeOutlookSearchQuery(query: string): {
+/**
+ * Sanitizes a KQL field query (e.g., participants:email@example.com).
+ * Does NOT wrap the entire query in outer quotes - only quotes the value if it contains spaces.
+ */
+export function sanitizeKqlFieldQuery(query: string): string {
+  const colonIndex = query.indexOf(":");
+  if (colonIndex === -1) return query;
+
+  const field = query.substring(0, colonIndex);
+  const value = query.substring(colonIndex + 1);
+
+  if (!value) {
+    return `${field}:`;
+  }
+
+  let sanitizedValue = value
+    .replace(OUTLOOK_SEARCH_DISALLOWED_CHARS, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  const hasSpaces = sanitizedValue.includes(" ");
+
+  sanitizedValue = sanitizedValue.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+
+  if (hasSpaces) {
+    return `${field}:"${sanitizedValue}"`;
+  }
+
+  return `${field}:${sanitizedValue}`;
+}
+
+/**
+ * Sanitizes a regular text query for KQL.
+ * Removes internal double quotes and wraps the entire query in outer quotes.
+ */
+export function sanitizeKqlTextQuery(query: string): string {
+  let sanitized = query
+    .replace(OUTLOOK_SEARCH_DISALLOWED_CHARS, " ")
+    .replace(/"/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  sanitized = sanitized.replace(/\\/g, "\\\\");
+
+  return `"${sanitized}"`;
+}
+
+export function sanitizeOutlookSearchQuery(query: string): {
   sanitized: string;
   wasSanitized: boolean;
 } {
@@ -176,37 +225,19 @@ function sanitizeOutlookSearchQuery(query: string): {
   }
 
   // Check if this is a KQL field syntax query (e.g., participants:email@example.com)
-  // KQL field queries still need to be wrapped in quotes for MS Graph $search parameter
-  if (KQL_FIELD_PATTERN.test(normalized)) {
-    const sanitized = normalized
-      .replace(OUTLOOK_SEARCH_DISALLOWED_CHARS, " ")
-      .replace(/\s+/g, " ")
-      .trim()
-      .replace(/\\/g, "\\\\")
-      .replace(/"/g, '\\"');
-
+  // but exclude URL schemes which should be treated as text
+  if (
+    KQL_FIELD_PATTERN.test(normalized) &&
+    !URL_SCHEME_PATTERN.test(normalized)
+  ) {
     return {
-      sanitized: `"${sanitized}"`,
+      sanitized: sanitizeKqlFieldQuery(normalized),
       wasSanitized: true,
     };
   }
 
-  // Remove disallowed characters (including double quotes which cause "unterminated string literal" errors)
-  let sanitized = normalized
-    .replace(OUTLOOK_SEARCH_DISALLOWED_CHARS, " ")
-    .replace(/"/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-
-  // Escape backslashes for KQL
-  sanitized = sanitized.replace(/\\/g, "\\\\");
-
-  // Wrap in double quotes to treat as literal phrase search
-  // This prevents KQL from interpreting special characters like - . and numbers
-  sanitized = `"${sanitized}"`;
-
   return {
-    sanitized,
+    sanitized: sanitizeKqlTextQuery(normalized),
     wasSanitized: true,
   };
 }
