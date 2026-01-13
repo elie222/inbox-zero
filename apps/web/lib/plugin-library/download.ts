@@ -35,6 +35,8 @@ export interface DownloadOptions {
   pluginsDir: string;
   /** Whether this is a branch (development) install */
   isBranch?: boolean;
+  /** Optional GitHub token for private repos */
+  token?: string;
 }
 
 // -----------------------------------------------------------------------------
@@ -104,12 +106,12 @@ export function resolveCacheDir(): string {
 export async function downloadAndExtractPlugin(
   options: DownloadOptions,
 ): Promise<DownloadResult> {
-  const { pluginId, repositoryUrl, ref, pluginsDir, isBranch } = options;
+  const { pluginId, repositoryUrl, ref, pluginsDir, isBranch, token } = options;
 
   // resolve commit SHA for branch installs
   let commitSha: string | undefined;
   if (isBranch) {
-    commitSha = await getLatestCommit(repositoryUrl, ref);
+    commitSha = await getLatestCommit(repositoryUrl, ref, token);
   }
 
   // ensure directories exist
@@ -123,7 +125,7 @@ export async function downloadAndExtractPlugin(
 
   try {
     // download the tarball
-    await downloadTarball(repositoryUrl, ref, tarballPath);
+    await downloadTarball(repositoryUrl, ref, tarballPath, token);
 
     // extract to temp directory
     await extractTarball(tarballPath, extractPath);
@@ -167,12 +169,14 @@ export async function downloadAndExtractPlugin(
  * @param repositoryUrl - GitHub repository URL
  * @param ref - Version tag (e.g., "v1.0.0") or branch name (e.g., "main")
  * @param pluginId - Plugin ID for directory naming
+ * @param token - Optional GitHub token for private repos
  * @returns Download result with path and manifest
  */
 export async function downloadPlugin(
   repositoryUrl: string,
   ref: string,
   pluginId: string,
+  token?: string,
 ): Promise<DownloadResult> {
   const pluginsDir = resolvePluginsDir();
 
@@ -186,6 +190,7 @@ export async function downloadPlugin(
     ref,
     pluginsDir,
     isBranch,
+    token,
   });
 }
 
@@ -200,11 +205,13 @@ async function downloadTarball(
   repositoryUrl: string,
   ref: string,
   targetPath: string,
+  authToken?: string,
 ): Promise<void> {
   const tarballUrl = getTarballUrl(repositoryUrl, ref);
 
+  // use provided token, or fall back to GITHUB_TOKEN env var
   // eslint-disable-next-line no-process-env
-  const token = process.env.GITHUB_TOKEN;
+  const token = authToken ?? process.env.GITHUB_TOKEN;
   const headers: Record<string, string> = {
     Accept: "application/vnd.github+json",
     "User-Agent": "inbox-zero-plugin-library",

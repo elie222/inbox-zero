@@ -7,6 +7,7 @@ import { env } from "./env";
 import type { NextConfig } from "next";
 
 const isDev = process.env.NODE_ENV === "development";
+const isDocker = process.env.DOCKER_BUILD === "true";
 
 const withMDX = nextMdx({
   options: {
@@ -16,8 +17,12 @@ const withMDX = nextMdx({
 
 const nextConfig: NextConfig = {
   // In dev: use .next for persistent cache (faster subsequent builds)
-  // In prod/docker: use /tmp to avoid permission issues
-  distDir: isDev ? ".next" : path.join("/tmp", "next-cache", "inbox-zero-web"),
+  // In Docker: use .next (required for standalone output)
+  // In prod (non-Docker): use /tmp to avoid permission issues
+  distDir:
+    isDev || isDocker
+      ? ".next"
+      : path.join("/tmp", "next-cache", "inbox-zero-web"),
   reactStrictMode: true,
   output: process.env.DOCKER_BUILD === "true" ? "standalone" : undefined,
   // Skip TypeScript checking during E2E CI builds to save memory

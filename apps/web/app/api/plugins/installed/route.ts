@@ -35,6 +35,7 @@ async function getInstalled({ emailAccountId }: { emailAccountId: string }) {
     id: plugin.pluginId,
     version: plugin.version,
     enabled: plugin.userSettings[0]?.enabled ?? plugin.enabled,
+    isPrivate: plugin.isPrivate,
     installedAt: plugin.installedAt.toISOString(),
     lastRunAt: null as string | null, // TODO: track execution history in separate table
   }));

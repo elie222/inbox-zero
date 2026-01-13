@@ -5,7 +5,7 @@ import { Badge } from "@/components/Badge";
 import { TrustBadge } from "@/components/plugins/TrustBadge";
 import { PluginPermissionBadge } from "@/components/plugins/PluginPermissionBadge";
 import { formatPermissionSummary } from "@/lib/plugin-runtime/risk-levels";
-import { SettingsIcon, AlertCircleIcon, ClockIcon } from "lucide-react";
+import { SettingsIcon, AlertCircleIcon, ClockIcon, Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { PluginStatusDropdown } from "./PluginStatusDropdown";
@@ -52,6 +52,12 @@ export function InstalledPluginCard({
               {catalogPlugin?.name || plugin.id}
             </h3>
             <Badge color="gray">v{plugin.version}</Badge>
+            {plugin.isPrivate && (
+              <Badge color="blue">
+                <Lock className="mr-1 h-3 w-3" />
+                Private
+              </Badge>
+            )}
             {hasUpdate && catalogPlugin && (
               <Badge color="yellow">Update: v{catalogPlugin.version}</Badge>
             )}

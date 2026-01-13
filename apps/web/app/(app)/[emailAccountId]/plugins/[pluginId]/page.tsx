@@ -218,14 +218,16 @@ export default function PluginDetailPage() {
                         </dd>
                       </div>
                     )}
-                    <div>
-                      <dt className="text-sm font-medium text-muted-foreground">
-                        Min Inbox Zero Version
-                      </dt>
-                      <dd className="mt-1 text-sm text-foreground">
-                        {plugin.inbox_zero.minVersion}
-                      </dd>
-                    </div>
+                    {plugin.inbox_zero?.min_version && (
+                      <div>
+                        <dt className="text-sm font-medium text-muted-foreground">
+                          Min Inbox Zero Version
+                        </dt>
+                        <dd className="mt-1 text-sm text-foreground">
+                          {plugin.inbox_zero.min_version}
+                        </dd>
+                      </div>
+                    )}
                   </dl>
                 </section>
               </div>

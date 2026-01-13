@@ -109,6 +109,7 @@ model User {
 
   // Plugin settings
   pluginUserSettings PluginUserSettings[]
+  pluginSources      PluginSource[]       @relation("PluginSources")
 }
 
 // Migrating over to the new settings model. Currently most settings are in the User model, but will be moved to this model in the future.
@@ -1065,6 +1066,7 @@ model InstalledPlugin {
   versionType   String   @default("release") // "release" or "branch"
   commitSha     String?
   enabled       Boolean  @default(true)
+  isPrivate     Boolean  @default(false) // true if installed from private repo
   installedAt   DateTime @default(now())
   updatedAt     DateTime @updatedAt
   catalogUrl    String?
@@ -1105,6 +1107,29 @@ model PluginCatalog {
   name     String?
   enabled  Boolean   @default(true)
   lastSync DateTime?
+}
+
+// Private plugin sources with optional authentication tokens
+// Supports both admin-managed (global) and user-managed sources
+model PluginSource {
+  id             String   @id @default(cuid())
+  url            String // GitHub repo URL
+  encryptedToken String? // Encrypted GitHub PAT (null for public repos)
+  type           String // "catalog" | "plugin"
+  scope          String // "global" (admin-managed) | "user" (user-managed)
+  name           String? // Display name
+  enabled        Boolean  @default(true)
+
+  // For user-scoped sources (null for global/admin sources)
+  userId String?
+  user   User?   @relation("PluginSources", fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([url, userId]) // Same URL can exist for different users
+  @@index([userId])
+  @@index([scope])
 }
 
 enum ActionType {

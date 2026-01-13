@@ -157,6 +157,10 @@
       "cache": false,
       "persistent": true
     },
+    "dev:clean": {
+      "cache": false,
+      "persistent": true
+    },
     "//#check": {},
     "//#fix": {
       "cache": false

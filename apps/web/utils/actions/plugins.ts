@@ -13,6 +13,7 @@ import {
   fetchPluginManifest,
   isValidGitHubUrl,
 } from "@/lib/plugin-library/catalog";
+import { upsertPluginSource } from "@/lib/plugin-library/sources";
 import prisma from "@/utils/prisma";
 import { SafeError } from "@/utils/error";
 import {
@@ -373,9 +374,12 @@ export const installPluginFromUrlAction = actionClientUser
   .metadata({ name: "installPluginFromUrl" })
   .schema(installPluginFromUrlBody)
   .action(async ({ ctx: { userId, logger }, parsedInput }) => {
-    const { repositoryUrl } = parsedInput;
+    const { repositoryUrl, token, rememberToken } = parsedInput;
 
-    logger.info("Installing plugin from URL", { repositoryUrl });
+    logger.info("Installing plugin from URL", {
+      repositoryUrl,
+      hasToken: !!token,
+    });
 
     // check if plugins feature is enabled
     if (!env.FEATURE_PLUGINS_ENABLED) {
@@ -414,10 +418,10 @@ export const installPluginFromUrlAction = actionClientUser
       throw new SafeError("Only https://github.com URLs are allowed");
     }
 
-    // fetch plugin.json from the repository
+    // fetch plugin.json from the repository (with optional token for private repos)
     let manifest: Awaited<ReturnType<typeof fetchPluginManifest>>;
     try {
-      manifest = await fetchPluginManifest(normalizedUrl);
+      manifest = await fetchPluginManifest(normalizedUrl, undefined, token);
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unknown error";
       logger.error("Failed to fetch plugin manifest", {
@@ -427,6 +431,21 @@ export const installPluginFromUrlAction = actionClientUser
       throw new SafeError(
         `Could not fetch plugin.json from repository: ${message}`,
       );
+    }
+
+    // save token for future updates if user opted to remember it
+    if (token && rememberToken) {
+      await upsertPluginSource({
+        url: normalizedUrl,
+        token,
+        type: "plugin",
+        scope: "user",
+        name: manifest.name,
+        userId,
+      });
+      logger.info("Saved token for private plugin", {
+        repositoryUrl: normalizedUrl,
+      });
     }
 
     const pluginId = manifest.id;
@@ -462,6 +481,7 @@ export const installPluginFromUrlAction = actionClientUser
         versionType: "release",
         repositoryUrl: normalizedUrl,
         enabled: true,
+        isPrivate: !!token,
       },
     });
 

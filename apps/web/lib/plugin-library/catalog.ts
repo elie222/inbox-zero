@@ -129,12 +129,12 @@ function parseGitHubUrl(repositoryUrl: string): RepoInfo {
 
 /**
  * Create Octokit instance.
- * Uses GITHUB_TOKEN if available for higher rate limits.
+ * Uses provided token, or falls back to GITHUB_TOKEN env var for higher rate limits.
  */
-function createOctokit(): Octokit {
+function createOctokit(token?: string): Octokit {
   // eslint-disable-next-line no-process-env
-  const token = process.env.GITHUB_TOKEN;
-  return new Octokit(token ? { auth: token } : undefined);
+  const authToken = token ?? process.env.GITHUB_TOKEN;
+  return new Octokit(authToken ? { auth: authToken } : undefined);
 }
 
 // -----------------------------------------------------------------------------
@@ -263,12 +263,13 @@ export async function fetchCatalogPlugins(
 export async function fetchPluginManifest(
   repositoryUrl: string,
   ref?: string,
+  token?: string,
 ): Promise<PluginManifest> {
-  const octokit = createOctokit();
+  const octokit = createOctokit(token);
   const { owner, repo } = parseGitHubUrl(repositoryUrl);
 
   // if no ref provided, get default branch
-  const targetRef = ref ?? (await getDefaultBranch(repositoryUrl));
+  const targetRef = ref ?? (await getDefaultBranch(repositoryUrl, token));
 
   const { data } = await octokit.repos.getContent({
     owner,
@@ -397,8 +398,11 @@ async function fetchGitHubReleases(
 /**
  * Get the default branch for a repository.
  */
-export async function getDefaultBranch(repositoryUrl: string): Promise<string> {
-  const octokit = createOctokit();
+export async function getDefaultBranch(
+  repositoryUrl: string,
+  token?: string,
+): Promise<string> {
+  const octokit = createOctokit(token);
   const { owner, repo } = parseGitHubUrl(repositoryUrl);
 
   const { data } = await octokit.repos.get({ owner, repo });
@@ -411,8 +415,9 @@ export async function getDefaultBranch(repositoryUrl: string): Promise<string> {
 export async function getLatestCommit(
   repositoryUrl: string,
   branch: string,
+  token?: string,
 ): Promise<string> {
-  const octokit = createOctokit();
+  const octokit = createOctokit(token);
   const { owner, repo } = parseGitHubUrl(repositoryUrl);
 
   const { data } = await octokit.repos.getBranch({ owner, repo, branch });

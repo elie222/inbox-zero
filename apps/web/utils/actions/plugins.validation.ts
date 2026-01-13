@@ -34,5 +34,8 @@ export type UpdatePluginSettingsBody = z.infer<typeof updatePluginSettingsBody>;
 
 export const installPluginFromUrlBody = z.object({
   repositoryUrl: z.string().min(1, "Repository URL is required"),
+  // for private repos: optional GitHub token and remember preference
+  token: z.string().optional(),
+  rememberToken: z.boolean().optional(),
 });
 export type InstallPluginFromUrlBody = z.infer<typeof installPluginFromUrlBody>;
