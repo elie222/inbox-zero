@@ -30,7 +30,8 @@ const ruleConfig: Record<
   },
   [SystemType.FYI]: {
     name: "FYI",
-    instructions: "Emails that don't require my response, but are important",
+    instructions:
+      "Important emails I should know about, but don't need to reply to",
     label: "FYI",
     runOnThreads: true,
     categoryAction: "label",
@@ -39,7 +40,7 @@ const ruleConfig: Record<
   },
   [SystemType.AWAITING_REPLY]: {
     name: "Awaiting Reply",
-    instructions: "Emails I'm expecting a reply to",
+    instructions: "Emails where I'm waiting for someone to get back to me",
     label: "Awaiting Reply",
     runOnThreads: true,
     categoryAction: "label",
@@ -48,7 +49,7 @@ const ruleConfig: Record<
   },
   [SystemType.ACTIONED]: {
     name: "Actioned",
-    instructions: "Email threads that have been resolved",
+    instructions: "Conversations that are done, nothing left to do",
     label: "Actioned",
     runOnThreads: true,
     categoryAction: "label",
