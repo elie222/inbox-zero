@@ -36,7 +36,7 @@ import { Badge } from "@/components/Badge";
 import { getActionColor } from "@/components/PlanBadge";
 import { toastError } from "@/components/Toast";
 import { useRules } from "@/hooks/useRules";
-import { LogicalOperator, SystemType } from "@/generated/prisma/enums";
+import { LogicalOperator } from "@/generated/prisma/enums";
 import type { ActionType } from "@/generated/prisma/client";
 import { useAction } from "next-safe-action/hooks";
 import { useAccount } from "@/providers/EmailAccountProvider";
@@ -163,8 +163,6 @@ export function Rules({
               </TableHeader>
               <TableBody>
                 {rules.map((rule) => {
-                  const isColdEmailBlocker =
-                    rule.systemType === SystemType.COLD_EMAIL;
                   const isPlaceholder = rule.id.startsWith("placeholder-");
 
                   return (
@@ -270,19 +268,17 @@ export function Rules({
                                 <PenIcon className="mr-2 size-4" />
                                 Edit manually
                               </DropdownMenuItem>
-                              {!isColdEmailBlocker && (
-                                <DropdownMenuItem
-                                  onClick={() => {
-                                    setInput(
-                                      `I'd like to edit the "${rule.name}" rule:\n`,
-                                    );
-                                    setOpen((arr) => [...arr, "chat-sidebar"]);
-                                  }}
-                                >
-                                  <SparklesIcon className="mr-2 size-4" />
-                                  Edit via AI
-                                </DropdownMenuItem>
-                              )}
+                              <DropdownMenuItem
+                                onClick={() => {
+                                  setInput(
+                                    `I'd like to edit the "${rule.name}" rule:\n`,
+                                  );
+                                  setOpen((arr) => [...arr, "chat-sidebar"]);
+                                }}
+                              >
+                                <SparklesIcon className="mr-2 size-4" />
+                                Edit via AI
+                              </DropdownMenuItem>
                               <DropdownMenuItem
                                 onClick={() => {
                                   ruleDialog.onOpen({
@@ -304,52 +300,48 @@ export function Rules({
                                   History
                                 </Link>
                               </DropdownMenuItem>
-                              {!isColdEmailBlocker && (
-                                <>
-                                  <DropdownMenuSeparator />
+                              <DropdownMenuSeparator />
 
-                                  <DropdownMenuItem
-                                    onClick={async () => {
-                                      const yes = confirm(
-                                        `Are you sure you want to delete the rule "${rule.name}"?`,
-                                      );
-                                      if (yes) {
-                                        toast.promise(
-                                          async () => {
-                                            const res = await deleteRule({
-                                              id: rule.id,
-                                            });
+                              <DropdownMenuItem
+                                onClick={async () => {
+                                  const yes = confirm(
+                                    `Are you sure you want to delete the rule "${rule.name}"?`,
+                                  );
+                                  if (yes) {
+                                    toast.promise(
+                                      async () => {
+                                        const res = await deleteRule({
+                                          id: rule.id,
+                                        });
 
-                                            if (
-                                              res?.serverError ||
-                                              res?.validationErrors
-                                            ) {
-                                              throw new Error(
-                                                res?.serverError ||
-                                                  "There was an error deleting your rule",
-                                              );
-                                            }
+                                        if (
+                                          res?.serverError ||
+                                          res?.validationErrors
+                                        ) {
+                                          throw new Error(
+                                            res?.serverError ||
+                                              "There was an error deleting your rule",
+                                          );
+                                        }
 
-                                            mutate();
-                                          },
-                                          {
-                                            loading: "Deleting rule...",
-                                            success: "Rule deleted",
-                                            error: (error) =>
-                                              `Error deleting rule. ${error.message}`,
-                                            finally: () => {
-                                              mutate();
-                                            },
-                                          },
-                                        );
-                                      }
-                                    }}
-                                  >
-                                    <Trash2Icon className="mr-2 size-4" />
-                                    Delete
-                                  </DropdownMenuItem>
-                                </>
-                              )}
+                                        mutate();
+                                      },
+                                      {
+                                        loading: "Deleting rule...",
+                                        success: "Rule deleted",
+                                        error: (error) =>
+                                          `Error deleting rule. ${error.message}`,
+                                        finally: () => {
+                                          mutate();
+                                        },
+                                      },
+                                    );
+                                  }
+                                }}
+                              >
+                                <Trash2Icon className="mr-2 size-4" />
+                                Delete
+                              </DropdownMenuItem>
                             </DropdownMenuContent>
                           </DropdownMenu>
                         )}
