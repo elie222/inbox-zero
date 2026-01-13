@@ -16,8 +16,10 @@ export const EmailCell = memo(function EmailCell({
 
   return (
     <div className={className}>
-      <div>{displayName}</div>
-      {showEmail && <div className="text-muted-foreground">{email}</div>}
+      <div className="font-semibold">{displayName}</div>
+      {showEmail && (
+        <div className="text-sm text-muted-foreground font-normal">{email}</div>
+      )}
     </div>
   );
 });

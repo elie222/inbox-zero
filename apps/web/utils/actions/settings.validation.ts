@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { Frequency } from "@/generated/prisma/enums";
+import { CleanAction, Frequency } from "@/generated/prisma/enums";
 import { DEFAULT_PROVIDER, Provider } from "@/utils/llms/config";
 
 export const saveDigestScheduleBody = z.object({
@@ -56,3 +56,10 @@ export const toggleDigestBody = z.object({
   enabled: z.boolean(),
 });
 export type ToggleDigestBody = z.infer<typeof toggleDigestBody>;
+
+export const updateBulkArchiveActionBody = z.object({
+  bulkArchiveAction: z.enum([CleanAction.ARCHIVE, CleanAction.MARK_READ]),
+});
+export type UpdateBulkArchiveActionBody = z.infer<
+  typeof updateBulkArchiveActionBody
+>;

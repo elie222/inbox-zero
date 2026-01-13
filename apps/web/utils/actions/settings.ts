@@ -7,6 +7,7 @@ import {
   saveDigestScheduleBody,
   updateDigestItemsBody,
   toggleDigestBody,
+  updateBulkArchiveActionBody,
 } from "@/utils/actions/settings.validation";
 import { DEFAULT_PROVIDER } from "@/utils/llms/config";
 import prisma from "@/utils/prisma";
@@ -199,3 +200,17 @@ export const toggleDigestAction = actionClient
 
     return { success: true };
   });
+
+export const updateBulkArchiveActionAction = actionClient
+  .metadata({ name: "updateBulkArchiveAction" })
+  .inputSchema(updateBulkArchiveActionBody)
+  .action(
+    async ({ ctx: { emailAccountId }, parsedInput: { bulkArchiveAction } }) => {
+      await prisma.emailAccount.update({
+        where: { id: emailAccountId },
+        data: { bulkArchiveAction },
+      });
+
+      return { success: true };
+    },
+  );

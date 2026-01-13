@@ -16,8 +16,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { CleanAction } from "@/generated/prisma/enums";
 
-export type BulkActionType = "archive" | "markRead";
+export type BulkActionType = CleanAction;
+
+const { ARCHIVE, MARK_READ } = CleanAction;
 
 interface BulkArchiveSettingsModalProps {
   selectedAction: BulkActionType;
@@ -57,13 +60,13 @@ export function BulkArchiveSettingsModal({
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="archive">
+                <SelectItem value={ARCHIVE}>
                   <div className="flex items-center gap-2">
                     <ArchiveIcon className="size-4" />
                     <span>Archive</span>
                   </div>
                 </SelectItem>
-                <SelectItem value="markRead">
+                <SelectItem value={MARK_READ}>
                   <div className="flex items-center gap-2">
                     <MailOpenIcon className="size-4" />
                     <span>Mark as read</span>
@@ -79,7 +82,7 @@ export function BulkArchiveSettingsModal({
 }
 
 export function getActionLabels(action: BulkActionType) {
-  if (action === "markRead") {
+  if (action === MARK_READ) {
     return {
       buttonLabel: "Mark as read",
       allLabel: "Mark all as read",

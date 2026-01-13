@@ -22,7 +22,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { EmailCell } from "@/components/EmailCell";
 import { changeSenderCategoryAction } from "@/utils/actions/categorize";
 import { toastError, toastSuccess } from "@/components/Toast";
 import { ButtonLoader } from "@/components/Loading";
@@ -41,6 +40,7 @@ import {
   type BulkActionType,
   getActionLabels,
 } from "@/app/(app)/[emailAccountId]/bulk-archive/BulkArchiveSettingsModal";
+import { CleanAction } from "@/generated/prisma/enums";
 import { getEmailUrl } from "@/utils/url";
 import type { CategoryWithRules } from "@/utils/category.server";
 import { useAccount } from "@/providers/EmailAccountProvider";
@@ -187,7 +187,7 @@ export function BulkArchiveCards({
 
     try {
       for (const sender of selectedToProcess) {
-        if (bulkAction === "markRead") {
+        if (bulkAction === CleanAction.MARK_READ) {
           await addToMarkReadSenderQueue({
             sender: sender.address,
             emailAccountId,
@@ -404,14 +404,19 @@ function SenderRow({
           className="size-5"
         />
         <div className="min-w-0 flex-1">
-          <EmailCell
-            emailAddress={sender.address}
-            name={sender.name}
+          <div
             className={cn(
               "flex flex-col",
               !isSelected && "text-muted-foreground line-through",
             )}
-          />
+          >
+            <span className="font-medium">{sender.name || sender.address}</span>
+            {sender.name && (
+              <span className="text-sm text-muted-foreground font-normal">
+                {sender.address}
+              </span>
+            )}
+          </div>
         </div>
         <div className="mr-2 text-right">
           <SenderStatus

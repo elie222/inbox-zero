@@ -17,11 +17,14 @@ import { PageWrapper } from "@/components/PageWrapper";
 import { LoadingContent } from "@/components/LoadingContent";
 import { TooltipExplanation } from "@/components/TooltipExplanation";
 import { PageHeading } from "@/components/Typography";
+import { updateBulkArchiveActionAction } from "@/utils/actions/settings";
+import { CleanAction } from "@/generated/prisma/enums";
+import { useAccount } from "@/providers/EmailAccountProvider";
 
 export function BulkArchive() {
+  const { emailAccountId } = useAccount();
   const { isBulkCategorizing } = useCategorizeProgress();
   const [onboarding] = useQueryState("onboarding", parseAsBoolean);
-  const [bulkAction, setBulkAction] = useState<BulkActionType>("archive");
 
   // Fetch data with SWR and poll while categorization is in progress
   const { data, error, isLoading, mutate } = useSWR<CategorizedSendersResponse>(
@@ -29,6 +32,34 @@ export function BulkArchive() {
     {
       refreshInterval: isBulkCategorizing ? 2000 : undefined,
     },
+  );
+
+  const bulkAction: BulkActionType =
+    (data?.bulkArchiveAction as BulkActionType) ?? CleanAction.ARCHIVE;
+
+  const handleActionChange = useCallback(
+    async (action: BulkActionType) => {
+      // Optimistic update - immediately update the UI
+      const optimisticData = data
+        ? { ...data, bulkArchiveAction: action }
+        : undefined;
+
+      await mutate(
+        async () => {
+          // Save to database - emailAccountId is required as first argument
+          await updateBulkArchiveActionAction(emailAccountId, {
+            bulkArchiveAction: action,
+          });
+          // Return the optimistic data as the new cache value
+          return optimisticData;
+        },
+        {
+          optimisticData,
+          revalidate: false, // Don't refetch after - we already have the correct data
+        },
+      );
+    },
+    [mutate, data, emailAccountId],
   );
 
   const senders = data?.senders ?? [];
@@ -67,7 +98,7 @@ export function BulkArchive() {
           <div className="flex items-center gap-2">
             <BulkArchiveSettingsModal
               selectedAction={bulkAction}
-              onActionChange={setBulkAction}
+              onActionChange={handleActionChange}
             />
             <CategorizeWithAiButton
               buttonProps={{ variant: "outline", size: "sm" }}
