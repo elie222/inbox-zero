@@ -65,9 +65,36 @@ export async function getFolderIds(client: OutlookClient, logger: Logger) {
   return userFolderIds;
 }
 
+export async function getCategoryMap(
+  client: OutlookClient,
+  logger: Logger,
+): Promise<Map<string, string>> {
+  const cachedMap = client.getCategoryMapCache();
+  if (cachedMap) return cachedMap;
+
+  try {
+    const response: { value: Array<{ id?: string; displayName?: string }> } =
+      await client.getClient().api("/me/outlook/masterCategories").get();
+
+    const categoryMap = new Map<string, string>();
+    for (const category of response.value) {
+      if (category.displayName && category.id) {
+        categoryMap.set(category.displayName, category.id);
+      }
+    }
+
+    client.setCategoryMapCache(categoryMap);
+    return categoryMap;
+  } catch (error) {
+    logger.warn("Failed to fetch category map", { error });
+    return new Map();
+  }
+}
+
 function getOutlookLabels(
   message: Message,
   folderIds: Record<string, string>,
+  categoryMap?: Map<string, string>,
 ): string[] {
   const labels: string[] = [];
 
@@ -106,9 +133,12 @@ function getOutlookLabels(
     }
   }
 
-  // Add category labels
+  // Add category labels - map names to IDs when category map is available
   if (message.categories) {
-    labels.push(...message.categories);
+    for (const categoryName of message.categories) {
+      const categoryId = categoryMap?.get(categoryName);
+      labels.push(categoryId ?? categoryName);
+    }
   }
 
   // Remove duplicates
@@ -239,7 +269,10 @@ export async function queryBatchMessages(
     );
   }
 
-  const folderIds = await getFolderIds(client, logger);
+  const [folderIds, categoryMap] = await Promise.all([
+    getFolderIds(client, logger),
+    getCategoryMap(client, logger),
+  ]);
 
   // If pageToken is a URL, fetch directly (per MS docs, don't extract $skiptoken)
   if (pageToken?.startsWith("http")) {
@@ -252,7 +285,11 @@ export async function queryBatchMessages(
     const filteredMessages = folderId
       ? response.value.filter((message) => message.parentFolderId === folderId)
       : response.value;
-    const messages = await convertMessages(filteredMessages, folderIds);
+    const messages = await convertMessages(
+      filteredMessages,
+      folderIds,
+      categoryMap,
+    );
 
     return { messages, nextPageToken: response["@odata.nextLink"] };
   }
@@ -304,7 +341,11 @@ export async function queryBatchMessages(
     const filteredMessages = folderId
       ? response.value.filter((message) => message.parentFolderId === folderId)
       : response.value;
-    const messages = await convertMessages(filteredMessages, folderIds);
+    const messages = await convertMessages(
+      filteredMessages,
+      folderIds,
+      categoryMap,
+    );
 
     nextPageToken = response["@odata.nextLink"];
 
@@ -349,7 +390,11 @@ export async function queryBatchMessages(
 
     const response: { value: Message[]; "@odata.nextLink"?: string } =
       await withOutlookRetry(() => request.get(), logger);
-    const messages = await convertMessages(response.value, folderIds);
+    const messages = await convertMessages(
+      response.value,
+      folderIds,
+      categoryMap,
+    );
 
     nextPageToken = response["@odata.nextLink"];
 
@@ -387,7 +432,10 @@ export async function queryMessagesWithFilters(
     );
   }
 
-  const folderIds = await getFolderIds(client, logger);
+  const [folderIds, categoryMap] = await Promise.all([
+    getFolderIds(client, logger),
+    getCategoryMap(client, logger),
+  ]);
 
   // If pageToken is a URL, fetch directly (per MS docs, don't extract $skiptoken)
   if (pageToken?.startsWith("http")) {
@@ -397,7 +445,11 @@ export async function queryMessagesWithFilters(
         logger,
       );
 
-    const messages = await convertMessages(response.value, folderIds);
+    const messages = await convertMessages(
+      response.value,
+      folderIds,
+      categoryMap,
+    );
     return { messages, nextPageToken: response["@odata.nextLink"] };
   }
 
@@ -446,7 +498,11 @@ export async function queryMessagesWithFilters(
   const response: { value: Message[]; "@odata.nextLink"?: string } =
     await withOutlookRetry(() => request.get(), logger);
 
-  const messages = await convertMessages(response.value, folderIds);
+  const messages = await convertMessages(
+    response.value,
+    folderIds,
+    categoryMap,
+  );
 
   return { messages, nextPageToken: response["@odata.nextLink"] };
 }
@@ -454,10 +510,11 @@ export async function queryMessagesWithFilters(
 async function convertMessages(
   messages: Message[],
   folderIds: Record<string, string>,
+  categoryMap?: Map<string, string>,
 ): Promise<ParsedMessage[]> {
   return messages
     .filter((message: Message) => !message.isDraft) // Filter out drafts
-    .map((message: Message) => convertMessage(message, folderIds));
+    .map((message: Message) => convertMessage(message, folderIds, categoryMap));
 }
 
 export async function queryMessagesWithAttachments(
@@ -474,6 +531,8 @@ export async function queryMessagesWithAttachments(
   const MAX_RESULTS = 20;
   const maxResults = Math.min(options.maxResults || MAX_RESULTS, MAX_RESULTS);
 
+  const categoryMap = await getCategoryMap(client, logger);
+
   // If pageToken is a URL, fetch directly (per MS docs, don't extract $skiptoken)
   if (options.pageToken?.startsWith("http")) {
     const response: { value: Message[]; "@odata.nextLink"?: string } =
@@ -482,7 +541,7 @@ export async function queryMessagesWithAttachments(
         logger,
       );
 
-    const messages = await convertMessages(response.value, {});
+    const messages = await convertMessages(response.value, {}, categoryMap);
     return { messages, nextPageToken: response["@odata.nextLink"] };
   }
 
@@ -496,7 +555,7 @@ export async function queryMessagesWithAttachments(
   const response: { value: Message[]; "@odata.nextLink"?: string } =
     await withOutlookRetry(() => request.get(), logger);
 
-  const messages = await convertMessages(response.value, {});
+  const messages = await convertMessages(response.value, {}, categoryMap);
 
   logger.info("Messages with attachments fetched", {
     messageCount: messages.length,
@@ -519,9 +578,12 @@ export async function getMessage(
     logger,
   );
 
-  const folderIds = await getFolderIds(client, logger);
+  const [folderIds, categoryMap] = await Promise.all([
+    getFolderIds(client, logger),
+    getCategoryMap(client, logger),
+  ]);
 
-  return convertMessage(message, folderIds, logger);
+  return convertMessage(message, folderIds, categoryMap, logger);
 }
 
 export async function getMessages(
@@ -545,9 +607,15 @@ export async function getMessages(
   const response: { value: Message[]; "@odata.nextLink"?: string } =
     await withOutlookRetry(() => request.get(), logger);
 
-  // Get folder IDs to properly map labels
-  const folderIds = await getFolderIds(client, logger);
-  const messages = await convertMessages(response.value, folderIds);
+  const [folderIds, categoryMap] = await Promise.all([
+    getFolderIds(client, logger),
+    getCategoryMap(client, logger),
+  ]);
+  const messages = await convertMessages(
+    response.value,
+    folderIds,
+    categoryMap,
+  );
 
   return {
     messages,
@@ -608,6 +676,7 @@ function formatRecipientsList(
 export function convertMessage(
   message: Message,
   folderIds: Record<string, string> = {},
+  categoryMap?: Map<string, string>,
   logger?: Logger,
 ): ParsedMessage {
   const bodyContent = message.body?.content || "";
@@ -616,7 +685,7 @@ export function convertMessage(
     | "html"
     | undefined;
 
-  const labelIds = getOutlookLabels(message, folderIds);
+  const labelIds = getOutlookLabels(message, folderIds, categoryMap);
 
   logger?.trace("Converting Outlook message", () => ({
     messageId: message.id,
