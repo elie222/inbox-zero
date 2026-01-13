@@ -42,6 +42,8 @@ export const CAPABILITY_REQUIREMENTS: Record<string, TrustLevel[]> = {
   "calendar:read": ["verified", "community"],
   "calendar:write": ["verified"],
   "calendar:list": ["verified", "community"],
+  "mcp:access": ["verified", "community"], // access user's MCP tools via LLM
+  "mcp:expose": ["verified"], // expose plugin's own MCP server (high trust)
 };
 
 /**

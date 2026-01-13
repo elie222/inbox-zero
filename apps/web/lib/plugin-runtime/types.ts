@@ -110,6 +110,13 @@ export interface InboxZeroPlugin {
    * Use this to customize assistant behavior, add knowledge, or set tone.
    */
   chatContext?: import("@/packages/plugin-sdk/src/types/chat").PluginChatContext;
+
+  /**
+   * MCP tools exposed to the chat assistant.
+   * Tools are hosted by Inbox Zero - no external server needed.
+   * Requires mcp:expose capability.
+   */
+  mcpTools?: import("@/packages/plugin-sdk/src/types/mcp").PluginMcpTools;
 }
 
 /**

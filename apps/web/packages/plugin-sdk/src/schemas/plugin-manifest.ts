@@ -26,6 +26,8 @@ export const pluginCapabilitySchema = z.enum([
   "calendar:list",
   "chat:tool",
   "chat:context",
+  "mcp:access", // Access user's connected MCP tools via LLM
+  "mcp:expose", // Expose plugin's own MCP server to chat (verified only)
 ]);
 
 export type PluginCapability = z.infer<typeof pluginCapabilitySchema>;

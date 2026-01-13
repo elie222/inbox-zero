@@ -736,23 +736,34 @@ export async function aiProcessAssistantChat({
   logger: Logger;
 }) {
   // fetch plugin contexts and tools in parallel
-  const [pluginContexts, pluginToolsMap] = await Promise.all([
-    pluginRuntime.getChatContexts(user.userId).catch((err) => {
-      chatLogger.warn("Failed to fetch plugin contexts", { error: err });
-      return [] as CollectedChatContext[];
-    }),
-    pluginRuntime.getChatTools(user.userId, emailAccountId).catch((err) => {
-      chatLogger.warn("Failed to fetch plugin tools", { error: err });
-      return new Map() as Awaited<
-        ReturnType<typeof pluginRuntime.getChatTools>
-      >;
-    }),
-  ]);
+  const [pluginContexts, pluginToolsMap, pluginMcpToolsMap] = await Promise.all(
+    [
+      pluginRuntime.getChatContexts(user.userId).catch((err) => {
+        chatLogger.warn("Failed to fetch plugin contexts", { error: err });
+        return [] as CollectedChatContext[];
+      }),
+      pluginRuntime.getChatTools(user.userId, emailAccountId).catch((err) => {
+        chatLogger.warn("Failed to fetch plugin tools", { error: err });
+        return new Map() as Awaited<
+          ReturnType<typeof pluginRuntime.getChatTools>
+        >;
+      }),
+      pluginRuntime.getMcpTools(user.userId, emailAccountId).catch((err) => {
+        chatLogger.warn("Failed to fetch plugin MCP tools", { error: err });
+        return new Map() as Awaited<
+          ReturnType<typeof pluginRuntime.getMcpTools>
+        >;
+      }),
+    ],
+  );
+
+  // merge chatTools and mcpTools (they're already prefixed with plugin:{id}:)
+  const allPluginToolsMap = new Map([...pluginToolsMap, ...pluginMcpToolsMap]);
 
   const pluginContextSection = buildPluginContextSection(pluginContexts);
 
   const system = `You are an assistant that helps create and update rules to manage a user's inbox. Our platform is called Inbox Zero.
-  
+
 You can't perform any actions on their inbox.
 You can only adjust the rules that manage the inbox.
 
@@ -1012,7 +1023,7 @@ Examples:
     <output>
       <update_about>
         [existing about content...]
-        
+
         - Emails where I am CC'd (not in the TO field) should not be marked as "To Reply" - they are FYI only.
       </update_about>
       <explanation>
@@ -1060,7 +1071,7 @@ Examples:
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const pluginTools: Record<string, any> = {};
 
-  for (const [toolName, { pluginId, tool: pluginTool }] of pluginToolsMap) {
+  for (const [toolName, { pluginId, tool: pluginTool }] of allPluginToolsMap) {
     pluginTools[toolName] = tool({
       name: toolName,
       description: pluginTool.description,

@@ -55,6 +55,8 @@ import { createPluginEmail } from "./email-context";
 import { createPluginEmailOperations as createPluginEmailOperationsImpl } from "./email-operations-context";
 import prisma from "@/utils/prisma";
 import { randomUUID } from "node:crypto";
+import { createMcpToolsForAgent } from "@/utils/ai/mcp/mcp-tools";
+import { stepCountIs, type ToolSet } from "ai";
 
 const logger = createScopedLogger("plugin-runtime/context");
 
@@ -512,12 +514,18 @@ type LLMTier = "economy" | "chat" | "reasoning";
  * - 'reasoning': most capable model for complex analysis
  *
  * Usage is tracked with label `plugin:{pluginId}` for billing attribution.
+ *
+ * If the plugin has mcp:access capability, the `generateTextWithTools` method
+ * is also available for invoking MCP tools during generation.
  */
 function createPluginLLM(
   emailAccount: EmailAccount,
-  _manifest: PluginManifest,
+  manifest: PluginManifest,
   pluginId: string,
 ): PluginLLM {
+  const hasMcpAccess = manifest.capabilities.includes(
+    "mcp:access" as PluginCapability,
+  );
   const label = `plugin:${pluginId}`;
 
   const emailAccountForLLM: { email: string; id: string; userId: string } = {
@@ -538,9 +546,9 @@ function createPluginLLM(
     return getModel(userAi, tier as ModelType);
   };
 
-  logger.trace("Created plugin LLM", { pluginId });
+  logger.trace("Created plugin LLM", { pluginId, hasMcpAccess });
 
-  return {
+  const baseLLM: PluginLLM = {
     async generateText(options: {
       prompt: string;
       system?: string;
@@ -602,6 +610,97 @@ function createPluginLLM(
           `LLM object generation failed for plugin ${pluginId}`,
           error,
         );
+      }
+    },
+  };
+
+  // if no MCP access, return base LLM without generateTextWithTools
+  if (!hasMcpAccess) {
+    return baseLLM;
+  }
+
+  // add generateTextWithTools for MCP-enabled plugins
+  return {
+    ...baseLLM,
+
+    async generateTextWithTools(options: {
+      prompt: string;
+      system?: string;
+      tier?: LLMTier;
+      maxSteps?: number;
+    }): Promise<{
+      text: string;
+      toolCalls: Array<{
+        toolName: string;
+        arguments: Record<string, unknown>;
+        result: unknown;
+      }>;
+    }> {
+      const { tools, cleanup } = await createMcpToolsForAgent(emailAccount.id);
+
+      try {
+        // if no MCP tools available, fall back to regular generation
+        if (Object.keys(tools).length === 0) {
+          const text = await baseLLM.generateText({
+            prompt: options.prompt,
+            system: options.system,
+          });
+          return { text, toolCalls: [] };
+        }
+
+        const tier = options.tier ?? "chat";
+        const modelOptions = getModelForTier(tier);
+        const maxSteps = Math.min(options.maxSteps ?? 5, 10);
+
+        const generateTextFn = createGenerateText({
+          emailAccount: emailAccountForLLM,
+          label: `${label}:mcp`,
+          modelOptions,
+        });
+
+        logger.trace("Plugin generateTextWithTools", {
+          pluginId,
+          tier,
+          toolCount: Object.keys(tools).length,
+        });
+
+        const result = await generateTextFn({
+          ...modelOptions,
+          prompt: options.prompt,
+          system: options.system,
+          tools: tools as ToolSet,
+          stopWhen: stepCountIs(maxSteps),
+        });
+
+        // extract tool calls from result steps, matching the mcp-agent pattern
+        const toolCalls = result.steps.flatMap((step) =>
+          step.toolCalls.map((call) => {
+            const toolResult = step.toolResults?.find(
+              (r) => r.toolCallId === call.toolCallId,
+            );
+            return {
+              toolName: call.toolName,
+              arguments: call.input as Record<string, unknown>,
+              result: toolResult?.output,
+            };
+          }),
+        );
+
+        return {
+          text: result.text,
+          toolCalls,
+        };
+      } catch (error) {
+        logger.error("Plugin generateTextWithTools failed", {
+          pluginId,
+          error,
+        });
+        throw new PluginLLMError(
+          `LLM text generation with tools failed for plugin ${pluginId}`,
+          error,
+        );
+      } finally {
+        await cleanup();
       }
     },
   };

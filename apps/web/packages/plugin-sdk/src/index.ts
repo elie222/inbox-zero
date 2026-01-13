@@ -56,6 +56,10 @@ export type {
   GenerateTextOptions,
   GenerateObjectOptions,
   GenerateObjectResult,
+  GenerateTextWithToolsOptions,
+  GenerateTextWithToolsResult,
+  ToolCallResult,
+  LLMTier,
   // Storage types
   PluginStorage,
   // Email sending types (PluginEmail here is the sender interface)
@@ -97,7 +101,6 @@ export type {
   TriggerType,
   TriggeredEmailContext,
   ScheduledTriggerContext,
-  LLMTier,
   // Result types
   Classification,
   Draft,
@@ -121,6 +124,9 @@ export type {
   PluginChatTool,
   PluginChatContext,
   PluginChatTools,
+  // MCP types
+  PluginMcpTool,
+  PluginMcpTools,
 } from "./types";
 
 // -----------------------------------------------------------------------------

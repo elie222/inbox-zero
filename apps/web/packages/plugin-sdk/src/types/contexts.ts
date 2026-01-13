@@ -71,6 +71,28 @@ export interface PluginEmailAccount {
 export type LLMTier = "economy" | "chat" | "reasoning";
 
 /**
+ * Result of a tool call during generation with MCP tools.
+ */
+export interface ToolCallResult {
+  /** Name of the tool that was called */
+  toolName: string;
+  /** Arguments passed to the tool */
+  arguments: Record<string, unknown>;
+  /** Result returned by the tool */
+  result: unknown;
+}
+
+/**
+ * Result of text generation with MCP tools.
+ */
+export interface GenerateTextWithToolsResult {
+  /** The final generated text after tool execution */
+  text: string;
+  /** Tool calls made during generation */
+  toolCalls: ToolCallResult[];
+}
+
+/**
  * LLM interface for plugins - provides scoped access to language models
  */
 export interface PluginLLM {
@@ -98,6 +120,26 @@ export interface PluginLLM {
     /** Model tier for this call. Defaults to 'chat'. */
     tier?: LLMTier;
   }): Promise<{ object: T }>;
+
+  /**
+   * Generate text with MCP tools available.
+   *
+   * Requires the mcp:access capability to be declared in plugin.json.
+   * The runtime automatically injects the user's connected MCP tools
+   * (Notion, Stripe, Monday, etc.) into the LLM call.
+   *
+   * @param options - Generation options including prompt, system message, and max steps
+   * @returns The generated text and any tool calls made
+   * @throws PluginCapabilityError if mcp:access capability not declared
+   */
+  generateTextWithTools?(options: {
+    prompt: string;
+    system?: string;
+    /** LLM tier for model selection (default: 'chat'). */
+    tier?: LLMTier;
+    /** Maximum number of tool execution steps (default: 5, max: 10). */
+    maxSteps?: number;
+  }): Promise<GenerateTextWithToolsResult>;
 }
 
 /**

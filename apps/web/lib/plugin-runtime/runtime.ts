@@ -21,6 +21,7 @@ import type {
   FollowupResult,
   CalendarEvent,
 } from "./types";
+import type { PluginMcpTool } from "@/packages/plugin-sdk/src/types/mcp";
 import {
   createEmailContext,
   createDraftContext,
@@ -1280,6 +1281,55 @@ export class PluginRuntime {
     });
 
     return contexts;
+  }
+
+  /**
+   * Get MCP tools from plugins with mcp:expose capability.
+   * Tools are hosted internally - no external servers.
+   *
+   * @param userId - User ID to check plugin enablement
+   * @param _emailAccountId - Email account ID (for future use)
+   * @returns Map of prefixed tool names to plugin tool definitions
+   */
+  async getMcpTools(
+    userId: string,
+    _emailAccountId: string,
+  ): Promise<Map<string, { pluginId: string; tool: PluginMcpTool }>> {
+    const tools = new Map<string, { pluginId: string; tool: PluginMcpTool }>();
+
+    if (!env.FEATURE_PLUGINS_ENABLED) {
+      return tools;
+    }
+
+    await this.ensureInitialized();
+
+    const capability: PluginCapability = "mcp:expose";
+    const pluginIds = this.getPluginsWithCapability(capability);
+
+    for (const pluginId of pluginIds) {
+      const loadedPlugin = this.plugins.get(pluginId);
+      if (!loadedPlugin) continue;
+
+      const isEnabled = await this.isPluginEnabledForUser(pluginId, userId);
+      if (!isEnabled) continue;
+
+      const { plugin, manifest } = loadedPlugin;
+      if (!plugin.mcpTools) continue;
+
+      // prefix tool names to avoid collisions
+      for (const [toolName, toolDef] of Object.entries(plugin.mcpTools)) {
+        const prefixedName = `plugin:${manifest.id}:${toolName}`;
+        tools.set(prefixedName, { pluginId, tool: toolDef });
+      }
+    }
+
+    logger.trace("Collected MCP tools from plugins", {
+      userId,
+      toolCount: tools.size,
+      tools: Array.from(tools.keys()),
+    });
+
+    return tools;
   }
 
   /**

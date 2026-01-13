@@ -4,6 +4,10 @@ export type {
   GenerateTextOptions,
   GenerateObjectOptions,
   GenerateObjectResult,
+  GenerateTextWithToolsOptions,
+  GenerateTextWithToolsResult,
+  ToolCallResult,
+  LLMTier,
 } from "./llm";
 
 // Storage types
@@ -62,7 +66,6 @@ export type {
   TriggerType,
   TriggeredEmailContext,
   ScheduledTriggerContext,
-  LLMTier,
 } from "./contexts";
 
 // Result types
@@ -96,3 +99,6 @@ export type {
   PluginChatContext,
   PluginChatTools,
 } from "./chat";
+
+// MCP types
+export type { PluginMcpTool, PluginMcpTools } from "./mcp";

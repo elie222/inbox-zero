@@ -105,6 +105,14 @@ export const CAPABILITY_RISK: Record<PluginCapability, CapabilityInfo> = {
     risk: "standard",
     description: "Provide context for AI chat conversations",
   },
+  "mcp:access": {
+    risk: "standard",
+    description: "Access your connected integrations via AI",
+  },
+  "mcp:expose": {
+    risk: "elevated",
+    description: "Expose custom tools to AI assistant",
+  },
 };
 
 /**

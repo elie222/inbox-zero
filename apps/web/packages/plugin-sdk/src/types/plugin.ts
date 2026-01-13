@@ -18,6 +18,8 @@ import type {
 
 import type { PluginChatTools, PluginChatContext } from "./chat";
 
+import type { PluginMcpTools } from "./mcp";
+
 /**
  * Main plugin interface defining all available hooks.
  *
@@ -269,4 +271,24 @@ export interface InboxZeroPlugin {
    * ```
    */
   chatContext?: PluginChatContext;
+
+  /**
+   * MCP tools exposed to the chat assistant.
+   * Requires mcp:expose capability (verified plugins only).
+   * Tools are hosted by Inbox Zero - no external server needed.
+   *
+   * @example
+   * ```typescript
+   * mcpTools: {
+   *   search_contacts: {
+   *     description: 'Search CRM contacts',
+   *     parameters: z.object({ query: z.string() }),
+   *     execute: async (params, ctx) => {
+   *       return await searchCRM(params.query);
+   *     },
+   *   },
+   * }
+   * ```
+   */
+  mcpTools?: PluginMcpTools;
 }
