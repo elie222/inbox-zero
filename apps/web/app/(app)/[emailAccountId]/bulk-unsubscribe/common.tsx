@@ -1,11 +1,9 @@
 "use client";
 
 import type React from "react";
-import clsx from "clsx";
 import Link from "next/link";
 import {
   ArchiveIcon,
-  ArchiveXIcon,
   ChevronDownIcon,
   ChevronUpIcon,
   ChevronsUpDownIcon,
@@ -22,14 +20,11 @@ import type { UserResponse } from "@/app/api/user/me/route";
 import { Button } from "@/components/ui/button";
 import { ButtonLoader } from "@/components/Loading";
 import { Tooltip } from "@/components/Tooltip";
-import { Separator } from "@/components/ui/separator";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuLabel,
   DropdownMenuPortal,
-  DropdownMenuSeparator,
   DropdownMenuSub,
   DropdownMenuSubTrigger,
   DropdownMenuTrigger,
@@ -45,7 +40,6 @@ import { getGmailSearchUrl } from "@/utils/url";
 import type { Row } from "@/app/(app)/[emailAccountId]/bulk-unsubscribe/types";
 import {
   useUnsubscribe,
-  useAutoArchive,
   useApproveButton,
   useBulkArchive,
   useBulkDelete,
@@ -82,41 +76,6 @@ export function ActionCell<T extends Row>({
 
   return (
     <>
-      <PremiumTooltip
-        showTooltip={!hasUnsubscribeAccess}
-        openModal={openPremiumModal}
-      >
-        <UnsubscribeButton
-          item={item}
-          hasUnsubscribeAccess={hasUnsubscribeAccess}
-          mutate={mutate}
-          posthog={posthog}
-          refetchPremium={refetchPremium}
-          emailAccountId={emailAccountId}
-        />
-      </PremiumTooltip>
-      <Tooltip
-        contentComponent={
-          !hasUnsubscribeAccess ? (
-            <PremiumTooltipContent openModal={openPremiumModal} />
-          ) : undefined
-        }
-        content={
-          hasUnsubscribeAccess
-            ? "Auto archive emails using Gmail filters."
-            : undefined
-        }
-      >
-        <AutoArchiveButton
-          item={item}
-          hasUnsubscribeAccess={hasUnsubscribeAccess}
-          mutate={mutate}
-          posthog={posthog}
-          refetchPremium={refetchPremium}
-          labels={labels}
-          emailAccountId={emailAccountId}
-        />
-      </Tooltip>
       <Tooltip
         contentComponent={
           !hasUnsubscribeAccess ? (
@@ -137,6 +96,19 @@ export function ActionCell<T extends Row>({
           emailAccountId={emailAccountId}
         />
       </Tooltip>
+      <PremiumTooltip
+        showTooltip={!hasUnsubscribeAccess}
+        openModal={openPremiumModal}
+      >
+        <UnsubscribeButton
+          item={item}
+          hasUnsubscribeAccess={hasUnsubscribeAccess}
+          mutate={mutate}
+          posthog={posthog}
+          refetchPremium={refetchPremium}
+          emailAccountId={emailAccountId}
+        />
+      </PremiumTooltip>
       <MoreDropdown
         onOpenNewsletter={onOpenNewsletter}
         item={item}
@@ -184,6 +156,7 @@ function UnsubscribeButton<T extends Row>({
       variant={
         item.status === NewsletterStatus.UNSUBSCRIBED ? "red" : "secondary"
       }
+      className="w-[100px] justify-center"
       asChild
     >
       <Link
@@ -209,135 +182,6 @@ function UnsubscribeButton<T extends Row>({
         </span>
       </Link>
     </Button>
-  );
-}
-
-function AutoArchiveButton<T extends Row>({
-  item,
-  hasUnsubscribeAccess,
-  mutate,
-  posthog,
-  refetchPremium,
-  labels,
-  emailAccountId,
-}: {
-  item: T;
-  hasUnsubscribeAccess: boolean;
-  mutate: () => Promise<void>;
-  posthog: PostHog;
-  refetchPremium: () => Promise<UserResponse | null | undefined>;
-  labels: EmailLabel[];
-  emailAccountId: string;
-}) {
-  const { provider } = useAccount();
-  const terminology = getEmailTerminology(provider);
-  const {
-    autoArchiveLoading,
-    onAutoArchive,
-    onAutoArchiveAndLabel,
-    onDisableAutoArchive,
-  } = useAutoArchive({
-    item,
-    hasUnsubscribeAccess,
-    mutate,
-    posthog,
-    refetchPremium,
-    emailAccountId,
-  });
-
-  return (
-    <div
-      className={clsx(
-        "flex h-min items-center gap-1 rounded-md text-secondary-foreground",
-        item.autoArchived ? "bg-blue-100 dark:bg-blue-800" : "bg-secondary",
-      )}
-    >
-      <Button
-        variant={
-          item.status === NewsletterStatus.AUTO_ARCHIVED || item.autoArchived
-            ? "blue"
-            : "secondary"
-        }
-        className="px-3 shadow-none"
-        size="sm"
-        onClick={onAutoArchive}
-        disabled={!hasUnsubscribeAccess}
-      >
-        {autoArchiveLoading && <ButtonLoader />}
-        <span className="hidden xl:block">Skip Inbox</span>
-        <span className="block xl:hidden">
-          <Tooltip content="Skip Inbox">
-            <ArchiveIcon className="size-4" />
-          </Tooltip>
-        </span>
-      </Button>
-      <Separator orientation="vertical" className="h-[20px]" />
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button
-            variant={
-              item.status === NewsletterStatus.AUTO_ARCHIVED ||
-              item.autoArchived
-                ? "blue"
-                : "secondary"
-            }
-            className="px-2 shadow-none"
-            size="sm"
-            disabled={!hasUnsubscribeAccess}
-          >
-            <ChevronDownIcon className="size-4 text-secondary-foreground" />
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent
-          align="end"
-          alignOffset={-5}
-          className="max-h-[415px] w-[220px] overflow-auto"
-          forceMount
-          onKeyDown={(e) => {
-            e.stopPropagation();
-          }}
-        >
-          {item.autoArchived?.id && (
-            <>
-              <DropdownMenuItem
-                onClick={async () => {
-                  posthog.capture("Clicked Disable Auto Archive");
-                  onDisableAutoArchive();
-                }}
-              >
-                <ArchiveXIcon className="mr-2 size-4" /> Disable Skip Inbox
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-            </>
-          )}
-
-          <DropdownMenuLabel>
-            Skip Inbox and {terminology.label.action}
-          </DropdownMenuLabel>
-          <DropdownMenuSeparator />
-          {labels.map((label) => {
-            return (
-              <DropdownMenuItem
-                key={label.id}
-                onClick={async () => {
-                  posthog.capture("Clicked Auto Archive and Label");
-                  await onAutoArchiveAndLabel(label.id!, label.name!);
-                }}
-              >
-                {label.name}
-              </DropdownMenuItem>
-            );
-          })}
-          {!labels.length && (
-            <DropdownMenuItem>
-              You do not have any {terminology.label.plural}. Create one in your
-              email client first to auto
-              {terminology.label.action} emails.
-            </DropdownMenuItem>
-          )}
-        </DropdownMenuContent>
-      </DropdownMenu>
-    </div>
   );
 }
 
