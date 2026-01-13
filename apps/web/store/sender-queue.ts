@@ -82,31 +82,36 @@ export function createSenderQueue(processThreads: ProcessThreadsFn) {
         threadIds,
         labelId,
         onSuccess: (threadId) => {
-          const senderItem = jotaiStore.get(queueAtom).get(sender);
-          if (!senderItem) return;
-
-          // Remove processed thread from the list
-          const newThreadIds = senderItem.threadIds.filter(
-            (id) => id !== threadId,
-          );
-          // If all threads are processed, mark as completed
-          const newStatus =
-            newThreadIds.length > 0 ? "processing" : "completed";
-
-          const updatedSender: QueueItem = {
-            threadIds: newThreadIds,
-            status: newStatus,
-            threadsTotal: senderItem.threadsTotal,
-          };
+          let completedWithTotal: number | null = null;
 
           jotaiStore.set(queueAtom, (prev) => {
+            const senderItem = prev.get(sender);
+            if (!senderItem) return prev;
+
+            // Remove processed thread from the list
+            const newThreadIds = senderItem.threadIds.filter(
+              (id) => id !== threadId,
+            );
+            // If all threads are processed, mark as completed
+            const newStatus =
+              newThreadIds.length > 0 ? "processing" : "completed";
+
             const newQueue = new Map(prev);
-            newQueue.set(sender, updatedSender);
+            newQueue.set(sender, {
+              threadIds: newThreadIds,
+              status: newStatus,
+              threadsTotal: senderItem.threadsTotal,
+            });
+
+            if (newStatus === "completed") {
+              completedWithTotal = senderItem.threadsTotal;
+            }
+
             return newQueue;
           });
 
-          if (newStatus === "completed") {
-            onSuccess?.(senderItem.threadsTotal);
+          if (completedWithTotal !== null) {
+            onSuccess?.(completedWithTotal);
           }
         },
         onError,
