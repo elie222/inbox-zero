@@ -68,8 +68,8 @@ jobs:
         run: pnpm install
 
       - name: Run AI Evals
-        run: pnpm -F inbox-zero-ai test-ai ${{ github.event.inputs.test_filter || '' }}
         env:
+          TEST_FILTER: ${{ github.event.inputs.test_filter || '' }}
           RUN_AI_TESTS: "true"
           # LLM Configuration - using OpenRouter
           DEFAULT_LLM_PROVIDER: openrouter
@@ -87,3 +87,4 @@ jobs:
           EMAIL_ENCRYPT_SALT: "test-encrypt-salt"
           INTERNAL_API_KEY: "test"
           NEXT_PUBLIC_BASE_URL: "http://localhost:3000"
+        run: pnpm -F inbox-zero-ai test-ai "$TEST_FILTER"
