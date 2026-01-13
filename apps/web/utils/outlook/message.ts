@@ -146,22 +146,30 @@ function sanitizeOutlookSearchQuery(query: string): {
   }
 
   // Check if this is a KQL field syntax query (e.g., participants:email@example.com)
-  // If so, preserve the field structure and don't wrap in quotes
+  // KQL field queries still need to be wrapped in quotes for MS Graph $search parameter
   if (KQL_FIELD_PATTERN.test(normalized)) {
+    const sanitized = normalized
+      .replace(OUTLOOK_SEARCH_DISALLOWED_CHARS, " ")
+      .replace(/\s+/g, " ")
+      .trim()
+      .replace(/\\/g, "\\\\")
+      .replace(/"/g, '\\"');
+
     return {
-      sanitized: normalized,
-      wasSanitized: false,
+      sanitized: `"${sanitized}"`,
+      wasSanitized: true,
     };
   }
 
-  // Remove disallowed characters
+  // Remove disallowed characters (including double quotes which cause "unterminated string literal" errors)
   let sanitized = normalized
     .replace(OUTLOOK_SEARCH_DISALLOWED_CHARS, " ")
+    .replace(/"/g, " ")
     .replace(/\s+/g, " ")
     .trim();
 
-  // Escape backslashes and double quotes for KQL
-  sanitized = sanitized.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+  // Escape backslashes for KQL
+  sanitized = sanitized.replace(/\\/g, "\\\\");
 
   // Wrap in double quotes to treat as literal phrase search
   // This prevents KQL from interpreting special characters like - . and numbers
@@ -169,7 +177,7 @@ function sanitizeOutlookSearchQuery(query: string): {
 
   return {
     sanitized,
-    wasSanitized: true, // Always true now since we're wrapping in quotes
+    wasSanitized: true,
   };
 }
 
