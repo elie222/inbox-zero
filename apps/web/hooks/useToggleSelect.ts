@@ -15,5 +15,15 @@ export function useToggleSelect(items: { id: string }[]) {
     }
   }, [items, selected]);
 
-  return { selected, isAllSelected, onToggleSelect, onToggleSelectAll };
+  const clearSelection = useCallback(() => {
+    setSelected(new Map());
+  }, []);
+
+  return {
+    selected,
+    isAllSelected,
+    onToggleSelect,
+    onToggleSelectAll,
+    clearSelection,
+  };
 }

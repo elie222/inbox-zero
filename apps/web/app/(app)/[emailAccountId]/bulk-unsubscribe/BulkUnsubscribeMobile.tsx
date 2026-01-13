@@ -5,9 +5,9 @@ import Link from "next/link";
 import { usePostHog } from "posthog-js/react";
 import {
   ArchiveIcon,
-  BadgeCheckIcon,
   EyeIcon,
   MailMinusIcon,
+  ThumbsUpIcon,
 } from "lucide-react";
 import {
   useUnsubscribe,
@@ -97,7 +97,7 @@ export function BulkUnsubscribeRowMobile({
           <Button
             size="sm"
             variant={
-              item.status === NewsletterStatus.APPROVED ? "green" : "secondary"
+              item.status === NewsletterStatus.APPROVED ? "green" : "ghost"
             }
             onClick={onApprove}
             disabled={!hasUnsubscribeAccess}
@@ -105,15 +105,14 @@ export function BulkUnsubscribeRowMobile({
             {approveLoading ? (
               <ButtonLoader />
             ) : (
-              <BadgeCheckIcon className="mr-2 size-4" />
+              <ThumbsUpIcon className="size-4" />
             )}
-            {item.status === NewsletterStatus.APPROVED ? "Approved" : "Keep"}
           </Button>
 
           <Button
             size="sm"
             variant={
-              item.status === NewsletterStatus.UNSUBSCRIBED ? "red" : "default"
+              item.status === NewsletterStatus.UNSUBSCRIBED ? "red" : "outline"
             }
             asChild
           >

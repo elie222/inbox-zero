@@ -9,7 +9,6 @@ import {
   ChevronsUpDownIcon,
   ExpandIcon,
   ExternalLinkIcon,
-  MailMinusIcon,
   MoreHorizontalIcon,
   TagIcon,
   ThumbsUpIcon,
@@ -19,7 +18,6 @@ import { type PostHog, usePostHog } from "posthog-js/react";
 import type { UserResponse } from "@/app/api/user/me/route";
 import { Button } from "@/components/ui/button";
 import { ButtonLoader } from "@/components/Loading";
-import { Tooltip } from "@/components/Tooltip";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -30,10 +28,7 @@ import {
   DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import {
-  PremiumTooltip,
-  PremiumTooltipContent,
-} from "@/components/PremiumAlert";
+import { PremiumTooltip } from "@/components/PremiumAlert";
 import { NewsletterStatus } from "@/generated/prisma/enums";
 import { toastError, toastSuccess } from "@/components/Toast";
 import { createFilterAction } from "@/utils/actions/mail";
@@ -77,24 +72,13 @@ export function ActionCell<T extends Row>({
 
   return (
     <>
-      <Tooltip
-        contentComponent={
-          !hasUnsubscribeAccess ? (
-            <PremiumTooltipContent openModal={openPremiumModal} />
-          ) : undefined
-        }
-        content={hasUnsubscribeAccess ? "Approve of this sender" : undefined}
-      >
-        <span>
-          <ApproveButton
-            item={item}
-            hasUnsubscribeAccess={hasUnsubscribeAccess}
-            mutate={mutate}
-            posthog={posthog}
-            emailAccountId={emailAccountId}
-          />
-        </span>
-      </Tooltip>
+      <ApproveButton
+        item={item}
+        hasUnsubscribeAccess={hasUnsubscribeAccess}
+        mutate={mutate}
+        posthog={posthog}
+        emailAccountId={emailAccountId}
+      />
       <PremiumTooltip
         showTooltip={!hasUnsubscribeAccess}
         openModal={openPremiumModal}
@@ -153,9 +137,9 @@ function UnsubscribeButton<T extends Row>({
     <Button
       size="sm"
       variant={
-        item.status === NewsletterStatus.UNSUBSCRIBED ? "red" : "secondary"
+        item.status === NewsletterStatus.UNSUBSCRIBED ? "red" : "outline"
       }
-      className="w-[100px] justify-center"
+      className="w-[110px] justify-center"
       asChild
     >
       <Link
@@ -165,20 +149,7 @@ function UnsubscribeButton<T extends Row>({
         rel="noreferrer"
       >
         {unsubscribeLoading && <ButtonLoader />}
-        <span className="hidden xl:block">
-          {hasUnsubscribeLink ? "Unsubscribe" : "Block"}
-        </span>
-        <span className="block xl:hidden">
-          <Tooltip
-            content={
-              hasUnsubscribeLink
-                ? "Unsubscribe from emails from this sender"
-                : "This sender does not have an unsubscribe link, but we can still block all emails from this sender and automatically archive them for you."
-            }
-          >
-            <MailMinusIcon className="size-4" />
-          </Tooltip>
-        </span>
+        {hasUnsubscribeLink ? "Unsubscribe" : "Block"}
       </Link>
     </Button>
   );
@@ -207,14 +178,11 @@ function ApproveButton<T extends Row>({
   return (
     <Button
       size="sm"
-      variant={isApproved ? "green" : "secondary"}
+      variant={isApproved ? "green" : "ghost"}
       onClick={onApprove}
       disabled={!hasUnsubscribeAccess}
     >
-      <span className="hidden 2xl:block">Keep</span>
-      <span className="block 2xl:hidden">
-        <ThumbsUpIcon className="size-4" />
-      </span>
+      <ThumbsUpIcon className={`size-5 ${isApproved ? "" : "text-gray-400"}`} />
     </Button>
   );
 }

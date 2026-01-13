@@ -380,7 +380,13 @@ export function useApproveButton<T extends Row>({
 
     // Show toast optimistically
     if (newStatus === NewsletterStatus.APPROVED) {
-      toast.success("Sender approved");
+      toast.success("Sender approved", {
+        description: item.name,
+      });
+    } else {
+      toast.success("Sender unapproved", {
+        description: item.name,
+      });
     }
 
     // Start optimistic update immediately (don't await - fire and forget for UI)

@@ -234,8 +234,16 @@ export function BulkUnsubscribe() {
   // Data is now filtered, sorted, and limited by the backend
   const rows = data?.newsletters;
 
-  const { selected, isAllSelected, onToggleSelect, onToggleSelectAll } =
-    useToggleSelect(rows?.map((item) => ({ id: item.name })) || []);
+  const {
+    selected,
+    isAllSelected,
+    onToggleSelect,
+    onToggleSelectAll,
+    clearSelection,
+  } = useToggleSelect(rows?.map((item) => ({ id: item.name })) || []);
+
+  const isSomeSelected =
+    Array.from(selected.values()).filter(Boolean).length > 0;
 
   // Backend now handles sorting, so we just map the rows in order
   const tableRows = rows?.map((item) => {
@@ -352,10 +360,6 @@ export function BulkUnsubscribe() {
         <ArchiveProgress />
       </ClientOnly>
 
-      {Array.from(selected.values()).filter(Boolean).length > 0 ? (
-        <BulkActions selected={selected} mutate={mutate} />
-      ) : null}
-
       <Card className="mt-2 md:mt-4">
         {isStatsLoading && !isLoading && !data?.newsletters.length ? (
           <div className="p-4">
@@ -382,6 +386,7 @@ export function BulkUnsubscribe() {
                     onSort={handleSort}
                     tableRows={tableRows}
                     isAllSelected={isAllSelected}
+                    isSomeSelected={isSomeSelected}
                     onToggleSelectAll={onToggleSelectAll}
                   />
                 )}
@@ -424,6 +429,12 @@ export function BulkUnsubscribe() {
         mutate={mutate}
       />
       <PremiumModal />
+      <BulkActions
+        selected={selected}
+        mutate={mutate}
+        onClearSelection={clearSelection}
+        newsletters={rows}
+      />
     </PageWrapper>
   );
 }

@@ -14,7 +14,7 @@ import {
   HeaderButton,
 } from "@/app/(app)/[emailAccountId]/bulk-unsubscribe/common";
 import type { RowProps } from "@/app/(app)/[emailAccountId]/bulk-unsubscribe/types";
-import { Checkbox } from "@/components/Checkbox";
+import { BulkCheckbox } from "@/app/(app)/[emailAccountId]/bulk-unsubscribe/BulkCheckbox";
 import { DomainIcon } from "@/components/charts/DomainIcon";
 import { extractDomainFromEmail } from "@/utils/email";
 
@@ -24,6 +24,7 @@ export function BulkUnsubscribeDesktop({
   sortDirection,
   onSort,
   isAllSelected,
+  isSomeSelected,
   onToggleSelectAll,
 }: {
   tableRows?: React.ReactNode;
@@ -31,6 +32,7 @@ export function BulkUnsubscribeDesktop({
   sortDirection: "asc" | "desc";
   onSort: (column: "emails" | "unread" | "unarchived") => void;
   isAllSelected: boolean;
+  isSomeSelected: boolean;
   onToggleSelectAll: () => void;
 }) {
   return (
@@ -38,7 +40,11 @@ export function BulkUnsubscribeDesktop({
       <TableHeader>
         <TableRow>
           <TableHead className="pr-0">
-            <Checkbox checked={isAllSelected} onChange={onToggleSelectAll} />
+            <BulkCheckbox
+              checked={isAllSelected}
+              indeterminate={isSomeSelected && !isAllSelected}
+              onChange={onToggleSelectAll}
+            />
           </TableHead>
           <TableHead>
             <span className="text-sm font-medium">From</span>
@@ -90,7 +96,7 @@ export function BulkUnsubscribeRowDesktop({
       onDoubleClick={onDoubleClick}
     >
       <TableCell className="pr-0">
-        <Checkbox
+        <BulkCheckbox
           checked={checked}
           onChange={() => onToggleSelect?.(item.name)}
         />
