@@ -65,9 +65,36 @@ export async function getFolderIds(client: OutlookClient, logger: Logger) {
   return userFolderIds;
 }
 
+export async function getCategoryMap(
+  client: OutlookClient,
+  logger: Logger,
+): Promise<Map<string, string>> {
+  const cachedMap = client.getCategoryMapCache();
+  if (cachedMap) return cachedMap;
+
+  try {
+    const response: { value: Array<{ id?: string; displayName?: string }> } =
+      await client.getClient().api("/me/outlook/masterCategories").get();
+
+    const categoryMap = new Map<string, string>();
+    for (const category of response.value) {
+      if (category.displayName && category.id) {
+        categoryMap.set(category.displayName, category.id);
+      }
+    }
+
+    client.setCategoryMapCache(categoryMap);
+    return categoryMap;
+  } catch (error) {
+    logger.warn("Failed to fetch category map", { error });
+    return new Map();
+  }
+}
+
 function getOutlookLabels(
   message: Message,
   folderIds: Record<string, string>,
+  categoryMap?: Map<string, string>,
 ): string[] {
   const labels: string[] = [];
 
@@ -106,9 +133,12 @@ function getOutlookLabels(
     }
   }
 
-  // Add category labels
+  // Add category labels - map names to IDs when category map is available
   if (message.categories) {
-    labels.push(...message.categories);
+    for (const categoryName of message.categories) {
+      const categoryId = categoryMap?.get(categoryName);
+      labels.push(categoryId ?? categoryName);
+    }
   }
 
   // Remove duplicates
@@ -488,9 +518,12 @@ export async function getMessage(
     logger,
   );
 
-  const folderIds = await getFolderIds(client, logger);
+  const [folderIds, categoryMap] = await Promise.all([
+    getFolderIds(client, logger),
+    getCategoryMap(client, logger),
+  ]);
 
-  return convertMessage(message, folderIds, logger);
+  return convertMessage(message, folderIds, categoryMap, logger);
 }
 
 export async function getMessages(
@@ -577,6 +610,7 @@ function formatRecipientsList(
 export function convertMessage(
   message: Message,
   folderIds: Record<string, string> = {},
+  categoryMap?: Map<string, string>,
   logger?: Logger,
 ): ParsedMessage {
   const bodyContent = message.body?.content || "";
@@ -585,7 +619,7 @@ export function convertMessage(
     | "html"
     | undefined;
 
-  const labelIds = getOutlookLabels(message, folderIds);
+  const labelIds = getOutlookLabels(message, folderIds, categoryMap);
 
   logger?.trace("Converting Outlook message", () => ({
     messageId: message.id,
