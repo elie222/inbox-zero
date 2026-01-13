@@ -1,5 +1,8 @@
 name: AI Evals
 
+permissions:
+  contents: read
+
 # Runs AI tests when relevant files change or on manual trigger
 
 on:
