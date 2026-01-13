@@ -15,11 +15,6 @@ import {
 } from "@/app/(app)/[emailAccountId]/bulk-unsubscribe/common";
 import type { RowProps } from "@/app/(app)/[emailAccountId]/bulk-unsubscribe/types";
 import { Checkbox } from "@/components/Checkbox";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
 import { DomainIcon } from "@/components/charts/DomainIcon";
 import { extractDomainFromEmail } from "@/utils/email";
 
@@ -59,17 +54,6 @@ export function BulkUnsubscribeDesktop({
               Emails
             </HeaderButton>
           </TableHead>
-          <TableHead>
-            <HeaderButton
-              sorted={sortColumn === "unread"}
-              sortDirection={
-                sortColumn === "unread" ? sortDirection : undefined
-              }
-              onClick={() => onSort("unread")}
-            >
-              Read
-            </HeaderButton>
-          </TableHead>
           <TableHead />
         </TableRow>
       </TableHeader>
@@ -93,14 +77,12 @@ export function BulkUnsubscribeRowDesktop({
   emailAccountId,
   onToggleSelect,
   checked,
-  readPercentage,
 }: RowProps) {
   const domain = extractDomainFromEmail(item.name) || item.name;
 
   return (
     <TableRow
       key={item.name}
-      className={selected ? "bg-blue-50 dark:bg-muted/50" : undefined}
       aria-selected={selected || undefined}
       data-selected={selected || undefined}
       onMouseEnter={onSelectRow}
@@ -126,25 +108,6 @@ export function BulkUnsubscribeRowDesktop({
       <TableCell>
         <span className="text-muted-foreground">{item.value}</span>
       </TableCell>
-      <TableCell>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <div className="flex items-center gap-2">
-              <RadialProgress
-                value={readPercentage}
-                size={28}
-                strokeWidth={4}
-              />
-              <span className="text-sm text-muted-foreground">
-                {Math.round(readPercentage)}%
-              </span>
-            </div>
-          </TooltipTrigger>
-          <TooltipContent>
-            {item.readEmails} read. {item.value - item.readEmails} unread.
-          </TooltipContent>
-        </Tooltip>
-      </TableCell>
       <TableCell className="p-1">
         <div className="flex justify-end items-center gap-2">
           <ActionCell
@@ -162,45 +125,5 @@ export function BulkUnsubscribeRowDesktop({
         </div>
       </TableCell>
     </TableRow>
-  );
-}
-
-function RadialProgress({
-  value,
-  size = 32,
-  strokeWidth = 3,
-}: {
-  value: number;
-  size?: number;
-  strokeWidth?: number;
-}) {
-  const radius = (size - strokeWidth) / 2;
-  const circumference = 2 * Math.PI * radius;
-  const strokeDashoffset = circumference - (value / 100) * circumference;
-
-  return (
-    <svg width={size} height={size} className="transform -rotate-90">
-      <circle
-        cx={size / 2}
-        cy={size / 2}
-        r={radius}
-        fill="none"
-        stroke="currentColor"
-        strokeWidth={strokeWidth}
-        className="text-blue-100 dark:text-blue-900"
-      />
-      <circle
-        cx={size / 2}
-        cy={size / 2}
-        r={radius}
-        fill="none"
-        stroke="currentColor"
-        strokeWidth={strokeWidth}
-        strokeDasharray={circumference}
-        strokeDashoffset={strokeDashoffset}
-        strokeLinecap="round"
-        className="text-blue-500 transition-all duration-300"
-      />
-    </svg>
   );
 }

@@ -41,10 +41,7 @@ export function FallbackIcon({ seed, size = 20 }: FallbackIconProps) {
   return (
     <div
       style={{ width: size, height: size }}
-      className={cn(
-        "rounded-full z-10 bg-gradient-to-r",
-        gradients[gradientIndex],
-      )}
+      className={cn("z-10 rounded bg-gradient-to-r", gradients[gradientIndex])}
     />
   );
 }
@@ -72,7 +69,7 @@ export function DomainIcon({ domain, size = 20 }: DomainIconProps) {
           height={size}
           src={domainFavicon}
           alt="favicon"
-          className="z-10 rounded-full"
+          className="z-10 rounded"
           onError={() => setFallbackEnabled(true)}
         />
       )}
