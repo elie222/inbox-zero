@@ -60,6 +60,10 @@ export class OutlookClient {
     this.categoryMapCache = cache;
   }
 
+  invalidateCategoryMapCache(): void {
+    this.categoryMapCache = null;
+  }
+
   // Helper methods for common operations
   async getUserProfile(): Promise<User> {
     return await this.client
