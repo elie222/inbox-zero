@@ -56,7 +56,7 @@ export function BulkUnsubscribeDesktop({
               }
               onClick={() => onSort("emails")}
             >
-              Received
+              Emails
             </HeaderButton>
           </TableHead>
           <TableHead>
@@ -124,7 +124,7 @@ export function BulkUnsubscribeRowDesktop({
         </div>
       </TableCell>
       <TableCell>
-        <span className="text-muted-foreground">{item.value} emails</span>
+        <span className="text-muted-foreground">{item.value}</span>
       </TableCell>
       <TableCell>
         <Tooltip>
