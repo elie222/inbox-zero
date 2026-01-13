@@ -91,7 +91,7 @@ CRITICAL RULES - READ CAREFULLY:
   }
 
 Respond with a JSON object with:
-- status: One of TO_REPLY, ${userSentLastEmail ? "" : "FYI, "}AWAITING_REPLY, or ACTIONED
+- status: One of TO_REPLY, AWAITING_REPLY, ${userSentLastEmail ? "" : "FYI, "}or ACTIONED
 - rationale: Brief one-line explanation for the decision`;
 
   // Only include custom preferences when user has edited the default instructions
@@ -147,8 +147,8 @@ Based on the full thread context above, determine the current status of this thr
         ])
       : z.enum([
           SystemType.TO_REPLY,
-          SystemType.FYI,
           SystemType.AWAITING_REPLY,
+          SystemType.FYI,
           SystemType.ACTIONED,
         ]),
     rationale: z.string(),

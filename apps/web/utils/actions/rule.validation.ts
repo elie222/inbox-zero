@@ -34,8 +34,8 @@ const zodConditionType = z.enum([ConditionType.AI, ConditionType.STATIC]);
 
 const zodSystemRule = z.enum([
   SystemType.TO_REPLY,
-  SystemType.FYI,
   SystemType.AWAITING_REPLY,
+  SystemType.FYI,
   SystemType.ACTIONED,
   SystemType.COLD_EMAIL,
   SystemType.NEWSLETTER,

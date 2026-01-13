@@ -152,8 +152,8 @@ export function getCategoryAction(systemType: SystemType, provider: string) {
 
 export const SYSTEM_RULE_ORDER: SystemType[] = [
   SystemType.TO_REPLY,
-  SystemType.FYI,
   SystemType.AWAITING_REPLY,
+  SystemType.FYI,
   SystemType.ACTIONED,
   SystemType.NEWSLETTER,
   SystemType.MARKETING,
