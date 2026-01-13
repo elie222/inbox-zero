@@ -19,7 +19,7 @@ const ruleConfig: Record<
 > = {
   [SystemType.TO_REPLY]: {
     name: "To Reply",
-    instructions: "Emails you need to respond to",
+    instructions: "Emails I need to respond to",
     label: "To Reply",
     draftReply: true,
     runOnThreads: true,
@@ -30,7 +30,7 @@ const ruleConfig: Record<
   },
   [SystemType.FYI]: {
     name: "FYI",
-    instructions: "Emails that don't require your response, but are important",
+    instructions: "Emails that don't require my response, but are important",
     label: "FYI",
     runOnThreads: true,
     categoryAction: "label",
@@ -39,7 +39,7 @@ const ruleConfig: Record<
   },
   [SystemType.AWAITING_REPLY]: {
     name: "Awaiting Reply",
-    instructions: "Emails you're expecting a reply to",
+    instructions: "Emails I'm expecting a reply to",
     label: "Awaiting Reply",
     runOnThreads: true,
     categoryAction: "label",
