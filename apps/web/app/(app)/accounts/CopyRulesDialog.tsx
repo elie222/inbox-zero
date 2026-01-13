@@ -36,6 +36,7 @@ import { copyRulesFromAccountAction } from "@/utils/actions/rule";
 import type { RulesResponse } from "@/app/api/user/rules/route";
 import { EMAIL_ACCOUNT_HEADER } from "@/utils/config";
 import { prefixPath } from "@/utils/path";
+import { MutedText } from "@/components/Typography";
 import { getActionErrorMessage } from "@/utils/error";
 
 type SourceAccount = {
@@ -246,9 +247,9 @@ export function CopyRulesDialog({
                   </div>
                 </div>
               ) : (
-                <div className="py-4 text-center text-sm text-muted-foreground">
+                <MutedText className="py-4 text-center">
                   No rules found in {selectedSource?.email}
-                </div>
+                </MutedText>
               )}
             </LoadingContent>
           )}

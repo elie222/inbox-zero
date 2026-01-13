@@ -242,15 +242,16 @@ function prepareRulesWithMetaRule(rules: RuleWithActions[]): {
   // If any conversation status rules are enabled, create a meta-rule
   if (conversationRules.some((r) => r.enabled)) {
     const template = conversationRules[0];
+
     const metaRule = {
       ...template,
       id: CONVERSATION_TRACKING_META_RULE_ID,
       name: "Conversations",
-      instructions: `Personal conversations and communication with real people. This covers all conversation states: emails you need to reply to, emails you're awaiting replies on, FYI updates from people, and resolved discussions.
+      instructions: `Conversations and communication with real people. This covers all conversation states: emails you need to reply to, emails you're awaiting replies on, FYI updates from people, and resolved discussions.
 
 Match when:
 - Questions or requests for information/action
-- Personal updates or FYI information from real people
+- Updates or FYI information from real people
 - Follow-ups on ongoing conversations
 - Conversations that have been resolved or concluded
 

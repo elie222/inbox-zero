@@ -44,6 +44,7 @@ import {
   isGoogleProvider,
   isMicrosoftProvider,
 } from "@/utils/email/provider-types";
+import { MutedText } from "@/components/Typography";
 
 // copy paste of old file
 export function CategoriesSetup({
@@ -230,9 +231,7 @@ function CategoryCard({
             ) : (
               <>
                 <div className="font-medium">{label}</div>
-                <div className="text-sm text-muted-foreground">
-                  {description}
-                </div>
+                <MutedText>{description}</MutedText>
               </>
             )}
           </div>

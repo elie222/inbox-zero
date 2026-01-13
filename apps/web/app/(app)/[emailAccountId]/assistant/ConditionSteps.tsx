@@ -10,7 +10,6 @@ import { Input, Label, ErrorMessage } from "@/components/Input";
 import { toastError } from "@/components/Toast";
 import { LogicalOperator } from "@/generated/prisma/enums";
 import { ConditionType } from "@/utils/config";
-import { getRuleConfig } from "@/utils/rule/consts";
 import { isConversationStatusType } from "@/utils/reply-tracker/conversation-status-config";
 import type {
   CreateRuleBody,
@@ -29,7 +28,6 @@ import { SystemType } from "@/generated/prisma/enums";
 import TextareaAutosize from "react-textarea-autosize";
 import { RuleSteps } from "@/app/(app)/[emailAccountId]/assistant/RuleSteps";
 import { TooltipExplanation } from "@/components/TooltipExplanation";
-import { Notice } from "@/components/Notice";
 
 // UI-level condition types
 type UIConditionType = "from" | "to" | "subject" | "prompt";
@@ -390,63 +388,42 @@ export function ConditionSteps({
                 const uiType = getUIConditionType(currentCondition);
 
                 if (uiType === "prompt") {
-                  const isDisabled =
-                    ruleSystemType && isConversationStatusType(ruleSystemType);
-
                   return (
                     <>
                       {isFirstCondition && (
                         <div className="mb-2">
                           <Label
                             name={`conditions.${index}.instructions`}
-                            label="Matching the prompt:"
+                            label="That matches:"
                           />
                         </div>
                       )}
                       <div className="relative">
                         <TextareaAutosize
-                          className="block w-full flex-1 whitespace-pre-wrap rounded-md border border-border bg-background shadow-sm focus:border-black focus:ring-black sm:text-sm disabled:cursor-not-allowed disabled:opacity-50"
+                          className="block w-full flex-1 whitespace-pre-wrap rounded-md border border-border bg-background shadow-sm focus:border-black focus:ring-black sm:text-sm"
                           minRows={3}
                           rows={3}
-                          {...(isDisabled
-                            ? {
-                                value:
-                                  getRuleConfig(ruleSystemType).instructions,
-                                disabled: true,
-                              }
-                            : {
-                                ...register(`conditions.${index}.instructions`),
-                                placeholder:
-                                  "e.g. Newsletters, regular content from publications, blogs, or services I've subscribed to",
-                              })}
+                          {...register(`conditions.${index}.instructions`)}
+                          placeholder="e.g. Newsletters, regular content from publications, blogs, or services I've subscribed to"
                         />
                       </div>
-                      {isDisabled && (
-                        <div className="mt-3">
-                          <Notice variant="warning">
-                            This rule uses preset instructions that cannot be
-                            modified.
-                          </Notice>
+                      {(
+                        errors.conditions?.[index] as {
+                          instructions?: FieldError;
+                        }
+                      )?.instructions && (
+                        <div className="mt-2">
+                          <ErrorMessage
+                            message={
+                              (
+                                errors.conditions?.[index] as {
+                                  instructions?: FieldError;
+                                }
+                              )?.instructions?.message || "Invalid value"
+                            }
+                          />
                         </div>
                       )}
-                      {!isDisabled &&
-                        (
-                          errors.conditions?.[index] as {
-                            instructions?: FieldError;
-                          }
-                        )?.instructions && (
-                          <div className="mt-2">
-                            <ErrorMessage
-                              message={
-                                (
-                                  errors.conditions?.[index] as {
-                                    instructions?: FieldError;
-                                  }
-                                )?.instructions?.message || "Invalid value"
-                              }
-                            />
-                          </div>
-                        )}
                     </>
                   );
                 }

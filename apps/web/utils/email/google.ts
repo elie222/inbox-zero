@@ -921,6 +921,17 @@ export class GmailProvider implements EmailProvider {
     };
   }
 
+  async getMessagesWithAttachments(options: {
+    maxResults?: number;
+    pageToken?: string;
+  }): Promise<{ messages: ParsedMessage[]; nextPageToken?: string }> {
+    return this.getMessagesWithPagination({
+      query: "has:attachment",
+      maxResults: options.maxResults,
+      pageToken: options.pageToken,
+    });
+  }
+
   async getMessagesFromSender(options: {
     senderEmail: string;
     maxResults?: number;

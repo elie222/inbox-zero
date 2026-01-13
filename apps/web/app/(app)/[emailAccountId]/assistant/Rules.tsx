@@ -9,7 +9,6 @@ import {
   HistoryIcon,
   Trash2Icon,
   SparklesIcon,
-  InfoIcon,
   CopyIcon,
 } from "lucide-react";
 import { useMemo } from "react";
@@ -37,7 +36,7 @@ import { Badge } from "@/components/Badge";
 import { getActionColor } from "@/components/PlanBadge";
 import { toastError } from "@/components/Toast";
 import { useRules } from "@/hooks/useRules";
-import { LogicalOperator, SystemType } from "@/generated/prisma/enums";
+import { LogicalOperator } from "@/generated/prisma/enums";
 import type { ActionType } from "@/generated/prisma/client";
 import { useAction } from "next-safe-action/hooks";
 import { useAccount } from "@/providers/EmailAccountProvider";
@@ -50,15 +49,8 @@ import { useDialogState } from "@/hooks/useDialogState";
 import { useChat } from "@/providers/ChatProvider";
 import { useSidebar } from "@/components/ui/sidebar";
 import { useLabels } from "@/hooks/useLabels";
-import { isConversationStatusType } from "@/utils/reply-tracker/conversation-status-config";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
 import { conditionsToString } from "@/utils/condition";
 import { TruncatedTooltipText } from "@/components/TruncatedTooltipText";
-import { DEFAULT_COLD_EMAIL_PROMPT } from "@/utils/cold-email/prompt";
 import {
   getRuleConfig,
   SYSTEM_RULE_ORDER,
@@ -171,11 +163,6 @@ export function Rules({
               </TableHeader>
               <TableBody>
                 {rules.map((rule) => {
-                  const isConversationStatus = isConversationStatusType(
-                    rule.systemType,
-                  );
-                  const isColdEmailBlocker =
-                    rule.systemType === SystemType.COLD_EMAIL;
                   const isPlaceholder = rule.id.startsWith("placeholder-");
 
                   return (
@@ -239,41 +226,11 @@ export function Rules({
                         {rule.name}
                       </TableCell>
                       <TableCell className="hidden sm:table-cell p-2 sm:p-4">
-                        {(() => {
-                          const systemRuleDesc = getSystemRuleDescription(
-                            rule.systemType,
-                          );
-                          if (isConversationStatus) {
-                            return (
-                              <div className="flex items-center gap-2">
-                                <span className="text-sm text-muted-foreground">
-                                  {systemRuleDesc?.condition || ""}
-                                </span>
-                                <Tooltip>
-                                  <TooltipTrigger asChild>
-                                    <InfoIcon className="size-3.5 text-green-600 dark:text-green-500 flex-shrink-0 cursor-help" />
-                                  </TooltipTrigger>
-                                  <TooltipContent
-                                    side="right"
-                                    className="max-w-xs"
-                                  >
-                                    <p>
-                                      System rule to track conversation status.
-                                      Conditions cannot be edited.
-                                    </p>
-                                  </TooltipContent>
-                                </Tooltip>
-                              </div>
-                            );
-                          }
-                          return (
-                            <TruncatedTooltipText
-                              text={conditionsToString(rule)}
-                              maxLength={50}
-                              className="max-w-xs"
-                            />
-                          );
-                        })()}
+                        <TruncatedTooltipText
+                          text={conditionsToString(rule)}
+                          maxLength={50}
+                          className="max-w-xs"
+                        />
                       </TableCell>
                       <TableCell className="p-2 sm:p-4">
                         <ActionBadges
@@ -311,19 +268,17 @@ export function Rules({
                                 <PenIcon className="mr-2 size-4" />
                                 Edit manually
                               </DropdownMenuItem>
-                              {!isColdEmailBlocker && !isConversationStatus && (
-                                <DropdownMenuItem
-                                  onClick={() => {
-                                    setInput(
-                                      `I'd like to edit the "${rule.name}" rule:\n`,
-                                    );
-                                    setOpen((arr) => [...arr, "chat-sidebar"]);
-                                  }}
-                                >
-                                  <SparklesIcon className="mr-2 size-4" />
-                                  Edit via AI
-                                </DropdownMenuItem>
-                              )}
+                              <DropdownMenuItem
+                                onClick={() => {
+                                  setInput(
+                                    `I'd like to edit the "${rule.name}" rule:\n`,
+                                  );
+                                  setOpen((arr) => [...arr, "chat-sidebar"]);
+                                }}
+                              >
+                                <SparklesIcon className="mr-2 size-4" />
+                                Edit via AI
+                              </DropdownMenuItem>
                               <DropdownMenuItem
                                 onClick={() => {
                                   ruleDialog.onOpen({
@@ -345,52 +300,48 @@ export function Rules({
                                   History
                                 </Link>
                               </DropdownMenuItem>
-                              {!isColdEmailBlocker && !isConversationStatus && (
-                                <>
-                                  <DropdownMenuSeparator />
+                              <DropdownMenuSeparator />
 
-                                  <DropdownMenuItem
-                                    onClick={async () => {
-                                      const yes = confirm(
-                                        `Are you sure you want to delete the rule "${rule.name}"?`,
-                                      );
-                                      if (yes) {
-                                        toast.promise(
-                                          async () => {
-                                            const res = await deleteRule({
-                                              id: rule.id,
-                                            });
+                              <DropdownMenuItem
+                                onClick={async () => {
+                                  const yes = confirm(
+                                    `Are you sure you want to delete the rule "${rule.name}"?`,
+                                  );
+                                  if (yes) {
+                                    toast.promise(
+                                      async () => {
+                                        const res = await deleteRule({
+                                          id: rule.id,
+                                        });
 
-                                            if (
-                                              res?.serverError ||
-                                              res?.validationErrors
-                                            ) {
-                                              throw new Error(
-                                                res?.serverError ||
-                                                  "There was an error deleting your rule",
-                                              );
-                                            }
+                                        if (
+                                          res?.serverError ||
+                                          res?.validationErrors
+                                        ) {
+                                          throw new Error(
+                                            res?.serverError ||
+                                              "There was an error deleting your rule",
+                                          );
+                                        }
 
-                                            mutate();
-                                          },
-                                          {
-                                            loading: "Deleting rule...",
-                                            success: "Rule deleted",
-                                            error: (error) =>
-                                              `Error deleting rule. ${error.message}`,
-                                            finally: () => {
-                                              mutate();
-                                            },
-                                          },
-                                        );
-                                      }
-                                    }}
-                                  >
-                                    <Trash2Icon className="mr-2 size-4" />
-                                    Delete
-                                  </DropdownMenuItem>
-                                </>
-                              )}
+                                        mutate();
+                                      },
+                                      {
+                                        loading: "Deleting rule...",
+                                        success: "Rule deleted",
+                                        error: (error) =>
+                                          `Error deleting rule. ${error.message}`,
+                                        finally: () => {
+                                          mutate();
+                                        },
+                                      },
+                                    );
+                                  }
+                                }}
+                              >
+                                <Trash2Icon className="mr-2 size-4" />
+                                Delete
+                              </DropdownMenuItem>
                             </DropdownMenuContent>
                           </DropdownMenu>
                         )}
@@ -480,31 +431,4 @@ function NoRules() {
       </CardDescription>
     </CardHeader>
   );
-}
-
-function getSystemRuleDescription(systemType: SystemType | null) {
-  switch (systemType) {
-    case SystemType.TO_REPLY:
-      return {
-        condition: "Emails needing your direct response",
-      };
-    case SystemType.FYI:
-      return {
-        condition: "Important emails that don't need a response",
-      };
-    case SystemType.AWAITING_REPLY:
-      return {
-        condition: "Emails you're expecting a reply to",
-      };
-    case SystemType.ACTIONED:
-      return {
-        condition: "Resolved email threads",
-      };
-    case SystemType.COLD_EMAIL:
-      return {
-        condition: DEFAULT_COLD_EMAIL_PROMPT,
-      };
-    default:
-      return null;
-  }
 }

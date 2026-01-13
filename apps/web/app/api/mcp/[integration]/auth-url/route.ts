@@ -11,6 +11,8 @@ import {
 import { getIntegration } from "@/utils/mcp/integrations";
 import { generateOAuthState } from "@/utils/oauth/state";
 import { generateOAuthUrl } from "@/utils/mcp/oauth";
+import { hasTierAccess } from "@/utils/premium";
+import prisma from "@/utils/prisma";
 
 export type GetMcpAuthUrlResponse = { url: string };
 
@@ -24,6 +26,23 @@ export const GET = withEmailAccount(
     const logger = request.logger.with({
       integration,
     });
+
+    // Check premium tier - integrations require Business Plus
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { premium: { select: { tier: true } } },
+    });
+
+    if (
+      !hasTierAccess({
+        tier: user?.premium?.tier ?? null,
+        minimumTier: "BUSINESS_PLUS_MONTHLY",
+      })
+    ) {
+      throw new SafeError(
+        "Integrations require a Professional plan. Please upgrade to continue.",
+      );
+    }
 
     const integrationConfig = getIntegration(integration);
 

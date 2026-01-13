@@ -4,7 +4,7 @@ import { useState } from "react";
 import type { GetIntegrationsResponse } from "@/app/api/mcp/integrations/route";
 import type { GetMcpAuthUrlResponse } from "@/app/api/mcp/[integration]/auth-url/route";
 import { Toggle } from "@/components/Toggle";
-import { TypographyP } from "@/components/Typography";
+import { MutedText, TypographyP } from "@/components/Typography";
 import { Button } from "@/components/ui/button";
 import { TableRow, TableCell } from "@/components/ui/table";
 import {
@@ -25,6 +25,7 @@ import { useAccount } from "@/providers/EmailAccountProvider";
 import { fetchWithAccount } from "@/utils/fetch";
 import { RequestAccessDialog } from "./RequestAccessDialog";
 import { truncate } from "@/utils/string";
+import { Notice } from "@/components/Notice";
 
 interface IntegrationRowProps {
   integration: GetIntegrationsResponse["integrations"][number];
@@ -268,7 +269,11 @@ export function IntegrationRow({
       </TableRow>
 
       {expandedTools && tools.length > 0 && (
-        <ToolsList tools={tools} onToggleTool={handleToggleTool} />
+        <ToolsList
+          tools={tools}
+          onToggleTool={handleToggleTool}
+          toolsWarning={integration.toolsWarning}
+        />
       )}
     </>
   );
@@ -279,15 +284,17 @@ interface ToolsListProps {
     GetIntegrationsResponse["integrations"][number]["connection"]
   >["tools"];
   onToggleTool: (toolId: string, isEnabled: boolean) => void;
+  toolsWarning?: string;
 }
 
-function ToolsList({ tools, onToggleTool }: ToolsListProps) {
+function ToolsList({ tools, onToggleTool, toolsWarning }: ToolsListProps) {
   const sortedTools = [...tools].sort((a, b) => a.name.localeCompare(b.name));
 
   return (
     <TableRow>
       <TableCell colSpan={5} className="bg-muted/50">
         <div className="space-y-3">
+          {toolsWarning && <Notice variant="warning">{toolsWarning}</Notice>}
           {sortedTools.map((tool) => (
             <div
               key={tool.id}
@@ -312,9 +319,9 @@ function ToolsList({ tools, onToggleTool }: ToolsListProps) {
                   </span>
                 </div>
                 {tool.description && (
-                  <p className="text-sm text-muted-foreground whitespace-pre-wrap">
+                  <MutedText className="whitespace-pre-wrap">
                     {truncate(tool.description, 100)}
-                  </p>
+                  </MutedText>
                 )}
               </div>
               <div className="flex-shrink-0">
