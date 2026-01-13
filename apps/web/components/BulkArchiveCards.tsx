@@ -244,7 +244,7 @@ export function BulkArchiveCards({
               role="button"
               tabIndex={0}
             >
-              <div className="flex items-center justify-between">
+              <div className="flex gap-4 items-center justify-between">
                 <div className="flex items-center gap-3">
                   <div
                     className={cn(
