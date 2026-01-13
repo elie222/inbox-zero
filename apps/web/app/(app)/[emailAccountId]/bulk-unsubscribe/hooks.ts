@@ -333,38 +333,92 @@ export function useApproveButton<T extends Row>({
   emailAccountId,
 }: {
   item: T;
-  mutate: () => Promise<void>;
+  mutate: (
+    // biome-ignore lint/suspicious/noExplicitAny: SWR mutate signature
+    data?: any,
+    opts?: {
+      revalidate?: boolean;
+      optimisticData?: any;
+      rollbackOnError?: boolean;
+    },
+  ) => Promise<void>;
   posthog: PostHog;
   emailAccountId: string;
 }) {
-  const [approveLoading, setApproveLoading] = useState(false);
-  const { onDisableAutoArchive } = useAutoArchive({
-    item,
-    hasUnsubscribeAccess: true,
-    mutate,
-    posthog,
-    refetchPremium: () => Promise.resolve(undefined),
-    emailAccountId,
-  });
+  const [optimisticStatus, setOptimisticStatus] = useState<
+    NewsletterStatus | null | undefined
+  >(undefined);
+
+  // Reset optimistic state when item.status changes (after mutate)
+  // biome-ignore lint/correctness/useExhaustiveDependencies: intentionally reset when item.status changes
+  useEffect(() => {
+    setOptimisticStatus(undefined);
+  }, [item.status]);
 
   const onApprove = async () => {
-    setApproveLoading(true);
+    const previousStatus = item.status;
+    const newStatus =
+      item.status === NewsletterStatus.APPROVED
+        ? null
+        : NewsletterStatus.APPROVED;
 
-    await onDisableAutoArchive();
-    await setNewsletterStatusAction(emailAccountId, {
-      newsletterEmail: item.name,
-      status: NewsletterStatus.APPROVED,
-    });
-    await mutate();
+    // Optimistically update the UI
+    setOptimisticStatus(newStatus);
+
+    // Optimistically remove item from list (for filtered views like "unhandled")
+    // biome-ignore lint/suspicious/noExplicitAny: SWR data structure
+    const optimisticUpdate = (currentData: any) => {
+      if (!currentData?.newsletters) return currentData;
+      return {
+        ...currentData,
+        newsletters: currentData.newsletters.filter(
+          // biome-ignore lint/suspicious/noExplicitAny: newsletter type
+          (n: any) => n.name !== item.name,
+        ),
+      };
+    };
+
+    // Show toast optimistically
+    if (newStatus === NewsletterStatus.APPROVED) {
+      toast.success("Sender approved");
+    }
+
+    // Start optimistic update immediately (don't await - fire and forget for UI)
+    mutate(optimisticUpdate, { revalidate: false });
 
     posthog.capture("Clicked Approve Sender");
 
-    setApproveLoading(false);
+    try {
+      // Delete any existing auto-archive filter without triggering a refetch
+      if (item.autoArchived?.id) {
+        await onDeleteFilter({
+          emailAccountId,
+          filterId: item.autoArchived.id,
+        });
+      }
+      // Set the new status
+      await setNewsletterStatusAction(emailAccountId, {
+        newsletterEmail: item.name,
+        status: newStatus,
+      });
+      // Don't revalidate - the optimistic update is correct
+    } catch (error) {
+      // Revert on error by revalidating
+      setOptimisticStatus(previousStatus);
+      await mutate();
+      captureException(error);
+      toast.error("Failed to update sender status");
+    }
   };
 
+  // Use optimistic status if set, otherwise use the actual item status
+  const displayStatus =
+    optimisticStatus !== undefined ? optimisticStatus : item.status;
+
   return {
-    approveLoading,
+    approveLoading: false,
     onApprove,
+    isApproved: displayStatus === NewsletterStatus.APPROVED,
   };
 }
 
@@ -664,7 +718,7 @@ export type NewsletterFilterType =
   | "approved";
 
 export function useNewsletterFilter() {
-  const [filter, setFilter] = useState<NewsletterFilterType>("all");
+  const [filter, setFilter] = useState<NewsletterFilterType>("unhandled");
 
   // Convert single filter to array format for API compatibility
   const filtersArray: (

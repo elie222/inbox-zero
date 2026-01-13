@@ -25,6 +25,7 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuPortal,
+  DropdownMenuSeparator,
   DropdownMenuSub,
   DropdownMenuSubTrigger,
   DropdownMenuTrigger,
@@ -82,19 +83,17 @@ export function ActionCell<T extends Row>({
             <PremiumTooltipContent openModal={openPremiumModal} />
           ) : undefined
         }
-        content={
-          hasUnsubscribeAccess
-            ? "Approve to filter it from the list."
-            : undefined
-        }
+        content={hasUnsubscribeAccess ? "Approve of this sender" : undefined}
       >
-        <ApproveButton
-          item={item}
-          hasUnsubscribeAccess={hasUnsubscribeAccess}
-          mutate={mutate}
-          posthog={posthog}
-          emailAccountId={emailAccountId}
-        />
+        <span>
+          <ApproveButton
+            item={item}
+            hasUnsubscribeAccess={hasUnsubscribeAccess}
+            mutate={mutate}
+            posthog={posthog}
+            emailAccountId={emailAccountId}
+          />
+        </span>
       </Tooltip>
       <PremiumTooltip
         showTooltip={!hasUnsubscribeAccess}
@@ -198,7 +197,7 @@ function ApproveButton<T extends Row>({
   posthog: PostHog;
   emailAccountId: string;
 }) {
-  const { approveLoading, onApprove } = useApproveButton({
+  const { onApprove, isApproved } = useApproveButton({
     item,
     mutate,
     posthog,
@@ -208,18 +207,13 @@ function ApproveButton<T extends Row>({
   return (
     <Button
       size="sm"
-      variant={
-        item.status === NewsletterStatus.APPROVED ? "green" : "secondary"
-      }
+      variant={isApproved ? "green" : "secondary"}
       onClick={onApprove}
       disabled={!hasUnsubscribeAccess}
-      loading={approveLoading}
     >
       <span className="hidden 2xl:block">Keep</span>
       <span className="block 2xl:hidden">
-        <Tooltip content="Keep">
-          <ThumbsUpIcon className="size-4" />
-        </Tooltip>
+        <ThumbsUpIcon className="size-4" />
       </span>
     </Button>
   );
@@ -264,6 +258,7 @@ export function MoreDropdown<T extends Row>({
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
+        {/* View section */}
         {!!onOpenNewsletter && (
           <DropdownMenuItem onClick={() => onOpenNewsletter(item)}>
             <ExpandIcon className="mr-2 size-4" />
@@ -282,16 +277,9 @@ export function MoreDropdown<T extends Row>({
           </DropdownMenuItem>
         )}
 
-        {/* <DropdownMenuSub>
-          <DropdownMenuSubTrigger>
-            <UserPlus className="mr-2 size-4" />
-            <span>Add sender to rule</span>
-          </DropdownMenuSubTrigger>
-          <DropdownMenuPortal>
-            <GroupsSubMenu sender={item.name} />
-          </DropdownMenuPortal>
-        </DropdownMenuSub> */}
+        <DropdownMenuSeparator />
 
+        {/* Organization section */}
         <DropdownMenuSub>
           <DropdownMenuSubTrigger>
             <TagIcon className="mr-2 size-4" />
@@ -321,6 +309,9 @@ export function MoreDropdown<T extends Row>({
           </DropdownMenuPortal>
         </DropdownMenuSub>
 
+        <DropdownMenuSeparator />
+
+        {/* Bulk actions section */}
         <DropdownMenuItem onClick={() => onBulkArchive([item])}>
           {isBulkArchiving ? (
             <ButtonLoader />

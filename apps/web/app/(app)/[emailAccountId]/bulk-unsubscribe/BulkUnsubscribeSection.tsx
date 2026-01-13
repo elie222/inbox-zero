@@ -7,13 +7,13 @@ import { ChevronDown } from "lucide-react";
 import { usePostHog } from "posthog-js/react";
 import {
   ArchiveIcon,
-  BadgeCheckIcon,
   CheckIcon,
   ChevronsDownIcon,
   ChevronsUpIcon,
   InboxIcon,
   ListIcon,
-  MailMinusIcon,
+  MailXIcon,
+  ThumbsUpIcon,
 } from "lucide-react";
 import type { DateRange } from "react-day-picker";
 import { LoadingContent } from "@/components/LoadingContent";
@@ -74,17 +74,21 @@ const filterOptions: {
   icon: React.ReactNode;
   separatorAfter?: boolean;
 }[] = [
-  { label: "All", value: "all", icon: <ListIcon className="size-4" /> },
   {
     label: "Unhandled",
     value: "unhandled",
     icon: <InboxIcon className="size-4" />,
+  },
+  {
+    label: "All",
+    value: "all",
+    icon: <ListIcon className="size-4" />,
     separatorAfter: true,
   },
   {
     label: "Unsubscribed",
     value: "unsubscribed",
-    icon: <MailMinusIcon className="size-4" />,
+    icon: <MailXIcon className="size-4" />,
   },
   {
     label: "Skip Inbox",
@@ -94,7 +98,7 @@ const filterOptions: {
   {
     label: "Approved",
     value: "approved",
-    icon: <BadgeCheckIcon className="size-4" />,
+    icon: <ThumbsUpIcon className="size-4" />,
   },
 ];
 

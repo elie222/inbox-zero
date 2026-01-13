@@ -83,6 +83,7 @@ export function BulkUnsubscribeRowDesktop({
   return (
     <TableRow
       key={item.name}
+      className="hover:bg-transparent dark:hover:bg-transparent"
       aria-selected={selected || undefined}
       data-selected={selected || undefined}
       onMouseEnter={onSelectRow}
