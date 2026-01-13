@@ -7,6 +7,7 @@ import {
   queryBatchMessages,
   queryMessagesWithAttachments,
   getFolderIds,
+  getCategoryMap,
   convertMessage,
   MESSAGE_SELECT_FIELDS,
   sanitizeKqlValue,
@@ -182,8 +183,11 @@ export class OutlookProvider implements EmailProvider {
       return null;
     }
 
-    const folderIds = await getFolderIds(this.client, this.logger);
-    return convertMessage(message, folderIds);
+    const [folderIds, categoryMap] = await Promise.all([
+      getFolderIds(this.client, this.logger),
+      getCategoryMap(this.client, this.logger),
+    ]);
+    return convertMessage(message, folderIds, categoryMap);
   }
 
   private async getMessages({
@@ -226,7 +230,10 @@ export class OutlookProvider implements EmailProvider {
   }
 
   async getSentMessages(maxResults = 20): Promise<ParsedMessage[]> {
-    const folderIds = await getFolderIds(this.client, this.logger);
+    const [folderIds, categoryMap] = await Promise.all([
+      getFolderIds(this.client, this.logger),
+      getCategoryMap(this.client, this.logger),
+    ]);
 
     const response: { value: Message[] } = await withOutlookRetry(
       () =>
@@ -242,11 +249,16 @@ export class OutlookProvider implements EmailProvider {
 
     return (response.value || [])
       .filter((message: Message) => !message.isDraft)
-      .map((message: Message) => convertMessage(message, folderIds));
+      .map((message: Message) =>
+        convertMessage(message, folderIds, categoryMap),
+      );
   }
 
   async getInboxMessages(maxResults = 20): Promise<ParsedMessage[]> {
-    const folderIds = await getFolderIds(this.client, this.logger);
+    const [folderIds, categoryMap] = await Promise.all([
+      getFolderIds(this.client, this.logger),
+      getCategoryMap(this.client, this.logger),
+    ]);
 
     const response: { value: Message[] } = await withOutlookRetry(
       () =>
@@ -262,7 +274,9 @@ export class OutlookProvider implements EmailProvider {
 
     return (response.value || [])
       .filter((message: Message) => !message.isDraft)
-      .map((message: Message) => convertMessage(message, folderIds));
+      .map((message: Message) =>
+        convertMessage(message, folderIds, categoryMap),
+      );
   }
 
   async getSentMessageIds(options: {
@@ -1063,14 +1077,17 @@ export class OutlookProvider implements EmailProvider {
   }
 
   async getDrafts(options?: { maxResults?: number }): Promise<ParsedMessage[]> {
-    const response: { value: Message[] } = await this.client
-      .getClient()
-      .api("/me/mailFolders/drafts/messages")
-      .select(MESSAGE_SELECT_FIELDS)
-      .top(options?.maxResults || 50)
-      .get();
+    const [response, categoryMap] = await Promise.all([
+      this.client
+        .getClient()
+        .api("/me/mailFolders/drafts/messages")
+        .select(MESSAGE_SELECT_FIELDS)
+        .top(options?.maxResults || 50)
+        .get() as Promise<{ value: Message[] }>,
+      getCategoryMap(this.client, this.logger),
+    ]);
 
-    return response.value.map((msg) => convertMessage(msg));
+    return response.value.map((msg) => convertMessage(msg, {}, categoryMap));
   }
 
   async getMessagesBatch(messageIds: string[]): Promise<ParsedMessage[]> {

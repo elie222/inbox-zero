@@ -1,7 +1,7 @@
 import type { OutlookClient } from "@/utils/outlook/client";
 import type { Logger } from "@/utils/logger";
 import { isNotFoundError } from "@/utils/outlook/errors";
-import { convertMessage } from "@/utils/outlook/message";
+import { convertMessage, getCategoryMap } from "@/utils/outlook/message";
 import { withOutlookRetry } from "@/utils/outlook/retry";
 
 export async function getDraft({
@@ -14,11 +14,14 @@ export async function getDraft({
   logger: Logger;
 }) {
   try {
-    const response = await withOutlookRetry(
-      () => client.getClient().api(`/me/messages/${draftId}`).get(),
-      logger,
-    );
-    const message = convertMessage(response);
+    const [response, categoryMap] = await Promise.all([
+      withOutlookRetry(
+        () => client.getClient().api(`/me/messages/${draftId}`).get(),
+        logger,
+      ),
+      getCategoryMap(client, logger),
+    ]);
+    const message = convertMessage(response, {}, categoryMap);
     return message;
   } catch (error) {
     if (isNotFoundError(error)) {

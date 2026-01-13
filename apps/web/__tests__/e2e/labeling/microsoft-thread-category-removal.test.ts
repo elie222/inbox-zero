@@ -109,7 +109,7 @@ describe.skipIf(!RUN_E2E_TESTS)(
         // Verify all messages have the category
         for (const msg of testMessages) {
           const message = await provider.getMessage(msg.id);
-          expect(message.labelIds).toContain(category.name);
+          expect(message.labelIds).toContain(category.id);
         }
 
         // Remove the category from the thread using removeThreadLabels
@@ -118,7 +118,7 @@ describe.skipIf(!RUN_E2E_TESTS)(
         // Verify ALL messages no longer have the category
         for (const msg of testMessages) {
           const message = await provider.getMessage(msg.id);
-          expect(message.labelIds).not.toContain(category.name);
+          expect(message.labelIds).not.toContain(category.id);
         }
       }, 60_000);
 
@@ -153,8 +153,8 @@ describe.skipIf(!RUN_E2E_TESTS)(
         // Verify all messages have both categories
         for (const msg of testMessages) {
           const message = await provider.getMessage(msg.id);
-          expect(message.labelIds).toContain(category1.name);
-          expect(message.labelIds).toContain(category2.name);
+          expect(message.labelIds).toContain(category1.id);
+          expect(message.labelIds).toContain(category2.id);
         }
 
         // Remove both categories from the thread
@@ -166,8 +166,8 @@ describe.skipIf(!RUN_E2E_TESTS)(
         // Verify ALL messages have neither category
         for (const msg of testMessages) {
           const message = await provider.getMessage(msg.id);
-          expect(message.labelIds).not.toContain(category1.name);
-          expect(message.labelIds).not.toContain(category2.name);
+          expect(message.labelIds).not.toContain(category1.id);
+          expect(message.labelIds).not.toContain(category2.id);
         }
       }, 60_000);
     });
@@ -208,10 +208,10 @@ describe.skipIf(!RUN_E2E_TESTS)(
 
         // Verify labels are applied
         const msg1Before = await provider.getMessage(testMessages[0].id);
-        expect(msg1Before.labelIds).toContain(toReplyLabel.name);
+        expect(msg1Before.labelIds).toContain(toReplyLabel.id);
 
         const msg2Before = await provider.getMessage(testMessages[1].id);
-        expect(msg2Before.labelIds).toContain(awaitingReplyLabel.name);
+        expect(msg2Before.labelIds).toContain(awaitingReplyLabel.id);
 
         // Call removeConflictingThreadStatusLabels with FYI status
         // This should remove TO_REPLY and AWAITING_REPLY labels from the thread
@@ -226,8 +226,8 @@ describe.skipIf(!RUN_E2E_TESTS)(
         // Verify ALL conflicting labels are removed from ALL messages
         for (const msg of testMessages) {
           const message = await provider.getMessage(msg.id);
-          expect(message.labelIds).not.toContain(toReplyLabel.name);
-          expect(message.labelIds).not.toContain(awaitingReplyLabel.name);
+          expect(message.labelIds).not.toContain(toReplyLabel.id);
+          expect(message.labelIds).not.toContain(awaitingReplyLabel.id);
         }
       }, 60_000);
     });
