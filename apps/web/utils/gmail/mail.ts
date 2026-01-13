@@ -118,7 +118,12 @@ export async function sendEmailWithHtml(
   } catch (error) {
     logger.error("Error converting email html to text", { error });
     // Strip HTML tags as a fallback
-    messageText = body.messageHtml.replace(/<[^>]*>/g, "");
+    // Keep new lines
+    messageText = body.messageHtml
+      .replace(/<br\s*\/?>/gi, "\n")
+      .replace(/<\/p>/gi, "\n")
+      .replace(/<[^>]*>/g, "")
+      .trim();
   }
 
   const raw = await createRawMailMessage({ ...body, messageText });
@@ -328,17 +333,17 @@ async function createDraft(
   return result;
 }
 
-function convertTextToHtmlParagraphs(text?: string | null): string {
+export function convertTextToHtmlParagraphs(text?: string | null): string {
   if (!text) return "";
 
-  // Split the text into paragraphs based on newline characters
-  const paragraphs = text
-    .split("\n")
-    .filter((paragraph) => paragraph.trim() !== "");
+  const normalizedText = text.replace(/\r\n/g, "\n");
+  const lines = normalizedText.split("\n");
 
-  // Wrap each paragraph with <p> tags and join them back together
-  const htmlContent = paragraphs
-    .map((paragraph) => `<p>${paragraph.trim()}</p>`)
+  const htmlContent = lines
+    .map((line) => {
+      const trimmed = line.trim();
+      return trimmed === "" ? "<br>" : `<p>${trimmed}</p>`;
+    })
     .join("");
 
   return `<html><body>${htmlContent}</body></html>`;

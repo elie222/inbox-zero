@@ -3,6 +3,7 @@ import {
   removeExcessiveWhitespace,
   truncate,
   generalizeSubject,
+  convertNewlinesToBr,
 } from "./string";
 
 // Run with:
@@ -83,6 +84,40 @@ describe("string utils", () => {
       expect(generalizeSubject("Your account has been created")).toBe(
         "Your account has been created",
       );
+    });
+  });
+
+  describe("convertNewlinesToBr", () => {
+    it("should convert LF to <br>", () => {
+      expect(convertNewlinesToBr("line one\nline two")).toBe(
+        "line one<br>line two",
+      );
+    });
+
+    it("should convert CRLF to <br>", () => {
+      expect(convertNewlinesToBr("line one\r\nline two")).toBe(
+        "line one<br>line two",
+      );
+    });
+
+    it("should handle mixed line endings", () => {
+      expect(convertNewlinesToBr("line one\r\nline two\nline three")).toBe(
+        "line one<br>line two<br>line three",
+      );
+    });
+
+    it("should preserve multiple newlines for paragraph spacing", () => {
+      expect(convertNewlinesToBr("para one\n\npara two")).toBe(
+        "para one<br><br>para two",
+      );
+    });
+
+    it("should handle empty string", () => {
+      expect(convertNewlinesToBr("")).toBe("");
+    });
+
+    it("should handle text without newlines", () => {
+      expect(convertNewlinesToBr("no newlines here")).toBe("no newlines here");
     });
   });
 });

@@ -57,3 +57,7 @@ export function slugify(text: string): string {
     .replace(/[\s_-]+/g, "-")
     .replace(/^-+|-+$/g, "");
 }
+
+export function convertNewlinesToBr(text: string): string {
+  return text.replace(/\r\n/g, "\n").replace(/\n/g, "<br>");
+}

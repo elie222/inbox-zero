@@ -1,4 +1,5 @@
 import type { ParsedMessage } from "@/utils/types";
+import { convertNewlinesToBr } from "@/utils/string";
 
 export const createOutlookReplyContent = ({
   textContent,
@@ -26,12 +27,12 @@ export const createOutlookReplyContent = ({
     .join("\n");
   const plainText = `${textContent || ""}\n\n${quotedHeader}\n\n${quotedContent || ""}`;
 
-  // Get the message content, preserving any existing quotes
   const messageContent =
-    message.textHtml || message.textPlain?.replace(/\n/g, "<br>") || "";
+    message.textHtml ||
+    (message.textPlain ? convertNewlinesToBr(message.textPlain) : "");
 
-  // Use htmlContent if provided, otherwise convert textContent to HTML
-  const contentHtml = htmlContent || textContent?.replace(/\n/g, "<br>") || "";
+  const contentHtml =
+    htmlContent || (textContent ? convertNewlinesToBr(textContent) : "");
 
   // Outlook-specific font styling with Aptos as default
   const outlookFontStyle =
