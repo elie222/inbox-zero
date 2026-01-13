@@ -28,20 +28,20 @@ const ruleConfig: Record<
       "Emails you need to reply to and those where you're awaiting a reply. The label will update automatically as the conversation progresses",
     shouldLearn: false,
   },
-  [SystemType.FYI]: {
-    name: "FYI",
-    instructions:
-      "Important emails I should know about, but don't need to reply to",
-    label: "FYI",
+  [SystemType.AWAITING_REPLY]: {
+    name: "Awaiting Reply",
+    instructions: "Emails where I'm waiting for someone to get back to me",
+    label: "Awaiting Reply",
     runOnThreads: true,
     categoryAction: "label",
     tooltipText: "",
     shouldLearn: false,
   },
-  [SystemType.AWAITING_REPLY]: {
-    name: "Awaiting Reply",
-    instructions: "Emails where I'm waiting for someone to get back to me",
-    label: "Awaiting Reply",
+  [SystemType.FYI]: {
+    name: "FYI",
+    instructions:
+      "Important emails I should know about, but don't need to reply to",
+    label: "FYI",
     runOnThreads: true,
     categoryAction: "label",
     tooltipText: "",
