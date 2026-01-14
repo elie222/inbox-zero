@@ -2,6 +2,7 @@ import { fetchMessagesAndGenerateDraft } from "@/utils/reply-tracker/generate-dr
 import type { EmailProvider } from "@/utils/email/types";
 import type { Logger } from "@/utils/logger";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
+import { extractEmailAddress } from "@/utils/email";
 
 /**
  * Generates a follow-up draft for a thread that's awaiting a reply.
@@ -27,7 +28,23 @@ export async function generateFollowUpDraft({
       return;
     }
 
-    const lastMessage = thread.messages[thread.messages.length - 1];
+    // Find the last message from an external sender (not the current user)
+    const lastExternalMessage = thread.messages
+      .slice()
+      .reverse()
+      .find(
+        (msg) =>
+          extractEmailAddress(msg.headers.from).toLowerCase() !==
+          emailAccount.email.toLowerCase(),
+      );
+
+    if (!lastExternalMessage) {
+      logger.info(
+        "No external message found in thread, skipping draft generation",
+        { threadId },
+      );
+      return;
+    }
 
     const draftContent = await fetchMessagesAndGenerateDraft(
       emailAccount,
@@ -38,7 +55,7 @@ export async function generateFollowUpDraft({
     );
 
     const { draftId } = await provider.draftEmail(
-      lastMessage,
+      lastExternalMessage,
       {
         content: draftContent,
       },
