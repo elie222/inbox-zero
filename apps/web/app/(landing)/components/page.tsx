@@ -40,7 +40,7 @@ import {
 import { TooltipExplanation } from "@/components/TooltipExplanation";
 import { Suspense } from "react";
 import { PremiumAiAssistantAlert } from "@/components/PremiumAlert";
-import { ActionType, ExecutedRuleStatus } from "@/generated/prisma/enums";
+import { ActionType, ExecutedRuleStatus, LogicalOperator } from "@/generated/prisma/enums";
 import type { Rule } from "@/generated/prisma/client";
 import { SettingCard } from "@/components/SettingCard";
 import { IconCircle } from "@/app/(app)/[emailAccountId]/onboarding/IconCircle";
@@ -55,6 +55,10 @@ import {
   ActivityLog,
   type ActivityLogEntry,
 } from "@/app/(app)/[emailAccountId]/assistant/BulkProcessActivityLog";
+import { RuleSectionCard } from "@/app/(app)/[emailAccountId]/assistant/RuleSectionCard";
+import { ConditionSteps } from "@/app/(app)/[emailAccountId]/assistant/ConditionSteps";
+import { ActionSteps } from "@/app/(app)/[emailAccountId]/assistant/ActionSteps";
+import { ConditionType } from "@/utils/config";
 
 export const maxDuration = 3;
 
@@ -818,6 +822,53 @@ export default function Components() {
           <div className="underline">Email Row Truncation</div>
           <div className="mt-4">
             <EmailRowExample />
+          </div>
+        </div>
+
+        <div>
+          <div className="underline">Rule Form Sections</div>
+          <div className="mt-4 space-y-4">
+            <MutedText>
+              Rule form components for the AI assistant automation rules.
+            </MutedText>
+
+            <RuleSectionCard
+              icon={MailIcon}
+              color="blue"
+              title="When you get an email"
+            >
+              <div className="space-y-2">
+                <p className="text-sm text-muted-foreground">
+                  Conditions section - This is where users configure email
+                  matching conditions using AI prompts or static filters (from,
+                  to, subject).
+                </p>
+                <div className="rounded-md bg-muted p-3">
+                  <p className="text-xs font-mono">
+                    Example: AI Prompt condition, From condition, Subject
+                    condition
+                  </p>
+                </div>
+              </div>
+            </RuleSectionCard>
+
+            <RuleSectionCard
+              icon={BotIcon}
+              color="green"
+              title="Then:"
+            >
+              <div className="space-y-2">
+                <p className="text-sm text-muted-foreground">
+                  Actions section - This is where users configure automated
+                  actions like labeling, archiving, drafting replies, etc.
+                </p>
+                <div className="rounded-md bg-muted p-3">
+                  <p className="text-xs font-mono">
+                    Example: Label, Archive, Draft email, etc.
+                  </p>
+                </div>
+              </div>
+            </RuleSectionCard>
           </div>
         </div>
 
