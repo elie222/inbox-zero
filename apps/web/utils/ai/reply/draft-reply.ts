@@ -8,16 +8,9 @@ import { getModel } from "@/utils/llms/model";
 import type { ReplyContextCollectorResult } from "@/utils/ai/reply/reply-context-collector";
 import type { CalendarAvailabilityContext } from "@/utils/ai/calendar/availability";
 
-/**
- * Type of draft to generate. Each type has different AI prompting behavior.
- * - "default": Standard reply draft based on thread context
- * - "follow-up": Follow-up reminder when user is waiting for a response
- */
-export type DraftType = "default" | "follow-up";
+const logger = createScopedLogger("DraftReply");
 
-const logger = createScopedLogger("DraftWithKnowledge");
-
-const baseSystemPrompt = `You are an expert assistant that drafts email replies using knowledge base information.
+const systemPrompt = `You are an expert assistant that drafts email replies using knowledge base information.
 Keep it concise and friendly.
 IMPORTANT: Keep the reply short. Aim for 2 sentences at most.
 Don't be pushy.
@@ -31,28 +24,11 @@ Never use placeholders for the user's name. You do not need to sign off with the
 Do not invent information.
 Don't suggest meeting times or mention availability unless specific calendar information is provided.
 
+Write a polite and professional email that follows up on the previous conversation.
+Your reply should aim to continue the conversation or provide new information based on the context or knowledge base. If you have nothing substantial to add, keep the reply minimal.
+
 Return your response in JSON format.
 `;
-
-const draftTypeInstructions: Record<DraftType, string> = {
-  default: `Write a polite and professional email that follows up on the previous conversation.
-Your reply should aim to continue the conversation or provide new information based on the context or knowledge base. If you have nothing substantial to add, keep the reply minimal.`,
-
-  "follow-up": `You are writing a follow-up email because the user sent the last message in this thread and hasn't received a reply.
-The purpose of this email is to politely check in and prompt a response from the recipient.
-Write a brief, friendly follow-up that:
-- Acknowledges you're following up on the previous message
-- Gently reminds the recipient about the outstanding matter or question
-- Maintains a professional but warm tone
-- Does NOT repeat the entire content of the previous email
-Examples of good follow-up phrases: "Just checking in on this", "Wanted to follow up on my previous email", "Circling back on this"`,
-};
-
-function getSystemPrompt(draftType: DraftType): string {
-  return `${baseSystemPrompt}
-
-${draftTypeInstructions[draftType]}`;
-}
 
 const getUserPrompt = ({
   messages,
@@ -77,7 +53,7 @@ const getUserPrompt = ({
 }) => {
   const userAbout = emailAccount.about
     ? `Context about the user:
-    
+
 <userAbout>
 ${emailAccount.about}
 </userAbout>
@@ -86,7 +62,7 @@ ${emailAccount.about}
 
   const relevantKnowledge = knowledgeBaseContent
     ? `Relevant knowledge base content:
-    
+
 <knowledge_base>
 ${knowledgeBaseContent}
 </knowledge_base>
@@ -95,7 +71,7 @@ ${knowledgeBaseContent}
 
   const historicalContext = emailHistorySummary
     ? `Historical email context with this sender:
-    
+
 <sender_history>
 ${emailHistorySummary}
 </sender_history>
@@ -104,7 +80,7 @@ ${emailHistorySummary}
 
   const precedentHistoryContext = emailHistoryContext?.relevantEmails.length
     ? `Information from similar email threads that may be relevant to the current conversation to draft a reply.
-    
+
 <email_history>
 ${emailHistoryContext.relevantEmails
   .map(
@@ -123,7 +99,7 @@ ${emailHistoryContext.notes || "No notes"}
 
   const writingStylePrompt = writingStyle
     ? `Writing style:
-    
+
 <writing_style>
 ${writingStyle}
 </writing_style>
@@ -141,7 +117,7 @@ IMPORTANT: The user is NOT available. Do NOT suggest specific times. You may ack
 `
     : calendarAvailability?.suggestedTimes.length
       ? `Calendar availability information:
-    
+
 <calendar_availability>
 Suggested time slots:
 ${calendarAvailability.suggestedTimes.map((slot) => `- ${slot.start} to ${slot.end}`).join("\n")}
@@ -185,7 +161,7 @@ ${upcomingMeetingsContext}
 
 Here is the context of the email thread (from oldest to newest):
 ${getEmailListPrompt({ messages, messageMaxLength: 3000 })}
-     
+
 Please write a reply to the email.
 ${getTodayForLLM()}
 IMPORTANT: You are writing an email as ${emailAccount.email}. Write the reply from their perspective.`;
@@ -199,7 +175,7 @@ const draftSchema = z.object({
     ),
 });
 
-export async function aiDraftWithKnowledge({
+export async function aiDraftReply({
   messages,
   emailAccount,
   knowledgeBaseContent,
@@ -209,7 +185,6 @@ export async function aiDraftWithKnowledge({
   writingStyle,
   mcpContext,
   meetingContext,
-  draftType = "default",
 }: {
   messages: (EmailForLLM & { to: string })[];
   emailAccount: EmailAccountWithAI;
@@ -220,14 +195,12 @@ export async function aiDraftWithKnowledge({
   writingStyle: string | null;
   mcpContext: string | null;
   meetingContext: string | null;
-  draftType?: DraftType;
 }) {
   try {
-    logger.info("Drafting email with knowledge base", {
+    logger.info("Drafting email reply", {
       messageCount: messages.length,
       hasKnowledge: !!knowledgeBaseContent,
       hasHistory: !!emailHistorySummary,
-      draftType,
       calendarAvailability: calendarAvailability
         ? {
             noAvailability: calendarAvailability.noAvailability,
@@ -253,22 +226,22 @@ export async function aiDraftWithKnowledge({
 
     const generateObject = createGenerateObject({
       emailAccount,
-      label: "Email draft with knowledge",
+      label: "Draft reply",
       modelOptions,
     });
 
     const result = await generateObject({
       ...modelOptions,
-      system: getSystemPrompt(draftType),
+      system: systemPrompt,
       prompt,
       schema: draftSchema,
     });
 
     return result.object.reply;
   } catch (error) {
-    logger.error("Failed to draft email with knowledge", { error });
+    logger.error("Failed to draft email reply", { error });
     return {
-      error: "Failed to draft email using knowledge base",
+      error: "Failed to draft email reply",
     };
   }
 }

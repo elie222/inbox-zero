@@ -1,7 +1,14 @@
-import { fetchMessagesAndGenerateDraft } from "@/utils/reply-tracker/generate-draft";
 import type { EmailProvider } from "@/utils/email/types";
 import type { Logger } from "@/utils/logger";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
+import { aiDraftFollowUp } from "@/utils/ai/reply/draft-follow-up";
+import { getWritingStyle } from "@/utils/user/get";
+import { internalDateToDate } from "@/utils/date";
+import { getEmailForLLM } from "@/utils/get-email-from-message";
+import prisma from "@/utils/prisma";
+import { env } from "@/env";
+import { getOrCreateReferralCode } from "@/utils/referral/referral-code";
+import { generateReferralLink } from "@/utils/referral/referral-link";
 
 /**
  * Generates a follow-up draft for a thread that's awaiting a reply.
@@ -29,14 +36,56 @@ export async function generateFollowUpDraft({
 
     const lastMessage = thread.messages[thread.messages.length - 1];
 
-    const draftContent = await fetchMessagesAndGenerateDraft(
+    // Convert messages to LLM format
+    const messages = thread.messages.map((msg, index) => ({
+      date: internalDateToDate(msg.internalDate),
+      ...getEmailForLLM(msg, {
+        maxLength: index === thread.messages!.length - 1 ? 2000 : 500,
+        extractReply: true,
+        removeForwarded: false,
+      }),
+    }));
+
+    const writingStyle = await getWritingStyle({
+      emailAccountId: emailAccount.id,
+    });
+
+    const result = await aiDraftFollowUp({
+      messages,
       emailAccount,
-      threadId,
-      provider,
-      undefined, // no test message
-      logger,
-      "follow-up",
-    );
+      writingStyle,
+    });
+
+    if (typeof result !== "string") {
+      throw new Error("Follow-up draft result is not a string");
+    }
+
+    let draftContent = result;
+
+    // Add signatures
+    const emailAccountWithSignatures = await prisma.emailAccount.findUnique({
+      where: { id: emailAccount.id },
+      select: {
+        includeReferralSignature: true,
+        signature: true,
+      },
+    });
+
+    if (
+      !env.NEXT_PUBLIC_DISABLE_REFERRAL_SIGNATURE &&
+      emailAccountWithSignatures?.includeReferralSignature
+    ) {
+      const referralSignature = await getOrCreateReferralCode(
+        emailAccount.userId,
+      );
+      const referralLink = generateReferralLink(referralSignature.code);
+      const htmlSignature = `Drafted by <a href="${referralLink}">Inbox Zero</a>.`;
+      draftContent = `${draftContent}\n\n${htmlSignature}`;
+    }
+
+    if (emailAccountWithSignatures?.signature) {
+      draftContent = `${draftContent}\n\n${emailAccountWithSignatures.signature}`;
+    }
 
     const { draftId } = await provider.draftEmail(
       lastMessage,

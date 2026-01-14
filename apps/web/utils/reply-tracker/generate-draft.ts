@@ -2,7 +2,7 @@ import type { ParsedMessage } from "@/utils/types";
 import { internalDateToDate } from "@/utils/date";
 import { getEmailForLLM } from "@/utils/get-email-from-message";
 import { extractEmailAddress, extractEmailAddresses } from "@/utils/email";
-import { aiDraftWithKnowledge } from "@/utils/ai/reply/draft-with-knowledge";
+import { aiDraftReply } from "@/utils/ai/reply/draft-reply";
 import { getReply, saveReply } from "@/utils/redis/reply";
 import { getWritingStyle } from "@/utils/user/get";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
@@ -22,7 +22,6 @@ import {
   getMeetingContext,
   formatMeetingContextForPrompt,
 } from "@/utils/meeting-briefs/recipient-context";
-import type { DraftType } from "@/utils/ai/reply/draft-with-knowledge";
 
 /**
  * Fetches thread messages and generates draft content in one step
@@ -33,7 +32,6 @@ export async function fetchMessagesAndGenerateDraft(
   client: EmailProvider,
   testMessage: ParsedMessage | undefined,
   logger: Logger,
-  draftType: DraftType = "default",
 ): Promise<string> {
   const { threadMessages, previousConversationMessages } = testMessage
     ? { threadMessages: [testMessage], previousConversationMessages: null }
@@ -45,7 +43,6 @@ export async function fetchMessagesAndGenerateDraft(
     previousConversationMessages,
     client,
     logger,
-    draftType,
   );
 
   if (typeof result !== "string") {
@@ -109,7 +106,6 @@ async function generateDraftContent(
   previousConversationMessages: ParsedMessage[] | null,
   emailProvider: EmailProvider,
   logger: Logger,
-  draftType: DraftType,
 ) {
   const lastMessage = threadMessages.at(-1);
 
@@ -207,13 +203,8 @@ async function generateDraftContent(
       })
     : null;
 
-  // 3. Draft with extracted knowledge
-  const meetingContext = formatMeetingContextForPrompt(
-    upcomingMeetings,
-    emailAccount.timezone,
-  );
-
-  const text = await aiDraftWithKnowledge({
+  // 3. Draft reply
+  const text = await aiDraftReply({
     messages,
     emailAccount,
     knowledgeBaseContent: knowledgeResult?.relevantContent || null,
@@ -222,8 +213,10 @@ async function generateDraftContent(
     calendarAvailability,
     writingStyle,
     mcpContext: mcpResult?.response || null,
-    meetingContext,
-    draftType,
+    meetingContext: formatMeetingContextForPrompt(
+      upcomingMeetings,
+      emailAccount.timezone,
+    ),
   });
 
   if (typeof text === "string") {
