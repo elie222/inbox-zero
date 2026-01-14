@@ -5,6 +5,7 @@ import type Mail from "nodemailer/lib/mailer";
 import type { Attachment } from "nodemailer/lib/mailer";
 import { zodAttachment } from "@/utils/types/mail";
 import { convertEmailHtmlToText } from "@/utils/mail";
+import { escapeHtml } from "@/utils/string";
 import {
   forwardEmailHtml,
   forwardEmailSubject,
@@ -342,7 +343,7 @@ export function convertTextToHtmlParagraphs(text?: string | null): string {
   const htmlContent = lines
     .map((line) => {
       const trimmed = line.trim();
-      return trimmed === "" ? "<br>" : `<p>${trimmed}</p>`;
+      return trimmed === "" ? "<br>" : `<p>${escapeHtml(trimmed)}</p>`;
     })
     .join("");
 
