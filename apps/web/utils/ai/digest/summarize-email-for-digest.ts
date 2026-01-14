@@ -6,6 +6,7 @@ import { stringifyEmailSimple } from "@/utils/stringify-email";
 import { getModel } from "@/utils/llms/model";
 import { createGenerateObject } from "@/utils/llms";
 import { getUserInfoPrompt } from "@/utils/ai/helpers";
+import { PROMPT_SECURITY_INSTRUCTIONS } from "@/utils/ai/security";
 
 const logger = createScopedLogger("summarize-digest-email");
 
@@ -30,6 +31,8 @@ export async function aiSummarizeEmailForDigest({
 
   const system = `You are an AI assistant that processes emails for inclusion in a daily digest.
 Your task is to summarize the content accordingly using the provided schema.
+
+${PROMPT_SECURITY_INSTRUCTIONS}
 
 I will provide you with:
 - A user's name and some context about them.

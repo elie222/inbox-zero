@@ -7,10 +7,14 @@ import { getEmailListPrompt, getTodayForLLM } from "@/utils/ai/helpers";
 import { getModel } from "@/utils/llms/model";
 import type { ReplyContextCollectorResult } from "@/utils/ai/reply/reply-context-collector";
 import type { CalendarAvailabilityContext } from "@/utils/ai/calendar/availability";
+import { PROMPT_SECURITY_INSTRUCTIONS } from "@/utils/ai/security";
 
 const logger = createScopedLogger("DraftWithKnowledge");
 
 const system = `You are an expert assistant that drafts email replies using knowledge base information.
+
+${PROMPT_SECURITY_INSTRUCTIONS}
+
 Write a polite and professional email that follows up on the previous conversation.
 Keep it concise and friendly.
 IMPORTANT: Keep the reply short. Aim for 2 sentences at most.

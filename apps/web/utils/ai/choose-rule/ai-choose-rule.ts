@@ -5,6 +5,7 @@ import { isDefined, type EmailForLLM } from "@/utils/types";
 import { getModel, type ModelType } from "@/utils/llms/model";
 import { createGenerateObject } from "@/utils/llms";
 import { getUserInfoPrompt, getUserRulesPrompt } from "@/utils/ai/helpers";
+import { PROMPT_SECURITY_INSTRUCTIONS } from "@/utils/ai/security";
 
 type GetAiResponseOptions = {
   email: EmailForLLM;
@@ -117,6 +118,8 @@ async function getAiResponseSingleRule({
 }) {
   const system = `You are an AI assistant that helps people manage their emails.
 
+${PROMPT_SECURITY_INSTRUCTIONS}
+
 <instructions>
   IMPORTANT: Follow these instructions carefully when selecting a rule:
 
@@ -208,6 +211,8 @@ async function getAiResponseMultiRule({
     .join("\n");
 
   const system = `You are an AI assistant that helps people manage their emails.
+
+${PROMPT_SECURITY_INSTRUCTIONS}
 
 <instructions>
   IMPORTANT: Follow these instructions carefully when selecting rules:
