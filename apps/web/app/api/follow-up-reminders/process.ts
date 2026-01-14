@@ -1,4 +1,4 @@
-import { subDays } from "date-fns/subDays";
+import { subHours } from "date-fns/subHours";
 import prisma from "@/utils/prisma";
 import { getPremiumUserFilter } from "@/utils/premium";
 import { createEmailProvider } from "@/utils/email/provider";
@@ -120,9 +120,9 @@ export async function processAccountFollowUps({
   const followUpLabel = await getOrCreateFollowUpLabel(provider);
 
   if (emailAccount.followUpAwaitingReplyDays !== null) {
-    const awaitingThreshold = subDays(
+    const awaitingThreshold = subHours(
       now,
-      emailAccount.followUpAwaitingReplyDays,
+      emailAccount.followUpAwaitingReplyDays * 24,
     );
     const awaitingTrackers = await prisma.threadTracker.findMany({
       where: {
@@ -152,9 +152,9 @@ export async function processAccountFollowUps({
   }
 
   if (emailAccount.followUpNeedsReplyDays !== null) {
-    const needsReplyThreshold = subDays(
+    const needsReplyThreshold = subHours(
       now,
-      emailAccount.followUpNeedsReplyDays,
+      emailAccount.followUpNeedsReplyDays * 24,
     );
     const needsReplyTrackers = await prisma.threadTracker.findMany({
       where: {
