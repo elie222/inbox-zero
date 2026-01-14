@@ -7,17 +7,16 @@ import { getEmailListPrompt, getTodayForLLM } from "@/utils/ai/helpers";
 import { getModel } from "@/utils/llms/model";
 import type { ReplyContextCollectorResult } from "@/utils/ai/reply/reply-context-collector";
 import type { CalendarAvailabilityContext } from "@/utils/ai/calendar/availability";
+import { DraftType } from "@/utils/reply-tracker/generate-draft";
 
 const logger = createScopedLogger("DraftWithKnowledge");
 
-const system = `You are an expert assistant that drafts email replies using knowledge base information.
-Write a polite and professional email that follows up on the previous conversation.
+const baseSystemPrompt = `You are an expert assistant that drafts email replies using knowledge base information.
 Keep it concise and friendly.
 IMPORTANT: Keep the reply short. Aim for 2 sentences at most.
 Don't be pushy.
 Use context from the previous emails and the provided knowledge base to make it relevant and accurate.
 IMPORTANT: Do NOT simply repeat or mirror what the last email said. It doesn't add anything to the conversation to repeat back to them what they just said.
-Your reply should aim to continue the conversation or provide new information based on the context or knowledge base. If you have nothing substantial to add, keep the reply minimal.
 Don't mention that you're an AI.
 Don't reply with a Subject. Only reply with the body of the email.
 
@@ -28,6 +27,26 @@ Don't suggest meeting times or mention availability unless specific calendar inf
 
 Return your response in JSON format.
 `;
+
+const draftTypeInstructions: Record<DraftType, string> = {
+  [DraftType.DEFAULT]: `Write a polite and professional email that follows up on the previous conversation.
+Your reply should aim to continue the conversation or provide new information based on the context or knowledge base. If you have nothing substantial to add, keep the reply minimal.`,
+
+  [DraftType.FOLLOW_UP]: `You are writing a follow-up email because the user sent the last message in this thread and hasn't received a reply.
+The purpose of this email is to politely check in and prompt a response from the recipient.
+Write a brief, friendly follow-up that:
+- Acknowledges you're following up on the previous message
+- Gently reminds the recipient about the outstanding matter or question
+- Maintains a professional but warm tone
+- Does NOT repeat the entire content of the previous email
+Examples of good follow-up phrases: "Just checking in on this", "Wanted to follow up on my previous email", "Circling back on this"`,
+};
+
+function getSystemPrompt(draftType: DraftType): string {
+  return `${baseSystemPrompt}
+
+${draftTypeInstructions[draftType]}`;
+}
 
 const getUserPrompt = ({
   messages,
@@ -184,6 +203,7 @@ export async function aiDraftWithKnowledge({
   writingStyle,
   mcpContext,
   meetingContext,
+  draftType = DraftType.DEFAULT,
 }: {
   messages: (EmailForLLM & { to: string })[];
   emailAccount: EmailAccountWithAI;
@@ -194,12 +214,14 @@ export async function aiDraftWithKnowledge({
   writingStyle: string | null;
   mcpContext: string | null;
   meetingContext: string | null;
+  draftType?: DraftType;
 }) {
   try {
     logger.info("Drafting email with knowledge base", {
       messageCount: messages.length,
       hasKnowledge: !!knowledgeBaseContent,
       hasHistory: !!emailHistorySummary,
+      draftType,
       calendarAvailability: calendarAvailability
         ? {
             noAvailability: calendarAvailability.noAvailability,
@@ -231,7 +253,7 @@ export async function aiDraftWithKnowledge({
 
     const result = await generateObject({
       ...modelOptions,
-      system,
+      system: getSystemPrompt(draftType),
       prompt,
       schema: draftSchema,
     });

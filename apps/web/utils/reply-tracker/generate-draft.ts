@@ -24,6 +24,16 @@ import {
 } from "@/utils/meeting-briefs/recipient-context";
 
 /**
+ * Type of draft to generate. Each type has different AI prompting behavior.
+ * - DEFAULT: Standard reply draft based on thread context
+ * - FOLLOW_UP: Follow-up reminder when user is waiting for a response
+ */
+export enum DraftType {
+  DEFAULT = "default",
+  FOLLOW_UP = "follow-up",
+}
+
+/**
  * Fetches thread messages and generates draft content in one step
  */
 export async function fetchMessagesAndGenerateDraft(
@@ -32,6 +42,7 @@ export async function fetchMessagesAndGenerateDraft(
   client: EmailProvider,
   testMessage: ParsedMessage | undefined,
   logger: Logger,
+  draftType: DraftType = DraftType.DEFAULT,
 ): Promise<string> {
   const { threadMessages, previousConversationMessages } = testMessage
     ? { threadMessages: [testMessage], previousConversationMessages: null }
@@ -43,6 +54,7 @@ export async function fetchMessagesAndGenerateDraft(
     previousConversationMessages,
     client,
     logger,
+    draftType,
   );
 
   if (typeof result !== "string") {
@@ -106,6 +118,7 @@ async function generateDraftContent(
   previousConversationMessages: ParsedMessage[] | null,
   emailProvider: EmailProvider,
   logger: Logger,
+  draftType: DraftType,
 ) {
   const lastMessage = threadMessages.at(-1);
 
@@ -219,6 +232,7 @@ async function generateDraftContent(
     writingStyle,
     mcpContext: mcpResult?.response || null,
     meetingContext,
+    draftType,
   });
 
   if (typeof text === "string") {
