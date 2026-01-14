@@ -5,6 +5,7 @@ import type { SendEmailBody } from "@/utils/gmail/mail";
 import type { ParsedMessage } from "@/utils/types";
 import type { EmailForAction } from "@/utils/ai/types";
 import { createOutlookReplyContent } from "@/utils/outlook/reply";
+import { escapeHtml } from "@/utils/string";
 import { forwardEmailHtml, forwardEmailSubject } from "@/utils/gmail/forward";
 import {
   buildReplyAllRecipients,
@@ -332,8 +333,9 @@ function convertTextToHtmlParagraphs(text?: string | null): string {
     .filter((paragraph) => paragraph.trim() !== "");
 
   // Wrap each paragraph with <p> tags and join them back together
+  // Escape HTML to prevent prompt injection attacks
   const htmlContent = paragraphs
-    .map((paragraph) => `<p>${paragraph.trim()}</p>`)
+    .map((paragraph) => `<p>${escapeHtml(paragraph.trim())}</p>`)
     .join("");
 
   return `<html><body>${htmlContent}</body></html>`;
