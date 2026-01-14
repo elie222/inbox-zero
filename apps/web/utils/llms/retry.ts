@@ -152,7 +152,11 @@ export function extractLLMErrorInfo(error: unknown): LLMErrorInfo {
   const cause = original?.cause ?? original;
 
   const status: number | undefined =
-    cause?.status ?? original?.status ?? cause?.response?.status;
+    cause?.status ??
+    cause?.statusCode ??
+    original?.status ??
+    original?.statusCode ??
+    cause?.response?.status;
   const message: string = cause?.message ?? original?.message ?? "";
   const errorCode: string =
     cause?.code ?? original?.code ?? cause?.error?.type ?? "";
@@ -175,7 +179,10 @@ export function extractLLMErrorInfo(error: unknown): LLMErrorInfo {
     /server.?error/i.test(message);
 
   let retryAfterMs: number | undefined;
-  const headers = cause?.response?.headers;
+  const headers =
+    cause?.response?.headers ??
+    cause?.responseHeaders ??
+    original?.responseHeaders;
   const retryAfterHeader: string | undefined =
     headers?.["retry-after"] ?? headers?.["x-ratelimit-reset-requests"];
 
@@ -220,6 +227,7 @@ export async function withLLMRetry<T>(
 
   return pRetry(operation, {
     retries: maxRetries,
+    minTimeout: 0,
     onFailedAttempt: async (error) => {
       const errorInfo = extractLLMErrorInfo(error);
 
