@@ -148,8 +148,8 @@ model EmailAccount {
   filingEnabled Boolean @default(false)
   filingPrompt  String?
 
-  followUpAwaitingReplyDays Int?
-  followUpNeedsReplyDays    Int?
+  followUpAwaitingReplyDays Float?
+  followUpNeedsReplyDays    Float?
   followUpAutoDraftEnabled  Boolean @default(true)
 
   digestSchedule Schedule?
