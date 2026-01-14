@@ -446,11 +446,15 @@ export class OutlookProvider implements EmailProvider {
     }
 
     // Get current message categories to avoid replacing them
-    const message = await this.client
-      .getClient()
-      .api(`/me/messages/${messageId}`)
-      .select("categories")
-      .get();
+    const message = await withOutlookRetry(
+      () =>
+        this.client
+          .getClient()
+          .api(`/me/messages/${messageId}`)
+          .select("categories")
+          .get(),
+      this.logger,
+    );
 
     const currentCategories = message.categories || [];
 
