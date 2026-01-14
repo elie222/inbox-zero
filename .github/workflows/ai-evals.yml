@@ -4,6 +4,7 @@ permissions:
   contents: read
 
 # Runs AI tests when relevant files change or on manual trigger
+# To enable: Set repository variable AI_EVALS_ENABLED=true
 
 on:
   # Manual trigger with optional test filter
@@ -35,8 +36,7 @@ jobs:
   ai-evals:
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    # Only run for PRs from the main repo (not forks) to protect API credits
-    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    if: ${{ vars.AI_EVALS_ENABLED == 'true' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) }}
 
     steps:
       - uses: actions/checkout@v4
