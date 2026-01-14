@@ -36,6 +36,7 @@ import { getEmailTerminology } from "@/utils/terminology";
 import { getGmailBasicSearchUrl } from "@/utils/url";
 import { FOLLOW_UP_LABEL } from "@/utils/label";
 import { isGoogleProvider } from "@/utils/email/provider-types";
+import { TestFollowUpModal } from "./TestFollowUpModal";
 
 export function FollowUpRemindersSetting() {
   const isFeatureEnabled = useFollowUpRemindersEnabled();
@@ -285,6 +286,10 @@ function FollowUpSettingsDialog({
           </Button>
         </div>
       </form>
+
+      <div className="border-t pt-4">
+        <TestFollowUpModal emailAccountId={emailAccountId} />
+      </div>
     </DialogContent>
   );
 }

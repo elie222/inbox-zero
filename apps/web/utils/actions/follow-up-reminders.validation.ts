@@ -26,3 +26,18 @@ export const saveFollowUpSettingsFormBody = z.object({
 export type SaveFollowUpSettingsFormInput = z.infer<
   typeof saveFollowUpSettingsFormBody
 >;
+
+// Testing actions
+export const testApplyFollowUpLabelBody = z.object({
+  threadId: z.string(),
+});
+export type TestApplyFollowUpLabelBody = z.infer<
+  typeof testApplyFollowUpLabelBody
+>;
+
+export const testGenerateFollowUpDraftBody = z.object({
+  threadId: z.string(),
+});
+export type TestGenerateFollowUpDraftBody = z.infer<
+  typeof testGenerateFollowUpDraftBody
+>;
