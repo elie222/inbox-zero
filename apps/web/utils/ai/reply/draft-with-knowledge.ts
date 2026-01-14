@@ -7,7 +7,7 @@ import { getEmailListPrompt, getTodayForLLM } from "@/utils/ai/helpers";
 import { getModel } from "@/utils/llms/model";
 import type { ReplyContextCollectorResult } from "@/utils/ai/reply/reply-context-collector";
 import type { CalendarAvailabilityContext } from "@/utils/ai/calendar/availability";
-import { DraftType } from "@/utils/reply-tracker/generate-draft";
+import { DraftType } from "@/utils/ai/reply/draft-types";
 
 const logger = createScopedLogger("DraftWithKnowledge");
 
