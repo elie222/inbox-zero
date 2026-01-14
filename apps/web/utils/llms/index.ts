@@ -35,7 +35,7 @@ import {
 } from "@/utils/error";
 import { getModel, type ModelType } from "@/utils/llms/model";
 import { createScopedLogger } from "@/utils/logger";
-import { withNetworkRetry } from "./retry";
+import { withNetworkRetry, withLLMRetry } from "./retry";
 
 const logger = createScopedLogger("llms");
 
@@ -97,9 +97,10 @@ export function createGenerateText({
     };
 
     try {
-      return await withNetworkRetry(() => generate(modelOptions.model), {
-        label,
-      });
+      return await withLLMRetry(
+        () => withNetworkRetry(() => generate(modelOptions.model), { label }),
+        { label },
+      );
     } catch (error) {
       // Try backup model for service unavailable or throttling errors
       if (
@@ -112,8 +113,11 @@ export function createGenerateText({
         });
 
         try {
-          return await withNetworkRetry(
-            () => generate(modelOptions.backupModel!),
+          return await withLLMRetry(
+            () =>
+              withNetworkRetry(() => generate(modelOptions.backupModel!), {
+                label,
+              }),
             { label },
           );
         } catch (backupError) {
@@ -202,13 +206,16 @@ export function createGenerateObject({
     };
 
     try {
-      return await withNetworkRetry(generate, {
-        label,
-        // Also retry on validation errors for generateObject
-        shouldRetry: (error) =>
-          NoObjectGeneratedError.isInstance(error) ||
-          TypeValidationError.isInstance(error),
-      });
+      return await withLLMRetry(
+        () =>
+          withNetworkRetry(generate, {
+            label,
+            shouldRetry: (error) =>
+              NoObjectGeneratedError.isInstance(error) ||
+              TypeValidationError.isInstance(error),
+          }),
+        { label },
+      );
     } catch (error) {
       await handleError(
         error,
