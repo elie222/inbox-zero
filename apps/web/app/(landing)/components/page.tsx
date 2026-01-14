@@ -59,6 +59,11 @@ import { RuleSectionCard } from "@/app/(app)/[emailAccountId]/assistant/RuleSect
 import { ConditionSteps } from "@/app/(app)/[emailAccountId]/assistant/ConditionSteps";
 import { ActionSteps } from "@/app/(app)/[emailAccountId]/assistant/ActionSteps";
 import { ConditionType } from "@/utils/config";
+import { useForm, useFieldArray } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { createRuleBody, type CreateRuleBody } from "@/utils/actions/rule.validation";
+import { getActionIcon } from "@/utils/action-display";
+import { Form } from "@/components/ui/form";
 
 export const maxDuration = 3;
 
@@ -829,126 +834,9 @@ export default function Components() {
           <div className="underline">Rule Form Sections</div>
           <div className="mt-4 space-y-4">
             <MutedText>
-              Rule form components for the AI assistant automation rules. These
-              show the structure of condition and action sections.
+              Rule form components for the AI assistant automation rules.
             </MutedText>
-
-            <div className="space-y-4">
-              <div>
-                <MutedText className="mb-2">
-                  Conditions Section (Blue):
-                </MutedText>
-                <RuleSectionCard
-                  icon={MailIcon}
-                  color="blue"
-                  title="When you get an email"
-                >
-                  <div className="space-y-3 rounded-md bg-gray-50 dark:bg-gray-900 p-4">
-                    <div className="flex gap-2 items-start">
-                      <div className="flex-1 space-y-2">
-                        <div className="text-sm font-medium">
-                          That matches:
-                        </div>
-                        <textarea
-                          className="w-full p-2 border rounded-md text-sm"
-                          rows={3}
-                          value="Newsletters, regular content from publications, blogs, or services I've subscribed to"
-                          readOnly
-                        />
-                      </div>
-                    </div>
-
-                    <div className="flex gap-2 items-center pl-3">
-                      <span className="text-sm text-muted-foreground">and</span>
-                      <div className="px-3 py-1 bg-white dark:bg-gray-800 border rounded-md text-sm">
-                        From
-                      </div>
-                      <input
-                        type="text"
-                        className="flex-1 p-2 border rounded-md text-sm"
-                        value="@substack.com"
-                        readOnly
-                      />
-                    </div>
-
-                    <div className="flex gap-2 items-center pl-3">
-                      <span className="text-sm text-muted-foreground">and</span>
-                      <div className="px-3 py-1 bg-white dark:bg-gray-800 border rounded-md text-sm">
-                        Subject
-                      </div>
-                      <input
-                        type="text"
-                        className="flex-1 p-2 border rounded-md text-sm"
-                        value="Newsletter"
-                        readOnly
-                      />
-                    </div>
-
-                    <div className="pt-2">
-                      <ShadButton variant="ghost" size="sm" disabled>
-                        <SparklesIcon className="size-4 mr-2" />
-                        Add Condition
-                      </ShadButton>
-                    </div>
-                  </div>
-                </RuleSectionCard>
-              </div>
-
-              <div>
-                <MutedText className="mb-2">Actions Section (Green):</MutedText>
-                <RuleSectionCard
-                  icon={BotIcon}
-                  color="green"
-                  title="Then:"
-                >
-                  <div className="space-y-3 rounded-md bg-gray-50 dark:bg-gray-900 p-4">
-                    <div className="flex gap-2 items-center">
-                      <div className="px-3 py-1 bg-white dark:bg-gray-800 border rounded-md text-sm flex items-center gap-2">
-                        <SparklesIcon className="size-4" />
-                        Label
-                      </div>
-                      <input
-                        type="text"
-                        className="flex-1 p-2 border rounded-md text-sm"
-                        value="Newsletter"
-                        readOnly
-                      />
-                    </div>
-
-                    <div className="flex gap-2 items-center">
-                      <div className="px-3 py-1 bg-white dark:bg-gray-800 border rounded-md text-sm">
-                        Archive
-                      </div>
-                      <div className="flex-1" />
-                    </div>
-
-                    <div className="flex gap-2 items-start">
-                      <div className="px-3 py-1 bg-white dark:bg-gray-800 border rounded-md text-sm">
-                        Draft reply
-                      </div>
-                      <div className="flex-1 p-3 bg-white dark:bg-gray-800 border rounded-md">
-                        <div className="text-xs text-muted-foreground">
-                          Our AI generates a draft reply from your email history
-                          and knowledge base.
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="pt-2">
-                      <ShadButton variant="ghost" size="sm" disabled>
-                        <SparklesIcon className="size-4 mr-2" />
-                        Add Action
-                      </ShadButton>
-                    </div>
-                  </div>
-                </RuleSectionCard>
-              </div>
-            </div>
-
-            <MutedText className="text-xs">
-              Note: These are static previews for visual reference. The actual
-              form components are interactive and require form state management.
-            </MutedText>
+            <RuleFormDemo />
           </div>
         </div>
 
@@ -1063,5 +951,178 @@ function EmailRowExample() {
         </TableBody>
       </Table>
     </div>
+  );
+}
+
+function RuleFormDemo() {
+  const form = useForm<CreateRuleBody>({
+    resolver: zodResolver(createRuleBody),
+    defaultValues: {
+      name: "Newsletter Rule",
+      conditions: [
+        {
+          type: ConditionType.AI,
+          instructions: "Newsletters, regular content from publications, blogs, or services I've subscribed to",
+          from: null,
+          to: null,
+          subject: null,
+          body: null,
+        },
+        {
+          type: ConditionType.STATIC,
+          from: "@substack.com",
+          to: null,
+          subject: null,
+          body: null,
+          instructions: null,
+        },
+        {
+          type: ConditionType.STATIC,
+          from: null,
+          to: null,
+          subject: "Newsletter",
+          body: null,
+          instructions: null,
+        },
+      ],
+      actions: [
+        {
+          type: ActionType.LABEL,
+          labelId: { value: "label-1", name: "Newsletter" },
+        },
+        {
+          type: ActionType.ARCHIVE,
+        },
+        {
+          type: ActionType.DRAFT_EMAIL,
+          content: { setManually: false },
+        },
+      ],
+      conditionalOperator: LogicalOperator.AND,
+      runOnThreads: false,
+    },
+  });
+
+  const { register, control, watch, setValue } = form;
+
+  const {
+    fields: conditionFields,
+    append: appendCondition,
+    remove: removeCondition,
+  } = useFieldArray({
+    control,
+    name: "conditions",
+  });
+
+  const {
+    fields: actionFields,
+    append: appendAction,
+    remove: removeAction,
+  } = useFieldArray({
+    control,
+    name: "actions",
+  });
+
+  const conditions = watch("conditions");
+  const conditionalOperator = watch("conditionalOperator");
+
+  const typeOptions = [
+    {
+      label: "Label",
+      value: ActionType.LABEL,
+      icon: getActionIcon(ActionType.LABEL),
+    },
+    {
+      label: "Draft reply",
+      value: ActionType.DRAFT_EMAIL,
+      icon: getActionIcon(ActionType.DRAFT_EMAIL),
+    },
+    {
+      label: "Archive",
+      value: ActionType.ARCHIVE,
+      icon: getActionIcon(ActionType.ARCHIVE),
+    },
+    {
+      label: "Mark read",
+      value: ActionType.MARK_READ,
+      icon: getActionIcon(ActionType.MARK_READ),
+    },
+    {
+      label: "Reply",
+      value: ActionType.REPLY,
+      icon: getActionIcon(ActionType.REPLY),
+    },
+    {
+      label: "Send email",
+      value: ActionType.SEND_EMAIL,
+      icon: getActionIcon(ActionType.SEND_EMAIL),
+    },
+    {
+      label: "Forward",
+      value: ActionType.FORWARD,
+      icon: getActionIcon(ActionType.FORWARD),
+    },
+    {
+      label: "Mark spam",
+      value: ActionType.MARK_SPAM,
+      icon: getActionIcon(ActionType.MARK_SPAM),
+    },
+    {
+      label: "Call webhook",
+      value: ActionType.CALL_WEBHOOK,
+      icon: getActionIcon(ActionType.CALL_WEBHOOK),
+    },
+  ];
+
+  return (
+    <Form {...form}>
+      <div className="space-y-4">
+        <MutedText className="mb-2">Conditions Section:</MutedText>
+        <RuleSectionCard
+          icon={MailIcon}
+          color="blue"
+          title="When you get an email"
+        >
+          <ConditionSteps
+            conditionFields={conditionFields}
+            conditionalOperator={conditionalOperator}
+            removeCondition={removeCondition}
+            control={control}
+            watch={watch}
+            setValue={setValue}
+            register={register}
+            errors={{}}
+            conditions={conditions}
+            ruleSystemType={null}
+            appendCondition={appendCondition}
+          />
+        </RuleSectionCard>
+
+        <MutedText className="mb-2">Actions Section:</MutedText>
+        <RuleSectionCard icon={BotIcon} color="green" title="Then:">
+          <ActionSteps
+            actionFields={actionFields as any}
+            register={register}
+            watch={watch}
+            setValue={setValue}
+            control={control}
+            errors={{}}
+            userLabels={[
+              { id: "label-1", name: "Newsletter" },
+              { id: "label-2", name: "Important" },
+              { id: "label-3", name: "Work" },
+            ]}
+            isLoading={false}
+            mutate={async () => {}}
+            emailAccountId="demo-account"
+            remove={removeAction}
+            typeOptions={typeOptions}
+            folders={[]}
+            foldersLoading={false}
+            append={appendAction}
+          />
+        </RuleSectionCard>
+      </div>
+    </Form>
   );
 }
