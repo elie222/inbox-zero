@@ -1,6 +1,6 @@
 "use client";
 
-import { SparklesIcon } from "lucide-react";
+import { SparklesIcon, MailIcon, BotIcon } from "lucide-react";
 import {
   Card,
   CardBasic,
@@ -829,46 +829,126 @@ export default function Components() {
           <div className="underline">Rule Form Sections</div>
           <div className="mt-4 space-y-4">
             <MutedText>
-              Rule form components for the AI assistant automation rules.
+              Rule form components for the AI assistant automation rules. These
+              show the structure of condition and action sections.
             </MutedText>
 
-            <RuleSectionCard
-              icon={MailIcon}
-              color="blue"
-              title="When you get an email"
-            >
-              <div className="space-y-2">
-                <p className="text-sm text-muted-foreground">
-                  Conditions section - This is where users configure email
-                  matching conditions using AI prompts or static filters (from,
-                  to, subject).
-                </p>
-                <div className="rounded-md bg-muted p-3">
-                  <p className="text-xs font-mono">
-                    Example: AI Prompt condition, From condition, Subject
-                    condition
-                  </p>
-                </div>
-              </div>
-            </RuleSectionCard>
+            <div className="space-y-4">
+              <div>
+                <MutedText className="mb-2">
+                  Conditions Section (Blue):
+                </MutedText>
+                <RuleSectionCard
+                  icon={MailIcon}
+                  color="blue"
+                  title="When you get an email"
+                >
+                  <div className="space-y-3 rounded-md bg-gray-50 dark:bg-gray-900 p-4">
+                    <div className="flex gap-2 items-start">
+                      <div className="flex-1 space-y-2">
+                        <div className="text-sm font-medium">
+                          That matches:
+                        </div>
+                        <textarea
+                          className="w-full p-2 border rounded-md text-sm"
+                          rows={3}
+                          value="Newsletters, regular content from publications, blogs, or services I've subscribed to"
+                          readOnly
+                        />
+                      </div>
+                    </div>
 
-            <RuleSectionCard
-              icon={BotIcon}
-              color="green"
-              title="Then:"
-            >
-              <div className="space-y-2">
-                <p className="text-sm text-muted-foreground">
-                  Actions section - This is where users configure automated
-                  actions like labeling, archiving, drafting replies, etc.
-                </p>
-                <div className="rounded-md bg-muted p-3">
-                  <p className="text-xs font-mono">
-                    Example: Label, Archive, Draft email, etc.
-                  </p>
-                </div>
+                    <div className="flex gap-2 items-center pl-3">
+                      <span className="text-sm text-muted-foreground">and</span>
+                      <div className="px-3 py-1 bg-white dark:bg-gray-800 border rounded-md text-sm">
+                        From
+                      </div>
+                      <input
+                        type="text"
+                        className="flex-1 p-2 border rounded-md text-sm"
+                        value="@substack.com"
+                        readOnly
+                      />
+                    </div>
+
+                    <div className="flex gap-2 items-center pl-3">
+                      <span className="text-sm text-muted-foreground">and</span>
+                      <div className="px-3 py-1 bg-white dark:bg-gray-800 border rounded-md text-sm">
+                        Subject
+                      </div>
+                      <input
+                        type="text"
+                        className="flex-1 p-2 border rounded-md text-sm"
+                        value="Newsletter"
+                        readOnly
+                      />
+                    </div>
+
+                    <div className="pt-2">
+                      <ShadButton variant="ghost" size="sm" disabled>
+                        <SparklesIcon className="size-4 mr-2" />
+                        Add Condition
+                      </ShadButton>
+                    </div>
+                  </div>
+                </RuleSectionCard>
               </div>
-            </RuleSectionCard>
+
+              <div>
+                <MutedText className="mb-2">Actions Section (Green):</MutedText>
+                <RuleSectionCard
+                  icon={BotIcon}
+                  color="green"
+                  title="Then:"
+                >
+                  <div className="space-y-3 rounded-md bg-gray-50 dark:bg-gray-900 p-4">
+                    <div className="flex gap-2 items-center">
+                      <div className="px-3 py-1 bg-white dark:bg-gray-800 border rounded-md text-sm flex items-center gap-2">
+                        <SparklesIcon className="size-4" />
+                        Label
+                      </div>
+                      <input
+                        type="text"
+                        className="flex-1 p-2 border rounded-md text-sm"
+                        value="Newsletter"
+                        readOnly
+                      />
+                    </div>
+
+                    <div className="flex gap-2 items-center">
+                      <div className="px-3 py-1 bg-white dark:bg-gray-800 border rounded-md text-sm">
+                        Archive
+                      </div>
+                      <div className="flex-1" />
+                    </div>
+
+                    <div className="flex gap-2 items-start">
+                      <div className="px-3 py-1 bg-white dark:bg-gray-800 border rounded-md text-sm">
+                        Draft reply
+                      </div>
+                      <div className="flex-1 p-3 bg-white dark:bg-gray-800 border rounded-md">
+                        <div className="text-xs text-muted-foreground">
+                          Our AI generates a draft reply from your email history
+                          and knowledge base.
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="pt-2">
+                      <ShadButton variant="ghost" size="sm" disabled>
+                        <SparklesIcon className="size-4 mr-2" />
+                        Add Action
+                      </ShadButton>
+                    </div>
+                  </div>
+                </RuleSectionCard>
+              </div>
+            </div>
+
+            <MutedText className="text-xs">
+              Note: These are static previews for visual reference. The actual
+              form components are interactive and require form state management.
+            </MutedText>
           </div>
         </div>
 
