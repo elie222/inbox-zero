@@ -15,6 +15,7 @@ import {
 } from "@/utils/actions/onboarding";
 import { useOnboardingAnalytics } from "@/hooks/useAnalytics";
 import { useSignUpEvent } from "@/hooks/useSignupEvent";
+import { usePremium } from "@/components/PremiumAlert";
 
 const surveyId = env.NEXT_PUBLIC_POSTHOG_ONBOARDING_SURVEY_ID;
 
@@ -27,6 +28,7 @@ export const OnboardingForm = (props: { questionIndex: number }) => {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [showOtherInput, setShowOtherInput] = useState(false);
+  const { isPremium } = usePremium();
 
   const analytics = useOnboardingAnalytics("welcome");
 
@@ -90,7 +92,11 @@ export const OnboardingForm = (props: { questionIndex: number }) => {
         submitPosthog(responses);
         await completedOnboardingAction();
 
-        router.push("/welcome-upgrade");
+        if (isPremium) {
+          router.push("/setup");
+        } else {
+          router.push("/welcome-upgrade");
+        }
       } else {
         router.push(`/welcome?${newSeachParams}`);
       }
@@ -104,6 +110,7 @@ export const OnboardingForm = (props: { questionIndex: number }) => {
       setValue,
       isFinalQuestion,
       analytics,
+      isPremium,
     ],
   );
 

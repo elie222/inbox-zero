@@ -16,6 +16,7 @@ export class OutlookClient {
   private readonly accessToken: string;
   private readonly logger: Logger;
   private folderIdCache: Record<string, string> | null = null;
+  private categoryMapCache: Map<string, string> | null = null;
 
   constructor(accessToken: string, logger: Logger) {
     this.accessToken = accessToken;
@@ -49,6 +50,18 @@ export class OutlookClient {
 
   setFolderIdCache(cache: Record<string, string>): void {
     this.folderIdCache = cache;
+  }
+
+  getCategoryMapCache(): Map<string, string> | null {
+    return this.categoryMapCache;
+  }
+
+  setCategoryMapCache(cache: Map<string, string>): void {
+    this.categoryMapCache = cache;
+  }
+
+  invalidateCategoryMapCache(): void {
+    this.categoryMapCache = null;
   }
 
   // Helper methods for common operations

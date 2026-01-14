@@ -100,6 +100,9 @@ export async function createLabel({
         }),
       logger,
     );
+
+    client.invalidateCategoryMapCache();
+
     return response;
   } catch (error) {
     let { errorMessage } = extractErrorInfo(error);
