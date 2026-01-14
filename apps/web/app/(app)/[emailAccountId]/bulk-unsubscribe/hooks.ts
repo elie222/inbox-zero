@@ -116,47 +116,97 @@ export function useBulkUnsubscribe<T extends Row>({
   posthog,
   refetchPremium,
   emailAccountId,
+  onSuccess,
 }: {
   hasUnsubscribeAccess: boolean;
-  mutate: () => Promise<void>;
+  mutate: (
+    // biome-ignore lint/suspicious/noExplicitAny: SWR mutate signature
+    data?: any,
+    opts?: {
+      revalidate?: boolean;
+    },
+  ) => Promise<void>;
   posthog: PostHog;
   refetchPremium: () => Promise<UserResponse | null | undefined>;
   emailAccountId: string;
+  onSuccess?: () => void;
 }) {
-  const [bulkUnsubscribeLoading, setBulkUnsubscribeLoading] = useState(false);
-
   const onBulkUnsubscribe = useCallback(
     async (items: T[]) => {
       if (!hasUnsubscribeAccess) return;
 
-      setBulkUnsubscribeLoading(true);
+      posthog.capture("Clicked Bulk Unsubscribe");
 
-      try {
-        posthog.capture("Clicked Bulk Unsubscribe");
+      const itemNames = items.map((item) => item.name);
 
-        for (const item of items) {
-          try {
-            await unsubscribeAndArchive({
-              newsletterEmail: item.name,
-              mutate,
-              refetchPremium,
-              emailAccountId,
-            });
-          } catch (error) {
-            captureException(error);
-          }
+      // Optimistically remove items from list
+      // biome-ignore lint/suspicious/noExplicitAny: SWR data structure
+      const optimisticUpdate = (currentData: any) => {
+        if (!currentData?.newsletters) return currentData;
+        return {
+          ...currentData,
+          newsletters: currentData.newsletters.filter(
+            // biome-ignore lint/suspicious/noExplicitAny: newsletter type
+            (n: any) => !itemNames.includes(n.name),
+          ),
+        };
+      };
+
+      // Show success toast immediately
+      toast.success(
+        `${items.length} sender${items.length > 1 ? "s" : ""} unsubscribed`,
+      );
+
+      // Apply optimistic update immediately
+      mutate(optimisticUpdate, { revalidate: false });
+
+      // Clear selection immediately
+      onSuccess?.();
+
+      // Process server requests in the background
+      const results = await Promise.allSettled(
+        items.map(async (item) => {
+          await setNewsletterStatusAction(emailAccountId, {
+            newsletterEmail: item.name,
+            status: NewsletterStatus.UNSUBSCRIBED,
+          });
+          await decrementUnsubscribeCreditAction();
+          await addToArchiveSenderQueue({
+            sender: item.name,
+            emailAccountId,
+          });
+        }),
+      );
+
+      // Refetch premium after all items processed
+      await refetchPremium();
+
+      // Check for failures
+      const failures = results.filter((r) => r.status === "rejected");
+      if (failures.length > 0) {
+        // Revert by revalidating to get fresh data
+        await mutate();
+        toast.error(
+          `Failed to unsubscribe from ${failures.length} sender${failures.length > 1 ? "s" : ""}`,
+        );
+        for (const failure of failures) {
+          captureException(
+            failure.status === "rejected" ? failure.reason : failure,
+          );
         }
-      } catch (error) {
-        captureException(error);
       }
-
-      setBulkUnsubscribeLoading(false);
     },
-    [hasUnsubscribeAccess, mutate, posthog, refetchPremium, emailAccountId],
+    [
+      hasUnsubscribeAccess,
+      mutate,
+      posthog,
+      refetchPremium,
+      emailAccountId,
+      onSuccess,
+    ],
   );
 
   return {
-    bulkUnsubscribeLoading,
     onBulkUnsubscribe,
   };
 }
@@ -290,38 +340,94 @@ export function useBulkAutoArchive<T extends Row>({
   mutate,
   refetchPremium,
   emailAccountId,
+  onSuccess,
 }: {
   hasUnsubscribeAccess: boolean;
-  mutate: () => Promise<void>;
+  mutate: (
+    // biome-ignore lint/suspicious/noExplicitAny: SWR mutate signature
+    data?: any,
+    opts?: {
+      revalidate?: boolean;
+    },
+  ) => Promise<void>;
   refetchPremium: () => Promise<UserResponse | null | undefined>;
   emailAccountId: string;
+  onSuccess?: () => void;
 }) {
-  const [bulkAutoArchiveLoading, setBulkAutoArchiveLoading] = useState(false);
-
   const onBulkAutoArchive = useCallback(
     async (items: T[]) => {
       if (!hasUnsubscribeAccess) return;
 
-      setBulkAutoArchiveLoading(true);
+      const itemNames = items.map((item) => item.name);
 
-      for (const item of items) {
-        await autoArchive({
-          name: item.name,
-          labelId: undefined,
-          labelName: undefined,
-          mutate,
-          refetchPremium,
-          emailAccountId,
-        });
+      // Optimistically remove items from list
+      // biome-ignore lint/suspicious/noExplicitAny: SWR data structure
+      const optimisticUpdate = (currentData: any) => {
+        if (!currentData?.newsletters) return currentData;
+        return {
+          ...currentData,
+          newsletters: currentData.newsletters.filter(
+            // biome-ignore lint/suspicious/noExplicitAny: newsletter type
+            (n: any) => !itemNames.includes(n.name),
+          ),
+        };
+      };
+
+      // Show success toast immediately
+      toast.success(
+        `${items.length} sender${items.length > 1 ? "s" : ""} set to skip inbox`,
+      );
+
+      // Apply optimistic update immediately
+      mutate(optimisticUpdate, { revalidate: false });
+
+      // Clear selection immediately
+      onSuccess?.();
+
+      // Process server requests in the background
+      const results = await Promise.allSettled(
+        items.map(async (item) => {
+          await onAutoArchive({
+            emailAccountId,
+            from: item.name,
+            gmailLabelId: undefined,
+            labelName: undefined,
+          });
+          await setNewsletterStatusAction(emailAccountId, {
+            newsletterEmail: item.name,
+            status: NewsletterStatus.AUTO_ARCHIVED,
+          });
+          await decrementUnsubscribeCreditAction();
+          await addToArchiveSenderQueue({
+            sender: item.name,
+            labelId: undefined,
+            emailAccountId,
+          });
+        }),
+      );
+
+      // Refetch premium after all items processed
+      await refetchPremium();
+
+      // Check for failures
+      const failures = results.filter((r) => r.status === "rejected");
+      if (failures.length > 0) {
+        // Revert by revalidating to get fresh data
+        await mutate();
+        toast.error(
+          `Failed to set skip inbox for ${failures.length} sender${failures.length > 1 ? "s" : ""}`,
+        );
+        for (const failure of failures) {
+          captureException(
+            failure.status === "rejected" ? failure.reason : failure,
+          );
+        }
       }
-
-      setBulkAutoArchiveLoading(false);
     },
-    [hasUnsubscribeAccess, mutate, refetchPremium, emailAccountId],
+    [hasUnsubscribeAccess, mutate, refetchPremium, emailAccountId, onSuccess],
   );
 
   return {
-    bulkAutoArchiveLoading,
     onBulkAutoArchive,
   };
 }
@@ -432,31 +538,75 @@ export function useBulkApprove<T extends Row>({
   mutate,
   posthog,
   emailAccountId,
+  onSuccess,
 }: {
-  mutate: () => Promise<void>;
+  mutate: (
+    // biome-ignore lint/suspicious/noExplicitAny: SWR mutate signature
+    data?: any,
+    opts?: {
+      revalidate?: boolean;
+    },
+  ) => Promise<void>;
   posthog: PostHog;
   emailAccountId: string;
+  onSuccess?: () => void;
 }) {
-  const [bulkApproveLoading, setBulkApproveLoading] = useState(false);
-
   const onBulkApprove = async (items: T[]) => {
-    setBulkApproveLoading(true);
-
     posthog.capture("Clicked Bulk Approve");
 
-    for (const item of items) {
-      await setNewsletterStatusAction(emailAccountId, {
-        newsletterEmail: item.name,
-        status: NewsletterStatus.APPROVED,
-      });
-      await mutate();
-    }
+    const itemNames = items.map((item) => item.name);
 
-    setBulkApproveLoading(false);
+    // Optimistically remove items from list (for filtered views like "unhandled")
+    // biome-ignore lint/suspicious/noExplicitAny: SWR data structure
+    const optimisticUpdate = (currentData: any) => {
+      if (!currentData?.newsletters) return currentData;
+      return {
+        ...currentData,
+        newsletters: currentData.newsletters.filter(
+          // biome-ignore lint/suspicious/noExplicitAny: newsletter type
+          (n: any) => !itemNames.includes(n.name),
+        ),
+      };
+    };
+
+    // Show success toast immediately
+    toast.success(
+      `${items.length} sender${items.length > 1 ? "s" : ""} approved`,
+    );
+
+    // Apply optimistic update immediately (don't await - fire and forget for UI)
+    mutate(optimisticUpdate, { revalidate: false });
+
+    // Clear selection immediately
+    onSuccess?.();
+
+    // Process server requests in the background
+    const results = await Promise.allSettled(
+      items.map((item) =>
+        setNewsletterStatusAction(emailAccountId, {
+          newsletterEmail: item.name,
+          status: NewsletterStatus.APPROVED,
+        }),
+      ),
+    );
+
+    // Check for failures
+    const failures = results.filter((r) => r.status === "rejected");
+    if (failures.length > 0) {
+      // Revert by revalidating to get fresh data
+      await mutate();
+      toast.error(
+        `Failed to approve ${failures.length} sender${failures.length > 1 ? "s" : ""}`,
+      );
+      for (const failure of failures) {
+        captureException(
+          failure.status === "rejected" ? failure.reason : failure,
+        );
+      }
+    }
   };
 
   return {
-    bulkApproveLoading,
     onBulkApprove,
   };
 }

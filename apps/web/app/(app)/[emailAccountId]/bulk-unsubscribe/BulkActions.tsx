@@ -95,25 +95,28 @@ export function BulkActions({
   const { hasUnsubscribeAccess, mutate: refetchPremium } = usePremium();
   const { PremiumModal, openModal } = usePremiumModal();
   const { emailAccountId } = useAccount();
-  const { bulkUnsubscribeLoading, onBulkUnsubscribe } = useBulkUnsubscribe({
+  const { onBulkUnsubscribe } = useBulkUnsubscribe({
     hasUnsubscribeAccess,
     mutate,
     posthog,
     refetchPremium,
     emailAccountId,
+    onSuccess: onClearSelection,
   });
 
-  const { bulkApproveLoading, onBulkApprove } = useBulkApprove({
+  const { onBulkApprove } = useBulkApprove({
     mutate,
     posthog,
     emailAccountId,
+    onSuccess: onClearSelection,
   });
 
-  const { bulkAutoArchiveLoading, onBulkAutoArchive } = useBulkAutoArchive({
+  const { onBulkAutoArchive } = useBulkAutoArchive({
     hasUnsubscribeAccess,
     mutate,
     refetchPremium,
     emailAccountId,
+    onSuccess: onClearSelection,
   });
 
   const { onBulkArchive, isBulkArchiving } = useBulkArchive({
@@ -178,24 +181,18 @@ export function BulkActions({
                     <ActionButton
                       icon={MailMinusIcon}
                       label="Unsubscribe"
-                      loadingLabel="Unsubscribing"
                       primary
                       onClick={() => onBulkUnsubscribe(getSelectedValues())}
-                      loading={bulkUnsubscribeLoading}
                     />
                     <ActionButton
                       icon={ArchiveIcon}
                       label="Skip Inbox"
-                      loadingLabel="Skipping"
                       onClick={() => setSkipInboxDialogOpen(true)}
-                      loading={bulkAutoArchiveLoading}
                     />
                     <ActionButton
                       icon={ThumbsUpIcon}
                       label="Approve"
-                      loadingLabel="Approving"
                       onClick={() => onBulkApprove(getSelectedValues())}
-                      loading={bulkApproveLoading}
                     />
                     <ActionButton
                       icon={ArchiveIcon}
