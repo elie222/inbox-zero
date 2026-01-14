@@ -22,9 +22,7 @@ import {
   getMeetingContext,
   formatMeetingContextForPrompt,
 } from "@/utils/meeting-briefs/recipient-context";
-import { DraftType } from "@/utils/ai/reply/draft-types";
-
-export { DraftType };
+import type { DraftType } from "@/utils/ai/reply/draft-with-knowledge";
 
 /**
  * Fetches thread messages and generates draft content in one step
@@ -35,7 +33,7 @@ export async function fetchMessagesAndGenerateDraft(
   client: EmailProvider,
   testMessage: ParsedMessage | undefined,
   logger: Logger,
-  draftType: DraftType = DraftType.DEFAULT,
+  draftType: DraftType = "default",
 ): Promise<string> {
   const { threadMessages, previousConversationMessages } = testMessage
     ? { threadMessages: [testMessage], previousConversationMessages: null }

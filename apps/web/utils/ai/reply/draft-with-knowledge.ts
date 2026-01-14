@@ -7,7 +7,13 @@ import { getEmailListPrompt, getTodayForLLM } from "@/utils/ai/helpers";
 import { getModel } from "@/utils/llms/model";
 import type { ReplyContextCollectorResult } from "@/utils/ai/reply/reply-context-collector";
 import type { CalendarAvailabilityContext } from "@/utils/ai/calendar/availability";
-import { DraftType } from "@/utils/ai/reply/draft-types";
+
+/**
+ * Type of draft to generate. Each type has different AI prompting behavior.
+ * - "default": Standard reply draft based on thread context
+ * - "follow-up": Follow-up reminder when user is waiting for a response
+ */
+export type DraftType = "default" | "follow-up";
 
 const logger = createScopedLogger("DraftWithKnowledge");
 
@@ -29,10 +35,10 @@ Return your response in JSON format.
 `;
 
 const draftTypeInstructions: Record<DraftType, string> = {
-  [DraftType.DEFAULT]: `Write a polite and professional email that follows up on the previous conversation.
+  default: `Write a polite and professional email that follows up on the previous conversation.
 Your reply should aim to continue the conversation or provide new information based on the context or knowledge base. If you have nothing substantial to add, keep the reply minimal.`,
 
-  [DraftType.FOLLOW_UP]: `You are writing a follow-up email because the user sent the last message in this thread and hasn't received a reply.
+  "follow-up": `You are writing a follow-up email because the user sent the last message in this thread and hasn't received a reply.
 The purpose of this email is to politely check in and prompt a response from the recipient.
 Write a brief, friendly follow-up that:
 - Acknowledges you're following up on the previous message
@@ -203,7 +209,7 @@ export async function aiDraftWithKnowledge({
   writingStyle,
   mcpContext,
   meetingContext,
-  draftType = DraftType.DEFAULT,
+  draftType = "default",
 }: {
   messages: (EmailForLLM & { to: string })[];
   emailAccount: EmailAccountWithAI;

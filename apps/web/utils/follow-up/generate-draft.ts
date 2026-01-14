@@ -1,7 +1,4 @@
-import {
-  fetchMessagesAndGenerateDraft,
-  DraftType,
-} from "@/utils/reply-tracker/generate-draft";
+import { fetchMessagesAndGenerateDraft } from "@/utils/reply-tracker/generate-draft";
 import type { EmailProvider } from "@/utils/email/types";
 import type { Logger } from "@/utils/logger";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
@@ -38,7 +35,7 @@ export async function generateFollowUpDraft({
       provider,
       undefined, // no test message
       logger,
-      DraftType.FOLLOW_UP,
+      "follow-up",
     );
 
     const { draftId } = await provider.draftEmail(
