@@ -1,0 +1,7 @@
+{
+  "name": "debug-skill",
+  "version": "1.0.0",
+  "scripts": {
+    "start": "node scripts/debug_server.js"
+  }
+}
