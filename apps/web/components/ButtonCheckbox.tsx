@@ -13,6 +13,8 @@ export function ButtonCheckbox({
   return (
     <button
       type="button"
+      role="checkbox"
+      aria-checked={indeterminate ? "mixed" : checked}
       onClick={(e) => {
         e.stopPropagation();
         onChange(e.shiftKey);
