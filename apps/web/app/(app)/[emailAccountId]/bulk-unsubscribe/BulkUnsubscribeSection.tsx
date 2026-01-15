@@ -458,9 +458,14 @@ export function BulkUnsubscribe() {
                 )}
               </>
             ) : (
-              <p className="space-y-4 p-4 text-muted-foreground">
-                No emails found. Adjust the filters, or click "Load More".
-              </p>
+              <div className="flex flex-col items-center justify-center py-16 px-4">
+                <InboxIcon className="h-16 w-16 text-gray-300" />
+                <h3 className="mt-4 text-lg font-semibold">No emails found</h3>
+                <p className="mt-2 text-center text-muted-foreground">
+                  Adjust the filters or click "Load More" to load additional
+                  emails.
+                </p>
+              </div>
             )}
           </LoadingContent>
         )}
