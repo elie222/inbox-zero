@@ -29,7 +29,24 @@ export type NewsletterFilterType =
   | "autoArchived"
   | "approved";
 
-// Helper to check if an item matches the current filter based on its status
+// Shared type for SWR mutate function
+type MutateFn = (
+  // biome-ignore lint/suspicious/noExplicitAny: SWR mutate signature
+  data?: any,
+  opts?: { revalidate?: boolean },
+) => Promise<void>;
+
+function pluralize(count: number, singular: string): string {
+  return count === 1 ? singular : `${singular}s`;
+}
+
+function formatSenderNames<T extends Row>(items: T[]): string {
+  const names = items.map((item) => item.name);
+  return names.length > 3
+    ? `${names.slice(0, 3).join(", ")}...`
+    : names.join(", ");
+}
+
 function itemMatchesFilter(
   status: NewsletterStatus | null | undefined,
   filter: NewsletterFilterType,
@@ -47,6 +64,105 @@ function itemMatchesFilter(
       return status === NewsletterStatus.APPROVED;
     default:
       return true;
+  }
+}
+
+// Generic bulk operation handler to reduce duplication
+async function executeBulkOperation<T extends Row>({
+  items,
+  mutate,
+  filter,
+  onDeselectItem,
+  processItem,
+  newStatus,
+  loadingMessage,
+  successMessage,
+  errorMessage,
+  onComplete,
+}: {
+  items: T[];
+  mutate: MutateFn;
+  filter: NewsletterFilterType;
+  onDeselectItem?: (id: string) => void;
+  processItem: (item: T) => Promise<void>;
+  newStatus: NewsletterStatus | null;
+  loadingMessage: string;
+  successMessage: string;
+  errorMessage: string;
+  onComplete?: () => Promise<unknown>;
+}) {
+  const total = items.length;
+  const toastId = toast.loading(
+    `${loadingMessage} ${total} ${pluralize(total, "sender")}...`,
+    { description: `0 of ${total} completed` },
+  );
+
+  let completed = 0;
+  const failures: Error[] = [];
+
+  const updateItemOptimistically = (itemName: string) => {
+    mutate(
+      // biome-ignore lint/suspicious/noExplicitAny: SWR data structure
+      (currentData: any) => {
+        if (!currentData?.newsletters) return currentData;
+        return {
+          ...currentData,
+          newsletters: currentData.newsletters
+            // biome-ignore lint/suspicious/noExplicitAny: newsletter type
+            .map((n: any) =>
+              n.name === itemName ? { ...n, status: newStatus } : n,
+            )
+            // biome-ignore lint/suspicious/noExplicitAny: newsletter type
+            .filter((n: any) => itemMatchesFilter(n.status, filter)),
+        };
+      },
+      { revalidate: false },
+    );
+  };
+
+  for (const item of items) {
+    onDeselectItem?.(item.name);
+    updateItemOptimistically(item.name);
+
+    try {
+      await processItem(item);
+    } catch (error) {
+      failures.push(error as Error);
+      captureException(error);
+    } finally {
+      completed++;
+      toast.loading(
+        `${loadingMessage} ${total} ${pluralize(total, "sender")}...`,
+        {
+          id: toastId,
+          description: `${completed} of ${total} completed`,
+        },
+      );
+    }
+  }
+
+  if (onComplete) {
+    try {
+      await onComplete();
+    } catch (error) {
+      captureException(error);
+    }
+  }
+
+  if (failures.length > 0) {
+    await mutate();
+    toast.error(
+      `${errorMessage} ${failures.length} ${pluralize(failures.length, "sender")}`,
+      {
+        id: toastId,
+        description: `${total - failures.length} of ${total} succeeded`,
+      },
+    );
+  } else {
+    toast.success(`${total} ${pluralize(total, "sender")} ${successMessage}`, {
+      id: toastId,
+      description: undefined,
+    });
   }
 }
 
@@ -148,13 +264,7 @@ export function useBulkUnsubscribe<T extends Row>({
   filter,
 }: {
   hasUnsubscribeAccess: boolean;
-  mutate: (
-    // biome-ignore lint/suspicious/noExplicitAny: SWR mutate signature
-    data?: any,
-    opts?: {
-      revalidate?: boolean;
-    },
-  ) => Promise<void>;
+  mutate: MutateFn;
   posthog: PostHog;
   refetchPremium: () => Promise<UserResponse | null | undefined>;
   emailAccountId: string;
@@ -164,54 +274,18 @@ export function useBulkUnsubscribe<T extends Row>({
   const onBulkUnsubscribe = useCallback(
     async (items: T[]) => {
       if (!hasUnsubscribeAccess) return;
-
       posthog.capture("Clicked Bulk Unsubscribe");
 
-      const total = items.length;
-
-      // Show loading toast with progress
-      const toastId = toast.loading(
-        `Unsubscribing from ${total} sender${total > 1 ? "s" : ""}...`,
-        {
-          description: `0 of ${total} completed`,
-        },
-      );
-
-      // Track progress
-      let completed = 0;
-      const failures: Error[] = [];
-
-      // Helper to optimistically remove a single item from the list
-      const removeItemOptimistically = (itemName: string) => {
-        mutate(
-          // biome-ignore lint/suspicious/noExplicitAny: SWR data structure
-          (currentData: any) => {
-            if (!currentData?.newsletters) return currentData;
-            return {
-              ...currentData,
-              newsletters: currentData.newsletters
-                .map(
-                  // biome-ignore lint/suspicious/noExplicitAny: newsletter type
-                  (n: any) =>
-                    n.name === itemName
-                      ? { ...n, status: NewsletterStatus.UNSUBSCRIBED }
-                      : n,
-                )
-                // biome-ignore lint/suspicious/noExplicitAny: newsletter type
-                .filter((n: any) => itemMatchesFilter(n.status, filter)),
-            };
-          },
-          { revalidate: false },
-        );
-      };
-
-      // Process items sequentially so they disappear one by one
-      for (const item of items) {
-        // Deselect and remove item from UI when request starts
-        onDeselectItem?.(item.name);
-        removeItemOptimistically(item.name);
-
-        try {
+      await executeBulkOperation({
+        items,
+        mutate,
+        filter,
+        onDeselectItem,
+        newStatus: NewsletterStatus.UNSUBSCRIBED,
+        loadingMessage: "Unsubscribing from",
+        successMessage: "unsubscribed",
+        errorMessage: "Failed to unsubscribe from",
+        processItem: async (item) => {
           await setNewsletterStatusAction(emailAccountId, {
             newsletterEmail: item.name,
             status: NewsletterStatus.UNSUBSCRIBED,
@@ -221,46 +295,9 @@ export function useBulkUnsubscribe<T extends Row>({
             sender: item.name,
             emailAccountId,
           });
-        } catch (error) {
-          failures.push(error as Error);
-          captureException(error);
-        } finally {
-          completed++;
-          // Update toast with progress
-          toast.loading(
-            `Unsubscribing from ${total} sender${total > 1 ? "s" : ""}...`,
-            {
-              id: toastId,
-              description: `${completed} of ${total} completed`,
-            },
-          );
-        }
-      }
-
-      // Refetch premium after all items processed
-      try {
-        await refetchPremium();
-      } catch (error) {
-        captureException(error);
-      }
-
-      // Show final result
-      if (failures.length > 0) {
-        // Revert by revalidating to get fresh data
-        await mutate();
-        toast.error(
-          `Failed to unsubscribe from ${failures.length} sender${failures.length > 1 ? "s" : ""}`,
-          {
-            id: toastId,
-            description: `${total - failures.length} of ${total} succeeded`,
-          },
-        );
-      } else {
-        toast.success(`${total} sender${total > 1 ? "s" : ""} unsubscribed`, {
-          id: toastId,
-          description: undefined,
-        });
-      }
+        },
+        onComplete: refetchPremium,
+      });
     },
     [
       hasUnsubscribeAccess,
@@ -273,9 +310,7 @@ export function useBulkUnsubscribe<T extends Row>({
     ],
   );
 
-  return {
-    onBulkUnsubscribe,
-  };
+  return { onBulkUnsubscribe };
 }
 
 async function autoArchive({
@@ -411,13 +446,7 @@ export function useBulkAutoArchive<T extends Row>({
   filter,
 }: {
   hasUnsubscribeAccess: boolean;
-  mutate: (
-    // biome-ignore lint/suspicious/noExplicitAny: SWR mutate signature
-    data?: any,
-    opts?: {
-      revalidate?: boolean;
-    },
-  ) => Promise<void>;
+  mutate: MutateFn;
   refetchPremium: () => Promise<UserResponse | null | undefined>;
   emailAccountId: string;
   onDeselectItem?: (id: string) => void;
@@ -427,51 +456,16 @@ export function useBulkAutoArchive<T extends Row>({
     async (items: T[]) => {
       if (!hasUnsubscribeAccess) return;
 
-      const total = items.length;
-
-      // Show loading toast with progress
-      const toastId = toast.loading(
-        `Setting ${total} sender${total > 1 ? "s" : ""} to skip inbox...`,
-        {
-          description: `0 of ${total} completed`,
-        },
-      );
-
-      // Track progress
-      let completed = 0;
-      const failures: Error[] = [];
-
-      // Helper to optimistically remove a single item from the list
-      const removeItemOptimistically = (itemName: string) => {
-        mutate(
-          // biome-ignore lint/suspicious/noExplicitAny: SWR data structure
-          (currentData: any) => {
-            if (!currentData?.newsletters) return currentData;
-            return {
-              ...currentData,
-              newsletters: currentData.newsletters
-                .map(
-                  // biome-ignore lint/suspicious/noExplicitAny: newsletter type
-                  (n: any) =>
-                    n.name === itemName
-                      ? { ...n, status: NewsletterStatus.AUTO_ARCHIVED }
-                      : n,
-                )
-                // biome-ignore lint/suspicious/noExplicitAny: newsletter type
-                .filter((n: any) => itemMatchesFilter(n.status, filter)),
-            };
-          },
-          { revalidate: false },
-        );
-      };
-
-      // Process items sequentially so they disappear one by one
-      for (const item of items) {
-        // Deselect and remove item from UI when request starts
-        onDeselectItem?.(item.name);
-        removeItemOptimistically(item.name);
-
-        try {
+      await executeBulkOperation({
+        items,
+        mutate,
+        filter,
+        onDeselectItem,
+        newStatus: NewsletterStatus.AUTO_ARCHIVED,
+        loadingMessage: "Setting skip inbox for",
+        successMessage: "set to skip inbox",
+        errorMessage: "Failed to set skip inbox for",
+        processItem: async (item) => {
           await onAutoArchive({
             emailAccountId,
             from: item.name,
@@ -488,49 +482,9 @@ export function useBulkAutoArchive<T extends Row>({
             labelId: undefined,
             emailAccountId,
           });
-        } catch (error) {
-          failures.push(error as Error);
-          captureException(error);
-        } finally {
-          completed++;
-          // Update toast with progress
-          toast.loading(
-            `Setting ${total} sender${total > 1 ? "s" : ""} to skip inbox...`,
-            {
-              id: toastId,
-              description: `${completed} of ${total} completed`,
-            },
-          );
-        }
-      }
-
-      // Refetch premium after all items processed
-      try {
-        await refetchPremium();
-      } catch (error) {
-        captureException(error);
-      }
-
-      // Show final result
-      if (failures.length > 0) {
-        // Revert by revalidating to get fresh data
-        await mutate();
-        toast.error(
-          `Failed to set skip inbox for ${failures.length} sender${failures.length > 1 ? "s" : ""}`,
-          {
-            id: toastId,
-            description: `${total - failures.length} of ${total} succeeded`,
-          },
-        );
-      } else {
-        toast.success(
-          `${total} sender${total > 1 ? "s" : ""} set to skip inbox`,
-          {
-            id: toastId,
-            description: undefined,
-          },
-        );
-      }
+        },
+        onComplete: refetchPremium,
+      });
     },
     [
       hasUnsubscribeAccess,
@@ -542,9 +496,7 @@ export function useBulkAutoArchive<T extends Row>({
     ],
   );
 
-  return {
-    onBulkAutoArchive,
-  };
+  return { onBulkAutoArchive };
 }
 
 export function useApproveButton<T extends Row>({
@@ -663,13 +615,7 @@ export function useBulkApprove<T extends Row>({
   onDeselectItem,
   filter,
 }: {
-  mutate: (
-    // biome-ignore lint/suspicious/noExplicitAny: SWR mutate signature
-    data?: any,
-    opts?: {
-      revalidate?: boolean;
-    },
-  ) => Promise<void>;
+  mutate: MutateFn;
   posthog: PostHog;
   emailAccountId: string;
   onDeselectItem?: (id: string) => void;
@@ -681,93 +627,27 @@ export function useBulkApprove<T extends Row>({
     );
 
     const newStatus = unapprove ? null : NewsletterStatus.APPROVED;
-    const action = unapprove ? "unapproving" : "approving";
     const actionPast = unapprove ? "unapproved" : "approved";
-    const total = items.length;
 
-    // Show loading toast with progress
-    const toastId = toast.loading(
-      `${action.charAt(0).toUpperCase() + action.slice(1)} ${total} sender${total > 1 ? "s" : ""}...`,
-      {
-        description: `0 of ${total} completed`,
-      },
-    );
-
-    // Track progress
-    let completed = 0;
-    const failures: Error[] = [];
-
-    // Helper to optimistically remove a single item from the list
-    const removeItemOptimistically = (itemName: string) => {
-      mutate(
-        // biome-ignore lint/suspicious/noExplicitAny: SWR data structure
-        (currentData: any) => {
-          if (!currentData?.newsletters) return currentData;
-          return {
-            ...currentData,
-            newsletters: currentData.newsletters
-              .map(
-                // biome-ignore lint/suspicious/noExplicitAny: newsletter type
-                (n: any) =>
-                  n.name === itemName ? { ...n, status: newStatus } : n,
-              )
-              // biome-ignore lint/suspicious/noExplicitAny: newsletter type
-              .filter((n: any) => itemMatchesFilter(n.status, filter)),
-          };
-        },
-        { revalidate: false },
-      );
-    };
-
-    // Process items sequentially so they disappear one by one
-    for (const item of items) {
-      // Deselect and remove item from UI when request starts
-      onDeselectItem?.(item.name);
-      removeItemOptimistically(item.name);
-
-      try {
+    await executeBulkOperation({
+      items,
+      mutate,
+      filter,
+      onDeselectItem,
+      newStatus,
+      loadingMessage: unapprove ? "Unapproving" : "Approving",
+      successMessage: actionPast,
+      errorMessage: `Failed to ${unapprove ? "unapprove" : "approve"}`,
+      processItem: async (item) => {
         await setNewsletterStatusAction(emailAccountId, {
           newsletterEmail: item.name,
           status: newStatus,
         });
-      } catch (error) {
-        failures.push(error as Error);
-        captureException(error);
-      } finally {
-        completed++;
-        // Update toast with progress
-        toast.loading(
-          `${action.charAt(0).toUpperCase() + action.slice(1)} ${total} sender${total > 1 ? "s" : ""}...`,
-          {
-            id: toastId,
-            description: `${completed} of ${total} completed`,
-          },
-        );
-      }
-    }
-
-    // Show final result
-    if (failures.length > 0) {
-      // Revert by revalidating to get fresh data
-      await mutate();
-      toast.error(
-        `Failed to ${actionPast.replace("ing", "")} ${failures.length} sender${failures.length > 1 ? "s" : ""}`,
-        {
-          id: toastId,
-          description: `${total - failures.length} of ${total} succeeded`,
-        },
-      );
-    } else {
-      toast.success(`${total} sender${total > 1 ? "s" : ""} ${actionPast}`, {
-        id: toastId,
-        description: undefined,
-      });
-    }
+      },
+    });
   };
 
-  return {
-    onBulkApprove,
-  };
+  return { onBulkApprove };
 }
 
 export function useBulkArchive<T extends Row>({
@@ -1044,11 +924,4 @@ export function useNewsletterFilter() {
     filtersArray,
     setFilter,
   };
-}
-
-function formatSenderNames<T extends Row>(items: T[]): string {
-  const senderNames = items.map((item) => item.name);
-  return senderNames.length > 3
-    ? `${senderNames.slice(0, 3).join(", ")}...`
-    : senderNames.join(", ");
 }
