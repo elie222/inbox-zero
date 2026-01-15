@@ -1,3 +1,9 @@
+import he from "he";
+
+export function escapeHtml(text: string): string {
+  return he.encode(text, { useNamedReferences: true });
+}
+
 export function truncate(str: string, length: number) {
   return str.length > length ? `${str.slice(0, length)}...` : str;
 }
