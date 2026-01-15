@@ -42,20 +42,13 @@ export type WebhookUrlValidationResult =
   | { valid: false; error: string };
 
 /**
- * Check if an IP address is in a private/internal range
- */
-function isPrivateIP(ip: string): boolean {
-  return PRIVATE_IP_RANGES.some((range) => range.test(ip));
-}
-
-/**
  * Validates a webhook URL to prevent SSRF attacks.
  *
  * Validation includes:
  * - Only HTTPS scheme allowed
  * - No IP addresses in the hostname (must use DNS names)
  * - No private/internal hostnames (localhost, metadata endpoints, etc.)
- * - DNS resolution must not resolve to private/internal IP addresses
+ * - DNS resolution must not resolve to private/internal IP addresses (both IPv4 and IPv6)
  */
 export async function validateWebhookUrl(
   url: string,
@@ -122,32 +115,24 @@ export async function validateWebhookUrl(
   }
 
   // Resolve DNS and check if any resolved IP is private
-  // This prevents DNS rebinding attacks
+  // Check both IPv4 (A records) and IPv6 (AAAA records) to prevent bypass
+  const allAddresses: string[] = [];
+
+  // Resolve IPv4 addresses (A records)
   try {
-    const addresses = await dns.resolve(hostname);
-
-    for (const ip of addresses) {
-      if (isPrivateIP(ip)) {
-        return {
-          valid: false,
-          error: "Webhook URL cannot resolve to private IP addresses",
-        };
-      }
-    }
+    const ipv4Addresses = await dns.resolve(hostname);
+    allAddresses.push(...ipv4Addresses);
   } catch (error) {
-    // DNS resolution failed - could be because hostname is an IP address
-    // or because the hostname doesn't exist
     const dnsError = error as NodeJS.ErrnoException;
-
+    // ENODATA means no A records exist (might have AAAA only)
+    // ENOTFOUND means hostname doesn't exist at all
     if (dnsError.code === "ENOTFOUND") {
       return {
         valid: false,
         error: "Webhook URL hostname could not be resolved",
       };
     }
-
-    // For IP addresses, dns.resolve will fail with ENODATA
-    // In that case, we've already checked the IP above
+    // For ENODATA, continue to check AAAA records
     if (dnsError.code !== "ENODATA") {
       return {
         valid: false,
@@ -156,5 +141,40 @@ export async function validateWebhookUrl(
     }
   }
 
+  // Resolve IPv6 addresses (AAAA records)
+  try {
+    const ipv6Addresses = await dns.resolve6(hostname);
+    allAddresses.push(...ipv6Addresses);
+  } catch {
+    // IPv6 resolution failure is OK if we have IPv4 addresses
+  }
+
+  // If no addresses were resolved at all, the hostname might be an IP literal
+  // which we've already validated above
+  if (allAddresses.length === 0) {
+    // For IP literals, dns.resolve fails but we've already checked them
+    const isIpLiteral = ipv4Pattern.test(hostname) || ipv6Match;
+    if (!isIpLiteral) {
+      return {
+        valid: false,
+        error: "Webhook URL hostname could not be resolved",
+      };
+    }
+  }
+
+  // Check all resolved addresses for private IPs
+  for (const ip of allAddresses) {
+    if (isPrivateIP(ip)) {
+      return {
+        valid: false,
+        error: "Webhook URL cannot resolve to private IP addresses",
+      };
+    }
+  }
+
   return { valid: true };
+}
+
+function isPrivateIP(ip: string): boolean {
+  return PRIVATE_IP_RANGES.some((range) => range.test(ip));
 }

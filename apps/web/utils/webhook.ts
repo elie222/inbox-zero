@@ -1,4 +1,5 @@
 import { createScopedLogger } from "@/utils/logger";
+import { SafeError } from "@/utils/error";
 import prisma from "@/utils/prisma";
 import { sleep } from "@/utils/sleep";
 import type { ExecutedRule } from "@/generated/prisma/client";
@@ -36,7 +37,7 @@ export const callWebhook = async (
       url,
       error: validation.error,
     });
-    throw new Error(`Invalid webhook URL: ${validation.error}`);
+    throw new SafeError(`Invalid webhook URL: ${validation.error}`);
   }
 
   const user = await prisma.user.findUnique({
