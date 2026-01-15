@@ -1,7 +1,9 @@
 import { createScopedLogger } from "@/utils/logger";
+import { SafeError } from "@/utils/error";
 import prisma from "@/utils/prisma";
 import { sleep } from "@/utils/sleep";
 import type { ExecutedRule } from "@/generated/prisma/client";
+import { validateWebhookUrl } from "@/utils/webhook-validation";
 
 const logger = createScopedLogger("webhook");
 
@@ -27,6 +29,16 @@ export const callWebhook = async (
   payload: WebhookPayload,
 ) => {
   if (!url) throw new Error("Webhook URL is required");
+
+  // Validate URL to prevent SSRF attacks
+  const validation = await validateWebhookUrl(url);
+  if (!validation.valid) {
+    logger.warn("Webhook URL validation failed", {
+      url,
+      error: validation.error,
+    });
+    throw new SafeError(`Invalid webhook URL: ${validation.error}`);
+  }
 
   const user = await prisma.user.findUnique({
     where: { id: userId },
