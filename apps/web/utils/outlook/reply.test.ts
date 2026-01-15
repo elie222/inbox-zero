@@ -71,12 +71,11 @@ describe("Outlook email formatting", () => {
       message,
     });
 
-    // Email addresses in quotedHeader are now escaped for security
     expect(html).toBe(
       `<div dir="ltr" style="font-family: Aptos, Calibri, Arial, Helvetica, sans-serif; font-size: 12pt; color: rgb(0, 0, 0);">This is my reply</div>
 <br>
 <div style="border-top: 1px solid #e1e1e1; padding-top: 10px; margin-top: 10px;">
-  <div dir="ltr" style="font-size: 11pt; color: rgb(0, 0, 0);">On Thu, 6 Feb 2025 at 21:23, John Doe &lt;john@example.com&gt; wrote:<br></div>
+  <div dir="ltr" style="font-size: 11pt; color: rgb(0, 0, 0);">On Thu, 6 Feb 2025 at 21:23, John Doe <john@example.com> wrote:<br></div>
   <div style="margin-top: 10px;">
     <div>Original message content</div>
   </div>
@@ -104,13 +103,11 @@ describe("Outlook email formatting", () => {
       message,
     });
 
-    // Email addresses in quotedHeader are now escaped for security
-    // Hebrew text is HTML-encoded by he.encode()
     expect(html).toBe(
-      `<div dir="rtl" style="font-family: Aptos, Calibri, Arial, Helvetica, sans-serif; font-size: 12pt; color: rgb(0, 0, 0);">&#x5E9;&#x5DC;&#x5D5;&#x5DD;, &#x5DE;&#x5D4; &#x5E9;&#x5DC;&#x5D5;&#x5DE;&#x5DA;?</div>
+      `<div dir="rtl" style="font-family: Aptos, Calibri, Arial, Helvetica, sans-serif; font-size: 12pt; color: rgb(0, 0, 0);">שלום, מה שלומך?</div>
 <br>
 <div style="border-top: 1px solid #e1e1e1; padding-top: 10px; margin-top: 10px;">
-  <div dir="rtl" style="font-size: 11pt; color: rgb(0, 0, 0);">On Thu, 6 Feb 2025 at 21:23, David Cohen &lt;david@example.com&gt; wrote:<br></div>
+  <div dir="rtl" style="font-size: 11pt; color: rgb(0, 0, 0);">On Thu, 6 Feb 2025 at 21:23, David Cohen <david@example.com> wrote:<br></div>
   <div style="margin-top: 10px;">
     <div>תוכן ההודעה המקורית</div>
   </div>

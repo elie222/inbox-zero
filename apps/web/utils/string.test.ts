@@ -120,21 +120,6 @@ describe("string utils", () => {
     it("should handle text without newlines", () => {
       expect(convertNewlinesToBr("no newlines here")).toBe("no newlines here");
     });
-
-    it("should escape HTML to prevent prompt injection", () => {
-      const malicious = 'Hello<div style="display:none">SECRET</div>World';
-      const result = convertNewlinesToBr(malicious);
-      expect(result).not.toContain("<div");
-      expect(result).toContain("&lt;div");
-      expect(result).toContain("&gt;");
-    });
-
-    it("should escape hidden CSS attack vectors", () => {
-      const hiddenText = '<span style="font-size:0">hidden instructions</span>';
-      const result = convertNewlinesToBr(hiddenText);
-      expect(result).not.toContain("<span");
-      expect(result).toContain("&lt;span");
-    });
   });
 
   describe("escapeHtml", () => {

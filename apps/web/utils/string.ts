@@ -65,5 +65,5 @@ export function slugify(text: string): string {
 }
 
 export function convertNewlinesToBr(text: string): string {
-  return escapeHtml(text).replace(/\r\n/g, "\n").replace(/\n/g, "<br>");
+  return text.replace(/\r\n/g, "\n").replace(/\n/g, "<br>");
 }

@@ -1,5 +1,5 @@
 import type { ParsedMessage } from "@/utils/types";
-import { convertNewlinesToBr, escapeHtml } from "@/utils/string";
+import { convertNewlinesToBr } from "@/utils/string";
 
 export const createReplyContent = ({
   textContent,
@@ -35,11 +35,10 @@ export const createReplyContent = ({
     htmlContent || (textContent ? convertNewlinesToBr(textContent) : "");
 
   // Format HTML version with Gmail-style quote formatting
-  // Escape quotedHeader to prevent HTML injection from email addresses like "John <john@example.com>"
   const html = `<div ${dirAttribute}>${contentHtml}</div>
 <br>
 <div class="gmail_quote gmail_quote_container">
-  <div ${dirAttribute} class="gmail_attr">${escapeHtml(quotedHeader)}<br></div>
+  <div ${dirAttribute} class="gmail_attr">${quotedHeader}<br></div>
   <blockquote class="gmail_quote" 
     style="margin:0px 0px 0px 0.8ex;border-left:1px solid rgb(204,204,204);padding-left:1ex">
     ${messageContent}
