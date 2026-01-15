@@ -66,6 +66,10 @@ jobs:
       - name: Get version
         id: version
         run: |
+          if [ "${GITHUB_REF_TYPE}" != "tag" ]; then
+            echo "This workflow must be run from a tag ref (got: ${GITHUB_REF_TYPE} '${GITHUB_REF_NAME}')" >&2
+            exit 1
+          fi
           VERSION="${GITHUB_REF_NAME#v}"
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo "tag=$GITHUB_REF_NAME" >> $GITHUB_OUTPUT
@@ -99,8 +103,8 @@ jobs:
           # Update version
           content = re.sub(r'version "[^"]*"', 'version "${{ steps.version.outputs.version }}"', content)
           
-          # Update URLs from cli-v* to v* format
-          content = re.sub(r'releases/download/cli-v[^/]+/', 'releases/download/${{ steps.version.outputs.tag }}/', content)
+          # Update URLs to current version (handles both cli-v* and v* formats)
+          content = re.sub(r'releases/download/(?:cli-)?v[^/]+/', 'releases/download/${{ steps.version.outputs.tag }}/', content)
           
           # Update SHA256 for darwin-arm64 (first sha256 after "on_arm do")
           content = re.sub(
