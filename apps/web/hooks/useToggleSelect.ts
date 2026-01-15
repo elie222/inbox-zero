@@ -53,11 +53,20 @@ export function useToggleSelect(items: { id: string }[]) {
     lastClickedIndexRef.current = null;
   }, []);
 
+  const deselectItem = useCallback((id: string) => {
+    setSelected((prev) => {
+      const newSelected = new Map(prev);
+      newSelected.delete(id);
+      return newSelected;
+    });
+  }, []);
+
   return {
     selected,
     isAllSelected,
     onToggleSelect,
     onToggleSelectAll,
     clearSelection,
+    deselectItem,
   };
 }

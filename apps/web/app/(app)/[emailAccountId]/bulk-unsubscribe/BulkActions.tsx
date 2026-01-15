@@ -83,6 +83,7 @@ export function BulkActions({
   selected,
   mutate,
   onClearSelection,
+  deselectItem,
   newsletters,
   filter,
   totalCount,
@@ -91,6 +92,7 @@ export function BulkActions({
   // biome-ignore lint/suspicious/noExplicitAny: matches SWR mutate return type
   mutate: () => Promise<any>;
   onClearSelection: () => void;
+  deselectItem: (id: string) => void;
   newsletters?: Newsletter[];
   filter: NewsletterFilterType;
   totalCount: number;
@@ -109,7 +111,7 @@ export function BulkActions({
     posthog,
     refetchPremium,
     emailAccountId,
-    onSuccess: onClearSelection,
+    onDeselectItem: deselectItem,
     filter,
   });
 
@@ -117,7 +119,7 @@ export function BulkActions({
     mutate,
     posthog,
     emailAccountId,
-    onSuccess: onClearSelection,
+    onDeselectItem: deselectItem,
     filter,
   });
 
@@ -126,7 +128,7 @@ export function BulkActions({
     mutate,
     refetchPremium,
     emailAccountId,
-    onSuccess: onClearSelection,
+    onDeselectItem: deselectItem,
     filter,
   });
 

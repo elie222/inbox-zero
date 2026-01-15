@@ -257,6 +257,7 @@ export function BulkUnsubscribe() {
     onToggleSelect,
     onToggleSelectAll,
     clearSelection,
+    deselectItem,
   } = useToggleSelect(rows?.map((item) => ({ id: item.name })) || []);
 
   // Clear selection when filter changes
@@ -388,6 +389,7 @@ export function BulkUnsubscribe() {
         selected={selected}
         mutate={mutate}
         onClearSelection={clearSelection}
+        deselectItem={deselectItem}
         newsletters={rows}
         filter={filter}
         totalCount={rows?.length ?? 0}

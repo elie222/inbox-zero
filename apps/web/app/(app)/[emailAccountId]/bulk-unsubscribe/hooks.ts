@@ -144,7 +144,7 @@ export function useBulkUnsubscribe<T extends Row>({
   posthog,
   refetchPremium,
   emailAccountId,
-  onSuccess,
+  onDeselectItem,
   filter,
 }: {
   hasUnsubscribeAccess: boolean;
@@ -158,7 +158,7 @@ export function useBulkUnsubscribe<T extends Row>({
   posthog: PostHog;
   refetchPremium: () => Promise<UserResponse | null | undefined>;
   emailAccountId: string;
-  onSuccess?: () => void;
+  onDeselectItem?: (id: string) => void;
   filter: NewsletterFilterType;
 }) {
   const onBulkUnsubscribe = useCallback(
@@ -177,17 +177,14 @@ export function useBulkUnsubscribe<T extends Row>({
         },
       );
 
-      // Clear selection immediately
-      onSuccess?.();
-
       // Track progress
       let completed = 0;
       const failures: Error[] = [];
 
       // Helper to optimistically remove a single item from the list
       const removeItemOptimistically = (itemName: string) => {
-        // biome-ignore lint/suspicious/noExplicitAny: SWR data structure
         mutate(
+          // biome-ignore lint/suspicious/noExplicitAny: SWR data structure
           (currentData: any) => {
             if (!currentData?.newsletters) return currentData;
             return {
@@ -210,7 +207,8 @@ export function useBulkUnsubscribe<T extends Row>({
 
       // Process items sequentially so they disappear one by one
       for (const item of items) {
-        // Remove item from UI when request starts
+        // Deselect and remove item from UI when request starts
+        onDeselectItem?.(item.name);
         removeItemOptimistically(item.name);
 
         try {
@@ -266,7 +264,7 @@ export function useBulkUnsubscribe<T extends Row>({
       posthog,
       refetchPremium,
       emailAccountId,
-      onSuccess,
+      onDeselectItem,
       filter,
     ],
   );
@@ -405,7 +403,7 @@ export function useBulkAutoArchive<T extends Row>({
   mutate,
   refetchPremium,
   emailAccountId,
-  onSuccess,
+  onDeselectItem,
   filter,
 }: {
   hasUnsubscribeAccess: boolean;
@@ -418,7 +416,7 @@ export function useBulkAutoArchive<T extends Row>({
   ) => Promise<void>;
   refetchPremium: () => Promise<UserResponse | null | undefined>;
   emailAccountId: string;
-  onSuccess?: () => void;
+  onDeselectItem?: (id: string) => void;
   filter: NewsletterFilterType;
 }) {
   const onBulkAutoArchive = useCallback(
@@ -435,17 +433,14 @@ export function useBulkAutoArchive<T extends Row>({
         },
       );
 
-      // Clear selection immediately
-      onSuccess?.();
-
       // Track progress
       let completed = 0;
       const failures: Error[] = [];
 
       // Helper to optimistically remove a single item from the list
       const removeItemOptimistically = (itemName: string) => {
-        // biome-ignore lint/suspicious/noExplicitAny: SWR data structure
         mutate(
+          // biome-ignore lint/suspicious/noExplicitAny: SWR data structure
           (currentData: any) => {
             if (!currentData?.newsletters) return currentData;
             return {
@@ -468,7 +463,8 @@ export function useBulkAutoArchive<T extends Row>({
 
       // Process items sequentially so they disappear one by one
       for (const item of items) {
-        // Remove item from UI when request starts
+        // Deselect and remove item from UI when request starts
+        onDeselectItem?.(item.name);
         removeItemOptimistically(item.name);
 
         try {
@@ -533,7 +529,7 @@ export function useBulkAutoArchive<T extends Row>({
       mutate,
       refetchPremium,
       emailAccountId,
-      onSuccess,
+      onDeselectItem,
       filter,
     ],
   );
@@ -655,7 +651,7 @@ export function useBulkApprove<T extends Row>({
   mutate,
   posthog,
   emailAccountId,
-  onSuccess,
+  onDeselectItem,
   filter,
 }: {
   mutate: (
@@ -667,7 +663,7 @@ export function useBulkApprove<T extends Row>({
   ) => Promise<void>;
   posthog: PostHog;
   emailAccountId: string;
-  onSuccess?: () => void;
+  onDeselectItem?: (id: string) => void;
   filter: NewsletterFilterType;
 }) {
   const onBulkApprove = async (items: T[], unapprove?: boolean) => {
@@ -688,17 +684,14 @@ export function useBulkApprove<T extends Row>({
       },
     );
 
-    // Clear selection immediately
-    onSuccess?.();
-
     // Track progress
     let completed = 0;
     const failures: Error[] = [];
 
     // Helper to optimistically remove a single item from the list
     const removeItemOptimistically = (itemName: string) => {
-      // biome-ignore lint/suspicious/noExplicitAny: SWR data structure
       mutate(
+        // biome-ignore lint/suspicious/noExplicitAny: SWR data structure
         (currentData: any) => {
           if (!currentData?.newsletters) return currentData;
           return {
@@ -719,7 +712,8 @@ export function useBulkApprove<T extends Row>({
 
     // Process items sequentially so they disappear one by one
     for (const item of items) {
-      // Remove item from UI when request starts
+      // Deselect and remove item from UI when request starts
+      onDeselectItem?.(item.name);
       removeItemOptimistically(item.name);
 
       try {
