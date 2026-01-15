@@ -44,7 +44,6 @@ function ActionButton({
   loadingLabel,
   onClick,
   loading,
-  primary,
   danger,
 }: {
   icon: React.ComponentType<{ className?: string }>;
@@ -52,7 +51,6 @@ function ActionButton({
   loadingLabel?: string;
   onClick: () => void;
   loading?: boolean;
-  primary?: boolean;
   danger?: boolean;
 }) {
   return (
@@ -62,9 +60,7 @@ function ActionButton({
       disabled={loading}
       className={cn(
         "flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-lg transition-colors whitespace-nowrap",
-        primary
-          ? "bg-blue-500 text-white hover:bg-blue-600"
-          : "text-gray-600 hover:bg-gray-100 hover:text-gray-900",
+        "text-gray-600 hover:bg-gray-100 hover:text-gray-900",
         danger && "hover:text-red-600",
         loading && "opacity-50 cursor-not-allowed",
       )}
