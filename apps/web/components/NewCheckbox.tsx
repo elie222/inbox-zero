@@ -1,7 +1,7 @@
 import { Check, Minus } from "lucide-react";
 import { cn } from "@/utils";
 
-export function BulkCheckbox({
+export function NewCheckbox({
   checked,
   indeterminate,
   onChange,
