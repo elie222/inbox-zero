@@ -6,8 +6,8 @@ import type { EmailProvider } from "@/utils/email/types";
 
 vi.mock("server-only", () => ({}));
 
-vi.mock("@/utils/ai/reply/draft-with-knowledge", () => ({
-  aiDraftWithKnowledge: vi.fn(),
+vi.mock("@/utils/ai/reply/draft-reply", () => ({
+  aiDraftReply: vi.fn(),
 }));
 
 vi.mock("@/utils/redis/reply", () => ({
@@ -71,7 +71,7 @@ vi.mock("@/env", () => ({
   },
 }));
 
-import { aiDraftWithKnowledge } from "@/utils/ai/reply/draft-with-knowledge";
+import { aiDraftReply } from "@/utils/ai/reply/draft-reply";
 import prisma from "@/utils/prisma";
 
 const mockLogger = {
@@ -132,7 +132,7 @@ describe("fetchMessagesAndGenerateDraft - AI content escaping", () => {
       'Hello!<div style="display:none">LEAKED SECRET DATA</div>';
     const userSignature = '<p style="color:blue">Best regards,<br>John</p>';
 
-    vi.mocked(aiDraftWithKnowledge).mockResolvedValue(maliciousAiOutput);
+    vi.mocked(aiDraftReply).mockResolvedValue(maliciousAiOutput);
     vi.mocked(prisma.emailAccount.findUnique).mockResolvedValue({
       includeReferralSignature: true,
       signature: userSignature,
@@ -169,7 +169,7 @@ describe("fetchMessagesAndGenerateDraft - AI content escaping", () => {
     const maliciousAiOutput =
       'Normal text<span style="font-size:0">hidden instructions</span>';
 
-    vi.mocked(aiDraftWithKnowledge).mockResolvedValue(maliciousAiOutput);
+    vi.mocked(aiDraftReply).mockResolvedValue(maliciousAiOutput);
     vi.mocked(prisma.emailAccount.findUnique).mockResolvedValue({
       includeReferralSignature: false,
       signature: null,
@@ -191,7 +191,7 @@ describe("fetchMessagesAndGenerateDraft - AI content escaping", () => {
   it("escapes script tags in AI content", async () => {
     const maliciousAiOutput = 'Hello<script>alert("xss")</script>';
 
-    vi.mocked(aiDraftWithKnowledge).mockResolvedValue(maliciousAiOutput);
+    vi.mocked(aiDraftReply).mockResolvedValue(maliciousAiOutput);
     vi.mocked(prisma.emailAccount.findUnique).mockResolvedValue({
       includeReferralSignature: false,
       signature: null,
@@ -215,7 +215,7 @@ describe("fetchMessagesAndGenerateDraft - AI content escaping", () => {
     const normalAiOutput =
       "Thanks for your email! I will get back to you tomorrow.";
 
-    vi.mocked(aiDraftWithKnowledge).mockResolvedValue(normalAiOutput);
+    vi.mocked(aiDraftReply).mockResolvedValue(normalAiOutput);
     vi.mocked(prisma.emailAccount.findUnique).mockResolvedValue({
       includeReferralSignature: false,
       signature: null,

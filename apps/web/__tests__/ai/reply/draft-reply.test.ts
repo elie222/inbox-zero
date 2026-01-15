@@ -1,18 +1,18 @@
 import { describe, expect, test, vi } from "vitest";
-import { aiDraftWithKnowledge } from "@/utils/ai/reply/draft-with-knowledge";
+import { aiDraftReply } from "@/utils/ai/reply/draft-reply";
 import type { EmailForLLM } from "@/utils/types";
 import { getEmailAccount } from "@/__tests__/helpers";
 
 const TIMEOUT = 60_000;
 
-// Run with: pnpm test-ai draft-with-knowledge
+// Run with: pnpm test-ai draft-reply
 
 vi.mock("server-only", () => ({}));
 
 const isAiTest = process.env.RUN_AI_TESTS === "true";
 const TEST_TIMEOUT = 15_000;
 
-describe.runIf(isAiTest)("aiDraftWithKnowledge", () => {
+describe.runIf(isAiTest)("aiDraftReply", () => {
   test(
     "successfully drafts a reply with knowledge and history",
     async () => {
@@ -21,7 +21,7 @@ describe.runIf(isAiTest)("aiDraftWithKnowledge", () => {
       const knowledgeBaseContent = "Relevant knowledge point.";
       const emailHistorySummary = "Previous interaction summary.";
 
-      const result = await aiDraftWithKnowledge({
+      const result = await aiDraftReply({
         messages,
         emailAccount,
         knowledgeBaseContent,
@@ -30,6 +30,7 @@ describe.runIf(isAiTest)("aiDraftWithKnowledge", () => {
         emailHistoryContext: null,
         calendarAvailability: null,
         mcpContext: null,
+        meetingContext: null,
       });
 
       // Check that the result is a non-empty string
@@ -48,7 +49,7 @@ describe.runIf(isAiTest)("aiDraftWithKnowledge", () => {
       const emailAccount = getEmailAccount();
       const messages = getMessages(1);
 
-      const result = await aiDraftWithKnowledge({
+      const result = await aiDraftReply({
         messages,
         emailAccount,
         knowledgeBaseContent: null,
@@ -57,6 +58,7 @@ describe.runIf(isAiTest)("aiDraftWithKnowledge", () => {
         emailHistoryContext: null,
         calendarAvailability: null,
         mcpContext: null,
+        meetingContext: null,
       });
 
       // Check that the result is a non-empty string

@@ -12,19 +12,17 @@ import {
   PROMPT_SECURITY_INSTRUCTIONS,
 } from "@/utils/ai/security";
 
-const logger = createScopedLogger("DraftWithKnowledge");
+const logger = createScopedLogger("DraftReply");
 
-const system = `You are an expert assistant that drafts email replies using knowledge base information.
+const systemPrompt = `You are an expert assistant that drafts email replies using knowledge base information.
 
 ${PROMPT_SECURITY_INSTRUCTIONS}
 
-Write a polite and professional email that follows up on the previous conversation.
 Keep it concise and friendly.
 IMPORTANT: Keep the reply short. Aim for 2 sentences at most.
 Don't be pushy.
 Use context from the previous emails and the provided knowledge base to make it relevant and accurate.
 IMPORTANT: Do NOT simply repeat or mirror what the last email said. It doesn't add anything to the conversation to repeat back to them what they just said.
-Your reply should aim to continue the conversation or provide new information based on the context or knowledge base. If you have nothing substantial to add, keep the reply minimal.
 Don't mention that you're an AI.
 Don't reply with a Subject. Only reply with the body of the email.
 IMPORTANT: ${PLAIN_TEXT_OUTPUT_INSTRUCTION}
@@ -33,6 +31,9 @@ IMPORTANT: Use placeholders sparingly! Only use them where you have limited info
 Never use placeholders for the user's name. You do not need to sign off with the user's name. Do not add a signature.
 Do not invent information.
 Don't suggest meeting times or mention availability unless specific calendar information is provided.
+
+Write a polite and professional email that follows up on the previous conversation.
+Your reply should aim to continue the conversation or provide new information based on the context or knowledge base. If you have nothing substantial to add, keep the reply minimal.
 
 Return your response in JSON format.
 `;
@@ -60,7 +61,7 @@ const getUserPrompt = ({
 }) => {
   const userAbout = emailAccount.about
     ? `Context about the user:
-    
+
 <userAbout>
 ${emailAccount.about}
 </userAbout>
@@ -69,7 +70,7 @@ ${emailAccount.about}
 
   const relevantKnowledge = knowledgeBaseContent
     ? `Relevant knowledge base content:
-    
+
 <knowledge_base>
 ${knowledgeBaseContent}
 </knowledge_base>
@@ -78,7 +79,7 @@ ${knowledgeBaseContent}
 
   const historicalContext = emailHistorySummary
     ? `Historical email context with this sender:
-    
+
 <sender_history>
 ${emailHistorySummary}
 </sender_history>
@@ -87,7 +88,7 @@ ${emailHistorySummary}
 
   const precedentHistoryContext = emailHistoryContext?.relevantEmails.length
     ? `Information from similar email threads that may be relevant to the current conversation to draft a reply.
-    
+
 <email_history>
 ${emailHistoryContext.relevantEmails
   .map(
@@ -106,7 +107,7 @@ ${emailHistoryContext.notes || "No notes"}
 
   const writingStylePrompt = writingStyle
     ? `Writing style:
-    
+
 <writing_style>
 ${writingStyle}
 </writing_style>
@@ -124,7 +125,7 @@ IMPORTANT: The user is NOT available. Do NOT suggest specific times. You may ack
 `
     : calendarAvailability?.suggestedTimes.length
       ? `Calendar availability information:
-    
+
 <calendar_availability>
 Suggested time slots:
 ${calendarAvailability.suggestedTimes.map((slot) => `- ${slot.start} to ${slot.end}`).join("\n")}
@@ -168,7 +169,7 @@ ${upcomingMeetingsContext}
 
 Here is the context of the email thread (from oldest to newest):
 ${getEmailListPrompt({ messages, messageMaxLength: 3000 })}
-     
+
 Please write a reply to the email.
 ${getTodayForLLM()}
 IMPORTANT: You are writing an email as ${emailAccount.email}. Write the reply from their perspective.`;
@@ -182,7 +183,7 @@ const draftSchema = z.object({
     ),
 });
 
-export async function aiDraftWithKnowledge({
+export async function aiDraftReply({
   messages,
   emailAccount,
   knowledgeBaseContent,
@@ -204,7 +205,7 @@ export async function aiDraftWithKnowledge({
   meetingContext: string | null;
 }) {
   try {
-    logger.info("Drafting email with knowledge base", {
+    logger.info("Drafting email reply", {
       messageCount: messages.length,
       hasKnowledge: !!knowledgeBaseContent,
       hasHistory: !!emailHistorySummary,
@@ -233,22 +234,22 @@ export async function aiDraftWithKnowledge({
 
     const generateObject = createGenerateObject({
       emailAccount,
-      label: "Email draft with knowledge",
+      label: "Draft reply",
       modelOptions,
     });
 
     const result = await generateObject({
       ...modelOptions,
-      system,
+      system: systemPrompt,
       prompt,
       schema: draftSchema,
     });
 
     return result.object.reply;
   } catch (error) {
-    logger.error("Failed to draft email with knowledge", { error });
+    logger.error("Failed to draft email reply", { error });
     return {
-      error: "Failed to draft email using knowledge base",
+      error: "Failed to draft email reply",
     };
   }
 }

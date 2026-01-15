@@ -3,7 +3,7 @@ import { escapeHtml } from "@/utils/string";
 import { internalDateToDate } from "@/utils/date";
 import { getEmailForLLM } from "@/utils/get-email-from-message";
 import { extractEmailAddress, extractEmailAddresses } from "@/utils/email";
-import { aiDraftWithKnowledge } from "@/utils/ai/reply/draft-with-knowledge";
+import { aiDraftReply } from "@/utils/ai/reply/draft-reply";
 import { getReply, saveReply } from "@/utils/redis/reply";
 import { getWritingStyle } from "@/utils/user/get";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
@@ -207,13 +207,8 @@ async function generateDraftContent(
       })
     : null;
 
-  // 3. Draft with extracted knowledge
-  const meetingContext = formatMeetingContextForPrompt(
-    upcomingMeetings,
-    emailAccount.timezone,
-  );
-
-  const text = await aiDraftWithKnowledge({
+  // 3. Draft reply
+  const text = await aiDraftReply({
     messages,
     emailAccount,
     knowledgeBaseContent: knowledgeResult?.relevantContent || null,
@@ -222,7 +217,10 @@ async function generateDraftContent(
     calendarAvailability,
     writingStyle,
     mcpContext: mcpResult?.response || null,
-    meetingContext,
+    meetingContext: formatMeetingContextForPrompt(
+      upcomingMeetings,
+      emailAccount.timezone,
+    ),
   });
 
   if (typeof text === "string") {

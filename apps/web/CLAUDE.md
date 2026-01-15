@@ -25,6 +25,7 @@
 - All imports go at the top of files, no mid-file dynamic imports.
 - Co-locate test files next to source files (e.g., `utils/example.test.ts`). Only E2E and AI tests go in `__tests__/`.
 - Do not export types/interfaces that are only used within the same file. Export later if needed.
+- Never use import/export patterns (importing something just to re-export it). If consumers need a type, they should import it from its original source.
 - Infer types from Zod schemas using `z.infer<typeof schema>` instead of duplicating as separate interfaces.
 - Balance DRY vs WET: Avoid premature abstraction. Duplicating code 2-3 times is often better than creating an abstraction too early. Only extract shared code when you see a clear, stable pattern. WET (Write Everything Twice) code is easier to change than the wrong abstraction. However, obvious copy-paste of entire functions or large blocks should be refactored.
 
