@@ -14,7 +14,7 @@ import {
   HeaderButton,
 } from "@/app/(app)/[emailAccountId]/bulk-unsubscribe/common";
 import type { RowProps } from "@/app/(app)/[emailAccountId]/bulk-unsubscribe/types";
-import { NewCheckbox } from "@/components/NewCheckbox";
+import { ButtonCheckbox } from "@/components/ButtonCheckbox";
 import { DomainIcon } from "@/components/charts/DomainIcon";
 import { extractDomainFromEmail } from "@/utils/email";
 
@@ -40,7 +40,7 @@ export function BulkUnsubscribeDesktop({
       <TableHeader>
         <TableRow>
           <TableHead className="w-10 pr-0">
-            <NewCheckbox
+            <ButtonCheckbox
               checked={isAllSelected}
               indeterminate={isSomeSelected && !isAllSelected}
               onChange={() => onToggleSelectAll()}
@@ -109,7 +109,7 @@ export function BulkUnsubscribeRowDesktop({
       onDoubleClick={onDoubleClick}
     >
       <TableCell className="w-10 pr-0">
-        <NewCheckbox
+        <ButtonCheckbox
           checked={checked}
           onChange={(shiftKey) => onToggleSelect?.(item.name, shiftKey)}
         />
