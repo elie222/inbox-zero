@@ -33,12 +33,15 @@ export async function Resolved({
       OFFSET ${skip}
     `,
     prisma.$queryRaw<[{ count: bigint }]>`
-      SELECT COUNT(DISTINCT "threadId") as count
-      FROM "ThreadTracker"
-      WHERE "emailAccountId" = ${emailAccountId}
-      ${dateFilter ? Prisma.sql`AND "sentAt" <= (${dateFilter}->>'lte')::timestamp` : Prisma.empty}
-      GROUP BY "threadId"
-      HAVING bool_and(resolved) = true
+      SELECT COUNT(*) as count
+      FROM (
+        SELECT 1
+        FROM "ThreadTracker"
+        WHERE "emailAccountId" = ${emailAccountId}
+        ${dateFilter ? Prisma.sql`AND "sentAt" <= (${dateFilter}->>'lte')::timestamp` : Prisma.empty}
+        GROUP BY "threadId"
+        HAVING bool_and(resolved) = true
+      ) t
     `,
   ]);
 
