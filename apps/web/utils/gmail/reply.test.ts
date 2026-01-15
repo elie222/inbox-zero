@@ -71,7 +71,6 @@ describe("email formatting", () => {
       message,
     });
 
-    // Email addresses in quotedHeader are now escaped for security
     expect(html).toBe(
       `<div dir="ltr">This is my reply</div>
 <br>
@@ -105,10 +104,8 @@ describe("email formatting", () => {
       message,
     });
 
-    // Email addresses in quotedHeader are now escaped for security
-    // Hebrew text is HTML-encoded by he.encode()
     expect(html).toBe(
-      `<div dir="rtl">&#x5E9;&#x5DC;&#x5D5;&#x5DD;, &#x5DE;&#x5D4; &#x5E9;&#x5DC;&#x5D5;&#x5DE;&#x5DA;?</div>
+      `<div dir="rtl">שלום, מה שלומך?</div>
 <br>
 <div class="gmail_quote gmail_quote_container">
   <div dir="rtl" class="gmail_attr">On Thu, 6 Feb 2025 at 21:23, David Cohen &lt;david@example.com&gt; wrote:<br></div>

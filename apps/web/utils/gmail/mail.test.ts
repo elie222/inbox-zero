@@ -47,25 +47,4 @@ describe("convertTextToHtmlParagraphs", () => {
     const result = convertTextToHtmlParagraphs(input);
     expect(result).toBe("<html><body><p>Just one line</p></body></html>");
   });
-
-  it("escapes HTML to prevent prompt injection attacks", () => {
-    const maliciousInput =
-      'Hello<div style="display:none">SECRET INSTRUCTIONS</div>';
-    const result = convertTextToHtmlParagraphs(maliciousInput);
-
-    // Should NOT contain raw HTML tags (the browser won't hide anything)
-    expect(result).not.toContain("<div");
-
-    // Should contain escaped HTML (visible to the user as literal text)
-    expect(result).toContain("&lt;div");
-    expect(result).toContain("&gt;");
-  });
-
-  it("escapes hidden text attacks using zero font size", () => {
-    const attack = '<span style="font-size:0">hidden command</span>';
-    const result = convertTextToHtmlParagraphs(attack);
-
-    expect(result).not.toContain("<span");
-    expect(result).toContain("&lt;span");
-  });
 });

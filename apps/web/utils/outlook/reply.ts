@@ -39,7 +39,6 @@ export const createOutlookReplyContent = ({
     "font-family: Aptos, Calibri, Arial, Helvetica, sans-serif; font-size: 12pt; color: rgb(0, 0, 0);";
 
   // Format HTML version with Outlook-style formatting
-  // Escape quotedHeader to prevent HTML injection from email addresses like "John <john@example.com>"
   const html =
     `<div ${dirAttribute} style="${outlookFontStyle}">${contentHtml}</div>
 <br>

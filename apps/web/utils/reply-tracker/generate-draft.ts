@@ -1,4 +1,5 @@
 import type { ParsedMessage } from "@/utils/types";
+import { escapeHtml } from "@/utils/string";
 import { internalDateToDate } from "@/utils/date";
 import { getEmailForLLM } from "@/utils/get-email-from-message";
 import { extractEmailAddress, extractEmailAddresses } from "@/utils/email";
@@ -57,7 +58,10 @@ export async function fetchMessagesAndGenerateDraft(
     },
   });
 
-  let finalResult = result;
+  // Escape AI-generated content to prevent prompt injection attacks
+  // (e.g., hidden divs with sensitive data that could be leaked)
+  // Signatures and other trusted HTML are added AFTER escaping
+  let finalResult = escapeHtml(result);
 
   if (
     !env.NEXT_PUBLIC_DISABLE_REFERRAL_SIGNATURE &&

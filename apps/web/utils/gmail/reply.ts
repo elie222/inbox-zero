@@ -35,7 +35,6 @@ export const createReplyContent = ({
     htmlContent || (textContent ? convertNewlinesToBr(textContent) : "");
 
   // Format HTML version with Gmail-style quote formatting
-  // Escape quotedHeader to prevent HTML injection from email addresses like "John <john@example.com>"
   const html = `<div ${dirAttribute}>${contentHtml}</div>
 <br>
 <div class="gmail_quote gmail_quote_container">
