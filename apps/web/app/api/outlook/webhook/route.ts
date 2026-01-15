@@ -44,11 +44,19 @@ export const POST = withError("outlook/webhook", async (request) => {
   const body = parseResult.data;
 
   // Validate clientState for security (verify webhook is from Microsoft)
+  const expectedClientState = env.MICROSOFT_WEBHOOK_CLIENT_STATE;
+
+  if (!expectedClientState) {
+    logger.error("MICROSOFT_WEBHOOK_CLIENT_STATE not configured");
+    return NextResponse.json(
+      { error: "Webhook not configured" },
+      { status: 500 },
+    );
+  }
+
   for (const notification of body.value) {
-    if (notification.clientState !== env.MICROSOFT_WEBHOOK_CLIENT_STATE) {
+    if (notification.clientState !== expectedClientState) {
       logger.warn("Invalid or missing clientState", {
-        receivedClientState: notification.clientState,
-        hasExpectedClientState: !!env.MICROSOFT_WEBHOOK_CLIENT_STATE,
         subscriptionId: notification.subscriptionId,
       });
       return NextResponse.json(
