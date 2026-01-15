@@ -384,6 +384,15 @@ export function BulkUnsubscribe() {
         <ArchiveProgress />
       </ClientOnly>
 
+      <BulkActions
+        selected={selected}
+        mutate={mutate}
+        onClearSelection={clearSelection}
+        newsletters={rows}
+        filter={filter}
+        totalCount={rows?.length ?? 0}
+      />
+
       <Card className="mt-2 md:mt-4">
         {isStatsLoading && !isLoading && !data?.newsletters.length ? (
           isMobile ? (
@@ -463,13 +472,6 @@ export function BulkUnsubscribe() {
         mutate={mutate}
       />
       <PremiumModal />
-      <BulkActions
-        selected={selected}
-        mutate={mutate}
-        onClearSelection={clearSelection}
-        newsletters={rows}
-        filter={filter}
-      />
     </PageWrapper>
   );
 }

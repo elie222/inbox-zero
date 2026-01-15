@@ -64,8 +64,8 @@ function ActionButton({
         "flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-lg transition-colors whitespace-nowrap",
         primary
           ? "bg-blue-500 text-white hover:bg-blue-600"
-          : "text-gray-300 hover:bg-gray-700 hover:text-white",
-        danger && "hover:text-red-400",
+          : "text-gray-600 hover:bg-gray-100 hover:text-gray-900",
+        danger && "hover:text-red-600",
         loading && "opacity-50 cursor-not-allowed",
       )}
     >
@@ -85,6 +85,7 @@ export function BulkActions({
   onClearSelection,
   newsletters,
   filter,
+  totalCount,
 }: {
   selected: Map<string, boolean>;
   // biome-ignore lint/suspicious/noExplicitAny: matches SWR mutate return type
@@ -92,6 +93,7 @@ export function BulkActions({
   onClearSelection: () => void;
   newsletters?: Newsletter[];
   filter: NewsletterFilterType;
+  totalCount: number;
 }) {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [skipInboxDialogOpen, setSkipInboxDialogOpen] = useState(false);
@@ -167,84 +169,71 @@ export function BulkActions({
       <AnimatePresence>
         {isVisible && (
           <motion.div
-            initial={{ y: "100%", opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            exit={{ y: "100%", opacity: 0 }}
-            transition={{ duration: 0.3, ease: "easeOut" }}
-            className="fixed bottom-0 left-0 right-0 z-40 pointer-events-none"
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: "auto" }}
+            exit={{ opacity: 0, height: 0 }}
+            transition={{ duration: 0.15, ease: "easeOut" }}
+            className="overflow-hidden"
           >
-            <div
-              className="flex justify-center p-4"
-              style={{
-                paddingBottom: "calc(1rem + env(safe-area-inset-bottom))",
-              }}
+            <PremiumTooltip
+              showTooltip={!hasUnsubscribeAccess}
+              openModal={openModal}
             >
-              <PremiumTooltip
-                showTooltip={!hasUnsubscribeAccess}
-                openModal={openModal}
-              >
-                <div className="pointer-events-auto bg-gray-900 text-white rounded-xl shadow-2xl shadow-gray-900/20 px-4 py-3 flex items-center gap-3">
-                  {/* Selection Count */}
-                  <div className="flex items-center gap-2 pr-4 border-r border-gray-700 whitespace-nowrap">
-                    <div className="w-6 h-6 bg-blue-500 rounded-md flex items-center justify-center text-xs font-semibold">
-                      {selectedCount}
-                    </div>
-                    <span className="text-sm text-gray-300">selected</span>
-                  </div>
-
-                  {/* Action Buttons */}
-                  <div className="flex items-center gap-1 flex-nowrap">
-                    <ActionButton
-                      icon={MailMinusIcon}
-                      label="Unsubscribe"
-                      primary
-                      onClick={() => onBulkUnsubscribe(getSelectedValues())}
-                    />
-                    <ActionButton
-                      icon={ArchiveIcon}
-                      label="Skip Inbox"
-                      onClick={() => setSkipInboxDialogOpen(true)}
-                    />
-                    <ActionButton
-                      icon={
-                        allSelectedAreApproved ? ThumbsDownIcon : ThumbsUpIcon
-                      }
-                      label={allSelectedAreApproved ? "Unapprove" : "Approve"}
-                      onClick={() =>
-                        onBulkApprove(
-                          getSelectedValues(),
-                          allSelectedAreApproved,
-                        )
-                      }
-                    />
-                    <ActionButton
-                      icon={ArchiveIcon}
-                      label="Archive All"
-                      loadingLabel="Archiving"
-                      onClick={() => onBulkArchive(getSelectedValues())}
-                      loading={isBulkArchiving}
-                    />
-                    <ActionButton
-                      icon={TrashIcon}
-                      label="Delete All"
-                      loadingLabel="Deleting"
-                      danger
-                      onClick={() => setDeleteDialogOpen(true)}
-                      loading={isBulkDeleting}
-                    />
-                  </div>
-
-                  {/* Close Button */}
+              <div className="mt-4 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 flex items-center justify-between gap-3">
+                {/* Left side: Close button and selection count */}
+                <div className="flex items-center gap-3">
                   <button
                     type="button"
                     onClick={onClearSelection}
-                    className="p-2 text-gray-400 hover:text-white hover:bg-gray-800 rounded-lg transition-colors"
+                    className="p-1 text-gray-500 hover:text-gray-700 hover:bg-gray-200 rounded transition-colors"
                   >
                     <XIcon className="size-4" />
                   </button>
+                  <span className="text-sm text-gray-600">
+                    {selectedCount} of {totalCount} selected
+                  </span>
                 </div>
-              </PremiumTooltip>
-            </div>
+
+                {/* Right side: Action Buttons */}
+                <div className="flex items-center gap-1 flex-nowrap">
+                  <ActionButton
+                    icon={MailMinusIcon}
+                    label="Unsubscribe"
+                    primary
+                    onClick={() => onBulkUnsubscribe(getSelectedValues())}
+                  />
+                  <ActionButton
+                    icon={ArchiveIcon}
+                    label="Skip Inbox"
+                    onClick={() => setSkipInboxDialogOpen(true)}
+                  />
+                  <ActionButton
+                    icon={
+                      allSelectedAreApproved ? ThumbsDownIcon : ThumbsUpIcon
+                    }
+                    label={allSelectedAreApproved ? "Unapprove" : "Approve"}
+                    onClick={() =>
+                      onBulkApprove(getSelectedValues(), allSelectedAreApproved)
+                    }
+                  />
+                  <ActionButton
+                    icon={ArchiveIcon}
+                    label="Archive All"
+                    loadingLabel="Archiving"
+                    onClick={() => onBulkArchive(getSelectedValues())}
+                    loading={isBulkArchiving}
+                  />
+                  <ActionButton
+                    icon={TrashIcon}
+                    label="Delete All"
+                    loadingLabel="Deleting"
+                    danger
+                    onClick={() => setDeleteDialogOpen(true)}
+                    loading={isBulkDeleting}
+                  />
+                </div>
+              </div>
+            </PremiumTooltip>
           </motion.div>
         )}
       </AnimatePresence>
