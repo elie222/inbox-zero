@@ -995,7 +995,7 @@ const isMainModule =
   process.argv[1] &&
   (process.argv[1].endsWith("main.ts") ||
     process.argv[1].endsWith("inbox-zero.js") ||
-    process.argv[1].endsWith("inbox-zero"));
+    process.argv[1].includes("inbox-zero"));
 
 if (isMainModule) {
   main().catch((error) => {
