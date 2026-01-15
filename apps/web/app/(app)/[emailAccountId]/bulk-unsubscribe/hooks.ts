@@ -238,7 +238,11 @@ export function useBulkUnsubscribe<T extends Row>({
       }
 
       // Refetch premium after all items processed
-      await refetchPremium();
+      try {
+        await refetchPremium();
+      } catch (error) {
+        captureException(error);
+      }
 
       // Show final result
       if (failures.length > 0) {
@@ -501,7 +505,11 @@ export function useBulkAutoArchive<T extends Row>({
       }
 
       // Refetch premium after all items processed
-      await refetchPremium();
+      try {
+        await refetchPremium();
+      } catch (error) {
+        captureException(error);
+      }
 
       // Show final result
       if (failures.length > 0) {

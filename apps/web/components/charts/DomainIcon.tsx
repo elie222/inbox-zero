@@ -59,7 +59,7 @@ export function DomainIcon({ domain, size = 20 }: DomainIconProps) {
   return (
     <div
       style={{ width: size, height: size }}
-      className="shrink-0 overflow-hidden relative"
+      className="relative shrink-0 overflow-hidden rounded-full"
     >
       {fallbackEnabled || !domainFavicon ? (
         <FallbackIcon seed={domain} size={size} />
