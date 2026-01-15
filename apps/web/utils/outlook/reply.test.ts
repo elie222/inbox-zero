@@ -75,7 +75,7 @@ describe("Outlook email formatting", () => {
       `<div dir="ltr" style="font-family: Aptos, Calibri, Arial, Helvetica, sans-serif; font-size: 12pt; color: rgb(0, 0, 0);">This is my reply</div>
 <br>
 <div style="border-top: 1px solid #e1e1e1; padding-top: 10px; margin-top: 10px;">
-  <div dir="ltr" style="font-size: 11pt; color: rgb(0, 0, 0);">On Thu, 6 Feb 2025 at 21:23, John Doe <john@example.com> wrote:<br></div>
+  <div dir="ltr" style="font-size: 11pt; color: rgb(0, 0, 0);">On Thu, 6 Feb 2025 at 21:23, John Doe &lt;john@example.com&gt; wrote:<br></div>
   <div style="margin-top: 10px;">
     <div>Original message content</div>
   </div>
@@ -107,7 +107,7 @@ describe("Outlook email formatting", () => {
       `<div dir="rtl" style="font-family: Aptos, Calibri, Arial, Helvetica, sans-serif; font-size: 12pt; color: rgb(0, 0, 0);">שלום, מה שלומך?</div>
 <br>
 <div style="border-top: 1px solid #e1e1e1; padding-top: 10px; margin-top: 10px;">
-  <div dir="rtl" style="font-size: 11pt; color: rgb(0, 0, 0);">On Thu, 6 Feb 2025 at 21:23, David Cohen <david@example.com> wrote:<br></div>
+  <div dir="rtl" style="font-size: 11pt; color: rgb(0, 0, 0);">On Thu, 6 Feb 2025 at 21:23, David Cohen &lt;david@example.com&gt; wrote:<br></div>
   <div style="margin-top: 10px;">
     <div>תוכן ההודעה המקורית</div>
   </div>
