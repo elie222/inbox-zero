@@ -83,7 +83,7 @@ To request a feature open a [GitHub issue](https://github.com/elie222/inbox-zero
 
 We offer a hosted version of Inbox Zero at [https://getinboxzero.com](https://www.getinboxzero.com).
 
-### Self-Hosting with Docker
+### Self-Hosting
 
 The easiest way to self-host Inbox Zero is using our pre-built Docker image.
 
@@ -93,7 +93,7 @@ See our **[Self-Hosting Guide](docs/hosting/self-hosting.md)** for complete inst
 
 [Here's a video](https://youtu.be/hVQENQ4WT2Y) on how to set up the project. It covers the same steps mentioned in this document. But goes into greater detail on setting up the external services.
 
-#### Option A: Devcontainer (Recommended)
+#### Option A: Devcontainer
 
 The fastest way to get started is using [devcontainers](https://containers.dev/), supported by VS Code ([Dev Containers extension](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers)), JetBrains IDEs, and other modern editors:
 
