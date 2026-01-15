@@ -60,6 +60,17 @@ export function BulkUnsubscribeDesktop({
               Emails
             </HeaderButton>
           </TableHead>
+          <TableHead>
+            <HeaderButton
+              sorted={sortColumn === "unread"}
+              sortDirection={
+                sortColumn === "unread" ? sortDirection : undefined
+              }
+              onClick={() => onSort("unread")}
+            >
+              Read
+            </HeaderButton>
+          </TableHead>
           <TableHead />
         </TableRow>
       </TableHeader>
@@ -84,6 +95,7 @@ export function BulkUnsubscribeRowDesktop({
   onToggleSelect,
   checked,
   filter,
+  readPercentage,
 }: RowProps) {
   const domain = extractDomainFromEmail(item.name) || item.name;
 
@@ -119,6 +131,11 @@ export function BulkUnsubscribeRowDesktop({
       </TableCell>
       <TableCell>
         <span className="text-muted-foreground">{item.value}</span>
+      </TableCell>
+      <TableCell>
+        <span className="text-muted-foreground">
+          {Math.round(readPercentage)}%
+        </span>
       </TableCell>
       <TableCell className="p-1">
         <div className="flex justify-end items-center gap-2">

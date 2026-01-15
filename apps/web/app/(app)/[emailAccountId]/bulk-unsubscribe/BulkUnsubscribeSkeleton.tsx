@@ -35,6 +35,9 @@ function SkeletonDesktopRow() {
       <TableCell>
         <Skeleton className="h-4 w-8" />
       </TableCell>
+      <TableCell>
+        <Skeleton className="h-4 w-10" />
+      </TableCell>
       <TableCell className="p-1">
         <div className="flex justify-end items-center gap-2">
           <Skeleton className="h-8 w-8 rounded-lg" />
@@ -59,6 +62,9 @@ export function BulkUnsubscribeDesktopSkeleton() {
           </TableHead>
           <TableHead>
             <span className="text-sm font-medium">Emails</span>
+          </TableHead>
+          <TableHead>
+            <span className="text-sm font-medium">Read</span>
           </TableHead>
           <TableHead />
         </TableRow>
