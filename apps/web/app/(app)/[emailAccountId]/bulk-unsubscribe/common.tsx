@@ -6,7 +6,6 @@ import {
   ArchiveIcon,
   ChevronDownIcon,
   ChevronUpIcon,
-  ChevronsUpDownIcon,
   ExpandIcon,
   ExternalLinkIcon,
   MailXIcon,

@@ -552,6 +552,7 @@ export function useApproveButton<T extends Row>({
     data?: any,
     opts?: {
       revalidate?: boolean;
+      // biome-ignore lint/suspicious/noExplicitAny: SWR optimisticData can be any shape
       optimisticData?: any;
       rollbackOnError?: boolean;
     },
