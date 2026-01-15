@@ -14,7 +14,7 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card";
 const SKELETON_ROW_COUNT = 10;
 
 function SkeletonCheckbox() {
-  return <Skeleton className="h-4 w-4 rounded" />;
+  return <Skeleton className="h-5 w-5 rounded-md" />;
 }
 
 function SkeletonDesktopRow() {
@@ -25,10 +25,10 @@ function SkeletonDesktopRow() {
       </TableCell>
       <TableCell className="max-w-[250px] py-3">
         <div className="flex items-center gap-2">
-          <Skeleton className="h-8 w-8 rounded" />
+          <Skeleton className="h-8 w-8 rounded-lg" />
           <div className="flex flex-col gap-1">
-            <Skeleton className="h-4 w-32 rounded-sm" />
-            <Skeleton className="h-3 w-40 rounded-sm" />
+            <Skeleton className="h-4 w-32 rounded" />
+            <Skeleton className="h-3 w-40 rounded" />
           </div>
         </div>
       </TableCell>
@@ -37,9 +37,9 @@ function SkeletonDesktopRow() {
       </TableCell>
       <TableCell className="p-1">
         <div className="flex justify-end items-center gap-2">
-          <Skeleton className="h-8 w-8 rounded" />
-          <Skeleton className="h-8 w-24 rounded" />
-          <Skeleton className="h-8 w-8 rounded" />
+          <Skeleton className="h-8 w-8 rounded-lg" />
+          <Skeleton className="h-8 w-24 rounded-lg" />
+          <Skeleton className="h-8 w-8 rounded-lg" />
         </div>
       </TableCell>
     </TableRow>
@@ -58,7 +58,7 @@ export function BulkUnsubscribeDesktopSkeleton() {
             <span className="text-sm font-medium">From</span>
           </TableHead>
           <TableHead>
-            <Skeleton className="h-4 w-12" />
+            <span className="text-sm font-medium">Emails</span>
           </TableHead>
           <TableHead />
         </TableRow>

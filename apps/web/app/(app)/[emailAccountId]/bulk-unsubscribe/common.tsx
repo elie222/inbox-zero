@@ -346,15 +346,15 @@ export function HeaderButton(props: {
       className="-ml-3 h-8 data-[state=open]:bg-accent"
       onClick={props.onClick}
     >
-      <span>{props.children}</span>
+      <span className="text-muted-foreground">{props.children}</span>
       {props.sorted ? (
         props.sortDirection === "asc" ? (
-          <ChevronUpIcon className="ml-2 size-4" />
+          <ChevronUpIcon className="ml-2 size-4 text-muted-foreground" />
         ) : (
-          <ChevronDownIcon className="ml-2 size-4" />
+          <ChevronDownIcon className="ml-2 size-4 text-muted-foreground" />
         )
       ) : (
-        <ChevronsUpDownIcon className="ml-2 size-4" />
+        <ChevronDownIcon className="ml-2 size-4 text-muted-foreground" />
       )}
     </Button>
   );
