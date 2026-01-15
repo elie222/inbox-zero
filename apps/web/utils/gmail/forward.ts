@@ -1,5 +1,6 @@
 import { formatEmailDate } from "@/utils/gmail/reply";
 import type { ParsedMessage } from "@/utils/types";
+import { escapeHtml } from "@/utils/string";
 
 export const forwardEmailSubject = (subject: string) => {
   return `Fwd: ${subject}`;
@@ -14,12 +15,13 @@ export const forwardEmailHtml = ({
 }) => {
   const quotedDate = formatEmailDate(new Date(message.headers.date));
 
-  return `<div dir="ltr">${content}<br><br>
+  // Escape content and subject to prevent prompt injection attacks
+  return `<div dir="ltr">${escapeHtml(content)}<br><br>
 <div class="gmail_quote gmail_quote_container">
   <div dir="ltr" class="gmail_attr">---------- Forwarded message ----------<br>
 From: ${formatFromEmailWithName(message.headers.from)}<br>
 Date: ${quotedDate}<br>
-Subject: ${message.headers.subject}<br>
+Subject: ${escapeHtml(message.headers.subject)}<br>
 To: ${formatToEmailWithName(message.headers.to)}<br>
 </div><br><br>
 ${message.textHtml}
@@ -46,20 +48,22 @@ ${message.textPlain}`;
 
 const formatFromEmailWithName = (emailHeader: string) => {
   const match = emailHeader?.match(/(.*?)\s*<([^>]+)>/);
-  if (!match) return emailHeader || "";
+  if (!match) return escapeHtml(emailHeader || "");
 
   const [, name, email] = match;
-  const trimmedName = name.trim();
+  const safeName = escapeHtml(name.trim());
+  const safeEmail = escapeHtml(email);
 
-  return `<strong class="gmail_sendername" dir="auto">${trimmedName}</strong> <span dir="auto">&lt;<a href="mailto:${email}">${email}</a>&gt;</span>`;
+  return `<strong class="gmail_sendername" dir="auto">${safeName}</strong> <span dir="auto">&lt;<a href="mailto:${safeEmail}">${safeEmail}</a>&gt;</span>`;
 };
 
 const formatToEmailWithName = (emailHeader: string) => {
   const match = emailHeader?.match(/(.*?)\s*<([^>]+)>/);
-  if (!match) return emailHeader || "";
+  if (!match) return escapeHtml(emailHeader || "");
 
   const [, name, email] = match;
-  const trimmedName = name.trim();
+  const safeName = escapeHtml(name.trim());
+  const safeEmail = escapeHtml(email);
 
-  return `${trimmedName} &lt;<a href="mailto:${email}">${email}</a>&gt;`;
+  return `${safeName} &lt;<a href="mailto:${safeEmail}">${safeEmail}</a>&gt;`;
 };

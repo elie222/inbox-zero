@@ -71,23 +71,16 @@ describe("Outlook email formatting", () => {
       message,
     });
 
-    // Verify Aptos font is present
-    expect(html).toContain(
-      "font-family: Aptos, Calibri, Arial, Helvetica, sans-serif",
+    expect(html).toBe(
+      `<div dir="ltr" style="font-family: Aptos, Calibri, Arial, Helvetica, sans-serif; font-size: 12pt; color: rgb(0, 0, 0);">This is my reply</div>
+<br>
+<div style="border-top: 1px solid #e1e1e1; padding-top: 10px; margin-top: 10px;">
+  <div dir="ltr" style="font-size: 11pt; color: rgb(0, 0, 0);">On Thu, 6 Feb 2025 at 21:23, John Doe &lt;john@example.com&gt; wrote:<br></div>
+  <div style="margin-top: 10px;">
+    <div>Original message content</div>
+  </div>
+</div>`.trim(),
     );
-    expect(html).toContain("font-size: 11pt");
-    expect(html).toContain("color: rgb(0, 0, 0)");
-
-    // Verify content is present
-    expect(html).toContain("This is my reply");
-    expect(html).toContain(
-      "On Thu, 6 Feb 2025 at 21:23, John Doe <john@example.com> wrote:",
-    );
-    expect(html).toContain("<div>Original message content</div>");
-
-    // Verify it does NOT use Gmail-specific classes
-    expect(html).not.toContain("gmail_quote");
-    expect(html).not.toContain("gmail_attr");
   });
 
   it("formats reply email correctly for RTL content with Outlook styling", () => {
@@ -110,17 +103,16 @@ describe("Outlook email formatting", () => {
       message,
     });
 
-    // Verify RTL direction is set
-    expect(html).toContain('dir="rtl"');
-
-    // Verify Aptos font is still present
-    expect(html).toContain(
-      "font-family: Aptos, Calibri, Arial, Helvetica, sans-serif",
+    expect(html).toBe(
+      `<div dir="rtl" style="font-family: Aptos, Calibri, Arial, Helvetica, sans-serif; font-size: 12pt; color: rgb(0, 0, 0);">שלום, מה שלומך?</div>
+<br>
+<div style="border-top: 1px solid #e1e1e1; padding-top: 10px; margin-top: 10px;">
+  <div dir="rtl" style="font-size: 11pt; color: rgb(0, 0, 0);">On Thu, 6 Feb 2025 at 21:23, David Cohen &lt;david@example.com&gt; wrote:<br></div>
+  <div style="margin-top: 10px;">
+    <div>תוכן ההודעה המקורית</div>
+  </div>
+</div>`.trim(),
     );
-
-    // Verify Hebrew content
-    expect(html).toContain("שלום, מה שלומך?");
-    expect(html).toContain("<div>תוכן ההודעה המקורית</div>");
   });
 
   it("generates proper plain text format", () => {

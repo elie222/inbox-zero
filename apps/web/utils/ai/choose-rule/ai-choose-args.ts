@@ -10,6 +10,10 @@ import { LogicalOperator } from "@/generated/prisma/enums";
 import type { ActionType } from "@/generated/prisma/enums";
 import { getModel, type ModelType } from "@/utils/llms/model";
 import { getUserInfoPrompt } from "@/utils/ai/helpers";
+import {
+  PLAIN_TEXT_OUTPUT_INSTRUCTION,
+  PROMPT_SECURITY_INSTRUCTIONS,
+} from "@/utils/ai/security";
 
 /**
  * AI Argument Generator for Email Actions
@@ -120,6 +124,8 @@ export async function aiGenerateArgs({
 function getSystemPrompt() {
   return `You are an AI assistant that helps people manage their emails.
 
+${PROMPT_SECURITY_INSTRUCTIONS}
+
 <key_instructions>
 - Never mention you are an AI assistant in responses
 - Use empty strings for missing information (no placeholders like <UNKNOWN> or [PLACEHOLDER], unless explicitly allowed in the user's rule instructions)
@@ -131,6 +137,7 @@ function getSystemPrompt() {
 - IMPORTANT: For content and subject fields:
   - Use proper capitalization and punctuation (start sentences with capital letters)
   - Ensure the generated text flows naturally with surrounding template content
+- IMPORTANT: ${PLAIN_TEXT_OUTPUT_INSTRUCTION}
 </key_instructions>`;
 }
 

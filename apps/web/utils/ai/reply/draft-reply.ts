@@ -7,10 +7,17 @@ import { getEmailListPrompt, getTodayForLLM } from "@/utils/ai/helpers";
 import { getModel } from "@/utils/llms/model";
 import type { ReplyContextCollectorResult } from "@/utils/ai/reply/reply-context-collector";
 import type { CalendarAvailabilityContext } from "@/utils/ai/calendar/availability";
+import {
+  PLAIN_TEXT_OUTPUT_INSTRUCTION,
+  PROMPT_SECURITY_INSTRUCTIONS,
+} from "@/utils/ai/security";
 
 const logger = createScopedLogger("DraftReply");
 
 const systemPrompt = `You are an expert assistant that drafts email replies using knowledge base information.
+
+${PROMPT_SECURITY_INSTRUCTIONS}
+
 Keep it concise and friendly.
 IMPORTANT: Keep the reply short. Aim for 2 sentences at most.
 Don't be pushy.
@@ -18,6 +25,7 @@ Use context from the previous emails and the provided knowledge base to make it 
 IMPORTANT: Do NOT simply repeat or mirror what the last email said. It doesn't add anything to the conversation to repeat back to them what they just said.
 Don't mention that you're an AI.
 Don't reply with a Subject. Only reply with the body of the email.
+IMPORTANT: ${PLAIN_TEXT_OUTPUT_INSTRUCTION}
 
 IMPORTANT: Use placeholders sparingly! Only use them where you have limited information.
 Never use placeholders for the user's name. You do not need to sign off with the user's name. Do not add a signature.

@@ -5,6 +5,7 @@ import { aiDraftFollowUp } from "@/utils/ai/reply/draft-follow-up";
 import { getWritingStyle } from "@/utils/user/get";
 import { internalDateToDate } from "@/utils/date";
 import { getEmailForLLM } from "@/utils/get-email-from-message";
+import { extractEmailAddress } from "@/utils/email";
 import prisma from "@/utils/prisma";
 import { env } from "@/env";
 import { getOrCreateReferralCode } from "@/utils/referral/referral-code";
@@ -34,7 +35,23 @@ export async function generateFollowUpDraft({
       return;
     }
 
-    const lastMessage = thread.messages[thread.messages.length - 1];
+    // Find the last message from an external sender (not the current user)
+    const lastExternalMessage = thread.messages
+      .slice()
+      .reverse()
+      .find(
+        (msg) =>
+          extractEmailAddress(msg.headers.from).toLowerCase() !==
+          emailAccount.email.toLowerCase(),
+      );
+
+    if (!lastExternalMessage) {
+      logger.info(
+        "No external message found in thread, skipping draft generation",
+        { threadId },
+      );
+      return;
+    }
 
     // Convert messages to LLM format
     const messages = thread.messages.map((msg, index) => ({
@@ -88,7 +105,7 @@ export async function generateFollowUpDraft({
     }
 
     const { draftId } = await provider.draftEmail(
-      lastMessage,
+      lastExternalMessage,
       {
         content: draftContent,
       },

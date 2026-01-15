@@ -75,7 +75,7 @@ describe("email formatting", () => {
       `<div dir="ltr">This is my reply</div>
 <br>
 <div class="gmail_quote gmail_quote_container">
-  <div dir="ltr" class="gmail_attr">On Thu, 6 Feb 2025 at 21:23, John Doe <john@example.com> wrote:<br></div>
+  <div dir="ltr" class="gmail_attr">On Thu, 6 Feb 2025 at 21:23, John Doe &lt;john@example.com&gt; wrote:<br></div>
   <blockquote class="gmail_quote" 
     style="margin:0px 0px 0px 0.8ex;border-left:1px solid rgb(204,204,204);padding-left:1ex">
     <div>Original message content</div>
@@ -108,7 +108,7 @@ describe("email formatting", () => {
       `<div dir="rtl">שלום, מה שלומך?</div>
 <br>
 <div class="gmail_quote gmail_quote_container">
-  <div dir="rtl" class="gmail_attr">On Thu, 6 Feb 2025 at 21:23, David Cohen <david@example.com> wrote:<br></div>
+  <div dir="rtl" class="gmail_attr">On Thu, 6 Feb 2025 at 21:23, David Cohen &lt;david@example.com&gt; wrote:<br></div>
   <blockquote class="gmail_quote" 
     style="margin:0px 0px 0px 0.8ex;border-left:1px solid rgb(204,204,204);padding-left:1ex">
     <div>תוכן ההודעה המקורית</div>
