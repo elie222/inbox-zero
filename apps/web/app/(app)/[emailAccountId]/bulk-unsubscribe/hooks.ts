@@ -167,27 +167,7 @@ export function useBulkUnsubscribe<T extends Row>({
 
       posthog.capture("Clicked Bulk Unsubscribe");
 
-      const itemNames = items.map((item) => item.name);
       const total = items.length;
-
-      // Optimistically update status and filter out items that no longer match the current view
-      // biome-ignore lint/suspicious/noExplicitAny: SWR data structure
-      const optimisticUpdate = (currentData: any) => {
-        if (!currentData?.newsletters) return currentData;
-        return {
-          ...currentData,
-          newsletters: currentData.newsletters
-            .map(
-              // biome-ignore lint/suspicious/noExplicitAny: newsletter type
-              (n: any) =>
-                itemNames.includes(n.name)
-                  ? { ...n, status: NewsletterStatus.UNSUBSCRIBED }
-                  : n,
-            )
-            // biome-ignore lint/suspicious/noExplicitAny: newsletter type
-            .filter((n: any) => itemMatchesFilter(n.status, filter)),
-        };
-      };
 
       // Show loading toast with progress
       const toastId = toast.loading(
@@ -197,9 +177,6 @@ export function useBulkUnsubscribe<T extends Row>({
         },
       );
 
-      // Apply optimistic update immediately
-      mutate(optimisticUpdate, { revalidate: false });
-
       // Clear selection immediately
       onSuccess?.();
 
@@ -207,35 +184,60 @@ export function useBulkUnsubscribe<T extends Row>({
       let completed = 0;
       const failures: Error[] = [];
 
-      // Process server requests in the background with progress tracking
-      await Promise.all(
-        items.map(async (item) => {
-          try {
-            await setNewsletterStatusAction(emailAccountId, {
-              newsletterEmail: item.name,
-              status: NewsletterStatus.UNSUBSCRIBED,
-            });
-            await decrementUnsubscribeCreditAction();
-            await addToArchiveSenderQueue({
-              sender: item.name,
-              emailAccountId,
-            });
-          } catch (error) {
-            failures.push(error as Error);
-            captureException(error);
-          } finally {
-            completed++;
-            // Update toast with progress
-            toast.loading(
-              `Unsubscribing from ${total} sender${total > 1 ? "s" : ""}...`,
-              {
-                id: toastId,
-                description: `${completed} of ${total} completed`,
-              },
-            );
-          }
-        }),
-      );
+      // Helper to optimistically remove a single item from the list
+      const removeItemOptimistically = (itemName: string) => {
+        // biome-ignore lint/suspicious/noExplicitAny: SWR data structure
+        mutate(
+          (currentData: any) => {
+            if (!currentData?.newsletters) return currentData;
+            return {
+              ...currentData,
+              newsletters: currentData.newsletters
+                .map(
+                  // biome-ignore lint/suspicious/noExplicitAny: newsletter type
+                  (n: any) =>
+                    n.name === itemName
+                      ? { ...n, status: NewsletterStatus.UNSUBSCRIBED }
+                      : n,
+                )
+                // biome-ignore lint/suspicious/noExplicitAny: newsletter type
+                .filter((n: any) => itemMatchesFilter(n.status, filter)),
+            };
+          },
+          { revalidate: false },
+        );
+      };
+
+      // Process items sequentially so they disappear one by one
+      for (const item of items) {
+        // Remove item from UI when request starts
+        removeItemOptimistically(item.name);
+
+        try {
+          await setNewsletterStatusAction(emailAccountId, {
+            newsletterEmail: item.name,
+            status: NewsletterStatus.UNSUBSCRIBED,
+          });
+          await decrementUnsubscribeCreditAction();
+          await addToArchiveSenderQueue({
+            sender: item.name,
+            emailAccountId,
+          });
+        } catch (error) {
+          failures.push(error as Error);
+          captureException(error);
+        } finally {
+          completed++;
+          // Update toast with progress
+          toast.loading(
+            `Unsubscribing from ${total} sender${total > 1 ? "s" : ""}...`,
+            {
+              id: toastId,
+              description: `${completed} of ${total} completed`,
+            },
+          );
+        }
+      }
 
       // Refetch premium after all items processed
       await refetchPremium();
@@ -423,27 +425,7 @@ export function useBulkAutoArchive<T extends Row>({
     async (items: T[]) => {
       if (!hasUnsubscribeAccess) return;
 
-      const itemNames = items.map((item) => item.name);
       const total = items.length;
-
-      // Optimistically update status and filter out items that no longer match the current view
-      // biome-ignore lint/suspicious/noExplicitAny: SWR data structure
-      const optimisticUpdate = (currentData: any) => {
-        if (!currentData?.newsletters) return currentData;
-        return {
-          ...currentData,
-          newsletters: currentData.newsletters
-            .map(
-              // biome-ignore lint/suspicious/noExplicitAny: newsletter type
-              (n: any) =>
-                itemNames.includes(n.name)
-                  ? { ...n, status: NewsletterStatus.AUTO_ARCHIVED }
-                  : n,
-            )
-            // biome-ignore lint/suspicious/noExplicitAny: newsletter type
-            .filter((n: any) => itemMatchesFilter(n.status, filter)),
-        };
-      };
 
       // Show loading toast with progress
       const toastId = toast.loading(
@@ -453,9 +435,6 @@ export function useBulkAutoArchive<T extends Row>({
         },
       );
 
-      // Apply optimistic update immediately
-      mutate(optimisticUpdate, { revalidate: false });
-
       // Clear selection immediately
       onSuccess?.();
 
@@ -463,42 +442,67 @@ export function useBulkAutoArchive<T extends Row>({
       let completed = 0;
       const failures: Error[] = [];
 
-      // Process server requests in the background with progress tracking
-      await Promise.all(
-        items.map(async (item) => {
-          try {
-            await onAutoArchive({
-              emailAccountId,
-              from: item.name,
-              gmailLabelId: undefined,
-              labelName: undefined,
-            });
-            await setNewsletterStatusAction(emailAccountId, {
-              newsletterEmail: item.name,
-              status: NewsletterStatus.AUTO_ARCHIVED,
-            });
-            await decrementUnsubscribeCreditAction();
-            await addToArchiveSenderQueue({
-              sender: item.name,
-              labelId: undefined,
-              emailAccountId,
-            });
-          } catch (error) {
-            failures.push(error as Error);
-            captureException(error);
-          } finally {
-            completed++;
-            // Update toast with progress
-            toast.loading(
-              `Setting ${total} sender${total > 1 ? "s" : ""} to skip inbox...`,
-              {
-                id: toastId,
-                description: `${completed} of ${total} completed`,
-              },
-            );
-          }
-        }),
-      );
+      // Helper to optimistically remove a single item from the list
+      const removeItemOptimistically = (itemName: string) => {
+        // biome-ignore lint/suspicious/noExplicitAny: SWR data structure
+        mutate(
+          (currentData: any) => {
+            if (!currentData?.newsletters) return currentData;
+            return {
+              ...currentData,
+              newsletters: currentData.newsletters
+                .map(
+                  // biome-ignore lint/suspicious/noExplicitAny: newsletter type
+                  (n: any) =>
+                    n.name === itemName
+                      ? { ...n, status: NewsletterStatus.AUTO_ARCHIVED }
+                      : n,
+                )
+                // biome-ignore lint/suspicious/noExplicitAny: newsletter type
+                .filter((n: any) => itemMatchesFilter(n.status, filter)),
+            };
+          },
+          { revalidate: false },
+        );
+      };
+
+      // Process items sequentially so they disappear one by one
+      for (const item of items) {
+        // Remove item from UI when request starts
+        removeItemOptimistically(item.name);
+
+        try {
+          await onAutoArchive({
+            emailAccountId,
+            from: item.name,
+            gmailLabelId: undefined,
+            labelName: undefined,
+          });
+          await setNewsletterStatusAction(emailAccountId, {
+            newsletterEmail: item.name,
+            status: NewsletterStatus.AUTO_ARCHIVED,
+          });
+          await decrementUnsubscribeCreditAction();
+          await addToArchiveSenderQueue({
+            sender: item.name,
+            labelId: undefined,
+            emailAccountId,
+          });
+        } catch (error) {
+          failures.push(error as Error);
+          captureException(error);
+        } finally {
+          completed++;
+          // Update toast with progress
+          toast.loading(
+            `Setting ${total} sender${total > 1 ? "s" : ""} to skip inbox...`,
+            {
+              id: toastId,
+              description: `${completed} of ${total} completed`,
+            },
+          );
+        }
+      }
 
       // Refetch premium after all items processed
       await refetchPremium();
@@ -671,28 +675,10 @@ export function useBulkApprove<T extends Row>({
       unapprove ? "Clicked Bulk Unapprove" : "Clicked Bulk Approve",
     );
 
-    const itemNames = items.map((item) => item.name);
     const newStatus = unapprove ? null : NewsletterStatus.APPROVED;
     const action = unapprove ? "unapproving" : "approving";
     const actionPast = unapprove ? "unapproved" : "approved";
     const total = items.length;
-
-    // Optimistically update status and filter out items that no longer match the current view
-    // biome-ignore lint/suspicious/noExplicitAny: SWR data structure
-    const optimisticUpdate = (currentData: any) => {
-      if (!currentData?.newsletters) return currentData;
-      return {
-        ...currentData,
-        newsletters: currentData.newsletters
-          .map(
-            // biome-ignore lint/suspicious/noExplicitAny: newsletter type
-            (n: any) =>
-              itemNames.includes(n.name) ? { ...n, status: newStatus } : n,
-          )
-          // biome-ignore lint/suspicious/noExplicitAny: newsletter type
-          .filter((n: any) => itemMatchesFilter(n.status, filter)),
-      };
-    };
 
     // Show loading toast with progress
     const toastId = toast.loading(
@@ -702,9 +688,6 @@ export function useBulkApprove<T extends Row>({
       },
     );
 
-    // Apply optimistic update immediately (don't await - fire and forget for UI)
-    mutate(optimisticUpdate, { revalidate: false });
-
     // Clear selection immediately
     onSuccess?.();
 
@@ -712,30 +695,53 @@ export function useBulkApprove<T extends Row>({
     let completed = 0;
     const failures: Error[] = [];
 
-    // Process server requests in the background with progress tracking
-    await Promise.all(
-      items.map(async (item) => {
-        try {
-          await setNewsletterStatusAction(emailAccountId, {
-            newsletterEmail: item.name,
-            status: newStatus,
-          });
-        } catch (error) {
-          failures.push(error as Error);
-          captureException(error);
-        } finally {
-          completed++;
-          // Update toast with progress
-          toast.loading(
-            `${action.charAt(0).toUpperCase() + action.slice(1)} ${total} sender${total > 1 ? "s" : ""}...`,
-            {
-              id: toastId,
-              description: `${completed} of ${total} completed`,
-            },
-          );
-        }
-      }),
-    );
+    // Helper to optimistically remove a single item from the list
+    const removeItemOptimistically = (itemName: string) => {
+      // biome-ignore lint/suspicious/noExplicitAny: SWR data structure
+      mutate(
+        (currentData: any) => {
+          if (!currentData?.newsletters) return currentData;
+          return {
+            ...currentData,
+            newsletters: currentData.newsletters
+              .map(
+                // biome-ignore lint/suspicious/noExplicitAny: newsletter type
+                (n: any) =>
+                  n.name === itemName ? { ...n, status: newStatus } : n,
+              )
+              // biome-ignore lint/suspicious/noExplicitAny: newsletter type
+              .filter((n: any) => itemMatchesFilter(n.status, filter)),
+          };
+        },
+        { revalidate: false },
+      );
+    };
+
+    // Process items sequentially so they disappear one by one
+    for (const item of items) {
+      // Remove item from UI when request starts
+      removeItemOptimistically(item.name);
+
+      try {
+        await setNewsletterStatusAction(emailAccountId, {
+          newsletterEmail: item.name,
+          status: newStatus,
+        });
+      } catch (error) {
+        failures.push(error as Error);
+        captureException(error);
+      } finally {
+        completed++;
+        // Update toast with progress
+        toast.loading(
+          `${action.charAt(0).toUpperCase() + action.slice(1)} ${total} sender${total > 1 ? "s" : ""}...`,
+          {
+            id: toastId,
+            description: `${completed} of ${total} completed`,
+          },
+        );
+      }
+    }
 
     // Show final result
     if (failures.length > 0) {

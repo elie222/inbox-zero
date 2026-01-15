@@ -3,7 +3,7 @@ import { usePostHog } from "posthog-js/react";
 import {
   ArchiveIcon,
   Loader2Icon,
-  MailMinusIcon,
+  MailXIcon,
   ThumbsDownIcon,
   ThumbsUpIcon,
   TrashIcon,
@@ -96,6 +96,7 @@ export function BulkActions({
   totalCount: number;
 }) {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [archiveDialogOpen, setArchiveDialogOpen] = useState(false);
   const [skipInboxDialogOpen, setSkipInboxDialogOpen] = useState(false);
 
   const posthog = usePostHog();
@@ -197,9 +198,8 @@ export function BulkActions({
                 {/* Right side: Action Buttons */}
                 <div className="flex items-center gap-1 flex-nowrap">
                   <ActionButton
-                    icon={MailMinusIcon}
+                    icon={MailXIcon}
                     label="Unsubscribe"
-                    primary
                     onClick={() => onBulkUnsubscribe(getSelectedValues())}
                   />
                   <ActionButton
@@ -218,14 +218,14 @@ export function BulkActions({
                   />
                   <ActionButton
                     icon={ArchiveIcon}
-                    label="Archive All"
+                    label="Archive"
                     loadingLabel="Archiving"
-                    onClick={() => onBulkArchive(getSelectedValues())}
+                    onClick={() => setArchiveDialogOpen(true)}
                     loading={isBulkArchiving}
                   />
                   <ActionButton
                     icon={TrashIcon}
-                    label="Delete All"
+                    label="Delete"
                     loadingLabel="Deleting"
                     danger
                     onClick={() => setDeleteDialogOpen(true)}
@@ -244,7 +244,7 @@ export function BulkActions({
           <DialogHeader>
             <DialogTitle>Delete all emails?</DialogTitle>
             <DialogDescription>
-              Are you sure you want to delete all emails from these senders?
+              Are you sure you want to delete all emails from these senders.
               This action cannot be undone.
             </DialogDescription>
           </DialogHeader>
@@ -294,6 +294,65 @@ export function BulkActions({
               }}
             >
               Delete
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Archive Confirmation Dialog */}
+      <Dialog open={archiveDialogOpen} onOpenChange={setArchiveDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Archive all emails?</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to archive all emails from these senders?
+            </DialogDescription>
+          </DialogHeader>
+
+          {/* Selected Senders List */}
+          {selectedNewsletters.length > 0 && (
+            <div className="max-h-[300px] overflow-y-auto rounded-lg border border-gray-200 dark:border-gray-700">
+              <div className="divide-y divide-gray-100 dark:divide-gray-800">
+                {selectedNewsletters.map((newsletter) => {
+                  const domain =
+                    extractDomainFromEmail(newsletter.name) || newsletter.name;
+                  return (
+                    <div
+                      key={newsletter.name}
+                      className="flex items-center gap-3 px-3 py-2"
+                    >
+                      <DomainIcon domain={domain} size={32} />
+                      <div className="flex flex-col min-w-0">
+                        <span className="font-medium text-sm truncate">
+                          {newsletter.fromName || newsletter.name}
+                        </span>
+                        {newsletter.fromName && (
+                          <span className="text-xs text-muted-foreground truncate">
+                            {newsletter.name}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setArchiveDialogOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={() => {
+                onBulkArchive(getSelectedValues());
+                setArchiveDialogOpen(false);
+              }}
+            >
+              Archive
             </Button>
           </DialogFooter>
         </DialogContent>
