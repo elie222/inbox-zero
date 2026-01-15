@@ -11,9 +11,10 @@ function getFavicon(apexDomain: string) {
 
 interface FallbackIconProps {
   seed: string;
+  size?: number;
 }
 
-export function FallbackIcon({ seed }: FallbackIconProps) {
+export function FallbackIcon({ seed, size = 20 }: FallbackIconProps) {
   const hash = seed.split("").reduce((acc, char) => {
     return acc + char.charCodeAt(0);
   }, 0);
@@ -39,34 +40,36 @@ export function FallbackIcon({ seed }: FallbackIconProps) {
 
   return (
     <div
-      className={cn(
-        "rounded-full size-5 z-10 bg-gradient-to-r",
-        gradients[gradientIndex],
-      )}
+      style={{ width: size, height: size }}
+      className={cn("z-10 rounded bg-gradient-to-r", gradients[gradientIndex])}
     />
   );
 }
 
 interface DomainIconProps {
   domain: string;
+  size?: number;
 }
 
-export function DomainIcon({ domain }: DomainIconProps) {
+export function DomainIcon({ domain, size = 20 }: DomainIconProps) {
   const apexDomain = getDomain(domain) || domain;
   const domainFavicon = getFavicon(apexDomain);
   const [fallbackEnabled, setFallbackEnabled] = useState(false);
 
   return (
-    <div className="size-5 overflow-hidden relative">
+    <div
+      style={{ width: size, height: size }}
+      className="relative shrink-0 overflow-hidden rounded-full"
+    >
       {fallbackEnabled || !domainFavicon ? (
-        <FallbackIcon seed={domain} />
+        <FallbackIcon seed={domain} size={size} />
       ) : (
         <Image
-          width={20}
-          height={20}
+          width={size}
+          height={size}
           src={domainFavicon}
           alt="favicon"
-          className="z-10 rounded-full"
+          className="z-10 rounded"
           onError={() => setFallbackEnabled(true)}
         />
       )}
