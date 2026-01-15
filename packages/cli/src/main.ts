@@ -2,7 +2,7 @@
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
-import { resolve } from "node:path";
+import { basename, resolve } from "node:path";
 import { spawn, spawnSync } from "node:child_process";
 import { program } from "commander";
 import * as p from "@clack/prompts";
@@ -995,7 +995,7 @@ const isMainModule =
   process.argv[1] &&
   (process.argv[1].endsWith("main.ts") ||
     process.argv[1].endsWith("inbox-zero.js") ||
-    process.argv[1].endsWith("inbox-zero"));
+    basename(process.argv[1]).startsWith("inbox-zero"));
 
 if (isMainModule) {
   main().catch((error) => {
