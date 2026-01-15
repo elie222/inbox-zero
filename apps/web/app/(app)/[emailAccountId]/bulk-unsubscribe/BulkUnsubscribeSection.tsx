@@ -17,7 +17,6 @@ import {
 } from "lucide-react";
 import type { DateRange } from "react-day-picker";
 import { LoadingContent } from "@/components/LoadingContent";
-import { Skeleton } from "@/components/ui/skeleton";
 import type {
   NewsletterStatsQuery,
   NewsletterStatsResponse,
@@ -42,6 +41,10 @@ import {
   BulkUnsubscribeDesktop,
   BulkUnsubscribeRowDesktop,
 } from "@/app/(app)/[emailAccountId]/bulk-unsubscribe/BulkUnsubscribeDesktop";
+import {
+  BulkUnsubscribeDesktopSkeleton,
+  BulkUnsubscribeMobileSkeleton,
+} from "@/app/(app)/[emailAccountId]/bulk-unsubscribe/BulkUnsubscribeSkeleton";
 import { Card } from "@/components/ui/card";
 import { SearchBar } from "@/app/(app)/[emailAccountId]/bulk-unsubscribe/SearchBar";
 import { useToggleSelect } from "@/hooks/useToggleSelect";
@@ -190,13 +193,27 @@ export function BulkUnsubscribe() {
   };
   // biome-ignore lint/suspicious/noExplicitAny: simplest
   const urlParams = new URLSearchParams(params as any);
-  const { data, isLoading, error, mutate } = useSWR<
+  const { data, isLoading, isValidating, error, mutate } = useSWR<
     NewsletterStatsResponse,
     { error: string }
   >(`/api/user/stats/newsletters?${urlParams}`, {
     refreshInterval,
     keepPreviousData: true,
   });
+
+  // Track whether we're switching views (filter, sort, search, date range, expanded)
+  // Show skeleton when validating with different params, not on background refresh
+  const [lastFetchedParams, setLastFetchedParams] = useState<string>("");
+  const currentParamsString = urlParams.toString();
+  const isParamsChanged = lastFetchedParams !== currentParamsString;
+  const showSkeleton = isValidating && isParamsChanged;
+
+  // Update lastFetchedParams when data arrives for new params
+  useEffect(() => {
+    if (!isValidating && data) {
+      setLastFetchedParams(currentParamsString);
+    }
+  }, [isValidating, data, currentParamsString]);
 
   const { hasUnsubscribeAccess, mutate: refetchPremium } = usePremium();
 
@@ -242,6 +259,12 @@ export function BulkUnsubscribe() {
     clearSelection,
   } = useToggleSelect(rows?.map((item) => ({ id: item.name })) || []);
 
+  // Clear selection when filter changes
+  // biome-ignore lint/correctness/useExhaustiveDependencies: intentionally clearing selection when filter changes
+  useEffect(() => {
+    clearSelection();
+  }, [filter]);
+
   const isSomeSelected =
     Array.from(selected.values()).filter(Boolean).length > 0;
 
@@ -273,6 +296,7 @@ export function BulkUnsubscribe() {
         readPercentage={readPercentage}
         archivedEmails={archivedEmails}
         archivedPercentage={archivedPercentage}
+        filter={filter}
       />
     );
   });
@@ -362,17 +386,27 @@ export function BulkUnsubscribe() {
 
       <Card className="mt-2 md:mt-4">
         {isStatsLoading && !isLoading && !data?.newsletters.length ? (
-          <div className="p-4">
-            <Skeleton className="h-screen rounded" />
-          </div>
+          isMobile ? (
+            <BulkUnsubscribeMobileSkeleton />
+          ) : (
+            <BulkUnsubscribeDesktopSkeleton />
+          )
+        ) : showSkeleton ? (
+          isMobile ? (
+            <BulkUnsubscribeMobileSkeleton />
+          ) : (
+            <BulkUnsubscribeDesktopSkeleton />
+          )
         ) : (
           <LoadingContent
             loading={!data && isLoading}
             error={error}
             loadingComponent={
-              <div className="p-4">
-                <Skeleton className="h-screen rounded" />
-              </div>
+              isMobile ? (
+                <BulkUnsubscribeMobileSkeleton />
+              ) : (
+                <BulkUnsubscribeDesktopSkeleton />
+              )
             }
           >
             {tableRows?.length ? (
@@ -434,6 +468,7 @@ export function BulkUnsubscribe() {
         mutate={mutate}
         onClearSelection={clearSelection}
         newsletters={rows}
+        filter={filter}
       />
     </PageWrapper>
   );

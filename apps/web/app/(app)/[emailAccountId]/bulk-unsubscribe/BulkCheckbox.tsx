@@ -8,14 +8,14 @@ export function BulkCheckbox({
 }: {
   checked: boolean;
   indeterminate?: boolean;
-  onChange: () => void;
+  onChange: (shiftKey: boolean) => void;
 }) {
   return (
     <button
       type="button"
       onClick={(e) => {
         e.stopPropagation();
-        onChange();
+        onChange(e.shiftKey);
       }}
       onDoubleClick={(e) => e.stopPropagation()}
       className={cn(

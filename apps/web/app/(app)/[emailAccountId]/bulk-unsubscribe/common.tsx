@@ -9,6 +9,7 @@ import {
   ChevronsUpDownIcon,
   ExpandIcon,
   ExternalLinkIcon,
+  MailXIcon,
   MoreHorizontalIcon,
   TagIcon,
   ThumbsUpIcon,
@@ -33,12 +34,14 @@ import { NewsletterStatus } from "@/generated/prisma/enums";
 import { toastError, toastSuccess } from "@/components/Toast";
 import { createFilterAction } from "@/utils/actions/mail";
 import { getGmailSearchUrl } from "@/utils/url";
+import { Badge } from "@/components/ui/badge";
 import type { Row } from "@/app/(app)/[emailAccountId]/bulk-unsubscribe/types";
 import {
   useUnsubscribe,
   useApproveButton,
   useBulkArchive,
   useBulkDelete,
+  type NewsletterFilterType,
 } from "@/app/(app)/[emailAccountId]/bulk-unsubscribe/hooks";
 import { LabelsSubMenu } from "@/components/LabelsSubMenu";
 import type { EmailLabel } from "@/providers/EmailProvider";
@@ -56,6 +59,7 @@ export function ActionCell<T extends Row>({
   openPremiumModal,
   userEmail,
   emailAccountId,
+  filter,
 }: {
   item: T;
   hasUnsubscribeAccess: boolean;
@@ -67,18 +71,29 @@ export function ActionCell<T extends Row>({
   openPremiumModal: () => void;
   userEmail: string;
   emailAccountId: string;
+  filter: NewsletterFilterType;
 }) {
   const posthog = usePostHog();
 
+  const isUnsubscribed = item.status === NewsletterStatus.UNSUBSCRIBED;
+
   return (
     <>
-      <ApproveButton
-        item={item}
-        hasUnsubscribeAccess={hasUnsubscribeAccess}
-        mutate={mutate}
-        posthog={posthog}
-        emailAccountId={emailAccountId}
-      />
+      {isUnsubscribed ? (
+        <Badge variant="red" className="gap-1">
+          <MailXIcon className="size-3" />
+          Unsubscribed
+        </Badge>
+      ) : (
+        <ApproveButton
+          item={item}
+          hasUnsubscribeAccess={hasUnsubscribeAccess}
+          mutate={mutate}
+          posthog={posthog}
+          emailAccountId={emailAccountId}
+          filter={filter}
+        />
+      )}
       <PremiumTooltip
         showTooltip={!hasUnsubscribeAccess}
         openModal={openPremiumModal}
@@ -132,24 +147,29 @@ function UnsubscribeButton<T extends Row>({
   );
 
   const hasUnsubscribeLink = unsubscribeLink !== "#";
+  const isUnsubscribed = item.status === NewsletterStatus.UNSUBSCRIBED;
+
+  const buttonText = isUnsubscribed
+    ? "Resubscribe"
+    : hasUnsubscribeLink
+      ? "Unsubscribe"
+      : "Block";
 
   return (
     <Button
       size="sm"
-      variant={
-        item.status === NewsletterStatus.UNSUBSCRIBED ? "red" : "outline"
-      }
+      variant="outline"
       className="w-[110px] justify-center"
       asChild
     >
       <Link
         href={unsubscribeLink}
-        target={hasUnsubscribeLink ? "_blank" : undefined}
+        target={hasUnsubscribeLink && !isUnsubscribed ? "_blank" : undefined}
         onClick={onUnsubscribe}
         rel="noreferrer"
       >
         {unsubscribeLoading && <ButtonLoader />}
-        {hasUnsubscribeLink ? "Unsubscribe" : "Block"}
+        {buttonText}
       </Link>
     </Button>
   );
@@ -161,18 +181,21 @@ function ApproveButton<T extends Row>({
   mutate,
   posthog,
   emailAccountId,
+  filter,
 }: {
   item: T;
   hasUnsubscribeAccess: boolean;
   mutate: () => Promise<void>;
   posthog: PostHog;
   emailAccountId: string;
+  filter: NewsletterFilterType;
 }) {
   const { onApprove, isApproved } = useApproveButton({
     item,
     mutate,
     posthog,
     emailAccountId,
+    filter,
   });
 
   return (

@@ -1,9 +1,10 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { usePostHog } from "posthog-js/react";
 import {
   ArchiveIcon,
   Loader2Icon,
   MailMinusIcon,
+  ThumbsDownIcon,
   ThumbsUpIcon,
   TrashIcon,
   XIcon,
@@ -32,6 +33,8 @@ import { Button } from "@/components/ui/button";
 import { DomainIcon } from "@/components/charts/DomainIcon";
 import { extractDomainFromEmail } from "@/utils/email";
 import type { NewsletterStatsResponse } from "@/app/api/user/stats/newsletters/route";
+import { NewsletterStatus } from "@/generated/prisma/enums";
+import type { NewsletterFilterType } from "@/app/(app)/[emailAccountId]/bulk-unsubscribe/hooks";
 
 type Newsletter = NewsletterStatsResponse["newsletters"][number];
 
@@ -81,12 +84,14 @@ export function BulkActions({
   mutate,
   onClearSelection,
   newsletters,
+  filter,
 }: {
   selected: Map<string, boolean>;
   // biome-ignore lint/suspicious/noExplicitAny: matches SWR mutate return type
   mutate: () => Promise<any>;
   onClearSelection: () => void;
   newsletters?: Newsletter[];
+  filter: NewsletterFilterType;
 }) {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [skipInboxDialogOpen, setSkipInboxDialogOpen] = useState(false);
@@ -102,6 +107,7 @@ export function BulkActions({
     refetchPremium,
     emailAccountId,
     onSuccess: onClearSelection,
+    filter,
   });
 
   const { onBulkApprove } = useBulkApprove({
@@ -109,6 +115,7 @@ export function BulkActions({
     posthog,
     emailAccountId,
     onSuccess: onClearSelection,
+    filter,
   });
 
   const { onBulkAutoArchive } = useBulkAutoArchive({
@@ -117,6 +124,7 @@ export function BulkActions({
     refetchPremium,
     emailAccountId,
     onSuccess: onClearSelection,
+    filter,
   });
 
   const { onBulkArchive, isBulkArchiving } = useBulkArchive({
@@ -145,6 +153,14 @@ export function BulkActions({
   // Get the selected newsletters with their details
   const selectedNewsletters =
     newsletters?.filter((n) => selected.get(n.name)) || [];
+
+  // Check if all selected newsletters are already approved
+  const allSelectedAreApproved = useMemo(() => {
+    if (selectedNewsletters.length === 0) return false;
+    return selectedNewsletters.every(
+      (n) => n.status === NewsletterStatus.APPROVED,
+    );
+  }, [selectedNewsletters]);
 
   return (
     <>
@@ -190,9 +206,16 @@ export function BulkActions({
                       onClick={() => setSkipInboxDialogOpen(true)}
                     />
                     <ActionButton
-                      icon={ThumbsUpIcon}
-                      label="Approve"
-                      onClick={() => onBulkApprove(getSelectedValues())}
+                      icon={
+                        allSelectedAreApproved ? ThumbsDownIcon : ThumbsUpIcon
+                      }
+                      label={allSelectedAreApproved ? "Unapprove" : "Approve"}
+                      onClick={() =>
+                        onBulkApprove(
+                          getSelectedValues(),
+                          allSelectedAreApproved,
+                        )
+                      }
                     />
                     <ActionButton
                       icon={ArchiveIcon}

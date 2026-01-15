@@ -7,6 +7,7 @@ import {
   ArchiveIcon,
   EyeIcon,
   MailMinusIcon,
+  MailXIcon,
   ThumbsUpIcon,
 } from "lucide-react";
 import {
@@ -45,6 +46,7 @@ export function BulkUnsubscribeRowMobile({
   readPercentage,
   archivedPercentage,
   emailAccountId,
+  filter,
 }: RowProps) {
   const name = item.fromName || extractNameFromEmail(item.name);
   const email = extractEmailAddress(item.name);
@@ -56,6 +58,7 @@ export function BulkUnsubscribeRowMobile({
     mutate,
     posthog,
     emailAccountId,
+    filter,
   });
   const { unsubscribeLoading, onUnsubscribe, unsubscribeLink } = useUnsubscribe(
     {
@@ -73,6 +76,7 @@ export function BulkUnsubscribeRowMobile({
     emailAccountId,
   });
   const hasUnsubscribeLink = unsubscribeLink !== "#";
+  const isUnsubscribed = item.status === NewsletterStatus.UNSUBSCRIBED;
 
   return (
     <Card className="overflow-hidden">
@@ -94,31 +98,34 @@ export function BulkUnsubscribeRowMobile({
         </div>
 
         <div className="grid grid-cols-2 gap-2">
-          <Button
-            size="sm"
-            variant={
-              item.status === NewsletterStatus.APPROVED ? "green" : "ghost"
-            }
-            onClick={onApprove}
-            disabled={!hasUnsubscribeAccess}
-          >
-            {approveLoading ? (
-              <ButtonLoader />
-            ) : (
-              <ThumbsUpIcon className="size-4" />
-            )}
-          </Button>
+          {isUnsubscribed ? (
+            <Badge variant="red" className="justify-center gap-1">
+              <MailXIcon className="size-3" />
+              Unsubscribed
+            </Badge>
+          ) : (
+            <Button
+              size="sm"
+              variant={
+                item.status === NewsletterStatus.APPROVED ? "green" : "ghost"
+              }
+              onClick={onApprove}
+              disabled={!hasUnsubscribeAccess}
+            >
+              {approveLoading ? (
+                <ButtonLoader />
+              ) : (
+                <ThumbsUpIcon className="size-4" />
+              )}
+            </Button>
+          )}
 
-          <Button
-            size="sm"
-            variant={
-              item.status === NewsletterStatus.UNSUBSCRIBED ? "red" : "outline"
-            }
-            asChild
-          >
+          <Button size="sm" variant="outline" asChild>
             <Link
               href={unsubscribeLink}
-              target={unsubscribeLink !== "#" ? "_blank" : undefined}
+              target={
+                hasUnsubscribeLink && !isUnsubscribed ? "_blank" : undefined
+              }
               onClick={onUnsubscribe}
               rel="noreferrer"
             >
@@ -128,10 +135,8 @@ export function BulkUnsubscribeRowMobile({
                 ) : (
                   <MailMinusIcon className="size-4" />
                 )}
-                {item.status === NewsletterStatus.UNSUBSCRIBED
-                  ? hasUnsubscribeLink
-                    ? "Unsubscribed"
-                    : "Blocked"
+                {isUnsubscribed
+                  ? "Resubscribe"
                   : hasUnsubscribeLink
                     ? "Unsubscribe"
                     : "Block"}

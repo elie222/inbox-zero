@@ -39,14 +39,14 @@ export function BulkUnsubscribeDesktop({
     <Table>
       <TableHeader>
         <TableRow>
-          <TableHead className="pr-0">
+          <TableHead className="w-10 pr-0">
             <BulkCheckbox
               checked={isAllSelected}
               indeterminate={isSomeSelected && !isAllSelected}
-              onChange={onToggleSelectAll}
+              onChange={() => onToggleSelectAll()}
             />
           </TableHead>
-          <TableHead>
+          <TableHead className="pl-8">
             <span className="text-sm font-medium">From</span>
           </TableHead>
           <TableHead>
@@ -83,6 +83,7 @@ export function BulkUnsubscribeRowDesktop({
   emailAccountId,
   onToggleSelect,
   checked,
+  filter,
 }: RowProps) {
   const domain = extractDomainFromEmail(item.name) || item.name;
 
@@ -95,19 +96,23 @@ export function BulkUnsubscribeRowDesktop({
       onMouseEnter={onSelectRow}
       onDoubleClick={onDoubleClick}
     >
-      <TableCell className="pr-0">
+      <TableCell className="w-10 pr-0">
         <BulkCheckbox
           checked={checked}
-          onChange={() => onToggleSelect?.(item.name)}
+          onChange={(shiftKey) => onToggleSelect?.(item.name, shiftKey)}
         />
       </TableCell>
-      <TableCell className="max-w-[250px] truncate py-3">
+      <TableCell className="max-w-[250px] py-3 pl-8">
         <div className="flex items-center gap-2">
           <DomainIcon domain={domain} size={32} />
-          <div className="flex flex-col">
-            <span className="font-medium">{item.fromName || item.name}</span>
+          <div className="flex flex-col min-w-0">
+            <span className="font-medium truncate">
+              {item.fromName || item.name}
+            </span>
             {item.fromName && (
-              <span className="text-xs text-muted-foreground">{item.name}</span>
+              <span className="text-xs text-muted-foreground truncate">
+                {item.name}
+              </span>
             )}
           </div>
         </div>
@@ -128,6 +133,7 @@ export function BulkUnsubscribeRowDesktop({
             openPremiumModal={openPremiumModal}
             userEmail={userEmail}
             emailAccountId={emailAccountId}
+            filter={filter}
           />
         </div>
       </TableCell>
