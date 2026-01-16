@@ -106,6 +106,8 @@ docker logs inbox-zero-services-web-1 -f
 Open http://localhost:3000
 
 > **Tip:** The setup CLI guides you through configuring your AI provider (OpenAI, Anthropic, etc.) and connecting Google or Microsoft accounts. For the fastest setup, choose the defaults and select "Full Docker Compose" when asked about databases. See [Google OAuth Setup](#google-oauth-setup) and [Microsoft OAuth Setup](#microsoft-oauth-setup) below for detailed configuration instructions.
+>
+> **Important:** You must enable the [Gmail API](https://console.cloud.google.com/apis/library/gmail.googleapis.com) and [Google People API](https://console.cloud.google.com/apis/library/people.googleapis.com) in your Google Cloud project, or sign-in will fail.
 
 **To update your configuration or pull the latest version:**
 
@@ -228,6 +230,7 @@ Create [new credentials](https://console.cloud.google.com/apis/credentials):
     3. Enter your email and press `Save`
 
 6.  Enable required APIs in [Google Cloud Console](https://console.cloud.google.com/apis/library):
+    - [Gmail API](https://console.cloud.google.com/apis/library/gmail.googleapis.com) (required)
     - [Google People API](https://console.cloud.google.com/marketplace/product/google/people.googleapis.com) (required)
     - [Google Calendar API](https://console.cloud.google.com/marketplace/product/google/calendar-json.googleapis.com) (only required for calendar integration)
     - [Google Drive API](https://console.cloud.google.com/marketplace/product/google/drive.googleapis.com) (only required for Google Drive integration)
