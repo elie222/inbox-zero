@@ -307,9 +307,11 @@ The console will open in your browser.`,
         : "! OAuth credentials not provided",
     options.skipPubsub
       ? "✗ Pub/Sub setup skipped"
-      : pubsubSuccess
-        ? "✓ Pub/Sub topic and subscription created"
-        : "! Pub/Sub setup incomplete (env vars provided for manual setup)",
+      : !domain
+        ? "! Pub/Sub setup skipped (no domain provided)"
+        : pubsubSuccess
+          ? "✓ Pub/Sub topic and subscription created"
+          : "! Pub/Sub setup incomplete (env vars provided for manual setup)",
   ].join("\n");
 
   p.note(summary, "Setup Summary");
