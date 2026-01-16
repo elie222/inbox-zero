@@ -1,3 +1,4 @@
+import type { Message } from "@microsoft/microsoft-graph-types";
 import type { OutlookClient } from "@/utils/outlook/client";
 import type { Logger } from "@/utils/logger";
 import { isNotFoundError } from "@/utils/outlook/errors";
@@ -20,12 +21,27 @@ export async function getDraft({
   try {
     const [response, folderIds, categoryMap] = await Promise.all([
       withOutlookRetry(
-        () => client.getClient().api(`/me/messages/${draftId}`).get(),
+        () =>
+          client
+            .getClient()
+            .api(`/me/messages/${draftId}`)
+            .get() as Promise<Message>,
         logger,
       ),
       getFolderIds(client, logger),
       getCategoryMap(client, logger),
     ]);
+
+    // Treat drafts in Deleted Items as deleted - return null
+    // DELETE moves messages to Deleted Items, so this ensures getDraft returns null
+    // after deleteDraft is called
+    if (response.parentFolderId === folderIds.deleteditems) {
+      logger.info("Draft is in Deleted Items folder, treating as deleted.", {
+        draftId,
+      });
+      return null;
+    }
+
     const message = convertMessage(response, folderIds, categoryMap);
     return message;
   } catch (error) {
@@ -49,6 +65,8 @@ export async function deleteDraft({
 }) {
   try {
     logger.info("Deleting draft", { draftId });
+    // DELETE moves the draft to Deleted Items folder
+    // getDraft will return null for drafts in Deleted Items, treating them as deleted
     await withOutlookRetry(
       () => client.getClient().api(`/me/messages/${draftId}`).delete(),
       logger,
