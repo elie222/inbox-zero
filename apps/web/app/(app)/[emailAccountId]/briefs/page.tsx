@@ -16,6 +16,7 @@ import { TimeDurationSetting } from "@/app/(app)/[emailAccountId]/briefs/TimeDur
 import { UpcomingMeetings } from "@/app/(app)/[emailAccountId]/briefs/UpcomingMeetings";
 import { BriefsOnboarding } from "@/app/(app)/[emailAccountId]/briefs/Onboarding";
 import { IntegrationsSetting } from "@/app/(app)/[emailAccountId]/briefs/IntegrationsSetting";
+import { NotificationChannelsSetting } from "@/app/(app)/[emailAccountId]/briefs/NotificationChannelsSetting";
 
 export default function MeetingBriefsPage() {
   const { emailAccountId } = useAccount();
@@ -93,6 +94,13 @@ export default function MeetingBriefsPage() {
                       onSaved={mutate}
                     />
                   }
+                />
+
+                <NotificationChannelsSetting
+                  channels={data.notificationChannels}
+                  isPipedreamConfigured={data.isPipedreamConfigured}
+                  availableChannelTypes={data.availableChannelTypes}
+                  onSaved={mutate}
                 />
 
                 <IntegrationsSetting />

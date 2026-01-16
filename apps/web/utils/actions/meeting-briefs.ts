@@ -5,7 +5,18 @@ import {
   sendDebugBriefBody,
   updateMeetingBriefsEnabledBody,
   updateMeetingBriefsMinutesBeforeBody,
+  upsertNotificationChannelBody,
+  deleteNotificationChannelBody,
+  toggleNotificationChannelBody,
 } from "@/utils/actions/meeting-briefs.validation";
+import {
+  getNotificationChannels,
+  upsertNotificationChannel,
+  deleteNotificationChannel,
+  toggleNotificationChannel,
+  isNotificationChannelsAvailable,
+  type ChannelType,
+} from "@/utils/pipedream/notification-channels";
 import prisma from "@/utils/prisma";
 import { runMeetingBrief } from "@/utils/meeting-briefs/process";
 import type { CalendarEvent } from "@/utils/calendar/event-types";
@@ -90,5 +101,62 @@ export const sendBriefAction = actionClient
         isTestSend: true,
         logger,
       });
+    },
+  );
+
+// Notification channel actions
+export const getNotificationChannelsAction = actionClient
+  .metadata({ name: "getNotificationChannels" })
+  .action(async ({ ctx: { emailAccountId } }) => {
+    const channels = await getNotificationChannels(emailAccountId);
+    const isAvailable = isNotificationChannelsAvailable();
+    return { channels, isAvailable };
+  });
+
+export const upsertNotificationChannelAction = actionClient
+  .metadata({ name: "upsertNotificationChannel" })
+  .inputSchema(upsertNotificationChannelBody)
+  .action(
+    async ({
+      ctx: { emailAccountId },
+      parsedInput: { channelType, config, enabled, pipedreamActionId },
+    }) => {
+      if (!isNotificationChannelsAvailable()) {
+        throw new SafeError(
+          "Pipedream Connect is not configured. Please set up your Pipedream credentials.",
+        );
+      }
+
+      const channel = await upsertNotificationChannel(emailAccountId, {
+        channelType: channelType as ChannelType,
+        config,
+        enabled,
+        pipedreamActionId,
+      });
+
+      return channel;
+    },
+  );
+
+export const deleteNotificationChannelAction = actionClient
+  .metadata({ name: "deleteNotificationChannel" })
+  .inputSchema(deleteNotificationChannelBody)
+  .action(async ({ ctx: { emailAccountId }, parsedInput: { channelType } }) => {
+    await deleteNotificationChannel(emailAccountId, channelType as ChannelType);
+  });
+
+export const toggleNotificationChannelAction = actionClient
+  .metadata({ name: "toggleNotificationChannel" })
+  .inputSchema(toggleNotificationChannelBody)
+  .action(
+    async ({
+      ctx: { emailAccountId },
+      parsedInput: { channelType, enabled },
+    }) => {
+      await toggleNotificationChannel(
+        emailAccountId,
+        channelType as ChannelType,
+        enabled,
+      );
     },
   );

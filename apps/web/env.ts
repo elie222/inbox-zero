@@ -131,6 +131,12 @@ export const env = createEnv({
     LICENSE_25_SEAT_VARIANT_ID: z.coerce.number().optional(),
 
     DUB_API_KEY: z.string().optional(),
+
+    // Pipedream Connect (for notification channels)
+    PIPEDREAM_PROJECT_ID: z.string().optional(),
+    PIPEDREAM_CLIENT_ID: z.string().optional(),
+    PIPEDREAM_CLIENT_SECRET: z.string().optional(),
+    PIPEDREAM_ENVIRONMENT: z.enum(["development", "production"]).optional(),
   },
   client: {
     // stripe

@@ -12,6 +12,7 @@ import type { CalendarEvent } from "@/utils/calendar/event-types";
 import type { Logger } from "@/utils/logger";
 import { createUnsubscribeToken } from "@/utils/unsubscribe";
 import { formatTimeInUserTimezone } from "@/utils/date";
+import { sendMeetingBriefToChannels } from "@/utils/pipedream/notification-channels";
 
 export async function sendBriefingEmail({
   event,
@@ -57,6 +58,52 @@ export async function sendBriefingEmail({
     unsubscribeToken,
   };
 
+  const [emailResult, notificationResult] = await Promise.allSettled([
+    sendEmailBriefing({
+      emailProps,
+      emailAccountId,
+      userEmail,
+      provider,
+      logger,
+    }),
+    sendMeetingBriefToChannels(emailAccountId, {
+      meetingTitle: event.title,
+      formattedTime,
+      briefingContent: briefingContentWithTeam,
+      internalTeamMembers,
+      videoConferenceLink: event.videoConferenceLink ?? undefined,
+      eventUrl: event.eventUrl ?? undefined,
+    }),
+  ]);
+
+  if (emailResult.status === "rejected") {
+    logger.error("Failed to send email briefing", {
+      error: emailResult.reason,
+    });
+    throw emailResult.reason;
+  }
+
+  if (notificationResult.status === "rejected") {
+    logger.error("Failed to send to notification channels", {
+      error: notificationResult.reason,
+    });
+    // Don't throw - notification channel failure shouldn't fail the whole briefing
+  }
+}
+
+async function sendEmailBriefing({
+  emailProps,
+  emailAccountId,
+  userEmail,
+  provider,
+  logger,
+}: {
+  emailProps: MeetingBriefingEmailProps;
+  emailAccountId: string;
+  userEmail: string;
+  provider: string;
+  logger: Logger;
+}): Promise<void> {
   // Try Resend first if configured
   if (env.RESEND_API_KEY) {
     logger.info("Sending briefing via Resend");

@@ -177,15 +177,16 @@ model EmailAccount {
   scheduledActions ScheduledAction[]
   responseTimes    ResponseTime[]
 
-  members             Member[]
-  invitations         Invitation[]
-  ssoproviders        SsoProvider[]
-  calendarConnections CalendarConnection[]
-  mcpConnections      McpConnection[]
-  meetingBriefings    MeetingBriefing[]
-  driveConnections    DriveConnection[]
-  documentFilings     DocumentFiling[]
-  filingFolders       FilingFolder[]
+  members              Member[]
+  invitations          Invitation[]
+  ssoproviders         SsoProvider[]
+  calendarConnections  CalendarConnection[]
+  mcpConnections       McpConnection[]
+  meetingBriefings     MeetingBriefing[]
+  driveConnections     DriveConnection[]
+  documentFilings      DocumentFiling[]
+  filingFolders        FilingFolder[]
+  notificationChannels NotificationChannel[]
 
   @@index([userId])
   @@index([lastSummaryEmailAt])
@@ -972,6 +973,24 @@ model MeetingBriefing {
   emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
 
   @@unique([emailAccountId, calendarEventId]) // Prevent duplicate briefings
+  @@index([emailAccountId])
+}
+
+// Notification channels for sending alerts via Pipedream Connect (Slack, Teams, Telegram, etc.)
+model NotificationChannel {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  emailAccountId String
+  emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
+
+  channelType       String  // "slack", "teams", "telegram", "discord", "whatsapp"
+  config            Json    // Channel-specific config: { channel: "C123" } for Slack, { chatId: "..." } for Telegram
+  enabled           Boolean @default(true)
+  pipedreamActionId String  // Pipedream Connect action ID: "slack_v2-send-message", "microsoft_teams-send-message"
+
+  @@unique([emailAccountId, channelType]) // One channel per type per account
   @@index([emailAccountId])
 }
 
