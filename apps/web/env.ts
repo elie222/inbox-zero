@@ -21,6 +21,7 @@ export const env = createEnv({
 
     AUTH_SECRET: z.string().optional(),
     NEXTAUTH_SECRET: z.string().optional(),
+    OAUTH_PROXY_URL: z.string().url().optional(),
     GOOGLE_CLIENT_ID: z.string().min(1),
     GOOGLE_CLIENT_SECRET: z.string().min(1),
     MICROSOFT_CLIENT_ID: z.string().optional(),

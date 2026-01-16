@@ -17,6 +17,7 @@ cp apps/web/.env.example apps/web/.env
 | `NEXT_PUBLIC_BASE_URL` | Yes | Public URL where app is hosted (e.g., `https://yourdomain.com`) | — |
 | `INTERNAL_API_KEY` | Yes | Secret key for internal API calls. Generate with `openssl rand -hex 32` | — |
 | `AUTH_SECRET` | Yes | better-auth secret. Generate with `openssl rand -hex 32` | — |
+| `OAUTH_PROXY_URL` | No | OAuth proxy URL for preview deployments. Set to staging URL (e.g., `https://staging.getinboxzero.com`) to enable OAuth for preview environments | — |
 | `NODE_ENV` | No | Environment mode | `development` |
 | **Encryption** ||||
 | `EMAIL_ENCRYPT_SECRET` | Yes | Secret for encrypting OAuth tokens. Generate with `openssl rand -hex 32` | — |

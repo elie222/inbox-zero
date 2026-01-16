@@ -7,6 +7,7 @@ import type { Account, AuthContext } from "better-auth";
 import { betterAuth } from "better-auth";
 import { prismaAdapter } from "better-auth/adapters/prisma";
 import { nextCookies } from "better-auth/next-js";
+import { oAuthProxy } from "better-auth/plugins";
 import { cookies, headers } from "next/headers";
 import { env } from "@/env";
 import { trackDubSignUp } from "@/utils/dub";
@@ -64,6 +65,7 @@ export const betterAuthConfig = betterAuth({
       disableImplicitSignUp: false,
       organizationProvisioning: { disabled: true },
     }),
+    ...(env.OAUTH_PROXY_URL ? [oAuthProxy()] : []),
   ],
   session: {
     modelName: "Session",
@@ -105,6 +107,9 @@ export const betterAuthConfig = betterAuth({
       accessType: "offline",
       prompt: "select_account consent",
       disableIdTokenSignIn: true,
+      ...(env.OAUTH_PROXY_URL && {
+        redirectURI: `${env.OAUTH_PROXY_URL}/api/auth/callback/google`,
+      }),
     },
     microsoft: {
       clientId: env.MICROSOFT_CLIENT_ID || "",
@@ -112,6 +117,9 @@ export const betterAuthConfig = betterAuth({
       scope: [...OUTLOOK_SCOPES],
       tenantId: env.MICROSOFT_TENANT_ID,
       disableIdTokenSignIn: true,
+      ...(env.OAUTH_PROXY_URL && {
+        redirectURI: `${env.OAUTH_PROXY_URL}/api/auth/callback/microsoft`,
+      }),
     },
   },
   databaseHooks: {
