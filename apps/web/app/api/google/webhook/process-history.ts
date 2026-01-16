@@ -248,7 +248,7 @@ async function updateLastSyncedHistoryId({
     WHERE id = ${emailAccountId}
     AND (
       "lastSyncedHistoryId" IS NULL
-      OR CAST("lastSyncedHistoryId" AS BIGINT) < CAST(${lastSyncedHistoryId} AS BIGINT)
+      OR CAST("lastSyncedHistoryId" AS NUMERIC) < CAST(${lastSyncedHistoryId} AS NUMERIC)
     )
   `;
 }
