@@ -366,14 +366,6 @@ async function fetchGmailHistoryResilient({
       }
     } while (pageToken);
 
-    if (!lastResponse) {
-      return {
-        status: "success",
-        data: { history: historyItems },
-        startHistoryId,
-      };
-    }
-
     const data: Awaited<ReturnType<typeof getHistory>> = {
       ...lastResponse,
       history: historyItems,
