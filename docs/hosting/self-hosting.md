@@ -37,6 +37,16 @@ npm install
 npm run setup
 ```
 
+**Optional: Automated Google Cloud Setup**
+
+If you have the [gcloud CLI](https://cloud.google.com/sdk/docs/install) installed, you can automate API enabling and Pub/Sub setup:
+
+```bash
+npx inbox-zero setup-google --project-id YOUR_PROJECT_ID --domain yourdomain.com
+```
+
+This command enables required APIs, creates the Pub/Sub topic and subscription, and guides you through OAuth credential creation.
+
 You can also copy `.env.example` to `.env` and set the values yourself.
 
 If doing this manually edit then you'll need to configure:

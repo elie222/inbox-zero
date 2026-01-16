@@ -179,6 +179,8 @@ The sections below provide detailed setup instructions for OAuth and other servi
 
 ### Google OAuth Setup
 
+> **Quick Setup with CLI:** If you have the `gcloud` CLI installed, you can use `inbox-zero setup-google` to automate API enabling and Pub/Sub setup. It will guide you through the OAuth steps that require manual console access. Run `npx inbox-zero setup-google --help` for options.
+
 Go to [Google Cloud Console](https://console.cloud.google.com/) and create a new project if necessary.
 
 Create [new credentials](https://console.cloud.google.com/apis/credentials):
@@ -236,6 +238,8 @@ Create [new credentials](https://console.cloud.google.com/apis/credentials):
     - [Google Drive API](https://console.cloud.google.com/marketplace/product/google/drive.googleapis.com) (only required for Google Drive integration)
 
 ### Google PubSub Setup
+
+> **Automated Setup:** If you ran `inbox-zero setup-google`, the Pub/Sub topic and subscription were created automatically. Skip to the "For local development" section if needed.
 
 PubSub enables real-time email notifications. Follow the [official guide](https://developers.google.com/gmail/api/guides/push):
 
