@@ -9,7 +9,6 @@ CODEX_PROMPTS="$HOME/.codex/prompts"
 
 # Create directories
 mkdir -p "$CODEX_PROMPTS/features"
-mkdir -p "$CODEX_PROMPTS/wireframes/assistant"
 
 count=0
 
@@ -28,15 +27,6 @@ for file in "$CURSOR_RULES"/features/*.mdc; do
   ln -sf "$file" "$CODEX_PROMPTS/features/${basename}.md"
   ((count++))
 done
-
-# Symlink wireframes/**/*.md files
-while IFS= read -r file; do
-  relpath=${file#$CURSOR_RULES/}
-  target_dir=$(dirname "$CODEX_PROMPTS/$relpath")
-  mkdir -p "$target_dir"
-  ln -sf "$file" "$CODEX_PROMPTS/$relpath"
-  ((count++))
-done < <(find "$CURSOR_RULES/wireframes" -name "*.md" -type f 2>/dev/null)
 
 echo "Synced $count Cursor rules to ~/.codex/prompts/"
 echo "Restart Codex to pick up changes."
