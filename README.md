@@ -107,6 +107,13 @@ Open http://localhost:3000
 
 > **Tip:** The setup CLI guides you through configuring your AI provider (OpenAI, Anthropic, etc.) and connecting Google or Microsoft accounts. For the fastest setup, choose the defaults and select "Full Docker Compose" when asked about databases. See [Google OAuth Setup](#google-oauth-setup) and [Microsoft OAuth Setup](#microsoft-oauth-setup) below for detailed configuration instructions.
 
+**To update your configuration or pull the latest version:**
+
+```bash
+docker compose --env-file apps/web/.env --profile all down
+NEXT_PUBLIC_BASE_URL=http://localhost:3000 docker compose --env-file apps/web/.env --profile all up -d
+```
+
 See our **[Self-Hosting Guide](docs/hosting/self-hosting.md)** for complete instructions, production deployment, and configuration options.
 
 ### Local Development Setup

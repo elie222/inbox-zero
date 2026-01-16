@@ -3,7 +3,7 @@ services:
   db:
     image: postgres:16
     restart: always
-    container_name: inbox-zero
+    # container_name: inbox-zero
     environment:
       - POSTGRES_USER=${POSTGRES_USER:-postgres}
       - POSTGRES_DB=${POSTGRES_DB:-inboxzero}
