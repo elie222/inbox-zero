@@ -1,4 +1,4 @@
-import type { Prisma } from "@prisma/client";
+import type { Prisma } from "@/generated/prisma/client";
 import prisma from "@/utils/prisma";
 import { createScopedLogger } from "@/utils/logger";
 import { runPipedreamAction, isPipedreamConnectConfigured } from "./connect";
