@@ -1,3 +1,4 @@
+import type { Prisma } from "@prisma/client";
 import prisma from "@/utils/prisma";
 import { createScopedLogger } from "@/utils/logger";
 import { runPipedreamAction, isPipedreamConnectConfigured } from "./connect";
@@ -193,12 +194,12 @@ export async function upsertNotificationChannel(
     create: {
       emailAccountId,
       channelType: params.channelType,
-      config: params.config,
+      config: params.config as Prisma.InputJsonValue,
       pipedreamActionId,
       enabled: params.enabled ?? true,
     },
     update: {
-      config: params.config,
+      config: params.config as Prisma.InputJsonValue,
       pipedreamActionId,
       enabled: params.enabled,
     },
