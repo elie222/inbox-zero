@@ -225,6 +225,11 @@ async function processHistory(options: ProcessHistoryOptions, logger: Logger) {
   });
 }
 
+/**
+ * Updates lastSyncedHistoryId using a monotonic/conditional update to prevent
+ * race conditions where concurrent webhook processors might regress the pointer.
+ * Only updates if the new value is greater than the current value.
+ */
 async function updateLastSyncedHistoryId({
   emailAccountId,
   lastSyncedHistoryId,
@@ -233,10 +238,19 @@ async function updateLastSyncedHistoryId({
   lastSyncedHistoryId?: string | null;
 }) {
   if (!lastSyncedHistoryId) return;
-  await prisma.emailAccount.update({
-    where: { id: emailAccountId },
-    data: { lastSyncedHistoryId },
-  });
+
+  // Use conditional update: only set if new value > current value (or current is null)
+  // This prevents race conditions where slower webhook processors with older
+  // history IDs could overwrite progress from faster processors with newer IDs
+  await prisma.$executeRaw`
+    UPDATE "EmailAccount"
+    SET "lastSyncedHistoryId" = ${lastSyncedHistoryId}, "updatedAt" = NOW()
+    WHERE id = ${emailAccountId}
+    AND (
+      "lastSyncedHistoryId" IS NULL
+      OR CAST("lastSyncedHistoryId" AS NUMERIC) < CAST(${lastSyncedHistoryId} AS NUMERIC)
+    )
+  `;
 }
 
 const isInboxOrSentMessage = (message: {
