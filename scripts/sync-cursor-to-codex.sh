@@ -30,13 +30,13 @@ for file in "$CURSOR_RULES"/features/*.mdc; do
 done
 
 # Symlink wireframes/**/*.md files
-find "$CURSOR_RULES/wireframes" -name "*.md" -type f 2>/dev/null | while read -r file; do
+while IFS= read -r file; do
   relpath=${file#$CURSOR_RULES/}
   target_dir=$(dirname "$CODEX_PROMPTS/$relpath")
   mkdir -p "$target_dir"
   ln -sf "$file" "$CODEX_PROMPTS/$relpath"
   ((count++))
-done
+done < <(find "$CURSOR_RULES/wireframes" -name "*.md" -type f 2>/dev/null)
 
 echo "Synced $count Cursor rules to ~/.codex/prompts/"
 echo "Restart Codex to pick up changes."
