@@ -8,23 +8,22 @@ import { getModel } from "@/utils/llms/model";
 
 const logger = createScopedLogger("DraftFollowUp");
 
-const getSystemPrompt = (hasWritingStyle: boolean) => `You are an expert assistant that drafts follow-up emails.
-${
-  hasWritingStyle
-    ? `IMPORTANT: Follow the user's writing style provided below. Pay close attention to their typical length, formality, greeting style, and other traits. The writing style should take precedence over any default guidelines.`
-    : `Keep it concise and friendly. Aim for 2-3 sentences unless the context requires more.`
-}
-Don't be pushy.
-Don't mention that you're an AI.
-Don't reply with a Subject. Only reply with the body of the email.
+const systemPrompt = `You are an expert assistant that drafts follow-up emails.
 
 You are writing a follow-up email because the user sent the last message in this thread and hasn't received a reply.
 The purpose of this email is to politely check in and prompt a response from the recipient.
-Write a brief, friendly follow-up that:
+
+Follow-ups should be concise - typically 1-3 sentences. This is just a check-in, not a new email.
+If a writing style is provided, match the user's tone and formality, but keep the length brief.
+
+Write a friendly follow-up that:
 - Acknowledges you're following up on the previous message
 - Gently reminds the recipient about the outstanding matter or question
-- Maintains a professional but warm tone
 - Does NOT repeat the entire content of the previous email
+
+Don't mention that you're an AI.
+Don't reply with a Subject. Only reply with the body of the email.
+
 Examples of good follow-up phrases: "Just checking in on this", "Wanted to follow up on my previous email", "Circling back on this"
 
 Return your response in JSON format.
@@ -102,7 +101,7 @@ export async function aiDraftFollowUp({
 
     const result = await generateObject({
       ...modelOptions,
-      system: getSystemPrompt(!!writingStyle),
+      system: systemPrompt,
       prompt,
       schema: draftSchema,
     });

@@ -14,29 +14,44 @@ import {
 
 const logger = createScopedLogger("DraftReply");
 
-const getSystemPrompt = (hasWritingStyle: boolean) => `You are an expert assistant that drafts email replies using knowledge base information.
+const systemPromptWithWritingStyle = `You are an expert assistant that drafts email replies.
 
 ${PROMPT_SECURITY_INSTRUCTIONS}
 
-${
-  hasWritingStyle
-    ? `IMPORTANT: Follow the user's writing style provided below. Pay close attention to their typical length, formality, greeting style, and other traits. The writing style should take precedence over any default guidelines.`
-    : `Keep it concise and friendly. Aim for 2-3 sentences unless the context requires more.`
-}
-Don't be pushy.
+IMPORTANT: Follow the user's writing style provided below. Pay close attention to their typical length, formality, greeting style, and all other traits specified. The writing style is the primary guide for how to write the reply.
+
 Use context from the previous emails and the provided knowledge base to make it relevant and accurate.
-IMPORTANT: Do NOT simply repeat or mirror what the last email said. It doesn't add anything to the conversation to repeat back to them what they just said.
+Do NOT simply repeat or mirror what the last email said.
 Don't mention that you're an AI.
 Don't reply with a Subject. Only reply with the body of the email.
 IMPORTANT: ${PLAIN_TEXT_OUTPUT_INSTRUCTION}
 
-IMPORTANT: Use placeholders sparingly! Only use them where you have limited information.
-Never use placeholders for the user's name. You do not need to sign off with the user's name. Do not add a signature.
+Use placeholders sparingly - only where you have limited information.
+Never use placeholders for the user's name. Do not add a signature.
 Do not invent information.
 Don't suggest meeting times or mention availability unless specific calendar information is provided.
 
-Write a polite and professional email that follows up on the previous conversation.
-Your reply should aim to continue the conversation or provide new information based on the context or knowledge base. If you have nothing substantial to add, keep the reply minimal.
+Return your response in JSON format.
+`;
+
+const systemPromptDefault = `You are an expert assistant that drafts email replies using knowledge base information.
+
+${PROMPT_SECURITY_INSTRUCTIONS}
+
+Keep it concise and friendly. Aim for 2-3 sentences unless the context requires more.
+Don't be pushy.
+Use context from the previous emails and the provided knowledge base to make it relevant and accurate.
+Do NOT simply repeat or mirror what the last email said.
+Don't mention that you're an AI.
+Don't reply with a Subject. Only reply with the body of the email.
+IMPORTANT: ${PLAIN_TEXT_OUTPUT_INSTRUCTION}
+
+Use placeholders sparingly - only where you have limited information.
+Never use placeholders for the user's name. Do not add a signature.
+Do not invent information.
+Don't suggest meeting times or mention availability unless specific calendar information is provided.
+
+Write a polite and professional email that continues the conversation or provides new information based on the context or knowledge base. If you have nothing substantial to add, keep the reply minimal.
 
 Return your response in JSON format.
 `;
@@ -243,7 +258,7 @@ export async function aiDraftReply({
 
     const result = await generateObject({
       ...modelOptions,
-      system: getSystemPrompt(!!writingStyle),
+      system: writingStyle ? systemPromptWithWritingStyle : systemPromptDefault,
       prompt,
       schema: draftSchema,
     });
