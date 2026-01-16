@@ -100,21 +100,19 @@ function formatForSlack(
       const guestInfo: string[] = [];
       if (guest.name) guestInfo.push(`*${guest.name}*`);
       if (guest.email) guestInfo.push(`(${guest.email})`);
-      if (guest.title) guestInfo.push(`\n${guest.title}`);
-      if (guest.company) guestInfo.push(`at ${guest.company}`);
 
       blocks.push({
         type: "section",
         text: { type: "mrkdwn", text: guestInfo.join(" ") },
       });
 
-      if (guest.researchBullets && guest.researchBullets.length > 0) {
+      if (guest.bullets && guest.bullets.length > 0) {
         blocks.push({
           type: "context",
           elements: [
             {
               type: "mrkdwn",
-              text: guest.researchBullets.map((b) => `• ${b}`).join("\n"),
+              text: guest.bullets.map((b) => `• ${b}`).join("\n"),
             },
           ],
         });
@@ -139,18 +137,6 @@ function formatForSlack(
             .join("\n"),
         },
       ],
-    });
-  }
-
-  // Add summary
-  if (briefingContent.summary) {
-    blocks.push({ type: "divider" });
-    blocks.push({
-      type: "section",
-      text: {
-        type: "mrkdwn",
-        text: `*📝 Summary*\n${briefingContent.summary}`,
-      },
     });
   }
 
@@ -220,18 +206,16 @@ function formatForTeams(
       const guestText = [
         guest.name ? `**${guest.name}**` : "",
         guest.email ? `(${guest.email})` : "",
-        guest.title ? `- ${guest.title}` : "",
-        guest.company ? `at ${guest.company}` : "",
       ]
         .filter(Boolean)
         .join(" ");
 
       body.push({ type: "TextBlock", text: guestText, wrap: true });
 
-      if (guest.researchBullets && guest.researchBullets.length > 0) {
+      if (guest.bullets && guest.bullets.length > 0) {
         body.push({
           type: "TextBlock",
-          text: guest.researchBullets.map((b) => `• ${b}`).join("\n"),
+          text: guest.bullets.map((b) => `• ${b}`).join("\n"),
           wrap: true,
           color: "default",
           size: "small",
@@ -251,21 +235,6 @@ function formatForTeams(
     body.push({
       type: "TextBlock",
       text: internalTeamMembers.map((m) => `• ${m.name || m.email}`).join("\n"),
-      wrap: true,
-    });
-  }
-
-  // Add summary
-  if (briefingContent.summary) {
-    body.push({
-      type: "TextBlock",
-      text: "📝 **Summary**",
-      weight: "bolder",
-      spacing: "medium",
-    });
-    body.push({
-      type: "TextBlock",
-      text: briefingContent.summary,
       wrap: true,
     });
   }
@@ -323,16 +292,10 @@ function formatForTelegram(
     lines.push("👥 *Attendees*");
     for (const guest of briefingContent.guests) {
       const name = guest.name || guest.email || "Unknown";
-      const title =
-        guest.title && guest.company
-          ? ` - ${guest.title} at ${guest.company}`
-          : guest.title
-            ? ` - ${guest.title}`
-            : "";
-      lines.push(`• *${escapeMarkdown(name)}*${escapeMarkdown(title)}`);
+      lines.push(`• *${escapeMarkdown(name)}*`);
 
-      if (guest.researchBullets && guest.researchBullets.length > 0) {
-        for (const bullet of guest.researchBullets) {
+      if (guest.bullets && guest.bullets.length > 0) {
+        for (const bullet of guest.bullets) {
           lines.push(`  └ ${escapeMarkdown(bullet)}`);
         }
       }
@@ -347,12 +310,6 @@ function formatForTelegram(
       lines.push(`• ${escapeMarkdown(member.name || member.email)}`);
     }
     lines.push("");
-  }
-
-  // Add summary
-  if (briefingContent.summary) {
-    lines.push("📝 *Summary*");
-    lines.push(escapeMarkdown(briefingContent.summary));
   }
 
   return {
@@ -400,16 +357,10 @@ function formatForDiscord(
     const guestLines: string[] = [];
     for (const guest of briefingContent.guests) {
       const name = guest.name || guest.email || "Unknown";
-      const title =
-        guest.title && guest.company
-          ? ` - ${guest.title} at ${guest.company}`
-          : guest.title
-            ? ` - ${guest.title}`
-            : "";
-      guestLines.push(`**${name}**${title}`);
+      guestLines.push(`**${name}**`);
 
-      if (guest.researchBullets && guest.researchBullets.length > 0) {
-        for (const bullet of guest.researchBullets.slice(0, 2)) {
+      if (guest.bullets && guest.bullets.length > 0) {
+        for (const bullet of guest.bullets.slice(0, 2)) {
           guestLines.push(`> ${bullet}`);
         }
       }
@@ -426,14 +377,6 @@ function formatForDiscord(
     fields.push({
       name: "🏢 Internal Team",
       value: internalTeamMembers.map((m) => m.name || m.email).join(", "),
-    });
-  }
-
-  // Add summary
-  if (briefingContent.summary) {
-    fields.push({
-      name: "📝 Summary",
-      value: briefingContent.summary.slice(0, 1024),
     });
   }
 
