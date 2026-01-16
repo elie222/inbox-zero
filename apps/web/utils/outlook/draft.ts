@@ -35,7 +35,10 @@ export async function getDraft({
     // Treat drafts in Deleted Items as deleted - return null
     // DELETE moves messages to Deleted Items, so this ensures getDraft returns null
     // after deleteDraft is called
-    if (response.parentFolderId === folderIds.deleteditems) {
+    if (
+      folderIds.deleteditems &&
+      response.parentFolderId === folderIds.deleteditems
+    ) {
       logger.info("Draft is in Deleted Items folder, treating as deleted.", {
         draftId,
       });
