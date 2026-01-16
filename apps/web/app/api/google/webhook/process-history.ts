@@ -335,16 +335,58 @@ async function fetchGmailHistoryResilient({
   });
 
   try {
-    const data = await getHistory(gmail, {
-      startHistoryId,
-      historyTypes: ["messageAdded", "labelAdded", "labelRemoved"],
-      maxResults: 500,
-    });
+    const maxPages = 3;
+    const maxHistoryItems = 1500;
+    let pageToken: string | undefined;
+    let pagesFetched = 0;
+    let capped = false;
+    let lastResponse: Awaited<ReturnType<typeof getHistory>> | null = null;
+    let historyItems: gmail_v1.Schema$History[] = [];
+
+    do {
+      const data = await getHistory(gmail, {
+        startHistoryId,
+        historyTypes: ["messageAdded", "labelAdded", "labelRemoved"],
+        maxResults: 500,
+        pageToken,
+      });
+      lastResponse = data;
+      if (data.history?.length) {
+        historyItems = historyItems.concat(data.history);
+      }
+      pagesFetched += 1;
+      pageToken = data.nextPageToken || undefined;
+
+      if (
+        pageToken &&
+        (pagesFetched >= maxPages || historyItems.length >= maxHistoryItems)
+      ) {
+        capped = true;
+        break;
+      }
+    } while (pageToken);
+
+    if (!lastResponse) {
+      return {
+        status: "success",
+        data: { history: historyItems },
+        startHistoryId,
+      };
+    }
+
+    const data: Awaited<ReturnType<typeof getHistory>> = {
+      ...lastResponse,
+      history: historyItems,
+      nextPageToken: capped ? lastResponse.nextPageToken : undefined,
+    };
 
     if (data.nextPageToken) {
-      logger.warn("Gmail history has more pages that were not fetched", {
+      logger.warn("Gmail history pagination capped", {
         historyItemCount: data.history?.length ?? 0,
         startHistoryId,
+        pagesFetched,
+        maxPages,
+        maxHistoryItems,
       });
     }
 

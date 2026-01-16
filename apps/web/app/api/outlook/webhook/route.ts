@@ -8,7 +8,7 @@ import { webhookBodySchema } from "@/app/api/outlook/webhook/types";
 import { handleWebhookError } from "@/utils/webhook/error-handler";
 import { getWebhookEmailAccount } from "@/utils/webhook/validate-webhook-account";
 
-export const maxDuration = 300;
+export const maxDuration = 800;
 
 export const POST = withError("outlook/webhook", async (request) => {
   const searchParams = new URL(request.url).searchParams;
