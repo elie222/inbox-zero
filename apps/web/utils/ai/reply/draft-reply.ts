@@ -14,12 +14,15 @@ import {
 
 const logger = createScopedLogger("DraftReply");
 
-const systemPrompt = `You are an expert assistant that drafts email replies using knowledge base information.
+const getSystemPrompt = (hasWritingStyle: boolean) => `You are an expert assistant that drafts email replies using knowledge base information.
 
 ${PROMPT_SECURITY_INSTRUCTIONS}
 
-Keep it concise and friendly.
-IMPORTANT: Keep the reply short. Aim for 2 sentences at most.
+${
+  hasWritingStyle
+    ? `IMPORTANT: Follow the user's writing style provided below. Pay close attention to their typical length, formality, greeting style, and other traits. The writing style should take precedence over any default guidelines.`
+    : `Keep it concise and friendly. Aim for 2-3 sentences unless the context requires more.`
+}
 Don't be pushy.
 Use context from the previous emails and the provided knowledge base to make it relevant and accurate.
 IMPORTANT: Do NOT simply repeat or mirror what the last email said. It doesn't add anything to the conversation to repeat back to them what they just said.
@@ -240,7 +243,7 @@ export async function aiDraftReply({
 
     const result = await generateObject({
       ...modelOptions,
-      system: systemPrompt,
+      system: getSystemPrompt(!!writingStyle),
       prompt,
       schema: draftSchema,
     });

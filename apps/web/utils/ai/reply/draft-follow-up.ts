@@ -8,9 +8,12 @@ import { getModel } from "@/utils/llms/model";
 
 const logger = createScopedLogger("DraftFollowUp");
 
-const systemPrompt = `You are an expert assistant that drafts follow-up emails.
-Keep it concise and friendly.
-IMPORTANT: Keep the reply short. Aim for 2 sentences at most.
+const getSystemPrompt = (hasWritingStyle: boolean) => `You are an expert assistant that drafts follow-up emails.
+${
+  hasWritingStyle
+    ? `IMPORTANT: Follow the user's writing style provided below. Pay close attention to their typical length, formality, greeting style, and other traits. The writing style should take precedence over any default guidelines.`
+    : `Keep it concise and friendly. Aim for 2-3 sentences unless the context requires more.`
+}
 Don't be pushy.
 Don't mention that you're an AI.
 Don't reply with a Subject. Only reply with the body of the email.
@@ -99,7 +102,7 @@ export async function aiDraftFollowUp({
 
     const result = await generateObject({
       ...modelOptions,
-      system: systemPrompt,
+      system: getSystemPrompt(!!writingStyle),
       prompt,
       schema: draftSchema,
     });
