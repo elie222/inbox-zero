@@ -205,12 +205,20 @@ describe("processHistoryForUser - 404 Handling", () => {
     expect(vi.mocked(getHistory)).toHaveBeenCalledTimes(2);
     expect(vi.mocked(processHistoryItem)).toHaveBeenCalledTimes(2);
     expect(vi.mocked(processHistoryItem)).toHaveBeenCalledWith(
-      expect.objectContaining({ messageId: "m-1" }),
+      expect.objectContaining({
+        item: expect.objectContaining({
+          message: expect.objectContaining({ id: "m-1" }),
+        }),
+      }),
       expect.any(Object),
       expect.any(Object),
     );
     expect(vi.mocked(processHistoryItem)).toHaveBeenCalledWith(
-      expect.objectContaining({ messageId: "m-2" }),
+      expect.objectContaining({
+        item: expect.objectContaining({
+          message: expect.objectContaining({ id: "m-2" }),
+        }),
+      }),
       expect.any(Object),
       expect.any(Object),
     );
