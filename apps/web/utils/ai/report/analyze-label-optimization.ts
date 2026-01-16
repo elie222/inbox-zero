@@ -28,7 +28,9 @@ export async function aiAnalyzeLabelOptimization(
 ): Promise<z.infer<typeof labelAnalysisSchema>> {
   const system = `You are a Gmail organization expert. Analyze the user's current labels and email patterns to suggest specific optimizations that will improve their email organization and workflow efficiency.
 
-Focus on practical suggestions that will reduce email management time and improve organization.`;
+Focus on practical suggestions that will reduce email management time and improve organization.
+
+Return your response in JSON format.`;
 
   const prompt = `### Current Gmail Labels
 ${gmailLabels.map((label) => `- ${label.name}: ${label.messagesTotal || 0} emails, ${label.messagesUnread || 0} unread`).join("\n")}
