@@ -25,6 +25,299 @@ export interface GoogleSetupOptions {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// Main Setup Function
+// ═══════════════════════════════════════════════════════════════════════════
+
+export async function runGoogleSetup(options: GoogleSetupOptions) {
+  p.intro("Google Cloud Setup for Inbox Zero");
+
+  // Step 1: Check prerequisites
+  const spinner = p.spinner();
+  spinner.start("Checking gcloud CLI...");
+
+  const prereqs = checkGcloudPrerequisites();
+
+  if (!prereqs.installed) {
+    spinner.stop("gcloud CLI not found");
+    p.log.error(
+      "The gcloud CLI is not installed.\n" +
+        "Please install it from: https://cloud.google.com/sdk/docs/install\n" +
+        "After installation, run: gcloud auth login",
+    );
+    process.exit(1);
+  }
+
+  spinner.stop("gcloud CLI found");
+
+  // Step 2: Ensure authentication
+  if (!prereqs.authenticated) {
+    p.log.warn("You are not authenticated with gcloud.");
+    const authenticate = await p.confirm({
+      message: "Would you like to authenticate now?",
+      initialValue: true,
+    });
+
+    if (p.isCancel(authenticate) || !authenticate) {
+      p.cancel("Setup cancelled. Run 'gcloud auth login' manually first.");
+      process.exit(0);
+    }
+
+    p.log.info("Opening browser for authentication...");
+    spawnSync("gcloud", ["auth", "login"], { stdio: "inherit" });
+  }
+
+  // Step 3: Get project ID
+  let projectId = options.projectId || prereqs.projectId;
+
+  if (!projectId) {
+    const inputProjectId = await p.text({
+      message: "Enter your Google Cloud project ID:",
+      placeholder: "my-project-123",
+      validate: (v) => (v ? undefined : "Project ID is required"),
+    });
+
+    if (p.isCancel(inputProjectId)) {
+      p.cancel("Setup cancelled.");
+      process.exit(0);
+    }
+
+    projectId = inputProjectId;
+  } else {
+    p.log.info(`Using project: ${projectId}`);
+  }
+
+  // Step 4: Get domain (needed for OAuth redirect URIs and Pub/Sub webhook)
+  let domain = options.domain;
+
+  if (!domain) {
+    const inputDomain = await p.text({
+      message:
+        "Enter your app domain (for OAuth redirects and Pub/Sub webhook):",
+      placeholder: "app.example.com",
+      validate: (v) => {
+        if (!v) return undefined; // Allow empty for localhost development
+        if (!v.includes(".")) return "Enter a valid domain";
+        return undefined;
+      },
+    });
+
+    if (p.isCancel(inputDomain)) {
+      p.cancel("Setup cancelled.");
+      process.exit(0);
+    }
+
+    domain = inputDomain || undefined;
+  }
+
+  // Step 5: Enable required APIs
+  spinner.start(
+    "Enabling Google Cloud APIs (Gmail, People, Calendar, Drive, Pub/Sub)...",
+  );
+
+  const apiResult = enableGoogleApis(projectId);
+
+  if (!apiResult.success) {
+    spinner.stop("Failed to enable APIs");
+    p.log.error(apiResult.error || "Unknown error");
+    process.exit(1);
+  }
+
+  spinner.stop("APIs enabled successfully");
+
+  // Step 6: OAuth Consent Screen guidance (if not skipped)
+  let clientId = "";
+  let clientSecret = "";
+
+  if (!options.skipOauth) {
+    const consentUrl = `https://console.cloud.google.com/apis/credentials/consent?project=${projectId}`;
+
+    p.note(
+      `Before creating OAuth credentials, you need to configure the consent screen.
+
+Steps:
+1. Select "External" user type (or "Internal" for Google Workspace)
+2. App name: "Inbox Zero" (or your preferred name)
+3. User support email: Your email
+4. Developer contact: Your email
+5. Click "Save and Continue" through the scopes section
+6. Add your email as a test user
+7. Complete the wizard
+
+The console will open in your browser.`,
+      "OAuth Consent Screen",
+    );
+
+    const openConsent = await p.confirm({
+      message: "Open OAuth consent screen in browser?",
+      initialValue: true,
+    });
+
+    if (openConsent && !p.isCancel(openConsent)) {
+      openBrowser(consentUrl);
+    }
+
+    const consentDone = await p.confirm({
+      message: "Have you completed the consent screen setup?",
+      initialValue: false,
+    });
+
+    if (p.isCancel(consentDone) || !consentDone) {
+      p.log.warn(
+        "You can continue, but OAuth won't work until the consent screen is configured.",
+      );
+    }
+
+    // Step 7: OAuth Credentials guidance
+    const credentialsUrl = `https://console.cloud.google.com/apis/credentials/oauthclient?project=${projectId}`;
+    const redirectUris = domain
+      ? `   - https://${domain}/api/auth/callback/google
+   - https://${domain}/api/google/linking/callback`
+      : `   - http://localhost:3000/api/auth/callback/google
+   - http://localhost:3000/api/google/linking/callback`;
+
+    p.note(
+      `Now create OAuth 2.0 credentials:
+
+1. Select "Web application" as the application type
+2. Name: "Inbox Zero" (or your preferred name)
+3. Add Authorized redirect URIs:
+${redirectUris}
+4. Click "Create"
+5. Copy the Client ID and Client Secret
+
+The console will open in your browser.`,
+      "OAuth Credentials",
+    );
+
+    const openCredentials = await p.confirm({
+      message: "Open OAuth credentials page in browser?",
+      initialValue: true,
+    });
+
+    if (openCredentials && !p.isCancel(openCredentials)) {
+      openBrowser(credentialsUrl);
+    }
+
+    const oauthInput = await p.group(
+      {
+        clientId: () =>
+          p.text({
+            message: "Paste your Google Client ID:",
+            placeholder: "123456789012-abc.apps.googleusercontent.com",
+            validate: (v) => {
+              if (!v) return undefined; // Allow empty to skip
+              if (!v.endsWith(".apps.googleusercontent.com")) {
+                return "Client ID should end with .apps.googleusercontent.com";
+              }
+              return undefined;
+            },
+          }),
+        clientSecret: () =>
+          p.text({
+            message: "Paste your Google Client Secret:",
+            placeholder: "GOCSPX-...",
+          }),
+      },
+      {
+        onCancel: () => {
+          p.cancel("Setup cancelled.");
+          process.exit(0);
+        },
+      },
+    );
+
+    clientId = oauthInput.clientId || "";
+    clientSecret = oauthInput.clientSecret || "";
+  }
+
+  // Step 8: Pub/Sub setup (automated)
+  const topicName = "inbox-zero-emails";
+  const subscriptionName = "inbox-zero-subscription";
+  const verificationToken = generateSecret(32);
+  let topicFullName = "";
+  let pubsubSuccess = false;
+
+  if (!options.skipPubsub && domain) {
+    const webhookUrl = `https://${domain}/api/google/webhook?token=${verificationToken}`;
+    topicFullName = `projects/${projectId}/topics/${topicName}`;
+
+    spinner.start("Creating Pub/Sub topic...");
+
+    const topicResult = setupPubSubTopic(projectId, topicName);
+
+    if (!topicResult.success) {
+      spinner.stop("Failed to create Pub/Sub topic");
+      p.log.error(topicResult.error || "Unknown error");
+      p.log.warn("You can set up Pub/Sub manually later.");
+    } else {
+      spinner.stop("Pub/Sub topic created with Gmail permissions");
+
+      spinner.start("Creating Pub/Sub push subscription...");
+
+      const subResult = setupPubSubSubscription(
+        projectId,
+        topicName,
+        subscriptionName,
+        webhookUrl,
+      );
+
+      if (!subResult.success) {
+        spinner.stop("Failed to create subscription");
+        p.log.error(subResult.error || "Unknown error");
+        p.log.warn(
+          "You can create the subscription manually:\n" +
+            `gcloud pubsub subscriptions create ${subscriptionName} --topic=${topicName} --push-endpoint="${webhookUrl}" --project=${projectId}`,
+        );
+      } else {
+        spinner.stop("Pub/Sub subscription created");
+        pubsubSuccess = true;
+      }
+    }
+  }
+
+  // Step 9: Output environment variables
+  const envVars: string[] = [];
+
+  if (clientId) {
+    envVars.push(`GOOGLE_CLIENT_ID=${clientId}`);
+  }
+  if (clientSecret) {
+    envVars.push(`GOOGLE_CLIENT_SECRET=${clientSecret}`);
+  }
+  // Always output Pub/Sub vars when attempted (even if failed) so user can complete manual setup
+  if (!options.skipPubsub && domain) {
+    envVars.push(`GOOGLE_PUBSUB_TOPIC_NAME=${topicFullName}`);
+    envVars.push(`GOOGLE_PUBSUB_VERIFICATION_TOKEN=${verificationToken}`);
+  }
+
+  if (envVars.length > 0) {
+    p.note(
+      `Add these to your .env file:\n\n${envVars.join("\n")}`,
+      "Environment Variables",
+    );
+  }
+
+  // Summary
+  const summary = [
+    "✓ APIs enabled (Gmail, People, Calendar, Drive, Pub/Sub)",
+    options.skipOauth
+      ? "✗ OAuth setup skipped"
+      : clientId
+        ? "✓ OAuth credentials configured"
+        : "! OAuth credentials not provided",
+    options.skipPubsub
+      ? "✗ Pub/Sub setup skipped"
+      : pubsubSuccess
+        ? "✓ Pub/Sub topic and subscription created"
+        : "! Pub/Sub setup incomplete (env vars provided for manual setup)",
+  ].join("\n");
+
+  p.note(summary, "Setup Summary");
+
+  p.outro("Google Cloud setup complete!");
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // Helper Functions
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -178,295 +471,6 @@ function openBrowser(url: string): void {
       : platform === "win32"
         ? "start"
         : "xdg-open";
-  spawnSync(cmd, [url], { stdio: "pipe" });
-}
-
-// ═══════════════════════════════════════════════════════════════════════════
-// Main Setup Function
-// ═══════════════════════════════════════════════════════════════════════════
-
-export async function runGoogleSetup(options: GoogleSetupOptions) {
-  p.intro("Google Cloud Setup for Inbox Zero");
-
-  // Step 1: Check prerequisites
-  const spinner = p.spinner();
-  spinner.start("Checking gcloud CLI...");
-
-  const prereqs = checkGcloudPrerequisites();
-
-  if (!prereqs.installed) {
-    spinner.stop("gcloud CLI not found");
-    p.log.error(
-      "The gcloud CLI is not installed.\n" +
-        "Please install it from: https://cloud.google.com/sdk/docs/install\n" +
-        "After installation, run: gcloud auth login",
-    );
-    process.exit(1);
-  }
-
-  spinner.stop("gcloud CLI found");
-
-  // Step 2: Ensure authentication
-  if (!prereqs.authenticated) {
-    p.log.warn("You are not authenticated with gcloud.");
-    const authenticate = await p.confirm({
-      message: "Would you like to authenticate now?",
-      initialValue: true,
-    });
-
-    if (p.isCancel(authenticate) || !authenticate) {
-      p.cancel("Setup cancelled. Run 'gcloud auth login' manually first.");
-      process.exit(0);
-    }
-
-    p.log.info("Opening browser for authentication...");
-    spawnSync("gcloud", ["auth", "login"], { stdio: "inherit" });
-  }
-
-  // Step 3: Get project ID
-  let projectId = options.projectId || prereqs.projectId;
-
-  if (!projectId) {
-    const inputProjectId = await p.text({
-      message: "Enter your Google Cloud project ID:",
-      placeholder: "my-project-123",
-      validate: (v) => (v ? undefined : "Project ID is required"),
-    });
-
-    if (p.isCancel(inputProjectId)) {
-      p.cancel("Setup cancelled.");
-      process.exit(0);
-    }
-
-    projectId = inputProjectId;
-  } else {
-    p.log.info(`Using project: ${projectId}`);
-  }
-
-  // Step 4: Get domain
-  let domain = options.domain;
-
-  if (!domain && !options.skipPubsub) {
-    const inputDomain = await p.text({
-      message: "Enter your app domain (for Pub/Sub webhook):",
-      placeholder: "app.example.com",
-      validate: (v) => {
-        if (!v) return "Domain is required for Pub/Sub setup";
-        if (!v.includes(".")) return "Enter a valid domain";
-        return undefined;
-      },
-    });
-
-    if (p.isCancel(inputDomain)) {
-      p.cancel("Setup cancelled.");
-      process.exit(0);
-    }
-
-    domain = inputDomain;
-  }
-
-  // Step 5: Enable required APIs
-  spinner.start(
-    "Enabling Google Cloud APIs (Gmail, People, Calendar, Drive, Pub/Sub)...",
-  );
-
-  const apiResult = enableGoogleApis(projectId);
-
-  if (!apiResult.success) {
-    spinner.stop("Failed to enable APIs");
-    p.log.error(apiResult.error || "Unknown error");
-    process.exit(1);
-  }
-
-  spinner.stop("APIs enabled successfully");
-
-  // Step 6: OAuth Consent Screen guidance (if not skipped)
-  let clientId = "";
-  let clientSecret = "";
-
-  if (!options.skipOauth) {
-    const consentUrl = `https://console.cloud.google.com/apis/credentials/consent?project=${projectId}`;
-
-    p.note(
-      `Before creating OAuth credentials, you need to configure the consent screen.
-
-Steps:
-1. Select "External" user type (or "Internal" for Google Workspace)
-2. App name: "Inbox Zero" (or your preferred name)
-3. User support email: Your email
-4. Developer contact: Your email
-5. Click "Save and Continue" through the scopes section
-6. Add your email as a test user
-7. Complete the wizard
-
-The console will open in your browser.`,
-      "OAuth Consent Screen",
-    );
-
-    const openConsent = await p.confirm({
-      message: "Open OAuth consent screen in browser?",
-      initialValue: true,
-    });
-
-    if (openConsent && !p.isCancel(openConsent)) {
-      openBrowser(consentUrl);
-    }
-
-    const consentDone = await p.confirm({
-      message: "Have you completed the consent screen setup?",
-      initialValue: false,
-    });
-
-    if (p.isCancel(consentDone) || !consentDone) {
-      p.log.warn(
-        "You can continue, but OAuth won't work until the consent screen is configured.",
-      );
-    }
-
-    // Step 7: OAuth Credentials guidance
-    const credentialsUrl = `https://console.cloud.google.com/apis/credentials/oauthclient?project=${projectId}`;
-    const redirectUris = domain
-      ? `   - https://${domain}/api/auth/callback/google
-   - https://${domain}/api/google/linking/callback`
-      : `   - http://localhost:3000/api/auth/callback/google
-   - http://localhost:3000/api/google/linking/callback`;
-
-    p.note(
-      `Now create OAuth 2.0 credentials:
-
-1. Select "Web application" as the application type
-2. Name: "Inbox Zero" (or your preferred name)
-3. Add Authorized redirect URIs:
-${redirectUris}
-4. Click "Create"
-5. Copy the Client ID and Client Secret
-
-The console will open in your browser.`,
-      "OAuth Credentials",
-    );
-
-    const openCredentials = await p.confirm({
-      message: "Open OAuth credentials page in browser?",
-      initialValue: true,
-    });
-
-    if (openCredentials && !p.isCancel(openCredentials)) {
-      openBrowser(credentialsUrl);
-    }
-
-    const oauthInput = await p.group(
-      {
-        clientId: () =>
-          p.text({
-            message: "Paste your Google Client ID:",
-            placeholder: "123456789012-abc.apps.googleusercontent.com",
-            validate: (v) => {
-              if (!v) return undefined; // Allow empty to skip
-              if (!v.includes(".apps.googleusercontent.com")) {
-                return "Client ID should end with .apps.googleusercontent.com";
-              }
-              return undefined;
-            },
-          }),
-        clientSecret: () =>
-          p.text({
-            message: "Paste your Google Client Secret:",
-            placeholder: "GOCSPX-...",
-          }),
-      },
-      {
-        onCancel: () => {
-          p.cancel("Setup cancelled.");
-          process.exit(0);
-        },
-      },
-    );
-
-    clientId = oauthInput.clientId || "";
-    clientSecret = oauthInput.clientSecret || "";
-  }
-
-  // Step 8: Pub/Sub setup (automated)
-  let topicFullName = "";
-  const verificationToken = generateSecret(32);
-
-  if (!options.skipPubsub && domain) {
-    const topicName = "inbox-zero-emails";
-    const subscriptionName = "inbox-zero-subscription";
-    const webhookUrl = `https://${domain}/api/google/webhook?token=${verificationToken}`;
-
-    spinner.start("Creating Pub/Sub topic...");
-
-    const topicResult = setupPubSubTopic(projectId, topicName);
-
-    if (!topicResult.success) {
-      spinner.stop("Failed to create Pub/Sub topic");
-      p.log.error(topicResult.error || "Unknown error");
-      p.log.warn("You can set up Pub/Sub manually later.");
-    } else {
-      spinner.stop("Pub/Sub topic created with Gmail permissions");
-
-      spinner.start("Creating Pub/Sub push subscription...");
-
-      const subResult = setupPubSubSubscription(
-        projectId,
-        topicName,
-        subscriptionName,
-        webhookUrl,
-      );
-
-      if (!subResult.success) {
-        spinner.stop("Failed to create subscription");
-        p.log.error(subResult.error || "Unknown error");
-        p.log.warn(
-          "You can create the subscription manually:\n" +
-            `gcloud pubsub subscriptions create ${subscriptionName} --topic=${topicName} --push-endpoint="${webhookUrl}" --project=${projectId}`,
-        );
-      } else {
-        spinner.stop("Pub/Sub subscription created");
-      }
-
-      topicFullName = `projects/${projectId}/topics/${topicName}`;
-    }
-  }
-
-  // Step 9: Output environment variables
-  const envVars: string[] = [];
-
-  if (clientId) {
-    envVars.push(`GOOGLE_CLIENT_ID=${clientId}`);
-  }
-  if (clientSecret) {
-    envVars.push(`GOOGLE_CLIENT_SECRET=${clientSecret}`);
-  }
-  if (topicFullName) {
-    envVars.push(`GOOGLE_PUBSUB_TOPIC_NAME=${topicFullName}`);
-    envVars.push(`GOOGLE_PUBSUB_VERIFICATION_TOKEN=${verificationToken}`);
-  }
-
-  if (envVars.length > 0) {
-    p.note(
-      `Add these to your .env file:\n\n${envVars.join("\n")}`,
-      "Environment Variables",
-    );
-  }
-
-  // Summary
-  const summary = [
-    "✓ APIs enabled (Gmail, People, Calendar, Drive, Pub/Sub)",
-    options.skipOauth
-      ? "✗ OAuth setup skipped"
-      : clientId
-        ? "✓ OAuth credentials configured"
-        : "! OAuth credentials not provided",
-    options.skipPubsub
-      ? "✗ Pub/Sub setup skipped"
-      : topicFullName
-        ? "✓ Pub/Sub topic and subscription created"
-        : "! Pub/Sub setup incomplete",
-  ].join("\n");
-
-  p.note(summary, "Setup Summary");
-
-  p.outro("Google Cloud setup complete!");
+  // Windows 'start' is a shell built-in, not an executable
+  spawnSync(cmd, [url], { stdio: "pipe", shell: platform === "win32" });
 }
