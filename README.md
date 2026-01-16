@@ -87,7 +87,27 @@ We offer a hosted version of Inbox Zero at [https://getinboxzero.com](https://ww
 
 The easiest way to self-host Inbox Zero is using our pre-built Docker image.
 
-See our **[Self-Hosting Guide](docs/hosting/self-hosting.md)** for complete instructions.
+```bash
+git clone https://github.com/elie222/inbox-zero.git
+cd inbox-zero
+npm install
+npm run setup
+
+# Start Docker (Linux/Mac)
+NEXT_PUBLIC_BASE_URL=http://localhost:3000 docker compose --env-file apps/web/.env --profile all up -d
+
+# Start Docker (Windows PowerShell)
+# $env:NEXT_PUBLIC_BASE_URL="http://localhost:3000"; docker compose --env-file apps/web/.env --profile all up -d
+
+# Verify startup (wait for "Ready" message, Ctrl+C to exit logs)
+docker logs inbox-zero-services-web-1 -f
+```
+
+Open http://localhost:3000
+
+> **Tip:** The setup CLI guides you through configuring your AI provider (OpenAI, Anthropic, etc.) and connecting Google or Microsoft accounts. For the fastest setup, choose the defaults and select "Full Docker Compose" when asked about databases. See [Google OAuth Setup](#google-oauth-setup) and [Microsoft OAuth Setup](#microsoft-oauth-setup) below for detailed configuration instructions.
+
+See our **[Self-Hosting Guide](docs/hosting/self-hosting.md)** for complete instructions, production deployment, and configuration options.
 
 ### Local Development Setup
 
