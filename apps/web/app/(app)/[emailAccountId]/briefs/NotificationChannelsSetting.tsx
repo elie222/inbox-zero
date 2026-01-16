@@ -7,6 +7,7 @@ import { Toggle } from "@/components/Toggle";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { toastSuccess, toastError } from "@/components/Toast";
+import { getActionErrorMessage } from "@/utils/error";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import {
   upsertNotificationChannelAction,
@@ -119,8 +120,9 @@ export function NotificationChannelsSetting({
       },
       onError: (error) => {
         toastError({
-          description:
-            error.error.serverError ?? "Failed to save notification channel",
+          description: getActionErrorMessage(error.error, {
+            prefix: "Failed to save notification channel",
+          }),
         });
       },
     },
@@ -133,8 +135,12 @@ export function NotificationChannelsSetting({
         toastSuccess({ description: "Channel updated!" });
         onSaved();
       },
-      onError: () => {
-        toastError({ description: "Failed to update channel" });
+      onError: (error) => {
+        toastError({
+          description: getActionErrorMessage(error.error, {
+            prefix: "Failed to update channel",
+          }),
+        });
       },
     },
   );
@@ -146,8 +152,12 @@ export function NotificationChannelsSetting({
         toastSuccess({ description: "Channel removed!" });
         onSaved();
       },
-      onError: () => {
-        toastError({ description: "Failed to remove channel" });
+      onError: (error) => {
+        toastError({
+          description: getActionErrorMessage(error.error, {
+            prefix: "Failed to remove channel",
+          }),
+        });
       },
     },
   );

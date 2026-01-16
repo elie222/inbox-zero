@@ -1,5 +1,6 @@
 "use server";
 
+import { revalidatePath } from "next/cache";
 import { actionClient } from "@/utils/actions/safe-action";
 import {
   sendDebugBriefBody,
@@ -21,6 +22,7 @@ import prisma from "@/utils/prisma";
 import { runMeetingBrief } from "@/utils/meeting-briefs/process";
 import type { CalendarEvent } from "@/utils/calendar/event-types";
 import { SafeError } from "@/utils/error";
+import { prefixPath } from "@/utils/path";
 
 export const updateMeetingBriefsEnabledAction = actionClient
   .metadata({ name: "updateMeetingBriefsEnabled" })
@@ -108,7 +110,8 @@ export const sendBriefAction = actionClient
 export const getNotificationChannelsAction = actionClient
   .metadata({ name: "getNotificationChannels" })
   .action(async ({ ctx: { emailAccountId } }) => {
-    const channels = await getNotificationChannels(emailAccountId);
+    // Fetch all channels (including disabled) for the settings UI
+    const channels = await getNotificationChannels(emailAccountId, false);
     const isAvailable = isNotificationChannelsAvailable();
     return { channels, isAvailable };
   });
@@ -134,6 +137,8 @@ export const upsertNotificationChannelAction = actionClient
         pipedreamActionId,
       });
 
+      revalidatePath(prefixPath(emailAccountId, "/briefs"));
+
       return channel;
     },
   );
@@ -143,6 +148,7 @@ export const deleteNotificationChannelAction = actionClient
   .inputSchema(deleteNotificationChannelBody)
   .action(async ({ ctx: { emailAccountId }, parsedInput: { channelType } }) => {
     await deleteNotificationChannel(emailAccountId, channelType as ChannelType);
+    revalidatePath(prefixPath(emailAccountId, "/briefs"));
   });
 
 export const toggleNotificationChannelAction = actionClient
@@ -158,5 +164,6 @@ export const toggleNotificationChannelAction = actionClient
         channelType as ChannelType,
         enabled,
       );
+      revalidatePath(prefixPath(emailAccountId, "/briefs"));
     },
   );

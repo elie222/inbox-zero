@@ -47,31 +47,6 @@ export function getPipedreamConnectConfig(): PipedreamConnectConfig | null {
 }
 
 /**
- * Get an access token for the Pipedream Connect API using client credentials
- */
-async function getAccessToken(config: PipedreamConnectConfig): Promise<string> {
-  const response = await fetch(`${PIPEDREAM_API_BASE}/oauth/token`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/x-www-form-urlencoded",
-    },
-    body: new URLSearchParams({
-      grant_type: "client_credentials",
-      client_id: config.clientId,
-      client_secret: config.clientSecret,
-    }),
-  });
-
-  if (!response.ok) {
-    const error = await response.text();
-    throw new Error(`Failed to get Pipedream access token: ${error}`);
-  }
-
-  const data = (await response.json()) as { access_token: string };
-  return data.access_token;
-}
-
-/**
  * Run a Pipedream Connect action
  *
  * @see https://pipedream.com/docs/connect/api-reference/run-action
@@ -130,4 +105,28 @@ export async function runPipedreamAction(
  */
 export function isPipedreamConnectConfigured(): boolean {
   return getPipedreamConnectConfig() !== null;
+}
+
+// Helper functions
+
+async function getAccessToken(config: PipedreamConnectConfig): Promise<string> {
+  const response = await fetch(`${PIPEDREAM_API_BASE}/oauth/token`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/x-www-form-urlencoded",
+    },
+    body: new URLSearchParams({
+      grant_type: "client_credentials",
+      client_id: config.clientId,
+      client_secret: config.clientSecret,
+    }),
+  });
+
+  if (!response.ok) {
+    const error = await response.text();
+    throw new Error(`Failed to get Pipedream access token: ${error}`);
+  }
+
+  const data = (await response.json()) as { access_token: string };
+  return data.access_token;
 }

@@ -51,7 +51,9 @@ export type ChannelType = z.infer<typeof channelTypeSchema>;
 
 export const upsertNotificationChannelBody = z.object({
   channelType: channelTypeSchema,
-  config: z.record(z.unknown()),
+  config: z.record(z.unknown()).refine((val) => Object.keys(val).length > 0, {
+    message: "Config must not be empty",
+  }),
   enabled: z.boolean().optional(),
   pipedreamActionId: z.string().optional(),
 });

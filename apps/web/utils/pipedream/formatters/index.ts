@@ -157,7 +157,7 @@ function formatForSlack(
   return {
     channel: config.channel,
     text,
-    blocks: JSON.stringify(blocks),
+    blocks,
   };
 }
 
@@ -414,7 +414,11 @@ function formatForDiscord(
         }
       }
     }
-    fields.push({ name: "👥 Attendees", value: guestLines.join("\n") });
+    const attendeesValue = guestLines.join("\n");
+    fields.push({
+      name: "👥 Attendees",
+      value: attendeesValue.slice(0, 1024),
+    });
   }
 
   // Add internal team
@@ -427,7 +431,10 @@ function formatForDiscord(
 
   // Add summary
   if (briefingContent.summary) {
-    fields.push({ name: "📝 Summary", value: briefingContent.summary });
+    fields.push({
+      name: "📝 Summary",
+      value: briefingContent.summary.slice(0, 1024),
+    });
   }
 
   const embed = {
@@ -446,5 +453,6 @@ function formatForDiscord(
  * Escape special characters for Telegram Markdown
  */
 function escapeMarkdown(text: string): string {
-  return text.replace(/[_*[\]()~`>#+=|{}.!-]/g, "\\$&");
+  // Escape backslash first, then other special characters
+  return text.replace(/\\/g, "\\\\").replace(/[_*[\]()~`>#+=|{}.!-]/g, "\\$&");
 }

@@ -120,12 +120,23 @@ export async function sendMeetingBriefToChannels(
     channelTypes: channels.map((c) => c.channelType),
   });
 
+  const supportedChannelTypes = Object.keys(CHANNEL_TYPES);
+
   const results = await Promise.allSettled(
     channels.map(async (channel) => {
       const channelLog = log.with({
         channelType: channel.channelType,
         channelId: channel.id,
       });
+
+      // Validate channel type before processing
+      if (!supportedChannelTypes.includes(channel.channelType)) {
+        channelLog.warn("Skipping unsupported channel type", {
+          channelType: channel.channelType,
+          supportedTypes: supportedChannelTypes,
+        });
+        return;
+      }
 
       try {
         channelLog.info("Sending to notification channel");

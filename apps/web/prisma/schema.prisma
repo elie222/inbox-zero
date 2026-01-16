@@ -991,7 +991,6 @@ model NotificationChannel {
   pipedreamActionId String  // Pipedream Connect action ID: "slack_v2-send-message", "microsoft_teams-send-message"
 
   @@unique([emailAccountId, channelType]) // One channel per type per account
-  @@index([emailAccountId])
 }
 
 // Drive connection for document auto-organization (Google Drive or OneDrive/SharePoint)
