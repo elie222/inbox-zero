@@ -18,9 +18,6 @@ const systemPrompt = `You are an expert assistant that drafts email replies usin
 
 ${PROMPT_SECURITY_INSTRUCTIONS}
 
-Keep it concise and friendly.
-IMPORTANT: Keep the reply short. Aim for 2 sentences at most.
-Don't be pushy.
 Use context from the previous emails and the provided knowledge base to make it relevant and accurate.
 IMPORTANT: Do NOT simply repeat or mirror what the last email said. It doesn't add anything to the conversation to repeat back to them what they just said.
 Don't mention that you're an AI.
@@ -32,11 +29,16 @@ Never use placeholders for the user's name. You do not need to sign off with the
 Do not invent information.
 Don't suggest meeting times or mention availability unless specific calendar information is provided.
 
-Write a polite and professional email that follows up on the previous conversation.
+Write an email that follows up on the previous conversation.
 Your reply should aim to continue the conversation or provide new information based on the context or knowledge base. If you have nothing substantial to add, keep the reply minimal.
 
 Return your response in JSON format.
 `;
+
+const defaultWritingStyle = `Keep it concise and friendly.
+Keep the reply short. Aim for 2 sentences at most.
+Don't be pushy.
+Write in a polite and professional tone.`;
 
 const getUserPrompt = ({
   messages,
@@ -225,7 +227,7 @@ export async function aiDraftReply({
       emailHistorySummary,
       emailHistoryContext,
       calendarAvailability,
-      writingStyle,
+      writingStyle: writingStyle || defaultWritingStyle,
       mcpContext,
       meetingContext,
     });
