@@ -135,12 +135,8 @@ for envfile in .env.local .env.e2e; do
     fi
 done
 
-# Also write NEXT_PUBLIC_BASE_URL to a temp file that gets sourced
-# because it's determined at runtime (ngrok URL)
-echo "NEXT_PUBLIC_BASE_URL=$NGROK_URL" > /tmp/e2e-runtime.env
-
-# Start with both env files
-env $(cat /tmp/e2e-runtime.env | xargs) pnpm dev > /tmp/nextjs-e2e.log 2>&1 &
+# Start app with current environment (NEXT_PUBLIC_BASE_URL already exported above)
+pnpm dev > /tmp/nextjs-e2e.log 2>&1 &
 APP_PID=$!
 
 # Wait for app to be ready
@@ -148,7 +144,8 @@ log "Waiting for app to be ready..."
 APP_READY=false
 for i in {1..60}; do
     # Check health endpoint (with optional API key if configured)
-    if curl -s -H "x-health-api-key: ${HEALTH_API_KEY:-}" "http://localhost:3000/api/health" > /dev/null 2>&1; then
+    # -f flag makes curl fail on 4xx/5xx responses
+    if curl -sf -H "x-health-api-key: ${HEALTH_API_KEY:-}" "http://localhost:3000/api/health" > /dev/null 2>&1; then
         APP_READY=true
         break
     fi
