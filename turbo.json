@@ -86,6 +86,7 @@
         "WHITELIST_FROM",
         "API_KEY_SALT",
         "HEALTH_API_KEY",
+        "OAUTH_PROXY_URL",
         "FB_CONVERSION_API_ACCESS_TOKEN",
         "FB_PIXEL_ID",
         "GITHUB_MARKETING_TOKEN",
