@@ -1,6 +1,7 @@
 // based on: https://github.com/vercel/platforms/blob/main/lib/auth.ts
 
 import { sso } from "@better-auth/sso";
+import { oAuthProxy } from "better-auth/plugins";
 import { createContact as createLoopsContact } from "@inboxzero/loops";
 import { createContact as createResendContact } from "@inboxzero/resend";
 import type { Account, AuthContext } from "better-auth";
@@ -50,7 +51,10 @@ export const betterAuthConfig = betterAuth({
     },
   },
   baseURL: env.NEXT_PUBLIC_BASE_URL,
-  trustedOrigins: [env.NEXT_PUBLIC_BASE_URL],
+  trustedOrigins: [
+    env.NEXT_PUBLIC_BASE_URL,
+    ...(env.OAUTH_PROXY_URL ? [env.OAUTH_PROXY_URL] : []),
+  ],
   secret: env.AUTH_SECRET || env.NEXTAUTH_SECRET,
   emailAndPassword: {
     enabled: false,
@@ -64,6 +68,9 @@ export const betterAuthConfig = betterAuth({
       disableImplicitSignUp: false,
       organizationProvisioning: { disabled: true },
     }),
+    // OAuth proxy for Vercel preview deployments (Google doesn't allow wildcard redirect URIs)
+    // When OAUTH_PROXY_URL is set, OAuth callbacks route through staging then redirect back to preview
+    ...(env.OAUTH_PROXY_URL ? [oAuthProxy()] : []),
   ],
   session: {
     modelName: "Session",
@@ -105,6 +112,10 @@ export const betterAuthConfig = betterAuth({
       accessType: "offline",
       prompt: "select_account consent",
       disableIdTokenSignIn: true,
+      // For preview deployments, redirect through staging (which proxies back to preview URL)
+      ...(env.OAUTH_PROXY_URL && {
+        redirectURI: `${env.OAUTH_PROXY_URL}/api/auth/callback/google`,
+      }),
     },
     microsoft: {
       clientId: env.MICROSOFT_CLIENT_ID || "",
