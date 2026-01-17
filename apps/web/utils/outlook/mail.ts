@@ -347,6 +347,8 @@ async function sendReplyUsingCreateReply(
   logger: Logger,
 ): Promise<SentEmailResult> {
   const originalMessageId = body.replyToEmail!.messageId!;
+  const headerMessageId = body.replyToEmail?.headerMessageId;
+  const references = body.replyToEmail?.references;
 
   // Use createReply to create a properly threaded draft
   const replyDraft: Message = await withOutlookRetry(
@@ -358,7 +360,29 @@ async function sendReplyUsingCreateReply(
     logger,
   );
 
-  // Update the draft with our content and recipients
+  // Build internet message headers for cross-provider threading (Gmail, etc.)
+  // These headers ensure the reply is properly threaded in the recipient's client
+  const internetMessageHeaders: Array<{ name: string; value: string }> = [];
+
+  if (headerMessageId) {
+    // In-Reply-To header should contain the Message-ID of the message being replied to
+    internetMessageHeaders.push({
+      name: "In-Reply-To",
+      value: headerMessageId,
+    });
+
+    // References header should contain all previous Message-IDs in the thread
+    // Format: <previous-references> <in-reply-to-message-id>
+    const referencesValue = references
+      ? `${references} ${headerMessageId}`
+      : headerMessageId;
+    internetMessageHeaders.push({
+      name: "References",
+      value: referencesValue,
+    });
+  }
+
+  // Update the draft with our content, recipients, and threading headers
   await withOutlookRetry(
     () =>
       client
@@ -377,6 +401,8 @@ async function sendReplyUsingCreateReply(
           ...(body.bcc
             ? { bccRecipients: [{ emailAddress: { address: body.bcc } }] }
             : {}),
+          // Add internet message headers for proper cross-provider threading
+          ...(internetMessageHeaders.length > 0 ? { internetMessageHeaders } : {}),
         }),
     logger,
   );
