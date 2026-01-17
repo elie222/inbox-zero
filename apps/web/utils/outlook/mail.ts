@@ -347,10 +347,10 @@ async function sendReplyUsingCreateReply(
   logger: Logger,
 ): Promise<SentEmailResult> {
   const originalMessageId = body.replyToEmail!.messageId!;
-  const headerMessageId = body.replyToEmail?.headerMessageId;
-  const references = body.replyToEmail?.references;
 
   // Use createReply to create a properly threaded draft
+  // Microsoft Graph's createReply automatically sets In-Reply-To and References headers
+  // based on the original message, ensuring proper threading across email providers
   const replyDraft: Message = await withOutlookRetry(
     () =>
       client
@@ -360,29 +360,10 @@ async function sendReplyUsingCreateReply(
     logger,
   );
 
-  // Build internet message headers for cross-provider threading (Gmail, etc.)
-  // These headers ensure the reply is properly threaded in the recipient's client
-  const internetMessageHeaders: Array<{ name: string; value: string }> = [];
-
-  if (headerMessageId) {
-    // In-Reply-To header should contain the Message-ID of the message being replied to
-    internetMessageHeaders.push({
-      name: "In-Reply-To",
-      value: headerMessageId,
-    });
-
-    // References header should contain all previous Message-IDs in the thread
-    // Format: <previous-references> <in-reply-to-message-id>
-    const referencesValue = references
-      ? `${references} ${headerMessageId}`
-      : headerMessageId;
-    internetMessageHeaders.push({
-      name: "References",
-      value: referencesValue,
-    });
-  }
-
-  // Update the draft with our content, recipients, and threading headers
+  // Update the draft with our content and recipients
+  // Note: We cannot set In-Reply-To/References headers via internetMessageHeaders
+  // as Microsoft Graph only allows custom headers (starting with x-) there.
+  // The createReply endpoint handles standard threading headers automatically.
   await withOutlookRetry(
     () =>
       client
@@ -401,8 +382,6 @@ async function sendReplyUsingCreateReply(
           ...(body.bcc
             ? { bccRecipients: [{ emailAddress: { address: body.bcc } }] }
             : {}),
-          // Add internet message headers for proper cross-provider threading
-          ...(internetMessageHeaders.length > 0 ? { internetMessageHeaders } : {}),
         }),
     logger,
   );
