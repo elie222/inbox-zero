@@ -123,6 +123,10 @@ export const betterAuthConfig = betterAuth({
       scope: [...OUTLOOK_SCOPES],
       tenantId: env.MICROSOFT_TENANT_ID,
       disableIdTokenSignIn: true,
+      // For preview deployments, redirect through staging (which proxies back to preview URL)
+      ...(env.OAUTH_PROXY_URL && {
+        redirectURI: `${env.OAUTH_PROXY_URL}/api/auth/callback/microsoft`,
+      }),
     },
   },
   databaseHooks: {
