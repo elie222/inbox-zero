@@ -99,11 +99,12 @@ NGROK_PID=$!
 log "Waiting for ngrok tunnel..."
 for i in {1..30}; do
     sleep 1
-    # Check if tunnel is up via the API
-    if curl -s http://localhost:4040/api/tunnels 2>/dev/null | grep -q "public_url"; then
+    # Check if tunnel is up via the API (cache response to avoid redundant calls)
+    tunnels_json=$(curl -s http://localhost:4040/api/tunnels 2>/dev/null || true)
+    if echo "$tunnels_json" | grep -q "public_url"; then
         # If no static domain, get the dynamic URL
         if [ -z "$NGROK_URL" ]; then
-            NGROK_URL=$(curl -s http://localhost:4040/api/tunnels 2>/dev/null | grep -o '"public_url":"https://[^"]*"' | head -1 | cut -d'"' -f4 || true)
+            NGROK_URL=$(echo "$tunnels_json" | grep -o '"public_url":"https://[^"]*"' | head -1 | cut -d'"' -f4 || true)
         fi
         break
     fi
@@ -144,12 +145,16 @@ APP_PID=$!
 
 # Wait for app to be ready
 log "Waiting for app to be ready..."
+APP_READY=false
 for i in {1..60}; do
-    if curl -s "http://localhost:3000/api/health" > /dev/null 2>&1; then
+    # Check health endpoint (with optional API key if configured)
+    if curl -s -H "x-health-api-key: ${HEALTH_API_KEY:-}" "http://localhost:3000/api/health" > /dev/null 2>&1; then
+        APP_READY=true
         break
     fi
-    # Also check if app responded with any status
+    # Also check if app responded on the root path
     if curl -s -o /dev/null -w "%{http_code}" "http://localhost:3000" 2>/dev/null | grep -q "200\|302\|304"; then
+        APP_READY=true
         break
     fi
     sleep 2
@@ -157,9 +162,9 @@ for i in {1..60}; do
 done
 echo ""
 
-# Verify app is running
-if ! kill -0 $APP_PID 2>/dev/null; then
-    error "App failed to start. Check /tmp/nextjs-e2e.log"
+# Verify app is running and responding with a healthy status
+if ! kill -0 $APP_PID 2>/dev/null || [ "$APP_READY" != "true" ]; then
+    error "App failed to start or pass health checks. Check /tmp/nextjs-e2e.log"
     tail -50 /tmp/nextjs-e2e.log
     exit 1
 fi
