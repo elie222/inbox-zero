@@ -16,5 +16,5 @@
   "[prisma]": {
     "editor.defaultFormatter": "Prisma.prisma"
   },
-  "prisma.pinToPrisma6": true
+  "prisma.pinToPrisma6": false
 }
