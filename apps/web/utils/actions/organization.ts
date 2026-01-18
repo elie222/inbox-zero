@@ -275,16 +275,10 @@ async function acceptInvitation({
   };
 }
 
-export const removeMemberAction = actionClient
+export const removeMemberAction = actionClientUser
   .metadata({ name: "removeMember" })
   .inputSchema(removeMemberBody)
-  .action(async ({ ctx: { emailAccountId }, parsedInput: { memberId } }) => {
-    const callerEmailAccount = await prisma.emailAccount.findUnique({
-      where: { id: emailAccountId },
-      select: { id: true },
-    });
-    if (!callerEmailAccount)
-      throw new SafeError("Invalid email account context.");
+  .action(async ({ ctx: { userId }, parsedInput: { memberId } }) => {
     const targetMember = await prisma.member.findUnique({
       where: { id: memberId },
       select: {
@@ -301,10 +295,10 @@ export const removeMemberAction = actionClient
 
     const callerMembership = await prisma.member.findFirst({
       where: {
-        emailAccountId: callerEmailAccount.id,
         organizationId: targetMember.organizationId,
+        emailAccount: { userId },
       },
-      select: { role: true },
+      select: { role: true, emailAccountId: true },
     });
 
     if (!callerMembership) {
@@ -318,7 +312,7 @@ export const removeMemberAction = actionClient
     }
 
     // Prevent self-removal
-    if (targetMember.emailAccountId === callerEmailAccount.id) {
+    if (targetMember.emailAccountId === callerMembership.emailAccountId) {
       throw new SafeError("You cannot remove yourself from the organization.");
     }
 
