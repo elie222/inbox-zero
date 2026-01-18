@@ -74,6 +74,18 @@ import type {
 import { createScopedLogger, type Logger } from "@/utils/logger";
 import { getGmailSignatures } from "@/utils/gmail/signature-settings";
 
+/**
+ * Build a raw RFC 2822 message and encode it as base64url for Gmail API
+ */
+function buildRawMessageBase64(headers: string[], body: string): string {
+  const rawMessage = `${headers.join("\r\n")}\r\n\r\n${body}`;
+  return Buffer.from(rawMessage)
+    .toString("base64")
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=+$/, "");
+}
+
 export class GmailProvider implements EmailProvider {
   readonly name = "google";
   private readonly client: gmail_v1.Gmail;
@@ -657,12 +669,7 @@ export class GmailProvider implements EmailProvider {
       }
     }
 
-    const rawMessage = `${headers.join("\r\n")}\r\n\r\n${params.messageHtml}`;
-    const encodedMessage = Buffer.from(rawMessage)
-      .toString("base64")
-      .replace(/\+/g, "-")
-      .replace(/\//g, "_")
-      .replace(/=+$/, "");
+    const encodedMessage = buildRawMessageBase64(headers, params.messageHtml);
 
     const result = await withGmailRetry(() =>
       this.client.users.drafts.create({
@@ -714,12 +721,7 @@ export class GmailProvider implements EmailProvider {
     if (inReplyTo) headers.push(`In-Reply-To: ${inReplyTo}`);
     if (references) headers.push(`References: ${references}`);
 
-    const rawMessage = `${headers.join("\r\n")}\r\n\r\n${content}`;
-    const encodedMessage = Buffer.from(rawMessage)
-      .toString("base64")
-      .replace(/\+/g, "-")
-      .replace(/\//g, "_")
-      .replace(/=+$/, "");
+    const encodedMessage = buildRawMessageBase64(headers, content);
 
     await withGmailRetry(() =>
       this.client.users.drafts.update({
