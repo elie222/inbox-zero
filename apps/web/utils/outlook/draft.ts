@@ -66,60 +66,17 @@ export async function deleteDraft({
   try {
     logger.info("Deleting draft", { draftId });
 
-    // Get folder IDs to check deletion status
-    const folderIds = await getFolderIds(client, logger);
-
-    // DELETE moves the draft to Deleted Items folder
+    // DELETE moves the draft to Deleted Items folder (not permanently deleted)
+    // This is fine - getDraft() treats drafts not in Drafts folder as "deleted"
     await withOutlookRetry(
       () => client.getClient().api(`/me/messages/${draftId}`).delete(),
       logger,
     );
 
-    // Verify the draft was deleted or moved out of Drafts folder
-    try {
-      const response = (await withOutlookRetry(
-        () =>
-          client
-            .getClient()
-            .api(`/me/messages/${draftId}`)
-            .get() as Promise<Message>,
-        logger,
-      )) as Message;
-
-      if (response.parentFolderId === folderIds.drafts) {
-        // Draft is still in Drafts folder - try moving it to Deleted Items explicitly
-        logger.warn(
-          "Draft still in Drafts folder after DELETE, trying explicit move",
-          { draftId },
-        );
-
-        if (folderIds.deleteditems) {
-          await withOutlookRetry(
-            () =>
-              client
-                .getClient()
-                .api(`/me/messages/${draftId}/move`)
-                .post({ destinationId: folderIds.deleteditems }),
-            logger,
-          );
-          logger.info("Successfully moved draft to Deleted Items", { draftId });
-        }
-      }
-      // If draft is not in Drafts folder, it was successfully deleted/moved
-    } catch (verifyError) {
-      // If we can't get the draft, it was deleted successfully
-      if (!isNotFoundError(verifyError)) {
-        logger.warn("Could not verify draft deletion", {
-          draftId,
-          error: verifyError,
-        });
-      }
-    }
+    logger.info("Draft deleted successfully", { draftId });
   } catch (error) {
     if (isNotFoundError(error)) {
-      logger.warn("Draft not found or already deleted, skipping deletion.", {
-        draftId,
-      });
+      logger.info("Draft not found or already deleted", { draftId });
       return;
     }
 

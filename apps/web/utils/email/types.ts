@@ -153,6 +153,19 @@ export interface EmailProvider {
   markReadThread(threadId: string, read: boolean): Promise<void>;
   getDraft(draftId: string): Promise<ParsedMessage | null>;
   deleteDraft(draftId: string): Promise<void>;
+  createDraft(params: {
+    to: string;
+    subject: string;
+    messageHtml: string;
+    replyToMessageId?: string; // For proper threading
+  }): Promise<{ id: string }>;
+  updateDraft(
+    draftId: string,
+    params: {
+      messageHtml?: string;
+      subject?: string;
+    },
+  ): Promise<void>;
   createLabel(name: string, description?: string): Promise<EmailLabel>;
   deleteLabel(labelId: string): Promise<void>;
   getOrCreateInboxZeroLabel(key: InboxZeroLabel): Promise<EmailLabel>;
