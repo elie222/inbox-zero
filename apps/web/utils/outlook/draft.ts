@@ -32,14 +32,11 @@ export async function getDraft({
       getCategoryMap(client, logger),
     ]);
 
-    // Treat drafts in Deleted Items as deleted - return null
-    // DELETE moves messages to Deleted Items, so this ensures getDraft returns null
-    // after deleteDraft is called
-    if (
-      folderIds.deleteditems &&
-      response.parentFolderId === folderIds.deleteditems
-    ) {
-      logger.info("Draft is in Deleted Items folder, treating as deleted.", {
+    // Treat drafts NOT in Drafts folder as "deleted" - when a draft is sent or deleted,
+    // it gets moved to another folder (Sent Items, Deleted Items, Outbox, etc.)
+    // For draft cleanup purposes, we only care about drafts in the Drafts folder
+    if (folderIds.drafts && response.parentFolderId !== folderIds.drafts) {
+      logger.info("Draft is no longer in Drafts folder, treating as deleted.", {
         draftId,
       });
       return null;
@@ -68,13 +65,56 @@ export async function deleteDraft({
 }) {
   try {
     logger.info("Deleting draft", { draftId });
+
+    // Get folder IDs to check deletion status
+    const folderIds = await getFolderIds(client, logger);
+
     // DELETE moves the draft to Deleted Items folder
-    // getDraft will return null for drafts in Deleted Items, treating them as deleted
     await withOutlookRetry(
       () => client.getClient().api(`/me/messages/${draftId}`).delete(),
       logger,
     );
-    logger.info("Successfully deleted draft", { draftId });
+
+    // Verify the draft was deleted or moved out of Drafts folder
+    try {
+      const response = (await withOutlookRetry(
+        () =>
+          client
+            .getClient()
+            .api(`/me/messages/${draftId}`)
+            .get() as Promise<Message>,
+        logger,
+      )) as Message;
+
+      if (response.parentFolderId === folderIds.drafts) {
+        // Draft is still in Drafts folder - try moving it to Deleted Items explicitly
+        logger.warn(
+          "Draft still in Drafts folder after DELETE, trying explicit move",
+          { draftId },
+        );
+
+        if (folderIds.deleteditems) {
+          await withOutlookRetry(
+            () =>
+              client
+                .getClient()
+                .api(`/me/messages/${draftId}/move`)
+                .post({ destinationId: folderIds.deleteditems }),
+            logger,
+          );
+          logger.info("Successfully moved draft to Deleted Items", { draftId });
+        }
+      }
+      // If draft is not in Drafts folder, it was successfully deleted/moved
+    } catch (verifyError) {
+      // If we can't get the draft, it was deleted successfully
+      if (!isNotFoundError(verifyError)) {
+        logger.warn("Could not verify draft deletion", {
+          draftId,
+          error: verifyError,
+        });
+      }
+    }
   } catch (error) {
     if (isNotFoundError(error)) {
       logger.warn("Draft not found or already deleted, skipping deletion.", {
