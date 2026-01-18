@@ -1,5 +1,8 @@
 import { containsCtaKeyword } from "@/utils/parse/cta";
-import { containsUnsubscribeKeyword } from "@/utils/parse/unsubscribe";
+import {
+  containsUnsubscribeKeyword,
+  containsUnsubscribeUrlPattern,
+} from "@/utils/parse/unsubscribe";
 
 // very similar to apps/web/utils/parse/parseHtml.server.ts
 export function findUnsubscribeLink(html?: string | null): string | undefined {
@@ -15,7 +18,13 @@ export function findUnsubscribeLink(html?: string | null): string | undefined {
     const text = element.textContent?.toLowerCase() ?? "";
     if (containsUnsubscribeKeyword(text)) {
       unsubscribeLink = element.getAttribute("href") ?? undefined;
-      return;
+      break;
+    }
+
+    const href = element.getAttribute("href") ?? "";
+    if (containsUnsubscribeUrlPattern(href)) {
+      unsubscribeLink = href;
+      break;
     }
   }
 
