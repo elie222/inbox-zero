@@ -171,9 +171,13 @@ The console will open in your browser.`,
     const credentialsUrl = `https://console.cloud.google.com/apis/credentials/oauthclient?project=${projectId}`;
     const redirectUris = domain
       ? `   - https://${domain}/api/auth/callback/google
-   - https://${domain}/api/google/linking/callback`
+   - https://${domain}/api/google/linking/callback
+   - https://${domain}/api/google/calendar/callback
+   - https://${domain}/api/google/drive/callback`
       : `   - http://localhost:3000/api/auth/callback/google
-   - http://localhost:3000/api/google/linking/callback`;
+   - http://localhost:3000/api/google/linking/callback
+   - http://localhost:3000/api/google/calendar/callback
+   - http://localhost:3000/api/google/drive/callback`;
 
     p.note(
       `Now create OAuth 2.0 credentials:
