@@ -5,6 +5,9 @@ export default defineConfig({
   schema: "./prisma/schema.prisma",
   migrations: {
     path: "./prisma/migrations",
+    ...(process.env.PREVIEW_DATABASE_URL && {
+      databaseUrl: process.env.PREVIEW_DATABASE_URL,
+    }),
     ...(process.env.PREVIEW_DATABASE_URL_UNPOOLED && {
       directUrl: process.env.PREVIEW_DATABASE_URL_UNPOOLED,
     }),
