@@ -11,7 +11,9 @@ declare global {
 const _prisma =
   global.prisma ||
   (new PrismaClient({
-    adapter: new PrismaPg({ connectionString: env.DATABASE_URL }),
+    adapter: new PrismaPg({
+      connectionString: env.PREVIEW_DATABASE_URL ?? env.DATABASE_URL,
+    }),
   }).$extends(encryptedTokens) as unknown as PrismaClient);
 
 if (env.NODE_ENV === "development") global.prisma = _prisma;

@@ -18,6 +18,8 @@ export const env = createEnv({
   server: {
     NODE_ENV: z.enum(["development", "production", "test"]),
     DATABASE_URL: z.string().url(),
+    PREVIEW_DATABASE_URL: z.string().url().optional(),
+    PREVIEW_DATABASE_URL_UNPOOLED: z.string().url().optional(),
 
     AUTH_SECRET: z.string().optional(),
     NEXTAUTH_SECRET: z.string().optional(),
