@@ -169,6 +169,68 @@ pnpm dev:e2e
 pnpm test-e2e:flows
 ```
 
+### Using the Local Script (with ngrok)
+
+For running tests with webhook support, use the convenience script.
+
+#### Prerequisites
+
+- **ngrok**: Install with `brew install ngrok`
+- **ngrok account**: Get an auth token from [ngrok dashboard](https://dashboard.ngrok.com)
+- **Static domain** (recommended): Configure a free static domain in ngrok for consistent webhook URLs
+
+#### Config File Setup
+
+Create `~/.config/inbox-zero/.env.e2e` with your E2E configuration:
+
+```bash
+mkdir -p ~/.config/inbox-zero
+# Add your config to ~/.config/inbox-zero/.env.e2e
+```
+
+**Required variables:**
+
+| Variable | Description |
+|----------|-------------|
+| `E2E_NGROK_AUTH_TOKEN` | ngrok authentication token |
+| `E2E_GMAIL_EMAIL` | Test Gmail account email |
+| `E2E_OUTLOOK_EMAIL` | Test Outlook account email |
+
+**Optional variables:**
+
+| Variable | Description |
+|----------|-------------|
+| `E2E_NGROK_DOMAIN` | Static ngrok domain (e.g., `my-e2e.ngrok-free.app`) |
+
+**Standard app secrets** (same as production):
+
+- `DATABASE_URL`, `AUTH_SECRET`, `INTERNAL_API_KEY`
+- `EMAIL_ENCRYPT_SECRET`, `EMAIL_ENCRYPT_SALT`
+- `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN`
+- Google OAuth + PubSub credentials
+- Microsoft OAuth credentials
+- AI provider API key (OpenAI, Anthropic, etc.)
+
+#### Running with the Script
+
+```bash
+# Run all flow tests
+./scripts/run-e2e-local.sh
+
+# Run specific test file
+./scripts/run-e2e-local.sh draft-cleanup
+./scripts/run-e2e-local.sh full-reply-cycle
+```
+
+#### What the Script Does
+
+1. Loads environment from `~/.config/inbox-zero/.env.e2e`
+2. Starts ngrok tunnel (uses static domain if `E2E_NGROK_DOMAIN` is set)
+3. Creates symlinks in `apps/web/` so Next.js and vitest pick up the env vars
+4. Starts the Next.js dev server
+5. Runs E2E flow tests
+6. Cleans up processes on exit (Ctrl+C or completion)
+
 ## Troubleshooting
 
 ### "No account found"
@@ -182,3 +244,19 @@ OAuth tokens may expire. Run `pnpm dev:e2e` and sign in again at http://localhos
 ### Draft not created
 
 Check AI API key is configured. Rules are created automatically by the test setup.
+
+### ngrok tunnel fails to start
+
+- Check `/tmp/ngrok-e2e.log` for errors
+- Verify your auth token is correct
+- Make sure port 3000 isn't already in use
+
+### App fails health check
+
+- Check `/tmp/nextjs-e2e.log` for errors
+- Ensure all required env vars are set
+
+### Webhooks not received
+
+- Without a static domain, webhook URLs change each run
+- Use `E2E_NGROK_DOMAIN` for consistent webhook registration
