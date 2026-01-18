@@ -129,7 +129,12 @@ export const env = createEnv({
     ADDITIONAL_TRUSTED_ORIGINS: z
       .string()
       .optional()
-      .transform((value) => value?.split(",").map((s) => s.trim())),
+      .transform((value) =>
+        value
+          ?.split(",")
+          .map((s) => s.trim())
+          .filter(Boolean)
+      ),
 
     // license
     LICENSE_1_SEAT_VARIANT_ID: z.coerce.number().optional(),
