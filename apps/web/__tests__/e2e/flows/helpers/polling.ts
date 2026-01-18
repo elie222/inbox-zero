@@ -304,6 +304,39 @@ export async function waitForDraftDeleted(options: {
 }
 
 /**
+ * Wait for all drafts in a thread to be cleared
+ * (either deleted or moved out of Drafts folder by Microsoft)
+ *
+ * This is useful for handling timing issues where Microsoft's async
+ * processing of sent drafts may leave temporary drafts briefly visible.
+ */
+export async function waitForNoThreadDrafts(options: {
+  threadId: string;
+  provider: EmailProvider;
+  timeout?: number;
+}): Promise<void> {
+  const { threadId, provider, timeout = TIMEOUTS.WEBHOOK_PROCESSING } = options;
+
+  logStep("Waiting for all thread drafts to clear", { threadId });
+
+  await pollUntil(
+    async () => {
+      const drafts = await provider.getDrafts({ maxResults: 50 });
+      const threadDrafts = drafts.filter((d) => d.threadId === threadId);
+      if (threadDrafts.length > 0) {
+        logStep("Thread still has drafts", { count: threadDrafts.length });
+        return null;
+      }
+      return true;
+    },
+    {
+      timeout,
+      description: `All drafts for thread ${threadId} to be cleared`,
+    },
+  );
+}
+
+/**
  * Wait for DraftSendLog to be recorded
  *
  * DraftSendLog is linked to ExecutedAction via executedActionId.

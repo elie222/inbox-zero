@@ -488,6 +488,88 @@ export class OutlookProvider implements EmailProvider {
     await deleteDraft({ client: this.client, draftId, logger: this.logger });
   }
 
+  async createDraft(params: {
+    to: string;
+    subject: string;
+    messageHtml: string;
+    replyToMessageId?: string;
+  }): Promise<{ id: string }> {
+    this.logger.info("Creating draft", {
+      replyToMessageId: params.replyToMessageId,
+    });
+
+    // For threading, use createReply on the replyToMessageId
+    if (params.replyToMessageId) {
+      const draft = await withOutlookRetry(
+        () =>
+          this.client
+            .getClient()
+            .api(`/me/messages/${params.replyToMessageId}/createReply`)
+            .post({}),
+        this.logger,
+      );
+
+      // Update the draft with our content
+      await withOutlookRetry(
+        () =>
+          this.client
+            .getClient()
+            .api(`/me/messages/${draft.id}`)
+            .patch({
+              body: { contentType: "html", content: params.messageHtml },
+              subject: params.subject,
+              toRecipients: [{ emailAddress: { address: params.to } }],
+            }),
+        this.logger,
+      );
+
+      this.logger.info("Created threaded draft", { draftId: draft.id });
+      return { id: draft.id };
+    }
+
+    // Otherwise create standalone draft
+    const draft = await withOutlookRetry(
+      () =>
+        this.client
+          .getClient()
+          .api("/me/messages")
+          .post({
+            subject: params.subject,
+            body: { contentType: "html", content: params.messageHtml },
+            toRecipients: [{ emailAddress: { address: params.to } }],
+          }),
+      this.logger,
+    );
+
+    this.logger.info("Created standalone draft", { draftId: draft.id });
+    return { id: draft.id };
+  }
+
+  async updateDraft(
+    draftId: string,
+    params: {
+      messageHtml?: string;
+      subject?: string;
+    },
+  ): Promise<void> {
+    this.logger.info("Updating draft", { draftId });
+
+    const body: Record<string, unknown> = {};
+    if (params.messageHtml) {
+      body.body = { contentType: "html", content: params.messageHtml };
+    }
+    if (params.subject) {
+      body.subject = params.subject;
+    }
+
+    await withOutlookRetry(
+      () => this.client.getClient().api(`/me/messages/${draftId}`).patch(body),
+      this.logger,
+    );
+
+    this.logger.info("Draft updated", { draftId });
+  }
+
   async draftEmail(
     email: ParsedMessage,
     args: {
