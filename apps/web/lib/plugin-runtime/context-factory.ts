@@ -42,6 +42,7 @@ import type {
   PluginEmailSender,
   CalendarEvent,
 } from "@/packages/plugin-sdk/src/types/contexts";
+import type { CapabilityContext } from "@/packages/plugin-sdk/src/types/capability";
 import type { PluginEmailOperations } from "@/packages/plugin-sdk/src/types/email-operations";
 import { createScopedLogger } from "@/utils/logger";
 import { createGenerateText, createGenerateObject } from "@/utils/llms/index";
@@ -100,6 +101,18 @@ export interface ContextFactoryOptions {
   pluginId: string;
 }
 
+/**
+ * Options for creating a capability context.
+ * Extends base options with optional enrichment data.
+ */
+export interface CapabilityContextOptions extends ContextFactoryOptions {
+  /**
+   * Optional enrichment data to include in the context.
+   * Can be used to pass additional data from the router to capability handlers.
+   */
+  enrichment?: Record<string, unknown>;
+}
+
 // -----------------------------------------------------------------------------
 // Main Context Factory Functions
 // -----------------------------------------------------------------------------
@@ -145,6 +158,84 @@ export async function createEmailContext(
     llm,
     storage,
     calendar,
+  };
+}
+
+/**
+ * Creates a capability context for capability handler execution.
+ *
+ * This context is specifically designed for the CapabilityHandler interface,
+ * providing all required fields plus optional emailSender and emailOperations
+ * based on the plugin's declared capabilities.
+ *
+ * Permission derivation:
+ * - email:send → emailSender available
+ * - email:modify → emailOperations available
+ * - calendar:* → calendar available
+ *
+ * @param options - Context options including email, account, manifest, and optional enrichment
+ * @returns CapabilityContext with all required fields and capability-gated optional fields
+ */
+export async function createCapabilityContext(
+  options: CapabilityContextOptions,
+): Promise<CapabilityContext> {
+  const { email, emailAccount, manifest, userId, pluginId } = options;
+
+  if (!email) {
+    throw new Error("Email is required for capability context");
+  }
+
+  // derive permissions from capabilities
+  const derivedPermissions = derivePermissionsFromCapabilities(
+    manifest.capabilities,
+  );
+
+  const pluginEmailData = createScopedEmail(email, derivedPermissions.email);
+  const pluginEmailAccount = createPluginEmailAccount(emailAccount);
+  const llm = createPluginLLM(emailAccount, manifest, pluginId);
+  const storage = createPluginStorage(pluginId, userId, emailAccount.id);
+
+  // calendar is optional in CapabilityContext - only create if permissions exist
+  const hasCalendarPermission =
+    derivedPermissions.calendar.length > 0 ||
+    manifest.capabilities.includes("calendar:read") ||
+    manifest.capabilities.includes("calendar:write") ||
+    manifest.capabilities.includes("calendar:list");
+
+  const calendar = hasCalendarPermission
+    ? await createPluginCalendar(
+        emailAccount,
+        derivedPermissions.calendar,
+        manifest.capabilities,
+      )
+    : undefined;
+
+  // check if plugin has send_as capability for custom from addresses
+  const hasSendAsCapability = manifest.capabilities.includes("email:send_as");
+
+  // emailSender: only available if email:send capability declared
+  const emailSender = manifest.capabilities.includes("email:send")
+    ? createPluginEmailSender(emailAccount, pluginId, hasSendAsCapability)
+    : undefined;
+
+  // emailOperations: only available if email:modify capability declared
+  const emailOperations = manifest.capabilities.includes("email:modify")
+    ? await createPluginEmailOperationsImpl({
+        emailAccountId: emailAccount.id,
+        provider: emailAccount.provider,
+        pluginId,
+        userEmail: emailAccount.email,
+      })
+    : undefined;
+
+  return {
+    email: pluginEmailData,
+    emailAccount: pluginEmailAccount,
+    llm,
+    storage,
+    calendar,
+    emailSender,
+    emailOperations,
   };
 }
 

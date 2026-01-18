@@ -74,6 +74,10 @@ export interface InboxZeroPlugin {
    *
    * Requires capability: email:classify
    *
+   * @deprecated Use CapabilityHandler.execute() instead. Plugin classification is being
+   * replaced with capability-based routing where the agent routes emails to capabilities
+   * rather than plugins competing with parallel classification.
+   *
    * @returns Classification with label and confidence, or null if no classification
    *
    * @example

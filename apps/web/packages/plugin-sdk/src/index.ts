@@ -40,6 +40,12 @@ export {
   type PartialPlugin,
 } from "./helpers/define-plugin";
 
+export {
+  defineCapability,
+  type CapabilityType,
+  type PartialCapability,
+} from "./helpers/define-capability";
+
 // -----------------------------------------------------------------------------
 // Core Plugin Interface
 // -----------------------------------------------------------------------------
@@ -127,6 +133,13 @@ export type {
   // MCP types
   PluginMcpTool,
   PluginMcpTools,
+  // Capability types
+  CapabilityHandler,
+  CapabilityContext,
+  CapabilityResult,
+  CapabilityAction,
+  CapabilityActionType,
+  CapabilityExplanation,
 } from "./types";
 
 // -----------------------------------------------------------------------------

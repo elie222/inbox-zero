@@ -102,3 +102,13 @@ export type {
 
 // MCP types
 export type { PluginMcpTool, PluginMcpTools } from "./mcp";
+
+// Capability types
+export type {
+  CapabilityHandler,
+  CapabilityContext,
+  CapabilityResult,
+  CapabilityAction,
+  CapabilityActionType,
+  CapabilityExplanation,
+} from "./capability";

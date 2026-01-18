@@ -22,6 +22,10 @@ import type {
   CalendarEvent,
 } from "./types";
 import type { PluginMcpTool } from "@/packages/plugin-sdk/src/types/mcp";
+import type {
+  CapabilityHandler,
+  CapabilityResult,
+} from "@/packages/plugin-sdk/src/types/capability";
 import {
   createEmailContext,
   createDraftContext,
@@ -30,6 +34,7 @@ import {
   createTriggeredEmailContext,
   createScheduledTriggerContext,
   createInitContext,
+  createCapabilityContext,
   type Email,
   type EmailAccount,
 } from "./context-factory";
@@ -116,6 +121,14 @@ export interface CollectedChatContext {
   tone?: string;
 }
 
+/**
+ * Registered capability with its associated plugin.
+ */
+interface RegisteredCapability {
+  pluginId: string;
+  handler: CapabilityHandler;
+}
+
 // -----------------------------------------------------------------------------
 // Helper Functions
 // -----------------------------------------------------------------------------
@@ -150,6 +163,7 @@ async function withTimeout<T>(
 export class PluginRuntime {
   private readonly plugins: Map<string, RuntimeLoadedPlugin> = new Map();
   private readonly routingTable: Map<PluginCapability, string[]> = new Map();
+  private readonly capabilities: Map<string, RegisteredCapability> = new Map();
   private initialized = false;
   private initializing = false;
   private readonly hookTimeoutMs: number;
@@ -343,10 +357,47 @@ export class PluginRuntime {
       this.routingTable.set(capability, existing);
     }
 
+    // register capability handlers from the plugin if present
+    if (plugin.capability) {
+      this.registerCapability(plugin.capability, manifest.id);
+    }
+
     logger.info("Plugin registered", {
       pluginId: manifest.id,
       capabilities: effectiveCapabilities,
       trustLevel,
+    });
+  }
+
+  /**
+   * Register a capability handler.
+   *
+   * Capabilities are identified by their unique ID and associated with a plugin.
+   * Only one handler can be registered per capability ID.
+   *
+   * @param handler - The capability handler to register
+   * @param pluginId - The plugin ID that provides this capability (optional if called externally)
+   */
+  registerCapability(handler: CapabilityHandler, pluginId?: string): void {
+    const resolvedPluginId = pluginId ?? handler.id;
+
+    if (this.capabilities.has(handler.id)) {
+      logger.warn("Capability already registered, overwriting", {
+        capabilityId: handler.id,
+        existingPluginId: this.capabilities.get(handler.id)?.pluginId,
+        newPluginId: resolvedPluginId,
+      });
+    }
+
+    this.capabilities.set(handler.id, {
+      pluginId: resolvedPluginId,
+      handler,
+    });
+
+    logger.info("Capability registered", {
+      capabilityId: handler.id,
+      pluginId: resolvedPluginId,
+      routingHints: handler.routingHints,
     });
   }
 
@@ -367,6 +418,13 @@ export class PluginRuntime {
       }
     }
 
+    // remove any capabilities registered by this plugin
+    for (const [capabilityId, registered] of this.capabilities.entries()) {
+      if (registered.pluginId === pluginId) {
+        this.capabilities.delete(capabilityId);
+      }
+    }
+
     // remove from plugins map
     this.plugins.delete(pluginId);
 
@@ -383,6 +441,9 @@ export class PluginRuntime {
 
   /**
    * Execute classifyEmail hook across all plugins with email:classify capability.
+   *
+   * @deprecated Use capability-based routing via executeCapability() instead.
+   * This method will be removed in a future version.
    */
   async executeClassifyEmail(
     email: Email,
@@ -454,6 +515,111 @@ export class PluginRuntime {
     }
 
     return results;
+  }
+
+  /**
+   * Execute a capability handler by ID.
+   *
+   * Routes the email to the plugin that provides the specified capability,
+   * creates the appropriate context, and executes the handler with timeout.
+   *
+   * @param capabilityId - The unique identifier of the capability to execute
+   * @param email - The email to process
+   * @param emailAccount - The email account context
+   * @param userId - The user ID for permission checks
+   * @param enrichment - Optional additional data to pass to the capability
+   * @returns The execution result or null if capability not found/disabled
+   */
+  async executeCapability(
+    capabilityId: string,
+    email: Email,
+    emailAccount: EmailAccount,
+    userId: string,
+    enrichment?: Record<string, unknown>,
+  ): Promise<PluginExecutionResult<CapabilityResult> | null> {
+    if (!env.FEATURE_PLUGINS_ENABLED) {
+      return null;
+    }
+
+    await this.ensureInitialized();
+
+    // find the registered capability
+    const registered = this.capabilities.get(capabilityId);
+    if (!registered) {
+      logger.warn("Capability not found", { capabilityId });
+      return null;
+    }
+
+    const { pluginId, handler } = registered;
+
+    // get the loaded plugin
+    const loadedPlugin = this.plugins.get(pluginId);
+    if (!loadedPlugin) {
+      logger.warn("Plugin not loaded for capability", {
+        capabilityId,
+        pluginId,
+      });
+      return null;
+    }
+
+    // check if plugin is enabled for user
+    const isEnabled = await this.isPluginEnabledForUser(pluginId, userId);
+    if (!isEnabled) {
+      logger.trace("Plugin disabled for user, skipping capability", {
+        pluginId,
+        userId,
+        capabilityId,
+      });
+      return null;
+    }
+
+    const { manifest } = loadedPlugin;
+
+    const startTime = Date.now();
+    try {
+      // create capability context
+      const context = await createCapabilityContext({
+        email,
+        emailAccount,
+        manifest,
+        userId,
+        pluginId,
+        enrichment,
+      });
+
+      // execute the capability handler with timeout
+      const result = await withTimeout(
+        () => handler.execute(context),
+        this.hookTimeoutMs,
+        pluginId,
+        `capability:${capabilityId}`,
+      );
+
+      logger.info("Capability executed", {
+        capabilityId,
+        pluginId,
+        handled: result.handled,
+        executionTimeMs: Date.now() - startTime,
+      });
+
+      return {
+        pluginId,
+        result,
+        executionTimeMs: Date.now() - startTime,
+      };
+    } catch (error) {
+      logger.error("Capability execution error", {
+        capabilityId,
+        pluginId,
+        error,
+      });
+      return {
+        pluginId,
+        result: null,
+        executionTimeMs: Date.now() - startTime,
+        error: error instanceof Error ? error.message : String(error),
+      };
+    }
   }
 
   /**
@@ -1065,6 +1231,27 @@ export class PluginRuntime {
   }
 
   /**
+   * Get all registered capabilities.
+   */
+  getRegisteredCapabilities(): Array<{
+    id: string;
+    pluginId: string;
+    name: string;
+    description: string;
+    routingHints: string[];
+  }> {
+    return Array.from(this.capabilities.entries()).map(
+      ([id, { pluginId, handler }]) => ({
+        id,
+        pluginId,
+        name: handler.name,
+        description: handler.description,
+        routingHints: handler.routingHints,
+      }),
+    );
+  }
+
+  /**
    * Execute onInit hook for a plugin when enabled for an email account.
    * This should be called when:
    * - A plugin is first enabled for a user/email account
@@ -1338,6 +1525,7 @@ export class PluginRuntime {
   reset(): void {
     this.plugins.clear();
     this.routingTable.clear();
+    this.capabilities.clear();
     this.initialized = false;
     pluginEnabledCache.clear();
     logger.info("Plugin runtime reset");
@@ -1382,11 +1570,13 @@ export class PluginRuntime {
   getStats(): {
     loadedPlugins: number;
     capabilities: number;
+    registeredCapabilities: number;
     cacheSize: number;
   } {
     return {
       loadedPlugins: this.plugins.size,
       capabilities: this.routingTable.size,
+      registeredCapabilities: this.capabilities.size,
       cacheSize: pluginEnabledCache.size,
     };
   }

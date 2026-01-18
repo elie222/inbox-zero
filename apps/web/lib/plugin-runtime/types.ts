@@ -117,6 +117,13 @@ export interface InboxZeroPlugin {
    * Requires mcp:expose capability.
    */
   mcpTools?: import("@/packages/plugin-sdk/src/types/mcp").PluginMcpTools;
+
+  /**
+   * Capability handler for capability-based routing.
+   * Provides a structured way for plugins to handle specific types of emails
+   * through the capability routing system.
+   */
+  capability?: import("@/packages/plugin-sdk/src/types/capability").CapabilityHandler;
 }
 
 /**
