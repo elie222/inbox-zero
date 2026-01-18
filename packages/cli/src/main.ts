@@ -36,6 +36,10 @@ const STANDALONE_COMPOSE_FILE = resolve(
   "docker-compose.yml",
 );
 
+// Container runtime and compose tool detection
+let CONTAINER_RUNTIME = "docker"; // default
+let COMPOSE_TOOL = "docker compose"; // default
+
 // Ensure config directory exists
 function ensureConfigDir(configDir: string) {
   if (!existsSync(configDir)) {
@@ -43,25 +47,55 @@ function ensureConfigDir(configDir: string) {
   }
 }
 
-// Check if Docker is available
+// Check if Docker or Podman is available
 function checkDocker(): boolean {
-  const result = spawnSync("docker", ["--version"], { stdio: "pipe" });
-  return result.status === 0;
+  // Try docker first
+  const dockerResult = spawnSync("docker", ["--version"], { stdio: "pipe" });
+  if (dockerResult.status === 0) {
+    CONTAINER_RUNTIME = "docker";
+    return true;
+  }
+
+  // Fallback to podman
+  const podmanResult = spawnSync("podman", ["--version"], { stdio: "pipe" });
+  if (podmanResult.status === 0) {
+    CONTAINER_RUNTIME = "podman";
+    return true;
+  }
+
+  return false;
 }
 
-// Check if Docker Compose is available (plugin or standalone)
+// Check if Docker Compose or Podman Compose is available
 function checkDockerCompose(): boolean {
-  // First try the Docker CLI plugin (docker compose)
-  const pluginResult = spawnSync("docker", ["compose", "version"], {
+  // Docker plugin
+  const pluginResult = spawnSync(CONTAINER_RUNTIME, ["compose", "version"], {
     stdio: "pipe",
   });
-  if (pluginResult.status === 0) return true;
+  if (pluginResult.status === 0) {
+    COMPOSE_TOOL = `${CONTAINER_RUNTIME} compose`;
+    return true;
+  }
 
-  // Fallback to standalone docker-compose binary
+  // Docker standalone
   const standaloneResult = spawnSync("docker-compose", ["version"], {
     stdio: "pipe",
   });
-  return standaloneResult.status === 0;
+  if (standaloneResult.status === 0) {
+    COMPOSE_TOOL = "docker-compose";
+    return true;
+  }
+
+  // Podman compose
+  const podmanComposeResult = spawnSync("podman-compose", ["version"], {
+    stdio: "pipe",
+  });
+  if (podmanComposeResult.status === 0) {
+    COMPOSE_TOOL = "podman-compose";
+    return true;
+  }
+
+  return false;
 }
 
 async function main() {
@@ -210,16 +244,17 @@ async function runSetup(options: { name?: string }) {
   if (useDockerInfra) {
     if (!checkDocker()) {
       p.log.error(
-        "Docker is not installed or not running.\n" +
-          "Please install Docker Desktop: https://www.docker.com/products/docker-desktop/",
+        "Neither Docker nor Podman is installed or not running.\n" +
+          "Please install Docker Desktop: https://www.docker.com/products/docker-desktop/\n" +
+          "Or install Podman: https://podman.io/getting-started/installation",
       );
       process.exit(1);
     }
 
     if (!checkDockerCompose()) {
       p.log.error(
-        "Docker Compose is not available.\n" +
-          "Please update Docker Desktop or install Docker Compose.",
+        "No compose tool is available.\n" +
+          "Please update Docker Desktop, install Docker Compose, or install podman-compose.",
       );
       process.exit(1);
     }
@@ -701,8 +736,8 @@ Full guide: https://docs.getinboxzero.com/self-hosting/microsoft-oauth`,
 
   // For standalone installs, include -f flag to point to the compose file
   const composeCmd = REPO_ROOT
-    ? "docker compose"
-    : `docker compose -f ${composeFile}`;
+    ? COMPOSE_TOOL
+    : `${COMPOSE_TOOL} -f ${composeFile}`;
 
   if (runWebInDocker) {
     // Web app runs in Docker with database & Redis
@@ -710,7 +745,7 @@ Full guide: https://docs.getinboxzero.com/self-hosting/microsoft-oauth`,
 NEXT_PUBLIC_BASE_URL=https://yourdomain.com ${composeCmd} --env-file ${envFile} --profile all up -d
 
 # View logs:
-docker logs inbox-zero-services-web-1 -f
+${CONTAINER_RUNTIME} logs inbox-zero-services-web-1 -f
 
 # Then open:
 https://yourdomain.com`;
@@ -782,7 +817,7 @@ async function runStart(options: { detach: boolean }) {
     args.push("-d");
   }
 
-  const upResult = spawnSync("docker", args, {
+  const upResult = spawnSync(CONTAINER_RUNTIME, args, {
     stdio: options.detach ? "pipe" : "inherit",
   });
 
@@ -872,14 +907,14 @@ async function runLogs(options: { follow: boolean; tail: string }) {
     args.push("-f");
   }
 
-  const child = spawn("docker", args, { stdio: "inherit" });
+  const child = spawn(CONTAINER_RUNTIME, args, { stdio: "inherit" });
 
   await new Promise<void>((resolve, reject) => {
     child.on("close", (code) => {
       if (code === 0 || options.follow) {
         resolve();
       } else {
-        reject(new Error(`docker compose logs exited with code ${code}`));
+        reject(new Error(`${COMPOSE_TOOL} logs exited with code ${code}`));
       }
     });
     child.on("error", reject);
@@ -896,9 +931,13 @@ async function runStatus() {
     process.exit(1);
   }
 
-  spawnSync("docker", ["compose", "-f", STANDALONE_COMPOSE_FILE, "ps"], {
-    stdio: "inherit",
-  });
+  spawnSync(
+    CONTAINER_RUNTIME,
+    ["compose", "-f", STANDALONE_COMPOSE_FILE, "ps"],
+    {
+      stdio: "inherit",
+    },
+  );
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -943,11 +982,15 @@ async function runUpdate() {
   if (restart) {
     spinner.start("Restarting...");
 
-    spawnSync("docker", ["compose", "-f", STANDALONE_COMPOSE_FILE, "down"], {
-      stdio: "pipe",
-    });
     spawnSync(
-      "docker",
+      CONTAINER_RUNTIME,
+      ["compose", "-f", STANDALONE_COMPOSE_FILE, "down"],
+      {
+        stdio: "pipe",
+      },
+    );
+    spawnSync(
+      CONTAINER_RUNTIME,
       ["compose", "-f", STANDALONE_COMPOSE_FILE, "up", "-d"],
       {
         stdio: "pipe",
