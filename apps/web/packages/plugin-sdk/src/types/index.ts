@@ -112,3 +112,29 @@ export type {
   CapabilityActionType,
   CapabilityExplanation,
 } from "./capability";
+
+// Typed capability context types
+export type {
+  TypedCapabilityContext,
+  BaseCapabilityContext,
+  WithEmailSender,
+  WithEmailOperations,
+  WithCalendar,
+  WithFullEmailAccess,
+  WithMetadataEmailAccess,
+  EmailSendCapabilities,
+  EmailModifyCapabilities,
+  CalendarReadCapabilities,
+  CalendarWriteCapabilities,
+  FullEmailAccessCapabilities,
+  MetadataOnlyCapabilities,
+  // Pre-built context types
+  ClassifyContext,
+  DraftCapabilityContext,
+  SendContext,
+  ModifyContext,
+  FollowupContext,
+  CalendarCapabilityContext,
+  FullAutomationContext,
+  SchedulerContext,
+} from "./typed-capability-context";

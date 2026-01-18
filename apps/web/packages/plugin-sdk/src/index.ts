@@ -140,7 +140,82 @@ export type {
   CapabilityAction,
   CapabilityActionType,
   CapabilityExplanation,
+  // Typed capability context types
+  TypedCapabilityContext,
+  BaseCapabilityContext,
+  WithEmailSender,
+  WithEmailOperations,
+  WithCalendar,
+  WithFullEmailAccess,
+  WithMetadataEmailAccess,
+  EmailSendCapabilities,
+  EmailModifyCapabilities,
+  CalendarReadCapabilities,
+  CalendarWriteCapabilities,
+  FullEmailAccessCapabilities,
+  MetadataOnlyCapabilities,
+  // Pre-built context types
+  ClassifyContext,
+  DraftCapabilityContext,
+  SendContext,
+  ModifyContext,
+  FollowupContext,
+  CalendarCapabilityContext,
+  FullAutomationContext,
+  SchedulerContext,
 } from "./types";
+
+// -----------------------------------------------------------------------------
+// Routing Hints
+// -----------------------------------------------------------------------------
+
+export {
+  ROUTING_HINTS,
+  // Individual hint categories
+  SCHEDULING_HINTS,
+  CALENDAR_HINTS,
+  VIDEO_PLATFORM_HINTS,
+  RECEIPT_HINTS,
+  SUBSCRIPTION_HINTS,
+  SHIPPING_HINTS,
+  FLIGHT_HINTS,
+  HOTEL_HINTS,
+  RENTAL_HINTS,
+  TRAVEL_HINTS,
+  FOLLOWUP_HINTS,
+  NEWSLETTER_HINTS,
+  SUPPORT_HINTS,
+  SECURITY_HINTS,
+  BANKING_HINTS,
+  INVESTMENT_HINTS,
+  RECRUITING_HINTS,
+  DOCUMENT_HINTS,
+  PROJECT_HINTS,
+  AUTOMATED_SENDER_PATTERNS,
+} from "./routing-hints";
+
+export type {
+  SchedulingHint,
+  CalendarHint,
+  VideoPlatformHint,
+  ReceiptHint,
+  SubscriptionHint,
+  ShippingHint,
+  FlightHint,
+  HotelHint,
+  RentalHint,
+  TravelHint,
+  FollowupHint,
+  NewsletterHint,
+  SupportHint,
+  SecurityHint,
+  BankingHint,
+  InvestmentHint,
+  RecruitingHint,
+  DocumentHint,
+  ProjectHint,
+  AutomatedSenderPattern,
+} from "./routing-hints";
 
 // -----------------------------------------------------------------------------
 // Manifest Schemas and Types
