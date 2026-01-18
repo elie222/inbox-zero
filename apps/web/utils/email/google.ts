@@ -708,6 +708,12 @@ export class GmailProvider implements EmailProvider {
       "Content-Type: text/html; charset=utf-8",
     ];
 
+    // Preserve threading headers for reply drafts
+    const inReplyTo = currentDraft.headers?.["in-reply-to"];
+    const references = currentDraft.headers?.references;
+    if (inReplyTo) headers.push(`In-Reply-To: ${inReplyTo}`);
+    if (references) headers.push(`References: ${references}`);
+
     const rawMessage = `${headers.join("\r\n")}\r\n\r\n${content}`;
     const encodedMessage = Buffer.from(rawMessage)
       .toString("base64")
