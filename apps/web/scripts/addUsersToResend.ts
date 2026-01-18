@@ -5,7 +5,8 @@ import { createContact } from "@inboxzero/resend";
 import { PrismaClient } from "@/generated/prisma/client";
 
 const adapter = new PrismaPg({
-  connectionString: process.env.DATABASE_URL,
+  connectionString:
+    process.env.PREVIEW_DATABASE_URL ?? process.env.DATABASE_URL,
 });
 const prisma = new PrismaClient({ adapter });
 
