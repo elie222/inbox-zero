@@ -7,6 +7,8 @@
         "NODE_ENV",
         "DATABASE_URL",
         "DIRECT_URL",
+        "PREVIEW_DATABASE_URL",
+        "PREVIEW_DATABASE_URL_UNPOOLED",
         "NEXTAUTH_SECRET",
         "AUTH_SECRET",
 
