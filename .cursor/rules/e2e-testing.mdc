@@ -101,3 +101,11 @@ gh run view <run-id> --repo inbox-zero/inbox-zero-e2e --log
 # Download artifacts (includes server.log on failure)
 gh run download <run-id> --repo inbox-zero/inbox-zero-e2e
 ```
+
+## Local Development
+
+Run E2E tests locally with `./scripts/run-e2e-local.sh`. Config lives at `~/.config/inbox-zero/.env.e2e`.
+
+See `apps/web/__tests__/e2e/flows/README.md` for full setup instructions.
+
+**Debug logs:** `/tmp/ngrok-e2e.log` (tunnel) and `/tmp/nextjs-e2e.log` (app)
