@@ -54,6 +54,9 @@ export const betterAuthConfig = betterAuth({
   trustedOrigins: [
     env.NEXT_PUBLIC_BASE_URL,
     ...(env.OAUTH_PROXY_URL ? [env.OAUTH_PROXY_URL] : []),
+    // Additional trusted origins for cross-origin requests (e.g., from preview deployments)
+    // Supports wildcards like https://*.vercel.app
+    ...(env.ADDITIONAL_TRUSTED_ORIGINS ?? []),
   ],
   secret: env.AUTH_SECRET || env.NEXTAUTH_SECRET,
   emailAndPassword: {

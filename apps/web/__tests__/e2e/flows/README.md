@@ -201,6 +201,22 @@ mkdir -p ~/.config/inbox-zero
 | Variable | Description |
 |----------|-------------|
 | `E2E_NGROK_DOMAIN` | Static ngrok domain (e.g., `my-e2e.ngrok-free.app`) |
+| `E2E_PORT` | Port to run Next.js on (default: 3000) |
+| `WEBHOOK_URL` | Public URL for Microsoft webhooks (e.g., `https://your-domain.ngrok-free.app`) |
+
+**Webhook URL configuration:**
+
+Microsoft webhooks require a publicly accessible URL. Set `WEBHOOK_URL` to your ngrok domain:
+
+```bash
+# Keep NEXT_PUBLIC_BASE_URL as localhost for easy browser access
+NEXT_PUBLIC_BASE_URL=http://localhost:3000
+
+# Set WEBHOOK_URL for Microsoft webhook registration
+WEBHOOK_URL=https://your-domain.ngrok-free.app
+```
+
+The app uses `WEBHOOK_URL` (with fallback to `NEXT_PUBLIC_BASE_URL`) for webhook registration. Google/Gmail uses Pub/Sub which is configured in Google Cloud Console.
 
 **Standard app secrets** (same as production):
 
@@ -220,16 +236,20 @@ mkdir -p ~/.config/inbox-zero
 # Run specific test file
 ./scripts/run-e2e-local.sh draft-cleanup
 ./scripts/run-e2e-local.sh full-reply-cycle
+
+# Run on a custom port (useful if port 3000 is in use)
+E2E_PORT=3007 ./scripts/run-e2e-local.sh
 ```
 
 #### What the Script Does
 
 1. Loads environment from `~/.config/inbox-zero/.env.e2e`
 2. Starts ngrok tunnel (uses static domain if `E2E_NGROK_DOMAIN` is set)
-3. Creates symlinks in `apps/web/` so Next.js and vitest pick up the env vars
-4. Starts the Next.js dev server
-5. Runs E2E flow tests
-6. Cleans up processes on exit (Ctrl+C or completion)
+3. **Exports `WEBHOOK_URL`** to the ngrok URL (for Microsoft webhook registration)
+4. Creates symlinks in `apps/web/` so Next.js and vitest pick up the env vars
+5. Starts the Next.js dev server
+6. Runs E2E flow tests
+7. Cleans up processes on exit (Ctrl+C or completion)
 
 ## Troubleshooting
 
@@ -249,7 +269,11 @@ Check AI API key is configured. Rules are created automatically by the test setu
 
 - Check `/tmp/ngrok-e2e.log` for errors
 - Verify your auth token is correct
-- Make sure port 3000 isn't already in use
+- Make sure the port isn't already in use
+- **Session limit error (ERR_NGROK_108)**: Free ngrok accounts only allow 1 simultaneous session. Kill existing ngrok processes:
+  ```bash
+  pkill -9 ngrok
+  ```
 
 ### App fails health check
 
@@ -260,3 +284,33 @@ Check AI API key is configured. Rules are created automatically by the test setu
 
 - Without a static domain, webhook URLs change each run
 - Use `E2E_NGROK_DOMAIN` for consistent webhook registration
+
+### Microsoft webhook subscription fails
+
+**"NotificationUrl references a local address"**
+
+Microsoft requires a publicly accessible URL. Set `WEBHOOK_URL` to your ngrok domain:
+
+```bash
+WEBHOOK_URL=https://your-domain.ngrok-free.app
+```
+
+**"Subscription validation request failed. HTTP status code is 'NotFound'"**
+
+Microsoft can reach your ngrok URL but the webhook endpoint returned 404. This usually means:
+- The ngrok tunnel disconnected (check if another session took over)
+- The Next.js app crashed (check `/tmp/nextjs-e2e.log`)
+- There's a stale `.next/dev/lock` file. Remove it and restart:
+  ```bash
+  rm -rf apps/web/.next/dev/lock
+  pkill -f "next dev"
+  ```
+
+### Next.js dev server lock error
+
+If you see "Unable to acquire lock", another instance may be running:
+
+```bash
+rm -rf apps/web/.next/dev/lock
+pkill -f "next dev"
+```

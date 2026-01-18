@@ -11,6 +11,9 @@
 #   - ngrok installed and configured
 #   - ~/.config/inbox-zero/.env.e2e with E2E_NGROK_AUTH_TOKEN set
 #
+# Optional env vars:
+#   - E2E_PORT: Port to run Next.js on (default: 3000)
+#
 
 set -e
 
@@ -79,6 +82,10 @@ fi
 
 cd "$PROJECT_ROOT"
 
+# Port configuration (default 3000, can be overridden with E2E_PORT)
+APP_PORT="${E2E_PORT:-3000}"
+log "Using port: $APP_PORT"
+
 # Configure ngrok auth
 log "Configuring ngrok..."
 ngrok config add-authtoken "$E2E_NGROK_AUTH_TOKEN" 2>/dev/null || true
@@ -87,11 +94,11 @@ ngrok config add-authtoken "$E2E_NGROK_AUTH_TOKEN" 2>/dev/null || true
 log "Starting ngrok tunnel..."
 if [ -n "$E2E_NGROK_DOMAIN" ]; then
     log "Using static domain: $E2E_NGROK_DOMAIN"
-    ngrok http 3000 --domain="$E2E_NGROK_DOMAIN" --log=stdout > /tmp/ngrok-e2e.log 2>&1 &
+    ngrok http "$APP_PORT" --domain="$E2E_NGROK_DOMAIN" --log=stdout > /tmp/ngrok-e2e.log 2>&1 &
     NGROK_URL="https://$E2E_NGROK_DOMAIN"
 else
     warn "No E2E_NGROK_DOMAIN set - using dynamic URL (webhooks may not work)"
-    ngrok http 3000 --log=stdout > /tmp/ngrok-e2e.log 2>&1 &
+    ngrok http "$APP_PORT" --log=stdout > /tmp/ngrok-e2e.log 2>&1 &
 fi
 NGROK_PID=$!
 
@@ -119,7 +126,9 @@ if [ -z "$NGROK_URL" ]; then
 fi
 
 log "Ngrok tunnel ready: $NGROK_URL"
-export NEXT_PUBLIC_BASE_URL="$NGROK_URL"
+# Export WEBHOOK_URL for Microsoft webhook registration
+# NEXT_PUBLIC_BASE_URL can stay as localhost (from .env.e2e) for browser access
+export WEBHOOK_URL="$NGROK_URL"
 
 # Start the app
 log "Starting Next.js app..."
@@ -136,7 +145,7 @@ for envfile in .env.local .env.e2e; do
 done
 
 # Start app with current environment (NEXT_PUBLIC_BASE_URL already exported above)
-pnpm dev > /tmp/nextjs-e2e.log 2>&1 &
+pnpm dev --port "$APP_PORT" > /tmp/nextjs-e2e.log 2>&1 &
 APP_PID=$!
 
 # Wait for app to be ready
@@ -145,12 +154,12 @@ APP_READY=false
 for i in {1..60}; do
     # Check health endpoint (with optional API key if configured)
     # -f flag makes curl fail on 4xx/5xx responses
-    if curl -sf -H "x-health-api-key: ${HEALTH_API_KEY:-}" "http://localhost:3000/api/health" > /dev/null 2>&1; then
+    if curl -sf -H "x-health-api-key: ${HEALTH_API_KEY:-}" "http://localhost:$APP_PORT/api/health" > /dev/null 2>&1; then
         APP_READY=true
         break
     fi
     # Also check if app responded on the root path
-    if curl -s -o /dev/null -w "%{http_code}" "http://localhost:3000" 2>/dev/null | grep -q "200\|302\|304"; then
+    if curl -s -o /dev/null -w "%{http_code}" "http://localhost:$APP_PORT" 2>/dev/null | grep -q "200\|302\|304"; then
         APP_READY=true
         break
     fi
@@ -166,7 +175,7 @@ if ! kill -0 $APP_PID 2>/dev/null || [ "$APP_READY" != "true" ]; then
     exit 1
 fi
 
-log "App is ready at http://localhost:3000"
+log "App is ready at http://localhost:$APP_PORT"
 log "Webhook URL: $NGROK_URL"
 
 # Run the E2E tests
