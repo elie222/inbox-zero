@@ -183,6 +183,8 @@ model EmailAccount {
   driveConnections    DriveConnection[]
   documentFilings     DocumentFiling[]
   filingFolders       FilingFolder[]
+  agentConfig         AgentConfig?
+  agentExecutions     AgentExecution[]
 
   @@index([userId])
   @@index([lastSummaryEmailAt])
@@ -1141,6 +1143,110 @@ model McpTool {
 
   @@unique([connectionId, name])
 }
+
+// =============================================================================
+// EMAIL AGENT (Claude Agent SDK integration for email processing)
+// =============================================================================
+
+model AgentConfig {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  enabled Boolean @default(false)
+
+  // Simple toggle permissions
+  canLabel       Boolean @default(true)
+  canArchive     Boolean @default(true)
+  canDraftReply  Boolean @default(true)
+  canMarkRead    Boolean @default(true)
+  canWebSearch   Boolean @default(false)
+  canCreateLabel Boolean @default(false)
+
+  // Allow-list permissions (empty = disabled)
+  forwardAllowList String[] // Emails agent can forward to
+
+  emailAccountId String       @unique
+  emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
+
+  documents  AgentDocument[]
+  executions AgentExecution[]
+  memories   AgentMemory[]
+}
+
+model AgentDocument {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  title   String
+  content String            @db.Text
+  type    AgentDocumentType
+  enabled Boolean           @default(true)
+  order   Int               @default(0)
+
+  agentConfigId String
+  agentConfig   AgentConfig @relation(fields: [agentConfigId], references: [id], onDelete: Cascade)
+
+  @@unique([agentConfigId, title])
+  @@index([agentConfigId, type])
+}
+
+model AgentExecution {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+
+  threadId  String
+  messageId String
+  status    AgentExecutionStatus
+  reasoning String?              @db.Text
+  toolCalls Json? // Array of tool calls made
+
+  agentConfigId  String
+  agentConfig    AgentConfig  @relation(fields: [agentConfigId], references: [id], onDelete: Cascade)
+  emailAccountId String
+  emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
+
+  @@index([emailAccountId, messageId])
+  @@index([emailAccountId, status, createdAt])
+  @@index([agentConfigId, createdAt])
+}
+
+model AgentMemory {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  key     String
+  content String          @db.Text
+  type    AgentMemoryType
+
+  agentConfigId String
+  agentConfig   AgentConfig @relation(fields: [agentConfigId], references: [id], onDelete: Cascade)
+
+  @@unique([agentConfigId, key])
+  @@index([agentConfigId, type])
+}
+
+enum AgentDocumentType {
+  MAIN // Primary instructions document
+  SKILL // Specialized skill document (drafting, research, etc.)
+}
+
+enum AgentExecutionStatus {
+  PROCESSING
+  COMPLETED
+  SKIPPED // Learned pattern match
+  ERROR
+}
+
+enum AgentMemoryType {
+  FACT // Learned fact about user/preferences
+  PREFERENCE // User preference
+  CONTEXT // Contextual information
+}
+
+// =============================================================================
 
 enum ActionType {
   ARCHIVE

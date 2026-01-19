@@ -21,6 +21,7 @@ import type { ParsedMessage, RuleWithActions } from "@/utils/types";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import type { Logger } from "@/utils/logger";
 import { captureException } from "@/utils/error";
+import { getAgentConfig, processEmailWithAgent } from "@/providers/email-agent";
 
 export type SharedProcessHistoryOptions = {
   provider: EmailProvider;
@@ -164,6 +165,20 @@ export async function processHistoryItem(
 
     if (!hasAiAccess) {
       logger.info("Skipping. No AI access.");
+      return;
+    }
+
+    // Check if Claude Agent mode is enabled (alternative to rule-based system)
+    const agentConfig = await getAgentConfig(emailAccountId);
+    if (agentConfig?.enabled) {
+      logger.info("Processing with Claude Agent...");
+      await processEmailWithAgent({
+        provider,
+        message: parsedMessage,
+        emailAccount,
+        agentConfig,
+        logger,
+      });
       return;
     }
 

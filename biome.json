@@ -134,6 +134,16 @@
           }
         }
       }
+    },
+    {
+      "includes": ["**/providers/email-agent/index.ts"],
+      "linter": {
+        "rules": {
+          "performance": {
+            "noBarrelFile": "off"
+          }
+        }
+      }
     }
   ],
   "extends": ["ultracite"]
