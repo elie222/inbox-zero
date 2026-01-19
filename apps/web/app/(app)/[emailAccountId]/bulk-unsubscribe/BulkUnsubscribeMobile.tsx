@@ -1,6 +1,7 @@
 "use client";
 
 import type React from "react";
+import { useState } from "react";
 import Link from "next/link";
 import { usePostHog } from "posthog-js/react";
 import {
@@ -22,6 +23,14 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { extractEmailAddress, extractNameFromEmail } from "@/utils/email";
 import type { RowProps } from "@/app/(app)/[emailAccountId]/bulk-unsubscribe/types";
 import { Button } from "@/components/ui/button";
@@ -48,6 +57,8 @@ export function BulkUnsubscribeRowMobile({
   emailAccountId,
   filter,
 }: RowProps) {
+  const [resubscribeDialogOpen, setResubscribeDialogOpen] = useState(false);
+
   const name = item.fromName || extractNameFromEmail(item.name);
   const email = extractEmailAddress(item.name);
 
@@ -77,6 +88,11 @@ export function BulkUnsubscribeRowMobile({
   });
   const hasUnsubscribeLink = unsubscribeLink !== "#";
   const isUnsubscribed = item.status === NewsletterStatus.UNSUBSCRIBED;
+
+  const handleUnblock = async () => {
+    await onUnsubscribe();
+    setResubscribeDialogOpen(false);
+  };
 
   return (
     <Card className="overflow-hidden">
@@ -120,14 +136,11 @@ export function BulkUnsubscribeRowMobile({
             </Button>
           )}
 
-          <Button size="sm" variant="outline" asChild>
-            <Link
-              href={unsubscribeLink}
-              target={
-                hasUnsubscribeLink && !isUnsubscribed ? "_blank" : undefined
-              }
-              onClick={onUnsubscribe}
-              rel="noreferrer"
+          {isUnsubscribed ? (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setResubscribeDialogOpen(true)}
             >
               <span className="flex items-center gap-1.5">
                 {unsubscribeLoading ? (
@@ -135,14 +148,28 @@ export function BulkUnsubscribeRowMobile({
                 ) : (
                   <MailMinusIcon className="size-4" />
                 )}
-                {isUnsubscribed
-                  ? "Resubscribe"
-                  : hasUnsubscribeLink
-                    ? "Unsubscribe"
-                    : "Block"}
+                Resubscribe
               </span>
-            </Link>
-          </Button>
+            </Button>
+          ) : (
+            <Button size="sm" variant="outline" asChild>
+              <Link
+                href={unsubscribeLink}
+                target={hasUnsubscribeLink ? "_blank" : undefined}
+                onClick={onUnsubscribe}
+                rel="noreferrer"
+              >
+                <span className="flex items-center gap-1.5">
+                  {unsubscribeLoading ? (
+                    <ButtonLoader />
+                  ) : (
+                    <MailMinusIcon className="size-4" />
+                  )}
+                  {hasUnsubscribeLink ? "Unsubscribe" : "Block"}
+                </span>
+              </Link>
+            </Button>
+          )}
 
           <Button
             size="sm"
@@ -167,6 +194,34 @@ export function BulkUnsubscribeRowMobile({
           </Button>
         </div>
       </CardContent>
+
+      <Dialog
+        open={resubscribeDialogOpen}
+        onOpenChange={setResubscribeDialogOpen}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Want to receive these emails again?</DialogTitle>
+            <DialogDescription className="pt-2">
+              When you unsubscribed, we started auto-archiving emails from this
+              sender. We can stop doing that, but you'll need to resubscribe on
+              the sender's website to start receiving their emails again.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button
+              variant="outline"
+              onClick={() => setResubscribeDialogOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button onClick={handleUnblock} disabled={unsubscribeLoading}>
+              {unsubscribeLoading && <ButtonLoader />}
+              Stop blocking
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 }

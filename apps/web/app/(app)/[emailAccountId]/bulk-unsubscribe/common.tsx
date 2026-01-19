@@ -1,6 +1,7 @@
 "use client";
 
 import type React from "react";
+import { useState } from "react";
 import Link from "next/link";
 import {
   ArchiveIcon,
@@ -28,6 +29,14 @@ import {
   DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { PremiumTooltip } from "@/components/PremiumAlert";
 import { NewsletterStatus } from "@/generated/prisma/enums";
 import { toastError, toastSuccess } from "@/components/Toast";
@@ -134,6 +143,8 @@ function UnsubscribeButton<T extends Row>({
   posthog: PostHog;
   emailAccountId: string;
 }) {
+  const [resubscribeDialogOpen, setResubscribeDialogOpen] = useState(false);
+
   const { unsubscribeLoading, onUnsubscribe, unsubscribeLink } = useUnsubscribe(
     {
       item,
@@ -154,6 +165,56 @@ function UnsubscribeButton<T extends Row>({
       ? "Unsubscribe"
       : "Block";
 
+  const handleUnblock = async () => {
+    await onUnsubscribe();
+    setResubscribeDialogOpen(false);
+  };
+
+  if (isUnsubscribed) {
+    return (
+      <>
+        <Button
+          size="sm"
+          variant="outline"
+          className="w-[110px] justify-center"
+          onClick={() => setResubscribeDialogOpen(true)}
+        >
+          {unsubscribeLoading && <ButtonLoader />}
+          {buttonText}
+        </Button>
+
+        <Dialog
+          open={resubscribeDialogOpen}
+          onOpenChange={setResubscribeDialogOpen}
+        >
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Want to receive these emails again?</DialogTitle>
+              <DialogDescription className="pt-2">
+                When you unsubscribed, we started auto-archiving emails from
+                this sender. We can stop doing that, but you'll need to
+                resubscribe on the sender's website to start receiving their
+                emails again.
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter className="gap-2 sm:gap-0">
+              <Button
+                variant="outline"
+                onClick={() => setResubscribeDialogOpen(false)}
+              >
+                Cancel
+              </Button>
+              <Button onClick={handleUnblock} disabled={unsubscribeLoading}>
+                {unsubscribeLoading && <ButtonLoader />}
+                Stop blocking
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </>
+    );
+  }
+
   return (
     <Button
       size="sm"
@@ -163,7 +224,7 @@ function UnsubscribeButton<T extends Row>({
     >
       <Link
         href={unsubscribeLink}
-        target={hasUnsubscribeLink && !isUnsubscribed ? "_blank" : undefined}
+        target={hasUnsubscribeLink ? "_blank" : undefined}
         onClick={onUnsubscribe}
         rel="noreferrer"
       >
