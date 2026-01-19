@@ -1,6 +1,6 @@
 {
     "scripts": {
-        "setup": "pnpm install && (cp $CONDUCTOR_ROOT_PATH/apps/web/.env.local apps/web/.env.local 2>/dev/null || cp ~/.config/inbox-zero/.env.local apps/web/.env.local 2>/dev/null || echo 'WARNING: No .env.local found. Copy your env file to ~/.config/inbox-zero/.env.local')",
+        "setup": "echo 'Step 1: Starting setup' && echo 'Step 2: Copying env file' && (cp $CONDUCTOR_ROOT_PATH/apps/web/.env.local apps/web/.env.local 2>/dev/null && echo 'Copied from CONDUCTOR_ROOT_PATH' || cp ~/.config/inbox-zero/.env.local apps/web/.env.local 2>/dev/null && echo 'Copied from ~/.config' || echo 'WARNING: No .env.local found') && echo 'Step 3: Setup complete'",
         "run": "pnpm dev"
     }
 }
