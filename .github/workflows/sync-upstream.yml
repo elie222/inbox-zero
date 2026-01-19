@@ -26,7 +26,6 @@ jobs:
     permissions:
       contents: write
       pull-requests: write
-      workflows: write
 
     steps:
       - name: Checkout repository
@@ -73,9 +72,47 @@ jobs:
           fi
 
       - name: Push merged changes
+        id: push
         if: steps.merge.outputs.merge_success == 'true'
         run: |
-          git push origin ${{ env.TARGET_BRANCH }}
+          if git push origin ${{ env.TARGET_BRANCH }} 2>&1; then
+            echo "push_success=true" >> $GITHUB_OUTPUT
+          else
+            echo "push_success=false" >> $GITHUB_OUTPUT
+            echo "Push failed - likely due to workflow file changes requiring elevated permissions"
+          fi
+
+      - name: Create PR for workflow changes
+        if: steps.merge.outputs.merge_success == 'true' && steps.push.outputs.push_success == 'false'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Reset to before merge and create a branch
+          git reset --hard HEAD~1
+          SYNC_BRANCH="sync-upstream-$(date +%Y%m%d-%H%M%S)"
+          git checkout -b "$SYNC_BRANCH"
+
+          # Merge again on the new branch
+          git merge upstream/${{ env.UPSTREAM_BRANCH }} --no-edit
+          git push origin "$SYNC_BRANCH"
+
+          # Create PR
+          gh pr create \
+            --title "Sync upstream (includes workflow changes)" \
+            --body "## Upstream Sync
+
+          This PR was automatically created because the sync includes workflow file changes
+          that require manual approval.
+
+          **Source:** \`${{ env.UPSTREAM_REPO }}\` @ \`${{ env.UPSTREAM_BRANCH }}\`
+          **Target:** \`${{ env.TARGET_BRANCH }}\`
+          **Commits behind:** ${{ steps.check.outputs.commits_behind }}
+
+          Please review and merge manually.
+          " \
+            --base "${{ env.TARGET_BRANCH }}" \
+            --head "$SYNC_BRANCH" \
+            --label "upstream-sync"
 
       - name: Create PR for conflicts
         if: steps.merge.outputs.merge_success == 'false'
@@ -142,8 +179,10 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           if [ "${{ steps.check.outputs.needs_sync }}" == "false" ]; then
             echo "Already up to date with upstream." >> $GITHUB_STEP_SUMMARY
-          elif [ "${{ steps.merge.outputs.merge_success }}" == "true" ]; then
-            echo "Successfully merged upstream changes." >> $GITHUB_STEP_SUMMARY
+          elif [ "${{ steps.merge.outputs.merge_success }}" == "true" ] && [ "${{ steps.push.outputs.push_success }}" == "true" ]; then
+            echo "Successfully merged and pushed upstream changes." >> $GITHUB_STEP_SUMMARY
+          elif [ "${{ steps.merge.outputs.merge_success }}" == "true" ] && [ "${{ steps.push.outputs.push_success }}" == "false" ]; then
+            echo "Merge successful but push failed (likely workflow file changes). A PR has been created." >> $GITHUB_STEP_SUMMARY
           else
             echo "Merge conflicts detected. A PR has been created for manual resolution." >> $GITHUB_STEP_SUMMARY
           fi
