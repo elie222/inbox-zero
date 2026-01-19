@@ -59,6 +59,7 @@ export const bulkCategorizeSendersAction = actionClient
     });
 
     const LIMIT = 100;
+    const MAX_SENDERS = 2000;
 
     let totalUncategorizedSenders = 0;
     let currentOffset: number | undefined = 0;
@@ -82,11 +83,15 @@ export const bulkCategorizeSendersAction = actionClient
           totalItems: totalUncategorizedSenders,
         });
 
-        // publish to qstash
         await publishToAiCategorizeSendersQueue({
           emailAccountId,
           senders: result.uncategorizedSenders,
         });
+      }
+
+      if (totalUncategorizedSenders >= MAX_SENDERS) {
+        logger.info("Reached max senders limit", { MAX_SENDERS });
+        break;
       }
 
       currentOffset = result.nextOffset;
