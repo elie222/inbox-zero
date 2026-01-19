@@ -13,12 +13,12 @@ on:
       target_branch:
         description: 'Target branch to merge into'
         required: false
-        default: 'release'
+        default: 'main'
 
 env:
-  UPSTREAM_REPO: 'inbox-zero/inbox-zero'  # Change to actual upstream repo
+  UPSTREAM_REPO: 'elie222/inbox-zero'
   UPSTREAM_BRANCH: ${{ github.event.inputs.upstream_branch || 'main' }}
-  TARGET_BRANCH: ${{ github.event.inputs.target_branch || 'release' }}
+  TARGET_BRANCH: ${{ github.event.inputs.target_branch || 'main' }}
 
 jobs:
   sync:
