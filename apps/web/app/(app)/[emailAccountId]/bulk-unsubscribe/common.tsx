@@ -215,7 +215,12 @@ function UnsubscribeButton<T extends Row>({
                   )}
                 </div>
                 <div className="flex flex-1 items-center justify-between gap-4">
-                  <div className="font-medium">Stop blocking</div>
+                  <div>
+                    <div className="font-medium">Unblock Sender</div>
+                    <p className="text-sm text-muted-foreground">
+                      We're auto-archiving their emails
+                    </p>
+                  </div>
                   {unblockComplete ? (
                     <p className="shrink-0 text-sm font-medium text-green-600">
                       Unblocked
@@ -242,7 +247,12 @@ function UnsubscribeButton<T extends Row>({
                 <div className="flex size-7 shrink-0 items-center justify-center rounded-full border bg-muted text-sm font-medium">
                   2
                 </div>
-                <div className="font-medium">Sign up on their website</div>
+                <div>
+                  <div className="font-medium">Manually Resubscribe</div>
+                  <p className="text-sm text-muted-foreground">
+                    Visit their website to sign up again
+                  </p>
+                </div>
               </div>
             </div>
 
