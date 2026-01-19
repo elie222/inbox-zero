@@ -1,9 +1,13 @@
 import { experimental_createMCPClient } from "@ai-sdk/mcp";
+import { tool } from "ai";
 import { getIntegration } from "@/utils/mcp/integrations";
 import prisma from "@/utils/prisma";
 import { createScopedLogger } from "@/utils/logger";
 import { getAuthToken } from "@/utils/mcp/oauth";
 import { createMcpTransport } from "@/utils/mcp/transport";
+import { pluginRuntime } from "@/lib/plugin-runtime/runtime";
+import type { PluginMcpTool } from "@/packages/plugin-sdk/src/types/mcp";
+import type { z } from "zod";
 
 type MCPClient = Awaited<ReturnType<typeof experimental_createMCPClient>>;
 
@@ -12,32 +16,56 @@ export type MCPToolsResult = {
   cleanup: () => Promise<void>;
 };
 
+export type CreateMcpToolsOptions = {
+  emailAccountId: string;
+  userId?: string;
+};
+
 /**
- * Create MCP tools for the agent by fetching tools from user's configured MCP integrations.
- * (e.g., Notion, Stripe, Monday)
+ * Create MCP tools for the agent by fetching tools from:
+ * 1. User's configured MCP integrations (e.g., Notion, Stripe, Monday)
+ * 2. Plugin-exposed MCP tools (when userId is provided)
  *
- * Tools are prefixed to avoid naming collisions only when there are conflicts between integrations.
+ * Tools are prefixed to avoid naming collisions only when there are conflicts.
  *
- * Note: Plugin-exposed MCP tools are handled separately via the plugin runtime's getMcpTools.
- *
- * @param emailAccountId - Email account ID for fetching user's MCP integrations
+ * @param options - Email account ID and optional user ID for plugin tools
  * @returns MCP tools and cleanup function
  */
 export async function createMcpToolsForAgent(
-  emailAccountId: string,
+  options: CreateMcpToolsOptions | string,
 ): Promise<MCPToolsResult> {
-  const logger = createScopedLogger("ai-mcp-tools").with({ emailAccountId });
+  // support both old string signature and new object signature
+  const { emailAccountId, userId } =
+    typeof options === "string"
+      ? { emailAccountId: options, userId: undefined }
+      : options;
+
+  const logger = createScopedLogger("ai-mcp-tools").with({
+    emailAccountId,
+    userId,
+  });
 
   const clients: MCPClient[] = [];
 
   try {
+    // fetch integration MCP tools
     const integrationToolsResult = await fetchIntegrationMcpTools(
       emailAccountId,
       clients,
       logger,
     );
 
-    const allTools = mergeToolsWithConflictResolution(integrationToolsResult);
+    // fetch plugin MCP tools if userId provided
+    let pluginTools: Record<string, unknown> = {};
+    if (userId) {
+      pluginTools = await fetchPluginMcpTools(userId, emailAccountId, logger);
+    }
+
+    // merge all tools
+    const integrationTools = mergeToolsWithConflictResolution(
+      integrationToolsResult,
+    );
+    const allTools = { ...integrationTools, ...pluginTools };
 
     return {
       tools: allTools,
@@ -70,6 +98,97 @@ export async function createMcpToolsForAgent(
       cleanup: async () => {},
     };
   }
+}
+
+/**
+ * Fetch MCP tools exposed by plugins.
+ * Converts plugin tool format to AI SDK tool format.
+ */
+async function fetchPluginMcpTools(
+  userId: string,
+  emailAccountId: string,
+  logger: ReturnType<typeof createScopedLogger>,
+): Promise<Record<string, unknown>> {
+  try {
+    const pluginToolsMap = await pluginRuntime.getMcpTools(
+      userId,
+      emailAccountId,
+    );
+
+    if (pluginToolsMap.size === 0) {
+      return {};
+    }
+
+    const tools: Record<string, unknown> = {};
+
+    for (const [toolName, { pluginId, tool: pluginTool }] of pluginToolsMap) {
+      tools[toolName] = convertPluginToolToAiSdkTool(
+        pluginTool,
+        pluginId,
+        userId,
+        emailAccountId,
+        logger,
+      );
+    }
+
+    logger.trace("Loaded plugin MCP tools", {
+      count: Object.keys(tools).length,
+      tools: Object.keys(tools),
+    });
+
+    return tools;
+  } catch (error) {
+    logger.error("Failed to fetch plugin MCP tools", { error });
+    return {};
+  }
+}
+
+/**
+ * Convert a plugin MCP tool to AI SDK tool format.
+ *
+ * Note: Plugin MCP tools receive a minimal context since full ChatToolContext
+ * (with storage, llm) would require async initialization. Plugins needing
+ * storage/llm should use chatTools instead of mcpTools.
+ */
+function convertPluginToolToAiSdkTool(
+  pluginTool: PluginMcpTool,
+  pluginId: string,
+  _userId: string,
+  emailAccountId: string,
+  logger: ReturnType<typeof createScopedLogger>,
+) {
+  // use AI SDK tool helper with inputSchema (AI SDK uses inputSchema, not parameters)
+  return tool({
+    description: pluginTool.description,
+    inputSchema: pluginTool.parameters as z.ZodSchema,
+    execute: async (params: Record<string, unknown>) => {
+      logger.trace("Executing plugin MCP tool", { pluginId });
+
+      // MCP tools receive minimal context - use chatTools for full context
+      const ctx = {
+        emailAccount: {
+          id: emailAccountId,
+          email: "", // not available in this context
+          provider: "google" as const,
+        },
+        // storage and llm not available for MCP tools
+        // plugins needing these should use chatTools instead
+        storage: null as never,
+        llm: null as never,
+      };
+
+      try {
+        const result = await pluginTool.execute(params, ctx);
+        return result;
+      } catch (error) {
+        logger.error("Plugin MCP tool execution failed", {
+          pluginId,
+          error,
+        });
+        throw error;
+      }
+    },
+  });
 }
 
 /**

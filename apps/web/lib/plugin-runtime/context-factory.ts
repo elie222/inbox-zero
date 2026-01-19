@@ -789,7 +789,10 @@ function createPluginLLM(
         result: unknown;
       }>;
     }> {
-      const { tools, cleanup } = await createMcpToolsForAgent(emailAccount.id);
+      const { tools, cleanup } = await createMcpToolsForAgent({
+        emailAccountId: emailAccount.id,
+        userId: emailAccount.userId,
+      });
 
       try {
         // if no MCP tools available, fall back to regular generation

@@ -112,8 +112,11 @@ export async function mcpAgent(
 
   if (!messages || messages.length === 0) return null;
 
-  // TODO: pass userId to enable plugin MCP server integration once createMcpToolsForAgent supports it
-  const { tools, cleanup } = await createMcpToolsForAgent(emailAccount.id);
+  // pass userId to enable plugin MCP server integration
+  const { tools, cleanup } = await createMcpToolsForAgent({
+    emailAccountId: emailAccount.id,
+    userId: emailAccount.userId,
+  });
   const hasTools = Object.keys(tools).length > 0;
 
   if (!hasTools) return null;
