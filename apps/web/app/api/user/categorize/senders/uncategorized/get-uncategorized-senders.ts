@@ -24,7 +24,6 @@ export async function getUncategorizedSenders({
       offset: currentOffset,
     });
 
-    // Build a map of email -> name for lookup
     const senderMap = new Map<string, string | null>();
     for (const sender of result) {
       const email = extractEmailAddress(sender.from);
@@ -51,7 +50,6 @@ export async function getUncategorizedSenders({
       .filter((email) => !existingSenderEmails.has(email))
       .map((email) => ({ email, name: senderMap.get(email) ?? null }));
 
-    // Break the loop if no more senders are available
     // Use result.length (raw query count) not allSenderEmails.length (de-duplicated count)
     // to correctly detect when there are more pages
     if (result.length < limit) {

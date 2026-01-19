@@ -1,12 +1,10 @@
 import { NextResponse } from "next/server";
 import { withEmailAccount } from "@/utils/middleware";
-import {
-  getUncategorizedSenders,
-  type UncategorizedSender,
-} from "@/app/api/user/categorize/senders/uncategorized/get-uncategorized-senders";
+import { getUncategorizedSenders } from "@/app/api/user/categorize/senders/uncategorized/get-uncategorized-senders";
+import type { Sender } from "@/app/api/user/categorize/senders/batch/handle-batch-validation";
 
 export type UncategorizedSendersResponse = {
-  uncategorizedSenders: UncategorizedSender[];
+  uncategorizedSenders: Sender[];
   nextOffset?: number;
 };
 

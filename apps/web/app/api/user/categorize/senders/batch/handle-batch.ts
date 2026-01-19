@@ -65,7 +65,6 @@ async function handleBatchInternal(request: RequestWithLogger) {
   const sendersWithEmails: Map<string, { subject: string; snippet: string }[]> =
     new Map();
 
-  // Build a map of email -> name from input senders
   const senderNameMap = new Map<string, string | null>();
   for (const sender of senders) {
     senderNameMap.set(sender.email, sender.name);
