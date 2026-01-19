@@ -9,6 +9,7 @@ import { env } from "@/env";
 import { trackStripeEvent } from "@/utils/posthog";
 import prisma from "@/utils/prisma";
 import { completeReferralAndGrantReward } from "@/utils/referral/referral-tracking";
+import { captureException } from "@/utils/error";
 
 export const POST = withError("stripe/webhook", async (request) => {
   const logger = request.logger;
@@ -31,7 +32,24 @@ export const POST = withError("stripe/webhook", async (request) => {
     env.STRIPE_WEBHOOK_SECRET,
   );
 
-  after(() => processEvent(event, logger));
+  after(async () => {
+    try {
+      await processEvent(event, logger);
+      logger.info("Stripe webhook processed successfully", {
+        eventType: event.type,
+        eventId: event.id,
+      });
+    } catch (error) {
+      logger.error("Stripe webhook processing failed", {
+        eventType: event.type,
+        eventId: event.id,
+        error,
+      });
+      captureException(error, {
+        extra: { eventType: event.type, eventId: event.id },
+      });
+    }
+  });
 
   return NextResponse.json({ received: true });
 });
