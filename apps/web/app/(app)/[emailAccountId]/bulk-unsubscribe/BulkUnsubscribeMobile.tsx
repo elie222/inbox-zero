@@ -145,7 +145,7 @@ export function BulkUnsubscribeRowMobile({
             </Button>
           )}
 
-          {isUnsubscribed ? (
+          {isUnsubscribed || resubscribeDialogOpen ? (
             <Button
               size="sm"
               variant="outline"

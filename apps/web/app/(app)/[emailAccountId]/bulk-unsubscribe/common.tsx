@@ -182,111 +182,110 @@ function UnsubscribeButton<T extends Row>({
     }
   };
 
-  if (isUnsubscribed) {
-    return (
-      <>
-        <Button
-          size="sm"
-          variant="outline"
-          className="w-[110px] justify-center"
-          onClick={() => setResubscribeDialogOpen(true)}
+  // Show Resubscribe button if unsubscribed, otherwise show Unsubscribe/Block button
+  const button =
+    isUnsubscribed || resubscribeDialogOpen ? (
+      <Button
+        size="sm"
+        variant="outline"
+        className="w-[110px] justify-center"
+        onClick={() => setResubscribeDialogOpen(true)}
+      >
+        {unsubscribeLoading && <ButtonLoader />}
+        Resubscribe
+      </Button>
+    ) : (
+      <Button
+        size="sm"
+        variant="outline"
+        className="w-[110px] justify-center"
+        asChild
+      >
+        <Link
+          href={unsubscribeLink}
+          target={hasUnsubscribeLink ? "_blank" : undefined}
+          onClick={onUnsubscribe}
+          rel="noreferrer"
         >
           {unsubscribeLoading && <ButtonLoader />}
           {buttonText}
-        </Button>
+        </Link>
+      </Button>
+    );
 
-        <Dialog open={resubscribeDialogOpen} onOpenChange={handleDialogClose}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Resubscribe to {senderName}</DialogTitle>
-              <DialogDescription className="pt-2">
-                Follow the steps below to receive emails from this sender again.
-              </DialogDescription>
-            </DialogHeader>
+  return (
+    <>
+      {button}
 
-            <div className="rounded-lg border">
-              {/* Step 1 */}
-              <div className="flex gap-4 p-4">
-                <div className="flex size-7 shrink-0 items-center justify-center rounded-full border bg-muted text-sm font-medium">
-                  {unblockComplete ? (
-                    <CheckIcon className="size-4 text-green-600" />
-                  ) : (
-                    "1"
-                  )}
-                </div>
-                <div className="flex flex-1 items-center justify-between gap-4">
-                  <div>
-                    <div className="font-medium">Unblock Sender</div>
-                    <p className="text-sm text-muted-foreground">
-                      We're auto-archiving their emails
-                    </p>
-                  </div>
-                  {unblockComplete ? (
-                    <p className="shrink-0 text-sm font-medium text-green-600">
-                      Unblocked
-                    </p>
-                  ) : (
-                    <Button
-                      size="sm"
-                      className="shrink-0"
-                      onClick={handleUnblock}
-                      disabled={unsubscribeLoading}
-                    >
-                      {unsubscribeLoading && <ButtonLoader />}
-                      Unblock
-                    </Button>
-                  )}
-                </div>
+      <Dialog open={resubscribeDialogOpen} onOpenChange={handleDialogClose}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Resubscribe to {senderName}</DialogTitle>
+            <DialogDescription className="pt-2">
+              Follow the steps below to receive emails from this sender again.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="rounded-lg border">
+            {/* Step 1 */}
+            <div className="flex gap-4 p-4">
+              <div className="flex size-7 shrink-0 items-center justify-center rounded-full border bg-muted text-sm font-medium">
+                {unblockComplete ? (
+                  <CheckIcon className="size-4 text-green-600" />
+                ) : (
+                  "1"
+                )}
               </div>
-
-              {/* Separator */}
-              <div className="border-t" />
-
-              {/* Step 2 */}
-              <div className="flex gap-4 p-4">
-                <div className="flex size-7 shrink-0 items-center justify-center rounded-full border bg-muted text-sm font-medium">
-                  2
-                </div>
+              <div className="flex flex-1 items-center justify-between gap-4">
                 <div>
-                  <div className="font-medium">Manually Resubscribe</div>
+                  <div className="font-medium">Unblock Sender</div>
                   <p className="text-sm text-muted-foreground">
-                    Visit their website to sign up again
+                    We're auto-archiving their emails
                   </p>
                 </div>
+                {unblockComplete ? (
+                  <p className="shrink-0 text-sm font-medium text-green-600">
+                    Unblocked
+                  </p>
+                ) : (
+                  <Button
+                    size="sm"
+                    className="shrink-0"
+                    onClick={handleUnblock}
+                    disabled={unsubscribeLoading}
+                  >
+                    {unsubscribeLoading && <ButtonLoader />}
+                    Unblock
+                  </Button>
+                )}
               </div>
             </div>
 
-            <DialogFooter>
-              <Button
-                variant="outline"
-                onClick={() => handleDialogClose(false)}
-              >
-                Close
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-      </>
-    );
-  }
+            {/* Separator */}
+            <div className="border-t" />
 
-  return (
-    <Button
-      size="sm"
-      variant="outline"
-      className="w-[110px] justify-center"
-      asChild
-    >
-      <Link
-        href={unsubscribeLink}
-        target={hasUnsubscribeLink ? "_blank" : undefined}
-        onClick={onUnsubscribe}
-        rel="noreferrer"
-      >
-        {unsubscribeLoading && <ButtonLoader />}
-        {buttonText}
-      </Link>
-    </Button>
+            {/* Step 2 */}
+            <div className="flex gap-4 p-4">
+              <div className="flex size-7 shrink-0 items-center justify-center rounded-full border bg-muted text-sm font-medium">
+                2
+              </div>
+              <div>
+                <div className="font-medium">Manually Resubscribe</div>
+                <p className="text-sm text-muted-foreground">
+                  Visit their website to sign up again
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => handleDialogClose(false)}>
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
 
