@@ -36,7 +36,7 @@ if [ -n "$NEXT_PUBLIC_DIGEST_ENABLED" ]; then
     /app/docker/scripts/replace-placeholder.sh "NEXT_PUBLIC_DIGEST_ENABLED_PLACEHOLDER" "$NEXT_PUBLIC_DIGEST_ENABLED"
 fi
 
-if [ -n "$DATABASE_URL" ]; then
+if [ -n "$DATABASE_URL" ] || [ -n "$PREVIEW_DATABASE_URL_UNPOOLED" ] || [ -n "$DIRECT_URL" ]; then
     echo "🔄 Running database migrations..."
     # Prisma 7 requires config file for migrations (schema no longer supports url)
     if timeout 320 prisma migrate deploy --config=/app/docker/scripts/prisma.config.mjs --schema=./apps/web/prisma/schema.prisma; then
