@@ -179,14 +179,12 @@ export async function processHistoryItem(
         select: { category: true },
       });
       if (!existingSender?.category) {
-        // Pass sender name if it's different from the email (indicates a real name)
-        const nameToPass = senderName !== sender ? senderName : undefined;
         await categorizeSender(
           sender,
           emailAccount,
           provider,
           undefined,
-          nameToPass,
+          senderName !== sender ? senderName : undefined,
         );
       }
     }
