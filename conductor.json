@@ -1,6 +1,6 @@
 {
     "scripts": {
-        "setup": "sleep 1 && pnpm install\n\n# Copy .env file\ncp $CONDUCTOR_ROOT_PATH/apps/web/.env.local apps/web/.env.local",
+        "setup": "echo 'Starting setup...' && sleep 3 && echo 'PATH:' $PATH && echo 'Running pnpm install...' && pnpm install && cp $CONDUCTOR_ROOT_PATH/apps/web/.env.local apps/web/.env.local && echo 'Setup complete'",
         "run": "pnpm dev"
     }
 }
