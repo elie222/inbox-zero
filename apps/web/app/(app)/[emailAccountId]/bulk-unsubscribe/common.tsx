@@ -279,9 +279,7 @@ function UnsubscribeButton<T extends Row>({
           </div>
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => handleDialogClose(false)}>
-              Close
-            </Button>
+            <Button onClick={() => handleDialogClose(false)}>Done</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
