@@ -84,7 +84,7 @@ services:
     command: >
       sh -c "
         apk add --no-cache curl &&
-        FOLLOW_UP_INTERVAL=300 &&
+        FOLLOW_UP_INTERVAL=1800 &&
         MEETING_BRIEFS_INTERVAL=900 &&
         WATCH_INTERVAL=21600 &&
         LAST_MEETING_BRIEFS=0 &&
@@ -92,7 +92,7 @@ services:
         while true; do
           NOW=$$(date +%s)
 
-          # Follow-up reminders: every 5 minutes
+          # Follow-up reminders: every 30 minutes
           echo \"[cron] Processing follow-up reminders...\"
           curl -s -X GET 'http://web:3000/api/follow-up-reminders' -H \"Authorization: Bearer $${CRON_SECRET}\" || echo \"[cron] Warning: follow-up-reminders request failed\"
 
@@ -110,7 +110,7 @@ services:
             LAST_WATCH=$$NOW
           fi
 
-          echo \"[cron] Sleeping for 5 minutes...\"
+          echo \"[cron] Sleeping for 30 minutes...\"
           sleep $$FOLLOW_UP_INTERVAL
         done
       "
