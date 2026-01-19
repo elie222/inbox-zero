@@ -79,8 +79,9 @@ WORKDIR /app
 # Install openssl for Prisma
 RUN apk add --no-cache openssl
 
-# Install Prisma CLI globally (npm handles all dependencies including @prisma/engines)
-RUN npm install -g prisma@6.16.3
+# Install Prisma CLI globally
+# Note: Prisma 7 requires config file for migrations
+RUN npm install -g prisma@7.2.0
 
 # Copy the standalone server output (contains node_modules subset + server.js)
 COPY --from=builder /app/apps/web/.next/standalone ./
