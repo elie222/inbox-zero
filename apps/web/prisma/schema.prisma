@@ -71,6 +71,7 @@ model User {
   lastLogin                DateTime?
   utms                     Json?
   errorMessages            Json? // eg. user set incorrect AI API key
+  dismissedAnnouncements   String[] @default([]) // IDs of dismissed feature announcements
 
   // survey answers (extracted from onboardingAnswers for easier querying)
   surveyFeatures     String[] // multiple choice: features user is interested in
