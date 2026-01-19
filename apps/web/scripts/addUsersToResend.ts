@@ -1,9 +1,14 @@
 // Run with: `npx tsx scripts/addUsersToResend.ts`. Make sure to set ENV vars
 
+import { PrismaPg } from "@prisma/adapter-pg";
 import { createContact } from "@inboxzero/resend";
 import { PrismaClient } from "@/generated/prisma/client";
 
-const prisma = new PrismaClient();
+const adapter = new PrismaPg({
+  connectionString:
+    process.env.PREVIEW_DATABASE_URL ?? process.env.DATABASE_URL,
+});
+const prisma = new PrismaClient({ adapter });
 
 async function main() {
   const users = await prisma.user.findMany({ select: { email: true } });

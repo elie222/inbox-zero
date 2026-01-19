@@ -192,54 +192,59 @@ const nextConfig: NextConfig = {
   },
   // Security headers: https://nextjs.org/docs/app/building-your-application/configuring/progressive-web-apps#8-securing-your-application
   async headers() {
+    const securityHeaders = [
+      {
+        key: "X-Frame-Options",
+        value: "DENY",
+      },
+      {
+        key: "X-XSS-Protection",
+        value: "1; mode=block",
+      },
+      {
+        key: "X-Content-Type-Options",
+        value: "nosniff",
+      },
+      {
+        key: "Referrer-Policy",
+        value: "strict-origin-when-cross-origin",
+      },
+      {
+        key: "Content-Security-Policy",
+        value: [
+          "default-src 'self'",
+          // Next.js needs these
+          "script-src 'self' 'unsafe-inline' 'unsafe-eval' https:",
+          // Needed for Tailwind/Shadcn
+          "style-src 'self' 'unsafe-inline' https:",
+          // Add this line to allow data: fonts
+          "font-src 'self' data: https:",
+          // For images including avatars and Mux thumbnails
+          "img-src 'self' data: https: blob: https://image.mux.com https://*.litix.io",
+          // For Mux video and audio content
+          "media-src 'self' blob: https://*.mux.com",
+          // If you use web workers or service workers
+          "worker-src 'self' blob:",
+          // For API calls, SWR, external services, and Mux
+          "connect-src 'self' https: wss: https://*.mux.com https://*.litix.io",
+          // iframes for Mux player
+          "frame-src 'self' https:",
+          // Prevent embedding in iframes
+          "frame-ancestors 'none'",
+        ].join("; "),
+      },
+      {
+        key: "Strict-Transport-Security",
+        value: "max-age=31536000",
+      },
+    ];
+
     return [
       {
-        source: "/(.*)",
+        // Apply all security headers + static CORS to non-auth routes
+        source: "/((?!api/auth).*)",
         headers: [
-          {
-            key: "X-Frame-Options",
-            value: "DENY",
-          },
-          {
-            key: "X-XSS-Protection",
-            value: "1; mode=block",
-          },
-          {
-            key: "X-Content-Type-Options",
-            value: "nosniff",
-          },
-          {
-            key: "Referrer-Policy",
-            value: "strict-origin-when-cross-origin",
-          },
-          {
-            key: "Content-Security-Policy",
-            value: [
-              "default-src 'self'",
-              // Next.js needs these
-              "script-src 'self' 'unsafe-inline' 'unsafe-eval' https:",
-              // Needed for Tailwind/Shadcn
-              "style-src 'self' 'unsafe-inline' https:",
-              // Add this line to allow data: fonts
-              "font-src 'self' data: https:",
-              // For images including avatars and Mux thumbnails
-              "img-src 'self' data: https: blob: https://image.mux.com https://*.litix.io",
-              // For Mux video and audio content
-              "media-src 'self' blob: https://*.mux.com",
-              // If you use web workers or service workers
-              "worker-src 'self' blob:",
-              // For API calls, SWR, external services, and Mux
-              "connect-src 'self' https: wss: https://*.mux.com https://*.litix.io",
-              // iframes for Mux player
-              "frame-src 'self' https:",
-              // Prevent embedding in iframes
-              "frame-ancestors 'none'",
-            ].join("; "),
-          },
-          {
-            key: "Strict-Transport-Security",
-            value: "max-age=31536000",
-          },
+          ...securityHeaders,
           {
             key: "Access-Control-Allow-Origin",
             value: env.NEXT_PUBLIC_BASE_URL,
@@ -249,6 +254,11 @@ const nextConfig: NextConfig = {
             value: "GET, POST, PUT, DELETE, OPTIONS",
           },
         ],
+      },
+      {
+        // Auth routes: security headers only, CORS handled by better-auth based on trustedOrigins
+        source: "/api/auth/:path*",
+        headers: securityHeaders,
       },
       {
         source: "/sw.js",

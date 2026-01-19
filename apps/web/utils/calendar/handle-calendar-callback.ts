@@ -6,13 +6,15 @@ import {
   validateOAuthCallback,
   parseAndValidateCalendarState,
   buildCalendarRedirectUrl,
-  verifyEmailAccountAccess,
   checkExistingConnection,
   createCalendarConnection,
+} from "./oauth-callback-helpers";
+import {
+  RedirectError,
   redirectWithMessage,
   redirectWithError,
-  RedirectError,
-} from "./oauth-callback-helpers";
+} from "@/utils/oauth/redirect";
+import { verifyEmailAccountAccess } from "@/utils/oauth/verify";
 import {
   acquireOAuthCodeLock,
   getOAuthCodeResult,

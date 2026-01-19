@@ -1,9 +1,17 @@
+import { after } from "next/server";
 import prisma from "@/utils/prisma";
 import { runRules } from "@/utils/ai/choose-rule/run-rules";
 import { categorizeSender } from "@/utils/categorize/senders/categorize";
 import { isAssistantEmail } from "@/utils/assistant/is-assistant-email";
 import { processAssistantEmail } from "@/utils/assistant/process-assistant-email";
+import { isFilebotEmail } from "@/utils/filebot/is-filebot-email";
+import { processFilingReply } from "@/utils/drive/handle-filing-reply";
+import {
+  processAttachment,
+  getExtractableAttachments,
+} from "@/utils/drive/filing-engine";
 import { handleOutboundMessage } from "@/utils/reply-tracker/handle-outbound";
+import { clearFollowUpLabel } from "@/utils/follow-up/labels";
 import { NewsletterStatus } from "@/generated/prisma/enums";
 import type { EmailAccount } from "@/generated/prisma/client";
 import { extractEmailAddress } from "@/utils/email";
@@ -12,6 +20,7 @@ import type { EmailProvider } from "@/utils/email/types";
 import type { ParsedMessage, RuleWithActions } from "@/utils/types";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import type { Logger } from "@/utils/logger";
+import { captureException } from "@/utils/error";
 
 export type SharedProcessHistoryOptions = {
   provider: EmailProvider;
@@ -19,7 +28,10 @@ export type SharedProcessHistoryOptions = {
   hasAutomationRules: boolean;
   hasAiAccess: boolean;
   emailAccount: EmailAccountWithAI &
-    Pick<EmailAccount, "autoCategorizeSenders">;
+    Pick<
+      EmailAccount,
+      "autoCategorizeSenders" | "filingEnabled" | "filingPrompt" | "email"
+    >;
   logger: Logger;
 };
 
@@ -48,6 +60,8 @@ export async function processHistoryItem(
   const userEmail = emailAccount.email;
 
   try {
+    logger.info("Shared processor started");
+
     // Use pre-fetched message if provided, otherwise fetch it
     const parsedMessage = message ?? (await provider.getMessage(messageId));
 
@@ -101,7 +115,26 @@ export async function processHistoryItem(
       return;
     }
 
+    const isForFilebot = isFilebotEmail({
+      userEmail,
+      emailToCheck: parsedMessage.headers.to,
+    });
+
+    if (isForFilebot) {
+      logger.info("Processing filebot reply.");
+      return processFilingReply({
+        message: parsedMessage,
+        emailAccountId,
+        userEmail,
+        emailProvider: provider,
+        emailAccount,
+        logger,
+      });
+    }
+
     const isOutbound = provider.isSentMessage(parsedMessage);
+
+    logger.info("Message direction check", { isOutbound });
 
     if (isOutbound) {
       await handleOutboundMessage({
@@ -149,6 +182,8 @@ export async function processHistoryItem(
       }
     }
 
+    logger.info("Pre-rules check", { hasAutomationRules, hasAiAccess });
+
     if (hasAutomationRules && hasAiAccess) {
       logger.info("Running rules...");
 
@@ -161,6 +196,58 @@ export async function processHistoryItem(
         modelType: "default",
         logger,
       });
+    }
+
+    // Process attachments for document filing (runs in parallel with rules if both enabled)
+    if (
+      emailAccount.filingEnabled &&
+      emailAccount.filingPrompt &&
+      hasAiAccess
+    ) {
+      after(async () => {
+        const extractableAttachments = getExtractableAttachments(parsedMessage);
+
+        if (extractableAttachments.length > 0) {
+          logger.info("Processing attachments for filing", {
+            count: extractableAttachments.length,
+          });
+
+          // Process each attachment (don't await all - let them run in background)
+          for (const attachment of extractableAttachments) {
+            await processAttachment({
+              emailAccount: {
+                ...emailAccount,
+                filingEnabled: emailAccount.filingEnabled,
+                filingPrompt: emailAccount.filingPrompt,
+                email: emailAccount.email,
+              },
+              message: parsedMessage,
+              attachment,
+              emailProvider: provider,
+              logger,
+            }).catch((error) => {
+              logger.error("Failed to process attachment", {
+                filename: attachment.filename,
+                error,
+              });
+            });
+          }
+        }
+      });
+    }
+
+    // Remove follow-up label if present (they replied, so follow-up no longer needed)
+    // This handles the case where we were awaiting a reply from them
+    try {
+      await clearFollowUpLabel({
+        emailAccountId,
+        threadId: actualThreadId,
+        provider,
+        logger,
+      });
+    } catch (error) {
+      logger.error("Error removing follow-up label on inbound", { error });
+      captureException(error, { emailAccountId });
     }
   } catch (error: unknown) {
     // Handle provider-specific "not found" errors

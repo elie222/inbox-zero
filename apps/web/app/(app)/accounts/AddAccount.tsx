@@ -4,16 +4,18 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { toastError } from "@/components/Toast";
 import Image from "next/image";
-import { TypographyP } from "@/components/Typography";
+import { MutedText } from "@/components/Typography";
 import { getAccountLinkingUrl } from "@/utils/account-linking";
+import { isGoogleProvider } from "@/utils/email/provider-types";
 
 export function AddAccount() {
   const [isLoadingGoogle, setIsLoadingGoogle] = useState(false);
   const [isLoadingMicrosoft, setIsLoadingMicrosoft] = useState(false);
 
   const handleAddAccount = async (provider: "google" | "microsoft") => {
-    const setLoading =
-      provider === "google" ? setIsLoadingGoogle : setIsLoadingMicrosoft;
+    const setLoading = isGoogleProvider(provider)
+      ? setIsLoadingGoogle
+      : setIsLoadingMicrosoft;
     setLoading(true);
 
     try {
@@ -22,7 +24,7 @@ export function AddAccount() {
     } catch (error) {
       console.error(`Error initiating ${provider} link:`, error);
       toastError({
-        title: `Error initiating ${provider === "google" ? "Google" : "Microsoft"} link`,
+        title: `Error initiating ${isGoogleProvider(provider) ? "Google" : "Microsoft"} link`,
         description: "Please try again or contact support",
       });
       setLoading(false);
@@ -66,9 +68,7 @@ export function AddAccount() {
         </Button>
       </div>
 
-      <TypographyP className="text-sm text-muted-foreground">
-        You will be billed for each account.
-      </TypographyP>
+      <MutedText>You will be billed for each account.</MutedText>
     </div>
   );
 }

@@ -2,15 +2,15 @@ import { SystemType } from "@/generated/prisma/enums";
 
 export const CONVERSATION_STATUS_TYPES: SystemType[] = [
   SystemType.TO_REPLY,
-  SystemType.FYI,
   SystemType.AWAITING_REPLY,
+  SystemType.FYI,
   SystemType.ACTIONED,
 ];
 
 export type ConversationStatus =
   | "TO_REPLY"
-  | "FYI"
   | "AWAITING_REPLY"
+  | "FYI"
   | "ACTIONED";
 
 export function isConversationStatusType(

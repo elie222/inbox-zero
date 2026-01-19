@@ -1,4 +1,5 @@
 import type { ParsedMessage } from "@/utils/types";
+import { convertNewlinesToBr, escapeHtml } from "@/utils/string";
 
 export const createOutlookReplyContent = ({
   textContent,
@@ -26,12 +27,12 @@ export const createOutlookReplyContent = ({
     .join("\n");
   const plainText = `${textContent || ""}\n\n${quotedHeader}\n\n${quotedContent || ""}`;
 
-  // Get the message content, preserving any existing quotes
   const messageContent =
-    message.textHtml || message.textPlain?.replace(/\n/g, "<br>") || "";
+    message.textHtml ||
+    (message.textPlain ? convertNewlinesToBr(message.textPlain) : "");
 
-  // Use htmlContent if provided, otherwise convert textContent to HTML
-  const contentHtml = htmlContent || textContent?.replace(/\n/g, "<br>") || "";
+  const contentHtml =
+    htmlContent || (textContent ? convertNewlinesToBr(textContent) : "");
 
   // Outlook-specific font styling with Aptos as default
   const outlookFontStyle =
@@ -42,7 +43,7 @@ export const createOutlookReplyContent = ({
     `<div ${dirAttribute} style="${outlookFontStyle}">${contentHtml}</div>
 <br>
 <div style="border-top: 1px solid #e1e1e1; padding-top: 10px; margin-top: 10px;">
-  <div ${dirAttribute} style="font-size: 11pt; color: rgb(0, 0, 0);">${quotedHeader}<br></div>
+  <div ${dirAttribute} style="font-size: 11pt; color: rgb(0, 0, 0);">${escapeHtml(quotedHeader)}<br></div>
   <div style="margin-top: 10px;">
     ${messageContent}
   </div>

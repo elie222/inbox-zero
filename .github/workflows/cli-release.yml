@@ -1,6 +1,8 @@
 name: CLI Release
 
 on:
+  push:
+    tags: ["v*"]
   workflow_dispatch:
 
 permissions:
@@ -64,8 +66,13 @@ jobs:
       - name: Get version
         id: version
         run: |
-          VERSION=$(cat version.txt | tr -d 'v' | tr -d '\n')
+          if [ "${GITHUB_REF_TYPE}" != "tag" ]; then
+            echo "This workflow must be run from a tag ref (got: ${GITHUB_REF_TYPE} '${GITHUB_REF_NAME}')" >&2
+            exit 1
+          fi
+          VERSION="${GITHUB_REF_NAME#v}"
           echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "tag=$GITHUB_REF_NAME" >> $GITHUB_OUTPUT
 
       - name: Calculate SHA256
         id: sha
@@ -74,52 +81,14 @@ jobs:
           echo "darwin_x64=$(sha256sum artifacts/inbox-zero-darwin-x64/inbox-zero-darwin-x64.tar.gz | cut -d ' ' -f 1)" >> $GITHUB_OUTPUT
           echo "linux_x64=$(sha256sum artifacts/inbox-zero-linux-x64/inbox-zero-linux-x64.tar.gz | cut -d ' ' -f 1)" >> $GITHUB_OUTPUT
 
-      - name: Create Release
+      - name: Upload to Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: cli-v${{ steps.version.outputs.version }}
-          name: CLI v${{ steps.version.outputs.version }}
-          draft: false
-          prerelease: false
+          tag_name: ${{ steps.version.outputs.tag }}
           files: |
             artifacts/inbox-zero-darwin-arm64/inbox-zero-darwin-arm64.tar.gz
             artifacts/inbox-zero-darwin-x64/inbox-zero-darwin-x64.tar.gz
             artifacts/inbox-zero-linux-x64/inbox-zero-linux-x64.tar.gz
-          body: |
-            ## Inbox Zero CLI v${{ steps.version.outputs.version }}
-
-            ### Installation
-
-            **Homebrew (macOS/Linux):**
-            ```bash
-            brew tap inbox-zero/inbox-zero https://github.com/elie222/inbox-zero.git
-            brew install inbox-zero
-            ```
-
-            **Manual installation:**
-            ```bash
-            # macOS (Apple Silicon)
-            curl -L https://github.com/elie222/inbox-zero/releases/download/cli-v${{ steps.version.outputs.version }}/inbox-zero-darwin-arm64.tar.gz | tar xz
-            chmod +x inbox-zero-darwin-arm64
-            sudo mv inbox-zero-darwin-arm64 /usr/local/bin/inbox-zero
-
-            # macOS (Intel)
-            curl -L https://github.com/elie222/inbox-zero/releases/download/cli-v${{ steps.version.outputs.version }}/inbox-zero-darwin-x64.tar.gz | tar xz
-            chmod +x inbox-zero-darwin-x64
-            sudo mv inbox-zero-darwin-x64 /usr/local/bin/inbox-zero
-
-            # Linux
-            curl -L https://github.com/elie222/inbox-zero/releases/download/cli-v${{ steps.version.outputs.version }}/inbox-zero-linux-x64.tar.gz | tar xz
-            chmod +x inbox-zero-linux-x64
-            sudo mv inbox-zero-linux-x64 /usr/local/bin/inbox-zero
-            ```
-
-            ### SHA256 Checksums
-            ```
-            ${{ steps.sha.outputs.darwin_arm64 }}  inbox-zero-darwin-arm64.tar.gz
-            ${{ steps.sha.outputs.darwin_x64 }}  inbox-zero-darwin-x64.tar.gz
-            ${{ steps.sha.outputs.linux_x64 }}  inbox-zero-linux-x64.tar.gz
-            ```
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -133,6 +102,9 @@ jobs:
           
           # Update version
           content = re.sub(r'version "[^"]*"', 'version "${{ steps.version.outputs.version }}"', content)
+          
+          # Update URLs to current version (handles both cli-v* and v* formats)
+          content = re.sub(r'releases/download/(?:cli-)?v[^/]+/', 'releases/download/${{ steps.version.outputs.tag }}/', content)
           
           # Update SHA256 for darwin-arm64 (first sha256 after "on_arm do")
           content = re.sub(
@@ -166,6 +138,6 @@ jobs:
           git config --local user.email "github-actions[bot]@users.noreply.github.com"
           git config --local user.name "github-actions[bot]"
           git add Formula/inbox-zero.rb
-          git diff --staged --quiet || git commit -m "chore: update Homebrew formula for CLI v${{ steps.version.outputs.version }}"
-          git push origin HEAD:${{ github.ref_name }}
+          git diff --staged --quiet || git commit -m "chore: update Homebrew formula for ${{ steps.version.outputs.tag }}"
+          git push origin HEAD:main
 

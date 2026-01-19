@@ -24,8 +24,13 @@ import {
   ItemDescription,
   ItemActions,
   ItemGroup,
-  ItemMedia,
 } from "@/components/ui/item";
+import {
+  Empty,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@/components/ui/empty";
 import { TypographyH3 } from "@/components/Typography";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -80,14 +85,14 @@ export function UpcomingMeetings({
 
       <LoadingContent loading={isLoading} error={error}>
         {!data?.events.length ? (
-          <Item variant="outline" className="mt-4">
-            <ItemMedia>
-              <CalendarIcon className="size-4" />
-            </ItemMedia>
-            <ItemContent>
-              <ItemTitle>No upcoming calendar events found</ItemTitle>
-            </ItemContent>
-          </Item>
+          <Empty className="mt-4 border">
+            <EmptyHeader>
+              <EmptyMedia variant="icon">
+                <CalendarIcon />
+              </EmptyMedia>
+              <EmptyTitle>No upcoming calendar events found</EmptyTitle>
+            </EmptyHeader>
+          </Empty>
         ) : (
           <>
             <ItemGroup className="mt-4 gap-2">
@@ -107,7 +112,6 @@ export function UpcomingMeetings({
                       trigger={
                         <Button
                           variant="outline"
-                          size="sm"
                           Icon={SendIcon}
                           loading={sendingEventId === event.id}
                         >
@@ -155,14 +159,14 @@ function SendHistoryLink() {
           loadingComponent={<Skeleton className="h-10 w-full" />}
         >
           {!data?.briefings.length ? (
-            <Item variant="outline" className="mt-4">
-              <ItemMedia>
-                <CalendarIcon className="size-4" />
-              </ItemMedia>
-              <ItemContent>
-                <ItemTitle>No briefings have been sent yet</ItemTitle>
-              </ItemContent>
-            </Item>
+            <Empty className="mt-4 border">
+              <EmptyHeader>
+                <EmptyMedia variant="icon">
+                  <CalendarIcon />
+                </EmptyMedia>
+                <EmptyTitle>No briefings have been sent yet</EmptyTitle>
+              </EmptyHeader>
+            </Empty>
           ) : (
             <ItemGroup className="mt-2 gap-2">
               {data?.briefings.map((briefing) => (

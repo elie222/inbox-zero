@@ -4,7 +4,7 @@
 
 import type { EmailProvider } from "@/utils/email/types";
 import type { TestAccount } from "./accounts";
-import { getTestSubjectPrefix } from "../config";
+import { getTestSubjectPrefix, getNextMessageSequence } from "../config";
 import { logStep, logAssertion } from "./logging";
 
 interface SendTestEmailOptions {
@@ -30,8 +30,9 @@ export async function sendTestEmail(
 ): Promise<SendTestEmailResult> {
   const { from, to, subject, body, includePrefix = true } = options;
 
+  const seq = getNextMessageSequence();
   const fullSubject = includePrefix
-    ? `${getTestSubjectPrefix()} ${subject}`
+    ? `${getTestSubjectPrefix()}-${seq} ${subject}`
     : subject;
 
   logStep("Sending test email", {
@@ -90,6 +91,7 @@ export async function sendTestReply(options: {
       threadId,
       headerMessageId: originalMessage.headers["message-id"] || "",
       references: originalMessage.headers.references,
+      messageId: originalMessageId, // Needed for Outlook's createReply API
     },
   });
 

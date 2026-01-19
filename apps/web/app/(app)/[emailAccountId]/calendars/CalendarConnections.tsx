@@ -18,7 +18,7 @@ export function CalendarConnections() {
         {connections.length === 0 ? (
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle>Connected Calendars</CardTitle>
+              <CardTitle>Connected calendars</CardTitle>
             </CardHeader>
 
             <CardContent>

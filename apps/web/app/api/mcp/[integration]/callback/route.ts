@@ -155,7 +155,11 @@ export const GET = withError("mcp/callback", async (request, { params }) => {
     });
 
     try {
-      const syncResult = await syncMcpTools(integration, emailAccountId);
+      const syncResult = await syncMcpTools(
+        integration,
+        emailAccountId,
+        logger,
+      );
       logger.info("Auto-synced tools after connection", {
         integration,
         emailAccountId,

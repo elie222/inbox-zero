@@ -3,7 +3,7 @@ services:
   db:
     image: postgres:16
     restart: always
-    container_name: inbox-zero
+    # container_name: inbox-zero
     environment:
       - POSTGRES_USER=${POSTGRES_USER:-postgres}
       - POSTGRES_DB=${POSTGRES_DB:-inboxzero}
@@ -55,6 +55,7 @@ services:
 
   web:
     image: ghcr.io/elie222/inbox-zero:latest
+    pull_policy: always
     env_file:
       - ./apps/web/.env
     depends_on:

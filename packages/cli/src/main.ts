@@ -2,11 +2,12 @@
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
-import { resolve } from "node:path";
+import { basename, resolve } from "node:path";
 import { spawn, spawnSync } from "node:child_process";
 import { program } from "commander";
 import * as p from "@clack/prompts";
 import { generateSecret, generateEnvFile, type EnvConfig } from "./utils";
+import { runGoogleSetup } from "./setup-google";
 
 // Detect if we're running from within the repo
 function findRepoRoot(): string | null {
@@ -102,6 +103,17 @@ async function main() {
     .command("update")
     .description("Pull latest Inbox Zero image")
     .action(runUpdate);
+
+  program
+    .command("setup-google")
+    .description(
+      "Set up Google Cloud APIs, OAuth, and Pub/Sub using gcloud CLI",
+    )
+    .option("--project-id <id>", "Google Cloud project ID")
+    .option("--domain <domain>", "Your app domain (e.g., app.example.com)")
+    .option("--skip-oauth", "Skip OAuth credential setup guidance")
+    .option("--skip-pubsub", "Skip Pub/Sub setup")
+    .action(runGoogleSetup);
 
   // Default to help if no command
   if (process.argv.length === 2) {
@@ -995,7 +1007,7 @@ const isMainModule =
   process.argv[1] &&
   (process.argv[1].endsWith("main.ts") ||
     process.argv[1].endsWith("inbox-zero.js") ||
-    process.argv[1].endsWith("inbox-zero"));
+    basename(process.argv[1]).startsWith("inbox-zero"));
 
 if (isMainModule) {
   main().catch((error) => {

@@ -3,6 +3,7 @@ import type { Logger } from "@/utils/logger";
 import type { CalendarEventProvider } from "@/utils/calendar/event-types";
 import { GoogleCalendarEventProvider } from "@/utils/calendar/providers/google-events";
 import { MicrosoftCalendarEventProvider } from "@/utils/calendar/providers/microsoft-events";
+import { isGoogleProvider } from "@/utils/email/provider-types";
 
 /**
  * Create calendar event providers for all connected calendars.
@@ -37,7 +38,7 @@ export async function createCalendarEventProviders(
     if (!connection.refreshToken) continue;
 
     try {
-      if (connection.provider === "google") {
+      if (isGoogleProvider(connection.provider)) {
         providers.push(
           new GoogleCalendarEventProvider(
             {

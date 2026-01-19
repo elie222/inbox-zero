@@ -64,15 +64,18 @@ const TERMINAL_STATUSES = ["APPLIED", "SKIPPED", "ERROR"];
  *
  * Note: ExecutedRule starts in "APPLYING" status while actions are being executed.
  * This function waits until it reaches a terminal status (APPLIED, SKIPPED, or ERROR).
+ *
+ * Uses threadId for matching as it's more stable than messageId across webhook notifications.
  */
 export async function waitForExecutedRule(options: {
-  messageId: string;
+  threadId: string;
   emailAccountId: string;
   timeout?: number;
 }): Promise<{
   id: string;
   ruleId: string | null;
   status: string;
+  messageId: string;
   actionItems: Array<{
     id: string;
     type: string;
@@ -81,18 +84,18 @@ export async function waitForExecutedRule(options: {
   }>;
 }> {
   const {
-    messageId,
+    threadId,
     emailAccountId,
     timeout = TIMEOUTS.WEBHOOK_PROCESSING,
   } = options;
 
-  logStep("Waiting for ExecutedRule", { messageId, emailAccountId });
+  logStep("Waiting for ExecutedRule", { threadId, emailAccountId });
 
   return pollUntil(
     async () => {
       const executedRule = await prisma.executedRule.findFirst({
         where: {
-          messageId,
+          threadId,
           emailAccountId,
         },
         include: {
@@ -111,7 +114,7 @@ export async function waitForExecutedRule(options: {
       });
 
       if (!executedRule) {
-        logStep("ExecutedRule not found yet", { messageId });
+        logStep("ExecutedRule not found yet", { threadId });
         return null;
       }
 
@@ -128,6 +131,7 @@ export async function waitForExecutedRule(options: {
         id: executedRule.id,
         ruleId: executedRule.ruleId,
         status: executedRule.status,
+        messageId: executedRule.messageId,
         actionItems: executedRule.actionItems.map((a) => ({
           id: a.id,
           type: a.type,
@@ -138,7 +142,7 @@ export async function waitForExecutedRule(options: {
     },
     {
       timeout,
-      description: `ExecutedRule for message ${messageId} to reach terminal status`,
+      description: `ExecutedRule for thread ${threadId} to reach terminal status`,
     },
   );
 }
@@ -295,6 +299,39 @@ export async function waitForDraftDeleted(options: {
     {
       timeout,
       description: `Draft ${draftId} to be deleted`,
+    },
+  );
+}
+
+/**
+ * Wait for all drafts in a thread to be cleared
+ * (either deleted or moved out of Drafts folder by Microsoft)
+ *
+ * This is useful for handling timing issues where Microsoft's async
+ * processing of sent drafts may leave temporary drafts briefly visible.
+ */
+export async function waitForNoThreadDrafts(options: {
+  threadId: string;
+  provider: EmailProvider;
+  timeout?: number;
+}): Promise<void> {
+  const { threadId, provider, timeout = TIMEOUTS.WEBHOOK_PROCESSING } = options;
+
+  logStep("Waiting for all thread drafts to clear", { threadId });
+
+  await pollUntil(
+    async () => {
+      const drafts = await provider.getDrafts({ maxResults: 50 });
+      const threadDrafts = drafts.filter((d) => d.threadId === threadId);
+      if (threadDrafts.length > 0) {
+        logStep("Thread still has drafts", { count: threadDrafts.length });
+        return null;
+      }
+      return true;
+    },
+    {
+      timeout,
+      description: `All drafts for thread ${threadId} to be cleared`,
     },
   );
 }

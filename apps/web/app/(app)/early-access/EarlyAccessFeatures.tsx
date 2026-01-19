@@ -45,7 +45,7 @@ export function EarlyAccessFeatures() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Early Access Features</CardTitle>
+        <CardTitle>Early access features</CardTitle>
         <CardDescription>
           You can enable and disable early access features here.
         </CardDescription>

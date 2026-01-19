@@ -1,22 +1,25 @@
 import { z } from "zod";
 import { createGenerateObject } from "@/utils/llms";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
-import type { EmailForLLM } from "@/utils/types";
+import type { EmailForLLM, RuleWithActions } from "@/utils/types";
 import { getModel, type ModelType } from "@/utils/llms/model";
 import { getUserInfoPrompt, getEmailListPrompt } from "@/utils/ai/helpers";
 import type { ConversationStatus } from "@/utils/reply-tracker/conversation-status-config";
 import { SystemType } from "@/generated/prisma/enums";
+import { getRuleConfig } from "@/utils/rule/consts";
 
 export async function aiDetermineThreadStatus({
   emailAccount,
   threadMessages,
   modelType,
   userSentLastEmail = false,
+  conversationRules = [],
 }: {
   emailAccount: EmailAccountWithAI;
   threadMessages: EmailForLLM[];
   modelType?: ModelType;
   userSentLastEmail?: boolean;
+  conversationRules?: RuleWithActions[];
 }): Promise<{ status: ConversationStatus; rationale: string }> {
   const system = `You are an AI assistant that analyzes email threads to determine their current status.
 
@@ -88,11 +91,33 @@ CRITICAL RULES - READ CAREFULLY:
   }
 
 Respond with a JSON object with:
-- status: One of TO_REPLY, ${userSentLastEmail ? "" : "FYI, "}AWAITING_REPLY, or ACTIONED
+- status: One of TO_REPLY, AWAITING_REPLY, ${userSentLastEmail ? "" : "FYI, "}or ACTIONED
 - rationale: Brief one-line explanation for the decision`;
 
-  const prompt = `${getUserInfoPrompt({ emailAccount })}
+  // Only include custom preferences when user has edited the default instructions
+  const customizedRules = conversationRules.filter((r) => {
+    if (!r.enabled || !r.instructions || !r.systemType) return false;
+    const defaultInstructions = getRuleConfig(r.systemType).instructions;
+    return r.instructions !== defaultInstructions;
+  });
 
+  const conversationPreferences = customizedRules
+    .map((r) => `${r.name}: ${r.instructions}`)
+    .join("\n");
+
+  const prompt = `${getUserInfoPrompt({ emailAccount })}
+${
+  conversationPreferences
+    ? `
+USER'S CONVERSATION PREFERENCES:
+<conversation_preferences>
+${conversationPreferences}
+</conversation_preferences>
+
+Apply these preferences when determining the thread status.
+`
+    : ""
+}
 Email thread (in chronological order, oldest to newest):
 
 <thread>
@@ -122,8 +147,8 @@ Based on the full thread context above, determine the current status of this thr
         ])
       : z.enum([
           SystemType.TO_REPLY,
-          SystemType.FYI,
           SystemType.AWAITING_REPLY,
+          SystemType.FYI,
           SystemType.ACTIONED,
         ]),
     rationale: z.string(),

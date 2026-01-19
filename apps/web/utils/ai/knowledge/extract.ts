@@ -5,8 +5,11 @@ import type { EmailAccountWithAI } from "@/utils/llms/types";
 import { getModel } from "@/utils/llms/model";
 import { createGenerateObject } from "@/utils/llms";
 import { getUserInfoPrompt } from "@/utils/ai/helpers";
+import { PROMPT_SECURITY_INSTRUCTIONS } from "@/utils/ai/security";
 
 const system = `You are a knowledge extraction agent. Your task is to analyze the provided knowledge base entries and extract the most relevant information for drafting an email response, based ONLY on the provided knowledge base entries.
+
+${PROMPT_SECURITY_INSTRUCTIONS}
 
 Given:
 1. A set of knowledge base entries (each with a title and content)

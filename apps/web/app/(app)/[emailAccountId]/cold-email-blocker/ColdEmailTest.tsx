@@ -10,7 +10,7 @@ export function ColdEmailTest() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Test Cold Email Blocker</CardTitle>
+        <CardTitle>Test cold email blocker</CardTitle>
 
         <CardDescription>
           Check how your the cold email blocker performs against previous

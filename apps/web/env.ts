@@ -18,6 +18,8 @@ export const env = createEnv({
   server: {
     NODE_ENV: z.enum(["development", "production", "test"]),
     DATABASE_URL: z.string().url(),
+    PREVIEW_DATABASE_URL: z.string().url().optional(),
+    PREVIEW_DATABASE_URL_UNPOOLED: z.string().url().optional(),
 
     AUTH_SECRET: z.string().optional(),
     NEXTAUTH_SECRET: z.string().optional(),
@@ -122,6 +124,17 @@ export const env = createEnv({
     WHITELIST_FROM: z.string().optional(),
     USE_BACKUP_MODEL: z.coerce.boolean().optional().default(false),
     HEALTH_API_KEY: z.string().optional(),
+    OAUTH_PROXY_URL: z.string().url().optional(),
+    // Additional trusted origins for CORS (comma-separated, supports wildcards like https://*.vercel.app)
+    ADDITIONAL_TRUSTED_ORIGINS: z
+      .string()
+      .optional()
+      .transform((value) =>
+        value
+          ?.split(",")
+          .map((s) => s.trim())
+          .filter(Boolean)
+      ),
 
     // license
     LICENSE_1_SEAT_VARIANT_ID: z.coerce.number().optional(),
@@ -189,7 +202,9 @@ export const env = createEnv({
     NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS: z.coerce.boolean().optional(),
     NEXT_PUBLIC_DIGEST_ENABLED: z.coerce.boolean().optional(),
     NEXT_PUBLIC_MEETING_BRIEFS_ENABLED: z.coerce.boolean().optional(),
+    NEXT_PUBLIC_FOLLOW_UP_REMINDERS_ENABLED: z.coerce.boolean().optional(),
     NEXT_PUBLIC_INTEGRATIONS_ENABLED: z.coerce.boolean().optional(),
+    NEXT_PUBLIC_SMART_FILING_ENABLED: z.coerce.boolean().optional(),
     NEXT_PUBLIC_CLEANER_ENABLED: z.coerce.boolean().optional(),
     NEXT_PUBLIC_IS_RESEND_CONFIGURED: z.coerce.boolean().optional(),
   },
@@ -251,8 +266,12 @@ export const env = createEnv({
     NEXT_PUBLIC_DIGEST_ENABLED: process.env.NEXT_PUBLIC_DIGEST_ENABLED,
     NEXT_PUBLIC_MEETING_BRIEFS_ENABLED:
       process.env.NEXT_PUBLIC_MEETING_BRIEFS_ENABLED,
+    NEXT_PUBLIC_FOLLOW_UP_REMINDERS_ENABLED:
+      process.env.NEXT_PUBLIC_FOLLOW_UP_REMINDERS_ENABLED,
     NEXT_PUBLIC_INTEGRATIONS_ENABLED:
       process.env.NEXT_PUBLIC_INTEGRATIONS_ENABLED,
+    NEXT_PUBLIC_SMART_FILING_ENABLED:
+      process.env.NEXT_PUBLIC_SMART_FILING_ENABLED,
     NEXT_PUBLIC_CLEANER_ENABLED: process.env.NEXT_PUBLIC_CLEANER_ENABLED,
     NEXT_PUBLIC_IS_RESEND_CONFIGURED:
       process.env.NEXT_PUBLIC_IS_RESEND_CONFIGURED,

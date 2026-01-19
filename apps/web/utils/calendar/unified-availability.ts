@@ -5,6 +5,7 @@ import prisma from "@/utils/prisma";
 import type { BusyPeriod } from "./availability-types";
 import { createGoogleAvailabilityProvider } from "./providers/google-availability";
 import { createMicrosoftAvailabilityProvider } from "./providers/microsoft-availability";
+import { isGoogleProvider } from "@/utils/email/provider-types";
 
 /**
  * Fetch calendar availability across all connected calendars (Google and Microsoft)
@@ -61,8 +62,8 @@ export async function getUnifiedCalendarAvailability({
   }
 
   // Group calendars by provider
-  const googleConnections = calendarConnections.filter(
-    (conn) => conn.provider === "google",
+  const googleConnections = calendarConnections.filter((conn) =>
+    isGoogleProvider(conn.provider),
   );
   const microsoftConnections = calendarConnections.filter(
     (conn) => conn.provider === "microsoft",

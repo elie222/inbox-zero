@@ -6,12 +6,16 @@ import {
   saveEmailUpdateSettingsBody,
   saveDigestScheduleBody,
   updateDigestItemsBody,
+  toggleDigestBody,
 } from "@/utils/actions/settings.validation";
 import { DEFAULT_PROVIDER } from "@/utils/llms/config";
 import prisma from "@/utils/prisma";
-import { calculateNextScheduleDate } from "@/utils/schedule";
+import {
+  calculateNextScheduleDate,
+  createCanonicalTimeOfDay,
+} from "@/utils/schedule";
 import { actionClientUser } from "@/utils/actions/safe-action";
-import { ActionType } from "@/generated/prisma/enums";
+import { ActionType, SystemType } from "@/generated/prisma/enums";
 import type { Prisma } from "@/generated/prisma/client";
 import { clearSpecificErrorMessages, ErrorType } from "@/utils/error-messages";
 
@@ -84,7 +88,6 @@ export const updateDigestScheduleAction = actionClient
       }),
     };
 
-    // remove emailAccountId for update
     const { emailAccountId: _emailAccountId, ...update } = create;
 
     await prisma.schedule.upsert({
@@ -148,3 +151,51 @@ export const updateDigestItemsAction = actionClient
       return { success: true };
     },
   );
+
+export const toggleDigestAction = actionClient
+  .metadata({ name: "toggleDigest" })
+  .inputSchema(toggleDigestBody)
+  .action(async ({ ctx: { emailAccountId }, parsedInput: { enabled } }) => {
+    if (enabled) {
+      const defaultSchedule = {
+        intervalDays: 1,
+        occurrences: 1,
+        daysOfWeek: 127,
+        timeOfDay: createCanonicalTimeOfDay(9, 0),
+      };
+
+      await prisma.schedule.upsert({
+        where: { emailAccountId },
+        create: {
+          emailAccountId,
+          ...defaultSchedule,
+          lastOccurrenceAt: new Date(),
+          nextOccurrenceAt: calculateNextScheduleDate({
+            ...defaultSchedule,
+            lastOccurrenceAt: null,
+          }),
+        },
+        update: {},
+      });
+
+      const newsletterRule = await prisma.rule.findFirst({
+        where: { emailAccountId, systemType: SystemType.NEWSLETTER },
+        include: { actions: true },
+      });
+
+      if (
+        newsletterRule &&
+        !newsletterRule.actions.some((a) => a.type === ActionType.DIGEST)
+      ) {
+        await prisma.action.create({
+          data: { ruleId: newsletterRule.id, type: ActionType.DIGEST },
+        });
+      }
+    } else {
+      await prisma.schedule.deleteMany({
+        where: { emailAccountId },
+      });
+    }
+
+    return { success: true };
+  });

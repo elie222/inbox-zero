@@ -1,7 +1,12 @@
 import type { Message } from "@microsoft/microsoft-graph-types";
 import type { OutlookClient } from "@/utils/outlook/client";
 import type { Logger } from "@/utils/logger";
-import { convertMessage } from "@/utils/outlook/message";
+import { isNotFoundError } from "@/utils/outlook/errors";
+import {
+  convertMessage,
+  getCategoryMap,
+  getFolderIds,
+} from "@/utils/outlook/message";
 import { withOutlookRetry } from "@/utils/outlook/retry";
 
 export async function getDraft({
@@ -14,11 +19,30 @@ export async function getDraft({
   logger: Logger;
 }) {
   try {
-    const response: Message = await withOutlookRetry(
-      () => client.getClient().api(`/me/messages/${draftId}`).get(),
-      logger,
-    );
-    const message = convertMessage(response);
+    const [response, folderIds, categoryMap] = await Promise.all([
+      withOutlookRetry(
+        () =>
+          client
+            .getClient()
+            .api(`/me/messages/${draftId}`)
+            .get() as Promise<Message>,
+        logger,
+      ),
+      getFolderIds(client, logger),
+      getCategoryMap(client, logger),
+    ]);
+
+    // Treat drafts NOT in Drafts folder as "deleted" - when a draft is sent or deleted,
+    // it gets moved to another folder (Sent Items, Deleted Items, Outbox, etc.)
+    // For draft cleanup purposes, we only care about drafts in the Drafts folder
+    if (folderIds.drafts && response.parentFolderId !== folderIds.drafts) {
+      logger.info("Draft is no longer in Drafts folder, treating as deleted.", {
+        draftId,
+      });
+      return null;
+    }
+
+    const message = convertMessage(response, folderIds, categoryMap);
     return message;
   } catch (error) {
     if (isNotFoundError(error)) {
@@ -41,47 +65,22 @@ export async function deleteDraft({
 }) {
   try {
     logger.info("Deleting draft", { draftId });
+
+    // DELETE moves the draft to Deleted Items folder (not permanently deleted)
+    // This is fine - getDraft() treats drafts not in Drafts folder as "deleted"
     await withOutlookRetry(
       () => client.getClient().api(`/me/messages/${draftId}`).delete(),
       logger,
     );
-    logger.info("Successfully deleted draft", { draftId });
+
+    logger.info("Draft deleted successfully", { draftId });
   } catch (error) {
     if (isNotFoundError(error)) {
-      logger.warn("Draft not found or already deleted, skipping deletion.", {
-        draftId,
-      });
+      logger.info("Draft not found or already deleted", { draftId });
       return;
     }
 
     logger.error("Failed to delete draft", { draftId, error });
     throw error;
   }
-}
-
-function isNotFoundError(error: unknown): boolean {
-  const err = error as {
-    statusCode?: number;
-    code?: number | string;
-    message?: string;
-  };
-
-  // Check error code
-  if (
-    err?.statusCode === 404 ||
-    err?.code === 404 ||
-    err?.code === "ErrorItemNotFound" ||
-    err?.code === "itemNotFound"
-  ) {
-    return true;
-  }
-
-  if (
-    err?.message?.includes("not found in the store") ||
-    err?.message?.includes("ErrorItemNotFound")
-  ) {
-    return true;
-  }
-
-  return false;
 }

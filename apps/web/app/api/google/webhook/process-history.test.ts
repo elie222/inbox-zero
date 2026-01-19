@@ -32,6 +32,7 @@ vi.mock("@/utils/prisma", () => ({
     emailAccount: {
       update: vi.fn().mockResolvedValue({}),
     },
+    $executeRaw: vi.fn().mockResolvedValue(1),
   },
 }));
 
@@ -85,11 +86,8 @@ describe("processHistoryForUser - 404 Handling", () => {
     const jsonResponse = await (result as any).json();
     expect(jsonResponse).toEqual({ ok: true });
 
-    // Verify lastSyncedHistoryId was updated to the current historyId
-    expect(prisma.emailAccount.update).toHaveBeenCalledWith({
-      where: { id: "account-123" },
-      data: { lastSyncedHistoryId: "2000" },
-    });
+    // Verify lastSyncedHistoryId was updated to the current historyId via conditional update
+    expect(prisma.$executeRaw).toHaveBeenCalled();
   });
 
   it("should log a warning when history items are skipped due to large gap", async () => {

@@ -90,12 +90,12 @@ export function Members({ organizationId }: { organizationId: string }) {
   const handleRemoveMember = useCallback(
     (memberId: string) =>
       handleAction(
-        () => removeMemberAction(emailAccountId, { memberId }),
+        () => removeMemberAction({ memberId }),
         "Error removing member",
         "Member removed successfully",
         "Failed to remove member",
       ),
-    [handleAction, emailAccountId],
+    [handleAction],
   );
 
   const handleCancelInvitation = useCallback(

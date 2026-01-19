@@ -5,9 +5,9 @@ import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { toastError } from "@/components/Toast";
+import { captureException } from "@/utils/error";
 import type { GetCalendarAuthUrlResponse } from "@/app/api/google/calendar/auth-url/route";
 import { fetchWithAccount } from "@/utils/fetch";
-import { createScopedLogger } from "@/utils/logger";
 import { CALENDAR_ONBOARDING_RETURN_COOKIE } from "@/utils/calendar/constants";
 
 export function ConnectCalendar({
@@ -18,7 +18,6 @@ export function ConnectCalendar({
   const { emailAccountId } = useAccount();
   const [isConnectingGoogle, setIsConnectingGoogle] = useState(false);
   const [isConnectingMicrosoft, setIsConnectingMicrosoft] = useState(false);
-  const logger = createScopedLogger("calendar-connection");
 
   const setOnboardingReturnCookie = () => {
     if (onboardingReturnPath) {
@@ -43,10 +42,8 @@ export function ConnectCalendar({
       setOnboardingReturnCookie();
       window.location.href = data.url;
     } catch (error) {
-      logger.error("Error initiating Google calendar connection", {
-        error,
-        emailAccountId,
-        provider: "google",
+      captureException(error, {
+        extra: { context: "Google Calendar OAuth initiation" },
       });
       toastError({
         title: "Error initiating Google calendar connection",
@@ -73,10 +70,8 @@ export function ConnectCalendar({
       setOnboardingReturnCookie();
       window.location.href = data.url;
     } catch (error) {
-      logger.error("Error initiating Microsoft calendar connection", {
-        error,
-        emailAccountId,
-        provider: "microsoft",
+      captureException(error, {
+        extra: { context: "Microsoft Calendar OAuth initiation" },
       });
       toastError({
         title: "Error initiating Microsoft calendar connection",
