@@ -65,11 +65,16 @@ async function handleBatchInternal(request: RequestWithLogger) {
   const sendersWithEmails: Map<string, { subject: string; snippet: string }[]> =
     new Map();
 
+  const senderNameMap = new Map<string, string | null>();
+  for (const sender of senders) {
+    senderNameMap.set(sender.email, sender.name);
+  }
+
   // 1. fetch 3 messages for each sender
   for (const sender of senders) {
     const threadsFromSender =
-      await emailProvider.getThreadsFromSenderWithSubject(sender, 3);
-    sendersWithEmails.set(sender, threadsFromSender);
+      await emailProvider.getThreadsFromSenderWithSubject(sender.email, 3);
+    sendersWithEmails.set(sender.email, threadsFromSender);
   }
 
   // 2. categorize senders with ai
@@ -86,6 +91,7 @@ async function handleBatchInternal(request: RequestWithLogger) {
   for (const result of results) {
     await updateSenderCategory({
       sender: result.sender,
+      senderName: senderNameMap.get(result.sender),
       categories,
       categoryName: result.category ?? UNKNOWN_CATEGORY,
       emailAccountId,
