@@ -166,10 +166,7 @@ export async function cleanupThreadAIDrafts({
         },
         type: ActionType.DRAFT_EMAIL,
         draftId: { not: null },
-        OR: [
-          { draftSendLog: null },
-          { wasDraftSent: false },
-        ],
+        OR: [{ draftSendLog: null }, { wasDraftSent: false }],
       },
       select: {
         id: true,
@@ -262,7 +259,7 @@ export async function cleanupThreadAIDrafts({
       }
     }
 
-    logger.info("Completed cleanup of old AI drafts for thread");
+    logger.info("Completed cleanup of AI drafts for thread");
   } catch (error) {
     logger.error("Error during thread draft cleanup", { error });
   }
