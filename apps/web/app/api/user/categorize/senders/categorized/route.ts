@@ -2,7 +2,6 @@ import { NextResponse } from "next/server";
 import prisma from "@/utils/prisma";
 import { withEmailAccount } from "@/utils/middleware";
 import { getUserCategoriesWithRules } from "@/utils/category.server";
-import { Prisma } from "@/generated/prisma/client";
 
 export type CategorizedSendersResponse = Awaited<
   ReturnType<typeof getCategorizedSenders>
@@ -30,37 +29,8 @@ async function getCategorizedSenders({
     }),
   ]);
 
-  // Get sender names from EmailMessage table for senders that don't have a name stored
-  const senderEmails = senders.filter((s) => !s.name).map((s) => s.email);
-
-  let senderNamesMap: Record<string, string> = {};
-
-  if (senderEmails.length > 0) {
-    const senderNames = await prisma.$queryRaw<
-      { from: string; fromName: string | null }[]
-    >(Prisma.sql`
-      SELECT "from", MAX("fromName") as "fromName"
-      FROM "EmailMessage"
-      WHERE "emailAccountId" = ${emailAccountId}
-        AND "from" IN (${Prisma.join(senderEmails)})
-        AND "fromName" IS NOT NULL
-        AND "fromName" != ''
-      GROUP BY "from"
-    `);
-
-    senderNamesMap = Object.fromEntries(
-      senderNames.map((s) => [s.from, s.fromName || ""]),
-    );
-  }
-
-  // Merge sender names into senders
-  const sendersWithNames = senders.map((sender) => ({
-    ...sender,
-    name: sender.name || senderNamesMap[sender.email] || null,
-  }));
-
   return {
-    senders: sendersWithNames,
+    senders,
     categories,
     autoCategorizeSenders: emailAccount?.autoCategorizeSenders ?? false,
   };
