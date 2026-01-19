@@ -5,6 +5,7 @@ import { useState } from "react";
 import Link from "next/link";
 import {
   ArchiveIcon,
+  CheckIcon,
   ChevronDownIcon,
   ChevronUpIcon,
   ExpandIcon,
@@ -42,6 +43,7 @@ import { NewsletterStatus } from "@/generated/prisma/enums";
 import { toastError, toastSuccess } from "@/components/Toast";
 import { createFilterAction } from "@/utils/actions/mail";
 import { getGmailSearchUrl } from "@/utils/url";
+import { extractNameFromEmail } from "@/utils/email";
 import { Badge } from "@/components/ui/badge";
 import type { Row } from "@/app/(app)/[emailAccountId]/bulk-unsubscribe/types";
 import {
@@ -144,6 +146,7 @@ function UnsubscribeButton<T extends Row>({
   emailAccountId: string;
 }) {
   const [resubscribeDialogOpen, setResubscribeDialogOpen] = useState(false);
+  const [unblockComplete, setUnblockComplete] = useState(false);
 
   const { unsubscribeLoading, onUnsubscribe, unsubscribeLink } = useUnsubscribe(
     {
@@ -165,9 +168,18 @@ function UnsubscribeButton<T extends Row>({
       ? "Unsubscribe"
       : "Block";
 
+  const senderName = item.fromName || extractNameFromEmail(item.name);
+
   const handleUnblock = async () => {
     await onUnsubscribe();
-    setResubscribeDialogOpen(false);
+    setUnblockComplete(true);
+  };
+
+  const handleDialogClose = (open: boolean) => {
+    setResubscribeDialogOpen(open);
+    if (!open) {
+      setUnblockComplete(false);
+    }
   };
 
   if (isUnsubscribed) {
@@ -183,30 +195,64 @@ function UnsubscribeButton<T extends Row>({
           {buttonText}
         </Button>
 
-        <Dialog
-          open={resubscribeDialogOpen}
-          onOpenChange={setResubscribeDialogOpen}
-        >
+        <Dialog open={resubscribeDialogOpen} onOpenChange={handleDialogClose}>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Want to receive these emails again?</DialogTitle>
+              <DialogTitle>Resubscribe to {senderName}</DialogTitle>
               <DialogDescription className="pt-2">
-                When you unsubscribed, we started auto-archiving emails from
-                this sender. We can stop doing that, but you'll need to
-                resubscribe on the sender's website to start receiving their
-                emails again.
+                We can stop blocking them, but you'll need to sign up again on
+                their website.
               </DialogDescription>
             </DialogHeader>
-            <DialogFooter className="gap-2 sm:gap-0">
+
+            <div className="rounded-lg border">
+              {/* Step 1 */}
+              <div className="flex gap-4 p-4">
+                <div className="flex size-7 shrink-0 items-center justify-center rounded-full border bg-muted text-sm font-medium">
+                  {unblockComplete ? (
+                    <CheckIcon className="size-4 text-green-600" />
+                  ) : (
+                    "1"
+                  )}
+                </div>
+                <div className="flex flex-1 items-center justify-between gap-4">
+                  <div className="font-medium">Stop blocking</div>
+                  {unblockComplete ? (
+                    <p className="shrink-0 text-sm font-medium text-green-600">
+                      Unblocked
+                    </p>
+                  ) : (
+                    <Button
+                      size="sm"
+                      className="shrink-0"
+                      onClick={handleUnblock}
+                      disabled={unsubscribeLoading}
+                    >
+                      {unsubscribeLoading && <ButtonLoader />}
+                      Unblock
+                    </Button>
+                  )}
+                </div>
+              </div>
+
+              {/* Separator */}
+              <div className="border-t" />
+
+              {/* Step 2 */}
+              <div className="flex gap-4 p-4">
+                <div className="flex size-7 shrink-0 items-center justify-center rounded-full border bg-muted text-sm font-medium">
+                  2
+                </div>
+                <div className="font-medium">Sign up on their website</div>
+              </div>
+            </div>
+
+            <DialogFooter>
               <Button
                 variant="outline"
-                onClick={() => setResubscribeDialogOpen(false)}
+                onClick={() => handleDialogClose(false)}
               >
-                Cancel
-              </Button>
-              <Button onClick={handleUnblock} disabled={unsubscribeLoading}>
-                {unsubscribeLoading && <ButtonLoader />}
-                Stop blocking
+                Close
               </Button>
             </DialogFooter>
           </DialogContent>
