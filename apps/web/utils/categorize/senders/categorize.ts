@@ -19,6 +19,7 @@ export async function categorizeSender(
   emailAccount: EmailAccountWithAI,
   provider: EmailProvider,
   userCategories?: Pick<Category, "id" | "name" | "description">[],
+  senderName?: string | null,
 ) {
   const categories =
     userCategories ||
@@ -38,20 +39,9 @@ export async function categorizeSender(
   });
 
   if (aiResult) {
-    // Look up sender name from EmailMessage
-    const senderNameResult = await prisma.emailMessage.findFirst({
-      where: {
-        emailAccountId: emailAccount.id,
-        from: senderAddress,
-        fromName: { not: null },
-      },
-      select: { fromName: true },
-      orderBy: { date: "desc" },
-    });
-
     const { newsletter } = await updateSenderCategory({
       sender: senderAddress,
-      senderName: senderNameResult?.fromName,
+      senderName,
       categories,
       categoryName: aiResult.category,
       emailAccountId: emailAccount.id,

@@ -16,6 +16,7 @@ export async function getSenders({
     },
     select: {
       from: true,
+      fromName: true,
     },
     distinct: ["from"],
     skip: offset,

@@ -4,6 +4,11 @@ import prisma from "@/utils/prisma";
 
 const MAX_ITERATIONS = 200;
 
+export type UncategorizedSender = {
+  email: string;
+  name: string | null;
+};
+
 export async function getUncategorizedSenders({
   emailAccountId,
   offset = 0,
@@ -13,7 +18,7 @@ export async function getUncategorizedSenders({
   offset?: number;
   limit?: number;
 }) {
-  let uncategorizedSenders: string[] = [];
+  let uncategorizedSenders: UncategorizedSender[] = [];
   let currentOffset = offset;
 
   while (uncategorizedSenders.length === 0 && currentOffset < MAX_ITERATIONS) {
@@ -22,11 +27,22 @@ export async function getUncategorizedSenders({
       limit,
       offset: currentOffset,
     });
-    const allSenders = result.map((sender) => extractEmailAddress(sender.from));
+
+    // Build a map of email -> name for lookup
+    const senderMap = new Map<string, string | null>();
+    for (const sender of result) {
+      const email = extractEmailAddress(sender.from);
+      // Only set the name if we don't already have one (keep first non-null)
+      if (!senderMap.has(email) || (!senderMap.get(email) && sender.fromName)) {
+        senderMap.set(email, sender.fromName);
+      }
+    }
+
+    const allSenderEmails = Array.from(senderMap.keys());
 
     const existingSenders = await prisma.newsletter.findMany({
       where: {
-        email: { in: allSenders },
+        email: { in: allSenderEmails },
         emailAccountId,
         category: { isNot: null },
       },
@@ -35,12 +51,12 @@ export async function getUncategorizedSenders({
 
     const existingSenderEmails = new Set(existingSenders.map((s) => s.email));
 
-    uncategorizedSenders = allSenders.filter(
-      (email) => !existingSenderEmails.has(email),
-    );
+    uncategorizedSenders = allSenderEmails
+      .filter((email) => !existingSenderEmails.has(email))
+      .map((email) => ({ email, name: senderMap.get(email) ?? null }));
 
     // Break the loop if no more senders are available
-    if (allSenders.length < limit) {
+    if (allSenderEmails.length < limit) {
       return { uncategorizedSenders };
     }
 

@@ -61,33 +61,48 @@ export const bulkCategorizeSendersAction = actionClient
 
     const LIMIT = 100;
 
+    type SenderWithName = { email: string; name: string | null };
+
     async function getUncategorizedSenders(offset: number) {
       const result = await getSenders({
         emailAccountId,
         limit: LIMIT,
         offset,
       });
-      const allSenders = result.map((sender) =>
-        extractEmailAddress(sender.from),
-      );
+
+      // Build a map of email -> name
+      const senderMap = new Map<string, string | null>();
+      for (const sender of result) {
+        const email = extractEmailAddress(sender.from);
+        if (
+          !senderMap.has(email) ||
+          (!senderMap.get(email) && sender.fromName)
+        ) {
+          senderMap.set(email, sender.fromName);
+        }
+      }
+
+      const allSenderEmails = Array.from(senderMap.keys());
+
       const existingSenders = await prisma.newsletter.findMany({
         where: {
-          email: { in: allSenders },
+          email: { in: allSenderEmails },
           emailAccountId,
           category: { isNot: null },
         },
         select: { email: true },
       });
       const existingSenderEmails = new Set(existingSenders.map((s) => s.email));
-      const uncategorizedSenders = allSenders.filter(
-        (email) => !existingSenderEmails.has(email),
-      );
+
+      const uncategorizedSenders: SenderWithName[] = allSenderEmails
+        .filter((email) => !existingSenderEmails.has(email))
+        .map((email) => ({ email, name: senderMap.get(email) ?? null }));
 
       return uncategorizedSenders;
     }
 
     let totalUncategorizedSenders = 0;
-    let uncategorizedSenders: string[] = [];
+    let uncategorizedSenders: SenderWithName[] = [];
     for (let i = 0; i < 20; i++) {
       const newUncategorizedSenders = await getUncategorizedSenders(i * LIMIT);
 

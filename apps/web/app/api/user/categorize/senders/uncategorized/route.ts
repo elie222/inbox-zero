@@ -1,9 +1,12 @@
 import { NextResponse } from "next/server";
 import { withEmailAccount } from "@/utils/middleware";
-import { getUncategorizedSenders } from "@/app/api/user/categorize/senders/uncategorized/get-uncategorized-senders";
+import {
+  getUncategorizedSenders,
+  type UncategorizedSender,
+} from "@/app/api/user/categorize/senders/uncategorized/get-uncategorized-senders";
 
 export type UncategorizedSendersResponse = {
-  uncategorizedSenders: string[];
+  uncategorizedSenders: UncategorizedSender[];
   nextOffset?: number;
 };
 
