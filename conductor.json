@@ -1,6 +1,6 @@
 {
     "scripts": {
-        "setup": "echo 'Starting setup...' && sleep 3 && echo 'PATH:' $PATH && echo 'Running pnpm install...' && pnpm install && cp $CONDUCTOR_ROOT_PATH/apps/web/.env.local apps/web/.env.local && echo 'Setup complete'",
+        "setup": "pnpm install && (cp $CONDUCTOR_ROOT_PATH/apps/web/.env.local apps/web/.env.local 2>/dev/null || cp ~/.config/inbox-zero/.env.local apps/web/.env.local 2>/dev/null || echo 'WARNING: No .env.local found. Copy your env file to ~/.config/inbox-zero/.env.local')",
         "run": "pnpm dev"
     }
 }
