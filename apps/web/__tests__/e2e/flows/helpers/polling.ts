@@ -10,6 +10,7 @@ import type { EmailProvider } from "@/utils/email/types";
 import { TIMEOUTS } from "../config";
 import { logStep } from "./logging";
 import { sleep } from "@/utils/sleep";
+import { extractEmailAddress } from "@/utils/email";
 
 interface PollOptions {
   timeout?: number;
@@ -297,9 +298,11 @@ export async function waitForReplyInInbox(options: {
     async () => {
       const messages = await provider.getInboxMessages(20);
       const found = messages.find((msg) => {
-        // Must be from the expected sender
-        const msgFrom = msg.headers?.from?.toLowerCase() || "";
-        if (!msgFrom.includes(fromEmail.toLowerCase())) return false;
+        // Must be from the expected sender - extract and compare email addresses
+        const msgFromEmail = extractEmailAddress(
+          msg.headers?.from || "",
+        ).toLowerCase();
+        if (msgFromEmail !== fromEmail.toLowerCase()) return false;
 
         // Must contain the subject (including Re: variants)
         if (!msg.subject?.includes(subjectContains)) return false;
