@@ -209,8 +209,7 @@ export function BulkUnsubscribeRowMobile({
           <DialogHeader>
             <DialogTitle>Resubscribe to {name}</DialogTitle>
             <DialogDescription className="pt-2">
-              We can stop blocking them, but you'll need to sign up again on
-              their website.
+              Follow the steps below to receive emails from this sender again.
             </DialogDescription>
           </DialogHeader>
 
