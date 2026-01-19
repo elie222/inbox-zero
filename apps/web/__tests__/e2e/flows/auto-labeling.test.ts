@@ -11,7 +11,7 @@
  */
 
 import { describe, test, expect, beforeAll, afterEach } from "vitest";
-import { shouldRunFlowTests, TIMEOUTS, getTestSubjectPrefix } from "./config";
+import { shouldRunFlowTests, TIMEOUTS } from "./config";
 import { initializeFlowTests, setupFlowTest } from "./setup";
 import { generateTestSummary } from "./teardown";
 import { sendTestEmail, TEST_EMAIL_SCENARIOS } from "./helpers/email";
@@ -48,33 +48,49 @@ describe.skipIf(!shouldRunFlowTests())("Auto-Labeling", () => {
       // ========================================
       logStep("Sending email that needs reply");
 
-      await sendTestEmail({
+      const sentEmail = await sendTestEmail({
         from: gmail,
         to: outlook,
         subject: scenario.subject,
         body: scenario.body,
       });
 
-      // Wait for Outlook to receive
+      // Wait for Outlook to receive - use fullSubject for unique match across tests
       const outlookMessage = await waitForMessageInInbox({
         provider: outlook.emailProvider,
-        subjectContains: getTestSubjectPrefix(),
+        subjectContains: sentEmail.fullSubject,
         timeout: TIMEOUTS.EMAIL_DELIVERY,
+      });
+
+      logStep("Email received in Outlook", {
+        messageId: outlookMessage.messageId,
+        threadId: outlookMessage.threadId,
       });
 
       // ========================================
       // Wait for rule execution
       // ========================================
-      logStep("Waiting for rule execution");
+      logStep("Waiting for rule execution", {
+        threadId: outlookMessage.threadId,
+      });
 
       const executedRule = await waitForExecutedRule({
-        messageId: outlookMessage.messageId,
+        threadId: outlookMessage.threadId,
         emailAccountId: outlook.id,
         timeout: TIMEOUTS.WEBHOOK_PROCESSING,
       });
 
       expect(executedRule).toBeDefined();
       expect(executedRule.status).toBe("APPLIED");
+
+      logStep("ExecutedRule found", {
+        executedRuleId: executedRule.id,
+        executedRuleMessageId: executedRule.messageId,
+        inboxMessageId: outlookMessage.messageId,
+        messageIdMatch: executedRule.messageId === outlookMessage.messageId,
+        status: executedRule.status,
+        actionItems: executedRule.actionItems.length,
+      });
 
       // ========================================
       // Verify draft was created (needs reply = should draft)
@@ -123,32 +139,48 @@ describe.skipIf(!shouldRunFlowTests())("Auto-Labeling", () => {
       // ========================================
       logStep("Sending FYI email");
 
-      await sendTestEmail({
+      const sentEmail = await sendTestEmail({
         from: gmail,
         to: outlook,
         subject: scenario.subject,
         body: scenario.body,
       });
 
-      // Wait for Outlook to receive
+      // Wait for Outlook to receive - use fullSubject for unique match across tests
       const outlookMessage = await waitForMessageInInbox({
         provider: outlook.emailProvider,
-        subjectContains: getTestSubjectPrefix(),
+        subjectContains: sentEmail.fullSubject,
         timeout: TIMEOUTS.EMAIL_DELIVERY,
+      });
+
+      logStep("Email received in Outlook", {
+        messageId: outlookMessage.messageId,
+        threadId: outlookMessage.threadId,
       });
 
       // ========================================
       // Wait for rule execution
       // ========================================
-      logStep("Waiting for rule execution");
+      logStep("Waiting for rule execution", {
+        threadId: outlookMessage.threadId,
+      });
 
       const executedRule = await waitForExecutedRule({
-        messageId: outlookMessage.messageId,
+        threadId: outlookMessage.threadId,
         emailAccountId: outlook.id,
         timeout: TIMEOUTS.WEBHOOK_PROCESSING,
       });
 
       expect(executedRule).toBeDefined();
+
+      logStep("ExecutedRule found", {
+        executedRuleId: executedRule.id,
+        executedRuleMessageId: executedRule.messageId,
+        inboxMessageId: outlookMessage.messageId,
+        messageIdMatch: executedRule.messageId === outlookMessage.messageId,
+        status: executedRule.status,
+        actionItems: executedRule.actionItems.length,
+      });
 
       // ========================================
       // Verify NO draft was created for FYI email
@@ -192,32 +224,48 @@ describe.skipIf(!shouldRunFlowTests())("Auto-Labeling", () => {
       // ========================================
       logStep("Sending thank you email");
 
-      await sendTestEmail({
+      const sentEmail = await sendTestEmail({
         from: gmail,
         to: outlook,
         subject: scenario.subject,
         body: scenario.body,
       });
 
-      // Wait for Outlook to receive
+      // Wait for Outlook to receive - use fullSubject for unique match across tests
       const outlookMessage = await waitForMessageInInbox({
         provider: outlook.emailProvider,
-        subjectContains: getTestSubjectPrefix(),
+        subjectContains: sentEmail.fullSubject,
         timeout: TIMEOUTS.EMAIL_DELIVERY,
+      });
+
+      logStep("Email received in Outlook", {
+        messageId: outlookMessage.messageId,
+        threadId: outlookMessage.threadId,
       });
 
       // ========================================
       // Wait for rule execution
       // ========================================
-      logStep("Waiting for rule execution");
+      logStep("Waiting for rule execution", {
+        threadId: outlookMessage.threadId,
+      });
 
       const executedRule = await waitForExecutedRule({
-        messageId: outlookMessage.messageId,
+        threadId: outlookMessage.threadId,
         emailAccountId: outlook.id,
         timeout: TIMEOUTS.WEBHOOK_PROCESSING,
       });
 
       expect(executedRule).toBeDefined();
+
+      logStep("ExecutedRule found", {
+        executedRuleId: executedRule.id,
+        executedRuleMessageId: executedRule.messageId,
+        inboxMessageId: outlookMessage.messageId,
+        messageIdMatch: executedRule.messageId === outlookMessage.messageId,
+        status: executedRule.status,
+        actionItems: executedRule.actionItems.length,
+      });
 
       // ========================================
       // Verify processing
@@ -252,32 +300,48 @@ describe.skipIf(!shouldRunFlowTests())("Auto-Labeling", () => {
       // ========================================
       logStep("Sending question email");
 
-      await sendTestEmail({
+      const sentEmail = await sendTestEmail({
         from: gmail,
         to: outlook,
         subject: scenario.subject,
         body: scenario.body,
       });
 
-      // Wait for Outlook to receive
+      // Wait for Outlook to receive - use fullSubject for unique match across tests
       const outlookMessage = await waitForMessageInInbox({
         provider: outlook.emailProvider,
-        subjectContains: getTestSubjectPrefix(),
+        subjectContains: sentEmail.fullSubject,
         timeout: TIMEOUTS.EMAIL_DELIVERY,
+      });
+
+      logStep("Email received in Outlook", {
+        messageId: outlookMessage.messageId,
+        threadId: outlookMessage.threadId,
       });
 
       // ========================================
       // Wait for rule execution
       // ========================================
-      logStep("Waiting for rule execution");
+      logStep("Waiting for rule execution", {
+        threadId: outlookMessage.threadId,
+      });
 
       const executedRule = await waitForExecutedRule({
-        messageId: outlookMessage.messageId,
+        threadId: outlookMessage.threadId,
         emailAccountId: outlook.id,
         timeout: TIMEOUTS.WEBHOOK_PROCESSING,
       });
 
       expect(executedRule).toBeDefined();
+
+      logStep("ExecutedRule found", {
+        executedRuleId: executedRule.id,
+        executedRuleMessageId: executedRule.messageId,
+        inboxMessageId: outlookMessage.messageId,
+        messageIdMatch: executedRule.messageId === outlookMessage.messageId,
+        status: executedRule.status,
+        actionItems: executedRule.actionItems.length,
+      });
 
       // ========================================
       // Verify draft created for question

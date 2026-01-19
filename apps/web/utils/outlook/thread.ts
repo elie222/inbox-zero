@@ -3,7 +3,12 @@ import type { Message } from "@microsoft/microsoft-graph-types";
 import type { ParsedMessage } from "@/utils/types";
 import { escapeODataString } from "@/utils/outlook/odata-escape";
 import type { Logger } from "@/utils/logger";
-import { convertMessage, createMessagesRequest } from "@/utils/outlook/message";
+import {
+  convertMessage,
+  createMessagesRequest,
+  getCategoryMap,
+  getFolderIds,
+} from "@/utils/outlook/message";
 import { withOutlookRetry } from "@/utils/outlook/retry";
 
 export async function getThread(
@@ -206,9 +211,13 @@ export async function getThreadMessages(
   client: OutlookClient,
   logger: Logger,
 ): Promise<ParsedMessage[]> {
-  const messages: Message[] = await getThread(threadId, client, logger);
+  const [messages, folderIds, categoryMap] = await Promise.all([
+    getThread(threadId, client, logger),
+    getFolderIds(client, logger),
+    getCategoryMap(client, logger),
+  ]);
 
   return messages
     .filter((msg) => !msg.isDraft)
-    .map((msg) => convertMessage(msg));
+    .map((msg) => convertMessage(msg, folderIds, categoryMap));
 }

@@ -6,6 +6,8 @@ vi.mock("@/env", () => ({
   env: {
     PERPLEXITY_API_KEY: "test-key",
     DEFAULT_LLM_PROVIDER: "openai",
+    EMAIL_ENCRYPT_SECRET: "test-encrypt-secret-for-testing",
+    EMAIL_ENCRYPT_SALT: "test-encrypt-salt-for-testing",
   },
 }));
 vi.mock("@/utils/llms/model", () => ({ getModel: vi.fn() }));

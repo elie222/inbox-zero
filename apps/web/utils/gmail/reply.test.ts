@@ -75,7 +75,7 @@ describe("email formatting", () => {
       `<div dir="ltr">This is my reply</div>
 <br>
 <div class="gmail_quote gmail_quote_container">
-  <div dir="ltr" class="gmail_attr">On Thu, 6 Feb 2025 at 21:23, John Doe <john@example.com> wrote:<br></div>
+  <div dir="ltr" class="gmail_attr">On Thu, 6 Feb 2025 at 21:23, John Doe &lt;john@example.com&gt; wrote:<br></div>
   <blockquote class="gmail_quote" 
     style="margin:0px 0px 0px 0.8ex;border-left:1px solid rgb(204,204,204);padding-left:1ex">
     <div>Original message content</div>
@@ -108,12 +108,62 @@ describe("email formatting", () => {
       `<div dir="rtl">שלום, מה שלומך?</div>
 <br>
 <div class="gmail_quote gmail_quote_container">
-  <div dir="rtl" class="gmail_attr">On Thu, 6 Feb 2025 at 21:23, David Cohen <david@example.com> wrote:<br></div>
+  <div dir="rtl" class="gmail_attr">On Thu, 6 Feb 2025 at 21:23, David Cohen &lt;david@example.com&gt; wrote:<br></div>
   <blockquote class="gmail_quote" 
     style="margin:0px 0px 0px 0.8ex;border-left:1px solid rgb(204,204,204);padding-left:1ex">
     <div>תוכן ההודעה המקורית</div>
   </blockquote>
 </div>`.trim(),
+    );
+  });
+
+  it("handles CRLF line endings correctly", () => {
+    const textContent = "Line one\r\nLine two\r\nLine three";
+    const message: Pick<ParsedMessage, "headers" | "textPlain" | "textHtml"> = {
+      headers: {
+        date: "Thu, 6 Feb 2025 23:23:47 +0200",
+        from: "John Doe <john@example.com>",
+        subject: "Test Email",
+        to: "jane@example.com",
+        "message-id": "<123@example.com>",
+      },
+      textPlain: "Original message content",
+      textHtml: "<div>Original message content</div>",
+    };
+
+    const { html } = createReplyContent({
+      textContent,
+      message,
+    });
+
+    // Should convert CRLF to <br> without leftover \r characters
+    expect(html).toContain("Line one<br>Line two<br>Line three");
+    expect(html).not.toContain("\r");
+  });
+
+  it("preserves paragraph spacing with multiple newlines", () => {
+    const textContent =
+      "First paragraph.\n\nSecond paragraph.\n\nThird paragraph.";
+    const message: Pick<ParsedMessage, "headers" | "textPlain" | "textHtml"> = {
+      headers: {
+        date: "Thu, 6 Feb 2025 23:23:47 +0200",
+        from: "John Doe <john@example.com>",
+        subject: "Test Email",
+        to: "jane@example.com",
+        "message-id": "<123@example.com>",
+      },
+      textPlain: "Original message content",
+      textHtml: "<div>Original message content</div>",
+    };
+
+    const { html } = createReplyContent({
+      textContent,
+      message,
+    });
+
+    // Should preserve double newlines as <br><br> for paragraph spacing
+    expect(html).toContain(
+      "First paragraph.<br><br>Second paragraph.<br><br>Third paragraph.",
     );
   });
 });

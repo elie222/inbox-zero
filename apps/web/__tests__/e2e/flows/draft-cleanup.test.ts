@@ -11,7 +11,7 @@
  */
 
 import { describe, test, expect, beforeAll, afterEach } from "vitest";
-import { shouldRunFlowTests, TIMEOUTS, getTestSubjectPrefix } from "./config";
+import { shouldRunFlowTests, TIMEOUTS } from "./config";
 import { initializeFlowTests, setupFlowTest } from "./setup";
 import { generateTestSummary } from "./teardown";
 import {
@@ -24,6 +24,7 @@ import {
   waitForMessageInInbox,
   waitForDraftDeleted,
   waitForDraftSendLog,
+  waitForNoThreadDrafts,
 } from "./helpers/polling";
 import { logStep, clearLogs } from "./helpers/logging";
 import type { TestAccount } from "./helpers/accounts";
@@ -56,7 +57,7 @@ describe.skipIf(!shouldRunFlowTests())("Draft Cleanup", () => {
       // ========================================
       logStep("Step 1: Sending email that needs reply");
 
-      await sendTestEmail({
+      const sentEmail = await sendTestEmail({
         from: gmail,
         to: outlook,
         subject: scenario.subject,
@@ -65,19 +66,35 @@ describe.skipIf(!shouldRunFlowTests())("Draft Cleanup", () => {
 
       const receivedMessage = await waitForMessageInInbox({
         provider: outlook.emailProvider,
-        subjectContains: getTestSubjectPrefix(),
+        subjectContains: sentEmail.fullSubject,
         timeout: TIMEOUTS.EMAIL_DELIVERY,
+      });
+
+      logStep("Email received in Outlook", {
+        messageId: receivedMessage.messageId,
+        threadId: receivedMessage.threadId,
       });
 
       // ========================================
       // Step 2: Wait for AI draft to be created
       // ========================================
-      logStep("Step 2: Waiting for AI draft creation");
+      logStep("Step 2: Waiting for AI draft creation", {
+        threadId: receivedMessage.threadId,
+      });
 
       const executedRule = await waitForExecutedRule({
-        messageId: receivedMessage.messageId,
+        threadId: receivedMessage.threadId,
         emailAccountId: outlook.id,
         timeout: TIMEOUTS.WEBHOOK_PROCESSING,
+      });
+
+      logStep("ExecutedRule found", {
+        executedRuleId: executedRule.id,
+        executedRuleMessageId: executedRule.messageId,
+        inboxMessageId: receivedMessage.messageId,
+        messageIdMatch: executedRule.messageId === receivedMessage.messageId,
+        status: executedRule.status,
+        actionItems: executedRule.actionItems.length,
       });
 
       const draftAction = executedRule.actionItems.find(
@@ -86,7 +103,6 @@ describe.skipIf(!shouldRunFlowTests())("Draft Cleanup", () => {
 
       expect(draftAction).toBeDefined();
       expect(draftAction?.draftId).toBeTruthy();
-      // Safe to use ! after the assertions above
       const aiDraftId = draftAction!.draftId!;
 
       logStep("AI draft created", { draftId: aiDraftId });
@@ -161,7 +177,7 @@ describe.skipIf(!shouldRunFlowTests())("Draft Cleanup", () => {
       // ========================================
       logStep("Setting up thread with multiple messages");
 
-      await sendTestEmail({
+      const sentEmail = await sendTestEmail({
         from: gmail,
         to: outlook,
         subject: "Multi-draft cleanup test",
@@ -170,22 +186,39 @@ describe.skipIf(!shouldRunFlowTests())("Draft Cleanup", () => {
 
       const firstReceived = await waitForMessageInInbox({
         provider: outlook.emailProvider,
-        subjectContains: getTestSubjectPrefix(),
+        subjectContains: sentEmail.fullSubject,
         timeout: TIMEOUTS.EMAIL_DELIVERY,
       });
 
-      // Wait for first draft
-      const firstRule = await waitForExecutedRule({
+      logStep("Email received in Outlook", {
         messageId: firstReceived.messageId,
+        threadId: firstReceived.threadId,
+      });
+
+      // Wait for first draft
+      logStep("Waiting for rule execution", {
+        threadId: firstReceived.threadId,
+      });
+
+      const firstRule = await waitForExecutedRule({
+        threadId: firstReceived.threadId,
         emailAccountId: outlook.id,
         timeout: TIMEOUTS.WEBHOOK_PROCESSING,
+      });
+
+      logStep("ExecutedRule found", {
+        executedRuleId: firstRule.id,
+        executedRuleMessageId: firstRule.messageId,
+        inboxMessageId: firstReceived.messageId,
+        messageIdMatch: firstRule.messageId === firstReceived.messageId,
+        status: firstRule.status,
+        actionItems: firstRule.actionItems.length,
       });
 
       const firstDraftAction = firstRule.actionItems.find(
         (a) => a.type === "DRAFT_EMAIL" && a.draftId,
       );
 
-      // Assert draft was created - this test requires a draft
       expect(firstDraftAction?.draftId).toBeTruthy();
       const firstDraftId = firstDraftAction!.draftId!;
       logStep("First draft created", { draftId: firstDraftId });
@@ -215,16 +248,16 @@ describe.skipIf(!shouldRunFlowTests())("Draft Cleanup", () => {
       });
       logStep("First draft deleted");
 
-      // Check for any remaining drafts for this thread
-      const drafts = await outlook.emailProvider.getDrafts({ maxResults: 50 });
-      const threadDrafts = drafts.filter(
-        (d) => d.threadId === firstReceived.threadId,
-      );
+      // Wait for all thread drafts to clear (including async Microsoft processing)
+      // Microsoft's createReply API creates temporary drafts that may briefly remain
+      // while being processed for sending
+      await waitForNoThreadDrafts({
+        threadId: firstReceived.threadId,
+        provider: outlook.emailProvider,
+        timeout: TIMEOUTS.WEBHOOK_PROCESSING,
+      });
 
-      // No drafts should remain after user sends a reply
-      expect(threadDrafts.length).toBe(0);
-
-      logStep("Remaining drafts for thread", { count: threadDrafts.length });
+      logStep("All thread drafts cleared");
     },
     TIMEOUTS.FULL_CYCLE,
   );
@@ -240,7 +273,7 @@ describe.skipIf(!shouldRunFlowTests())("Draft Cleanup", () => {
       // ========================================
       logStep("Sending email and waiting for draft");
 
-      await sendTestEmail({
+      const sentEmail = await sendTestEmail({
         from: gmail,
         to: outlook,
         subject: scenario.subject,
@@ -249,21 +282,38 @@ describe.skipIf(!shouldRunFlowTests())("Draft Cleanup", () => {
 
       const receivedMessage = await waitForMessageInInbox({
         provider: outlook.emailProvider,
-        subjectContains: getTestSubjectPrefix(),
+        subjectContains: sentEmail.fullSubject,
         timeout: TIMEOUTS.EMAIL_DELIVERY,
       });
 
-      const executedRule = await waitForExecutedRule({
+      logStep("Email received in Outlook", {
         messageId: receivedMessage.messageId,
+        threadId: receivedMessage.threadId,
+      });
+
+      logStep("Waiting for rule execution", {
+        threadId: receivedMessage.threadId,
+      });
+
+      const executedRule = await waitForExecutedRule({
+        threadId: receivedMessage.threadId,
         emailAccountId: outlook.id,
         timeout: TIMEOUTS.WEBHOOK_PROCESSING,
+      });
+
+      logStep("ExecutedRule found", {
+        executedRuleId: executedRule.id,
+        executedRuleMessageId: executedRule.messageId,
+        inboxMessageId: receivedMessage.messageId,
+        messageIdMatch: executedRule.messageId === receivedMessage.messageId,
+        status: executedRule.status,
+        actionItems: executedRule.actionItems.length,
       });
 
       const draftAction = executedRule.actionItems.find(
         (a) => a.type === "DRAFT_EMAIL" && a.draftId,
       );
 
-      // This test requires a draft to be created
       expect(draftAction?.draftId).toBeTruthy();
 
       const aiDraftId = draftAction!.draftId!;
@@ -312,6 +362,193 @@ describe.skipIf(!shouldRunFlowTests())("Draft Cleanup", () => {
         draftId: draftSendLog.draftId,
         sentMessageId: draftSendLog.sentMessageId,
       });
+    },
+    TIMEOUTS.FULL_CYCLE,
+  );
+
+  test(
+    "should NOT delete user-created drafts",
+    async () => {
+      testStartTime = Date.now();
+      const scenario = TEST_EMAIL_SCENARIOS.QUESTION;
+
+      // ========================================
+      // Step 1: Send email and wait for AI draft
+      // ========================================
+      logStep("Sending email and waiting for AI draft");
+
+      const sentEmail = await sendTestEmail({
+        from: gmail,
+        to: outlook,
+        subject: scenario.subject,
+        body: scenario.body,
+      });
+
+      const received = await waitForMessageInInbox({
+        provider: outlook.emailProvider,
+        subjectContains: sentEmail.fullSubject,
+        timeout: TIMEOUTS.EMAIL_DELIVERY,
+      });
+
+      const executedRule = await waitForExecutedRule({
+        threadId: received.threadId,
+        emailAccountId: outlook.id,
+        timeout: TIMEOUTS.WEBHOOK_PROCESSING,
+      });
+
+      const aiDraftAction = executedRule.actionItems.find(
+        (a) => a.type === "DRAFT_EMAIL" && a.draftId,
+      );
+      expect(aiDraftAction?.draftId).toBeTruthy();
+      const aiDraftId = aiDraftAction!.draftId!;
+      logStep("AI draft created", { aiDraftId });
+
+      // ========================================
+      // Step 2: Create a user draft manually (not tracked by our system)
+      // ========================================
+      logStep("Creating user draft manually");
+
+      const userDraft = await outlook.emailProvider.createDraft({
+        to: gmail.email,
+        subject: `Re: ${sentEmail.fullSubject}`,
+        messageHtml: "<p>This is my manual draft that I created myself</p>",
+        replyToMessageId: received.messageId,
+      });
+      const userDraftId = userDraft.id;
+      logStep("User draft created", { userDraftId });
+
+      // ========================================
+      // Step 3: User sends a different reply (triggers cleanup)
+      // ========================================
+      logStep("User sends a different reply");
+
+      await sendTestReply({
+        from: outlook,
+        to: gmail,
+        threadId: received.threadId,
+        originalMessageId: received.messageId,
+        body: "Here is my actual reply, not from any draft.",
+      });
+
+      // ========================================
+      // Step 4: Wait for AI draft to be cleaned up
+      // ========================================
+      logStep("Waiting for AI draft to be cleaned up");
+
+      await waitForDraftDeleted({
+        draftId: aiDraftId,
+        provider: outlook.emailProvider,
+        timeout: TIMEOUTS.WEBHOOK_PROCESSING,
+      });
+      logStep("AI draft deleted");
+
+      // ========================================
+      // Step 5: Verify user draft still exists
+      // ========================================
+      logStep("Verifying user draft still exists");
+
+      const userDraftAfter = await outlook.emailProvider.getDraft(userDraftId);
+      expect(userDraftAfter).not.toBeNull();
+      logStep("User draft preserved", {
+        userDraftId,
+        exists: !!userDraftAfter,
+      });
+
+      // Cleanup: delete the user draft
+      await outlook.emailProvider.deleteDraft(userDraftId);
+    },
+    TIMEOUTS.FULL_CYCLE,
+  );
+
+  test(
+    "should NOT delete edited AI drafts",
+    async () => {
+      testStartTime = Date.now();
+      const scenario = TEST_EMAIL_SCENARIOS.QUESTION;
+
+      // ========================================
+      // Step 1: Send email and wait for AI draft
+      // ========================================
+      logStep("Sending email and waiting for AI draft");
+
+      const sentEmail = await sendTestEmail({
+        from: gmail,
+        to: outlook,
+        subject: scenario.subject,
+        body: scenario.body,
+      });
+
+      const received = await waitForMessageInInbox({
+        provider: outlook.emailProvider,
+        subjectContains: sentEmail.fullSubject,
+        timeout: TIMEOUTS.EMAIL_DELIVERY,
+      });
+
+      const executedRule = await waitForExecutedRule({
+        threadId: received.threadId,
+        emailAccountId: outlook.id,
+        timeout: TIMEOUTS.WEBHOOK_PROCESSING,
+      });
+
+      const aiDraftAction = executedRule.actionItems.find(
+        (a) => a.type === "DRAFT_EMAIL" && a.draftId,
+      );
+      expect(aiDraftAction?.draftId).toBeTruthy();
+      const aiDraftId = aiDraftAction!.draftId!;
+      logStep("AI draft created", { aiDraftId });
+
+      // ========================================
+      // Step 2: User edits the AI draft
+      // ========================================
+      logStep("User edits the AI draft");
+
+      await outlook.emailProvider.updateDraft(aiDraftId, {
+        messageHtml:
+          "<p>I significantly edited this draft with my own content that is completely different.</p>",
+      });
+      logStep("AI draft edited by user");
+
+      // ========================================
+      // Step 3: User sends a DIFFERENT reply (triggers cleanup)
+      // ========================================
+      logStep("User sends a different reply");
+
+      await sendTestReply({
+        from: outlook,
+        to: gmail,
+        threadId: received.threadId,
+        originalMessageId: received.messageId,
+        body: "Here is my actual reply, not using the draft.",
+      });
+
+      // ========================================
+      // Step 4: Wait for cleanup to process
+      // ========================================
+      // When the user sends a reply, the webhook fires and triggers cleanup.
+      // Since we're testing a negative (draft should NOT be deleted because
+      // similarity != 1.0), we wait for the sent message to be processed.
+      // Use waitForDraftSendLog as it indicates the outbound flow has completed.
+      logStep("Waiting for outbound processing to complete");
+      await waitForDraftSendLog({
+        threadId: received.threadId,
+        emailAccountId: outlook.id,
+        timeout: TIMEOUTS.WEBHOOK_PROCESSING,
+      });
+
+      // ========================================
+      // Step 5: Verify edited draft still exists (similarity != 1.0)
+      // ========================================
+      logStep("Verifying edited AI draft still exists");
+
+      const editedDraft = await outlook.emailProvider.getDraft(aiDraftId);
+      expect(editedDraft).not.toBeNull();
+      logStep("Edited AI draft preserved", {
+        aiDraftId,
+        exists: !!editedDraft,
+      });
+
+      // Cleanup: delete the edited draft
+      await outlook.emailProvider.deleteDraft(aiDraftId);
     },
     TIMEOUTS.FULL_CYCLE,
   );

@@ -4,6 +4,17 @@ Important: Steps 2 and 3 require `required_permissions: ['all']` because:
 - Pre-commit hooks need access to global npm/node paths outside the workspace
 - `gh` CLI has TLS certificate issues in sandboxed mode
 
+## Critical Rules
+
+**NEVER include PII (Personally Identifiable Information) in:**
+- Commit messages
+- PR titles or descriptions
+- Branch names
+- File paths or names mentioned in commits/PRs
+- Any text that will be publicly visible
+
+PII includes: names, email addresses, phone numbers, physical addresses, usernames, account IDs, API keys, tokens, passwords, or any other sensitive personal data.
+
 ## Step 1: Check state (ONE command)
 
 ```bash

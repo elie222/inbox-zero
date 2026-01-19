@@ -19,6 +19,9 @@ export type ProcessHistoryOptions = {
   rules: RuleWithActions[];
   hasAutomationRules: boolean;
   hasAiAccess: boolean;
-  emailAccount: Pick<EmailAccount, "autoCategorizeSenders"> &
+  emailAccount: Pick<
+    EmailAccount,
+    "autoCategorizeSenders" | "filingEnabled" | "filingPrompt"
+  > &
     EmailAccountWithAI;
 };

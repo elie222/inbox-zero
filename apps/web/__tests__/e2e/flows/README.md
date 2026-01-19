@@ -169,6 +169,88 @@ pnpm dev:e2e
 pnpm test-e2e:flows
 ```
 
+### Using the Local Script (with ngrok)
+
+For running tests with webhook support, use the convenience script.
+
+#### Prerequisites
+
+- **ngrok**: Install with `brew install ngrok`
+- **ngrok account**: Get an auth token from [ngrok dashboard](https://dashboard.ngrok.com)
+- **Static domain** (recommended): Configure a free static domain in ngrok for consistent webhook URLs
+
+#### Config File Setup
+
+Create `~/.config/inbox-zero/.env.e2e` with your E2E configuration:
+
+```bash
+mkdir -p ~/.config/inbox-zero
+# Add your config to ~/.config/inbox-zero/.env.e2e
+```
+
+**Required variables:**
+
+| Variable | Description |
+|----------|-------------|
+| `E2E_NGROK_AUTH_TOKEN` | ngrok authentication token |
+| `E2E_GMAIL_EMAIL` | Test Gmail account email |
+| `E2E_OUTLOOK_EMAIL` | Test Outlook account email |
+
+**Optional variables:**
+
+| Variable | Description |
+|----------|-------------|
+| `E2E_NGROK_DOMAIN` | Static ngrok domain (e.g., `my-e2e.ngrok-free.app`) |
+| `E2E_PORT` | Port to run Next.js on (default: 3000) |
+| `WEBHOOK_URL` | Public URL for Microsoft webhooks (e.g., `https://your-domain.ngrok-free.app`) |
+
+**Webhook URL configuration:**
+
+Microsoft webhooks require a publicly accessible URL. Set `WEBHOOK_URL` to your ngrok domain:
+
+```bash
+# Keep NEXT_PUBLIC_BASE_URL as localhost for easy browser access
+NEXT_PUBLIC_BASE_URL=http://localhost:3000
+
+# Set WEBHOOK_URL for Microsoft webhook registration
+WEBHOOK_URL=https://your-domain.ngrok-free.app
+```
+
+The app uses `WEBHOOK_URL` (with fallback to `NEXT_PUBLIC_BASE_URL`) for webhook registration. Google/Gmail uses Pub/Sub which is configured in Google Cloud Console.
+
+**Standard app secrets** (same as production):
+
+- `DATABASE_URL`, `AUTH_SECRET`, `INTERNAL_API_KEY`
+- `EMAIL_ENCRYPT_SECRET`, `EMAIL_ENCRYPT_SALT`
+- `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN`
+- Google OAuth + PubSub credentials
+- Microsoft OAuth credentials
+- AI provider API key (OpenAI, Anthropic, etc.)
+
+#### Running with the Script
+
+```bash
+# Run all flow tests
+./scripts/run-e2e-local.sh
+
+# Run specific test file
+./scripts/run-e2e-local.sh draft-cleanup
+./scripts/run-e2e-local.sh full-reply-cycle
+
+# Run on a custom port (useful if port 3000 is in use)
+E2E_PORT=3007 ./scripts/run-e2e-local.sh
+```
+
+#### What the Script Does
+
+1. Loads environment from `~/.config/inbox-zero/.env.e2e`
+2. Starts ngrok tunnel (uses static domain if `E2E_NGROK_DOMAIN` is set)
+3. **Exports `WEBHOOK_URL`** to the ngrok URL (for Microsoft webhook registration)
+4. Creates symlinks in `apps/web/` so Next.js and vitest pick up the env vars
+5. Starts the Next.js dev server
+6. Runs E2E flow tests
+7. Cleans up processes on exit (Ctrl+C or completion)
+
 ## Troubleshooting
 
 ### "No account found"
@@ -182,3 +264,53 @@ OAuth tokens may expire. Run `pnpm dev:e2e` and sign in again at http://localhos
 ### Draft not created
 
 Check AI API key is configured. Rules are created automatically by the test setup.
+
+### ngrok tunnel fails to start
+
+- Check `/tmp/ngrok-e2e.log` for errors
+- Verify your auth token is correct
+- Make sure the port isn't already in use
+- **Session limit error (ERR_NGROK_108)**: Free ngrok accounts only allow 1 simultaneous session. Kill existing ngrok processes:
+  ```bash
+  pkill -9 ngrok
+  ```
+
+### App fails health check
+
+- Check `/tmp/nextjs-e2e.log` for errors
+- Ensure all required env vars are set
+
+### Webhooks not received
+
+- Without a static domain, webhook URLs change each run
+- Use `E2E_NGROK_DOMAIN` for consistent webhook registration
+
+### Microsoft webhook subscription fails
+
+**"NotificationUrl references a local address"**
+
+Microsoft requires a publicly accessible URL. Set `WEBHOOK_URL` to your ngrok domain:
+
+```bash
+WEBHOOK_URL=https://your-domain.ngrok-free.app
+```
+
+**"Subscription validation request failed. HTTP status code is 'NotFound'"**
+
+Microsoft can reach your ngrok URL but the webhook endpoint returned 404. This usually means:
+- The ngrok tunnel disconnected (check if another session took over)
+- The Next.js app crashed (check `/tmp/nextjs-e2e.log`)
+- There's a stale `.next/dev/lock` file. Remove it and restart:
+  ```bash
+  rm -rf apps/web/.next/dev/lock
+  pkill -f "next dev"
+  ```
+
+### Next.js dev server lock error
+
+If you see "Unable to acquire lock", another instance may be running:
+
+```bash
+rm -rf apps/web/.next/dev/lock
+pkill -f "next dev"
+```

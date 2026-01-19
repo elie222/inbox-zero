@@ -1,5 +1,6 @@
 import type { GetAuthLinkUrlResponse } from "@/app/api/google/linking/auth-url/route";
 import type { GetOutlookAuthLinkUrlResponse } from "@/app/api/outlook/linking/auth-url/route";
+import { isGoogleProvider } from "@/utils/email/provider-types";
 
 /**
  * Initiates the OAuth account linking flow for Google or Microsoft.
@@ -18,7 +19,7 @@ export async function getAccountLinkingUrl(
 
   if (!response.ok) {
     throw new Error(
-      `Failed to initiate ${provider === "google" ? "Google" : "Microsoft"} account linking`,
+      `Failed to initiate ${isGoogleProvider(provider) ? "Google" : "Microsoft"} account linking`,
     );
   }
 

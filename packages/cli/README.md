@@ -4,11 +4,10 @@ CLI tool for running [Inbox Zero](https://www.getinboxzero.com) - an open-source
 
 ## Installation
 
-### Homebrew
+### Homebrew (macOS/Linux)
 
 ```bash
-brew tap inbox-zero/inbox-zero https://github.com/elie222/inbox-zero.git
-brew install inbox-zero
+brew install inbox-zero/inbox-zero/inbox-zero
 ```
 
 ### Manual Installation

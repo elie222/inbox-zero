@@ -183,6 +183,8 @@ export async function createCategoryFilter({
           }),
         logger,
       );
+
+      client.invalidateCategoryMapCache();
     }
 
     // Note: Microsoft Graph API doesn't support applying categories directly in mail rules

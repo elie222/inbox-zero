@@ -30,11 +30,10 @@ import {
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { isGoogleProvider } from "@/utils/email/provider-types";
 
 export function PersonalSignatureSetting() {
   const { data, isLoading, error } = useEmailAccountFull();
-
-  const hasSignature = !!data?.signature;
 
   return (
     <SettingCard
@@ -48,7 +47,7 @@ export function PersonalSignatureSetting() {
         >
           <SignatureDialog currentSignature={data?.signature || ""}>
             <Button variant="outline" size="sm">
-              {hasSignature ? "Edit" : "Set"} Signature
+              Edit
             </Button>
           </SignatureDialog>
         </LoadingContent>
@@ -71,7 +70,7 @@ function SignatureDialog({
   const [selectedSignature, setSelectedSignature] = useState<string>("");
   const [manualSignature, setManualSignature] = useState(currentSignature);
 
-  const isGmail = provider === "google";
+  const isGmail = isGoogleProvider(provider);
 
   const { execute: executeSave, isExecuting: isSaving } = useAction(
     saveSignatureAction.bind(null, emailAccountId),
@@ -162,7 +161,7 @@ function SignatureDialog({
       <DialogTrigger asChild>{children}</DialogTrigger>
       <DialogContent className="max-w-4xl">
         <DialogHeader>
-          <DialogTitle>Email Signature</DialogTitle>
+          <DialogTitle>Email signature</DialogTitle>
           <DialogDescription>
             Set your email signature to include in all drafted messages.
             {isGmail &&

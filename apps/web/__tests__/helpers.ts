@@ -2,6 +2,7 @@ import type { EmailAccountWithAI } from "@/utils/llms/types";
 import type { EmailForLLM } from "@/utils/types";
 import { ActionType, LogicalOperator } from "@/generated/prisma/enums";
 import type { Action, Prisma } from "@/generated/prisma/client";
+import { isGoogleProvider } from "@/utils/email/provider-types";
 
 type EmailAccountSelect = {
   id: string;
@@ -283,7 +284,7 @@ export function getCalendarConnection({
   return {
     id: `conn-${provider}`,
     provider,
-    email: `test@${provider === "google" ? "gmail" : "outlook"}.com`,
+    email: `test@${isGoogleProvider(provider) ? "gmail" : "outlook"}.com`,
     accessToken: "token",
     refreshToken: "refresh",
     expiresAt: new Date(),

@@ -18,6 +18,13 @@ export const E2E_RUN_ID =
   process.env.E2E_RUN_ID ||
   `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
+// Message sequence counter for unique subjects within a run
+let messageSequence = 0;
+export function getNextMessageSequence(): number {
+  messageSequence += 1;
+  return messageSequence;
+}
+
 // Webhook tunnel URL (set by tunnel startup script)
 export const E2E_WEBHOOK_URL = process.env.E2E_WEBHOOK_URL;
 

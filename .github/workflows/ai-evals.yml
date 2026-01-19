@@ -1,0 +1,90 @@
+name: AI Evals
+
+permissions:
+  contents: read
+
+# Runs AI tests when relevant files change or on manual trigger
+# To enable: Set repository variable AI_EVALS_ENABLED=true
+
+on:
+  # Manual trigger with optional test filter
+  workflow_dispatch:
+    inputs:
+      test_filter:
+        description: "Test file filter (e.g., ai-choose-rule)"
+        required: false
+        default: ""
+
+  # On PR when AI files change
+  pull_request:
+    paths:
+      - "apps/web/utils/ai/**"
+      - "apps/web/utils/llms/**"
+      - "apps/web/__tests__/ai-*.test.ts"
+      - "apps/web/__tests__/ai/**"
+
+  # On push to main when AI files change
+  push:
+    branches: [main]
+    paths:
+      - "apps/web/utils/ai/**"
+      - "apps/web/utils/llms/**"
+      - "apps/web/__tests__/ai-*.test.ts"
+      - "apps/web/__tests__/ai/**"
+
+jobs:
+  ai-evals:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    if: ${{ vars.AI_EVALS_ENABLED == 'true' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: 8
+
+      - name: Get pnpm store directory
+        shell: bash
+        run: |
+          echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
+
+      - uses: actions/cache@v4
+        name: Setup pnpm cache
+        with:
+          path: ${{ env.STORE_PATH }}
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Run AI Evals
+        env:
+          TEST_FILTER: ${{ github.event.inputs.test_filter || '' }}
+          RUN_AI_TESTS: "true"
+          # LLM Configuration - using OpenRouter
+          DEFAULT_LLM_PROVIDER: openrouter
+          DEFAULT_LLM_MODEL: anthropic/claude-sonnet-4.5
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          # Minimal env vars required for test harness
+          DATABASE_URL: "postgresql://postgres:postgres@localhost:5432/postgres"
+          AUTH_SECRET: "test-secret"
+          GOOGLE_CLIENT_ID: "test"
+          GOOGLE_CLIENT_SECRET: "test"
+          MICROSOFT_CLIENT_ID: "test"
+          MICROSOFT_CLIENT_SECRET: "test"
+          GOOGLE_PUBSUB_TOPIC_NAME: "test"
+          EMAIL_ENCRYPT_SECRET: "test-encrypt-secret"
+          EMAIL_ENCRYPT_SALT: "test-encrypt-salt"
+          INTERNAL_API_KEY: "test"
+          NEXT_PUBLIC_BASE_URL: "http://localhost:3000"
+        run: pnpm -F inbox-zero-ai test-ai "$TEST_FILTER"

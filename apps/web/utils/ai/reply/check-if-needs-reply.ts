@@ -9,6 +9,7 @@ import {
 import { preprocessBooleanLike } from "@/utils/zod";
 import { getModel } from "@/utils/llms/model";
 import { getUserInfoPrompt } from "@/utils/ai/helpers";
+import { PROMPT_SECURITY_INSTRUCTIONS } from "@/utils/ai/security";
 
 export async function aiCheckIfNeedsReply({
   emailAccount,
@@ -25,7 +26,9 @@ export async function aiCheckIfNeedsReply({
 
   const userMessageForPrompt = messageToSend;
 
-  const system = "You are an AI assistant that checks if a reply is needed.";
+  const system = `You are an AI assistant that checks if a reply is needed.
+
+${PROMPT_SECURITY_INSTRUCTIONS}`;
 
   const prompt = `${getUserInfoPrompt({ emailAccount })}
 

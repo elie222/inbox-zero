@@ -16,6 +16,7 @@ import {
   ChevronRightIcon,
   FileIcon,
   FileTextIcon,
+  HardDriveIcon,
   InboxIcon,
   type LucideIcon,
   MailsIcon,
@@ -53,6 +54,7 @@ import { CommandShortcut } from "@/components/ui/command";
 import { useSplitLabels } from "@/hooks/useLabels";
 import { LoadingContent } from "@/components/LoadingContent";
 import {
+  useSmartFilingEnabled,
   useCleanerEnabled,
   useIntegrationsEnabled,
   useMeetingBriefsEnabled,
@@ -80,6 +82,7 @@ type NavItem = {
 };
 
 export const useNavigation = () => {
+  const showSmartFiling = useSmartFilingEnabled();
   const showCleaner = useCleanerEnabled();
   const showMeetingBriefs = useMeetingBriefsEnabled();
   const showIntegrations = useIntegrationsEnabled();
@@ -100,7 +103,7 @@ export const useNavigation = () => {
         href: prefixPath(currentEmailAccountId, "/bulk-unsubscribe"),
         icon: MailsIcon,
       },
-      ...(isGoogleProvider(provider)
+      ...(isGoogleProvider(provider) && showCleaner
         ? [
             {
               name: "Deep Clean",
@@ -129,6 +132,16 @@ export const useNavigation = () => {
             },
           ]
         : []),
+      ...(showSmartFiling
+        ? [
+            {
+              name: "Smart Filing",
+              href: prefixPath(currentEmailAccountId, "/drive"),
+              icon: HardDriveIcon,
+              beta: true,
+            },
+          ]
+        : []),
       ...(showPlugins
         ? [
             {
@@ -145,7 +158,6 @@ export const useNavigation = () => {
               name: "Meeting Briefs",
               href: prefixPath(currentEmailAccountId, "/briefs"),
               icon: FileTextIcon,
-              new: true,
             },
           ]
         : []),
@@ -153,8 +165,10 @@ export const useNavigation = () => {
     [
       currentEmailAccountId,
       provider,
+      showSmartFiling,
       showMeetingBriefs,
       showIntegrations,
+      showCleaner,
       showPlugins,
     ],
   );

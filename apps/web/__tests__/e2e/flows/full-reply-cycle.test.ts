@@ -14,7 +14,7 @@
  */
 
 import { describe, test, expect, beforeAll, afterAll, afterEach } from "vitest";
-import { shouldRunFlowTests, TIMEOUTS, getTestSubjectPrefix } from "./config";
+import { shouldRunFlowTests, TIMEOUTS } from "./config";
 import { initializeFlowTests, setupFlowTest } from "./setup";
 import { generateTestSummary } from "./teardown";
 import {
@@ -84,10 +84,10 @@ describe.skipIf(!shouldRunFlowTests())("Full Reply Cycle", () => {
       // ========================================
       logStep("Step 2: Waiting for Outlook to receive email");
 
-      // Wait for message to appear in Outlook inbox
+      // Wait for message to appear in Outlook inbox - use fullSubject for unique match
       const outlookMessage = await waitForMessageInInbox({
         provider: outlook.emailProvider,
-        subjectContains: getTestSubjectPrefix(),
+        subjectContains: sentEmail.fullSubject,
         timeout: TIMEOUTS.EMAIL_DELIVERY,
       });
 
@@ -99,10 +99,12 @@ describe.skipIf(!shouldRunFlowTests())("Full Reply Cycle", () => {
       // ========================================
       // Step 3: Wait for rule execution
       // ========================================
-      logStep("Step 3: Waiting for rule execution");
+      logStep("Step 3: Waiting for rule execution", {
+        threadId: outlookMessage.threadId,
+      });
 
       const executedRule = await waitForExecutedRule({
-        messageId: outlookMessage.messageId,
+        threadId: outlookMessage.threadId,
         emailAccountId: outlook.id,
         timeout: TIMEOUTS.WEBHOOK_PROCESSING,
       });
@@ -110,7 +112,11 @@ describe.skipIf(!shouldRunFlowTests())("Full Reply Cycle", () => {
       expect(executedRule).toBeDefined();
       expect(executedRule.status).toBe("APPLIED");
 
-      logStep("Rule executed", {
+      logStep("ExecutedRule found", {
+        executedRuleId: executedRule.id,
+        executedRuleMessageId: executedRule.messageId,
+        inboxMessageId: outlookMessage.messageId,
+        messageIdMatch: executedRule.messageId === outlookMessage.messageId,
         ruleId: executedRule.ruleId,
         status: executedRule.status,
         actionItems: executedRule.actionItems.length,
@@ -190,9 +196,7 @@ describe.skipIf(!shouldRunFlowTests())("Full Reply Cycle", () => {
 
       const gmailReply = await waitForMessageInInbox({
         provider: gmail.emailProvider,
-        subjectContains: sentEmail.fullSubject
-          .replace(getTestSubjectPrefix(), "")
-          .trim(),
+        subjectContains: sentEmail.fullSubject,
         timeout: TIMEOUTS.EMAIL_DELIVERY,
       });
 
@@ -263,10 +267,10 @@ describe.skipIf(!shouldRunFlowTests())("Full Reply Cycle", () => {
         body: "This is the first message in the thread.",
       });
 
-      // Wait for Outlook to receive
+      // Wait for Outlook to receive - use fullSubject for unique match
       const outlookMsg1 = await waitForMessageInInbox({
         provider: outlook.emailProvider,
-        subjectContains: getTestSubjectPrefix(),
+        subjectContains: initialEmail.fullSubject,
         timeout: TIMEOUTS.EMAIL_DELIVERY,
       });
 
@@ -283,10 +287,10 @@ describe.skipIf(!shouldRunFlowTests())("Full Reply Cycle", () => {
         body: "This is the reply from Outlook.",
       });
 
-      // Wait for Gmail to receive
+      // Wait for Gmail to receive - use fullSubject for unique match
       const gmailReply = await waitForMessageInInbox({
         provider: gmail.emailProvider,
-        subjectContains: "Thread continuity test",
+        subjectContains: initialEmail.fullSubject,
         timeout: TIMEOUTS.EMAIL_DELIVERY,
       });
 
@@ -306,10 +310,10 @@ describe.skipIf(!shouldRunFlowTests())("Full Reply Cycle", () => {
         body: "This is the second reply from Gmail.",
       });
 
-      // Wait for Outlook to receive
+      // Wait for Outlook to receive - use fullSubject for unique match
       const outlookMsg2 = await waitForMessageInInbox({
         provider: outlook.emailProvider,
-        subjectContains: "Thread continuity test",
+        subjectContains: initialEmail.fullSubject,
         timeout: TIMEOUTS.EMAIL_DELIVERY,
       });
 

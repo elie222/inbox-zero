@@ -12,11 +12,15 @@
 
 import { describe, test, expect, beforeAll, afterEach } from "vitest";
 import prisma from "@/utils/prisma";
-import { shouldRunFlowTests, TIMEOUTS, getTestSubjectPrefix } from "./config";
+import { shouldRunFlowTests, TIMEOUTS } from "./config";
 import { initializeFlowTests, setupFlowTest } from "./setup";
 import { generateTestSummary } from "./teardown";
-import { sendTestEmail, sendTestReply } from "./helpers/email";
-import { waitForMessageInInbox } from "./helpers/polling";
+import {
+  sendTestEmail,
+  sendTestReply,
+  TEST_EMAIL_SCENARIOS,
+} from "./helpers/email";
+import { waitForMessageInInbox, waitForExecutedRule } from "./helpers/polling";
 import { logStep, clearLogs } from "./helpers/logging";
 import type { TestAccount } from "./helpers/accounts";
 
@@ -56,7 +60,7 @@ describe.skipIf(!shouldRunFlowTests())("Outbound Message Tracking", () => {
 
       const receivedMessage = await waitForMessageInInbox({
         provider: outlook.emailProvider,
-        subjectContains: getTestSubjectPrefix(),
+        subjectContains: incomingEmail.fullSubject,
         timeout: TIMEOUTS.EMAIL_DELIVERY,
       });
 
@@ -101,7 +105,7 @@ describe.skipIf(!shouldRunFlowTests())("Outbound Message Tracking", () => {
 
       const gmailReceived = await waitForMessageInInbox({
         provider: gmail.emailProvider,
-        subjectContains: "Outbound tracking test",
+        subjectContains: incomingEmail.fullSubject,
         timeout: TIMEOUTS.EMAIL_DELIVERY,
       });
 
@@ -122,7 +126,7 @@ describe.skipIf(!shouldRunFlowTests())("Outbound Message Tracking", () => {
       // ========================================
       logStep("Setting up thread");
 
-      await sendTestEmail({
+      const incomingEmail = await sendTestEmail({
         from: gmail,
         to: outlook,
         subject: "No duplicate test",
@@ -131,7 +135,7 @@ describe.skipIf(!shouldRunFlowTests())("Outbound Message Tracking", () => {
 
       const receivedMessage = await waitForMessageInInbox({
         provider: outlook.emailProvider,
-        subjectContains: getTestSubjectPrefix(),
+        subjectContains: incomingEmail.fullSubject,
         timeout: TIMEOUTS.EMAIL_DELIVERY,
       });
 
@@ -178,23 +182,68 @@ describe.skipIf(!shouldRunFlowTests())("Outbound Message Tracking", () => {
     async () => {
       testStartTime = Date.now();
 
-      // ========================================
-      // Setup: Create incoming email
-      // ========================================
-      logStep("Setting up incoming email");
+      // Use an email that clearly needs a reply so AI classifies as "To Reply"
+      const scenario = TEST_EMAIL_SCENARIOS.NEEDS_REPLY;
 
-      await sendTestEmail({
+      // ========================================
+      // Setup: Create incoming email that needs a reply
+      // ========================================
+      logStep("Setting up incoming email that needs reply");
+
+      const incomingEmail = await sendTestEmail({
         from: gmail,
         to: outlook,
-        subject: "Reply tracking update test",
-        body: "Please let me know your thoughts.",
+        subject: scenario.subject,
+        body: scenario.body,
       });
 
       const receivedMessage = await waitForMessageInInbox({
         provider: outlook.emailProvider,
-        subjectContains: getTestSubjectPrefix(),
+        subjectContains: incomingEmail.fullSubject,
         timeout: TIMEOUTS.EMAIL_DELIVERY,
       });
+
+      logStep("Email received", {
+        messageId: receivedMessage.messageId,
+        threadId: receivedMessage.threadId,
+      });
+
+      // ========================================
+      // Wait for AI to process and classify the email
+      // This creates the ThreadTracker with NEEDS_REPLY type
+      // ========================================
+      logStep("Waiting for rule execution to create ThreadTracker");
+
+      const executedRule = await waitForExecutedRule({
+        threadId: receivedMessage.threadId,
+        emailAccountId: outlook.id,
+        timeout: TIMEOUTS.WEBHOOK_PROCESSING,
+      });
+
+      logStep("Rule executed", {
+        executedRuleId: executedRule.id,
+        status: executedRule.status,
+      });
+
+      // Verify ThreadTracker was created (unresolved initially)
+      const trackerBeforeReply = await prisma.threadTracker.findFirst({
+        where: {
+          emailAccountId: outlook.id,
+          threadId: receivedMessage.threadId,
+          resolved: false,
+        },
+      });
+
+      logStep("ThreadTracker before reply", {
+        id: trackerBeforeReply?.id,
+        exists: !!trackerBeforeReply,
+        resolved: trackerBeforeReply?.resolved,
+        type: trackerBeforeReply?.type,
+      });
+
+      // Store the tracker ID to verify it gets resolved
+      const originalTrackerId = trackerBeforeReply?.id;
+      expect(originalTrackerId).toBeDefined();
 
       // ========================================
       // Send reply
@@ -214,26 +263,25 @@ describe.skipIf(!shouldRunFlowTests())("Outbound Message Tracking", () => {
       // ========================================
       logStep("Waiting for reply tracking update");
 
-      // Check ThreadTracker for reply tracking
+      // Wait for outbound processing to mark tracker as resolved
       await new Promise((resolve) => setTimeout(resolve, 10_000));
 
-      // Verify the thread is now marked as "replied to"
-      const threadTracker = await prisma.threadTracker.findFirst({
-        where: {
-          emailAccountId: outlook.id,
-          threadId: receivedMessage.threadId,
-        },
+      // Verify the ORIGINAL tracker is now resolved
+      // Note: A new AWAITING_REPLY tracker may be created, so we must check
+      // the specific tracker that existed before the reply
+      const resolvedTracker = await prisma.threadTracker.findUnique({
+        where: { id: originalTrackerId! },
       });
 
-      // Thread tracker should exist and be marked as resolved after reply
-      expect(threadTracker).toBeDefined();
-      expect(threadTracker?.resolved).toBe(true);
+      expect(resolvedTracker).toBeDefined();
+      expect(resolvedTracker?.resolved).toBe(true);
 
-      logStep("Reply tracking found", {
-        resolved: threadTracker?.resolved,
-        type: threadTracker?.type,
+      logStep("Original tracker now resolved", {
+        id: resolvedTracker?.id,
+        resolved: resolvedTracker?.resolved,
+        type: resolvedTracker?.type,
       });
     },
-    TIMEOUTS.TEST_DEFAULT,
+    TIMEOUTS.FULL_CYCLE,
   );
 });
