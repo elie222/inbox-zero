@@ -84,8 +84,20 @@ async function handleBatchInternal(request: RequestWithLogger) {
 
   // 3. save categorized senders to db
   for (const result of results) {
+    // Look up sender name from EmailMessage
+    const senderNameResult = await prisma.emailMessage.findFirst({
+      where: {
+        emailAccountId,
+        from: result.sender,
+        fromName: { not: null },
+      },
+      select: { fromName: true },
+      orderBy: { date: "desc" },
+    });
+
     await updateSenderCategory({
       sender: result.sender,
+      senderName: senderNameResult?.fromName,
       categories,
       categoryName: result.category ?? UNKNOWN_CATEGORY,
       emailAccountId,
