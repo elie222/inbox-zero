@@ -1,6 +1,6 @@
 {
     "scripts": {
-        "setup": "pnpm install\n\n# Copy .env file\ncp $CONDUCTOR_ROOT_PATH/apps/web/.env.local apps/web/.env.local",
+        "setup": "sleep 1 && pnpm install\n\n# Copy .env file\ncp $CONDUCTOR_ROOT_PATH/apps/web/.env.local apps/web/.env.local",
         "run": "pnpm dev"
     }
 }
