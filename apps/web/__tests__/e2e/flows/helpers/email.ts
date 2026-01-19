@@ -81,6 +81,15 @@ export async function sendTestReply(options: {
   const originalMessage =
     await from.emailProvider.getMessage(originalMessageId);
 
+  // Log threading-critical values for debugging cross-provider threading issues
+  logStep("sendTestReply - Threading headers", {
+    originalMessageId,
+    originalInternetMessageId: originalMessage.headers["message-id"],
+    originalReferences: originalMessage.headers.references,
+    outlookThreadId: threadId,
+    subject: originalMessage.subject,
+  });
+
   const result = await from.emailProvider.sendEmailWithHtml({
     to: to.email,
     subject: originalMessage.subject?.startsWith("Re:")

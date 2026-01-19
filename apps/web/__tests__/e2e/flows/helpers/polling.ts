@@ -274,6 +274,56 @@ export async function waitForMessageInInbox(options: {
 }
 
 /**
+ * Wait for a reply to appear in inbox
+ * More specific than waitForMessageInInbox - filters by sender and subject
+ * to ensure we find the actual reply, not some other message
+ */
+export async function waitForReplyInInbox(options: {
+  provider: EmailProvider;
+  subjectContains: string;
+  fromEmail: string;
+  timeout?: number;
+}): Promise<{ messageId: string; threadId: string; subject: string }> {
+  const {
+    provider,
+    subjectContains,
+    fromEmail,
+    timeout = TIMEOUTS.EMAIL_DELIVERY,
+  } = options;
+
+  logStep("Waiting for reply in inbox", { subjectContains, fromEmail });
+
+  return pollUntil(
+    async () => {
+      const messages = await provider.getInboxMessages(20);
+      const found = messages.find((msg) => {
+        // Must be from the expected sender
+        const msgFrom = msg.headers?.from?.toLowerCase() || "";
+        if (!msgFrom.includes(fromEmail.toLowerCase())) return false;
+
+        // Must contain the subject (including Re: variants)
+        if (!msg.subject?.includes(subjectContains)) return false;
+
+        return true;
+      });
+
+      if (found?.id && found?.threadId) {
+        return {
+          messageId: found.id,
+          threadId: found.threadId,
+          subject: found.subject || "",
+        };
+      }
+      return null;
+    },
+    {
+      timeout,
+      description: `Reply from ${fromEmail} with subject containing "${subjectContains}"`,
+    },
+  );
+}
+
+/**
  * Wait for draft to be deleted (cleanup verification)
  */
 export async function waitForDraftDeleted(options: {
