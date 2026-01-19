@@ -262,7 +262,15 @@ ngrok http 3000
 
 Then update the webhook endpoint in the [Google PubSub subscriptions dashboard](https://console.cloud.google.com/cloudpubsub/subscription/list).
 
-**Scheduled tasks:** Gmail/Outlook watch subscriptions and meeting briefs require periodic execution. If using Docker Compose, this is handled automatically by the cron container. Otherwise, set up cron jobs for `/api/watch/all` (every 6 hours) and `/api/meeting-briefs` (every 15 minutes). See [Self-Hosting Guide](docs/hosting/self-hosting.md#scheduled-tasks).
+**Scheduled tasks:** Several features require periodic execution. If using Docker Compose, this is handled automatically by the cron container. Otherwise, set up cron jobs manually:
+
+| Endpoint | Frequency | Cron Expression | Description |
+|----------|-----------|-----------------|-------------|
+| `/api/watch/all` | Every 6 hours | `0 */6 * * *` | Renews Gmail/Outlook push notification subscriptions |
+| `/api/meeting-briefs` | Every 15 minutes | `*/15 * * * *` | Sends pre-meeting briefings (optional, only if using meeting briefs feature) |
+| `/api/follow-up-reminders` | Every 30 minutes | `*/30 * * * *` | Processes follow-up reminder notifications (optional, only if using follow-up reminders feature) |
+
+See [Self-Hosting Guide](docs/hosting/self-hosting.md#scheduled-tasks) for detailed cron configuration.
 
 ### Microsoft OAuth Setup
 
