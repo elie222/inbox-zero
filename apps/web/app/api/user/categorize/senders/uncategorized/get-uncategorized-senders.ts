@@ -59,8 +59,9 @@ export async function getUncategorizedSenders({
     currentOffset += limit;
   }
 
-  return {
-    uncategorizedSenders,
-    nextOffset: currentOffset, // Only return nextOffset if there might be more
-  };
+  // Only return nextOffset if we found senders (to avoid infinite loop when MAX_ITERATIONS is hit)
+  if (uncategorizedSenders.length > 0) {
+    return { uncategorizedSenders, nextOffset: currentOffset };
+  }
+  return { uncategorizedSenders };
 }

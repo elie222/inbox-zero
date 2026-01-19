@@ -41,7 +41,7 @@ export function Uncategorized({
   const senders = useMemo(
     () =>
       senderAddresses?.map((sender) => {
-        return { address: sender.email, category: null };
+        return { address: sender.email, name: sender.name, category: null };
       }),
     [senderAddresses],
   );

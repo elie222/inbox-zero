@@ -60,6 +60,7 @@ const COLUMNS = 4;
 
 type EmailGroup = {
   address: string;
+  name?: string | null;
   category: CategoryWithRules | null;
   meta?: { width?: string };
 };
@@ -323,6 +324,7 @@ export function SendersTable({
           <div className="flex items-center justify-between">
             <EmailCell
               emailAddress={row.original.address}
+              name={row.original.name}
               className="flex gap-2"
             />
           </div>
