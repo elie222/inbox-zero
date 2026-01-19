@@ -95,6 +95,7 @@ export type {
   InitContext,
   // Context types
   EmailProvider,
+  EmailParticipant,
   PluginEmailData,
   PluginEmailAccount,
   CalendarAttendee,

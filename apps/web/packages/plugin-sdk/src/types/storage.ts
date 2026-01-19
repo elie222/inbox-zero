@@ -51,6 +51,24 @@ export interface PluginStorage {
   delete(key: string): Promise<void>;
 
   /**
+   * List all keys in key-value storage, optionally filtered by prefix.
+   *
+   * @param prefix - Optional prefix to filter keys. If not provided, returns all keys.
+   * @returns Array of matching key names
+   *
+   * @example
+   * ```typescript
+   * // List all keys
+   * const allKeys = await ctx.storage.list();
+   *
+   * // List keys with a prefix
+   * const userKeys = await ctx.storage.list('user:');
+   * // Returns: ['user:123', 'user:456', 'user:789']
+   * ```
+   */
+  list(prefix?: string): Promise<string[]>;
+
+  /**
    * Get user-level settings for the current user.
    *
    * User settings are shared across all email accounts belonging to the user.

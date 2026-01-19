@@ -266,6 +266,63 @@ class PluginStorageImpl implements PluginStorage {
   }
 
   /**
+   * List all keys in key-value storage, optionally filtered by prefix.
+   * Expired keys are excluded from the results.
+   */
+  async list(prefix?: string): Promise<string[]> {
+    try {
+      const record = await prisma.pluginAccountSettings.findUnique({
+        where: {
+          pluginId_emailAccountId: {
+            pluginId: this.#pluginId,
+            emailAccountId: this.#emailAccountId,
+          },
+        },
+        select: { settings: true },
+      });
+
+      if (!record?.settings) {
+        return [];
+      }
+
+      const settings = record.settings as Record<string, unknown>;
+      const ttlMetadata = settings[TTL_METADATA_KEY] as TtlMetadata | undefined;
+      const now = Date.now();
+
+      // get all KV keys, filter out expired ones, and strip the prefix
+      const keys = Object.keys(settings)
+        .filter((k) => k.startsWith(KV_PREFIX))
+        .map((k) => k.slice(KV_PREFIX.length))
+        .filter((key) => {
+          // filter out expired keys
+          if (ttlMetadata?.[key] && now > ttlMetadata[key]) {
+            return false;
+          }
+          // filter by user-provided prefix if specified
+          if (prefix && !key.startsWith(prefix)) {
+            return false;
+          }
+          return true;
+        });
+
+      logger.trace("Listed storage keys", {
+        pluginId: this.#pluginId,
+        prefix,
+        count: keys.length,
+      });
+
+      return keys;
+    } catch (error) {
+      logger.error("Failed to list storage keys", {
+        pluginId: this.#pluginId,
+        prefix,
+        error,
+      });
+      throw new PluginStorageError("Failed to list storage keys", error);
+    }
+  }
+
+  /**
    * Get per-user settings for the plugin.
    * These settings are shared across all email accounts for the same user.
    */

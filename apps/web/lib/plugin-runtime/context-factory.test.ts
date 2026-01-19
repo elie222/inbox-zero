@@ -309,7 +309,7 @@ function createTestEmail(overrides: Partial<Email> = {}): Email {
     threadId: "thread-456",
     subject: "Test Subject",
     from: "sender@example.com",
-    to: "recipient@example.com",
+    to: [{ email: "recipient@example.com" }],
     snippet: "This is a preview snippet...",
     body: "Full email body content here",
     headers: { "X-Custom": "header-value" },

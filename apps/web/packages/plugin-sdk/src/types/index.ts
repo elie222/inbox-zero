@@ -54,6 +54,7 @@ export type {
 // Context types
 export type {
   EmailProvider,
+  EmailParticipant,
   PluginEmail as PluginEmailData,
   PluginEmailAccount,
   CalendarAttendee,

@@ -65,16 +65,38 @@ const logger = createScopedLogger("plugin-runtime/context");
 // Email Types (internal representation)
 // -----------------------------------------------------------------------------
 
+/**
+ * Internal representation of an email recipient.
+ */
+export interface EmailRecipient {
+  email: string;
+  name?: string;
+}
+
+/**
+ * Internal email representation passed to context factory.
+ * This is the full email data from the email provider before permission filtering.
+ */
 export interface Email {
   id: string;
   threadId?: string;
   subject: string;
   from: string;
-  to?: string;
+  /** Parsed sender information */
+  fromParsed?: EmailRecipient;
+  /** Recipients (To field) */
+  to?: readonly EmailRecipient[];
+  /** CC recipients */
+  cc?: readonly EmailRecipient[];
   snippet: string;
   body?: string;
   headers?: Record<string, string>;
+  /** When the email was received (ISO 8601) */
   date?: string;
+  /** Whether this email is a reply */
+  isReply?: boolean;
+  /** Provider-specific message ID (Gmail msg_id, Microsoft message ID) */
+  messageId?: string;
 }
 
 export interface EmailAccount {
@@ -529,11 +551,25 @@ export async function createChatToolContext(
 // -----------------------------------------------------------------------------
 
 /**
+ * Parses an email address string like "Name <email@example.com>" into components.
+ * Returns the parsed result with email and optional name.
+ */
+function parseEmailAddress(address: string): { email: string; name?: string } {
+  // match patterns like "Name <email>" or just "email"
+  const match = address.match(/^(.+?)\s*<(.+)>$/);
+  if (match) {
+    const name = match[1].trim().replace(/^["']|["']$/g, "");
+    return { email: match[2].trim(), name: name || undefined };
+  }
+  return { email: address.trim() };
+}
+
+/**
  * Creates a scoped email object with only the fields the plugin has permission to access.
  *
  * Permission tiers:
  * - 'none': Only id and headers (minimal required data)
- * - 'metadata': Access to subject, from, to, cc, date, snippet
+ * - 'metadata': Access to subject, from, to, cc, date, snippet, fromParsed, isReply, messageId
  * - 'full': Access to all metadata plus body content
  */
 function createScopedEmail(
@@ -560,6 +596,32 @@ function createScopedEmail(
     scopedEmail.subject = email.subject;
     scopedEmail.from = email.from;
     scopedEmail.snippet = email.snippet;
+
+    // parse sender info if not already provided
+    scopedEmail.fromParsed = email.fromParsed ?? parseEmailAddress(email.from);
+
+    // include recipients if available
+    if (email.to) {
+      scopedEmail.to = email.to;
+    }
+    if (email.cc) {
+      scopedEmail.cc = email.cc;
+    }
+
+    // include date if available
+    if (email.date) {
+      scopedEmail.date = email.date;
+    }
+
+    // include isReply flag
+    if (email.isReply !== undefined) {
+      scopedEmail.isReply = email.isReply;
+    }
+
+    // include provider-specific message ID
+    if (email.messageId) {
+      scopedEmail.messageId = email.messageId;
+    }
   }
 
   // full tier: also include body content

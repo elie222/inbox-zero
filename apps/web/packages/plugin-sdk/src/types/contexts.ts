@@ -26,6 +26,17 @@ export type { CalendarEventAttendee as CalendarAttendee };
 export type EmailProvider = "google" | "microsoft";
 
 /**
+ * Email participant with email address and optional display name
+ */
+export interface EmailParticipant {
+  /** Email address */
+  email: string;
+
+  /** Display name (may be undefined if not provided) */
+  name?: string;
+}
+
+/**
  * Email data available to plugins (fields gated by permissions)
  */
 export interface PluginEmail {
@@ -38,8 +49,17 @@ export interface PluginEmail {
   /** Email subject line */
   subject: string;
 
-  /** Sender email address */
+  /** Sender email address (raw string, may include name like "John Doe <john@example.com>") */
   from: string;
+
+  /** Parsed sender information with separate email and name */
+  fromParsed?: EmailParticipant;
+
+  /** Recipients (To field) */
+  to?: readonly EmailParticipant[];
+
+  /** CC recipients */
+  cc?: readonly EmailParticipant[];
 
   /** Preview snippet of the email body */
   snippet: string;
@@ -49,6 +69,19 @@ export interface PluginEmail {
 
   /** Email headers as key-value pairs */
   headers: Record<string, string>;
+
+  /** When the email was received (ISO 8601 format) */
+  date?: string;
+
+  /** Whether this email is a reply to another message */
+  isReply?: boolean;
+
+  /**
+   * Provider-specific message ID.
+   * - Gmail: The unique message ID (not to be confused with the RFC 822 Message-ID header)
+   * - Microsoft: The message ID from Graph API
+   */
+  messageId?: string;
 }
 
 /**
@@ -167,6 +200,13 @@ export interface PluginStorage {
    * @param key - Storage key
    */
   delete(key: string): Promise<void>;
+
+  /**
+   * List all keys in plugin storage, optionally filtered by prefix
+   * @param prefix - Optional prefix to filter keys
+   * @returns Array of matching key names
+   */
+  list(prefix?: string): Promise<string[]>;
 
   /**
    * Get user-level settings for this plugin
@@ -367,6 +407,9 @@ export interface ScheduledTriggerContext extends BaseContext {
 
   /** When this execution was scheduled for */
   scheduledAt: Date;
+
+  /** IANA timezone for this schedule (e.g., 'America/New_York') */
+  timezone?: string;
 
   /** Custom data passed when schedule was registered */
   data?: Record<string, unknown>;
