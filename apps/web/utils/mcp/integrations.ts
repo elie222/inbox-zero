@@ -14,6 +14,7 @@ export const MCP_INTEGRATIONS: Record<
   McpIntegrationConfig & {
     displayName: string;
     shortName?: string; // Short name for display in compact contexts (e.g. "Connected to X")
+    url: string; // Domain URL for favicon display
     allowedTools?: string[];
     comingSoon?: boolean;
     oauthConfig?: {
@@ -26,6 +27,7 @@ export const MCP_INTEGRATIONS: Record<
   notion: {
     name: "notion",
     displayName: "Notion",
+    url: "notion.com",
     serverUrl: "https://mcp.notion.com/mcp",
     authType: "oauth",
     scopes: ["read"],
@@ -35,6 +37,7 @@ export const MCP_INTEGRATIONS: Record<
   stripe: {
     name: "stripe",
     displayName: "Stripe",
+    url: "stripe.com",
     serverUrl: "https://mcp.stripe.com",
     authType: "oauth", // must request whitelisting of /api/mcp/stripe/callback from Stripe. localhost is whitelisted already.
     // authType: "api-token", // alternatively, use an API token.
@@ -54,6 +57,7 @@ export const MCP_INTEGRATIONS: Record<
   monday: {
     name: "monday",
     displayName: "Monday.com",
+    url: "monday.com",
     serverUrl: "https://mcp.monday.com/mcp",
     authType: "oauth",
     scopes: ["read", "write"],
@@ -95,6 +99,7 @@ export const MCP_INTEGRATIONS: Record<
     name: "pipedream",
     displayName: "HubSpot, Slack, Airtable, Todoist, and more (via Pipedream)",
     shortName: "Pipedream",
+    url: "pipedream.com",
     serverUrl: "https://mcp.pipedream.net/v2",
     authType: "oauth",
     scopes: ["mcp", "offline_access"],

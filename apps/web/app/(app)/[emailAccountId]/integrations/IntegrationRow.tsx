@@ -181,7 +181,7 @@ export function IntegrationRow({
       <TableRow>
         <TableCell>
           <div className="flex items-center gap-3">
-            <DomainIcon domain={`${integration.name}.com`} size={32} />
+            <DomainIcon domain={integration.url} size={32} />
             <span>{integration.displayName}</span>
           </div>
         </TableCell>
