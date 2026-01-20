@@ -309,8 +309,18 @@ function UnsubscribeButton<T extends Row>({
             </div>
           </div>
 
-          <DialogFooter>
-            <Button onClick={handleDone} disabled={doneLoading}>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button
+              variant="outline"
+              onClick={() => handleDialogClose(false)}
+              disabled={doneLoading}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleDone}
+              disabled={!unblockComplete || doneLoading}
+            >
               {doneLoading && <ButtonLoader />}
               Done
             </Button>
