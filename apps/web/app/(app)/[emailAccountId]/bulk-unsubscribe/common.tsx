@@ -1,6 +1,7 @@
 "use client";
 
 import type React from "react";
+import { useState } from "react";
 import Link from "next/link";
 import {
   ArchiveIcon,
@@ -33,6 +34,7 @@ import { NewsletterStatus } from "@/generated/prisma/enums";
 import { toastError, toastSuccess } from "@/components/Toast";
 import { createFilterAction } from "@/utils/actions/mail";
 import { getGmailSearchUrl } from "@/utils/url";
+import { extractNameFromEmail } from "@/utils/email";
 import { Badge } from "@/components/ui/badge";
 import type { Row } from "@/app/(app)/[emailAccountId]/bulk-unsubscribe/types";
 import {
@@ -42,6 +44,7 @@ import {
   useBulkDelete,
   type NewsletterFilterType,
 } from "@/app/(app)/[emailAccountId]/bulk-unsubscribe/hooks";
+import { ResubscribeDialog } from "@/app/(app)/[emailAccountId]/bulk-unsubscribe/ResubscribeDialog";
 import { LabelsSubMenu } from "@/components/LabelsSubMenu";
 import type { EmailLabel } from "@/providers/EmailProvider";
 import { useAccount } from "@/providers/EmailAccountProvider";
@@ -134,6 +137,8 @@ function UnsubscribeButton<T extends Row>({
   posthog: PostHog;
   emailAccountId: string;
 }) {
+  const [resubscribeDialogOpen, setResubscribeDialogOpen] = useState(false);
+
   const { unsubscribeLoading, onUnsubscribe, unsubscribeLink } = useUnsubscribe(
     {
       item,
@@ -154,23 +159,52 @@ function UnsubscribeButton<T extends Row>({
       ? "Unsubscribe"
       : "Block";
 
-  return (
-    <Button
-      size="sm"
-      variant="outline"
-      className="w-[110px] justify-center"
-      asChild
-    >
-      <Link
-        href={unsubscribeLink}
-        target={hasUnsubscribeLink && !isUnsubscribed ? "_blank" : undefined}
-        onClick={onUnsubscribe}
-        rel="noreferrer"
+  const senderName = item.fromName || extractNameFromEmail(item.name);
+
+  // Show Resubscribe button if unsubscribed, otherwise show Unsubscribe/Block button
+  const button =
+    isUnsubscribed || resubscribeDialogOpen ? (
+      <Button
+        size="sm"
+        variant="outline"
+        className="w-[110px] justify-center"
+        onClick={() => setResubscribeDialogOpen(true)}
       >
         {unsubscribeLoading && <ButtonLoader />}
-        {buttonText}
-      </Link>
-    </Button>
+        Resubscribe
+      </Button>
+    ) : (
+      <Button
+        size="sm"
+        variant="outline"
+        className="w-[110px] justify-center"
+        asChild
+      >
+        <Link
+          href={unsubscribeLink}
+          target={hasUnsubscribeLink ? "_blank" : undefined}
+          onClick={onUnsubscribe}
+          rel="noreferrer"
+        >
+          {unsubscribeLoading && <ButtonLoader />}
+          {buttonText}
+        </Link>
+      </Button>
+    );
+
+  return (
+    <>
+      {button}
+
+      <ResubscribeDialog
+        open={resubscribeDialogOpen}
+        onOpenChange={setResubscribeDialogOpen}
+        senderName={senderName}
+        newsletterEmail={item.name}
+        emailAccountId={emailAccountId}
+        mutate={mutate}
+      />
+    </>
   );
 }
 
