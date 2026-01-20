@@ -18,11 +18,12 @@ export const E2E_RUN_ID =
   process.env.E2E_RUN_ID ||
   `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
-// Message sequence counter for unique subjects within a run
-let messageSequence = 0;
-export function getNextMessageSequence(): number {
-  messageSequence += 1;
-  return messageSequence;
+// Generate unique message identifier using timestamp + random suffix
+// This ensures uniqueness across all test files (unlike a module-scoped counter)
+export function getNextMessageSequence(): string {
+  const timestamp = Date.now().toString(36); // Base36 for shorter string
+  const random = Math.random().toString(36).slice(2, 6); // 4 random chars
+  return `${timestamp}-${random}`;
 }
 
 // Webhook tunnel URL (set by tunnel startup script)
