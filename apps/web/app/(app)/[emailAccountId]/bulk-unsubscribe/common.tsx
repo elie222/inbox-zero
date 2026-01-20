@@ -53,6 +53,7 @@ import {
   useBulkDelete,
   type NewsletterFilterType,
 } from "@/app/(app)/[emailAccountId]/bulk-unsubscribe/hooks";
+import { setNewsletterStatusAction } from "@/utils/actions/unsubscriber";
 import { LabelsSubMenu } from "@/components/LabelsSubMenu";
 import type { EmailLabel } from "@/providers/EmailProvider";
 import { useAccount } from "@/providers/EmailAccountProvider";
@@ -147,6 +148,7 @@ function UnsubscribeButton<T extends Row>({
 }) {
   const [resubscribeDialogOpen, setResubscribeDialogOpen] = useState(false);
   const [unblockComplete, setUnblockComplete] = useState(false);
+  const [unblockLoading, setUnblockLoading] = useState(false);
 
   const { unsubscribeLoading, onUnsubscribe, unsubscribeLink } = useUnsubscribe(
     {
@@ -170,15 +172,26 @@ function UnsubscribeButton<T extends Row>({
 
   const senderName = item.fromName || extractNameFromEmail(item.name);
 
+  // Unblock without calling mutate - we'll refresh when dialog closes
   const handleUnblock = async () => {
-    await onUnsubscribe();
-    setUnblockComplete(true);
+    setUnblockLoading(true);
+    try {
+      await setNewsletterStatusAction(emailAccountId, {
+        newsletterEmail: item.name,
+        status: null,
+      });
+      setUnblockComplete(true);
+    } finally {
+      setUnblockLoading(false);
+    }
   };
 
   const handleDialogClose = (open: boolean) => {
     setResubscribeDialogOpen(open);
     if (!open) {
       setUnblockComplete(false);
+      // Refresh data when dialog closes
+      mutate();
     }
   };
 
@@ -252,9 +265,9 @@ function UnsubscribeButton<T extends Row>({
                     size="sm"
                     className="shrink-0"
                     onClick={handleUnblock}
-                    disabled={unsubscribeLoading}
+                    disabled={unblockLoading}
                   >
-                    {unsubscribeLoading && <ButtonLoader />}
+                    {unblockLoading && <ButtonLoader />}
                     Unblock
                   </Button>
                 )}

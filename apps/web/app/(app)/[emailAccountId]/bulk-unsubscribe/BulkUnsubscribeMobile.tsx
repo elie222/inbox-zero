@@ -38,6 +38,7 @@ import { Button } from "@/components/ui/button";
 import { ButtonLoader } from "@/components/Loading";
 import { NewsletterStatus } from "@/generated/prisma/enums";
 import { Badge } from "@/components/ui/badge";
+import { setNewsletterStatusAction } from "@/utils/actions/unsubscriber";
 
 export function BulkUnsubscribeMobile({
   tableRows,
@@ -60,6 +61,7 @@ export function BulkUnsubscribeRowMobile({
 }: RowProps) {
   const [resubscribeDialogOpen, setResubscribeDialogOpen] = useState(false);
   const [unblockComplete, setUnblockComplete] = useState(false);
+  const [unblockLoading, setUnblockLoading] = useState(false);
 
   const name = item.fromName || extractNameFromEmail(item.name);
   const email = extractEmailAddress(item.name);
@@ -91,15 +93,26 @@ export function BulkUnsubscribeRowMobile({
   const hasUnsubscribeLink = unsubscribeLink !== "#";
   const isUnsubscribed = item.status === NewsletterStatus.UNSUBSCRIBED;
 
+  // Unblock without calling mutate - we'll refresh when dialog closes
   const handleUnblock = async () => {
-    await onUnsubscribe();
-    setUnblockComplete(true);
+    setUnblockLoading(true);
+    try {
+      await setNewsletterStatusAction(emailAccountId, {
+        newsletterEmail: item.name,
+        status: null,
+      });
+      setUnblockComplete(true);
+    } finally {
+      setUnblockLoading(false);
+    }
   };
 
   const handleDialogClose = (open: boolean) => {
     setResubscribeDialogOpen(open);
     if (!open) {
       setUnblockComplete(false);
+      // Refresh data when dialog closes
+      mutate();
     }
   };
 
@@ -239,9 +252,9 @@ export function BulkUnsubscribeRowMobile({
                     size="sm"
                     className="shrink-0"
                     onClick={handleUnblock}
-                    disabled={unsubscribeLoading}
+                    disabled={unblockLoading}
                   >
-                    {unsubscribeLoading && <ButtonLoader />}
+                    {unblockLoading && <ButtonLoader />}
                     Unblock
                   </Button>
                 )}
