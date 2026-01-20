@@ -93,8 +93,8 @@ export function ResubscribeDialog({
               <div>
                 <div className="font-medium">Unblock Sender</div>
                 <p className="text-sm text-muted-foreground">
-                  Inbox Zero is currently auto-archiving emails from this
-                  sender, click Unblock to allow emails from them.
+                  We're currently auto-archiving this sender. Click "Unblock" to
+                  allow emails from them.
                 </p>
               </div>
               {unblockComplete ? (
