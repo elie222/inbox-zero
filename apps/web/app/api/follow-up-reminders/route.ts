@@ -17,6 +17,7 @@ export const GET = withError("follow-up-reminders", async (request) => {
   }
 
   if (!env.NEXT_PUBLIC_FOLLOW_UP_REMINDERS_ENABLED) {
+    request.logger.warn("Follow-up reminders feature is disabled");
     return NextResponse.json({ message: "Follow-up reminders disabled" });
   }
 
@@ -34,6 +35,7 @@ export const POST = withError("follow-up-reminders", async (request) => {
   }
 
   if (!env.NEXT_PUBLIC_FOLLOW_UP_REMINDERS_ENABLED) {
+    request.logger.warn("Follow-up reminders feature is disabled");
     return NextResponse.json({ message: "Follow-up reminders disabled" });
   }
 
