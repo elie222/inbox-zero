@@ -84,11 +84,8 @@ export async function waitForExecutedRule(options: {
     labelId: string | null;
   }>;
 }> {
-  const {
-    threadId,
-    emailAccountId,
-    timeout = TIMEOUTS.WEBHOOK_PROCESSING,
-  } = options;
+  const { threadId, emailAccountId, timeout = TIMEOUTS.WEBHOOK_PROCESSING } =
+    options;
 
   logStep("Waiting for ExecutedRule", { threadId, emailAccountId });
 
