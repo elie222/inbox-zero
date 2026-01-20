@@ -10,6 +10,7 @@ import {
   type LucideIcon,
   ChromeIcon,
   CalendarIcon,
+  FileTextIcon,
 } from "lucide-react";
 import { useLocalStorage } from "usehooks-ts";
 import {
@@ -24,6 +25,7 @@ import { LoadingContent } from "@/components/LoadingContent";
 import { EXTENSION_URL } from "@/utils/config";
 import { isGoogleProvider } from "@/utils/email/provider-types";
 import { useAccount } from "@/providers/EmailAccountProvider";
+import { useMeetingBriefsEnabled } from "@/hooks/useFeatureFlags";
 import {
   STEP_KEYS,
   getStepNumber,
@@ -236,9 +238,18 @@ function Checklist({
     "inbox-zero-extension-installed",
     false,
   );
+  const [isMeetingBriefsViewed, setIsMeetingBriefsViewed] = useLocalStorage(
+    "inbox-zero-meeting-briefs-viewed",
+    false,
+  );
+  const isMeetingBriefsEnabled = useMeetingBriefsEnabled();
 
   const handleMarkExtensionDone = () => {
     setIsExtensionInstalled(true);
+  };
+
+  const handleMarkMeetingBriefsDone = () => {
+    setIsMeetingBriefsViewed(true);
   };
 
   return (
@@ -295,6 +306,21 @@ function Checklist({
         completed={isCalendarConnected}
         actionText="Connect"
       />
+
+      {isMeetingBriefsEnabled && (
+        <StepItem
+          href={prefixPath(emailAccountId, "/briefs")}
+          icon={<FileTextIcon size={20} />}
+          iconBg="bg-teal-100 dark:bg-teal-900/50"
+          iconColor="text-teal-500 dark:text-teal-400"
+          title="Optional: Set up Meeting Briefs"
+          timeEstimate="2 minutes"
+          completed={isMeetingBriefsViewed}
+          actionText="View"
+          onMarkDone={handleMarkMeetingBriefsDone}
+          showMarkDone={true}
+        />
+      )}
 
       {isGoogleProvider(provider) && (
         <StepItem

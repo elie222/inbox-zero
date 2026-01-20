@@ -92,7 +92,10 @@ FROM node:22-alpine AS runner
 WORKDIR /app
 
 RUN apk add --no-cache openssl
-RUN npm install -g prisma@6.16.3
+
+# Install Prisma CLI globally
+# Note: Prisma 7 requires config file for migrations
+RUN npm install -g prisma@7.2.0
 
 # Copy standalone build
 COPY --from=builder /app/apps/web/.next/standalone ./
