@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { Fragment, useMemo, useState } from "react";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
 import { getEmailTerminology } from "@/utils/terminology";
@@ -44,6 +44,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarMenu,
+  SidebarSeparator,
   useSidebar,
   SidebarTrigger,
 } from "@/components/ui/sidebar";
@@ -79,6 +80,12 @@ type NavItem = {
   new?: boolean;
 };
 
+type NavGroup = {
+  label?: string;
+  separator?: boolean;
+  items: NavItem[];
+};
+
 export const useNavigation = () => {
   const showSmartFiling = useSmartFilingEnabled();
   const showCleaner = useCleanerEnabled();
@@ -88,66 +95,86 @@ export const useNavigation = () => {
   const { emailAccountId, emailAccount, provider } = useAccount();
   const currentEmailAccountId = emailAccount?.id || emailAccountId;
 
-  const navItems: NavItem[] = useMemo(
+  const navGroups: NavGroup[] = useMemo(
     () => [
       {
-        name: "Assistant",
-        href: prefixPath(currentEmailAccountId, "/automation"),
-        icon: SparklesIcon,
+        label: "Assistant",
+        items: [
+          {
+            name: "Assistant",
+            href: prefixPath(currentEmailAccountId, "/automation"),
+            icon: SparklesIcon,
+          },
+          ...(showMeetingBriefs
+            ? [
+                {
+                  name: "Meeting Briefs",
+                  href: prefixPath(currentEmailAccountId, "/briefs"),
+                  icon: FileTextIcon,
+                },
+              ]
+            : []),
+        ],
       },
       {
-        name: "Bulk Unsubscribe",
-        href: prefixPath(currentEmailAccountId, "/bulk-unsubscribe"),
-        icon: MailsIcon,
+        label: "Clean",
+        items: [
+          {
+            name: "Bulk Unsubscribe",
+            href: prefixPath(currentEmailAccountId, "/bulk-unsubscribe"),
+            icon: MailsIcon,
+          },
+          ...(isGoogleProvider(provider) && showCleaner
+            ? [
+                {
+                  name: "Deep Clean",
+                  href: prefixPath(currentEmailAccountId, "/clean"),
+                  icon: BrushIcon,
+                },
+              ]
+            : []),
+          {
+            name: "Bulk Archive",
+            href: prefixPath(currentEmailAccountId, "/bulk-archive"),
+            icon: ArchiveIcon,
+          },
+        ],
       },
-      ...(isGoogleProvider(provider) && showCleaner
-        ? [
-            {
-              name: "Deep Clean",
-              href: prefixPath(currentEmailAccountId, "/clean"),
-              icon: BrushIcon,
-            },
-          ]
-        : []),
       {
-        name: "Analytics",
-        href: prefixPath(currentEmailAccountId, "/stats"),
-        icon: BarChartBigIcon,
+        separator: true,
+        items: [
+          {
+            name: "Analytics",
+            href: prefixPath(currentEmailAccountId, "/stats"),
+            icon: BarChartBigIcon,
+          },
+          {
+            name: "Calendars",
+            href: prefixPath(currentEmailAccountId, "/calendars"),
+            icon: CalendarIcon,
+          },
+          ...(showIntegrations
+            ? [
+                {
+                  name: "Integrations",
+                  href: prefixPath(currentEmailAccountId, "/integrations"),
+                  icon: ZapIcon,
+                  beta: true,
+                },
+              ]
+            : []),
+          ...(showSmartFiling
+            ? [
+                {
+                  name: "Smart Filing",
+                  href: prefixPath(currentEmailAccountId, "/drive"),
+                  icon: HardDriveIcon,
+                  beta: true,
+                },
+              ]
+            : []),
+        ],
       },
-      {
-        name: "Calendars",
-        href: prefixPath(currentEmailAccountId, "/calendars"),
-        icon: CalendarIcon,
-      },
-      ...(showIntegrations
-        ? [
-            {
-              name: "Integrations",
-              href: prefixPath(currentEmailAccountId, "/integrations"),
-              icon: ZapIcon,
-              beta: true,
-            },
-          ]
-        : []),
-      ...(showSmartFiling
-        ? [
-            {
-              name: "Smart Filing",
-              href: prefixPath(currentEmailAccountId, "/drive"),
-              icon: HardDriveIcon,
-              beta: true,
-            },
-          ]
-        : []),
-      ...(showMeetingBriefs
-        ? [
-            {
-              name: "Meeting Briefs",
-              href: prefixPath(currentEmailAccountId, "/briefs"),
-              icon: FileTextIcon,
-            },
-          ]
-        : []),
     ],
     [
       currentEmailAccountId,
@@ -159,18 +186,14 @@ export const useNavigation = () => {
     ],
   );
 
-  const navItemsFiltered = useMemo(
-    () =>
-      navItems.filter((item) => {
-        if (item.href === `/${emailAccountId}/clean` || item.href === "/clean")
-          return showCleaner;
-        return true;
-      }),
-    [showCleaner, emailAccountId, navItems],
+  // Filter out empty groups
+  const filteredNavGroups = useMemo(
+    () => navGroups.filter((group) => group.items.length > 0),
+    [navGroups],
   );
 
   return {
-    navItems: navItemsFiltered,
+    navGroups: filteredNavGroups,
   };
 };
 
@@ -273,10 +296,20 @@ export function SideNav({ ...props }: React.ComponentProps<typeof Sidebar>) {
           {showMailNav ? (
             <MailNav path={path} />
           ) : (
-            <SidebarGroup>
-              <SidebarGroupLabel>Platform</SidebarGroupLabel>
-              <SideNavMenu items={navigation.navItems} activeHref={path} />
-            </SidebarGroup>
+            navigation.navGroups.map((group, index) => {
+              const key = group.label ?? `group-${index}`;
+              return (
+                <Fragment key={key}>
+                  {group.separator && <SidebarSeparator className="my-2" />}
+                  <SidebarGroup>
+                    {group.label && (
+                      <SidebarGroupLabel>{group.label}</SidebarGroupLabel>
+                    )}
+                    <SideNavMenu items={group.items} activeHref={path} />
+                  </SidebarGroup>
+                </Fragment>
+              );
+            })
           )}
         </SidebarGroupContent>
       </SidebarContent>
