@@ -149,6 +149,7 @@ function UnsubscribeButton<T extends Row>({
   const [resubscribeDialogOpen, setResubscribeDialogOpen] = useState(false);
   const [unblockComplete, setUnblockComplete] = useState(false);
   const [unblockLoading, setUnblockLoading] = useState(false);
+  const [doneLoading, setDoneLoading] = useState(false);
 
   const { unsubscribeLoading, onUnsubscribe, unsubscribeLink } = useUnsubscribe(
     {
@@ -187,11 +188,22 @@ function UnsubscribeButton<T extends Row>({
   };
 
   const handleDialogClose = (open: boolean) => {
-    setResubscribeDialogOpen(open);
-    if (!open) {
+    if (!open && !doneLoading) {
+      setResubscribeDialogOpen(false);
       setUnblockComplete(false);
-      // Refresh data when dialog closes
+      setDoneLoading(false);
       mutate();
+    }
+  };
+
+  const handleDone = async () => {
+    setDoneLoading(true);
+    try {
+      await mutate();
+    } finally {
+      setResubscribeDialogOpen(false);
+      setUnblockComplete(false);
+      setDoneLoading(false);
     }
   };
 
@@ -281,7 +293,11 @@ function UnsubscribeButton<T extends Row>({
             {/* Step 2 */}
             <div className="flex gap-4 p-4">
               <div className="flex size-7 shrink-0 items-center justify-center rounded-full border bg-muted text-sm font-medium">
-                2
+                {doneLoading ? (
+                  <CheckIcon className="size-4 text-green-600" />
+                ) : (
+                  "2"
+                )}
               </div>
               <div>
                 <div className="font-medium">Manually Resubscribe</div>
@@ -293,7 +309,10 @@ function UnsubscribeButton<T extends Row>({
           </div>
 
           <DialogFooter>
-            <Button onClick={() => handleDialogClose(false)}>Done</Button>
+            <Button onClick={handleDone} disabled={doneLoading}>
+              {doneLoading && <ButtonLoader />}
+              Done
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
