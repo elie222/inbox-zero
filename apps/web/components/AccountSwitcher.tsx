@@ -56,6 +56,12 @@ export function AccountSwitcherInternal({
         emailAccountId,
       );
 
+      // If the path doesn't contain the activeEmailAccountId (e.g., /organization pages),
+      // redirect to the automation page for the new account
+      if (newBasePath === basePath) {
+        return `/${emailAccountId}/automation`;
+      }
+
       const tab = searchParams.get("tab");
 
       return `${newBasePath}${tab ? `?tab=${tab}` : ""}`;
