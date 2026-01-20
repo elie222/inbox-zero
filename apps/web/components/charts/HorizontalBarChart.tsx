@@ -38,7 +38,7 @@ export function HorizontalBarChart({
                   style={{ width: `${widthPercentage}%` }}
                 />
                 <div className="flex items-center gap-2">
-                  <DomainIcon domain={domain} />
+                  <DomainIcon domain={domain} variant="circular" />
                   {item.href ? (
                     <a
                       href={item.href}

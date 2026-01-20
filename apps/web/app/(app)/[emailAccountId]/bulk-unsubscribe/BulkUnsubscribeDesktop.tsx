@@ -116,7 +116,7 @@ export function BulkUnsubscribeRowDesktop({
       </TableCell>
       <TableCell className="max-w-[250px] py-3 pl-8">
         <div className="flex items-center gap-2">
-          <DomainIcon domain={domain} size={32} />
+          <DomainIcon domain={domain} size={32} variant="circular" />
           <div className="flex flex-col min-w-0">
             <span className="font-medium truncate">
               {item.fromName || item.name}
