@@ -25,12 +25,7 @@ export function EmailAccountProvider({
   const [data, setData] = useState<GetEmailAccountsResponse | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Track the last known emailAccountId from URL params in this session.
-  // This is needed because:
-  // 1. The cookie update (setLastEmailAccountAction) is async
-  // 2. The accounts fetch happens once on mount, before the cookie is updated
-  // 3. When navigating to pages without emailAccountId (like /organization),
-  //    we need to remember what account was last used in this session
+  // Tracks session-level account ID for pages without emailAccountId in URL (e.g., /organization)
   const [lastKnownEmailAccountId, setLastKnownEmailAccountId] = useState<
     string | null
   >(null);
@@ -55,7 +50,6 @@ export function EmailAccountProvider({
     fetchAccounts();
   }, []);
 
-  // Update lastKnownEmailAccountId and cookie when emailAccountId from URL changes
   useEffect(() => {
     if (emailAccountId) {
       setLastKnownEmailAccountId(emailAccountId);
@@ -75,9 +69,6 @@ export function EmailAccountProvider({
     }
   }, [data, emailAccountId, lastKnownEmailAccountId]);
 
-  // Use emailAccount?.id as fallback when emailAccountId is not in URL params
-  // This ensures consistency - e.g., on /organization pages where there's no emailAccountId in URL,
-  // we still have a valid ID that matches the emailAccount object
   const resolvedEmailAccountId = emailAccountId ?? emailAccount?.id ?? "";
 
   return (
