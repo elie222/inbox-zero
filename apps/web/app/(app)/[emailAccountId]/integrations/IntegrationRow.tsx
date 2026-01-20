@@ -16,6 +16,7 @@ import {
 import { ChevronDown, ChevronRight, MoreVertical } from "lucide-react";
 import clsx from "clsx";
 import { toastError, toastSuccess } from "@/components/Toast";
+import { DomainIcon } from "@/components/charts/DomainIcon";
 import {
   disconnectMcpConnectionAction,
   toggleMcpConnectionAction,
@@ -178,7 +179,12 @@ export function IntegrationRow({
   return (
     <>
       <TableRow>
-        <TableCell>{integration.displayName}</TableCell>
+        <TableCell>
+          <div className="flex items-center gap-3">
+            <DomainIcon domain={integration.url} size={32} />
+            <span>{integration.displayName}</span>
+          </div>
+        </TableCell>
         <TableCell>
           {integration.comingSoon ? (
             <RequestAccessDialog integrationName={integration.displayName} />

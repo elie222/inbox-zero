@@ -259,7 +259,11 @@ export function BulkActions({
                       key={newsletter.name}
                       className="flex items-center gap-3 px-3 py-2"
                     >
-                      <DomainIcon domain={domain} size={32} />
+                      <DomainIcon
+                        domain={domain}
+                        size={32}
+                        variant="circular"
+                      />
                       <div className="flex flex-col min-w-0">
                         <span className="font-medium text-sm truncate">
                           {newsletter.fromName || newsletter.name}
@@ -319,7 +323,11 @@ export function BulkActions({
                       key={newsletter.name}
                       className="flex items-center gap-3 px-3 py-2"
                     >
-                      <DomainIcon domain={domain} size={32} />
+                      <DomainIcon
+                        domain={domain}
+                        size={32}
+                        variant="circular"
+                      />
                       <div className="flex flex-col min-w-0">
                         <span className="font-medium text-sm truncate">
                           {newsletter.fromName || newsletter.name}
