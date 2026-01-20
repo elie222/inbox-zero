@@ -265,7 +265,8 @@ function UnsubscribeButton<T extends Row>({
                 <div>
                   <div className="font-medium">Unblock Sender</div>
                   <p className="text-sm text-muted-foreground">
-                    We're auto-archiving their emails
+                    Inbox Zero is currently auto-archiving emails from this
+                    sender, click Unblock to allow emails from them.
                   </p>
                 </div>
                 {unblockComplete ? (
@@ -302,7 +303,7 @@ function UnsubscribeButton<T extends Row>({
               <div>
                 <div className="font-medium">Manually Resubscribe</div>
                 <p className="text-sm text-muted-foreground">
-                  Visit their website to sign up again
+                  Visit the sender's website and manually resubscribe.
                 </p>
               </div>
             </div>
