@@ -14,6 +14,14 @@ const llmProviderEnum = z.enum([
   "ollama",
 ]);
 
+/** For Vercel preview deployments, auto-detect from VERCEL_URL. */
+const getBaseUrl = (): string | undefined => {
+  if (process.env.VERCEL_ENV === "preview" && process.env.VERCEL_URL) {
+    return `https://${process.env.VERCEL_URL}`;
+  }
+  return process.env.NEXT_PUBLIC_BASE_URL;
+};
+
 export const env = createEnv({
   server: {
     NODE_ENV: z.enum(["development", "production", "test"]),
@@ -133,7 +141,7 @@ export const env = createEnv({
         value
           ?.split(",")
           .map((s) => s.trim())
-          .filter(Boolean)
+          .filter(Boolean),
       ),
 
     // license
@@ -243,7 +251,7 @@ export const env = createEnv({
     NEXT_PUBLIC_POSTHOG_HERO_AB: process.env.NEXT_PUBLIC_POSTHOG_HERO_AB,
     NEXT_PUBLIC_POSTHOG_ONBOARDING_SURVEY_ID:
       process.env.NEXT_PUBLIC_POSTHOG_ONBOARDING_SURVEY_ID,
-    NEXT_PUBLIC_BASE_URL: process.env.NEXT_PUBLIC_BASE_URL,
+    NEXT_PUBLIC_BASE_URL: getBaseUrl(),
     NEXT_PUBLIC_CONTACTS_ENABLED: process.env.NEXT_PUBLIC_CONTACTS_ENABLED,
     NEXT_PUBLIC_EMAIL_SEND_ENABLED: process.env.NEXT_PUBLIC_EMAIL_SEND_ENABLED,
     NEXT_PUBLIC_FREE_UNSUBSCRIBE_CREDITS:
