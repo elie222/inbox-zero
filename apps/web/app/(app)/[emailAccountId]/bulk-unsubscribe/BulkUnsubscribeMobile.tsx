@@ -232,7 +232,7 @@ export function BulkUnsubscribeRowMobile({
       <Dialog open={resubscribeDialogOpen} onOpenChange={handleDialogClose}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Resubscribe to {name}</DialogTitle>
+            <DialogTitle>Resubscribe to "{name}"</DialogTitle>
             <DialogDescription className="pt-2">
               Follow the steps below to receive emails from this sender again.
             </DialogDescription>

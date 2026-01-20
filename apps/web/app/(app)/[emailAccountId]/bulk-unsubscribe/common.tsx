@@ -245,7 +245,7 @@ function UnsubscribeButton<T extends Row>({
       <Dialog open={resubscribeDialogOpen} onOpenChange={handleDialogClose}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Resubscribe to {senderName}</DialogTitle>
+            <DialogTitle>Resubscribe to "{senderName}"</DialogTitle>
             <DialogDescription className="pt-2">
               Follow the steps below to receive emails from this sender again.
             </DialogDescription>
