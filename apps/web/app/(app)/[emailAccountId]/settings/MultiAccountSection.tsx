@@ -129,12 +129,15 @@ function MultiAccountForm({
   pendingInvites,
   onUpdate,
 }: {
-  emailAddresses: { email: string }[];
+  emailAddresses: { email: string; isOwnAccount: boolean }[];
   isLifetime: boolean;
   emailAccountsAccess: number;
   pendingInvites: string[];
   onUpdate?: () => void;
 }) {
+  // Filter to only team accounts (not own accounts)
+  const teamAccounts = emailAddresses.filter((e) => !e.isOwnAccount);
+
   const {
     register,
     handleSubmit,
@@ -143,19 +146,18 @@ function MultiAccountForm({
   } = useForm<SaveMultiAccountPremiumBody>({
     resolver: zodResolver(saveMultiAccountPremiumBody),
     defaultValues: {
-      emailAddresses: emailAddresses?.length
-        ? (() => {
-            // Deduplicate to prevent showing the same email twice
-            const existingEmails = new Set(emailAddresses.map((e) => e.email));
-            const uniquePendingInvites = pendingInvites.filter(
-              (email) => !existingEmails.has(email),
-            );
-            return [
-              ...emailAddresses,
-              ...uniquePendingInvites.map((email) => ({ email })),
-            ];
-          })()
-        : [{ email: "" }],
+      emailAddresses: (() => {
+        // Only include team accounts and pending invites (not own accounts)
+        const existingEmails = new Set(teamAccounts.map((e) => e.email));
+        const uniquePendingInvites = pendingInvites.filter(
+          (email) => !existingEmails.has(email),
+        );
+        const initialEmails = [
+          ...teamAccounts.map((e) => ({ email: e.email })),
+          ...uniquePendingInvites.map((email) => ({ email })),
+        ];
+        return initialEmails.length ? initialEmails : [{ email: "" }];
+      })(),
     },
   });
 
@@ -190,7 +192,6 @@ function MultiAccountForm({
       if (!data.emailAddresses) return;
       if (needsToPurchaseMoreSeats) return;
 
-      // Filter out empty email strings
       const emails = data.emailAddresses
         .map((e) => e.email.trim())
         .filter((email) => email.length > 0);
@@ -202,30 +203,27 @@ function MultiAccountForm({
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
       <div className="space-y-2">
-        {fields.map((f, i) => {
-          return (
-            <div key={f.id}>
-              <Input
-                type="text"
-                name={`rules.${i}.instructions`}
-                registerProps={register(`emailAddresses.${i}.email`)}
-                error={errors.emailAddresses?.[i]?.email}
-                onClickAdd={() => {
+        {fields.map((f, i) => (
+          <div key={f.id}>
+            <Input
+              type="text"
+              name={`emailAddresses.${i}.email`}
+              registerProps={register(`emailAddresses.${i}.email`)}
+              error={errors.emailAddresses?.[i]?.email}
+              onClickAdd={() => {
+                append({ email: "" });
+                posthog.capture("Clicked Add User");
+              }}
+              onClickRemove={() => {
+                remove(i);
+                posthog.capture("Clicked Remove User");
+                if (fields.length === 1) {
                   append({ email: "" });
-                  posthog.capture("Clicked Add User");
-                }}
-                onClickRemove={() => {
-                  remove(i);
-                  posthog.capture("Clicked Remove User");
-                  // If this was the last field, add an empty one so the form isn't completely empty
-                  if (fields.length === 1) {
-                    append({ email: "" });
-                  }
-                }}
-              />
-            </div>
-          );
-        })}
+                }
+              }}
+            />
+          </div>
+        ))}
       </div>
 
       <Button type="submit" loading={isExecuting}>
