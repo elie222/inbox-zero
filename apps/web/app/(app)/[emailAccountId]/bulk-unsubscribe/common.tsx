@@ -263,6 +263,7 @@ function UnsubscribeButton<T extends Row>({
                 ) : (
                   <Button
                     size="sm"
+                    variant="outline"
                     className="shrink-0"
                     onClick={handleUnblock}
                     disabled={unblockLoading}

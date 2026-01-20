@@ -250,6 +250,7 @@ export function BulkUnsubscribeRowMobile({
                 ) : (
                   <Button
                     size="sm"
+                    variant="outline"
                     className="shrink-0"
                     onClick={handleUnblock}
                     disabled={unblockLoading}
