@@ -9,7 +9,7 @@ export type ToggleFollowUpRemindersBody = z.infer<
   typeof toggleFollowUpRemindersBody
 >;
 
-const daysSchema = z.number().min(0.001).max(90).nullable();
+const daysSchema = z.number().min(0.0001).max(90).nullable();
 
 export const saveFollowUpSettingsBody = z.object({
   followUpAwaitingReplyDays: daysSchema,

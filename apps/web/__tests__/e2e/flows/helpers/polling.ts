@@ -11,6 +11,7 @@ import { TIMEOUTS } from "../config";
 import { logStep } from "./logging";
 import { sleep } from "@/utils/sleep";
 import { extractEmailAddress } from "@/utils/email";
+import { getOrCreateFollowUpLabel } from "@/utils/follow-up/labels";
 
 interface PollOptions {
   timeout?: number;
@@ -229,6 +230,41 @@ export async function waitForLabel(options: {
     {
       timeout,
       description: `Label "${labelName}" on message ${messageId}`,
+    },
+  );
+}
+
+/**
+ * Wait for the Follow-up label to be applied to a message
+ * Gets the actual label ID from the provider to match against labelIds
+ */
+export async function waitForFollowUpLabel(options: {
+  messageId: string;
+  provider: EmailProvider;
+  timeout?: number;
+}): Promise<void> {
+  const {
+    messageId,
+    provider,
+    timeout = TIMEOUTS.WEBHOOK_PROCESSING,
+  } = options;
+
+  logStep("Waiting for Follow-up label", { messageId });
+
+  // Get the actual Follow-up label ID from the provider
+  const followUpLabel = await getOrCreateFollowUpLabel(provider);
+  logStep("Follow-up label ID resolved", { labelId: followUpLabel.id });
+
+  await pollUntil(
+    async () => {
+      const message = await provider.getMessage(messageId);
+      // Check if the message has the Follow-up label by ID
+      const hasLabel = message.labelIds?.includes(followUpLabel.id);
+      return hasLabel ? true : null;
+    },
+    {
+      timeout,
+      description: `Follow-up label on message ${messageId}`,
     },
   );
 }
