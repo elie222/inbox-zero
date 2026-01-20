@@ -42,6 +42,7 @@ export function Footer({ className, variant = "default" }: FooterProps) {
                 key={item.name}
                 href={item.href}
                 target={item.target}
+                rel={item.target === "_blank" ? "noopener noreferrer" : undefined}
                 className="text-sm leading-6 text-gray-500 hover:text-gray-900"
               >
                 {item.name}
@@ -63,6 +64,7 @@ export function Footer({ className, variant = "default" }: FooterProps) {
             <Link
               href="https://getinboxzero.com"
               target="_blank"
+              rel="noopener noreferrer"
               className="hover:text-gray-900"
             >
               Inbox Zero
