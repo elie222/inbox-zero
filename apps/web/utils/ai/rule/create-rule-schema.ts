@@ -41,7 +41,7 @@ export function getAvailableActions(provider: string) {
     ActionType.DRAFT_EMAIL,
     // Only include send-related actions when email sending is enabled
     ...(env.NEXT_PUBLIC_EMAIL_SEND_ENABLED
-      ? [ActionType.REPLY, ActionType.FORWARD]
+      ? [ActionType.REPLY, ActionType.FORWARD, ActionType.SEND_EMAIL]
       : []),
     ActionType.MARK_SPAM,
   ].filter(isDefined);
