@@ -12,6 +12,7 @@ import { logStep } from "./logging";
 import { sleep } from "@/utils/sleep";
 import { extractEmailAddress } from "@/utils/email";
 import { getOrCreateFollowUpLabel } from "@/utils/follow-up/labels";
+import type { ThreadTrackerType } from "@/generated/prisma/enums";
 
 interface PollOptions {
   timeout?: number;
@@ -85,8 +86,11 @@ export async function waitForExecutedRule(options: {
     labelId: string | null;
   }>;
 }> {
-  const { threadId, emailAccountId, timeout = TIMEOUTS.WEBHOOK_PROCESSING } =
-    options;
+  const {
+    threadId,
+    emailAccountId,
+    timeout = TIMEOUTS.WEBHOOK_PROCESSING,
+  } = options;
 
   logStep("Waiting for ExecutedRule", { threadId, emailAccountId });
 
@@ -485,6 +489,74 @@ export async function waitForDraftSendLog(options: {
     {
       timeout,
       description: `DraftSendLog for thread ${threadId}`,
+    },
+  );
+}
+
+/**
+ * Wait for a ThreadTracker to be created for a thread
+ *
+ * ThreadTrackers are created by the AI-powered conversation tracking feature
+ * when it determines a thread needs follow-up (AWAITING or NEEDS_REPLY).
+ */
+export async function waitForThreadTracker(options: {
+  threadId: string;
+  emailAccountId: string;
+  type?: ThreadTrackerType; // Optional: if omitted, wait for any tracker type
+  timeout?: number;
+}): Promise<{
+  id: string;
+  type: ThreadTrackerType;
+  messageId: string;
+  sentAt: Date;
+  resolved: boolean;
+  followUpAppliedAt: Date | null;
+}> {
+  const {
+    threadId,
+    emailAccountId,
+    type,
+    timeout = TIMEOUTS.WEBHOOK_PROCESSING,
+  } = options;
+
+  logStep("Waiting for ThreadTracker", { threadId, emailAccountId, type });
+
+  return pollUntil(
+    async () => {
+      const tracker = await prisma.threadTracker.findFirst({
+        where: {
+          threadId,
+          emailAccountId,
+          resolved: false,
+          ...(type ? { type } : {}),
+        },
+        orderBy: {
+          createdAt: "desc",
+        },
+      });
+
+      if (!tracker) {
+        logStep("ThreadTracker not found yet", { threadId, type });
+        return null;
+      }
+
+      logStep("ThreadTracker found", {
+        id: tracker.id,
+        type: tracker.type,
+      });
+
+      return {
+        id: tracker.id,
+        type: tracker.type,
+        messageId: tracker.messageId,
+        sentAt: tracker.sentAt,
+        resolved: tracker.resolved,
+        followUpAppliedAt: tracker.followUpAppliedAt,
+      };
+    },
+    {
+      timeout,
+      description: `ThreadTracker${type ? ` (${type})` : ""} for thread ${threadId}`,
     },
   );
 }
