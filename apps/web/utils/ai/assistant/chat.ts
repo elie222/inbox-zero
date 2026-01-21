@@ -25,6 +25,7 @@ import type { MessageContext } from "@/app/api/chat/validation";
 import { stringifyEmail } from "@/utils/stringify-email";
 import { getEmailForLLM } from "@/utils/get-email-from-message";
 import type { ParsedMessage } from "@/utils/types";
+import { env } from "@/env";
 
 export const maxDuration = 120;
 
@@ -700,10 +701,10 @@ A condition can be:
 An action can be:
 1. Archive
 2. Label
-3. Draft a reply
+3. Draft a reply${env.NEXT_PUBLIC_EMAIL_SEND_ENABLED ? `
 4. Reply
 5. Send an email
-6. Forward
+6. Forward` : ""}
 7. Mark as read
 8. Mark spam
 9. Call a webhook
@@ -721,7 +722,7 @@ Best practices:
 - You can use multiple conditions in a rule, but aim for simplicity.
 - When creating rules, in most cases, you should use the "aiInstructions" and sometimes you will use other fields in addition.
 - If a rule can be handled fully with static conditions, do so, but this is rarely possible.
-- IMPORTANT: prefer "draft a reply" over "reply". Only if the user explicitly asks to reply, then use "reply". Clarify beforehand this is the intention. Drafting a reply is safer as it means the user can approve before sending.
+${env.NEXT_PUBLIC_EMAIL_SEND_ENABLED ? `- IMPORTANT: prefer "draft a reply" over "reply". Only if the user explicitly asks to reply, then use "reply". Clarify beforehand this is the intention. Drafting a reply is safer as it means the user can approve before sending.` : ""}
 - Use short, concise rule names (preferably a single word). For example: 'Marketing', 'Newsletters', 'Urgent', 'Receipts'. Avoid verbose names like 'Archive and label marketing emails'.
 
 Always explain the changes you made.
