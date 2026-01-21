@@ -7,7 +7,6 @@ import {
   getOrCreateFollowUpLabel,
 } from "@/utils/follow-up/labels";
 import { generateFollowUpDraft } from "@/utils/follow-up/generate-draft";
-import { cleanupStaleDrafts } from "@/utils/follow-up/cleanup";
 import { ThreadTrackerType } from "@/generated/prisma/enums";
 import type { EmailProvider } from "@/utils/email/types";
 import type { Logger } from "@/utils/logger";
@@ -183,17 +182,18 @@ export async function processAccountFollowUps({
     });
   }
 
+  // Draft cleanup temporarily disabled to avoid deleting old drafts.
   // Wrapped in try/catch since it's non-critical
-  try {
-    await cleanupStaleDrafts({
-      emailAccountId,
-      provider,
-      logger,
-    });
-  } catch (error) {
-    logger.error("Failed to cleanup stale drafts", { error });
-    captureException(error);
-  }
+  // try {
+  //   await cleanupStaleDrafts({
+  //     emailAccountId,
+  //     provider,
+  //     logger,
+  //   });
+  // } catch (error) {
+  //   logger.error("Failed to cleanup stale drafts", { error });
+  //   captureException(error);
+  // }
 
   logger.info("Finished processing follow-ups for account");
 }
