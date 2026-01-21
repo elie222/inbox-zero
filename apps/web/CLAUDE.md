@@ -21,6 +21,7 @@
 - Format code with Prettier
 - Consult .cursor/rules for environment variable management
 - Prefer self-documenting code over comments; use descriptive variable and function names instead of explaining intent with comments. Never add comments that just describe what the code does - code should explain itself. Only add comments for "why" not "what".
+- Logging: Avoid duplicating logger context fields already passed from higher up in the call chain. Use `logger.trace()` for PII fields (from, to, subject, etc.).
 - Add helper functions to the bottom of files, not the top!
 - All imports go at the top of files, no mid-file dynamic imports.
 - Co-locate test files next to source files (e.g., `utils/example.test.ts`). Only E2E and AI tests go in `__tests__/`.

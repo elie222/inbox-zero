@@ -194,6 +194,21 @@ export async function cleanupThreadAIDrafts({
       try {
         const draftDetails = await provider.getDraft(action.draftId);
 
+        logger.info("Fetched draft details for cleanup check", {
+          ...actionLoggerOptions,
+          draftExists: !!draftDetails,
+          draftEmbeddedMessageId: draftDetails?.id,
+          draftThreadId: draftDetails?.threadId,
+          hasTextPlain: !!draftDetails?.textPlain,
+          hasTextHtml: !!draftDetails?.textHtml,
+        });
+        logger.trace("Draft content preview", {
+          ...actionLoggerOptions,
+          draftTextPreview: (
+            draftDetails?.textPlain || draftDetails?.textHtml
+          )?.slice(0, 100),
+        });
+
         if (draftDetails?.textPlain || draftDetails?.textHtml) {
           // Draft exists, check if modified
           // Pass full draftDetails to properly handle Outlook HTML content
@@ -205,15 +220,21 @@ export async function cleanupThreadAIDrafts({
 
           logger.info("Checked existing draft for modification", {
             ...actionLoggerOptions,
+            draftEmbeddedMessageId: draftDetails.id,
             similarityScore,
             isUnmodified,
           });
+          logger.trace("Original content preview for similarity check", {
+            ...actionLoggerOptions,
+            originalContentPreview: action.content?.slice(0, 100),
+          });
 
           if (isUnmodified) {
-            logger.info(
-              "Draft is unmodified, deleting...",
-              actionLoggerOptions,
-            );
+            logger.info("Draft is unmodified, proceeding with deletion", {
+              ...actionLoggerOptions,
+              draftEmbeddedMessageId: draftDetails.id,
+              draftThreadId: draftDetails.threadId,
+            });
             await Promise.all([
               provider.deleteDraft(action.draftId),
               // Mark as not sent (cleaned up because ignored/superseded)

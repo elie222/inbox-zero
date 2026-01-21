@@ -134,7 +134,14 @@ export async function processHistoryItem(
 
     const isOutbound = provider.isSentMessage(parsedMessage);
 
-    logger.info("Message direction check", { isOutbound });
+    logger.info("Message direction check", {
+      isOutbound,
+      labelIds: parsedMessage.labelIds,
+    });
+    logger.trace("Message direction details", {
+      from: parsedMessage.headers.from,
+      to: parsedMessage.headers.to,
+    });
 
     if (isOutbound) {
       await handleOutboundMessage({
