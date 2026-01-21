@@ -391,13 +391,9 @@ function PreviewResults({
         <Button
           onClick={onStartFiling}
           loading={isStarting}
-          disabled={anyFiling || filedCount === 0}
+          disabled={anyFiling}
         >
-          {anyFiling
-            ? "Processing..."
-            : filedCount === 0
-              ? "No attachments to file"
-              : "Looks good, start auto-filing"}
+          {anyFiling ? "Processing..." : "Looks good, start auto-filing"}
         </Button>
         <p className="text-xs text-muted-foreground">
           You'll get an email each time we file something. Reply to correct us.
