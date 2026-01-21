@@ -215,7 +215,7 @@ describe.skipIf(!shouldRunFlowTests())("Follow-up Reminders", () => {
 
         // Wait for threshold to pass (tracker.sentAt must be older than threshold)
         logStep("Waiting for threshold to pass");
-        await sleep(2000); // 2 seconds > 0.00001 days (~0.86 seconds)
+        await sleep(1000); // 1 second > 0.00001 days (~0.86 seconds)
 
         // ========================================
         // Step 4: Configure follow-up settings
@@ -339,7 +339,7 @@ describe.skipIf(!shouldRunFlowTests())("Follow-up Reminders", () => {
 
         // Wait for threshold to pass
         logStep("Waiting for threshold to pass");
-        await sleep(2000);
+        await sleep(1000);
 
         // ========================================
         // Step 4: Configure follow-up settings (draft disabled)
@@ -447,7 +447,7 @@ describe.skipIf(!shouldRunFlowTests())("Follow-up Reminders", () => {
 
         // Wait for threshold to pass
         logStep("Waiting for threshold to pass");
-        await sleep(2000);
+        await sleep(1000);
 
         // ========================================
         // Step 3: Configure follow-up settings
@@ -574,7 +574,7 @@ describe.skipIf(!shouldRunFlowTests())("Follow-up Reminders", () => {
 
         // Wait for threshold to pass
         logStep("Waiting for threshold to pass");
-        await sleep(2000);
+        await sleep(1000);
 
         // ========================================
         // Step 4: Configure follow-up settings
@@ -693,7 +693,7 @@ describe.skipIf(!shouldRunFlowTests())("Follow-up Reminders", () => {
 
         // Wait for threshold to pass
         logStep("Waiting for threshold to pass");
-        await sleep(2000);
+        await sleep(1000);
 
         // ========================================
         // Step 4: Configure follow-up settings (draft disabled)
@@ -801,7 +801,7 @@ describe.skipIf(!shouldRunFlowTests())("Follow-up Reminders", () => {
 
         // Wait for threshold to pass
         logStep("Waiting for threshold to pass");
-        await sleep(2000);
+        await sleep(1000);
 
         // ========================================
         // Step 3: Configure follow-up settings
@@ -915,7 +915,7 @@ describe.skipIf(!shouldRunFlowTests())("Follow-up Reminders", () => {
         });
 
         // Wait a moment for any async processing
-        await sleep(2000);
+        await sleep(1000);
 
         logStep(
           "Step 5: Verifying NO Follow-up label (resolved tracker skipped)",
@@ -987,7 +987,7 @@ describe.skipIf(!shouldRunFlowTests())("Follow-up Reminders", () => {
         });
 
         // Wait a moment
-        await sleep(2000);
+        await sleep(1000);
 
         logStep("Step 5: Verifying NO new Follow-up label or draft");
 
@@ -1054,7 +1054,7 @@ describe.skipIf(!shouldRunFlowTests())("Follow-up Reminders", () => {
         });
 
         // Wait a moment
-        await sleep(2000);
+        await sleep(1000);
 
         logStep("Step 5: Verifying NO Follow-up label (not past threshold)");
 
