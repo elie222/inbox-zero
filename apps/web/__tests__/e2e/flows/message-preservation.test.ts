@@ -57,7 +57,6 @@ describe.skipIf(!shouldRunFlowTests())("Message Preservation", () => {
 
       // ========================================
       // Step 1: External sender (Outlook) sends first message to user (Gmail)
-      // Using Gmail as receiver since Gmail pub/sub webhooks work better locally
       // ========================================
       logStep("Step 1: External sender sends first message");
 
@@ -225,7 +224,6 @@ describe.skipIf(!shouldRunFlowTests())("Message Preservation", () => {
 
       // ========================================
       // Setup: External sender sends multiple messages, then user replies
-      // Using Gmail as receiver since Gmail pub/sub webhooks work better locally
       // ========================================
       logStep("Setup: Creating thread with multiple messages from sender");
 
@@ -314,6 +312,290 @@ describe.skipIf(!shouldRunFlowTests())("Message Preservation", () => {
       expect(threadMessages.length).toBeGreaterThanOrEqual(3);
 
       // Verify each message
+      const messages = [
+        { id: firstReceived.messageId, name: "First message" },
+        {
+          id: secondEmail.messageId,
+          name: "Second message (sender follow-up)",
+        },
+        { id: userReply.messageId, name: "User reply" },
+      ];
+
+      for (const msg of messages) {
+        const exists = threadMessages.some((m) => m.id === msg.id);
+        logStep(`Checking ${msg.name}`, {
+          messageId: msg.id,
+          exists,
+        });
+
+        if (!exists) {
+          throw new Error(
+            `BUG: ${msg.name} (${msg.id}) was deleted! This should NOT happen.`,
+          );
+        }
+        expect(exists).toBe(true);
+      }
+
+      logStep("All messages preserved successfully");
+    },
+    TIMEOUTS.FULL_CYCLE,
+  );
+
+  // ============================================================
+  // Outlook as Receiver Tests
+  // ============================================================
+
+  test(
+    "should NOT delete follow-up message when sender sends second message to thread (Outlook receiver)",
+    async () => {
+      testStartTime = Date.now();
+      const scenario = TEST_EMAIL_SCENARIOS.NEEDS_REPLY;
+
+      // ========================================
+      // Step 1: External sender (Gmail) sends first message to user (Outlook)
+      // ========================================
+      logStep("Step 1: External sender sends first message (to Outlook)");
+
+      const firstEmail = await sendTestEmail({
+        from: gmail,
+        to: outlook,
+        subject: `Preservation test - ${scenario.subject}`,
+        body: scenario.body,
+      });
+
+      const firstReceived = await waitForMessageInInbox({
+        provider: outlook.emailProvider,
+        subjectContains: firstEmail.fullSubject,
+        timeout: TIMEOUTS.EMAIL_DELIVERY,
+      });
+
+      logStep("First message received in Outlook", {
+        messageId: firstReceived.messageId,
+        threadId: firstReceived.threadId,
+      });
+
+      // ========================================
+      // Step 2: Wait for AI draft to be created
+      // ========================================
+      logStep("Step 2: Waiting for AI draft creation");
+
+      const executedRule = await waitForExecutedRule({
+        threadId: firstReceived.threadId,
+        emailAccountId: outlook.id,
+        timeout: TIMEOUTS.WEBHOOK_PROCESSING,
+      });
+
+      logStep("ExecutedRule found", {
+        executedRuleId: executedRule.id,
+        status: executedRule.status,
+        actionItems: executedRule.actionItems.length,
+      });
+
+      const draftAction = executedRule.actionItems.find(
+        (a) => a.type === "DRAFT_EMAIL" && a.draftId,
+      );
+
+      expect(draftAction).toBeDefined();
+      expect(draftAction?.draftId).toBeTruthy();
+      const aiDraftId = draftAction!.draftId!;
+
+      logStep("AI draft created", { draftId: aiDraftId });
+
+      // Verify draft exists
+      const aiDraft = await outlook.emailProvider.getDraft(aiDraftId);
+      expect(aiDraft).toBeDefined();
+      logStep("Verified AI draft exists", {
+        draftId: aiDraftId,
+        draftMessageId: aiDraft?.id,
+      });
+
+      // ========================================
+      // Step 3: External sender sends SECOND message (follow-up)
+      // ========================================
+      logStep("Step 3: External sender sends follow-up message");
+
+      const followUpEmail = await sendTestReply({
+        from: gmail,
+        to: outlook,
+        threadId: firstReceived.threadId,
+        originalMessageId: firstReceived.messageId,
+        body: "I wanted to add some more context to my previous message. Please let me know your thoughts on this.",
+      });
+
+      logStep("Follow-up sent from external sender", {
+        messageId: followUpEmail.messageId,
+        threadId: followUpEmail.threadId,
+      });
+
+      // Wait for the follow-up to be received and processed
+      await new Promise((resolve) => setTimeout(resolve, 5000));
+
+      // ========================================
+      // Step 4: CRITICAL - Verify the follow-up message still exists
+      // ========================================
+      logStep("Step 4: Verifying follow-up message was NOT deleted");
+
+      const threadMessages = await outlook.emailProvider.getThreadMessages(
+        firstReceived.threadId,
+      );
+
+      logStep("Thread messages retrieved", {
+        messageCount: threadMessages.length,
+        messageIds: threadMessages.map((m) => m.id),
+      });
+
+      expect(threadMessages.length).toBeGreaterThanOrEqual(2);
+
+      const firstMessageStillExists = threadMessages.some(
+        (m) => m.id === firstReceived.messageId,
+      );
+      const followUpStillExists = threadMessages.some(
+        (m) => m.id === followUpEmail.messageId,
+      );
+
+      logStep("Message existence check", {
+        firstMessageId: firstReceived.messageId,
+        firstMessageExists: firstMessageStillExists,
+        followUpMessageId: followUpEmail.messageId,
+        followUpExists: followUpStillExists,
+      });
+
+      expect(firstMessageStillExists).toBe(true);
+      expect(followUpStillExists).toBe(true);
+
+      // ========================================
+      // Step 5: Verify by directly getting the follow-up message
+      // ========================================
+      logStep("Step 5: Directly verifying follow-up message");
+
+      try {
+        const followUpMessage = await outlook.emailProvider.getMessage(
+          followUpEmail.messageId,
+        );
+        expect(followUpMessage).toBeDefined();
+        expect(followUpMessage.id).toBe(followUpEmail.messageId);
+        logStep("Follow-up message verified - NOT deleted", {
+          messageId: followUpMessage.id,
+          subject: followUpMessage.headers.subject,
+        });
+      } catch (error) {
+        logStep("ERROR: Follow-up message was deleted!", {
+          error: String(error),
+        });
+        throw new Error(
+          `BUG REPRODUCED: Follow-up message ${followUpEmail.messageId} was deleted during draft cleanup. This should NOT happen.`,
+        );
+      }
+
+      // ========================================
+      // Step 6: Additional check - verify draft still exists
+      // ========================================
+      logStep("Step 6: Checking if AI draft still exists");
+
+      const draftAfterFollowUp =
+        await outlook.emailProvider.getDraft(aiDraftId);
+      logStep("AI draft status after follow-up", {
+        draftId: aiDraftId,
+        stillExists: !!draftAfterFollowUp,
+      });
+    },
+    TIMEOUTS.FULL_CYCLE,
+  );
+
+  test(
+    "should preserve all thread messages when user sends reply after receiving multiple messages (Outlook receiver)",
+    async () => {
+      testStartTime = Date.now();
+
+      // ========================================
+      // Setup: External sender sends multiple messages, then user replies
+      // ========================================
+      logStep(
+        "Setup: Creating thread with multiple messages from sender (to Outlook)",
+      );
+
+      // First message
+      const firstEmail = await sendTestEmail({
+        from: gmail,
+        to: outlook,
+        subject: "Multi-message preservation test",
+        body: "This is my first question about the project.",
+      });
+
+      const firstReceived = await waitForMessageInInbox({
+        provider: outlook.emailProvider,
+        subjectContains: firstEmail.fullSubject,
+        timeout: TIMEOUTS.EMAIL_DELIVERY,
+      });
+
+      logStep("First message received in Outlook", {
+        messageId: firstReceived.messageId,
+        threadId: firstReceived.threadId,
+      });
+
+      // Wait for AI to process first message
+      const executedRule = await waitForExecutedRule({
+        threadId: firstReceived.threadId,
+        emailAccountId: outlook.id,
+        timeout: TIMEOUTS.WEBHOOK_PROCESSING,
+      });
+
+      const draftAction = executedRule.actionItems.find(
+        (a) => a.type === "DRAFT_EMAIL" && a.draftId,
+      );
+      const aiDraftId = draftAction?.draftId;
+      logStep("AI draft created", { draftId: aiDraftId });
+
+      // Second message from sender (follow-up)
+      const secondEmail = await sendTestReply({
+        from: gmail,
+        to: outlook,
+        threadId: firstReceived.threadId,
+        originalMessageId: firstReceived.messageId,
+        body: "Actually, I have one more question I forgot to ask.",
+      });
+
+      logStep("Second message sent from external sender", {
+        messageId: secondEmail.messageId,
+      });
+
+      // Wait for second message to be received and processed
+      await new Promise((resolve) => setTimeout(resolve, 5000));
+
+      // ========================================
+      // Now user sends a reply (triggers outbound handling and cleanup)
+      // ========================================
+      logStep("User sends reply to the thread");
+
+      const userReply = await sendTestReply({
+        from: outlook,
+        to: gmail,
+        threadId: firstReceived.threadId,
+        originalMessageId: firstReceived.messageId,
+        body: "Thanks for reaching out. Here is my response to your questions.",
+      });
+
+      logStep("User reply sent", { messageId: userReply.messageId });
+
+      // Wait for webhook processing (cleanup runs here)
+      await new Promise((resolve) => setTimeout(resolve, 10_000));
+
+      // ========================================
+      // CRITICAL: Verify all messages still exist
+      // ========================================
+      logStep("Verifying all messages preserved after user reply");
+
+      const threadMessages = await outlook.emailProvider.getThreadMessages(
+        firstReceived.threadId,
+      );
+
+      logStep("Thread messages after user reply", {
+        messageCount: threadMessages.length,
+        messageIds: threadMessages.map((m) => m.id),
+      });
+
+      expect(threadMessages.length).toBeGreaterThanOrEqual(3);
+
       const messages = [
         { id: firstReceived.messageId, name: "First message" },
         {
