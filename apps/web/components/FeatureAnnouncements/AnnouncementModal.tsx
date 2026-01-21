@@ -86,18 +86,16 @@ export function AnnouncementModal() {
               </button>
 
               <div className="w-full max-w-md overflow-hidden rounded-xl bg-gray-100 shadow-2xl dark:bg-gray-900">
-                <ScrollArea className="h-[600px]">
-                  <div className="p-4">
-                    <div className="flex flex-col gap-4">
-                      {announcements.map((announcement) => (
-                        <AnnouncementCard
-                          key={announcement.id}
-                          announcement={announcement}
-                          onDismiss={() => handleDismiss(announcement.id)}
-                          isDismissing={dismissingId === announcement.id}
-                        />
-                      ))}
-                    </div>
+                <ScrollArea className="max-h-[600px] [&>[data-radix-scroll-area-viewport]]:max-h-[600px]">
+                  <div className="flex flex-col gap-4 p-4">
+                    {announcements.map((announcement) => (
+                      <AnnouncementCard
+                        key={announcement.id}
+                        announcement={announcement}
+                        onDismiss={() => handleDismiss(announcement.id)}
+                        isDismissing={dismissingId === announcement.id}
+                      />
+                    ))}
                   </div>
                 </ScrollArea>
               </div>
