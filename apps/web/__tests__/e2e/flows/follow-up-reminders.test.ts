@@ -215,7 +215,7 @@ describe.skipIf(!shouldRunFlowTests())("Follow-up Reminders", () => {
 
         // Wait for threshold to pass (tracker.sentAt must be older than threshold)
         logStep("Waiting for threshold to pass");
-        await sleep(10_000); // 10 seconds > 0.0001 days (~8.6 seconds)
+        await sleep(2000); // 2 seconds > 0.00001 days (~0.86 seconds)
 
         // ========================================
         // Step 4: Configure follow-up settings
@@ -223,7 +223,7 @@ describe.skipIf(!shouldRunFlowTests())("Follow-up Reminders", () => {
         logStep("Step 4: Configuring follow-up settings");
 
         await configureFollowUpSettings(gmail.id, {
-          followUpAwaitingReplyDays: 0.0001, // ~8.6 seconds
+          followUpAwaitingReplyDays: 0.000_01, // ~0.86 seconds
           followUpNeedsReplyDays: null,
           followUpAutoDraftEnabled: true,
         });
@@ -339,7 +339,7 @@ describe.skipIf(!shouldRunFlowTests())("Follow-up Reminders", () => {
 
         // Wait for threshold to pass
         logStep("Waiting for threshold to pass");
-        await sleep(10_000);
+        await sleep(2000);
 
         // ========================================
         // Step 4: Configure follow-up settings (draft disabled)
@@ -347,7 +347,7 @@ describe.skipIf(!shouldRunFlowTests())("Follow-up Reminders", () => {
         logStep("Step 4: Configuring follow-up settings (draft disabled)");
 
         await configureFollowUpSettings(gmail.id, {
-          followUpAwaitingReplyDays: 0.0001, // ~8.6 seconds
+          followUpAwaitingReplyDays: 0.000_01, // ~0.86 seconds
           followUpNeedsReplyDays: null,
           followUpAutoDraftEnabled: false, // Draft disabled
         });
@@ -447,7 +447,7 @@ describe.skipIf(!shouldRunFlowTests())("Follow-up Reminders", () => {
 
         // Wait for threshold to pass
         logStep("Waiting for threshold to pass");
-        await sleep(10_000);
+        await sleep(2000);
 
         // ========================================
         // Step 3: Configure follow-up settings
@@ -456,7 +456,7 @@ describe.skipIf(!shouldRunFlowTests())("Follow-up Reminders", () => {
 
         await configureFollowUpSettings(gmail.id, {
           followUpAwaitingReplyDays: null,
-          followUpNeedsReplyDays: 0.0001, // ~8.6 seconds
+          followUpNeedsReplyDays: 0.000_01, // ~0.86 seconds
           followUpAutoDraftEnabled: true, // Even if enabled, NEEDS_REPLY never gets draft
         });
 
@@ -574,7 +574,7 @@ describe.skipIf(!shouldRunFlowTests())("Follow-up Reminders", () => {
 
         // Wait for threshold to pass
         logStep("Waiting for threshold to pass");
-        await sleep(10_000);
+        await sleep(2000);
 
         // ========================================
         // Step 4: Configure follow-up settings
@@ -582,7 +582,7 @@ describe.skipIf(!shouldRunFlowTests())("Follow-up Reminders", () => {
         logStep("Step 4: Configuring follow-up settings");
 
         await configureFollowUpSettings(outlook.id, {
-          followUpAwaitingReplyDays: 0.0001, // ~8.6 seconds
+          followUpAwaitingReplyDays: 0.000_01, // ~0.86 seconds
           followUpNeedsReplyDays: null,
           followUpAutoDraftEnabled: true,
         });
@@ -693,7 +693,7 @@ describe.skipIf(!shouldRunFlowTests())("Follow-up Reminders", () => {
 
         // Wait for threshold to pass
         logStep("Waiting for threshold to pass");
-        await sleep(10_000);
+        await sleep(2000);
 
         // ========================================
         // Step 4: Configure follow-up settings (draft disabled)
@@ -701,7 +701,7 @@ describe.skipIf(!shouldRunFlowTests())("Follow-up Reminders", () => {
         logStep("Step 4: Configuring follow-up settings (draft disabled)");
 
         await configureFollowUpSettings(outlook.id, {
-          followUpAwaitingReplyDays: 0.0001, // ~8.6 seconds
+          followUpAwaitingReplyDays: 0.000_01, // ~0.86 seconds
           followUpNeedsReplyDays: null,
           followUpAutoDraftEnabled: false,
         });
@@ -801,7 +801,7 @@ describe.skipIf(!shouldRunFlowTests())("Follow-up Reminders", () => {
 
         // Wait for threshold to pass
         logStep("Waiting for threshold to pass");
-        await sleep(10_000);
+        await sleep(2000);
 
         // ========================================
         // Step 3: Configure follow-up settings
@@ -810,7 +810,7 @@ describe.skipIf(!shouldRunFlowTests())("Follow-up Reminders", () => {
 
         await configureFollowUpSettings(outlook.id, {
           followUpAwaitingReplyDays: null,
-          followUpNeedsReplyDays: 0.0001, // ~8.6 seconds
+          followUpNeedsReplyDays: 0.000_01, // ~0.86 seconds
           followUpAutoDraftEnabled: true,
         });
 
@@ -901,7 +901,7 @@ describe.skipIf(!shouldRunFlowTests())("Follow-up Reminders", () => {
         logStep("Step 3: Configuring follow-up settings");
 
         await configureFollowUpSettings(gmail.id, {
-          followUpAwaitingReplyDays: 0.0001, // ~8.6 seconds (processing time exceeds this)
+          followUpAwaitingReplyDays: 0.000_01, // ~0.86 seconds (sentAt is 5 min ago, exceeds this)
           followUpNeedsReplyDays: null,
           followUpAutoDraftEnabled: true,
         });
@@ -915,7 +915,7 @@ describe.skipIf(!shouldRunFlowTests())("Follow-up Reminders", () => {
         });
 
         // Wait a moment for any async processing
-        await new Promise((resolve) => setTimeout(resolve, 2000));
+        await sleep(2000);
 
         logStep(
           "Step 5: Verifying NO Follow-up label (resolved tracker skipped)",
@@ -973,7 +973,7 @@ describe.skipIf(!shouldRunFlowTests())("Follow-up Reminders", () => {
         logStep("Step 3: Configuring follow-up settings");
 
         await configureFollowUpSettings(gmail.id, {
-          followUpAwaitingReplyDays: 0.0001, // ~8.6 seconds (processing time exceeds this)
+          followUpAwaitingReplyDays: 0.000_01, // ~0.86 seconds (sentAt is 5 min ago, exceeds this)
           followUpNeedsReplyDays: null,
           followUpAutoDraftEnabled: true,
         });
@@ -987,7 +987,7 @@ describe.skipIf(!shouldRunFlowTests())("Follow-up Reminders", () => {
         });
 
         // Wait a moment
-        await new Promise((resolve) => setTimeout(resolve, 2000));
+        await sleep(2000);
 
         logStep("Step 5: Verifying NO new Follow-up label or draft");
 
@@ -1054,7 +1054,7 @@ describe.skipIf(!shouldRunFlowTests())("Follow-up Reminders", () => {
         });
 
         // Wait a moment
-        await new Promise((resolve) => setTimeout(resolve, 2000));
+        await sleep(2000);
 
         logStep("Step 5: Verifying NO Follow-up label (not past threshold)");
 
