@@ -184,16 +184,17 @@ export async function processAccountFollowUps({
   }
 
   // Wrapped in try/catch since it's non-critical
-  try {
-    await cleanupStaleDrafts({
-      emailAccountId,
-      provider,
-      logger,
-    });
-  } catch (error) {
-    logger.error("Failed to cleanup stale drafts", { error });
-    captureException(error);
-  }
+  // TEMPORARILY DISABLED: Draft cleanup that deletes old drafts
+  // try {
+  //   await cleanupStaleDrafts({
+  //     emailAccountId,
+  //     provider,
+  //     logger,
+  //   });
+  // } catch (error) {
+  //   logger.error("Failed to cleanup stale drafts", { error });
+  //   captureException(error);
+  // }
 
   logger.info("Finished processing follow-ups for account");
 }
