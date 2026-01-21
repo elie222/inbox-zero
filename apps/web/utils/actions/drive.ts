@@ -312,11 +312,14 @@ export const fileAttachmentAction = actionClient
       });
 
       if (result.skipped) {
+        if (!result.filingId) {
+          throw new SafeError("Skipped filing missing ID");
+        }
         return {
           skipped: true,
           skipReason:
             result.skipReason || "Document doesn't match filing preferences",
-          filingId: result.filingId!,
+          filingId: result.filingId,
         };
       }
 
