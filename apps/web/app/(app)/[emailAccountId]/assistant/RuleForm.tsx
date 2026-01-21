@@ -313,21 +313,25 @@ export function RuleForm({
         value: ActionType.MARK_READ,
         icon: getActionIcon(ActionType.MARK_READ),
       },
-      {
-        label: "Reply",
-        value: ActionType.REPLY,
-        icon: getActionIcon(ActionType.REPLY),
-      },
-      {
-        label: "Send email",
-        value: ActionType.SEND_EMAIL,
-        icon: getActionIcon(ActionType.SEND_EMAIL),
-      },
-      {
-        label: "Forward",
-        value: ActionType.FORWARD,
-        icon: getActionIcon(ActionType.FORWARD),
-      },
+      ...(env.NEXT_PUBLIC_EMAIL_SEND_ENABLED
+        ? [
+            {
+              label: "Reply",
+              value: ActionType.REPLY,
+              icon: getActionIcon(ActionType.REPLY),
+            },
+            {
+              label: "Send email",
+              value: ActionType.SEND_EMAIL,
+              icon: getActionIcon(ActionType.SEND_EMAIL),
+            },
+            {
+              label: "Forward",
+              value: ActionType.FORWARD,
+              icon: getActionIcon(ActionType.FORWARD),
+            },
+          ]
+        : []),
       {
         label: "Mark spam",
         value: ActionType.MARK_SPAM,
