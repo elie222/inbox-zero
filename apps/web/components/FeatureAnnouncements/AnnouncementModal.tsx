@@ -24,7 +24,7 @@ import { EmailAnalyticsIllustration } from "./AnnouncementImages/EmailAnalyticsI
 import { ColdEmailBlockerIllustration } from "./AnnouncementImages/ColdEmailBlockerIllustration";
 import { KeyboardShortcutsIllustration } from "./AnnouncementImages/KeyboardShortcutsIllustration";
 
-export function FeatureAnnouncementModal() {
+export function AnnouncementModal() {
   const { data, mutate, isLoading } = useAnnouncements();
   const [isOpen, setIsOpen] = useState(true);
   const [dismissingId, setDismissingId] = useState<string | null>(null);
