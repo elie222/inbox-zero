@@ -10,6 +10,8 @@ import type { EmailProvider } from "@/utils/email/types";
 import { TIMEOUTS } from "../config";
 import { logStep } from "./logging";
 import { sleep } from "@/utils/sleep";
+import { extractEmailAddress } from "@/utils/email";
+import { getOrCreateFollowUpLabel } from "@/utils/follow-up/labels";
 
 interface PollOptions {
   timeout?: number;
@@ -83,11 +85,8 @@ export async function waitForExecutedRule(options: {
     labelId: string | null;
   }>;
 }> {
-  const {
-    threadId,
-    emailAccountId,
-    timeout = TIMEOUTS.WEBHOOK_PROCESSING,
-  } = options;
+  const { threadId, emailAccountId, timeout = TIMEOUTS.WEBHOOK_PROCESSING } =
+    options;
 
   logStep("Waiting for ExecutedRule", { threadId, emailAccountId });
 
@@ -236,6 +235,41 @@ export async function waitForLabel(options: {
 }
 
 /**
+ * Wait for the Follow-up label to be applied to a message
+ * Gets the actual label ID from the provider to match against labelIds
+ */
+export async function waitForFollowUpLabel(options: {
+  messageId: string;
+  provider: EmailProvider;
+  timeout?: number;
+}): Promise<void> {
+  const {
+    messageId,
+    provider,
+    timeout = TIMEOUTS.WEBHOOK_PROCESSING,
+  } = options;
+
+  logStep("Waiting for Follow-up label", { messageId });
+
+  // Get the actual Follow-up label ID from the provider
+  const followUpLabel = await getOrCreateFollowUpLabel(provider);
+  logStep("Follow-up label ID resolved", { labelId: followUpLabel.id });
+
+  await pollUntil(
+    async () => {
+      const message = await provider.getMessage(messageId);
+      // Check if the message has the Follow-up label by ID
+      const hasLabel = message.labelIds?.includes(followUpLabel.id);
+      return hasLabel ? true : null;
+    },
+    {
+      timeout,
+      description: `Follow-up label on message ${messageId}`,
+    },
+  );
+}
+
+/**
  * Wait for a message to appear in inbox (useful after sending)
  */
 export async function waitForMessageInInbox(options: {
@@ -269,6 +303,58 @@ export async function waitForMessageInInbox(options: {
     {
       timeout,
       description: `Message with subject containing "${subjectContains}"`,
+    },
+  );
+}
+
+/**
+ * Wait for a reply to appear in inbox
+ * More specific than waitForMessageInInbox - filters by sender and subject
+ * to ensure we find the actual reply, not some other message
+ */
+export async function waitForReplyInInbox(options: {
+  provider: EmailProvider;
+  subjectContains: string;
+  fromEmail: string;
+  timeout?: number;
+}): Promise<{ messageId: string; threadId: string; subject: string }> {
+  const {
+    provider,
+    subjectContains,
+    fromEmail,
+    timeout = TIMEOUTS.EMAIL_DELIVERY,
+  } = options;
+
+  logStep("Waiting for reply in inbox", { subjectContains, fromEmail });
+
+  return pollUntil(
+    async () => {
+      const messages = await provider.getInboxMessages(20);
+      const found = messages.find((msg) => {
+        // Must be from the expected sender - extract and compare email addresses
+        const msgFromEmail = extractEmailAddress(
+          msg.headers?.from || "",
+        ).toLowerCase();
+        if (msgFromEmail !== fromEmail.toLowerCase()) return false;
+
+        // Must contain the subject (including Re: variants)
+        if (!msg.subject?.includes(subjectContains)) return false;
+
+        return true;
+      });
+
+      if (found?.id && found?.threadId) {
+        return {
+          messageId: found.id,
+          threadId: found.threadId,
+          subject: found.subject || "",
+        };
+      }
+      return null;
+    },
+    {
+      timeout,
+      description: `Reply from ${fromEmail} with subject containing "${subjectContains}"`,
     },
   );
 }

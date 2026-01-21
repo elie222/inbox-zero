@@ -14,7 +14,7 @@ import { handleOutboundMessage } from "@/utils/reply-tracker/handle-outbound";
 import { clearFollowUpLabel } from "@/utils/follow-up/labels";
 import { NewsletterStatus } from "@/generated/prisma/enums";
 import type { EmailAccount } from "@/generated/prisma/client";
-import { extractEmailAddress } from "@/utils/email";
+import { extractEmailAddress, extractNameFromEmail } from "@/utils/email";
 import { isIgnoredSender } from "@/utils/filter-ignored-senders";
 import type { EmailProvider } from "@/utils/email/types";
 import type { ParsedMessage, RuleWithActions } from "@/utils/types";
@@ -171,6 +171,7 @@ export async function processHistoryItem(
     // this is used for category filters in ai rules
     if (emailAccount.autoCategorizeSenders) {
       const sender = extractEmailAddress(parsedMessage.headers.from);
+      const senderName = extractNameFromEmail(parsedMessage.headers.from);
       const existingSender = await prisma.newsletter.findUnique({
         where: {
           email_emailAccountId: { email: sender, emailAccountId },
@@ -178,7 +179,13 @@ export async function processHistoryItem(
         select: { category: true },
       });
       if (!existingSender?.category) {
-        await categorizeSender(sender, emailAccount, provider);
+        await categorizeSender(
+          sender,
+          emailAccount,
+          provider,
+          undefined,
+          senderName !== sender ? senderName : undefined,
+        );
       }
     }
 

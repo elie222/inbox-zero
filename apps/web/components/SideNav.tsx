@@ -101,6 +101,11 @@ export const useNavigation = () => {
         href: prefixPath(currentEmailAccountId, "/bulk-unsubscribe"),
         icon: MailsIcon,
       },
+      {
+        name: "Bulk Archive",
+        href: prefixPath(currentEmailAccountId, "/bulk-archive"),
+        icon: ArchiveIcon,
+      },
       ...(isGoogleProvider(provider) && showCleaner
         ? [
             {

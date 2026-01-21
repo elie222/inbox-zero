@@ -19,6 +19,7 @@ export async function categorizeSender(
   emailAccount: EmailAccountWithAI,
   provider: EmailProvider,
   userCategories?: Pick<Category, "id" | "name" | "description">[],
+  senderName?: string | null,
 ) {
   const categories =
     userCategories ||
@@ -40,6 +41,7 @@ export async function categorizeSender(
   if (aiResult) {
     const { newsletter } = await updateSenderCategory({
       sender: senderAddress,
+      senderName,
       categories,
       categoryName: aiResult.category,
       emailAccountId: emailAccount.id,

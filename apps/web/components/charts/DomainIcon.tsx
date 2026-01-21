@@ -49,9 +49,14 @@ export function FallbackIcon({ seed, size = 20 }: FallbackIconProps) {
 interface DomainIconProps {
   domain: string;
   size?: number;
+  variant?: "default" | "circular";
 }
 
-export function DomainIcon({ domain, size = 20 }: DomainIconProps) {
+export function DomainIcon({
+  domain,
+  size = 20,
+  variant = "default",
+}: DomainIconProps) {
   const apexDomain = getDomain(domain) || domain;
   const domainFavicon = getFavicon(apexDomain);
   const [fallbackEnabled, setFallbackEnabled] = useState(false);
@@ -59,7 +64,10 @@ export function DomainIcon({ domain, size = 20 }: DomainIconProps) {
   return (
     <div
       style={{ width: size, height: size }}
-      className="relative shrink-0 overflow-hidden rounded-full"
+      className={cn(
+        "relative shrink-0 overflow-hidden",
+        variant === "circular" ? "rounded-full" : "rounded",
+      )}
     >
       {fallbackEnabled || !domainFavicon ? (
         <FallbackIcon seed={domain} size={size} />

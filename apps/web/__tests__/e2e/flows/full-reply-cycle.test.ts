@@ -26,6 +26,7 @@ import {
 import {
   waitForExecutedRule,
   waitForMessageInInbox,
+  waitForReplyInInbox,
   waitForDraftDeleted,
   waitForDraftSendLog,
 } from "./helpers/polling";
@@ -194,16 +195,45 @@ describe.skipIf(!shouldRunFlowTests())("Full Reply Cycle", () => {
       // ========================================
       logStep("Step 7: Waiting for Gmail to receive reply");
 
-      const gmailReply = await waitForMessageInInbox({
+      const gmailReply = await waitForReplyInInbox({
         provider: gmail.emailProvider,
         subjectContains: sentEmail.fullSubject,
+        fromEmail: outlook.email, // Filter by sender to ensure we get the reply
         timeout: TIMEOUTS.EMAIL_DELIVERY,
       });
 
       logStep("Reply received in Gmail", {
         messageId: gmailReply.messageId,
         threadId: gmailReply.threadId,
+        subject: gmailReply.subject,
+        expectedThreadId: sentEmail.threadId,
+        threadMatch: gmailReply.threadId === sentEmail.threadId,
       });
+
+      // Add diagnostic logging if threads don't match (before assertion fails)
+      if (gmailReply.threadId !== sentEmail.threadId) {
+        // Get the full message to inspect threading headers
+        const replyMessage = await gmail.emailProvider.getMessage(
+          gmailReply.messageId,
+        );
+        const originalSentMessage = await gmail.emailProvider.getMessage(
+          sentEmail.messageId,
+        );
+
+        logStep("THREAD MISMATCH - Diagnostic info", {
+          // Reply message headers
+          replyInReplyTo: replyMessage.headers["in-reply-to"],
+          replyReferences: replyMessage.headers.references,
+          replyMessageId: replyMessage.headers["message-id"],
+          // Original message info
+          originalMessageId: originalSentMessage.headers["message-id"],
+          originalThreadId: sentEmail.threadId,
+          // Comparison
+          headersMatch:
+            replyMessage.headers["in-reply-to"] ===
+            originalSentMessage.headers["message-id"],
+        });
+      }
 
       // Verify it's in the same thread
       expect(gmailReply.threadId).toBe(sentEmail.threadId);
