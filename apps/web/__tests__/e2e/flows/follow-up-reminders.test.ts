@@ -218,7 +218,7 @@ describe.skipIf(!shouldRunFlowTests())("Follow-up Reminders", () => {
         logStep("Step 4: Configuring follow-up settings");
 
         await configureFollowUpSettings(gmail.id, {
-          followUpAwaitingReplyDays: 0.001, // ~1.4 minutes (threshold already passed)
+          followUpAwaitingReplyDays: 0, // Process trackers immediately (no minimum age)
           followUpNeedsReplyDays: null,
           followUpAutoDraftEnabled: true,
         });
@@ -338,7 +338,7 @@ describe.skipIf(!shouldRunFlowTests())("Follow-up Reminders", () => {
         logStep("Step 4: Configuring follow-up settings (draft disabled)");
 
         await configureFollowUpSettings(gmail.id, {
-          followUpAwaitingReplyDays: 0.001,
+          followUpAwaitingReplyDays: 0, // Process trackers immediately (no minimum age)
           followUpNeedsReplyDays: null,
           followUpAutoDraftEnabled: false, // Draft disabled
         });
@@ -443,7 +443,7 @@ describe.skipIf(!shouldRunFlowTests())("Follow-up Reminders", () => {
 
         await configureFollowUpSettings(gmail.id, {
           followUpAwaitingReplyDays: null,
-          followUpNeedsReplyDays: 0.001,
+          followUpNeedsReplyDays: 0, // Process trackers immediately (no minimum age)
           followUpAutoDraftEnabled: true, // Even if enabled, NEEDS_REPLY never gets draft
         });
 
@@ -565,7 +565,7 @@ describe.skipIf(!shouldRunFlowTests())("Follow-up Reminders", () => {
         logStep("Step 4: Configuring follow-up settings");
 
         await configureFollowUpSettings(outlook.id, {
-          followUpAwaitingReplyDays: 0.001,
+          followUpAwaitingReplyDays: 0, // Process trackers immediately (no minimum age)
           followUpNeedsReplyDays: null,
           followUpAutoDraftEnabled: true,
         });
@@ -680,7 +680,7 @@ describe.skipIf(!shouldRunFlowTests())("Follow-up Reminders", () => {
         logStep("Step 4: Configuring follow-up settings (draft disabled)");
 
         await configureFollowUpSettings(outlook.id, {
-          followUpAwaitingReplyDays: 0.001,
+          followUpAwaitingReplyDays: 0, // Process trackers immediately (no minimum age)
           followUpNeedsReplyDays: null,
           followUpAutoDraftEnabled: false,
         });
@@ -785,7 +785,7 @@ describe.skipIf(!shouldRunFlowTests())("Follow-up Reminders", () => {
 
         await configureFollowUpSettings(outlook.id, {
           followUpAwaitingReplyDays: null,
-          followUpNeedsReplyDays: 0.001,
+          followUpNeedsReplyDays: 0, // Process trackers immediately (no minimum age)
           followUpAutoDraftEnabled: true,
         });
 
@@ -876,7 +876,7 @@ describe.skipIf(!shouldRunFlowTests())("Follow-up Reminders", () => {
         logStep("Step 3: Configuring follow-up settings");
 
         await configureFollowUpSettings(gmail.id, {
-          followUpAwaitingReplyDays: 0.001,
+          followUpAwaitingReplyDays: 0, // Process trackers immediately (no minimum age)
           followUpNeedsReplyDays: null,
           followUpAutoDraftEnabled: true,
         });
@@ -948,7 +948,7 @@ describe.skipIf(!shouldRunFlowTests())("Follow-up Reminders", () => {
         logStep("Step 3: Configuring follow-up settings");
 
         await configureFollowUpSettings(gmail.id, {
-          followUpAwaitingReplyDays: 0.001,
+          followUpAwaitingReplyDays: 0, // Process trackers immediately (no minimum age)
           followUpNeedsReplyDays: null,
           followUpAutoDraftEnabled: true,
         });
