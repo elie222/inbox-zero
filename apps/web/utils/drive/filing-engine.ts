@@ -171,11 +171,11 @@ export async function processAttachment({
           messageId: message.id,
           attachmentId: attachment.attachmentId,
           filename: attachment.filename,
-          folderPath: "", // No folder for skipped items
-          status: "REJECTED", // REJECTED = AI decided to skip
+          folderPath: "",
+          status: "PREVIEW", // PREVIEW = AI decided to skip (not user rejection)
           reasoning: analysis.reasoning,
           confidence: analysis.confidence,
-          driveConnectionId: driveConnections[0].id, // Use first available connection
+          driveConnectionId: driveConnections[0].id,
           emailAccountId: emailAccount.id,
         },
       });
