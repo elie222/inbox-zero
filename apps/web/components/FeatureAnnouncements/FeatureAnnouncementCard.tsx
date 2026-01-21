@@ -28,17 +28,8 @@ export function FeatureAnnouncementCard({
       )}
     >
       <div className="p-3">
-        <div className="flex items-start gap-2">
-          <SparklesIcon className="h-4 w-4 flex-shrink-0 text-blue-600 dark:text-blue-400 mt-0.5" />
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-blue-800 dark:text-blue-200 leading-tight">
-              {announcement.title}
-            </p>
-            <p className="text-xs text-blue-700/80 dark:text-blue-300/80 mt-1 line-clamp-2">
-              {announcement.description}
-            </p>
-          </div>
-
+        <div className="flex items-start justify-between">
+          <SparklesIcon className="h-4 w-4 text-blue-600 dark:text-blue-400" />
           {isActive && (
             <button
               type="button"
@@ -50,6 +41,15 @@ export function FeatureAnnouncementCard({
               <XIcon className="h-3 w-3" />
             </button>
           )}
+        </div>
+
+        <div className="mt-2">
+          <p className="text-sm font-medium text-blue-800 dark:text-blue-200 leading-tight">
+            {announcement.title}
+          </p>
+          <p className="text-xs text-blue-700/80 dark:text-blue-300/80 mt-1 line-clamp-2">
+            {announcement.description}
+          </p>
         </div>
 
         {announcement.link && isActive && (
