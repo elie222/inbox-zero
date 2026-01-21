@@ -1,6 +1,7 @@
 export interface AnnouncementDetail {
   title: string;
   description: string;
+  icon?: "clock" | "tag" | "file-edit" | "check";
 }
 
 export interface Announcement {
@@ -24,17 +25,19 @@ export const ANNOUNCEMENTS: Announcement[] = [
     publishedAt: "2026-01-15T00:00:00Z",
     details: [
       {
-        title: "Automatic reply detection",
-        description: "Know instantly when someone responds to your emails.",
+        title: "Tracks waiting threads",
+        description: "Knows when you're waiting for a reply.",
+        icon: "clock",
       },
       {
-        title: "Smart reminders",
-        description:
-          "Get notified about emails that haven't received a response.",
+        title: "Automatic follow-up labels",
+        description: "Labels threads after 3 days with no response.",
+        icon: "tag",
       },
       {
-        title: "Follow-up scheduling",
-        description: "Set custom reminder times for important conversations.",
+        title: "Auto-generated drafts",
+        description: "Creates a draft to nudge unresponsive contacts.",
+        icon: "file-edit",
       },
     ],
   },

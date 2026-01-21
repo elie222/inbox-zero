@@ -1,14 +1,28 @@
 "use client";
 
 import { useState } from "react";
-import { X, Sparkles, Loader2, CheckCircle2 } from "lucide-react";
+import {
+  X,
+  Sparkles,
+  Loader2,
+  CheckCircle2,
+  Clock,
+  Tag,
+  FileEdit,
+} from "lucide-react";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAction } from "next-safe-action/hooks";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useAnnouncements } from "@/hooks/useAnnouncements";
 import { dismissAnnouncementAction } from "@/utils/actions/announcements";
-import type { Announcement } from "@/utils/announcements";
+import type { Announcement, AnnouncementDetail } from "@/utils/announcements";
+import { FollowUpIllustration } from "./AnnouncementImages/FollowUpIllustration";
+import { SmartCategoriesIllustration } from "./AnnouncementImages/SmartCategoriesIllustration";
+import { BulkUnsubscribeIllustration } from "./AnnouncementImages/BulkUnsubscribeIllustration";
+import { EmailAnalyticsIllustration } from "./AnnouncementImages/EmailAnalyticsIllustration";
+import { ColdEmailBlockerIllustration } from "./AnnouncementImages/ColdEmailBlockerIllustration";
+import { KeyboardShortcutsIllustration } from "./AnnouncementImages/KeyboardShortcutsIllustration";
 
 export function FeatureAnnouncementModal() {
   const { data, mutate, isLoading } = useAnnouncements();
@@ -110,7 +124,7 @@ function AnnouncementCard({
       <div className="p-5">
         {/* Title with date badge */}
         <div className="mb-4 flex items-center justify-between">
-          <h3 className="text-base font-semibold text-gray-900 dark:text-gray-100">
+          <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100">
             {announcement.title}
           </h3>
           <span className="rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-600 dark:bg-gray-700 dark:text-gray-400">
@@ -121,9 +135,9 @@ function AnnouncementCard({
           </span>
         </div>
 
-        {/* Gradient banner with icon */}
-        <div className="mb-4 flex h-44 items-center justify-center rounded-lg bg-gradient-to-br from-blue-500 via-purple-500 to-pink-500">
-          <Sparkles className="h-10 w-10 text-white/90" />
+        {/* Banner */}
+        <div className="mb-4">
+          <AnnouncementBanner announcementId={announcement.id} />
         </div>
 
         {/* Feature details */}
@@ -132,7 +146,7 @@ function AnnouncementCard({
             {announcement.details.map((detail, index) => (
               <div key={index} className="flex items-start gap-3">
                 <div className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full border border-gray-200 dark:border-gray-700">
-                  <CheckCircle2 className="h-3.5 w-3.5 text-gray-500 dark:text-gray-400" />
+                  <DetailIcon icon={detail.icon} />
                 </div>
                 <div>
                   <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
@@ -176,4 +190,43 @@ function AnnouncementCard({
       </div>
     </div>
   );
+}
+
+function DetailIcon({ icon }: { icon: AnnouncementDetail["icon"] }) {
+  const iconClass = "h-3.5 w-3.5 text-gray-500 dark:text-gray-400";
+
+  switch (icon) {
+    case "clock":
+      return <Clock className={iconClass} />;
+    case "tag":
+      return <Tag className={iconClass} />;
+    case "file-edit":
+      return <FileEdit className={iconClass} />;
+    default:
+      return <CheckCircle2 className={iconClass} />;
+  }
+}
+
+function AnnouncementBanner({ announcementId }: { announcementId: string }) {
+  switch (announcementId) {
+    case "follow-up-tracking-2025-01":
+      return <FollowUpIllustration />;
+    case "smart-categories-2025-01":
+      return <SmartCategoriesIllustration />;
+    case "bulk-unsubscribe-2025-01":
+      return <BulkUnsubscribeIllustration />;
+    case "email-analytics-2025-01":
+      return <EmailAnalyticsIllustration />;
+    case "cold-email-blocker-2025-01":
+      return <ColdEmailBlockerIllustration />;
+    case "keyboard-shortcuts-2025-01":
+      return <KeyboardShortcutsIllustration />;
+    default:
+      // Default gradient banner for any new announcements
+      return (
+        <div className="flex h-44 items-center justify-center rounded-lg bg-gradient-to-br from-blue-500 via-purple-500 to-pink-500">
+          <Sparkles className="h-10 w-10 text-white/90" />
+        </div>
+      );
+  }
 }
