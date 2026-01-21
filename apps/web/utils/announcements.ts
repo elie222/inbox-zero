@@ -15,7 +15,7 @@ export const ANNOUNCEMENTS: Announcement[] = [
     description:
       "Track replies and get reminded about unanswered emails. Never let an important email slip through the cracks.",
     link: "/automation?tab=follow-ups",
-    publishedAt: "2025-01-15T00:00:00Z",
+    publishedAt: "2026-01-15T00:00:00Z",
   },
 ];
 
