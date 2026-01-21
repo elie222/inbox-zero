@@ -18,6 +18,7 @@
 import { describe, test, expect, beforeAll, afterAll, afterEach } from "vitest";
 import { subMinutes } from "date-fns/subMinutes";
 import prisma from "@/utils/prisma";
+import { sleep } from "@/utils/sleep";
 import { shouldRunFlowTests, TIMEOUTS } from "./config";
 import { initializeFlowTests, setupFlowTest } from "./setup";
 import { generateTestSummary } from "./teardown";
@@ -212,13 +213,17 @@ describe.skipIf(!shouldRunFlowTests())("Follow-up Reminders", () => {
           type: tracker.type,
         });
 
+        // Wait for threshold to pass (tracker.sentAt must be older than threshold)
+        logStep("Waiting for threshold to pass");
+        await sleep(10_000); // 10 seconds > 0.0001 days (~8.6 seconds)
+
         // ========================================
         // Step 4: Configure follow-up settings
         // ========================================
         logStep("Step 4: Configuring follow-up settings");
 
         await configureFollowUpSettings(gmail.id, {
-          followUpAwaitingReplyDays: 0.0001, // ~8.6 seconds (processing time exceeds this)
+          followUpAwaitingReplyDays: 0.0001, // ~8.6 seconds
           followUpNeedsReplyDays: null,
           followUpAutoDraftEnabled: true,
         });
@@ -332,13 +337,17 @@ describe.skipIf(!shouldRunFlowTests())("Follow-up Reminders", () => {
           timeout: TIMEOUTS.WEBHOOK_PROCESSING,
         });
 
+        // Wait for threshold to pass
+        logStep("Waiting for threshold to pass");
+        await sleep(10_000);
+
         // ========================================
         // Step 4: Configure follow-up settings (draft disabled)
         // ========================================
         logStep("Step 4: Configuring follow-up settings (draft disabled)");
 
         await configureFollowUpSettings(gmail.id, {
-          followUpAwaitingReplyDays: 0.0001, // ~8.6 seconds (processing time exceeds this)
+          followUpAwaitingReplyDays: 0.0001, // ~8.6 seconds
           followUpNeedsReplyDays: null,
           followUpAutoDraftEnabled: false, // Draft disabled
         });
@@ -436,6 +445,10 @@ describe.skipIf(!shouldRunFlowTests())("Follow-up Reminders", () => {
           type: tracker.type,
         });
 
+        // Wait for threshold to pass
+        logStep("Waiting for threshold to pass");
+        await sleep(10_000);
+
         // ========================================
         // Step 3: Configure follow-up settings
         // ========================================
@@ -443,7 +456,7 @@ describe.skipIf(!shouldRunFlowTests())("Follow-up Reminders", () => {
 
         await configureFollowUpSettings(gmail.id, {
           followUpAwaitingReplyDays: null,
-          followUpNeedsReplyDays: 0.0001, // ~8.6 seconds (processing time exceeds this)
+          followUpNeedsReplyDays: 0.0001, // ~8.6 seconds
           followUpAutoDraftEnabled: true, // Even if enabled, NEEDS_REPLY never gets draft
         });
 
@@ -559,13 +572,17 @@ describe.skipIf(!shouldRunFlowTests())("Follow-up Reminders", () => {
           type: tracker.type,
         });
 
+        // Wait for threshold to pass
+        logStep("Waiting for threshold to pass");
+        await sleep(10_000);
+
         // ========================================
         // Step 4: Configure follow-up settings
         // ========================================
         logStep("Step 4: Configuring follow-up settings");
 
         await configureFollowUpSettings(outlook.id, {
-          followUpAwaitingReplyDays: 0.0001, // ~8.6 seconds (processing time exceeds this)
+          followUpAwaitingReplyDays: 0.0001, // ~8.6 seconds
           followUpNeedsReplyDays: null,
           followUpAutoDraftEnabled: true,
         });
@@ -674,13 +691,17 @@ describe.skipIf(!shouldRunFlowTests())("Follow-up Reminders", () => {
           timeout: TIMEOUTS.WEBHOOK_PROCESSING,
         });
 
+        // Wait for threshold to pass
+        logStep("Waiting for threshold to pass");
+        await sleep(10_000);
+
         // ========================================
         // Step 4: Configure follow-up settings (draft disabled)
         // ========================================
         logStep("Step 4: Configuring follow-up settings (draft disabled)");
 
         await configureFollowUpSettings(outlook.id, {
-          followUpAwaitingReplyDays: 0.0001, // ~8.6 seconds (processing time exceeds this)
+          followUpAwaitingReplyDays: 0.0001, // ~8.6 seconds
           followUpNeedsReplyDays: null,
           followUpAutoDraftEnabled: false,
         });
@@ -778,6 +799,10 @@ describe.skipIf(!shouldRunFlowTests())("Follow-up Reminders", () => {
           type: tracker.type,
         });
 
+        // Wait for threshold to pass
+        logStep("Waiting for threshold to pass");
+        await sleep(10_000);
+
         // ========================================
         // Step 3: Configure follow-up settings
         // ========================================
@@ -785,7 +810,7 @@ describe.skipIf(!shouldRunFlowTests())("Follow-up Reminders", () => {
 
         await configureFollowUpSettings(outlook.id, {
           followUpAwaitingReplyDays: null,
-          followUpNeedsReplyDays: 0.0001, // ~8.6 seconds (processing time exceeds this)
+          followUpNeedsReplyDays: 0.0001, // ~8.6 seconds
           followUpAutoDraftEnabled: true,
         });
 
