@@ -11,7 +11,7 @@
  * RUN_E2E_FLOW_TESTS=true pnpm test-e2e follow-up-reminders
  */
 
-import { describe, test, expect, beforeAll, afterEach } from "vitest";
+import { describe, test, expect, beforeAll, afterAll, afterEach } from "vitest";
 import { subMinutes } from "date-fns/subMinutes";
 import prisma from "@/utils/prisma";
 import { shouldRunFlowTests, TIMEOUTS } from "./config";
