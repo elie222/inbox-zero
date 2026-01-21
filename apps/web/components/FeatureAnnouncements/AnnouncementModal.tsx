@@ -16,7 +16,8 @@ import { useAction } from "next-safe-action/hooks";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useAnnouncements } from "@/hooks/useAnnouncements";
 import { dismissAnnouncementAction } from "@/utils/actions/announcements";
-import type { Announcement, AnnouncementDetail } from "@/utils/announcements";
+import type { AnnouncementDetail } from "@/utils/announcements";
+import type { GetAnnouncementsResponse } from "@/app/api/user/announcements/route";
 import { FollowUpIllustration } from "./AnnouncementImages/FollowUpIllustration";
 import { SmartCategoriesIllustration } from "./AnnouncementImages/SmartCategoriesIllustration";
 import { BulkUnsubscribeIllustration } from "./AnnouncementImages/BulkUnsubscribeIllustration";
@@ -108,8 +109,11 @@ export function AnnouncementModal() {
   );
 }
 
+type AnnouncementWithEnabled =
+  GetAnnouncementsResponse["announcements"][number];
+
 interface AnnouncementCardProps {
-  announcement: Announcement;
+  announcement: AnnouncementWithEnabled;
   onDismiss: () => void;
   isDismissing: boolean;
 }
@@ -163,24 +167,40 @@ function AnnouncementCard({
 
         {/* Actions */}
         <div className="flex gap-3">
-          <button
-            type="button"
-            onClick={onDismiss}
-            disabled={isDismissing}
-            className="flex-1 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            {isDismissing ? (
-              <>
-                <Loader2 className="mr-1.5 inline h-4 w-4 animate-spin" />
-                Enabling...
-              </>
+          {announcement.actionType === "enable" &&
+            (announcement.isEnabled ? (
+              <div className="flex flex-1 items-center justify-center rounded-lg bg-green-100 px-4 py-2.5 text-sm font-medium text-green-700 dark:bg-green-900/30 dark:text-green-400">
+                <CheckCircle2 className="mr-1.5 h-4 w-4" />
+                Enabled
+              </div>
             ) : (
-              "Enable"
-            )}
-          </button>
-          {announcement.link && (
+              <button
+                type="button"
+                onClick={onDismiss}
+                disabled={isDismissing}
+                className="flex-1 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {isDismissing ? (
+                  <>
+                    <Loader2 className="mr-1.5 inline h-4 w-4 animate-spin" />
+                    Enabling...
+                  </>
+                ) : (
+                  "Enable"
+                )}
+              </button>
+            ))}
+          {announcement.actionType === "view" && announcement.link && (
             <Link
               href={announcement.link}
+              className="flex flex-1 items-center justify-center rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-blue-700"
+            >
+              View
+            </Link>
+          )}
+          {announcement.learnMoreLink && (
+            <Link
+              href={announcement.learnMoreLink}
               className="flex flex-1 items-center justify-center rounded-lg bg-gray-100 px-4 py-2.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600"
             >
               Learn more

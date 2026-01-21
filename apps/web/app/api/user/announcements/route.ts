@@ -22,8 +22,11 @@ async function getAnnouncements({ userId }: { userId: string }) {
   const dismissedIds = new Set(user?.dismissedAnnouncements ?? []);
   const allAnnouncements = getActiveAnnouncements();
 
-  // Filter to only non-dismissed announcements
-  const announcements = allAnnouncements.filter((a) => !dismissedIds.has(a.id));
+  // Return all announcements with isEnabled flag
+  const announcements = allAnnouncements.map((a) => ({
+    ...a,
+    isEnabled: dismissedIds.has(a.id),
+  }));
 
   return {
     announcements,

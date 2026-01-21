@@ -8,9 +8,14 @@ export interface Announcement {
   id: string;
   title: string;
   description: string;
+  /** In-app link for the View button (when actionType is "view") */
   link?: string;
+  /** External link for the Learn more button (blog post, guide, etc.) */
+  learnMoreLink?: string;
   publishedAt: string; // ISO date string
   details?: AnnouncementDetail[];
+  /** "enable" shows Enable button, "view" shows View button. If not set, no action button shown. */
+  actionType?: "enable" | "view";
 }
 
 const SIX_MONTHS_MS = 6 * 30 * 24 * 60 * 60 * 1000;
@@ -22,7 +27,9 @@ export const ANNOUNCEMENTS: Announcement[] = [
     description:
       "Track replies and get reminded about unanswered emails. Never let an important email slip through the cracks.",
     link: "/automation?tab=follow-ups",
+    learnMoreLink: "/#",
     publishedAt: "2026-01-15T00:00:00Z",
+    actionType: "enable",
     details: [
       {
         title: "Tracks waiting threads",
@@ -47,7 +54,9 @@ export const ANNOUNCEMENTS: Announcement[] = [
     description:
       "AI-powered email categorization that learns from your habits. Automatically sort emails into the right folders.",
     link: "/automation",
+    learnMoreLink: "/#",
     publishedAt: "2026-01-14T00:00:00Z",
+    actionType: "enable",
     details: [
       {
         title: "AI-powered sorting",
@@ -70,7 +79,9 @@ export const ANNOUNCEMENTS: Announcement[] = [
     description:
       "Unsubscribe from multiple newsletters at once with our improved bulk actions. Clean up your inbox faster than ever.",
     link: "/bulk-unsubscribe",
+    learnMoreLink: "/#",
     publishedAt: "2026-01-12T00:00:00Z",
+    actionType: "view",
     details: [
       {
         title: "One-click bulk actions",
@@ -92,7 +103,9 @@ export const ANNOUNCEMENTS: Announcement[] = [
     description:
       "Get insights into your email habits with detailed analytics. See response times, peak hours, and more.",
     link: "/stats",
+    learnMoreLink: "/#",
     publishedAt: "2026-01-10T00:00:00Z",
+    actionType: "view",
     details: [
       {
         title: "Response time tracking",
@@ -114,7 +127,9 @@ export const ANNOUNCEMENTS: Announcement[] = [
     description:
       "Automatically detect and filter cold emails and spam. Keep your inbox focused on what matters.",
     link: "/cold-email-blocker",
+    learnMoreLink: "/#",
     publishedAt: "2026-01-08T00:00:00Z",
+    actionType: "enable",
     details: [
       {
         title: "AI spam detection",
@@ -135,6 +150,7 @@ export const ANNOUNCEMENTS: Announcement[] = [
     title: "New Keyboard Shortcuts",
     description:
       "Navigate your inbox faster with new keyboard shortcuts. Press ? anywhere to see the full list.",
+    learnMoreLink: "/#",
     publishedAt: "2026-01-05T00:00:00Z",
     details: [
       {
