@@ -1,4 +1,8 @@
-# CLAUDE.md - Development Guidelines
+# AGENTS.md - Development Guidelines
+
+## Important Notes
+
+- Do not run the project via `dev` or `build` command unless explicitly asked
 
 ## Build & Test Commands
 
