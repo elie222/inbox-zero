@@ -103,6 +103,23 @@ async function cleanupThreadTrackers(emailAccountId: string, threadId: string) {
   });
 }
 
+// Helper to disable AI rules for isolation testing
+// Follow-up reminders should work independently of AI rules
+async function disableRulesForAccount(emailAccountId: string): Promise<void> {
+  await prisma.rule.updateMany({
+    where: { emailAccountId, enabled: true },
+    data: { enabled: false },
+  });
+}
+
+// Helper to re-enable AI rules after testing
+async function enableRulesForAccount(emailAccountId: string): Promise<void> {
+  await prisma.rule.updateMany({
+    where: { emailAccountId, enabled: false },
+    data: { enabled: true },
+  });
+}
+
 describe.skipIf(!shouldRunFlowTests())("Follow-up Reminders", () => {
   let gmail: TestAccount;
   let outlook: TestAccount;
@@ -113,7 +130,18 @@ describe.skipIf(!shouldRunFlowTests())("Follow-up Reminders", () => {
     const accounts = await setupFlowTest();
     gmail = accounts.gmail;
     outlook = accounts.outlook;
+
+    // Disable AI rules - follow-up reminders should be tested in isolation
+    // Without this, the AI Auto-Reply rule creates ExecutedActions that interfere with assertions
+    await disableRulesForAccount(gmail.id);
+    await disableRulesForAccount(outlook.id);
   }, TIMEOUTS.TEST_DEFAULT);
+
+  afterAll(async () => {
+    // Re-enable rules for other test suites
+    if (gmail?.id) await enableRulesForAccount(gmail.id);
+    if (outlook?.id) await enableRulesForAccount(outlook.id);
+  });
 
   afterEach(async () => {
     generateTestSummary("Follow-up Reminders", testStartTime);
