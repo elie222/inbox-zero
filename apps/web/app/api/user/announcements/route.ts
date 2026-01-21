@@ -14,23 +14,69 @@ export const GET = withAuth("user/announcements", async (request) => {
 });
 
 async function getAnnouncements({ userId }: { userId: string }) {
+  // Fetch user's dismissal timestamp and their first email account for feature states
   const user = await prisma.user.findUnique({
     where: { id: userId },
-    select: { dismissedAnnouncements: true },
+    select: {
+      announcementDismissedAt: true,
+      emailAccounts: {
+        select: {
+          id: true,
+          followUpAwaitingReplyDays: true,
+          followUpNeedsReplyDays: true,
+          autoCategorizeSenders: true,
+        },
+        take: 1,
+      },
+    },
   });
 
-  const dismissedIds = new Set(user?.dismissedAnnouncements ?? []);
+  const dismissedAt = user?.announcementDismissedAt;
+  const emailAccount = user?.emailAccounts[0];
+
+  // Get all active announcements (less than 6 months old)
   const allAnnouncements = getActiveAnnouncements();
 
-  // Return all announcements with isEnabled flag
-  const announcements = allAnnouncements.map((a) => ({
+  // Filter to only show announcements newer than the dismissal date
+  const filteredAnnouncements = dismissedAt
+    ? allAnnouncements.filter(
+        (a) => new Date(a.publishedAt) > new Date(dismissedAt),
+      )
+    : allAnnouncements;
+
+  // Map announcements with isEnabled flag based on actual feature state
+  const announcements = filteredAnnouncements.map((a) => ({
     ...a,
-    isEnabled: dismissedIds.has(a.id),
+    isEnabled: getFeatureEnabledState(a.id, emailAccount),
   }));
 
   return {
     announcements,
     totalCount: allAnnouncements.length,
-    dismissedCount: dismissedIds.size,
   };
+}
+
+function getFeatureEnabledState(
+  announcementId: string,
+  emailAccount:
+    | {
+        followUpAwaitingReplyDays: number | null;
+        followUpNeedsReplyDays: number | null;
+        autoCategorizeSenders: boolean;
+      }
+    | undefined,
+): boolean {
+  if (!emailAccount) return false;
+
+  switch (announcementId) {
+    case "follow-up-tracking-2025-01":
+      return (
+        emailAccount.followUpAwaitingReplyDays !== null ||
+        emailAccount.followUpNeedsReplyDays !== null
+      );
+    case "smart-categories-2025-01":
+      return emailAccount.autoCategorizeSenders;
+    default:
+      return false;
+  }
 }

@@ -129,7 +129,7 @@ export const ANNOUNCEMENTS: Announcement[] = [
     link: "/cold-email-blocker",
     learnMoreLink: "/#",
     publishedAt: "2026-01-08T00:00:00Z",
-    actionType: "enable",
+    actionType: "view",
     details: [
       {
         title: "AI spam detection",

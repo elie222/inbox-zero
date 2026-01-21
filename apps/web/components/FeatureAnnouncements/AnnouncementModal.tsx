@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import {
   X,
   Sparkles,
@@ -15,7 +15,10 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useAction } from "next-safe-action/hooks";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useAnnouncements } from "@/hooks/useAnnouncements";
-import { dismissAnnouncementAction } from "@/utils/actions/announcements";
+import { dismissAnnouncementModalAction } from "@/utils/actions/announcements";
+import { toggleFollowUpRemindersAction } from "@/utils/actions/follow-up-reminders";
+import { setAutoCategorizeAction } from "@/utils/actions/categorize";
+import { useAccount } from "@/providers/EmailAccountProvider";
 import type { AnnouncementDetail } from "@/utils/announcements";
 import type { GetAnnouncementsResponse } from "@/app/api/user/announcements/route";
 import { FollowUpIllustration } from "./AnnouncementImages/FollowUpIllustration";
@@ -27,29 +30,75 @@ import { KeyboardShortcutsIllustration } from "./AnnouncementImages/KeyboardShor
 
 export function AnnouncementModal() {
   const { data, mutate, isLoading } = useAnnouncements();
+  const { emailAccountId } = useAccount();
   const [isOpen, setIsOpen] = useState(true);
-  const [dismissingId, setDismissingId] = useState<string | null>(null);
+  const [enablingId, setEnablingId] = useState<string | null>(null);
 
-  const { execute: dismiss } = useAction(dismissAnnouncementAction, {
+  const { execute: dismissModal } = useAction(dismissAnnouncementModalAction, {
     onSuccess: () => {
       mutate();
-      setDismissingId(null);
-    },
-    onError: () => {
-      setDismissingId(null);
     },
   });
+
+  const { execute: toggleFollowUp } = useAction(
+    toggleFollowUpRemindersAction.bind(null, emailAccountId),
+    {
+      onSuccess: () => {
+        mutate();
+        setEnablingId(null);
+      },
+      onError: () => {
+        setEnablingId(null);
+      },
+    },
+  );
+
+  const { execute: setAutoCategorize } = useAction(
+    setAutoCategorizeAction.bind(null, emailAccountId),
+    {
+      onSuccess: () => {
+        mutate();
+        setEnablingId(null);
+      },
+      onError: () => {
+        setEnablingId(null);
+      },
+    },
+  );
+
+  // Prevent body scroll when modal is open
+  useEffect(() => {
+    if (isOpen) {
+      document.body.style.overflow = "hidden";
+    }
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [isOpen]);
+
+  const handleCloseModal = useCallback(() => {
+    dismissModal();
+    setIsOpen(false);
+  }, [dismissModal]);
+
+  const handleEnable = useCallback(
+    (announcementId: string) => {
+      setEnablingId(announcementId);
+
+      if (announcementId.startsWith("follow-up-tracking")) {
+        toggleFollowUp({ enabled: true });
+      } else if (announcementId.startsWith("smart-categories")) {
+        setAutoCategorize({ autoCategorizeSenders: true });
+      }
+    },
+    [toggleFollowUp, setAutoCategorize],
+  );
 
   if (isLoading || !data) return null;
 
   const { announcements } = data;
 
   if (announcements.length === 0) return null;
-
-  const handleDismiss = (announcementId: string) => {
-    setDismissingId(announcementId);
-    dismiss({ announcementId });
-  };
 
   return (
     <AnimatePresence>
@@ -58,7 +107,7 @@ export function AnnouncementModal() {
           {/* Backdrop */}
           <motion.div
             key="backdrop"
-            onClick={() => setIsOpen(false)}
+            onClick={handleCloseModal}
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
@@ -73,13 +122,13 @@ export function AnnouncementModal() {
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 20 }}
             transition={{ type: "spring", damping: 25, stiffness: 400 }}
-            className="fixed inset-0 z-50 flex items-center justify-center p-4"
+            className="pointer-events-none fixed inset-0 z-50 flex items-center justify-center p-4"
           >
-            <div className="relative">
+            <div className="pointer-events-auto relative">
               {/* Close button - outside modal, diagonal top-right corner */}
               <button
                 type="button"
-                onClick={() => setIsOpen(false)}
+                onClick={handleCloseModal}
                 className="absolute -right-9 -top-9 z-10 flex items-center justify-center rounded-full border border-white/20 bg-white/10 p-2 text-white backdrop-blur-sm transition-colors hover:bg-white/20"
               >
                 <X className="h-5 w-5" />
@@ -92,8 +141,8 @@ export function AnnouncementModal() {
                       <AnnouncementCard
                         key={announcement.id}
                         announcement={announcement}
-                        onDismiss={() => handleDismiss(announcement.id)}
-                        isDismissing={dismissingId === announcement.id}
+                        onEnable={() => handleEnable(announcement.id)}
+                        isEnabling={enablingId === announcement.id}
                       />
                     ))}
                   </div>
@@ -112,14 +161,14 @@ type AnnouncementWithEnabled =
 
 interface AnnouncementCardProps {
   announcement: AnnouncementWithEnabled;
-  onDismiss: () => void;
-  isDismissing: boolean;
+  onEnable: () => void;
+  isEnabling: boolean;
 }
 
 function AnnouncementCard({
   announcement,
-  onDismiss,
-  isDismissing,
+  onEnable,
+  isEnabling,
 }: AnnouncementCardProps) {
   return (
     <div className="overflow-hidden rounded-xl bg-white dark:bg-gray-800">
@@ -174,11 +223,11 @@ function AnnouncementCard({
             ) : (
               <button
                 type="button"
-                onClick={onDismiss}
-                disabled={isDismissing}
+                onClick={onEnable}
+                disabled={isEnabling}
                 className="flex-1 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {isDismissing ? (
+                {isEnabling ? (
                   <>
                     <Loader2 className="mr-1.5 inline h-4 w-4 animate-spin" />
                     Enabling...
