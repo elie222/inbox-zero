@@ -224,12 +224,13 @@ export type FileAttachmentFiled = {
   skipped?: false;
 };
 
-export type FileAttachmentResult =
-  | FileAttachmentFiled
-  | {
-      skipped: true;
-      skipReason: string;
-    };
+export type FileAttachmentSkipped = {
+  skipped: true;
+  skipReason: string;
+  filingId: string;
+};
+
+export type FileAttachmentResult = FileAttachmentFiled | FileAttachmentSkipped;
 
 export const fileAttachmentAction = actionClient
   .metadata({ name: "fileAttachment" })
@@ -315,6 +316,7 @@ export const fileAttachmentAction = actionClient
           skipped: true,
           skipReason:
             result.skipReason || "Document doesn't match filing preferences",
+          filingId: result.filingId!,
         };
       }
 
