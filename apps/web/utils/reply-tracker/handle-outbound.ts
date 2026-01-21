@@ -24,7 +24,15 @@ export async function handleOutboundMessage({
     threadId: message.threadId,
   });
 
-  logger.info("Handling outbound message");
+  logger.info("Handling outbound message", {
+    messageLabelIds: message.labelIds,
+    messageInternalDate: message.internalDate,
+  });
+  logger.trace("Outbound message details", {
+    messageFrom: message.headers.from,
+    messageTo: message.headers.to,
+    messageSubject: message.headers.subject,
+  });
 
   await Promise.allSettled([
     trackSentDraftStatus({
