@@ -311,8 +311,8 @@ function Checklist({
         <StepItem
           href={prefixPath(emailAccountId, "/briefs")}
           icon={<FileTextIcon size={20} />}
-          iconBg="bg-teal-100 dark:bg-teal-900/50"
-          iconColor="text-teal-500 dark:text-teal-400"
+          iconBg="bg-pink-100 dark:bg-pink-900/50"
+          iconColor="text-pink-500 dark:text-pink-400"
           title="Optional: Set up Meeting Briefs"
           timeEstimate="2 minutes"
           completed={isMeetingBriefsViewed}
