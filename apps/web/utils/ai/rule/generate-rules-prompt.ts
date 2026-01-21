@@ -3,6 +3,7 @@ import { createGenerateObject } from "@/utils/llms";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import { getModel } from "@/utils/llms/model";
 import { getUserInfoPrompt } from "@/utils/ai/helpers";
+import { env } from "@/env";
 
 const parameters = z.object({
   rules: z
@@ -71,15 +72,15 @@ ${labelsList}
 </user_labels>
 
 <instructions>
-Generate a list of email management rules that would be broadly applicable for this user based on their email behavior and existing labels. The rules should be general enough to apply to various situations, not just specific recent emails. Include actions such as labeling, archiving, forwarding, replying, and drafting responses.
+Generate a list of email management rules that would be broadly applicable for this user based on their email behavior and existing labels. The rules should be general enough to apply to various situations, not just specific recent emails. Include actions such as labeling, archiving,${env.NEXT_PUBLIC_EMAIL_SEND_ENABLED ? " forwarding, replying," : ""} and drafting responses.
 </instructions>
 
 <example_rules>
 * Label newsletters as "Newsletter" and archive them
-* If someone asks to schedule a meeting, send them your calendar link
+${env.NEXT_PUBLIC_EMAIL_SEND_ENABLED ? "* If someone asks to schedule a meeting, send them your calendar link" : ""}
 * For cold emails or unsolicited pitches, draft a polite decline response
 * Label emails related to financial matters as "Finance" and mark as important
-* Forward emails about technical issues to the support team
+${env.NEXT_PUBLIC_EMAIL_SEND_ENABLED ? "* Forward emails about technical issues to the support team" : ""}
 * For emails from key clients or partners, label as "VIP" and keep in inbox
 </example_rules>
 
@@ -88,7 +89,7 @@ Focus on creating rules that will help the user organize their inbox more effici
 1. Labeling and organizing emails by general categories (e.g., Work, Personal, Finance)
 2. Handling common types of requests (e.g., meeting requests, support inquiries)
 3. Automating responses for recurring scenarios
-4. Forwarding specific types of emails to relevant team members
+${env.NEXT_PUBLIC_EMAIL_SEND_ENABLED ? "4. Forwarding specific types of emails to relevant team members" : ""}
 5. Prioritizing important or urgent emails
 6. Dealing with newsletters, marketing emails, and potential spam
 ${
