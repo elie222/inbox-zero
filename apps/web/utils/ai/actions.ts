@@ -13,6 +13,7 @@ import prisma from "@/utils/prisma";
 import { sendColdEmailNotification } from "@/utils/cold-email/send-notification";
 import { extractEmailAddress } from "@/utils/email";
 import { captureException } from "@/utils/error";
+import { ensureEmailSendingEnabled } from "@/utils/mail";
 
 const MODULE = "ai-actions";
 
@@ -61,10 +62,13 @@ export const runActionFunction = async (options: {
     case ActionType.DRAFT_EMAIL:
       return draft(opts);
     case ActionType.REPLY:
+      ensureEmailSendingEnabled();
       return reply(opts);
     case ActionType.SEND_EMAIL:
+      ensureEmailSendingEnabled();
       return send_email(opts);
     case ActionType.FORWARD:
+      ensureEmailSendingEnabled();
       return forward(opts);
     case ActionType.MARK_SPAM:
       return mark_spam(opts);
