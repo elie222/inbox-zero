@@ -14,7 +14,6 @@ export const GET = withAuth("user/announcements", async (request) => {
 });
 
 async function getAnnouncements({ userId }: { userId: string }) {
-  // Fetch user's dismissal timestamp and their first email account for feature states
   const user = await prisma.user.findUnique({
     where: { id: userId },
     select: {
@@ -34,17 +33,14 @@ async function getAnnouncements({ userId }: { userId: string }) {
   const dismissedAt = user?.announcementDismissedAt;
   const emailAccount = user?.emailAccounts[0];
 
-  // Get all active announcements (less than 6 months old)
   const allAnnouncements = getActiveAnnouncements();
 
-  // Check if there are any announcements newer than the dismissal date
   const hasNewAnnouncements = dismissedAt
     ? allAnnouncements.some(
         (a) => new Date(a.publishedAt) > new Date(dismissedAt),
       )
     : allAnnouncements.length > 0;
 
-  // Map announcements with isEnabled flag based on actual feature state
   const announcements = allAnnouncements.map((a) => ({
     ...a,
     isEnabled: getFeatureEnabledState(a.id, emailAccount),
