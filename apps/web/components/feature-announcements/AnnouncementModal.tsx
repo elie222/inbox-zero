@@ -88,7 +88,6 @@ export function AnnouncementModal() {
 
   const { announcements, hasNewAnnouncements } = data;
 
-  // Only auto-open if there are new announcements, but show all when open
   if (announcements.length === 0 || !hasNewAnnouncements) return null;
 
   return (
