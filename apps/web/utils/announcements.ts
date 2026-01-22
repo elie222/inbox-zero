@@ -13,7 +13,7 @@ export interface Announcement {
   publishedAt: string; // ISO date string
   details?: AnnouncementDetail[];
   actionType?: "enable" | "view";
-  requiredEnvVar?: string; // If set, announcement only shows when this env var is "true"
+  requiredEnvVar?: string;
 }
 
 export const ANNOUNCEMENTS: Announcement[] = [
