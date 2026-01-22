@@ -121,11 +121,12 @@ describe.skipIf(!shouldRunFlowTests())("Message Preservation", () => {
 
       // Important: Send from Outlook to Gmail (same as first message)
       // This simulates the sender following up before user responds
+      // Use Outlook-side IDs since Outlook is the sender
       const followUpEmail = await sendTestReply({
         from: outlook,
         to: gmail,
-        threadId: firstReceived.threadId,
-        originalMessageId: firstReceived.messageId,
+        threadId: firstEmail.threadId,
+        originalMessageId: firstEmail.messageId,
         body: "I wanted to add some more context to my previous message. Please let me know your thoughts on this.",
       });
 
@@ -134,9 +135,19 @@ describe.skipIf(!shouldRunFlowTests())("Message Preservation", () => {
         threadId: followUpEmail.threadId,
       });
 
-      // Wait for the follow-up to be received and processed
-      // Use a slightly longer timeout to ensure webhook processing completes
-      await new Promise((resolve) => setTimeout(resolve, 5000));
+      // Wait for follow-up to arrive in Gmail and get its Gmail-side messageId
+      logStep("Waiting for follow-up to arrive in Gmail");
+      const followUpReceived = await waitForMessageInInbox({
+        provider: gmail.emailProvider,
+        subjectContains: firstEmail.fullSubject,
+        timeout: TIMEOUTS.EMAIL_DELIVERY,
+        filter: (msg) => msg.id !== firstReceived.messageId,
+      });
+
+      logStep("Follow-up received in Gmail", {
+        gmailMessageId: followUpReceived.messageId,
+        outlookMessageId: followUpEmail.messageId,
+      });
 
       // ========================================
       // Step 4: CRITICAL - Verify the follow-up message still exists
@@ -163,13 +174,13 @@ describe.skipIf(!shouldRunFlowTests())("Message Preservation", () => {
         (m) => m.id === firstReceived.messageId,
       );
       const followUpStillExists = threadMessages.some(
-        (m) => m.id === followUpEmail.messageId,
+        (m) => m.id === followUpReceived.messageId,
       );
 
       logStep("Message existence check", {
         firstMessageId: firstReceived.messageId,
         firstMessageExists: firstMessageStillExists,
-        followUpMessageId: followUpEmail.messageId,
+        followUpMessageId: followUpReceived.messageId,
         followUpExists: followUpStillExists,
       });
 
@@ -183,10 +194,10 @@ describe.skipIf(!shouldRunFlowTests())("Message Preservation", () => {
 
       try {
         const followUpMessage = await gmail.emailProvider.getMessage(
-          followUpEmail.messageId,
+          followUpReceived.messageId,
         );
         expect(followUpMessage).toBeDefined();
-        expect(followUpMessage.id).toBe(followUpEmail.messageId);
+        expect(followUpMessage.id).toBe(followUpReceived.messageId);
         logStep("Follow-up message verified - NOT deleted", {
           messageId: followUpMessage.id,
           subject: followUpMessage.headers.subject,
@@ -197,7 +208,7 @@ describe.skipIf(!shouldRunFlowTests())("Message Preservation", () => {
           error: String(error),
         });
         throw new Error(
-          `BUG REPRODUCED: Follow-up message ${followUpEmail.messageId} was deleted during draft cleanup. This should NOT happen.`,
+          `BUG REPRODUCED: Follow-up message ${followUpReceived.messageId} was deleted during draft cleanup. This should NOT happen.`,
         );
       }
 
@@ -260,11 +271,12 @@ describe.skipIf(!shouldRunFlowTests())("Message Preservation", () => {
       logStep("AI draft created", { draftId: aiDraftId });
 
       // Second message from sender (follow-up)
+      // Use Outlook-side IDs since Outlook is the sender
       const secondEmail = await sendTestReply({
         from: outlook,
         to: gmail,
-        threadId: firstReceived.threadId,
-        originalMessageId: firstReceived.messageId,
+        threadId: firstEmail.threadId,
+        originalMessageId: firstEmail.messageId,
         body: "Actually, I have one more question I forgot to ask.",
       });
 
@@ -272,8 +284,18 @@ describe.skipIf(!shouldRunFlowTests())("Message Preservation", () => {
         messageId: secondEmail.messageId,
       });
 
-      // Wait for second message to be received and processed
-      await new Promise((resolve) => setTimeout(resolve, 5000));
+      // Wait for second message to arrive in Gmail and get its Gmail-side messageId
+      logStep("Waiting for second message to arrive in Gmail");
+      const secondReceived = await waitForMessageInInbox({
+        provider: gmail.emailProvider,
+        subjectContains: firstEmail.fullSubject,
+        timeout: TIMEOUTS.EMAIL_DELIVERY,
+        filter: (msg) => msg.id !== firstReceived.messageId,
+      });
+
+      logStep("Second message received in Gmail", {
+        gmailMessageId: secondReceived.messageId,
+      });
 
       // ========================================
       // Now user sends a reply (triggers outbound handling and cleanup)
@@ -315,7 +337,7 @@ describe.skipIf(!shouldRunFlowTests())("Message Preservation", () => {
       const messages = [
         { id: firstReceived.messageId, name: "First message" },
         {
-          id: secondEmail.messageId,
+          id: secondReceived.messageId,
           name: "Second message (sender follow-up)",
         },
         { id: userReply.messageId, name: "User reply" },
@@ -624,6 +646,24 @@ describe.skipIf(!shouldRunFlowTests())("Message Preservation", () => {
 
       expect(threadMessages.length).toBeGreaterThanOrEqual(3);
 
+      // Find the user reply by elimination (Outlook doesn't return sent messageId)
+      // The user reply is the message that's not firstReceived or secondReceived
+      const userReplyInThread = threadMessages.find(
+        (m) =>
+          m.id !== firstReceived.messageId && m.id !== secondReceived.messageId,
+      );
+
+      // If no user reply found in thread, that's the bug we're testing for
+      if (!userReplyInThread) {
+        throw new Error(
+          "User reply not found in thread - may have been deleted",
+        );
+      }
+
+      logStep("User reply found in thread", {
+        userReplyMessageId: userReplyInThread.id,
+      });
+
       // Use Outlook-side messageIds for comparison
       const messages = [
         { id: firstReceived.messageId, name: "First message" },
@@ -631,7 +671,7 @@ describe.skipIf(!shouldRunFlowTests())("Message Preservation", () => {
           id: secondReceived.messageId,
           name: "Second message (sender follow-up)",
         },
-        { id: userReply.messageId, name: "User reply" },
+        { id: userReplyInThread.id, name: "User reply" },
       ];
 
       for (const msg of messages) {
