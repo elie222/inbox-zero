@@ -28,7 +28,7 @@ export const ANNOUNCEMENTS: Announcement[] = [
     link: "/automation?tab=settings",
     learnMoreLink: "/#",
     publishedAt: "2026-01-15T00:00:00Z",
-    enabled: env.NEXT_PUBLIC_FOLLOW_UP_REMINDERS_ENABLED,
+    enabled: env.NEXT_PUBLIC_FOLLOW_UP_REMINDERS_ENABLED ?? false,
     details: [
       {
         title: "Automatic follow-up labels",
