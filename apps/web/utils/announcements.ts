@@ -1,3 +1,5 @@
+import { env } from "@/env";
+
 export interface AnnouncementDetail {
   title: string;
   description: string;
@@ -13,7 +15,7 @@ export interface Announcement {
   learnMoreLink?: string;
   publishedAt: string; // ISO date string
   details?: AnnouncementDetail[];
-  requiredEnvVar?: string;
+  enabled?: boolean;
 }
 
 export const ANNOUNCEMENTS: Announcement[] = [
@@ -26,7 +28,7 @@ export const ANNOUNCEMENTS: Announcement[] = [
     link: "/automation?tab=settings",
     learnMoreLink: "/#",
     publishedAt: "2026-01-15T00:00:00Z",
-    requiredEnvVar: "NEXT_PUBLIC_FOLLOW_UP_REMINDERS_ENABLED",
+    enabled: env.NEXT_PUBLIC_FOLLOW_UP_REMINDERS_ENABLED,
     details: [
       {
         title: "Automatic follow-up labels",
@@ -42,12 +44,9 @@ export const ANNOUNCEMENTS: Announcement[] = [
   },
 ];
 
-// Get all announcements sorted by newest first. Filters by requiredEnvVar if specified.
+// Get all announcements sorted by newest first. Filters by enabled property.
 export function getActiveAnnouncements(): Announcement[] {
-  return ANNOUNCEMENTS.filter((a) => {
-    // Check if required env var is set (if specified)
-    return a.requiredEnvVar ? process.env[a.requiredEnvVar] === "true" : true;
-  }).sort(
+  return ANNOUNCEMENTS.filter((a) => a.enabled !== false).sort(
     (a, b) =>
       new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime(),
   );
