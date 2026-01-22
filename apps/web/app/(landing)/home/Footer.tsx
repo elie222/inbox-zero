@@ -34,6 +34,13 @@ export const footerNavigation = {
       href: "/best-perplexity-email-assistant-alternative",
     },
   ],
+  tools: [
+    { name: "Email Deliverability Checker", href: "/tools/email-deliverability-checker" },
+    { name: "Gmail Personality Quiz", href: "/tools/gmail-quiz" },
+    { name: "Subject Line Analyzer", href: "/tools/subject-line-analyzer" },
+    { name: "Email Signature Generator", href: "/tools/email-signature-generator" },
+    { name: "Meeting Cost Calculator", href: "/tools/meeting-cost-calculator" },
+  ],
   support: [
     { name: "Pricing", href: "/#pricing" },
     { name: "Contact", href: "mailto:elie@getinboxzero.com", target: "_blank" },
@@ -175,7 +182,7 @@ export function Footer() {
   return (
     <footer className="relative">
       <div className="mx-auto max-w-7xl overflow-hidden px-6 py-20 sm:py-24 lg:px-8">
-        <div className="mt-16 grid grid-cols-2 gap-8 lg:grid-cols-5 xl:col-span-2 xl:mt-0">
+        <div className="mt-16 grid grid-cols-2 gap-8 lg:grid-cols-6 xl:col-span-2 xl:mt-0">
           <div>
             <FooterList title="Product" items={footerNavigation.main} />
           </div>
@@ -185,6 +192,9 @@ export function Footer() {
             <div className="mt-6">
               <FooterList title="Compare" items={footerNavigation.compare} />
             </div>
+          </div>
+          <div>
+            <FooterList title="Free Tools" items={footerNavigation.tools} />
           </div>
           <div>
             <FooterList title="Support" items={footerNavigation.support} />
