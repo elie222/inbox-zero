@@ -182,6 +182,7 @@ describe.skipIf(!shouldRunFlowTests())("Full Reply Cycle", () => {
         originalMessageId: outlookMessage.messageId,
         body:
           draft?.textPlain ||
+          draft?.textHtml ||
           "Thank you for your email. Here is the information you requested.",
       });
 
@@ -482,6 +483,7 @@ describe.skipIf(!shouldRunFlowTests())("Full Reply Cycle", () => {
         originalMessageId: gmailMessage.messageId,
         body:
           draft?.textPlain ||
+          draft?.textHtml ||
           "Thank you for your email. Here is the information you requested.",
       });
 

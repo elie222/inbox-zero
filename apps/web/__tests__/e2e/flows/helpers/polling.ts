@@ -85,8 +85,11 @@ export async function waitForExecutedRule(options: {
     labelId: string | null;
   }>;
 }> {
-  const { threadId, emailAccountId, timeout = TIMEOUTS.WEBHOOK_PROCESSING } =
-    options;
+  const {
+    threadId,
+    emailAccountId,
+    timeout = TIMEOUTS.WEBHOOK_PROCESSING,
+  } = options;
 
   logStep("Waiting for ExecutedRule", { threadId, emailAccountId });
 
@@ -276,11 +279,14 @@ export async function waitForMessageInInbox(options: {
   provider: EmailProvider;
   subjectContains: string;
   timeout?: number;
+  /** Optional filter to exclude certain messages (e.g., to find second message in a thread) */
+  filter?: (msg: { id: string; threadId: string }) => boolean;
 }): Promise<{ messageId: string; threadId: string }> {
   const {
     provider,
     subjectContains,
     timeout = TIMEOUTS.EMAIL_DELIVERY,
+    filter,
   } = options;
 
   logStep("Waiting for message in inbox", { subjectContains });
@@ -288,9 +294,14 @@ export async function waitForMessageInInbox(options: {
   return pollUntil(
     async () => {
       const messages = await provider.getInboxMessages(20);
-      const found = messages.find((msg) =>
-        msg.subject?.includes(subjectContains),
-      );
+      const found = messages.find((msg) => {
+        if (!msg.subject?.includes(subjectContains)) return false;
+        // Apply optional filter (e.g., to exclude already-seen messages)
+        if (filter && msg.id && msg.threadId) {
+          return filter({ id: msg.id, threadId: msg.threadId });
+        }
+        return true;
+      });
 
       if (found?.id && found?.threadId) {
         return {

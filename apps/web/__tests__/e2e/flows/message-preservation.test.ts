@@ -414,11 +414,12 @@ describe.skipIf(!shouldRunFlowTests())("Message Preservation", () => {
       // ========================================
       logStep("Step 3: External sender sends follow-up message");
 
+      // Use Gmail-side IDs since Gmail is the sender
       const followUpEmail = await sendTestReply({
         from: gmail,
         to: outlook,
-        threadId: firstReceived.threadId,
-        originalMessageId: firstReceived.messageId,
+        threadId: firstEmail.threadId,
+        originalMessageId: firstEmail.messageId,
         body: "I wanted to add some more context to my previous message. Please let me know your thoughts on this.",
       });
 
@@ -427,8 +428,20 @@ describe.skipIf(!shouldRunFlowTests())("Message Preservation", () => {
         threadId: followUpEmail.threadId,
       });
 
-      // Wait for the follow-up to be received and processed
-      await new Promise((resolve) => setTimeout(resolve, 5000));
+      // Wait for follow-up to arrive in Outlook and get its Outlook-side messageId
+      logStep("Waiting for follow-up to arrive in Outlook");
+      const followUpReceived = await waitForMessageInInbox({
+        provider: outlook.emailProvider,
+        subjectContains: firstEmail.fullSubject,
+        timeout: TIMEOUTS.EMAIL_DELIVERY,
+        // Need to find the second message in the thread (the follow-up)
+        filter: (msg) => msg.id !== firstReceived.messageId,
+      });
+
+      logStep("Follow-up received in Outlook", {
+        outlookMessageId: followUpReceived.messageId,
+        gmailMessageId: followUpEmail.messageId,
+      });
 
       // ========================================
       // Step 4: CRITICAL - Verify the follow-up message still exists
@@ -449,14 +462,15 @@ describe.skipIf(!shouldRunFlowTests())("Message Preservation", () => {
       const firstMessageStillExists = threadMessages.some(
         (m) => m.id === firstReceived.messageId,
       );
+      // Use Outlook-side messageId for comparison
       const followUpStillExists = threadMessages.some(
-        (m) => m.id === followUpEmail.messageId,
+        (m) => m.id === followUpReceived.messageId,
       );
 
       logStep("Message existence check", {
         firstMessageId: firstReceived.messageId,
         firstMessageExists: firstMessageStillExists,
-        followUpMessageId: followUpEmail.messageId,
+        followUpMessageId: followUpReceived.messageId,
         followUpExists: followUpStillExists,
       });
 
@@ -470,10 +484,10 @@ describe.skipIf(!shouldRunFlowTests())("Message Preservation", () => {
 
       try {
         const followUpMessage = await outlook.emailProvider.getMessage(
-          followUpEmail.messageId,
+          followUpReceived.messageId,
         );
         expect(followUpMessage).toBeDefined();
-        expect(followUpMessage.id).toBe(followUpEmail.messageId);
+        expect(followUpMessage.id).toBe(followUpReceived.messageId);
         logStep("Follow-up message verified - NOT deleted", {
           messageId: followUpMessage.id,
           subject: followUpMessage.headers.subject,
@@ -483,7 +497,7 @@ describe.skipIf(!shouldRunFlowTests())("Message Preservation", () => {
           error: String(error),
         });
         throw new Error(
-          `BUG REPRODUCED: Follow-up message ${followUpEmail.messageId} was deleted during draft cleanup. This should NOT happen.`,
+          `BUG REPRODUCED: Follow-up message ${followUpReceived.messageId} was deleted during draft cleanup. This should NOT happen.`,
         );
       }
 
@@ -543,15 +557,18 @@ describe.skipIf(!shouldRunFlowTests())("Message Preservation", () => {
       const draftAction = executedRule.actionItems.find(
         (a) => a.type === "DRAFT_EMAIL" && a.draftId,
       );
-      const aiDraftId = draftAction?.draftId;
+      // Assert draft was created before continuing
+      expect(draftAction?.draftId).toBeTruthy();
+      const aiDraftId = draftAction!.draftId!;
       logStep("AI draft created", { draftId: aiDraftId });
 
       // Second message from sender (follow-up)
+      // Use Gmail-side IDs since Gmail is the sender
       const secondEmail = await sendTestReply({
         from: gmail,
         to: outlook,
-        threadId: firstReceived.threadId,
-        originalMessageId: firstReceived.messageId,
+        threadId: firstEmail.threadId,
+        originalMessageId: firstEmail.messageId,
         body: "Actually, I have one more question I forgot to ask.",
       });
 
@@ -559,8 +576,19 @@ describe.skipIf(!shouldRunFlowTests())("Message Preservation", () => {
         messageId: secondEmail.messageId,
       });
 
-      // Wait for second message to be received and processed
-      await new Promise((resolve) => setTimeout(resolve, 5000));
+      // Wait for second message to arrive in Outlook and get its Outlook-side messageId
+      logStep("Waiting for second message to arrive in Outlook");
+      const secondReceived = await waitForMessageInInbox({
+        provider: outlook.emailProvider,
+        subjectContains: firstEmail.fullSubject,
+        timeout: TIMEOUTS.EMAIL_DELIVERY,
+        // Need to find the second message in the thread (not the first)
+        filter: (msg) => msg.id !== firstReceived.messageId,
+      });
+
+      logStep("Second message received in Outlook", {
+        outlookMessageId: secondReceived.messageId,
+      });
 
       // ========================================
       // Now user sends a reply (triggers outbound handling and cleanup)
@@ -596,10 +624,11 @@ describe.skipIf(!shouldRunFlowTests())("Message Preservation", () => {
 
       expect(threadMessages.length).toBeGreaterThanOrEqual(3);
 
+      // Use Outlook-side messageIds for comparison
       const messages = [
         { id: firstReceived.messageId, name: "First message" },
         {
-          id: secondEmail.messageId,
+          id: secondReceived.messageId,
           name: "Second message (sender follow-up)",
         },
         { id: userReply.messageId, name: "User reply" },

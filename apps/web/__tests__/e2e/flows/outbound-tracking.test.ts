@@ -404,18 +404,30 @@ describe.skipIf(!shouldRunFlowTests())("Outbound Message Tracking", () => {
       // ========================================
       logStep("Verifying no ExecutedRule for outbound message");
 
-      const executedRulesForSent = await prisma.executedRule.findMany({
+      // Check by threadId + createdAt window to catch any re-runs during test,
+      // not just by messageId (which might miss duplicate execution scenarios)
+      const executedRulesForThread = await prisma.executedRule.findMany({
         where: {
           emailAccountId: gmail.id,
-          messageId: reply.messageId,
+          threadId: receivedMessage.threadId,
+          createdAt: {
+            gte: new Date(testStartTime),
+          },
         },
       });
 
-      // Outbound messages should not trigger rule execution
-      expect(executedRulesForSent).toHaveLength(0);
+      // Filter to only rules created AFTER the reply was sent
+      // (rules created before the reply are expected - from inbound processing)
+      const rulesAfterReply = executedRulesForThread.filter(
+        (rule) => rule.createdAt > new Date(testStartTime + 5000), // Add buffer for initial setup
+      );
 
-      logStep("ExecutedRules for outbound message", {
-        count: executedRulesForSent.length,
+      // Outbound messages should not trigger rule execution
+      expect(rulesAfterReply).toHaveLength(0);
+
+      logStep("ExecutedRules for thread after reply", {
+        totalForThread: executedRulesForThread.length,
+        afterReply: rulesAfterReply.length,
       });
     },
     TIMEOUTS.TEST_DEFAULT,
