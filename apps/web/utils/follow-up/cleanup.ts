@@ -37,10 +37,33 @@ export async function cleanupStaleDrafts({
 
   logger.info("Found stale trackers", { count: staleTrackers.length });
 
-  const allDrafts =
-    staleTrackers.length > 0
-      ? await provider.getDrafts({ maxResults: 100 })
-      : [];
+  if (staleTrackers.length === 0) {
+    logger.info("Finished cleaning up stale drafts");
+    return;
+  }
+
+  const staleThreadIds = staleTrackers.map((t) => t.threadId);
+
+  const trackedDrafts = await prisma.executedAction.findMany({
+    where: {
+      draftId: { not: null },
+      executedRule: {
+        emailAccountId,
+        threadId: { in: staleThreadIds },
+      },
+    },
+    select: { draftId: true },
+  });
+
+  const trackedDraftIds = new Set(
+    trackedDrafts.map((d) => d.draftId).filter(Boolean),
+  );
+
+  logger.info("Found tracked drafts in database", {
+    count: trackedDraftIds.size,
+  });
+
+  const allDrafts = await provider.getDrafts({ maxResults: 100 });
 
   for (const tracker of staleTrackers) {
     const trackerLogger = logger.with({
@@ -60,11 +83,23 @@ export async function cleanupStaleDrafts({
         continue;
       }
 
+      // Only delete drafts that are tracked in our database (AI-generated)
       const threadDrafts = allDrafts.filter(
         (draft) => draft.threadId === tracker.threadId,
       );
 
-      for (const draft of threadDrafts) {
+      const trackedThreadDrafts = threadDrafts.filter((draft) =>
+        trackedDraftIds.has(draft.id),
+      );
+
+      const skippedCount = threadDrafts.length - trackedThreadDrafts.length;
+      if (skippedCount > 0) {
+        trackerLogger.info("Skipping untracked drafts (user-created)", {
+          skippedCount,
+        });
+      }
+
+      for (const draft of trackedThreadDrafts) {
         try {
           await provider.deleteDraft(draft.id);
           trackerLogger.info("Deleted stale draft", { draftId: draft.id });
@@ -77,7 +112,7 @@ export async function cleanupStaleDrafts({
       }
 
       trackerLogger.info("Cleaned up stale drafts for thread", {
-        deletedCount: threadDrafts.length,
+        deletedCount: trackedThreadDrafts.length,
       });
     } catch (error) {
       trackerLogger.error("Failed to cleanup stale drafts for thread", {
