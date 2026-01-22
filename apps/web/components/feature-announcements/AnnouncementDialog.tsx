@@ -14,6 +14,7 @@ import Image from "next/image";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAction } from "next-safe-action/hooks";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { LoadingContent } from "@/components/LoadingContent";
 import { useAnnouncements } from "@/hooks/useAnnouncements";
 import { dismissAnnouncementModalAction } from "@/utils/actions/announcements";
 import { toggleFollowUpRemindersAction } from "@/utils/actions/follow-up-reminders";
@@ -32,7 +33,7 @@ function getIconForDetail(iconId: string | undefined): LucideIcon {
 
 export function AnnouncementDialog() {
   const { emailAccountId } = useAccount();
-  const { data, mutate, isLoading } = useAnnouncements(emailAccountId);
+  const { data, mutate, isLoading, error } = useAnnouncements(emailAccountId);
   const [isOpen, setIsOpen] = useState(true);
   const [enablingId, setEnablingId] = useState<string | null>(null);
 
@@ -99,65 +100,66 @@ export function AnnouncementDialog() {
     [toggleFollowUp, setAutoCategorize],
   );
 
-  if (isLoading || !data) return null;
-
-  const { announcements, hasNewAnnouncements } = data;
-
-  if (announcements.length === 0 || !hasNewAnnouncements) return null;
+  const announcements = data?.announcements ?? [];
+  const hasNewAnnouncements = data?.hasNewAnnouncements ?? false;
 
   return (
-    <AnimatePresence>
-      {isOpen && (
-        <>
-          {/* Backdrop */}
-          <motion.div
-            key="backdrop"
-            onClick={handleCloseModal}
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.2 }}
-            className="fixed inset-0 z-40 bg-black/40"
-          />
-
-          {/* Modal */}
-          <motion.div
-            key="modal-container"
-            initial={{ opacity: 0, scale: 0.95, y: 20 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.95, y: 20 }}
-            transition={{ type: "spring", damping: 25, stiffness: 400 }}
-            className="pointer-events-none fixed inset-0 z-50 flex items-center justify-center p-4"
-          >
-            <div className="pointer-events-auto relative">
-              {/* Close button - outside modal, diagonal top-right corner */}
-              <button
-                type="button"
+    <LoadingContent loading={isLoading} error={error}>
+      {announcements.length === 0 || !hasNewAnnouncements ? null : (
+        <AnimatePresence>
+          {isOpen && (
+            <>
+              {/* Backdrop */}
+              <motion.div
+                key="backdrop"
                 onClick={handleCloseModal}
-                className="absolute -right-9 -top-9 z-10 flex items-center justify-center rounded-full border border-white/20 bg-white/10 p-2 text-white backdrop-blur-sm transition-colors hover:bg-white/20"
-              >
-                <X className="h-5 w-5" />
-              </button>
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.2 }}
+                className="fixed inset-0 z-40 bg-black/40"
+              />
 
-              <div className="w-full max-w-md overflow-hidden rounded-xl bg-gray-100 shadow-2xl dark:bg-gray-900">
-                <ScrollArea className="max-h-[600px] [&>[data-radix-scroll-area-viewport]]:max-h-[600px]">
-                  <div className="flex flex-col gap-4 p-4">
-                    {announcements.map((announcement) => (
-                      <AnnouncementCard
-                        key={announcement.id}
-                        announcement={announcement}
-                        onEnable={() => handleEnable(announcement.id)}
-                        isEnabling={enablingId === announcement.id}
-                      />
-                    ))}
+              {/* Modal */}
+              <motion.div
+                key="modal-container"
+                initial={{ opacity: 0, scale: 0.95, y: 20 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.95, y: 20 }}
+                transition={{ type: "spring", damping: 25, stiffness: 400 }}
+                className="pointer-events-none fixed inset-0 z-50 flex items-center justify-center p-4"
+              >
+                <div className="pointer-events-auto relative">
+                  {/* Close button - outside modal, diagonal top-right corner */}
+                  <button
+                    type="button"
+                    onClick={handleCloseModal}
+                    className="absolute -right-9 -top-9 z-10 flex items-center justify-center rounded-full border border-white/20 bg-white/10 p-2 text-white backdrop-blur-sm transition-colors hover:bg-white/20"
+                  >
+                    <X className="h-5 w-5" />
+                  </button>
+
+                  <div className="w-full max-w-md overflow-hidden rounded-xl bg-gray-100 shadow-2xl dark:bg-gray-900">
+                    <ScrollArea className="max-h-[600px] [&>[data-radix-scroll-area-viewport]]:max-h-[600px]">
+                      <div className="flex flex-col gap-4 p-4">
+                        {announcements.map((announcement) => (
+                          <AnnouncementCard
+                            key={announcement.id}
+                            announcement={announcement}
+                            onEnable={() => handleEnable(announcement.id)}
+                            isEnabling={enablingId === announcement.id}
+                          />
+                        ))}
+                      </div>
+                    </ScrollArea>
                   </div>
-                </ScrollArea>
-              </div>
-            </div>
-          </motion.div>
-        </>
+                </div>
+              </motion.div>
+            </>
+          )}
+        </AnimatePresence>
       )}
-    </AnimatePresence>
+    </LoadingContent>
   );
 }
 
