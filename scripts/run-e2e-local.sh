@@ -144,8 +144,9 @@ for envfile in .env.local .env.e2e; do
     fi
 done
 
-# Start app with current environment (NEXT_PUBLIC_BASE_URL already exported above)
-pnpm dev --port "$APP_PORT" > /tmp/nextjs-e2e.log 2>&1 &
+# Start app with E2E environment (dev:e2e uses dotenv to load .env.e2e properly)
+# Use PORT env var which Next.js reads automatically
+PORT="$APP_PORT" pnpm dev:e2e > /tmp/nextjs-e2e.log 2>&1 &
 APP_PID=$!
 
 # Wait for app to be ready

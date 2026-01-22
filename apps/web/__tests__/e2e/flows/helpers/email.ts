@@ -81,6 +81,19 @@ export async function sendTestReply(options: {
   const originalMessage =
     await from.emailProvider.getMessage(originalMessageId);
 
+  // Log threading-critical values for debugging cross-provider threading issues
+  // Note: Outlook may not populate references/in-reply-to, so use fallbacks for diagnostics
+  logStep("sendTestReply - Threading headers", {
+    originalMessageId,
+    originalInternetMessageId: originalMessage.headers["message-id"],
+    originalReferences:
+      originalMessage.headers.references ??
+      originalMessage.headers["in-reply-to"] ??
+      originalMessage.headers["message-id"],
+    outlookThreadId: threadId,
+    subject: originalMessage.subject,
+  });
+
   const result = await from.emailProvider.sendEmailWithHtml({
     to: to.email,
     subject: originalMessage.subject?.startsWith("Re:")

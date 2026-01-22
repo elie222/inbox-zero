@@ -10,7 +10,7 @@ export function PageWrapper({
   return (
     <div
       className={cn(
-        "mx-auto max-w-screen-xl w-full px-4 mb-12 md:mb-4",
+        "mx-auto max-w-screen-2xl w-full px-4 xl:px-20 2xl:px-36 mb-12 md:mb-4",
         className,
       )}
     >

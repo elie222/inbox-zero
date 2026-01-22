@@ -40,8 +40,8 @@ export function Uncategorized({
 
   const senders = useMemo(
     () =>
-      senderAddresses?.map((address) => {
-        return { address, category: null };
+      senderAddresses?.map((sender) => {
+        return { address: sender.email, name: sender.name, category: null };
       }),
     [senderAddresses],
   );
@@ -66,7 +66,7 @@ export function Uncategorized({
                 }
 
                 pushToAiCategorizeSenderQueueAtom({
-                  pushIds: senderAddresses,
+                  pushIds: senderAddresses.map((s) => s.email),
                   emailAccountId,
                 });
               }}

@@ -3,6 +3,7 @@ import { ActionType, LogicalOperator } from "@/generated/prisma/enums";
 import { delayInMinutesSchema } from "@/utils/actions/rule.validation";
 import { isMicrosoftProvider } from "@/utils/email/provider-types";
 import { isDefined } from "@/utils/types";
+import { env } from "@/env";
 
 const conditionSchema = z
   .object({
@@ -38,8 +39,10 @@ export function getAvailableActions(provider: string) {
     ActionType.ARCHIVE,
     ActionType.MARK_READ,
     ActionType.DRAFT_EMAIL,
-    ActionType.REPLY,
-    ActionType.FORWARD,
+    // Only include send-related actions when email sending is enabled
+    ...(env.NEXT_PUBLIC_EMAIL_SEND_ENABLED
+      ? [ActionType.REPLY, ActionType.FORWARD, ActionType.SEND_EMAIL]
+      : []),
     ActionType.MARK_SPAM,
   ].filter(isDefined);
   return availableActions as [ActionType, ...ActionType[]];

@@ -84,25 +84,34 @@ services:
     command: >
       sh -c "
         apk add --no-cache curl &&
-        WATCH_INTERVAL=21600 &&
+        FOLLOW_UP_INTERVAL=1800 &&
         MEETING_BRIEFS_INTERVAL=900 &&
+        WATCH_INTERVAL=21600 &&
+        LAST_MEETING_BRIEFS=0 &&
         LAST_WATCH=0 &&
         while true; do
           NOW=$$(date +%s)
-          
+
+          # Follow-up reminders: every 30 minutes
+          echo \"[cron] Processing follow-up reminders...\"
+          curl -s -X GET 'http://web:3000/api/follow-up-reminders' -H \"Authorization: Bearer $${CRON_SECRET}\" || echo \"[cron] Warning: follow-up-reminders request failed\"
+
           # Meeting briefs: every 15 minutes
-          echo \"[cron] Processing meeting briefs...\"
-          curl -s -X GET 'http://web:3000/api/meeting-briefs' -H \"Authorization: Bearer $${CRON_SECRET}\" || echo \"[cron] Warning: meeting-briefs request failed\"
-          
+          if [ $$((NOW - LAST_MEETING_BRIEFS)) -ge $$MEETING_BRIEFS_INTERVAL ]; then
+            echo \"[cron] Processing meeting briefs...\"
+            curl -s -X GET 'http://web:3000/api/meeting-briefs' -H \"Authorization: Bearer $${CRON_SECRET}\" || echo \"[cron] Warning: meeting-briefs request failed\"
+            LAST_MEETING_BRIEFS=$$NOW
+          fi
+
           # Email watch renewal: every 6 hours
           if [ $$((NOW - LAST_WATCH)) -ge $$WATCH_INTERVAL ]; then
             echo \"[cron] Renewing email watches...\"
             curl -s -X GET 'http://web:3000/api/watch/all' -H \"Authorization: Bearer $${CRON_SECRET}\" || echo \"[cron] Warning: watch request failed\"
             LAST_WATCH=$$NOW
           fi
-          
-          echo \"[cron] Sleeping for 15 minutes...\"
-          sleep $$MEETING_BRIEFS_INTERVAL
+
+          echo \"[cron] Sleeping for 30 minutes...\"
+          sleep $$FOLLOW_UP_INTERVAL
         done
       "
     env_file:

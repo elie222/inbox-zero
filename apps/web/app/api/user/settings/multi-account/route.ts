@@ -14,6 +14,7 @@ async function getMultiAccountEmails({ userId }: { userId: string }) {
         select: {
           users: {
             select: {
+              id: true,
               emailAccounts: {
                 select: { email: true },
               },
@@ -25,8 +26,15 @@ async function getMultiAccountEmails({ userId }: { userId: string }) {
     },
   });
 
+  // Mark each email with whether it belongs to the current user
+  // Own accounts can't be removed from this form - users must go to /accounts
   const emailAccounts =
-    user?.premium?.users?.flatMap((u) => u.emailAccounts) || [];
+    user?.premium?.users?.flatMap((u) =>
+      u.emailAccounts.map((ea) => ({
+        email: ea.email,
+        isOwnAccount: u.id === userId,
+      })),
+    ) || [];
 
   return {
     emailAccounts,

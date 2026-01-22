@@ -21,8 +21,7 @@ import {
   publishToAiCategorizeSendersQueue,
 } from "@/utils/upstash/categorize-senders";
 import { saveCategorizationTotalItems } from "@/utils/redis/categorization-progress";
-import { getSenders } from "@/app/api/user/categorize/senders/uncategorized/get-senders";
-import { extractEmailAddress } from "@/utils/email";
+import { getUncategorizedSenders } from "@/app/api/user/categorize/senders/uncategorized/get-uncategorized-senders";
 import { actionClient } from "@/utils/actions/safe-action";
 import { prefixPath } from "@/utils/path";
 
@@ -60,57 +59,42 @@ export const bulkCategorizeSendersAction = actionClient
     });
 
     const LIMIT = 100;
-
-    async function getUncategorizedSenders(offset: number) {
-      const result = await getSenders({
-        emailAccountId,
-        limit: LIMIT,
-        offset,
-      });
-      const allSenders = result.map((sender) =>
-        extractEmailAddress(sender.from),
-      );
-      const existingSenders = await prisma.newsletter.findMany({
-        where: {
-          email: { in: allSenders },
-          emailAccountId,
-          category: { isNot: null },
-        },
-        select: { email: true },
-      });
-      const existingSenderEmails = new Set(existingSenders.map((s) => s.email));
-      const uncategorizedSenders = allSenders.filter(
-        (email) => !existingSenderEmails.has(email),
-      );
-
-      return uncategorizedSenders;
-    }
+    const MAX_SENDERS = 2000;
 
     let totalUncategorizedSenders = 0;
-    let uncategorizedSenders: string[] = [];
-    for (let i = 0; i < 20; i++) {
-      const newUncategorizedSenders = await getUncategorizedSenders(i * LIMIT);
+    let currentOffset: number | undefined = 0;
+
+    while (currentOffset !== undefined) {
+      const result = await getUncategorizedSenders({
+        emailAccountId,
+        limit: LIMIT,
+        offset: currentOffset,
+      });
 
       logger.trace("Got uncategorized senders", {
-        uncategorizedSenders: newUncategorizedSenders.length,
+        uncategorizedSenders: result.uncategorizedSenders.length,
       });
 
-      if (newUncategorizedSenders.length === 0) continue;
-      uncategorizedSenders.push(...newUncategorizedSenders);
-      totalUncategorizedSenders += newUncategorizedSenders.length;
+      if (result.uncategorizedSenders.length > 0) {
+        totalUncategorizedSenders += result.uncategorizedSenders.length;
 
-      await saveCategorizationTotalItems({
-        emailAccountId,
-        totalItems: totalUncategorizedSenders,
-      });
+        await saveCategorizationTotalItems({
+          emailAccountId,
+          totalItems: totalUncategorizedSenders,
+        });
 
-      // publish to qstash
-      await publishToAiCategorizeSendersQueue({
-        emailAccountId,
-        senders: uncategorizedSenders,
-      });
+        await publishToAiCategorizeSendersQueue({
+          emailAccountId,
+          senders: result.uncategorizedSenders,
+        });
+      }
 
-      uncategorizedSenders = [];
+      if (totalUncategorizedSenders >= MAX_SENDERS) {
+        logger.info("Reached max senders limit", { MAX_SENDERS });
+        break;
+      }
+
+      currentOffset = result.nextOffset;
     }
 
     logger.info("Queued senders for categorization", {
