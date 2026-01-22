@@ -1,7 +1,14 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { X, Loader2, CheckCircle2 } from "lucide-react";
+import {
+  X,
+  Loader2,
+  CheckCircle2,
+  Tag,
+  FileEdit,
+  type LucideIcon,
+} from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
 import { motion, AnimatePresence } from "framer-motion";
@@ -12,12 +19,15 @@ import { dismissAnnouncementModalAction } from "@/utils/actions/announcements";
 import { toggleFollowUpRemindersAction } from "@/utils/actions/follow-up-reminders";
 import { setAutoCategorizeAction } from "@/utils/actions/categorize";
 import { useAccount } from "@/providers/EmailAccountProvider";
-import { ANNOUNCEMENTS } from "@/utils/announcements";
 import type { GetAnnouncementsResponse } from "@/app/api/user/announcements/route";
 
-function getIconForDetail(announcementId: string, detailIndex: number) {
-  const announcement = ANNOUNCEMENTS.find((a) => a.id === announcementId);
-  return announcement?.details?.[detailIndex]?.icon ?? CheckCircle2;
+const ICON_MAP: Record<string, LucideIcon> = {
+  Tag,
+  FileEdit,
+};
+
+function getIconForDetail(iconId: string | undefined): LucideIcon {
+  return (iconId && ICON_MAP[iconId]) || CheckCircle2;
 }
 
 export function AnnouncementDialog() {
@@ -193,7 +203,7 @@ function AnnouncementCard({
         {announcement.details && announcement.details.length > 0 && (
           <div className="mb-4 flex flex-col gap-3">
             {announcement.details.map((detail, index) => {
-              const Icon = getIconForDetail(announcement.id, index);
+              const Icon = getIconForDetail(detail.icon);
 
               return (
                 <div key={index} className="flex items-start gap-3">
