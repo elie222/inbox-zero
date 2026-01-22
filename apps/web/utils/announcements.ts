@@ -13,6 +13,7 @@ export interface Announcement {
   publishedAt: string; // ISO date string
   details?: AnnouncementDetail[];
   actionType?: "enable" | "view";
+  requiredEnvVar?: string; // If set, announcement only shows when this env var is "true"
 }
 
 const SIX_MONTHS_MS = 6 * 30 * 24 * 60 * 60 * 1000;
@@ -27,6 +28,7 @@ export const ANNOUNCEMENTS: Announcement[] = [
     learnMoreLink: "/#",
     publishedAt: "2026-01-15T00:00:00Z",
     actionType: "enable",
+    requiredEnvVar: "NEXT_PUBLIC_FOLLOW_UP_REMINDERS_ENABLED",
     details: [
       {
         title: "Tracks waiting threads",
@@ -172,9 +174,18 @@ export const ANNOUNCEMENTS: Announcement[] = [
  */
 export function getActiveAnnouncements(): Announcement[] {
   const now = Date.now();
-  return ANNOUNCEMENTS.filter(
-    (a) => now - new Date(a.publishedAt).getTime() < SIX_MONTHS_MS,
-  ).sort(
+  return ANNOUNCEMENTS.filter((a) => {
+    // Check if announcement is within the 6-month window
+    const isWithinTimeWindow =
+      now - new Date(a.publishedAt).getTime() < SIX_MONTHS_MS;
+
+    // Check if required env var is set (if specified)
+    const isEnvVarEnabled = a.requiredEnvVar
+      ? process.env[a.requiredEnvVar] === "true"
+      : true;
+
+    return isWithinTimeWindow && isEnvVarEnabled;
+  }).sort(
     (a, b) =>
       new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime(),
   );

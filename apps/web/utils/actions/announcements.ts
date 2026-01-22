@@ -1,15 +1,23 @@
 "use server";
 
+import { z } from "zod";
 import prisma from "@/utils/prisma";
 import { actionClientUser } from "@/utils/actions/safe-action";
 
 export const dismissAnnouncementModalAction = actionClientUser
   .metadata({ name: "dismissAnnouncementModal" })
-  .action(async ({ ctx: { userId } }) => {
+  .schema(
+    z.object({
+      publishedAt: z.string(),
+    }),
+  )
+  .action(async ({ ctx: { userId }, parsedInput: { publishedAt } }) => {
+    const dismissedAt = new Date(new Date(publishedAt).getTime() + 1000);
+
     await prisma.user.update({
       where: { id: userId },
       data: {
-        announcementDismissedAt: new Date(),
+        announcementDismissedAt: dismissedAt,
       },
     });
 

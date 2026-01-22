@@ -77,9 +77,12 @@ export function AnnouncementModal() {
   }, [isOpen]);
 
   const handleCloseModal = useCallback(() => {
-    dismissModal();
+    const announcements = data?.announcements;
+    if (announcements && announcements.length > 0) {
+      dismissModal({ publishedAt: announcements[0].publishedAt });
+    }
     setIsOpen(false);
-  }, [dismissModal]);
+  }, [dismissModal, data?.announcements]);
 
   const handleEnable = useCallback(
     (announcementId: string) => {
@@ -96,9 +99,10 @@ export function AnnouncementModal() {
 
   if (isLoading || !data) return null;
 
-  const { announcements } = data;
+  const { announcements, hasNewAnnouncements } = data;
 
-  if (announcements.length === 0) return null;
+  // Only auto-open if there are new announcements, but show all when open
+  if (announcements.length === 0 || !hasNewAnnouncements) return null;
 
   return (
     <AnimatePresence>

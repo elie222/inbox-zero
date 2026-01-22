@@ -37,22 +37,22 @@ async function getAnnouncements({ userId }: { userId: string }) {
   // Get all active announcements (less than 6 months old)
   const allAnnouncements = getActiveAnnouncements();
 
-  // Filter to only show announcements newer than the dismissal date
-  const filteredAnnouncements = dismissedAt
-    ? allAnnouncements.filter(
+  // Check if there are any announcements newer than the dismissal date
+  const hasNewAnnouncements = dismissedAt
+    ? allAnnouncements.some(
         (a) => new Date(a.publishedAt) > new Date(dismissedAt),
       )
-    : allAnnouncements;
+    : allAnnouncements.length > 0;
 
   // Map announcements with isEnabled flag based on actual feature state
-  const announcements = filteredAnnouncements.map((a) => ({
+  const announcements = allAnnouncements.map((a) => ({
     ...a,
     isEnabled: getFeatureEnabledState(a.id, emailAccount),
   }));
 
   return {
     announcements,
-    totalCount: allAnnouncements.length,
+    hasNewAnnouncements,
   };
 }
 
