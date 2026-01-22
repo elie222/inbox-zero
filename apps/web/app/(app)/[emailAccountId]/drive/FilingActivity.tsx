@@ -1,7 +1,7 @@
 "use client";
 
 import { formatDistanceToNow } from "date-fns";
-import { ExternalLinkIcon } from "lucide-react";
+import { ExternalLinkIcon, InfoIcon } from "lucide-react";
 import { LoadingContent } from "@/components/LoadingContent";
 import { MutedText, SectionHeader } from "@/components/Typography";
 import {
@@ -12,12 +12,12 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { Tooltip } from "@/components/Tooltip";
 import { useFilingActivity } from "@/hooks/useFilingActivity";
 import { getDriveFileUrl } from "@/utils/drive/url";
 import type { GetFilingsResponse } from "@/app/api/user/drive/filings/route";
 import { useDriveConnections } from "@/hooks/useDriveConnections";
 import type { GetDriveConnectionsResponse } from "@/app/api/user/drive/connections/route";
-import { TableCellWithTooltip } from "@/components/drive/TableCellWithTooltip";
 import { YesNoIndicator } from "@/components/drive/YesNoIndicator";
 import type { DriveProviderType } from "@/utils/drive/types";
 
@@ -91,11 +91,7 @@ function FilingRow({
         </span>
       </TableCell>
       <TableCell className="break-words max-w-[200px]">
-        <TableCellWithTooltip
-          text={filing.folderPath}
-          tooltipContent={filing.folderPath}
-          className="text-muted-foreground"
-        />
+        <FolderCell filing={filing} />
       </TableCell>
       <TableCell>
         <span className="text-muted-foreground text-xs">
@@ -121,5 +117,26 @@ function FilingRow({
         )}
       </TableCell>
     </TableRow>
+  );
+}
+
+function FolderCell({ filing }: { filing: GetFilingsResponse["filings"][number] }) {
+  const isSkipped = !filing.folderPath;
+
+  if (isSkipped) {
+    return (
+      <Tooltip content={filing.reasoning || "Doesn't match preferences"}>
+        <span className="flex items-center gap-1.5 text-muted-foreground italic">
+          Skipped
+          <InfoIcon className="size-3.5 shrink-0" />
+        </span>
+      </Tooltip>
+    );
+  }
+
+  return (
+    <span className="text-muted-foreground truncate block">
+      {filing.folderPath}
+    </span>
   );
 }
