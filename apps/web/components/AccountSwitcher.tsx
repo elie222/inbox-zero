@@ -56,10 +56,6 @@ export function AccountSwitcherInternal({
         emailAccountId,
       );
 
-      if (newBasePath === basePath) {
-        return `/${emailAccountId}/automation`;
-      }
-
       const tab = searchParams.get("tab");
 
       return `${newBasePath}${tab ? `?tab=${tab}` : ""}`;
