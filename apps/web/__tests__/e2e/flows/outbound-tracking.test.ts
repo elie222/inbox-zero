@@ -388,6 +388,9 @@ describe.skipIf(!shouldRunFlowTests())("Outbound Message Tracking", () => {
       // ========================================
       logStep("Sending outbound message from Gmail");
 
+      // Capture timestamp right before sending to use as cutoff for rule checking
+      const replySentAt = Date.now();
+
       const reply = await sendTestReply({
         from: gmail,
         to: outlook,
@@ -419,7 +422,7 @@ describe.skipIf(!shouldRunFlowTests())("Outbound Message Tracking", () => {
       // Filter to only rules created AFTER the reply was sent
       // (rules created before the reply are expected - from inbound processing)
       const rulesAfterReply = executedRulesForThread.filter(
-        (rule) => rule.createdAt > new Date(testStartTime + 5000), // Add buffer for initial setup
+        (rule) => rule.createdAt > new Date(replySentAt),
       );
 
       // Outbound messages should not trigger rule execution

@@ -175,6 +175,8 @@ describe.skipIf(!shouldRunFlowTests())("Full Reply Cycle", () => {
       expect(draft).toBeDefined();
 
       // Send a reply (simulating user sending the draft)
+      // Note: Only use textPlain here since sendTestReply wraps body in <p> tags,
+      // which would create invalid HTML if body already contains HTML markup
       const replyResult = await sendTestReply({
         from: outlook,
         to: gmail,
@@ -182,7 +184,6 @@ describe.skipIf(!shouldRunFlowTests())("Full Reply Cycle", () => {
         originalMessageId: outlookMessage.messageId,
         body:
           draft?.textPlain ||
-          draft?.textHtml ||
           "Thank you for your email. Here is the information you requested.",
       });
 
@@ -476,6 +477,8 @@ describe.skipIf(!shouldRunFlowTests())("Full Reply Cycle", () => {
       const draft = await gmail.emailProvider.getDraft(draftInfo.draftId);
       expect(draft).toBeDefined();
 
+      // Note: Only use textPlain here since sendTestReply wraps body in <p> tags,
+      // which would create invalid HTML if body already contains HTML markup
       const replyResult = await sendTestReply({
         from: gmail,
         to: outlook,
@@ -483,7 +486,6 @@ describe.skipIf(!shouldRunFlowTests())("Full Reply Cycle", () => {
         originalMessageId: gmailMessage.messageId,
         body:
           draft?.textPlain ||
-          draft?.textHtml ||
           "Thank you for your email. Here is the information you requested.",
       });
 
