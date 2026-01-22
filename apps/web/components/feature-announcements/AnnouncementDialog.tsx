@@ -20,7 +20,7 @@ function getIconForDetail(announcementId: string, detailIndex: number) {
   return announcement?.details?.[detailIndex]?.icon ?? CheckCircle2;
 }
 
-export function AnnouncementModal() {
+export function AnnouncementDialog() {
   const { data, mutate, isLoading } = useAnnouncements();
   const { emailAccountId } = useAccount();
   const [isOpen, setIsOpen] = useState(true);

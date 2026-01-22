@@ -15,7 +15,7 @@ import { ErrorMessages } from "@/app/(app)/ErrorMessages";
 import { QueueInitializer } from "@/store/QueueInitializer";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { EmailViewer } from "@/components/EmailViewer";
-import { AnnouncementModal } from "@/components/feature-announcements/AnnouncementModal";
+import { AnnouncementDialog } from "@/components/feature-announcements/AnnouncementDialog";
 import { captureException } from "@/utils/error";
 import prisma from "@/utils/prisma";
 import { createScopedLogger } from "@/utils/logger";
@@ -76,7 +76,7 @@ export default async function AppLayout({
             {children}
           </SideNavWithTopNav>
           <EmailViewer />
-          <AnnouncementModal />
+          <AnnouncementDialog />
           <ErrorBoundary extra={{ component: "AppLayout" }}>
             <PostHogIdentify />
 
