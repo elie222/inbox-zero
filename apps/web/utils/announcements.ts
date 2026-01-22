@@ -1,13 +1,14 @@
 export interface AnnouncementDetail {
   title: string;
   description: string;
-  icon?: string; // Lucide icon
+  icon?: "tag" | "file-edit" | "check-circle-2"; // Lucide icon
 }
 
 export interface Announcement {
   id: string;
   title: string;
   description: string;
+  image: string; // Path to SVG image in /public/images/announcements/
   link?: string;
   learnMoreLink?: string;
   publishedAt: string; // ISO date string
@@ -22,6 +23,7 @@ export const ANNOUNCEMENTS: Announcement[] = [
     title: "Follow-up Reminders",
     description:
       "Track replies and get reminded about unanswered emails. Never let an important email slip through the cracks.",
+    image: "/images/announcements/follow-up-reminders-illustration.svg",
     link: "/automation?tab=follow-ups",
     learnMoreLink: "/#",
     publishedAt: "2026-01-15T00:00:00Z",
@@ -42,10 +44,7 @@ export const ANNOUNCEMENTS: Announcement[] = [
   },
 ];
 
-/**
- * Get all announcements sorted by newest first.
- * Filters by requiredEnvVar if specified.
- */
+// Get all announcements sorted by newest first. Filters by requiredEnvVar if specified.
 export function getActiveAnnouncements(): Announcement[] {
   return ANNOUNCEMENTS.filter((a) => {
     // Check if required env var is set (if specified)

@@ -1,15 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import {
-  X,
-  Sparkles,
-  Loader2,
-  CheckCircle2,
-  Clock,
-  Tag,
-  FileEdit,
-} from "lucide-react";
+import { X, Loader2, CheckCircle2, Clock, Tag, FileEdit } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
 import { motion, AnimatePresence } from "framer-motion";
@@ -172,7 +164,6 @@ function AnnouncementCard({
   return (
     <div className="overflow-hidden rounded-xl bg-white dark:bg-gray-800">
       <div className="p-5">
-        {/* Title with date badge */}
         <div className="mb-4 flex items-center justify-between">
           <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100">
             {announcement.title}
@@ -185,12 +176,16 @@ function AnnouncementCard({
           </span>
         </div>
 
-        {/* Banner */}
         <div className="mb-4">
-          <AnnouncementBanner announcementId={announcement.id} />
+          <Image
+            src={announcement.image}
+            alt={announcement.title}
+            width={400}
+            height={176}
+            className="h-44 w-full rounded-lg object-cover"
+          />
         </div>
 
-        {/* Feature details */}
         {announcement.details && announcement.details.length > 0 && (
           <div className="mb-4 flex flex-col gap-3">
             {announcement.details.map((detail, index) => (
@@ -211,7 +206,6 @@ function AnnouncementCard({
           </div>
         )}
 
-        {/* Actions */}
         <div className="flex gap-3">
           {announcement.actionType === "enable" &&
             (announcement.isEnabled ? (
@@ -262,35 +256,11 @@ function DetailIcon({ icon }: { icon: AnnouncementDetail["icon"] }) {
   const iconClass = "h-3.5 w-3.5 text-gray-500 dark:text-gray-400";
 
   switch (icon) {
-    case "clock":
-      return <Clock className={iconClass} />;
     case "tag":
       return <Tag className={iconClass} />;
     case "file-edit":
       return <FileEdit className={iconClass} />;
     default:
       return <CheckCircle2 className={iconClass} />;
-  }
-}
-
-function AnnouncementBanner({ announcementId }: { announcementId: string }) {
-  switch (announcementId) {
-    case "follow-up-tracking-2025-01":
-      return (
-        <Image
-          src="/images/announcements/follow-up-reminders-illustration.svg"
-          alt="Follow-up reminders illustration"
-          width={400}
-          height={176}
-          className="h-44 w-full rounded-lg object-cover"
-        />
-      );
-    default:
-      // Default gradient banner for any new announcements
-      return (
-        <div className="flex h-44 items-center justify-center rounded-lg bg-gradient-to-br from-blue-500 via-purple-500 to-pink-500">
-          <Sparkles className="h-10 w-10 text-white/90" />
-        </div>
-      );
   }
 }
