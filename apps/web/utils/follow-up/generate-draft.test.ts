@@ -19,6 +19,9 @@ vi.mock("@/utils/prisma", () => ({
     emailAccount: {
       findUnique: vi.fn(),
     },
+    threadTracker: {
+      update: vi.fn(),
+    },
   },
 }));
 
@@ -115,6 +118,7 @@ describe("generateFollowUpDraft", () => {
       includeReferralSignature: false,
       signature: null,
     } as any);
+    vi.mocked(prisma.threadTracker.update).mockResolvedValue({} as any);
   });
 
   it("generates draft when external message exists (reply thread scenario)", async () => {
@@ -149,6 +153,7 @@ describe("generateFollowUpDraft", () => {
     await generateFollowUpDraft({
       emailAccount: createMockEmailAccount(),
       threadId: "thread-1",
+      trackerId: "tracker-1",
       provider: mockProvider,
       logger: mockLogger,
     });
@@ -189,6 +194,7 @@ describe("generateFollowUpDraft", () => {
     await generateFollowUpDraft({
       emailAccount: createMockEmailAccount(),
       threadId: "thread-1",
+      trackerId: "tracker-1",
       provider: mockProvider,
       logger: mockLogger,
     });
@@ -239,6 +245,7 @@ describe("generateFollowUpDraft", () => {
     await generateFollowUpDraft({
       emailAccount: createMockEmailAccount(),
       threadId: "thread-1",
+      trackerId: "tracker-1",
       provider: mockProvider,
       logger: mockLogger,
     });
@@ -266,6 +273,7 @@ describe("generateFollowUpDraft", () => {
     await generateFollowUpDraft({
       emailAccount: createMockEmailAccount(),
       threadId: "thread-1",
+      trackerId: "tracker-1",
       provider: mockProvider,
       logger: mockLogger,
     });
@@ -289,6 +297,7 @@ describe("generateFollowUpDraft", () => {
     await generateFollowUpDraft({
       emailAccount: createMockEmailAccount(),
       threadId: "thread-1",
+      trackerId: "tracker-1",
       provider: mockProvider,
       logger: mockLogger,
     });

@@ -32,6 +32,7 @@ export async function cleanupStaleDrafts({
       id: true,
       threadId: true,
       followUpAppliedAt: true,
+      followUpDraftId: true,
     },
   });
 
@@ -42,21 +43,8 @@ export async function cleanupStaleDrafts({
     return;
   }
 
-  const staleThreadIds = staleTrackers.map((t) => t.threadId);
-
-  const trackedDrafts = await prisma.executedAction.findMany({
-    where: {
-      draftId: { not: null },
-      executedRule: {
-        emailAccountId,
-        threadId: { in: staleThreadIds },
-      },
-    },
-    select: { draftId: true },
-  });
-
   const trackedDraftIds = new Set(
-    trackedDrafts.map((d) => d.draftId).filter(Boolean),
+    staleTrackers.map((t) => t.followUpDraftId).filter(Boolean),
   );
 
   logger.info("Found tracked drafts in database", {

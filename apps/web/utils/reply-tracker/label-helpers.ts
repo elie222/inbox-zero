@@ -9,7 +9,7 @@ import {
 import { getRuleLabel } from "@/utils/rule/consts";
 import { labelMessageAndSync } from "@/utils/label.server";
 
-type LabelIds = Record<
+export type LabelIds = Record<
   ConversationStatus,
   {
     labelId: string | null;

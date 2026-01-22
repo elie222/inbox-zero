@@ -33,11 +33,12 @@ describe("cleanupStaleDrafts", () => {
     });
 
     prisma.threadTracker.findMany.mockResolvedValue([
-      { id: "tracker-1", threadId: "thread-1", followUpAppliedAt: staleDate },
-    ] as any);
-
-    prisma.executedAction.findMany.mockResolvedValue([
-      { draftId: "draft-1" },
+      {
+        id: "tracker-1",
+        threadId: "thread-1",
+        followUpAppliedAt: staleDate,
+        followUpDraftId: "draft-1",
+      },
     ] as any);
 
     mockHasFollowUpLabel.mockResolvedValue(true);
@@ -49,16 +50,6 @@ describe("cleanupStaleDrafts", () => {
     });
 
     expect(prisma.threadTracker.findMany).toHaveBeenCalled();
-    expect(prisma.executedAction.findMany).toHaveBeenCalledWith({
-      where: {
-        draftId: { not: null },
-        executedRule: {
-          emailAccountId: "account-1",
-          threadId: { in: ["thread-1"] },
-        },
-      },
-      select: { draftId: true },
-    });
     expect(mockProvider.getDrafts).toHaveBeenCalled();
     expect(mockHasFollowUpLabel).toHaveBeenCalledWith({
       provider: mockProvider,
@@ -78,11 +69,12 @@ describe("cleanupStaleDrafts", () => {
     });
 
     prisma.threadTracker.findMany.mockResolvedValue([
-      { id: "tracker-1", threadId: "thread-1", followUpAppliedAt: staleDate },
-    ] as any);
-
-    prisma.executedAction.findMany.mockResolvedValue([
-      { draftId: "draft-1" },
+      {
+        id: "tracker-1",
+        threadId: "thread-1",
+        followUpAppliedAt: staleDate,
+        followUpDraftId: "draft-1",
+      },
     ] as any);
 
     mockHasFollowUpLabel.mockResolvedValue(false);
@@ -107,12 +99,12 @@ describe("cleanupStaleDrafts", () => {
     });
 
     prisma.threadTracker.findMany.mockResolvedValue([
-      { id: "tracker-1", threadId: "thread-1", followUpAppliedAt: staleDate },
-    ] as any);
-
-    // Only ai-draft is tracked in the database
-    prisma.executedAction.findMany.mockResolvedValue([
-      { draftId: "ai-draft" },
+      {
+        id: "tracker-1",
+        threadId: "thread-1",
+        followUpAppliedAt: staleDate,
+        followUpDraftId: "ai-draft",
+      },
     ] as any);
 
     mockHasFollowUpLabel.mockResolvedValue(true);
@@ -123,9 +115,7 @@ describe("cleanupStaleDrafts", () => {
       logger,
     });
 
-    // User's draft should NOT be deleted
     expect(mockProvider.deleteDraft).not.toHaveBeenCalledWith("user-draft");
-    // AI draft should be deleted
     expect(mockProvider.deleteDraft).toHaveBeenCalledWith("ai-draft");
   });
 
@@ -139,11 +129,13 @@ describe("cleanupStaleDrafts", () => {
     });
 
     prisma.threadTracker.findMany.mockResolvedValue([
-      { id: "tracker-1", threadId: "thread-1", followUpAppliedAt: staleDate },
+      {
+        id: "tracker-1",
+        threadId: "thread-1",
+        followUpAppliedAt: staleDate,
+        followUpDraftId: null,
+      },
     ] as any);
-
-    // No tracked drafts in database
-    prisma.executedAction.findMany.mockResolvedValue([]);
 
     mockHasFollowUpLabel.mockResolvedValue(true);
 
@@ -153,7 +145,6 @@ describe("cleanupStaleDrafts", () => {
       logger,
     });
 
-    // No drafts should be deleted
     expect(mockProvider.deleteDraft).not.toHaveBeenCalled();
   });
 
@@ -170,7 +161,6 @@ describe("cleanupStaleDrafts", () => {
       logger,
     });
 
-    expect(prisma.executedAction.findMany).not.toHaveBeenCalled();
     expect(mockProvider.getDrafts).not.toHaveBeenCalled();
   });
 });

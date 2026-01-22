@@ -18,11 +18,13 @@ import { generateReferralLink } from "@/utils/referral/referral-link";
 export async function generateFollowUpDraft({
   emailAccount,
   threadId,
+  trackerId,
   provider,
   logger,
 }: {
   emailAccount: EmailAccountWithAI;
   threadId: string;
+  trackerId: string;
   provider: EmailProvider;
   logger: Logger;
 }): Promise<void> {
@@ -129,8 +131,13 @@ export async function generateFollowUpDraft({
         content: draftContent,
       },
       emailAccount.email,
-      undefined, // no executed rule context for follow-up drafts
+      undefined,
     );
+
+    await prisma.threadTracker.update({
+      where: { id: trackerId },
+      data: { followUpDraftId: draftId },
+    });
 
     logger.info("Follow-up draft created", { threadId, draftId });
   } catch (error) {
