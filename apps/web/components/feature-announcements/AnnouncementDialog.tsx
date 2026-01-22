@@ -21,8 +21,8 @@ function getIconForDetail(announcementId: string, detailIndex: number) {
 }
 
 export function AnnouncementDialog() {
-  const { data, mutate, isLoading } = useAnnouncements();
   const { emailAccountId } = useAccount();
+  const { data, mutate, isLoading } = useAnnouncements(emailAccountId);
   const [isOpen, setIsOpen] = useState(true);
   const [enablingId, setEnablingId] = useState<string | null>(null);
 
