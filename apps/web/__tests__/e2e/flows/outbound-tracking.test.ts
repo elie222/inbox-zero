@@ -383,12 +383,25 @@ describe.skipIf(!shouldRunFlowTests())("Outbound Message Tracking", () => {
         timeout: TIMEOUTS.EMAIL_DELIVERY,
       });
 
+      // Wait for inbound rule processing to complete before sending reply
+      // This ensures we have a clean cutoff point - any rules after this are duplicates
+      const inboundRule = await waitForExecutedRule({
+        threadId: receivedMessage.threadId,
+        emailAccountId: gmail.id,
+        timeout: TIMEOUTS.WEBHOOK_PROCESSING,
+      });
+
+      logStep("Inbound rule completed", {
+        ruleId: inboundRule.id,
+        status: inboundRule.status,
+      });
+
       // ========================================
       // Send outbound message from Gmail
       // ========================================
       logStep("Sending outbound message from Gmail");
 
-      // Capture timestamp right before sending to use as cutoff for rule checking
+      // Capture timestamp right before sending - now safe since inbound processing is done
       const replySentAt = Date.now();
 
       const reply = await sendTestReply({
