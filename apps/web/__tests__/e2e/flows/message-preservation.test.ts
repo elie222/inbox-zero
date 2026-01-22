@@ -28,6 +28,7 @@ import {
   waitForExecutedRule,
   waitForMessageInInbox,
   waitForReplyInInbox,
+  waitForSentMessage,
 } from "./helpers/polling";
 import { logStep, clearLogs } from "./helpers/logging";
 import type { TestAccount } from "./helpers/accounts";
@@ -60,11 +61,26 @@ describe.skipIf(!shouldRunFlowTests())("Message Preservation", () => {
       // ========================================
       logStep("Step 1: External sender sends first message");
 
+      const sendTime = new Date();
       const firstEmail = await sendTestEmail({
         from: outlook,
         to: gmail,
         subject: `Preservation test - ${scenario.subject}`,
         body: scenario.body,
+      });
+
+      // Microsoft Graph's sendMail doesn't return the sent message ID
+      // Wait for the message to appear in Outlook's Sent folder to get the actual ID
+      const firstSent = await waitForSentMessage({
+        provider: outlook.emailProvider,
+        subjectContains: firstEmail.fullSubject,
+        sentAfter: sendTime,
+        timeout: TIMEOUTS.EMAIL_DELIVERY,
+      });
+
+      logStep("First message appeared in Sent folder", {
+        outlookMessageId: firstSent.messageId,
+        outlookThreadId: firstSent.threadId,
       });
 
       const firstReceived = await waitForMessageInInbox({
@@ -121,12 +137,12 @@ describe.skipIf(!shouldRunFlowTests())("Message Preservation", () => {
 
       // Important: Send from Outlook to Gmail (same as first message)
       // This simulates the sender following up before user responds
-      // Use Outlook-side IDs since Outlook is the sender
+      // Use Outlook-side IDs retrieved from Sent folder (sendMail doesn't return them)
       const followUpEmail = await sendTestReply({
         from: outlook,
         to: gmail,
-        threadId: firstEmail.threadId,
-        originalMessageId: firstEmail.messageId,
+        threadId: firstSent.threadId,
+        originalMessageId: firstSent.messageId,
         body: "I wanted to add some more context to my previous message. Please let me know your thoughts on this.",
       });
 
@@ -239,11 +255,26 @@ describe.skipIf(!shouldRunFlowTests())("Message Preservation", () => {
       logStep("Setup: Creating thread with multiple messages from sender");
 
       // First message
+      const sendTime = new Date();
       const firstEmail = await sendTestEmail({
         from: outlook,
         to: gmail,
         subject: "Multi-message preservation test",
         body: "This is my first question about the project.",
+      });
+
+      // Microsoft Graph's sendMail doesn't return the sent message ID
+      // Wait for the message to appear in Outlook's Sent folder to get the actual ID
+      const firstSent = await waitForSentMessage({
+        provider: outlook.emailProvider,
+        subjectContains: firstEmail.fullSubject,
+        sentAfter: sendTime,
+        timeout: TIMEOUTS.EMAIL_DELIVERY,
+      });
+
+      logStep("First message appeared in Sent folder", {
+        outlookMessageId: firstSent.messageId,
+        outlookThreadId: firstSent.threadId,
       });
 
       const firstReceived = await waitForMessageInInbox({
@@ -271,12 +302,12 @@ describe.skipIf(!shouldRunFlowTests())("Message Preservation", () => {
       logStep("AI draft created", { draftId: aiDraftId });
 
       // Second message from sender (follow-up)
-      // Use Outlook-side IDs since Outlook is the sender
+      // Use Outlook-side IDs retrieved from Sent folder (sendMail doesn't return them)
       const secondEmail = await sendTestReply({
         from: outlook,
         to: gmail,
-        threadId: firstEmail.threadId,
-        originalMessageId: firstEmail.messageId,
+        threadId: firstSent.threadId,
+        originalMessageId: firstSent.messageId,
         body: "Actually, I have one more question I forgot to ask.",
       });
 

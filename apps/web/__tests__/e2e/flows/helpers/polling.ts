@@ -274,6 +274,56 @@ export async function waitForFollowUpLabel(options: {
 }
 
 /**
+ * Wait for a sent message to appear in Sent folder
+ *
+ * This is useful when sending via Microsoft Graph's sendMail API which doesn't
+ * return the message ID. We can poll the Sent folder to get the actual ID.
+ */
+export async function waitForSentMessage(options: {
+  provider: EmailProvider;
+  subjectContains: string;
+  timeout?: number;
+  /** Timestamp to filter messages sent after this time */
+  sentAfter?: Date;
+}): Promise<{ messageId: string; threadId: string }> {
+  const {
+    provider,
+    subjectContains,
+    timeout = TIMEOUTS.EMAIL_DELIVERY,
+    sentAfter,
+  } = options;
+
+  logStep("Waiting for message in Sent folder", { subjectContains });
+
+  return pollUntil(
+    async () => {
+      const messages = await provider.getSentMessages(20);
+      const found = messages.find((msg) => {
+        if (!msg.subject?.includes(subjectContains)) return false;
+        // Filter by sent time if specified
+        if (sentAfter && msg.date) {
+          const msgDate = new Date(msg.date);
+          if (msgDate < sentAfter) return false;
+        }
+        return true;
+      });
+
+      if (found?.id && found?.threadId) {
+        return {
+          messageId: found.id,
+          threadId: found.threadId,
+        };
+      }
+      return null;
+    },
+    {
+      timeout,
+      description: `Sent message with subject containing "${subjectContains}"`,
+    },
+  );
+}
+
+/**
  * Wait for a message to appear in inbox (useful after sending)
  */
 export async function waitForMessageInInbox(options: {
