@@ -278,7 +278,7 @@ function AnnouncementBanner({ announcementId }: { announcementId: string }) {
     case "follow-up-tracking-2025-01":
       return (
         <Image
-          src="/images/follow-up-reminders-illustration.svg"
+          src="/images/announcements/follow-up-reminders-illustration.svg"
           alt="Follow-up reminders illustration"
           width={400}
           height={176}
