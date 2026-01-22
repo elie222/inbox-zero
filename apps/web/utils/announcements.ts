@@ -1,7 +1,9 @@
+import { FileEdit, type LucideIcon, Tag } from "lucide-react";
+
 export interface AnnouncementDetail {
   title: string;
   description: string;
-  icon?: "tag" | "file-edit" | "check-circle-2"; // Lucide icon
+  icon?: LucideIcon;
 }
 
 export interface Announcement {
@@ -33,12 +35,12 @@ export const ANNOUNCEMENTS: Announcement[] = [
       {
         title: "Automatic follow-up labels",
         description: "Labels threads after 3 days with no response.",
-        icon: "tag",
+        icon: Tag,
       },
       {
         title: "Auto-generated drafts",
         description: "Creates a draft to nudge unresponsive contacts.",
-        icon: "file-edit",
+        icon: FileEdit,
       },
     ],
   },

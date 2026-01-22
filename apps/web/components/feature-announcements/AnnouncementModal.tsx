@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { X, Loader2, CheckCircle2, Clock, Tag, FileEdit } from "lucide-react";
+import { X, Loader2, CheckCircle2 } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
 import { motion, AnimatePresence } from "framer-motion";
@@ -12,8 +12,13 @@ import { dismissAnnouncementModalAction } from "@/utils/actions/announcements";
 import { toggleFollowUpRemindersAction } from "@/utils/actions/follow-up-reminders";
 import { setAutoCategorizeAction } from "@/utils/actions/categorize";
 import { useAccount } from "@/providers/EmailAccountProvider";
-import type { AnnouncementDetail } from "@/utils/announcements";
+import { ANNOUNCEMENTS } from "@/utils/announcements";
 import type { GetAnnouncementsResponse } from "@/app/api/user/announcements/route";
+
+function getIconForDetail(announcementId: string, detailIndex: number) {
+  const announcement = ANNOUNCEMENTS.find((a) => a.id === announcementId);
+  return announcement?.details?.[detailIndex]?.icon ?? CheckCircle2;
+}
 
 export function AnnouncementModal() {
   const { data, mutate, isLoading } = useAnnouncements();
@@ -187,21 +192,25 @@ function AnnouncementCard({
 
         {announcement.details && announcement.details.length > 0 && (
           <div className="mb-4 flex flex-col gap-3">
-            {announcement.details.map((detail, index) => (
-              <div key={index} className="flex items-start gap-3">
-                <div className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full border border-gray-200 dark:border-gray-700">
-                  <DetailIcon icon={detail.icon} />
+            {announcement.details.map((detail, index) => {
+              const Icon = getIconForDetail(announcement.id, index);
+
+              return (
+                <div key={index} className="flex items-start gap-3">
+                  <div className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full border border-gray-200 dark:border-gray-700">
+                    <Icon className="h-3.5 w-3.5 text-gray-500 dark:text-gray-400" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                      {detail.title}
+                    </p>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">
+                      {detail.description}
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
-                    {detail.title}
-                  </p>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">
-                    {detail.description}
-                  </p>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
 
@@ -249,17 +258,4 @@ function AnnouncementCard({
       </div>
     </div>
   );
-}
-
-function DetailIcon({ icon }: { icon: AnnouncementDetail["icon"] }) {
-  const iconClass = "h-3.5 w-3.5 text-gray-500 dark:text-gray-400";
-
-  switch (icon) {
-    case "tag":
-      return <Tag className={iconClass} />;
-    case "file-edit":
-      return <FileEdit className={iconClass} />;
-    default:
-      return <CheckCircle2 className={iconClass} />;
-  }
 }
