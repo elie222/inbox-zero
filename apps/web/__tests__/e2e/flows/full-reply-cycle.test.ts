@@ -175,6 +175,8 @@ describe.skipIf(!shouldRunFlowTests())("Full Reply Cycle", () => {
       expect(draft).toBeDefined();
 
       // Send a reply (simulating user sending the draft)
+      // Note: Only use textPlain here since sendTestReply wraps body in <p> tags,
+      // which would create invalid HTML if body already contains HTML markup
       const replyResult = await sendTestReply({
         from: outlook,
         to: gmail,
@@ -351,6 +353,223 @@ describe.skipIf(!shouldRunFlowTests())("Full Reply Cycle", () => {
       expect(outlookMsg2.threadId).toBe(outlookMsg1.threadId);
 
       logStep("Thread continuity verified across 3 messages");
+    },
+    TIMEOUTS.FULL_CYCLE,
+  );
+
+  // ============================================================
+  // Gmail as Receiver Tests
+  // ============================================================
+
+  test(
+    "Outlook sends to Gmail, rule creates draft, user sends reply, Outlook receives",
+    async () => {
+      testStartTime = Date.now();
+      setTestStartTime();
+      const scenario = TEST_EMAIL_SCENARIOS.NEEDS_REPLY;
+
+      // ========================================
+      // Step 1: Outlook sends email to Gmail
+      // ========================================
+      logStep("Step 1: Sending email from Outlook to Gmail");
+
+      const sentEmail = await sendTestEmail({
+        from: outlook,
+        to: gmail,
+        subject: scenario.subject,
+        body: scenario.body,
+      });
+
+      logStep("Email sent", {
+        messageId: sentEmail.messageId,
+        threadId: sentEmail.threadId,
+        subject: sentEmail.fullSubject,
+      });
+
+      // ========================================
+      // Step 2: Wait for Gmail to receive and process
+      // ========================================
+      logStep("Step 2: Waiting for Gmail to receive email");
+
+      const gmailMessage = await waitForMessageInInbox({
+        provider: gmail.emailProvider,
+        subjectContains: sentEmail.fullSubject,
+        timeout: TIMEOUTS.EMAIL_DELIVERY,
+      });
+
+      logStep("Email received in Gmail", {
+        messageId: gmailMessage.messageId,
+        threadId: gmailMessage.threadId,
+      });
+
+      // ========================================
+      // Step 3: Wait for rule execution
+      // ========================================
+      logStep("Step 3: Waiting for rule execution", {
+        threadId: gmailMessage.threadId,
+      });
+
+      const executedRule = await waitForExecutedRule({
+        threadId: gmailMessage.threadId,
+        emailAccountId: gmail.id,
+        timeout: TIMEOUTS.WEBHOOK_PROCESSING,
+      });
+
+      expect(executedRule).toBeDefined();
+      expect(executedRule.status).toBe("APPLIED");
+
+      logStep("ExecutedRule found", {
+        executedRuleId: executedRule.id,
+        executedRuleMessageId: executedRule.messageId,
+        inboxMessageId: gmailMessage.messageId,
+        messageIdMatch: executedRule.messageId === gmailMessage.messageId,
+        ruleId: executedRule.ruleId,
+        status: executedRule.status,
+        actionItems: executedRule.actionItems.length,
+      });
+
+      // ========================================
+      // Step 4: Verify draft was created
+      // ========================================
+      logStep("Step 4: Verifying draft creation");
+
+      const draftAction = executedRule.actionItems.find(
+        (a) => a.type === "DRAFT_EMAIL" && a.draftId,
+      );
+
+      expect(draftAction).toBeDefined();
+      expect(draftAction?.draftId).toBeTruthy();
+
+      // Verify draft exists in Gmail
+      const draftInfo = await assertDraftExists({
+        provider: gmail.emailProvider,
+        threadId: gmailMessage.threadId,
+      });
+
+      logStep("Draft created", {
+        draftId: draftInfo.draftId,
+        contentPreview: draftInfo.content?.substring(0, 100),
+      });
+
+      // ========================================
+      // Step 5: Check that appropriate label was applied
+      // ========================================
+      logStep("Step 5: Verifying label applied");
+
+      const labelAction = executedRule.actionItems.find(
+        (a) => a.type === "LABEL" && a.labelId,
+      );
+
+      if (labelAction?.labelId) {
+        const message = await gmail.emailProvider.getMessage(
+          gmailMessage.messageId,
+        );
+        expect(message.labelIds).toBeDefined();
+        expect(message.labelIds).toContain(labelAction.labelId);
+        logStep("Labels on message", { labels: message.labelIds });
+      }
+
+      // ========================================
+      // Step 6: Send the draft reply
+      // ========================================
+      logStep("Step 6: Sending draft reply from Gmail");
+
+      const draft = await gmail.emailProvider.getDraft(draftInfo.draftId);
+      expect(draft).toBeDefined();
+
+      // Note: Only use textPlain here since sendTestReply wraps body in <p> tags,
+      // which would create invalid HTML if body already contains HTML markup
+      const replyResult = await sendTestReply({
+        from: gmail,
+        to: outlook,
+        threadId: gmailMessage.threadId,
+        originalMessageId: gmailMessage.messageId,
+        body:
+          draft?.textPlain ||
+          "Thank you for your email. Here is the information you requested.",
+      });
+
+      logStep("Reply sent from Gmail", {
+        messageId: replyResult.messageId,
+        threadId: replyResult.threadId,
+      });
+
+      // ========================================
+      // Step 7: Verify Outlook receives the reply
+      // ========================================
+      logStep("Step 7: Waiting for Outlook to receive reply");
+
+      const outlookReply = await waitForReplyInInbox({
+        provider: outlook.emailProvider,
+        subjectContains: sentEmail.fullSubject,
+        fromEmail: gmail.email,
+        timeout: TIMEOUTS.EMAIL_DELIVERY,
+      });
+
+      logStep("Reply received in Outlook", {
+        messageId: outlookReply.messageId,
+        threadId: outlookReply.threadId,
+        subject: outlookReply.subject,
+        expectedThreadId: sentEmail.threadId,
+        threadMatch: outlookReply.threadId === sentEmail.threadId,
+      });
+
+      if (outlookReply.threadId !== sentEmail.threadId) {
+        const replyMessage = await outlook.emailProvider.getMessage(
+          outlookReply.messageId,
+        );
+        const originalSentMessage = await outlook.emailProvider.getMessage(
+          sentEmail.messageId,
+        );
+
+        logStep("THREAD MISMATCH - Diagnostic info", {
+          replyInReplyTo: replyMessage.headers["in-reply-to"],
+          replyReferences: replyMessage.headers.references,
+          replyMessageId: replyMessage.headers["message-id"],
+          originalMessageId: originalSentMessage.headers["message-id"],
+          originalThreadId: sentEmail.threadId,
+          headersMatch:
+            replyMessage.headers["in-reply-to"] ===
+            originalSentMessage.headers["message-id"],
+        });
+      }
+
+      expect(outlookReply.threadId).toBe(sentEmail.threadId);
+
+      // ========================================
+      // Step 8: Verify outbound handling
+      // ========================================
+      logStep("Step 8: Verifying outbound handling");
+
+      const draftSendLog = await waitForDraftSendLog({
+        threadId: gmailMessage.threadId,
+        emailAccountId: gmail.id,
+        timeout: TIMEOUTS.WEBHOOK_PROCESSING,
+      });
+
+      expect(draftSendLog).toBeDefined();
+      logStep("DraftSendLog recorded", {
+        id: draftSendLog.id,
+        wasSentFromDraft: draftSendLog.wasSentFromDraft,
+      });
+
+      // ========================================
+      // Step 9: Verify draft cleanup
+      // ========================================
+      logStep("Step 9: Verifying draft cleanup");
+
+      await waitForDraftDeleted({
+        draftId: draftInfo.draftId,
+        provider: gmail.emailProvider,
+        timeout: TIMEOUTS.WEBHOOK_PROCESSING,
+      });
+
+      logStep("Draft cleanup verified - draft deleted");
+
+      // ========================================
+      // Test Complete
+      // ========================================
+      logStep("=== Full Reply Cycle Test (Gmail receiver) PASSED ===");
     },
     TIMEOUTS.FULL_CYCLE,
   );

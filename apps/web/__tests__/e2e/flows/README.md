@@ -216,7 +216,23 @@ NEXT_PUBLIC_BASE_URL=http://localhost:3000
 WEBHOOK_URL=https://your-domain.ngrok-free.app
 ```
 
-The app uses `WEBHOOK_URL` (with fallback to `NEXT_PUBLIC_BASE_URL`) for webhook registration. Google/Gmail uses Pub/Sub which is configured in Google Cloud Console.
+The app uses `WEBHOOK_URL` (with fallback to `NEXT_PUBLIC_BASE_URL`) for webhook registration.
+
+**Google Pub/Sub configuration (required for Gmail-as-receiver tests):**
+
+Unlike Microsoft webhooks which are registered dynamically with the ngrok URL, Gmail webhooks use Google Pub/Sub with a **fixed push subscription URL** configured in Google Cloud Console.
+
+To run tests that use Gmail as the receiver:
+
+1. Go to [Google Cloud Pub/Sub Subscriptions](https://console.cloud.google.com/cloudpubsub/subscription/list)
+2. Find your push subscription (created during initial setup)
+3. Click **Edit** and update the **Endpoint URL** to:
+   ```
+   https://your-ngrok-domain.ngrok-free.app/api/google/webhook?token=YOUR_VERIFICATION_TOKEN
+   ```
+4. Save the subscription
+
+**Tip:** Use `E2E_NGROK_DOMAIN` with a static ngrok domain so you only need to configure the Pub/Sub URL once.
 
 **Standard app secrets** (same as production):
 
@@ -284,6 +300,20 @@ Check AI API key is configured. Rules are created automatically by the test setu
 
 - Without a static domain, webhook URLs change each run
 - Use `E2E_NGROK_DOMAIN` for consistent webhook registration
+
+### Gmail webhooks not triggering (tests with Gmail as receiver fail)
+
+Gmail uses Google Pub/Sub which requires **manual configuration** of the push subscription URL:
+
+1. Check that `GOOGLE_PUBSUB_TOPIC_NAME` and `GOOGLE_PUBSUB_VERIFICATION_TOKEN` are set
+2. Go to [Google Cloud Pub/Sub Subscriptions](https://console.cloud.google.com/cloudpubsub/subscription/list)
+3. Verify the push subscription URL points to your ngrok domain:
+   ```
+   https://your-ngrok-domain.ngrok-free.app/api/google/webhook?token=YOUR_TOKEN
+   ```
+4. If using a dynamic ngrok URL, you must update the subscription URL each time ngrok restarts
+
+**Note:** Microsoft/Outlook webhooks work automatically with ngrok because the URL is set dynamically when the subscription is created. Gmail requires manual Pub/Sub configuration.
 
 ### Microsoft webhook subscription fails
 

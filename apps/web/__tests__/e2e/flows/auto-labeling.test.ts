@@ -362,4 +362,180 @@ describe.skipIf(!shouldRunFlowTests())("Auto-Labeling", () => {
     },
     TIMEOUTS.TEST_DEFAULT,
   );
+
+  // ============================================================
+  // Gmail as Receiver Tests
+  // ============================================================
+
+  test(
+    "should label email that needs reply and create draft (Gmail receiver)",
+    async () => {
+      testStartTime = Date.now();
+      setTestStartTime();
+      const scenario = TEST_EMAIL_SCENARIOS.NEEDS_REPLY;
+
+      // ========================================
+      // Send email from Outlook to Gmail
+      // ========================================
+      logStep("Sending email that needs reply (to Gmail)");
+
+      const sentEmail = await sendTestEmail({
+        from: outlook,
+        to: gmail,
+        subject: scenario.subject,
+        body: scenario.body,
+      });
+
+      // Wait for Gmail to receive
+      const gmailMessage = await waitForMessageInInbox({
+        provider: gmail.emailProvider,
+        subjectContains: sentEmail.fullSubject,
+        timeout: TIMEOUTS.EMAIL_DELIVERY,
+      });
+
+      logStep("Email received in Gmail", {
+        messageId: gmailMessage.messageId,
+        threadId: gmailMessage.threadId,
+      });
+
+      // ========================================
+      // Wait for rule execution
+      // ========================================
+      logStep("Waiting for rule execution", {
+        threadId: gmailMessage.threadId,
+      });
+
+      const executedRule = await waitForExecutedRule({
+        threadId: gmailMessage.threadId,
+        emailAccountId: gmail.id,
+        timeout: TIMEOUTS.WEBHOOK_PROCESSING,
+      });
+
+      expect(executedRule).toBeDefined();
+      expect(executedRule.status).toBe("APPLIED");
+
+      logStep("ExecutedRule found", {
+        executedRuleId: executedRule.id,
+        executedRuleMessageId: executedRule.messageId,
+        inboxMessageId: gmailMessage.messageId,
+        messageIdMatch: executedRule.messageId === gmailMessage.messageId,
+        status: executedRule.status,
+        actionItems: executedRule.actionItems.length,
+      });
+
+      // ========================================
+      // Verify draft was created (needs reply = should draft)
+      // ========================================
+      logStep("Verifying draft action");
+
+      const draftAction = executedRule.actionItems.find(
+        (a) => a.type === "DRAFT_EMAIL",
+      );
+
+      expect(draftAction).toBeDefined();
+      expect(draftAction?.draftId).toBeTruthy();
+
+      logStep("Draft created for needs-reply email", {
+        draftId: draftAction?.draftId,
+      });
+
+      // ========================================
+      // Verify labels in email provider
+      // ========================================
+      logStep("Verifying labels in provider");
+
+      const message = await gmail.emailProvider.getMessage(
+        gmailMessage.messageId,
+      );
+
+      logStep("Message labels", { labels: message.labelIds });
+
+      expect(executedRule.actionItems.length).toBeGreaterThan(0);
+    },
+    TIMEOUTS.TEST_DEFAULT,
+  );
+
+  test(
+    "should label FYI email without creating draft (Gmail receiver)",
+    async () => {
+      testStartTime = Date.now();
+      setTestStartTime();
+      const scenario = TEST_EMAIL_SCENARIOS.FYI_ONLY;
+
+      // ========================================
+      // Send FYI email from Outlook to Gmail
+      // ========================================
+      logStep("Sending FYI email (to Gmail)");
+
+      const sentEmail = await sendTestEmail({
+        from: outlook,
+        to: gmail,
+        subject: scenario.subject,
+        body: scenario.body,
+      });
+
+      // Wait for Gmail to receive
+      const gmailMessage = await waitForMessageInInbox({
+        provider: gmail.emailProvider,
+        subjectContains: sentEmail.fullSubject,
+        timeout: TIMEOUTS.EMAIL_DELIVERY,
+      });
+
+      logStep("Email received in Gmail", {
+        messageId: gmailMessage.messageId,
+        threadId: gmailMessage.threadId,
+      });
+
+      // ========================================
+      // Wait for rule execution
+      // ========================================
+      logStep("Waiting for rule execution", {
+        threadId: gmailMessage.threadId,
+      });
+
+      const executedRule = await waitForExecutedRule({
+        threadId: gmailMessage.threadId,
+        emailAccountId: gmail.id,
+        timeout: TIMEOUTS.WEBHOOK_PROCESSING,
+      });
+
+      expect(executedRule).toBeDefined();
+
+      logStep("ExecutedRule found", {
+        executedRuleId: executedRule.id,
+        executedRuleMessageId: executedRule.messageId,
+        inboxMessageId: gmailMessage.messageId,
+        messageIdMatch: executedRule.messageId === gmailMessage.messageId,
+        status: executedRule.status,
+        actionItems: executedRule.actionItems.length,
+      });
+
+      // ========================================
+      // Verify NO draft was created for FYI email
+      // ========================================
+      logStep("Verifying no draft for FYI email");
+
+      const draftAction = executedRule.actionItems.find(
+        (a) => a.type === "DRAFT_EMAIL" && a.draftId,
+      );
+
+      expect(draftAction).toBeUndefined();
+
+      logStep("Draft action result", {
+        hasDraft: false,
+      });
+
+      // ========================================
+      // Verify appropriate label was applied
+      // ========================================
+      logStep("Verifying labels");
+
+      const message = await gmail.emailProvider.getMessage(
+        gmailMessage.messageId,
+      );
+
+      logStep("Message labels", { labels: message.labelIds });
+    },
+    TIMEOUTS.TEST_DEFAULT,
+  );
 });

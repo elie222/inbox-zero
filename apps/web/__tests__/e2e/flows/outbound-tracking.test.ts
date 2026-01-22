@@ -284,4 +284,269 @@ describe.skipIf(!shouldRunFlowTests())("Outbound Message Tracking", () => {
     },
     TIMEOUTS.FULL_CYCLE,
   );
+
+  // ============================================================
+  // Gmail as Receiver Tests
+  // ============================================================
+
+  test(
+    "should track outbound message when user sends email (Gmail receiver)",
+    async () => {
+      testStartTime = Date.now();
+
+      // ========================================
+      // Step 1: Receive an email first (to have a thread)
+      // ========================================
+      logStep("Step 1: Setting up thread with incoming email (to Gmail)");
+
+      const incomingEmail = await sendTestEmail({
+        from: outlook,
+        to: gmail,
+        subject: "Outbound tracking test",
+        body: "Please respond to this email.",
+      });
+
+      const receivedMessage = await waitForMessageInInbox({
+        provider: gmail.emailProvider,
+        subjectContains: incomingEmail.fullSubject,
+        timeout: TIMEOUTS.EMAIL_DELIVERY,
+      });
+
+      logStep("Email received in Gmail", {
+        messageId: receivedMessage.messageId,
+        threadId: receivedMessage.threadId,
+      });
+
+      // ========================================
+      // Step 2: Send reply from Gmail (outbound message)
+      // ========================================
+      logStep("Step 2: Sending outbound reply from Gmail");
+
+      const sentReply = await sendTestReply({
+        from: gmail,
+        to: outlook,
+        threadId: receivedMessage.threadId,
+        originalMessageId: receivedMessage.messageId,
+        body: "Here is my response to your email.",
+      });
+
+      logStep("Outbound reply sent", {
+        messageId: sentReply.messageId,
+        threadId: sentReply.threadId,
+      });
+
+      // ========================================
+      // Step 3: Wait for outbound handling to process
+      // ========================================
+      logStep("Step 3: Waiting for outbound handling");
+
+      await new Promise((resolve) => setTimeout(resolve, 5000));
+
+      // ========================================
+      // Step 4: Verify Outlook receives the reply
+      // ========================================
+      logStep("Step 4: Verifying Outlook receives reply");
+
+      const outlookReceived = await waitForMessageInInbox({
+        provider: outlook.emailProvider,
+        subjectContains: incomingEmail.fullSubject,
+        timeout: TIMEOUTS.EMAIL_DELIVERY,
+      });
+
+      expect(outlookReceived.threadId).toBe(incomingEmail.threadId);
+
+      logStep("Reply received in Outlook, thread continuity verified");
+    },
+    TIMEOUTS.FULL_CYCLE,
+  );
+
+  test(
+    "should not create duplicate ExecutedRule for outbound messages (Gmail receiver)",
+    async () => {
+      testStartTime = Date.now();
+
+      // ========================================
+      // Setup: Create a thread (Outlook sends to Gmail)
+      // ========================================
+      logStep("Setting up thread (to Gmail)");
+
+      const incomingEmail = await sendTestEmail({
+        from: outlook,
+        to: gmail,
+        subject: "No duplicate test",
+        body: "Testing no duplicate processing.",
+      });
+
+      const receivedMessage = await waitForMessageInInbox({
+        provider: gmail.emailProvider,
+        subjectContains: incomingEmail.fullSubject,
+        timeout: TIMEOUTS.EMAIL_DELIVERY,
+      });
+
+      // Wait for inbound rule processing to complete before sending reply
+      // This ensures we have a clean cutoff point - any rules after this are duplicates
+      const inboundRule = await waitForExecutedRule({
+        threadId: receivedMessage.threadId,
+        emailAccountId: gmail.id,
+        timeout: TIMEOUTS.WEBHOOK_PROCESSING,
+      });
+
+      logStep("Inbound rule completed", {
+        ruleId: inboundRule.id,
+        status: inboundRule.status,
+      });
+
+      // ========================================
+      // Send outbound message from Gmail
+      // ========================================
+      logStep("Sending outbound message from Gmail");
+
+      // Capture timestamp right before sending - now safe since inbound processing is done
+      const replySentAt = Date.now();
+
+      const reply = await sendTestReply({
+        from: gmail,
+        to: outlook,
+        threadId: receivedMessage.threadId,
+        originalMessageId: receivedMessage.messageId,
+        body: "This is a manual reply.",
+      });
+
+      // Wait for processing
+      await new Promise((resolve) => setTimeout(resolve, 10_000));
+
+      // ========================================
+      // Verify no ExecutedRule was created for the outbound message
+      // ========================================
+      logStep("Verifying no ExecutedRule for outbound message");
+
+      // Check by threadId + createdAt window to catch any re-runs during test,
+      // not just by messageId (which might miss duplicate execution scenarios)
+      const executedRulesForThread = await prisma.executedRule.findMany({
+        where: {
+          emailAccountId: gmail.id,
+          threadId: receivedMessage.threadId,
+          createdAt: {
+            gte: new Date(testStartTime),
+          },
+        },
+      });
+
+      // Filter to only rules created AFTER the reply was sent
+      // (rules created before the reply are expected - from inbound processing)
+      const rulesAfterReply = executedRulesForThread.filter(
+        (rule) => rule.createdAt > new Date(replySentAt),
+      );
+
+      // Outbound messages should not trigger rule execution
+      expect(rulesAfterReply).toHaveLength(0);
+
+      logStep("ExecutedRules for thread after reply", {
+        totalForThread: executedRulesForThread.length,
+        afterReply: rulesAfterReply.length,
+      });
+    },
+    TIMEOUTS.TEST_DEFAULT,
+  );
+
+  test(
+    "should update reply tracking when reply is sent (Gmail receiver)",
+    async () => {
+      testStartTime = Date.now();
+
+      const scenario = TEST_EMAIL_SCENARIOS.NEEDS_REPLY;
+
+      // ========================================
+      // Setup: Create incoming email that needs a reply (to Gmail)
+      // ========================================
+      logStep("Setting up incoming email that needs reply (to Gmail)");
+
+      const incomingEmail = await sendTestEmail({
+        from: outlook,
+        to: gmail,
+        subject: scenario.subject,
+        body: scenario.body,
+      });
+
+      const receivedMessage = await waitForMessageInInbox({
+        provider: gmail.emailProvider,
+        subjectContains: incomingEmail.fullSubject,
+        timeout: TIMEOUTS.EMAIL_DELIVERY,
+      });
+
+      logStep("Email received in Gmail", {
+        messageId: receivedMessage.messageId,
+        threadId: receivedMessage.threadId,
+      });
+
+      // ========================================
+      // Wait for AI to process and classify the email
+      // ========================================
+      logStep("Waiting for rule execution to create ThreadTracker");
+
+      const executedRule = await waitForExecutedRule({
+        threadId: receivedMessage.threadId,
+        emailAccountId: gmail.id,
+        timeout: TIMEOUTS.WEBHOOK_PROCESSING,
+      });
+
+      logStep("Rule executed", {
+        executedRuleId: executedRule.id,
+        status: executedRule.status,
+      });
+
+      // Verify ThreadTracker was created
+      const trackerBeforeReply = await prisma.threadTracker.findFirst({
+        where: {
+          emailAccountId: gmail.id,
+          threadId: receivedMessage.threadId,
+          resolved: false,
+        },
+      });
+
+      logStep("ThreadTracker before reply", {
+        id: trackerBeforeReply?.id,
+        exists: !!trackerBeforeReply,
+        resolved: trackerBeforeReply?.resolved,
+        type: trackerBeforeReply?.type,
+      });
+
+      const originalTrackerId = trackerBeforeReply?.id;
+      expect(originalTrackerId).toBeDefined();
+
+      // ========================================
+      // Send reply from Gmail
+      // ========================================
+      logStep("Sending reply from Gmail");
+
+      await sendTestReply({
+        from: gmail,
+        to: outlook,
+        threadId: receivedMessage.threadId,
+        originalMessageId: receivedMessage.messageId,
+        body: "Here are my thoughts on this matter.",
+      });
+
+      // ========================================
+      // Wait for reply tracking to update
+      // ========================================
+      logStep("Waiting for reply tracking update");
+
+      await new Promise((resolve) => setTimeout(resolve, 10_000));
+
+      const resolvedTracker = await prisma.threadTracker.findUnique({
+        where: { id: originalTrackerId! },
+      });
+
+      expect(resolvedTracker).toBeDefined();
+      expect(resolvedTracker?.resolved).toBe(true);
+
+      logStep("Original tracker now resolved", {
+        id: resolvedTracker?.id,
+        resolved: resolvedTracker?.resolved,
+        type: resolvedTracker?.type,
+      });
+    },
+    TIMEOUTS.FULL_CYCLE,
+  );
 });
