@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/sidebar";
 import { SideNav } from "@/components/SideNav";
 import { SidebarRight } from "@/components/SidebarRight";
-import { AnnouncementModal } from "@/components/FeatureAnnouncements/AnnouncementModal";
+import { AnnouncementModal } from "@/components/feature-announcements/AnnouncementModal";
 import { cn } from "@/utils";
 
 const CrispWithNoSSR = dynamic(() => import("@/components/CrispChat"));

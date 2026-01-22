@@ -22,11 +22,6 @@ import { useAccount } from "@/providers/EmailAccountProvider";
 import type { AnnouncementDetail } from "@/utils/announcements";
 import type { GetAnnouncementsResponse } from "@/app/api/user/announcements/route";
 import { FollowUpIllustration } from "./AnnouncementImages/FollowUpIllustration";
-import { SmartCategoriesIllustration } from "./AnnouncementImages/SmartCategoriesIllustration";
-import { BulkUnsubscribeIllustration } from "./AnnouncementImages/BulkUnsubscribeIllustration";
-import { EmailAnalyticsIllustration } from "./AnnouncementImages/EmailAnalyticsIllustration";
-import { ColdEmailBlockerIllustration } from "./AnnouncementImages/ColdEmailBlockerIllustration";
-import { KeyboardShortcutsIllustration } from "./AnnouncementImages/KeyboardShortcutsIllustration";
 
 export function AnnouncementModal() {
   const { data, mutate, isLoading } = useAnnouncements();
@@ -282,16 +277,6 @@ function AnnouncementBanner({ announcementId }: { announcementId: string }) {
   switch (announcementId) {
     case "follow-up-tracking-2025-01":
       return <FollowUpIllustration />;
-    case "smart-categories-2025-01":
-      return <SmartCategoriesIllustration />;
-    case "bulk-unsubscribe-2025-01":
-      return <BulkUnsubscribeIllustration />;
-    case "email-analytics-2025-01":
-      return <EmailAnalyticsIllustration />;
-    case "cold-email-blocker-2025-01":
-      return <ColdEmailBlockerIllustration />;
-    case "keyboard-shortcuts-2025-01":
-      return <KeyboardShortcutsIllustration />;
     default:
       // Default gradient banner for any new announcements
       return (
