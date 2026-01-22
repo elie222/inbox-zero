@@ -4,7 +4,7 @@ import type { EmailProvider } from "@/utils/email/types";
 import type { Logger } from "@/utils/logger";
 import { captureException } from "@/utils/error";
 import { handleOutboundReply } from "./outbound";
-import { trackSentDraftStatus } from "./draft-tracking";
+import { trackSentDraftStatus, cleanupThreadAIDrafts } from "./draft-tracking";
 import { clearFollowUpLabel } from "@/utils/follow-up/labels";
 
 export async function handleOutboundMessage({
@@ -55,18 +55,17 @@ export async function handleOutboundMessage({
     }),
   ]);
 
-  // Draft cleanup temporarily disabled to investigate message deletion bug
-  // try {
-  //   await cleanupThreadAIDrafts({
-  //     threadId: message.threadId,
-  //     emailAccountId: emailAccount.id,
-  //     provider,
-  //     logger,
-  //   });
-  // } catch (error) {
-  //   logger.error("Error during thread draft cleanup", { error });
-  //   captureException(error, { emailAccountId: emailAccount.id });
-  // }
+  try {
+    await cleanupThreadAIDrafts({
+      threadId: message.threadId,
+      emailAccountId: emailAccount.id,
+      provider,
+      logger,
+    });
+  } catch (error) {
+    logger.error("Error during thread draft cleanup", { error });
+    captureException(error, { emailAccountId: emailAccount.id });
+  }
 
   // Remove follow-up label if present (user replied, so follow-up no longer needed)
   try {
