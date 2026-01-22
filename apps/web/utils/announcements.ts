@@ -1,7 +1,7 @@
 export interface AnnouncementDetail {
   title: string;
   description: string;
-  icon?: "clock" | "tag" | "file-edit" | "check";
+  icon?: string; // Lucide icon
 }
 
 export interface Announcement {
