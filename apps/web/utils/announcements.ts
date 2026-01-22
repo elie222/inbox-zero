@@ -29,11 +29,6 @@ export const ANNOUNCEMENTS: Announcement[] = [
     requiredEnvVar: "NEXT_PUBLIC_FOLLOW_UP_REMINDERS_ENABLED",
     details: [
       {
-        title: "Tracks waiting threads",
-        description: "Knows when you're waiting for a reply.",
-        icon: "clock",
-      },
-      {
         title: "Automatic follow-up labels",
         description: "Labels threads after 3 days with no response.",
         icon: "tag",
