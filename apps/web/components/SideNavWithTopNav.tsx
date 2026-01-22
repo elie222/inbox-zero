@@ -12,7 +12,6 @@ import {
 } from "@/components/ui/sidebar";
 import { SideNav } from "@/components/SideNav";
 import { SidebarRight } from "@/components/SidebarRight";
-import { AnnouncementModal } from "@/components/feature-announcements/AnnouncementModal";
 import { cn } from "@/utils";
 
 const CrispWithNoSSR = dynamic(() => import("@/components/CrispChat"));
@@ -73,7 +72,6 @@ export function SideNavWithTopNav({
       <SideNav name="left-sidebar" />
       <ContentWrapper>{children}</ContentWrapper>
       <SidebarRight name="chat-sidebar" />
-      <AnnouncementModal />
     </SidebarProvider>
   );
 }
