@@ -39,8 +39,31 @@ import { processAccountFollowUps } from "@/app/api/follow-up-reminders/process";
 import { ThreadTrackerType } from "@/generated/prisma/enums";
 import { createScopedLogger } from "@/utils/logger";
 import { getOrCreateFollowUpLabel } from "@/utils/follow-up/labels";
+import type { EmailProvider } from "@/utils/email/types";
+import { getRuleLabel } from "@/utils/rule/consts";
+import { SystemType } from "@/generated/prisma/enums";
 
 const testLogger = createScopedLogger("e2e-follow-up-test");
+
+// Helper to apply the "Awaiting Reply" label to a thread for edge case tests
+// (Main tests use real E2E flow where conversation rules apply this label)
+async function ensureAwaitingReplyLabel(
+  provider: EmailProvider,
+  threadId: string,
+  messageId: string,
+): Promise<string> {
+  const labels = await provider.getLabels();
+  const labelName = getRuleLabel(SystemType.AWAITING_REPLY);
+  let labelId = labels.find((l) => l.name === labelName)?.id;
+
+  if (!labelId) {
+    const created = await provider.createLabel({ name: labelName });
+    labelId = created.id;
+  }
+
+  await provider.labelMessage({ messageId, labelId, labelName });
+  return labelId;
+}
 
 // Helper to create a ThreadTracker directly for edge case tests only
 // (Main tests use real E2E flow with AI-powered tracker creation)
@@ -872,6 +895,10 @@ describe.skipIf(!shouldRunFlowTests())("Follow-up Reminders", () => {
       async () => {
         testStartTime = Date.now();
 
+        // Note: In the real flow, when a tracker is resolved, the AWAITING_REPLY
+        // label is removed from the thread. So we don't apply the label here.
+        // The thread won't be found by the label query, which is the correct behavior.
+
         logStep("Step 1: Creating test email thread");
 
         const sentEmail = await sendTestEmail({
@@ -887,7 +914,7 @@ describe.skipIf(!shouldRunFlowTests())("Follow-up Reminders", () => {
           timeout: TIMEOUTS.EMAIL_DELIVERY,
         });
 
-        logStep("Step 2: Creating RESOLVED ThreadTracker");
+        logStep("Step 2: Creating RESOLVED ThreadTracker (without label)");
 
         await createTestThreadTracker({
           emailAccountId: gmail.id,
@@ -944,6 +971,9 @@ describe.skipIf(!shouldRunFlowTests())("Follow-up Reminders", () => {
       async () => {
         testStartTime = Date.now();
 
+        // This test verifies idempotency - threads that were already processed
+        // should not be re-processed even if they still have the AWAITING_REPLY label.
+
         logStep("Step 1: Creating test email thread");
 
         const sentEmail = await sendTestEmail({
@@ -959,7 +989,15 @@ describe.skipIf(!shouldRunFlowTests())("Follow-up Reminders", () => {
           timeout: TIMEOUTS.EMAIL_DELIVERY,
         });
 
-        logStep("Step 2: Creating ThreadTracker with followUpAppliedAt set");
+        logStep("Step 2: Applying AWAITING_REPLY label");
+
+        await ensureAwaitingReplyLabel(
+          gmail.emailProvider,
+          receivedMessage.threadId,
+          receivedMessage.messageId,
+        );
+
+        logStep("Step 3: Creating ThreadTracker with followUpAppliedAt set");
 
         await createTestThreadTracker({
           emailAccountId: gmail.id,
@@ -970,15 +1008,15 @@ describe.skipIf(!shouldRunFlowTests())("Follow-up Reminders", () => {
           followUpAppliedAt: new Date(), // Already processed
         });
 
-        logStep("Step 3: Configuring follow-up settings");
+        logStep("Step 4: Configuring follow-up settings");
 
         await configureFollowUpSettings(gmail.id, {
-          followUpAwaitingReplyDays: 0.000_01, // ~0.86 seconds (sentAt is 5 min ago, exceeds this)
+          followUpAwaitingReplyDays: 0.000_01, // ~0.86 seconds (message is 5 min ago, exceeds this)
           followUpNeedsReplyDays: null,
           followUpAutoDraftEnabled: true,
         });
 
-        logStep("Step 4: Processing follow-ups");
+        logStep("Step 5: Processing follow-ups");
 
         const emailAccount = await getEmailAccountForProcessing(gmail.id);
         await processAccountFollowUps({
@@ -989,7 +1027,7 @@ describe.skipIf(!shouldRunFlowTests())("Follow-up Reminders", () => {
         // Wait a moment
         await sleep(1000);
 
-        logStep("Step 5: Verifying NO new Follow-up label or draft");
+        logStep("Step 6: Verifying NO new Follow-up label or draft");
 
         // The key assertion is no NEW draft was created
         // (Label might have been applied before during the previous followUpAppliedAt)
@@ -1012,6 +1050,10 @@ describe.skipIf(!shouldRunFlowTests())("Follow-up Reminders", () => {
       async () => {
         testStartTime = Date.now();
 
+        // This test verifies threshold enforcement - threads with recent messages
+        // should not be processed even if they have the AWAITING_REPLY label.
+        // The new code checks message.internalDate (not tracker.sentAt) against threshold.
+
         logStep("Step 1: Creating test email thread");
 
         const sentEmail = await sendTestEmail({
@@ -1027,25 +1069,34 @@ describe.skipIf(!shouldRunFlowTests())("Follow-up Reminders", () => {
           timeout: TIMEOUTS.EMAIL_DELIVERY,
         });
 
-        logStep("Step 2: Creating ThreadTracker with recent sentAt");
+        logStep("Step 2: Applying AWAITING_REPLY label");
 
+        await ensureAwaitingReplyLabel(
+          gmail.emailProvider,
+          receivedMessage.threadId,
+          receivedMessage.messageId,
+        );
+
+        logStep("Step 3: Creating ThreadTracker");
+
+        // Create tracker (the message was just received, so message.internalDate is recent)
         const tracker = await createTestThreadTracker({
           emailAccountId: gmail.id,
           threadId: receivedMessage.threadId,
           messageId: receivedMessage.messageId,
           type: ThreadTrackerType.AWAITING,
-          sentAt: new Date(), // Just now (not past threshold)
+          sentAt: new Date(),
         });
 
-        logStep("Step 3: Configuring follow-up settings (1 day threshold)");
+        logStep("Step 4: Configuring follow-up settings (1 day threshold)");
 
         await configureFollowUpSettings(gmail.id, {
-          followUpAwaitingReplyDays: 1, // 1 day threshold
+          followUpAwaitingReplyDays: 1, // 1 day threshold - message is too recent
           followUpNeedsReplyDays: null,
           followUpAutoDraftEnabled: true,
         });
 
-        logStep("Step 4: Processing follow-ups");
+        logStep("Step 5: Processing follow-ups");
 
         const emailAccount = await getEmailAccountForProcessing(gmail.id);
         await processAccountFollowUps({
@@ -1056,7 +1107,9 @@ describe.skipIf(!shouldRunFlowTests())("Follow-up Reminders", () => {
         // Wait a moment
         await sleep(1000);
 
-        logStep("Step 5: Verifying NO Follow-up label (not past threshold)");
+        logStep(
+          "Step 6: Verifying NO Follow-up label (message not past threshold)",
+        );
 
         // Get the actual Follow-up label ID to check against
         const followUpLabel = await getOrCreateFollowUpLabel(
