@@ -13,7 +13,6 @@ export interface Announcement {
   learnMoreLink?: string;
   publishedAt: string; // ISO date string
   details?: AnnouncementDetail[];
-  actionType?: "enable" | "view";
   requiredEnvVar?: string;
 }
 
@@ -24,10 +23,9 @@ export const ANNOUNCEMENTS: Announcement[] = [
     description:
       "Track replies and get reminded about unanswered emails. Never let an important email slip through the cracks.",
     image: "/images/announcements/follow-up-reminders-illustration.svg",
-    link: "/automation?tab=follow-ups",
+    link: "/automation?tab=settings",
     learnMoreLink: "/#",
     publishedAt: "2026-01-15T00:00:00Z",
-    actionType: "enable",
     requiredEnvVar: "NEXT_PUBLIC_FOLLOW_UP_REMINDERS_ENABLED",
     details: [
       {

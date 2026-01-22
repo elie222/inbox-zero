@@ -1,14 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import {
-  X,
-  Loader2,
-  CheckCircle2,
-  Tag,
-  FileEdit,
-  type LucideIcon,
-} from "lucide-react";
+import { X, CheckCircle2, Tag, FileEdit, type LucideIcon } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
 import { motion, AnimatePresence } from "framer-motion";
@@ -17,9 +10,6 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { LoadingContent } from "@/components/LoadingContent";
 import { useAnnouncements } from "@/hooks/useAnnouncements";
 import { dismissAnnouncementModalAction } from "@/utils/actions/announcements";
-import { toggleFollowUpRemindersAction } from "@/utils/actions/follow-up-reminders";
-import { setAutoCategorizeAction } from "@/utils/actions/categorize";
-import { useAccount } from "@/providers/EmailAccountProvider";
 import type { GetAnnouncementsResponse } from "@/app/api/user/announcements/route";
 
 const ICON_MAP: Record<string, LucideIcon> = {
@@ -32,42 +22,14 @@ function getIconForDetail(iconId: string | undefined): LucideIcon {
 }
 
 export function AnnouncementDialog() {
-  const { emailAccountId } = useAccount();
-  const { data, mutate, isLoading, error } = useAnnouncements(emailAccountId);
+  const { data, mutate, isLoading, error } = useAnnouncements();
   const [isOpen, setIsOpen] = useState(true);
-  const [enablingId, setEnablingId] = useState<string | null>(null);
 
   const { execute: dismissModal } = useAction(dismissAnnouncementModalAction, {
     onSuccess: () => {
       mutate();
     },
   });
-
-  const { execute: toggleFollowUp } = useAction(
-    toggleFollowUpRemindersAction.bind(null, emailAccountId),
-    {
-      onSuccess: () => {
-        mutate();
-        setEnablingId(null);
-      },
-      onError: () => {
-        setEnablingId(null);
-      },
-    },
-  );
-
-  const { execute: setAutoCategorize } = useAction(
-    setAutoCategorizeAction.bind(null, emailAccountId),
-    {
-      onSuccess: () => {
-        mutate();
-        setEnablingId(null);
-      },
-      onError: () => {
-        setEnablingId(null);
-      },
-    },
-  );
 
   const announcements = data?.announcements ?? [];
   const hasNewAnnouncements = data?.hasNewAnnouncements ?? false;
@@ -91,19 +53,6 @@ export function AnnouncementDialog() {
     }
     setIsOpen(false);
   }, [dismissModal, data?.announcements]);
-
-  const handleEnable = useCallback(
-    (announcementId: string) => {
-      setEnablingId(announcementId);
-
-      if (announcementId.startsWith("follow-up-tracking")) {
-        toggleFollowUp({ enabled: true });
-      } else if (announcementId.startsWith("smart-categories")) {
-        setAutoCategorize({ autoCategorizeSenders: true });
-      }
-    },
-    [toggleFollowUp, setAutoCategorize],
-  );
 
   return (
     <LoadingContent loading={isLoading} error={error}>
@@ -148,8 +97,7 @@ export function AnnouncementDialog() {
                           <AnnouncementCard
                             key={announcement.id}
                             announcement={announcement}
-                            onEnable={() => handleEnable(announcement.id)}
-                            isEnabling={enablingId === announcement.id}
+                            onClose={handleCloseModal}
                           />
                         ))}
                       </div>
@@ -165,20 +113,14 @@ export function AnnouncementDialog() {
   );
 }
 
-type AnnouncementWithEnabled =
-  GetAnnouncementsResponse["announcements"][number];
+type AnnouncementData = GetAnnouncementsResponse["announcements"][number];
 
 interface AnnouncementCardProps {
-  announcement: AnnouncementWithEnabled;
-  onEnable: () => void;
-  isEnabling: boolean;
+  announcement: AnnouncementData;
+  onClose: () => void;
 }
 
-function AnnouncementCard({
-  announcement,
-  onEnable,
-  isEnabling,
-}: AnnouncementCardProps) {
+function AnnouncementCard({ announcement, onClose }: AnnouncementCardProps) {
   return (
     <div className="overflow-hidden rounded-xl bg-white dark:bg-gray-800">
       <div className="p-5">
@@ -229,32 +171,10 @@ function AnnouncementCard({
         )}
 
         <div className="flex gap-3">
-          {announcement.actionType === "enable" &&
-            (announcement.isEnabled ? (
-              <div className="flex flex-1 items-center justify-center rounded-lg bg-green-100 px-4 py-2.5 text-sm font-medium text-green-700 dark:bg-green-900/30 dark:text-green-400">
-                <CheckCircle2 className="mr-1.5 h-4 w-4" />
-                Enabled
-              </div>
-            ) : (
-              <button
-                type="button"
-                onClick={onEnable}
-                disabled={isEnabling}
-                className="flex-1 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                {isEnabling ? (
-                  <>
-                    <Loader2 className="mr-1.5 inline h-4 w-4 animate-spin" />
-                    Enabling...
-                  </>
-                ) : (
-                  "Enable"
-                )}
-              </button>
-            ))}
-          {announcement.actionType === "view" && announcement.link && (
+          {announcement.link && (
             <Link
               href={announcement.link}
+              onClick={onClose}
               className="flex flex-1 items-center justify-center rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-blue-700"
             >
               View
