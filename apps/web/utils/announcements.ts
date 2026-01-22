@@ -16,8 +16,6 @@ export interface Announcement {
   requiredEnvVar?: string; // If set, announcement only shows when this env var is "true"
 }
 
-const SIX_MONTHS_MS = 6 * 30 * 24 * 60 * 60 * 1000;
-
 export const ANNOUNCEMENTS: Announcement[] = [
   {
     id: "follow-up-tracking-2025-01",
@@ -169,22 +167,13 @@ export const ANNOUNCEMENTS: Announcement[] = [
 ];
 
 /**
- * Get announcements that are less than 6 months old, sorted by newest first.
- * This prevents stale announcements from piling up for new users/self-hosters.
+ * Get all announcements sorted by newest first.
+ * Filters by requiredEnvVar if specified.
  */
 export function getActiveAnnouncements(): Announcement[] {
-  const now = Date.now();
   return ANNOUNCEMENTS.filter((a) => {
-    // Check if announcement is within the 6-month window
-    const isWithinTimeWindow =
-      now - new Date(a.publishedAt).getTime() < SIX_MONTHS_MS;
-
     // Check if required env var is set (if specified)
-    const isEnvVarEnabled = a.requiredEnvVar
-      ? process.env[a.requiredEnvVar] === "true"
-      : true;
-
-    return isWithinTimeWindow && isEnvVarEnabled;
+    return a.requiredEnvVar ? process.env[a.requiredEnvVar] === "true" : true;
   }).sort(
     (a, b) =>
       new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime(),
