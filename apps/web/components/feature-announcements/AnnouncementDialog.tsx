@@ -69,15 +69,20 @@ export function AnnouncementDialog() {
     },
   );
 
-  // Prevent body scroll when modal is open
+  const announcements = data?.announcements ?? [];
+  const hasNewAnnouncements = data?.hasNewAnnouncements ?? false;
+
+  // Prevent body scroll when modal is actually visible
   useEffect(() => {
-    if (isOpen) {
+    const shouldLockScroll =
+      isOpen && announcements.length > 0 && hasNewAnnouncements;
+    if (shouldLockScroll) {
       document.body.style.overflow = "hidden";
     }
     return () => {
       document.body.style.overflow = "";
     };
-  }, [isOpen]);
+  }, [isOpen, announcements.length, hasNewAnnouncements]);
 
   const handleCloseModal = useCallback(() => {
     const announcements = data?.announcements;
@@ -99,9 +104,6 @@ export function AnnouncementDialog() {
     },
     [toggleFollowUp, setAutoCategorize],
   );
-
-  const announcements = data?.announcements ?? [];
-  const hasNewAnnouncements = data?.hasNewAnnouncements ?? false;
 
   return (
     <LoadingContent loading={isLoading} error={error}>
