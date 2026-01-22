@@ -21,7 +21,7 @@ import { setAutoCategorizeAction } from "@/utils/actions/categorize";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import type { AnnouncementDetail } from "@/utils/announcements";
 import type { GetAnnouncementsResponse } from "@/app/api/user/announcements/route";
-import { FollowUpIllustration } from "./AnnouncementImages/FollowUpIllustration";
+import { FollowUpRemindersIllustration } from "./announcement-images/FollowUpRemindersIllustration";
 
 export function AnnouncementModal() {
   const { data, mutate, isLoading } = useAnnouncements();
@@ -276,7 +276,7 @@ function DetailIcon({ icon }: { icon: AnnouncementDetail["icon"] }) {
 function AnnouncementBanner({ announcementId }: { announcementId: string }) {
   switch (announcementId) {
     case "follow-up-tracking-2025-01":
-      return <FollowUpIllustration />;
+      return <FollowUpRemindersIllustration />;
     default:
       // Default gradient banner for any new announcements
       return (

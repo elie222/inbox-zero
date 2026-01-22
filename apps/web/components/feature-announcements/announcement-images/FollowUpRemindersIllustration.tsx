@@ -1,4 +1,4 @@
-export function FollowUpIllustration() {
+export function FollowUpRemindersIllustration() {
   return (
     <div className="relative h-44 overflow-hidden rounded-lg bg-gradient-to-br from-slate-50 to-gray-100 dark:from-slate-900 dark:to-gray-900">
       <div className="absolute inset-0 flex items-center justify-center px-6 py-6">
