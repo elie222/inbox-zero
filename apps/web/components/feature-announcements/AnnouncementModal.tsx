@@ -11,6 +11,7 @@ import {
   FileEdit,
 } from "lucide-react";
 import Link from "next/link";
+import Image from "next/image";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAction } from "next-safe-action/hooks";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -21,7 +22,6 @@ import { setAutoCategorizeAction } from "@/utils/actions/categorize";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import type { AnnouncementDetail } from "@/utils/announcements";
 import type { GetAnnouncementsResponse } from "@/app/api/user/announcements/route";
-import { FollowUpRemindersIllustration } from "./announcement-images/FollowUpRemindersIllustration";
 
 export function AnnouncementModal() {
   const { data, mutate, isLoading } = useAnnouncements();
@@ -276,7 +276,15 @@ function DetailIcon({ icon }: { icon: AnnouncementDetail["icon"] }) {
 function AnnouncementBanner({ announcementId }: { announcementId: string }) {
   switch (announcementId) {
     case "follow-up-tracking-2025-01":
-      return <FollowUpRemindersIllustration />;
+      return (
+        <Image
+          src="/images/follow-up-reminders-illustration.svg"
+          alt="Follow-up reminders illustration"
+          width={400}
+          height={176}
+          className="h-44 w-full rounded-lg object-cover"
+        />
+      );
     default:
       // Default gradient banner for any new announcements
       return (
