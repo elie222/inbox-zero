@@ -8,13 +8,10 @@ export interface Announcement {
   id: string;
   title: string;
   description: string;
-  /** In-app link for the View button (when actionType is "view") */
   link?: string;
-  /** External link for the Learn more button (blog post, guide, etc.) */
   learnMoreLink?: string;
   publishedAt: string; // ISO date string
   details?: AnnouncementDetail[];
-  /** "enable" shows Enable button, "view" shows View button. If not set, no action button shown. */
   actionType?: "enable" | "view";
 }
 
