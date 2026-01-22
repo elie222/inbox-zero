@@ -8,7 +8,7 @@ export const dismissAnnouncementModalAction = actionClientUser
   .metadata({ name: "dismissAnnouncementModal" })
   .schema(
     z.object({
-      publishedAt: z.string(),
+      publishedAt: z.string().datetime(),
     }),
   )
   .action(async ({ ctx: { userId }, parsedInput: { publishedAt } }) => {
