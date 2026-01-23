@@ -41,20 +41,36 @@ export async function sendTestEmail(
     subject: fullSubject,
   });
 
+  const sentBefore = new Date();
+
   const result = await from.emailProvider.sendEmailWithHtml({
     to: to.email,
     subject: fullSubject,
     messageHtml: `<p>${body}</p>`,
   });
 
+  let { messageId, threadId } = result;
+
+  // Outlook's Graph API doesn't return messageId for sent emails.
+  // Query Sent Items to find and verify the actual sent message.
+  if (!messageId && from.provider === "microsoft") {
+    const sentMessage = await findVerifiedSentMessage({
+      provider: from.emailProvider,
+      threadId,
+      expectedSubject: fullSubject,
+      sentAfter: sentBefore,
+    });
+    messageId = sentMessage.id;
+  }
+
   logStep("Email sent", {
-    messageId: result.messageId,
-    threadId: result.threadId,
+    messageId,
+    threadId,
   });
 
   return {
-    messageId: result.messageId,
-    threadId: result.threadId,
+    messageId,
+    threadId,
     fullSubject,
   };
 }
@@ -94,11 +110,15 @@ export async function sendTestReply(options: {
     subject: originalMessage.subject,
   });
 
+  const replySubject = originalMessage.subject?.startsWith("Re:")
+    ? originalMessage.subject
+    : `Re: ${originalMessage.subject}`;
+
+  const sentBefore = new Date();
+
   const result = await from.emailProvider.sendEmailWithHtml({
     to: to.email,
-    subject: originalMessage.subject?.startsWith("Re:")
-      ? originalMessage.subject
-      : `Re: ${originalMessage.subject}`,
+    subject: replySubject,
     messageHtml: `<p>${body}</p>`,
     replyToEmail: {
       threadId,
@@ -108,14 +128,29 @@ export async function sendTestReply(options: {
     },
   });
 
+  let { messageId } = result;
+  const { threadId: resultThreadId } = result;
+
+  // Outlook's Graph API doesn't return messageId for sent emails.
+  // Query Sent Items to find and verify the actual sent message.
+  if (!messageId && from.provider === "microsoft") {
+    const sentMessage = await findVerifiedSentMessage({
+      provider: from.emailProvider,
+      threadId: resultThreadId,
+      expectedSubject: replySubject,
+      sentAfter: sentBefore,
+    });
+    messageId = sentMessage.id;
+  }
+
   logStep("Reply sent", {
-    messageId: result.messageId,
-    threadId: result.threadId,
+    messageId,
+    threadId: resultThreadId,
   });
 
   return {
-    messageId: result.messageId,
-    threadId: result.threadId,
+    messageId,
+    threadId: resultThreadId,
     fullSubject: originalMessage.subject || "",
   };
 }
@@ -311,4 +346,56 @@ export async function cleanupTestEmails(options: {
 
   logStep("Cleanup complete", { messagesProcessed: cleaned });
   return cleaned;
+}
+
+/**
+ * Find and verify a sent message in Sent Items (Outlook workaround for E2E tests).
+ * Outlook's Graph API doesn't return the sent message ID, so we query Sent Items
+ * and verify the message matches our expectations.
+ */
+async function findVerifiedSentMessage(options: {
+  provider: EmailProvider;
+  threadId: string;
+  expectedSubject: string;
+  sentAfter: Date;
+  maxAttempts?: number;
+}): Promise<{ id: string }> {
+  const {
+    provider,
+    threadId,
+    expectedSubject,
+    sentAfter,
+    maxAttempts = 5,
+  } = options;
+
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    const sentMessages = await provider.getSentMessages(20);
+
+    const match = sentMessages.find((msg) => {
+      if (msg.threadId !== threadId) return false;
+      if (msg.subject !== expectedSubject) return false;
+
+      const msgDate = new Date(msg.internalDate || msg.date);
+      if (msgDate < sentAfter) return false;
+
+      return true;
+    });
+
+    if (match) {
+      logStep("Found verified sent message", {
+        messageId: match.id,
+        threadId: match.threadId,
+        subject: match.subject,
+        attempt: attempt + 1,
+      });
+      return { id: match.id };
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, 500));
+  }
+
+  throw new Error(
+    `Failed to find sent message after ${maxAttempts} attempts. ` +
+      `Expected threadId=${threadId}, subject="${expectedSubject}", sentAfter=${sentAfter.toISOString()}`,
+  );
 }
