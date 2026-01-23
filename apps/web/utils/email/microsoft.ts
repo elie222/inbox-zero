@@ -637,6 +637,7 @@ export class OutlookProvider implements EmailProvider {
       threadId: string;
       headerMessageId: string;
       references?: string;
+      messageId?: string;
     };
     to: string;
     cc?: string;
