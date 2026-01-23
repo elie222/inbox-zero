@@ -71,6 +71,7 @@ model User {
   lastLogin                DateTime?
   utms                     Json?
   errorMessages            Json? // eg. user set incorrect AI API key
+  announcementDismissedAt  DateTime?
 
   // survey answers (extracted from onboardingAnswers for easier querying)
   surveyFeatures     String[] // multiple choice: features user is interested in
@@ -1026,7 +1027,7 @@ model DocumentFiling {
   filename     String
 
   // Result (after filing or prediction)
-  folderId   String?  // null if AI suggests creating a new folder
+  folderId   String? // null if AI suggests creating a new folder
   folderPath String
   fileId     String?
   reasoning  String?
