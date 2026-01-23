@@ -120,7 +120,11 @@ function FilingRow({
   );
 }
 
-function FolderCell({ filing }: { filing: GetFilingsResponse["filings"][number] }) {
+function FolderCell({
+  filing,
+}: {
+  filing: GetFilingsResponse["filings"][number];
+}) {
   const isSkipped = !filing.folderPath;
 
   if (isSkipped) {

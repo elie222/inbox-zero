@@ -649,6 +649,7 @@ export class OutlookProvider implements EmailProvider {
       content: string;
       contentType: string;
     }>;
+    from?: string;
   }) {
     const result = await sendEmailWithHtml(this.client, body, this.logger);
     return {

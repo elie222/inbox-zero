@@ -4,6 +4,7 @@
   "scripts": {
     "build": "turbo build --filter=./apps/web",
     "dev": "turbo dev --filter=./apps/web",
+    "dev:clean": "turbo dev:clean --filter=./apps/web",
     "test": "turbo run test --filter=./apps/web",
     "lint": "turbo lint",
     "prepare": "husky install",
@@ -14,7 +15,10 @@
     "start:cli": "tsx packages/cli/src/main.ts start",
     "docker:local:build": "./docker/scripts/publish-ghcr.sh --local",
     "docker:local:push": "./docker/scripts/publish-ghcr.sh",
-    "docker:local:run": "./docker/scripts/run-local.sh"
+    "docker:local:run": "./docker/scripts/run-local.sh",
+    "dev:services": "docker compose -f .devcontainer/docker-compose.yml up -d db redis redis-http",
+    "dev:services:stop": "docker compose -f .devcontainer/docker-compose.yml stop db redis redis-http",
+    "dev:hybrid": "pnpm dev:services && pnpm --filter=./apps/web dev"
   },
   "devDependencies": {
     "@biomejs/biome": "2.2.2",

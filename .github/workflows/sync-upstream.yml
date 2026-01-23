@@ -1,0 +1,148 @@
+name: Sync from Upstream
+
+on:
+  schedule:
+    # Run daily at 6 AM UTC
+    - cron: '0 6 * * *'
+  workflow_dispatch:
+    inputs:
+      upstream_branch:
+        description: 'Upstream branch to sync from'
+        required: false
+        default: 'main'
+      target_branch:
+        description: 'Target branch to merge into'
+        required: false
+        default: 'release'
+
+env:
+  UPSTREAM_REPO: 'inbox-zero/inbox-zero'  # Change to actual upstream repo
+  UPSTREAM_BRANCH: ${{ github.event.inputs.upstream_branch || 'main' }}
+  TARGET_BRANCH: ${{ github.event.inputs.target_branch || 'release' }}
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TARGET_BRANCH }}
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Configure Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Add upstream remote
+        run: |
+          git remote add upstream https://github.com/${{ env.UPSTREAM_REPO }}.git || true
+          git fetch upstream ${{ env.UPSTREAM_BRANCH }}
+
+      - name: Check for changes
+        id: check
+        run: |
+          BEHIND=$(git rev-list --count HEAD..upstream/${{ env.UPSTREAM_BRANCH }})
+          echo "commits_behind=$BEHIND" >> $GITHUB_OUTPUT
+          if [ "$BEHIND" -eq 0 ]; then
+            echo "Already up to date with upstream"
+            echo "needs_sync=false" >> $GITHUB_OUTPUT
+          else
+            echo "Behind upstream by $BEHIND commits"
+            echo "needs_sync=true" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Attempt merge
+        id: merge
+        if: steps.check.outputs.needs_sync == 'true'
+        run: |
+          if git merge upstream/${{ env.UPSTREAM_BRANCH }} --no-edit; then
+            echo "merge_success=true" >> $GITHUB_OUTPUT
+            echo "Merge successful"
+          else
+            echo "merge_success=false" >> $GITHUB_OUTPUT
+            echo "Merge has conflicts"
+            git merge --abort
+          fi
+
+      - name: Push merged changes
+        if: steps.merge.outputs.merge_success == 'true'
+        run: |
+          git push origin ${{ env.TARGET_BRANCH }}
+
+      - name: Create PR for conflicts
+        if: steps.merge.outputs.merge_success == 'false'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Create a temporary branch for the merge
+          SYNC_BRANCH="sync-upstream-$(date +%Y%m%d-%H%M%S)"
+          git checkout -b "$SYNC_BRANCH"
+
+          # Attempt merge again, keeping conflict markers
+          git merge upstream/${{ env.UPSTREAM_BRANCH }} --no-commit || true
+
+          # Stage all files (including conflicts)
+          git add -A
+
+          # Commit with conflict markers
+          git commit -m "chore: sync upstream (conflicts need resolution)
+
+          This PR contains merge conflicts that need manual resolution.
+
+          Upstream: ${{ env.UPSTREAM_REPO }}@${{ env.UPSTREAM_BRANCH }}
+          Target: ${{ env.TARGET_BRANCH }}
+
+          Please resolve the conflicts and merge."
+
+          # Push the branch
+          git push origin "$SYNC_BRANCH"
+
+          # Create PR
+          gh pr create \
+            --title "Sync upstream (manual conflict resolution needed)" \
+            --body "## Upstream Sync
+
+          This PR was automatically created because the merge from upstream has conflicts.
+
+          **Source:** \`${{ env.UPSTREAM_REPO }}\` @ \`${{ env.UPSTREAM_BRANCH }}\`
+          **Target:** \`${{ env.TARGET_BRANCH }}\`
+          **Commits behind:** ${{ steps.check.outputs.commits_behind }}
+
+          ### What to do
+
+          1. Checkout this branch locally
+          2. Resolve the merge conflicts
+          3. Push the resolved changes
+          4. Merge this PR
+
+          \`\`\`bash
+          git fetch origin $SYNC_BRANCH
+          git checkout $SYNC_BRANCH
+          # Resolve conflicts in your editor
+          git add .
+          git commit -m 'chore: resolve upstream merge conflicts'
+          git push origin $SYNC_BRANCH
+          \`\`\`
+          " \
+            --base "${{ env.TARGET_BRANCH }}" \
+            --head "$SYNC_BRANCH" \
+            --label "upstream-sync"
+
+      - name: Summary
+        run: |
+          echo "## Sync Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          if [ "${{ steps.check.outputs.needs_sync }}" == "false" ]; then
+            echo "Already up to date with upstream." >> $GITHUB_STEP_SUMMARY
+          elif [ "${{ steps.merge.outputs.merge_success }}" == "true" ]; then
+            echo "Successfully merged upstream changes." >> $GITHUB_STEP_SUMMARY
+          else
+            echo "Merge conflicts detected. A PR has been created for manual resolution." >> $GITHUB_STEP_SUMMARY
+          fi

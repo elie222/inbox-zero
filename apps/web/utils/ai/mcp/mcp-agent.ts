@@ -34,7 +34,7 @@ async function runMcpAgent(
   const system = `You are a research assistant. Use your tools to search for relevant information about the email sender and topic.
 
 SEARCH FOR:
-- Sender's name, email, company in CRM/customer databases  
+- Sender's name, email, company in CRM/customer databases
 - Technical documentation if it's a technical question
 - Billing information if it's about payments/subscriptions
 - Product information if about features/services
@@ -85,7 +85,7 @@ ${getEmailListPrompt({ messages, messageMaxLength: 1000, maxMessages: 5 })}
   return {
     response: hasNoRelevantInfo ? null : result.text,
     getToolCalls: () => {
-      // Extract tool calls and results from all steps
+      // extract tool calls and results from all steps
       const allToolCallsWithResults = result.steps.flatMap((step) =>
         step.toolCalls.map((call) => {
           const toolResult = step.toolResults?.find(
@@ -112,7 +112,11 @@ export async function mcpAgent(
 
   if (!messages || messages.length === 0) return null;
 
-  const { tools, cleanup } = await createMcpToolsForAgent(emailAccount.id);
+  // pass userId to enable plugin MCP server integration
+  const { tools, cleanup } = await createMcpToolsForAgent({
+    emailAccountId: emailAccount.id,
+    userId: emailAccount.userId,
+  });
   const hasTools = Object.keys(tools).length > 0;
 
   if (!hasTools) return null;

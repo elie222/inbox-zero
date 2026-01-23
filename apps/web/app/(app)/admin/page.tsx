@@ -11,6 +11,7 @@ import { RegisterSSOModal } from "@/app/(app)/admin/RegisterSSOModal";
 import { AdminHashEmail } from "@/app/(app)/admin/AdminHashEmail";
 import { GmailUrlConverter } from "@/app/(app)/admin/GmailUrlConverter";
 import { DebugLabels } from "@/app/(app)/admin/DebugLabels";
+import { AdminPluginsLink } from "@/app/(app)/admin/AdminPluginsLink";
 import { PageWrapper } from "@/components/PageWrapper";
 import { PageHeader } from "@/components/PageHeader";
 
@@ -36,6 +37,7 @@ export default async function AdminPage() {
       <div className="space-y-8 mt-4 mb-20">
         <AdminUpgradeUserForm />
         <AdminUserControls />
+        <AdminPluginsLink />
         <AdminHashEmail />
         <GmailUrlConverter />
         <DebugLabels />

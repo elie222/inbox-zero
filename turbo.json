@@ -141,7 +141,16 @@
         "NEXT_PUBLIC_INTEGRATIONS_ENABLED",
         "NEXT_PUBLIC_SMART_FILING_ENABLED",
         "NEXT_PUBLIC_FOLLOW_UP_REMINDERS_ENABLED",
-        "NEXT_PUBLIC_CLEANER_ENABLED"
+        "NEXT_PUBLIC_CLEANER_ENABLED",
+
+        "FEATURE_PLUGINS_ENABLED",
+        "PLUGINS_USER_INSTALL_ENABLED",
+        "PLUGINS_ALLOWED_LIST",
+        "FEATURE_PLUGIN_ADMIN_UI",
+
+        "FEATURE_LLM_RATE_LIMIT",
+        "LLM_RPM_CORE",
+        "LLM_TPM_CORE"
       ],
       "outputs": [".next/**", "!.next/cache/**"]
     },
@@ -151,6 +160,10 @@
     "lint": {},
     "check-enums": {},
     "dev": {
+      "cache": false,
+      "persistent": true
+    },
+    "dev:clean": {
       "cache": false,
       "persistent": true
     },

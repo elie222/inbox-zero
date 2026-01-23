@@ -4,7 +4,7 @@ import { useLocalStorage } from "usehooks-ts";
 import { Banner } from "@/components/Banner";
 
 export function BetaBanner() {
-  const [bannerVisible, setBannerVisible] = useLocalStorage<
+  const [bannerVisible, _setBannerVisible] = useLocalStorage<
     boolean | undefined
   >("mailBetaBannerVisibile", true);
 

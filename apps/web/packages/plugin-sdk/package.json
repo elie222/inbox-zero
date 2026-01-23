@@ -1,0 +1,27 @@
+{
+  "name": "@inbox-zero/plugin-sdk",
+  "version": "0.1.0",
+  "description": "SDK for building Inbox Zero plugins",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "private": false,
+  "license": "AGPL-3.0",
+  "keywords": [
+    "inbox-zero",
+    "plugin",
+    "sdk",
+    "email",
+    "automation"
+  ],
+  "dependencies": {
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "@types/node": "24.10.1",
+    "tsconfig": "workspace:*",
+    "typescript": "5.9.3"
+  },
+  "peerDependencies": {
+    "zod": "^3.24.1"
+  }
+}

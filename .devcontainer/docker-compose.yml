@@ -7,8 +7,9 @@ services:
     command: sleep infinity
     volumes:
       - ..:/workspaces/inbox-zero:cached
-      # Named volume for node_modules to avoid host/container architecture mismatch
+      # Named volumes to avoid host/container architecture mismatch
       - node_modules:/workspaces/inbox-zero/node_modules
+      # .next uses container filesystem for faster I/O (not persisted across rebuilds)
       - pnpm-store:/pnpm/store
     environment:
       PNPM_HOME: /pnpm

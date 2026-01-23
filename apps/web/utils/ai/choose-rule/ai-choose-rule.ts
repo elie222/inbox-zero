@@ -32,21 +32,26 @@ export async function aiChooseRule<
 }> {
   if (!rules.length) return { rules: [], reason: "No rules to evaluate" };
 
-  const { result: aiResponse } = await getAiResponse({
+  // Core AI classification only.
+  // Plugin classification is now handled via capability-based routing
+  // in the plugin runtime layer, not at the rule matching level.
+  const aiResponse = await getAiResponse({
     email,
     rules,
     emailAccount,
     modelType,
   });
 
-  if (aiResponse.noMatchFound) {
+  const { result } = aiResponse;
+
+  if (result.noMatchFound) {
     return {
       rules: [],
-      reason: aiResponse.reasoning || "AI determined no rules matched",
+      reason: result.reasoning || "AI determined no rules matched",
     };
   }
 
-  const rulesWithMetadata = aiResponse.matchedRules
+  const rulesWithMetadata = result.matchedRules
     .map((match) => {
       if (!match.ruleName) return undefined;
       const rule = rules.find(
@@ -58,7 +63,7 @@ export async function aiChooseRule<
 
   return {
     rules: rulesWithMetadata,
-    reason: aiResponse.reasoning,
+    reason: result.reasoning,
   };
 }
 

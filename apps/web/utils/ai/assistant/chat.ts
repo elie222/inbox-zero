@@ -25,9 +25,17 @@ import type { MessageContext } from "@/app/api/chat/validation";
 import { stringifyEmail } from "@/utils/stringify-email";
 import { getEmailForLLM } from "@/utils/get-email-from-message";
 import type { ParsedMessage } from "@/utils/types";
+import {
+  pluginRuntime,
+  type CollectedChatContext,
+} from "@/lib/plugin-runtime/runtime";
+import { createChatToolContext } from "@/lib/plugin-runtime/context-factory";
+import { createScopedLogger } from "@/utils/logger";
 import { env } from "@/env";
 
 export const maxDuration = 120;
+
+const chatLogger = createScopedLogger("assistant-chat");
 
 // tools
 const getUserRulesAndSettingsTool = ({
@@ -672,6 +680,49 @@ export type AddToKnowledgeBaseTool = InferUITool<
   ReturnType<typeof addToKnowledgeBaseTool>
 >;
 
+// -----------------------------------------------------------------------------
+// Plugin Context Integration
+// -----------------------------------------------------------------------------
+
+/**
+ * Builds a system prompt section from collected plugin contexts.
+ * Returns empty string if no contexts are provided.
+ */
+function buildPluginContextSection(contexts: CollectedChatContext[]): string {
+  if (contexts.length === 0) {
+    return "";
+  }
+
+  const sections = contexts.map((ctx) => {
+    const parts: string[] = [];
+
+    parts.push(`### ${ctx.pluginName}`);
+
+    if (ctx.instructions) {
+      parts.push(ctx.instructions);
+    }
+
+    if (ctx.knowledge && ctx.knowledge.length > 0) {
+      parts.push("Knowledge:");
+      parts.push(...ctx.knowledge.map((k) => `- ${k}`));
+    }
+
+    if (ctx.tone) {
+      parts.push(`Tone: ${ctx.tone}`);
+    }
+
+    return parts.join("\n");
+  });
+
+  return `
+
+## Plugin Context
+
+The following context is provided by installed plugins:
+
+${sections.join("\n\n")}`;
+}
+
 export async function aiProcessAssistantChat({
   messages,
   emailAccountId,
@@ -685,8 +736,35 @@ export async function aiProcessAssistantChat({
   context?: MessageContext;
   logger: Logger;
 }) {
+  // fetch plugin contexts and tools in parallel
+  const [pluginContexts, pluginToolsMap, pluginMcpToolsMap] = await Promise.all(
+    [
+      pluginRuntime.getChatContexts(user.userId).catch((err) => {
+        chatLogger.warn("Failed to fetch plugin contexts", { error: err });
+        return [] as CollectedChatContext[];
+      }),
+      pluginRuntime.getChatTools(user.userId, emailAccountId).catch((err) => {
+        chatLogger.warn("Failed to fetch plugin tools", { error: err });
+        return new Map() as Awaited<
+          ReturnType<typeof pluginRuntime.getChatTools>
+        >;
+      }),
+      pluginRuntime.getMcpTools(user.userId, emailAccountId).catch((err) => {
+        chatLogger.warn("Failed to fetch plugin MCP tools", { error: err });
+        return new Map() as Awaited<
+          ReturnType<typeof pluginRuntime.getMcpTools>
+        >;
+      }),
+    ],
+  );
+
+  // merge chatTools and mcpTools (they're already prefixed with plugin:{id}:)
+  const allPluginToolsMap = new Map([...pluginToolsMap, ...pluginMcpToolsMap]);
+
+  const pluginContextSection = buildPluginContextSection(pluginContexts);
+
   const system = `You are an assistant that helps create and update rules to manage a user's inbox. Our platform is called Inbox Zero.
-  
+
 You can't perform any actions on their inbox.
 You can only adjust the rules that manage the inbox.
 
@@ -701,10 +779,14 @@ A condition can be:
 An action can be:
 1. Archive
 2. Label
-3. Draft a reply${env.NEXT_PUBLIC_EMAIL_SEND_ENABLED ? `
+3. Draft a reply${
+    env.NEXT_PUBLIC_EMAIL_SEND_ENABLED
+      ? `
 4. Reply
 5. Send an email
-6. Forward` : ""}
+6. Forward`
+      : ""
+  }
 7. Mark as read
 8. Mark spam
 9. Call a webhook
@@ -946,7 +1028,7 @@ Examples:
     <output>
       <update_about>
         [existing about content...]
-        
+
         - Emails where I am CC'd (not in the TO field) should not be marked as "To Reply" - they are FYI only.
       </update_about>
       <explanation>
@@ -954,7 +1036,7 @@ Examples:
       </explanation>
     </output>
   </example>
-</examples>`;
+</examples>${pluginContextSection}`;
 
   const toolOptions = {
     email: user.email,
@@ -990,6 +1072,67 @@ Examples:
         ]
       : [];
 
+  // build plugin tools in AI SDK format
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const pluginTools: Record<string, any> = {};
+
+  for (const [toolName, { pluginId, tool: pluginTool }] of allPluginToolsMap) {
+    pluginTools[toolName] = tool({
+      name: toolName,
+      description: pluginTool.description,
+      inputSchema: pluginTool.parameters,
+      execute: async (params: unknown) => {
+        chatLogger.trace("Executing plugin tool", { toolName, pluginId });
+
+        try {
+          // get the plugin manifest for context creation
+          const loadedPlugin = pluginRuntime.getPlugin(pluginId);
+          if (!loadedPlugin) {
+            throw new Error(`Plugin ${pluginId} not found`);
+          }
+
+          // create the chat tool context
+          const chatToolCtx = await createChatToolContext({
+            emailAccount: {
+              id: emailAccountId,
+              email: user.email,
+              provider: user.account.provider as "google" | "microsoft",
+              userId: user.userId,
+              user: {
+                aiProvider: user.user.aiProvider,
+                aiModel: user.user.aiModel,
+                aiApiKey: user.user.aiApiKey,
+              },
+            },
+            manifest: loadedPlugin.manifest,
+            userId: user.userId,
+            pluginId,
+          });
+
+          // execute the plugin tool
+          const result = await pluginTool.execute(params, chatToolCtx);
+
+          trackToolCall({
+            tool: toolName,
+            email: user.email,
+            logger,
+          });
+
+          return result;
+        } catch (error) {
+          chatLogger.error("Plugin tool execution failed", {
+            toolName,
+            pluginId,
+            error,
+          });
+          return {
+            error: `Tool execution failed: ${error instanceof Error ? error.message : String(error)}`,
+          };
+        }
+      },
+    });
+  }
+
   const result = chatCompletionStream({
     userAi: user.user,
     userEmail: user.email,
@@ -1016,6 +1159,7 @@ Examples:
       updateLearnedPatterns: updateLearnedPatternsTool(toolOptions),
       updateAbout: updateAboutTool(toolOptions),
       addToKnowledgeBase: addToKnowledgeBaseTool(toolOptions),
+      ...pluginTools,
     },
   });
 

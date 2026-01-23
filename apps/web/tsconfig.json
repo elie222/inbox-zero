@@ -11,6 +11,9 @@
       "@/*": [
         "./*"
       ],
+      "@inbox-zero/plugin-sdk": [
+        "./packages/plugin-sdk/src/index.ts"
+      ],
       "@next/third-parties/google": [
         "./node_modules/@next/third-parties/dist/google"
       ],

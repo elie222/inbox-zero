@@ -45,7 +45,7 @@ const cleanThreadBody = z.object({
 });
 export type CleanThreadBody = z.infer<typeof cleanThreadBody>;
 
-export async function cleanThread({
+async function cleanThread({
   emailAccountId,
   threadId,
   markedDoneLabelId,

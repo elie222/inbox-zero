@@ -42,6 +42,8 @@ export const sendEmailBody = z.object({
   subject: z.string(),
   messageHtml: z.string(),
   attachments: z.array(zodAttachment).optional(),
+  /** Optional sender address override (e.g., for plus-tag addresses like user+tag@domain.com) */
+  from: z.string().optional(),
 });
 export type SendEmailBody = z.infer<typeof sendEmailBody>;
 
@@ -126,7 +128,8 @@ export async function sendEmailWithHtml(
       .trim();
   }
 
-  const raw = await createRawMailMessage({ ...body, messageText });
+  // pass the from field through for send-as support (plus-tag addresses)
+  const raw = await createRawMailMessage({ ...body, messageText }, body.from);
   const result = await withGmailRetry(() =>
     gmail.users.messages.send({
       userId: "me",

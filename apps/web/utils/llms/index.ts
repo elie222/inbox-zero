@@ -128,6 +128,7 @@ export function createGenerateText({
             emailAccount.id,
             label,
             modelOptions.modelName,
+            modelOptions.provider,
           );
           throw backupError;
         }
@@ -140,6 +141,7 @@ export function createGenerateText({
         emailAccount.id,
         label,
         modelOptions.modelName,
+        modelOptions.provider,
       );
       throw error;
     }
@@ -224,6 +226,7 @@ export function createGenerateObject({
         emailAccount.id,
         label,
         modelOptions.modelName,
+        modelOptions.provider,
       );
       throw error;
     }
@@ -314,6 +317,7 @@ async function handleError(
   emailAccountId: string,
   label: string,
   modelName: string,
+  provider: string,
 ) {
   logger.error("Error in LLM call", {
     error,
@@ -322,6 +326,7 @@ async function handleError(
     emailAccountId,
     label,
     modelName,
+    provider,
   });
 
   if (RetryError.isInstance(error) && isAiQuotaExceededError(error)) {
@@ -330,8 +335,7 @@ async function handleError(
       userEmail,
       emailAccountId,
       errorType: ErrorType.AI_QUOTA_ERROR,
-      errorMessage:
-        "Your AI provider has rejected requests due to rate limits or quota. Please check your provider account if this persists.",
+      errorMessage: `Your AI provider (${provider}) has rejected requests due to rate limits or quota. Please check your provider account if this persists.`,
       logger,
     });
   }

@@ -23,6 +23,7 @@ import {
   MessagesSquareIcon,
   PenIcon,
   PersonStandingIcon,
+  PuzzleIcon,
   RatioIcon,
   SendIcon,
   SettingsIcon,
@@ -57,6 +58,7 @@ import {
   useCleanerEnabled,
   useIntegrationsEnabled,
   useMeetingBriefsEnabled,
+  usePluginsEnabled,
 } from "@/hooks/useFeatureFlags";
 import { ClientOnly } from "@/components/ClientOnly";
 import { AccountSwitcher } from "@/components/AccountSwitcher";
@@ -84,6 +86,7 @@ export const useNavigation = () => {
   const showCleaner = useCleanerEnabled();
   const showMeetingBriefs = useMeetingBriefsEnabled();
   const showIntegrations = useIntegrationsEnabled();
+  const showPlugins = usePluginsEnabled();
 
   const { emailAccountId, emailAccount, provider } = useAccount();
   const currentEmailAccountId = emailAccount?.id || emailAccountId;
@@ -144,6 +147,16 @@ export const useNavigation = () => {
             },
           ]
         : []),
+      ...(showPlugins
+        ? [
+            {
+              name: "Plugins",
+              href: prefixPath(currentEmailAccountId, "/plugins"),
+              icon: PuzzleIcon,
+              beta: true,
+            },
+          ]
+        : []),
       ...(showMeetingBriefs
         ? [
             {
@@ -161,6 +174,7 @@ export const useNavigation = () => {
       showMeetingBriefs,
       showIntegrations,
       showCleaner,
+      showPlugins,
     ],
   );
 

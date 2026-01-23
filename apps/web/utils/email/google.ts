@@ -817,6 +817,7 @@ export class GmailProvider implements EmailProvider {
       content: string;
       contentType: string;
     }>;
+    from?: string;
   }) {
     const result = await sendEmailWithHtml(this.client, body);
     return {
