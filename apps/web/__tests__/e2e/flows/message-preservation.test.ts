@@ -29,6 +29,7 @@ import {
   waitForMessageInInbox,
   waitForReplyInInbox,
   waitForSentMessage,
+  waitForThreadMessageCount,
 } from "./helpers/polling";
 import { logStep, clearLogs } from "./helpers/logging";
 import type { TestAccount } from "./helpers/accounts";
@@ -658,17 +659,19 @@ describe.skipIf(!shouldRunFlowTests())("Message Preservation", () => {
 
       logStep("User reply sent", { messageId: userReply.messageId });
 
-      // Wait for webhook processing (cleanup runs here)
-      await new Promise((resolve) => setTimeout(resolve, 10_000));
-
       // ========================================
       // CRITICAL: Verify all messages still exist
       // ========================================
-      logStep("Verifying all messages preserved after user reply");
+      logStep("Waiting for all messages to be indexed in thread");
 
-      const threadMessages = await outlook.emailProvider.getThreadMessages(
-        firstReceived.threadId,
-      );
+      // Use polling to wait for thread to have all 3 messages
+      // This replaces a hardcoded wait and handles Graph API indexing delays
+      const threadMessages = await waitForThreadMessageCount({
+        threadId: firstReceived.threadId,
+        provider: outlook.emailProvider,
+        minCount: 3,
+        timeout: TIMEOUTS.WEBHOOK_PROCESSING,
+      });
 
       logStep("Thread messages after user reply", {
         messageCount: threadMessages.length,

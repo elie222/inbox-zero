@@ -239,8 +239,12 @@ export async function waitForLabel(options: {
 }
 
 /**
- * Wait for the Follow-up label to be applied to a message
+ * Wait for the Follow-up label to be applied to a specific message
  * Gets the actual label ID from the provider to match against labelIds
+ *
+ * The follow-up process applies the label to the LAST message in a thread:
+ * - For AWAITING: the label is on the user's sent reply
+ * - For NEEDS_REPLY: the label is on the received message (no reply sent)
  */
 export async function waitForFollowUpLabel(options: {
   messageId: string;
@@ -262,7 +266,6 @@ export async function waitForFollowUpLabel(options: {
   await pollUntil(
     async () => {
       const message = await provider.getMessage(messageId);
-      // Check if the message has the Follow-up label by ID
       const hasLabel = message.labelIds?.includes(followUpLabel.id);
       return hasLabel ? true : null;
     },
@@ -615,6 +618,48 @@ export async function waitForThreadTracker(options: {
     {
       timeout,
       description: `ThreadTracker${type ? ` (${type})` : ""} for thread ${threadId}`,
+    },
+  );
+}
+
+/**
+ * Wait for a thread to have at least a minimum number of messages
+ *
+ * This is useful when you've sent a message and need to wait for it to
+ * be indexed by the email provider before checking thread contents.
+ * Microsoft Graph can be slow to index sent messages under conversations.
+ */
+export async function waitForThreadMessageCount(options: {
+  threadId: string;
+  provider: EmailProvider;
+  minCount: number;
+  timeout?: number;
+}): Promise<ParsedMessage[]> {
+  const {
+    threadId,
+    provider,
+    minCount,
+    timeout = TIMEOUTS.WEBHOOK_PROCESSING,
+  } = options;
+
+  logStep("Waiting for thread message count", { threadId, minCount });
+
+  return pollUntil(
+    async () => {
+      const messages = await provider.getThreadMessages(threadId);
+      logStep("Thread message count check", {
+        threadId,
+        currentCount: messages.length,
+        requiredCount: minCount,
+      });
+      if (messages.length >= minCount) {
+        return messages;
+      }
+      return null;
+    },
+    {
+      timeout,
+      description: `Thread ${threadId} to have at least ${minCount} messages`,
     },
   );
 }
