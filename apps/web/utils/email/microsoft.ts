@@ -147,6 +147,25 @@ export class OutlookProvider implements EmailProvider {
     };
   }
 
+  private async resolveCategoryWithFallback(
+    labelId: string,
+    labelName: string | null,
+  ): Promise<{ category: EmailLabel | null; usedFallback: boolean }> {
+    let category = await this.getLabelById(labelId);
+    let usedFallback = false;
+
+    if (!category && labelName) {
+      this.logger.warn("Category not found by ID, trying by name", {
+        labelId,
+        labelName,
+      });
+      category = await this.getLabelByName(labelName);
+      usedFallback = true;
+    }
+
+    return { category, usedFallback };
+  }
+
   async getMessage(messageId: string): Promise<ParsedMessage> {
     try {
       const message = await getMessage(messageId, this.client, this.logger);
@@ -419,17 +438,10 @@ export class OutlookProvider implements EmailProvider {
     labelId: string;
     labelName: string | null;
   }): Promise<{ usedFallback?: boolean; actualLabelId?: string }> {
-    let usedFallback = false;
-    let category = await this.getLabelById(labelId);
-
-    if (!category && labelName) {
-      this.logger.warn("Category not found by ID, trying to get by name", {
-        labelId,
-        labelName,
-      });
-      category = await this.getLabelByName(labelName);
-      usedFallback = true;
-    }
+    const { category, usedFallback } = await this.resolveCategoryWithFallback(
+      labelId,
+      labelName,
+    );
 
     if (!category) {
       if (!labelName) {
@@ -1147,6 +1159,58 @@ export class OutlookProvider implements EmailProvider {
     }
 
     return threads;
+  }
+
+  async getThreadsWithLabel(options: {
+    labelId: string;
+    maxResults?: number;
+  }): Promise<EmailThread[]> {
+    const { labelId, maxResults = 100 } = options;
+
+    const category = await this.getLabelById(labelId);
+    if (!category) {
+      this.logger.warn("Category not found", { labelId });
+      return [];
+    }
+
+    const categoryName = category.name;
+    if (!categoryName) {
+      this.logger.warn("Category has no name", { labelId });
+      return [];
+    }
+
+    const escapedCategoryName = escapeODataString(categoryName);
+    const filter = `categories/any(c:c eq '${escapedCategoryName}')`;
+
+    const response = await this.client
+      .getClient()
+      .api("/me/messages")
+      .filter(filter)
+      .select(MESSAGE_SELECT_FIELDS)
+      .top(maxResults)
+      .orderby("receivedDateTime DESC")
+      .get();
+
+    const messagesByThread = new Map<string, ParsedMessage[]>();
+
+    for (const message of response.value || []) {
+      if (!message.conversationId) continue;
+
+      const parsed = convertMessage(message);
+      const existing = messagesByThread.get(message.conversationId) || [];
+      existing.push(parsed);
+      messagesByThread.set(message.conversationId, existing);
+    }
+
+    return Array.from(messagesByThread.entries()).map(
+      ([threadId, messages]) => ({
+        id: threadId,
+        messages: messages.sort(
+          (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime(),
+        ),
+        snippet: messages[0]?.snippet || "",
+      }),
+    );
   }
 
   async getDrafts(options?: { maxResults?: number }): Promise<ParsedMessage[]> {

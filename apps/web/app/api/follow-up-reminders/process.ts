@@ -194,14 +194,14 @@ async function processFollowUpsForType({
 }) {
   if (thresholdDays === null) return;
 
-  let labelInfo = dbLabels[systemType as keyof LabelIds];
+  const dbLabelInfo = dbLabels[systemType as keyof LabelIds];
   const providerLabelIds = new Set(providerLabels.map((l) => l.id));
 
-  if (labelInfo?.labelId && !providerLabelIds.has(labelInfo.labelId)) {
-    labelInfo = { labelId: null, label: null };
-  }
+  let labelId: string;
 
-  if (!labelInfo?.labelId) {
+  if (dbLabelInfo?.labelId && providerLabelIds.has(dbLabelInfo.labelId)) {
+    labelId = dbLabelInfo.labelId;
+  } else {
     const found = providerLabels.find(
       (l) => l.name === getRuleLabel(systemType),
     );
@@ -209,11 +209,11 @@ async function processFollowUpsForType({
       logger.info("Label not found, skipping", { systemType });
       return;
     }
-    labelInfo = { labelId: found.id, label: found.name };
+    labelId = found.id;
   }
 
-  const { threads } = await provider.getThreadsWithQuery({
-    query: { labelId: labelInfo.labelId },
+  const threads = await provider.getThreadsWithLabel({
+    labelId,
     maxResults: 100,
   });
 

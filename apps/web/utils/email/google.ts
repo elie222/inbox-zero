@@ -1101,6 +1101,17 @@ export class GmailProvider implements EmailProvider {
       }));
   }
 
+  async getThreadsWithLabel(options: {
+    labelId: string;
+    maxResults?: number;
+  }): Promise<EmailThread[]> {
+    const { threads } = await this.getThreadsWithQuery({
+      query: { labelId: options.labelId },
+      maxResults: options.maxResults,
+    });
+    return threads;
+  }
+
   async getDrafts(options?: { maxResults?: number }): Promise<ParsedMessage[]> {
     const response = await this.client.users.drafts.list({
       userId: "me",
