@@ -239,21 +239,30 @@ export async function waitForLabel(options: {
 }
 
 /**
- * Wait for the Follow-up label to be applied to a message
+ * Wait for the Follow-up label to be applied to a message or any message in a thread
  * Gets the actual label ID from the provider to match against labelIds
+ *
+ * Use `threadId` when the Follow-up label may be on a different message than the one
+ * you have a reference to (e.g., for AWAITING tests where label is on the reply).
  */
 export async function waitForFollowUpLabel(options: {
-  messageId: string;
+  messageId?: string;
+  threadId?: string;
   provider: EmailProvider;
   timeout?: number;
 }): Promise<void> {
   const {
     messageId,
+    threadId,
     provider,
     timeout = TIMEOUTS.WEBHOOK_PROCESSING,
   } = options;
 
-  logStep("Waiting for Follow-up label", { messageId });
+  if (!messageId && !threadId) {
+    throw new Error("Either messageId or threadId must be provided");
+  }
+
+  logStep("Waiting for Follow-up label", { messageId, threadId });
 
   // Get the actual Follow-up label ID from the provider
   const followUpLabel = await getOrCreateFollowUpLabel(provider);
@@ -261,14 +270,28 @@ export async function waitForFollowUpLabel(options: {
 
   await pollUntil(
     async () => {
-      const message = await provider.getMessage(messageId);
-      // Check if the message has the Follow-up label by ID
-      const hasLabel = message.labelIds?.includes(followUpLabel.id);
-      return hasLabel ? true : null;
+      if (threadId) {
+        // Check any message in the thread
+        const thread = await provider.getThread(threadId);
+        const messages = thread.messages;
+        if (!messages?.length) return null;
+        const hasLabel = messages.some((msg) =>
+          msg.labelIds?.includes(followUpLabel.id),
+        );
+        return hasLabel ? true : null;
+      } else if (messageId) {
+        // Check specific message
+        const message = await provider.getMessage(messageId);
+        const hasLabel = message.labelIds?.includes(followUpLabel.id);
+        return hasLabel ? true : null;
+      }
+      return null;
     },
     {
       timeout,
-      description: `Follow-up label on message ${messageId}`,
+      description: threadId
+        ? `Follow-up label on any message in thread ${threadId}`
+        : `Follow-up label on message ${messageId}`,
     },
   );
 }
@@ -615,6 +638,48 @@ export async function waitForThreadTracker(options: {
     {
       timeout,
       description: `ThreadTracker${type ? ` (${type})` : ""} for thread ${threadId}`,
+    },
+  );
+}
+
+/**
+ * Wait for a thread to have at least a minimum number of messages
+ *
+ * This is useful when you've sent a message and need to wait for it to
+ * be indexed by the email provider before checking thread contents.
+ * Microsoft Graph can be slow to index sent messages under conversations.
+ */
+export async function waitForThreadMessageCount(options: {
+  threadId: string;
+  provider: EmailProvider;
+  minCount: number;
+  timeout?: number;
+}): Promise<ParsedMessage[]> {
+  const {
+    threadId,
+    provider,
+    minCount,
+    timeout = TIMEOUTS.WEBHOOK_PROCESSING,
+  } = options;
+
+  logStep("Waiting for thread message count", { threadId, minCount });
+
+  return pollUntil(
+    async () => {
+      const messages = await provider.getThreadMessages(threadId);
+      logStep("Thread message count check", {
+        threadId,
+        currentCount: messages.length,
+        requiredCount: minCount,
+      });
+      if (messages.length >= minCount) {
+        return messages;
+      }
+      return null;
+    },
+    {
+      timeout,
+      description: `Thread ${threadId} to have at least ${minCount} messages`,
     },
   );
 }

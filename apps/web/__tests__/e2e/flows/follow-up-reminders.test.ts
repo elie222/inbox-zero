@@ -270,7 +270,7 @@ describe.skipIf(!shouldRunFlowTests())("Follow-up Reminders", () => {
         logStep("Step 6: Verifying Follow-up label");
 
         await waitForFollowUpLabel({
-          messageId: receivedMessage.messageId,
+          threadId: receivedMessage.threadId,
           provider: gmail.emailProvider,
           timeout: TIMEOUTS.WEBHOOK_PROCESSING,
         });
@@ -392,7 +392,7 @@ describe.skipIf(!shouldRunFlowTests())("Follow-up Reminders", () => {
         logStep("Step 6: Verifying Follow-up label");
 
         await waitForFollowUpLabel({
-          messageId: receivedMessage.messageId,
+          threadId: receivedMessage.threadId,
           provider: gmail.emailProvider,
           timeout: TIMEOUTS.WEBHOOK_PROCESSING,
         });
@@ -500,7 +500,7 @@ describe.skipIf(!shouldRunFlowTests())("Follow-up Reminders", () => {
         logStep("Step 5: Verifying Follow-up label");
 
         await waitForFollowUpLabel({
-          messageId: receivedMessage.messageId,
+          threadId: receivedMessage.threadId,
           provider: gmail.emailProvider,
           timeout: TIMEOUTS.WEBHOOK_PROCESSING,
         });
@@ -627,7 +627,7 @@ describe.skipIf(!shouldRunFlowTests())("Follow-up Reminders", () => {
         logStep("Step 6: Verifying Follow-up label");
 
         await waitForFollowUpLabel({
-          messageId: receivedMessage.messageId,
+          threadId: receivedMessage.threadId,
           provider: outlook.emailProvider,
           timeout: TIMEOUTS.WEBHOOK_PROCESSING,
         });
@@ -746,7 +746,7 @@ describe.skipIf(!shouldRunFlowTests())("Follow-up Reminders", () => {
         logStep("Step 6: Verifying Follow-up label");
 
         await waitForFollowUpLabel({
-          messageId: receivedMessage.messageId,
+          threadId: receivedMessage.threadId,
           provider: outlook.emailProvider,
           timeout: TIMEOUTS.WEBHOOK_PROCESSING,
         });
@@ -854,7 +854,7 @@ describe.skipIf(!shouldRunFlowTests())("Follow-up Reminders", () => {
         logStep("Step 5: Verifying Follow-up label");
 
         await waitForFollowUpLabel({
-          messageId: receivedMessage.messageId,
+          threadId: receivedMessage.threadId,
           provider: outlook.emailProvider,
           timeout: TIMEOUTS.WEBHOOK_PROCESSING,
         });
