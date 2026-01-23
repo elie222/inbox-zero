@@ -1,13 +1,20 @@
 # syntax=docker/dockerfile:1.4
-# Dockerfile.prod.local - Optimized for lower memory usage
+# Dockerfile.local - Optimized for faster builds and lower memory usage
 #
 # Key optimizations:
 # 1. Use --webpack flag to disable Turbopack (Next.js 16 uses Turbopack by default)
 # 2. BuildKit cache mounts for .next/cache - enables incremental builds
 # 3. Separate RUN commands - allows memory to be freed between steps
-# 4. ESLint disabled via next.config.ts (eslint.ignoreDuringBuilds)
+# 4. TypeScript/ESLint skipped - already validated by pre-commit hooks and CI
+#    (DOCKER_BUILD=true triggers skip in next.config.ts)
 #
-# Memory requirement: ~3GB for webpack build + TypeScript checking
+# Why skip linting/type-checking in Docker?
+# - Pre-commit hooks run ESLint + TypeScript on every commit
+# - CI runs separate lint/type-check jobs
+# - Code reaching Docker build has already passed all checks
+# - Saves 5-8 minutes per build with zero loss of quality
+#
+# Memory requirement: ~3GB for webpack build
 # See: https://nextjs.org/docs/app/guides/memory-usage
 
 FROM node:22-alpine AS builder

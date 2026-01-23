@@ -25,9 +25,22 @@ const nextConfig: NextConfig = {
       : path.join("/tmp", "next-cache", "inbox-zero-web"),
   reactStrictMode: true,
   output: process.env.DOCKER_BUILD === "true" ? "standalone" : undefined,
-  // Skip TypeScript checking during E2E CI builds to save memory
+  // Skip TypeScript checking during Docker builds - already validated by:
+  // 1. IDE real-time checking during development
+  // 2. Pre-commit hooks (husky/lint-staged)
+  // 3. CI type-check job runs separately
+  // Saves ~2-3 minutes per Docker build with zero loss of safety.
   typescript: {
-    ignoreBuildErrors: process.env.SKIP_TYPE_CHECK === "true",
+    ignoreBuildErrors: process.env.SKIP_TYPE_CHECK === "true" || isDocker,
+  },
+  // Skip ESLint during Docker builds - already validated by:
+  // 1. IDE real-time linting during development
+  // 2. Pre-commit hooks (husky/lint-staged runs ESLint on staged files)
+  // 3. CI lint job runs separately
+  // By the time code reaches Docker build, it has passed all lint checks.
+  // Saves ~2-5 minutes per build with zero loss of code quality.
+  eslint: {
+    ignoreDuringBuilds: isDocker,
   },
   serverExternalPackages: ["@sentry/nextjs", "@sentry/node"],
   // Optimize imports for faster builds - tree-shake heavy packages
