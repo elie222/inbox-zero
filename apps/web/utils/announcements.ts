@@ -1,4 +1,4 @@
-import { env } from "@/env";
+// import { env } from "@/env";
 
 export interface AnnouncementDetail {
   title: string;
@@ -19,29 +19,29 @@ export interface Announcement {
 }
 
 export const ANNOUNCEMENTS: Announcement[] = [
-  {
-    id: "follow-up-tracking-2025-01",
-    title: "Follow-up Reminders",
-    description:
-      "Track replies and get reminded about unanswered emails. Never let an important email slip through the cracks.",
-    image: "/images/announcements/follow-up-reminders-illustration.svg",
-    link: "/automation?tab=settings",
-    learnMoreLink: "/#",
-    publishedAt: "2026-01-15T00:00:00Z",
-    enabled: env.NEXT_PUBLIC_FOLLOW_UP_REMINDERS_ENABLED ?? false,
-    details: [
-      {
-        title: "Automatic follow-up labels",
-        description: "Labels threads after 3 days with no response.",
-        icon: "Tag",
-      },
-      {
-        title: "Auto-generated drafts",
-        description: "Creates a draft to nudge unresponsive contacts.",
-        icon: "FileEdit",
-      },
-    ],
-  },
+  // {
+  //   id: "follow-up-tracking-2025-01",
+  //   title: "Follow-up Reminders",
+  //   description:
+  //     "Track replies and get reminded about unanswered emails. Never let an important email slip through the cracks.",
+  //   image: "/images/announcements/follow-up-reminders-illustration.svg",
+  //   link: "/automation?tab=settings",
+  //   learnMoreLink: "/#",
+  //   publishedAt: "2026-01-15T00:00:00Z",
+  //   enabled: env.NEXT_PUBLIC_FOLLOW_UP_REMINDERS_ENABLED ?? false,
+  //   details: [
+  //     {
+  //       title: "Automatic follow-up labels",
+  //       description: "Labels threads after 3 days with no response.",
+  //       icon: "Tag",
+  //     },
+  //     {
+  //       title: "Auto-generated drafts",
+  //       description: "Creates a draft to nudge unresponsive contacts.",
+  //       icon: "FileEdit",
+  //     },
+  //   ],
+  // },
 ];
 
 // Get all announcements sorted by newest first. Filters by enabled property.
