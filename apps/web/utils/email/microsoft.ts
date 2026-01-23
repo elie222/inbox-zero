@@ -1315,8 +1315,28 @@ export class OutlookProvider implements EmailProvider {
           "(parentFolderId eq 'inbox' or parentFolderId eq 'archive')",
         );
       } else if (labelId) {
-        // Use labelId as parentFolderId (should be lowercase for Outlook)
-        filters.push(`parentFolderId eq '${labelId.toLowerCase()}'`);
+        // Determine if labelId is a folder ID or a category name
+        // Folder IDs are: well-known names (inbox, sentitems, etc.) or GUIDs starting with "AAM"
+        // Category names are human-readable strings (e.g., "Awaiting reply")
+        const wellKnownFolders = [
+          "inbox",
+          "sentitems",
+          "drafts",
+          "archive",
+          "deleteditems",
+          "junkemail",
+        ];
+        const labelLower = labelId.toLowerCase();
+        const isWellKnownFolder = wellKnownFolders.includes(labelLower);
+        const isFolderGuid = labelId.startsWith("AAM");
+
+        if (isWellKnownFolder || isFolderGuid) {
+          filters.push(`parentFolderId eq '${labelLower}'`);
+        } else {
+          // Treat as a category name and filter by category
+          const escapedCategory = escapeODataString(labelId);
+          filters.push(`categories/any(c:c eq '${escapedCategory}')`);
+        }
       } else {
         // Default to inbox only
         filters.push("parentFolderId eq 'inbox'");
