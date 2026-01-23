@@ -239,30 +239,25 @@ export async function waitForLabel(options: {
 }
 
 /**
- * Wait for the Follow-up label to be applied to a message or any message in a thread
+ * Wait for the Follow-up label to be applied to a specific message
  * Gets the actual label ID from the provider to match against labelIds
  *
- * Use `threadId` when the Follow-up label may be on a different message than the one
- * you have a reference to (e.g., for AWAITING tests where label is on the reply).
+ * The follow-up process applies the label to the LAST message in a thread:
+ * - For AWAITING: the label is on the user's sent reply
+ * - For NEEDS_REPLY: the label is on the received message (no reply sent)
  */
 export async function waitForFollowUpLabel(options: {
-  messageId?: string;
-  threadId?: string;
+  messageId: string;
   provider: EmailProvider;
   timeout?: number;
 }): Promise<void> {
   const {
     messageId,
-    threadId,
     provider,
     timeout = TIMEOUTS.WEBHOOK_PROCESSING,
   } = options;
 
-  if (!messageId && !threadId) {
-    throw new Error("Either messageId or threadId must be provided");
-  }
-
-  logStep("Waiting for Follow-up label", { messageId, threadId });
+  logStep("Waiting for Follow-up label", { messageId });
 
   // Get the actual Follow-up label ID from the provider
   const followUpLabel = await getOrCreateFollowUpLabel(provider);
@@ -270,28 +265,13 @@ export async function waitForFollowUpLabel(options: {
 
   await pollUntil(
     async () => {
-      if (threadId) {
-        // Check any message in the thread
-        const thread = await provider.getThread(threadId);
-        const messages = thread.messages;
-        if (!messages?.length) return null;
-        const hasLabel = messages.some((msg) =>
-          msg.labelIds?.includes(followUpLabel.id),
-        );
-        return hasLabel ? true : null;
-      } else if (messageId) {
-        // Check specific message
-        const message = await provider.getMessage(messageId);
-        const hasLabel = message.labelIds?.includes(followUpLabel.id);
-        return hasLabel ? true : null;
-      }
-      return null;
+      const message = await provider.getMessage(messageId);
+      const hasLabel = message.labelIds?.includes(followUpLabel.id);
+      return hasLabel ? true : null;
     },
     {
       timeout,
-      description: threadId
-        ? `Follow-up label on any message in thread ${threadId}`
-        : `Follow-up label on message ${messageId}`,
+      description: `Follow-up label on message ${messageId}`,
     },
   );
 }

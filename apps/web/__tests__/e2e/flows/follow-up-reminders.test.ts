@@ -211,13 +211,15 @@ describe.skipIf(!shouldRunFlowTests())("Follow-up Reminders", () => {
         // ========================================
         logStep("Step 2: Gmail sends reply (triggers AWAITING tracker)");
 
-        await sendTestReply({
+        const gmailReply = await sendTestReply({
           from: gmail,
           to: outlook,
           threadId: receivedMessage.threadId,
           originalMessageId: receivedMessage.messageId,
           body: "Thanks! Can you please confirm you received this and let me know if you need anything else?",
         });
+
+        logStep("Gmail reply sent", { messageId: gmailReply.messageId });
 
         // ========================================
         // Step 3: Wait for ThreadTracker to be created by real E2E flow
@@ -267,15 +269,18 @@ describe.skipIf(!shouldRunFlowTests())("Follow-up Reminders", () => {
         // ========================================
         // Step 6: Assert label was applied
         // ========================================
-        logStep("Step 6: Verifying Follow-up label");
+        logStep(
+          "Step 6: Verifying Follow-up label on last message (Gmail's reply)",
+        );
 
+        // The label is applied to the LAST message in the thread (Gmail's reply)
         await waitForFollowUpLabel({
-          threadId: receivedMessage.threadId,
+          messageId: gmailReply.messageId,
           provider: gmail.emailProvider,
           timeout: TIMEOUTS.WEBHOOK_PROCESSING,
         });
 
-        logStep("Follow-up label verified");
+        logStep("Follow-up label verified on Gmail reply");
 
         // ========================================
         // Step 7: Assert draft was created
@@ -340,13 +345,15 @@ describe.skipIf(!shouldRunFlowTests())("Follow-up Reminders", () => {
         // ========================================
         logStep("Step 2: Gmail sends reply (triggers AWAITING tracker)");
 
-        await sendTestReply({
+        const gmailReply = await sendTestReply({
           from: gmail,
           to: outlook,
           threadId: receivedMessage.threadId,
           originalMessageId: receivedMessage.messageId,
           body: "Got it, can you please send me the final numbers when you have them?",
         });
+
+        logStep("Gmail reply sent", { messageId: gmailReply.messageId });
 
         // ========================================
         // Step 3: Wait for ThreadTracker creation
@@ -387,12 +394,12 @@ describe.skipIf(!shouldRunFlowTests())("Follow-up Reminders", () => {
         });
 
         // ========================================
-        // Step 6: Verify Follow-up label
+        // Step 6: Verify Follow-up label on last message (Gmail's reply)
         // ========================================
-        logStep("Step 6: Verifying Follow-up label");
+        logStep("Step 6: Verifying Follow-up label on last message");
 
         await waitForFollowUpLabel({
-          threadId: receivedMessage.threadId,
+          messageId: gmailReply.messageId,
           provider: gmail.emailProvider,
           timeout: TIMEOUTS.WEBHOOK_PROCESSING,
         });
@@ -495,12 +502,13 @@ describe.skipIf(!shouldRunFlowTests())("Follow-up Reminders", () => {
         });
 
         // ========================================
-        // Step 5: Verify Follow-up label
+        // Step 5: Verify Follow-up label on received message (last in thread)
         // ========================================
-        logStep("Step 5: Verifying Follow-up label");
+        logStep("Step 5: Verifying Follow-up label on received message");
 
+        // For NEEDS_REPLY, there's no reply sent, so received message IS the last message
         await waitForFollowUpLabel({
-          threadId: receivedMessage.threadId,
+          messageId: receivedMessage.messageId,
           provider: gmail.emailProvider,
           timeout: TIMEOUTS.WEBHOOK_PROCESSING,
         });
@@ -570,13 +578,15 @@ describe.skipIf(!shouldRunFlowTests())("Follow-up Reminders", () => {
         // ========================================
         logStep("Step 2: Outlook sends reply (triggers AWAITING tracker)");
 
-        await sendTestReply({
+        const outlookReply = await sendTestReply({
           from: outlook,
           to: gmail,
           threadId: receivedMessage.threadId,
           originalMessageId: receivedMessage.messageId,
           body: "Thanks! Can you please confirm you received this and let me know if you need anything else?",
         });
+
+        logStep("Outlook reply sent", { messageId: outlookReply.messageId });
 
         // ========================================
         // Step 3: Wait for ThreadTracker creation
@@ -622,12 +632,12 @@ describe.skipIf(!shouldRunFlowTests())("Follow-up Reminders", () => {
         });
 
         // ========================================
-        // Step 6: Verify Follow-up label
+        // Step 6: Verify Follow-up label on last message (Outlook's reply)
         // ========================================
-        logStep("Step 6: Verifying Follow-up label");
+        logStep("Step 6: Verifying Follow-up label on last message");
 
         await waitForFollowUpLabel({
-          threadId: receivedMessage.threadId,
+          messageId: outlookReply.messageId,
           provider: outlook.emailProvider,
           timeout: TIMEOUTS.WEBHOOK_PROCESSING,
         });
@@ -694,13 +704,15 @@ describe.skipIf(!shouldRunFlowTests())("Follow-up Reminders", () => {
         // ========================================
         logStep("Step 2: Outlook sends reply (triggers AWAITING tracker)");
 
-        await sendTestReply({
+        const outlookReply = await sendTestReply({
           from: outlook,
           to: gmail,
           threadId: receivedMessage.threadId,
           originalMessageId: receivedMessage.messageId,
           body: "Got it, can you please send me the final numbers when you have them?",
         });
+
+        logStep("Outlook reply sent", { messageId: outlookReply.messageId });
 
         // ========================================
         // Step 3: Wait for ThreadTracker creation
@@ -741,12 +753,12 @@ describe.skipIf(!shouldRunFlowTests())("Follow-up Reminders", () => {
         });
 
         // ========================================
-        // Step 6: Verify Follow-up label
+        // Step 6: Verify Follow-up label on last message (Outlook's reply)
         // ========================================
-        logStep("Step 6: Verifying Follow-up label");
+        logStep("Step 6: Verifying Follow-up label on last message");
 
         await waitForFollowUpLabel({
-          threadId: receivedMessage.threadId,
+          messageId: outlookReply.messageId,
           provider: outlook.emailProvider,
           timeout: TIMEOUTS.WEBHOOK_PROCESSING,
         });
@@ -849,12 +861,13 @@ describe.skipIf(!shouldRunFlowTests())("Follow-up Reminders", () => {
         });
 
         // ========================================
-        // Step 5: Verify Follow-up label
+        // Step 5: Verify Follow-up label on received message (last in thread)
         // ========================================
-        logStep("Step 5: Verifying Follow-up label");
+        logStep("Step 5: Verifying Follow-up label on received message");
 
+        // For NEEDS_REPLY, there's no reply sent, so received message IS the last message
         await waitForFollowUpLabel({
-          threadId: receivedMessage.threadId,
+          messageId: receivedMessage.messageId,
           provider: outlook.emailProvider,
           timeout: TIMEOUTS.WEBHOOK_PROCESSING,
         });
