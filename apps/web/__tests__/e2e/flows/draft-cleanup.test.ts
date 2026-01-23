@@ -552,4 +552,226 @@ describe.skipIf(!shouldRunFlowTests())("Draft Cleanup", () => {
     },
     TIMEOUTS.FULL_CYCLE,
   );
+
+  // ============================================================
+  // Gmail as Receiver Tests
+  // ============================================================
+
+  test(
+    "should delete AI draft when user sends manual reply (Gmail receiver)",
+    async () => {
+      testStartTime = Date.now();
+      const scenario = TEST_EMAIL_SCENARIOS.NEEDS_REPLY;
+
+      // ========================================
+      // Step 1: Send email from Outlook to Gmail
+      // ========================================
+      logStep("Step 1: Sending email that needs reply (to Gmail)");
+
+      const sentEmail = await sendTestEmail({
+        from: outlook,
+        to: gmail,
+        subject: scenario.subject,
+        body: scenario.body,
+      });
+
+      const receivedMessage = await waitForMessageInInbox({
+        provider: gmail.emailProvider,
+        subjectContains: sentEmail.fullSubject,
+        timeout: TIMEOUTS.EMAIL_DELIVERY,
+      });
+
+      logStep("Email received in Gmail", {
+        messageId: receivedMessage.messageId,
+        threadId: receivedMessage.threadId,
+      });
+
+      // ========================================
+      // Step 2: Wait for AI draft to be created
+      // ========================================
+      logStep("Step 2: Waiting for AI draft creation", {
+        threadId: receivedMessage.threadId,
+      });
+
+      const executedRule = await waitForExecutedRule({
+        threadId: receivedMessage.threadId,
+        emailAccountId: gmail.id,
+        timeout: TIMEOUTS.WEBHOOK_PROCESSING,
+      });
+
+      logStep("ExecutedRule found", {
+        executedRuleId: executedRule.id,
+        executedRuleMessageId: executedRule.messageId,
+        inboxMessageId: receivedMessage.messageId,
+        messageIdMatch: executedRule.messageId === receivedMessage.messageId,
+        status: executedRule.status,
+        actionItems: executedRule.actionItems.length,
+      });
+
+      const draftAction = executedRule.actionItems.find(
+        (a) => a.type === "DRAFT_EMAIL" && a.draftId,
+      );
+
+      expect(draftAction).toBeDefined();
+      expect(draftAction?.draftId).toBeTruthy();
+      const aiDraftId = draftAction!.draftId!;
+
+      logStep("AI draft created", { draftId: aiDraftId });
+
+      // Verify draft exists
+      const aiDraft = await gmail.emailProvider.getDraft(aiDraftId);
+      expect(aiDraft).toBeDefined();
+
+      // ========================================
+      // Step 3: User sends their own reply (NOT the AI draft)
+      // ========================================
+      logStep("Step 3: User sends manual reply (not the AI draft)");
+
+      const manualReply = await sendTestReply({
+        from: gmail,
+        to: outlook,
+        threadId: receivedMessage.threadId,
+        originalMessageId: receivedMessage.messageId,
+        body: "This is my own manually written response, not the AI draft.",
+      });
+
+      logStep("Manual reply sent", {
+        messageId: manualReply.messageId,
+        threadId: manualReply.threadId,
+      });
+
+      // ========================================
+      // Step 4: Verify AI draft is deleted
+      // ========================================
+      logStep("Step 4: Verifying AI draft is deleted");
+
+      await waitForDraftDeleted({
+        draftId: aiDraftId,
+        provider: gmail.emailProvider,
+        timeout: TIMEOUTS.WEBHOOK_PROCESSING,
+      });
+
+      logStep("AI draft successfully deleted");
+
+      // ========================================
+      // Step 5: Verify DraftSendLog records the event
+      // ========================================
+      logStep("Step 5: Verifying DraftSendLog");
+
+      const draftSendLog = await waitForDraftSendLog({
+        threadId: receivedMessage.threadId,
+        emailAccountId: gmail.id,
+        timeout: TIMEOUTS.WEBHOOK_PROCESSING,
+      });
+
+      expect(draftSendLog).toBeDefined();
+      expect(draftSendLog.similarityScore).toBeLessThan(0.9);
+
+      logStep("DraftSendLog recorded", {
+        similarityScore: draftSendLog.similarityScore,
+        wasSentFromDraft: draftSendLog.wasSentFromDraft,
+      });
+    },
+    TIMEOUTS.FULL_CYCLE,
+  );
+
+  test(
+    "should record DraftSendLog when AI draft is sent (Gmail receiver)",
+    async () => {
+      testStartTime = Date.now();
+      const scenario = TEST_EMAIL_SCENARIOS.QUESTION;
+
+      // ========================================
+      // Send email and wait for draft
+      // ========================================
+      logStep("Sending email and waiting for draft (to Gmail)");
+
+      const sentEmail = await sendTestEmail({
+        from: outlook,
+        to: gmail,
+        subject: scenario.subject,
+        body: scenario.body,
+      });
+
+      const receivedMessage = await waitForMessageInInbox({
+        provider: gmail.emailProvider,
+        subjectContains: sentEmail.fullSubject,
+        timeout: TIMEOUTS.EMAIL_DELIVERY,
+      });
+
+      logStep("Email received in Gmail", {
+        messageId: receivedMessage.messageId,
+        threadId: receivedMessage.threadId,
+      });
+
+      logStep("Waiting for rule execution", {
+        threadId: receivedMessage.threadId,
+      });
+
+      const executedRule = await waitForExecutedRule({
+        threadId: receivedMessage.threadId,
+        emailAccountId: gmail.id,
+        timeout: TIMEOUTS.WEBHOOK_PROCESSING,
+      });
+
+      logStep("ExecutedRule found", {
+        executedRuleId: executedRule.id,
+        executedRuleMessageId: executedRule.messageId,
+        inboxMessageId: receivedMessage.messageId,
+        messageIdMatch: executedRule.messageId === receivedMessage.messageId,
+        status: executedRule.status,
+        actionItems: executedRule.actionItems.length,
+      });
+
+      const draftAction = executedRule.actionItems.find(
+        (a) => a.type === "DRAFT_EMAIL" && a.draftId,
+      );
+
+      expect(draftAction?.draftId).toBeTruthy();
+
+      const aiDraftId = draftAction!.draftId!;
+      logStep("AI draft created", { draftId: aiDraftId });
+
+      // ========================================
+      // Get draft content and "send" it
+      // ========================================
+      logStep("Fetching and sending AI draft");
+
+      const draft = await gmail.emailProvider.getDraft(aiDraftId);
+      expect(draft).toBeDefined();
+
+      const sentDraft = await sendTestReply({
+        from: gmail,
+        to: outlook,
+        threadId: receivedMessage.threadId,
+        originalMessageId: receivedMessage.messageId,
+        body: draft?.textPlain || "Draft content",
+      });
+
+      logStep("Draft sent", { messageId: sentDraft.messageId });
+
+      // ========================================
+      // Verify DraftSendLog
+      // ========================================
+      logStep("Verifying DraftSendLog records draft was sent");
+
+      const draftSendLog = await waitForDraftSendLog({
+        threadId: receivedMessage.threadId,
+        emailAccountId: gmail.id,
+        timeout: TIMEOUTS.WEBHOOK_PROCESSING,
+      });
+
+      expect(draftSendLog).toBeDefined();
+      expect(draftSendLog.similarityScore).toBeGreaterThanOrEqual(0.9);
+
+      logStep("DraftSendLog recorded", {
+        id: draftSendLog.id,
+        similarityScore: draftSendLog.similarityScore,
+        wasSentFromDraft: draftSendLog.wasSentFromDraft,
+        draftId: draftSendLog.draftId,
+        sentMessageId: draftSendLog.sentMessageId,
+      });
+    },
+    TIMEOUTS.FULL_CYCLE,
+  );
 });

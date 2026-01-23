@@ -1,0 +1,8 @@
+{
+  "rewrites": [
+    {
+      "source": "/tools/:path*",
+      "destination": "https://mini-apps-cyan.vercel.app/tools/:path*"
+    }
+  ]
+}

@@ -24,6 +24,7 @@ export interface FilingResult {
   success: boolean;
   skipped?: boolean;
   skipReason?: string;
+  filingId?: string; // Available for both filed and skipped items (for feedback)
   filing?: {
     id: string;
     filename: string;
@@ -163,10 +164,29 @@ export async function processAttachment({
     // Step 5: Handle skip action
     if (analysis.action === "skip") {
       log.info("AI decided to skip this document");
+
+      // Create a DocumentFiling record for skipped items (for audit trail and feedback)
+      const skipFiling = await prisma.documentFiling.create({
+        data: {
+          messageId: message.id,
+          attachmentId: attachment.attachmentId,
+          filename: attachment.filename,
+          folderPath: "",
+          status: "PREVIEW", // PREVIEW = AI decided to skip (not user rejection)
+          reasoning: analysis.reasoning,
+          confidence: analysis.confidence,
+          driveConnectionId: driveConnections[0].id,
+          emailAccountId: emailAccount.id,
+        },
+      });
+
+      log.info("Skip record created", { filingId: skipFiling.id });
+
       return {
         success: false,
         skipped: true,
         skipReason: analysis.reasoning,
+        filingId: skipFiling.id,
       };
     }
 

@@ -18,6 +18,7 @@ import { useEmailAccountFull } from "@/hooks/useEmailAccountFull";
 import { useAction } from "next-safe-action/hooks";
 import { toggleDigestAction } from "@/utils/actions/settings";
 import { toastError } from "@/components/Toast";
+import { createCanonicalTimeOfDay } from "@/utils/schedule";
 
 export function DigestSetting() {
   const [open, setOpen] = useState(false);
@@ -46,7 +47,10 @@ export function DigestSetting() {
         digestSchedule: enable ? {} : null,
       };
       mutate(optimisticData as typeof data, false);
-      executeToggle({ enabled: enable });
+      executeToggle({
+        enabled: enable,
+        timeOfDay: enable ? createCanonicalTimeOfDay(9, 0) : undefined,
+      });
     },
     [data, mutate, executeToggle],
   );

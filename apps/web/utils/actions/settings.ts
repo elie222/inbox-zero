@@ -155,47 +155,49 @@ export const updateDigestItemsAction = actionClient
 export const toggleDigestAction = actionClient
   .metadata({ name: "toggleDigest" })
   .inputSchema(toggleDigestBody)
-  .action(async ({ ctx: { emailAccountId }, parsedInput: { enabled } }) => {
-    if (enabled) {
-      const defaultSchedule = {
-        intervalDays: 1,
-        occurrences: 1,
-        daysOfWeek: 127,
-        timeOfDay: createCanonicalTimeOfDay(9, 0),
-      };
+  .action(
+    async ({ ctx: { emailAccountId }, parsedInput: { enabled, timeOfDay } }) => {
+      if (enabled) {
+        const defaultSchedule = {
+          intervalDays: 1,
+          occurrences: 1,
+          daysOfWeek: 127,
+          timeOfDay: timeOfDay ?? createCanonicalTimeOfDay(9, 0),
+        };
 
-      await prisma.schedule.upsert({
-        where: { emailAccountId },
-        create: {
-          emailAccountId,
-          ...defaultSchedule,
-          lastOccurrenceAt: new Date(),
-          nextOccurrenceAt: calculateNextScheduleDate({
+        await prisma.schedule.upsert({
+          where: { emailAccountId },
+          create: {
+            emailAccountId,
             ...defaultSchedule,
-            lastOccurrenceAt: null,
-          }),
-        },
-        update: {},
-      });
+            lastOccurrenceAt: new Date(),
+            nextOccurrenceAt: calculateNextScheduleDate({
+              ...defaultSchedule,
+              lastOccurrenceAt: null,
+            }),
+          },
+          update: {},
+        });
 
-      const newsletterRule = await prisma.rule.findFirst({
-        where: { emailAccountId, systemType: SystemType.NEWSLETTER },
-        include: { actions: true },
-      });
+        const newsletterRule = await prisma.rule.findFirst({
+          where: { emailAccountId, systemType: SystemType.NEWSLETTER },
+          include: { actions: true },
+        });
 
-      if (
-        newsletterRule &&
-        !newsletterRule.actions.some((a) => a.type === ActionType.DIGEST)
-      ) {
-        await prisma.action.create({
-          data: { ruleId: newsletterRule.id, type: ActionType.DIGEST },
+        if (
+          newsletterRule &&
+          !newsletterRule.actions.some((a) => a.type === ActionType.DIGEST)
+        ) {
+          await prisma.action.create({
+            data: { ruleId: newsletterRule.id, type: ActionType.DIGEST },
+          });
+        }
+      } else {
+        await prisma.schedule.deleteMany({
+          where: { emailAccountId },
         });
       }
-    } else {
-      await prisma.schedule.deleteMany({
-        where: { emailAccountId },
-      });
-    }
 
-    return { success: true };
-  });
+      return { success: true };
+    },
+  );
