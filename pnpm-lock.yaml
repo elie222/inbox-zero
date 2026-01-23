@@ -331,6 +331,9 @@ importers:
       '@vercel/speed-insights':
         specifier: 1.3.1
         version: 1.3.1(next@16.1.1(@babel/core@7.28.5)(@opentelemetry/api@1.9.0)(react-dom@19.2.3(react@19.2.3))(react@19.2.3))(react@19.2.3)(svelte@5.38.6)(vue@3.5.20(typescript@5.9.3))
+      agentation:
+        specifier: 1.3.0
+        version: 1.3.0(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
       ai:
         specifier: 5.0.106
         version: 5.0.106(zod@3.25.46)
@@ -6704,6 +6707,12 @@ packages:
   agent-base@7.1.4:
     resolution: {integrity: sha512-MnA+YT8fwfJPgBx3m60MNqakm30XOkyIoH1y6huTQvC0PwZG7ki8NacLBcrPbNoo8vEZy7Jpuk7+jMO+CUovTQ==}
     engines: {node: '>= 14'}
+
+  agentation@1.3.0:
+    resolution: {integrity: sha512-Mq05RrE00bC0lrGSSr1uj7pAT6SnEFGr9TtDgtYUHNH685OAjDgFobEgEV7jgUu0xCWIfIukH7n/Gy05plFw8Q==}
+    peerDependencies:
+      react: '>=18.0.0'
+      react-dom: '>=18.0.0'
 
   aggregate-error@3.1.0:
     resolution: {integrity: sha512-4I7Td01quW/RpocfNayFdFVk1qSuoh0E7JrbRJ16nH01HhKFQ88INq9Sd+nd72zqRySlr9BmDA8xlEJ6vJMrYA==}
@@ -20284,6 +20293,11 @@ snapshots:
       - supports-color
 
   agent-base@7.1.4: {}
+
+  agentation@1.3.0(react-dom@19.2.3(react@19.2.3))(react@19.2.3):
+    dependencies:
+      react: 19.2.3
+      react-dom: 19.2.3(react@19.2.3)
 
   aggregate-error@3.1.0:
     dependencies:
