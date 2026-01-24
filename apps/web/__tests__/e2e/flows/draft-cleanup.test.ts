@@ -320,24 +320,16 @@ describe.skipIf(!shouldRunFlowTests())("Draft Cleanup", () => {
       logStep("AI draft created", { draftId: aiDraftId });
 
       // ========================================
-      // Get draft content and "send" it
+      // Send the AI draft via provider API (actually sending the draft)
       // ========================================
-      logStep("Fetching and sending AI draft");
+      logStep("Sending AI draft via provider API");
 
-      const draft = await outlook.emailProvider.getDraft(aiDraftId);
-      expect(draft).toBeDefined();
+      const sentDraft = await outlook.emailProvider.sendDraft(aiDraftId);
 
-      // Send the draft content as a reply
-      // (simulating user clicking send on the draft)
-      const sentDraft = await sendTestReply({
-        from: outlook,
-        to: gmail,
-        threadId: receivedMessage.threadId,
-        originalMessageId: receivedMessage.messageId,
-        body: draft?.textPlain || "Draft content",
+      logStep("Draft sent", {
+        messageId: sentDraft.messageId,
+        threadId: sentDraft.threadId,
       });
-
-      logStep("Draft sent", { messageId: sentDraft.messageId });
 
       // ========================================
       // Verify DraftSendLog
@@ -733,22 +725,16 @@ describe.skipIf(!shouldRunFlowTests())("Draft Cleanup", () => {
       logStep("AI draft created", { draftId: aiDraftId });
 
       // ========================================
-      // Get draft content and "send" it
+      // Send the AI draft via provider API (actually sending the draft)
       // ========================================
-      logStep("Fetching and sending AI draft");
+      logStep("Sending AI draft via provider API");
 
-      const draft = await gmail.emailProvider.getDraft(aiDraftId);
-      expect(draft).toBeDefined();
+      const sentDraft = await gmail.emailProvider.sendDraft(aiDraftId);
 
-      const sentDraft = await sendTestReply({
-        from: gmail,
-        to: outlook,
-        threadId: receivedMessage.threadId,
-        originalMessageId: receivedMessage.messageId,
-        body: draft?.textPlain || "Draft content",
+      logStep("Draft sent", {
+        messageId: sentDraft.messageId,
+        threadId: sentDraft.threadId,
       });
-
-      logStep("Draft sent", { messageId: sentDraft.messageId });
 
       // ========================================
       // Verify DraftSendLog

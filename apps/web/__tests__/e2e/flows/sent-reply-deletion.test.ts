@@ -123,7 +123,7 @@ describe.skipIf(!shouldRunFlowTests())("Sent Reply Preservation", () => {
       // ========================================
       logStep("Step 3: User B sends AI draft WITHOUT editing");
 
-      // Get the exact draft content
+      // Get the draft content for logging
       const draft = await gmail.emailProvider.getDraft(aiDraftId);
       expect(draft).toBeDefined();
 
@@ -133,16 +133,11 @@ describe.skipIf(!shouldRunFlowTests())("Sent Reply Preservation", () => {
         contentPreview: draft?.textPlain?.substring(0, 100),
       });
 
-      // Send the draft as-is (simulating user clicking send without editing)
-      const userBReply = await sendTestReply({
-        from: gmail,
-        to: outlook,
-        threadId: gmailReceived.threadId,
-        originalMessageId: gmailReceived.messageId,
-        body: draft?.textPlain || "AI generated response",
-      });
+      // Actually send the draft via provider API (simulating user clicking send)
+      // This keeps the same message ID which is crucial for reproducing the bug
+      const userBReply = await gmail.emailProvider.sendDraft(aiDraftId);
 
-      logStep("User B sent reply (untouched AI draft)", {
+      logStep("User B sent draft (untouched AI draft)", {
         messageId: userBReply.messageId,
         threadId: userBReply.threadId,
       });
@@ -383,16 +378,11 @@ describe.skipIf(!shouldRunFlowTests())("Sent Reply Preservation", () => {
         contentPreview: draft?.textPlain?.substring(0, 100),
       });
 
-      // Send the draft as-is
-      const userBReply = await sendTestReply({
-        from: outlook,
-        to: gmail,
-        threadId: outlookReceived.threadId,
-        originalMessageId: outlookReceived.messageId,
-        body: draft?.textPlain || "AI generated response",
-      });
+      // Actually send the draft via provider API (simulating user clicking send)
+      // This keeps the same message ID which is crucial for reproducing the bug
+      const userBReply = await outlook.emailProvider.sendDraft(aiDraftId);
 
-      logStep("User B sent reply (untouched AI draft)", {
+      logStep("User B sent draft (untouched AI draft)", {
         messageId: userBReply.messageId,
         threadId: userBReply.threadId,
       });
@@ -587,24 +577,17 @@ describe.skipIf(!shouldRunFlowTests())("Sent Reply Preservation", () => {
         (a) => a.type === "DRAFT_EMAIL" && a.draftId,
       );
       expect(draftAction?.draftId).toBeTruthy();
-
-      const draft = await gmail.emailProvider.getDraft(draftAction!.draftId!);
-      expect(draft).toBeDefined();
+      const aiDraftId = draftAction!.draftId!;
 
       // ========================================
       // Send untouched draft and follow-up in quick succession
       // ========================================
-      logStep("Sending untouched draft reply");
+      logStep("Sending untouched draft via provider API");
 
-      const userBReply = await sendTestReply({
-        from: gmail,
-        to: outlook,
-        threadId: gmailReceived.threadId,
-        originalMessageId: gmailReceived.messageId,
-        body: draft?.textPlain || "AI generated response",
-      });
+      // Actually send the draft via provider API (simulating user clicking send)
+      const userBReply = await gmail.emailProvider.sendDraft(aiDraftId);
 
-      logStep("User B reply sent", { messageId: userBReply.messageId });
+      logStep("User B draft sent", { messageId: userBReply.messageId });
 
       // Wait for Outlook to receive the reply before sending follow-up
       await waitForReplyInInbox({

@@ -42,7 +42,7 @@ import {
   getThreadsFromSenderWithSubject,
 } from "@/utils/outlook/thread";
 import { getOutlookAttachment } from "@/utils/outlook/attachment";
-import { getDraft, deleteDraft } from "@/utils/outlook/draft";
+import { getDraft, deleteDraft, sendDraft } from "@/utils/outlook/draft";
 import {
   getFiltersList,
   createFilter,
@@ -486,6 +486,12 @@ export class OutlookProvider implements EmailProvider {
 
   async deleteDraft(draftId: string): Promise<void> {
     await deleteDraft({ client: this.client, draftId, logger: this.logger });
+  }
+
+  async sendDraft(
+    draftId: string,
+  ): Promise<{ messageId: string; threadId: string }> {
+    return sendDraft({ client: this.client, draftId, logger: this.logger });
   }
 
   async createDraft(params: {

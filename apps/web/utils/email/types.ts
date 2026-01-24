@@ -153,6 +153,7 @@ export interface EmailProvider {
   markReadThread(threadId: string, read: boolean): Promise<void>;
   getDraft(draftId: string): Promise<ParsedMessage | null>;
   deleteDraft(draftId: string): Promise<void>;
+  sendDraft(draftId: string): Promise<{ messageId: string; threadId: string }>;
   createDraft(params: {
     to: string;
     subject: string;

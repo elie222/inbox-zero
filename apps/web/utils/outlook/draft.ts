@@ -54,6 +54,48 @@ export async function getDraft({
   }
 }
 
+export async function sendDraft({
+  client,
+  draftId,
+  logger,
+}: {
+  client: OutlookClient;
+  draftId: string;
+  logger: Logger;
+}): Promise<{ messageId: string; threadId: string }> {
+  logger.info("Sending draft", { draftId });
+
+  // Send the draft - this moves it from Drafts to Sent Items
+  // The message ID stays the same after sending
+  await withOutlookRetry(
+    () => client.getClient().api(`/me/messages/${draftId}/send`).post({}),
+    logger,
+  );
+
+  // Get the sent message to retrieve the conversationId (threadId)
+  const sentMessage = await withOutlookRetry(
+    () =>
+      client
+        .getClient()
+        .api(`/me/messages/${draftId}`)
+        .get() as Promise<Message>,
+    logger,
+  );
+
+  const threadId = sentMessage.conversationId;
+  if (!threadId) {
+    throw new Error("Failed to get threadId from sent message");
+  }
+
+  logger.info("Draft sent successfully", {
+    draftId,
+    messageId: draftId,
+    threadId,
+  });
+
+  return { messageId: draftId, threadId };
+}
+
 export async function deleteDraft({
   client,
   draftId,
