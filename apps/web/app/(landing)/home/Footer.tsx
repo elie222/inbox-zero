@@ -182,7 +182,7 @@ export function Footer() {
   return (
     <footer className="relative">
       <div className="mx-auto max-w-7xl overflow-hidden px-6 py-20 sm:py-24 lg:px-8">
-        <div className="mt-16 grid grid-cols-2 gap-8 lg:grid-cols-6 xl:col-span-2 xl:mt-0">
+        <div className="mt-16 grid grid-cols-2 gap-8 lg:grid-cols-5 xl:col-span-2 xl:mt-0">
           <div>
             <FooterList title="Product" items={footerNavigation.main} />
           </div>
@@ -194,10 +194,11 @@ export function Footer() {
             </div>
           </div>
           <div>
-            <FooterList title="Free Tools" items={footerNavigation.tools} />
-          </div>
-          <div>
             <FooterList title="Support" items={footerNavigation.support} />
+
+            <div className="mt-6">
+              <FooterList title="Free Tools" items={footerNavigation.tools} />
+            </div>
           </div>
           <div>
             <FooterList title="Company" items={footerNavigation.company} />
