@@ -58,6 +58,7 @@ dist
 
 # Sanity
 .sanity
+apps/web/sanity.config.ts
 
 TODO.md
 

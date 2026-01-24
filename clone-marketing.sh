@@ -21,4 +21,12 @@ echo "🚀 Cloning private marketing repository..."
 # Disable command echo to avoid printing the full token, though Vercel masks secrets automatically.
 (set +x; git clone --depth 1 "https://${GITHUB_MARKETING_TOKEN}@${REPO_URL}" "$MARKETING_DIR")
 
-echo "✅ Private marketing repository cloned to $MARKETING_DIR" 
+echo "✅ Private marketing repository cloned to $MARKETING_DIR"
+
+# Create symlink for Sanity CLI config (used for `npx sanity deploy`)
+SANITY_CONFIG_SRC="$MARKETING_DIR/sanity/sanity.config.ts"
+SANITY_CONFIG_DEST="apps/web/sanity.config.ts"
+if [[ -f "$SANITY_CONFIG_SRC" && ! -e "$SANITY_CONFIG_DEST" ]]; then
+  ln -s "app/(marketing)/sanity/sanity.config.ts" "$SANITY_CONFIG_DEST"
+  echo "✅ Created symlink for sanity.config.ts"
+fi 
