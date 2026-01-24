@@ -1117,7 +1117,14 @@ export class GmailProvider implements EmailProvider {
   ): Promise<ParsedMessage | null> {
     const thread = await this.getThread(threadId);
     if (!thread.messages.length) return null;
-    return thread.messages[thread.messages.length - 1];
+
+    const sorted = [...thread.messages].sort((a, b) => {
+      const aDate = Number(a.internalDate) || 0;
+      const bDate = Number(b.internalDate) || 0;
+      return bDate - aDate;
+    });
+
+    return sorted[0];
   }
 
   async getDrafts(options?: { maxResults?: number }): Promise<ParsedMessage[]> {
