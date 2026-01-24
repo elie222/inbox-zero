@@ -220,6 +220,7 @@ export interface EmailProvider {
     labelId: string;
     maxResults?: number;
   }): Promise<EmailThread[]>;
+  getLatestMessageInThread(threadId: string): Promise<ParsedMessage | null>;
   getMessagesBatch(messageIds: string[]): Promise<ParsedMessage[]>;
   getAccessToken(): string;
   checkIfReplySent(senderEmail: string): Promise<boolean>;

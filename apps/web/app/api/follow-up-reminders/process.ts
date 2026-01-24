@@ -234,7 +234,7 @@ async function processFollowUpsForType({
     const threadLogger = logger.with({ threadId: thread.id });
 
     try {
-      const lastMessage = thread.messages[thread.messages.length - 1];
+      const lastMessage = await provider.getLatestMessageInThread(thread.id);
       if (!lastMessage) continue;
 
       const messageDate = internalDateToDate(lastMessage.internalDate);

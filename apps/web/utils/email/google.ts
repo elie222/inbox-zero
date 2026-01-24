@@ -1112,6 +1112,14 @@ export class GmailProvider implements EmailProvider {
     return threads;
   }
 
+  async getLatestMessageInThread(
+    threadId: string,
+  ): Promise<ParsedMessage | null> {
+    const thread = await this.getThread(threadId);
+    if (!thread.messages.length) return null;
+    return thread.messages[thread.messages.length - 1];
+  }
+
   async getDrafts(options?: { maxResults?: number }): Promise<ParsedMessage[]> {
     const response = await this.client.users.drafts.list({
       userId: "me",
