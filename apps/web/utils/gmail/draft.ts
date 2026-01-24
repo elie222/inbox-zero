@@ -64,6 +64,33 @@ function isValidGmailDraftId(draftId: string): boolean {
   return /^r-\d+$/.test(draftId);
 }
 
+export async function sendDraft(
+  gmail: gmail_v1.Gmail,
+  draftId: string,
+): Promise<{ messageId: string; threadId: string }> {
+  logger.info("Sending draft", { draftId });
+
+  const response = await withGmailRetry(() =>
+    gmail.users.drafts.send({
+      userId: "me",
+      requestBody: {
+        id: draftId,
+      },
+    }),
+  );
+
+  const messageId = response.data.id;
+  const threadId = response.data.threadId;
+
+  if (!messageId || !threadId) {
+    throw new Error("Failed to send draft: missing messageId or threadId");
+  }
+
+  logger.info("Draft sent successfully", { draftId, messageId, threadId });
+
+  return { messageId, threadId };
+}
+
 export async function deleteDraft(gmail: gmail_v1.Gmail, draftId: string) {
   // Log detailed info about the draft ID format for debugging
   logger.info("Attempting to delete draft", {

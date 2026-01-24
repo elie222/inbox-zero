@@ -83,7 +83,9 @@ flows/
 ├── full-reply-cycle.test.ts
 ├── auto-labeling.test.ts
 ├── outbound-tracking.test.ts
-└── draft-cleanup.test.ts
+├── draft-cleanup.test.ts
+├── message-preservation.test.ts
+└── sent-reply-deletion.test.ts
 ```
 
 ## Test Scenarios
@@ -114,6 +116,21 @@ flows/
 - Draft deleted when user sends manual reply
 - DraftSendLog properly recorded
 - Multiple drafts in thread cleaned up
+
+### Sent Reply Preservation (sent-reply-preservation.test.ts)
+
+Tests that sent replies (from AI drafts) are preserved when follow-ups arrive:
+
+1. User A sends email to User B → AI draft created
+2. User B sends the AI draft without editing (clicks send directly)
+3. User A replies again to the thread (3rd message)
+4. Verify: User B's sent reply remains in the thread
+
+### Message Preservation
+
+- Follow-up messages from sender are not deleted
+- All thread messages preserved after user reply
+- Tests both Gmail and Outlook as receivers
 
 ## Debugging
 

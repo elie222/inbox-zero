@@ -54,7 +54,7 @@ import {
   getThreadsWithNextPageToken,
 } from "@/utils/gmail/thread";
 import { decodeSnippet } from "@/utils/gmail/decode";
-import { getDraft, deleteDraft } from "@/utils/gmail/draft";
+import { getDraft, deleteDraft, sendDraft } from "@/utils/gmail/draft";
 import { extractErrorInfo, withGmailRetry } from "@/utils/gmail/retry";
 import {
   getFiltersList,
@@ -636,6 +636,12 @@ export class GmailProvider implements EmailProvider {
 
   async deleteDraft(draftId: string): Promise<void> {
     await deleteDraft(this.client, draftId);
+  }
+
+  async sendDraft(
+    draftId: string,
+  ): Promise<{ messageId: string; threadId: string }> {
+    return sendDraft(this.client, draftId);
   }
 
   async createDraft(params: {
