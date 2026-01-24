@@ -1101,6 +1101,32 @@ export class GmailProvider implements EmailProvider {
       }));
   }
 
+  async getThreadsWithLabel(options: {
+    labelId: string;
+    maxResults?: number;
+  }): Promise<EmailThread[]> {
+    const { threads } = await this.getThreadsWithQuery({
+      query: { labelId: options.labelId },
+      maxResults: options.maxResults,
+    });
+    return threads;
+  }
+
+  async getLatestMessageInThread(
+    threadId: string,
+  ): Promise<ParsedMessage | null> {
+    const thread = await this.getThread(threadId);
+    if (!thread.messages.length) return null;
+
+    const sorted = [...thread.messages].sort((a, b) => {
+      const aDate = Number(a.internalDate) || 0;
+      const bDate = Number(b.internalDate) || 0;
+      return bDate - aDate;
+    });
+
+    return sorted[0];
+  }
+
   async getDrafts(options?: { maxResults?: number }): Promise<ParsedMessage[]> {
     const response = await this.client.users.drafts.list({
       userId: "me",

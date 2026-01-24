@@ -216,6 +216,11 @@ export interface EmailProvider {
     participantEmail: string;
     maxThreads?: number;
   }): Promise<EmailThread[]>;
+  getThreadsWithLabel(options: {
+    labelId: string;
+    maxResults?: number;
+  }): Promise<EmailThread[]>;
+  getLatestMessageInThread(threadId: string): Promise<ParsedMessage | null>;
   getMessagesBatch(messageIds: string[]): Promise<ParsedMessage[]>;
   getAccessToken(): string;
   checkIfReplySent(senderEmail: string): Promise<boolean>;
