@@ -1216,19 +1216,23 @@ export class OutlookProvider implements EmailProvider {
   async getLatestMessageInThread(
     threadId: string,
   ): Promise<ParsedMessage | null> {
+    const escapedThreadId = escapeODataString(threadId);
     const response = await this.client
       .getClient()
       .api("/me/messages")
-      .filter(`conversationId eq '${threadId}'`)
+      .filter(`conversationId eq '${escapedThreadId}'`)
       .select(MESSAGE_SELECT_FIELDS)
-      .top(1)
-      .orderby("receivedDateTime DESC")
       .get();
 
-    const message = response.value?.[0];
-    if (!message) return null;
+    const messages = response.value || [];
+    if (messages.length === 0) return null;
 
-    return convertMessage(message);
+    const parsed = messages.map((m: Message) => convertMessage(m));
+    parsed.sort(
+      (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime(),
+    );
+
+    return parsed[0];
   }
 
   async getDrafts(options?: { maxResults?: number }): Promise<ParsedMessage[]> {
