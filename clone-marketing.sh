@@ -27,6 +27,8 @@ echo "✅ Private marketing repository cloned to $MARKETING_DIR"
 SANITY_CONFIG_SRC="$MARKETING_DIR/sanity/sanity.config.ts"
 SANITY_CONFIG_DEST="apps/web/sanity.config.ts"
 if [[ -f "$SANITY_CONFIG_SRC" && ! -e "$SANITY_CONFIG_DEST" ]]; then
-  ln -s "app/(marketing)/sanity/sanity.config.ts" "$SANITY_CONFIG_DEST"
+  # Symlink target is relative from apps/web/ to the source file
+  SYMLINK_TARGET="${SANITY_CONFIG_SRC#apps/web/}"
+  ln -s "$SYMLINK_TARGET" "$SANITY_CONFIG_DEST"
   echo "✅ Created symlink for sanity.config.ts"
 fi 
