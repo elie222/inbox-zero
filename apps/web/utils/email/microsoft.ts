@@ -1227,7 +1227,9 @@ export class OutlookProvider implements EmailProvider {
     const messages = response.value || [];
     if (messages.length === 0) return null;
 
-    const parsed = messages.map((m: Message) => convertMessage(m));
+    const parsed: ParsedMessage[] = messages.map((m: Message) =>
+      convertMessage(m),
+    );
     parsed.sort(
       (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime(),
     );
