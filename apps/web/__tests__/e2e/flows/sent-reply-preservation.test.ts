@@ -488,11 +488,9 @@ describe.skipIf(!shouldRunFlowTests())("Sent Reply Preservation", () => {
 
       expect(outlookThreadMessages.length).toBeGreaterThanOrEqual(3);
 
-      // Find User B's sent reply (the one not from Gmail)
+      // Find User B's sent reply by its exact messageId
       const userBReplyInThread = outlookThreadMessages.find(
-        (m) =>
-          m.id !== outlookReceived.messageId &&
-          m.id !== followUpReceived.messageId,
+        (m) => m.id === userBReply.messageId,
       );
 
       expect(userBReplyInThread).toBeDefined();

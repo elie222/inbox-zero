@@ -117,7 +117,7 @@ flows/
 - DraftSendLog properly recorded
 - Multiple drafts in thread cleaned up
 
-### Sent Reply Preservation (sent-reply-deletion.test.ts)
+### Sent Reply Preservation (sent-reply-preservation.test.ts)
 
 Tests that sent replies (from AI drafts) are preserved when follow-ups arrive:
 
