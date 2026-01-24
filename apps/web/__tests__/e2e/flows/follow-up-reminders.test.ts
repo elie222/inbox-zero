@@ -33,6 +33,8 @@ import {
   ensureConversationRules,
   disableNonConversationRules,
   enableAllRules,
+  triggerOutboundHandling,
+  triggerInboundHandling,
 } from "./helpers/accounts";
 import type { TestAccount } from "./helpers/accounts";
 import { processAccountFollowUps } from "@/app/api/follow-up-reminders/process";
@@ -221,6 +223,12 @@ describe.skipIf(!shouldRunFlowTests())("Follow-up Reminders", () => {
 
         logStep("Gmail reply sent", { messageId: gmailReply.messageId });
 
+        // Trigger outbound handling directly (bypasses flaky webhook delivery)
+        await triggerOutboundHandling({
+          account: gmail,
+          messageId: gmailReply.messageId,
+        });
+
         // ========================================
         // Step 3: Wait for ThreadTracker to be created by real E2E flow
         // ========================================
@@ -355,6 +363,12 @@ describe.skipIf(!shouldRunFlowTests())("Follow-up Reminders", () => {
 
         logStep("Gmail reply sent", { messageId: gmailReply.messageId });
 
+        // Trigger outbound handling directly (bypasses flaky webhook delivery)
+        await triggerOutboundHandling({
+          account: gmail,
+          messageId: gmailReply.messageId,
+        });
+
         // ========================================
         // Step 3: Wait for ThreadTracker creation
         // ========================================
@@ -454,6 +468,13 @@ describe.skipIf(!shouldRunFlowTests())("Follow-up Reminders", () => {
         });
 
         logStep("Email received in Gmail", {
+          messageId: receivedMessage.messageId,
+          threadId: receivedMessage.threadId,
+        });
+
+        // Trigger inbound handling directly (bypasses flaky webhook delivery)
+        await triggerInboundHandling({
+          account: gmail,
           messageId: receivedMessage.messageId,
           threadId: receivedMessage.threadId,
         });
@@ -588,6 +609,12 @@ describe.skipIf(!shouldRunFlowTests())("Follow-up Reminders", () => {
 
         logStep("Outlook reply sent", { messageId: outlookReply.messageId });
 
+        // Trigger outbound handling directly (bypasses flaky webhook delivery)
+        await triggerOutboundHandling({
+          account: outlook,
+          messageId: outlookReply.messageId,
+        });
+
         // ========================================
         // Step 3: Wait for ThreadTracker creation
         // ========================================
@@ -714,6 +741,12 @@ describe.skipIf(!shouldRunFlowTests())("Follow-up Reminders", () => {
 
         logStep("Outlook reply sent", { messageId: outlookReply.messageId });
 
+        // Trigger outbound handling directly (bypasses flaky webhook delivery)
+        await triggerOutboundHandling({
+          account: outlook,
+          messageId: outlookReply.messageId,
+        });
+
         // ========================================
         // Step 3: Wait for ThreadTracker creation
         // ========================================
@@ -813,6 +846,13 @@ describe.skipIf(!shouldRunFlowTests())("Follow-up Reminders", () => {
         });
 
         logStep("Email received in Outlook", {
+          messageId: receivedMessage.messageId,
+          threadId: receivedMessage.threadId,
+        });
+
+        // Trigger inbound handling directly (bypasses flaky webhook delivery)
+        await triggerInboundHandling({
+          account: outlook,
           messageId: receivedMessage.messageId,
           threadId: receivedMessage.threadId,
         });

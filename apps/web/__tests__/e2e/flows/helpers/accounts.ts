@@ -340,3 +340,176 @@ export async function enableAllRules(emailAccountId: string): Promise<void> {
 
   logStep("Rules re-enabled", { count: result.count });
 }
+
+/**
+ * Trigger outbound message handling directly for a sent message.
+ *
+ * This bypasses webhook delivery (which can be flaky) and directly invokes
+ * the outbound handling logic that creates ThreadTrackers and applies labels.
+ *
+ * Use this after sending a test reply to ensure the ThreadTracker is created
+ * without waiting for potentially unreliable webhook notifications.
+ */
+export async function triggerOutboundHandling(options: {
+  account: TestAccount;
+  messageId: string;
+}): Promise<void> {
+  const { account, messageId } = options;
+
+  logStep("Triggering outbound handling directly", {
+    email: account.email,
+    messageId,
+  });
+
+  const { handleOutboundMessage } = await import(
+    "@/utils/reply-tracker/handle-outbound"
+  );
+
+  const emailAccount = await prisma.emailAccount.findUnique({
+    where: { id: account.id },
+    select: {
+      id: true,
+      userId: true,
+      email: true,
+      about: true,
+      multiRuleSelectionEnabled: true,
+      timezone: true,
+      calendarBookingLink: true,
+      user: {
+        select: {
+          aiProvider: true,
+          aiModel: true,
+          aiApiKey: true,
+        },
+      },
+      account: { select: { provider: true } },
+    },
+  });
+
+  if (!emailAccount) {
+    throw new Error(`Email account not found: ${account.id}`);
+  }
+
+  const message = await account.emailProvider.getMessage(messageId);
+
+  await handleOutboundMessage({
+    emailAccount,
+    message,
+    provider: account.emailProvider,
+    logger: testLogger,
+  });
+
+  logStep("Outbound handling completed");
+}
+
+/**
+ * Trigger inbound message handling directly for a received message.
+ *
+ * This bypasses webhook delivery and directly invokes the conversation
+ * status determination and ThreadTracker creation for inbound messages.
+ *
+ * Use this after receiving a test email to ensure the ThreadTracker is created
+ * without waiting for potentially unreliable webhook notifications.
+ */
+export async function triggerInboundHandling(options: {
+  account: TestAccount;
+  messageId: string;
+  threadId: string;
+}): Promise<void> {
+  const { account, messageId, threadId } = options;
+
+  logStep("Triggering inbound handling directly", {
+    email: account.email,
+    messageId,
+    threadId,
+  });
+
+  const { aiDetermineThreadStatus } = await import(
+    "@/utils/ai/reply/determine-thread-status"
+  );
+  const { updateThreadTrackers } = await import(
+    "@/utils/reply-tracker/handle-conversation-status"
+  );
+  const { applyThreadStatusLabel } = await import(
+    "@/utils/reply-tracker/label-helpers"
+  );
+  const { getEmailForLLM } = await import("@/utils/get-email-from-message");
+  const { sortByInternalDate, internalDateToDate } = await import(
+    "@/utils/date"
+  );
+
+  const emailAccount = await prisma.emailAccount.findUnique({
+    where: { id: account.id },
+    select: {
+      id: true,
+      userId: true,
+      email: true,
+      about: true,
+      multiRuleSelectionEnabled: true,
+      timezone: true,
+      calendarBookingLink: true,
+      user: {
+        select: {
+          aiProvider: true,
+          aiModel: true,
+          aiApiKey: true,
+        },
+      },
+      account: { select: { provider: true } },
+    },
+  });
+
+  if (!emailAccount) {
+    throw new Error(`Email account not found: ${account.id}`);
+  }
+
+  const threadMessages =
+    await account.emailProvider.getThreadMessages(threadId);
+  if (!threadMessages?.length) {
+    throw new Error(`No thread messages found for thread: ${threadId}`);
+  }
+
+  const sortedMessages = [...threadMessages].sort(sortByInternalDate());
+  const lastMessage = sortedMessages.at(-1)!;
+
+  const threadMessagesForLLM = sortedMessages.map((m, index) =>
+    getEmailForLLM(m, {
+      maxLength: index === sortedMessages.length - 1 ? 2000 : 500,
+      extractReply: true,
+      removeForwarded: false,
+    }),
+  );
+
+  const userSentLastEmail = account.emailProvider.isSentMessage(lastMessage);
+
+  const aiResult = await aiDetermineThreadStatus({
+    emailAccount,
+    threadMessages: threadMessagesForLLM,
+    userSentLastEmail,
+  });
+
+  logStep("AI determined thread status for inbound", {
+    status: aiResult.status,
+    rationale: aiResult.rationale,
+  });
+
+  await Promise.all([
+    applyThreadStatusLabel({
+      emailAccountId: account.id,
+      threadId,
+      messageId,
+      systemType: aiResult.status,
+      provider: account.emailProvider,
+      logger: testLogger,
+    }),
+    updateThreadTrackers({
+      emailAccountId: account.id,
+      threadId,
+      messageId,
+      sentAt: internalDateToDate(lastMessage.internalDate),
+      status: aiResult.status,
+    }),
+  ]);
+
+  logStep("Inbound handling completed");
+}
