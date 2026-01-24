@@ -28,7 +28,7 @@
 
 ## Mission
 
-To help you spend less time in your inbox, so you can focus on what matters.
+To help you spend less time in your inbox, so you can focus on what matters most.
 
 <br />
 
