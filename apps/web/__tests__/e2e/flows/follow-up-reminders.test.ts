@@ -49,7 +49,7 @@ const testLogger = createScopedLogger("e2e-follow-up-test");
 // (Main tests use real E2E flow where conversation rules apply this label)
 async function ensureAwaitingReplyLabel(
   provider: EmailProvider,
-  threadId: string,
+  _threadId: string,
   messageId: string,
 ): Promise<string> {
   const labels = await provider.getLabels();
@@ -57,7 +57,7 @@ async function ensureAwaitingReplyLabel(
   let labelId = labels.find((l) => l.name === labelName)?.id;
 
   if (!labelId) {
-    const created = await provider.createLabel({ name: labelName });
+    const created = await provider.createLabel(labelName);
     labelId = created.id;
   }
 

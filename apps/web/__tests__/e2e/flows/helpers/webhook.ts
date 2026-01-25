@@ -98,8 +98,41 @@ export async function setupTestWebhookSubscription(
       error: errorMessage,
       stack: error instanceof Error ? error.stack : undefined,
     });
+
+    // Provide helpful hints based on the error and provider
+    let hint = "";
+    const webhookUrl =
+      process.env.WEBHOOK_URL || process.env.NEXT_PUBLIC_BASE_URL;
+
+    if (account.provider === "microsoft") {
+      if (errorMessage.includes("NotificationUrl references a local address")) {
+        hint =
+          "\n\nHINT: Microsoft requires a publicly accessible URL for webhooks. " +
+          "Set WEBHOOK_URL to your ngrok domain (e.g., https://my-domain.ngrok-free.app).";
+      } else if (
+        errorMessage.includes("Subscription validation request failed")
+      ) {
+        hint =
+          "\n\nHINT: Microsoft could not reach your webhook URL. Possible causes:\n" +
+          "  - ngrok tunnel is not running\n" +
+          "  - Next.js app is not running\n" +
+          "  - Another ngrok session took over (free tier limit)\n" +
+          `  Current WEBHOOK_URL: ${webhookUrl || "(not set)"}`;
+      } else if (!webhookUrl || webhookUrl.includes("localhost")) {
+        hint =
+          `\n\nHINT: WEBHOOK_URL appears invalid (${webhookUrl || "not set"}). ` +
+          "Microsoft webhooks require a publicly accessible HTTPS URL.";
+      }
+    } else {
+      // Gmail
+      hint =
+        "\n\nNOTE: Gmail webhooks use Google Pub/Sub. The push subscription URL " +
+        "must be configured manually in Google Cloud Console. " +
+        "See apps/web/__tests__/e2e/flows/README.md for details.";
+    }
+
     throw new Error(
-      `Failed to set up webhook subscription for ${account.email}: ${errorMessage}`,
+      `Failed to set up webhook subscription for ${account.email}: ${errorMessage}${hint}`,
     );
   }
 }
@@ -186,12 +219,34 @@ export async function verifyWebhookSubscription(
 export async function ensureWebhookSubscription(
   account: TestAccount,
 ): Promise<void> {
+  const webhookUrl =
+    process.env.WEBHOOK_URL || process.env.NEXT_PUBLIC_BASE_URL;
+
   logStep("Force re-registering webhook subscription for E2E test", {
     email: account.email,
     provider: account.provider,
+    webhookUrl,
   });
 
   // Always teardown and setup fresh to ensure correct URL
   await teardownTestWebhookSubscription(account);
-  await setupTestWebhookSubscription(account);
+  const result = await setupTestWebhookSubscription(account);
+
+  // Verify subscription was created
+  if (!result.subscriptionId && account.provider === "microsoft") {
+    throw new Error(
+      `Failed to create Outlook webhook subscription for ${account.email}. ` +
+        `WEBHOOK_URL: ${webhookUrl || "(not set)"}. ` +
+        "Ensure WEBHOOK_URL is set to a publicly accessible HTTPS URL (ngrok domain).",
+    );
+  }
+
+  // Log success with details
+  logStep("Webhook subscription ready", {
+    email: account.email,
+    provider: account.provider,
+    subscriptionId: result.subscriptionId,
+    expirationDate: result.expirationDate,
+    webhookUrl,
+  });
 }

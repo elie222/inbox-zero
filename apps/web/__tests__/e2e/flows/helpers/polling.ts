@@ -7,6 +7,7 @@
 
 import prisma from "@/utils/prisma";
 import type { EmailProvider } from "@/utils/email/types";
+import type { ParsedMessage } from "@/utils/types";
 import { TIMEOUTS } from "../config";
 import { logStep } from "./logging";
 import { sleep } from "@/utils/sleep";
@@ -69,6 +70,9 @@ const TERMINAL_STATUSES = ["APPLIED", "SKIPPED", "ERROR"];
  * This function waits until it reaches a terminal status (APPLIED, SKIPPED, or ERROR).
  *
  * Uses threadId for matching as it's more stable than messageId across webhook notifications.
+ *
+ * NOTE: ExecutedRules are created via webhook processing. If this times out,
+ * check webhook configuration (see README.md).
  */
 export async function waitForExecutedRule(options: {
   threadId: string;
@@ -94,60 +98,71 @@ export async function waitForExecutedRule(options: {
 
   logStep("Waiting for ExecutedRule", { threadId, emailAccountId });
 
-  return pollUntil(
-    async () => {
-      const executedRule = await prisma.executedRule.findFirst({
-        where: {
-          threadId,
-          emailAccountId,
-        },
-        include: {
-          actionItems: {
-            select: {
-              id: true,
-              type: true,
-              draftId: true,
-              labelId: true,
+  const startTime = Date.now();
+
+  try {
+    return await pollUntil(
+      async () => {
+        const executedRule = await prisma.executedRule.findFirst({
+          where: {
+            threadId,
+            emailAccountId,
+          },
+          include: {
+            actionItems: {
+              select: {
+                id: true,
+                type: true,
+                draftId: true,
+                labelId: true,
+              },
             },
           },
-        },
-        orderBy: {
-          createdAt: "desc",
-        },
-      });
-
-      if (!executedRule) {
-        logStep("ExecutedRule not found yet", { threadId });
-        return null;
-      }
-
-      // Wait for terminal status - rule processing must complete
-      if (!TERMINAL_STATUSES.includes(executedRule.status)) {
-        logStep("ExecutedRule still processing", {
-          id: executedRule.id,
-          status: executedRule.status,
+          orderBy: {
+            createdAt: "desc",
+          },
         });
-        return null;
-      }
 
-      return {
-        id: executedRule.id,
-        ruleId: executedRule.ruleId,
-        status: executedRule.status,
-        messageId: executedRule.messageId,
-        actionItems: executedRule.actionItems.map((a) => ({
-          id: a.id,
-          type: a.type,
-          draftId: a.draftId,
-          labelId: a.labelId,
-        })),
-      };
-    },
-    {
-      timeout,
-      description: `ExecutedRule for thread ${threadId} to reach terminal status`,
-    },
-  );
+        if (!executedRule) {
+          logStep("ExecutedRule not found yet", { threadId });
+          return null;
+        }
+
+        // Wait for terminal status - rule processing must complete
+        if (!TERMINAL_STATUSES.includes(executedRule.status)) {
+          logStep("ExecutedRule still processing", {
+            id: executedRule.id,
+            status: executedRule.status,
+          });
+          return null;
+        }
+
+        return {
+          id: executedRule.id,
+          ruleId: executedRule.ruleId,
+          status: executedRule.status,
+          messageId: executedRule.messageId,
+          actionItems: executedRule.actionItems.map((a) => ({
+            id: a.id,
+            type: a.type,
+            draftId: a.draftId,
+            labelId: a.labelId,
+          })),
+        };
+      },
+      {
+        timeout,
+        description: `ExecutedRule for thread ${threadId} to reach terminal status`,
+      },
+    );
+  } catch (_error) {
+    const elapsed = Date.now() - startTime;
+    throw new Error(
+      `Timeout waiting for ExecutedRule after ${elapsed}ms. ` +
+        "This usually means webhooks are not being delivered. " +
+        "Check WEBHOOK_URL and Pub/Sub configuration in README.md.",
+    );
+  }
 }
 
 /**
@@ -559,6 +574,12 @@ export async function waitForDraftSendLog(options: {
  *
  * ThreadTrackers are created by the AI-powered conversation tracking feature
  * when it determines a thread needs follow-up (AWAITING or NEEDS_REPLY).
+ *
+ * NOTE: ThreadTrackers are created via webhook processing. If this times out,
+ * it likely means webhooks are not being delivered. Check:
+ * - For Gmail: Pub/Sub push subscription URL must point to your ngrok domain
+ * - For Outlook: WEBHOOK_URL must be set to your ngrok domain
+ * See apps/web/__tests__/e2e/flows/README.md for configuration details.
  */
 export async function waitForThreadTracker(options: {
   threadId: string;
@@ -582,44 +603,76 @@ export async function waitForThreadTracker(options: {
 
   logStep("Waiting for ThreadTracker", { threadId, emailAccountId, type });
 
-  return pollUntil(
-    async () => {
-      const tracker = await prisma.threadTracker.findFirst({
-        where: {
-          threadId,
-          emailAccountId,
-          resolved: false,
-          ...(type ? { type } : {}),
-        },
-        orderBy: {
-          createdAt: "desc",
-        },
-      });
+  const startTime = Date.now();
 
-      if (!tracker) {
-        logStep("ThreadTracker not found yet", { threadId, type });
-        return null;
-      }
+  try {
+    return await pollUntil(
+      async () => {
+        const tracker = await prisma.threadTracker.findFirst({
+          where: {
+            threadId,
+            emailAccountId,
+            resolved: false,
+            ...(type ? { type } : {}),
+          },
+          orderBy: {
+            createdAt: "desc",
+          },
+        });
 
-      logStep("ThreadTracker found", {
-        id: tracker.id,
-        type: tracker.type,
-      });
+        if (!tracker) {
+          logStep("ThreadTracker not found yet", { threadId, type });
+          return null;
+        }
 
-      return {
-        id: tracker.id,
-        type: tracker.type,
-        messageId: tracker.messageId,
-        sentAt: tracker.sentAt,
-        resolved: tracker.resolved,
-        followUpAppliedAt: tracker.followUpAppliedAt,
-      };
-    },
-    {
-      timeout,
-      description: `ThreadTracker${type ? ` (${type})` : ""} for thread ${threadId}`,
-    },
-  );
+        logStep("ThreadTracker found", {
+          id: tracker.id,
+          type: tracker.type,
+        });
+
+        return {
+          id: tracker.id,
+          type: tracker.type,
+          messageId: tracker.messageId,
+          sentAt: tracker.sentAt,
+          resolved: tracker.resolved,
+          followUpAppliedAt: tracker.followUpAppliedAt,
+        };
+      },
+      {
+        timeout,
+        description: `ThreadTracker${type ? ` (${type})` : ""} for thread ${threadId}`,
+      },
+    );
+  } catch (_error) {
+    const elapsed = Date.now() - startTime;
+    const webhookUrl =
+      process.env.WEBHOOK_URL || process.env.NEXT_PUBLIC_BASE_URL;
+    const isLocalUrl =
+      webhookUrl?.includes("localhost") || webhookUrl?.includes("127.0.0.1");
+
+    let hint = "";
+    if (!webhookUrl) {
+      hint = "\n\nHINT: WEBHOOK_URL is not set. Webhooks cannot be delivered.";
+    } else if (isLocalUrl) {
+      hint =
+        `\n\nHINT: WEBHOOK_URL (${webhookUrl}) appears to be localhost. ` +
+        "External providers (Gmail/Outlook) cannot send webhooks to localhost. " +
+        "Use ngrok or another tunnel to expose your local server.";
+    } else {
+      hint =
+        "\n\nHINT: Webhooks may not be configured correctly:\n" +
+        "  - Gmail: Ensure Pub/Sub push subscription URL points to your ngrok domain\n" +
+        "  - Outlook: WEBHOOK_URL should match your ngrok domain\n" +
+        "  See apps/web/__tests__/e2e/flows/README.md for configuration details.";
+    }
+
+    throw new Error(
+      `Timeout waiting for ThreadTracker${type ? ` (${type})` : ""} after ${elapsed}ms. ` +
+        "This usually means webhooks are not being delivered to trigger the message processing." +
+        hint,
+    );
+  }
 }
 
 /**

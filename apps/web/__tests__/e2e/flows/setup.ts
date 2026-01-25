@@ -60,9 +60,21 @@ export async function initializeFlowTests(): Promise<void> {
     );
   }
 
+  // Display warnings about webhook configuration
+  if (configValidation.warnings.length > 0) {
+    console.log("\n⚠️  E2E Webhook Configuration Warnings:");
+    for (const warning of configValidation.warnings) {
+      console.log(`   - ${warning}`);
+    }
+    console.log(
+      "\n   See apps/web/__tests__/e2e/flows/README.md for configuration details.\n",
+    );
+  }
+
   logStep("Configuration validated", {
     gmailEmail: E2E_GMAIL_EMAIL,
     outlookEmail: E2E_OUTLOOK_EMAIL,
+    webhookUrl: process.env.WEBHOOK_URL || process.env.NEXT_PUBLIC_BASE_URL,
   });
 
   // Load test accounts
