@@ -43,7 +43,7 @@ export const TIMEOUTS = {
   /** Default test timeout */
   TEST_DEFAULT: 120_000,
   /** Timeout for full reply cycle tests */
-  FULL_CYCLE: 300_000,
+  FULL_CYCLE: 180_000,
 } as const;
 
 // Test email subject prefix for identification
