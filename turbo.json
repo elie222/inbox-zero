@@ -4,6 +4,8 @@
   "tasks": {
     "build": {
       "env": [
+        "VERCEL_ENV",
+        "VERCEL_URL",
         "NODE_ENV",
         "DATABASE_URL",
         "DIRECT_URL",
