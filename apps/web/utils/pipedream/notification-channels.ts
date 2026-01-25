@@ -13,21 +13,25 @@ const logger = createScopedLogger("notification-channels");
 export const CHANNEL_TYPES = {
   slack: {
     name: "Slack",
+    appSlug: "slack",
     defaultActionId: "slack_v2-send-message",
     configSchema: { channel: "string" }, // Channel ID like "C01234567"
   },
   teams: {
     name: "Microsoft Teams",
+    appSlug: "microsoft_teams",
     defaultActionId: "microsoft_teams-send-message",
     configSchema: { teamId: "string", channelId: "string" },
   },
   telegram: {
     name: "Telegram",
+    appSlug: "telegram_bot_api",
     defaultActionId: "telegram_bot_api-send-message",
     configSchema: { chatId: "string" },
   },
   discord: {
     name: "Discord",
+    appSlug: "discord",
     defaultActionId: "discord-send-message",
     configSchema: { channelId: "string" },
   },

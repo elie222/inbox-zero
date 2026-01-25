@@ -25,6 +25,33 @@ export type RunActionResult = {
   stash_id?: string;
 };
 
+export type CreateConnectTokenParams = {
+  externalUserId: string;
+  successRedirectUri?: string;
+  errorRedirectUri?: string;
+};
+
+export type ConnectTokenResult = {
+  token: string;
+  connect_link_url: string;
+  expires_at: string;
+};
+
+export type ConnectedAccount = {
+  id: string;
+  name: string;
+  external_id: string;
+  healthy: boolean;
+  dead: boolean;
+  app: {
+    id: string;
+    name_slug: string;
+    name: string;
+  };
+  created_at: string;
+  updated_at: string;
+};
+
 /**
  * Get Pipedream Connect configuration from environment variables
  */
@@ -105,6 +132,114 @@ export async function runPipedreamAction(
  */
 export function isPipedreamConnectConfigured(): boolean {
   return getPipedreamConnectConfig() !== null;
+}
+
+/**
+ * Create a connect token for OAuth flow
+ *
+ * @see https://pipedream.com/docs/connect/api-reference/create-connect-token
+ */
+export async function createConnectToken(
+  params: CreateConnectTokenParams,
+): Promise<ConnectTokenResult> {
+  const config = getPipedreamConnectConfig();
+
+  if (!config) {
+    throw new Error(
+      "Pipedream Connect not configured. Set PIPEDREAM_PROJECT_ID, PIPEDREAM_CLIENT_ID, and PIPEDREAM_CLIENT_SECRET environment variables.",
+    );
+  }
+
+  const log = logger.with({ externalUserId: params.externalUserId });
+  log.info("Creating Pipedream connect token");
+
+  const accessToken = await getAccessToken(config);
+
+  const response = await fetch(
+    `${PIPEDREAM_API_BASE}/connect/${config.projectId}/tokens`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+        "x-pd-environment": config.environment,
+      },
+      body: JSON.stringify({
+        external_user_id: params.externalUserId,
+        success_redirect_uri: params.successRedirectUri,
+        error_redirect_uri: params.errorRedirectUri,
+      }),
+    },
+  );
+
+  if (!response.ok) {
+    const error = await response.text();
+    log.error("Failed to create connect token", {
+      error,
+      status: response.status,
+    });
+    throw new Error(`Failed to create connect token: ${error}`);
+  }
+
+  const result = (await response.json()) as ConnectTokenResult;
+  log.info("Created connect token", { expiresAt: result.expires_at });
+
+  return result;
+}
+
+/**
+ * Get connected accounts for a user
+ *
+ * @see https://pipedream.com/docs/connect/api-reference/list-accounts
+ */
+export async function getConnectedAccounts(
+  externalUserId: string,
+  appSlug?: string,
+): Promise<ConnectedAccount[]> {
+  const config = getPipedreamConnectConfig();
+
+  if (!config) {
+    throw new Error(
+      "Pipedream Connect not configured. Set PIPEDREAM_PROJECT_ID, PIPEDREAM_CLIENT_ID, and PIPEDREAM_CLIENT_SECRET environment variables.",
+    );
+  }
+
+  const log = logger.with({ externalUserId, appSlug });
+  log.info("Getting connected accounts");
+
+  const accessToken = await getAccessToken(config);
+
+  const params = new URLSearchParams({
+    external_user_id: externalUserId,
+  });
+  if (appSlug) {
+    params.set("app", appSlug);
+  }
+
+  const response = await fetch(
+    `${PIPEDREAM_API_BASE}/connect/${config.projectId}/accounts?${params.toString()}`,
+    {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "x-pd-environment": config.environment,
+      },
+    },
+  );
+
+  if (!response.ok) {
+    const error = await response.text();
+    log.error("Failed to get connected accounts", {
+      error,
+      status: response.status,
+    });
+    throw new Error(`Failed to get connected accounts: ${error}`);
+  }
+
+  const result = (await response.json()) as { data: ConnectedAccount[] };
+  log.info("Got connected accounts", { count: result.data.length });
+
+  return result.data;
 }
 
 // Helper functions

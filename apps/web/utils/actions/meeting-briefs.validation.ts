@@ -78,3 +78,15 @@ export const toggleNotificationChannelBody = z.object({
 export type ToggleNotificationChannelBody = z.infer<
   typeof toggleNotificationChannelBody
 >;
+
+export const createConnectTokenBody = z.object({
+  channelType: channelTypeSchema,
+});
+
+export type CreateConnectTokenBody = z.infer<typeof createConnectTokenBody>;
+
+export const getConnectedAccountsBody = z.object({
+  channelType: channelTypeSchema.optional(),
+});
+
+export type GetConnectedAccountsBody = z.infer<typeof getConnectedAccountsBody>;
