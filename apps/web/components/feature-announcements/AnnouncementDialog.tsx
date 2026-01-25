@@ -1,28 +1,22 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { X, CheckCircle2, Tag, FileEdit, type LucideIcon } from "lucide-react";
+import { X } from "lucide-react";
 import Link from "next/link";
-import Image from "next/image";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAction } from "next-safe-action/hooks";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { LoadingContent } from "@/components/LoadingContent";
-import { useAnnouncements } from "@/hooks/useAnnouncements";
+import { useUser } from "@/hooks/useUser";
 import { dismissAnnouncementModalAction } from "@/utils/actions/announcements";
-import type { GetAnnouncementsResponse } from "@/app/api/user/announcements/route";
-
-const ICON_MAP: Record<string, LucideIcon> = {
-  Tag,
-  FileEdit,
-};
-
-function getIconForDetail(iconId: string | undefined): LucideIcon {
-  return (iconId && ICON_MAP[iconId]) || CheckCircle2;
-}
+import {
+  getActiveAnnouncements,
+  hasNewAnnouncements,
+  type Announcement,
+} from "@/utils/announcements";
 
 export function AnnouncementDialog() {
-  const { data, mutate, isLoading, error } = useAnnouncements();
+  const { data: user, mutate, isLoading, error } = useUser();
   const [isOpen, setIsOpen] = useState(true);
 
   const { execute: dismissModal } = useAction(dismissAnnouncementModalAction, {
@@ -31,32 +25,32 @@ export function AnnouncementDialog() {
     },
   });
 
-  const announcements = data?.announcements ?? [];
-  const hasNewAnnouncements = data?.hasNewAnnouncements ?? false;
+  const announcements = getActiveAnnouncements();
+  const showAnnouncements =
+    !!user && !isLoading && hasNewAnnouncements(user.announcementDismissedAt);
 
   // Prevent body scroll when modal is actually visible
   useEffect(() => {
     const shouldLockScroll =
-      isOpen && announcements.length > 0 && hasNewAnnouncements;
+      isOpen && announcements.length > 0 && showAnnouncements;
     if (shouldLockScroll) {
       document.body.style.overflow = "hidden";
     }
     return () => {
       document.body.style.overflow = "";
     };
-  }, [isOpen, announcements.length, hasNewAnnouncements]);
+  }, [isOpen, announcements.length, showAnnouncements]);
 
   const handleCloseModal = useCallback(() => {
-    const announcements = data?.announcements;
-    if (announcements && announcements.length > 0) {
+    if (announcements.length > 0) {
       dismissModal({ publishedAt: announcements[0].publishedAt });
     }
     setIsOpen(false);
-  }, [dismissModal, data?.announcements]);
+  }, [dismissModal, announcements]);
 
   return (
     <LoadingContent loading={isLoading} error={error}>
-      {announcements.length === 0 || !hasNewAnnouncements ? null : (
+      {announcements.length === 0 || !showAnnouncements ? null : (
         <AnimatePresence>
           {isOpen && (
             <>
@@ -113,10 +107,8 @@ export function AnnouncementDialog() {
   );
 }
 
-type AnnouncementData = GetAnnouncementsResponse["announcements"][number];
-
 interface AnnouncementCardProps {
-  announcement: AnnouncementData;
+  announcement: Announcement;
   onClose: () => void;
 }
 
@@ -136,7 +128,7 @@ function AnnouncementCard({ announcement, onClose }: AnnouncementCardProps) {
           </span>
         </div>
 
-        <div className="mb-4">
+        {/* <div className="mb-4">
           <Image
             src={announcement.image}
             alt={announcement.title}
@@ -144,31 +136,10 @@ function AnnouncementCard({ announcement, onClose }: AnnouncementCardProps) {
             height={176}
             className="h-44 w-full rounded-lg object-cover"
           />
-        </div>
+        </div> */}
 
-        {announcement.details && announcement.details.length > 0 && (
-          <div className="mb-4 flex flex-col gap-3">
-            {announcement.details.map((detail, index) => {
-              const Icon = getIconForDetail(detail.icon);
-
-              return (
-                <div key={index} className="flex items-start gap-3">
-                  <div className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full border border-gray-200 dark:border-gray-700">
-                    <Icon className="h-3.5 w-3.5 text-gray-500 dark:text-gray-400" />
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
-                      {detail.title}
-                    </p>
-                    <p className="text-sm text-gray-500 dark:text-gray-400">
-                      {detail.description}
-                    </p>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
+        {/* TODO: sizing / rounded */}
+        {announcement.image && <div className="mb-4">{announcement.image}</div>}
 
         <div className="flex gap-3">
           {announcement.link && (
