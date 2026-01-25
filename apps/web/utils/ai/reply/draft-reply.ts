@@ -144,7 +144,7 @@ IMPORTANT: Use these available time slots when responding to meeting requests. M
 ${emailAccount.calendarBookingLink}
 </booking_link>
 
-You can suggest this booking link if it helps with scheduling (e.g., "Feel free to book a time: [link]"). Use your judgment on whether to include it.
+Only include this link if the sender explicitly requested a call or meeting. Do not proactively suggest calls.
 `
     : "";
 
