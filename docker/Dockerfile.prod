@@ -91,7 +91,8 @@ COPY docker/scripts /app/docker/scripts
 RUN chmod +x /app/docker/scripts/*.sh
 
 # Install Prisma locally for migrations (must be after COPY to merge with standalone node_modules)
-RUN npm install prisma@7.3.0 --no-save
+# Use --legacy-peer-deps to avoid ERESOLVE conflicts with standalone package.json metadata
+RUN npm install prisma@7.3.0 --no-save --legacy-peer-deps
 
 EXPOSE 3000
 
