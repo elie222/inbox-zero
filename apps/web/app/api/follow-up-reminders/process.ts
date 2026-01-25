@@ -7,13 +7,17 @@ import {
   getOrCreateFollowUpLabel,
 } from "@/utils/follow-up/labels";
 import { generateFollowUpDraft } from "@/utils/follow-up/generate-draft";
-import { cleanupStaleDrafts } from "@/utils/follow-up/cleanup";
-import { ThreadTrackerType } from "@/generated/prisma/enums";
-import type { EmailProvider } from "@/utils/email/types";
+import { ThreadTrackerType, SystemType } from "@/generated/prisma/enums";
+import type { EmailProvider, EmailLabel } from "@/utils/email/types";
 import type { Logger } from "@/utils/logger";
 import { captureException } from "@/utils/error";
-import type { ThreadTracker } from "@/generated/prisma/client";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
+import {
+  getLabelsFromDb,
+  type LabelIds,
+} from "@/utils/reply-tracker/label-helpers";
+import { getRuleLabel } from "@/utils/rule/consts";
+import { internalDateToDate } from "@/utils/date";
 
 export async function processAllFollowUpReminders(logger: Logger) {
   logger.info("Processing follow-up reminders for all users");
@@ -117,150 +121,184 @@ export async function processAccountFollowUps({
     logger,
   });
 
-  const followUpLabel = await getOrCreateFollowUpLabel(provider);
+  const [followUpLabel, dbLabels, providerLabels] = await Promise.all([
+    getOrCreateFollowUpLabel(provider),
+    getLabelsFromDb(emailAccountId),
+    provider.getLabels(),
+  ]);
 
-  if (emailAccount.followUpAwaitingReplyDays !== null) {
-    const awaitingThreshold = subHours(
-      now,
-      emailAccount.followUpAwaitingReplyDays * 24,
-    );
-    const awaitingTrackers = await prisma.threadTracker.findMany({
-      where: {
-        emailAccountId,
-        type: ThreadTrackerType.AWAITING,
-        resolved: false,
-        followUpAppliedAt: null,
-        sentAt: { lt: awaitingThreshold },
-      },
-    });
+  await processFollowUpsForType({
+    systemType: SystemType.AWAITING_REPLY,
+    thresholdDays: emailAccount.followUpAwaitingReplyDays,
+    generateDraft: emailAccount.followUpAutoDraftEnabled,
+    emailAccount,
+    provider,
+    followUpLabelId: followUpLabel.id,
+    dbLabels,
+    providerLabels,
+    now,
+    logger,
+  });
 
-    logger.info("Found awaiting trackers past threshold", {
-      count: awaitingTrackers.length,
-      thresholdDays: emailAccount.followUpAwaitingReplyDays,
-    });
+  await processFollowUpsForType({
+    systemType: SystemType.TO_REPLY,
+    thresholdDays: emailAccount.followUpNeedsReplyDays,
+    generateDraft: false,
+    emailAccount,
+    provider,
+    followUpLabelId: followUpLabel.id,
+    dbLabels,
+    providerLabels,
+    now,
+    logger,
+  });
 
-    await processTrackers({
-      trackers: awaitingTrackers,
-      emailAccount,
-      provider,
-      labelId: followUpLabel.id,
-      trackerType: ThreadTrackerType.AWAITING,
-      generateDraft: emailAccount.followUpAutoDraftEnabled,
-      now,
-      logger,
-    });
-  }
-
-  if (emailAccount.followUpNeedsReplyDays !== null) {
-    const needsReplyThreshold = subHours(
-      now,
-      emailAccount.followUpNeedsReplyDays * 24,
-    );
-    const needsReplyTrackers = await prisma.threadTracker.findMany({
-      where: {
-        emailAccountId,
-        type: ThreadTrackerType.NEEDS_REPLY,
-        resolved: false,
-        followUpAppliedAt: null,
-        sentAt: { lt: needsReplyThreshold },
-      },
-    });
-
-    logger.info("Found needs-reply trackers past threshold", {
-      count: needsReplyTrackers.length,
-      thresholdDays: emailAccount.followUpNeedsReplyDays,
-    });
-
-    await processTrackers({
-      trackers: needsReplyTrackers,
-      emailAccount,
-      provider,
-      labelId: followUpLabel.id,
-      trackerType: ThreadTrackerType.NEEDS_REPLY,
-      generateDraft: false,
-      now,
-      logger,
-    });
-  }
-
+  // Draft cleanup temporarily disabled to avoid deleting old drafts.
   // Wrapped in try/catch since it's non-critical
-  try {
-    await cleanupStaleDrafts({
-      emailAccountId,
-      provider,
-      logger,
-    });
-  } catch (error) {
-    logger.error("Failed to cleanup stale drafts", { error });
-    captureException(error);
-  }
+  // try {
+  //   await cleanupStaleDrafts({
+  //     emailAccountId,
+  //     provider,
+  //     logger,
+  //   });
+  // } catch (error) {
+  //   logger.error("Failed to cleanup stale drafts", { error });
+  //   captureException(error);
+  // }
 
   logger.info("Finished processing follow-ups for account");
 }
 
-async function processTrackers({
-  trackers,
+async function processFollowUpsForType({
+  systemType,
+  thresholdDays,
+  generateDraft,
   emailAccount,
   provider,
-  labelId,
-  trackerType,
-  generateDraft,
+  followUpLabelId,
+  dbLabels,
+  providerLabels,
   now,
   logger,
 }: {
-  trackers: ThreadTracker[];
+  systemType: SystemType;
+  thresholdDays: number | null;
+  generateDraft: boolean;
   emailAccount: EmailAccountWithAI;
   provider: EmailProvider;
-  labelId: string;
-  trackerType: ThreadTrackerType;
-  generateDraft: boolean;
+  followUpLabelId: string;
+  dbLabels: LabelIds;
+  providerLabels: EmailLabel[];
   now: Date;
   logger: Logger;
 }) {
+  if (thresholdDays === null) return;
+
+  const dbLabelInfo = dbLabels[systemType as keyof LabelIds];
+  const providerLabelIds = new Set(providerLabels.map((l) => l.id));
+
+  let labelId: string;
+
+  if (dbLabelInfo?.labelId && providerLabelIds.has(dbLabelInfo.labelId)) {
+    labelId = dbLabelInfo.labelId;
+  } else {
+    const found = providerLabels.find(
+      (l) => l.name === getRuleLabel(systemType),
+    );
+    if (!found) {
+      logger.info("Label not found, skipping", { systemType });
+      return;
+    }
+    labelId = found.id;
+  }
+
+  const threads = await provider.getThreadsWithLabel({
+    labelId,
+    maxResults: 100,
+  });
+
+  logger.info("Found threads with label", {
+    systemType,
+    count: threads.length,
+  });
+
+  const threshold = subHours(now, thresholdDays * 24);
+  const trackerType =
+    systemType === SystemType.AWAITING_REPLY
+      ? ThreadTrackerType.AWAITING
+      : ThreadTrackerType.NEEDS_REPLY;
+
   let processedCount = 0;
 
-  for (const tracker of trackers) {
-    const trackerLogger = logger.with({
-      threadId: tracker.threadId,
-      type: trackerType,
-    });
+  for (const thread of threads) {
+    const threadLogger = logger.with({ threadId: thread.id });
 
     try {
-      await applyFollowUpLabel({
-        provider,
-        threadId: tracker.threadId,
-        messageId: tracker.messageId,
-        labelId,
-        logger: trackerLogger,
+      const lastMessage = await provider.getLatestMessageInThread(thread.id);
+      if (!lastMessage) continue;
+
+      const messageDate = internalDateToDate(lastMessage.internalDate);
+      if (messageDate >= threshold) continue;
+
+      let tracker = await prisma.threadTracker.findFirst({
+        where: {
+          emailAccountId: emailAccount.id,
+          threadId: thread.id,
+          resolved: false,
+        },
       });
 
-      if (generateDraft) {
-        await generateFollowUpDraft({
-          emailAccount,
-          threadId: tracker.threadId,
-          provider,
-          logger: trackerLogger,
+      if (tracker?.followUpAppliedAt) continue;
+
+      await applyFollowUpLabel({
+        provider,
+        threadId: thread.id,
+        messageId: lastMessage.id,
+        labelId: followUpLabelId,
+        logger: threadLogger,
+      });
+
+      if (!tracker) {
+        tracker = await prisma.threadTracker.create({
+          data: {
+            emailAccountId: emailAccount.id,
+            threadId: thread.id,
+            messageId: lastMessage.id,
+            type: trackerType,
+            sentAt: messageDate,
+            followUpAppliedAt: now,
+          },
+        });
+      } else {
+        await prisma.threadTracker.update({
+          where: { id: tracker.id },
+          data: { followUpAppliedAt: now },
         });
       }
 
-      await prisma.threadTracker.update({
-        where: { id: tracker.id },
-        data: { followUpAppliedAt: now },
-      });
+      if (generateDraft && tracker) {
+        await generateFollowUpDraft({
+          emailAccount,
+          threadId: thread.id,
+          trackerId: tracker.id,
+          provider,
+          logger: threadLogger,
+        });
+      }
 
-      trackerLogger.info("Processed tracker", {
+      threadLogger.info("Processed follow-up", {
         draftGenerated: generateDraft,
       });
       processedCount++;
     } catch (error) {
-      trackerLogger.error("Failed to process tracker", { error });
+      threadLogger.error("Failed to process thread", { error });
       captureException(error);
     }
   }
 
-  logger.info("Finished processing trackers", {
-    type: trackerType,
+  logger.info("Finished processing follow-ups", {
+    systemType,
     processed: processedCount,
-    total: trackers.length,
+    total: threads.length,
   });
 }

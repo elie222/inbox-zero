@@ -18,11 +18,13 @@ import { generateReferralLink } from "@/utils/referral/referral-link";
 export async function generateFollowUpDraft({
   emailAccount,
   threadId,
+  trackerId,
   provider,
   logger,
 }: {
   emailAccount: EmailAccountWithAI;
   threadId: string;
+  trackerId: string;
   provider: EmailProvider;
   logger: Logger;
 }): Promise<void> {
@@ -45,11 +47,29 @@ export async function generateFollowUpDraft({
           emailAccount.email.toLowerCase(),
       );
 
-    if (!lastExternalMessage) {
-      logger.info(
-        "No external message found in thread, skipping draft generation",
-        { threadId },
+    // Find the user's last sent message (for cases where user initiated the thread)
+    const userLastSentMessage = thread.messages
+      .slice()
+      .reverse()
+      .find(
+        (msg) =>
+          extractEmailAddress(msg.headers.from).toLowerCase() ===
+          emailAccount.email.toLowerCase(),
       );
+
+    // Determine which message to use for drafting and the recipient
+    // If there's an external message, reply to that sender
+    // If not, follow up on the user's sent message to its original recipients
+    const messageForDraft = lastExternalMessage ?? userLastSentMessage;
+    const recipientOverride =
+      !lastExternalMessage && userLastSentMessage
+        ? userLastSentMessage.headers.to
+        : undefined;
+
+    if (!messageForDraft) {
+      logger.warn("No messages found in thread, skipping draft generation", {
+        threadId,
+      });
       return;
     }
 
@@ -105,13 +125,19 @@ export async function generateFollowUpDraft({
     }
 
     const { draftId } = await provider.draftEmail(
-      lastExternalMessage,
+      messageForDraft,
       {
+        to: recipientOverride,
         content: draftContent,
       },
       emailAccount.email,
-      undefined, // no executed rule context for follow-up drafts
+      undefined,
     );
+
+    await prisma.threadTracker.update({
+      where: { id: trackerId },
+      data: { followUpDraftId: draftId },
+    });
 
     logger.info("Follow-up draft created", { threadId, draftId });
   } catch (error) {

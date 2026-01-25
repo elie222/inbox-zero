@@ -16,6 +16,7 @@ import { GlobalProviders } from "@/providers/GlobalProviders";
 import { UTM } from "@/app/utm";
 import { startupImage } from "@/app/startup-image";
 import { Toaster } from "@/components/Toast";
+import { Agentation } from "@/components/Agentation";
 
 const aeonikFont = localFont({
   src: "../styles/aeonik-medium.woff",
@@ -165,6 +166,7 @@ export default async function RootLayout({
         {env.NEXT_PUBLIC_GTM_ID ? (
           <GoogleTagManager gtmId={env.NEXT_PUBLIC_GTM_ID} />
         ) : null}
+        <Agentation />
       </body>
     </html>
   );

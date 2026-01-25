@@ -11,6 +11,9 @@ import type { EmailProvider } from "@/utils/email/types";
 import { createScopedLogger } from "@/utils/logger";
 import { E2E_GMAIL_EMAIL, E2E_OUTLOOK_EMAIL } from "../config";
 import { logStep } from "./logging";
+import { SystemType, ActionType } from "@/generated/prisma/enums";
+import { getRuleConfig } from "@/utils/rule/consts";
+import { CONVERSATION_STATUS_TYPES } from "@/utils/reply-tracker/conversation-status-config";
 
 // Logger for email provider operations
 const testLogger = createScopedLogger("e2e-test");
@@ -232,4 +235,108 @@ export async function ensureTestRules(emailAccountId: string): Promise<void> {
 export function clearAccountCache(): void {
   gmailAccount = null;
   outlookAccount = null;
+}
+
+/**
+ * Ensure conversation status rules exist for ThreadTracker creation
+ *
+ * These rules enable the conversation tracking feature which creates ThreadTrackers
+ * when messages are processed. Without these rules, outbound tracking and
+ * conversation status detection are disabled.
+ */
+export async function ensureConversationRules(
+  emailAccountId: string,
+): Promise<void> {
+  logStep("Ensuring conversation rules exist", { emailAccountId });
+
+  const conversationTypes = [SystemType.TO_REPLY, SystemType.AWAITING_REPLY];
+
+  for (const systemType of conversationTypes) {
+    const existingRule = await prisma.rule.findUnique({
+      where: {
+        emailAccountId_systemType: {
+          emailAccountId,
+          systemType,
+        },
+      },
+    });
+
+    if (existingRule) {
+      // Ensure rule is enabled
+      if (!existingRule.enabled) {
+        await prisma.rule.update({
+          where: { id: existingRule.id },
+          data: { enabled: true },
+        });
+        logStep(`Enabled existing ${systemType} rule`);
+      } else {
+        logStep(`${systemType} rule already exists and is enabled`);
+      }
+      continue;
+    }
+
+    const ruleConfig = getRuleConfig(systemType);
+
+    // Create the conversation rule with a LABEL action
+    await prisma.rule.create({
+      data: {
+        emailAccountId,
+        name: ruleConfig.name,
+        instructions: ruleConfig.instructions,
+        systemType,
+        enabled: true,
+        runOnThreads: ruleConfig.runOnThreads,
+        actions: {
+          create: {
+            type: ActionType.LABEL,
+            label: ruleConfig.label,
+          },
+        },
+      },
+    });
+
+    logStep(`Created ${systemType} conversation rule`);
+  }
+
+  logStep("Conversation rules ensured");
+}
+
+/**
+ * Disable non-conversation rules to avoid AI Auto-Reply interference
+ *
+ * This keeps conversation status rules enabled (needed for ThreadTracker creation)
+ * while disabling other rules that might create drafts or interfere with assertions.
+ */
+export async function disableNonConversationRules(
+  emailAccountId: string,
+): Promise<void> {
+  logStep("Disabling non-conversation rules", { emailAccountId });
+
+  const result = await prisma.rule.updateMany({
+    where: {
+      emailAccountId,
+      enabled: true,
+      OR: [
+        { systemType: null },
+        { systemType: { notIn: CONVERSATION_STATUS_TYPES } },
+      ],
+    },
+    data: { enabled: false },
+  });
+
+  logStep("Non-conversation rules disabled", { count: result.count });
+}
+
+/**
+ * Re-enable all rules for an account
+ */
+export async function enableAllRules(emailAccountId: string): Promise<void> {
+  logStep("Re-enabling all rules", { emailAccountId });
+
+  const result = await prisma.rule.updateMany({
+    where: { emailAccountId, enabled: false },
+    data: { enabled: true },
+  });
+
+  logStep("Rules re-enabled", { count: result.count });
 }

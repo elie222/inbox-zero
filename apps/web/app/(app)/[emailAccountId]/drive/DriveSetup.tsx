@@ -70,6 +70,7 @@ type FilingState = {
   result?: FileAttachmentFiled;
   error?: string;
   skipReason?: string;
+  filingId?: string; // Available for both filed and skipped items (for feedback)
 };
 
 export function DriveSetup() {
@@ -121,6 +122,7 @@ export function DriveSetup() {
                   [key]: {
                     status: "skipped",
                     skipReason: resultData.skipReason,
+                    filingId: resultData.filingId,
                   },
                 }));
               } else if (resultData) {
@@ -391,13 +393,9 @@ function PreviewResults({
         <Button
           onClick={onStartFiling}
           loading={isStarting}
-          disabled={anyFiling || filedCount === 0}
+          disabled={anyFiling}
         >
-          {anyFiling
-            ? "Processing..."
-            : filedCount === 0
-              ? "No attachments to file"
-              : "Looks good, start auto-filing"}
+          {anyFiling ? "Processing..." : "Looks good, start auto-filing"}
         </Button>
         <p className="text-xs text-muted-foreground">
           You'll get an email each time we file something. Reply to correct us.
@@ -462,7 +460,8 @@ function FilingRow({
   );
 
   const handleCorrectClick = useCallback(async () => {
-    const filingId = filingState.result?.filingId;
+    // Use filingId from result (filed items) or directly from state (skipped items)
+    const filingId = filingState.result?.filingId || filingState.filingId;
     if (!filingId) return;
 
     setVote(true);
@@ -475,12 +474,29 @@ function FilingRow({
       setVote(null);
       toastError({ description: "Failed to submit feedback" });
     }
-  }, [emailAccountId, filingState.result?.filingId]);
+  }, [emailAccountId, filingState.result?.filingId, filingState.filingId]);
 
   const handleWrongClick = useCallback(() => {
     setVote(false);
     onCorrectClick();
   }, [onCorrectClick]);
+
+  // Handle "wrong" feedback for skipped items (just saves negative feedback for now)
+  const handleSkippedWrongClick = useCallback(async () => {
+    const filingId = filingState.filingId;
+    if (!filingId) return;
+
+    setVote(false);
+    const result = await submitPreviewFeedbackAction(emailAccountId, {
+      filingId,
+      feedbackPositive: false,
+    });
+
+    if (result?.serverError) {
+      setVote(null);
+      toastError({ description: "Failed to submit feedback" });
+    }
+  }, [emailAccountId, filingState.filingId]);
 
   const isFiled = filingState.status === "filed";
   const isSkipped = filingState.status === "skipped";
@@ -559,8 +575,19 @@ function FilingRow({
               }}
             />
           </div>
-        ) : isSkipped ? (
-          <span className="text-xs text-muted-foreground">—</span>
+        ) : isSkipped && filingState.filingId ? (
+          <div className="flex items-center justify-end">
+            <YesNoIndicator
+              value={vote}
+              onClick={(value) => {
+                if (value) {
+                  handleCorrectClick();
+                } else {
+                  handleSkippedWrongClick();
+                }
+              }}
+            />
+          </div>
         ) : (
           <div className="h-8" />
         )}

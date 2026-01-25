@@ -11,8 +11,9 @@ import { formatEmailWithName } from "@/utils/email";
 import type { Logger } from "@/utils/logger";
 
 // Standard fields to select when fetching messages from Microsoft Graph API
+// internetMessageId is the RFC 5322 Message-ID header, needed for cross-provider email threading
 export const MESSAGE_SELECT_FIELDS =
-  "id,conversationId,conversationIndex,subject,bodyPreview,from,sender,toRecipients,ccRecipients,receivedDateTime,isDraft,isRead,body,categories,parentFolderId,hasAttachments";
+  "id,conversationId,conversationIndex,internetMessageId,subject,bodyPreview,from,sender,toRecipients,ccRecipients,receivedDateTime,isDraft,isRead,body,categories,parentFolderId,hasAttachments";
 
 // Expand attachments to get metadata (name, type, size) without fetching content
 export const MESSAGE_EXPAND_ATTACHMENTS =
@@ -713,6 +714,8 @@ export function convertMessage(
       cc: formatRecipientsList(message.ccRecipients),
       subject: message.subject || "",
       date: message.receivedDateTime || new Date().toISOString(),
+      // RFC 5322 Message-ID header, needed for cross-provider email threading (e.g., Outlook -> Gmail)
+      "message-id": message.internetMessageId || "",
     },
     subject: message.subject || "",
     date: message.receivedDateTime || new Date().toISOString(),

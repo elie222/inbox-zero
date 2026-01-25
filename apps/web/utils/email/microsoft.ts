@@ -42,7 +42,7 @@ import {
   getThreadsFromSenderWithSubject,
 } from "@/utils/outlook/thread";
 import { getOutlookAttachment } from "@/utils/outlook/attachment";
-import { getDraft, deleteDraft } from "@/utils/outlook/draft";
+import { getDraft, deleteDraft, sendDraft } from "@/utils/outlook/draft";
 import {
   getFiltersList,
   createFilter,
@@ -145,6 +145,25 @@ export class OutlookProvider implements EmailProvider {
       name: category.displayName || "",
       type: "user",
     };
+  }
+
+  private async resolveCategoryWithFallback(
+    labelId: string,
+    labelName: string | null,
+  ): Promise<{ category: EmailLabel | null; usedFallback: boolean }> {
+    let category = await this.getLabelById(labelId);
+    let usedFallback = false;
+
+    if (!category && labelName) {
+      this.logger.warn("Category not found by ID, trying by name", {
+        labelId,
+        labelName,
+      });
+      category = await this.getLabelByName(labelName);
+      usedFallback = true;
+    }
+
+    return { category, usedFallback };
   }
 
   async getMessage(messageId: string): Promise<ParsedMessage> {
@@ -419,17 +438,10 @@ export class OutlookProvider implements EmailProvider {
     labelId: string;
     labelName: string | null;
   }): Promise<{ usedFallback?: boolean; actualLabelId?: string }> {
-    let usedFallback = false;
-    let category = await this.getLabelById(labelId);
-
-    if (!category && labelName) {
-      this.logger.warn("Category not found by ID, trying to get by name", {
-        labelId,
-        labelName,
-      });
-      category = await this.getLabelByName(labelName);
-      usedFallback = true;
-    }
+    const { category, usedFallback } = await this.resolveCategoryWithFallback(
+      labelId,
+      labelName,
+    );
 
     if (!category) {
       if (!labelName) {
@@ -486,6 +498,94 @@ export class OutlookProvider implements EmailProvider {
 
   async deleteDraft(draftId: string): Promise<void> {
     await deleteDraft({ client: this.client, draftId, logger: this.logger });
+  }
+
+  async sendDraft(
+    draftId: string,
+  ): Promise<{ messageId: string; threadId: string }> {
+    return sendDraft({ client: this.client, draftId, logger: this.logger });
+  }
+
+  async createDraft(params: {
+    to: string;
+    subject: string;
+    messageHtml: string;
+    replyToMessageId?: string;
+  }): Promise<{ id: string }> {
+    this.logger.info("Creating draft", {
+      replyToMessageId: params.replyToMessageId,
+    });
+
+    // For threading, use createReply on the replyToMessageId
+    if (params.replyToMessageId) {
+      const draft = await withOutlookRetry(
+        () =>
+          this.client
+            .getClient()
+            .api(`/me/messages/${params.replyToMessageId}/createReply`)
+            .post({}),
+        this.logger,
+      );
+
+      // Update the draft with our content
+      await withOutlookRetry(
+        () =>
+          this.client
+            .getClient()
+            .api(`/me/messages/${draft.id}`)
+            .patch({
+              body: { contentType: "html", content: params.messageHtml },
+              subject: params.subject,
+              toRecipients: [{ emailAddress: { address: params.to } }],
+            }),
+        this.logger,
+      );
+
+      this.logger.info("Created threaded draft", { draftId: draft.id });
+      return { id: draft.id };
+    }
+
+    // Otherwise create standalone draft
+    const draft = await withOutlookRetry(
+      () =>
+        this.client
+          .getClient()
+          .api("/me/messages")
+          .post({
+            subject: params.subject,
+            body: { contentType: "html", content: params.messageHtml },
+            toRecipients: [{ emailAddress: { address: params.to } }],
+          }),
+      this.logger,
+    );
+
+    this.logger.info("Created standalone draft", { draftId: draft.id });
+    return { id: draft.id };
+  }
+
+  async updateDraft(
+    draftId: string,
+    params: {
+      messageHtml?: string;
+      subject?: string;
+    },
+  ): Promise<void> {
+    this.logger.info("Updating draft", { draftId });
+
+    const body: Record<string, unknown> = {};
+    if (params.messageHtml) {
+      body.body = { contentType: "html", content: params.messageHtml };
+    }
+    if (params.subject) {
+      body.subject = params.subject;
+    }
+
+    await withOutlookRetry(
+      () => this.client.getClient().api(`/me/messages/${draftId}`).patch(body),
+      this.logger,
+    );
+
+    this.logger.info("Draft updated", { draftId });
   }
 
   async draftEmail(
@@ -555,6 +655,7 @@ export class OutlookProvider implements EmailProvider {
       threadId: string;
       headerMessageId: string;
       references?: string;
+      messageId?: string;
     };
     to: string;
     cc?: string;
@@ -1064,6 +1165,82 @@ export class OutlookProvider implements EmailProvider {
     }
 
     return threads;
+  }
+
+  async getThreadsWithLabel(options: {
+    labelId: string;
+    maxResults?: number;
+  }): Promise<EmailThread[]> {
+    const { labelId, maxResults = 100 } = options;
+
+    const category = await this.getLabelById(labelId);
+    if (!category) {
+      this.logger.warn("Category not found", { labelId });
+      return [];
+    }
+
+    const categoryName = category.name;
+    if (!categoryName) {
+      this.logger.warn("Category has no name", { labelId });
+      return [];
+    }
+
+    const escapedCategoryName = escapeODataString(categoryName);
+    const filter = `categories/any(c:c eq '${escapedCategoryName}')`;
+
+    const response = await this.client
+      .getClient()
+      .api("/me/messages")
+      .filter(filter)
+      .select(MESSAGE_SELECT_FIELDS)
+      .top(maxResults)
+      .orderby("receivedDateTime DESC")
+      .get();
+
+    const messagesByThread = new Map<string, ParsedMessage[]>();
+
+    for (const message of response.value || []) {
+      if (!message.conversationId) continue;
+
+      const parsed = convertMessage(message);
+      const existing = messagesByThread.get(message.conversationId) || [];
+      existing.push(parsed);
+      messagesByThread.set(message.conversationId, existing);
+    }
+
+    return Array.from(messagesByThread.entries()).map(
+      ([threadId, messages]) => ({
+        id: threadId,
+        messages: messages.sort(
+          (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime(),
+        ),
+        snippet: messages[0]?.snippet || "",
+      }),
+    );
+  }
+
+  async getLatestMessageInThread(
+    threadId: string,
+  ): Promise<ParsedMessage | null> {
+    const escapedThreadId = escapeODataString(threadId);
+    const response = await this.client
+      .getClient()
+      .api("/me/messages")
+      .filter(`conversationId eq '${escapedThreadId}'`)
+      .select(MESSAGE_SELECT_FIELDS)
+      .get();
+
+    const messages = response.value || [];
+    if (messages.length === 0) return null;
+
+    const parsed: ParsedMessage[] = messages.map((m: Message) =>
+      convertMessage(m),
+    );
+    parsed.sort(
+      (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime(),
+    );
+
+    return parsed[0];
   }
 
   async getDrafts(options?: { maxResults?: number }): Promise<ParsedMessage[]> {

@@ -37,6 +37,16 @@ npm install
 npm run setup
 ```
 
+**Optional: Automated Google Cloud Setup**
+
+If you have the [gcloud CLI](https://cloud.google.com/sdk/docs/install) installed, you can automate API enabling and Pub/Sub setup:
+
+```bash
+npx inbox-zero setup-google --project-id YOUR_PROJECT_ID --domain yourdomain.com
+```
+
+This command enables required APIs, creates the Pub/Sub topic and subscription, and guides you through OAuth credential creation.
+
 You can also copy `.env.example` to `.env` and set the values yourself.
 
 If doing this manually edit then you'll need to configure:
@@ -120,10 +130,11 @@ docker compose logs -f db
 
 The Docker Compose setup includes a `cron` container that handles scheduled tasks automatically:
 
-| Task | Frequency | Endpoint | Description |
-|------|-----------|----------|-------------|
-| **Email watch renewal** | Every 6 hours | `/api/watch/all` | Renews Gmail/Outlook push notification subscriptions |
-| **Meeting briefs** | Every 15 minutes | `/api/meeting-briefs` | Sends pre-meeting briefings to users with the feature enabled |
+| Task | Frequency | Endpoint | Cron Expression | Description |
+|------|-----------|----------|-----------------|-------------|
+| **Email watch renewal** | Every 6 hours | `/api/watch/all` | `0 */6 * * *` | Renews Gmail/Outlook push notification subscriptions |
+| **Meeting briefs** | Every 15 minutes | `/api/meeting-briefs` | `*/15 * * * *` | Sends pre-meeting briefings to users with the feature enabled |
+| **Follow-up reminders** | Every 30 minutes | `/api/follow-up-reminders` | `*/30 * * * *` | Processes follow-up reminder notifications |
 
 **If you're not using Docker Compose** you need to set up cron jobs manually:
 
@@ -133,6 +144,9 @@ The Docker Compose setup includes a `cron` container that handles scheduled task
 
 # Meeting briefs - every 15 minutes (optional, only if using meeting briefs feature)
 */15 * * * * curl -s -X GET "https://yourdomain.com/api/meeting-briefs" -H "Authorization: Bearer YOUR_CRON_SECRET"
+
+# Follow-up reminders - every 30 minutes (optional, only if using follow-up reminders feature)
+*/30 * * * * curl -s -X GET "https://yourdomain.com/api/follow-up-reminders" -H "Authorization: Bearer YOUR_CRON_SECRET"
 ```
 
 Replace `YOUR_CRON_SECRET` with the value of `CRON_SECRET` from your `.env` file.

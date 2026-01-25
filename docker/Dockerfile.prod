@@ -79,9 +79,6 @@ WORKDIR /app
 # Install openssl for Prisma
 RUN apk add --no-cache openssl
 
-# Install Prisma CLI globally (npm handles all dependencies including @prisma/engines)
-RUN npm install -g prisma@6.16.3
-
 # Copy the standalone server output (contains node_modules subset + server.js)
 COPY --from=builder /app/apps/web/.next/standalone ./
 # Static assets used by the server
@@ -92,6 +89,9 @@ COPY --from=builder /app/apps/web/prisma ./apps/web/prisma
 # Copy runtime scripts
 COPY docker/scripts /app/docker/scripts
 RUN chmod +x /app/docker/scripts/*.sh
+
+# Install Prisma locally for migrations (must be after COPY to merge with standalone node_modules)
+RUN npm install prisma@7.3.0 --no-save
 
 EXPOSE 3000
 

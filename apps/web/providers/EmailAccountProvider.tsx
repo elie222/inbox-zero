@@ -25,6 +25,11 @@ export function EmailAccountProvider({
   const [data, setData] = useState<GetEmailAccountsResponse | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
+  // Tracks session-level account ID for pages without emailAccountId in URL (e.g., /organization)
+  const [lastKnownEmailAccountId, setLastKnownEmailAccountId] = useState<
+    string | null
+  >(null);
+
   useEffect(() => {
     async function fetchAccounts() {
       try {
@@ -45,28 +50,33 @@ export function EmailAccountProvider({
     fetchAccounts();
   }, []);
 
+  useEffect(() => {
+    if (emailAccountId) {
+      setLastKnownEmailAccountId(emailAccountId);
+      setLastEmailAccountAction({ emailAccountId });
+    }
+  }, [emailAccountId]);
+
   const emailAccount = useMemo(() => {
     if (data?.emailAccounts) {
+      // Priority: URL param > last known from this session > first account
       const currentEmailAccount =
         data.emailAccounts.find((acc) => acc.id === emailAccountId) ??
+        data.emailAccounts.find((acc) => acc.id === lastKnownEmailAccountId) ??
         data.emailAccounts[0];
 
       return currentEmailAccount;
     }
-  }, [data, emailAccountId]);
+  }, [data, emailAccountId, lastKnownEmailAccountId]);
 
-  useEffect(() => {
-    if (emailAccountId) {
-      setLastEmailAccountAction({ emailAccountId });
-    }
-  }, [emailAccountId]);
+  const resolvedEmailAccountId = emailAccountId ?? emailAccount?.id ?? "";
 
   return (
     <EmailAccountContext.Provider
       value={{
         emailAccount,
         isLoading,
-        emailAccountId: emailAccountId ?? "",
+        emailAccountId: resolvedEmailAccountId,
         userEmail: emailAccount?.email ?? "",
         provider: emailAccount?.account?.provider ?? "",
       }}

@@ -7,9 +7,13 @@
 
 import prisma from "@/utils/prisma";
 import type { EmailProvider } from "@/utils/email/types";
+import type { ParsedMessage } from "@/utils/types";
 import { TIMEOUTS } from "../config";
 import { logStep } from "./logging";
 import { sleep } from "@/utils/sleep";
+import { extractEmailAddress } from "@/utils/email";
+import { getOrCreateFollowUpLabel } from "@/utils/follow-up/labels";
+import type { ThreadTrackerType } from "@/generated/prisma/enums";
 
 interface PollOptions {
   timeout?: number;
@@ -66,6 +70,9 @@ const TERMINAL_STATUSES = ["APPLIED", "SKIPPED", "ERROR"];
  * This function waits until it reaches a terminal status (APPLIED, SKIPPED, or ERROR).
  *
  * Uses threadId for matching as it's more stable than messageId across webhook notifications.
+ *
+ * NOTE: ExecutedRules are created via webhook processing. If this times out,
+ * check webhook configuration (see README.md).
  */
 export async function waitForExecutedRule(options: {
   threadId: string;
@@ -91,60 +98,71 @@ export async function waitForExecutedRule(options: {
 
   logStep("Waiting for ExecutedRule", { threadId, emailAccountId });
 
-  return pollUntil(
-    async () => {
-      const executedRule = await prisma.executedRule.findFirst({
-        where: {
-          threadId,
-          emailAccountId,
-        },
-        include: {
-          actionItems: {
-            select: {
-              id: true,
-              type: true,
-              draftId: true,
-              labelId: true,
+  const startTime = Date.now();
+
+  try {
+    return await pollUntil(
+      async () => {
+        const executedRule = await prisma.executedRule.findFirst({
+          where: {
+            threadId,
+            emailAccountId,
+          },
+          include: {
+            actionItems: {
+              select: {
+                id: true,
+                type: true,
+                draftId: true,
+                labelId: true,
+              },
             },
           },
-        },
-        orderBy: {
-          createdAt: "desc",
-        },
-      });
-
-      if (!executedRule) {
-        logStep("ExecutedRule not found yet", { threadId });
-        return null;
-      }
-
-      // Wait for terminal status - rule processing must complete
-      if (!TERMINAL_STATUSES.includes(executedRule.status)) {
-        logStep("ExecutedRule still processing", {
-          id: executedRule.id,
-          status: executedRule.status,
+          orderBy: {
+            createdAt: "desc",
+          },
         });
-        return null;
-      }
 
-      return {
-        id: executedRule.id,
-        ruleId: executedRule.ruleId,
-        status: executedRule.status,
-        messageId: executedRule.messageId,
-        actionItems: executedRule.actionItems.map((a) => ({
-          id: a.id,
-          type: a.type,
-          draftId: a.draftId,
-          labelId: a.labelId,
-        })),
-      };
-    },
-    {
-      timeout,
-      description: `ExecutedRule for thread ${threadId} to reach terminal status`,
-    },
-  );
+        if (!executedRule) {
+          logStep("ExecutedRule not found yet", { threadId });
+          return null;
+        }
+
+        // Wait for terminal status - rule processing must complete
+        if (!TERMINAL_STATUSES.includes(executedRule.status)) {
+          logStep("ExecutedRule still processing", {
+            id: executedRule.id,
+            status: executedRule.status,
+          });
+          return null;
+        }
+
+        return {
+          id: executedRule.id,
+          ruleId: executedRule.ruleId,
+          status: executedRule.status,
+          messageId: executedRule.messageId,
+          actionItems: executedRule.actionItems.map((a) => ({
+            id: a.id,
+            type: a.type,
+            draftId: a.draftId,
+            labelId: a.labelId,
+          })),
+        };
+      },
+      {
+        timeout,
+        description: `ExecutedRule for thread ${threadId} to reach terminal status`,
+      },
+    );
+  } catch (_error) {
+    const elapsed = Date.now() - startTime;
+    throw new Error(
+      `Timeout waiting for ExecutedRule after ${elapsed}ms. ` +
+        "This usually means webhooks are not being delivered. " +
+        "Check WEBHOOK_URL and Pub/Sub configuration in README.md.",
+    );
+  }
 }
 
 /**
@@ -236,17 +254,108 @@ export async function waitForLabel(options: {
 }
 
 /**
+ * Wait for the Follow-up label to be applied to a specific message
+ * Gets the actual label ID from the provider to match against labelIds
+ *
+ * The follow-up process applies the label to the LAST message in a thread:
+ * - For AWAITING: the label is on the user's sent reply
+ * - For NEEDS_REPLY: the label is on the received message (no reply sent)
+ */
+export async function waitForFollowUpLabel(options: {
+  messageId: string;
+  provider: EmailProvider;
+  timeout?: number;
+}): Promise<void> {
+  const {
+    messageId,
+    provider,
+    timeout = TIMEOUTS.WEBHOOK_PROCESSING,
+  } = options;
+
+  logStep("Waiting for Follow-up label", { messageId });
+
+  // Get the actual Follow-up label ID from the provider
+  const followUpLabel = await getOrCreateFollowUpLabel(provider);
+  logStep("Follow-up label ID resolved", { labelId: followUpLabel.id });
+
+  await pollUntil(
+    async () => {
+      const message = await provider.getMessage(messageId);
+      const hasLabel = message.labelIds?.includes(followUpLabel.id);
+      return hasLabel ? true : null;
+    },
+    {
+      timeout,
+      description: `Follow-up label on message ${messageId}`,
+    },
+  );
+}
+
+/**
+ * Wait for a sent message to appear in Sent folder
+ *
+ * This is useful when sending via Microsoft Graph's sendMail API which doesn't
+ * return the message ID. We can poll the Sent folder to get the actual ID.
+ */
+export async function waitForSentMessage(options: {
+  provider: EmailProvider;
+  subjectContains: string;
+  timeout?: number;
+  /** Timestamp to filter messages sent after this time */
+  sentAfter?: Date;
+}): Promise<{ messageId: string; threadId: string }> {
+  const {
+    provider,
+    subjectContains,
+    timeout = TIMEOUTS.EMAIL_DELIVERY,
+    sentAfter,
+  } = options;
+
+  logStep("Waiting for message in Sent folder", { subjectContains });
+
+  return pollUntil(
+    async () => {
+      const messages = await provider.getSentMessages(20);
+      const found = messages.find((msg) => {
+        if (!msg.subject?.includes(subjectContains)) return false;
+        // Filter by sent time if specified
+        if (sentAfter && msg.date) {
+          const msgDate = new Date(msg.date);
+          if (msgDate < sentAfter) return false;
+        }
+        return true;
+      });
+
+      if (found?.id && found?.threadId) {
+        return {
+          messageId: found.id,
+          threadId: found.threadId,
+        };
+      }
+      return null;
+    },
+    {
+      timeout,
+      description: `Sent message with subject containing "${subjectContains}"`,
+    },
+  );
+}
+
+/**
  * Wait for a message to appear in inbox (useful after sending)
  */
 export async function waitForMessageInInbox(options: {
   provider: EmailProvider;
   subjectContains: string;
   timeout?: number;
+  /** Optional filter to exclude certain messages (e.g., to find second message in a thread) */
+  filter?: (msg: { id: string; threadId: string }) => boolean;
 }): Promise<{ messageId: string; threadId: string }> {
   const {
     provider,
     subjectContains,
     timeout = TIMEOUTS.EMAIL_DELIVERY,
+    filter,
   } = options;
 
   logStep("Waiting for message in inbox", { subjectContains });
@@ -254,9 +363,14 @@ export async function waitForMessageInInbox(options: {
   return pollUntil(
     async () => {
       const messages = await provider.getInboxMessages(20);
-      const found = messages.find((msg) =>
-        msg.subject?.includes(subjectContains),
-      );
+      const found = messages.find((msg) => {
+        if (!msg.subject?.includes(subjectContains)) return false;
+        // Apply optional filter (e.g., to exclude already-seen messages)
+        if (filter && msg.id && msg.threadId) {
+          return filter({ id: msg.id, threadId: msg.threadId });
+        }
+        return true;
+      });
 
       if (found?.id && found?.threadId) {
         return {
@@ -269,6 +383,58 @@ export async function waitForMessageInInbox(options: {
     {
       timeout,
       description: `Message with subject containing "${subjectContains}"`,
+    },
+  );
+}
+
+/**
+ * Wait for a reply to appear in inbox
+ * More specific than waitForMessageInInbox - filters by sender and subject
+ * to ensure we find the actual reply, not some other message
+ */
+export async function waitForReplyInInbox(options: {
+  provider: EmailProvider;
+  subjectContains: string;
+  fromEmail: string;
+  timeout?: number;
+}): Promise<{ messageId: string; threadId: string; subject: string }> {
+  const {
+    provider,
+    subjectContains,
+    fromEmail,
+    timeout = TIMEOUTS.EMAIL_DELIVERY,
+  } = options;
+
+  logStep("Waiting for reply in inbox", { subjectContains, fromEmail });
+
+  return pollUntil(
+    async () => {
+      const messages = await provider.getInboxMessages(20);
+      const found = messages.find((msg) => {
+        // Must be from the expected sender - extract and compare email addresses
+        const msgFromEmail = extractEmailAddress(
+          msg.headers?.from || "",
+        ).toLowerCase();
+        if (msgFromEmail !== fromEmail.toLowerCase()) return false;
+
+        // Must contain the subject (including Re: variants)
+        if (!msg.subject?.includes(subjectContains)) return false;
+
+        return true;
+      });
+
+      if (found?.id && found?.threadId) {
+        return {
+          messageId: found.id,
+          threadId: found.threadId,
+          subject: found.subject || "",
+        };
+      }
+      return null;
+    },
+    {
+      timeout,
+      description: `Reply from ${fromEmail} with subject containing "${subjectContains}"`,
     },
   );
 }
@@ -299,6 +465,39 @@ export async function waitForDraftDeleted(options: {
     {
       timeout,
       description: `Draft ${draftId} to be deleted`,
+    },
+  );
+}
+
+/**
+ * Wait for all drafts in a thread to be cleared
+ * (either deleted or moved out of Drafts folder by Microsoft)
+ *
+ * This is useful for handling timing issues where Microsoft's async
+ * processing of sent drafts may leave temporary drafts briefly visible.
+ */
+export async function waitForNoThreadDrafts(options: {
+  threadId: string;
+  provider: EmailProvider;
+  timeout?: number;
+}): Promise<void> {
+  const { threadId, provider, timeout = TIMEOUTS.WEBHOOK_PROCESSING } = options;
+
+  logStep("Waiting for all thread drafts to clear", { threadId });
+
+  await pollUntil(
+    async () => {
+      const drafts = await provider.getDrafts({ maxResults: 50 });
+      const threadDrafts = drafts.filter((d) => d.threadId === threadId);
+      if (threadDrafts.length > 0) {
+        logStep("Thread still has drafts", { count: threadDrafts.length });
+        return null;
+      }
+      return true;
+    },
+    {
+      timeout,
+      description: `All drafts for thread ${threadId} to be cleared`,
     },
   );
 }
@@ -366,6 +565,154 @@ export async function waitForDraftSendLog(options: {
     {
       timeout,
       description: `DraftSendLog for thread ${threadId}`,
+    },
+  );
+}
+
+/**
+ * Wait for a ThreadTracker to be created for a thread
+ *
+ * ThreadTrackers are created by the AI-powered conversation tracking feature
+ * when it determines a thread needs follow-up (AWAITING or NEEDS_REPLY).
+ *
+ * NOTE: ThreadTrackers are created via webhook processing. If this times out,
+ * it likely means webhooks are not being delivered. Check:
+ * - For Gmail: Pub/Sub push subscription URL must point to your ngrok domain
+ * - For Outlook: WEBHOOK_URL must be set to your ngrok domain
+ * See apps/web/__tests__/e2e/flows/README.md for configuration details.
+ */
+export async function waitForThreadTracker(options: {
+  threadId: string;
+  emailAccountId: string;
+  type?: ThreadTrackerType; // Optional: if omitted, wait for any tracker type
+  timeout?: number;
+}): Promise<{
+  id: string;
+  type: ThreadTrackerType;
+  messageId: string;
+  sentAt: Date;
+  resolved: boolean;
+  followUpAppliedAt: Date | null;
+}> {
+  const {
+    threadId,
+    emailAccountId,
+    type,
+    timeout = TIMEOUTS.WEBHOOK_PROCESSING,
+  } = options;
+
+  logStep("Waiting for ThreadTracker", { threadId, emailAccountId, type });
+
+  const startTime = Date.now();
+
+  try {
+    return await pollUntil(
+      async () => {
+        const tracker = await prisma.threadTracker.findFirst({
+          where: {
+            threadId,
+            emailAccountId,
+            resolved: false,
+            ...(type ? { type } : {}),
+          },
+          orderBy: {
+            createdAt: "desc",
+          },
+        });
+
+        if (!tracker) {
+          logStep("ThreadTracker not found yet", { threadId, type });
+          return null;
+        }
+
+        logStep("ThreadTracker found", {
+          id: tracker.id,
+          type: tracker.type,
+        });
+
+        return {
+          id: tracker.id,
+          type: tracker.type,
+          messageId: tracker.messageId,
+          sentAt: tracker.sentAt,
+          resolved: tracker.resolved,
+          followUpAppliedAt: tracker.followUpAppliedAt,
+        };
+      },
+      {
+        timeout,
+        description: `ThreadTracker${type ? ` (${type})` : ""} for thread ${threadId}`,
+      },
+    );
+  } catch (_error) {
+    const elapsed = Date.now() - startTime;
+    const webhookUrl =
+      process.env.WEBHOOK_URL || process.env.NEXT_PUBLIC_BASE_URL;
+    const isLocalUrl =
+      webhookUrl?.includes("localhost") || webhookUrl?.includes("127.0.0.1");
+
+    let hint = "";
+    if (!webhookUrl) {
+      hint = "\n\nHINT: WEBHOOK_URL is not set. Webhooks cannot be delivered.";
+    } else if (isLocalUrl) {
+      hint =
+        `\n\nHINT: WEBHOOK_URL (${webhookUrl}) appears to be localhost. ` +
+        "External providers (Gmail/Outlook) cannot send webhooks to localhost. " +
+        "Use ngrok or another tunnel to expose your local server.";
+    } else {
+      hint =
+        "\n\nHINT: Webhooks may not be configured correctly:\n" +
+        "  - Gmail: Ensure Pub/Sub push subscription URL points to your ngrok domain\n" +
+        "  - Outlook: WEBHOOK_URL should match your ngrok domain\n" +
+        "  See apps/web/__tests__/e2e/flows/README.md for configuration details.";
+    }
+
+    throw new Error(
+      `Timeout waiting for ThreadTracker${type ? ` (${type})` : ""} after ${elapsed}ms. ` +
+        "This usually means webhooks are not being delivered to trigger the message processing." +
+        hint,
+    );
+  }
+}
+
+/**
+ * Wait for a thread to have at least a minimum number of messages
+ *
+ * This is useful when you've sent a message and need to wait for it to
+ * be indexed by the email provider before checking thread contents.
+ * Microsoft Graph can be slow to index sent messages under conversations.
+ */
+export async function waitForThreadMessageCount(options: {
+  threadId: string;
+  provider: EmailProvider;
+  minCount: number;
+  timeout?: number;
+}): Promise<ParsedMessage[]> {
+  const {
+    threadId,
+    provider,
+    minCount,
+    timeout = TIMEOUTS.WEBHOOK_PROCESSING,
+  } = options;
+
+  logStep("Waiting for thread message count", { threadId, minCount });
+
+  return pollUntil(
+    async () => {
+      const messages = await provider.getThreadMessages(threadId);
+      logStep("Thread message count check", {
+        threadId,
+        currentCount: messages.length,
+        requiredCount: minCount,
+      });
+      if (messages.length >= minCount) {
+        return messages;
+      }
+      return null;
+    },
+    {
+      timeout,
+      description: `Thread ${threadId} to have at least ${minCount} messages`,
     },
   );
 }

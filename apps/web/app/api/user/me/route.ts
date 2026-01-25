@@ -16,6 +16,7 @@ async function getUser({ userId }: { userId: string }) {
       aiApiKey: true,
       webhookSecret: true,
       referralCode: true,
+      announcementDismissedAt: true,
       premium: {
         select: {
           lemonSqueezyCustomerId: true,

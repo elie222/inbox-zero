@@ -1,6 +1,7 @@
 "use client";
 
 import type React from "react";
+import { useState } from "react";
 import Link from "next/link";
 import { usePostHog } from "posthog-js/react";
 import {
@@ -22,6 +23,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { ResubscribeDialog } from "@/app/(app)/[emailAccountId]/bulk-unsubscribe/ResubscribeDialog";
 import { extractEmailAddress, extractNameFromEmail } from "@/utils/email";
 import type { RowProps } from "@/app/(app)/[emailAccountId]/bulk-unsubscribe/types";
 import { Button } from "@/components/ui/button";
@@ -48,6 +50,8 @@ export function BulkUnsubscribeRowMobile({
   emailAccountId,
   filter,
 }: RowProps) {
+  const [resubscribeDialogOpen, setResubscribeDialogOpen] = useState(false);
+
   const name = item.fromName || extractNameFromEmail(item.name);
   const email = extractEmailAddress(item.name);
 
@@ -120,14 +124,11 @@ export function BulkUnsubscribeRowMobile({
             </Button>
           )}
 
-          <Button size="sm" variant="outline" asChild>
-            <Link
-              href={unsubscribeLink}
-              target={
-                hasUnsubscribeLink && !isUnsubscribed ? "_blank" : undefined
-              }
-              onClick={onUnsubscribe}
-              rel="noreferrer"
+          {isUnsubscribed || resubscribeDialogOpen ? (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setResubscribeDialogOpen(true)}
             >
               <span className="flex items-center gap-1.5">
                 {unsubscribeLoading ? (
@@ -135,14 +136,28 @@ export function BulkUnsubscribeRowMobile({
                 ) : (
                   <MailMinusIcon className="size-4" />
                 )}
-                {isUnsubscribed
-                  ? "Resubscribe"
-                  : hasUnsubscribeLink
-                    ? "Unsubscribe"
-                    : "Block"}
+                Resubscribe
               </span>
-            </Link>
-          </Button>
+            </Button>
+          ) : (
+            <Button size="sm" variant="outline" asChild>
+              <Link
+                href={unsubscribeLink}
+                target={hasUnsubscribeLink ? "_blank" : undefined}
+                onClick={onUnsubscribe}
+                rel="noreferrer"
+              >
+                <span className="flex items-center gap-1.5">
+                  {unsubscribeLoading ? (
+                    <ButtonLoader />
+                  ) : (
+                    <MailMinusIcon className="size-4" />
+                  )}
+                  {hasUnsubscribeLink ? "Unsubscribe" : "Block"}
+                </span>
+              </Link>
+            </Button>
+          )}
 
           <Button
             size="sm"
@@ -167,6 +182,15 @@ export function BulkUnsubscribeRowMobile({
           </Button>
         </div>
       </CardContent>
+
+      <ResubscribeDialog
+        open={resubscribeDialogOpen}
+        onOpenChange={setResubscribeDialogOpen}
+        senderName={name}
+        newsletterEmail={item.name}
+        emailAccountId={emailAccountId}
+        mutate={mutate}
+      />
     </Card>
   );
 }

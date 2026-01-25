@@ -54,5 +54,6 @@ export type UpdateDigestItemsBody = z.infer<typeof updateDigestItemsBody>;
 
 export const toggleDigestBody = z.object({
   enabled: z.boolean(),
+  timeOfDay: z.coerce.date().optional(),
 });
 export type ToggleDigestBody = z.infer<typeof toggleDigestBody>;

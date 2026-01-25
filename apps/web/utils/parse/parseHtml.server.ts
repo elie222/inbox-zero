@@ -1,5 +1,8 @@
 import * as cheerio from "cheerio";
-import { containsUnsubscribeKeyword } from "@/utils/parse/unsubscribe";
+import {
+  containsUnsubscribeKeyword,
+  containsUnsubscribeUrlPattern,
+} from "@/utils/parse/unsubscribe";
 
 export function findUnsubscribeLink(html?: string | null) {
   if (!html) return;
@@ -17,9 +20,9 @@ export function findUnsubscribeLink(html?: string | null) {
       return false; // break the loop
     }
 
-    const href = $(element).attr("href")?.toLowerCase() || "";
-    if (href.includes("unsubscribe")) {
-      unsubscribeLink = $(element).attr("href");
+    const href = $(element).attr("href") || "";
+    if (containsUnsubscribeUrlPattern(href)) {
+      unsubscribeLink = href;
       // console.debug(
       //   `Found link with href '${href}' and a link: ${unsubscribeLink}`,
       // );

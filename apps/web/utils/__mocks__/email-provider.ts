@@ -94,6 +94,11 @@ export const createMockEmailProvider = (
   markReadThread: vi.fn().mockResolvedValue(undefined),
   getDraft: vi.fn().mockResolvedValue(null),
   deleteDraft: vi.fn().mockResolvedValue(undefined),
+  sendDraft: vi
+    .fn()
+    .mockResolvedValue({ messageId: "sent-msg1", threadId: "thread1" }),
+  createDraft: vi.fn().mockResolvedValue({ id: "draft-new" }),
+  updateDraft: vi.fn().mockResolvedValue(undefined),
   createLabel: vi
     .fn()
     .mockResolvedValue({ id: "label1", name: "Test Label", type: "user" }),
@@ -110,6 +115,9 @@ export const createMockEmailProvider = (
     .fn()
     .mockResolvedValue({ messages: [], nextPageToken: undefined }),
   getMessagesFromSender: vi
+    .fn()
+    .mockResolvedValue({ messages: [], nextPageToken: undefined }),
+  getMessagesWithAttachments: vi
     .fn()
     .mockResolvedValue({ messages: [], nextPageToken: undefined }),
   getThreadsWithParticipant: vi.fn().mockResolvedValue([]),

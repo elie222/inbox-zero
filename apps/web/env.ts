@@ -14,10 +14,20 @@ const llmProviderEnum = z.enum([
   "ollama",
 ]);
 
+/** For Vercel preview deployments, auto-detect from VERCEL_URL. */
+const getBaseUrl = (): string | undefined => {
+  if (process.env.VERCEL_ENV === "preview" && process.env.VERCEL_URL) {
+    return `https://${process.env.VERCEL_URL}`;
+  }
+  return process.env.NEXT_PUBLIC_BASE_URL;
+};
+
 export const env = createEnv({
   server: {
     NODE_ENV: z.enum(["development", "production", "test"]),
     DATABASE_URL: z.string().url(),
+    PREVIEW_DATABASE_URL: z.string().url().optional(),
+    PREVIEW_DATABASE_URL_UNPOOLED: z.string().url().optional(),
 
     AUTH_SECRET: z.string().optional(),
     NEXTAUTH_SECRET: z.string().optional(),
@@ -122,6 +132,17 @@ export const env = createEnv({
     WHITELIST_FROM: z.string().optional(),
     USE_BACKUP_MODEL: z.coerce.boolean().optional().default(false),
     HEALTH_API_KEY: z.string().optional(),
+    OAUTH_PROXY_URL: z.string().url().optional(),
+    // Additional trusted origins for CORS (comma-separated, supports wildcards like https://*.vercel.app)
+    ADDITIONAL_TRUSTED_ORIGINS: z
+      .string()
+      .optional()
+      .transform((value) =>
+        value
+          ?.split(",")
+          .map((s) => s.trim())
+          .filter(Boolean),
+      ),
 
     // license
     LICENSE_1_SEAT_VARIANT_ID: z.coerce.number().optional(),
@@ -236,7 +257,7 @@ export const env = createEnv({
     NEXT_PUBLIC_POSTHOG_HERO_AB: process.env.NEXT_PUBLIC_POSTHOG_HERO_AB,
     NEXT_PUBLIC_POSTHOG_ONBOARDING_SURVEY_ID:
       process.env.NEXT_PUBLIC_POSTHOG_ONBOARDING_SURVEY_ID,
-    NEXT_PUBLIC_BASE_URL: process.env.NEXT_PUBLIC_BASE_URL,
+    NEXT_PUBLIC_BASE_URL: getBaseUrl(),
     NEXT_PUBLIC_CONTACTS_ENABLED: process.env.NEXT_PUBLIC_CONTACTS_ENABLED,
     NEXT_PUBLIC_EMAIL_SEND_ENABLED: process.env.NEXT_PUBLIC_EMAIL_SEND_ENABLED,
     NEXT_PUBLIC_FREE_UNSUBSCRIBE_CREDITS:

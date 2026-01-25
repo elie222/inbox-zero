@@ -57,40 +57,59 @@ export async function trackSentDraftStatus({
 
   const draftExists = await provider.getDraft(executedAction.draftId);
 
-  if (draftExists) {
-    logger.info("Original AI draft still exists, sent message was different.", {
-      executedActionId: executedAction.id,
-      draftId: executedAction.draftId,
-    });
-    // Mark the action to indicate its draft was not sent
-    await withPrismaRetry(
-      () =>
-        prisma.executedAction.update({
-          where: { id: executedAction.id },
-          data: { wasDraftSent: false },
-        }),
-      { logger },
-    );
-    return;
-  }
-
-  logger.info(
-    "Original AI draft not found (likely sent or deleted), proceeding to log similarity.",
-    {
-      executedActionId: executedAction.id,
-      draftId: executedAction.draftId,
-    },
-  );
-
   const executedActionId = executedAction.id;
 
+  // Calculate similarity between sent message and AI draft content
   // Pass full message to properly handle Outlook HTML content
   const similarityScore = calculateSimilarity(executedAction.content, message);
 
   logger.info("Calculated similarity score", {
     executedActionId,
     similarityScore,
+    draftExists: !!draftExists,
   });
+
+  if (draftExists) {
+    logger.info("Original AI draft still exists, sent message was different.", {
+      executedActionId: executedAction.id,
+      draftId: executedAction.draftId,
+      similarityScore,
+    });
+
+    // Create DraftSendLog to record the comparison, but mark wasDraftSent as false
+    await withPrismaRetry(
+      () =>
+        prisma.$transaction([
+          prisma.draftSendLog.create({
+            data: {
+              executedActionId: executedActionId,
+              sentMessageId: sentMessageId,
+              similarityScore: similarityScore,
+            },
+          }),
+          prisma.executedAction.update({
+            where: { id: executedActionId },
+            data: { wasDraftSent: false },
+          }),
+        ]),
+      { logger },
+    );
+
+    logger.info(
+      "Created draft send log and marked action as not sent (draft still exists)",
+      { executedActionId },
+    );
+    return;
+  }
+
+  logger.info(
+    "Original AI draft not found (likely sent or deleted), creating send log.",
+    {
+      executedActionId,
+      draftId: executedAction.draftId,
+      similarityScore,
+    },
+  );
 
   await withPrismaRetry(
     () =>
@@ -136,7 +155,9 @@ export async function cleanupThreadAIDrafts({
   logger.info("Starting cleanup of old AI drafts for thread");
 
   try {
-    // Find all draft actions for this thread that haven't resulted in a sent log
+    // Find all draft actions for this thread that:
+    // 1. Haven't been logged yet (draftSendLog is null), OR
+    // 2. Were logged but the user sent a different reply (wasDraftSent is false)
     const potentialDraftsToClean = await prisma.executedAction.findMany({
       where: {
         executedRule: {
@@ -145,7 +166,7 @@ export async function cleanupThreadAIDrafts({
         },
         type: ActionType.DRAFT_EMAIL,
         draftId: { not: null },
-        draftSendLog: null, // Only consider drafts not logged as sent
+        OR: [{ draftSendLog: null }, { wasDraftSent: false }],
       },
       select: {
         id: true,
@@ -173,6 +194,21 @@ export async function cleanupThreadAIDrafts({
       try {
         const draftDetails = await provider.getDraft(action.draftId);
 
+        logger.info("Fetched draft details for cleanup check", {
+          ...actionLoggerOptions,
+          draftExists: !!draftDetails,
+          draftEmbeddedMessageId: draftDetails?.id,
+          draftThreadId: draftDetails?.threadId,
+          hasTextPlain: !!draftDetails?.textPlain,
+          hasTextHtml: !!draftDetails?.textHtml,
+        });
+        logger.trace("Draft content preview", {
+          ...actionLoggerOptions,
+          draftTextPreview: (
+            draftDetails?.textPlain || draftDetails?.textHtml
+          )?.slice(0, 100),
+        });
+
         if (draftDetails?.textPlain || draftDetails?.textHtml) {
           // Draft exists, check if modified
           // Pass full draftDetails to properly handle Outlook HTML content
@@ -184,15 +220,21 @@ export async function cleanupThreadAIDrafts({
 
           logger.info("Checked existing draft for modification", {
             ...actionLoggerOptions,
+            draftEmbeddedMessageId: draftDetails.id,
             similarityScore,
             isUnmodified,
           });
+          logger.trace("Original content preview for similarity check", {
+            ...actionLoggerOptions,
+            originalContentPreview: action.content?.slice(0, 100),
+          });
 
           if (isUnmodified) {
-            logger.info(
-              "Draft is unmodified, deleting...",
-              actionLoggerOptions,
-            );
+            logger.info("Draft is unmodified, proceeding with deletion", {
+              ...actionLoggerOptions,
+              draftEmbeddedMessageId: draftDetails.id,
+              draftThreadId: draftDetails.threadId,
+            });
             await Promise.all([
               provider.deleteDraft(action.draftId),
               // Mark as not sent (cleaned up because ignored/superseded)
@@ -238,7 +280,7 @@ export async function cleanupThreadAIDrafts({
       }
     }
 
-    logger.info("Completed cleanup of old AI drafts for thread");
+    logger.info("Completed cleanup of AI drafts for thread");
   } catch (error) {
     logger.error("Error during thread draft cleanup", { error });
   }
