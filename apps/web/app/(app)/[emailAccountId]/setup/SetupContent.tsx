@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import {
   ArchiveIcon,
@@ -11,6 +12,7 @@ import {
   ChromeIcon,
   CalendarIcon,
   FileTextIcon,
+  UsersIcon,
 } from "lucide-react";
 import { useLocalStorage } from "usehooks-ts";
 import {
@@ -30,6 +32,7 @@ import {
   STEP_KEYS,
   getStepNumber,
 } from "@/app/(app)/[emailAccountId]/onboarding/steps";
+import { InviteMemberModal } from "@/components/InviteMemberModal";
 
 function FeatureCard({
   emailAccountId,
@@ -140,6 +143,7 @@ const StepItem = ({
   linkProps,
   onMarkDone,
   showMarkDone,
+  onActionClick,
 }: {
   href: string;
   icon: React.ReactNode;
@@ -152,6 +156,7 @@ const StepItem = ({
   linkProps?: { target?: string; rel?: string };
   onMarkDone?: () => void;
   showMarkDone?: boolean;
+  onActionClick?: () => void;
 }) => {
   const handleMarkDone = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -200,13 +205,23 @@ const StepItem = ({
                 </button>
               )}
 
-              <Link
-                href={href}
-                {...linkProps}
-                className="rounded-md bg-blue-100 px-3 py-1 text-sm text-blue-600 hover:bg-blue-200 dark:bg-blue-900/50 dark:text-blue-400 dark:hover:bg-blue-900/75"
-              >
-                {actionText}
-              </Link>
+              {onActionClick ? (
+                <button
+                  type="button"
+                  onClick={onActionClick}
+                  className="rounded-md bg-blue-100 px-3 py-1 text-sm text-blue-600 hover:bg-blue-200 dark:bg-blue-900/50 dark:text-blue-400 dark:hover:bg-blue-900/75"
+                >
+                  {actionText}
+                </button>
+              ) : (
+                <Link
+                  href={href}
+                  {...linkProps}
+                  className="rounded-md bg-blue-100 px-3 py-1 text-sm text-blue-600 hover:bg-blue-200 dark:bg-blue-900/50 dark:text-blue-400 dark:hover:bg-blue-900/75"
+                >
+                  {actionText}
+                </Link>
+              )}
             </>
           )}
         </div>
@@ -224,6 +239,7 @@ function Checklist({
   isBulkUnsubscribeConfigured,
   isAiAssistantConfigured,
   isCalendarConnected,
+  teamInvite,
 }: {
   emailAccountId: string;
   provider: string;
@@ -233,6 +249,11 @@ function Checklist({
   isBulkUnsubscribeConfigured: boolean;
   isAiAssistantConfigured: boolean;
   isCalendarConnected: boolean;
+  teamInvite: {
+    isOwner: boolean;
+    completed: boolean;
+    organizationId: string | undefined;
+  } | null;
 }) {
   const [isExtensionInstalled, setIsExtensionInstalled] = useLocalStorage(
     "inbox-zero-extension-installed",
@@ -242,6 +263,11 @@ function Checklist({
     "inbox-zero-meeting-briefs-viewed",
     false,
   );
+  const [isTeamInviteViewed, setIsTeamInviteViewed] = useLocalStorage(
+    "inbox-zero-team-invite-viewed",
+    false,
+  );
+  const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
   const isMeetingBriefsEnabled = useMeetingBriefsEnabled();
 
   const handleMarkExtensionDone = () => {
@@ -250,6 +276,14 @@ function Checklist({
 
   const handleMarkMeetingBriefsDone = () => {
     setIsMeetingBriefsViewed(true);
+  };
+
+  const handleMarkTeamInviteDone = () => {
+    setIsTeamInviteViewed(true);
+  };
+
+  const handleOpenInviteModal = () => {
+    setIsInviteModalOpen(true);
   };
 
   return (
@@ -307,6 +341,31 @@ function Checklist({
         actionText="Connect"
       />
 
+      {teamInvite?.isOwner && teamInvite.organizationId && (
+        <StepItem
+          href={prefixPath(emailAccountId, "/organization")}
+          icon={<UsersIcon size={20} />}
+          iconBg="bg-indigo-100 dark:bg-indigo-900/50"
+          iconColor="text-indigo-500 dark:text-indigo-400"
+          title="Invite team members"
+          timeEstimate="2 minutes"
+          completed={teamInvite.completed || isTeamInviteViewed}
+          actionText="Invite"
+          onMarkDone={handleMarkTeamInviteDone}
+          showMarkDone={true}
+          onActionClick={handleOpenInviteModal}
+        />
+      )}
+
+      {teamInvite?.organizationId && (
+        <InviteMemberModal
+          organizationId={teamInvite.organizationId}
+          open={isInviteModalOpen}
+          onOpenChange={setIsInviteModalOpen}
+          trigger={null}
+        />
+      )}
+
       {isMeetingBriefsEnabled && (
         <StepItem
           href={prefixPath(emailAccountId, "/briefs")}
@@ -357,6 +416,7 @@ export function SetupContent() {
           completedCount={data.completed}
           totalSteps={data.total}
           isSetupComplete={data.isComplete}
+          teamInvite={data.teamInvite}
         />
       )}
     </LoadingContent>
@@ -372,6 +432,7 @@ function SetupPageContent({
   completedCount,
   totalSteps,
   isSetupComplete,
+  teamInvite,
 }: {
   emailAccountId: string;
   provider: string;
@@ -381,6 +442,11 @@ function SetupPageContent({
   completedCount: number;
   totalSteps: number;
   isSetupComplete: boolean;
+  teamInvite: {
+    isOwner: boolean;
+    completed: boolean;
+    organizationId: string | undefined;
+  } | null;
 }) {
   const progressPercentage = (completedCount / totalSteps) * 100;
 
@@ -409,6 +475,7 @@ function SetupPageContent({
           completedCount={completedCount}
           totalSteps={totalSteps}
           progressPercentage={progressPercentage}
+          teamInvite={teamInvite}
         />
       )}
     </div>

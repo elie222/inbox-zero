@@ -27,6 +27,22 @@ async function getSetupProgress({
         take: 1,
       },
       calendarConnections: { select: { id: true }, take: 1 },
+      members: {
+        select: {
+          role: true,
+          organizationId: true,
+          organization: {
+            select: {
+              _count: {
+                select: {
+                  members: true,
+                  invitations: true,
+                },
+              },
+            },
+          },
+        },
+      },
     },
   });
 
@@ -43,10 +59,23 @@ async function getSetupProgress({
   const completed = Object.values(steps).filter(Boolean).length;
   const total = Object.keys(steps).length;
 
+  const membership = emailAccount.members[0];
+  const isOwner = membership?.role === "owner";
+  const hasTeamMembers = (membership?.organization?._count.members ?? 0) > 1;
+  const hasPendingInvitations =
+    (membership?.organization?._count.invitations ?? 0) > 0;
+
   return {
     steps,
     completed,
     total,
     isComplete: completed === total,
+    teamInvite: isOwner
+      ? {
+          isOwner: true,
+          completed: hasTeamMembers || hasPendingInvitations,
+          organizationId: membership?.organizationId,
+        }
+      : null,
   };
 }

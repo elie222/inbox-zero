@@ -34,9 +34,15 @@ import { useDialogState } from "@/hooks/useDialogState";
 export function InviteMemberModal({
   organizationId,
   onSuccess,
+  open: controlledOpen,
+  onOpenChange: controlledOnOpenChange,
+  trigger,
 }: {
   organizationId: string;
   onSuccess?: () => void;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  trigger?: React.ReactNode;
 }) {
   const {
     register,
@@ -53,7 +59,16 @@ export function InviteMemberModal({
     },
   });
 
-  const { isOpen, onToggle, onClose } = useDialogState();
+  const internalState = useDialogState();
+
+  const isControlled = controlledOpen !== undefined;
+  const isOpen = isControlled ? controlledOpen : internalState.isOpen;
+  const onOpenChange = isControlled
+    ? controlledOnOpenChange
+    : internalState.onToggle;
+  const onClose = isControlled
+    ? () => controlledOnOpenChange?.(false)
+    : internalState.onClose;
 
   const selectedRole = watch("role");
 
@@ -79,10 +94,14 @@ export function InviteMemberModal({
   );
 
   return (
-    <Dialog open={isOpen} onOpenChange={onToggle}>
-      <DialogTrigger asChild>
-        <Button size="sm">Invite Member</Button>
-      </DialogTrigger>
+    <Dialog open={isOpen} onOpenChange={onOpenChange}>
+      {trigger !== undefined ? (
+        trigger
+      ) : (
+        <DialogTrigger asChild>
+          <Button size="sm">Invite Member</Button>
+        </DialogTrigger>
+      )}
 
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
