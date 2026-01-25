@@ -111,3 +111,41 @@ Run E2E tests locally with `./scripts/run-e2e-local.sh`. Config lives at `~/.con
 See `apps/web/__tests__/e2e/flows/README.md` for full setup instructions.
 
 **Debug logs:** `/tmp/ngrok-e2e.log` (tunnel) and `/tmp/nextjs-e2e.log` (app)
+
+## ⚠️ Critical: Never Bypass Production Flows
+
+**E2E tests must test the REAL production flow.** If something appears "flaky", that's a configuration or infrastructure issue to fix, NOT a reason to bypass the flow.
+
+### What NOT to do
+
+❌ **Don't directly call internal functions to skip webhook delivery:**
+```typescript
+// WRONG: Bypassing webhook processing because it's "flaky"
+await handleOutboundReply(message);  // Skips the real webhook flow
+await processHistoryForUser(data);   // Skips HTTP transport validation
+```
+
+❌ **Don't add "fallback" triggers when webhooks don't arrive:**
+```typescript
+// WRONG: "If webhook doesn't arrive, trigger manually"
+const tracker = await waitForThreadTracker(...).catch(() => {
+  return triggerProcessingDirectly();  // Bypasses the real flow
+});
+```
+
+### Why this matters
+
+1. **Production reliability**: If webhooks are flaky in tests, they might be flaky in production too. Tests should catch this.
+2. **Real coverage**: Bypassing flows means you're not testing what users actually experience.
+3. **Hidden bugs**: A bypass can mask real issues like webhook URL misconfiguration, authentication failures, or timing bugs.
+
+### What TO do instead
+
+✅ **Fix the root cause:**
+- Gmail webhooks timeout? → Configure Pub/Sub push URL in Google Cloud Console
+- Outlook webhooks fail? → Set `WEBHOOK_URL` to your ngrok domain
+- Tests are slow? → That's the real speed of the flow; don't hide it
+
+✅ **Improve error messages:** Add clear diagnostics so failures point to the actual problem (see `polling.ts` timeout hints).
+
+✅ **Let tests fail:** A failing E2E test due to webhook misconfiguration is CORRECT behavior. The test is doing its job.
