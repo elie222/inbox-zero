@@ -320,11 +320,11 @@ function formatForTelegram(
 }
 
 /**
- * Format meeting brief for Discord (Embed)
+ * Format meeting brief for Discord (Markdown message via webhook)
  */
 function formatForDiscord(
   params: MeetingBriefFormatParams,
-  config: Record<string, unknown>,
+  _config: Record<string, unknown>,
 ): Record<string, unknown> {
   const {
     meetingTitle,
@@ -335,10 +335,11 @@ function formatForDiscord(
     eventUrl,
   } = params;
 
-  const fields: Array<{ name: string; value: string; inline?: boolean }> = [];
-
-  // Add time
-  fields.push({ name: "⏰ Time", value: formattedTime, inline: true });
+  const lines: string[] = [
+    `## 📅 ${meetingTitle}`,
+    `**⏰ Time:** ${formattedTime}`,
+    "",
+  ];
 
   // Add links
   const links: string[] = [];
@@ -349,46 +350,35 @@ function formatForDiscord(
     links.push(`[View in Calendar](${eventUrl})`);
   }
   if (links.length > 0) {
-    fields.push({ name: "🔗 Links", value: links.join(" | "), inline: true });
+    lines.push(`🔗 ${links.join(" | ")}`);
+    lines.push("");
   }
 
   // Add guests
   if (briefingContent.guests && briefingContent.guests.length > 0) {
-    const guestLines: string[] = [];
+    lines.push("**👥 Attendees**");
     for (const guest of briefingContent.guests) {
       const name = guest.name || guest.email || "Unknown";
-      guestLines.push(`**${name}**`);
+      lines.push(`• **${name}**`);
 
       if (guest.bullets && guest.bullets.length > 0) {
         for (const bullet of guest.bullets.slice(0, 2)) {
-          guestLines.push(`> ${bullet}`);
+          lines.push(`  > ${bullet}`);
         }
       }
     }
-    const attendeesValue = guestLines.join("\n");
-    fields.push({
-      name: "👥 Attendees",
-      value: attendeesValue.slice(0, 1024),
-    });
+    lines.push("");
   }
 
   // Add internal team
   if (internalTeamMembers && internalTeamMembers.length > 0) {
-    fields.push({
-      name: "🏢 Internal Team",
-      value: internalTeamMembers.map((m) => m.name || m.email).join(", "),
-    });
+    lines.push("**🏢 Internal Team**");
+    lines.push(internalTeamMembers.map((m) => m.name || m.email).join(", "));
   }
 
-  const embed = {
-    title: `📅 ${meetingTitle}`,
-    color: 0x58_65_f2, // Discord blurple
-    fields,
-  };
-
+  // Webhook URL determines the channel, so we just return the message
   return {
-    channel_id: config.channelId,
-    embeds: [embed],
+    message: lines.join("\n"),
   };
 }
 

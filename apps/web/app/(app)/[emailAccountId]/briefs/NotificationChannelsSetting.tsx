@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useAction } from "next-safe-action/hooks";
 import { SettingCard } from "@/components/SettingCard";
 import { Toggle } from "@/components/Toggle";
@@ -98,20 +98,21 @@ const CHANNEL_CONFIG_FIELDS: Record<
   ],
   discord: [
     {
-      key: "channelId",
-      label: "Channel ID",
-      placeholder: "123456789012345678",
+      key: "webhookUrl",
+      label: "Webhook URL",
+      placeholder: "https://discord.com/api/webhooks/...",
       helpText:
-        'Right-click the channel in Discord and select "Copy Channel ID" (requires Developer Mode)',
+        "Create a webhook in Discord: Channel Settings → Integrations → Webhooks → New Webhook → Copy URL",
     },
   ],
 };
 
-const CHANNEL_APP_SLUGS: Record<ChannelType, string> = {
+// Discord uses webhooks (no OAuth), so null means skip OAuth check
+const CHANNEL_APP_SLUGS: Record<ChannelType, string | null> = {
   slack: "slack",
   teams: "microsoft_teams",
   telegram: "telegram_bot_api",
-  discord: "discord",
+  discord: null,
 };
 
 export function NotificationChannelsSetting({
@@ -194,17 +195,21 @@ export function NotificationChannelsSetting({
     createPipedreamConnectTokenAction.bind(null, emailAccountId),
   );
 
+  // Use refs to avoid infinite loop from useAction returning new function references
+  const executeGetAccountsRef = useRef(executeGetAccounts);
+  executeGetAccountsRef.current = executeGetAccounts;
+
   const loadConnectedAccounts = useCallback(async () => {
     setIsLoadingAccounts(true);
     try {
-      const result = await executeGetAccounts({});
+      const result = await executeGetAccountsRef.current({});
       if (result?.data?.accounts) {
         setConnectedAccounts(result.data.accounts);
       }
     } finally {
       setIsLoadingAccounts(false);
     }
-  }, [executeGetAccounts]);
+  }, []);
 
   useEffect(() => {
     if (isPipedreamConfigured) {
@@ -214,6 +219,8 @@ export function NotificationChannelsSetting({
 
   const isChannelConnected = (channelType: ChannelType): boolean => {
     const appSlug = CHANNEL_APP_SLUGS[channelType];
+    // Discord uses webhooks, no OAuth needed
+    if (appSlug === null) return true;
     return connectedAccounts.some((acc) => acc.appSlug === appSlug);
   };
 
@@ -221,28 +228,40 @@ export function NotificationChannelsSetting({
     setIsConnecting(true);
     try {
       const result = await executeCreateToken({ channelType });
-      if (result?.data?.connectUrl) {
-        // Open the OAuth flow in a popup
-        const width = 600;
-        const height = 700;
-        const left = window.screenX + (window.outerWidth - width) / 2;
-        const top = window.screenY + (window.outerHeight - height) / 2;
-
-        const popup = window.open(
-          result.data.connectUrl,
-          "pipedream-connect",
-          `width=${width},height=${height},left=${left},top=${top},popup=yes`,
-        );
-
-        // Poll for popup close and refresh accounts
-        const checkPopup = setInterval(() => {
-          if (popup?.closed) {
-            clearInterval(checkPopup);
-            setIsConnecting(false);
-            loadConnectedAccounts();
-          }
-        }, 500);
+      if (!result?.data?.connectUrl) {
+        setIsConnecting(false);
+        toastError({ description: "Failed to get connection URL" });
+        return;
       }
+
+      // Open the OAuth flow in a popup
+      const width = 600;
+      const height = 700;
+      const left = window.screenX + (window.outerWidth - width) / 2;
+      const top = window.screenY + (window.outerHeight - height) / 2;
+
+      const popup = window.open(
+        result.data.connectUrl,
+        "pipedream-connect",
+        `width=${width},height=${height},left=${left},top=${top},popup=yes`,
+      );
+
+      if (!popup) {
+        setIsConnecting(false);
+        toastError({
+          description: "Popup blocked. Please allow popups for this site.",
+        });
+        return;
+      }
+
+      // Poll for popup close and refresh accounts
+      const checkPopup = setInterval(() => {
+        if (popup.closed) {
+          clearInterval(checkPopup);
+          setIsConnecting(false);
+          loadConnectedAccounts();
+        }
+      }, 500);
     } catch {
       setIsConnecting(false);
       toastError({ description: "Failed to start connection flow" });
@@ -343,22 +362,25 @@ export function NotificationChannelsSetting({
             </div>
 
             {newChannelType &&
-              (isLoadingAccounts ? (
+              (isLoadingAccounts &&
+              CHANNEL_APP_SLUGS[newChannelType] !== null ? (
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
                   <Loader2Icon className="h-4 w-4 animate-spin" />
                   Checking connection status...
                 </div>
               ) : isChannelConnected(newChannelType) ? (
                 <>
-                  <div className="flex items-center gap-2 text-sm text-green-600">
-                    <CheckCircleIcon className="h-4 w-4" />
-                    Connected to{" "}
-                    {
-                      availableChannelTypes.find(
-                        (ct) => ct.type === newChannelType,
-                      )?.name
-                    }
-                  </div>
+                  {CHANNEL_APP_SLUGS[newChannelType] !== null && (
+                    <div className="flex items-center gap-2 text-sm text-green-600">
+                      <CheckCircleIcon className="h-4 w-4" />
+                      Connected to{" "}
+                      {
+                        availableChannelTypes.find(
+                          (ct) => ct.type === newChannelType,
+                        )?.name
+                      }
+                    </div>
+                  )}
 
                   {CHANNEL_CONFIG_FIELDS[newChannelType]?.map((field) => (
                     <div key={field.key}>

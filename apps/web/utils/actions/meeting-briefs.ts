@@ -30,6 +30,7 @@ import { runMeetingBrief } from "@/utils/meeting-briefs/process";
 import type { CalendarEvent } from "@/utils/calendar/event-types";
 import { SafeError } from "@/utils/error";
 import { prefixPath } from "@/utils/path";
+import { env } from "@/env";
 
 export const updateMeetingBriefsEnabledAction = actionClient
   .metadata({ name: "updateMeetingBriefsEnabled" })
@@ -190,8 +191,13 @@ export const createPipedreamConnectTokenAction = actionClient
       throw new SafeError(`Unknown channel type: ${channelType}`);
     }
 
+    const callbackPath = prefixPath(emailAccountId, "/oauth-callback");
+    const callbackUrl = `${env.NEXT_PUBLIC_BASE_URL}${callbackPath}`;
+
     const token = await createConnectToken({
       externalUserId: emailAccountId,
+      successRedirectUri: callbackUrl,
+      errorRedirectUri: callbackUrl,
     });
 
     // Build the connect URL with the app slug

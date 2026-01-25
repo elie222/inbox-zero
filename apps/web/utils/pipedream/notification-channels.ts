@@ -14,26 +14,26 @@ export const CHANNEL_TYPES = {
   slack: {
     name: "Slack",
     appSlug: "slack",
-    defaultActionId: "slack_v2-send-message",
+    defaultActionId: "slack-send-message-to-channel",
     configSchema: { channel: "string" }, // Channel ID like "C01234567"
   },
   teams: {
     name: "Microsoft Teams",
     appSlug: "microsoft_teams",
-    defaultActionId: "microsoft_teams-send-message",
+    defaultActionId: "microsoft_teams-send-channel-message",
     configSchema: { teamId: "string", channelId: "string" },
   },
   telegram: {
     name: "Telegram",
     appSlug: "telegram_bot_api",
-    defaultActionId: "telegram_bot_api-send-message",
+    defaultActionId: "telegram_bot_api-send-text-message-or-reply",
     configSchema: { chatId: "string" },
   },
   discord: {
     name: "Discord",
-    appSlug: "discord",
-    defaultActionId: "discord-send-message",
-    configSchema: { channelId: "string" },
+    appSlug: null, // Discord uses webhooks, no OAuth needed
+    defaultActionId: null, // We call the webhook directly
+    configSchema: { webhookUrl: "string" },
   },
 } as const;
 
@@ -152,11 +152,19 @@ export async function sendMeetingBriefToChannels(
           channel.config,
         );
 
-        await runPipedreamAction({
-          actionId: channel.pipedreamActionId,
-          externalUserId: emailAccountId,
-          configuredProps: formattedMessage,
-        });
+        // Discord uses webhooks directly, not Pipedream
+        if (channel.channelType === "discord") {
+          await sendDiscordWebhook(
+            channel.config.webhookUrl as string,
+            formattedMessage,
+          );
+        } else {
+          await runPipedreamAction({
+            actionId: channel.pipedreamActionId,
+            externalUserId: emailAccountId,
+            configuredProps: formattedMessage,
+          });
+        }
 
         channelLog.info("Successfully sent to notification channel");
       } catch (error) {
@@ -247,4 +255,20 @@ export async function toggleNotificationChannel(
     },
     data: { enabled },
   });
+}
+
+async function sendDiscordWebhook(
+  webhookUrl: string,
+  message: Record<string, unknown>,
+): Promise<void> {
+  const response = await fetch(webhookUrl, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ content: message.message }),
+  });
+
+  if (!response.ok) {
+    const error = await response.text();
+    throw new Error(`Discord webhook failed: ${error}`);
+  }
 }
