@@ -181,6 +181,11 @@ async function postSignUp({
   name?: string | null;
   image?: string | null;
 }) {
+  await prisma.user.update({
+    where: { id: userId },
+    data: { announcementDismissedAt: new Date() },
+  });
+
   const loops = async () => {
     const account = await prisma.account
       .findFirst({
