@@ -23,6 +23,7 @@ import {
 import { waitForMessageInInbox, waitForExecutedRule } from "./helpers/polling";
 import { logStep, clearLogs } from "./helpers/logging";
 import type { TestAccount } from "./helpers/accounts";
+import { ensureConversationRules } from "./helpers/accounts";
 
 describe.skipIf(!shouldRunFlowTests())("Outbound Message Tracking", () => {
   let gmail: TestAccount;
@@ -34,6 +35,10 @@ describe.skipIf(!shouldRunFlowTests())("Outbound Message Tracking", () => {
     const accounts = await setupFlowTest();
     gmail = accounts.gmail;
     outlook = accounts.outlook;
+
+    // Ensure conversation rules exist (needed for ThreadTracker creation via real E2E flow)
+    await ensureConversationRules(gmail.id);
+    await ensureConversationRules(outlook.id);
   }, TIMEOUTS.TEST_DEFAULT);
 
   afterEach(async () => {
