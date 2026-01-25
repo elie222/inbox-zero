@@ -661,15 +661,7 @@ async function autoCreateOrganization({
   const orgName = `${firstName}'s Organization`;
   const baseSlug = slugify(orgName);
 
-  // Handle slug collision with random suffix
-  let slug = baseSlug;
-  const existingOrg = await prisma.organization.findUnique({
-    where: { slug },
-  });
-  if (existingOrg) {
-    const randomSuffix = Math.random().toString(36).substring(2, 8);
-    slug = `${baseSlug}-${randomSuffix}`;
-  }
+  const slug = await generateUniqueSlug(baseSlug);
 
   // Create org and member in a transaction
   const organization = await prisma.organization.create({
@@ -690,4 +682,32 @@ async function autoCreateOrganization({
     orgName,
     slug,
   });
+}
+
+function getRandomId(): string {
+  return Math.random().toString(36).substring(2, 8);
+}
+
+async function generateUniqueSlug(baseSlug: string): Promise<string> {
+  const maxAttempts = 3;
+  let randomSuffix = "";
+  let attempts = 0;
+
+  let existingOrg = await prisma.organization.findUnique({
+    where: { slug: baseSlug + randomSuffix },
+  });
+
+  while (existingOrg && attempts < maxAttempts) {
+    randomSuffix = `-${getRandomId()}`;
+    existingOrg = await prisma.organization.findUnique({
+      where: { slug: baseSlug + randomSuffix },
+    });
+    attempts++;
+  }
+
+  if (existingOrg) {
+    throw new Error("Failed to generate unique organization slug");
+  }
+
+  return baseSlug + randomSuffix;
 }
