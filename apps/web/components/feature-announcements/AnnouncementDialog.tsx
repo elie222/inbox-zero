@@ -3,7 +3,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { X } from "lucide-react";
 import Link from "next/link";
-import Image from "next/image";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAction } from "next-safe-action/hooks";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -129,7 +128,7 @@ function AnnouncementCard({ announcement, onClose }: AnnouncementCardProps) {
           </span>
         </div>
 
-        <div className="mb-4">
+        {/* <div className="mb-4">
           <Image
             src={announcement.image}
             alt={announcement.title}
@@ -137,11 +136,10 @@ function AnnouncementCard({ announcement, onClose }: AnnouncementCardProps) {
             height={176}
             className="h-44 w-full rounded-lg object-cover"
           />
-        </div>
+        </div> */}
 
-        {announcement.customContent && (
-          <div className="mb-4">{announcement.customContent}</div>
-        )}
+        {/* TODO: sizing / rounded */}
+        {announcement.image && <div className="mb-4">{announcement.image}</div>}
 
         <div className="flex gap-3">
           {announcement.link && (

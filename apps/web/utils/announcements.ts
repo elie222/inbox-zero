@@ -4,12 +4,11 @@ export interface Announcement {
   id: string;
   title: string;
   description: string;
-  image: string;
+  image: ReactNode;
   link?: string;
   learnMoreLink?: string;
   publishedAt: string;
   enabled?: boolean;
-  customContent?: ReactNode;
 }
 
 export const ANNOUNCEMENTS: Announcement[] = [
@@ -19,12 +18,11 @@ export const ANNOUNCEMENTS: Announcement[] = [
   //   title: "Follow-up Reminders",
   //   description:
   //     "Track replies and get reminded about unanswered emails. Never let an important email slip through the cracks.",
-  //   image: "/images/announcements/follow-up-reminders-illustration.svg",
+  //   image: <FollowUpAnimation />,
   //   link: "/automation?tab=settings",
   //   learnMoreLink: "/#",
   //   publishedAt: "2026-01-15T00:00:00Z",
   //   enabled: true,
-  //   customContent: <FollowUpDetails />, // Optional custom React component
   // },
 ];
 
