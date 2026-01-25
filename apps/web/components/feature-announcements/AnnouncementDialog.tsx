@@ -27,7 +27,8 @@ export function AnnouncementDialog() {
   });
 
   const announcements = getActiveAnnouncements();
-  const showAnnouncements = hasNewAnnouncements(user?.announcementDismissedAt);
+  const showAnnouncements =
+    !!user && !isLoading && hasNewAnnouncements(user.announcementDismissedAt);
 
   // Prevent body scroll when modal is actually visible
   useEffect(() => {
