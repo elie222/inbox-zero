@@ -18,6 +18,7 @@ if [ -d "$MARKETING_DIR/(landing)" ]; then
 fi
 
 echo "🚀 Cloning private marketing repository..."
-git clone --depth 1 "https://${GITHUB_MARKETING_TOKEN}@${REPO_URL}" "$MARKETING_DIR"
+# Disable xtrace to prevent token from leaking to logs
+(set +x; git clone --depth 1 "https://${GITHUB_MARKETING_TOKEN}@${REPO_URL}" "$MARKETING_DIR")
 
 echo "✅ Private marketing repository cloned to $MARKETING_DIR"
