@@ -128,6 +128,9 @@ export const betterAuthConfig = betterAuth({
       accessTokenExpiresAt: "expires_at",
       idToken: "id_token",
     },
+    // Required for oAuthProxy to encrypt state - without this, state is stored in DB
+    // and preview/staging can't share verification tokens
+    storeStateStrategy: "cookie",
   },
   verification: {
     modelName: "VerificationToken",
