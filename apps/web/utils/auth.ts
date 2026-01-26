@@ -31,12 +31,6 @@ import prisma from "@/utils/prisma";
 
 const logger = createScopedLogger("auth");
 
-// DEBUG: Log the baseURL being used for auth
-console.log("[auth.ts] env.NEXT_PUBLIC_BASE_URL:", env.NEXT_PUBLIC_BASE_URL);
-console.log("[auth.ts] env.OAUTH_PROXY_URL:", env.OAUTH_PROXY_URL);
-console.log("[auth.ts] process.env.VERCEL_ENV:", process.env.VERCEL_ENV);
-console.log("[auth.ts] process.env.VERCEL_URL:", process.env.VERCEL_URL);
-
 export const betterAuthConfig = betterAuth({
   advanced: {
     database: {
@@ -72,15 +66,19 @@ export const betterAuthConfig = betterAuth({
     provider: "postgresql",
   }),
   plugins: [
-    nextCookies(),
     sso({
       disableImplicitSignUp: false,
       organizationProvisioning: { disabled: true },
     }),
-    // OAuth proxy for Vercel preview deployments (Google doesn't allow wildcard redirect URIs)
-    // - When OAUTH_PROXY_URL is set: This app redirects OAuth through the proxy
-    // - When IS_OAUTH_PROXY_SERVER is true: This app IS the proxy and handles callbacks
-    ...(env.OAUTH_PROXY_URL || env.IS_OAUTH_PROXY_SERVER ? [oAuthProxy()] : []),
+    // OAuth proxy for preview deployments (Google doesn't allow wildcard redirect URIs)
+    ...(env.OAUTH_PROXY_URL || env.IS_OAUTH_PROXY_SERVER
+      ? [
+          oAuthProxy({
+            productionURL: env.OAUTH_PROXY_URL || env.NEXT_PUBLIC_BASE_URL,
+          }),
+        ]
+      : []),
+    nextCookies(), // Must be last
   ],
   session: {
     modelName: "Session",
@@ -106,6 +104,7 @@ export const betterAuthConfig = betterAuth({
       accessTokenExpiresAt: "expires_at",
       idToken: "id_token",
     },
+    storeStateStrategy: "cookie", // Required for oAuthProxy to encrypt state
   },
   verification: {
     modelName: "VerificationToken",
