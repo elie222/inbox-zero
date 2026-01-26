@@ -16,9 +16,18 @@ const llmProviderEnum = z.enum([
 
 /** For Vercel preview deployments, auto-detect from VERCEL_URL. */
 const getBaseUrl = (): string | undefined => {
+  // DEBUG: Log all relevant env vars
+  console.log("[env.ts] VERCEL_ENV:", process.env.VERCEL_ENV);
+  console.log("[env.ts] VERCEL_URL:", process.env.VERCEL_URL);
+  console.log("[env.ts] NEXT_PUBLIC_BASE_URL:", process.env.NEXT_PUBLIC_BASE_URL);
+
   if (process.env.VERCEL_ENV === "preview" && process.env.VERCEL_URL) {
-    return `https://${process.env.VERCEL_URL}`;
+    const url = `https://${process.env.VERCEL_URL}`;
+    console.log("[env.ts] Using VERCEL_URL:", url);
+    return url;
   }
+
+  console.log("[env.ts] Using NEXT_PUBLIC_BASE_URL:", process.env.NEXT_PUBLIC_BASE_URL);
   return process.env.NEXT_PUBLIC_BASE_URL;
 };
 
