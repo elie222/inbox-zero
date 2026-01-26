@@ -31,24 +31,6 @@ import prisma from "@/utils/prisma";
 
 const logger = createScopedLogger("auth");
 
-// DEBUG: Log the oAuthProxy configuration
-const authSecret = env.AUTH_SECRET || env.NEXTAUTH_SECRET;
-const secretHash = authSecret
-  ? `${authSecret.substring(0, 4)}...${authSecret.substring(authSecret.length - 4)} (len=${authSecret.length})`
-  : "NOT SET";
-console.log("[auth.ts] === OAuth Proxy Debug ===");
-console.log("[auth.ts] NEXT_PUBLIC_BASE_URL:", env.NEXT_PUBLIC_BASE_URL);
-console.log("[auth.ts] OAUTH_PROXY_URL:", env.OAUTH_PROXY_URL);
-console.log("[auth.ts] IS_OAUTH_PROXY_SERVER:", env.IS_OAUTH_PROXY_SERVER);
-console.log("[auth.ts] VERCEL_ENV:", process.env.VERCEL_ENV);
-console.log("[auth.ts] VERCEL_URL:", process.env.VERCEL_URL);
-console.log("[auth.ts] AUTH_SECRET hash:", secretHash);
-console.log(
-  "[auth.ts] oAuthProxy enabled:",
-  !!(env.OAUTH_PROXY_URL || env.IS_OAUTH_PROXY_SERVER),
-);
-console.log("[auth.ts] === End OAuth Proxy Debug ===");
-
 export const betterAuthConfig = betterAuth({
   advanced: {
     database: {
@@ -88,21 +70,15 @@ export const betterAuthConfig = betterAuth({
       disableImplicitSignUp: false,
       organizationProvisioning: { disabled: true },
     }),
-    // OAuth proxy for Vercel preview deployments (Google doesn't allow wildcard redirect URIs)
-    // - When OAUTH_PROXY_URL is set: This app redirects OAuth through the proxy
-    // - When IS_OAUTH_PROXY_SERVER is true: This app IS the proxy and handles callbacks
+    // OAuth proxy for preview deployments (Google doesn't allow wildcard redirect URIs)
     ...(env.OAUTH_PROXY_URL || env.IS_OAUTH_PROXY_SERVER
       ? [
           oAuthProxy({
-            // productionURL tells the proxy where the "main" app is
-            // On preview: this is the proxy server (staging)
-            // On staging: this is itself (so proxy logic is skipped for direct logins)
             productionURL: env.OAUTH_PROXY_URL || env.NEXT_PUBLIC_BASE_URL,
           }),
         ]
       : []),
-    // nextCookies must be LAST - it intercepts Set-Cookie headers from other plugins
-    nextCookies(),
+    nextCookies(), // Must be last
   ],
   session: {
     modelName: "Session",
@@ -128,9 +104,7 @@ export const betterAuthConfig = betterAuth({
       accessTokenExpiresAt: "expires_at",
       idToken: "id_token",
     },
-    // Required for oAuthProxy to encrypt state - without this, state is stored in DB
-    // and preview/staging can't share verification tokens
-    storeStateStrategy: "cookie",
+    storeStateStrategy: "cookie", // Required for oAuthProxy to encrypt state
   },
   verification: {
     modelName: "VerificationToken",
