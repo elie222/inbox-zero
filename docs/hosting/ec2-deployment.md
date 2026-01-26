@@ -113,7 +113,7 @@ You can also use nginx or any approach of your choice.
     *   Name: e.g., `inbox-zero-web`
     *   Target type: **Instances**
     *   Protocol: **HTTP**, Port: **3000**
-    *   Health check path: `/api/health`
+    *   Health check path: `/api/ping`
     *   Click **Next**, select your EC2 instance, click **Include as pending below**, then **Next**, then **Create target group**
 
 3.  **Create Application Load Balancer:**
