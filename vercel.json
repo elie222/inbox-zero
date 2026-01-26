@@ -1,5 +1,5 @@
 {
-  "buildCommand": "echo \"[vercel.json] VERCEL_ENV=$VERCEL_ENV VERCEL_URL=$VERCEL_URL\" && if [ \"$VERCEL_ENV\" = \"preview\" ]; then export NEXT_PUBLIC_BASE_URL=\"https://$VERCEL_URL\"; echo \"[vercel.json] Set NEXT_PUBLIC_BASE_URL=$NEXT_PUBLIC_BASE_URL\"; fi && cd ../.. && turbo run build --filter={apps/web}...",
+  "buildCommand": "echo \"[vercel.json] VERCEL_ENV=$VERCEL_ENV VERCEL_URL=$VERCEL_URL NEXT_PUBLIC_BASE_URL=$NEXT_PUBLIC_BASE_URL\" && cd ../.. && if [ \"$VERCEL_ENV\" = \"preview\" ]; then NEXT_PUBLIC_BASE_URL=\"https://$VERCEL_URL\" turbo run build --filter={apps/web}...; else turbo run build --filter={apps/web}...; fi",
   "installCommand": "cd ../.. && corepack enable && bash clone-marketing.sh && pnpm install --no-frozen-lockfile",
   "ignoreCommand": ""
 }
