@@ -94,10 +94,10 @@ npm install
 npm run setup
 
 # Start Docker (Linux/Mac)
-NEXT_PUBLIC_BASE_URL=http://localhost:3000 docker compose --env-file apps/web/.env --profile all up -d
+NEXT_PUBLIC_BASE_URL=http://localhost:3000 docker compose --profile all up -d
 
 # Start Docker (Windows PowerShell)
-# $env:NEXT_PUBLIC_BASE_URL="http://localhost:3000"; docker compose --env-file apps/web/.env --profile all up -d
+# $env:NEXT_PUBLIC_BASE_URL="http://localhost:3000"; docker compose --profile all up -d
 
 # Verify startup (wait for "Ready" message, Ctrl+C to exit logs)
 docker logs inbox-zero-services-web-1 -f
@@ -112,8 +112,8 @@ Open http://localhost:3000
 **To update your configuration or pull the latest version:**
 
 ```bash
-docker compose --env-file apps/web/.env --profile all down
-NEXT_PUBLIC_BASE_URL=http://localhost:3000 docker compose --env-file apps/web/.env --profile all up -d
+docker compose --profile all down
+NEXT_PUBLIC_BASE_URL=http://localhost:3000 docker compose --profile all up -d
 ```
 
 See our **[Self-Hosting Guide](docs/hosting/self-hosting.md)** for complete instructions, production deployment, and configuration options.
