@@ -83,48 +83,6 @@ export const betterAuthConfig = betterAuth({
   database: prismaAdapter(prisma, {
     provider: "postgresql",
   }),
-  hooks: {
-    before: [
-      {
-        matcher: (ctx) =>
-          ctx.path?.startsWith("/callback") ||
-          ctx.path?.startsWith("/sign-in/social"),
-        handler: async (ctx) => {
-          const state = ctx.query?.state || ctx.body?.state;
-          console.log("[auth.ts hook] === OAuth Flow Debug ===");
-          console.log("[auth.ts hook] path:", ctx.path);
-          console.log("[auth.ts hook] method:", ctx.method);
-          console.log(
-            "[auth.ts hook] state (first 50 chars):",
-            state?.substring(0, 50),
-          );
-          console.log("[auth.ts hook] state length:", state?.length);
-          console.log("[auth.ts hook] callbackURL:", ctx.body?.callbackURL);
-          console.log("[auth.ts hook] baseURL:", ctx.context?.baseURL);
-          console.log("[auth.ts hook] === End OAuth Flow Debug ===");
-        },
-      },
-    ],
-    after: [
-      {
-        matcher: (ctx) => ctx.path?.startsWith("/callback"),
-        handler: async (ctx) => {
-          const location = ctx.context?.responseHeaders?.get("location");
-          console.log("[auth.ts hook] === OAuth Callback Result ===");
-          console.log("[auth.ts hook] path:", ctx.path);
-          console.log(
-            "[auth.ts hook] redirect location (first 100 chars):",
-            location?.substring(0, 100),
-          );
-          console.log(
-            "[auth.ts hook] location includes oauth-proxy-callback:",
-            location?.includes("oauth-proxy-callback"),
-          );
-          console.log("[auth.ts hook] === End OAuth Callback Result ===");
-        },
-      },
-    ],
-  },
   plugins: [
     sso({
       disableImplicitSignUp: false,
