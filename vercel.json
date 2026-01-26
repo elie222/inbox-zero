@@ -1,5 +1,0 @@
-{
-  "buildCommand": "if [ \"$VERCEL_ENV\" = \"preview\" ]; then export NEXT_PUBLIC_BASE_URL=\"https://$VERCEL_URL\"; fi && cd ../.. && turbo run build --filter={apps/web}...",
-  "installCommand": "cd ../.. && corepack enable && bash clone-marketing.sh && pnpm install --no-frozen-lockfile",
-  "ignoreCommand": ""
-}

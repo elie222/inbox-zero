@@ -31,6 +31,12 @@ import prisma from "@/utils/prisma";
 
 const logger = createScopedLogger("auth");
 
+// DEBUG: Log the baseURL being used for auth
+console.log("[auth.ts] env.NEXT_PUBLIC_BASE_URL:", env.NEXT_PUBLIC_BASE_URL);
+console.log("[auth.ts] env.OAUTH_PROXY_URL:", env.OAUTH_PROXY_URL);
+console.log("[auth.ts] process.env.VERCEL_ENV:", process.env.VERCEL_ENV);
+console.log("[auth.ts] process.env.VERCEL_URL:", process.env.VERCEL_URL);
+
 export const betterAuthConfig = betterAuth({
   advanced: {
     database: {
@@ -72,8 +78,9 @@ export const betterAuthConfig = betterAuth({
       organizationProvisioning: { disabled: true },
     }),
     // OAuth proxy for Vercel preview deployments (Google doesn't allow wildcard redirect URIs)
-    // When OAUTH_PROXY_URL is set, OAuth callbacks route through staging then redirect back to preview
-    ...(env.OAUTH_PROXY_URL ? [oAuthProxy()] : []),
+    // - When OAUTH_PROXY_URL is set: This app redirects OAuth through the proxy
+    // - When IS_OAUTH_PROXY_SERVER is true: This app IS the proxy and handles callbacks
+    ...(env.OAUTH_PROXY_URL || env.IS_OAUTH_PROXY_SERVER ? [oAuthProxy()] : []),
   ],
   session: {
     modelName: "Session",
