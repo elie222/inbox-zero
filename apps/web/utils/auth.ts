@@ -31,6 +31,12 @@ import prisma from "@/utils/prisma";
 
 const logger = createScopedLogger("auth");
 
+// DEBUG: Log the baseURL being used for auth
+console.log("[auth.ts] env.NEXT_PUBLIC_BASE_URL:", env.NEXT_PUBLIC_BASE_URL);
+console.log("[auth.ts] env.OAUTH_PROXY_URL:", env.OAUTH_PROXY_URL);
+console.log("[auth.ts] process.env.VERCEL_ENV:", process.env.VERCEL_ENV);
+console.log("[auth.ts] process.env.VERCEL_URL:", process.env.VERCEL_URL);
+
 export const betterAuthConfig = betterAuth({
   advanced: {
     database: {
