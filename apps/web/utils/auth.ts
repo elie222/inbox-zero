@@ -31,11 +31,23 @@ import prisma from "@/utils/prisma";
 
 const logger = createScopedLogger("auth");
 
-// DEBUG: Log the baseURL being used for auth
-console.log("[auth.ts] env.NEXT_PUBLIC_BASE_URL:", env.NEXT_PUBLIC_BASE_URL);
-console.log("[auth.ts] env.OAUTH_PROXY_URL:", env.OAUTH_PROXY_URL);
-console.log("[auth.ts] process.env.VERCEL_ENV:", process.env.VERCEL_ENV);
-console.log("[auth.ts] process.env.VERCEL_URL:", process.env.VERCEL_URL);
+// DEBUG: Log the oAuthProxy configuration
+const authSecret = env.AUTH_SECRET || env.NEXTAUTH_SECRET;
+const secretHash = authSecret
+  ? `${authSecret.substring(0, 4)}...${authSecret.substring(authSecret.length - 4)} (len=${authSecret.length})`
+  : "NOT SET";
+console.log("[auth.ts] === OAuth Proxy Debug ===");
+console.log("[auth.ts] NEXT_PUBLIC_BASE_URL:", env.NEXT_PUBLIC_BASE_URL);
+console.log("[auth.ts] OAUTH_PROXY_URL:", env.OAUTH_PROXY_URL);
+console.log("[auth.ts] IS_OAUTH_PROXY_SERVER:", env.IS_OAUTH_PROXY_SERVER);
+console.log("[auth.ts] VERCEL_ENV:", process.env.VERCEL_ENV);
+console.log("[auth.ts] VERCEL_URL:", process.env.VERCEL_URL);
+console.log("[auth.ts] AUTH_SECRET hash:", secretHash);
+console.log(
+  "[auth.ts] oAuthProxy enabled:",
+  !!(env.OAUTH_PROXY_URL || env.IS_OAUTH_PROXY_SERVER),
+);
+console.log("[auth.ts] === End OAuth Proxy Debug ===");
 
 export const betterAuthConfig = betterAuth({
   advanced: {
@@ -71,6 +83,48 @@ export const betterAuthConfig = betterAuth({
   database: prismaAdapter(prisma, {
     provider: "postgresql",
   }),
+  hooks: {
+    before: [
+      {
+        matcher: (ctx) =>
+          ctx.path?.startsWith("/callback") ||
+          ctx.path?.startsWith("/sign-in/social"),
+        handler: async (ctx) => {
+          const state = ctx.query?.state || ctx.body?.state;
+          console.log("[auth.ts hook] === OAuth Flow Debug ===");
+          console.log("[auth.ts hook] path:", ctx.path);
+          console.log("[auth.ts hook] method:", ctx.method);
+          console.log(
+            "[auth.ts hook] state (first 50 chars):",
+            state?.substring(0, 50),
+          );
+          console.log("[auth.ts hook] state length:", state?.length);
+          console.log("[auth.ts hook] callbackURL:", ctx.body?.callbackURL);
+          console.log("[auth.ts hook] baseURL:", ctx.context?.baseURL);
+          console.log("[auth.ts hook] === End OAuth Flow Debug ===");
+        },
+      },
+    ],
+    after: [
+      {
+        matcher: (ctx) => ctx.path?.startsWith("/callback"),
+        handler: async (ctx) => {
+          const location = ctx.context?.responseHeaders?.get("location");
+          console.log("[auth.ts hook] === OAuth Callback Result ===");
+          console.log("[auth.ts hook] path:", ctx.path);
+          console.log(
+            "[auth.ts hook] redirect location (first 100 chars):",
+            location?.substring(0, 100),
+          );
+          console.log(
+            "[auth.ts hook] location includes oauth-proxy-callback:",
+            location?.includes("oauth-proxy-callback"),
+          );
+          console.log("[auth.ts hook] === End OAuth Callback Result ===");
+        },
+      },
+    ],
+  },
   plugins: [
     nextCookies(),
     sso({
