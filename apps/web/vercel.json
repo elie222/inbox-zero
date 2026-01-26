@@ -1,8 +1,12 @@
 {
   "rewrites": [
     {
-      "source": "/tools/:path*",
-      "destination": "https://mini-apps-cyan.vercel.app/tools/:path*"
+      "source": "/tools",
+      "destination": "https://mini-apps-cyan.vercel.app/tools"
+    },
+    {
+      "source": "/tools/:path+",
+      "destination": "https://mini-apps-cyan.vercel.app/tools/:path+"
     }
   ]
 }
