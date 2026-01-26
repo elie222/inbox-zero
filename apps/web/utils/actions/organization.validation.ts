@@ -45,3 +45,26 @@ export const cancelInvitationBody = z.object({
 });
 
 export type CancelInvitationBody = z.infer<typeof cancelInvitationBody>;
+
+export const updateAnalyticsConsentBody = z.object({
+  allowOrgAdminAnalytics: z.boolean(),
+});
+
+export type UpdateAnalyticsConsentBody = z.infer<
+  typeof updateAnalyticsConsentBody
+>;
+
+export const createOrganizationAndInviteBody = z.object({
+  emails: z
+    .array(
+      z
+        .string()
+        .email()
+        .transform((val) => val.trim().toLowerCase()),
+    )
+    .min(1, "At least one email is required"),
+  userName: z.string().nullable().optional(),
+});
+export type CreateOrganizationAndInviteBody = z.infer<
+  typeof createOrganizationAndInviteBody
+>;

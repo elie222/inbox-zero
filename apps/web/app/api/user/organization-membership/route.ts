@@ -17,11 +17,28 @@ export const GET = withEmailAccount(
 );
 
 async function getData({ emailAccountId }: { emailAccountId: string }) {
+  const emailAccount = await prisma.emailAccount.findUnique({
+    where: { id: emailAccountId },
+    select: { email: true, name: true },
+  });
+
+  const hasPendingInvitation = emailAccount
+    ? await prisma.invitation.findFirst({
+        where: {
+          email: { equals: emailAccount.email, mode: "insensitive" },
+          status: "pending",
+          expiresAt: { gt: new Date() },
+        },
+        select: { id: true },
+      })
+    : null;
+
   const membership = await prisma.member.findFirst({
     where: { emailAccountId },
     select: {
       role: true,
       organizationId: true,
+      allowOrgAdminAnalytics: true,
       organization: {
         select: {
           name: true,
@@ -36,7 +53,19 @@ async function getData({ emailAccountId }: { emailAccountId: string }) {
     },
   });
 
-  if (!membership) return null;
+  if (!membership) {
+    return {
+      organizationId: null,
+      organizationName: null,
+      role: null,
+      isOwner: false,
+      memberCount: 0,
+      pendingInvitationCount: 0,
+      allowOrgAdminAnalytics: false,
+      hasPendingInvitationToOrg: !!hasPendingInvitation,
+      userName: emailAccount?.name ?? null,
+    };
+  }
 
   return {
     organizationId: membership.organizationId,
@@ -45,5 +74,8 @@ async function getData({ emailAccountId }: { emailAccountId: string }) {
     isOwner: membership.role === "owner",
     memberCount: membership.organization._count.members,
     pendingInvitationCount: membership.organization._count.invitations,
+    allowOrgAdminAnalytics: membership.allowOrgAdminAnalytics,
+    hasPendingInvitationToOrg: false,
+    userName: emailAccount?.name ?? null,
   };
 }

@@ -246,6 +246,34 @@ async function emailAccountMiddleware(
       );
     }
 
+    // Check if target member has consented to org admin analytics access
+    const targetMember = await prisma.member.findFirst({
+      where: {
+        emailAccountId,
+        organization: {
+          members: {
+            some: {
+              emailAccountId: callerEmailAccount.id,
+            },
+          },
+        },
+      },
+      select: { allowOrgAdminAnalytics: true },
+    });
+
+    if (!targetMember?.allowOrgAdminAnalytics) {
+      emailAccountLogger.error(
+        "Member has not enabled org admin analytics access",
+      );
+      return NextResponse.json(
+        {
+          error: "Analytics access not permitted by this member",
+          isKnownError: true,
+        },
+        { status: 403 },
+      );
+    }
+
     const targetEmailAccount = await prisma.emailAccount.findUnique({
       where: { id: emailAccountId },
       select: { email: true },

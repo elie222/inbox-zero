@@ -8,7 +8,10 @@ import { OnboardingWrapper } from "@/app/(app)/[emailAccountId]/onboarding/Onboa
 import { Button } from "@/components/ui/button";
 import { TagInput } from "@/components/TagInput";
 import { toastSuccess, toastError } from "@/components/Toast";
-import { inviteMemberAction } from "@/utils/actions/organization";
+import {
+  inviteMemberAction,
+  createOrganizationAndInviteAction,
+} from "@/utils/actions/organization";
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -21,10 +24,14 @@ function validateEmail(email: string): string | null {
 }
 
 export function StepInviteTeam({
+  emailAccountId,
   organizationId,
+  userName,
   onNext,
 }: {
-  organizationId: string;
+  emailAccountId: string;
+  organizationId?: string;
+  userName?: string | null;
   onNext: () => void;
 }) {
   const [emails, setEmails] = useState<string[]>([]);
@@ -41,6 +48,41 @@ export function StepInviteTeam({
     }
 
     setIsSubmitting(true);
+
+    if (!organizationId) {
+      const result = await createOrganizationAndInviteAction(emailAccountId, {
+        emails,
+        userName,
+      });
+
+      setIsSubmitting(false);
+
+      if (result?.serverError) {
+        toastError({
+          description: "Failed to create organization and send invitations",
+        });
+      } else if (result?.data) {
+        const successCount = result.data.results.filter(
+          (r) => r.success,
+        ).length;
+        const errorCount = result.data.results.filter((r) => !r.success).length;
+
+        if (successCount > 0) {
+          toastSuccess({
+            description: `${successCount} invitation${successCount > 1 ? "s" : ""} sent successfully!`,
+          });
+        }
+        if (errorCount > 0) {
+          toastError({
+            description: `Failed to send ${errorCount} invitation${errorCount > 1 ? "s" : ""}`,
+          });
+        }
+      }
+
+      onNext();
+      return;
+    }
+
     let successCount = 0;
     let errorCount = 0;
 
@@ -73,7 +115,7 @@ export function StepInviteTeam({
     }
 
     onNext();
-  }, [emails, organizationId, onNext]);
+  }, [emails, emailAccountId, organizationId, userName, onNext]);
 
   return (
     <OnboardingWrapper className="py-0">

@@ -28,7 +28,6 @@ import {
 } from "@/utils/premium/server";
 import { clearSpecificErrorMessages, ErrorType } from "@/utils/error-messages";
 import prisma from "@/utils/prisma";
-import { slugify } from "@/utils/string";
 
 const logger = createScopedLogger("auth");
 
@@ -475,19 +474,6 @@ async function handleLinkAccount(account: Account) {
       captureException(error, { extra: { userId: account.userId } });
     });
 
-    // Auto-create organization for new users (skip if they have a pending invitation)
-    await autoCreateOrganization({
-      email: primaryEmail,
-      name: primaryName,
-      userId: account.userId,
-    }).catch((error) => {
-      logger.error("[linkAccount] Error auto-creating organization:", {
-        userId: account.userId,
-        error,
-      });
-      captureException(error, { extra: { userId: account.userId } });
-    });
-
     logger.info("[linkAccount] Successfully linked account", {
       email: user.email,
       userId: account.userId,
@@ -599,115 +585,3 @@ export async function saveTokens({
 
 export const auth = async () =>
   betterAuthConfig.api.getSession({ headers: await headers() });
-
-async function autoCreateOrganization({
-  email,
-  name,
-  userId,
-}: {
-  email: string;
-  name: string | null | undefined;
-  userId: string;
-}) {
-  // Check if user has a pending invitation (skip org creation if invited)
-  const pendingInvitation = await prisma.invitation.findFirst({
-    where: {
-      email,
-      status: "pending",
-      expiresAt: { gt: new Date() },
-    },
-  });
-
-  if (pendingInvitation) {
-    logger.info(
-      "[autoCreateOrganization] User has pending invitation, skipping org creation",
-      {
-        email,
-        invitationId: pendingInvitation.id,
-      },
-    );
-    return;
-  }
-
-  // Check if user already has an org membership via any email account
-  const existingMembership = await prisma.member.findFirst({
-    where: { emailAccount: { userId } },
-  });
-
-  if (existingMembership) {
-    logger.info(
-      "[autoCreateOrganization] User already has org membership, skipping",
-      {
-        userId,
-        organizationId: existingMembership.organizationId,
-      },
-    );
-    return;
-  }
-
-  // Get the email account we just created/updated
-  const emailAccount = await prisma.emailAccount.findUnique({
-    where: { email },
-    select: { id: true },
-  });
-
-  if (!emailAccount) {
-    logger.warn("[autoCreateOrganization] Email account not found", { email });
-    return;
-  }
-
-  // Create organization with user's first name
-  const firstName = name?.split(" ")[0] || "My";
-  const orgName = `${firstName}'s Organization`;
-  const baseSlug = slugify(orgName);
-
-  const slug = await generateUniqueSlug(baseSlug);
-
-  // Create org and member in a transaction
-  const organization = await prisma.organization.create({
-    data: { name: orgName, slug },
-  });
-
-  await prisma.member.create({
-    data: {
-      organizationId: organization.id,
-      emailAccountId: emailAccount.id,
-      role: "owner",
-    },
-  });
-
-  logger.info("[autoCreateOrganization] Created organization for new user", {
-    userId,
-    organizationId: organization.id,
-    orgName,
-    slug,
-  });
-}
-
-function getRandomId(): string {
-  return Math.random().toString(36).substring(2, 8);
-}
-
-async function generateUniqueSlug(baseSlug: string): Promise<string> {
-  const maxAttempts = 3;
-  let randomSuffix = "";
-  let attempts = 0;
-
-  let existingOrg = await prisma.organization.findUnique({
-    where: { slug: baseSlug + randomSuffix },
-  });
-
-  while (existingOrg && attempts < maxAttempts) {
-    randomSuffix = `-${getRandomId()}`;
-    existingOrg = await prisma.organization.findUnique({
-      where: { slug: baseSlug + randomSuffix },
-    });
-    attempts++;
-  }
-
-  if (existingOrg) {
-    throw new Error("Failed to generate unique organization slug");
-  }
-
-  return baseSlug + randomSuffix;
-}

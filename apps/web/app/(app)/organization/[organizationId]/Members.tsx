@@ -240,18 +240,22 @@ function MemberCard({
                 <TrashIcon className="mr-2 size-4" />
                 Remove
               </DropdownMenuItem>
-              <DropdownMenuItem asChild>
-                <Link href={`/${member.emailAccount.id}/stats`}>
-                  <BarChart3 className="mr-2 size-4" />
-                  Analytics
-                </Link>
-              </DropdownMenuItem>
-              <DropdownMenuItem asChild>
-                <Link href={`/${member.emailAccount.id}/usage`}>
-                  <BarChartIcon className="mr-2 size-4" />
-                  Usage
-                </Link>
-              </DropdownMenuItem>
+              {member.allowOrgAdminAnalytics && (
+                <>
+                  <DropdownMenuItem asChild>
+                    <Link href={`/${member.emailAccount.id}/stats`}>
+                      <BarChart3 className="mr-2 size-4" />
+                      Analytics
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link href={`/${member.emailAccount.id}/usage`}>
+                      <BarChartIcon className="mr-2 size-4" />
+                      Usage
+                    </Link>
+                  </DropdownMenuItem>
+                </>
+              )}
             </DropdownMenuContent>
           </DropdownMenu>
         )

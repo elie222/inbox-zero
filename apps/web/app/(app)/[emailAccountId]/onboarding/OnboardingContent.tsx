@@ -43,6 +43,11 @@ export function OnboardingContent({ step }: OnboardingContentProps) {
   useSignUpEvent();
 
   const isOrgOwner = membership?.isOwner === true;
+  const hasPendingInvitationToOrg =
+    membership?.hasPendingInvitationToOrg === true;
+  const canInviteTeam =
+    (isOrgOwner && membership?.organizationId) ||
+    (!membership?.organizationId && !hasPendingInvitationToOrg);
 
   const stepMap: Record<string, (() => React.ReactNode) | undefined> = {
     [STEP_KEYS.INTRO]: () => <StepIntro onNext={onNext} />,
@@ -72,15 +77,16 @@ export function OnboardingContent({ step }: OnboardingContentProps) {
     [STEP_KEYS.CUSTOM_RULES]: () => (
       <StepCustomRules provider={provider} onNext={onNext} />
     ),
-    [STEP_KEYS.INVITE_TEAM]:
-      isOrgOwner && membership?.organizationId
-        ? () => (
-            <StepInviteTeam
-              organizationId={membership.organizationId}
-              onNext={onNext}
-            />
-          )
-        : undefined,
+    [STEP_KEYS.INVITE_TEAM]: canInviteTeam
+      ? () => (
+          <StepInviteTeam
+            emailAccountId={emailAccountId}
+            organizationId={membership?.organizationId ?? undefined}
+            userName={membership?.userName}
+            onNext={onNext}
+          />
+        )
+      : undefined,
     [STEP_KEYS.INBOX_PROCESSED]: () => <StepInboxProcessed onNext={onNext} />,
   };
 
