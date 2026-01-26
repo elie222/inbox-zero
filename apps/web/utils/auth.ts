@@ -126,7 +126,6 @@ export const betterAuthConfig = betterAuth({
     ],
   },
   plugins: [
-    nextCookies(),
     sso({
       disableImplicitSignUp: false,
       organizationProvisioning: { disabled: true },
@@ -135,6 +134,8 @@ export const betterAuthConfig = betterAuth({
     // - When OAUTH_PROXY_URL is set: This app redirects OAuth through the proxy
     // - When IS_OAUTH_PROXY_SERVER is true: This app IS the proxy and handles callbacks
     ...(env.OAUTH_PROXY_URL || env.IS_OAUTH_PROXY_SERVER ? [oAuthProxy()] : []),
+    // nextCookies must be LAST - it intercepts Set-Cookie headers from other plugins
+    nextCookies(),
   ],
   session: {
     modelName: "Session",
