@@ -1,4 +1,6 @@
 {
+  "buildCommand": "echo '[vercel.json] VERCEL_ENV='$VERCEL_ENV' VERCEL_URL='$VERCEL_URL && cd ../.. && if [ \"$VERCEL_ENV\" = \"preview\" ]; then NEXT_PUBLIC_BASE_URL=\"https://$VERCEL_URL\" turbo run build --filter={apps/web}...; else turbo run build --filter={apps/web}...; fi",
+  "installCommand": "cd ../.. && corepack enable && bash clone-marketing.sh && pnpm install --no-frozen-lockfile",
   "rewrites": [
     {
       "source": "/tools/:path*",
