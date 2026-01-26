@@ -91,6 +91,7 @@
         "API_KEY_SALT",
         "HEALTH_API_KEY",
         "OAUTH_PROXY_URL",
+        "IS_OAUTH_PROXY_SERVER",
         "ADDITIONAL_TRUSTED_ORIGINS",
         "FB_CONVERSION_API_ACCESS_TOKEN",
         "FB_PIXEL_ID",

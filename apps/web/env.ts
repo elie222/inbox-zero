@@ -142,6 +142,8 @@ export const env = createEnv({
     USE_BACKUP_MODEL: z.coerce.boolean().optional().default(false),
     HEALTH_API_KEY: z.string().optional(),
     OAUTH_PROXY_URL: z.string().url().optional(),
+    // Set to true on the server that acts as the OAuth proxy (e.g., staging)
+    IS_OAUTH_PROXY_SERVER: booleanString.optional().default(false),
     // Additional trusted origins for CORS (comma-separated, supports wildcards like https://*.vercel.app)
     ADDITIONAL_TRUSTED_ORIGINS: z
       .string()
