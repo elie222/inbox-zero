@@ -225,25 +225,25 @@ async function acceptInvitation({
 }): Promise<{ organizationId: string; memberId: string }> {
   const invitation = await getInvitation({ emailAccountId, invitationId });
 
-  const existingMembership = await prisma.member.findUnique({
-    where: {
-      organizationId_emailAccountId: {
-        emailAccountId,
-        organizationId: invitation.organizationId,
-      },
-    },
-    select: { id: true },
+  const existingMembership = await prisma.member.findFirst({
+    where: { emailAccountId },
+    select: { id: true, organizationId: true },
   });
 
   if (existingMembership) {
-    await prisma.invitation.update({
-      where: { id: invitationId },
-      data: { status: "accepted" },
-    });
-    return {
-      organizationId: invitation.organizationId,
-      memberId: existingMembership.id,
-    };
+    if (existingMembership.organizationId === invitation.organizationId) {
+      await prisma.invitation.update({
+        where: { id: invitationId },
+        data: { status: "accepted" },
+      });
+      return {
+        organizationId: invitation.organizationId,
+        memberId: existingMembership.id,
+      };
+    }
+    throw new SafeError(
+      "You are already a member of an organization. You can only be part of one organization at a time.",
+    );
   }
 
   const createdMember = await prisma.member.create({

@@ -36,6 +36,8 @@ import { toastSuccess, toastError } from "@/components/Toast";
 import type { OrganizationMembersResponse } from "@/app/api/organizations/[organizationId]/members/route";
 import { useExecutedRulesCount } from "@/hooks/useExecutedRulesCount";
 import { TypographyH3 } from "@/components/Typography";
+import { useOrganizationMembership } from "@/hooks/useOrganizationMembership";
+import { hasOrganizationAdminRole } from "@/utils/organizations/roles";
 
 type Member = OrganizationMembersResponse["members"][0];
 type PendingInvitation = OrganizationMembersResponse["pendingInvitations"][0];
@@ -45,6 +47,8 @@ export function Members({ organizationId }: { organizationId: string }) {
   const { data, isLoading, error, mutate } =
     useOrganizationMembers(organizationId);
   const { data: executedRulesData } = useExecutedRulesCount(organizationId);
+  const { data: membership } = useOrganizationMembership();
+  const isAdmin = hasOrganizationAdminRole(membership?.role ?? "");
 
   // Create a Map for O(1) lookups instead of O(n) Array.find for each member
   const executedRulesCountMap = useMemo(() => {
@@ -114,10 +118,12 @@ export function Members({ organizationId }: { organizationId: string }) {
       <div>
         <div className="flex justify-between items-center">
           <TypographyH3>Members ({data?.members.length || 0})</TypographyH3>
-          <InviteMemberModal
-            organizationId={organizationId}
-            onSuccess={mutate}
-          />
+          {isAdmin && (
+            <InviteMemberModal
+              organizationId={organizationId}
+              onSuccess={mutate}
+            />
+          )}
         </div>
 
         <div className="space-y-4 mt-4">
@@ -132,6 +138,7 @@ export function Members({ organizationId }: { organizationId: string }) {
                 member={member}
                 onRemove={handleRemoveMember}
                 executedRulesCount={executedRulesCount}
+                isAdmin={isAdmin}
               />
             );
           })}
@@ -192,10 +199,12 @@ function MemberCard({
   member,
   onRemove,
   executedRulesCount,
+  isAdmin,
 }: {
   member: Member;
   onRemove: (memberId: string) => void;
   executedRulesCount?: number;
+  isAdmin: boolean;
 }) {
   const { emailAccountId } = useAccount();
 
@@ -227,6 +236,7 @@ function MemberCard({
         </TooltipProvider>
       }
       actions={
+        isAdmin &&
         member.emailAccount.id !== emailAccountId &&
         member.emailAccount.id && (
           <DropdownMenu>
