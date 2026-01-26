@@ -91,7 +91,16 @@ export const betterAuthConfig = betterAuth({
     // OAuth proxy for Vercel preview deployments (Google doesn't allow wildcard redirect URIs)
     // - When OAUTH_PROXY_URL is set: This app redirects OAuth through the proxy
     // - When IS_OAUTH_PROXY_SERVER is true: This app IS the proxy and handles callbacks
-    ...(env.OAUTH_PROXY_URL || env.IS_OAUTH_PROXY_SERVER ? [oAuthProxy()] : []),
+    ...(env.OAUTH_PROXY_URL || env.IS_OAUTH_PROXY_SERVER
+      ? [
+          oAuthProxy({
+            // productionURL tells the proxy where the "main" app is
+            // On preview: this is the proxy server (staging)
+            // On staging: this is itself (so proxy logic is skipped for direct logins)
+            productionURL: env.OAUTH_PROXY_URL || env.NEXT_PUBLIC_BASE_URL,
+          }),
+        ]
+      : []),
     // nextCookies must be LAST - it intercepts Set-Cookie headers from other plugins
     nextCookies(),
   ],
