@@ -1,4 +1,5 @@
 import { Members } from "@/app/(app)/organization/[organizationId]/Members";
+import { OrgAnalyticsConsentBanner } from "@/app/(app)/organization/[organizationId]/OrgAnalyticsConsentBanner";
 import { OrganizationTabs } from "@/app/(app)/organization/[organizationId]/OrganizationTabs";
 import { PageWrapper } from "@/components/PageWrapper";
 
@@ -12,6 +13,10 @@ export default async function MembersPage({
   return (
     <PageWrapper>
       <OrganizationTabs organizationId={organizationId} />
+
+      <div className="mt-6">
+        <OrgAnalyticsConsentBanner />
+      </div>
 
       <div className="mt-6">
         <Members organizationId={organizationId} />
