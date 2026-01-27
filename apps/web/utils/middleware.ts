@@ -17,6 +17,7 @@ import {
 import prisma from "@/utils/prisma";
 import { createEmailProvider } from "@/utils/email/provider";
 import type { EmailProvider } from "@/utils/email/types";
+import { validateMobileSession } from "@/utils/mobile-auth";
 
 const logger = createScopedLogger("middleware");
 
@@ -191,8 +192,21 @@ function withMiddleware<T extends NextRequest>(
 async function authMiddleware(
   req: NextRequest,
 ): Promise<RequestWithAuth | Response> {
+  let userId: string | undefined;
+
   const session = await auth();
-  if (!session?.user) {
+  if (session?.user?.id) {
+    userId = session.user.id;
+  }
+
+  if (!userId) {
+    const mobileSession = await validateMobileSession(req, getLogger(req));
+    if (mobileSession?.userId) {
+      userId = mobileSession.userId;
+    }
+  }
+
+  if (!userId) {
     return NextResponse.json(
       { error: "Unauthorized", isKnownError: true },
       { status: 401 },
@@ -200,10 +214,10 @@ async function authMiddleware(
   }
 
   const authReq = req.clone() as RequestWithAuth;
-  authReq.auth = { userId: session.user.id };
+  authReq.auth = { userId };
 
   const baseLogger = getLogger(req);
-  authReq.logger = baseLogger.with({ userId: session.user.id });
+  authReq.logger = baseLogger.with({ userId });
 
   return authReq;
 }
