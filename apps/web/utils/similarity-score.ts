@@ -17,12 +17,26 @@ function normalizeForOutlook(content: string): string {
 }
 
 /**
+ * Decodes HTML entities (e.g., &#x1F44B; -> 👋) without modifying other content.
+ */
+function decodeHtmlEntities(text: string): string {
+  return text
+    .replace(/&#x([0-9a-fA-F]+);/g, (_, hex) =>
+      String.fromCodePoint(Number.parseInt(hex, 16)),
+    )
+    .replace(/&#(\d+);/g, (_, dec) =>
+      String.fromCodePoint(Number.parseInt(dec, 10)),
+    );
+}
+
+/**
  * Normalizes content for Gmail (plain text) comparison.
- * Uses parseReply to extract the reply and strips quoted content.
+ * Uses parseReply to extract the reply, decodes HTML entities, and strips quoted content.
  */
 function normalizeForGmail(content: string): string {
   const reply = parseReply(content);
-  return reply.toLowerCase().trim();
+  const decoded = decodeHtmlEntities(reply);
+  return decoded.toLowerCase().trim();
 }
 
 /**
