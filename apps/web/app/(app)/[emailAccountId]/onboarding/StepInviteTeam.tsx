@@ -12,7 +12,7 @@ import {
   inviteMemberAction,
   createOrganizationAndInviteAction,
 } from "@/utils/actions/organization";
-import { validateEmail } from "@/utils/email";
+import { isValidEmail } from "@/utils/email";
 
 export function StepInviteTeam({
   emailAccountId,
@@ -124,7 +124,9 @@ export function StepInviteTeam({
         <TagInput
           value={emails}
           onChange={handleEmailsChange}
-          validate={validateEmail}
+          validate={(email) =>
+            isValidEmail(email) ? null : "Please enter a valid email address"
+          }
           label="Email addresses"
           id="email-input"
           placeholder="Enter email addresses separated by commas"

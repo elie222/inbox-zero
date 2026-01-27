@@ -45,7 +45,7 @@ import { ActionType, ExecutedRuleStatus } from "@/generated/prisma/enums";
 import type { Rule } from "@/generated/prisma/client";
 import { SettingCard } from "@/components/SettingCard";
 import { IconCircle } from "@/app/(app)/[emailAccountId]/onboarding/IconCircle";
-import { validateEmail } from "@/utils/email";
+import { isValidEmail } from "@/utils/email";
 import { ActionBadges } from "@/app/(app)/[emailAccountId]/assistant/Rules";
 import { DismissibleVideoCard } from "@/components/VideoCard";
 import { PremiumExpiredCardContent } from "@/components/PremiumCard";
@@ -744,7 +744,11 @@ export default function Components() {
                 onChange={setEmailTags}
                 placeholder="Enter email addresses"
                 label="Email addresses"
-                validate={validateEmail}
+                validate={(email) =>
+                  isValidEmail(email)
+                    ? null
+                    : "Please enter a valid email address"
+                }
                 className="max-w-md"
               />
             </div>
