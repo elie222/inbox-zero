@@ -34,7 +34,6 @@ export function StepInviteTeam({
 
   const handleInviteAndContinue = useCallback(async () => {
     if (emails.length === 0) {
-      onNext();
       return;
     }
 
@@ -48,11 +47,14 @@ export function StepInviteTeam({
 
       setIsSubmitting(false);
 
-      if (result?.serverError) {
+      if (result?.serverError || result?.validationErrors) {
         toastError({
           description: "Failed to create organization and send invitations",
         });
-      } else if (result?.data) {
+        return;
+      }
+
+      if (result?.data) {
         const successCount = result.data.results.filter(
           (r) => r.success,
         ).length;
@@ -68,9 +70,9 @@ export function StepInviteTeam({
             description: `Failed to send ${errorCount} invitation${errorCount > 1 ? "s" : ""}`,
           });
         }
+        onNext();
       }
 
-      onNext();
       return;
     }
 
@@ -84,7 +86,7 @@ export function StepInviteTeam({
         organizationId,
       });
 
-      if (result?.serverError) {
+      if (result?.serverError || result?.validationErrors) {
         errorCount++;
       } else {
         successCount++;
@@ -105,7 +107,9 @@ export function StepInviteTeam({
       });
     }
 
-    onNext();
+    if (successCount > 0) {
+      onNext();
+    }
   }, [emails, emailAccountId, organizationId, userName, onNext]);
 
   return (
@@ -139,8 +143,9 @@ export function StepInviteTeam({
             size="sm"
             onClick={handleInviteAndContinue}
             loading={isSubmitting}
+            disabled={emails.length === 0}
           >
-            {emails.length > 0 ? "Invite & Continue" : "Continue"}
+            Invite & Continue
             <ArrowRightIcon className="size-4 ml-2" />
           </Button>
           <Button
