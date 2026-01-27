@@ -12,7 +12,7 @@ import {
   inviteMemberAction,
   createOrganizationAndInviteAction,
 } from "@/utils/actions/organization";
-import { validateEmail } from "@/utils/regex";
+import { validateEmail } from "@/utils/email";
 
 export function StepInviteTeam({
   emailAccountId,

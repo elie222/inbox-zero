@@ -68,6 +68,14 @@ function isValidEmail(email: string): boolean {
   return emailSchema.safeParse(email).success;
 }
 
+export function validateEmail(email: string): string | null {
+  const normalizedEmail = email.toLowerCase().trim();
+  if (!isValidEmail(normalizedEmail)) {
+    return "Please enter a valid email address";
+  }
+  return null;
+}
+
 // Normalizes email addresses by:
 // - Converting to lowercase
 // - Removing all dots from local part

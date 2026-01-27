@@ -35,7 +35,7 @@ import {
 } from "@/utils/actions/organization.validation";
 import { useDialogState } from "@/hooks/useDialogState";
 import { useAccount } from "@/providers/EmailAccountProvider";
-import { validateEmail } from "@/utils/regex";
+import { validateEmail } from "@/utils/email";
 
 export function InviteMemberModal({
   organizationId,
