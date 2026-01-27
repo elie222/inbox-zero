@@ -76,18 +76,18 @@ async function getTotals({
         SELECT COUNT(*)
         FROM "EmailMessage" em
         JOIN "Member" m ON m."emailAccountId" = em."emailAccountId"
-        WHERE m."organizationId" = ${organizationId} AND em.sent = false${emailDateClause}
+        WHERE m."organizationId" = ${organizationId} AND m."allowOrgAdminAnalytics" = true AND em.sent = false${emailDateClause}
       ) as total_emails,
       (
         SELECT COUNT(*)
         FROM "ExecutedRule" er
         JOIN "Member" m ON m."emailAccountId" = er."emailAccountId"
-        WHERE m."organizationId" = ${organizationId}${rulesDateClause}
+        WHERE m."organizationId" = ${organizationId} AND m."allowOrgAdminAnalytics" = true${rulesDateClause}
       ) as total_rules,
       (
         SELECT COUNT(DISTINCT m."emailAccountId")
         FROM "Member" m
-        WHERE m."organizationId" = ${organizationId}
+        WHERE m."organizationId" = ${organizationId} AND m."allowOrgAdminAnalytics" = true
       ) as active_members
   `;
 

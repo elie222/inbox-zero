@@ -3,7 +3,7 @@
 import { useCallback } from "react";
 import { useAction } from "next-safe-action/hooks";
 import { ShieldCheckIcon } from "lucide-react";
-import { AlertWithButton } from "@/components/Alert";
+import { ActionCard } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { toastSuccess, toastError } from "@/components/Toast";
 import { getActionErrorMessage } from "@/utils/error";
@@ -37,24 +37,28 @@ export function OrgAnalyticsConsentBanner() {
     execute({ allowOrgAdminAnalytics: true });
   }, [execute]);
 
-  const isAdmin = hasOrganizationAdminRole(data?.role ?? "");
-
-  if (
-    isLoading ||
-    !data?.organizationId ||
-    data.allowOrgAdminAnalytics ||
-    isAdmin
-  ) {
+  if (isLoading || !data?.organizationId || data.allowOrgAdminAnalytics) {
     return null;
   }
 
+  const isAdmin = hasOrganizationAdminRole(data.role ?? "");
+
+  const title = isAdmin
+    ? "Include your analytics in organization stats"
+    : "Allow organization admins to view your analytics";
+
+  const description = isAdmin
+    ? "Your data will be included in the organization-wide analytics dashboard that all admins can see."
+    : "Your email analytics are currently private. Enable access to let organization admins view your inbox statistics and usage data. This helps your team understand productivity and collaborate more effectively.";
+
   return (
-    <AlertWithButton
+    <ActionCard
       variant="blue"
+      className="max-w-full"
       icon={<ShieldCheckIcon className="h-4 w-4" />}
-      title="Allow organization admins to view your analytics"
-      description="Your email analytics are currently private. Enable access to let organization admins view your inbox statistics and usage data. This helps your team understand productivity and collaborate more effectively."
-      button={
+      title={title}
+      description={description}
+      action={
         <Button onClick={handleAllow} loading={isPending}>
           Allow Access
         </Button>
