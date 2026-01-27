@@ -47,9 +47,7 @@ export function OrgAnalyticsConsentBanner() {
     ? "Include your analytics in organization stats"
     : "Allow organization admins to view your analytics";
 
-  const description = isAdmin
-    ? "Your data will be included in the organization-wide analytics dashboard that all admins can see."
-    : "Your email analytics are currently private. Enable access to let organization admins view your inbox statistics and usage data. This helps your team understand productivity and collaborate more effectively.";
+  const description = `Your email analytics are currently private. Enable access to let${isAdmin ? " other " : " "}organization admins view your inbox statistics and usage data. This helps your team understand productivity and collaborate more effectively.`;
 
   return (
     <ActionCard
