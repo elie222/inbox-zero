@@ -42,12 +42,9 @@ export function OnboardingContent({ step }: OnboardingContentProps) {
 
   useSignUpEvent();
 
-  const isOrgOwner = membership?.isOwner === true;
-  const hasPendingInvitationToOrg =
-    membership?.hasPendingInvitationToOrg === true;
   const canInviteTeam =
-    (isOrgOwner && membership?.organizationId) ||
-    (!membership?.organizationId && !hasPendingInvitationToOrg);
+    (membership?.isOwner && membership?.organizationId) ||
+    (!membership?.organizationId && !membership?.hasPendingInvitationToOrg);
 
   const stepMap: Record<string, (() => React.ReactNode) | undefined> = {
     [STEP_KEYS.INTRO]: () => <StepIntro onNext={onNext} />,
