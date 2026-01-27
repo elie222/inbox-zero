@@ -156,7 +156,10 @@ export const toggleDigestAction = actionClient
   .metadata({ name: "toggleDigest" })
   .inputSchema(toggleDigestBody)
   .action(
-    async ({ ctx: { emailAccountId }, parsedInput: { enabled, timeOfDay } }) => {
+    async ({
+      ctx: { emailAccountId },
+      parsedInput: { enabled, timeOfDay },
+    }) => {
       if (enabled) {
         const defaultSchedule = {
           intervalDays: 1,
