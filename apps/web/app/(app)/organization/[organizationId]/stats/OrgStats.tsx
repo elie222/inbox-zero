@@ -90,8 +90,9 @@ export function OrgStats({ organizationId }: { organizationId: string }) {
         <ShieldX className="mb-4 h-12 w-12 text-muted-foreground" />
         <h2 className="mb-2 text-xl font-semibold">Access Denied</h2>
         <p className="text-muted-foreground">
-          You don&apos;t have permission to view organization analytics. Only
-          administrators can access this page.
+          {
+            "You don't have permission to view organization analytics. Only administrators can access this page."
+          }
         </p>
       </div>
     );
