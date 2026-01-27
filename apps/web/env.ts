@@ -19,8 +19,14 @@ const getBaseUrl = (): string | undefined => {
   // DEBUG: Log all relevant env vars
   console.log("[env.ts] VERCEL_ENV:", process.env.VERCEL_ENV);
   console.log("[env.ts] VERCEL_URL:", process.env.VERCEL_URL);
-  console.log("[env.ts] NEXT_PUBLIC_BASE_URL:", process.env.NEXT_PUBLIC_BASE_URL);
-  console.log("[env.ts] IS_OAUTH_PROXY_SERVER:", process.env.IS_OAUTH_PROXY_SERVER);
+  console.log(
+    "[env.ts] NEXT_PUBLIC_BASE_URL:",
+    process.env.NEXT_PUBLIC_BASE_URL,
+  );
+  console.log(
+    "[env.ts] IS_OAUTH_PROXY_SERVER:",
+    process.env.IS_OAUTH_PROXY_SERVER,
+  );
 
   // Don't override for the OAuth proxy server (staging) - it needs its custom domain
   // for OAuth callbacks to work correctly
@@ -35,7 +41,10 @@ const getBaseUrl = (): string | undefined => {
     return url;
   }
 
-  console.log("[env.ts] Using NEXT_PUBLIC_BASE_URL:", process.env.NEXT_PUBLIC_BASE_URL);
+  console.log(
+    "[env.ts] Using NEXT_PUBLIC_BASE_URL:",
+    process.env.NEXT_PUBLIC_BASE_URL,
+  );
   return process.env.NEXT_PUBLIC_BASE_URL;
 };
 
@@ -162,6 +171,7 @@ export const env = createEnv({
           .map((s) => s.trim())
           .filter(Boolean),
       ),
+    ENABLE_MOBILE_AUTH: booleanString.optional().default(false),
 
     // license
     LICENSE_1_SEAT_VARIANT_ID: z.coerce.number().optional(),
