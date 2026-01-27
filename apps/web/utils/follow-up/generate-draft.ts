@@ -141,6 +141,18 @@ export async function generateFollowUpDraft({
 
     logger.info("Follow-up draft created", { threadId, draftId });
   } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+
+    // Skip draft generation for messages that don't support replies
+    // (e.g., calendar invites, meeting requests, delivery reports)
+    if (errorMessage.includes("Item type is invalid for creating a Reply")) {
+      logger.info(
+        "Skipping draft generation - message type doesn't support replies",
+        { threadId },
+      );
+      return;
+    }
+
     logger.error("Failed to generate follow-up draft", { threadId, error });
     throw error;
   }
