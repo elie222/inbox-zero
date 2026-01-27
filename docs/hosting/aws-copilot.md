@@ -182,6 +182,21 @@ If migrations fail:
 
 For deployments where the main application is behind a firewall or private network (e.g., only accessible to employees via VPN), you need a way for Google Pub/Sub to deliver Gmail webhook notifications. The webhook gateway addon solves this by creating a public API Gateway endpoint that validates Google's OIDC tokens before forwarding to your private infrastructure.
 
+### Prerequisites
+
+- **IAM User (not root)**: AWS Copilot requires IAM role assumption, which doesn't work with root account credentials. Create an IAM user with `AdministratorAccess` policy.
+- **AWS CLI Profile**: Configure an AWS CLI profile for your deployment:
+  ```bash
+  aws configure --profile inbox-zero
+  # Enter your IAM user's access key and secret
+  # Set region (e.g., us-east-1)
+  ```
+- **Set environment variables** before running Copilot commands:
+  ```bash
+  export AWS_PROFILE=inbox-zero
+  export AWS_REGION=us-east-1
+  ```
+
 ### Architecture
 
 ```
@@ -209,26 +224,60 @@ Google Pub/Sub → API Gateway (public) → VPC Link → Internal ALB → ECS
 
 ### Deployment
 
-The webhook gateway is an **environment addon**. Deploy it alongside your environment:
+The webhook gateway is an **environment addon**. However, it requires the ALB's HTTPS listener which is only created when a Load Balanced Web Service is deployed. Follow this specific order:
 
-1. **Ensure the addon files exist** (already included in the repository):
-   - `copilot/environments/addons/webhook-gateway.yml`
-   - `copilot/environments/addons/addons.parameters.yml`
+> **Important**: The addon references `HTTPSListenerArn` which only exists after a service is deployed. If you try to deploy the environment addon before the service, it will fail.
 
-2. **Deploy the environment** (this deploys the addon):
+#### First-time Setup (New Deployment)
+
+1. **Temporarily move the addon** (to avoid the chicken-and-egg problem):
+   ```bash
+   mv copilot/environments/addons copilot/environments/addons.bak
+   ```
+
+2. **Deploy the environment** (without the addon):
    ```bash
    copilot env deploy --name production
    ```
 
-3. **Get the webhook endpoint URL**:
+3. **Deploy the service** (this creates the ALB and HTTPS listener):
    ```bash
-   aws cloudformation describe-stacks \
-     --stack-name inbox-zero-app-production \
-     --query "Stacks[0].Outputs[?OutputKey=='WebhookEndpointUrl'].OutputValue" \
-     --output text
+   copilot svc deploy --name inbox-zero-ecs --env production
    ```
 
-   The URL will look like: `https://abc123xyz.execute-api.us-east-1.amazonaws.com/api/google/webhook`
+4. **Restore and deploy the addon**:
+   ```bash
+   mv copilot/environments/addons.bak copilot/environments/addons
+   copilot env deploy --name production
+   ```
+
+#### Existing Deployment (Service Already Running)
+
+If you already have a deployed service with an ALB, simply deploy the environment:
+
+```bash
+copilot env deploy --name production
+```
+
+#### Get the Webhook Endpoint URL
+
+After the addon is deployed, get the webhook URL from the addon stack outputs:
+
+```bash
+# Find the addon stack
+ADDON_STACK=$(aws cloudformation list-stack-resources \
+  --stack-name inbox-zero-app-production \
+  --query "StackResourceSummaries[?contains(LogicalResourceId,'AddonsStack')].PhysicalResourceId" \
+  --output text)
+
+# Get the webhook URL
+aws cloudformation describe-stacks \
+  --stack-name "$ADDON_STACK" \
+  --query "Stacks[0].Outputs[?OutputKey=='WebhookEndpointUrl'].OutputValue" \
+  --output text
+```
+
+The URL will look like: `https://abc123xyz.execute-api.us-east-1.amazonaws.com/api/google/webhook`
 
 ### Google Cloud Configuration
 
