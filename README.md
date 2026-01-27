@@ -87,6 +87,8 @@ We offer a hosted version of Inbox Zero at [https://getinboxzero.com](https://ww
 
 The easiest way to self-host Inbox Zero is using our pre-built Docker image.
 
+> **Prerequisites**: [Docker Desktop](https://www.docker.com/products/docker-desktop/), [Node.js](https://nodejs.org/) v22+, and [Git](https://git-scm.com/downloads)
+
 ```bash
 git clone https://github.com/elie222/inbox-zero.git
 cd inbox-zero
@@ -347,6 +349,8 @@ In your `.env` file, uncomment one of the LLM provider blocks and add your API k
 - [Groq](https://console.groq.com/)
 
 Users can also change the model in the app on the `/settings` page.
+
+> **Note**: API keys require billing credits on the provider's platform. A ChatGPT Plus or Claude Pro subscription does NOT include API access.
 
 ### Local Production Build
 
