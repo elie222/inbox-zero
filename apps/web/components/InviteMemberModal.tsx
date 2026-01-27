@@ -35,16 +35,7 @@ import {
 } from "@/utils/actions/organization.validation";
 import { useDialogState } from "@/hooks/useDialogState";
 import { useAccount } from "@/providers/EmailAccountProvider";
-
-const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
-function validateEmail(email: string): string | null {
-  const normalizedEmail = email.toLowerCase();
-  if (!EMAIL_REGEX.test(normalizedEmail)) {
-    return "Please enter a valid email address";
-  }
-  return null;
-}
+import { validateEmail } from "@/utils/regex";
 
 export function InviteMemberModal({
   organizationId,
