@@ -16,7 +16,12 @@ const llmProviderEnum = z.enum([
 
 /** For Vercel preview deployments, auto-detect from VERCEL_URL. */
 const getBaseUrl = (): string | undefined => {
-  if (process.env.VERCEL_ENV === "preview" && process.env.VERCEL_URL) {
+  const isOAuthProxyServer = process.env.IS_OAUTH_PROXY_SERVER === "true";
+  if (
+    process.env.VERCEL_ENV === "preview" &&
+    process.env.VERCEL_URL &&
+    !isOAuthProxyServer
+  ) {
     return `https://${process.env.VERCEL_URL}`;
   }
 
@@ -137,6 +142,8 @@ export const env = createEnv({
     USE_BACKUP_MODEL: z.coerce.boolean().optional().default(false),
     HEALTH_API_KEY: z.string().optional(),
     OAUTH_PROXY_URL: z.string().url().optional(),
+    // Set to true on the server that acts as the OAuth proxy (e.g., staging)
+    IS_OAUTH_PROXY_SERVER: booleanString.optional().default(false),
     // Additional trusted origins for CORS (comma-separated, supports wildcards like https://*.vercel.app)
     ADDITIONAL_TRUSTED_ORIGINS: z
       .string()

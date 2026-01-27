@@ -29,6 +29,8 @@ COPY packages/tsconfig/package.json packages/tsconfig/package.json
 
 # Copy Prisma schema file needed for postinstall script
 COPY apps/web/prisma/schema.prisma apps/web/prisma/schema.prisma
+# Copy postinstall script
+COPY clone-marketing.sh clone-marketing.sh
 
 # Install deps with BuildKit cache for pnpm store
 RUN --mount=type=cache,target=/root/.local/share/pnpm/store \

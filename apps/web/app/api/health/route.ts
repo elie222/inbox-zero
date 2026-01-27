@@ -10,14 +10,20 @@ const HEALTH_CHECK_WINDOW_MINUTES = 5;
 
 export const GET = withError("health", async (request) => {
   const logger = request.logger;
-  // Check for health check API key
   const healthApiKey = request.headers.get("x-health-api-key");
   const expectedKey = env.HEALTH_API_KEY;
 
-  if (!expectedKey || healthApiKey !== expectedKey) {
+  // If no API key header provided, return simple OK for ALB/load balancer health checks
+  if (!healthApiKey) {
+    return NextResponse.json({ status: "ok" });
+  }
+
+  // If API key header provided but doesn't match, reject
+  if (expectedKey && healthApiKey !== expectedKey) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  // Deep health check with valid API key
   try {
     // Check for any executed rules in the last 5 minutes
     const cutoffTime = new Date(

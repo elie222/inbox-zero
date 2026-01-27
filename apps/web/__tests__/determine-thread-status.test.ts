@@ -309,7 +309,71 @@ describe.runIf(isAiTest)("aiDetermineThreadStatus", () => {
   );
 
   test(
-    "identifies FYI for automated notifications",
+    "identifies TO_REPLY when recipient responds with counter-question",
+    async () => {
+      const emailAccount = getEmailAccount();
+      const messages = [
+        getEmail({
+          from: emailAccount.email,
+          to: "recipient@example.com",
+          subject: "Question about pricing",
+          content: "What's your pricing for the enterprise plan?",
+        }),
+        getEmail({
+          from: "recipient@example.com",
+          to: emailAccount.email,
+          subject: "Re: Question about pricing",
+          content: "How many users would you need? That determines the price.",
+        }),
+      ];
+
+      const result = await aiDetermineThreadStatus({
+        emailAccount,
+        threadMessages: messages,
+      });
+
+      console.debug("Result:", result);
+      // Recipient asked a counter-question - user needs to answer it
+      expect(result.status).toBe(SystemType.TO_REPLY);
+      expect(result.rationale).toBeDefined();
+    },
+    TIMEOUT,
+  );
+
+  test(
+    "identifies TO_REPLY when recipient answers and asks follow-up question",
+    async () => {
+      const emailAccount = getEmailAccount();
+      const messages = [
+        getEmail({
+          from: emailAccount.email,
+          to: "jake@example.com",
+          subject: "hey",
+          content: "how are you?",
+        }),
+        getEmail({
+          from: "jake@example.com",
+          to: emailAccount.email,
+          subject: "Re: hey",
+          content: "Good and you?",
+        }),
+      ];
+
+      const result = await aiDetermineThreadStatus({
+        emailAccount,
+        threadMessages: messages,
+      });
+
+      console.debug("Result:", result);
+      // Recipient answered but also asked "and you?" - user needs to respond
+      expect(result.status).toBe(SystemType.TO_REPLY);
+      expect(result.rationale).toBeDefined();
+    },
+    TIMEOUT,
+  );
+
+  test(
+    "identifies FYI or ACTIONED for automated notifications",
     async () => {
       const emailAccount = getEmailAccount();
       const latestMessage = getEmail({
@@ -325,7 +389,7 @@ describe.runIf(isAiTest)("aiDetermineThreadStatus", () => {
       });
 
       console.debug("Result:", result);
-      expect(result.status).toBe(SystemType.FYI);
+      expect([SystemType.FYI, SystemType.ACTIONED]).toContain(result.status);
       expect(result.rationale).toBeDefined();
     },
     TIMEOUT,

@@ -1,8 +1,14 @@
 {
+  "buildCommand": "cd ../.. && if [ \"$VERCEL_ENV\" = preview ] && [ \"$IS_OAUTH_PROXY_SERVER\" != true ]; then NEXT_PUBLIC_BASE_URL=https://$VERCEL_URL turbo run build --force --filter={apps/web}...; else turbo run build --filter={apps/web}...; fi",
+  "installCommand": "cd ../.. && corepack enable && bash clone-marketing.sh && pnpm install --no-frozen-lockfile",
   "rewrites": [
     {
-      "source": "/tools/:path*",
-      "destination": "https://mini-apps-cyan.vercel.app/tools/:path*"
+      "source": "/tools",
+      "destination": "https://mini-apps-cyan.vercel.app/tools"
+    },
+    {
+      "source": "/tools/:path+",
+      "destination": "https://mini-apps-cyan.vercel.app/tools/:path+"
     }
   ]
 }
