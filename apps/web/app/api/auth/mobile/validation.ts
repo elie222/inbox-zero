@@ -12,7 +12,6 @@ export const mobileAuthQuerySchema = z.object({
       (uri) => ALLOWED_SCHEMES.some((scheme) => uri.startsWith(scheme)),
       "Invalid redirect_uri scheme. Must use inboxzero:// scheme.",
     ),
-  provider: z.enum(["google", "microsoft"]).optional(),
 });
 
 export type MobileAuthQuery = z.infer<typeof mobileAuthQuerySchema>;
