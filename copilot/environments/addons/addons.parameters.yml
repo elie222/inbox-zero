@@ -1,0 +1,27 @@
+# Parameters for environment addons
+#
+# This file passes values from the Copilot environment stack to addon templates.
+# These values are available because environment addons have access to the 
+# environment's underlying CloudFormation resources.
+#
+# See: https://aws.github.io/copilot-cli/docs/developing/addons/environment/
+
+Parameters:
+  # VPC ID from the Copilot environment
+  VPCID: !Ref VPC
+
+  # Private subnet IDs for VPC Link
+  # These subnets are where API Gateway creates ENIs to reach the internal ALB
+  PrivateSubnets: !Join [',', [!Ref PrivateSubnet1, !Ref PrivateSubnet2]]
+
+  # JWT Audience for Google Pub/Sub OIDC validation
+  #
+  # Options:
+  # 1. Leave empty ('') to auto-generate using the API Gateway URL
+  # 2. Set a custom domain URL if using a custom domain for the webhook
+  #
+  # For custom domain (recommended for production):
+  #   WebhookAudience: 'https://webhook.yourdomain.com/api/google/webhook'
+  #
+  # For auto-generated API Gateway URL:
+  WebhookAudience: ''
