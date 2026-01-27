@@ -16,24 +16,10 @@ const llmProviderEnum = z.enum([
 
 /** For Vercel preview deployments, auto-detect from VERCEL_URL. */
 const getBaseUrl = (): string | undefined => {
-  // DEBUG: Log environment detection for preview deploys
-  console.log("[env.ts getBaseUrl] VERCEL_ENV:", process.env.VERCEL_ENV);
-  console.log("[env.ts getBaseUrl] VERCEL_URL:", process.env.VERCEL_URL);
-  console.log(
-    "[env.ts getBaseUrl] NEXT_PUBLIC_BASE_URL:",
-    process.env.NEXT_PUBLIC_BASE_URL,
-  );
-
   if (process.env.VERCEL_ENV === "preview" && process.env.VERCEL_URL) {
-    const previewUrl = `https://${process.env.VERCEL_URL}`;
-    console.log("[env.ts getBaseUrl] Using preview URL:", previewUrl);
-    return previewUrl;
+    return `https://${process.env.VERCEL_URL}`;
   }
 
-  console.log(
-    "[env.ts getBaseUrl] Using NEXT_PUBLIC_BASE_URL:",
-    process.env.NEXT_PUBLIC_BASE_URL,
-  );
   return process.env.NEXT_PUBLIC_BASE_URL;
 };
 
@@ -51,6 +37,9 @@ export const env = createEnv({
     MICROSOFT_CLIENT_ID: z.string().optional(),
     MICROSOFT_CLIENT_SECRET: z.string().optional(),
     MICROSOFT_TENANT_ID: z.string().optional().default("common"),
+    SLACK_CLIENT_ID: z.string().optional(),
+    SLACK_CLIENT_SECRET: z.string().optional(),
+    SLACK_SIGNING_SECRET: z.string().optional(),
     EMAIL_ENCRYPT_SECRET: z.string(),
     EMAIL_ENCRYPT_SALT: z.string(),
 

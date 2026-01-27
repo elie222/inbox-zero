@@ -142,6 +142,8 @@ model EmailAccount {
 
   meetingBriefingsEnabled       Boolean @default(false)
   meetingBriefingsMinutesBefore Int     @default(240) // 4 hours in minutes
+  meetingBriefsSendEmail        Boolean @default(true)
+  meetingBriefsSendSlack        Boolean @default(false)
 
   filingEnabled Boolean @default(false)
   filingPrompt  String?
@@ -182,6 +184,7 @@ model EmailAccount {
   mcpConnections      McpConnection[]
   meetingBriefings    MeetingBriefing[]
   driveConnections    DriveConnection[]
+  slackConnections    SlackConnection[]
   documentFilings     DocumentFiling[]
   filingFolders       FilingFolder[]
 
@@ -995,6 +998,28 @@ model DriveConnection {
   filingFolders   FilingFolder[]
 
   @@unique([emailAccountId, provider])
+  @@index([emailAccountId])
+}
+
+model SlackConnection {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  teamId      String  // Slack workspace ID
+  teamName    String? // Workspace name for display
+  accessToken String  // Bot token (xoxb-...)
+  expiresAt   DateTime?
+  isConnected Boolean @default(true)
+
+  // User's selected channel for meeting briefs
+  channelId   String?
+  channelName String?
+
+  emailAccountId String
+  emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
+
+  @@unique([emailAccountId, teamId])
   @@index([emailAccountId])
 }
 
