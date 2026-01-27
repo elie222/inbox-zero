@@ -31,6 +31,7 @@
     "@ai-sdk/provider": "2.0.0",
     "@ai-sdk/react": "2.0.106",
     "@asteasolutions/zod-to-openapi": "7.3.4",
+    "@better-auth/expo": "1.4.17",
     "@better-auth/sso": "1.4.17",
     "@date-fns/tz": "1.4.1",
     "@dub/analytics": "0.0.32",
