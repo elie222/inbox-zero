@@ -81,7 +81,6 @@ async function getSetupProgress({
     isComplete: completed === total,
     teamInvite: showTeamInviteStep
       ? {
-          isOwner: isOwner || hasNoOrg,
           completed: teamInviteCompleted,
           organizationId: membership?.organizationId,
         }

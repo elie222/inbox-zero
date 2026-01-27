@@ -252,7 +252,6 @@ function Checklist({
   isAiAssistantConfigured: boolean;
   isCalendarConnected: boolean;
   teamInvite: {
-    isOwner: boolean;
     completed: boolean;
     organizationId: string | undefined;
   } | null;
@@ -343,7 +342,7 @@ function Checklist({
         actionText="Connect"
       />
 
-      {teamInvite?.isOwner && (
+      {teamInvite && (
         <StepItem
           href={prefixPath(emailAccountId, "/organization")}
           icon={<UsersIcon size={20} />}
@@ -360,7 +359,7 @@ function Checklist({
         />
       )}
 
-      {teamInvite?.isOwner && (
+      {teamInvite && (
         <InviteMemberModal
           organizationId={teamInvite.organizationId}
           open={isInviteModalOpen}
@@ -446,7 +445,6 @@ function SetupPageContent({
   totalSteps: number;
   isSetupComplete: boolean;
   teamInvite: {
-    isOwner: boolean;
     completed: boolean;
     organizationId: string | undefined;
   } | null;
