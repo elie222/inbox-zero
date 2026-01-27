@@ -143,6 +143,7 @@ const StepItem = ({
   linkProps,
   onMarkDone,
   showMarkDone,
+  markDoneText = "Mark Done",
   onActionClick,
 }: {
   href: string;
@@ -151,11 +152,12 @@ const StepItem = ({
   iconColor: string;
   title: string;
   timeEstimate: string;
-  completed: boolean;
+  completed?: boolean;
   actionText: string;
   linkProps?: { target?: string; rel?: string };
   onMarkDone?: () => void;
   showMarkDone?: boolean;
+  markDoneText?: string;
   onActionClick?: () => void;
 }) => {
   const handleMarkDone = (e: React.MouseEvent) => {
@@ -201,7 +203,7 @@ const StepItem = ({
                   onClick={handleMarkDone}
                   className="rounded-md bg-slate-100 px-3 py-1 text-sm text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-400 dark:hover:bg-slate-700"
                 >
-                  Mark Done
+                  {markDoneText}
                 </button>
               )}
 
@@ -341,7 +343,7 @@ function Checklist({
         actionText="Connect"
       />
 
-      {teamInvite?.isOwner && teamInvite.organizationId && (
+      {teamInvite?.isOwner && (
         <StepItem
           href={prefixPath(emailAccountId, "/organization")}
           icon={<UsersIcon size={20} />}
@@ -352,12 +354,13 @@ function Checklist({
           completed={teamInvite.completed || isTeamInviteViewed}
           actionText="Invite"
           onMarkDone={handleMarkTeamInviteDone}
-          showMarkDone={true}
+          showMarkDone
+          markDoneText="Skip"
           onActionClick={handleOpenInviteModal}
         />
       )}
 
-      {teamInvite?.organizationId && (
+      {teamInvite?.isOwner && (
         <InviteMemberModal
           organizationId={teamInvite.organizationId}
           open={isInviteModalOpen}
