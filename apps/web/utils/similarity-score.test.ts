@@ -243,6 +243,16 @@ On Tue, 27 Jan 2026 at 2:59, Test User <test@example.com> wrote:
         expect(score).toBe(1.0);
       },
     );
+
+    it("should not throw on invalid code points and leave them unchanged", () => {
+      const storedContent = "Hello &#1114112; and &#xFFFFFFFF; world";
+      const gmailMessage = createParsedMessage(
+        "Hello &#1114112; and &#xFFFFFFFF; world",
+      );
+
+      const score = realCalculateSimilarity(storedContent, gmailMessage);
+      expect(score).toBe(1.0);
+    });
   });
 
   describe("Sent email tracking scenarios", () => {

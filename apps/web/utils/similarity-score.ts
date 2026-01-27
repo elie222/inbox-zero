@@ -18,15 +18,24 @@ function normalizeForOutlook(content: string): string {
 
 /**
  * Decodes HTML entities (e.g., &#x1F44B; -> 👋) without modifying other content.
+ * Invalid code points (> 0x10FFFF) are left unchanged to avoid RangeError.
  */
 function decodeHtmlEntities(text: string): string {
   return text
-    .replace(/&#x([0-9a-fA-F]+);/g, (_, hex) =>
-      String.fromCodePoint(Number.parseInt(hex, 16)),
-    )
-    .replace(/&#(\d+);/g, (_, dec) =>
-      String.fromCodePoint(Number.parseInt(dec, 10)),
-    );
+    .replace(/&#x([0-9a-fA-F]+);/g, (match, hex) => {
+      const codePoint = Number.parseInt(hex, 16);
+      if (!Number.isFinite(codePoint) || codePoint > 0x10_ff_ff) {
+        return match;
+      }
+      return String.fromCodePoint(codePoint);
+    })
+    .replace(/&#(\d+);/g, (match, dec) => {
+      const codePoint = Number.parseInt(dec, 10);
+      if (!Number.isFinite(codePoint) || codePoint > 0x10_ff_ff) {
+        return match;
+      }
+      return String.fromCodePoint(codePoint);
+    });
 }
 
 /**
