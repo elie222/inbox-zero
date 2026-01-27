@@ -95,9 +95,7 @@ export function InviteMemberModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      {trigger !== undefined ? (
-        trigger
-      ) : (
+      {trigger ?? (
         <DialogTrigger asChild>
           <Button size="sm">Invite Member</Button>
         </DialogTrigger>
