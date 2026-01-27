@@ -105,15 +105,6 @@ export const useNavigation = () => {
         href: prefixPath(currentEmailAccountId, "/bulk-archive"),
         icon: ArchiveIcon,
       },
-      ...(isGoogleProvider(provider) && showCleaner
-        ? [
-            {
-              name: "Deep Clean",
-              href: prefixPath(currentEmailAccountId, "/clean"),
-              icon: BrushIcon,
-            },
-          ]
-        : []),
       {
         name: "Analytics",
         href: prefixPath(currentEmailAccountId, "/stats"),
@@ -150,6 +141,16 @@ export const useNavigation = () => {
               name: "Meeting Briefs",
               href: prefixPath(currentEmailAccountId, "/briefs"),
               icon: FileTextIcon,
+            },
+          ]
+        : []),
+      ...(isGoogleProvider(provider) && showCleaner
+        ? [
+            {
+              name: "Deep Clean",
+              href: prefixPath(currentEmailAccountId, "/clean"),
+              icon: BrushIcon,
+              beta: true,
             },
           ]
         : []),
