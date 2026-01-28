@@ -1,5 +1,10 @@
+import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import prisma from "@/utils/prisma";
+import {
+  LAST_EMAIL_ACCOUNT_COOKIE,
+  parseLastEmailAccountCookieValue,
+} from "@/utils/cookies";
 import { withAuth } from "@/utils/middleware";
 
 export type GetEmailAccountsResponse = Awaited<
@@ -7,6 +12,12 @@ export type GetEmailAccountsResponse = Awaited<
 >;
 
 async function getEmailAccounts({ userId }: { userId: string }) {
+  const cookieStore = await cookies();
+  const lastEmailAccountId = parseLastEmailAccountCookieValue({
+    userId,
+    cookieValue: cookieStore.get(LAST_EMAIL_ACCOUNT_COOKIE)?.value,
+  });
+
   const emailAccounts = await prisma.emailAccount.findMany({
     where: { userId },
     select: {
@@ -47,7 +58,7 @@ async function getEmailAccounts({ userId }: { userId: string }) {
     return { ...account, isPrimary: false };
   });
 
-  return { emailAccounts: accountsWithNames };
+  return { emailAccounts: accountsWithNames, lastEmailAccountId };
 }
 
 export const GET = withAuth("user/email-accounts", async (request) => {

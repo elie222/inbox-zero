@@ -5,8 +5,6 @@ import { useParams } from "next/navigation";
 import type { GetEmailAccountsResponse } from "@/app/api/user/email-accounts/route";
 import { setLastEmailAccountAction } from "@/utils/actions/email-account-cookie";
 
-const SESSION_STORAGE_KEY = "lastEmailAccountId";
-
 type Context = {
   emailAccount: GetEmailAccountsResponse["emailAccounts"][number] | undefined;
   emailAccountId: string;
@@ -26,14 +24,6 @@ export function EmailAccountProvider({
   const emailAccountId = params.emailAccountId;
   const [data, setData] = useState<GetEmailAccountsResponse | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-
-  // Tracks session-level account ID for pages without emailAccountId in URL (e.g., /organization)
-  const [lastKnownEmailAccountId, setLastKnownEmailAccountId] = useState<
-    string | null
-  >(() => {
-    if (typeof window === "undefined") return null;
-    return sessionStorage.getItem(SESSION_STORAGE_KEY);
-  });
 
   useEffect(() => {
     async function fetchAccounts() {
@@ -57,15 +47,15 @@ export function EmailAccountProvider({
 
   useEffect(() => {
     if (emailAccountId) {
-      setLastKnownEmailAccountId(emailAccountId);
-      sessionStorage.setItem(SESSION_STORAGE_KEY, emailAccountId);
-      setLastEmailAccountAction({ emailAccountId });
+      setLastEmailAccountAction({ emailAccountId }).catch(() => {});
     }
   }, [emailAccountId]);
 
+  const lastKnownEmailAccountId = data?.lastEmailAccountId ?? null;
+
   const emailAccount = useMemo(() => {
     if (data?.emailAccounts) {
-      // Priority: URL param > last known from this session > first account
+      // Priority: URL param > last known from cookie > first account
       const currentEmailAccount =
         data.emailAccounts.find((acc) => acc.id === emailAccountId) ??
         data.emailAccounts.find((acc) => acc.id === lastKnownEmailAccountId) ??
