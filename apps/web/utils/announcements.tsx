@@ -1,6 +1,6 @@
-import Image from "next/image";
 import type { ReactNode } from "react";
 import { FileEdit, Tag } from "lucide-react";
+import { FollowUpRemindersIllustration } from "@/components/feature-announcements/FollowUpRemindersIllustration";
 
 const DETAIL_ICON_CLASS = "h-4 w-4 text-gray-600 dark:text-gray-400";
 
@@ -28,14 +28,7 @@ export const ANNOUNCEMENTS: Announcement[] = [
     title: "Follow-up Reminders",
     description:
       "Track replies and get reminded about unanswered emails. Never let an important email slip through the cracks.",
-    image: (
-      <Image
-        src="/images/announcements/follow-up-reminders-illustration.svg"
-        alt="Follow-up Reminders"
-        width={400}
-        height={176}
-      />
-    ),
+    image: <FollowUpRemindersIllustration />,
     link: "/automation?tab=settings",
     learnMoreLink: "/#",
     publishedAt: "2026-01-15T00:00:00Z",
