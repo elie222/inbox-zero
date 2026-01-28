@@ -6,6 +6,7 @@ import { getWritingStyle } from "@/utils/user/get";
 import { internalDateToDate } from "@/utils/date";
 import { getEmailForLLM } from "@/utils/get-email-from-message";
 import { extractEmailAddress } from "@/utils/email";
+import { escapeHtml } from "@/utils/string";
 import prisma from "@/utils/prisma";
 import { env } from "@/env";
 import { getOrCreateReferralCode } from "@/utils/referral/referral-code";
@@ -97,7 +98,7 @@ export async function generateFollowUpDraft({
       throw new Error("Follow-up draft result is not a string");
     }
 
-    let draftContent = result;
+    let draftContent = escapeHtml(result);
 
     // Add signatures
     const emailAccountWithSignatures = await prisma.emailAccount.findUnique({

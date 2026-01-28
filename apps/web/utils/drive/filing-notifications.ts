@@ -2,6 +2,7 @@ import prisma from "@/utils/prisma";
 import type { EmailProvider } from "@/utils/email/types";
 import type { Logger } from "@/utils/logger";
 import { getFilebotEmail } from "@/utils/filebot/is-filebot-email";
+import { escapeHtml } from "@/utils/string";
 
 // ============================================================================
 // Types
@@ -273,13 +274,4 @@ function buildCorrectionConfirmationHtml({
       </div>
     </div>
   `;
-}
-
-function escapeHtml(text: string): string {
-  return text
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#039;");
 }
