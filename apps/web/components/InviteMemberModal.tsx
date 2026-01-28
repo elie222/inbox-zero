@@ -72,7 +72,9 @@ export function InviteMemberModal({
 
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Invite Member</DialogTitle>
+          <DialogTitle>
+            {organizationId ? "Invite Member" : "Invite Members"}
+          </DialogTitle>
           <DialogDescription>
             {organizationId
               ? "Send an invitation to join your organization. The recipient will receive an email with instructions."
