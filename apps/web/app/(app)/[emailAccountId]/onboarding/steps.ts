@@ -6,6 +6,7 @@ export const STEP_KEYS = {
   LABELS: "labels",
   DRAFT: "draft",
   CUSTOM_RULES: "customRules",
+  INVITE_TEAM: "inviteTeam",
   INBOX_PROCESSED: "inboxProcessed",
 } as const;
 
@@ -17,6 +18,7 @@ export const STEP_ORDER = [
   STEP_KEYS.LABELS,
   STEP_KEYS.DRAFT,
   STEP_KEYS.CUSTOM_RULES,
+  STEP_KEYS.INVITE_TEAM,
   STEP_KEYS.INBOX_PROCESSED,
 ] as const;
 

@@ -76,3 +76,25 @@ export async function fetchAndCheckIsAdmin({
     );
   }
 }
+
+export async function fetchAndCheckIsMember({
+  organizationId,
+  userId,
+}: {
+  organizationId: string;
+  userId: string;
+}): Promise<{ role: string }> {
+  const member = await prisma.member.findFirst({
+    where: {
+      organizationId,
+      emailAccount: { userId },
+    },
+    select: { role: true },
+  });
+
+  if (!member) {
+    throw new SafeError("You are not a member of this organization");
+  }
+
+  return { role: member.role };
+}

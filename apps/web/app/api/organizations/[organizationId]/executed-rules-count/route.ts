@@ -33,6 +33,7 @@ async function getExecutedRulesCount({
         members: {
           some: {
             organizationId,
+            allowOrgAdminAnalytics: true,
           },
         },
       },
