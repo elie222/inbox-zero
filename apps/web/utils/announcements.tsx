@@ -1,12 +1,17 @@
+import Image from "next/image";
 import type { ReactNode } from "react";
+import { FileEdit, Tag } from "lucide-react";
+
+const DETAIL_ICON_CLASS = "h-4 w-4 text-gray-600 dark:text-gray-400";
 
 export interface AnnouncementDetail {
   title: string;
   description: string;
-  icon: string;
+  icon: ReactNode;
 }
 
 export interface Announcement {
+  id: string;
   title: string;
   description: string;
   image: ReactNode;
@@ -18,12 +23,19 @@ export interface Announcement {
 }
 
 export const ANNOUNCEMENTS: Announcement[] = [
-  // Example announcement:
   {
+    id: "follow-up-reminders",
     title: "Follow-up Reminders",
     description:
       "Track replies and get reminded about unanswered emails. Never let an important email slip through the cracks.",
-    image: <div>[image]</div>,
+    image: (
+      <Image
+        src="/images/announcements/follow-up-reminders-illustration.svg"
+        alt="Follow-up Reminders"
+        width={400}
+        height={176}
+      />
+    ),
     link: "/automation?tab=settings",
     learnMoreLink: "/#",
     publishedAt: "2026-01-15T00:00:00Z",
@@ -31,12 +43,12 @@ export const ANNOUNCEMENTS: Announcement[] = [
       {
         title: "Automatic follow-up labels",
         description: "Labels threads after 3 days with no response.",
-        icon: "Tag",
+        icon: <Tag className={DETAIL_ICON_CLASS} />,
       },
       {
         title: "Auto-generated drafts",
         description: "Creates a draft to nudge unresponsive contacts.",
-        icon: "FileEdit",
+        icon: <FileEdit className={DETAIL_ICON_CLASS} />,
       },
     ],
   },
