@@ -96,6 +96,12 @@ export function TagInput({
     [addTag],
   );
 
+  const handleBlur = useCallback(() => {
+    if (inputValue.trim()) {
+      addTag(inputValue);
+    }
+  }, [inputValue, addTag]);
+
   const handleContainerClick = useCallback(() => {
     inputRef.current?.focus();
   }, []);
@@ -143,6 +149,7 @@ export function TagInput({
           value={inputValue}
           onChange={handleInputChange}
           onKeyDown={handleKeyDown}
+          onBlur={handleBlur}
           placeholder={value.length === 0 ? placeholder : ""}
           className="flex-1 min-w-[120px] border-0 bg-transparent p-0 outline-none focus:ring-0 placeholder:text-muted-foreground"
         />
