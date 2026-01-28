@@ -51,14 +51,25 @@ export function AccountSwitcherInternal({
       if (!activeEmailAccountId) return `/${emailAccountId}/setup`;
 
       const basePath = pathname.split("?")[0] || "/";
-      const newBasePath = basePath.replace(
-        activeEmailAccountId,
-        emailAccountId,
-      );
 
-      const tab = searchParams.get("tab");
+      // Check if the current path contains the active email account ID
+      if (basePath.includes(activeEmailAccountId)) {
+        const newBasePath = basePath.replace(
+          activeEmailAccountId,
+          emailAccountId,
+        );
+        const tab = searchParams.get("tab");
+        return `${newBasePath}${tab ? `?tab=${tab}` : ""}`;
+      }
 
-      return `${newBasePath}${tab ? `?tab=${tab}` : ""}`;
+      // For pages without emailAccountId in URL (e.g., /organization/[organizationId]),
+      // navigate to the equivalent route for the new account
+      if (basePath.startsWith("/organization")) {
+        return `/${emailAccountId}/organization`;
+      }
+
+      // Default fallback: go to the new account's mail page
+      return `/${emailAccountId}/mail`;
     },
     [pathname, activeEmailAccountId, searchParams],
   );
@@ -116,6 +127,9 @@ export function AccountSwitcherInternal({
                 key={emailAccount.id}
                 className="gap-2 p-2"
                 onSelect={() => {
+                  // Store selected account in sessionStorage before navigation
+                  // so it persists across server-side redirects (e.g., organization pages)
+                  sessionStorage.setItem("lastEmailAccountId", emailAccount.id);
                   // Force a hard page reload to refresh all data.
                   // I tried to fix with resetting the SWR cache but it didn't seem to work. This is much more reliable anyway.
                   window.location.href = getHref(emailAccount.id);

@@ -5,6 +5,8 @@ import { useParams } from "next/navigation";
 import type { GetEmailAccountsResponse } from "@/app/api/user/email-accounts/route";
 import { setLastEmailAccountAction } from "@/utils/actions/email-account-cookie";
 
+const SESSION_STORAGE_KEY = "lastEmailAccountId";
+
 type Context = {
   emailAccount: GetEmailAccountsResponse["emailAccounts"][number] | undefined;
   emailAccountId: string;
@@ -28,7 +30,10 @@ export function EmailAccountProvider({
   // Tracks session-level account ID for pages without emailAccountId in URL (e.g., /organization)
   const [lastKnownEmailAccountId, setLastKnownEmailAccountId] = useState<
     string | null
-  >(null);
+  >(() => {
+    if (typeof window === "undefined") return null;
+    return sessionStorage.getItem(SESSION_STORAGE_KEY);
+  });
 
   useEffect(() => {
     async function fetchAccounts() {
@@ -37,8 +42,8 @@ export function EmailAccountProvider({
         // This is the simplest fix
         const response = await fetch("/api/user/email-accounts");
         if (response.ok) {
-          const emailAccounts: GetEmailAccountsResponse = await response.json();
-          setData(emailAccounts);
+          const result: GetEmailAccountsResponse = await response.json();
+          setData(result);
         }
       } catch (error) {
         console.error("Error fetching accounts:", error);
@@ -53,6 +58,7 @@ export function EmailAccountProvider({
   useEffect(() => {
     if (emailAccountId) {
       setLastKnownEmailAccountId(emailAccountId);
+      sessionStorage.setItem(SESSION_STORAGE_KEY, emailAccountId);
       setLastEmailAccountAction({ emailAccountId });
     }
   }, [emailAccountId]);
