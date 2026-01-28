@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
-import { FileEdit, Tag } from "lucide-react";
+import { FileEdit, Mail, Search, Tag } from "lucide-react";
 import { FollowUpRemindersIllustration } from "@/components/feature-announcements/FollowUpRemindersIllustration";
+import { MeetingBriefsIllustration } from "@/components/feature-announcements/MeetingBriefsIllustration";
 
 const DETAIL_ICON_CLASS = "h-4 w-4 text-gray-600 dark:text-gray-400";
 
@@ -42,6 +43,28 @@ export const ANNOUNCEMENTS: Announcement[] = [
         title: "Auto-generated drafts",
         description: "Creates a draft to nudge unresponsive contacts.",
         icon: <FileEdit className={DETAIL_ICON_CLASS} />,
+      },
+    ],
+  },
+  {
+    id: "meeting-briefs",
+    title: "Meeting Briefs",
+    description:
+      "Get AI-powered briefings before your meetings. Know who you're meeting and what you've discussed.",
+    image: <MeetingBriefsIllustration />,
+    link: "/briefs",
+    learnMoreLink: "/#",
+    publishedAt: "2024-12-28T00:00:00Z",
+    details: [
+      {
+        title: "AI-powered research",
+        description: "Researches attendees before your meetings.",
+        icon: <Search className={DETAIL_ICON_CLASS} />,
+      },
+      {
+        title: "Email context",
+        description: "Includes recent email history with each guest.",
+        icon: <Mail className={DETAIL_ICON_CLASS} />,
       },
     ],
   },
