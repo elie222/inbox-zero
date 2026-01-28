@@ -146,7 +146,9 @@ done
 
 # Start app with E2E environment (dev:e2e uses dotenv to load .env.e2e properly)
 # Use PORT env var which Next.js reads automatically
-PORT="$APP_PORT" pnpm dev:e2e > /tmp/nextjs-e2e.log 2>&1 &
+# Prepend node_modules/.bin to PATH to ensure we use the correct dotenv-cli
+# (avoids conflicts with other dotenv implementations like Python's dotenv-cli)
+PATH="$PWD/node_modules/.bin:$PATH" PORT="$APP_PORT" pnpm dev:e2e > /tmp/nextjs-e2e.log 2>&1 &
 APP_PID=$!
 
 # Wait for app to be ready

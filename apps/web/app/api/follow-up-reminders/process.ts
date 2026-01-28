@@ -258,23 +258,26 @@ async function processFollowUpsForType({
         logger: threadLogger,
       });
 
-      if (!tracker) {
-        tracker = await prisma.threadTracker.create({
-          data: {
+      tracker = await prisma.threadTracker.upsert({
+        where: {
+          emailAccountId_threadId_messageId: {
             emailAccountId: emailAccount.id,
             threadId: thread.id,
             messageId: lastMessage.id,
-            type: trackerType,
-            sentAt: messageDate,
-            followUpAppliedAt: now,
           },
-        });
-      } else {
-        await prisma.threadTracker.update({
-          where: { id: tracker.id },
-          data: { followUpAppliedAt: now },
-        });
-      }
+        },
+        update: {
+          followUpAppliedAt: now,
+        },
+        create: {
+          emailAccountId: emailAccount.id,
+          threadId: thread.id,
+          messageId: lastMessage.id,
+          type: trackerType,
+          sentAt: messageDate,
+          followUpAppliedAt: now,
+        },
+      });
 
       if (generateDraft && tracker) {
         await generateFollowUpDraft({

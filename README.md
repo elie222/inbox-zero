@@ -87,6 +87,8 @@ We offer a hosted version of Inbox Zero at [https://getinboxzero.com](https://ww
 
 The easiest way to self-host Inbox Zero is using our pre-built Docker image.
 
+> **Prerequisites**: [Docker Desktop](https://www.docker.com/products/docker-desktop/), [Node.js](https://nodejs.org/) v22+, and [Git](https://git-scm.com/downloads)
+
 ```bash
 git clone https://github.com/elie222/inbox-zero.git
 cd inbox-zero
@@ -94,10 +96,10 @@ npm install
 npm run setup
 
 # Start Docker (Linux/Mac)
-NEXT_PUBLIC_BASE_URL=http://localhost:3000 docker compose --env-file apps/web/.env --profile all up -d
+NEXT_PUBLIC_BASE_URL=http://localhost:3000 docker compose --profile all up -d
 
 # Start Docker (Windows PowerShell)
-# $env:NEXT_PUBLIC_BASE_URL="http://localhost:3000"; docker compose --env-file apps/web/.env --profile all up -d
+# $env:NEXT_PUBLIC_BASE_URL="http://localhost:3000"; docker compose --profile all up -d
 
 # Verify startup (wait for "Ready" message, Ctrl+C to exit logs)
 docker logs inbox-zero-services-web-1 -f
@@ -112,8 +114,8 @@ Open http://localhost:3000
 **To update your configuration or pull the latest version:**
 
 ```bash
-docker compose --env-file apps/web/.env --profile all down
-NEXT_PUBLIC_BASE_URL=http://localhost:3000 docker compose --env-file apps/web/.env --profile all up -d
+docker compose --profile all down
+NEXT_PUBLIC_BASE_URL=http://localhost:3000 docker compose --profile all up -d
 ```
 
 See our **[Self-Hosting Guide](docs/hosting/self-hosting.md)** for complete instructions, production deployment, and configuration options.
@@ -347,6 +349,8 @@ In your `.env` file, uncomment one of the LLM provider blocks and add your API k
 - [Groq](https://console.groq.com/)
 
 Users can also change the model in the app on the `/settings` page.
+
+> **Note**: API keys require billing credits on the provider's platform. A ChatGPT Plus or Claude Pro subscription does NOT include API access.
 
 ### Local Production Build
 

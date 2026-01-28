@@ -35,10 +35,16 @@ export const footerNavigation = {
     },
   ],
   tools: [
-    { name: "Email Deliverability Checker", href: "/tools/email-deliverability-checker" },
+    {
+      name: "Email Deliverability Checker",
+      href: "/tools/email-deliverability-checker",
+    },
     { name: "Gmail Personality Quiz", href: "/tools/gmail-quiz" },
     { name: "Subject Line Analyzer", href: "/tools/subject-line-analyzer" },
-    { name: "Email Signature Generator", href: "/tools/email-signature-generator" },
+    {
+      name: "Email Signature Generator",
+      href: "/tools/email-signature-generator",
+    },
     { name: "Meeting Cost Calculator", href: "/tools/meeting-cost-calculator" },
   ],
   support: [
@@ -146,7 +152,9 @@ export function Footer() {
                 key={item.name}
                 href={item.href}
                 target={item.target}
-                rel={item.target === "_blank" ? "noopener noreferrer" : undefined}
+                rel={
+                  item.target === "_blank" ? "noopener noreferrer" : undefined
+                }
                 className="text-sm leading-6 text-gray-600 hover:text-gray-900"
               >
                 {item.name}

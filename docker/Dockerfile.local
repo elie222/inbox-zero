@@ -29,6 +29,8 @@ COPY packages/tsconfig/package.json packages/tsconfig/package.json
 
 # Copy Prisma schema file needed for postinstall script
 COPY apps/web/prisma/schema.prisma apps/web/prisma/schema.prisma
+# Copy postinstall script
+COPY clone-marketing.sh clone-marketing.sh
 
 # Install deps with BuildKit cache for pnpm store
 RUN --mount=type=cache,target=/root/.local/share/pnpm/store \
@@ -103,8 +105,10 @@ COPY --from=builder /app/apps/web/prisma ./apps/web/prisma
 COPY docker/scripts /app/docker/scripts
 RUN chmod +x /app/docker/scripts/*.sh
 
-# Install Prisma locally for migrations (must be after COPY to merge with standalone node_modules)
-RUN npm install prisma@7.3.0 --no-save
+# Install Prisma CLI globally for migrations
+RUN npm install -g prisma@7.3.0
+# Set NODE_PATH so prisma/config imports resolve correctly
+ENV NODE_PATH=/usr/local/lib/node_modules
 
 EXPOSE 3000
 

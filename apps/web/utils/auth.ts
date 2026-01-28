@@ -66,14 +66,19 @@ export const betterAuthConfig = betterAuth({
     provider: "postgresql",
   }),
   plugins: [
-    nextCookies(),
     sso({
       disableImplicitSignUp: false,
       organizationProvisioning: { disabled: true },
     }),
-    // OAuth proxy for Vercel preview deployments (Google doesn't allow wildcard redirect URIs)
-    // When OAUTH_PROXY_URL is set, OAuth callbacks route through staging then redirect back to preview
-    ...(env.OAUTH_PROXY_URL ? [oAuthProxy()] : []),
+    // OAuth proxy for preview deployments (Google doesn't allow wildcard redirect URIs)
+    ...(env.OAUTH_PROXY_URL || env.IS_OAUTH_PROXY_SERVER
+      ? [
+          oAuthProxy({
+            productionURL: env.OAUTH_PROXY_URL || env.NEXT_PUBLIC_BASE_URL,
+          }),
+        ]
+      : []),
+    nextCookies(), // Must be last
   ],
   session: {
     modelName: "Session",
@@ -99,6 +104,7 @@ export const betterAuthConfig = betterAuth({
       accessTokenExpiresAt: "expires_at",
       idToken: "id_token",
     },
+    storeStateStrategy: "cookie", // Required for oAuthProxy to encrypt state
   },
   verification: {
     modelName: "VerificationToken",

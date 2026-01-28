@@ -707,7 +707,7 @@ Full guide: https://docs.getinboxzero.com/self-hosting/microsoft-oauth`,
   if (runWebInDocker) {
     // Web app runs in Docker with database & Redis
     nextSteps = `# Start all services (web, database & Redis):
-NEXT_PUBLIC_BASE_URL=https://yourdomain.com ${composeCmd} --env-file ${envFile} --profile all up -d
+NEXT_PUBLIC_BASE_URL=https://yourdomain.com ${composeCmd} --profile all up -d
 
 # View logs:
 docker logs inbox-zero-services-web-1 -f

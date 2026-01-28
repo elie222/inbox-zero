@@ -6,6 +6,7 @@
     "dev": "turbo dev --filter=./apps/web",
     "test": "turbo run test --filter=./apps/web",
     "lint": "turbo lint",
+    "postinstall": "sh clone-marketing.sh",
     "prepare": "husky install",
     "ncu": "ncu -u -ws",
     "check": "ultracite check",
