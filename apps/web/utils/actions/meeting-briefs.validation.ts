@@ -39,3 +39,54 @@ export const sendDebugBriefBody = z.object({
 });
 
 export type SendDebugBriefBody = z.infer<typeof sendDebugBriefBody>;
+
+// Notification channel types
+export const channelTypeSchema = z.enum([
+  "slack",
+  "teams",
+  "telegram",
+  "discord",
+]);
+export type ChannelType = z.infer<typeof channelTypeSchema>;
+
+export const upsertNotificationChannelBody = z.object({
+  channelType: channelTypeSchema,
+  config: z.record(z.unknown()).refine((val) => Object.keys(val).length > 0, {
+    message: "Config must not be empty",
+  }),
+  enabled: z.boolean().optional(),
+  pipedreamActionId: z.string().optional(),
+});
+
+export type UpsertNotificationChannelBody = z.infer<
+  typeof upsertNotificationChannelBody
+>;
+
+export const deleteNotificationChannelBody = z.object({
+  channelType: channelTypeSchema,
+});
+
+export type DeleteNotificationChannelBody = z.infer<
+  typeof deleteNotificationChannelBody
+>;
+
+export const toggleNotificationChannelBody = z.object({
+  channelType: channelTypeSchema,
+  enabled: z.boolean(),
+});
+
+export type ToggleNotificationChannelBody = z.infer<
+  typeof toggleNotificationChannelBody
+>;
+
+export const createConnectTokenBody = z.object({
+  channelType: channelTypeSchema,
+});
+
+export type CreateConnectTokenBody = z.infer<typeof createConnectTokenBody>;
+
+export const getConnectedAccountsBody = z.object({
+  channelType: channelTypeSchema.optional(),
+});
+
+export type GetConnectedAccountsBody = z.infer<typeof getConnectedAccountsBody>;

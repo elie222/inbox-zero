@@ -6,6 +6,7 @@
     "dev": "cross-env NODE_OPTIONS=--max_old_space_size=16384 next dev --turbopack",
     "dev:e2e": "dotenv -e .env.e2e -- cross-env NODE_OPTIONS=--max_old_space_size=16384 next dev --turbopack",
     "build": "cross-env NODE_OPTIONS=--max_old_space_size=16384 prisma migrate deploy && next build",
+    "build:check": "cross-env NODE_OPTIONS=--max_old_space_size=16384 DATABASE_URL=postgresql://x:x@localhost:5432/x DIRECT_URL=postgresql://x:x@localhost:5432/x GOOGLE_CLIENT_ID=x GOOGLE_CLIENT_SECRET=x EMAIL_ENCRYPT_SECRET=x EMAIL_ENCRYPT_SALT=x GOOGLE_PUBSUB_TOPIC_NAME=x INTERNAL_API_KEY=x NEXT_PUBLIC_BASE_URL=http://localhost:3000 AUTH_SECRET=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx next build",
     "start": "next start",
     "start:standalone": "node .next/standalone/server.js",
     "lint": "biome check .",

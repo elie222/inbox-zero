@@ -1,15 +1,36 @@
 "use server";
 
+import { revalidatePath } from "next/cache";
 import { actionClient } from "@/utils/actions/safe-action";
 import {
   sendDebugBriefBody,
   updateMeetingBriefsEnabledBody,
   updateMeetingBriefsMinutesBeforeBody,
+  upsertNotificationChannelBody,
+  deleteNotificationChannelBody,
+  toggleNotificationChannelBody,
+  createConnectTokenBody,
+  getConnectedAccountsBody,
 } from "@/utils/actions/meeting-briefs.validation";
+import {
+  getNotificationChannels,
+  upsertNotificationChannel,
+  deleteNotificationChannel,
+  toggleNotificationChannel,
+  isNotificationChannelsAvailable,
+  CHANNEL_TYPES,
+  type ChannelType,
+} from "@/utils/pipedream/notification-channels";
+import {
+  createConnectToken,
+  getConnectedAccounts,
+} from "@/utils/pipedream/connect";
 import prisma from "@/utils/prisma";
 import { runMeetingBrief } from "@/utils/meeting-briefs/process";
 import type { CalendarEvent } from "@/utils/calendar/event-types";
 import { SafeError } from "@/utils/error";
+import { prefixPath } from "@/utils/path";
+import { env } from "@/env";
 
 export const updateMeetingBriefsEnabledAction = actionClient
   .metadata({ name: "updateMeetingBriefsEnabled" })
@@ -92,3 +113,124 @@ export const sendBriefAction = actionClient
       });
     },
   );
+
+// Notification channel actions
+export const getNotificationChannelsAction = actionClient
+  .metadata({ name: "getNotificationChannels" })
+  .action(async ({ ctx: { emailAccountId } }) => {
+    // Fetch all channels (including disabled) for the settings UI
+    const channels = await getNotificationChannels(emailAccountId, false);
+    const isAvailable = isNotificationChannelsAvailable();
+    return { channels, isAvailable };
+  });
+
+export const upsertNotificationChannelAction = actionClient
+  .metadata({ name: "upsertNotificationChannel" })
+  .inputSchema(upsertNotificationChannelBody)
+  .action(
+    async ({
+      ctx: { emailAccountId },
+      parsedInput: { channelType, config, enabled, pipedreamActionId },
+    }) => {
+      if (!isNotificationChannelsAvailable()) {
+        throw new SafeError(
+          "Pipedream Connect is not configured. Please set up your Pipedream credentials.",
+        );
+      }
+
+      const channel = await upsertNotificationChannel(emailAccountId, {
+        channelType: channelType as ChannelType,
+        config,
+        enabled,
+        pipedreamActionId,
+      });
+
+      revalidatePath(prefixPath(emailAccountId, "/briefs"));
+
+      return channel;
+    },
+  );
+
+export const deleteNotificationChannelAction = actionClient
+  .metadata({ name: "deleteNotificationChannel" })
+  .inputSchema(deleteNotificationChannelBody)
+  .action(async ({ ctx: { emailAccountId }, parsedInput: { channelType } }) => {
+    await deleteNotificationChannel(emailAccountId, channelType as ChannelType);
+    revalidatePath(prefixPath(emailAccountId, "/briefs"));
+  });
+
+export const toggleNotificationChannelAction = actionClient
+  .metadata({ name: "toggleNotificationChannel" })
+  .inputSchema(toggleNotificationChannelBody)
+  .action(
+    async ({
+      ctx: { emailAccountId },
+      parsedInput: { channelType, enabled },
+    }) => {
+      await toggleNotificationChannel(
+        emailAccountId,
+        channelType as ChannelType,
+        enabled,
+      );
+      revalidatePath(prefixPath(emailAccountId, "/briefs"));
+    },
+  );
+
+export const createPipedreamConnectTokenAction = actionClient
+  .metadata({ name: "createPipedreamConnectToken" })
+  .inputSchema(createConnectTokenBody)
+  .action(async ({ ctx: { emailAccountId }, parsedInput: { channelType } }) => {
+    if (!isNotificationChannelsAvailable()) {
+      throw new SafeError(
+        "Pipedream Connect is not configured. Please set up your Pipedream credentials.",
+      );
+    }
+
+    const channelConfig = CHANNEL_TYPES[channelType as ChannelType];
+    if (!channelConfig) {
+      throw new SafeError(`Unknown channel type: ${channelType}`);
+    }
+
+    const callbackPath = prefixPath(emailAccountId, "/oauth-callback");
+    const callbackUrl = `${env.NEXT_PUBLIC_BASE_URL}${callbackPath}`;
+
+    const token = await createConnectToken({
+      externalUserId: emailAccountId,
+      successRedirectUri: callbackUrl,
+      errorRedirectUri: callbackUrl,
+    });
+
+    // Build the connect URL with the app slug
+    const connectUrl = `${token.connect_link_url}&app=${channelConfig.appSlug}`;
+
+    return {
+      connectUrl,
+      expiresAt: token.expires_at,
+    };
+  });
+
+export const getPipedreamConnectedAccountsAction = actionClient
+  .metadata({ name: "getPipedreamConnectedAccounts" })
+  .inputSchema(getConnectedAccountsBody)
+  .action(async ({ ctx: { emailAccountId }, parsedInput: { channelType } }) => {
+    if (!isNotificationChannelsAvailable()) {
+      return { accounts: [], isAvailable: false };
+    }
+
+    const appSlug = channelType
+      ? CHANNEL_TYPES[channelType as ChannelType]?.appSlug
+      : undefined;
+
+    const accounts = await getConnectedAccounts(emailAccountId, appSlug);
+
+    return {
+      accounts: accounts.map((acc) => ({
+        id: acc.id,
+        name: acc.name,
+        appSlug: acc.app.name_slug,
+        appName: acc.app.name,
+        healthy: acc.healthy,
+      })),
+      isAvailable: true,
+    };
+  });
