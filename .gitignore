@@ -79,4 +79,8 @@ logs
 
 coverage
 
+# Copilot local workspace state
+copilot/.workspace
+copilot/environments/**/manifest.yml
+
 /apps/web/app/(app)/\[emailAccountId\]/demo/*
