@@ -178,9 +178,195 @@ If migrations fail:
 2. Check that the load balancer is properly configured
 3. Ensure SSL certificate is provisioned (Copilot handles this automatically)
 
+## Firewalled Deployments (Webhook Gateway)
+
+For deployments where the main application is behind a firewall or private network (e.g., only accessible to employees via VPN), you need a way for Google Pub/Sub to deliver Gmail webhook notifications. The webhook gateway addon solves this by creating a public API Gateway endpoint that validates Google's OIDC tokens before forwarding to your private infrastructure.
+
+### Prerequisites
+
+- **IAM User (not root)**: AWS Copilot requires IAM role assumption, which doesn't work with root account credentials. Create an IAM user with `AdministratorAccess` policy.
+- **AWS CLI Profile**: Configure an AWS CLI profile for your deployment:
+  ```bash
+  aws configure --profile inbox-zero
+  # Enter your IAM user's access key and secret
+  # Set region (e.g., us-east-1)
+  ```
+- **Set environment variables** before running Copilot commands:
+  ```bash
+  export AWS_PROFILE=inbox-zero
+  export AWS_REGION=us-east-1
+  ```
+
+### Architecture
+
+```
+Google Pub/Sub → API Gateway (public) → VPC Link → Internal ALB → ECS
+                      ↑
+               JWT validation
+               (Google OIDC)
+```
+
+- **API Gateway**: Public endpoint that Google Pub/Sub can reach
+- **JWT Authorizer**: Validates Google's OIDC tokens cryptographically
+- **VPC Link**: Connects API Gateway to your private VPC
+- **Internal ALB**: Your Copilot-managed load balancer
+
+### How It Works
+
+1. Google Pub/Sub sends webhook requests with a signed JWT in the `Authorization` header
+2. API Gateway validates the JWT:
+   - Verifies signature using Google's public keys
+   - Checks issuer is `https://accounts.google.com`
+   - Validates audience matches your configured endpoint
+   - Ensures token is not expired
+3. Valid requests are forwarded to your internal ALB via VPC Link
+4. Invalid requests are rejected with 401 (never reach your app)
+
+### Deployment
+
+The webhook gateway is an **environment addon**. However, it requires the ALB's HTTPS listener which is only created when a Load Balanced Web Service is deployed. Follow this specific order:
+
+> **Important**: The addon references `HTTPSListenerArn` which only exists after a service is deployed. If you try to deploy the environment addon before the service, it will fail.
+
+#### First-time Setup (New Deployment)
+
+1. **Temporarily move the addon** (to avoid the chicken-and-egg problem):
+   ```bash
+   mv copilot/environments/addons copilot/environments/addons.bak
+   ```
+
+2. **Deploy the environment** (without the addon):
+   ```bash
+   copilot env deploy --name production
+   ```
+
+3. **Deploy the service** (this creates the ALB and HTTPS listener):
+   ```bash
+   copilot svc deploy --name inbox-zero-ecs --env production
+   ```
+
+4. **Restore and deploy the addon**:
+   ```bash
+   mv copilot/environments/addons.bak copilot/environments/addons
+   copilot env deploy --name production
+   ```
+
+#### Existing Deployment (Service Already Running)
+
+If you already have a deployed service with an ALB, simply deploy the environment:
+
+```bash
+copilot env deploy --name production
+```
+
+#### Get the Webhook Endpoint URL
+
+After the addon is deployed, get the webhook URL from the addon stack outputs:
+
+```bash
+# Find the addon stack
+ADDON_STACK=$(aws cloudformation list-stack-resources \
+  --stack-name inbox-zero-app-production \
+  --query "StackResourceSummaries[?contains(LogicalResourceId,'AddonsStack')].PhysicalResourceId" \
+  --output text)
+
+# Get the webhook URL
+aws cloudformation describe-stacks \
+  --stack-name "$ADDON_STACK" \
+  --query "Stacks[0].Outputs[?OutputKey=='WebhookEndpointUrl'].OutputValue" \
+  --output text
+```
+
+The URL will look like: `https://abc123xyz.execute-api.us-east-1.amazonaws.com/api/google/webhook`
+
+### Google Cloud Configuration
+
+Configure your Google Cloud Pub/Sub push subscription to use OIDC authentication:
+
+1. **Create or update the push subscription**:
+   ```bash
+   # Get the webhook URL from the previous step
+   WEBHOOK_URL="https://abc123xyz.execute-api.us-east-1.amazonaws.com/api/google/webhook"
+   
+   gcloud pubsub subscriptions create gmail-push-subscription \
+     --topic=projects/YOUR_PROJECT/topics/gmail-notifications \
+     --push-endpoint="${WEBHOOK_URL}" \
+     --push-auth-service-account=YOUR_SERVICE_ACCOUNT@YOUR_PROJECT.iam.gserviceaccount.com \
+     --push-auth-token-audience="${WEBHOOK_URL}"
+   ```
+
+   Or update an existing subscription:
+   ```bash
+   gcloud pubsub subscriptions modify-push-config gmail-push-subscription \
+     --push-endpoint="${WEBHOOK_URL}" \
+     --push-auth-service-account=YOUR_SERVICE_ACCOUNT@YOUR_PROJECT.iam.gserviceaccount.com \
+     --push-auth-token-audience="${WEBHOOK_URL}"
+   ```
+
+2. **Grant token creation permissions**:
+   ```bash
+   PROJECT_NUMBER=$(gcloud projects describe YOUR_PROJECT --format='value(projectNumber)')
+   
+   gcloud projects add-iam-policy-binding YOUR_PROJECT \
+     --member="serviceAccount:service-${PROJECT_NUMBER}@gcp-sa-pubsub.iam.gserviceaccount.com" \
+     --role="roles/iam.serviceAccountTokenCreator"
+   ```
+
+### Custom Domain (Optional)
+
+If you want to use a custom domain for the webhook endpoint:
+
+1. Edit `copilot/environments/addons/addons.parameters.yml`:
+   ```yaml
+   Parameters:
+     WebhookAudience: 'https://webhook.yourdomain.com/api/google/webhook'
+   ```
+
+2. Set up a custom domain in API Gateway (via AWS Console or additional CloudFormation)
+
+3. Update the Google Pub/Sub subscription with the custom domain URL
+
+### Verification
+
+Test that the endpoint correctly rejects unauthenticated requests:
+
+```bash
+# This should return 401 Unauthorized
+curl -X POST https://abc123xyz.execute-api.us-east-1.amazonaws.com/api/google/webhook
+```
+
+### Security Notes
+
+| Aspect | Details |
+|--------|---------|
+| **Authentication** | Cryptographic JWT validation using Google's public keys |
+| **Issuer** | Fixed to `https://accounts.google.com` |
+| **Audience** | Must match exactly between AWS and Google configurations |
+| **Token lifetime** | Google tokens are valid for up to 1 hour |
+| **Throttling** | API Gateway applies rate limiting (50 req/sec, 100 burst) |
+
+### Troubleshooting
+
+**401 Unauthorized from API Gateway:**
+- Verify the audience in Google Pub/Sub matches the AWS configuration exactly
+- Check that the service account has `iam.serviceAccountTokenCreator` permissions
+- Ensure the push subscription has OIDC authentication enabled
+
+**502 Bad Gateway:**
+- The VPC Link may not have connectivity to the ALB
+- Check security group rules allow traffic from API Gateway to ALB
+- Verify the ALB listener is healthy
+
+**Logs:**
+```bash
+# View API Gateway logs
+aws logs tail /aws/apigateway/inbox-zero-app-production-webhook-api --follow
+```
+
 ## Additional Resources
 
 - [AWS Copilot Documentation](https://aws.github.io/copilot-cli/docs/)
 - [Copilot Manifest Reference](https://aws.github.io/copilot-cli/docs/manifest/overview/)
 - [Self-Hosting Guide](./self-hosting.md) - For local Docker setup
+- [Google Pub/Sub Push Authentication](https://cloud.google.com/pubsub/docs/authenticate-push-subscriptions)
 
