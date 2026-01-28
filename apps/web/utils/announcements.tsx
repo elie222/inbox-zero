@@ -1,7 +1,12 @@
 import type { ReactNode } from "react";
 
+export interface AnnouncementDetail {
+  title: string;
+  description: string;
+  icon: string;
+}
+
 export interface Announcement {
-  id: string;
   title: string;
   description: string;
   image: ReactNode;
@@ -9,21 +14,32 @@ export interface Announcement {
   learnMoreLink?: string;
   publishedAt: string;
   enabled?: boolean;
+  details?: AnnouncementDetail[];
 }
 
 export const ANNOUNCEMENTS: Announcement[] = [
   // Example announcement:
-  // {
-  //   id: "follow-up-tracking-2025-01",
-  //   title: "Follow-up Reminders",
-  //   description:
-  //     "Track replies and get reminded about unanswered emails. Never let an important email slip through the cracks.",
-  //   image: <FollowUpAnimation />,
-  //   link: "/automation?tab=settings",
-  //   learnMoreLink: "/#",
-  //   publishedAt: "2026-01-15T00:00:00Z",
-  //   enabled: true,
-  // },
+  {
+    title: "Follow-up Reminders",
+    description:
+      "Track replies and get reminded about unanswered emails. Never let an important email slip through the cracks.",
+    image: <div>[image]</div>,
+    link: "/automation?tab=settings",
+    learnMoreLink: "/#",
+    publishedAt: "2026-01-15T00:00:00Z",
+    details: [
+      {
+        title: "Automatic follow-up labels",
+        description: "Labels threads after 3 days with no response.",
+        icon: "Tag",
+      },
+      {
+        title: "Auto-generated drafts",
+        description: "Creates a draft to nudge unresponsive contacts.",
+        icon: "FileEdit",
+      },
+    ],
+  },
 ];
 
 export function getActiveAnnouncements(): Announcement[] {
