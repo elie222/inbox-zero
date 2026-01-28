@@ -18,11 +18,15 @@ async function getData({ emailAccountId }: { emailAccountId: string }) {
     select: {
       meetingBriefingsEnabled: true,
       meetingBriefingsMinutesBefore: true,
+      meetingBriefsSendEmail: true,
+      meetingBriefsSendSlack: true,
     },
   });
 
   return {
     enabled: emailAccount?.meetingBriefingsEnabled ?? false,
     minutesBefore: emailAccount?.meetingBriefingsMinutesBefore,
+    sendEmail: emailAccount?.meetingBriefsSendEmail ?? true,
+    sendSlack: emailAccount?.meetingBriefsSendSlack ?? false,
   };
 }
