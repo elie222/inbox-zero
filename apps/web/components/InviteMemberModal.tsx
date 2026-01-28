@@ -81,20 +81,20 @@ export function InviteMemberModal({
         </DialogHeader>
 
         {organizationId ? (
-          <InviteToExistingOrg
+          <InviteForm
             organizationId={organizationId}
             onClose={onClose}
             onSuccess={onSuccess}
           />
         ) : (
-          <CreateOrgAndInvite onClose={onClose} onSuccess={onSuccess} />
+          <CreateOrgAndInviteForm onClose={onClose} onSuccess={onSuccess} />
         )}
       </DialogContent>
     </Dialog>
   );
 }
 
-function InviteToExistingOrg({
+function InviteForm({
   organizationId,
   onClose,
   onSuccess,
@@ -190,7 +190,7 @@ function InviteToExistingOrg({
   );
 }
 
-function CreateOrgAndInvite({
+function CreateOrgAndInviteForm({
   onClose,
   onSuccess,
 }: {
