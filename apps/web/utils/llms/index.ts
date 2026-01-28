@@ -35,7 +35,11 @@ import {
 } from "@/utils/error";
 import { getModel, type ModelType } from "@/utils/llms/model";
 import { createScopedLogger } from "@/utils/logger";
-import { withNetworkRetry, withLLMRetry } from "./retry";
+import {
+  withNetworkRetry,
+  withLLMRetry,
+  isTransientNetworkError,
+} from "./retry";
 
 const logger = createScopedLogger("llms");
 
@@ -230,6 +234,28 @@ export function createGenerateObject({
   };
 }
 
+const STREAM_MAX_RETRIES = 2;
+
+function isJsonParseError(error: unknown): boolean {
+  if (error instanceof SyntaxError) return true;
+  const message = error instanceof Error ? error.message : String(error);
+  return (
+    message.includes("JSON") ||
+    message.includes("parse") ||
+    message.includes("Unexpected token") ||
+    message.includes("Unexpected end")
+  );
+}
+
+function isToolCallError(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error);
+  return (
+    message.includes("tool") ||
+    message.includes("schema") ||
+    message.includes("validation")
+  );
+}
+
 export async function chatCompletionStream({
   userAi,
   modelType,
@@ -256,55 +282,99 @@ export async function chatCompletionStream({
     modelType,
   );
 
-  const result = streamText({
-    model,
-    messages,
-    tools,
-    stopWhen: maxSteps ? stepCountIs(maxSteps) : undefined,
-    providerOptions,
-    ...commonOptions,
-    experimental_transform: smoothStream({ chunking: "word" }),
-    onStepFinish,
-    onFinish: async (result) => {
-      const usagePromise = saveAiUsage({
-        email: userEmail,
-        provider,
-        model: modelName,
-        usage: result.usage,
-        label,
+  let lastError: unknown;
+
+  for (let attempt = 0; attempt <= STREAM_MAX_RETRIES; attempt++) {
+    try {
+      const result = streamText({
+        model,
+        messages,
+        tools,
+        stopWhen: maxSteps ? stepCountIs(maxSteps) : undefined,
+        providerOptions,
+        ...commonOptions,
+        experimental_transform: smoothStream({ chunking: "word" }),
+        onStepFinish,
+        onFinish: async (finishResult) => {
+          const usagePromise = saveAiUsage({
+            email: userEmail,
+            provider,
+            model: modelName,
+            usage: finishResult.usage,
+            label,
+          });
+
+          const finishPromise = onFinish?.(finishResult);
+
+          try {
+            await Promise.all([usagePromise, finishPromise]);
+          } catch (error) {
+            logger.error("Error in onFinish callback", {
+              label,
+              userEmail,
+              error,
+            });
+            logger.trace("Result", { result: finishResult });
+            captureException(error, {
+              userEmail,
+              extra: { label },
+            });
+          }
+        },
+        onError: (error) => {
+          logger.error("Error in chat completion stream", {
+            label,
+            userEmail,
+            error,
+          });
+          captureException(error, {
+            userEmail,
+            extra: { label },
+          });
+        },
       });
 
-      const finishPromise = onFinish?.(result);
+      // streamText doesn't throw synchronously, so we return immediately.
+      // Errors during streaming will be handled by onError callback.
+      // Retry logic here catches errors during stream setup (network issues, auth failures, etc.)
+      return result;
+    } catch (error) {
+      lastError = error;
+      const isRetryable =
+        isTransientNetworkError(error) ||
+        NoObjectGeneratedError.isInstance(error) ||
+        TypeValidationError.isInstance(error) ||
+        isJsonParseError(error) ||
+        isToolCallError(error);
 
-      try {
-        await Promise.all([usagePromise, finishPromise]);
-      } catch (error) {
-        logger.error("Error in onFinish callback", {
+      if (isRetryable && attempt < STREAM_MAX_RETRIES) {
+        const errorType = isTransientNetworkError(error)
+          ? "network"
+          : isJsonParseError(error)
+            ? "json-parse"
+            : isToolCallError(error)
+              ? "tool-call"
+              : "validation";
+
+        logger.warn("Stream creation failed, retrying", {
           label,
           userEmail,
+          attempt,
+          maxRetries: STREAM_MAX_RETRIES,
+          errorType,
           error,
         });
-        logger.trace("Result", { result });
-        captureException(error, {
-          userEmail,
-          extra: { label },
-        });
+        // Exponential backoff: 1s, 2s
+        const delayMs = 1000 * 2 ** attempt;
+        await new Promise((resolve) => setTimeout(resolve, delayMs));
+        continue;
       }
-    },
-    onError: (error) => {
-      logger.error("Error in chat completion stream", {
-        label,
-        userEmail,
-        error,
-      });
-      captureException(error, {
-        userEmail,
-        extra: { label },
-      });
-    },
-  });
 
-  return result;
+      throw error;
+    }
+  }
+
+  throw lastError;
 }
 
 async function handleError(
