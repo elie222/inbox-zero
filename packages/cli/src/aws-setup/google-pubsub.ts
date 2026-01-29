@@ -62,7 +62,7 @@ export function setupGooglePubSub(params: {
   );
 
   // Grant Gmail service account publish permissions
-  spawnSync(
+  const iamResult = spawnSync(
     "gcloud",
     [
       "pubsub",
@@ -76,6 +76,14 @@ export function setupGooglePubSub(params: {
     ],
     { stdio: "pipe" },
   );
+  if (iamResult.status !== 0) {
+    return {
+      success: false,
+      error:
+        iamResult.stderr?.toString() ||
+        "Failed to grant Gmail Pub/Sub publish permissions",
+    };
+  }
 
   // Create push subscription with OIDC authentication
   const subResult = spawnSync(

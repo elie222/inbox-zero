@@ -32,12 +32,15 @@ export function ensureDatabaseUrlParameters(
   const endpointParsed = parseJson<{
     Address?: string;
     Port?: number;
-  }>(endpointResult.stdout, "Failed to parse database endpoint");
+  } | null>(endpointResult.stdout, "Failed to parse database endpoint");
   if (!endpointParsed.success) {
     return { success: false, error: endpointParsed.error };
   }
 
   const endpoint = endpointParsed.value;
+  if (!endpoint) {
+    return { success: false, error: "Database endpoint not available" };
+  }
   if (!endpoint.Address || !endpoint.Port) {
     return { success: false, error: "Database endpoint not available" };
   }
