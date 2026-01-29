@@ -20,7 +20,7 @@ export function MeetingBriefsIllustration() {
     const advanceStage = () => {
       timeout = setTimeout(() => {
         currentStage++;
-        if (currentStage > timings.length) {
+        if (currentStage >= timings.length) {
           currentStage = 0;
           setStage(0);
         } else {
