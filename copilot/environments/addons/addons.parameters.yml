@@ -10,6 +10,9 @@ Parameters:
   # VPC ID from the Copilot environment
   VPCID: !Ref VPC
 
+  # VPC CIDR block from the Copilot environment
+  VPCCIDR: !GetAtt VPC.CidrBlock
+
   # Private subnet IDs for VPC Link
   # These subnets are where API Gateway creates ENIs to reach the internal ALB
   PrivateSubnets: !Join [',', [!Ref PrivateSubnet1, !Ref PrivateSubnet2]]

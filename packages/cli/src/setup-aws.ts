@@ -816,7 +816,7 @@ export async function runAwsSetup(options: AwsSetupOptions) {
 
       // Re-init environment
       spinner.start("Re-initializing environment...");
-      initCopilotEnv(envName, profile, env);
+      initCopilotEnv(envName, profile, env, vpcImport);
       spinner.stop("Environment re-initialized");
 
       spinner.start(
@@ -1004,6 +1004,7 @@ export async function runAwsSetup(options: AwsSetupOptions) {
       googleConfig.projectId,
       webhookUrl,
       domain || "inbox-zero",
+      envName,
     );
 
     if (!pubsubResult.success) {
@@ -1414,7 +1415,6 @@ function updateServiceManifestSecrets(config: {
     "CRON_SECRET",
     "GOOGLE_PUBSUB_VERIFICATION_TOKEN",
     "GOOGLE_PUBSUB_TOPIC_NAME",
-    "BEDROCK_REGION",
     "DATABASE_URL",
     "DIRECT_URL",
   ];
@@ -1433,6 +1433,8 @@ function updateServiceManifestSecrets(config: {
   content = removeSecrets(content, [
     "UPSTASH_REDIS_URL",
     "UPSTASH_REDIS_TOKEN",
+    ...(config.enableRedis ? [] : ["REDIS_URL"]),
+    ...(config.llmEnvVar === "BEDROCK_REGION" ? [] : ["BEDROCK_REGION"]),
   ]);
 
   // Add LLM provider secret if not already present
@@ -1975,6 +1977,7 @@ function setupGooglePubSub(
   projectId: string,
   webhookUrl: string,
   topicName: string,
+  envName: string,
 ): { success: boolean; error?: string } {
   const fullTopicName = `projects/${projectId}/topics/${topicName}`;
   const subscriptionName = `${topicName}-subscription`;
@@ -2042,7 +2045,7 @@ function setupGooglePubSub(
       "ssm",
       "put-parameter",
       "--name",
-      `/copilot/${APP_NAME}/production/secrets/GOOGLE_PUBSUB_TOPIC_NAME`,
+      `/copilot/${APP_NAME}/${envName}/secrets/GOOGLE_PUBSUB_TOPIC_NAME`,
       "--value",
       fullTopicName,
       "--type",
@@ -2067,10 +2070,10 @@ function setupGooglePubSub(
       "--resource-type",
       "Parameter",
       "--resource-id",
-      `/copilot/${APP_NAME}/production/secrets/GOOGLE_PUBSUB_TOPIC_NAME`,
+      `/copilot/${APP_NAME}/${envName}/secrets/GOOGLE_PUBSUB_TOPIC_NAME`,
       "--tags",
       `Key=copilot-application,Value=${APP_NAME}`,
-      "Key=copilot-environment,Value=production",
+      `Key=copilot-environment,Value=${envName}`,
     ],
     { stdio: "pipe" },
   );
