@@ -127,13 +127,18 @@ export const inviteMemberAction = actionClientUser
         select: { name: true },
       });
 
-      await sendOrganizationInvitation({
-        email,
-        organizationName: org?.name || "Your organization",
-        inviterName:
-          inviterMember.emailAccount.name || inviterMember.emailAccount.email,
-        invitationId: invitation.id,
-      });
+      try {
+        await sendOrganizationInvitation({
+          email,
+          organizationName: org?.name || "Your organization",
+          inviterName:
+            inviterMember.emailAccount.name || inviterMember.emailAccount.email,
+          invitationId: invitation.id,
+        });
+      } catch {
+        await prisma.invitation.delete({ where: { id: invitation.id } });
+        throw new SafeError("Failed to send invitation email");
+      }
     },
   );
 
@@ -544,6 +549,7 @@ export const createOrganizationAndInviteAction = actionClient
           });
           results.push({ email, success: true });
         } catch {
+          await prisma.invitation.delete({ where: { id: invitation.id } });
           results.push({
             email,
             success: false,
