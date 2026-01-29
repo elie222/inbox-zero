@@ -13,11 +13,7 @@ export default async function MembersPage({
   return (
     <PageWrapper>
       <OrganizationTabs organizationId={organizationId} />
-
-      <div className="mt-6">
-        <OrgAnalyticsConsentBanner />
-      </div>
-
+      <OrgAnalyticsConsentBanner />
       <div className="mt-6">
         <Members organizationId={organizationId} />
       </div>
