@@ -22,36 +22,37 @@ async function getData({ emailAccountId }: { emailAccountId: string }) {
     select: { email: true, name: true },
   });
 
-  const hasPendingInvitation = emailAccount
-    ? await prisma.invitation.findFirst({
-        where: {
-          email: { equals: emailAccount.email, mode: "insensitive" },
-          status: "pending",
-          expiresAt: { gt: new Date() },
-        },
-        select: { id: true },
-      })
-    : null;
-
-  const membership = await prisma.member.findFirst({
-    where: { emailAccountId },
-    select: {
-      role: true,
-      organizationId: true,
-      allowOrgAdminAnalytics: true,
-      organization: {
-        select: {
-          name: true,
-          _count: {
-            select: {
-              members: true,
-              invitations: true,
+  const [hasPendingInvitation, membership] = await Promise.all([
+    emailAccount
+      ? prisma.invitation.findFirst({
+          where: {
+            email: { equals: emailAccount.email, mode: "insensitive" },
+            status: "pending",
+            expiresAt: { gt: new Date() },
+          },
+          select: { id: true },
+        })
+      : null,
+    prisma.member.findFirst({
+      where: { emailAccountId },
+      select: {
+        role: true,
+        organizationId: true,
+        allowOrgAdminAnalytics: true,
+        organization: {
+          select: {
+            name: true,
+            _count: {
+              select: {
+                members: true,
+                invitations: true,
+              },
             },
           },
         },
       },
-    },
-  });
+    }),
+  ]);
 
   if (!membership) {
     return {
