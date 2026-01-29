@@ -33,15 +33,8 @@ export function getActiveAnnouncements(): Announcement[] {
   );
 }
 
-export function hasNewAnnouncements(
-  dismissedAt: Date | null | undefined,
-  createdAt: Date | null | undefined,
-): boolean {
+export function hasNewAnnouncements(cutOffDate: Date): boolean {
   const announcements = getActiveAnnouncements();
   if (announcements.length === 0) return false;
-  return announcements.some(
-    (a) =>
-      new Date(a.publishedAt) >
-      new Date(dismissedAt ?? createdAt ?? new Date()),
-  );
+  return announcements.some((a) => new Date(a.publishedAt) > cutOffDate);
 }
