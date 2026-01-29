@@ -126,7 +126,7 @@ Resources:
 
       # Database configuration
       DBName: inboxzero
-      MasterUsername: !Sub '{{resolve:secretsmanager:${DBSecret}:SecretString:username}}'
+      MasterUsername: inboxzero
       MasterUserPassword: !Sub '{{resolve:secretsmanager:${DBSecret}:SecretString:password}}'
 
       # Network configuration
@@ -161,45 +161,7 @@ Resources:
         - Key: copilot-environment
           Value: !Ref Env
 
-  # =============================================================================
-  # SSM Parameters for Service to Consume
-  # =============================================================================
-
-  # Store the full DATABASE_URL in SSM for the service to use
-  DatabaseUrlParameter:
-    Type: AWS::SSM::Parameter
-    Properties:
-      Name: !Sub '/copilot/${App}/${Env}/secrets/DATABASE_URL'
-      Type: SecureString
-      Value: !Sub 
-        - 'postgresql://${Username}:${Password}@${Endpoint}:${Port}/${DBName}'
-        - Username: !Sub '{{resolve:secretsmanager:${DBSecret}:SecretString:username}}'
-          Password: !Sub '{{resolve:secretsmanager:${DBSecret}:SecretString:password}}'
-          Endpoint: !GetAtt DBInstance.Endpoint.Address
-          Port: !GetAtt DBInstance.Endpoint.Port
-          DBName: inboxzero
-      Description: !Sub 'Database URL for ${App}-${Env}'
-      Tags:
-        copilot-application: !Ref App
-        copilot-environment: !Ref Env
-
-  # Also create DIRECT_URL (same as DATABASE_URL for RDS)
-  DirectUrlParameter:
-    Type: AWS::SSM::Parameter
-    Properties:
-      Name: !Sub '/copilot/${App}/${Env}/secrets/DIRECT_URL'
-      Type: SecureString
-      Value: !Sub 
-        - 'postgresql://${Username}:${Password}@${Endpoint}:${Port}/${DBName}'
-        - Username: !Sub '{{resolve:secretsmanager:${DBSecret}:SecretString:username}}'
-          Password: !Sub '{{resolve:secretsmanager:${DBSecret}:SecretString:password}}'
-          Endpoint: !GetAtt DBInstance.Endpoint.Address
-          Port: !GetAtt DBInstance.Endpoint.Port
-          DBName: inboxzero
-      Description: !Sub 'Direct database URL for ${App}-${Env}'
-      Tags:
-        copilot-application: !Ref App
-        copilot-environment: !Ref Env
+  # DATABASE_URL and DIRECT_URL are created by the CLI after deployment.
 
 Outputs:
   # =============================================================================

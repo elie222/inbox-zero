@@ -131,6 +131,7 @@ Resources:
     Condition: ShouldCreateRedis
     Properties:
       ReplicationGroupDescription: !Sub '${App}-${Env} Redis cluster'
+      ReplicationGroupId: !Sub '${App}-${Env}-redis'
       AutomaticFailoverEnabled: false
       NumNodeGroups: 1
       ReplicasPerNodeGroup: 0
@@ -155,25 +156,7 @@ Resources:
         - Key: copilot-environment
           Value: !Ref Env
 
-  # =============================================================================
-  # SSM Parameters for Application
-  # =============================================================================
-
-  # REDIS_URL for ioredis (subscriptions)
-  RedisUrlParameter:
-    Type: AWS::SSM::Parameter
-    Condition: ShouldCreateRedis
-    Properties:
-      Name: !Sub '/copilot/${App}/${Env}/secrets/REDIS_URL'
-      Type: SecureString
-      Value: !Sub 
-        - 'rediss://:${Password}@${Endpoint}:6379'
-        - Password: !Sub '{{resolve:secretsmanager:${RedisAuthToken}:SecretString:password}}'
-          Endpoint: !GetAtt RedisReplicationGroup.PrimaryEndPoint.Address
-      Description: !Sub 'Redis URL for ${App}-${Env} (ioredis subscriptions)'
-      Tags:
-        copilot-application: !Ref App
-        copilot-environment: !Ref Env
+  # REDIS_URL is created by the CLI after deployment.
 
 Outputs:
   # =============================================================================

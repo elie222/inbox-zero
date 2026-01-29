@@ -841,14 +841,26 @@ export async function runAwsSetup(options: AwsSetupOptions) {
 
   spinner.stop(`${envName} environment deployed`);
 
-  // Step 18.25: Validate database URL parameters
-  spinner.start("Validating database URL parameters...");
-  const dbUrlResult = normalizeDatabaseUrlParameters(envName, env);
+  // Step 18.25: Ensure database URL parameters
+  spinner.start("Ensuring database URL parameters...");
+  const dbUrlResult = ensureDatabaseUrlParameters(envName, env);
   if (!dbUrlResult.success) {
-    spinner.stop("Database URL validation failed");
-    p.log.warn(dbUrlResult.error || "Unable to validate database URL");
+    spinner.stop("Database URL setup failed");
+    p.log.warn(dbUrlResult.error || "Unable to set database URL parameters");
   } else {
-    spinner.stop("Database URL parameters validated");
+    spinner.stop("Database URL parameters ensured");
+  }
+
+  // Step 18.3: Ensure Redis URL parameter (if Redis enabled)
+  if (enableRedis) {
+    spinner.start("Ensuring Redis URL parameter...");
+    const redisUrlResult = ensureRedisUrlParameter(envName, env);
+    if (!redisUrlResult.success) {
+      spinner.stop("Redis URL setup failed");
+      p.log.warn(redisUrlResult.error || "Unable to set Redis URL parameter");
+    } else {
+      spinner.stop("Redis URL parameter ensured");
+    }
   }
 
   // Step 18.5: Update service manifest with dynamic secrets
@@ -2091,6 +2103,247 @@ function getSecretReference(secretName: string): string {
   return `/copilot/\${COPILOT_APPLICATION_NAME}/\${COPILOT_ENVIRONMENT_NAME}/secrets/${secretName}`;
 }
 
+function ensureDatabaseUrlParameters(
+  envName: string,
+  env: NodeJS.ProcessEnv,
+): { success: boolean; error?: string } {
+  const dbInstanceId = `${APP_NAME}-${envName}-db`;
+  const secretId = `${APP_NAME}-${envName}-db-credentials`;
+  const endpointResult = spawnSync(
+    "aws",
+    [
+      "rds",
+      "describe-db-instances",
+      "--db-instance-identifier",
+      dbInstanceId,
+      "--query",
+      "DBInstances[0].Endpoint",
+      "--output",
+      "json",
+    ],
+    { stdio: "pipe", env },
+  );
+  if (endpointResult.status !== 0) {
+    return {
+      success: false,
+      error:
+        endpointResult.stderr?.toString() || "Failed to read database endpoint",
+    };
+  }
+
+  const endpoint = JSON.parse(endpointResult.stdout?.toString() || "{}") as {
+    Address?: string;
+    Port?: number;
+  };
+  if (!endpoint.Address || !endpoint.Port) {
+    return { success: false, error: "Database endpoint not available" };
+  }
+
+  const secretResult = spawnSync(
+    "aws",
+    [
+      "secretsmanager",
+      "get-secret-value",
+      "--secret-id",
+      secretId,
+      "--query",
+      "SecretString",
+      "--output",
+      "text",
+    ],
+    { stdio: "pipe", env },
+  );
+  if (secretResult.status !== 0) {
+    return {
+      success: false,
+      error:
+        secretResult.stderr?.toString() ||
+        "Failed to read database credentials",
+    };
+  }
+
+  const secretString = secretResult.stdout?.toString().trim();
+  const secret = secretString
+    ? (JSON.parse(secretString) as {
+        username?: string;
+        password?: string;
+      })
+    : {};
+  if (!secret.password) {
+    return { success: false, error: "Database password missing in secret" };
+  }
+
+  const dbUrl = buildDatabaseUrl({
+    username: secret.username || "inboxzero",
+    password: secret.password,
+    endpoint: endpoint.Address,
+    port: endpoint.Port,
+    database: "inboxzero",
+  });
+
+  const paramNames = [
+    `/copilot/${APP_NAME}/${envName}/secrets/DATABASE_URL`,
+    `/copilot/${APP_NAME}/${envName}/secrets/DIRECT_URL`,
+  ];
+
+  for (const paramName of paramNames) {
+    const putResult = spawnSync(
+      "aws",
+      [
+        "ssm",
+        "put-parameter",
+        "--name",
+        paramName,
+        "--type",
+        "SecureString",
+        "--value",
+        dbUrl,
+        "--overwrite",
+      ],
+      { stdio: "pipe", env },
+    );
+    if (putResult.status !== 0) {
+      return {
+        success: false,
+        error:
+          putResult.stderr?.toString() || "Failed to write DB URL parameter",
+      };
+    }
+
+    spawnSync(
+      "aws",
+      [
+        "ssm",
+        "add-tags-to-resource",
+        "--resource-type",
+        "Parameter",
+        "--resource-id",
+        paramName,
+        "--tags",
+        `Key=copilot-application,Value=${APP_NAME}`,
+        `Key=copilot-environment,Value=${envName}`,
+      ],
+      { stdio: "pipe", env },
+    );
+  }
+
+  return { success: true };
+}
+
+function ensureRedisUrlParameter(
+  envName: string,
+  env: NodeJS.ProcessEnv,
+): { success: boolean; error?: string } {
+  const replicationGroupId = `${APP_NAME}-${envName}-redis`;
+  const endpointResult = spawnSync(
+    "aws",
+    [
+      "elasticache",
+      "describe-replication-groups",
+      "--replication-group-id",
+      replicationGroupId,
+      "--query",
+      "ReplicationGroups[0].NodeGroups[0].PrimaryEndpoint.Address",
+      "--output",
+      "text",
+    ],
+    { stdio: "pipe", env },
+  );
+  if (endpointResult.status !== 0) {
+    return {
+      success: false,
+      error:
+        endpointResult.stderr?.toString() || "Failed to read Redis endpoint",
+    };
+  }
+
+  const endpoint = endpointResult.stdout?.toString().trim();
+  if (!endpoint) {
+    return { success: false, error: "Redis endpoint not available" };
+  }
+
+  const secretId = `${APP_NAME}-${envName}-redis-auth-token`;
+  const secretResult = spawnSync(
+    "aws",
+    [
+      "secretsmanager",
+      "get-secret-value",
+      "--secret-id",
+      secretId,
+      "--query",
+      "SecretString",
+      "--output",
+      "text",
+    ],
+    { stdio: "pipe", env },
+  );
+  if (secretResult.status !== 0) {
+    return {
+      success: false,
+      error:
+        secretResult.stderr?.toString() || "Failed to read Redis auth token",
+    };
+  }
+
+  const secretString = secretResult.stdout?.toString().trim();
+  const secret = secretString
+    ? (JSON.parse(secretString) as {
+        password?: string;
+      })
+    : {};
+  if (!secret.password) {
+    return { success: false, error: "Redis auth token missing in secret" };
+  }
+
+  const redisUrl = buildRedisUrl({
+    password: secret.password,
+    endpoint,
+    port: 6379,
+  });
+
+  const paramName = `/copilot/${APP_NAME}/${envName}/secrets/REDIS_URL`;
+  const putResult = spawnSync(
+    "aws",
+    [
+      "ssm",
+      "put-parameter",
+      "--name",
+      paramName,
+      "--type",
+      "SecureString",
+      "--value",
+      redisUrl,
+      "--overwrite",
+    ],
+    { stdio: "pipe", env },
+  );
+  if (putResult.status !== 0) {
+    return {
+      success: false,
+      error:
+        putResult.stderr?.toString() || "Failed to write Redis URL parameter",
+    };
+  }
+
+  spawnSync(
+    "aws",
+    [
+      "ssm",
+      "add-tags-to-resource",
+      "--resource-type",
+      "Parameter",
+      "--resource-id",
+      paramName,
+      "--tags",
+      `Key=copilot-application,Value=${APP_NAME}`,
+      `Key=copilot-environment,Value=${envName}`,
+    ],
+    { stdio: "pipe", env },
+  );
+
+  return { success: true };
+}
+
 function normalizeDatabaseUrlParameters(
   envName: string,
   env: NodeJS.ProcessEnv,
@@ -2210,6 +2463,27 @@ function normalizeDatabaseUrl(
     user,
   )}:${encodeURIComponent(password)}@${host}:${port}/${dbName}`;
   return { success: true, url: encoded, changed: true };
+}
+
+function buildDatabaseUrl(params: {
+  username: string;
+  password: string;
+  endpoint: string;
+  port: number;
+  database: string;
+}): string {
+  const username = encodeURIComponent(params.username);
+  const password = encodeURIComponent(params.password);
+  return `postgresql://${username}:${password}@${params.endpoint}:${params.port}/${params.database}`;
+}
+
+function buildRedisUrl(params: {
+  password: string;
+  endpoint: string;
+  port: number;
+}): string {
+  const password = encodeURIComponent(params.password);
+  return `rediss://:${password}@${params.endpoint}:${params.port}`;
 }
 
 function parseCsvList(value?: string): string[] {
