@@ -78,8 +78,8 @@ export function InviteMemberModal({
           </DialogTitle>
           <DialogDescription>
             {organizationId
-              ? "Send an invitation to join your organization. The recipient will receive an email with instructions."
-              : "Enter email addresses to invite team members. This will create a new organization for your team."}
+              ? "Send an invitation to join your organization."
+              : "Enter email addresses to invite team members."}
           </DialogDescription>
         </DialogHeader>
 
