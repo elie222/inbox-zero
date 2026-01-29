@@ -2,6 +2,12 @@ import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import * as p from "@clack/prompts";
+import { putSsmParameterWithTags } from "./aws-setup/aws-cli";
+import { getWebhookUrl, setupGooglePubSub } from "./aws-setup/google-pubsub";
+import {
+  ensureDatabaseUrlParameters,
+  ensureRedisUrlParameter,
+} from "./aws-setup/ssm-urls";
 import { generateSecret } from "./utils";
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -843,7 +849,7 @@ export async function runAwsSetup(options: AwsSetupOptions) {
 
   // Step 18.25: Ensure database URL parameters
   spinner.start("Ensuring database URL parameters...");
-  const dbUrlResult = ensureDatabaseUrlParameters(envName, env);
+  const dbUrlResult = ensureDatabaseUrlParameters(APP_NAME, envName, env);
   if (!dbUrlResult.success) {
     spinner.stop("Database URL setup failed");
     p.log.warn(dbUrlResult.error || "Unable to set database URL parameters");
@@ -854,7 +860,7 @@ export async function runAwsSetup(options: AwsSetupOptions) {
   // Step 18.3: Ensure Redis URL parameter (if Redis enabled)
   if (enableRedis) {
     spinner.start("Ensuring Redis URL parameter...");
-    const redisUrlResult = ensureRedisUrlParameter(envName, env);
+    const redisUrlResult = ensureRedisUrlParameter(APP_NAME, envName, env);
     if (!redisUrlResult.success) {
       spinner.stop("Redis URL setup failed");
       p.log.warn(redisUrlResult.error || "Unable to set Redis URL parameter");
@@ -996,7 +1002,7 @@ export async function runAwsSetup(options: AwsSetupOptions) {
         } else {
           spinner.stop("Webhook gateway deployed");
           // Get the webhook URL from CloudFormation outputs
-          webhookUrl = getWebhookUrl(envName, env);
+          webhookUrl = getWebhookUrl(APP_NAME, envName, env);
         }
       } else {
         spinner.stop("Webhook gateway template not found");
@@ -1012,12 +1018,14 @@ export async function runAwsSetup(options: AwsSetupOptions) {
   if (configureGoogle && googleConfig && webhookUrl) {
     spinner.start("Configuring Google Cloud Pub/Sub...");
 
-    const pubsubResult = setupGooglePubSub(
-      googleConfig.projectId,
+    const pubsubResult = setupGooglePubSub({
+      appName: APP_NAME,
+      projectId: googleConfig.projectId,
       webhookUrl,
-      domain || "inbox-zero",
+      topicName: domain || "inbox-zero",
       envName,
-    );
+      env,
+    });
 
     if (!pubsubResult.success) {
       spinner.stop("Failed to configure Pub/Sub");
@@ -1886,209 +1894,19 @@ function storeSecretInSsm(
 ): { success: boolean; error?: string } {
   const paramName = `/copilot/${APP_NAME}/${envName}/secrets/${name}`;
 
-  const result = spawnSync(
-    "aws",
-    [
-      "ssm",
-      "put-parameter",
-      "--name",
-      paramName,
-      "--value",
-      value,
-      "--type",
-      "SecureString",
-      "--overwrite",
-    ],
-    { stdio: "pipe", env },
-  );
+  const result = putSsmParameterWithTags({
+    env,
+    appName: APP_NAME,
+    envName,
+    name: paramName,
+    value,
+    type: "SecureString",
+    errorMessage: `Failed to store ${name}`,
+  });
 
-  if (result.status !== 0) {
-    return {
-      success: false,
-      error: result.stderr?.toString() || `Failed to store ${name}`,
-    };
+  if (!result.success) {
+    return { success: false, error: result.error };
   }
-
-  const tagResult = spawnSync(
-    "aws",
-    [
-      "ssm",
-      "add-tags-to-resource",
-      "--resource-type",
-      "Parameter",
-      "--resource-id",
-      paramName,
-      "--tags",
-      `Key=copilot-application,Value=${APP_NAME}`,
-      `Key=copilot-environment,Value=${envName}`,
-    ],
-    { stdio: "pipe", env },
-  );
-
-  if (tagResult.status !== 0) {
-    return {
-      success: false,
-      error:
-        tagResult.stderr?.toString() || `Failed to tag SSM parameter ${name}`,
-    };
-  }
-
-  return { success: true };
-}
-
-function getWebhookUrl(envName: string, env: NodeJS.ProcessEnv): string {
-  // Get the addon stack name
-  const stackResult = spawnSync(
-    "aws",
-    [
-      "cloudformation",
-      "list-stack-resources",
-      "--stack-name",
-      `${APP_NAME}-${envName}`,
-      "--query",
-      "StackResourceSummaries[?contains(LogicalResourceId,'AddonsStack')].PhysicalResourceId",
-      "--output",
-      "text",
-    ],
-    { stdio: "pipe", env },
-  );
-
-  if (stackResult.status !== 0) {
-    return "";
-  }
-
-  const addonStackName = stackResult.stdout.toString().trim();
-  if (!addonStackName) {
-    return "";
-  }
-
-  // Get the webhook URL from the addon stack outputs
-  const urlResult = spawnSync(
-    "aws",
-    [
-      "cloudformation",
-      "describe-stacks",
-      "--stack-name",
-      addonStackName,
-      "--query",
-      "Stacks[0].Outputs[?OutputKey=='WebhookEndpointUrl'].OutputValue",
-      "--output",
-      "text",
-    ],
-    { stdio: "pipe", env },
-  );
-
-  if (urlResult.status !== 0) {
-    return "";
-  }
-
-  return urlResult.stdout.toString().trim();
-}
-
-function setupGooglePubSub(
-  projectId: string,
-  webhookUrl: string,
-  topicName: string,
-  envName: string,
-): { success: boolean; error?: string } {
-  const fullTopicName = `projects/${projectId}/topics/${topicName}`;
-  const subscriptionName = `${topicName}-subscription`;
-
-  // Create topic (ignore if exists)
-  spawnSync(
-    "gcloud",
-    ["pubsub", "topics", "create", topicName, "--project", projectId],
-    { stdio: "pipe" },
-  );
-
-  // Grant Gmail service account publish permissions
-  spawnSync(
-    "gcloud",
-    [
-      "pubsub",
-      "topics",
-      "add-iam-policy-binding",
-      topicName,
-      "--member=serviceAccount:gmail-api-push@system.gserviceaccount.com",
-      "--role=roles/pubsub.publisher",
-      "--project",
-      projectId,
-    ],
-    { stdio: "pipe" },
-  );
-
-  // Create push subscription with OIDC authentication
-  const subResult = spawnSync(
-    "gcloud",
-    [
-      "pubsub",
-      "subscriptions",
-      "create",
-      subscriptionName,
-      "--topic",
-      topicName,
-      "--push-endpoint",
-      webhookUrl,
-      "--push-auth-service-account",
-      `pubsub-invoker@${projectId}.iam.gserviceaccount.com`,
-      "--push-auth-token-audience",
-      webhookUrl,
-      "--project",
-      projectId,
-    ],
-    { stdio: "pipe" },
-  );
-
-  // Ignore "already exists" error
-  if (
-    subResult.status !== 0 &&
-    !subResult.stderr?.toString().includes("ALREADY_EXISTS")
-  ) {
-    return {
-      success: false,
-      error: subResult.stderr?.toString() || "Failed to create subscription",
-    };
-  }
-
-  // Store the topic name in SSM
-  const topicResult = spawnSync(
-    "aws",
-    [
-      "ssm",
-      "put-parameter",
-      "--name",
-      `/copilot/${APP_NAME}/${envName}/secrets/GOOGLE_PUBSUB_TOPIC_NAME`,
-      "--value",
-      fullTopicName,
-      "--type",
-      "SecureString",
-      "--overwrite",
-    ],
-    { stdio: "pipe" },
-  );
-
-  if (topicResult.status !== 0) {
-    return {
-      success: false,
-      error: "Failed to store Pub/Sub topic name in SSM",
-    };
-  }
-
-  spawnSync(
-    "aws",
-    [
-      "ssm",
-      "add-tags-to-resource",
-      "--resource-type",
-      "Parameter",
-      "--resource-id",
-      `/copilot/${APP_NAME}/${envName}/secrets/GOOGLE_PUBSUB_TOPIC_NAME`,
-      "--tags",
-      `Key=copilot-application,Value=${APP_NAME}`,
-      `Key=copilot-environment,Value=${envName}`,
-    ],
-    { stdio: "pipe" },
-  );
 
   return { success: true };
 }
@@ -2101,389 +1919,6 @@ function normalizeSecretReference(content: string, secretName: string): string {
 
 function getSecretReference(secretName: string): string {
   return `/copilot/\${COPILOT_APPLICATION_NAME}/\${COPILOT_ENVIRONMENT_NAME}/secrets/${secretName}`;
-}
-
-function ensureDatabaseUrlParameters(
-  envName: string,
-  env: NodeJS.ProcessEnv,
-): { success: boolean; error?: string } {
-  const dbInstanceId = `${APP_NAME}-${envName}-db`;
-  const secretId = `${APP_NAME}-${envName}-db-credentials`;
-  const endpointResult = spawnSync(
-    "aws",
-    [
-      "rds",
-      "describe-db-instances",
-      "--db-instance-identifier",
-      dbInstanceId,
-      "--query",
-      "DBInstances[0].Endpoint",
-      "--output",
-      "json",
-    ],
-    { stdio: "pipe", env },
-  );
-  if (endpointResult.status !== 0) {
-    return {
-      success: false,
-      error:
-        endpointResult.stderr?.toString() || "Failed to read database endpoint",
-    };
-  }
-
-  const endpoint = JSON.parse(endpointResult.stdout?.toString() || "{}") as {
-    Address?: string;
-    Port?: number;
-  };
-  if (!endpoint.Address || !endpoint.Port) {
-    return { success: false, error: "Database endpoint not available" };
-  }
-
-  const secretResult = spawnSync(
-    "aws",
-    [
-      "secretsmanager",
-      "get-secret-value",
-      "--secret-id",
-      secretId,
-      "--query",
-      "SecretString",
-      "--output",
-      "text",
-    ],
-    { stdio: "pipe", env },
-  );
-  if (secretResult.status !== 0) {
-    return {
-      success: false,
-      error:
-        secretResult.stderr?.toString() ||
-        "Failed to read database credentials",
-    };
-  }
-
-  const secretString = secretResult.stdout?.toString().trim();
-  const secret = secretString
-    ? (JSON.parse(secretString) as {
-        username?: string;
-        password?: string;
-      })
-    : {};
-  if (!secret.password) {
-    return { success: false, error: "Database password missing in secret" };
-  }
-
-  const dbUrl = buildDatabaseUrl({
-    username: secret.username || "inboxzero",
-    password: secret.password,
-    endpoint: endpoint.Address,
-    port: endpoint.Port,
-    database: "inboxzero",
-  });
-
-  const paramNames = [
-    `/copilot/${APP_NAME}/${envName}/secrets/DATABASE_URL`,
-    `/copilot/${APP_NAME}/${envName}/secrets/DIRECT_URL`,
-  ];
-
-  for (const paramName of paramNames) {
-    const putResult = spawnSync(
-      "aws",
-      [
-        "ssm",
-        "put-parameter",
-        "--name",
-        paramName,
-        "--type",
-        "SecureString",
-        "--value",
-        dbUrl,
-        "--overwrite",
-      ],
-      { stdio: "pipe", env },
-    );
-    if (putResult.status !== 0) {
-      return {
-        success: false,
-        error:
-          putResult.stderr?.toString() || "Failed to write DB URL parameter",
-      };
-    }
-
-    spawnSync(
-      "aws",
-      [
-        "ssm",
-        "add-tags-to-resource",
-        "--resource-type",
-        "Parameter",
-        "--resource-id",
-        paramName,
-        "--tags",
-        `Key=copilot-application,Value=${APP_NAME}`,
-        `Key=copilot-environment,Value=${envName}`,
-      ],
-      { stdio: "pipe", env },
-    );
-  }
-
-  return { success: true };
-}
-
-function ensureRedisUrlParameter(
-  envName: string,
-  env: NodeJS.ProcessEnv,
-): { success: boolean; error?: string } {
-  const replicationGroupId = `${APP_NAME}-${envName}-redis`;
-  const endpointResult = spawnSync(
-    "aws",
-    [
-      "elasticache",
-      "describe-replication-groups",
-      "--replication-group-id",
-      replicationGroupId,
-      "--query",
-      "ReplicationGroups[0].NodeGroups[0].PrimaryEndpoint.Address",
-      "--output",
-      "text",
-    ],
-    { stdio: "pipe", env },
-  );
-  if (endpointResult.status !== 0) {
-    return {
-      success: false,
-      error:
-        endpointResult.stderr?.toString() || "Failed to read Redis endpoint",
-    };
-  }
-
-  const endpoint = endpointResult.stdout?.toString().trim();
-  if (!endpoint) {
-    return { success: false, error: "Redis endpoint not available" };
-  }
-
-  const secretId = `${APP_NAME}-${envName}-redis-auth-token`;
-  const secretResult = spawnSync(
-    "aws",
-    [
-      "secretsmanager",
-      "get-secret-value",
-      "--secret-id",
-      secretId,
-      "--query",
-      "SecretString",
-      "--output",
-      "text",
-    ],
-    { stdio: "pipe", env },
-  );
-  if (secretResult.status !== 0) {
-    return {
-      success: false,
-      error:
-        secretResult.stderr?.toString() || "Failed to read Redis auth token",
-    };
-  }
-
-  const secretString = secretResult.stdout?.toString().trim();
-  const secret = secretString
-    ? (JSON.parse(secretString) as {
-        password?: string;
-      })
-    : {};
-  if (!secret.password) {
-    return { success: false, error: "Redis auth token missing in secret" };
-  }
-
-  const redisUrl = buildRedisUrl({
-    password: secret.password,
-    endpoint,
-    port: 6379,
-  });
-
-  const paramName = `/copilot/${APP_NAME}/${envName}/secrets/REDIS_URL`;
-  const putResult = spawnSync(
-    "aws",
-    [
-      "ssm",
-      "put-parameter",
-      "--name",
-      paramName,
-      "--type",
-      "SecureString",
-      "--value",
-      redisUrl,
-      "--overwrite",
-    ],
-    { stdio: "pipe", env },
-  );
-  if (putResult.status !== 0) {
-    return {
-      success: false,
-      error:
-        putResult.stderr?.toString() || "Failed to write Redis URL parameter",
-    };
-  }
-
-  spawnSync(
-    "aws",
-    [
-      "ssm",
-      "add-tags-to-resource",
-      "--resource-type",
-      "Parameter",
-      "--resource-id",
-      paramName,
-      "--tags",
-      `Key=copilot-application,Value=${APP_NAME}`,
-      `Key=copilot-environment,Value=${envName}`,
-    ],
-    { stdio: "pipe", env },
-  );
-
-  return { success: true };
-}
-
-function normalizeDatabaseUrlParameters(
-  envName: string,
-  env: NodeJS.ProcessEnv,
-): { success: boolean; error?: string } {
-  const paramNames = [
-    `/copilot/${APP_NAME}/${envName}/secrets/DATABASE_URL`,
-    `/copilot/${APP_NAME}/${envName}/secrets/DIRECT_URL`,
-  ];
-
-  for (const paramName of paramNames) {
-    const getResult = spawnSync(
-      "aws",
-      [
-        "ssm",
-        "get-parameter",
-        "--name",
-        paramName,
-        "--with-decryption",
-        "--query",
-        "Parameter.Value",
-        "--output",
-        "text",
-      ],
-      { stdio: "pipe", env },
-    );
-    if (getResult.status !== 0) {
-      return {
-        success: false,
-        error:
-          getResult.stderr?.toString() || "Failed to read DB URL parameter",
-      };
-    }
-
-    const currentUrl = getResult.stdout?.toString().trim();
-    if (!currentUrl) {
-      return {
-        success: false,
-        error: "DB URL parameter is empty",
-      };
-    }
-
-    const normalized = normalizeDatabaseUrl(currentUrl);
-    if (!normalized.success) {
-      return { success: false, error: normalized.error };
-    }
-
-    if (!normalized.changed) {
-      continue;
-    }
-
-    const putResult = spawnSync(
-      "aws",
-      [
-        "ssm",
-        "put-parameter",
-        "--name",
-        paramName,
-        "--type",
-        "String",
-        "--value",
-        normalized.url,
-        "--overwrite",
-      ],
-      { stdio: "pipe", env },
-    );
-    if (putResult.status !== 0) {
-      return {
-        success: false,
-        error:
-          putResult.stderr?.toString() || "Failed to update DB URL parameter",
-      };
-    }
-
-    spawnSync(
-      "aws",
-      [
-        "ssm",
-        "add-tags-to-resource",
-        "--resource-type",
-        "Parameter",
-        "--resource-id",
-        paramName,
-        "--tags",
-        `Key=copilot-application,Value=${APP_NAME}`,
-        `Key=copilot-environment,Value=${envName}`,
-      ],
-      { stdio: "pipe", env },
-    );
-  }
-
-  return { success: true };
-}
-
-function normalizeDatabaseUrl(
-  url: string,
-):
-  | { success: true; url: string; changed: boolean }
-  | { success: false; error: string } {
-  try {
-    // Will throw if invalid.
-    // eslint-disable-next-line no-new
-    new URL(url);
-    return { success: true, url, changed: false };
-  } catch {
-    // Normalize by URL-encoding credentials.
-  }
-
-  const match = url.match(
-    /^postgresql:\/\/([^:]+):([^@]+)@([^:/]+):(\d+)\/(.+)$/,
-  );
-  if (!match) {
-    return { success: false, error: "Unexpected DATABASE_URL format" };
-  }
-
-  const [, user, password, host, port, dbName] = match;
-  const encoded = `postgresql://${encodeURIComponent(
-    user,
-  )}:${encodeURIComponent(password)}@${host}:${port}/${dbName}`;
-  return { success: true, url: encoded, changed: true };
-}
-
-function buildDatabaseUrl(params: {
-  username: string;
-  password: string;
-  endpoint: string;
-  port: number;
-  database: string;
-}): string {
-  const username = encodeURIComponent(params.username);
-  const password = encodeURIComponent(params.password);
-  return `postgresql://${username}:${password}@${params.endpoint}:${params.port}/${params.database}`;
-}
-
-function buildRedisUrl(params: {
-  password: string;
-  endpoint: string;
-  port: number;
-}): string {
-  const password = encodeURIComponent(params.password);
-  return `rediss://:${password}@${params.endpoint}:${params.port}`;
 }
 
 function parseCsvList(value?: string): string[] {

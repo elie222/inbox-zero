@@ -33,6 +33,8 @@ pnpm setup-aws -- --yes
 
 > The CLI will update `copilot/environments/addons/addons.parameters.yml`, configure SSM secrets,
 > deploy the environment, and then deploy the service. It also handles the webhook gateway if enabled.
+> Note: The CLI now writes `DATABASE_URL`, `DIRECT_URL`, and `REDIS_URL` after the environment deploy,
+> because creating those SSM parameters inside addon templates can trigger EarlyValidation failures.
 
 ## Initial Setup
 
@@ -232,6 +234,12 @@ If migrations fail:
 2. Verify `DATABASE_URL` and `DIRECT_URL` are correct
 3. Check the container logs for specific error messages
 4. You may need to manually resolve failed migrations using `prisma migrate resolve`
+
+### Addons Change Set EarlyValidation
+
+If `copilot env deploy` fails with `AWS::EarlyValidation::PropertyValidation`, make sure addon
+templates do not create SSM parameters that include dynamic Secrets Manager references. The CLI
+setup flow creates `DATABASE_URL`, `DIRECT_URL`, and `REDIS_URL` after the environment deploy.
 
 ### Domain Not Working
 
