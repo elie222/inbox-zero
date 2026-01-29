@@ -25,6 +25,7 @@ import {
 import { TooltipExplanation } from "@/components/TooltipExplanation";
 import { toastSuccess, toastError } from "@/components/Toast";
 import { TagInput } from "@/components/TagInput";
+import { Label } from "@/components/ui/label";
 import {
   inviteMemberAction,
   createOrganizationAndInviteAction,
@@ -156,9 +157,7 @@ function InviteForm({
 
       <div className="space-y-2">
         <div className="flex items-center space-x-2">
-          <label htmlFor="role" className="text-sm font-medium">
-            Role
-          </label>
+          <Label htmlFor="role">Role</Label>
           <TooltipExplanation
             side="right"
             text="Members can view and collaborate.\nAdmins can manage the organization and invite others."
