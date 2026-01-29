@@ -7,6 +7,8 @@ import {
   removeMemberBody,
   cancelInvitationBody,
   handleInvitationBody,
+  updateAnalyticsConsentBody,
+  createOrganizationAndInviteBody,
 } from "@/utils/actions/organization.validation";
 import prisma from "@/utils/prisma";
 import { SafeError } from "@/utils/error";
@@ -18,6 +20,7 @@ import {
   removeUserFromPremium,
 } from "@/utils/premium/server";
 import { env } from "@/env";
+import { slugify } from "@/utils/string";
 
 export const createOrganizationAction = actionClient
   .metadata({ name: "createOrganization" })
@@ -124,13 +127,18 @@ export const inviteMemberAction = actionClientUser
         select: { name: true },
       });
 
-      await sendOrganizationInvitation({
-        email,
-        organizationName: org?.name || "Your organization",
-        inviterName:
-          inviterMember.emailAccount.name || inviterMember.emailAccount.email,
-        invitationId: invitation.id,
-      });
+      try {
+        await sendOrganizationInvitation({
+          email,
+          organizationName: org?.name || "Your organization",
+          inviterName:
+            inviterMember.emailAccount.name || inviterMember.emailAccount.email,
+          invitationId: invitation.id,
+        });
+      } catch {
+        await prisma.invitation.delete({ where: { id: invitation.id } });
+        throw new SafeError("Failed to send invitation email");
+      }
     },
   );
 
@@ -222,25 +230,25 @@ async function acceptInvitation({
 }): Promise<{ organizationId: string; memberId: string }> {
   const invitation = await getInvitation({ emailAccountId, invitationId });
 
-  const existingMembership = await prisma.member.findUnique({
-    where: {
-      organizationId_emailAccountId: {
-        emailAccountId,
-        organizationId: invitation.organizationId,
-      },
-    },
-    select: { id: true },
+  const existingMembership = await prisma.member.findFirst({
+    where: { emailAccountId },
+    select: { id: true, organizationId: true },
   });
 
   if (existingMembership) {
-    await prisma.invitation.update({
-      where: { id: invitationId },
-      data: { status: "accepted" },
-    });
-    return {
-      organizationId: invitation.organizationId,
-      memberId: existingMembership.id,
-    };
+    if (existingMembership.organizationId === invitation.organizationId) {
+      await prisma.invitation.update({
+        where: { id: invitationId },
+        data: { status: "accepted" },
+      });
+      return {
+        organizationId: invitation.organizationId,
+        memberId: existingMembership.id,
+      };
+    }
+    throw new SafeError(
+      "You are already a member of an organization. You can only be part of one organization at a time.",
+    );
   }
 
   const createdMember = await prisma.member.create({
@@ -434,4 +442,150 @@ async function getUserFromEmailAccount(emailAccountId: string) {
     select: { email: true, user: { select: { id: true } } },
   });
   return emailAccount;
+}
+
+export const updateAnalyticsConsentAction = actionClient
+  .metadata({ name: "updateAnalyticsConsent" })
+  .inputSchema(updateAnalyticsConsentBody)
+  .action(
+    async ({
+      ctx: { emailAccountId },
+      parsedInput: { allowOrgAdminAnalytics },
+    }) => {
+      const member = await prisma.member.findFirst({
+        where: { emailAccountId },
+        select: { id: true },
+      });
+
+      if (!member) {
+        throw new SafeError("You are not a member of any organization");
+      }
+
+      await prisma.member.update({
+        where: { id: member.id },
+        data: { allowOrgAdminAnalytics },
+      });
+
+      return { success: true };
+    },
+  );
+
+export const createOrganizationAndInviteAction = actionClient
+  .metadata({ name: "createOrganizationAndInvite" })
+  .inputSchema(createOrganizationAndInviteBody)
+  .action(
+    async ({ ctx: { emailAccountId }, parsedInput: { emails, userName } }) => {
+      const emailAccount = await prisma.emailAccount.findUnique({
+        where: { id: emailAccountId },
+        select: { id: true, email: true, name: true },
+      });
+
+      if (!emailAccount) {
+        throw new SafeError("Email account not found");
+      }
+
+      const existingMembership = await prisma.member.findFirst({
+        where: { emailAccountId },
+        select: { id: true, organizationId: true, role: true },
+      });
+
+      if (existingMembership) {
+        throw new SafeError(
+          "You are already a member of an organization. Use the standard invite flow.",
+        );
+      }
+
+      const firstName = (userName ?? emailAccount.name)?.split(" ")[0] || "My";
+      const orgName = `${firstName}'s Organization`;
+      const baseSlug = slugify(orgName);
+      const slug = await generateUniqueSlug(baseSlug);
+
+      const organization = await prisma.organization.create({
+        data: { name: orgName, slug },
+      });
+
+      await prisma.member.create({
+        data: {
+          organizationId: organization.id,
+          emailAccountId,
+          role: "owner",
+        },
+      });
+
+      const inviterName = emailAccount.name || emailAccount.email;
+      const results: { email: string; success: boolean; error?: string }[] = [];
+
+      for (const email of emails) {
+        const existing = await prisma.invitation.findFirst({
+          where: {
+            organizationId: organization.id,
+            email,
+            status: "pending",
+          },
+        });
+
+        if (existing) {
+          results.push({ email, success: false, error: "Already invited" });
+          continue;
+        }
+
+        const invitation = await prisma.invitation.create({
+          data: {
+            organizationId: organization.id,
+            email,
+            role: "member",
+            status: "pending",
+            expiresAt: new Date(Date.now() + 1000 * 60 * 60 * 24 * 14),
+            inviterId: emailAccountId,
+          },
+        });
+
+        try {
+          await sendOrganizationInvitation({
+            email,
+            organizationName: orgName,
+            inviterName,
+            invitationId: invitation.id,
+          });
+          results.push({ email, success: true });
+        } catch {
+          await prisma.invitation.delete({ where: { id: invitation.id } });
+          results.push({
+            email,
+            success: false,
+            error: "Failed to send email",
+          });
+        }
+      }
+
+      return { organizationId: organization.id, results };
+    },
+  );
+
+function getRandomId(): string {
+  return Math.random().toString(36).substring(2, 8);
+}
+
+async function generateUniqueSlug(baseSlug: string): Promise<string> {
+  const maxAttempts = 3;
+  let randomSuffix = "";
+  let attempts = 0;
+
+  let existingOrg = await prisma.organization.findUnique({
+    where: { slug: baseSlug + randomSuffix },
+  });
+
+  while (existingOrg && attempts < maxAttempts) {
+    randomSuffix = `-${getRandomId()}`;
+    existingOrg = await prisma.organization.findUnique({
+      where: { slug: baseSlug + randomSuffix },
+    });
+    attempts++;
+  }
+
+  if (existingOrg) {
+    throw new Error("Failed to generate unique organization slug");
+  }
+
+  return baseSlug + randomSuffix;
 }
