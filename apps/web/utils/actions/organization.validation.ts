@@ -59,8 +59,9 @@ export const createOrganizationAndInviteBody = z.object({
     .array(
       z
         .string()
+        .trim()
         .email()
-        .transform((val) => val.trim().toLowerCase()),
+        .transform((val) => val.toLowerCase()),
     )
     .min(1, "At least one email is required"),
   userName: z.string().nullable().optional(),

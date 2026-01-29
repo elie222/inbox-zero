@@ -40,7 +40,7 @@ export function OrgAnalyticsConsentSection() {
     [execute],
   );
 
-  if (!isLoading && !data) {
+  if (!isLoading && !data && !error) {
     return null;
   }
 

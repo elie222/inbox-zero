@@ -535,14 +535,21 @@ export const createOrganizationAndInviteAction = actionClient
           },
         });
 
-        await sendOrganizationInvitation({
-          email,
-          organizationName: orgName,
-          inviterName,
-          invitationId: invitation.id,
-        });
-
-        results.push({ email, success: true });
+        try {
+          await sendOrganizationInvitation({
+            email,
+            organizationName: orgName,
+            inviterName,
+            invitationId: invitation.id,
+          });
+          results.push({ email, success: true });
+        } catch {
+          results.push({
+            email,
+            success: false,
+            error: "Failed to send email",
+          });
+        }
       }
 
       return { organizationId: organization.id, results };
