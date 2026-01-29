@@ -17,18 +17,6 @@ Parameters:
   # These subnets are where API Gateway creates ENIs to reach the internal ALB
   PrivateSubnets: !Join [',', [!Ref PrivateSubnet1, !Ref PrivateSubnet2]]
 
-  # JWT Audience for Google Pub/Sub OIDC validation
-  #
-  # Options:
-  # 1. Leave empty ('') to auto-generate using the API Gateway URL
-  # 2. Set a custom domain URL if using a custom domain for the webhook
-  #
-  # For custom domain (recommended for production):
-  #   WebhookAudience: 'https://webhook.yourdomain.com/api/google/webhook'
-  #
-  # For auto-generated API Gateway URL:
-  WebhookAudience: ''
-
   # =============================================================================
   # RDS PostgreSQL Configuration
   # =============================================================================
