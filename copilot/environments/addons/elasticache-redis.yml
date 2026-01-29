@@ -4,9 +4,8 @@
 # ECS deployment. It provides a standard Redis connection for the ioredis
 # subscriber (used for real-time features).
 #
-# Note: This does NOT replace Upstash for caching. The app uses @upstash/redis
-# (REST-based) for caching which is a different protocol. For full caching
-# support, you can still use a separate Upstash account alongside this.
+# Note: Regular Redis caching works with ElastiCache. Upstash/QStash features
+# are specific to Upstash, so keep those configured separately if you use them.
 #
 # Cost estimate for provisioned instances:
 #   - cache.t4g.micro:  ~$12/mo (0.5 GiB, good for <100 users)
