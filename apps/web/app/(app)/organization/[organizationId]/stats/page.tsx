@@ -13,11 +13,7 @@ export default async function OrgStatsPage({
   return (
     <PageWrapper>
       <OrganizationTabs organizationId={organizationId} />
-
-      <div className="mt-6">
-        <OrgAnalyticsConsentBanner />
-      </div>
-
+      <OrgAnalyticsConsentBanner />
       <div className="mt-6">
         <OrgStats organizationId={organizationId} />
       </div>

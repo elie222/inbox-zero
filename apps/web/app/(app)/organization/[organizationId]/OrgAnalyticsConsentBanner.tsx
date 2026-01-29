@@ -52,7 +52,7 @@ export function OrgAnalyticsConsentBanner() {
   return (
     <ActionCard
       variant="blue"
-      className="max-w-full"
+      className="mt-6 max-w-full"
       icon={<ShieldCheckIcon className="h-4 w-4" />}
       title={title}
       description={description}
