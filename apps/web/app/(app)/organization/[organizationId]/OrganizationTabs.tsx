@@ -54,11 +54,9 @@ export function OrganizationTabs({ organizationId }: OrganizationTabsProps) {
           <PageHeading className="mb-2">{organization.name}</PageHeading>
         )}
       </LoadingContent>
-      {isAdmin && (
-        <div className="border-b border-neutral-200">
-          <TabSelect options={tabs} selected={selected} />
-        </div>
-      )}
+      <div className="border-b border-neutral-200">
+        <TabSelect options={tabs} selected={selected} />
+      </div>
     </div>
   );
 }
