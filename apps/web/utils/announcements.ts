@@ -39,9 +39,9 @@ export function hasNewAnnouncements(
 ): boolean {
   const announcements = getActiveAnnouncements();
   if (announcements.length === 0) return false;
-  const cutoffDate = dismissedAt ?? createdAt;
-  if (!cutoffDate) return true;
   return announcements.some(
-    (a) => new Date(a.publishedAt) > new Date(cutoffDate),
+    (a) =>
+      new Date(a.publishedAt) >
+      new Date(dismissedAt ?? createdAt ?? new Date()),
   );
 }
