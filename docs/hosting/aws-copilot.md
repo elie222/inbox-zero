@@ -9,6 +9,31 @@ This guide walks you through deploying Inbox Zero to AWS using AWS Copilot, whic
 - Docker installed and running
 - An AWS account with appropriate permissions
 
+## Recommended: CLI Setup
+
+The CLI automates the Copilot setup, addon configuration (RDS + ElastiCache), secrets, and service deploy:
+
+```bash
+pnpm setup-aws
+```
+
+Useful flags (existing VPC import):
+```bash
+pnpm setup-aws -- \
+  --import-vpc-id vpc-1234567890abcdef \
+  --import-public-subnets subnet-aaa,subnet-bbb \
+  --import-private-subnets subnet-ccc,subnet-ddd \
+  --import-cert-arns arn:aws:acm:us-east-1:123456789012:certificate/abcd-efgh
+```
+
+Non-interactive mode:
+```bash
+pnpm setup-aws -- --yes
+```
+
+> The CLI will update `copilot/environments/addons/addons.parameters.yml`, configure SSM secrets,
+> deploy the environment, and then deploy the service. It also handles the webhook gateway if enabled.
+
 ## Initial Setup
 
 ### 1. Initialize the Copilot Application
@@ -54,6 +79,27 @@ This will prompt you for:
 - AWS profile/region (if not already configured)
 - Whether to create a new VPC or use an existing one
 - Other infrastructure options
+
+#### Using an Existing VPC
+
+Copilot can import an existing VPC during `env init`. You’ll need the VPC ID plus
+public/private subnet IDs:
+
+```bash
+copilot env init --name production \
+  --import-vpc-id vpc-1234567890abcdef \
+  --import-public-subnets subnet-aaa,subnet-bbb \
+  --import-private-subnets subnet-ccc,subnet-ddd
+```
+
+Requirements:
+- At least 2 public subnets and 2 private subnets across different AZs
+- Public subnets routed to an Internet Gateway
+- Private subnets routed through a NAT Gateway
+
+Notes:
+- Copilot will create its own ALB and security groups
+- Addons read `PrivateSubnets` from `copilot/environments/addons/addons.parameters.yml`
 
 ### 4. Initialize the Service
 
@@ -103,6 +149,21 @@ copilot svc deploy
 This will:
 - Pull the latest pre-built image from GitHub Container Registry (if using the default configuration), or
 - Rebuild and redeploy your service with the latest changes (if building from source)
+
+## ElastiCache Redis (Optional)
+
+Redis is deployed as an environment addon. You can enable or change its size by
+editing `copilot/environments/addons/addons.parameters.yml`:
+
+```yaml
+EnableRedis: 'true'
+RedisInstanceClass: 'cache.t4g.micro'
+```
+
+Then deploy the environment:
+```bash
+copilot env deploy --name production
+```
 
 ## Managing Secrets
 
@@ -230,32 +291,30 @@ The webhook gateway is an **environment addon**. However, it requires the ALB's 
 
 #### First-time Setup (New Deployment)
 
-1. **Temporarily move the addon** (to avoid the chicken-and-egg problem):
-   ```bash
-   mv copilot/environments/addons copilot/environments/addons.bak
-   ```
+Keep the webhook gateway template in `copilot/templates/` until the service is deployed.
 
-2. **Deploy the environment** (without the addon):
+1. **Deploy the environment** (without the addon):
    ```bash
    copilot env deploy --name production
    ```
 
-3. **Deploy the service** (this creates the ALB and HTTPS listener):
+2. **Deploy the service** (this creates the ALB and HTTPS listener):
    ```bash
    copilot svc deploy --name inbox-zero-ecs --env production
    ```
 
-4. **Restore and deploy the addon**:
+3. **Add and deploy the addon**:
    ```bash
-   mv copilot/environments/addons.bak copilot/environments/addons
+   cp copilot/templates/webhook-gateway.yml copilot/environments/addons/
    copilot env deploy --name production
    ```
 
 #### Existing Deployment (Service Already Running)
 
-If you already have a deployed service with an ALB, simply deploy the environment:
+If you already have a deployed service with an ALB, add the addon then deploy the environment:
 
 ```bash
+cp copilot/templates/webhook-gateway.yml copilot/environments/addons/
 copilot env deploy --name production
 ```
 

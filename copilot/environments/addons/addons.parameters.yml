@@ -25,3 +25,21 @@ Parameters:
   #
   # For auto-generated API Gateway URL:
   WebhookAudience: ''
+
+  # =============================================================================
+  # RDS PostgreSQL Configuration
+  # =============================================================================
+
+  # RDS instance size
+  RDSInstanceClass: 'db.t3.micro'
+
+  # =============================================================================
+  # ElastiCache Redis Configuration
+  # =============================================================================
+
+  # Whether to create ElastiCache Redis
+  # Set to 'false' to skip Redis creation (e.g., if using external Redis)
+  EnableRedis: 'true'
+
+  # Redis instance size
+  RedisInstanceClass: 'cache.t4g.micro'

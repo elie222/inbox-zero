@@ -8,6 +8,7 @@ import { program } from "commander";
 import * as p from "@clack/prompts";
 import { generateSecret, generateEnvFile, type EnvConfig } from "./utils";
 import { runGoogleSetup } from "./setup-google";
+import { runAwsSetup } from "./setup-aws";
 
 // Detect if we're running from within the repo
 function findRepoRoot(): string | null {
@@ -65,6 +66,8 @@ function checkDockerCompose(): boolean {
 }
 
 async function main() {
+  stripSetupAwsDoubleDash(process.argv);
+
   program
     .name("inbox-zero")
     .description("CLI tool for running Inbox Zero - AI email assistant")
@@ -115,12 +118,40 @@ async function main() {
     .option("--skip-pubsub", "Skip Pub/Sub setup")
     .action(runGoogleSetup);
 
+  program
+    .command("setup-aws")
+    .description("Deploy Inbox Zero to AWS using Copilot (ECS/Fargate)")
+    .option("--profile <profile>", "AWS CLI profile to use")
+    .option("--region <region>", "AWS region")
+    .option("--environment <env>", "Environment name (e.g., production)")
+    .option("--import-vpc-id <id>", "Use an existing VPC ID")
+    .option(
+      "--import-public-subnets <ids>",
+      "Comma-separated public subnet IDs",
+    )
+    .option(
+      "--import-private-subnets <ids>",
+      "Comma-separated private subnet IDs",
+    )
+    .option("--import-cert-arns <arns>", "Comma-separated ACM certificate ARNs")
+    .option("-y, --yes", "Non-interactive mode with defaults")
+    .action(runAwsSetup);
+
   // Default to help if no command
   if (process.argv.length === 2) {
     program.help();
   }
 
   await program.parseAsync();
+}
+
+function stripSetupAwsDoubleDash(argv: string[]) {
+  const commandIndex = argv.indexOf("setup-aws");
+  if (commandIndex === -1) return;
+  const dashIndex = argv.indexOf("--", commandIndex + 1);
+  if (dashIndex !== -1) {
+    argv.splice(dashIndex, 1);
+  }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

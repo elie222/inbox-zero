@@ -1,0 +1,406 @@
+# ElastiCache Redis Replication Group for Inbox Zero ECS
+#
+# This addon creates a provisioned ElastiCache Redis cluster for use with the
+# ECS deployment. It provides a standard Redis connection for the ioredis
+# subscriber (used for real-time features).
+#
+# Note: This does NOT replace Upstash for caching. The app uses @upstash/redis
+# (REST-based) for caching which is a different protocol. For full caching
+# support, you can still use a separate Upstash account alongside this.
+#
+# Cost estimate for provisioned instances:
+#   - cache.t4g.micro:  ~$12/mo (0.5 GiB, good for <100 users)
+#   - cache.t4g.small:  ~$24/mo (1.37 GiB, good for 100-500 users)
+#   - cache.t4g.medium: ~$48/mo (3.09 GiB, good for 500+ users)
+#
+# Deployment:
+#   copilot env deploy --name <environment>
+
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'ElastiCache Redis for Inbox Zero ECS'
+
+Parameters:
+  # Required by Copilot for environment addons
+  App:
+    Type: String
+    Description: Your application's name.
+  Env:
+    Type: String
+    Description: The environment name.
+
+  # VPC parameters - passed from environment via addons.parameters.yml
+  VPCID:
+    Type: String
+    Description: The VPC ID from the Copilot environment.
+  PrivateSubnets:
+    Type: String
+    Description: Comma-separated private subnet IDs from the Copilot environment.
+
+  # Redis configuration
+  RedisInstanceClass:
+    Type: String
+    Description: ElastiCache Redis node type
+    Default: 'cache.t4g.micro'
+    AllowedValues:
+      - cache.t4g.micro
+      - cache.t4g.small
+      - cache.t4g.medium
+      - cache.t3.micro
+      - cache.t3.small
+      - cache.t3.medium
+
+  EnableRedis:
+    Type: String
+    Description: Whether to create the Redis cluster
+    Default: 'true'
+    AllowedValues:
+      - 'true'
+      - 'false'
+
+Conditions:
+  ShouldCreateRedis: !Equals [!Ref EnableRedis, 'true']
+
+Resources:
+  # =============================================================================
+  # Security Group for Redis
+  # =============================================================================
+  RedisSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Condition: ShouldCreateRedis
+    Properties:
+      GroupDescription: !Sub 'Security group for ${App}-${Env} ElastiCache Redis'
+      VpcId: !Ref VPCID
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 6379
+          ToPort: 6379
+          CidrIp: 10.0.0.0/8
+          Description: Allow Redis from private VPC subnets
+      Tags:
+        - Key: Name
+          Value: !Sub '${App}-${Env}-redis-sg'
+        - Key: copilot-application
+          Value: !Ref App
+        - Key: copilot-environment
+          Value: !Ref Env
+
+  # =============================================================================
+  # Subnet Group for Redis
+  # =============================================================================
+  RedisSubnetGroup:
+    Type: AWS::ElastiCache::SubnetGroup
+    Condition: ShouldCreateRedis
+    Properties:
+      Description: !Sub 'Subnet group for ${App}-${Env} Redis'
+      SubnetIds: !Split [',', !Ref PrivateSubnets]
+      Tags:
+        - Key: copilot-application
+          Value: !Ref App
+        - Key: copilot-environment
+          Value: !Ref Env
+
+  # =============================================================================
+  # Redis Auth Token (password)
+  # =============================================================================
+  RedisAuthToken:
+    Type: AWS::SecretsManager::Secret
+    Condition: ShouldCreateRedis
+    Properties:
+      Name: !Sub '${App}-${Env}-redis-auth-token'
+      Description: !Sub 'Auth token for ${App}-${Env} ElastiCache Redis'
+      GenerateSecretString:
+        SecretStringTemplate: '{}'
+        GenerateStringKey: 'password'
+        PasswordLength: 32
+        ExcludePunctuation: true
+        ExcludeCharacters: '"@/\'
+      Tags:
+        - Key: copilot-application
+          Value: !Ref App
+        - Key: copilot-environment
+          Value: !Ref Env
+
+  # =============================================================================
+  # ElastiCache Redis Replication Group
+  # =============================================================================
+  RedisReplicationGroup:
+    Type: AWS::ElastiCache::ReplicationGroup
+    Condition: ShouldCreateRedis
+    Properties:
+      ReplicationGroupDescription: !Sub '${App}-${Env} Redis cluster'
+      AutomaticFailoverEnabled: false
+      NumNodeGroups: 1
+      ReplicasPerNodeGroup: 0
+      CacheNodeType: !Ref RedisInstanceClass
+      Engine: redis
+      EngineVersion: '7.1'
+      CacheSubnetGroupName: !Ref RedisSubnetGroup
+      SecurityGroupIds:
+        - !Ref RedisSecurityGroup
+      TransitEncryptionEnabled: true
+      AtRestEncryptionEnabled: true
+      AuthToken: !Sub '{{resolve:secretsmanager:${RedisAuthToken}:SecretString:password}}'
+      Port: 6379
+      # Maintenance window: Sunday 3-4 AM UTC
+      PreferredMaintenanceWindow: sun:03:00-sun:04:00
+      # Snapshot retention: 7 days
+      SnapshotRetentionLimit: 7
+      SnapshotWindow: 02:00-03:00
+      Tags:
+        - Key: copilot-application
+          Value: !Ref App
+        - Key: copilot-environment
+          Value: !Ref Env
+
+  # =============================================================================
+  # SSM Parameters for Application
+  # =============================================================================
+
+  # REDIS_URL for ioredis (subscriptions)
+  RedisUrlParameter:
+    Type: AWS::SSM::Parameter
+    Condition: ShouldCreateRedis
+    Properties:
+      Name: !Sub '/copilot/${App}/${Env}/secrets/REDIS_URL'
+      Type: String
+      Value: !Sub 
+        - 'rediss://:${Password}@${Endpoint}:6379'
+        - Password: !Sub '{{resolve:secretsmanager:${RedisAuthToken}:SecretString:password}}'
+          Endpoint: !GetAtt RedisReplicationGroup.PrimaryEndPoint.Address
+      Description: !Sub 'Redis URL for ${App}-${Env} (ioredis subscriptions)'
+      Tags:
+        copilot-application: !Ref App
+        copilot-environment: !Ref Env
+
+Outputs:
+  # =============================================================================
+  # Exported Values
+  # =============================================================================
+
+  RedisEndpoint:
+    Condition: ShouldCreateRedis
+    Description: 'ElastiCache Redis primary endpoint'
+    Value: !GetAtt RedisReplicationGroup.PrimaryEndPoint.Address
+    Export:
+      Name: !Sub '${App}-${Env}-RedisEndpoint'
+
+  RedisPort:
+    Condition: ShouldCreateRedis
+    Description: 'ElastiCache Redis port'
+    Value: '6379'
+    Export:
+      Name: !Sub '${App}-${Env}-RedisPort'
+
+  RedisSecurityGroupId:
+    Condition: ShouldCreateRedis
+    Description: 'Redis security group ID for service ingress rules'
+    Value: !Ref RedisSecurityGroup
+    Export:
+      Name: !Sub '${App}-${Env}-RedisSecurityGroupId'
+
+  RedisEnabled:
+    Description: 'Whether Redis was created'
+    Value: !If [ShouldCreateRedis, 'true', 'false']
+# ElastiCache Redis Replication Group for Inbox Zero ECS
+#
+# This addon creates a provisioned ElastiCache Redis cluster for use with the
+# ECS deployment. It provides a standard Redis connection for the ioredis
+# subscriber (used for real-time features).
+#
+# Note: This does NOT replace Upstash for caching. The app uses @upstash/redis
+# (REST-based) for caching which is a different protocol. For full caching
+# support, you can still use a separate Upstash account alongside this.
+#
+# Cost estimate for provisioned instances:
+#   - cache.t4g.micro:  ~$12/mo (0.5 GiB, good for <100 users)
+#   - cache.t4g.small:  ~$24/mo (1.37 GiB, good for 100-500 users)
+#   - cache.t4g.medium: ~$48/mo (3.09 GiB, good for 500+ users)
+#
+# Deployment:
+#   copilot env deploy --name <environment>
+
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'ElastiCache Redis for Inbox Zero ECS'
+
+Parameters:
+  # Required by Copilot for environment addons
+  App:
+    Type: String
+    Description: Your application's name.
+  Env:
+    Type: String
+    Description: The environment name.
+
+  # VPC parameters - passed from environment via addons.parameters.yml
+  VPCID:
+    Type: String
+    Description: The VPC ID from the Copilot environment.
+  PrivateSubnets:
+    Type: String
+    Description: Comma-separated private subnet IDs from the Copilot environment.
+
+  # Redis configuration
+  RedisInstanceClass:
+    Type: String
+    Description: ElastiCache Redis node type
+    Default: 'cache.t4g.micro'
+    AllowedValues:
+      - cache.t4g.micro
+      - cache.t4g.small
+      - cache.t4g.medium
+      - cache.t3.micro
+      - cache.t3.small
+      - cache.t3.medium
+
+  EnableRedis:
+    Type: String
+    Description: Whether to create the Redis cluster
+    Default: 'true'
+    AllowedValues:
+      - 'true'
+      - 'false'
+
+Conditions:
+  ShouldCreateRedis: !Equals [!Ref EnableRedis, 'true']
+
+Resources:
+  # =============================================================================
+  # Security Group for Redis
+  # =============================================================================
+  RedisSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Condition: ShouldCreateRedis
+    Properties:
+      GroupDescription: !Sub 'Security group for ${App}-${Env} ElastiCache Redis'
+      VpcId: !Ref VPCID
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 6379
+          ToPort: 6379
+          CidrIp: 10.0.0.0/8
+          Description: Allow Redis from private VPC subnets
+      Tags:
+        - Key: Name
+          Value: !Sub '${App}-${Env}-redis-sg'
+        - Key: copilot-application
+          Value: !Ref App
+        - Key: copilot-environment
+          Value: !Ref Env
+
+  # =============================================================================
+  # Subnet Group for Redis
+  # =============================================================================
+  RedisSubnetGroup:
+    Type: AWS::ElastiCache::SubnetGroup
+    Condition: ShouldCreateRedis
+    Properties:
+      Description: !Sub 'Subnet group for ${App}-${Env} Redis'
+      SubnetIds: !Split [',', !Ref PrivateSubnets]
+      Tags:
+        - Key: copilot-application
+          Value: !Ref App
+        - Key: copilot-environment
+          Value: !Ref Env
+
+  # =============================================================================
+  # Redis Auth Token (password)
+  # =============================================================================
+  RedisAuthToken:
+    Type: AWS::SecretsManager::Secret
+    Condition: ShouldCreateRedis
+    Properties:
+      Name: !Sub '${App}-${Env}-redis-auth-token'
+      Description: !Sub 'Auth token for ${App}-${Env} ElastiCache Redis'
+      GenerateSecretString:
+        SecretStringTemplate: '{}'
+        GenerateStringKey: 'password'
+        PasswordLength: 32
+        ExcludePunctuation: true
+        ExcludeCharacters: '"@/\'
+      Tags:
+        - Key: copilot-application
+          Value: !Ref App
+        - Key: copilot-environment
+          Value: !Ref Env
+
+  # =============================================================================
+  # ElastiCache Redis Replication Group
+  # =============================================================================
+  RedisReplicationGroup:
+    Type: AWS::ElastiCache::ReplicationGroup
+    Condition: ShouldCreateRedis
+    Properties:
+      ReplicationGroupDescription: !Sub '${App}-${Env} Redis cluster'
+      AutomaticFailoverEnabled: false
+      NumNodeGroups: 1
+      ReplicasPerNodeGroup: 0
+      CacheNodeType: !Ref RedisInstanceClass
+      Engine: redis
+      EngineVersion: '7.1'
+      CacheSubnetGroupName: !Ref RedisSubnetGroup
+      SecurityGroupIds:
+        - !Ref RedisSecurityGroup
+      TransitEncryptionEnabled: true
+      AtRestEncryptionEnabled: true
+      AuthToken: !Sub '{{resolve:secretsmanager:${RedisAuthToken}:SecretString:password}}'
+      Port: 6379
+      # Maintenance window: Sunday 3-4 AM UTC
+      PreferredMaintenanceWindow: sun:03:00-sun:04:00
+      # Snapshot retention: 7 days
+      SnapshotRetentionLimit: 7
+      SnapshotWindow: 02:00-03:00
+      Tags:
+        - Key: copilot-application
+          Value: !Ref App
+        - Key: copilot-environment
+          Value: !Ref Env
+
+  # =============================================================================
+  # SSM Parameters for Application
+  # =============================================================================
+  
+  # REDIS_URL for ioredis (subscriptions)
+  RedisUrlParameter:
+    Type: AWS::SSM::Parameter
+    Condition: ShouldCreateRedis
+    Properties:
+      Name: !Sub '/copilot/${App}/${Env}/secrets/REDIS_URL'
+      Type: String
+      Value: !Sub 
+        - 'rediss://:${Password}@${Endpoint}:6379'
+        - Password: !Sub '{{resolve:secretsmanager:${RedisAuthToken}:SecretString:password}}'
+          Endpoint: !GetAtt RedisReplicationGroup.PrimaryEndPoint.Address
+      Description: !Sub 'Redis URL for ${App}-${Env} (ioredis subscriptions)'
+      Tags:
+        copilot-application: !Ref App
+        copilot-environment: !Ref Env
+
+Outputs:
+  # =============================================================================
+  # Exported Values
+  # =============================================================================
+  
+  RedisEndpoint:
+    Condition: ShouldCreateRedis
+    Description: 'ElastiCache Redis primary endpoint'
+    Value: !GetAtt RedisReplicationGroup.PrimaryEndPoint.Address
+    Export:
+      Name: !Sub '${App}-${Env}-RedisEndpoint'
+
+  RedisPort:
+    Condition: ShouldCreateRedis
+    Description: 'ElastiCache Redis port'
+    Value: '6379'
+    Export:
+      Name: !Sub '${App}-${Env}-RedisPort'
+
+  RedisSecurityGroupId:
+    Condition: ShouldCreateRedis
+    Description: 'Redis security group ID for service ingress rules'
+    Value: !Ref RedisSecurityGroup
+    Export:
+      Name: !Sub '${App}-${Env}-RedisSecurityGroupId'
+
+  RedisEnabled:
+    Description: 'Whether Redis was created'
+    Value: !If [ShouldCreateRedis, 'true', 'false']

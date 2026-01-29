@@ -1,0 +1,426 @@
+# RDS PostgreSQL Database for Inbox Zero
+#
+# This addon creates a PostgreSQL RDS instance with sensible production defaults.
+# The database password is auto-generated and stored in AWS Secrets Manager.
+#
+# Deployment:
+#   copilot env deploy --name <environment>
+#
+# Configuration:
+#   Set RDSInstanceClass in addons.parameters.yml to choose instance size:
+#   - db.t3.micro  (~$12/mo) - 1 vCPU, 1GB RAM - good for 1-5 users
+#   - db.t3.small  (~$24/mo) - 2 vCPU, 2GB RAM - good for 5-20 users
+#   - db.t3.medium (~$48/mo) - 2 vCPU, 4GB RAM - good for 20-100 users
+#   - db.t3.large  (~$96/mo) - 2 vCPU, 8GB RAM - good for 100+ users
+
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'RDS PostgreSQL database for Inbox Zero'
+
+Parameters:
+  # Required by Copilot for environment addons
+  App:
+    Type: String
+    Description: Your application's name.
+  Env:
+    Type: String
+    Description: The environment name.
+
+  # VPC parameters - passed from environment via addons.parameters.yml
+  VPCID:
+    Type: String
+    Description: The VPC ID from the Copilot environment.
+  PrivateSubnets:
+    Type: String
+    Description: Comma-separated private subnet IDs from the Copilot environment.
+
+  # RDS configuration
+  RDSInstanceClass:
+    Type: String
+    Description: The RDS instance class (size).
+    Default: 'db.t3.micro'
+    AllowedValues:
+      - db.t3.micro
+      - db.t3.small
+      - db.t3.medium
+      - db.t3.large
+
+Resources:
+  # =============================================================================
+  # Database Subnet Group
+  # =============================================================================
+  DBSubnetGroup:
+    Type: AWS::RDS::DBSubnetGroup
+    Properties:
+      DBSubnetGroupDescription: !Sub 'Subnet group for ${App}-${Env} RDS instance'
+      SubnetIds: !Split [',', !Ref PrivateSubnets]
+      Tags:
+        - Key: Name
+          Value: !Sub '${App}-${Env}-db-subnet-group'
+        - Key: copilot-application
+          Value: !Ref App
+        - Key: copilot-environment
+          Value: !Ref Env
+
+  # =============================================================================
+  # Security Group for RDS
+  # =============================================================================
+  DBSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: !Sub 'Security group for ${App}-${Env} RDS instance'
+      VpcId: !Ref VPCID
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 5432
+          ToPort: 5432
+          CidrIp: 10.0.0.0/8
+          Description: Allow PostgreSQL from VPC
+      Tags:
+        - Key: Name
+          Value: !Sub '${App}-${Env}-db-sg'
+        - Key: copilot-application
+          Value: !Ref App
+        - Key: copilot-environment
+          Value: !Ref Env
+
+  # =============================================================================
+  # Secrets Manager Secret for Database Credentials
+  # =============================================================================
+  DBSecret:
+    Type: AWS::SecretsManager::Secret
+    Properties:
+      Name: !Sub '${App}-${Env}-db-credentials'
+      Description: !Sub 'Database credentials for ${App}-${Env}'
+      GenerateSecretString:
+        SecretStringTemplate: '{"username": "inboxzero"}'
+        GenerateStringKey: 'password'
+        PasswordLength: 32
+        ExcludePunctuation: true
+      Tags:
+        - Key: copilot-application
+          Value: !Ref App
+        - Key: copilot-environment
+          Value: !Ref Env
+
+  # =============================================================================
+  # RDS PostgreSQL Instance
+  # =============================================================================
+  DBInstance:
+    Type: AWS::RDS::DBInstance
+    DeletionPolicy: Snapshot
+    UpdateReplacePolicy: Snapshot
+    Properties:
+      DBInstanceIdentifier: !Sub '${App}-${Env}-db'
+      DBInstanceClass: !Ref RDSInstanceClass
+      Engine: postgres
+      EngineVersion: '16.6'
+
+      # Storage configuration
+      AllocatedStorage: 20
+      MaxAllocatedStorage: 100
+      StorageType: gp3
+      StorageEncrypted: true
+
+      # Database configuration
+      DBName: inboxzero
+      MasterUsername: !Sub '{{resolve:secretsmanager:${DBSecret}:SecretString:username}}'
+      MasterUserPassword: !Sub '{{resolve:secretsmanager:${DBSecret}:SecretString:password}}'
+
+      # Network configuration
+      DBSubnetGroupName: !Ref DBSubnetGroup
+      VPCSecurityGroups:
+        - !Ref DBSecurityGroup
+      PubliclyAccessible: false
+
+      # Backup configuration
+      BackupRetentionPeriod: 7
+      PreferredBackupWindow: '03:00-04:00'
+      PreferredMaintenanceWindow: 'sun:04:00-sun:05:00'
+
+      # High availability (disabled for cost savings - enable for production)
+      MultiAZ: false
+
+      # Protection
+      DeletionProtection: true
+
+      # Upgrades
+      AutoMinorVersionUpgrade: true
+      AllowMajorVersionUpgrade: false
+
+      # Monitoring
+      EnablePerformanceInsights: false
+
+      Tags:
+        - Key: Name
+          Value: !Sub '${App}-${Env}-db'
+        - Key: copilot-application
+          Value: !Ref App
+        - Key: copilot-environment
+          Value: !Ref Env
+
+  # =============================================================================
+  # SSM Parameters for Service to Consume
+  # =============================================================================
+
+  # Store the full DATABASE_URL in SSM for the service to use
+  DatabaseUrlParameter:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: !Sub '/copilot/${App}/${Env}/secrets/DATABASE_URL'
+      Type: String
+      Value: !Sub 
+        - 'postgresql://${Username}:${Password}@${Endpoint}:${Port}/${DBName}'
+        - Username: !Sub '{{resolve:secretsmanager:${DBSecret}:SecretString:username}}'
+          Password: !Sub '{{resolve:secretsmanager:${DBSecret}:SecretString:password}}'
+          Endpoint: !GetAtt DBInstance.Endpoint.Address
+          Port: !GetAtt DBInstance.Endpoint.Port
+          DBName: inboxzero
+      Description: !Sub 'Database URL for ${App}-${Env}'
+      Tags:
+        copilot-application: !Ref App
+        copilot-environment: !Ref Env
+
+  # Also create DIRECT_URL (same as DATABASE_URL for RDS)
+  DirectUrlParameter:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: !Sub '/copilot/${App}/${Env}/secrets/DIRECT_URL'
+      Type: String
+      Value: !Sub 
+        - 'postgresql://${Username}:${Password}@${Endpoint}:${Port}/${DBName}'
+        - Username: !Sub '{{resolve:secretsmanager:${DBSecret}:SecretString:username}}'
+          Password: !Sub '{{resolve:secretsmanager:${DBSecret}:SecretString:password}}'
+          Endpoint: !GetAtt DBInstance.Endpoint.Address
+          Port: !GetAtt DBInstance.Endpoint.Port
+          DBName: inboxzero
+      Description: !Sub 'Direct database URL for ${App}-${Env}'
+      Tags:
+        copilot-application: !Ref App
+        copilot-environment: !Ref Env
+
+Outputs:
+  # =============================================================================
+  # Exported Values
+  # =============================================================================
+
+  DatabaseEndpoint:
+    Description: 'RDS PostgreSQL endpoint address'
+    Value: !GetAtt DBInstance.Endpoint.Address
+    Export:
+      Name: !Sub '${App}-${Env}-DatabaseEndpoint'
+
+  DatabasePort:
+    Description: 'RDS PostgreSQL port'
+    Value: !GetAtt DBInstance.Endpoint.Port
+    Export:
+      Name: !Sub '${App}-${Env}-DatabasePort'
+
+  DatabaseSecretArn:
+    Description: 'ARN of the Secrets Manager secret containing database credentials'
+    Value: !Ref DBSecret
+    Export:
+      Name: !Sub '${App}-${Env}-DatabaseSecretArn'
+
+  DatabaseSecurityGroupId:
+    Description: 'Security group ID for the RDS instance'
+    Value: !Ref DBSecurityGroup
+    Export:
+      Name: !Sub '${App}-${Env}-DatabaseSecurityGroupId'
+# RDS PostgreSQL Instance for Inbox Zero ECS
+#
+# This addon creates a managed PostgreSQL database using RDS.
+# The DATABASE_URL and DIRECT_URL are stored in SSM Parameter Store.
+#
+# Cost estimate for provisioned instances:
+#   - db.t3.micro:  ~$12/mo (1 vCPU, 1GB RAM)
+#   - db.t3.small:  ~$24/mo (2 vCPU, 2GB RAM)
+#   - db.t3.medium: ~$48/mo (2 vCPU, 4GB RAM)
+#   - db.t3.large:  ~$96/mo (2 vCPU, 8GB RAM)
+#
+# Deployment:
+#   copilot env deploy --name <environment>
+
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'RDS PostgreSQL for Inbox Zero ECS'
+
+Parameters:
+  # Required by Copilot for environment addons
+  App:
+    Type: String
+    Description: Your application's name.
+  Env:
+    Type: String
+    Description: The environment name.
+
+  # VPC parameters - passed from environment via addons.parameters.yml
+  VPCID:
+    Type: String
+    Description: The VPC ID from the Copilot environment.
+  PrivateSubnets:
+    Type: String
+    Description: Comma-separated private subnet IDs from the Copilot environment.
+
+  # RDS configuration
+  RDSInstanceClass:
+    Type: String
+    Description: RDS instance class
+    Default: 'db.t3.micro'
+    AllowedValues:
+      - db.t3.micro
+      - db.t3.small
+      - db.t3.medium
+      - db.t3.large
+
+Resources:
+  # =============================================================================
+  # Security Group for RDS
+  # =============================================================================
+  DBSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: !Sub 'Security group for ${App}-${Env} RDS PostgreSQL'
+      VpcId: !Ref VPCID
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 5432
+          ToPort: 5432
+          CidrIp: 10.0.0.0/8
+          Description: Allow PostgreSQL from private VPC subnets
+      Tags:
+        - Key: Name
+          Value: !Sub '${App}-${Env}-db-sg'
+        - Key: copilot-application
+          Value: !Ref App
+        - Key: copilot-environment
+          Value: !Ref Env
+
+  # =============================================================================
+  # Subnet Group for RDS
+  # =============================================================================
+  DBSubnetGroup:
+    Type: AWS::RDS::DBSubnetGroup
+    Properties:
+      DBSubnetGroupDescription: !Sub 'Subnet group for ${App}-${Env} RDS'
+      SubnetIds: !Split [',', !Ref PrivateSubnets]
+      Tags:
+        - Key: copilot-application
+          Value: !Ref App
+        - Key: copilot-environment
+          Value: !Ref Env
+
+  # =============================================================================
+  # Database Credentials (Secrets Manager)
+  # =============================================================================
+  DBSecret:
+    Type: AWS::SecretsManager::Secret
+    Properties:
+      Name: !Sub '${App}-${Env}-db-credentials'
+      Description: !Sub 'Database credentials for ${App}-${Env}'
+      GenerateSecretString:
+        SecretStringTemplate: '{"username": "inboxzero"}'
+        GenerateStringKey: 'password'
+        PasswordLength: 32
+        ExcludePunctuation: true
+      Tags:
+        - Key: copilot-application
+          Value: !Ref App
+        - Key: copilot-environment
+          Value: !Ref Env
+
+  # =============================================================================
+  # RDS PostgreSQL Instance
+  # =============================================================================
+  DBInstance:
+    Type: AWS::RDS::DBInstance
+    DeletionPolicy: Snapshot
+    UpdateReplacePolicy: Snapshot
+    Properties:
+      DBInstanceIdentifier: !Sub '${App}-${Env}-db'
+      DBInstanceClass: !Ref RDSInstanceClass
+      Engine: postgres
+      EngineVersion: '16'
+      DBName: inboxzero
+      MasterUsername: !Sub '{{resolve:secretsmanager:${DBSecret}:SecretString:username}}'
+      MasterUserPassword: !Sub '{{resolve:secretsmanager:${DBSecret}:SecretString:password}}'
+      AllocatedStorage: 20
+      MaxAllocatedStorage: 100
+      StorageType: gp3
+      StorageEncrypted: true
+      DBSubnetGroupName: !Ref DBSubnetGroup
+      VPCSecurityGroups:
+        - !Ref DBSecurityGroup
+      PubliclyAccessible: false
+      MultiAZ: false
+      BackupRetentionPeriod: 7
+      PreferredBackupWindow: '03:00-04:00'
+      PreferredMaintenanceWindow: 'sun:04:00-sun:05:00'
+      DeletionProtection: true
+      EnablePerformanceInsights: false
+      AutoMinorVersionUpgrade: true
+      CopyTagsToSnapshot: true
+      Tags:
+        - Key: Name
+          Value: !Sub '${App}-${Env}-db'
+        - Key: copilot-application
+          Value: !Ref App
+        - Key: copilot-environment
+          Value: !Ref Env
+
+  # =============================================================================
+  # SSM Parameters for Application
+  # =============================================================================
+  
+  # DATABASE_URL for Prisma
+  DatabaseUrlParameter:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: !Sub '/copilot/${App}/${Env}/secrets/DATABASE_URL'
+      Type: String
+      Value: !Sub
+        - 'postgresql://${Username}:${Password}@${Endpoint}:5432/inboxzero'
+        - Username: !Sub '{{resolve:secretsmanager:${DBSecret}:SecretString:username}}'
+          Password: !Sub '{{resolve:secretsmanager:${DBSecret}:SecretString:password}}'
+          Endpoint: !GetAtt DBInstance.Endpoint.Address
+      Description: !Sub 'Database URL for ${App}-${Env}'
+      Tags:
+        copilot-application: !Ref App
+        copilot-environment: !Ref Env
+
+  # DIRECT_URL for Prisma (same as DATABASE_URL for RDS)
+  DirectUrlParameter:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: !Sub '/copilot/${App}/${Env}/secrets/DIRECT_URL'
+      Type: String
+      Value: !Sub
+        - 'postgresql://${Username}:${Password}@${Endpoint}:5432/inboxzero'
+        - Username: !Sub '{{resolve:secretsmanager:${DBSecret}:SecretString:username}}'
+          Password: !Sub '{{resolve:secretsmanager:${DBSecret}:SecretString:password}}'
+          Endpoint: !GetAtt DBInstance.Endpoint.Address
+      Description: !Sub 'Direct database URL for ${App}-${Env}'
+      Tags:
+        copilot-application: !Ref App
+        copilot-environment: !Ref Env
+
+Outputs:
+  # =============================================================================
+  # Exported Values
+  # =============================================================================
+  
+  DBEndpoint:
+    Description: 'RDS PostgreSQL endpoint'
+    Value: !GetAtt DBInstance.Endpoint.Address
+    Export:
+      Name: !Sub '${App}-${Env}-DBEndpoint'
+
+  DBPort:
+    Description: 'RDS PostgreSQL port'
+    Value: !GetAtt DBInstance.Endpoint.Port
+    Export:
+      Name: !Sub '${App}-${Env}-DBPort'
+
+  DBSecurityGroupId:
+    Description: 'Database security group ID for service ingress rules'
+    Value: !Ref DBSecurityGroup
+    Export:
+      Name: !Sub '${App}-${Env}-DBSecurityGroupId'
