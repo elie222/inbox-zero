@@ -8,10 +8,10 @@ export function MeetingBriefsIllustration() {
 
   useEffect(() => {
     const timings = [
-      700, // Stage 1: Email card slides in with header
-      500, // Stage 2: Guest name appears
-      400, // Stage 3: Bullets appear
-      2000, // Pause before reset
+      875, // Stage 1: Email card slides in with header
+      625, // Stage 2: Guest name appears
+      500, // Stage 3: Bullets appear
+      3750, // Pause before reset
     ];
 
     let timeout: NodeJS.Timeout;
@@ -27,7 +27,7 @@ export function MeetingBriefsIllustration() {
           setStage(currentStage);
         }
         advanceStage();
-      }, timings[currentStage] || 700);
+      }, timings[currentStage] || 875);
     };
 
     advanceStage();
@@ -45,7 +45,7 @@ export function MeetingBriefsIllustration() {
               initial={{ opacity: 0, y: 30 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -20 }}
-              transition={{ duration: 0.4, ease: "easeOut" }}
+              transition={{ duration: 0.5, ease: "easeOut" }}
               className="w-full max-w-[260px] rounded-lg bg-white shadow-lg dark:bg-slate-800"
             >
               {/* Email header */}
@@ -73,7 +73,7 @@ export function MeetingBriefsIllustration() {
                     height: stage >= 2 ? "auto" : 0,
                     opacity: stage >= 2 ? 1 : 0,
                   }}
-                  transition={{ duration: 0.25, ease: "easeOut" }}
+                  transition={{ duration: 0.31, ease: "easeOut" }}
                 >
                   <div className="py-2 text-[10px] font-semibold text-gray-800 dark:text-gray-200">
                     John Smith{" "}
@@ -89,7 +89,7 @@ export function MeetingBriefsIllustration() {
                     height: stage >= 3 ? "auto" : 0,
                     opacity: stage >= 3 ? 1 : 0,
                   }}
-                  transition={{ duration: 0.25, ease: "easeOut" }}
+                  transition={{ duration: 0.31, ease: "easeOut" }}
                 >
                   <div className="text-[9px] text-gray-600 dark:text-gray-400">
                     <span className="text-gray-400">-</span> CEO of Acme Corp,

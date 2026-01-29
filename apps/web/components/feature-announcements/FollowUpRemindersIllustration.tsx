@@ -8,13 +8,13 @@ export function FollowUpRemindersIllustration() {
 
   useEffect(() => {
     const timings = [
-      800, // Stage 1: Card slides in
-      600, // Stage 2: "You replied" appears
-      500, // Stage 3: "1 day ago"
-      500, // Stage 4: "2 days ago"
-      500, // Stage 5: "3 days ago"
-      400, // Stage 6: Follow up label appears
-      2000, // Pause before reset
+      1000, // Stage 1: Card slides in
+      750, // Stage 2: "You replied" appears
+      625, // Stage 3: "1 day ago"
+      625, // Stage 4: "2 days ago"
+      625, // Stage 5: "3 days ago"
+      500, // Stage 6: Follow up label appears
+      2500, // Pause before reset
     ];
 
     let timeout: NodeJS.Timeout;
@@ -30,7 +30,7 @@ export function FollowUpRemindersIllustration() {
           setStage(currentStage);
         }
         advanceStage();
-      }, timings[currentStage] || 800);
+      }, timings[currentStage] || 1000);
     };
 
     advanceStage();
@@ -51,7 +51,7 @@ export function FollowUpRemindersIllustration() {
               initial={{ opacity: 0, x: 100 }}
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: -100 }}
-              transition={{ duration: 0.5, ease: "easeOut" }}
+              transition={{ duration: 0.625, ease: "easeOut" }}
               className="w-full max-w-[280px] rounded-lg bg-white p-3 shadow-md dark:bg-slate-800"
             >
               <div className="flex items-center gap-2.5">
@@ -68,7 +68,7 @@ export function FollowUpRemindersIllustration() {
                         <motion.span
                           initial={{ opacity: 0, scale: 0.8 }}
                           animate={{ opacity: 1, scale: 1 }}
-                          transition={{ duration: 0.3, ease: "easeOut" }}
+                          transition={{ duration: 0.375, ease: "easeOut" }}
                           className="rounded bg-amber-100 px-1.5 py-0.5 text-[9px] font-semibold text-amber-700 dark:bg-amber-800/50 dark:text-amber-300"
                         >
                           Follow up
@@ -90,7 +90,7 @@ export function FollowUpRemindersIllustration() {
                   height: stage >= 2 ? "auto" : 0,
                   opacity: stage >= 2 ? 1 : 0,
                 }}
-                transition={{ duration: 0.3, ease: "easeOut" }}
+                transition={{ duration: 0.375, ease: "easeOut" }}
                 className="overflow-hidden"
               >
                 <div className="mt-2.5 flex items-center gap-1.5 border-t border-gray-100 pt-2 dark:border-gray-700">
@@ -101,7 +101,7 @@ export function FollowUpRemindersIllustration() {
                         key={daysText}
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
-                        transition={{ duration: 0.3 }}
+                        transition={{ duration: 0.375 }}
                       >
                         {" "}
                         · {daysText}
