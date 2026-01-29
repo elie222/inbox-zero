@@ -7,8 +7,8 @@ type: Load Balanced Web Service
 
 http:
   path: '/'
-  alias: # YOUR_DOMAIN, e.g. getinboxzero.com (without http or https)
-  redirect_to_https: true
+  # alias: YOUR_DOMAIN  # Uncomment and set if using a custom domain
+  # redirect_to_https: true  # Enable when using a domain with HTTPS
   healthcheck:
     path: '/'
     grace_period: 320s # Grace period for the container to start before failing health checks (until migrations are completed)
@@ -37,21 +37,20 @@ network:
 variables:                    # Pass environment variables as key value pairs.
   HOSTNAME: 0.0.0.0
   NEXT_PUBLIC_BASE_URL: # YOUR_DOMAIN, e.g. https://www.getinboxzero.com (with http or https)
-  DEFAULT_LLM_PROVIDER: 
+  DEFAULT_LLM_PROVIDER:
 
 # Set these secrets at AWS Systems Manager (SSM) Parameter Store for extra security.
 # Alternatively, you can set them as environment variables in the section above.
 secrets:
-  AUTH_SECRET: #
-  EMAIL_ENCRYPT_SECRET: #
-  EMAIL_ENCRYPT_SALT: #
-  INTERNAL_API_KEY: #
-  UPSTASH_REDIS_URL: #
-  UPSTASH_REDIS_TOKEN: #
-  DATABASE_URL: # DATABASE_URL
-  DIRECT_URL: # DATABASE_URL
-  CRON_SECRET: #
-  GOOGLE_CLIENT_ID: #
-  GOOGLE_CLIENT_SECRET: #
-  GOOGLE_PUBSUB_TOPIC_NAME: #
+  AUTH_SECRET: /copilot/${COPILOT_APPLICATION_NAME}/${COPILOT_ENVIRONMENT_NAME}/secrets/AUTH_SECRET
+  EMAIL_ENCRYPT_SECRET: /copilot/${COPILOT_APPLICATION_NAME}/${COPILOT_ENVIRONMENT_NAME}/secrets/EMAIL_ENCRYPT_SECRET
+  EMAIL_ENCRYPT_SALT: /copilot/${COPILOT_APPLICATION_NAME}/${COPILOT_ENVIRONMENT_NAME}/secrets/EMAIL_ENCRYPT_SALT
+  INTERNAL_API_KEY: /copilot/${COPILOT_APPLICATION_NAME}/${COPILOT_ENVIRONMENT_NAME}/secrets/INTERNAL_API_KEY
+  REDIS_URL: /copilot/${COPILOT_APPLICATION_NAME}/${COPILOT_ENVIRONMENT_NAME}/secrets/REDIS_URL
+  DATABASE_URL: /copilot/${COPILOT_APPLICATION_NAME}/${COPILOT_ENVIRONMENT_NAME}/secrets/DATABASE_URL
+  DIRECT_URL: /copilot/${COPILOT_APPLICATION_NAME}/${COPILOT_ENVIRONMENT_NAME}/secrets/DIRECT_URL
+  CRON_SECRET: /copilot/${COPILOT_APPLICATION_NAME}/${COPILOT_ENVIRONMENT_NAME}/secrets/CRON_SECRET
+  GOOGLE_CLIENT_ID: /copilot/${COPILOT_APPLICATION_NAME}/${COPILOT_ENVIRONMENT_NAME}/secrets/GOOGLE_CLIENT_ID
+  GOOGLE_CLIENT_SECRET: /copilot/${COPILOT_APPLICATION_NAME}/${COPILOT_ENVIRONMENT_NAME}/secrets/GOOGLE_CLIENT_SECRET
+  GOOGLE_PUBSUB_TOPIC_NAME: /copilot/${COPILOT_APPLICATION_NAME}/${COPILOT_ENVIRONMENT_NAME}/secrets/GOOGLE_PUBSUB_TOPIC_NAME
   # SET HERE ONE LLM PROVIDER API KEY

@@ -25,3 +25,14 @@ Parameters:
   #
   # For auto-generated API Gateway URL:
   WebhookAudience: ''
+
+  # =============================================================================
+  # ElastiCache Redis Configuration
+  # =============================================================================
+
+  # Whether to create ElastiCache Redis
+  # Set to 'false' to skip Redis creation (e.g., if using external Redis)
+  EnableRedis: 'true'
+
+  # Redis instance size
+  RedisInstanceClass: 'cache.t4g.micro'
