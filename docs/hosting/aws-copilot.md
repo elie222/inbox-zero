@@ -55,6 +55,42 @@ This will prompt you for:
 - Whether to create a new VPC or use an existing one
 - Other infrastructure options
 
+#### Using an Existing VPC
+
+If you already have a VPC, Copilot can import it during `copilot env init`. This affects where the ALB, ECS tasks, and addons (like ElastiCache) are created.
+
+**Requirements for the existing VPC:**
+- At least 2 public subnets and 2 private subnets across different AZs
+- Public subnets routed to an Internet Gateway
+- Private subnets have a NAT Gateway route (so ECS tasks can pull images and reach AWS APIs)
+- Security group/NACL rules allow ALB inbound and task outbound traffic
+
+**What Copilot will do:**
+- Create the ALB in the public subnets
+- Place ECS tasks and addons in the private subnets
+- Create new security groups for the service
+
+**Notes:**
+- Existing ALBs or certs are not reused automatically.
+- Addon templates read private subnets from `copilot/environments/addons/addons.parameters.yml` (via `PrivateSubnets`).
+  Make sure those map to the correct private subnets in your environment.
+
+**Quickstart checklist (existing VPC):**
+1. Identify your VPC ID and subnets:
+   ```bash
+   aws ec2 describe-vpcs --query 'Vpcs[].[VpcId,Tags[?Key==`Name`].Value|[0]]' --output table
+   aws ec2 describe-subnets --query 'Subnets[].[SubnetId,AvailabilityZone,MapPublicIpOnLaunch,Tags[?Key==`Name`].Value|[0]]' --output table
+   ```
+2. Confirm private subnets route through a NAT Gateway:
+   ```bash
+   aws ec2 describe-route-tables --query 'RouteTables[].[RouteTableId,Associations[].SubnetId,Routes[]]' --output json
+   ```
+3. Run `copilot env init --name production` and choose "use existing VPC".
+4. Provide:
+   - VPC ID
+   - 2+ public subnet IDs (for ALB)
+   - 2+ private subnet IDs (for ECS tasks + addons)
+
 ### 4. Initialize the Service
 
 Initialize the Load Balanced Web Service:
