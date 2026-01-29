@@ -28,6 +28,7 @@ async function getSetupProgress({
       },
       calendarConnections: { select: { id: true }, take: 1 },
       members: {
+        take: 1,
         select: {
           role: true,
           organizationId: true,
