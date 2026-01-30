@@ -13,6 +13,7 @@ import {
   getActiveAnnouncements,
   hasNewAnnouncements,
   type Announcement,
+  type AnnouncementDetail,
 } from "@/utils/announcements";
 
 export function AnnouncementDialog() {
@@ -143,6 +144,14 @@ function AnnouncementCard({ announcement, onClose }: AnnouncementCardProps) {
         {/* TODO: sizing / rounded */}
         {announcement.image && <div className="mb-4">{announcement.image}</div>}
 
+        {announcement.details && announcement.details.length > 0 && (
+          <div className="mb-4 space-y-3">
+            {announcement.details.map((detail) => (
+              <DetailItem key={detail.title} detail={detail} />
+            ))}
+          </div>
+        )}
+
         <div className="flex gap-3">
           {announcement.link && (
             <Link
@@ -161,6 +170,24 @@ function AnnouncementCard({ announcement, onClose }: AnnouncementCardProps) {
               Learn more
             </Link>
           )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function DetailItem({ detail }: { detail: AnnouncementDetail }) {
+  return (
+    <div className="flex items-start gap-3">
+      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-gray-200 dark:border-gray-700">
+        {detail.icon}
+      </div>
+      <div className="min-w-0 pt-0.5">
+        <div className="text-sm font-medium text-gray-900 dark:text-gray-100">
+          {detail.title}
+        </div>
+        <div className="text-sm text-gray-500 dark:text-gray-400">
+          {detail.description}
         </div>
       </div>
     </div>

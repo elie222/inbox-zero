@@ -37,13 +37,15 @@ import {
   MultiSelectFilter,
   useMultiSelectFilter,
 } from "@/components/MultiSelectFilter";
+import { TagInput } from "@/components/TagInput";
 import { TooltipExplanation } from "@/components/TooltipExplanation";
-import { Suspense } from "react";
+import { Suspense, useState } from "react";
 import { PremiumAiAssistantAlert } from "@/components/PremiumAlert";
 import { ActionType, ExecutedRuleStatus } from "@/generated/prisma/enums";
 import type { Rule } from "@/generated/prisma/client";
 import { SettingCard } from "@/components/SettingCard";
 import { IconCircle } from "@/app/(app)/[emailAccountId]/onboarding/IconCircle";
+import { isValidEmail } from "@/utils/email";
 import { ActionBadges } from "@/app/(app)/[emailAccountId]/assistant/Rules";
 import { DismissibleVideoCard } from "@/components/VideoCard";
 import { PremiumExpiredCardContent } from "@/components/PremiumCard";
@@ -61,6 +63,11 @@ export const maxDuration = 3;
 export default function Components() {
   const { selectedValues, setSelectedValues } = useMultiSelectFilter([
     "alerts",
+  ]);
+  const [basicTags, setBasicTags] = useState<string[]>(["react", "typescript"]);
+  const [emailTags, setEmailTags] = useState<string[]>([
+    "alice@example.com",
+    "bob@example.com",
   ]);
 
   return (
@@ -712,6 +719,50 @@ export default function Components() {
               selectedValues={selectedValues}
               setSelectedValues={setSelectedValues}
             />
+          </div>
+        </div>
+
+        <div>
+          <div className="underline">TagInput</div>
+          <div className="mt-4 space-y-6">
+            <div>
+              <MutedText className="mb-2">
+                Basic (type and press Enter):
+              </MutedText>
+              <TagInput
+                value={basicTags}
+                onChange={setBasicTags}
+                placeholder="Add tags..."
+                label="Tags"
+                className="max-w-md"
+              />
+            </div>
+            <div>
+              <MutedText className="mb-2">With email validation:</MutedText>
+              <TagInput
+                value={emailTags}
+                onChange={setEmailTags}
+                placeholder="Enter email addresses"
+                label="Email addresses"
+                validate={(email) =>
+                  isValidEmail(email)
+                    ? null
+                    : "Please enter a valid email address"
+                }
+                className="max-w-md"
+              />
+            </div>
+            <div>
+              <MutedText className="mb-2">With external error:</MutedText>
+              <TagInput
+                value={["tag1", "tag2"]}
+                onChange={() => {}}
+                placeholder="Add tags..."
+                label="Tags"
+                error="This field has an error"
+                className="max-w-md"
+              />
+            </div>
           </div>
         </div>
 

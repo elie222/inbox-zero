@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import prisma from "@/utils/prisma";
 import { withAuth } from "@/utils/middleware";
-import { fetchAndCheckIsAdmin } from "@/utils/organizations/access";
+import { fetchAndCheckIsMember } from "@/utils/organizations/access";
 
 export type OrganizationResponse = Awaited<ReturnType<typeof getOrganization>>;
 
@@ -11,7 +11,7 @@ export const GET = withAuth(
     const { userId } = request.auth;
     const { organizationId } = await params;
 
-    await fetchAndCheckIsAdmin({ organizationId, userId });
+    await fetchAndCheckIsMember({ organizationId, userId });
 
     const result = await getOrganization({ organizationId });
 

@@ -12,6 +12,9 @@ import { useOrgStatsTotals } from "@/hooks/useOrgStatsTotals";
 import { useOrgStatsEmailBuckets } from "@/hooks/useOrgStatsEmailBuckets";
 import { useOrgStatsRulesBuckets } from "@/hooks/useOrgStatsRulesBuckets";
 import { MutedText } from "@/components/Typography";
+import { useOrganizationMembership } from "@/hooks/useOrganizationMembership";
+import { hasOrganizationAdminRole } from "@/utils/organizations/roles";
+import { AccessDenied } from "@/components/AccessDenied";
 
 const selectOptions = [
   { label: "Last week", value: "7" },
@@ -22,6 +25,10 @@ const selectOptions = [
 const defaultSelected = selectOptions[1];
 
 export function OrgStats({ organizationId }: { organizationId: string }) {
+  const { data: membership, isLoading: membershipLoading } =
+    useOrganizationMembership();
+  const isAdmin = hasOrganizationAdminRole(membership?.role ?? "");
+
   const [dateDropdown, setDateDropdown] = useState<string>(
     defaultSelected.label,
   );
@@ -64,6 +71,25 @@ export function OrgStats({ organizationId }: { organizationId: string }) {
     isLoading: rulesBucketsLoading,
     error: rulesBucketsError,
   } = useOrgStatsRulesBuckets(organizationId, options);
+
+  if (membershipLoading) {
+    return (
+      <div className="space-y-6">
+        <Skeleton className="h-10 w-64" />
+        <div className="grid gap-4 md:grid-cols-3">
+          <Skeleton className="h-24" />
+          <Skeleton className="h-24" />
+          <Skeleton className="h-24" />
+        </div>
+      </div>
+    );
+  }
+
+  if (!isAdmin) {
+    return (
+      <AccessDenied message="You don't have permission to view organization analytics. Only administrators can access this page." />
+    );
+  }
 
   return (
     <div className="space-y-6">

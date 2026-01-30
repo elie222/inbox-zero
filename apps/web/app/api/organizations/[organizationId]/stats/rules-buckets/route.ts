@@ -66,7 +66,7 @@ async function getExecutedRulesBuckets({
     SELECT er."emailAccountId", COUNT(*) as rules_count
     FROM "ExecutedRule" er
     JOIN "Member" m ON m."emailAccountId" = er."emailAccountId"
-    WHERE m."organizationId" = ${organizationId}${dateClause}
+    WHERE m."organizationId" = ${organizationId} AND m."allowOrgAdminAnalytics" = true${dateClause}
     GROUP BY er."emailAccountId"
   `;
 
