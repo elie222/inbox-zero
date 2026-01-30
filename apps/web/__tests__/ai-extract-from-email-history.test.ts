@@ -3,10 +3,12 @@ import { describe, expect, test, vi, beforeEach } from "vitest";
 import { aiExtractFromEmailHistory } from "@/utils/ai/knowledge/extract-from-email-history";
 import type { EmailForLLM } from "@/utils/types";
 import { getEmailAccount } from "@/__tests__/helpers";
+import { createScopedLogger } from "@/utils/logger";
 
 // pnpm test-ai extract-from-email-history
 
 const TIMEOUT = 15_000;
+const logger = createScopedLogger("test");
 
 vi.mock("server-only", () => ({}));
 
@@ -51,6 +53,7 @@ describe.runIf(isAiTest)("aiExtractFromEmailHistory", () => {
         currentThreadMessages: messages.slice(0, 1),
         historicalMessages: messages.slice(1),
         emailAccount,
+        logger,
       });
 
       expect(result).toBeDefined();
@@ -70,6 +73,7 @@ describe.runIf(isAiTest)("aiExtractFromEmailHistory", () => {
       currentThreadMessages: currentMessages,
       historicalMessages: [],
       emailAccount: getEmailAccount(),
+      logger,
     });
 
     expect(result).toBeDefined();
@@ -90,6 +94,7 @@ describe.runIf(isAiTest)("aiExtractFromEmailHistory", () => {
         currentThreadMessages: currentMessages,
         historicalMessages,
         emailAccount: getEmailAccount(),
+        logger,
       });
 
       expect(result).toBeDefined();

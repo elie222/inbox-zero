@@ -54,6 +54,7 @@ describe.skipIf(!RUN_E2E_TESTS)("Gmail Thread Label Removal E2E Tests", () => {
     provider = await createEmailProvider({
       emailAccountId: emailAccount.id,
       provider: "google",
+      logger,
     });
 
     // Find a suitable test thread with 2+ messages
