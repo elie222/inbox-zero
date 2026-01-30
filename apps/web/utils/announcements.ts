@@ -33,8 +33,9 @@ export function getActiveAnnouncements(): Announcement[] {
   );
 }
 
-export function hasNewAnnouncements(cutOffDate: Date): boolean {
+export function hasNewAnnouncements(cutOffDate: Date | string): boolean {
   const announcements = getActiveAnnouncements();
   if (announcements.length === 0) return false;
-  return announcements.some((a) => new Date(a.publishedAt) > cutOffDate);
+  const normalizedCutOff = new Date(cutOffDate);
+  return announcements.some((a) => new Date(a.publishedAt) > normalizedCutOff);
 }
