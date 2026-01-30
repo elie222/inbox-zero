@@ -1,6 +1,6 @@
 # AWS Copilot Deployment Guide
 
-This guide walks you through deploying Inbox Zero to AWS using AWS Copilot, which simplifies deploying containerized applications to AWS App Runner, Amazon ECS, or AWS Fargate.
+This guide walks you through deploying Inbox Zero to AWS using AWS Copilot. The deployment uses Amazon ECS on Fargate.
 
 ## Prerequisites
 
@@ -8,10 +8,11 @@ This guide walks you through deploying Inbox Zero to AWS using AWS Copilot, whic
 - AWS Copilot CLI installed ([installation guide](https://aws.github.io/copilot-cli/docs/getting-started/install/))
 - Docker installed and running
 - An AWS account with appropriate permissions
+- Inbox Zero repository cloned locally (run all commands from the repo root)
 
 ## Recommended: CLI Setup
 
-The CLI automates the Copilot setup, addon configuration (RDS + ElastiCache), secrets, and service deploy:
+The CLI automates Copilot setup, addons (RDS + ElastiCache), secrets, and deployment:
 
 ```bash
 pnpm setup-aws
@@ -36,7 +37,11 @@ pnpm setup-aws -- --yes
 > Note: The CLI now writes `DATABASE_URL`, `DIRECT_URL`, and `REDIS_URL` after the environment deploy,
 > because creating those SSM parameters inside addon templates can trigger EarlyValidation failures.
 
-## Initial Setup
+If you use the CLI, you can skip the manual steps below.
+
+## Manual Copilot Setup (Alternative)
+
+Use this section if you are not running the CLI and prefer to drive Copilot directly.
 
 ### 1. Initialize the Copilot Application
 
@@ -111,7 +116,7 @@ Initialize the Load Balanced Web Service:
 copilot init --app inbox-zero-app --name inbox-zero-ecs --type "Load Balanced Web Service" --deploy no
 ```
 
-**Note:** The service manifest is already included in the repository. This command will detect the existing manifest and set up the necessary infrastructure without modifying it.
+**Note:** The service manifest is already included in the repository. Copilot will detect the existing manifest and configure infrastructure accordingly.
 
 ### 5. Deploy the Environment
 
@@ -140,7 +145,13 @@ This will:
 
 **Note:** The manifest is configured to use the pre-built public image by default. If you want to build from source instead, you can remove or comment out the `image.location` line in `copilot/inbox-zero-ecs/manifest.yml` and Copilot will build using the `image.build` configuration.
 
-## Updating Your Deployment
+---
+
+## Post-Deployment
+
+The following sections apply whether you used the CLI or manual setup.
+
+### Updating Your Deployment
 
 To update your application after making changes:
 
@@ -152,7 +163,7 @@ This will:
 - Pull the latest pre-built image from GitHub Container Registry (if using the default configuration), or
 - Rebuild and redeploy your service with the latest changes (if building from source)
 
-## ElastiCache Redis (Optional)
+### ElastiCache Redis (Optional)
 
 Redis is deployed as an environment addon. You can enable or change its size by
 editing `copilot/environments/addons/addons.parameters.yml`:
@@ -167,7 +178,7 @@ Then deploy the environment:
 copilot env deploy --name production
 ```
 
-## Managing Secrets
+### Managing Secrets
 
 For sensitive values, use AWS Systems Manager Parameter Store:
 
@@ -182,7 +193,7 @@ For sensitive values, use AWS Systems Manager Parameter Store:
      AUTH_SECRET: AUTH_SECRET  # The key is the env var name, value is the SSM parameter name
    ```
 
-## Viewing Logs
+### Viewing Logs
 
 View your application logs:
 
@@ -196,7 +207,7 @@ Or follow logs in real-time:
 copilot svc logs --follow
 ```
 
-## Checking Service Status
+### Checking Service Status
 
 Check the status of your service:
 
@@ -204,7 +215,7 @@ Check the status of your service:
 copilot svc status
 ```
 
-## Database Migrations
+### Database Migrations
 
 Database migrations run automatically on container startup via the `docker/scripts/start.sh` script. The script uses `prisma migrate deploy` to apply any pending migrations.
 
