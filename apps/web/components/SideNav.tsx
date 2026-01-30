@@ -83,8 +83,8 @@ export const useNavigation = () => {
   const showMeetingBriefs = useMeetingBriefsEnabled();
   const showIntegrations = useIntegrationsEnabled();
 
-  const { emailAccount, provider } = useAccount();
-  const currentEmailAccountId = emailAccount?.id;
+  const { emailAccount, emailAccountId, provider } = useAccount();
+  const currentEmailAccountId = emailAccount?.id || emailAccountId;
 
   const automateItems: NavItem[] = useMemo(
     () => [
