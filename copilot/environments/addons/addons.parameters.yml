@@ -10,18 +10,27 @@ Parameters:
   # VPC ID from the Copilot environment
   VPCID: !Ref VPC
 
+  # VPC CIDR block from the Copilot environment
+  VPCCIDR: !GetAtt VPC.CidrBlock
+
   # Private subnet IDs for VPC Link
   # These subnets are where API Gateway creates ENIs to reach the internal ALB
   PrivateSubnets: !Join [',', [!Ref PrivateSubnet1, !Ref PrivateSubnet2]]
 
-  # JWT Audience for Google Pub/Sub OIDC validation
-  #
-  # Options:
-  # 1. Leave empty ('') to auto-generate using the API Gateway URL
-  # 2. Set a custom domain URL if using a custom domain for the webhook
-  #
-  # For custom domain (recommended for production):
-  #   WebhookAudience: 'https://webhook.yourdomain.com/api/google/webhook'
-  #
-  # For auto-generated API Gateway URL:
-  WebhookAudience: ''
+  # =============================================================================
+  # RDS PostgreSQL Configuration
+  # =============================================================================
+
+  # RDS instance size
+  RDSInstanceClass: 'db.t3.micro'
+
+  # =============================================================================
+  # ElastiCache Redis Configuration
+  # =============================================================================
+
+  # Whether to create ElastiCache Redis
+  # Set to 'false' to skip Redis creation (e.g., if using external Redis)
+  EnableRedis: 'true'
+
+  # Redis instance size
+  RedisInstanceClass: 'cache.t4g.micro'
