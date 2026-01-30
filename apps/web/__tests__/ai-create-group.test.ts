@@ -55,7 +55,7 @@ describe.runIf(isAiTest)("aiGenerateGroupItems", () => {
 
       vi.mocked(queryBatchMessages).mockResolvedValue({
         messages: mockMessages as ParsedMessage[],
-        nextPageToken: null,
+        nextPageToken: undefined,
       });
 
       const result = await aiGenerateGroupItems(emailAccount, gmail, group);

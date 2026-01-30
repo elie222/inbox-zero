@@ -22,6 +22,9 @@ import prisma from "@/utils/prisma";
 import { createEmailProvider } from "@/utils/email/provider";
 import { findOldMessage } from "@/__tests__/e2e/helpers";
 import type { EmailProvider } from "@/utils/email/types";
+import { createScopedLogger } from "@/utils/logger";
+
+const logger = createScopedLogger("test");
 
 // ============================================
 // TEST DATA - SET VIA ENVIRONMENT VARIABLES
@@ -72,6 +75,7 @@ describe.skipIf(!RUN_E2E_TESTS)("Microsoft Outlook Labeling E2E Tests", () => {
     provider = await createEmailProvider({
       emailAccountId: emailAccount.id,
       provider: "microsoft",
+      logger,
     });
 
     // If message ID not provided via env, use the helper to find an old message

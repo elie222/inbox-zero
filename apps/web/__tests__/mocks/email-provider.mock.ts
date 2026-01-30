@@ -62,9 +62,11 @@ export function createMockEmailProvider(
     getThreadMessages: vi.fn().mockResolvedValue([defaultMessage]),
     getThreadMessagesInInbox: vi.fn().mockResolvedValue([defaultMessage]),
     getThreadsWithQuery: vi.fn().mockResolvedValue({ threads: [] }),
+    getThreadsWithLabel: vi.fn().mockResolvedValue({ threads: [] }),
     getThreadsWithParticipant: vi.fn().mockResolvedValue([]),
     getThreadsFromSenderWithSubject: vi.fn().mockResolvedValue([]),
     getPreviousConversationMessages: vi.fn().mockResolvedValue([]),
+    getLatestMessageInThread: vi.fn().mockResolvedValue(defaultMessage),
 
     // Message retrieval
     getSentMessages: vi.fn().mockResolvedValue([]),
@@ -116,6 +118,7 @@ export function createMockEmailProvider(
     deleteDraft: vi.fn().mockResolvedValue(undefined),
     createDraft: vi.fn().mockResolvedValue({ id: "draft-new" }),
     updateDraft: vi.fn().mockResolvedValue(undefined),
+    sendDraft: vi.fn().mockResolvedValue({ messageId: "msg-sent" }),
     replyToEmail: vi.fn().mockResolvedValue(undefined),
     sendEmail: vi.fn().mockResolvedValue(undefined),
     sendEmailWithHtml: vi

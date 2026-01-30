@@ -18,6 +18,9 @@ import type { EmailProvider } from "@/utils/email/types";
 import type { ParsedMessage } from "@/utils/types";
 import { extractEmailAddress } from "@/utils/email";
 import { findOldMessage } from "@/__tests__/e2e/helpers";
+import { createScopedLogger } from "@/utils/logger";
+
+const logger = createScopedLogger("test");
 
 // ============================================
 // TEST DATA - SET VIA ENVIRONMENT VARIABLES
@@ -74,6 +77,7 @@ describe.skipIf(!RUN_E2E_TESTS)("Microsoft Outlook Drafting E2E Tests", () => {
     provider = await createEmailProvider({
       emailAccountId: account.id,
       provider: "microsoft",
+      logger,
     });
 
     emailAccount = {

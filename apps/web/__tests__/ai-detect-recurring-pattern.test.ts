@@ -5,10 +5,12 @@ import type { EmailForLLM } from "@/utils/types";
 import { getRuleName, getRuleConfig } from "@/utils/rule/consts";
 import { SystemType } from "@/generated/prisma/enums";
 import { getEmailAccount } from "@/__tests__/helpers";
+import { createScopedLogger } from "@/utils/logger";
 
 // Run with: pnpm test-ai ai-detect-recurring-pattern
 
 const TIMEOUT = 15_000;
+const logger = createScopedLogger("test");
 
 vi.mock("server-only", () => ({}));
 vi.mock("@/utils/braintrust", () => ({
@@ -205,6 +207,7 @@ describe.runIf(isAiTest)(
         emails: getNewsletterEmails(),
         emailAccount: getEmailAccount(),
         rules: getRealisticRules(),
+        logger,
       });
 
       console.debug("Newsletter pattern detection result:", result);
@@ -218,6 +221,7 @@ describe.runIf(isAiTest)(
         emails: getReceiptEmails(),
         emailAccount: getEmailAccount(),
         rules: getRealisticRules(),
+        logger,
       });
 
       console.debug("Receipt pattern detection result:", result);
@@ -231,6 +235,7 @@ describe.runIf(isAiTest)(
         emails: getCalendarEmails(),
         emailAccount: getEmailAccount(),
         rules: getRealisticRules(),
+        logger,
       });
 
       console.debug("Calendar pattern detection result:", result);
@@ -244,6 +249,7 @@ describe.runIf(isAiTest)(
         emails: getNeedsReplyEmails(),
         emailAccount: getEmailAccount(),
         rules: getRealisticRules(),
+        logger,
       });
 
       console.debug("Reply needed pattern detection result:", result);
@@ -257,6 +263,7 @@ describe.runIf(isAiTest)(
         emails: getMixedInconsistentEmails(),
         emailAccount: getEmailAccount(),
         rules: getRealisticRules(),
+        logger,
       });
 
       console.debug("Mixed inconsistent emails result:", result);
@@ -269,6 +276,7 @@ describe.runIf(isAiTest)(
         emails: getDifferentContentEmails(),
         emailAccount: getEmailAccount(),
         rules: getRealisticRules(),
+        logger,
       });
 
       console.debug("Same sender different content result:", result);
