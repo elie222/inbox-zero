@@ -61,7 +61,7 @@ const LLM_PROVIDER_OPTIONS = [
   { value: "ollama", label: "Ollama (self-hosted)" },
 ];
 
-export interface TerraformSetupOptions {
+interface TerraformSetupOptions {
   outputDir?: string;
   environment?: string;
   region?: string;
@@ -86,6 +86,8 @@ export interface TerraformSetupOptions {
   bedrockAccessKey?: string;
   bedrockSecretKey?: string;
   bedrockRegion?: string;
+  ollamaBaseUrl?: string;
+  ollamaModel?: string;
   microsoftClientId?: string;
   microsoftClientSecret?: string;
   yes?: boolean;
@@ -116,6 +118,8 @@ interface TerraformVarsConfig {
   bedrockAccessKey?: string;
   bedrockSecretKey?: string;
   bedrockRegion?: string;
+  ollamaBaseUrl?: string;
+  ollamaModel?: string;
   microsoftClientId?: string;
   microsoftClientSecret?: string;
 }
@@ -157,9 +161,16 @@ export async function runTerraformSetup(options: TerraformSetupOptions) {
         }));
 
   const normalizedBaseUrl = normalizeBaseUrl(baseUrlInput);
-  const domainName = options.domainName || normalizedBaseUrl.domainName;
+  let domainName = options.domainName || normalizedBaseUrl.domainName;
+  if (!nonInteractive && !normalizedBaseUrl.baseUrl && !domainName) {
+    const domainInput = await promptOptionalText({
+      message: "Custom domain name (optional):",
+      placeholder: "app.example.com",
+    });
+    domainName = domainInput || domainName;
+  }
 
-  const acmCertificateArn =
+  let acmCertificateArn =
     options.acmCertificateArn ||
     (nonInteractive
       ? ""
@@ -168,7 +179,7 @@ export async function runTerraformSetup(options: TerraformSetupOptions) {
           placeholder: "arn:aws:acm:us-east-1:123456789012:certificate/...",
         }));
 
-  const route53ZoneId =
+  let route53ZoneId =
     options.route53ZoneId ||
     (nonInteractive
       ? ""
@@ -177,8 +188,29 @@ export async function runTerraformSetup(options: TerraformSetupOptions) {
           placeholder: "Z123EXAMPLE",
         }));
 
+  if (!nonInteractive && domainName) {
+    if (!acmCertificateArn) {
+      acmCertificateArn = await promptOptionalText({
+        message: "ACM certificate ARN for HTTPS (optional):",
+        placeholder: "arn:aws:acm:us-east-1:123456789012:certificate/...",
+      });
+    }
+    if (!route53ZoneId) {
+      route53ZoneId = await promptOptionalText({
+        message: "Route53 hosted zone ID for DNS (optional):",
+        placeholder: "Z123EXAMPLE",
+      });
+    }
+  }
+
+  const validatedRdsInstanceClass = validateInstanceClass(
+    options.rdsInstanceClass,
+    RDS_INSTANCE_OPTIONS,
+    nonInteractive,
+    "RDS instance class",
+  );
   const rdsInstanceClass =
-    options.rdsInstanceClass ||
+    validatedRdsInstanceClass ||
     (nonInteractive
       ? "db.t3.micro"
       : await promptSelect({
@@ -196,8 +228,16 @@ export async function runTerraformSetup(options: TerraformSetupOptions) {
             initialValue: true,
           });
 
+  const validatedRedisInstanceClass = enableRedis
+    ? validateInstanceClass(
+        options.redisInstanceClass,
+        REDIS_INSTANCE_OPTIONS,
+        nonInteractive,
+        "Redis instance class",
+      )
+    : undefined;
   const redisInstanceClass = enableRedis
-    ? options.redisInstanceClass ||
+    ? validatedRedisInstanceClass ||
       (nonInteractive
         ? "cache.t4g.micro"
         : await promptSelect({
@@ -341,9 +381,12 @@ export async function runTerraformSetup(options: TerraformSetupOptions) {
       "Note: terraform.tfvars contains secrets. Do not commit it.",
     "Output",
   );
+  const verificationTokenPath = `/${DEFAULT_APP_NAME}/${environment}/secrets/GOOGLE_PUBSUB_VERIFICATION_TOKEN`;
   p.note(
     `cd ${outputDir}\nterraform init\nterraform apply\n\n` +
-      "After apply, use `terraform output service_url` for the URL.",
+      "After apply, use `terraform output service_url` for the URL.\n" +
+      `Google Pub/Sub verification token (SSM): ${verificationTokenPath}\n` +
+      `aws ssm get-parameter --name ${verificationTokenPath} --with-decryption`,
     "Next Steps",
   );
   p.outro("Terraform setup complete!");
@@ -517,6 +560,31 @@ async function getLlmSecrets(config: {
       }
       return { bedrockAccessKey, bedrockSecretKey, bedrockRegion };
     }
+    case "ollama": {
+      const ollamaBaseUrl =
+        config.options.ollamaBaseUrl ||
+        process.env.OLLAMA_BASE_URL ||
+        (config.nonInteractive
+          ? ""
+          : await promptRequiredText({
+              message: "Ollama base URL:",
+              placeholder: "http://localhost:11434/api",
+            }));
+      const ollamaModel =
+        config.options.ollamaModel ||
+        process.env.OLLAMA_MODEL ||
+        (config.nonInteractive
+          ? ""
+          : await promptRequiredText({
+              message: "Ollama model:",
+              placeholder: "llama3",
+            }));
+      if (config.nonInteractive) {
+        assertNonEmpty("OLLAMA_BASE_URL", ollamaBaseUrl);
+        assertNonEmpty("OLLAMA_MODEL", ollamaModel);
+      }
+      return { ollamaBaseUrl, ollamaModel };
+    }
     default:
       return {};
   }
@@ -589,6 +657,25 @@ function validateLlmProvider(
     process.exit(1);
   }
   p.log.warn(`Unknown LLM provider "${value}". Please choose a valid option.`);
+  return undefined;
+}
+
+function validateInstanceClass(
+  value: string | undefined,
+  options: { value: string }[],
+  nonInteractive: boolean,
+  label: string,
+): string | undefined {
+  if (!value) return undefined;
+  const allowed = new Set(options.map((option) => option.value));
+  if (allowed.has(value)) return value;
+  if (nonInteractive) {
+    p.log.error(
+      `Invalid ${label}: ${value}. Use one of: ${[...allowed].join(", ")}`,
+    );
+    process.exit(1);
+  }
+  p.log.warn(`Unknown ${label} "${value}". Please choose a valid option.`);
   return undefined;
 }
 
@@ -708,6 +795,8 @@ function renderTerraformTfvars(config: TerraformVarsConfig) {
   addOptionalTfVar(lines, "bedrock_access_key", config.bedrockAccessKey);
   addOptionalTfVar(lines, "bedrock_secret_key", config.bedrockSecretKey);
   addOptionalTfVar(lines, "bedrock_region", config.bedrockRegion);
+  addOptionalTfVar(lines, "ollama_base_url", config.ollamaBaseUrl);
+  addOptionalTfVar(lines, "ollama_model", config.ollamaModel);
   addOptionalTfVar(lines, "microsoft_client_id", config.microsoftClientId);
   addOptionalTfVar(
     lines,
@@ -1104,7 +1193,9 @@ locals {
       { name = "NEXT_PUBLIC_BASE_URL", value = local.base_url },
       { name = "DEFAULT_LLM_PROVIDER", value = var.default_llm_provider },
       var.default_llm_model != "" ? { name = "DEFAULT_LLM_MODEL", value = var.default_llm_model } : null,
-      var.bedrock_region != "" ? { name = "BEDROCK_REGION", value = var.bedrock_region } : null
+      var.bedrock_region != "" ? { name = "BEDROCK_REGION", value = var.bedrock_region } : null,
+      var.ollama_base_url != "" ? { name = "OLLAMA_BASE_URL", value = var.ollama_base_url } : null,
+      var.ollama_model != "" ? { name = "OLLAMA_MODEL", value = var.ollama_model } : null
     ] : item if item != null
   ]
 }
@@ -1461,6 +1552,16 @@ variable "bedrock_region" {
   default = ""
 }
 
+variable "ollama_base_url" {
+  type    = string
+  default = ""
+}
+
+variable "ollama_model" {
+  type    = string
+  default = ""
+}
+
 variable "microsoft_client_id" {
   type    = string
   default = ""
@@ -1486,6 +1587,10 @@ output "database_endpoint" {
 
 output "redis_endpoint" {
   value = var.enable_redis ? aws_elasticache_replication_group.main[0].primary_endpoint_address : ""
+}
+
+output "google_pubsub_verification_token_ssm_path" {
+  value = "/\${var.app_name}/\${var.environment}/secrets/GOOGLE_PUBSUB_VERIFICATION_TOKEN"
 }
 
 output "ssm_prefix" {
