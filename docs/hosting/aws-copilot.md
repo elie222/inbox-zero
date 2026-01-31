@@ -2,6 +2,8 @@
 
 This guide walks you through deploying Inbox Zero to AWS using AWS Copilot. The deployment uses Amazon ECS on Fargate.
 
+If you prefer Terraform, see [Terraform Deployment Guide](./terraform.md).
+
 ## Prerequisites
 
 - AWS CLI installed and configured with appropriate credentials
