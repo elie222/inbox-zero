@@ -161,9 +161,16 @@ export async function runTerraformSetup(options: TerraformSetupOptions) {
         }));
 
   const normalizedBaseUrl = normalizeBaseUrl(baseUrlInput);
-  const domainName = options.domainName || normalizedBaseUrl.domainName;
+  let domainName = options.domainName || normalizedBaseUrl.domainName;
+  if (!nonInteractive && !normalizedBaseUrl.baseUrl && !domainName) {
+    const domainInput = await promptOptionalText({
+      message: "Custom domain name (optional):",
+      placeholder: "app.example.com",
+    });
+    domainName = domainInput || domainName;
+  }
 
-  const acmCertificateArn =
+  let acmCertificateArn =
     options.acmCertificateArn ||
     (nonInteractive
       ? ""
@@ -172,7 +179,7 @@ export async function runTerraformSetup(options: TerraformSetupOptions) {
           placeholder: "arn:aws:acm:us-east-1:123456789012:certificate/...",
         }));
 
-  const route53ZoneId =
+  let route53ZoneId =
     options.route53ZoneId ||
     (nonInteractive
       ? ""
@@ -180,6 +187,21 @@ export async function runTerraformSetup(options: TerraformSetupOptions) {
           message: "Route53 hosted zone ID (optional):",
           placeholder: "Z123EXAMPLE",
         }));
+
+  if (!nonInteractive && domainName) {
+    if (!acmCertificateArn) {
+      acmCertificateArn = await promptOptionalText({
+        message: "ACM certificate ARN for HTTPS (optional):",
+        placeholder: "arn:aws:acm:us-east-1:123456789012:certificate/...",
+      });
+    }
+    if (!route53ZoneId) {
+      route53ZoneId = await promptOptionalText({
+        message: "Route53 hosted zone ID for DNS (optional):",
+        placeholder: "Z123EXAMPLE",
+      });
+    }
+  }
 
   const validatedRdsInstanceClass = validateInstanceClass(
     options.rdsInstanceClass,
@@ -359,9 +381,12 @@ export async function runTerraformSetup(options: TerraformSetupOptions) {
       "Note: terraform.tfvars contains secrets. Do not commit it.",
     "Output",
   );
+  const verificationTokenPath = `/${DEFAULT_APP_NAME}/${environment}/secrets/GOOGLE_PUBSUB_VERIFICATION_TOKEN`;
   p.note(
     `cd ${outputDir}\nterraform init\nterraform apply\n\n` +
-      "After apply, use `terraform output service_url` for the URL.",
+      "After apply, use `terraform output service_url` for the URL.\n" +
+      `Google Pub/Sub verification token (SSM): ${verificationTokenPath}\n` +
+      `aws ssm get-parameter --name ${verificationTokenPath} --with-decryption`,
     "Next Steps",
   );
   p.outro("Terraform setup complete!");
@@ -1562,6 +1587,10 @@ output "database_endpoint" {
 
 output "redis_endpoint" {
   value = var.enable_redis ? aws_elasticache_replication_group.main[0].primary_endpoint_address : ""
+}
+
+output "google_pubsub_verification_token_ssm_path" {
+  value = "/\${var.app_name}/\${var.environment}/secrets/GOOGLE_PUBSUB_VERIFICATION_TOKEN"
 }
 
 output "ssm_prefix" {
