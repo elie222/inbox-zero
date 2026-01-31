@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, useState } from "react";
+import { useState } from "react";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { useAccount } from "@/providers/EmailAccountProvider";
@@ -8,21 +8,23 @@ import { toastError } from "@/components/Toast";
 import { captureException } from "@/utils/error";
 import type { GetDriveAuthUrlResponse } from "@/app/api/google/drive/auth-url/route";
 import { fetchWithAccount } from "@/utils/fetch";
-import { Switch } from "@/components/ui/switch";
-import { Label } from "@/components/ui/label";
-import { Notice } from "@/components/Notice";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 export function ConnectDrive() {
   const { emailAccountId } = useAccount();
   const [isConnectingGoogle, setIsConnectingGoogle] = useState(false);
   const [isConnectingMicrosoft, setIsConnectingMicrosoft] = useState(false);
-  const [requestFullAccess, setRequestFullAccess] = useState(false);
-  const fullAccessId = useId();
+  const [googleDialogOpen, setGoogleDialogOpen] = useState(false);
 
-  const handleConnectGoogle = async () => {
+  const handleConnectGoogle = async (access: "limited" | "full") => {
     setIsConnectingGoogle(true);
     try {
-      const accessParam = requestFullAccess ? "?access=full" : "";
+      const accessParam = access === "full" ? "?access=full" : "";
       const response = await fetchWithAccount({
         url: `/api/google/drive/auth-url${accessParam}`,
         emailAccountId,
@@ -81,10 +83,10 @@ export function ConnectDrive() {
   };
 
   return (
-    <div className="space-y-3">
+    <>
       <div className="flex gap-2 flex-wrap md:flex-nowrap">
         <Button
-          onClick={handleConnectGoogle}
+          onClick={() => setGoogleDialogOpen(true)}
           disabled={isConnectingGoogle || isConnectingMicrosoft}
           loading={isConnectingGoogle}
           variant="outline"
@@ -118,30 +120,60 @@ export function ConnectDrive() {
         </Button>
       </div>
 
-      <div className="rounded-md border p-3">
-        <div className="flex items-center justify-between gap-4">
-          <div className="space-y-1">
-            <Label htmlFor={fullAccessId}>
-              Full Google Drive access (advanced)
-            </Label>
-            <p className="text-xs text-muted-foreground">
-              Lets us scan existing folders so you don&apos;t need to create new
-              ones.
-            </p>
+      <Dialog open={googleDialogOpen} onOpenChange={setGoogleDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Connect Google Drive</DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-3">
+            <div className="flex items-center justify-between gap-4 rounded-md border p-3">
+              <div>
+                <p className="text-sm font-medium">Standard</p>
+                <p className="text-xs text-muted-foreground">
+                  You&apos;ll need to create new folders for filing
+                </p>
+              </div>
+              <Button
+                size="sm"
+                onClick={() => {
+                  setGoogleDialogOpen(false);
+                  handleConnectGoogle("limited");
+                }}
+                disabled={isConnectingGoogle}
+                loading={isConnectingGoogle}
+              >
+                Connect
+              </Button>
+            </div>
+
+            <div className="flex items-center justify-between gap-4 rounded-md border p-3">
+              <div>
+                <p className="text-sm font-medium">Full access</p>
+                <p className="text-xs text-muted-foreground">
+                  Use your existing folders
+                </p>
+                <p className="mt-1 text-xs text-amber-600">
+                  Google will show a warning — we&apos;re working on
+                  verification
+                </p>
+              </div>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => {
+                  setGoogleDialogOpen(false);
+                  handleConnectGoogle("full");
+                }}
+                disabled={isConnectingGoogle}
+                loading={isConnectingGoogle}
+              >
+                Connect
+              </Button>
+            </div>
           </div>
-          <Switch
-            id={fullAccessId}
-            checked={requestFullAccess}
-            onCheckedChange={setRequestFullAccess}
-          />
-        </div>
-        {requestFullAccess && (
-          <Notice variant="warning" className="mt-3">
-            Google will show an &quot;unverified app&quot; warning for this
-            permission while we finish verification.
-          </Notice>
-        )}
-      </div>
-    </div>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
