@@ -16,8 +16,6 @@ const llmProviderEnum = z.enum([
 
 /** For Vercel preview deployments, auto-detect from VERCEL_URL. */
 const getBaseUrl = (): string | undefined => {
-  // Don't override for the OAuth proxy server (staging) - it needs its custom domain
-  // for OAuth callbacks to work correctly
   const isOAuthProxyServer = process.env.IS_OAUTH_PROXY_SERVER === "true";
   if (
     process.env.VERCEL_ENV === "preview" &&
@@ -44,6 +42,9 @@ export const env = createEnv({
     MICROSOFT_CLIENT_ID: z.string().optional(),
     MICROSOFT_CLIENT_SECRET: z.string().optional(),
     MICROSOFT_TENANT_ID: z.string().optional().default("common"),
+    SLACK_CLIENT_ID: z.string().optional(),
+    SLACK_CLIENT_SECRET: z.string().optional(),
+    SLACK_SIGNING_SECRET: z.string().optional(),
     EMAIL_ENCRYPT_SECRET: z.string(),
     EMAIL_ENCRYPT_SALT: z.string(),
 
