@@ -1,6 +1,10 @@
 import { auth } from "@googleapis/drive";
 import { env } from "@/env";
-import { GOOGLE_DRIVE_SCOPES, MICROSOFT_DRIVE_SCOPES } from "./scopes";
+import {
+  GOOGLE_DRIVE_FULL_SCOPES,
+  GOOGLE_DRIVE_SCOPES,
+  MICROSOFT_DRIVE_SCOPES,
+} from "./scopes";
 
 // ============================================================================
 // Google Drive OAuth
@@ -20,11 +24,18 @@ export function getGoogleDriveOAuth2Client() {
 /**
  * Generates the OAuth2 URL for Google Drive
  */
-export function getGoogleDriveOAuth2Url(state: string): string {
+export type GoogleDriveAccessLevel = "limited" | "full";
+
+export function getGoogleDriveOAuth2Url(
+  state: string,
+  accessLevel: GoogleDriveAccessLevel = "limited",
+): string {
   const oauth2Client = getGoogleDriveOAuth2Client();
+  const scopes =
+    accessLevel === "full" ? GOOGLE_DRIVE_FULL_SCOPES : GOOGLE_DRIVE_SCOPES;
   return oauth2Client.generateAuthUrl({
     access_type: "offline",
-    scope: [...GOOGLE_DRIVE_SCOPES],
+    scope: [...scopes],
     state,
     prompt: "consent",
   });

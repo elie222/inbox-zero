@@ -11,6 +11,7 @@ import { FilingPreferences } from "./FilingPreferences";
 import { FilingActivity } from "./FilingActivity";
 import { DriveOnboarding } from "./DriveOnboarding";
 import { DriveSetup } from "./DriveSetup";
+import { DriveAdvancedAccess } from "./DriveAdvancedAccess";
 import { Switch } from "@/components/ui/switch";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { useEmailAccountFull } from "@/hooks/useEmailAccountFull";
@@ -98,6 +99,7 @@ export default function DrivePage() {
               )}
             >
               <DriveConnections />
+              <DriveAdvancedAccess />
               <FilingPreferences />
               <FilingActivity />
             </div>
