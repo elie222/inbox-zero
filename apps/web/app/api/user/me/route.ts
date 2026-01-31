@@ -11,6 +11,7 @@ async function getUser({ userId }: { userId: string }) {
     where: { id: userId },
     select: {
       id: true,
+      createdAt: true,
       aiProvider: true,
       aiModel: true,
       aiApiKey: true,
