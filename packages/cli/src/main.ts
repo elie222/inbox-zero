@@ -168,6 +168,8 @@ async function main() {
     .option("--bedrock-access-key <key>", "AWS access key for Bedrock")
     .option("--bedrock-secret-key <key>", "AWS secret key for Bedrock")
     .option("--bedrock-region <region>", "AWS region for Bedrock")
+    .option("--ollama-base-url <url>", "Ollama base URL")
+    .option("--ollama-model <model>", "Ollama model name")
     .option("--microsoft-client-id <id>", "Microsoft OAuth client ID")
     .option(
       "--microsoft-client-secret <secret>",
