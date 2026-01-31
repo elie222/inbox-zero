@@ -187,13 +187,14 @@ export async function runTerraformSetup(options: TerraformSetupOptions) {
         }));
 
   const enableRedis =
-    options.enableRedis ??
-    (nonInteractive
-      ? true
-      : await promptConfirm({
-          message: "Enable Redis for real-time features?",
-          initialValue: true,
-        }));
+    options.enableRedis !== undefined
+      ? options.enableRedis
+      : nonInteractive
+        ? false
+        : await promptConfirm({
+            message: "Enable Redis for real-time features?",
+            initialValue: true,
+          });
 
   const redisInstanceClass = enableRedis
     ? options.redisInstanceClass ||
@@ -241,8 +242,12 @@ export async function runTerraformSetup(options: TerraformSetupOptions) {
     assertNonEmpty("GOOGLE_PUBSUB_TOPIC_NAME", googlePubsubTopicName);
   }
 
+  const validatedLlmProvider = validateLlmProvider(
+    options.llmProvider,
+    nonInteractive,
+  );
   const llmProvider =
-    options.llmProvider ||
+    validatedLlmProvider ||
     (nonInteractive
       ? DEFAULT_LLM_PROVIDER
       : await promptSelect({
@@ -269,6 +274,8 @@ export async function runTerraformSetup(options: TerraformSetupOptions) {
   const configureMicrosoft =
     options.microsoftClientId ||
     options.microsoftClientSecret ||
+    process.env.MICROSOFT_CLIENT_ID ||
+    process.env.MICROSOFT_CLIENT_SECRET ||
     (nonInteractive
       ? false
       : await promptConfirm({
@@ -567,6 +574,24 @@ async function promptSelect(config: {
   return value as string;
 }
 
+function validateLlmProvider(
+  value: string | undefined,
+  nonInteractive: boolean,
+): string | undefined {
+  if (!value) return undefined;
+  const allowed = new Set(LLM_PROVIDER_OPTIONS.map((option) => option.value));
+  if (allowed.has(value)) return value;
+  if (nonInteractive) {
+    p.log.error(
+      `Invalid LLM provider: ${value}. ` +
+        `Use one of: ${[...allowed].join(", ")}`,
+    );
+    process.exit(1);
+  }
+  p.log.warn(`Unknown LLM provider "${value}". Please choose a valid option.`);
+  return undefined;
+}
+
 async function promptConfirm(config: {
   message: string;
   initialValue?: boolean;
@@ -746,7 +771,7 @@ locals {
   vpc_id            = var.create_vpc ? module.vpc[0].vpc_id : var.vpc_id
   public_subnet_ids = var.create_vpc ? module.vpc[0].public_subnets : var.public_subnet_ids
   private_subnet_ids = var.create_vpc ? module.vpc[0].private_subnets : var.private_subnet_ids
-  base_url = var.base_url != "" ? var.base_url : (var.domain_name != "" ? "https://\${var.domain_name}" : "http://\${aws_lb.app.dns_name}")
+  base_url = var.base_url != "" ? var.base_url : (var.domain_name != "" && var.acm_certificate_arn != "" ? "https://\${var.domain_name}" : (var.domain_name != "" ? "http://\${var.domain_name}" : "http://\${aws_lb.app.dns_name}"))
   ssm_prefix = "/\${var.app_name}/\${var.environment}/secrets"
 }
 
