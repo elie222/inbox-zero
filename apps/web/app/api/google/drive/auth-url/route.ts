@@ -16,7 +16,8 @@ export const GET = withEmailAccount(
   "google/drive/auth-url",
   async (request) => {
     const { emailAccountId } = request.auth;
-    const accessLevel = getAccessLevel(request.nextUrl.searchParams);
+    const { searchParams } = new URL(request.url);
+    const accessLevel = getAccessLevel(searchParams);
     const { url, state } = getAuthUrl({ emailAccountId, accessLevel });
 
     const res: GetDriveAuthUrlResponse = { url };
