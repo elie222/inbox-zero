@@ -68,7 +68,8 @@ Guidelines for summarizing the email:
   • Use newlines if there are multiple action items or pieces of information
 - Only include human-relevant and human-readable information.
 - Exclude opaque technical identifiers like account IDs, payment IDs, tracking tokens, or long alphanumeric strings that aren't meaningful to users.
-`;
+
+Return your response in JSON format.`;
 
   const prompt = `
 <email>
