@@ -223,6 +223,7 @@ Create [new credentials](https://console.cloud.google.com/apis/credentials):
     https://www.googleapis.com/auth/contacts
     https://www.googleapis.com/auth/calendar (only required for calendar integration)
     https://www.googleapis.com/auth/drive.file (only required for Google Drive integration)
+    https://www.googleapis.com/auth/drive (optional, restricted scope - only if you want full Drive access for self-hosting)
     ```
 
     4. Click `Update`
