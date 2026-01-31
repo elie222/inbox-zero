@@ -1,11 +1,9 @@
-# AGENTS.md - Development Guidelines
+# Repository Guidelines
 
 ## Important Notes
-
 - Do not run the project via `dev` or `build` command unless explicitly asked
 
 ## Build & Test Commands
-
 - Development: `pnpm dev`
 - Build: `pnpm build`
 - Lint: `pnpm lint`
@@ -15,15 +13,13 @@
 - Run specific AI test: `pnpm test-ai ai-categorize-senders`
 
 ## Code Style
-
 - Use TypeScript with strict null checks
 - Path aliases: Use `@/` for imports from project root
 - NextJS app router structure with (app) directory
-- Follow tailwindcss patterns with prettier-plugin-tailwindcss
+- Follow tailwindcss patterns
 - Prefer functional components with hooks
 - Use proper error handling with try/catch blocks
-- Format code with Prettier
-- Consult .cursor/rules for environment variable management
+- Consult .cursor/rules/environment-variables.mdc for environment variable management
 - Prefer self-documenting code over comments; use descriptive variable and function names instead of explaining intent with comments. Never add comments that just describe what the code does - code should explain itself. Only add comments for "why" not "what".
 - Logging: Avoid duplicating logger context fields already passed from higher up in the call chain. Use `logger.trace()` for PII fields (from, to, subject, etc.).
 - Add helper functions to the bottom of files, not the top!
@@ -35,7 +31,6 @@
 - Balance DRY vs WET: Avoid premature abstraction. Duplicating code 2-3 times is often better than creating an abstraction too early. Only extract shared code when you see a clear, stable pattern. WET (Write Everything Twice) code is easier to change than the wrong abstraction. However, obvious copy-paste of entire functions or large blocks should be refactored.
 
 ## Component Guidelines
-
 - Use shadcn/ui components when available
 - Ensure responsive design with mobile-first approach
 - Follow consistent naming conventions (PascalCase for components)
@@ -48,15 +43,11 @@
   ```
 
 ## Environment Variables
-
 - Add to `.env.example`, `env.ts`, and `turbo.json`
 - Client-side vars: Prefix with `NEXT_PUBLIC_`
 
 ## Fullstack Workflow
-
 Complete guide for building features from API to UI, combining GET API routes, data fetching, form handling, and server actions.
-
-### Overview
 
 When building a new feature, follow this pattern:
 
@@ -75,7 +66,6 @@ import { NextResponse } from "next/server";
 import prisma from "@/utils/prisma";
 import { withEmailAccount } from "@/utils/middleware";
 
-// Auto-generate response type for client use
 export type GetExampleResponse = Awaited<ReturnType<typeof getData>>;
 
 export const GET = withEmailAccount(async (request) => {
@@ -85,7 +75,7 @@ export const GET = withEmailAccount(async (request) => {
   return NextResponse.json(result);
 });
 
-// We make this its own function so we can infer the return type for a type-safe response on the client
+// Its own function so we can infer the return type for a type-safe response on the client
 async function getData({ emailAccountId }: { emailAccountId: string }) {
   const items = await prisma.example.findMany({
     where: { emailAccountId },
@@ -97,7 +87,7 @@ async function getData({ emailAccountId }: { emailAccountId: string }) {
 
 ### 2. Server Action
 
-For mutations. Use `next-safe-action` with proper validation:
+For mutations, use `next-safe-action` with proper validation:
 
 **Validation Schema** (`apps/web/utils/actions/example.validation.ts`):
 
@@ -105,17 +95,13 @@ For mutations. Use `next-safe-action` with proper validation:
 import { z } from "zod";
 
 export const createExampleBody = z.object({
-  name: z.string().min(1, "Name is required"),
-  email: z.string().email("Invalid email"),
-  description: z.string().optional(),
+  name: z.string().min(1),
 });
 export type CreateExampleBody = z.infer<typeof createExampleBody>;
 
 export const updateExampleBody = z.object({
   id: z.string(),
   name: z.string().optional(),
-  email: z.string().email().optional(),
-  description: z.string().optional(),
 });
 export type UpdateExampleBody = z.infer<typeof updateExampleBody>;
 ```
@@ -131,45 +117,13 @@ import {
   updateExampleBody,
 } from "@/utils/actions/example.validation";
 import prisma from "@/utils/prisma";
-import { revalidatePath } from "next/cache";
 
 export const createExampleAction = actionClient
   .metadata({ name: "createExample" })
   .schema(createExampleBody)
   .action(
-    async ({
-      ctx: { emailAccountId },
-      parsedInput: { name, email, description },
-    }) => {
-      const example = await prisma.example.create({
-        data: {
-          name,
-          email,
-          description,
-          emailAccountId,
-        },
-      });
-
-      revalidatePath("/examples");
-      return example;
-    },
-  );
-
-export const updateExampleAction = actionClient
-  .metadata({ name: "updateExample" })
-  .schema(updateExampleBody)
-  .action(
-    async ({
-      ctx: { emailAccountId },
-      parsedInput: { id, name, email, description },
-    }) => {
-      const example = await prisma.example.update({
-        where: { id, emailAccountId },
-        data: { name, email, description },
-      });
-
-      revalidatePath("/examples");
-      return example;
+    async ({ ctx: { emailAccountId }, parsedInput: { name } }) => {
+      await prisma.example.create({ data: { name, emailAccountId } });
     },
   );
 ```
@@ -235,20 +189,6 @@ export function ExampleForm({ onSuccess }: { onSuccess?: () => void }) {
         registerProps={register("name")}
         error={errors.name}
       />
-      <Input
-        type="email"
-        name="email"
-        label="Email"
-        registerProps={register("email")}
-        error={errors.email}
-      />
-      <Input
-        type="text"
-        name="description"
-        label="Description"
-        registerProps={register("description")}
-        error={errors.description}
-      />
       <Button type="submit" loading={isExecuting}>
         Create Example
       </Button>
@@ -271,14 +211,10 @@ export function Examples() {
 
   return (
     <LoadingContent loading={isLoading} error={error}>
-      <div className="grid gap-4">
+      <div>
         {data?.examples.map((example) => (
-          <div key={example.id} className="border p-4 rounded">
-            <h3 className="font-semibold">{example.name}</h3>
-            <p className="text-gray-600">{example.email}</p>
-            {example.description && (
-              <p className="text-sm text-gray-500">{example.description}</p>
-            )}
+          <div key={example.id}>
+            <h3>{example.name}</h3>
           </div>
         ))}
       </div>
@@ -290,18 +226,15 @@ export function Examples() {
 ### Key Guidelines
 
 #### Authentication & Authorization
-
 - Use `withAuth` for user-level operations
 - Use `withEmailAccount` for email-account-level operations
 - Server actions automatically get the right context
 
 #### Mutations
-
 - Use server actions for all mutations (create/update/delete operations)
 - Do NOT use POST API routes for mutations - use server actions instead
 
 #### Error Handling
-
 - Use `useAction` hook with `onSuccess` and `onError` callbacks
 - Use `getActionErrorMessage(error.error)` from `@/utils/error` to extract user-friendly messages
 - For prefix + error pattern: `getActionErrorMessage(error.error, { prefix: "Failed to save" })`
@@ -309,30 +242,24 @@ export function Examples() {
 - No need for try/catch in GET routes when using middleware
 
 #### Type Safety
-
 - Export response types from GET routes
 - Use Zod schemas for validation on both client and server
 - Leverage TypeScript inference for better DX
 
 #### Loading and Error States
-
 - Use `LoadingContent` component to handle loading and error states consistently
 - Pass `loading`, `error`, and children props to `LoadingContent`
 - This provides a standardized way to show loading spinners and error messages
 
 #### Performance
-
-- Use SWR for efficient data fetching and caching
-- Call `mutate()` after successful mutations to refresh data
-- Use `revalidatePath` in server actions for cache invalidation
+- Use SWR for data fetching and caching
+- Call `mutate()` after successful mutations
 
 #### File Organization
-
 ```
 apps/web/
 ├── app/api/user/example/route.ts          # GET API route
 ├── utils/actions/example.validation.ts    # Zod schemas
 ├── utils/actions/example.ts               # Server actions
 ├── hooks/useExamples.ts                   # SWR hook
-└── components/ExampleForm.tsx             # Form component
 ```
