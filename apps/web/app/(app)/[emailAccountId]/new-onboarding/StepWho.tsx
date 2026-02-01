@@ -98,28 +98,24 @@ export function StepWho({
       <Form {...form}>
         <form
           className="space-y-6 mt-4"
-          onSubmit={form.handleSubmit(async (values) => {
+          onSubmit={form.handleSubmit((values) => {
             const roleToSave =
               values.role === "Other" ? customRole : values.role;
 
-            const updateEmailAccountRolePromise = updateEmailAccountRoleAction(
-              emailAccountId,
-              {
-                role: roleToSave,
-              },
-            );
-
-            // may deprecate this in the future, but to keep consistency with old data we're storing this too
-            const saveOnboardingAnswersPromise = saveOnboardingAnswersAction({
-              answers: { role: roleToSave },
-            });
-
-            await Promise.all([
-              updateEmailAccountRolePromise,
-              saveOnboardingAnswersPromise,
-            ]);
-
+            // Optimistic UI: navigate immediately, save in background
             onNext();
+
+            // Fire and forget - save role data in background
+            Promise.all([
+              updateEmailAccountRoleAction(emailAccountId, {
+                role: roleToSave,
+              }),
+              saveOnboardingAnswersAction({
+                answers: { role: roleToSave },
+              }),
+            ]).catch((error) => {
+              console.error("Failed to save role:", error);
+            });
           })}
         >
           <ScrollableFadeContainer
@@ -183,7 +179,6 @@ export function StepWho({
             <Button
               type="submit"
               size="sm"
-              loading={form.formState.isSubmitting}
               disabled={
                 !watchedRole || (watchedRole === "Other" && !customRole.trim())
               }
