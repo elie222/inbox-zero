@@ -85,21 +85,25 @@ export function OnboardingContent({ step }: OnboardingContentProps) {
     analytics.onStart();
   }, [analytics]);
 
-  const onNext = useCallback(async () => {
-    analytics.onNext(clampedStep);
+  const onNext = useCallback(() => {
+    // Navigate immediately for instant feedback
     if (clampedStep < steps.length) {
       router.push(
         prefixPath(emailAccountId, `/new-onboarding?step=${clampedStep + 1}`),
       );
+      // Track analytics in background
+      analytics.onNext(clampedStep);
     } else {
+      // Final step - still need to complete onboarding action before redirect
       analytics.onComplete();
       markOnboardingAsCompleted(ASSISTANT_ONBOARDING_COOKIE);
-      await completedOnboardingAction();
-      if (isPremium) {
-        router.push(prefixPath(emailAccountId, "/setup"));
-      } else {
-        router.push("/welcome-upgrade");
-      }
+      completedOnboardingAction().then(() => {
+        if (isPremium) {
+          router.push(prefixPath(emailAccountId, "/setup"));
+        } else {
+          router.push("/welcome-upgrade");
+        }
+      });
     }
   }, [router, emailAccountId, analytics, clampedStep, steps.length, isPremium]);
 
