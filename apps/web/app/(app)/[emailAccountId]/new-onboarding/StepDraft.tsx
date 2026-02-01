@@ -1,11 +1,10 @@
 "use client";
 
 import { useCallback } from "react";
-import { CheckIcon, XIcon } from "lucide-react";
 import { PageHeading, TypographyP } from "@/components/Typography";
+import { Button } from "@/components/ui/button";
 import { enableDraftRepliesAction } from "@/utils/actions/rule";
 import { toastError } from "@/components/Toast";
-import { OnboardingButton } from "@/app/(app)/[emailAccountId]/new-onboarding/OnboardingButton";
 import { DraftRepliesIllustration } from "@/app/(app)/[emailAccountId]/new-onboarding/illustrations/DraftRepliesIllustration";
 
 export function StepDraft({
@@ -49,18 +48,18 @@ export function StepDraft({
           learns from your previous conversations to draft the best reply.
         </TypographyP>
 
-        <div className="grid gap-2 w-full max-w-xs">
-          <OnboardingButton
-            text="Yes, please"
-            icon={<CheckIcon className="size-4" />}
-            onClick={() => onSetDraftReplies("yes")}
-          />
+        <div className="flex flex-col gap-2 w-full max-w-xs">
+          <Button className="w-full" onClick={() => onSetDraftReplies("yes")}>
+            Yes, draft replies
+          </Button>
 
-          <OnboardingButton
-            text="No, thanks"
-            icon={<XIcon className="size-4" />}
+          <Button
+            variant="ghost"
+            className="w-full"
             onClick={() => onSetDraftReplies("no")}
-          />
+          >
+            Skip
+          </Button>
         </div>
       </div>
     </div>

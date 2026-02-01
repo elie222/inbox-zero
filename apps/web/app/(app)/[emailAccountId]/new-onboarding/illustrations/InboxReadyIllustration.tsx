@@ -4,40 +4,33 @@ import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { Inbox, Check } from "lucide-react";
 
-// Each step: [delay in ms, progress percentage to reach]
-const loadingSteps = [
-  { delay: 400, progress: 12 },
-  { delay: 650, progress: 28 },
-  { delay: 350, progress: 45 },
-  { delay: 550, progress: 58 },
-  { delay: 400, progress: 79 },
-  { delay: 700, progress: 100 },
-];
+const ANIMATION_DURATION = 1; // seconds
 
 export function InboxReadyIllustration() {
-  const [progress, setProgress] = useState(0);
+  const [isAnimating, setIsAnimating] = useState(false);
   const [isComplete, setIsComplete] = useState(false);
 
   useEffect(() => {
-    const timeouts: NodeJS.Timeout[] = [];
-    let cumulativeTime = 300;
+    // Start animation after short delay
+    const startTimeout = setTimeout(() => {
+      setIsAnimating(true);
+    }, 100);
 
-    loadingSteps.forEach((step, index) => {
-      cumulativeTime += step.delay;
-      timeouts.push(
-        setTimeout(() => {
-          setProgress(step.progress);
-          if (index === loadingSteps.length - 1) {
-            setIsComplete(true);
-          }
-        }, cumulativeTime),
-      );
-    });
+    // Mark complete when animation finishes
+    const completeTimeout = setTimeout(
+      () => {
+        setIsComplete(true);
+      },
+      100 + ANIMATION_DURATION * 1000,
+    );
 
-    return () => timeouts.forEach(clearTimeout);
+    return () => {
+      clearTimeout(startTimeout);
+      clearTimeout(completeTimeout);
+    };
   }, []);
+
   const circumference = 2 * Math.PI * 70;
-  const strokeDashoffset = circumference - (progress / 100) * circumference;
 
   return (
     <div className="relative flex h-[220px] w-[320px] items-center justify-center">
@@ -62,8 +55,12 @@ export function InboxReadyIllustration() {
           strokeWidth="8"
           strokeLinecap="round"
           strokeDasharray={circumference}
-          animate={{ strokeDashoffset }}
-          transition={{ duration: 0.3, ease: "easeOut" }}
+          initial={{ strokeDashoffset: circumference }}
+          animate={{ strokeDashoffset: isAnimating ? 0 : circumference }}
+          transition={{
+            duration: ANIMATION_DURATION,
+            ease: [0.4, 0, 1, 1], // starts slow, keeps accelerating to the end
+          }}
         />
       </svg>
 
