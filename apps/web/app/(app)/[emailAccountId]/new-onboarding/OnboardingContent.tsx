@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { StepWho } from "@/app/(app)/[emailAccountId]/new-onboarding/StepWho";
 import { StepEmailsSorted } from "@/app/(app)/[emailAccountId]/new-onboarding/StepEmailsSorted";
@@ -76,11 +76,7 @@ export function OnboardingContent({ step }: OnboardingContentProps) {
   const steps = STEP_ORDER.map((key) => stepMap[key]).filter(isDefined);
 
   const { data, mutate } = usePersona();
-
-  // Use local state for instant step transitions (no server round-trip)
-  const [currentStep, setCurrentStep] = useState(() =>
-    Math.min(Math.max(step, 1), steps.length),
-  );
+  const clampedStep = Math.min(Math.max(step, 1), steps.length);
 
   const router = useRouter();
   const analytics = useOnboardingAnalytics("onboarding");
@@ -89,29 +85,27 @@ export function OnboardingContent({ step }: OnboardingContentProps) {
     analytics.onStart();
   }, [analytics]);
 
-  const onNext = useCallback(() => {
-    if (currentStep < steps.length) {
-      // Instant client-side transition
-      setCurrentStep((prev) => prev + 1);
-      // Track analytics in background
-      analytics.onNext(currentStep);
+  const onNext = useCallback(async () => {
+    analytics.onNext(clampedStep);
+    if (clampedStep < steps.length) {
+      router.push(
+        prefixPath(emailAccountId, `/new-onboarding?step=${clampedStep + 1}`),
+      );
     } else {
-      // Final step - complete onboarding and redirect
       analytics.onComplete();
       markOnboardingAsCompleted(ASSISTANT_ONBOARDING_COOKIE);
-      completedOnboardingAction().then(() => {
-        if (isPremium) {
-          router.push(prefixPath(emailAccountId, "/setup"));
-        } else {
-          router.push("/welcome-upgrade");
-        }
-      });
+      await completedOnboardingAction();
+      if (isPremium) {
+        router.push(prefixPath(emailAccountId, "/setup"));
+      } else {
+        router.push("/welcome-upgrade");
+      }
     }
-  }, [router, emailAccountId, analytics, currentStep, steps.length, isPremium]);
+  }, [router, emailAccountId, analytics, clampedStep, steps.length, isPremium]);
 
   // Trigger persona analysis on mount (first step only)
   useEffect(() => {
-    if (currentStep === 1 && !data?.personaAnalysis) {
+    if (clampedStep === 1 && !data?.personaAnalysis) {
       // Run persona analysis in the background
       analyzePersonaAction(emailAccountId)
         .then(() => {
@@ -122,9 +116,9 @@ export function OnboardingContent({ step }: OnboardingContentProps) {
           console.error("Failed to analyze persona:", error);
         });
     }
-  }, [currentStep, emailAccountId, data?.personaAnalysis, mutate]);
+  }, [clampedStep, emailAccountId, data?.personaAnalysis, mutate]);
 
-  const renderStep = steps[currentStep - 1] || steps[0];
+  const renderStep = steps[clampedStep - 1] || steps[0];
 
   // Show loading if provider is needed but not loaded yet
   if (isLoading && !provider) {
