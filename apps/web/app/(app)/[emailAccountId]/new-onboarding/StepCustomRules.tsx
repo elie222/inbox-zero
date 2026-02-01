@@ -1,8 +1,8 @@
 "use client";
 
-import Image from "next/image";
 import { PageHeading, TypographyP } from "@/components/Typography";
 import { ContinueButton } from "@/app/(app)/[emailAccountId]/new-onboarding/ContinueButton";
+import { CustomRulesIllustration } from "@/app/(app)/[emailAccountId]/new-onboarding/illustrations/CustomRulesIllustration";
 
 export function StepCustomRules({
   onNext,
@@ -14,15 +14,7 @@ export function StepCustomRules({
     <div className="flex min-h-screen flex-col items-center justify-center bg-slate-50 px-4">
       <div className="flex flex-col items-center text-center max-w-md">
         <div className="mb-6 h-[240px] flex items-end justify-center">
-          <div className="rounded-xl border border-slate-200 overflow-hidden shadow-sm">
-            <Image
-              src="/images/onboarding/custom-rules.png"
-              alt="Custom rules"
-              width={400}
-              height={220}
-              className="object-cover"
-            />
-          </div>
+          <CustomRulesIllustration />
         </div>
 
         <PageHeading className="mb-3">Custom rules</PageHeading>
