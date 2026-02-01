@@ -108,12 +108,15 @@ export function AnnouncementDialog() {
   );
 }
 
-interface AnnouncementCardProps {
+export interface AnnouncementCardProps {
   announcement: Announcement;
-  onClose: () => void;
+  onClose?: () => void;
 }
 
-function AnnouncementCard({ announcement, onClose }: AnnouncementCardProps) {
+export function AnnouncementCard({
+  announcement,
+  onClose,
+}: AnnouncementCardProps) {
   return (
     <div className="overflow-hidden rounded-xl bg-white dark:bg-gray-800">
       <div className="p-5">
@@ -154,7 +157,7 @@ function AnnouncementCard({ announcement, onClose }: AnnouncementCardProps) {
           {announcement.link && (
             <Link
               href={announcement.link}
-              onClick={onClose}
+              onClick={() => onClose?.()}
               className="flex flex-1 items-center justify-center rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-blue-700"
             >
               View
