@@ -1,10 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { NotepadTextIcon } from "lucide-react";
 import { PageHeading, TypographyP } from "@/components/Typography";
-import { IconCircle } from "@/app/(app)/[emailAccountId]/new-onboarding/IconCircle";
-import { OnboardingWrapper } from "@/app/(app)/[emailAccountId]/new-onboarding/OnboardingWrapper";
 import { ContinueButton } from "@/app/(app)/[emailAccountId]/new-onboarding/ContinueButton";
 
 export function StepCustomRules({
@@ -14,42 +11,33 @@ export function StepCustomRules({
   onNext: () => void;
 }) {
   return (
-    <div className="relative">
-      <div className="xl:pr-[50%]">
-        <OnboardingWrapper className="py-0">
-          <IconCircle size="lg" className="mx-auto">
-            <NotepadTextIcon className="size-6" />
-          </IconCircle>
-
-          <div className="text-center mt-4 max-w-lg mx-auto">
-            <PageHeading>Custom rules</PageHeading>
-            <TypographyP className="mt-2 text-left">
-              We've set up the basics, but that's just the beginning. Your AI
-              assistant can handle any email workflow you'd give to a human.
-            </TypographyP>
-            <TypographyP className="mt-2 text-left">For example:</TypographyP>
-            <ul className="list-disc list-inside space-y-1 text-left leading-7 text-muted-foreground ">
-              <li>Forward receipts to your accountant</li>
-              <li>Label newsletters and archive them after a week</li>
-            </ul>
+    <div className="flex min-h-screen flex-col items-center justify-center bg-slate-50 px-4">
+      <div className="flex flex-col items-center text-center max-w-md">
+        <div className="mb-6 h-[240px] flex items-end justify-center">
+          <div className="rounded-xl border border-slate-200 overflow-hidden shadow-sm">
+            <Image
+              src="/images/onboarding/custom-rules.png"
+              alt="Custom rules"
+              width={400}
+              height={220}
+              className="object-cover"
+            />
           </div>
-
-          <div className="flex justify-center">
-            <ContinueButton onClick={onNext} />
-          </div>
-        </OnboardingWrapper>
-      </div>
-
-      <div className="fixed top-0 right-0 w-1/2 h-screen bg-white items-center justify-center hidden xl:flex px-10">
-        <div className="rounded-2xl p-4 bg-slate-50 border border-slate-200">
-          <Image
-            src="/images/onboarding/custom-rules.png"
-            alt="Custom rules"
-            width={1200}
-            height={800}
-            className="rounded-xl border border-slate-200"
-          />
         </div>
+
+        <PageHeading className="mb-3">Custom rules</PageHeading>
+
+        <TypographyP className="text-muted-foreground mb-2">
+          We've set up the basics, but that's just the beginning. Your AI
+          assistant can handle any email workflow you'd give to a human.
+        </TypographyP>
+
+        <TypographyP className="text-muted-foreground mb-8">
+          For example: forward receipts to your accountant, or label newsletters
+          and archive them after a week.
+        </TypographyP>
+
+        <ContinueButton onClick={onNext} />
       </div>
     </div>
   );
