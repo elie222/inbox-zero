@@ -351,6 +351,22 @@ export type UpdateRuleConditionsTool = InferUITool<
   ReturnType<typeof updateRuleConditionsTool>
 >;
 
+export type UpdateRuleConditionsOutput = {
+  success: boolean;
+  ruleId: string;
+  error?: string;
+  originalConditions?: {
+    aiInstructions: string | null;
+    static?: Record<string, string | null>;
+    conditionalOperator: string | null;
+  };
+  updatedConditions?: {
+    aiInstructions: string | null | undefined;
+    static?: Record<string, string | null>;
+    conditionalOperator: string | null | undefined;
+  };
+};
+
 const updateRuleActionsTool = ({
   email,
   emailAccountId,
@@ -480,6 +496,21 @@ const updateRuleActionsTool = ({
 export type UpdateRuleActionsTool = InferUITool<
   ReturnType<typeof updateRuleActionsTool>
 >;
+
+export type UpdateRuleActionsOutput = {
+  success: boolean;
+  ruleId: string;
+  error?: string;
+  originalActions?: Array<{
+    type: string;
+    fields: Record<string, string | null>;
+  }>;
+  updatedActions?: Array<{
+    type: string;
+    fields: Record<string, string | null>;
+    delayInMinutes?: number | null;
+  }>;
+};
 
 const updateLearnedPatternsTool = ({
   email,
