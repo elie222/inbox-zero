@@ -1,6 +1,8 @@
 import { stepCountIs, tool } from "ai";
 import { z } from "zod";
 import { createGenerateText } from "@/utils/llms";
+
+const emptyInputSchema = z.object({}).describe("No parameters required");
 import type { Logger } from "@/utils/logger";
 import { GroupItemType, LogicalOperator } from "@/generated/prisma/enums";
 import type { Rule } from "@/generated/prisma/client";
@@ -408,7 +410,7 @@ ${stringifyEmailSimple(getEmailForLLM(originalEmail))}
       }),
       list_rules: tool({
         description: "List all existing rules for the user",
-        inputSchema: z.object({}),
+        inputSchema: emptyInputSchema,
         execute: async () => {
           trackToolCall({
             tool: "list_rules",
