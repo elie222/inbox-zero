@@ -1,8 +1,6 @@
 import { type InferUITool, tool, type ModelMessage } from "ai";
 import { z } from "zod";
 import type { Logger } from "@/utils/logger";
-
-const emptyInputSchema = z.object({}).describe("No parameters required");
 import { createRuleSchema } from "@/utils/ai/rule/create-rule-schema";
 import prisma from "@/utils/prisma";
 import { isDuplicateError } from "@/utils/prisma-helpers";
@@ -29,6 +27,41 @@ import { getEmailForLLM } from "@/utils/get-email-from-message";
 import type { ParsedMessage } from "@/utils/types";
 import { env } from "@/env";
 
+const emptyInputSchema = z.object({}).describe("No parameters required");
+
+type GetUserRulesAndSettingsOutput = {
+  about: string;
+  rules:
+    | Array<{
+        name: string;
+        conditions: {
+          aiInstructions: string | null;
+          static?: Partial<{
+            from: string | null;
+            to: string | null;
+            subject: string | null;
+          }>;
+          conditionalOperator?: LogicalOperator;
+        };
+        actions: Array<{
+          type: ActionType;
+          fields: Partial<{
+            label: string | null;
+            content: string | null;
+            to: string | null;
+            cc: string | null;
+            bcc: string | null;
+            subject: string | null;
+            url: string | null;
+            folderName: string | null;
+          }>;
+        }>;
+        enabled: boolean;
+        runOnThreads: boolean;
+      }>
+    | undefined;
+};
+
 export const maxDuration = 120;
 
 // tools
@@ -41,12 +74,11 @@ const getUserRulesAndSettingsTool = ({
   emailAccountId: string;
   logger: Logger;
 }) =>
-  tool({
-    name: "getUserRulesAndSettings",
+  tool<z.infer<typeof emptyInputSchema>, GetUserRulesAndSettingsOutput>({
     description:
       "Retrieve all existing rules for the user, their about information",
     inputSchema: emptyInputSchema,
-    execute: async () => {
+    execute: async (_input: z.infer<typeof emptyInputSchema>) => {
       trackToolCall({
         tool: "get_user_rules_and_settings",
         email,
@@ -143,7 +175,6 @@ const getLearnedPatternsTool = ({
   logger: Logger;
 }) =>
   tool({
-    name: "getLearnedPatterns",
     description: "Retrieve the learned patterns for a rule",
     inputSchema: z.object({
       ruleName: z
@@ -199,7 +230,6 @@ const createRuleTool = ({
   logger: Logger;
 }) =>
   tool({
-    name: "createRule",
     description: "Create a new rule",
     inputSchema: createRuleSchema(provider),
     execute: async ({ name, condition, actions }) => {
@@ -277,7 +307,6 @@ const updateRuleConditionsTool = ({
   logger: Logger;
 }) =>
   tool({
-    name: "updateRuleConditions",
     description: "Update the conditions of an existing rule",
     inputSchema: updateRuleConditionSchema,
     execute: async ({ ruleName, condition }) => {
@@ -381,7 +410,6 @@ const updateRuleActionsTool = ({
   logger: Logger;
 }) =>
   tool({
-    name: "updateRuleActions",
     description:
       "Update the actions of an existing rule. This replaces the existing actions.",
     inputSchema: z.object({
@@ -524,7 +552,6 @@ const updateLearnedPatternsTool = ({
   logger: Logger;
 }) =>
   tool({
-    name: "updateLearnedPatterns",
     description: "Update the learned patterns of an existing rule",
     inputSchema: z.object({
       ruleName: z.string().describe("The name of the rule to update"),
@@ -631,7 +658,6 @@ const updateAboutTool = ({
   logger: Logger;
 }) =>
   tool({
-    name: "updateAbout",
     description:
       "Update the user's about information. Read the user's about information first as this replaces the existing information.",
     inputSchema: z.object({ about: z.string() }),
@@ -669,7 +695,6 @@ const addToKnowledgeBaseTool = ({
   logger: Logger;
 }) =>
   tool({
-    name: "addToKnowledgeBase",
     description: "Add content to the knowledge base",
     inputSchema: z.object({
       title: z.string(),
