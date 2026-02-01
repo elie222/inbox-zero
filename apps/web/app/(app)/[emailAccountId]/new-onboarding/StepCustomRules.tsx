@@ -27,14 +27,9 @@ export function StepCustomRules({
 
         <PageHeading className="mb-3">Custom rules</PageHeading>
 
-        <TypographyP className="text-muted-foreground mb-2">
+        <TypographyP className="text-muted-foreground mb-8">
           We've set up the basics, but that's just the beginning. Your AI
           assistant can handle any email workflow you'd give to a human.
-        </TypographyP>
-
-        <TypographyP className="text-muted-foreground mb-8">
-          For example: forward receipts to your accountant, or label newsletters
-          and archive them after a week.
         </TypographyP>
 
         <ContinueButton onClick={onNext} />
