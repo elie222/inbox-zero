@@ -2,105 +2,167 @@
 
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Forward, PenLine, Archive, MousePointer2 } from "lucide-react";
+import {
+  Forward,
+  PenLine,
+  Archive,
+  MousePointer2,
+  Star,
+  Square,
+  Tag,
+} from "lucide-react";
 
 const emails = [
-  { id: 1, from: "Amazon", subject: "Your receipt", destination: 0 },
-  { id: 2, from: "Sarah Chen", subject: "Quick question", destination: 1 },
-  { id: 3, from: "Newsletter", subject: "Weekly digest", destination: 2 },
-  { id: 4, from: "Support", subject: "Ticket update", destination: 1 },
+  {
+    id: 1,
+    from: "Amazon Orders",
+    subject: "Your receipt",
+    snippet: "- Thank you for your purchase...",
+    time: "10:30 AM",
+    destination: 1,
+  },
+  {
+    id: 2,
+    from: "Sarah Chen",
+    subject: "Quick question",
+    snippet: "- Hey! Do you have a minute to...",
+    time: "9:15 AM",
+    destination: 2,
+  },
+  {
+    id: 3,
+    from: "TechNews Daily",
+    subject: "Weekly digest",
+    snippet: "- Your weekly roundup of the...",
+    time: "Yesterday",
+    destination: 0,
+  },
+  {
+    id: 4,
+    from: "Support Team",
+    subject: "Ticket update",
+    snippet: "- Your ticket #4521 has been...",
+    time: "Yesterday",
+    destination: 3,
+  },
 ];
 
 const destinations = [
-  {
-    name: "Forward",
-    icon: Forward,
-    color: "bg-emerald-100 text-emerald-600 border-emerald-200",
-  },
-  {
-    name: "Draft",
-    icon: PenLine,
-    color: "bg-blue-100 text-blue-600 border-blue-200",
-  },
-  {
-    name: "Archive",
-    icon: Archive,
-    color: "bg-purple-100 text-purple-600 border-purple-200",
-  },
+  { name: "Label", icon: Tag },
+  { name: "Forward", icon: Forward },
+  { name: "Draft reply", icon: PenLine },
+  { name: "Archive", icon: Archive },
 ];
 
+type CursorPhase = "hidden" | "moving-to-email" | "dragging" | "returning";
+
 export function CustomRulesIllustration() {
-  const [stage, setStage] = useState(0);
   const [currentEmail, setCurrentEmail] = useState(0);
   const [processedEmails, setProcessedEmails] = useState<number[]>([]);
+  const [cursorPhase, setCursorPhase] = useState<CursorPhase>("hidden");
   const [draggingEmail, setDraggingEmail] = useState<number | null>(null);
-  const [destinationCounts, setDestinationCounts] = useState([0, 0, 0]);
   const [key, setKey] = useState(0);
+
+  const emailStartPos = { x: 0, y: 0 };
+  const cursorRestPos = { x: 180, y: -20 };
+  const cursorOffsetFromEmail = { x: 30, y: 20 };
+
+  const getDestinationPosition = (destIndex: number) => {
+    const xPositions = [-165, -55, 55, 165];
+    return { x: xPositions[destIndex], y: 90 };
+  };
+
+  const getCursorPosition = () => {
+    if (cursorPhase === "hidden") return cursorRestPos;
+    if (cursorPhase === "moving-to-email") {
+      return {
+        x: emailStartPos.x + cursorOffsetFromEmail.x,
+        y: emailStartPos.y + cursorOffsetFromEmail.y,
+      };
+    }
+    if (cursorPhase === "dragging" && draggingEmail !== null) {
+      const dest = getDestinationPosition(emails[draggingEmail].destination);
+      return {
+        x: dest.x + cursorOffsetFromEmail.x,
+        y: dest.y + cursorOffsetFromEmail.y,
+      };
+    }
+    if (cursorPhase === "returning") {
+      return {
+        x: emailStartPos.x + cursorOffsetFromEmail.x,
+        y: emailStartPos.y + cursorOffsetFromEmail.y,
+      };
+    }
+    return cursorRestPos;
+  };
 
   useEffect(() => {
     const timeouts: NodeJS.Timeout[] = [];
-    let time = 600;
+    let time = 400;
+
+    // Show first email
+    timeouts.push(
+      setTimeout(() => {
+        setCurrentEmail(0);
+      }, time),
+    );
+    time += 500;
 
     emails.forEach((email, index) => {
-      // Start dragging
+      // Cursor moves to email
       timeouts.push(
         setTimeout(() => {
-          setDraggingEmail(index);
-          setStage(index * 3 + 1);
-        }, time),
-      );
-      time += 600;
-
-      // Drop into destination
-      timeouts.push(
-        setTimeout(() => {
-          setDraggingEmail(null);
-          setProcessedEmails((prev) => [...prev, index]);
-          setDestinationCounts((prev) => {
-            const next = [...prev];
-            next[email.destination]++;
-            return next;
-          });
-          setStage(index * 3 + 2);
+          setCursorPhase("moving-to-email");
         }, time),
       );
       time += 400;
 
-      // Show next email
-      if (index < emails.length - 1) {
-        timeouts.push(
-          setTimeout(() => {
+      // Start dragging
+      timeouts.push(
+        setTimeout(() => {
+          setDraggingEmail(index);
+          setCursorPhase("dragging");
+        }, time),
+      );
+      time += 600;
+
+      // Drop email
+      timeouts.push(
+        setTimeout(() => {
+          setProcessedEmails((prev) => [...prev, index]);
+          setDraggingEmail(null);
+
+          // If there's a next email, move cursor back
+          if (index < emails.length - 1) {
+            setCursorPhase("returning");
             setCurrentEmail(index + 1);
-            setStage(index * 3 + 3);
-          }, time),
-        );
-        time += 300;
-      }
+          } else {
+            setCursorPhase("hidden");
+          }
+        }, time),
+      );
+      time += 400;
     });
 
     // Reset
     timeouts.push(
       setTimeout(() => {
-        setStage(0);
         setCurrentEmail(0);
         setProcessedEmails([]);
+        setCursorPhase("hidden");
         setDraggingEmail(null);
-        setDestinationCounts([0, 0, 0]);
         setKey((k) => k + 1);
-      }, time + 1500),
+      }, time + 1200),
     );
 
     return () => timeouts.forEach(clearTimeout);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key]);
 
-  const getDestinationPosition = (destIndex: number) => {
-    const xPositions = [-95, 0, 95];
-    return { x: xPositions[destIndex], y: 75 };
-  };
+  const cursorPos = getCursorPosition();
 
   return (
-    <div className="relative flex h-[200px] w-[320px] flex-col items-center">
+    <div className="relative flex h-[220px] w-[480px] flex-col items-center">
       {/* Email cards at top */}
       <div className="relative h-[70px] w-full flex items-center justify-center">
         <AnimatePresence mode="popLayout">
@@ -111,16 +173,16 @@ export function CustomRulesIllustration() {
             const isDragging = draggingEmail === index;
             const destPos = isDragging
               ? getDestinationPosition(email.destination)
-              : { x: 0, y: 0 };
+              : emailStartPos;
 
             return (
               <motion.div
                 key={`email-${key}-${email.id}`}
                 initial={{ opacity: 0, y: -20, scale: 0.9 }}
                 animate={{
-                  opacity: isDragging ? 0.9 : 1,
-                  y: isDragging ? destPos.y : 0,
-                  x: isDragging ? destPos.x : 0,
+                  opacity: 1,
+                  y: destPos.y,
+                  x: destPos.x,
                   scale: isDragging ? 0.85 : 1,
                   rotate: isDragging ? -2 : 0,
                 }}
@@ -129,55 +191,65 @@ export function CustomRulesIllustration() {
                   duration: 0.5,
                   ease: [0.25, 0.46, 0.45, 0.94],
                 }}
-                className="absolute flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 shadow-sm"
+                className="absolute z-10 flex items-center rounded-lg border border-gray-200 bg-white px-3 py-2.5 shadow-md"
               >
-                <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-gray-100 text-[8px] font-semibold text-gray-600">
-                  {email.from.charAt(0)}
+                {/* Checkbox and star */}
+                <div className="flex shrink-0 items-center gap-1.5 pr-3">
+                  <Square className="h-4 w-4 text-gray-300" />
+                  <Star className="h-4 w-4 text-gray-300" />
                 </div>
-                <div className="min-w-0">
-                  <div className="text-[10px] font-semibold text-gray-900">
+
+                {/* Sender */}
+                <div className="flex h-5 w-[85px] shrink-0 items-center">
+                  <span className="truncate text-[12px] font-semibold leading-none text-gray-900">
                     {email.from}
-                  </div>
-                  <div className="text-[9px] text-gray-500">
+                  </span>
+                </div>
+
+                {/* Subject and snippet */}
+                <div className="flex h-5 min-w-0 flex-1 items-center truncate">
+                  <span className="text-[12px] font-medium text-gray-900">
                     {email.subject}
-                  </div>
+                  </span>
+                  <span className="text-[12px] text-gray-500">
+                    {" "}
+                    {email.snippet}
+                  </span>
+                </div>
+
+                {/* Time */}
+                <div className="shrink-0 pl-3 text-[11px] text-gray-500">
+                  {email.time}
                 </div>
               </motion.div>
             );
           })}
         </AnimatePresence>
 
-        {/* Cursor */}
-        <AnimatePresence>
-          {draggingEmail !== null && (
-            <motion.div
-              key={`cursor-${key}-${draggingEmail}`}
-              initial={{ opacity: 0, x: 40, y: -10 }}
-              animate={{
-                opacity: 1,
-                x:
-                  getDestinationPosition(emails[draggingEmail].destination).x +
-                  50,
-                y:
-                  getDestinationPosition(emails[draggingEmail].destination).y +
-                  10,
-              }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.5, ease: [0.25, 0.46, 0.45, 0.94] }}
-              className="absolute z-20"
-            >
-              <MousePointer2 className="h-4 w-4 text-gray-700 fill-white drop-shadow-sm" />
-            </motion.div>
-          )}
-        </AnimatePresence>
+        {/* Cursor - always rendered, animated position */}
+        <motion.div
+          key={`cursor-${key}`}
+          initial={{ opacity: 0, x: cursorRestPos.x, y: cursorRestPos.y }}
+          animate={{
+            opacity: cursorPhase !== "hidden" ? 1 : 0,
+            x: cursorPos.x,
+            y: cursorPos.y,
+          }}
+          transition={{
+            duration: 0.5,
+            ease: [0.25, 0.46, 0.45, 0.94],
+          }}
+          className="absolute z-30 pointer-events-none"
+        >
+          <MousePointer2 className="h-5 w-5 text-gray-800 fill-white drop-shadow-md" />
+        </motion.div>
       </div>
 
       {/* Destination boxes */}
-      <div className="flex gap-3 mt-4">
+      <div className="flex gap-4 mt-6">
         {destinations.map((dest, index) => {
           const Icon = dest.icon;
-          const count = destinationCounts[index];
-          const justReceived =
+          const isReceiving =
             draggingEmail !== null &&
             emails[draggingEmail]?.destination === index;
 
@@ -188,26 +260,19 @@ export function CustomRulesIllustration() {
               animate={{
                 opacity: 1,
                 y: 0,
-                scale: justReceived ? 1.05 : 1,
+                scale: isReceiving ? 1.05 : 1,
+                borderColor: isReceiving ? "#9ca3af" : "#d1d5db",
               }}
               transition={{
                 duration: 0.3,
                 delay: index * 0.1,
                 ease: [0.25, 0.46, 0.45, 0.94],
               }}
-              className={`flex flex-col items-center justify-center rounded-lg border-2 border-dashed px-4 py-3 ${dest.color}`}
-              style={{ width: 85, height: 70 }}
+              className="z-0 flex flex-col items-center justify-center rounded-xl border-2 border-dashed bg-gray-50 text-gray-500 px-4 py-3"
+              style={{ width: 100, height: 80 }}
             >
-              <Icon className="h-4 w-4 mb-1" />
-              <span className="text-[9px] font-medium">{dest.name}</span>
-              <motion.span
-                key={`count-${count}`}
-                initial={{ scale: 1.3 }}
-                animate={{ scale: 1 }}
-                className="text-[10px] font-semibold mt-0.5"
-              >
-                {count}
-              </motion.span>
+              <Icon className="h-5 w-5 mb-1.5" />
+              <span className="text-[11px] font-medium">{dest.name}</span>
             </motion.div>
           );
         })}

@@ -12,8 +12,8 @@ export function StepCustomRules({
 }) {
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-slate-50 px-4">
-      <div className="flex flex-col items-center text-center max-w-md">
-        <div className="mb-6 h-[240px] flex items-end justify-center">
+      <div className="flex flex-col items-center text-center max-w-lg">
+        <div className="mb-6 h-[260px] flex items-end justify-center">
           <CustomRulesIllustration />
         </div>
 
