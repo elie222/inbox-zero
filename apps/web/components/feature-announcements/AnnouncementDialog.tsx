@@ -110,7 +110,7 @@ export function AnnouncementDialog() {
 
 export interface AnnouncementCardProps {
   announcement: Announcement;
-  onClose?: () => void;
+  onClose: () => void;
 }
 
 export function AnnouncementCard({
@@ -157,7 +157,7 @@ export function AnnouncementCard({
           {announcement.link && (
             <Link
               href={announcement.link}
-              onClick={() => onClose?.()}
+              onClick={onClose}
               className="flex flex-1 items-center justify-center rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-blue-700"
             >
               View
