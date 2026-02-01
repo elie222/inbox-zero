@@ -778,8 +778,8 @@ importers:
         specifier: ^7.1.0
         version: 7.1.0
       zod:
-        specifier: 3.25.46
-        version: 3.25.46
+        specifier: 3.25.76
+        version: 3.25.76
     devDependencies:
       '@types/node':
         specifier: 24.10.1
@@ -797,8 +797,8 @@ importers:
         specifier: 0.3.10
         version: 0.3.10
       zod:
-        specifier: 3.25.46
-        version: 3.25.46
+        specifier: 3.25.76
+        version: 3.25.76
     devDependencies:
       '@types/node':
         specifier: 24.10.1
@@ -13174,9 +13174,6 @@ packages:
   zod@3.24.3:
     resolution: {integrity: sha512-HhY1oqzWCQWuUqvBFnsyrtZRhyPeR7SUGv+C4+MsisMuVfSPx8HpwWqH8tRahSlt6M3PiFAcoeFhZAqIXTxoSg==}
 
-  zod@3.25.46:
-    resolution: {integrity: sha512-IqRxcHEIjqLd4LNS/zKffB3Jzg3NwqJxQQ0Ns7pdrvgGkwQsEBdEQcOHaBVqvvZArShRzI39+aMST3FBGmTrLQ==}
-
   zod@3.25.76:
     resolution: {integrity: sha512-gzUt/qt81nXsFGKIFcC3YnfEAx5NkunCfnDlvuBSSFS02bcXu4Lmea0AFIUwbLWxWPx3d9p8S5QoaujKcNQxcQ==}
 
@@ -20049,7 +20046,7 @@ snapshots:
       sirv: 3.0.2
       tinyglobby: 0.2.15
       tinyrainbow: 3.0.3
-      vitest: 4.0.15(@opentelemetry/api@1.9.0)(@types/node@24.10.1)(@vitest/ui@4.0.15)(jiti@2.6.1)(jsdom@26.1.0)(terser@5.44.1)(tsx@4.21.0)(yaml@2.8.1)
+      vitest: 4.0.15(@opentelemetry/api@1.9.0)(@types/node@24.10.1)(@vitest/ui@4.0.15)(jiti@2.6.1)(jsdom@27.2.0)(terser@5.44.1)(tsx@4.21.0)(yaml@2.8.1)
 
   '@vitest/utils@3.2.4':
     dependencies:
@@ -28095,8 +28092,6 @@ snapshots:
       zod: 3.25.76
 
   zod@3.24.3: {}
-
-  zod@3.25.46: {}
 
   zod@3.25.76: {}
 
