@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { StepWho } from "@/app/(app)/[emailAccountId]/new-onboarding/StepWho";
 import { StepEmailsSorted } from "@/app/(app)/[emailAccountId]/new-onboarding/StepEmailsSorted";
@@ -76,7 +76,11 @@ export function OnboardingContent({ step }: OnboardingContentProps) {
   const steps = STEP_ORDER.map((key) => stepMap[key]).filter(isDefined);
 
   const { data, mutate } = usePersona();
-  const clampedStep = Math.min(Math.max(step, 1), steps.length);
+
+  // Use local state for instant step transitions (no server round-trip)
+  const [currentStep, setCurrentStep] = useState(() =>
+    Math.min(Math.max(step, 1), steps.length),
+  );
 
   const router = useRouter();
   const analytics = useOnboardingAnalytics("onboarding");
@@ -86,15 +90,13 @@ export function OnboardingContent({ step }: OnboardingContentProps) {
   }, [analytics]);
 
   const onNext = useCallback(() => {
-    // Navigate immediately for instant feedback
-    if (clampedStep < steps.length) {
-      router.push(
-        prefixPath(emailAccountId, `/new-onboarding?step=${clampedStep + 1}`),
-      );
+    if (currentStep < steps.length) {
+      // Instant client-side transition
+      setCurrentStep((prev) => prev + 1);
       // Track analytics in background
-      analytics.onNext(clampedStep);
+      analytics.onNext(currentStep);
     } else {
-      // Final step - still need to complete onboarding action before redirect
+      // Final step - complete onboarding and redirect
       analytics.onComplete();
       markOnboardingAsCompleted(ASSISTANT_ONBOARDING_COOKIE);
       completedOnboardingAction().then(() => {
@@ -105,11 +107,11 @@ export function OnboardingContent({ step }: OnboardingContentProps) {
         }
       });
     }
-  }, [router, emailAccountId, analytics, clampedStep, steps.length, isPremium]);
+  }, [router, emailAccountId, analytics, currentStep, steps.length, isPremium]);
 
   // Trigger persona analysis on mount (first step only)
   useEffect(() => {
-    if (clampedStep === 1 && !data?.personaAnalysis) {
+    if (currentStep === 1 && !data?.personaAnalysis) {
       // Run persona analysis in the background
       analyzePersonaAction(emailAccountId)
         .then(() => {
@@ -120,9 +122,9 @@ export function OnboardingContent({ step }: OnboardingContentProps) {
           console.error("Failed to analyze persona:", error);
         });
     }
-  }, [clampedStep, emailAccountId, data?.personaAnalysis, mutate]);
+  }, [currentStep, emailAccountId, data?.personaAnalysis, mutate]);
 
-  const renderStep = steps[clampedStep - 1] || steps[0];
+  const renderStep = steps[currentStep - 1] || steps[0];
 
   // Show loading if provider is needed but not loaded yet
   if (isLoading && !provider) {
