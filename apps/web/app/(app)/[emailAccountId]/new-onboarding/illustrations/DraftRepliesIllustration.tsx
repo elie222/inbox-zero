@@ -38,7 +38,8 @@ export function DraftRepliesIllustration() {
     );
 
     return () => timeouts.forEach(clearTimeout);
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key]);
 
   return (
     <div className="flex h-[240px] w-[400px] flex-col justify-center gap-1.5">

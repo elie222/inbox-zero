@@ -83,7 +83,8 @@ export function BulkUnsubscribeIllustration() {
     );
 
     return () => timeouts.forEach(clearTimeout);
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key]);
 
   const archivedEmailCount = senders
     .slice(0, stage)
