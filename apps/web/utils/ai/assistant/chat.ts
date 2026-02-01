@@ -1,6 +1,8 @@
 import { type InferUITool, tool, type ModelMessage } from "ai";
 import { z } from "zod";
 import type { Logger } from "@/utils/logger";
+
+const emptyInputSchema = z.object({}).describe("No parameters required");
 import { createRuleSchema } from "@/utils/ai/rule/create-rule-schema";
 import prisma from "@/utils/prisma";
 import { isDuplicateError } from "@/utils/prisma-helpers";
@@ -43,7 +45,7 @@ const getUserRulesAndSettingsTool = ({
     name: "getUserRulesAndSettings",
     description:
       "Retrieve all existing rules for the user, their about information",
-    inputSchema: z.object({}),
+    inputSchema: emptyInputSchema,
     execute: async () => {
       trackToolCall({
         tool: "get_user_rules_and_settings",
