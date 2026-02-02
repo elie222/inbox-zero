@@ -11,7 +11,7 @@ qa/browser-flows/
   README.md
   _template.md
   assistant-writing-style.md
-  auto-joke-rule-cross-mailbox.md
+  to-reply-rule-outlook-to-gmail.md
   results/
     README.md
 ```
