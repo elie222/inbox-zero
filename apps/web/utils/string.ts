@@ -71,11 +71,11 @@ export function convertNewlinesToBr(text: string): string {
 export function capitalizeWords(text: string): string {
   const words = text.split(" ");
   return words
-    .map((word, index) => {
-      if (index > 0) {
-        return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
+    .map((word) => {
+      if (!word) {
+        return word;
       }
-      return word.toLowerCase();
+      return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
     })
     .join(" ");
 }
