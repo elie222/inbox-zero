@@ -67,3 +67,15 @@ export function slugify(text: string): string {
 export function convertNewlinesToBr(text: string): string {
   return text.replace(/\r\n/g, "\n").replace(/\n/g, "<br>");
 }
+
+export function capitalizeWords(text: string): string {
+  const words = text.split(" ");
+  return words
+    .map((word, index) => {
+      if (index > 0) {
+        return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
+      }
+      return word.toLowerCase();
+    })
+    .join(" ");
+}
