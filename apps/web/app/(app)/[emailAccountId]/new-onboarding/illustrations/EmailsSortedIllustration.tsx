@@ -36,7 +36,6 @@ const emails = [
 
 export function EmailsSortedIllustration() {
   const [showLabels, setShowLabels] = useState([false, false, false]);
-  const [key, setKey] = useState(0);
 
   useEffect(() => {
     const labelDelays = [1200, 1800, 2400];
@@ -54,21 +53,14 @@ export function EmailsSortedIllustration() {
       );
     });
 
-    timeouts.push(
-      setTimeout(() => {
-        setShowLabels([false, false, false]);
-        setKey((k) => k + 1);
-      }, 5000),
-    );
-
     return () => timeouts.forEach(clearTimeout);
-  }, [key]);
+  }, []);
 
   return (
     <div className="flex h-[200px] w-[420px] flex-col justify-center gap-2">
       {emails.map((email, index) => (
         <motion.div
-          key={`${key}-${email.id}`}
+          key={email.id}
           initial={{ opacity: 0, x: -20 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{

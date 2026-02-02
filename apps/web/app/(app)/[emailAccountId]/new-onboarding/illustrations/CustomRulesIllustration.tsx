@@ -61,7 +61,6 @@ export function CustomRulesIllustration() {
   const [processedEmails, setProcessedEmails] = useState<number[]>([]);
   const [cursorPhase, setCursorPhase] = useState<CursorPhase>("hidden");
   const [draggingEmail, setDraggingEmail] = useState<number | null>(null);
-  const [key, setKey] = useState(0);
 
   const emailStartPos = { x: 0, y: 0 };
   const cursorRestPos = { x: 180, y: -20 };
@@ -139,19 +138,8 @@ export function CustomRulesIllustration() {
       time += 400;
     });
 
-    timeouts.push(
-      setTimeout(() => {
-        setCurrentEmail(0);
-        setProcessedEmails([]);
-        setCursorPhase("hidden");
-        setDraggingEmail(null);
-        setKey((k) => k + 1);
-      }, time + 1200),
-    );
-
     return () => timeouts.forEach(clearTimeout);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [key]);
+  }, []);
 
   const cursorPos = getCursorPosition();
 
@@ -170,7 +158,7 @@ export function CustomRulesIllustration() {
 
             return (
               <motion.div
-                key={`email-${key}-${email.id}`}
+                key={`email-${email.id}`}
                 initial={{ opacity: 0, y: -20, scale: 0.9 }}
                 animate={{
                   opacity: 1,
@@ -216,7 +204,6 @@ export function CustomRulesIllustration() {
         </AnimatePresence>
 
         <motion.div
-          key={`cursor-${key}`}
           initial={{ opacity: 0, x: cursorRestPos.x, y: cursorRestPos.y }}
           animate={{
             opacity: cursorPhase !== "hidden" ? 1 : 0,

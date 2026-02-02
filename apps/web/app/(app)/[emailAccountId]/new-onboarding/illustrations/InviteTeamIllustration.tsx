@@ -22,7 +22,6 @@ const teamMembers = [
 
 export function InviteTeamIllustration() {
   const [showTags, setShowTags] = useState([false, false, false]);
-  const [key, setKey] = useState(0);
 
   useEffect(() => {
     const tagDelays = [400, 700, 1000];
@@ -40,21 +39,14 @@ export function InviteTeamIllustration() {
       );
     });
 
-    timeouts.push(
-      setTimeout(() => {
-        setShowTags([false, false, false]);
-        setKey((k) => k + 1);
-      }, 5000),
-    );
-
     return () => timeouts.forEach(clearTimeout);
-  }, [key]);
+  }, []);
 
   return (
     <div className="flex h-[200px] w-[360px] flex-col justify-center gap-2">
       {teamMembers.map((member, index) => (
         <motion.div
-          key={`${key}-${member.id}`}
+          key={member.id}
           initial={{ opacity: 0, x: -20 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{

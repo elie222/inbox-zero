@@ -65,7 +65,6 @@ const senders: {
 
 export function BulkUnsubscribeIllustration() {
   const [stage, setStage] = useState(0);
-  const [key, setKey] = useState(0);
 
   useEffect(() => {
     const timeouts: NodeJS.Timeout[] = [];
@@ -75,16 +74,9 @@ export function BulkUnsubscribeIllustration() {
     timeouts.push(setTimeout(() => setStage(3), 1400));
     timeouts.push(setTimeout(() => setStage(4), 1700));
     timeouts.push(setTimeout(() => setStage(5), 2000));
-    timeouts.push(
-      setTimeout(() => {
-        setStage(0);
-        setKey((k) => k + 1);
-      }, 4500),
-    );
 
     return () => timeouts.forEach(clearTimeout);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [key]);
+  }, []);
 
   const archivedEmailCount = senders
     .slice(0, stage)
@@ -105,7 +97,7 @@ export function BulkUnsubscribeIllustration() {
 
             return (
               <motion.div
-                key={`static-${key}-${email.id}`}
+                key={`static-${email.id}`}
                 initial={{ opacity: 0, y: -10, scale: 0.95 }}
                 animate={{
                   opacity: 1,
@@ -154,7 +146,7 @@ export function BulkUnsubscribeIllustration() {
 
           return (
             <motion.div
-              key={`flying-${key}-${email.id}`}
+              key={`flying-${email.id}`}
               initial={{
                 opacity: 1,
                 x: -135,

@@ -20,8 +20,7 @@ export function StepInboxProcessed({ onNext }: { onNext: () => void }) {
 
         <TypographyP className="text-muted-foreground mb-8">
           We labeled your last {ONBOARDING_PROCESS_EMAILS_COUNT} emails and
-          drafted replies where needed. Nothing was archived or sent. Your inbox
-          is ready for you to review.
+          drafted replies (nothing was archived).
           {!isPremium && (
             <>
               <br />

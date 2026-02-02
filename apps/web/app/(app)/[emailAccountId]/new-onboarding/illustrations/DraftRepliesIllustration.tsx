@@ -15,7 +15,6 @@ import {
 
 export function DraftRepliesIllustration() {
   const [stage, setStage] = useState(1);
-  const [key, setKey] = useState(0);
 
   useEffect(() => {
     const timeouts: NodeJS.Timeout[] = [];
@@ -24,21 +23,13 @@ export function DraftRepliesIllustration() {
     timeouts.push(setTimeout(() => setStage(3), 1400));
     timeouts.push(setTimeout(() => setStage(4), 2000));
     timeouts.push(setTimeout(() => setStage(5), 2600));
-    timeouts.push(
-      setTimeout(() => {
-        setStage(1);
-        setKey((k) => k + 1);
-      }, 5500),
-    );
 
     return () => timeouts.forEach(clearTimeout);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [key]);
+  }, []);
 
   return (
     <div className="flex h-[240px] w-[400px] flex-col justify-center gap-1.5">
       <motion.div
-        key={`email-${key}`}
         initial={{ opacity: 0, x: -20 }}
         animate={{ opacity: 1, x: 0 }}
         transition={{ duration: 0.4, ease: [0.25, 0.46, 0.45, 0.94] }}
@@ -65,7 +56,6 @@ export function DraftRepliesIllustration() {
       </motion.div>
 
       <motion.div
-        key={`compose-${key}`}
         initial={{ opacity: 0, height: 0 }}
         animate={{
           opacity: stage >= 2 ? 1 : 0,
