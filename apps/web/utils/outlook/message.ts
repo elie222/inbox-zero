@@ -36,21 +36,20 @@ export async function getFolderIds(client: OutlookClient, logger: Logger) {
 
   const wellKnownFolders = await Promise.all(
     Object.entries(WELL_KNOWN_FOLDERS).map(async ([key, folderName]) => {
-      try {
-        const response: { id?: string } = await withOutlookRetry(
-          () =>
-            client
-              .getClient()
-              .api(`/me/mailFolders/${folderName}`)
-              .select("id")
-              .get(),
-          logger,
-        );
-        return [key, response.id ?? null] as [string, string | null];
-      } catch (error) {
+      const response: { id?: string | null } = await withOutlookRetry(
+        () =>
+          client
+            .getClient()
+            .api(`/me/mailFolders/${folderName}`)
+            .select("id")
+            .get(),
+        logger,
+      ).catch((error) => {
         logWellKnownFolderFetchError(logger, folderName, error);
-        return [key, null] as [string, string | null];
-      }
+        return { id: null };
+      });
+
+      return [key, response.id ?? null] as [string, string | null];
     }),
   );
 
