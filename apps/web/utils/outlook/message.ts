@@ -34,24 +34,25 @@ export async function getFolderIds(client: OutlookClient, logger: Logger) {
   const cachedFolderIds = client.getFolderIdCache();
   if (cachedFolderIds) return cachedFolderIds;
 
-  const wellKnownFolders: Array<[string, string | null]> = [];
-  for (const [key, folderName] of Object.entries(WELL_KNOWN_FOLDERS)) {
-    try {
-      const response: { id?: string } = await withOutlookRetry(
-        () =>
-          client
-            .getClient()
-            .api(`/me/mailFolders/${folderName}`)
-            .select("id")
-            .get(),
-        logger,
-      );
-      wellKnownFolders.push([key, response.id ?? null]);
-    } catch (error) {
-      logWellKnownFolderFetchError(logger, folderName, error);
-      wellKnownFolders.push([key, null]);
-    }
-  }
+  const wellKnownFolders = await Promise.all(
+    Object.entries(WELL_KNOWN_FOLDERS).map(async ([key, folderName]) => {
+      try {
+        const response: { id?: string } = await withOutlookRetry(
+          () =>
+            client
+              .getClient()
+              .api(`/me/mailFolders/${folderName}`)
+              .select("id")
+              .get(),
+          logger,
+        );
+        return [key, response.id ?? null] as [string, string | null];
+      } catch (error) {
+        logWellKnownFolderFetchError(logger, folderName, error);
+        return [key, null] as [string, string | null];
+      }
+    }),
+  );
 
   const userFolderIds = wellKnownFolders.reduce(
     (acc, [key, id]) => {
