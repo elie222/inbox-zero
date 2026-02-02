@@ -61,6 +61,7 @@ export function CustomRulesIllustration() {
   const [processedEmails, setProcessedEmails] = useState<number[]>([]);
   const [cursorPhase, setCursorPhase] = useState<CursorPhase>("hidden");
   const [draggingEmail, setDraggingEmail] = useState<number | null>(null);
+  const [animationKey, setAnimationKey] = useState(0);
 
   const emailStartPos = { x: 0, y: 0 };
   const cursorRestPos = { x: 180, y: -20 };
@@ -96,6 +97,11 @@ export function CustomRulesIllustration() {
   };
 
   useEffect(() => {
+    setCurrentEmail(0);
+    setProcessedEmails([]);
+    setCursorPhase("hidden");
+    setDraggingEmail(null);
+
     const timeouts: NodeJS.Timeout[] = [];
     let time = 400;
 
@@ -138,8 +144,14 @@ export function CustomRulesIllustration() {
       time += 400;
     });
 
+    timeouts.push(
+      setTimeout(() => {
+        setAnimationKey((prev) => prev + 1);
+      }, time + 1500),
+    );
+
     return () => timeouts.forEach(clearTimeout);
-  }, []);
+  }, [animationKey]);
 
   const cursorPos = getCursorPosition();
 

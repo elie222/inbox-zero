@@ -1,7 +1,8 @@
 "use client";
 
+import { ArrowRightIcon } from "lucide-react";
 import { PageHeading, TypographyP } from "@/components/Typography";
-import { ContinueButton } from "@/app/(app)/[emailAccountId]/new-onboarding/ContinueButton";
+import { Button } from "@/components/ui/button";
 import { CustomRulesIllustration } from "@/app/(app)/[emailAccountId]/new-onboarding/illustrations/CustomRulesIllustration";
 
 export function StepCustomRules({
@@ -24,7 +25,12 @@ export function StepCustomRules({
           assistant can handle any email workflow you'd give to a human.
         </TypographyP>
 
-        <ContinueButton onClick={onNext} />
+        <div className="flex flex-col gap-2 w-full max-w-xs">
+          <Button className="w-full" onClick={onNext}>
+            Continue
+            <ArrowRightIcon className="size-4 ml-2" />
+          </Button>
+        </div>
       </div>
     </div>
   );

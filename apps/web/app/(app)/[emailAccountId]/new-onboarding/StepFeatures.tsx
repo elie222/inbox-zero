@@ -95,25 +95,26 @@ export function StepFeatures({ onNext }: { onNext: () => void }) {
           ))}
         </div>
 
-        <Button
-          type="button"
-          size="sm"
-          className="mt-6"
-          onClick={() => {
-            // Get all selected features (only the ones that are true)
-            const features = Array.from(selectedChoices.entries())
-              .filter(([_, isSelected]) => isSelected)
-              .map(([label]) => label);
+        <div className="flex flex-col gap-2 w-full max-w-xs mt-6 mx-auto">
+          <Button
+            type="button"
+            className="w-full"
+            onClick={() => {
+              // Get all selected features (only the ones that are true)
+              const features = Array.from(selectedChoices.entries())
+                .filter(([_, isSelected]) => isSelected)
+                .map(([label]) => label);
 
-            // Fire and forget - don't block navigation
-            saveOnboardingFeaturesAction({ features });
+              // Fire and forget - don't block navigation
+              saveOnboardingFeaturesAction({ features });
 
-            onNext();
-          }}
-        >
-          Continue
-          <ArrowRightIcon className="size-4 ml-2" />
-        </Button>
+              onNext();
+            }}
+          >
+            Continue
+            <ArrowRightIcon className="size-4 ml-2" />
+          </Button>
+        </div>
       </div>
     </OnboardingWrapper>
   );

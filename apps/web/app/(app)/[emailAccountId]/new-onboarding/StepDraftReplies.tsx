@@ -1,7 +1,8 @@
 "use client";
 
+import { ArrowRightIcon } from "lucide-react";
 import { PageHeading, TypographyP } from "@/components/Typography";
-import { ContinueButton } from "@/app/(app)/[emailAccountId]/new-onboarding/ContinueButton";
+import { Button } from "@/components/ui/button";
 import { DraftRepliesIllustration } from "@/app/(app)/[emailAccountId]/new-onboarding/illustrations/DraftRepliesIllustration";
 
 export function StepDraftReplies({ onNext }: { onNext: () => void }) {
@@ -19,7 +20,12 @@ export function StepDraftReplies({ onNext }: { onNext: () => void }) {
           pre-drafted reply in your tone, ready for you to send.
         </TypographyP>
 
-        <ContinueButton onClick={onNext} />
+        <div className="flex flex-col gap-2 w-full max-w-xs">
+          <Button className="w-full" onClick={onNext}>
+            Continue
+            <ArrowRightIcon className="size-4 ml-2" />
+          </Button>
+        </div>
       </div>
     </div>
   );

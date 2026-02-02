@@ -1,10 +1,9 @@
 "use client";
 
-import { MailsIcon } from "lucide-react";
+import { ArrowRightIcon, MailsIcon } from "lucide-react";
 import { PageHeading, TypographyP } from "@/components/Typography";
 import { IconCircle } from "@/app/(app)/[emailAccountId]/new-onboarding/IconCircle";
 import { OnboardingWrapper } from "@/app/(app)/[emailAccountId]/new-onboarding/OnboardingWrapper";
-import { ContinueButton } from "@/app/(app)/[emailAccountId]/new-onboarding/ContinueButton";
 import { DigestScheduleForm } from "@/app/(app)/[emailAccountId]/settings/DigestScheduleForm";
 import { OnboardingImagePreview } from "@/app/(app)/[emailAccountId]/new-onboarding/ImagePreview";
 import { Button } from "@/components/ui/button";
@@ -28,12 +27,14 @@ export function StepDigest({ onNext }: { onNext: () => void }) {
         {/* <DigestItemsForm showSaveButton={false} /> */}
         <DigestScheduleForm showSaveButton={false} />
 
-        <div className="flex justify-center mt-8 gap-2">
-          <Button variant="outline" size="sm" onClick={onNext}>
-            Skip for now
+        <div className="flex flex-col gap-2 w-full max-w-xs mt-8 mx-auto">
+          <Button className="w-full" onClick={onNext}>
+            Continue
+            <ArrowRightIcon className="size-4 ml-2" />
           </Button>
-
-          <ContinueButton onClick={onNext} />
+          <Button variant="ghost" className="w-full" onClick={onNext}>
+            Skip
+          </Button>
         </div>
       </OnboardingWrapper>
 

@@ -37,7 +37,8 @@ import {
 } from "@/app/(app)/[emailAccountId]/new-onboarding/IconCircle";
 import { LoadingContent } from "@/components/LoadingContent";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ContinueButton } from "@/app/(app)/[emailAccountId]/new-onboarding/ContinueButton";
+import { ArrowRightIcon } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/utils";
 import { TooltipExplanation } from "@/components/TooltipExplanation";
 import {
@@ -184,8 +185,11 @@ export function CategoriesSetup({
         )}
       </LoadingContent>
 
-      <div className="flex justify-center mt-8">
-        <ContinueButton type="submit" onClick={onSubmit} />
+      <div className="flex flex-col gap-2 w-full max-w-xs mt-8 mx-auto">
+        <Button type="submit" className="w-full" onClick={onSubmit}>
+          Continue
+          <ArrowRightIcon className="size-4 ml-2" />
+        </Button>
       </div>
     </div>
   );

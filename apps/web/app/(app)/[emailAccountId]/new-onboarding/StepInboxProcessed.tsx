@@ -1,7 +1,8 @@
 "use client";
 
+import { ArrowRightIcon } from "lucide-react";
 import { PageHeading, TypographyP } from "@/components/Typography";
-import { ContinueButton } from "@/app/(app)/[emailAccountId]/new-onboarding/ContinueButton";
+import { Button } from "@/components/ui/button";
 import { InboxReadyIllustration } from "@/app/(app)/[emailAccountId]/new-onboarding/illustrations/InboxReadyIllustration";
 import { ONBOARDING_PROCESS_EMAILS_COUNT } from "@/utils/config";
 import { usePremium } from "@/components/PremiumAlert";
@@ -30,7 +31,12 @@ export function StepInboxProcessed({ onNext }: { onNext: () => void }) {
           )}
         </TypographyP>
 
-        <ContinueButton onClick={onNext} />
+        <div className="flex flex-col gap-2 w-full max-w-xs">
+          <Button className="w-full" onClick={onNext}>
+            Continue
+            <ArrowRightIcon className="size-4 ml-2" />
+          </Button>
+        </div>
       </div>
     </div>
   );
