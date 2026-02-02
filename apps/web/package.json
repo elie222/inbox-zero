@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "cross-env NODE_OPTIONS=--max_old_space_size=16384 next dev --turbopack",
     "dev:e2e": "dotenv -e .env.e2e -- cross-env NODE_OPTIONS=--max_old_space_size=16384 next dev --turbopack",
-    "build": "cross-env NODE_OPTIONS=--max_old_space_size=16384 prisma migrate deploy && next build",
+    "build": "cross-env NODE_OPTIONS=--max_old_space_size=16384 prisma migrate deploy --schema=./prisma && next build",
     "start": "next start",
     "start:standalone": "node .next/standalone/server.js",
     "lint": "biome check .",
@@ -14,14 +14,15 @@
     "test-ai": "cross-env RUN_AI_TESTS=true vitest --run",
     "test-e2e": "cross-env RUN_E2E_TESTS=true vitest --run",
     "test-e2e:flows": "cross-env RUN_E2E_FLOW_TESTS=true vitest --run --dir __tests__/e2e/flows --no-file-parallelism",
-    "prisma:migrate:e2e": "dotenv -e .env.e2e -- prisma migrate deploy",
-    "prisma:migrate:local": "dotenv-cli -e .env.local -- prisma migrate deploy",
+    "prisma:migrate:e2e": "dotenv -e .env.e2e -- prisma migrate deploy --schema=./prisma",
+    "prisma:migrate:local": "dotenv-cli -e .env.local -- prisma migrate deploy --schema=./prisma",
     "preinstall": "npx only-allow pnpm",
-    "postinstall": "prisma generate"
+    "postinstall": "prisma generate --schema=./prisma"
   },
   "dependencies": {
     "@ai-sdk/amazon-bedrock": "4.0.45",
     "@ai-sdk/anthropic": "3.0.34",
+    "@ai-sdk/devtools": "0.0.11",
     "@ai-sdk/gateway": "3.0.31",
     "@ai-sdk/google": "3.0.19",
     "@ai-sdk/groq": "3.0.20",

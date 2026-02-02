@@ -103,6 +103,9 @@ importers:
       '@ai-sdk/anthropic':
         specifier: 3.0.34
         version: 3.0.34(zod@3.25.76)
+      '@ai-sdk/devtools':
+        specifier: 0.0.11
+        version: 0.0.11
       '@ai-sdk/gateway':
         specifier: 3.0.31
         version: 3.0.31(zod@3.25.76)
@@ -844,6 +847,10 @@ packages:
     peerDependencies:
       zod: ^3.25.76 || ^4.1.8
 
+  '@ai-sdk/devtools@0.0.11':
+    resolution: {integrity: sha512-hQwVi+ZJy9aqlGG9ZDUNBum4wKtSfXP5o9Taa7nLC2kzSG+c37C8ke62p3HKpAXLNBNcTSu/hSdXqap/AnXVFQ==}
+    hasBin: true
+
   '@ai-sdk/gateway@3.0.31':
     resolution: {integrity: sha512-WActnxPeW46XcfZWWEcJ1FytpjCtKQEo25WZVa2xZSf+u2FgSNVt/dXIvlSZetPnXo6T2P/GhFAPBULMN6siRA==}
     engines: {node: '>=18'}
@@ -892,6 +899,10 @@ packages:
 
   '@ai-sdk/provider@3.0.6':
     resolution: {integrity: sha512-hSfoJtLtpMd7YxKM+iTqlJ0ZB+kJ83WESMiWuWrNVey3X8gg97x0OdAAaeAeclZByCX3UdPOTqhvJdK8qYA3ww==}
+    engines: {node: '>=18'}
+
+  '@ai-sdk/provider@3.0.7':
+    resolution: {integrity: sha512-VkPLrutM6VdA924/mG8OS+5frbVTcu6e046D2bgDo00tehBANR1QBJ/mPcZ9tXMFOsVcm6SQArOregxePzTFPw==}
     engines: {node: '>=18'}
 
   '@ai-sdk/react@3.0.68':
@@ -13251,6 +13262,12 @@ snapshots:
       '@ai-sdk/provider-utils': 4.0.12(zod@3.25.76)
       zod: 3.25.76
 
+  '@ai-sdk/devtools@0.0.11':
+    dependencies:
+      '@ai-sdk/provider': 3.0.7
+      '@hono/node-server': 1.19.9(hono@4.11.4)
+      hono: 4.11.4
+
   '@ai-sdk/gateway@3.0.31(zod@3.25.76)':
     dependencies:
       '@ai-sdk/provider': 3.0.6
@@ -13301,6 +13318,10 @@ snapshots:
       json-schema: 0.4.0
 
   '@ai-sdk/provider@3.0.6':
+    dependencies:
+      json-schema: 0.4.0
+
+  '@ai-sdk/provider@3.0.7':
     dependencies:
       json-schema: 0.4.0
 
@@ -20046,7 +20067,7 @@ snapshots:
       sirv: 3.0.2
       tinyglobby: 0.2.15
       tinyrainbow: 3.0.3
-      vitest: 4.0.15(@opentelemetry/api@1.9.0)(@types/node@24.10.1)(@vitest/ui@4.0.15)(jiti@2.6.1)(jsdom@27.2.0)(terser@5.44.1)(tsx@4.21.0)(yaml@2.8.1)
+      vitest: 4.0.15(@opentelemetry/api@1.9.0)(@types/node@24.10.1)(@vitest/ui@4.0.15)(jiti@2.6.1)(jsdom@26.1.0)(terser@5.44.1)(tsx@4.21.0)(yaml@2.8.1)
 
   '@vitest/utils@3.2.4':
     dependencies:
