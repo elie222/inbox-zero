@@ -69,11 +69,11 @@ export function BulkUnsubscribeIllustration() {
   useEffect(() => {
     const timeouts: NodeJS.Timeout[] = [];
 
-    timeouts.push(setTimeout(() => setStage(1), 800));
-    timeouts.push(setTimeout(() => setStage(2), 1100));
-    timeouts.push(setTimeout(() => setStage(3), 1400));
-    timeouts.push(setTimeout(() => setStage(4), 1700));
-    timeouts.push(setTimeout(() => setStage(5), 2000));
+    timeouts.push(setTimeout(() => setStage(1), 1200));
+    timeouts.push(setTimeout(() => setStage(2), 2000));
+    timeouts.push(setTimeout(() => setStage(3), 2800));
+    timeouts.push(setTimeout(() => setStage(4), 3600));
+    timeouts.push(setTimeout(() => setStage(5), 4400));
 
     return () => timeouts.forEach(clearTimeout);
   }, []);
@@ -162,7 +162,7 @@ export function BulkUnsubscribeIllustration() {
                 rotate: 0,
               }}
               transition={{
-                duration: 0.4,
+                duration: 0.6,
                 ease: [0.25, 0.46, 0.45, 0.94],
               }}
               className="absolute left-1/2 top-1/2 z-20 flex w-[126px] items-center gap-1.5 rounded border border-gray-200 bg-white px-2 py-1.5 shadow-sm dark:border-gray-600 dark:bg-slate-700"
@@ -214,7 +214,7 @@ export function BulkUnsubscribeIllustration() {
           <Archive className="mb-2 h-5 w-5 text-gray-400" />
           <motion.div
             key={archivedEmailCount}
-            initial={{ scale: 1.1 }}
+            initial={archivedEmailCount > 0 ? { scale: 1.1 } : false}
             animate={{ scale: 1 }}
             className="text-[11px] font-medium text-gray-600 dark:text-gray-300"
           >
