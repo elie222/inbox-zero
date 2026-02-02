@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useCallback } from "react";
-import { ArrowRightIcon } from "lucide-react";
+import { motion } from "framer-motion";
+import { ArrowRightIcon, UsersIcon } from "lucide-react";
 import { PageHeading, TypographyP } from "@/components/Typography";
 import { Button } from "@/components/ui/button";
 import { TagInput } from "@/components/TagInput";
@@ -11,7 +12,7 @@ import {
   createOrganizationAndInviteAction,
 } from "@/utils/actions/organization";
 import { isValidEmail } from "@/utils/email";
-import { InviteTeamIllustration } from "@/app/(app)/[emailAccountId]/new-onboarding/illustrations/InviteTeamIllustration";
+import { IconCircle } from "@/app/(app)/[emailAccountId]/onboarding/IconCircle";
 
 export function StepInviteTeam({
   emailAccountId,
@@ -114,9 +115,19 @@ export function StepInviteTeam({
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-slate-50 px-4">
       <div className="flex flex-col items-center text-center max-w-md">
-        <div className="mb-6 h-[240px] flex items-end justify-center">
-          <InviteTeamIllustration />
-        </div>
+        <motion.div
+          initial={{ opacity: 0, scale: 0.8 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{
+            duration: 0.5,
+            ease: [0.25, 0.46, 0.45, 0.94],
+          }}
+          className="mb-6"
+        >
+          <IconCircle size="lg">
+            <UsersIcon className="size-6" />
+          </IconCircle>
+        </motion.div>
 
         <PageHeading className="mb-3">Invite your team</PageHeading>
         <TypographyP className="text-muted-foreground mb-6">

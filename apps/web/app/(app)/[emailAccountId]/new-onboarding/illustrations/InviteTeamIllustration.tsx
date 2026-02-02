@@ -1,47 +1,23 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { Send } from "lucide-react";
+import { UsersIcon } from "lucide-react";
+import { IconCircle } from "@/app/(app)/[emailAccountId]/onboarding/IconCircle";
 
 export function InviteTeamIllustration() {
   return (
-    <div className="relative flex h-[200px] w-[360px] items-center justify-center">
-      {/* Expanding rings */}
-      {[0, 1, 2].map((i) => (
-        <motion.div
-          key={i}
-          className="absolute rounded-full border border-gray-200"
-          initial={{ width: 40, height: 40, opacity: 0 }}
-          animate={{ width: 180, height: 180, opacity: [0, 0.5, 0] }}
-          transition={{
-            duration: 2.5,
-            delay: i * 0.8,
-            repeat: Number.POSITIVE_INFINITY,
-            ease: "easeOut",
-          }}
-        />
-      ))}
-
-      {/* Paper airplane */}
+    <div className="flex items-center justify-center">
       <motion.div
-        initial={{ opacity: 0, scale: 0.5, x: -30, y: 30 }}
-        animate={{ opacity: 1, scale: 1, x: 0, y: 0 }}
+        initial={{ opacity: 0, scale: 0.8 }}
+        animate={{ opacity: 1, scale: 1 }}
         transition={{
-          duration: 0.8,
+          duration: 0.5,
           ease: [0.25, 0.46, 0.45, 0.94],
         }}
-        className="relative z-10"
       >
-        <motion.div
-          animate={{ y: [-2, 2, -2] }}
-          transition={{
-            duration: 3,
-            repeat: Number.POSITIVE_INFINITY,
-            ease: "easeInOut",
-          }}
-        >
-          <Send className="h-20 w-20 text-gray-400" />
-        </motion.div>
+        <IconCircle size="lg">
+          <UsersIcon className="size-6" />
+        </IconCircle>
       </motion.div>
     </div>
   );
