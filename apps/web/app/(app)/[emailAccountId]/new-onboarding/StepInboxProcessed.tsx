@@ -4,8 +4,11 @@ import { PageHeading, TypographyP } from "@/components/Typography";
 import { ContinueButton } from "@/app/(app)/[emailAccountId]/new-onboarding/ContinueButton";
 import { InboxReadyIllustration } from "@/app/(app)/[emailAccountId]/new-onboarding/illustrations/InboxReadyIllustration";
 import { ONBOARDING_PROCESS_EMAILS_COUNT } from "@/utils/config";
+import { usePremium } from "@/components/PremiumAlert";
 
 export function StepInboxProcessed({ onNext }: { onNext: () => void }) {
+  const { isPremium } = usePremium();
+
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-slate-50 px-4">
       <div className="flex flex-col items-center text-center max-w-md">
@@ -19,6 +22,13 @@ export function StepInboxProcessed({ onNext }: { onNext: () => void }) {
           We labeled your last {ONBOARDING_PROCESS_EMAILS_COUNT} emails and
           drafted replies where needed. Nothing was archived or sent. Your inbox
           is ready for you to review.
+          {!isPremium && (
+            <>
+              <br />
+              To have incoming emails processed automatically, you'll need to
+              upgrade.
+            </>
+          )}
         </TypographyP>
 
         <ContinueButton onClick={onNext} />

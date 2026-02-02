@@ -20,12 +20,6 @@ export function DraftRepliesIllustration() {
   useEffect(() => {
     const timeouts: NodeJS.Timeout[] = [];
 
-    // Stage 1: Email visible (immediate)
-    // Stage 2: Reply box appears
-    // Stage 3: Draft text starts appearing
-    // Stage 4: More draft text
-    // Stage 5: Send button pulse
-
     timeouts.push(setTimeout(() => setStage(2), 800));
     timeouts.push(setTimeout(() => setStage(3), 1400));
     timeouts.push(setTimeout(() => setStage(4), 2000));
@@ -43,7 +37,6 @@ export function DraftRepliesIllustration() {
 
   return (
     <div className="flex h-[240px] w-[400px] flex-col justify-center gap-1.5">
-      {/* Received email */}
       <motion.div
         key={`email-${key}`}
         initial={{ opacity: 0, x: -20 }}
@@ -51,7 +44,6 @@ export function DraftRepliesIllustration() {
         transition={{ duration: 0.4, ease: [0.25, 0.46, 0.45, 0.94] }}
         className="rounded-lg border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-slate-800"
       >
-        {/* Email header */}
         <div className="flex items-center gap-2 px-3 py-2">
           <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-pink-100 text-[9px] font-semibold text-pink-600">
             SC
@@ -66,14 +58,12 @@ export function DraftRepliesIllustration() {
           </div>
         </div>
 
-        {/* Email body */}
         <div className="px-3 pb-2 text-left text-[10px] leading-relaxed text-gray-700 dark:text-gray-300">
           Hi John, I wanted to follow up on the project timeline. When would be
           a good time to discuss the next steps?
         </div>
       </motion.div>
 
-      {/* Reply compose box */}
       <motion.div
         key={`compose-${key}`}
         initial={{ opacity: 0, height: 0 }}
@@ -84,7 +74,6 @@ export function DraftRepliesIllustration() {
         transition={{ duration: 0.4, ease: [0.25, 0.46, 0.45, 0.94] }}
         className="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-slate-800"
       >
-        {/* Reply header */}
         <div className="flex items-center gap-1 border-b border-gray-100 px-3 py-1.5 dark:border-gray-700">
           <Reply className="h-3 w-3 text-gray-500" />
           <ChevronDown className="h-2.5 w-2.5 text-gray-400" />
@@ -93,7 +82,6 @@ export function DraftRepliesIllustration() {
           </span>
         </div>
 
-        {/* Compose body */}
         <div className="px-3 py-2">
           <motion.div
             initial={{ opacity: 0 }}
@@ -118,7 +106,6 @@ export function DraftRepliesIllustration() {
           </motion.div>
         </div>
 
-        {/* Compose toolbar */}
         <div className="flex items-center justify-between border-t border-gray-100 px-2 py-2 dark:border-gray-700">
           <div className="flex items-center gap-1">
             <button

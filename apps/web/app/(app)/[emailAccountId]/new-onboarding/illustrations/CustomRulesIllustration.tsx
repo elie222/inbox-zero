@@ -100,7 +100,6 @@ export function CustomRulesIllustration() {
     const timeouts: NodeJS.Timeout[] = [];
     let time = 400;
 
-    // Show first email
     timeouts.push(
       setTimeout(() => {
         setCurrentEmail(0);
@@ -109,7 +108,6 @@ export function CustomRulesIllustration() {
     time += 500;
 
     emails.forEach((email, index) => {
-      // Cursor moves to email
       timeouts.push(
         setTimeout(() => {
           setCursorPhase("moving-to-email");
@@ -117,7 +115,6 @@ export function CustomRulesIllustration() {
       );
       time += 400;
 
-      // Start dragging
       timeouts.push(
         setTimeout(() => {
           setDraggingEmail(index);
@@ -126,13 +123,11 @@ export function CustomRulesIllustration() {
       );
       time += 600;
 
-      // Drop email
       timeouts.push(
         setTimeout(() => {
           setProcessedEmails((prev) => [...prev, index]);
           setDraggingEmail(null);
 
-          // If there's a next email, move cursor back
           if (index < emails.length - 1) {
             setCursorPhase("returning");
             setCurrentEmail(index + 1);
@@ -144,7 +139,6 @@ export function CustomRulesIllustration() {
       time += 400;
     });
 
-    // Reset
     timeouts.push(
       setTimeout(() => {
         setCurrentEmail(0);
@@ -163,7 +157,6 @@ export function CustomRulesIllustration() {
 
   return (
     <div className="relative flex h-[220px] w-[480px] flex-col items-center">
-      {/* Email cards at top */}
       <div className="relative h-[70px] w-full flex items-center justify-center">
         <AnimatePresence mode="popLayout">
           {emails.map((email, index) => {
@@ -193,20 +186,17 @@ export function CustomRulesIllustration() {
                 }}
                 className="absolute z-10 flex items-center rounded-lg border border-gray-200 bg-white px-3 py-2.5 shadow-md"
               >
-                {/* Checkbox and star */}
                 <div className="flex shrink-0 items-center gap-1.5 pr-3">
                   <Square className="h-4 w-4 text-gray-300" />
                   <Star className="h-4 w-4 text-gray-300" />
                 </div>
 
-                {/* Sender */}
                 <div className="flex h-5 w-[85px] shrink-0 items-center">
                   <span className="truncate text-[12px] font-semibold leading-none text-gray-900">
                     {email.from}
                   </span>
                 </div>
 
-                {/* Subject and snippet */}
                 <div className="flex h-5 min-w-0 flex-1 items-center truncate">
                   <span className="text-[12px] font-medium text-gray-900">
                     {email.subject}
@@ -217,7 +207,6 @@ export function CustomRulesIllustration() {
                   </span>
                 </div>
 
-                {/* Time */}
                 <div className="shrink-0 pl-3 text-[11px] text-gray-500">
                   {email.time}
                 </div>
@@ -226,7 +215,6 @@ export function CustomRulesIllustration() {
           })}
         </AnimatePresence>
 
-        {/* Cursor - always rendered, animated position */}
         <motion.div
           key={`cursor-${key}`}
           initial={{ opacity: 0, x: cursorRestPos.x, y: cursorRestPos.y }}
@@ -245,7 +233,6 @@ export function CustomRulesIllustration() {
         </motion.div>
       </div>
 
-      {/* Destination boxes */}
       <div className="flex gap-4 mt-6">
         {destinations.map((dest, index) => {
           const Icon = dest.icon;

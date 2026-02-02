@@ -78,20 +78,17 @@ export function EmailsSortedIllustration() {
           }}
           className="flex items-center rounded-lg border border-gray-200 bg-white px-3 py-2.5 shadow-sm dark:border-gray-700 dark:bg-slate-800"
         >
-          {/* Checkbox and star */}
           <div className="flex shrink-0 items-center gap-1.5 pr-3">
             <Square className="h-4 w-4 text-gray-300 dark:text-gray-600" />
             <Star className="h-4 w-4 text-gray-300 dark:text-gray-600" />
           </div>
 
-          {/* Sender */}
           <div className="flex h-5 w-[90px] shrink-0 items-center">
             <span className="truncate text-[12px] font-semibold leading-none text-gray-900 dark:text-gray-100">
               {email.from}
             </span>
           </div>
 
-          {/* Label */}
           <div className="flex h-5 shrink-0 items-center px-2">
             <motion.span
               initial={{ opacity: 0, scale: 0.8 }}
@@ -109,7 +106,6 @@ export function EmailsSortedIllustration() {
             </motion.span>
           </div>
 
-          {/* Subject and snippet */}
           <div className="flex h-5 min-w-0 flex-1 items-center truncate">
             <span className="text-[12px] font-medium text-gray-900 dark:text-gray-100">
               {email.subject}
@@ -120,7 +116,6 @@ export function EmailsSortedIllustration() {
             </span>
           </div>
 
-          {/* Time */}
           <div className="shrink-0 pl-3 text-[11px] text-gray-500 dark:text-gray-400">
             {email.time}
           </div>

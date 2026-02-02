@@ -92,7 +92,6 @@ export function BulkUnsubscribeIllustration() {
 
   return (
     <div className="relative flex h-[200px] w-[420px] items-center justify-center gap-6">
-      {/* Inbox card */}
       <div className="relative z-10 flex h-[160px] w-[150px] flex-col rounded-lg border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-slate-800">
         <div className="border-b border-gray-100 px-3 py-2 dark:border-gray-700">
           <div className="text-[10px] font-medium text-gray-600 dark:text-gray-300">
@@ -100,7 +99,6 @@ export function BulkUnsubscribeIllustration() {
           </div>
         </div>
         <div className="relative flex-1 p-2">
-          {/* Static senders (not animating out) */}
           {senders.map((email, index) => {
             const isArchived = index < stage;
             if (isArchived) return null;
@@ -137,7 +135,6 @@ export function BulkUnsubscribeIllustration() {
             );
           })}
 
-          {/* All clean state */}
           {stage === 5 && (
             <motion.div
               initial={{ opacity: 0, scale: 0.9 }}
@@ -150,7 +147,6 @@ export function BulkUnsubscribeIllustration() {
         </div>
       </div>
 
-      {/* Animating senders layer - renders above cards */}
       <AnimatePresence>
         {senders.map((email, index) => {
           const isAnimatingOut = index === stage - 1 && stage > 0;
@@ -194,7 +190,6 @@ export function BulkUnsubscribeIllustration() {
         })}
       </AnimatePresence>
 
-      {/* Arrow */}
       <motion.div
         initial={{ opacity: 0.3 }}
         animate={{ opacity: stage > 0 ? 1 : 0.3 }}
@@ -211,7 +206,6 @@ export function BulkUnsubscribeIllustration() {
         </svg>
       </motion.div>
 
-      {/* Archive card */}
       <div className="relative z-10 flex h-[160px] w-[150px] flex-col rounded-lg border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-slate-800">
         <div className="border-b border-gray-100 px-3 py-2 dark:border-gray-700">
           <div className="text-[10px] font-medium text-gray-600 dark:text-gray-300">
