@@ -545,7 +545,14 @@ export async function queryMessagesWithAttachments(
         logger,
       );
 
-    const messages = await convertMessages(response.value, {}, categoryMap);
+    // Sort in memory for consistent ordering across all pages
+    const sortedMessages = response.value.sort((a, b) => {
+      const dateA = new Date(a.receivedDateTime || 0).getTime();
+      const dateB = new Date(b.receivedDateTime || 0).getTime();
+      return dateB - dateA;
+    });
+
+    const messages = await convertMessages(sortedMessages, {}, categoryMap);
     return { messages, nextPageToken: response["@odata.nextLink"] };
   }
 
