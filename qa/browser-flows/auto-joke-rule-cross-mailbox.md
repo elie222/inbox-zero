@@ -2,10 +2,17 @@
 id: auto-joke-rule-cross-mailbox
 title: "Auto-joke rule applies label in Outlook"
 description: "Create a rule in Inbox Zero, send a Gmail message to Outlook, and verify the expected label is applied."
+category: integration
+estimated_duration: 180s
 resources:
   - conversation-rules
   - gmail-account
   - outlook-account
+requires:
+  - authenticated_session
+  - gmail_account
+  - outlook_account
+conflicts_with: []
 parallel_safe: false
 timeout_minutes: 25
 preconditions:
@@ -40,6 +47,12 @@ Validate that a new conversation rule triggers the correct automated response an
 - The Gmail message arrives in Outlook.
 - The Outlook message has the expected "Joke" label/category applied.
 - (Optional) An auto-reply containing a joke is sent.
+
+## Failure indicators
+
+- Rule save fails or the rule is missing after refresh.
+- Outlook message arrives without the expected label/category.
+- No auto-reply is sent after the normal wait window.
 
 ## Cleanup
 

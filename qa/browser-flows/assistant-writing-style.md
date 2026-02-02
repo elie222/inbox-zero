@@ -2,8 +2,13 @@
 id: assistant-writing-style
 title: "Assistant writing style persists"
 description: "Verify that changing the Assistant writing style persists after saving and refreshing."
+category: settings
+estimated_duration: 60s
 resources:
   - assistant-settings
+requires:
+  - authenticated_session
+conflicts_with: []
 parallel_safe: false
 timeout_minutes: 10
 preconditions:
@@ -30,6 +35,11 @@ Ensure writing style changes are saved and persist across a page refresh.
 
 - Save completes without error.
 - After refresh, the writing style remains the new value.
+
+## Failure indicators
+
+- Save action shows an error or warning.
+- Writing style reverts after refresh.
 
 ## Cleanup
 

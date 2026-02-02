@@ -2,8 +2,13 @@
 id: flow-id
 title: "Short flow title"
 description: "What this flow validates in 1-2 sentences."
+category: settings
+estimated_duration: 60s
 resources:
   - assistant-settings
+requires:
+  - authenticated_session
+conflicts_with: []
 parallel_safe: false
 timeout_minutes: 20
 preconditions:
@@ -29,6 +34,11 @@ Describe the user-visible behavior being verified.
 
 - Outcome one.
 - Outcome two.
+
+## Failure indicators
+
+- Example: save error toast appears.
+- Example: value does not persist after refresh.
 
 ## Cleanup
 
