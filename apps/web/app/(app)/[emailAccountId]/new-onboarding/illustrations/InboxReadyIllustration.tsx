@@ -34,9 +34,7 @@ export function InboxReadyIllustration() {
 
   return (
     <div className="relative flex h-[220px] w-[320px] items-center justify-center">
-      {/* Progress ring */}
       <svg className="absolute h-[180px] w-[180px] -rotate-90">
-        {/* Background circle */}
         <circle
           cx="90"
           cy="90"
@@ -45,7 +43,6 @@ export function InboxReadyIllustration() {
           stroke="#e5e7eb"
           strokeWidth="8"
         />
-        {/* Progress circle */}
         <motion.circle
           cx="90"
           cy="90"
@@ -64,7 +61,6 @@ export function InboxReadyIllustration() {
         />
       </svg>
 
-      {/* Center content */}
       <motion.div
         initial={{ scale: 0.8, opacity: 0 }}
         animate={{
