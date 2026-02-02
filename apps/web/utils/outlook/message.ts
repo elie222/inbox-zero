@@ -9,6 +9,7 @@ import { escapeODataString } from "@/utils/outlook/odata-escape";
 import { withOutlookRetry } from "@/utils/outlook/retry";
 import { formatEmailWithName } from "@/utils/email";
 import type { Logger } from "@/utils/logger";
+import { isOutlookThrottlingError } from "@/utils/error";
 
 // Standard fields to select when fetching messages from Microsoft Graph API
 // internetMessageId is the RFC 5322 Message-ID header, needed for cross-provider email threading
@@ -33,25 +34,24 @@ export async function getFolderIds(client: OutlookClient, logger: Logger) {
   const cachedFolderIds = client.getFolderIdCache();
   if (cachedFolderIds) return cachedFolderIds;
 
-  // First get the well-known folders
-  const wellKnownFolders = await Promise.all(
-    Object.entries(WELL_KNOWN_FOLDERS).map(async ([key, folderName]) => {
-      try {
-        const response = await client
-          .getClient()
-          .api(`/me/mailFolders/${folderName}`)
-          .select("id")
-          .get();
-        return [key, response.id];
-      } catch (error) {
-        logger.warn("Failed to get well-known folder", {
-          folderName,
-          error,
-        });
-        return [key, null];
-      }
-    }),
-  );
+  const wellKnownFolders: Array<[string, string | null]> = [];
+  for (const [key, folderName] of Object.entries(WELL_KNOWN_FOLDERS)) {
+    try {
+      const response: { id?: string } = await withOutlookRetry(
+        () =>
+          client
+            .getClient()
+            .api(`/me/mailFolders/${folderName}`)
+            .select("id")
+            .get(),
+        logger,
+      );
+      wellKnownFolders.push([key, response.id ?? null]);
+    } catch (error) {
+      logWellKnownFolderFetchError(logger, folderName, error);
+      wellKnownFolders.push([key, null]);
+    }
+  }
 
   const userFolderIds = wellKnownFolders.reduce(
     (acc, [key, id]) => {
@@ -75,7 +75,10 @@ export async function getCategoryMap(
 
   try {
     const response: { value: Array<{ id?: string; displayName?: string }> } =
-      await client.getClient().api("/me/outlook/masterCategories").get();
+      await withOutlookRetry(
+        () => client.getClient().api("/me/outlook/masterCategories").get(),
+        logger,
+      );
 
     const categoryMap = new Map<string, string>();
     for (const category of response.value) {
@@ -752,4 +755,16 @@ function convertAttachments(
       "content-id": "",
     },
   }));
+}
+
+function logWellKnownFolderFetchError(
+  logger: Logger,
+  folderName: string,
+  error: unknown,
+) {
+  const log = isOutlookThrottlingError(error) ? logger.info : logger.warn;
+  log("Failed to get well-known folder", {
+    folderName,
+    error,
+  });
 }
