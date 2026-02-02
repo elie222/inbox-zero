@@ -206,52 +206,44 @@ export async function aiDraftReply({
   mcpContext: string | null;
   meetingContext: string | null;
 }) {
-  try {
-    logger.info("Drafting email reply", {
-      messageCount: messages.length,
-      hasKnowledge: !!knowledgeBaseContent,
-      hasHistory: !!emailHistorySummary,
-      calendarAvailability: calendarAvailability
-        ? {
-            noAvailability: calendarAvailability.noAvailability,
-            suggestedTimesCount:
-              calendarAvailability.suggestedTimes?.length || 0,
-          }
-        : null,
-    });
+  logger.info("Drafting email reply", {
+    messageCount: messages.length,
+    hasKnowledge: !!knowledgeBaseContent,
+    hasHistory: !!emailHistorySummary,
+    calendarAvailability: calendarAvailability
+      ? {
+          noAvailability: calendarAvailability.noAvailability,
+          suggestedTimesCount: calendarAvailability.suggestedTimes?.length || 0,
+        }
+      : null,
+  });
 
-    const prompt = getUserPrompt({
-      messages,
-      emailAccount,
-      knowledgeBaseContent,
-      emailHistorySummary,
-      emailHistoryContext,
-      calendarAvailability,
-      writingStyle: writingStyle || defaultWritingStyle,
-      mcpContext,
-      meetingContext,
-    });
+  const prompt = getUserPrompt({
+    messages,
+    emailAccount,
+    knowledgeBaseContent,
+    emailHistorySummary,
+    emailHistoryContext,
+    calendarAvailability,
+    writingStyle: writingStyle || defaultWritingStyle,
+    mcpContext,
+    meetingContext,
+  });
 
-    const modelOptions = getModel(emailAccount.user);
+  const modelOptions = getModel(emailAccount.user);
 
-    const generateObject = createGenerateObject({
-      emailAccount,
-      label: "Draft reply",
-      modelOptions,
-    });
+  const generateObject = createGenerateObject({
+    emailAccount,
+    label: "Draft reply",
+    modelOptions,
+  });
 
-    const result = await generateObject({
-      ...modelOptions,
-      system: systemPrompt,
-      prompt,
-      schema: draftSchema,
-    });
+  const result = await generateObject({
+    ...modelOptions,
+    system: systemPrompt,
+    prompt,
+    schema: draftSchema,
+  });
 
-    return result.object.reply;
-  } catch (error) {
-    logger.error("Failed to draft email reply", { error });
-    return {
-      error: "Failed to draft email reply",
-    };
-  }
+  return result.object.reply;
 }

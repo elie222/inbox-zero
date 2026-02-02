@@ -80,37 +80,30 @@ export async function aiDraftFollowUp({
   emailAccount: EmailAccountWithAI;
   writingStyle: string | null;
 }) {
-  try {
-    logger.info("Drafting follow-up email", {
-      messageCount: messages.length,
-    });
+  logger.info("Drafting follow-up email", {
+    messageCount: messages.length,
+  });
 
-    const prompt = getUserPrompt({
-      messages,
-      emailAccount,
-      writingStyle,
-    });
+  const prompt = getUserPrompt({
+    messages,
+    emailAccount,
+    writingStyle,
+  });
 
-    const modelOptions = getModel(emailAccount.user);
+  const modelOptions = getModel(emailAccount.user);
 
-    const generateObject = createGenerateObject({
-      emailAccount,
-      label: "Draft follow-up",
-      modelOptions,
-    });
+  const generateObject = createGenerateObject({
+    emailAccount,
+    label: "Draft follow-up",
+    modelOptions,
+  });
 
-    const result = await generateObject({
-      ...modelOptions,
-      system: systemPrompt,
-      prompt,
-      schema: draftSchema,
-    });
+  const result = await generateObject({
+    ...modelOptions,
+    system: systemPrompt,
+    prompt,
+    schema: draftSchema,
+  });
 
-    return result.object.reply;
-  } catch (error) {
-    logger.error("Failed to draft follow-up email", { error });
-    return {
-      error: "Failed to draft follow-up email",
-    };
-  }
+  return result.object.reply;
 }
