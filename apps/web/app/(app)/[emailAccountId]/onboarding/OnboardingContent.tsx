@@ -3,7 +3,10 @@
 import { useCallback, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { StepWho } from "@/app/(app)/[emailAccountId]/onboarding/StepWho";
-import { StepIntro } from "@/app/(app)/[emailAccountId]/onboarding/StepIntro";
+import { StepWelcome } from "@/app/(app)/[emailAccountId]/onboarding/StepWelcome";
+import { StepEmailsSorted } from "@/app/(app)/[emailAccountId]/onboarding/StepEmailsSorted";
+import { StepDraftReplies } from "@/app/(app)/[emailAccountId]/onboarding/StepDraftReplies";
+import { StepBulkUnsubscribe } from "@/app/(app)/[emailAccountId]/onboarding/StepBulkUnsubscribe";
 import { StepLabels } from "@/app/(app)/[emailAccountId]/onboarding/StepLabels";
 import { usePersona } from "@/hooks/usePersona";
 import { analyzePersonaAction } from "@/utils/actions/email-account";
@@ -47,7 +50,10 @@ export function OnboardingContent({ step }: OnboardingContentProps) {
     (!membership?.organizationId && !membership?.hasPendingInvitationToOrg);
 
   const stepMap: Record<string, (() => React.ReactNode) | undefined> = {
-    [STEP_KEYS.INTRO]: () => <StepIntro onNext={onNext} />,
+    [STEP_KEYS.WELCOME]: () => <StepWelcome onNext={onNext} />,
+    [STEP_KEYS.EMAILS_SORTED]: () => <StepEmailsSorted onNext={onNext} />,
+    [STEP_KEYS.DRAFT_REPLIES]: () => <StepDraftReplies onNext={onNext} />,
+    [STEP_KEYS.BULK_UNSUBSCRIBE]: () => <StepBulkUnsubscribe onNext={onNext} />,
     [STEP_KEYS.FEATURES]: () => <StepFeatures onNext={onNext} />,
     [STEP_KEYS.WHO]: () => (
       <StepWho
