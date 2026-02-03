@@ -17,7 +17,7 @@ export function StepDraftReplies({ onNext }: { onNext: () => void }) {
 
         <TypographyP className="text-muted-foreground mb-8">
           When you check your inbox, every email needing a response will have a
-          pre-drafted reply in your tone, ready for you to send.
+          pre-drafted reply in your tone.
         </TypographyP>
 
         <div className="flex flex-col gap-2 w-full max-w-xs">

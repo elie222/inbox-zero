@@ -17,7 +17,7 @@ export function StepBulkUnsubscribe({ onNext }: { onNext: () => void }) {
 
         <TypographyP className="text-muted-foreground mb-8">
           See which emails you never read, and one-click unsubscribe and archive
-          them. Keep your inbox clean without the manual work.
+          them.
         </TypographyP>
 
         <div className="flex flex-col gap-2 w-full max-w-xs">
