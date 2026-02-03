@@ -237,7 +237,6 @@ function Checklist({
   provider,
   completedCount,
   totalSteps,
-  progressPercentage,
   isBulkUnsubscribeConfigured,
   isAiAssistantConfigured,
   isCalendarConnected,
@@ -247,7 +246,6 @@ function Checklist({
   provider: string;
   completedCount: number;
   totalSteps: number;
-  progressPercentage: number;
   isBulkUnsubscribeConfigured: boolean;
   isAiAssistantConfigured: boolean;
   isCalendarConnected: boolean;
@@ -467,8 +465,6 @@ function SetupPageContent({
     organizationId: string | undefined;
   } | null;
 }) {
-  const progressPercentage = (completedCount / totalSteps) * 100;
-
   return (
     <div className="mx-auto flex min-h-screen w-full max-w-3xl flex-col p-6">
       <div className="mb-4 sm:mb-8">
@@ -493,7 +489,6 @@ function SetupPageContent({
           isCalendarConnected={isCalendarConnected}
           completedCount={completedCount}
           totalSteps={totalSteps}
-          progressPercentage={progressPercentage}
           teamInvite={teamInvite}
         />
       )}
