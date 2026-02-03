@@ -545,21 +545,35 @@ export async function queryMessagesWithAttachments(
         logger,
       );
 
-    const messages = await convertMessages(response.value, {}, categoryMap);
+    // Sort in memory for consistent ordering across all pages
+    const sortedMessages = response.value.sort((a, b) => {
+      const dateA = new Date(a.receivedDateTime || 0).getTime();
+      const dateB = new Date(b.receivedDateTime || 0).getTime();
+      return dateB - dateA;
+    });
+
+    const messages = await convertMessages(sortedMessages, {}, categoryMap);
     return { messages, nextPageToken: response["@odata.nextLink"] };
   }
 
   // Build request with hasAttachments filter
+  // Note: createMessagesRequest already includes .expand(MESSAGE_EXPAND_ATTACHMENTS)
+  // Avoid adding .orderby() to prevent "restriction or sort order is too complex" error
   const request = createMessagesRequest(client)
     .top(maxResults)
-    .filter("hasAttachments eq true")
-    .expand("attachments($select=id,name,contentType,size)")
-    .orderby("receivedDateTime DESC");
+    .filter("hasAttachments eq true");
 
   const response: { value: Message[]; "@odata.nextLink"?: string } =
     await withOutlookRetry(() => request.get(), logger);
 
-  const messages = await convertMessages(response.value, {}, categoryMap);
+  // Sort in memory to avoid "restriction or sort order is too complex" error
+  const sortedMessages = response.value.sort((a, b) => {
+    const dateA = new Date(a.receivedDateTime || 0).getTime();
+    const dateB = new Date(b.receivedDateTime || 0).getTime();
+    return dateB - dateA;
+  });
+
+  const messages = await convertMessages(sortedMessages, {}, categoryMap);
 
   logger.info("Messages with attachments fetched", {
     messageCount: messages.length,
