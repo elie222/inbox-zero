@@ -1,3 +1,5 @@
+// NOTE: This feature requires Qstash and is not supported in self-hosted mode without it.
+// The fallback mechanism does not work for this endpoint as it lacks a /simple route.
 import { verifySignatureAppRouter } from "@upstash/qstash/nextjs";
 import { z } from "zod";
 import { NextResponse } from "next/server";

@@ -294,23 +294,24 @@ async function scheduleMessage({
 
       return messageId;
     } else {
-      logger.error(
-        "QStash client not available, scheduled action cannot be executed",
+      // No Qstash - action will be picked up by cron job at /api/cron/scheduled-actions
+      logger.info(
+        "QStash not configured, scheduled action will be processed via cron",
         {
           scheduledActionId: payload.scheduledActionId,
+          scheduledFor: new Date(notBefore * 1000).toISOString(),
         },
       );
 
       await prisma.scheduledAction.update({
         where: { id: payload.scheduledActionId },
         data: {
-          schedulingStatus: "FAILED" as const,
+          schedulingStatus: "CRON_FALLBACK" as const,
         },
       });
 
-      throw new Error(
-        "QStash client not available - scheduled action cannot be executed",
-      );
+      // Return undefined - no Qstash message ID since we're using cron fallback
+      return undefined;
     }
   } catch (error) {
     logger.error("Failed to schedule with QStash", {
