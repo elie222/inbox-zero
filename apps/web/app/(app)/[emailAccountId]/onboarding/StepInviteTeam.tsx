@@ -137,10 +137,10 @@ export function StepInviteTeam({
           className="mt-6 max-w-md mx-auto text-left"
         />
 
-        <div className="flex flex-col items-center gap-2 mt-6">
+        <div className="flex flex-col gap-2 w-full max-w-xs mx-auto mt-6">
           <Button
             type="button"
-            size="sm"
+            className="w-full"
             onClick={handleInviteAndContinue}
             loading={isSubmitting}
             disabled={emails.length === 0}
@@ -151,7 +151,7 @@ export function StepInviteTeam({
           <Button
             type="button"
             variant="ghost"
-            size="sm"
+            className="w-full"
             onClick={onNext}
             disabled={isSubmitting}
           >
