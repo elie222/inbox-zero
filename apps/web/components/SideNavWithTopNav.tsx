@@ -59,9 +59,7 @@ export function SideNavWithTopNav({
   const segments = pathname.split("/").filter(Boolean);
   if (
     segments.length === 2 &&
-    (segments[1] === "onboarding" ||
-      segments[1] === "new-onboarding" ||
-      segments[1] === "onboarding-brief")
+    (segments[1] === "onboarding" || segments[1] === "onboarding-brief")
   )
     return children;
 
