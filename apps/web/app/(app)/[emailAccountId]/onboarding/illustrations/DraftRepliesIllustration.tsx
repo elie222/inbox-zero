@@ -96,36 +96,36 @@ export function DraftRepliesIllustration() {
           </motion.div>
         </div>
 
-        <div className="flex items-center justify-between border-t border-gray-100 px-2 py-2 dark:border-gray-700">
+        <div
+          className="flex items-center justify-between border-t border-gray-100 px-2 py-2 dark:border-gray-700"
+          aria-hidden="true"
+        >
           <div className="flex items-center gap-1">
-            <button
-              type="button"
-              className="rounded bg-blue-600 px-2.5 py-0.5 text-[9px] font-medium text-white"
-            >
+            <span className="rounded bg-blue-600 px-2.5 py-0.5 text-[9px] font-medium text-white">
               Send
-            </button>
+            </span>
             <div className="ml-1 flex items-center">
-              <button type="button" className="rounded p-0.5 text-gray-400">
+              <span className="rounded p-0.5 text-gray-400">
                 <Bold className="h-2.5 w-2.5" />
-              </button>
-              <button type="button" className="rounded p-0.5 text-gray-400">
+              </span>
+              <span className="rounded p-0.5 text-gray-400">
                 <Italic className="h-2.5 w-2.5" />
-              </button>
-              <button type="button" className="rounded p-0.5 text-gray-400">
+              </span>
+              <span className="rounded p-0.5 text-gray-400">
                 <Link className="h-2.5 w-2.5" />
-              </button>
-              <button type="button" className="rounded p-0.5 text-gray-400">
+              </span>
+              <span className="rounded p-0.5 text-gray-400">
                 <List className="h-2.5 w-2.5" />
-              </button>
+              </span>
             </div>
           </div>
           <div className="flex items-center">
-            <button type="button" className="rounded p-0.5 text-gray-400">
+            <span className="rounded p-0.5 text-gray-400">
               <Paperclip className="h-2.5 w-2.5" />
-            </button>
-            <button type="button" className="rounded p-0.5 text-gray-400">
+            </span>
+            <span className="rounded p-0.5 text-gray-400">
               <Smile className="h-2.5 w-2.5" />
-            </button>
+            </span>
           </div>
         </div>
       </motion.div>
